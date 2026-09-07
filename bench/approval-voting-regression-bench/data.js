@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788757834843,
+  "lastUpdate": 1788778434257,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexandre.balde@parity.io",
-            "name": "Alexandre R. Baldé",
-            "username": "rockbmb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "4d53dff25c8028eccd062cea40b24d654f89ccd6",
-          "message": "Fix test for remote externality's selective child key retrieval mechanism (#10866)\n\n# Description\n\nFollow-up to #10766, which was closed in favor of #10779.\nRework remote externality child key test; it was failing since the proxy\npallet has no child storages.\n\n## Integration\n\nN/A\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
-          "timestamp": "2026-02-05T19:52:27Z",
-          "tree_id": "29b800d80999ea7878d7fc3455a061a8effb703b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4d53dff25c8028eccd062cea40b24d654f89ccd6"
-        },
-        "date": 1770325529016,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52940.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63636.58,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.7205231887099997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.541460085562912,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002264711,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.920588518789966,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3518446296300075,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002460634,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002460634,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6451862452700015,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.653832320889998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002264711,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8423260488599602,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.701070768599999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005805316829999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
             "value": 0.7578743431799866,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "78ef156b85dbd1753497f49138125a237bb589ed",
+          "message": "Fix auto-renewal charging tasks for foreign workloads (#12750)\n\n## Summary\n\nA core index doesn't permanently belong to a task. Core assignments are\nrebuilt every region, and a renewal buys a core in the next sale, so a\nworkload can end up on a different core index each region. Because of\nthis, `PotentialRenewals` can hold records for the same core index\nbelonging to different tasks at the same time. For example, the pending\nrenewal of the task running on that core in the current bulk period, and\nthe renewal record of the task that will run on it in the next bulk\nperiod.\n\n`enable_auto_renew` didn't account for this. It first checks whether\nthere is any renewable workload at (core, current region begin), and if\nthere is one it renews it immediately and charges the task's sovereign\naccount, without checking whose workload it is and without looking at\nthe hint. So a task following the documented flow (passing its own core\nand its own renewal record's timeslice as the hint) could end up paying\nfor the renewal of a completely unrelated task. The stored auto-renewal\nrecord then keeps charging it for that foreign workload every sale.\n\nThis happened on Polkadot Coretime: task 3428 enabled auto-renewal for\nits twelve cores with correct parameters, but five of those core indices\nwere still carrying other tasks' pending renewals for the current sale.\nOne went through, so task 3428 paid for task 2094's renewal:\n[Link](https://coretime-polkadot.subscan.io/event/4766580-87)\n\n## Fix\n\n- `enable_auto_renew` only renews immediately if the expiring workload\nincludes the task. If the core is expiring with another task's workload,\nwe fall through to the workload_end_hint path instead, which must point\nto the task's own renewal record (otherwise the call fails with the new\n`TaskNotInWorkload` error).\n- `renew_cores` re-checks this before charging the sovereign account. On\na mismatch it emits `AutoRenewalFailed` and drops the record instead of\ncharging. This also cleans up the mismatched record that is currently\non-chain.\n- If the core was renewed immediately when enabling, `next_renewal` is\nnow set to the end of the period that was just renewed. Previously the\n`workload_end_hint` was stored instead, so auto-renewal would skip the\nnext renewal and the task would lose its core.\n\n---------\n\nCo-authored-by: Dónal Murray <donal.murray@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-07T08:52:32Z",
+          "tree_id": "bed919506246088c0a74fd258c9c96637837edf6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/78ef156b85dbd1753497f49138125a237bb589ed"
+        },
+        "date": 1788778395037,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63561.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7667244496500016,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001788584,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7518531908799986,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001871238,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001871238,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.398587577499991,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.77530145551,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.278427729959953,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8003327338499598,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001788584,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.564008791492946,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005602336730000009,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.780025985840002,
             "unit": "seconds"
           }
         ]
