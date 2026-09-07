@@ -26,7 +26,7 @@ use crate::{
 		slot_based::{
 			relay_chain_data_cache::RelayChainDataCache,
 			scheduling::SchedulingInfo,
-			slot_timer::{SlotInfo, SlotTime, SlotTimer},
+			slot_timer::{SlotInfo, SlotTimer},
 		},
 		BackingGroupConnectionHelper, RelayHash, RelayParentData,
 	},
@@ -203,7 +203,7 @@ where
 	RelayClient: RelayChainInterface + 'static,
 {
 	let Some((scheduling_parent_header, v3_enabled)) = scheduling_info
-		.wait_for_scheduling_parent(relay_chain_data_cache, params.v3_enabled, slot_time.slot())
+		.wait_for_scheduling_parent(relay_chain_data_cache, params.v3_enabled, *slot)
 		.await
 	else {
 		tracing::warn!(target: LOG_TARGET, "Unable to fetch the scheduling parent hash.");
@@ -377,7 +377,7 @@ where
 			&mut self.relay_chain_data_cache,
 			&mut self.scheduling_info,
 			best_params,
-			slot,
+			&slot,
 		)
 		.await?;
 
@@ -424,7 +424,7 @@ where
 			&mut self.relay_chain_data_cache,
 			&mut self.scheduling_info,
 			build_params,
-			slot,
+			&slot,
 		)
 		.await?;
 
