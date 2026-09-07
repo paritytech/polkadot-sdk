@@ -1,0 +1,12 @@
+title: '[pallet-broker] add extrinsic to reset_base_price'
+doc:
+- audience: Runtime User
+  description: |-
+    This PR adds a reset_base_price extrinsic that allows resetting the minimum/base price for coretime sales, which takes effect at the next sale rotation.
+
+    part of https://github.com/paritytech/polkadot-sdk/issues/6929
+crates:
+- name: pallet-broker
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
