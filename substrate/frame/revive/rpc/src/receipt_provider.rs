@@ -732,7 +732,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		match filter.block_option {
 			FilterBlockOption::AtBlock { block_hash } => {
-				let block_hash = H256(block_hash.0);
 				if self.get_substrate_hash(&block_hash).await.is_none() {
 					anyhow::bail!("unknown block");
 				}

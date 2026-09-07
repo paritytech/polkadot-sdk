@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use crate::*;
-use alloy_primitives::BlockHash;
 use serde::{Deserialize, Serialize};
 use serde_with::{DefaultOnNull, OneOrMany, serde_as};
 use sp_core::ConstU32;
@@ -110,8 +109,7 @@ impl Filter {
 	}
 
 	pub fn at_block_hash(mut self, block_hash: H256) -> Self {
-		self.block_option =
-			FilterBlockOption::AtBlock { block_hash: BlockHash::from(block_hash.0) };
+		self.block_option = FilterBlockOption::AtBlock { block_hash };
 		self
 	}
 
@@ -149,7 +147,7 @@ impl Filter {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FilterBlockOption {
-	AtBlock { block_hash: BlockHash },
+	AtBlock { block_hash: H256 },
 	Range { from_block: BlockNumberOrTag, to_block: BlockNumberOrTag },
 }
 
@@ -214,7 +212,7 @@ pub enum LogWindow {
 #[serde(rename_all = "camelCase")]
 struct FilterRepr {
 	#[serde(skip_serializing_if = "Option::is_none")]
-	block_hash: Option<BlockHash>,
+	block_hash: Option<H256>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	from_block: Option<BlockNumberOrTag>,
 	#[serde(skip_serializing_if = "Option::is_none")]
@@ -350,7 +348,7 @@ mod tests {
 	#[test]
 	fn block_hash_conflicts_only_with_non_null_range_bounds() {
 		// Arrange
-		let block_hash = BlockHash::repeat_byte(0xab);
+		let block_hash = H256::repeat_byte(0xab);
 		let with_null_bounds = serde_json::json!({
 			"blockHash": block_hash,
 			"fromBlock": null,
@@ -401,7 +399,10 @@ mod tests {
 		let error = serde_json::from_value::<Filter>(representation).unwrap_err();
 
 		// Assert
-		assert_eq!(error.to_string(), "odd number of digits");
+		assert_eq!(
+			error.to_string(),
+			"invalid length 7, expected a (both 0x-prefixed or not) hex string or byte array containing 32 bytes",
+		);
 	}
 
 	#[test]

@@ -20,7 +20,6 @@ name = "eth-rpc"
 path = "src/main.rs"
 
 [dependencies]
-alloy-primitives = { workspace = true }
 alloy-rpc-types = { workspace = true, default-features = true, features = [
 	"trace",
 ] }
@@ -66,6 +65,7 @@ tokio-stream = { workspace = true }
 
 [dev-dependencies]
 alloy-network = { workspace = true, default-features = true }
+alloy-primitives = { workspace = true }
 alloy-provider = { workspace = true, default-features = true, features = [
 	"debug-api",
 	"reqwest",
