@@ -154,7 +154,7 @@ pub enum FilterBlockOption {
 impl FilterBlockOption {
 	pub fn is_valid_for_subscription(&self) -> bool {
 		match self {
-			Self::AtBlock { .. } => true,
+			Self::AtBlock { .. } => false,
 			Self::Range {
 				from_block: BlockNumberOrTag::Latest,
 				to_block: BlockNumberOrTag::Latest,
@@ -171,7 +171,7 @@ impl FilterBlockOption {
 
 	pub fn window(&self, block_number: U256) -> LogWindow {
 		match self {
-			Self::AtBlock { .. } => LogWindow::Open,
+			Self::AtBlock { .. } => LogWindow::Closed,
 			Self::Range { from_block, to_block } => {
 				match (Self::concrete_bound(from_block), Self::concrete_bound(to_block)) {
 					(_, Some(to)) if block_number > U256::from(to) => LogWindow::Closed,
