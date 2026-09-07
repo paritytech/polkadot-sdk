@@ -38,14 +38,14 @@
 /// ```
 #[must_use]
 pub struct StorageNoopGuard<'a> {
-	storage_root: alloc::vec::Vec<u8>,
+	fingerprint: alloc::vec::Vec<u8>,
 	error_message: &'a str,
 }
 
 impl<'a> Default for StorageNoopGuard<'a> {
 	fn default() -> Self {
 		Self {
-			storage_root: crate::__private::storage_root(sp_runtime::StateVersion::V1),
+			fingerprint: crate::__private::storage_fingerprint(),
 			error_message: "`StorageNoopGuard` detected an attempted storage change.",
 		}
 	}
@@ -59,10 +59,7 @@ impl<'a> StorageNoopGuard<'a> {
 
 	/// Creates a new [`StorageNoopGuard`] with a custom error message.
 	pub fn from_error_message(error_message: &'a str) -> Self {
-		Self {
-			storage_root: crate::__private::storage_root(sp_runtime::StateVersion::V1),
-			error_message,
-		}
+		Self { fingerprint: crate::__private::storage_fingerprint(), error_message }
 	}
 
 	/// Sets a custom error message for a [`StorageNoopGuard`].
@@ -79,8 +76,8 @@ impl<'a> Drop for StorageNoopGuard<'a> {
 			return;
 		}
 		assert_eq!(
-			crate::__private::storage_root(sp_runtime::StateVersion::V1),
-			self.storage_root,
+			crate::__private::storage_fingerprint(),
+			self.fingerprint,
 			"{}",
 			self.error_message,
 		);
