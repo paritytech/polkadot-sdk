@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788756992622,
+  "lastUpdate": 1788777385484,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -216959,6 +216959,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2605203509,
             "range": "± 58088131",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "78ef156b85dbd1753497f49138125a237bb589ed",
+          "message": "Fix auto-renewal charging tasks for foreign workloads (#12750)\n\n## Summary\n\nA core index doesn't permanently belong to a task. Core assignments are\nrebuilt every region, and a renewal buys a core in the next sale, so a\nworkload can end up on a different core index each region. Because of\nthis, `PotentialRenewals` can hold records for the same core index\nbelonging to different tasks at the same time. For example, the pending\nrenewal of the task running on that core in the current bulk period, and\nthe renewal record of the task that will run on it in the next bulk\nperiod.\n\n`enable_auto_renew` didn't account for this. It first checks whether\nthere is any renewable workload at (core, current region begin), and if\nthere is one it renews it immediately and charges the task's sovereign\naccount, without checking whose workload it is and without looking at\nthe hint. So a task following the documented flow (passing its own core\nand its own renewal record's timeslice as the hint) could end up paying\nfor the renewal of a completely unrelated task. The stored auto-renewal\nrecord then keeps charging it for that foreign workload every sale.\n\nThis happened on Polkadot Coretime: task 3428 enabled auto-renewal for\nits twelve cores with correct parameters, but five of those core indices\nwere still carrying other tasks' pending renewals for the current sale.\nOne went through, so task 3428 paid for task 2094's renewal:\n[Link](https://coretime-polkadot.subscan.io/event/4766580-87)\n\n## Fix\n\n- `enable_auto_renew` only renews immediately if the expiring workload\nincludes the task. If the core is expiring with another task's workload,\nwe fall through to the workload_end_hint path instead, which must point\nto the task's own renewal record (otherwise the call fails with the new\n`TaskNotInWorkload` error).\n- `renew_cores` re-checks this before charging the sovereign account. On\na mismatch it emits `AutoRenewalFailed` and drops the record instead of\ncharging. This also cleans up the mismatched record that is currently\non-chain.\n- If the core was renewed immediately when enabling, `next_renewal` is\nnow set to the end of the period that was just renewed. Previously the\n`workload_end_hint` was stored instead, so auto-renewal would skip the\nnext renewal and the task would lose its core.\n\n---------\n\nCo-authored-by: Dónal Murray <donal.murray@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-07T08:52:32Z",
+          "tree_id": "bed919506246088c0a74fd258c9c96637837edf6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/78ef156b85dbd1753497f49138125a237bb589ed"
+        },
+        "date": 1788777347271,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 5007802,
+            "range": "± 37134",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 311075,
+            "range": "± 4621",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 5274842,
+            "range": "± 68962",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 384944,
+            "range": "± 3695",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5915555,
+            "range": "± 73274",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 929277,
+            "range": "± 8684",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11531777,
+            "range": "± 52995",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5033128,
+            "range": "± 49886",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 46206027,
+            "range": "± 593861",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 41450038,
+            "range": "± 468841",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 410885945,
+            "range": "± 4877242",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 329466684,
+            "range": "± 2424605",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2838760756,
+            "range": "± 12617805",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2599610734,
+            "range": "± 24995773",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3942762,
+            "range": "± 126727",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1957204,
+            "range": "± 22374",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3943029,
+            "range": "± 60684",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 2007461,
+            "range": "± 18196",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4683584,
+            "range": "± 35373",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2401057,
+            "range": "± 29476",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 9122406,
+            "range": "± 81218",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5778289,
+            "range": "± 42089",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 41077393,
+            "range": "± 478464",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 40679652,
+            "range": "± 227387",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 353788025,
+            "range": "± 3104595",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 297920510,
+            "range": "± 2029915",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2748561445,
+            "range": "± 38383288",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2675942865,
+            "range": "± 69201628",
             "unit": "ns/iter"
           }
         ]
