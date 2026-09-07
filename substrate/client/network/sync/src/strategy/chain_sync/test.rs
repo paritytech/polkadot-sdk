@@ -24,6 +24,7 @@ use crate::{
 	service::network::NetworkServiceProvider,
 };
 use futures::{channel::oneshot::Canceled, executor::block_on};
+use rstest::rstest;
 use sc_block_builder::BlockBuilderBuilder;
 use sc_network::RequestFailure;
 use sc_network_common::sync::message::{BlockAnnounce, BlockData, BlockState, FromBlock};
@@ -146,8 +147,10 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 		.any(|(hash, number)| { *hash == a1_hash && *number == a1_number }));
 }
 
-#[test]
-fn restart_doesnt_affect_peers_downloading_finality_data() {
+#[rstest]
+#[case::once(1)]
+#[case::twice_before_draining_actions(2)]
+fn restart_doesnt_affect_peers_downloading_finality_data(#[case] restarts: usize) {
 	let client = Arc::new(TestClientBuilder::new().build());
 
 	// we request max 8 blocks to always initiate block requests to both peers for the test to be
@@ -226,12 +229,14 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 	// drop old actions
 	let _ = sync.take_actions();
 
-	// we restart the sync state
-	sync.restart();
+	// Restart without draining actions between calls to exercise queued replacements.
+	for _ in 0..restarts {
+		sync.restart();
+	}
 
 	// which should make us cancel and send out again block requests to the first two peers
 	let actions = sync.actions(&network_handle).unwrap();
-	assert_eq!(actions.len(), 4);
+	assert_eq!(actions.len(), 4 * restarts);
 	let mut cancelled_first = HashSet::new();
 	assert!(actions.iter().all(|action| match action {
 		SyncingAction::CancelRequest { peer_id, .. } => {
@@ -1692,18 +1697,9 @@ fn gap_sync_empty_body_response_drops_peer_and_frees_range() {
 	assert!(request.fields.contains(BlockAttributes::BODY));
 }
 
-/// Replacing a block download must let another peer retry it before ancestry search finishes.
-fn ancestry_search_releases_block_download(gap: bool) {
-	let remote = TestClientBuilder::new().build();
-	let blocks = (0..10).map(|_| build_block(&remote, None, false)).collect::<Vec<_>>();
-	let client = Arc::new(TestClientBuilder::new().build());
-	if gap {
-		for block in &blocks {
-			block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
-		}
-		client.finalize_block(blocks[9].hash(), None).unwrap();
-	}
-	let mut sync = ChainSync::new(
+/// Full sync with one download per range and two blocks per request.
+fn new_test_sync(client: Arc<TestClient>) -> ChainSync<Block, TestClient> {
+	ChainSync::new(
 		ChainSyncMode::Full,
 		client,
 		1,
@@ -1714,7 +1710,24 @@ fn ancestry_search_releases_block_download(gap: bool) {
 		None,
 		std::iter::empty(),
 	)
-	.unwrap();
+	.unwrap()
+}
+
+/// Replacing a block download must let another peer retry it before ancestry search finishes.
+#[rstest]
+#[case::regular(false)]
+#[case::gap(true)]
+fn ancestry_search_releases_block_download(#[case] gap: bool) {
+	let remote = TestClientBuilder::new().build();
+	let blocks = (0..10).map(|_| build_block(&remote, None, false)).collect::<Vec<_>>();
+	let client = Arc::new(TestClientBuilder::new().build());
+	if gap {
+		for block in &blocks {
+			block_on(client.import(BlockOrigin::Own, block.clone())).unwrap();
+		}
+		client.finalize_block(blocks[9].hash(), None).unwrap();
+	}
+	let mut sync = new_test_sync(client);
 	if gap {
 		sync.gap_sync = Some(GapSync {
 			best_queued_number: 6,
@@ -1765,31 +1778,10 @@ fn ancestry_search_releases_block_download(gap: bool) {
 }
 
 #[test]
-fn ancestry_search_releases_gap_download() {
-	ancestry_search_releases_block_download(true);
-}
-
-#[test]
-fn ancestry_search_releases_regular_download() {
-	ancestry_search_releases_block_download(false);
-}
-
-#[test]
 fn ancestry_search_requeues_justification_download() {
 	let client = Arc::new(TestClientBuilder::new().build());
 	let block = build_block(&client, None, false);
-	let mut sync = ChainSync::new(
-		ChainSyncMode::Full,
-		client,
-		1,
-		2,
-		ProtocolName::Static(""),
-		Arc::new(MockBlockDownloader::new()),
-		GapSyncBodyPolicy::HeadersOnly,
-		None,
-		std::iter::empty(),
-	)
-	.unwrap();
+	let mut sync = new_test_sync(client);
 	let busy = PeerId::random();
 	let idle = PeerId::random();
 	sync.add_peer(busy, block.hash(), 1);
@@ -1814,18 +1806,7 @@ fn ancestry_search_requeues_justification_download() {
 fn ancestry_search_allows_state_request_to_move_to_another_peer() {
 	let client = Arc::new(TestClientBuilder::new().build());
 	let block = build_block(&client, None, false);
-	let mut sync = ChainSync::new(
-		ChainSyncMode::Full,
-		client,
-		1,
-		2,
-		ProtocolName::Static(""),
-		Arc::new(MockBlockDownloader::new()),
-		GapSyncBodyPolicy::HeadersOnly,
-		None,
-		std::iter::empty(),
-	)
-	.unwrap();
+	let mut sync = new_test_sync(client);
 	let peers = [PeerId::random(), PeerId::random()];
 	for peer in peers {
 		sync.add_peer(peer, block.hash(), 1);
@@ -1847,18 +1828,7 @@ fn ancestry_search_allows_state_request_to_move_to_another_peer() {
 fn ancestry_search_preserves_pending_fork_download() {
 	let client = Arc::new(TestClientBuilder::new().build());
 	let blocks = (0..3).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
-	let mut sync = ChainSync::new(
-		ChainSyncMode::Full,
-		client,
-		1,
-		2,
-		ProtocolName::Static(""),
-		Arc::new(MockBlockDownloader::new()),
-		GapSyncBodyPolicy::HeadersOnly,
-		None,
-		std::iter::empty(),
-	)
-	.unwrap();
+	let mut sync = new_test_sync(client);
 	let peer = PeerId::random();
 	sync.add_peer(peer, blocks[2].hash(), 3);
 	let fork_hash = Hash::random();

@@ -155,7 +155,7 @@ pub enum SyncingAction<B: BlockT> {
 	/// must have completed or been explicitly canceled.
 	StartRequest { peer_id: PeerId, key: StrategyKey, request: ResponseFuture },
 	/// Drop a pending response. The strategy must release the canceled request's bookkeeping
-	/// before recording a replacement and emit this action before its `StartRequest`.
+	/// before scheduling a replacement and emit this action before its `StartRequest`.
 	CancelRequest { peer_id: PeerId, key: StrategyKey },
 	/// Peer misbehaved. Disconnect, report it and cancel any requests to it.
 	DropPeer(BadPeer),
