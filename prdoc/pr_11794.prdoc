@@ -1,0 +1,22 @@
+title: 'rpc: cache runtime version by code hash in `CodeProvider`'
+doc:
+- audience: Node Dev
+  description: "## Description\nOn Polkadot Asset Hub, state_call RPCs to historical\
+    \ blocks can take >1s. Each call goes through CodeProvider::on_chain_runtime_version()\
+    \ which accesses the executor's `RuntimeCache` \u2014 acquiring its global mutex,\
+    \ performing an LRU lookup, and on a miss: reading the :code blob (~10 MB) and\
+    \ recompiling WASM (1-3s, mutex held).\n\nThis PR adds a `code_hash` \u2192 `RuntimeVersion`\
+    \ HashMap cache to `CodeProvider` so that `on_chain_runtime_version()` short-circuits\
+    \ with a single `RwLock<HashMap>` lookup (concurrent reads on the hot path), avoiding\
+    \ the `RuntimeCache` mutex entirely.\n\nThe cache is unbounded but safe \u2014\
+    \ it grows by one entry per runtime upgrade.\n\nBenchmark results (Asset Hub archive\
+    \ node, 345 recorded RPC calls, 4 runtime versions)\n- Parallel replay: ~9s faster\
+    \ \u2014 halving mutex acquisitions per call is a significant win under contention\n\
+    - Sequential replay: neutral to slightly slower with default --runtime-cache-size=2,\
+    \ due to fewer LRU promotions in the underlying `RuntimeCache`.\n\n## Changes\n\
+    \n- Add `RwLock<HashMap<Vec<u8>, RuntimeVersion>>` cache to `CodeProvider`\n-\
+    \ Cache hit returns cloned version via read lock; miss computes and inserts via\
+    \ write lock\n- Add tests verifying cache population, reuse, and per-hash differentiation"
+crates:
+- name: sc-service
+  bump: minor
