@@ -71,8 +71,6 @@ crates:
   bump: minor
 - name: pallet-democracy
   bump: patch
-- name: cumulus-pallet-dmp-queue
-  bump: patch
 - name: pallet-contracts
   bump: patch
 - name: pallet-core-fellowship

@@ -57,7 +57,7 @@ enum AllocationSide {
 /// Mixing the two sides within one runtime means running two allocators over the same guest
 /// heap, which is never correct; it can happen e.g. when a runtime links two different `sp-io`
 /// versions, one from each side of the RFC-145 divide. The classification is derived from the
-/// metadata of the registered host functions (see [`AllocationSide`]), so it covers all the
+/// metadata of the registered host functions (see `AllocationSide`), so it covers all the
 /// current and future host functions and versions without any hand-maintained list.
 pub struct RuntimeAllocSanityChecker {
 	/// Classification of the registered host functions by name.
