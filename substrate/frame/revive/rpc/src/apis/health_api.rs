@@ -19,6 +19,7 @@
 use crate::*;
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use sc_rpc_api::system::helpers::Health;
+use std::time::{Duration, Instant};
 
 #[rpc(server, client)]
 pub trait SystemHealthRpc {
@@ -44,21 +45,58 @@ impl SystemHealthRpcServerImpl {
 #[async_trait]
 impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 	async fn system_health(&self) -> RpcResult<Health> {
-		let (sync_state, health) =
-			tokio::try_join!(self.client.sync_state(), self.client.system_health())?;
+		// Cap the wait on the node so a slow response logs a warning, instead of a silent probe
+		// timeout.
+		const NODE_QUERY_TIMEOUT: Duration = Duration::from_secs(3);
 
-		let latest = self.client.latest_block().await.number();
+		let query_started_at = Instant::now();
+		let node_query =
+			async { tokio::try_join!(self.client.sync_state(), self.client.system_health()) };
+		let (sync_state, health) = match tokio::time::timeout(NODE_QUERY_TIMEOUT, node_query).await
+		{
+			Ok(Ok(state)) => state,
+			Ok(Err(err)) => {
+				log::warn!(
+					target: LOG_TARGET,
+					"health: node query failed after {:?}: {err:?}",
+					query_started_at.elapsed(),
+				);
+				return Err(err.into());
+			},
+			Err(_) => {
+				log::warn!(
+					target: LOG_TARGET,
+					"health: node query timed out after {NODE_QUERY_TIMEOUT:?}"
+				);
+				return Err(ErrorCode::InternalError.into());
+			},
+		};
 
-		// Compare against `latest + 1` to avoid a false positive if the health check runs
+		let node_query_elapsed = query_started_at.elapsed();
+
+		let local_best = self.client.latest_block().await.number();
+
+		// Compare against `local_best + 1` to avoid a false positive if the health check runs
 		// immediately after a new block is produced but before the cache updates.
-		if sync_state.current_block > latest + 1 {
+		if sync_state.current_block > local_best + 1 {
 			log::warn!(
 				target: LOG_TARGET,
-				"Client is out of sync. Current block: {}, latest cache block: {latest}",
+				"Client is out of sync. Network best: #{}, Node best: #{}, cache best: #{}",
+				sync_state.highest_block,
 				sync_state.current_block,
+				local_best,
 			);
 			return Err(ErrorCode::InternalError.into());
 		}
+
+		log::debug!(
+			target: LOG_TARGET,
+			"health: ok in {node_query_elapsed:?}. Network best: #{}, Node best: #{}, \
+			 cache best: #{}",
+			sync_state.highest_block,
+			sync_state.current_block,
+			local_best,
+		);
 
 		Ok(Health {
 			peers: health.peers,
