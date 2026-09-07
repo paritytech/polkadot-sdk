@@ -27,6 +27,7 @@ use codec::{Decode, Encode};
 use core::{fmt, mem};
 use frame_support::{pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound};
 use frame_system::pallet_prelude::*;
+use hrmp_primitives::{ChannelId, FailureReason, HrmpRegistry, ParaId as HrmpParaId};
 use polkadot_parachain_primitives::primitives::{HorizontalMessages, IsSystem};
 use polkadot_primitives::{
 	Balance, Hash, HrmpChannelId, Id as ParaId, InboundHrmpMessage, OutboundHrmpMessage,
@@ -1910,5 +1911,63 @@ impl<T: Config> Pallet<T> {
 			);
 			debug_assert!(false);
 		}
+	}
+}
+
+/// Drives this pallet from `pallet-hrmp-relay`, whose caller is the chain that now holds the
+/// channel deposits. Every method is therefore deposit-free here.
+impl<T: Config> HrmpRegistry for Pallet<T> {
+	fn init_open_channel(
+		channel: ChannelId,
+		max_capacity: u32,
+		max_message_size: u32,
+	) -> Result<(), FailureReason> {
+		let _ = (channel, max_capacity, max_message_size);
+		todo!()
+	}
+
+	fn accept_open_channel(channel: ChannelId) -> Result<(), FailureReason> {
+		let _ = channel;
+		todo!()
+	}
+
+	fn close_channel(channel: ChannelId, initiator: HrmpParaId) -> Result<(), FailureReason> {
+		let _ = (channel, initiator);
+		todo!()
+	}
+
+	fn cancel_open_request(channel: ChannelId) -> Result<(), FailureReason> {
+		let _ = channel;
+		todo!()
+	}
+
+	fn establish_system_channel(channel: ChannelId) -> Result<(u32, u32), FailureReason> {
+		let _ = channel;
+		todo!()
+	}
+
+	fn force_open_channel(
+		channel: ChannelId,
+		max_capacity: u32,
+		max_message_size: u32,
+	) -> Result<(), FailureReason> {
+		let _ = (channel, max_capacity, max_message_size);
+		todo!()
+	}
+
+	fn force_clean(para_id: HrmpParaId) -> Result<(), FailureReason> {
+		let _ = para_id;
+		todo!()
+	}
+
+	fn exists(channel: ChannelId) -> bool {
+		let _ = channel;
+		todo!()
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_openable(channel: ChannelId) {
+		let _ = channel;
+		todo!()
 	}
 }
