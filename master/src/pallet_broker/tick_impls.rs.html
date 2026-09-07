@@ -525,31 +525,47 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#375 id=375 data-nosnippet>375</a>					<span class="kw">return </span><span class="prelude-val">None</span>;
 <a href=#376 id=376 data-nosnippet>376</a>				};
 <a href=#377 id=377 data-nosnippet>377</a>
-<a href=#378 id=378 data-nosnippet>378</a>				<span class="kw">if let </span><span class="prelude-val">Ok</span>(new_core_index) = <span class="self">Self</span>::do_renew(payer.clone(), record.core) {
-<a href=#379 id=379 data-nosnippet>379</a>					<span class="prelude-val">Some</span>(AutoRenewalRecord {
-<a href=#380 id=380 data-nosnippet>380</a>						core: new_core_index,
-<a href=#381 id=381 data-nosnippet>381</a>						task: record.task,
-<a href=#382 id=382 data-nosnippet>382</a>						next_renewal: sale.region_end,
-<a href=#383 id=383 data-nosnippet>383</a>					})
-<a href=#384 id=384 data-nosnippet>384</a>				} <span class="kw">else </span>{
-<a href=#385 id=385 data-nosnippet>385</a>					<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::AutoRenewalFailed {
-<a href=#386 id=386 data-nosnippet>386</a>						core: record.core,
-<a href=#387 id=387 data-nosnippet>387</a>						payer: <span class="prelude-val">Some</span>(payer),
-<a href=#388 id=388 data-nosnippet>388</a>					});
-<a href=#389 id=389 data-nosnippet>389</a>
-<a href=#390 id=390 data-nosnippet>390</a>					<span class="prelude-val">None
-<a href=#391 id=391 data-nosnippet>391</a>				</span>}
-<a href=#392 id=392 data-nosnippet>392</a>			})
-<a href=#393 id=393 data-nosnippet>393</a>			.collect::&lt;Vec&lt;AutoRenewalRecord&gt;&gt;()
-<a href=#394 id=394 data-nosnippet>394</a>			.try_into()
-<a href=#395 id=395 data-nosnippet>395</a>		<span class="kw">else </span>{
-<a href=#396 id=396 data-nosnippet>396</a>			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::AutoRenewalLimitReached);
-<a href=#397 id=397 data-nosnippet>397</a>			<span class="kw">return</span>;
-<a href=#398 id=398 data-nosnippet>398</a>		};
-<a href=#399 id=399 data-nosnippet>399</a>
-<a href=#400 id=400 data-nosnippet>400</a>		AutoRenewals::&lt;T&gt;::set(auto_renewals);
-<a href=#401 id=401 data-nosnippet>401</a>	}
-<a href=#402 id=402 data-nosnippet>402</a>}
+<a href=#378 id=378 data-nosnippet>378</a>				<span class="comment">// A core index can be assigned a different workload each bulk period, so this
+<a href=#379 id=379 data-nosnippet>379</a>				// is not necessarily the workload that was validated when auto-renewal was
+<a href=#380 id=380 data-nosnippet>380</a>				// enabled. The task must only pay for renewing its own workload.
+<a href=#381 id=381 data-nosnippet>381</a>				</span><span class="kw">let </span>renewal_id = PotentialRenewalId { core: record.core, when: sale.region_begin };
+<a href=#382 id=382 data-nosnippet>382</a>				<span class="kw">let </span>renews_own_workload = PotentialRenewals::&lt;T&gt;::get(renewal_id)
+<a href=#383 id=383 data-nosnippet>383</a>					.map_or(<span class="bool-val">false</span>, |renewal| {
+<a href=#384 id=384 data-nosnippet>384</a>						renewal.completion.is_complete_and_contains_task(record.task)
+<a href=#385 id=385 data-nosnippet>385</a>					});
+<a href=#386 id=386 data-nosnippet>386</a>				<span class="kw">if </span>!renews_own_workload {
+<a href=#387 id=387 data-nosnippet>387</a>					<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::AutoRenewalFailed {
+<a href=#388 id=388 data-nosnippet>388</a>						core: record.core,
+<a href=#389 id=389 data-nosnippet>389</a>						payer: <span class="prelude-val">Some</span>(payer),
+<a href=#390 id=390 data-nosnippet>390</a>					});
+<a href=#391 id=391 data-nosnippet>391</a>					<span class="kw">return </span><span class="prelude-val">None</span>;
+<a href=#392 id=392 data-nosnippet>392</a>				}
+<a href=#393 id=393 data-nosnippet>393</a>
+<a href=#394 id=394 data-nosnippet>394</a>				<span class="kw">if let </span><span class="prelude-val">Ok</span>(new_core_index) = <span class="self">Self</span>::do_renew(payer.clone(), record.core) {
+<a href=#395 id=395 data-nosnippet>395</a>					<span class="prelude-val">Some</span>(AutoRenewalRecord {
+<a href=#396 id=396 data-nosnippet>396</a>						core: new_core_index,
+<a href=#397 id=397 data-nosnippet>397</a>						task: record.task,
+<a href=#398 id=398 data-nosnippet>398</a>						next_renewal: sale.region_end,
+<a href=#399 id=399 data-nosnippet>399</a>					})
+<a href=#400 id=400 data-nosnippet>400</a>				} <span class="kw">else </span>{
+<a href=#401 id=401 data-nosnippet>401</a>					<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::AutoRenewalFailed {
+<a href=#402 id=402 data-nosnippet>402</a>						core: record.core,
+<a href=#403 id=403 data-nosnippet>403</a>						payer: <span class="prelude-val">Some</span>(payer),
+<a href=#404 id=404 data-nosnippet>404</a>					});
+<a href=#405 id=405 data-nosnippet>405</a>
+<a href=#406 id=406 data-nosnippet>406</a>					<span class="prelude-val">None
+<a href=#407 id=407 data-nosnippet>407</a>				</span>}
+<a href=#408 id=408 data-nosnippet>408</a>			})
+<a href=#409 id=409 data-nosnippet>409</a>			.collect::&lt;Vec&lt;AutoRenewalRecord&gt;&gt;()
+<a href=#410 id=410 data-nosnippet>410</a>			.try_into()
+<a href=#411 id=411 data-nosnippet>411</a>		<span class="kw">else </span>{
+<a href=#412 id=412 data-nosnippet>412</a>			<span class="self">Self</span>::deposit_event(Event::&lt;T&gt;::AutoRenewalLimitReached);
+<a href=#413 id=413 data-nosnippet>413</a>			<span class="kw">return</span>;
+<a href=#414 id=414 data-nosnippet>414</a>		};
+<a href=#415 id=415 data-nosnippet>415</a>
+<a href=#416 id=416 data-nosnippet>416</a>		AutoRenewals::&lt;T&gt;::set(auto_renewals);
+<a href=#417 id=417 data-nosnippet>417</a>	}
+<a href=#418 id=418 data-nosnippet>418</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

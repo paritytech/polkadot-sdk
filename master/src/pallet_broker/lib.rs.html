@@ -641,7 +641,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#491 id=491 data-nosnippet>491</a>			</span>task: TaskId,
 <a href=#492 id=492 data-nosnippet>492</a>		},
 <a href=#493 id=493 data-nosnippet>493</a>		<span class="doccomment">/// Failed to auto-renew a core, likely due to the payer account not being sufficiently
-<a href=#494 id=494 data-nosnippet>494</a>		/// funded.
+<a href=#494 id=494 data-nosnippet>494</a>		/// funded or the workload on the core no longer belonging to the paying task.
 <a href=#495 id=495 data-nosnippet>495</a>		</span>AutoRenewalFailed {
 <a href=#496 id=496 data-nosnippet>496</a>			<span class="doccomment">/// The core for which the renewal failed.
 <a href=#497 id=497 data-nosnippet>497</a>			</span>core: CoreIndex,
@@ -750,497 +750,501 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#600 id=600 data-nosnippet>600</a>		<span class="doccomment">/// Needed to prevent spam attacks.The amount of credits the user attempted to purchase is
 <a href=#601 id=601 data-nosnippet>601</a>		/// below `T::MinimumCreditPurchase`.
 <a href=#602 id=602 data-nosnippet>602</a>		</span>CreditPurchaseTooSmall,
-<a href=#603 id=603 data-nosnippet>603</a>	}
-<a href=#604 id=604 data-nosnippet>604</a>
-<a href=#605 id=605 data-nosnippet>605</a>	<span class="attr">#[derive(frame_support::DefaultNoBound)]
-<a href=#606 id=606 data-nosnippet>606</a>	#[pallet::genesis_config]
-<a href=#607 id=607 data-nosnippet>607</a>	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
-<a href=#608 id=608 data-nosnippet>608</a>		<span class="attr">#[serde(skip)]
-<a href=#609 id=609 data-nosnippet>609</a>		</span><span class="kw">pub </span>_config: core::marker::PhantomData&lt;T&gt;,
-<a href=#610 id=610 data-nosnippet>610</a>	}
-<a href=#611 id=611 data-nosnippet>611</a>
-<a href=#612 id=612 data-nosnippet>612</a>	<span class="attr">#[pallet::genesis_build]
-<a href=#613 id=613 data-nosnippet>613</a>	</span><span class="kw">impl</span>&lt;T: Config&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T&gt; {
-<a href=#614 id=614 data-nosnippet>614</a>		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-<a href=#615 id=615 data-nosnippet>615</a>			frame_system::Pallet::&lt;T&gt;::inc_providers(<span class="kw-2">&amp;</span>Pallet::&lt;T&gt;::account_id());
-<a href=#616 id=616 data-nosnippet>616</a>		}
-<a href=#617 id=617 data-nosnippet>617</a>	}
-<a href=#618 id=618 data-nosnippet>618</a>
-<a href=#619 id=619 data-nosnippet>619</a>	<span class="attr">#[pallet::hooks]
-<a href=#620 id=620 data-nosnippet>620</a>	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
-<a href=#621 id=621 data-nosnippet>621</a>		<span class="kw">fn </span>on_initialize(_now: BlockNumberFor&lt;T&gt;) -&gt; Weight {
-<a href=#622 id=622 data-nosnippet>622</a>			<span class="self">Self</span>::do_tick()
-<a href=#623 id=623 data-nosnippet>623</a>		}
-<a href=#624 id=624 data-nosnippet>624</a>	}
-<a href=#625 id=625 data-nosnippet>625</a>
-<a href=#626 id=626 data-nosnippet>626</a>	<span class="attr">#[pallet::call(weight(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo))]
-<a href=#627 id=627 data-nosnippet>627</a>	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
-<a href=#628 id=628 data-nosnippet>628</a>		<span class="doccomment">/// Configure the pallet.
-<a href=#629 id=629 data-nosnippet>629</a>		///
-<a href=#630 id=630 data-nosnippet>630</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
-<a href=#631 id=631 data-nosnippet>631</a>		/// - `config`: The configuration for this pallet.
-<a href=#632 id=632 data-nosnippet>632</a>		</span><span class="attr">#[pallet::call_index(<span class="number">0</span>)]
-<a href=#633 id=633 data-nosnippet>633</a>		</span><span class="kw">pub fn </span>configure(
-<a href=#634 id=634 data-nosnippet>634</a>			origin: OriginFor&lt;T&gt;,
-<a href=#635 id=635 data-nosnippet>635</a>			config: ConfigRecordOf&lt;T&gt;,
-<a href=#636 id=636 data-nosnippet>636</a>		) -&gt; DispatchResultWithPostInfo {
-<a href=#637 id=637 data-nosnippet>637</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
-<a href=#638 id=638 data-nosnippet>638</a>			<span class="self">Self</span>::do_configure(config)<span class="question-mark">?</span>;
-<a href=#639 id=639 data-nosnippet>639</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
-<a href=#640 id=640 data-nosnippet>640</a>		}
-<a href=#641 id=641 data-nosnippet>641</a>
-<a href=#642 id=642 data-nosnippet>642</a>		<span class="doccomment">/// Reserve a core for a workload.
-<a href=#643 id=643 data-nosnippet>643</a>		///
-<a href=#644 id=644 data-nosnippet>644</a>		/// The workload will be given a reservation, but two sale period boundaries must pass
-<a href=#645 id=645 data-nosnippet>645</a>		/// before the core is actually assigned.
-<a href=#646 id=646 data-nosnippet>646</a>		///
-<a href=#647 id=647 data-nosnippet>647</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
-<a href=#648 id=648 data-nosnippet>648</a>		/// - `workload`: The workload which should be permanently placed on a core.
-<a href=#649 id=649 data-nosnippet>649</a>		</span><span class="attr">#[pallet::call_index(<span class="number">1</span>)]
-<a href=#650 id=650 data-nosnippet>650</a>		</span><span class="kw">pub fn </span>reserve(origin: OriginFor&lt;T&gt;, workload: Schedule) -&gt; DispatchResultWithPostInfo {
-<a href=#651 id=651 data-nosnippet>651</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
-<a href=#652 id=652 data-nosnippet>652</a>			<span class="self">Self</span>::do_reserve(workload)<span class="question-mark">?</span>;
-<a href=#653 id=653 data-nosnippet>653</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
-<a href=#654 id=654 data-nosnippet>654</a>		}
-<a href=#655 id=655 data-nosnippet>655</a>
-<a href=#656 id=656 data-nosnippet>656</a>		<span class="doccomment">/// Cancel a reservation for a workload.
-<a href=#657 id=657 data-nosnippet>657</a>		///
-<a href=#658 id=658 data-nosnippet>658</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
-<a href=#659 id=659 data-nosnippet>659</a>		/// - `item_index`: The index of the reservation. Usually this will also be the index of the
-<a href=#660 id=660 data-nosnippet>660</a>		///   core on which the reservation has been scheduled. However, it is possible that if
-<a href=#661 id=661 data-nosnippet>661</a>		///   other cores are reserved or unreserved in the same sale rotation that they won't
-<a href=#662 id=662 data-nosnippet>662</a>		///   correspond, so it's better to look up the core properly in the `Reservations` storage.
-<a href=#663 id=663 data-nosnippet>663</a>		</span><span class="attr">#[pallet::call_index(<span class="number">2</span>)]
-<a href=#664 id=664 data-nosnippet>664</a>		</span><span class="kw">pub fn </span>unreserve(origin: OriginFor&lt;T&gt;, item_index: u32) -&gt; DispatchResultWithPostInfo {
-<a href=#665 id=665 data-nosnippet>665</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
-<a href=#666 id=666 data-nosnippet>666</a>			<span class="self">Self</span>::do_unreserve(item_index)<span class="question-mark">?</span>;
-<a href=#667 id=667 data-nosnippet>667</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
-<a href=#668 id=668 data-nosnippet>668</a>		}
-<a href=#669 id=669 data-nosnippet>669</a>
-<a href=#670 id=670 data-nosnippet>670</a>		<span class="doccomment">/// Reserve a core for a single task workload for a limited period.
-<a href=#671 id=671 data-nosnippet>671</a>		///
-<a href=#672 id=672 data-nosnippet>672</a>		/// In the interlude and sale period where Bulk Coretime is sold for the period immediately
-<a href=#673 id=673 data-nosnippet>673</a>		/// after `until`, then the same workload may be renewed.
-<a href=#674 id=674 data-nosnippet>674</a>		///
-<a href=#675 id=675 data-nosnippet>675</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
-<a href=#676 id=676 data-nosnippet>676</a>		/// - `task`: The workload which should be placed on a core.
-<a href=#677 id=677 data-nosnippet>677</a>		/// - `until`: The timeslice now earlier than which `task` should be placed as a workload on
-<a href=#678 id=678 data-nosnippet>678</a>		///   a core.
-<a href=#679 id=679 data-nosnippet>679</a>		</span><span class="attr">#[pallet::call_index(<span class="number">3</span>)]
-<a href=#680 id=680 data-nosnippet>680</a>		</span><span class="kw">pub fn </span>set_lease(
-<a href=#681 id=681 data-nosnippet>681</a>			origin: OriginFor&lt;T&gt;,
-<a href=#682 id=682 data-nosnippet>682</a>			task: TaskId,
-<a href=#683 id=683 data-nosnippet>683</a>			until: Timeslice,
-<a href=#684 id=684 data-nosnippet>684</a>		) -&gt; DispatchResultWithPostInfo {
-<a href=#685 id=685 data-nosnippet>685</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
-<a href=#686 id=686 data-nosnippet>686</a>			<span class="self">Self</span>::do_set_lease(task, until)<span class="question-mark">?</span>;
-<a href=#687 id=687 data-nosnippet>687</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
-<a href=#688 id=688 data-nosnippet>688</a>		}
-<a href=#689 id=689 data-nosnippet>689</a>
-<a href=#690 id=690 data-nosnippet>690</a>		<span class="doccomment">/// Begin the Bulk Coretime sales rotation.
-<a href=#691 id=691 data-nosnippet>691</a>		///
-<a href=#692 id=692 data-nosnippet>692</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
-<a href=#693 id=693 data-nosnippet>693</a>		/// - `end_price`: The price after the leadin period of Bulk Coretime in the first sale.
-<a href=#694 id=694 data-nosnippet>694</a>		/// - `extra_cores`: Number of extra cores that should be requested on top of the cores
-<a href=#695 id=695 data-nosnippet>695</a>		///   required for `Reservations` and `Leases`.
-<a href=#696 id=696 data-nosnippet>696</a>		///
-<a href=#697 id=697 data-nosnippet>697</a>		/// This will call [`Self::request_core_count`] internally to set the correct core count on
-<a href=#698 id=698 data-nosnippet>698</a>		/// the relay chain.
-<a href=#699 id=699 data-nosnippet>699</a>		</span><span class="attr">#[pallet::call_index(<span class="number">4</span>)]
-<a href=#700 id=700 data-nosnippet>700</a>		#[pallet::weight(T::WeightInfo::start_sales(
-<a href=#701 id=701 data-nosnippet>701</a>			T::MaxLeasedCores::get() + T::MaxReservedCores::get() + <span class="kw-2">*</span>extra_cores <span class="kw">as </span>u32
-<a href=#702 id=702 data-nosnippet>702</a>		))]
-<a href=#703 id=703 data-nosnippet>703</a>		</span><span class="kw">pub fn </span>start_sales(
-<a href=#704 id=704 data-nosnippet>704</a>			origin: OriginFor&lt;T&gt;,
-<a href=#705 id=705 data-nosnippet>705</a>			end_price: BalanceOf&lt;T&gt;,
-<a href=#706 id=706 data-nosnippet>706</a>			extra_cores: CoreIndex,
-<a href=#707 id=707 data-nosnippet>707</a>		) -&gt; DispatchResultWithPostInfo {
-<a href=#708 id=708 data-nosnippet>708</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
-<a href=#709 id=709 data-nosnippet>709</a>			<span class="self">Self</span>::do_start_sales(end_price, extra_cores)<span class="question-mark">?</span>;
-<a href=#710 id=710 data-nosnippet>710</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
-<a href=#711 id=711 data-nosnippet>711</a>		}
-<a href=#712 id=712 data-nosnippet>712</a>
-<a href=#713 id=713 data-nosnippet>713</a>		<span class="doccomment">/// Purchase Bulk Coretime in the ongoing Sale.
-<a href=#714 id=714 data-nosnippet>714</a>		///
-<a href=#715 id=715 data-nosnippet>715</a>		/// - `origin`: Must be a Signed origin with at least enough funds to pay the current price
-<a href=#716 id=716 data-nosnippet>716</a>		///   of Bulk Coretime.
-<a href=#717 id=717 data-nosnippet>717</a>		/// - `price_limit`: An amount no more than which should be paid.
-<a href=#718 id=718 data-nosnippet>718</a>		</span><span class="attr">#[pallet::call_index(<span class="number">5</span>)]
-<a href=#719 id=719 data-nosnippet>719</a>		</span><span class="kw">pub fn </span>purchase(
-<a href=#720 id=720 data-nosnippet>720</a>			origin: OriginFor&lt;T&gt;,
-<a href=#721 id=721 data-nosnippet>721</a>			price_limit: BalanceOf&lt;T&gt;,
-<a href=#722 id=722 data-nosnippet>722</a>		) -&gt; DispatchResultWithPostInfo {
-<a href=#723 id=723 data-nosnippet>723</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
-<a href=#724 id=724 data-nosnippet>724</a>			<span class="self">Self</span>::do_purchase(who, price_limit)<span class="question-mark">?</span>;
-<a href=#725 id=725 data-nosnippet>725</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
-<a href=#726 id=726 data-nosnippet>726</a>		}
-<a href=#727 id=727 data-nosnippet>727</a>
-<a href=#728 id=728 data-nosnippet>728</a>		<span class="doccomment">/// Renew Bulk Coretime in the ongoing Sale or its prior Interlude Period.
-<a href=#729 id=729 data-nosnippet>729</a>		///
-<a href=#730 id=730 data-nosnippet>730</a>		/// - `origin`: Must be a Signed origin with at least enough funds to pay the renewal price
-<a href=#731 id=731 data-nosnippet>731</a>		///   of the core.
-<a href=#732 id=732 data-nosnippet>732</a>		/// - `core`: The core which should be renewed.
-<a href=#733 id=733 data-nosnippet>733</a>		</span><span class="attr">#[pallet::call_index(<span class="number">6</span>)]
-<a href=#734 id=734 data-nosnippet>734</a>		</span><span class="kw">pub fn </span>renew(origin: OriginFor&lt;T&gt;, core: CoreIndex) -&gt; DispatchResultWithPostInfo {
-<a href=#735 id=735 data-nosnippet>735</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
-<a href=#736 id=736 data-nosnippet>736</a>			<span class="self">Self</span>::do_renew(who, core)<span class="question-mark">?</span>;
-<a href=#737 id=737 data-nosnippet>737</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
-<a href=#738 id=738 data-nosnippet>738</a>		}
-<a href=#739 id=739 data-nosnippet>739</a>
-<a href=#740 id=740 data-nosnippet>740</a>		<span class="doccomment">/// Transfer a Bulk Coretime Region to a new owner.
-<a href=#741 id=741 data-nosnippet>741</a>		///
-<a href=#742 id=742 data-nosnippet>742</a>		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
-<a href=#743 id=743 data-nosnippet>743</a>		/// - `region_id`: The Region whose ownership should change.
-<a href=#744 id=744 data-nosnippet>744</a>		/// - `new_owner`: The new owner for the Region.
-<a href=#745 id=745 data-nosnippet>745</a>		</span><span class="attr">#[pallet::call_index(<span class="number">7</span>)]
-<a href=#746 id=746 data-nosnippet>746</a>		</span><span class="kw">pub fn </span>transfer(
-<a href=#747 id=747 data-nosnippet>747</a>			origin: OriginFor&lt;T&gt;,
-<a href=#748 id=748 data-nosnippet>748</a>			region_id: RegionId,
-<a href=#749 id=749 data-nosnippet>749</a>			new_owner: T::AccountId,
-<a href=#750 id=750 data-nosnippet>750</a>		) -&gt; DispatchResult {
-<a href=#751 id=751 data-nosnippet>751</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
-<a href=#752 id=752 data-nosnippet>752</a>			<span class="self">Self</span>::do_transfer(region_id, <span class="prelude-val">Some</span>(who), new_owner)<span class="question-mark">?</span>;
-<a href=#753 id=753 data-nosnippet>753</a>			<span class="prelude-val">Ok</span>(())
-<a href=#754 id=754 data-nosnippet>754</a>		}
-<a href=#755 id=755 data-nosnippet>755</a>
-<a href=#756 id=756 data-nosnippet>756</a>		<span class="doccomment">/// Split a Bulk Coretime Region into two non-overlapping Regions at a particular time into
-<a href=#757 id=757 data-nosnippet>757</a>		/// the region.
-<a href=#758 id=758 data-nosnippet>758</a>		///
-<a href=#759 id=759 data-nosnippet>759</a>		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
-<a href=#760 id=760 data-nosnippet>760</a>		/// - `region_id`: The Region which should be partitioned into two non-overlapping Regions.
-<a href=#761 id=761 data-nosnippet>761</a>		/// - `pivot`: The offset in time into the Region at which to make the split.
-<a href=#762 id=762 data-nosnippet>762</a>		</span><span class="attr">#[pallet::call_index(<span class="number">8</span>)]
-<a href=#763 id=763 data-nosnippet>763</a>		</span><span class="kw">pub fn </span>partition(
-<a href=#764 id=764 data-nosnippet>764</a>			origin: OriginFor&lt;T&gt;,
-<a href=#765 id=765 data-nosnippet>765</a>			region_id: RegionId,
-<a href=#766 id=766 data-nosnippet>766</a>			pivot: Timeslice,
-<a href=#767 id=767 data-nosnippet>767</a>		) -&gt; DispatchResult {
-<a href=#768 id=768 data-nosnippet>768</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
-<a href=#769 id=769 data-nosnippet>769</a>			<span class="self">Self</span>::do_partition(region_id, <span class="prelude-val">Some</span>(who), pivot)<span class="question-mark">?</span>;
-<a href=#770 id=770 data-nosnippet>770</a>			<span class="prelude-val">Ok</span>(())
-<a href=#771 id=771 data-nosnippet>771</a>		}
-<a href=#772 id=772 data-nosnippet>772</a>
-<a href=#773 id=773 data-nosnippet>773</a>		<span class="doccomment">/// Split a Bulk Coretime Region into two wholly-overlapping Regions with complementary
-<a href=#774 id=774 data-nosnippet>774</a>		/// interlace masks which together make up the original Region's interlace mask.
-<a href=#775 id=775 data-nosnippet>775</a>		///
-<a href=#776 id=776 data-nosnippet>776</a>		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
-<a href=#777 id=777 data-nosnippet>777</a>		/// - `region_id`: The Region which should become two interlaced Regions of incomplete
-<a href=#778 id=778 data-nosnippet>778</a>		///   regularity.
-<a href=#779 id=779 data-nosnippet>779</a>		/// - `pivot`: The interlace mask of one of the two new regions (the other is its partial
-<a href=#780 id=780 data-nosnippet>780</a>		///   complement).
-<a href=#781 id=781 data-nosnippet>781</a>		</span><span class="attr">#[pallet::call_index(<span class="number">9</span>)]
-<a href=#782 id=782 data-nosnippet>782</a>		</span><span class="kw">pub fn </span>interlace(
-<a href=#783 id=783 data-nosnippet>783</a>			origin: OriginFor&lt;T&gt;,
-<a href=#784 id=784 data-nosnippet>784</a>			region_id: RegionId,
-<a href=#785 id=785 data-nosnippet>785</a>			pivot: CoreMask,
-<a href=#786 id=786 data-nosnippet>786</a>		) -&gt; DispatchResult {
-<a href=#787 id=787 data-nosnippet>787</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
-<a href=#788 id=788 data-nosnippet>788</a>			<span class="self">Self</span>::do_interlace(region_id, <span class="prelude-val">Some</span>(who), pivot)<span class="question-mark">?</span>;
-<a href=#789 id=789 data-nosnippet>789</a>			<span class="prelude-val">Ok</span>(())
-<a href=#790 id=790 data-nosnippet>790</a>		}
-<a href=#791 id=791 data-nosnippet>791</a>
-<a href=#792 id=792 data-nosnippet>792</a>		<span class="doccomment">/// Assign a Bulk Coretime Region to a task.
-<a href=#793 id=793 data-nosnippet>793</a>		///
-<a href=#794 id=794 data-nosnippet>794</a>		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
-<a href=#795 id=795 data-nosnippet>795</a>		/// - `region_id`: The Region which should be assigned to the task.
-<a href=#796 id=796 data-nosnippet>796</a>		/// - `task`: The task to assign.
-<a href=#797 id=797 data-nosnippet>797</a>		/// - `finality`: Indication of whether this assignment is final (in which case it may be
-<a href=#798 id=798 data-nosnippet>798</a>		///   eligible for renewal) or provisional (in which case it may be manipulated and/or
-<a href=#799 id=799 data-nosnippet>799</a>		/// reassigned at a later stage).
-<a href=#800 id=800 data-nosnippet>800</a>		</span><span class="attr">#[pallet::call_index(<span class="number">10</span>)]
-<a href=#801 id=801 data-nosnippet>801</a>		</span><span class="kw">pub fn </span>assign(
-<a href=#802 id=802 data-nosnippet>802</a>			origin: OriginFor&lt;T&gt;,
-<a href=#803 id=803 data-nosnippet>803</a>			region_id: RegionId,
-<a href=#804 id=804 data-nosnippet>804</a>			task: TaskId,
-<a href=#805 id=805 data-nosnippet>805</a>			finality: Finality,
-<a href=#806 id=806 data-nosnippet>806</a>		) -&gt; DispatchResultWithPostInfo {
-<a href=#807 id=807 data-nosnippet>807</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
-<a href=#808 id=808 data-nosnippet>808</a>			<span class="self">Self</span>::do_assign(region_id, <span class="prelude-val">Some</span>(who), task, finality)<span class="question-mark">?</span>;
-<a href=#809 id=809 data-nosnippet>809</a>			<span class="prelude-val">Ok</span>(<span class="kw">if </span>finality == Finality::Final { Pays::No } <span class="kw">else </span>{ Pays::Yes }.into())
-<a href=#810 id=810 data-nosnippet>810</a>		}
-<a href=#811 id=811 data-nosnippet>811</a>
-<a href=#812 id=812 data-nosnippet>812</a>		<span class="doccomment">/// Place a Bulk Coretime Region into the Instantaneous Coretime Pool.
-<a href=#813 id=813 data-nosnippet>813</a>		///
-<a href=#814 id=814 data-nosnippet>814</a>		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
-<a href=#815 id=815 data-nosnippet>815</a>		/// - `region_id`: The Region which should be assigned to the Pool.
-<a href=#816 id=816 data-nosnippet>816</a>		/// - `payee`: The account which is able to collect any revenue due for the usage of this
-<a href=#817 id=817 data-nosnippet>817</a>		///   Coretime.
-<a href=#818 id=818 data-nosnippet>818</a>		</span><span class="attr">#[pallet::call_index(<span class="number">11</span>)]
-<a href=#819 id=819 data-nosnippet>819</a>		</span><span class="kw">pub fn </span>pool(
-<a href=#820 id=820 data-nosnippet>820</a>			origin: OriginFor&lt;T&gt;,
-<a href=#821 id=821 data-nosnippet>821</a>			region_id: RegionId,
-<a href=#822 id=822 data-nosnippet>822</a>			payee: T::AccountId,
-<a href=#823 id=823 data-nosnippet>823</a>			finality: Finality,
-<a href=#824 id=824 data-nosnippet>824</a>		) -&gt; DispatchResultWithPostInfo {
-<a href=#825 id=825 data-nosnippet>825</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
-<a href=#826 id=826 data-nosnippet>826</a>			<span class="self">Self</span>::do_pool(region_id, <span class="prelude-val">Some</span>(who), payee, finality)<span class="question-mark">?</span>;
-<a href=#827 id=827 data-nosnippet>827</a>			<span class="prelude-val">Ok</span>(<span class="kw">if </span>finality == Finality::Final { Pays::No } <span class="kw">else </span>{ Pays::Yes }.into())
-<a href=#828 id=828 data-nosnippet>828</a>		}
-<a href=#829 id=829 data-nosnippet>829</a>
-<a href=#830 id=830 data-nosnippet>830</a>		<span class="doccomment">/// Claim the revenue owed from inclusion in the Instantaneous Coretime Pool.
-<a href=#831 id=831 data-nosnippet>831</a>		///
-<a href=#832 id=832 data-nosnippet>832</a>		/// - `origin`: Must be a Signed origin.
-<a href=#833 id=833 data-nosnippet>833</a>		/// - `region_id`: The Region which was assigned to the Pool.
-<a href=#834 id=834 data-nosnippet>834</a>		/// - `max_timeslices`: The maximum number of timeslices which should be processed. This
-<a href=#835 id=835 data-nosnippet>835</a>		///   must be greater than 0. This may affect the weight of the call but should be ideally
-<a href=#836 id=836 data-nosnippet>836</a>		///   made equivalent to the length of the Region `region_id`. If less, further dispatches
-<a href=#837 id=837 data-nosnippet>837</a>		///   will be required with the same `region_id` to claim revenue for the remainder.
-<a href=#838 id=838 data-nosnippet>838</a>		</span><span class="attr">#[pallet::call_index(<span class="number">12</span>)]
-<a href=#839 id=839 data-nosnippet>839</a>		#[pallet::weight(T::WeightInfo::claim_revenue(<span class="kw-2">*</span>max_timeslices))]
-<a href=#840 id=840 data-nosnippet>840</a>		</span><span class="kw">pub fn </span>claim_revenue(
-<a href=#841 id=841 data-nosnippet>841</a>			origin: OriginFor&lt;T&gt;,
-<a href=#842 id=842 data-nosnippet>842</a>			region_id: RegionId,
-<a href=#843 id=843 data-nosnippet>843</a>			max_timeslices: Timeslice,
-<a href=#844 id=844 data-nosnippet>844</a>		) -&gt; DispatchResultWithPostInfo {
-<a href=#845 id=845 data-nosnippet>845</a>			ensure_signed(origin)<span class="question-mark">?</span>;
-<a href=#846 id=846 data-nosnippet>846</a>			<span class="self">Self</span>::do_claim_revenue(region_id, max_timeslices)<span class="question-mark">?</span>;
-<a href=#847 id=847 data-nosnippet>847</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
-<a href=#848 id=848 data-nosnippet>848</a>		}
-<a href=#849 id=849 data-nosnippet>849</a>
-<a href=#850 id=850 data-nosnippet>850</a>		<span class="doccomment">/// Purchase credit for use in the Instantaneous Coretime Pool.
-<a href=#851 id=851 data-nosnippet>851</a>		///
-<a href=#852 id=852 data-nosnippet>852</a>		/// - `origin`: Must be a Signed origin able to pay at least `amount`.
-<a href=#853 id=853 data-nosnippet>853</a>		/// - `amount`: The amount of credit to purchase.
-<a href=#854 id=854 data-nosnippet>854</a>		/// - `beneficiary`: The account on the Relay-chain which controls the credit (generally
-<a href=#855 id=855 data-nosnippet>855</a>		///   this will be the collator's hot wallet).
-<a href=#856 id=856 data-nosnippet>856</a>		</span><span class="attr">#[pallet::call_index(<span class="number">13</span>)]
-<a href=#857 id=857 data-nosnippet>857</a>		</span><span class="kw">pub fn </span>purchase_credit(
-<a href=#858 id=858 data-nosnippet>858</a>			origin: OriginFor&lt;T&gt;,
-<a href=#859 id=859 data-nosnippet>859</a>			amount: BalanceOf&lt;T&gt;,
-<a href=#860 id=860 data-nosnippet>860</a>			beneficiary: RelayAccountIdOf&lt;T&gt;,
-<a href=#861 id=861 data-nosnippet>861</a>		) -&gt; DispatchResult {
-<a href=#862 id=862 data-nosnippet>862</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
-<a href=#863 id=863 data-nosnippet>863</a>			<span class="self">Self</span>::do_purchase_credit(who, amount, beneficiary)<span class="question-mark">?</span>;
-<a href=#864 id=864 data-nosnippet>864</a>			<span class="prelude-val">Ok</span>(())
-<a href=#865 id=865 data-nosnippet>865</a>		}
-<a href=#866 id=866 data-nosnippet>866</a>
-<a href=#867 id=867 data-nosnippet>867</a>		<span class="doccomment">/// Drop an expired Region from the chain.
-<a href=#868 id=868 data-nosnippet>868</a>		///
-<a href=#869 id=869 data-nosnippet>869</a>		/// - `origin`: Can be any kind of origin.
-<a href=#870 id=870 data-nosnippet>870</a>		/// - `region_id`: The Region which has expired.
-<a href=#871 id=871 data-nosnippet>871</a>		</span><span class="attr">#[pallet::call_index(<span class="number">14</span>)]
-<a href=#872 id=872 data-nosnippet>872</a>		</span><span class="kw">pub fn </span>drop_region(
-<a href=#873 id=873 data-nosnippet>873</a>			_origin: OriginFor&lt;T&gt;,
-<a href=#874 id=874 data-nosnippet>874</a>			region_id: RegionId,
-<a href=#875 id=875 data-nosnippet>875</a>		) -&gt; DispatchResultWithPostInfo {
-<a href=#876 id=876 data-nosnippet>876</a>			<span class="self">Self</span>::do_drop_region(region_id)<span class="question-mark">?</span>;
-<a href=#877 id=877 data-nosnippet>877</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
-<a href=#878 id=878 data-nosnippet>878</a>		}
-<a href=#879 id=879 data-nosnippet>879</a>
-<a href=#880 id=880 data-nosnippet>880</a>		<span class="doccomment">/// Drop an expired Instantaneous Pool Contribution record from the chain.
-<a href=#881 id=881 data-nosnippet>881</a>		///
-<a href=#882 id=882 data-nosnippet>882</a>		/// - `origin`: Can be any kind of origin.
-<a href=#883 id=883 data-nosnippet>883</a>		/// - `region_id`: The Region identifying the Pool Contribution which has expired.
-<a href=#884 id=884 data-nosnippet>884</a>		</span><span class="attr">#[pallet::call_index(<span class="number">15</span>)]
-<a href=#885 id=885 data-nosnippet>885</a>		</span><span class="kw">pub fn </span>drop_contribution(
-<a href=#886 id=886 data-nosnippet>886</a>			_origin: OriginFor&lt;T&gt;,
-<a href=#887 id=887 data-nosnippet>887</a>			region_id: RegionId,
-<a href=#888 id=888 data-nosnippet>888</a>		) -&gt; DispatchResultWithPostInfo {
-<a href=#889 id=889 data-nosnippet>889</a>			<span class="self">Self</span>::do_drop_contribution(region_id)<span class="question-mark">?</span>;
-<a href=#890 id=890 data-nosnippet>890</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
-<a href=#891 id=891 data-nosnippet>891</a>		}
-<a href=#892 id=892 data-nosnippet>892</a>
-<a href=#893 id=893 data-nosnippet>893</a>		<span class="doccomment">/// Drop an expired Instantaneous Pool History record from the chain.
-<a href=#894 id=894 data-nosnippet>894</a>		///
-<a href=#895 id=895 data-nosnippet>895</a>		/// - `origin`: Can be any kind of origin.
-<a href=#896 id=896 data-nosnippet>896</a>		/// - `region_id`: The time of the Pool History record which has expired.
-<a href=#897 id=897 data-nosnippet>897</a>		</span><span class="attr">#[pallet::call_index(<span class="number">16</span>)]
-<a href=#898 id=898 data-nosnippet>898</a>		</span><span class="kw">pub fn </span>drop_history(_origin: OriginFor&lt;T&gt;, when: Timeslice) -&gt; DispatchResultWithPostInfo {
-<a href=#899 id=899 data-nosnippet>899</a>			<span class="self">Self</span>::do_drop_history(when)<span class="question-mark">?</span>;
-<a href=#900 id=900 data-nosnippet>900</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
-<a href=#901 id=901 data-nosnippet>901</a>		}
-<a href=#902 id=902 data-nosnippet>902</a>
-<a href=#903 id=903 data-nosnippet>903</a>		<span class="doccomment">/// Drop an expired Allowed Renewal record from the chain.
-<a href=#904 id=904 data-nosnippet>904</a>		///
-<a href=#905 id=905 data-nosnippet>905</a>		/// - `origin`: Can be any kind of origin.
-<a href=#906 id=906 data-nosnippet>906</a>		/// - `core`: The core to which the expired renewal refers.
-<a href=#907 id=907 data-nosnippet>907</a>		/// - `when`: The timeslice to which the expired renewal refers. This must have passed.
-<a href=#908 id=908 data-nosnippet>908</a>		</span><span class="attr">#[pallet::call_index(<span class="number">17</span>)]
-<a href=#909 id=909 data-nosnippet>909</a>		</span><span class="kw">pub fn </span>drop_renewal(
-<a href=#910 id=910 data-nosnippet>910</a>			_origin: OriginFor&lt;T&gt;,
-<a href=#911 id=911 data-nosnippet>911</a>			core: CoreIndex,
-<a href=#912 id=912 data-nosnippet>912</a>			when: Timeslice,
-<a href=#913 id=913 data-nosnippet>913</a>		) -&gt; DispatchResultWithPostInfo {
-<a href=#914 id=914 data-nosnippet>914</a>			<span class="self">Self</span>::do_drop_renewal(core, when)<span class="question-mark">?</span>;
-<a href=#915 id=915 data-nosnippet>915</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
-<a href=#916 id=916 data-nosnippet>916</a>		}
-<a href=#917 id=917 data-nosnippet>917</a>
-<a href=#918 id=918 data-nosnippet>918</a>		<span class="doccomment">/// Request a change to the number of cores available for scheduling work.
-<a href=#919 id=919 data-nosnippet>919</a>		///
-<a href=#920 id=920 data-nosnippet>920</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
-<a href=#921 id=921 data-nosnippet>921</a>		/// - `core_count`: The desired number of cores to be made available.
-<a href=#922 id=922 data-nosnippet>922</a>		</span><span class="attr">#[pallet::call_index(<span class="number">18</span>)]
-<a href=#923 id=923 data-nosnippet>923</a>		#[pallet::weight(T::WeightInfo::request_core_count((<span class="kw-2">*</span>core_count).into()))]
-<a href=#924 id=924 data-nosnippet>924</a>		</span><span class="kw">pub fn </span>request_core_count(origin: OriginFor&lt;T&gt;, core_count: CoreIndex) -&gt; DispatchResult {
-<a href=#925 id=925 data-nosnippet>925</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
-<a href=#926 id=926 data-nosnippet>926</a>			<span class="self">Self</span>::do_request_core_count(core_count)<span class="question-mark">?</span>;
-<a href=#927 id=927 data-nosnippet>927</a>			<span class="prelude-val">Ok</span>(())
-<a href=#928 id=928 data-nosnippet>928</a>		}
-<a href=#929 id=929 data-nosnippet>929</a>
-<a href=#930 id=930 data-nosnippet>930</a>		<span class="attr">#[pallet::call_index(<span class="number">19</span>)]
-<a href=#931 id=931 data-nosnippet>931</a>		#[pallet::weight(T::WeightInfo::notify_core_count())]
-<a href=#932 id=932 data-nosnippet>932</a>		</span><span class="kw">pub fn </span>notify_core_count(origin: OriginFor&lt;T&gt;, core_count: CoreIndex) -&gt; DispatchResult {
-<a href=#933 id=933 data-nosnippet>933</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
-<a href=#934 id=934 data-nosnippet>934</a>			<span class="self">Self</span>::do_notify_core_count(core_count)<span class="question-mark">?</span>;
-<a href=#935 id=935 data-nosnippet>935</a>			<span class="prelude-val">Ok</span>(())
-<a href=#936 id=936 data-nosnippet>936</a>		}
-<a href=#937 id=937 data-nosnippet>937</a>
-<a href=#938 id=938 data-nosnippet>938</a>		<span class="attr">#[pallet::call_index(<span class="number">20</span>)]
-<a href=#939 id=939 data-nosnippet>939</a>		#[pallet::weight(T::WeightInfo::notify_revenue())]
-<a href=#940 id=940 data-nosnippet>940</a>		</span><span class="kw">pub fn </span>notify_revenue(
-<a href=#941 id=941 data-nosnippet>941</a>			origin: OriginFor&lt;T&gt;,
-<a href=#942 id=942 data-nosnippet>942</a>			revenue: OnDemandRevenueRecordOf&lt;T&gt;,
-<a href=#943 id=943 data-nosnippet>943</a>		) -&gt; DispatchResult {
-<a href=#944 id=944 data-nosnippet>944</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
-<a href=#945 id=945 data-nosnippet>945</a>			<span class="self">Self</span>::do_notify_revenue(revenue)<span class="question-mark">?</span>;
-<a href=#946 id=946 data-nosnippet>946</a>			<span class="prelude-val">Ok</span>(())
-<a href=#947 id=947 data-nosnippet>947</a>		}
-<a href=#948 id=948 data-nosnippet>948</a>
-<a href=#949 id=949 data-nosnippet>949</a>		<span class="doccomment">/// Extrinsic for enabling auto renewal.
-<a href=#950 id=950 data-nosnippet>950</a>		///
-<a href=#951 id=951 data-nosnippet>951</a>		/// Callable by the sovereign account of the task on the specified core. This account
-<a href=#952 id=952 data-nosnippet>952</a>		/// will be charged at the start of every bulk period for renewing core time.
-<a href=#953 id=953 data-nosnippet>953</a>		///
-<a href=#954 id=954 data-nosnippet>954</a>		/// - `origin`: Must be the sovereign account of the task
-<a href=#955 id=955 data-nosnippet>955</a>		/// - `core`: The core to which the task to be renewed is currently assigned.
-<a href=#956 id=956 data-nosnippet>956</a>		/// - `task`: The task for which we want to enable auto renewal.
-<a href=#957 id=957 data-nosnippet>957</a>		/// - `workload_end_hint`: should be used when enabling auto-renewal for a core that is not
-<a href=#958 id=958 data-nosnippet>958</a>		///   expiring in the upcoming bulk period (e.g., due to holding a lease) since it would be
-<a href=#959 id=959 data-nosnippet>959</a>		///   inefficient to look up when the core expires to schedule the next renewal.
-<a href=#960 id=960 data-nosnippet>960</a>		</span><span class="attr">#[pallet::call_index(<span class="number">21</span>)]
-<a href=#961 id=961 data-nosnippet>961</a>		#[pallet::weight(T::WeightInfo::enable_auto_renew())]
-<a href=#962 id=962 data-nosnippet>962</a>		</span><span class="kw">pub fn </span>enable_auto_renew(
-<a href=#963 id=963 data-nosnippet>963</a>			origin: OriginFor&lt;T&gt;,
-<a href=#964 id=964 data-nosnippet>964</a>			core: CoreIndex,
-<a href=#965 id=965 data-nosnippet>965</a>			task: TaskId,
-<a href=#966 id=966 data-nosnippet>966</a>			workload_end_hint: <span class="prelude-ty">Option</span>&lt;Timeslice&gt;,
-<a href=#967 id=967 data-nosnippet>967</a>		) -&gt; DispatchResult {
-<a href=#968 id=968 data-nosnippet>968</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
-<a href=#969 id=969 data-nosnippet>969</a>
-<a href=#970 id=970 data-nosnippet>970</a>			<span class="kw">let </span>sovereign_account = T::SovereignAccountOf::maybe_convert(task)
-<a href=#971 id=971 data-nosnippet>971</a>				.ok_or(Error::&lt;T&gt;::SovereignAccountNotFound)<span class="question-mark">?</span>;
-<a href=#972 id=972 data-nosnippet>972</a>			<span class="comment">// Only the sovereign account of a task can enable auto renewal for its own core.
-<a href=#973 id=973 data-nosnippet>973</a>			</span><span class="macro">ensure!</span>(who == sovereign_account, Error::&lt;T&gt;::NoPermission);
-<a href=#974 id=974 data-nosnippet>974</a>
-<a href=#975 id=975 data-nosnippet>975</a>			<span class="self">Self</span>::do_enable_auto_renew(sovereign_account, core, task, workload_end_hint)<span class="question-mark">?</span>;
-<a href=#976 id=976 data-nosnippet>976</a>			<span class="prelude-val">Ok</span>(())
-<a href=#977 id=977 data-nosnippet>977</a>		}
+<a href=#603 id=603 data-nosnippet>603</a>		<span class="doccomment">/// The renewable workload of the core does not include the given task.
+<a href=#604 id=604 data-nosnippet>604</a>		</span>TaskNotInWorkload,
+<a href=#605 id=605 data-nosnippet>605</a>	}
+<a href=#606 id=606 data-nosnippet>606</a>
+<a href=#607 id=607 data-nosnippet>607</a>	<span class="attr">#[derive(frame_support::DefaultNoBound)]
+<a href=#608 id=608 data-nosnippet>608</a>	#[pallet::genesis_config]
+<a href=#609 id=609 data-nosnippet>609</a>	</span><span class="kw">pub struct </span>GenesisConfig&lt;T: Config&gt; {
+<a href=#610 id=610 data-nosnippet>610</a>		<span class="attr">#[serde(skip)]
+<a href=#611 id=611 data-nosnippet>611</a>		</span><span class="kw">pub </span>_config: core::marker::PhantomData&lt;T&gt;,
+<a href=#612 id=612 data-nosnippet>612</a>	}
+<a href=#613 id=613 data-nosnippet>613</a>
+<a href=#614 id=614 data-nosnippet>614</a>	<span class="attr">#[pallet::genesis_build]
+<a href=#615 id=615 data-nosnippet>615</a>	</span><span class="kw">impl</span>&lt;T: Config&gt; BuildGenesisConfig <span class="kw">for </span>GenesisConfig&lt;T&gt; {
+<a href=#616 id=616 data-nosnippet>616</a>		<span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+<a href=#617 id=617 data-nosnippet>617</a>			frame_system::Pallet::&lt;T&gt;::inc_providers(<span class="kw-2">&amp;</span>Pallet::&lt;T&gt;::account_id());
+<a href=#618 id=618 data-nosnippet>618</a>		}
+<a href=#619 id=619 data-nosnippet>619</a>	}
+<a href=#620 id=620 data-nosnippet>620</a>
+<a href=#621 id=621 data-nosnippet>621</a>	<span class="attr">#[pallet::hooks]
+<a href=#622 id=622 data-nosnippet>622</a>	</span><span class="kw">impl</span>&lt;T: Config&gt; Hooks&lt;BlockNumberFor&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
+<a href=#623 id=623 data-nosnippet>623</a>		<span class="kw">fn </span>on_initialize(_now: BlockNumberFor&lt;T&gt;) -&gt; Weight {
+<a href=#624 id=624 data-nosnippet>624</a>			<span class="self">Self</span>::do_tick()
+<a href=#625 id=625 data-nosnippet>625</a>		}
+<a href=#626 id=626 data-nosnippet>626</a>	}
+<a href=#627 id=627 data-nosnippet>627</a>
+<a href=#628 id=628 data-nosnippet>628</a>	<span class="attr">#[pallet::call(weight(&lt;T <span class="kw">as </span>Config&gt;::WeightInfo))]
+<a href=#629 id=629 data-nosnippet>629</a>	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+<a href=#630 id=630 data-nosnippet>630</a>		<span class="doccomment">/// Configure the pallet.
+<a href=#631 id=631 data-nosnippet>631</a>		///
+<a href=#632 id=632 data-nosnippet>632</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
+<a href=#633 id=633 data-nosnippet>633</a>		/// - `config`: The configuration for this pallet.
+<a href=#634 id=634 data-nosnippet>634</a>		</span><span class="attr">#[pallet::call_index(<span class="number">0</span>)]
+<a href=#635 id=635 data-nosnippet>635</a>		</span><span class="kw">pub fn </span>configure(
+<a href=#636 id=636 data-nosnippet>636</a>			origin: OriginFor&lt;T&gt;,
+<a href=#637 id=637 data-nosnippet>637</a>			config: ConfigRecordOf&lt;T&gt;,
+<a href=#638 id=638 data-nosnippet>638</a>		) -&gt; DispatchResultWithPostInfo {
+<a href=#639 id=639 data-nosnippet>639</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
+<a href=#640 id=640 data-nosnippet>640</a>			<span class="self">Self</span>::do_configure(config)<span class="question-mark">?</span>;
+<a href=#641 id=641 data-nosnippet>641</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
+<a href=#642 id=642 data-nosnippet>642</a>		}
+<a href=#643 id=643 data-nosnippet>643</a>
+<a href=#644 id=644 data-nosnippet>644</a>		<span class="doccomment">/// Reserve a core for a workload.
+<a href=#645 id=645 data-nosnippet>645</a>		///
+<a href=#646 id=646 data-nosnippet>646</a>		/// The workload will be given a reservation, but two sale period boundaries must pass
+<a href=#647 id=647 data-nosnippet>647</a>		/// before the core is actually assigned.
+<a href=#648 id=648 data-nosnippet>648</a>		///
+<a href=#649 id=649 data-nosnippet>649</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
+<a href=#650 id=650 data-nosnippet>650</a>		/// - `workload`: The workload which should be permanently placed on a core.
+<a href=#651 id=651 data-nosnippet>651</a>		</span><span class="attr">#[pallet::call_index(<span class="number">1</span>)]
+<a href=#652 id=652 data-nosnippet>652</a>		</span><span class="kw">pub fn </span>reserve(origin: OriginFor&lt;T&gt;, workload: Schedule) -&gt; DispatchResultWithPostInfo {
+<a href=#653 id=653 data-nosnippet>653</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
+<a href=#654 id=654 data-nosnippet>654</a>			<span class="self">Self</span>::do_reserve(workload)<span class="question-mark">?</span>;
+<a href=#655 id=655 data-nosnippet>655</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
+<a href=#656 id=656 data-nosnippet>656</a>		}
+<a href=#657 id=657 data-nosnippet>657</a>
+<a href=#658 id=658 data-nosnippet>658</a>		<span class="doccomment">/// Cancel a reservation for a workload.
+<a href=#659 id=659 data-nosnippet>659</a>		///
+<a href=#660 id=660 data-nosnippet>660</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
+<a href=#661 id=661 data-nosnippet>661</a>		/// - `item_index`: The index of the reservation. Usually this will also be the index of the
+<a href=#662 id=662 data-nosnippet>662</a>		///   core on which the reservation has been scheduled. However, it is possible that if
+<a href=#663 id=663 data-nosnippet>663</a>		///   other cores are reserved or unreserved in the same sale rotation that they won't
+<a href=#664 id=664 data-nosnippet>664</a>		///   correspond, so it's better to look up the core properly in the `Reservations` storage.
+<a href=#665 id=665 data-nosnippet>665</a>		</span><span class="attr">#[pallet::call_index(<span class="number">2</span>)]
+<a href=#666 id=666 data-nosnippet>666</a>		</span><span class="kw">pub fn </span>unreserve(origin: OriginFor&lt;T&gt;, item_index: u32) -&gt; DispatchResultWithPostInfo {
+<a href=#667 id=667 data-nosnippet>667</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
+<a href=#668 id=668 data-nosnippet>668</a>			<span class="self">Self</span>::do_unreserve(item_index)<span class="question-mark">?</span>;
+<a href=#669 id=669 data-nosnippet>669</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
+<a href=#670 id=670 data-nosnippet>670</a>		}
+<a href=#671 id=671 data-nosnippet>671</a>
+<a href=#672 id=672 data-nosnippet>672</a>		<span class="doccomment">/// Reserve a core for a single task workload for a limited period.
+<a href=#673 id=673 data-nosnippet>673</a>		///
+<a href=#674 id=674 data-nosnippet>674</a>		/// In the interlude and sale period where Bulk Coretime is sold for the period immediately
+<a href=#675 id=675 data-nosnippet>675</a>		/// after `until`, then the same workload may be renewed.
+<a href=#676 id=676 data-nosnippet>676</a>		///
+<a href=#677 id=677 data-nosnippet>677</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
+<a href=#678 id=678 data-nosnippet>678</a>		/// - `task`: The workload which should be placed on a core.
+<a href=#679 id=679 data-nosnippet>679</a>		/// - `until`: The timeslice now earlier than which `task` should be placed as a workload on
+<a href=#680 id=680 data-nosnippet>680</a>		///   a core.
+<a href=#681 id=681 data-nosnippet>681</a>		</span><span class="attr">#[pallet::call_index(<span class="number">3</span>)]
+<a href=#682 id=682 data-nosnippet>682</a>		</span><span class="kw">pub fn </span>set_lease(
+<a href=#683 id=683 data-nosnippet>683</a>			origin: OriginFor&lt;T&gt;,
+<a href=#684 id=684 data-nosnippet>684</a>			task: TaskId,
+<a href=#685 id=685 data-nosnippet>685</a>			until: Timeslice,
+<a href=#686 id=686 data-nosnippet>686</a>		) -&gt; DispatchResultWithPostInfo {
+<a href=#687 id=687 data-nosnippet>687</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
+<a href=#688 id=688 data-nosnippet>688</a>			<span class="self">Self</span>::do_set_lease(task, until)<span class="question-mark">?</span>;
+<a href=#689 id=689 data-nosnippet>689</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
+<a href=#690 id=690 data-nosnippet>690</a>		}
+<a href=#691 id=691 data-nosnippet>691</a>
+<a href=#692 id=692 data-nosnippet>692</a>		<span class="doccomment">/// Begin the Bulk Coretime sales rotation.
+<a href=#693 id=693 data-nosnippet>693</a>		///
+<a href=#694 id=694 data-nosnippet>694</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
+<a href=#695 id=695 data-nosnippet>695</a>		/// - `end_price`: The price after the leadin period of Bulk Coretime in the first sale.
+<a href=#696 id=696 data-nosnippet>696</a>		/// - `extra_cores`: Number of extra cores that should be requested on top of the cores
+<a href=#697 id=697 data-nosnippet>697</a>		///   required for `Reservations` and `Leases`.
+<a href=#698 id=698 data-nosnippet>698</a>		///
+<a href=#699 id=699 data-nosnippet>699</a>		/// This will call [`Self::request_core_count`] internally to set the correct core count on
+<a href=#700 id=700 data-nosnippet>700</a>		/// the relay chain.
+<a href=#701 id=701 data-nosnippet>701</a>		</span><span class="attr">#[pallet::call_index(<span class="number">4</span>)]
+<a href=#702 id=702 data-nosnippet>702</a>		#[pallet::weight(T::WeightInfo::start_sales(
+<a href=#703 id=703 data-nosnippet>703</a>			T::MaxLeasedCores::get() + T::MaxReservedCores::get() + <span class="kw-2">*</span>extra_cores <span class="kw">as </span>u32
+<a href=#704 id=704 data-nosnippet>704</a>		))]
+<a href=#705 id=705 data-nosnippet>705</a>		</span><span class="kw">pub fn </span>start_sales(
+<a href=#706 id=706 data-nosnippet>706</a>			origin: OriginFor&lt;T&gt;,
+<a href=#707 id=707 data-nosnippet>707</a>			end_price: BalanceOf&lt;T&gt;,
+<a href=#708 id=708 data-nosnippet>708</a>			extra_cores: CoreIndex,
+<a href=#709 id=709 data-nosnippet>709</a>		) -&gt; DispatchResultWithPostInfo {
+<a href=#710 id=710 data-nosnippet>710</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
+<a href=#711 id=711 data-nosnippet>711</a>			<span class="self">Self</span>::do_start_sales(end_price, extra_cores)<span class="question-mark">?</span>;
+<a href=#712 id=712 data-nosnippet>712</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
+<a href=#713 id=713 data-nosnippet>713</a>		}
+<a href=#714 id=714 data-nosnippet>714</a>
+<a href=#715 id=715 data-nosnippet>715</a>		<span class="doccomment">/// Purchase Bulk Coretime in the ongoing Sale.
+<a href=#716 id=716 data-nosnippet>716</a>		///
+<a href=#717 id=717 data-nosnippet>717</a>		/// - `origin`: Must be a Signed origin with at least enough funds to pay the current price
+<a href=#718 id=718 data-nosnippet>718</a>		///   of Bulk Coretime.
+<a href=#719 id=719 data-nosnippet>719</a>		/// - `price_limit`: An amount no more than which should be paid.
+<a href=#720 id=720 data-nosnippet>720</a>		</span><span class="attr">#[pallet::call_index(<span class="number">5</span>)]
+<a href=#721 id=721 data-nosnippet>721</a>		</span><span class="kw">pub fn </span>purchase(
+<a href=#722 id=722 data-nosnippet>722</a>			origin: OriginFor&lt;T&gt;,
+<a href=#723 id=723 data-nosnippet>723</a>			price_limit: BalanceOf&lt;T&gt;,
+<a href=#724 id=724 data-nosnippet>724</a>		) -&gt; DispatchResultWithPostInfo {
+<a href=#725 id=725 data-nosnippet>725</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
+<a href=#726 id=726 data-nosnippet>726</a>			<span class="self">Self</span>::do_purchase(who, price_limit)<span class="question-mark">?</span>;
+<a href=#727 id=727 data-nosnippet>727</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
+<a href=#728 id=728 data-nosnippet>728</a>		}
+<a href=#729 id=729 data-nosnippet>729</a>
+<a href=#730 id=730 data-nosnippet>730</a>		<span class="doccomment">/// Renew Bulk Coretime in the ongoing Sale or its prior Interlude Period.
+<a href=#731 id=731 data-nosnippet>731</a>		///
+<a href=#732 id=732 data-nosnippet>732</a>		/// - `origin`: Must be a Signed origin with at least enough funds to pay the renewal price
+<a href=#733 id=733 data-nosnippet>733</a>		///   of the core.
+<a href=#734 id=734 data-nosnippet>734</a>		/// - `core`: The core which should be renewed.
+<a href=#735 id=735 data-nosnippet>735</a>		</span><span class="attr">#[pallet::call_index(<span class="number">6</span>)]
+<a href=#736 id=736 data-nosnippet>736</a>		</span><span class="kw">pub fn </span>renew(origin: OriginFor&lt;T&gt;, core: CoreIndex) -&gt; DispatchResultWithPostInfo {
+<a href=#737 id=737 data-nosnippet>737</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
+<a href=#738 id=738 data-nosnippet>738</a>			<span class="self">Self</span>::do_renew(who, core)<span class="question-mark">?</span>;
+<a href=#739 id=739 data-nosnippet>739</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
+<a href=#740 id=740 data-nosnippet>740</a>		}
+<a href=#741 id=741 data-nosnippet>741</a>
+<a href=#742 id=742 data-nosnippet>742</a>		<span class="doccomment">/// Transfer a Bulk Coretime Region to a new owner.
+<a href=#743 id=743 data-nosnippet>743</a>		///
+<a href=#744 id=744 data-nosnippet>744</a>		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
+<a href=#745 id=745 data-nosnippet>745</a>		/// - `region_id`: The Region whose ownership should change.
+<a href=#746 id=746 data-nosnippet>746</a>		/// - `new_owner`: The new owner for the Region.
+<a href=#747 id=747 data-nosnippet>747</a>		</span><span class="attr">#[pallet::call_index(<span class="number">7</span>)]
+<a href=#748 id=748 data-nosnippet>748</a>		</span><span class="kw">pub fn </span>transfer(
+<a href=#749 id=749 data-nosnippet>749</a>			origin: OriginFor&lt;T&gt;,
+<a href=#750 id=750 data-nosnippet>750</a>			region_id: RegionId,
+<a href=#751 id=751 data-nosnippet>751</a>			new_owner: T::AccountId,
+<a href=#752 id=752 data-nosnippet>752</a>		) -&gt; DispatchResult {
+<a href=#753 id=753 data-nosnippet>753</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
+<a href=#754 id=754 data-nosnippet>754</a>			<span class="self">Self</span>::do_transfer(region_id, <span class="prelude-val">Some</span>(who), new_owner)<span class="question-mark">?</span>;
+<a href=#755 id=755 data-nosnippet>755</a>			<span class="prelude-val">Ok</span>(())
+<a href=#756 id=756 data-nosnippet>756</a>		}
+<a href=#757 id=757 data-nosnippet>757</a>
+<a href=#758 id=758 data-nosnippet>758</a>		<span class="doccomment">/// Split a Bulk Coretime Region into two non-overlapping Regions at a particular time into
+<a href=#759 id=759 data-nosnippet>759</a>		/// the region.
+<a href=#760 id=760 data-nosnippet>760</a>		///
+<a href=#761 id=761 data-nosnippet>761</a>		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
+<a href=#762 id=762 data-nosnippet>762</a>		/// - `region_id`: The Region which should be partitioned into two non-overlapping Regions.
+<a href=#763 id=763 data-nosnippet>763</a>		/// - `pivot`: The offset in time into the Region at which to make the split.
+<a href=#764 id=764 data-nosnippet>764</a>		</span><span class="attr">#[pallet::call_index(<span class="number">8</span>)]
+<a href=#765 id=765 data-nosnippet>765</a>		</span><span class="kw">pub fn </span>partition(
+<a href=#766 id=766 data-nosnippet>766</a>			origin: OriginFor&lt;T&gt;,
+<a href=#767 id=767 data-nosnippet>767</a>			region_id: RegionId,
+<a href=#768 id=768 data-nosnippet>768</a>			pivot: Timeslice,
+<a href=#769 id=769 data-nosnippet>769</a>		) -&gt; DispatchResult {
+<a href=#770 id=770 data-nosnippet>770</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
+<a href=#771 id=771 data-nosnippet>771</a>			<span class="self">Self</span>::do_partition(region_id, <span class="prelude-val">Some</span>(who), pivot)<span class="question-mark">?</span>;
+<a href=#772 id=772 data-nosnippet>772</a>			<span class="prelude-val">Ok</span>(())
+<a href=#773 id=773 data-nosnippet>773</a>		}
+<a href=#774 id=774 data-nosnippet>774</a>
+<a href=#775 id=775 data-nosnippet>775</a>		<span class="doccomment">/// Split a Bulk Coretime Region into two wholly-overlapping Regions with complementary
+<a href=#776 id=776 data-nosnippet>776</a>		/// interlace masks which together make up the original Region's interlace mask.
+<a href=#777 id=777 data-nosnippet>777</a>		///
+<a href=#778 id=778 data-nosnippet>778</a>		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
+<a href=#779 id=779 data-nosnippet>779</a>		/// - `region_id`: The Region which should become two interlaced Regions of incomplete
+<a href=#780 id=780 data-nosnippet>780</a>		///   regularity.
+<a href=#781 id=781 data-nosnippet>781</a>		/// - `pivot`: The interlace mask of one of the two new regions (the other is its partial
+<a href=#782 id=782 data-nosnippet>782</a>		///   complement).
+<a href=#783 id=783 data-nosnippet>783</a>		</span><span class="attr">#[pallet::call_index(<span class="number">9</span>)]
+<a href=#784 id=784 data-nosnippet>784</a>		</span><span class="kw">pub fn </span>interlace(
+<a href=#785 id=785 data-nosnippet>785</a>			origin: OriginFor&lt;T&gt;,
+<a href=#786 id=786 data-nosnippet>786</a>			region_id: RegionId,
+<a href=#787 id=787 data-nosnippet>787</a>			pivot: CoreMask,
+<a href=#788 id=788 data-nosnippet>788</a>		) -&gt; DispatchResult {
+<a href=#789 id=789 data-nosnippet>789</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
+<a href=#790 id=790 data-nosnippet>790</a>			<span class="self">Self</span>::do_interlace(region_id, <span class="prelude-val">Some</span>(who), pivot)<span class="question-mark">?</span>;
+<a href=#791 id=791 data-nosnippet>791</a>			<span class="prelude-val">Ok</span>(())
+<a href=#792 id=792 data-nosnippet>792</a>		}
+<a href=#793 id=793 data-nosnippet>793</a>
+<a href=#794 id=794 data-nosnippet>794</a>		<span class="doccomment">/// Assign a Bulk Coretime Region to a task.
+<a href=#795 id=795 data-nosnippet>795</a>		///
+<a href=#796 id=796 data-nosnippet>796</a>		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
+<a href=#797 id=797 data-nosnippet>797</a>		/// - `region_id`: The Region which should be assigned to the task.
+<a href=#798 id=798 data-nosnippet>798</a>		/// - `task`: The task to assign.
+<a href=#799 id=799 data-nosnippet>799</a>		/// - `finality`: Indication of whether this assignment is final (in which case it may be
+<a href=#800 id=800 data-nosnippet>800</a>		///   eligible for renewal) or provisional (in which case it may be manipulated and/or
+<a href=#801 id=801 data-nosnippet>801</a>		/// reassigned at a later stage).
+<a href=#802 id=802 data-nosnippet>802</a>		</span><span class="attr">#[pallet::call_index(<span class="number">10</span>)]
+<a href=#803 id=803 data-nosnippet>803</a>		</span><span class="kw">pub fn </span>assign(
+<a href=#804 id=804 data-nosnippet>804</a>			origin: OriginFor&lt;T&gt;,
+<a href=#805 id=805 data-nosnippet>805</a>			region_id: RegionId,
+<a href=#806 id=806 data-nosnippet>806</a>			task: TaskId,
+<a href=#807 id=807 data-nosnippet>807</a>			finality: Finality,
+<a href=#808 id=808 data-nosnippet>808</a>		) -&gt; DispatchResultWithPostInfo {
+<a href=#809 id=809 data-nosnippet>809</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
+<a href=#810 id=810 data-nosnippet>810</a>			<span class="self">Self</span>::do_assign(region_id, <span class="prelude-val">Some</span>(who), task, finality)<span class="question-mark">?</span>;
+<a href=#811 id=811 data-nosnippet>811</a>			<span class="prelude-val">Ok</span>(<span class="kw">if </span>finality == Finality::Final { Pays::No } <span class="kw">else </span>{ Pays::Yes }.into())
+<a href=#812 id=812 data-nosnippet>812</a>		}
+<a href=#813 id=813 data-nosnippet>813</a>
+<a href=#814 id=814 data-nosnippet>814</a>		<span class="doccomment">/// Place a Bulk Coretime Region into the Instantaneous Coretime Pool.
+<a href=#815 id=815 data-nosnippet>815</a>		///
+<a href=#816 id=816 data-nosnippet>816</a>		/// - `origin`: Must be a Signed origin of the account which owns the Region `region_id`.
+<a href=#817 id=817 data-nosnippet>817</a>		/// - `region_id`: The Region which should be assigned to the Pool.
+<a href=#818 id=818 data-nosnippet>818</a>		/// - `payee`: The account which is able to collect any revenue due for the usage of this
+<a href=#819 id=819 data-nosnippet>819</a>		///   Coretime.
+<a href=#820 id=820 data-nosnippet>820</a>		</span><span class="attr">#[pallet::call_index(<span class="number">11</span>)]
+<a href=#821 id=821 data-nosnippet>821</a>		</span><span class="kw">pub fn </span>pool(
+<a href=#822 id=822 data-nosnippet>822</a>			origin: OriginFor&lt;T&gt;,
+<a href=#823 id=823 data-nosnippet>823</a>			region_id: RegionId,
+<a href=#824 id=824 data-nosnippet>824</a>			payee: T::AccountId,
+<a href=#825 id=825 data-nosnippet>825</a>			finality: Finality,
+<a href=#826 id=826 data-nosnippet>826</a>		) -&gt; DispatchResultWithPostInfo {
+<a href=#827 id=827 data-nosnippet>827</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
+<a href=#828 id=828 data-nosnippet>828</a>			<span class="self">Self</span>::do_pool(region_id, <span class="prelude-val">Some</span>(who), payee, finality)<span class="question-mark">?</span>;
+<a href=#829 id=829 data-nosnippet>829</a>			<span class="prelude-val">Ok</span>(<span class="kw">if </span>finality == Finality::Final { Pays::No } <span class="kw">else </span>{ Pays::Yes }.into())
+<a href=#830 id=830 data-nosnippet>830</a>		}
+<a href=#831 id=831 data-nosnippet>831</a>
+<a href=#832 id=832 data-nosnippet>832</a>		<span class="doccomment">/// Claim the revenue owed from inclusion in the Instantaneous Coretime Pool.
+<a href=#833 id=833 data-nosnippet>833</a>		///
+<a href=#834 id=834 data-nosnippet>834</a>		/// - `origin`: Must be a Signed origin.
+<a href=#835 id=835 data-nosnippet>835</a>		/// - `region_id`: The Region which was assigned to the Pool.
+<a href=#836 id=836 data-nosnippet>836</a>		/// - `max_timeslices`: The maximum number of timeslices which should be processed. This
+<a href=#837 id=837 data-nosnippet>837</a>		///   must be greater than 0. This may affect the weight of the call but should be ideally
+<a href=#838 id=838 data-nosnippet>838</a>		///   made equivalent to the length of the Region `region_id`. If less, further dispatches
+<a href=#839 id=839 data-nosnippet>839</a>		///   will be required with the same `region_id` to claim revenue for the remainder.
+<a href=#840 id=840 data-nosnippet>840</a>		</span><span class="attr">#[pallet::call_index(<span class="number">12</span>)]
+<a href=#841 id=841 data-nosnippet>841</a>		#[pallet::weight(T::WeightInfo::claim_revenue(<span class="kw-2">*</span>max_timeslices))]
+<a href=#842 id=842 data-nosnippet>842</a>		</span><span class="kw">pub fn </span>claim_revenue(
+<a href=#843 id=843 data-nosnippet>843</a>			origin: OriginFor&lt;T&gt;,
+<a href=#844 id=844 data-nosnippet>844</a>			region_id: RegionId,
+<a href=#845 id=845 data-nosnippet>845</a>			max_timeslices: Timeslice,
+<a href=#846 id=846 data-nosnippet>846</a>		) -&gt; DispatchResultWithPostInfo {
+<a href=#847 id=847 data-nosnippet>847</a>			ensure_signed(origin)<span class="question-mark">?</span>;
+<a href=#848 id=848 data-nosnippet>848</a>			<span class="self">Self</span>::do_claim_revenue(region_id, max_timeslices)<span class="question-mark">?</span>;
+<a href=#849 id=849 data-nosnippet>849</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
+<a href=#850 id=850 data-nosnippet>850</a>		}
+<a href=#851 id=851 data-nosnippet>851</a>
+<a href=#852 id=852 data-nosnippet>852</a>		<span class="doccomment">/// Purchase credit for use in the Instantaneous Coretime Pool.
+<a href=#853 id=853 data-nosnippet>853</a>		///
+<a href=#854 id=854 data-nosnippet>854</a>		/// - `origin`: Must be a Signed origin able to pay at least `amount`.
+<a href=#855 id=855 data-nosnippet>855</a>		/// - `amount`: The amount of credit to purchase.
+<a href=#856 id=856 data-nosnippet>856</a>		/// - `beneficiary`: The account on the Relay-chain which controls the credit (generally
+<a href=#857 id=857 data-nosnippet>857</a>		///   this will be the collator's hot wallet).
+<a href=#858 id=858 data-nosnippet>858</a>		</span><span class="attr">#[pallet::call_index(<span class="number">13</span>)]
+<a href=#859 id=859 data-nosnippet>859</a>		</span><span class="kw">pub fn </span>purchase_credit(
+<a href=#860 id=860 data-nosnippet>860</a>			origin: OriginFor&lt;T&gt;,
+<a href=#861 id=861 data-nosnippet>861</a>			amount: BalanceOf&lt;T&gt;,
+<a href=#862 id=862 data-nosnippet>862</a>			beneficiary: RelayAccountIdOf&lt;T&gt;,
+<a href=#863 id=863 data-nosnippet>863</a>		) -&gt; DispatchResult {
+<a href=#864 id=864 data-nosnippet>864</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
+<a href=#865 id=865 data-nosnippet>865</a>			<span class="self">Self</span>::do_purchase_credit(who, amount, beneficiary)<span class="question-mark">?</span>;
+<a href=#866 id=866 data-nosnippet>866</a>			<span class="prelude-val">Ok</span>(())
+<a href=#867 id=867 data-nosnippet>867</a>		}
+<a href=#868 id=868 data-nosnippet>868</a>
+<a href=#869 id=869 data-nosnippet>869</a>		<span class="doccomment">/// Drop an expired Region from the chain.
+<a href=#870 id=870 data-nosnippet>870</a>		///
+<a href=#871 id=871 data-nosnippet>871</a>		/// - `origin`: Can be any kind of origin.
+<a href=#872 id=872 data-nosnippet>872</a>		/// - `region_id`: The Region which has expired.
+<a href=#873 id=873 data-nosnippet>873</a>		</span><span class="attr">#[pallet::call_index(<span class="number">14</span>)]
+<a href=#874 id=874 data-nosnippet>874</a>		</span><span class="kw">pub fn </span>drop_region(
+<a href=#875 id=875 data-nosnippet>875</a>			_origin: OriginFor&lt;T&gt;,
+<a href=#876 id=876 data-nosnippet>876</a>			region_id: RegionId,
+<a href=#877 id=877 data-nosnippet>877</a>		) -&gt; DispatchResultWithPostInfo {
+<a href=#878 id=878 data-nosnippet>878</a>			<span class="self">Self</span>::do_drop_region(region_id)<span class="question-mark">?</span>;
+<a href=#879 id=879 data-nosnippet>879</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
+<a href=#880 id=880 data-nosnippet>880</a>		}
+<a href=#881 id=881 data-nosnippet>881</a>
+<a href=#882 id=882 data-nosnippet>882</a>		<span class="doccomment">/// Drop an expired Instantaneous Pool Contribution record from the chain.
+<a href=#883 id=883 data-nosnippet>883</a>		///
+<a href=#884 id=884 data-nosnippet>884</a>		/// - `origin`: Can be any kind of origin.
+<a href=#885 id=885 data-nosnippet>885</a>		/// - `region_id`: The Region identifying the Pool Contribution which has expired.
+<a href=#886 id=886 data-nosnippet>886</a>		</span><span class="attr">#[pallet::call_index(<span class="number">15</span>)]
+<a href=#887 id=887 data-nosnippet>887</a>		</span><span class="kw">pub fn </span>drop_contribution(
+<a href=#888 id=888 data-nosnippet>888</a>			_origin: OriginFor&lt;T&gt;,
+<a href=#889 id=889 data-nosnippet>889</a>			region_id: RegionId,
+<a href=#890 id=890 data-nosnippet>890</a>		) -&gt; DispatchResultWithPostInfo {
+<a href=#891 id=891 data-nosnippet>891</a>			<span class="self">Self</span>::do_drop_contribution(region_id)<span class="question-mark">?</span>;
+<a href=#892 id=892 data-nosnippet>892</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
+<a href=#893 id=893 data-nosnippet>893</a>		}
+<a href=#894 id=894 data-nosnippet>894</a>
+<a href=#895 id=895 data-nosnippet>895</a>		<span class="doccomment">/// Drop an expired Instantaneous Pool History record from the chain.
+<a href=#896 id=896 data-nosnippet>896</a>		///
+<a href=#897 id=897 data-nosnippet>897</a>		/// - `origin`: Can be any kind of origin.
+<a href=#898 id=898 data-nosnippet>898</a>		/// - `region_id`: The time of the Pool History record which has expired.
+<a href=#899 id=899 data-nosnippet>899</a>		</span><span class="attr">#[pallet::call_index(<span class="number">16</span>)]
+<a href=#900 id=900 data-nosnippet>900</a>		</span><span class="kw">pub fn </span>drop_history(_origin: OriginFor&lt;T&gt;, when: Timeslice) -&gt; DispatchResultWithPostInfo {
+<a href=#901 id=901 data-nosnippet>901</a>			<span class="self">Self</span>::do_drop_history(when)<span class="question-mark">?</span>;
+<a href=#902 id=902 data-nosnippet>902</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
+<a href=#903 id=903 data-nosnippet>903</a>		}
+<a href=#904 id=904 data-nosnippet>904</a>
+<a href=#905 id=905 data-nosnippet>905</a>		<span class="doccomment">/// Drop an expired Allowed Renewal record from the chain.
+<a href=#906 id=906 data-nosnippet>906</a>		///
+<a href=#907 id=907 data-nosnippet>907</a>		/// - `origin`: Can be any kind of origin.
+<a href=#908 id=908 data-nosnippet>908</a>		/// - `core`: The core to which the expired renewal refers.
+<a href=#909 id=909 data-nosnippet>909</a>		/// - `when`: The timeslice to which the expired renewal refers. This must have passed.
+<a href=#910 id=910 data-nosnippet>910</a>		</span><span class="attr">#[pallet::call_index(<span class="number">17</span>)]
+<a href=#911 id=911 data-nosnippet>911</a>		</span><span class="kw">pub fn </span>drop_renewal(
+<a href=#912 id=912 data-nosnippet>912</a>			_origin: OriginFor&lt;T&gt;,
+<a href=#913 id=913 data-nosnippet>913</a>			core: CoreIndex,
+<a href=#914 id=914 data-nosnippet>914</a>			when: Timeslice,
+<a href=#915 id=915 data-nosnippet>915</a>		) -&gt; DispatchResultWithPostInfo {
+<a href=#916 id=916 data-nosnippet>916</a>			<span class="self">Self</span>::do_drop_renewal(core, when)<span class="question-mark">?</span>;
+<a href=#917 id=917 data-nosnippet>917</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
+<a href=#918 id=918 data-nosnippet>918</a>		}
+<a href=#919 id=919 data-nosnippet>919</a>
+<a href=#920 id=920 data-nosnippet>920</a>		<span class="doccomment">/// Request a change to the number of cores available for scheduling work.
+<a href=#921 id=921 data-nosnippet>921</a>		///
+<a href=#922 id=922 data-nosnippet>922</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
+<a href=#923 id=923 data-nosnippet>923</a>		/// - `core_count`: The desired number of cores to be made available.
+<a href=#924 id=924 data-nosnippet>924</a>		</span><span class="attr">#[pallet::call_index(<span class="number">18</span>)]
+<a href=#925 id=925 data-nosnippet>925</a>		#[pallet::weight(T::WeightInfo::request_core_count((<span class="kw-2">*</span>core_count).into()))]
+<a href=#926 id=926 data-nosnippet>926</a>		</span><span class="kw">pub fn </span>request_core_count(origin: OriginFor&lt;T&gt;, core_count: CoreIndex) -&gt; DispatchResult {
+<a href=#927 id=927 data-nosnippet>927</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
+<a href=#928 id=928 data-nosnippet>928</a>			<span class="self">Self</span>::do_request_core_count(core_count)<span class="question-mark">?</span>;
+<a href=#929 id=929 data-nosnippet>929</a>			<span class="prelude-val">Ok</span>(())
+<a href=#930 id=930 data-nosnippet>930</a>		}
+<a href=#931 id=931 data-nosnippet>931</a>
+<a href=#932 id=932 data-nosnippet>932</a>		<span class="attr">#[pallet::call_index(<span class="number">19</span>)]
+<a href=#933 id=933 data-nosnippet>933</a>		#[pallet::weight(T::WeightInfo::notify_core_count())]
+<a href=#934 id=934 data-nosnippet>934</a>		</span><span class="kw">pub fn </span>notify_core_count(origin: OriginFor&lt;T&gt;, core_count: CoreIndex) -&gt; DispatchResult {
+<a href=#935 id=935 data-nosnippet>935</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
+<a href=#936 id=936 data-nosnippet>936</a>			<span class="self">Self</span>::do_notify_core_count(core_count)<span class="question-mark">?</span>;
+<a href=#937 id=937 data-nosnippet>937</a>			<span class="prelude-val">Ok</span>(())
+<a href=#938 id=938 data-nosnippet>938</a>		}
+<a href=#939 id=939 data-nosnippet>939</a>
+<a href=#940 id=940 data-nosnippet>940</a>		<span class="attr">#[pallet::call_index(<span class="number">20</span>)]
+<a href=#941 id=941 data-nosnippet>941</a>		#[pallet::weight(T::WeightInfo::notify_revenue())]
+<a href=#942 id=942 data-nosnippet>942</a>		</span><span class="kw">pub fn </span>notify_revenue(
+<a href=#943 id=943 data-nosnippet>943</a>			origin: OriginFor&lt;T&gt;,
+<a href=#944 id=944 data-nosnippet>944</a>			revenue: OnDemandRevenueRecordOf&lt;T&gt;,
+<a href=#945 id=945 data-nosnippet>945</a>		) -&gt; DispatchResult {
+<a href=#946 id=946 data-nosnippet>946</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
+<a href=#947 id=947 data-nosnippet>947</a>			<span class="self">Self</span>::do_notify_revenue(revenue)<span class="question-mark">?</span>;
+<a href=#948 id=948 data-nosnippet>948</a>			<span class="prelude-val">Ok</span>(())
+<a href=#949 id=949 data-nosnippet>949</a>		}
+<a href=#950 id=950 data-nosnippet>950</a>
+<a href=#951 id=951 data-nosnippet>951</a>		<span class="doccomment">/// Extrinsic for enabling auto renewal.
+<a href=#952 id=952 data-nosnippet>952</a>		///
+<a href=#953 id=953 data-nosnippet>953</a>		/// Callable by the sovereign account of the task on the specified core. This account
+<a href=#954 id=954 data-nosnippet>954</a>		/// will be charged at the start of every bulk period for renewing core time.
+<a href=#955 id=955 data-nosnippet>955</a>		///
+<a href=#956 id=956 data-nosnippet>956</a>		/// - `origin`: Must be the sovereign account of the task
+<a href=#957 id=957 data-nosnippet>957</a>		/// - `core`: The core to which the task to be renewed is currently assigned.
+<a href=#958 id=958 data-nosnippet>958</a>		/// - `task`: The task for which we want to enable auto renewal.
+<a href=#959 id=959 data-nosnippet>959</a>		/// - `workload_end_hint`: should be used when enabling auto-renewal for a core that is not
+<a href=#960 id=960 data-nosnippet>960</a>		///   expiring in the upcoming bulk period (e.g., due to holding a lease) since it would be
+<a href=#961 id=961 data-nosnippet>961</a>		///   inefficient to look up when the core expires to schedule the next renewal. Also used
+<a href=#962 id=962 data-nosnippet>962</a>		///   when the core is expiring with another task's workload, in which case it must point at
+<a href=#963 id=963 data-nosnippet>963</a>		///   the task's own renewal record.
+<a href=#964 id=964 data-nosnippet>964</a>		</span><span class="attr">#[pallet::call_index(<span class="number">21</span>)]
+<a href=#965 id=965 data-nosnippet>965</a>		#[pallet::weight(T::WeightInfo::enable_auto_renew())]
+<a href=#966 id=966 data-nosnippet>966</a>		</span><span class="kw">pub fn </span>enable_auto_renew(
+<a href=#967 id=967 data-nosnippet>967</a>			origin: OriginFor&lt;T&gt;,
+<a href=#968 id=968 data-nosnippet>968</a>			core: CoreIndex,
+<a href=#969 id=969 data-nosnippet>969</a>			task: TaskId,
+<a href=#970 id=970 data-nosnippet>970</a>			workload_end_hint: <span class="prelude-ty">Option</span>&lt;Timeslice&gt;,
+<a href=#971 id=971 data-nosnippet>971</a>		) -&gt; DispatchResult {
+<a href=#972 id=972 data-nosnippet>972</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
+<a href=#973 id=973 data-nosnippet>973</a>
+<a href=#974 id=974 data-nosnippet>974</a>			<span class="kw">let </span>sovereign_account = T::SovereignAccountOf::maybe_convert(task)
+<a href=#975 id=975 data-nosnippet>975</a>				.ok_or(Error::&lt;T&gt;::SovereignAccountNotFound)<span class="question-mark">?</span>;
+<a href=#976 id=976 data-nosnippet>976</a>			<span class="comment">// Only the sovereign account of a task can enable auto renewal for its own core.
+<a href=#977 id=977 data-nosnippet>977</a>			</span><span class="macro">ensure!</span>(who == sovereign_account, Error::&lt;T&gt;::NoPermission);
 <a href=#978 id=978 data-nosnippet>978</a>
-<a href=#979 id=979 data-nosnippet>979</a>		<span class="doccomment">/// Extrinsic for disabling auto renewal.
-<a href=#980 id=980 data-nosnippet>980</a>		///
-<a href=#981 id=981 data-nosnippet>981</a>		/// Callable by the sovereign account of the task on the specified core.
-<a href=#982 id=982 data-nosnippet>982</a>		///
-<a href=#983 id=983 data-nosnippet>983</a>		/// - `origin`: Must be the sovereign account of the task.
-<a href=#984 id=984 data-nosnippet>984</a>		/// - `core`: The core for which we want to disable auto renewal.
-<a href=#985 id=985 data-nosnippet>985</a>		/// - `task`: The task for which we want to disable auto renewal.
-<a href=#986 id=986 data-nosnippet>986</a>		</span><span class="attr">#[pallet::call_index(<span class="number">22</span>)]
-<a href=#987 id=987 data-nosnippet>987</a>		#[pallet::weight(T::WeightInfo::disable_auto_renew())]
-<a href=#988 id=988 data-nosnippet>988</a>		</span><span class="kw">pub fn </span>disable_auto_renew(
-<a href=#989 id=989 data-nosnippet>989</a>			origin: OriginFor&lt;T&gt;,
-<a href=#990 id=990 data-nosnippet>990</a>			core: CoreIndex,
-<a href=#991 id=991 data-nosnippet>991</a>			task: TaskId,
-<a href=#992 id=992 data-nosnippet>992</a>		) -&gt; DispatchResult {
-<a href=#993 id=993 data-nosnippet>993</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
-<a href=#994 id=994 data-nosnippet>994</a>
-<a href=#995 id=995 data-nosnippet>995</a>			<span class="kw">let </span>sovereign_account = T::SovereignAccountOf::maybe_convert(task)
-<a href=#996 id=996 data-nosnippet>996</a>				.ok_or(Error::&lt;T&gt;::SovereignAccountNotFound)<span class="question-mark">?</span>;
-<a href=#997 id=997 data-nosnippet>997</a>			<span class="comment">// Only the sovereign account of the task can disable auto-renewal.
-<a href=#998 id=998 data-nosnippet>998</a>			</span><span class="macro">ensure!</span>(who == sovereign_account, Error::&lt;T&gt;::NoPermission);
-<a href=#999 id=999 data-nosnippet>999</a>
-<a href=#1000 id=1000 data-nosnippet>1000</a>			<span class="self">Self</span>::do_disable_auto_renew(core, task)<span class="question-mark">?</span>;
-<a href=#1001 id=1001 data-nosnippet>1001</a>
-<a href=#1002 id=1002 data-nosnippet>1002</a>			<span class="prelude-val">Ok</span>(())
-<a href=#1003 id=1003 data-nosnippet>1003</a>		}
-<a href=#1004 id=1004 data-nosnippet>1004</a>
-<a href=#1005 id=1005 data-nosnippet>1005</a>		<span class="doccomment">/// Reserve a core for a workload immediately.
-<a href=#1006 id=1006 data-nosnippet>1006</a>		///
-<a href=#1007 id=1007 data-nosnippet>1007</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
-<a href=#1008 id=1008 data-nosnippet>1008</a>		/// - `workload`: The workload which should be permanently placed on a core starting
-<a href=#1009 id=1009 data-nosnippet>1009</a>		///   immediately.
-<a href=#1010 id=1010 data-nosnippet>1010</a>		/// - `core`: The core to which the assignment should be made until the reservation takes
-<a href=#1011 id=1011 data-nosnippet>1011</a>		///   effect. It is left to the caller to either add this new core or reassign any other
-<a href=#1012 id=1012 data-nosnippet>1012</a>		///   tasks to this existing core.
-<a href=#1013 id=1013 data-nosnippet>1013</a>		///
-<a href=#1014 id=1014 data-nosnippet>1014</a>		/// This reserves the workload and then injects the workload into the Workplan for the next
-<a href=#1015 id=1015 data-nosnippet>1015</a>		/// two sale periods. This overwrites any existing assignments for this core at the start of
-<a href=#1016 id=1016 data-nosnippet>1016</a>		/// the next sale period.
-<a href=#1017 id=1017 data-nosnippet>1017</a>		</span><span class="attr">#[pallet::call_index(<span class="number">23</span>)]
-<a href=#1018 id=1018 data-nosnippet>1018</a>		</span><span class="kw">pub fn </span>force_reserve(
-<a href=#1019 id=1019 data-nosnippet>1019</a>			origin: OriginFor&lt;T&gt;,
-<a href=#1020 id=1020 data-nosnippet>1020</a>			workload: Schedule,
-<a href=#1021 id=1021 data-nosnippet>1021</a>			core: CoreIndex,
-<a href=#1022 id=1022 data-nosnippet>1022</a>		) -&gt; DispatchResultWithPostInfo {
-<a href=#1023 id=1023 data-nosnippet>1023</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
-<a href=#1024 id=1024 data-nosnippet>1024</a>			<span class="self">Self</span>::do_force_reserve(workload, core)<span class="question-mark">?</span>;
-<a href=#1025 id=1025 data-nosnippet>1025</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
-<a href=#1026 id=1026 data-nosnippet>1026</a>		}
-<a href=#1027 id=1027 data-nosnippet>1027</a>
-<a href=#1028 id=1028 data-nosnippet>1028</a>		<span class="doccomment">/// Remove a lease.
-<a href=#1029 id=1029 data-nosnippet>1029</a>		///
-<a href=#1030 id=1030 data-nosnippet>1030</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
-<a href=#1031 id=1031 data-nosnippet>1031</a>		/// - `task`: The task id of the lease which should be removed.
-<a href=#1032 id=1032 data-nosnippet>1032</a>		</span><span class="attr">#[pallet::call_index(<span class="number">24</span>)]
-<a href=#1033 id=1033 data-nosnippet>1033</a>		</span><span class="kw">pub fn </span>remove_lease(origin: OriginFor&lt;T&gt;, task: TaskId) -&gt; DispatchResult {
-<a href=#1034 id=1034 data-nosnippet>1034</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
-<a href=#1035 id=1035 data-nosnippet>1035</a>			<span class="self">Self</span>::do_remove_lease(task)
-<a href=#1036 id=1036 data-nosnippet>1036</a>		}
-<a href=#1037 id=1037 data-nosnippet>1037</a>
-<a href=#1038 id=1038 data-nosnippet>1038</a>		<span class="doccomment">/// Remove an assignment from the Workplan.
-<a href=#1039 id=1039 data-nosnippet>1039</a>		///
-<a href=#1040 id=1040 data-nosnippet>1040</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
-<a href=#1041 id=1041 data-nosnippet>1041</a>		/// - `region_id`: The Region to be removed from the workplan.
-<a href=#1042 id=1042 data-nosnippet>1042</a>		</span><span class="attr">#[pallet::call_index(<span class="number">26</span>)]
-<a href=#1043 id=1043 data-nosnippet>1043</a>		</span><span class="kw">pub fn </span>remove_assignment(origin: OriginFor&lt;T&gt;, region_id: RegionId) -&gt; DispatchResult {
-<a href=#1044 id=1044 data-nosnippet>1044</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
-<a href=#1045 id=1045 data-nosnippet>1045</a>			<span class="self">Self</span>::do_remove_assignment(region_id)
-<a href=#1046 id=1046 data-nosnippet>1046</a>		}
-<a href=#1047 id=1047 data-nosnippet>1047</a>
-<a href=#1048 id=1048 data-nosnippet>1048</a>		<span class="doccomment">/// Forcefully remove a potential renewal record from chain.
-<a href=#1049 id=1049 data-nosnippet>1049</a>		///
-<a href=#1050 id=1050 data-nosnippet>1050</a>		/// Note that only the specified potential renewal will be removed while any related auto
-<a href=#1051 id=1051 data-nosnippet>1051</a>		/// renewals will stay intact and will fail.
-<a href=#1052 id=1052 data-nosnippet>1052</a>		///
-<a href=#1053 id=1053 data-nosnippet>1053</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
-<a href=#1054 id=1054 data-nosnippet>1054</a>		/// - `core`: Core which the target potential renewal record refers to.
-<a href=#1055 id=1055 data-nosnippet>1055</a>		/// - `when`: Timeslice which the target potential renewal record refers to.
-<a href=#1056 id=1056 data-nosnippet>1056</a>		</span><span class="attr">#[pallet::call_index(<span class="number">27</span>)]
-<a href=#1057 id=1057 data-nosnippet>1057</a>		</span><span class="kw">pub fn </span>remove_potential_renewal(
-<a href=#1058 id=1058 data-nosnippet>1058</a>			origin: OriginFor&lt;T&gt;,
-<a href=#1059 id=1059 data-nosnippet>1059</a>			core: CoreIndex,
-<a href=#1060 id=1060 data-nosnippet>1060</a>			when: Timeslice,
-<a href=#1061 id=1061 data-nosnippet>1061</a>		) -&gt; DispatchResult {
-<a href=#1062 id=1062 data-nosnippet>1062</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
-<a href=#1063 id=1063 data-nosnippet>1063</a>			<span class="self">Self</span>::do_remove_potential_renewal(core, when)
-<a href=#1064 id=1064 data-nosnippet>1064</a>		}
-<a href=#1065 id=1065 data-nosnippet>1065</a>
-<a href=#1066 id=1066 data-nosnippet>1066</a>		<span class="doccomment">/// Transfer a Bulk Coretime Region to a new owner, ignoring the previous owner.
-<a href=#1067 id=1067 data-nosnippet>1067</a>		///
-<a href=#1068 id=1068 data-nosnippet>1068</a>		/// This can also be used to recover regions that have been "burned" (e.g., from an
-<a href=#1069 id=1069 data-nosnippet>1069</a>		/// XCM reserve transfer).
-<a href=#1070 id=1070 data-nosnippet>1070</a>		///
-<a href=#1071 id=1071 data-nosnippet>1071</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
-<a href=#1072 id=1072 data-nosnippet>1072</a>		/// - `region_id`: The Region whose ownership should change.
-<a href=#1073 id=1073 data-nosnippet>1073</a>		/// - `new_owner`: The new owner for the Region.
-<a href=#1074 id=1074 data-nosnippet>1074</a>		</span><span class="attr">#[pallet::call_index(<span class="number">28</span>)]
-<a href=#1075 id=1075 data-nosnippet>1075</a>		</span><span class="kw">pub fn </span>force_transfer(
-<a href=#1076 id=1076 data-nosnippet>1076</a>			origin: OriginFor&lt;T&gt;,
-<a href=#1077 id=1077 data-nosnippet>1077</a>			region_id: RegionId,
-<a href=#1078 id=1078 data-nosnippet>1078</a>			new_owner: T::AccountId,
-<a href=#1079 id=1079 data-nosnippet>1079</a>		) -&gt; DispatchResult {
-<a href=#1080 id=1080 data-nosnippet>1080</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
-<a href=#1081 id=1081 data-nosnippet>1081</a>			<span class="self">Self</span>::do_transfer(region_id, <span class="prelude-val">None</span>, new_owner)<span class="question-mark">?</span>;
-<a href=#1082 id=1082 data-nosnippet>1082</a>			<span class="prelude-val">Ok</span>(())
-<a href=#1083 id=1083 data-nosnippet>1083</a>		}
-<a href=#1084 id=1084 data-nosnippet>1084</a>
-<a href=#1085 id=1085 data-nosnippet>1085</a>		<span class="attr">#[pallet::call_index(<span class="number">99</span>)]
-<a href=#1086 id=1086 data-nosnippet>1086</a>		#[pallet::weight(T::WeightInfo::swap_leases())]
-<a href=#1087 id=1087 data-nosnippet>1087</a>		</span><span class="kw">pub fn </span>swap_leases(origin: OriginFor&lt;T&gt;, id: TaskId, other: TaskId) -&gt; DispatchResult {
-<a href=#1088 id=1088 data-nosnippet>1088</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
-<a href=#1089 id=1089 data-nosnippet>1089</a>			<span class="self">Self</span>::do_swap_leases(id, other)<span class="question-mark">?</span>;
-<a href=#1090 id=1090 data-nosnippet>1090</a>			<span class="prelude-val">Ok</span>(())
-<a href=#1091 id=1091 data-nosnippet>1091</a>		}
-<a href=#1092 id=1092 data-nosnippet>1092</a>	}
-<a href=#1093 id=1093 data-nosnippet>1093</a>}
+<a href=#979 id=979 data-nosnippet>979</a>			<span class="self">Self</span>::do_enable_auto_renew(sovereign_account, core, task, workload_end_hint)<span class="question-mark">?</span>;
+<a href=#980 id=980 data-nosnippet>980</a>			<span class="prelude-val">Ok</span>(())
+<a href=#981 id=981 data-nosnippet>981</a>		}
+<a href=#982 id=982 data-nosnippet>982</a>
+<a href=#983 id=983 data-nosnippet>983</a>		<span class="doccomment">/// Extrinsic for disabling auto renewal.
+<a href=#984 id=984 data-nosnippet>984</a>		///
+<a href=#985 id=985 data-nosnippet>985</a>		/// Callable by the sovereign account of the task on the specified core.
+<a href=#986 id=986 data-nosnippet>986</a>		///
+<a href=#987 id=987 data-nosnippet>987</a>		/// - `origin`: Must be the sovereign account of the task.
+<a href=#988 id=988 data-nosnippet>988</a>		/// - `core`: The core for which we want to disable auto renewal.
+<a href=#989 id=989 data-nosnippet>989</a>		/// - `task`: The task for which we want to disable auto renewal.
+<a href=#990 id=990 data-nosnippet>990</a>		</span><span class="attr">#[pallet::call_index(<span class="number">22</span>)]
+<a href=#991 id=991 data-nosnippet>991</a>		#[pallet::weight(T::WeightInfo::disable_auto_renew())]
+<a href=#992 id=992 data-nosnippet>992</a>		</span><span class="kw">pub fn </span>disable_auto_renew(
+<a href=#993 id=993 data-nosnippet>993</a>			origin: OriginFor&lt;T&gt;,
+<a href=#994 id=994 data-nosnippet>994</a>			core: CoreIndex,
+<a href=#995 id=995 data-nosnippet>995</a>			task: TaskId,
+<a href=#996 id=996 data-nosnippet>996</a>		) -&gt; DispatchResult {
+<a href=#997 id=997 data-nosnippet>997</a>			<span class="kw">let </span>who = ensure_signed(origin)<span class="question-mark">?</span>;
+<a href=#998 id=998 data-nosnippet>998</a>
+<a href=#999 id=999 data-nosnippet>999</a>			<span class="kw">let </span>sovereign_account = T::SovereignAccountOf::maybe_convert(task)
+<a href=#1000 id=1000 data-nosnippet>1000</a>				.ok_or(Error::&lt;T&gt;::SovereignAccountNotFound)<span class="question-mark">?</span>;
+<a href=#1001 id=1001 data-nosnippet>1001</a>			<span class="comment">// Only the sovereign account of the task can disable auto-renewal.
+<a href=#1002 id=1002 data-nosnippet>1002</a>			</span><span class="macro">ensure!</span>(who == sovereign_account, Error::&lt;T&gt;::NoPermission);
+<a href=#1003 id=1003 data-nosnippet>1003</a>
+<a href=#1004 id=1004 data-nosnippet>1004</a>			<span class="self">Self</span>::do_disable_auto_renew(core, task)<span class="question-mark">?</span>;
+<a href=#1005 id=1005 data-nosnippet>1005</a>
+<a href=#1006 id=1006 data-nosnippet>1006</a>			<span class="prelude-val">Ok</span>(())
+<a href=#1007 id=1007 data-nosnippet>1007</a>		}
+<a href=#1008 id=1008 data-nosnippet>1008</a>
+<a href=#1009 id=1009 data-nosnippet>1009</a>		<span class="doccomment">/// Reserve a core for a workload immediately.
+<a href=#1010 id=1010 data-nosnippet>1010</a>		///
+<a href=#1011 id=1011 data-nosnippet>1011</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
+<a href=#1012 id=1012 data-nosnippet>1012</a>		/// - `workload`: The workload which should be permanently placed on a core starting
+<a href=#1013 id=1013 data-nosnippet>1013</a>		///   immediately.
+<a href=#1014 id=1014 data-nosnippet>1014</a>		/// - `core`: The core to which the assignment should be made until the reservation takes
+<a href=#1015 id=1015 data-nosnippet>1015</a>		///   effect. It is left to the caller to either add this new core or reassign any other
+<a href=#1016 id=1016 data-nosnippet>1016</a>		///   tasks to this existing core.
+<a href=#1017 id=1017 data-nosnippet>1017</a>		///
+<a href=#1018 id=1018 data-nosnippet>1018</a>		/// This reserves the workload and then injects the workload into the Workplan for the next
+<a href=#1019 id=1019 data-nosnippet>1019</a>		/// two sale periods. This overwrites any existing assignments for this core at the start of
+<a href=#1020 id=1020 data-nosnippet>1020</a>		/// the next sale period.
+<a href=#1021 id=1021 data-nosnippet>1021</a>		</span><span class="attr">#[pallet::call_index(<span class="number">23</span>)]
+<a href=#1022 id=1022 data-nosnippet>1022</a>		</span><span class="kw">pub fn </span>force_reserve(
+<a href=#1023 id=1023 data-nosnippet>1023</a>			origin: OriginFor&lt;T&gt;,
+<a href=#1024 id=1024 data-nosnippet>1024</a>			workload: Schedule,
+<a href=#1025 id=1025 data-nosnippet>1025</a>			core: CoreIndex,
+<a href=#1026 id=1026 data-nosnippet>1026</a>		) -&gt; DispatchResultWithPostInfo {
+<a href=#1027 id=1027 data-nosnippet>1027</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
+<a href=#1028 id=1028 data-nosnippet>1028</a>			<span class="self">Self</span>::do_force_reserve(workload, core)<span class="question-mark">?</span>;
+<a href=#1029 id=1029 data-nosnippet>1029</a>			<span class="prelude-val">Ok</span>(Pays::No.into())
+<a href=#1030 id=1030 data-nosnippet>1030</a>		}
+<a href=#1031 id=1031 data-nosnippet>1031</a>
+<a href=#1032 id=1032 data-nosnippet>1032</a>		<span class="doccomment">/// Remove a lease.
+<a href=#1033 id=1033 data-nosnippet>1033</a>		///
+<a href=#1034 id=1034 data-nosnippet>1034</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
+<a href=#1035 id=1035 data-nosnippet>1035</a>		/// - `task`: The task id of the lease which should be removed.
+<a href=#1036 id=1036 data-nosnippet>1036</a>		</span><span class="attr">#[pallet::call_index(<span class="number">24</span>)]
+<a href=#1037 id=1037 data-nosnippet>1037</a>		</span><span class="kw">pub fn </span>remove_lease(origin: OriginFor&lt;T&gt;, task: TaskId) -&gt; DispatchResult {
+<a href=#1038 id=1038 data-nosnippet>1038</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
+<a href=#1039 id=1039 data-nosnippet>1039</a>			<span class="self">Self</span>::do_remove_lease(task)
+<a href=#1040 id=1040 data-nosnippet>1040</a>		}
+<a href=#1041 id=1041 data-nosnippet>1041</a>
+<a href=#1042 id=1042 data-nosnippet>1042</a>		<span class="doccomment">/// Remove an assignment from the Workplan.
+<a href=#1043 id=1043 data-nosnippet>1043</a>		///
+<a href=#1044 id=1044 data-nosnippet>1044</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
+<a href=#1045 id=1045 data-nosnippet>1045</a>		/// - `region_id`: The Region to be removed from the workplan.
+<a href=#1046 id=1046 data-nosnippet>1046</a>		</span><span class="attr">#[pallet::call_index(<span class="number">26</span>)]
+<a href=#1047 id=1047 data-nosnippet>1047</a>		</span><span class="kw">pub fn </span>remove_assignment(origin: OriginFor&lt;T&gt;, region_id: RegionId) -&gt; DispatchResult {
+<a href=#1048 id=1048 data-nosnippet>1048</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
+<a href=#1049 id=1049 data-nosnippet>1049</a>			<span class="self">Self</span>::do_remove_assignment(region_id)
+<a href=#1050 id=1050 data-nosnippet>1050</a>		}
+<a href=#1051 id=1051 data-nosnippet>1051</a>
+<a href=#1052 id=1052 data-nosnippet>1052</a>		<span class="doccomment">/// Forcefully remove a potential renewal record from chain.
+<a href=#1053 id=1053 data-nosnippet>1053</a>		///
+<a href=#1054 id=1054 data-nosnippet>1054</a>		/// Note that only the specified potential renewal will be removed while any related auto
+<a href=#1055 id=1055 data-nosnippet>1055</a>		/// renewals will stay intact and will fail.
+<a href=#1056 id=1056 data-nosnippet>1056</a>		///
+<a href=#1057 id=1057 data-nosnippet>1057</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
+<a href=#1058 id=1058 data-nosnippet>1058</a>		/// - `core`: Core which the target potential renewal record refers to.
+<a href=#1059 id=1059 data-nosnippet>1059</a>		/// - `when`: Timeslice which the target potential renewal record refers to.
+<a href=#1060 id=1060 data-nosnippet>1060</a>		</span><span class="attr">#[pallet::call_index(<span class="number">27</span>)]
+<a href=#1061 id=1061 data-nosnippet>1061</a>		</span><span class="kw">pub fn </span>remove_potential_renewal(
+<a href=#1062 id=1062 data-nosnippet>1062</a>			origin: OriginFor&lt;T&gt;,
+<a href=#1063 id=1063 data-nosnippet>1063</a>			core: CoreIndex,
+<a href=#1064 id=1064 data-nosnippet>1064</a>			when: Timeslice,
+<a href=#1065 id=1065 data-nosnippet>1065</a>		) -&gt; DispatchResult {
+<a href=#1066 id=1066 data-nosnippet>1066</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
+<a href=#1067 id=1067 data-nosnippet>1067</a>			<span class="self">Self</span>::do_remove_potential_renewal(core, when)
+<a href=#1068 id=1068 data-nosnippet>1068</a>		}
+<a href=#1069 id=1069 data-nosnippet>1069</a>
+<a href=#1070 id=1070 data-nosnippet>1070</a>		<span class="doccomment">/// Transfer a Bulk Coretime Region to a new owner, ignoring the previous owner.
+<a href=#1071 id=1071 data-nosnippet>1071</a>		///
+<a href=#1072 id=1072 data-nosnippet>1072</a>		/// This can also be used to recover regions that have been "burned" (e.g., from an
+<a href=#1073 id=1073 data-nosnippet>1073</a>		/// XCM reserve transfer).
+<a href=#1074 id=1074 data-nosnippet>1074</a>		///
+<a href=#1075 id=1075 data-nosnippet>1075</a>		/// - `origin`: Must be Root or pass `AdminOrigin`.
+<a href=#1076 id=1076 data-nosnippet>1076</a>		/// - `region_id`: The Region whose ownership should change.
+<a href=#1077 id=1077 data-nosnippet>1077</a>		/// - `new_owner`: The new owner for the Region.
+<a href=#1078 id=1078 data-nosnippet>1078</a>		</span><span class="attr">#[pallet::call_index(<span class="number">28</span>)]
+<a href=#1079 id=1079 data-nosnippet>1079</a>		</span><span class="kw">pub fn </span>force_transfer(
+<a href=#1080 id=1080 data-nosnippet>1080</a>			origin: OriginFor&lt;T&gt;,
+<a href=#1081 id=1081 data-nosnippet>1081</a>			region_id: RegionId,
+<a href=#1082 id=1082 data-nosnippet>1082</a>			new_owner: T::AccountId,
+<a href=#1083 id=1083 data-nosnippet>1083</a>		) -&gt; DispatchResult {
+<a href=#1084 id=1084 data-nosnippet>1084</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
+<a href=#1085 id=1085 data-nosnippet>1085</a>			<span class="self">Self</span>::do_transfer(region_id, <span class="prelude-val">None</span>, new_owner)<span class="question-mark">?</span>;
+<a href=#1086 id=1086 data-nosnippet>1086</a>			<span class="prelude-val">Ok</span>(())
+<a href=#1087 id=1087 data-nosnippet>1087</a>		}
+<a href=#1088 id=1088 data-nosnippet>1088</a>
+<a href=#1089 id=1089 data-nosnippet>1089</a>		<span class="attr">#[pallet::call_index(<span class="number">99</span>)]
+<a href=#1090 id=1090 data-nosnippet>1090</a>		#[pallet::weight(T::WeightInfo::swap_leases())]
+<a href=#1091 id=1091 data-nosnippet>1091</a>		</span><span class="kw">pub fn </span>swap_leases(origin: OriginFor&lt;T&gt;, id: TaskId, other: TaskId) -&gt; DispatchResult {
+<a href=#1092 id=1092 data-nosnippet>1092</a>			T::AdminOrigin::ensure_origin_or_root(origin)<span class="question-mark">?</span>;
+<a href=#1093 id=1093 data-nosnippet>1093</a>			<span class="self">Self</span>::do_swap_leases(id, other)<span class="question-mark">?</span>;
+<a href=#1094 id=1094 data-nosnippet>1094</a>			<span class="prelude-val">Ok</span>(())
+<a href=#1095 id=1095 data-nosnippet>1095</a>		}
+<a href=#1096 id=1096 data-nosnippet>1096</a>	}
+<a href=#1097 id=1097 data-nosnippet>1097</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

@@ -717,95 +717,98 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#567 id=567 data-nosnippet>567</a>		<span class="kw">let </span>sale = SaleInfo::&lt;T&gt;::get().ok_or(Error::&lt;T&gt;::NoSales)<span class="question-mark">?</span>;
 <a href=#568 id=568 data-nosnippet>568</a>		<span class="kw">let </span><span class="kw-2">mut </span>core = core;
 <a href=#569 id=569 data-nosnippet>569</a>
-<a href=#570 id=570 data-nosnippet>570</a>		<span class="comment">// Check if the core is expiring in the next bulk period; if so, we will renew it now.
-<a href=#571 id=571 data-nosnippet>571</a>		//
-<a href=#572 id=572 data-nosnippet>572</a>		// In case we renew it now, we don't need to check the workload end since we know it is
-<a href=#573 id=573 data-nosnippet>573</a>		// eligible for renewal.
-<a href=#574 id=574 data-nosnippet>574</a>		</span><span class="kw">if </span>PotentialRenewals::&lt;T&gt;::get(PotentialRenewalId { core, when: sale.region_begin })
-<a href=#575 id=575 data-nosnippet>575</a>			.is_some()
-<a href=#576 id=576 data-nosnippet>576</a>		{
-<a href=#577 id=577 data-nosnippet>577</a>			core = <span class="self">Self</span>::do_renew(sovereign_account.clone(), core)<span class="question-mark">?</span>;
-<a href=#578 id=578 data-nosnippet>578</a>		} <span class="kw">else if let </span><span class="prelude-val">Some</span>(workload_end) = workload_end_hint {
-<a href=#579 id=579 data-nosnippet>579</a>			<span class="macro">ensure!</span>(
-<a href=#580 id=580 data-nosnippet>580</a>				PotentialRenewals::&lt;T&gt;::get(PotentialRenewalId { core, when: workload_end })
-<a href=#581 id=581 data-nosnippet>581</a>					.is_some(),
-<a href=#582 id=582 data-nosnippet>582</a>				Error::&lt;T&gt;::NotAllowed
-<a href=#583 id=583 data-nosnippet>583</a>			);
-<a href=#584 id=584 data-nosnippet>584</a>		} <span class="kw">else </span>{
-<a href=#585 id=585 data-nosnippet>585</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::NotAllowed.into());
-<a href=#586 id=586 data-nosnippet>586</a>		}
-<a href=#587 id=587 data-nosnippet>587</a>
-<a href=#588 id=588 data-nosnippet>588</a>		<span class="comment">// We are sorting auto renewals by `CoreIndex`.
-<a href=#589 id=589 data-nosnippet>589</a>		</span>AutoRenewals::&lt;T&gt;::try_mutate(|renewals| {
-<a href=#590 id=590 data-nosnippet>590</a>			<span class="kw">let </span>pos = renewals
-<a href=#591 id=591 data-nosnippet>591</a>				.binary_search_by(|r: <span class="kw-2">&amp;</span>AutoRenewalRecord| r.core.cmp(<span class="kw-2">&amp;</span>core))
-<a href=#592 id=592 data-nosnippet>592</a>				.unwrap_or_else(|e| e);
-<a href=#593 id=593 data-nosnippet>593</a>			renewals.try_insert(
-<a href=#594 id=594 data-nosnippet>594</a>				pos,
-<a href=#595 id=595 data-nosnippet>595</a>				AutoRenewalRecord {
-<a href=#596 id=596 data-nosnippet>596</a>					core,
-<a href=#597 id=597 data-nosnippet>597</a>					task,
-<a href=#598 id=598 data-nosnippet>598</a>					next_renewal: workload_end_hint.unwrap_or(sale.region_end),
-<a href=#599 id=599 data-nosnippet>599</a>				},
-<a href=#600 id=600 data-nosnippet>600</a>			)
-<a href=#601 id=601 data-nosnippet>601</a>		})
-<a href=#602 id=602 data-nosnippet>602</a>		.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::TooManyAutoRenewals)<span class="question-mark">?</span>;
-<a href=#603 id=603 data-nosnippet>603</a>
-<a href=#604 id=604 data-nosnippet>604</a>		<span class="self">Self</span>::deposit_event(Event::AutoRenewalEnabled { core, task });
-<a href=#605 id=605 data-nosnippet>605</a>		<span class="prelude-val">Ok</span>(())
-<a href=#606 id=606 data-nosnippet>606</a>	}
-<a href=#607 id=607 data-nosnippet>607</a>
-<a href=#608 id=608 data-nosnippet>608</a>	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_disable_auto_renew(core: CoreIndex, task: TaskId) -&gt; DispatchResult {
-<a href=#609 id=609 data-nosnippet>609</a>		AutoRenewals::&lt;T&gt;::try_mutate(|renewals| -&gt; DispatchResult {
-<a href=#610 id=610 data-nosnippet>610</a>			<span class="kw">let </span>pos = renewals
-<a href=#611 id=611 data-nosnippet>611</a>				.binary_search_by(|r: <span class="kw-2">&amp;</span>AutoRenewalRecord| r.core.cmp(<span class="kw-2">&amp;</span>core))
-<a href=#612 id=612 data-nosnippet>612</a>				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::AutoRenewalNotEnabled)<span class="question-mark">?</span>;
-<a href=#613 id=613 data-nosnippet>613</a>
-<a href=#614 id=614 data-nosnippet>614</a>			<span class="kw">let </span>renewal_record = renewals.get(pos).ok_or(Error::&lt;T&gt;::AutoRenewalNotEnabled)<span class="question-mark">?</span>;
-<a href=#615 id=615 data-nosnippet>615</a>
-<a href=#616 id=616 data-nosnippet>616</a>			<span class="macro">ensure!</span>(
-<a href=#617 id=617 data-nosnippet>617</a>				renewal_record.core == core &amp;&amp; renewal_record.task == task,
-<a href=#618 id=618 data-nosnippet>618</a>				Error::&lt;T&gt;::NoPermission
-<a href=#619 id=619 data-nosnippet>619</a>			);
-<a href=#620 id=620 data-nosnippet>620</a>			renewals.remove(pos);
-<a href=#621 id=621 data-nosnippet>621</a>			<span class="prelude-val">Ok</span>(())
-<a href=#622 id=622 data-nosnippet>622</a>		})<span class="question-mark">?</span>;
-<a href=#623 id=623 data-nosnippet>623</a>
-<a href=#624 id=624 data-nosnippet>624</a>		<span class="self">Self</span>::deposit_event(Event::AutoRenewalDisabled { core, task });
-<a href=#625 id=625 data-nosnippet>625</a>		<span class="prelude-val">Ok</span>(())
-<a href=#626 id=626 data-nosnippet>626</a>	}
-<a href=#627 id=627 data-nosnippet>627</a>
-<a href=#628 id=628 data-nosnippet>628</a>	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_remove_potential_renewal(core: CoreIndex, when: Timeslice) -&gt; DispatchResult {
-<a href=#629 id=629 data-nosnippet>629</a>		<span class="kw">let </span>renewal_id = PotentialRenewalId { core, when };
+<a href=#570 id=570 data-nosnippet>570</a>		<span class="comment">// Check if the core is expiring in the next bulk period with the task's own workload;
+<a href=#571 id=571 data-nosnippet>571</a>		// if so, we will renew it now.
+<a href=#572 id=572 data-nosnippet>572</a>		//
+<a href=#573 id=573 data-nosnippet>573</a>		// A core index can be assigned a different workload each bulk period, so the core could
+<a href=#574 id=574 data-nosnippet>574</a>		// instead be expiring with another task's workload, which `task` must not pay to renew.
+<a href=#575 id=575 data-nosnippet>575</a>		// In that case the `workload_end_hint` can still point to the task's own renewal record.
+<a href=#576 id=576 data-nosnippet>576</a>		</span><span class="kw">let </span>renewable_now =
+<a href=#577 id=577 data-nosnippet>577</a>			PotentialRenewals::&lt;T&gt;::get(PotentialRenewalId { core, when: sale.region_begin })
+<a href=#578 id=578 data-nosnippet>578</a>				.map_or(<span class="bool-val">false</span>, |record| record.completion.is_complete_and_contains_task(task));
+<a href=#579 id=579 data-nosnippet>579</a>
+<a href=#580 id=580 data-nosnippet>580</a>		<span class="kw">let </span>next_renewal = <span class="kw">if </span>renewable_now {
+<a href=#581 id=581 data-nosnippet>581</a>			core = <span class="self">Self</span>::do_renew(sovereign_account.clone(), core)<span class="question-mark">?</span>;
+<a href=#582 id=582 data-nosnippet>582</a>			<span class="comment">// The next renewal is due when the period we just renewed for ends.
+<a href=#583 id=583 data-nosnippet>583</a>			</span>sale.region_end
+<a href=#584 id=584 data-nosnippet>584</a>		} <span class="kw">else if let </span><span class="prelude-val">Some</span>(workload_end) = workload_end_hint {
+<a href=#585 id=585 data-nosnippet>585</a>			<span class="kw">let </span>record =
+<a href=#586 id=586 data-nosnippet>586</a>				PotentialRenewals::&lt;T&gt;::get(PotentialRenewalId { core, when: workload_end })
+<a href=#587 id=587 data-nosnippet>587</a>					.ok_or(Error::&lt;T&gt;::NotAllowed)<span class="question-mark">?</span>;
+<a href=#588 id=588 data-nosnippet>588</a>			<span class="kw">let </span>workload = record.completion.complete().ok_or(Error::&lt;T&gt;::IncompleteAssignment)<span class="question-mark">?</span>;
+<a href=#589 id=589 data-nosnippet>589</a>			<span class="macro">ensure!</span>(
+<a href=#590 id=590 data-nosnippet>590</a>				workload.iter().any(|item| item.assignment == CoreAssignment::Task(task)),
+<a href=#591 id=591 data-nosnippet>591</a>				Error::&lt;T&gt;::TaskNotInWorkload
+<a href=#592 id=592 data-nosnippet>592</a>			);
+<a href=#593 id=593 data-nosnippet>593</a>			workload_end
+<a href=#594 id=594 data-nosnippet>594</a>		} <span class="kw">else </span>{
+<a href=#595 id=595 data-nosnippet>595</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(Error::&lt;T&gt;::TaskNotInWorkload.into());
+<a href=#596 id=596 data-nosnippet>596</a>		};
+<a href=#597 id=597 data-nosnippet>597</a>
+<a href=#598 id=598 data-nosnippet>598</a>		<span class="comment">// We are sorting auto renewals by `CoreIndex`.
+<a href=#599 id=599 data-nosnippet>599</a>		</span>AutoRenewals::&lt;T&gt;::try_mutate(|renewals| {
+<a href=#600 id=600 data-nosnippet>600</a>			<span class="kw">let </span>pos = renewals
+<a href=#601 id=601 data-nosnippet>601</a>				.binary_search_by(|r: <span class="kw-2">&amp;</span>AutoRenewalRecord| r.core.cmp(<span class="kw-2">&amp;</span>core))
+<a href=#602 id=602 data-nosnippet>602</a>				.unwrap_or_else(|e| e);
+<a href=#603 id=603 data-nosnippet>603</a>			renewals.try_insert(pos, AutoRenewalRecord { core, task, next_renewal })
+<a href=#604 id=604 data-nosnippet>604</a>		})
+<a href=#605 id=605 data-nosnippet>605</a>		.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::TooManyAutoRenewals)<span class="question-mark">?</span>;
+<a href=#606 id=606 data-nosnippet>606</a>
+<a href=#607 id=607 data-nosnippet>607</a>		<span class="self">Self</span>::deposit_event(Event::AutoRenewalEnabled { core, task });
+<a href=#608 id=608 data-nosnippet>608</a>		<span class="prelude-val">Ok</span>(())
+<a href=#609 id=609 data-nosnippet>609</a>	}
+<a href=#610 id=610 data-nosnippet>610</a>
+<a href=#611 id=611 data-nosnippet>611</a>	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_disable_auto_renew(core: CoreIndex, task: TaskId) -&gt; DispatchResult {
+<a href=#612 id=612 data-nosnippet>612</a>		AutoRenewals::&lt;T&gt;::try_mutate(|renewals| -&gt; DispatchResult {
+<a href=#613 id=613 data-nosnippet>613</a>			<span class="kw">let </span>pos = renewals
+<a href=#614 id=614 data-nosnippet>614</a>				.binary_search_by(|r: <span class="kw-2">&amp;</span>AutoRenewalRecord| r.core.cmp(<span class="kw-2">&amp;</span>core))
+<a href=#615 id=615 data-nosnippet>615</a>				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::AutoRenewalNotEnabled)<span class="question-mark">?</span>;
+<a href=#616 id=616 data-nosnippet>616</a>
+<a href=#617 id=617 data-nosnippet>617</a>			<span class="kw">let </span>renewal_record = renewals.get(pos).ok_or(Error::&lt;T&gt;::AutoRenewalNotEnabled)<span class="question-mark">?</span>;
+<a href=#618 id=618 data-nosnippet>618</a>
+<a href=#619 id=619 data-nosnippet>619</a>			<span class="macro">ensure!</span>(
+<a href=#620 id=620 data-nosnippet>620</a>				renewal_record.core == core &amp;&amp; renewal_record.task == task,
+<a href=#621 id=621 data-nosnippet>621</a>				Error::&lt;T&gt;::NoPermission
+<a href=#622 id=622 data-nosnippet>622</a>			);
+<a href=#623 id=623 data-nosnippet>623</a>			renewals.remove(pos);
+<a href=#624 id=624 data-nosnippet>624</a>			<span class="prelude-val">Ok</span>(())
+<a href=#625 id=625 data-nosnippet>625</a>		})<span class="question-mark">?</span>;
+<a href=#626 id=626 data-nosnippet>626</a>
+<a href=#627 id=627 data-nosnippet>627</a>		<span class="self">Self</span>::deposit_event(Event::AutoRenewalDisabled { core, task });
+<a href=#628 id=628 data-nosnippet>628</a>		<span class="prelude-val">Ok</span>(())
+<a href=#629 id=629 data-nosnippet>629</a>	}
 <a href=#630 id=630 data-nosnippet>630</a>
-<a href=#631 id=631 data-nosnippet>631</a>		PotentialRenewals::&lt;T&gt;::take(renewal_id).ok_or(Error::&lt;T&gt;::UnknownRenewal)<span class="question-mark">?</span>;
-<a href=#632 id=632 data-nosnippet>632</a>
-<a href=#633 id=633 data-nosnippet>633</a>		<span class="self">Self</span>::deposit_event(Event::PotentialRenewalRemoved { core, timeslice: when });
-<a href=#634 id=634 data-nosnippet>634</a>
-<a href=#635 id=635 data-nosnippet>635</a>		<span class="prelude-val">Ok</span>(())
-<a href=#636 id=636 data-nosnippet>636</a>	}
+<a href=#631 id=631 data-nosnippet>631</a>	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>do_remove_potential_renewal(core: CoreIndex, when: Timeslice) -&gt; DispatchResult {
+<a href=#632 id=632 data-nosnippet>632</a>		<span class="kw">let </span>renewal_id = PotentialRenewalId { core, when };
+<a href=#633 id=633 data-nosnippet>633</a>
+<a href=#634 id=634 data-nosnippet>634</a>		PotentialRenewals::&lt;T&gt;::take(renewal_id).ok_or(Error::&lt;T&gt;::UnknownRenewal)<span class="question-mark">?</span>;
+<a href=#635 id=635 data-nosnippet>635</a>
+<a href=#636 id=636 data-nosnippet>636</a>		<span class="self">Self</span>::deposit_event(Event::PotentialRenewalRemoved { core, timeslice: when });
 <a href=#637 id=637 data-nosnippet>637</a>
-<a href=#638 id=638 data-nosnippet>638</a>	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>ensure_cores_for_sale(
-<a href=#639 id=639 data-nosnippet>639</a>		status: <span class="kw-2">&amp;</span>StatusRecord,
-<a href=#640 id=640 data-nosnippet>640</a>		sale: <span class="kw-2">&amp;</span>SaleInfoRecordOf&lt;T&gt;,
-<a href=#641 id=641 data-nosnippet>641</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
-<a href=#642 id=642 data-nosnippet>642</a>		<span class="macro">ensure!</span>(sale.first_core &lt; status.core_count, Error::&lt;T&gt;::Unavailable);
-<a href=#643 id=643 data-nosnippet>643</a>		<span class="macro">ensure!</span>(sale.cores_sold &lt; sale.cores_offered, Error::&lt;T&gt;::SoldOut);
-<a href=#644 id=644 data-nosnippet>644</a>
-<a href=#645 id=645 data-nosnippet>645</a>		<span class="prelude-val">Ok</span>(())
-<a href=#646 id=646 data-nosnippet>646</a>	}
+<a href=#638 id=638 data-nosnippet>638</a>		<span class="prelude-val">Ok</span>(())
+<a href=#639 id=639 data-nosnippet>639</a>	}
+<a href=#640 id=640 data-nosnippet>640</a>
+<a href=#641 id=641 data-nosnippet>641</a>	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>ensure_cores_for_sale(
+<a href=#642 id=642 data-nosnippet>642</a>		status: <span class="kw-2">&amp;</span>StatusRecord,
+<a href=#643 id=643 data-nosnippet>643</a>		sale: <span class="kw-2">&amp;</span>SaleInfoRecordOf&lt;T&gt;,
+<a href=#644 id=644 data-nosnippet>644</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), DispatchError&gt; {
+<a href=#645 id=645 data-nosnippet>645</a>		<span class="macro">ensure!</span>(sale.first_core &lt; status.core_count, Error::&lt;T&gt;::Unavailable);
+<a href=#646 id=646 data-nosnippet>646</a>		<span class="macro">ensure!</span>(sale.cores_sold &lt; sale.cores_offered, Error::&lt;T&gt;::SoldOut);
 <a href=#647 id=647 data-nosnippet>647</a>
-<a href=#648 id=648 data-nosnippet>648</a>	<span class="doccomment">/// If there is an ongoing sale returns the current price of a core.
-<a href=#649 id=649 data-nosnippet>649</a>	</span><span class="kw">pub fn </span>current_price() -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, DispatchError&gt; {
-<a href=#650 id=650 data-nosnippet>650</a>		<span class="kw">let </span>status = Status::&lt;T&gt;::get().ok_or(Error::&lt;T&gt;::Uninitialized)<span class="question-mark">?</span>;
-<a href=#651 id=651 data-nosnippet>651</a>		<span class="kw">let </span>sale = SaleInfo::&lt;T&gt;::get().ok_or(Error::&lt;T&gt;::NoSales)<span class="question-mark">?</span>;
-<a href=#652 id=652 data-nosnippet>652</a>
-<a href=#653 id=653 data-nosnippet>653</a>		<span class="self">Self</span>::ensure_cores_for_sale(<span class="kw-2">&amp;</span>status, <span class="kw-2">&amp;</span>sale)<span class="question-mark">?</span>;
-<a href=#654 id=654 data-nosnippet>654</a>
-<a href=#655 id=655 data-nosnippet>655</a>		<span class="kw">let </span>now = RCBlockNumberProviderOf::&lt;T::Coretime&gt;::current_block_number();
-<a href=#656 id=656 data-nosnippet>656</a>		<span class="prelude-val">Ok</span>(<span class="self">Self</span>::sale_price(<span class="kw-2">&amp;</span>sale, now))
-<a href=#657 id=657 data-nosnippet>657</a>	}
-<a href=#658 id=658 data-nosnippet>658</a>}
+<a href=#648 id=648 data-nosnippet>648</a>		<span class="prelude-val">Ok</span>(())
+<a href=#649 id=649 data-nosnippet>649</a>	}
+<a href=#650 id=650 data-nosnippet>650</a>
+<a href=#651 id=651 data-nosnippet>651</a>	<span class="doccomment">/// If there is an ongoing sale returns the current price of a core.
+<a href=#652 id=652 data-nosnippet>652</a>	</span><span class="kw">pub fn </span>current_price() -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, DispatchError&gt; {
+<a href=#653 id=653 data-nosnippet>653</a>		<span class="kw">let </span>status = Status::&lt;T&gt;::get().ok_or(Error::&lt;T&gt;::Uninitialized)<span class="question-mark">?</span>;
+<a href=#654 id=654 data-nosnippet>654</a>		<span class="kw">let </span>sale = SaleInfo::&lt;T&gt;::get().ok_or(Error::&lt;T&gt;::NoSales)<span class="question-mark">?</span>;
+<a href=#655 id=655 data-nosnippet>655</a>
+<a href=#656 id=656 data-nosnippet>656</a>		<span class="self">Self</span>::ensure_cores_for_sale(<span class="kw-2">&amp;</span>status, <span class="kw-2">&amp;</span>sale)<span class="question-mark">?</span>;
+<a href=#657 id=657 data-nosnippet>657</a>
+<a href=#658 id=658 data-nosnippet>658</a>		<span class="kw">let </span>now = RCBlockNumberProviderOf::&lt;T::Coretime&gt;::current_block_number();
+<a href=#659 id=659 data-nosnippet>659</a>		<span class="prelude-val">Ok</span>(<span class="self">Self</span>::sale_price(<span class="kw-2">&amp;</span>sale, now))
+<a href=#660 id=660 data-nosnippet>660</a>	}
+<a href=#661 id=661 data-nosnippet>661</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

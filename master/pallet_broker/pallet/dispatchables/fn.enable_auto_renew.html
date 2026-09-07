@@ -161,7 +161,9 @@ will be charged at the start of every bulk period for renewing core time.</p>
 <li><code>task</code>: The task for which we want to enable auto renewal.</li>
 <li><code>workload_end_hint</code>: should be used when enabling auto-renewal for a core that is not
 expiring in the upcoming bulk period (e.g., due to holding a lease) since it would be
-inefficient to look up when the core expires to schedule the next renewal.</li>
+inefficient to look up when the core expires to schedule the next renewal. Also used
+when the core is expiring with another task’s workload, in which case it must point at
+the task’s own renewal record.</li>
 </ul>
 <h2 id="warning-doc-only"><a class="doc-anchor" href="#warning-doc-only">§</a>Warning: Doc-Only</h2>
 <p>This function is an automatically generated, and is doc-only, uncallable
