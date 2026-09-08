@@ -47,8 +47,11 @@ const SYNC_NODE_MAX_BLOCKS_PER_REQUEST: u64 = 1;
 /// bodies and `assert_missing` breaks.
 const WARP_TARGET_LAG_MARGIN: u64 = 16;
 /// Timeout for finalizing past `last_store_block + GAP_SYNC_BODY_WINDOW +
-/// WARP_TARGET_LAG_MARGIN` (~120 blocks at roughly one per ~10s).
-const GAP_WINDOW_ADVANCE_TIMEOUT_SECS: u64 = 1200;
+/// WARP_TARGET_LAG_MARGIN` (~120 blocks). CI runs show the parachain finalizing one
+/// block per ~12.5s on average (bursts of 6s blocks separated by ~30s authoring
+/// pauses), so the wait itself takes ~1250s on a healthy network; the timeout needs
+/// generous head-room on top of that, not a tight estimate.
+const GAP_WINDOW_ADVANCE_TIMEOUT_SECS: u64 = 2400;
 const SESSION_CHANGE_TIMEOUT_SECS: u64 = 300;
 const BITSWAP_RPC_POLL_TIMEOUT_SECS: u64 = 600;
 const RENEW_BLOCK_SYNC_TIMEOUT_SECS: u64 = 600;
