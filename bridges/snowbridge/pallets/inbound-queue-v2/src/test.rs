@@ -626,7 +626,7 @@ fn poc_permissionless_forged_receipt_bypasses_verifier_and_injects_xcm() {
 			.execution_header
 			.commitment()
 			.expect("deneb fixture merkleizes; qed")
-			.receipts_root_once_proven();
+			.receipts_root();
 		let root_node = fixture.event.proof.receipt_proof[0].clone();
 		let exploit_proof_nodes = vec![root_node, forged_receipt_bytes.clone()];
 

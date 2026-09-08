@@ -61,7 +61,7 @@ fn forged_receipt_proof_is_rejected_after_path_check_fix() {
 		.execution_header
 		.commitment()
 		.expect("deneb fixture merkleizes; qed")
-		.receipts_root_once_proven();
+		.receipts_root();
 	let root_node = fixture.event.proof.receipt_proof[0].clone();
 	let exploit_proof_nodes = vec![root_node, forged_receipt_bytes];
 

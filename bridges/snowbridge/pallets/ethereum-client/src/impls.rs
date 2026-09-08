@@ -122,8 +122,6 @@ impl<T: Config> Pallet<T> {
 
 		let is_gloas = execution_proof.execution_header.scheme() == CommitmentScheme::BlockHash;
 
-		// Pre-Gloas the leaf is the SSZ root of the execution payload header; Gloas removes
-		// that field, so the leaf is `keccak256(canonical header RLP)` at a different index.
 		let commitment = execution_proof.execution_header.commitment().map_err(|e| match e {
 			CommitmentError::Merkleization => Error::<T>::BlockBodyHashTreeRootFailed,
 			CommitmentError::MalformedExecutionHeader => Error::<T>::MalformedExecutionHeader,
@@ -141,7 +139,7 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::InvalidExecutionHeaderProof
 		);
 
-		Ok(commitment.receipts_root_once_proven())
+		Ok(commitment.receipts_root())
 	}
 
 	/// Verify that `block_root` is an ancestor of `finalized_block_root` Used to prove that

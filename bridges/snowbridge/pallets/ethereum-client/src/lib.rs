@@ -782,10 +782,6 @@ pub mod pallet {
 		}
 
 		/// Generalized index of the execution commitment inside `BeaconBlockBody`.
-		///
-		/// Pre-Gloas this is the SSZ `execution_payload` root. Gloas removes that field, so
-		/// the commitment becomes the execution block hash carried by the payload bid, at a
-		/// different index and with a different leaf.
 		pub fn execution_commitment_gindex(is_gloas: bool) -> usize {
 			if is_gloas {
 				config::gloas::EXECUTION_BLOCK_HASH_INDEX

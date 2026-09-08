@@ -1468,13 +1468,8 @@ mod gloas_sync_committee {
 	}
 }
 
-/// A full post-Gloas message proof, end to end, on real data.
-///
-/// Everything below comes from one slot of the [Platåberget](https://plataberget.dev/)
-/// Gloas testnet: beacon block 115968, and the execution block it committed to
-/// (EL block 113202, hash 0x9af0c93804597fe5…).
-///
-/// The chain the pallet walks is:
+/// A full post-Gloas message proof. Platåberget beacon block 115968, execution block
+/// 113202. The chain the pallet walks:
 ///
 /// ```text
 /// stored finalized beacon header
@@ -1665,9 +1660,6 @@ mod gloas_end_to_end {
 		});
 	}
 
-	/// Altering the execution header changes its keccak hash, so the gindex-2856 branch no
-	/// longer verifies. This is what stops a submitter pairing a genuine beacon proof with a
-	/// header of their own.
 	/// Bytes that are not a canonical header are rejected on the parse, distinctly from a
 	/// proof that simply fails to verify.
 	#[test]
@@ -1685,6 +1677,8 @@ mod gloas_end_to_end {
 		});
 	}
 
+	/// Altering the execution header changes its keccak hash, so the gindex-2856 branch no
+	/// longer verifies.
 	#[test]
 	fn rejects_a_tampered_execution_header() {
 		new_tester().execute_with(|| {
@@ -1747,16 +1741,9 @@ mod gloas_end_to_end {
 	}
 }
 
-/// The checkpoint and ancestry halves, driven through the pallet's own code rather than
-/// through `verify_merkle_branch` directly.
-///
-/// `force_checkpoint` is where the gindex-352 `block_roots` arm is actually consumed: it
-/// proves `block_roots_root` out of the checkpoint state and caches it, and every ancestry
-/// proof afterwards is rooted at that cached value.
-///
-/// Real data throughout: checkpoint at Platåberget slot 116768, whose state merkleizes to
-/// the `state_root` its own block commits to, and which carries the slot-115968 block root
-/// used by the execution proof above.
+/// `force_checkpoint` is where the gindex-352 `block_roots` arm is consumed: it proves
+/// `block_roots_root` out of the checkpoint state and caches it, and every ancestry proof
+/// afterwards is rooted at that cached value. Checkpoint at Platåberget slot 116768.
 mod gloas_checkpoint_and_ancestry {
 	use super::*;
 	use snowbridge_beacon_primitives::AncestryProof;
@@ -1797,9 +1784,7 @@ mod gloas_checkpoint_and_ancestry {
 		});
 	}
 
-	/// A Gloas checkpoint at the Electra `block_roots` index must not verify. This is the
-	/// 352-versus-69 correction, asserted through the pallet rather than against
-	/// `verify_merkle_branch` in isolation.
+	/// A Gloas checkpoint at the Electra `block_roots` index must not verify.
 	#[test]
 	fn gloas_checkpoint_fails_if_block_roots_branch_is_wrong() {
 		new_tester().execute_with(|| {
@@ -1894,15 +1879,10 @@ mod gloas_fork_isolation {
 	}
 }
 
-/// A second, independent end-to-end message — different beacon block, different execution
-/// block, different transaction.
-///
-/// One fixture can pass for reasons peculiar to itself. This one carries 11 blob commitments
-/// where the other carried none, so the branch to 2856 runs through a different subtree; the
-/// header has 29 bytes of `extra_data`, so the RLP walk sees different item widths; and the
-/// receipt is at a different transaction index, against a log that is not the first in it.
-///
-/// Platåberget beacon block 128608, execution block 125689.
+/// A second end-to-end message, chosen to differ where it matters: 11 blob commitments where
+/// the other had none, so the branch to 2856 runs through a different subtree; 29 bytes of
+/// `extra_data`, so the RLP walk sees different item widths; and a log that is not the first
+/// in its receipt. Platåberget beacon block 128608, execution block 125689.
 mod gloas_end_to_end_second {
 	use super::*;
 	use snowbridge_beacon_primitives::{

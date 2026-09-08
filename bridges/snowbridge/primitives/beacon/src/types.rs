@@ -390,43 +390,25 @@ pub struct CompactBeaconState {
 pub enum VersionedExecutionPayloadHeader {
 	Capella(ExecutionPayloadHeader),
 	Deneb(deneb::ExecutionPayloadHeader),
-	/// [New in Gloas:EIP7732] Canonical RLP bytes of the Ethereum execution header.
-	///
-	/// Gloas removes `execution_payload` from `BeaconBlockBody`, so the block commits only
-	/// to an execution block hash. These bytes are authenticated by
-	/// `keccak256(bytes) == <committed block hash>`, and the `receipts_root` is read out of
-	/// the authenticated encoding.
-	///
-	/// Hash the bytes exactly as submitted: decoding and re-encoding first would be wrong.
 	Gloas(BoundedVec<u8, ConstU32<MAX_EXECUTION_HEADER_RLP_SIZE>>),
 }
 
-/// Which commitment scheme a proof uses. The two are proven at different generalized
-/// indices against different leaves.
+/// The commitment scheme a proof uses. Pre-Gloas the leaf is the SSZ root of
+/// `BeaconBlockBody.execution_payload`; for Gloas it is the execution block hash at
+/// `BeaconBlockBody.signed_execution_payload_bid.message.parent_block_hash`.
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum CommitmentScheme {
-	/// Pre-Gloas: the leaf is the SSZ hash-tree root of the full execution payload header,
-	/// committed at `BeaconBlockBody.execution_payload`.
 	PayloadHeaderRoot,
-	/// Gloas (EIP-7732): the leaf is the execution block hash, committed at
-	/// `BeaconBlockBody.signed_execution_payload_bid.message.parent_block_hash`.
 	BlockHash,
 }
 
-/// Why a commitment could not be derived from a submitted execution header.
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum CommitmentError {
-	/// The pre-Gloas payload header could not be merkleized.
 	Merkleization,
-	/// The Gloas bytes are not one canonical Ethereum execution header.
 	MalformedExecutionHeader,
 }
 
 /// The leaf `ExecutionProof::execution_branch` must prove, and the receipts root it unlocks.
-///
-/// Carries the leaf to verify against `BeaconHeader::body_root` together with the receipts
-/// root that leaf authenticates. The receipts root is private and reachable only through
-/// [`Self::receipts_root_once_proven`].
 #[must_use]
 #[derive(Clone, PartialEq, Debug)]
 pub struct ExecutionCommitment {
@@ -443,15 +425,13 @@ impl ExecutionCommitment {
 	/// The receipts root this commitment authenticates.
 	///
 	/// Call only once [`Self::leaf`] has been proven into a finalized beacon block.
-	pub fn receipts_root_once_proven(self) -> H256 {
+	pub fn receipts_root(self) -> H256 {
 		self.receipts_root
 	}
 }
 
 impl VersionedExecutionPayloadHeader {
 	/// Which commitment scheme this proof declares.
-	///
-	/// Reads the variant tag only — no parsing — so callers can gate work on it.
 	pub fn scheme(&self) -> CommitmentScheme {
 		match self {
 			VersionedExecutionPayloadHeader::Capella(_) |
@@ -461,9 +441,6 @@ impl VersionedExecutionPayloadHeader {
 	}
 
 	/// Build the commitment the execution branch must prove.
-	///
-	/// This is the only way to obtain a receipts root. For Gloas it parses
-	/// submitter-supplied bytes.
 	pub fn commitment(&self) -> Result<ExecutionCommitment, CommitmentError> {
 		Ok(match self {
 			VersionedExecutionPayloadHeader::Capella(header) => ExecutionCommitment {
@@ -805,7 +782,7 @@ mod gloas_execution_header_tests {
 	fn commitment_leaf_is_the_block_hash() {
 		let commitment = gloas(&HEADER_RLP).commitment().unwrap();
 		assert_eq!(commitment.leaf(), H256::from(BLOCK_HASH));
-		assert_eq!(commitment.receipts_root_once_proven(), H256::from(RECEIPTS_ROOT));
+		assert_eq!(commitment.receipts_root(), H256::from(RECEIPTS_ROOT));
 	}
 
 	/// Altering any byte changes the leaf, so an altered header cannot be proven even

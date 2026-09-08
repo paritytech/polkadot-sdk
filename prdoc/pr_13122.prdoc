@@ -4,14 +4,6 @@ doc:
   description: |-
     Adds Gloas (Glamsterdam) support to the Snowbridge Ethereum beacon light client.
 
-    EIP-7688 turns `BeaconState` and `BeaconBlockBody` into progressive containers, so every
-    generalized index moves.
-
-    EIP-7732 removes `execution_payload` from `BeaconBlockBody`, leaving a builder's bid that
-    commits to the *parent* execution block hash. A proof carries that block's canonical RLP
-    header, authenticated by `keccak256(bytes) == committed hash`, and reads `receipts_root`
-    out of it.
-
 crates:
 - name: snowbridge-beacon-primitives
   bump: major
