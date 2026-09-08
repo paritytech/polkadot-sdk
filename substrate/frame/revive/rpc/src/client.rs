@@ -454,8 +454,8 @@ impl<Inner: RpcClientT> RpcClientT for StateCallTimer<Inner> {
 		method: &'a str,
 		params: Option<Box<RawValue>>,
 	) -> RawRpcFuture<'a, Box<RawValue>> {
-		if method != "state_call"
-			|| !log::log_enabled!(target: LOG_TARGET_TIMING, log::Level::Trace)
+		if method != "state_call" ||
+			!log::log_enabled!(target: LOG_TARGET_TIMING, log::Level::Trace)
 		{
 			return self.0.request_raw(method, params);
 		}
