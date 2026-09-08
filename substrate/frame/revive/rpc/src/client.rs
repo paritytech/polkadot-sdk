@@ -668,6 +668,13 @@ impl Client {
 				last_finalized_seen = Some(block_number);
 			}
 
+			// The finalized stream replays every intermediate block when the node's finality
+			// jumps (e.g. while it catches up after a restart), so cap the processing rate to
+			// avoid storming the node with per-block requests.
+			if let Some(limiter) = self.backward_sync_rate_limiter() {
+				limiter.until_ready().await;
+			}
+
 			log::trace!(target: LOG_TARGET_SUBSCRIPTION, "⏳ Processing {subscription_type:?} block: {block_number}");
 			if let Err(err) = callback(block).await {
 				log::error!(target: LOG_TARGET, "Failed to process block {block_number}: {err:?}");
