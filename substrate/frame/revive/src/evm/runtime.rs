@@ -329,6 +329,17 @@ pub trait EthExtra {
 		tip: BalanceOf<Self::Config>,
 	) -> Self::ExtensionV0;
 
+	/// The weight of verifying an Ethereum transaction's signature.
+	///
+	/// Used both when building the [`CheckedExtrinsic`] dispatched by `Executive` and when
+	/// [`crate::evm::fees::InfoT::dispatch_info`] estimates fees and the weight budget for
+	/// `eth_transact` calls. Both call sites must agree, otherwise the fee/weight estimated
+	/// before dispatch (used for the wallet balance check, gas estimation, and the weight limit
+	/// assigned to execution) can diverge from what is actually charged post-dispatch.
+	fn signature_weight() -> Weight {
+		sp_runtime::traits::SignatureWeight::weight(&sp_core::ecdsa::KeccakSignature::default())
+	}
+
 	/// Convert the unsigned [`crate::Call::eth_transact`] into a [`CheckedExtrinsic`].
 	/// and ensure that the fees from the Ethereum transaction correspond to the fees computed from
 	/// the encoded_len and the injected weight_limit.
@@ -432,9 +443,7 @@ pub trait EthExtra {
 			format: ExtrinsicFormat::Signed(
 				signer.into(),
 				Self::get_eth_extension(nonce, Zero::zero()),
-				sp_runtime::traits::SignatureWeight::weight(
-					&sp_core::ecdsa::KeccakSignature::default(),
-				),
+				Self::signature_weight(),
 			),
 			function: call_info.call,
 		})
@@ -547,18 +556,22 @@ mod test {
 		fn check(
 			self,
 		) -> Result<
-			(u32, RuntimeCall, SignedExtra, GenericTransaction, Weight, TransactionSigned),
+			(u32, RuntimeCall, SignedExtra, GenericTransaction, Weight, TransactionSigned, Weight),
 			TransactionValidityError,
 		> {
 			self.mutate_estimate_and_check(Box::new(|_| ()))
 		}
 
 		/// Call `check` on the unchecked extrinsic, and `pre_dispatch` on the signed extension.
+		///
+		/// The last `Weight` in the returned tuple is `total_weight()` of the dispatch info
+		/// carried on the resulting `CheckedExtrinsic` (i.e. what `Executive::apply_extrinsic`
+		/// actually charges), for comparison against `FeeInfo::dispatch_info`'s estimate.
 		fn mutate_estimate_and_check(
 			mut self,
 			f: Box<dyn FnOnce(&mut GenericTransaction) -> ()>,
 		) -> Result<
-			(u32, RuntimeCall, SignedExtra, GenericTransaction, Weight, TransactionSigned),
+			(u32, RuntimeCall, SignedExtra, GenericTransaction, Weight, TransactionSigned, Weight),
 			TransactionValidityError,
 		> {
 			ExtBuilder::default().build().execute_with(|| self.estimate_gas());
@@ -579,6 +592,7 @@ mod test {
 				let uxt: UncheckedExtrinsic = generic::UncheckedExtrinsic::new_bare(call).into();
 				let encoded_len = uxt.encoded_size();
 				let result: CheckedExtrinsic<_, _, _> = uxt.check(&TestContext {})?;
+				let checked_dispatch_weight = result.get_dispatch_info().total_weight();
 				let (account_id, extra): (AccountId32, SignedExtra) = match result.format {
 					ExtrinsicFormat::Signed(signer, extra, _) => (signer, extra),
 					_ => unreachable!(),
@@ -600,6 +614,7 @@ mod test {
 					tx,
 					self.dry_run.unwrap().weight_required,
 					signed_transaction,
+					checked_dispatch_weight,
 				))
 			})
 		}
@@ -756,7 +771,8 @@ mod test {
 	#[test]
 	fn eth_pre_dispatch_weight_matches_check_weight_booking() {
 		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
-		let (encoded_len, call, _, _, _, signed_transaction) = builder.check().unwrap();
+		let (encoded_len, call, _, _, _, signed_transaction, checked_dispatch_weight) =
+			builder.check().unwrap();
 
 		ExtBuilder::default().build().execute_with(|| {
 			let reported =
@@ -770,6 +786,13 @@ mod test {
 			);
 
 			assert_eq!(reported, expected);
+
+			// `FeeInfo::dispatch_info` (used for the wallet balance check, gas estimation, and
+			// the weight limit assigned to execution) must charge the same total weight as the
+			// `CheckedExtrinsic` that `Executive::apply_extrinsic` actually dispatches.
+			// Otherwise a transaction can pass pre-dispatch checks using one estimate and then be
+			// charged a higher fee/weight post-dispatch using the other.
+			assert_eq!(info.total_weight(), checked_dispatch_weight);
 		});
 	}
 
@@ -796,7 +819,7 @@ mod test {
 
 		let builder =
 			UncheckedExtrinsicBuilder::call_with(RUNTIME_PALLETS_ADDR).data(remark.encode());
-		let (_, call, _, _, _, _) = builder.check().unwrap();
+		let (_, call, _, _, _, _, _) = builder.check().unwrap();
 
 		match call {
 			RuntimeCall::Contracts(crate::Call::eth_substrate_call {
