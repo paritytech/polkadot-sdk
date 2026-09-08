@@ -133,6 +133,8 @@ velocity-6 = []
 velocity-12 = []
 
 # The default relay parent offset is 0. The following features can be used to change this value:
+# Change the relay parent offset to 1
+relay-parent-offset-1 = []
 # Change the relay parent offset to 2
 relay-parent-offset-2 = []
 # Change the relay parent offset to 4
