@@ -163,6 +163,7 @@ impl multi_block::signed::Config for Runtime {
 	type DepositPerPage = DepositPerPage;
 	type InvulnerableDeposit = ();
 	type RewardBase = RewardBase;
+	type MaxFeeRefund = multi_block::signed::FullSubmissionFee<Runtime, TransactionPayment>;
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
 	type WeightInfo = weights::pallet_election_provider_multi_block_signed::WeightInfo<Runtime>;
