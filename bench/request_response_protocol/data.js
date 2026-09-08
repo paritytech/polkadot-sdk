@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788870886032,
+  "lastUpdate": 1788882549663,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -121823,6 +121823,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2684802758,
             "range": "± 71822716",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "evgeny@parity.io",
+            "name": "Evgeny Snitko",
+            "username": "AndWeHaveAPlan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8e9a9efc409af2ed41244f8e6ebcbdde2b44ac36",
+          "message": "Update ci-unified image to `bullseye-1.93.0-2026-01-27-v202609081126` (#13130)\n\nNew bullseye ci-unified with temporary workaround for the expired\n`bullseye-security`\n\ncc https://github.com/paritytech/devops/issues/5593",
+          "timestamp": "2026-09-08T14:22:27Z",
+          "tree_id": "768d72d050a5c48ab5f150149b86819523632080",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8e9a9efc409af2ed41244f8e6ebcbdde2b44ac36"
+        },
+        "date": 1788882511411,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21491515,
+            "range": "± 338892",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21833705,
+            "range": "± 735405",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22784254,
+            "range": "± 347808",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28099504,
+            "range": "± 415678",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 65273258,
+            "range": "± 1948001",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 412906085,
+            "range": "± 7124533",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2933136379,
+            "range": "± 130186717",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17810352,
+            "range": "± 284168",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17637026,
+            "range": "± 227132",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17965278,
+            "range": "± 307648",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22446477,
+            "range": "± 191142",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63215755,
+            "range": "± 526269",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 376494537,
+            "range": "± 6171724",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2750409042,
+            "range": "± 23141336",
             "unit": "ns/iter"
           }
         ]
