@@ -821,6 +821,32 @@ fn conclude_after_leafless_signals_shuts_down() {
 }
 
 #[test]
+fn communication_before_the_first_leaf_is_dropped() {
+	test_harness(|test_state, mut virtual_overseer| {
+		Box::pin(async move {
+			// Messages arriving before the first leaf are dropped, rather than answered with
+			// potentially outdated information.
+			let (tx, rx) = oneshot::channel();
+			virtual_overseer
+				.send(FromOrchestra::Communication {
+					msg: DisputeCoordinatorMessage::ActiveDisputes(tx),
+				})
+				.await;
+
+			// The contained oneshot is cancelled without a response.
+			assert!(rx.await.is_err());
+
+			// The subsystem is still waiting for its first leaf and shuts down cleanly on
+			// `Conclude`.
+			virtual_overseer.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
+			assert!(virtual_overseer.try_recv().await.is_none());
+
+			test_state
+		})
+	});
+}
+
+#[test]
 fn too_many_unconfirmed_statements_are_considered_spam() {
 	test_harness(|mut test_state, mut virtual_overseer| {
 		Box::pin(async move {
