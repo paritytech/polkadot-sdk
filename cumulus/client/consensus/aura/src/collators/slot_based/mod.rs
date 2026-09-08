@@ -109,6 +109,7 @@ mod block_import;
 mod collation_task;
 mod relay_chain_data_cache;
 mod resubmission;
+mod resubmittable_segment;
 mod scheduling;
 mod slot_timer;
 
@@ -191,7 +192,7 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
 	Proposer: Environment<Block> + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
-	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + Sync + 'static,
+	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Clone + Send + Sync + 'static,
 	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
@@ -237,9 +238,11 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		collator_service: collator_service.clone(),
 		collator_receiver: rx,
 		export_pov,
+		para_backend: para_backend.clone(),
+		code_hash_provider: code_hash_provider.clone(),
 	};
 
-	let collation_task_fut = run_collation_task::<Block, _, _>(collator_task_params);
+	let collation_task_fut = run_collation_task::<Block, _, _, _, _>(collator_task_params);
 
 	let block_builder_params = block_builder_task::BuilderTaskParams {
 		create_inherent_data_providers,
@@ -304,6 +307,9 @@ enum CollatorMessage<Block: BlockT> {
 
 /// Segment message sent from the block builder for V3/V4 candidates. Routed to
 /// `CollationGenerationMessage::SubmitSegment` by the collation task.
+///
+/// The collation task prepends the resubmitted headers (hydrated from
+/// `resubmittable_headers`) to the freshly-built `bundle`, all sharing the same `scheduling_proof`.
 struct CollatorSegmentMessage<Block: BlockT> {
 	/// Scheduling proof shared by the whole segment. Segments are V3/V4-only, so this is always
 	/// present; the segment's scheduling parent is derived from
@@ -311,7 +317,12 @@ struct CollatorSegmentMessage<Block: BlockT> {
 	pub scheduling_proof: SchedulingProof,
 	/// Target core for the whole segment submission.
 	pub core_index: CoreIndex,
-	/// The freshly-built bundle for this core, if one was built this slot.
+	/// This core's slice of the resubmittable headers. Hydrated into
+	/// [`CollatorSegmentEntry`]s by the collation task (off the block-production hot path) and
+	/// prepended, oldest first, ahead of `bundle`.
+	pub resubmittable_headers: Vec<Block::Header>,
+	/// The freshly-built bundle for this core, if one was built this slot. Submitted last, after
+	/// the resubmitted entries.
 	pub bundle: Option<CollatorSegmentEntry<Block>>,
 }
 

@@ -250,9 +250,6 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 }
 
 /// Why [`SchedulingProofBuilder::build_with_signed_payload`] could not sign.
-// The signed terminal has no production caller until the resubmission path lands. Outside tests
-// only `build` is reachable.
-#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum SchedulingSignError {
 	#[error("scheduling proof builder is missing the {0}")]
@@ -274,7 +271,6 @@ pub(crate) enum SchedulingSignError {
 /// Assembles a V3 [`SchedulingProof`], converting collator-side values into the shapes the proof
 /// needs: relay parent descendants become the backwards header chain, and the core assignment plus
 /// collator peer id become a signed [`SchedulingInfoPayload`].
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SchedulingProofBuilder<'a, P: Pair> {
 	internal_scheduling_parent_header: RelayHeader,
 	header_chain: Vec<RelayHeader>,
@@ -284,7 +280,6 @@ pub(crate) struct SchedulingProofBuilder<'a, P: Pair> {
 	_phantom: PhantomData<P>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 impl<'a, P> SchedulingProofBuilder<'a, P>
 where
 	P: Pair,
