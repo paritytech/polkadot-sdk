@@ -117,16 +117,14 @@ impl<B: BlockT> BlockCollection<B> {
 		max_parallel: u32,
 		max_ahead: u32,
 	) -> Option<Range<NumberFor<B>>> {
+		// Cancellation, responses and disconnection should release the previous range.
+		if self.peer_requests.contains_key(&who) {
+			log::debug!(target: LOG_TARGET, "Releasing stale block download reservation for {who}");
+			self.clear_peer_download(&who);
+		}
 		if peer_best <= common {
 			// Bail out early
 			return None;
-		}
-		// Cancellation, responses and disconnection should release the previous range.
-		// Defensively release stale ownership before overwriting it, which would orphan
-		// the old Downloading marker and prevent that range from being retried.
-		if self.peer_requests.contains_key(&who) {
-			log::warn!(target: LOG_TARGET, "Releasing stale block download reservation for {who}");
-			self.clear_peer_download(&who);
 		}
 		// First block number that we need to download
 		let first_different = common + <NumberFor<B>>::one();

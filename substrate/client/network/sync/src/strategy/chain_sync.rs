@@ -1952,8 +1952,10 @@ where
 			}
 		}
 
+		// The client is the source of truth for the gap. Rebuild the gap sync state from it, or
+		// drop ours if the database has already closed the gap.
+		let old_gap = self.gap_sync.take().map(|g| (g.best_queued_number, g.target));
 		if let Some(BlockGap { start, end, .. }) = info.block_gap {
-			let old_gap = self.gap_sync.take().map(|g| (g.best_queued_number, g.target));
 			debug!(target: LOG_TARGET, "Starting gap sync #{start} - #{end} (old gap best and target: {old_gap:?})");
 			self.gap_sync = Some(GapSync {
 				best_queued_number: start - One::one(),
@@ -1961,6 +1963,14 @@ where
 				blocks: BlockCollection::new(),
 				stats: GapSyncStats::new(),
 			});
+		} else if let Some((best, target)) = old_gap {
+			debug!(
+				target: LOG_TARGET,
+				"Block gap is closed in the database, dropping gap sync state (best: #{best}, target: #{target})",
+			);
+			if let Some(metrics) = &self.metrics {
+				metrics.gap_oldest_required_body.set(0);
+			}
 		}
 		trace!(
 			target: LOG_TARGET,

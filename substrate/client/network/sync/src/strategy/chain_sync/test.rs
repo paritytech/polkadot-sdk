@@ -1852,6 +1852,32 @@ fn ancestry_search_preserves_pending_fork_download() {
 	get_block_request(&mut sync, FromBlock::Hash(fork_hash), 2, &peer);
 }
 
+/// A restart must not keep gap sync state the database no longer knows about. This happens when
+/// the gap target was imported (closing the gap in the database) but a restart runs before the
+/// import result reaches `complete_gap_if_target`.
+#[test]
+fn restart_drops_gap_sync_when_database_reports_no_gap() {
+	let client = Arc::new(TestClientBuilder::new().build());
+	assert!(client.info().block_gap.is_none());
+	let mut sync = new_test_sync(client);
+	let peer = PeerId::random();
+	sync.add_peer(peer, sync.best_queued_hash, 0);
+	sync.gap_sync = Some(GapSync {
+		best_queued_number: 8,
+		target: 8,
+		blocks: BlockCollection::new(),
+		stats: GapSyncStats::new(),
+	});
+	sync.peers.get_mut(&peer).unwrap().state = PeerSyncState::DownloadingGap(7);
+	assert!(sync.status().warp_sync.is_some());
+
+	sync.restart();
+
+	assert!(sync.gap_sync.is_none());
+	assert!(sync.status().warp_sync.is_none());
+	assert!(sync.peers[&peer].state.is_available());
+}
+
 #[test]
 fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 	sp_tracing::try_init_simple();
