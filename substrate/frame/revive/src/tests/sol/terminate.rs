@@ -708,15 +708,16 @@ fn call_after_terminate_works(fixture_type: FixtureType, method: u8) {
 	});
 }
 
-/// A native freeze that pins the contract ED must not let `System.terminate`
-/// report success while leaving the contract live.
+/// A native freeze that pins the contract ED must make `System.terminate` revert
+/// instead of reporting success while leaving the contract live.
 ///
-/// The freeze is `reserved + ED` so `reducible_balance` still reports the
-/// extra as transferable (`Preservation::Preserve`), but after `refund_all`
-/// the polite ED burn has nothing left to spend. Before the first-frame
-/// storage transaction covered deferred destruction, `terminate_caller`
-/// transferred that extra, `do_terminate` failed, and `.ok()` swallowed the
-/// error. The beneficiary kept the transfer and the contract stayed callable.
+/// The freeze is `reserved + ED` so `reducible_balance` still reports the extra
+/// as transferable (`Preservation::Preserve`), but the polite ED burn in
+/// `destroy_contract` has nothing left to spend. That burn happens in the
+/// deferred destruction, where the error is swallowed, so `terminate_caller`
+/// rejects the freeze up-front: the precompile reverts and the calling contract
+/// can observe it. Previously the beneficiary kept the transfer and the contract
+/// stayed callable.
 ///
 /// See <https://github.com/paritytech/polkadot-sdk/issues/13017>.
 #[test_case(FixtureType::Solc)]
@@ -758,26 +759,17 @@ fn precompile_terminate_reverts_when_ed_is_frozen(fixture_type: FixtureType) {
 				}
 				.abi_encode(),
 			)
-			.build();
+			.build_and_unwrap_result();
 
-		assert!(
-			result.result.is_err(),
-			"terminate must fail the enclosing call when deferred destruction cannot burn the ED; got {:?}",
-			result.result,
-		);
-		assert!(
-			get_contract_checked(&addr).is_some(),
-			"contract must remain live after a failed terminate",
-		);
+		assert!(result.did_revert(), "terminate must revert when a freeze pins the ED");
 		assert_eq!(
-			get_balance(&account_id),
-			min_balance + extra,
-			"contract balance must be restored when terminate rolls back",
+			decode_error(result.data.as_ref()),
+			"terminate pre-compile cannot burn the existential deposit: the contract's balance is locked",
 		);
 		assert_eq!(
 			get_balance(&DJANGO),
 			django_before,
-			"beneficiary must not keep the immediate transfer of a failed terminate",
+			"beneficiary must not keep the immediate transfer of a reverted terminate",
 		);
 	});
 }
