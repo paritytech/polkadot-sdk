@@ -157,7 +157,21 @@ parameter_types! {
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
 		.for_class(DispatchClass::all(), |weights| {
-			weights.base_extrinsic = <pallet_verify_signature::weights::SubstrateWeight::<Runtime> as pallet_verify_signature::WeightInfo>::verify_signature();
+			// This runtime's active extrinsics are natively signed (the commented-out
+			// `pallet_verify_signature::VerifySignature` extension is not wired in above), so
+			// `Signature = MultiSignature`'s `SignatureWeight` is now folded into
+			// `GetDispatchInfo::get_dispatch_info` for every signed extrinsic. Re-using
+			// `verify_signature()`'s weight here as `base_extrinsic` (as a stand-in for "the cost
+			// of verifying a signature") would double-charge it. Subtract the sr25519
+			// `SignatureWeight` (the two happen to be calibrated from the same benchmark and are
+			// numerically equal) to avoid that; this leaves `base_extrinsic` at zero, i.e. this
+			// runtime's declared base extrinsic overhead is now entirely attributed to
+			// `SignatureWeight` rather than block-weight configuration.
+			weights.base_extrinsic =
+				<pallet_verify_signature::weights::SubstrateWeight::<Runtime> as pallet_verify_signature::WeightInfo>::verify_signature()
+					.saturating_sub(<sp_core::sr25519::Signature as sp_runtime::traits::SignatureWeight>::weight(
+						&sp_core::sr25519::Signature::from_raw([0u8; 64]),
+					));
 		})
 		.for_class(DispatchClass::Normal, |weights| {
 			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
