@@ -1098,17 +1098,17 @@ async fn answer_prospective_validation_data_request<Context>(
 async fn answer_get_known_output_heads(
 	view: &View,
 	para_ids: Vec<ParaId>,
-	tx: oneshot::Sender<HashMap<ParaId, HashSet<Hash>>>,
+	tx: oneshot::Sender<HashMap<Hash, HashMap<ParaId, HashSet<Hash>>>>,
 ) {
-	let mut known: HashMap<ParaId, HashSet<Hash>> =
-		para_ids.iter().map(|p| (*p, HashSet::new())).collect();
+	let mut known = HashMap::new();
 	for leaf in view.active_leaves.iter() {
 		if let Some(per_sp) = view.per_scheduling_parent.get(leaf) {
 			for para_id in &para_ids {
 				if let Some(per_para) = per_sp.fragment_chains.get(para_id) {
-					let entry = known.entry(*para_id).or_default();
+					let per_para_known: &mut HashMap<ParaId, HashSet<Hash>> =
+						known.entry(*leaf).or_default();
+					let entry = per_para_known.entry(*para_id).or_default();
 					entry.extend(per_para.known_output_heads());
-					entry.extend(per_para.chain_parent_heads());
 				}
 			}
 		}

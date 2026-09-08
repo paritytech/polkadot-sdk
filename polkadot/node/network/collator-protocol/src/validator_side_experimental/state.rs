@@ -660,7 +660,7 @@ impl<B: Backend> State<B> {
 	pub async fn try_launch_new_fetch_requests<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
-		pp_known: &HashMap<ParaId, HashSet<Hash>>,
+		pp_known: &HashMap<Hash, HashMap<ParaId, HashSet<Hash>>>,
 	) -> Option<Duration> {
 		let _timer = self.metrics.time_handler(TimedHandler::LaunchFetchRequests);
 
