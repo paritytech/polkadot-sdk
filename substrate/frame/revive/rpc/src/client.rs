@@ -309,18 +309,36 @@ impl<Inner: RpcClientT> RpcClientT for StateCallTimer<Inner> {
 			return self.0.request_raw(method, params);
 		}
 
-		// The first `state_call` parameter is the runtime function name.
-		let function = params
+		// `state_call` params are `[function_name, scale_encoded_input, at_block_hash?]`.
+		let parsed: Vec<&RawValue> = params
 			.as_deref()
-			.and_then(|raw_params| raw_params.get().split('"').nth(1))
-			.unwrap_or("<unknown>")
-			.to_string();
+			.and_then(|raw_params| serde_json::from_str(raw_params.get()).ok())
+			.unwrap_or_default();
+		let unquoted = |index: usize| parsed.get(index).map(|value| value.get().trim_matches('"'));
+
+		let function = unquoted(0).unwrap_or("<unknown>").to_string();
+		let input = unquoted(1)
+			.map(|hex| {
+				let input_bytes = hex.len().saturating_sub(2) / 2;
+				let prefix = hex.get(..34).unwrap_or(hex);
+				let ellipsis = if hex.len() > 34 { "…" } else { "" };
+				format!("{prefix}{ellipsis} ({input_bytes} bytes)")
+			})
+			.unwrap_or_default();
+		let at_block = unquoted(2).unwrap_or("best").to_string();
+		if log::log_enabled!(target: LOG_TARGET_TIMING, log::Level::Trace) {
+			if let Some(raw_params) = params.as_deref() {
+				log::trace!(target: LOG_TARGET_TIMING, "state_call {function} params: {raw_params}");
+			}
+		}
 
 		Box::pin(async move {
 			let started = std::time::Instant::now();
 			let result = self.0.request_raw(method, params).await;
 			log::debug!(target: LOG_TARGET_TIMING,
-				"state_call {function}: {:?} ok={}", started.elapsed(), result.is_ok());
+				"state_call {function}({input}) at={at_block}: {:?} ok={}",
+				started.elapsed(),
+				result.is_ok());
 			result
 		})
 	}
