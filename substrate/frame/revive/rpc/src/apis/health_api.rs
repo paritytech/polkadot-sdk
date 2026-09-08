@@ -87,6 +87,17 @@ impl SystemHealthRpcServer for SystemHealthRpcServerImpl {
 			return Err(ErrorCode::InternalError.into());
 		}
 
+		log::debug!(
+			target: LOG_TARGET,
+			"health ok: node best #{}, cache best #{}, drift {}/{}, peers {}, syncing {}",
+			sync_state.current_block,
+			local_best,
+			sync_state.current_block.saturating_sub(local_best),
+			MAX_BLOCK_DRIFT,
+			health.peers,
+			health.is_syncing,
+		);
+
 		Ok(Health {
 			peers: health.peers,
 			is_syncing: health.is_syncing,

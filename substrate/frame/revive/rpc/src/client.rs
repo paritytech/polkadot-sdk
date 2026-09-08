@@ -454,7 +454,9 @@ impl<Inner: RpcClientT> RpcClientT for StateCallTimer<Inner> {
 		method: &'a str,
 		params: Option<Box<RawValue>>,
 	) -> RawRpcFuture<'a, Box<RawValue>> {
-		if method != "state_call" {
+		if method != "state_call"
+			|| !log::log_enabled!(target: LOG_TARGET_TIMING, log::Level::Trace)
+		{
 			return self.0.request_raw(method, params);
 		}
 
@@ -475,16 +477,14 @@ impl<Inner: RpcClientT> RpcClientT for StateCallTimer<Inner> {
 			})
 			.unwrap_or_default();
 		let at_block = unquoted(2).unwrap_or("best").to_string();
-		if log::log_enabled!(target: LOG_TARGET_TIMING, log::Level::Trace) {
-			if let Some(raw_params) = params.as_deref() {
-				log::trace!(target: LOG_TARGET_TIMING, "state_call {function} params: {raw_params}");
-			}
+		if let Some(raw_params) = params.as_deref() {
+			log::trace!(target: LOG_TARGET_TIMING, "state_call {function} params: {raw_params}");
 		}
 
 		Box::pin(async move {
 			let started = std::time::Instant::now();
 			let result = self.0.request_raw(method, params).await;
-			log::debug!(target: LOG_TARGET_TIMING,
+			log::trace!(target: LOG_TARGET_TIMING,
 				"state_call {function}({input}) at={at_block}: {:?} ok={}",
 				started.elapsed(),
 				result.is_ok());
