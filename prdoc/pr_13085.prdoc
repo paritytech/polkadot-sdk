@@ -1,0 +1,27 @@
+title: '[pallet-revive] revert `System.terminate` when a freeze pins the contract ED'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    `System.terminate` could report success while leaving the contract alive. `terminate_caller`
+    moved the reducible balance to the beneficiary and scheduled the destruction, but the deferred
+    destruction runs at the end of the call stack, where the contract is no longer on the stack and
+    its error is discarded. If the polite existential-deposit burn then failed — for example because
+    a native freeze made the remaining balance non-reducible — the beneficiary kept the transfer,
+    the contract stayed live and callable, and nothing was left to retry.
+
+    `terminate_caller` now rejects that case up-front: after the immediate transfer it checks that
+    the contract's reducible balance still covers the existential deposit, and otherwise fails with
+    the new `Error::TerminateBalanceLocked`. Refunding the storage deposit only lowers `reserved` and
+    never touches `frozen`, so a burn that does not fit at terminate time will not fit later either.
+    The check runs synchronously inside the precompile, so it surfaces as a revert that the calling
+    contract can catch, and a third party freezing a contract becomes a visible error instead of a
+    silent no-op.
+
+    This makes good on what `ISystem.sol` already documented for `terminate`. The deferred
+    destruction loop keeps its existing non-failing behaviour, and the `SELFDESTRUCT` opcode is
+    unchanged.
+
+crates:
+- name: pallet-revive
+  bump: minor
