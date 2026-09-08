@@ -19,6 +19,15 @@ doc:
     the dispatch weight of signed extrinsics in `GetDispatchInfo::get_dispatch_info`, so it is
     reflected in fees and block-weight accounting without any per-runtime configuration.
 
+    ## `pallet-revive`
+
+    Ethereum-style transactions verify their signature via ECDSA/Keccak recovery rather than the
+    standard `Checkable` path, so `pallet-revive` now exposes `EthExtra::signature_weight()` and
+    uses it consistently both when building the dispatched `CheckedExtrinsic` and when estimating
+    fees/weight limits ahead of dispatch (`FeeInfo::dispatch_info`), so the two no longer diverge.
+    The ECDSA/Keccak `SignatureWeight` values are calibrated from `pallet_revive`'s own
+    `ecdsa_recover` benchmark.
+
     ## Runtime migration note
 
     When upgrading runtimes to this polkadot-sdk version (including fellowship runtimes), **re-benchmark
@@ -34,3 +43,5 @@ crates:
   bump: major
 - name: frame-support
   bump: major
+- name: pallet-revive
+  bump: minor
