@@ -62,10 +62,7 @@ pub(crate) const MAX_BLOCKS_IN_RESPONSE: usize = 128;
 
 const MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER: usize = 2;
 
-/// Duplicate requests are only counted against a peer within this window, measured from the
-/// first fulfilled response. Once the window has elapsed, the counter resets and the peer is
-/// served again. Without this, legitimate retries (after request timeouts, disconnects or sync
-/// restarts) accumulate forever and eventually get an honest peer refused indefinitely.
+/// Reset duplicate counts this long after the first fulfilled response, allowing legitimate retries.
 const SAME_REQUEST_WINDOW: Duration = Duration::from_secs(60);
 
 mod rep {
@@ -146,7 +143,7 @@ impl<B: BlockT> Hash for SeenRequestsKey<B> {
 enum SeenRequestsValue {
 	/// First time we have seen the request.
 	First,
-	/// We have fulfilled the request `requests` times since `since`.
+	/// Requests seen since the first fulfilled response.
 	Fulfilled { requests: usize, since: Instant },
 }
 
@@ -312,8 +309,6 @@ where
 				.any(|b| !b.header.is_empty() || !b.body.is_empty() || b.is_empty_justification)
 			{
 				if let Some(value) = self.seen_requests.get(&key) {
-					// If this is the first time we have processed this request, we need to change
-					// it to `Fulfilled`.
 					if let SeenRequestsValue::First = value {
 						*value =
 							SeenRequestsValue::Fulfilled { requests: 1, since: Instant::now() };
@@ -651,12 +646,11 @@ mod tests {
 	use sc_block_builder::BlockBuilderBuilder;
 	use sp_consensus::BlockOrigin;
 	use substrate_test_runtime_client::{
-		ClientBlockImportExt, DefaultTestClientBuilderExt, TestClient, TestClientBuilder,
+		runtime::Block, ClientBlockImportExt, DefaultTestClientBuilderExt, TestClient, TestClientBuilder,
 		TestClientBuilderExt,
 	};
 
-	fn test_handler(
-	) -> BlockRequestHandler<substrate_test_runtime_client::runtime::Block, TestClient> {
+	fn test_handler() -> BlockRequestHandler<Block, TestClient> {
 		let client = Arc::new(TestClientBuilder::new().build());
 
 		let block = BlockBuilderBuilder::new(&*client)
@@ -680,7 +674,7 @@ mod tests {
 	fn make_request(attributes: BlockAttributes) -> Vec<u8> {
 		BlockRequestSchema {
 			fields: attributes.to_be_u32(),
-			from_block: Some(FromBlockSchema::Number(Encode::encode(&1u64))),
+			from_block: Some(FromBlockSchema::Number(1u64.encode())),
 			direction: Direction::Ascending as i32,
 			max_blocks: 1,
 			support_multiple_justifications: true,
@@ -689,10 +683,7 @@ mod tests {
 	}
 
 	fn send_request(
-		handler: &mut BlockRequestHandler<
-			substrate_test_runtime_client::runtime::Block,
-			TestClient,
-		>,
+		handler: &mut BlockRequestHandler<Block, TestClient>,
 		peer: &PeerId,
 		attributes: BlockAttributes,
 	) -> OutgoingResponse {
@@ -702,26 +693,24 @@ mod tests {
 	}
 
 	#[test]
-	fn same_request_refused_after_limit_and_forgotten_after_window() {
+	fn same_request_limit_resets_after_window() {
 		let mut handler = test_handler();
 		let peer = PeerId::random();
 		let attributes = BlockAttributes::HEADER | BlockAttributes::BODY;
 
-		// The first `MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER` identical requests are served.
 		for _ in 0..MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER {
 			let response = send_request(&mut handler, &peer, attributes);
 			assert!(response.result.is_ok());
 			assert!(response.reputation_changes.is_empty());
 		}
 
-		// The next identical request is refused and penalized, but not fatally.
 		let response = send_request(&mut handler, &peer, attributes);
 		assert!(response.result.is_err());
 		assert_eq!(response.reputation_changes, vec![rep::SAME_REQUEST]);
 		assert!(rep::SAME_REQUEST.value > i32::MIN);
 
-		// Age the entry beyond the window: the counter resets and the peer is served again.
-		let key = SeenRequestsKey::<substrate_test_runtime_client::runtime::Block> {
+		// Expire the window without sleeping.
+		let key = SeenRequestsKey::<Block> {
 			peer,
 			from: BlockId::Number(1),
 			max_blocks: 1,
@@ -740,7 +729,7 @@ mod tests {
 		assert!(response.result.is_ok());
 		assert!(response.reputation_changes.is_empty());
 
-		// The reset entry counts as fulfilled again: the limit applies afresh.
+		// The new window has the same limit.
 		let response = send_request(&mut handler, &peer, attributes);
 		assert!(response.result.is_ok());
 		let response = send_request(&mut handler, &peer, attributes);
@@ -752,8 +741,7 @@ mod tests {
 	fn same_small_request_answered_but_penalized() {
 		let mut handler = test_handler();
 		let peer = PeerId::random();
-		// A request for headers only counts as "small": repeats are penalized but still
-		// answered.
+		// Header-only requests remain answerable after the limit.
 		let attributes = BlockAttributes::HEADER;
 
 		for _ in 0..MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER {

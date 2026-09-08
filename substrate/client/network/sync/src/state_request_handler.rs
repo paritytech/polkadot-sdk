@@ -47,10 +47,7 @@ use std::{
 const MAX_RESPONSE_BYTES: usize = 2 * 1024 * 1024; // Actual reponse may be bigger.
 const MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER: usize = 2;
 
-/// Duplicate requests are only counted against a peer within this window, measured from the
-/// first fulfilled response. Once the window has elapsed, the counter resets and the peer is
-/// served again. Without this, legitimate retries (after request timeouts, disconnects or sync
-/// restarts) accumulate forever and eventually get an honest peer refused indefinitely.
+/// Reset duplicate counts this long after the first fulfilled response, allowing legitimate retries.
 const SAME_REQUEST_WINDOW: Duration = Duration::from_secs(60);
 
 mod rep {
@@ -118,7 +115,7 @@ impl<B: BlockT> Hash for SeenRequestsKey<B> {
 enum SeenRequestsValue {
 	/// First time we have seen the request.
 	First,
-	/// We have fulfilled the request `requests` times since `since`.
+	/// Requests seen since the first fulfilled response.
 	Fulfilled { requests: usize, since: Instant },
 }
 
@@ -267,8 +264,6 @@ where
 					.map(|e| sp_core::hexdisplay::HexDisplay::from(&e.key))),
 			);
 			if let Some(value) = self.seen_requests.get(&key) {
-				// If this is the first time we have processed this request, we need to change
-				// it to `Fulfilled`.
 				if let SeenRequestsValue::First = value {
 					*value = SeenRequestsValue::Fulfilled { requests: 1, since: Instant::now() };
 				}
