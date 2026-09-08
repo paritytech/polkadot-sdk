@@ -102,7 +102,7 @@ mod benches {
 	/// - Initializes the account balance with enough funds to cover all orders.
 	/// - Places `n` orders.
 	#[benchmark(pov_mode = Measured)]
-	fn on_finalize_per_order(n: Linear<1, 100>) -> Result<(), BenchmarkError> {
+	fn on_finalize_with_orders(n: Linear<1, 100>) -> Result<(), BenchmarkError> {
 		let current_block = BlockNumberFor::<T>::from(1u32);
 		System::<T>::set_block_number(current_block);
 
