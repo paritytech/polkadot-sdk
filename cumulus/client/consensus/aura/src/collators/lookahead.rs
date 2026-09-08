@@ -349,15 +349,16 @@ where
 				None => continue,
 			};
 
-			let included_header = &parent_search_result.included_at_scheduling;
+			let included_header = parent_search_result.included_at_scheduling();
 			let para_client = &*params.para_client;
 			let keystore = &params.keystore;
 			let included_block_hash = included_header.hash();
 
 			// Note that the authorities can change at any block, so we need to re-claim our slot
 			// on every relay parent.
-			let parent_hash = parent_search_result.best_parent_header.hash();
-			let parent_header = parent_search_result.best_parent_header;
+			let parent_hash = parent_search_result.best_parent_header().hash();
+			let parent_header = parent_search_result.best_parent_header().clone();
+
 			// Distance from included block to best parent.
 			let initial_parent_depth =
 				(*parent_header.number()).saturating_sub(*included_header.number());

@@ -64,21 +64,95 @@ impl ParentSearchParams {
 	}
 }
 
-/// A potential parent block returned from [`find_parent_for_building`]
+/// A potential parent block returned from [`find_parent_for_building`].
+///
+/// V3 additionally carries the resubmittable ancestry: the parablocks above the relay-known head
+/// (pending availability if any, else included) up to the best parent, oldest first. This is not
+/// the runtime's unincluded segment — pending parablocks are excluded and the view is taken at the
+/// scheduling parent. V2 only exposes the endpoints.
 #[derive(PartialEq, Clone)]
-pub struct ParentSearchResult<Block: BlockT> {
-	/// The header of the included block (confirmed on relay chain) at the scheduling parent.
-	pub included_at_scheduling: Block::Header,
-	/// The header of the best parent block to build on.
-	pub best_parent_header: Block::Header,
+pub enum ParentSearchResult<Block: BlockT> {
+	/// V2 result: only the segment endpoints.
+	V2 {
+		/// The header of the included block (confirmed on relay chain) at the scheduling parent.
+		included_at_scheduling: Block::Header,
+		/// The header of the best parent block to build on.
+		best_parent_header: Block::Header,
+	},
+	/// V3 result: endpoints plus the resubmittable ancestry.
+	V3 {
+		/// The header of the included block (confirmed on relay chain) at the scheduling parent.
+		included_at_scheduling: Block::Header,
+		/// The header of the best parent block to build on.
+		best_parent_header: Block::Header,
+		/// Parablocks that may still need (re-)advertising: everything above the relay-known head
+		/// (pending if any, else included), oldest first, ending at the best parent. Empty when
+		/// the best parent is the relay-known head itself.
+		resubmittable_ancestry: Vec<Block::Header>,
+	},
+}
+
+impl<Block: BlockT> ParentSearchResult<Block> {
+	/// The included block (relay-chain-confirmed head of the parachain) at the scheduling parent.
+	pub fn included_at_scheduling(&self) -> &Block::Header {
+		match self {
+			Self::V2 { included_at_scheduling, .. } | Self::V3 { included_at_scheduling, .. } => {
+				included_at_scheduling
+			},
+		}
+	}
+
+	/// The block to build the next parablock on top of.
+	pub fn best_parent_header(&self) -> &Block::Header {
+		match self {
+			Self::V2 { best_parent_header, .. } | Self::V3 { best_parent_header, .. } => {
+				best_parent_header
+			},
+		}
+	}
+
+	/// The resubmittable ancestry for V3 (oldest first, exclusive of the relay-known head).
+	/// `None` for V2.
+	pub fn resubmittable_ancestry(&self) -> Option<&[Block::Header]> {
+		match self {
+			Self::V2 { .. } => None,
+			Self::V3 { resubmittable_ancestry, .. } => Some(resubmittable_ancestry),
+		}
+	}
+
+	/// Replace the best parent with its parent (one step back). For V3, also pops the matching
+	/// tail entry of the resubmittable ancestry to keep it in sync with the new best.
+	pub fn walk_best_parent_back(&mut self, new_best: Block::Header) {
+		match self {
+			Self::V2 { best_parent_header, .. } => *best_parent_header = new_best,
+			Self::V3 { best_parent_header, resubmittable_ancestry, .. } => {
+				*best_parent_header = new_best;
+				resubmittable_ancestry.pop();
+			},
+		}
+	}
+
+	/// Fall the best parent back to the included block (the segment becomes empty for V3).
+	pub fn fall_back_to_included(&mut self) {
+		match self {
+			Self::V2 { best_parent_header, included_at_scheduling } => {
+				*best_parent_header = included_at_scheduling.clone()
+			},
+			Self::V3 { best_parent_header, included_at_scheduling, resubmittable_ancestry } => {
+				*best_parent_header = included_at_scheduling.clone();
+				resubmittable_ancestry.clear();
+			},
+		}
+	}
 }
 
 impl<B: BlockT> std::fmt::Debug for ParentSearchResult<B> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("ParentSearchResult")
-			.field("included_at_scheduling_number", &self.included_at_scheduling.number())
-			.field("best_parent_hash", &self.best_parent_header.hash())
-			.field("best_parent_number", &self.best_parent_header.number())
+			.field("included_at_scheduling_number", &self.included_at_scheduling().number())
+			.field("best_parent_hash", &self.best_parent_header().hash())
+			.field("best_parent_number", &self.best_parent_header().number())
+			.field("resubmittable_ancestry_len", &self.resubmittable_ancestry().map(|s| s.len()))
 			.finish()
 	}
 }
@@ -203,6 +277,9 @@ fn is_relay_parent_in_ancestry<Block: BlockT>(
 /// The `start` block (pending or included) is always valid by construction.
 /// This function explores its descendants via DFS, returning the deepest block
 /// whose relay-parent is within the allowed ancestry.
+/// Find the deepest valid parent to build on, and collect the resubmittable ancestry (the chain
+/// of that parent, oldest first, exclusive of `start`) while walking the parablocks — the segment
+/// is reconstructed from the headers visited during the search, without re-reading the backend.
 async fn find_deepest_valid_parent<Block: BlockT, Fut: Future<Output = bool>>(
 	backend: &impl Backend<Block>,
 	start_header: Block::Header,
@@ -237,6 +314,28 @@ async fn find_deepest_valid_parent<Block: BlockT, Fut: Future<Output = bool>>(
 	}
 
 	best
+}
+
+/// The resubmittable ancestry for a V3 search: the parablocks above the relay-known head
+/// (`start_hash`, exclusive) up to `best`, oldest first. Walks back from `best` reading each
+/// header from the backend; the chain is the unincluded segment, so it is short.
+fn reconstruct_resubmittable_ancestry<Block: BlockT>(
+	backend: &impl Backend<Block>,
+	best: &Block::Header,
+	start_hash: Block::Hash,
+) -> Vec<Block::Header> {
+	let mut ancestry = Vec::new();
+	let mut current = best.clone();
+	while current.hash() != start_hash {
+		let parent_hash = *current.parent_hash();
+		ancestry.push(current);
+		match backend.blockchain().header(parent_hash) {
+			Ok(Some(parent)) => current = parent,
+			_ => break,
+		}
+	}
+	ancestry.reverse();
+	ancestry
 }
 
 async fn get_relay_parent<Block: BlockT>(
@@ -345,7 +444,7 @@ pub async fn find_parent_for_building<Block: BlockT>(
 	let (start_header, start_hash) =
 		maybe_pending.unwrap_or((included_header.clone(), included_hash));
 
-	let best_parent_header = match params {
+	let result = match params {
 		ParentSearchParams::V2 { scheduling_parent: relay_parent } => {
 			let ancestry_lookback = relay_client
 				.scheduling_lookahead(relay_parent)
@@ -356,29 +455,44 @@ pub async fn find_parent_for_building<Block: BlockT>(
 			let rp_ancestry =
 				build_relay_parent_ancestry(relay_client, relay_parent, ancestry_lookback).await?;
 
-			// Search for the deepest valid parent starting from the pending/included block.
-			find_deepest_valid_parent(backend, start_header, start_hash, |header| {
-				let is_valid = is_relay_parent_in_ancestry::<Block>(header, &rp_ancestry);
-				async move { is_valid }
-			})
-			.await
+			// Search for the deepest valid parent starting from the pending/included block. V2 has
+			// no resubmittable ancestry, so nothing more to compute.
+			let best_parent_header =
+				find_deepest_valid_parent(backend, start_header, start_hash, |header| {
+					let is_valid = is_relay_parent_in_ancestry::<Block>(header, &rp_ancestry);
+					async move { is_valid }
+				})
+				.await;
+
+			ParentSearchResult::V2 { included_at_scheduling: included_header, best_parent_header }
 		},
 		ParentSearchParams::V3 { scheduling_parent } => {
-			find_deepest_valid_parent(backend, start_header, start_hash, |header| {
-				let header = header.clone();
-				async move {
-					has_ancestor_relay_parent_info::<Block>(
-						relay_client,
-						scheduling_parent,
-						&header,
-					)
-					.await
-					.unwrap_or(false)
-				}
-			})
-			.await
+			let best_parent_header =
+				find_deepest_valid_parent(backend, start_header, start_hash, |header| {
+					let header = header.clone();
+					async move {
+						has_ancestor_relay_parent_info::<Block>(
+							relay_client,
+							scheduling_parent,
+							&header,
+						)
+						.await
+						.unwrap_or(false)
+					}
+				})
+				.await;
+
+			// V3 also carries the resubmittable ancestry (oldest first, exclusive of the start).
+			let resubmittable_ancestry =
+				reconstruct_resubmittable_ancestry(backend, &best_parent_header, start_hash);
+
+			ParentSearchResult::V3 {
+				included_at_scheduling: included_header,
+				best_parent_header,
+				resubmittable_ancestry,
+			}
 		},
 	};
 
-	Ok(Some(ParentSearchResult { included_at_scheduling: included_header, best_parent_header }))
+	Ok(Some(result))
 }
