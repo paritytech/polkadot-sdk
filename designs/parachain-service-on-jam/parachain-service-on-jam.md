@@ -207,10 +207,11 @@ struct ParachainServiceState {
     /// `SetValidatorKeys`. See §5.3.
     staged_validator_keys: BoundedVec<ValidatorKey, 1023>,
 
-    /// Per-parachain key/value store. 
+    /// Per-parachain key/value store, keyed by the parachain, the hash of an
+    /// optional topic, and the hash of the user key.
     ///
-    /// See §6.1 for the per-entry formula.
-    key_value_storage: Map<(ParaId, Vec<u8>), Vec<u8>>,
+    /// See §6.1 for the storage-key layout and the per-entry formula.
+    key_value_storage: Map<(ParaId, Option<Hash>, Hash), Vec<u8>>,
 }
 
 enum LogEntry {
@@ -288,9 +289,8 @@ enum RefineLog {
 enum InsufficientBalanceReason {
     /// A `Solicit` (or `RequestCodeUpgrade`) of the preimage with `hash` and `len`.
     Solicit { hash: Hash, len: Compact<u32> },
-    /// A `SetKV { key, value }` write to `key_value_storage`. Only the
-    /// hash of `key` is recorded so an arbitrarily large
-    /// user key cannot inflate `parachain_log`.
+    /// A `SetKV` write to `key_value_storage`, named by the entry's
+    /// `KEY_HASH` (§6.1). The topic is not recorded.
     SetKV { key_hash: Hash },
 }
 
@@ -644,13 +644,17 @@ enum UpwardMessage {
     Forget { target: Target, hash: Hash, len: Compact<u32> },
     /// Delete `key` from a supervised service's own storage. **Asset Hub only.**
     RemoveServiceStorage { service: ServiceId, key: Vec<u8> },
-    /// Upsert `key_value_storage[(para_id, key)] = value`. Accumulate replays it
-    /// with delta state-balance charging (see §6.1). No-op if `para_id` has
-    /// `is_deregistering == true` (§6.4).
-    SetKV { key: Vec<u8>, value: Vec<u8> },
-    /// Remove `key_value_storage[(para_id, key)]`, refunding its footprint to
-    /// `para_id` (see §6.1). No-op if `para_id` has `is_deregistering == true`
-    /// (§6.4).
+    /// Upsert `key_value_storage[(para_id, topic, key)] = value`. The service
+    /// hashes `topic` and `key` into the storage key, and Accumulate replays
+    /// this with delta state-balance charging (see §6.1). No-op if `para_id`
+    /// has `is_deregistering == true` (§6.4).
+    SetKV { topic: Option<Vec<u8>>, key: Vec<u8>, value: Vec<u8> },
+    /// Remove one of `para_id`'s `key_value_storage` entries, refunding its
+    /// footprint (see §6.1). `key` is the already-hashed
+    /// `TOPIC_HASH ++ KEY_HASH` suffix of the storage key, so 64 octets for an
+    /// entry written under a topic and 32 for one written without. Any other
+    /// length is malformed and panics, as for a message that fails to
+    /// decode (§4.3). No-op if `para_id` has `is_deregistering == true` (§6.4).
     RemoveKV { para_id: ParaId, key: Vec<u8> },
     /// Transfer balance to another JAM service.
     /// `deferred` is `None` for a plain move and `Some((memo, gas))` for a
@@ -1483,16 +1487,28 @@ reservation: each is charged to Asset Hub as it arrives and refunded as it drain
 
 #### Key-Value storage footprint
 
-Each `(ParaId, key) -> value` entry in `key_value_storage` pays the sole-user
-general-storage cost `44 + |value| + |storage_key|` (§6.1), where the storage key
-composes the map tag, the parachain id, and the SCALE-encoded user key:
+Each entry in `key_value_storage` pays the sole-user general-storage cost
+`44 + |value| + |storage_key|`. The service hashes both the topic and the user
+key, so a parachain cannot pick keys that skew the state trie, and the storage
+key is fixed-width:
 
 ```
-kv_entry_footprint(k, v) = 44
+storage_key = TAG ++ PARA_ID ++ TOPIC_HASH ++ KEY_HASH
+                1 +        4 +          32 +       32   = 69 octets
+                1 +        4 +           - +       32   = 37 octets (no topic)
+```
+
+`TOPIC_HASH` is present only when the `SetKV` that wrote the entry carried a
+topic. The two lengths differ, so the key stays unambiguous with no length
+prefix. Since the topic is part of the entry's identity, an overwrite never
+changes the key's width:
+
+```
+kv_entry_footprint(v) = 44
  + compactLen(v) + v (SCALE Vec<u8> value)
- + 1 (map tag) + 4 (ParaId) (per §3.1 storage-key encoding)
- + compactLen(k) + k (SCALE Vec<u8> user key)
- = 49 + compactLen(k) + k + compactLen(v) + v
+ + 37 without a topic, 69 with one (storage key, per above)
+ =  81 + compactLen(v) + v   without a topic
+ = 113 + compactLen(v) + v   with a topic
 ```
 
 A `SetKV` computes the change in `used_state_balance`: the new entry's
@@ -1503,7 +1519,7 @@ just the first 4 bytes (via JAM `read`'s offset/length) is enough to decode
 the `Compact<u32>` length prefix. When the change is positive it must fit
 within `total_state_balance` before the write is applied; when it is negative
 (an overwrite with a smaller value) the freed balance is credited back. A
-`RemoveKV` refunds `kv_entry_footprint(k, v)` for the removed entry.
+`RemoveKV` refunds `kv_entry_footprint(v)` for the removed entry.
 
 #### Write-time invariant
 
