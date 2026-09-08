@@ -29,9 +29,7 @@
    - 7.1 [Authorizer Design: AURA Example](#71-authorizer-design-aura-example)
    - 7.2 [On-Demand Parachains](#72-on-demand-parachains)
 8. [Messaging](#8-messaging)
-   - 8.1 [Declaring Roots](#81-declaring-roots)
-   - 8.2 [Settlement Ring](#82-settlement-ring)
-   - 8.3 [Teardown](#83-teardown)
+   - 8.1 [Settlement Ring](#81-settlement-ring)
 9. [References](#9-references)
 
 ---
@@ -1673,7 +1671,7 @@ set of solicited preimages or KV entries. A parachain that can no longer produce
 blocks cannot drain itself, so `Forget` and `RemoveKV` take a `para_id` (§3.3),
 letting the Coretime chain free any parachain's state on its behalf.
 
-The first accepted call also deletes the parachain's settlement ring (§8.3).
+The first accepted call also deletes the parachain's settlement ring (§8.1).
 
 A clean-up that stops for a retry leaves `validation_code` and `pending_upgrade` in
 place. Their footprints remain charged until the expunging `forget` succeeds, so the
@@ -1872,113 +1870,70 @@ decides the policy, constructs the authorizer config, and emits `AssignCore`.
 
 ## 8. Messaging
 
-Parachains exchange messages off-chain. The message payloads exist entirely in the parachain
-runtimes and are never written into the JAM relay chain.
+Parachains exchange messages off-chain. Message payloads live in the parachain runtimes and are
+never written to JAM. The
+[speculative messaging](https://github.com/paritytech/polkadot-sdk/blob/9d0a0daee40e6e350209aaf4b3e3bdf1fb9a8793/docs/speculative-messaging-design.md)
+design specifies how a sender runtime commits its outbound messages under a single 32 byte
+`StreamsRoot`, how messages travel off-chain, and how a receiver runtime verifies them against a
+sender's root.
 
-The messaging mechanism relies on the [speculative messaging](https://github.com/paritytech/polkadot-sdk/blob/9d0a0daee40e6e350209aaf4b3e3bdf1fb9a8793/docs/speculative-messaging-design.md) design.
+The parachain service is responsible for settling these roots. It maintains a settlement ring for
+every parachain which holds the last 64 (`MAX_SETTLEMENT_RING_CAPACITY`) `StreamsRoot` entries
+that the parachain enacted. A receiver block enacts only if every root it consumed messages against
+is in the sender's ring.
 
-A sender parachain block commits its outbound message streams under a single `StreamsRoot`, the
-root of a MMR (Merkle Mountain Range) over the streams. The 32 byte `StreamsRoot` is written into the
-parachain's storage.
+### Refine
 
-The receiver parachain fetches the messages off chain and commits the consumed sources under a `Requires` root,
-one per source parachain. The `Requires` root (32 bytes) must be matched against the sender's `StreamsRoot` to ensure the
-messages were indeed sent by the source parachain.
+1. A sender block declares the `StreamsRoot` it publishes via `set_messages_streams_root`.
+2. A receiver block declares one `(ParaId, StreamsRoot)` per sender it consumed messages from via
+   `set_messages_requires_roots`.
 
-The [speculative messaging](https://github.com/paritytech/polkadot-sdk/blob/9d0a0daee40e6e350209aaf4b3e3bdf1fb9a8793/docs/speculative-messaging-design.md)
-design describes how a runtime computes the root of its messages, how messages are handled off-chain, and how the receiver
-runtime verifies messages against a source root. These are outside the scope of this document.
+Both declarations are forwarded to Accumulate in the `ParachainWorkDigest` (§3.3).
 
-The parachain service handles only the on-chain settlement of these roots. A receiver parachain block enacts only if all its
-`Requires` roots are present in the source parachains settlement ring.
+### Accumulate (§5.1 step 6)
 
-A sender block declares its `StreamsRoot` via `set_messages_streams_root`, and a receiver block declares one
-`(ParaId, StreamsRoot)` per consumed source via `set_messages_requires_roots` (§4.3). How the PVF defines the roots from its own state
-and the PoV is the parachain's job. When a sender block enacts, Accumulate pushes the `StreamsRoot` into the source's
-settlement ring. When a receiver block accumulates, every declared `(ParaId, StreamsRoot)` is matched against the source's settlement ring.
+1. Every declared `(ParaId, StreamsRoot)` must be a key of `messages_member`. This is the
+   settlement check. Otherwise the candidate is rejected.
+2. If the candidate enacts and declared a `StreamsRoot`, the root is pushed into the parachain's
+   settlement ring (§8.1).
 
-A receiver block consumes only messages under a `StreamsRoot` the sender has enacted. The root enters the sender's ring when
-the block that declared its `StreamsRoot` enacts, and a receiver that consumes a root that's not in the ring is rejected.
-A receiver block also fails settlement if the `StreamsRoot` was evicted (ie, newer `MAX_SETTLEMENT_RING_CAPACITY` roots were pushed).
+A root stays settleable until 64 newer roots of the same sender enacted.
+With one candidate per core and timeslot this is 64 timeslots on one core, 21 on three cores and 6 on ten cores.
+If the receiver candidate declares a consumption root that was evicted betweeen block building
+and the Accumulate phase, then the candidate is rejected and must be rebuilt against a root
+still in the ring.
 
-The settlement ring is properly sized for normal operations, but it is possible for a parachain to enact candidates faster than the
-receiver can. In that case, the receiver parachain may fail the settlement check for a candidate that was valid when it was built.
-The receiver parachain must resubmit a new work package that targets the latest `StreamsRoot` present in the source parachain's settlement ring.
+### 8.1 Settlement Ring
 
-For example, assuming one candidate per core, a root remains settleable for `64 / cores` timeslots. This equates to 64 slots for a single core,
-21 slots for 3 cores, and roughly 6 slots for 10 cores.
+A parachain's ring is stored in `messages_cursor`, `messages_member` and `messages_queue` (§3.1).
 
-### 8.1 Declaring Roots
+`SettlementCursor.head` is the position the next root is written at and `SettlementCursor.tail`
+the oldest live position. Both advance with wrapping arithmetic and at most `MAX_SETTLEMENT_RING_CAPACITY`(64)
+positions are present in the ring.
+`messages_member` holds every root at a live position together with the position of its most recent push.
 
-The `set_messages_streams_root` and `set_messages_requires_roots` host calls are optional and must be called at most once per Refine.
-A PVF should call `set_messages_streams_root` only when the root changed since its last enacted block.
+The settlement check reads only `messages_member`, once per declared `(ParaId, StreamsRoot)`.
 
-A second call aborts Refine with `RefineLog::MessagesCallRepeated`.
+Pushing `new_root` for `para_id`:
 
-A `set_messages_requires_roots` call with more than `MAX_REQUIRES_SOURCES` (32) entries or duplicated source parachain ids
-aborts Refine with `RefineLog::MessagesInvalidRequires`.
+1. Read `messages_cursor[para_id]` or `{ head: 0, tail: 0 }` if absent.
 
-> Refine checks nothing about the roots themselves.
+2. Evict the oldest entry if `head.wrapping_sub(tail) == MAX_SETTLEMENT_RING_CAPACITY`
+    2.1. Read `oldest_root = messages_queue[(para_id, tail)]` and delete that entry.
+    2.2. Delete `messages_member[(para_id, oldest_root)]` only if its `seq` equals `tail`. A different `seq`
+    means the same root was pushed again later and is still live.
+    2.3 Wrapping increment `tail`.
 
-The declarations reach Accumulate as digest fields `messages_streams_root` and `messages_requires_roots`. Accumulate has to check
-the requires before it writes the head.
+3. Write `messages_queue[(para_id, head)] = new_root`
 
-For bundled PoVs, only the last produced root is reported, even when later inner blocks send nothing.
-Similarly, only the latest `Requires` roots per source parachain are reported.
+4. Write `messages_member[(para_id, new_root)] = MemberEntry { seq: head }`.
 
-At `MAX_REQUIRES_SOURCES = 32` the requires need 1.1 KiB of the work report budget.
+5. Write `messages_cursor[para_id]` with `head` wrapping incremented and the `tail` from
+   step 2.3.
 
-### 8.2 Settlement Ring
+A parachain should declare a `StreamsRoot` only when it changed since its last enacted block, since
+every push occupies a ring position.
 
-The settlement ring is represented by three maps in the service state. This design minimizes the gas cost of the settlement check,
-at a slightly higher cost of service state.
-
-```rust
-/// Ring positions. Absent until the parachain's first push.
-/// Key: `0x09 ++ para_id`
-messages_cursor: Map<ParaId, SettlementCursor { head: u32, tail: u32 }>
-
-/// Membership index: `(para_id, root)` is present exactly while `root` is
-/// in `para_id`'s ring. The only ring entry the settlement check reads.
-/// Key: `0x0a ++ para_id ++ root`
-messages_member: Map<(ParaId, StreamsRoot), MemberEntry { seq: u32 }>
-
-/// Ring position to root. Read on eviction and teardown.
-/// Key: `0x0b ++ para_id ++ position`
-messages_queue: Map<(ParaId, u32), StreamsRoot>
-```
-
-Positions are allocated by `SettlementCursor.head` and freed by `SettlementCursor.tail`.
-Both counters advance with wrapping arithmetic. The live positions are in wrapping range `[tail, head)`.
-At most `MAX_SETTLEMENT_RING_CAPACITY` (64) entries are live at once.
-
-The settlement check reads only `messages_member` once per declared `messages_requires_roots` entry.
-The check is `O(1)` per source parachain, and the total cost is linear in the number of source parachains.
-
-Pushing a `new_root` for a `para_id` is a multi step operation. Firstly, the `SettlementCursor` is loaded.
-If `head.wrapping_sub(tail) == MAX_SETTLEMENT_RING_CAPACITY`, the oldest entry is evicted.
-The `oldest_root` is read from the `messages_queue` at `tail` and the `(para_id, tail)` entry is deleted.
-The `(para_id, oldest_root)` entry is removed from `messages_member` only if its `seq` equals `tail`.
-A different `seq` number means the same root was pushed again. The `tail` is incremented with wrapping, but not written yet.
-Next, the `new_root` is written to `messages_queue` at `head`, and the `(para_id, new_root)` entry is inserted into `messages_member`.
-Finally, `head` is incremented with wrapping and together with the new `tail` are written back to `messages_cursor`.
-
-
-### 8.3 Teardown
-
-`ParachainCleanUp` (§6.4) deletes the parachain's settlement ring on the first accepted call.
-This includes the `SettlementCursor` together with every `messages_member` and `messages_queue` entry at positions in
-wrapping range `[tail, head)`. This requires sufficient gas to perform the worst case of
-`1 + MAX_SETTLEMENT_RING_CAPACITY = 65` reads and `1 + 2 * MAX_SETTLEMENT_RING_CAPACITY = 129` deletions.
-
-`ParachainSetHead` (§6.3) does not touch the ring. Roots declared before a forced head reset stay settleable
-until evicted.
-
-`ParachainCleanUp` is an upward message of the Coretime chain and takes effect when the candidate carrying it
-replays (§5.1 step 7). A receiver might have already enacted earlier in the same block against a root of the
-deleted ring. Its enactment is valid and nothing is rolled back.
-
----
 
 ## 9. References
 
