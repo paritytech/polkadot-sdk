@@ -60,7 +60,6 @@ pub type ParachainService<Block, RuntimeApi, BI, BIExtraReturnValue> = PartialCo
 		Option<Telemetry>,
 		Option<TelemetryWorkerHandle>,
 		BIExtraReturnValue,
-		sc_storage_chain_sync::NetworkHandle,
-		sc_storage_chain_sync::SyncingHandle,
+		sc_storage_chain_sync::BitswapHandleSlot,
 	),
 >;

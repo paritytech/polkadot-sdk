@@ -21,6 +21,7 @@ prometheus = { workspace = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
+sc-network-bitswap = { workspace = true, default-features = true }
 sc-network-sync = { workspace = true, default-features = true }
 sc-network-transactions = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
