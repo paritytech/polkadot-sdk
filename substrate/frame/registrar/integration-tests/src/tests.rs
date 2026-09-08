@@ -109,6 +109,74 @@ fn submit_code(para_id: u32, blob: Vec<u8>) -> sp_runtime::DispatchResult {
 	.map_err(|e| e.error)
 }
 
+/// Submit the code for an authorized upgrade the same way, authorizing first.
+fn submit_upgrade(para_id: u32, blob: Vec<u8>) -> sp_runtime::DispatchResult {
+	use pallet_registrar_relay::Pallet as RelayRegistrar;
+	use sp_runtime::transaction_validity::TransactionSource;
+
+	RelayRegistrar::<relay::Runtime>::authorize_apply_authorized_code_upgrade(
+		TransactionSource::External,
+		&para_id,
+		&blob,
+	)
+	.map_err(|_| sp_runtime::DispatchError::Other("not authorized"))?;
+
+	RelayRegistrar::<relay::Runtime>::apply_authorized_code_upgrade(
+		frame_system::RawOrigin::Authorized.into(),
+		para_id,
+		blob,
+	)
+	.map(|_| ())
+	.map_err(|e| e.error)
+}
+
+/// Take a para all the way to onboarded: reserve, register, upload the code, approve the PVF.
+fn onboarded_para(who: AccountId32, head_len: usize, code_len: usize) -> u32 {
+	Relay::execute_with(|| relay::run_to_session(1));
+
+	let para_id = reserve(who.clone());
+	let blob = request_registration(who, para_id, head_len, code_len);
+
+	Relay::execute_with(|| {
+		assert_ok!(submit_code(para_id, blob.clone()));
+		let session =
+			polkadot_runtime_parachains::shared::CurrentSessionIndex::<relay::Runtime>::get();
+		relay::conclude_pvf_checking(&ValidationCode(blob), session);
+		relay::run_to_session(3);
+		assert!(polkadot_runtime_parachains::paras::Pallet::<relay::Runtime>::is_parathread(
+			para_id.into()
+		));
+	});
+
+	para_id
+}
+
+/// Ask the parachain to upgrade `para_id`'s code, letting the request travel to the relay chain.
+///
+/// Returns the validation code the relay chain will now be waiting for.
+fn request_upgrade(who: AccountId32, para_id: u32, code_len: usize) -> Vec<u8> {
+	// Not the registration blob: the relay chain refuses an upgrade to the code it already runs.
+	let blob = (0..code_len).map(|i| (i % 241) as u8 ^ 0x5a).collect::<Vec<_>>();
+	let hash = hash_of(&blob);
+	RegistrarPara::execute_with(|| {
+		assert_ok!(para::Registrar::schedule_code_upgrade(
+			para::RuntimeOrigin::signed(who),
+			para_id,
+			hash,
+			code_len as u32,
+		));
+	});
+	blob
+}
+
+/// Whether the parachain has seen `event` since the test began.
+fn para_saw(predicate: impl Fn(&pallet_registrar_para::Event<para::Runtime>) -> bool) -> bool {
+	para::System::events().iter().any(|e| match &e.event {
+		para::RuntimeEvent::Registrar(inner) => predicate(inner),
+		_ => false,
+	})
+}
+
 type RegistrationTicket = <Runtime as pallet_registrar_para::Config>::RegistrationConsideration;
 
 fn para_state(para_id: u32) -> Option<RegistrationState<RegistrationTicket, u64>> {
@@ -377,6 +445,118 @@ fn only_the_registrar_parachain_may_drive_registrations() {
 		let ours: relay::RuntimeOrigin = ParachainsOrigin::Parachain(PARA_ID.into()).into();
 		assert_ok!(relay::Registrar::receive(ours, message));
 		assert!(pallet_registrar_relay::PendingRegistrations::<relay::Runtime>::get(3000).is_some());
+	});
+}
+
+#[test]
+fn a_code_upgrade_is_authorized_from_the_parachain_and_scheduled_on_the_relay_chain() {
+	MockNet::reset();
+
+	let para_id = onboarded_para(ALICE, 32, 64);
+	let blob = request_upgrade(ALICE, para_id, 96);
+
+	// The relay chain parked the authorization and told the parachain when it lapses.
+	let expire_at = Relay::execute_with(|| {
+		let pending =
+			pallet_registrar_relay::PendingCodeUpgrades::<relay::Runtime>::get(para_id).unwrap();
+		assert_eq!(pending.code_hash, hash_of(&blob));
+		assert_eq!(pending.code_len, 96);
+
+		// Nothing is scheduled yet: the code is still missing.
+		assert!(polkadot_runtime_parachains::paras::FutureCodeHash::<relay::Runtime>::get(
+			polkadot_primitives::Id::from(para_id)
+		)
+		.is_none());
+		pending.expire_at
+	});
+
+	RegistrarPara::execute_with(|| {
+		assert!(para_saw(|e| matches!(
+			e,
+			pallet_registrar_para::Event::CodeUpgradeAuthorized { expire_at: at, .. }
+				if *at == expire_at
+		)));
+	});
+
+	// Anybody uploads the blob, and the upgrade is scheduled.
+	Relay::execute_with(|| {
+		assert_ok!(submit_upgrade(para_id, blob.clone()));
+
+		assert!(
+			pallet_registrar_relay::PendingCodeUpgrades::<relay::Runtime>::get(para_id).is_none()
+		);
+		assert_eq!(
+			polkadot_runtime_parachains::paras::FutureCodeHash::<relay::Runtime>::get(
+				polkadot_primitives::Id::from(para_id)
+			),
+			Some(ValidationCode(blob).hash())
+		);
+	});
+
+	RegistrarPara::execute_with(|| {
+		assert!(para_saw(|e| matches!(
+			e,
+			pallet_registrar_para::Event::CodeUpgradeScheduled { .. }
+		)));
+	});
+}
+
+#[test]
+fn a_second_upgrade_while_one_is_in_flight_is_refused_and_reported() {
+	MockNet::reset();
+
+	let para_id = onboarded_para(ALICE, 32, 64);
+	let blob = request_upgrade(ALICE, para_id, 96);
+	Relay::execute_with(|| {
+		assert_ok!(submit_upgrade(para_id, blob));
+	});
+
+	// With one upgrade pending, the relay chain will not take another.
+	let _ = request_upgrade(ALICE, para_id, 128);
+
+	Relay::execute_with(|| {
+		assert!(
+			pallet_registrar_relay::PendingCodeUpgrades::<relay::Runtime>::get(para_id).is_none()
+		);
+	});
+	RegistrarPara::execute_with(|| {
+		assert!(para_saw(|e| matches!(
+			e,
+			pallet_registrar_para::Event::CodeUpgradeFailed {
+				reason: FailureReason::CannotUpgradeCode,
+				..
+			}
+		)));
+	});
+}
+
+#[test]
+fn an_authorization_that_is_left_to_lapse_can_no_longer_be_used() {
+	MockNet::reset();
+
+	let para_id = onboarded_para(ALICE, 32, 64);
+	let blob = request_upgrade(ALICE, para_id, 96);
+
+	Relay::execute_with(|| {
+		let expire_at = pallet_registrar_relay::PendingCodeUpgrades::<relay::Runtime>::get(para_id)
+			.unwrap()
+			.expire_at;
+		relay::run_to_block(expire_at + 1);
+
+		assert_eq!(
+			pallet_registrar_relay::Pallet::<relay::Runtime>::apply_authorized_code_upgrade(
+				frame_system::RawOrigin::Authorized.into(),
+				para_id,
+				blob,
+			)
+			.map(|_| ())
+			.map_err(|e| e.error),
+			Err(pallet_registrar_relay::Error::<relay::Runtime>::AuthorizationExpired.into())
+		);
+		assert!(polkadot_runtime_parachains::paras::FutureCodeHash::<relay::Runtime>::get(
+			polkadot_primitives::Id::from(para_id)
+		)
+		.is_none());
 	});
 }
 

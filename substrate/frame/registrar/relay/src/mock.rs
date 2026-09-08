@@ -25,7 +25,7 @@
 
 use crate::{self as pallet_registrar_relay, SendToPara};
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
-use registrar_primitives::{MessageToPara, ParaId, ParachainRegistrar};
+use registrar_primitives::{FailureReason, MessageToPara, ParaId, ParachainRegistrar};
 use sp_runtime::BuildStorage;
 
 pub type AccountId = u64;
@@ -38,6 +38,7 @@ pub const MIN_CODE_SIZE: u32 = 9;
 pub const MAX_CODE_SIZE: u32 = 1_000;
 pub const MAX_HEAD_SIZE: u32 = 100;
 pub const MAX_PENDING: u32 = 2;
+pub const CODE_UPGRADE_VALID_PERIOD: u32 = 100;
 
 #[frame_support::runtime]
 mod test_runtime {
@@ -80,6 +81,12 @@ parameter_types! {
 	pub static SentMessages: Vec<MessageToPara> = Vec::new();
 	/// When true, the transport refuses everything.
 	pub static SendFails: bool = false;
+	/// What `MockRegistrar::check_code_upgrade` refuses with, if anything.
+	pub static UpgradeRefusal: Option<FailureReason> = None;
+	/// Code upgrades `MockRegistrar` has scheduled, in order.
+	pub static ScheduledUpgrades: Vec<(ParaId, Vec<u8>)> = Vec::new();
+	/// When true, `MockRegistrar::schedule_code_upgrade` fails.
+	pub static ScheduleFails: bool = false;
 }
 
 /// Stands in for the relay chain's `paras_registrar`.
@@ -110,6 +117,30 @@ impl ParachainRegistrar for MockRegistrar {
 			return Err(sp_runtime::DispatchError::Other("registrar refused"));
 		}
 		Onboarded::mutate(|v| v.push((para_id, manager, genesis_head, validation_code)));
+		Ok(())
+	}
+
+	fn check_code_upgrade(para_id: ParaId, code_len: u32) -> Result<(), FailureReason> {
+		if !Self::is_registered(para_id) {
+			return Err(FailureReason::NotRegistered);
+		}
+		if let Some(reason) = UpgradeRefusal::get() {
+			return Err(reason);
+		}
+		if !(MIN_CODE_SIZE..=MAX_CODE_SIZE).contains(&code_len) {
+			return Err(FailureReason::InvalidCodeSize);
+		}
+		Ok(())
+	}
+
+	fn schedule_code_upgrade(
+		para_id: ParaId,
+		validation_code: Vec<u8>,
+	) -> sp_runtime::DispatchResult {
+		if ScheduleFails::get() {
+			return Err(sp_runtime::DispatchError::Other("registrar refused"));
+		}
+		ScheduledUpgrades::mutate(|v| v.push((para_id, validation_code)));
 		Ok(())
 	}
 }
@@ -143,12 +174,9 @@ impl pallet_registrar_relay::Config for Test {
 	type MaxHeadDataSize = ConstU32<MAX_HEAD_SIZE>;
 	type MaxCodeSize = ConstU32<MAX_CODE_SIZE>;
 	type MaxPendingRegistrations = ConstU32<MAX_PENDING>;
+	type CodeUpgradeValidPeriod = ConstU32<CODE_UPGRADE_VALID_PERIOD>;
 	type UnsignedPriority = ConstU64<100>;
 	type WeightInfo = ();
-}
-
-parameter_types! {
-	pub const Unused: u32 = 0;
 }
 
 use frame_support::traits::ConstU64;
@@ -160,6 +188,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	RegisterFails::set(false);
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
+	UpgradeRefusal::set(None);
+	ScheduledUpgrades::set(Vec::new());
+	ScheduleFails::set(false);
 
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let mut ext = sp_io::TestExternalities::new(t);

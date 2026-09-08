@@ -615,6 +615,33 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 			false,
 		)
 	}
+
+	fn check_code_upgrade(
+		para_id: u32,
+		code_len: u32,
+	) -> Result<(), registrar_primitives::FailureReason> {
+		use registrar_primitives::{FailureReason, ParachainRegistrar};
+
+		if !<Self as ParachainRegistrar>::is_registered(para_id) {
+			return Err(FailureReason::NotRegistered);
+		}
+		if !polkadot_runtime_parachains::can_upgrade_validation_code::<T>(ParaId::from(para_id)) {
+			return Err(FailureReason::CannotUpgradeCode);
+		}
+		let max = configuration::ActiveConfig::<T>::get().max_code_size;
+		if code_len < MIN_CODE_SIZE || code_len > max {
+			return Err(FailureReason::InvalidCodeSize);
+		}
+		Ok(())
+	}
+
+	fn schedule_code_upgrade(para_id: u32, validation_code: Vec<u8>) -> DispatchResult {
+		polkadot_runtime_parachains::schedule_code_upgrade::<T>(
+			ParaId::from(para_id),
+			ValidationCode(validation_code),
+			UpgradeStrategy::ApplyAtExpectedBlock,
+		)
+	}
 }
 
 impl<T: Config> Pallet<T> {

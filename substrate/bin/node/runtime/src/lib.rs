@@ -2747,6 +2747,20 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 	) -> sp_runtime::DispatchResult {
 		Ok(())
 	}
+
+	fn check_code_upgrade(
+		_para_id: registrar_primitives::ParaId,
+		_code_len: u32,
+	) -> Result<(), registrar_primitives::FailureReason> {
+		Ok(())
+	}
+
+	fn schedule_code_upgrade(
+		_para_id: registrar_primitives::ParaId,
+		_validation_code: Vec<u8>,
+	) -> sp_runtime::DispatchResult {
+		Ok(())
+	}
 }
 
 impl pallet_registrar_relay::Config for Runtime {
@@ -2757,6 +2771,7 @@ impl pallet_registrar_relay::Config for Runtime {
 	type MaxHeadDataSize = ConstU32<{ 1024 * 1024 }>;
 	type MaxCodeSize = ConstU32<{ 3 * 1024 * 1024 }>;
 	type MaxPendingRegistrations = ConstU32<128>;
+	type CodeUpgradeValidPeriod = ConstU32<600>;
 	type UnsignedPriority = ConstU64<100>;
 	type WeightInfo = pallet_registrar_relay::weights::SubstrateWeight<Runtime>;
 }

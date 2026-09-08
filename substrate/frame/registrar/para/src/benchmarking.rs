@@ -179,5 +179,17 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Asking for a code upgrade: one state read and the outgoing message.
+	#[benchmark]
+	fn schedule_code_upgrade() -> Result<(), BenchmarkError> {
+		let who = funded_manager::<T>();
+		let para_id = make_registered::<T>(&who)?;
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(who), para_id, sp_core::H256::repeat_byte(2), T::MaxCodeSize::get());
+
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

@@ -313,6 +313,14 @@ pub mod pallet {
 		ParaLocked { para_id: ParaId },
 		/// The manager may control this para again.
 		ParaUnlocked { para_id: ParaId },
+		/// The relay chain has been asked to authorize a code upgrade.
+		CodeUpgradeRequested { para_id: ParaId, message_id: u64, code_hash: H256 },
+		/// The relay chain will accept the code until `expire_at`, one of its own block numbers.
+		CodeUpgradeAuthorized { para_id: ParaId, message_id: u64, expire_at: u32 },
+		/// The relay chain refused the upgrade.
+		CodeUpgradeFailed { para_id: ParaId, message_id: u64, reason: FailureReason },
+		/// The relay chain scheduled the upgrade.
+		CodeUpgradeScheduled { para_id: ParaId, message_id: u64 },
 	}
 
 	#[pallet::error]
@@ -598,16 +606,40 @@ pub mod pallet {
 			todo!()
 		}
 
+		/// Ask the relay chain to authorize a validation code upgrade.
+		///
+		/// Root, the para itself, or its manager while unlocked. As with [`Pallet::register`] the
+		/// code itself stays here: the caller uploads it to the relay chain separately, and it is
+		/// accepted only if it matches `code_hash` and `code_len`. Nothing is recorded and no
+		/// deposit is taken; the outcome comes back through [`Pallet::receive`] as an event.
 		#[pallet::call_index(8)]
-		#[pallet::weight(Weight::zero())]
+		#[pallet::weight(T::WeightInfo::schedule_code_upgrade())]
 		pub fn schedule_code_upgrade(
 			origin: OriginFor<T>,
 			para_id: ParaId,
 			code_hash: H256,
 			code_len: u32,
 		) -> DispatchResult {
-			let _ = (origin, para_id, code_hash, code_len);
-			todo!()
+			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
+			Self::ensure_root_para_or_manager(origin, para_id, &info)?;
+			ensure!(
+				matches!(info.state, RegistrationState::Registered { .. }),
+				Error::<T>::NotRegistered
+			);
+			ensure!(code_len >= T::MinCodeSize::get(), Error::<T>::CodeTooSmall);
+			ensure!(code_len <= T::MaxCodeSize::get(), Error::<T>::CodeTooLarge);
+
+			let message_id = Self::next_message_id();
+			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
+				para_id,
+				message_id,
+				code_hash,
+				code_len,
+			}))
+			.map_err(|()| Error::<T>::SendFailed)?;
+
+			Self::deposit_event(Event::CodeUpgradeRequested { para_id, message_id, code_hash });
+			Ok(())
 		}
 
 		#[pallet::call_index(9)]
@@ -795,18 +827,23 @@ impl<T: Config> Pallet<T> {
 		todo!()
 	}
 
+	/// Nothing was recorded for the request, so the answer is only surfaced as an event.
 	fn on_code_upgrade_response(
 		para_id: ParaId,
 		message_id: u64,
 		outcome: Result<u32, FailureReason>,
 	) -> DispatchResult {
-		let _ = (para_id, message_id, outcome);
-		todo!()
+		Self::deposit_event(match outcome {
+			Ok(expire_at) => Event::CodeUpgradeAuthorized { para_id, message_id, expire_at },
+			Err(reason) => Event::CodeUpgradeFailed { para_id, message_id, reason },
+		});
+		Ok(())
 	}
 
+	/// The blob landed on the relay chain, so the upgrade is on its way.
 	fn on_code_upgrade_scheduled(para_id: ParaId, message_id: u64) -> DispatchResult {
-		let _ = (para_id, message_id);
-		todo!()
+		Self::deposit_event(Event::CodeUpgradeScheduled { para_id, message_id });
+		Ok(())
 	}
 
 	fn on_set_head_response(para_id: ParaId, message_id: u64, outcome: Outcome) -> DispatchResult {

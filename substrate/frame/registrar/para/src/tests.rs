@@ -852,3 +852,223 @@ mod remove_lock {
 		});
 	}
 }
+
+mod schedule_code_upgrade {
+	use super::*;
+
+	fn request(who: AccountId, para_id: u32, code_len: u32) -> Vec<u8> {
+		let blob = code(code_len as usize);
+		assert_ok!(Registrar::schedule_code_upgrade(
+			RuntimeOrigin::signed(who),
+			para_id,
+			hash_of(&blob),
+			code_len,
+		));
+		blob
+	}
+
+	#[test]
+	fn the_manager_asks_the_relay_chain_to_authorize_the_code() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE);
+			let blob = request(ALICE, para_id, 300);
+
+			// Register was message 0, so this is 1.
+			assert_eq!(
+				take_sent(),
+				vec![MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
+					para_id,
+					message_id: 1,
+					code_hash: hash_of(&blob),
+					code_len: 300,
+				})]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::CodeUpgradeRequested {
+					para_id,
+					message_id: 1,
+					code_hash: hash_of(&blob),
+				}]
+			);
+			// Nothing is recorded and no deposit is taken beyond the registration's.
+			assert_eq!(held(ALICE), PARA_DEPOSIT + PER_BYTE * 320);
+		});
+	}
+
+	#[test]
+	fn the_para_itself_and_root_may_ask_too() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE);
+			let hash = hash_of(&code(300));
+
+			// Another para cannot pose as this one.
+			assert_noop!(
+				Registrar::schedule_code_upgrade(para_origin(para_id + 1), para_id, hash, 300),
+				Error::<Test>::NotOwner
+			);
+
+			assert_ok!(Registrar::schedule_code_upgrade(para_origin(para_id), para_id, hash, 300));
+			assert_ok!(Registrar::schedule_code_upgrade(RuntimeOrigin::root(), para_id, hash, 300));
+			assert_eq!(take_sent().len(), 2);
+		});
+	}
+
+	#[test]
+	fn a_lock_shuts_the_manager_out_but_not_root_or_the_para() {
+		new_test_ext().execute_with(|| {
+			let para_id = locked_para(ALICE);
+			let hash = hash_of(&code(300));
+
+			assert_noop!(
+				Registrar::schedule_code_upgrade(RuntimeOrigin::signed(ALICE), para_id, hash, 300),
+				Error::<Test>::ParaLocked
+			);
+
+			assert_ok!(Registrar::schedule_code_upgrade(para_origin(para_id), para_id, hash, 300));
+			assert_ok!(Registrar::schedule_code_upgrade(RuntimeOrigin::root(), para_id, hash, 300));
+		});
+	}
+
+	#[test]
+	fn rejects_an_unknown_id_a_non_manager_and_a_para_that_is_not_registered() {
+		new_test_ext().execute_with(|| {
+			let hash = hash_of(&code(300));
+
+			assert_noop!(
+				Registrar::schedule_code_upgrade(RuntimeOrigin::signed(ALICE), 4242, hash, 300),
+				Error::<Test>::NotReserved
+			);
+
+			let para_id = reserve_for(ALICE);
+			assert_noop!(
+				Registrar::schedule_code_upgrade(RuntimeOrigin::signed(BOB), para_id, hash, 300),
+				Error::<Test>::NotOwner
+			);
+			assert_noop!(
+				Registrar::schedule_code_upgrade(RuntimeOrigin::signed(ALICE), para_id, hash, 300),
+				Error::<Test>::NotRegistered
+			);
+
+			// A registration still in flight is not registered either.
+			request_registration(ALICE, para_id, 20, 300);
+			assert_noop!(
+				Registrar::schedule_code_upgrade(RuntimeOrigin::signed(ALICE), para_id, hash, 300),
+				Error::<Test>::NotRegistered
+			);
+		});
+	}
+
+	#[test]
+	fn the_code_size_bounds_are_checked_here_too() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE);
+			let hash = hash_of(&code(300));
+
+			assert_noop!(
+				Registrar::schedule_code_upgrade(
+					RuntimeOrigin::signed(ALICE),
+					para_id,
+					hash,
+					MIN_CODE_SIZE - 1
+				),
+				Error::<Test>::CodeTooSmall
+			);
+			assert_noop!(
+				Registrar::schedule_code_upgrade(
+					RuntimeOrigin::signed(ALICE),
+					para_id,
+					hash,
+					MAX_CODE_SIZE + 1
+				),
+				Error::<Test>::CodeTooLarge
+			);
+			assert!(take_sent().is_empty());
+		});
+	}
+
+	#[test]
+	fn a_transport_failure_rolls_the_whole_call_back() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE);
+			let next_message_id = crate::NextMessageId::<Test>::get();
+			SendFails::set(true);
+
+			assert_noop!(
+				Registrar::schedule_code_upgrade(
+					RuntimeOrigin::signed(ALICE),
+					para_id,
+					hash_of(&code(300)),
+					300
+				),
+				Error::<Test>::SendFailed
+			);
+
+			assert_eq!(crate::NextMessageId::<Test>::get(), next_message_id);
+			assert!(take_sent().is_empty());
+		});
+	}
+
+	#[test]
+	fn the_relay_chains_answers_are_surfaced_as_events() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE);
+			let _ = request(ALICE, para_id, 300);
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				MessageToPara::V1(MessageToParaV1::CodeUpgradeResponse {
+					para_id,
+					message_id: 1,
+					outcome: Ok(101),
+				}),
+			));
+			assert_eq!(
+				registrar_events(),
+				vec![Event::CodeUpgradeAuthorized { para_id, message_id: 1, expire_at: 101 }]
+			);
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				MessageToPara::V1(MessageToParaV1::CodeUpgradeScheduled { para_id, message_id: 1 }),
+			));
+			assert_eq!(
+				registrar_events(),
+				vec![Event::CodeUpgradeScheduled { para_id, message_id: 1 }]
+			);
+		});
+	}
+
+	#[test]
+	fn a_refusal_is_surfaced_with_its_reason() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE);
+			let _ = request(ALICE, para_id, 300);
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				MessageToPara::V1(MessageToParaV1::CodeUpgradeResponse {
+					para_id,
+					message_id: 1,
+					outcome: Err(FailureReason::CannotUpgradeCode),
+				}),
+			));
+
+			assert_eq!(
+				registrar_events(),
+				vec![Event::CodeUpgradeFailed {
+					para_id,
+					message_id: 1,
+					reason: FailureReason::CannotUpgradeCode,
+				}]
+			);
+			// Nothing was recorded, so nothing changed.
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Registered { .. }
+			));
+		});
+	}
+}
