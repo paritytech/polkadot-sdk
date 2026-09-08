@@ -132,7 +132,8 @@ impl<RClient: RelayChainInterface> SegmentDistributor<RClient> {
 			return Some(*n_validators);
 		}
 
-		// Key and value are both read at `anchor`, so they always describe the same session.
+		// `session_index_for_child` and `validators` both read `shared`, which sets them in the
+		// same session-change hook, so key and value always describe the same session.
 		match self.relay_client.validators(relay_parent).await {
 			Ok(validators) => {
 				let n_validators = validators.len();

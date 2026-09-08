@@ -941,12 +941,13 @@ where
 				authoring_duration: Duration::from_millis(2000),
 				max_pov_percentage: node_extra_args.max_pov_percentage,
 				prometheus_registry: prometheus_registry.cloned(),
+				spawner: task_manager.spawn_essential_handle(),
 			},
 		};
 
 		let fut = async move {
 			wait_for_aura(client).await;
-			aura::run_with_export::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _>(
+			aura::run_with_export::<Block, <AuraId as AppCrypto>::Pair, _, _, _, _, _, _, _, _, _>(
 				params,
 			)
 			.await;

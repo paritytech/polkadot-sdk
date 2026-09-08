@@ -221,46 +221,6 @@ pub fn build_segment_entry(
 	}
 
 	let SegmentEntryParams { collation, para_id, core_index, n_validators } = params;
-
-	build_entry(
-		collation,
-		n_validators,
-		Some(UmpCheckInputs {
-			transposed_claim_queue,
-			candidates_descriptor_version,
-			para_id,
-			core_index,
-		}),
-	)
-}
-
-/// Build a single [`SegmentEntry`] without checking the UMP signals.
-///
-/// The skipped check enforces that the parachain selected the core the candidate is submitted
-/// on, so this can only produce candidates that validators reject. It exists solely for the
-/// malicious test collator (`collator-driver`) and no production path may call it; honest
-/// collators must use [`build_segment_entry`].
-#[cfg(any(feature = "test-utils", test))]
-pub fn build_segment_entry_without_ump_check(
-	collation: SegmentCollation,
-	n_validators: usize,
-) -> Result<SegmentEntry, Error> {
-	build_entry(collation, n_validators, None)
-}
-
-/// The inputs [`parse_ump_signals_for_commitments`] needs beyond the commitments themselves.
-struct UmpCheckInputs<'a> {
-	transposed_claim_queue: &'a TransposedClaimQueue,
-	candidates_descriptor_version: CandidateDescriptorVersion,
-	para_id: ParaId,
-	core_index: CoreIndex,
-}
-
-fn build_entry(
-	collation: SegmentCollation,
-	n_validators: usize,
-	ump_check: Option<UmpCheckInputs<'_>>,
-) -> Result<SegmentEntry, Error> {
 	let SegmentCollation {
 		collation,
 		relay_parent,
@@ -294,16 +254,14 @@ fn build_entry(
 		hrmp_watermark: collation.hrmp_watermark,
 	};
 
-	if let Some(ump_check) = ump_check {
-		parse_ump_signals_for_commitments(
-			&commitments,
-			ump_check.candidates_descriptor_version,
-			ump_check.transposed_claim_queue,
-			ump_check.para_id,
-			ump_check.core_index,
-		)
-		.map_err(Error::CandidateReceiptCheck)?;
-	}
+	parse_ump_signals_for_commitments(
+		&commitments,
+		candidates_descriptor_version,
+		transposed_claim_queue,
+		para_id,
+		core_index,
+	)
+	.map_err(Error::CandidateReceiptCheck)?;
 
 	Ok(SegmentEntry {
 		relay_parent,

@@ -376,45 +376,11 @@ fn rejects_v3_segment_exceeding_max_segment_len() {
 }
 
 #[test]
-// The unchecked builder builds an entry from UMP signals that the checked builder rejects.
-fn unchecked_builder_skips_ump_signal_checks() {
-	let relay_parent = Hash::repeat_byte(0);
-
-	// The two builders must be given the *same* input for the comparison to mean anything, and
-	// that input must be one the check actually rejects. A separator followed by an undecodable
-	// signal fails inside `ump_signals()`, independently of the core index.
-	let mut malformed = collation(0);
-	malformed.upward_messages.force_push(UMP_SEPARATOR);
-	malformed.upward_messages.force_push(vec![0xFF; 8]);
-
-	let params = |collation| SegmentEntryParams {
-		collation: segment_collation(collation, relay_parent),
-		para_id: PARA_ID,
-		core_index: CoreIndex(0),
-		n_validators: N_VALIDATORS,
-	};
-
-	let checked = build_segment_entry(
-		params(malformed.clone()),
-		&claim_queue(&[0]),
-		CandidateDescriptorVersion::V2,
-	);
-	assert_matches!(checked, Err(Error::CandidateReceiptCheck(_)));
-
-	// Same collation, check skipped: it builds.
-	let entry = build_segment_entry_without_ump_check(
-		segment_collation(malformed, relay_parent),
-		N_VALIDATORS,
-	)
-	.unwrap();
-	assert_eq!(entry.relay_parent, relay_parent);
-}
-
-#[test]
 // Every commitment field must reach the entry's `commitments_hash`. The other tests use default
-// commitments, so dropping a field from the `CandidateCommitments` literal in `build_entry`, or
-// transposing two of the same type, would not change any hash they assert on. In production that
-// surfaces only as validators rejecting every candidate while the collator reports success.
+// commitments, so dropping a field from the `CandidateCommitments` literal in
+// `build_segment_entry`, or transposing two of the same type, would not change any hash they assert
+// on. In production that surfaces only as validators rejecting every candidate while the collator
+// reports success.
 fn commitments_hash_covers_every_field() {
 	let relay_parent = Hash::repeat_byte(0);
 

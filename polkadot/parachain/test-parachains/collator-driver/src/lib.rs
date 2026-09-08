@@ -29,9 +29,7 @@
 
 #![deny(missing_docs)]
 
-use cumulus_client_collator::collation::{
-	build_segment_entry, build_segment_entry_without_ump_check, SegmentEntryParams,
-};
+use cumulus_client_collator::collation::{build_segment_entry, SegmentEntryParams};
 use futures::{channel::oneshot, future::BoxFuture, FutureExt, StreamExt};
 use polkadot_node_primitives::{Collation, SegmentCollation, UpwardMessages};
 use polkadot_node_subsystem::messages::{CollatorProtocolMessage, Segment, SegmentEntry};
@@ -70,8 +68,9 @@ pub enum DistributionMode {
 	/// Author one collation per assigned core, chained on the same relay parent, and distribute
 	/// each on the core the parachain committed to. This is what an honest collator does.
 	OnePerAssignedCore,
-	/// Author a single collation and distribute the very same candidate on every assigned core,
-	/// skipping the UMP-signal core-index check. Simulates a malicious collator.
+	/// Author a single collation, built for the core the parachain selected, and distribute the
+	/// very same candidate unchanged on every other assigned core too. Simulates a malicious
+	/// collator.
 	DuplicateToAllAssignedCores,
 }
 
@@ -106,8 +105,9 @@ where
 
 	while let Some(notification) = import_notifications.next().await {
 		// One task per leaf, so that neither the activation wait nor the erasure coding of one
-		// leaf delays the next: a leaf dequeued late here is already deactivated.
-		spawner.spawn(
+		// leaf delays the next: a leaf dequeued late here is already deactivated. Blocking, since
+		// the leaf's runtime API calls and erasure coding are synchronous.
+		spawner.spawn_blocking(
 			"collator-driver-leaf",
 			Some("collator-driver"),
 			collate_on_leaf(
@@ -395,7 +395,6 @@ async fn duplicate_to_assigned_cores(
 		validation_code_hash,
 		session_index,
 		n_validators,
-		..
 	} = leaf;
 
 	let Some(collation) = build_collation(relay_parent, &validation_data).await else {
@@ -405,13 +404,14 @@ async fn duplicate_to_assigned_cores(
 
 	// The cores are read at the offset the collation itself committed to, so that they are the
 	// same set the core selection resolves against.
-	let cores = match duplication_cores(&claim_queue, para_id, &collation.upward_messages) {
-		Ok(cores) => cores,
-		Err(error) => {
-			gum::warn!(target: LOG_TARGET, ?para_id, "Not distributing: {error}");
-			return;
-		},
-	};
+	let DuplicationCores { order: cores, selected } =
+		match duplication_cores(&claim_queue, para_id, &collation.upward_messages) {
+			Ok(cores) => cores,
+			Err(error) => {
+				gum::warn!(target: LOG_TARGET, ?para_id, "Not distributing: {error}");
+				return;
+			},
+		};
 
 	if cores.len() == 1 {
 		gum::info!(
@@ -421,18 +421,26 @@ async fn duplicate_to_assigned_cores(
 		);
 	}
 
-	// The UMP-signal check enforces that the parachain selects the core the candidate is
-	// submitted on, so it has to be skipped in order to submit the same candidate on several
-	// cores.
-	let entry = match build_segment_entry_without_ump_check(
-		SegmentCollation {
-			collation,
-			relay_parent,
-			validation_data,
-			validation_code_hash,
-			session_index,
+	let transposed_claim_queue = transpose_claim_queue(claim_queue.0.clone());
+
+	// Built for the core the parachain selected, so it passes the UMP-signal check.
+	// `SegmentEntry` carries no core index, so the same entry becomes a different (and invalid)
+	// candidate on every other core it is distributed on below.
+	let entry = match build_segment_entry(
+		SegmentEntryParams {
+			collation: SegmentCollation {
+				collation,
+				relay_parent,
+				validation_data,
+				validation_code_hash,
+				session_index,
+			},
+			para_id,
+			core_index: selected,
+			n_validators,
 		},
-		n_validators,
+		&transposed_claim_queue,
+		CandidateDescriptorVersion::V2,
 	) {
 		Ok(entry) => entry,
 		Err(error) => {
@@ -477,13 +485,21 @@ enum CoreSelectionError {
 	CoreReused(u32),
 }
 
+/// The cores to duplicate a collation over, and the core the parachain selected among them.
+struct DuplicationCores {
+	/// The cores to distribute the candidate on, ordered so that `selected` comes last.
+	order: Vec<CoreIndex>,
+	/// The core the parachain committed to via its UMP signals.
+	selected: CoreIndex,
+}
+
 /// The cores to duplicate a collation over, ordered so that the core the parachain selected is
-/// distributed last.
+/// distributed last, together with that selected core.
 fn duplication_cores(
 	claim_queue: &ClaimQueueSnapshot,
 	para_id: ParaId,
 	upward_messages: &UpwardMessages,
-) -> Result<Vec<CoreIndex>, CoreSelectionError> {
+) -> Result<DuplicationCores, CoreSelectionError> {
 	let (selector, cq_offset) = core_selector(upward_messages, 0)?;
 	let cores = cores_at_depth(claim_queue, para_id, cq_offset)?;
 
@@ -491,7 +507,7 @@ fn duplication_cores(
 	// selected core is a member of `cores` by construction.
 	let selected = cores[selector % cores.len()];
 
-	Ok(distribution_order(cores, selected))
+	Ok(DuplicationCores { order: distribution_order(cores, selected), selected })
 }
 
 /// Order `cores` so that `selected` comes last.

@@ -61,8 +61,3 @@ polkadot-primitives-test-helpers = { workspace = true }
 cumulus-test-client = { workspace = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
 cumulus-test-runtime = { workspace = true }
-
-[features]
-# Exposes segment-entry builders that skip the UMP-signal checks an honest collator must
-# perform. Only the test parachain collators may enable this.
-test-utils = []

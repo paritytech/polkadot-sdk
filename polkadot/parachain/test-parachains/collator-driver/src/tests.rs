@@ -198,13 +198,13 @@ fn no_core_at_committed_offset() {
 	);
 }
 
-/// The cores the duplicating collator would distribute on, in order.
+/// The cores the duplicating collator would distribute on, in order, and the core it selected.
 fn duplication_order(
 	claim_queue: &ClaimQueueSnapshot,
 	selector: Option<CoreSelectorData>,
-) -> Result<Vec<u32>, CoreSelectionError> {
+) -> Result<(Vec<u32>, u32), CoreSelectionError> {
 	duplication_cores(claim_queue, PARA_ID, &upward_messages(&selector))
-		.map(|cores| cores.into_iter().map(|core| core.0).collect())
+		.map(|cores| (cores.order.into_iter().map(|core| core.0).collect(), cores.selected.0))
 }
 
 #[rstest]
@@ -217,14 +217,14 @@ fn duplication_order(
 fn distributes_the_selected_core_last(#[case] cs_index: u8, #[case] expected_cores: Vec<u32>) {
 	let claim_queue = claim_queue((0..3).map(|core| (core, vec![PARA_ID])));
 
-	assert_eq!(
-		duplication_order(
-			&claim_queue,
-			Some(CoreSelectorData { index: cs_index, increment_index_by: 0, cq_offset: 0 }),
-		)
-		.unwrap(),
-		expected_cores,
-	);
+	let (order, selected) = duplication_order(
+		&claim_queue,
+		Some(CoreSelectorData { index: cs_index, increment_index_by: 0, cq_offset: 0 }),
+	)
+	.unwrap();
+
+	assert_eq!(order, expected_cores);
+	assert_eq!(selected, *expected_cores.last().unwrap());
 }
 
 #[test]
@@ -240,7 +240,7 @@ fn duplicates_over_the_cores_at_the_committed_offset() {
 			Some(CoreSelectorData { index: 0, increment_index_by: 0, cq_offset: 1 }),
 		)
 		.unwrap(),
-		vec![1, 2, 0],
+		(vec![1, 2, 0], 0),
 	);
 	assert_matches::assert_matches!(
 		duplication_order(
@@ -256,5 +256,5 @@ fn duplicates_over_the_cores_at_the_committed_offset() {
 fn duplication_with_a_single_assigned_core() {
 	let claim_queue = claim_queue([(7, vec![PARA_ID])]);
 
-	assert_eq!(duplication_order(&claim_queue, None).unwrap(), vec![7]);
+	assert_eq!(duplication_order(&claim_queue, None).unwrap(), (vec![7], 7));
 }

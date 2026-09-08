@@ -522,9 +522,10 @@ where
 				authoring_duration: Duration::from_millis(2000),
 				max_pov_percentage: None,
 				prometheus_registry: prometheus_registry.clone(),
+				spawner: task_manager.spawn_essential_handle(),
 			};
 
-			let fut = aura::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _>(params);
+			let fut = aura::run::<Block, AuthorityPair, _, _, _, _, _, _, _, _, _>(params);
 			task_manager.spawn_essential_handle().spawn("aura", None, fut);
 		}
 	}

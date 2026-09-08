@@ -48,6 +48,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use polkadot_node_primitives::SegmentCollation;
+use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{transpose_claim_queue, Id as ParaId, OccupiedCoreAssumption};
 use sp_consensus::Environment;
@@ -62,11 +63,12 @@ use prometheus_endpoint::Registry;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
 use sc_network_types::PeerId;
+use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver};
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::{AuraApi, Slot};
-use sp_core::crypto::Pair;
+use sp_core::{crypto::Pair, traits::SpawnEssentialNamed};
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
 use sp_runtime::{
@@ -77,7 +79,7 @@ use sp_timestamp::Timestamp;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 /// Parameters for [`run`].
-pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, ProposerFactory, CS> {
+pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, ProposerFactory, CS, Spawner> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
 	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
 	/// collator.
@@ -113,6 +115,8 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, ProposerFactory, CS> 
 	pub max_pov_percentage: Option<u32>,
 	/// Prometheus registry for collation metrics.
 	pub prometheus_registry: Option<Registry>,
+	/// Spawner for the collation task.
+	pub spawner: Spawner,
 }
 
 /// Get the current parachain slot from a given block hash.
@@ -162,8 +166,8 @@ where
 }
 
 /// Run async-backing-friendly Aura.
-pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>(
-	params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
+pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>(
+	params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>,
 ) -> impl Future<Output = ()> + Send + 'static
 where
 	Block: BlockT,
@@ -190,14 +194,18 @@ where
 	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
+	Spawner: SpawnEssentialNamed + 'static,
 {
-	run_with_export::<_, P, _, _, _, _, _, _, _, _>(ParamsWithExport { params, export_pov: None })
+	run_with_export::<_, P, _, _, _, _, _, _, _, _, _>(ParamsWithExport {
+		params,
+		export_pov: None,
+	})
 }
 
 /// Parameters for [`run_with_export`].
-pub struct ParamsWithExport<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
+pub struct ParamsWithExport<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner> {
 	/// The parameters.
-	pub params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
+	pub params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>,
 
 	/// When set, the collator will export every produced `POV` to this folder.
 	pub export_pov: Option<PathBuf>,
@@ -207,7 +215,7 @@ pub struct ParamsWithExport<BI, CIDP, Client, Backend, RClient, CHP, Proposer, C
 ///
 /// This is exactly the same as [`run`], but it supports the optional export of each produced `POV`
 /// to the file system.
-pub fn run_with_export<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>(
+pub fn run_with_export<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spawner>(
 	ParamsWithExport { mut params, export_pov }: ParamsWithExport<
 		BI,
 		CIDP,
@@ -217,6 +225,7 @@ pub fn run_with_export<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Propos
 		CHP,
 		Proposer,
 		CS,
+		Spawner,
 	>,
 ) -> impl Future<Output = ()> + Send + 'static
 where
@@ -244,6 +253,7 @@ where
 	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
+	Spawner: SpawnEssentialNamed + 'static,
 {
 	async move {
 		cumulus_client_collator::initialize_collator_subsystems(
@@ -264,11 +274,20 @@ where
 			},
 		};
 
-		let mut segment_distributor = SegmentDistributor::new(
+		let segment_distributor = SegmentDistributor::new(
 			params.relay_client.clone(),
 			params.overseer_handle.clone(),
 			params.para_id,
 			metrics,
+		);
+
+		let (collation_sender, collation_receiver) =
+			tracing_unbounded("mpsc_lookahead_to_collator", 100);
+
+		params.spawner.spawn_essential_blocking(
+			"lookahead-collation",
+			Some("lookahead-collator"),
+			run_collation_task(segment_distributor, collation_receiver).boxed(),
 		);
 
 		let mut import_notifications = match params.relay_client.import_notification_stream().await
@@ -531,31 +550,31 @@ where
 						);
 					}
 
-					// Build the candidate and hand it to the collator protocol, which
-					// distributes it to the validators.
-					//
-					// Here we are assuming that the leaf is imported, as we've gotten an
-					// import notification.
-					segment_distributor
-						.distribute(
-							SegmentToDistribute {
-								core_index,
-								scheduling: SchedulingContext::V2 {
-									relay_parent,
-									session: session_index,
-								},
-								collations: vec![SegmentCollation {
-									relay_parent,
-									collation,
-									validation_code_hash,
-									session_index,
-									validation_data,
-								}],
+					// Hand the segment off to the collation task, which compresses and
+					// erasure-codes it before distributing it to the validators.
+					if let Err(err) = collation_sender.unbounded_send((
+						SegmentToDistribute {
+							core_index,
+							scheduling: SchedulingContext::V2 {
+								relay_parent,
+								session: session_index,
 							},
-							// Already fetched at this relay parent for core selection above.
-							transpose_claim_queue(claim_queue.0.clone()),
-						)
-						.await;
+							collations: vec![SegmentCollation {
+								relay_parent,
+								collation,
+								validation_code_hash,
+								session_index,
+								validation_data,
+							}],
+						},
+						claim_queue.clone(),
+					)) {
+						tracing::error!(
+							target: crate::LOG_TARGET,
+							?err,
+							"Failed to send collation to the collation task"
+						);
+					}
 				},
 				Ok(None) => {
 					tracing::debug!(target: crate::LOG_TARGET, "No block proposal");
@@ -567,5 +586,17 @@ where
 				},
 			}
 		}
+	}
+}
+
+/// Distribute the segments produced by the authoring loop.
+async fn run_collation_task<RClient: RelayChainInterface>(
+	mut segment_distributor: SegmentDistributor<RClient>,
+	mut collations: TracingUnboundedReceiver<(SegmentToDistribute, ClaimQueueSnapshot)>,
+) {
+	while let Some((segment, claim_queue)) = collations.next().await {
+		segment_distributor
+			.distribute(segment, transpose_claim_queue(claim_queue.0))
+			.await;
 	}
 }
