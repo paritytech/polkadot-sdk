@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788818269671,
+  "lastUpdate": 1788870886032,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -121715,6 +121715,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2593631310,
             "range": "± 8755689",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "rohit.sarpotdar@parity.io",
+            "name": "Rohit Sarpotdar",
+            "username": "rosarp"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "bfac5667dd3b0ed7127022f98d55e8e788a29202",
+          "message": "ci: compare bench weights against base repo master, not fork master (#12925)\n\n`/cmd bench` produces a meaningless Subweight table for pull requests\nopened from **forks**.\n\nThe Subweight step in `.github/workflows/cmd-run.yml` compares the\nregenerated weights against\n`refs/remotes/origin/master`. But the checkout step of that same job\npoints `origin` at the **PR head\nrepository**:\n\n```yaml\n- name: Checkout\n  uses: actions/checkout@...\n  with:\n    repository: ${{ env.REPO }}   # = pr.data.head.repo.full_name, i.e. the contributor's fork\n    ref: ${{ env.PR_BRANCH }}\n```\n\nSo `origin/master` resolves to the *fork's* master — whatever the\ncontributor last synced — rather than\nthe actual merge base. When that fork is behind, the \"Old\" column is\nread from a stale tree and the\nreport becomes noise:\n\n- weight files added upstream since the fork was synced are listed as\n`Added`, with no baseline at all;\n- weights that merely moved upstream appear as huge phantom regressions.\n\nReviewers are shown a diff that has nothing to do with what the PR\nactually did to weights.\n\nThis PR points the comparison at the repository the workflow itself runs\nin.\n\n## Integration\n\nNone. CI-only change — no crate is modified, nothing to integrate\ndownstream.\n\n## Review Notes\n\nThis issue was found on [paritytech/polkadot-bulletin-chain\n#753](https://github.com/paritytech/polkadot-bulletin-chain/pull/753).\nFor example in PR's bench bot's comment\n[#753](https://github.com/paritytech/polkadot-bulletin-chain/pull/753#issuecomment-5326042048)\n, it reported enormouse % change for this:\n\n```\npallets/transaction-storage/src/weights.rs \tauthorize_account \t1.00ns \t143.10us \t+14309600.00\n```\npallets/transaction-storage/src/weights.rs was never touched by this\nbench run — it's absent from the modified list. The bot invented a\n+14,309,600% regression for a file the run didn't write, purely from\ndiffing against the stale fork baseline.",
+          "timestamp": "2026-09-08T09:46:16Z",
+          "tree_id": "5d5921eb7ca5ae066342644b5cffe9c77bc08d8e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bfac5667dd3b0ed7127022f98d55e8e788a29202"
+        },
+        "date": 1788870847290,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19998123,
+            "range": "± 161677",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20053153,
+            "range": "± 190423",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21526118,
+            "range": "± 155989",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26225822,
+            "range": "± 134018",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59801122,
+            "range": "± 892727",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 347138810,
+            "range": "± 4240437",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2875022722,
+            "range": "± 164406578",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18191970,
+            "range": "± 190813",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18195614,
+            "range": "± 247863",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18360789,
+            "range": "± 335132",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22832536,
+            "range": "± 348851",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 65352450,
+            "range": "± 501280",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 387895113,
+            "range": "± 6675066",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2684802758,
+            "range": "± 71822716",
             "unit": "ns/iter"
           }
         ]
