@@ -279,24 +279,57 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	);
 }
 
-/// Message to be sent from the block builder to the collation task.
+/// Message sent from the block builder to the collation task over their shared channel.
 ///
-/// Contains all data necessary to submit a collation to the relay chain.
-struct CollatorMessage<Block: BlockT> {
-	/// The hash of the relay chain block that provides the context for the parachain block.
+/// Carries either a single collation (submitted via
+/// [`CollationGenerationMessage::SubmitCollation`]) or a whole segment of collations (submitted
+/// via [`CollationGenerationMessage::SubmitSegment`]).
+///
+/// [`CollationGenerationMessage::SubmitCollation`]: polkadot_node_subsystem::messages::CollationGenerationMessage::SubmitCollation
+/// [`CollationGenerationMessage::SubmitSegment`]: polkadot_node_subsystem::messages::CollationGenerationMessage::SubmitSegment
+enum CollatorMessage<Block: BlockT> {
+	/// A single collation (one PoV / one candidate on the relay chain).
+	Collation {
+		/// Core index that this collation should be submitted on.
+		core_index: CoreIndex,
+		/// The built collation payload. Submitted as a V2 collation (no scheduling proof).
+		entry: CollatorSegmentEntry<Block>,
+	},
+	/// A segment of collations sharing a scheduling parent and target core.
+	///
+	/// V3 collations are submitted as segments; the block builder currently emits 1-length
+	/// segments, and the resubmission path will produce multi-entry ones.
+	Segment(CollatorSegmentMessage<Block>),
+}
+
+/// Segment message sent from the block builder for V3/V4 candidates. Routed to
+/// `CollationGenerationMessage::SubmitSegment` by the collation task.
+struct CollatorSegmentMessage<Block: BlockT> {
+	/// Scheduling proof shared by the whole segment. Segments are V3/V4-only, so this is always
+	/// present; the segment's scheduling parent is derived from
+	/// `scheduling_proof.scheduling_parent()`.
+	pub scheduling_proof: SchedulingProof,
+	/// Target core for the whole segment submission.
+	pub core_index: CoreIndex,
+	/// The freshly-built bundle for this core, if one was built this slot.
+	pub bundle: Option<CollatorSegmentEntry<Block>>,
+}
+
+/// One entry of a [`CollatorSegmentMessage`]. Each entry produces one `SegmentCollation`
+/// (one PoV / one candidate on the relay chain), and may still bundle multiple parablocks
+/// inside its PoV via `build_multi_block_collation`.
+#[derive(Clone)]
+struct CollatorSegmentEntry<Block: BlockT> {
+	/// The hash of the relay chain block that provides the context for the parachain block(s).
 	pub relay_parent: RelayHash,
-	/// V3 scheduling proof. None for V1/V2 candidates.
-	pub scheduling_proof: Option<SchedulingProof>,
-	/// The header of the parent block.
+	/// The header of the parent of the first block in this entry.
 	pub parent_header: Block::Header,
-	/// The built blocks.
+	/// The built blocks bundled into this entry.
 	pub blocks: Vec<Block>,
-	/// The storage proof that was collected while building all the blocks.
+	/// The storage proof collected while building all of `blocks`.
 	pub proof: StorageProof,
 	/// The validation code hash at the parent block.
 	pub validation_code_hash: ValidationCodeHash,
-	/// Core index that this block should be submitted on
-	pub core_index: CoreIndex,
-	/// The persisted validation data for this collation.
+	/// The persisted validation data for this entry.
 	pub validation_data: PersistedValidationData,
 }
