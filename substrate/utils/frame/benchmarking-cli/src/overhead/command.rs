@@ -181,9 +181,10 @@ pub struct OverheadParams {
 	///
 	/// Used with `--extrinsic-subtract-weight` only when producing the output constant, not when
 	/// reporting benchmark statistics. Proof size is assumed to be zero (signature verification
-	/// does not touch storage). Defaults to the `sr25519` [`SignatureWeight`](sp_runtime::traits::SignatureWeight)
-	/// value, matching the signing scheme used by the default remark extrinsic builders
-	/// ([`SubstrateRemarkBuilder`], [`crate::overhead::remark_builder::DynamicRemarkBuilder`]).
+	/// does not touch storage). Defaults to the `sr25519`
+	/// [`SignatureWeight`](sp_runtime::traits::SignatureWeight) value, matching the signing
+	/// scheme used by the default remark extrinsic builders ([`SubstrateRemarkBuilder`],
+	/// [`crate::overhead::remark_builder::DynamicRemarkBuilder`]).
 	#[arg(long)]
 	pub signature_weight: Option<u64>,
 
