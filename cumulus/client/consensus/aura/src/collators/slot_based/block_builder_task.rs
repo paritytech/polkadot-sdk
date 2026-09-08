@@ -22,7 +22,7 @@ use crate::{
 		check_validation_code_or_log,
 		slot_based::{
 			relay_chain_data_cache::RelayChainDataCache,
-			scheduling::SchedulingInfo,
+			scheduling::{SchedulingInfo, SchedulingProofBuilder},
 			slot_timer::{SlotInfo, SlotTimer},
 		},
 		BackingGroupConnectionHelper, RelayHash, RelayParentData,
@@ -40,8 +40,8 @@ use cumulus_client_resubmission_store::prepare_resubmission_aux_data;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	PersistedValidationData, RelayBlockIdentifier, RelayParentOffsetApi, SchedulingProof,
-	SchedulingV3EnabledApi, TargetBlockRate,
+	PersistedValidationData, RelayBlockIdentifier, RelayParentOffsetApi, SchedulingV3EnabledApi,
+	TargetBlockRate,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
@@ -882,6 +882,7 @@ where
 					para_slot: cx.para_slot.slot,
 					para_client: &*env.para_client,
 					v3_enabled: cx.v3_enabled,
+					keystore: &env.keystore,
 				})
 				.await
 				{
@@ -937,6 +938,7 @@ struct BuildCollationParams<
 	para_slot: cumulus_primitives_aura::Slot,
 	para_client: &'a Client,
 	v3_enabled: bool,
+	keystore: &'a KeystorePtr,
 }
 
 /// Build a collation for one core.
@@ -978,6 +980,7 @@ async fn build_collation_for_core<
 		para_slot,
 		para_client,
 		v3_enabled,
+		keystore,
 	}: BuildCollationParams<'_, Block, P, RelayClient, BI, CIDP, Proposer, CS, CHP, Client>,
 ) -> Result<Option<Block::Header>, ()>
 where
@@ -1011,29 +1014,42 @@ where
 	// Check if V3 scheduling is enabled and build scheduling proof if so.
 	let mut scheduling_proof = None;
 	if v3_enabled {
-		// The relay parent descendants are only needed for v2.
-		let descendants = relay_parent_data.take_descendants();
-		// The descendants are ordered from oldest to newest, so we need to reverse them.
-		let header_chain: Vec<_> = descendants.into_iter().rev().collect();
-		let scheduling_parent =
-			header_chain.first().map(|header| header.hash()).unwrap_or(relay_parent_hash);
+		// Initial submission: `internal_scheduling_parent == relay_parent`, so the internal
+		// scheduling parent header is the relay parent's header itself, and the slot claim's
+		// author is the key eligible to sign for it. The relay parent descendants are only
+		// needed for v2.
+		let builder = SchedulingProofBuilder::<P>::new(relay_parent_header.clone())
+			.descendants(relay_parent_data.take_descendants())
+			.for_core(&core_info)
+			.crediting_peer(collator_peer_id)
+			.keystore(keystore);
+
+		// TODO: skip the signing when the core's resubmittable segment is empty, since the
+		// signature only matters for a resubmission.
+		let proof = match builder.build_with_signed_payload(slot_claim.author_pub()) {
+			Ok(proof) => proof,
+			Err(err) => {
+				tracing::error!(
+					target: LOG_TARGET,
+					?err,
+					?core_index,
+					core_selector = ?core_info.selector,
+					"Could not sign the scheduling info; skipping the slot.",
+				);
+
+				return Err(());
+			},
+		};
 
 		tracing::debug!(
 			target: LOG_TARGET,
 			relay_parent = ?relay_parent_hash,
-			?scheduling_parent,
-			header_chain_len = header_chain.len(),
+			scheduling_parent = ?proof.scheduling_parent(),
+			header_chain_len = proof.header_chain.len(),
 			"Building V3 collation with scheduling proof",
 		);
 
-		scheduling_proof = Some(SchedulingProof {
-			header_chain,
-			// Initial submission: internal_scheduling_parent == relay_parent, so the
-			// internal scheduling parent header is the relay parent's header itself.
-			internal_scheduling_parent_header: relay_parent_header.clone(),
-			// Initial submission: no signature needed, core selection from UMP signals
-			signed_scheduling_info: None,
-		});
+		scheduling_proof = Some(proof);
 	}
 
 	let Some(validation_code_hash) = code_hash_provider.code_hash_at(pov_parent_hash) else {
