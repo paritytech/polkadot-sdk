@@ -11,8 +11,8 @@ doc:
     5. The tip sync DB generator added the passive `pruned-node` via `with_collator(...).validator(false)`, but `with_collator` force-sets `validator(true)` after the closure, so the node was enrolled as a second genesis Aura authority. The tip-sync network only runs `collator-1`, so that phantom authority owned half the Aura slots with no producer, halving finality throughput (~12.5s/block instead of ~6s) and driving the flakiness in item 4. Switched it to `with_fullnode(...)` so the snapshot's authority set is `collator-1` only. NOTE: requires regenerating and re-uploading the storage-chain fixture bundle before it takes effect.
 crates:
 - name: sp-weights
-  bump: patch
+  bump: minor
 - name: sc-rpc-spec-v2
   bump: patch
 - name: staging-xcm
-  bump: patch
+  bump: minor
