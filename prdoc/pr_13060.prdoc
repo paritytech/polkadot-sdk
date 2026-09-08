@@ -7,10 +7,7 @@ doc:
   - audience: Runtime Dev
     description: |-
       `pallet-registrar-para` gains `add_lock`, which shuts the manager out of a registered para,
-      and `remove_lock`, for root or the para itself only. `pallet-broker` gains an
-      `OnCoreAssigned` config type, told whenever a region is assigned to a task; a runtime that
-      also registers those tasks wires it to the registrar's lock, so a para is locked as soon as
-      it holds Coretime. `OnCoreAssigned` is `()` on a chain with nothing to tell.
+      and `remove_lock`, for root or the para itself only.
 
       `pallet-registrar-relay::authorize_code` and `cancel_authorization` are merged into a single
       `receive` at call index 0, so the transport no longer picks a call index per message variant.
@@ -22,7 +19,3 @@ crates:
     bump: major
   - name: pallet-registrar-relay
     bump: major
-  - name: pallet-broker
-    bump: major
-  - name: coretime-westend-runtime
-    bump: patch

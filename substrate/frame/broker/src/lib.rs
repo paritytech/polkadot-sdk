@@ -97,12 +97,6 @@ pub mod pallet {
 		/// system.
 		type Coretime: CoretimeInterface;
 
-		/// Told when a task is given Coretime. `()` for a runtime with nothing to tell.
-		///
-		/// Whatever this costs is measured as part of `assign`, which is what calls it, so a
-		/// runtime that sets it to anything but `()` has to rerun this pallet's benchmarks.
-		type OnCoreAssigned: OnCoreAssigned;
-
 		/// The algorithm to determine the next price on the basis of market performance.
 		type PriceAdapter: AdaptPrice<BalanceOf<Self>>;
 

@@ -376,9 +376,6 @@ impl<T: Config> Pallet<T> {
 					}
 				}
 			}
-
-			T::OnCoreAssigned::on_core_assigned(target);
-
 			Self::deposit_event(Event::Assigned { region_id, task: target, duration });
 		}
 		Ok(())

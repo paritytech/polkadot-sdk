@@ -132,17 +132,3 @@ impl CoretimeInterface for () {
 	) {
 	}
 }
-
-/// Told when a task is given Coretime.
-///
-/// Exists so a chain that registers tasks as well as selling them Coretime can learn that one of
-/// them has started using a core. Whether that means anything, and whether only the first time
-/// counts, is the listener's business. `()` for a runtime with nothing to tell.
-pub trait OnCoreAssigned {
-	/// `task` now has Coretime.
-	fn on_core_assigned(task: TaskId);
-}
-
-impl OnCoreAssigned for () {
-	fn on_core_assigned(_task: TaskId) {}
-}

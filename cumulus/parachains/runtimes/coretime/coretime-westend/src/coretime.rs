@@ -232,7 +232,6 @@ impl pallet_broker::Config for Runtime {
 	type MaxLeasedCores = ConstU32<50>;
 	type MaxReservedCores = ConstU32<50>;
 	type Coretime = CoretimeAllocator;
-	type OnCoreAssigned = ();
 	type ConvertBalance = sp_runtime::traits::Identity;
 	type WeightInfo = weights::pallet_broker::WeightInfo<Runtime>;
 	type PalletId = BrokerPalletId;
