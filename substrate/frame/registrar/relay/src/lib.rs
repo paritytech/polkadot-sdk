@@ -267,6 +267,16 @@ pub mod pallet {
 	pub type PendingCodeUpgrades<T: Config> =
 		CountedStorageMap<_, Blake2_128Concat, ParaId, PendingCodeUpgrade>;
 
+	/// Paras this pallet has onboarded that have not produced a block yet.
+	///
+	/// The relay chain is the only chain that can see a para's first head, and the control plane
+	/// needs that fact to decide when the manager is locked out — so an entry is made at
+	/// onboarding and taken at the first head, which is what makes the notification fire exactly
+	/// once. Only paras onboarded *through this pallet* are ever in here: migrated paras arrived
+	/// already live and already locked, so the control plane has nothing left to learn about them.
+	#[pallet::storage]
+	pub type AwaitingFirstHead<T: Config> = StorageMap<_, Blake2_128Concat, ParaId, ()>;
+
 	/// The block a para last had a request forwarded in, and how many it has had in that block.
 	///
 	/// Only the current block's entry is ever read; older ones are overwritten in place, so the
@@ -325,6 +335,13 @@ pub mod pallet {
 		UpgradeCooldownRemoved { para_id: ParaId, message_id: u64 },
 		/// There was no upgrade cooldown to drop. The parachain has already charged for it.
 		NoUpgradeCooldown { para_id: ParaId, message_id: u64 },
+		/// A para produced its first block and the control plane was told to lock it.
+		FirstHeadNoted { para_id: ParaId },
+		/// A para produced its first block and the control plane could not be told.
+		///
+		/// The para is live with its manager still able to change it there. Root can lock it
+		/// directly on the control plane; nothing on this chain will retry.
+		FirstHeadNoteFailed { para_id: ParaId },
 	}
 
 	#[pallet::error]
@@ -451,6 +468,7 @@ pub mod pallet {
 				validation_code,
 			)?;
 			PendingRegistrations::<T>::remove(para_id);
+			AwaitingFirstHead::<T>::insert(para_id, ());
 
 			let message_id = pending.message_id;
 			Self::report_registration(para_id, message_id, Ok(()));
@@ -631,6 +649,9 @@ pub mod pallet {
 
 			match Self::guarded(|| T::Registrar::deregister(para_id)) {
 				Ok(()) => {
+					// A para that never produced a block would otherwise leave its watch behind
+					// forever; one that did has already had it taken.
+					AwaitingFirstHead::<T>::remove(para_id);
 					Self::report_deregistration(para_id, message_id, Ok(()));
 					Self::deposit_event(Event::Deregistered { para_id, message_id });
 				},
@@ -672,6 +693,44 @@ pub mod pallet {
 				Err(FailureReason::NotRegistered),
 			);
 			Self::deposit_event(Event::DeregistrationCancellationRefused { para_id, message_id });
+		}
+
+		/// Tell the control plane that `para_id` has produced its first block, once.
+		///
+		/// For the relay runtime to call from `paras::Config::OnNewHead`, alongside whatever else
+		/// listens there. That hook fires for every head of every para, so the cost of not being
+		/// interested is the one read that misses [`AwaitingFirstHead`].
+		///
+		/// The first head, and not the first coretime assignment, is what locks a manager out. A
+		/// lock is permanent in practice — only the para itself or root can lift one, and a para
+		/// that has never booted cannot ask — so it must not land before the para is something
+		/// other people depend on. A para whose genesis code or head is wrong holds a core and
+		/// produces nothing, and fixing it means the manager using precisely the calls a lock
+		/// takes away. Locking on assignment would leave every such mistake needing governance;
+		/// locking at the first block is what the relay chain has always done.
+		///
+		/// Fire-and-forget: a refused transport is reported as an event and never retried, on the
+		/// same argument as [`Self::report`] — this chain's own state is already correct, and the
+		/// para is live either way.
+		pub fn note_first_head(para_id: ParaId) -> Weight {
+			if AwaitingFirstHead::<T>::take(para_id).is_none() {
+				return T::DbWeight::get().reads(1);
+			}
+
+			if T::SendToPara::send(MessageToPara::V1(MessageToParaV1::NotedFirstHead { para_id }))
+				.is_err()
+			{
+				log::error!(
+					target: "runtime::registrar-relay",
+					"failed to tell the parachain that para {para_id} produced its first block; \
+					 it is live with its manager unlocked there",
+				);
+				Self::deposit_event(Event::FirstHeadNoteFailed { para_id });
+			} else {
+				Self::deposit_event(Event::FirstHeadNoted { para_id });
+			}
+
+			T::DbWeight::get().reads_writes(1, 1)
 		}
 
 		/// Note one forwarded request from `para_id`, refusing it once the para has used its

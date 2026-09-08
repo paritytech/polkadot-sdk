@@ -140,6 +140,11 @@ fn para_state(para_id: u32) -> Option<RegistrationState<Option<RegistrationTicke
 }
 
 /// The relay chain's registry entry for `para_id`, if any.
+/// The control plane's three-valued lock for `para_id`.
+fn para_registry_lock(para_id: u32) -> Option<bool> {
+	pallet_registrar_para::Paras::<para::Runtime>::get(para_id).unwrap().locked
+}
+
 fn relay_registry_entry(
 	para_id: u32,
 ) -> Option<polkadot_runtime_common::paras_registrar::ParaInfo<AccountId32, u128>> {
@@ -497,6 +502,71 @@ fn deregistering_a_reserved_id_never_touches_the_relay_chain() {
 		assert!(relay::System::events()
 			.iter()
 			.all(|e| !matches!(&e.event, relay::RuntimeEvent::Registrar(..))));
+	});
+}
+
+/// Fire the relay chain's `OnNewHead` hook for `para_id`, as inclusion does when the para's first
+/// candidate is backed.
+///
+/// Called directly rather than through the inclusion pipeline, which the simulator does not run.
+/// What is under test is everything downstream of the hook: the relay chain deciding this is a
+/// first head, the message crossing, and the control plane applying the lock.
+fn produce_first_block(para_id: u32) {
+	use polkadot_runtime_parachains::paras::OnNewHead;
+
+	Relay::execute_with(|| {
+		<relay::Runtime as polkadot_runtime_parachains::paras::Config>::OnNewHead::on_new_head(
+			para_id.into(),
+			&head(32).into(),
+		);
+	});
+}
+
+#[test]
+fn a_paras_first_block_locks_it_on_the_control_plane() {
+	MockNet::reset();
+
+	let para_id = onboard(ALICE, 32, 64);
+
+	// GIVEN a freshly onboarded para that has not produced a block. Its manager is still in
+	// charge on the control plane, which is the point: a deployment whose genesis code or head is
+	// wrong needs exactly these calls to be fixed, and holding a core is not evidence that
+	// anything works.
+	RegistrarPara::execute_with(|| {
+		assert_eq!(para_registry_lock(para_id), None);
+		assert_ok!(para::Registrar::set_current_head(
+			para::RuntimeOrigin::signed(ALICE),
+			para_id,
+			head(8)
+		));
+	});
+
+	// WHEN the para produces its first block on the relay chain.
+	produce_first_block(para_id);
+
+	// THEN the control plane heard about it and locked the para against its manager.
+	RegistrarPara::execute_with(|| {
+		assert_eq!(para_registry_lock(para_id), Some(true));
+		assert_noop!(
+			para::Registrar::set_current_head(para::RuntimeOrigin::signed(ALICE), para_id, head(8)),
+			pallet_registrar_para::Error::<para::Runtime>::ParaLocked
+		);
+		assert_noop!(
+			para::Registrar::deregister(para::RuntimeOrigin::signed(ALICE), para_id),
+			pallet_registrar_para::Error::<para::Runtime>::ParaLocked
+		);
+	});
+
+	// AND every block after the first says nothing: the relay chain reports the fact once, so a
+	// para that later unlocks itself is not re-locked by its next block.
+	RegistrarPara::execute_with(|| {
+		assert_ok!(para::Registrar::remove_lock(para::RuntimeOrigin::root(), para_id));
+		assert_eq!(para_registry_lock(para_id), Some(false));
+	});
+	produce_first_block(para_id);
+	RegistrarPara::execute_with(|| {
+		assert_eq!(para_registry_lock(para_id), Some(false));
+		assert_ok!(para::Registrar::deregister(para::RuntimeOrigin::signed(ALICE), para_id));
 	});
 }
 

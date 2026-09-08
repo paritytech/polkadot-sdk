@@ -131,9 +131,13 @@ impl SendToRelay for () {
 
 /// Whether a para id still holds a coretime assignment (a lease or a region) on this chain.
 ///
-/// A para that can still be scheduled must not be deregistered out from under itself, so
-/// [`Pallet::deregister`] refuses while this says yes. Runtimes without coretime knowledge use
-/// `()`, which never blocks.
+/// A para the relay chain could still schedule must not be dropped out from under itself, so
+/// [`Pallet::deregister`] refuses while this says yes — for every origin, root included.
+/// Deliberately *not* what locks a manager out: that is the para's first block, reported by the
+/// relay chain (see `Pallet::on_first_head`). Holding a core and being in use are different
+/// facts, and a para can hold a core for a long time without ever producing anything.
+///
+/// Runtimes without coretime knowledge use [`NoAssignments`], which never blocks.
 pub trait AssignmentChecker {
 	/// Whether this implementation can ever report an assignment.
 	///
@@ -148,8 +152,8 @@ pub trait AssignmentChecker {
 /// An [`AssignmentChecker`] that never reports an assignment.
 ///
 /// For runtimes that genuinely have no coretime to consult. **Not** for the chain that hosts it:
-/// there, a para holding a core is what locks it against its manager, and this would leave a live
-/// parachain's manager able to deregister it.
+/// there it would let a para id be deregistered while the relay chain can still schedule it,
+/// leaving a lease or region pointing at a task that no longer exists.
 ///
 /// A named type rather than an impl on `()`, so choosing it is a decision somebody wrote down and
 /// a reviewer can grep for, instead of the thing you get by leaving a config line alone.
@@ -231,11 +235,11 @@ pub struct ParaInfo<AccountId, ReservationTicket, RegistrationTicket, BlockNumbe
 	/// - `Some(false)` — unlocked *deliberately*, by the para or root. The automatic lock never
 	///   fires again.
 	///
-	/// The automatic lock is one-shot: the first coretime assignment moves `None` to `Some(true)`
-	/// and nothing moves it back except an explicit [`Pallet::remove_lock`]. It has to be one-shot
-	/// rather than a live "does it hold a core right now" question, because a para between
-	/// assignments — an on-demand one especially — would otherwise read unlocked and hand its
-	/// manager a window to deregister it or rewrite its code.
+	/// The automatic lock is one-shot and fires on the para's **first block**, reported by the
+	/// relay chain: `None` moves to `Some(true)` and nothing moves it back except an explicit
+	/// [`Pallet::remove_lock`]. Producing a block, rather than holding a core, is what makes a
+	/// para something other people depend on — and it is the point past which its manager needing
+	/// these calls means something has gone wrong rather than being set up.
 	pub locked: Option<bool>,
 }
 
@@ -281,9 +285,9 @@ pub mod pallet {
 		/// Whether this runtime is one that must be able to tell when a para holds a core.
 		///
 		/// True on the chain that hosts coretime. Set it there and the startup check refuses a
-		/// [`NoAssignments`] checker, which would otherwise silently leave every live parachain's
-		/// manager able to deregister it — a one-line config slip with the worst payoff in this
-		/// pallet. False elsewhere, where there is genuinely nothing to consult.
+		/// [`NoAssignments`] checker, which would otherwise let a para id be dropped while the
+		/// relay chain can still schedule it. False elsewhere, where there is genuinely nothing
+		/// to consult.
 		#[pallet::constant]
 		type RequireAssignmentLock: Get<bool>;
 
@@ -497,13 +501,14 @@ pub mod pallet {
 				T::MaxCodeSize::get(),
 			);
 
-			// A chain that hosts coretime and cannot see it has no lock at all: holding a core is
-			// what shuts a manager out of deregistering, upgrading and setting head data, and
-			// there is no other signal here to fall back on.
+			// A chain that hosts coretime and cannot see it would let a para id be deregistered
+			// while the relay chain can still schedule it, leaving a lease or region pointing at
+			// a task that is gone. The manager lock does not cover this: it gates who may ask,
+			// and deregistration is refused here for every origin including root.
 			assert!(
 				!(T::RequireAssignmentLock::get() && T::AssignmentChecker::NEVER_ASSIGNS),
 				"AssignmentChecker never reports an assignment, but this runtime declares that it \
-				 manages coretime. A live parachain's manager would be able to deregister it.",
+				 manages coretime. A para holding a core could be deregistered out from under it.",
 			);
 
 			// A zero deadline would let a manager chase a verdict in the same block they asked
@@ -546,6 +551,8 @@ pub mod pallet {
 					message_id,
 					outcome,
 				}) => Self::on_cancel_deregistration_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::NotedFirstHead { para_id }) =>
+					Self::on_first_head(para_id),
 			}
 		}
 
@@ -705,11 +712,10 @@ pub mod pallet {
 			// A para that holds a core right now is refused outright, root included — the lock is
 			// about who may ask, this is about the answer never being yes while the para can still
 			// be scheduled. A reserved id cannot hold a core, so the checker is not consulted for
-			// one; see `note_assignment`.
+			// one.
 			let assigned = !matches!(info.state, RegistrationState::Reserved) &&
 				T::AssignmentChecker::has_assignment(para_id);
-			let locked = Self::locked_now(para_id, &info);
-			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, locked)?;
+			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, info.is_locked())?;
 			let ParaInfo { manager, reservation, state, locked } = info;
 
 			match state {
@@ -770,8 +776,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::cancel_deregistration())]
 		pub fn cancel_deregistration(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
-			let locked = Self::locked_now(para_id, &info);
-			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, locked)?;
+			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, info.is_locked())?;
 			let manager = info.manager.clone();
 			let RegistrationState::Deregistering { ticket, cancellable_at, message_id: original } =
 				info.state
@@ -881,8 +886,7 @@ pub mod pallet {
 			code_hash: H256,
 		) -> DispatchResult {
 			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
-			let locked = Self::locked_now(para_id, &info);
-			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, locked)?;
+			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, info.is_locked())?;
 			ensure!(
 				matches!(info.state, RegistrationState::Registered { .. }),
 				Error::<T>::NotRegistered
@@ -916,8 +920,7 @@ pub mod pallet {
 			head: Vec<u8>,
 		) -> DispatchResult {
 			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
-			let locked = Self::locked_now(para_id, &info);
-			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, locked)?;
+			Self::ensure_root_para_or_manager(origin, para_id, &info.manager, info.is_locked())?;
 			ensure!(
 				matches!(info.state, RegistrationState::Registered { .. }),
 				Error::<T>::NotRegistered
@@ -1119,59 +1122,37 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	/// Lock the para if its first coretime assignment has arrived, and do nothing otherwise.
+	/// Apply the automatic lock: the para has produced its first block on the relay chain.
 	///
-	/// This is the Coretime counterpart of the relay chain's `OnNewHead` lock, and it is
-	/// deliberately the same shape: **one-shot**. The relay chain locks at a para's first block
-	/// because that is the only "in use" signal it has; this chain hosts coretime, so it locks at
-	/// the first assignment instead. Both then stay locked until somebody unlocks explicitly.
+	/// The relay chain is the only chain that can see this, so it reports it — the same signal the
+	/// relay chain's own registrar has always locked on, arriving over a message instead of from a
+	/// local hook. What it means has not changed: a para that has produced a block is something
+	/// other people depend on, and from here its manager may not change its code, rewrite its
+	/// head, or deregister it.
 	///
-	/// One-shot rather than a live "does it hold a core right now" question. A live question reads
-	/// false in every gap between assignments — for an on-demand para, most of the time — and each
-	/// of those gaps is a window in which the manager could deregister the para, change its code,
-	/// or rewrite its head out from under it.
+	/// Deliberately not the first *coretime assignment*, which this chain could see for itself. A
+	/// lock is permanent in practice, because only the para or root can lift one and a para that
+	/// has never booted cannot ask — so a para with a bad genesis blob would hold a core, produce
+	/// nothing, and have its manager locked out of the very calls that would fix it. Coretime
+	/// still refuses to *deregister* a para that holds a core (see [`Config::AssignmentChecker`]),
+	/// which is a different question: not who may ask, but whether the relay chain could still
+	/// schedule what is being dropped.
 	///
-	/// Only `None` is eligible. `Some(false)` means the para or root unlocked on purpose, and that
-	/// decision outranks any later assignment.
-	///
-	/// A merely reserved id is never locked this way. It cannot hold a core — nothing is
-	/// registered for it to schedule — so treating a stray assignment entry as a lock would strand
-	/// the reservation deposit behind a governance call for no reason.
-	///
-	/// Idempotent and cheap once decided: a `Some(_)` entry costs one read and returns.
-	///
-	/// **Must be called from a context that commits.** A dispatch that refuses the caller unwinds
-	/// its whole storage transaction, this write included — so calling it at the top of a call
-	/// that is about to return `ParaLocked` persists nothing. It belongs on the coretime side, at
-	/// the moment an assignment is made, which is the only place guaranteed to commit.
-	pub fn note_assignment(para_id: ParaId) {
-		let Some(mut info) = Paras::<T>::get(para_id) else { return };
-		if !Self::assignment_locks(para_id, &info) {
-			return;
+	/// Only a `None` lock is eligible. `Some(false)` means the para or root unlocked on purpose,
+	/// and that decision outranks the notification — the same rule the relay chain's `OnNewHead`
+	/// applies. An unknown or merely reserved para id cannot have produced a block, so either is
+	/// ignored rather than treated as an error: the message is fire-and-forget and nothing on
+	/// this chain is waiting on the answer.
+	fn on_first_head(para_id: ParaId) -> DispatchResult {
+		let Some(mut info) = Paras::<T>::get(para_id) else { return Ok(()) };
+		if info.locked.is_some() || matches!(info.state, RegistrationState::Reserved) {
+			return Ok(());
 		}
+
 		info.locked = Some(true);
 		Paras::<T>::insert(para_id, info);
 		Self::deposit_event(Event::Locked { para_id });
-	}
-
-	/// Whether the automatic lock is due but not yet recorded.
-	fn assignment_locks(para_id: ParaId, info: &ParaInfoOf<T>) -> bool {
-		info.locked.is_none() &&
-			!matches!(info.state, RegistrationState::Reserved) &&
-			T::AssignmentChecker::has_assignment(para_id)
-	}
-
-	/// Whether the manager is shut out of the calls a lock gates, right now.
-	///
-	/// The recorded decision wins whenever there is one — that is what makes the lock survive a
-	/// para losing its core. Only an undecided para falls back to asking the checker, so that a
-	/// para which took an assignment is refused from the first moment rather than from whenever
-	/// [`Pallet::note_assignment`] first managed to commit.
-	fn locked_now(para_id: ParaId, info: &ParaInfoOf<T>) -> bool {
-		match info.locked {
-			Some(locked) => locked,
-			None => Self::assignment_locks(para_id, info),
-		}
+		Ok(())
 	}
 
 	/// Ensure `origin` may manage `para_id`: the para itself, its `manager`, or root.

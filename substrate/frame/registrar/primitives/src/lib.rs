@@ -240,6 +240,22 @@ pub enum MessageToParaV1 {
 		/// Whether the deregistration was called off.
 		outcome: Outcome,
 	},
+	/// `para_id` has produced its first block, so the automatic lock is due.
+	///
+	/// The one message here that answers no request, which is why it carries no `message_id`: the
+	/// relay chain is reporting a fact it alone can observe, not a verdict on something the
+	/// control plane asked for.
+	///
+	/// Producing a block is the signal that a para has become something other people depend on,
+	/// and it is deliberately *not* the same as holding a core. A para whose genesis code or head
+	/// is wrong holds a core and never produces anything, and its manager needs exactly the calls
+	/// a lock takes away in order to fix it — so locking on assignment would strand it behind
+	/// governance. Sent once per registration; the relay chain does not repeat it.
+	#[codec(index = 4)]
+	NotedFirstHead {
+		/// The para that produced a block.
+		para_id: ParaId,
+	},
 }
 
 /// How a request ended.

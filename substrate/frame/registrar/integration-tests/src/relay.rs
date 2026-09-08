@@ -136,13 +136,27 @@ parameter_types! {
 	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
 }
 
+/// Tells the control plane that a para has produced its first block.
+///
+/// The relay chain's whole part in the lock: this is the one fact the control plane cannot
+/// observe for itself, and a para's first block is what decides that its manager may no longer
+/// change its code, rewrite its head or deregister it. Wired here as `paras::Config::OnNewHead`,
+/// alongside `paras_registrar`, which keeps the relay chain's own copy of the flag.
+pub struct NoteFirstHeadToPara;
+
+impl paras::OnNewHead for NoteFirstHeadToPara {
+	fn on_new_head(id: ParaId, _head: &polkadot_primitives::HeadData) -> Weight {
+		pallet_registrar_relay::Pallet::<Runtime>::note_first_head(id.into())
+	}
+}
+
 impl paras::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = paras::TestWeightInfo;
 	type UnsignedPriority = ParasUnsignedPriority;
 	type QueueFootprinter = ();
 	type NextSessionRotation = TestNextSessionRotation;
-	type OnNewHead = ();
+	type OnNewHead = (paras_registrar::Pallet<Runtime>, NoteFirstHeadToPara);
 	type AssignCoretime = ();
 	type Fungible = Balances;
 	type CooldownRemovalMultiplier = ConstUint<1>;

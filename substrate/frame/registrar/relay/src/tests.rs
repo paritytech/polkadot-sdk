@@ -17,7 +17,7 @@
 
 //! Tests for `pallet-registrar-relay`.
 
-use crate::{mock::*, Error, Event, PendingCodeUpgrades, PendingRegistrations};
+use crate::{mock::*, AwaitingFirstHead, Error, Event, PendingCodeUpgrades, PendingRegistrations};
 use frame_support::{assert_noop, assert_ok};
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, ParaId,
@@ -86,6 +86,11 @@ fn success_report(para_id: ParaId) -> MessageToPara {
 		message_id: MSG_ID,
 		outcome: Ok(()),
 	})
+}
+
+/// The report the relay chain sends when a para produces its first block.
+fn first_head_report(para_id: ParaId) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::NotedFirstHead { para_id })
 }
 
 fn cancel_msg(para_id: ParaId) -> MessageToRelay<AccountId> {
@@ -1413,6 +1418,93 @@ mod forward_budget {
 			System::set_block_number(2);
 			assert!(Registrar::note_forwarded(PARA_A));
 			assert!(!Registrar::note_forwarded(PARA_A));
+		});
+	}
+}
+
+mod note_first_head {
+	use super::*;
+
+	/// Onboard `para_id` for real, so it is being watched for its first block.
+	fn onboard(para_id: ParaId) {
+		let blob = request(para_id, 20, 300);
+		let (authorized, dispatched) = authorize_and_dispatch(para_id, blob);
+		assert_eq!(authorized, Ok(()));
+		assert_eq!(dispatched, Ok(()));
+		let _ = take_sent();
+		let _ = registrar_events();
+	}
+
+	#[test]
+	fn onboarding_starts_the_watch_and_the_first_block_ends_it() {
+		new_test_ext().execute_with(|| {
+			// GIVEN a para onboarded through this pallet, which is therefore being watched.
+			onboard(PARA_A);
+			assert!(AwaitingFirstHead::<Test>::contains_key(PARA_A));
+
+			// WHEN it produces its first block. THEN the control plane is told once, and the
+			// watch is gone — the notification is what a lock is decided on there, and it must
+			// not arrive twice or the para's own later unlock could be overridden.
+			Registrar::note_first_head(PARA_A);
+			assert_eq!(take_sent(), vec![first_head_report(PARA_A)]);
+			assert_eq!(registrar_events(), vec![Event::FirstHeadNoted { para_id: PARA_A }]);
+			assert!(!AwaitingFirstHead::<Test>::contains_key(PARA_A));
+
+			// AND every block after it costs one read and says nothing. `OnNewHead` fires for
+			// every head of every para, so the uninteresting case has to be the cheap one.
+			Registrar::note_first_head(PARA_A);
+			assert_eq!(take_sent(), vec![]);
+			assert_eq!(registrar_events(), vec![]);
+		});
+	}
+
+	#[test]
+	fn a_para_this_pallet_never_onboarded_is_never_reported() {
+		new_test_ext().execute_with(|| {
+			// Migrated paras are the real case: they arrived on the control plane already live
+			// and already locked, so there is nothing left to tell it. Without the watch every
+			// live parachain would send one of these on its next block.
+			Managers::set(vec![(PARA_A, ALICE)]);
+
+			Registrar::note_first_head(PARA_A);
+
+			assert_eq!(take_sent(), vec![]);
+			assert_eq!(registrar_events(), vec![]);
+		});
+	}
+
+	#[test]
+	fn a_refused_transport_is_reported_and_not_retried() {
+		new_test_ext().execute_with(|| {
+			// GIVEN a watched para whose report cannot be sent.
+			onboard(PARA_A);
+			SendFails::set(true);
+
+			// WHEN it produces its first block. THEN the failure is surfaced, and the watch is
+			// still cleared: nothing here retries, because this chain's state is already correct
+			// and the para is live either way. Root locks it on the control plane if it matters.
+			Registrar::note_first_head(PARA_A);
+			assert_eq!(registrar_events(), vec![Event::FirstHeadNoteFailed { para_id: PARA_A }]);
+			assert!(!AwaitingFirstHead::<Test>::contains_key(PARA_A));
+
+			SendFails::set(false);
+			Registrar::note_first_head(PARA_A);
+			assert_eq!(take_sent(), vec![], "no retry");
+		});
+	}
+
+	#[test]
+	fn deregistering_before_the_first_block_drops_the_watch() {
+		new_test_ext().execute_with(|| {
+			// GIVEN a para onboarded and then given up on before it ever produced a block — the
+			// bad-blob case. Nothing else would ever clear its watch.
+			onboard(PARA_A);
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+
+			assert!(!AwaitingFirstHead::<Test>::contains_key(PARA_A));
+			let _ = take_sent();
+			Registrar::note_first_head(PARA_A);
+			assert_eq!(take_sent(), vec![], "nothing left to report about a para that is gone");
 		});
 	}
 }
