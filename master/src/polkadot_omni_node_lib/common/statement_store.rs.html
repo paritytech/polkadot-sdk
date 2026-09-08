@@ -148,7 +148,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 	}
 </style>
 
-<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">polkadot_omni_node_lib/common/</div>statement_store.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">polkadot_omni_node_lib/common/</div>statement_store.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 <a href=#2 id=2 data-nosnippet>2</a>// This file is part of Cumulus.
 <a href=#3 id=3 data-nosnippet>3</a>// SPDX-License-Identifier: Apache-2.0
 <a href=#4 id=4 data-nosnippet>4</a>
@@ -215,38 +215,48 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#65 id=65 data-nosnippet>65</a>	statement_handler_proto: sc_network_statement::StatementHandlerPrototype,
 <a href=#66 id=66 data-nosnippet>66</a>	config: sc_statement_store::Config,
 <a href=#67 id=67 data-nosnippet>67</a>) -&gt; sc_service::error::Result&lt;Arc&lt;Store&gt;&gt; {
-<a href=#68 id=68 data-nosnippet>68</a>	<span class="kw">let </span>statement_store = sc_statement_store::Store::new_shared(
-<a href=#69 id=69 data-nosnippet>69</a>		<span class="kw-2">&amp;</span>parachain_config.data_path,
-<a href=#70 id=70 data-nosnippet>70</a>		config,
-<a href=#71 id=71 data-nosnippet>71</a>		client,
-<a href=#72 id=72 data-nosnippet>72</a>		local_keystore,
-<a href=#73 id=73 data-nosnippet>73</a>		parachain_config.prometheus_registry(),
-<a href=#74 id=74 data-nosnippet>74</a>		Box::new(task_manager.spawn_handle()),
-<a href=#75 id=75 data-nosnippet>75</a>	)
-<a href=#76 id=76 data-nosnippet>76</a>	.map_err(|e| sc_service::Error::Application(Box::new(e) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;))<span class="question-mark">?</span>;
-<a href=#77 id=77 data-nosnippet>77</a>	<span class="kw">let </span>statement_protocol_executor = {
-<a href=#78 id=78 data-nosnippet>78</a>		<span class="kw">let </span>spawn_handle = task_manager.spawn_handle();
-<a href=#79 id=79 data-nosnippet>79</a>		Box::new(<span class="kw">move </span>|fut| {
-<a href=#80 id=80 data-nosnippet>80</a>			spawn_handle.spawn(<span class="string">"network-statement-validator"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), fut);
-<a href=#81 id=81 data-nosnippet>81</a>		})
-<a href=#82 id=82 data-nosnippet>82</a>	};
-<a href=#83 id=83 data-nosnippet>83</a>	<span class="kw">let </span>statement_handler = statement_handler_proto.build(
-<a href=#84 id=84 data-nosnippet>84</a>		network,
-<a href=#85 id=85 data-nosnippet>85</a>		sync_service,
-<a href=#86 id=86 data-nosnippet>86</a>		statement_store.clone(),
-<a href=#87 id=87 data-nosnippet>87</a>		parachain_config.prometheus_registry(),
-<a href=#88 id=88 data-nosnippet>88</a>		statement_protocol_executor,
-<a href=#89 id=89 data-nosnippet>89</a>		config.network_workers,
-<a href=#90 id=90 data-nosnippet>90</a>		config.rate_limit,
-<a href=#91 id=91 data-nosnippet>91</a>	)<span class="question-mark">?</span>;
-<a href=#92 id=92 data-nosnippet>92</a>	task_manager.spawn_handle().spawn(
-<a href=#93 id=93 data-nosnippet>93</a>		<span class="string">"network-statement-handler"</span>,
-<a href=#94 id=94 data-nosnippet>94</a>		<span class="prelude-val">Some</span>(<span class="string">"networking"</span>),
-<a href=#95 id=95 data-nosnippet>95</a>		statement_handler.run(),
-<a href=#96 id=96 data-nosnippet>96</a>	);
-<a href=#97 id=97 data-nosnippet>97</a>
-<a href=#98 id=98 data-nosnippet>98</a>	<span class="prelude-val">Ok</span>(statement_store)
-<a href=#99 id=99 data-nosnippet>99</a>}
+<a href=#68 id=68 data-nosnippet>68</a>	<span class="kw">let </span>network_workers = config.network_workers;
+<a href=#69 id=69 data-nosnippet>69</a>	<span class="kw">let </span>rate_limit = config.rate_limit;
+<a href=#70 id=70 data-nosnippet>70</a>	<span class="kw">let </span>v2dht_config = config.v2dht.clone();
+<a href=#71 id=71 data-nosnippet>71</a>
+<a href=#72 id=72 data-nosnippet>72</a>	<span class="kw">let </span>statement_store = sc_statement_store::Store::new_shared(
+<a href=#73 id=73 data-nosnippet>73</a>		<span class="kw-2">&amp;</span>parachain_config.data_path,
+<a href=#74 id=74 data-nosnippet>74</a>		config,
+<a href=#75 id=75 data-nosnippet>75</a>		client,
+<a href=#76 id=76 data-nosnippet>76</a>		local_keystore,
+<a href=#77 id=77 data-nosnippet>77</a>		parachain_config.prometheus_registry(),
+<a href=#78 id=78 data-nosnippet>78</a>		Box::new(task_manager.spawn_handle()),
+<a href=#79 id=79 data-nosnippet>79</a>	)
+<a href=#80 id=80 data-nosnippet>80</a>	.map_err(|e| sc_service::Error::Application(Box::new(e) <span class="kw">as </span>Box&lt;<span class="kw">_</span>&gt;))<span class="question-mark">?</span>;
+<a href=#81 id=81 data-nosnippet>81</a>	<span class="kw">let </span>statement_protocol_executor = {
+<a href=#82 id=82 data-nosnippet>82</a>		<span class="kw">let </span>spawn_handle = task_manager.spawn_handle();
+<a href=#83 id=83 data-nosnippet>83</a>		Box::new(<span class="kw">move </span>|fut| {
+<a href=#84 id=84 data-nosnippet>84</a>			spawn_handle.spawn(<span class="string">"network-statement-validator"</span>, <span class="prelude-val">Some</span>(<span class="string">"networking"</span>), fut);
+<a href=#85 id=85 data-nosnippet>85</a>		})
+<a href=#86 id=86 data-nosnippet>86</a>	};
+<a href=#87 id=87 data-nosnippet>87</a>	<span class="kw">let </span>statement_handler = statement_handler_proto.build(
+<a href=#88 id=88 data-nosnippet>88</a>		network,
+<a href=#89 id=89 data-nosnippet>89</a>		sync_service,
+<a href=#90 id=90 data-nosnippet>90</a>		statement_store.clone(),
+<a href=#91 id=91 data-nosnippet>91</a>		parachain_config.prometheus_registry(),
+<a href=#92 id=92 data-nosnippet>92</a>		statement_protocol_executor,
+<a href=#93 id=93 data-nosnippet>93</a>		network_workers,
+<a href=#94 id=94 data-nosnippet>94</a>		rate_limit,
+<a href=#95 id=95 data-nosnippet>95</a>		v2dht_config,
+<a href=#96 id=96 data-nosnippet>96</a>	)<span class="question-mark">?</span>;
+<a href=#97 id=97 data-nosnippet>97</a>	<span class="kw">if </span>sc_network_statement::v2dht_enabled() {
+<a href=#98 id=98 data-nosnippet>98</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(resolver) = statement_handler.retention_resolver() {
+<a href=#99 id=99 data-nosnippet>99</a>			statement_store.set_retention_resolver(resolver);
+<a href=#100 id=100 data-nosnippet>100</a>		}
+<a href=#101 id=101 data-nosnippet>101</a>	}
+<a href=#102 id=102 data-nosnippet>102</a>	task_manager.spawn_handle().spawn(
+<a href=#103 id=103 data-nosnippet>103</a>		<span class="string">"network-statement-handler"</span>,
+<a href=#104 id=104 data-nosnippet>104</a>		<span class="prelude-val">Some</span>(<span class="string">"networking"</span>),
+<a href=#105 id=105 data-nosnippet>105</a>		statement_handler.run(),
+<a href=#106 id=106 data-nosnippet>106</a>	);
+<a href=#107 id=107 data-nosnippet>107</a>
+<a href=#108 id=108 data-nosnippet>108</a>	<span class="prelude-val">Ok</span>(statement_store)
+<a href=#109 id=109 data-nosnippet>109</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

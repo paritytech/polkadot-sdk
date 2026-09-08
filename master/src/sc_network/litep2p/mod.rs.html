@@ -978,672 +978,682 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#828 id=828 data-nosnippet>828</a>						}
 <a href=#829 id=829 data-nosnippet>829</a>					}
 <a href=#830 id=830 data-nosnippet>830</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::RoutingTableUpdate { peers }) =&gt; {
-<a href=#831 id=831 data-nosnippet>831</a>						<span class="kw">for </span>peer <span class="kw">in </span>peers {
-<a href=#832 id=832 data-nosnippet>832</a>							<span class="self">self</span>.peerstore_handle.add_known_peer(peer.into());
-<a href=#833 id=833 data-nosnippet>833</a>						}
-<a href=#834 id=834 data-nosnippet>834</a>					}
-<a href=#835 id=835 data-nosnippet>835</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::FindNodeSuccess { query_id, target, peers }) =&gt; {
-<a href=#836 id=836 data-nosnippet>836</a>						<span class="kw">match </span><span class="self">self</span>.pending_queries.remove(<span class="kw-2">&amp;</span>query_id) {
-<a href=#837 id=837 data-nosnippet>837</a>							<span class="prelude-val">Some</span>(KadQuery::FindNode(<span class="kw">_</span>, started)) =&gt; {
-<a href=#838 id=838 data-nosnippet>838</a>								<span class="macro">log::trace!</span>(
-<a href=#839 id=839 data-nosnippet>839</a>									target: LOG_TARGET,
-<a href=#840 id=840 data-nosnippet>840</a>									<span class="string">"`FIND_NODE` for {target:?} ({query_id:?}) succeeded"</span>,
-<a href=#841 id=841 data-nosnippet>841</a>								);
-<a href=#842 id=842 data-nosnippet>842</a>
-<a href=#843 id=843 data-nosnippet>843</a>								<span class="self">self</span>.event_streams.send(
-<a href=#844 id=844 data-nosnippet>844</a>									Event::Dht(
-<a href=#845 id=845 data-nosnippet>845</a>										DhtEvent::ClosestPeersFound(
-<a href=#846 id=846 data-nosnippet>846</a>											target.into(),
-<a href=#847 id=847 data-nosnippet>847</a>											peers
-<a href=#848 id=848 data-nosnippet>848</a>												.into_iter()
-<a href=#849 id=849 data-nosnippet>849</a>												.map(|(peer, addrs)| (
-<a href=#850 id=850 data-nosnippet>850</a>													peer.into(),
-<a href=#851 id=851 data-nosnippet>851</a>													addrs.into_iter().map(Into::into).collect(),
-<a href=#852 id=852 data-nosnippet>852</a>												))
-<a href=#853 id=853 data-nosnippet>853</a>												.collect(),
-<a href=#854 id=854 data-nosnippet>854</a>										)
-<a href=#855 id=855 data-nosnippet>855</a>									)
-<a href=#856 id=856 data-nosnippet>856</a>								);
-<a href=#857 id=857 data-nosnippet>857</a>
-<a href=#858 id=858 data-nosnippet>858</a>								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
-<a href=#859 id=859 data-nosnippet>859</a>									metrics
-<a href=#860 id=860 data-nosnippet>860</a>										.kademlia_query_duration
-<a href=#861 id=861 data-nosnippet>861</a>										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"node-find"</span>])
-<a href=#862 id=862 data-nosnippet>862</a>										.observe(started.elapsed().as_secs_f64());
-<a href=#863 id=863 data-nosnippet>863</a>								}
-<a href=#864 id=864 data-nosnippet>864</a>							},
-<a href=#865 id=865 data-nosnippet>865</a>							query =&gt; {
-<a href=#866 id=866 data-nosnippet>866</a>								<span class="macro">log::error!</span>(
-<a href=#867 id=867 data-nosnippet>867</a>									target: LOG_TARGET,
-<a href=#868 id=868 data-nosnippet>868</a>									<span class="string">"Missing/invalid pending query for `FIND_NODE`: {query:?}"
-<a href=#869 id=869 data-nosnippet>869</a>								</span>);
-<a href=#870 id=870 data-nosnippet>870</a>								<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
-<a href=#871 id=871 data-nosnippet>871</a>							}
-<a href=#872 id=872 data-nosnippet>872</a>						}
-<a href=#873 id=873 data-nosnippet>873</a>					},
-<a href=#874 id=874 data-nosnippet>874</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::GetRecordPartialResult { query_id, record }) =&gt; {
-<a href=#875 id=875 data-nosnippet>875</a>						<span class="kw">if </span>!<span class="self">self</span>.pending_queries.contains_key(<span class="kw-2">&amp;</span>query_id) {
-<a href=#876 id=876 data-nosnippet>876</a>							<span class="macro">log::error!</span>(
-<a href=#877 id=877 data-nosnippet>877</a>								target: LOG_TARGET,
-<a href=#878 id=878 data-nosnippet>878</a>								<span class="string">"Missing/invalid pending query for `GET_VALUE` partial result: {query_id:?}"
-<a href=#879 id=879 data-nosnippet>879</a>							</span>);
-<a href=#880 id=880 data-nosnippet>880</a>
-<a href=#881 id=881 data-nosnippet>881</a>							<span class="kw">continue
-<a href=#882 id=882 data-nosnippet>882</a>						</span>}
-<a href=#883 id=883 data-nosnippet>883</a>
-<a href=#884 id=884 data-nosnippet>884</a>						<span class="kw">let </span>peer_id: sc_network_types::PeerId = record.peer.into();
-<a href=#885 id=885 data-nosnippet>885</a>						<span class="kw">let </span>record = PeerRecord {
-<a href=#886 id=886 data-nosnippet>886</a>							record: P2PRecord {
-<a href=#887 id=887 data-nosnippet>887</a>								key: record.record.key.to_vec().into(),
-<a href=#888 id=888 data-nosnippet>888</a>								value: record.record.value,
-<a href=#889 id=889 data-nosnippet>889</a>								publisher: record.record.publisher.map(|peer_id| {
-<a href=#890 id=890 data-nosnippet>890</a>									<span class="kw">let </span>peer_id: sc_network_types::PeerId = peer_id.into();
-<a href=#891 id=891 data-nosnippet>891</a>									peer_id.into()
-<a href=#892 id=892 data-nosnippet>892</a>								}),
-<a href=#893 id=893 data-nosnippet>893</a>								expires: record.record.expires,
-<a href=#894 id=894 data-nosnippet>894</a>							},
-<a href=#895 id=895 data-nosnippet>895</a>							peer: <span class="prelude-val">Some</span>(peer_id.into()),
-<a href=#896 id=896 data-nosnippet>896</a>						};
-<a href=#897 id=897 data-nosnippet>897</a>
-<a href=#898 id=898 data-nosnippet>898</a>						<span class="self">self</span>.event_streams.send(
-<a href=#899 id=899 data-nosnippet>899</a>							Event::Dht(
-<a href=#900 id=900 data-nosnippet>900</a>								DhtEvent::ValueFound(
-<a href=#901 id=901 data-nosnippet>901</a>									record.into()
-<a href=#902 id=902 data-nosnippet>902</a>								)
-<a href=#903 id=903 data-nosnippet>903</a>							)
-<a href=#904 id=904 data-nosnippet>904</a>						);
-<a href=#905 id=905 data-nosnippet>905</a>					}
-<a href=#906 id=906 data-nosnippet>906</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::GetRecordSuccess { query_id }) =&gt; {
-<a href=#907 id=907 data-nosnippet>907</a>						<span class="kw">match </span><span class="self">self</span>.pending_queries.remove(<span class="kw-2">&amp;</span>query_id) {
-<a href=#908 id=908 data-nosnippet>908</a>							<span class="prelude-val">Some</span>(KadQuery::GetValue(key, started)) =&gt; {
-<a href=#909 id=909 data-nosnippet>909</a>								<span class="macro">log::trace!</span>(
-<a href=#910 id=910 data-nosnippet>910</a>									target: LOG_TARGET,
-<a href=#911 id=911 data-nosnippet>911</a>									<span class="string">"`GET_VALUE` for {key:?} ({query_id:?}) succeeded"</span>,
-<a href=#912 id=912 data-nosnippet>912</a>								);
-<a href=#913 id=913 data-nosnippet>913</a>
-<a href=#914 id=914 data-nosnippet>914</a>								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
-<a href=#915 id=915 data-nosnippet>915</a>									metrics
-<a href=#916 id=916 data-nosnippet>916</a>										.kademlia_query_duration
-<a href=#917 id=917 data-nosnippet>917</a>										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"value-get"</span>])
-<a href=#918 id=918 data-nosnippet>918</a>										.observe(started.elapsed().as_secs_f64());
-<a href=#919 id=919 data-nosnippet>919</a>								}
-<a href=#920 id=920 data-nosnippet>920</a>							},
-<a href=#921 id=921 data-nosnippet>921</a>							query =&gt; {
-<a href=#922 id=922 data-nosnippet>922</a>								<span class="macro">log::error!</span>(
-<a href=#923 id=923 data-nosnippet>923</a>									target: LOG_TARGET,
-<a href=#924 id=924 data-nosnippet>924</a>									<span class="string">"Missing/invalid pending query for `GET_VALUE`: {query:?}"
-<a href=#925 id=925 data-nosnippet>925</a>								</span>);
-<a href=#926 id=926 data-nosnippet>926</a>								<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
-<a href=#927 id=927 data-nosnippet>927</a>							},
-<a href=#928 id=928 data-nosnippet>928</a>						}
-<a href=#929 id=929 data-nosnippet>929</a>					}
-<a href=#930 id=930 data-nosnippet>930</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::PutRecordSuccess { query_id }) =&gt; {
-<a href=#931 id=931 data-nosnippet>931</a>						<span class="kw">match </span><span class="self">self</span>.pending_queries.remove(<span class="kw-2">&amp;</span>query_id) {
-<a href=#932 id=932 data-nosnippet>932</a>							<span class="prelude-val">Some</span>(KadQuery::PutValue(key, started)) =&gt; {
-<a href=#933 id=933 data-nosnippet>933</a>								<span class="macro">log::trace!</span>(
-<a href=#934 id=934 data-nosnippet>934</a>									target: LOG_TARGET,
-<a href=#935 id=935 data-nosnippet>935</a>									<span class="string">"`PUT_VALUE` for {key:?} ({query_id:?}) succeeded"</span>,
-<a href=#936 id=936 data-nosnippet>936</a>								);
-<a href=#937 id=937 data-nosnippet>937</a>
-<a href=#938 id=938 data-nosnippet>938</a>								<span class="self">self</span>.event_streams.send(Event::Dht(
-<a href=#939 id=939 data-nosnippet>939</a>									DhtEvent::ValuePut(key)
-<a href=#940 id=940 data-nosnippet>940</a>								));
-<a href=#941 id=941 data-nosnippet>941</a>
-<a href=#942 id=942 data-nosnippet>942</a>								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
-<a href=#943 id=943 data-nosnippet>943</a>									metrics
-<a href=#944 id=944 data-nosnippet>944</a>										.kademlia_query_duration
-<a href=#945 id=945 data-nosnippet>945</a>										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"value-put"</span>])
-<a href=#946 id=946 data-nosnippet>946</a>										.observe(started.elapsed().as_secs_f64());
-<a href=#947 id=947 data-nosnippet>947</a>								}
-<a href=#948 id=948 data-nosnippet>948</a>							},
-<a href=#949 id=949 data-nosnippet>949</a>							query =&gt; {
-<a href=#950 id=950 data-nosnippet>950</a>								<span class="macro">log::error!</span>(
-<a href=#951 id=951 data-nosnippet>951</a>									target: LOG_TARGET,
-<a href=#952 id=952 data-nosnippet>952</a>									<span class="string">"Missing/invalid pending query for `PUT_VALUE`: {query:?}"
-<a href=#953 id=953 data-nosnippet>953</a>								</span>);
-<a href=#954 id=954 data-nosnippet>954</a>								<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
-<a href=#955 id=955 data-nosnippet>955</a>							}
-<a href=#956 id=956 data-nosnippet>956</a>						}
-<a href=#957 id=957 data-nosnippet>957</a>					}
-<a href=#958 id=958 data-nosnippet>958</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::GetProvidersSuccess { query_id, providers }) =&gt; {
-<a href=#959 id=959 data-nosnippet>959</a>						<span class="kw">match </span><span class="self">self</span>.pending_queries.remove(<span class="kw-2">&amp;</span>query_id) {
-<a href=#960 id=960 data-nosnippet>960</a>							<span class="prelude-val">Some</span>(KadQuery::GetProviders(key, started)) =&gt; {
-<a href=#961 id=961 data-nosnippet>961</a>								<span class="macro">log::trace!</span>(
-<a href=#962 id=962 data-nosnippet>962</a>									target: LOG_TARGET,
-<a href=#963 id=963 data-nosnippet>963</a>									<span class="string">"`GET_PROVIDERS` for {key:?} ({query_id:?}) succeeded"</span>,
-<a href=#964 id=964 data-nosnippet>964</a>								);
-<a href=#965 id=965 data-nosnippet>965</a>
-<a href=#966 id=966 data-nosnippet>966</a>								<span class="comment">// We likely requested providers to connect to them,
-<a href=#967 id=967 data-nosnippet>967</a>								// so let's add their addresses to litep2p's transport manager.
-<a href=#968 id=968 data-nosnippet>968</a>								// Consider also looking the addresses of providers up with `FIND_NODE`
-<a href=#969 id=969 data-nosnippet>969</a>								// query, as it can yield more up to date addresses.
-<a href=#970 id=970 data-nosnippet>970</a>								</span>providers.iter().for_each(|p| {
-<a href=#971 id=971 data-nosnippet>971</a>									<span class="self">self</span>.litep2p.add_known_address(p.peer, p.addresses.clone().into_iter());
-<a href=#972 id=972 data-nosnippet>972</a>								});
-<a href=#973 id=973 data-nosnippet>973</a>
-<a href=#974 id=974 data-nosnippet>974</a>								<span class="self">self</span>.event_streams.send(Event::Dht(
-<a href=#975 id=975 data-nosnippet>975</a>									DhtEvent::ProvidersFound(
-<a href=#976 id=976 data-nosnippet>976</a>										key.clone().into(),
-<a href=#977 id=977 data-nosnippet>977</a>										providers.into_iter().map(|p| p.peer.into()).collect()
-<a href=#978 id=978 data-nosnippet>978</a>									)
-<a href=#979 id=979 data-nosnippet>979</a>								));
-<a href=#980 id=980 data-nosnippet>980</a>
-<a href=#981 id=981 data-nosnippet>981</a>								<span class="comment">// litep2p returns all providers in a single event, so we let
-<a href=#982 id=982 data-nosnippet>982</a>								// subscribers know no more providers will be yielded.
-<a href=#983 id=983 data-nosnippet>983</a>								</span><span class="self">self</span>.event_streams.send(Event::Dht(
-<a href=#984 id=984 data-nosnippet>984</a>									DhtEvent::NoMoreProviders(key.into())
+<a href=#831 id=831 data-nosnippet>831</a>						<span class="kw">let </span>peers = peers.into_iter().map(Into::into).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+<a href=#832 id=832 data-nosnippet>832</a>
+<a href=#833 id=833 data-nosnippet>833</a>						<span class="kw">for </span>peer <span class="kw">in </span><span class="kw-2">&amp;</span>peers {
+<a href=#834 id=834 data-nosnippet>834</a>							<span class="self">self</span>.peerstore_handle.add_known_peer(<span class="kw-2">*</span>peer);
+<a href=#835 id=835 data-nosnippet>835</a>						}
+<a href=#836 id=836 data-nosnippet>836</a>
+<a href=#837 id=837 data-nosnippet>837</a>						<span class="kw">if </span>!peers.is_empty() {
+<a href=#838 id=838 data-nosnippet>838</a>							<span class="self">self</span>.event_streams.send(Event::PeerRoutingTableUpdate(peers));
+<a href=#839 id=839 data-nosnippet>839</a>						}
+<a href=#840 id=840 data-nosnippet>840</a>					}
+<a href=#841 id=841 data-nosnippet>841</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::FindNodeSuccess { query_id, target, peers }) =&gt; {
+<a href=#842 id=842 data-nosnippet>842</a>						<span class="kw">match </span><span class="self">self</span>.pending_queries.remove(<span class="kw-2">&amp;</span>query_id) {
+<a href=#843 id=843 data-nosnippet>843</a>							<span class="prelude-val">Some</span>(KadQuery::FindNode(<span class="kw">_</span>, started)) =&gt; {
+<a href=#844 id=844 data-nosnippet>844</a>								<span class="macro">log::trace!</span>(
+<a href=#845 id=845 data-nosnippet>845</a>									target: LOG_TARGET,
+<a href=#846 id=846 data-nosnippet>846</a>									<span class="string">"`FIND_NODE` for {target:?} ({query_id:?}) succeeded"</span>,
+<a href=#847 id=847 data-nosnippet>847</a>								);
+<a href=#848 id=848 data-nosnippet>848</a>
+<a href=#849 id=849 data-nosnippet>849</a>								<span class="self">self</span>.event_streams.send(
+<a href=#850 id=850 data-nosnippet>850</a>									Event::Dht(
+<a href=#851 id=851 data-nosnippet>851</a>										DhtEvent::ClosestPeersFound(
+<a href=#852 id=852 data-nosnippet>852</a>											target.into(),
+<a href=#853 id=853 data-nosnippet>853</a>											peers
+<a href=#854 id=854 data-nosnippet>854</a>												.into_iter()
+<a href=#855 id=855 data-nosnippet>855</a>												.map(|(peer, addrs)| (
+<a href=#856 id=856 data-nosnippet>856</a>													peer.into(),
+<a href=#857 id=857 data-nosnippet>857</a>													addrs.into_iter().map(Into::into).collect(),
+<a href=#858 id=858 data-nosnippet>858</a>												))
+<a href=#859 id=859 data-nosnippet>859</a>												.collect(),
+<a href=#860 id=860 data-nosnippet>860</a>										)
+<a href=#861 id=861 data-nosnippet>861</a>									)
+<a href=#862 id=862 data-nosnippet>862</a>								);
+<a href=#863 id=863 data-nosnippet>863</a>
+<a href=#864 id=864 data-nosnippet>864</a>								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
+<a href=#865 id=865 data-nosnippet>865</a>									metrics
+<a href=#866 id=866 data-nosnippet>866</a>										.kademlia_query_duration
+<a href=#867 id=867 data-nosnippet>867</a>										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"node-find"</span>])
+<a href=#868 id=868 data-nosnippet>868</a>										.observe(started.elapsed().as_secs_f64());
+<a href=#869 id=869 data-nosnippet>869</a>								}
+<a href=#870 id=870 data-nosnippet>870</a>							},
+<a href=#871 id=871 data-nosnippet>871</a>							query =&gt; {
+<a href=#872 id=872 data-nosnippet>872</a>								<span class="macro">log::error!</span>(
+<a href=#873 id=873 data-nosnippet>873</a>									target: LOG_TARGET,
+<a href=#874 id=874 data-nosnippet>874</a>									<span class="string">"Missing/invalid pending query for `FIND_NODE`: {query:?}"
+<a href=#875 id=875 data-nosnippet>875</a>								</span>);
+<a href=#876 id=876 data-nosnippet>876</a>								<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
+<a href=#877 id=877 data-nosnippet>877</a>							}
+<a href=#878 id=878 data-nosnippet>878</a>						}
+<a href=#879 id=879 data-nosnippet>879</a>					},
+<a href=#880 id=880 data-nosnippet>880</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::GetRecordPartialResult { query_id, record }) =&gt; {
+<a href=#881 id=881 data-nosnippet>881</a>						<span class="kw">if </span>!<span class="self">self</span>.pending_queries.contains_key(<span class="kw-2">&amp;</span>query_id) {
+<a href=#882 id=882 data-nosnippet>882</a>							<span class="macro">log::error!</span>(
+<a href=#883 id=883 data-nosnippet>883</a>								target: LOG_TARGET,
+<a href=#884 id=884 data-nosnippet>884</a>								<span class="string">"Missing/invalid pending query for `GET_VALUE` partial result: {query_id:?}"
+<a href=#885 id=885 data-nosnippet>885</a>							</span>);
+<a href=#886 id=886 data-nosnippet>886</a>
+<a href=#887 id=887 data-nosnippet>887</a>							<span class="kw">continue
+<a href=#888 id=888 data-nosnippet>888</a>						</span>}
+<a href=#889 id=889 data-nosnippet>889</a>
+<a href=#890 id=890 data-nosnippet>890</a>						<span class="kw">let </span>peer_id: sc_network_types::PeerId = record.peer.into();
+<a href=#891 id=891 data-nosnippet>891</a>						<span class="kw">let </span>record = PeerRecord {
+<a href=#892 id=892 data-nosnippet>892</a>							record: P2PRecord {
+<a href=#893 id=893 data-nosnippet>893</a>								key: record.record.key.to_vec().into(),
+<a href=#894 id=894 data-nosnippet>894</a>								value: record.record.value,
+<a href=#895 id=895 data-nosnippet>895</a>								publisher: record.record.publisher.map(|peer_id| {
+<a href=#896 id=896 data-nosnippet>896</a>									<span class="kw">let </span>peer_id: sc_network_types::PeerId = peer_id.into();
+<a href=#897 id=897 data-nosnippet>897</a>									peer_id.into()
+<a href=#898 id=898 data-nosnippet>898</a>								}),
+<a href=#899 id=899 data-nosnippet>899</a>								expires: record.record.expires,
+<a href=#900 id=900 data-nosnippet>900</a>							},
+<a href=#901 id=901 data-nosnippet>901</a>							peer: <span class="prelude-val">Some</span>(peer_id.into()),
+<a href=#902 id=902 data-nosnippet>902</a>						};
+<a href=#903 id=903 data-nosnippet>903</a>
+<a href=#904 id=904 data-nosnippet>904</a>						<span class="self">self</span>.event_streams.send(
+<a href=#905 id=905 data-nosnippet>905</a>							Event::Dht(
+<a href=#906 id=906 data-nosnippet>906</a>								DhtEvent::ValueFound(
+<a href=#907 id=907 data-nosnippet>907</a>									record.into()
+<a href=#908 id=908 data-nosnippet>908</a>								)
+<a href=#909 id=909 data-nosnippet>909</a>							)
+<a href=#910 id=910 data-nosnippet>910</a>						);
+<a href=#911 id=911 data-nosnippet>911</a>					}
+<a href=#912 id=912 data-nosnippet>912</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::GetRecordSuccess { query_id }) =&gt; {
+<a href=#913 id=913 data-nosnippet>913</a>						<span class="kw">match </span><span class="self">self</span>.pending_queries.remove(<span class="kw-2">&amp;</span>query_id) {
+<a href=#914 id=914 data-nosnippet>914</a>							<span class="prelude-val">Some</span>(KadQuery::GetValue(key, started)) =&gt; {
+<a href=#915 id=915 data-nosnippet>915</a>								<span class="macro">log::trace!</span>(
+<a href=#916 id=916 data-nosnippet>916</a>									target: LOG_TARGET,
+<a href=#917 id=917 data-nosnippet>917</a>									<span class="string">"`GET_VALUE` for {key:?} ({query_id:?}) succeeded"</span>,
+<a href=#918 id=918 data-nosnippet>918</a>								);
+<a href=#919 id=919 data-nosnippet>919</a>
+<a href=#920 id=920 data-nosnippet>920</a>								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
+<a href=#921 id=921 data-nosnippet>921</a>									metrics
+<a href=#922 id=922 data-nosnippet>922</a>										.kademlia_query_duration
+<a href=#923 id=923 data-nosnippet>923</a>										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"value-get"</span>])
+<a href=#924 id=924 data-nosnippet>924</a>										.observe(started.elapsed().as_secs_f64());
+<a href=#925 id=925 data-nosnippet>925</a>								}
+<a href=#926 id=926 data-nosnippet>926</a>							},
+<a href=#927 id=927 data-nosnippet>927</a>							query =&gt; {
+<a href=#928 id=928 data-nosnippet>928</a>								<span class="macro">log::error!</span>(
+<a href=#929 id=929 data-nosnippet>929</a>									target: LOG_TARGET,
+<a href=#930 id=930 data-nosnippet>930</a>									<span class="string">"Missing/invalid pending query for `GET_VALUE`: {query:?}"
+<a href=#931 id=931 data-nosnippet>931</a>								</span>);
+<a href=#932 id=932 data-nosnippet>932</a>								<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
+<a href=#933 id=933 data-nosnippet>933</a>							},
+<a href=#934 id=934 data-nosnippet>934</a>						}
+<a href=#935 id=935 data-nosnippet>935</a>					}
+<a href=#936 id=936 data-nosnippet>936</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::PutRecordSuccess { query_id }) =&gt; {
+<a href=#937 id=937 data-nosnippet>937</a>						<span class="kw">match </span><span class="self">self</span>.pending_queries.remove(<span class="kw-2">&amp;</span>query_id) {
+<a href=#938 id=938 data-nosnippet>938</a>							<span class="prelude-val">Some</span>(KadQuery::PutValue(key, started)) =&gt; {
+<a href=#939 id=939 data-nosnippet>939</a>								<span class="macro">log::trace!</span>(
+<a href=#940 id=940 data-nosnippet>940</a>									target: LOG_TARGET,
+<a href=#941 id=941 data-nosnippet>941</a>									<span class="string">"`PUT_VALUE` for {key:?} ({query_id:?}) succeeded"</span>,
+<a href=#942 id=942 data-nosnippet>942</a>								);
+<a href=#943 id=943 data-nosnippet>943</a>
+<a href=#944 id=944 data-nosnippet>944</a>								<span class="self">self</span>.event_streams.send(Event::Dht(
+<a href=#945 id=945 data-nosnippet>945</a>									DhtEvent::ValuePut(key)
+<a href=#946 id=946 data-nosnippet>946</a>								));
+<a href=#947 id=947 data-nosnippet>947</a>
+<a href=#948 id=948 data-nosnippet>948</a>								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
+<a href=#949 id=949 data-nosnippet>949</a>									metrics
+<a href=#950 id=950 data-nosnippet>950</a>										.kademlia_query_duration
+<a href=#951 id=951 data-nosnippet>951</a>										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"value-put"</span>])
+<a href=#952 id=952 data-nosnippet>952</a>										.observe(started.elapsed().as_secs_f64());
+<a href=#953 id=953 data-nosnippet>953</a>								}
+<a href=#954 id=954 data-nosnippet>954</a>							},
+<a href=#955 id=955 data-nosnippet>955</a>							query =&gt; {
+<a href=#956 id=956 data-nosnippet>956</a>								<span class="macro">log::error!</span>(
+<a href=#957 id=957 data-nosnippet>957</a>									target: LOG_TARGET,
+<a href=#958 id=958 data-nosnippet>958</a>									<span class="string">"Missing/invalid pending query for `PUT_VALUE`: {query:?}"
+<a href=#959 id=959 data-nosnippet>959</a>								</span>);
+<a href=#960 id=960 data-nosnippet>960</a>								<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
+<a href=#961 id=961 data-nosnippet>961</a>							}
+<a href=#962 id=962 data-nosnippet>962</a>						}
+<a href=#963 id=963 data-nosnippet>963</a>					}
+<a href=#964 id=964 data-nosnippet>964</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::GetProvidersSuccess { query_id, providers }) =&gt; {
+<a href=#965 id=965 data-nosnippet>965</a>						<span class="kw">match </span><span class="self">self</span>.pending_queries.remove(<span class="kw-2">&amp;</span>query_id) {
+<a href=#966 id=966 data-nosnippet>966</a>							<span class="prelude-val">Some</span>(KadQuery::GetProviders(key, started)) =&gt; {
+<a href=#967 id=967 data-nosnippet>967</a>								<span class="macro">log::trace!</span>(
+<a href=#968 id=968 data-nosnippet>968</a>									target: LOG_TARGET,
+<a href=#969 id=969 data-nosnippet>969</a>									<span class="string">"`GET_PROVIDERS` for {key:?} ({query_id:?}) succeeded"</span>,
+<a href=#970 id=970 data-nosnippet>970</a>								);
+<a href=#971 id=971 data-nosnippet>971</a>
+<a href=#972 id=972 data-nosnippet>972</a>								<span class="comment">// We likely requested providers to connect to them,
+<a href=#973 id=973 data-nosnippet>973</a>								// so let's add their addresses to litep2p's transport manager.
+<a href=#974 id=974 data-nosnippet>974</a>								// Consider also looking the addresses of providers up with `FIND_NODE`
+<a href=#975 id=975 data-nosnippet>975</a>								// query, as it can yield more up to date addresses.
+<a href=#976 id=976 data-nosnippet>976</a>								</span>providers.iter().for_each(|p| {
+<a href=#977 id=977 data-nosnippet>977</a>									<span class="self">self</span>.litep2p.add_known_address(p.peer, p.addresses.clone().into_iter());
+<a href=#978 id=978 data-nosnippet>978</a>								});
+<a href=#979 id=979 data-nosnippet>979</a>
+<a href=#980 id=980 data-nosnippet>980</a>								<span class="self">self</span>.event_streams.send(Event::Dht(
+<a href=#981 id=981 data-nosnippet>981</a>									DhtEvent::ProvidersFound(
+<a href=#982 id=982 data-nosnippet>982</a>										key.clone().into(),
+<a href=#983 id=983 data-nosnippet>983</a>										providers.into_iter().map(|p| p.peer.into()).collect()
+<a href=#984 id=984 data-nosnippet>984</a>									)
 <a href=#985 id=985 data-nosnippet>985</a>								));
 <a href=#986 id=986 data-nosnippet>986</a>
-<a href=#987 id=987 data-nosnippet>987</a>								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
-<a href=#988 id=988 data-nosnippet>988</a>									metrics
-<a href=#989 id=989 data-nosnippet>989</a>										.kademlia_query_duration
-<a href=#990 id=990 data-nosnippet>990</a>										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"providers-get"</span>])
-<a href=#991 id=991 data-nosnippet>991</a>										.observe(started.elapsed().as_secs_f64());
-<a href=#992 id=992 data-nosnippet>992</a>								}
-<a href=#993 id=993 data-nosnippet>993</a>							},
-<a href=#994 id=994 data-nosnippet>994</a>							query =&gt; {
-<a href=#995 id=995 data-nosnippet>995</a>								<span class="macro">log::error!</span>(
-<a href=#996 id=996 data-nosnippet>996</a>									target: LOG_TARGET,
-<a href=#997 id=997 data-nosnippet>997</a>									<span class="string">"Missing/invalid pending query for `GET_PROVIDERS`: {query:?}"
-<a href=#998 id=998 data-nosnippet>998</a>								</span>);
-<a href=#999 id=999 data-nosnippet>999</a>								<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
-<a href=#1000 id=1000 data-nosnippet>1000</a>							}
-<a href=#1001 id=1001 data-nosnippet>1001</a>						}
-<a href=#1002 id=1002 data-nosnippet>1002</a>					}
-<a href=#1003 id=1003 data-nosnippet>1003</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::AddProviderSuccess { query_id, provided_key }) =&gt; {
-<a href=#1004 id=1004 data-nosnippet>1004</a>						<span class="kw">match </span><span class="self">self</span>.pending_queries.remove(<span class="kw-2">&amp;</span>query_id) {
-<a href=#1005 id=1005 data-nosnippet>1005</a>							<span class="prelude-val">Some</span>(KadQuery::AddProvider(key, started)) =&gt; {
-<a href=#1006 id=1006 data-nosnippet>1006</a>								<span class="macro">debug_assert_eq!</span>(key, provided_key.into());
-<a href=#1007 id=1007 data-nosnippet>1007</a>
-<a href=#1008 id=1008 data-nosnippet>1008</a>								<span class="macro">log::trace!</span>(
-<a href=#1009 id=1009 data-nosnippet>1009</a>									target: LOG_TARGET,
-<a href=#1010 id=1010 data-nosnippet>1010</a>									<span class="string">"`ADD_PROVIDER` for {key:?} ({query_id:?}) succeeded"</span>,
-<a href=#1011 id=1011 data-nosnippet>1011</a>								);
-<a href=#1012 id=1012 data-nosnippet>1012</a>
-<a href=#1013 id=1013 data-nosnippet>1013</a>								<span class="self">self</span>.event_streams.send(Event::Dht(
-<a href=#1014 id=1014 data-nosnippet>1014</a>									DhtEvent::StartedProviding(key.into())
-<a href=#1015 id=1015 data-nosnippet>1015</a>								));
-<a href=#1016 id=1016 data-nosnippet>1016</a>
-<a href=#1017 id=1017 data-nosnippet>1017</a>								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
-<a href=#1018 id=1018 data-nosnippet>1018</a>									metrics
-<a href=#1019 id=1019 data-nosnippet>1019</a>										.kademlia_query_duration
-<a href=#1020 id=1020 data-nosnippet>1020</a>										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"provider-add"</span>])
-<a href=#1021 id=1021 data-nosnippet>1021</a>										.observe(started.elapsed().as_secs_f64());
-<a href=#1022 id=1022 data-nosnippet>1022</a>								}
-<a href=#1023 id=1023 data-nosnippet>1023</a>							}
-<a href=#1024 id=1024 data-nosnippet>1024</a>							<span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; {
-<a href=#1025 id=1025 data-nosnippet>1025</a>								<span class="macro">log::error!</span>(
-<a href=#1026 id=1026 data-nosnippet>1026</a>									target: LOG_TARGET,
-<a href=#1027 id=1027 data-nosnippet>1027</a>									<span class="string">"Invalid pending query for `ADD_PROVIDER`: {query_id:?}"
-<a href=#1028 id=1028 data-nosnippet>1028</a>								</span>);
-<a href=#1029 id=1029 data-nosnippet>1029</a>								<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
-<a href=#1030 id=1030 data-nosnippet>1030</a>							}
-<a href=#1031 id=1031 data-nosnippet>1031</a>							<span class="prelude-val">None </span>=&gt; {
-<a href=#1032 id=1032 data-nosnippet>1032</a>								<span class="macro">log::trace!</span>(
-<a href=#1033 id=1033 data-nosnippet>1033</a>									target: LOG_TARGET,
-<a href=#1034 id=1034 data-nosnippet>1034</a>									<span class="string">"`ADD_PROVIDER` for key {provided_key:?} ({query_id:?}) succeeded (republishing)"</span>,
-<a href=#1035 id=1035 data-nosnippet>1035</a>								);
+<a href=#987 id=987 data-nosnippet>987</a>								<span class="comment">// litep2p returns all providers in a single event, so we let
+<a href=#988 id=988 data-nosnippet>988</a>								// subscribers know no more providers will be yielded.
+<a href=#989 id=989 data-nosnippet>989</a>								</span><span class="self">self</span>.event_streams.send(Event::Dht(
+<a href=#990 id=990 data-nosnippet>990</a>									DhtEvent::NoMoreProviders(key.into())
+<a href=#991 id=991 data-nosnippet>991</a>								));
+<a href=#992 id=992 data-nosnippet>992</a>
+<a href=#993 id=993 data-nosnippet>993</a>								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
+<a href=#994 id=994 data-nosnippet>994</a>									metrics
+<a href=#995 id=995 data-nosnippet>995</a>										.kademlia_query_duration
+<a href=#996 id=996 data-nosnippet>996</a>										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"providers-get"</span>])
+<a href=#997 id=997 data-nosnippet>997</a>										.observe(started.elapsed().as_secs_f64());
+<a href=#998 id=998 data-nosnippet>998</a>								}
+<a href=#999 id=999 data-nosnippet>999</a>							},
+<a href=#1000 id=1000 data-nosnippet>1000</a>							query =&gt; {
+<a href=#1001 id=1001 data-nosnippet>1001</a>								<span class="macro">log::error!</span>(
+<a href=#1002 id=1002 data-nosnippet>1002</a>									target: LOG_TARGET,
+<a href=#1003 id=1003 data-nosnippet>1003</a>									<span class="string">"Missing/invalid pending query for `GET_PROVIDERS`: {query:?}"
+<a href=#1004 id=1004 data-nosnippet>1004</a>								</span>);
+<a href=#1005 id=1005 data-nosnippet>1005</a>								<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
+<a href=#1006 id=1006 data-nosnippet>1006</a>							}
+<a href=#1007 id=1007 data-nosnippet>1007</a>						}
+<a href=#1008 id=1008 data-nosnippet>1008</a>					}
+<a href=#1009 id=1009 data-nosnippet>1009</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::AddProviderSuccess { query_id, provided_key }) =&gt; {
+<a href=#1010 id=1010 data-nosnippet>1010</a>						<span class="kw">match </span><span class="self">self</span>.pending_queries.remove(<span class="kw-2">&amp;</span>query_id) {
+<a href=#1011 id=1011 data-nosnippet>1011</a>							<span class="prelude-val">Some</span>(KadQuery::AddProvider(key, started)) =&gt; {
+<a href=#1012 id=1012 data-nosnippet>1012</a>								<span class="macro">debug_assert_eq!</span>(key, provided_key.into());
+<a href=#1013 id=1013 data-nosnippet>1013</a>
+<a href=#1014 id=1014 data-nosnippet>1014</a>								<span class="macro">log::trace!</span>(
+<a href=#1015 id=1015 data-nosnippet>1015</a>									target: LOG_TARGET,
+<a href=#1016 id=1016 data-nosnippet>1016</a>									<span class="string">"`ADD_PROVIDER` for {key:?} ({query_id:?}) succeeded"</span>,
+<a href=#1017 id=1017 data-nosnippet>1017</a>								);
+<a href=#1018 id=1018 data-nosnippet>1018</a>
+<a href=#1019 id=1019 data-nosnippet>1019</a>								<span class="self">self</span>.event_streams.send(Event::Dht(
+<a href=#1020 id=1020 data-nosnippet>1020</a>									DhtEvent::StartedProviding(key.into())
+<a href=#1021 id=1021 data-nosnippet>1021</a>								));
+<a href=#1022 id=1022 data-nosnippet>1022</a>
+<a href=#1023 id=1023 data-nosnippet>1023</a>								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
+<a href=#1024 id=1024 data-nosnippet>1024</a>									metrics
+<a href=#1025 id=1025 data-nosnippet>1025</a>										.kademlia_query_duration
+<a href=#1026 id=1026 data-nosnippet>1026</a>										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"provider-add"</span>])
+<a href=#1027 id=1027 data-nosnippet>1027</a>										.observe(started.elapsed().as_secs_f64());
+<a href=#1028 id=1028 data-nosnippet>1028</a>								}
+<a href=#1029 id=1029 data-nosnippet>1029</a>							}
+<a href=#1030 id=1030 data-nosnippet>1030</a>							<span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; {
+<a href=#1031 id=1031 data-nosnippet>1031</a>								<span class="macro">log::error!</span>(
+<a href=#1032 id=1032 data-nosnippet>1032</a>									target: LOG_TARGET,
+<a href=#1033 id=1033 data-nosnippet>1033</a>									<span class="string">"Invalid pending query for `ADD_PROVIDER`: {query_id:?}"
+<a href=#1034 id=1034 data-nosnippet>1034</a>								</span>);
+<a href=#1035 id=1035 data-nosnippet>1035</a>								<span class="macro">debug_assert!</span>(<span class="bool-val">false</span>);
 <a href=#1036 id=1036 data-nosnippet>1036</a>							}
-<a href=#1037 id=1037 data-nosnippet>1037</a>						}
-<a href=#1038 id=1038 data-nosnippet>1038</a>					}
-<a href=#1039 id=1039 data-nosnippet>1039</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::QueryFailed { query_id }) =&gt; {
-<a href=#1040 id=1040 data-nosnippet>1040</a>						<span class="kw">match </span><span class="self">self</span>.pending_queries.remove(<span class="kw-2">&amp;</span>query_id) {
-<a href=#1041 id=1041 data-nosnippet>1041</a>							<span class="prelude-val">Some</span>(KadQuery::FindNode(peer_id, started)) =&gt; {
-<a href=#1042 id=1042 data-nosnippet>1042</a>								<span class="macro">log::debug!</span>(
-<a href=#1043 id=1043 data-nosnippet>1043</a>									target: LOG_TARGET,
-<a href=#1044 id=1044 data-nosnippet>1044</a>									<span class="string">"`FIND_NODE` ({query_id:?}) failed for target {peer_id:?}"</span>,
-<a href=#1045 id=1045 data-nosnippet>1045</a>								);
-<a href=#1046 id=1046 data-nosnippet>1046</a>
-<a href=#1047 id=1047 data-nosnippet>1047</a>								<span class="self">self</span>.event_streams.send(Event::Dht(
-<a href=#1048 id=1048 data-nosnippet>1048</a>									DhtEvent::ClosestPeersNotFound(peer_id.into())
-<a href=#1049 id=1049 data-nosnippet>1049</a>								));
-<a href=#1050 id=1050 data-nosnippet>1050</a>
-<a href=#1051 id=1051 data-nosnippet>1051</a>								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
-<a href=#1052 id=1052 data-nosnippet>1052</a>									metrics
-<a href=#1053 id=1053 data-nosnippet>1053</a>										.kademlia_query_duration
-<a href=#1054 id=1054 data-nosnippet>1054</a>										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"node-find-failed"</span>])
-<a href=#1055 id=1055 data-nosnippet>1055</a>										.observe(started.elapsed().as_secs_f64());
-<a href=#1056 id=1056 data-nosnippet>1056</a>								}
-<a href=#1057 id=1057 data-nosnippet>1057</a>							},
-<a href=#1058 id=1058 data-nosnippet>1058</a>							<span class="prelude-val">Some</span>(KadQuery::GetValue(key, started)) =&gt; {
-<a href=#1059 id=1059 data-nosnippet>1059</a>								<span class="macro">log::debug!</span>(
-<a href=#1060 id=1060 data-nosnippet>1060</a>									target: LOG_TARGET,
-<a href=#1061 id=1061 data-nosnippet>1061</a>									<span class="string">"`GET_VALUE` ({query_id:?}) failed for key {key:?}"</span>,
-<a href=#1062 id=1062 data-nosnippet>1062</a>								);
-<a href=#1063 id=1063 data-nosnippet>1063</a>
-<a href=#1064 id=1064 data-nosnippet>1064</a>								<span class="self">self</span>.event_streams.send(Event::Dht(
-<a href=#1065 id=1065 data-nosnippet>1065</a>									DhtEvent::ValueNotFound(key)
-<a href=#1066 id=1066 data-nosnippet>1066</a>								));
-<a href=#1067 id=1067 data-nosnippet>1067</a>
-<a href=#1068 id=1068 data-nosnippet>1068</a>								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
-<a href=#1069 id=1069 data-nosnippet>1069</a>									metrics
-<a href=#1070 id=1070 data-nosnippet>1070</a>										.kademlia_query_duration
-<a href=#1071 id=1071 data-nosnippet>1071</a>										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"value-get-failed"</span>])
-<a href=#1072 id=1072 data-nosnippet>1072</a>										.observe(started.elapsed().as_secs_f64());
-<a href=#1073 id=1073 data-nosnippet>1073</a>								}
-<a href=#1074 id=1074 data-nosnippet>1074</a>							},
-<a href=#1075 id=1075 data-nosnippet>1075</a>							<span class="prelude-val">Some</span>(KadQuery::PutValue(key, started)) =&gt; {
-<a href=#1076 id=1076 data-nosnippet>1076</a>								<span class="macro">log::debug!</span>(
-<a href=#1077 id=1077 data-nosnippet>1077</a>									target: LOG_TARGET,
-<a href=#1078 id=1078 data-nosnippet>1078</a>									<span class="string">"`PUT_VALUE` ({query_id:?}) failed for key {key:?}"</span>,
-<a href=#1079 id=1079 data-nosnippet>1079</a>								);
-<a href=#1080 id=1080 data-nosnippet>1080</a>
-<a href=#1081 id=1081 data-nosnippet>1081</a>								<span class="self">self</span>.event_streams.send(Event::Dht(
-<a href=#1082 id=1082 data-nosnippet>1082</a>									DhtEvent::ValuePutFailed(key)
-<a href=#1083 id=1083 data-nosnippet>1083</a>								));
-<a href=#1084 id=1084 data-nosnippet>1084</a>
-<a href=#1085 id=1085 data-nosnippet>1085</a>								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
-<a href=#1086 id=1086 data-nosnippet>1086</a>									metrics
-<a href=#1087 id=1087 data-nosnippet>1087</a>										.kademlia_query_duration
-<a href=#1088 id=1088 data-nosnippet>1088</a>										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"value-put-failed"</span>])
-<a href=#1089 id=1089 data-nosnippet>1089</a>										.observe(started.elapsed().as_secs_f64());
-<a href=#1090 id=1090 data-nosnippet>1090</a>								}
-<a href=#1091 id=1091 data-nosnippet>1091</a>							},
-<a href=#1092 id=1092 data-nosnippet>1092</a>							<span class="prelude-val">Some</span>(KadQuery::GetProviders(key, started)) =&gt; {
-<a href=#1093 id=1093 data-nosnippet>1093</a>								<span class="macro">log::debug!</span>(
-<a href=#1094 id=1094 data-nosnippet>1094</a>									target: LOG_TARGET,
-<a href=#1095 id=1095 data-nosnippet>1095</a>									<span class="string">"`GET_PROVIDERS` ({query_id:?}) failed for key {key:?}"
-<a href=#1096 id=1096 data-nosnippet>1096</a>								</span>);
-<a href=#1097 id=1097 data-nosnippet>1097</a>
-<a href=#1098 id=1098 data-nosnippet>1098</a>								<span class="self">self</span>.event_streams.send(Event::Dht(
-<a href=#1099 id=1099 data-nosnippet>1099</a>									DhtEvent::ProvidersNotFound(key)
-<a href=#1100 id=1100 data-nosnippet>1100</a>								));
-<a href=#1101 id=1101 data-nosnippet>1101</a>
-<a href=#1102 id=1102 data-nosnippet>1102</a>								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
-<a href=#1103 id=1103 data-nosnippet>1103</a>									metrics
-<a href=#1104 id=1104 data-nosnippet>1104</a>										.kademlia_query_duration
-<a href=#1105 id=1105 data-nosnippet>1105</a>										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"providers-get-failed"</span>])
-<a href=#1106 id=1106 data-nosnippet>1106</a>										.observe(started.elapsed().as_secs_f64());
-<a href=#1107 id=1107 data-nosnippet>1107</a>								}
-<a href=#1108 id=1108 data-nosnippet>1108</a>							},
-<a href=#1109 id=1109 data-nosnippet>1109</a>							<span class="prelude-val">Some</span>(KadQuery::AddProvider(key, started)) =&gt; {
-<a href=#1110 id=1110 data-nosnippet>1110</a>								<span class="macro">log::debug!</span>(
-<a href=#1111 id=1111 data-nosnippet>1111</a>									target: LOG_TARGET,
-<a href=#1112 id=1112 data-nosnippet>1112</a>									<span class="string">"`ADD_PROVIDER` ({query_id:?}) failed with key {key:?}"</span>,
-<a href=#1113 id=1113 data-nosnippet>1113</a>								);
-<a href=#1114 id=1114 data-nosnippet>1114</a>
-<a href=#1115 id=1115 data-nosnippet>1115</a>								<span class="self">self</span>.event_streams.send(Event::Dht(
-<a href=#1116 id=1116 data-nosnippet>1116</a>									DhtEvent::StartProvidingFailed(key)
-<a href=#1117 id=1117 data-nosnippet>1117</a>								));
-<a href=#1118 id=1118 data-nosnippet>1118</a>
-<a href=#1119 id=1119 data-nosnippet>1119</a>								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
-<a href=#1120 id=1120 data-nosnippet>1120</a>									metrics
-<a href=#1121 id=1121 data-nosnippet>1121</a>										.kademlia_query_duration
-<a href=#1122 id=1122 data-nosnippet>1122</a>										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"provider-add-failed"</span>])
-<a href=#1123 id=1123 data-nosnippet>1123</a>										.observe(started.elapsed().as_secs_f64());
-<a href=#1124 id=1124 data-nosnippet>1124</a>								}
-<a href=#1125 id=1125 data-nosnippet>1125</a>							},
-<a href=#1126 id=1126 data-nosnippet>1126</a>							<span class="prelude-val">None </span>=&gt; {
-<a href=#1127 id=1127 data-nosnippet>1127</a>								<span class="macro">log::debug!</span>(
-<a href=#1128 id=1128 data-nosnippet>1128</a>									target: LOG_TARGET,
-<a href=#1129 id=1129 data-nosnippet>1129</a>									<span class="string">"non-existent query (likely republishing a provider) failed ({query_id:?})"</span>,
-<a href=#1130 id=1130 data-nosnippet>1130</a>								);
-<a href=#1131 id=1131 data-nosnippet>1131</a>							}
-<a href=#1132 id=1132 data-nosnippet>1132</a>						}
-<a href=#1133 id=1133 data-nosnippet>1133</a>					}
-<a href=#1134 id=1134 data-nosnippet>1134</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::Identified { peer, listen_addresses, supported_protocols, .. }) =&gt; {
-<a href=#1135 id=1135 data-nosnippet>1135</a>						<span class="self">self</span>.discovery.add_self_reported_address(peer, supported_protocols, listen_addresses).<span class="kw">await</span>;
-<a href=#1136 id=1136 data-nosnippet>1136</a>					}
-<a href=#1137 id=1137 data-nosnippet>1137</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::ExternalAddressDiscovered { address }) =&gt; {
-<a href=#1138 id=1138 data-nosnippet>1138</a>						<span class="kw">match </span><span class="self">self</span>.litep2p.public_addresses().add_address(address.clone().into()) {
-<a href=#1139 id=1139 data-nosnippet>1139</a>							<span class="prelude-val">Ok</span>(inserted) =&gt; <span class="kw">if </span>inserted {
-<a href=#1140 id=1140 data-nosnippet>1140</a>								<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"🔍 Discovered new external address for our node: {address}"</span>);
-<a href=#1141 id=1141 data-nosnippet>1141</a>							},
-<a href=#1142 id=1142 data-nosnippet>1142</a>							<span class="prelude-val">Err</span>(err) =&gt; {
-<a href=#1143 id=1143 data-nosnippet>1143</a>								<span class="macro">log::warn!</span>(
-<a href=#1144 id=1144 data-nosnippet>1144</a>									target: LOG_TARGET,
-<a href=#1145 id=1145 data-nosnippet>1145</a>									<span class="string">"🔍 Failed to add discovered external address {address:?}: {err:?}"</span>,
-<a href=#1146 id=1146 data-nosnippet>1146</a>								);
-<a href=#1147 id=1147 data-nosnippet>1147</a>							},
-<a href=#1148 id=1148 data-nosnippet>1148</a>						}
-<a href=#1149 id=1149 data-nosnippet>1149</a>					}
-<a href=#1150 id=1150 data-nosnippet>1150</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::ExternalAddressExpired{ address }) =&gt; {
-<a href=#1151 id=1151 data-nosnippet>1151</a>						<span class="kw">let </span>local_peer_id = <span class="self">self</span>.litep2p.local_peer_id();
-<a href=#1152 id=1152 data-nosnippet>1152</a>
-<a href=#1153 id=1153 data-nosnippet>1153</a>						<span class="comment">// Litep2p requires the peer ID to be present in the address.
-<a href=#1154 id=1154 data-nosnippet>1154</a>						</span><span class="kw">let </span>address = <span class="kw">if </span>!<span class="macro">std::matches!</span>(address.iter().last(), <span class="prelude-val">Some</span>(Protocol::P2p(<span class="kw">_</span>))) {
-<a href=#1155 id=1155 data-nosnippet>1155</a>							address.with(Protocol::P2p((<span class="kw-2">*</span>local_peer_id).into()))
-<a href=#1156 id=1156 data-nosnippet>1156</a>						} <span class="kw">else </span>{
-<a href=#1157 id=1157 data-nosnippet>1157</a>							address
-<a href=#1158 id=1158 data-nosnippet>1158</a>						};
-<a href=#1159 id=1159 data-nosnippet>1159</a>
-<a href=#1160 id=1160 data-nosnippet>1160</a>						<span class="kw">if </span><span class="self">self</span>.litep2p.public_addresses().remove_address(<span class="kw-2">&amp;</span>address) {
-<a href=#1161 id=1161 data-nosnippet>1161</a>							<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"🔍 Expired external address for our node: {address}"</span>);
-<a href=#1162 id=1162 data-nosnippet>1162</a>						} <span class="kw">else </span>{
-<a href=#1163 id=1163 data-nosnippet>1163</a>							<span class="macro">log::warn!</span>(
-<a href=#1164 id=1164 data-nosnippet>1164</a>								target: LOG_TARGET,
-<a href=#1165 id=1165 data-nosnippet>1165</a>								<span class="string">"🔍 Failed to remove expired external address {address:?}"
-<a href=#1166 id=1166 data-nosnippet>1166</a>							</span>);
-<a href=#1167 id=1167 data-nosnippet>1167</a>						}
-<a href=#1168 id=1168 data-nosnippet>1168</a>					}
-<a href=#1169 id=1169 data-nosnippet>1169</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::Ping { peer, rtt }) =&gt; {
-<a href=#1170 id=1170 data-nosnippet>1170</a>						<span class="macro">log::trace!</span>(
-<a href=#1171 id=1171 data-nosnippet>1171</a>							target: LOG_TARGET,
-<a href=#1172 id=1172 data-nosnippet>1172</a>							<span class="string">"ping time with {peer:?}: {rtt:?}"</span>,
-<a href=#1173 id=1173 data-nosnippet>1173</a>						);
-<a href=#1174 id=1174 data-nosnippet>1174</a>					}
-<a href=#1175 id=1175 data-nosnippet>1175</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::IncomingRecord { record: Record { key, value, publisher, expires }} ) =&gt; {
-<a href=#1176 id=1176 data-nosnippet>1176</a>						<span class="self">self</span>.event_streams.send(Event::Dht(
-<a href=#1177 id=1177 data-nosnippet>1177</a>							DhtEvent::PutRecordRequest(
-<a href=#1178 id=1178 data-nosnippet>1178</a>								key.into(),
-<a href=#1179 id=1179 data-nosnippet>1179</a>								value,
-<a href=#1180 id=1180 data-nosnippet>1180</a>								publisher.map(Into::into),
-<a href=#1181 id=1181 data-nosnippet>1181</a>								expires,
-<a href=#1182 id=1182 data-nosnippet>1182</a>							)
-<a href=#1183 id=1183 data-nosnippet>1183</a>						));
-<a href=#1184 id=1184 data-nosnippet>1184</a>					},
-<a href=#1185 id=1185 data-nosnippet>1185</a>
-<a href=#1186 id=1186 data-nosnippet>1186</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::RandomKademliaStarted) =&gt; {
-<a href=#1187 id=1187 data-nosnippet>1187</a>						<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
-<a href=#1188 id=1188 data-nosnippet>1188</a>							metrics.kademlia_random_queries_total.inc();
-<a href=#1189 id=1189 data-nosnippet>1189</a>						}
-<a href=#1190 id=1190 data-nosnippet>1190</a>					}
-<a href=#1191 id=1191 data-nosnippet>1191</a>				},
-<a href=#1192 id=1192 data-nosnippet>1192</a>				event = <span class="self">self</span>.litep2p.next_event() =&gt; <span class="kw">match </span>event {
-<a href=#1193 id=1193 data-nosnippet>1193</a>					<span class="prelude-val">Some</span>(Litep2pEvent::ConnectionEstablished { peer, endpoint }) =&gt; {
-<a href=#1194 id=1194 data-nosnippet>1194</a>						<span class="kw">let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics <span class="kw">else </span>{
-<a href=#1195 id=1195 data-nosnippet>1195</a>							<span class="kw">continue</span>;
-<a href=#1196 id=1196 data-nosnippet>1196</a>						};
-<a href=#1197 id=1197 data-nosnippet>1197</a>
-<a href=#1198 id=1198 data-nosnippet>1198</a>						<span class="kw">let </span>direction = <span class="kw">match </span>endpoint {
-<a href=#1199 id=1199 data-nosnippet>1199</a>							Endpoint::Dialer { .. } =&gt; <span class="string">"out"</span>,
-<a href=#1200 id=1200 data-nosnippet>1200</a>							Endpoint::Listener { .. } =&gt; {
-<a href=#1201 id=1201 data-nosnippet>1201</a>								<span class="comment">// Increment incoming connections counter.
-<a href=#1202 id=1202 data-nosnippet>1202</a>								//
-<a href=#1203 id=1203 data-nosnippet>1203</a>								// Note: For litep2p these are represented by established negotiated connections,
-<a href=#1204 id=1204 data-nosnippet>1204</a>								// while for libp2p (legacy) these represent not-yet-negotiated connections.
-<a href=#1205 id=1205 data-nosnippet>1205</a>								</span>metrics.incoming_connections_total.inc();
-<a href=#1206 id=1206 data-nosnippet>1206</a>
-<a href=#1207 id=1207 data-nosnippet>1207</a>								<span class="string">"in"
-<a href=#1208 id=1208 data-nosnippet>1208</a>							</span>},
-<a href=#1209 id=1209 data-nosnippet>1209</a>						};
-<a href=#1210 id=1210 data-nosnippet>1210</a>						metrics.connections_opened_total.with_label_values(<span class="kw-2">&amp;</span>[direction]).inc();
-<a href=#1211 id=1211 data-nosnippet>1211</a>
-<a href=#1212 id=1212 data-nosnippet>1212</a>						<span class="kw">match </span><span class="self">self</span>.peers.entry(peer) {
-<a href=#1213 id=1213 data-nosnippet>1213</a>							Entry::Vacant(entry) =&gt; {
-<a href=#1214 id=1214 data-nosnippet>1214</a>								entry.insert(ConnectionContext {
-<a href=#1215 id=1215 data-nosnippet>1215</a>									endpoints: HashMap::from_iter([(endpoint.connection_id(), endpoint)]),
-<a href=#1216 id=1216 data-nosnippet>1216</a>									num_connections: <span class="number">1usize</span>,
-<a href=#1217 id=1217 data-nosnippet>1217</a>								});
-<a href=#1218 id=1218 data-nosnippet>1218</a>								metrics.distinct_peers_connections_opened_total.inc();
-<a href=#1219 id=1219 data-nosnippet>1219</a>							}
-<a href=#1220 id=1220 data-nosnippet>1220</a>							Entry::Occupied(entry) =&gt; {
-<a href=#1221 id=1221 data-nosnippet>1221</a>								<span class="kw">let </span>entry = entry.into_mut();
-<a href=#1222 id=1222 data-nosnippet>1222</a>								entry.num_connections += <span class="number">1</span>;
-<a href=#1223 id=1223 data-nosnippet>1223</a>								entry.endpoints.insert(endpoint.connection_id(), endpoint);
-<a href=#1224 id=1224 data-nosnippet>1224</a>							}
-<a href=#1225 id=1225 data-nosnippet>1225</a>						}
-<a href=#1226 id=1226 data-nosnippet>1226</a>					}
-<a href=#1227 id=1227 data-nosnippet>1227</a>					<span class="prelude-val">Some</span>(Litep2pEvent::ConnectionClosed { peer, connection_id }) =&gt; {
-<a href=#1228 id=1228 data-nosnippet>1228</a>						<span class="kw">let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics <span class="kw">else </span>{
-<a href=#1229 id=1229 data-nosnippet>1229</a>							<span class="kw">continue</span>;
-<a href=#1230 id=1230 data-nosnippet>1230</a>						};
-<a href=#1231 id=1231 data-nosnippet>1231</a>
-<a href=#1232 id=1232 data-nosnippet>1232</a>						<span class="kw">let </span><span class="prelude-val">Some</span>(context) = <span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>peer) <span class="kw">else </span>{
-<a href=#1233 id=1233 data-nosnippet>1233</a>							<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"unknown peer disconnected: {peer:?} ({connection_id:?})"</span>);
-<a href=#1234 id=1234 data-nosnippet>1234</a>							<span class="kw">continue
-<a href=#1235 id=1235 data-nosnippet>1235</a>						</span>};
-<a href=#1236 id=1236 data-nosnippet>1236</a>
-<a href=#1237 id=1237 data-nosnippet>1237</a>						<span class="kw">let </span>direction = <span class="kw">match </span>context.endpoints.remove(<span class="kw-2">&amp;</span>connection_id) {
-<a href=#1238 id=1238 data-nosnippet>1238</a>							<span class="prelude-val">None </span>=&gt; {
-<a href=#1239 id=1239 data-nosnippet>1239</a>								<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"connection {connection_id:?} doesn't exist for {peer:?} "</span>);
-<a href=#1240 id=1240 data-nosnippet>1240</a>								<span class="kw">continue
-<a href=#1241 id=1241 data-nosnippet>1241</a>							</span>}
-<a href=#1242 id=1242 data-nosnippet>1242</a>							<span class="prelude-val">Some</span>(endpoint) =&gt; {
-<a href=#1243 id=1243 data-nosnippet>1243</a>								context.num_connections -= <span class="number">1</span>;
-<a href=#1244 id=1244 data-nosnippet>1244</a>
-<a href=#1245 id=1245 data-nosnippet>1245</a>								<span class="kw">match </span>endpoint {
-<a href=#1246 id=1246 data-nosnippet>1246</a>									Endpoint::Dialer { .. } =&gt; <span class="string">"out"</span>,
-<a href=#1247 id=1247 data-nosnippet>1247</a>									Endpoint::Listener { .. } =&gt; <span class="string">"in"</span>,
-<a href=#1248 id=1248 data-nosnippet>1248</a>								}
-<a href=#1249 id=1249 data-nosnippet>1249</a>							}
-<a href=#1250 id=1250 data-nosnippet>1250</a>						};
-<a href=#1251 id=1251 data-nosnippet>1251</a>
-<a href=#1252 id=1252 data-nosnippet>1252</a>						metrics.connections_closed_total.with_label_values(<span class="kw-2">&amp;</span>[direction, <span class="string">"actively-closed"</span>]).inc();
-<a href=#1253 id=1253 data-nosnippet>1253</a>
-<a href=#1254 id=1254 data-nosnippet>1254</a>						<span class="kw">if </span>context.num_connections == <span class="number">0 </span>{
-<a href=#1255 id=1255 data-nosnippet>1255</a>							<span class="self">self</span>.peers.remove(<span class="kw-2">&amp;</span>peer);
-<a href=#1256 id=1256 data-nosnippet>1256</a>							metrics.distinct_peers_connections_closed_total.inc();
-<a href=#1257 id=1257 data-nosnippet>1257</a>						}
-<a href=#1258 id=1258 data-nosnippet>1258</a>					}
-<a href=#1259 id=1259 data-nosnippet>1259</a>					<span class="prelude-val">Some</span>(Litep2pEvent::DialFailure { address, error }) =&gt; {
-<a href=#1260 id=1260 data-nosnippet>1260</a>						<span class="macro">log::debug!</span>(
-<a href=#1261 id=1261 data-nosnippet>1261</a>							target: LOG_TARGET,
-<a href=#1262 id=1262 data-nosnippet>1262</a>							<span class="string">"failed to dial peer at {address:?}: {error:?}"</span>,
-<a href=#1263 id=1263 data-nosnippet>1263</a>						);
-<a href=#1264 id=1264 data-nosnippet>1264</a>
-<a href=#1265 id=1265 data-nosnippet>1265</a>						<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
-<a href=#1266 id=1266 data-nosnippet>1266</a>							<span class="kw">let </span>reason = <span class="kw">match </span>error {
-<a href=#1267 id=1267 data-nosnippet>1267</a>								DialError::Timeout =&gt; <span class="string">"timeout"</span>,
-<a href=#1268 id=1268 data-nosnippet>1268</a>								DialError::AddressError(<span class="kw">_</span>) =&gt; <span class="string">"invalid-address"</span>,
-<a href=#1269 id=1269 data-nosnippet>1269</a>								DialError::DnsError(<span class="kw">_</span>) =&gt; <span class="string">"cannot-resolve-dns"</span>,
-<a href=#1270 id=1270 data-nosnippet>1270</a>								DialError::NegotiationError(error) =&gt; <span class="kw">match </span>error {
-<a href=#1271 id=1271 data-nosnippet>1271</a>									NegotiationError::Timeout =&gt; <span class="string">"timeout"</span>,
-<a href=#1272 id=1272 data-nosnippet>1272</a>									NegotiationError::PeerIdMissing =&gt; <span class="string">"missing-peer-id"</span>,
-<a href=#1273 id=1273 data-nosnippet>1273</a>									NegotiationError::StateMismatch =&gt; <span class="string">"state-mismatch"</span>,
-<a href=#1274 id=1274 data-nosnippet>1274</a>									NegotiationError::PeerIdMismatch(<span class="kw">_</span>,<span class="kw">_</span>) =&gt; <span class="string">"peer-id-missmatch"</span>,
-<a href=#1275 id=1275 data-nosnippet>1275</a>									NegotiationError::MultistreamSelectError(<span class="kw">_</span>) =&gt; <span class="string">"multistream-select-error"</span>,
-<a href=#1276 id=1276 data-nosnippet>1276</a>									NegotiationError::SnowError(<span class="kw">_</span>) =&gt; <span class="string">"noise-error"</span>,
-<a href=#1277 id=1277 data-nosnippet>1277</a>									NegotiationError::ParseError(<span class="kw">_</span>) =&gt; <span class="string">"parse-error"</span>,
-<a href=#1278 id=1278 data-nosnippet>1278</a>									NegotiationError::IoError(<span class="kw">_</span>) =&gt; <span class="string">"io-error"</span>,
-<a href=#1279 id=1279 data-nosnippet>1279</a>									NegotiationError::WebSocket(<span class="kw">_</span>) =&gt; <span class="string">"webscoket-error"</span>,
-<a href=#1280 id=1280 data-nosnippet>1280</a>									NegotiationError::BadSignature =&gt; <span class="string">"bad-signature"</span>,
-<a href=#1281 id=1281 data-nosnippet>1281</a>								}
-<a href=#1282 id=1282 data-nosnippet>1282</a>							};
-<a href=#1283 id=1283 data-nosnippet>1283</a>
-<a href=#1284 id=1284 data-nosnippet>1284</a>							metrics.pending_connections_errors_total.with_label_values(<span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>reason]).inc();
-<a href=#1285 id=1285 data-nosnippet>1285</a>						}
-<a href=#1286 id=1286 data-nosnippet>1286</a>					}
-<a href=#1287 id=1287 data-nosnippet>1287</a>					<span class="prelude-val">Some</span>(Litep2pEvent::ListDialFailures { errors }) =&gt; {
-<a href=#1288 id=1288 data-nosnippet>1288</a>						<span class="macro">log::debug!</span>(
-<a href=#1289 id=1289 data-nosnippet>1289</a>							target: LOG_TARGET,
-<a href=#1290 id=1290 data-nosnippet>1290</a>							<span class="string">"failed to dial peer on multiple addresses {errors:?}"</span>,
-<a href=#1291 id=1291 data-nosnippet>1291</a>						);
-<a href=#1292 id=1292 data-nosnippet>1292</a>
-<a href=#1293 id=1293 data-nosnippet>1293</a>						<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
-<a href=#1294 id=1294 data-nosnippet>1294</a>							metrics.pending_connections_errors_total.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"transport-errors"</span>]).inc();
+<a href=#1037 id=1037 data-nosnippet>1037</a>							<span class="prelude-val">None </span>=&gt; {
+<a href=#1038 id=1038 data-nosnippet>1038</a>								<span class="macro">log::trace!</span>(
+<a href=#1039 id=1039 data-nosnippet>1039</a>									target: LOG_TARGET,
+<a href=#1040 id=1040 data-nosnippet>1040</a>									<span class="string">"`ADD_PROVIDER` for key {provided_key:?} ({query_id:?}) succeeded (republishing)"</span>,
+<a href=#1041 id=1041 data-nosnippet>1041</a>								);
+<a href=#1042 id=1042 data-nosnippet>1042</a>							}
+<a href=#1043 id=1043 data-nosnippet>1043</a>						}
+<a href=#1044 id=1044 data-nosnippet>1044</a>					}
+<a href=#1045 id=1045 data-nosnippet>1045</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::QueryFailed { query_id }) =&gt; {
+<a href=#1046 id=1046 data-nosnippet>1046</a>						<span class="kw">match </span><span class="self">self</span>.pending_queries.remove(<span class="kw-2">&amp;</span>query_id) {
+<a href=#1047 id=1047 data-nosnippet>1047</a>							<span class="prelude-val">Some</span>(KadQuery::FindNode(peer_id, started)) =&gt; {
+<a href=#1048 id=1048 data-nosnippet>1048</a>								<span class="macro">log::debug!</span>(
+<a href=#1049 id=1049 data-nosnippet>1049</a>									target: LOG_TARGET,
+<a href=#1050 id=1050 data-nosnippet>1050</a>									<span class="string">"`FIND_NODE` ({query_id:?}) failed for target {peer_id:?}"</span>,
+<a href=#1051 id=1051 data-nosnippet>1051</a>								);
+<a href=#1052 id=1052 data-nosnippet>1052</a>
+<a href=#1053 id=1053 data-nosnippet>1053</a>								<span class="self">self</span>.event_streams.send(Event::Dht(
+<a href=#1054 id=1054 data-nosnippet>1054</a>									DhtEvent::ClosestPeersNotFound(peer_id.into())
+<a href=#1055 id=1055 data-nosnippet>1055</a>								));
+<a href=#1056 id=1056 data-nosnippet>1056</a>
+<a href=#1057 id=1057 data-nosnippet>1057</a>								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
+<a href=#1058 id=1058 data-nosnippet>1058</a>									metrics
+<a href=#1059 id=1059 data-nosnippet>1059</a>										.kademlia_query_duration
+<a href=#1060 id=1060 data-nosnippet>1060</a>										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"node-find-failed"</span>])
+<a href=#1061 id=1061 data-nosnippet>1061</a>										.observe(started.elapsed().as_secs_f64());
+<a href=#1062 id=1062 data-nosnippet>1062</a>								}
+<a href=#1063 id=1063 data-nosnippet>1063</a>							},
+<a href=#1064 id=1064 data-nosnippet>1064</a>							<span class="prelude-val">Some</span>(KadQuery::GetValue(key, started)) =&gt; {
+<a href=#1065 id=1065 data-nosnippet>1065</a>								<span class="macro">log::debug!</span>(
+<a href=#1066 id=1066 data-nosnippet>1066</a>									target: LOG_TARGET,
+<a href=#1067 id=1067 data-nosnippet>1067</a>									<span class="string">"`GET_VALUE` ({query_id:?}) failed for key {key:?}"</span>,
+<a href=#1068 id=1068 data-nosnippet>1068</a>								);
+<a href=#1069 id=1069 data-nosnippet>1069</a>
+<a href=#1070 id=1070 data-nosnippet>1070</a>								<span class="self">self</span>.event_streams.send(Event::Dht(
+<a href=#1071 id=1071 data-nosnippet>1071</a>									DhtEvent::ValueNotFound(key)
+<a href=#1072 id=1072 data-nosnippet>1072</a>								));
+<a href=#1073 id=1073 data-nosnippet>1073</a>
+<a href=#1074 id=1074 data-nosnippet>1074</a>								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
+<a href=#1075 id=1075 data-nosnippet>1075</a>									metrics
+<a href=#1076 id=1076 data-nosnippet>1076</a>										.kademlia_query_duration
+<a href=#1077 id=1077 data-nosnippet>1077</a>										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"value-get-failed"</span>])
+<a href=#1078 id=1078 data-nosnippet>1078</a>										.observe(started.elapsed().as_secs_f64());
+<a href=#1079 id=1079 data-nosnippet>1079</a>								}
+<a href=#1080 id=1080 data-nosnippet>1080</a>							},
+<a href=#1081 id=1081 data-nosnippet>1081</a>							<span class="prelude-val">Some</span>(KadQuery::PutValue(key, started)) =&gt; {
+<a href=#1082 id=1082 data-nosnippet>1082</a>								<span class="macro">log::debug!</span>(
+<a href=#1083 id=1083 data-nosnippet>1083</a>									target: LOG_TARGET,
+<a href=#1084 id=1084 data-nosnippet>1084</a>									<span class="string">"`PUT_VALUE` ({query_id:?}) failed for key {key:?}"</span>,
+<a href=#1085 id=1085 data-nosnippet>1085</a>								);
+<a href=#1086 id=1086 data-nosnippet>1086</a>
+<a href=#1087 id=1087 data-nosnippet>1087</a>								<span class="self">self</span>.event_streams.send(Event::Dht(
+<a href=#1088 id=1088 data-nosnippet>1088</a>									DhtEvent::ValuePutFailed(key)
+<a href=#1089 id=1089 data-nosnippet>1089</a>								));
+<a href=#1090 id=1090 data-nosnippet>1090</a>
+<a href=#1091 id=1091 data-nosnippet>1091</a>								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
+<a href=#1092 id=1092 data-nosnippet>1092</a>									metrics
+<a href=#1093 id=1093 data-nosnippet>1093</a>										.kademlia_query_duration
+<a href=#1094 id=1094 data-nosnippet>1094</a>										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"value-put-failed"</span>])
+<a href=#1095 id=1095 data-nosnippet>1095</a>										.observe(started.elapsed().as_secs_f64());
+<a href=#1096 id=1096 data-nosnippet>1096</a>								}
+<a href=#1097 id=1097 data-nosnippet>1097</a>							},
+<a href=#1098 id=1098 data-nosnippet>1098</a>							<span class="prelude-val">Some</span>(KadQuery::GetProviders(key, started)) =&gt; {
+<a href=#1099 id=1099 data-nosnippet>1099</a>								<span class="macro">log::debug!</span>(
+<a href=#1100 id=1100 data-nosnippet>1100</a>									target: LOG_TARGET,
+<a href=#1101 id=1101 data-nosnippet>1101</a>									<span class="string">"`GET_PROVIDERS` ({query_id:?}) failed for key {key:?}"
+<a href=#1102 id=1102 data-nosnippet>1102</a>								</span>);
+<a href=#1103 id=1103 data-nosnippet>1103</a>
+<a href=#1104 id=1104 data-nosnippet>1104</a>								<span class="self">self</span>.event_streams.send(Event::Dht(
+<a href=#1105 id=1105 data-nosnippet>1105</a>									DhtEvent::ProvidersNotFound(key)
+<a href=#1106 id=1106 data-nosnippet>1106</a>								));
+<a href=#1107 id=1107 data-nosnippet>1107</a>
+<a href=#1108 id=1108 data-nosnippet>1108</a>								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
+<a href=#1109 id=1109 data-nosnippet>1109</a>									metrics
+<a href=#1110 id=1110 data-nosnippet>1110</a>										.kademlia_query_duration
+<a href=#1111 id=1111 data-nosnippet>1111</a>										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"providers-get-failed"</span>])
+<a href=#1112 id=1112 data-nosnippet>1112</a>										.observe(started.elapsed().as_secs_f64());
+<a href=#1113 id=1113 data-nosnippet>1113</a>								}
+<a href=#1114 id=1114 data-nosnippet>1114</a>							},
+<a href=#1115 id=1115 data-nosnippet>1115</a>							<span class="prelude-val">Some</span>(KadQuery::AddProvider(key, started)) =&gt; {
+<a href=#1116 id=1116 data-nosnippet>1116</a>								<span class="macro">log::debug!</span>(
+<a href=#1117 id=1117 data-nosnippet>1117</a>									target: LOG_TARGET,
+<a href=#1118 id=1118 data-nosnippet>1118</a>									<span class="string">"`ADD_PROVIDER` ({query_id:?}) failed with key {key:?}"</span>,
+<a href=#1119 id=1119 data-nosnippet>1119</a>								);
+<a href=#1120 id=1120 data-nosnippet>1120</a>
+<a href=#1121 id=1121 data-nosnippet>1121</a>								<span class="self">self</span>.event_streams.send(Event::Dht(
+<a href=#1122 id=1122 data-nosnippet>1122</a>									DhtEvent::StartProvidingFailed(key)
+<a href=#1123 id=1123 data-nosnippet>1123</a>								));
+<a href=#1124 id=1124 data-nosnippet>1124</a>
+<a href=#1125 id=1125 data-nosnippet>1125</a>								<span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>metrics) = <span class="self">self</span>.metrics {
+<a href=#1126 id=1126 data-nosnippet>1126</a>									metrics
+<a href=#1127 id=1127 data-nosnippet>1127</a>										.kademlia_query_duration
+<a href=#1128 id=1128 data-nosnippet>1128</a>										.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"provider-add-failed"</span>])
+<a href=#1129 id=1129 data-nosnippet>1129</a>										.observe(started.elapsed().as_secs_f64());
+<a href=#1130 id=1130 data-nosnippet>1130</a>								}
+<a href=#1131 id=1131 data-nosnippet>1131</a>							},
+<a href=#1132 id=1132 data-nosnippet>1132</a>							<span class="prelude-val">None </span>=&gt; {
+<a href=#1133 id=1133 data-nosnippet>1133</a>								<span class="macro">log::debug!</span>(
+<a href=#1134 id=1134 data-nosnippet>1134</a>									target: LOG_TARGET,
+<a href=#1135 id=1135 data-nosnippet>1135</a>									<span class="string">"non-existent query (likely republishing a provider) failed ({query_id:?})"</span>,
+<a href=#1136 id=1136 data-nosnippet>1136</a>								);
+<a href=#1137 id=1137 data-nosnippet>1137</a>							}
+<a href=#1138 id=1138 data-nosnippet>1138</a>						}
+<a href=#1139 id=1139 data-nosnippet>1139</a>					}
+<a href=#1140 id=1140 data-nosnippet>1140</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::Identified { peer, listen_addresses, supported_protocols, .. }) =&gt; {
+<a href=#1141 id=1141 data-nosnippet>1141</a>						<span class="self">self</span>.event_streams.send(Event::PeerIdentified {
+<a href=#1142 id=1142 data-nosnippet>1142</a>							peer: peer.into(),
+<a href=#1143 id=1143 data-nosnippet>1143</a>							supported_protocols: supported_protocols.iter().cloned().map(Into::into).collect(),
+<a href=#1144 id=1144 data-nosnippet>1144</a>						});
+<a href=#1145 id=1145 data-nosnippet>1145</a>						<span class="self">self</span>.discovery.add_self_reported_address(peer, supported_protocols, listen_addresses).<span class="kw">await</span>;
+<a href=#1146 id=1146 data-nosnippet>1146</a>					}
+<a href=#1147 id=1147 data-nosnippet>1147</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::ExternalAddressDiscovered { address }) =&gt; {
+<a href=#1148 id=1148 data-nosnippet>1148</a>						<span class="kw">match </span><span class="self">self</span>.litep2p.public_addresses().add_address(address.clone().into()) {
+<a href=#1149 id=1149 data-nosnippet>1149</a>							<span class="prelude-val">Ok</span>(inserted) =&gt; <span class="kw">if </span>inserted {
+<a href=#1150 id=1150 data-nosnippet>1150</a>								<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"🔍 Discovered new external address for our node: {address}"</span>);
+<a href=#1151 id=1151 data-nosnippet>1151</a>							},
+<a href=#1152 id=1152 data-nosnippet>1152</a>							<span class="prelude-val">Err</span>(err) =&gt; {
+<a href=#1153 id=1153 data-nosnippet>1153</a>								<span class="macro">log::warn!</span>(
+<a href=#1154 id=1154 data-nosnippet>1154</a>									target: LOG_TARGET,
+<a href=#1155 id=1155 data-nosnippet>1155</a>									<span class="string">"🔍 Failed to add discovered external address {address:?}: {err:?}"</span>,
+<a href=#1156 id=1156 data-nosnippet>1156</a>								);
+<a href=#1157 id=1157 data-nosnippet>1157</a>							},
+<a href=#1158 id=1158 data-nosnippet>1158</a>						}
+<a href=#1159 id=1159 data-nosnippet>1159</a>					}
+<a href=#1160 id=1160 data-nosnippet>1160</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::ExternalAddressExpired{ address }) =&gt; {
+<a href=#1161 id=1161 data-nosnippet>1161</a>						<span class="kw">let </span>local_peer_id = <span class="self">self</span>.litep2p.local_peer_id();
+<a href=#1162 id=1162 data-nosnippet>1162</a>
+<a href=#1163 id=1163 data-nosnippet>1163</a>						<span class="comment">// Litep2p requires the peer ID to be present in the address.
+<a href=#1164 id=1164 data-nosnippet>1164</a>						</span><span class="kw">let </span>address = <span class="kw">if </span>!<span class="macro">std::matches!</span>(address.iter().last(), <span class="prelude-val">Some</span>(Protocol::P2p(<span class="kw">_</span>))) {
+<a href=#1165 id=1165 data-nosnippet>1165</a>							address.with(Protocol::P2p((<span class="kw-2">*</span>local_peer_id).into()))
+<a href=#1166 id=1166 data-nosnippet>1166</a>						} <span class="kw">else </span>{
+<a href=#1167 id=1167 data-nosnippet>1167</a>							address
+<a href=#1168 id=1168 data-nosnippet>1168</a>						};
+<a href=#1169 id=1169 data-nosnippet>1169</a>
+<a href=#1170 id=1170 data-nosnippet>1170</a>						<span class="kw">if </span><span class="self">self</span>.litep2p.public_addresses().remove_address(<span class="kw-2">&amp;</span>address) {
+<a href=#1171 id=1171 data-nosnippet>1171</a>							<span class="macro">log::info!</span>(target: LOG_TARGET, <span class="string">"🔍 Expired external address for our node: {address}"</span>);
+<a href=#1172 id=1172 data-nosnippet>1172</a>						} <span class="kw">else </span>{
+<a href=#1173 id=1173 data-nosnippet>1173</a>							<span class="macro">log::warn!</span>(
+<a href=#1174 id=1174 data-nosnippet>1174</a>								target: LOG_TARGET,
+<a href=#1175 id=1175 data-nosnippet>1175</a>								<span class="string">"🔍 Failed to remove expired external address {address:?}"
+<a href=#1176 id=1176 data-nosnippet>1176</a>							</span>);
+<a href=#1177 id=1177 data-nosnippet>1177</a>						}
+<a href=#1178 id=1178 data-nosnippet>1178</a>					}
+<a href=#1179 id=1179 data-nosnippet>1179</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::Ping { peer, rtt }) =&gt; {
+<a href=#1180 id=1180 data-nosnippet>1180</a>						<span class="macro">log::trace!</span>(
+<a href=#1181 id=1181 data-nosnippet>1181</a>							target: LOG_TARGET,
+<a href=#1182 id=1182 data-nosnippet>1182</a>							<span class="string">"ping time with {peer:?}: {rtt:?}"</span>,
+<a href=#1183 id=1183 data-nosnippet>1183</a>						);
+<a href=#1184 id=1184 data-nosnippet>1184</a>					}
+<a href=#1185 id=1185 data-nosnippet>1185</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::IncomingRecord { record: Record { key, value, publisher, expires }} ) =&gt; {
+<a href=#1186 id=1186 data-nosnippet>1186</a>						<span class="self">self</span>.event_streams.send(Event::Dht(
+<a href=#1187 id=1187 data-nosnippet>1187</a>							DhtEvent::PutRecordRequest(
+<a href=#1188 id=1188 data-nosnippet>1188</a>								key.into(),
+<a href=#1189 id=1189 data-nosnippet>1189</a>								value,
+<a href=#1190 id=1190 data-nosnippet>1190</a>								publisher.map(Into::into),
+<a href=#1191 id=1191 data-nosnippet>1191</a>								expires,
+<a href=#1192 id=1192 data-nosnippet>1192</a>							)
+<a href=#1193 id=1193 data-nosnippet>1193</a>						));
+<a href=#1194 id=1194 data-nosnippet>1194</a>					},
+<a href=#1195 id=1195 data-nosnippet>1195</a>
+<a href=#1196 id=1196 data-nosnippet>1196</a>					<span class="prelude-val">Some</span>(DiscoveryEvent::RandomKademliaStarted) =&gt; {
+<a href=#1197 id=1197 data-nosnippet>1197</a>						<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="self">self</span>.metrics.as_ref() {
+<a href=#1198 id=1198 data-nosnippet>1198</a>							metrics.kademlia_random_queries_total.inc();
+<a href=#1199 id=1199 data-nosnippet>1199</a>						}
+<a href=#1200 id=1200 data-nosnippet>1200</a>					}
+<a href=#1201 id=1201 data-nosnippet>1201</a>				},
+<a href=#1202 id=1202 data-nosnippet>1202</a>				event = <span class="self">self</span>.litep2p.next_event() =&gt; <span class="kw">match </span>event {
+<a href=#1203 id=1203 data-nosnippet>1203</a>					<span class="prelude-val">Some</span>(Litep2pEvent::ConnectionEstablished { peer, endpoint }) =&gt; {
+<a href=#1204 id=1204 data-nosnippet>1204</a>						<span class="kw">let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics <span class="kw">else </span>{
+<a href=#1205 id=1205 data-nosnippet>1205</a>							<span class="kw">continue</span>;
+<a href=#1206 id=1206 data-nosnippet>1206</a>						};
+<a href=#1207 id=1207 data-nosnippet>1207</a>
+<a href=#1208 id=1208 data-nosnippet>1208</a>						<span class="kw">let </span>direction = <span class="kw">match </span>endpoint {
+<a href=#1209 id=1209 data-nosnippet>1209</a>							Endpoint::Dialer { .. } =&gt; <span class="string">"out"</span>,
+<a href=#1210 id=1210 data-nosnippet>1210</a>							Endpoint::Listener { .. } =&gt; {
+<a href=#1211 id=1211 data-nosnippet>1211</a>								<span class="comment">// Increment incoming connections counter.
+<a href=#1212 id=1212 data-nosnippet>1212</a>								//
+<a href=#1213 id=1213 data-nosnippet>1213</a>								// Note: For litep2p these are represented by established negotiated connections,
+<a href=#1214 id=1214 data-nosnippet>1214</a>								// while for libp2p (legacy) these represent not-yet-negotiated connections.
+<a href=#1215 id=1215 data-nosnippet>1215</a>								</span>metrics.incoming_connections_total.inc();
+<a href=#1216 id=1216 data-nosnippet>1216</a>
+<a href=#1217 id=1217 data-nosnippet>1217</a>								<span class="string">"in"
+<a href=#1218 id=1218 data-nosnippet>1218</a>							</span>},
+<a href=#1219 id=1219 data-nosnippet>1219</a>						};
+<a href=#1220 id=1220 data-nosnippet>1220</a>						metrics.connections_opened_total.with_label_values(<span class="kw-2">&amp;</span>[direction]).inc();
+<a href=#1221 id=1221 data-nosnippet>1221</a>
+<a href=#1222 id=1222 data-nosnippet>1222</a>						<span class="kw">match </span><span class="self">self</span>.peers.entry(peer) {
+<a href=#1223 id=1223 data-nosnippet>1223</a>							Entry::Vacant(entry) =&gt; {
+<a href=#1224 id=1224 data-nosnippet>1224</a>								entry.insert(ConnectionContext {
+<a href=#1225 id=1225 data-nosnippet>1225</a>									endpoints: HashMap::from_iter([(endpoint.connection_id(), endpoint)]),
+<a href=#1226 id=1226 data-nosnippet>1226</a>									num_connections: <span class="number">1usize</span>,
+<a href=#1227 id=1227 data-nosnippet>1227</a>								});
+<a href=#1228 id=1228 data-nosnippet>1228</a>								metrics.distinct_peers_connections_opened_total.inc();
+<a href=#1229 id=1229 data-nosnippet>1229</a>							}
+<a href=#1230 id=1230 data-nosnippet>1230</a>							Entry::Occupied(entry) =&gt; {
+<a href=#1231 id=1231 data-nosnippet>1231</a>								<span class="kw">let </span>entry = entry.into_mut();
+<a href=#1232 id=1232 data-nosnippet>1232</a>								entry.num_connections += <span class="number">1</span>;
+<a href=#1233 id=1233 data-nosnippet>1233</a>								entry.endpoints.insert(endpoint.connection_id(), endpoint);
+<a href=#1234 id=1234 data-nosnippet>1234</a>							}
+<a href=#1235 id=1235 data-nosnippet>1235</a>						}
+<a href=#1236 id=1236 data-nosnippet>1236</a>					}
+<a href=#1237 id=1237 data-nosnippet>1237</a>					<span class="prelude-val">Some</span>(Litep2pEvent::ConnectionClosed { peer, connection_id }) =&gt; {
+<a href=#1238 id=1238 data-nosnippet>1238</a>						<span class="kw">let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics <span class="kw">else </span>{
+<a href=#1239 id=1239 data-nosnippet>1239</a>							<span class="kw">continue</span>;
+<a href=#1240 id=1240 data-nosnippet>1240</a>						};
+<a href=#1241 id=1241 data-nosnippet>1241</a>
+<a href=#1242 id=1242 data-nosnippet>1242</a>						<span class="kw">let </span><span class="prelude-val">Some</span>(context) = <span class="self">self</span>.peers.get_mut(<span class="kw-2">&amp;</span>peer) <span class="kw">else </span>{
+<a href=#1243 id=1243 data-nosnippet>1243</a>							<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"unknown peer disconnected: {peer:?} ({connection_id:?})"</span>);
+<a href=#1244 id=1244 data-nosnippet>1244</a>							<span class="kw">continue
+<a href=#1245 id=1245 data-nosnippet>1245</a>						</span>};
+<a href=#1246 id=1246 data-nosnippet>1246</a>
+<a href=#1247 id=1247 data-nosnippet>1247</a>						<span class="kw">let </span>direction = <span class="kw">match </span>context.endpoints.remove(<span class="kw-2">&amp;</span>connection_id) {
+<a href=#1248 id=1248 data-nosnippet>1248</a>							<span class="prelude-val">None </span>=&gt; {
+<a href=#1249 id=1249 data-nosnippet>1249</a>								<span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"connection {connection_id:?} doesn't exist for {peer:?} "</span>);
+<a href=#1250 id=1250 data-nosnippet>1250</a>								<span class="kw">continue
+<a href=#1251 id=1251 data-nosnippet>1251</a>							</span>}
+<a href=#1252 id=1252 data-nosnippet>1252</a>							<span class="prelude-val">Some</span>(endpoint) =&gt; {
+<a href=#1253 id=1253 data-nosnippet>1253</a>								context.num_connections -= <span class="number">1</span>;
+<a href=#1254 id=1254 data-nosnippet>1254</a>
+<a href=#1255 id=1255 data-nosnippet>1255</a>								<span class="kw">match </span>endpoint {
+<a href=#1256 id=1256 data-nosnippet>1256</a>									Endpoint::Dialer { .. } =&gt; <span class="string">"out"</span>,
+<a href=#1257 id=1257 data-nosnippet>1257</a>									Endpoint::Listener { .. } =&gt; <span class="string">"in"</span>,
+<a href=#1258 id=1258 data-nosnippet>1258</a>								}
+<a href=#1259 id=1259 data-nosnippet>1259</a>							}
+<a href=#1260 id=1260 data-nosnippet>1260</a>						};
+<a href=#1261 id=1261 data-nosnippet>1261</a>
+<a href=#1262 id=1262 data-nosnippet>1262</a>						metrics.connections_closed_total.with_label_values(<span class="kw-2">&amp;</span>[direction, <span class="string">"actively-closed"</span>]).inc();
+<a href=#1263 id=1263 data-nosnippet>1263</a>
+<a href=#1264 id=1264 data-nosnippet>1264</a>						<span class="kw">if </span>context.num_connections == <span class="number">0 </span>{
+<a href=#1265 id=1265 data-nosnippet>1265</a>							<span class="self">self</span>.peers.remove(<span class="kw-2">&amp;</span>peer);
+<a href=#1266 id=1266 data-nosnippet>1266</a>							metrics.distinct_peers_connections_closed_total.inc();
+<a href=#1267 id=1267 data-nosnippet>1267</a>						}
+<a href=#1268 id=1268 data-nosnippet>1268</a>					}
+<a href=#1269 id=1269 data-nosnippet>1269</a>					<span class="prelude-val">Some</span>(Litep2pEvent::DialFailure { address, error }) =&gt; {
+<a href=#1270 id=1270 data-nosnippet>1270</a>						<span class="macro">log::debug!</span>(
+<a href=#1271 id=1271 data-nosnippet>1271</a>							target: LOG_TARGET,
+<a href=#1272 id=1272 data-nosnippet>1272</a>							<span class="string">"failed to dial peer at {address:?}: {error:?}"</span>,
+<a href=#1273 id=1273 data-nosnippet>1273</a>						);
+<a href=#1274 id=1274 data-nosnippet>1274</a>
+<a href=#1275 id=1275 data-nosnippet>1275</a>						<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
+<a href=#1276 id=1276 data-nosnippet>1276</a>							<span class="kw">let </span>reason = <span class="kw">match </span>error {
+<a href=#1277 id=1277 data-nosnippet>1277</a>								DialError::Timeout =&gt; <span class="string">"timeout"</span>,
+<a href=#1278 id=1278 data-nosnippet>1278</a>								DialError::AddressError(<span class="kw">_</span>) =&gt; <span class="string">"invalid-address"</span>,
+<a href=#1279 id=1279 data-nosnippet>1279</a>								DialError::DnsError(<span class="kw">_</span>) =&gt; <span class="string">"cannot-resolve-dns"</span>,
+<a href=#1280 id=1280 data-nosnippet>1280</a>								DialError::NegotiationError(error) =&gt; <span class="kw">match </span>error {
+<a href=#1281 id=1281 data-nosnippet>1281</a>									NegotiationError::Timeout =&gt; <span class="string">"timeout"</span>,
+<a href=#1282 id=1282 data-nosnippet>1282</a>									NegotiationError::PeerIdMissing =&gt; <span class="string">"missing-peer-id"</span>,
+<a href=#1283 id=1283 data-nosnippet>1283</a>									NegotiationError::StateMismatch =&gt; <span class="string">"state-mismatch"</span>,
+<a href=#1284 id=1284 data-nosnippet>1284</a>									NegotiationError::PeerIdMismatch(<span class="kw">_</span>,<span class="kw">_</span>) =&gt; <span class="string">"peer-id-missmatch"</span>,
+<a href=#1285 id=1285 data-nosnippet>1285</a>									NegotiationError::MultistreamSelectError(<span class="kw">_</span>) =&gt; <span class="string">"multistream-select-error"</span>,
+<a href=#1286 id=1286 data-nosnippet>1286</a>									NegotiationError::SnowError(<span class="kw">_</span>) =&gt; <span class="string">"noise-error"</span>,
+<a href=#1287 id=1287 data-nosnippet>1287</a>									NegotiationError::ParseError(<span class="kw">_</span>) =&gt; <span class="string">"parse-error"</span>,
+<a href=#1288 id=1288 data-nosnippet>1288</a>									NegotiationError::IoError(<span class="kw">_</span>) =&gt; <span class="string">"io-error"</span>,
+<a href=#1289 id=1289 data-nosnippet>1289</a>									NegotiationError::WebSocket(<span class="kw">_</span>) =&gt; <span class="string">"webscoket-error"</span>,
+<a href=#1290 id=1290 data-nosnippet>1290</a>									NegotiationError::BadSignature =&gt; <span class="string">"bad-signature"</span>,
+<a href=#1291 id=1291 data-nosnippet>1291</a>								}
+<a href=#1292 id=1292 data-nosnippet>1292</a>							};
+<a href=#1293 id=1293 data-nosnippet>1293</a>
+<a href=#1294 id=1294 data-nosnippet>1294</a>							metrics.pending_connections_errors_total.with_label_values(<span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>reason]).inc();
 <a href=#1295 id=1295 data-nosnippet>1295</a>						}
 <a href=#1296 id=1296 data-nosnippet>1296</a>					}
-<a href=#1297 id=1297 data-nosnippet>1297</a>					<span class="prelude-val">None </span>=&gt; {
-<a href=#1298 id=1298 data-nosnippet>1298</a>						<span class="macro">log::error!</span>(
-<a href=#1299 id=1299 data-nosnippet>1299</a>								target: LOG_TARGET,
-<a href=#1300 id=1300 data-nosnippet>1300</a>								<span class="string">"Litep2p backend terminated"
-<a href=#1301 id=1301 data-nosnippet>1301</a>						</span>);
-<a href=#1302 id=1302 data-nosnippet>1302</a>						<span class="kw">return
-<a href=#1303 id=1303 data-nosnippet>1303</a>					</span>}
-<a href=#1304 id=1304 data-nosnippet>1304</a>				},
-<a href=#1305 id=1305 data-nosnippet>1305</a>			}
-<a href=#1306 id=1306 data-nosnippet>1306</a>		}
-<a href=#1307 id=1307 data-nosnippet>1307</a>	}
-<a href=#1308 id=1308 data-nosnippet>1308</a>}
-<a href=#1309 id=1309 data-nosnippet>1309</a>
-<a href=#1310 id=1310 data-nosnippet>1310</a><span class="attr">#[cfg(test)]
-<a href=#1311 id=1311 data-nosnippet>1311</a></span><span class="kw">mod </span>tests {
-<a href=#1312 id=1312 data-nosnippet>1312</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#1313 id=1313 data-nosnippet>1313</a>	<span class="kw">use crate</span>::{
-<a href=#1314 id=1314 data-nosnippet>1314</a>		config::{ed25519, NetworkConfiguration, ProtocolId, Role, Secret},
-<a href=#1315 id=1315 data-nosnippet>1315</a>		service::traits::NetworkStateInfo,
-<a href=#1316 id=1316 data-nosnippet>1316</a>	};
-<a href=#1317 id=1317 data-nosnippet>1317</a>	<span class="kw">use </span>sc_network_types::{
-<a href=#1318 id=1318 data-nosnippet>1318</a>		multiaddr::Multiaddr <span class="kw">as </span>NetworkMultiaddr, multihash::Multihash <span class="kw">as </span>NetworkMultihash,
-<a href=#1319 id=1319 data-nosnippet>1319</a>	};
-<a href=#1320 id=1320 data-nosnippet>1320</a>	<span class="kw">use </span>sp_core::H256;
-<a href=#1321 id=1321 data-nosnippet>1321</a>	<span class="kw">use </span>substrate_test_runtime_client::runtime::Block;
-<a href=#1322 id=1322 data-nosnippet>1322</a>
-<a href=#1323 id=1323 data-nosnippet>1323</a>	<span class="doccomment">/// `--listen-addr` of a node behind a NAT. Port `0` so concurrent tests don't collide.
-<a href=#1324 id=1324 data-nosnippet>1324</a>	</span><span class="kw">const </span>WEBRTC_LISTEN_ADDRESS: <span class="kw-2">&amp;</span>str = <span class="string">"/ip4/127.0.0.1/udp/0/webrtc-direct"</span>;
-<a href=#1325 id=1325 data-nosnippet>1325</a>
-<a href=#1326 id=1326 data-nosnippet>1326</a>	<span class="doccomment">/// `--public-addr` of that node: the routable coordinate peers are told to dial.
-<a href=#1327 id=1327 data-nosnippet>1327</a>	/// This is the shape an operator supplies when the node sits behind a proxy.
-<a href=#1328 id=1328 data-nosnippet>1328</a>	</span><span class="kw">const </span>WEBRTC_PUBLIC_ADDRESS: <span class="kw-2">&amp;</span>str = <span class="string">"/ip4/203.0.113.9/udp/31234/webrtc-direct"</span>;
-<a href=#1329 id=1329 data-nosnippet>1329</a>
-<a href=#1330 id=1330 data-nosnippet>1330</a>	<span class="doccomment">/// The `/certhash` component of `address`.
-<a href=#1331 id=1331 data-nosnippet>1331</a>	</span><span class="kw">fn </span>certhash(address: <span class="kw-2">&amp;</span>NetworkMultiaddr) -&gt; <span class="prelude-ty">Option</span>&lt;NetworkMultihash&gt; {
-<a href=#1332 id=1332 data-nosnippet>1332</a>		address.iter().find_map(|protocol| <span class="kw">match </span>protocol {
-<a href=#1333 id=1333 data-nosnippet>1333</a>			NetworkProtocol::Certhash(hash) =&gt; <span class="prelude-val">Some</span>(hash),
-<a href=#1334 id=1334 data-nosnippet>1334</a>			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-<a href=#1335 id=1335 data-nosnippet>1335</a>		})
-<a href=#1336 id=1336 data-nosnippet>1336</a>	}
-<a href=#1337 id=1337 data-nosnippet>1337</a>
-<a href=#1338 id=1338 data-nosnippet>1338</a>	<span class="doccomment">/// Bring up the backend from `network_config` through its real entry point.
-<a href=#1339 id=1339 data-nosnippet>1339</a>	</span><span class="kw">fn </span>start_backend(
-<a href=#1340 id=1340 data-nosnippet>1340</a>		network_config: <span class="kw-2">&amp;</span>NetworkConfiguration,
-<a href=#1341 id=1341 data-nosnippet>1341</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;Litep2pNetworkBackend, Error&gt; {
-<a href=#1342 id=1342 data-nosnippet>1342</a>		<span class="kw">let </span>config = FullNetworkConfiguration::&lt;Block, H256, Litep2pNetworkBackend&gt;::new(
-<a href=#1343 id=1343 data-nosnippet>1343</a>			network_config,
-<a href=#1344 id=1344 data-nosnippet>1344</a>			<span class="prelude-val">None</span>,
-<a href=#1345 id=1345 data-nosnippet>1345</a>		);
-<a href=#1346 id=1346 data-nosnippet>1346</a>
-<a href=#1347 id=1347 data-nosnippet>1347</a>		<span class="kw">let </span>(block_announce_config, _notification_service) =
-<a href=#1348 id=1348 data-nosnippet>1348</a>			&lt;Litep2pNetworkBackend <span class="kw">as </span>NetworkBackend&lt;Block, H256&gt;&gt;::notification_config(
-<a href=#1349 id=1349 data-nosnippet>1349</a>				<span class="string">"/block-announces/1"</span>.into(),
-<a href=#1350 id=1350 data-nosnippet>1350</a>				<span class="macro">vec!</span>[],
-<a href=#1351 id=1351 data-nosnippet>1351</a>				<span class="number">1024</span>,
-<a href=#1352 id=1352 data-nosnippet>1352</a>				<span class="prelude-val">None</span>,
-<a href=#1353 id=1353 data-nosnippet>1353</a>				SetConfig::default(),
-<a href=#1354 id=1354 data-nosnippet>1354</a>				NotificationMetrics::new(<span class="prelude-val">None</span>),
-<a href=#1355 id=1355 data-nosnippet>1355</a>				config.peer_store_handle(),
-<a href=#1356 id=1356 data-nosnippet>1356</a>			);
-<a href=#1357 id=1357 data-nosnippet>1357</a>
-<a href=#1358 id=1358 data-nosnippet>1358</a>		&lt;Litep2pNetworkBackend <span class="kw">as </span>NetworkBackend&lt;Block, H256&gt;&gt;::new(Params {
-<a href=#1359 id=1359 data-nosnippet>1359</a>			role: Role::Full,
-<a href=#1360 id=1360 data-nosnippet>1360</a>			executor: Box::new(|future| {
-<a href=#1361 id=1361 data-nosnippet>1361</a>				tokio::spawn(future);
-<a href=#1362 id=1362 data-nosnippet>1362</a>			}),
-<a href=#1363 id=1363 data-nosnippet>1363</a>			network_config: config,
-<a href=#1364 id=1364 data-nosnippet>1364</a>			protocol_id: ProtocolId::from(<span class="string">"test"</span>),
-<a href=#1365 id=1365 data-nosnippet>1365</a>			genesis_hash: H256::zero(),
-<a href=#1366 id=1366 data-nosnippet>1366</a>			fork_id: <span class="prelude-val">None</span>,
-<a href=#1367 id=1367 data-nosnippet>1367</a>			metrics_registry: <span class="prelude-val">None</span>,
-<a href=#1368 id=1368 data-nosnippet>1368</a>			block_announce_config,
-<a href=#1369 id=1369 data-nosnippet>1369</a>			ipfs_config: <span class="prelude-val">None</span>,
-<a href=#1370 id=1370 data-nosnippet>1370</a>			notification_metrics: NotificationMetrics::new(<span class="prelude-val">None</span>),
-<a href=#1371 id=1371 data-nosnippet>1371</a>		})
-<a href=#1372 id=1372 data-nosnippet>1372</a>	}
-<a href=#1373 id=1373 data-nosnippet>1373</a>
-<a href=#1374 id=1374 data-nosnippet>1374</a>	<span class="doccomment">/// Both the address the node binds and the one it tells peers to dial must carry the node's
-<a href=#1375 id=1375 data-nosnippet>1375</a>	/// `/certhash`: a `webrtc-direct` dialer has no other way to verify the DTLS handshake.
-<a href=#1376 id=1376 data-nosnippet>1376</a>	</span><span class="attr">#[tokio::test]
-<a href=#1377 id=1377 data-nosnippet>1377</a>	</span><span class="kw">async fn </span>webrtc_addresses_advertised_with_certhash() {
-<a href=#1378 id=1378 data-nosnippet>1378</a>		<span class="kw">let </span><span class="kw-2">mut </span>network_config = NetworkConfiguration::new_local();
-<a href=#1379 id=1379 data-nosnippet>1379</a>		network_config.listen_addresses = <span class="macro">vec!</span>[WEBRTC_LISTEN_ADDRESS.parse().unwrap()];
-<a href=#1380 id=1380 data-nosnippet>1380</a>		network_config.public_addresses = <span class="macro">vec!</span>[WEBRTC_PUBLIC_ADDRESS.parse().unwrap()];
-<a href=#1381 id=1381 data-nosnippet>1381</a>		<span class="comment">// Fixed, so the certificate the node will present can be derived here as well.
-<a href=#1382 id=1382 data-nosnippet>1382</a>		</span>network_config.node_key = NodeKeyConfig::Ed25519(Secret::Input(
-<a href=#1383 id=1383 data-nosnippet>1383</a>			ed25519::SecretKey::try_from_bytes([<span class="number">7u8</span>; <span class="number">32</span>]).unwrap(),
-<a href=#1384 id=1384 data-nosnippet>1384</a>		));
-<a href=#1385 id=1385 data-nosnippet>1385</a>		network_config.validate_and_complete_webrtc_addresses().unwrap();
-<a href=#1386 id=1386 data-nosnippet>1386</a>
-<a href=#1387 id=1387 data-nosnippet>1387</a>		<span class="kw">let </span>(keypair, _peer_id) =
-<a href=#1388 id=1388 data-nosnippet>1388</a>			Litep2pNetworkBackend::get_keypair(<span class="kw-2">&amp;</span>network_config.node_key).unwrap();
-<a href=#1389 id=1389 data-nosnippet>1389</a>		<span class="kw">let </span>node_certhash: NetworkMultihash =
-<a href=#1390 id=1390 data-nosnippet>1390</a>			webrtc::derive_certificate(keypair.secret()).unwrap().certhash().into();
-<a href=#1391 id=1391 data-nosnippet>1391</a>
-<a href=#1392 id=1392 data-nosnippet>1392</a>		<span class="comment">// Held for the duration of the test: dropping it closes the node's sockets.
-<a href=#1393 id=1393 data-nosnippet>1393</a>		</span><span class="kw">let </span>backend = start_backend(<span class="kw-2">&amp;</span>network_config).unwrap();
-<a href=#1394 id=1394 data-nosnippet>1394</a>		<span class="kw">let </span>network_service =
-<a href=#1395 id=1395 data-nosnippet>1395</a>			&lt;Litep2pNetworkBackend <span class="kw">as </span>NetworkBackend&lt;Block, H256&gt;&gt;::network_service(<span class="kw-2">&amp;</span>backend);
+<a href=#1297 id=1297 data-nosnippet>1297</a>					<span class="prelude-val">Some</span>(Litep2pEvent::ListDialFailures { errors }) =&gt; {
+<a href=#1298 id=1298 data-nosnippet>1298</a>						<span class="macro">log::debug!</span>(
+<a href=#1299 id=1299 data-nosnippet>1299</a>							target: LOG_TARGET,
+<a href=#1300 id=1300 data-nosnippet>1300</a>							<span class="string">"failed to dial peer on multiple addresses {errors:?}"</span>,
+<a href=#1301 id=1301 data-nosnippet>1301</a>						);
+<a href=#1302 id=1302 data-nosnippet>1302</a>
+<a href=#1303 id=1303 data-nosnippet>1303</a>						<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
+<a href=#1304 id=1304 data-nosnippet>1304</a>							metrics.pending_connections_errors_total.with_label_values(<span class="kw-2">&amp;</span>[<span class="string">"transport-errors"</span>]).inc();
+<a href=#1305 id=1305 data-nosnippet>1305</a>						}
+<a href=#1306 id=1306 data-nosnippet>1306</a>					}
+<a href=#1307 id=1307 data-nosnippet>1307</a>					<span class="prelude-val">None </span>=&gt; {
+<a href=#1308 id=1308 data-nosnippet>1308</a>						<span class="macro">log::error!</span>(
+<a href=#1309 id=1309 data-nosnippet>1309</a>								target: LOG_TARGET,
+<a href=#1310 id=1310 data-nosnippet>1310</a>								<span class="string">"Litep2p backend terminated"
+<a href=#1311 id=1311 data-nosnippet>1311</a>						</span>);
+<a href=#1312 id=1312 data-nosnippet>1312</a>						<span class="kw">return
+<a href=#1313 id=1313 data-nosnippet>1313</a>					</span>}
+<a href=#1314 id=1314 data-nosnippet>1314</a>				},
+<a href=#1315 id=1315 data-nosnippet>1315</a>			}
+<a href=#1316 id=1316 data-nosnippet>1316</a>		}
+<a href=#1317 id=1317 data-nosnippet>1317</a>	}
+<a href=#1318 id=1318 data-nosnippet>1318</a>}
+<a href=#1319 id=1319 data-nosnippet>1319</a>
+<a href=#1320 id=1320 data-nosnippet>1320</a><span class="attr">#[cfg(test)]
+<a href=#1321 id=1321 data-nosnippet>1321</a></span><span class="kw">mod </span>tests {
+<a href=#1322 id=1322 data-nosnippet>1322</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#1323 id=1323 data-nosnippet>1323</a>	<span class="kw">use crate</span>::{
+<a href=#1324 id=1324 data-nosnippet>1324</a>		config::{ed25519, NetworkConfiguration, ProtocolId, Role, Secret},
+<a href=#1325 id=1325 data-nosnippet>1325</a>		service::traits::NetworkStateInfo,
+<a href=#1326 id=1326 data-nosnippet>1326</a>	};
+<a href=#1327 id=1327 data-nosnippet>1327</a>	<span class="kw">use </span>sc_network_types::{
+<a href=#1328 id=1328 data-nosnippet>1328</a>		multiaddr::Multiaddr <span class="kw">as </span>NetworkMultiaddr, multihash::Multihash <span class="kw">as </span>NetworkMultihash,
+<a href=#1329 id=1329 data-nosnippet>1329</a>	};
+<a href=#1330 id=1330 data-nosnippet>1330</a>	<span class="kw">use </span>sp_core::H256;
+<a href=#1331 id=1331 data-nosnippet>1331</a>	<span class="kw">use </span>substrate_test_runtime_client::runtime::Block;
+<a href=#1332 id=1332 data-nosnippet>1332</a>
+<a href=#1333 id=1333 data-nosnippet>1333</a>	<span class="doccomment">/// `--listen-addr` of a node behind a NAT. Port `0` so concurrent tests don't collide.
+<a href=#1334 id=1334 data-nosnippet>1334</a>	</span><span class="kw">const </span>WEBRTC_LISTEN_ADDRESS: <span class="kw-2">&amp;</span>str = <span class="string">"/ip4/127.0.0.1/udp/0/webrtc-direct"</span>;
+<a href=#1335 id=1335 data-nosnippet>1335</a>
+<a href=#1336 id=1336 data-nosnippet>1336</a>	<span class="doccomment">/// `--public-addr` of that node: the routable coordinate peers are told to dial.
+<a href=#1337 id=1337 data-nosnippet>1337</a>	/// This is the shape an operator supplies when the node sits behind a proxy.
+<a href=#1338 id=1338 data-nosnippet>1338</a>	</span><span class="kw">const </span>WEBRTC_PUBLIC_ADDRESS: <span class="kw-2">&amp;</span>str = <span class="string">"/ip4/203.0.113.9/udp/31234/webrtc-direct"</span>;
+<a href=#1339 id=1339 data-nosnippet>1339</a>
+<a href=#1340 id=1340 data-nosnippet>1340</a>	<span class="doccomment">/// The `/certhash` component of `address`.
+<a href=#1341 id=1341 data-nosnippet>1341</a>	</span><span class="kw">fn </span>certhash(address: <span class="kw-2">&amp;</span>NetworkMultiaddr) -&gt; <span class="prelude-ty">Option</span>&lt;NetworkMultihash&gt; {
+<a href=#1342 id=1342 data-nosnippet>1342</a>		address.iter().find_map(|protocol| <span class="kw">match </span>protocol {
+<a href=#1343 id=1343 data-nosnippet>1343</a>			NetworkProtocol::Certhash(hash) =&gt; <span class="prelude-val">Some</span>(hash),
+<a href=#1344 id=1344 data-nosnippet>1344</a>			<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#1345 id=1345 data-nosnippet>1345</a>		})
+<a href=#1346 id=1346 data-nosnippet>1346</a>	}
+<a href=#1347 id=1347 data-nosnippet>1347</a>
+<a href=#1348 id=1348 data-nosnippet>1348</a>	<span class="doccomment">/// Bring up the backend from `network_config` through its real entry point.
+<a href=#1349 id=1349 data-nosnippet>1349</a>	</span><span class="kw">fn </span>start_backend(
+<a href=#1350 id=1350 data-nosnippet>1350</a>		network_config: <span class="kw-2">&amp;</span>NetworkConfiguration,
+<a href=#1351 id=1351 data-nosnippet>1351</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;Litep2pNetworkBackend, Error&gt; {
+<a href=#1352 id=1352 data-nosnippet>1352</a>		<span class="kw">let </span>config = FullNetworkConfiguration::&lt;Block, H256, Litep2pNetworkBackend&gt;::new(
+<a href=#1353 id=1353 data-nosnippet>1353</a>			network_config,
+<a href=#1354 id=1354 data-nosnippet>1354</a>			<span class="prelude-val">None</span>,
+<a href=#1355 id=1355 data-nosnippet>1355</a>		);
+<a href=#1356 id=1356 data-nosnippet>1356</a>
+<a href=#1357 id=1357 data-nosnippet>1357</a>		<span class="kw">let </span>(block_announce_config, _notification_service) =
+<a href=#1358 id=1358 data-nosnippet>1358</a>			&lt;Litep2pNetworkBackend <span class="kw">as </span>NetworkBackend&lt;Block, H256&gt;&gt;::notification_config(
+<a href=#1359 id=1359 data-nosnippet>1359</a>				<span class="string">"/block-announces/1"</span>.into(),
+<a href=#1360 id=1360 data-nosnippet>1360</a>				<span class="macro">vec!</span>[],
+<a href=#1361 id=1361 data-nosnippet>1361</a>				<span class="number">1024</span>,
+<a href=#1362 id=1362 data-nosnippet>1362</a>				<span class="prelude-val">None</span>,
+<a href=#1363 id=1363 data-nosnippet>1363</a>				SetConfig::default(),
+<a href=#1364 id=1364 data-nosnippet>1364</a>				NotificationMetrics::new(<span class="prelude-val">None</span>),
+<a href=#1365 id=1365 data-nosnippet>1365</a>				config.peer_store_handle(),
+<a href=#1366 id=1366 data-nosnippet>1366</a>			);
+<a href=#1367 id=1367 data-nosnippet>1367</a>
+<a href=#1368 id=1368 data-nosnippet>1368</a>		&lt;Litep2pNetworkBackend <span class="kw">as </span>NetworkBackend&lt;Block, H256&gt;&gt;::new(Params {
+<a href=#1369 id=1369 data-nosnippet>1369</a>			role: Role::Full,
+<a href=#1370 id=1370 data-nosnippet>1370</a>			executor: Box::new(|future| {
+<a href=#1371 id=1371 data-nosnippet>1371</a>				tokio::spawn(future);
+<a href=#1372 id=1372 data-nosnippet>1372</a>			}),
+<a href=#1373 id=1373 data-nosnippet>1373</a>			network_config: config,
+<a href=#1374 id=1374 data-nosnippet>1374</a>			protocol_id: ProtocolId::from(<span class="string">"test"</span>),
+<a href=#1375 id=1375 data-nosnippet>1375</a>			genesis_hash: H256::zero(),
+<a href=#1376 id=1376 data-nosnippet>1376</a>			fork_id: <span class="prelude-val">None</span>,
+<a href=#1377 id=1377 data-nosnippet>1377</a>			metrics_registry: <span class="prelude-val">None</span>,
+<a href=#1378 id=1378 data-nosnippet>1378</a>			block_announce_config,
+<a href=#1379 id=1379 data-nosnippet>1379</a>			ipfs_config: <span class="prelude-val">None</span>,
+<a href=#1380 id=1380 data-nosnippet>1380</a>			notification_metrics: NotificationMetrics::new(<span class="prelude-val">None</span>),
+<a href=#1381 id=1381 data-nosnippet>1381</a>		})
+<a href=#1382 id=1382 data-nosnippet>1382</a>	}
+<a href=#1383 id=1383 data-nosnippet>1383</a>
+<a href=#1384 id=1384 data-nosnippet>1384</a>	<span class="doccomment">/// Both the address the node binds and the one it tells peers to dial must carry the node's
+<a href=#1385 id=1385 data-nosnippet>1385</a>	/// `/certhash`: a `webrtc-direct` dialer has no other way to verify the DTLS handshake.
+<a href=#1386 id=1386 data-nosnippet>1386</a>	</span><span class="attr">#[tokio::test]
+<a href=#1387 id=1387 data-nosnippet>1387</a>	</span><span class="kw">async fn </span>webrtc_addresses_advertised_with_certhash() {
+<a href=#1388 id=1388 data-nosnippet>1388</a>		<span class="kw">let </span><span class="kw-2">mut </span>network_config = NetworkConfiguration::new_local();
+<a href=#1389 id=1389 data-nosnippet>1389</a>		network_config.listen_addresses = <span class="macro">vec!</span>[WEBRTC_LISTEN_ADDRESS.parse().unwrap()];
+<a href=#1390 id=1390 data-nosnippet>1390</a>		network_config.public_addresses = <span class="macro">vec!</span>[WEBRTC_PUBLIC_ADDRESS.parse().unwrap()];
+<a href=#1391 id=1391 data-nosnippet>1391</a>		<span class="comment">// Fixed, so the certificate the node will present can be derived here as well.
+<a href=#1392 id=1392 data-nosnippet>1392</a>		</span>network_config.node_key = NodeKeyConfig::Ed25519(Secret::Input(
+<a href=#1393 id=1393 data-nosnippet>1393</a>			ed25519::SecretKey::try_from_bytes([<span class="number">7u8</span>; <span class="number">32</span>]).unwrap(),
+<a href=#1394 id=1394 data-nosnippet>1394</a>		));
+<a href=#1395 id=1395 data-nosnippet>1395</a>		network_config.validate_and_complete_webrtc_addresses().unwrap();
 <a href=#1396 id=1396 data-nosnippet>1396</a>
-<a href=#1397 id=1397 data-nosnippet>1397</a>		<span class="kw">let </span>advertised = network_service.listen_addresses();
-<a href=#1398 id=1398 data-nosnippet>1398</a>		<span class="macro">assert_eq!</span>(advertised.len(), <span class="number">1</span>);
-<a href=#1399 id=1399 data-nosnippet>1399</a>		<span class="macro">assert_eq!</span>(certhash(<span class="kw-2">&amp;</span>advertised[<span class="number">0</span>]), <span class="prelude-val">Some</span>(node_certhash));
-<a href=#1400 id=1400 data-nosnippet>1400</a>
-<a href=#1401 id=1401 data-nosnippet>1401</a>		<span class="kw">let </span>advertised = network_service.external_addresses();
-<a href=#1402 id=1402 data-nosnippet>1402</a>		<span class="macro">assert_eq!</span>(advertised.len(), <span class="number">1</span>);
-<a href=#1403 id=1403 data-nosnippet>1403</a>		<span class="macro">assert_eq!</span>(certhash(<span class="kw-2">&amp;</span>advertised[<span class="number">0</span>]), <span class="prelude-val">Some</span>(node_certhash));
-<a href=#1404 id=1404 data-nosnippet>1404</a>	}
-<a href=#1405 id=1405 data-nosnippet>1405</a>
-<a href=#1406 id=1406 data-nosnippet>1406</a>	<span class="doccomment">/// The default node key (`Secret::New`) generates a fresh key per `into_keypair()` call:
-<a href=#1407 id=1407 data-nosnippet>1407</a>	/// completing the addresses must pin the resolved key, or the backend would serve a
-<a href=#1408 id=1408 data-nosnippet>1408</a>	/// certificate matching neither the advertised `/certhash` nor each other's.
-<a href=#1409 id=1409 data-nosnippet>1409</a>	</span><span class="attr">#[tokio::test]
-<a href=#1410 id=1410 data-nosnippet>1410</a>	</span><span class="kw">async fn </span>webrtc_certhash_consistent_with_default_node_key() {
-<a href=#1411 id=1411 data-nosnippet>1411</a>		<span class="kw">let </span><span class="kw-2">mut </span>network_config = NetworkConfiguration::new_local();
-<a href=#1412 id=1412 data-nosnippet>1412</a>		network_config.listen_addresses = <span class="macro">vec!</span>[WEBRTC_LISTEN_ADDRESS.parse().unwrap()];
-<a href=#1413 id=1413 data-nosnippet>1413</a>		network_config.public_addresses = <span class="macro">vec!</span>[WEBRTC_PUBLIC_ADDRESS.parse().unwrap()];
-<a href=#1414 id=1414 data-nosnippet>1414</a>		network_config.validate_and_complete_webrtc_addresses().unwrap();
+<a href=#1397 id=1397 data-nosnippet>1397</a>		<span class="kw">let </span>(keypair, _peer_id) =
+<a href=#1398 id=1398 data-nosnippet>1398</a>			Litep2pNetworkBackend::get_keypair(<span class="kw-2">&amp;</span>network_config.node_key).unwrap();
+<a href=#1399 id=1399 data-nosnippet>1399</a>		<span class="kw">let </span>node_certhash: NetworkMultihash =
+<a href=#1400 id=1400 data-nosnippet>1400</a>			webrtc::derive_certificate(keypair.secret()).unwrap().certhash().into();
+<a href=#1401 id=1401 data-nosnippet>1401</a>
+<a href=#1402 id=1402 data-nosnippet>1402</a>		<span class="comment">// Held for the duration of the test: dropping it closes the node's sockets.
+<a href=#1403 id=1403 data-nosnippet>1403</a>		</span><span class="kw">let </span>backend = start_backend(<span class="kw-2">&amp;</span>network_config).unwrap();
+<a href=#1404 id=1404 data-nosnippet>1404</a>		<span class="kw">let </span>network_service =
+<a href=#1405 id=1405 data-nosnippet>1405</a>			&lt;Litep2pNetworkBackend <span class="kw">as </span>NetworkBackend&lt;Block, H256&gt;&gt;::network_service(<span class="kw-2">&amp;</span>backend);
+<a href=#1406 id=1406 data-nosnippet>1406</a>
+<a href=#1407 id=1407 data-nosnippet>1407</a>		<span class="kw">let </span>advertised = network_service.listen_addresses();
+<a href=#1408 id=1408 data-nosnippet>1408</a>		<span class="macro">assert_eq!</span>(advertised.len(), <span class="number">1</span>);
+<a href=#1409 id=1409 data-nosnippet>1409</a>		<span class="macro">assert_eq!</span>(certhash(<span class="kw-2">&amp;</span>advertised[<span class="number">0</span>]), <span class="prelude-val">Some</span>(node_certhash));
+<a href=#1410 id=1410 data-nosnippet>1410</a>
+<a href=#1411 id=1411 data-nosnippet>1411</a>		<span class="kw">let </span>advertised = network_service.external_addresses();
+<a href=#1412 id=1412 data-nosnippet>1412</a>		<span class="macro">assert_eq!</span>(advertised.len(), <span class="number">1</span>);
+<a href=#1413 id=1413 data-nosnippet>1413</a>		<span class="macro">assert_eq!</span>(certhash(<span class="kw-2">&amp;</span>advertised[<span class="number">0</span>]), <span class="prelude-val">Some</span>(node_certhash));
+<a href=#1414 id=1414 data-nosnippet>1414</a>	}
 <a href=#1415 id=1415 data-nosnippet>1415</a>
-<a href=#1416 id=1416 data-nosnippet>1416</a>		<span class="comment">// Completing the addresses pinned the key, so this is the key the backend serves.
-<a href=#1417 id=1417 data-nosnippet>1417</a>		</span><span class="kw">let </span>(keypair, _peer_id) =
-<a href=#1418 id=1418 data-nosnippet>1418</a>			Litep2pNetworkBackend::get_keypair(<span class="kw-2">&amp;</span>network_config.node_key).unwrap();
-<a href=#1419 id=1419 data-nosnippet>1419</a>		<span class="kw">let </span>node_certhash: NetworkMultihash =
-<a href=#1420 id=1420 data-nosnippet>1420</a>			webrtc::derive_certificate(keypair.secret()).unwrap().certhash().into();
-<a href=#1421 id=1421 data-nosnippet>1421</a>
-<a href=#1422 id=1422 data-nosnippet>1422</a>		<span class="comment">// Held for the duration of the test: dropping it closes the node's sockets.
-<a href=#1423 id=1423 data-nosnippet>1423</a>		</span><span class="kw">let </span>backend = start_backend(<span class="kw-2">&amp;</span>network_config).unwrap();
-<a href=#1424 id=1424 data-nosnippet>1424</a>		<span class="kw">let </span>network_service =
-<a href=#1425 id=1425 data-nosnippet>1425</a>			&lt;Litep2pNetworkBackend <span class="kw">as </span>NetworkBackend&lt;Block, H256&gt;&gt;::network_service(<span class="kw-2">&amp;</span>backend);
-<a href=#1426 id=1426 data-nosnippet>1426</a>
-<a href=#1427 id=1427 data-nosnippet>1427</a>		<span class="kw">let </span>advertised = network_service.listen_addresses();
-<a href=#1428 id=1428 data-nosnippet>1428</a>		<span class="macro">assert_eq!</span>(advertised.len(), <span class="number">1</span>);
-<a href=#1429 id=1429 data-nosnippet>1429</a>		<span class="macro">assert_eq!</span>(certhash(<span class="kw-2">&amp;</span>advertised[<span class="number">0</span>]), <span class="prelude-val">Some</span>(node_certhash));
-<a href=#1430 id=1430 data-nosnippet>1430</a>
-<a href=#1431 id=1431 data-nosnippet>1431</a>		<span class="kw">let </span>advertised = network_service.external_addresses();
-<a href=#1432 id=1432 data-nosnippet>1432</a>		<span class="macro">assert_eq!</span>(advertised.len(), <span class="number">1</span>);
-<a href=#1433 id=1433 data-nosnippet>1433</a>		<span class="macro">assert_eq!</span>(certhash(<span class="kw-2">&amp;</span>advertised[<span class="number">0</span>]), <span class="prelude-val">Some</span>(node_certhash));
-<a href=#1434 id=1434 data-nosnippet>1434</a>	}
-<a href=#1435 id=1435 data-nosnippet>1435</a>
-<a href=#1436 id=1436 data-nosnippet>1436</a>	<span class="attr">#[tokio::test]
-<a href=#1437 id=1437 data-nosnippet>1437</a>	</span><span class="kw">async fn </span>webrtc_public_address_completed_at_config_creation_accepted() {
-<a href=#1438 id=1438 data-nosnippet>1438</a>		<span class="kw">let </span><span class="kw-2">mut </span>network_config = NetworkConfiguration::new_local();
-<a href=#1439 id=1439 data-nosnippet>1439</a>		network_config.listen_addresses = <span class="macro">vec!</span>[WEBRTC_LISTEN_ADDRESS.parse().unwrap()];
-<a href=#1440 id=1440 data-nosnippet>1440</a>		network_config.public_addresses = <span class="macro">vec!</span>[WEBRTC_PUBLIC_ADDRESS.parse().unwrap()];
-<a href=#1441 id=1441 data-nosnippet>1441</a>		network_config.node_key = NodeKeyConfig::Ed25519(Secret::Input(
-<a href=#1442 id=1442 data-nosnippet>1442</a>			ed25519::SecretKey::try_from_bytes([<span class="number">7u8</span>; <span class="number">32</span>]).unwrap(),
-<a href=#1443 id=1443 data-nosnippet>1443</a>		));
-<a href=#1444 id=1444 data-nosnippet>1444</a>		network_config.validate_and_complete_webrtc_addresses().unwrap();
+<a href=#1416 id=1416 data-nosnippet>1416</a>	<span class="doccomment">/// The default node key (`Secret::New`) generates a fresh key per `into_keypair()` call:
+<a href=#1417 id=1417 data-nosnippet>1417</a>	/// completing the addresses must pin the resolved key, or the backend would serve a
+<a href=#1418 id=1418 data-nosnippet>1418</a>	/// certificate matching neither the advertised `/certhash` nor each other's.
+<a href=#1419 id=1419 data-nosnippet>1419</a>	</span><span class="attr">#[tokio::test]
+<a href=#1420 id=1420 data-nosnippet>1420</a>	</span><span class="kw">async fn </span>webrtc_certhash_consistent_with_default_node_key() {
+<a href=#1421 id=1421 data-nosnippet>1421</a>		<span class="kw">let </span><span class="kw-2">mut </span>network_config = NetworkConfiguration::new_local();
+<a href=#1422 id=1422 data-nosnippet>1422</a>		network_config.listen_addresses = <span class="macro">vec!</span>[WEBRTC_LISTEN_ADDRESS.parse().unwrap()];
+<a href=#1423 id=1423 data-nosnippet>1423</a>		network_config.public_addresses = <span class="macro">vec!</span>[WEBRTC_PUBLIC_ADDRESS.parse().unwrap()];
+<a href=#1424 id=1424 data-nosnippet>1424</a>		network_config.validate_and_complete_webrtc_addresses().unwrap();
+<a href=#1425 id=1425 data-nosnippet>1425</a>
+<a href=#1426 id=1426 data-nosnippet>1426</a>		<span class="comment">// Completing the addresses pinned the key, so this is the key the backend serves.
+<a href=#1427 id=1427 data-nosnippet>1427</a>		</span><span class="kw">let </span>(keypair, _peer_id) =
+<a href=#1428 id=1428 data-nosnippet>1428</a>			Litep2pNetworkBackend::get_keypair(<span class="kw-2">&amp;</span>network_config.node_key).unwrap();
+<a href=#1429 id=1429 data-nosnippet>1429</a>		<span class="kw">let </span>node_certhash: NetworkMultihash =
+<a href=#1430 id=1430 data-nosnippet>1430</a>			webrtc::derive_certificate(keypair.secret()).unwrap().certhash().into();
+<a href=#1431 id=1431 data-nosnippet>1431</a>
+<a href=#1432 id=1432 data-nosnippet>1432</a>		<span class="comment">// Held for the duration of the test: dropping it closes the node's sockets.
+<a href=#1433 id=1433 data-nosnippet>1433</a>		</span><span class="kw">let </span>backend = start_backend(<span class="kw-2">&amp;</span>network_config).unwrap();
+<a href=#1434 id=1434 data-nosnippet>1434</a>		<span class="kw">let </span>network_service =
+<a href=#1435 id=1435 data-nosnippet>1435</a>			&lt;Litep2pNetworkBackend <span class="kw">as </span>NetworkBackend&lt;Block, H256&gt;&gt;::network_service(<span class="kw-2">&amp;</span>backend);
+<a href=#1436 id=1436 data-nosnippet>1436</a>
+<a href=#1437 id=1437 data-nosnippet>1437</a>		<span class="kw">let </span>advertised = network_service.listen_addresses();
+<a href=#1438 id=1438 data-nosnippet>1438</a>		<span class="macro">assert_eq!</span>(advertised.len(), <span class="number">1</span>);
+<a href=#1439 id=1439 data-nosnippet>1439</a>		<span class="macro">assert_eq!</span>(certhash(<span class="kw-2">&amp;</span>advertised[<span class="number">0</span>]), <span class="prelude-val">Some</span>(node_certhash));
+<a href=#1440 id=1440 data-nosnippet>1440</a>
+<a href=#1441 id=1441 data-nosnippet>1441</a>		<span class="kw">let </span>advertised = network_service.external_addresses();
+<a href=#1442 id=1442 data-nosnippet>1442</a>		<span class="macro">assert_eq!</span>(advertised.len(), <span class="number">1</span>);
+<a href=#1443 id=1443 data-nosnippet>1443</a>		<span class="macro">assert_eq!</span>(certhash(<span class="kw-2">&amp;</span>advertised[<span class="number">0</span>]), <span class="prelude-val">Some</span>(node_certhash));
+<a href=#1444 id=1444 data-nosnippet>1444</a>	}
 <a href=#1445 id=1445 data-nosnippet>1445</a>
-<a href=#1446 id=1446 data-nosnippet>1446</a>		<span class="comment">// Held for the duration of the test: dropping it closes the node's sockets.
-<a href=#1447 id=1447 data-nosnippet>1447</a>		</span><span class="kw">let </span>backend = start_backend(<span class="kw-2">&amp;</span>network_config).unwrap();
-<a href=#1448 id=1448 data-nosnippet>1448</a>		<span class="kw">let </span>network_service =
-<a href=#1449 id=1449 data-nosnippet>1449</a>			&lt;Litep2pNetworkBackend <span class="kw">as </span>NetworkBackend&lt;Block, H256&gt;&gt;::network_service(<span class="kw-2">&amp;</span>backend);
-<a href=#1450 id=1450 data-nosnippet>1450</a>		<span class="kw">let </span>local_peer_id = network_service.local_peer_id();
-<a href=#1451 id=1451 data-nosnippet>1451</a>
-<a href=#1452 id=1452 data-nosnippet>1452</a>		<span class="macro">assert_eq!</span>(
-<a href=#1453 id=1453 data-nosnippet>1453</a>			network_service.external_addresses(),
-<a href=#1454 id=1454 data-nosnippet>1454</a>			<span class="macro">vec!</span>[network_config.public_addresses[<span class="number">0</span>]
-<a href=#1455 id=1455 data-nosnippet>1455</a>				.clone()
-<a href=#1456 id=1456 data-nosnippet>1456</a>				.with(NetworkProtocol::P2p(local_peer_id.into()))],
-<a href=#1457 id=1457 data-nosnippet>1457</a>		);
-<a href=#1458 id=1458 data-nosnippet>1458</a>	}
-<a href=#1459 id=1459 data-nosnippet>1459</a>
-<a href=#1460 id=1460 data-nosnippet>1460</a>	<span class="attr">#[tokio::test]
-<a href=#1461 id=1461 data-nosnippet>1461</a>	</span><span class="kw">async fn </span>webrtc_listen_address_with_certhash_refuses_to_start() {
-<a href=#1462 id=1462 data-nosnippet>1462</a>		<span class="kw">let </span>listen_address: NetworkMultiaddr = WEBRTC_LISTEN_ADDRESS.parse().unwrap();
-<a href=#1463 id=1463 data-nosnippet>1463</a>
-<a href=#1464 id=1464 data-nosnippet>1464</a>		<span class="kw">let </span><span class="kw-2">mut </span>network_config = NetworkConfiguration::new_local();
-<a href=#1465 id=1465 data-nosnippet>1465</a>		network_config.listen_addresses =
-<a href=#1466 id=1466 data-nosnippet>1466</a>			<span class="macro">vec!</span>[listen_address.with(NetworkProtocol::Certhash(a_certhash()))];
-<a href=#1467 id=1467 data-nosnippet>1467</a>
-<a href=#1468 id=1468 data-nosnippet>1468</a>		<span class="macro">assert!</span>(<span class="macro">matches!</span>(start_backend(<span class="kw-2">&amp;</span>network_config), <span class="prelude-val">Err</span>(Error::InvalidWebRtcAddress { .. }),));
-<a href=#1469 id=1469 data-nosnippet>1469</a>	}
-<a href=#1470 id=1470 data-nosnippet>1470</a>
-<a href=#1471 id=1471 data-nosnippet>1471</a>	<span class="attr">#[tokio::test]
-<a href=#1472 id=1472 data-nosnippet>1472</a>	</span><span class="kw">async fn </span>non_webrtc_public_address_untouched() {
-<a href=#1473 id=1473 data-nosnippet>1473</a>		<span class="kw">let </span>public_address: NetworkMultiaddr = <span class="string">"/ip4/203.0.113.9/tcp/31234"</span>.parse().unwrap();
-<a href=#1474 id=1474 data-nosnippet>1474</a>
-<a href=#1475 id=1475 data-nosnippet>1475</a>		<span class="kw">let </span><span class="kw-2">mut </span>network_config = NetworkConfiguration::new_local();
-<a href=#1476 id=1476 data-nosnippet>1476</a>		network_config.listen_addresses = <span class="macro">vec!</span>[<span class="string">"/ip4/127.0.0.1/tcp/0"</span>.parse().unwrap()];
-<a href=#1477 id=1477 data-nosnippet>1477</a>		network_config.public_addresses = <span class="macro">vec!</span>[public_address.clone()];
-<a href=#1478 id=1478 data-nosnippet>1478</a>
-<a href=#1479 id=1479 data-nosnippet>1479</a>		<span class="comment">// Held for the duration of the test: dropping it closes the node's sockets.
-<a href=#1480 id=1480 data-nosnippet>1480</a>		</span><span class="kw">let </span>backend = start_backend(<span class="kw-2">&amp;</span>network_config).unwrap();
-<a href=#1481 id=1481 data-nosnippet>1481</a>		<span class="kw">let </span>network_service =
-<a href=#1482 id=1482 data-nosnippet>1482</a>			&lt;Litep2pNetworkBackend <span class="kw">as </span>NetworkBackend&lt;Block, H256&gt;&gt;::network_service(<span class="kw-2">&amp;</span>backend);
-<a href=#1483 id=1483 data-nosnippet>1483</a>		<span class="kw">let </span>local_peer_id = network_service.local_peer_id();
+<a href=#1446 id=1446 data-nosnippet>1446</a>	<span class="attr">#[tokio::test]
+<a href=#1447 id=1447 data-nosnippet>1447</a>	</span><span class="kw">async fn </span>webrtc_public_address_completed_at_config_creation_accepted() {
+<a href=#1448 id=1448 data-nosnippet>1448</a>		<span class="kw">let </span><span class="kw-2">mut </span>network_config = NetworkConfiguration::new_local();
+<a href=#1449 id=1449 data-nosnippet>1449</a>		network_config.listen_addresses = <span class="macro">vec!</span>[WEBRTC_LISTEN_ADDRESS.parse().unwrap()];
+<a href=#1450 id=1450 data-nosnippet>1450</a>		network_config.public_addresses = <span class="macro">vec!</span>[WEBRTC_PUBLIC_ADDRESS.parse().unwrap()];
+<a href=#1451 id=1451 data-nosnippet>1451</a>		network_config.node_key = NodeKeyConfig::Ed25519(Secret::Input(
+<a href=#1452 id=1452 data-nosnippet>1452</a>			ed25519::SecretKey::try_from_bytes([<span class="number">7u8</span>; <span class="number">32</span>]).unwrap(),
+<a href=#1453 id=1453 data-nosnippet>1453</a>		));
+<a href=#1454 id=1454 data-nosnippet>1454</a>		network_config.validate_and_complete_webrtc_addresses().unwrap();
+<a href=#1455 id=1455 data-nosnippet>1455</a>
+<a href=#1456 id=1456 data-nosnippet>1456</a>		<span class="comment">// Held for the duration of the test: dropping it closes the node's sockets.
+<a href=#1457 id=1457 data-nosnippet>1457</a>		</span><span class="kw">let </span>backend = start_backend(<span class="kw-2">&amp;</span>network_config).unwrap();
+<a href=#1458 id=1458 data-nosnippet>1458</a>		<span class="kw">let </span>network_service =
+<a href=#1459 id=1459 data-nosnippet>1459</a>			&lt;Litep2pNetworkBackend <span class="kw">as </span>NetworkBackend&lt;Block, H256&gt;&gt;::network_service(<span class="kw-2">&amp;</span>backend);
+<a href=#1460 id=1460 data-nosnippet>1460</a>		<span class="kw">let </span>local_peer_id = network_service.local_peer_id();
+<a href=#1461 id=1461 data-nosnippet>1461</a>
+<a href=#1462 id=1462 data-nosnippet>1462</a>		<span class="macro">assert_eq!</span>(
+<a href=#1463 id=1463 data-nosnippet>1463</a>			network_service.external_addresses(),
+<a href=#1464 id=1464 data-nosnippet>1464</a>			<span class="macro">vec!</span>[network_config.public_addresses[<span class="number">0</span>]
+<a href=#1465 id=1465 data-nosnippet>1465</a>				.clone()
+<a href=#1466 id=1466 data-nosnippet>1466</a>				.with(NetworkProtocol::P2p(local_peer_id.into()))],
+<a href=#1467 id=1467 data-nosnippet>1467</a>		);
+<a href=#1468 id=1468 data-nosnippet>1468</a>	}
+<a href=#1469 id=1469 data-nosnippet>1469</a>
+<a href=#1470 id=1470 data-nosnippet>1470</a>	<span class="attr">#[tokio::test]
+<a href=#1471 id=1471 data-nosnippet>1471</a>	</span><span class="kw">async fn </span>webrtc_listen_address_with_certhash_refuses_to_start() {
+<a href=#1472 id=1472 data-nosnippet>1472</a>		<span class="kw">let </span>listen_address: NetworkMultiaddr = WEBRTC_LISTEN_ADDRESS.parse().unwrap();
+<a href=#1473 id=1473 data-nosnippet>1473</a>
+<a href=#1474 id=1474 data-nosnippet>1474</a>		<span class="kw">let </span><span class="kw-2">mut </span>network_config = NetworkConfiguration::new_local();
+<a href=#1475 id=1475 data-nosnippet>1475</a>		network_config.listen_addresses =
+<a href=#1476 id=1476 data-nosnippet>1476</a>			<span class="macro">vec!</span>[listen_address.with(NetworkProtocol::Certhash(a_certhash()))];
+<a href=#1477 id=1477 data-nosnippet>1477</a>
+<a href=#1478 id=1478 data-nosnippet>1478</a>		<span class="macro">assert!</span>(<span class="macro">matches!</span>(start_backend(<span class="kw-2">&amp;</span>network_config), <span class="prelude-val">Err</span>(Error::InvalidWebRtcAddress { .. }),));
+<a href=#1479 id=1479 data-nosnippet>1479</a>	}
+<a href=#1480 id=1480 data-nosnippet>1480</a>
+<a href=#1481 id=1481 data-nosnippet>1481</a>	<span class="attr">#[tokio::test]
+<a href=#1482 id=1482 data-nosnippet>1482</a>	</span><span class="kw">async fn </span>non_webrtc_public_address_untouched() {
+<a href=#1483 id=1483 data-nosnippet>1483</a>		<span class="kw">let </span>public_address: NetworkMultiaddr = <span class="string">"/ip4/203.0.113.9/tcp/31234"</span>.parse().unwrap();
 <a href=#1484 id=1484 data-nosnippet>1484</a>
-<a href=#1485 id=1485 data-nosnippet>1485</a>		<span class="comment">// litep2p appends the local `/p2p` to every public address; nothing else is added.
-<a href=#1486 id=1486 data-nosnippet>1486</a>		</span><span class="macro">assert_eq!</span>(
-<a href=#1487 id=1487 data-nosnippet>1487</a>			network_service.external_addresses(),
-<a href=#1488 id=1488 data-nosnippet>1488</a>			<span class="macro">vec!</span>[public_address.with(NetworkProtocol::P2p(local_peer_id.into()))],
-<a href=#1489 id=1489 data-nosnippet>1489</a>		);
-<a href=#1490 id=1490 data-nosnippet>1490</a>	}
-<a href=#1491 id=1491 data-nosnippet>1491</a>
-<a href=#1492 id=1492 data-nosnippet>1492</a>	<span class="doccomment">/// A certhash standing in for the node's own.
-<a href=#1493 id=1493 data-nosnippet>1493</a>	</span><span class="kw">fn </span>a_certhash() -&gt; NetworkMultihash {
-<a href=#1494 id=1494 data-nosnippet>1494</a>		sc_network_types::multihash::Code::Sha2_256.digest(<span class="string">b"certificate"</span>)
-<a href=#1495 id=1495 data-nosnippet>1495</a>	}
-<a href=#1496 id=1496 data-nosnippet>1496</a>}
+<a href=#1485 id=1485 data-nosnippet>1485</a>		<span class="kw">let </span><span class="kw-2">mut </span>network_config = NetworkConfiguration::new_local();
+<a href=#1486 id=1486 data-nosnippet>1486</a>		network_config.listen_addresses = <span class="macro">vec!</span>[<span class="string">"/ip4/127.0.0.1/tcp/0"</span>.parse().unwrap()];
+<a href=#1487 id=1487 data-nosnippet>1487</a>		network_config.public_addresses = <span class="macro">vec!</span>[public_address.clone()];
+<a href=#1488 id=1488 data-nosnippet>1488</a>
+<a href=#1489 id=1489 data-nosnippet>1489</a>		<span class="comment">// Held for the duration of the test: dropping it closes the node's sockets.
+<a href=#1490 id=1490 data-nosnippet>1490</a>		</span><span class="kw">let </span>backend = start_backend(<span class="kw-2">&amp;</span>network_config).unwrap();
+<a href=#1491 id=1491 data-nosnippet>1491</a>		<span class="kw">let </span>network_service =
+<a href=#1492 id=1492 data-nosnippet>1492</a>			&lt;Litep2pNetworkBackend <span class="kw">as </span>NetworkBackend&lt;Block, H256&gt;&gt;::network_service(<span class="kw-2">&amp;</span>backend);
+<a href=#1493 id=1493 data-nosnippet>1493</a>		<span class="kw">let </span>local_peer_id = network_service.local_peer_id();
+<a href=#1494 id=1494 data-nosnippet>1494</a>
+<a href=#1495 id=1495 data-nosnippet>1495</a>		<span class="comment">// litep2p appends the local `/p2p` to every public address; nothing else is added.
+<a href=#1496 id=1496 data-nosnippet>1496</a>		</span><span class="macro">assert_eq!</span>(
+<a href=#1497 id=1497 data-nosnippet>1497</a>			network_service.external_addresses(),
+<a href=#1498 id=1498 data-nosnippet>1498</a>			<span class="macro">vec!</span>[public_address.with(NetworkProtocol::P2p(local_peer_id.into()))],
+<a href=#1499 id=1499 data-nosnippet>1499</a>		);
+<a href=#1500 id=1500 data-nosnippet>1500</a>	}
+<a href=#1501 id=1501 data-nosnippet>1501</a>
+<a href=#1502 id=1502 data-nosnippet>1502</a>	<span class="doccomment">/// A certhash standing in for the node's own.
+<a href=#1503 id=1503 data-nosnippet>1503</a>	</span><span class="kw">fn </span>a_certhash() -&gt; NetworkMultihash {
+<a href=#1504 id=1504 data-nosnippet>1504</a>		sc_network_types::multihash::Code::Sha2_256.digest(<span class="string">b"certificate"</span>)
+<a href=#1505 id=1505 data-nosnippet>1505</a>	}
+<a href=#1506 id=1506 data-nosnippet>1506</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
