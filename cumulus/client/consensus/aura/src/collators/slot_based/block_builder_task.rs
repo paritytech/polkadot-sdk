@@ -259,6 +259,17 @@ where
 	Some((scheduling_parent_header, v3_enabled, relay_parent_data))
 }
 
+/// Fork from the included head once the relay parent of the parablock we'd build on lags the
+/// scheduling parent by more than this many relay blocks past the relay parent offset (a healthy
+/// segment already trails by the offset). Deliberately large: forking is a last-resort rescue
+/// (e.g. a lost proof), and the chance of needing it is very low.
+///
+/// TODO: a raw relay-block gap also triggers on a voluntary pause (cores unassigned and later
+/// re-assigned), forking away a still-resubmittable segment. Accumulating the gap only while the
+/// para is scheduled would avoid that. It is a niche case though: what matters for parachains that
+/// plan to disturb the chain this way is that building cleanly resumes, even if some txs are lost.
+const MAX_RELAY_GAP_BEFORE_FORK: u32 = 1200;
+
 /// Environment shared by the block-builder phases; groups the clients, caches, and per-task
 /// state so phase helpers don't re-declare the task's generics.
 struct BuilderEnv<Block: BlockT, P, Client, Backend, RelayClient: RelayChainInterface + Clone> {
@@ -498,11 +509,39 @@ where
 				)
 			};
 
-		let best_parent_header = parent_search_result.best_parent_header().clone();
-		let resubmittable_headers = parent_search_result
-			.resubmittable_ancestry()
-			.map(|s| s.to_vec())
-			.unwrap_or_default();
+		// The parent to build on and its resubmittable ancestry. Normally the deepest valid parent
+		// from the search. But if V3 and that parent's relay parent lags the scheduling parent by
+		// more than `MAX_RELAY_GAP_BEFORE_FORK` past the relay-parent offset, the segment is stuck
+		// (e.g. a lost proof): fork from the included head, dropping the segment, as a last resort.
+		let build_parent = parent_search_result.best_parent_header();
+		let build_parent_relay_parent =
+			cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(
+				build_parent.digest(),
+			)
+			.map(|(_, number)| number);
+		let max_gap = relay_parent_offset.saturating_add(MAX_RELAY_GAP_BEFORE_FORK);
+		let fork = v3_enabled &&
+			build_parent_relay_parent
+				.is_some_and(|rp| scheduling_parent_header.number.saturating_sub(rp) > max_gap);
+
+		let (best_parent_header, resubmittable_headers) = if fork {
+			tracing::debug!(
+				target: LOG_TARGET,
+				included_number = %parent_search_result.included_at_scheduling().number(),
+				build_parent_number = %build_parent.number(),
+				max_gap,
+				"Build parent relay parent lags scheduling parent; forking from included head.",
+			);
+			(parent_search_result.included_at_scheduling().clone(), Vec::new())
+		} else {
+			(
+				build_parent.clone(),
+				parent_search_result
+					.resubmittable_ancestry()
+					.map(|s| s.to_vec())
+					.unwrap_or_default(),
+			)
+		};
 
 		// Building on a parent that already sits on our relay parent would put two blocks on the
 		// same one, so the prerequisites are not met for this slot.
