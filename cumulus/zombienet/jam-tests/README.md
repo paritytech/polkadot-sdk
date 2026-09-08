@@ -34,10 +34,25 @@ Until one build does both, set `JAM_GENSPEC_BIN` to a build with the first and `
 build with the second: only `gen-spec` runs from `JAM_GENSPEC_BIN`, and the generated spec is
 portable between the two.
 
-From the parachain-service repository: the compiled `parasim-service.jam` and
-`parachain-authorizer-sr25519.jam` blobs. The `parasim-tool` CLI is needed only by the two
-dynamic-core tests, which are the only ones that move a core mid-run; without it they skip and
-everything else runs.
+From the parachain-service repository: the `parasim-service.jam` and
+`parachain-authorizer-sr25519.jam` blobs. Nothing builds them as a side effect of `cargo build`
+any more — ask for them by name, and each crate's `[package.metadata.jam]` says how it wants
+building (the authorizer at `production-authorizer`, to fit JAM's 64 kB `C_maxauthcodesize`):
+
+```sh
+cargo build --release -p cargo-jam-build
+./target/release/cargo-jam-build -p parasim-service -p parachain-authorizer-sr25519
+```
+
+They land under `target/jam/<target>/<profile>/`, at a path that does not move between builds:
+
+```
+target/jam/riscv64emac-unknown-none-polkavm/production/parasim-service.jam
+target/jam/riscv64emac-unknown-none-polkavm/production-authorizer/parachain-authorizer-sr25519.jam
+```
+
+The `parasim-tool` CLI is needed only by the two dynamic-core tests, which are the only ones that
+move a core mid-run; without it they skip and everything else runs.
 
 There is one authorizer blob per signature scheme, and which one a para needs is decided by its
 runtime's `AuraId`. The parachain template is sr25519, so that is the blob this suite puts on the
@@ -50,8 +65,10 @@ shows up only as a core no collator ever authorizes on.
 export JAM_NODE_BIN=/path/to/polkajam/target/release/polkajam
 # Only while gen-spec and the stateValue RPC are on different polkajam branches:
 export JAM_GENSPEC_BIN=/path/to/a/polkajam/whose/gen-spec/reads/the/genesis/keys
-export PARASIM_BLOB=/path/to/parachain-service/.../parasim-service.jam
-export AUTHORIZER_BLOB=/path/to/parachain-service/.../parachain-authorizer-sr25519.jam
+export PARASIM_BLOB=/path/to/parachain-service/target/jam/riscv64emac-unknown-none-polkavm/\
+production/parasim-service.jam
+export AUTHORIZER_BLOB=/path/to/parachain-service/target/jam/riscv64emac-unknown-none-polkavm/\
+production-authorizer/parachain-authorizer-sr25519.jam
 # Only for `jam::core_assignment`'s two dynamic-core tests:
 export PARASIM_TOOL_BIN=/path/to/parachain-service/target/release/parasim-tool
 

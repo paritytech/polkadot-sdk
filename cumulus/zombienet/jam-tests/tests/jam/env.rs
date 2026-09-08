@@ -33,9 +33,6 @@ pub struct Binaries {
 	pub omni_node: PathBuf,
 	/// The parachain runtime the collators run.
 	pub runtime_wasm: PathBuf,
-	/// A relay chain node. zombienet-sdk cannot yet spawn a network without a relay chain, so one
-	/// idle validator is started alongside the JAM nodes and otherwise ignored.
-	pub relay_node: PathBuf,
 }
 
 /// Where this crate sits relative to the workspace root, so the defaults can find `target/`.
@@ -61,7 +58,6 @@ impl Binaries {
 			omni_node: from_env_or("OMNI_NODE_BIN", || {
 				root.join("target/release/polkadot-omni-node")
 			}),
-			relay_node: from_env_or("RELAY_NODE_BIN", || root.join("target/release/polkadot")),
 			runtime_wasm: from_env_or("RUNTIME_WASM", || {
 				root.join(
 					"target/release/wbuild/parachain-template-runtime/\
@@ -69,12 +65,6 @@ impl Binaries {
 				)
 			}),
 		};
-
-		// A relay validator refuses to start without its PVF workers, and zombienet reports that
-		// only as a spawn timeout — so check for them here, where the message is useful.
-		let workers = binaries.relay_node.parent().unwrap_or(Path::new(""));
-		let prepare_worker = workers.join("polkadot-prepare-worker");
-		let execute_worker = workers.join("polkadot-execute-worker");
 
 		let mut wanted: Vec<(&str, &PathBuf)> = vec![
 			("JAM_NODE_BIN (the polkajam node binary)", &binaries.jam_node),
@@ -89,9 +79,6 @@ impl Binaries {
 				"RUNTIME_WASM (cargo build --release -p parachain-template-runtime)",
 				&binaries.runtime_wasm,
 			),
-			("RELAY_NODE_BIN (cargo build --release --bin polkadot)", &binaries.relay_node),
-			("the relay node's PVF workers (--bin polkadot-prepare-worker)", &prepare_worker),
-			("the relay node's PVF workers (--bin polkadot-execute-worker)", &execute_worker),
 		];
 		// Only when it was asked for: an unset `JAM_GENSPEC_BIN` means the node binary generates
 		// its own spec, which is the arrangement this should get back to.
