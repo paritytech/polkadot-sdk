@@ -76,15 +76,11 @@ use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockIm
 use cumulus_client_proof_size_recording::register_proof_size_recording_cleanup;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{
-	KeyToIncludeInRelayProof, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
-	TargetBlockRate,
+	KeyToIncludeInRelayProof, RelayParentOffsetApi, SchedulingV3EnabledApi, TargetBlockRate,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::FutureExt;
-use polkadot_primitives::{
-	CollatorPair, CoreIndex, Hash as RelayHash, Id as ParaId, PersistedValidationData,
-	ValidationCodeHash,
-};
+use polkadot_primitives::{CollatorPair, Id as ParaId};
 use sc_client_api::{
 	backend::AuxStore, client::PreCommitActions, BlockBackend, BlockOf, BlockchainEvents,
 	UsageProvider,
@@ -92,7 +88,7 @@ use sc_client_api::{
 use sc_consensus::BlockImport;
 use sc_network_types::PeerId;
 use sc_utils::mpsc::tracing_unbounded;
-use sp_api::{ProvideRuntimeApi, StorageProof};
+use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppPublic;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
@@ -107,6 +103,7 @@ use std::{path::PathBuf, sync::Arc, time::Duration};
 mod block_builder_task;
 mod block_import;
 mod collation_task;
+mod message;
 mod relay_chain_data_cache;
 mod resubmission;
 mod scheduling;
@@ -277,26 +274,4 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 		Some("slot-based-collator"),
 		resubmission_backfill_fut.boxed(),
 	);
-}
-
-/// Message to be sent from the block builder to the collation task.
-///
-/// Contains all data necessary to submit a collation to the relay chain.
-struct CollatorMessage<Block: BlockT> {
-	/// The hash of the relay chain block that provides the context for the parachain block.
-	pub relay_parent: RelayHash,
-	/// V3 scheduling proof. None for V1/V2 candidates.
-	pub scheduling_proof: Option<SchedulingProof>,
-	/// The header of the parent block.
-	pub parent_header: Block::Header,
-	/// The built blocks.
-	pub blocks: Vec<Block>,
-	/// The storage proof that was collected while building all the blocks.
-	pub proof: StorageProof,
-	/// The validation code hash at the parent block.
-	pub validation_code_hash: ValidationCodeHash,
-	/// Core index that this block should be submitted on
-	pub core_index: CoreIndex,
-	/// The persisted validation data for this collation.
-	pub validation_data: PersistedValidationData,
 }
