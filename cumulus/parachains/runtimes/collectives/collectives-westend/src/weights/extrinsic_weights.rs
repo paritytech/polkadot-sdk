@@ -23,17 +23,9 @@ pub mod constants {
 
 	parameter_types! {
 		/// Executing a NO-OP `System::remarks` Extrinsic.
-		/// Signature-verification weight is now charged separately, per signature type, via
-		/// `sp_runtime::traits::SignatureWeight` (folded into `GetDispatchInfo::get_dispatch_info`).
-		/// It is subtracted here to avoid double-charging it; this mirrors what
-		/// `benchmark overhead --extrinsic-subtract-weight --signature-weight 42814000` would
-		/// produce. Confirm with a fresh reference-hardware run.
 		pub const ExtrinsicBaseWeight: Weight =
-			Weight::from_parts(constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(125_000), 0)
-				.saturating_sub(Weight::from_parts(
-					constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(42_814),
-					0,
-				));
+			Weight::from_parts(constants::WEIGHT_REF_TIME_PER_NANOS.saturating_mul(94_416), 0)
+				.saturating_sub(Weight::from_parts(42_814_000, 0));
 	}
 
 	#[cfg(test)]

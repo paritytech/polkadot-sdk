@@ -14,52 +14,72 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
-//! DATE: 2023-06-14 (Y/M/D)
-//! HOSTNAME: `runner--ss9ysm1-project-163-concurrent-0`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
+//! DATE: 2026-09-08 (Y/M/D)
+//! HOSTNAME: `<UNKNOWN>`, CPU: `<UNKNOWN>`
 //!
-//! SHORT-NAME: `extrinsic`, LONG-NAME: `ExtrinsicBase`, RUNTIME: `Development`
+//! SHORT-NAME: `extrinsic`, LONG-NAME: `ExtrinsicBase`, RUNTIME: `westend`
 //! WARMUPS: `10`, REPEAT: `100`
-//! WEIGHT-PATH: `runtime/westend/constants/src/weights/`
+//! WEIGHT-PATH: `./polkadot/runtime/westend/constants/src/weights/`
 //! WEIGHT-METRIC: `Average`, WEIGHT-MUL: `1.0`, WEIGHT-ADD: `0`
 
 // Executed Command:
-//   ./target/production/polkadot
+//   frame-omni-bencher
+//   v1
 //   benchmark
 //   overhead
-//   --chain=westend-dev
-//   --execution=wasm
-//   --wasm-execution=compiled
-//   --weight-path=runtime/westend/constants/src/weights/
+//   --runtime
+//   target/release/wbuild/westend-runtime/westend_runtime.compact.compressed.wasm
+//   --weight-path=./polkadot/runtime/westend/constants/src/weights/
 //   --warmup=10
 //   --repeat=100
-//   --header=./file_header.txt
+//   --header=./polkadot/file_header.txt
+//   --extrinsic-subtract-weight
+//   --signature-weight
+//   42814000
 
 use sp_core::parameter_types;
 use sp_weights::{constants::WEIGHT_REF_TIME_PER_NANOS, Weight};
 
 parameter_types! {
-	/// Time to execute a NO-OP extrinsic, for example `System::remark`.
+	/// Weight of executing a NO-OP extrinsic, for example `System::remark`.
+	///
+	/// NOTE: This benchmark uses the overhead extrinsic builder (default:
+	/// `SubstrateRemarkBuilder`, a signed subxt remark) unless a custom builder is wired in by
+	/// code. If subtraction is enabled, this generated constant explicitly subtracts the configured
+	/// signature and extension weights.
+	///
+	/// For signed transactions, ensure signature/extension costs are re-accounted at runtime.
+	/// Signature verification weight is a static property of the signature type via
+	/// [`sp_runtime::traits::SignatureWeight`]. Pass the same ref-time value as
+	/// `--signature-weight` when running this benchmark.
 	/// Calculated by multiplying the *Average* with `1.0` and adding `0`.
 	///
 	/// Stats nanoseconds:
-	///   Min, Max: 112_202, 116_271
-	///   Average:  113_632
-	///   Median:   113_689
-	///   Std-Dev:  576.31
+	///   Min, Max: 143_049, 215_064
+	///   Average:  144_735
+	///   Median:   143_821
+	///   Std-Dev:  7294.67
 	///
 	/// Percentiles nanoseconds:
-	///   99th: 114_688
-	///   95th: 114_367
-	///   75th: 113_969
-	/// Signature-verification weight is now charged separately, per signature type, via
-	/// `sp_runtime::traits::SignatureWeight` (folded into `GetDispatchInfo::get_dispatch_info`).
-	/// The raw stats above still include it, so it is subtracted here to avoid double-charging;
-	/// this mirrors what `benchmark overhead --extrinsic-subtract-weight
-	/// --signature-weight 42814000` would produce. Confirm with a fresh reference-hardware run.
-	pub const ExtrinsicBaseWeight: Weight =
-		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(113_632), 0)
-			.saturating_sub(Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(42_814), 0));
+	///   99th: 161_640
+	///   95th: 144_495
+	///   75th: 144_075
+	pub const ExtrinsicBaseWeight: Weight = Weight::from_parts(
+		WEIGHT_REF_TIME_PER_NANOS.saturating_mul(144_735),
+		0,
+	)
+	// Subtract configured signature weight for this benchmark setup.
+	.saturating_sub(Weight::from_parts(
+		42_814_000,
+		0,
+	))
+	// Subtract configured transaction extension weight for this benchmark setup.
+	.saturating_sub(Weight::from_parts(
+		0,
+		0,
+	))
+	;
 }
 
 #[cfg(test)]
