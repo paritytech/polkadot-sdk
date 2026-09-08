@@ -48,9 +48,9 @@ use log::{info, warn};
 use rand::Rng;
 use sc_network_types::PeerId;
 use sc_statement_store::test_utils::get_keypair;
-use sp_core::{bounded_vec::BoundedVec, Bytes, ConstU32};
+use sp_core::Bytes;
 use sp_crypto_hashing::blake2_256;
-use sp_statement_store::{Statement, StatementEvent, SubmitResult, Topic, TopicFilter};
+use sp_statement_store::{Statement, StatementEvent, SubmitResult, TopicFilter};
 use std::{
 	collections::{HashMap, HashSet},
 	str::FromStr,
@@ -309,7 +309,6 @@ async fn main() -> Result<(), anyhow::Error> {
 
 	// Build, sign and submit the probe statements.
 	let mut probes = Vec::with_capacity(args.num_statements as usize);
-	let mut topics = Vec::with_capacity(args.num_statements as usize);
 	let mut encoded_to_idx = HashMap::new();
 	for idx in 0..args.num_statements {
 		let topic_key = blake2_256(format!("{run_id}-{idx}").as_bytes());
@@ -348,15 +347,15 @@ async fn main() -> Result<(), anyhow::Error> {
 			hex(&topic_key),
 			expected.len(),
 		);
-		topics.push(Topic::from(topic_key));
 		encoded_to_idx.insert(encoded, idx);
 		probes.push(Probe { idx, expected, submitter, submitted_at: Instant::now() });
 	}
 
-	let bounded_topics: BoundedVec<Topic, ConstU32<128>> = topics
-		.try_into()
-		.map_err(|_| anyhow!("num_statements is bounded to {MAX_STATEMENTS}; qed"))?;
-	let filter = TopicFilter::MatchAny(bounded_topics);
+	// Poll with a match-everything filter and select probe statements client side. On the
+	// v2 DHT path a subscription to specific topics grants the node explicit affinity to
+	// them, making every polled node fetch and persist the probe statements — the check
+	// would contaminate its own experiment. `Any` advertises no affinity topics.
+	let filter = TopicFilter::Any;
 	let replay_timeout = Duration::from_millis(args.replay_timeout_ms);
 	let deadline = Instant::now() + Duration::from_millis(args.convergence_timeout_ms);
 
