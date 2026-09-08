@@ -290,7 +290,7 @@ fn allocate_element_buffer<T: Default + Clone>(len: u32) -> Result<Vec<T>> {
 	};
 	let element_size = core::mem::size_of::<T>();
 	let len = len as usize;
-	if len % element_size != 0 {
+	if !len.is_multiple_of(element_size) {
 		return Err(format!(
 			"could not marshal '&mut [{}]' through the FFI boundary: the buffer length {len} is \
 			 not a multiple of the element size {element_size}",
