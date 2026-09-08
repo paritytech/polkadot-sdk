@@ -26,7 +26,7 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: forklift cargo test --doc --workspace --locked
         id: required
         env:
@@ -46,7 +46,7 @@ jobs:
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: forklift cargo doc --all-features --workspace --no-deps --locked
         id: required
         env:
@@ -85,7 +85,7 @@ jobs:
       image: paritytech/mdbook-utils:e14aae4a-20221123
       options: --user root
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: mdbook build ./polkadot/roadmap/implementers-guide
       - run: mkdir -p artifacts
       - run: mv polkadot/roadmap/implementers-guide/book artifacts/
@@ -119,12 +119,12 @@ jobs:
     environment: subsystem-benchmarks
     needs: [build-rustdoc, build-implementers-guide]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: gh-pages
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         id: app-token
         with:
           app-id: ${{ secrets.POLKADOTSDK_GHPAGES_APP_ID }}

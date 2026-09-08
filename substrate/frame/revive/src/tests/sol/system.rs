@@ -60,6 +60,8 @@ fn keccak_256_works(fixture_type: FixtureType) {
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn address_works(fixture_type: FixtureType) {
+	use crate::tests::eip7702::DelegationTestSetup;
+
 	let (code, _) = compile_module_with_type("System", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -73,6 +75,17 @@ fn address_works(fixture_type: FixtureType) {
 
 		let decoded = SystemFixture::addressFuncCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(addr, H160::from_slice(decoded.as_slice()));
+
+		// EIP-7702: ADDRESS in delegated code returns the EOA's address, not the contract's
+		let setup = DelegationTestSetup::default();
+		setup.authorize(addr);
+
+		let result = builder::bare_call(setup.signer.address)
+			.data(SystemFixture::addressFuncCall {}.abi_encode())
+			.build_and_unwrap_result();
+
+		let decoded = SystemFixture::addressFuncCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(setup.signer.address, H160::from_slice(decoded.as_slice()));
 	});
 }
 

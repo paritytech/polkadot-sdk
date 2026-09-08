@@ -81,7 +81,7 @@ use sp_core::H256;
 use sp_keystore::KeystorePtr;
 
 use polkadot_node_network_protocol::{
-	request_response::{v2 as protocol_v2, IncomingRequestReceiver},
+	request_response::{v2 as protocol_v2, v3 as protocol_v3, IncomingRequestReceiver},
 	PeerId, UnifiedReputationChange as Rep,
 };
 use polkadot_node_subsystem::{
@@ -163,6 +163,8 @@ pub enum ProtocolSide {
 		collator_pair: CollatorPair,
 		/// Receiver for v2 collation fetching requests.
 		request_receiver_v2: IncomingRequestReceiver<protocol_v2::CollationFetchingRequest>,
+		/// Receiver for v3 collation fetching requests.
+		request_receiver_v3: IncomingRequestReceiver<protocol_v3::CollationFetchingRequest>,
 		/// Metrics.
 		metrics: collator_side::Metrics,
 		/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`];
@@ -236,13 +238,20 @@ impl<Context> CollatorProtocolSubsystem {
 				peer_id,
 				collator_pair,
 				request_receiver_v2,
+				request_receiver_v3,
 				metrics,
 				clock,
-			} => {
-				collator_side::run(ctx, peer_id, collator_pair, request_receiver_v2, metrics, clock)
-					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
-					.boxed()
-			},
+			} => collator_side::run(
+				ctx,
+				peer_id,
+				collator_pair,
+				request_receiver_v2,
+				request_receiver_v3,
+				metrics,
+				clock,
+			)
+			.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
+			.boxed(),
 			ProtocolSide::None => return DummySubsystem.start(ctx),
 		};
 
