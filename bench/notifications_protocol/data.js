@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788818220927,
+  "lastUpdate": 1788870839859,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -217535,6 +217535,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2500693260,
             "range": "± 62611279",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "rohit.sarpotdar@parity.io",
+            "name": "Rohit Sarpotdar",
+            "username": "rosarp"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "bfac5667dd3b0ed7127022f98d55e8e788a29202",
+          "message": "ci: compare bench weights against base repo master, not fork master (#12925)\n\n`/cmd bench` produces a meaningless Subweight table for pull requests\nopened from **forks**.\n\nThe Subweight step in `.github/workflows/cmd-run.yml` compares the\nregenerated weights against\n`refs/remotes/origin/master`. But the checkout step of that same job\npoints `origin` at the **PR head\nrepository**:\n\n```yaml\n- name: Checkout\n  uses: actions/checkout@...\n  with:\n    repository: ${{ env.REPO }}   # = pr.data.head.repo.full_name, i.e. the contributor's fork\n    ref: ${{ env.PR_BRANCH }}\n```\n\nSo `origin/master` resolves to the *fork's* master — whatever the\ncontributor last synced — rather than\nthe actual merge base. When that fork is behind, the \"Old\" column is\nread from a stale tree and the\nreport becomes noise:\n\n- weight files added upstream since the fork was synced are listed as\n`Added`, with no baseline at all;\n- weights that merely moved upstream appear as huge phantom regressions.\n\nReviewers are shown a diff that has nothing to do with what the PR\nactually did to weights.\n\nThis PR points the comparison at the repository the workflow itself runs\nin.\n\n## Integration\n\nNone. CI-only change — no crate is modified, nothing to integrate\ndownstream.\n\n## Review Notes\n\nThis issue was found on [paritytech/polkadot-bulletin-chain\n#753](https://github.com/paritytech/polkadot-bulletin-chain/pull/753).\nFor example in PR's bench bot's comment\n[#753](https://github.com/paritytech/polkadot-bulletin-chain/pull/753#issuecomment-5326042048)\n, it reported enormouse % change for this:\n\n```\npallets/transaction-storage/src/weights.rs \tauthorize_account \t1.00ns \t143.10us \t+14309600.00\n```\npallets/transaction-storage/src/weights.rs was never touched by this\nbench run — it's absent from the modified list. The bot invented a\n+14,309,600% regression for a file the run didn't write, purely from\ndiffing against the stale fork baseline.",
+          "timestamp": "2026-09-08T09:46:16Z",
+          "tree_id": "5d5921eb7ca5ae066342644b5cffe9c77bc08d8e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bfac5667dd3b0ed7127022f98d55e8e788a29202"
+        },
+        "date": 1788870800551,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4690105,
+            "range": "± 32663",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 294476,
+            "range": "± 3663",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4485453,
+            "range": "± 34206",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 361487,
+            "range": "± 2143",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5524906,
+            "range": "± 54667",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 885282,
+            "range": "± 8466",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10820436,
+            "range": "± 97961",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5433289,
+            "range": "± 238410",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 48182024,
+            "range": "± 1026156",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 40163930,
+            "range": "± 644154",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 401622352,
+            "range": "± 3128029",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 322855587,
+            "range": "± 3990037",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2778599555,
+            "range": "± 36817386",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2474875352,
+            "range": "± 92186899",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3313987,
+            "range": "± 16186",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1818257,
+            "range": "± 15175",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3383181,
+            "range": "± 13566",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1886449,
+            "range": "± 11635",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3868063,
+            "range": "± 25811",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2241061,
+            "range": "± 23944",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7924184,
+            "range": "± 65074",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 6105876,
+            "range": "± 125792",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 45391002,
+            "range": "± 1097034",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 43518934,
+            "range": "± 1077885",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 392494201,
+            "range": "± 8804248",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 332500029,
+            "range": "± 4331693",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 3036009663,
+            "range": "± 88265305",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2657591443,
+            "range": "± 102068273",
             "unit": "ns/iter"
           }
         ]
