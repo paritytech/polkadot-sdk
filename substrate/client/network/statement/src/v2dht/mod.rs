@@ -135,7 +135,6 @@ impl RetentionHandle {
 }
 
 /// Coordinates the v2 DHT-affinity statement gossip path.
-#[allow(dead_code)]
 pub(crate) struct V2DhtOrchestrator {
 	/// Local view of statement-store peers known and connected through network topology events.
 	peers_topology: PeersTopology,
@@ -149,7 +148,6 @@ pub(crate) struct V2DhtOrchestrator {
 	metrics: Option<V2DhtMetrics>,
 }
 
-#[allow(dead_code)]
 impl V2DhtOrchestrator {
 	pub(crate) fn new(
 		configured_topics: &[Topic],
@@ -231,12 +229,6 @@ impl V2DhtOrchestrator {
 		}
 	}
 
-	/// The topics this node currently has affinity for.
-	#[cfg(test)]
-	pub(crate) fn topics(&self) -> Vec<Topic> {
-		self.explicit_affinity.topics()
-	}
-
 	// === Advertise own filter ===
 
 	/// The [`AffinityFilter`] this node advertises, built from its current topics.
@@ -288,11 +280,6 @@ impl V2DhtOrchestrator {
 	}
 
 	// === Forward decision ===
-
-	/// Whether the peer's advertised filter accepts the statement.
-	pub(crate) fn peer_has_explicit_affinity(&self, peer: PeerId, stmt: &Statement) -> bool {
-		self.explicit_affinity.peer_has_explicit_affinity(peer, stmt)
-	}
 
 	// === Post-submit hook ===
 
@@ -600,8 +587,12 @@ mod tests {
 
 		orchestrator.on_peer_filter_update(peer, filter_over(&[topic(1)]));
 
-		assert!(orchestrator.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
-		assert!(!orchestrator.peer_has_explicit_affinity(peer, &statement_on(topic(2))));
+		assert!(orchestrator
+			.explicit_affinity
+			.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
+		assert!(!orchestrator
+			.explicit_affinity
+			.peer_has_explicit_affinity(peer, &statement_on(topic(2))));
 	}
 
 	#[test]
@@ -612,7 +603,9 @@ mod tests {
 
 		orchestrator.on_peer_disconnected(peer);
 
-		assert!(!orchestrator.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
+		assert!(!orchestrator
+			.explicit_affinity
+			.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
 	}
 
 	#[test]
