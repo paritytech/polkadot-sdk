@@ -17,6 +17,7 @@
 //! The client connects to the source substrate chain
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 
+pub(crate) mod spec_version_cache;
 pub(crate) mod storage_api;
 pub(crate) mod version_aware_runtime_api;
 
@@ -37,6 +38,7 @@ use pallet_revive::{
 use pallet_revive_types::runtime_api::*;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
+use spec_version_cache::SpecVersionCache;
 use std::{
 	num::NonZeroU32,
 	sync::{
@@ -49,8 +51,8 @@ use storage_api::StorageApi;
 use subxt::{
 	OnlineClient,
 	backend::{LegacyBackend, StreamOf, StreamOfResults},
-	client::OnlineClientAtBlock,
-	config::{HashFor, RpcConfigFor},
+	client::{Block as StreamedBlock, OnlineClientAtBlock},
+	config::{HashFor, RpcConfigFor, substrate::DigestItem},
 	rpcs::{
 		RpcClient,
 		client::{
@@ -325,10 +327,12 @@ pub struct Client {
 	block_subscription_tx: tokio::sync::broadcast::Sender<BlockV1>,
 	/// Log subscription sender side.
 	log_subscription_tx: tokio::sync::broadcast::Sender<Log>,
-	/// Whether archive mode is enabled
+	/// Whether archive mode is enabled.
 	is_archive: bool,
 	/// Whether historic backfill has completed. `false` if not started or in progress.
 	backfill_complete: Arc<AtomicBool>,
+	/// Runtime versions per block-number range.
+	spec_versions: Arc<SpecVersionCache>,
 	/// Queue for backfilling blocks missed during subscription reconnects.
 	subscription_gap_queue: SubscriptionGapQueue,
 	/// Hands out the version-aware runtime API of specific blocks.
@@ -478,7 +482,14 @@ impl<Inner: RpcClientT> RpcClientT for StateCallTimer<Inner> {
 			.unwrap_or_default();
 		let at_block = unquoted(2).unwrap_or("best").to_string();
 		if let Some(raw_params) = params.as_deref() {
-			log::trace!(target: LOG_TARGET_TIMING, "state_call {function} params: {raw_params}");
+			let raw_params = raw_params.get();
+			let capped = raw_params.get(..256).unwrap_or(raw_params);
+			let suffix = if raw_params.len() > 256 {
+				format!("… ({} bytes total)", raw_params.len())
+			} else {
+				String::new()
+			};
+			log::trace!(target: LOG_TARGET_TIMING, "state_call {function} params: {capped}{suffix}");
 		}
 
 		Box::pin(async move {
@@ -507,7 +518,12 @@ pub async fn connect(
 	max_request_size: u32,
 	max_response_size: u32,
 ) -> Result<
-	(OnlineClient<SrcChainConfig>, RpcClient, LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>),
+	(
+		OnlineClient<SrcChainConfig>,
+		RpcClient,
+		LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>,
+		Arc<SpecVersionCache>,
+	),
 	ClientError,
 > {
 	log::info!(target: LOG_TARGET, "🌐 Connecting to node at: {node_rpc_url} ...");
@@ -525,9 +541,11 @@ pub async fn connect(
 	// the chainHead protocol; its follow restarts and pinning limits stall receipt
 	// indexing under load (blocks become unresolvable once unpinned).
 	let backend = Arc::new(LegacyBackend::builder().build(rpc_client.clone()));
-	let api = OnlineClient::<SrcChainConfig>::from_backend(backend).await?;
+	let config = SrcChainConfig::default();
+	let spec_versions = config.spec_version_cache();
+	let api = OnlineClient::<SrcChainConfig>::from_backend_with_config(config, backend).await?;
 	let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client.clone());
-	Ok((api, rpc_client, rpc))
+	Ok((api, rpc_client, rpc, spec_versions))
 }
 
 impl Client {
@@ -542,6 +560,7 @@ impl Client {
 		subscription_gap_queue: SubscriptionGapQueue,
 		runtime_api_provider: VersionAwareRuntimeApiProvider,
 		backward_sync_max_blocks_per_sec: u32,
+		spec_versions: Arc<SpecVersionCache>,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight, automine) =
 			tokio::try_join!(chain_id(&api), max_block_weight(&api), async {
@@ -551,6 +570,13 @@ impl Client {
 		// Compute the very first capabilities so that the provider's cache has an anchor which
 		// the subscriptions grow forward and the backfill grows backward.
 		let latest_finalized_block = block_provider.latest_finalized_block().await;
+		// Seed the spec-version window from the already-resolved finalized block, so startup
+		// components don't each re-resolve it before the subscriptions start feeding.
+		spec_versions.record(
+			latest_finalized_block.block_number(),
+			latest_finalized_block.spec_version(),
+			latest_finalized_block.transaction_version(),
+		);
 		runtime_api_provider.at(latest_finalized_block.block_hash()).await?;
 
 		// Fall back to 0 when the hardcoded value exceeds the current best block (e.g. zombienet
@@ -592,6 +618,7 @@ impl Client {
 			subscription_gap_queue,
 			runtime_api_provider,
 			backward_sync_rate_limiter,
+			spec_versions,
 		};
 
 		Ok(client)
@@ -661,6 +688,29 @@ impl Client {
 			.unwrap_or(0)
 	}
 
+	/// Record which runtime versions govern the streamed block.
+	async fn observe_runtime_version(
+		&self,
+		block: &StreamedBlock<SrcChainConfig>,
+	) -> Result<(), ClientError> {
+		let block_number = block.number();
+		let upgraded = block
+			.header()
+			.digest
+			.logs
+			.iter()
+			.any(|log| matches!(log, DigestItem::RuntimeEnvironmentUpdated));
+
+		if !upgraded && self.spec_versions.extend_to(block_number) {
+			return Ok(());
+		}
+
+		let version = self.rpc.state_get_runtime_version(Some(block.hash())).await?;
+		self.spec_versions
+			.record(block_number, version.spec_version, version.transaction_version);
+		Ok(())
+	}
+
 	/// Subscribe to new blocks, and execute the async closure for each block.
 	async fn subscribe_new_blocks<F, Fut>(
 		&self,
@@ -699,6 +749,17 @@ impl Client {
 					return Err(err.into());
 				},
 			};
+
+			// Record the block's runtime versions before it is resolved, so the resolution
+			// (and any later request against this block) answers the spec-version lookup
+			// from the cache instead of a `Core_version` runtime call.
+			if let Err(err) = self.observe_runtime_version(&block).await {
+				log::debug!(
+					target: LOG_TARGET_SUBSCRIPTION,
+					"Could not record the runtime version of #{}: {err:?}",
+					block.number(),
+				);
+			}
 
 			// Resolution fails for pruned/retracted blocks and on transient RPC errors;
 			// erroring out here would kill the essential subscription task and with it the

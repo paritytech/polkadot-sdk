@@ -270,7 +270,7 @@ fn build_client(
 	backward_sync_max_blocks_per_sec: u32,
 ) -> anyhow::Result<Client> {
 	let fut = async {
-		let (api, rpc_client, rpc) =
+		let (api, rpc_client, rpc, spec_versions) =
 			connect(node_rpc_url, max_request_size, max_response_size).await?;
 		let block_provider = SubxtBlockInfoProvider::new(api.clone(), rpc.clone()).await?;
 
@@ -316,6 +316,7 @@ fn build_client(
 			subscription_gap_queue,
 			runtime_api_provider,
 			backward_sync_max_blocks_per_sec,
+			spec_versions,
 		)
 		.await?;
 

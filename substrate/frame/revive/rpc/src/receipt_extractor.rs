@@ -771,11 +771,11 @@ mod tests {
 	use codec::{Compact, Encode};
 	use frame_system::EventRecord;
 	use revive_dev_runtime::{Runtime, RuntimeEvent};
-	use subxt::{PolkadotConfig, client::OfflineClient, events::Events};
+	use subxt::{client::OfflineClient, events::Events};
 
 	/// An offline client carrying the generated runtime metadata for every block.
-	fn offline_client() -> OfflineClient<PolkadotConfig> {
-		OfflineClient::<PolkadotConfig>::new_with_config(chain_config())
+	fn offline_client() -> OfflineClient<SrcChainConfig> {
+		OfflineClient::<SrcChainConfig>::new_with_config(chain_config())
 	}
 
 	/// Build `Events` by SCALE-encoding revive events against the generated runtime metadata.

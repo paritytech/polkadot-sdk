@@ -338,6 +338,7 @@ pub mod test {
 				transaction_version: 0,
 			}))
 			.build()
+			.into()
 	}
 
 	/// A block at the given block number, on one of two branches.
