@@ -61,7 +61,10 @@ use subxt::{
 		},
 	},
 	config::{HashFor, Header},
-	ext::subxt_rpcs::rpc_params,
+	ext::subxt_rpcs::{
+		client::{RawRpcFuture, RawRpcSubscription, RawValue, RpcClientT},
+		rpc_params,
+	},
 };
 use thiserror::Error;
 use tokio::sync::Mutex;
@@ -200,6 +203,7 @@ impl ClientError {
 
 const LOG_TARGET: &str = "eth-rpc::client";
 const LOG_TARGET_SUBSCRIPTION: &str = "eth-rpc::subscription";
+const LOG_TARGET_TIMING: &str = "eth-rpc::timing";
 
 const REVERT_CODE: i32 = 3;
 
@@ -291,6 +295,46 @@ async fn get_automine(rpc_client: &RpcClient) -> bool {
 	}
 }
 
+/// Wraps the node RPC transport and logs the duration of every `state_call`, labeled with the
+/// runtime function being executed, so slow calls can be attributed to their origin.
+struct StateCallTimer<Inner>(Inner);
+
+impl<Inner: RpcClientT> RpcClientT for StateCallTimer<Inner> {
+	fn request_raw<'a>(
+		&'a self,
+		method: &'a str,
+		params: Option<Box<RawValue>>,
+	) -> RawRpcFuture<'a, Box<RawValue>> {
+		if method != "state_call" {
+			return self.0.request_raw(method, params);
+		}
+
+		// The first `state_call` parameter is the runtime function name.
+		let function = params
+			.as_deref()
+			.and_then(|raw_params| raw_params.get().split('"').nth(1))
+			.unwrap_or("<unknown>")
+			.to_string();
+
+		Box::pin(async move {
+			let started = std::time::Instant::now();
+			let result = self.0.request_raw(method, params).await;
+			log::debug!(target: LOG_TARGET_TIMING,
+				"state_call {function}: {:?} ok={}", started.elapsed(), result.is_ok());
+			result
+		})
+	}
+
+	fn subscribe_raw<'a>(
+		&'a self,
+		sub: &'a str,
+		params: Option<Box<RawValue>>,
+		unsub: &'a str,
+	) -> RawRpcFuture<'a, RawRpcSubscription> {
+		self.0.subscribe_raw(sub, params, unsub)
+	}
+}
+
 /// Connect to a node at the given URL, and return the underlying API, RPC client, and legacy RPC
 /// clients.
 pub async fn connect(
@@ -306,7 +350,7 @@ pub async fn connect(
 		.max_response_size(max_response_size)
 		.build(node_rpc_url.to_string())
 		.await?;
-	let rpc_client = RpcClient::new(rpc_client);
+	let rpc_client = RpcClient::new(StateCallTimer(rpc_client));
 	log::info!(target: LOG_TARGET, "🌟 Connected to node at: {node_rpc_url}");
 
 	let api = OnlineClient::<SrcChainConfig>::from_rpc_client(rpc_client.clone()).await?;
