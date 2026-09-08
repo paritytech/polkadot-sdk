@@ -72,8 +72,6 @@ use sp_runtime::{
 	},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode, Perbill,
 };
-#[cfg(any(feature = "std", test))]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 pub use sp_consensus_babe::{AllowedSlots, BabeEpochConfiguration, Slot};
@@ -129,12 +127,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 
 fn version() -> RuntimeVersion {
 	VERSION
-}
-
-/// Native version.
-#[cfg(any(feature = "std", test))]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
 /// Transfer data extracted from Extrinsic containing `Balances::transfer_allow_death`.
@@ -1494,8 +1486,8 @@ mod tests {
 
 			let mut keys = t.into_storages().top.keys().cloned().map(hex).collect::<Vec<String>>();
 
-			// following keys are not placed during `<RuntimeGenesisConfig as GenesisBuild>::build`
-			// process, add them `keys` to assert against known keys.
+			// following keys are not placed during `<RuntimeGenesisConfig as
+			// BuildGenesisConfig>::build` process, add them `keys` to assert against known keys.
 			keys.push(hex(b":code"));
 			keys.sort();
 

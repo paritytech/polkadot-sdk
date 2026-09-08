@@ -17,7 +17,6 @@ exclude-from-umbrella = true
 [dependencies]
 codec = { workspace = true }
 hex = { workspace = true }
-rlp = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { optional = true, features = [
 	"derive",
@@ -46,7 +45,6 @@ std = [
 	"frame-support/std",
 	"hex/std",
 	"milagro-bls/std",
-	"rlp/std",
 	"scale-info/std",
 	"serde",
 	"sp-core/std",

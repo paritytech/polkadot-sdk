@@ -57,10 +57,11 @@ use crate::{
 	access_list::{StorageAccessKind, Warmth},
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
-		TYPE_EIP1559, Tracer, TracerType, block_hash::EthereumBlockBuilderIR, block_storage,
-		fees::InfoT as FeeInfo, runtime::SetWeightLimit,
+		StateOverrideSet, TYPE_EIP1559, TYPE_EIP7702, Tracer, TracerType,
+		block_hash::EthereumBlockBuilderIR, block_storage, fees::InfoT as FeeInfo,
+		runtime::SetWeightLimit,
 	},
-	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
+	exec::{AccountIdOf, ExecError, Stack as ExecStack},
 	sp_runtime::TransactionOutcome,
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
@@ -68,7 +69,7 @@ use crate::{
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
-use codec::{Codec, Decode, Encode};
+use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use environmental::*;
 use frame_support::{
 	BoundedVec,
@@ -105,11 +106,11 @@ pub use crate::{
 	address::{AccountId32Mapper, AddressMapper, AutoMapper, TestAccountMapper, create1, create2},
 	debug::DebugSettings,
 	deposit_payment::{Deposit, PGasDeposit},
-	evm::{
-		Address as EthAddress, Block as EthBlock, DryRunConfig, TracingConfig,
-		block_hash::ReceiptGasInfo,
+	evm::{Address as EthAddress, Block as EthBlock, block_hash::ReceiptGasInfo},
+	exec::{
+		CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin,
+		ReentrancyProtection,
 	},
-	exec::{CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
 	limits::TRANSIENT_STORAGE_BYTES as TRANSIENT_STORAGE_LIMIT,
 	metering::{
 		EthTxInfo, FrameMeter, ResourceMeter, Token as WeightToken, TransactionLimits,
@@ -662,6 +663,9 @@ pub mod pallet {
 		/// [`NativeDepositOf`] entries from a previously terminated contract that the deletion
 		/// queue has not yet drained.
 		PendingDepositCleanup = 0x43,
+		/// `seal_terminate` was invoked on an EIP-7702 delegated EOA. Delegated accounts
+		/// cannot be torn down via the contract-termination path.
+		CannotTerminateDelegatedAccount = 0x44,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -1330,8 +1334,8 @@ pub mod pallet {
 		/// * `transaction_encoded`: The RLP encoding of the signed Ethereum transaction,
 		///   represented as [crate::evm::TransactionSigned], provided by the Ethereum wallet. This
 		///   is used for building the Ethereum transaction root.
-		/// * effective_gas_price: the price of a unit of gas
-		/// * encoded len: the byte code size of the `eth_transact` extrinsic
+		/// * `effective_gas_price`: the price of a unit of gas
+		/// * `encoded_len`: the byte code size of the `eth_transact` extrinsic
 		///
 		/// Calling this dispatchable ensures that the origin's nonce is bumped only once,
 		/// via the `CheckNonce` transaction extension. In contrast, [`Self::instantiate_with_code`]
@@ -1381,6 +1385,7 @@ pub mod pallet {
 						eth_gas_limit: eth_gas_limit.saturated_into(),
 						weight_limit,
 						eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
+						authorization_deposit: Default::default(),
 					},
 					Code::Upload(code),
 					data,
@@ -1413,13 +1418,15 @@ pub mod pallet {
 		/// * `transaction_encoded`: The RLP encoding of the signed Ethereum transaction,
 		///   represented as [crate::evm::TransactionSigned], provided by the Ethereum wallet. This
 		///   is used for building the Ethereum transaction root.
-		/// * effective_gas_price: the price of a unit of gas
-		/// * encoded len: the byte code size of the `eth_transact` extrinsic
+		/// * `effective_gas_price`: the price of a unit of gas
+		/// * `encoded_len`: the byte code size of the `eth_transact` extrinsic
+		/// * `authorization_list`: EIP-7702 authorization tuples to process before execution
 		#[pallet::call_index(11)]
 		#[pallet::weight(
 			T::WeightInfo::eth_call(Pallet::<T>::has_dust(*value).into())
 			.saturating_add(*weight_limit)
 			.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
+			.saturating_add(evm::eip7702::worst_case_authorization_weight::<T>(authorization_list.len() as u32))
 		)]
 		pub fn eth_call(
 			origin: OriginFor<T>,
@@ -1431,6 +1438,7 @@ pub mod pallet {
 			transaction_encoded: Vec<u8>,
 			effective_gas_price: U256,
 			encoded_len: u32,
+			authorization_list: Vec<evm::AuthorizationListEntry>,
 		) -> DispatchResultWithPostInfo {
 			let signer = Self::ensure_eth_signed(origin)?;
 			let origin = OriginFor::<T>::signed(signer.clone());
@@ -1445,14 +1453,24 @@ pub mod pallet {
 				transaction_encoded: transaction_encoded.clone(),
 				effective_gas_price,
 				encoded_len,
+				authorization_list: authorization_list.clone(),
 			}
 			.into();
 			let info = T::FeeInfo::dispatch_info(&call);
 			let base_info = T::FeeInfo::base_dispatch_info(&mut call);
 			drop(call);
 
+			let exec_config =
+				ExecConfig::new_eth_tx(effective_gas_price, encoded_len, base_info.total_weight());
+			let auth_result = evm::eip7702::process_authorizations::<T>(
+				&authorization_list,
+				&signer,
+				&exec_config,
+			);
+			let extra_weight = base_info.total_weight().saturating_sub(auth_result.weight_refund);
+			let base_call_weight = base_info.call_weight.saturating_sub(auth_result.weight_refund);
+
 			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
-				let extra_weight = base_info.total_weight();
 				let output = Self::bare_call(
 					origin,
 					dest,
@@ -1461,6 +1479,7 @@ pub mod pallet {
 						eth_gas_limit: eth_gas_limit.saturated_into(),
 						weight_limit,
 						eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
+						authorization_deposit: auth_result.deposit,
 					},
 					data,
 					&ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight),
@@ -1469,7 +1488,7 @@ pub mod pallet {
 				block_storage::EthereumCallResult::new::<T>(
 					signer,
 					output,
-					base_info.call_weight,
+					base_call_weight,
 					encoded_len,
 					&info,
 					effective_gas_price,
@@ -1948,7 +1967,8 @@ impl<T: Config> Pallet<T> {
 	/// amount of storage deposits needed without any kind of caching from the previous dry runs.
 	pub fn eth_estimate_gas(
 		tx: GenericTransaction,
-		config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
+		timestamp_override: Option<MomentOf<T>>,
+		state_overrides: Option<StateOverrideSet>,
 	) -> Result<U256, EthTransactError>
 	where
 		T::Nonce: Into<U256> + TryFrom<U256>,
@@ -1989,17 +2009,18 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		// Run one gas probe in a rolled-back transaction. Overrides ride along in `config` so
+		// Run one gas probe in a rolled-back transaction. Overrides are passed along so that
 		// `dry_run_eth_transact` applies them *after* `prepare_dry_run` bumps the nonce, keeping a
 		// nonce override at the exact value it sets.
 		let dry_run_at = |gas: U256| {
 			let mut transaction = tx.clone();
 			transaction.gas = Some(gas);
-			let dry_run_config = config.clone().with_perform_balance_checks(perform_balance_checks);
 			with_transaction(|| {
 				TransactionOutcome::Rollback(Ok::<_, DispatchError>(Self::dry_run_eth_transact(
 					transaction,
-					dry_run_config,
+					timestamp_override,
+					perform_balance_checks,
+					state_overrides.clone(),
 				)))
 			})
 			.expect("Rollback shouldn't error out")
@@ -2008,8 +2029,7 @@ impl<T: Config> Pallet<T> {
 		// Classify against post-override state (a code override can make the destination a
 		// contract) in a rolled-back probe, so the overrides don't leak into the dry runs.
 		let is_simple_transfer = with_transaction(|| {
-			let probe = config
-				.state_overrides
+			let probe = state_overrides
 				.clone()
 				.map_or(Ok(()), state_overrides::apply_state_overrides::<T>)
 				.map(|()| Self::is_simple_transfer(&tx));
@@ -2055,6 +2075,10 @@ impl<T: Config> Pallet<T> {
 		low = first_dry_run_result.eth_gas;
 		high = gas_limit;
 
+		// TODO: each iteration re-runs `process_authorizations`, which re-recovers every
+		// authority via `ecdsa_recover`. The recovered addresses are invariant across iterations
+		// (they're a function of the signatures, not gas) — cache them once outside the loop and
+		// thread them into `dry_run_eth_transact` to save N * iterations ECDSA recoveries.
 		while low + U256::one() < high {
 			log::trace!(target: LOG_TARGET, "eth_estimate_gas estimation iteration with low={low} high={high}");
 			let error_ratio = high
@@ -2117,13 +2141,13 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Returns true when a value transfer can target `address` without triggering any code
-	/// execution: it is neither the runtime pallets address, a precompile, nor a contract.
+	/// execution: it is neither the runtime pallets address, a precompile, a contract, nor an
+	/// EIP-7702 delegated EOA (a transfer to one executes the delegate's code).
 	fn address_runs_no_code(address: &H160) -> bool {
-		// TODO(eip-7702): also reject delegated (authorized) destinations once EIP-7702
-		// delegations land, since a transfer to one executes the delegate's code.
 		*address != RUNTIME_PALLETS_ADDR &&
 			!exec::is_precompile::<T, ContractBlob<T>>(address) &&
-			!<AccountInfo<T>>::is_contract(address)
+			!<AccountInfo<T>>::is_contract(address) &&
+			!<AccountInfo<T>>::is_delegated(address)
 	}
 
 	/// Return the pre-dispatch weight booked for the signed Ethereum transaction payload.
@@ -2165,10 +2189,18 @@ impl<T: Config> Pallet<T> {
 	///
 	/// # Parameters
 	///
-	/// - `tx`: The Ethereum transaction to simulate.
+	/// - `tx`: The Ethereum transaction to simulate. Must carry a `from` address when its
+	///   `authorization_list` is non-empty, since the authorization deposits are charged to it.
+	/// - `timestamp_override`: An optional timestamp to report to the contract instead of the
+	///   current one.
+	/// - `perform_balance_checks`: Whether the origin's balance is checked to cover the fees and
+	///   the transferred value.
+	/// - `state_overrides`: Optional state overrides to apply before executing the call.
 	pub fn dry_run_eth_transact(
 		mut tx: GenericTransaction,
-		mut dry_run_config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
+		timestamp_override: Option<MomentOf<T>>,
+		perform_balance_checks: bool,
+		state_overrides: Option<StateOverrideSet>,
 	) -> Result<EthTransactInfo<BalanceOf<T>>, EthTransactError>
 	where
 		T::Nonce: Into<U256> + TryFrom<U256>,
@@ -2176,10 +2208,21 @@ impl<T: Config> Pallet<T> {
 	{
 		log::debug!(target: LOG_TARGET, "dry_run_eth_transact: {tx:?}");
 
+		// The authorization deposits are charged to `tx.from`. Defaulting a missing `from` to the
+		// zero address would charge an unfunded account, so every authorization would be rolled
+		// back post-validation and silently dropped from the estimate.
+		if !tx.authorization_list.is_empty() && tx.from.is_none() {
+			return Err(EthTransactError::Message(
+				"a transaction with an authorization list requires a `from` address: \
+				 the authorization deposits are charged to it"
+					.into(),
+			));
+		}
+
 		let origin = T::AddressMapper::to_account_id(&tx.from.unwrap_or_default());
 		Self::prepare_dry_run(&origin);
 
-		if let Some(overrides) = dry_run_config.state_overrides.take() {
+		if let Some(overrides) = state_overrides {
 			state_overrides::apply_state_overrides::<T>(overrides)?;
 		}
 
@@ -2213,10 +2256,13 @@ impl<T: Config> Pallet<T> {
 			tx.gas = Some(Self::evm_block_gas_limit());
 		}
 		if tx.r#type.is_none() {
-			tx.r#type = Some(TYPE_EIP1559.into());
+			tx.r#type = Some(
+				if tx.authorization_list.is_empty() { TYPE_EIP1559 } else { TYPE_EIP7702 }.into(),
+			);
 		}
 
 		// Store values before moving the tx
+		let authorization_list = tx.authorization_list.clone();
 		let value = tx.value.unwrap_or_default();
 		let input = tx.input.clone().to_vec();
 		let from = tx.from;
@@ -2232,20 +2278,12 @@ impl<T: Config> Pallet<T> {
 		// in those cases we skip the check that the caller has enough balance
 		// to pay for the fees
 		let base_info = T::FeeInfo::base_dispatch_info(&mut call_info.call);
-		let base_weight = base_info.total_weight();
-		let perform_balance_checks = dry_run_config.perform_balance_checks;
-		let exec_config =
-			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight)
-				.with_dry_run(dry_run_config);
+		let mut base_weight = base_info.total_weight();
 
 		// emulate transaction behavior
 		let fees = call_info.tx_fee.saturating_add(call_info.storage_deposit);
 		if let Some(from) = &from {
-			let fees = if gas.is_some() && matches!(perform_balance_checks, Some(true)) {
-				fees
-			} else {
-				Zero::zero()
-			};
+			let fees = if gas.is_some() && perform_balance_checks { fees } else { Zero::zero() };
 			let balance = Self::evm_balance(from);
 			if balance < Pallet::<T>::convert_native_to_evm(fees).saturating_add(value) {
 				return Err(EthTransactError::Message(format!(
@@ -2266,10 +2304,24 @@ impl<T: Config> Pallet<T> {
 			}
 		};
 
+		let exec_config =
+			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight);
+		let auth_result =
+			evm::eip7702::process_authorizations::<T>(&authorization_list, &origin, &exec_config);
+		base_weight = base_weight.saturating_sub(auth_result.weight_refund);
+		let actual_auth_deposit = auth_result.deposit;
+		let worst_case_auth_deposit = Self::worst_case_delegation_deposit()
+			.saturating_mul(authorization_list.len().saturated_into());
+
+		let exec_config =
+			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight)
+				.with_dry_run(timestamp_override);
+
 		let transaction_limits = TransactionLimits::EthereumGas {
 			eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
 			weight_limit: Self::evm_max_extrinsic_weight(),
 			eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
+			authorization_deposit: actual_auth_deposit,
 		};
 
 		// Dry run the call
@@ -2368,6 +2420,11 @@ impl<T: Config> Pallet<T> {
 				}
 			},
 		};
+
+		// Ensure max_storage_deposit covers worst-case authorization cost for pool validation.
+		// The meter already includes the actual auth deposit; this bumps it to worst case
+		// so that the gas estimate produces a transaction that passes pool validation.
+		dry_run.max_storage_deposit = dry_run.max_storage_deposit.max(worst_case_auth_deposit);
 
 		// replace the weight passed in the transaction with the dry_run result
 		call_info.call.set_weight_limit(dry_run.weight_required);
@@ -2623,6 +2680,7 @@ impl<T: Config> Pallet<T> {
 	/// # Warning
 	///
 	/// Does not collect any storage deposit. Not safe to be called by user controlled code.
+	/// Immutables belong to deployed contracts only — do not target delegated EOAs.
 	pub fn set_immutables(address: H160, data: ImmutableData) -> Result<(), ContractAccessError> {
 		AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
 		<ImmutableDataOf<T>>::insert(address, data);
@@ -2721,15 +2779,24 @@ impl<T: Config> Pallet<T> {
 	/// Returns the code at `address`.
 	///
 	/// This takes pre-compiles into account.
+	/// For EIP-7702 delegated accounts, returns the delegation indicator (0xef0100 || target).
 	pub fn code(address: &H160) -> Vec<u8> {
 		use precompiles::{All, Precompiles};
 		if let Some(code) = <All<T>>::code(address.as_fixed_bytes()) {
 			return code.into();
 		}
-		AccountInfo::<T>::load_contract(&address)
-			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
-			.map(|code| code.into())
-			.unwrap_or_default()
+
+		let Some(info) = <AccountInfoOf<T>>::get(address) else { return Vec::new() };
+
+		match info.account_type {
+			AccountType::Contract(contract) => <PristineCode<T>>::get(contract.code_hash)
+				.map(|code| code.into())
+				.unwrap_or_default(),
+			AccountType::DelegatedEOA { delegate_target: Some(target), .. } => {
+				AccountInfo::<T>::delegation_indicator(&target).to_vec()
+			},
+			AccountType::EOA | AccountType::DelegatedEOA { .. } => Vec::new(),
+		}
 	}
 
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
@@ -2791,7 +2858,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// `dst` is usually the transaction origin and `from` a contract or
 	/// the pallets own account.
-	fn refund_deposit(
+	pub(crate) fn refund_deposit(
 		hold_reason: HoldReason,
 		from: &T::AccountId,
 		dst: deposit_payment::Funds<T::AccountId>,
@@ -2844,6 +2911,19 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "runtime-benchmarks", feature = "try-runtime", test))]
 	fn min_balance() -> BalanceOf<T> {
 		<T::Currency as Inspect<AccountIdOf<T>>>::minimum_balance()
+	}
+
+	/// Worst-case storage deposit for a single EIP-7702 authorization.
+	///
+	/// Assumes a new account delegating to a contract with the maximum code size.
+	pub(crate) fn worst_case_delegation_deposit() -> BalanceOf<T> {
+		let ed = <T as Config>::Currency::minimum_balance();
+		let contract_deposit = T::DepositPerByte::get()
+			.saturating_mul((<ContractInfo<T>>::max_encoded_len() as u32).into())
+			.saturating_add(T::DepositPerItem::get());
+		let max_code_deposit = vm::calculate_code_deposit::<T>(limits::code::BLOB_BYTES);
+		let code_lockup = T::CodeHashLockupDepositPercent::get().mul_ceil(max_code_deposit);
+		ed.saturating_add(contract_deposit).saturating_add(code_lockup)
 	}
 
 	/// Deposit a pallet revive event.
@@ -2913,7 +2993,8 @@ sp_api::decl_runtime_apis! {
 		/// Returns the current ETH block.
 		///
 		/// This is one block behind the substrate block.
-		fn eth_block() -> EthBlock;
+		#[deprecated(note = "Use the versioned equivalent `eth_block_versioned` if available on your runtime")]
+		fn eth_block() -> BlockV1;
 
 		/// Returns the ETH block hash for the given block number.
 		#[deprecated(note = "Use the versioned equivalent `eth_block_hash_versioned` if available on your runtime")]
@@ -2950,6 +3031,7 @@ sp_api::decl_runtime_apis! {
 		/// Perform a call from a specified account to a given contract.
 		///
 		/// See [`crate::Pallet::bare_call`].
+		#[deprecated(note = "Use the versioned equivalent `call_versioned` if available on your runtime")]
 		fn call(
 			origin: AccountId,
 			dest: H160,
@@ -2957,44 +3039,47 @@ sp_api::decl_runtime_apis! {
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
 			input_data: Vec<u8>,
-		) -> ContractResult<ExecReturnValue, Balance>;
+		) -> ContractResultV1<ExecReturnValueV1, Balance>;
 
 		/// Instantiate a new contract.
 		///
 		/// See `[crate::Pallet::bare_instantiate]`.
+		#[deprecated(note = "Use the versioned equivalent `instantiate_versioned` if available on your runtime")]
 		fn instantiate(
 			origin: AccountId,
 			value: Balance,
 			gas_limit: Option<Weight>,
 			storage_deposit_limit: Option<Balance>,
-			code: Code,
+			code: CodeV1,
 			data: Vec<u8>,
 			salt: Option<[u8; 32]>,
-		) -> ContractResult<InstantiateReturnValue, Balance>;
+		) -> ContractResultV1<InstantiateReturnValueV1, Balance>;
 
 
 		/// Perform an Ethereum call.
 		///
-		/// Deprecated use `v2` version instead.
 		/// See [`crate::Pallet::dry_run_eth_transact`]
-		fn eth_transact(tx: GenericTransaction) -> Result<EthTransactInfo<Balance>, EthTransactError>;
+		#[deprecated(note = "Use the versioned equivalent `eth_transact_versioned` if available on your runtime")]
+		fn eth_transact(tx: GenericTransactionV1) -> Result<EthTransactInfoV1<Balance>, EthTransactError>;
 
 		/// Perform an Ethereum call.
 		///
 		/// See [`crate::Pallet::dry_run_eth_transact`]
+		#[deprecated(note = "Use the versioned equivalent `eth_transact_versioned` if available on your runtime")]
 		fn eth_transact_with_config(
-			tx: GenericTransaction,
-			config: DryRunConfig<Moment>,
-		) -> Result<EthTransactInfo<Balance>, EthTransactError>;
+			tx: GenericTransactionV1,
+			config: DryRunConfigV1<Moment>,
+		) -> Result<EthTransactInfoV1<Balance>, EthTransactError>;
 
 		/// Estimates the amount of gas that a transactions requires.
 		///
 		/// This function estimates the gas of the transaction according to the same binary search
 		/// algorithm that's implemented in Geth. It stops when with an acceptable error ratio of
 		/// 1.5% so that the algorithm terminates early.
+		#[deprecated(note = "Use the versioned equivalent `eth_estimate_gas_versioned` if available on your runtime")]
 		fn eth_estimate_gas(
-			tx: GenericTransaction,
-			config: DryRunConfig<Moment>
+			tx: GenericTransactionV1,
+			config: DryRunConfigV1<Moment>
 		) -> Result<U256, EthTransactError>;
 
 		/// Return the pre-dispatch weight booked for the signed Ethereum transaction payload.
@@ -3061,17 +3146,18 @@ sp_api::decl_runtime_apis! {
 		/// Dry run and return the trace of the given call.
 		///
 		/// See eth-rpc `debug_traceCall` for usage.
-		fn trace_call(tx: GenericTransaction, config: TracerTypeV1) -> Result<TraceV1, EthTransactError>;
+		#[deprecated(note = "Use the versioned equivalent `trace_call_versioned` if available on your runtime")]
+		fn trace_call(tx: GenericTransactionV1, config: TracerTypeV1) -> Result<TraceV1, EthTransactError>;
 
 		/// Dry run and return the trace of the given call with additional configuration.
 		///
-		/// Like [`Self::trace_call`], but accepts a [`TracingConfig`] that can carry state
-		/// overrides and future extensibility. The config must be the **last argument** for
-		/// backwards compatibility — see [`TracingConfig`] documentation.
+		/// Like [`Self::trace_call`], but accepts a [`TracingConfigV1`] that can carry state
+		/// overrides. The config must be the **last argument** for backwards compatibility.
+		#[deprecated(note = "Use the versioned equivalent `trace_call_versioned` if available on your runtime")]
 		fn trace_call_with_config(
-			tx: GenericTransaction,
+			tx: GenericTransactionV1,
 			tracer_type: TracerTypeV1,
-			config: TracingConfig,
+			config: TracingConfigV1,
 		) -> Result<TraceV1, EthTransactError>;
 
 		/// The address of the validator that produced the current block.
@@ -3101,6 +3187,12 @@ sp_api::decl_runtime_apis! {
 		/* Versioned Runtime APIs */
 
 		#[api_version(2)]
+		fn version_declarations() -> ReviveRuntimeApiVersionDeclarations;
+
+		#[api_version(2)]
+		fn eth_block_versioned(input: BlockVersionedInputPayload) -> BlockVersionedOutputPayload;
+
+		#[api_version(2)]
 		fn eth_block_hash_versioned(input: BlockHashVersionedInputPayload) -> BlockHashVersionedOutputPayload;
 
 		#[api_version(2)]
@@ -3126,9 +3218,29 @@ sp_api::decl_runtime_apis! {
 		fn nonce_versioned(input: NonceVersionedInputPayload) -> NonceVersionedOutputPayload<Nonce>;
 
 		#[api_version(2)]
+		fn call_versioned(
+			input: CallVersionedInputPayload<AccountId, Balance>
+		) -> CallVersionedOutputPayload<Balance>;
+
+		#[api_version(2)]
+		fn instantiate_versioned(
+			input: InstantiateVersionedInputPayload<AccountId, Balance>
+		) -> InstantiateVersionedOutputPayload<Balance>;
+
+		#[api_version(2)]
+		fn eth_transact_versioned(
+			input: TransactVersionedInputPayload<Moment>
+		) -> Result<TransactVersionedOutputPayload<Balance>, EthTransactError>;
+
+		#[api_version(2)]
+		fn eth_estimate_gas_versioned(
+			input: EstimateGasVersionedInputPayload<Moment>
+		) -> Result<EstimateGasVersionedOutputPayload, EthTransactError>;
+
+		#[api_version(2)]
 		fn eth_pre_dispatch_weight_versioned(
-			input: EthPreDispatchWeightVersionedInputPayload
-		) -> Result<EthPreDispatchWeightVersionedOutputPayload, EthTransactError>;
+			input: PreDispatchWeightVersionedInputPayload
+		) -> Result<PreDispatchWeightVersionedOutputPayload, EthTransactError>;
 
 		#[api_version(2)]
 		fn upload_code_versioned(
@@ -3167,6 +3279,11 @@ sp_api::decl_runtime_apis! {
 
 		#[api_version(2)]
 		fn trace_tx_versioned(input: TraceTxVersionedInputPayload<Block>) -> TraceTxVersionedOutputPayload;
+
+		#[api_version(2)]
+		fn trace_call_versioned(
+			input: TraceCallVersionedInputPayload
+		) -> Result<TraceCallVersionedOutputPayload, EthTransactError>;
 	}
 }
 
@@ -3187,7 +3304,7 @@ sp_api::decl_runtime_apis! {
 macro_rules! impl_runtime_apis_plus_revive_traits {
 	($Runtime: ty, $Revive: ident, $Executive: ty, $EthExtra: ty, $($rest:tt)*) => {
 
-		type __ReviveMacroMoment = <<$Runtime as $crate::Config>::Time as $crate::Time>::Moment;
+		type __ReviveMacroMoment = $crate::MomentOf<$Runtime>;
 
 		impl $crate::evm::runtime::SetWeightLimit for RuntimeCall {
 			fn set_weight_limit(&mut self, new_weight_limit: Weight) -> Weight {
@@ -3212,8 +3329,14 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 			#[api_version(2)]
 			impl pallet_revive::ReviveApi<Block, AccountId, Balance, Nonce, BlockNumber, __ReviveMacroMoment> for $Runtime
 			{
-				fn eth_block() -> $crate::EthBlock {
-					$crate::Pallet::<Self>::eth_block()
+				fn eth_block() -> $crate::pallet_revive_types::runtime_api::BlockV1 {
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = BlockVersionedInputPayload::from(BlockInputPayloadV1);
+					let output = Self::eth_block_versioned(input);
+					BlockOutputPayloadV1::try_from(output)
+						.expect("v1 input must produce v1 output; qed")
+						.block
 				}
 
 				fn eth_block_hash(number: $crate::U256) -> Option<$crate::H256> {
@@ -3311,38 +3434,67 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn eth_transact(
-					tx: $crate::evm::GenericTransaction,
-				) -> Result<$crate::EthTransactInfo<Balance>, $crate::EthTransactError> {
-					use $crate::{
-						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
-						sp_runtime::traits::TransactionExtension,
-						sp_runtime::traits::Block as BlockT
-					};
-					$crate::Pallet::<Self>::dry_run_eth_transact(tx, Default::default())
+					tx: $crate::pallet_revive_types::runtime_api::GenericTransactionV1,
+				) -> Result<
+					$crate::pallet_revive_types::runtime_api::EthTransactInfoV1<Balance>,
+					$crate::EthTransactError
+				> {
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let input = TransactVersionedInputPayload::from(TransactInputPayloadV1 {
+						tx,
+						timestamp_override: None,
+						perform_balance_checks: true,
+						state_overrides: None
+					});
+					let output = Self::eth_transact_versioned(input)?;
+					Ok(TransactOutputPayloadV1::try_from(output)
+						.expect("v1 input must produce v1 output; qed")
+						.transact_info)
 				}
 
 				fn eth_transact_with_config(
-					tx: $crate::evm::GenericTransaction,
-					config: $crate::DryRunConfig<__ReviveMacroMoment>,
-				) -> Result<$crate::EthTransactInfo<Balance>, $crate::EthTransactError> {
-					use $crate::{
-						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
-						sp_runtime::traits::TransactionExtension,
-						sp_runtime::traits::Block as BlockT
-					};
-					$crate::Pallet::<Self>::dry_run_eth_transact(tx, config)
+					tx: $crate::pallet_revive_types::runtime_api::GenericTransactionV1,
+					config: $crate::pallet_revive_types::runtime_api::DryRunConfigV1<__ReviveMacroMoment>,
+				) -> Result<
+					$crate::pallet_revive_types::runtime_api::EthTransactInfoV1<Balance>,
+					$crate::EthTransactError
+				> {
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let DryRunConfigV1 { timestamp_override, perform_balance_checks, state_overrides } =
+						config;
+
+					let input = TransactVersionedInputPayload::from(TransactInputPayloadV1 {
+						tx,
+						timestamp_override,
+						perform_balance_checks: perform_balance_checks.unwrap_or(false),
+						state_overrides
+					});
+					let output = Self::eth_transact_versioned(input)?;
+					Ok(TransactOutputPayloadV1::try_from(output)
+						.expect("v1 input must produce v1 output; qed")
+						.transact_info)
 				}
 
 				fn eth_estimate_gas(
-					tx: $crate::evm::GenericTransaction,
-					config: $crate::DryRunConfig<__ReviveMacroMoment>,
+					tx: $crate::pallet_revive_types::runtime_api::GenericTransactionV1,
+					config: $crate::pallet_revive_types::runtime_api::DryRunConfigV1<__ReviveMacroMoment>,
 				) -> Result<$crate::U256, $crate::EthTransactError>  {
-					use $crate::{
-						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
-						sp_runtime::traits::TransactionExtension,
-						sp_runtime::traits::Block as BlockT
-					};
-					$crate::Pallet::<Self>::eth_estimate_gas(tx, config)
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					let DryRunConfigV1 { timestamp_override, perform_balance_checks: _, state_overrides } =
+						config;
+
+					let input = EstimateGasVersionedInputPayload::from(EstimateGasInputPayloadV1 {
+						tx,
+						timestamp_override,
+						state_overrides
+					});
+					let output = Self::eth_estimate_gas_versioned(input)?;
+					Ok(EstimateGasOutputPayloadV1::try_from(output)
+						.expect("v1 input must produce v1 output; qed")
+						.gas_estimate)
 				}
 
 				fn eth_pre_dispatch_weight(
@@ -3350,11 +3502,11 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				) -> Result<$crate::Weight, $crate::EthTransactError> {
 					use $crate::pallet_revive_types::runtime_api::*;
 
-					let input = EthPreDispatchWeightVersionedInputPayload::from(
-						EthPreDispatchWeightInputPayloadV1 { tx }
+					let input = PreDispatchWeightVersionedInputPayload::from(
+						PreDispatchWeightInputPayloadV1 { tx }
 					);
 					let output = Self::eth_pre_dispatch_weight_versioned(input)?;
-					Ok(EthPreDispatchWeightOutputPayloadV1::try_from(output)
+					Ok(PreDispatchWeightOutputPayloadV1::try_from(output)
 						.expect("v1 input must produce v1 output; qed")
 						.weight)
 				}
@@ -3366,23 +3518,24 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					weight_limit: Option<$crate::Weight>,
 					storage_deposit_limit: Option<Balance>,
 					input_data: Vec<u8>,
-				) -> $crate::ContractResult<$crate::ExecReturnValue, Balance> {
-					use $crate::frame_support::traits::Get;
-					let blockweights: $crate::BlockWeights =
-						<Self as $crate::frame_system::Config>::BlockWeights::get();
+				) -> $crate::pallet_revive_types::runtime_api::ContractResultV1<
+					$crate::pallet_revive_types::runtime_api::ExecReturnValueV1,
+					Balance
+				> {
+					use $crate::pallet_revive_types::runtime_api::*;
 
-					$crate::Pallet::<Self>::prepare_dry_run(&origin);
-					$crate::Pallet::<Self>::bare_call(
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
+					let input = CallVersionedInputPayload::from(CallInputPayloadV1 {
+						origin,
 						dest,
-						$crate::Pallet::<Self>::convert_native_to_evm(value),
-						$crate::TransactionLimits::WeightAndDeposit {
-							weight_limit: weight_limit.unwrap_or(blockweights.max_block),
-							deposit_limit: storage_deposit_limit.unwrap_or(u128::MAX),
-						},
-						input_data,
-						&$crate::ExecConfig::new_substrate_tx().with_dry_run(Default::default()),
-					)
+						value,
+						gas_limit: weight_limit,
+						storage_deposit_limit,
+						input_data
+					});
+					let output = Self::call_versioned(input);
+					CallOutputPayloadV1::try_from(output)
+						.expect("v1 input must produce v1 output; qed")
+						.contract_result
 				}
 
 				fn instantiate(
@@ -3390,27 +3543,28 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					value: Balance,
 					weight_limit: Option<$crate::Weight>,
 					storage_deposit_limit: Option<Balance>,
-					code: $crate::Code,
+					code: $crate::pallet_revive_types::runtime_api::CodeV1,
 					data: Vec<u8>,
 					salt: Option<[u8; 32]>,
-				) -> $crate::ContractResult<$crate::InstantiateReturnValue, Balance> {
-					use $crate::frame_support::traits::Get;
-					let blockweights: $crate::BlockWeights =
-						<Self as $crate::frame_system::Config>::BlockWeights::get();
+				) -> $crate::pallet_revive_types::runtime_api::ContractResultV1<
+					$crate::pallet_revive_types::runtime_api::InstantiateReturnValueV1,
+					Balance
+				> {
+					use $crate::pallet_revive_types::runtime_api::*;
 
-					$crate::Pallet::<Self>::prepare_dry_run(&origin);
-					$crate::Pallet::<Self>::bare_instantiate(
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(origin),
-						$crate::Pallet::<Self>::convert_native_to_evm(value),
-						$crate::TransactionLimits::WeightAndDeposit {
-							weight_limit: weight_limit.unwrap_or(blockweights.max_block),
-							deposit_limit: storage_deposit_limit.unwrap_or(u128::MAX),
-						},
+					let input = InstantiateVersionedInputPayload::from(InstantiateInputPayloadV1 {
+						origin,
+						value,
+						gas_limit: weight_limit,
+						storage_deposit_limit,
 						code,
 						data,
-						salt,
-						&$crate::ExecConfig::new_substrate_tx().with_dry_run(Default::default()),
-					)
+						salt
+					});
+					let output = Self::instantiate_versioned(input);
+					InstantiateOutputPayloadV1::try_from(output)
+						.expect("v1 input must produce v1 output; qed")
+						.contract_result
 				}
 
 				fn upload_code(
@@ -3495,47 +3649,40 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				fn trace_call(
-					tx: $crate::evm::GenericTransaction,
+					tx: $crate::pallet_revive_types::runtime_api::GenericTransactionV1,
 					tracer_type: $crate::pallet_revive_types::runtime_api::TracerTypeV1,
 				) -> Result<$crate::pallet_revive_types::runtime_api::TraceV1, $crate::EthTransactError> {
-					use $crate::tracing::trace;
+					use $crate::pallet_revive_types::runtime_api::*;
 
-					let tracer_type = $crate::evm::TracerType::from(tracer_type);
-					if matches!(tracer_type, $crate::evm::TracerType::ExecutionTracer(_)) &&
-						!$crate::DebugSettings::is_execution_tracing_enabled::<Runtime>()
-					{
-						return Err($crate::EthTransactError::Message("Execution Tracing is disabled".into()))
-					}
-
-					let mut tracer = $crate::Pallet::<Self>::evm_tracer(tracer_type.clone());
-					let t = tracer.as_tracing();
-
-					t.watch_address(&tx.from.unwrap_or_default());
-					t.watch_address(&$crate::Pallet::<Self>::block_author());
-					let result = trace(t, || Self::eth_transact(tx));
-
-					if let Some(trace) = tracer.collect_trace() {
-						Ok(trace)
-					} else if let Err(err) = result {
-						Err(err)
-					} else {
-						Ok($crate::Pallet::<Self>::evm_tracer(tracer_type).empty_trace())
-					}
-					.map(Into::into)
+					let input = TraceCallVersionedInputPayload::from(TraceCallInputPayloadV1 {
+						tx,
+						config: tracer_type,
+						state_overrides: None
+					});
+					let output = Self::trace_call_versioned(input)?;
+					Ok(TraceCallOutputPayloadV1::try_from(output)
+						.expect("v1 input must produce v1 output; qed")
+						.trace)
 				}
 
 				fn trace_call_with_config(
-					tx: $crate::evm::GenericTransaction,
+					tx: $crate::pallet_revive_types::runtime_api::GenericTransactionV1,
 					tracer_type: $crate::pallet_revive_types::runtime_api::TracerTypeV1,
-					config: $crate::evm::TracingConfig,
+					config: $crate::pallet_revive_types::runtime_api::TracingConfigV1,
 				) -> Result<$crate::pallet_revive_types::runtime_api::TraceV1, $crate::EthTransactError> {
-					let $crate::evm::TracingConfig { state_overrides } = config;
+					use $crate::pallet_revive_types::runtime_api::*;
 
-					if let Some(overrides) = state_overrides {
-						$crate::state_overrides::apply_state_overrides::<Runtime>(overrides)?;
-					}
+					let TracingConfigV1 { state_overrides } = config;
 
-					Self::trace_call(tx, tracer_type)
+					let input = TraceCallVersionedInputPayload::from(TraceCallInputPayloadV1 {
+						tx,
+						config: tracer_type,
+						state_overrides
+					});
+					let output = Self::trace_call_versioned(input)?;
+					Ok(TraceCallOutputPayloadV1::try_from(output)
+						.expect("v1 input must produce v1 output; qed")
+						.trace)
 				}
 
 				fn runtime_pallets_address() -> $crate::H160 {
@@ -3583,6 +3730,60 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				}
 
 				/* Versioned Runtime APIs */
+
+				fn version_declarations()
+					-> $crate::pallet_revive_types::runtime_api::ReviveRuntimeApiVersionDeclarations
+				{
+					use $crate::pallet_revive_types::runtime_api::*;
+
+					ReviveRuntimeApiVersionDeclarations::new()
+						.insert("eth_block_versioned", 1)
+						.insert("eth_block_hash_versioned", 1)
+						.insert("eth_receipt_data_versioned", 1)
+						.insert("block_gas_limit_versioned", 1)
+						.insert("max_extrinsic_weight_in_gas_versioned", 1)
+						.insert("balance_versioned", 1)
+						.insert("gas_price_versioned", 1)
+						.insert("nonce_versioned", 1)
+						.insert("call_versioned", 1)
+						.insert("instantiate_versioned", 1)
+						.insert("eth_transact_versioned", 1)
+						.insert("eth_estimate_gas_versioned", 1)
+						.insert("eth_pre_dispatch_weight_versioned", 1)
+						.insert("upload_code_versioned", 1)
+						.insert("get_storage_versioned", 1)
+						.insert("runtime_pallets_address_versioned", 1)
+						.insert("code_versioned", 1)
+						.insert("account_id_versioned", 1)
+						.insert("new_balance_with_dust_versioned", 1)
+						.insert("block_author_versioned", 1)
+						.insert("address_versioned", 1)
+						.insert("trace_block_versioned", 2)
+						.insert("trace_tx_versioned", 2)
+						.insert("trace_call_versioned", 2)
+				}
+
+				fn eth_block_versioned(
+					input: $crate::pallet_revive_types::runtime_api::BlockVersionedInputPayload
+				) -> $crate::pallet_revive_types::runtime_api::BlockVersionedOutputPayload {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use alloc::boxed::Box;
+
+					let (_input, output_wrapper): (
+						_,
+						Box<dyn Fn(BlockOutputPayload) -> BlockVersionedOutputPayload>,
+					) = match input {
+						BlockVersionedInputPayload::V1(payload) => (
+							BlockInputPayload::from(payload),
+							Box::new(|output| BlockVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let output = BlockOutputPayload { block: $crate::Pallet::<Self>::eth_block() };
+					output_wrapper(output)
+				}
+
 				fn eth_block_hash_versioned(
 					input: $crate::pallet_revive_types::runtime_api::BlockHashVersionedInputPayload
 				) -> $crate::pallet_revive_types::runtime_api::BlockHashVersionedOutputPayload {
@@ -3746,10 +3947,156 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					output_wrapper(output)
 				}
 
-				fn eth_pre_dispatch_weight_versioned(
-					input: $crate::pallet_revive_types::runtime_api::EthPreDispatchWeightVersionedInputPayload
+				fn call_versioned(
+					input: $crate::pallet_revive_types::runtime_api::CallVersionedInputPayload<AccountId, Balance>
+				) -> $crate::pallet_revive_types::runtime_api::CallVersionedOutputPayload<Balance> {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use $crate::frame_support::traits::Get;
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<dyn Fn(CallOutputPayload<Balance>) -> CallVersionedOutputPayload<Balance>>,
+					) = match input {
+						CallVersionedInputPayload::V1(payload) => (
+							CallInputPayload::from(payload),
+							Box::new(|output| CallVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let blockweights: $crate::BlockWeights =
+						<Self as $crate::frame_system::Config>::BlockWeights::get();
+
+					$crate::Pallet::<Self>::prepare_dry_run(&input.origin);
+					let contract_result = $crate::Pallet::<Self>::bare_call(
+						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(input.origin),
+						input.dest,
+						$crate::Pallet::<Self>::convert_native_to_evm(input.value),
+						$crate::TransactionLimits::WeightAndDeposit {
+							weight_limit: input.gas_limit.unwrap_or(blockweights.max_block),
+							deposit_limit: input.storage_deposit_limit.unwrap_or(u128::MAX),
+						},
+						input.input_data,
+						&$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
+					);
+
+					let output = CallOutputPayload { contract_result };
+					output_wrapper(output)
+				}
+
+				fn instantiate_versioned(
+					input: $crate::pallet_revive_types::runtime_api::InstantiateVersionedInputPayload<AccountId, Balance>
+				) -> $crate::pallet_revive_types::runtime_api::InstantiateVersionedOutputPayload<Balance> {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use $crate::frame_support::traits::Get;
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<dyn Fn(InstantiateOutputPayload<Balance>) -> InstantiateVersionedOutputPayload<Balance>>,
+					) = match input {
+						InstantiateVersionedInputPayload::V1(payload) => (
+							InstantiateInputPayload::from(payload),
+							Box::new(|output| InstantiateVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let blockweights: $crate::BlockWeights =
+						<Self as $crate::frame_system::Config>::BlockWeights::get();
+
+					$crate::Pallet::<Self>::prepare_dry_run(&input.origin);
+					let contract_result = $crate::Pallet::<Self>::bare_instantiate(
+						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(input.origin),
+						$crate::Pallet::<Self>::convert_native_to_evm(input.value),
+						$crate::TransactionLimits::WeightAndDeposit {
+							weight_limit: input.gas_limit.unwrap_or(blockweights.max_block),
+							deposit_limit: input.storage_deposit_limit.unwrap_or(u128::MAX),
+						},
+						input.code,
+						input.data,
+						input.salt,
+						&$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
+					);
+
+					let output = InstantiateOutputPayload { contract_result };
+					output_wrapper(output)
+				}
+
+				fn eth_transact_versioned(
+					input: $crate::pallet_revive_types::runtime_api::TransactVersionedInputPayload<__ReviveMacroMoment>
 				) -> Result<
-					$crate::pallet_revive_types::runtime_api::EthPreDispatchWeightVersionedOutputPayload,
+					$crate::pallet_revive_types::runtime_api::TransactVersionedOutputPayload<Balance>,
+					$crate::EthTransactError
+				> {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use $crate::{
+						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
+						sp_runtime::traits::TransactionExtension,
+						sp_runtime::traits::Block as BlockT
+					};
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<dyn Fn(TransactOutputPayload<Balance>) -> TransactVersionedOutputPayload<Balance>>,
+					) = match input {
+						TransactVersionedInputPayload::V1(payload) => (
+							TransactInputPayload::from(payload),
+							Box::new(|output| TransactVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let transact_info = $crate::Pallet::<Self>::dry_run_eth_transact(
+						input.tx,
+						input.timestamp_override,
+						input.perform_balance_checks,
+						input.state_overrides,
+					)?;
+					let output = TransactOutputPayload { transact_info };
+					Ok(output_wrapper(output))
+				}
+
+				fn eth_estimate_gas_versioned(
+					input: $crate::pallet_revive_types::runtime_api::EstimateGasVersionedInputPayload<__ReviveMacroMoment>
+				) -> Result<
+					$crate::pallet_revive_types::runtime_api::EstimateGasVersionedOutputPayload,
+					$crate::EthTransactError
+				> {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use $crate::{
+						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
+						sp_runtime::traits::TransactionExtension,
+						sp_runtime::traits::Block as BlockT
+					};
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<dyn Fn(EstimateGasOutputPayload) -> EstimateGasVersionedOutputPayload>,
+					) = match input {
+						EstimateGasVersionedInputPayload::V1(payload) => (
+							EstimateGasInputPayload::from(payload),
+							Box::new(|output| EstimateGasVersionedOutputPayload::V1(output.into())),
+						),
+					};
+
+					let gas_estimate = $crate::Pallet::<Self>::eth_estimate_gas(
+						input.tx,
+						input.timestamp_override,
+						input.state_overrides,
+					)?;
+					let output = EstimateGasOutputPayload { gas_estimate };
+					Ok(output_wrapper(output))
+				}
+
+				fn eth_pre_dispatch_weight_versioned(
+					input: $crate::pallet_revive_types::runtime_api::PreDispatchWeightVersionedInputPayload
+				) -> Result<
+					$crate::pallet_revive_types::runtime_api::PreDispatchWeightVersionedOutputPayload,
 					$crate::EthTransactError
 				> {
 					use $crate::pallet_revive_types::runtime_api::*;
@@ -3758,15 +4105,15 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 
 					let (input, output_wrapper): (
 						_,
-						Box<dyn Fn(EthPreDispatchWeightOutputPayload) -> EthPreDispatchWeightVersionedOutputPayload>,
+						Box<dyn Fn(PreDispatchWeightOutputPayload) -> PreDispatchWeightVersionedOutputPayload>,
 					) = match input {
-						EthPreDispatchWeightVersionedInputPayload::V1(payload) => (
-							EthPreDispatchWeightInputPayload::from(payload),
-							Box::new(|output| EthPreDispatchWeightVersionedOutputPayload::V1(output.into())),
+						PreDispatchWeightVersionedInputPayload::V1(payload) => (
+							PreDispatchWeightInputPayload::from(payload),
+							Box::new(|output| PreDispatchWeightVersionedOutputPayload::V1(output.into())),
 						),
 					};
 
-					let output = EthPreDispatchWeightOutputPayload {
+					let output = PreDispatchWeightOutputPayload {
 						weight: $crate::Pallet::<Self>::eth_pre_dispatch_weight(input.tx)?
 					};
 					Ok(output_wrapper(output))
@@ -3981,6 +4328,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					use $crate::{
 						sp_runtime::traits::Block,
 						tracing::trace,
+						evm::TraceEntry,
 						runtime_api::*,
 						pallet_revive_types::runtime_api::*
 					};
@@ -4003,20 +4351,25 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						return output_wrapper(Default::default())
 					}
 
-					let mut traces = vec![];
+					// Faithful proof-size accounting needs a PoV recorder registered for this call
+					// (e.g. the node's `state_callRecorded` RPC); without one the block tail may hit
+					// `ExhaustsResources`. V1 drops such traces; V2 reports them as `NotTraced`.
+					let mut entries = vec![];
 					let (header, extrinsics) = input.block.deconstruct();
 					<$Executive>::initialize_block(&header);
 					for (index, ext) in extrinsics.into_iter().enumerate() {
 						let mut tracer = $crate::Pallet::<Self>::evm_tracer(input.config.clone());
 						let t = tracer.as_tracing();
-						let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
+						let result = trace(t, || <$Executive>::apply_extrinsic(ext));
 
 						if let Some(tx_trace) = tracer.collect_trace() {
-							traces.push((index as u32, tx_trace));
+							entries.push((index as u32, TraceEntry::Traced(tx_trace)));
+						} else if let Some(entry) = TraceEntry::for_untraced(&result) {
+							entries.push((index as u32, entry));
 						}
 					}
 
-					let output = TraceBlockOutputPayload { traces };
+					let output = TraceBlockOutputPayload { entries };
 					output_wrapper(output)
 				}
 
@@ -4025,7 +4378,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				) -> $crate::pallet_revive_types::runtime_api::TraceTxVersionedOutputPayload {
 					use $crate::pallet_revive_types::runtime_api::*;
 					use $crate::runtime_api::*;
-					use $crate::{sp_runtime::traits::Block, tracing::trace};
+					use $crate::{evm::TraceEntry, sp_runtime::traits::Block, tracing::trace};
 					use alloc::boxed::Box;
 
 					let (input, output_wrapper): (
@@ -4045,27 +4398,89 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					if matches!(&input.config, $crate::evm::TracerType::ExecutionTracer(_)) &&
 						!$crate::DebugSettings::is_execution_tracing_enabled::<Runtime>()
 					{
-						return output_wrapper(TraceTxOutputPayload { trace: None })
+						return output_wrapper(TraceTxOutputPayload { entry: None })
 					}
 
+					// Faithful proof-size accounting needs a PoV recorder registered for this call
+					// (e.g. the node's `state_callRecorded` RPC); without one the block tail may hit
+					// `ExhaustsResources`. V1 drops such traces; V2 reports them as `NotTraced`.
 					let mut tracer = $crate::Pallet::<Self>::evm_tracer(input.config);
 					let (header, extrinsics) = input.block.deconstruct();
 
 					<$Executive>::initialize_block(&header);
+					let mut entry = None;
 					for (index, ext) in extrinsics.into_iter().enumerate() {
 						if index as u32 == input.tx_index {
 							let t = tracer.as_tracing();
-							let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
+							let result = trace(t, || <$Executive>::apply_extrinsic(ext));
+							entry = match tracer.collect_trace() {
+								Some(tx_trace) => Some(TraceEntry::Traced(tx_trace)),
+								None => TraceEntry::for_untraced(&result),
+							};
 							break;
 						} else {
 							let _ = <$Executive>::apply_extrinsic(ext);
 						}
 					}
 
-					let output = TraceTxOutputPayload {
-						trace: tracer.collect_trace()
-					};
+					let output = TraceTxOutputPayload { entry };
 					output_wrapper(output)
+				}
+
+				fn trace_call_versioned(
+					input: $crate::pallet_revive_types::runtime_api::TraceCallVersionedInputPayload
+				) -> Result<
+					$crate::pallet_revive_types::runtime_api::TraceCallVersionedOutputPayload,
+					$crate::EthTransactError
+				> {
+					use $crate::pallet_revive_types::runtime_api::*;
+					use $crate::runtime_api::*;
+					use $crate::tracing::trace;
+					use alloc::boxed::Box;
+
+					let (input, output_wrapper): (
+						_,
+						Box<dyn Fn(TraceCallOutputPayload) -> TraceCallVersionedOutputPayload>,
+					) = match input {
+						TraceCallVersionedInputPayload::V1(payload) => (
+							TraceCallInputPayload::from(payload),
+							Box::new(|output| TraceCallVersionedOutputPayload::V1(output.into())),
+						),
+						TraceCallVersionedInputPayload::V2(payload) => (
+							TraceCallInputPayload::from(payload),
+							Box::new(|output| TraceCallVersionedOutputPayload::V2(output.into())),
+						),
+					};
+
+					if let Some(overrides) = input.state_overrides {
+						$crate::state_overrides::apply_state_overrides::<Runtime>(overrides)?;
+					}
+
+					if matches!(input.config, $crate::evm::TracerType::ExecutionTracer(_)) &&
+						!$crate::DebugSettings::is_execution_tracing_enabled::<Runtime>()
+					{
+						return Err($crate::EthTransactError::Message("Execution Tracing is disabled".into()))
+					}
+
+					let mut tracer = $crate::Pallet::<Self>::evm_tracer(input.config.clone());
+					let t = tracer.as_tracing();
+
+					t.watch_address(&input.tx.from.unwrap_or_default());
+					t.watch_address(&$crate::Pallet::<Self>::block_author());
+					let result = trace(t, || {
+						$crate::Pallet::<Self>::dry_run_eth_transact(input.tx, None, true, None)
+					});
+
+					let trace = if let Some(trace) = tracer.collect_trace() {
+						Ok(trace)
+					} else if let Err(err) = result {
+						Err(err)
+					} else {
+						Ok($crate::Pallet::<Self>::evm_tracer(input.config).empty_trace())
+					}?;
+
+					let output = TraceCallOutputPayload { trace };
+					Ok(output_wrapper(output))
 				}
 			}
 		}

@@ -96,7 +96,7 @@ mod second_multiple_candidates_per_relay_parent {
 
 	const PARA: ParaId = ParaId::new(2000);
 
-	#[crate::sim_test(bug_on = "experimental", bug_url = "github:paritytech/polkadot-sdk#12255")]
+	#[crate::sim_test]
 	fn three_chained_candidates_seconded_then_fourth_rejected<S: CollatorSut>() {
 		let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
 		let leaf = w.leaf();

@@ -841,7 +841,7 @@ pub struct UnresponsivenessOffence<Offender> {
 
 impl<Offender: Clone> Offence<Offender> for UnresponsivenessOffence<Offender> {
 	const ID: Kind = *b"im-online:offlin";
-	type TimeSlot = SessionIndex;
+	type Slot = SessionIndex;
 
 	fn offenders(&self) -> Vec<Offender> {
 		self.offenders.clone()
@@ -855,7 +855,7 @@ impl<Offender: Clone> Offence<Offender> for UnresponsivenessOffence<Offender> {
 		self.validator_set_count
 	}
 
-	fn time_slot(&self) -> Self::TimeSlot {
+	fn slot(&self) -> Self::Slot {
 		self.session_index
 	}
 
