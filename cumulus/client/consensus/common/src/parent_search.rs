@@ -46,6 +46,16 @@ pub enum ParentSearchParams {
 }
 
 impl ParentSearchParams {
+	/// The params for the scheduling version: V3 anchors at the scheduling parent, V2 at the
+	/// relay parent.
+	pub fn new(v3_enabled: bool, scheduling_parent: RelayHash, relay_parent: RelayHash) -> Self {
+		if v3_enabled {
+			Self::V3 { scheduling_parent }
+		} else {
+			Self::V2 { scheduling_parent: relay_parent }
+		}
+	}
+
 	fn scheduling_parent(&self) -> &RelayHash {
 		match self {
 			ParentSearchParams::V2 { scheduling_parent } => scheduling_parent,
