@@ -2510,15 +2510,6 @@ impl MaybeConvert<TaskId, AccountId> for SovereignAccountOf {
 		Some(account.into())
 	}
 }
-
-/// Hands the broker's assignments to the registrar, which locks the para on the first one.
-pub struct ToRegistrar;
-impl pallet_broker::OnCoreAssigned for ToRegistrar {
-	fn on_core_assigned(task: TaskId) {
-		RegistrarPara::note_core_assigned(task);
-	}
-}
-
 impl pallet_broker::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -2527,7 +2518,6 @@ impl pallet_broker::Config for Runtime {
 	type MaxLeasedCores = ConstU32<5>;
 	type MaxReservedCores = ConstU32<5>;
 	type Coretime = CoretimeProvider;
-	type OnCoreAssigned = ToRegistrar;
 	type ConvertBalance = traits::Identity;
 	type WeightInfo = ();
 	type PalletId = BrokerPalletId;
