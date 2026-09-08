@@ -1,10 +1,12 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-// Test that a paraid that doesn't use elastic scaling which acquired multiple cores does not brick
-// itself if ElasticScalingMVP feature is enabled in genesis.
+// Test that a parachain which does not use all the cores the relay chain offers keeps making
+// normal single-core progress, with ElasticScalingMVP enabled in genesis:
+// - v2: lookahead collator, para holds both cores and only ever fills one.
+// - v3: slot-based collator, para holds one of the two configured cores.
 
-use crate::utils::maybe_enable_experimental_collator_protocol;
+use crate::utils::{assert_candidates_version, maybe_enable_experimental_collator_protocol};
 use anyhow::anyhow;
 use codec::Decode;
 use cumulus_zombienet_sdk_helpers::{
@@ -20,10 +22,10 @@ use zombienet_sdk::{
 };
 
 #[rstest]
-#[case::v2(false)]
-#[case::v3(true)]
+#[case::v2_lookahead_2_cores(false)]
+#[case::v3_slot_based_1_core(true)]
 #[tokio::test(flavor = "multi_thread")]
-async fn doesnt_break_parachains_test(
+async fn parachain_doesnt_break_with_unused_cores(
 	#[case] use_v3_candidates: bool,
 ) -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -35,33 +37,25 @@ async fn doesnt_break_parachains_test(
 	// V3 candidates need the `v3` para chain spec; the V2 case uses the default one.
 	let collator_chain = use_v3_candidates.then_some("v3");
 
-	// V3 case additionally sets node-features bits 3+4 so the collator emits V3 descriptors.
-	let genesis_overrides = if use_v3_candidates {
-		json!({
-			"configuration": {
-				"config": {
-					"scheduler_params": {
-						"num_cores": 1,
-						"max_validators_per_core": 2,
-					},
-					"node_features": {"bits": 8, "data": [0b00011000]}
+	// `num_cores: 1` plus the core auto-assigned to the para at genesis gives the relay chain two
+	// cores; `max_validators_per_core: 2` gives it two validator groups to match.
+	let mut genesis_overrides = json!({
+		"configuration": {
+			"config": {
+				"scheduler_params": {
+					"num_cores": 1,
+					"max_validators_per_core": 2,
 				}
 			}
-		})
-	} else {
-		json!({
-			"configuration": {
-				"config": {
-					"scheduler_params": {
-						"num_cores": 1,
-						"max_validators_per_core": 2,
-					}
-				}
-			}
-		})
-	};
+		}
+	});
+	if use_v3_candidates {
+		// V2 (bit 3) and V3 (bit 4) descriptor support.
+		genesis_overrides["configuration"]["config"]["node_features"] =
+			json!({"bits": 8, "data": [0b00011000]});
+	}
 
-	// `--authoring=slot-based` only for the V3 case.
+	// V3 is bound to the slot-based collator; the V2 case keeps the default lookahead one.
 	let mut collator_args = vec![("-lparachain=debug,aura=debug").into()];
 	if use_v3_candidates {
 		collator_args.push("--authoring=slot-based".into());
@@ -111,7 +105,11 @@ async fn doesnt_break_parachains_test(
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	assign_cores(&relay_client, 2000, vec![0]).await?;
+	// The V2 case additionally takes core 0, so it ends up holding both cores. The V3 case keeps
+	// only the core it got at genesis, exercising a single-core para on a multi-core relay chain.
+	if !use_v3_candidates {
+		assign_cores(&relay_client, 2000, vec![0]).await?;
+	}
 
 	let para_id = ParaId::from(2000);
 	// Wait for PVF preparation to complete.
@@ -119,7 +117,7 @@ async fn doesnt_break_parachains_test(
 
 	if use_v3_candidates {
 		// V3 candidates at single-core throughput.
-		crate::utils::assert_candidates_version(
+		assert_candidates_version(
 			&relay_client,
 			CandidateDescriptorVersion::V3,
 			HashMap::from([(para_id, 12..16)]),
@@ -138,7 +136,7 @@ async fn doesnt_break_parachains_test(
 	// Increasing to 6 to make sure CI passes.
 	assert_finality_lag(&para_client, 6).await?;
 
-	// Sanity check that indeed the parachain has two assigned cores.
+	// Sanity check the cores the parachain actually holds.
 	let cq = BTreeMap::<CoreIndex, VecDeque<ParaId>>::decode(
 		&mut &relay_client
 			.runtime_api()
@@ -158,14 +156,14 @@ async fn doesnt_break_parachains_test(
 			.await?[..],
 	)?;
 
+	let expected_cores: &[CoreIndex] =
+		if use_v3_candidates { &[CoreIndex(1)] } else { &[CoreIndex(0), CoreIndex(1)] };
 	assert_eq!(
 		cq,
-		[
-			(CoreIndex(0), std::iter::repeat_n(para_id, lookahead as usize).collect()),
-			(CoreIndex(1), std::iter::repeat_n(para_id, lookahead as usize).collect()),
-		]
-		.into_iter()
-		.collect()
+		expected_cores
+			.iter()
+			.map(|core| (*core, std::iter::repeat_n(para_id, lookahead as usize).collect()))
+			.collect()
 	);
 
 	log::info!("Test finished successfully");
