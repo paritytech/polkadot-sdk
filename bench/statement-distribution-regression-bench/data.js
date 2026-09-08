@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788819355512,
+  "lastUpdate": 1788871955775,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexandre.balde@parity.io",
-            "name": "Alexandre R. Baldé",
-            "username": "rockbmb"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "4d53dff25c8028eccd062cea40b24d654f89ccd6",
-          "message": "Fix test for remote externality's selective child key retrieval mechanism (#10866)\n\n# Description\n\nFollow-up to #10766, which was closed in favor of #10779.\nRework remote externality child key test; it was failing since the proxy\npallet has no child storages.\n\n## Integration\n\nN/A\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
-          "timestamp": "2026-02-05T19:52:27Z",
-          "tree_id": "29b800d80999ea7878d7fc3455a061a8effb703b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4d53dff25c8028eccd062cea40b24d654f89ccd6"
-        },
-        "date": 1770325562676,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.07399999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038448838634,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06561289717399993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.039885760978,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "rohit.sarpotdar@parity.io",
+            "name": "Rohit Sarpotdar",
+            "username": "rosarp"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "bfac5667dd3b0ed7127022f98d55e8e788a29202",
+          "message": "ci: compare bench weights against base repo master, not fork master (#12925)\n\n`/cmd bench` produces a meaningless Subweight table for pull requests\nopened from **forks**.\n\nThe Subweight step in `.github/workflows/cmd-run.yml` compares the\nregenerated weights against\n`refs/remotes/origin/master`. But the checkout step of that same job\npoints `origin` at the **PR head\nrepository**:\n\n```yaml\n- name: Checkout\n  uses: actions/checkout@...\n  with:\n    repository: ${{ env.REPO }}   # = pr.data.head.repo.full_name, i.e. the contributor's fork\n    ref: ${{ env.PR_BRANCH }}\n```\n\nSo `origin/master` resolves to the *fork's* master — whatever the\ncontributor last synced — rather than\nthe actual merge base. When that fork is behind, the \"Old\" column is\nread from a stale tree and the\nreport becomes noise:\n\n- weight files added upstream since the fork was synced are listed as\n`Added`, with no baseline at all;\n- weights that merely moved upstream appear as huge phantom regressions.\n\nReviewers are shown a diff that has nothing to do with what the PR\nactually did to weights.\n\nThis PR points the comparison at the repository the workflow itself runs\nin.\n\n## Integration\n\nNone. CI-only change — no crate is modified, nothing to integrate\ndownstream.\n\n## Review Notes\n\nThis issue was found on [paritytech/polkadot-bulletin-chain\n#753](https://github.com/paritytech/polkadot-bulletin-chain/pull/753).\nFor example in PR's bench bot's comment\n[#753](https://github.com/paritytech/polkadot-bulletin-chain/pull/753#issuecomment-5326042048)\n, it reported enormouse % change for this:\n\n```\npallets/transaction-storage/src/weights.rs \tauthorize_account \t1.00ns \t143.10us \t+14309600.00\n```\npallets/transaction-storage/src/weights.rs was never touched by this\nbench run — it's absent from the modified list. The bot invented a\n+14,309,600% regression for a file the run didn't write, purely from\ndiffing against the stale fork baseline.",
+          "timestamp": "2026-09-08T09:46:16Z",
+          "tree_id": "5d5921eb7ca5ae066342644b5cffe9c77bc08d8e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bfac5667dd3b0ed7127022f98d55e8e788a29202"
+        },
+        "date": 1788871918266,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.11800000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08114050356599987,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039536186189999996,
             "unit": "seconds"
           }
         ]
