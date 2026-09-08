@@ -129,5 +129,14 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Telling the parachain a para produced a head. Reads nothing.
+	#[benchmark]
+	fn on_new_para_head() {
+		#[block]
+		{
+			<Pallet<T> as registrar_primitives::OnNewParaHead>::on_new_para_head(PARA_ID);
+		}
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

@@ -561,3 +561,46 @@ mod reporting {
 		});
 	}
 }
+
+mod head_noted {
+	use super::*;
+	use registrar_primitives::OnNewParaHead;
+
+	#[test]
+	fn tells_the_parachain_about_a_new_head() {
+		new_test_ext().execute_with(|| {
+			Registrar::on_new_para_head(PARA_A);
+
+			assert_eq!(
+				take_sent(),
+				vec![MessageToPara::V1(MessageToParaV1::HeadNoted { para_id: PARA_A })]
+			);
+			assert_eq!(registrar_events(), vec![Event::HeadNoted { para_id: PARA_A }]);
+		});
+	}
+
+	#[test]
+	fn notifies_without_knowing_the_para() {
+		new_test_ext().execute_with(|| {
+			// Nothing pending and nothing registered here: the registry on this chain decides
+			// which paras are worth a notification, this pallet only carries it.
+			assert!(PendingRegistrations::<Test>::get(PARA_A).is_none());
+
+			Registrar::on_new_para_head(PARA_A);
+
+			assert_eq!(take_sent().len(), 1);
+		});
+	}
+
+	#[test]
+	fn a_bounced_notification_is_only_surfaced() {
+		new_test_ext().execute_with(|| {
+			SendFails::set(true);
+
+			Registrar::on_new_para_head(PARA_A);
+
+			assert!(take_sent().is_empty());
+			assert_eq!(registrar_events(), vec![Event::HeadNoteFailed { para_id: PARA_A }]);
+		});
+	}
+}
