@@ -623,7 +623,7 @@ mod test {
 	#[test]
 	fn check_eth_transact_call_works() {
 		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
-		let (expected_encoded_len, call, _, tx, weight_required, signed_transaction) =
+		let (expected_encoded_len, call, _, tx, weight_required, signed_transaction, _) =
 			builder.check().unwrap();
 		let expected_effective_gas_price =
 			ExtBuilder::default().build().execute_with(|| Pallet::<Test>::evm_base_fee());
@@ -662,7 +662,7 @@ mod test {
 			expected_code.clone(),
 			expected_data.clone(),
 		);
-		let (expected_encoded_len, call, _, tx, weight_required, signed_transaction) =
+		let (expected_encoded_len, call, _, tx, weight_required, signed_transaction, _) =
 			builder.check().unwrap();
 		let expected_effective_gas_price =
 			ExtBuilder::default().build().execute_with(|| Pallet::<Test>::evm_base_fee());
@@ -801,7 +801,7 @@ mod test {
 		let (code, _) = compile_module("dummy").unwrap();
 		// create some dummy data to increase the gas fee
 		let data = vec![42u8; crate::limits::CALLDATA_BYTES as usize];
-		let (_, _, extra, _tx, _gas_required, _) =
+		let (_, _, extra, _tx, _gas_required, _, _) =
 			UncheckedExtrinsicBuilder::instantiate_with(code.clone(), data.clone())
 				.mutate_estimate_and_check(Box::new(|tx| {
 					tx.gas_price = Some(tx.gas_price.unwrap() * 103 / 100);
@@ -878,6 +878,7 @@ mod test {
 			generic_transaction,
 			_gas_required,
 			_signed_transaction,
+			_checked_dispatch_weight,
 		) = eth_transact_result.expect("eth_transact failed");
 		assert!(
 			generic_transaction.chain_id.is_none(),
