@@ -24,4 +24,6 @@ doc:
 
 crates:
 - name: pallet-revive
-  bump: minor
+  bump: major
+- name: pallet-revive-uapi
+  bump: patch
