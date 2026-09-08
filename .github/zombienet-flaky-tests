@@ -1,7 +1,9 @@
 zombienet-polkadot-coretime-revenue:8944
 zombienet-polkadot-disputes-slashing:8946
 zombienet-polkadot-functional-spam-statement-distribution-requests:8947
+zombienet-polkadot-functional-spam-statement-distribution-requests-experimental-collator-protocol:8947
 zombienet-polkadot-functional-duplicate-collations:8950
+zombienet-polkadot-functional-duplicate-collations-experimental-collator-protocol:8950
 zombienet-substrate-0002-validators-warp-sync:8871
 zombienet-cumulus-0010-elastic_scaling_multiple_block_per_slot:8999
 zombienet-polkadot-functional-0014-chunk-fetching-network-compatibility:9980

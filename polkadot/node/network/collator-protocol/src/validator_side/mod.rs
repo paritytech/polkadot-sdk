@@ -156,8 +156,9 @@ use polkadot_node_network_protocol::{
 		outgoing::{Recipient, RequestError},
 		v1 as request_v1, v2 as request_v2, OutgoingRequest, Requests,
 	},
-	v1 as protocol_v1, v2 as protocol_v2, v3_collation as protocol_v3, CollationProtocols, OurView,
-	PeerId, UnifiedReputationChange as Rep, View,
+	v1 as protocol_v1, v2 as protocol_v2, v3_collation as protocol_v3,
+	v4_collation::{self as protocol_v4},
+	CollationProtocols, OurView, PeerId, UnifiedReputationChange as Rep, View,
 };
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
@@ -967,6 +968,10 @@ pub async fn notify_collation_seconded(
 				),
 			))
 		},
+		CollationVersion::V4 => {
+			// This is not supported for v4
+			return;
+		},
 	};
 	sender
 		.send_message(NetworkBridgeTxMessage::SendCollationMessage(vec![peer_id], wire_message))
@@ -1097,6 +1102,7 @@ async fn process_incoming_peer_message<Context>(
 		protocol_v1::CollatorProtocolMessage,
 		protocol_v2::CollatorProtocolMessage,
 		protocol_v3::CollatorProtocolMessage,
+		protocol_v4::AdvertiseSegment,
 	>,
 ) {
 	use protocol_v1::CollatorProtocolMessage as V1;
@@ -1291,9 +1297,21 @@ async fn process_incoming_peer_message<Context>(
 				}
 			}
 		},
+		// Nodes that run this validator side pin their main collation protocol version to V3
+		// (see `main_collation_version` in the service builder), so V4 is never negotiated
+		// here — hence a log, not a panic, on this config-level guarantee.
+		// `AdvertiseSegment` is the only V4 message, so this arm covers the whole
+		// version rather than one variant of it.
+		CollationProtocols::V4(_) => {
+			gum::error!(
+				target: LOG_TARGET,
+				peer_id = ?origin,
+				"Received a V4 segment advertisement on the non-experimental validator side",
+			);
+		},
 		CollationProtocols::V1(V1::CollationSeconded(..)) |
 		CollationProtocols::V2(V2::CollationSeconded(..)) |
-		CollationProtocols::V3(protocol_v3::CollatorProtocolMessage::CollationSeconded(..)) => {
+		CollationProtocols::V3(V3::CollationSeconded(..)) => {
 			gum::warn!(
 				target: LOG_TARGET,
 				peer_id = ?origin,
@@ -2323,10 +2341,10 @@ async fn process_msg<Context>(
 				"CollateOn message is not expected on the validator side of the protocol",
 			);
 		},
-		DistributeCollation { .. } => {
+		DistributeSegment { .. } => {
 			gum::warn!(
 				target: LOG_TARGET,
-				"DistributeCollation message is not expected on the validator side of the protocol",
+				"DistributeSegment message is not expected on the validator side of the protocol",
 			);
 		},
 		NetworkBridgeUpdate(event) => {
@@ -3219,9 +3237,9 @@ pub fn descriptor_version_sanity_check_with_params(
 	match descriptor.version() {
 		CandidateDescriptorVersion::V1 => Ok(()),
 		CandidateDescriptorVersion::V2 | CandidateDescriptorVersion::V3 => {
-			// V3 descriptors must only arrive via V3 protocol.
+			// V3 descriptors must only arrive via V3 or V4 protocol.
 			if descriptor.version() == CandidateDescriptorVersion::V3 &&
-				collator_protocol_version != CollationVersion::V3
+				!matches!(collator_protocol_version, CollationVersion::V3 | CollationVersion::V4)
 			{
 				return Err(SecondingError::InvalidReceiptVersion(CandidateDescriptorVersion::V3));
 			}
