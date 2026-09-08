@@ -276,17 +276,17 @@ where
 	// walk backwards towards the included block until we find one that does.
 	// This avoids falling all the way back to the included block when there are valid
 	// last-in-core ancestors closer to the chain tip.
-	while !filter_parent(&result.best_parent_header) {
-		let parent_hash = *result.best_parent_header.parent_hash();
+	while !filter_parent(result.best_parent_header()) {
+		let parent_hash = *result.best_parent_header().parent_hash();
 		match para_backend.blockchain().header(parent_hash) {
 			Ok(Some(header)) => {
-				result.best_parent_header = header;
-				if parent_hash == result.included_at_scheduling.hash() {
+				result.walk_best_parent_back(header);
+				if parent_hash == result.included_at_scheduling().hash() {
 					break;
 				}
 			},
 			_ => {
-				result.best_parent_header = result.included_at_scheduling.clone();
+				result.fall_back_to_included();
 				break;
 			},
 		}
