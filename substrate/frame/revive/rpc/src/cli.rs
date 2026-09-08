@@ -147,6 +147,10 @@ pub struct CliCommand {
 	#[clap(long, default_value_t = 30)]
 	pub backward_sync_max_blocks_per_sec: u32,
 
+	/// Max `state_call` requests per second issued to the node. Unset disables the limit.
+	#[clap(long)]
+	pub node_state_call_rate_limit: Option<std::num::NonZeroU32>,
+
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub shared_params: SharedParams,
@@ -268,10 +272,12 @@ fn build_client(
 	abort_signal: Signals,
 	subscription_gap_queue: SubscriptionGapQueue,
 	backward_sync_max_blocks_per_sec: u32,
+	node_state_call_rate_limit: Option<std::num::NonZeroU32>,
 ) -> anyhow::Result<Client> {
 	let fut = async {
 		let (api, rpc_client, rpc, spec_versions) =
-			connect(node_rpc_url, max_request_size, max_response_size).await?;
+			connect(node_rpc_url, max_request_size, max_response_size, node_state_call_rate_limit)
+				.await?;
 		let block_provider = SubxtBlockInfoProvider::new(api.clone(), rpc.clone()).await?;
 
 		let (pool, keep_latest_n_blocks) = match eth_pruning {
@@ -342,6 +348,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		shared_params,
 		allow_unprotected_txs,
 		backward_sync_max_blocks_per_sec,
+		node_state_call_rate_limit,
 		..
 	} = cmd;
 
@@ -403,6 +410,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		tokio_runtime.block_on(async { Signals::capture() })?,
 		subscription_gap_queue,
 		backward_sync_max_blocks_per_sec,
+		node_state_call_rate_limit,
 	)?;
 
 	// Prometheus metrics.

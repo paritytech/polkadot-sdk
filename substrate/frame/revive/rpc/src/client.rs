@@ -445,28 +445,88 @@ async fn get_automine(rpc_client: &RpcClient) -> bool {
 	}
 }
 
-/// Connect to a node at the given URL, and return the underlying API, RPC client, and legacy RPC
-/// clients.
-/// Wraps the node RPC transport and logs the duration of every `state_call`, labeled with the
-/// runtime function, the input size and the target block, so slow calls can be attributed to
-/// their origin. Full params are logged at `trace`.
-struct StateCallTimer<Inner>(Inner);
+/// Wraps the node RPC transport to rate-limit `state_call`s and log each one's runtime
+/// function, input size, target block and duration.
+struct StateCallGate<Inner> {
+	inner: Inner,
+	rate_limiter: Option<Arc<DefaultDirectRateLimiter>>,
+}
 
-impl<Inner: RpcClientT> RpcClientT for StateCallTimer<Inner> {
+/// Logs a `state_call` whose future was dropped before completing; the node still executes it.
+struct CallSpan {
+	context: Option<(String, String, String)>,
+	began: std::time::Instant,
+}
+
+impl CallSpan {
+	fn take(&mut self) -> Option<(String, String, String)> {
+		self.context.take()
+	}
+}
+
+impl Drop for CallSpan {
+	fn drop(&mut self) {
+		if let Some((function, input, at_block)) = &self.context {
+			log::warn!(target: LOG_TARGET_TIMING,
+				"state_call {function}({input}) at={at_block}: CANCELLED by caller after {:?} (request future dropped before completion; node-side execution may continue)",
+				self.began.elapsed());
+		}
+	}
+}
+
+impl<Inner: RpcClientT> RpcClientT for StateCallGate<Inner> {
 	fn request_raw<'a>(
 		&'a self,
 		method: &'a str,
 		params: Option<Box<RawValue>>,
 	) -> RawRpcFuture<'a, Box<RawValue>> {
-		if method != "state_call" ||
-			!log::log_enabled!(target: LOG_TARGET_TIMING, log::Level::Trace)
-		{
-			return self.0.request_raw(method, params);
+		if method != "state_call" {
+			return self.inner.request_raw(method, params);
 		}
+		let tracing = log::log_enabled!(target: LOG_TARGET_TIMING, log::Level::Trace);
+		if !tracing && self.rate_limiter.is_none() {
+			return self.inner.request_raw(method, params);
+		}
+		let log_context = tracing.then(|| Self::log_context(params.as_deref()));
 
+		Box::pin(async move {
+			let mut span = CallSpan { context: log_context, began: std::time::Instant::now() };
+			let queued = match &self.rate_limiter {
+				Some(limiter) => {
+					let waiting_since = std::time::Instant::now();
+					limiter.until_ready().await;
+					waiting_since.elapsed()
+				},
+				None => Duration::ZERO,
+			};
+			let started = std::time::Instant::now();
+			let result = self.inner.request_raw(method, params).await;
+			if let Some((function, input, at_block)) = span.take() {
+				log::trace!(target: LOG_TARGET_TIMING,
+					"state_call {function}({input}) at={at_block}: {:?} queued={queued:?} ok={}",
+					started.elapsed(),
+					result.is_ok());
+			}
+			result
+		})
+	}
+
+	fn subscribe_raw<'a>(
+		&'a self,
+		sub: &'a str,
+		params: Option<Box<RawValue>>,
+		unsub: &'a str,
+	) -> RawRpcFuture<'a, RawRpcSubscription> {
+		self.inner.subscribe_raw(sub, params, unsub)
+	}
+}
+
+impl<Inner> StateCallGate<Inner> {
+	/// Renders the function name, input summary and target block of a `state_call`, and logs the
+	/// capped raw params.
+	fn log_context(params: Option<&RawValue>) -> (String, String, String) {
 		// `state_call` params are `[function_name, scale_encoded_input, at_block_hash?]`.
 		let parsed: Vec<&RawValue> = params
-			.as_deref()
 			.and_then(|raw_params| serde_json::from_str(raw_params.get()).ok())
 			.unwrap_or_default();
 		let unquoted = |index: usize| parsed.get(index).map(|value| value.get().trim_matches('"'));
@@ -481,7 +541,7 @@ impl<Inner: RpcClientT> RpcClientT for StateCallTimer<Inner> {
 			})
 			.unwrap_or_default();
 		let at_block = unquoted(2).unwrap_or("best").to_string();
-		if let Some(raw_params) = params.as_deref() {
+		if let Some(raw_params) = params {
 			let raw_params = raw_params.get();
 			let capped = raw_params.get(..256).unwrap_or(raw_params);
 			let suffix = if raw_params.len() > 256 {
@@ -491,32 +551,17 @@ impl<Inner: RpcClientT> RpcClientT for StateCallTimer<Inner> {
 			};
 			log::trace!(target: LOG_TARGET_TIMING, "state_call {function} params: {capped}{suffix}");
 		}
-
-		Box::pin(async move {
-			let started = std::time::Instant::now();
-			let result = self.0.request_raw(method, params).await;
-			log::trace!(target: LOG_TARGET_TIMING,
-				"state_call {function}({input}) at={at_block}: {:?} ok={}",
-				started.elapsed(),
-				result.is_ok());
-			result
-		})
-	}
-
-	fn subscribe_raw<'a>(
-		&'a self,
-		sub: &'a str,
-		params: Option<Box<RawValue>>,
-		unsub: &'a str,
-	) -> RawRpcFuture<'a, RawRpcSubscription> {
-		self.0.subscribe_raw(sub, params, unsub)
+		(function, input, at_block)
 	}
 }
 
+/// Connect to a node at the given URL, and return the underlying API, RPC client, and legacy RPC
+/// clients.
 pub async fn connect(
 	node_rpc_url: &str,
 	max_request_size: u32,
 	max_response_size: u32,
+	state_call_rate_limit: Option<NonZeroU32>,
 ) -> Result<
 	(
 		OnlineClient<SrcChainConfig>,
@@ -533,7 +578,9 @@ pub async fn connect(
 		.max_response_size(max_response_size)
 		.build(node_rpc_url.to_string())
 		.await?;
-	let rpc_client = RpcClient::new(StateCallTimer(rpc_client));
+	let rate_limiter =
+		state_call_rate_limit.map(|rate| Arc::new(RateLimiter::direct(Quota::per_second(rate))));
+	let rpc_client = RpcClient::new(StateCallGate { inner: rpc_client, rate_limiter });
 	log::info!(target: LOG_TARGET, "🌟 Connected to node at: {node_rpc_url}");
 
 	// Pin the legacy backend explicitly. Since subxt 0.50, from_rpc_client defaults
