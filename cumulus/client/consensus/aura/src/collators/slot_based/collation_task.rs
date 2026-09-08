@@ -20,12 +20,18 @@ use std::path::PathBuf;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_relay_chain_interface::RelayChainInterface;
 
-use polkadot_node_primitives::{MaybeCompressedPoV, SegmentCollation, SubmitSegmentParams};
+use polkadot_node_primitives::{
+	MaybeCompressedPoV, SegmentCollation, SubmitSegmentParams, UpwardMessages,
+};
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CandidateDescriptorVersion, CollatorPair, Id as ParaId};
 
-use cumulus_primitives_core::relay_chain::BlockId;
+use codec::{Decode, Encode};
+use cumulus_primitives_core::{
+	relay_chain::{BlockId, UMPSignal, UMP_SEPARATOR},
+	ClaimQueueOffset, SchedulingProof, SignedSchedulingInfo,
+};
 use futures::prelude::*;
 
 use crate::export_pov_to_path;
@@ -35,7 +41,7 @@ use sp_runtime::{
 	BoundedVec,
 };
 
-use super::CollatorMessage;
+use super::{CollatorMessage, CollatorSegmentEntry, CollatorSegmentMessage};
 
 const LOG_TARGET: &str = "aura::cumulus::collation_task";
 
@@ -51,7 +57,7 @@ pub struct Params<Block: BlockT, RClient, CS> {
 	pub reinitialize: bool,
 	/// Collator service interface
 	pub collator_service: CS,
-	/// Receiver channel for communication with the block builder task.
+	/// Receiver channel for collation/segment messages from the block builder task.
 	pub collator_receiver: TracingUnboundedReceiver<CollatorMessage<Block>>,
 	/// When set, the collator will export every produced `POV` to this folder.
 	pub export_pov: Option<PathBuf>,
@@ -92,42 +98,192 @@ pub async fn run_collation_task<Block, RClient, CS>(
 	.await;
 
 	while let Some(message) = collator_receiver.next().await {
-		handle_collation_message(
-			message,
-			&collator_service,
-			&mut overseer_handle,
-			relay_client.clone(),
-			export_pov.clone(),
-		)
-		.await;
+		message
+			.handle(
+				&collator_service,
+				&mut overseer_handle,
+				relay_client.clone(),
+				export_pov.clone(),
+			)
+			.await;
 	}
 }
 
-/// Handle an incoming collation message from the block builder task.
-/// This builds the collation from the [`CollatorMessage`] and submits it to
-/// the collation-generation subsystem of the relay chain.
-async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + Clone + 'static>(
-	message: CollatorMessage<Block>,
+impl<Block: BlockT> CollatorMessage<Block> {
+	/// Build the collation(s) carried by this message and forward them to the collation-generation
+	/// subsystem via [`CollationGenerationMessage::SubmitSegment`]: a single collation becomes a
+	/// one-element V2 segment, a segment is submitted as V3.
+	async fn handle<RClient>(
+		self,
+		collator_service: &impl CollatorServiceInterface<Block>,
+		overseer_handle: &mut OverseerHandle,
+		relay_client: RClient,
+		export_pov: Option<PathBuf>,
+	) where
+		RClient: RelayChainInterface + Clone + 'static,
+	{
+		match self {
+			CollatorMessage::Collation { core_index, entry } => {
+				// Single collations are submitted as a one-element V2 segment: no scheduling
+				// proof, the scheduling parent is the collation's relay parent.
+				let Some(segment_collation) =
+					build_collation(entry, None, collator_service, &relay_client, export_pov).await
+				else {
+					return;
+				};
+				let scheduling_parent = segment_collation.relay_parent;
+
+				tracing::debug!(target: LOG_TARGET, ?core_index, ?scheduling_parent, "Submitting collation for core.");
+
+				overseer_handle
+					.send_msg(
+						CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
+							scheduling_parent,
+							core_index,
+							candidates_descriptor_version: CandidateDescriptorVersion::V2,
+							collations: BoundedVec::truncate_from(vec![segment_collation]),
+						}),
+						"SubmitSegment",
+					)
+					.await;
+			},
+			CollatorMessage::Segment(CollatorSegmentMessage {
+				scheduling_proof,
+				core_index,
+				resubmittable_headers,
+				bundle,
+			}) => {
+				// Segments are V3-only, so the scheduling parent is always derived from the proof.
+				let scheduling_parent = scheduling_proof.scheduling_parent();
+
+				// Hydrating `resubmittable_headers` into entries ahead of the bundle lands with
+				// the resubmission path; for now the bundle is the segment's only entry.
+				let mut collations = Vec::new();
+				if let Some(entry) = bundle {
+					if let Some(collation) = build_collation(
+						entry,
+						Some(scheduling_proof),
+						collator_service,
+						&relay_client,
+						export_pov,
+					)
+					.await
+					{
+						collations.push(collation);
+					}
+				}
+
+				if collations.is_empty() {
+					tracing::debug!(
+						target: LOG_TARGET,
+						?core_index,
+						"No collations built for segment; nothing submitted for core.",
+					);
+					return;
+				}
+
+				tracing::debug!(
+					target: LOG_TARGET,
+					?core_index,
+					segment_len = collations.len(),
+					resubmitted = resubmittable_headers.len(),
+					"Submitting segment for core.",
+				);
+
+				overseer_handle
+					.send_msg(
+						CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
+							scheduling_parent,
+							core_index,
+							candidates_descriptor_version: CandidateDescriptorVersion::V3,
+							collations: BoundedVec::truncate_from(collations),
+						}),
+						"SubmitSegment",
+					)
+					.await;
+			},
+		}
+	}
+}
+
+/// Mirror the PVF's `signed_scheduling_info` override on the collator side: strip the existing
+/// scheduling tail from `upward_messages` (everything from the first `UMP_SEPARATOR` onwards)
+/// and re-emit it from `signed_info.payload`. After this, collation-generation's
+/// `parse_ump_signals` reads the same `SelectCore`/`ApprovedPeer` the PVF would compute. The
+/// collation carrying the unrewritten tail must be dropped: its commitments would not match
+/// the PVF's output.
+#[derive(Debug, thiserror::Error)]
+enum UmpOverrideError {
+	#[error("failed to decode an `UMPSignal` in the scheduling tail: {0}")]
+	UndecodableSignal(#[from] codec::Error),
+
+	#[error("upward messages are full; cannot re-emit the scheduling tail")]
+	Overflow,
+}
+
+fn override_ump_scheduling_tail(
+	upward_messages: &mut UpwardMessages,
+	signed_info: &SignedSchedulingInfo,
+) -> Result<(), UmpOverrideError> {
+	// Strip everything from the first `UMP_SEPARATOR` onwards (the existing scheduling tail).
+	if let Some(pos) = upward_messages.iter().position(|m| m == &UMP_SEPARATOR) {
+		for bytes in upward_messages.iter().skip(pos + 1) {
+			// NOTE: intentionally exhaustive (no `_` arm), mirroring
+			// `SchedulingSignals::from_block_signals`: a new `UMPSignal` variant must fail to
+			// compile here, because the truncate below would silently drop it. A decode error
+			// means the block emitted a signal this node cannot understand (e.g. a newer
+			// runtime), which the caller handles by dropping the collation.
+			match UMPSignal::decode(&mut &bytes[..])? {
+				UMPSignal::SelectCore(..) | UMPSignal::ApprovedPeer(..) => {},
+			}
+		}
+		upward_messages.truncate(pos);
+	}
+
+	// Re-emit the tail using the signed info's selector/offset/peer.
+	upward_messages
+		.try_push(UMP_SEPARATOR)
+		.map_err(|_| UmpOverrideError::Overflow)?;
+	upward_messages
+		.try_push(
+			UMPSignal::SelectCore(
+				signed_info.payload.core_selector,
+				ClaimQueueOffset(signed_info.payload.claim_queue_offset),
+			)
+			.encode(),
+		)
+		.map_err(|_| UmpOverrideError::Overflow)?;
+	upward_messages
+		.try_push(UMPSignal::ApprovedPeer(signed_info.payload.peer_id.clone()).encode())
+		.map_err(|_| UmpOverrideError::Overflow)?;
+
+	Ok(())
+}
+
+/// Build one collation from an entry: build the PoV, export it if configured, and look up the
+/// session index. Returns `None` if the collation could not be built or the session lookup failed.
+async fn build_collation<Block: BlockT, RClient: RelayChainInterface + Clone + 'static>(
+	entry: CollatorSegmentEntry<Block>,
+	scheduling_proof: Option<SchedulingProof>,
 	collator_service: &impl CollatorServiceInterface<Block>,
-	overseer_handle: &mut OverseerHandle,
-	relay_client: RClient,
+	relay_client: &RClient,
 	export_pov: Option<PathBuf>,
-) {
-	let CollatorMessage {
-		scheduling_proof,
+) -> Option<SegmentCollation> {
+	let CollatorSegmentEntry {
+		relay_parent,
 		parent_header,
 		blocks,
 		proof,
 		validation_code_hash,
-		relay_parent,
-		core_index,
 		validation_data,
-	} = message;
+	} = entry;
 
-	// Derive scheduling_parent from the proof (the ISP header's hash is used when the
-	// header chain is empty — that's the case with `relay_parent_offset = 0`).
-	let scheduling_parent = scheduling_proof.as_ref().map(|p| p.scheduling_parent());
-	let (collation, block_data) = match collator_service.build_multi_block_collation(
+	// Capture the signed scheduling info before `build_multi_block_collation` consumes the proof;
+	// used to pre-apply the PVF's UMP-signal override below.
+	let scheduling_signals_override =
+		scheduling_proof.as_ref().and_then(|p| p.signed_scheduling_info.clone());
+
+	let (mut collation, block_data) = match collator_service.build_multi_block_collation(
 		&parent_header,
 		blocks,
 		proof,
@@ -135,10 +291,28 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 	) {
 		Some(collation) => collation,
 		None => {
-			tracing::warn!(target: LOG_TARGET, ?core_index, "Unable to build collation.");
-			return;
+			tracing::warn!(target: LOG_TARGET, ?relay_parent, "Unable to build collation.");
+			return None;
 		},
 	};
+
+	// Pre-apply the PVF's UMP-signal override locally. The PVF replaces the block's emitted
+	// `SelectCore`/`ApprovedPeer` signals wholesale with the ones in `signed_scheduling_info`
+	// (see `cumulus_pallet_parachain_system::validate_block::implementation`). Doing the same
+	// rewrite on `collation.upward_messages` here lets collation-generation's `parse_ump_signals`
+	// see the post-override signals, so the committed commitments match what the PVF produces.
+	if let Some(signed_info) = scheduling_signals_override.as_ref() {
+		if let Err(err) = override_ump_scheduling_tail(&mut collation.upward_messages, signed_info)
+		{
+			tracing::error!(
+				target: LOG_TARGET,
+				?err,
+				?relay_parent,
+				"Failed to override the UMP scheduling tail; dropping the collation.",
+			);
+			return None;
+		}
+	}
 
 	block_data.log_size_info();
 
@@ -149,7 +323,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 			{
 				if let Some(header) = block_data.blocks().first().map(|b| b.header()) {
 					export_pov_to_path::<Block>(
-						pov_path.clone(),
+						pov_path,
 						pov.clone(),
 						header.hash(),
 						*header.number(),
@@ -181,36 +355,15 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 				?relay_parent,
 				"Failed to fetch session index."
 			);
-			return;
+			return None;
 		},
 	};
 
-	tracing::debug!(
-		target: LOG_TARGET,
-		?core_index,
-		block_numbers = ?block_data.blocks().iter().map(|b| *b.header().number()).collect::<Vec<_>>(),
-		"Submitting collation for core.",
-	);
-	let (scheduling_parent, candidates_descriptor_version) = scheduling_parent
-		.map_or((relay_parent, CandidateDescriptorVersion::V2), |parent| {
-			(parent, CandidateDescriptorVersion::V3)
-		});
-	overseer_handle
-		.send_msg(
-			CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
-				scheduling_parent,
-				core_index,
-				candidates_descriptor_version,
-				collations: BoundedVec::try_from(vec![SegmentCollation {
-					relay_parent,
-					collation,
-					validation_code_hash,
-					session_index,
-					validation_data,
-				}])
-				.expect("One element segment should fit;qed!"),
-			}),
-			"SubmitSegment",
-		)
-		.await;
+	Some(SegmentCollation {
+		relay_parent,
+		collation,
+		validation_code_hash,
+		session_index,
+		validation_data,
+	})
 }
