@@ -27,7 +27,6 @@ sp-runtime = { workspace = true }
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
-strum = { features = ["derive"], workspace = true }
 
 [features]
 default = ["std"]
@@ -39,7 +38,6 @@ std = [
 	"log/std",
 	"scale-info/std",
 	"sp-runtime/std",
-	"strum/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

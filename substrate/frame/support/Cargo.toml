@@ -49,7 +49,6 @@ sp-std = { workspace = true }
 sp-tracing = { workspace = true }
 sp-trie = { workspace = true }
 sp-weights = { workspace = true }
-strum = { features = ["derive"], workspace = true }
 tt-call = { workspace = true }
 
 aquamarine = { workspace = true }
@@ -90,7 +89,6 @@ std = [
 	"sp-tracing/std",
 	"sp-trie/std",
 	"sp-weights/std",
-	"strum/std",
 ]
 runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",

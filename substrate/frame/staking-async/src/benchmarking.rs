@@ -137,14 +137,6 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 	HardCapSelfStake::<T>::put(BalanceOf::<T>::from(100_000u64));
 	SelfStakeSlopeFactor::<T>::put(Perbill::from_percent(50));
 
-	// Seed the epoch-start entry for the bonding window that contains `planned_era`, so the
-	// payout benchmark exercises the `add_to_vesting` path.
-	let bonding_duration = T::BondingDuration::get().max(1);
-	VestingEpochStartBlocks::<T>::insert(
-		planned_era / bonding_duration,
-		frame_system::Pallet::<T>::block_number(),
-	);
-
 	let incentive_payout = total_payout / 10u32.into(); // 10% of total as incentive budget
 	let incentive_pot =
 		crate::reward::EraRewardManager::<T>::create(planned_era, RewardKind::ValidatorSelfStake);
@@ -1531,15 +1523,10 @@ mod benchmarks {
 	// Benchmark pruning single-entry cleanups (seventh step)
 	#[benchmark(pov_mode = Measured)]
 	fn prune_era_single_entry_cleanups() -> Result<(), BenchmarkError> {
-		let bd = T::BondingDuration::get().max(1);
-		// Use an era that is the last in its bonding period.
-		let era = bd.saturating_sub(1);
-		let era_to_prune = T::HistoryDepth::get() + era + 1;
-		let caller: T::AccountId = whitelisted_caller();
-
-		crate::ActiveEra::<T>::put(crate::ActiveEraInfo { index: era_to_prune, start: Some(0) });
+		let era = setup_era_for_pruning::<T>(1);
 		EraPruningState::<T>::insert(era, PruningStep::SingleEntryCleanups);
-		VestingEpochStartBlocks::<T>::insert(era / bd, BlockNumberFor::<T>::zero());
+
+		let caller: T::AccountId = whitelisted_caller();
 
 		let result;
 		#[block]
@@ -1548,6 +1535,7 @@ mod benchmarks {
 		}
 
 		validate_pruning_weight::<T>(&result, "SingleEntryCleanups", 1);
+
 		Ok(())
 	}
 

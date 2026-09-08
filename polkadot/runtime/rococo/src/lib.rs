@@ -1776,7 +1776,6 @@ pub mod migrations {
         // permanent
         pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
         parachains_inclusion::migration::MigrateToV1<Runtime>,
-        pallet_vesting::migrations::v2::Migration<Runtime>,
     );
 }
 
