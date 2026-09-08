@@ -52,11 +52,6 @@ parameter_types! {
 	///   99th: 114_688
 	///   95th: 114_367
 	///   75th: 113_969
-	/// Signature-verification weight is now charged separately, per signature type, via
-	/// `sp_runtime::traits::SignatureWeight` (folded into `GetDispatchInfo::get_dispatch_info`).
-	/// The raw stats above still include it, so it is subtracted here to avoid double-charging;
-	/// this mirrors what `benchmark overhead --extrinsic-subtract-weight
-	/// --signature-weight 42814000` would produce. Confirm with a fresh reference-hardware run.
 	pub const ExtrinsicBaseWeight: Weight =
 		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(113_632), 0)
 			.saturating_sub(Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(42_814), 0));
