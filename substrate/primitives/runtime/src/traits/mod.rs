@@ -213,17 +213,16 @@ impl SignatureWeight for sp_core::sr25519::Signature {
 impl SignatureWeight for sp_core::ecdsa::Signature {
 	fn weight(&self) -> Weight {
 		// ECDSA verification additionally recovers the public key, so it is heavier.
-		// TODO: calibrate via a dedicated benchmark.
-		// Rough estimate; we may want to refine the result later.
-		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(78_000), 0)
+		// Calibrated from `pallet_revive::WeightInfo::ecdsa_recover` on reference hardware.
+		Weight::from_parts(47_694_000, 0)
 	}
 }
 
 impl SignatureWeight for sp_core::ecdsa::KeccakSignature {
 	fn weight(&self) -> Weight {
 		// Same ECDSA recovery cost as `ecdsa::Signature`, with a Keccak digest.
-		// TODO: calibrate via a dedicated benchmark.
-		Weight::from_parts(WEIGHT_REF_TIME_PER_NANOS.saturating_mul(78_000), 0)
+		// Calibrated from `pallet_revive::WeightInfo::ecdsa_recover` on reference hardware.
+		Weight::from_parts(47_694_000, 0)
 	}
 }
 
