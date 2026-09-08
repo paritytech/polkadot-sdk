@@ -208,7 +208,7 @@ struct TestState {
 	keystore: KeystorePtr,
 	node_features: NodeFeatures,
 	slot_overrides: HashMap<Hash, sp_consensus_slots::Slot>,
-	pp_known_output_heads: HashMap<ParaId, HashSet<Hash>>,
+	pp_known_output_heads: HashMap<Hash, HashMap<ParaId, HashSet<Hash>>>,
 	// Shared by the subsystem state and the mock header responder: a single, frozen time
 	// source so V3 scheduling-parent slot validation can't race a wall-clock slot boundary.
 	clock: Arc<MockClock>,
@@ -460,11 +460,22 @@ impl TestState {
 				},
 				AllMessages::ChainApi(ChainApiMessage::Ancestors { hash, k, response_channel }) => {
 					let rp_info = self.rp_info.get(&hash).unwrap();
+					let mut current = Some(hash);
 					let ancestors: Vec<Hash> = (1..=k as u32)
 						.map(|i| rp_info.number.saturating_sub(i))
 						.take_while(|n| *n > 0)
-						.filter_map(|n| {
-							self.rp_info.iter().find(|(_, info)| info.number == n).map(|(h, _)| *h)
+						.flat_map(|n| {
+							let via_parent = current
+								.and_then(|c| self.rp_info.get(&c))
+								.map(|info| info.parent)
+								.filter(|p| self.rp_info.get(&p).is_some_and(|pi| pi.number == n));
+							current = via_parent.or_else(|| {
+								self.rp_info
+									.iter()
+									.find(|(_, info)| info.number == n)
+									.map(|(h, _)| *h)
+							});
+							current
 						})
 						.collect();
 					response_channel.send(Ok(ancestors)).unwrap();
@@ -530,6 +541,13 @@ impl TestState {
 				.await
 				.unwrap()
 		});
+	}
+
+	fn pp_knows(&mut self, leaf: Hash, para_id: ParaId, known_output_heads: HashSet<Hash>) {
+		self.pp_known_output_heads
+			.entry(leaf)
+			.or_default()
+			.insert(para_id, known_output_heads.into());
 	}
 
 	async fn activate_leaves<B: Backend>(&mut self, state: &mut State<B>, leaves: Vec<Hash>) {
@@ -5399,9 +5417,7 @@ async fn v4_pp_known_entries_skipped_and_all_known_deleted() {
 	// PP knows A: the walk skips it and resolves B.
 	{
 		let mut test_state = TestState::default();
-		test_state
-			.pp_known_output_heads
-			.insert(100.into(), [fp_a.output_head_data_hash].into());
+		test_state.pp_knows(get_hash(11), 100.into(), [fp_a.output_head_data_hash].into());
 		let (mut state, _db, scheduling_parent) = v4_two_slot_fixture(&mut test_state).await;
 		let mut sender = test_state.sender.clone();
 
@@ -5435,9 +5451,11 @@ async fn v4_pp_known_entries_skipped_and_all_known_deleted() {
 	// PP knows both: all-blocked, consumed without a launch.
 	{
 		let mut test_state = TestState::default();
-		test_state
-			.pp_known_output_heads
-			.insert(100.into(), [fp_a.output_head_data_hash, fp_b.output_head_data_hash].into());
+		test_state.pp_knows(
+			get_hash(11),
+			100.into(),
+			[fp_a.output_head_data_hash, fp_b.output_head_data_hash].into(),
+		);
 		let (mut state, _db, scheduling_parent) = v4_two_slot_fixture(&mut test_state).await;
 		let mut sender = test_state.sender.clone();
 
@@ -5464,6 +5482,252 @@ async fn v4_pp_known_entries_skipped_and_all_known_deleted() {
 }
 
 #[tokio::test]
+// PP knows head 0xa1 under `dead_leaf` only. Segment [0xa1, 0xa2] at SP `live_leaf` resolves
+// 0xa1.
+async fn v4_pp_knowledge_under_sibling_leaf_does_not_block() {
+	let fp_a = v4_fingerprint(0xa1);
+	let fp_b = CandidateFingerprint {
+		output_head_data_hash: Hash::repeat_byte(0xa2),
+		parent_head_data_hash: fp_a.output_head_data_hash,
+		claim_queue_offset: 0,
+	};
+
+	let mut test_state = TestState::default();
+	test_state
+		.node_features
+		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+	test_state
+		.node_features
+		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+
+	let leaf_info = test_state.rp_info.get(&get_hash(10)).unwrap().clone();
+	let mut cq = leaf_info.claim_queue.clone();
+	cq.insert(leaf_info.assigned_core, vec![100.into(), 100.into(), 100.into()]);
+
+	let dead_leaf = get_hash(11);
+	let live_leaf = Hash::random();
+	for leaf in [dead_leaf, live_leaf] {
+		test_state.rp_info.insert(
+			leaf,
+			RelayParentInfo {
+				number: 11,
+				parent: get_hash(10),
+				session_index: leaf_info.session_index,
+				claim_queue: cq.clone(),
+				assigned_core: leaf_info.assigned_core,
+			},
+		);
+	}
+
+	// `live_leaf`'s slot is over, so it is valid as its own scheduling parent.
+	let slot_duration = sp_consensus_slots::SlotDuration::from_millis(
+		polkadot_primitives::RELAY_CHAIN_SLOT_DURATION_MILLIS,
+	);
+	let current_slot = sp_consensus_slots::Slot::from_timestamp(
+		sp_timestamp::Timestamp::new(test_state.clock.duration_since_epoch().as_millis() as u64),
+		slot_duration,
+	);
+	test_state
+		.slot_overrides
+		.insert(live_leaf, sp_consensus_slots::Slot::from(*current_slot - 1));
+
+	let mut state = make_state(MockDb::default(), &mut test_state, get_hash(10)).await;
+	let mut sender = test_state.sender.clone();
+	test_state.activate_leaves(&mut state, vec![dead_leaf, live_leaf]).await;
+
+	let peer_id = PeerId::random();
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+	state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+	// PP knows 0xa1 under `dead_leaf` only.
+	test_state.pp_knows(dead_leaf, 100.into(), [fp_a.output_head_data_hash].into());
+
+	test_state
+		.send_v4_segment(&mut state, peer_id, live_leaf, vec![fp_a.clone(), fp_b], 100.into())
+		.await;
+	state
+		.try_launch_new_fetch_requests(&mut sender, &test_state.pp_known_output_heads)
+		.await;
+	test_state
+		.assert_collation_request(Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			scheduling_parent: live_leaf,
+			prospective_candidate: Some(v4_entry(&fp_a)),
+			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+		})
+		.await;
+	test_state.assert_no_messages().await;
+}
+
+/// Advertise, fetch and second one V4 candidate at `scheduling_parent`. Returns its fingerprint.
+async fn v4_fetch_and_second(
+	test_state: &mut TestState,
+	state: &mut State<MockDb>,
+	peer_id: PeerId,
+	relay_parent: Hash,
+	scheduling_parent: Hash,
+	leaf_info: &RelayParentInfo,
+) -> CandidateFingerprint {
+	let mut sender = test_state.sender.clone();
+	let (ccr, _) = dummy_candidate_v3(
+		relay_parent,
+		scheduling_parent,
+		100.into(),
+		peer_id,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+	let fp = CandidateFingerprint {
+		output_head_data_hash: ccr.descriptor.para_head(),
+		parent_head_data_hash: dummy_pvd().parent_head.hash(),
+		claim_queue_offset: 0,
+	};
+	test_state
+		.send_v4_segment(state, peer_id, scheduling_parent, vec![fp.clone()], 100.into())
+		.await;
+	let adv = Advertisement {
+		peer_id,
+		para_id: 100.into(),
+		scheduling_parent,
+		prospective_candidate: Some(v4_entry(&fp)),
+		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+	};
+	state
+		.try_launch_new_fetch_requests(&mut sender, &test_state.pp_known_output_heads)
+		.await;
+	test_state.assert_collation_request(adv).await;
+	test_state
+		.handle_fetched_collation(state, adv, ccr.to_plain(), None, relay_parent)
+		.await;
+	test_state
+		.second_collation(state, peer_id, CollationVersion::V4, ccr, scheduling_parent)
+		.await;
+	fp
+}
+
+#[tokio::test]
+// Fork under block 10:
+//   a11
+//   b11 -> b12 -> b13p
+//              -> b13pp
+// fp_a: fetched and seconded at SP b11, PP-known at b13p and b13pp. 0xb1: PP-known at a11.
+// [fp_a, 0xb1, 0xb2] at SP b12 fetches 0xb1. [fp_a, 0xc2] at SP 10 fetches fp_a.
+async fn v4_nested_fork_knowledge_stays_on_its_branch() {
+	let mut test_state = TestState::default();
+	test_state
+		.node_features
+		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+	test_state
+		.node_features
+		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+
+	let leaf_info = test_state.rp_info.get(&get_hash(10)).unwrap().clone();
+	let mut cq = leaf_info.claim_queue.clone();
+	cq.insert(leaf_info.assigned_core, vec![100.into(), 100.into(), 100.into()]);
+
+	let a11 = Hash::from_low_u64_be(0xa11);
+	let b11 = Hash::from_low_u64_be(0xb11);
+	let b12 = Hash::from_low_u64_be(0xb12);
+	let b13p = Hash::from_low_u64_be(0xb131);
+	let b13pp = Hash::from_low_u64_be(0xb132);
+	for (hash, number, parent) in [
+		(a11, 11, get_hash(10)),
+		(b11, 11, get_hash(10)),
+		(b12, 12, b11),
+		(b13p, 13, b12),
+		(b13pp, 13, b12),
+	] {
+		test_state.rp_info.insert(
+			hash,
+			RelayParentInfo {
+				number,
+				parent,
+				session_index: leaf_info.session_index,
+				claim_queue: cq.clone(),
+				assigned_core: leaf_info.assigned_core,
+			},
+		);
+	}
+
+	let mut state = make_state(MockDb::default(), &mut test_state, get_hash(10)).await;
+	let mut sender = test_state.sender.clone();
+	let peer_id = PeerId::random();
+
+	test_state.activate_leaves(&mut state, vec![a11]).await;
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+	state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+	// Fetch and second fp_a at SP b11, the parent of leaf b12.
+	test_state.activate_leaves(&mut state, vec![a11, b12]).await;
+	let fp_a =
+		v4_fetch_and_second(&mut test_state, &mut state, peer_id, get_hash(10), b11, &leaf_info)
+			.await;
+
+	test_state.activate_leaves(&mut state, vec![a11, b13p, b13pp]).await;
+
+	let fp_p = v4_fingerprint(0xb1);
+	let fp_q = CandidateFingerprint {
+		output_head_data_hash: Hash::repeat_byte(0xb2),
+		parent_head_data_hash: fp_p.output_head_data_hash,
+		claim_queue_offset: 0,
+	};
+	let fp_r = CandidateFingerprint {
+		output_head_data_hash: Hash::repeat_byte(0xc2),
+		parent_head_data_hash: fp_a.output_head_data_hash,
+		claim_queue_offset: 0,
+	};
+	// PP: fp_a at b13p and b13pp (SP b11 is in both scopes), 0xb1 at a11 only.
+	test_state.pp_knows(a11, 100.into(), [fp_p.output_head_data_hash].into());
+	test_state.pp_knows(b13p, 100.into(), [fp_a.output_head_data_hash].into());
+	test_state.pp_knows(b13pp, 100.into(), [fp_a.output_head_data_hash].into());
+
+	// SP b12 is on both b paths: fp_a is known there, 0xb1 is not.
+	test_state
+		.send_v4_segment(
+			&mut state,
+			peer_id,
+			b12,
+			vec![fp_a.clone(), fp_p.clone(), fp_q],
+			100.into(),
+		)
+		.await;
+	state
+		.try_launch_new_fetch_requests(&mut sender, &test_state.pp_known_output_heads)
+		.await;
+	test_state
+		.assert_collation_request(Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			scheduling_parent: b12,
+			prospective_candidate: Some(v4_entry(&fp_p)),
+			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+		})
+		.await;
+	test_state.assert_no_messages().await;
+
+	// SP 10 is on a11's path only: fp_a (fetched at b11, PP-known at b13p and b13pp) does not
+	// block.
+	test_state
+		.send_v4_segment(&mut state, peer_id, get_hash(10), vec![fp_a.clone(), fp_r], 100.into())
+		.await;
+	state
+		.try_launch_new_fetch_requests(&mut sender, &test_state.pp_known_output_heads)
+		.await;
+	test_state
+		.assert_collation_request(Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			scheduling_parent: get_hash(10),
+			prospective_candidate: Some(v4_entry(&fp_a)),
+			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+		})
+		.await;
+	test_state.assert_no_messages().await;
+}
+
+#[tokio::test]
 // PP knowledge is read live at each planner pass: a head that becomes known AFTER
 // leaf activation, with no further view change, is skipped by the walk.
 async fn v4_pp_knowledge_arriving_between_passes_is_seen() {
@@ -5484,9 +5748,7 @@ async fn v4_pp_knowledge_arriving_between_passes_is_seen() {
 	state.handle_declare(&mut sender, peer_id, 100.into()).await;
 
 	// A becomes PP-known only now — after activation, before the pass.
-	test_state
-		.pp_known_output_heads
-		.insert(100.into(), [fp_a.output_head_data_hash].into());
+	test_state.pp_knows(get_hash(11), 100.into(), [fp_a.output_head_data_hash].into());
 
 	test_state
 		.send_v4_segment(
@@ -5579,9 +5841,7 @@ async fn v4_seconded_head_blocked_after_fetched_entry_expires(#[case] pp_reports
 	if pp_reports_a {
 		// As production PP would: A was introduced at seconding, so every
 		// subsequent refresh reports it.
-		test_state
-			.pp_known_output_heads
-			.insert(100.into(), [fp_a.output_head_data_hash].into());
+		test_state.pp_knows(get_hash(13), 100.into(), [fp_a.output_head_data_hash].into());
 	}
 
 	// Two more leaves: SP1 leaves the view and A's fetched entry dies with it.
@@ -5635,9 +5895,7 @@ async fn v4_mixed_version_double_fetch_converges() {
 
 	let mut test_state = TestState::default();
 	// A is already PP-known so the V4 segment resolves B on its first pick.
-	test_state
-		.pp_known_output_heads
-		.insert(100.into(), [fp_a.output_head_data_hash].into());
+	test_state.pp_knows(get_hash(11), 100.into(), [fp_a.output_head_data_hash].into());
 	let (mut state, _db, scheduling_parent) = v4_two_slot_fixture(&mut test_state).await;
 	let mut sender = test_state.sender.clone();
 	let leaf_info = test_state.rp_info.get(&get_hash(11)).unwrap().clone();

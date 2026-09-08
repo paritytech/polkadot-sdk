@@ -24,8 +24,8 @@
 //! at fetch time: entries are walked oldest-first and the first entry that is not
 //! blocked is launched. An entry is blocked when its output head is already fetched
 //! (para-wide, across in-view scheduling parents), in flight, or known to prospective
-//! parachains (whose answer unions candidate output heads with best-chain parent
-//! heads, so an entry that would cycle the chain is blocked too). Blockers are
+//! parachains (whose answer covers candidate output heads plus the para's latest included
+//! head, so an entry that would cycle the chain is blocked too). Blockers are
 //! classified: prospective-parachains knowledge is hard (durable); fetched and
 //! in-flight heads are soft (pending attempts that may still fail). A head that is
 //! both is hard.
@@ -41,8 +41,13 @@
 //! `live_segments`.
 //!
 //! Prospective-parachains knowledge is queried live before each planner pass
-//! (`GetKnownOutputHeads`) and passed in; staleness is bounded by PP's own
-//! statement-ingestion latency.
+//! (`GetKnownOutputHeads`, answered per active leaf) and passed in; staleness is bounded
+//! by PP's own statement-ingestion latency. Knowledge is per leaf: each (leaf, core) view
+//! is filled with PP's answer for that leaf plus our fetched and in-flight heads whose
+//! scheduling parent is on that leaf's path. A head known only under a sibling relay fork
+//! does not block. A segment at a scheduling parent shared by two live leaves that
+//! disagree is resolved by whichever view is filled first; the collator re-advertises next
+//! slot.
 
 use crate::{
 	extract_leaf_scheduling_info, is_scheduling_parent_valid,
@@ -512,7 +517,7 @@ impl CollationManager {
 		&mut self,
 		connected_rep_query_fn: RepQueryFn,
 		max_scores: HashMap<ParaId, Score>,
-		pp_known: &HashMap<ParaId, HashSet<Hash>>,
+		pp_known: &HashMap<Hash, HashMap<ParaId, HashSet<Hash>>>,
 		mut create_timer_fn: TimerFn,
 	) -> (Vec<Requests>, Option<Duration>) {
 		let now = self.clock.now();
@@ -520,9 +525,9 @@ impl CollationManager {
 		let mut maybe_min_delay = None;
 
 		// Soft-blocker cache for this pass: output heads of fetched and in-flight
-		// candidates, built lazily once per para and kept current within the pass
-		// by inserting every launched head below. Dropped at pass end.
-		let mut pending: HashMap<ParaId, HashSet<Hash>> = HashMap::new();
+		// candidates, built lazily once per (leaf, para) from that leaf's path and kept
+		// current within the pass by inserting every launched head below. Dropped at pass end.
+		let mut pending: HashMap<(Hash, ParaId), HashSet<Hash>> = HashMap::new();
 
 		// Build per-(leaf, core) capacity views once, with all current consumers already
 		// allocated. Each `LeafCoreCq` is a self-contained answer to "what's still free on
@@ -535,8 +540,10 @@ impl CollationManager {
 			let cq_len = leaf_core_cqs[lc_idx].cq.len();
 			for idx in (0..cq_len).rev() {
 				let Some(para_id) = leaf_core_cqs[lc_idx].cq[idx] else { continue };
-				let pending_heads =
-					pending.entry(para_id).or_insert_with(|| self.known_output_heads(para_id));
+				let leaf = leaf_core_cqs[lc_idx].leaf;
+				let pending_heads = pending.entry((leaf, para_id)).or_insert_with(|| {
+					self.known_output_heads(para_id, &leaf_core_cqs[lc_idx].path)
+				});
 
 				let candidate_sps = leaf_core_cqs[lc_idx].sps_reaching(idx);
 				let highest_rep_of_para = max_scores.get(&para_id).copied().unwrap_or_default();
@@ -546,7 +553,7 @@ impl CollationManager {
 					para_id,
 					candidate_sps,
 					pending_heads,
-					pp_known.get(&para_id),
+					pp_known.get(&leaf).and_then(|per_para| per_para.get(&para_id)),
 					highest_rep_of_para,
 					&connected_rep_query_fn,
 				);
@@ -581,7 +588,14 @@ impl CollationManager {
 				if let Some(oh) =
 					advertisement.prospective_candidate.and_then(|pc| pc.output_head_data_hash())
 				{
-					pending.get_mut(&para_id).expect("entry created before pick; qed").insert(oh);
+					for lc in leaf_core_cqs
+						.iter()
+						.filter(|lc| lc.path.contains(&advertisement.scheduling_parent))
+					{
+						if let Some(heads) = pending.get_mut(&(lc.leaf, para_id)) {
+							heads.insert(oh);
+						}
+					}
 				}
 
 				// Reserve on _all_ reachable leaf-core views. `reserve_slot` is a no-op for views
@@ -659,7 +673,7 @@ impl CollationManager {
 					}
 				}
 
-				out.push(LeafCoreCq { sps_by_depth, cq });
+				out.push(LeafCoreCq { sps_by_depth, cq, leaf, path: path.to_vec() });
 			}
 		}
 		out
@@ -905,20 +919,24 @@ impl CollationManager {
 		MAX_FETCH_DELAY
 	}
 
-	/// The known-set for `para_id`: output head already fetched
-	/// or in flight.
-	fn known_output_heads(&self, para_id: ParaId) -> HashSet<Hash> {
-		let fetched = self.per_scheduling_parent.values().flat_map(|per_scheduling_parent| {
-			per_scheduling_parent
-				.fetched_collations
-				.values()
-				.filter(|info| info.para_id == para_id)
-				.map(|info| info.output_head_hash)
-		});
+	/// The known-set for `para_id` on `path`: output heads already fetched or in flight at a
+	/// scheduling parent on `path`.
+	fn known_output_heads(&self, para_id: ParaId, path: &[Hash]) -> HashSet<Hash> {
+		let fetched =
+			self.per_scheduling_parent.iter().filter(|(sp, _)| path.contains(*sp)).flat_map(
+				|(_, per_scheduling_parent)| {
+					per_scheduling_parent
+						.fetched_collations
+						.values()
+						.filter(|info| info.para_id == para_id)
+						.map(|info| info.output_head_hash)
+				},
+			);
 		let in_flight = self
 			.fetching
 			.iter()
 			.filter(|advertisement| advertisement.para_id == para_id)
+			.filter(|adv| path.contains(&adv.scheduling_parent))
 			.filter_map(|advertisement| {
 				advertisement.prospective_candidate.and_then(|pc| pc.output_head_data_hash())
 			});
@@ -1499,6 +1517,8 @@ struct FetchedCollationInfo {
 struct LeafCoreCq {
 	sps_by_depth: Vec<Option<Hash>>,
 	cq: Vec<Option<ParaId>>,
+	leaf: Hash,
+	path: Vec<Hash>,
 }
 
 impl LeafCoreCq {
@@ -2631,13 +2651,10 @@ mod tests {
 		}
 	}
 
-	// The known-set projection is para-scoped and deliberately spans ALL in-view scheduling
-	// parents — launch eligibility is position-scoped, knowledge is not (a resubmission's
-	// earlier fetch lives at an older SP than any launch-eligible one). Fetched heads from
-	// any SP and in-flight ByOutputHead tickets both land; ByHash tickets contribute
-	// nothing (their output head is unknowable pre-fetch).
+	// Path [sp_1, sp_2] yields 0xd1 (fetched at sp_1) and 0xd3 (in flight at sp_2); path [sp_1]
+	// yields 0xd1 only. The other para's 0xd2 and the ByHash ticket never land.
 	#[test]
-	fn known_output_heads_projects_fetched_and_in_flight_across_sps() {
+	fn known_output_heads_projects_attempts_on_the_path_only() {
 		let sp_1 = Hash::repeat_byte(0x01);
 		let sp_2 = Hash::repeat_byte(0x02);
 		let para_id = ParaId::new(1);
@@ -2683,9 +2700,10 @@ mod tests {
 		);
 
 		assert_eq!(
-			manager.known_output_heads(para_id),
+			manager.known_output_heads(para_id, &[sp_1, sp_2]),
 			[Hash::repeat_byte(0xd1), Hash::repeat_byte(0xd3)].into()
 		);
+		assert_eq!(manager.known_output_heads(para_id, &[sp_1]), [Hash::repeat_byte(0xd1)].into());
 	}
 
 	#[test]
