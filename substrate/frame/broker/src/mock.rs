@@ -178,16 +178,6 @@ impl TestCoretimeProvider {
 
 parameter_types! {
 	pub const TestBrokerId: PalletId = PalletId(*b"TsBroker");
-	/// Every task the broker reported as having Coretime, in order and with repeats.
-	pub static AssignedTasks: Vec<TaskId> = Default::default();
-}
-
-/// Records what the hook is told, so tests can assert it fires.
-pub struct RecordAssignments;
-impl OnCoreAssigned for RecordAssignments {
-	fn on_core_assigned(task: TaskId) {
-		AssignedTasks::mutate(|tasks| tasks.push(task));
-	}
 }
 
 pub struct IntoZero;
@@ -219,7 +209,6 @@ impl crate::Config for Test {
 	type MaxLeasedCores = ConstU32<5>;
 	type MaxReservedCores = ConstU32<5>;
 	type Coretime = TestCoretimeProvider;
-	type OnCoreAssigned = RecordAssignments;
 	type ConvertBalance = Identity;
 	type WeightInfo = ();
 	type PalletId = TestBrokerId;
