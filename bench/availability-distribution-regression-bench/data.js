@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788819256908,
+  "lastUpdate": 1788871869403,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "14218860+iulianbarbu@users.noreply.github.com",
-            "name": "Iulian Barbu",
-            "username": "iulianbarbu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "9972470602d118fb07d968460b8a6dd5d4523141",
-          "message": "sync-templates: consider workspace lints (#11007)\n\n# Description\n\nTrying to sync temaplates with their dedicated repos. The job fails at\nsome point because the templates' crates (runtime/node) use:\n```toml\n[lints]\nworkspace = true\n```\nbut there is no lint directive in the worskpace's Cargo.toml.\n\nThis takes the workspace lints existing in polkadot-sdk workspace's\nCargo.toml and carries them to each template, in their workspace's\nCargo.toml.\n\n## Integration\n\nN/A\n\n## Review Notes\n\nError started here:\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/21747118215/job/62737549819.\nTesting the sync job based on this branch here:\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/21748717584 - it\nfails, it appears there are some env protection rules (reasonable as\nwell, we shouldn't be able to publish anything to the templates repo)\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
-          "timestamp": "2026-02-06T13:44:46Z",
-          "tree_id": "0e327db6e5f86c10ac9428fcc70c4cedbf5312ec",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9972470602d118fb07d968460b8a6dd5d4523141"
-        },
-        "date": 1770389585005,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010016303193333345,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.022972286853333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14556025679333331,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0071550309466666675,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.00767605712,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "rohit.sarpotdar@parity.io",
+            "name": "Rohit Sarpotdar",
+            "username": "rosarp"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "bfac5667dd3b0ed7127022f98d55e8e788a29202",
+          "message": "ci: compare bench weights against base repo master, not fork master (#12925)\n\n`/cmd bench` produces a meaningless Subweight table for pull requests\nopened from **forks**.\n\nThe Subweight step in `.github/workflows/cmd-run.yml` compares the\nregenerated weights against\n`refs/remotes/origin/master`. But the checkout step of that same job\npoints `origin` at the **PR head\nrepository**:\n\n```yaml\n- name: Checkout\n  uses: actions/checkout@...\n  with:\n    repository: ${{ env.REPO }}   # = pr.data.head.repo.full_name, i.e. the contributor's fork\n    ref: ${{ env.PR_BRANCH }}\n```\n\nSo `origin/master` resolves to the *fork's* master — whatever the\ncontributor last synced — rather than\nthe actual merge base. When that fork is behind, the \"Old\" column is\nread from a stale tree and the\nreport becomes noise:\n\n- weight files added upstream since the fork was synced are listed as\n`Added`, with no baseline at all;\n- weights that merely moved upstream appear as huge phantom regressions.\n\nReviewers are shown a diff that has nothing to do with what the PR\nactually did to weights.\n\nThis PR points the comparison at the repository the workflow itself runs\nin.\n\n## Integration\n\nNone. CI-only change — no crate is modified, nothing to integrate\ndownstream.\n\n## Review Notes\n\nThis issue was found on [paritytech/polkadot-bulletin-chain\n#753](https://github.com/paritytech/polkadot-bulletin-chain/pull/753).\nFor example in PR's bench bot's comment\n[#753](https://github.com/paritytech/polkadot-bulletin-chain/pull/753#issuecomment-5326042048)\n, it reported enormouse % change for this:\n\n```\npallets/transaction-storage/src/weights.rs \tauthorize_account \t1.00ns \t143.10us \t+14309600.00\n```\npallets/transaction-storage/src/weights.rs was never touched by this\nbench run — it's absent from the modified list. The bot invented a\n+14,309,600% regression for a file the run didn't write, purely from\ndiffing against the stale fork baseline.",
+          "timestamp": "2026-09-08T09:46:16Z",
+          "tree_id": "5d5921eb7ca5ae066342644b5cffe9c77bc08d8e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bfac5667dd3b0ed7127022f98d55e8e788a29202"
+        },
+        "date": 1788871832488,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007753659086666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14713648808000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009717534800000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02295513118,
             "unit": "seconds"
           }
         ]
