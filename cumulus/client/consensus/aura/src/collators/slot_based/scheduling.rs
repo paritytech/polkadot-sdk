@@ -183,6 +183,7 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		&mut self,
 		relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 		v3_enabled_on_para: bool,
+		production_slot: Slot,
 	) -> Option<(RelayHeader, bool)> {
 		let mut maybe_best_relay_header = self.maybe_best_relay_header.take();
 		let (best_relay_slot, best_relay_header_data) = loop {
@@ -202,8 +203,15 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 
 			let v3_enabled = Self::is_v3_enabled(v3_enabled_on_para, Some(&best_relay_header_data));
 			if v3_enabled {
-				// For scheduling v3 we don't need to loop since we need to return a
-				// scheduling parent associated with a finished slot.
+				// A finished-height best may have same-height siblings, picked by
+				// arrival order. Like V2, wait for a current-slot block: its parent
+				// names the canonical scheduling parent. This costs a little slot time
+				// (normally milliseconds) but avoids forks at the scheduling parent.
+				// `production_slot` is the only time source; a second clock read can
+				// disagree by +/-1 at a slot boundary and pick a parent one block off.
+				if best_relay_slot < production_slot {
+					continue;
+				}
 				break (best_relay_slot, best_relay_header_data);
 			}
 
@@ -218,9 +226,7 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		// v3: walk back to the first finished slot
 		let mut scheduling_parent_data = best_relay_header_data;
 		let mut scheduling_parent_slot = best_relay_slot;
-		while scheduling_parent_slot >=
-			get_current_relay_slot(Duration::ZERO, self.relay_slot_duration)
-		{
+		while scheduling_parent_slot >= production_slot {
 			// The scheduling parent should be part of the same session as the best
 			// relay block.
 			if sc_consensus_babe::contains_epoch_change::<RelayBlock>(
@@ -250,6 +256,9 @@ mod tests {
 	use std::collections::HashMap;
 
 	const RELAY_SLOT_DURATION: Duration = Duration::from_secs(6);
+	/// Production slot the V3 tests hand to `wait_for_scheduling_parent`. Deliberately far from
+	/// the wall clock: the V3 selection must depend on this value alone.
+	const PRODUCTION_SLOT: u64 = 1_000;
 
 	/// Simulate the wall clock at a specific point within a relay slot.
 	///
@@ -302,11 +311,15 @@ mod tests {
 		);
 	}
 
+	/// Five headers around `current_slot`: one very old, two from finished slots
+	/// (`current_slot - 2`, `current_slot - 1`) and two from future slots (`+ 10`, `+ 11`).
+	///
+	/// V3 tests pass [`PRODUCTION_SLOT`] and never read the wall clock. V2 tests must pass the
+	/// real current slot, since the V2 policy still gates on the wall clock.
 	fn build_mock_chain(
-		relay_slot_duration: Duration,
 		v3_enabled: bool,
+		current_slot: u64,
 	) -> (TestRelayClient, RelayChainDataCache<TestRelayClient>, Vec<RelayHeader>) {
-		let current_slot = *get_current_relay_slot(Duration::ZERO, relay_slot_duration);
 		let mut node_features = NodeFeatures::from_vec(vec![0; 5]);
 		if v3_enabled {
 			node_features.set(FeatureIndex::CandidateReceiptV3 as usize, true);
@@ -380,7 +393,9 @@ mod tests {
 		assert_eq!(scheduling_info.should_reinit(), false);
 
 		tx.close_channel();
-		scheduling_info.wait_for_scheduling_parent(&mut cache, false).await;
+		scheduling_info
+			.wait_for_scheduling_parent(&mut cache, false, Slot::from(PRODUCTION_SLOT))
+			.await;
 		assert_eq!(scheduling_info.should_reinit(), true);
 	}
 
@@ -393,8 +408,10 @@ mod tests {
 	async fn v2_wait_for_scheduling_parent_waits_when_stale() {
 		let relay_slot_duration = Duration::from_secs(6);
 		let slot_offset = Duration::from_secs(1);
+		// The V2 policy gates on the wall clock, so the chain must be built around the real slot.
+		let current_slot = *get_current_relay_slot(Duration::ZERO, relay_slot_duration);
 
-		let (mut client, mut cache, headers) = build_mock_chain(relay_slot_duration, false);
+		let (mut client, mut cache, headers) = build_mock_chain(false, current_slot);
 
 		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
 		client.set_best_hash(Some(headers[0].hash()));
@@ -404,7 +421,9 @@ mod tests {
 		scheduling_info.ensure_initialized(&client, &mut cache).await;
 
 		let mut handle = tokio::spawn(async move {
-			scheduling_info.wait_for_scheduling_parent(&mut cache, false).await
+			scheduling_info
+				.wait_for_scheduling_parent(&mut cache, false, Slot::from(current_slot))
+				.await
 		});
 
 		// The function should not return before receiving a notification — the best block (slot 0)
@@ -436,8 +455,10 @@ mod tests {
 	async fn v2_wait_for_scheduling_parent_returns_immediately_when_fresh() {
 		let relay_slot_duration = Duration::from_secs(6);
 		let slot_offset = Duration::from_secs(1);
+		// The V2 policy gates on the wall clock, so the chain must be built around the real slot.
+		let current_slot = *get_current_relay_slot(Duration::ZERO, relay_slot_duration);
 
-		let (mut client, mut cache, headers) = build_mock_chain(relay_slot_duration, false);
+		let (mut client, mut cache, headers) = build_mock_chain(false, current_slot);
 
 		// Create a notification stream that will never produce (no sender).
 		let (_tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
@@ -448,7 +469,7 @@ mod tests {
 		scheduling_info.ensure_initialized(&client, &mut cache).await;
 		let result = tokio::time::timeout(
 			Duration::from_millis(300),
-			scheduling_info.wait_for_scheduling_parent(&mut cache, false),
+			scheduling_info.wait_for_scheduling_parent(&mut cache, false, Slot::from(current_slot)),
 		)
 		.await
 		.expect("Should return immediately, not timeout");
@@ -456,12 +477,94 @@ mod tests {
 		assert_eq!(result, Some((headers[4].clone(), false)));
 	}
 
+	/// A finished-height best may be one of several same-height siblings. When a
+	/// current-slot block arrives during the wait, its parent hash names the canonical
+	/// sibling — the scheduling parent must follow it, not the first-seen one.
+	#[tokio::test]
+	async fn v3_finished_height_sp_follows_current_slot_endorsement() {
+		let (mut client, mut cache, headers) = build_mock_chain(true, PRODUCTION_SLOT);
+		let sibling_a = headers[2].clone();
+		// Same height, same parent, different hash: the locally-first but losing twin.
+		let mut sibling_b = sibling_a.clone();
+		sibling_b.state_root = [1u8; 32].into();
+		let resolver = tests::relay_header_with_slot(
+			*sibling_a.number() + 1,
+			sibling_b.hash(),
+			PRODUCTION_SLOT,
+		);
+		let node_features = {
+			let mut nf = NodeFeatures::from_vec(vec![0; 5]);
+			nf.set(FeatureIndex::CandidateReceiptV3 as usize, true);
+			nf
+		};
+		cache.set_test_data(sibling_b.clone(), vec![], node_features.clone());
+		cache.set_test_data(resolver.clone(), vec![], node_features);
+
+		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+		client.set_best_hash(None);
+		client.set_best_notifications(Box::pin(rx));
+		let mut scheduling_info = SchedulingInfo::new(RELAY_SLOT_DURATION, Duration::ZERO);
+		scheduling_info.ensure_initialized(&client, &mut cache).await;
+
+		let mut handle = tokio::spawn(async move {
+			scheduling_info
+				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
+				.await
+		});
+		// Locally-best finished-height block arrives first.
+		tx.unbounded_send(sibling_a.clone()).unwrap();
+		// The claim must hold for a current-slot block rather than settle on `sibling_a`.
+		assert!(
+			tokio::time::timeout(Duration::from_millis(100), &mut handle).await.is_err(),
+			"must wait for a current-slot block before settling"
+		);
+		tx.unbounded_send(resolver).unwrap();
+		let result = tokio::time::timeout(Duration::from_secs(2), handle)
+			.await
+			.expect("must complete")
+			.expect("must not panic");
+		assert_eq!(result, Some((sibling_b, true)));
+	}
+
+	/// A finished-slot best alone must not settle the claim: like the V2 path, the
+	/// V3 selection waits for a block of the current production slot, however long
+	/// that takes.
+	#[tokio::test]
+	async fn v3_waits_for_current_slot_block_when_best_is_finished() {
+		let (mut client, mut cache, headers) = build_mock_chain(true, PRODUCTION_SLOT);
+		let finished_best = headers[2].clone();
+		let resolver = headers[3].clone(); // future-slot child of headers[2]
+
+		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+		client.set_best_hash(None);
+		client.set_best_notifications(Box::pin(rx));
+		let mut scheduling_info = SchedulingInfo::new(RELAY_SLOT_DURATION, Duration::ZERO);
+		scheduling_info.ensure_initialized(&client, &mut cache).await;
+
+		let mut handle = tokio::spawn(async move {
+			scheduling_info
+				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
+				.await
+		});
+		tx.unbounded_send(finished_best.clone()).unwrap();
+		assert!(
+			tokio::time::timeout(Duration::from_millis(500), &mut handle).await.is_err(),
+			"must keep waiting on a finished-slot best"
+		);
+		tx.unbounded_send(resolver).unwrap();
+		let result = tokio::time::timeout(Duration::from_secs(2), handle)
+			.await
+			.expect("must complete once a current-slot block arrives")
+			.expect("must not panic");
+		assert_eq!(result, Some((finished_best, true)));
+	}
+
 	#[tokio::test]
 	async fn v3_wait_for_scheduling_parent_returns_finished_slot() {
 		let relay_slot_duration = Duration::from_secs(6);
 		let slot_offset = Duration::from_secs(1);
 
-		let (mut client, mut cache, headers) = build_mock_chain(relay_slot_duration, true);
+		let (mut client, mut cache, headers) = build_mock_chain(true, PRODUCTION_SLOT);
 
 		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
 		client.set_best_hash(None);
@@ -471,7 +574,9 @@ mod tests {
 		scheduling_info.ensure_initialized(&client, &mut cache).await;
 
 		let mut handle = tokio::spawn(async move {
-			scheduling_info.wait_for_scheduling_parent(&mut cache, true).await
+			scheduling_info
+				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
+				.await
 		});
 
 		// The function should not return before receiving a notification.
@@ -480,9 +585,11 @@ mod tests {
 			"Should be waiting for fresh relay block, not returning immediately"
 		);
 
-		// Simulate: relay block from finished slot arrives.
+		// Simulate: a finished-slot block arrives, followed by a current-slot child —
+		// the V3 selection settles only on the latter, deriving the former from it.
 		tx.unbounded_send(headers[2].clone()).unwrap();
-		let result = tokio::time::timeout(Duration::from_millis(300), handle)
+		tx.unbounded_send(headers[3].clone()).unwrap();
+		let result = tokio::time::timeout(Duration::from_secs(2), handle)
 			.await
 			.expect("Task should complete within timeout")
 			.expect("Task should not panic");
@@ -494,7 +601,7 @@ mod tests {
 		let relay_slot_duration = Duration::from_secs(6);
 		let slot_offset = Duration::from_secs(1);
 
-		let (mut client, mut cache, headers) = build_mock_chain(relay_slot_duration, true);
+		let (mut client, mut cache, headers) = build_mock_chain(true, PRODUCTION_SLOT);
 
 		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
 		client.set_best_hash(None);
@@ -504,7 +611,9 @@ mod tests {
 		scheduling_info.ensure_initialized(&client, &mut cache).await;
 
 		let mut handle = tokio::spawn(async move {
-			scheduling_info.wait_for_scheduling_parent(&mut cache, true).await
+			scheduling_info
+				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
+				.await
 		});
 
 		// The function should not return before receiving a notification.
@@ -527,7 +636,7 @@ mod tests {
 		let relay_slot_duration = Duration::from_secs(6);
 		let slot_offset = Duration::from_secs(1);
 
-		let (mut client, mut cache, mut headers) = build_mock_chain(relay_slot_duration, true);
+		let (mut client, mut cache, mut headers) = build_mock_chain(true, PRODUCTION_SLOT);
 
 		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
 		client.set_best_hash(None);
@@ -539,7 +648,9 @@ mod tests {
 		// Simulate: receiving relay block with header 3 (fresh slot).
 		tx.unbounded_send(headers[3].clone()).unwrap();
 		let result = tokio::time::timeout(Duration::from_millis(300), async {
-			scheduling_info.wait_for_scheduling_parent(&mut cache, true).await
+			scheduling_info
+				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
+				.await
 		})
 		.await
 		.expect("Task should complete within timeout");
@@ -556,7 +667,9 @@ mod tests {
 		// Simulate: receiving the modified header 3 block.
 		tx.unbounded_send(headers[3].clone()).unwrap();
 		let result = tokio::time::timeout(Duration::from_millis(300), async {
-			scheduling_info.wait_for_scheduling_parent(&mut cache, true).await
+			scheduling_info
+				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
+				.await
 		})
 		.await
 		.expect("Task should complete within timeout");
@@ -566,11 +679,111 @@ mod tests {
 		// Simulate: an even fresher block.
 		tx.unbounded_send(headers[4].clone()).unwrap();
 		let result = tokio::time::timeout(Duration::from_millis(300), async {
-			scheduling_info.wait_for_scheduling_parent(&mut cache, true).await
+			scheduling_info
+				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
+				.await
 		})
 		.await
 		.expect("Task should complete within timeout");
 		assert_eq!(result, None);
 		assert_eq!(scheduling_info.maybe_best_relay_header.as_ref(), Some(&headers[4]));
+	}
+
+	/// Consecutive V3 headers (numbers 50, 51, ...) at exactly the given slots, parent-linked, the
+	/// last one being the best block.
+	fn build_v3_chain_with_slots(
+		slots: &[u64],
+	) -> (TestRelayClient, RelayChainDataCache<TestRelayClient>, Vec<RelayHeader>) {
+		let mut node_features = NodeFeatures::from_vec(vec![0; 5]);
+		node_features.set(FeatureIndex::CandidateReceiptV3 as usize, true);
+
+		let mut headers: Vec<RelayHeader> = vec![];
+		for (i, slot) in slots.iter().enumerate() {
+			let parent_hash = headers.last().map(|h| h.hash()).unwrap_or_default();
+			headers.push(tests::relay_header_with_slot(50 + i as u32, parent_hash, *slot));
+		}
+
+		let headers_map = headers.iter().map(|h| (h.hash(), h.clone())).collect();
+		let client = TestRelayClient::new_with_best(headers_map, headers.last().unwrap().hash());
+		let mut cache = RelayChainDataCache::new(client.clone(), 1.into());
+		for header in &headers {
+			cache.set_test_data(header.clone(), vec![], node_features.clone());
+		}
+
+		(client, cache, headers)
+	}
+
+	/// Regression for the stale scheduling parent: the V3 selection must depend only on the
+	/// production slot handed over by the slot timer, never on a second wall-clock read. With the
+	/// best block from the slot right before the production slot, that block is the scheduling
+	/// parent, whatever the wall clock says.
+	#[tokio::test]
+	async fn v3_uses_previous_slot_block_without_consulting_clock() {
+		let (mut client, mut cache, headers) =
+			build_v3_chain_with_slots(&[PRODUCTION_SLOT - 2, PRODUCTION_SLOT - 1]);
+		// A current-slot child of the previous slot's block: the walk derives the
+		// scheduling parent from it, so the wall clock never has to be consulted.
+		let resolver = tests::relay_header_with_slot(52, headers[1].hash(), PRODUCTION_SLOT);
+		let node_features = {
+			let mut nf = NodeFeatures::from_vec(vec![0; 5]);
+			nf.set(FeatureIndex::CandidateReceiptV3 as usize, true);
+			nf
+		};
+		cache.set_test_data(resolver.clone(), vec![], node_features);
+
+		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+		client.set_best_hash(None);
+		client.set_best_notifications(Box::pin(rx));
+
+		let mut scheduling_info = SchedulingInfo::new(RELAY_SLOT_DURATION, Duration::from_secs(1));
+		scheduling_info.ensure_initialized(&client, &mut cache).await;
+
+		// Best block: the previous slot's block, i.e. a finished slot relative to the production
+		// slot. Finished-slot blocks alone no longer settle the claim; the current-slot
+		// descendant does.
+		tx.unbounded_send(headers[1].clone()).unwrap();
+		tx.unbounded_send(resolver).unwrap();
+		let result = tokio::time::timeout(
+			Duration::from_secs(2),
+			scheduling_info.wait_for_scheduling_parent(
+				&mut cache,
+				true,
+				Slot::from(PRODUCTION_SLOT),
+			),
+		)
+		.await
+		.expect("Should settle once a current-slot block arrives, not hang");
+
+		assert_eq!(result, Some((headers[1].clone(), true)));
+	}
+
+	/// The best block is from the production slot itself, so it has not had a full slot to
+	/// propagate: walk back exactly one block, to the previous slot's block.
+	#[tokio::test]
+	async fn v3_walks_back_exactly_one_when_best_is_in_production_slot() {
+		let (mut client, mut cache, headers) =
+			build_v3_chain_with_slots(&[PRODUCTION_SLOT - 2, PRODUCTION_SLOT - 1, PRODUCTION_SLOT]);
+
+		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+		client.set_best_hash(None);
+		client.set_best_notifications(Box::pin(rx));
+
+		let mut scheduling_info = SchedulingInfo::new(RELAY_SLOT_DURATION, Duration::from_secs(1));
+		scheduling_info.ensure_initialized(&client, &mut cache).await;
+
+		// Best block: the production slot's own block.
+		tx.unbounded_send(headers[2].clone()).unwrap();
+		let result = tokio::time::timeout(
+			Duration::from_millis(300),
+			scheduling_info.wait_for_scheduling_parent(
+				&mut cache,
+				true,
+				Slot::from(PRODUCTION_SLOT),
+			),
+		)
+		.await
+		.expect("Should return immediately, not timeout");
+
+		assert_eq!(result, Some((headers[1].clone(), true)));
 	}
 }
