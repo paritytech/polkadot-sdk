@@ -92,7 +92,9 @@ static ENGINE: LazyLock<Engine> = LazyLock::new(|| {
 	// Deliberately not `Config::from_env()`: the engine configuration affects execution
 	// semantics and must not be changeable through the environment.
 	let mut config = Config::new();
-	config.set_default_cost_model(Some(CostModelKind::Full(CacheModel::L2Hit)));
+	// L1Hit is more realistic for contract workloads. Will be replaced by a more dynamic
+	// model in the future where a contract can define its memory working set.
+	config.set_default_cost_model(Some(CostModelKind::Full(CacheModel::L1Hit)));
 	// Hardcode the generic sandbox, which executes guest code inline in-process: no worker
 	// processes to spawn, warm or nest namespaces for, so the host process model (in particular
 	// the PVF's fork-per-job execute path and its CPU-time timeout) stays untouched. This trades
