@@ -690,15 +690,23 @@ mod add_lock {
 	}
 }
 
-mod note_core_assigned {
+mod head_noted {
 	use super::*;
 
+	/// Tell the pallet, as the relay chain, that `para_id` produced a head.
+	fn note_head(para_id: u32) {
+		assert_ok!(Registrar::receive(
+			RuntimeOrigin::root(),
+			MessageToPara::V1(MessageToParaV1::HeadNoted { para_id }),
+		));
+	}
+
 	#[test]
-	fn locks_a_registered_para_with_no_origin() {
+	fn locks_a_registered_para() {
 		new_test_ext().execute_with(|| {
 			let para_id = registered_para(ALICE);
 
-			Registrar::note_core_assigned(para_id);
+			note_head(para_id);
 
 			assert!(Paras::<Test>::get(para_id).unwrap().is_locked());
 			assert_eq!(registrar_events(), vec![Event::ParaLocked { para_id }]);
@@ -706,13 +714,30 @@ mod note_core_assigned {
 	}
 
 	#[test]
+	fn only_the_relay_chain_may_note_a_head() {
+		new_test_ext().execute_with(|| {
+			let para_id = registered_para(ALICE);
+
+			assert_noop!(
+				Registrar::receive(
+					RuntimeOrigin::signed(ALICE),
+					MessageToPara::V1(MessageToParaV1::HeadNoted { para_id }),
+				),
+				sp_runtime::DispatchError::BadOrigin,
+			);
+
+			assert!(!Paras::<Test>::get(para_id).unwrap().is_locked());
+		});
+	}
+
+	#[test]
 	fn ignores_what_it_cannot_lock() {
 		new_test_ext().execute_with(|| {
-			Registrar::note_core_assigned(4242);
+			note_head(4242);
 
-			// Reserved, so there is nothing scheduled for it to be using a core with.
+			// Reserved here, so as far as this chain knows it was never onboarded.
 			let reserved = reserve_for(ALICE);
-			Registrar::note_core_assigned(reserved);
+			note_head(reserved);
 
 			assert!(!Paras::<Test>::get(reserved).unwrap().is_locked());
 			assert!(registrar_events().is_empty());
@@ -720,12 +745,12 @@ mod note_core_assigned {
 	}
 
 	#[test]
-	fn a_second_assignment_changes_nothing() {
+	fn a_second_head_changes_nothing() {
 		new_test_ext().execute_with(|| {
 			let para_id = locked_para(ALICE);
 			let _ = registrar_events();
 
-			Registrar::note_core_assigned(para_id);
+			note_head(para_id);
 
 			assert!(Paras::<Test>::get(para_id).unwrap().is_locked());
 			assert!(registrar_events().is_empty());
@@ -739,7 +764,7 @@ mod note_core_assigned {
 			assert_ok!(Registrar::remove_lock(RuntimeOrigin::root(), para_id));
 			let _ = registrar_events();
 
-			Registrar::note_core_assigned(para_id);
+			note_head(para_id);
 
 			assert!(!Paras::<Test>::get(para_id).unwrap().is_locked());
 			assert!(registrar_events().is_empty());

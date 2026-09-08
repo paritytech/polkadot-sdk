@@ -9,13 +9,28 @@ doc:
       `pallet-registrar-para` gains `add_lock`, which shuts the manager out of a registered para,
       and `remove_lock`, for root or the para itself only.
 
+      A para is also locked the first time it produces a head: `paras_registrar::on_new_head` calls
+      the new `registrar_primitives::OnNewParaHead`, which `pallet-registrar-relay` implements by
+      sending `MessageToParaV1::HeadNoted`. Set `type OnNewParaHead = ()` on relay chains with no
+      registrar parachain.
+
       `pallet-registrar-relay::authorize_code` and `cancel_authorization` are merged into a single
       `receive` at call index 0, so the transport no longer picks a call index per message variant.
       The `UnexpectedMessage` error is gone and weights split into `receive_register` and
       `receive_cancel_registration`.
 
 crates:
+  - name: registrar-primitives
+    bump: major
   - name: pallet-registrar-para
     bump: major
   - name: pallet-registrar-relay
     bump: major
+  - name: polkadot-runtime-common
+    bump: major
+  - name: rococo-runtime
+    bump: patch
+  - name: westend-runtime
+    bump: patch
+  - name: pallet-staking-async-rc-runtime
+    bump: patch

@@ -40,6 +40,11 @@
 //! and confirms, and the parachain releases the deposit. So the relay chain runs no per-block
 //! sweep, and whoever wants the deposit back pays for the round trip. No deposit is taken here.
 //!
+//! ## Locking
+//!
+//! The relay chain also tells the parachain when a para produces a head, so the chain holding
+//! the manager relationship can lock the para. See [`OnNewParaHead`].
+//!
 //! ## Runtime requirement
 //!
 //! `apply_authorized_code` authorizes itself through [`frame_support::pallet_macros::authorize`],
@@ -51,10 +56,10 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::traits::Get;
+use frame_support::{traits::Get, weights::Weight};
 use registrar_primitives::{
-	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
-	ParaId, ParachainRegistrar,
+	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, OnNewParaHead,
+	Outcome, ParaId, ParachainRegistrar,
 };
 use scale_info::TypeInfo;
 use sp_core::H256;
@@ -183,6 +188,10 @@ pub mod pallet {
 		CancellationRefused { para_id: ParaId, message_id: u64 },
 		/// A report could not be sent back to the parachain.
 		ReportFailed { para_id: ParaId, message_id: u64 },
+		/// The parachain was told that a para produced its first head.
+		HeadNoted { para_id: ParaId },
+		/// A para's first head could not be reported to the parachain.
+		HeadNoteFailed { para_id: ParaId },
 	}
 
 	#[pallet::error]
@@ -429,5 +438,24 @@ pub mod pallet {
 				Self::deposit_event(Event::ReportFailed { para_id, message_id });
 			}
 		}
+	}
+}
+
+/// Tells the parachain when a para produces a head, so it can lock the para.
+///
+/// A send failure is only logged and evented: the caller is a hook that cannot fail.
+impl<T: Config> OnNewParaHead for Pallet<T> {
+	fn on_new_para_head(para_id: ParaId) -> Weight {
+		if T::SendToPara::send(MessageToPara::V1(MessageToParaV1::HeadNoted { para_id })).is_err() {
+			log::error!(
+				target: "runtime::registrar-relay",
+				"failed to tell the parachain about a new head for para {para_id}",
+			);
+			Self::deposit_event(Event::HeadNoteFailed { para_id });
+		} else {
+			Self::deposit_event(Event::HeadNoted { para_id });
+		}
+
+		T::WeightInfo::on_new_para_head()
 	}
 }

@@ -45,6 +45,7 @@ use crate::traits::{OnSwap, Registrar};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 pub use pallet::*;
 use polkadot_runtime_parachains::paras::{OnNewHead, ParaKind};
+use registrar_primitives::OnNewParaHead;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{CheckedSub, Saturating, Zero},
@@ -160,6 +161,11 @@ pub mod pallet {
 		/// The deposit to be paid per byte stored on chain.
 		#[pallet::constant]
 		type DataDepositPerByte: Get<BalanceOf<Self>>;
+
+		/// Notified when a registered para produces a head.
+		///
+		/// Lets the chain that holds the manager relationship lock the para. `()` if there is none.
+		type OnNewParaHead: registrar_primitives::OnNewParaHead;
 
 		/// Weight Information for the Extrinsics in the Pallet
 		type WeightInfo: WeightInfo;
@@ -764,16 +770,16 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> OnNewHead for Pallet<T> {
 	fn on_new_head(id: ParaId, _head: &HeadData) -> Weight {
+		let mut weight = T::OnNewParaHead::on_new_para_head(id.into());
 		// mark the parachain locked if the locked value is not already set
-		let mut writes = 0;
 		if let Some(mut info) = Paras::<T>::get(id) {
 			if info.locked.is_none() {
 				info.locked = Some(true);
 				Paras::<T>::insert(id, info);
-				writes += 1;
+				weight = weight.saturating_add(T::DbWeight::get().writes(1));
 			}
 		}
-		T::DbWeight::get().reads_writes(1, writes)
+		weight
 	}
 }
 
