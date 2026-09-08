@@ -144,7 +144,7 @@ pub enum MessageToParaV1 {
 	/// Note that `para_id` has produced a head on the relay chain.
 	///
 	/// Correlates with no request, so it carries no `message_id` and is not answered.
-	#[codec(index = 6)]
+	#[codec(index = 7)]
 	HeadNoted {
 		/// The para id that produced a head.
 		para_id: ParaId,
