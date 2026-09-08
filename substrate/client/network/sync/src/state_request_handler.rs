@@ -195,20 +195,18 @@ where
 		let mut reputation_changes = Vec::new();
 
 		match self.seen_requests.get(&key) {
-			Some(value) => {
-				if let SeenRequestsValue::Fulfilled { since, .. } = value {
-					if since.elapsed() > SAME_REQUEST_WINDOW {
-						*value = SeenRequestsValue::First;
-					}
-				}
+			Some(SeenRequestsValue::First) => {},
+			Some(SeenRequestsValue::Fulfilled { requests, since })
+				if since.elapsed() <= SAME_REQUEST_WINDOW =>
+			{
+				*requests = requests.saturating_add(1);
 
-				if let SeenRequestsValue::Fulfilled { requests, .. } = value {
-					*requests = requests.saturating_add(1);
-
-					if *requests > MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER {
-						reputation_changes.push(rep::SAME_REQUEST);
-					}
+				if *requests > MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER {
+					reputation_changes.push(rep::SAME_REQUEST);
 				}
+			},
+			Some(value @ SeenRequestsValue::Fulfilled { .. }) => {
+				*value = SeenRequestsValue::First;
 			},
 			None => {
 				self.seen_requests.insert(key.clone(), SeenRequestsValue::First);
