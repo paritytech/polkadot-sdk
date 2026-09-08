@@ -337,7 +337,8 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type Freezer = AssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_local::WeightInfo<Runtime>;
-	type CallbackHandle = pallet_assets::AutoIncAssetId<Runtime, TrustBackedAssetsInstance>;
+	type CallbackHandle = ();
+	type AssetIdAllocator = pallet_assets::AutoIncAssetId<Runtime, TrustBackedAssetsInstance>;
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type RemoveItemsLimit = ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -392,6 +393,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_pool::WeightInfo<Runtime>;
 	type CallbackHandle = ();
+	type AssetIdAllocator = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -612,7 +614,7 @@ impl pallet_assets_precompiles::ForeignAssetsConfig for Runtime {
 
 impl pallet_assets_precompiles::PermitConfig for Runtime {
 	type ChainId = <Runtime as pallet_revive::Config>::ChainId;
-	type WeightInfo = pallet_assets_precompiles::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::pallet_assets_precompiles::WeightInfo<Runtime>;
 }
 
 /// Precompile address identifiers (embedded at bytes [16..18] of the H160 address).
@@ -654,6 +656,7 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_foreign::WeightInfo<Runtime>;
 	type CallbackHandle = (ForeignAssetId<Runtime, ForeignAssetsInstance>,);
+	type AssetIdAllocator = ();
 	type AssetAccountDeposit = ForeignAssetsAssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1415,7 +1418,7 @@ impl pallet_revive::Config for Runtime {
 }
 
 impl pallet_vesting_precompiles::pallet::Config for Runtime {
-	type WeightInfo = pallet_vesting_precompiles::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::pallet_vesting_precompiles::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1437,7 +1440,7 @@ impl pallet_migrations::Config for Runtime {
 		pallet_assets_precompiles::MigrateForeignAssetPrecompileMappings<
 			Runtime,
 			ForeignAssetsInstance,
-			pallet_assets_precompiles::weights::SubstrateWeight<Runtime>,
+			weights::pallet_assets_precompiles::WeightInfo<Runtime>,
 		>,
 		pallet_revive::migrations::v3::Migration<Runtime>,
 	);

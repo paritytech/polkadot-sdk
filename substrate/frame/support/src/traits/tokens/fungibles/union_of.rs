@@ -137,6 +137,12 @@ impl<
 			Right(a) => <Right as fungibles::Inspect<AccountId>>::asset_exists(a),
 		}
 	}
+	fn is_sufficient(asset: Self::AssetId) -> bool {
+		match Criterion::convert(asset) {
+			Left(a) => <Left as fungibles::Inspect<AccountId>>::is_sufficient(a),
+			Right(a) => <Right as fungibles::Inspect<AccountId>>::is_sufficient(a),
+		}
+	}
 }
 
 impl<
