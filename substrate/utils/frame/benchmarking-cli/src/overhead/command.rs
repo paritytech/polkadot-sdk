@@ -181,7 +181,9 @@ pub struct OverheadParams {
 	///
 	/// Used with `--extrinsic-subtract-weight` only when producing the output constant, not when
 	/// reporting benchmark statistics. Proof size is assumed to be zero (signature verification
-	/// does not touch storage).
+	/// does not touch storage). Defaults to the `sr25519` [`SignatureWeight`](sp_runtime::traits::SignatureWeight)
+	/// value, matching the signing scheme used by the default remark extrinsic builders
+	/// ([`SubstrateRemarkBuilder`], [`crate::overhead::remark_builder::DynamicRemarkBuilder`]).
 	#[arg(long)]
 	pub signature_weight: Option<u64>,
 
@@ -191,6 +193,16 @@ pub struct OverheadParams {
 	/// reporting benchmark statistics. Proof size is assumed to be zero.
 	#[arg(long)]
 	pub extension_weight: Option<u64>,
+}
+
+/// The default `--signature-weight`: the `ref_time` of an `sr25519` signature check, matching
+/// the signing scheme used by the default remark extrinsic builders ([`SubstrateRemarkBuilder`]
+/// and `DynamicRemarkBuilder`). Without this default, plain `benchmark overhead` (which is what
+/// operators are told to run) would subtract zero and silently produce the old, un-subtracted
+/// weight despite `--extrinsic-subtract-weight` defaulting to enabled.
+fn default_signature_weight() -> u64 {
+	use sp_runtime::traits::SignatureWeight;
+	sp_core::sr25519::Signature::from_raw([0u8; 64]).weight().ref_time()
 }
 
 /// How the genesis state for benchmarking should be built.
@@ -666,7 +678,10 @@ impl OverheadCmd {
 			let (stats, proof_size) = bench.bench_extrinsic(ext_builder)?;
 
 			let subtract_weights = self.params.extrinsic_subtract_weight.then_some((
-				Weight::from_parts(self.params.signature_weight.unwrap_or_default(), 0),
+				Weight::from_parts(
+					self.params.signature_weight.unwrap_or_else(default_signature_weight),
+					0,
+				),
 				Weight::from_parts(self.params.extension_weight.unwrap_or_default(), 0),
 			));
 
