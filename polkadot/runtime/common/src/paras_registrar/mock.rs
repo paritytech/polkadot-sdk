@@ -156,10 +156,12 @@ impl Config for Test {
 	type OnSwap = MockSwap;
 	type ParaDeposit = ParaDeposit;
 	type DataDepositPerByte = DataDepositPerByte;
+	type OnNewParaHead = MockOnNewParaHead;
 	type WeightInfo = TestWeightInfo;
 }
 
 pub fn new_test_ext() -> TestExternalities {
+	NotedHeads::set(Vec::new());
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	configuration::GenesisConfig::<Test> {
@@ -184,6 +186,19 @@ pub fn new_test_ext() -> TestExternalities {
 
 parameter_types! {
 	pub static SwapData: BTreeMap<ParaId, u64> = BTreeMap::new();
+}
+
+parameter_types! {
+	/// Every para id [`MockOnNewParaHead`] was told about, so a test can count notifications.
+	pub static NotedHeads: Vec<registrar_primitives::ParaId> = Vec::new();
+}
+
+pub struct MockOnNewParaHead;
+impl registrar_primitives::OnNewParaHead for MockOnNewParaHead {
+	fn on_new_para_head(para_id: registrar_primitives::ParaId) -> Weight {
+		NotedHeads::mutate(|heads| heads.push(para_id));
+		Weight::from_parts(1, 2)
+	}
 }
 
 pub struct MockSwap;

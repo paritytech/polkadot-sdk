@@ -52,8 +52,9 @@
 //! [`Pallet::add_lock`] shuts the manager out of a registered para, leaving it to the para's own
 //! governance. Only root or the para itself can lift it again with [`Pallet::remove_lock`].
 //!
-//! [`Pallet::note_core_assigned`] locks a para the first time the pallet is told it has a core.
-//! Who does the telling is the runtime's business, not this pallet's.
+//! A para is also locked the first time the relay chain reports that it produced a head, which
+//! arrives as [`MessageToParaV1::HeadNoted`]. A lock lifted with [`Pallet::remove_lock`] outranks
+//! that, so it is never re-applied.
 //!
 //! Deposits only ever live on this chain; the relay chain takes nothing.
 
@@ -370,6 +371,9 @@ pub mod pallet {
 					message_id,
 					outcome,
 				}) => Self::on_cancel_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::HeadNoted { para_id }) => {
+					Self::on_head_noted(para_id)
+				},
 			}
 		}
 
@@ -554,22 +558,6 @@ impl<T: Config> Pallet<T> {
 		Footprint::from_parts(1, head_len.saturating_add(code_len) as usize)
 	}
 
-	/// Note that `para_id` has been assigned a core, whoever says so.
-	///
-	/// The first assignment locks the para; a lock lifted with [`Pallet::remove_lock`] outranks
-	/// every later one, so an on-demand para is not relocked in each gap between its cores.
-	pub fn note_core_assigned(para_id: ParaId) {
-		let Some(mut info) = Paras::<T>::get(para_id) else { return };
-		if info.locked.is_some() || !matches!(info.state, RegistrationState::Registered { .. }) {
-			return;
-		}
-
-		info.locked = Some(true);
-		Paras::<T>::insert(para_id, info);
-
-		Self::deposit_event(Event::ParaLocked { para_id });
-	}
-
 	/// Ensure `origin` may manage `para_id`: the para itself, its manager while unlocked, or root.
 	fn ensure_root_para_or_manager(
 		origin: frame_system::pallet_prelude::OriginFor<T>,
@@ -646,6 +634,24 @@ impl<T: Config> Pallet<T> {
 				});
 			},
 		}
+
+		Ok(())
+	}
+
+	/// Lock a para the relay chain has seen produce a head.
+	fn on_head_noted(para_id: ParaId) -> DispatchResult {
+		let Some(mut info) = Paras::<T>::get(para_id) else {
+			defensive!("head noted for unknown para, dropping", para_id);
+			return Ok(());
+		};
+		if info.locked.is_some() || !matches!(info.state, RegistrationState::Registered { .. }) {
+			return Ok(());
+		}
+
+		info.locked = Some(true);
+		Paras::<T>::insert(para_id, info);
+
+		Self::deposit_event(Event::ParaLocked { para_id });
 
 		Ok(())
 	}

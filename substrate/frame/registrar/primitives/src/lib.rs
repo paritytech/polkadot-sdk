@@ -36,6 +36,7 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::H256;
+use sp_runtime::Weight;
 
 /// A parachain id.
 ///
@@ -140,6 +141,14 @@ pub enum MessageToParaV1 {
 		/// Whether the authorization was dropped.
 		outcome: Outcome,
 	},
+	/// Note that `para_id` has produced a head on the relay chain.
+	///
+	/// Correlates with no request, so it carries no `message_id` and is not answered.
+	#[codec(index = 6)]
+	HeadNoted {
+		/// The para id that produced a head.
+		para_id: ParaId,
+	},
 }
 
 /// How a request ended.
@@ -197,4 +206,18 @@ pub trait ParachainRegistrar {
 		genesis_head: Vec<u8>,
 		validation_code: Vec<u8>,
 	) -> sp_runtime::DispatchResult;
+}
+
+/// Told when a registered para produces a head on the relay chain.
+///
+/// The mirror of [`ParachainRegistrar`], for the chain that holds the manager relationship.
+pub trait OnNewParaHead {
+	/// Note a new head for `para_id`, returning the weight used.
+	fn on_new_para_head(para_id: ParaId) -> Weight;
+}
+
+impl OnNewParaHead for () {
+	fn on_new_para_head(_para_id: ParaId) -> Weight {
+		Weight::zero()
+	}
 }
