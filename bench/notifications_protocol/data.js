@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788882501754,
+  "lastUpdate": 1788895390715,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -217919,6 +217919,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2342994957,
             "range": "± 23413111",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2124c778df3a31dd3638684608951fa2ded15280",
+          "message": "statement-store: land the gated v2 DHT-affinity path (#12319)\n\n## Description\n\nLands the statement-store DHT-affinity work: a v2 gossip path that\nroutes statements to interested peers by topic affinity instead of\nflooding. Part of #11932, development continues on `master`. Off by\ndefault: dead code unless `STATEMENT_STORE_V2_DHT_ENABLED=1` is set.\nWith the gate off, node behavior is unchanged.\n\n## Integration\n\nNo action for node operators. Downstream API changes:\n\n- `sc_statement_store::Config` gains `affinity_topics`,\n`replication_factor`, `gossip_target`; no longer `Copy`.\n- `StatementHandlerPrototype::build()` takes the new config values and a\n`RetentionHandle`.\n- `sc_network::Event` gains `PeerRoutingTableUpdate` and\n`PeerIdentified` variants.\n\n## Review Notes\n\nNew code (`sc-network-statement/src/v2dht/`) is gated and inert. Review\neffort belongs on changes to existing files:\n\n- `sc-network` emits the two new `Event` variants to all subscribers\n(litep2p backend only).\n- Store `submit()` consults a retention resolver, installed only under\nthe gate; without it every submission persists as before.\n- Every v2 call site in `sc-network-statement/src/lib.rs` sits behind\n`v2dht_enabled()`.\n\nGate invariants are documented in\n`substrate/client/network/statement/CLAUDE.md`.\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nSigned-off-by: Tomasz Bartos <tomasz.bartos@iohk.io>\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>\nCo-authored-by: dharjeezy <dharjeezy@gmail.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Michal Kucharczyk <1728078+michalkucharczyk@users.noreply.github.com>\nCo-authored-by: Nasihudeen Jimoh <nasihudeen04@gmail.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>\nCo-authored-by: eskimor <jfanatiker@gmx.at>\nCo-authored-by: Davide Galassi <davxy@datawok.net>\nCo-authored-by: drskalman <35698397+drskalman@users.noreply.github.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: Egor_P <egor@parity.io>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>\nCo-authored-by: Ludovic Domingues <ludovic.domingues96@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>\nCo-authored-by: Klapeyron <11329616+Klapeyron@users.noreply.github.com>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Tsvetomir Dimitrov <tsvetomir@parity.io>\nCo-authored-by: Ross Bulat <ross@jkrb.io>\nCo-authored-by: Milos Kriz <82968568+miloskriz@users.noreply.github.com>\nCo-authored-by: eskimor <robert@gonimo.com>\nCo-authored-by: eskimor <eskimor@noreply.com>\nCo-authored-by: Marios <marios@parity.io>\nCo-authored-by: Alin Dima <alin@parity.io>\nCo-authored-by: Rodrigo Quelhas <22591718+RomarQ@users.noreply.github.com>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>\nCo-authored-by: DenzelPenzel <15388928+DenzelPenzel@users.noreply.github.com>\nCo-authored-by: eskimor <1527017+eskimor@users.noreply.github.com>\nCo-authored-by: Andrei <54316454+sandreim@users.noreply.github.com>\nCo-authored-by: Javier Viola <javier@parity.io>\nCo-authored-by: Luka Ciric <luka.ciric2106@gmail.com>\nCo-authored-by: Ankan <ankan.anurag@gmail.com>\nCo-authored-by: Dmitry Markin <dmitry@markin.tech>\nCo-authored-by: Lukasz Rubaszewski <117115317+lrubasze@users.noreply.github.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: Omar <OmarAbdulla7@hotmail.com>\nCo-authored-by: Kirill <pisarevkir@gmail.com>\nCo-authored-by: 0xRVE <robertvaneerdewijk@gmail.com>\nCo-authored-by: Alexandru Vasile <60601340+lexnv@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: gab <79002163+gab8i@users.noreply.github.com>\nCo-authored-by: s0me0ne-unkn0wn <48632512+s0me0ne-unkn0wn@users.noreply.github.com>\nCo-authored-by: ron <yrong1997@gmail.com>\nCo-authored-by: Marian Radu <marian@parity.io>\nCo-authored-by: Nathaniel Bajo <73991674+Nathy-bajo@users.noreply.github.com>\nCo-authored-by: mertwole <mertwole@gmail.com>\nCo-authored-by: Andrei Trandafir <142614787+andreitrand@users.noreply.github.com>\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>\nCo-authored-by: jessechejieh <dev@jessechejieh.com>",
+          "timestamp": "2026-09-08T18:04:55Z",
+          "tree_id": "2b01f7856cfda446934dfac093330ffcc1298059",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2124c778df3a31dd3638684608951fa2ded15280"
+        },
+        "date": 1788895351686,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4552395,
+            "range": "± 41254",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 296722,
+            "range": "± 3673",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4486220,
+            "range": "± 50524",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 372686,
+            "range": "± 3604",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5587721,
+            "range": "± 52855",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 917415,
+            "range": "± 11249",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11272559,
+            "range": "± 63165",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5021614,
+            "range": "± 56893",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 45913803,
+            "range": "± 533042",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 40632585,
+            "range": "± 617080",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 404819468,
+            "range": "± 5091963",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 317598591,
+            "range": "± 3211602",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2736462355,
+            "range": "± 11084374",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2464490212,
+            "range": "± 20706720",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3561577,
+            "range": "± 27385",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1895006,
+            "range": "± 10942",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3684487,
+            "range": "± 32388",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1970026,
+            "range": "± 15674",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4139927,
+            "range": "± 18001",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2298908,
+            "range": "± 8848",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8284499,
+            "range": "± 121267",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5551737,
+            "range": "± 33597",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 40610577,
+            "range": "± 592691",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 38698022,
+            "range": "± 522912",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 326155465,
+            "range": "± 2266304",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 284365915,
+            "range": "± 2924703",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2655312313,
+            "range": "± 40607043",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2321901442,
+            "range": "± 75731657",
             "unit": "ns/iter"
           }
         ]
