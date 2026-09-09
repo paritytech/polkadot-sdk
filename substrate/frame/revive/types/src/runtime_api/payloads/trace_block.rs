@@ -31,6 +31,12 @@ pub struct TraceBlockInputPayloadV1<Block> {
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct TraceBlockInputPayloadV2<Block> {
 	pub block: Block,
+	pub config: TracerTypeV1,
+}
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+pub struct TraceBlockInputPayloadV3<Block> {
+	pub block: Block,
 	pub config: TracerTypeV2,
 }
 
@@ -43,9 +49,13 @@ pub enum TraceBlockVersionedInputPayload<Block> {
 	/// When this version is provided, the function behaves identically to and returns the same
 	/// output as the unversioned `trace_block` runtime API function.
 	V1(TraceBlockInputPayloadV1<Block>),
-	/// This version takes `TracerTypeV2`, whose execution tracer adds `step_offset`: paired with
-	/// `limit` it captures one window of an execution's steps at a time.
+	/// This version accepts the same arguments as `V1` and selects `TraceV2` rather than `TraceV1`
+	/// for the returned trace data.
 	V2(TraceBlockInputPayloadV2<Block>),
+	/// This version takes `TracerTypeV2`, whose execution tracer adds `step_offset`: paired with
+	/// `limit` it captures one window of an execution's steps at a time. The window applies to each
+	/// transaction in the block independently, as `limit` already does.
+	V3(TraceBlockInputPayloadV3<Block>),
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
@@ -55,6 +65,11 @@ pub struct TraceBlockOutputPayloadV1 {
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct TraceBlockOutputPayloadV2 {
+	pub entries: Vec<(u32, TraceEntryV1)>,
+}
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+pub struct TraceBlockOutputPayloadV3 {
 	pub entries: Vec<(u32, TraceEntryV1)>,
 }
 
@@ -76,4 +91,7 @@ pub enum TraceBlockVersionedOutputPayload {
 	/// frame. `CallTraceV2` also removes `child_call_count`, which was only used to calculate
 	/// `position`. Prestate and execution traces are unchanged.
 	V2(TraceBlockOutputPayloadV2),
+	/// Unchanged from `V2`: `entries` remains `Vec<(u32, TraceEntryV1)>`. It exists so that a `V3`
+	/// input returns a `V3` output.
+	V3(TraceBlockOutputPayloadV3),
 }

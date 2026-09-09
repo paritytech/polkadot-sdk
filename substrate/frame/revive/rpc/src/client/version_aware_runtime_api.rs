@@ -503,7 +503,7 @@ impl VersionAwareRuntimeApi {
 					let input = TraceTxInputPayloadV2 {
 						block: block.into(),
 						tx_index: transaction_index,
-						config: tracer_type.into(),
+						config: tracer_type,
 					};
 					let payload = subxt_client::runtime_apis()
 						.revive_api()
@@ -569,10 +569,8 @@ impl VersionAwareRuntimeApi {
 			},
 			Available(Versioned(2..)) => {
 				let future = Box::pin(async move {
-					let input = TraceBlockInputPayloadV2 {
-						block: block.into(),
-						config: tracer_type.into(),
-					};
+					let input =
+						TraceBlockInputPayloadV2 { block: block.into(), config: tracer_type };
 					let payload = subxt_client::runtime_apis()
 						.revive_api()
 						.trace_block_versioned(TraceBlockVersionedInputPayload::from(input).into());

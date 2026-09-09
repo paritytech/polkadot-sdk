@@ -31,6 +31,13 @@ pub struct TraceCallInputPayloadV1 {
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct TraceCallInputPayloadV2 {
 	pub tx: GenericTransactionV1,
+	pub config: TracerTypeV1,
+	pub state_overrides: Option<StateOverrideSetV1>,
+}
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+pub struct TraceCallInputPayloadV3 {
+	pub tx: GenericTransactionV1,
 	pub config: TracerTypeV2,
 	pub state_overrides: Option<StateOverrideSetV1>,
 }
@@ -46,9 +53,12 @@ pub enum TraceCallVersionedInputPayload {
 	/// `trace_call`, while passing the `state_overrides` field from `TracingConfigV1` preserves the
 	/// behavior and output of `trace_call_with_config`.
 	V1(TraceCallInputPayloadV1),
+	/// This version accepts the same arguments as `V1` and selects `TraceV2` rather than `TraceV1`
+	/// for the returned trace data.
+	V2(TraceCallInputPayloadV2),
 	/// This version takes `TracerTypeV2`, whose execution tracer adds `step_offset`: paired with
 	/// `limit` it captures one window of an execution's steps at a time.
-	V2(TraceCallInputPayloadV2),
+	V3(TraceCallInputPayloadV3),
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
@@ -58,6 +68,11 @@ pub struct TraceCallOutputPayloadV1 {
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct TraceCallOutputPayloadV2 {
+	pub trace: TraceV2,
+}
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+pub struct TraceCallOutputPayloadV3 {
 	pub trace: TraceV2,
 }
 
@@ -80,4 +95,7 @@ pub enum TraceCallVersionedOutputPayload {
 	/// frame. `CallTraceV2` also removes `child_call_count`, which was only used to calculate
 	/// `position`. Prestate and execution traces are unchanged.
 	V2(TraceCallOutputPayloadV2),
+	/// Unchanged from `V2`: `trace` remains `TraceV2`. It exists so that a `V3` input returns a
+	/// `V3` output.
+	V3(TraceCallOutputPayloadV3),
 }
