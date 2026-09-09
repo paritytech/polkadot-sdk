@@ -237,6 +237,17 @@ impl Decodable for AuthorizationListEntry {
 	}
 }
 
+impl AuthorizationListEntry {
+	/// RLP encode only the unsigned part (chain_id, address, nonce) for signing
+	pub fn rlp_encode_unsigned(&self) -> Vec<u8> {
+		let mut s = rlp::RlpStream::new_list(3);
+		s.append(&self.chain_id);
+		s.append(&self.address);
+		s.append(&self.nonce);
+		s.out().to_vec()
+	}
+}
+
 /// See <https://eips.ethereum.org/EIPS/eip-1559>
 impl Encodable for Transaction1559Unsigned {
 	fn rlp_append(&self, s: &mut rlp::RlpStream) {
@@ -649,8 +660,13 @@ mod test {
 			let raw_tx = alloy_core::hex::decode(tx).unwrap();
 			let tx = TransactionSigned::decode(&raw_tx).unwrap();
 			assert_eq!(tx.signed_payload(), raw_tx);
-			let expected_tx = serde_json::from_str(json).unwrap();
-			assert_eq!(tx, expected_tx);
+			let expected_tx =
+				serde_json::from_str::<pallet_revive_types::runtime_api::TransactionSignedV1>(json)
+					.unwrap();
+			assert_eq!(
+				pallet_revive_types::runtime_api::TransactionSignedV1::from(tx),
+				expected_tx
+			);
 		}
 	}
 

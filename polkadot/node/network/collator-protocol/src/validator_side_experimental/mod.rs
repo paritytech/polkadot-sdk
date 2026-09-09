@@ -23,7 +23,10 @@ mod state;
 mod tests;
 
 use crate::{
-	validator_side_experimental::{common::MIN_FETCH_TIMER_DELAY, peer_manager::PersistentDb},
+	validator_side_experimental::{
+		common::MIN_FETCH_TIMER_DELAY,
+		peer_manager::{Backend, PeerManager, PersistentDb},
+	},
 	LOG_TARGET,
 };
 use collation_manager::CollationManager;
@@ -32,8 +35,11 @@ use error::{log_error, FatalError, FatalResult, Result};
 use futures::{future::Fuse, select, FutureExt, StreamExt};
 use polkadot_node_clock::Clock;
 use polkadot_node_network_protocol::{
-	self as net_protocol, peer_set::PeerSet, v1 as protocol_v1, v2 as protocol_v2,
-	v3_collation as protocol_v3, CollationProtocols, PeerId,
+	self as net_protocol,
+	peer_set::PeerSet,
+	v1 as protocol_v1, v2 as protocol_v2, v3_collation as protocol_v3,
+	v4_collation::{self as protocol_v4},
+	CollationProtocols, PeerId,
 };
 use polkadot_node_subsystem::{
 	messages::{CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage},
@@ -45,7 +51,6 @@ use std::{future, future::Future, pin::Pin, sync::Arc, time::Duration};
 
 #[cfg(test)]
 use peer_manager::Db;
-use peer_manager::PeerManager;
 
 use state::State;
 
@@ -126,6 +131,8 @@ async fn initialize<Context>(
 			"Collator protocol initial assignments",
 		);
 
+		metrics.note_assigned_paras(scheduled_paras.len());
+
 		// Create PersistentDb with disk persistence
 		let (backend, task) = match PersistentDb::new(
 			db.clone(),
@@ -156,6 +163,7 @@ async fn initialize<Context>(
 			ctx.sender(),
 			scheduled_paras.into_iter().collect(),
 			clock.clone(),
+			metrics.clone(),
 		)
 		.await
 		{
@@ -300,6 +308,11 @@ async fn run_inner<Context>(
 			},
 		}
 
+		// Refresh the in-memory connected peers. Done once per loop iteration, so that
+		// it covers every event source above and cannot be missed by a handler that forgets to
+		// update it.
+		state.note_in_memory_connected_peers();
+
 		// Now try triggering advertisement fetching, if we have room in any of the active leaves
 		// (any of them are in Waiting state).
 		// We could optimise to not always re-run this code (have the other functions return
@@ -335,10 +348,10 @@ async fn process_msg<Sender: CollatorProtocolSenderTrait>(
 				"CollateOn message is not expected on the validator side of the protocol",
 			);
 		},
-		DistributeCollation { .. } => {
+		DistributeSegment { .. } => {
 			gum::warn!(
 				target: LOG_TARGET,
-				"DistributeCollation message is not expected on the validator side of the protocol",
+				"DistributeSegment message is not expected on the validator side of the protocol",
 			);
 		},
 		NetworkBridgeUpdate(event) => {
@@ -420,19 +433,24 @@ async fn handle_network_msg<Sender: CollatorProtocolSenderTrait>(
 	Ok(())
 }
 
-async fn process_incoming_peer_message<Sender: CollatorProtocolSenderTrait>(
+async fn process_incoming_peer_message<Sender, B>(
 	sender: &mut Sender,
-	state: &mut State<PersistentDb>,
+	state: &mut State<B>,
 	origin: PeerId,
 	msg: CollationProtocols<
 		protocol_v1::CollatorProtocolMessage,
 		protocol_v2::CollatorProtocolMessage,
 		protocol_v3::CollatorProtocolMessage,
+		protocol_v4::AdvertiseSegment,
 	>,
-) {
+) where
+	Sender: CollatorProtocolSenderTrait,
+	B: Backend,
+{
 	use protocol_v1::CollatorProtocolMessage as V1;
 	use protocol_v2::CollatorProtocolMessage as V2;
 	use protocol_v3::CollatorProtocolMessage as V3;
+	use protocol_v4::AdvertiseSegment as V4;
 
 	match msg {
 		CollationProtocols::V1(V1::Declare(_collator_id, para_id, _signature)) |
@@ -450,7 +468,9 @@ async fn process_incoming_peer_message<Sender: CollatorProtocolSenderTrait>(
 			);
 		},
 		CollationProtocols::V1(V1::AdvertiseCollation(relay_parent)) => {
-			state.handle_advertisement(sender, origin, relay_parent, None, None).await;
+			state
+				.handle_advertisement(sender, origin, relay_parent, vec![], None, None)
+				.await;
 		},
 		CollationProtocols::V2(V2::AdvertiseCollation {
 			scheduling_parent,
@@ -463,7 +483,8 @@ async fn process_incoming_peer_message<Sender: CollatorProtocolSenderTrait>(
 					sender,
 					origin,
 					scheduling_parent,
-					Some(ProspectiveCandidate { candidate_hash, parent_head_data_hash }),
+					vec![ProspectiveCandidate::ByHash { candidate_hash, parent_head_data_hash }],
+					None,
 					None,
 				)
 				.await;
@@ -480,8 +501,42 @@ async fn process_incoming_peer_message<Sender: CollatorProtocolSenderTrait>(
 					sender,
 					origin,
 					scheduling_parent,
-					Some(ProspectiveCandidate { candidate_hash, parent_head_data_hash }),
+					vec![ProspectiveCandidate::ByHash { candidate_hash, parent_head_data_hash }],
 					Some(candidate_descriptor_version),
+					None,
+				)
+				.await;
+		},
+		CollationProtocols::V4(V4 {
+			scheduling_parent,
+			para_id,
+			candidates_descriptor_version,
+			candidates,
+		}) => {
+			if candidates.is_empty() {
+				gum::error!(
+					target: LOG_TARGET,
+					?scheduling_parent,
+					?origin,
+					"Received an empty segment advertisement",
+				);
+				return;
+			}
+			let entries = candidates
+				.iter()
+				.map(|candidate_fingerprint| ProspectiveCandidate::ByOutputHead {
+					output_head_data_hash: candidate_fingerprint.output_head_data_hash,
+					parent_head_data_hash: candidate_fingerprint.parent_head_data_hash,
+				})
+				.collect();
+			state
+				.handle_advertisement(
+					sender,
+					origin,
+					scheduling_parent,
+					entries,
+					Some(candidates_descriptor_version),
+					Some(para_id),
 				)
 				.await;
 		},
