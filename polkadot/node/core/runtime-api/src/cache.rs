@@ -22,7 +22,7 @@ use sp_consensus_babe::Epoch;
 use polkadot_primitives::{
 	async_backing::{self, Constraints},
 	slashing,
-	vstaging::RelayParentInfo,
+	vstaging::{RelayParentInfo, SessionExecutionConfig},
 	ApprovalVotingParams, AuthorityDiscoveryId, BlockNumber, CandidateCommitments, CandidateEvent,
 	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState,
 	DisputeState, ExecutorParams, GroupRotationInfo, Hash, Id as ParaId, InboundDownwardMessage,
@@ -84,6 +84,7 @@ pub(crate) struct RequestResultCache {
 	max_relay_parent_session_age: LruMap<SessionIndex, u32>,
 	ancestor_relay_parent_info:
 		LruMap<(Hash, SessionIndex, Hash), Option<RelayParentInfo<Hash, BlockNumber>>>,
+	session_execution_config: LruMap<SessionIndex, Option<SessionExecutionConfig>>,
 }
 
 impl Default for RequestResultCache {
@@ -128,6 +129,7 @@ impl Default for RequestResultCache {
 			para_ids: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			max_relay_parent_session_age: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 			ancestor_relay_parent_info: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
+			session_execution_config: LruMap::new(ByLength::new(DEFAULT_CACHE_CAP)),
 		}
 	}
 }
@@ -677,6 +679,21 @@ impl RequestResultCache {
 		self.ancestor_relay_parent_info
 			.insert((relay_parent, session_index, queried_relay_parent), value);
 	}
+
+	pub(crate) fn session_execution_config(
+		&mut self,
+		session_index: SessionIndex,
+	) -> Option<&Option<SessionExecutionConfig>> {
+		self.session_execution_config.get(&session_index).map(|v| &*v)
+	}
+
+	pub(crate) fn cache_session_execution_config(
+		&mut self,
+		session_index: SessionIndex,
+		value: Option<SessionExecutionConfig>,
+	) {
+		self.session_execution_config.insert(session_index, value);
+	}
 }
 
 pub(crate) enum RequestResult {
@@ -734,6 +751,7 @@ pub(crate) enum RequestResult {
 	MaxRelayParentSessionAge(SessionIndex, u32),
 	AncestorRelayParentInfo(Hash, SessionIndex, Hash, Option<RelayParentInfo<Hash, BlockNumber>>),
 	UnappliedSlashesV2(Hash, Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>),
+	SessionExecutionConfig(SessionIndex, Option<SessionExecutionConfig>),
 }
 
 #[cfg(test)]

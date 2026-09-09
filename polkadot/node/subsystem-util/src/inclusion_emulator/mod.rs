@@ -759,11 +759,13 @@ fn validate_against_constraints(
 ) -> Result<(), FragmentValidityError> {
 	validate_commitments(constraints, relay_parent, commitments, validation_code_hash)?;
 
+	// Take `max_pov_size` from the candidate's PVD (relay-parent session) rather than from
+	// `constraints` (scheduling session).
 	let expected_pvd = PersistedValidationData {
 		parent_head: constraints.required_parent.clone(),
 		relay_parent_number: relay_parent.number,
 		relay_parent_storage_root: relay_parent.storage_root,
-		max_pov_size: constraints.max_pov_size as u32,
+		max_pov_size: persisted_validation_data.max_pov_size,
 	};
 
 	if expected_pvd != *persisted_validation_data {
@@ -1224,28 +1226,59 @@ mod tests {
 			storage_root: Hash::repeat_byte(0xff),
 		};
 
-		let relay_parent_b = RelayChainBlockInfo {
-			number: 6,
-			hash: Hash::repeat_byte(0x0b),
-			storage_root: Hash::repeat_byte(0xee),
-		};
-
 		let constraints = make_constraints();
-		let candidate = make_candidate(&constraints, &relay_parent);
 
-		let expected_pvd = PersistedValidationData {
-			parent_head: constraints.required_parent.clone(),
-			relay_parent_number: relay_parent_b.number,
-			relay_parent_storage_root: relay_parent_b.storage_root,
-			max_pov_size: constraints.max_pov_size as u32,
+		// `parent_head` differs from what the constraints require.
+		{
+			let mut candidate = make_candidate(&constraints, &relay_parent);
+			candidate.persisted_validation_data.parent_head = HeadData(vec![99, 99, 99]);
+			assert!(matches!(
+				Fragment::new(relay_parent.clone(), constraints.clone(), Arc::new(candidate)),
+				Err(FragmentValidityError::PersistedValidationDataMismatch(_, _))
+			));
+		}
+
+		// `relay_parent_number` differs from what the `RelayChainBlockInfo` says.
+		{
+			let mut candidate = make_candidate(&constraints, &relay_parent);
+			candidate.persisted_validation_data.relay_parent_number = relay_parent.number + 1;
+			assert!(matches!(
+				Fragment::new(relay_parent.clone(), constraints.clone(), Arc::new(candidate)),
+				Err(FragmentValidityError::PersistedValidationDataMismatch(_, _))
+			));
+		}
+
+		// `relay_parent_storage_root` differs.
+		{
+			let mut candidate = make_candidate(&constraints, &relay_parent);
+			candidate.persisted_validation_data.relay_parent_storage_root = Hash::repeat_byte(0xee);
+			assert!(matches!(
+				Fragment::new(relay_parent, constraints, Arc::new(candidate)),
+				Err(FragmentValidityError::PersistedValidationDataMismatch(_, _))
+			));
+		}
+	}
+
+	// Cross-session `max_pov_size` must NOT trigger a PVD mismatch: the candidate's PVD carries
+	// the relay-parent session's value (what the runtime wrote at the relay parent and the
+	// collator hashed into the descriptor), while `constraints.max_pov_size` reflects the
+	// scheduling session. When they differ (possible since older relay parents allowed),
+	// the fragment-chain check should accept the candidate.
+	#[test]
+	fn fragment_accepts_cross_session_max_pov_size() {
+		let relay_parent = RelayChainBlockInfo {
+			number: 6,
+			hash: Hash::repeat_byte(0x0a),
+			storage_root: Hash::repeat_byte(0xff),
 		};
 
-		let got_pvd = candidate.persisted_validation_data.clone();
+		let mut constraints = make_constraints();
+		// Simulate scheduling-session `max_pov_size` differing from the relay-parent session's
+		// value that's baked into the candidate's PVD.
+		let candidate = make_candidate(&constraints, &relay_parent);
+		constraints.max_pov_size = candidate.persisted_validation_data.max_pov_size as usize + 1024;
 
-		assert_eq!(
-			Fragment::new(relay_parent_b, constraints, Arc::new(candidate.clone())),
-			Err(FragmentValidityError::PersistedValidationDataMismatch(expected_pvd, got_pvd,)),
-		);
+		assert!(Fragment::new(relay_parent, constraints, Arc::new(candidate)).is_ok());
 	}
 
 	#[test]
