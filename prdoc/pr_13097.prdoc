@@ -1,6 +1,6 @@
 title: 'litep2p/req-resp: fix inbound request serve time reporting'
 doc:
-- audience: Todo
+- audience: Node Operator
   description: |-
     The litep2p backend reported a near-zero serve time in the `substrate_sub_libp2p_requests_in_success_total` histogram for inbound requests.
 
@@ -16,4 +16,4 @@ doc:
     The analogous outbound metric (`requests_out_success_total`) already stamps on send and is unaffected.
 crates:
 - name: sc-network
-  bump: major
+  bump: patch
