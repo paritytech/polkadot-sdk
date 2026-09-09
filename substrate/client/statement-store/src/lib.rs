@@ -2922,6 +2922,51 @@ impl StatementStore for Store {
 			// Build the whole admission as one atomic commit
 			let mut commit = Vec::new();
 			commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));
+			// Local and chain submissions ignore an eviction ban, so a banned statement can come
+			// back. The ban must go with it: if the statement is later removed without a ban, the
+			// stale ban would still reject peers redelivering it.
+			let stale_ban = if source.can_be_resubmitted() {
+				match self.db.get(col::EXPIRED, hash.as_slice()) {
+					Ok(stale_ban) => stale_ban,
+					Err(e) => {
+						self.metrics.report(|metrics| {
+							metrics.internal_errors.with_label_values(&["db_read"]).inc();
+						});
+						return SubmitResult::InternalError(Error::Db(e.to_string()));
+					},
+				}
+			} else {
+				None
+			};
+			let stale_banned_at = stale_ban.and_then(|stale_ban| {
+				let banned_at =
+					<(Hash, u64)>::decode(&mut stale_ban.as_slice()).ok().map(|(_, at)| at);
+				if banned_at.is_none() {
+					log::error!(
+						target: LOG_TARGET,
+						"Corrupt evicted journal entry {:?}",
+						HexDisplay::from(&hash)
+					);
+				}
+				banned_at
+			});
+			if let Some(stale_banned_at) = stale_banned_at {
+				let expires_at = Expiry(statement.expiry()).get_expiration_timestamp_secs();
+				let purge_after_sec = submit_index.config.purge_after_sec;
+				let purge_at = stale_banned_at.saturating_add(purge_after_sec).min(expires_at);
+				commit.push((col::EXPIRED, hash.to_vec(), None));
+				commit.push((col::INDEX_EVICTED, evicted_index_key(purge_at, &hash), None));
+				// The startup migration writes journal keys without the expiry cap, so that key
+				// is cleared too.
+				let migrated_purge_at = stale_banned_at.saturating_add(purge_after_sec);
+				if migrated_purge_at != purge_at {
+					commit.push((
+						col::INDEX_EVICTED,
+						evicted_index_key(migrated_purge_at, &hash),
+						None,
+					));
+				}
+			}
 			commit.push((col::ADMISSION_SEQ, plan.seq.to_be_bytes().to_vec(), Some(hash.to_vec())));
 			commit.extend(statement_index_ops(&hash, &statement, true));
 			let details = EntryDetails {
@@ -3003,6 +3048,9 @@ impl StatementStore for Store {
 			}
 			let seq = plan.seq;
 			submit_index.apply_insert(&account_id, loaded_record, hash, &statement, &plan);
+			if stale_banned_at.is_some() {
+				submit_index.evicted_count = submit_index.evicted_count.saturating_sub(1);
+			}
 			// The query-index bookkeeping is applied under the same lock that ordered the
 			// commit: a concurrent removal racing a resubmission of the same statement can then
 			// never apply its stale update on top of this newer one (#12624). The notification
@@ -4681,6 +4729,46 @@ mod tests {
 		store.take_recent_statements().unwrap();
 		store.maintain();
 		assert!(!store.has_statement(&hash));
+	}
+
+	#[test]
+	fn local_resubmission_clears_stale_ban() {
+		let (store, _temp) = test_store();
+		let (resolver, affine) = switchable_resolver(
+			RetentionReasonMask::EXPLICIT_AFFINITY,
+			RetentionReasonMask::TRANSIENT,
+		);
+		store.set_retention_resolver(resolver);
+		// Account 1 holds one statement, so the second one evicts the first, with a ban.
+		let evicted = statement(1, 1, None, 100);
+		let evictor = statement(1, 2, None, 100);
+		assert_eq!(store.submit(evicted.clone(), StatementSource::Network), SubmitResult::New);
+		assert_eq!(store.submit(evictor.clone(), StatementSource::Network), SubmitResult::New);
+		assert!(store.is_evicted(&evicted.hash()));
+		assert_eq!(store.evicted_count(), 1);
+
+		// Affinity lapsed: the sweep removes the evictor without a ban, freeing the slot.
+		store.take_recent_statements().unwrap();
+		affine.store(false, Ordering::Relaxed);
+		store.maintain();
+		assert!(!store.has_statement(&evictor.hash()));
+
+		// A local resubmission ignores the eviction ban and clears it from the evicted journal.
+		affine.store(true, Ordering::Relaxed);
+		assert_eq!(store.submit(evicted.clone(), StatementSource::Local), SubmitResult::New);
+		assert!(!store.is_evicted(&evicted.hash()));
+		assert_eq!(store.evicted_count(), 0);
+		let mut evicted_journal = store.db.iter(col::INDEX_EVICTED).unwrap();
+		evicted_journal.seek_to_first().unwrap();
+		assert!(evicted_journal.next().unwrap().is_none());
+
+		// The sweep removes the statement again without a ban, so peers may redeliver it.
+		store.take_recent_statements().unwrap();
+		affine.store(false, Ordering::Relaxed);
+		store.maintain();
+		assert!(!store.has_statement(&evicted.hash()));
+		affine.store(true, Ordering::Relaxed);
+		assert_eq!(store.submit(evicted, StatementSource::Network), SubmitResult::New);
 	}
 
 	#[test]
