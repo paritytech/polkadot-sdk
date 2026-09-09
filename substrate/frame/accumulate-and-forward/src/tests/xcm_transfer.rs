@@ -77,24 +77,6 @@ fn blocks_that_forwarded(blocks: impl IntoIterator<Item = u64>) -> Vec<u64> {
 	sent_at
 }
 
-// The first forward is not rate limited: nothing recorded means no period to wait out.
-#[test]
-fn first_forward_is_not_rate_limited() {
-	new_test_ext(true).execute_with(|| {
-		let funds = 50u64;
-
-		fund_accumulation_account(funds);
-		reset_send_count();
-
-		// Deliberately not a multiple of the period.
-		assert_ne!(1 % TransferPeriod::get(), 0);
-		on_idle_at(1, Weight::MAX);
-
-		assert_eq!(get_send_count(), 1);
-		assert_eq!(LastForwardBlock::<Test>::get(), Some(1));
-	});
-}
-
 // After a forward, the next one waits exactly `TransferPeriod` blocks, wherever the first landed.
 #[test]
 fn no_forward_until_the_period_elapsed() {
@@ -104,6 +86,7 @@ fn no_forward_until_the_period_elapsed() {
 		let funds = 10u64;
 		let first = 7u64;
 
+		// The first forward is not rate limited: nothing recorded means no period to wait out.
 		fund_accumulation_account(funds);
 		on_idle_at(first, Weight::MAX);
 		assert_eq!(get_send_count(), 1);
@@ -114,7 +97,8 @@ fn no_forward_until_the_period_elapsed() {
 		reset_send_count();
 
 		for block in first + 1..first + period {
-			on_idle_at(block, Weight::MAX);
+			// Rate limited, so the only cost is the read of the recorded block.
+			assert_eq!(on_idle_at(block, Weight::MAX), RocksDbWeight::get().reads(1));
 			assert_eq!(get_send_count(), 0, "unexpected send at block {block}");
 			assert_eq!(
 				Balances::free_balance(get_accumulation_account()),
@@ -195,7 +179,8 @@ fn ensure_minimum_amount_limit_is_respected() {
 		reset_send_count();
 		reset_last_sent_amount();
 
-		on_idle_at(1, Weight::MAX);
+		// The balance read happens, the forward does not.
+		assert_eq!(on_idle_at(1, Weight::MAX), RocksDbWeight::get().reads(2));
 		assert_eq!(get_send_count(), 0);
 		assert_eq!(LastForwardBlock::<Test>::get(), None);
 
@@ -276,60 +261,15 @@ fn verify_failure_path() {
 	});
 }
 
-// Without weight for even the single read of the recorded block, `on_idle` does nothing.
-#[test]
-fn on_idle_consumes_no_weight_without_budget_for_the_period_read() {
-	new_test_ext(true).execute_with(|| {
-		fund_accumulation_account(70);
-		reset_send_count();
-
-		assert_eq!(on_idle_at(1, Weight::zero()), Weight::zero());
-		assert_eq!(get_send_count(), 0);
-		assert_eq!(LastForwardBlock::<Test>::get(), None);
-	});
-}
-
-// While rate limited, `on_idle` costs exactly one read.
-#[test]
-fn on_idle_consumes_one_read_when_rate_limited() {
-	new_test_ext(true).execute_with(|| {
-		let period = TransferPeriod::get();
-
-		// Ensure that the transfer period is not 1.
-		assert_ne!(period, 1);
-		fund_accumulation_account(70);
-
-		// Forward once, so the rate limit applies from here on.
-		on_idle_at(1, Weight::MAX);
-		assert_eq!(get_send_count(), 1);
-		reset_send_count();
-
-		assert_eq!(on_idle_at(2, Weight::MAX), RocksDbWeight::get().reads(1));
-		assert_eq!(get_send_count(), 0);
-	});
-}
-
-// Two reads (recorded block and balance) when the period elapsed but the amount is below the
-// minimum.
-#[test]
-fn on_idle_consumes_two_reads_when_below_min_transfer() {
-	new_test_ext(true).execute_with(|| {
-		// Below `MinTransferAmount`, so the forward is skipped after the balance read.
-		fund_accumulation_account(MinTransferAmount::get() - 1);
-		reset_send_count();
-
-		let two_reads = RocksDbWeight::get().reads(2);
-		assert_eq!(on_idle_at(1, two_reads), two_reads);
-		assert_eq!(get_send_count(), 0);
-	});
-}
-
 // A forward that does not fit in the remaining weight is not recorded, so it retries next block.
 #[test]
 fn on_idle_does_not_record_when_the_send_does_not_fit() {
 	new_test_ext(true).execute_with(|| {
 		fund_accumulation_account(50);
 		reset_send_count();
+
+		// Not even enough for the read of the recorded block.
+		assert_eq!(on_idle_at(1, Weight::zero()), Weight::zero());
 
 		// Enough for both reads, but not for the send and its write.
 		let two_reads = RocksDbWeight::get().reads(2);
