@@ -17,10 +17,10 @@ doc:
     arguments and passes them to `ExplicitAffinity`.
 crates:
 - name: sc-statement-store
-  bump: major
+  bump: minor
 - name: sc-network-statement
   bump: major
 - name: polkadot-omni-node-lib
-  bump: minor
+  bump: major
 - name: staging-node-cli
   bump: minor
