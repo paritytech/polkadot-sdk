@@ -566,6 +566,82 @@ pub fn ethereum_extrinsic<Runtime>(
 		});
 }
 
+/// Drives a Gloas checkpoint and consensus update through the real runtime, so the Gloas
+/// generalized indices and fork version are exercised against the runtime's own configuration
+/// rather than a pallet mock.
+pub fn ethereum_gloas_extrinsic<Runtime>(
+	collator_session_key: CollatorSessionKeys<Runtime>,
+	runtime_para_id: u32,
+	construct_and_apply_extrinsic: fn(
+		sp_keyring::Sr25519Keyring,
+		<Runtime as frame_system::Config>::RuntimeCall,
+	) -> sp_runtime::DispatchOutcome,
+) where
+	Runtime: frame_system::Config
+		+ pallet_balances::Config
+		+ pallet_session::Config
+		+ pallet_xcm::Config
+		+ pallet_utility::Config
+		+ parachain_info::Config
+		+ pallet_collator_selection::Config
+		+ cumulus_pallet_parachain_system::Config
+		+ snowbridge_pallet_outbound_queue::Config
+		+ snowbridge_pallet_system::Config
+		+ snowbridge_pallet_ethereum_client::Config
+		+ pallet_timestamp::Config,
+	ValidatorIdOf<Runtime>: From<AccountIdOf<Runtime>>,
+	<Runtime as pallet_utility::Config>::RuntimeCall:
+		From<snowbridge_pallet_ethereum_client::Call<Runtime>>,
+	<Runtime as frame_system::Config>::RuntimeCall: From<pallet_utility::Call<Runtime>>,
+	AccountIdOf<Runtime>: From<AccountId32>,
+{
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_key.collators())
+		.with_session_keys(collator_session_key.session_keys())
+		.with_para_id(runtime_para_id.into())
+		.with_tracing()
+		.build()
+		.execute_with(|| {
+			let checkpoint = make_gloas_checkpoint();
+			let update = make_gloas_finalized_header_update();
+			let sync_committee_update = make_gloas_sync_committee_update();
+
+			let alice = Alice;
+			let alice_account = alice.to_account_id();
+			<pallet_balances::Pallet<Runtime>>::mint_into(
+				&alice_account.clone().into(),
+				10_000_000_000_000_u128.saturated_into::<BalanceOf<Runtime>>(),
+			)
+			.unwrap();
+
+			assert_ok!(<snowbridge_pallet_ethereum_client::Pallet<Runtime>>::force_checkpoint(
+				RuntimeHelper::<Runtime>::root_origin(),
+				checkpoint.clone(),
+			));
+
+			let update_call: <Runtime as pallet_utility::Config>::RuntimeCall =
+				snowbridge_pallet_ethereum_client::Call::<Runtime>::submit {
+					update: Box::new(*update.clone()),
+				}
+				.into();
+			assert_ok!(construct_and_apply_extrinsic(alice, update_call.into()));
+
+			let _ = RuntimeHelper::<Runtime>::run_to_block(2, alice_account.clone().into());
+
+			let sync_committee_call: <Runtime as pallet_utility::Config>::RuntimeCall =
+				snowbridge_pallet_ethereum_client::Call::<Runtime>::submit {
+					update: Box::new(*sync_committee_update),
+				}
+				.into();
+			assert_ok!(construct_and_apply_extrinsic(alice, sync_committee_call.into()));
+
+			// The Gloas update advanced finality, so its header is the stored one.
+			let stored =
+				<snowbridge_pallet_ethereum_client::LatestFinalizedBlockRoot<Runtime>>::get();
+			assert_eq!(stored, update.finalized_header.hash_tree_root().unwrap());
+		});
+}
+
 pub fn ethereum_to_polkadot_message_extrinsics_work<Runtime>(
 	collator_session_key: CollatorSessionKeys<Runtime>,
 	runtime_para_id: u32,

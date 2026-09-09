@@ -1162,6 +1162,53 @@ mod gloas_branches {
 			as usize
 	}
 
+	/// Each selector must return the index for the era the slot falls in. A schedule with
+	/// every fork at a distinct epoch is used so all three legs are reachable.
+	#[test]
+	fn gindex_selectors_cover_every_fork_era() {
+		let fork = |epoch| Fork { version: hex!("00000000"), epoch };
+		let versions = ForkVersions {
+			genesis: fork(0),
+			altair: fork(0),
+			bellatrix: fork(0),
+			capella: fork(0),
+			deneb: fork(0),
+			electra: fork(100),
+			fulu: fork(150),
+			gloas: fork(200),
+		};
+		let slot = |epoch: u64| epoch * SLOTS_PER_EPOCH as u64;
+
+		for (epoch, finalized, current_sc, next_sc, block_roots) in [
+			(0u64, 105, 54, 55, 37),     // altair, and everything up to deneb falls here
+			(100, 169, 86, 87, 69),      // electra
+			(150, 169, 86, 87, 69),      // fulu, which shares electra's indices
+			(200, 735, 2945, 2946, 352), // gloas
+		] {
+			let s = slot(epoch);
+			assert_eq!(
+				EthereumBeaconClient::finalized_root_gindex_at_slot(s, versions.clone()),
+				finalized,
+				"finalized_root at epoch {epoch}"
+			);
+			assert_eq!(
+				EthereumBeaconClient::current_sync_committee_gindex_at_slot(s, versions.clone()),
+				current_sc,
+				"current_sync_committee at epoch {epoch}"
+			);
+			assert_eq!(
+				EthereumBeaconClient::next_sync_committee_gindex_at_slot(s, versions.clone()),
+				next_sc,
+				"next_sync_committee at epoch {epoch}"
+			);
+			assert_eq!(
+				EthereumBeaconClient::block_roots_gindex_at_slot(s, versions.clone()),
+				block_roots,
+				"block_roots at epoch {epoch}"
+			);
+		}
+	}
+
 	/// The fixtures must sit at the indices the pallet selects.
 	#[test]
 	fn pallet_selects_the_gloas_indices() {

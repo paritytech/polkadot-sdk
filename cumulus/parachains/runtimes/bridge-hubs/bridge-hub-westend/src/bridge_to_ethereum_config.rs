@@ -286,7 +286,7 @@ parameter_types! {
 		},
 		fulu: Fork {
 			version: hex!("06000000"),
-			epoch: 0,
+			epoch: 2000,
 		},
 		gloas: Fork {
 			version: hex!("80733183"),
