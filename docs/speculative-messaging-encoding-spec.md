@@ -181,17 +181,10 @@ that second encoding — strictness is the implemented and specified form).
 Verification **computes and returns** the new root (never declared
 alongside), failing if the node count is not exactly right for the pair.
 
-### 5.3 `leaf_count` encoding — **RESOLVED 2026-09-09: `Compact<u64>`**
+### 5.3 `leaf_count` encoding
 
-Encoded `Compact<u64>`, matching the design doc. Both forms are sound and were
-wire-incompatible; the design doc is followed because its split is deliberate —
-`Compact` for `MMRExtensionProof` (PoV-carried wire object, where the ~4 B saved on a
-realistic count matters) and plain `u64` for `MmrFrontier` (runtime state). The
-implementation carries `#[codec(compact)]` on the field, so the Rust type stays `u64`.
-
-Canonicality is preserved: `parity-scale-codec`'s `Compact<u64>` decode range-checks
-every mode and rejects non-minimal encodings (`U64_OUT_OF_RANGE`), so this introduces
-no redundant encoding of its own.
+`Compact<u64>`, per the design doc; `MmrFrontier.leaf_count` stays plain `u64`.
+`Compact` decode rejects non-minimal encodings, so the form stays canonical.
 
 ## 6. `MmrInclusionProof` (wire-only)
 
@@ -330,12 +323,6 @@ Reference algorithms: design §Requires Lifting (`stitch`,
 
 ## 12. Conformance test vectors (normative requirement)
 
-> **Updated 2026-09-09.** The design doc previously mandated vectors for `StreamId` only, and this
-> spec extended that mandate. The design doc has since **adopted the position**: its
-> `### Conformance` section gives a conformance vector suite *"the same normative standing as the
-> encoding rules themselves"*. This section is now **aligned with**, and more detailed than, that
-> list (7 families vs 4). See §12b.
-
 A conforming implementation must reproduce every family:
 
 1. **StreamId**: encode/decode round-trips per kind, reserved-kind
@@ -367,39 +354,6 @@ the in-code pinned tests are their Rust binding (today: pinned tests
 exist partially, vector files not yet). **This document is the authority
 on the bytes** — a vector change is a spec change.
 
-## 12b. Cross-check against the design doc's `### Conformance`
-
-The design doc's `Conformance` section lists what must be bit-identical across implementations.
-Mapping it onto this spec:
-
-| Design-doc item | This spec | Verdict |
-|---|---|---|
-| canonical `StreamId` encoding | §2 | covered; more precise (4 kinds, reserved-kind rejection, `Ord`) |
-| tree leaf/inner formats + domain tags + `tree_hash` | §1, §4.1, §4.2 | covered; tags pinned `0x05`/`0x06` |
-| MMR leaf hashing, domain tags, version byte | §1, §3.1 | covered; `LEAF_VERSION = 0x00` plus a pinned vector |
-| extension-proof connecting-node set/order derived from the two leaf counts | §5.1 | covered; same derivation |
-| strict canonical decodes, reject never normalize | §2, §7.3, §8 | covered |
-| `stitch`/`build_requires` PVF synthesis | §10 | covered |
-| conformance vector suite, same normative standing | §12 | covered; 7 families vs 4 |
-
-Coverage is complete and this spec is a superset. Two items the `Conformance` list makes
-consensus-critical but does not settle:
-
-1. **Forward-extension rule.** Appendix B writes
-   `ensure!(self.leaf_count >= old.leaf_count, Error::Regression)`; this spec §5.2 and the
-   implementation (`MMRExtensionProof::verify`, `ProofError::NotForward`) both require strict `>`.
-   Under `>=` an equal-count extension is the identity in a second encoding — a redundant encoding,
-   which the `Conformance` list forbids. Open decision: align the design doc to strict `>`.
-
-2. ~~**`leaf_count` encoding.**~~ **RESOLVED 2026-09-09** — the implementation now follows the design
-   doc (`Compact<u64>` for `MMRExtensionProof`, plain `u64` for `MmrFrontier`; §5.3). No doc change
-   needed. Note the `Conformance` list still makes the connecting-node set "derived from the two leaf
-   counts" consensus-critical without pinning how a leaf count is encoded — worth stating there.
-
-Items this spec treats as consensus that the `Conformance` list does not mention — they may belong
-there: the empty-frontier root and its domain tag (§3.3), the `TreeInclusionProof` decode bound (§4.3),
-the UMP signal indices (§7.2), the header digest engine id (§7.4), and the protocol constants (§11).
-
 ## 13. Open decisions
 
 | # | Item | Proposal |
@@ -407,7 +361,7 @@ the UMP signal indices (§7.2), the header digest engine id (§7.4), and the pro
 | 1 | `connecting_nodes` encoding in the PoC | migrate to `Vec<Hash>`, derived positions (§5.1) |
 | 2 | `TreeInclusionProof` decode bound in the PoC | bound at 64 (§4.3) |
 | 3 | `SPMS_ENGINE_ID` freeze | `*b"SPMS"` (§7.4) |
-| 4 | ~~`leaf_count` encoding~~ | **RESOLVED 2026-09-09** — `Compact<u64>` per the design doc; implementation aligned (§5.3) |
+| 4 | ~~`leaf_count` encoding~~ | settled: `Compact<u64>` (§5.3) |
 | 5 | Reservation constants | bump `LIFT_RESERVATION_BYTES` / `ADVANCE_PROOF_RESERVATION_BYTES` above the design ceilings (§11 ⚠ align) |
 | 6 | Event wire path | single- vs two-protocol split (§9) |
 | 7 | Conformance vectors | port the leaf pin into the primitives; add wire-object pins; extract language-neutral vector files (§12) |
