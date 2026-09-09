@@ -131,10 +131,10 @@ mod benchmarks {
 
 	/// Telling the parachain a para produced a head. Reads nothing.
 	#[benchmark]
-	fn on_new_para_head() {
+	fn on_new_head() {
 		#[block]
 		{
-			<Pallet<T> as registrar_primitives::OnNewParaHead>::on_new_para_head(PARA_ID);
+			<Pallet<T> as OnNewHead>::on_new_head(PARA_ID.into(), &Default::default());
 		}
 	}
 

@@ -142,7 +142,7 @@ impl paras::Config for Runtime {
 	type UnsignedPriority = ParasUnsignedPriority;
 	type QueueFootprinter = ();
 	type NextSessionRotation = TestNextSessionRotation;
-	type OnNewHead = ParasRegistrar;
+	type OnNewHead = (ParasRegistrar, Registrar);
 	type AssignCoretime = ();
 	type Fungible = Balances;
 	type CooldownRemovalMultiplier = ConstUint<1>;
@@ -179,7 +179,6 @@ impl paras_registrar::Config for Runtime {
 	type OnSwap = MockSwap;
 	type ParaDeposit = LocalParaDeposit;
 	type DataDepositPerByte = LocalDataDepositPerByte;
-	type OnNewParaHead = Registrar;
 	type WeightInfo = paras_registrar::TestWeightInfo;
 }
 

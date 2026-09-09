@@ -36,7 +36,6 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::H256;
-use sp_runtime::Weight;
 
 /// A parachain id.
 ///
@@ -206,18 +205,4 @@ pub trait ParachainRegistrar {
 		genesis_head: Vec<u8>,
 		validation_code: Vec<u8>,
 	) -> sp_runtime::DispatchResult;
-}
-
-/// Told when a registered para produces a head on the relay chain.
-///
-/// The mirror of [`ParachainRegistrar`], for the chain that holds the manager relationship.
-pub trait OnNewParaHead {
-	/// Note a new head for `para_id`, returning the weight used.
-	fn on_new_para_head(para_id: ParaId) -> Weight;
-}
-
-impl OnNewParaHead for () {
-	fn on_new_para_head(_para_id: ParaId) -> Weight {
-		Weight::zero()
-	}
 }

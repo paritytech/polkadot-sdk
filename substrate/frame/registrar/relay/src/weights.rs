@@ -75,7 +75,7 @@ pub trait WeightInfo {
 	fn apply_authorized_code(c: u32, ) -> Weight;
 	fn authorize_apply_authorized_code(c: u32, ) -> Weight;
 	fn receive_cancel_registration() -> Weight;
-	fn on_new_para_head() -> Weight;
+	fn on_new_head() -> Weight;
 }
 
 /// Weights for `pallet_registrar_relay` using the Substrate node and recommended hardware.
@@ -139,7 +139,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
-	fn on_new_para_head() -> Weight {
+	fn on_new_head() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -208,7 +208,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
-	fn on_new_para_head() -> Weight {
+	fn on_new_head() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

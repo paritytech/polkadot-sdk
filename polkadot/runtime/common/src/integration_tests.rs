@@ -235,7 +235,6 @@ impl paras_registrar::Config for Test {
 	type DataDepositPerByte = DataDepositPerByte;
 	type Currency = Balances;
 	type RuntimeOrigin = RuntimeOrigin;
-	type OnNewParaHead = ();
 	type WeightInfo = crate::paras_registrar::TestWeightInfo;
 }
 

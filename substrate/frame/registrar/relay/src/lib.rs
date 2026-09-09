@@ -42,8 +42,8 @@
 //!
 //! ## Locking
 //!
-//! The relay chain also tells the parachain when a para produces a head, so the chain holding
-//! the manager relationship can lock the para. See [`OnNewParaHead`].
+//! The relay chain also tells the parachain when a para produces a head, so the chain holding the
+//! manager relationship can lock the para. Add this pallet to `paras::Config::OnNewHead`.
 //!
 //! ## Runtime requirement
 //!
@@ -57,9 +57,10 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, weights::Weight};
+use polkadot_runtime_parachains::paras::OnNewHead;
 use registrar_primitives::{
-	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, OnNewParaHead,
-	Outcome, ParaId, ParachainRegistrar,
+	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
+	ParaId, ParachainRegistrar,
 };
 use scale_info::TypeInfo;
 use sp_core::H256;
@@ -444,8 +445,10 @@ pub mod pallet {
 /// Tells the parachain when a para produces a head, so it can lock the para.
 ///
 /// A send failure is only logged and evented: the caller is a hook that cannot fail.
-impl<T: Config> OnNewParaHead for Pallet<T> {
-	fn on_new_para_head(para_id: ParaId) -> Weight {
+impl<T: Config> OnNewHead for Pallet<T> {
+	fn on_new_head(id: polkadot_primitives::Id, _head: &polkadot_primitives::HeadData) -> Weight {
+		let para_id: ParaId = id.into();
+
 		if T::SendToPara::send(MessageToPara::V1(MessageToParaV1::HeadNoted { para_id })).is_err() {
 			log::error!(
 				target: "runtime::registrar-relay",
@@ -456,6 +459,6 @@ impl<T: Config> OnNewParaHead for Pallet<T> {
 			Self::deposit_event(Event::HeadNoted { para_id });
 		}
 
-		T::WeightInfo::on_new_para_head()
+		T::WeightInfo::on_new_head()
 	}
 }

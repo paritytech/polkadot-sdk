@@ -436,17 +436,8 @@ fn para_lock_works() {
 
 		assert_noop!(mock::Registrar::add_lock(RuntimeOrigin::signed(2), para_id), BadOrigin);
 
-		// Once they produces new block, we lock them in, and tell whoever holds the manager
-		// relationship.
-		let weight = mock::Registrar::on_new_head(para_id, &Default::default());
-		assert_eq!(Paras::<Test>::get(para_id).unwrap().locked, Some(true));
-		assert_eq!(NotedHeads::get(), vec![u32::from(para_id)]);
-		// `DbWeight` is zero in this mock, so what comes back is the notification's own weight.
-		assert_eq!(weight, Weight::from_parts(1, 2));
-
-		// A second head does not lock again, but every head is still reported onward.
+		// Once they produces new block, we lock them in.
 		mock::Registrar::on_new_head(para_id, &Default::default());
-		assert_eq!(NotedHeads::get(), vec![u32::from(para_id); 2]);
 
 		// Owner cannot pass origin check when checking lock
 		assert_noop!(
@@ -460,11 +451,9 @@ fn para_lock_works() {
 		// Owner can pass origin check again
 		assert_ok!(mock::Registrar::ensure_root_para_or_owner(RuntimeOrigin::signed(1), para_id));
 
-		// Won't lock again after it is unlocked.
+		// Won't lock again after it is unlocked
 		mock::Registrar::on_new_head(para_id, &Default::default());
 
-		assert_eq!(Paras::<Test>::get(para_id).unwrap().locked, Some(false));
-		assert_eq!(NotedHeads::get(), vec![u32::from(para_id); 3]);
 		assert_ok!(mock::Registrar::ensure_root_para_or_owner(RuntimeOrigin::signed(1), para_id));
 	});
 }
