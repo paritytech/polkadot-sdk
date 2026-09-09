@@ -687,8 +687,8 @@ enum UpwardMessage {
     /// Delete `key` from a supervised service's own storage. **Asset Hub only.**
     RemoveServiceStorage { service: ServiceId, key: Vec<u8> },
     /// Upsert `key_value_storage[(para_id, key)] = value`. Accumulate replays it
-    /// with delta state-balance charging (see §6.1). No-op if `para_id` has
-    /// `is_deregistering == true` (§6.4).
+    /// and charges the change in `used_state_balance` (see §6.1). No-op if
+    /// `para_id` has `is_deregistering == true` (§6.4).
     SetKV { key: Vec<u8>, value: Vec<u8> },
     /// Remove `key_value_storage[(para_id, key)]`, refunding its footprint to
     /// `para_id` (see §6.1). No-op if `para_id` has `is_deregistering == true`
@@ -1554,7 +1554,7 @@ reservation: each is charged to Asset Hub as it arrives and refunded as it drain
 #### Key-Value storage footprint
 
 Each `(ParaId, key) -> value` entry in `key_value_storage` pays the sole-user
-general-storage cost `44 + |value| + |storage_key|` (§6.1), where the storage key
+general-storage cost `44 + |value| + |storage_key|`, where the storage key
 composes the map tag, the parachain id, and the SCALE-encoded user key:
 
 ```
