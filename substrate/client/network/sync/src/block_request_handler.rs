@@ -62,7 +62,8 @@ pub(crate) const MAX_BLOCKS_IN_RESPONSE: usize = 128;
 
 const MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER: usize = 2;
 
-/// Reset duplicate counts this long after the first fulfilled response, allowing legitimate retries.
+/// Reset duplicate counts this long after the first fulfilled response, allowing legitimate
+/// retries.
 const SAME_REQUEST_WINDOW: Duration = Duration::from_secs(60);
 
 mod rep {
@@ -646,8 +647,8 @@ mod tests {
 	use sc_block_builder::BlockBuilderBuilder;
 	use sp_consensus::BlockOrigin;
 	use substrate_test_runtime_client::{
-		runtime::Block, ClientBlockImportExt, DefaultTestClientBuilderExt, TestClient, TestClientBuilder,
-		TestClientBuilderExt,
+		runtime::Block, ClientBlockImportExt, DefaultTestClientBuilderExt, TestClient,
+		TestClientBuilder, TestClientBuilderExt,
 	};
 
 	fn test_handler() -> BlockRequestHandler<Block, TestClient> {
