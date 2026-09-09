@@ -580,6 +580,7 @@ mod tests {
 				100,
 				dir.path().to_path_buf(),
 				crate::rate_limit::RateLimitConfig::disabled(),
+				crate::metrics::HopMetrics::disabled(),
 			)
 			.unwrap(),
 		);

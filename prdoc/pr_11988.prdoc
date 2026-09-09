@@ -1,40 +1,50 @@
-title: "sc-hop: harden data pool against DOS vectors"
+title: "sc-hop: harden the data pool against rate-limit DoS vectors"
 
 doc:
   - audience: Node Dev
     description: |
-      Follow-up to #11662 hardening the HOP node service:
+      Follow-up to #11662 closing several denial-of-service gaps in the HOP
+      rate limiter and submission path:
 
-      - Aggregate cross-account bandwidth bucket in `RateLimiter` — a coordinated
-        set of authorized accounts can no longer saturate the pool by each
-        staying within its per-account limit.
-      - Per-sender rate-limiter map bounded at `max_tracked_senders`; when full,
-        the sender with the most remaining token capacity is evicted —
-        actively-limited senders stay tracked so an exhausted attacker cannot
-        re-enter with a fresh bucket.
-      - `HopDataPool::new` rejects `max_size`, `max_user_size`, and both
-        `bandwidth_burst` values that are smaller than the accounted cost of a
-        max-size blob at full recipient fan-out — new `HopError::InvalidConfig`.
-      - `hop_claim` / `hop_ack` map `NotRecipient` to `NotFound` to close an
-        existence oracle.
-      - `HopDataPool::index` switched from `RwLock` to `Mutex`; `ack` and
-        `insert` hold the write lock across their `meta` write to keep on-disk
-        state and the in-memory index in sync.
-      - Startup recovery cleans orphan `.tmp.*` files left by prior crashes.
-      - Runtime API dispatch is now dynamic (`ApiExt::has_api_with`), removing
-        the previous supertrait requirement on `NodeRuntimeApi`; runtimes
-        without `HopRuntimeApi` fall back to cleanup-only automatically.
-      - `HopError::DataTooLarge`'s second field widened from `u32` to `u64` so
-        both the runtime-declared `HopRuntimeApi::max_promotion_size` cap and
-        the crate-level `MAX_DATA_SIZE` can be reported in the same variant.
-      - Wall-clock retention: `--hop-retention-blocks` /
-        `--hop-promotion-buffer-blocks` renamed to `*-secs`.
+      - Aggregate cross-account bandwidth bucket in `RateLimiter`. Per-account
+        limits alone do not stop a coordinated set of authorized accounts from
+        saturating the pool while each stays within its own allowance; one
+        shared bucket now bounds total ingest.
+      - The per-sender token-bucket map is bounded at
+        `RateLimitConfig::max_tracked_senders`, so a flood of distinct sender
+        accounts can no longer grow it without limit. When full, the sender
+        with the most remaining token capacity is evicted — actively-limited
+        senders stay tracked, so an exhausted attacker cannot re-enter with a
+        fresh bucket by re-tripping the cap.
+      - `MAX_DATA_SIZE` (2 MiB) now caps a single submission node-side,
+        independently of the runtime-declared `max_promotion_size`; oversized
+        payloads are rejected with `DataTooLarge` before touching the pool.
+      - `HopDataPool::new` rejects a per-account or global `bandwidth_burst`
+        smaller than the accounted cost of a max-size blob at full recipient
+        fan-out. Such a bucket can never admit that entry however long the
+        caller waits, so the `RateLimited { retry_after_secs }` hint would
+        never come true. Surfaced as a new `HopError::InvalidConfig`
+        (RPC error code 1023).
+      - `HopError::DataTooLarge`'s second field widens from `u32` to `u64` so
+        both the runtime `max_promotion_size` cap and the crate-level
+        `MAX_DATA_SIZE` fit the same variant.
 
   - audience: Node Operator
     description: |
-      New flags: `--hop-global-bandwidth-per-min-mib` (1024),
-      `--hop-global-bandwidth-burst-mib` (2048), `--hop-max-rate-limit-senders`
-      (100 000).
+      New flags, all only relevant with `--enable-hop`:
+
+      - `--hop-global-bandwidth-per-min-mib` — sustained aggregate
+        cross-account bandwidth (default 1024)
+      - `--hop-global-bandwidth-burst-mib` — aggregate bandwidth burst
+        (default 2048)
+      - `--hop-max-rate-limit-senders` — cap on senders tracked by the rate
+        limiter, bounding its memory to roughly `N × 200` bytes
+        (default 100 000)
+
+      A node started with a `--hop-bandwidth-burst-mib` or
+      `--hop-global-bandwidth-burst-mib` below the largest legal submission now
+      fails fast at startup instead of silently rejecting those submissions
+      forever.
 
 crates:
   - name: sc-hop
