@@ -196,11 +196,26 @@ mod benchmarks {
 		let prev_round = Round::<T>::get();
 		crate::Pallet::<T>::rotate_round();
 
+		let source_and_balance_before = if let Some(source) = T::RewardSource::account() {
+			let funds =
+				<T as Config>::MaxFeeRefund::get().saturating_add(T::Currency::minimum_balance());
+			T::Currency::mint_into(&source, funds)?;
+			Some((source.clone(), T::Currency::balance(&source)))
+		} else {
+			None
+		};
+
 		#[block]
 		{
 			Pallet::<T>::clear_old_round_data(RawOrigin::Signed(alice).into(), prev_round, p)?;
 		}
 
+		if let Some((source, balance_before)) = source_and_balance_before {
+			assert!(
+				T::Currency::balance(&source) < balance_before,
+				"fee refund must have transferred out of the configured RewardSource pot"
+			);
+		}
 		Ok(())
 	}
 
