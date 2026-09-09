@@ -670,7 +670,7 @@ impl QueryIndex {
 		std::mem::take(&mut self.recent)
 	}
 
-	fn forget_tracking<'a>(&mut self, keys: impl IntoIterator<Item = &'a PriorityKey>) {
+	fn forget_explicit_tracking<'a>(&mut self, keys: impl IntoIterator<Item = &'a PriorityKey>) {
 		for key in keys {
 			self.explicit_only.remove(&key.hash);
 		}
@@ -3012,7 +3012,7 @@ impl StatementStore for Store {
 				for evicted_statement in &evicted_statements {
 					query_index.note_remove(&evicted_statement.hash(), evicted_statement);
 				}
-				query_index.forget_tracking(plan.evicted.iter().map(|(key, _)| key));
+				query_index.forget_explicit_tracking(plan.evicted.iter().map(|(key, _)| key));
 				query_index.note_insert(hash, &statement, plan.seq, RetentionTrack::from(mask));
 			}
 			seq
@@ -3127,7 +3127,7 @@ impl StatementStore for Store {
 			for (hash, statement) in &removed_statements {
 				query_index.note_remove(hash, statement);
 			}
-			query_index.forget_tracking(entries.iter().map(|(key, _)| key));
+			query_index.forget_explicit_tracking(entries.iter().map(|(key, _)| key));
 		}
 		Ok(())
 	}
@@ -3205,7 +3205,7 @@ impl StatementStoreSubscriptionApi for Store {
 
 impl Store {
 	/// Removes a statement, reporting whether one was actually removed. With
-	/// [`Readmission::Banned`], an unexpired statement cannot be re-accepted until its purge
+	/// [`Resubmission::Banned`], an unexpired statement cannot be re-accepted until its purge
 	/// period elapses.
 	///
 	/// `Ok(false)` means no (decodable) statement is stored under `hash` — it was already gone,
