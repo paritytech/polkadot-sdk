@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788978486829,
+  "lastUpdate": 1788988705470,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -122363,6 +122363,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3280641947,
             "range": "± 34926051",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "141152972+Stephenlawrence00@users.noreply.github.com",
+            "name": "html//stephlou",
+            "username": "Stephenlawrence00"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "22ea3e610ac1ace53bace4ba1aeee57e40b5360f",
+          "message": "[EPMB] Add configurable reward source and slash destination to signed phase (#12843)\n\nFixes #12813\nIntroduces `type RewardSource` (pay rewards from a pot account instead\nof minting) and `type Slash` (route slashed deposits to a handler\ninstead of burning) to\n`pallet-election-provider-multi-block::signed::Config`, keeping\n`TotalIssuance` reconcilable with the DAP emission curve on Asset Hub.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-09-09T15:44:14Z",
+          "tree_id": "808e2c00ebf24befb16455102a709e81a5efc8eb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/22ea3e610ac1ace53bace4ba1aeee57e40b5360f"
+        },
+        "date": 1788988667218,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19550186,
+            "range": "± 170012",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19808340,
+            "range": "± 254120",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21128486,
+            "range": "± 176055",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26612767,
+            "range": "± 332534",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60198918,
+            "range": "± 479197",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 352035866,
+            "range": "± 4759007",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2658578491,
+            "range": "± 96105857",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16640303,
+            "range": "± 218507",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16673351,
+            "range": "± 157835",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17555115,
+            "range": "± 129774",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21674260,
+            "range": "± 117453",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62141577,
+            "range": "± 818303",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 361236118,
+            "range": "± 5256884",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2678851393,
+            "range": "± 15940990",
             "unit": "ns/iter"
           }
         ]
