@@ -3837,3 +3837,174 @@ mod admin {
 		});
 	}
 }
+
+/// The admin slots follow the internal asset's owner when, and only when, they were held
+/// through that ownership. See `Pallet::handle_internal_asset_owner_change`.
+///
+/// The case grid: accounts A and B, asset X, PSM P over internal asset X. An admin slot of
+/// P either equals `Signed(owner of X)` — the bundled case — or it does not: a third
+/// account, or a governance origin. Ownership of X either stays, moves by
+/// `transfer_ownership`, or moves by a privileged path.
+///
+/// The rotation targets one cell: a bundled slot whose ownership moves. Before the
+/// rotation, that cell held a silent split. The departing owner kept the slot, and the new
+/// owner could not administer, remove, or re-create P, because X has at most one P. Every
+/// other cell keeps its old meaning:
+///
+/// - A slot that is not bundled never moves, whoever owns or receives X.
+/// - An explicit split stays available: rotate the slot away first, then transfer X.
+/// - The order of "hand over the slot" and "hand over X" stops mattering. Both orders end with the
+///   receiver holding both.
+/// - The mirror direction — the admin receives ownership of X — forms a bundle. Nothing rotates.
+/// - `full_admin` and `emergency_admin` follow the rule independently.
+/// - A privileged owner change (`force_asset_status`, `reset_team`) is an owner change like any
+///   other. A partial rule would recreate the split through the uncovered path.
+///
+/// One test per cell below.
+mod admin_follows_owner {
+	use super::*;
+
+	fn set_admins(full: OriginCaller, emergency: OriginCaller) {
+		crate::PsmAdmin::<Test>::mutate(INTERNAL_ASSET_ID, |a| {
+			let a = a.as_mut().unwrap();
+			a.full_admin = full;
+			a.emergency_admin = emergency;
+		});
+	}
+
+	fn signed(who: AccountId) -> OriginCaller {
+		frame_system::RawOrigin::<AccountId>::Signed(who).into()
+	}
+
+	fn root() -> OriginCaller {
+		frame_system::RawOrigin::<AccountId>::Root.into()
+	}
+
+	fn admins() -> (OriginCaller, OriginCaller) {
+		let a = crate::PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).unwrap();
+		(a.full_admin, a.emergency_admin)
+	}
+
+	#[test]
+	fn coinciding_full_admin_rotates_on_transfer() {
+		new_test_ext().execute_with(|| {
+			set_admins(signed(ALICE), signed(EMERGENCY_ACCOUNT));
+			assert_ok!(Assets::transfer_ownership(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				BOB
+			));
+			assert_eq!(admins(), (signed(BOB), signed(EMERGENCY_ACCOUNT)));
+
+			// The regression from the finding: the old owner loses the admin calls, the
+			// new owner gains them.
+			assert_noop!(
+				Psm::set_max_debt(RuntimeOrigin::signed(ALICE), INTERNAL_ASSET_ID, 1),
+				DispatchError::BadOrigin
+			);
+			assert_ok!(Psm::set_max_debt(RuntimeOrigin::signed(BOB), INTERNAL_ASSET_ID, 1));
+		});
+	}
+
+	#[test]
+	fn coinciding_emergency_admin_rotates_independently() {
+		new_test_ext().execute_with(|| {
+			set_admins(root(), signed(ALICE));
+			assert_ok!(Assets::transfer_ownership(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				BOB
+			));
+			assert_eq!(admins(), (root(), signed(BOB)));
+		});
+	}
+
+	#[test]
+	fn governance_admin_does_not_rotate() {
+		new_test_ext().execute_with(|| {
+			set_admins(root(), root());
+			assert_ok!(Assets::transfer_ownership(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				BOB
+			));
+			assert_eq!(admins(), (root(), root()));
+		});
+	}
+
+	#[test]
+	fn third_party_admin_does_not_rotate() {
+		new_test_ext().execute_with(|| {
+			set_admins(signed(CHARLIE), signed(CHARLIE));
+			assert_ok!(Assets::transfer_ownership(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				BOB
+			));
+			assert_eq!(admins(), (signed(CHARLIE), signed(CHARLIE)));
+		});
+	}
+
+	#[test]
+	fn deliberate_split_stays_possible() {
+		new_test_ext().execute_with(|| {
+			set_admins(signed(ALICE), root());
+			// ALICE rotates the admin away first, then transfers the asset. The hook
+			// sees admin != owner and does nothing: the split is explicit.
+			assert_ok!(Psm::set_full_admin(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				Box::new(signed(CHARLIE))
+			));
+			assert_ok!(Assets::transfer_ownership(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				BOB
+			));
+			assert_eq!(admins(), (signed(CHARLIE), root()));
+		});
+	}
+
+	#[test]
+	fn force_asset_status_rotates_too() {
+		new_test_ext().execute_with(|| {
+			set_admins(signed(ALICE), root());
+			assert_ok!(Assets::force_asset_status(
+				RuntimeOrigin::root(),
+				INTERNAL_ASSET_ID,
+				BOB,
+				BOB,
+				BOB,
+				BOB,
+				1,
+				true,
+				false
+			));
+			assert_eq!(admins(), (signed(BOB), root()));
+		});
+	}
+
+	#[test]
+	fn transfer_to_the_admin_forms_the_bundle() {
+		new_test_ext().execute_with(|| {
+			set_admins(signed(BOB), root());
+			assert_ok!(Assets::transfer_ownership(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				BOB
+			));
+			assert_eq!(admins(), (signed(BOB), root()));
+		});
+	}
+
+	#[test]
+	fn asset_without_psm_transfers_clean() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Assets::transfer_ownership(
+				RuntimeOrigin::signed(ALICE),
+				USDC_ASSET_ID,
+				BOB
+			));
+		});
+	}
+}

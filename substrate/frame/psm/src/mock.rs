@@ -114,6 +114,16 @@ impl pallet_assets::Config for Test {
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
+	type CallbackHandle = PsmOwnerSync;
+}
+
+/// Forwards asset owner changes to the PSM, as a runtime wires it in production.
+pub struct PsmOwnerSync;
+impl pallet_assets::AssetsCallback<u32, AccountId> for PsmOwnerSync {
+	fn owner_changed(id: &u32, old: &AccountId, new: &AccountId) -> Result<(), ()> {
+		crate::Pallet::<Test>::handle_internal_asset_owner_change(id, old, new);
+		Ok(())
+	}
 }
 
 parameter_types! {
