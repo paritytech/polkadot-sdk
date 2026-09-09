@@ -28,6 +28,7 @@ use assert_matches::assert_matches;
 use async_trait::async_trait;
 use codec::Encode;
 use futures::channel::mpsc::UnboundedReceiver;
+use polkadot_node_clock::{Clock as _, MockClock};
 use polkadot_node_network_protocol::{
 	peer_set::{CollationVersion, PeerSet},
 	request_response::{
@@ -106,7 +107,7 @@ fn dummy_candidate(
 	ccr.descriptor.set_session_index(session);
 
 	let receipt = ccr.to_plain();
-	let prospective_candidate = Some(ProspectiveCandidate {
+	let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 		candidate_hash: receipt.hash(),
 		parent_head_data_hash: dummy_pvd().parent_head.hash(),
 	});
@@ -141,7 +142,7 @@ fn dummy_candidate_v3(
 	ccr.descriptor.set_scheduling_parent(scheduling_parent);
 
 	let receipt = ccr.to_plain();
-	let prospective_candidate = Some(ProspectiveCandidate {
+	let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 		candidate_hash: receipt.hash(),
 		parent_head_data_hash: dummy_pvd().parent_head.hash(),
 	});
@@ -155,6 +156,24 @@ fn dummy_candidate_v3(
 			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
 		},
 	)
+}
+
+/// A distinct V4 wire fingerprint per seed. The hashes only need to be unique and stable —
+/// nothing in the accept path interprets them.
+fn v4_fingerprint(seed: u8) -> protocol_v4::CandidateFingerprint {
+	protocol_v4::CandidateFingerprint {
+		output_head_data_hash: Hash::repeat_byte(seed),
+		parent_head_data_hash: Hash::repeat_byte(seed.wrapping_add(0x80)),
+		claim_queue_offset: 0,
+	}
+}
+
+/// The stored-entry twin of a wire fingerprint.
+fn v4_entry(fp: &protocol_v4::CandidateFingerprint) -> ProspectiveCandidate {
+	ProspectiveCandidate::ByOutputHead {
+		output_head_data_hash: fp.output_head_data_hash,
+		parent_head_data_hash: fp.parent_head_data_hash,
+	}
 }
 
 #[derive(Clone)]
@@ -188,6 +207,9 @@ struct TestState {
 	keystore: KeystorePtr,
 	node_features: NodeFeatures,
 	slot_overrides: HashMap<Hash, sp_consensus_slots::Slot>,
+	// Shared by the subsystem state and the mock header responder: a single, frozen time
+	// source so V3 scheduling-parent slot validation can't race a wall-clock slot boundary.
+	clock: Arc<MockClock>,
 }
 
 impl Default for TestState {
@@ -285,6 +307,11 @@ impl Default for TestState {
 
 		let mut node_features = NodeFeatures::EMPTY;
 		node_features.resize(FeatureIndex::FirstUnassigned as usize, false);
+
+		// Seed away from slot 0 so tests can reference the previous slot without underflow.
+		let clock = Arc::new(MockClock::default());
+		clock.advance_secs(60);
+
 		Self {
 			session_info,
 			rp_info,
@@ -297,6 +324,7 @@ impl Default for TestState {
 			keystore,
 			node_features,
 			slot_overrides: HashMap::default(),
+			clock,
 		}
 	}
 }
@@ -391,7 +419,9 @@ impl TestState {
 				AllMessages::ChainApi(ChainApiMessage::BlockHeader(rp, tx)) => {
 					let slot = self.slot_overrides.get(&rp).copied().unwrap_or_else(|| {
 						sp_consensus_slots::Slot::from_timestamp(
-							sp_timestamp::Timestamp::current(),
+							sp_timestamp::Timestamp::new(
+								self.clock.duration_since_epoch().as_millis() as u64,
+							),
 							sp_consensus_slots::SlotDuration::from_millis(
 								polkadot_primitives::RELAY_CHAIN_SLOT_DURATION_MILLIS,
 							),
@@ -509,14 +539,15 @@ impl TestState {
 		});
 	}
 
-	async fn handle_finalized_block(&mut self, finalized: BlockNumber) {
-		let old_finalized = self.finalized_block;
+	async fn handle_finalized_block_lookback(
+		&mut self,
+		processed: BlockNumber,
+		finalized: BlockNumber,
+	) {
 		self.finalized_block = finalized;
 
-		let diff = std::cmp::min(
-			finalized.checked_sub(old_finalized).unwrap(),
-			MAX_STARTUP_ANCESTRY_LOOKBACK,
-		);
+		let diff =
+			std::cmp::min(finalized.checked_sub(processed).unwrap(), MAX_STARTUP_ANCESTRY_LOOKBACK);
 		if diff == 0 {
 			return;
 		}
@@ -545,7 +576,7 @@ impl TestState {
 			}
 		);
 
-		let mut extra_msg = loop {
+		let extra_msg = loop {
 			let had_buffered_msg = self.buffered_msg.is_some();
 			let msg = match self.buffered_msg.take() {
 				Some(msg) => msg,
@@ -607,7 +638,15 @@ impl TestState {
 			};
 		};
 
-		let msg = match extra_msg.take() {
+		self.buffered_msg = extra_msg;
+	}
+
+	async fn handle_finalized_block(&mut self, processed: BlockNumber, finalized: BlockNumber) {
+		self.handle_finalized_block_lookback(processed, finalized).await;
+
+		// Finality notifications additionally check for changes in the registered paras
+		// (once per session).
+		let msg = match self.buffered_msg.take() {
 			Some(msg) => msg,
 			None => self.timeout_recv().await,
 		};
@@ -650,15 +689,42 @@ impl TestState {
 				&mut sender,
 				adv.peer_id,
 				adv.scheduling_parent,
-				adv.prospective_candidate,
-				adv.advertised_descriptor_version
+				adv.prospective_candidate.into_iter().collect(),
+				adv.advertised_descriptor_version,
+				None
 			),
 			async move {
-				if adv.prospective_candidate.is_some() {
+				// Only a candidate-hash claim triggers a backing pre-check; V1 (no claim) and
+				// V4 (no candidate hash) advertisements are accepted without one.
+				if adv.candidate_hash().is_some() {
 					self.assert_can_second_request(adv, true).await
 				}
 			}
 		);
+	}
+
+	/// Deliver a V4 segment advertisement over the wire path (V3 candidate descriptors).
+	async fn send_v4_segment<B: Backend>(
+		&mut self,
+		state: &mut State<B>,
+		peer_id: PeerId,
+		scheduling_parent: Hash,
+		fingerprints: Vec<protocol_v4::CandidateFingerprint>,
+		para_id: ParaId,
+	) {
+		let mut sender = self.sender.clone();
+		process_incoming_peer_message(
+			&mut sender,
+			state,
+			peer_id,
+			CollationProtocols::V4(protocol_v4::AdvertiseSegment {
+				scheduling_parent,
+				candidates_descriptor_version: CandidateDescriptorVersion::V3,
+				candidates: fingerprints.try_into().unwrap(),
+				para_id,
+			}),
+		)
+		.await;
 	}
 
 	async fn assert_collation_request(&mut self, adv: Advertisement) -> ResponseSender {
@@ -692,7 +758,7 @@ impl TestState {
 							assert!(req.fallback_request.is_none());
 
 							let adv = advertisements.iter().find(|adv| {
-								if let Some(ProspectiveCandidate { candidate_hash, .. }) = adv.prospective_candidate {
+								if let Some(ProspectiveCandidate::ByHash { candidate_hash, .. }) = adv.prospective_candidate {
 									matches!(req.peer, Recipient::Peer(peer) if peer == adv.peer_id) &&
 										req.payload.scheduling_parent == adv.scheduling_parent &&
 										req.payload.para_id == adv.para_id &&
@@ -721,6 +787,24 @@ impl TestState {
 
 							advertisements.remove(&adv);
 						}
+						Requests::CollationFetchingV3(req) => {
+							assert!(req.fallback_request.is_none());
+
+							let adv = advertisements.iter().find(|adv| {
+								adv.prospective_candidate
+									.and_then(|pc| pc.output_head_data_hash())
+									.is_some_and(|output_head| {
+										matches!(req.peer, Recipient::Peer(peer) if peer == adv.peer_id) &&
+											req.payload.scheduling_parent == adv.scheduling_parent &&
+											req.payload.para_id == adv.para_id &&
+											req.payload.output_head_data_hash == output_head
+									})
+							}).copied().unwrap();
+
+							res.insert(adv, req.pending_response);
+
+							advertisements.remove(&adv);
+						}
 						_ => panic!("Unexpected request")
 					}
 				}
@@ -736,12 +820,14 @@ impl TestState {
 			None => self.timeout_recv().await,
 		};
 
-		if let Some(prospective_candidate) = adv.prospective_candidate {
+		if let Some(ProspectiveCandidate::ByHash { candidate_hash, parent_head_data_hash }) =
+			adv.prospective_candidate
+		{
 			let expected_req = CanSecondRequest {
 				candidate_para_id: adv.para_id,
 				candidate_scheduling_parent: adv.scheduling_parent,
-				candidate_hash: prospective_candidate.candidate_hash,
-				parent_head_data_hash: prospective_candidate.parent_head_data_hash,
+				candidate_hash,
+				parent_head_data_hash,
 			};
 
 			assert_matches!(
@@ -756,7 +842,10 @@ impl TestState {
 				}
 			);
 		} else {
-			panic!("Didn't expect to send CanSecond request for protocol v1 {:?}", msg);
+			panic!(
+				"Didn't expect a CanSecond request for a claim without a candidate hash {:?}",
+				msg
+			);
 		}
 	}
 
@@ -771,7 +860,9 @@ impl TestState {
 			None => self.timeout_recv().await,
 		};
 
-		if let Some(ProspectiveCandidate { parent_head_data_hash, .. }) = adv.prospective_candidate
+		// Both claim shapes carry a parent head hash; V1 (no claim) takes the runtime-API path.
+		if let Some(parent_head_data_hash) =
+			adv.prospective_candidate.map(|pc| pc.parent_head_data_hash())
 		{
 			assert_matches!(
 				msg,
@@ -921,7 +1012,9 @@ impl TestState {
 								assert_eq!(statement, stmt);
 							}
 						)
-					}
+					},
+					// V4 sends no `CollationSeconded`, so there is nothing to assert.
+					CollationVersion::V4 => {}
 				};
 			}
 		);
@@ -979,6 +1072,9 @@ async fn make_state<B: Backend>(
 	let initial_leaf_number = test_state.rp_info.get(&initial_leaf_hash).unwrap().number;
 
 	let keystore = test_state.keystore.clone();
+	let clock = test_state.clock.clone();
+
+	let processed_block_number = db.processed_finalized_block_number().await.unwrap_or_default();
 
 	let mut sender = test_state.sender.clone();
 
@@ -1008,8 +1104,12 @@ async fn make_state<B: Backend>(
 			}
 		);
 
-		if finalized_block_number > 0 {
-			test_state.handle_finalized_block(finalized_block_number).await;
+		// Startup only extracts reputation bumps from the finalized chain, it doesn't prune the
+		// registered paras.
+		if finalized_block_number > processed_block_number {
+			test_state
+				.handle_finalized_block_lookback(processed_block_number, finalized_block_number)
+				.await;
 		}
 
 		// No more messages are expected
@@ -1021,7 +1121,7 @@ async fn make_state<B: Backend>(
 			&mut sender,
 			keystore,
 			new_leaf(initial_leaf_hash, initial_leaf_number),
-			polkadot_node_clock::system_clock(),
+			clock.clone(),
 		)
 		.await
 		.unwrap();
@@ -1030,7 +1130,8 @@ async fn make_state<B: Backend>(
 			db,
 			&mut sender,
 			collation_manager.assignments(),
-			polkadot_node_clock::system_clock(),
+			clock,
+			Metrics::default(),
 		)
 		.await
 		.unwrap();
@@ -1049,6 +1150,7 @@ struct MockDb {
 	// Use BTreeMaps to ensure ordering when asserting.
 	witnessed_bumps: Arc<Mutex<BTreeMap<ParaId, BTreeMap<PeerId, Score>>>>,
 	witnessed_slash: Arc<Mutex<Option<(PeerId, ParaId, Score)>>>,
+	witnessed_prunes: Arc<Mutex<Vec<BTreeSet<ParaId>>>>,
 	query_fn: Arc<Mutex<dyn Fn(PeerId, ParaId) -> Option<Score> + Send>>,
 }
 
@@ -1066,6 +1168,7 @@ impl MockDb {
 			finalized: Default::default(),
 			witnessed_bumps: Default::default(),
 			witnessed_slash: Default::default(),
+			witnessed_prunes: Default::default(),
 			query_fn,
 		}
 	}
@@ -1076,6 +1179,14 @@ impl MockDb {
 
 	fn witnessed_slash(&self) -> Option<(PeerId, ParaId, Score)> {
 		std::mem::take(self.witnessed_slash.lock().unwrap().deref_mut())
+	}
+
+	fn witnessed_prunes(&self) -> Vec<BTreeSet<ParaId>> {
+		std::mem::take(self.witnessed_prunes.lock().unwrap().deref_mut())
+	}
+
+	fn set_processed_finalized_block_number(&self, number: BlockNumber) {
+		*self.finalized.lock().unwrap() = number;
 	}
 }
 
@@ -1100,7 +1211,9 @@ impl Backend for MockDb {
 		assert!(old_slash.is_none());
 	}
 
-	async fn prune_paras(&mut self, _registered_paras: BTreeSet<ParaId>) {}
+	async fn prune_paras(&mut self, registered_paras: BTreeSet<ParaId>) {
+		self.witnessed_prunes.lock().unwrap().push(registered_paras);
+	}
 
 	async fn process_bumps(
 		&mut self,
@@ -1109,6 +1222,11 @@ impl Backend for MockDb {
 		_decay_value: Option<Score>,
 		_now: std::time::Duration,
 	) -> Vec<ReputationUpdate> {
+		// Mirror the real backend: never move the processed finalized block backwards.
+		if *(self.finalized.lock().unwrap()) >= leaf_number {
+			return vec![];
+		}
+
 		let old_bumps = std::mem::replace(
 			self.witnessed_bumps.lock().unwrap().deref_mut(),
 			bumps.into_iter().map(|(k, v)| (k, v.into_iter().collect())).collect(),
@@ -1130,12 +1248,13 @@ impl Drop for MockDb {
 	fn drop(&mut self) {
 		assert!(self.witnessed_bumps().is_empty());
 		assert!(self.witnessed_slash().is_none());
+		assert!(self.witnessed_prunes().is_empty());
 	}
 }
 
-#[tokio::test]
 // Test scenarios concerning connects/disconnects and declares.
 // More fine grained tests are in the `ConnectedPeers` unit tests.
+#[tokio::test]
 async fn test_connection_flow() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -1192,7 +1311,8 @@ async fn test_connection_flow() {
 	);
 
 	// Reputations are bumped on finalized block notifications.
-	futures::join!(test_state.handle_finalized_block(2), async {
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 2), async {
 		state.handle_finalized_block(&mut sender, get_hash(2), 2).await.unwrap()
 	});
 	test_state.assert_no_messages().await;
@@ -1256,8 +1376,8 @@ async fn test_connection_flow() {
 	assert_eq!(state.connected_peers(), peer_ids.clone().into_iter().skip(1).collect());
 }
 
-#[tokio::test]
 // Test peer disconnects before the collation is successfully fetched.
+#[tokio::test]
 async fn test_peer_disconnects_before_fetch() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -1304,7 +1424,8 @@ async fn test_peer_disconnects_before_fetch() {
 		Hash::from_low_u64_be(2),
 	);
 
-	// Advertise a collation from the first peer, it will be launched, leaving only one free slot.
+	// Advertise a collation from the first peer, it will be launched, leaving only one free
+	// slot.
 	test_state.handle_advertisement(&mut state, first_adv).await;
 
 	state.try_launch_new_fetch_requests(&mut sender).await;
@@ -1320,7 +1441,7 @@ async fn test_peer_disconnects_before_fetch() {
 		state.handle_declare(&mut sender, second_peer, 100.into()).await;
 
 		test_state.handle_advertisement(&mut state, third_adv).await;
-		assert_eq!(state.advertisements(), [first_adv, third_adv].into());
+		assert_eq!(state.advertisements(), [third_adv].into());
 
 		state.handle_peer_disconnected(second_peer).await;
 
@@ -1328,7 +1449,7 @@ async fn test_peer_disconnects_before_fetch() {
 		state.try_launch_new_fetch_requests(&mut sender).await;
 		test_state.assert_no_messages().await;
 
-		assert_eq!(state.advertisements(), [first_adv].into());
+		assert!(state.advertisements().is_empty());
 	}
 
 	// Peer disconnected while the request was fetching.
@@ -1341,22 +1462,23 @@ async fn test_peer_disconnects_before_fetch() {
 		// Let's add the third advertisement.
 		test_state.handle_advertisement(&mut state, third_adv).await;
 
-		assert_eq!(state.advertisements(), [first_adv, third_adv].into());
+		assert_eq!(state.advertisements(), [third_adv].into());
 
 		state.try_launch_new_fetch_requests(&mut sender).await;
 		test_state.assert_collation_request(third_adv).await;
 		test_state.handle_advertisement(&mut state, second_adv).await;
-		assert_eq!(state.advertisements(), [first_adv, second_adv, third_adv].into());
+		assert_eq!(state.advertisements(), [second_adv].into());
 		test_state.assert_no_messages().await;
 
-		// Second advertisement is not launched since the third one already occupied the other slot.
+		// Second advertisement is not launched since the third one already occupied the other
+		// slot.
 		state.try_launch_new_fetch_requests(&mut sender).await;
 		test_state.assert_no_messages().await;
 
 		// Second peer disconnects, which will free up the claim queue slot.
 		state.handle_peer_disconnected(second_peer).await;
 
-		assert_eq!(state.advertisements(), [first_adv, second_adv].into());
+		assert_eq!(state.advertisements(), [second_adv].into());
 		state
 			.handle_fetched_collation(
 				&mut sender,
@@ -1377,8 +1499,8 @@ async fn test_peer_disconnects_before_fetch() {
 	}
 }
 
-#[tokio::test]
 // Test peer disconnects after the collation is successfully fetched.
+#[tokio::test]
 async fn test_peer_disconnects_after_fetch() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -1425,15 +1547,16 @@ async fn test_peer_disconnects_after_fetch() {
 		dummy_pvd().hash(),
 	);
 
-	// Advertise a collation from the first peer, it will be launched, leaving only one free slot.
+	// Advertise a collation from the first peer, it will be launched, leaving only one free
+	// slot.
 	test_state.handle_advertisement(&mut state, first_adv).await;
 
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_collation_request(first_adv).await;
 	test_state.assert_no_messages().await;
 
-	// Test a peer disconnect after the collation was successfully fetched. In this case, we won't
-	// free up the slot.
+	// Test a peer disconnect after the collation was successfully fetched. In this case, we
+	// won't free up the slot.
 
 	state
 		.handle_peer_connected(&mut sender, second_peer, CollationVersion::V2)
@@ -1443,12 +1566,12 @@ async fn test_peer_disconnects_after_fetch() {
 	// Let's add the third advertisement.
 	test_state.handle_advertisement(&mut state, third_adv).await;
 
-	assert_eq!(state.advertisements(), [first_adv, third_adv].into());
+	assert_eq!(state.advertisements(), [third_adv].into());
 
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_collation_request(third_adv).await;
 	test_state.handle_advertisement(&mut state, second_adv).await;
-	assert_eq!(state.advertisements(), [first_adv, second_adv, third_adv].into());
+	assert_eq!(state.advertisements(), [second_adv].into());
 	test_state.assert_no_messages().await;
 
 	// Second advertisement is not launched since the third one already occupied the other slot.
@@ -1466,17 +1589,17 @@ async fn test_peer_disconnects_after_fetch() {
 		)
 		.await;
 
-	// Second peer disconnects, which will not free up the claim queue slot since the collation was
-	// already fetched.
+	// Second peer disconnects, which will not free up the claim queue slot since the collation
+	// was already fetched.
 	state.handle_peer_disconnected(second_peer).await;
 
-	assert_eq!(state.advertisements(), [first_adv, second_adv].into());
+	assert_eq!(state.advertisements(), [second_adv].into());
 
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
 
-	// The collation was seconded, the claim will still not be freed but we won't be able to send
-	// back a notification to the collator.
+	// The collation was seconded, the claim will still not be freed but we won't be able to
+	// send back a notification to the collator.
 
 	let parent = third_ccr.descriptor.scheduling_parent();
 	let statement = make_seconded_statement(&test_state.keystore, third_ccr);
@@ -1484,14 +1607,14 @@ async fn test_peer_disconnects_after_fetch() {
 	state.handle_seconded_collation(&mut sender, statement, parent).await;
 	test_state.assert_no_messages().await;
 
-	assert_eq!(state.advertisements(), [first_adv, second_adv].into());
+	assert_eq!(state.advertisements(), [second_adv].into());
 
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
 }
 
-#[tokio::test]
 // Test that peer connections are rejected if we have no assignments.
+#[tokio::test]
 async fn test_no_assignments() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -1789,8 +1912,8 @@ async fn test_peer_connections_across_group_rotations() {
 	assert_eq!(state.connected_peers(), (&peer_ids[5..]).into_iter().cloned().collect());
 }
 
-#[tokio::test]
 // Test reputation bumps on finalized block notification.
+#[tokio::test]
 async fn finalized_block_notification() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -1812,10 +1935,16 @@ async fn finalized_block_notification() {
 	assert_eq!(state.connected_peers(), peers.clone().into_iter().collect());
 
 	// Finalize block 5, no expected bumps, because there are no included candidates.
-	futures::join!(test_state.handle_finalized_block(5), async {
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 5), async {
 		state.handle_finalized_block(&mut sender, get_hash(5), 5).await.unwrap()
 	});
 	test_state.assert_no_messages().await;
+	// The first finalized block notification queries and prunes the registered paras.
+	assert_eq!(
+		db.witnessed_prunes(),
+		vec![[100.into(), 200.into(), 600.into()].into_iter().collect::<BTreeSet<ParaId>>()]
+	);
 
 	// Add one included candidate at block 6 for first peer and para 100.
 	test_state.set_candidates_pending_availability(
@@ -1828,7 +1957,8 @@ async fn finalized_block_notification() {
 		[(first_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP))].into_iter().collect(),
 	);
 
-	futures::join!(test_state.handle_finalized_block(6), async {
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 6), async {
 		state.handle_finalized_block(&mut sender, get_hash(6), 6).await.unwrap()
 	});
 	test_state.assert_no_messages().await;
@@ -1879,7 +2009,8 @@ async fn finalized_block_notification() {
 
 	// Add multiple included candidates at different block heights and check that they are processed
 	// accordingly.
-	futures::join!(test_state.handle_finalized_block(10), async {
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 10), async {
 		state.handle_finalized_block(&mut sender, get_hash(10), 10).await.unwrap()
 	});
 	test_state.assert_no_messages().await;
@@ -1888,8 +2019,8 @@ async fn finalized_block_notification() {
 	assert_eq!(db.witnessed_bumps(), expected_bumps);
 }
 
-#[tokio::test]
 // Test various scenarios for rejecting advertisements.
+#[tokio::test]
 async fn test_advertisement_rejections() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -1912,7 +2043,17 @@ async fn test_advertisement_rejections() {
 	let prospective_candidate = adv.prospective_candidate;
 
 	// Send advertisement from a peer that is not connected. Will be dropped.
-	state.handle_advertisement(&mut sender, peer_id, active_leaf, None, None).await;
+	let pc = vec![];
+	state
+		.handle_advertisement(
+			&mut sender,
+			peer_id,
+			active_leaf,
+			pc.clone().into_iter().collect(),
+			None,
+			None,
+		)
+		.await;
 	assert!(state.advertisements().is_empty());
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
@@ -1921,7 +2062,14 @@ async fn test_advertisement_rejections() {
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
 
 	state
-		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate, None)
+		.handle_advertisement(
+			&mut sender,
+			peer_id,
+			active_leaf,
+			prospective_candidate.into_iter().collect(),
+			None,
+			None,
+		)
 		.await;
 	assert!(state.advertisements().is_empty());
 	state.try_launch_new_fetch_requests(&mut sender).await;
@@ -1935,7 +2083,14 @@ async fn test_advertisement_rejections() {
 
 	// Relay parent outside view.
 	state
-		.handle_advertisement(&mut sender, peer_id, get_hash(11), prospective_candidate, None)
+		.handle_advertisement(
+			&mut sender,
+			peer_id,
+			get_hash(11),
+			prospective_candidate.into_iter().collect(),
+			None,
+			None,
+		)
 		.await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
@@ -1949,7 +2104,8 @@ async fn test_advertisement_rejections() {
 				&mut sender,
 				peer_id,
 				active_leaf,
-				prospective_candidate,
+				prospective_candidate.into_iter().collect(),
+				None,
 				None
 			),
 			test_state.assert_can_second_request(adv, false)
@@ -1961,7 +2117,14 @@ async fn test_advertisement_rejections() {
 
 	// Here comes a valid advertisement, will be rejected because we reached the limit.
 	state
-		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate, None)
+		.handle_advertisement(
+			&mut sender,
+			peer_id,
+			active_leaf,
+			prospective_candidate.into_iter().collect(),
+			None,
+			None,
+		)
 		.await;
 
 	// Let's add a new peerid then.
@@ -1982,19 +2145,34 @@ async fn test_advertisement_rejections() {
 
 	// Duplicate advertisement. Only one fetch request will be launched.
 	state
-		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate, None)
+		.handle_advertisement(
+			&mut sender,
+			peer_id,
+			active_leaf,
+			prospective_candidate.into_iter().collect(),
+			None,
+			None,
+		)
 		.await;
 	assert_eq!(state.advertisements(), [adv].into());
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_collation_request(adv).await;
-	assert_eq!(state.advertisements(), [adv].into());
+	// Segment entitlements are spent at launch.
+	assert!(state.advertisements().is_empty());
 	test_state.assert_no_messages().await;
 
 	// We still detect the duplicate advertisement with a fetching collation.
 	state
-		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate, None)
+		.handle_advertisement(
+			&mut sender,
+			peer_id,
+			active_leaf,
+			prospective_candidate.into_iter().collect(),
+			None,
+			None,
+		)
 		.await;
-	assert_eq!(state.advertisements(), [adv].into());
+	assert!(state.advertisements().is_empty());
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
 
@@ -2005,7 +2183,14 @@ async fn test_advertisement_rejections() {
 	test_state.assert_no_messages().await;
 	assert!(state.advertisements().is_empty());
 	state
-		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate, None)
+		.handle_advertisement(
+			&mut sender,
+			peer_id,
+			active_leaf,
+			prospective_candidate.into_iter().collect(),
+			None,
+			None,
+		)
 		.await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
@@ -2018,7 +2203,14 @@ async fn test_advertisement_rejections() {
 	test_state.assert_no_messages().await;
 	assert!(state.advertisements().is_empty());
 	state
-		.handle_advertisement(&mut sender, peer_id, active_leaf, prospective_candidate, None)
+		.handle_advertisement(
+			&mut sender,
+			peer_id,
+			active_leaf,
+			prospective_candidate.into_iter().collect(),
+			None,
+			None,
+		)
 		.await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	assert!(state.advertisements().is_empty());
@@ -2028,7 +2220,16 @@ async fn test_advertisement_rejections() {
 	let peer_id = PeerId::random();
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
 	state.handle_declare(&mut sender, peer_id, 100.into()).await;
-	state.handle_advertisement(&mut sender, peer_id, get_hash(9), None, None).await;
+	state
+		.handle_advertisement(
+			&mut sender,
+			peer_id,
+			get_hash(9),
+			pc.into_iter().collect(),
+			None,
+			None,
+		)
+		.await;
 	assert!(state.advertisements().is_empty());
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_no_messages().await;
@@ -2051,7 +2252,7 @@ async fn test_collation_fetch_failure() {
 	ccr.descriptor.set_session_index(leaf_info.session_index);
 
 	let receipt = ccr.to_plain();
-	let prospective_candidate = Some(ProspectiveCandidate {
+	let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 		candidate_hash: receipt.hash(),
 		parent_head_data_hash: dummy_pvd().parent_head.hash(),
 	});
@@ -2184,7 +2385,7 @@ async fn test_collation_fetch_failure() {
 		// Set a different core index.
 		receipt.descriptor.set_core_index(CoreIndex(5));
 
-		let prospective_candidate = Some(ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
 		});
@@ -2219,7 +2420,7 @@ async fn test_collation_fetch_failure() {
 		// Set a different session index.
 		receipt.descriptor.set_session_index(5);
 
-		let prospective_candidate = Some(ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
 		});
@@ -2287,7 +2488,7 @@ async fn test_collation_fetch_failure() {
 		// Modify some random thing in the receipt so that we get a different candidate.
 		receipt.commitments_hash = get_hash(10);
 
-		let prospective_candidate = Some(ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
 		});
@@ -2330,7 +2531,7 @@ async fn test_collation_fetch_failure() {
 		// Modify some random thing in the receipt so that we get a different candidate.
 		receipt.commitments_hash = get_hash(11);
 
-		let prospective_candidate = Some(ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt.hash(),
 			// Randomly modify the parent head data hash in the advertisement.
 			parent_head_data_hash: get_hash(11),
@@ -2370,7 +2571,7 @@ async fn test_collation_fetch_failure() {
 		// Modify some random thing in the receipt so that we get a different candidate.
 		receipt.commitments_hash = get_hash(12);
 
-		let prospective_candidate = Some(ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
 		});
@@ -2410,8 +2611,8 @@ async fn test_collation_fetch_failure() {
 	}
 }
 
-#[tokio::test]
 // Test a successful collation fetch that went out of the view in the meantime.
+#[tokio::test]
 async fn test_collation_response_out_of_view() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -2493,9 +2694,9 @@ async fn test_collation_response_out_of_view() {
 // removed because V2 is now always enabled. The v3_enabled parameter has been removed from
 // descriptor methods.
 
+// Test that we accept v1 candidates.
 #[rstest]
 #[tokio::test]
-// Test that we accept v1 candidates.
 async fn v1_descriptor_compatibility() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -2510,7 +2711,7 @@ async fn v1_descriptor_compatibility() {
 	ccr.descriptor.persisted_validation_data_hash = dummy_pvd().hash();
 
 	let receipt = ccr.to_plain();
-	let prospective_candidate = Some(ProspectiveCandidate {
+	let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 		candidate_hash: receipt.hash(),
 		parent_head_data_hash: dummy_pvd().parent_head.hash(),
 	});
@@ -2545,9 +2746,9 @@ async fn v1_descriptor_compatibility() {
 	test_state.assert_no_messages().await;
 }
 
-#[tokio::test]
 // Test a collation that is deemed invalid by candidate-backing. It will lead to a slash and the
 // slot will be freed.
+#[tokio::test]
 async fn test_invalid_collation() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -2631,12 +2832,12 @@ async fn test_invalid_collation() {
 	test_state.assert_no_messages().await;
 }
 
+// Test that we can block the seconding of a candidate on its parent being seconded. If the parent
+// is later seconded, the child is unblocked as well. If it's invalid, it will be dropped.
 #[rstest]
 #[case(true)]
 #[case(false)]
 #[tokio::test]
-// Test that we can block the seconding of a candidate on its parent being seconded. If the parent
-// is later seconded, the child is unblocked as well. If it's invalid, it will be dropped.
 async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -2672,7 +2873,7 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 		};
 
 		let receipt = ccr.to_plain();
-		let prospective_candidate = Some(ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: pvd.parent_head.hash(),
 		});
@@ -2712,7 +2913,7 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 		};
 
 		let receipt = ccr.to_plain();
-		let prospective_candidate = Some(ProspectiveCandidate {
+		let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: pvd.parent_head.hash(),
 		});
@@ -2930,7 +3131,7 @@ async fn test_outdated_blocked_collations_are_pruned() {
 		),
 		commitments: dummy_candidate_commitments(HeadData(vec![1])),
 	};
-	let prospective_candidate = Some(ProspectiveCandidate {
+	let prospective_candidate = Some(ProspectiveCandidate::ByHash {
 		candidate_hash: ccr.to_plain().hash(),
 		parent_head_data_hash: pvd.parent_head.hash(),
 	});
@@ -3081,8 +3282,8 @@ async fn test_outdated_fetching_collations_are_pruned() {
 	test_state.assert_no_messages().await;
 }
 
-#[tokio::test]
 // Test that a v1 advertisement cannot claim a future slot.
+#[tokio::test]
 async fn test_single_collation_per_rp_for_v1_advertisement() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
@@ -3173,9 +3374,9 @@ async fn test_single_collation_per_rp_for_v1_advertisement() {
 	test_state.assert_collation_request(third_adv).await;
 }
 
-#[tokio::test]
 // Test that activating a new leaf on top of an existing one doesn't overwrite the `PerRelayParent`
 // state.
+#[tokio::test]
 async fn test_view_update_preserves_relay_parent_state() {
 	let mut test_state = TestState::default();
 	let leaf_a = get_hash(10);
@@ -3222,8 +3423,517 @@ async fn test_view_update_preserves_relay_parent_state() {
 }
 
 #[tokio::test]
+async fn v4_advertise_segment_len_one_is_accepted() {
+	let mut test_state = TestState::default();
+	test_state
+		.node_features
+		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+	test_state
+		.node_features
+		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+
+	let active_leaf = get_hash(9);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+	let peer_id = PeerId::random();
+
+	test_state.activate_leaf(&mut state, 10).await;
+
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+	state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+	let relay_parent = get_hash(8);
+	let scheduling_parent = get_hash(9);
+	let (ccr, _) = dummy_candidate_v3(
+		relay_parent,
+		scheduling_parent,
+		100.into(),
+		peer_id,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+	let output_head_data_hash = ccr.descriptor.para_head();
+	let parent_head_data_hash = dummy_pvd().parent_head.hash();
+	let candidates = vec![protocol_v4::CandidateFingerprint {
+		output_head_data_hash,
+		parent_head_data_hash,
+		claim_queue_offset: 0,
+	}]
+	.try_into()
+	.unwrap();
+	// The advertisement the subsystem is expected to construct from the segment.
+	let adv = Advertisement {
+		peer_id,
+		para_id: 100.into(),
+		scheduling_parent,
+		prospective_candidate: Some(ProspectiveCandidate::ByOutputHead {
+			output_head_data_hash,
+			parent_head_data_hash,
+		}),
+		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+	};
+	process_incoming_peer_message(
+		&mut sender,
+		&mut state,
+		peer_id,
+		CollationProtocols::V4(protocol_v4::AdvertiseSegment {
+			scheduling_parent,
+			candidates_descriptor_version: CandidateDescriptorVersion::V3,
+			candidates,
+			para_id: 100.into(),
+		}),
+	)
+	.await;
+	// No CanSecond request for a V4 advertisement: the claim has no candidate hash to
+	// pre-check; bad advertisements self-heal post-fetch.
+	test_state.assert_no_messages().await;
+
+	// The fetch goes out over the V3 request-response protocol, keyed by output head.
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(adv).await;
+
+	test_state
+		.handle_fetched_collation(&mut state, adv, ccr.to_plain(), None, relay_parent)
+		.await;
+}
+
+// V4 has no `Declare` message: a peer's first `AdvertiseSegment` binds it to the advertised
+// para. Covers the accept, para-switch and unscheduled-para outcomes of the implicit
+// declaration, plus the unconnected-peer no-op.
+#[tokio::test]
+async fn v4_first_advertisement_implicitly_declares() {
+	let mut test_state = TestState::default();
+	test_state
+		.node_features
+		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+	test_state
+		.node_features
+		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+
+	let active_leaf = get_hash(9);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+	let peer_id = PeerId::random();
+
+	test_state.activate_leaf(&mut state, 10).await;
+
+	let relay_parent = get_hash(8);
+	let scheduling_parent = get_hash(9);
+	let (ccr, _) = dummy_candidate_v3(
+		relay_parent,
+		scheduling_parent,
+		100.into(),
+		peer_id,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+	let output_head_data_hash = ccr.descriptor.para_head();
+	let parent_head_data_hash = dummy_pvd().parent_head.hash();
+	let fingerprints = vec![protocol_v4::CandidateFingerprint {
+		output_head_data_hash,
+		parent_head_data_hash,
+		claim_queue_offset: 0,
+	}];
+
+	// An advertisement from an unconnected peer cannot declare anything and is dropped.
+	test_state
+		.send_v4_segment(&mut state, peer_id, scheduling_parent, fingerprints.clone(), 100.into())
+		.await;
+	test_state.assert_no_messages().await;
+	assert!(state.advertisements().is_empty());
+
+	// First advertisement from a connected peer declares it for the advertised para and the
+	// advertisement itself is accepted. No `Declare` message is ever sent.
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+	test_state
+		.send_v4_segment(&mut state, peer_id, scheduling_parent, fingerprints.clone(), 100.into())
+		.await;
+	test_state.assert_no_messages().await;
+	let adv = Advertisement {
+		peer_id,
+		para_id: 100.into(),
+		scheduling_parent,
+		prospective_candidate: Some(ProspectiveCandidate::ByOutputHead {
+			output_head_data_hash,
+			parent_head_data_hash,
+		}),
+		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+	};
+	assert_eq!(state.advertisements(), [adv].into());
+
+	// Advertising a different para is a para switch: the peer is disconnected and its stored
+	// advertisements are removed.
+	test_state
+		.send_v4_segment(&mut state, peer_id, scheduling_parent, fingerprints.clone(), 200.into())
+		.await;
+	test_state.assert_peers_disconnected([peer_id]).await;
+	assert!(state.advertisements().is_empty());
+	assert_eq!(state.connected_peers(), Default::default());
+
+	// An advertisement for an unscheduled para gets the peer disconnected, same as an explicit
+	// `Declare` for an unscheduled para would on older protocol versions.
+	let second_peer = PeerId::random();
+	state
+		.handle_peer_connected(&mut sender, second_peer, CollationVersion::V4)
+		.await;
+	test_state
+		.send_v4_segment(&mut state, second_peer, scheduling_parent, fingerprints, 600.into())
+		.await;
+	test_state.assert_peers_disconnected([second_peer]).await;
+	assert!(state.advertisements().is_empty());
+}
+
+// A fetched collation must match the selected fingerprint: output head, relay parent and the
+// declared para are each verified against the receipt (there is no candidate hash to check).
+// Every mismatch is malicious and slashed.
+#[tokio::test]
+async fn v4_fetched_collation_mismatches_are_slashed() {
+	let mut test_state = TestState::default();
+	test_state
+		.node_features
+		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+	test_state
+		.node_features
+		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+
+	let active_leaf = get_hash(9);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+	let db = MockDb::default();
+	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	test_state.activate_leaf(&mut state, 10).await;
+
+	let relay_parent = get_hash(8);
+	let scheduling_parent = get_hash(9);
+	let (ccr, _) = dummy_candidate_v3(
+		relay_parent,
+		scheduling_parent,
+		100.into(),
+		PeerId::random(),
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		dummy_pvd().hash(),
+	);
+	let parent_head_data_hash = dummy_pvd().parent_head.hash();
+
+	let advertise_and_fetch = |output_head_data_hash: Hash| {
+		(
+			PeerId::random(),
+			ProspectiveCandidate::ByOutputHead { output_head_data_hash, parent_head_data_hash },
+		)
+	};
+
+	// The advertised output head doesn't match the fetched receipt.
+	{
+		let (peer_id, claim) = advertise_and_fetch(Hash::repeat_byte(0xaa));
+		let adv = Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			scheduling_parent,
+			prospective_candidate: Some(claim),
+			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+		};
+
+		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+		state.handle_declare(&mut sender, peer_id, 100.into()).await;
+		test_state.handle_advertisement(&mut state, adv).await;
+
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		test_state.assert_collation_request(adv).await;
+
+		let res = Ok(CollationFetchingResponse::Collation(ccr.to_plain(), dummy_pov()));
+		state.handle_fetched_collation(&mut sender, (adv, res)).await;
+		assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
+		test_state.assert_no_messages().await;
+	}
+
+	// An output head doesn't pin the para the way a candidate hash did: the receipt's para
+	// differs from the declared one, everything else matches.
+	{
+		let (peer_id, claim) = advertise_and_fetch(ccr.descriptor.para_head());
+		let adv = Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			scheduling_parent,
+			prospective_candidate: Some(claim),
+			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+		};
+
+		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+		state.handle_declare(&mut sender, peer_id, 100.into()).await;
+		test_state.handle_advertisement(&mut state, adv).await;
+
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		test_state.assert_collation_request(adv).await;
+
+		let mut receipt = ccr.to_plain();
+		receipt.descriptor.set_para_id(200.into());
+		let res = Ok(CollationFetchingResponse::Collation(receipt, dummy_pov()));
+		state.handle_fetched_collation(&mut sender, (adv, res)).await;
+		assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
+		test_state.assert_no_messages().await;
+	}
+
+	// The advertised descriptor version doesn't match the fetched receipt: the segment
+	// declared V3 descriptors, the fetched candidate carries a V2 one.
+	{
+		let mut ccr_v2 = dummy_committed_candidate_receipt_v2(scheduling_parent);
+		ccr_v2.descriptor.set_para_id(100.into());
+		ccr_v2.descriptor.set_persisted_validation_data_hash(dummy_pvd().hash());
+		ccr_v2.descriptor.set_core_index(leaf_info.assigned_core);
+		ccr_v2.descriptor.set_session_index(leaf_info.session_index);
+
+		// For V2 descriptors the scheduling parent is the relay parent.
+		let (peer_id, claim) = advertise_and_fetch(ccr_v2.descriptor.para_head());
+		let adv = Advertisement {
+			peer_id,
+			para_id: 100.into(),
+			scheduling_parent,
+			prospective_candidate: Some(claim),
+			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+		};
+
+		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+		state.handle_declare(&mut sender, peer_id, 100.into()).await;
+		test_state.handle_advertisement(&mut state, adv).await;
+
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		test_state.assert_collation_request(adv).await;
+
+		let res = Ok(CollationFetchingResponse::Collation(ccr_v2.to_plain(), dummy_pov()));
+		state.handle_fetched_collation(&mut sender, (adv, res)).await;
+		assert_eq!(db.witnessed_slash(), Some((peer_id, adv.para_id, FAILED_FETCH_SLASH)));
+		test_state.assert_no_messages().await;
+	}
+}
+
+// Shared fixture for the segment-lifecycle tests: leaf 11 gets a claim queue with THREE
+// para-100 positions so the window visible from scheduling parent `get_hash(10)` holds two —
+// enough capacity that cap never masks the behavior under test.
+async fn v4_two_slot_fixture(test_state: &mut TestState) -> (State<MockDb>, MockDb, Hash) {
+	test_state
+		.node_features
+		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+	test_state
+		.node_features
+		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+
+	let active_leaf = get_hash(10);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+	test_state.rp_info.insert(
+		get_hash(11),
+		RelayParentInfo {
+			number: 11,
+			parent: get_parent_hash(11),
+			session_index: leaf_info.session_index,
+			claim_queue: {
+				let mut cq = leaf_info.claim_queue.clone();
+				cq.insert(leaf_info.assigned_core, vec![100.into(), 100.into(), 100.into()]);
+				cq
+			},
+			assigned_core: leaf_info.assigned_core,
+		},
+	);
+
+	let db = MockDb::default();
+	let mut state = make_state(db.clone(), test_state, active_leaf).await;
+	test_state.activate_leaf(&mut state, 11).await;
+
+	// SP = parent of the active leaf: passes the V3 slot validation like every V4 test here.
+	(state, db, get_hash(10))
+}
+
+#[tokio::test]
+// The whole segment is stored, not just the tip, and duplicate detection is byte-exact:
+// an identical re-advertisement is rejected while the segment is stored, a byte-different
+// one (here: a prefix of the same parablocks) is a fresh segment.
+async fn v4_whole_segment_stored_and_byte_deduped() {
+	let mut test_state = TestState::default();
+	let (mut state, _db, scheduling_parent) = v4_two_slot_fixture(&mut test_state).await;
+	let mut sender = test_state.sender.clone();
+
+	let peer_a = PeerId::random();
+	let peer_b = PeerId::random();
+	for peer in [peer_a, peer_b] {
+		state.handle_peer_connected(&mut sender, peer, CollationVersion::V4).await;
+		state.handle_declare(&mut sender, peer, 100.into()).await;
+	}
+
+	let fps: Vec<_> = (0xa1..=0xa3).map(|s| v4_fingerprint(s)).collect();
+	let entries: Vec<_> = fps.iter().map(v4_entry).collect();
+
+	test_state
+		.send_v4_segment(&mut state, peer_a, scheduling_parent, fps.clone(), 100.into())
+		.await;
+	// No CanSecond for a V4 advertisement, and all three entries are stored.
+	test_state.assert_no_messages().await;
+	assert_eq!(state.segments(), [(scheduling_parent, peer_a, entries.clone())].into());
+
+	// Byte-identical re-advertisement while stored: Duplicate, nothing changes.
+	test_state
+		.send_v4_segment(&mut state, peer_a, scheduling_parent, fps.clone(), 100.into())
+		.await;
+	assert_eq!(state.segments(), [(scheduling_parent, peer_a, entries.clone())].into());
+
+	// A prefix shares every parablock but differs in bytes: not a duplicate.
+	let prefix = fps[..2].to_vec();
+	test_state
+		.send_v4_segment(&mut state, peer_b, scheduling_parent, prefix.clone(), 100.into())
+		.await;
+	assert_eq!(
+		state.segments(),
+		[
+			(scheduling_parent, peer_a, entries),
+			(scheduling_parent, peer_b, prefix.iter().map(v4_entry).collect())
+		]
+		.into()
+	);
+	test_state.assert_no_messages().await;
+}
+
+#[tokio::test]
+// A segment is ONE fetch entitlement: two free claim-queue positions and two stored entries
+// still produce exactly one fetch (the tip — interim resolution), and launching consumes the
+// whole segment.
+async fn v4_one_fetch_per_segment() {
+	let mut test_state = TestState::default();
+	let (mut state, _db, scheduling_parent) = v4_two_slot_fixture(&mut test_state).await;
+	let mut sender = test_state.sender.clone();
+
+	let peer_id = PeerId::random();
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+	state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+	let fps: Vec<_> = (0xb1..=0xb2).map(|s| v4_fingerprint(s)).collect();
+	test_state
+		.send_v4_segment(&mut state, peer_id, scheduling_parent, fps.clone(), 100.into())
+		.await;
+
+	let tip_adv = Advertisement {
+		peer_id,
+		para_id: 100.into(),
+		scheduling_parent,
+		prospective_candidate: Some(v4_entry(fps.last().unwrap())),
+		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+	};
+
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(tip_adv).await;
+	test_state.assert_no_messages().await;
+	// Consumed at launch: nothing stored, and the still-free second position stays empty.
+	assert!(state.segments().is_empty());
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_no_messages().await;
+}
+
+#[tokio::test]
+// A byte-identical re-advertisement AFTER launch is a fresh entitlement (the launched segment
+// left storage, so byte-dedup has nothing to compare against). It cannot double-launch while
+// the first fetch is in flight, and it is the same-SP retry path once that fetch fails.
+async fn v4_re_advertisement_after_launch_is_fresh_entitlement() {
+	let mut test_state = TestState::default();
+	let (mut state, _db, scheduling_parent) = v4_two_slot_fixture(&mut test_state).await;
+	let mut sender = test_state.sender.clone();
+
+	let peer_id = PeerId::random();
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+	state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+	let fps: Vec<_> = (0xc1..=0xc2).map(|s| v4_fingerprint(s)).collect();
+	let entries: Vec<_> = fps.iter().map(v4_entry).collect();
+	let tip_adv = Advertisement {
+		peer_id,
+		para_id: 100.into(),
+		scheduling_parent,
+		prospective_candidate: Some(v4_entry(fps.last().unwrap())),
+		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
+	};
+
+	test_state
+		.send_v4_segment(&mut state, peer_id, scheduling_parent, fps.clone(), 100.into())
+		.await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(tip_adv).await;
+	assert!(state.segments().is_empty());
+
+	// Re-advertise the same bytes: accepted — a fresh entitlement.
+	test_state
+		.send_v4_segment(&mut state, peer_id, scheduling_parent, fps.clone(), 100.into())
+		.await;
+	assert_eq!(state.segments(), [(scheduling_parent, peer_id, entries)].into());
+
+	// But its synthesized advertisement equals the in-flight one, so it cannot double-launch.
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_no_messages().await;
+
+	// The in-flight fetch fails: the re-advertised segment is the retry.
+	state
+		.handle_fetched_collation(
+			&mut sender,
+			(
+				tip_adv,
+				Err(CollationFetchError::Request(RequestError::NetworkError(
+					RequestFailure::NotConnected,
+				))),
+			),
+		)
+		.await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(tip_adv).await;
+	assert!(state.segments().is_empty());
+	test_state.assert_no_messages().await;
+}
+
+#[tokio::test]
+// The advertisement cap counts SEGMENTS, not entries: at a scheduling parent whose window
+// holds a single para-100 position (cap 1), one three-entry segment is accepted whole, and
+// the peer's next segment is rejected by the cap.
+async fn v4_cap_counts_segments_not_entries() {
+	let mut test_state = TestState::default();
+	test_state
+		.node_features
+		.resize(node_features::FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+	test_state
+		.node_features
+		.set(node_features::FeatureIndex::CandidateReceiptV3 as u8 as usize, true);
+
+	let active_leaf = get_hash(9);
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+	test_state.activate_leaf(&mut state, 10).await;
+	// Leaf 10's window from SP 9 shows one para-100 position: cap = 1 segment.
+	let scheduling_parent = get_hash(9);
+
+	let peer_id = PeerId::random();
+	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V4).await;
+	state.handle_declare(&mut sender, peer_id, 100.into()).await;
+
+	let fps: Vec<_> = (0xd1..=0xd3).map(|s| v4_fingerprint(s)).collect();
+	test_state
+		.send_v4_segment(&mut state, peer_id, scheduling_parent, fps.clone(), 100.into())
+		.await;
+	let expected: BTreeSet<_> =
+		[(scheduling_parent, peer_id, fps.iter().map(v4_entry).collect::<Vec<_>>())].into();
+	// Three entries stored against a cap of one SEGMENT.
+	assert_eq!(state.segments(), expected);
+
+	// The second segment (byte-different) trips the cap.
+	let more: Vec<_> = (0xe1..=0xe2).map(|s| v4_fingerprint(s)).collect();
+	test_state
+		.send_v4_segment(&mut state, peer_id, scheduling_parent, more, 100.into())
+		.await;
+	assert_eq!(state.segments(), expected);
+	test_state.assert_no_messages().await;
+}
+
 // Test that a V3 candidate descriptor is correctly accepted and
 // seconded when the CandidateReceiptV3 node feature is enabled.
+#[tokio::test]
 async fn v3_descriptor_accepted_when_v3_enabled() {
 	let mut test_state = TestState::default();
 	test_state
@@ -3280,9 +3990,9 @@ async fn v3_descriptor_accepted_when_v3_enabled() {
 		.await;
 }
 
-#[tokio::test]
 // V3 advertisement is accepted when the scheduling parent is a leaf
 // whose slot has already finished (current_slot == leaf_slot + 1).
+#[tokio::test]
 async fn v3_advertisement_accepted_when_sp_is_finished_slot_leaf() {
 	let mut test_state = TestState::default();
 	test_state
@@ -3295,8 +4005,10 @@ async fn v3_advertisement_accepted_when_sp_is_finished_slot_leaf() {
 	let slot_duration = sp_consensus_slots::SlotDuration::from_millis(
 		polkadot_primitives::RELAY_CHAIN_SLOT_DURATION_MILLIS,
 	);
-	let current_slot =
-		sp_consensus_slots::Slot::from_timestamp(sp_timestamp::Timestamp::current(), slot_duration);
+	let current_slot = sp_consensus_slots::Slot::from_timestamp(
+		sp_timestamp::Timestamp::new(test_state.clock.duration_since_epoch().as_millis() as u64),
+		slot_duration,
+	);
 	test_state
 		.slot_overrides
 		.insert(get_hash(10), sp_consensus_slots::Slot::from(*current_slot - 1));
@@ -3334,10 +4046,10 @@ async fn v3_advertisement_accepted_when_sp_is_finished_slot_leaf() {
 		.await;
 }
 
-#[tokio::test]
 // V3 advertisements require the scheduling parent to be a RC block from
 // the last finished slot. Check that the leaf of an active slot and its
 // grand parent are rejected
+#[tokio::test]
 async fn v3_advertisement_rejected_when_sp_not_last_finished_slot() {
 	let mut test_state = TestState::default();
 	test_state
@@ -3385,8 +4097,9 @@ async fn v3_advertisement_rejected_when_sp_not_last_finished_slot() {
 			&mut sender,
 			peer_id,
 			adv.scheduling_parent,
-			adv.prospective_candidate,
+			adv.prospective_candidate.into_iter().collect(),
 			Some(CandidateDescriptorVersion::V3),
+			None,
 		)
 		.await;
 	assert!(state.advertisements().is_empty());
@@ -3408,8 +4121,9 @@ async fn v3_advertisement_rejected_when_sp_not_last_finished_slot() {
 			&mut sender,
 			peer_id,
 			adv.scheduling_parent,
-			adv.prospective_candidate,
+			adv.prospective_candidate.into_iter().collect(),
 			Some(CandidateDescriptorVersion::V3),
+			None,
 		)
 		.await;
 	assert!(state.advertisements().is_empty());
@@ -3440,8 +4154,8 @@ async fn v3_advertisement_rejected_when_sp_not_last_finished_slot() {
 		.await;
 }
 
-#[tokio::test]
 // V3 descriptor via V2 protocol → rejected (wrong protocol).
+#[tokio::test]
 async fn v3_descriptor_rejected_via_v2_protocol() {
 	let mut test_state = TestState::default();
 
@@ -3471,7 +4185,7 @@ async fn v3_descriptor_rejected_via_v2_protocol() {
 		peer_id,
 		para_id: 100.into(),
 		scheduling_parent: active_leaf,
-		prospective_candidate: Some(ProspectiveCandidate {
+		prospective_candidate: Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
 		}),
@@ -3488,9 +4202,9 @@ async fn v3_descriptor_rejected_via_v2_protocol() {
 	test_state.assert_no_messages().await;
 }
 
-#[tokio::test]
 // Test that a collator advertising a V3 descriptor but fetching a V2 candidate
 // is rejected due to descriptor version mismatch and the peer is slashed.
+#[tokio::test]
 async fn v3_advertised_but_v2_fetched_descriptor_version_mismatch() {
 	let mut test_state = TestState::default();
 	test_state
@@ -3540,7 +4254,7 @@ async fn v3_advertised_but_v2_fetched_descriptor_version_mismatch() {
 		peer_id,
 		para_id: 100.into(),
 		scheduling_parent: get_hash(9),
-		prospective_candidate: Some(ProspectiveCandidate {
+		prospective_candidate: Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
 		}),
@@ -3556,9 +4270,9 @@ async fn v3_advertised_but_v2_fetched_descriptor_version_mismatch() {
 	test_state.assert_no_messages().await;
 }
 
-#[tokio::test]
 // Test that a crafted descriptor is rejected as Unknown version when
 // CandidateReceiptV3 feature is disabled.
+#[tokio::test]
 async fn v3_descriptor_unknown_rejected_when_v3_disabled() {
 	let mut test_state = TestState::default();
 
@@ -3596,7 +4310,7 @@ async fn v3_descriptor_unknown_rejected_when_v3_disabled() {
 		peer_id,
 		para_id: 100.into(),
 		scheduling_parent: active_leaf,
-		prospective_candidate: Some(ProspectiveCandidate {
+		prospective_candidate: Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt.hash(),
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
 		}),
@@ -3611,9 +4325,9 @@ async fn v3_descriptor_unknown_rejected_when_v3_disabled() {
 	test_state.assert_no_messages().await;
 }
 
-#[tokio::test]
 // Regression test for checking that the core is computed correctly
 // for ancestors.
+#[tokio::test]
 async fn core_assignment_uses_ancestor_not_leaf() {
 	let mut test_state = TestState::default();
 	// Rotate groups every block so block 9 and block 10 have different
@@ -3819,7 +4533,7 @@ async fn core_rotation_accepts_candidates_for_both_cores() {
 		peer_id: peer_a,
 		para_id: para_a,
 		scheduling_parent: get_hash(9),
-		prospective_candidate: Some(ProspectiveCandidate {
+		prospective_candidate: Some(ProspectiveCandidate::ByHash {
 			candidate_hash: receipt_a2.hash(),
 			parent_head_data_hash: pvd_a2.parent_head.hash(),
 		}),
@@ -4297,6 +5011,287 @@ async fn short_claim_queue_does_not_reject_ancestor_advertisements() {
 	assert_eq!(state.advertisements(), [adv].into());
 }
 
-// TODO:
-// - Test subsystem startup: make sure we are properly populating the db.
-// - Test a change in the registered paras on finalized block notification.
+// Lookahead-truncation regression (the bug this PR fixes): the leaf-CQ window must be bounded
+// by the runtime scheduling lookahead, NOT by the implicit-view ancestry path length.
+//
+// After a session change the implicit view clamps ancestry at the session boundary (the relay
+// chain cannot back candidates from a previous session), so the allowed-ancestry path is
+// shorter than the lookahead. Here leaf 10 (session 1) has ancestors 9 and 8 in session 0, so
+// the path under the leaf is just `[10]` (length 1) even though the lookahead is 3.
+//
+// leaf-10's CQ for our core is `[100, 200, 100]` — para 100 owns positions 0 and 2. The leaf
+// SP (depth 0) reaches positions `0 .. lookahead = 0..3`, so both 100-slots are fetchable.
+//
+// Pre-fix the window length was the ancestry path length (1), so only position 0 was reached
+// and para 100 got a single fetch; the position-2 slot was silently dropped. With the lookahead
+// sourced from the runtime, both para-100 ads must fetch.
+#[tokio::test]
+async fn lookahead_not_truncated_by_short_ancestry_after_session_change() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let core = test_state.rp_info[&active_leaf].assigned_core;
+	// Sanity: leaf-10 CQ for our core has para 100 at positions 0 and 2, lookahead is 3.
+	assert_eq!(
+		test_state.rp_info[&active_leaf].claim_queue[&core],
+		vec![100.into(), 200.into(), 100.into()]
+	);
+	assert_eq!(test_state.session_info[&1].scheduling_lookahead, 3);
+
+	// Put the ancestors in a previous session so the implicit view truncates ancestry at the
+	// session boundary, leaving the leaf as the only relay parent in its own allowed ancestry.
+	for h in [get_hash(9), get_hash(8)] {
+		test_state.rp_info.get_mut(&h).unwrap().session_index = 0;
+	}
+
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	// Two peers, both for para 100, advertising two distinct candidates at the leaf SP.
+	let peers: Vec<_> = (0..2).map(peer_id).collect();
+	for &p in &peers {
+		state.handle_peer_connected(&mut sender, p, CollationVersion::V2).await;
+		state.handle_declare(&mut sender, p, 100.into()).await;
+	}
+	for (i, &p) in peers.iter().enumerate() {
+		let (_, adv) = dummy_candidate(
+			active_leaf,
+			100.into(),
+			p,
+			core,
+			1,
+			Hash::from_low_u64_be(i as u64 + 100),
+		);
+		test_state.handle_advertisement(&mut state, adv).await;
+	}
+
+	// Both para-100 slots (positions 0 and 2) are reachable from the leaf SP, so both ads fetch.
+	// Pre-fix the truncated window (length 1) would have produced only a single fetch.
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	let msg = test_state.timeout_recv().await;
+	assert_matches::assert_matches!(
+		msg,
+		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(reqs, _)) => {
+			assert_eq!(
+				reqs.len(), 2,
+				"both para-100 slots must be fetchable from the leaf; lookahead must not be \
+				 truncated to the ancestry path length, got {} fetch(es)",
+				reqs.len()
+			);
+		}
+	);
+	test_state.assert_no_messages().await;
+}
+
+#[tokio::test]
+async fn startup_populates_db_from_finalized_chain() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+
+	let first_peer = peer_id(1);
+	let second_peer = peer_id(2);
+	let third_peer = peer_id(3);
+
+	// The node starts with finalized block 6 and a DB which hasn't processed any blocks yet.
+	test_state.finalized_block = 6;
+	test_state.set_candidates_pending_availability(
+		[
+			(get_hash(2), vec![(ParaId::from(100), first_peer)]),
+			(
+				get_hash(5),
+				vec![
+					(ParaId::from(200), first_peer),
+					(ParaId::from(200), first_peer),
+					(ParaId::from(200), second_peer),
+				],
+			),
+			(get_hash(6), vec![(ParaId::from(100), third_peer)]),
+		]
+		.into_iter()
+		.collect(),
+	);
+
+	let db = MockDb::default();
+	let state = make_state(db.clone(), &mut test_state, active_leaf).await;
+
+	let mut expected_bumps = BTreeMap::new();
+	expected_bumps.insert(
+		ParaId::new(100),
+		[
+			(first_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
+			(third_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
+		]
+		.into_iter()
+		.collect(),
+	);
+	expected_bumps.insert(
+		ParaId::new(200),
+		[
+			(first_peer, Score::new(2 * VALID_INCLUDED_CANDIDATE_BUMP)),
+			(second_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
+		]
+		.into_iter()
+		.collect(),
+	);
+	assert_eq!(db.witnessed_bumps(), expected_bumps);
+	// The DB has caught up with the finalized chain.
+	assert_eq!(db.processed_finalized_block_number().await, Some(6));
+	// Startup doesn't prune the registered paras.
+	assert!(db.witnessed_prunes().is_empty());
+
+	drop(state);
+
+	// Simulate a restart with the same DB: the already processed blocks are not re-processed,
+	// so the candidates of the ancestry don't produce bumps again.
+	let _state = make_state(db.clone(), &mut test_state, active_leaf).await;
+
+	assert!(db.witnessed_bumps().is_empty());
+	assert_eq!(db.processed_finalized_block_number().await, Some(6));
+}
+
+#[tokio::test]
+async fn startup_lookback_is_capped() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+
+	let outside_peer = peer_id(1);
+	let oldest_peer = peer_id(2);
+	let newest_peer = peer_id(3);
+
+	let finalized = MAX_STARTUP_ANCESTRY_LOOKBACK + 10;
+	// The oldest block whose included candidates are within the lookback window.
+	let window_start = finalized - MAX_STARTUP_ANCESTRY_LOOKBACK + 1;
+
+	test_state.finalized_block = finalized;
+	test_state.set_candidates_pending_availability(
+		[
+			// Right outside of the lookback window.
+			(get_hash(window_start - 1), vec![(ParaId::from(100), outside_peer)]),
+			(get_hash(window_start), vec![(ParaId::from(100), oldest_peer)]),
+			(get_hash(finalized), vec![(ParaId::from(100), newest_peer)]),
+		]
+		.into_iter()
+		.collect(),
+	);
+
+	let db = MockDb::default();
+	let _state = make_state(db.clone(), &mut test_state, active_leaf).await;
+
+	let mut expected_bumps = BTreeMap::new();
+	expected_bumps.insert(
+		ParaId::new(100),
+		[
+			(oldest_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
+			(newest_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
+		]
+		.into_iter()
+		.collect(),
+	);
+	assert_eq!(db.witnessed_bumps(), expected_bumps);
+	assert_eq!(db.processed_finalized_block_number().await, Some(finalized));
+}
+
+// Should never happen but verify that the case is handled gracefully.
+#[tokio::test]
+async fn startup_with_db_ahead_of_finalized_chain() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+
+	test_state.finalized_block = 8;
+	let db = MockDb::default();
+	db.set_processed_finalized_block_number(15);
+	// A candidate on the finalized chain which must not be processed.
+	test_state.set_candidates_pending_availability(
+		[(get_hash(5), vec![(ParaId::from(100), peer_id(1))])].into_iter().collect(),
+	);
+
+	let _state = make_state(db.clone(), &mut test_state, active_leaf).await;
+
+	assert!(db.witnessed_bumps().is_empty());
+	assert_eq!(db.processed_finalized_block_number().await, Some(15));
+}
+
+// Test the registered paras processing on finalized block notifications: the registered paras
+// are queried once per session and the DB is told to prune the paras that are no longer
+// registered.
+#[tokio::test]
+async fn registered_paras_pruned_on_new_session() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+
+	let db = MockDb::default();
+	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	// The first finalized block notification always queries the registered paras.
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 2), async {
+		state.handle_finalized_block(&mut sender, get_hash(2), 2).await.unwrap()
+	});
+	test_state.assert_no_messages().await;
+	assert_eq!(
+		db.witnessed_prunes(),
+		vec![[100.into(), 200.into(), 600.into()].into_iter().collect::<BTreeSet<ParaId>>()]
+	);
+
+	// A subsequent finalized block in the same session doesn't re-query the registered paras
+	// (the harness panics on an unexpected `ParaIds` request).
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 3), async {
+		state.handle_finalized_block(&mut sender, get_hash(3), 3).await.unwrap()
+	});
+	test_state.assert_no_messages().await;
+	assert!(db.witnessed_prunes().is_empty());
+
+	// Start session 2, where para 200 is deregistered.
+	let mut session_2_info = test_state.session_info.get(&1).unwrap().clone();
+	session_2_info.paras = vec![100.into(), 600.into()];
+	test_state.session_info.insert(2, session_2_info);
+	test_state.rp_info.insert(
+		get_hash(4),
+		RelayParentInfo {
+			number: 4,
+			parent: get_parent_hash(4),
+			session_index: 2,
+			claim_queue: leaf_info.claim_queue.clone(),
+			assigned_core: leaf_info.assigned_core,
+		},
+	);
+
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 4), async {
+		state.handle_finalized_block(&mut sender, get_hash(4), 4).await.unwrap()
+	});
+	test_state.assert_no_messages().await;
+	assert_eq!(
+		db.witnessed_prunes(),
+		vec![[100.into(), 600.into()].into_iter().collect::<BTreeSet<ParaId>>()]
+	);
+
+	// A finalized block with an older session index doesn't trigger a query.
+	// (block 5 is not in `rp_info`, so the harness reports session 1 for it)
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 5), async {
+		state.handle_finalized_block(&mut sender, get_hash(5), 5).await.unwrap()
+	});
+	test_state.assert_no_messages().await;
+	assert!(db.witnessed_prunes().is_empty());
+
+	// Same for an equal session index.
+	test_state.rp_info.insert(
+		get_hash(6),
+		RelayParentInfo {
+			number: 6,
+			parent: get_parent_hash(6),
+			session_index: 2,
+			claim_queue: leaf_info.claim_queue.clone(),
+			assigned_core: leaf_info.assigned_core,
+		},
+	);
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 6), async {
+		state.handle_finalized_block(&mut sender, get_hash(6), 6).await.unwrap()
+	});
+	test_state.assert_no_messages().await;
+	assert!(db.witnessed_prunes().is_empty());
+}

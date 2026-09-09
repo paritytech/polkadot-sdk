@@ -335,6 +335,32 @@ pub fn create_statement(
 	statement
 }
 
+/// A 32-byte channel id embedding `data`.
+pub fn channel(data: u64) -> sp_statement_store::Channel {
+	let mut channel: sp_statement_store::Channel = Default::default();
+	channel[0..8].copy_from_slice(&data.to_le_bytes());
+	channel
+}
+
+/// Like [`create_statement`] (topic- and key-less), but carrying a channel: admitting such a
+/// statement forces the store to consult the account's full channel state.
+pub fn create_channel_statement(
+	id: u64,
+	chan: sp_statement_store::Channel,
+	data_size: usize,
+	expiry: u64,
+	keypair: &sp_core::ed25519::Pair,
+) -> Statement {
+	let mut statement = Statement::new();
+	let mut data = vec![0u8; data_size];
+	data[0..8].copy_from_slice(&id.to_le_bytes());
+	statement.set_plain_data(data);
+	statement.set_channel(chan);
+	statement.set_expiry(expiry);
+	statement.sign_ed25519_private(keypair);
+	statement
+}
+
 /// The deterministic fixture statement `i` (see the module docs for the shape).
 pub fn fixture_statement(i: u64, keypairs: &[sp_core::ed25519::Pair]) -> Statement {
 	let mut topics: Vec<Topic> = Vec::with_capacity(3);

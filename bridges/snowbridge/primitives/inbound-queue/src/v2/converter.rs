@@ -4,7 +4,7 @@
 
 use super::{message::*, traits::*};
 use crate::{v2::LOG_TARGET, CallIndex};
-use codec::{Decode, DecodeLimit, Encode};
+use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::ensure;
 use snowbridge_core::{ParaId, TokenId};
@@ -12,10 +12,7 @@ use sp_core::{Get, H160};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::MaybeConvert, MultiAddress};
 use sp_std::prelude::*;
-use xcm::{
-	prelude::{Junction::*, *},
-	MAX_XCM_DECODE_DEPTH,
-};
+use xcm::prelude::{Junction::*, *};
 use xcm_builder::ExternalConsensusLocationsConverterFor;
 use xcm_executor::traits::ConvertLocation;
 
@@ -331,7 +328,7 @@ where
 	fn decode_raw_xcm(raw: &[u8]) -> Xcm<()> {
 		let mut data = raw;
 		if let Ok(versioned_xcm) =
-			VersionedXcm::<()>::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut data)
+			VersionedXcm::<()>::decode_all_with_mem_and_depth_limit(&mut data)
 		{
 			if let Ok(decoded_xcm) = versioned_xcm.try_into() {
 				return decoded_xcm;
