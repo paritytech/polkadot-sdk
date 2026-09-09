@@ -57,6 +57,8 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, weights::Weight};
+pub use pallet::*;
+use polkadot_primitives::{HeadData, Id};
 use polkadot_runtime_parachains::paras::OnNewHead;
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
@@ -64,8 +66,6 @@ use registrar_primitives::{
 };
 use scale_info::TypeInfo;
 use sp_core::H256;
-
-pub use pallet::*;
 pub use weights::WeightInfo;
 
 pub mod weights;
@@ -173,6 +173,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PendingRegistrations<T: Config> =
 		CountedStorageMap<_, Blake2_128Concat, ParaId, PendingRegistrationOf<T>>;
+
+	/// Paras whose first head this pallet has already reported, by para id.
+	#[pallet::storage]
+	pub type ParasFirstHeadProduced<T: Config> = StorageMap<_, Blake2_128Concat, ParaId, bool>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -442,12 +446,16 @@ pub mod pallet {
 	}
 }
 
-/// Tells the parachain when a para produces a head, so it can lock the para.
+/// Tells the parachain the first time a para produces a head, so it can lock the para.
 ///
 /// A send failure is only logged and evented: the caller is a hook that cannot fail.
 impl<T: Config> OnNewHead for Pallet<T> {
-	fn on_new_head(id: polkadot_primitives::Id, _head: &polkadot_primitives::HeadData) -> Weight {
+	fn on_new_head(id: Id, _head: &HeadData) -> Weight {
 		let para_id: ParaId = id.into();
+		if ParasFirstHeadProduced::<T>::contains_key(para_id) {
+			return T::WeightInfo::on_new_head_already_noted();
+		}
+		ParasFirstHeadProduced::<T>::insert(para_id, true);
 
 		if T::SendToPara::send(MessageToPara::V1(MessageToParaV1::HeadNoted { para_id })).is_err() {
 			log::error!(
