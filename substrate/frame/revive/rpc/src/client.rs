@@ -454,11 +454,13 @@ struct StateCallGate<Inner> {
 	permits: Option<Arc<Semaphore>>,
 }
 
-/// Whether a `state_call` executes contract code or replays a block, as opposed to subxt's own
-/// `Core_version` and `Metadata_*` probes, which are orders of magnitude cheaper and must not
-/// queue behind them: head tracking and startup both depend on those completing promptly.
+/// Whether a `state_call` executes contract code, which costs the node whole seconds, as
+/// opposed to the state reads and version probes that answer in tens of milliseconds and must
+/// not queue behind it. Extend this when adding a runtime API that runs the interpreter.
 fn is_metered_state_call(function: &str) -> bool {
-	function.starts_with("ReviveApi_")
+	["ReviveApi_eth_transact", "ReviveApi_eth_estimate_gas", "ReviveApi_trace_"]
+		.iter()
+		.any(|executing| function.starts_with(executing))
 }
 
 /// Logs a `state_call` whose future was dropped before completing, distinguishing one the node

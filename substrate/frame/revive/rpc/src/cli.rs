@@ -151,8 +151,9 @@ pub struct CliCommand {
 	#[clap(long)]
 	pub node_state_call_rate_limit: Option<std::num::NonZeroU32>,
 
-	/// Max pallet-revive `state_call`s in flight on the node, sharing one pool; subxt's version
-	/// and metadata probes are exempt. Unset disables the limit.
+	/// Max contract-executing `state_call`s in flight on the node: dry-runs, gas estimates and
+	/// traces share one pool, while state reads and version probes pass freely. Unset disables
+	/// the limit.
 	#[clap(long)]
 	pub node_state_call_max_concurrency: Option<std::num::NonZeroUsize>,
 

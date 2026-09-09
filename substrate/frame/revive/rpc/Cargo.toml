@@ -42,6 +42,7 @@ sc-cli = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
+scale-info-legacy = { workspace = true }
 serde = { workspace = true, default-features = true, features = [
 	"alloc",
 	"derive",
@@ -55,7 +56,6 @@ sp-runtime = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true }
 sp-weights = { workspace = true, default-features = true }
 sqlx = { workspace = true, features = ["macros", "runtime-tokio", "sqlite"] }
-scale-info-legacy = { workspace = true }
 subxt = { workspace = true, default-features = true, features = [
 	"reconnecting-rpc-client",
 ] }

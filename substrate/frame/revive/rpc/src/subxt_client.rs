@@ -25,7 +25,7 @@ use subxt::{
 	metadata::ArcMetadata,
 };
 
-/// [`PolkadotConfig`] extended with a shared [`SpecVersionCache`], so at-block clients answer
+/// [`PolkadotConfig`] extended with a shared `SpecVersionCache`, so at-block clients answer
 /// the per-block spec-version lookup locally instead of issuing a `Core_version` runtime call
 /// for every block the subscriptions have already observed.
 #[derive(Clone, Debug, Default)]
