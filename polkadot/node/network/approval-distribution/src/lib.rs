@@ -421,15 +421,15 @@ impl Knowledge {
 		// we need to share the same `MessageSubject` with the followup approval candidate index.
 		if kind == MessageKind::Assignment && success && message.1.count_ones() > 1 {
 			for candidate_index in message.1.iter_ones() {
-				success = success &&
-					self.insert(
-						MessageSubject(
-							message.0,
-							vec![candidate_index as u32].try_into().expect("Non-empty vec; qed"),
-							message.2,
-						),
-						kind,
-					);
+				// Every candidate needs an entry, even if an earlier one is already known.
+				success &= self.insert(
+					MessageSubject(
+						message.0,
+						vec![candidate_index as u32].try_into().expect("Non-empty vec; qed"),
+						message.2,
+					),
+					kind,
+				);
 			}
 		}
 		success
