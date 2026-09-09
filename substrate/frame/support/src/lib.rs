@@ -1928,34 +1928,6 @@ pub mod pallet_macros {
 	///     }
 	/// }
 	/// ```
-	///
-	/// ## Former Usage
-	///
-	/// Prior to <https://github.com/paritytech/substrate/pull/14306>, the following syntax was used.
-	/// This is deprecated and will soon be removed.
-	///
-	/// ```
-	/// #[frame_support::pallet]
-	/// pub mod pallet {
-	/// #     #[pallet::config]
-	/// #     pub trait Config: frame_system::Config {}
-	/// #     #[pallet::pallet]
-	/// #     pub struct Pallet<T>(_);
-	/// #     use frame_support::traits::GenesisBuild;
-	///     #[pallet::genesis_config]
-	///     #[derive(frame_support::DefaultNoBound)]
-	///     pub struct GenesisConfig<T: Config> {
-	/// 		foo: Vec<T::AccountId>
-	/// 	}
-	///
-	///     #[pallet::genesis_build]
-	///     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
-	///         fn build(&self) {
-	///             todo!()
-	///         }
-	///     }
-	/// }
-	/// ```
 	pub use frame_support_procedural::genesis_build;
 
 	/// Allows adding an associated type trait bounded by
@@ -2280,12 +2252,6 @@ pub mod pallet_macros {
 	/// Read more about origins at the [Origin Reference
 	/// Docs](../../polkadot_sdk_docs/reference_docs/frame_origin/index.html).
 	pub use frame_support_procedural::origin;
-}
-
-#[deprecated(note = "Will be removed after July 2023; Use `sp_runtime::traits` directly instead.")]
-pub mod error {
-	#[doc(hidden)]
-	pub use sp_runtime::traits::{BadOrigin, LookupError};
 }
 
 #[doc(inline)]

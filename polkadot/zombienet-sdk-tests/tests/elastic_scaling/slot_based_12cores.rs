@@ -4,11 +4,14 @@
 // Test that a parachain that uses a single slot-based collator with elastic scaling can use 12
 // cores in order to achieve 500ms blocks.
 
+use crate::utils::maybe_enable_experimental_collator_protocol;
 use std::time::Duration;
 
 use anyhow::anyhow;
 
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
+use cumulus_zombienet_sdk_helpers::{
+	assert_finality_lag, assert_para_throughput, assign_cores, wait_for_pvf_prepare,
+};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
@@ -31,7 +34,9 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug").into()])
+				.with_default_args(maybe_enable_experimental_collator_protocol(vec![
+					("-lparachain=debug").into(),
+				]))
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
@@ -86,6 +91,9 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 
 	// Assign 11 extra cores to the parachain.
 	assign_cores(&relay_client, 2300, (0..11).collect()).await?;
+
+	// Wait for PVF preparation to complete.
+	wait_for_pvf_prepare(&network, 1).await?;
 
 	// Expect a backed candidate count of at least 170 in 15 relay chain blocks
 	// (11.33 candidates per para per relay chain block).

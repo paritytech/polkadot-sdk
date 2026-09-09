@@ -33,7 +33,7 @@ pub use polkadot_sdk::{staging_parachain_info as parachain_info, *};
 use staging_xcm_builder as xcm_builder;
 use staging_xcm_executor as xcm_executor;
 
-use cumulus_primitives_core::ParaId;
+use cumulus_primitives_core::{ParaId, VerifySchedulingSignature};
 use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
 use polkadot_runtime_common::{prod_or_fast, xcm_sender::NoPriceForMessageDelivery};
 
@@ -50,8 +50,6 @@ use sp_runtime::{
 };
 use sp_session::OpaqueGeneratedSessionKeys;
 
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 // A few exports that help ease life for downstream crates.
@@ -120,12 +118,6 @@ pub const DAYS: BlockNumber = HOURS * 24;
 
 pub const YAP: Balance = 1_000_000_000_000;
 pub const NANOYAP: Balance = 1_000;
-
-/// The version information used to identify this runtime when compiled natively.
-#[cfg(feature = "std")]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 /// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
 /// This is used to limit the maximal weight of a single extrinsic.
@@ -373,6 +365,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+	type SchedulingSignatureVerifier = ();
 }
 
 impl pallet_message_queue::Config for Runtime {
@@ -595,8 +588,13 @@ impl frame_support::traits::OnRuntimeUpgrade for RemoveCollectiveFlip {
 	fn on_runtime_upgrade() -> Weight {
 		use frame_support::storage::migration;
 		// Remove the storage value `RandomMaterial` from removed pallet `RandomnessCollectiveFlip`
-		#[allow(deprecated)]
-		migration::remove_storage_prefix(b"RandomnessCollectiveFlip", b"RandomMaterial", b"");
+		let _ = migration::clear_storage_prefix(
+			b"RandomnessCollectiveFlip",
+			b"RandomMaterial",
+			b"",
+			None,
+			None,
+		);
 		<Runtime as frame_system::Config>::DbWeight::get().writes(1)
 	}
 }
@@ -762,6 +760,16 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
 			RELAY_PARENT_OFFSET
+		}
+
+		fn max_claim_queue_offset() -> u8 {
+			cumulus_pallet_parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
+		}
+	}
+
+	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
+		fn scheduling_v3_enabled() -> bool {
+			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED
 		}
 	}
 

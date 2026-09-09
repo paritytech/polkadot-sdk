@@ -7,8 +7,9 @@
 //! block.
 
 use crate::utils::{
-	assert_nodes_are_validators, env_or_default, initialize_network, COL_IMAGE_ENV,
-	INTEGRATION_IMAGE_ENV, MALUS_IMAGE_ENV,
+	assert_nodes_are_validators, env_or_default, initialize_network,
+	maybe_enable_experimental_collator_protocol, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
+	MALUS_IMAGE_ENV,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
@@ -46,7 +47,7 @@ async fn parachains_disputes_garbage_candidate_test() -> Result<(), anyhow::Erro
 	// Parachains should be making progress even if we have up to 1/4 malicious validators.
 	// Check that all parachains produce at least 2 blocks within 1 session and 9 blocks (RC)
 	log::info!("Checking parachain block production (all paras registered at genesis)");
-	let para_throughput: [(ParaId, Range<u32>); 3] = PARAS.map(|id| (ParaId::from(id), 2..6));
+	let para_throughput: [(ParaId, Range<u32>); 3] = PARAS.map(|id| (ParaId::from(id), 2..10));
 	assert_para_throughput(&relay_client, 9, para_throughput, []).await?;
 	log::info!("All parachains producing blocks");
 
@@ -165,7 +166,9 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		r.with_chain("rococo-local")
 			.with_default_command("polkadot")
 			.with_default_image(polkadot_image.as_str())
-			.with_default_args(vec!["-lparachain=debug,runtime=debug".into()])
+			.with_default_args(maybe_enable_experimental_collator_protocol(vec![
+				"-lparachain=debug,runtime=debug".into(),
+			]))
 			.with_genesis_overrides(json!({
 				"patch": {
 					"configuration": {

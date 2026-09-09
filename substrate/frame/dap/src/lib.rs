@@ -35,6 +35,7 @@
 
 pub mod migrations;
 pub mod weights;
+pub use weights::WeightInfo;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;

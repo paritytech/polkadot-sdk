@@ -52,7 +52,7 @@ impl SlotTime {
 
 	/// Get the time remaining in this slot
 	pub fn time_left(&self) -> Duration {
-		self.time_left_internal(duration_now())
+		self.time_left_internal(Timestamp::current().as_duration())
 	}
 
 	/// Internal implementation of [`Self::time_left`] that takes `now` as parameter.
@@ -67,7 +67,7 @@ impl SlotTime {
 
 	/// Check if the next relay chain slot would be in a different parachain slot.
 	pub fn is_parachain_slot_ending(&self, parachain_slot_duration: Duration) -> bool {
-		let now = duration_now().saturating_sub(self.time_offset);
+		let now = Timestamp::current().as_duration().saturating_sub(self.time_offset);
 		let next_relay_slot_start_time =
 			self.slot_start_timestamp.as_duration() + self.relay_slot_duration;
 
@@ -94,15 +94,6 @@ pub(crate) struct SlotTimer {
 	last_reported_slot: Option<Slot>,
 }
 
-/// Returns current duration since Unix epoch.
-pub(super) fn duration_now() -> Duration {
-	use std::time::SystemTime;
-	let now = SystemTime::now();
-	now.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_else(|e| {
-		panic!("Current time {:?} is before Unix epoch. Something is wrong: {:?}", now, e)
-	})
-}
-
 /// Returns the duration until the next block production slot and the timestamp at this slot.
 fn time_until_next_slot(
 	now: Duration,
@@ -124,10 +115,24 @@ impl SlotTimer {
 		Self { time_offset, relay_slot_duration, last_reported_slot: None }
 	}
 
+	/// Set the time offset depending on the scheduling version.
+	pub fn set_offset_by_scheduling_version(&mut self, v3_enabled: bool, offset: Duration) {
+		if v3_enabled {
+			// Ignore the time offset when V3 scheduling is enabled,
+			// since `descendants_start` already handles relay-chain slot alignment.
+			self.time_offset = Duration::ZERO;
+		} else {
+			self.time_offset = offset;
+		}
+	}
+
 	/// Returns a future that resolves when the next block production should be attempted.
 	pub async fn wait_until_next_slot(&mut self) -> Result<SlotTime, ()> {
-		let (time_until_next_attempt, timestamp) =
-			time_until_next_slot(duration_now(), self.relay_slot_duration, self.time_offset);
+		let (time_until_next_attempt, timestamp) = time_until_next_slot(
+			Timestamp::current().as_duration(),
+			self.relay_slot_duration,
+			self.time_offset,
+		);
 
 		// Calculate the current slot using the relay chain slot duration
 		let relay_slot_duration_for_slot = SlotDuration::from(self.relay_slot_duration);

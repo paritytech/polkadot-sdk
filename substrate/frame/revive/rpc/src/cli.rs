@@ -19,7 +19,10 @@ use crate::{
 	DbContext, DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, LOG_TARGET,
 	PolkadotRpcServer, PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider,
 	SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
-	client::{Client, ClientError, SubscriptionGapQueue, SubscriptionType, connect},
+	client::{
+		Client, ClientError, SubscriptionGapQueue, SubscriptionType, connect,
+		version_aware_runtime_api::VersionAwareRuntimeApiProvider,
+	},
 };
 use clap::{CommandFactory, FromArgMatches, Parser};
 use futures::{FutureExt, future::BoxFuture, pin_mut};
@@ -273,7 +276,7 @@ fn build_client(
 			EthPruningMode::KeepLatest(max_blocks) => {
 				log::info!(target: LOG_TARGET,
 					"💾 Using in-memory database, keeping only {max_blocks} blocks");
-				// see sqlite in-memory issue: https://github.com/launchbadge/sqlx/issues/2510
+				// see sqlite in-memory issue: https://github.com/transact-rs/sqlx/issues/2510
 				let pool = SqlitePoolOptions::new()
 					.max_connections(1)
 					.idle_timeout(None)
@@ -284,7 +287,9 @@ fn build_client(
 			},
 		};
 
-		let receipt_extractor = ReceiptExtractor::new(api.clone()).await?;
+		let runtime_api_provider =
+			VersionAwareRuntimeApiProvider::new(api.clone(), rpc_client.clone());
+		let receipt_extractor = ReceiptExtractor::new(runtime_api_provider.clone()).await?;
 		let max_variable_number = sqlite_db_query_max_variable_number(&pool).await;
 		let db_ctx = DbContext::new(pool, max_variable_number);
 
@@ -304,6 +309,7 @@ fn build_client(
 			receipt_provider,
 			eth_pruning.is_archive(),
 			subscription_gap_queue,
+			runtime_api_provider,
 		)
 		.await?;
 

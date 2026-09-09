@@ -39,6 +39,12 @@ node-primitives = { workspace = true }
 # Example pallets that are not published:
 pallet-example-mbm = { workspace = true }
 pallet-example-tasks = { workspace = true }
+pallet-transaction-storage = { workspace = true }
+
+# Pallets that are not part of the umbrella crate:
+pallet-registrar-para = { workspace = true }
+pallet-registrar-relay = { workspace = true }
+registrar-primitives = { workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
@@ -52,9 +58,13 @@ std = [
 	"node-primitives/std",
 	"pallet-example-mbm/std",
 	"pallet-example-tasks/std",
+	"pallet-registrar-para/std",
+	"pallet-registrar-relay/std",
+	"pallet-transaction-storage/std",
 	"polkadot-sdk/std",
 	"primitive-types/std",
 	"rand?/std",
+	"registrar-primitives/std",
 	"scale-info/std",
 	"serde_json/std",
 	"sp-debug-derive/std",
@@ -63,6 +73,9 @@ std = [
 runtime-benchmarks = [
 	"pallet-example-mbm/runtime-benchmarks",
 	"pallet-example-tasks/runtime-benchmarks",
+	"pallet-registrar-para/runtime-benchmarks",
+	"pallet-registrar-relay/runtime-benchmarks",
+	"pallet-transaction-storage/runtime-benchmarks",
 	"polkadot-sdk/runtime-benchmarks",
 	"rand",
 	"rand_pcg",
@@ -70,6 +83,9 @@ runtime-benchmarks = [
 try-runtime = [
 	"pallet-example-mbm/try-runtime",
 	"pallet-example-tasks/try-runtime",
+	"pallet-registrar-para/try-runtime",
+	"pallet-registrar-relay/try-runtime",
+	"pallet-transaction-storage/try-runtime",
 	"polkadot-sdk/try-runtime",
 ]
 experimental = [

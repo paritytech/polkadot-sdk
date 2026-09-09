@@ -2169,6 +2169,15 @@ fn legacy_to_dap_era_payout_e2e() {
 					points.individual.try_insert(v, 1).unwrap();
 				}
 			});
+			// Mirror the denominator that `reward_active_era` maintains in production, so the
+			// weighted-points incentive share resolves (it is otherwise zero here because this
+			// helper writes `ErasRewardPoints` directly). Sum = Σ weight · points.
+			let sum = [3, 5, 6, 8].into_iter().fold(0u128, |acc, v| {
+				let weight = staking_async::ErasValidatorIncentiveWeight::<T>::get(era, v)
+					.unwrap_or_default();
+				acc + weight // each validator has exactly 1 point
+			});
+			staking_async::ErasSumWeightedPoints::<T>::insert(era, sum);
 		};
 
 		// -- Era 0 (legacy 85/0/15) --

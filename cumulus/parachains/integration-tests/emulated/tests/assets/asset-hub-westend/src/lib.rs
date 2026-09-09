@@ -14,6 +14,12 @@
 // limitations under the License.
 
 #[cfg(test)]
+pub use emulated_integration_tests_common::{
+	asset_exists_on, assets_balance_on, assets_issuance_on, balances_issuance_on,
+	foreign_balance_on, foreign_issuance_on,
+};
+
+#[cfg(test)]
 mod imports {
 	pub(crate) use codec::Encode;
 

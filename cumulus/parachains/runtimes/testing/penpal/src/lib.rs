@@ -51,7 +51,7 @@ use alloc::{vec, vec::Vec};
 pub use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use assets_common::{foreign_creators::ForeignCreators, local_and_foreign_assets::TargetFromLeft};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
+use cumulus_primitives_core::{AggregateMessageOrigin, ParaId, VerifySchedulingSignature};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -109,8 +109,6 @@ use xcm_runtime_apis::{
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm_config::{
 	AssetsAssetId, LocationToAccountId, XcmConfig, XcmOriginToTransactDispatchOrigin,
@@ -289,6 +287,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	system_version: 1,
 };
 
+const RELAY_PARENT_OFFSET: u32 = 0;
+
 // Unit = the base number of indivisible units for balances
 pub const UNIT: Balance = 1_000_000_000_000;
 pub const MILLIUNIT: Balance = 1_000_000_000;
@@ -310,12 +310,6 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 	WEIGHT_REF_TIME_PER_SECOND.saturating_div(2),
 	cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
 );
-
-/// The version information used to identify this runtime when compiled natively.
-#[cfg(feature = "std")]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
@@ -490,6 +484,7 @@ impl pallet_assets::Config<AssetsInstance> for Runtime {
 	type Extra = ();
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 	type CallbackHandle = ();
+	type AssetIdAllocator = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -499,6 +494,7 @@ impl pallet_assets::Config<AssetsInstance> for Runtime {
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
 	pub const LpFee: Permill = Permill::zero(); // Makes account balance tracking in tests a bit easier
+	pub MaxSwapFee: Permill = Permill::from_percent(2);
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 }
 
@@ -532,6 +528,7 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type Extra = ();
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 	type CallbackHandle = ();
+	type AssetIdAllocator = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -573,6 +570,8 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PalletId = AssetConversionPalletId;
 	type MaxSwapPathLength = ConstU32<3>;
 	type MintMinLiquidity = ConstU128<100>;
+	type AdminOrigin = AssetsForceOrigin;
+	type MaxSwapFee = MaxSwapFee;
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = assets_common::benchmarks::AssetPairFactory<
@@ -613,7 +612,9 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		BLOCK_PROCESSING_VELOCITY,
 		UNINCLUDED_SEGMENT_CAPACITY,
 	>;
-	type RelayParentOffset = ConstU32<0>;
+
+	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+	type SchedulingSignatureVerifier = ();
 }
 
 impl parachain_info::Config for Runtime {}
@@ -1184,6 +1185,22 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			slot: cumulus_primitives_aura::Slot,
 		) -> bool {
 			ConsensusHook::can_build_upon(included_hash, slot)
+		}
+	}
+
+	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
+		fn relay_parent_offset() -> u32 {
+			RELAY_PARENT_OFFSET
+		}
+
+		fn max_claim_queue_offset() -> u8 {
+			cumulus_pallet_parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
+		}
+	}
+
+	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
+		fn scheduling_v3_enabled() -> bool {
+			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED
 		}
 	}
 );

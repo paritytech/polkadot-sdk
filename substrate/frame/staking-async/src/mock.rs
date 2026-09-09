@@ -561,6 +561,7 @@ impl Config for Test {
 	type Slash = Dap;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type WeightInfo = ();
+	type IsValidatorInactive = ();
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;
@@ -603,13 +604,18 @@ pub struct ExtBuilder {
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
+		// Default both min bonds strictly above ED — and to different values — to
+		// 1. mimic the situation we live in (ED < MinNominatorBond < MinValidatorBond on Polkadot /
+		//    Kusama / Westend AH).
+		// 2. avoid tests from accidentally passing because `min_chilled_bond` happens to
+		// collapse to ED when all three are equal.
 		Self {
 			nominate: true,
 			validator_count: 2,
 			balance_factor: 1,
 			has_stakers: true,
-			min_nominator_bond: ExistentialDeposit::get(),
-			min_validator_bond: ExistentialDeposit::get(),
+			min_nominator_bond: ExistentialDeposit::get() + 1,
+			min_validator_bond: ExistentialDeposit::get() + 2,
 			status: Default::default(),
 			stakes: Default::default(),
 			stakers: Default::default(),
@@ -735,10 +741,16 @@ impl ExtBuilder {
 		MaxWinnersPerPage::set(max);
 		self
 	}
+	/// Do NOT use this. Disabling try-state means the test stops proving that storage
+	/// invariants hold at the end, which hides real corruption. A test that deliberately
+	/// corrupts storage to exercise a code path must restore valid state before its closure
+	/// returns so this hook still runs and passes. Existing `false` call sites are bugs to
+	/// be fixed.
 	pub(crate) fn try_state(self, enable: bool) -> Self {
 		SkipTryStateCheck::set(!enable);
 		self
 	}
+
 	fn build(self) -> sp_io::TestExternalities {
 		sp_tracing::try_init_simple();
 		let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();

@@ -1,6 +1,6 @@
 # zombienet-sdk settings
 ZOMBIE_PROVIDER=native
-ZOMBIENET_SDK_IMAGE_FOR_NATIVE=docker.io/paritytech/ci-unified:bullseye-1.84.1-2025-01-28-v202502131220
+ZOMBIENET_SDK_IMAGE_FOR_NATIVE=docker.io/paritytech/ci-unified:bullseye-1.93.0-2026-01-27-v202605151311
 ZOMBIENET_SDK_DEFAULT_RUNNER_FOR_NATIVE=parity-zombienet-native-default
 ZOMBIENET_SDK_LARGE_RUNNER_FOR_NATIVE=parity-zombienet-native-large
 ZOMBIENET_SDK_DEFAULT_RUNNER_FOR_NATIVE_PERSISTENT=parity-zombienet-native-default-persistent

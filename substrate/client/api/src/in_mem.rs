@@ -597,6 +597,13 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 		Ok(())
 	}
 
+	fn set_renew_payloads(
+		&mut self,
+		_payloads: HashMap<H256, Vec<u8>>,
+	) -> sp_blockchain::Result<()> {
+		Ok(())
+	}
+
 	fn set_create_gap(&mut self, _create_gap: bool) {}
 }
 
