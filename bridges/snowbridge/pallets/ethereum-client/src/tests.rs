@@ -1684,8 +1684,8 @@ mod gloas_end_to_end {
 		));
 	}
 
-	/// The slot must land in the gloas era of the mock's fork schedule, or the variant/era
-	/// cross-check rejects the proof before any of this is exercised.
+	/// The fixture is real Gloas data, so its slot must sit in the gloas era of the mock's
+	/// fork schedule for the rest of this module to be testing what it claims.
 	#[test]
 	fn fixture_slot_is_in_the_gloas_era() {
 		new_tester().execute_with(|| {
