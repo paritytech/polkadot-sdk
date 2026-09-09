@@ -63,6 +63,7 @@ use parking_lot::RwLock;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_client_api::{backend::StorageProvider, Backend, StorageKey};
 use sc_keystore::LocalKeystore;
+pub use sc_network_statement::RetentionReasonMask;
 use schnellru::{ByLength, LruMap};
 use sp_blockchain::HeaderBackend;
 use sp_core::{crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed, Decode, Encode};
@@ -70,8 +71,8 @@ use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
 	runtime_api::{StatementSource, StatementStoreExt},
 	AccountId, AdmittedBatch, BlockHash, Channel, DecryptionKey, FilterDecision, Hash,
-	InvalidReason, OptimizedTopicFilter, RejectionReason, Result, RetentionReasonMask,
-	SignatureVerificationResult, Statement, StatementAllowance, StatementEvent, SubmitResult,
+	InvalidReason, OptimizedTopicFilter, RejectionReason, Result, SignatureVerificationResult,
+	Statement, StatementAllowance, StatementEvent, SubmitResult,
 };
 pub use sp_statement_store::{Error, StatementStore, Topic, MAX_TOPICS};
 use std::{
@@ -525,6 +526,9 @@ pub use sc_network_statement::config::DEFAULT_REPLICATION_FACTOR;
 /// Default gossip target for v2 DHT-affinity statement routing.
 pub use sc_network_statement::config::DEFAULT_GOSSIP_TARGET;
 
+/// Parameters of the v2 DHT statement path.
+pub use sc_network_statement::V2DhtConfig;
+
 /// Statement store and network handler configuration.
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -540,14 +544,8 @@ pub struct Config {
 	pub network_workers: usize,
 	/// Maximum statements per second per peer before rate limiting kicks in.
 	pub rate_limit: u32,
-	/// Topics this node advertises affinity for, so peers route matching statements to it.
-	pub affinity_topics: Vec<sp_statement_store::Topic>,
-	/// Replication factor (K) for v2 DHT-affinity routing: number of statement-protocol peers
-	/// responsible for storing a given topic.
-	pub replication_factor: std::num::NonZeroUsize,
-	/// Gossip target for v2 DHT-affinity routing: maximum number of connected peers we forward a
-	/// statement to for a given topic.
-	pub gossip_target: std::num::NonZeroUsize,
+	/// Parameters of the v2 DHT statement path, `None` when the legacy flood path is in use.
+	pub v2dht: Option<V2DhtConfig>,
 }
 
 impl Config {
@@ -576,9 +574,7 @@ impl Default for Config {
 			purge_after_sec: DEFAULT_PURGE_AFTER_SEC,
 			network_workers: DEFAULT_NETWORK_WORKERS,
 			rate_limit: DEFAULT_RATE_LIMIT,
-			affinity_topics: Vec::new(),
-			replication_factor: DEFAULT_REPLICATION_FACTOR,
-			gossip_target: DEFAULT_GOSSIP_TARGET,
+			v2dht: None,
 		}
 	}
 }
@@ -3474,13 +3470,12 @@ impl Store {
 #[cfg(test)]
 mod tests {
 
-	use crate::{col, Store, KEY_VERSION};
+	use crate::{col, RetentionReasonMask, Store, KEY_VERSION};
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
 		AccountId, Channel, DecryptionKey, FilterDecision, InvalidReason, OptimizedTopicFilter,
-		Proof, RejectionReason, RetentionReasonMask, Statement, StatementSource, StatementStore,
-		SubmitResult, Topic,
+		Proof, RejectionReason, Statement, StatementSource, StatementStore, SubmitResult, Topic,
 	};
 	use std::sync::atomic::{AtomicBool, Ordering};
 
