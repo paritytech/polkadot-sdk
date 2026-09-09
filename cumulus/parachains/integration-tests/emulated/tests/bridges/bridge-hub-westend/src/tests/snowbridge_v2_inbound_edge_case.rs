@@ -53,7 +53,7 @@ fn forged_receipt_proof_is_rejected_after_path_check_fix() {
 
 	let fixture = snowbridge_pallet_ethereum_client_fixtures::make_inbound_fixture();
 	// Pre-Gloas fixture: the leaf is the payload-header root, and the receipts root it
-	// authenticates comes straight off that header; qed
+	// authenticates comes straight off that header.
 	let receipts_root = fixture
 		.event
 		.proof

@@ -618,7 +618,7 @@ fn poc_permissionless_forged_receipt_bypasses_verifier_and_injects_xcm() {
 		// Build a malicious receipt proof: a real receipts-trie root node + an extra "proof node"
 		// that is just the forged receipt RLP bytes.
 		// Pre-Gloas fixture: the leaf is the payload-header root, and the receipts root it
-		// authenticates comes straight off that header; qed
+		// authenticates comes straight off that header.
 		let receipts_root = fixture
 			.event
 			.proof
