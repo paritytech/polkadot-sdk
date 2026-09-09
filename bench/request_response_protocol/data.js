@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788951595605,
+  "lastUpdate": 1788965360769,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -122147,6 +122147,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2659307693,
             "range": "± 19437938",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dmitry@markin.tech",
+            "name": "Dmitry Markin",
+            "username": "dmitry-markin"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "acfa15e9a1d3be0a49b5aa0a7fc4a9d174d91496",
+          "message": "WebRTC doc (#13095)\n\nThe explanatory guide for node and chain operators.\n\n\n[Rendered](https://github.com/paritytech/polkadot-sdk/blob/dm-webrtc-doc/docs/sdk/src/guides/webrtc.md)",
+          "timestamp": "2026-09-09T11:34:54Z",
+          "tree_id": "dcfb5bda5803ce55cf6de7ba993467b8f6e0bfa2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/acfa15e9a1d3be0a49b5aa0a7fc4a9d174d91496"
+        },
+        "date": 1788965321610,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20272037,
+            "range": "± 266503",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20513589,
+            "range": "± 354471",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21871661,
+            "range": "± 526677",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27095728,
+            "range": "± 222612",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 63993554,
+            "range": "± 479337",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 374781418,
+            "range": "± 6578726",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2786044552,
+            "range": "± 34281887",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17054780,
+            "range": "± 172245",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17635704,
+            "range": "± 305917",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18114046,
+            "range": "± 265522",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22084317,
+            "range": "± 69955",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 64396654,
+            "range": "± 879586",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 379154419,
+            "range": "± 6869739",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2745355800,
+            "range": "± 27636021",
             "unit": "ns/iter"
           }
         ]
