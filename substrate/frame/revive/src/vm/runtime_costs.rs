@@ -176,15 +176,22 @@ pub enum RuntimeCosts {
 	Blake2F(u32),
 	/// Weight of calling `Modexp` precompile
 	Modexp(u64),
+	/// Weight of processing EIP-7702 authorization tuples.
+	///
+	/// `invalid_accounts` covers every tuple that produced no state change: those that
+	/// fail the chain-id check, fail signature recovery, or pass recovery but then fail
+	/// validation (bad nonce, non-EOA authority, etc.) or post-validation (set_delegation
+	/// error). All are billed at the signature-recovery cost — a conservative over-estimate
+	/// for the chain-id failures, which bail before recovery — and incur no
+	/// account creation/update work.
+	Delegations { new_accounts: u32, existing_accounts: u32, invalid_accounts: u32 },
 }
 
 /// How a storage access is priced.
-#[cfg_attr(test, derive(PartialEq, Eq))]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum StorageAccessKind {
-	/// Persistent storage, priced by the slot's warmth and the operation
-	/// performed on it.
-	Persistent { warmth: Warmth, op: StorageOp },
+	/// Persistent storage, priced by its access-list warmth.
+	Persistent(Warmth),
 	/// Transient storage, every access costs the same.
 	Transient,
 }
@@ -193,22 +200,9 @@ impl StorageAccessKind {
 	/// Storage is keyed by slot.
 	pub(crate) const KEY_FAMILY: KeyFamily = KeyFamily::Slot;
 
-	pub fn new(transient: bool, op: StorageOp, warmth: impl FnOnce() -> Warmth) -> Self {
-		if transient { Self::Transient } else { Self::persistent(op, warmth) }
-	}
-
-	pub fn persistent(op: StorageOp, warmth: impl FnOnce() -> Warmth) -> Self {
-		Self::Persistent { warmth: warmth(), op }
-	}
-
-	/// Debug check that the access was touched with the operation the cost
-	/// performs; a mismatch would price the access wrongly.
-	fn checked_against(self, op: StorageOp) -> Self {
-		debug_assert!(
-			!matches!(self, Self::Persistent { op: touched, .. } if touched != op),
-			"storage access touched with a different operation than it is priced for",
-		);
-		self
+	/// Builds the storage access kind. `warmth` is called only for persistent storage.
+	pub fn new(transient: bool, warmth: impl FnOnce() -> Warmth) -> Self {
+		if transient { Self::Transient } else { Self::Persistent(warmth()) }
 	}
 }
 
@@ -326,13 +320,14 @@ impl RuntimeCosts {
 
 	/// Pick the matching storage bench for the access `kind`.
 	fn weight_for_storage_access<T: Config>(
+		op: StorageOp,
 		kind: StorageAccessKind,
 		cold: impl FnOnce() -> Weight,
 		hot: impl FnOnce() -> Weight,
 		transient: impl FnOnce() -> Weight,
 	) -> Weight {
 		match kind {
-			StorageAccessKind::Persistent { warmth, op } => {
+			StorageAccessKind::Persistent(warmth) => {
 				let surcharge = Self::write_commit_owed::<T>(warmth, op);
 				weight_by_warmth::<T, _>([warmth], StorageAccessKind::KEY_FAMILY, cold, hot)
 					.saturating_add(surcharge)
@@ -431,31 +426,36 @@ impl<T: Config> Token<T> for RuntimeCosts {
 					0,
 				)),
 			SetStorage { new_bytes, old_bytes, kind } => Self::weight_for_storage_access::<T>(
-				kind.checked_against(StorageOp::Write),
+				StorageOp::Write,
+				kind,
 				|| cost_storage!(write_cold, seal_set_storage, new_bytes, old_bytes),
 				|| T::WeightInfo::seal_set_storage_hot(new_bytes, old_bytes),
 				|| cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes),
 			),
 			ClearStorage { len, kind } => Self::weight_for_storage_access::<T>(
-				kind.checked_against(StorageOp::Write),
+				StorageOp::Write,
+				kind,
 				|| cost_storage!(write_cold, clear_storage, len),
 				|| T::WeightInfo::clear_storage_hot(len),
 				|| cost_storage!(write_transient, seal_clear_transient_storage, len),
 			),
 			ContainsStorage { len, kind } => Self::weight_for_storage_access::<T>(
-				kind.checked_against(StorageOp::Read),
+				StorageOp::Read,
+				kind,
 				|| cost_storage!(read_cold, contains_storage, len),
 				|| T::WeightInfo::contains_storage_hot(len),
 				|| cost_storage!(read_transient, seal_contains_transient_storage, len),
 			),
 			GetStorage { len, kind } => Self::weight_for_storage_access::<T>(
-				kind.checked_against(StorageOp::Read),
+				StorageOp::Read,
+				kind,
 				|| cost_storage!(read_cold, seal_get_storage, len),
 				|| T::WeightInfo::seal_get_storage_hot(len),
 				|| cost_storage!(read_transient, seal_get_transient_storage, len),
 			),
 			TakeStorage { len, kind } => Self::weight_for_storage_access::<T>(
-				kind.checked_against(StorageOp::Write),
+				StorageOp::Write,
+				kind,
 				|| cost_storage!(write_cold, take_storage, len),
 				|| T::WeightInfo::take_storage_hot(len),
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
@@ -544,6 +544,13 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			Identity(len) => T::WeightInfo::identity(len),
 			Blake2F(rounds) => T::WeightInfo::blake2f(rounds),
 			Modexp(gas) => Weight::from_parts(gas.saturating_mul(WEIGHT_PER_GAS), 0),
+			Delegations { new_accounts, existing_accounts, invalid_accounts } => {
+				T::WeightInfo::process_new_account_authorization(new_accounts)
+					.saturating_add(T::WeightInfo::process_existing_account_authorization(
+						existing_accounts,
+					))
+					.saturating_add(T::WeightInfo::process_invalid_authorization(invalid_accounts))
+			},
 		}
 	}
 }
@@ -554,30 +561,27 @@ mod tests {
 	use crate::tests::Test;
 
 	#[test]
-	fn cold_hot_pricing_cold_is_strictly_more_expensive_than_hot() {
+	fn storage_pricing_by_access_kind() {
 		let len = 64u32;
-		let cold = Warmth::cold_non_revertible();
-		let cold_revertible = Warmth::cold_revertible();
-		let read_paid = Warmth::Hot { charged: StorageOp::Read };
-		let write_paid = Warmth::Hot { charged: StorageOp::Write };
+		let cold = StorageAccessKind::Persistent(Warmth::cold_non_revertible());
+		let cold_revertible = StorageAccessKind::Persistent(Warmth::cold_revertible());
+		let hot_kinds = [
+			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Read }),
+			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Write }),
+		];
 
-		// Each cost carries its own operation: a write cost priced with `op: Read` would skip
-		// the surcharge and assert a case that cannot occur.
-		let with_warmth = |warmth: Warmth| -> Vec<RuntimeCosts> {
-			let read_kind = StorageAccessKind::Persistent { warmth, op: StorageOp::Read };
-			let write_kind = StorageAccessKind::Persistent { warmth, op: StorageOp::Write };
+		let with_kind = |kind: StorageAccessKind| -> Vec<RuntimeCosts> {
 			vec![
-				RuntimeCosts::GetStorage { len, kind: read_kind },
-				RuntimeCosts::SetStorage { new_bytes: len, old_bytes: len, kind: write_kind },
-				RuntimeCosts::ClearStorage { len, kind: write_kind },
-				RuntimeCosts::ContainsStorage { len, kind: read_kind },
-				RuntimeCosts::TakeStorage { len, kind: write_kind },
+				RuntimeCosts::GetStorage { len, kind },
+				RuntimeCosts::SetStorage { new_bytes: len, old_bytes: len, kind },
+				RuntimeCosts::ClearStorage { len, kind },
+				RuntimeCosts::ContainsStorage { len, kind },
+				RuntimeCosts::TakeStorage { len, kind },
 			]
 		};
 
-		for paid_level in [read_paid, write_paid] {
-			for (cold_cost, hot_cost) in with_warmth(cold).into_iter().zip(with_warmth(paid_level))
-			{
+		for hot in hot_kinds {
+			for (cold_cost, hot_cost) in with_kind(cold).into_iter().zip(with_kind(hot)) {
 				let cold_weight = <RuntimeCosts as Token<Test>>::weight(&cold_cost);
 				let hot_weight = <RuntimeCosts as Token<Test>>::weight(&hot_cost);
 				assert!(
@@ -597,8 +601,7 @@ mod tests {
 			}
 		}
 
-		for (rev_cost, non_rev_cost) in
-			with_warmth(cold_revertible).into_iter().zip(with_warmth(cold))
+		for (rev_cost, non_rev_cost) in with_kind(cold_revertible).into_iter().zip(with_kind(cold))
 		{
 			let rev_weight = <RuntimeCosts as Token<Test>>::weight(&rev_cost);
 			let non_rev_weight = <RuntimeCosts as Token<Test>>::weight(&non_rev_cost);
@@ -611,6 +614,19 @@ mod tests {
 				rev_weight.proof_size(),
 				non_rev_weight.proof_size(),
 				"proof_size differs {rev_cost:?}: rev={rev_weight:?} non={non_rev_weight:?}",
+			);
+		}
+
+		for transient_cost in with_kind(StorageAccessKind::Transient) {
+			let weight = <RuntimeCosts as Token<Test>>::weight(&transient_cost);
+			assert_eq!(
+				weight.proof_size(),
+				0,
+				"transient storage is priced without proof: {transient_cost:?}: {weight:?}"
+			);
+			assert!(
+				weight.ref_time() > 0,
+				"transient storage ref_time must be above zero: {transient_cost:?}: {weight:?}"
 			);
 		}
 	}
@@ -692,11 +708,10 @@ mod tests {
 		let surcharge =
 			deferred_write.saturating_add(RuntimeCosts::access_list_upgrade_overhead::<Test>());
 
-		let read_paid = Warmth::Hot { charged: StorageOp::Read };
-		let write_paid = Warmth::Hot { charged: StorageOp::Write };
+		let read_paid = StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Read });
+		let write_paid = StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Write });
 
-		let write_costs = |warmth: Warmth| {
-			let kind = StorageAccessKind::Persistent { warmth, op: StorageOp::Write };
+		let write_costs = |kind: StorageAccessKind| {
 			[
 				RuntimeCosts::SetStorage { new_bytes: LEN, old_bytes: LEN, kind },
 				RuntimeCosts::ClearStorage { len: LEN, kind },
@@ -714,8 +729,7 @@ mod tests {
 			);
 		}
 
-		let read_costs = |warmth: Warmth| {
-			let kind = StorageAccessKind::Persistent { warmth, op: StorageOp::Read };
+		let read_costs = |kind: StorageAccessKind| {
 			[
 				RuntimeCosts::GetStorage { len: LEN, kind },
 				RuntimeCosts::ContainsStorage { len: LEN, kind },
@@ -774,6 +788,23 @@ mod tests {
 		assert!(
 			weight_of(false, Some(write_paid)).ref_time() < W::seal_call_hot_transfer(0).ref_time(),
 			"the hot surcharge is the transfer's share, not the whole hot value call",
+		);
+	}
+
+	#[test]
+	fn a_transient_access_never_consults_the_access_list() {
+		assert_eq!(
+			StorageAccessKind::new(true, || unreachable!("transient storage has no warmth")),
+			StorageAccessKind::Transient,
+		);
+	}
+
+	#[test]
+	fn hot_storage_overlay_overhead_is_not_zero() {
+		let overhead = RuntimeCosts::hot_storage_overlay_overhead::<Test>();
+		assert!(
+			overhead.ref_time() > 0,
+			"the per-read cost of overlay_probe_full must stay above overlay_probe_empty",
 		);
 	}
 

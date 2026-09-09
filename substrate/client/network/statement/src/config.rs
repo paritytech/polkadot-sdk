@@ -18,7 +18,8 @@
 
 //! Configuration of the statement protocol
 
-use std::time;
+use sp_statement_store::Topic;
+use std::{num::NonZeroUsize, time};
 
 /// Interval at which we propagate statements;
 pub(crate) const PROPAGATE_TIMEOUT: time::Duration = time::Duration::from_millis(1000);
@@ -57,6 +58,35 @@ pub const DEFAULT_STATEMENTS_PER_SECOND: u32 = 50_000;
 
 /// Burst capacity coefficient for the rate limiter.
 pub const STATEMENTS_BURST_COEFFICIENT: u32 = 5;
+
+/// Default replication factor (K) for v2 DHT-affinity routing: number of statement-protocol peers
+/// responsible for storing a given topic.
+pub const DEFAULT_REPLICATION_FACTOR: NonZeroUsize = NonZeroUsize::new(20).expect("20 is non-zero");
+
+/// Default gossip target for v2 DHT-affinity routing: maximum number of connected peers we forward
+/// a statement to for a given topic.
+pub const DEFAULT_GOSSIP_TARGET: NonZeroUsize = NonZeroUsize::new(3).expect("3 is non-zero");
+
+/// Parameters of the v2 DHT statement path.
+#[derive(Clone, Debug)]
+pub struct V2DhtConfig {
+	/// Topics the node stores in full, regardless of DHT affinity.
+	pub affinity_topics: Vec<Topic>,
+	/// Number of K-closest peers responsible for storing a topic.
+	pub replication_factor: NonZeroUsize,
+	/// Number of peers to gossip a statement to in addition to DHT-affinity routing targets.
+	pub gossip_target: NonZeroUsize,
+}
+
+impl Default for V2DhtConfig {
+	fn default() -> Self {
+		Self {
+			affinity_topics: Vec::new(),
+			replication_factor: DEFAULT_REPLICATION_FACTOR,
+			gossip_target: DEFAULT_GOSSIP_TARGET,
+		}
+	}
+}
 
 #[cfg(test)]
 mod tests {

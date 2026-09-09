@@ -262,6 +262,44 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, default_value_t = sc_statement_store::DEFAULT_PURGE_AFTER_SEC)]
 	pub statement_store_purge_after_sec: u64,
 
+	/// Affinity topic advertised by this node. Repeatable; each value is a 32-byte hex
+	/// hash.
+	///
+	/// Makes the node responsible for finding and storing all statements with topics in this
+	/// list.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long = "statement-affinity-topic", value_name = "TOPIC", hide = true)]
+	pub statement_affinity_topics: Vec<sc_statement_store::Topic>,
+
+	/// Number of K-closest peers (replication factor) used for DHT-affinity statement routing.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(
+		long,
+		value_name = "K",
+		default_value_t = sc_statement_store::DEFAULT_REPLICATION_FACTOR,
+		hide = true
+	)]
+	pub statement_replication_factor: std::num::NonZeroUsize,
+
+	/// Number of peers to gossip a statement to in addition to DHT-affinity routing targets.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(
+		long,
+		value_name = "N",
+		default_value_t = sc_statement_store::DEFAULT_GOSSIP_TARGET,
+		hide = true
+	)]
+	pub statement_gossip_target: std::num::NonZeroUsize,
+
 	/// Upper bound on collator reserved-peer slots.
 	#[arg(long, value_name = "N", default_value_t = 32)]
 	pub collator_reserved_slots: usize,
@@ -321,6 +359,13 @@ impl<Config: CliConfig> Cli<Config> {
 					purge_after_sec: self.statement_store_purge_after_sec,
 					network_workers: self.statement_network_workers,
 					rate_limit: self.statement_rate_limit,
+					v2dht: sc_network_statement::v2dht_enabled().then(|| {
+						sc_statement_store::V2DhtConfig {
+							affinity_topics: self.statement_affinity_topics.clone(),
+							replication_factor: self.statement_replication_factor,
+							gossip_target: self.statement_gossip_target,
+						}
+					}),
 				},
 			),
 			storage_monitor: self.storage_monitor.clone(),
@@ -576,5 +621,47 @@ impl<Config: CliConfig> CliConfiguration<Self> for RelayChainCli<Config> {
 
 	fn node_name(&self) -> sc_cli::Result<String> {
 		self.base.base.node_name()
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use clap::{CommandFactory, FromArgMatches};
+
+	struct TestCliConfig;
+	impl CliConfig for TestCliConfig {
+		fn impl_version() -> String {
+			"0.0.0".into()
+		}
+		fn author() -> String {
+			"test".into()
+		}
+		fn support_url() -> String {
+			"https://example.invalid".into()
+		}
+		fn copyright_start_year() -> u16 {
+			2025
+		}
+	}
+
+	#[test]
+	fn statement_affinity_topics_accumulate_repeated_flags() {
+		let topic_a = "11".repeat(32);
+		let topic_b = "22".repeat(32);
+		// `propagate_version = true` on the command requires a version; the binary injects one via
+		// `SubstrateCli` at runtime, so set one here to drive clap directly.
+		let matches = Cli::<TestCliConfig>::command().version("0.0.0").get_matches_from([
+			"polkadot-omni-node",
+			"--statement-affinity-topic",
+			&format!("0x{topic_a}"),
+			"--statement-affinity-topic",
+			&format!("0x{topic_b}"),
+		]);
+		let cli = Cli::<TestCliConfig>::from_arg_matches(&matches).expect("args parse");
+		assert_eq!(
+			cli.statement_affinity_topics,
+			vec![sc_statement_store::Topic([0x11; 32]), sc_statement_store::Topic([0x22; 32])]
+		);
 	}
 }
