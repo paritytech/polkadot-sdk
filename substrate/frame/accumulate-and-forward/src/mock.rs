@@ -28,7 +28,7 @@ use frame_support::{
 	weights::constants::RocksDbWeight,
 	PalletId,
 };
-use sp_runtime::BuildStorage;
+use sp_runtime::{traits::BlockNumberProvider, BuildStorage};
 use std::cell::RefCell;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -63,6 +63,24 @@ thread_local! {
 	pub static SEND_FAIL: RefCell<bool> = RefCell::new(false);
 	/// Records the amount from the most recent successful `MockForwarder::forward` call.
 	pub static LAST_SENT_AMOUNT: RefCell<Option<u64>> = RefCell::new(None);
+	/// The block number reported by [`MockBlockNumberProvider`].
+	pub static PROVIDER_BLOCK: RefCell<u64> = RefCell::new(0);
+}
+
+/// Block number provider that moves independently of the system block number, as
+/// `RelaychainDataProvider` does on a parachain.
+pub struct MockBlockNumberProvider;
+
+impl BlockNumberProvider for MockBlockNumberProvider {
+	type BlockNumber = u64;
+
+	fn current_block_number() -> u64 {
+		PROVIDER_BLOCK.with(|b| *b.borrow())
+	}
+
+	fn set_block_number(block: u64) {
+		PROVIDER_BLOCK.with(|b| *b.borrow_mut() = block);
+	}
 }
 
 /// Mock implementation of [`pallet_accumulate_and_forward::Forwarder`].
@@ -104,7 +122,7 @@ impl Config for Test {
 	type Forwarder = MockForwarder;
 	type TransferPeriod = TransferPeriod;
 	type MinTransferAmount = MinTransferAmount;
-	type BlockNumberProvider = System;
+	type BlockNumberProvider = MockBlockNumberProvider;
 	type WeightInfo = ();
 }
 
@@ -120,5 +138,9 @@ pub fn new_test_ext(fund_accumulation: bool) -> sp_io::TestExternalities {
 	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
-	t.into()
+
+	let mut ext: sp_io::TestExternalities = t.into();
+	// Events are not recorded on the genesis block.
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }

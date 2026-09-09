@@ -27,6 +27,7 @@ use frame_support::{
 	},
 	weights::constants::RocksDbWeight,
 };
+use sp_runtime::traits::BlockNumberProvider;
 
 type AccumulateForwardPallet = crate::Pallet<Test>;
 
@@ -55,10 +56,10 @@ fn reset_last_sent_amount() {
 	LAST_SENT_AMOUNT.with(|a| *a.borrow_mut() = None);
 }
 
-/// Run `on_idle` with an unconstrained weight budget at provider block `block`.
-fn run_on_idle_at(block: u64) {
-	System::set_block_number(block);
-	AccumulateForwardPallet::on_idle(block, Weight::from_all(Weight::MAX));
+/// Run `on_idle` at provider block `block` with `budget`, returning the weight consumed.
+fn on_idle_at(block: u64, budget: Weight) -> Weight {
+	MockBlockNumberProvider::set_block_number(block);
+	AccumulateForwardPallet::on_idle(System::block_number(), budget)
 }
 
 /// Run `on_idle` on each of `blocks`, keeping the account funded, and return the blocks that
@@ -68,7 +69,7 @@ fn blocks_that_forwarded(blocks: impl IntoIterator<Item = u64>) -> Vec<u64> {
 	for block in blocks {
 		fund_accumulation_account(MinTransferAmount::get());
 		reset_send_count();
-		run_on_idle_at(block);
+		on_idle_at(block, Weight::MAX);
 		if get_send_count() == 1 {
 			sent_at.push(block);
 		}
@@ -87,7 +88,7 @@ fn first_forward_is_not_rate_limited() {
 
 		// Deliberately not a multiple of the period.
 		assert_ne!(1 % TransferPeriod::get(), 0);
-		run_on_idle_at(1);
+		on_idle_at(1, Weight::MAX);
 
 		assert_eq!(get_send_count(), 1);
 		assert_eq!(LastForwardBlock::<Test>::get(), Some(1));
@@ -104,7 +105,7 @@ fn no_forward_until_the_period_elapsed() {
 		let first = 7u64;
 
 		fund_accumulation_account(funds);
-		run_on_idle_at(first);
+		on_idle_at(first, Weight::MAX);
 		assert_eq!(get_send_count(), 1);
 		assert_eq!(LastForwardBlock::<Test>::get(), Some(first));
 
@@ -113,7 +114,7 @@ fn no_forward_until_the_period_elapsed() {
 		reset_send_count();
 
 		for block in first + 1..first + period {
-			run_on_idle_at(block);
+			on_idle_at(block, Weight::MAX);
 			assert_eq!(get_send_count(), 0, "unexpected send at block {block}");
 			assert_eq!(
 				Balances::free_balance(get_accumulation_account()),
@@ -124,7 +125,7 @@ fn no_forward_until_the_period_elapsed() {
 		}
 
 		// Exactly `period` blocks later, the next forward is allowed.
-		run_on_idle_at(first + period);
+		on_idle_at(first + period, Weight::MAX);
 		assert_eq!(get_send_count(), 1);
 		assert_eq!(LastForwardBlock::<Test>::get(), Some(first + period));
 		assert_eq!(Balances::free_balance(get_accumulation_account()), ed);
@@ -144,6 +145,32 @@ fn forwards_when_period_multiples_are_never_observed() {
 
 		// Measured from the last forward, the cadence holds regardless.
 		assert_eq!(blocks_that_forwarded(observed), vec![1, 7, 13, 19, 25]);
+	});
+}
+
+// The rate limit follows the `BlockNumberProvider`, not the system block number.
+#[test]
+fn rate_limit_follows_the_provider_not_the_system_block() {
+	new_test_ext(true).execute_with(|| {
+		let period = TransferPeriod::get();
+
+		fund_accumulation_account(50);
+		on_idle_at(100, Weight::MAX);
+		assert_eq!(get_send_count(), 1);
+		assert_eq!(LastForwardBlock::<Test>::get(), Some(100));
+
+		// The system block advances well past a period while the provider barely moves: still
+		// rate limited.
+		fund_accumulation_account(50);
+		reset_send_count();
+		System::set_block_number(1 + period * 3);
+		on_idle_at(100 + period - 1, Weight::MAX);
+		assert_eq!(get_send_count(), 0);
+
+		// The provider crosses the period while the system block stands still: it forwards.
+		on_idle_at(100 + period, Weight::MAX);
+		assert_eq!(get_send_count(), 1);
+		assert_eq!(LastForwardBlock::<Test>::get(), Some(100 + period));
 	});
 }
 
@@ -168,7 +195,7 @@ fn ensure_minimum_amount_limit_is_respected() {
 		reset_send_count();
 		reset_last_sent_amount();
 
-		run_on_idle_at(1);
+		on_idle_at(1, Weight::MAX);
 		assert_eq!(get_send_count(), 0);
 		assert_eq!(LastForwardBlock::<Test>::get(), None);
 
@@ -180,7 +207,7 @@ fn ensure_minimum_amount_limit_is_respected() {
 		);
 
 		// The next block forwards: no period to wait out yet.
-		run_on_idle_at(2);
+		on_idle_at(2, Weight::MAX);
 		assert_eq!(get_send_count(), 1);
 		assert_eq!(get_last_sent_amount(), Some(limit));
 		assert_eq!(LastForwardBlock::<Test>::get(), Some(2));
@@ -198,7 +225,7 @@ fn verify_success_path() {
 		reset_last_sent_amount();
 		fund_accumulation_account(funds);
 
-		run_on_idle_at(period);
+		on_idle_at(period, Weight::MAX);
 
 		assert_eq!(get_send_count(), 1);
 		System::assert_has_event(Event::<Test>::ForwardSucceeded { amount: funds }.into());
@@ -225,7 +252,7 @@ fn verify_failure_path() {
 		let balance_before = Balances::free_balance(acc);
 		let issuance_before = Balances::total_issuance();
 
-		run_on_idle_at(period);
+		on_idle_at(period, Weight::MAX);
 
 		assert_eq!(get_send_count(), 0);
 		assert_eq!(get_last_sent_amount(), None);
@@ -236,13 +263,13 @@ fn verify_failure_path() {
 
 		// No retry on the very next block.
 		System::reset_events();
-		run_on_idle_at(period + 1);
+		on_idle_at(period + 1, Weight::MAX);
 		assert!(System::events().is_empty());
 		assert_eq!(LastForwardBlock::<Test>::get(), Some(period));
 
 		// The retry happens a period later.
 		SEND_FAIL.with(|f| *f.borrow_mut() = false);
-		run_on_idle_at(period * 2);
+		on_idle_at(period * 2, Weight::MAX);
 		assert_eq!(get_send_count(), 1);
 		assert_eq!(get_last_sent_amount(), Some(funds));
 		assert_eq!(LastForwardBlock::<Test>::get(), Some(period * 2));
@@ -256,10 +283,7 @@ fn on_idle_consumes_no_weight_without_budget_for_the_period_read() {
 		fund_accumulation_account(70);
 		reset_send_count();
 
-		System::set_block_number(1);
-		let consumed = AccumulateForwardPallet::on_idle(1, Weight::zero());
-
-		assert_eq!(consumed, Weight::zero());
+		assert_eq!(on_idle_at(1, Weight::zero()), Weight::zero());
 		assert_eq!(get_send_count(), 0);
 		assert_eq!(LastForwardBlock::<Test>::get(), None);
 	});
@@ -276,14 +300,11 @@ fn on_idle_consumes_one_read_when_rate_limited() {
 		fund_accumulation_account(70);
 
 		// Forward once, so the rate limit applies from here on.
-		run_on_idle_at(1);
+		on_idle_at(1, Weight::MAX);
 		assert_eq!(get_send_count(), 1);
 		reset_send_count();
 
-		System::set_block_number(2);
-		let consumed = AccumulateForwardPallet::on_idle(2, Weight::from_all(u64::MAX));
-
-		assert_eq!(consumed, RocksDbWeight::get().reads(1));
+		assert_eq!(on_idle_at(2, Weight::MAX), RocksDbWeight::get().reads(1));
 		assert_eq!(get_send_count(), 0);
 	});
 }
@@ -298,10 +319,7 @@ fn on_idle_consumes_two_reads_when_below_min_transfer() {
 		reset_send_count();
 
 		let two_reads = RocksDbWeight::get().reads(2);
-		System::set_block_number(1);
-		let consumed = AccumulateForwardPallet::on_idle(1, two_reads);
-
-		assert_eq!(consumed, two_reads);
+		assert_eq!(on_idle_at(1, two_reads), two_reads);
 		assert_eq!(get_send_count(), 0);
 	});
 }
@@ -315,19 +333,13 @@ fn on_idle_does_not_record_when_the_send_does_not_fit() {
 
 		// Enough for both reads, but not for the send and its write.
 		let two_reads = RocksDbWeight::get().reads(2);
-		System::set_block_number(1);
-		let consumed = AccumulateForwardPallet::on_idle(1, two_reads);
-
-		assert_eq!(consumed, two_reads);
+		assert_eq!(on_idle_at(1, two_reads), two_reads);
 		assert_eq!(get_send_count(), 0);
 		assert_eq!(LastForwardBlock::<Test>::get(), None);
 
 		// With room for the write it goes through next block (`send_native` is zero for `()`).
 		let with_write = two_reads.saturating_add(RocksDbWeight::get().writes(1));
-		System::set_block_number(2);
-		let consumed = AccumulateForwardPallet::on_idle(2, with_write);
-
-		assert_eq!(consumed, with_write);
+		assert_eq!(on_idle_at(2, with_write), with_write);
 		assert_eq!(get_send_count(), 1);
 		assert_eq!(LastForwardBlock::<Test>::get(), Some(2));
 	});
