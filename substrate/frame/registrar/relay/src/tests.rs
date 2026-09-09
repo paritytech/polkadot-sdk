@@ -593,6 +593,35 @@ mod head_noted {
 	}
 
 	#[test]
+	fn a_later_head_is_not_reported_again() {
+		new_test_ext().execute_with(|| {
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+			assert_eq!(take_sent().len(), 1);
+
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			assert!(take_sent().is_empty());
+			assert_eq!(registrar_events(), vec![Event::HeadNoted { para_id: PARA_A }]);
+		});
+	}
+
+	#[test]
+	fn each_para_is_reported_once() {
+		new_test_ext().execute_with(|| {
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+			Registrar::on_new_head(PARA_B.into(), &Default::default());
+
+			assert_eq!(
+				take_sent(),
+				vec![
+					MessageToPara::V1(MessageToParaV1::HeadNoted { para_id: PARA_A }),
+					MessageToPara::V1(MessageToParaV1::HeadNoted { para_id: PARA_B }),
+				]
+			);
+		});
+	}
+
+	#[test]
 	fn a_bounced_notification_is_only_surfaced() {
 		new_test_ext().execute_with(|| {
 			SendFails::set(true);
