@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["bail","clear_old_round_data","register","set_invulnerables","submit_page"]};
+window.SIDEBAR_ITEMS = {"fn":["bail","claim_unpaid_reward","clear_old_round_data","register","set_invulnerables","submit_page"]};

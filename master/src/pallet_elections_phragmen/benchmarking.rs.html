@@ -402,8 +402,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#252 id=252 data-nosnippet>252</a>
 <a href=#253 id=253 data-nosnippet>253</a>	<span class="attr">#[benchmark]
 <a href=#254 id=254 data-nosnippet>254</a>	</span><span class="kw">fn </span>submit_candidacy(
-<a href=#255 id=255 data-nosnippet>255</a>		<span class="comment">// Number of already existing candidates.
-<a href=#256 id=256 data-nosnippet>256</a>		</span>c: Linear&lt;<span class="number">1</span>, { T::MaxCandidates::get() }&gt;,
+<a href=#255 id=255 data-nosnippet>255</a>		<span class="comment">// Number of existing candidates. The call is only accepted when below `MaxCandidates`.
+<a href=#256 id=256 data-nosnippet>256</a>		</span>c: Linear&lt;<span class="number">0</span>, { T::MaxCandidates::get().saturating_sub(<span class="number">1</span>) }&gt;,
 <a href=#257 id=257 data-nosnippet>257</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
 <a href=#258 id=258 data-nosnippet>258</a>		<span class="comment">// We fix the number of members to the number of desired members and runners-up.
 <a href=#259 id=259 data-nosnippet>259</a>		// We'll be in this state almost always.

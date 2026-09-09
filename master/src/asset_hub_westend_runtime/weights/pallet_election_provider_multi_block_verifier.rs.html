@@ -168,7 +168,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#18 id=18 data-nosnippet>18</a>//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 32.0.0
 <a href=#19 id=19 data-nosnippet>19</a>//! DATE: 2026-09-04, STEPS: `50`, REPEAT: `20`, LOW RANGE: `[]`, HIGH RANGE: `[]`
 <a href=#20 id=20 data-nosnippet>20</a>//! WORST CASE MAP SIZE: `1000000`
-<a href=#21 id=21 data-nosnippet>21</a>//! HOSTNAME: `1c5f6a9d1eea`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
+<a href=#21 id=21 data-nosnippet>21</a>//! HOSTNAME: `9abb36fd1460`, CPU: `Intel(R) Xeon(R) CPU @ 2.60GHz`
 <a href=#22 id=22 data-nosnippet>22</a>//! WASM-EXECUTION: `Compiled`, CHAIN: `None`, DB CACHE: 1024
 <a href=#23 id=23 data-nosnippet>23</a>
 <a href=#24 id=24 data-nosnippet>24</a></span><span class="comment">// Executed Command:
@@ -226,8 +226,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#76 id=76 data-nosnippet>76</a>		<span class="comment">// Proof Size summary in bytes:
 <a href=#77 id=77 data-nosnippet>77</a>		//  Measured:  `373679`
 <a href=#78 id=78 data-nosnippet>78</a>		//  Estimated: `377144`
-<a href=#79 id=79 data-nosnippet>79</a>		// Minimum execution time: 669_093_000 picoseconds.
-<a href=#80 id=80 data-nosnippet>80</a>		</span>Weight::from_parts(<span class="number">705_687_000</span>, <span class="number">0</span>)
+<a href=#79 id=79 data-nosnippet>79</a>		// Minimum execution time: 628_571_000 picoseconds.
+<a href=#80 id=80 data-nosnippet>80</a>		</span>Weight::from_parts(<span class="number">704_736_000</span>, <span class="number">0</span>)
 <a href=#81 id=81 data-nosnippet>81</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">377144</span>))
 <a href=#82 id=82 data-nosnippet>82</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">9</span>))
 <a href=#83 id=83 data-nosnippet>83</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">4</span>))
@@ -256,99 +256,105 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#106 id=106 data-nosnippet>106</a>	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionScore` (`max_values`: None, `max_size`: Some(60), added: 2535, mode: `Measured`)
 <a href=#107 id=107 data-nosnippet>107</a>	/// Storage: `MultiBlockElectionSigned::SubmissionMetadataStorage` (r:1 w:1)
 <a href=#108 id=108 data-nosnippet>108</a>	/// Proof: `MultiBlockElectionSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
-<a href=#109 id=109 data-nosnippet>109</a>	/// Storage: `Balances::Holds` (r:1 w:1)
-<a href=#110 id=110 data-nosnippet>110</a>	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(409), added: 2884, mode: `Measured`)
-<a href=#111 id=111 data-nosnippet>111</a>	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionX` (r:0 w:1)
-<a href=#112 id=112 data-nosnippet>112</a>	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionX` (`max_values`: None, `max_size`: Some(33842026), added: 33844501, mode: `Measured`)
-<a href=#113 id=113 data-nosnippet>113</a>	</span><span class="kw">fn </span>verification_valid_terminal() -&gt; Weight {
-<a href=#114 id=114 data-nosnippet>114</a>		<span class="comment">// Proof Size summary in bytes:
-<a href=#115 id=115 data-nosnippet>115</a>		//  Measured:  `408841`
-<a href=#116 id=116 data-nosnippet>116</a>		//  Estimated: `491506`
-<a href=#117 id=117 data-nosnippet>117</a>		// Minimum execution time: 1_128_006_000 picoseconds.
-<a href=#118 id=118 data-nosnippet>118</a>		</span>Weight::from_parts(<span class="number">1_217_989_000</span>, <span class="number">0</span>)
-<a href=#119 id=119 data-nosnippet>119</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">491506</span>))
-<a href=#120 id=120 data-nosnippet>120</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">76</span>))
-<a href=#121 id=121 data-nosnippet>121</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">72</span>))
-<a href=#122 id=122 data-nosnippet>122</a>	}
-<a href=#123 id=123 data-nosnippet>123</a>	<span class="doccomment">/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:1)
-<a href=#124 id=124 data-nosnippet>124</a>	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-<a href=#125 id=125 data-nosnippet>125</a>	/// Storage: `MultiBlockElectionVerifier::StatusStorage` (r:1 w:1)
-<a href=#126 id=126 data-nosnippet>126</a>	/// Proof: `MultiBlockElectionVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-<a href=#127 id=127 data-nosnippet>127</a>	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
-<a href=#128 id=128 data-nosnippet>128</a>	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-<a href=#129 id=129 data-nosnippet>129</a>	/// Storage: `MultiBlockElectionSigned::SortedScores` (r:1 w:1)
-<a href=#130 id=130 data-nosnippet>130</a>	/// Proof: `MultiBlockElectionSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
-<a href=#131 id=131 data-nosnippet>131</a>	/// Storage: `MultiBlockElectionSigned::SubmissionStorage` (r:32 w:32)
-<a href=#132 id=132 data-nosnippet>132</a>	/// Proof: `MultiBlockElectionSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(46544), added: 49019, mode: `Measured`)
-<a href=#133 id=133 data-nosnippet>133</a>	/// Storage: `MultiBlockElection::PagedTargetSnapshot` (r:1 w:0)
-<a href=#134 id=134 data-nosnippet>134</a>	/// Proof: `MultiBlockElection::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(32026), added: 34501, mode: `Measured`)
-<a href=#135 id=135 data-nosnippet>135</a>	/// Storage: `MultiBlockElection::PagedVoterSnapshot` (r:1 w:0)
-<a href=#136 id=136 data-nosnippet>136</a>	/// Proof: `MultiBlockElection::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(389338), added: 391813, mode: `Measured`)
-<a href=#137 id=137 data-nosnippet>137</a>	/// Storage: `MultiBlockElection::DesiredTargets` (r:1 w:0)
-<a href=#138 id=138 data-nosnippet>138</a>	/// Proof: `MultiBlockElection::DesiredTargets` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `Measured`)
-<a href=#139 id=139 data-nosnippet>139</a>	/// Storage: `MultiBlockElectionVerifier::QueuedValidVariant` (r:1 w:0)
-<a href=#140 id=140 data-nosnippet>140</a>	/// Proof: `MultiBlockElectionVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
-<a href=#141 id=141 data-nosnippet>141</a>	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionBackings` (r:33 w:32)
-<a href=#142 id=142 data-nosnippet>142</a>	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionBackings` (`max_values`: None, `max_size`: Some(52026), added: 54501, mode: `Measured`)
-<a href=#143 id=143 data-nosnippet>143</a>	/// Storage: `MultiBlockElectionSigned::SubmissionMetadataStorage` (r:1 w:1)
-<a href=#144 id=144 data-nosnippet>144</a>	/// Proof: `MultiBlockElectionSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
-<a href=#145 id=145 data-nosnippet>145</a>	/// Storage: `Balances::Holds` (r:1 w:1)
-<a href=#146 id=146 data-nosnippet>146</a>	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(409), added: 2884, mode: `Measured`)
-<a href=#147 id=147 data-nosnippet>147</a>	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionX` (r:31 w:32)
-<a href=#148 id=148 data-nosnippet>148</a>	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionX` (`max_values`: None, `max_size`: Some(33842026), added: 33844501, mode: `Measured`)
-<a href=#149 id=149 data-nosnippet>149</a>	</span><span class="kw">fn </span>verification_invalid_terminal() -&gt; Weight {
-<a href=#150 id=150 data-nosnippet>150</a>		<span class="comment">// Proof Size summary in bytes:
-<a href=#151 id=151 data-nosnippet>151</a>		//  Measured:  `408841`
-<a href=#152 id=152 data-nosnippet>152</a>		//  Estimated: `491506`
-<a href=#153 id=153 data-nosnippet>153</a>		// Minimum execution time: 1_157_533_000 picoseconds.
-<a href=#154 id=154 data-nosnippet>154</a>		</span>Weight::from_parts(<span class="number">1_213_925_000</span>, <span class="number">0</span>)
-<a href=#155 id=155 data-nosnippet>155</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">491506</span>))
-<a href=#156 id=156 data-nosnippet>156</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">106</span>))
-<a href=#157 id=157 data-nosnippet>157</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">101</span>))
-<a href=#158 id=158 data-nosnippet>158</a>	}
-<a href=#159 id=159 data-nosnippet>159</a>	<span class="doccomment">/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:1)
-<a href=#160 id=160 data-nosnippet>160</a>	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-<a href=#161 id=161 data-nosnippet>161</a>	/// Storage: `MultiBlockElectionVerifier::StatusStorage` (r:1 w:1)
-<a href=#162 id=162 data-nosnippet>162</a>	/// Proof: `MultiBlockElectionVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
-<a href=#163 id=163 data-nosnippet>163</a>	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
-<a href=#164 id=164 data-nosnippet>164</a>	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
-<a href=#165 id=165 data-nosnippet>165</a>	/// Storage: `MultiBlockElectionSigned::SortedScores` (r:1 w:1)
-<a href=#166 id=166 data-nosnippet>166</a>	/// Proof: `MultiBlockElectionSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
-<a href=#167 id=167 data-nosnippet>167</a>	/// Storage: `MultiBlockElectionSigned::SubmissionStorage` (r:32 w:32)
-<a href=#168 id=168 data-nosnippet>168</a>	/// Proof: `MultiBlockElectionSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(46544), added: 49019, mode: `Measured`)
-<a href=#169 id=169 data-nosnippet>169</a>	/// Storage: `MultiBlockElection::PagedTargetSnapshot` (r:1 w:0)
-<a href=#170 id=170 data-nosnippet>170</a>	/// Proof: `MultiBlockElection::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(32026), added: 34501, mode: `Measured`)
-<a href=#171 id=171 data-nosnippet>171</a>	/// Storage: `MultiBlockElection::PagedVoterSnapshot` (r:1 w:0)
-<a href=#172 id=172 data-nosnippet>172</a>	/// Proof: `MultiBlockElection::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(389338), added: 391813, mode: `Measured`)
-<a href=#173 id=173 data-nosnippet>173</a>	/// Storage: `MultiBlockElection::DesiredTargets` (r:1 w:0)
-<a href=#174 id=174 data-nosnippet>174</a>	/// Proof: `MultiBlockElection::DesiredTargets` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `Measured`)
-<a href=#175 id=175 data-nosnippet>175</a>	/// Storage: `MultiBlockElectionVerifier::QueuedValidVariant` (r:1 w:0)
-<a href=#176 id=176 data-nosnippet>176</a>	/// Proof: `MultiBlockElectionVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
-<a href=#177 id=177 data-nosnippet>177</a>	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionX` (r:31 w:31)
-<a href=#178 id=178 data-nosnippet>178</a>	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionX` (`max_values`: None, `max_size`: Some(33842026), added: 33844501, mode: `Measured`)
-<a href=#179 id=179 data-nosnippet>179</a>	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionBackings` (r:31 w:31)
-<a href=#180 id=180 data-nosnippet>180</a>	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionBackings` (`max_values`: None, `max_size`: Some(52026), added: 54501, mode: `Measured`)
-<a href=#181 id=181 data-nosnippet>181</a>	/// Storage: `MultiBlockElectionSigned::SubmissionMetadataStorage` (r:1 w:1)
-<a href=#182 id=182 data-nosnippet>182</a>	/// Proof: `MultiBlockElectionSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
-<a href=#183 id=183 data-nosnippet>183</a>	/// Storage: `Balances::Holds` (r:1 w:1)
-<a href=#184 id=184 data-nosnippet>184</a>	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(409), added: 2884, mode: `Measured`)
-<a href=#185 id=185 data-nosnippet>185</a>	/// The range of component `v` is `[0, 31]`.
-<a href=#186 id=186 data-nosnippet>186</a>	</span><span class="kw">fn </span>verification_invalid_non_terminal(v: u32, ) -&gt; Weight {
-<a href=#187 id=187 data-nosnippet>187</a>		<span class="comment">// Proof Size summary in bytes:
-<a href=#188 id=188 data-nosnippet>188</a>		//  Measured:  `417408 + v * (35 ±0)`
-<a href=#189 id=189 data-nosnippet>189</a>		//  Estimated: `487440 + v * (2557 ±234)`
-<a href=#190 id=190 data-nosnippet>190</a>		// Minimum execution time: 798_014_000 picoseconds.
-<a href=#191 id=191 data-nosnippet>191</a>		</span>Weight::from_parts(<span class="number">895_002_155</span>, <span class="number">0</span>)
-<a href=#192 id=192 data-nosnippet>192</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">487440</span>))
-<a href=#193 id=193 data-nosnippet>193</a>			<span class="comment">// Standard Error: 136_367
-<a href=#194 id=194 data-nosnippet>194</a>			</span>.saturating_add(Weight::from_parts(<span class="number">3_832_980</span>, <span class="number">0</span>).saturating_mul(v.into()))
-<a href=#195 id=195 data-nosnippet>195</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">42</span>))
-<a href=#196 id=196 data-nosnippet>196</a>			.saturating_add(T::DbWeight::get().reads((<span class="number">2_u64</span>).saturating_mul(v.into())))
-<a href=#197 id=197 data-nosnippet>197</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">37</span>))
-<a href=#198 id=198 data-nosnippet>198</a>			.saturating_add(T::DbWeight::get().writes((<span class="number">2_u64</span>).saturating_mul(v.into())))
-<a href=#199 id=199 data-nosnippet>199</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">2557</span>).saturating_mul(v.into()))
-<a href=#200 id=200 data-nosnippet>200</a>	}
-<a href=#201 id=201 data-nosnippet>201</a>}
+<a href=#109 id=109 data-nosnippet>109</a>	/// Storage: `System::Account` (r:1 w:1)
+<a href=#110 id=110 data-nosnippet>110</a>	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+<a href=#111 id=111 data-nosnippet>111</a>	/// Storage: `Balances::Holds` (r:1 w:1)
+<a href=#112 id=112 data-nosnippet>112</a>	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(409), added: 2884, mode: `Measured`)
+<a href=#113 id=113 data-nosnippet>113</a>	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionX` (r:0 w:1)
+<a href=#114 id=114 data-nosnippet>114</a>	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionX` (`max_values`: None, `max_size`: Some(33842026), added: 33844501, mode: `Measured`)
+<a href=#115 id=115 data-nosnippet>115</a>	</span><span class="kw">fn </span>verification_valid_terminal() -&gt; Weight {
+<a href=#116 id=116 data-nosnippet>116</a>		<span class="comment">// Proof Size summary in bytes:
+<a href=#117 id=117 data-nosnippet>117</a>		//  Measured:  `410082`
+<a href=#118 id=118 data-nosnippet>118</a>		//  Estimated: `492747`
+<a href=#119 id=119 data-nosnippet>119</a>		// Minimum execution time: 1_199_605_000 picoseconds.
+<a href=#120 id=120 data-nosnippet>120</a>		</span>Weight::from_parts(<span class="number">1_238_210_000</span>, <span class="number">0</span>)
+<a href=#121 id=121 data-nosnippet>121</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">492747</span>))
+<a href=#122 id=122 data-nosnippet>122</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">77</span>))
+<a href=#123 id=123 data-nosnippet>123</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">73</span>))
+<a href=#124 id=124 data-nosnippet>124</a>	}
+<a href=#125 id=125 data-nosnippet>125</a>	<span class="doccomment">/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:1)
+<a href=#126 id=126 data-nosnippet>126</a>	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+<a href=#127 id=127 data-nosnippet>127</a>	/// Storage: `MultiBlockElectionVerifier::StatusStorage` (r:1 w:1)
+<a href=#128 id=128 data-nosnippet>128</a>	/// Proof: `MultiBlockElectionVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+<a href=#129 id=129 data-nosnippet>129</a>	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+<a href=#130 id=130 data-nosnippet>130</a>	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+<a href=#131 id=131 data-nosnippet>131</a>	/// Storage: `MultiBlockElectionSigned::SortedScores` (r:1 w:1)
+<a href=#132 id=132 data-nosnippet>132</a>	/// Proof: `MultiBlockElectionSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
+<a href=#133 id=133 data-nosnippet>133</a>	/// Storage: `MultiBlockElectionSigned::SubmissionStorage` (r:32 w:32)
+<a href=#134 id=134 data-nosnippet>134</a>	/// Proof: `MultiBlockElectionSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(46544), added: 49019, mode: `Measured`)
+<a href=#135 id=135 data-nosnippet>135</a>	/// Storage: `MultiBlockElection::PagedTargetSnapshot` (r:1 w:0)
+<a href=#136 id=136 data-nosnippet>136</a>	/// Proof: `MultiBlockElection::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(32026), added: 34501, mode: `Measured`)
+<a href=#137 id=137 data-nosnippet>137</a>	/// Storage: `MultiBlockElection::PagedVoterSnapshot` (r:1 w:0)
+<a href=#138 id=138 data-nosnippet>138</a>	/// Proof: `MultiBlockElection::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(389338), added: 391813, mode: `Measured`)
+<a href=#139 id=139 data-nosnippet>139</a>	/// Storage: `MultiBlockElection::DesiredTargets` (r:1 w:0)
+<a href=#140 id=140 data-nosnippet>140</a>	/// Proof: `MultiBlockElection::DesiredTargets` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `Measured`)
+<a href=#141 id=141 data-nosnippet>141</a>	/// Storage: `MultiBlockElectionVerifier::QueuedValidVariant` (r:1 w:0)
+<a href=#142 id=142 data-nosnippet>142</a>	/// Proof: `MultiBlockElectionVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
+<a href=#143 id=143 data-nosnippet>143</a>	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionBackings` (r:33 w:32)
+<a href=#144 id=144 data-nosnippet>144</a>	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionBackings` (`max_values`: None, `max_size`: Some(52026), added: 54501, mode: `Measured`)
+<a href=#145 id=145 data-nosnippet>145</a>	/// Storage: `MultiBlockElectionSigned::SubmissionMetadataStorage` (r:1 w:1)
+<a href=#146 id=146 data-nosnippet>146</a>	/// Proof: `MultiBlockElectionSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
+<a href=#147 id=147 data-nosnippet>147</a>	/// Storage: `Balances::Holds` (r:1 w:1)
+<a href=#148 id=148 data-nosnippet>148</a>	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(409), added: 2884, mode: `Measured`)
+<a href=#149 id=149 data-nosnippet>149</a>	/// Storage: `System::Account` (r:1 w:1)
+<a href=#150 id=150 data-nosnippet>150</a>	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+<a href=#151 id=151 data-nosnippet>151</a>	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionX` (r:31 w:32)
+<a href=#152 id=152 data-nosnippet>152</a>	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionX` (`max_values`: None, `max_size`: Some(33842026), added: 33844501, mode: `Measured`)
+<a href=#153 id=153 data-nosnippet>153</a>	</span><span class="kw">fn </span>verification_invalid_terminal() -&gt; Weight {
+<a href=#154 id=154 data-nosnippet>154</a>		<span class="comment">// Proof Size summary in bytes:
+<a href=#155 id=155 data-nosnippet>155</a>		//  Measured:  `410252`
+<a href=#156 id=156 data-nosnippet>156</a>		//  Estimated: `492917`
+<a href=#157 id=157 data-nosnippet>157</a>		// Minimum execution time: 1_148_253_000 picoseconds.
+<a href=#158 id=158 data-nosnippet>158</a>		</span>Weight::from_parts(<span class="number">1_218_462_000</span>, <span class="number">0</span>)
+<a href=#159 id=159 data-nosnippet>159</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">492917</span>))
+<a href=#160 id=160 data-nosnippet>160</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">107</span>))
+<a href=#161 id=161 data-nosnippet>161</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">102</span>))
+<a href=#162 id=162 data-nosnippet>162</a>	}
+<a href=#163 id=163 data-nosnippet>163</a>	<span class="doccomment">/// Storage: `MultiBlockElection::CurrentPhase` (r:1 w:1)
+<a href=#164 id=164 data-nosnippet>164</a>	/// Proof: `MultiBlockElection::CurrentPhase` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+<a href=#165 id=165 data-nosnippet>165</a>	/// Storage: `MultiBlockElectionVerifier::StatusStorage` (r:1 w:1)
+<a href=#166 id=166 data-nosnippet>166</a>	/// Proof: `MultiBlockElectionVerifier::StatusStorage` (`max_values`: Some(1), `max_size`: Some(5), added: 500, mode: `Measured`)
+<a href=#167 id=167 data-nosnippet>167</a>	/// Storage: `MultiBlockElection::Round` (r:1 w:0)
+<a href=#168 id=168 data-nosnippet>168</a>	/// Proof: `MultiBlockElection::Round` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+<a href=#169 id=169 data-nosnippet>169</a>	/// Storage: `MultiBlockElectionSigned::SortedScores` (r:1 w:1)
+<a href=#170 id=170 data-nosnippet>170</a>	/// Proof: `MultiBlockElectionSigned::SortedScores` (`max_values`: None, `max_size`: Some(653), added: 3128, mode: `Measured`)
+<a href=#171 id=171 data-nosnippet>171</a>	/// Storage: `MultiBlockElectionSigned::SubmissionStorage` (r:32 w:32)
+<a href=#172 id=172 data-nosnippet>172</a>	/// Proof: `MultiBlockElectionSigned::SubmissionStorage` (`max_values`: None, `max_size`: Some(46544), added: 49019, mode: `Measured`)
+<a href=#173 id=173 data-nosnippet>173</a>	/// Storage: `MultiBlockElection::PagedTargetSnapshot` (r:1 w:0)
+<a href=#174 id=174 data-nosnippet>174</a>	/// Proof: `MultiBlockElection::PagedTargetSnapshot` (`max_values`: None, `max_size`: Some(32026), added: 34501, mode: `Measured`)
+<a href=#175 id=175 data-nosnippet>175</a>	/// Storage: `MultiBlockElection::PagedVoterSnapshot` (r:1 w:0)
+<a href=#176 id=176 data-nosnippet>176</a>	/// Proof: `MultiBlockElection::PagedVoterSnapshot` (`max_values`: None, `max_size`: Some(389338), added: 391813, mode: `Measured`)
+<a href=#177 id=177 data-nosnippet>177</a>	/// Storage: `MultiBlockElection::DesiredTargets` (r:1 w:0)
+<a href=#178 id=178 data-nosnippet>178</a>	/// Proof: `MultiBlockElection::DesiredTargets` (`max_values`: None, `max_size`: Some(16), added: 2491, mode: `Measured`)
+<a href=#179 id=179 data-nosnippet>179</a>	/// Storage: `MultiBlockElectionVerifier::QueuedValidVariant` (r:1 w:0)
+<a href=#180 id=180 data-nosnippet>180</a>	/// Proof: `MultiBlockElectionVerifier::QueuedValidVariant` (`max_values`: None, `max_size`: Some(13), added: 2488, mode: `Measured`)
+<a href=#181 id=181 data-nosnippet>181</a>	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionX` (r:31 w:31)
+<a href=#182 id=182 data-nosnippet>182</a>	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionX` (`max_values`: None, `max_size`: Some(33842026), added: 33844501, mode: `Measured`)
+<a href=#183 id=183 data-nosnippet>183</a>	/// Storage: `MultiBlockElectionVerifier::QueuedSolutionBackings` (r:31 w:31)
+<a href=#184 id=184 data-nosnippet>184</a>	/// Proof: `MultiBlockElectionVerifier::QueuedSolutionBackings` (`max_values`: None, `max_size`: Some(52026), added: 54501, mode: `Measured`)
+<a href=#185 id=185 data-nosnippet>185</a>	/// Storage: `MultiBlockElectionSigned::SubmissionMetadataStorage` (r:1 w:1)
+<a href=#186 id=186 data-nosnippet>186</a>	/// Proof: `MultiBlockElectionSigned::SubmissionMetadataStorage` (`max_values`: None, `max_size`: Some(181), added: 2656, mode: `Measured`)
+<a href=#187 id=187 data-nosnippet>187</a>	/// Storage: `Balances::Holds` (r:1 w:1)
+<a href=#188 id=188 data-nosnippet>188</a>	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(409), added: 2884, mode: `Measured`)
+<a href=#189 id=189 data-nosnippet>189</a>	/// Storage: `System::Account` (r:1 w:1)
+<a href=#190 id=190 data-nosnippet>190</a>	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+<a href=#191 id=191 data-nosnippet>191</a>	/// The range of component `v` is `[0, 31]`.
+<a href=#192 id=192 data-nosnippet>192</a>	</span><span class="kw">fn </span>verification_invalid_non_terminal(v: u32, ) -&gt; Weight {
+<a href=#193 id=193 data-nosnippet>193</a>		<span class="comment">// Proof Size summary in bytes:
+<a href=#194 id=194 data-nosnippet>194</a>		//  Measured:  `418819 + v * (35 ±0)`
+<a href=#195 id=195 data-nosnippet>195</a>		//  Estimated: `488851 + v * (2557 ±234)`
+<a href=#196 id=196 data-nosnippet>196</a>		// Minimum execution time: 831_946_000 picoseconds.
+<a href=#197 id=197 data-nosnippet>197</a>		</span>Weight::from_parts(<span class="number">925_578_810</span>, <span class="number">0</span>)
+<a href=#198 id=198 data-nosnippet>198</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">488851</span>))
+<a href=#199 id=199 data-nosnippet>199</a>			<span class="comment">// Standard Error: 140_230
+<a href=#200 id=200 data-nosnippet>200</a>			</span>.saturating_add(Weight::from_parts(<span class="number">3_213_352</span>, <span class="number">0</span>).saturating_mul(v.into()))
+<a href=#201 id=201 data-nosnippet>201</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">43</span>))
+<a href=#202 id=202 data-nosnippet>202</a>			.saturating_add(T::DbWeight::get().reads((<span class="number">2_u64</span>).saturating_mul(v.into())))
+<a href=#203 id=203 data-nosnippet>203</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">38</span>))
+<a href=#204 id=204 data-nosnippet>204</a>			.saturating_add(T::DbWeight::get().writes((<span class="number">2_u64</span>).saturating_mul(v.into())))
+<a href=#205 id=205 data-nosnippet>205</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">2557</span>).saturating_mul(v.into()))
+<a href=#206 id=206 data-nosnippet>206</a>	}
+<a href=#207 id=207 data-nosnippet>207</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

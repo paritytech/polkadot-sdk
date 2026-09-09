@@ -363,7 +363,24 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#213 id=213 data-nosnippet>213</a>			.saturating_add(T::DbWeight::get().writes((<span class="number">1_u64</span>).saturating_mul(p.into())))
 <a href=#214 id=214 data-nosnippet>214</a>			.saturating_add(Weight::from_parts(<span class="number">0</span>, <span class="number">2507</span>).saturating_mul(p.into()))
 <a href=#215 id=215 data-nosnippet>215</a>	}
-<a href=#216 id=216 data-nosnippet>216</a>}
+<a href=#216 id=216 data-nosnippet>216</a>	<span class="doccomment">/// Storage: `MultiBlockElectionSigned::UnpaidRewards` (r:1 w:1)
+<a href=#217 id=217 data-nosnippet>217</a>	/// Proof: `MultiBlockElectionSigned::UnpaidRewards` (`max_values`: Some(1), `max_size`: Some(833), added: 1328, mode: `Measured`)
+<a href=#218 id=218 data-nosnippet>218</a>	/// Storage: `System::Account` (r:1 w:1)
+<a href=#219 id=219 data-nosnippet>219</a>	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+<a href=#220 id=220 data-nosnippet>220</a>	</span><span class="comment">// Storage access and proof size below are from a local run of this file's benchmark under both
+<a href=#221 id=221 data-nosnippet>221</a>	// presets. The `ref_time` is taken from the reference-hardware run of the same benchmark on
+<a href=#222 id=222 data-nosnippet>222</a>	// `asset-hub-westend`, since this call touches no election state and the local machine measures
+<a href=#223 id=223 data-nosnippet>223</a>	// roughly twice as fast as the reference box.
+<a href=#224 id=224 data-nosnippet>224</a>	</span><span class="kw">fn </span>claim_unpaid_reward() -&gt; Weight {
+<a href=#225 id=225 data-nosnippet>225</a>		<span class="comment">// Proof Size summary in bytes:
+<a href=#226 id=226 data-nosnippet>226</a>		//  Measured:  `1775`
+<a href=#227 id=227 data-nosnippet>227</a>		//  Estimated: `5240`
+<a href=#228 id=228 data-nosnippet>228</a>		// Minimum execution time: 63_661_000 picoseconds.
+<a href=#229 id=229 data-nosnippet>229</a>		</span>Weight::from_parts(<span class="number">67_276_000</span>, <span class="number">5240</span>)
+<a href=#230 id=230 data-nosnippet>230</a>			.saturating_add(T::DbWeight::get().reads(<span class="number">2_u64</span>))
+<a href=#231 id=231 data-nosnippet>231</a>			.saturating_add(T::DbWeight::get().writes(<span class="number">2_u64</span>))
+<a href=#232 id=232 data-nosnippet>232</a>	}
+<a href=#233 id=233 data-nosnippet>233</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

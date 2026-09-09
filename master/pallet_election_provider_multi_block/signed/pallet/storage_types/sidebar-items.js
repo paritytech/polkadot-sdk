@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Invulnerables","SortedScores","SubmissionMetadataStorage","SubmissionStorage"]};
+window.SIDEBAR_ITEMS = {"struct":["Invulnerables","SortedScores","SubmissionMetadataStorage","SubmissionStorage","UnpaidRewards"]};

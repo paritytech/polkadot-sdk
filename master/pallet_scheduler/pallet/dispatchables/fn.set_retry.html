@@ -162,7 +162,8 @@ normally while the task is retrying.</p>
 clones of the original task. Their retry configuration will be derived from the
 original task’s configuration, but will have a lower value for <code>remaining</code> than the
 original <code>total_retries</code>.</p>
-<p>This call <strong>cannot</strong> be used to set a retry configuration for a named task.</p>
+<p>This call <strong>cannot</strong> be used to set a retry configuration for a named task; it fails
+with <a href="../enum.Error.html#variant.Named" title="variant pallet_scheduler::pallet::Error::Named"><code>Error::Named</code></a>. Use <a href="../struct.Pallet.html#method.set_retry_named" title="associated function pallet_scheduler::pallet::Pallet::set_retry_named"><code>Pallet::set_retry_named</code></a> for those.</p>
 <h2 id="warning-doc-only"><a class="doc-anchor" href="#warning-doc-only">§</a>Warning: Doc-Only</h2>
 <p>This function is an automatically generated, and is doc-only, uncallable
 stub. See the real version in
