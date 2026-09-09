@@ -810,7 +810,5 @@ fn accumulate_forward_relay_transfers_native_to_asset_hub() {
 		AssetHubWestend,
 	>(
 		|acct, amount| Westend::fund_accounts(vec![(acct, amount)]),
-		|| frame_system::Pallet::<westend_runtime::Runtime>::block_number(),
-		|n| frame_system::Pallet::<westend_runtime::Runtime>::set_block_number(n),
 	);
 }

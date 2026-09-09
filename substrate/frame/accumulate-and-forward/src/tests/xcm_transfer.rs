@@ -58,7 +58,7 @@ fn reset_last_sent_amount() {
 /// Run `on_idle` with an unconstrained weight budget at provider block `block`.
 fn run_on_idle_at(block: u64) {
 	System::set_block_number(block);
-	AccumulateForwardPallet::on_idle(block, Weight::from_all(u64::MAX));
+	AccumulateForwardPallet::on_idle(block, Weight::from_all(Weight::MAX));
 }
 
 /// Run `on_idle` on each of `blocks`, keeping the account funded, and return the blocks that
@@ -131,8 +131,8 @@ fn no_forward_until_the_period_elapsed() {
 	});
 }
 
-// A parachain sees the relay chain block number advance in steps of two or more, so the former
-// `now % TransferPeriod == 0` check could never fire.
+// A parachain may see the relay chain block number advance in steps of two or more, never landing
+// on an exact multiple of the period. Forwarding still happens on cadence.
 #[test]
 fn forwards_when_period_multiples_are_never_observed() {
 	new_test_ext(true).execute_with(|| {

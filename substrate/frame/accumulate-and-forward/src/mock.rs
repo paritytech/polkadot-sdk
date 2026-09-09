@@ -91,14 +91,11 @@ impl crate::Forwarder<u64, u64> for MockForwarder {
 parameter_types! {
 	pub const AccumulateForwardPalletId: PalletId = PalletId(*b"acf/dott");
 	pub const ExistentialDeposit: u64 = 10;
-	/// The smallest transferable amount (above ED).
-	pub const MinTransferAmount: u64 = 10;
-}
-
-parameter_types! {
 	/// The transfer period in blocks. Mutable so tests can pick a period that observed blocks
 	/// never hit exactly.
 	pub static TransferPeriod: u64 = 5;
+	/// The smallest transferable amount (above ED).
+	pub const MinTransferAmount: u64 = 10;
 }
 
 impl Config for Test {

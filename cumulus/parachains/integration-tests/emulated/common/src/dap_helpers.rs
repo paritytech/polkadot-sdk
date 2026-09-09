@@ -30,8 +30,6 @@ use xcm_emulator::{Chain, TestExt};
 /// subsequently drains and deactivates those funds into the main DAP buffer account.
 pub fn test_accumulate_forward_transfers_to_asset_hub<Sender, AH>(
 	fund_sender: fn(AccountId, Balance),
-	get_relay_block: fn() -> u32,
-	set_relay_block: fn(u32),
 ) where
 	Sender: Chain + TestExt,
 	Sender::Runtime: pallet_accumulate_and_forward::Config
@@ -40,7 +38,6 @@ pub fn test_accumulate_forward_transfers_to_asset_hub<Sender, AH>(
 	Sender::RuntimeEvent: TryInto<pallet_accumulate_and_forward::Event<Sender::Runtime>>,
 	pallet_accumulate_and_forward::Pallet<Sender::Runtime>: Hooks<u32>,
 	<Sender::Runtime as pallet_accumulate_and_forward::Config>::MinTransferAmount: Get<Balance>,
-	<Sender::Runtime as pallet_accumulate_and_forward::Config>::TransferPeriod: Get<u32>,
 	AH: Chain + TestExt,
 	AH::Runtime: pallet_xcm::Config
 		+ pallet_dap::Config
@@ -88,18 +85,11 @@ pub fn test_accumulate_forward_transfers_to_asset_hub<Sender, AH>(
 			)
 		});
 
-	let transfer_period =
-		<Sender::Runtime as pallet_accumulate_and_forward::Config>::TransferPeriod::get();
-
-	// Trigger `on_idle` to initiate a transfer to DAP. The block number used by
-	// `BlockNumberProvider` must be an exact multiple of `TransferPeriod`.
+	// Trigger `on_idle` to initiate a transfer to DAP. No forward has happened yet, so it is not
+	// rate limited by `TransferPeriod` and the block number does not matter here.
 	Sender::execute_with(|| {
-		// Save the current relay block so we can restore it before `on_finalize` runs.
-		let orig_relay_block = get_relay_block();
-
-		set_relay_block(transfer_period.saturating_mul(3));
 		let _ = <pallet_accumulate_and_forward::Pallet<Sender::Runtime> as Hooks<u32>>::on_idle(
-			transfer_period.saturating_mul(3),
+			1,
 			Weight::MAX,
 		);
 		let forward_succeeded = Sender::events().into_iter().any(|e| {
@@ -109,10 +99,6 @@ pub fn test_accumulate_forward_transfers_to_asset_hub<Sender, AH>(
 			)
 		});
 		assert!(forward_succeeded, "Expected AccumulateForward::ForwardSucceeded event");
-
-		// Restore the relay block so `on_finalize` writes the correct value into
-		// `LastRelayChainBlockNumber`.
-		set_relay_block(orig_relay_block);
 	});
 
 	// Delivery fees are waived for the accumulation account, so it retains exactly the ED.

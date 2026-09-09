@@ -41,8 +41,8 @@
 //!
 //! `on_idle` forwards once `TransferPeriod` blocks of the configured `BlockNumberProvider` have
 //! elapsed since the last attempt and the account holds at least `MinTransferAmount` above its
-//! existential deposit. The period is measured from the recorded last attempt rather than from
-//! exact multiples, because a chain does not observe every block of the provider.
+//! existential deposit. A chain may not observe every block of the provider, so the period is
+//! measured from the recorded last attempt.
 //!
 //! ## Total Issuance
 //!
@@ -138,7 +138,7 @@ pub mod pallet {
 
 		/// Block number provider. Use `RelaychainDataProvider` on parachains so that
 		/// `TransferPeriod` is expressed in relay chain blocks, keeping the cadence stable. It
-		/// need not be observed at every block.
+		/// may not be observed at every block.
 		type BlockNumberProvider: BlockNumberProvider;
 
 		/// Weight information for the pallet's operations.
@@ -171,8 +171,8 @@ pub mod pallet {
 				return meter.consumed();
 			}
 
-			// Measure the period from the last attempt: a chain does not observe every block of
-			// the provider, so an exact-multiple check can be missed forever.
+			// A chain may not observe every block of the provider, so the period is measured
+			// from the recorded last attempt.
 			let block = T::BlockNumberProvider::current_block_number();
 			if let Some(last) = LastForwardBlock::<T>::get() {
 				if block.saturating_sub(last) < T::TransferPeriod::get() {
