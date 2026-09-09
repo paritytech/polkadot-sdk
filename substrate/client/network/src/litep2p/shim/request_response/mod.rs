@@ -260,7 +260,7 @@ impl RequestResponseProtocol {
 				);
 
 				let _ = tx.send(Err(RequestFailure::Refused));
-				self.metrics.register_inbound_request_failure(error.to_string().as_ref());
+				self.metrics.register_outbound_request_failure(error.to_string().as_ref());
 			},
 		}
 	}

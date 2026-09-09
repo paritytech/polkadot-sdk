@@ -9,6 +9,7 @@ doc:
     ## Changes
 
     - Stamp the start time when the request arrives, matching the libp2p backend, so the reported serve time covers the time the request spends queued and being processed by the handler.
+    - Report failures to send an outbound request in `requests_out_failure_total` instead of `requests_in_failure_total`.
     - Add a regression test (`inbound_request_serve_time_includes_handler_time`) which delays the response in the request handler and asserts the recorded serve time covers that delay. The test fails against the previous behavior.
 
     ## Review notes
