@@ -985,6 +985,21 @@ fn set_collection_owner_attributes_should_work() {
 		assert_eq!(Balances::reserved_balance(account(1)), 16);
 
 		assert_ok!(Nfts::burn(RuntimeOrigin::root(), 0, 0));
+		assert_eq!(attributes(0).len(), 2);
+
+		// check anyone can clear deleted item attributes
+		assert_ok!(Nfts::clear_attribute(
+			RuntimeOrigin::signed(account(3)),
+			0,
+			Some(0),
+			AttributeNamespace::CollectionOwner,
+			bvec![0],
+		));
+		assert_eq!(
+			attributes(0),
+			vec![(None, AttributeNamespace::CollectionOwner, bvec![0], bvec![0; 10])]
+		);
+
 		let w = Nfts::get_destroy_witness(&0).unwrap();
 		assert_ok!(Nfts::destroy(RuntimeOrigin::signed(account(1)), 0, w));
 		assert_eq!(attributes(0), vec![]);
