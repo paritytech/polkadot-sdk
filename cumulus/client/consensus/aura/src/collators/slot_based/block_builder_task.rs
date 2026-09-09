@@ -177,6 +177,9 @@ struct BuildingPrerequisites<Block: BlockT> {
 	scheduling_parent_header: RelayHeader,
 	/// Whether scheduling V3 applies to this candidate.
 	v3_enabled: bool,
+	/// Whether the parent search ran with V3 params. Can differ from `v3_enabled` after a
+	/// re-derive; a V2 context must then re-fetch the included head at its relay parent.
+	search_ran_v3: bool,
 	/// Distance from the scheduling parent down to the relay parent.
 	relay_parent_offset: u32,
 	/// The relay parent and the descendants linking it to the scheduling parent.
@@ -437,6 +440,8 @@ where
 			},
 		)
 		.await?;
+		// The params the search ran with; the re-derive below can settle on different ones.
+		let search_ran_v3 = v3_enabled;
 
 		let build_parent_hash = parent_search_result.best_parent_header.hash();
 		let build_params = SchedulingParams::at(&*self.para_client, build_parent_hash);
@@ -444,6 +449,7 @@ where
 			return Some(BuildingPrerequisites {
 				scheduling_parent_header,
 				v3_enabled,
+				search_ran_v3,
 				relay_parent_offset: best_params.relay_parent_offset,
 				relay_parent_data,
 				parent_search_result,
@@ -469,6 +475,7 @@ where
 		Some(BuildingPrerequisites {
 			scheduling_parent_header,
 			v3_enabled,
+			search_ran_v3,
 			relay_parent_offset: build_params.relay_parent_offset,
 			relay_parent_data,
 			parent_search_result,
@@ -481,6 +488,7 @@ where
 		let BuildingPrerequisites {
 			scheduling_parent_header,
 			v3_enabled,
+			search_ran_v3,
 			relay_parent_offset,
 			relay_parent_data,
 			parent_search_result,
@@ -493,8 +501,14 @@ where
 		let relay_parent_header = relay_parent_data.relay_parent();
 		let relay_parent_hash = relay_parent_header.hash();
 
+		// Also fetched when the search ran with V3 params but the context re-derived to V2: the
+		// search's snapshot was taken at a V3 scheduling parent and can be stale here.
 		let included_header_at_execution = self
-			.included_header_at_execution(v3_enabled, relay_parent_hash, &parent_search_result)
+			.included_header_at_execution(
+				v3_enabled || search_ran_v3,
+				relay_parent_hash,
+				&parent_search_result,
+			)
 			.await?;
 		let initial_parent_hash = parent_search_result.best_parent_header.hash();
 		let initial_parent_header = parent_search_result.best_parent_header;
