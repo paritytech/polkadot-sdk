@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788952609827,
+  "lastUpdate": 1788991147777,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "14218860+iulianbarbu@users.noreply.github.com",
-            "name": "Iulian Barbu",
-            "username": "iulianbarbu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "9972470602d118fb07d968460b8a6dd5d4523141",
-          "message": "sync-templates: consider workspace lints (#11007)\n\n# Description\n\nTrying to sync temaplates with their dedicated repos. The job fails at\nsome point because the templates' crates (runtime/node) use:\n```toml\n[lints]\nworkspace = true\n```\nbut there is no lint directive in the worskpace's Cargo.toml.\n\nThis takes the workspace lints existing in polkadot-sdk workspace's\nCargo.toml and carries them to each template, in their workspace's\nCargo.toml.\n\n## Integration\n\nN/A\n\n## Review Notes\n\nError started here:\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/21747118215/job/62737549819.\nTesting the sync job based on this branch here:\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/21748717584 - it\nfails, it appears there are some env protection rules (reasonable as\nwell, we shouldn't be able to publish anything to the templates repo)\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
-          "timestamp": "2026-02-06T13:44:46Z",
-          "tree_id": "0e327db6e5f86c10ac9428fcc70c4cedbf5312ec",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9972470602d118fb07d968460b8a6dd5d4523141"
-        },
-        "date": 1770389688193,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00950981489999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00679599355,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002714278499999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009319428399999986,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "141152972+Stephenlawrence00@users.noreply.github.com",
+            "name": "html//stephlou",
+            "username": "Stephenlawrence00"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "22ea3e610ac1ace53bace4ba1aeee57e40b5360f",
+          "message": "[EPMB] Add configurable reward source and slash destination to signed phase (#12843)\n\nFixes #12813\nIntroduces `type RewardSource` (pay rewards from a pot account instead\nof minting) and `type Slash` (route slashed deposits to a handler\ninstead of burning) to\n`pallet-election-provider-multi-block::signed::Config`, keeping\n`TotalIssuance` reconcilable with the DAP emission curve on Asset Hub.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-09-09T15:44:14Z",
+          "tree_id": "808e2c00ebf24befb16455102a709e81a5efc8eb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/22ea3e610ac1ace53bace4ba1aeee57e40b5360f"
+        },
+        "date": 1788991108544,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010358131469999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00259305113,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009527662879999992,
             "unit": "seconds"
           }
         ]
