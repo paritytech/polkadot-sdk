@@ -63,6 +63,7 @@ use parking_lot::RwLock;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_client_api::{backend::StorageProvider, Backend, StorageKey};
 use sc_keystore::LocalKeystore;
+pub use sc_network_statement::RetentionReasonMask;
 use schnellru::{ByLength, LruMap};
 use sp_blockchain::HeaderBackend;
 use sp_core::{crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed, Decode, Encode};
@@ -71,9 +72,9 @@ use sp_statement_store::{
 	runtime_api::{StatementSource, StatementStoreExt},
 	AccountId, AdmittedBatch, BlockHash, Channel, DecryptionKey, FilterDecision, Hash,
 	InvalidReason, OptimizedTopicFilter, RejectionReason, Result, SignatureVerificationResult,
-	Statement, StatementAllowance, StatementEvent, SubmitResult, Topic,
+	Statement, StatementAllowance, StatementEvent, SubmitResult,
 };
-pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
+pub use sp_statement_store::{Error, StatementStore, Topic, MAX_TOPICS};
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
 	sync::{
@@ -519,8 +520,17 @@ pub const DEFAULT_NETWORK_WORKERS: usize = 1;
 /// Default maximum statements per second per peer before rate limiting kicks in.
 pub use sc_network_statement::config::DEFAULT_STATEMENTS_PER_SECOND as DEFAULT_RATE_LIMIT;
 
+/// Default replication factor (K) for v2 DHT-affinity statement routing.
+pub use sc_network_statement::config::DEFAULT_REPLICATION_FACTOR;
+
+/// Default gossip target for v2 DHT-affinity statement routing.
+pub use sc_network_statement::config::DEFAULT_GOSSIP_TARGET;
+
+/// Parameters of the v2 DHT statement path.
+pub use sc_network_statement::V2DhtConfig;
+
 /// Statement store and network handler configuration.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Config {
 	/// Maximum statements allowed in the store. Once this limit is reached lower-priority
 	/// statements may be evicted.
@@ -534,6 +544,8 @@ pub struct Config {
 	pub network_workers: usize,
 	/// Maximum statements per second per peer before rate limiting kicks in.
 	pub rate_limit: u32,
+	/// Parameters of the v2 DHT statement path, `None` when the legacy flood path is in use.
+	pub v2dht: Option<V2DhtConfig>,
 }
 
 impl Config {
@@ -562,6 +574,7 @@ impl Default for Config {
 			purge_after_sec: DEFAULT_PURGE_AFTER_SEC,
 			network_workers: DEFAULT_NETWORK_WORKERS,
 			rate_limit: DEFAULT_RATE_LIMIT,
+			v2dht: None,
 		}
 	}
 }
@@ -572,6 +585,9 @@ struct QueryIndex {
 	topic_counts: HashMap<Topic, usize>,
 	dec_key_counts: HashMap<Option<DecryptionKey>, usize>,
 	recent: HashMap<Hash, u64>,
+	/// Statements held only until the next propagation.
+	// TODO: temporary PoC solution for the DHT-affinity work (#11932).
+	transient: HashMap<Hash, Statement>,
 }
 
 impl QueryIndex {
@@ -580,6 +596,7 @@ impl QueryIndex {
 			topic_counts: HashMap::new(),
 			dec_key_counts: HashMap::new(),
 			recent: HashMap::new(),
+			transient: HashMap::new(),
 		}
 	}
 
@@ -711,6 +728,9 @@ pub struct Store {
 	query_index: RwLock<QueryIndex>,
 	read_allowance_fn:
 		Box<dyn Fn(&AccountId, AllowanceBlock) -> Result<Option<StatementAllowance>> + Send + Sync>,
+	/// Derives the retention mask for each submitted statement.
+	/// By default every submission is persisted unconditionally.
+	retention_fn: std::sync::OnceLock<Box<dyn Fn(&Statement) -> RetentionReasonMask + Send + Sync>>,
 	subscription_manager: SubscriptionsHandle,
 	keystore: Arc<LocalKeystore>,
 	/// Number of accounts with stored statements. Reported by `maintain`; may lag the
@@ -1223,6 +1243,7 @@ impl Store {
 			submit_index: RwLock::new(SubmitIndex::new(config)),
 			query_index: RwLock::new(QueryIndex::new()),
 			read_allowance_fn,
+			retention_fn: std::sync::OnceLock::new(),
 			keystore,
 			known_accounts_count: AtomicUsize::new(0),
 			time_override: None,
@@ -1234,6 +1255,22 @@ impl Store {
 		};
 		store.populate(needs_index_migration)?;
 		Ok(store)
+	}
+
+	/// Install the resolver that derives the retention mask for each submitted statement.
+	///
+	/// Without it, the store persists every submission. Installation is first-wins: the resolver is
+	/// wired once at node startup, so a second install means a wiring bug and is rejected loudly.
+	pub fn set_retention_resolver(
+		&self,
+		resolver: Box<dyn Fn(&Statement) -> RetentionReasonMask + Send + Sync>,
+	) {
+		if self.retention_fn.set(resolver).is_err() {
+			log::error!(
+				target: LOG_TARGET,
+				"retention resolver already installed; ignoring the second install (wiring bug)",
+			);
+		}
 	}
 
 	/// Migrate the column layout of an existing database to the current schema.
@@ -2227,9 +2264,16 @@ impl StatementStore for Store {
 	}
 
 	fn take_recent_statements(&self) -> Result<Vec<(u64, Hash, Statement)>> {
-		let recent = self.query_index.write().take_recent();
+		let (recent, mut transient) = {
+			let mut query_index = self.query_index.write();
+			(query_index.take_recent(), std::mem::take(&mut query_index.transient))
+		};
 		let mut result = Vec::with_capacity(recent.len());
 		for (hash, seq) in recent {
+			if let Some(statement) = transient.remove(&hash) {
+				result.push((seq, hash, statement));
+				continue;
+			}
 			let Some(encoded) =
 				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
 			else {
@@ -2545,6 +2589,11 @@ impl StatementStore for Store {
 	///
 	/// Returns `SubmitResult::New` on success.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult {
+		let mask = self
+			.retention_fn
+			.get()
+			.map_or_else(RetentionReasonMask::persistent, |resolver| resolver(&statement));
+
 		let _histogram_submit_start_timer = self.metrics.start_submit_timer();
 		let hash = statement.hash();
 		// Get unix timestamp
@@ -2671,6 +2720,29 @@ impl StatementStore for Store {
 				return SubmitResult::InternalError(e);
 			},
 		};
+
+		// A transient statement passes the same validation as a persistent one, including the
+		// allowance check above, but skips the quota accounting and is never written to the DB.
+		if !mask.is_persistent() {
+			let mut query_index = self.query_index.write();
+			if query_index.transient.contains_key(&hash) {
+				self.metrics.report(|metrics| {
+					metrics.known_statements.with_label_values(&["known"]).inc();
+				});
+				return SubmitResult::Known;
+			}
+			query_index.transient.insert(hash, statement);
+			// Transient statements bypass the admission journal, so no initial sync covers
+			// them: the max sequence number keeps them above every peer's sync watermark.
+			query_index.recent.insert(hash, u64::MAX);
+			self.metrics.report(|metrics| metrics.submitted_statements.inc());
+			log::trace!(
+				target: LOG_TARGET,
+				"Transient statement stored: {:?}",
+				HexDisplay::from(&hash)
+			);
+			return SubmitResult::New;
+		}
 
 		let current_time = self.timestamp();
 		let seq = {
@@ -2963,6 +3035,10 @@ impl StatementStore for Store {
 			}
 		}
 		Ok(())
+	}
+
+	fn subscription_topics(&self) -> HashSet<Topic> {
+		self.subscription_manager.subscription_topics()
 	}
 }
 
@@ -3294,7 +3370,7 @@ impl Store {
 #[cfg(test)]
 mod tests {
 
-	use crate::{col, Store, KEY_VERSION};
+	use crate::{col, RetentionReasonMask, Store, KEY_VERSION};
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
@@ -4395,6 +4471,64 @@ mod tests {
 
 		// Recent statements are cleared, but statements remain in the store.
 		assert_eq!(store.statements().unwrap().len(), 4);
+	}
+
+	#[test]
+	fn transient_statement_is_served_once_then_dropped() {
+		let (store, _temp) = test_store();
+		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::TRANSIENT));
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+
+		assert_eq!(store.submit(statement.clone(), StatementSource::Network), SubmitResult::New,);
+
+		// Invisible to the query API: the store behaves as if it holds no transient statement.
+		assert!(!store.has_statement(&hash));
+		assert_eq!(store.statement(&hash).unwrap(), None);
+		assert!(store.statements().unwrap().is_empty());
+
+		// Yet the first propagation pull forwards it once.
+		let recent = store.take_recent_statements().unwrap();
+		assert_eq!(recent, vec![(u64::MAX, hash, statement)]);
+
+		// And after that it is gone: not pulled again, never persisted.
+		assert!(!store.has_statement(&hash));
+		assert_eq!(store.statement(&hash).unwrap(), None);
+		assert!(store.take_recent_statements().unwrap().is_empty());
+		assert!(store.statements().unwrap().is_empty());
+	}
+
+	#[test]
+	fn resubmitting_transient_statement_reports_known() {
+		let (store, _temp) = test_store();
+		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::TRANSIENT));
+		let statement = signed_statement(0);
+
+		assert_eq!(store.submit(statement.clone(), StatementSource::Network), SubmitResult::New,);
+		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::Known);
+	}
+
+	#[test]
+	fn submit_persists_without_a_resolver() {
+		let (store, _temp) = test_store();
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+
+		assert_eq!(store.submit(statement, StatementSource::Local), SubmitResult::New);
+		assert!(store.has_statement(&hash));
+	}
+
+	#[test]
+	fn set_retention_resolver_is_first_wins() {
+		let (store, _temp) = test_store();
+		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::TRANSIENT));
+		// The second install is rejected; the first resolver stays in force.
+		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::persistent()));
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+
+		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
+		assert!(!store.has_statement(&hash), "the first, transient resolver still applies");
 	}
 
 	#[test]
