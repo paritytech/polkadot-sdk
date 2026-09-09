@@ -151,6 +151,11 @@ pub struct CliCommand {
 	#[clap(long)]
 	pub node_state_call_rate_limit: Option<std::num::NonZeroU32>,
 
+	/// Max pallet-revive `state_call`s in flight on the node, sharing one pool; subxt's version
+	/// and metadata probes are exempt. Unset disables the limit.
+	#[clap(long)]
+	pub node_state_call_max_concurrency: Option<std::num::NonZeroUsize>,
+
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub shared_params: SharedParams,
@@ -273,11 +278,17 @@ fn build_client(
 	subscription_gap_queue: SubscriptionGapQueue,
 	backward_sync_max_blocks_per_sec: u32,
 	node_state_call_rate_limit: Option<std::num::NonZeroU32>,
+	node_state_call_max_concurrency: Option<std::num::NonZeroUsize>,
 ) -> anyhow::Result<Client> {
 	let fut = async {
-		let (api, rpc_client, rpc, spec_versions) =
-			connect(node_rpc_url, max_request_size, max_response_size, node_state_call_rate_limit)
-				.await?;
+		let (api, rpc_client, rpc, spec_versions) = connect(
+			node_rpc_url,
+			max_request_size,
+			max_response_size,
+			node_state_call_rate_limit,
+			node_state_call_max_concurrency,
+		)
+		.await?;
 		let block_provider = SubxtBlockInfoProvider::new(api.clone(), rpc.clone()).await?;
 
 		let (pool, keep_latest_n_blocks) = match eth_pruning {
@@ -349,6 +360,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		allow_unprotected_txs,
 		backward_sync_max_blocks_per_sec,
 		node_state_call_rate_limit,
+		node_state_call_max_concurrency,
 		..
 	} = cmd;
 
@@ -411,6 +423,7 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		subscription_gap_queue,
 		backward_sync_max_blocks_per_sec,
 		node_state_call_rate_limit,
+		node_state_call_max_concurrency,
 	)?;
 
 	// Prometheus metrics.

@@ -40,7 +40,7 @@ use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
 use spec_version_cache::SpecVersionCache;
 use std::{
-	num::NonZeroU32,
+	num::{NonZeroU32, NonZeroUsize},
 	sync::{
 		Arc,
 		atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -68,7 +68,7 @@ use subxt::{
 };
 
 use thiserror::Error;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{Mutex, Semaphore, mpsc};
 use version_aware_runtime_api::{
 	CallRecordedOutput, TraceEntry, VersionAwareRuntimeApi, VersionAwareRuntimeApiProvider,
 };
@@ -445,17 +445,28 @@ async fn get_automine(rpc_client: &RpcClient) -> bool {
 	}
 }
 
-/// Wraps the node RPC transport to rate-limit `state_call`s and log each one's runtime
-/// function, input size, target block and duration.
+/// Wraps the node RPC transport to rate-limit `state_call`s, bound how many of them run on
+/// the node at once, and log each one's runtime function, input size, target block and
+/// duration.
 struct StateCallGate<Inner> {
 	inner: Inner,
 	rate_limiter: Option<Arc<DefaultDirectRateLimiter>>,
+	permits: Option<Arc<Semaphore>>,
 }
 
-/// Logs a `state_call` whose future was dropped before completing; the node still executes it.
+/// Whether a `state_call` executes contract code or replays a block, as opposed to subxt's own
+/// `Core_version` and `Metadata_*` probes, which are orders of magnitude cheaper and must not
+/// queue behind them: head tracking and startup both depend on those completing promptly.
+fn is_metered_state_call(function: &str) -> bool {
+	function.starts_with("ReviveApi_")
+}
+
+/// Logs a `state_call` whose future was dropped before completing, distinguishing one the node
+/// is still executing from one that never left this process.
 struct CallSpan {
 	context: Option<(String, String, String)>,
 	began: std::time::Instant,
+	dispatched: bool,
 }
 
 impl CallSpan {
@@ -467,8 +478,13 @@ impl CallSpan {
 impl Drop for CallSpan {
 	fn drop(&mut self) {
 		if let Some((function, input, at_block)) = &self.context {
+			let fate = if self.dispatched {
+				"node-side execution may continue"
+			} else {
+				"never dispatched, so it cost the node nothing"
+			};
 			log::warn!(target: LOG_TARGET_TIMING,
-				"state_call {function}({input}) at={at_block}: CANCELLED by caller after {:?} (request future dropped before completion; node-side execution may continue)",
+				"state_call {function}({input}) at={at_block}: CANCELLED by caller after {:?} (request future dropped before completion; {fate})",
 				self.began.elapsed());
 		}
 	}
@@ -484,21 +500,34 @@ impl<Inner: RpcClientT> RpcClientT for StateCallGate<Inner> {
 			return self.inner.request_raw(method, params);
 		}
 		let tracing = log::log_enabled!(target: LOG_TARGET_TIMING, log::Level::Trace);
-		if !tracing && self.rate_limiter.is_none() {
+		if !tracing && self.rate_limiter.is_none() && self.permits.is_none() {
 			return self.inner.request_raw(method, params);
 		}
-		let log_context = tracing.then(|| Self::log_context(params.as_deref()));
+		let (function, input, at_block) = Self::call_context(params.as_deref());
+		if tracing {
+			Self::log_params(&function, params.as_deref());
+		}
+		let permits = self.permits.clone().filter(|_| is_metered_state_call(&function));
+		let log_context = tracing.then_some((function, input, at_block));
 
 		Box::pin(async move {
-			let mut span = CallSpan { context: log_context, began: std::time::Instant::now() };
-			let queued = match &self.rate_limiter {
-				Some(limiter) => {
-					let waiting_since = std::time::Instant::now();
-					limiter.until_ready().await;
-					waiting_since.elapsed()
-				},
-				None => Duration::ZERO,
+			let mut span = CallSpan {
+				context: log_context,
+				began: std::time::Instant::now(),
+				dispatched: false,
 			};
+			let waiting_since = std::time::Instant::now();
+			if let Some(limiter) = &self.rate_limiter {
+				limiter.until_ready().await;
+			}
+			// Held until the node answers, so a caller that gives up while queued here never
+			// reaches the node at all.
+			let _permit = match permits {
+				Some(permits) => permits.acquire_owned().await.ok(),
+				None => None,
+			};
+			let queued = waiting_since.elapsed();
+			span.dispatched = true;
 			let started = std::time::Instant::now();
 			let result = self.inner.request_raw(method, params).await;
 			if let Some((function, input, at_block)) = span.take() {
@@ -522,9 +551,8 @@ impl<Inner: RpcClientT> RpcClientT for StateCallGate<Inner> {
 }
 
 impl<Inner> StateCallGate<Inner> {
-	/// Renders the function name, input summary and target block of a `state_call`, and logs the
-	/// capped raw params.
-	fn log_context(params: Option<&RawValue>) -> (String, String, String) {
+	/// Renders the function name, input summary and target block of a `state_call`.
+	fn call_context(params: Option<&RawValue>) -> (String, String, String) {
 		// `state_call` params are `[function_name, scale_encoded_input, at_block_hash?]`.
 		let parsed: Vec<&RawValue> = params
 			.and_then(|raw_params| serde_json::from_str(raw_params.get()).ok())
@@ -541,17 +569,19 @@ impl<Inner> StateCallGate<Inner> {
 			})
 			.unwrap_or_default();
 		let at_block = unquoted(2).unwrap_or("best").to_string();
-		if let Some(raw_params) = params {
-			let raw_params = raw_params.get();
-			let capped = raw_params.get(..256).unwrap_or(raw_params);
-			let suffix = if raw_params.len() > 256 {
-				format!("… ({} bytes total)", raw_params.len())
-			} else {
-				String::new()
-			};
-			log::trace!(target: LOG_TARGET_TIMING, "state_call {function} params: {capped}{suffix}");
-		}
 		(function, input, at_block)
+	}
+
+	/// Logs the raw params, capped: `trace_block` inputs are whole-block replay payloads.
+	fn log_params(function: &str, params: Option<&RawValue>) {
+		let Some(raw_params) = params.map(|params| params.get()) else { return };
+		let capped = raw_params.get(..256).unwrap_or(raw_params);
+		let suffix = if raw_params.len() > 256 {
+			format!("… ({} bytes total)", raw_params.len())
+		} else {
+			String::new()
+		};
+		log::trace!(target: LOG_TARGET_TIMING, "state_call {function} params: {capped}{suffix}");
 	}
 }
 
@@ -562,6 +592,7 @@ pub async fn connect(
 	max_request_size: u32,
 	max_response_size: u32,
 	state_call_rate_limit: Option<NonZeroU32>,
+	state_call_max_concurrency: Option<NonZeroUsize>,
 ) -> Result<
 	(
 		OnlineClient<SrcChainConfig>,
@@ -580,7 +611,8 @@ pub async fn connect(
 		.await?;
 	let rate_limiter =
 		state_call_rate_limit.map(|rate| Arc::new(RateLimiter::direct(Quota::per_second(rate))));
-	let rpc_client = RpcClient::new(StateCallGate { inner: rpc_client, rate_limiter });
+	let permits = state_call_max_concurrency.map(|max| Arc::new(Semaphore::new(max.get())));
+	let rpc_client = RpcClient::new(StateCallGate { inner: rpc_client, rate_limiter, permits });
 	log::info!(target: LOG_TARGET, "🌟 Connected to node at: {node_rpc_url}");
 
 	// Pin the legacy backend explicitly. Since subxt 0.50, from_rpc_client defaults
