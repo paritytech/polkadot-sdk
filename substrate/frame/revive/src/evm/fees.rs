@@ -247,7 +247,9 @@ where
 	}
 
 	fn tx_fee(len: u32, call: &CallOf<E::Config>) -> BalanceOf<E::Config> {
-		let dispatch_info = Self::dispatch_info(call);
+		let mut dispatch_info = Self::dispatch_info(call);
+		// Mirror the executive: the encoded extrinsic length contributes to the proof_size weight.
+		dispatch_info.length_weight = Weight::from_parts(0, len as u64);
 		TxPallet::<E::Config>::compute_fee(len, &dispatch_info, 0u32.into()).into()
 	}
 

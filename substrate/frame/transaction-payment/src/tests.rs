@@ -231,6 +231,7 @@ fn transaction_extension_allows_free_transactions() {
 
 			// This is a completely free (and thus wholly insecure/DoS-ridden) transaction.
 			let op_tx = DispatchInfo {
+				length_weight: Default::default(),
 				call_weight: Weight::from_parts(0, 0),
 				extension_weight: Weight::zero(),
 				class: DispatchClass::Operational,
@@ -240,6 +241,7 @@ fn transaction_extension_allows_free_transactions() {
 
 			// like a InsecureFreeNormal
 			let free_tx = DispatchInfo {
+				length_weight: Default::default(),
 				call_weight: Weight::from_parts(0, 0),
 				extension_weight: Weight::zero(),
 				class: DispatchClass::Normal,
@@ -396,6 +398,7 @@ fn compute_fee_works_without_multiplier() {
 
 			// Tip only, no fees works
 			let dispatch_info = DispatchInfo {
+				length_weight: Default::default(),
 				call_weight: Weight::from_parts(0, 0),
 				extension_weight: Weight::zero(),
 				class: DispatchClass::Operational,
@@ -404,6 +407,7 @@ fn compute_fee_works_without_multiplier() {
 			assert_eq!(Pallet::<Runtime>::compute_fee(0, &dispatch_info, 10), 10);
 			// No tip, only base fee works
 			let dispatch_info = DispatchInfo {
+				length_weight: Default::default(),
 				call_weight: Weight::from_parts(0, 0),
 				extension_weight: Weight::zero(),
 				class: DispatchClass::Operational,
@@ -416,6 +420,7 @@ fn compute_fee_works_without_multiplier() {
 			assert_eq!(Pallet::<Runtime>::compute_fee(42, &dispatch_info, 0), 520);
 			// Weight fee + base fee works
 			let dispatch_info = DispatchInfo {
+				length_weight: Default::default(),
 				call_weight: Weight::from_parts(1000, 0),
 				extension_weight: Weight::zero(),
 				class: DispatchClass::Operational,
@@ -437,6 +442,7 @@ fn compute_fee_works_with_multiplier() {
 			NextFeeMultiplier::<Runtime>::put(Multiplier::saturating_from_rational(3, 2));
 			// Base fee is unaffected by multiplier
 			let dispatch_info = DispatchInfo {
+				length_weight: Default::default(),
 				call_weight: Weight::from_parts(0, 0),
 				extension_weight: Weight::zero(),
 				class: DispatchClass::Operational,
@@ -446,6 +452,7 @@ fn compute_fee_works_with_multiplier() {
 
 			// Everything works together :)
 			let dispatch_info = DispatchInfo {
+				length_weight: Default::default(),
 				call_weight: Weight::from_parts(123, 0),
 				extension_weight: Weight::zero(),
 				class: DispatchClass::Operational,
@@ -472,6 +479,7 @@ fn compute_fee_works_with_negative_multiplier() {
 
 			// Base fee is unaffected by multiplier.
 			let dispatch_info = DispatchInfo {
+				length_weight: Default::default(),
 				call_weight: Weight::from_parts(0, 0),
 				extension_weight: Weight::zero(),
 				class: DispatchClass::Operational,
@@ -481,6 +489,7 @@ fn compute_fee_works_with_negative_multiplier() {
 
 			// Everything works together.
 			let dispatch_info = DispatchInfo {
+				length_weight: Default::default(),
 				call_weight: Weight::from_parts(123, 0),
 				extension_weight: Weight::zero(),
 				class: DispatchClass::Operational,
@@ -504,6 +513,7 @@ fn compute_fee_does_not_overflow() {
 		.execute_with(|| {
 			// Overflow is handled
 			let dispatch_info = DispatchInfo {
+				length_weight: Default::default(),
 				call_weight: Weight::MAX,
 				extension_weight: Weight::zero(),
 				class: DispatchClass::Operational,
@@ -585,6 +595,7 @@ fn zero_transfer_on_free_transaction() {
 			// So events are emitted
 			System::set_block_number(10);
 			let info = DispatchInfo {
+				length_weight: Default::default(),
 				call_weight: Weight::from_parts(100, 0),
 				extension_weight: Weight::zero(),
 				pays_fee: Pays::No,
@@ -655,6 +666,7 @@ fn should_alter_operational_priority() {
 
 	ExtBuilder::default().balance_factor(100).build().execute_with(|| {
 		let normal = DispatchInfo {
+			length_weight: Default::default(),
 			call_weight: Weight::from_parts(100, 0),
 			extension_weight: Weight::zero(),
 			class: DispatchClass::Normal,
@@ -680,6 +692,7 @@ fn should_alter_operational_priority() {
 
 	ExtBuilder::default().balance_factor(100).build().execute_with(|| {
 		let op = DispatchInfo {
+			length_weight: Default::default(),
 			call_weight: Weight::from_parts(100, 0),
 			extension_weight: Weight::zero(),
 			class: DispatchClass::Operational,
@@ -711,6 +724,7 @@ fn no_tip_has_some_priority() {
 
 	ExtBuilder::default().balance_factor(100).build().execute_with(|| {
 		let normal = DispatchInfo {
+			length_weight: Default::default(),
 			call_weight: Weight::from_parts(100, 0),
 			extension_weight: Weight::zero(),
 			class: DispatchClass::Normal,
@@ -727,6 +741,7 @@ fn no_tip_has_some_priority() {
 
 	ExtBuilder::default().balance_factor(100).build().execute_with(|| {
 		let op = DispatchInfo {
+			length_weight: Default::default(),
 			call_weight: Weight::from_parts(100, 0),
 			extension_weight: Weight::zero(),
 			class: DispatchClass::Operational,
@@ -750,6 +765,7 @@ fn higher_tip_have_higher_priority() {
 		let len = 10;
 		ExtBuilder::default().balance_factor(100).build().execute_with(|| {
 			let normal = DispatchInfo {
+				length_weight: Default::default(),
 				call_weight: Weight::from_parts(100, 0),
 				extension_weight: Weight::zero(),
 				class: DispatchClass::Normal,
@@ -766,6 +782,7 @@ fn higher_tip_have_higher_priority() {
 
 		ExtBuilder::default().balance_factor(100).build().execute_with(|| {
 			let op = DispatchInfo {
+				length_weight: Default::default(),
 				call_weight: Weight::from_parts(100, 0),
 				extension_weight: Weight::zero(),
 				class: DispatchClass::Operational,

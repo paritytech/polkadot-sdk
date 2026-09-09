@@ -462,6 +462,7 @@ pub fn expand_call(def: &mut Def) -> proc_macro2::TokenStream {
 							#frame_support::dispatch::DispatchInfo {
 								call_weight: __pallet_weight,
 								extension_weight: Default::default(),
+								length_weight: Default::default(),
 								class: __pallet_class,
 								pays_fee: __pallet_pays_fee,
 							}
