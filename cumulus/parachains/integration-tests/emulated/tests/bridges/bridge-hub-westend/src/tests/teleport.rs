@@ -86,7 +86,5 @@ fn accumulate_forward_bridge_hub_transfers_native_to_asset_hub() {
 	emulated_integration_tests_common::dap_helpers::test_accumulate_forward_transfers_to_asset_hub::<
 		BridgeHubWestend,
 		AssetHubWestend,
-	>(
-		|acct, amount| BridgeHubWestend::fund_accounts(vec![(acct, amount)]),
-	);
+	>();
 }

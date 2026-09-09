@@ -808,7 +808,5 @@ fn accumulate_forward_relay_transfers_native_to_asset_hub() {
 	emulated_integration_tests_common::dap_helpers::test_accumulate_forward_transfers_to_asset_hub::<
 		Westend,
 		AssetHubWestend,
-	>(
-		|acct, amount| Westend::fund_accounts(vec![(acct, amount)]),
-	);
+	>();
 }
