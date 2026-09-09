@@ -1,0 +1,34 @@
+[package]
+name = "statement-replication-check"
+version = "0.1.0"
+description = "CLI tools to verify statement-store v2 DHT replication on a live network"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "setup-allowances"
+path = "src/setup.rs"
+
+[[bin]]
+name = "replication-check"
+path = "src/check.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+codec = { workspace = true }
+env_logger = { workspace = true }
+futures = { workspace = true }
+jsonrpsee = { workspace = true, features = ["client-ws-transport-tls", "ws-client"] }
+log = { workspace = true }
+rand = { workspace = true }
+sc-network-types = { workspace = true, default-features = true }
+sc-statement-store = { workspace = true, default-features = true, features = ["test-helpers"] }
+sp-core = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
+sp-statement-store = { workspace = true, default-features = true, features = ["serde"] }
+subxt = { version = "0.50", features = ["jsonrpsee", "native"] }
+subxt-signer = { version = "0.50" }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "time"] }
