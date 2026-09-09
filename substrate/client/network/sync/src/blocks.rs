@@ -18,6 +18,7 @@
 
 use crate::LOG_TARGET;
 use log::trace;
+use prometheus_endpoint::{register, Counter, PrometheusError, Registry, U64};
 use sc_network_common::sync::message;
 use sc_network_types::PeerId;
 use sp_arithmetic::traits::Saturating;
@@ -54,6 +55,25 @@ impl<B: BlockT> BlockRangeState<B> {
 	}
 }
 
+#[derive(Clone)]
+pub(crate) struct Metrics {
+	stale_download_reservations: Counter<U64>,
+}
+
+impl Metrics {
+	pub(crate) fn register(registry: &Registry) -> Result<Self, PrometheusError> {
+		Ok(Self {
+			stale_download_reservations: register(
+				Counter::new(
+					"substrate_sync_stale_download_reservations_total",
+					"Number of stale block download reservations released before scheduling a new range",
+				)?,
+				registry,
+			)?,
+		})
+	}
+}
+
 /// A collection of blocks being downloaded.
 #[derive(Default)]
 pub struct BlockCollection<B: BlockT> {
@@ -63,15 +83,22 @@ pub struct BlockCollection<B: BlockT> {
 	/// Block ranges downloaded and queued for import.
 	/// Maps start_hash => (start_num, end_num).
 	queued_blocks: HashMap<B::Hash, (NumberFor<B>, NumberFor<B>)>,
+	/// Metrics shared by regular and gap sync.
+	metrics: Option<Metrics>,
 }
 
 impl<B: BlockT> BlockCollection<B> {
 	/// Create a new instance.
 	pub fn new() -> Self {
+		Self::with_metrics(None)
+	}
+
+	pub(crate) fn with_metrics(metrics: Option<Metrics>) -> Self {
 		Self {
 			blocks: BTreeMap::new(),
 			peer_requests: HashMap::new(),
 			queued_blocks: HashMap::new(),
+			metrics,
 		}
 	}
 
@@ -120,6 +147,9 @@ impl<B: BlockT> BlockCollection<B> {
 		// Cancellation, responses and disconnection should release the previous range.
 		if self.peer_requests.contains_key(&who) {
 			log::debug!(target: LOG_TARGET, "Releasing stale block download reservation for {who}");
+			if let Some(metrics) = &self.metrics {
+				metrics.stale_download_reservations.inc();
+			}
 			self.clear_peer_download(&who);
 		}
 		if peer_best <= common {
@@ -549,7 +579,8 @@ mod test {
 		// one. If a stale entry lingers (e.g. an obsolete response was dropped without notifying
 		// sync), requesting again must not orphan the old `Downloading` marker — an orphan would
 		// pin the collection's lowest block and stall gap sync behind `max_ahead`.
-		let mut bc = BlockCollection::new();
+		let metrics = super::Metrics::register(&prometheus_endpoint::Registry::new()).unwrap();
+		let mut bc = BlockCollection::with_metrics(Some(metrics.clone()));
 		assert!(is_empty(&bc));
 
 		let count = 128;
@@ -563,11 +594,13 @@ mod test {
 		let first = bc.needed_blocks(peer, count, best, 0, max_parallel, max_ahead).unwrap();
 		assert_eq!(bc.peer_requests.get(&peer), Some(&first.start));
 		assert!(matches!(bc.blocks.get(&first.start), Some(BlockRangeState::Downloading { .. }),));
+		assert_eq!(metrics.stale_download_reservations.get(), 0);
 
 		// The same peer is asked for a new range while its previous one is still tracked. The
 		// stale range is released, so the peer is tracked only for the new range and exactly
 		// one `Downloading` marker remains — no orphan is left pinning the collection.
 		let second = bc.needed_blocks(peer, count, best, 200, max_parallel, max_ahead).unwrap();
+		assert_eq!(metrics.stale_download_reservations.get(), 1);
 		assert_ne!(first.start, second.start);
 		assert_eq!(bc.peer_requests.get(&peer), Some(&second.start));
 
@@ -582,6 +615,14 @@ mod test {
 			vec![second.start],
 			"stale range must be released, leaving no orphaned Downloading marker",
 		);
+
+		// Normal cancellation and a collection reset must not count as stale recovery or reset
+		// the cumulative counter.
+		bc.clear_peer_download(&peer);
+		assert!(bc.needed_blocks(peer, count, best, 400, max_parallel, max_ahead).is_some());
+		bc.clear();
+		assert!(bc.needed_blocks(peer, count, best, 600, max_parallel, max_ahead).is_some());
+		assert_eq!(metrics.stale_download_reservations.get(), 1);
 	}
 
 	#[test]

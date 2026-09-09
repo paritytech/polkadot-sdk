@@ -30,7 +30,7 @@
 
 use crate::{
 	block_relay_protocol::{BlockDownloader, BlockResponseError},
-	blocks::BlockCollection,
+	blocks::{BlockCollection, Metrics as BlockCollectionMetrics},
 	justification_requests::ExtraRequests,
 	schema::v1::{StateRequest, StateResponse},
 	service::network::NetworkServiceHandle,
@@ -142,6 +142,7 @@ mod rep {
 struct Metrics {
 	queued_blocks: Gauge<U64>,
 	fork_targets: Gauge<U64>,
+	block_collection: BlockCollectionMetrics,
 	gap_body_empty_responses: Counter<U64>,
 	gap_header_only_downgrades: Counter<U64>,
 	gap_oldest_required_body: Gauge<U64>,
@@ -159,6 +160,7 @@ impl Metrics {
 				let g = Gauge::new("substrate_sync_fork_targets", "Number of fork sync targets")?;
 				register(g, r)?
 			},
+			block_collection: BlockCollectionMetrics::register(r)?,
 			gap_body_empty_responses: {
 				let c = Counter::new(
 					"substrate_sync_gap_body_empty_responses_total",
@@ -1115,11 +1117,20 @@ where
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
 	) -> Result<Self, ClientError> {
 		info!(target: LOG_TARGET, "Gap sync body policy: {gap_sync_body_policy:?}");
+		let metrics = metrics_registry.and_then(|r| match Metrics::register(r) {
+			Ok(metrics) => Some(metrics),
+			Err(err) => {
+				log::error!(target: LOG_TARGET, "Failed to register `ChainSync` metrics {err:?}");
+				None
+			},
+		});
 		let mut sync = Self {
 			client,
 			peers: HashMap::new(),
 			disconnected_peers: DisconnectedPeers::new(),
-			blocks: BlockCollection::new(),
+			blocks: BlockCollection::with_metrics(
+				metrics.as_ref().map(|m| m.block_collection.clone()),
+			),
 			best_queued_hash: Default::default(),
 			best_queued_number: Zero::zero(),
 			extra_justifications: ExtraRequests::new("justification", metrics_registry),
@@ -1138,16 +1149,7 @@ where
 			gap_sync_body_policy,
 			gap_sync: None,
 			actions: Vec::new(),
-			metrics: metrics_registry.and_then(|r| match Metrics::register(r) {
-				Ok(metrics) => Some(metrics),
-				Err(err) => {
-					log::error!(
-						target: LOG_TARGET,
-						"Failed to register `ChainSync` metrics {err:?}",
-					);
-					None
-				},
-			}),
+			metrics,
 		};
 
 		sync.reset_sync_start_point()?;
@@ -1319,7 +1321,8 @@ where
 		}
 		self.actions
 			.push(SyncingAction::CancelRequest { peer_id, key: Self::STRATEGY_KEY });
-		// Another peer can take over the released work while this peer does ancestry search.
+		// Let any available peer pick up the released work, e.g. while this peer does
+		// ancestry search.
 		self.allowed_requests.set_all();
 	}
 
@@ -1960,7 +1963,9 @@ where
 			self.gap_sync = Some(GapSync {
 				best_queued_number: start - One::one(),
 				target: end,
-				blocks: BlockCollection::new(),
+				blocks: BlockCollection::with_metrics(
+					self.metrics.as_ref().map(|m| m.block_collection.clone()),
+				),
 				stats: GapSyncStats::new(),
 			});
 		} else if let Some((best, target)) = old_gap {
