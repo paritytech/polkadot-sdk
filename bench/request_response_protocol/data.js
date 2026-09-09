@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788965360769,
+  "lastUpdate": 1788978486829,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -122255,6 +122255,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2745355800,
             "range": "± 27636021",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "davxy@datawok.net",
+            "name": "Davide Galassi",
+            "username": "davxy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "238533bc0dbf8261b6ad1da2282e5ab239fad82c",
+          "message": "keyring: fix stale bandersnatch static public keys (#13042)\n\nFixes the pre-existing `sp-keyring` bandersnatch test failures reported\nin\nhttps://github.com/paritytech/polkadot-sdk/pull/12888#pullrequestreview-5021480123\n\nThe latest draft of the bandersnatch VRF spec\n(https://github.com/davxy/bandersnatch-vrf-spec) was reviewed by the\nParity research team. The last revision changed some details of the\nscheme, including the key derivation method. This made the static public\nkey table in `sp-keyring` stale. The tests are behind the\n`bandersnatch-experimental` feature, so CI never caught it.",
+          "timestamp": "2026-09-09T15:02:31Z",
+          "tree_id": "6c6ce1cd5e37d229139d071827125e30e467cc71",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/238533bc0dbf8261b6ad1da2282e5ab239fad82c"
+        },
+        "date": 1788978444964,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21722959,
+            "range": "± 233390",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21809888,
+            "range": "± 381153",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23389062,
+            "range": "± 279427",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28550587,
+            "range": "± 204250",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 67979646,
+            "range": "± 754345",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 422643633,
+            "range": "± 8822608",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2883439937,
+            "range": "± 146508628",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 20842550,
+            "range": "± 203640",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 21339154,
+            "range": "± 257493",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 21164314,
+            "range": "± 841075",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 26321750,
+            "range": "± 562720",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 75942327,
+            "range": "± 1028911",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 490837302,
+            "range": "± 11430863",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 3280641947,
+            "range": "± 34926051",
             "unit": "ns/iter"
           }
         ]
