@@ -191,24 +191,32 @@ impl PeersTopology {
 		}
 	}
 
-	/// Connected peers to forward a statement for `topic` to, capped at `gossip_target`: those
-	/// closer to the topic than the local node (routing the statement onward) and those that are
-	/// themselves DHT replicas for it (co-replicas that must store it).
+	/// Connected peers to forward a statement for `topic` to: every connected replica of the
+	/// topic, plus up to `gossip_target` peers closer to it than the local node (routing).
+	/// Only the routing leg is capped: capping replicas would deterministically stop the
+	/// replica set at `gossip_target + 1` copies instead of `replication_factor`.
 	pub fn routing_targets(&self, topic: Topic) -> Vec<PeerId> {
 		// TODO: benchmark this per-statement path on large connected sets (see
 		// benches/peers_topology.rs).
 		let local = (self.local_key, self.local_peer);
 		let local_distance = xor_distance(*topic, self.local_key);
 		let k = self.config.replication_factor.get();
-		self.connected
-			.closest(*topic)
-			.take_while(|(peer, key)| {
-				xor_distance(*topic, *key) < local_distance ||
-					is_peer_topic_affine(&self.discovered_index, local, (*key, *peer), k, topic)
-			})
-			.take(self.config.gossip_target.get())
-			.map(|(peer, _)| peer)
-			.collect()
+		let gossip_target = self.config.gossip_target.get();
+		let mut targets = Vec::new();
+		let mut routed = 0;
+		for (peer, key) in self.connected.closest(*topic) {
+			if is_peer_topic_affine(&self.discovered_index, local, (key, peer), k, topic) {
+				targets.push(peer);
+			} else if xor_distance(*topic, key) < local_distance {
+				if routed < gossip_target {
+					targets.push(peer);
+					routed += 1;
+				}
+			} else {
+				break;
+			}
+		}
+		targets
 	}
 
 	/// Local-only explicit-affinity connection candidates for `topics`.
@@ -522,7 +530,10 @@ mod tests {
 	}
 
 	#[test]
-	fn routing_targets_are_closest_connected_peers_closer_to_topic_than_self() {
+	fn routing_targets_are_co_replicas_plus_capped_closer_peers() {
+		// replication_factor = 2, gossip_target = 2. Of the three connected peers closer than
+		// self, the two closest are the topic's replicas of the topic (included as such) and the third
+		// consumes one routing slot; farther non-replica peers are never targets.
 		let mut topology = topology(1);
 		let topic = topic(7);
 		let self_distance = distance_to(topic, &peer(1));
@@ -549,11 +560,41 @@ mod tests {
 		let expected = {
 			let mut peers = closer;
 			peers.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
-			peers.truncate(2);
 			peers
 		};
 
 		assert_eq!(topology.routing_targets(topic), expected);
+	}
+
+	#[test]
+	fn routing_targets_saturate_the_replica_set_beyond_gossip_target() {
+		// Regression: with K replicas and a smaller gossip_target, every connected
+		// replica must still be a forwarding target, otherwise the replica set
+		// deterministically saturates at gossip_target + 1 nodes instead of K.
+		let local = peer(1);
+		let mut topology = PeersTopology::new(local, topology_config(8, 3));
+		let peers = (2..=11).map(peer).collect::<Vec<_>>();
+		for p in &peers {
+			dht_peer(&mut topology, *p);
+			topology.on_substream_opened(*p);
+		}
+		let topic = topic(42);
+
+		let mut with_local = peers.clone();
+		with_local.push(local);
+		with_local.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
+		let co_replicas: Vec<PeerId> =
+			with_local.iter().take(8).filter(|p| **p != local).copied().collect();
+
+		let targets = topology.routing_targets(topic);
+		for replica in &co_replicas {
+			assert!(
+				targets.contains(replica),
+				"replica {replica} must be a forwarding target",
+			);
+		}
+		// The non-replica tail is still capped: at most gossip_target routing extras.
+		assert!(targets.len() <= co_replicas.len() + 3);
 	}
 
 	#[test]
@@ -685,11 +726,33 @@ mod tests {
 				.iter()
 				.filter(|(_, _, connected)| *connected)
 				.map(|(peer, ..)| *peer)
-				.filter(|peer| distance_to(topic, peer) < local_distance)
 				.collect::<Vec<_>>();
 			connected.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
-			connected.truncate(3);
-			assert_eq!(topology.routing_targets(topic), connected);
+			// Naive model of routing_targets: every connected co-replica (fewer than K
+			// supporting peers or the local node strictly closer), plus up to gossip_target
+			// closer non-replica peers, in distance order.
+			let mut expected = Vec::new();
+			let mut routed = 0;
+			for peer in connected {
+				let closer_entries = candidates
+					.iter()
+					.filter(|q| **q != peer)
+					.filter(|q| cmp_distance_then_peer(topic, q, &peer) == Ordering::Less)
+					.count() + usize::from(
+						cmp_distance_then_peer(topic, &local, &peer) == Ordering::Less,
+					);
+				if closer_entries < 5 {
+					expected.push(peer);
+				} else if distance_to(topic, &peer) < local_distance {
+					if routed < 3 {
+						expected.push(peer);
+						routed += 1;
+					}
+				} else {
+					break;
+				}
+			}
+			assert_eq!(topology.routing_targets(topic), expected);
 		}
 	}
 
