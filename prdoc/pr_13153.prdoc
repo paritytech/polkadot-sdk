@@ -1,0 +1,19 @@
+title: '`pallet-accumulate-and-forward`: measure the transfer period from the last forward'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    `on_idle` only forwarded when the block number of the configured `BlockNumberProvider` was an
+    exact multiple of `TransferPeriod`. A chain does not observe every block of that provider: with
+    `RelaychainDataProvider` a parachain sees the relay chain block number advance in steps of two
+    or more, so the check can be missed indefinitely. On Coretime Polkadot and Kusama a relay
+    period of 600 fires once an hour on one parity and never on the other.
+
+    The pallet now records the block of the last forwarding attempt in the new `LastForwardBlock`
+    storage item and forwards once `now - last >= TransferPeriod`, so the cadence holds on any
+    block cadence and runtimes can keep `BlockNumberProvider = RelaychainDataProvider`. No
+    migration is needed: an empty `LastForwardBlock` means "never forwarded".
+
+crates:
+- name: pallet-accumulate-and-forward
+  bump: minor
