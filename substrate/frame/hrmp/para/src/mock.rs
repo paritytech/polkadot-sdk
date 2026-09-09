@@ -46,7 +46,7 @@ pub const MAX_INBOUND_CHANNELS: u32 = 8;
 pub const MAX_OUTBOUND_CHANNELS: u32 = 8;
 
 /// Sizes used for channels involving a system chain, as `(max_message_size, max_capacity)`.
-pub const SYSTEM_CHANNEL_SIZES: (u32, u32) = (MAX_MESSAGE_SIZE, MAX_CAPACITY);
+pub const SYSTEM_CHANNEL_SIZE_AND_CAPACITY: (u32, u32) = (MAX_MESSAGE_SIZE, MAX_CAPACITY);
 
 #[frame_support::runtime]
 mod test_runtime {
@@ -118,6 +118,17 @@ pub fn take_sent() -> Vec<MessageToRelay> {
 parameter_types! {
 	/// Signed accounts allowed to act as a para, as `(account, para id)`.
 	pub static ParaOriginAccounts: Vec<(AccountId, ParaId)> = Vec::new();
+	/// Paras the pallet treats as system chains.
+	pub static SystemParas: Vec<ParaId> = Vec::new();
+}
+
+/// The paras listed in [`SystemParas`].
+pub struct IsSystemPara;
+
+impl frame_support::traits::Contains<ParaId> for IsSystemPara {
+	fn contains(para_id: &ParaId) -> bool {
+		SystemParas::get().contains(para_id)
+	}
 }
 
 /// Lets the accounts listed in [`ParaOriginAccounts`] act as their para, standing in for a real
@@ -177,7 +188,7 @@ parameter_types! {
 		RuntimeHoldReason::Hrmp(HoldReason::SenderDeposit);
 	pub const RecipientHoldReason: RuntimeHoldReason =
 		RuntimeHoldReason::Hrmp(HoldReason::RecipientDeposit);
-	pub const SystemChannelSizes: (u32, u32) = SYSTEM_CHANNEL_SIZES;
+	pub const SystemChannelSizes: (u32, u32) = SYSTEM_CHANNEL_SIZE_AND_CAPACITY;
 }
 
 impl pallet_hrmp_para::Config for Test {
@@ -203,6 +214,7 @@ impl pallet_hrmp_para::Config for Test {
 	type MaxInboundChannels = ConstU32<MAX_INBOUND_CHANNELS>;
 	type MaxOutboundChannels = ConstU32<MAX_OUTBOUND_CHANNELS>;
 	type DefaultChannelSizeAndCapacityWithSystem = SystemChannelSizes;
+	type IsSystemPara = IsSystemPara;
 	type WeightInfo = ();
 }
 

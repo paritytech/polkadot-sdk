@@ -13733,7 +13733,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hrmp-primitives",
- "log",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",

@@ -40,10 +40,10 @@ fn genesis_holds_no_channels_and_no_requests() {
 #[test]
 fn receive_is_only_for_the_relay_chain() {
 	new_test_ext().execute_with(|| {
-		let report = MessageToPara::V1(MessageToParaV1::OpenResponse {
+		let report = MessageToPara::V1(MessageToParaV1::OpenChannelResponse {
 			channel: CHANNEL,
 			message_id: 0,
-			outcome: Ok(()),
+			outcome: Ok((8, 1_024)),
 		});
 
 		assert_noop!(

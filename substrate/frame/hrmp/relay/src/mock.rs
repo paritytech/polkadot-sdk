@@ -68,8 +68,8 @@ impl frame_system::Config for Test {
 }
 
 parameter_types! {
-	/// Channels and requests the registry holds, as `(channel, confirmed)`.
-	pub static RegistryChannels: Vec<(ChannelId, bool)> = Vec::new();
+	/// Channels the registry holds.
+	pub static RegistryChannels: Vec<ChannelId> = Vec::new();
 	/// When set, the registry refuses everything with this reason.
 	pub static RegistryRefuses: Option<FailureReason> = None;
 	/// Reports the pallet handed to the transport, oldest first.
@@ -86,32 +86,43 @@ impl MockRegistry {
 		RegistryRefuses::get().map_or(Ok(()), Err)
 	}
 
-	fn insert(channel: ChannelId, confirmed: bool) {
+	fn insert(channel: ChannelId) {
 		RegistryChannels::mutate(|channels| {
-			channels.retain(|(existing, _)| *existing != channel);
-			channels.push((channel, confirmed));
+			channels.retain(|existing| *existing != channel);
+			channels.push(channel);
 		});
 	}
 
 	fn remove(channel: ChannelId) {
-		RegistryChannels::mutate(|channels| channels.retain(|(existing, _)| *existing != channel));
+		RegistryChannels::mutate(|channels| channels.retain(|existing| *existing != channel));
 	}
 }
 
 impl HrmpRegistry for MockRegistry {
-	fn init_open_channel(
+	fn open_channel(
 		channel: ChannelId,
 		_max_capacity: u32,
 		_max_message_size: u32,
 	) -> Result<(), FailureReason> {
 		Self::guard()?;
-		Self::insert(channel, false);
+		Self::insert(channel);
 		Ok(())
 	}
 
-	fn accept_open_channel(channel: ChannelId) -> Result<(), FailureReason> {
+	fn open_system_channel(channel: ChannelId) -> Result<(u32, u32), FailureReason> {
 		Self::guard()?;
-		Self::insert(channel, true);
+		Self::insert(channel);
+		Ok(SYSTEM_CHANNEL_SIZES)
+	}
+
+	fn open_system_pair(
+		channel: ChannelId,
+		_max_capacity: u32,
+		_max_message_size: u32,
+	) -> Result<(), FailureReason> {
+		Self::guard()?;
+		Self::insert(channel);
+		Self::insert(channel.reversed());
 		Ok(())
 	}
 
@@ -121,39 +132,16 @@ impl HrmpRegistry for MockRegistry {
 		Ok(())
 	}
 
-	fn cancel_open_request(channel: ChannelId) -> Result<(), FailureReason> {
-		Self::guard()?;
-		Self::remove(channel);
-		Ok(())
-	}
-
-	fn establish_system_channel(channel: ChannelId) -> Result<(u32, u32), FailureReason> {
-		Self::guard()?;
-		Self::insert(channel, true);
-		Self::insert(ChannelId { sender: channel.recipient, recipient: channel.sender }, true);
-		Ok(SYSTEM_CHANNEL_SIZES)
-	}
-
-	fn force_open_channel(
-		channel: ChannelId,
-		_max_capacity: u32,
-		_max_message_size: u32,
-	) -> Result<(), FailureReason> {
-		Self::guard()?;
-		Self::insert(channel, true);
-		Ok(())
-	}
-
 	fn force_clean(para_id: ParaId) -> Result<(), FailureReason> {
 		Self::guard()?;
 		RegistryChannels::mutate(|channels| {
-			channels.retain(|(channel, _)| !channel.is_participant(para_id))
+			channels.retain(|channel| !channel.is_participant(para_id))
 		});
 		Ok(())
 	}
 
 	fn exists(channel: ChannelId) -> bool {
-		RegistryChannels::get().iter().any(|(existing, _)| *existing == channel)
+		RegistryChannels::get().contains(&channel)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

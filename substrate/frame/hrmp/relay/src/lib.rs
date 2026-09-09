@@ -92,13 +92,6 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// An open-channel request was recorded.
-		OpenChannelRequested {
-			/// The channel.
-			channel: ChannelId,
-			/// The id of the message that asked for it.
-			message_id: u64,
-		},
 		/// A channel was opened.
 		ChannelOpened {
 			/// The channel.
@@ -122,14 +115,7 @@ pub mod pallet {
 			/// The id of the message that asked for it.
 			message_id: u64,
 		},
-		/// An open-channel request was dropped.
-		OpenChannelCanceled {
-			/// The channel.
-			channel: ChannelId,
-			/// The id of the message that asked for it.
-			message_id: u64,
-		},
-		/// Every channel and request of a para was dropped.
+		/// Every channel of a para was dropped.
 		ChannelsCleaned {
 			/// The para.
 			para_id: ParaId,
@@ -145,12 +131,6 @@ pub mod pallet {
 		},
 	}
 
-	#[pallet::error]
-	pub enum Error<T> {
-		/// The registry refused the operation.
-		Refused,
-	}
-
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Accept a request from the parachain's HRMP pallet.
@@ -158,18 +138,16 @@ pub mod pallet {
 		/// Not callable by users: the origin must be the parachain that owns channel management.
 		#[pallet::call_index(0)]
 		#[pallet::weight(match message {
-			MessageToRelay::V1(MessageToRelayV1::InitOpenChannel { .. }) =>
-				T::WeightInfo::receive_init_open_channel(),
-			MessageToRelay::V1(MessageToRelayV1::AcceptOpenChannel { .. }) =>
-				T::WeightInfo::receive_accept_open_channel(),
-			MessageToRelay::V1(MessageToRelayV1::CloseChannel { .. }) =>
-				T::WeightInfo::receive_close_channel(),
-			MessageToRelay::V1(MessageToRelayV1::CancelOpenRequest { .. }) =>
-				T::WeightInfo::receive_cancel_open_request(),
-			MessageToRelay::V1(MessageToRelayV1::EstablishSystemChannel { .. }) =>
-				T::WeightInfo::receive_establish_system_channel(),
+			MessageToRelay::V1(MessageToRelayV1::OpenChannel { .. }) =>
+				T::WeightInfo::receive_open_channel(),
 			MessageToRelay::V1(MessageToRelayV1::ForceOpenChannel { .. }) =>
 				T::WeightInfo::receive_force_open_channel(),
+			MessageToRelay::V1(MessageToRelayV1::OpenSystemChannel { .. }) =>
+				T::WeightInfo::receive_open_system_channel(),
+			MessageToRelay::V1(MessageToRelayV1::OpenSystemPair { .. }) =>
+				T::WeightInfo::receive_open_system_pair(),
+			MessageToRelay::V1(MessageToRelayV1::CloseChannel { .. }) =>
+				T::WeightInfo::receive_close_channel(),
 			MessageToRelay::V1(MessageToRelayV1::ForceClean { .. }) =>
 				T::WeightInfo::receive_force_clean(),
 		})]
@@ -177,27 +155,12 @@ pub mod pallet {
 			T::ParaOrigin::ensure_origin_or_root(origin)?;
 
 			match message {
-				MessageToRelay::V1(MessageToRelayV1::InitOpenChannel {
+				MessageToRelay::V1(MessageToRelayV1::OpenChannel {
 					channel,
 					message_id,
 					max_capacity,
 					max_message_size,
-				}) => Self::on_init_open_channel(channel, message_id, max_capacity, max_message_size),
-				MessageToRelay::V1(MessageToRelayV1::AcceptOpenChannel { channel, message_id }) => {
-					Self::on_accept_open_channel(channel, message_id)
-				},
-				MessageToRelay::V1(MessageToRelayV1::CloseChannel {
-					channel,
-					message_id,
-					initiator,
-				}) => Self::on_close_channel(channel, message_id, initiator),
-				MessageToRelay::V1(MessageToRelayV1::CancelOpenRequest { channel, message_id }) => {
-					Self::on_cancel_open_request(channel, message_id)
-				},
-				MessageToRelay::V1(MessageToRelayV1::EstablishSystemChannel {
-					channel,
-					message_id,
-				}) => Self::on_establish_system_channel(channel, message_id),
+				}) => Self::on_open_channel(channel, message_id, max_capacity, max_message_size),
 				MessageToRelay::V1(MessageToRelayV1::ForceOpenChannel {
 					channel,
 					message_id,
@@ -206,6 +169,20 @@ pub mod pallet {
 				}) => {
 					Self::on_force_open_channel(channel, message_id, max_capacity, max_message_size)
 				},
+				MessageToRelay::V1(MessageToRelayV1::OpenSystemChannel { channel, message_id }) => {
+					Self::on_open_system_channel(channel, message_id)
+				},
+				MessageToRelay::V1(MessageToRelayV1::OpenSystemPair {
+					channel,
+					message_id,
+					max_capacity,
+					max_message_size,
+				}) => Self::on_open_system_pair(channel, message_id, max_capacity, max_message_size),
+				MessageToRelay::V1(MessageToRelayV1::CloseChannel {
+					channel,
+					message_id,
+					initiator,
+				}) => Self::on_close_channel(channel, message_id, initiator),
 				MessageToRelay::V1(MessageToRelayV1::ForceClean { para_id, message_id }) => {
 					Self::on_force_clean(para_id, message_id)
 				},
@@ -231,33 +208,13 @@ pub mod pallet {
 			}
 		}
 
-		fn on_init_open_channel(
+		fn on_open_channel(
 			channel: ChannelId,
 			message_id: u64,
 			max_capacity: u32,
 			max_message_size: u32,
 		) {
 			let _ = (channel, message_id, max_capacity, max_message_size);
-			todo!()
-		}
-
-		fn on_accept_open_channel(channel: ChannelId, message_id: u64) {
-			let _ = (channel, message_id);
-			todo!()
-		}
-
-		fn on_close_channel(channel: ChannelId, message_id: u64, initiator: ParaId) {
-			let _ = (channel, message_id, initiator);
-			todo!()
-		}
-
-		fn on_cancel_open_request(channel: ChannelId, message_id: u64) {
-			let _ = (channel, message_id);
-			todo!()
-		}
-
-		fn on_establish_system_channel(channel: ChannelId, message_id: u64) {
-			let _ = (channel, message_id);
 			todo!()
 		}
 
@@ -268,6 +225,26 @@ pub mod pallet {
 			max_message_size: u32,
 		) {
 			let _ = (channel, message_id, max_capacity, max_message_size);
+			todo!()
+		}
+
+		fn on_open_system_channel(channel: ChannelId, message_id: u64) {
+			let _ = (channel, message_id);
+			todo!()
+		}
+
+		fn on_open_system_pair(
+			channel: ChannelId,
+			message_id: u64,
+			max_capacity: u32,
+			max_message_size: u32,
+		) {
+			let _ = (channel, message_id, max_capacity, max_message_size);
+			todo!()
+		}
+
+		fn on_close_channel(channel: ChannelId, message_id: u64, initiator: ParaId) {
+			let _ = (channel, message_id, initiator);
 			todo!()
 		}
 

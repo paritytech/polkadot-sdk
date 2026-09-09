@@ -28,7 +28,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::traits::{Consideration, EnsureOrigin, Footprint};
+use frame_support::traits::{Consideration, Contains, EnsureOrigin, Footprint};
 use hrmp_primitives::{
 	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, Outcome, ParaId,
 };
@@ -73,15 +73,59 @@ pub enum RequestState<SenderTicket, RecipientTicket> {
 		/// The sender's held deposit.
 		sender_deposit: SenderTicket,
 	},
-	/// Both ends have agreed and the relay chain has been asked to open the channel.
+	/// The relay chain has been asked to open the channel.
 	Accepted {
 		/// The sender's held deposit.
 		sender_deposit: SenderTicket,
 		/// The recipient's held deposit.
 		recipient_deposit: RecipientTicket,
-		/// Whether this came from `force_open_hrmp_channel` rather than the recipient.
-		forced: bool,
+		/// Which call asked, so the answer can be reported under the right event.
+		kind: OpenKind,
 	},
+}
+
+/// Which call put a request into [`RequestState::Accepted`].
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+pub enum OpenKind {
+	/// `hrmp_accept_open_channel`.
+	Agreed,
+	/// `force_open_hrmp_channel`.
+	Forced,
+	/// `establish_system_channel`.
+	System,
+	/// `establish_channel_with_system`.
+	SystemPair,
+}
+
+/// A close the parachain has asked the relay chain to enact.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+pub struct CloseRequest {
+	/// Which end asked.
+	pub initiator: ParaId,
+	/// The id of the message that asked the relay chain.
+	pub message_id: u64,
 }
 
 /// A pending open request, with the sizes it asked for.
@@ -171,7 +215,12 @@ pub mod pallet {
 		type MaxOutboundChannels: Get<u32>;
 
 		/// The `(max_message_size, max_capacity)` used for channels involving a system chain.
+		///
+		/// Size first, as on the relay chain. Everything on the wire goes capacity first.
 		type DefaultChannelSizeAndCapacityWithSystem: Get<(u32, u32)>;
+
+		/// The paras a channel needs no deposit for, and the only ones a system channel may join.
+		type IsSystemPara: Contains<ParaId>;
 
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
@@ -200,6 +249,10 @@ pub mod pallet {
 	pub type Channels<T: Config> = StorageMap<_, Blake2_128Concat, ChannelId, ChannelInfoOf<T>>;
 
 	/// Senders that have a channel to a recipient, sorted.
+	/// Closes the relay chain has been asked to enact, by channel.
+	#[pallet::storage]
+	pub type CloseRequests<T: Config> = StorageMap<_, Blake2_128Concat, ChannelId, CloseRequest>;
+
 	#[pallet::storage]
 	pub type IngressIndex<T: Config> = StorageMap<
 		_,
@@ -280,7 +333,7 @@ pub mod pallet {
 			by_parachain: ParaId,
 		},
 		/// One end asked to close a channel.
-		ChannelClosePending {
+		ChannelClosedPending {
 			/// The channel.
 			channel: ChannelId,
 			/// The id of the message that asked the relay chain.
@@ -289,7 +342,7 @@ pub mod pallet {
 			by_parachain: ParaId,
 		},
 		/// The relay chain confirmed a channel is closed. Deposits are released.
-		ChannelClosed {
+		ChannelCloseDone {
 			/// The channel.
 			channel: ChannelId,
 			/// The id of the message this concludes.
@@ -410,41 +463,16 @@ pub mod pallet {
 			T::RelayOrigin::ensure_origin_or_root(origin)?;
 
 			match message {
-				MessageToPara::V1(MessageToParaV1::OpenResponse {
+				MessageToPara::V1(MessageToParaV1::OpenChannelResponse {
 					channel,
 					message_id,
 					outcome,
-				}) => Self::on_open_response(channel, message_id, outcome),
-				MessageToPara::V1(MessageToParaV1::AcceptResponse {
-					channel,
-					message_id,
-					outcome,
-				}) => Self::on_accept_response(channel, message_id, outcome),
+				}) => Self::on_open_channel_response(channel, message_id, outcome),
 				MessageToPara::V1(MessageToParaV1::CloseResponse {
 					channel,
 					message_id,
 					outcome,
 				}) => Self::on_close_response(channel, message_id, outcome),
-				MessageToPara::V1(MessageToParaV1::CancelResponse {
-					channel,
-					message_id,
-					outcome,
-				}) => Self::on_cancel_response(channel, message_id, outcome),
-				MessageToPara::V1(MessageToParaV1::SystemChannelResponse {
-					channel,
-					message_id,
-					outcome,
-				}) => Self::on_system_channel_response(channel, message_id, outcome),
-				MessageToPara::V1(MessageToParaV1::ForceOpenResponse {
-					channel,
-					message_id,
-					outcome,
-				}) => Self::on_force_open_response(channel, message_id, outcome),
-				MessageToPara::V1(MessageToParaV1::ForceCleanResponse {
-					para_id,
-					message_id,
-					outcome,
-				}) => Self::on_force_clean_response(para_id, message_id, outcome),
 			}
 		}
 
@@ -584,27 +612,7 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	fn on_open_response(channel: ChannelId, message_id: u64, outcome: Outcome) -> DispatchResult {
-		let _ = (channel, message_id, outcome);
-		todo!()
-	}
-
-	fn on_accept_response(channel: ChannelId, message_id: u64, outcome: Outcome) -> DispatchResult {
-		let _ = (channel, message_id, outcome);
-		todo!()
-	}
-
-	fn on_close_response(channel: ChannelId, message_id: u64, outcome: Outcome) -> DispatchResult {
-		let _ = (channel, message_id, outcome);
-		todo!()
-	}
-
-	fn on_cancel_response(channel: ChannelId, message_id: u64, outcome: Outcome) -> DispatchResult {
-		let _ = (channel, message_id, outcome);
-		todo!()
-	}
-
-	fn on_system_channel_response(
+	fn on_open_channel_response(
 		channel: ChannelId,
 		message_id: u64,
 		outcome: Result<(u32, u32), FailureReason>,
@@ -613,21 +621,8 @@ impl<T: Config> Pallet<T> {
 		todo!()
 	}
 
-	fn on_force_open_response(
-		channel: ChannelId,
-		message_id: u64,
-		outcome: Outcome,
-	) -> DispatchResult {
+	fn on_close_response(channel: ChannelId, message_id: u64, outcome: Outcome) -> DispatchResult {
 		let _ = (channel, message_id, outcome);
-		todo!()
-	}
-
-	fn on_force_clean_response(
-		para_id: ParaId,
-		message_id: u64,
-		outcome: Outcome,
-	) -> DispatchResult {
-		let _ = (para_id, message_id, outcome);
 		todo!()
 	}
 }

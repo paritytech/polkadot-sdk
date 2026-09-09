@@ -59,12 +59,18 @@ impl ChannelId {
 	pub fn is_participant(&self, para_id: ParaId) -> bool {
 		self.sender == para_id || self.recipient == para_id
 	}
+
+	pub fn reversed(&self) -> Self {
+		Self { sender: self.recipient, recipient: self.sender }
+	}
 }
 
 /// HRMP control-plane messages sent to the relay chain.
 ///
 /// The variant's `#[codec(index)]` is the on-wire version tag.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub enum MessageToRelay {
 	/// Version 1 of the HRMP control-plane messages to the relay chain.
 	#[codec(index = 0)]
@@ -75,11 +81,13 @@ pub enum MessageToRelay {
 ///
 /// Every variant carries `message_id`, the parachain's id for the request, echoed back in the
 /// response so the two chains' events tie together.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub enum MessageToRelayV1 {
-	/// Record an open-channel request. The sender's deposit is already held on the parachain.
+	/// Open a channel both ends have agreed to. Their deposits are already held on the parachain.
 	#[codec(index = 0)]
-	InitOpenChannel {
+	OpenChannel {
 		/// Which channel is being opened.
 		channel: ChannelId,
 		/// The parachain's id for this message.
@@ -89,43 +97,8 @@ pub enum MessageToRelayV1 {
 		/// The largest message the channel will carry.
 		max_message_size: u32,
 	},
-	/// Confirm an open-channel request on the recipient's behalf.
+	/// Open a channel the recipient never agreed to.
 	#[codec(index = 1)]
-	AcceptOpenChannel {
-		/// Which channel is being accepted.
-		channel: ChannelId,
-		/// The parachain's id for this message.
-		message_id: u64,
-	},
-	/// Close an open channel.
-	#[codec(index = 2)]
-	CloseChannel {
-		/// Which channel is being closed.
-		channel: ChannelId,
-		/// The parachain's id for this message.
-		message_id: u64,
-		/// Which end asked. Either may close.
-		initiator: ParaId,
-	},
-	/// Drop an open-channel request the recipient never confirmed.
-	#[codec(index = 3)]
-	CancelOpenRequest {
-		/// Which request is being withdrawn.
-		channel: ChannelId,
-		/// The parachain's id for this message.
-		message_id: u64,
-	},
-	/// Open a deposit-free channel in both directions between two paras, one of them a system
-	/// chain.
-	#[codec(index = 4)]
-	EstablishSystemChannel {
-		/// One end of the pair. Both directions are opened.
-		channel: ChannelId,
-		/// The parachain's id for this message.
-		message_id: u64,
-	},
-	/// Open a channel without the recipient's consent.
-	#[codec(index = 5)]
 	ForceOpenChannel {
 		/// Which channel is being opened.
 		channel: ChannelId,
@@ -136,8 +109,38 @@ pub enum MessageToRelayV1 {
 		/// The largest message the channel will carry.
 		max_message_size: u32,
 	},
-	/// Drop every channel and request belonging to a para.
-	#[codec(index = 6)]
+	/// Open one deposit-free direction between two system chains, at the relay's configured sizes.
+	#[codec(index = 2)]
+	OpenSystemChannel {
+		/// Which direction is being opened.
+		channel: ChannelId,
+		/// The parachain's id for this message.
+		message_id: u64,
+	},
+	/// Open both deposit-free directions between a para and a system chain.
+	#[codec(index = 3)]
+	OpenSystemPair {
+		/// One direction of the pair; the other is its reverse.
+		channel: ChannelId,
+		/// The parachain's id for this message.
+		message_id: u64,
+		/// How many messages each direction may hold at once.
+		max_capacity: u32,
+		/// The largest message each direction will carry.
+		max_message_size: u32,
+	},
+	/// Close an open channel. Both deposits are already released on the parachain.
+	#[codec(index = 4)]
+	CloseChannel {
+		/// Which channel is being closed.
+		channel: ChannelId,
+		/// The parachain's id for this message.
+		message_id: u64,
+		/// Which end asked. Either may close.
+		initiator: ParaId,
+	},
+	/// Drop every channel belonging to a para.
+	#[codec(index = 5)]
 	ForceClean {
 		/// The para whose channels are being dropped.
 		para_id: ParaId,
@@ -166,74 +169,24 @@ pub enum MessageToPara {
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub enum MessageToParaV1 {
-	/// Answer an [`MessageToRelayV1::InitOpenChannel`].
+	/// Answer any of the four open requests; the parachain knows which it sent from its own state.
 	#[codec(index = 0)]
-	OpenResponse {
-		/// The channel the report is about.
+	OpenChannelResponse {
+		/// The channel the report is about. For a pair, both directions share one answer.
 		channel: ChannelId,
 		/// The id of the request this answers.
 		message_id: u64,
-		/// Whether the request was recorded.
-		outcome: Outcome,
+		/// The `(max_capacity, max_message_size)` opened, or why it was refused.
+		outcome: Result<(u32, u32), FailureReason>,
 	},
-	/// Answer an [`MessageToRelayV1::AcceptOpenChannel`].
+	/// Answer a [`MessageToRelayV1::CloseChannel`].
 	#[codec(index = 1)]
-	AcceptResponse {
-		/// The channel the report is about.
-		channel: ChannelId,
-		/// The id of the request this answers.
-		message_id: u64,
-		/// Whether the acceptance was recorded.
-		outcome: Outcome,
-	},
-	/// Answer a [`MessageToRelayV1::CloseChannel`]. `Ok(())` releases both deposits.
-	#[codec(index = 2)]
 	CloseResponse {
 		/// The channel the report is about.
 		channel: ChannelId,
 		/// The id of the request this answers.
 		message_id: u64,
 		/// Whether the channel was closed.
-		outcome: Outcome,
-	},
-	/// Answer a [`MessageToRelayV1::CancelOpenRequest`]. `Ok(())` releases the sender's deposit.
-	#[codec(index = 3)]
-	CancelResponse {
-		/// The channel the report is about.
-		channel: ChannelId,
-		/// The id of the request this answers.
-		message_id: u64,
-		/// Whether the request was dropped.
-		outcome: Outcome,
-	},
-	/// Answer an [`MessageToRelayV1::EstablishSystemChannel`].
-	#[codec(index = 4)]
-	SystemChannelResponse {
-		/// The channel the report is about. Both directions share one answer.
-		channel: ChannelId,
-		/// The id of the request this answers.
-		message_id: u64,
-		/// Whether both directions were opened, and at what sizes.
-		outcome: Result<(u32, u32), FailureReason>,
-	},
-	/// Answer a [`MessageToRelayV1::ForceOpenChannel`].
-	#[codec(index = 5)]
-	ForceOpenResponse {
-		/// The channel the report is about.
-		channel: ChannelId,
-		/// The id of the request this answers.
-		message_id: u64,
-		/// Whether the channel was opened.
-		outcome: Outcome,
-	},
-	/// Answer a [`MessageToRelayV1::ForceClean`].
-	#[codec(index = 6)]
-	ForceCleanResponse {
-		/// The para the report is about.
-		para_id: ParaId,
-		/// The id of the request this answers.
-		message_id: u64,
-		/// Whether the para's channels were dropped.
 		outcome: Outcome,
 	},
 }
@@ -262,10 +215,6 @@ pub enum FailureReason {
 	#[codec(index = 3)]
 	LimitExceeded,
 	/// There is no request or channel here to act on.
-	///
-	/// On a close or cancel this is the end state the request asks for, so the parachain must
-	/// still settle and release deposits on it. It is also the only signal a parachain gets that
-	/// a counterparty was offboarded.
 	#[codec(index = 4)]
 	NotFound,
 	/// Refused for a reason this protocol does not name.
@@ -286,42 +235,32 @@ impl From<sp_runtime::DispatchError> for FailureReason {
 /// Implemented by whichever pallet owns HRMP, which on a relay chain is
 /// `polkadot-runtime-parachains`' `hrmp`. Lives here so neither side of the protocol depends on
 /// the other.
-///
-/// Every method is deposit-free: the parachain holds the money now, so the relay chain must
-/// record channels and requests with a zero deposit.
+
 ///
 /// Implementations are not required to be atomic on failure, so the caller runs every method
 /// inside its own storage layer.
 pub trait HrmpRegistry {
-	/// Record an open-channel request.
-	fn init_open_channel(
+	/// Open a channel, forced or agreed. Both cases are the same here.
+	fn open_channel(
 		channel: ChannelId,
 		max_capacity: u32,
 		max_message_size: u32,
 	) -> Result<(), FailureReason>;
 
-	/// Confirm an open-channel request on the recipient's behalf.
-	fn accept_open_channel(channel: ChannelId) -> Result<(), FailureReason>;
+	/// Open one direction between two system chains, returning the sizes it used.
+	fn open_system_channel(channel: ChannelId) -> Result<(u32, u32), FailureReason>;
+
+	/// Open both `channel` and its reverse, rolling both back if either is refused.
+	fn open_system_pair(
+		channel: ChannelId,
+		max_capacity: u32,
+		max_message_size: u32,
+	) -> Result<(), FailureReason>;
 
 	/// Close an open channel. `initiator` must be one of its two ends.
 	fn close_channel(channel: ChannelId, initiator: ParaId) -> Result<(), FailureReason>;
 
-	/// Drop an open-channel request that was never confirmed.
-	fn cancel_open_request(channel: ChannelId) -> Result<(), FailureReason>;
-
-	/// Open a channel in both directions, at the sizes configured for system chains.
-	///
-	/// Returns the `(max_capacity, max_message_size)` it used.
-	fn establish_system_channel(channel: ChannelId) -> Result<(u32, u32), FailureReason>;
-
-	/// Open a channel without the recipient's consent.
-	fn force_open_channel(
-		channel: ChannelId,
-		max_capacity: u32,
-		max_message_size: u32,
-	) -> Result<(), FailureReason>;
-
-	/// Drop every channel and request belonging to `para_id`.
+	/// Drop every channel belonging to `para_id`.
 	fn force_clean(para_id: ParaId) -> Result<(), FailureReason>;
 
 	/// Whether there is a channel or a pending request for `channel`.

@@ -20,7 +20,6 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 hrmp-primitives = { workspace = true }
-log = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 sp-runtime = { workspace = true }
 
@@ -36,7 +35,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"hrmp-primitives/std",
-	"log/std",
 	"pallet-balances/std",
 	"scale-info/std",
 	"sp-runtime/std",

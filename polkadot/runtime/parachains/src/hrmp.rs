@@ -1914,10 +1914,19 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+/// Not a `From` impl: neither type is local to this crate.
+#[allow(dead_code)]
+fn to_hrmp_channel_id(channel: ChannelId) -> HrmpChannelId {
+	HrmpChannelId {
+		sender: ParaId::from(channel.sender),
+		recipient: ParaId::from(channel.recipient),
+	}
+}
+
 /// Drives this pallet from `pallet-hrmp-relay`, whose caller is the chain that now holds the
 /// channel deposits. Every method is therefore deposit-free here.
 impl<T: Config> HrmpRegistry for Pallet<T> {
-	fn init_open_channel(
+	fn open_channel(
 		channel: ChannelId,
 		max_capacity: u32,
 		max_message_size: u32,
@@ -1926,32 +1935,22 @@ impl<T: Config> HrmpRegistry for Pallet<T> {
 		todo!()
 	}
 
-	fn accept_open_channel(channel: ChannelId) -> Result<(), FailureReason> {
+	fn open_system_channel(channel: ChannelId) -> Result<(u32, u32), FailureReason> {
 		let _ = channel;
+		todo!()
+	}
+
+	fn open_system_pair(
+		channel: ChannelId,
+		max_capacity: u32,
+		max_message_size: u32,
+	) -> Result<(), FailureReason> {
+		let _ = (channel, max_capacity, max_message_size);
 		todo!()
 	}
 
 	fn close_channel(channel: ChannelId, initiator: HrmpParaId) -> Result<(), FailureReason> {
 		let _ = (channel, initiator);
-		todo!()
-	}
-
-	fn cancel_open_request(channel: ChannelId) -> Result<(), FailureReason> {
-		let _ = channel;
-		todo!()
-	}
-
-	fn establish_system_channel(channel: ChannelId) -> Result<(u32, u32), FailureReason> {
-		let _ = channel;
-		todo!()
-	}
-
-	fn force_open_channel(
-		channel: ChannelId,
-		max_capacity: u32,
-		max_message_size: u32,
-	) -> Result<(), FailureReason> {
-		let _ = (channel, max_capacity, max_message_size);
 		todo!()
 	}
 

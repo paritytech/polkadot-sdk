@@ -58,7 +58,7 @@ pub type Balance = u128;
 pub const PER_MESSAGE: Balance = 1_000;
 
 /// Sizes used for channels involving a system chain, as `(max_message_size, max_capacity)`.
-pub const SYSTEM_CHANNEL_SIZES: (u32, u32) = (MAX_MESSAGE_SIZE, MAX_CAPACITY);
+pub const SYSTEM_CHANNEL_SIZE_AND_CAPACITY: (u32, u32) = (MAX_MESSAGE_SIZE, MAX_CAPACITY);
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
@@ -202,7 +202,7 @@ parameter_types! {
 		RuntimeHoldReason::Hrmp(pallet_hrmp_para::HoldReason::SenderDeposit);
 	pub const RecipientHoldReason: RuntimeHoldReason =
 		RuntimeHoldReason::Hrmp(pallet_hrmp_para::HoldReason::RecipientDeposit);
-	pub const SystemChannelSizes: (u32, u32) = SYSTEM_CHANNEL_SIZES;
+	pub const SystemChannelSizes: (u32, u32) = SYSTEM_CHANNEL_SIZE_AND_CAPACITY;
 }
 
 impl pallet_hrmp_para::Config for Runtime {
@@ -230,6 +230,8 @@ impl pallet_hrmp_para::Config for Runtime {
 	type MaxInboundChannels = ConstU32<MAX_INBOUND_CHANNELS>;
 	type MaxOutboundChannels = ConstU32<MAX_OUTBOUND_CHANNELS>;
 	type DefaultChannelSizeAndCapacityWithSystem = SystemChannelSizes;
+	// No system para in the harness, so every channel takes a deposit.
+	type IsSystemPara = Nothing;
 	type WeightInfo = ();
 }
 

@@ -30,7 +30,7 @@ const CHANNEL: ChannelId = ChannelId { sender: 2000, recipient: 2001 };
 #[test]
 fn receive_is_only_for_the_channel_managing_parachain() {
 	new_test_ext().execute_with(|| {
-		let request = MessageToRelay::V1(MessageToRelayV1::InitOpenChannel {
+		let request = MessageToRelay::V1(MessageToRelayV1::OpenChannel {
 			channel: CHANNEL,
 			message_id: 0,
 			max_capacity: 8,

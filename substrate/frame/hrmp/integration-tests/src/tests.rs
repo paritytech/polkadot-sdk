@@ -33,7 +33,7 @@ fn only_the_channel_managing_parachain_may_drive_hrmp() {
 	MockNet::reset();
 
 	Relay::execute_with(|| {
-		let message = MessageToRelay::V1(MessageToRelayV1::InitOpenChannel {
+		let message = MessageToRelay::V1(MessageToRelayV1::OpenChannel {
 			channel: CHANNEL,
 			message_id: 0,
 			max_capacity: crate::MAX_CAPACITY,

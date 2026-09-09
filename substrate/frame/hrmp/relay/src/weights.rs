@@ -26,34 +26,30 @@ use core::marker::PhantomData;
 use frame_support::weights::Weight;
 
 pub trait WeightInfo {
-	fn receive_init_open_channel() -> Weight;
-	fn receive_accept_open_channel() -> Weight;
-	fn receive_close_channel() -> Weight;
-	fn receive_cancel_open_request() -> Weight;
-	fn receive_establish_system_channel() -> Weight;
+	fn receive_open_channel() -> Weight;
 	fn receive_force_open_channel() -> Weight;
+	fn receive_open_system_channel() -> Weight;
+	fn receive_open_system_pair() -> Weight;
+	fn receive_close_channel() -> Weight;
 	fn receive_force_clean() -> Weight;
 }
 
 pub struct SubstrateWeight<T>(PhantomData<T>);
 
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	fn receive_init_open_channel() -> Weight {
-		Weight::zero()
-	}
-	fn receive_accept_open_channel() -> Weight {
-		Weight::zero()
-	}
-	fn receive_close_channel() -> Weight {
-		Weight::zero()
-	}
-	fn receive_cancel_open_request() -> Weight {
-		Weight::zero()
-	}
-	fn receive_establish_system_channel() -> Weight {
+	fn receive_open_channel() -> Weight {
 		Weight::zero()
 	}
 	fn receive_force_open_channel() -> Weight {
+		Weight::zero()
+	}
+	fn receive_open_system_channel() -> Weight {
+		Weight::zero()
+	}
+	fn receive_open_system_pair() -> Weight {
+		Weight::zero()
+	}
+	fn receive_close_channel() -> Weight {
 		Weight::zero()
 	}
 	fn receive_force_clean() -> Weight {
@@ -63,22 +59,19 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
-	fn receive_init_open_channel() -> Weight {
-		Weight::zero()
-	}
-	fn receive_accept_open_channel() -> Weight {
-		Weight::zero()
-	}
-	fn receive_close_channel() -> Weight {
-		Weight::zero()
-	}
-	fn receive_cancel_open_request() -> Weight {
-		Weight::zero()
-	}
-	fn receive_establish_system_channel() -> Weight {
+	fn receive_open_channel() -> Weight {
 		Weight::zero()
 	}
 	fn receive_force_open_channel() -> Weight {
+		Weight::zero()
+	}
+	fn receive_open_system_channel() -> Weight {
+		Weight::zero()
+	}
+	fn receive_open_system_pair() -> Weight {
+		Weight::zero()
+	}
+	fn receive_close_channel() -> Weight {
 		Weight::zero()
 	}
 	fn receive_force_clean() -> Weight {
