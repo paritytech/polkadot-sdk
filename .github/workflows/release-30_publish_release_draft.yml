@@ -223,9 +223,12 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+<<<<<<< HEAD
       - name: Download artifacts
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
 
+=======
+>>>>>>> 868d28e8 ([Release|CI/CD] Fix runtimes publishing in the Create Draft flow (#13094))
       - name: Generate content write token for the release automation
         id: generate_write_token
         uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
@@ -235,6 +238,8 @@ jobs:
             owner: paritytech
             repositories: polkadot-sdk
 
+      # The build run's per-runtime artifacts carry both the compressed wasm and
+      # the srtool digest, so this is the only download this job needs.
       - name: Download runtimes
         env:
           GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
@@ -247,7 +252,7 @@ jobs:
       - name: Get runtime info
         env:
           CHAIN: ${{ matrix.chain }}
-          JSON: ${{ github.workspace}}/release-notes-context/runtimes/${{ matrix.chain }}-runtime/${{ matrix.chain }}-srtool-digest.json
+          JSON: ${{ github.workspace }}/runtimes/${{ matrix.chain }}-runtime/${{ matrix.chain }}-srtool-digest.json
         run: |
           cd "${GITHUB_WORKSPACE}/runtimes"
           >>$GITHUB_ENV echo ASSET=$(find "${CHAIN}-runtime" -name '*.compact.compressed.wasm')
