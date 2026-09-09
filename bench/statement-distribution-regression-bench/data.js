@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788991099411,
+  "lastUpdate": 1788997371410,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3ecda3ceccd7a43f38d1553d3d6c5566c692a4b1",
-          "message": "slot_timer: Downgrade spammy log to debug (#10974)\n\nThe log is quite spammy with 12core setup since the last ~2 blocks will\nbe skipped in the last second of block production.\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-06T17:42:33Z",
-          "tree_id": "b09c05869ff4bbe87df81d0b77ba581b09c39ff0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3ecda3ceccd7a43f38d1553d3d6c5566c692a4b1"
-        },
-        "date": 1770405312133,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.02599999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038402553384,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06472211745999991,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08756840101599997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9c4d3c4871f8c04b00c80451e5e03201724ab0ab",
+          "message": "statement-store: Source the bloom false-positive rate and seed from CLI (#13049)\n\n## Description\n\nCloses #12555.\n\nAdds two hidden CLI flags to set the parameters of the topic-affinity\nbloom filter: `--statement-bloom-false-positive-rate` and\n`--statement-bloom-seed`. Before, the rate was hardcoded to 0.01 and the\nseed was always random. The default rate is now 0.001; the seed still\ndefaults to a random value per node.\n\n## Integration\n\nNew flags on the substrate node and omni-node, relevant only with\n`--enable-statement-store` on the v2 DHT path.\n`sc_statement_store::Config` gets two new fields:\n\n```diff\n sc_statement_store::Config {\n     ...\n     affinity_topics,\n+    bloom_false_pos_rate: sc_statement_store::DEFAULT_BLOOM_FALSE_POS_RATE,\n+    bloom_seed: None,\n     replication_factor,\n     ...\n }\n```\n\n`StatementHandlerPrototype::build` takes the two values as new\narguments. `bloom_seed: None` means a random seed per node, as before.\n\n## Review Notes\n\n- Values flow CLI → `sc_statement_store::Config` → `build()` →\n`ExplicitAffinity`, same as `affinity_topics`.\n- `Config::validate` rejects a rate below `DEFAULT_BLOOM_FALSE_POS_RATE`\n(0.001) or at 1 and above. The default doubles as the floor: lower rates\ninflate the filter's size and hash count toward the wire limits peers\nenforce at decode, so a too-low rate would make every peer silently\nreject the advertised filter.\n- Resolves the two TODOs in `affinity.rs` and `explicit_affinity.rs`.\n- Key files:\n`substrate/client/network/statement/src/{affinity,config,lib}.rs`,\n`v2dht/explicit_affinity.rs`,\n`substrate/client/statement-store/src/lib.rs`, both `cli.rs` files.\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nSigned-off-by: Tomasz Bartos <tomasz.bartos@iohk.io>\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>\nCo-authored-by: dharjeezy <dharjeezy@gmail.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Michal Kucharczyk <1728078+michalkucharczyk@users.noreply.github.com>\nCo-authored-by: Nasihudeen Jimoh <nasihudeen04@gmail.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>\nCo-authored-by: eskimor <jfanatiker@gmx.at>\nCo-authored-by: Davide Galassi <davxy@datawok.net>\nCo-authored-by: drskalman <35698397+drskalman@users.noreply.github.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: Egor_P <egor@parity.io>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>\nCo-authored-by: Ludovic Domingues <ludovic.domingues96@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>\nCo-authored-by: Klapeyron <11329616+Klapeyron@users.noreply.github.com>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Tsvetomir Dimitrov <tsvetomir@parity.io>\nCo-authored-by: Ross Bulat <ross@jkrb.io>\nCo-authored-by: Milos Kriz <82968568+miloskriz@users.noreply.github.com>\nCo-authored-by: eskimor <robert@gonimo.com>\nCo-authored-by: eskimor <eskimor@noreply.com>\nCo-authored-by: Marios <marios@parity.io>\nCo-authored-by: Alin Dima <alin@parity.io>\nCo-authored-by: Rodrigo Quelhas <22591718+RomarQ@users.noreply.github.com>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>\nCo-authored-by: DenzelPenzel <15388928+DenzelPenzel@users.noreply.github.com>\nCo-authored-by: eskimor <1527017+eskimor@users.noreply.github.com>\nCo-authored-by: Andrei <54316454+sandreim@users.noreply.github.com>\nCo-authored-by: Javier Viola <javier@parity.io>\nCo-authored-by: Luka Ciric <luka.ciric2106@gmail.com>\nCo-authored-by: Ankan <ankan.anurag@gmail.com>\nCo-authored-by: Dmitry Markin <dmitry@markin.tech>\nCo-authored-by: Lukasz Rubaszewski <117115317+lrubasze@users.noreply.github.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: Omar <OmarAbdulla7@hotmail.com>\nCo-authored-by: Kirill <pisarevkir@gmail.com>\nCo-authored-by: 0xRVE <robertvaneerdewijk@gmail.com>\nCo-authored-by: Alexandru Vasile <60601340+lexnv@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: gab <79002163+gab8i@users.noreply.github.com>\nCo-authored-by: s0me0ne-unkn0wn <48632512+s0me0ne-unkn0wn@users.noreply.github.com>\nCo-authored-by: ron <yrong1997@gmail.com>\nCo-authored-by: Marian Radu <marian@parity.io>\nCo-authored-by: Nathaniel Bajo <73991674+Nathy-bajo@users.noreply.github.com>\nCo-authored-by: mertwole <mertwole@gmail.com>\nCo-authored-by: Andrei Trandafir <142614787+andreitrand@users.noreply.github.com>\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>\nCo-authored-by: jessechejieh <dev@jessechejieh.com>",
+          "timestamp": "2026-09-09T20:56:00Z",
+          "tree_id": "614c597c165b5c6cc2ae970840316e09bd24152d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9c4d3c4871f8c04b00c80451e5e03201724ab0ab"
+        },
+        "date": 1788997330643,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.082,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038373086516,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08345481773999992,
             "unit": "seconds"
           }
         ]
