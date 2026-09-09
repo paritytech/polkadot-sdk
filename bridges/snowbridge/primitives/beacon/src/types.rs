@@ -388,8 +388,10 @@ pub struct CompactBeaconState {
 )]
 #[codec(mel_bound())]
 pub enum VersionedExecutionPayloadHeader {
-	Capella(ExecutionPayloadHeader),
+	// Indices are pinned: Capella was variant 0 and removing it must not renumber the rest.
+	#[codec(index = 1)]
 	Deneb(deneb::ExecutionPayloadHeader),
+	#[codec(index = 2)]
 	Gloas(BoundedVec<u8, ConstU32<MAX_EXECUTION_HEADER_RLP_SIZE>>),
 }
 
@@ -434,7 +436,6 @@ impl VersionedExecutionPayloadHeader {
 	/// Which commitment scheme this proof declares.
 	pub fn scheme(&self) -> CommitmentScheme {
 		match self {
-			VersionedExecutionPayloadHeader::Capella(_) |
 			VersionedExecutionPayloadHeader::Deneb(_) => CommitmentScheme::PayloadHeaderRoot,
 			VersionedExecutionPayloadHeader::Gloas(_) => CommitmentScheme::BlockHash,
 		}
@@ -443,13 +444,6 @@ impl VersionedExecutionPayloadHeader {
 	/// Build the commitment the execution branch must prove.
 	pub fn commitment(&self) -> Result<ExecutionCommitment, CommitmentError> {
 		Ok(match self {
-			VersionedExecutionPayloadHeader::Capella(header) => ExecutionCommitment {
-				leaf: hash_tree_root::<SSZExecutionPayloadHeader>(
-					header.clone().try_into().map_err(|_| CommitmentError::Merkleization)?,
-				)
-				.map_err(|_| CommitmentError::Merkleization)?,
-				receipts_root: header.receipts_root,
-			},
 			VersionedExecutionPayloadHeader::Deneb(header) => ExecutionCommitment {
 				leaf: hash_tree_root::<crate::ssz::deneb::SSZExecutionPayloadHeader>(
 					header.clone().try_into().map_err(|_| CommitmentError::Merkleization)?,
@@ -970,5 +964,14 @@ mod gloas_execution_header_tests {
 			receipts_root_from_rlp(&rlp_list_raw(&payload)),
 			Some(H256::from(RECEIPTS_ROOT))
 		);
+	}
+
+	#[test]
+	fn scale_indices_are_pinned() {
+		use codec::Encode;
+		let deneb = VersionedExecutionPayloadHeader::Deneb(Default::default());
+		let gloas = VersionedExecutionPayloadHeader::Gloas(Default::default());
+		assert_eq!(deneb.encode()[0], 1, "Deneb must stay at SCALE index 1");
+		assert_eq!(gloas.encode()[0], 2, "Gloas must stay at SCALE index 2");
 	}
 }
