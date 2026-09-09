@@ -22,7 +22,7 @@
 
 use crate::{mock::*, Channels, Requests};
 use frame_support::assert_noop;
-use hrmp_primitives::{ChannelId, MessageToPara, MessageToParaV1};
+use hrmp_primitives::{ChannelId, MessageToPara, MessageToParaV1, ParaRequest, ParaRequestV1};
 use sp_runtime::DispatchError;
 
 const CHANNEL: ChannelId = ChannelId { sender: 2000, recipient: 2001 };
@@ -51,5 +51,21 @@ fn receive_is_only_for_the_relay_chain() {
 			DispatchError::BadOrigin
 		);
 		assert_noop!(Hrmp::receive(para_origin(CHANNEL.sender), report), DispatchError::BadOrigin);
+	});
+}
+
+#[test]
+fn receive_request_is_only_for_the_relay_chain() {
+	new_test_ext().execute_with(|| {
+		let request = ParaRequest::V1(ParaRequestV1::CloseChannel { channel: CHANNEL });
+
+		assert_noop!(
+			Hrmp::receive_request(RuntimeOrigin::signed(ALICE), CHANNEL.sender, request.clone()),
+			DispatchError::BadOrigin
+		);
+		assert_noop!(
+			Hrmp::receive_request(para_origin(CHANNEL.sender), CHANNEL.sender, request),
+			DispatchError::BadOrigin
+		);
 	});
 }

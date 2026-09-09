@@ -222,7 +222,6 @@ impl pallet_hrmp_para::Config for Runtime {
 	// The relay chain reports with `OriginKind::Superuser`, which `ParentAsSuperuser` turns into
 	// `Root`. Nothing else on this chain can produce a `Root` origin in these tests.
 	type RelayOrigin = EnsureRoot<AccountId>;
-	type ParachainOrigin = frame_system::EnsureNever<HrmpParaId>;
 	type ChannelManager = EnsureRoot<AccountId>;
 	type SovereignAccountOf = SovereignAccountOf;
 	type MaxCapacity = ConstU32<MAX_CAPACITY>;

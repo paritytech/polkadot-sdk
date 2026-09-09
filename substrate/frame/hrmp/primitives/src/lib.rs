@@ -20,7 +20,8 @@
 //! Types shared by the parachain pallet (`pallet-hrmp-para`) and relay-chain pallet
 //! (`pallet-hrmp-relay`). This crate is deliberately free of any FRAME, XCM, or network-specific
 //! dependency, so a single version of the wire types serves Westend, Kusama and Polkadot, and so
-//! both pallets can depend on it without forming a dependency cycle.
+//! both pallets can depend on it without forming a dependency cycle. Parachains driving their
+//! own channels depend on it too, for [`ParaRequest`].
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -63,6 +64,69 @@ impl ChannelId {
 	pub fn reversed(&self) -> Self {
 		Self { sender: self.recipient, recipient: self.sender }
 	}
+}
+
+/// A parachain's own HRMP request, forwarded by the relay chain to the parachain that runs
+/// `pallet-hrmp-para`.
+///
+/// The route a para uses when it cannot reach the control-plane parachain itself, which is every
+/// para that has no channel to it yet. The asking para is not in the payload: the relay chain
+/// authenticated it from the origin and passes it alongside.
+///
+/// The variant's `#[codec(index)]` is the on-wire version tag.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+)]
+pub enum ParaRequest {
+	/// Version 1 of the forwarded parachain requests.
+	#[codec(index = 0)]
+	V1(ParaRequestV1),
+}
+
+/// Version 1 payloads for [`ParaRequest`].
+///
+/// One variant per call a para may make on its own behalf, carrying what the matching
+/// `pallet-hrmp-para` extrinsic takes.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+)]
+pub enum ParaRequestV1 {
+	/// Open a channel from the asking para to `recipient`.
+	#[codec(index = 0)]
+	InitOpenChannel {
+		/// The other end of the channel.
+		recipient: ParaId,
+		/// How many messages the channel may hold at once.
+		proposed_max_capacity: u32,
+		/// The largest message the channel will carry.
+		proposed_max_message_size: u32,
+	},
+	/// Accept a channel `sender` asked to open to the asking para.
+	#[codec(index = 1)]
+	AcceptOpenChannel {
+		/// The para that asked.
+		sender: ParaId,
+	},
+	/// Close a channel the asking para is one end of.
+	#[codec(index = 2)]
+	CloseChannel {
+		/// The channel to close.
+		channel: ChannelId,
+	},
+	/// Withdraw an open request the recipient has not accepted.
+	#[codec(index = 3)]
+	CancelOpenRequest {
+		/// The channel the request is for.
+		channel: ChannelId,
+		/// The asking para's count of open requests, checked against storage.
+		open_requests: u32,
+	},
+	/// Open both deposit-free directions between the asking para and a system chain.
+	#[codec(index = 4)]
+	EstablishChannelWithSystem {
+		/// The system chain to open with.
+		target_system_chain: ParaId,
+	},
 }
 
 /// HRMP control-plane messages sent to the relay chain.
@@ -236,7 +300,6 @@ impl From<sp_runtime::DispatchError> for FailureReason {
 /// `polkadot-runtime-parachains`' `hrmp`. Lives here so neither side of the protocol depends on
 /// the other.
 
-///
 /// Implementations are not required to be atomic on failure, so the caller runs every method
 /// inside its own storage layer.
 pub trait HrmpRegistry {

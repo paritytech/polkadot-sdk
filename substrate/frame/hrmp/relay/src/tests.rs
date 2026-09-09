@@ -20,9 +20,11 @@
 //! One test per handler lands with the handler it covers. What is here is what can be asserted
 //! while the bodies are `todo!()`.
 
-use crate::mock::*;
-use frame_support::assert_noop;
-use hrmp_primitives::{ChannelId, HrmpRegistry, MessageToRelay, MessageToRelayV1};
+use crate::{mock::*, Error, Event};
+use frame_support::{assert_noop, assert_ok};
+use hrmp_primitives::{
+	ChannelId, HrmpRegistry, MessageToRelay, MessageToRelayV1, ParaRequest, ParaRequestV1,
+};
 use sp_runtime::DispatchError;
 
 const CHANNEL: ChannelId = ChannelId { sender: 2000, recipient: 2001 };
@@ -44,5 +46,48 @@ fn receive_is_only_for_the_channel_managing_parachain() {
 		assert!(!MockRegistry::exists(CHANNEL));
 		assert!(take_sent().is_empty());
 		assert!(hrmp_events().is_empty());
+	});
+}
+
+#[test]
+fn relay_request_forwards_the_asking_paras_id() {
+	new_test_ext().execute_with(|| {
+		let request = ParaRequest::V1(ParaRequestV1::CloseChannel { channel: CHANNEL });
+
+		assert_ok!(Hrmp::relay_request(para_origin(CHANNEL.sender), request.clone()));
+
+		assert_eq!(take_forwarded(), vec![(CHANNEL.sender, request)]);
+		assert_eq!(hrmp_events(), vec![Event::RequestForwarded { para_id: CHANNEL.sender }]);
+	});
+}
+
+#[test]
+fn relay_request_is_only_for_a_parachain() {
+	new_test_ext().execute_with(|| {
+		let request = ParaRequest::V1(ParaRequestV1::CloseChannel { channel: CHANNEL });
+
+		assert_noop!(
+			Hrmp::relay_request(RuntimeOrigin::signed(ALICE), request.clone()),
+			DispatchError::BadOrigin
+		);
+		assert_noop!(Hrmp::relay_request(RuntimeOrigin::root(), request), DispatchError::BadOrigin);
+		assert!(take_forwarded().is_empty());
+	});
+}
+
+#[test]
+fn relay_request_fails_if_the_transport_refuses() {
+	new_test_ext().execute_with(|| {
+		let origin = para_origin(CHANNEL.sender);
+		ForwardFails::set(true);
+
+		assert_noop!(
+			Hrmp::relay_request(
+				origin,
+				ParaRequest::V1(ParaRequestV1::CloseChannel { channel: CHANNEL })
+			),
+			Error::<Test>::ForwardFailed
+		);
+		assert!(take_forwarded().is_empty());
 	});
 }

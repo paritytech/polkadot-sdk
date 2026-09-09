@@ -22,13 +22,17 @@
 //! [`hrmp_primitives::HrmpRegistry`], and reporting the outcome back.
 //!
 //! Holds no state of its own. Every operation is deposit-free here: the parachain holds the money.
+//!
+//! It also relays the other direction: [`Call::relay_request`] takes a request from any parachain
+//! and forwards it to the control-plane parachain with the asking para's id attached. That is the
+//! only route open to a para with no channel to the control-plane parachain yet.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::traits::EnsureOrigin;
 use hrmp_primitives::{
 	ChannelId, FailureReason, HrmpRegistry, MessageToPara, MessageToParaV1, MessageToRelay,
-	MessageToRelayV1, ParaId,
+	MessageToRelayV1, ParaId, ParaRequest,
 };
 
 pub use pallet::*;
@@ -59,6 +63,24 @@ impl SendToPara for () {
 	}
 }
 
+/// Used to send an XCM `Transact` forwarding a parachain's request to the HRMP pallet on the
+/// remote parachain.
+pub trait ForwardToPara {
+	/// Forward `request`, asked for by `para_id`, to the parachain.
+	///
+	/// `Err(())` means the message could not be handed to the transport at all. Nothing has been
+	/// committed by then, so the caller fails the whole extrinsic.
+	#[allow(clippy::result_unit_err)]
+	fn forward(para_id: ParaId, request: ParaRequest) -> Result<(), ()>;
+}
+
+#[cfg(feature = "std")]
+impl ForwardToPara for () {
+	fn forward(_para_id: ParaId, _request: ParaRequest) -> Result<(), ()> {
+		Ok(())
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -77,6 +99,12 @@ pub mod pallet {
 		/// Sends messages to the parachain.
 		type SendToPara: SendToPara;
 
+		/// An origin any parachain uses to act as itself, resolved to its para id.
+		type ParachainOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = ParaId>;
+
+		/// Forwards parachain requests to the parachain that owns channel management.
+		type ForwardToPara: ForwardToPara;
+
 		/// The relay chain's HRMP channel registry.
 		type Registry: HrmpRegistry;
 
@@ -87,7 +115,7 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	// Every emitter is still a `todo!()`.
+	// Every emitter but `RequestForwarded` is still a `todo!()`.
 	#[allow(dead_code)]
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -122,6 +150,11 @@ pub mod pallet {
 			/// The id of the message that asked for it.
 			message_id: u64,
 		},
+		/// A parachain's request was forwarded to the parachain that owns channel management.
+		RequestForwarded {
+			/// The para that asked.
+			para_id: ParaId,
+		},
 		/// A report could not be sent back to the parachain.
 		ReportFailed {
 			/// The para the report was about.
@@ -129,6 +162,12 @@ pub mod pallet {
 			/// The id of the message the report concludes.
 			message_id: u64,
 		},
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// The request could not be handed to the transport.
+		ForwardFailed,
 	}
 
 	#[pallet::call]
@@ -187,6 +226,31 @@ pub mod pallet {
 					Self::on_force_clean(para_id, message_id)
 				},
 			}
+
+			Ok(())
+		}
+
+		/// Forward a parachain's own channel request to the parachain that owns channel
+		/// management.
+		///
+		/// Callable by any parachain. The asking para is the one the origin resolves to, not
+		/// anything in the payload, so a para can only ask on its own behalf. Nothing is checked
+		/// here beyond the origin: the request is validated where the channel state and the
+		/// deposits live.
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::WeightInfo::relay_request())]
+		pub fn relay_request(origin: OriginFor<T>, request: ParaRequest) -> DispatchResult {
+			let para_id = T::ParachainOrigin::ensure_origin(origin)?;
+
+			T::ForwardToPara::forward(para_id, request).map_err(|()| {
+				log::error!(
+					target: "runtime::hrmp-relay",
+					"failed to forward the request from para {para_id} to the parachain",
+				);
+				Error::<T>::ForwardFailed
+			})?;
+
+			Self::deposit_event(Event::RequestForwarded { para_id });
 
 			Ok(())
 		}

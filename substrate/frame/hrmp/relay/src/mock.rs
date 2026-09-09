@@ -24,9 +24,9 @@
 // Helpers the per-flow tests will reach for as the handler bodies land.
 #![allow(dead_code)]
 
-use crate::{self as pallet_hrmp_relay, SendToPara};
-use frame_support::{derive_impl, parameter_types};
-use hrmp_primitives::{ChannelId, FailureReason, HrmpRegistry, MessageToPara, ParaId};
+use crate::{self as pallet_hrmp_relay, ForwardToPara, SendToPara};
+use frame_support::{derive_impl, parameter_types, traits::EnsureOrigin};
+use hrmp_primitives::{ChannelId, FailureReason, HrmpRegistry, MessageToPara, ParaId, ParaRequest};
 use sp_runtime::BuildStorage;
 
 pub type AccountId = u64;
@@ -76,6 +76,12 @@ parameter_types! {
 	pub static SentMessages: Vec<MessageToPara> = Vec::new();
 	/// When true, the transport refuses everything.
 	pub static SendFails: bool = false;
+	/// Requests the pallet forwarded, oldest first.
+	pub static ForwardedRequests: Vec<(ParaId, ParaRequest)> = Vec::new();
+	/// When true, the forwarding transport refuses everything.
+	pub static ForwardFails: bool = false;
+	/// Signed accounts allowed to act as a para, as `(account, para id)`.
+	pub static ParaOriginAccounts: Vec<(AccountId, ParaId)> = Vec::new();
 }
 
 /// An [`HrmpRegistry`] backed by [`RegistryChannels`], refusable through [`RegistryRefuses`].
@@ -166,10 +172,67 @@ pub fn take_sent() -> Vec<MessageToPara> {
 	SentMessages::mutate(core::mem::take)
 }
 
+/// A [`ForwardToPara`] that records instead of sending, and can be made to fail.
+pub struct RecordingForwarder;
+
+impl ForwardToPara for RecordingForwarder {
+	fn forward(para_id: ParaId, request: ParaRequest) -> Result<(), ()> {
+		if ForwardFails::get() {
+			return Err(());
+		}
+		ForwardedRequests::mutate(|forwarded| forwarded.push((para_id, request)));
+		Ok(())
+	}
+}
+
+/// Take everything forwarded so far, clearing the log.
+pub fn take_forwarded() -> Vec<(ParaId, ParaRequest)> {
+	ForwardedRequests::mutate(core::mem::take)
+}
+
+/// Lets the accounts listed in [`ParaOriginAccounts`] act as their para, standing in for the
+/// relay chain's native parachain origin. An explicit list, not an account range, so no other
+/// account can resolve as a para by accident.
+pub struct ParaAccounts;
+
+impl EnsureOrigin<RuntimeOrigin> for ParaAccounts {
+	type Success = ParaId;
+
+	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
+		let signed: Result<frame_system::RawOrigin<AccountId>, _> = o.clone().into();
+		match signed {
+			Ok(frame_system::RawOrigin::Signed(who)) => ParaOriginAccounts::get()
+				.iter()
+				.find(|(account, _)| *account == who)
+				.map(|(_, para_id)| *para_id)
+				.ok_or(o),
+			_ => Err(o),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		Err(())
+	}
+}
+
+/// The origin para `para_id` itself calls with, backed by a fresh stand-in account.
+pub fn para_origin(para_id: ParaId) -> RuntimeOrigin {
+	let account = 1_000_000 + para_id as AccountId;
+	ParaOriginAccounts::mutate(|paras| {
+		if !paras.contains(&(account, para_id)) {
+			paras.push((account, para_id));
+		}
+	});
+	RuntimeOrigin::signed(account)
+}
+
 impl pallet_hrmp_relay::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type ParaOrigin = frame_system::EnsureRoot<AccountId>;
 	type SendToPara = RecordingSender;
+	type ParachainOrigin = ParaAccounts;
+	type ForwardToPara = RecordingForwarder;
 	type Registry = MockRegistry;
 	type WeightInfo = ();
 }
@@ -180,6 +243,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	RegistryRefuses::set(None);
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
+	ForwardedRequests::set(Vec::new());
+	ForwardFails::set(false);
+	ParaOriginAccounts::set(Vec::new());
 
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let mut ext = sp_io::TestExternalities::new(t);

@@ -206,7 +206,6 @@ impl pallet_hrmp_para::Config for Test {
 	>;
 	type SendToRelay = RecordingSender;
 	type RelayOrigin = frame_system::EnsureRoot<AccountId>;
-	type ParachainOrigin = ParaAccounts;
 	type ChannelManager = frame_system::EnsureRoot<AccountId>;
 	type SovereignAccountOf = SovereignAccountOf;
 	type MaxCapacity = ConstU32<MAX_CAPACITY>;

@@ -119,6 +119,31 @@ frame_support::parameter_types! {
 	pub const HrmpParaId: PolkadotParaId = PolkadotParaId::new(PARA_ID);
 }
 
+/// Accepts any parachain, resolved to its id.
+///
+/// What the relay chain vouches for when it forwards a request: the id comes from the origin the
+/// XCM origin converter produced, never from the payload.
+pub struct EnsureAnyParachain;
+
+impl frame_support::traits::EnsureOrigin<crate::relay::RuntimeOrigin> for EnsureAnyParachain {
+	type Success = hrmp_primitives::ParaId;
+
+	fn try_origin(
+		o: crate::relay::RuntimeOrigin,
+	) -> Result<Self::Success, crate::relay::RuntimeOrigin> {
+		let parachain_origin: Result<ParachainsOrigin, _> = o.clone().into();
+		match parachain_origin {
+			Ok(ParachainsOrigin::Parachain(id)) => Ok(id.into()),
+			_ => Err(o),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<crate::relay::RuntimeOrigin, ()> {
+		Ok(ParachainsOrigin::Parachain(HrmpParaId::get()).into())
+	}
+}
+
 /// Accepts Root, or the one parachain that is allowed to drive channel management.
 ///
 /// The same shape as westend's `EnsureAssetHub`: match on the parachain origin the XCM origin

@@ -24,6 +24,9 @@
 //! the money: a request is recorded and its deposits held before the relay chain is asked, and
 //! the deposits are only settled by the relay chain's answer, which arrives through
 //! [`Call::receive`].
+//!
+//! A para with no channel to this chain cannot reach it directly. Those paras ask the relay
+//! chain, which authenticates them and forwards the request to [`Call::receive_request`].
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -31,6 +34,7 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::traits::{Consideration, Contains, EnsureOrigin, Footprint};
 use hrmp_primitives::{
 	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, Outcome, ParaId,
+	ParaRequest, ParaRequestV1,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Convert, DispatchResult};
@@ -188,9 +192,6 @@ pub mod pallet {
 
 		/// An origin that is sure to be the relay chain's HRMP pallet.
 		type RelayOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
-		/// An origin a parachain uses to act as itself, resolved to its para id.
-		type ParachainOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = ParaId>;
 
 		/// The origin that can perform "force" actions on channels.
 		type ChannelManager: EnsureOrigin<Self::RuntimeOrigin>;
@@ -476,37 +477,54 @@ pub mod pallet {
 			}
 		}
 
-		/// Initiate opening a channel from the calling para to `recipient`.
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::hrmp_init_open_channel())]
-		pub fn hrmp_init_open_channel(
+		#[pallet::weight(match request {
+			ParaRequest::V1(ParaRequestV1::InitOpenChannel { .. }) =>
+				T::WeightInfo::hrmp_init_open_channel(),
+			ParaRequest::V1(ParaRequestV1::AcceptOpenChannel { .. }) =>
+				T::WeightInfo::hrmp_accept_open_channel(),
+			ParaRequest::V1(ParaRequestV1::CloseChannel { .. }) =>
+				T::WeightInfo::hrmp_close_channel(),
+			ParaRequest::V1(ParaRequestV1::CancelOpenRequest { open_requests, .. }) =>
+				T::WeightInfo::hrmp_cancel_open_request(*open_requests),
+			ParaRequest::V1(ParaRequestV1::EstablishChannelWithSystem { .. }) =>
+				T::WeightInfo::establish_channel_with_system(),
+		})]
+		pub fn receive_request(
 			origin: OriginFor<T>,
-			recipient: ParaId,
-			proposed_max_capacity: u32,
-			proposed_max_message_size: u32,
+			para_id: ParaId,
+			request: ParaRequest,
 		) -> DispatchResult {
-			let _ = (origin, recipient, proposed_max_capacity, proposed_max_message_size);
-			todo!()
-		}
+			T::RelayOrigin::ensure_origin(origin)?;
 
-		/// Accept a channel `sender` asked to open to the calling para.
-		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::hrmp_accept_open_channel())]
-		pub fn hrmp_accept_open_channel(origin: OriginFor<T>, sender: ParaId) -> DispatchResult {
-			let _ = (origin, sender);
-			todo!()
-		}
-
-		/// Initiate closing a channel the calling para is one end of.
-		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::hrmp_close_channel())]
-		pub fn hrmp_close_channel(origin: OriginFor<T>, channel_id: ChannelId) -> DispatchResult {
-			let _ = (origin, channel_id);
-			todo!()
+			match request {
+				ParaRequest::V1(ParaRequestV1::InitOpenChannel {
+					recipient,
+					proposed_max_capacity,
+					proposed_max_message_size,
+				}) => Self::on_init_open_channel(
+					para_id,
+					recipient,
+					proposed_max_capacity,
+					proposed_max_message_size,
+				),
+				ParaRequest::V1(ParaRequestV1::AcceptOpenChannel { sender }) => {
+					Self::on_accept_open_channel(para_id, sender)
+				},
+				ParaRequest::V1(ParaRequestV1::CloseChannel { channel }) => {
+					Self::on_close_channel(para_id, channel)
+				},
+				ParaRequest::V1(ParaRequestV1::CancelOpenRequest { channel, open_requests }) => {
+					Self::on_cancel_open_request(para_id, channel, open_requests)
+				},
+				ParaRequest::V1(ParaRequestV1::EstablishChannelWithSystem {
+					target_system_chain,
+				}) => Self::on_establish_channel_with_system(para_id, target_system_chain),
+			}
 		}
 
 		/// Drop every channel and request belonging to `para`.
-		#[pallet::call_index(4)]
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::force_clean_hrmp(*num_inbound, *num_outbound))]
 		pub fn force_clean_hrmp(
 			origin: OriginFor<T>,
@@ -519,7 +537,7 @@ pub mod pallet {
 		}
 
 		/// Open every confirmed request now, rather than at the next session boundary.
-		#[pallet::call_index(5)]
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::force_process_hrmp_open(*channels))]
 		pub fn force_process_hrmp_open(origin: OriginFor<T>, channels: u32) -> DispatchResult {
 			let _ = (origin, channels);
@@ -527,27 +545,15 @@ pub mod pallet {
 		}
 
 		/// Enact every close request now, rather than at the next session boundary.
-		#[pallet::call_index(6)]
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::force_process_hrmp_close(*channels))]
 		pub fn force_process_hrmp_close(origin: OriginFor<T>, channels: u32) -> DispatchResult {
 			let _ = (origin, channels);
 			todo!()
 		}
 
-		/// Withdraw an open request the recipient has not accepted.
-		#[pallet::call_index(7)]
-		#[pallet::weight(T::WeightInfo::hrmp_cancel_open_request(*open_requests))]
-		pub fn hrmp_cancel_open_request(
-			origin: OriginFor<T>,
-			channel_id: ChannelId,
-			open_requests: u32,
-		) -> DispatchResult {
-			let _ = (origin, channel_id, open_requests);
-			todo!()
-		}
-
 		/// Open a channel without the recipient's consent.
-		#[pallet::call_index(8)]
+		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::force_open_hrmp_channel(1))]
 		pub fn force_open_hrmp_channel(
 			origin: OriginFor<T>,
@@ -560,20 +566,8 @@ pub mod pallet {
 			todo!()
 		}
 
-		/// Open a deposit-free channel between two system chains.
-		#[pallet::call_index(9)]
-		#[pallet::weight(T::WeightInfo::establish_system_channel())]
-		pub fn establish_system_channel(
-			origin: OriginFor<T>,
-			sender: ParaId,
-			recipient: ParaId,
-		) -> DispatchResultWithPostInfo {
-			let _ = (origin, sender, recipient);
-			todo!()
-		}
-
 		/// Bring a channel's deposits in line with the current prices.
-		#[pallet::call_index(10)]
+		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::poke_channel_deposits())]
 		pub fn poke_channel_deposits(
 			origin: OriginFor<T>,
@@ -584,14 +578,14 @@ pub mod pallet {
 			todo!()
 		}
 
-		/// Open a deposit-free bidirectional channel between the calling para and a system chain.
-		#[pallet::call_index(11)]
-		#[pallet::weight(T::WeightInfo::establish_channel_with_system())]
-		pub fn establish_channel_with_system(
+		#[pallet::call_index(7)]
+		#[pallet::weight(T::WeightInfo::establish_system_channel())]
+		pub fn establish_system_channel(
 			origin: OriginFor<T>,
-			target_system_chain: ParaId,
-		) -> DispatchResultWithPostInfo {
-			let _ = (origin, target_system_chain);
+			sender: ParaId,
+			recipient: ParaId,
+		) -> DispatchResult {
+			let _ = (origin, sender, recipient);
 			todo!()
 		}
 	}
@@ -610,6 +604,48 @@ impl<T: Config> Pallet<T> {
 			*next = next.wrapping_add(1);
 			id
 		})
+	}
+
+	/// `hrmp_init_open_channel`, asked for by `sender` through the relay chain.
+	fn on_init_open_channel(
+		sender: ParaId,
+		recipient: ParaId,
+		proposed_max_capacity: u32,
+		proposed_max_message_size: u32,
+	) -> DispatchResult {
+		let _ = (sender, recipient, proposed_max_capacity, proposed_max_message_size);
+		todo!()
+	}
+
+	/// `hrmp_accept_open_channel`, asked for by `recipient` through the relay chain.
+	fn on_accept_open_channel(recipient: ParaId, sender: ParaId) -> DispatchResult {
+		let _ = (recipient, sender);
+		todo!()
+	}
+
+	/// `hrmp_close_channel`, asked for by `initiator` through the relay chain.
+	fn on_close_channel(initiator: ParaId, channel: ChannelId) -> DispatchResult {
+		let _ = (initiator, channel);
+		todo!()
+	}
+
+	/// `hrmp_cancel_open_request`, asked for by `initiator` through the relay chain.
+	fn on_cancel_open_request(
+		initiator: ParaId,
+		channel: ChannelId,
+		open_requests: u32,
+	) -> DispatchResult {
+		let _ = (initiator, channel, open_requests);
+		todo!()
+	}
+
+	/// `establish_channel_with_system`, asked for by `sender` through the relay chain.
+	fn on_establish_channel_with_system(
+		sender: ParaId,
+		target_system_chain: ParaId,
+	) -> DispatchResult {
+		let _ = (sender, target_system_chain);
+		todo!()
 	}
 
 	fn on_open_channel_response(

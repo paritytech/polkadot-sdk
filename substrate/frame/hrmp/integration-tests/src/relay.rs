@@ -53,7 +53,7 @@ use xcm_builder::{
 };
 use xcm_executor::XcmExecutor;
 
-use crate::senders::{EnsureHrmpPara, RelaySendToPara};
+use crate::senders::{EnsureAnyParachain, EnsureHrmpPara, RelaySendToPara};
 
 pub type AccountId = AccountId32;
 pub type Balance = u128;
@@ -172,6 +172,9 @@ impl pallet_hrmp_relay::Config for Runtime {
 	// Root, or the one parachain we accept channel management from.
 	type ParaOrigin = EnsureHrmpPara;
 	type SendToPara = RelaySendToPara;
+	// No third parachain in the harness, so nothing forwards requests here yet.
+	type ParachainOrigin = EnsureAnyParachain;
+	type ForwardToPara = ();
 	type Registry = parachains_hrmp::Pallet<Runtime>;
 	type WeightInfo = ();
 }
