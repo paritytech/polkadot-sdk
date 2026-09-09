@@ -3848,7 +3848,9 @@ mod admin {
 ///
 /// The rotation targets one cell: a bundled role whose ownership moves. Before the
 /// rotation, that cell held a silent split. The departing owner kept the role, and the new
-/// owner could not administer, remove, or re-create P, because X has at most one P. Every
+/// owner could not administer, remove, or re-create P, because X has at most one P. The
+/// first grid row is that cell, and `coinciding_full_admin_rotates_on_transfer` pins it
+/// end to end: the departing owner loses the admin calls, the receiver gains them. Every
 /// other cell keeps its old meaning. The grid, one test per row, in test order:
 ///
 ///   role, vs the departing owner       owner change of X    outcome
@@ -3900,8 +3902,8 @@ mod admin_follows_owner {
 			));
 			assert_eq!(admins(), (signed(BOB), signed(EMERGENCY_ACCOUNT)));
 
-			// The regression from the finding: the old owner loses the admin calls, the
-			// new owner gains them.
+			// The critical case this change fixes: the departing owner loses the admin
+			// calls, and the receiver gains them.
 			assert_noop!(
 				Psm::set_max_debt(RuntimeOrigin::signed(ALICE), INTERNAL_ASSET_ID, 1),
 				DispatchError::BadOrigin
