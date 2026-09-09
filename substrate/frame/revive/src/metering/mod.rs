@@ -114,7 +114,12 @@ pub struct ResourceMeter<T: Config, S: State> {
 	_phantom: PhantomData<S>,
 }
 
-/// Transaction-wide resource limit configuration.
+/// Parameters required to construct a root [`TransactionMeter`].
+///
+/// Despite the name, the `EthereumGas` variant carries more than just limits: it also bundles
+/// the gas-conversion context (`eth_tx_info`) and any deposit already consumed before contract
+/// execution (`authorization_deposit`). It is the full set of inputs needed to build the root
+/// meter for an ethereum-style transaction, not a pure cap descriptor.
 ///
 /// Represents the two supported resource accounting modes:
 /// - EthereumGas: Single gas limit
@@ -131,6 +136,12 @@ pub enum TransactionLimits<T: Config> {
 		weight_limit: Weight,
 		/// Some extra information about the transaction that is required to calculate gas usage.
 		eth_tx_info: EthTxInfo<T>,
+		/// Net deposit movement caused by EIP-7702 authorization processing before contract
+		/// execution begins. Not a cap: applied to the meter at creation so the available deposit
+		/// budget reflects either a pre-charge (auths net to a charge) or a pre-credit (auths net
+		/// to a refund — e.g. pure-revoke). Only relevant at root meter construction; nested
+		/// frames do not see it.
+		authorization_deposit: StorageDeposit<BalanceOf<T>>,
 	},
 	/// Substrate execution mode: the transaction specifies a weight limit and a storage deposit
 	/// limit
@@ -528,13 +539,23 @@ impl<T: Config> TransactionMeter<T> {
 		);
 
 		let mut transaction_meter = match transaction_limits {
-			TransactionLimits::EthereumGas { eth_gas_limit, weight_limit, eth_tx_info } => {
-				math::ethereum_execution::new_root(eth_gas_limit, weight_limit, eth_tx_info)
+			TransactionLimits::EthereumGas {
+				eth_gas_limit,
+				weight_limit,
+				eth_tx_info,
+				authorization_deposit,
+			} => {
+				let mut meter =
+					math::ethereum_execution::new_root(eth_gas_limit, weight_limit, eth_tx_info)?;
+				if !authorization_deposit.is_zero() {
+					meter.deposit.record_charge(&authorization_deposit);
+				}
+				meter
 			},
 			TransactionLimits::WeightAndDeposit { weight_limit, deposit_limit } => {
-				math::substrate_execution::new_root(weight_limit, deposit_limit)
+				math::substrate_execution::new_root(weight_limit, deposit_limit)?
 			},
-		}?;
+		};
 
 		transaction_meter.adjust_effective_weight_limit()?;
 
@@ -720,6 +741,17 @@ impl<T: Config> EthTxInfo<T> {
 		));
 
 		deposit_gas.saturating_add(&weight_gas)
+	}
+
+	/// Compute the maximum deposit available from a gas budget assuming zero execution weight
+	/// and zero deposit consumed. This is the upper bound on how much deposit the transaction
+	/// could ever spend.
+	pub fn max_deposit(&self, eth_gas_limit: BalanceOf<T>) -> BalanceOf<T> {
+		let max_gas = SignedGas::<T>::from_ethereum_gas(eth_gas_limit);
+		let overhead_gas =
+			self.gas_consumption(&Weight::zero(), &DepositOf::<T>::Charge(Zero::zero()));
+		let remaining = max_gas.saturating_sub(&overhead_gas);
+		remaining.to_adjusted_deposit_charge().unwrap_or_default()
 	}
 
 	/// Calculate maximal possible remaining weight that can be consumed given a particular gas
