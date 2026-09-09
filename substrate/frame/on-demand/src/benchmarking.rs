@@ -79,7 +79,7 @@ mod benches {
 				2000,
 				base_fee,
 			)
-			.map_err(|_| BenchmarkError::Weightless)?;
+			.map_err(|_| BenchmarkError::Stop("place_order failed"))?;
 		}
 
 		Ok(())
@@ -113,7 +113,8 @@ mod benches {
 		// Thus, the cost of n orders will be the base_fee times 1 + x + x^2 + ... + x^(n-1),
 		// where x = 1 + step. Such a sum equals (x^n - 1) / (x - 1), which in our case gives
 		// ((1 + step)^n - 1) / step.
-		let multiplier = ((1.0 + step).powi(n as i32) - 1.0) / step;
+		// We add n to account for possible rounding errors at each order.
+		let multiplier = ((1.0 + step).powi(n as i32) - 1.0) / step + n as f32;
 
 		let required_amount = base_fee
 			.checked_mul(&BalanceOf::<T>::from(multiplier.ceil() as u32))
@@ -140,7 +141,7 @@ mod benches {
 					From::from(2000 + n),
 					max_price,
 				)
-				.map_err(|_| BenchmarkError::Weightless)?;
+				.map_err(|_| BenchmarkError::Stop("place_order failed"))?;
 			}
 		}
 
