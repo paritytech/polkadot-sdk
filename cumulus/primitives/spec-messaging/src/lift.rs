@@ -147,7 +147,8 @@ pub struct MMRExtensionProof {
 	/// Leaf count of the extended (newer) MMR. The `mmr_lib` node count is *derived* from it
 	/// (`leaf_index_to_mmr_size`), so an out-of-range size can never be smuggled in. `0` with
 	/// empty `connecting_nodes` is the identity extension (the endpoint already is the current
-	/// root).
+	/// root). Compact-encoded: this proof is PoV-carried.
+	#[codec(compact)]
 	pub leaf_count: u64,
 	/// The O(log n) connecting-node **hashes** — the extended MMR's witnesses not derivable from
 	/// the frontier's own peaks (from `gen_ancestry_proof`), in `mmr_lib`'s proof order. Their
