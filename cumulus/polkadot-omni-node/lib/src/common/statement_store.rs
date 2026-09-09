@@ -67,11 +67,7 @@ pub(crate) fn build_statement_store<
 ) -> sc_service::error::Result<Arc<Store>> {
 	let network_workers = config.network_workers;
 	let rate_limit = config.rate_limit;
-	let affinity_topics = config.affinity_topics.clone();
-	let bloom_seed = config.bloom_seed;
-	let bloom_false_pos_rate = config.bloom_false_pos_rate;
-	let replication_factor = config.replication_factor;
-	let gossip_target = config.gossip_target;
+	let v2dht_config = config.v2dht.clone();
 
 	let statement_store = sc_statement_store::Store::new_shared(
 		&parachain_config.data_path,
@@ -88,11 +84,6 @@ pub(crate) fn build_statement_store<
 			spawn_handle.spawn("network-statement-validator", Some("networking"), fut);
 		})
 	};
-	let retention =
-		sc_network_statement::RetentionHandle::new(network.local_peer_id(), replication_factor);
-	if sc_network_statement::v2dht_enabled() {
-		statement_store.set_retention_resolver(retention.resolver());
-	}
 	let statement_handler = statement_handler_proto.build(
 		network,
 		sync_service,
@@ -101,13 +92,13 @@ pub(crate) fn build_statement_store<
 		statement_protocol_executor,
 		network_workers,
 		rate_limit,
-		&affinity_topics,
-		bloom_seed,
-		bloom_false_pos_rate,
-		replication_factor,
-		gossip_target,
-		retention,
+		v2dht_config,
 	)?;
+	if sc_network_statement::v2dht_enabled() {
+		if let Some(resolver) = statement_handler.retention_resolver() {
+			statement_store.set_retention_resolver(resolver);
+		}
+	}
 	task_manager.spawn_handle().spawn(
 		"network-statement-handler",
 		Some("networking"),

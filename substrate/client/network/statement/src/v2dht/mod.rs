@@ -32,7 +32,7 @@ use peer_steering::PeerSteering;
 use peers_topology::{DhtAffinity, PeersTopology, PeersTopologyConfig};
 use sc_network::{types::ProtocolName, NetworkPeers};
 use sc_network_types::PeerId;
-use sp_statement_store::{Hash, RetentionReasonMask, Statement, SubmitResult, Topic};
+use sp_statement_store::{Hash, Statement, SubmitResult, Topic};
 use std::{
 	collections::{HashMap, HashSet},
 	num::NonZeroUsize,
@@ -40,9 +40,47 @@ use std::{
 	time::Instant,
 };
 
+/// The reasons a received statement is retained, as a bitmask of independent flags.
+///
+/// Each set bit records one reason the local node keeps the statement (DHT affinity, explicit
+/// affinity). A non-empty mask persists the statement under the normal retention rules. An empty
+/// mask marks it transient: held in memory until the next propagation, forwarded once, then dropped
+/// without ever reaching the database.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct RetentionReasonMask(u8);
+
+impl RetentionReasonMask {
+	/// No reason to persist: the store keeps the statement only until the next propagation.
+	pub const TRANSIENT: RetentionReasonMask = RetentionReasonMask(0b00);
+	/// The local node is one of the closest DHT replicas for one of the statement's topics.
+	pub const DHT_AFFINITY: RetentionReasonMask = RetentionReasonMask(0b01);
+	/// The local node has explicit affinity for one of the topics.
+	pub const EXPLICIT_AFFINITY: RetentionReasonMask = RetentionReasonMask(0b10);
+
+	/// A mask with every reason set.
+	pub fn persistent() -> Self {
+		RetentionReasonMask(u8::MAX)
+	}
+
+	/// Add `reason` to the mask.
+	pub fn insert(&mut self, reason: RetentionReasonMask) {
+		self.0 |= reason.0;
+	}
+
+	/// Whether `reason` is set.
+	pub fn contains(&self, reason: RetentionReasonMask) -> bool {
+		self.0 & reason.0 == reason.0 && reason.0 != 0
+	}
+
+	/// Whether the statement should be persisted.
+	pub fn is_persistent(&self) -> bool {
+		self.0 != 0
+	}
+}
+
 /// Shared affinity view to derive a statement's retention mask.
 #[derive(Clone)]
-pub struct RetentionHandle {
+pub(crate) struct RetentionHandle {
 	dht_affinity: Arc<RwLock<DhtAffinity>>,
 	/// Topics the node has explicit affinity for.
 	topic_affinity: Arc<RwLock<TopicAffinity>>,
@@ -51,7 +89,7 @@ pub struct RetentionHandle {
 impl RetentionHandle {
 	/// A handle seeded with an empty topology, so its resolver persists every statement carrying a
 	/// topic until the orchestrator publishes the learned affinity.
-	pub fn new(local_peer: PeerId, replication_factor: NonZeroUsize) -> Self {
+	pub(crate) fn new(local_peer: PeerId, replication_factor: NonZeroUsize) -> Self {
 		Self {
 			dht_affinity: Arc::new(RwLock::new(DhtAffinity::empty(local_peer, replication_factor))),
 			topic_affinity: Arc::new(RwLock::new(TopicAffinity::default())),
@@ -59,7 +97,7 @@ impl RetentionHandle {
 	}
 
 	/// The resolver the store calls to derive a statement's retention mask.
-	pub fn resolver(&self) -> Box<dyn Fn(&Statement) -> RetentionReasonMask + Send + Sync> {
+	pub(crate) fn resolver(&self) -> Box<dyn Fn(&Statement) -> RetentionReasonMask + Send + Sync> {
 		let dht_affinity = self.dht_affinity.clone();
 		let topic_affinity = self.topic_affinity.clone();
 		Box::new(move |stmt| {
@@ -97,7 +135,6 @@ impl RetentionHandle {
 }
 
 /// Coordinates the v2 DHT-affinity statement gossip path.
-#[allow(dead_code)]
 pub(crate) struct V2DhtOrchestrator {
 	/// Local view of statement-store peers known and connected through network topology events.
 	peers_topology: PeersTopology,
@@ -111,7 +148,6 @@ pub(crate) struct V2DhtOrchestrator {
 	metrics: Option<V2DhtMetrics>,
 }
 
-#[allow(dead_code)]
 impl V2DhtOrchestrator {
 	pub(crate) fn new(
 		configured_topics: &[Topic],
@@ -142,6 +178,13 @@ impl V2DhtOrchestrator {
 		// drive retention before the first peer or subscription event publishes them.
 		self.publish_dht_affinity();
 		self.publish_topic_affinity();
+	}
+
+	/// The resolver the store calls to derive a statement's retention mask, if retention is wired.
+	pub(crate) fn retention_resolver(
+		&self,
+	) -> Option<Box<dyn Fn(&Statement) -> RetentionReasonMask + Send + Sync>> {
+		self.retention.as_ref().map(RetentionHandle::resolver)
 	}
 
 	/// Refresh the store's DHT-affinity oracle
@@ -190,12 +233,6 @@ impl V2DhtOrchestrator {
 		{
 			self.publish_topic_affinity();
 		}
-	}
-
-	/// The topics this node currently has affinity for.
-	#[cfg(test)]
-	pub(crate) fn topics(&self) -> Vec<Topic> {
-		self.explicit_affinity.topics()
 	}
 
 	// === Advertise own filter ===
@@ -249,11 +286,6 @@ impl V2DhtOrchestrator {
 	}
 
 	// === Forward decision ===
-
-	/// Whether the peer's advertised filter accepts the statement.
-	pub(crate) fn peer_has_explicit_affinity(&self, peer: PeerId, stmt: &Statement) -> bool {
-		self.explicit_affinity.peer_has_explicit_affinity(peer, stmt)
-	}
 
 	// === Post-submit hook ===
 
@@ -584,8 +616,12 @@ mod tests {
 
 		orchestrator.on_peer_filter_update(peer, filter_over(&[topic(1)]));
 
-		assert!(orchestrator.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
-		assert!(!orchestrator.peer_has_explicit_affinity(peer, &statement_on(topic(2))));
+		assert!(orchestrator
+			.explicit_affinity
+			.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
+		assert!(!orchestrator
+			.explicit_affinity
+			.peer_has_explicit_affinity(peer, &statement_on(topic(2))));
 	}
 
 	#[test]
@@ -596,7 +632,9 @@ mod tests {
 
 		orchestrator.on_peer_disconnected(peer);
 
-		assert!(!orchestrator.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
+		assert!(!orchestrator
+			.explicit_affinity
+			.peer_has_explicit_affinity(peer, &statement_on(topic(1))));
 	}
 
 	#[test]
@@ -672,5 +710,29 @@ mod tests {
 		// connect, nothing to disconnect.
 		assert!(orchestrator.peer_steering.peers_to_connect().is_empty());
 		assert!(orchestrator.peer_steering.peers_to_disconnect().is_empty());
+	}
+
+	#[test]
+	fn default_mask_is_transient() {
+		assert_eq!(RetentionReasonMask::default(), RetentionReasonMask::TRANSIENT);
+		assert!(!RetentionReasonMask::TRANSIENT.is_persistent());
+		assert!(!RetentionReasonMask::TRANSIENT.contains(RetentionReasonMask::DHT_AFFINITY));
+	}
+
+	#[test]
+	fn persistent_mask_holds_every_reason() {
+		let mask = RetentionReasonMask::persistent();
+		assert!(mask.is_persistent());
+		assert!(mask.contains(RetentionReasonMask::DHT_AFFINITY));
+		assert!(mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
+	}
+
+	#[test]
+	fn insert_sets_one_reason_at_a_time() {
+		let mut mask = RetentionReasonMask::default();
+		mask.insert(RetentionReasonMask::EXPLICIT_AFFINITY);
+		assert!(mask.is_persistent());
+		assert!(mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
+		assert!(!mask.contains(RetentionReasonMask::DHT_AFFINITY));
 	}
 }

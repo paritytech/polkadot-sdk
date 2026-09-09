@@ -381,11 +381,15 @@ impl<Config: CliConfig> Cli<Config> {
 					purge_after_sec: self.statement_store_purge_after_sec,
 					network_workers: self.statement_network_workers,
 					rate_limit: self.statement_rate_limit,
-					affinity_topics: self.statement_affinity_topics.clone(),
-					bloom_false_pos_rate: self.statement_bloom_false_positive_rate,
-					bloom_seed: self.statement_bloom_seed,
-					replication_factor: self.statement_replication_factor,
-					gossip_target: self.statement_gossip_target,
+					v2dht: sc_network_statement::v2dht_enabled().then(|| {
+						sc_statement_store::V2DhtConfig {
+							affinity_topics: self.statement_affinity_topics.clone(),
+							bloom_false_pos_rate: self.statement_bloom_false_positive_rate,
+							bloom_seed: self.statement_bloom_seed,
+							replication_factor: self.statement_replication_factor,
+							gossip_target: self.statement_gossip_target,
+						}
+					}),
 				},
 			),
 			storage_monitor: self.storage_monitor.clone(),

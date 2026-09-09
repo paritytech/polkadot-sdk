@@ -381,44 +381,6 @@ pub enum FilterDecision {
 	Abort,
 }
 
-/// The reasons a received statement is retained, as a bitmask of independent flags.
-///
-/// Each set bit records one reason the local node keeps the statement (DHT affinity, explicit
-/// affinity). A non-empty mask persists the statement under the normal retention rules. An empty
-/// mask marks it transient: held in memory until the next propagation, forwarded once, then dropped
-/// without ever reaching the database.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct RetentionReasonMask(u8);
-
-impl RetentionReasonMask {
-	/// No reason to persist: the store keeps the statement only until the next propagation.
-	pub const TRANSIENT: RetentionReasonMask = RetentionReasonMask(0b00);
-	/// The local node is one of the closest DHT replicas for one of the statement's topics.
-	pub const DHT_AFFINITY: RetentionReasonMask = RetentionReasonMask(0b01);
-	/// The local node has explicit affinity for one of the topics.
-	pub const EXPLICIT_AFFINITY: RetentionReasonMask = RetentionReasonMask(0b10);
-
-	/// A mask with every reason set.
-	pub fn persistent() -> Self {
-		RetentionReasonMask(u8::MAX)
-	}
-
-	/// Add `reason` to the mask.
-	pub fn insert(&mut self, reason: RetentionReasonMask) {
-		self.0 |= reason.0;
-	}
-
-	/// Whether `reason` is set.
-	pub fn contains(&self, reason: RetentionReasonMask) -> bool {
-		self.0 & reason.0 == reason.0 && reason.0 != 0
-	}
-
-	/// Whether the statement should be persisted.
-	pub fn is_persistent(&self) -> bool {
-		self.0 != 0
-	}
-}
-
 /// A batch of statements read from the admission journal by
 /// [`StatementStore::admitted_statements`].
 #[derive(Debug)]
@@ -539,34 +501,5 @@ pub trait StatementStore: Send + Sync {
 	/// Defaults to empty for stores without a subscription manager.
 	fn subscription_topics(&self) -> HashSet<Topic> {
 		HashSet::new()
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::RetentionReasonMask;
-
-	#[test]
-	fn default_mask_is_transient() {
-		assert_eq!(RetentionReasonMask::default(), RetentionReasonMask::TRANSIENT);
-		assert!(!RetentionReasonMask::TRANSIENT.is_persistent());
-		assert!(!RetentionReasonMask::TRANSIENT.contains(RetentionReasonMask::DHT_AFFINITY));
-	}
-
-	#[test]
-	fn persistent_mask_holds_every_reason() {
-		let mask = RetentionReasonMask::persistent();
-		assert!(mask.is_persistent());
-		assert!(mask.contains(RetentionReasonMask::DHT_AFFINITY));
-		assert!(mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
-	}
-
-	#[test]
-	fn insert_sets_one_reason_at_a_time() {
-		let mut mask = RetentionReasonMask::default();
-		mask.insert(RetentionReasonMask::EXPLICIT_AFFINITY);
-		assert!(mask.is_persistent());
-		assert!(mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
-		assert!(!mask.contains(RetentionReasonMask::DHT_AFFINITY));
 	}
 }

@@ -18,6 +18,7 @@
 
 //! Configuration of the statement protocol
 
+use sp_statement_store::Topic;
 use std::{num::NonZeroUsize, time};
 
 /// Interval at which we propagate statements;
@@ -70,6 +71,34 @@ pub const DEFAULT_REPLICATION_FACTOR: NonZeroUsize = NonZeroUsize::new(20).expec
 /// Default gossip target for v2 DHT-affinity routing: maximum number of connected peers we forward
 /// a statement to for a given topic.
 pub const DEFAULT_GOSSIP_TARGET: NonZeroUsize = NonZeroUsize::new(3).expect("3 is non-zero");
+
+/// Parameters of the v2 DHT statement path.
+#[derive(Clone, Debug)]
+pub struct V2DhtConfig {
+	/// Topics the node stores in full, regardless of DHT affinity.
+	pub affinity_topics: Vec<Topic>,
+	/// False-positive rate of the topic-affinity bloom filter this node advertises.
+	/// Must be at least [`DEFAULT_BLOOM_FALSE_POS_RATE`] and below 1.
+	pub bloom_false_pos_rate: f64,
+	/// Seed of the advertised topic-affinity bloom filter, random per node when `None`.
+	pub bloom_seed: Option<u128>,
+	/// Number of K-closest peers responsible for storing a topic.
+	pub replication_factor: NonZeroUsize,
+	/// Number of peers to gossip a statement to in addition to DHT-affinity routing targets.
+	pub gossip_target: NonZeroUsize,
+}
+
+impl Default for V2DhtConfig {
+	fn default() -> Self {
+		Self {
+			affinity_topics: Vec::new(),
+			bloom_false_pos_rate: DEFAULT_BLOOM_FALSE_POS_RATE,
+			bloom_seed: None,
+			replication_factor: DEFAULT_REPLICATION_FACTOR,
+			gossip_target: DEFAULT_GOSSIP_TARGET,
+		}
+	}
+}
 
 #[cfg(test)]
 mod tests {

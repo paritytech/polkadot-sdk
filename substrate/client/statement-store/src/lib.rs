@@ -63,6 +63,7 @@ use parking_lot::RwLock;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_client_api::{backend::StorageProvider, Backend, StorageKey};
 use sc_keystore::LocalKeystore;
+pub use sc_network_statement::RetentionReasonMask;
 use schnellru::{ByLength, LruMap};
 use sp_blockchain::HeaderBackend;
 use sp_core::{crypto::UncheckedFrom, hexdisplay::HexDisplay, traits::SpawnNamed, Decode, Encode};
@@ -70,8 +71,8 @@ use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
 	runtime_api::{StatementSource, StatementStoreExt},
 	AccountId, AdmittedBatch, BlockHash, Channel, DecryptionKey, FilterDecision, Hash,
-	InvalidReason, OptimizedTopicFilter, RejectionReason, Result, RetentionReasonMask,
-	SignatureVerificationResult, Statement, StatementAllowance, StatementEvent, SubmitResult,
+	InvalidReason, OptimizedTopicFilter, RejectionReason, Result, SignatureVerificationResult,
+	Statement, StatementAllowance, StatementEvent, SubmitResult,
 };
 pub use sp_statement_store::{Error, StatementStore, Topic, MAX_TOPICS};
 use std::{
@@ -525,6 +526,9 @@ pub use sc_network_statement::config::DEFAULT_REPLICATION_FACTOR;
 /// Default gossip target for v2 DHT-affinity statement routing.
 pub use sc_network_statement::config::DEFAULT_GOSSIP_TARGET;
 
+/// Parameters of the v2 DHT statement path.
+pub use sc_network_statement::V2DhtConfig;
+
 /// Default and lowest accepted false-positive rate of the advertised topic-affinity bloom
 /// filter.
 pub use sc_network_statement::config::DEFAULT_BLOOM_FALSE_POS_RATE;
@@ -544,19 +548,8 @@ pub struct Config {
 	pub network_workers: usize,
 	/// Maximum statements per second per peer before rate limiting kicks in.
 	pub rate_limit: u32,
-	/// Topics this node advertises affinity for, so peers route matching statements to it.
-	pub affinity_topics: Vec<sp_statement_store::Topic>,
-	/// False-positive rate of the topic-affinity bloom filter this node advertises.
-	/// Must be at least [`DEFAULT_BLOOM_FALSE_POS_RATE`] and below 1.
-	pub bloom_false_pos_rate: f64,
-	/// Seed of the advertised topic-affinity bloom filter, random per node when `None`.
-	pub bloom_seed: Option<u128>,
-	/// Replication factor (K) for v2 DHT-affinity routing: number of statement-protocol peers
-	/// responsible for storing a given topic.
-	pub replication_factor: std::num::NonZeroUsize,
-	/// Gossip target for v2 DHT-affinity routing: maximum number of connected peers we forward a
-	/// statement to for a given topic.
-	pub gossip_target: std::num::NonZeroUsize,
+	/// Parameters of the v2 DHT statement path, `None` when the legacy flood path is in use.
+	pub v2dht: Option<V2DhtConfig>,
 }
 
 impl Config {
@@ -573,9 +566,10 @@ impl Config {
 		if self.network_workers == 0 {
 			return Err(Error::InvalidConfig("network_workers must be greater than zero".into()));
 		}
-		if !(self.bloom_false_pos_rate >= DEFAULT_BLOOM_FALSE_POS_RATE &&
-			self.bloom_false_pos_rate < 1.0)
-		{
+		if self.v2dht.as_ref().is_some_and(|cfg| {
+			!(cfg.bloom_false_pos_rate >= DEFAULT_BLOOM_FALSE_POS_RATE &&
+				cfg.bloom_false_pos_rate < 1.0)
+		}) {
 			return Err(Error::InvalidConfig(format!(
 				"bloom_false_pos_rate must be at least {DEFAULT_BLOOM_FALSE_POS_RATE} and below 1"
 			)));
@@ -592,11 +586,7 @@ impl Default for Config {
 			purge_after_sec: DEFAULT_PURGE_AFTER_SEC,
 			network_workers: DEFAULT_NETWORK_WORKERS,
 			rate_limit: DEFAULT_RATE_LIMIT,
-			affinity_topics: Vec::new(),
-			bloom_false_pos_rate: DEFAULT_BLOOM_FALSE_POS_RATE,
-			bloom_seed: None,
-			replication_factor: DEFAULT_REPLICATION_FACTOR,
-			gossip_target: DEFAULT_GOSSIP_TARGET,
+			v2dht: None,
 		}
 	}
 }
@@ -3392,13 +3382,12 @@ impl Store {
 #[cfg(test)]
 mod tests {
 
-	use crate::{col, Store, KEY_VERSION};
+	use crate::{col, RetentionReasonMask, Store, KEY_VERSION};
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
 		AccountId, Channel, DecryptionKey, FilterDecision, InvalidReason, OptimizedTopicFilter,
-		Proof, RejectionReason, RetentionReasonMask, Statement, StatementSource, StatementStore,
-		SubmitResult, Topic,
+		Proof, RejectionReason, Statement, StatementSource, StatementStore, SubmitResult, Topic,
 	};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
