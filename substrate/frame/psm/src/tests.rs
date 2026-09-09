@@ -3849,18 +3849,17 @@ mod admin {
 /// The rotation targets one cell: a bundled slot whose ownership moves. Before the
 /// rotation, that cell held a silent split. The departing owner kept the slot, and the new
 /// owner could not administer, remove, or re-create P, because X has at most one P. Every
-/// other cell keeps its old meaning. One test per cell:
+/// other cell keeps its old meaning. The grid, one test per row, in test order:
 ///
-/// | slot, relative to the departing owner | owner change of X | outcome | test |
-/// |---|---|---|---|
-/// | bundled, `full_admin` | `transfer_ownership` | slot follows | `coinciding_full_admin_rotates_on_transfer` |
-/// | bundled, `emergency_admin` | `transfer_ownership` | that slot follows, the other stays | `coinciding_emergency_admin_rotates_independently` |
-/// | governance origin | `transfer_ownership` | no change | `governance_admin_does_not_rotate` |
-/// | a third account | `transfer_ownership` | no change | `third_party_admin_does_not_rotate` |
-/// | rotated away before the transfer | `transfer_ownership` | no change, the split is explicit | `deliberate_split_stays_possible` |
-/// | bundled, `full_admin` | privileged path | slot follows | `force_asset_status_rotates_too` |
-/// | held by the receiver of X | `transfer_ownership` | no change, a bundle forms | `transfer_to_the_admin_forms_the_bundle` |
-/// | X has no PSM | `transfer_ownership` | nothing to do | `asset_without_psm_transfers_clean` |
+///   slot, vs the departing owner       owner change of X    outcome
+///   bundled, full_admin                transfer_ownership   the slot follows
+///   bundled, emergency_admin           transfer_ownership   that slot follows, the other stays
+///   governance origin                  transfer_ownership   no change
+///   a third account                    transfer_ownership   no change
+///   rotated away before the transfer   transfer_ownership   no change, the split is explicit
+///   bundled, full_admin                privileged path      the slot follows
+///   held by the receiver of X          transfer_ownership   no change, a bundle forms
+///   X has no PSM                       transfer_ownership   nothing to do
 ///
 /// Two properties follow. The order of "hand over the slot" and "hand over X" stops
 /// mattering: both orders end with the receiver holding both. And a privileged owner
