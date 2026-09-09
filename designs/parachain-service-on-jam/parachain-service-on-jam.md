@@ -217,7 +217,7 @@ struct ParachainServiceState {
     messages_cursor: Map<ParaId, SettlementCursor>,
     /// Maps `StreamsRoot` to `position`.
     /// The only ring entry the settlement check reads (§5.1 step 6).
-    messages_member: Map<(ParaId, StreamsRoot), MemberEntry>,
+    /// Maps `StreamsRoot` to `position`. See §5.1 step 6.
     /// Ring position to root. Read on eviction and teardown.
     messages_queue: Map<(ParaId, u32), StreamsRoot>,
 }
