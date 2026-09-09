@@ -1,26 +1,13 @@
 title: 'cumulus: refactor slot based builder loop'
 doc:
 - audience: Node Dev
-  description: "### Description\n\nFirst PR of a stack extracted from #12537 (resubmissions\
-    \ support).\n\nRefactor (no behavior change). `run_block_builder`'s monolithic\
-    \ loop is split into phases so later work can plug in per phase:\n\n- `BuilderEnv`\
-    \ groups the clients, caches, and per-task state; the loop body shrinks to prepare_slot\
-    \ \u2192 plan_cores \u2192 per-core build.\n- `prepare_slot` resolves everything\
-    \ for one slot iteration up to a successful slot claim, returned as `SlotContext`;\
-    \ `plan_cores` resolves the claim queue into a `CorePlan` (cores and per-core\
-    \ block counts).\n- Small extractions along the way: `SchedulingParams::at` and\
-    \ `ParentSearchParams::new` constructors, `included_header_at_execution` and `allowed_pov_size`\
-    \ helpers, `update_backing_connections` (which now logs a previously silent authorities()\
-    \ failure), `claim_queue_offset` and redundant header/hash fields dropped from\
-    \ the context structs.\n\nOne behavior fix (second commit). The two-phase context\
-    \ derivation reuses the parent search result when the build parent's runtime disagrees\
-    \ with the para best's. If the search ran with V3 params and the re-derive settled\
-    \ on V2, the reused included_at_scheduling snapshot was taken at a V3 scheduling\
-    \ parent and could be stale for the V2 execution context. The V2 arm now re-fetches\
-    \ the included head at its relay parent in that case (search_ran_v3 flag); the\
-    \ reverse direction is expected/assumed to not occur, since a V3 \u2192 V2 parachain\
-    \ rollback is not supported, and the plan is to not end up needing it, by testing\
-    \ V3 parachains before recommending it officially."
+  description: 
+    Splits the slot-based collator's block-builder loop into per-slot phases
+    (`prepare_slot`/`plan_cores` on a `BuilderEnv`), extracts small helpers,
+    and fixes one edge case: when the parent search ran with V3 scheduling
+    params but the context re-derived to V2 at the build parent, the included
+    head is now re-fetched at the relay parent instead of reusing a stale
+    snapshot.
 crates:
 - name: cumulus-client-consensus-aura
   bump: patch
