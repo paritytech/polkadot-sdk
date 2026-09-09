@@ -675,7 +675,7 @@ mod tests {
 	fn make_request(attributes: BlockAttributes) -> Vec<u8> {
 		BlockRequestSchema {
 			fields: attributes.to_be_u32(),
-			from_block: Some(FromBlockSchema::Number(1u64.encode())),
+			from_block: Some(FromBlockSchema::Number(Encode::encode(&1u64))),
 			direction: Direction::Ascending as i32,
 			max_blocks: 1,
 			support_multiple_justifications: true,

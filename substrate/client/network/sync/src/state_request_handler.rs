@@ -300,3 +300,86 @@ enum HandleRequestError {
 	#[error("Failed to send response.")]
 	SendResponse,
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use substrate_test_runtime_client::{
+		runtime::Block, DefaultTestClientBuilderExt, TestClient, TestClientBuilder,
+		TestClientBuilderExt,
+	};
+
+	fn test_handler() -> StateRequestHandler<Block, TestClient> {
+		let client = Arc::new(TestClientBuilder::new().build());
+		let (_tx, request_receiver) = async_channel::bounded(1);
+		StateRequestHandler {
+			client,
+			request_receiver,
+			seen_requests: LruMap::new(ByLength::new(16)),
+		}
+	}
+
+	fn send_request(
+		handler: &mut StateRequestHandler<Block, TestClient>,
+		peer: &PeerId,
+		no_proof: bool,
+	) -> OutgoingResponse {
+		let request = StateRequest {
+			block: Encode::encode(&handler.client.chain_info().genesis_hash),
+			start: Vec::new(),
+			no_proof,
+		};
+		let (tx, mut rx) = oneshot::channel();
+		handler.handle_request(request.encode_to_vec(), tx, peer).unwrap();
+		rx.try_recv().unwrap().unwrap()
+	}
+
+	fn check_same_request_limit_resets_after_window(no_proof: bool) {
+		let mut handler = test_handler();
+		let peer = PeerId::random();
+
+		for _ in 0..MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER {
+			let response = send_request(&mut handler, &peer, no_proof);
+			assert!(response.result.is_ok());
+			assert!(response.reputation_changes.is_empty());
+		}
+
+		let response = send_request(&mut handler, &peer, no_proof);
+		assert!(response.result.is_err());
+		assert_eq!(response.reputation_changes, vec![rep::SAME_REQUEST]);
+		assert!(rep::SAME_REQUEST.value > i32::MIN);
+
+		// Expire the window without sleeping.
+		let key = SeenRequestsKey::<Block> {
+			peer,
+			block: handler.client.chain_info().genesis_hash,
+			start: Vec::new(),
+		};
+		match handler.seen_requests.get(&key) {
+			Some(SeenRequestsValue::Fulfilled { since, .. }) => {
+				*since = Instant::now() - SAME_REQUEST_WINDOW - Duration::from_secs(1)
+			},
+			_ => panic!("entry must be in the fulfilled state"),
+		}
+
+		// The new window has the same limit and no penalties for allowed requests.
+		for _ in 0..MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER {
+			let response = send_request(&mut handler, &peer, no_proof);
+			assert!(response.result.is_ok());
+			assert!(response.reputation_changes.is_empty());
+		}
+		let response = send_request(&mut handler, &peer, no_proof);
+		assert!(response.result.is_err());
+		assert_eq!(response.reputation_changes, vec![rep::SAME_REQUEST]);
+	}
+
+	#[test]
+	fn same_request_limit_resets_after_window_with_proof() {
+		check_same_request_limit_resets_after_window(false);
+	}
+
+	#[test]
+	fn same_request_limit_resets_after_window_without_proof() {
+		check_same_request_limit_resets_after_window(true);
+	}
+}
