@@ -17,7 +17,73 @@
 //! The generated subxt client.
 //! Generated against a substrate chain configured with [`pallet_revive`] using:
 //! subxt metadata  --url ws://localhost:9944 -o rpc/revive_chain.scale
-pub use subxt::config::PolkadotConfig as SrcChainConfig;
+use crate::client::spec_version_cache::SpecVersionCache;
+use scale_info_legacy::TypeRegistrySet;
+use std::sync::Arc;
+use subxt::{
+	config::{Config, HashFor, PolkadotConfig, PolkadotExtrinsicParams},
+	metadata::ArcMetadata,
+};
+
+/// [`PolkadotConfig`] extended with a shared `SpecVersionCache`, so at-block clients answer
+/// the per-block spec-version lookup locally instead of issuing a `Core_version` runtime call
+/// for every block the subscriptions have already observed.
+#[derive(Clone, Debug, Default)]
+pub struct SrcChainConfig {
+	inner: PolkadotConfig,
+	spec_versions: Arc<SpecVersionCache>,
+}
+
+impl SrcChainConfig {
+	/// The shared store answering which runtime versions govern a block number.
+	pub fn spec_version_cache(&self) -> Arc<SpecVersionCache> {
+		self.spec_versions.clone()
+	}
+}
+
+impl From<PolkadotConfig> for SrcChainConfig {
+	fn from(inner: PolkadotConfig) -> Self {
+		Self { inner, spec_versions: Default::default() }
+	}
+}
+
+impl Config for SrcChainConfig {
+	type AccountId = <PolkadotConfig as Config>::AccountId;
+	type Address = <PolkadotConfig as Config>::Address;
+	type Signature = <PolkadotConfig as Config>::Signature;
+	type Hasher = <PolkadotConfig as Config>::Hasher;
+	type Header = <PolkadotConfig as Config>::Header;
+	type AssetId = <PolkadotConfig as Config>::AssetId;
+	type TransactionExtensions = PolkadotExtrinsicParams<Self>;
+
+	fn genesis_hash(&self) -> Option<HashFor<Self>> {
+		self.inner.genesis_hash()
+	}
+
+	fn spec_and_transaction_version_for_block_number(
+		&self,
+		block_number: u64,
+	) -> Option<(u32, u32)> {
+		self.spec_versions
+			.lookup(block_number)
+			.or_else(|| self.inner.spec_and_transaction_version_for_block_number(block_number))
+	}
+
+	fn metadata_for_spec_version(&self, spec_version: u32) -> Option<ArcMetadata> {
+		self.inner.metadata_for_spec_version(spec_version)
+	}
+
+	fn set_metadata_for_spec_version(&self, spec_version: u32, metadata: ArcMetadata) {
+		self.inner.set_metadata_for_spec_version(spec_version, metadata)
+	}
+
+	fn legacy_types_for_spec_version<'this>(
+		&'this self,
+		spec_version: u32,
+	) -> Option<TypeRegistrySet<'this>> {
+		self.inner.legacy_types_for_spec_version(spec_version)
+	}
+}
 
 #[subxt::subxt(
 	runtime_metadata_path = "$OUT_DIR/revive_chain.scale",

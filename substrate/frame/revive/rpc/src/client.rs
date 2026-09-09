@@ -17,6 +17,7 @@
 //! The client connects to the source substrate chain
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 
+pub(crate) mod spec_version_cache;
 pub(crate) mod storage_api;
 pub(crate) mod version_aware_runtime_api;
 
@@ -28,6 +29,7 @@ use crate::{
 	subxt_client::{self, SrcChainConfig, revive::calls::EthTransact},
 };
 use futures::TryStreamExt;
+use governor::{DefaultDirectRateLimiter, Quota, RateLimiter};
 use jsonrpsee::types::{ErrorObjectOwned, error::CALL_EXECUTION_FAILED_CODE};
 use pallet_revive::{
 	EthTransactError,
@@ -36,7 +38,9 @@ use pallet_revive::{
 use pallet_revive_types::runtime_api::*;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
+use spec_version_cache::SpecVersionCache;
 use std::{
+	num::{NonZeroU32, NonZeroUsize},
 	sync::{
 		Arc,
 		atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -47,11 +51,14 @@ use storage_api::StorageApi;
 use subxt::{
 	OnlineClient,
 	backend::{LegacyBackend, StreamOf, StreamOfResults},
-	client::OnlineClientAtBlock,
-	config::{HashFor, RpcConfigFor},
+	client::{Block as StreamedBlock, OnlineClientAtBlock},
+	config::{HashFor, RpcConfigFor, substrate::DigestItem},
 	rpcs::{
 		RpcClient,
-		client::reconnecting_rpc_client::{ExponentialBackoff, RpcClient as ReconnectingRpcClient},
+		client::{
+			RawRpcFuture, RawRpcSubscription, RawValue, RpcClientT,
+			reconnecting_rpc_client::{ExponentialBackoff, RpcClient as ReconnectingRpcClient},
+		},
 		methods::{
 			LegacyRpcMethods,
 			legacy::{SystemHealth, TransactionStatus},
@@ -61,7 +68,7 @@ use subxt::{
 };
 
 use thiserror::Error;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::{Mutex, Semaphore, mpsc};
 use version_aware_runtime_api::{
 	CallRecordedOutput, TraceEntry, VersionAwareRuntimeApi, VersionAwareRuntimeApiProvider,
 };
@@ -263,6 +270,7 @@ impl_from_subxt_subtype!(
 
 const LOG_TARGET: &str = "eth-rpc::client";
 const LOG_TARGET_SUBSCRIPTION: &str = "eth-rpc::subscription";
+const LOG_TARGET_TIMING: &str = "eth-rpc::timing";
 
 const REVERT_CODE: i32 = 3;
 
@@ -315,19 +323,23 @@ pub struct Client {
 	block_notifier: Option<tokio::sync::broadcast::Sender<H256>>,
 	/// A lock to ensure only one subscription can perform write operations at a time.
 	subscription_lock: Arc<Mutex<()>>,
-
 	/// Block subscription sender side.
 	block_subscription_tx: tokio::sync::broadcast::Sender<BlockV1>,
 	/// Log subscription sender side.
 	log_subscription_tx: tokio::sync::broadcast::Sender<Log>,
-	/// Whether archive mode is enabled
+	/// Whether archive mode is enabled.
 	is_archive: bool,
 	/// Whether historic backfill has completed. `false` if not started or in progress.
 	backfill_complete: Arc<AtomicBool>,
+	/// Runtime versions per block-number range.
+	spec_versions: Arc<SpecVersionCache>,
 	/// Queue for backfilling blocks missed during subscription reconnects.
 	subscription_gap_queue: SubscriptionGapQueue,
 	/// Hands out the version-aware runtime API of specific blocks.
 	runtime_api_provider: VersionAwareRuntimeApiProvider,
+	/// Limiter capping the historic backfill rate.
+	/// `None` -> no rate limit.
+	backward_sync_rate_limiter: Option<Arc<DefaultDirectRateLimiter>>,
 }
 
 /// A request to backfill a range of missed blocks (both bounds inclusive).
@@ -433,14 +445,163 @@ async fn get_automine(rpc_client: &RpcClient) -> bool {
 	}
 }
 
+/// Wraps the node RPC transport to rate-limit `state_call`s, bound how many of them run on
+/// the node at once, and log each one's runtime function, input size, target block and
+/// duration.
+struct StateCallGate<Inner> {
+	inner: Inner,
+	rate_limiter: Option<Arc<DefaultDirectRateLimiter>>,
+	permits: Option<Arc<Semaphore>>,
+}
+
+/// Whether a `state_call` executes contract code, which costs the node whole seconds, as
+/// opposed to the state reads and version probes that answer in tens of milliseconds and must
+/// not queue behind it. Extend this when adding a runtime API that runs the interpreter.
+fn is_metered_state_call(function: &str) -> bool {
+	["ReviveApi_eth_transact", "ReviveApi_eth_estimate_gas", "ReviveApi_trace_"]
+		.iter()
+		.any(|executing| function.starts_with(executing))
+}
+
+/// Logs a `state_call` whose future was dropped before completing, distinguishing one the node
+/// is still executing from one that never left this process.
+struct CallSpan {
+	context: Option<(String, String, String)>,
+	began: std::time::Instant,
+	dispatched: bool,
+}
+
+impl CallSpan {
+	fn take(&mut self) -> Option<(String, String, String)> {
+		self.context.take()
+	}
+}
+
+impl Drop for CallSpan {
+	fn drop(&mut self) {
+		if let Some((function, input, at_block)) = &self.context {
+			let fate = if self.dispatched {
+				"node-side execution may continue"
+			} else {
+				"never dispatched, so it cost the node nothing"
+			};
+			log::warn!(target: LOG_TARGET_TIMING,
+				"state_call {function}({input}) at={at_block}: CANCELLED by caller after {:?} (request future dropped before completion; {fate})",
+				self.began.elapsed());
+		}
+	}
+}
+
+impl<Inner: RpcClientT> RpcClientT for StateCallGate<Inner> {
+	fn request_raw<'a>(
+		&'a self,
+		method: &'a str,
+		params: Option<Box<RawValue>>,
+	) -> RawRpcFuture<'a, Box<RawValue>> {
+		if method != "state_call" {
+			return self.inner.request_raw(method, params);
+		}
+		let tracing = log::log_enabled!(target: LOG_TARGET_TIMING, log::Level::Trace);
+		if !tracing && self.rate_limiter.is_none() && self.permits.is_none() {
+			return self.inner.request_raw(method, params);
+		}
+		let (function, input, at_block) = Self::call_context(params.as_deref());
+		if tracing {
+			Self::log_params(&function, params.as_deref());
+		}
+		let permits = self.permits.clone().filter(|_| is_metered_state_call(&function));
+		let log_context = tracing.then_some((function, input, at_block));
+
+		Box::pin(async move {
+			let mut span = CallSpan {
+				context: log_context,
+				began: std::time::Instant::now(),
+				dispatched: false,
+			};
+			let waiting_since = std::time::Instant::now();
+			if let Some(limiter) = &self.rate_limiter {
+				limiter.until_ready().await;
+			}
+			// Held until the node answers, so a caller that gives up while queued here never
+			// reaches the node at all.
+			let _permit = match permits {
+				Some(permits) => permits.acquire_owned().await.ok(),
+				None => None,
+			};
+			let queued = waiting_since.elapsed();
+			span.dispatched = true;
+			let started = std::time::Instant::now();
+			let result = self.inner.request_raw(method, params).await;
+			if let Some((function, input, at_block)) = span.take() {
+				log::trace!(target: LOG_TARGET_TIMING,
+					"state_call {function}({input}) at={at_block}: {:?} queued={queued:?} ok={}",
+					started.elapsed(),
+					result.is_ok());
+			}
+			result
+		})
+	}
+
+	fn subscribe_raw<'a>(
+		&'a self,
+		sub: &'a str,
+		params: Option<Box<RawValue>>,
+		unsub: &'a str,
+	) -> RawRpcFuture<'a, RawRpcSubscription> {
+		self.inner.subscribe_raw(sub, params, unsub)
+	}
+}
+
+impl<Inner> StateCallGate<Inner> {
+	/// Renders the function name, input summary and target block of a `state_call`.
+	fn call_context(params: Option<&RawValue>) -> (String, String, String) {
+		// `state_call` params are `[function_name, scale_encoded_input, at_block_hash?]`.
+		let parsed: Vec<&RawValue> = params
+			.and_then(|raw_params| serde_json::from_str(raw_params.get()).ok())
+			.unwrap_or_default();
+		let unquoted = |index: usize| parsed.get(index).map(|value| value.get().trim_matches('"'));
+
+		let function = unquoted(0).unwrap_or("<unknown>").to_string();
+		let input = unquoted(1)
+			.map(|hex| {
+				let input_bytes = hex.len().saturating_sub(2) / 2;
+				let prefix = hex.get(..34).unwrap_or(hex);
+				let ellipsis = if hex.len() > 34 { "…" } else { "" };
+				format!("{prefix}{ellipsis} ({input_bytes} bytes)")
+			})
+			.unwrap_or_default();
+		let at_block = unquoted(2).unwrap_or("best").to_string();
+		(function, input, at_block)
+	}
+
+	/// Logs the raw params, capped: `trace_block` inputs are whole-block replay payloads.
+	fn log_params(function: &str, params: Option<&RawValue>) {
+		let Some(raw_params) = params.map(|params| params.get()) else { return };
+		let capped = raw_params.get(..256).unwrap_or(raw_params);
+		let suffix = if raw_params.len() > 256 {
+			format!("… ({} bytes total)", raw_params.len())
+		} else {
+			String::new()
+		};
+		log::trace!(target: LOG_TARGET_TIMING, "state_call {function} params: {capped}{suffix}");
+	}
+}
+
 /// Connect to a node at the given URL, and return the underlying API, RPC client, and legacy RPC
 /// clients.
 pub async fn connect(
 	node_rpc_url: &str,
 	max_request_size: u32,
 	max_response_size: u32,
+	state_call_rate_limit: Option<NonZeroU32>,
+	state_call_max_concurrency: Option<NonZeroUsize>,
 ) -> Result<
-	(OnlineClient<SrcChainConfig>, RpcClient, LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>),
+	(
+		OnlineClient<SrcChainConfig>,
+		RpcClient,
+		LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>,
+		Arc<SpecVersionCache>,
+	),
 	ClientError,
 > {
 	log::info!(target: LOG_TARGET, "🌐 Connecting to node at: {node_rpc_url} ...");
@@ -450,7 +611,10 @@ pub async fn connect(
 		.max_response_size(max_response_size)
 		.build(node_rpc_url.to_string())
 		.await?;
-	let rpc_client = RpcClient::new(rpc_client);
+	let rate_limiter =
+		state_call_rate_limit.map(|rate| Arc::new(RateLimiter::direct(Quota::per_second(rate))));
+	let permits = state_call_max_concurrency.map(|max| Arc::new(Semaphore::new(max.get())));
+	let rpc_client = RpcClient::new(StateCallGate { inner: rpc_client, rate_limiter, permits });
 	log::info!(target: LOG_TARGET, "🌟 Connected to node at: {node_rpc_url}");
 
 	// Pin the legacy backend explicitly. Since subxt 0.50, from_rpc_client defaults
@@ -458,9 +622,11 @@ pub async fn connect(
 	// the chainHead protocol; its follow restarts and pinning limits stall receipt
 	// indexing under load (blocks become unresolvable once unpinned).
 	let backend = Arc::new(LegacyBackend::builder().build(rpc_client.clone()));
-	let api = OnlineClient::<SrcChainConfig>::from_backend(backend).await?;
+	let config = SrcChainConfig::default();
+	let spec_versions = config.spec_version_cache();
+	let api = OnlineClient::<SrcChainConfig>::from_backend_with_config(config, backend).await?;
 	let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client.clone());
-	Ok((api, rpc_client, rpc))
+	Ok((api, rpc_client, rpc, spec_versions))
 }
 
 impl Client {
@@ -474,6 +640,8 @@ impl Client {
 		is_archive: bool,
 		subscription_gap_queue: SubscriptionGapQueue,
 		runtime_api_provider: VersionAwareRuntimeApiProvider,
+		backward_sync_max_blocks_per_sec: u32,
+		spec_versions: Arc<SpecVersionCache>,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight, automine) =
 			tokio::try_join!(chain_id(&api), max_block_weight(&api), async {
@@ -483,6 +651,13 @@ impl Client {
 		// Compute the very first capabilities so that the provider's cache has an anchor which
 		// the subscriptions grow forward and the backfill grows backward.
 		let latest_finalized_block = block_provider.latest_finalized_block().await;
+		// Seed the spec-version window from the already-resolved finalized block, so startup
+		// components don't each re-resolve it before the subscriptions start feeding.
+		spec_versions.record(
+			latest_finalized_block.block_number(),
+			latest_finalized_block.spec_version(),
+			latest_finalized_block.transaction_version(),
+		);
 		runtime_api_provider.at(latest_finalized_block.block_hash()).await?;
 
 		// Fall back to 0 when the hardcoded value exceeds the current best block (e.g. zombienet
@@ -500,6 +675,9 @@ impl Client {
 				}
 			}
 		}
+
+		let backward_sync_rate_limiter = NonZeroU32::new(backward_sync_max_blocks_per_sec)
+			.map(|rate| Arc::new(RateLimiter::direct(Quota::per_second(rate))));
 
 		let client = Self {
 			api,
@@ -520,6 +698,8 @@ impl Client {
 			backfill_complete: Arc::new(AtomicBool::new(false)),
 			subscription_gap_queue,
 			runtime_api_provider,
+			backward_sync_rate_limiter,
+			spec_versions,
 		};
 
 		Ok(client)
@@ -571,6 +751,11 @@ impl Client {
 		&self.block_provider
 	}
 
+	/// Backward-sync rate limiter, if enabled.
+	pub(crate) fn backward_sync_rate_limiter(&self) -> Option<&DefaultDirectRateLimiter> {
+		self.backward_sync_rate_limiter.as_deref()
+	}
+
 	pub(crate) fn subscription_gap_queue(&self) -> &SubscriptionGapQueue {
 		&self.subscription_gap_queue
 	}
@@ -582,6 +767,29 @@ impl Client {
 			.first_evm_block()
 			.or_else(|| known_first_evm_block_for_chain(self.chain_id))
 			.unwrap_or(0)
+	}
+
+	/// Record which runtime versions govern the streamed block.
+	async fn observe_runtime_version(
+		&self,
+		block: &StreamedBlock<SrcChainConfig>,
+	) -> Result<(), ClientError> {
+		let block_number = block.number();
+		let upgraded = block
+			.header()
+			.digest
+			.logs
+			.iter()
+			.any(|log| matches!(log, DigestItem::RuntimeEnvironmentUpdated));
+
+		if !upgraded && self.spec_versions.extend_to(block_number) {
+			return Ok(());
+		}
+
+		let version = self.rpc.state_get_runtime_version(Some(block.hash())).await?;
+		self.spec_versions
+			.record(block_number, version.spec_version, version.transaction_version);
+		Ok(())
 	}
 
 	/// Subscribe to new blocks, and execute the async closure for each block.
@@ -623,6 +831,17 @@ impl Client {
 				},
 			};
 
+			// Record the block's runtime versions before it is resolved, so the resolution
+			// (and any later request against this block) answers the spec-version lookup
+			// from the cache instead of a `Core_version` runtime call.
+			if let Err(err) = self.observe_runtime_version(&block).await {
+				log::debug!(
+					target: LOG_TARGET_SUBSCRIPTION,
+					"Could not record the runtime version of #{}: {err:?}",
+					block.number(),
+				);
+			}
+
 			// Resolution fails for pruned/retracted blocks and on transient RPC errors;
 			// erroring out here would kill the essential subscription task and with it the
 			// whole server. Skip instead: a skipped finalized block doesn't advance
@@ -654,6 +873,13 @@ impl Client {
 				last_finalized_seen = Some(block_number);
 			}
 
+			// The finalized stream replays every intermediate block when the node's finality
+			// jumps (e.g. while it catches up after a restart), so cap the processing rate to
+			// avoid storming the node with per-block requests.
+			if let Some(limiter) = self.backward_sync_rate_limiter() {
+				limiter.until_ready().await;
+			}
+
 			log::trace!(target: LOG_TARGET_SUBSCRIPTION, "⏳ Processing {subscription_type:?} block: {block_number}");
 			if let Err(err) = callback(block).await {
 				log::error!(target: LOG_TARGET, "Failed to process block {block_number}: {err:?}");
@@ -672,7 +898,6 @@ impl Client {
 		block: &SubstrateBlock,
 	) -> Result<(BlockV1, Vec<ReceiptInfo>), ClientError> {
 		let block_number = block.block_number();
-		let hash = block.block_hash();
 
 		macro_rules! time {
 			($label:expr, $expr:expr) => {{
@@ -687,14 +912,8 @@ impl Client {
 			}};
 		}
 
-		let eth_block = time!(
-			"eth_block",
-			self.runtime_api(hash)
-				.await?
-				.eth_block()
-				.ok_or(ClientError::UnsupportedRuntimeApiMethod("eth_block"))?
-				.await?
-		);
+		let eth_block =
+			time!("eth_block_from_storage", StorageApi::new(block.clone()).eth_block().await?);
 		let receipts = time!(
 			"receipts_from_block",
 			self.receipt_provider.receipts_from_block(block, eth_block.hash).await?
@@ -1243,20 +1462,12 @@ impl Client {
 
 		// This could potentially fail under below circumstances:
 		//  - state has been pruned
-		//  - the block author cannot be obtained from the digest logs (highly unlikely)
+		//  - the `EthereumBlock` value is absent (BlockNotFound)
 		//  - the node we are targeting has an outdated revive pallet (or ETH block functionality is
 		//    disabled)
-		let eth_block_result = async {
-			self.runtime_api(block.block_hash())
-				.await?
-				.eth_block()
-				.ok_or(ClientError::UnsupportedRuntimeApiMethod("eth_block"))?
-				.await
-		}
-		.await;
-		match eth_block_result {
+		match StorageApi::new((*block).clone()).eth_block().await {
 			Ok(mut eth_block) => {
-				log::trace!(target: LOG_TARGET, "Ethereum block from runtime API hash {:?}", eth_block.hash);
+				log::trace!(target: LOG_TARGET, "Ethereum block from storage, hash {:?}", eth_block.hash);
 
 				if hydrated_transactions {
 					// Hydrate the block.

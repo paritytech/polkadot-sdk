@@ -19,7 +19,7 @@
 
 use crate::{
 	BlockInfoProvider,
-	client::{Client, ClientError, GapFillRequest, SubstrateBlockNumber},
+	client::{Client, ClientError, GapFillRequest, SubstrateBlockNumber, storage_api::StorageApi},
 };
 use pallet_revive::evm::H256;
 use tokio::sync::mpsc;
@@ -88,6 +88,8 @@ struct BackwardSyncRange {
 	checkpoint_tail: bool,
 	/// When true, persist the first EVM block boundary if a non-EVM block is encountered.
 	persist_first_evm_block: bool,
+	/// Whether this range is subject to rate limiting.
+	rate_limit: bool,
 }
 
 impl Client {
@@ -221,6 +223,7 @@ impl Client {
 			set_head: true,
 			checkpoint_tail: true,
 			persist_first_evm_block: true,
+			rate_limit: true,
 		})
 		.await
 	}
@@ -245,6 +248,7 @@ impl Client {
 					set_head: false,
 					checkpoint_tail: false,
 					persist_first_evm_block: false,
+					rate_limit: true,
 				})
 				.await?;
 
@@ -266,6 +270,7 @@ impl Client {
 					set_head: false,
 					checkpoint_tail: true,
 					persist_first_evm_block: true,
+					rate_limit: true,
 				})
 				.await?;
 			} else {
@@ -289,6 +294,7 @@ impl Client {
 			set_head,
 			checkpoint_tail,
 			persist_first_evm_block,
+			rate_limit,
 		}: BackwardSyncRange,
 	) -> Result<(), ClientError> {
 		if from < to {
@@ -310,25 +316,18 @@ impl Client {
 			|synced: u64| synced <= 1 || synced.is_multiple_of(u64::from(BLOCK_INTERVAL));
 
 		let loop_result: Result<(), ClientError> = loop {
+			if rate_limit && let Some(limiter) = self.backward_sync_rate_limiter() {
+				limiter.until_ready().await;
+			}
+
 			let block_number = block.block_number();
 			let block_hash = block.block_hash();
 
-			// A block whose runtime does not expose `eth_block_hash` predates pallet-revive and
-			// is treated exactly like a block without an EVM hash: it marks the end of the
-			// backward sync.
-			let ethereum_hash = match self.runtime_api(block_hash).await {
-				Ok(runtime_api) => {
-					match runtime_api.eth_block_hash(pallet_revive::evm::U256::from(block_number)) {
-						Some(future) => match future.await {
-							Ok(hash) => hash,
-							Err(err) => {
-								log::error!(target: LOG_TARGET,	"⚠️ eth_block_hash failed for #{block_number}: {err:?}, stopping");
-								break Err(err);
-							},
-						},
-						None => None,
-					}
-				},
+			let ethereum_hash = match StorageApi::new(block.as_ref().clone())
+				.eth_block_hash(pallet_revive::evm::U256::from(block_number))
+				.await
+			{
+				Ok(hash) => hash,
 				Err(err) => {
 					log::error!(target: LOG_TARGET,	"⚠️ eth_block_hash failed for #{block_number}: {err:?}, stopping");
 					break Err(err);
@@ -428,6 +427,7 @@ impl Client {
 					set_head: false,
 					checkpoint_tail: false,
 					persist_first_evm_block: false,
+					rate_limit: false,
 				})
 				.await
 			{

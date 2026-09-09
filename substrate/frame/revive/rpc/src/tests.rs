@@ -24,7 +24,7 @@ use crate::{
 	SubscriptionKind, SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
 	client::{
-		Client, GapFillRequest, SubscriptionGapQueue, connect,
+		Client, GapFillRequest, SubscriptionGapQueue, connect, storage_api::StorageApi,
 		version_aware_runtime_api::VersionAwareRuntimeApiProvider,
 	},
 	example::TransactionBuilder,
@@ -312,6 +312,69 @@ async fn verify_transactions_in_single_block(
 	Ok(())
 }
 
+/// `StorageApi::eth_block`/`eth_block_hash`/`eth_receipt_data` must match the runtime API.
+async fn test_storage_api_matches_runtime_api() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
+	let node_client = SharedResources::node_client().await;
+	let node_rpc_client = RpcClient::from_url(SharedResources::node_rpc_url()).await?;
+
+	let (bytes, _) = pallet_revive_fixtures::compile_module("dummy")?;
+	let tx = TransactionBuilder::new(client.clone())
+		.value(U256::from(5_000_000_000_000u128))
+		.input(bytes.to_vec())
+		.send()
+		.await?;
+	let block_number = tx.wait_for_receipt().await?.block_number;
+
+	let block_hash: H256 =
+		node_rpc_client.request("chain_getBlockHash", rpc_params![block_number]).await?;
+	let at_block = node_client.at_block(block_hash).await?;
+	let storage_api = StorageApi::new(at_block.clone());
+
+	let runtime_block = at_block
+		.runtime_apis()
+		.call(subxt_client::runtime_apis().revive_api().eth_block().unvalidated())
+		.await?
+		.0;
+	let storage_block = storage_api.eth_block().await?;
+	assert_eq!(storage_block, runtime_block, "eth_block: storage vs runtime API");
+	assert_eq!(storage_block.number, block_number, "eth_block should be the deploy's block");
+
+	let runtime_hash = at_block
+		.runtime_apis()
+		.call(
+			subxt_client::runtime_apis()
+				.revive_api()
+				.eth_block_hash(block_number.into())
+				.unvalidated(),
+		)
+		.await?;
+	assert_eq!(
+		storage_api.eth_block_hash(block_number).await?,
+		runtime_hash,
+		"eth_block_hash: storage vs runtime API",
+	);
+	assert_eq!(runtime_hash, Some(storage_block.hash), "eth_block_hash should be the block's hash");
+
+	let runtime_receipt_data: Vec<crate::ReceiptGasInfoV1> = at_block
+		.runtime_apis()
+		.call(subxt_client::runtime_apis().revive_api().eth_receipt_data().unvalidated())
+		.await?
+		.into_iter()
+		.map(|item| item.0.into())
+		.collect();
+	assert!(!runtime_receipt_data.is_empty(), "deploy block should have receipt data");
+	assert_eq!(
+		storage_api.eth_receipt_data().await?,
+		runtime_receipt_data,
+		"eth_receipt_data: storage vs runtime API",
+	);
+
+	assert_eq!(storage_api.eth_block_hash(U256::from(u64::MAX)).await?, None);
+
+	Ok(())
+}
+
 /// Wait for the eth-rpc's finalized block to catch up to its best block.
 async fn wait_for_finalized_to_reach_best<C: EthRpcClient + Sync>(
 	client: &C,
@@ -384,6 +447,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_block_hash_for_tag_with_proper_ethereum_block_hash_works,
 		test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails,
 		test_block_hash_for_tag_with_block_number_works,
+		test_storage_api_matches_runtime_api,
 		test_block_hash_for_tag_with_block_tags_works,
 		test_earliest_block_tag,
 		test_get_logs_with_block_tags_works,
@@ -2380,19 +2444,23 @@ async fn submit_evm_transfers(count: usize) -> anyhow::Result<()> {
 /// Connects to the same dev-node that [`SharedResources`] started, but uses its own
 /// in-memory SQLite database so that sync labels written by the test do not interfere
 /// with the eth-rpc server's internal database (and vice versa).
-async fn create_sync_test_client() -> anyhow::Result<Client> {
-	let (client, _gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
+///
+/// `rate` is the backward-sync limit in blocks/sec; `0` disables it.
+async fn create_sync_test_client(rate: u32) -> anyhow::Result<Client> {
+	let (client, _gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue(rate).await?;
 	Ok(client)
 }
 
-async fn create_sync_test_client_with_subscription_gap_queue()
--> anyhow::Result<(Client, mpsc::Receiver<GapFillRequest>)> {
+async fn create_sync_test_client_with_subscription_gap_queue(
+	rate: u32,
+) -> anyhow::Result<(Client, mpsc::Receiver<GapFillRequest>)> {
 	use sc_cli::{RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB};
 
 	let node_url = SharedResources::node_rpc_url();
 	let max_request_size = RPC_DEFAULT_MAX_REQUEST_SIZE_MB * 1024 * 1024;
 	let max_response_size = RPC_DEFAULT_MAX_RESPONSE_SIZE_MB * 1024 * 1024;
-	let (api, rpc_client, rpc) = connect(node_url, max_request_size, max_response_size).await?;
+	let (api, rpc_client, rpc, spec_versions) =
+		connect(node_url, max_request_size, max_response_size, None, None).await?;
 	let block_provider = SubxtBlockInfoProvider::new(api.clone(), rpc.clone()).await?;
 
 	let pool = SqlitePoolOptions::new()
@@ -2422,19 +2490,24 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		true,
 		subscription_gap_queue,
 		runtime_api_provider,
+		rate,
+		spec_versions,
 	)
 	.await?;
 	Ok((client, gap_fill_rx))
 }
 
-/// Fresh sync: labels, hash mappings, and re-sync idempotency.
+/// Fresh sync: labels, hash mappings, re-sync idempotency, and backfill rate limiting.
 async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	use crate::block_sync::SyncCheckpoint;
 
 	// Submit a transaction so the chain has at least one block with EVM data to sync.
 	submit_evm_transfers(1).await?;
 
-	let client = create_sync_test_client().await?;
+	// Rate-limit the backfill; block_count/2 throttles it by over 1s at any chain length.
+	let block_count = SharedResources::node_client().await.at_current_block().await?.block_number();
+	let rate = u32::try_from(block_count / 2).unwrap_or(u32::MAX).max(1);
+	let client = create_sync_test_client(rate).await?;
 
 	// Fresh DB — sync_state table should be empty.
 	for label in [SyncLabel::Tail, SyncLabel::Head] {
@@ -2454,7 +2527,10 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 	let finalized_before_sync = client.latest_finalized_block().await.block_number();
 
 	// Run the full backward sync.
+	let start = std::time::Instant::now();
 	client.sync_backward().await?;
+	let sync_elapsed = start.elapsed();
+	log::info!(target: LOG_TARGET, "rate-limited backward sync of {block_count} blocks at {rate}/s took {sync_elapsed:?}");
 
 	// Genesis label must match the chain.
 	let genesis = client
@@ -2486,6 +2562,11 @@ async fn test_block_sync_fresh() -> anyhow::Result<()> {
 		.await?
 		.expect("Tail should be set after sync");
 	assert_eq!(sync_tail, genesis, "Tail should be genesis");
+
+	assert!(
+		sync_elapsed >= std::time::Duration::from_secs(1),
+		"rate-limited backfill at {rate}/s finished too fast ({sync_elapsed:?}); limiter not applied?",
+	);
 
 	// On the dev node all blocks (including genesis) have EVM hashes
 	let evm_first = client.receipt_provider().get_sync_label(ChainMetadata::FirstEvmBlock).await?;
@@ -2573,7 +2654,7 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 	// Submit transactions so the chain has enough blocks for the 1/3 and 2/3 split.
 	submit_evm_transfers(6).await?;
 
-	let client = create_sync_test_client().await?;
+	let client = create_sync_test_client(0).await?;
 
 	// Complete a fresh sync so the DB has all blocks and labels.
 	client.sync_backward().await?;
@@ -2659,7 +2740,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 	// Submit transactions so the chain has enough blocks for the boundary test.
 	submit_evm_transfers(2).await?;
 
-	let client = create_sync_test_client().await?;
+	let client = create_sync_test_client(0).await?;
 
 	// Complete a fresh sync so all labels are stored.
 	client.sync_backward().await?;
@@ -2702,7 +2783,7 @@ async fn test_block_sync_detects_corruption() -> anyhow::Result<()> {
 /// should include the newer blocks.
 async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 	// First sync: snapshot the current chain state.
-	let client1 = create_sync_test_client().await?;
+	let client1 = create_sync_test_client(0).await?;
 	let finalized1 = client1.latest_finalized_block().await.block_number();
 
 	client1.sync_backward().await?;
@@ -2711,7 +2792,7 @@ async fn test_block_sync_picks_up_new_blocks() -> anyhow::Result<()> {
 	submit_evm_transfers(1).await?;
 
 	// Second sync: new client with fresh DB should see the new blocks.
-	let client2 = create_sync_test_client().await?;
+	let client2 = create_sync_test_client(0).await?;
 	let finalized2 = client2.latest_finalized_block().await;
 
 	client2.sync_backward().await?;
@@ -3760,7 +3841,7 @@ async fn test_state_override_trace_call() -> anyhow::Result<()> {
 async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result<()> {
 	submit_evm_transfers(1).await?;
 
-	let (sync_client, gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
+	let (sync_client, gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue(0).await?;
 	sync_client.sync_backward().await?;
 
 	let head_after_sync = sync_client
