@@ -14565,6 +14565,7 @@ dependencies = [
  "hex",
  "humantime-serde",
  "jsonrpsee",
+ "k256",
  "libsqlite3-sys",
  "log",
  "pallet-revive",
@@ -22261,6 +22262,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
  "async-trait",
+ "bitvec",
  "criterion",
  "fastbloom",
  "futures",
@@ -26073,6 +26075,7 @@ name = "sp-statement-store"
 version = "10.0.0"
 dependencies = [
  "aes-gcm",
+ "array-bytes 6.2.2",
  "curve25519-dalek",
  "ed25519-dalek",
  "frame-support",
