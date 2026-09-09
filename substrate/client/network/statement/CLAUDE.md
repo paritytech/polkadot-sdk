@@ -44,8 +44,8 @@ Remove this section when the feature stabilizes and the gate is removed.
 ### The v2 path is gated
 
 `v2dht_enabled()` in `lib.rs` reads the `STATEMENT_STORE_V2_DHT_ENABLED` environment variable, off
-by default. Until the feature is ready, the v2 path stays dead code in a default-configured node,
-so v2 code carries `#[allow(dead_code)]`. Two invariants hold while the gate exists:
+by default. Until the feature is ready, a default-configured node never takes the v2 path. Two
+invariants hold while the gate exists:
 
 - Keep the v1 path working: with the gate off, behavior must match a node without the v2 code.
 - Put every v2 call site behind `v2dht_enabled()`; never let the v2 path leak into v1 handling.

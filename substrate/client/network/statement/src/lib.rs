@@ -151,7 +151,6 @@ use sp_runtime::{
 };
 use sp_statement_store::{
 	AdmittedBatch, FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult,
-	Topic,
 };
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
@@ -162,9 +161,10 @@ use std::{
 	time::Instant,
 };
 use tokio::time::timeout;
-pub use v2dht::RetentionHandle;
-use v2dht::{V2DhtMetrics, V2DhtOrchestrator};
+use v2dht::{RetentionHandle, V2DhtMetrics, V2DhtOrchestrator};
 pub mod config;
+pub use config::V2DhtConfig;
+pub use v2dht::RetentionReasonMask;
 #[cfg(test)]
 mod test_helpers;
 
@@ -263,8 +263,7 @@ const SYNC_RECOVERY_READD_DELAY: std::time::Duration = std::time::Duration::from
 
 /// Feature-flag to switch between the legacy flood path and the new DHT-targeted path.
 ///
-/// Off by default; enable the v2 DHT path by setting `STATEMENT_STORE_V2_DHT_ENABLED=1`. The node
-/// also reads this to gate v2-only wiring, such as the store's affinity-based retention resolver.
+/// Off by default; enable the v2 DHT path by setting `STATEMENT_STORE_V2_DHT_ENABLED=1`.
 /// The environment variable is read once; the value stays fixed for the process lifetime.
 pub fn v2dht_enabled() -> bool {
 	static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
@@ -562,10 +561,7 @@ impl StatementHandlerPrototype {
 		executor: impl Fn(Pin<Box<dyn Future<Output = ()> + Send>>) + Send,
 		mut num_submission_workers: usize,
 		statements_per_second: u32,
-		configured_topics: &[Topic],
-		replication_factor: std::num::NonZeroUsize,
-		gossip_target: std::num::NonZeroUsize,
-		retention: RetentionHandle,
+		v2dht_config: Option<V2DhtConfig>,
 	) -> error::Result<StatementHandler<N, S>> {
 		let sync_event_stream = sync.event_stream("statement-handler-sync");
 		// Still bounded via the `MAX_PENDING_STATEMENTS` check in `on_statements`.
@@ -639,14 +635,21 @@ impl StatementHandlerPrototype {
 		} else {
 			futures::stream::pending::<Event>().boxed()
 		};
+		let retention = v2dht_config
+			.as_ref()
+			.map(|cfg| RetentionHandle::new(network.local_peer_id(), cfg.replication_factor));
+		let V2DhtConfig { affinity_topics, replication_factor, gossip_target } =
+			v2dht_config.unwrap_or_default();
 		let mut v2dht = V2DhtOrchestrator::new(
-			configured_topics,
+			&affinity_topics,
 			network.local_peer_id(),
 			PeersTopologyConfig { replication_factor, gossip_target },
 			self.protocol_name.clone(),
 			v2dht_metrics,
 		);
-		v2dht.set_retention_handle(retention);
+		if let Some(retention) = retention {
+			v2dht.set_retention_handle(retention);
+		}
 		let handler = StatementHandler {
 			protocol_name: self.protocol_name,
 			notification_service: self.notification_service,
@@ -1198,6 +1201,13 @@ where
 	) -> &mut FuturesUnordered<Pin<Box<dyn Future<Output = (Hash, Option<SubmitResult>)> + Send>>>
 	{
 		&mut self.pending_statements
+	}
+
+	/// The resolver the store should use to derive each statement's retention mask.
+	pub fn retention_resolver(
+		&self,
+	) -> Option<Box<dyn Fn(&Statement) -> RetentionReasonMask + Send + Sync>> {
+		self.v2dht.retention_resolver()
 	}
 
 	/// Turns the [`StatementHandler`] into a future that should run forever and not be
@@ -2640,6 +2650,7 @@ mod tests {
 	use super::*;
 	use crate::test_helpers::{filter_over, topic, topology_config};
 	use governor::clock::FakeRelativeClock;
+	use sp_statement_store::Topic;
 	use std::{
 		sync::{
 			atomic::{AtomicBool, AtomicUsize, Ordering},

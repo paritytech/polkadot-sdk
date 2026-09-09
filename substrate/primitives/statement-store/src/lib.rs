@@ -240,9 +240,8 @@ pub use event::{
 #[cfg(feature = "std")]
 pub use store_api::{
 	AdmittedBatch, Error, FilterDecision, FilterId, InvalidReason, LiveStatementEvent,
-	OptimizedTopicFilter, RejectionReason, Result, RetentionReasonMask, StatementEvent,
-	StatementSource, StatementStore, SubmitInvalidReason, SubmitOutcome, SubmitRejectionReason,
-	SubmitResult, TopicFilter,
+	OptimizedTopicFilter, RejectionReason, Result, StatementEvent, StatementSource, StatementStore,
+	SubmitInvalidReason, SubmitOutcome, SubmitRejectionReason, SubmitResult, TopicFilter,
 };
 
 #[cfg(feature = "std")]
