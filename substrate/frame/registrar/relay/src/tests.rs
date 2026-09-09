@@ -564,12 +564,12 @@ mod reporting {
 
 mod head_noted {
 	use super::*;
-	use registrar_primitives::OnNewParaHead;
+	use polkadot_runtime_parachains::paras::OnNewHead;
 
 	#[test]
 	fn tells_the_parachain_about_a_new_head() {
 		new_test_ext().execute_with(|| {
-			Registrar::on_new_para_head(PARA_A);
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
 
 			assert_eq!(
 				take_sent(),
@@ -586,7 +586,7 @@ mod head_noted {
 			// which paras are worth a notification, this pallet only carries it.
 			assert!(PendingRegistrations::<Test>::get(PARA_A).is_none());
 
-			Registrar::on_new_para_head(PARA_A);
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
 
 			assert_eq!(take_sent().len(), 1);
 		});
@@ -597,7 +597,7 @@ mod head_noted {
 		new_test_ext().execute_with(|| {
 			SendFails::set(true);
 
-			Registrar::on_new_para_head(PARA_A);
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
 
 			assert!(take_sent().is_empty());
 			assert_eq!(registrar_events(), vec![Event::HeadNoteFailed { para_id: PARA_A }]);
