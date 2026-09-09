@@ -3849,18 +3849,23 @@ mod admin {
 /// The rotation targets one cell: a bundled slot whose ownership moves. Before the
 /// rotation, that cell held a silent split. The departing owner kept the slot, and the new
 /// owner could not administer, remove, or re-create P, because X has at most one P. Every
-/// other cell keeps its old meaning:
+/// other cell keeps its old meaning. One test per cell:
 ///
-/// - A slot that is not bundled never moves, whoever owns or receives X.
-/// - An explicit split stays available: rotate the slot away first, then transfer X.
-/// - The order of "hand over the slot" and "hand over X" stops mattering. Both orders end with the
-///   receiver holding both.
-/// - The mirror direction — the admin receives ownership of X — forms a bundle. Nothing rotates.
-/// - `full_admin` and `emergency_admin` follow the rule independently.
-/// - A privileged owner change (`force_asset_status`, `reset_team`) is an owner change like any
-///   other. A partial rule would recreate the split through the uncovered path.
+/// | slot, relative to the departing owner | owner change of X | outcome | test |
+/// |---|---|---|---|
+/// | bundled, `full_admin` | `transfer_ownership` | slot follows | `coinciding_full_admin_rotates_on_transfer` |
+/// | bundled, `emergency_admin` | `transfer_ownership` | that slot follows, the other stays | `coinciding_emergency_admin_rotates_independently` |
+/// | governance origin | `transfer_ownership` | no change | `governance_admin_does_not_rotate` |
+/// | a third account | `transfer_ownership` | no change | `third_party_admin_does_not_rotate` |
+/// | rotated away before the transfer | `transfer_ownership` | no change, the split is explicit | `deliberate_split_stays_possible` |
+/// | bundled, `full_admin` | privileged path | slot follows | `force_asset_status_rotates_too` |
+/// | held by the receiver of X | `transfer_ownership` | no change, a bundle forms | `transfer_to_the_admin_forms_the_bundle` |
+/// | X has no PSM | `transfer_ownership` | nothing to do | `asset_without_psm_transfers_clean` |
 ///
-/// One test per cell below.
+/// Two properties follow. The order of "hand over the slot" and "hand over X" stops
+/// mattering: both orders end with the receiver holding both. And a privileged owner
+/// change (`force_asset_status`, `reset_team`) is an owner change like any other: a
+/// partial rule would recreate the split through the uncovered path.
 mod admin_follows_owner {
 	use super::*;
 
