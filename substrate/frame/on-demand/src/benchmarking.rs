@@ -69,6 +69,8 @@ mod benches {
 			&caller.clone(),
 			T::Currency::minimum_balance().saturating_add(base_fee),
 		);
+		// Store minimum balance in the pallet's account, so that small transfers to it don't fail
+		T::Currency::set_balance(&OnDemand::<T>::account_id(), T::Currency::minimum_balance());
 
 		let _ = OnDemand::<T>::on_initialize(current_block);
 
@@ -129,6 +131,8 @@ mod benches {
 			&caller.clone(),
 			T::Currency::minimum_balance().saturating_add(required_amount),
 		);
+		// Store minimum balance in the pallet's account, so that small transfers to it don't fail
+		T::Currency::set_balance(&OnDemand::<T>::account_id(), T::Currency::minimum_balance());
 
 		// Pre-populate InflightTransactions with n transactions of fixed size
 		if n > 0 {
