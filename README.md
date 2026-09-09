@@ -23,8 +23,8 @@ Polkadot SDK is the starting point for runtime, chain, and protocol development.
 | Build an application with TypeScript | [Product SDK docs](https://docs.polkadot.com/apps/product-sdk/) · [GitHub](https://github.com/paritytech/product-sdk) · [API reference](https://paritytech.github.io/product-sdk/) |
 | Build a smart contract with Solidity | [Polkadot smart contract docs](https://docs.polkadot.com/develop/smart-contracts/) and [Revive](https://github.com/paritytech/revive) |
 | Build a runtime or parachain | [Polkadot SDK parachain development docs](https://docs.polkadot.com/develop/parachains/) |
-| Query or integrate with a network through REST | [Polkadot REST API](https://github.com/paritytech/polkadot-rest-api) |
-| Contribute to Polkadot SDK | [Contribution guidelines](./docs/contributor/CONTRIBUTING.md) |
+| Query or integrate with a network through REST | [Polkadot REST API](https://github.com/paritytech/polkadot-rest-api) · [API reference](https://paritytech.github.io/polkadot-rest-api/) |
+| Contribute to Polkadot SDK | [Contribution guidelines](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md) |
 
 If you're working directly on Polkadot SDK, continue with the quickstart below.
 
