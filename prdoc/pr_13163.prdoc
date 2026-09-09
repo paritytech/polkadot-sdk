@@ -1,7 +1,7 @@
 title: 'cumulus: refactor slot based builder loop'
 doc:
 - audience: Node Dev
-  description: 
+  description: |
     Splits the slot-based collator's block-builder loop into per-slot phases
     (`prepare_slot`/`plan_cores` on a `BuilderEnv`), extracts small helpers,
     and fixes one edge case: when the parent search ran with V3 scheduling
