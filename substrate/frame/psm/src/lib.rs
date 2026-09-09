@@ -1644,7 +1644,7 @@ pub mod pallet {
 		/// [`PsmAdminInfo::full_admin`] (yielding `Full`) or [`PsmAdminInfo::emergency_admin`]
 		/// (yielding `Emergency`). The resolved level is then checked against `required`. No
 		/// other authority can manage a PSM.
-		/// Move each admin slot that equals `Signed(old)` to `Signed(new)`.
+		/// Move each admin role that equals `Signed(old)` to `Signed(new)`.
 		///
 		/// Wire this into `pallet_assets::AssetsCallback::owner_changed` for the internal
 		/// asset. It keeps an admin role that was held through asset ownership attached to

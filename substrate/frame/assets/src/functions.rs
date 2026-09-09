@@ -1133,14 +1133,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// mechanism inherits the callback. Do not assign the `owner` field directly.
 	pub(crate) fn do_update_owner(
 		id: &T::AssetId,
-		owner_slot: &mut T::AccountId,
+		current: &mut T::AccountId,
 		new: T::AccountId,
 	) -> DispatchResult {
-		if *owner_slot == new {
+		if *current == new {
 			return Ok(());
 		}
-		let old = core::mem::replace(owner_slot, new);
-		T::CallbackHandle::owner_changed(id, &old, owner_slot)
+		let old = core::mem::replace(current, new);
+		T::CallbackHandle::owner_changed(id, &old, current)
 			.map_err(|_| Error::<T, I>::CallbackFailed)?;
 		Ok(())
 	}

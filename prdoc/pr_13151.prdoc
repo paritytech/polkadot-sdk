@@ -7,7 +7,7 @@ doc:
     through one internal setter that fires the callback.
 
     `pallet-psm` gains `handle_internal_asset_owner_change` for runtimes to wire into that
-    callback. A PSM admin slot that equals the departing owner's signed origin follows the
+    callback. A PSM admin role that equals the departing owner's signed origin follows the
     ownership; any other admin origin does not change. This removes the silent split where
     an asset transfer left the previous owner holding the PSM admin role.
 crates:

@@ -3838,30 +3838,30 @@ mod admin {
 	}
 }
 
-/// The admin slots follow the internal asset's owner when, and only when, they were held
+/// The admin roles follow the internal asset's owner when, and only when, they were held
 /// through that ownership. See `Pallet::handle_internal_asset_owner_change`.
 ///
-/// The case grid: accounts A and B, asset X, PSM P over internal asset X. An admin slot of
+/// The case grid: accounts A and B, asset X, PSM P over internal asset X. An admin role of
 /// P either equals `Signed(owner of X)` — the bundled case — or it does not: a third
 /// account, or a governance origin. Ownership of X either stays, moves by
 /// `transfer_ownership`, or moves by a privileged path.
 ///
-/// The rotation targets one cell: a bundled slot whose ownership moves. Before the
-/// rotation, that cell held a silent split. The departing owner kept the slot, and the new
+/// The rotation targets one cell: a bundled role whose ownership moves. Before the
+/// rotation, that cell held a silent split. The departing owner kept the role, and the new
 /// owner could not administer, remove, or re-create P, because X has at most one P. Every
 /// other cell keeps its old meaning. The grid, one test per row, in test order:
 ///
-///   slot, vs the departing owner       owner change of X    outcome
-///   bundled, full_admin                transfer_ownership   the slot follows
-///   bundled, emergency_admin           transfer_ownership   that slot follows, the other stays
+///   role, vs the departing owner       owner change of X    outcome
+///   bundled, full_admin                transfer_ownership   the role follows
+///   bundled, emergency_admin           transfer_ownership   that role follows, the other stays
 ///   governance origin                  transfer_ownership   no change
 ///   a third account                    transfer_ownership   no change
 ///   rotated away before the transfer   transfer_ownership   no change, the split is explicit
-///   bundled, full_admin                privileged path      the slot follows
+///   bundled, full_admin                privileged path      the role follows
 ///   held by the receiver of X          transfer_ownership   no change, a bundle forms
 ///   X has no PSM                       transfer_ownership   nothing to do
 ///
-/// Two properties follow. The order of "hand over the slot" and "hand over X" stops
+/// Two properties follow. The order of "hand over the role" and "hand over X" stops
 /// mattering: both orders end with the receiver holding both. And a privileged owner
 /// change (`force_asset_status`, `reset_team`) is an owner change like any other: a
 /// partial rule would recreate the split through the uncovered path.
