@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788898036295,
+  "lastUpdate": 1788952568049,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "b4a1f75c4f26109c76f1e4b90eb93a2f44d0b0e7",
-          "message": "revive-eth-rpc: Use pending block for estimate_gas in dev mode (#10963)\n\nUse Pending as the default block for eth_estimateGas in dev mode,\nmatching Anvil/EDR behavior. Non-dev mode continues to use Latest\n(go-ethereum behavior).\n\nRefs https://github.com/paritytech/contract-issues/issues/261\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-06T11:55:08Z",
-          "tree_id": "3111445c469f16231e3b8e0028ad88c87824f5f5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b4a1f75c4f26109c76f1e4b90eb93a2f44d0b0e7"
-        },
-        "date": 1770383372555,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.06400000000002,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038291495004,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0662350554579999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.039831214109999985,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49699333+dependabot[bot]@users.noreply.github.com",
+            "name": "dependabot[bot]",
+            "username": "dependabot[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b41f345a99151bf933e39be0a23f23281a0a05fb",
+          "message": "Bump quinn-proto from 0.11.14 to 0.11.17 (#12738)\n\nBumps [quinn-proto](https://github.com/quinn-rs/quinn) from 0.11.14 to\n0.11.17.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/quinn-rs/quinn/releases\">quinn-proto's\nreleases</a>.</em></p>\n<blockquote>\n<h2>quinn-proto 0.11.17</h2>\n<p>This release fixes three remote memory exhaustion issues. See\nGHSA-qfwj-vfxf-92j2, GHSA-2hv7-gw8g-gpq5, and GHSA-hmxj-32vh-65vr for\nmore details, and <a\nhref=\"https://redirect.github.com/quinn-rs/quinn/pull/2789\">quinn-rs/quinn#2789</a>\nfor the fixes.</p>\n<h2>What's Changed</h2>\n<ul>\n<li>fix(ci): fix clippy lints by <a\nhref=\"https://github.com/LesnyRumcajs\"><code>@​LesnyRumcajs</code></a>\nin <a\nhref=\"https://redirect.github.com/quinn-rs/quinn/pull/2752\">quinn-rs/quinn#2752</a></li>\n<li>congestion: saturate CUBIC window increment to avoid overflow by <a\nhref=\"https://github.com/LesnyRumcajs\"><code>@​LesnyRumcajs</code></a>\nin <a\nhref=\"https://redirect.github.com/quinn-rs/quinn/pull/2751\">quinn-rs/quinn#2751</a></li>\n<li>0.11.x: Backport memory use fixes and prepare release by <a\nhref=\"https://github.com/Ralith\"><code>@​Ralith</code></a> in <a\nhref=\"https://redirect.github.com/quinn-rs/quinn/pull/2790\">quinn-rs/quinn#2790</a></li>\n</ul>\n<p><strong>Full Changelog</strong>: <a\nhref=\"https://github.com/quinn-rs/quinn/compare/quinn-proto-0.11.16...quinn-proto-0.11.17\">https://github.com/quinn-rs/quinn/compare/quinn-proto-0.11.16...quinn-proto-0.11.17</a></p>\n<h2>quinn-proto-0.11.16</h2>\n<h2>What's Changed</h2>\n<ul>\n<li>0.11.x: upgrade dependencies by <a\nhref=\"https://github.com/djc\"><code>@​djc</code></a> in <a\nhref=\"https://redirect.github.com/quinn-rs/quinn/pull/2707\">quinn-rs/quinn#2707</a></li>\n</ul>\n<h2>quinn-proto 0.11.15, quinn 0.11.11</h2>\n<p>This release fixes a remote memory exhaustion issue in the\nquinn-proto <code>Assembler</code>. See <a\nhref=\"https://github.com/quinn-rs/quinn/security/advisories/GHSA-4w2j-m93h-cj5j\">https://github.com/quinn-rs/quinn/security/advisories/GHSA-4w2j-m93h-cj5j</a>\nfor more details and <a\nhref=\"https://redirect.github.com/quinn-rs/quinn/issues/2694\">#2694</a>\nfor the fix.</p>\n<p>Two sponsoring organizations participated in coordinated disclosure.\nIf this is relevant to your organization, please contact us to keep\nsupport Quinn maintenance.</p>\n<h2>What's Changed</h2>\n<ul>\n<li>Prepare 0.11.x branch for release by <a\nhref=\"https://github.com/djc\"><code>@​djc</code></a> in <a\nhref=\"https://redirect.github.com/quinn-rs/quinn/pull/2645\">quinn-rs/quinn#2645</a></li>\n<li>Backport of <a\nhref=\"https://redirect.github.com/quinn-rs/quinn/issues/2495\">#2495</a>\nto 0.11.x by <a\nhref=\"https://github.com/stablebits\"><code>@​stablebits</code></a> in <a\nhref=\"https://redirect.github.com/quinn-rs/quinn/pull/2674\">quinn-rs/quinn#2674</a></li>\n<li>0.11.x backport | quinn-proto: drop Initials silently when saturated\nby <a href=\"https://github.com/stablebits\"><code>@​stablebits</code></a>\nin <a\nhref=\"https://redirect.github.com/quinn-rs/quinn/pull/2688\">quinn-rs/quinn#2688</a></li>\n<li>Backport <a\nhref=\"https://redirect.github.com/quinn-rs/quinn/issues/2677\">#2677</a>\nto 0.11.x by <a\nhref=\"https://github.com/syszery\"><code>@​syszery</code></a> in <a\nhref=\"https://redirect.github.com/quinn-rs/quinn/pull/2690\">quinn-rs/quinn#2690</a></li>\n<li>congestion: avoid double-reducing CUBIC fast convergence (0.11.x) by\n<a href=\"https://github.com/0xdeafbeef\"><code>@​0xdeafbeef</code></a> in\n<a\nhref=\"https://redirect.github.com/quinn-rs/quinn/pull/2641\">quinn-rs/quinn#2641</a></li>\n<li>proto: yield error on too many gaps in assembler by <a\nhref=\"https://github.com/djc\"><code>@​djc</code></a> in <a\nhref=\"https://redirect.github.com/quinn-rs/quinn/pull/2694\">quinn-rs/quinn#2694</a></li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a\nhref=\"https://github.com/quinn-rs/quinn/commit/0343120eb7ccdd067a7e975613b96190c8562bf7\"><code>0343120</code></a>\nproto: bump version to 0.11.17</li>\n<li><a\nhref=\"https://github.com/quinn-rs/quinn/commit/d7bf3d0ca98678d4592d2342dc83bd85f0134cfd\"><code>d7bf3d0</code></a>\nLimit total memory used to buffer outgoing datagrams</li>\n<li><a\nhref=\"https://github.com/quinn-rs/quinn/commit/31ca5d2ac87acc6fd0a4d29c39424e1a2870d6d6\"><code>31ca5d2</code></a>\nLimit total memory used to buffer incoming datagrams</li>\n<li><a\nhref=\"https://github.com/quinn-rs/quinn/commit/3a78b60720fd293079f04c6009405dea15bb08cf\"><code>3a78b60</code></a>\nFactor out DatagramBuffer for queues in either direction</li>\n<li><a\nhref=\"https://github.com/quinn-rs/quinn/commit/b37ced30bdd18d81634af8616f73ae26a0232d7c\"><code>b37ced3</code></a>\nproto: check limits when processing already retired CIDs</li>\n<li><a\nhref=\"https://github.com/quinn-rs/quinn/commit/6a984b8d5f27bac35af551f839df65eb8c06c113\"><code>6a984b8</code></a>\nproto: extract method for checking CID retirements</li>\n<li><a\nhref=\"https://github.com/quinn-rs/quinn/commit/499dba8474c511e25277d8a5c05961ff09bb245d\"><code>499dba8</code></a>\nproto: bound assembler chunk count regardless of over-allocation</li>\n<li><a\nhref=\"https://github.com/quinn-rs/quinn/commit/33ce0c21de2100082983ab41a78b0347287fbb5f\"><code>33ce0c2</code></a>\ncongestion: saturate CUBIC window increment to avoid overflow</li>\n<li><a\nhref=\"https://github.com/quinn-rs/quinn/commit/c8ad7e6cbef9225bdec2d48ed80a58d2f79e53f1\"><code>c8ad7e6</code></a>\nfix(ci): fix clippy lints</li>\n<li><a\nhref=\"https://github.com/quinn-rs/quinn/commit/a96949f6cd257c665f544626af4e8ce668a40b30\"><code>a96949f</code></a>\nTake semver-compatible update for anyhow</li>\n<li>Additional commits viewable in <a\nhref=\"https://github.com/quinn-rs/quinn/compare/quinn-proto-0.11.14...quinn-proto-0.11.17\">compare\nview</a></li>\n</ul>\n</details>\n<br />\n\n\n> **Note**\n> Automatic rebases have been disabled on this pull request as it has\nbeen open for over 30 days.\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-09T09:35:30Z",
+          "tree_id": "cb3370b73e41b8ad026b312f0b1b49d29287f1a1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b41f345a99151bf933e39be0a23f23281a0a05fb"
+        },
+        "date": 1788952534320,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.108,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08499518197399997,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03884615581400001,
             "unit": "seconds"
           }
         ]
