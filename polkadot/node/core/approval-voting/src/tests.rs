@@ -16,7 +16,6 @@
 
 use self::test_helpers::mock::new_leaf;
 use super::*;
-use crate::backend::V1ReadBackend;
 use itertools::Itertools;
 use overseer::prometheus::{
 	prometheus::{IntCounter, IntCounterVec},
@@ -24,10 +23,7 @@ use overseer::prometheus::{
 };
 use polkadot_node_primitives::{
 	approval::{
-		v1::{
-			AssignmentCert, AssignmentCertKind, DelayTranche, VrfPreOutput, VrfProof, VrfSignature,
-			RELAY_VRF_MODULO_CONTEXT,
-		},
+		v1::{DelayTranche, VrfPreOutput, VrfProof, VrfSignature, RELAY_VRF_MODULO_CONTEXT},
 		v2::{AssignmentCertKindV2, AssignmentCertV2},
 	},
 	AvailableData, BlockData, PoV,
@@ -246,7 +242,6 @@ where
 			polkadot_primitives::CoreIndex,
 			polkadot_primitives::GroupIndex,
 		)>,
-		_enable_assignments_v2: bool,
 	) -> HashMap<polkadot_primitives::CoreIndex, criteria::OurAssignment> {
 		self.0()
 	}
@@ -279,19 +274,6 @@ struct TestStoreInner {
 	blocks_at_height: HashMap<BlockNumber, Vec<Hash>>,
 	block_entries: HashMap<Hash, BlockEntry>,
 	candidate_entries: HashMap<CandidateHash, CandidateEntry>,
-}
-
-impl V1ReadBackend for TestStoreInner {
-	fn load_candidate_entry_v1(
-		&self,
-		candidate_hash: &CandidateHash,
-		_candidate_index: CandidateIndex,
-	) -> SubsystemResult<Option<CandidateEntry>> {
-		self.load_candidate_entry(candidate_hash)
-	}
-	fn load_block_entry_v1(&self, block_hash: &Hash) -> SubsystemResult<Option<BlockEntry>> {
-		self.load_block_entry(block_hash)
-	}
 }
 
 impl Backend for TestStoreInner {
@@ -365,19 +347,6 @@ pub struct TestStore {
 	store: Arc<Mutex<TestStoreInner>>,
 }
 
-impl V1ReadBackend for TestStore {
-	fn load_candidate_entry_v1(
-		&self,
-		candidate_hash: &CandidateHash,
-		_candidate_index: CandidateIndex,
-	) -> SubsystemResult<Option<CandidateEntry>> {
-		self.load_candidate_entry(candidate_hash)
-	}
-	fn load_block_entry_v1(&self, block_hash: &Hash) -> SubsystemResult<Option<BlockEntry>> {
-		self.load_block_entry(block_hash)
-	}
-}
-
 impl Backend for TestStore {
 	fn load_block_entry(&self, block_hash: &Hash) -> SubsystemResult<Option<BlockEntry>> {
 		let store = self.store.lock();
@@ -413,20 +382,6 @@ impl Backend for TestStore {
 	{
 		let mut store = self.store.lock();
 		store.write(ops)
-	}
-}
-
-fn garbage_assignment_cert(kind: AssignmentCertKind) -> AssignmentCert {
-	let ctx = schnorrkel::signing_context(RELAY_VRF_MODULO_CONTEXT);
-	let msg = b"test-garbage";
-	let mut prng = rand_core::OsRng;
-	let keypair = schnorrkel::Keypair::generate_with(&mut prng);
-	let (inout, proof, _) = keypair.vrf_sign(ctx.bytes(msg));
-	let preout = inout.to_preout();
-
-	AssignmentCert {
-		kind,
-		vrf: VrfSignature { pre_output: VrfPreOutput(preout), proof: VrfProof(proof) },
 	}
 }
 
@@ -708,10 +663,11 @@ async fn import_assignment(
 					IndirectAssignmentCertV2 {
 						block_hash,
 						validator,
-						cert: garbage_assignment_cert(AssignmentCertKind::RelayVRFModulo {
-							sample: 0,
-						})
-						.into(),
+						cert: garbage_assignment_cert_v2(
+							AssignmentCertKindV2::RelayVRFModuloCompact {
+								core_bitfield: CoreIndex(0).into(),
+							},
+						),
 					},
 					candidate_index.into(),
 					tranche,
@@ -1197,10 +1153,11 @@ fn blank_subsystem_act_on_bad_block() {
 						IndirectAssignmentCertV2 {
 							block_hash: bad_block_hash,
 							validator: 0u32.into(),
-							cert: garbage_assignment_cert(AssignmentCertKind::RelayVRFModulo {
-								sample: 0,
-							})
-							.into(),
+							cert: garbage_assignment_cert_v2(
+								AssignmentCertKindV2::RelayVRFModuloCompact {
+									core_bitfield: CoreIndex(0).into(),
+								},
+							),
 						},
 						0u32.into(),
 						0,
@@ -2090,10 +2047,11 @@ fn linear_import_act_on_leaf() {
 						IndirectAssignmentCertV2 {
 							block_hash: head,
 							validator: 0u32.into(),
-							cert: garbage_assignment_cert(AssignmentCertKind::RelayVRFModulo {
-								sample: 0,
-							})
-							.into(),
+							cert: garbage_assignment_cert_v2(
+								AssignmentCertKindV2::RelayVRFModuloCompact {
+									core_bitfield: CoreIndex(0).into(),
+								},
+							),
 						},
 						0u32.into(),
 						0,
@@ -2154,10 +2112,11 @@ fn forkful_import_at_same_height_act_on_leaf() {
 							IndirectAssignmentCertV2 {
 								block_hash: head,
 								validator: 0u32.into(),
-								cert: garbage_assignment_cert(AssignmentCertKind::RelayVRFModulo {
-									sample: 0,
-								})
-								.into(),
+								cert: garbage_assignment_cert_v2(
+									AssignmentCertKindV2::RelayVRFModuloCompact {
+										core_bitfield: CoreIndex(0).into(),
+									},
+								),
 							},
 							0u32.into(),
 							0,
@@ -2870,8 +2829,9 @@ fn subsystem_validate_approvals_cache() {
 			let _ = assignments.insert(
 				CoreIndex(0),
 				approval_db::v2::OurAssignment {
-					cert: garbage_assignment_cert(AssignmentCertKind::RelayVRFModulo { sample: 0 })
-						.into(),
+					cert: garbage_assignment_cert_v2(AssignmentCertKindV2::RelayVRFModuloCompact {
+						core_bitfield: CoreIndex(0).into(),
+					}),
 					tranche: 0,
 					validator_index: ValidatorIndex(0),
 					triggered: false,
@@ -3263,8 +3223,9 @@ where
 			let _ = assignments.insert(
 				CoreIndex(0),
 				approval_db::v2::OurAssignment {
-					cert: garbage_assignment_cert(AssignmentCertKind::RelayVRFModulo { sample: 0 })
-						.into(),
+					cert: garbage_assignment_cert_v2(AssignmentCertKindV2::RelayVRFModuloCompact {
+						core_bitfield: CoreIndex(0).into(),
+					}),
 					tranche: our_assigned_tranche,
 					validator_index: ValidatorIndex(0),
 					triggered: false,
@@ -3957,8 +3918,9 @@ fn test_approval_is_sent_on_max_approval_coalesce_count() {
 			let _ = assignments.insert(
 				CoreIndex(0),
 				approval_db::v2::OurAssignment {
-					cert: garbage_assignment_cert(AssignmentCertKind::RelayVRFModulo { sample: 0 })
-						.into(),
+					cert: garbage_assignment_cert_v2(AssignmentCertKindV2::RelayVRFModuloCompact {
+						core_bitfield: CoreIndex(0).into(),
+					}),
 					tranche: 0,
 					validator_index: ValidatorIndex(0),
 					triggered: false,
@@ -4213,8 +4175,9 @@ fn test_approval_is_sent_on_max_approval_coalesce_wait() {
 			let _ = assignments.insert(
 				CoreIndex(0),
 				approval_db::v2::OurAssignment {
-					cert: garbage_assignment_cert(AssignmentCertKind::RelayVRFModulo { sample: 0 })
-						.into(),
+					cert: garbage_assignment_cert_v2(AssignmentCertKindV2::RelayVRFModuloCompact {
+						core_bitfield: CoreIndex(0).into(),
+					}),
 					tranche: 0,
 					validator_index: ValidatorIndex(0),
 					triggered: false,
@@ -4591,8 +4554,9 @@ fn subsystem_relaunches_approval_work_on_restart() {
 			let _ = assignments.insert(
 				CoreIndex(0),
 				approval_db::v2::OurAssignment {
-					cert: garbage_assignment_cert(AssignmentCertKind::RelayVRFModulo { sample: 0 })
-						.into(),
+					cert: garbage_assignment_cert_v2(AssignmentCertKindV2::RelayVRFModuloCompact {
+						core_bitfield: CoreIndex(0).into(),
+					}),
 					tranche: 0,
 					validator_index: ValidatorIndex(0),
 					triggered: false,
@@ -4915,8 +4879,9 @@ fn subsystem_sends_pending_approvals_on_approval_restart() {
 			let _ = assignments.insert(
 				CoreIndex(0),
 				approval_db::v2::OurAssignment {
-					cert: garbage_assignment_cert(AssignmentCertKind::RelayVRFModulo { sample: 0 })
-						.into(),
+					cert: garbage_assignment_cert_v2(AssignmentCertKindV2::RelayVRFModuloCompact {
+						core_bitfield: CoreIndex(0).into(),
+					}),
 					tranche: 0,
 					validator_index: ValidatorIndex(0),
 					triggered: false,

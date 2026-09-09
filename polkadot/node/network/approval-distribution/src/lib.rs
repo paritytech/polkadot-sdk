@@ -2377,10 +2377,6 @@ impl State {
 		for (cert, candidate_bitfield) in assignments.into_iter() {
 			let cert_bitfield_bits = match &cert.cert.kind {
 				AssignmentCertKindV2::RelayVRFDelay { core_index } => core_index.0 as usize + 1,
-				// We don't want to run the VRF yet, but the output is always bounded by `n_cores`.
-				// We assume `candidate_bitfield` length for the core bitfield and we just check
-				// against `MAX_BITFIELD_SIZE` later.
-				AssignmentCertKindV2::RelayVRFModulo { .. } => candidate_bitfield.len(),
 				AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } => {
 					core_bitfield.len()
 				},

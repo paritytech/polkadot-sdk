@@ -1,0 +1,9 @@
+title: Reject non-contributory X25519 keys in statement-store ECIES
+doc:
+- audience: Node Dev
+  description: |-
+    Reject X25519 ephemeral public keys that produce a non-contributory shared secret
+    before deriving the statement-store ECIES decryption key.
+crates:
+- name: sp-statement-store
+  bump: patch

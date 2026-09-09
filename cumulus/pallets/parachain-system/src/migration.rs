@@ -86,12 +86,11 @@ mod v2 {
 /// mechanism now uses signals instead of block offsets.
 mod v1 {
 	use crate::{Config, Pallet};
-	#[allow(deprecated)]
-	use frame_support::{migration::remove_storage_prefix, pallet_prelude::*};
+	use frame_support::{migration::clear_storage_prefix, pallet_prelude::*};
 
 	pub fn migrate<T: Config>() -> Weight {
-		#[allow(deprecated)]
-		remove_storage_prefix(<Pallet<T>>::name().as_bytes(), b"LastUpgrade", b"");
+		let _ =
+			clear_storage_prefix(<Pallet<T>>::name().as_bytes(), b"LastUpgrade", b"", None, None);
 		T::DbWeight::get().writes(1)
 	}
 }

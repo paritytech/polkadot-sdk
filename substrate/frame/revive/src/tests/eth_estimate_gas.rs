@@ -21,11 +21,12 @@ use crate::{
 	EthTransactError, Pallet, RUNTIME_PALLETS_ADDR,
 	address::AddressMapper,
 	evm::{
-		AccessListEntry, AuthorizationListEntry, Bytes, DryRunConfig, GenericTransaction,
-		StateOverride, StateOverrideSet,
+		AccessListEntry, AuthorizationListEntry, Bytes, GenericTransaction, StateOverride,
+		StateOverrideSet,
 	},
 	state_overrides::apply_state_overrides,
-	test_utils::{ALICE_ADDR, BOB, BOB_ADDR, CHARLIE_ADDR},
+	storage::AccountInfo,
+	test_utils::{ALICE, ALICE_ADDR, BOB, BOB_ADDR, CHARLIE_ADDR},
 	tests::{Config, ExtBuilder, Test, test_utils::place_contract},
 };
 use frame_support::traits::fungible::Mutate;
@@ -145,15 +146,34 @@ fn is_simple_transfer_rejects_contract_destination() {
 	});
 }
 
+/// A transfer to an EIP-7702 delegated EOA runs the delegate's code, so it must not take the
+/// short-circuit path. Clearing the delegation leaves the destination code-free again.
+#[test]
+fn is_simple_transfer_rejects_delegated_eoa_destination() {
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&BOB, H256::repeat_byte(0xab));
+		let tx = simple_transfer_tx();
+		assert!(Pallet::<Test>::is_simple_transfer(&tx));
+
+		AccountInfo::<Test>::set_delegation(&CHARLIE_ADDR, Some(BOB_ADDR), &ALICE).unwrap();
+		assert!(
+			!Pallet::<Test>::is_simple_transfer(&tx),
+			"transfer to a delegated EOA executes code and must be estimated by binary search"
+		);
+
+		AccountInfo::<Test>::set_delegation(&CHARLIE_ADDR, None, &ALICE).unwrap();
+		assert!(Pallet::<Test>::is_simple_transfer(&tx));
+	});
+}
+
 #[test]
 fn eth_estimate_gas_short_circuits_simple_transfer() {
 	ExtBuilder::default().build().execute_with(|| {
 		let alice = <Test as Config>::AddressMapper::to_account_id(&ALICE_ADDR);
 		let _ = <Test as Config>::Currency::set_balance(&alice, u64::MAX as u128);
 
-		let estimate =
-			Pallet::<Test>::eth_estimate_gas(simple_transfer_tx(), DryRunConfig::default())
-				.expect("simple transfer should be estimable");
+		let estimate = Pallet::<Test>::eth_estimate_gas(simple_transfer_tx(), None, None)
+			.expect("simple transfer should be estimable");
 		assert!(!estimate.is_zero(), "simple-transfer estimate must be non-zero");
 	});
 }
@@ -161,7 +181,7 @@ fn eth_estimate_gas_short_circuits_simple_transfer() {
 #[test]
 fn eth_estimate_gas_short_circuit_errors_when_value_exceeds_balance() {
 	ExtBuilder::default().build().execute_with(|| {
-		let err = Pallet::<Test>::eth_estimate_gas(simple_transfer_tx(), DryRunConfig::default())
+		let err = Pallet::<Test>::eth_estimate_gas(simple_transfer_tx(), None, None)
 			.expect_err("transfer with empty balance must error");
 		match err {
 			EthTransactError::Message(msg) => {
@@ -194,9 +214,7 @@ fn eth_estimate_gas_does_not_leak_state_overrides() {
 			CHARLIE_ADDR,
 			StateOverride { nonce: Some(U256::from(99u8)), ..Default::default() },
 		);
-		let config = DryRunConfig::default().with_state_overrides(overrides);
-
-		Pallet::<Test>::eth_estimate_gas(simple_transfer_tx(), config)
+		Pallet::<Test>::eth_estimate_gas(simple_transfer_tx(), None, Some(overrides))
 			.expect("simple transfer should be estimable");
 
 		assert_eq!(

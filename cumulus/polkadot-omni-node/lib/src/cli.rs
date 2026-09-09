@@ -269,19 +269,35 @@ pub struct Cli<Config: CliConfig> {
 	/// list.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
-	#[arg(long = "statement-affinity-topic", value_name = "TOPIC")]
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long = "statement-affinity-topic", value_name = "TOPIC", hide = true)]
 	pub statement_affinity_topics: Vec<sc_statement_store::Topic>,
 
 	/// Number of K-closest peers (replication factor) used for DHT-affinity statement routing.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
-	#[arg(long, value_name = "K", default_value_t = sc_statement_store::DEFAULT_REPLICATION_FACTOR)]
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(
+		long,
+		value_name = "K",
+		default_value_t = sc_statement_store::DEFAULT_REPLICATION_FACTOR,
+		hide = true
+	)]
 	pub statement_replication_factor: std::num::NonZeroUsize,
 
 	/// Number of peers to gossip a statement to in addition to DHT-affinity routing targets.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
-	#[arg(long, value_name = "N", default_value_t = sc_statement_store::DEFAULT_GOSSIP_TARGET)]
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(
+		long,
+		value_name = "N",
+		default_value_t = sc_statement_store::DEFAULT_GOSSIP_TARGET,
+		hide = true
+	)]
 	pub statement_gossip_target: std::num::NonZeroUsize,
 
 	/// Upper bound on collator reserved-peer slots.
@@ -343,9 +359,13 @@ impl<Config: CliConfig> Cli<Config> {
 					purge_after_sec: self.statement_store_purge_after_sec,
 					network_workers: self.statement_network_workers,
 					rate_limit: self.statement_rate_limit,
-					affinity_topics: self.statement_affinity_topics.clone(),
-					replication_factor: self.statement_replication_factor,
-					gossip_target: self.statement_gossip_target,
+					v2dht: sc_network_statement::v2dht_enabled().then(|| {
+						sc_statement_store::V2DhtConfig {
+							affinity_topics: self.statement_affinity_topics.clone(),
+							replication_factor: self.statement_replication_factor,
+							gossip_target: self.statement_gossip_target,
+						}
+					}),
 				},
 			),
 			storage_monitor: self.storage_monitor.clone(),

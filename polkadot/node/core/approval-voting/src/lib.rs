@@ -1677,44 +1677,12 @@ fn cores_to_candidate_indices(
 	CandidateBitfield::try_from(candidate_indices)
 }
 
-// Returns the claimed core bitfield from the assignment cert and the core index
-// from the block entry.
-fn get_core_indices_on_startup(
-	assignment: &AssignmentCertKindV2,
-	block_entry_core_index: CoreIndex,
-) -> CoreBitfield {
+// Returns the claimed core bitfield from the assignment cert.
+fn get_assignment_core_indices(assignment: &AssignmentCertKindV2) -> CoreBitfield {
 	match &assignment {
 		AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } => core_bitfield.clone(),
-		AssignmentCertKindV2::RelayVRFModulo { sample: _ } => {
-			CoreBitfield::try_from(vec![block_entry_core_index]).expect("Not an empty vec; qed")
-		},
 		AssignmentCertKindV2::RelayVRFDelay { core_index } => {
 			CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed")
-		},
-	}
-}
-
-// Returns the claimed core bitfield from the assignment cert, the candidate hash and a
-// `BlockEntry`. Can fail only for VRF Delay assignments for which we cannot find the candidate hash
-// in the block entry which indicates a bug or corrupted storage.
-fn get_assignment_core_indices(
-	assignment: &AssignmentCertKindV2,
-	candidate_hash: &CandidateHash,
-	block_entry: &BlockEntry,
-) -> Option<CoreBitfield> {
-	match &assignment {
-		AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } => {
-			Some(core_bitfield.clone())
-		},
-		AssignmentCertKindV2::RelayVRFModulo { sample: _ } => block_entry
-			.candidates()
-			.iter()
-			.find(|(_core_index, h)| candidate_hash == h)
-			.map(|(core_index, _candidate_hash)| {
-				CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed")
-			}),
-		AssignmentCertKindV2::RelayVRFDelay { core_index } => {
-			Some(CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed"))
 		},
 	}
 }
@@ -1808,7 +1776,7 @@ async fn distribution_messages_for_activation(
 						(None, Some(_)) => {}, // second is impossible case.
 						(Some(assignment), None) => {
 							let claimed_core_indices =
-								get_core_indices_on_startup(&assignment.cert().kind, *core_index);
+								get_assignment_core_indices(&assignment.cert().kind);
 
 							if block_entry.has_candidates_pending_signature() {
 								delayed_approvals_timers.maybe_arm_timer(
@@ -1873,7 +1841,7 @@ async fn distribution_messages_for_activation(
 						},
 						(Some(assignment), Some(approval_sig)) => {
 							let claimed_core_indices =
-								get_core_indices_on_startup(&assignment.cert().kind, *core_index);
+								get_assignment_core_indices(&assignment.cert().kind);
 							match cores_to_candidate_indices(&claimed_core_indices, &block_entry) {
 								Ok(bitfield) => messages.push(
 									ApprovalDistributionMessage::DistributeAssignment(
@@ -3319,50 +3287,40 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 			.iter()
 			.find_map(|(core_index, h)| (h == &candidate_hash).then_some(*core_index));
 
-		if let Some(claimed_core_indices) =
-			get_assignment_core_indices(&indirect_cert.cert.kind, &candidate_hash, &block_entry)
-		{
-			match cores_to_candidate_indices(&claimed_core_indices, &block_entry) {
-				Ok(claimed_candidate_indices) => {
-					// Ensure we distribute multiple core assignments just once.
-					let distribute_assignment = if claimed_candidate_indices.count_ones() > 1 {
-						!block_entry.mark_assignment_distributed(claimed_candidate_indices.clone())
-					} else {
-						true
-					};
-					db.write_block_entry(block_entry.clone());
-					actions.push(Action::LaunchApproval {
-						claimed_candidate_indices,
-						candidate_hash,
-						indirect_cert,
-						assignment_tranche: tranche,
-						relay_block_hash: relay_block,
-						session: block_entry.session(),
-						candidate: candidate_receipt,
-						backing_group,
-						distribute_assignment,
-						core_index: candidate_core_index,
-					});
-				},
-				Err(err) => {
-					// Never happens, it should only happen if no cores are claimed, which is a
-					// bug.
-					gum::warn!(
-						target: LOG_TARGET,
-						block_hash = ?relay_block,
-						?err,
-						"Failed to create assignment bitfield"
-					);
-				},
-			};
-		} else {
-			gum::warn!(
-				target: LOG_TARGET,
-				block_hash = ?relay_block,
-				?candidate_hash,
-				"Cannot get assignment claimed core indices",
-			);
-		}
+		let claimed_core_indices = get_assignment_core_indices(&indirect_cert.cert.kind);
+		match cores_to_candidate_indices(&claimed_core_indices, &block_entry) {
+			Ok(claimed_candidate_indices) => {
+				// Ensure we distribute multiple core assignments just once.
+				let distribute_assignment = if claimed_candidate_indices.count_ones() > 1 {
+					!block_entry.mark_assignment_distributed(claimed_candidate_indices.clone())
+				} else {
+					true
+				};
+				db.write_block_entry(block_entry.clone());
+				actions.push(Action::LaunchApproval {
+					claimed_candidate_indices,
+					candidate_hash,
+					indirect_cert,
+					assignment_tranche: tranche,
+					relay_block_hash: relay_block,
+					session: block_entry.session(),
+					candidate: candidate_receipt,
+					backing_group,
+					distribute_assignment,
+					core_index: candidate_core_index,
+				});
+			},
+			Err(err) => {
+				// Never happens, it should only happen if no cores are claimed, which is a
+				// bug.
+				gum::warn!(
+					target: LOG_TARGET,
+					block_hash = ?relay_block,
+					?err,
+					"Failed to create assignment bitfield"
+				);
+			},
+		};
 	}
 	// Although we checked approval earlier in this function,
 	// this wakeup might have advanced the state to approved via
