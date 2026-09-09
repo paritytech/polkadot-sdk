@@ -24,9 +24,11 @@
 // Helpers the per-flow tests will reach for as the handler bodies land.
 #![allow(dead_code)]
 
-use crate::{self as pallet_hrmp_relay, ForwardToPara, SendToPara};
+use crate::{self as pallet_hrmp_relay, ForwardToPara, NotifyParachain, SendToPara};
 use frame_support::{derive_impl, parameter_types, traits::EnsureOrigin};
-use hrmp_primitives::{ChannelId, FailureReason, HrmpRegistry, MessageToPara, ParaId, ParaRequest};
+use hrmp_primitives::{
+	ChannelId, FailureReason, HrmpRegistry, MessageToPara, ParaId, ParaNotification, ParaRequest,
+};
 use sp_runtime::BuildStorage;
 
 pub type AccountId = u64;
@@ -82,6 +84,10 @@ parameter_types! {
 	pub static ForwardFails: bool = false;
 	/// Signed accounts allowed to act as a para, as `(account, para id)`.
 	pub static ParaOriginAccounts: Vec<(AccountId, ParaId)> = Vec::new();
+	/// Notifications the pallet delivered, oldest first.
+	pub static Notifications: Vec<(ParaId, ParaNotification)> = Vec::new();
+	/// When true, the notification transport refuses everything.
+	pub static NotifyFails: bool = false;
 }
 
 /// An [`HrmpRegistry`] backed by [`RegistryChannels`], refusable through [`RegistryRefuses`].
@@ -190,6 +196,24 @@ pub fn take_forwarded() -> Vec<(ParaId, ParaRequest)> {
 	ForwardedRequests::mutate(core::mem::take)
 }
 
+/// A [`NotifyParachain`] that records instead of delivering, and can be made to fail.
+pub struct RecordingNotifier;
+
+impl NotifyParachain for RecordingNotifier {
+	fn notify(para_id: ParaId, notification: ParaNotification) -> Result<(), ()> {
+		if NotifyFails::get() {
+			return Err(());
+		}
+		Notifications::mutate(|notified| notified.push((para_id, notification)));
+		Ok(())
+	}
+}
+
+/// Take everything delivered so far, clearing the log.
+pub fn take_notified() -> Vec<(ParaId, ParaNotification)> {
+	Notifications::mutate(core::mem::take)
+}
+
 /// Lets the accounts listed in [`ParaOriginAccounts`] act as their para, standing in for the
 /// relay chain's native parachain origin. An explicit list, not an account range, so no other
 /// account can resolve as a para by accident.
@@ -233,6 +257,7 @@ impl pallet_hrmp_relay::Config for Test {
 	type SendToPara = RecordingSender;
 	type ParachainOrigin = ParaAccounts;
 	type ForwardToPara = RecordingForwarder;
+	type NotifyParachain = RecordingNotifier;
 	type Registry = MockRegistry;
 	type WeightInfo = ();
 }
@@ -245,6 +270,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	SendFails::set(false);
 	ForwardedRequests::set(Vec::new());
 	ForwardFails::set(false);
+	Notifications::set(Vec::new());
+	NotifyFails::set(false);
 	ParaOriginAccounts::set(Vec::new());
 
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();

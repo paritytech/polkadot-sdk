@@ -23,7 +23,8 @@
 use crate::{mock::*, Error, Event};
 use frame_support::{assert_noop, assert_ok};
 use hrmp_primitives::{
-	ChannelId, HrmpRegistry, MessageToRelay, MessageToRelayV1, ParaRequest, ParaRequestV1,
+	ChannelId, HrmpRegistry, MessageToRelay, MessageToRelayV1, ParaNotification, ParaRequest,
+	ParaRequestV1,
 };
 use sp_runtime::DispatchError;
 
@@ -89,5 +90,45 @@ fn relay_request_fails_if_the_transport_refuses() {
 			Error::<Test>::ForwardFailed
 		);
 		assert!(take_forwarded().is_empty());
+	});
+}
+
+#[test]
+fn notify_para_reaches_the_transport() {
+	new_test_ext().execute_with(|| {
+		let notification = ParaNotification::ChannelAccepted { recipient: CHANNEL.recipient };
+
+		assert_ok!(Hrmp::receive(
+			RuntimeOrigin::root(),
+			MessageToRelay::V1(MessageToRelayV1::NotifyPara {
+				para_id: CHANNEL.sender,
+				notification: notification.clone(),
+			})
+		));
+
+		assert_eq!(take_notified(), vec![(CHANNEL.sender, notification)]);
+		assert!(hrmp_events().is_empty());
+	});
+}
+
+#[test]
+fn notify_para_reports_a_refusing_transport() {
+	new_test_ext().execute_with(|| {
+		NotifyFails::set(true);
+
+		assert_ok!(Hrmp::receive(
+			RuntimeOrigin::root(),
+			MessageToRelay::V1(MessageToRelayV1::NotifyPara {
+				para_id: CHANNEL.sender,
+				notification: ParaNotification::ChannelClosing {
+					initiator: CHANNEL.recipient,
+					sender: CHANNEL.sender,
+					recipient: CHANNEL.recipient,
+				},
+			})
+		));
+
+		assert!(take_notified().is_empty());
+		assert_eq!(hrmp_events(), vec![Event::NotifyFailed { para_id: CHANNEL.sender }]);
 	});
 }

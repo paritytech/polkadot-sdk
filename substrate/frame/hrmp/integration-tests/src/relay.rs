@@ -175,6 +175,7 @@ impl pallet_hrmp_relay::Config for Runtime {
 	// No third parachain in the harness, so nothing forwards requests here yet.
 	type ParachainOrigin = EnsureAnyParachain;
 	type ForwardToPara = ();
+	type NotifyParachain = ();
 	type Registry = parachains_hrmp::Pallet<Runtime>;
 	type WeightInfo = ();
 }

@@ -129,6 +129,43 @@ pub enum ParaRequestV1 {
 	},
 }
 
+/// What a parachain is told about a channel it is one end of.
+///
+/// The relay chain delivers these as the XCM `HrmpNewChannelOpenRequest`, `HrmpChannelAccepted`
+/// and `HrmpChannelClosing` instructions, whose fields these mirror. Versioned by the message
+/// carrying it, as [`ChannelId`] and [`FailureReason`] are.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+)]
+pub enum ParaNotification {
+	/// A para asked to open a channel to the para being told.
+	#[codec(index = 0)]
+	NewChannelOpenRequest {
+		/// The para that asked.
+		sender: ParaId,
+		/// The largest message the channel will carry.
+		max_message_size: u32,
+		/// How many messages the channel may hold at once.
+		max_capacity: u32,
+	},
+	/// The channel the para being told asked for was accepted.
+	#[codec(index = 1)]
+	ChannelAccepted {
+		/// The para that accepted.
+		recipient: ParaId,
+	},
+	/// The other end of an open channel decided to close it.
+	#[codec(index = 2)]
+	ChannelClosing {
+		/// Which end asked.
+		initiator: ParaId,
+		/// The para that sends on the channel.
+		sender: ParaId,
+		/// The para that receives on the channel.
+		recipient: ParaId,
+	},
+}
+
 /// HRMP control-plane messages sent to the relay chain.
 ///
 /// The variant's `#[codec(index)]` is the on-wire version tag.
@@ -143,8 +180,8 @@ pub enum MessageToRelay {
 
 /// Version 1 payloads for [`MessageToRelay`].
 ///
-/// Every variant carries `message_id`, the parachain's id for the request, echoed back in the
-/// response so the two chains' events tie together.
+/// Every variant that expects an answer carries `message_id`, the parachain's id for the request,
+/// echoed back in the response so the two chains' events tie together.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
@@ -210,6 +247,17 @@ pub enum MessageToRelayV1 {
 		para_id: ParaId,
 		/// The parachain's id for this message.
 		message_id: u64,
+	},
+	/// Deliver a channel notification to a para. Nothing is answered.
+	///
+	/// The parachain has no channel to most paras, so what it has to tell them goes out through
+	/// the relay chain, which reaches every para.
+	#[codec(index = 6)]
+	NotifyPara {
+		/// The para to tell.
+		para_id: ParaId,
+		/// What it is told.
+		notification: ParaNotification,
 	},
 }
 

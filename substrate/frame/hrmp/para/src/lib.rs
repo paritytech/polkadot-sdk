@@ -33,8 +33,8 @@
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::traits::{Consideration, Contains, EnsureOrigin, Footprint};
 use hrmp_primitives::{
-	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, Outcome, ParaId,
-	ParaRequest, ParaRequestV1,
+	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
+	Outcome, ParaId, ParaNotification, ParaRequest, ParaRequestV1,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Convert, DispatchResult};
@@ -595,6 +595,19 @@ impl<T: Config> Pallet<T> {
 	/// The footprint one side of a channel with this capacity is priced by.
 	pub fn channel_footprint(max_capacity: u32) -> Footprint {
 		Footprint::from_parts(1, max_capacity as usize)
+	}
+
+	/// Ask the relay chain to tell `para_id` about a channel it is one end of.
+	///
+	/// This chain has a channel to almost no para, so what it has to tell them goes out through
+	/// the relay chain, which reaches every one. Nothing is answered.
+	#[allow(dead_code)]
+	fn notify_para(para_id: ParaId, notification: ParaNotification) -> DispatchResult {
+		T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::NotifyPara {
+			para_id,
+			notification,
+		}))
+		.map_err(|()| Error::<T>::SendFailed.into())
 	}
 
 	#[allow(dead_code)]

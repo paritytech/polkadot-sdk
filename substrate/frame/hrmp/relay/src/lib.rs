@@ -23,16 +23,17 @@
 //!
 //! Holds no state of its own. Every operation is deposit-free here: the parachain holds the money.
 //!
-//! It also relays the other direction: [`Call::relay_request`] takes a request from any parachain
-//! and forwards it to the control-plane parachain with the asking para's id attached. That is the
-//! only route open to a para with no channel to the control-plane parachain yet.
+//! It also relays both other directions: [`Call::relay_request`] takes a request from any
+//! parachain and forwards it to the control-plane parachain with the asking para's id attached,
+//! and [`MessageToRelayV1::NotifyPara`] carries what the control-plane parachain has to tell a
+//! para out to it. The relay chain reaches every para; the control-plane parachain does not.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::traits::EnsureOrigin;
 use hrmp_primitives::{
 	ChannelId, FailureReason, HrmpRegistry, MessageToPara, MessageToParaV1, MessageToRelay,
-	MessageToRelayV1, ParaId, ParaRequest,
+	MessageToRelayV1, ParaId, ParaNotification, ParaRequest,
 };
 
 pub use pallet::*;
@@ -81,6 +82,23 @@ impl ForwardToPara for () {
 	}
 }
 
+/// Used to deliver a channel notification to a parachain, as the matching XCM instruction.
+pub trait NotifyParachain {
+	/// Tell `para_id` about a channel it is one end of.
+	///
+	/// `Err(())` means the message could not be handed to the transport at all. The caller has
+	/// already committed the state the notification is about, so it logs rather than unwinding.
+	#[allow(clippy::result_unit_err)]
+	fn notify(para_id: ParaId, notification: ParaNotification) -> Result<(), ()>;
+}
+
+#[cfg(feature = "std")]
+impl NotifyParachain for () {
+	fn notify(_para_id: ParaId, _notification: ParaNotification) -> Result<(), ()> {
+		Ok(())
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -104,6 +122,9 @@ pub mod pallet {
 
 		/// Forwards parachain requests to the parachain that owns channel management.
 		type ForwardToPara: ForwardToPara;
+
+		/// Delivers channel notifications to any parachain.
+		type NotifyParachain: NotifyParachain;
 
 		/// The relay chain's HRMP channel registry.
 		type Registry: HrmpRegistry;
@@ -150,6 +171,11 @@ pub mod pallet {
 			/// The id of the message that asked for it.
 			message_id: u64,
 		},
+		/// A channel notification could not be delivered to a para.
+		NotifyFailed {
+			/// The para that was to be told.
+			para_id: ParaId,
+		},
 		/// A parachain's request was forwarded to the parachain that owns channel management.
 		RequestForwarded {
 			/// The para that asked.
@@ -189,6 +215,8 @@ pub mod pallet {
 				T::WeightInfo::receive_close_channel(),
 			MessageToRelay::V1(MessageToRelayV1::ForceClean { .. }) =>
 				T::WeightInfo::receive_force_clean(),
+			MessageToRelay::V1(MessageToRelayV1::NotifyPara { .. }) =>
+				T::WeightInfo::receive_notify_para(),
 		})]
 		pub fn receive(origin: OriginFor<T>, message: MessageToRelay) -> DispatchResult {
 			T::ParaOrigin::ensure_origin_or_root(origin)?;
@@ -224,6 +252,9 @@ pub mod pallet {
 				}) => Self::on_close_channel(channel, message_id, initiator),
 				MessageToRelay::V1(MessageToRelayV1::ForceClean { para_id, message_id }) => {
 					Self::on_force_clean(para_id, message_id)
+				},
+				MessageToRelay::V1(MessageToRelayV1::NotifyPara { para_id, notification }) => {
+					Self::on_notify_para(para_id, notification)
 				},
 			}
 
@@ -315,6 +346,20 @@ pub mod pallet {
 		fn on_force_clean(para_id: ParaId, message_id: u64) {
 			let _ = (para_id, message_id);
 			todo!()
+		}
+
+		/// Hand a notification to the transport that reaches any para.
+		///
+		/// A transport failure is only logged and surfaced as an event: the state the para is
+		/// being told about is already committed on both chains.
+		fn on_notify_para(para_id: ParaId, notification: ParaNotification) {
+			if T::NotifyParachain::notify(para_id, notification).is_err() {
+				log::error!(
+					target: "runtime::hrmp-relay",
+					"failed to deliver the channel notification for para {para_id}",
+				);
+				Self::deposit_event(Event::NotifyFailed { para_id });
+			}
 		}
 	}
 }
