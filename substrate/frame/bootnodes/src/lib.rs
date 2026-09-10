@@ -120,7 +120,11 @@ pub mod pallet {
 	use super::*;
 	use frame_system::pallet_prelude::*;
 
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -137,10 +141,14 @@ pub mod pallet {
 		type JamGenesisHash: Get<H256>;
 
 		/// Maximum number of bootnodes in the set. The SpecMsg address record allows 4.
+		///
+		/// Must not be lowered below the stored data without a migration.
 		#[pallet::constant]
 		type MaxBootnodes: Get<u32>;
 
 		/// Maximum length in bytes of a bootnode's binary multiaddr.
+		///
+		/// Must not be lowered below the stored data without a migration.
 		#[pallet::constant]
 		type MaxAddrLen: Get<u32>;
 
