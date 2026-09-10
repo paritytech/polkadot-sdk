@@ -224,7 +224,7 @@ fn bond_extra_works() {
 
 #[test]
 fn bond_extra_controller_bad_state_works() {
-	ExtBuilder::default().try_state(false).build_and_execute(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(StakingLedger::<T>::get(StakingAccount::Stash(31)).unwrap().stash, 31);
 
 		// simulate ledger in bad state: the controller 41 is associated to the stash 31 and 41.
@@ -237,6 +237,9 @@ fn bond_extra_controller_bad_state_works() {
 		// if the ledger is in this bad state, the `bond_extra` should fail.
 		// TODO: remove this BadState, we should no longer have it at all.
 		assert_noop!(Staking::bond_extra(RuntimeOrigin::signed(31), 10), Error::<T>::BadState);
+
+		// Restore valid state so build_and_execute post-check passes.
+		Bonded::<T>::insert(31, 31);
 	})
 }
 
