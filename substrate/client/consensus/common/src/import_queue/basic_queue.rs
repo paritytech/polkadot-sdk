@@ -27,18 +27,32 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT, NumberFor},
 	Justification, Justifications,
 };
-use std::pin::Pin;
+use std::{
+	pin::Pin,
+	sync::{
+		atomic::{AtomicUsize, Ordering},
+		Arc,
+	},
+};
 
 use crate::{
 	import_queue::{
 		buffered_link::{self, BufferedLinkReceiver, BufferedLinkSender},
 		import_single_block_metered, verify_single_block_metered, BlockImportError,
-		BlockImportStatus, BoxBlockImport, BoxJustificationImport, ImportQueue, ImportQueueService,
-		IncomingBlock, JustificationImportResult, Link, RuntimeOrigin,
+		BlockImportStatus, BoxBlockImport, BoxJustificationImport, ImportQueue, ImportQueueInfo,
+		ImportQueueService, IncomingBlock, JustificationImportResult, Link, RuntimeOrigin,
 		SingleBlockVerificationOutcome, Verifier, LOG_TARGET,
 	},
 	metrics::Metrics,
 };
+
+/// Number of blocks allowed to sit in the worker channel before we signal backpressure.
+///
+/// This bounds the channel between [`BasicQueueHandle`] and the background worker, which was
+/// the unbounded growth point. It is a separate, tighter limit than `chain_sync`'s
+/// `MAX_IMPORTING_BLOCKS`: that one counts blocks for the whole submit-to-imported round trip,
+/// whereas this only counts blocks queued but not yet picked up by the worker.
+const MAX_QUEUED_BLOCKS: usize = 1_024;
 
 /// Interface to a basic block import queue that is importing blocks sequentially in a separate
 /// task, with plugable verification.
@@ -81,12 +95,15 @@ impl<B: BlockT> BasicQueue<B> {
 				.ok()
 		});
 
+		let queued_blocks = Arc::new(AtomicUsize::new(0));
+
 		let (future, justification_sender, block_import_sender) = BlockImportWorker::new(
 			result_sender,
 			verifier,
 			block_import,
 			justification_import,
 			metrics,
+			Arc::clone(&queued_blocks),
 		);
 
 		spawner.spawn_essential_blocking(
@@ -96,7 +113,7 @@ impl<B: BlockT> BasicQueue<B> {
 		);
 
 		Self {
-			handle: BasicQueueHandle::new(justification_sender, block_import_sender),
+			handle: BasicQueueHandle::new(justification_sender, block_import_sender, queued_blocks),
 			result_port,
 		}
 	}
@@ -108,14 +125,17 @@ struct BasicQueueHandle<B: BlockT> {
 	justification_sender: TracingUnboundedSender<worker_messages::ImportJustification<B>>,
 	/// Channel to send block import messages to the background task.
 	block_import_sender: TracingUnboundedSender<worker_messages::ImportBlocks<B>>,
+	/// Shared counter of blocks currently waiting in the import channel.
+	queued_blocks: Arc<AtomicUsize>,
 }
 
 impl<B: BlockT> BasicQueueHandle<B> {
 	pub fn new(
 		justification_sender: TracingUnboundedSender<worker_messages::ImportJustification<B>>,
 		block_import_sender: TracingUnboundedSender<worker_messages::ImportBlocks<B>>,
+		queued_blocks: Arc<AtomicUsize>,
 	) -> Self {
-		Self { justification_sender, block_import_sender }
+		Self { justification_sender, block_import_sender, queued_blocks }
 	}
 
 	pub fn close(&mut self) {
@@ -131,11 +151,14 @@ impl<B: BlockT> ImportQueueService<B> for BasicQueueHandle<B> {
 		}
 
 		trace!(target: LOG_TARGET, "Scheduling {} blocks for import", blocks.len());
+		let count = blocks.len();
+		self.queued_blocks.fetch_add(count, Ordering::Relaxed);
 		let res = self
 			.block_import_sender
 			.unbounded_send(worker_messages::ImportBlocks(origin, blocks));
 
 		if res.is_err() {
+			self.queued_blocks.fetch_sub(count, Ordering::Relaxed);
 			log::error!(
 				target: LOG_TARGET,
 				"import_blocks: Background import task is no longer alive"
@@ -161,6 +184,13 @@ impl<B: BlockT> ImportQueueService<B> for BasicQueueHandle<B> {
 					"import_justification: Background import task is no longer alive"
 				);
 			}
+		}
+	}
+
+	fn queue_info(&self) -> ImportQueueInfo {
+		ImportQueueInfo {
+			queued_blocks: self.queued_blocks.load(Ordering::Relaxed),
+			max_queued_blocks: MAX_QUEUED_BLOCKS,
 		}
 	}
 }
@@ -227,6 +257,7 @@ async fn block_import_process<B: BlockT>(
 	result_sender: BufferedLinkSender<B>,
 	mut block_import_receiver: TracingUnboundedReceiver<worker_messages::ImportBlocks<B>>,
 	metrics: Option<Metrics>,
+	queued_blocks: Arc<AtomicUsize>,
 ) {
 	loop {
 		let worker_messages::ImportBlocks(origin, blocks) = match block_import_receiver.next().await
@@ -240,6 +271,10 @@ async fn block_import_process<B: BlockT>(
 				return;
 			},
 		};
+
+		// These blocks are leaving the channel, so drop them from the pending count before we
+		// start importing. What's left in the count is what's still waiting to be picked up.
+		queued_blocks.fetch_sub(blocks.len(), Ordering::Relaxed);
 
 		let res =
 			import_many_blocks(&mut block_import, origin, blocks, &verifier, metrics.clone()).await;
@@ -261,6 +296,7 @@ impl<B: BlockT> BlockImportWorker<B> {
 		block_import: BoxBlockImport<B>,
 		justification_import: Option<BoxJustificationImport<B>>,
 		metrics: Option<Metrics>,
+		queued_blocks: Arc<AtomicUsize>,
 	) -> (
 		impl Future<Output = ()> + Send,
 		TracingUnboundedSender<worker_messages::ImportJustification<B>>,
@@ -293,6 +329,7 @@ impl<B: BlockT> BlockImportWorker<B> {
 				worker.result_sender.clone(),
 				block_import_receiver,
 				worker.metrics.clone(),
+				queued_blocks,
 			);
 			futures::pin_mut!(block_import_process);
 
@@ -596,12 +633,85 @@ mod tests {
 		}
 	}
 
+	// Feed more blocks than the threshold to a worker whose verifier never returns, so nothing
+	// ever leaves the channel, and check that the pending count tracks the backlog and reports
+	// the queue as under pressure. That report is what `SyncingEngine` uses to pause requests.
+	#[test]
+	fn backpressure_counter_tracks_channel_depth_and_signals_pressure() {
+		struct HangingVerifier;
+
+		#[async_trait::async_trait]
+		impl Verifier<Block> for HangingVerifier {
+			async fn verify(
+				&self,
+				_block: BlockImportParams<Block>,
+			) -> Result<BlockImportParams<Block>, String> {
+				// Block forever, so the worker never finishes a batch and the pending count
+				// stays where we left it.
+				futures::future::pending::<()>().await;
+				unreachable!()
+			}
+		}
+
+		let spawner = sp_core::testing::TaskExecutor::new();
+		let mut queue = BasicQueue::new(HangingVerifier, Box::new(()), None, &spawner, None);
+		let handle = queue.service_ref();
+
+		let to_submit = MAX_QUEUED_BLOCKS + 1;
+		for n in 0..to_submit as u64 {
+			let header = Header {
+				parent_hash: Hash::random(),
+				number: n as BlockNumber,
+				extrinsics_root: Hash::random(),
+				state_root: Default::default(),
+				digest: Default::default(),
+			};
+			handle.import_blocks(
+				BlockOrigin::NetworkBroadcast,
+				vec![IncomingBlock {
+					hash: header.hash(),
+					header: Some(header),
+					body: None,
+					indexed_body: None,
+					justifications: None,
+					origin: None,
+					allow_missing_state: false,
+					import_existing: false,
+					state: None,
+					skip_execution: false,
+				}],
+			);
+		}
+
+		// The worker might pull a single batch off the channel before we read the count, so
+		// allow for that one batch and only assert we are at or above the threshold.
+		let info = handle.queue_info();
+		assert!(
+			info.queued_blocks >= MAX_QUEUED_BLOCKS,
+			"counter ({}) should be >= MAX_QUEUED_BLOCKS ({})",
+			info.queued_blocks,
+			MAX_QUEUED_BLOCKS,
+		);
+
+		assert!(
+			info.is_under_pressure(),
+			"expected is_under_pressure() == true with {} queued blocks",
+			info.queued_blocks,
+		);
+	}
+
 	#[test]
 	fn prioritizes_finality_work_over_block_import() {
 		let (result_sender, mut result_port) = buffered_link::buffered_link(100_000);
 
-		let (worker, finality_sender, block_import_sender) =
-			BlockImportWorker::new(result_sender, (), Box::new(()), Some(Box::new(())), None);
+		let (worker, finality_sender, block_import_sender) = BlockImportWorker::new(
+			result_sender,
+			(),
+			Box::new(()),
+			Some(Box::new(())),
+			None,
+			Arc::new(AtomicUsize::new(0)),
+		);
 		futures::pin_mut!(worker);
 
 		let import_block = |n| {

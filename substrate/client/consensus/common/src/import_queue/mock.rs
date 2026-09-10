@@ -30,6 +30,7 @@ mockall::mock! {
 			number: NumberFor<B>,
 			justifications: Justifications,
 		);
+		fn queue_info(&self) -> ImportQueueInfo;
 	}
 }
 
