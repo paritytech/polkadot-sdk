@@ -118,17 +118,6 @@ pub fn take_sent() -> Vec<MessageToRelay> {
 parameter_types! {
 	/// Signed accounts allowed to act as a para, as `(account, para id)`.
 	pub static ParaOriginAccounts: Vec<(AccountId, ParaId)> = Vec::new();
-	/// Paras the pallet treats as system chains.
-	pub static SystemParas: Vec<ParaId> = Vec::new();
-}
-
-/// The paras listed in [`SystemParas`].
-pub struct IsSystemPara;
-
-impl frame_support::traits::Contains<ParaId> for IsSystemPara {
-	fn contains(para_id: &ParaId) -> bool {
-		SystemParas::get().contains(para_id)
-	}
 }
 
 /// Lets the accounts listed in [`ParaOriginAccounts`] act as their para, standing in for a real
@@ -173,6 +162,17 @@ pub fn para_account(para_id: ParaId) -> AccountId {
 	1_000_000 + para_id as AccountId
 }
 
+/// Give a para's sovereign account something to put up as a deposit.
+pub fn fund_para(para_id: ParaId) {
+	let _ = Balances::force_set_balance(RuntimeOrigin::root(), para_account(para_id), 1_000_000);
+}
+
+/// What a para currently has held under `reason`.
+pub fn held(para_id: ParaId, reason: HoldReason) -> Balance {
+	use frame_support::traits::fungible::InspectHold;
+	Balances::balance_on_hold(&RuntimeHoldReason::Hrmp(reason), &para_account(para_id))
+}
+
 /// Resolves a para to the account its deposits are taken from.
 pub struct SovereignAccountOf;
 
@@ -213,7 +213,6 @@ impl pallet_hrmp_para::Config for Test {
 	type MaxInboundChannels = ConstU32<MAX_INBOUND_CHANNELS>;
 	type MaxOutboundChannels = ConstU32<MAX_OUTBOUND_CHANNELS>;
 	type DefaultChannelSizeAndCapacityWithSystem = SystemChannelSizes;
-	type IsSystemPara = IsSystemPara;
 	type WeightInfo = ();
 }
 

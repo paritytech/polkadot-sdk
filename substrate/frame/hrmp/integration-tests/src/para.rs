@@ -229,8 +229,6 @@ impl pallet_hrmp_para::Config for Runtime {
 	type MaxInboundChannels = ConstU32<MAX_INBOUND_CHANNELS>;
 	type MaxOutboundChannels = ConstU32<MAX_OUTBOUND_CHANNELS>;
 	type DefaultChannelSizeAndCapacityWithSystem = SystemChannelSizes;
-	// No system para in the harness, so every channel takes a deposit.
-	type IsSystemPara = Nothing;
 	type WeightInfo = ();
 }
 
