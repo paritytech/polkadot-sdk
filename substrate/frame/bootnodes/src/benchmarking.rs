@@ -41,24 +41,28 @@ impl BenchmarkHelper for () {
 	}
 }
 
-/// The largest `/dns/<label>/tcp/30333` multiaddr that fits in `max_len` bytes.
-///
-/// May fall one byte short of `max_len` where the label's length prefix grows to two bytes.
+fn encode_varint(mut value: usize, out: &mut Vec<u8>) {
+	while value >= 0x80 {
+		out.push((value as u8 & 0x7f) | 0x80);
+		value >>= 7;
+	}
+	out.push(value as u8);
+}
+
+/// The largest `/dns/<label>/tcp/30333` multiaddr of at most `max_len` bytes.
 fn max_multiaddr(max_len: u32) -> Vec<u8> {
 	let max_len = max_len as usize;
-	// dns code (1) + label length prefix (1 or 2) + label + tcp code (1) + port (2).
-	let label_len = max_len.saturating_sub(5);
-	let label_len = if label_len < 128 { label_len } else { max_len.saturating_sub(6) };
-	let mut addr = vec![53];
-	if label_len < 128 {
-		addr.push(label_len as u8);
-	} else {
-		addr.push((label_len as u8 & 0x7f) | 0x80);
-		addr.push((label_len >> 7) as u8);
+	let mut label_len = max_len.saturating_sub(5);
+	loop {
+		let mut addr = vec![53];
+		encode_varint(label_len, &mut addr);
+		if addr.len() + label_len + 3 <= max_len || label_len == 0 {
+			addr.extend(core::iter::repeat_n(b'a', label_len));
+			addr.extend([6, 0x76, 0x7d]);
+			return addr;
+		}
+		label_len -= 1;
 	}
-	addr.extend(core::iter::repeat_n(b'a', label_len));
-	addr.extend([6, 0x76, 0x7d]);
-	addr
 }
 
 /// A bootnode with a fresh key and a valid proof of possession over `seq` and `addr`.
@@ -121,4 +125,19 @@ mod benchmarks {
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn max_multiaddr_is_valid_and_within_one_byte_of_the_bound_for_every_prefix_width() {
+		for max_len in (5..=140).chain(16_380..=16_400).chain([100_000]) {
+			let addr = max_multiaddr(max_len);
+			assert_eq!(multiaddr::validate(&addr), Ok(()), "max_len {max_len}");
+			assert!(addr.len() <= max_len as usize, "max_len {max_len}: {} bytes", addr.len());
+			assert!(addr.len() + 1 >= max_len as usize, "max_len {max_len}: {} bytes", addr.len());
+		}
+	}
 }
