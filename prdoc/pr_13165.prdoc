@@ -1,16 +1,15 @@
-title: '[WIP] cumulus: fix V3 scheduling parent picking, wait for RC tip'
+title: 'cumulus: fix V3 scheduling parent picking, wait for RC tip'
 doc:
 - audience: Node Dev
-  description: "# Description\n\nStacked on #13163.\n\nAt rpo 0 the V3 scheduling\
-    \ parent is the last finished-slot relay block, which may have same-height siblings\
-    \ \u2014 picking among them from the local view is arrival-order luck, and building\
-    \ on the losing sibling wastes the slot. Like the V2 path, the collator now waits\
-    \ for a relay block of the current production slot: its parent hash names the\
-    \ canonical finished-height block.\nThis trades a little slot time (normally milliseconds)\
-    \ for fork-safe scheduling parents and ties parachain block production to the\
-    \ relay chain cadence.\n\nThe walk-back is also bounded by the slot-timer's production\
-    \ slot instead of a second wall-clock read. The principle here is that the slot\
-    \ timer is the source of truth for the current slot."
+  description: |
+    At relay parent offset 0 the V3 scheduling parent is the last
+    finished-slot relay block, which may have same-height siblings; picking
+    among them from the local view is arrival-order luck, and building on
+    the losing sibling wastes the slot. The collator now waits for a relay
+    block of the current production slot, whose parent hash names the
+    canonical scheduling parent. The walk-back is also bounded by the slot
+    timer's production slot instead of a second wall-clock read: the slot
+    timer is the single source of truth for the current slot.
 crates:
 - name: cumulus-client-consensus-aura
   bump: patch
