@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789077014518,
+  "lastUpdate": 1789080790037,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -220415,6 +220415,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2359934687,
             "range": "± 77270356",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "597a9f04be6a06d6658b361812fd7cc4d5480026",
+          "message": "statement-store: drop explicit-affine statements once affinity lapses (#13050)\n\n## Description\n\nStatements persisted only for explicit topic affinity are now dropped\nonce no affinity covers them — typically after the last matching RPC\nsubscription ends. Configured-topic and DHT-affine statements stay\nuntouched.\n\nCloses #12551.\n\n## Integration\n\nNo action required. Internal `sc-statement-store` change: no public API\nor configuration changes. With the v2 DHT gate off no retention resolver\nis installed, so behavior is unchanged.\n\n## Review Notes\n\n- `QueryIndex.explicit_only` tracks hashes admitted with\n`EXPLICIT_AFFINITY` and without `DHT_AFFINITY`\n(`RetentionTrack::from(mask)`). Cleared on every removal path, empty\nafter restart — restored statements persist until expiry, as before.\n- `sweep_explicit_affinity` runs at the start of `maintain()` (29s\ntick): re-runs the retention resolver over tracked hashes, removes\nstatements whose current mask carries no persistent reason.\n- Statements still in `recent` — not yet taken by propagation — are\nexempt from the sweep, so a locally submitted statement is handed to\npropagation at least once before it can be dropped.\n- Removal passes `Resubmission::Allowed`, skipping the `EXPIRED`\nre-acceptance ban: dropped statements are valid, a returning\nsubscription can pull them back from peers. Existing removal paths keep\n`Resubmission::Banned`.\n- Sweep is unbounded per tick; worst case is point reads for every\nstored statement. Possible follow-up: statement/time budget with a\nresume cursor, as in `check_expired`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nSigned-off-by: Tomasz Bartos <tomasz.bartos@iohk.io>\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>\nCo-authored-by: dharjeezy <dharjeezy@gmail.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Michal Kucharczyk <1728078+michalkucharczyk@users.noreply.github.com>\nCo-authored-by: Nasihudeen Jimoh <nasihudeen04@gmail.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>\nCo-authored-by: eskimor <jfanatiker@gmx.at>\nCo-authored-by: Davide Galassi <davxy@datawok.net>\nCo-authored-by: drskalman <35698397+drskalman@users.noreply.github.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: Egor_P <egor@parity.io>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>\nCo-authored-by: Ludovic Domingues <ludovic.domingues96@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>\nCo-authored-by: Klapeyron <11329616+Klapeyron@users.noreply.github.com>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Tsvetomir Dimitrov <tsvetomir@parity.io>\nCo-authored-by: Ross Bulat <ross@jkrb.io>\nCo-authored-by: Milos Kriz <82968568+miloskriz@users.noreply.github.com>\nCo-authored-by: eskimor <robert@gonimo.com>\nCo-authored-by: eskimor <eskimor@noreply.com>\nCo-authored-by: Marios <marios@parity.io>\nCo-authored-by: Alin Dima <alin@parity.io>\nCo-authored-by: Rodrigo Quelhas <22591718+RomarQ@users.noreply.github.com>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>\nCo-authored-by: DenzelPenzel <15388928+DenzelPenzel@users.noreply.github.com>\nCo-authored-by: eskimor <1527017+eskimor@users.noreply.github.com>\nCo-authored-by: Andrei <54316454+sandreim@users.noreply.github.com>\nCo-authored-by: Javier Viola <javier@parity.io>\nCo-authored-by: Luka Ciric <luka.ciric2106@gmail.com>\nCo-authored-by: Ankan <ankan.anurag@gmail.com>\nCo-authored-by: Dmitry Markin <dmitry@markin.tech>\nCo-authored-by: Lukasz Rubaszewski <117115317+lrubasze@users.noreply.github.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: Omar <OmarAbdulla7@hotmail.com>\nCo-authored-by: Kirill <pisarevkir@gmail.com>\nCo-authored-by: 0xRVE <robertvaneerdewijk@gmail.com>\nCo-authored-by: Alexandru Vasile <60601340+lexnv@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: gab <79002163+gab8i@users.noreply.github.com>\nCo-authored-by: s0me0ne-unkn0wn <48632512+s0me0ne-unkn0wn@users.noreply.github.com>\nCo-authored-by: ron <yrong1997@gmail.com>\nCo-authored-by: Marian Radu <marian@parity.io>\nCo-authored-by: Nathaniel Bajo <73991674+Nathy-bajo@users.noreply.github.com>\nCo-authored-by: mertwole <mertwole@gmail.com>\nCo-authored-by: Andrei Trandafir <142614787+andreitrand@users.noreply.github.com>\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>\nCo-authored-by: jessechejieh <dev@jessechejieh.com>",
+          "timestamp": "2026-09-10T21:37:19Z",
+          "tree_id": "795dcbe3f7d126dc2729410f9b71c30e74a8c6ed",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/597a9f04be6a06d6658b361812fd7cc4d5480026"
+        },
+        "date": 1789080748030,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 5175283,
+            "range": "± 117771",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 324219,
+            "range": "± 12689",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 5008015,
+            "range": "± 146912",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 414731,
+            "range": "± 19966",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 6170601,
+            "range": "± 233284",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 1035491,
+            "range": "± 30183",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 12565254,
+            "range": "± 454873",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5742134,
+            "range": "± 157681",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 57523105,
+            "range": "± 4652168",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 39762495,
+            "range": "± 607842",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 396317384,
+            "range": "± 9258243",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 327597479,
+            "range": "± 3496858",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2979780068,
+            "range": "± 47011334",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2887561876,
+            "range": "± 52870394",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3576563,
+            "range": "± 72621",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1907529,
+            "range": "± 11083",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3643878,
+            "range": "± 48259",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1960009,
+            "range": "± 19713",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4092616,
+            "range": "± 47566",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2280879,
+            "range": "± 13267",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8638421,
+            "range": "± 336300",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 6047342,
+            "range": "± 188716",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 43526175,
+            "range": "± 645636",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 42047783,
+            "range": "± 457790",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 375532323,
+            "range": "± 4306934",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 318641608,
+            "range": "± 3139622",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2921218344,
+            "range": "± 63099411",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2766509489,
+            "range": "± 113185579",
             "unit": "ns/iter"
           }
         ]
