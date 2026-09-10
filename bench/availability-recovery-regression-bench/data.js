@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789036194313,
+  "lastUpdate": 1789044242979,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a20ac9bd4fedd78da159fa4bbd8452dc8c17ec4b",
-          "message": "xcm-emulator: advance relay block number by relay_blocks_per_para_block (#11031)\n\nAfter `AuraDigestProvider` was introduced, emulated integration tests\nfor parachains with `slot_duration != relay_slot_duration` (e.g. 12s\nPolkadot/Kusama chains) panic because `FixedVelocityConsensusHook`\nderives a parachain slot that doesn't match `CurrentSlot`.\nFix by advancing the relay block number by `slot_duration /\nRELAY_CHAIN_SLOT_DURATION_MILLIS` per parachain block (instead of always\n+1), and computing the aura digest slot inline using both durations.\nThis removes the `DigestProvider` associated type from the `Parachain`\ntrait and the `AuraDigestProvider` struct — the emulator now handles the\ndigest automatically.\nDownstream users must remove `DigestProvider: AuraDigestProvider,` from\ntheir `decl_test_parachains!` invocations.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-10T13:18:35Z",
-          "tree_id": "e5cf27b46ffd198010768292a5ca63d9fbc31f35",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a20ac9bd4fedd78da159fa4bbd8452dc8c17ec4b"
-        },
-        "date": 1770733652877,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.2757953513,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12201810116666664,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1383498977,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c68155d0a5d493e7428d309d759a3f5d3f366502",
+          "message": "Gap-sync: Reset duplicate request counter after some time (#13131)\n\nDuplicate request counters never expired, so legitimate retries after\nsync restarts could leave peers permanently refused and repeatedly\nbanned.\n\nReset the counters after 60 seconds and replace fatal duplicate-request\npenalties with a smaller penalty in both block and state request\nhandlers.\n\nA concrete occurence of this issue that we saw recently on a westend RPC\nnode:\n1. Westend Coretime RPC nodes had a one-block history gap.\n2. Tip sync hit “Potential long-range attack” import errors, triggering\nsync restarts and repeated gap requests.\n3. Those retries exhausted the duplicate-request allowance on the only\ntwo reachable peers, the collators.\n4. The collators refused further requests and fatally penalized the RPC\nnodes.\n5. After each ban expired, the nodes reconnected, retried, and were\nbanned again. The counters never reset, leaving gap sync stuck.\n\nIssues like this seem to come up in the past too\n(https://github.com/paritytech/polkadot-sdk/issues/8990,\nhttps://github.com/paritytech/polkadot-sdk/issues/9165), with no real\nresolution. I think this here would solve most of the problems. If in\ndoubt, we could also increase the timer to 3 or 4 minutes.",
+          "timestamp": "2026-09-10T10:06:35Z",
+          "tree_id": "e89f0b0de36c18cb0965578589e186c1ab33de08",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c68155d0a5d493e7428d309d759a3f5d3f366502"
+        },
+        "date": 1789044202773,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13511570106666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.053875706233336,
             "unit": "seconds"
           }
         ]
