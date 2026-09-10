@@ -43,7 +43,7 @@ use jsonrpsee::{
 use multiaddr::{Multiaddr, Protocol};
 use pallet_bootnodes::{multiaddr as addr_check, pop_payload, Bootnode};
 use sc_network_types::PeerId;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sp_core::{crypto::Pair as _, ed25519, Bytes, ConstU32, H256};
 use sp_crypto_hashing::{blake2_128, twox_128};
 use std::{collections::BTreeMap, path::PathBuf};
@@ -404,6 +404,12 @@ fn pallet_meta(metadata: &[u8], name: &str) -> Result<PalletMeta> {
 	})
 }
 
+/// One element of a `state_queryStorageAt` response.
+#[derive(Deserialize)]
+struct StorageChangeSet {
+	changes: Vec<(Bytes, Option<Bytes>)>,
+}
+
 /// A connection to a node, pinned to one block.
 struct Chain {
 	client: Client,
@@ -482,7 +488,14 @@ impl Chain {
 					rpc_params![Bytes(prefix.clone()), PAGE, start_key.clone(), self.at],
 				)
 				.await?;
-			for key in &keys {
+			if keys.is_empty() {
+				break;
+			}
+			let change_sets: Vec<StorageChangeSet> = self
+				.client
+				.request("state_queryStorageAt", rpc_params![keys.clone(), self.at])
+				.await?;
+			for (key, value) in change_sets.into_iter().flat_map(|set| set.changes) {
 				// prefix ++ blake2_128(node_key) ++ node_key
 				let raw = key
 					.0
@@ -490,7 +503,9 @@ impl Chain {
 					.ok_or_else(|| anyhow!("unexpected `LastSeq` key length"))?;
 				let node_key =
 					ed25519::Public::decode(&mut &raw[..]).context("decoding a `LastSeq` key")?;
-				if let Some(seq) = self.storage::<u64>(key.0.clone()).await? {
+				if let Some(value) = value {
+					let seq =
+						u64::decode(&mut &value.0[..]).context("decoding a `LastSeq` value")?;
 					entries.push((node_key, seq));
 				}
 			}
