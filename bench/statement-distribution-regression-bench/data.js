@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789036347772,
+  "lastUpdate": 1789044390201,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "yrong1997@gmail.com",
-            "name": "Ron",
-            "username": "yrong"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "51c34ff0b984df85d44acd1837889c7a1ed80cf8",
-          "message": "Snowbridge: Describe the token location with the length field included to avoid collisions (#10771)\n\n### Context\n\nFor `GeneralKey`, two different XCM junctions that differ only in length\ncan produce the same description bytes, and therefore the same TokenId.\n\nWe do have several PNAs registered that could be affected—for example,\nBNC from the Bifrost team and ACA from the Acala team—where the tokens\nare represented using GeneralKey. However, these tokens are not\ncurrently in use; there have been no transfers and no tokens minted yet.\n\nAs a result, I believe simply re-registering these tokens should be\nsufficient, without requiring a runtime storage migration.\n\n---------\n\nCo-authored-by: Clara van Staden <claravanstaden64@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2026-02-09T11:53:46Z",
-          "tree_id": "5bb59a5e179698ca9158dd6683d97f44e60ae8d8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/51c34ff0b984df85d44acd1837889c7a1ed80cf8"
-        },
-        "date": 1770642244753,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.036,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038167602188,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06579555231399994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.09298965064999991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c68155d0a5d493e7428d309d759a3f5d3f366502",
+          "message": "Gap-sync: Reset duplicate request counter after some time (#13131)\n\nDuplicate request counters never expired, so legitimate retries after\nsync restarts could leave peers permanently refused and repeatedly\nbanned.\n\nReset the counters after 60 seconds and replace fatal duplicate-request\npenalties with a smaller penalty in both block and state request\nhandlers.\n\nA concrete occurence of this issue that we saw recently on a westend RPC\nnode:\n1. Westend Coretime RPC nodes had a one-block history gap.\n2. Tip sync hit “Potential long-range attack” import errors, triggering\nsync restarts and repeated gap requests.\n3. Those retries exhausted the duplicate-request allowance on the only\ntwo reachable peers, the collators.\n4. The collators refused further requests and fatally penalized the RPC\nnodes.\n5. After each ban expired, the nodes reconnected, retried, and were\nbanned again. The counters never reset, leaving gap sync stuck.\n\nIssues like this seem to come up in the past too\n(https://github.com/paritytech/polkadot-sdk/issues/8990,\nhttps://github.com/paritytech/polkadot-sdk/issues/9165), with no real\nresolution. I think this here would solve most of the problems. If in\ndoubt, we could also increase the timer to 3 or 4 minutes.",
+          "timestamp": "2026-09-10T10:06:35Z",
+          "tree_id": "e89f0b0de36c18cb0965578589e186c1ab33de08",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c68155d0a5d493e7428d309d759a3f5d3f366502"
+        },
+        "date": 1789044350098,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.15200000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038233532625999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08557558488199994,
             "unit": "seconds"
           }
         ]
