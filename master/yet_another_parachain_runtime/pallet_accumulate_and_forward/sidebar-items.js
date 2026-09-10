@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Call","Event"],"mod":["pallet","weights"],"struct":["DealWithFeesSplit","LegacyAdapter","Pallet"],"trait":["Config","Forwarder","WeightInfo"],"type":["BalanceOf","BlockNumberFor","CreditOf","Module"]};
+window.SIDEBAR_ITEMS = {"enum":["Call","Event"],"mod":["pallet","weights"],"struct":["DealWithFeesSplit","LegacyAdapter","Pallet"],"trait":["Config","Forwarder","WeightInfo"],"type":["BalanceOf","BlockNumberFor","CreditOf","LastForwardBlock","Module"]};
