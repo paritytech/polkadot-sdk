@@ -369,7 +369,7 @@ pub mod pallet {
 				params.offboard_timeout
 			} else {
 				let rank_index = Self::rank_to_index(rank).ok_or(Error::<T, I>::InvalidRank)?;
-				params.demotion_period[rank_index]
+				params.demotion_period.get(rank_index).copied().unwrap_or_default()
 			};
 
 			if demotion_period.is_zero() {
@@ -519,7 +519,8 @@ pub mod pallet {
 
 			let params = Params::<T, I>::get();
 			let rank_index = Self::rank_to_index(to_rank).ok_or(Error::<T, I>::InvalidRank)?;
-			let min_period = params.min_promotion_period[rank_index];
+			let min_period =
+				params.min_promotion_period.get(rank_index).copied().unwrap_or_default();
 			// Ensure enough time has passed.
 			ensure!(
 				member.last_promotion.saturating_add(min_period) <= now,
@@ -760,7 +761,7 @@ pub mod pallet {
 			let params = Params::<T, I>::get();
 			let salary =
 				if member.is_active { params.active_salary } else { params.passive_salary };
-			salary[index]
+			salary.get(index).copied().unwrap_or_default()
 		}
 	}
 }
