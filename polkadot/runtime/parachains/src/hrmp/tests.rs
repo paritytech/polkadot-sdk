@@ -1231,3 +1231,163 @@ fn hrmp_notifications_works() {
 		);
 	});
 }
+
+mod registry {
+	use super::*;
+	use hrmp_primitives::{ChannelId, FailureReason, HrmpRegistry};
+
+	const CAPACITY: u32 = 2;
+	const MESSAGE_SIZE: u32 = 8;
+
+	fn channel(sender: u32, recipient: u32) -> ChannelId {
+		ChannelId { sender, recipient }
+	}
+
+	fn open(channel: ChannelId) -> Result<(), FailureReason> {
+		Hrmp::open_channel(channel, CAPACITY, MESSAGE_SIZE)
+	}
+
+	#[test]
+	fn open_channel_opens_it_now_and_takes_no_deposit() {
+		let (para_a, para_b) = (2000, 2001);
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			run_to_block(2, Some(vec![1, 2]));
+			register_parachain(para_a.into());
+			register_parachain(para_b.into());
+			run_to_block(4, Some(vec![3, 4]));
+
+			assert_eq!(open(channel(para_a, para_b)), Ok(()));
+
+			// No session boundary was needed: the channel is in the routing table already.
+			let id = HrmpChannelId { sender: para_a.into(), recipient: para_b.into() };
+			let opened = HrmpChannels::<Test>::get(&id).unwrap();
+			assert_eq!(opened.max_capacity, CAPACITY);
+			assert_eq!(opened.max_message_size, MESSAGE_SIZE);
+			assert_eq!(opened.max_total_size, 16);
+			// The calling chain holds the money, so nothing is reserved here.
+			assert_eq!(opened.sender_deposit, 0);
+			assert_eq!(opened.recipient_deposit, 0);
+
+			assert_eq!(
+				HrmpEgressChannelsIndex::<Test>::get(&ParaId::from(para_a)),
+				vec![ParaId::from(para_b)]
+			);
+			assert_eq!(
+				HrmpIngressChannelsIndex::<Test>::get(&ParaId::from(para_b)),
+				vec![ParaId::from(para_a)]
+			);
+			assert!(HrmpOpenChannelRequests::<Test>::get(&id).is_none());
+
+			Hrmp::assert_storage_consistency_exhaustive();
+		});
+	}
+
+	#[test]
+	fn open_channel_needs_two_distinct_valid_paras() {
+		let (para_a, para_b) = (2000, 2001);
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			run_to_block(2, Some(vec![1, 2]));
+			register_parachain(para_a.into());
+			run_to_block(4, Some(vec![3, 4]));
+
+			assert_eq!(open(channel(para_a, para_a)), Err(FailureReason::InvalidPara));
+			assert_eq!(open(channel(para_a, para_b)), Err(FailureReason::InvalidPara));
+			assert_eq!(open(channel(para_b, para_a)), Err(FailureReason::InvalidPara));
+		});
+	}
+
+	#[test]
+	fn open_channel_holds_the_relay_chains_limits() {
+		let (para_a, para_b) = (2000, 2001);
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			run_to_block(2, Some(vec![1, 2]));
+			register_parachain(para_a.into());
+			register_parachain(para_b.into());
+			run_to_block(4, Some(vec![3, 4]));
+
+			let ch = channel(para_a, para_b);
+			assert_eq!(
+				Hrmp::open_channel(ch, 0, MESSAGE_SIZE),
+				Err(FailureReason::InvalidParameters)
+			);
+			assert_eq!(
+				Hrmp::open_channel(ch, CAPACITY + 1, MESSAGE_SIZE),
+				Err(FailureReason::InvalidParameters)
+			);
+			assert_eq!(Hrmp::open_channel(ch, CAPACITY, 0), Err(FailureReason::InvalidParameters));
+			assert_eq!(
+				Hrmp::open_channel(ch, CAPACITY, MESSAGE_SIZE + 1),
+				Err(FailureReason::InvalidParameters)
+			);
+		});
+	}
+
+	#[test]
+	fn open_channel_refuses_a_channel_that_is_already_there() {
+		let (para_a, para_b) = (2000, 2001);
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			run_to_block(2, Some(vec![1, 2]));
+			register_parachain(para_a.into());
+			register_parachain(para_b.into());
+			run_to_block(4, Some(vec![3, 4]));
+
+			assert_eq!(open(channel(para_a, para_b)), Ok(()));
+			assert_eq!(open(channel(para_a, para_b)), Err(FailureReason::AlreadyExists));
+
+			// A request the legacy path left pending counts too.
+			assert_ok!(Hrmp::init_open_channel(
+				para_b.into(),
+				para_a.into(),
+				CAPACITY,
+				MESSAGE_SIZE
+			));
+			assert_eq!(open(channel(para_b, para_a)), Err(FailureReason::AlreadyExists));
+		});
+	}
+
+	#[test]
+	fn open_channel_respects_the_per_para_channel_counts() {
+		let paras = [2000, 2001, 2002, 2003];
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			run_to_block(2, Some(vec![1, 2]));
+			for para in paras {
+				register_parachain(para.into());
+			}
+			run_to_block(4, Some(vec![3, 4]));
+
+			// Two outbound channels is the configured maximum for the sender.
+			assert_eq!(open(channel(paras[0], paras[1])), Ok(()));
+			assert_eq!(open(channel(paras[0], paras[2])), Ok(()));
+			assert_eq!(open(channel(paras[0], paras[3])), Err(FailureReason::LimitExceeded));
+
+			// And two inbound for the recipient.
+			assert_eq!(open(channel(paras[2], paras[1])), Ok(()));
+			assert_eq!(open(channel(paras[3], paras[1])), Err(FailureReason::LimitExceeded));
+		});
+	}
+
+	#[test]
+	fn exists_covers_open_channels_and_pending_requests() {
+		let (para_a, para_b) = (2000, 2001);
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			run_to_block(2, Some(vec![1, 2]));
+			register_parachain(para_a.into());
+			register_parachain(para_b.into());
+			run_to_block(4, Some(vec![3, 4]));
+
+			assert!(!Hrmp::exists(channel(para_a, para_b)));
+
+			assert_eq!(open(channel(para_a, para_b)), Ok(()));
+			assert!(Hrmp::exists(channel(para_a, para_b)));
+			assert!(!Hrmp::exists(channel(para_b, para_a)));
+
+			assert_ok!(Hrmp::init_open_channel(
+				para_b.into(),
+				para_a.into(),
+				CAPACITY,
+				MESSAGE_SIZE
+			));
+			assert!(Hrmp::exists(channel(para_b, para_a)));
+		});
+	}
+}
