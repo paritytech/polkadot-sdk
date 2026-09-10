@@ -193,6 +193,277 @@ fn basic_evm_flow_tracing_works() {
 	});
 }
 
+/// Calling a delegated EOA should trace as CallType::Call (not DelegateCall).
+#[test]
+fn delegated_eoa_call_tracing_works() {
+	use crate::{
+		evm::{CallTrace, CallTracer, CallType},
+		tests::{dummy_evm_contract, eip7702::DelegationTestSetup},
+	};
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: target_addr, .. } =
+			builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+				.build_and_unwrap_contract();
+
+		let setup = DelegationTestSetup::default();
+		setup.authorize(target_addr);
+
+		let mut tracer = CallTracer::new(Default::default());
+		let _ = trace(&mut tracer, || {
+			builder::bare_call(setup.signer.address).build_and_unwrap_result()
+		});
+
+		let call_trace = tracer.collect_trace().unwrap();
+		assert_eq!(
+			call_trace,
+			CallTrace {
+				call_type: CallType::Call,
+				from: ALICE_ADDR,
+				to: setup.signer.address,
+				value: Some(crate::U256::zero()),
+				gas: call_trace.gas,
+				gas_used: call_trace.gas_used,
+				..Default::default()
+			}
+		);
+	});
+}
+
+/// Prestate-tracer (prestate mode) must surface a delegated EOA's `code` as the
+/// 23-byte EIP-7702 indicator `0xef0100 || target`. This is the channel most users
+/// (foundry / hardhat traces, Tenderly, etc.) inspect to confirm a delegation
+/// took effect.
+#[test]
+fn delegated_eoa_prestate_tracing_returns_indicator() {
+	use crate::{
+		evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig},
+		tests::{dummy_evm_contract, eip7702::DelegationTestSetup},
+	};
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: target_addr, .. } =
+			builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+				.build_and_unwrap_contract();
+
+		let setup = DelegationTestSetup::default();
+		setup.authorize(target_addr);
+
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			diff_mode: false,
+			disable_storage: true,
+			disable_code: false,
+		});
+		let _ = trace(&mut tracer, || {
+			builder::bare_call(setup.signer.address).build_and_unwrap_result()
+		});
+
+		let mut indicator = vec![0xefu8, 0x01, 0x00];
+		indicator.extend_from_slice(target_addr.as_bytes());
+
+		match tracer.collect_trace() {
+			PrestateTrace::Prestate(accounts) => {
+				let info = accounts
+					.get(&setup.signer.address)
+					.expect("delegated EOA should be in prestate trace");
+				let code = info.code.as_ref().expect("delegated EOA should report code");
+				assert_eq!(
+					code.0, indicator,
+					"prestate trace code should be the 23-byte delegation indicator",
+				);
+			},
+			other => panic!("expected Prestate mode, got {:?}", other),
+		}
+	});
+}
+
+/// Prestate-tracer (diff mode) must surface the indicator in the pre-state when
+/// the traced call mutates the delegated EOA (otherwise diff mode correctly
+/// filters unchanged addresses out). Uses a Counter target + setNumber so the
+/// authority's storage changes, forcing the address to appear in both halves.
+#[test]
+fn delegated_eoa_prestate_diff_tracing_includes_indicator() {
+	use crate::{
+		evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig},
+		precompiles::alloy::sol_types::SolCall,
+		tests::eip7702::DelegationTestSetup,
+	};
+	use pallet_revive_fixtures::{Counter, FixtureType, compile_module_with_type};
+
+	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: target_addr, .. } =
+			builder::bare_instantiate(Code::Upload(counter_code)).build_and_unwrap_contract();
+
+		let setup = DelegationTestSetup::default();
+		setup.authorize(target_addr);
+
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			diff_mode: true,
+			disable_storage: false,
+			disable_code: false,
+		});
+		let _ = trace(&mut tracer, || {
+			builder::bare_call(setup.signer.address)
+				.data(Counter::setNumberCall { newNumber: 42u64 }.abi_encode())
+				.build_and_unwrap_result()
+		});
+
+		let mut indicator = vec![0xefu8, 0x01, 0x00];
+		indicator.extend_from_slice(target_addr.as_bytes());
+
+		match tracer.collect_trace() {
+			PrestateTrace::DiffMode { pre, post: _ } => {
+				let pre_info = pre
+					.get(&setup.signer.address)
+					.expect("delegated EOA whose storage changed should be in pre-state diff");
+				let pre_code = pre_info.code.as_ref().expect("pre-state should include code");
+				assert_eq!(
+					pre_code.0, indicator,
+					"diff pre-state code must be the delegation indicator",
+				);
+			},
+			other => panic!("expected DiffMode, got {:?}", other),
+		}
+	});
+}
+
+/// Regression: EIP-7702 authority state changes must be visible to the prestate diff tracer.
+///
+/// `process_authorizations` mutates account state (code, nonce, deposit) without going through
+/// any of the EVM hooks (`enter_child_span`, `read_account`, `balance_read`, ...). Without an
+/// explicit notification, the tracer never sees the authority address, so a revoke of an existing
+/// delegation is invisible to clients consuming the diff — the post block lacks the `code: null`
+/// entry that Geth produces for the same transaction.
+///
+/// This test triggers an authority-only state change inside the trace scope (revoke, no further
+/// EVM call) and asserts the authority appears in `post` with cleared code. Without the fix, the
+/// authority is missing from the diff entirely.
+#[test]
+fn prestate_diff_includes_authority_when_eip7702_revokes_delegation() {
+	use crate::{
+		evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig},
+		tests::{dummy_evm_contract, eip7702::DelegationTestSetup},
+	};
+	use sp_core::H160;
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: target_addr, .. } =
+			builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+				.build_and_unwrap_contract();
+
+		let setup = DelegationTestSetup::default();
+		setup.authorize(target_addr);
+		assert!(crate::AccountInfo::<Test>::is_delegated(&setup.signer.address));
+
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			diff_mode: true,
+			disable_storage: true,
+			disable_code: false,
+		});
+
+		let _ = trace(&mut tracer, || {
+			let revoke_auth = setup.sign_authorization(H160::zero());
+			setup.process(&[revoke_auth]);
+		});
+
+		match tracer.collect_trace() {
+			PrestateTrace::DiffMode { pre, post } => {
+				let pre_info = pre.get(&setup.signer.address).expect(
+					"authority must appear in pre-state diff with its pre-revoke delegation indicator",
+				);
+				let pre_code = pre_info.code.as_ref().expect("pre.code must capture the indicator");
+				let mut indicator = vec![0xefu8, 0x01, 0x00];
+				indicator.extend_from_slice(target_addr.as_bytes());
+				assert_eq!(
+					pre_code.0, indicator,
+					"pre.code must be the pre-revoke delegation indicator, not the post-revoke (empty) state",
+				);
+
+				let post_info = post.get(&setup.signer.address).expect(
+					"authority must appear in post-state diff after revoke (code cleared, nonce bumped)",
+				);
+				assert!(
+					post_info.code.is_none(),
+					"post.code must be None (delegation cleared), got {:?}",
+					post_info.code,
+				);
+			},
+			other => panic!("expected DiffMode, got {:?}", other),
+		}
+	});
+}
+
+/// Symmetric to [`prestate_diff_includes_authority_when_eip7702_revokes_delegation`] but for the
+/// set direction: an EIP-7702 tx that creates a fresh delegation on an authority without prior
+/// code must surface `pre.code == None` and `post.code == Some(0xef0100 || target)`. Without the
+/// fix in `process_authorizations`, the authority is missing from the trace entirely.
+#[test]
+fn prestate_diff_includes_authority_when_eip7702_sets_delegation() {
+	use crate::{
+		evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig},
+		tests::{dummy_evm_contract, eip7702::DelegationTestSetup},
+	};
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: target_addr, .. } =
+			builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+				.build_and_unwrap_contract();
+
+		// Fresh authority — funded, but no existing delegation.
+		let setup = DelegationTestSetup::default();
+		assert!(!crate::AccountInfo::<Test>::is_delegated(&setup.signer.address));
+
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			diff_mode: true,
+			disable_storage: true,
+			disable_code: false,
+		});
+
+		let _ = trace(&mut tracer, || {
+			let auth = setup.sign_authorization(target_addr);
+			setup.process(&[auth]);
+		});
+
+		match tracer.collect_trace() {
+			PrestateTrace::DiffMode { pre, post } => {
+				let pre_info = pre
+					.get(&setup.signer.address)
+					.expect("authority must appear in pre-state diff before delegation is set");
+				assert!(
+					pre_info.code.is_none(),
+					"pre.code must be None (no prior delegation), got {:?}",
+					pre_info.code,
+				);
+
+				let post_info = post
+					.get(&setup.signer.address)
+					.expect("authority must appear in post-state diff after delegation is set");
+				let post_code =
+					post_info.code.as_ref().expect("post.code must carry the indicator");
+				let mut indicator = vec![0xefu8, 0x01, 0x00];
+				indicator.extend_from_slice(target_addr.as_bytes());
+				assert_eq!(
+					post_code.0, indicator,
+					"post.code must be the 23-byte delegation indicator pointing at target",
+				);
+			},
+			other => panic!("expected DiffMode, got {:?}", other),
+		}
+	});
+}
+
 /// EVM `sload` must charge proportionally to the actual byte size of the storage
 /// value, not just the EVM word size of 32. The trie's storage values can exceed
 /// 32 bytes when a PVM contract sharing the same namespace (via delegatecall) wrote
@@ -520,6 +791,34 @@ fn upload_evm_runtime_code_works() {
 			.build_and_unwrap_result();
 		let decoded = Fibonacci::fibCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(55u64, decoded, "Contract should correctly compute fibonacci(10)");
+	});
+}
+
+#[test]
+fn extcodecopy_out_of_range_offset_zero_fills() {
+	// Regression test for #12643: a `code_offset` of 2^64 overflows `usize` and used to halt.
+	// Copy 32 bytes of our own code from that offset and return them; expect all zeroes.
+	#[rustfmt::skip]
+	let runtime_code = vec![
+		PUSH1, 0x20,                                          // size = 32
+		PUSH9, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // code offset = 2^64
+		PUSH1, 0x00,                                          // dest offset = 0
+		ADDRESS,                                              // copy from self
+		EXTCODECOPY,
+		PUSH1, 0x20,                                          // return size = 32
+		PUSH1, 0x00,                                          // return offset = 0
+		RETURN,
+	];
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let init_code = make_initcode_from_runtime_code(&runtime_code);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(init_code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr).build_and_unwrap_result();
+		assert!(!result.did_revert());
+		assert_eq!(result.data, vec![0u8; 32]);
 	});
 }
 
@@ -1091,6 +1390,138 @@ fn execution_tracing_works() {
 
 				verify_gas_consistency(&actual_trace, is_evm, &format!("{name} ({vm_type})"));
 			});
+		}
+	}
+}
+
+/// Storage opcodes charge a worst-case amount upfront and refund the remainder via
+/// `adjust_weight`, so `weight_consumed` is not monotonic within a step. A step's cost is
+/// `(exit - entry) - child`, which is only exact if every refund lands inside the window that
+/// charged it; one escaping would show up as a gap between consecutive steps.
+#[test]
+fn storage_refunds_stay_inside_the_step_that_charged_them() {
+	use crate::evm::{ExecutionStepKind, ExecutionTracer, ExecutionTracerConfig};
+	use pallet_revive_fixtures::Counter;
+
+	let (code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// `increment` is SLOAD then SSTORE, so both refunding paths run.
+		let mut tracer = ExecutionTracer::new(ExecutionTracerConfig::default());
+		trace(&mut tracer, || {
+			builder::bare_call(addr)
+				.data(Counter::incrementCall {}.abi_encode())
+				.build_and_unwrap_result()
+		});
+		let trace = tracer.collect_trace();
+
+		assert!(
+			trace.struct_logs.iter().any(|step| matches!(
+				&step.kind,
+				ExecutionStepKind::EVMOpcode { op, .. } if *op == SSTORE || *op == SLOAD
+			)),
+			"the fixture must actually touch storage for this to test anything",
+		);
+
+		// Consecutive EVM steps at the same depth must leave the meter continuous.
+		let breaks = trace
+			.struct_logs
+			.iter()
+			.zip(trace.struct_logs.iter().skip(1))
+			.filter(|(step, next)| step.depth == next.depth)
+			.filter(|(step, next)| step.gas.saturating_sub(step.gas_cost) != next.gas)
+			.map(|(step, next)| (step.gas, step.gas_cost, next.gas))
+			.collect::<Vec<_>>();
+		assert!(breaks.is_empty(), "gas discontinuity (gas, gas_cost, next.gas): {breaks:?}");
+
+		let summed: u64 = trace.struct_logs.iter().map(|step| step.gas_cost).sum();
+		assert!(
+			summed <= trace.gas,
+			"steps account for {summed} gas but the transaction used {}",
+			trace.gas,
+		);
+	});
+}
+
+/// Truncation drops steps; it must not change the ones it keeps, and what it keeps must never
+/// sum past what the transaction spent.
+///
+/// Runs the real interpreter: the unit tests drive `Tracing` directly and so assert the
+/// enter/exit pairing rather than exercise it. Truncation must land inside the nested call,
+/// so several limits are swept.
+#[test]
+fn truncation_does_not_alter_the_steps_it_keeps() {
+	use crate::evm::{ExecutionTracer, ExecutionTracerConfig};
+	use pallet_revive_fixtures::{Callee, Caller};
+
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let trace_with_limit = |limit: Option<u64>| {
+			ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+				let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+				let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
+				let Contract { addr: callee, .. } =
+					builder::bare_instantiate(Code::Upload(callee_code))
+						.build_and_unwrap_contract();
+				let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+				let Contract { addr: caller, .. } =
+					builder::bare_instantiate(Code::Upload(caller_code))
+						.build_and_unwrap_contract();
+
+				let mut tracer =
+					ExecutionTracer::new(ExecutionTracerConfig { limit, ..Default::default() });
+				trace(&mut tracer, || {
+					builder::bare_call(caller)
+						.data(
+							Caller::normalCall {
+								_callee: callee.0.into(),
+								_value: 0,
+								_data: Callee::echoCall { _data: 42u64 }.abi_encode().into(),
+								_gas: u64::MAX,
+							}
+							.abi_encode(),
+						)
+						.build_and_unwrap_result()
+				});
+				tracer.collect_trace()
+			})
+		};
+
+		// Sweep limits relative to the untruncated length rather than hard-coding step counts.
+		let full = trace_with_limit(None);
+		let steps = full.struct_logs.len() as u64;
+		assert!(steps > 8, "{fixture_type:?}: expected a multi-step trace, got {steps}");
+		assert!(
+			full.struct_logs.iter().any(|step| step.depth > 0),
+			"{fixture_type:?}: the fixture must make a nested call for this to be a real test",
+		);
+
+		for limit in [steps / 4, steps / 2, steps * 3 / 4] {
+			let trace = trace_with_limit(Some(limit));
+			assert_eq!(trace.struct_logs.len() as u64, limit, "{fixture_type:?}: truncated");
+
+			for (index, (truncated, full)) in
+				trace.struct_logs.iter().zip(full.struct_logs.iter()).enumerate()
+			{
+				assert_eq!(
+					(truncated.gas_cost, truncated.weight_cost),
+					(full.gas_cost, full.weight_cost),
+					"{fixture_type:?} limit {limit}: step {index} changed under truncation",
+				);
+			}
+
+			let summed: u64 = trace.struct_logs.iter().map(|step| step.gas_cost).sum();
+			assert!(
+				summed <= trace.gas,
+				"{fixture_type:?} limit {limit}: steps account for {summed} gas \
+				 but the transaction used {}",
+				trace.gas,
+			);
 		}
 	}
 }

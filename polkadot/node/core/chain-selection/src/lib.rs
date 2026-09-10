@@ -445,7 +445,9 @@ where
 					StagnantCheckMode::CheckAndPrune => detect_stagnant(backend, clock.duration_since_epoch().as_secs(), MAX_STAGNANT_ENTRIES),
 					StagnantCheckMode::PruneOnly => {
 						let now_timestamp = clock.duration_since_epoch().as_secs();
-						prune_only_stagnant(backend, now_timestamp - STAGNANT_PRUNE_DELAY, MAX_STAGNANT_ENTRIES)
+						// Saturate to 0 if the delay has not passed yet.
+						let up_to = now_timestamp.saturating_sub(STAGNANT_PRUNE_DELAY);
+						prune_only_stagnant(backend, up_to, MAX_STAGNANT_ENTRIES)
 					},
 				}?;
 			}

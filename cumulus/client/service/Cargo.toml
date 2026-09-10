@@ -21,6 +21,7 @@ prometheus = { workspace = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
+sc-network-bitswap = { workspace = true, default-features = true }
 sc-network-sync = { workspace = true, default-features = true }
 sc-network-transactions = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
@@ -37,6 +38,7 @@ sp-core = { workspace = true, default-features = true }
 sp-crypto-ec-utils = { workspace = true, default-features = true, features = ["rfc163"] }
 sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
 sp-transaction-pool = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 
