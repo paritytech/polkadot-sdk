@@ -55,7 +55,7 @@ pub struct TraceBlockOutputPayloadV1 {
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct TraceBlockOutputPayloadV2 {
-	pub traces: Vec<(u32, TraceV2)>,
+	pub entries: Vec<(u32, TraceEntryV1)>,
 }
 
 /// The output type returned when calling the `trace_block_versioned` runtime API function. This
