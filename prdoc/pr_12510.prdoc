@@ -1,0 +1,16 @@
+title: '[RWF] `sc-consensus-slots`: fix integer overflow in `should_backoff` near
+  `u64::MAX` slots'
+doc:
+- audience: Node Dev
+  description: |-
+    Closes #12460
+
+    ### Problem
+
+    `BackoffAuthoringOnFinalizedHeadLagging::should_backoff` computed the backoff threshold with a plain `u64` addition. When `chain_head_slot` is near `u64::MAX` and interval is non-zero, this overflows.
+
+    ### Fix
+    Replace the unchecked addition with `saturating_add`, which clamps the result at `u64::MAX` instead of wrapping:
+crates:
+- name: sc-consensus-slots
+  bump: patch
