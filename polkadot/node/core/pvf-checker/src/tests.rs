@@ -827,6 +827,62 @@ fn api_not_supported() {
 }
 
 #[test]
+fn api_not_supported_processes_deactivations() {
+	test_harness(|mut test_state, mut handle| {
+		async move {
+			let pvf = dummy_validation_code_hash(1);
+			let block_1 = FakeLeaf::new(dummy_hash(), 1, vec![pvf]);
+			let block_2 = block_1.descendant(vec![]);
+			let block_3 = block_2.descendant(vec![]);
+
+			// Observe and vote for the PVF in the first session.
+			test_state
+				.activate_leaf_with_session(
+					&mut handle,
+					block_1.clone(),
+					StartsNewSession { session_index: 2, validators: vec![OUR_VALIDATOR] },
+				)
+				.await;
+			test_state.expect_pvfs_require_precheck(&mut handle).await.reply_mock();
+			test_state.expect_session_for_child(&mut handle).await;
+			test_state.expect_validators(&mut handle).await;
+			test_state
+				.expect_candidate_precheck(&mut handle)
+				.await
+				.reply(PreCheckOutcome::Valid);
+			let vote = test_state.expect_submit_vote(&mut handle).await;
+			assert_eq!(vote.stmt.subject, pvf);
+			vote.reply_ok();
+
+			// An unsupported activation must still deactivate the previous leaf.
+			test_state
+				.active_leaves_update(&mut handle, Some(block_2), None, &[block_1.block_hash])
+				.await;
+			test_state.expect_pvfs_require_precheck(&mut handle).await.reply_not_supported();
+
+			// Start another session without any pending PVFs. The old judgement must be gone.
+			test_state
+				.activate_leaf_with_session(
+					&mut handle,
+					block_3,
+					StartsNewSession { session_index: 3, validators: vec![OUR_VALIDATOR] },
+				)
+				.await;
+			test_state.expect_pvfs_require_precheck(&mut handle).await.reply_mock();
+			test_state.expect_session_for_child(&mut handle).await;
+			test_state.expect_validators(&mut handle).await;
+			assert!(
+				test_state.recv_timeout(&mut handle).await.is_none(),
+				"deactivated PVFs must not be voted on after an unsupported activation",
+			);
+
+			test_state.send_conclude(&mut handle).await;
+		}
+		.boxed()
+	});
+}
+
+#[test]
 fn not_supported_api_becomes_supported() {
 	test_harness(|mut test_state, mut handle| {
 		async move {
