@@ -329,6 +329,10 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 
 		let Some(resubmission_body) = resubmission_body else { return Ok(None) };
 
+		// Use the post-seal header so the block's hash matches the canonical `post_hash()` the rest
+		// of the chain (and the resubmission-segment hydration) keys on. `params.header` is the
+		// pre-seal header; keying the resubmission store by its hash would never match the sealed
+		// hash walked by the unincluded-segment parent search.
 		let block = Block::new(params.post_header(), resubmission_body);
 		Ok(Some((block, Arc::new(storage_proof))))
 	}

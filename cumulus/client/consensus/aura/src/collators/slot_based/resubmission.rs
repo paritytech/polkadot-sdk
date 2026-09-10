@@ -23,6 +23,7 @@
 //! block-import path.
 
 use super::SlotBasedBlockImportHandle;
+use codec::Encode;
 use cumulus_client_resubmission_store::{
 	prepare_resubmission_aux_data, prune_finalized_entries, prune_missed_finalized_entries,
 };
@@ -31,13 +32,18 @@ use cumulus_primitives_core::{
 		BlockId, BlockNumber as RelayBlockNumber, Hash as RelayHash, Header as RelayHeader,
 		SessionIndex,
 	},
-	CumulusDigestItem, RelayBlockIdentifier,
+	CoreInfo, CumulusDigestItem, RelayBlockIdentifier, SchedulingInfoPayload, SchedulingProof,
+	SignedSchedulingInfo,
 };
 use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
 use futures::{FutureExt, StreamExt};
+use polkadot_primitives::ApprovedPeerId;
 use sc_client_api::{backend::AuxStore, BlockchainEvents};
 use sp_api::StorageProof;
+use sp_application_crypto::{AppCrypto, AppPublic};
 use sp_blockchain::HeaderBackend;
+use sp_core::{crypto::Pair, ByteArray};
+use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use std::sync::Arc;
 
@@ -129,6 +135,11 @@ pub(crate) async fn run_resubmission_backfill<Block, RClient, Client>(
 
 	let mut finality_notifications = para_client.finality_notification_stream();
 
+	tracing::debug!(
+		target: LOG_TARGET,
+		"Resubmission backfill task started; awaiting imported blocks.",
+	);
+
 	loop {
 		let import_fut = block_import_handle.next().fuse();
 		let notification_fut = finality_notifications.next().fuse();
@@ -150,6 +161,12 @@ pub(crate) async fn run_resubmission_backfill<Block, RClient, Client>(
 				}
 			},
 			(block, proof) = import_fut => {
+				tracing::trace!(
+					target: LOG_TARGET,
+					block_hash = ?block.header().hash(),
+					number = ?block.header().number(),
+					"Backfilling resubmission entry for imported block.",
+				);
 				backfill_resubmission_entry(
 					&relay_client,
 					&*para_client,
@@ -179,6 +196,12 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 	let number = *header.number();
 
 	if number <= para_client.info().finalized_number {
+		tracing::trace!(
+			target: LOG_TARGET,
+			?block_hash,
+			?number,
+			"Imported block is already finalized; no resubmission entry needed.",
+		);
 		return;
 	}
 
@@ -217,6 +240,12 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 		},
 	};
 	if number <= para_client.info().finalized_number {
+		tracing::trace!(
+			target: LOG_TARGET,
+			?block_hash,
+			?number,
+			"Block finalized while resolving relay data; dropping resubmission entry.",
+		);
 		return;
 	}
 
@@ -242,4 +271,78 @@ async fn backfill_resubmission_entry<Block, R, Client>(
 			"Failed to store resubmission entry for imported block.",
 		),
 	}
+}
+
+/// Assemble a complete V3 [`SchedulingProof`] (with the signed scheduling info populated) for one
+/// core.
+///
+/// Returns `None` when [`sign_scheduling_info`] fails. The caller is expected to skip the
+/// corresponding send — shipping an unsigned proof would be rejected by the relay-chain verifier
+/// as soon as any candidate in the segment has `relay_parent != ISP`.
+pub(crate) fn build_v3_scheduling_proof<P>(
+	header_chain: Vec<RelayHeader>,
+	internal_scheduling_parent_header: RelayHeader,
+	core_info: &CoreInfo,
+	peer_id: ApprovedPeerId,
+	author_pub: &P::Public,
+	keystore: &KeystorePtr,
+) -> Option<SchedulingProof>
+where
+	P: Pair,
+	P::Public: AppPublic,
+{
+	let signed = sign_scheduling_info::<P>(
+		SchedulingInfoPayload {
+			core_selector: core_info.selector,
+			claim_queue_offset: core_info.claim_queue_offset.0,
+			peer_id,
+			internal_scheduling_parent: internal_scheduling_parent_header.hash(),
+		},
+		author_pub,
+		keystore,
+	)?;
+	Some(SchedulingProof {
+		header_chain,
+		internal_scheduling_parent_header,
+		signed_scheduling_info: Some(signed),
+	})
+}
+
+/// Sign a [`SchedulingInfoPayload`] with the Aura key that won the current slot claim.
+///
+/// On this branch the scheduling proof's `internal_scheduling_parent_header` is the current slot's
+/// relay parent, so the para slot derived from its BABE slot equals the slot the claim was
+/// obtained for — meaning `slot_claim.author_pub()` is the verifier-eligible signer.
+///
+/// Returns `None` when the keystore can't produce a signature for that key, or when the signature
+/// isn't the 64-byte size the verifier expects.
+pub(crate) fn sign_scheduling_info<P>(
+	payload: SchedulingInfoPayload,
+	author_pub: &P::Public,
+	keystore: &KeystorePtr,
+) -> Option<SignedSchedulingInfo>
+where
+	P: Pair,
+	P::Public: AppPublic,
+{
+	let signature = keystore
+		.sign_with(
+			<P::Public as AppCrypto>::ID,
+			<P::Public as AppCrypto>::CRYPTO_ID,
+			author_pub.as_slice(),
+			&payload.encode(),
+		)
+		.ok()
+		.flatten()?;
+	if signature.len() != 64 {
+		tracing::error!(
+			target: LOG_TARGET,
+			signature_len = signature.len(),
+			"Keystore returned non-64-byte signature for SchedulingInfoPayload.",
+		);
+		return None;
+	}
+	let mut signature_bytes = [0u8; 64];
+	signature_bytes.copy_from_slice(&signature);
+	Some(SignedSchedulingInfo { payload, signature: signature_bytes })
 }

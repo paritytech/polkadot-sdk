@@ -29,6 +29,9 @@ pub(crate) const fn relay_parent_offset() -> u32 {
 	if cfg!(feature = "relay-parent-offset-2") {
 		return 2;
 	}
+	if cfg!(feature = "relay-parent-offset-1") {
+		return 1;
+	}
 
 	0
 }

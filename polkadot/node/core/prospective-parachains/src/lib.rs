@@ -606,8 +606,8 @@ where
 	.await?
 	{
 		Some(info)
-			if info.number == relay_parent_number &&
-				info.state_root == relay_parent_storage_root =>
+			if info.number == relay_parent_number
+				&& info.state_root == relay_parent_storage_root =>
 		{
 			Ok(())
 		},
