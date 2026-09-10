@@ -19,8 +19,9 @@
 //!
 //! - `inspect` reads the pallet's constants and its bootnode set at the latest (or a given) block
 //!   of a running node.
-//! - `sign` derives the node key from the node's secret key and prints a signed bootnode entry
-//!   ready to be submitted with `add_bootnode` by the pallet's admin origin.
+//! - `sign` derives the node key from the node's secret key and prints a signed bootnode entry,
+//!   both SCALE-encoded for `add_bootnode` and in the JSON form a chain spec's genesis config
+//!   takes.
 //!
 //! The pallet is located through the runtime metadata, so the tool needs nothing but an RPC
 //! endpoint; `--para-id` and `--jam-genesis-hash` can override or, with `--offline`, replace what
@@ -151,9 +152,7 @@ async fn inspect(cmd: InspectCmd) -> Result<()> {
 async fn sign(cmd: SignCmd) -> Result<()> {
 	let seed = load_node_key(&cmd)?;
 	let pair = ed25519::Pair::from_seed(&seed);
-	let node_key = pair.public();
 	let addr = parse_addr(&cmd.addr)?;
-	let addr_bytes = addr.to_vec();
 
 	let (at, para_id, jam_genesis_hash) = if cmd.offline {
 		// `clap` enforces the presence of the two flags.
@@ -174,34 +173,38 @@ async fn sign(cmd: SignCmd) -> Result<()> {
 			None => chain.constant("JamGenesisHash")?,
 		};
 		let max_addr_len: u32 = chain.constant("MaxAddrLen")?;
-		if addr_bytes.len() > max_addr_len as usize {
+		if addr.len() > max_addr_len as usize {
 			bail!(
 				"the address encodes to {} bytes, the runtime allows at most {max_addr_len}",
-				addr_bytes.len()
+				addr.len()
 			);
 		}
 		(Some(chain.at), para_id, jam_genesis_hash)
 	};
 
-	let expiry_slot = cmd.expiry_slot;
-	let payload = pop_payload(&jam_genesis_hash, para_id, &addr_bytes, expiry_slot);
-	let sig = pair.sign(&payload);
-	let bootnode =
-		StoredBootnode { addr: BoundedVec::truncate_from(addr_bytes), node_key, expiry_slot, sig };
-
-	let out = SignOut {
-		at,
-		para_id,
-		jam_genesis_hash,
-		node_key: hex(node_key.as_ref()),
-		peer_id: peer_id(&node_key).map(|p| p.to_string()),
-		addr: addr.to_string(),
-		expiry_slot,
-		sig: hex(sig.as_ref()),
-		encoded_bootnode: hex(&bootnode.encode()),
-	};
+	let bootnode = sign_bootnode(&pair, &addr, para_id, &jam_genesis_hash, cmd.expiry_slot);
+	let out = SignOut::new(at, para_id, jam_genesis_hash, &addr, bootnode);
 	println!("{}", serde_json::to_string_pretty(&out)?);
 	Ok(())
+}
+
+/// Sign `addr` with `pair` as a bootnode of `para_id` on the JAM chain `jam_genesis_hash`, listed
+/// until `expiry_slot`.
+fn sign_bootnode(
+	pair: &ed25519::Pair,
+	addr: &Multiaddr,
+	para_id: u32,
+	jam_genesis_hash: &H256,
+	expiry_slot: u32,
+) -> StoredBootnode {
+	let addr = addr.to_vec();
+	let sig = pair.sign(&pop_payload(jam_genesis_hash, para_id, &addr, expiry_slot));
+	StoredBootnode {
+		addr: BoundedVec::truncate_from(addr),
+		node_key: pair.public(),
+		expiry_slot,
+		sig,
+	}
 }
 
 #[derive(Serialize)]
@@ -254,6 +257,32 @@ struct SignOut {
 	sig: String,
 	/// SCALE encoding of the `Bootnode`, the argument of `add_bootnode`.
 	encoded_bootnode: String,
+	/// The entry in the JSON form the pallet's genesis config takes: an element of the
+	/// `bootnodes` list in a chain spec.
+	bootnode: StoredBootnode,
+}
+
+impl SignOut {
+	fn new(
+		at: Option<H256>,
+		para_id: u32,
+		jam_genesis_hash: H256,
+		addr: &Multiaddr,
+		bootnode: StoredBootnode,
+	) -> Self {
+		Self {
+			at,
+			para_id,
+			jam_genesis_hash,
+			node_key: hex(bootnode.node_key.as_ref()),
+			peer_id: peer_id(&bootnode.node_key).map(|p| p.to_string()),
+			addr: addr.to_string(),
+			expiry_slot: bootnode.expiry_slot,
+			sig: hex(bootnode.sig.as_ref()),
+			encoded_bootnode: hex(&bootnode.encode()),
+			bootnode,
+		}
+	}
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -489,6 +518,35 @@ mod tests {
 		let quic = parse_addr("/ip4/1.2.3.4/udp/30333/quic-v1").unwrap_err();
 		assert!(quic.to_string().contains("UnsupportedProtocol(273)"), "{quic}");
 		assert!(parse_addr("not an address").is_err());
+	}
+
+	#[test]
+	fn sign_output_carries_the_entry_in_genesis_form() {
+		let pair = ed25519::Pair::from_seed(&[1u8; 32]);
+		let genesis = H256::repeat_byte(0x4a);
+		let addr = parse_addr("/ip4/1.2.3.4/tcp/30333").unwrap();
+		let bootnode = sign_bootnode(&pair, &addr, 2_000, &genesis, 7);
+		let out = serde_json::to_value(SignOut::new(None, 2_000, genesis, &addr, bootnode.clone()))
+			.unwrap();
+
+		// `bootnode` is what a runtime with a 128 byte address bound takes at genesis.
+		let entry: Bootnode<ConstU32<128>> =
+			serde_json::from_value(out["bootnode"].clone()).unwrap();
+		assert_eq!(serde_json::to_value(&entry).unwrap(), out["bootnode"]);
+		assert_eq!(entry.node_key, pair.public());
+		assert_eq!(entry.addr.to_vec(), addr.to_vec());
+		assert_eq!(entry.expiry_slot, 7);
+		assert!(ed25519::Pair::verify(
+			&entry.sig,
+			pop_payload(&genesis, 2_000, &entry.addr, 7),
+			&entry.node_key
+		));
+
+		// The human-readable fields describe the same entry.
+		assert_eq!(out["node_key"], serde_json::json!(hex(pair.public().as_ref())));
+		assert_eq!(out["addr"], serde_json::json!("/ip4/1.2.3.4/tcp/30333"));
+		assert_eq!(out["expiry_slot"], serde_json::json!(7));
+		assert_eq!(out["encoded_bootnode"], serde_json::json!(hex(&bootnode.encode())));
 	}
 
 	#[test]

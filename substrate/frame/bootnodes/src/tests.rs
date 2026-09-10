@@ -82,11 +82,32 @@ fn genesis_config_lists_bootnodes() {
 }
 
 #[test]
-fn bootnode_serializes_addr_as_hex_for_chain_specs() {
+fn bootnode_serializes_byte_fields_as_hex_for_chain_specs() {
 	let bootnode = signed(&pair(1), EXPIRY, "/ip4/1.2.3.4/tcp/30333");
 	let json = serde_json::to_value(&bootnode).unwrap();
+	let hex = |bytes: &[u8]| serde_json::json!(sp_core::bytes::to_hex(bytes, false));
 	assert_eq!(json["addr"], serde_json::json!("0x040102030406767d"));
-	assert_eq!(serde_json::from_value::<BootnodeOf<Test>>(json).unwrap(), bootnode);
+	assert_eq!(json["node_key"], hex(bootnode.node_key.as_ref()));
+	assert_eq!(json["sig"], hex(bootnode.sig.as_ref()));
+	assert_eq!(json["expiry_slot"], serde_json::json!(EXPIRY));
+	assert_eq!(serde_json::from_value::<BootnodeOf<Test>>(json.clone()).unwrap(), bootnode);
+
+	// This is the form the genesis config, and so a chain spec, takes.
+	let genesis: crate::GenesisConfig<Test> =
+		serde_json::from_value(serde_json::json!({ "bootnodes": [json.clone()] })).unwrap();
+	assert_eq!(genesis.bootnodes, vec![bootnode]);
+
+	// Byte fields of the wrong length are rejected, not padded or truncated.
+	for (field, value) in [
+		("node_key", "0x0102"),
+		("sig", "0x0102"),
+		("addr", &sp_core::bytes::to_hex(&[4u8; MAX_ADDR_LEN as usize + 1], false)),
+	] {
+		let mut bad = json.clone();
+		bad[field] = serde_json::json!(value);
+		let err = serde_json::from_value::<BootnodeOf<Test>>(bad).unwrap_err().to_string();
+		assert!(err.starts_with("expected "), "{field}: {err}");
+	}
 }
 
 #[test]

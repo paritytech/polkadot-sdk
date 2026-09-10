@@ -38,8 +38,8 @@
 //! `/ws` or `/wss`: the shapes a node can dial a bootnode on. The runtime does not otherwise
 //! interpret it.
 //!
-//! The set can be seeded at genesis with entries signed ahead of time, for instance with
-//! `bootnodes-cli sign --offline`.
+//! The set can be seeded at genesis with entries signed ahead of time: `bootnodes-cli sign
+//! --offline` prints, as `bootnode`, an entry in the JSON form the genesis config takes.
 //!
 //! Publishing the set to the para-owned key-value store is not implemented yet. Readers consume
 //! the pallet's storage directly.
@@ -83,6 +83,9 @@ pub use weights::WeightInfo;
 pub const POP_DOMAIN: &[u8] = b"bootnode-pop-v1";
 
 /// A bootnode entry, as stored on chain and as submitted to [`Pallet::add_bootnode`].
+///
+/// The `serde` form, which the genesis config and so chain specs use, writes every byte field as
+/// a `0x`-prefixed hex string.
 #[derive(
 	Encode,
 	Decode,
@@ -100,42 +103,81 @@ pub const POP_DOMAIN: &[u8] = b"bootnode-pop-v1";
 #[scale_info(skip_type_params(MaxAddrLen))]
 #[serde(bound(serialize = "", deserialize = ""))]
 pub struct Bootnode<MaxAddrLen: Get<u32>> {
-	/// The node's network address as a binary multiaddr, serialized as `0x`-prefixed hex.
+	/// The node's network address as a binary multiaddr.
 	///
 	/// Must be `/(ip4|ip6|dns|dns4|dns6)/<host>/tcp/<port>[/ws|/wss]`, without a `/p2p/`
 	/// component: the peer id is derived from `node_key`.
-	#[serde(with = "addr_hex")]
+	#[serde(with = "hex")]
 	pub addr: BoundedVec<u8, MaxAddrLen>,
 	/// The ed25519 public key the node's peer id is derived from.
+	#[serde(with = "hex")]
 	pub node_key: ed25519::Public,
 	/// Consent lease: the JAM timeslot after which readers drop the entry.
 	pub expiry_slot: u32,
 	/// Proof of possession: signature by `node_key` over [`pop_payload`].
+	#[serde(with = "hex")]
 	pub sig: ed25519::Signature,
 }
 
 /// The [`Bootnode`] type as configured for `T`.
 pub type BootnodeOf<T> = Bootnode<<T as Config>::MaxAddrLen>;
 
-/// `serde` representation of [`Bootnode::addr`]: `0x`-prefixed hex, like other byte blobs in
-/// chain specs.
-mod addr_hex {
+/// `serde` representation of the byte fields of [`Bootnode`]: `0x`-prefixed hex, like other byte
+/// blobs in chain specs.
+///
+/// `sp_core`'s own impls are not used because they write a public key as an SS58 address, and a
+/// node key is not an account.
+mod hex {
 	use super::*;
 
-	pub fn serialize<S: serde::Serializer, L: Get<u32>>(
-		addr: &BoundedVec<u8, L>,
-		serializer: S,
-	) -> Result<S::Ok, S::Error> {
-		sp_core::bytes::serialize(addr, serializer)
+	/// A byte field of [`Bootnode`].
+	pub trait Bytes: AsRef<[u8]> + Sized {
+		/// The length the field accepts, for error messages.
+		const EXPECTED: &'static str;
+
+		/// Build the field from raw bytes, or `None` if their length is not accepted.
+		fn from_bytes(bytes: Vec<u8>) -> Option<Self>;
 	}
 
-	pub fn deserialize<'de, D: serde::Deserializer<'de>, L: Get<u32>>(
+	impl<L: Get<u32>> Bytes for BoundedVec<u8, L> {
+		const EXPECTED: &'static str = "at most `MaxAddrLen` bytes";
+
+		fn from_bytes(bytes: Vec<u8>) -> Option<Self> {
+			Self::try_from(bytes).ok()
+		}
+	}
+
+	impl Bytes for ed25519::Public {
+		const EXPECTED: &'static str = "32 bytes";
+
+		fn from_bytes(bytes: Vec<u8>) -> Option<Self> {
+			Self::try_from(bytes.as_slice()).ok()
+		}
+	}
+
+	impl Bytes for ed25519::Signature {
+		const EXPECTED: &'static str = "64 bytes";
+
+		fn from_bytes(bytes: Vec<u8>) -> Option<Self> {
+			Self::try_from(bytes.as_slice()).ok()
+		}
+	}
+
+	pub fn serialize<S: serde::Serializer, T: Bytes>(
+		bytes: &T,
+		serializer: S,
+	) -> Result<S::Ok, S::Error> {
+		sp_core::bytes::serialize(bytes.as_ref(), serializer)
+	}
+
+	pub fn deserialize<'de, D: serde::Deserializer<'de>, T: Bytes>(
 		deserializer: D,
-	) -> Result<BoundedVec<u8, L>, D::Error> {
+	) -> Result<T, D::Error> {
 		let bytes: Vec<u8> = sp_core::bytes::deserialize(deserializer)?;
-		bytes
-			.try_into()
-			.map_err(|_| serde::de::Error::custom("address longer than MaxAddrLen"))
+		let len = bytes.len();
+		T::from_bytes(bytes).ok_or_else(|| {
+			serde::de::Error::custom(alloc::format!("expected {}, got {len} bytes", T::EXPECTED))
+		})
 	}
 }
 
