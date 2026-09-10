@@ -3980,7 +3980,6 @@ name = "collectives-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
  "collectives-westend-runtime",
- "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
  "emulated-integration-tests-common",
  "frame-support",
@@ -15965,7 +15964,6 @@ dependencies = [
 name = "people-westend-integration-tests"
 version = "0.1.0"
 dependencies = [
- "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
  "pallet-balances",
