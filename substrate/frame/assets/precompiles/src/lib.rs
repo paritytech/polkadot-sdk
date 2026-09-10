@@ -229,7 +229,7 @@ where
 /// `CallbackHandle` emitting an ERC-20 `Transfer` log for each pallet-assets balance change it is
 /// notified of, at the asset's [`ERC20`] precompile address.
 ///
-/// A same-account hold is not a balance change here: [`ERC20::balance_of`] reports
+/// A same-account hold is not a balance change here: `balanceOf` reports
 /// `fungibles::Inspect::total_balance`, so a hold or release moves balance between the free and
 /// held portions of one account without moving `balanceOf`, and needs no log. The hold paths that
 /// move value between accounts — `transfer_on_hold`, `transfer_and_hold`, `burn_held` — have no
