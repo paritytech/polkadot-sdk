@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789052068776,
+  "lastUpdate": 1789059171814,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "b5de070244e81a3524a78366f3a21d2b20f2adb0",
-          "message": "Fix link-checker CI job (#11038)\n\nLets give the link-checker job some new life.\n\nSadly our blog posts are not available anymore (or at least I could not\nfind them), so I removed all references to them. Was thinking about\nlinking web archive, but its silly to first remove our blog and then\nlink to an archive.",
-          "timestamp": "2026-02-10T20:04:57Z",
-          "tree_id": "cc40a52e95a27e8fe53cb2541bae42169fd19dd2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b5de070244e81a3524a78366f3a21d2b20f2adb0"
-        },
-        "date": 1770758237463,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13162541049999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.106118050466666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.251789597733335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e993420b81cbef53f469a2ea923117024ac71b55",
+          "message": "bridge-grandpa: detect forced changes after other consensus logs (#13160)\n\nGRANDPA bridge headers containing forced authority changes could be\naccepted when another GRANDPA consensus log appeared first. Filter for\nforced changes inside the digest search so these headers are\nconsistently rejected.\n\nNo API changes or storage migration are required.",
+          "timestamp": "2026-09-10T14:47:12Z",
+          "tree_id": "8303e81d32caf258fba458111b9e461947969dd5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e993420b81cbef53f469a2ea923117024ac71b55"
+        },
+        "date": 1789059131672,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.345332777199996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1395794176,
             "unit": "seconds"
           }
         ]
