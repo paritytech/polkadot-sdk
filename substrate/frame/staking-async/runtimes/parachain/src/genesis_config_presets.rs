@@ -59,11 +59,12 @@ fn staking_async_parachain_genesis(params: GenesisParams, preset: String) -> ser
 		root,
 		id,
 	} = params;
-	// Fund DAP buffer account: it receives slashes and is the signed-phase reward pot.
 	let dap_buffer: AccountId = DapPalletId::get().into_account_truncating();
 	let mut balances: Vec<_> = endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect();
-	// Above ED, as the reward payout transfers with `Preservation::Preserve`.
-	balances.push((dap_buffer, endowment));
+	// The DAP buffer receives slashes and is the signed-phase reward pot. Payouts transfer with
+	// `Preservation::Preserve`, so it needs spendable balance above ED, sized in rounds of
+	// `RewardBase` rather than tracking whatever endowment a preset picked.
+	balances.push((dap_buffer, STAKING_ASYNC_PARA_ED + crate::staking::RewardBase::get() * 1_000));
 
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig { balances },
