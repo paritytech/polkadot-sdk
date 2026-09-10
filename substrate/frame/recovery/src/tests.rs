@@ -1476,3 +1476,261 @@ fn inheritor_cannot_bypass_filter_via_utility_batch() {
 		}
 	});
 }
+
+mod try_state {
+	use super::*;
+	use crate::{pallet::Attempt as AttemptStorage, FriendGroups, Inheritor};
+	use frame::deps::sp_runtime::TryRuntimeError;
+
+	fn setup_one_group_one_attempt() {
+		let fg = FriendGroupOf::<T> {
+			friends: friends([BOB, CHARLIE, DAVE]),
+			friends_needed: 2,
+			inheritor: FERDIE,
+			inheritance_delay: 10,
+			inheritance_priority: 0,
+			cancel_delay: 10,
+		};
+		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg]));
+		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+	}
+
+	#[test]
+	fn passes_on_genesis_state() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Recovery::do_try_state());
+		});
+	}
+
+	#[test]
+	fn passes_on_valid_attempt_state() {
+		new_test_ext().execute_with(|| {
+			setup_one_group_one_attempt();
+			assert_ok!(Recovery::do_try_state());
+		});
+	}
+
+	#[test]
+	fn detects_orphan_attempt() {
+		new_test_ext().execute_with(|| {
+			setup_one_group_one_attempt();
+			FriendGroups::<T>::remove(&ALICE);
+			assert_eq!(
+				Recovery::do_try_state().unwrap_err(),
+				TryRuntimeError::Other("Attempt without matching FriendGroups entry")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_out_of_range_friend_group_index() {
+		new_test_ext().execute_with(|| {
+			setup_one_group_one_attempt();
+			let (attempt, ticket, deposit) = AttemptStorage::<T>::get(&ALICE, 0u32).unwrap();
+			AttemptStorage::<T>::remove(&ALICE, 0u32);
+			AttemptStorage::<T>::insert(&ALICE, 5u32, (attempt, ticket, deposit));
+			assert_eq!(
+				Recovery::do_try_state().unwrap_err(),
+				TryRuntimeError::Other("Attempt friend_group_index out of range")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_spurious_approval_bit() {
+		new_test_ext().execute_with(|| {
+			setup_one_group_one_attempt();
+			let (mut attempt, ticket, deposit) = AttemptStorage::<T>::get(&ALICE, 0u32).unwrap();
+			// friends.len() == 3 in setup; bit index 10 is past the end.
+			attempt.approvals = ApprovalBitfield::default().with_bits([0usize, 10]).unwrap();
+			AttemptStorage::<T>::insert(&ALICE, 0u32, (attempt, ticket, deposit));
+			assert_eq!(
+				Recovery::do_try_state().unwrap_err(),
+				TryRuntimeError::Other("Attempt approvals has a bit set past friends.len()")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_approvals_exceeding_threshold() {
+		new_test_ext().execute_with(|| {
+			setup_one_group_one_attempt();
+			let (mut attempt, ticket, deposit) = AttemptStorage::<T>::get(&ALICE, 0u32).unwrap();
+			// friends_needed = 2 in setup; three bits exceed the threshold.
+			attempt.approvals = ApprovalBitfield::default().with_bits([0usize, 1, 2]).unwrap();
+			AttemptStorage::<T>::insert(&ALICE, 0u32, (attempt, ticket, deposit));
+			assert_eq!(
+				Recovery::do_try_state().unwrap_err(),
+				TryRuntimeError::Other("Attempt approvals count exceeds friends_needed")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_init_block_after_last_approval_block() {
+		new_test_ext().execute_with(|| {
+			setup_one_group_one_attempt();
+			let (mut attempt, ticket, deposit) = AttemptStorage::<T>::get(&ALICE, 0u32).unwrap();
+			attempt.init_block = 100;
+			attempt.last_approval_block = 50;
+			AttemptStorage::<T>::insert(&ALICE, 0u32, (attempt, ticket, deposit));
+			assert_eq!(
+				Recovery::do_try_state().unwrap_err(),
+				TryRuntimeError::Other("Attempt init_block is later than last_approval_block")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_zero_attempt_storage_hold() {
+		new_test_ext().execute_with(|| {
+			setup_one_group_one_attempt();
+			// Release the initiator's AttemptStorage hold while leaving the
+			// attempt (and its ticket) in storage.
+			assert_ok!(<T as Config>::Currency::set_balance_on_hold(
+				&crate::HoldReason::AttemptStorage.into(),
+				&BOB,
+				0
+			));
+			assert_eq!(
+				Recovery::do_try_state().unwrap_err(),
+				TryRuntimeError::Other(
+					"Attempt ticket exists but depositor has zero AttemptStorage hold"
+				)
+			);
+		});
+	}
+
+	#[test]
+	fn detects_zero_security_deposit_hold() {
+		new_test_ext().execute_with(|| {
+			setup_one_group_one_attempt();
+			// Release the initiator's SecurityDeposit hold while leaving the
+			// attempt in storage. The AttemptStorage hold is untouched, so the
+			// 5a check passes and the SecurityDeposit check (5b) is what fires.
+			assert_ok!(<T as Config>::Currency::set_balance_on_hold(
+				&crate::HoldReason::SecurityDeposit.into(),
+				&BOB,
+				0
+			));
+			assert_eq!(
+				Recovery::do_try_state().unwrap_err(),
+				TryRuntimeError::Other("Attempt has zero SecurityDeposit hold on initiator")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_zero_friend_groups_hold() {
+		new_test_ext().execute_with(|| {
+			// Configure friend groups without an attempt, so the FriendGroups
+			// hold check (5c) is reached without an attempt-level check firing first.
+			let fg = FriendGroupOf::<T> {
+				friends: friends([BOB, CHARLIE, DAVE]),
+				friends_needed: 2,
+				inheritor: FERDIE,
+				inheritance_delay: 10,
+				inheritance_priority: 0,
+				cancel_delay: 10,
+			};
+			assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg]));
+			assert_ok!(<T as Config>::Currency::set_balance_on_hold(
+				&crate::HoldReason::FriendGroupsStorage.into(),
+				&ALICE,
+				0
+			));
+			assert_eq!(
+				Recovery::do_try_state().unwrap_err(),
+				TryRuntimeError::Other(
+					"FriendGroups entry has zero FriendGroupsStorage hold on lost"
+				)
+			);
+		});
+	}
+
+	#[test]
+	fn detects_zero_inheritor_storage_hold() {
+		new_test_ext().execute_with(|| {
+			let fg = FriendGroupOf::<T> {
+				friends: friends([BOB, CHARLIE, DAVE]),
+				friends_needed: 2,
+				inheritor: FERDIE,
+				inheritance_delay: 10,
+				inheritance_priority: 0,
+				cancel_delay: 10,
+			};
+			assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg]));
+			let ticket = Recovery::inheritor_ticket(&FERDIE).unwrap();
+			Inheritor::<T>::insert(&ALICE, (0u32, FERDIE, ticket));
+			// The ticket placed a real InheritorStorage hold on FERDIE; release it.
+			assert_ok!(<T as Config>::Currency::set_balance_on_hold(
+				&crate::HoldReason::InheritorStorage.into(),
+				&FERDIE,
+				0
+			));
+			assert_eq!(
+				Recovery::do_try_state().unwrap_err(),
+				TryRuntimeError::Other(
+					"Inheritor ticket exists but depositor has zero InheritorStorage hold"
+				)
+			);
+		});
+	}
+
+	#[test]
+	fn warns_on_locked_in_inheritor() {
+		new_test_ext().execute_with(|| {
+			let fg = FriendGroupOf::<T> {
+				friends: friends([BOB, CHARLIE, DAVE]),
+				friends_needed: 2,
+				inheritor: FERDIE,
+				inheritance_delay: 10,
+				inheritance_priority: 5,
+				cancel_delay: 10,
+			};
+			assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg]));
+			let ticket = Recovery::inheritor_ticket(&FERDIE).unwrap();
+			Inheritor::<T>::insert(&ALICE, (3u32, FERDIE, ticket));
+			assert_ok!(Recovery::do_try_state());
+		});
+	}
+
+	#[test]
+	fn passes_on_inheritor_overridable_by_existing_group() {
+		new_test_ext().execute_with(|| {
+			let fg = FriendGroupOf::<T> {
+				friends: friends([BOB, CHARLIE, DAVE]),
+				friends_needed: 2,
+				inheritor: FERDIE,
+				inheritance_delay: 10,
+				inheritance_priority: 0,
+				cancel_delay: 10,
+			};
+			assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg]));
+			let ticket = Recovery::inheritor_ticket(&FERDIE).unwrap();
+			Inheritor::<T>::insert(&ALICE, (5u32, FERDIE, ticket));
+			assert_ok!(Recovery::do_try_state());
+		});
+	}
+
+	#[test]
+	fn detects_self_inheritor() {
+		new_test_ext().execute_with(|| {
+			let fg = FriendGroupOf::<T> {
+				friends: friends([BOB, CHARLIE, DAVE]),
+				friends_needed: 2,
+				inheritor: ALICE,
+				inheritance_delay: 10,
+				inheritance_priority: 0,
+				cancel_delay: 10,
+			};
+			assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg]));
+			let ticket = Recovery::inheritor_ticket(&ALICE).unwrap();
+			Inheritor::<T>::insert(&ALICE, (0u32, ALICE, ticket));
+			assert_eq!(
+				Recovery::do_try_state().unwrap_err(),
+				TryRuntimeError::Other("Inheritor entry has inheritor == lost")
+			);
+		});
+	}
+}

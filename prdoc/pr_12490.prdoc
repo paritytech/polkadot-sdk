@@ -1,0 +1,14 @@
+title: 'pallet-recovery: add do_try_state invariant checks'
+doc:
+- audience: Runtime Dev
+  description: |
+    Adds a `do_try_state` implementation to `pallet-recovery`, wired into the
+    `try_state` runtime hook. It checks eight state-consistency invariants over
+    `Attempt`, `FriendGroups`, and `Inheritor` storage: orphan-attempt absence,
+    in-range friend-group index, well-formed approval bitfields, approval count
+    within threshold, block-ordering, per-entry deposit holds, and the
+    inheritor-is-not-the-lost-account precondition. Inheritor overridability is
+    checked as a warning. Covered by unit tests.
+crates:
+- name: pallet-recovery
+  bump: patch
