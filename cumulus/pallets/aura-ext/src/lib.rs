@@ -33,6 +33,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use cumulus_primitives_core::relay_chain::RELAY_CHAIN_SLOT_DURATION_MILLIS;
 use frame_support::traits::{ExecuteBlock, FindAuthor};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_consensus_aura::{digests::CompatibleDigestItem, Slot};
@@ -77,6 +78,21 @@ pub mod pallet {
 			Authorities::<T>::get();
 
 			T::DbWeight::get().reads_writes(1, 0)
+		}
+
+		fn integrity_test() {
+			let slot_duration: u64 = pallet_aura::Pallet::<T>::slot_duration()
+				.try_into()
+				.unwrap_or_else(|_| panic!("Aura slot duration does not fit into u64"));
+
+			// The relay chain <-> parachain slot conversion assumes the parachain slot duration is
+			// a positive multiple of the relay chain's slot duration.
+			assert!(
+				slot_duration != 0 &&
+					slot_duration.is_multiple_of(RELAY_CHAIN_SLOT_DURATION_MILLIS),
+				"Aura slot duration ({slot_duration}ms) must be a positive multiple of the relay \
+				 chain's slot duration ({RELAY_CHAIN_SLOT_DURATION_MILLIS}ms)",
+			);
 		}
 	}
 
