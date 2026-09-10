@@ -1,0 +1,15 @@
+title: 'fix(alliance): maintain sorted announcements and clean up retiring members
+  on kick'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR fixes two issues in the alliance pallet related to announcement management and retiring member cleanup.
+
+    ### Changes
+    - **Announcements now inserted in sorted order**: The `announce` call previously used `try_push`, which appends to the end of the list. However, `remove_announcement` relies on binary search, which requires the list to be sorted. This fix uses `binary_search` to find the correct insertion position and `try_insert` to maintain sorted order, preserving the invariant needed for removal.
+    - **Retiring members cleaned up on kick**: When a retiring member was kicked via `kick_member`, the `RetiringMembers` storage entry was not removed, leaving stale data. The fix explicitly removes the `RetiringMembers` entry for retiring members before calling `remove_member`.
+    - Added test `announce_maintains_sorted_order` to verify announcements remain sorted regardless of insertion order.
+    - Added test `kick_retiring_member_removes_from_retiring_members` to verify full cleanup when a retiring member is kicked.
+crates:
+- name: pallet-alliance
+  bump: patch

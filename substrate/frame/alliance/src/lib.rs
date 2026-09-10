@@ -660,11 +660,18 @@ pub mod pallet {
 		pub fn announce(origin: OriginFor<T>, announcement: Cid) -> DispatchResult {
 			T::AnnouncementOrigin::ensure_origin(origin)?;
 
-			let mut announcements = <Announcements<T, I>>::get();
-			announcements
-				.try_push(announcement.clone())
-				.map_err(|_| Error::<T, I>::TooManyAnnouncements)?;
-			<Announcements<T, I>>::put(announcements);
+			<Announcements<T, I>>::try_mutate(|announcements| -> DispatchResult {
+				// Insert in sorted order to maintain the invariant required by
+				// `remove_announcement` which uses binary search.
+				let pos = announcements
+					.binary_search(&announcement)
+					.err()
+					.ok_or(Error::<T, I>::TooManyAnnouncements)?;
+				announcements
+					.try_insert(pos, announcement.clone())
+					.map_err(|_| Error::<T, I>::TooManyAnnouncements)?;
+				Ok(())
+			})?;
 
 			Self::deposit_event(Event::Announced { announcement });
 			Ok(())
@@ -814,6 +821,12 @@ pub mod pallet {
 			let member = T::Lookup::lookup(who)?;
 
 			let role = Self::member_role_of(&member).ok_or(Error::<T, I>::NotMember)?;
+
+			// If the member is retiring, clean up the RetiringMembers entry.
+			if role == MemberRole::Retiring {
+				<RetiringMembers<T, I>>::remove(&member);
+			}
+
 			Self::remove_member(&member, role)?;
 			let deposit = DepositOf::<T, I>::take(member.clone());
 			if let Some(deposit) = deposit {
