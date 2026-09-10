@@ -107,10 +107,10 @@ mod benchmarks {
 
 	#[benchmark]
 	fn remove_bootnode() -> Result<(), BenchmarkError> {
-		// Worst case: a full set, removing the last entry.
+		// Worst case: a full set, removing the first entry, which shifts every other one.
 		fill::<T>(T::MaxBootnodes::get())?;
 		let node_key = Bootnodes::<T>::get()
-			.last()
+			.first()
 			.map(|b| b.node_key)
 			.ok_or(BenchmarkError::Stop("MaxBootnodes is zero"))?;
 		let origin =
