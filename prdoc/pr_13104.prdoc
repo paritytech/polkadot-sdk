@@ -1,0 +1,10 @@
+title: try state check for node authorization pallet
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR introduces try state hook into the Node Authorization Pallet. It also defines the invariants that holds for the pallet.
+
+    Part of: https://github.com/paritytech/polkadot-sdk/issues/239
+crates:
+- name: pallet-node-authorization
+  bump: major
