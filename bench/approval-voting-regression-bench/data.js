@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789036297022,
+  "lastUpdate": 1789044341061,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1b9ea1c3656e816dfcaa2624ffb9c8c45ce917d7",
-          "message": "[pallet-revive] Fix storage deposit refunds in nested contract calls (#10920)\n\nfixes https://github.com/paritytech/contract-issues/issues/213 where\nstorage deposit refunds failed in nested/reentrant calls.\n\nProblem\nStorage refunds were calculated incorrectly when a contract allocated\nstorage, then performed a nested call that cleared it. Pending storage\nchanges lived only in the parent FrameMeter, so child frames could not\nsee them and refunds were skipped.\n\nSolution\nApply pending storage deposit changes to a cloned ContractInfo before\ncreating nested frames. This makes the parent’s storage state visible to\nchild frames during refund calculation.\n\nImplementation\n- Added apply_pending_changes_to_contract() to apply pending diffs to\nContractInfo\n- Added apply_pending_storage_changes() wrapper on FrameMeter\n- Applied pending storage changes before nested frame creation in\nexec.rs (3 locations)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: pgherveou <pgherveou@gmail.com>",
-          "timestamp": "2026-02-10T10:26:06Z",
-          "tree_id": "2d78374f47b6b14cca7239e15b9a37c67f730690",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1b9ea1c3656e816dfcaa2624ffb9c8c45ce917d7"
-        },
-        "date": 1770723787802,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52942,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63636.750000000015,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000025193759999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.017095323850066,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.66660378786,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000022383469999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005285149370000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000022383469999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6898601307900014,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.7007179149600002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8378286554900655,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000025193759999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.362627140800001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.58540384522297,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.754172544579999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-db",
             "value": 2.3561017364899928,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c68155d0a5d493e7428d309d759a3f5d3f366502",
+          "message": "Gap-sync: Reset duplicate request counter after some time (#13131)\n\nDuplicate request counters never expired, so legitimate retries after\nsync restarts could leave peers permanently refused and repeatedly\nbanned.\n\nReset the counters after 60 seconds and replace fatal duplicate-request\npenalties with a smaller penalty in both block and state request\nhandlers.\n\nA concrete occurence of this issue that we saw recently on a westend RPC\nnode:\n1. Westend Coretime RPC nodes had a one-block history gap.\n2. Tip sync hit “Potential long-range attack” import errors, triggering\nsync restarts and repeated gap requests.\n3. Those retries exhausted the duplicate-request allowance on the only\ntwo reachable peers, the collators.\n4. The collators refused further requests and fatally penalized the RPC\nnodes.\n5. After each ban expired, the nodes reconnected, retried, and were\nbanned again. The counters never reset, leaving gap sync stuck.\n\nIssues like this seem to come up in the past too\n(https://github.com/paritytech/polkadot-sdk/issues/8990,\nhttps://github.com/paritytech/polkadot-sdk/issues/9165), with no real\nresolution. I think this here would solve most of the problems. If in\ndoubt, we could also increase the timer to 3 or 4 minutes.",
+          "timestamp": "2026-09-10T10:06:35Z",
+          "tree_id": "e89f0b0de36c18cb0965578589e186c1ab33de08",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c68155d0a5d493e7428d309d759a3f5d3f366502"
+        },
+        "date": 1789044301365,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52941.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63563.86,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7166125397899994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7613789139500002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7295539638699995,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.3805363329427065,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005354375520000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000016665429999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3690570434199953,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7527328488899668,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001889296,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001889296,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000016665429999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.741547522309999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.07623720774996,
             "unit": "seconds"
           }
         ]
