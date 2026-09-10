@@ -665,9 +665,15 @@ impl QueryIndex {
 		self.explicit_only.remove(hash);
 	}
 
-	/// Takes and clears the set of recently added hashes with their admission sequence numbers.
-	fn take_recent(&mut self) -> HashMap<Hash, u64> {
-		std::mem::take(&mut self.recent)
+	/// Copies the set of recently added hashes with their admission sequence numbers.
+	fn recent_snapshot(&self) -> HashMap<Hash, u64> {
+		self.recent.clone()
+	}
+
+	/// Drops the propagated hashes from `recent`, keeping those re-admitted under a newer
+	/// sequence number since the snapshot was taken.
+	fn clear_propagated(&mut self, propagated: &HashMap<Hash, u64>) {
+		self.recent.retain(|hash, seq| propagated.get(hash) != Some(seq));
 	}
 
 	fn forget_explicit_tracking<'a>(&mut self, keys: impl IntoIterator<Item = &'a PriorityKey>) {
@@ -2357,16 +2363,11 @@ impl StatementStore for Store {
 	}
 
 	fn take_recent_statements(&self) -> Result<Vec<(u64, Hash, Statement)>> {
-		let (recent, mut transient) = {
-			let mut query_index = self.query_index.write();
-			(query_index.take_recent(), std::mem::take(&mut query_index.transient))
-		};
+		// `recent` is cleared only once the bodies are in hand: membership in it is the affinity
+		// sweep's only signal that a statement still awaits propagation.
+		let recent = self.query_index.read().recent_snapshot();
 		let mut result = Vec::with_capacity(recent.len());
-		for (hash, seq) in recent {
-			if let Some(statement) = transient.remove(&hash) {
-				result.push((seq, hash, statement));
-				continue;
-			}
+		for (&hash, &seq) in &recent {
 			let Some(encoded) =
 				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
 			else {
@@ -2380,6 +2381,16 @@ impl StatementStore for Store {
 					HexDisplay::from(&hash)
 				),
 			}
+		}
+		{
+			let mut query_index = self.query_index.write();
+			// Transient bodies never reach the database; they are handed out here and dropped.
+			for (&hash, &seq) in &recent {
+				if let Some(statement) = query_index.transient.remove(&hash) {
+					result.push((seq, hash, statement));
+				}
+			}
+			query_index.clear_propagated(&recent);
 		}
 		result.sort_unstable_by_key(|(seq, ..)| *seq);
 		Ok(result)
@@ -3518,7 +3529,7 @@ impl Store {
 #[cfg(test)]
 mod tests {
 
-	use crate::{col, RetentionReasonMask, Store, KEY_VERSION};
+	use crate::{col, QueryIndex, RetentionReasonMask, RetentionTrack, Store, KEY_VERSION};
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
@@ -4620,6 +4631,25 @@ mod tests {
 
 		// Recent statements are cleared, but statements remain in the store.
 		assert_eq!(store.statements().unwrap().len(), 4);
+	}
+
+	#[test]
+	fn clearing_propagated_keeps_a_readmitted_statement() {
+		let mut query_index = QueryIndex::new();
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+
+		query_index.note_insert(hash, &statement, 1, RetentionTrack::Persistent);
+		let recent = query_index.recent_snapshot();
+		// A removal and re-admission while propagation reads the bodies bumps the sequence number.
+		query_index.note_remove(&hash, &statement);
+		query_index.note_insert(hash, &statement, 2, RetentionTrack::Persistent);
+
+		query_index.clear_propagated(&recent);
+		assert_eq!(query_index.recent.get(&hash), Some(&2));
+
+		query_index.clear_propagated(&query_index.recent_snapshot());
+		assert!(query_index.recent.is_empty());
 	}
 
 	#[test]
