@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788997371410,
+  "lastUpdate": 1789036347772,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8e911a6ebc6965480621db8e89b1ecb157df9eba",
-          "message": "ah-westend: Elastic Scaling with 3 cores on AssetHub Westend (#9880)\n\nThis PR enables elastic scaling on AssetHubWestend with 3 bulk cores.\n\nGuideline for enablement:\nhttps://paritytech.github.io/polkadot-sdk/master/polkadot_sdk_docs/guides/enable_elastic_scaling/index.html\n\n### Next Steps\n- [x] Ensure collators are running with 2509 or newer\n- [x] Double check the changes locally\n- [x] If AH Westend looks good, we'll enable ES to AHPaseo\n\ncc @paritytech/sdk-node @sandreim\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: eduardspa <eduard@parity.io>\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>\nCo-authored-by: Andrei Sandu <54316454+sandreim@users.noreply.github.com>\nCo-authored-by: Maksym H <1177472+mordamax@users.noreply.github.com>",
-          "timestamp": "2026-02-06T21:33:41Z",
-          "tree_id": "046fde999e271b5a7e8e90b01f6a5d55299ad6a1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8e911a6ebc6965480621db8e89b1ecb157df9eba"
-        },
-        "date": 1770418539868,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 127.992,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038974942228000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06661524428199994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08345481773999992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "141152972+Stephenlawrence00@users.noreply.github.com",
+            "name": "html//stephlou",
+            "username": "Stephenlawrence00"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8433a78bb6db387dd2af057cc58eeb980c0b2dc5",
+          "message": "pallet-accumulate-and-forward: measure the transfer period from the last forward (#13153)\n\n`on_idle` now records the block of the last forwarding attempt and\nforwards once `now - last >= TransferPeriod`, instead of requiring an\nexact multiple of `TransferPeriod`, which a parachain reading the relay\nchain block number can miss indefinitely.\n\nCloses #13149\n\n---------\n\nCo-authored-by: Luka Ciric <luka.ciric2106@gmail.com>",
+          "timestamp": "2026-09-10T08:41:39Z",
+          "tree_id": "52b05682f9ef361068eadc370f3868d6e90abb69",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8433a78bb6db387dd2af057cc58eeb980c0b2dc5"
+        },
+        "date": 1789036306337,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.168,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03900581180200001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09298965064999991,
             "unit": "seconds"
           }
         ]
