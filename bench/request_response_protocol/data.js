@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789034588620,
+  "lastUpdate": 1789040874183,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -122687,6 +122687,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2553280518,
             "range": "± 21665561",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c68155d0a5d493e7428d309d759a3f5d3f366502",
+          "message": "Gap-sync: Reset duplicate request counter after some time (#13131)\n\nDuplicate request counters never expired, so legitimate retries after\nsync restarts could leave peers permanently refused and repeatedly\nbanned.\n\nReset the counters after 60 seconds and replace fatal duplicate-request\npenalties with a smaller penalty in both block and state request\nhandlers.\n\nA concrete occurence of this issue that we saw recently on a westend RPC\nnode:\n1. Westend Coretime RPC nodes had a one-block history gap.\n2. Tip sync hit “Potential long-range attack” import errors, triggering\nsync restarts and repeated gap requests.\n3. Those retries exhausted the duplicate-request allowance on the only\ntwo reachable peers, the collators.\n4. The collators refused further requests and fatally penalized the RPC\nnodes.\n5. After each ban expired, the nodes reconnected, retried, and were\nbanned again. The counters never reset, leaving gap sync stuck.\n\nIssues like this seem to come up in the past too\n(https://github.com/paritytech/polkadot-sdk/issues/8990,\nhttps://github.com/paritytech/polkadot-sdk/issues/9165), with no real\nresolution. I think this here would solve most of the problems. If in\ndoubt, we could also increase the timer to 3 or 4 minutes.",
+          "timestamp": "2026-09-10T10:06:35Z",
+          "tree_id": "e89f0b0de36c18cb0965578589e186c1ab33de08",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c68155d0a5d493e7428d309d759a3f5d3f366502"
+        },
+        "date": 1789040837761,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19227609,
+            "range": "± 129187",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19470634,
+            "range": "± 96256",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20763972,
+            "range": "± 64472",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25468446,
+            "range": "± 131194",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58441459,
+            "range": "± 545677",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 344957673,
+            "range": "± 4125796",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2602311177,
+            "range": "± 56328879",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16372607,
+            "range": "± 168651",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16526079,
+            "range": "± 155803",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 16955947,
+            "range": "± 180512",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21658979,
+            "range": "± 144915",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59912086,
+            "range": "± 591603",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 336394388,
+            "range": "± 3172104",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2596575279,
+            "range": "± 30202233",
             "unit": "ns/iter"
           }
         ]
