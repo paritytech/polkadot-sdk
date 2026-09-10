@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788997321230,
+  "lastUpdate": 1789036297022,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "seun@polytope.technology",
-            "name": "Seun Lanlege",
-            "username": "seunlanlege"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ba0839dd30e03bd2af44886eb351bdee4e674230",
-          "message": "implement `IERC20Metadata` for pallet-assets-precompiles (#10971)\n\n## Summary\n\nImplements the missing ERC20 metadata functions (`name`, `symbol`,\n`decimals`) for the pallet-assets precompile to provide full ERC20\ncompatibility. These functions were missing from the original\nimplementation and are essential for proper EVM wallet and tooling\nintegration.\n\n## Changes\n\n### Solidity Interface\n- **`substrate/primitives/ethereum-standards/src/IERC20.sol`**\n  - Added `name() external view returns (string memory)`\n  - Added `symbol() external view returns (string memory)`\n  - Added `decimals() external view returns (uint8)`\n\n### Precompile Implementation\n- **`substrate/frame/assets/precompiles/src/lib.rs`**\n- Implemented `name()` - reads metadata from pallet-assets storage and\nreturns UTF-8 string\n- Implemented `symbol()` - reads metadata from pallet-assets storage and\nreturns UTF-8 string\n- Implemented `decimals()` - reads metadata from pallet-assets storage\nand returns uint8 value\n- All functions charge appropriate gas using dedicated weight functions\n- Proper error handling for missing metadata and invalid UTF-8 encoding\n\n### Benchmarks\n- **`substrate/frame/assets/src/benchmarking.rs`**\n  - Added `get_name` benchmark - measures metadata read for name field\n- Added `get_symbol` benchmark - measures metadata read for symbol field\n- Added `get_decimals` benchmark - measures metadata read for decimals\nfield\n\n### Weight Functions\n- **`substrate/frame/assets/src/weights.rs`**\n  - Added `get_name() -> Weight` to WeightInfo trait\n  - Added `get_symbol() -> Weight` to WeightInfo trait\n  - Added `get_decimals() -> Weight` to WeightInfo trait\n  - Implemented for both `SubstrateWeight<T>` and `()` (fallback)\n- Each function: 1 storage read from `Assets::Metadata` (~12-12.5ms,\n2615 bytes proof size)\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/8658\n\n---------\n\nCo-authored-by: 0xRVE <robertvaneerdewijk@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-09T14:33:54Z",
-          "tree_id": "d6a7f365b04bb187d5e5d23668a32d3c38ce3482",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ba0839dd30e03bd2af44886eb351bdee4e674230"
-        },
-        "date": 1770652052738,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63629.23,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52942.7,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002108893,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002139311,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.324895040139998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.666270941500001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.636346227703007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002139311,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7858028583600081,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005528984240000008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.84740983206001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6894881103700015,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002108893,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.7136320836300016,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6617918138200003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution",
             "value": 0.000021076389999999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "141152972+Stephenlawrence00@users.noreply.github.com",
+            "name": "html//stephlou",
+            "username": "Stephenlawrence00"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8433a78bb6db387dd2af057cc58eeb980c0b2dc5",
+          "message": "pallet-accumulate-and-forward: measure the transfer period from the last forward (#13153)\n\n`on_idle` now records the block of the last forwarding attempt and\nforwards once `now - last >= TransferPeriod`, instead of requiring an\nexact multiple of `TransferPeriod`, which a parachain reading the relay\nchain block number can miss indefinitely.\n\nCloses #13149\n\n---------\n\nCo-authored-by: Luka Ciric <luka.ciric2106@gmail.com>",
+          "timestamp": "2026-09-10T08:41:39Z",
+          "tree_id": "52b05682f9ef361068eadc370f3868d6e90abb69",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8433a78bb6db387dd2af057cc58eeb980c0b2dc5"
+        },
+        "date": 1789036254852,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52938.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63561.15000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00513521451,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002129813,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7679692160400005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7619022304399983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7207694875799993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7196132122700023,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002017042,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002017042,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.166453842279955,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002129813,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8349627449499627,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.4543188619327,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3561017364899928,
             "unit": "seconds"
           }
         ]
