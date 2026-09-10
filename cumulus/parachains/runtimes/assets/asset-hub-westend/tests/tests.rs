@@ -2558,6 +2558,146 @@ fn non_transfer_proxy_is_not_a_superset_of_governance() {
 	}
 }
 
+/// A location usable as an asset id for the `xcm::v5::Location`-keyed pallets.
+fn some_asset_location() -> xcm::v5::Location {
+	xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(1000)])
+}
+
+/// Calls that move the delegator's funds or assets, and so must be denied to a `NonTransfer`
+/// proxy. Each is labelled so a failure names the call that slipped through.
+fn value_moving_calls() -> Vec<(&'static str, RuntimeCall)> {
+	vec![
+		(
+			"ForeignAssets::transfer",
+			RuntimeCall::ForeignAssets(
+				pallet_assets::Call::<Runtime, ForeignAssetsInstance>::transfer {
+					id: some_asset_location(),
+					target: AccountId::from(BOB).into(),
+					amount: 1,
+				},
+			),
+		),
+		(
+			"PoolAssets::transfer",
+			RuntimeCall::PoolAssets(pallet_assets::Call::<
+				Runtime,
+				asset_hub_westend_runtime::PoolAssetsInstance,
+			>::transfer {
+				id: 1,
+				target: AccountId::from(BOB).into(),
+				amount: 1,
+			}),
+		),
+		(
+			"AssetConversion::swap_exact_tokens_for_tokens",
+			RuntimeCall::AssetConversion(
+				pallet_asset_conversion::Call::swap_exact_tokens_for_tokens {
+					path: vec![Box::new(some_asset_location()), Box::new(some_asset_location())],
+					amount_in: 1,
+					amount_out_min: 1,
+					send_to: AccountId::from(BOB),
+					keep_alive: false,
+				},
+			),
+		),
+		(
+			"Psm::mint",
+			RuntimeCall::Psm(pallet_psm::Call::mint {
+				internal_asset: some_asset_location(),
+				external_asset: some_asset_location(),
+				external_amount: 1,
+				max_fee: sp_runtime::Permill::zero(),
+			}),
+		),
+		(
+			"PolkadotXcm::transfer_assets",
+			RuntimeCall::PolkadotXcm(pallet_xcm::Call::transfer_assets {
+				dest: Box::new(xcm::VersionedLocation::from(some_asset_location())),
+				beneficiary: Box::new(xcm::VersionedLocation::from(some_asset_location())),
+				assets: Box::new(xcm::VersionedAssets::from(XcmAssets::new())),
+				fee_asset_item: 0,
+				weight_limit: WeightLimit::Unlimited,
+			}),
+		),
+		(
+			"Revive::call",
+			RuntimeCall::Revive(pallet_revive::Call::call {
+				dest: Default::default(),
+				value: 1,
+				weight_limit: Weight::zero(),
+				storage_deposit_limit: 0,
+				data: vec![],
+			}),
+		),
+		(
+			"Indices::transfer",
+			RuntimeCall::Indices(pallet_indices::Call::transfer {
+				new: AccountId::from(BOB).into(),
+				index: 0,
+			}),
+		),
+	]
+}
+
+/// Regression test for <https://github.com/paritytech/polkadot-sdk/issues/12466>.
+///
+/// `ProxyType::NonTransfer` is documented as permitting "any call that does not transfer funds or
+/// assets", but it is implemented as a deny-list and so fails open. `ForeignAssets` and
+/// `PoolAssets` transfers were reachable, as were swaps, XCM transfers, contract calls carrying a
+/// value, and index transfers (which repatriate the reserved deposit).
+#[test]
+fn non_transfer_proxy_rejects_value_moving_calls() {
+	use asset_hub_westend_runtime::ProxyType;
+	use frame_support::traits::InstanceFilter;
+
+	// Collected rather than asserted one by one, so a regression reports every call that slipped
+	// through instead of only the first.
+	let mut leaked = Vec::new();
+	for (name, call) in value_moving_calls() {
+		if ProxyType::NonTransfer.filter(&call) {
+			leaked.push(name);
+		}
+		// The call is otherwise well-formed and reachable by a fully permissioned proxy.
+		assert!(ProxyType::Any.filter(&call), "Any must permit {name}");
+	}
+
+	assert!(
+		leaked.is_empty(),
+		"NonTransfer must reject calls that move funds or assets, but permitted: {leaked:?}",
+	);
+}
+
+/// The deny-list above must not over-reach: calls that do not move value stay available, including
+/// the ones backing the proxy types `NonTransfer` declares as its subsets.
+#[test]
+fn non_transfer_proxy_still_permits_non_value_moving_calls() {
+	use asset_hub_westend_runtime::ProxyType;
+	use frame_support::traits::InstanceFilter;
+
+	let permitted = vec![
+		("Indices::claim", RuntimeCall::Indices(pallet_indices::Call::claim { index: 0 })),
+		("Indices::freeze", RuntimeCall::Indices(pallet_indices::Call::freeze { index: 0 })),
+		("Vesting::vest", RuntimeCall::Vesting(pallet_vesting::Call::vest {})),
+		("Staking::chill", RuntimeCall::Staking(pallet_staking_async::Call::chill {})),
+		("Session::purge_keys", RuntimeCall::Session(pallet_session::Call::purge_keys {})),
+		(
+			"NominationPools::chill",
+			RuntimeCall::NominationPools(pallet_nomination_pools::Call::chill { pool_id: 0 }),
+		),
+		(
+			"CollatorSelection::set_desired_candidates",
+			RuntimeCall::CollatorSelection(
+				pallet_collator_selection::Call::set_desired_candidates { max: 1 },
+			),
+		),
+		("System::remark", RuntimeCall::System(frame_system::Call::remark { remark: vec![] })),
+	];
+
+	for (name, call) in permitted {
+		assert!(ProxyType::NonTransfer.filter(&call), "NonTransfer must still permit {name}");
+	}
+}
+
 /// Verifies StakingOperator filter allows validator operations and session key management,
 /// but forbids fund management.
 #[test]
