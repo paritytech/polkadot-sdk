@@ -22,7 +22,7 @@ use codec::Encode;
 use frame_support::{assert_noop, assert_ok, BoundedVec};
 use multiaddr::Multiaddr;
 use sp_core::{crypto::Pair as _, ed25519, H256};
-use sp_runtime::DispatchError;
+use sp_runtime::{BuildStorage, DispatchError};
 
 const PEER: &str = "12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp";
 
@@ -60,6 +60,34 @@ fn pop_payload_has_the_documented_layout() {
 
 	// The pallet binds its own constants.
 	assert_eq!(Bootnodes::pop_payload(7, &address), payload);
+}
+
+#[test]
+fn genesis_config_lists_bootnodes_and_records_their_seq() {
+	let bootnodes = vec![
+		signed(&pair(1), 0, "/ip4/1.2.3.4/tcp/1"),
+		signed(&pair(2), 3, "/dns/boot.example.org/tcp/2/ws"),
+	];
+	let storage = RuntimeGenesisConfig {
+		bootnodes: crate::GenesisConfig { bootnodes: bootnodes.clone() },
+		..Default::default()
+	}
+	.build_storage()
+	.unwrap();
+	sp_io::TestExternalities::new(storage).execute_with(|| {
+		assert_eq!(BootnodeSet::<Test>::get().to_vec(), bootnodes);
+		assert_eq!(LastSeq::<Test>::get(pair(1).public()), Some(0));
+		assert_eq!(LastSeq::<Test>::get(pair(2).public()), Some(3));
+		assert_ok!(Bootnodes::do_try_state());
+	});
+}
+
+#[test]
+fn bootnode_serializes_addr_as_hex_for_chain_specs() {
+	let bootnode = signed(&pair(1), 0, "/ip4/1.2.3.4/tcp/30333");
+	let json = serde_json::to_value(&bootnode).unwrap();
+	assert_eq!(json["addr"], serde_json::json!("0x040102030406767d"));
+	assert_eq!(serde_json::from_value::<BootnodeOf<Test>>(json).unwrap(), bootnode);
 }
 
 #[test]

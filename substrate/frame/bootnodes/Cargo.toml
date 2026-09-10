@@ -20,12 +20,14 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-core = { workspace = true }
+serde = { features = ["alloc", "derive"], workspace = true }
+sp-core = { features = ["serde"], workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
 
 [dev-dependencies]
 multiaddr = { workspace = true }
+serde_json = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 
 [features]
@@ -36,6 +38,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",
+	"serde/std",
 	"sp-core/std",
 	"sp-io/std",
 	"sp-keystore/std",

@@ -38,6 +38,9 @@
 //! `/ws` or `/wss`: the shapes a node can dial a bootnode on. The runtime does not otherwise
 //! interpret it.
 //!
+//! The set can be seeded at genesis with entries signed ahead of time, for instance with
+//! `bootnodes-cli sign --offline`.
+//!
 //! Publishing the set to the para-owned key-value store is not implemented yet. Readers consume
 //! the pallet's storage directly.
 //!
@@ -64,8 +67,11 @@ pub mod weights;
 
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::{pallet_prelude::*, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
+use frame_support::{
+	pallet_prelude::*, CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound,
+};
 use scale_info::TypeInfo;
+use serde::{Deserialize, Serialize};
 use sp_core::{ed25519, H256};
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -87,14 +93,18 @@ pub const POP_DOMAIN: &[u8] = b"bootnode-pop-v1";
 	PartialEqNoBound,
 	EqNoBound,
 	DebugNoBound,
+	Serialize,
+	Deserialize,
 )]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(MaxAddrLen))]
+#[serde(bound(serialize = "", deserialize = ""))]
 pub struct Bootnode<MaxAddrLen: Get<u32>> {
-	/// The node's network address as a binary multiaddr.
+	/// The node's network address as a binary multiaddr, serialized as `0x`-prefixed hex.
 	///
 	/// Must be `/(ip4|ip6|dns|dns4|dns6)/<host>/tcp/<port>[/ws|/wss]`, without a `/p2p/`
 	/// component: the peer id is derived from `node_key`.
+	#[serde(with = "addr_hex")]
 	pub addr: BoundedVec<u8, MaxAddrLen>,
 	/// The ed25519 public key the node's peer id is derived from.
 	pub node_key: ed25519::Public,
@@ -107,6 +117,28 @@ pub struct Bootnode<MaxAddrLen: Get<u32>> {
 
 /// The [`Bootnode`] type as configured for `T`.
 pub type BootnodeOf<T> = Bootnode<<T as Config>::MaxAddrLen>;
+
+/// `serde` representation of [`Bootnode::addr`]: `0x`-prefixed hex, like other byte blobs in
+/// chain specs.
+mod addr_hex {
+	use super::*;
+
+	pub fn serialize<S: serde::Serializer, L: Get<u32>>(
+		addr: &BoundedVec<u8, L>,
+		serializer: S,
+	) -> Result<S::Ok, S::Error> {
+		sp_core::bytes::serialize(addr, serializer)
+	}
+
+	pub fn deserialize<'de, D: serde::Deserializer<'de>, L: Get<u32>>(
+		deserializer: D,
+	) -> Result<BoundedVec<u8, L>, D::Error> {
+		let bytes: Vec<u8> = sp_core::bytes::deserialize(deserializer)?;
+		bytes
+			.try_into()
+			.map_err(|_| serde::de::Error::custom("address longer than MaxAddrLen"))
+	}
+}
 
 /// The bytes a node signs to prove it consents to being listed as a bootnode of `para_id`.
 ///
@@ -176,6 +208,23 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type LastSeq<T: Config> =
 		StorageMap<_, Blake2_128Concat, ed25519::Public, u64, OptionQuery>;
+
+	#[pallet::genesis_config]
+	#[derive(DefaultNoBound)]
+	pub struct GenesisConfig<T: Config> {
+		/// Bootnodes listed from genesis. Each must carry a valid proof of possession.
+		pub bootnodes: Vec<BootnodeOf<T>>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			for bootnode in &self.bootnodes {
+				Pallet::<T>::do_add_bootnode(bootnode.clone())
+					.expect("invalid bootnode in genesis config");
+			}
+		}
+	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
