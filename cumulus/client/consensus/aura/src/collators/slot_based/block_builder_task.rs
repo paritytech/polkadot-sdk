@@ -177,15 +177,18 @@ struct BuildingPrerequisites<Block: BlockT> {
 	scheduling_parent_header: RelayHeader,
 	/// Whether scheduling V3 applies to this candidate.
 	v3_enabled: bool,
-	/// Whether the parent search ran with V3 params. Can differ from `v3_enabled` after a
-	/// re-derive; a V2 context must then re-fetch the included head at its relay parent.
-	search_ran_v3: bool,
 	/// Distance from the scheduling parent down to the relay parent.
 	relay_parent_offset: u32,
 	/// The relay parent and the descendants linking it to the scheduling parent.
 	relay_parent_data: RelayParentData,
-	/// The parent to build on, plus the included header at the scheduling parent.
-	parent_search_result: consensus_common::ParentSearchResult<Block>,
+	/// The parent to build on. Settled by the parent search in the first phase, against the para
+	/// best head's parameters, and kept as-is when the second phase re-derives the context.
+	best_parent_header: Block::Header,
+	/// The included header at the execution context, i.e. at `relay_parent_data`'s relay parent.
+	/// Follows whichever phase settled that context: the second one whenever the build parent's
+	/// `v3_enabled` or `relay_parent_offset` disagree with the para best head's, since the first
+	/// phase then took it at a scheduling parent we no longer build against.
+	included_header_at_execution: Block::Header,
 }
 
 /// The relay chain context `params` imply: the scheduling parent, whether V3 applies to it, and the
@@ -311,25 +314,17 @@ where
 			.unwrap_or(false)
 	}
 
-	/// The included header at the execution context (the relay parent).
+	/// Fetch the included header at the execution context, i.e. at `relay_parent_hash`.
 	///
-	/// When `fetch_from_relay_chain` is set the header is fetched at the relay parent; otherwise
-	/// the parent search's snapshot is reused. V3 must fetch; V2 may reuse the snapshot since it
-	/// was taken at the same relay parent. The runtime does the matching unincluded-segment
-	/// checks in the `set_validation_data` inherent, using the relay parent context.
+	/// The runtime does the matching unincluded-segment checks in the `set_validation_data`
+	/// inherent, using the same relay parent context.
 	///
 	/// Takes `&mut self` although nothing is mutated: a shared borrow held across the await
 	/// would require the whole env — including the best-block stream — to be `Sync`.
 	async fn included_header_at_execution(
 		&mut self,
-		fetch_from_relay_chain: bool,
 		relay_parent_hash: RelayHash,
-		parent_search_result: &consensus_common::ParentSearchResult<Block>,
 	) -> Option<Block::Header> {
-		if !fetch_from_relay_chain {
-			return Some(parent_search_result.included_at_scheduling.clone());
-		}
-
 		match fetch_included_from_relay_chain(
 			&self.relay_client,
 			&*self.para_backend,
@@ -439,19 +434,27 @@ where
 			},
 		)
 		.await?;
-		// The params the search ran with; the re-derive below can settle on different ones.
-		let search_ran_v3 = v3_enabled;
 
 		let build_parent_hash = parent_search_result.best_parent_header.hash();
 		let build_params = SchedulingParams::at(&*self.para_client, build_parent_hash);
 		if build_parent_hash == best_hash || build_params == best_params {
+			// The search ran with these very parameters, so V2 can reuse its snapshot: for V2 the
+			// scheduling parent is the relay parent the block will execute against.
+			let included_header_at_execution = match v3_enabled {
+				true => {
+					self.included_header_at_execution(relay_parent_data.relay_parent().hash())
+						.await?
+				},
+				false => parent_search_result.included_at_scheduling,
+			};
+
 			return Some(BuildingPrerequisites {
 				scheduling_parent_header,
 				v3_enabled,
-				search_ran_v3,
 				relay_parent_offset: best_params.relay_parent_offset,
 				relay_parent_data,
-				parent_search_result,
+				best_parent_header: parent_search_result.best_parent_header,
+				included_header_at_execution,
 			});
 		}
 
@@ -471,13 +474,19 @@ where
 		)
 		.await?;
 
+		// The context moved, so the search's snapshot belongs to a scheduling parent we no longer
+		// build against: take the included head at the settled relay parent.
+		let included_header_at_execution = self
+			.included_header_at_execution(relay_parent_data.relay_parent().hash())
+			.await?;
+
 		Some(BuildingPrerequisites {
 			scheduling_parent_header,
 			v3_enabled,
-			search_ran_v3,
 			relay_parent_offset: build_params.relay_parent_offset,
 			relay_parent_data,
-			parent_search_result,
+			best_parent_header: parent_search_result.best_parent_header,
+			included_header_at_execution,
 		})
 	}
 
@@ -487,10 +496,10 @@ where
 		let BuildingPrerequisites {
 			scheduling_parent_header,
 			v3_enabled,
-			search_ran_v3,
 			relay_parent_offset,
 			relay_parent_data,
-			parent_search_result,
+			best_parent_header,
+			included_header_at_execution,
 		} = self.building_prerequisites().await?;
 
 		// Set after the derive: a context re-derived from the build parent's runtime can flip
@@ -500,17 +509,8 @@ where
 		let relay_parent_header = relay_parent_data.relay_parent();
 		let relay_parent_hash = relay_parent_header.hash();
 
-		// Also fetched when the search ran with V3 params but the context re-derived to V2: the
-		// search's snapshot was taken at a V3 scheduling parent and can be stale here.
-		let included_header_at_execution = self
-			.included_header_at_execution(
-				v3_enabled || search_ran_v3,
-				relay_parent_hash,
-				&parent_search_result,
-			)
-			.await?;
-		let initial_parent_hash = parent_search_result.best_parent_header.hash();
-		let initial_parent_header = parent_search_result.best_parent_header;
+		let initial_parent_hash = best_parent_header.hash();
+		let initial_parent_header = best_parent_header;
 		let unincluded_segment_len_at_execution = initial_parent_header
 			.number()
 			.saturating_sub(*included_header_at_execution.number());
