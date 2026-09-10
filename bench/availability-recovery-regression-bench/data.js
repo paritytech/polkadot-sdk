@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788997219973,
+  "lastUpdate": 1789036194313,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1b9ea1c3656e816dfcaa2624ffb9c8c45ce917d7",
-          "message": "[pallet-revive] Fix storage deposit refunds in nested contract calls (#10920)\n\nfixes https://github.com/paritytech/contract-issues/issues/213 where\nstorage deposit refunds failed in nested/reentrant calls.\n\nProblem\nStorage refunds were calculated incorrectly when a contract allocated\nstorage, then performed a nested call that cleared it. Pending storage\nchanges lived only in the parent FrameMeter, so child frames could not\nsee them and refunds were skipped.\n\nSolution\nApply pending storage deposit changes to a cloned ContractInfo before\ncreating nested frames. This makes the parent’s storage state visible to\nchild frames during refund calculation.\n\nImplementation\n- Added apply_pending_changes_to_contract() to apply pending diffs to\nContractInfo\n- Added apply_pending_storage_changes() wrapper on FrameMeter\n- Applied pending storage changes before nested frame creation in\nexec.rs (3 locations)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: pgherveou <pgherveou@gmail.com>",
-          "timestamp": "2026-02-10T10:26:06Z",
-          "tree_id": "2d78374f47b6b14cca7239e15b9a37c67f730690",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1b9ea1c3656e816dfcaa2624ffb9c8c45ce917d7"
-        },
-        "date": 1770723719621,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.127873206366669,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12544267923333335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12372420006666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "141152972+Stephenlawrence00@users.noreply.github.com",
+            "name": "html//stephlou",
+            "username": "Stephenlawrence00"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8433a78bb6db387dd2af057cc58eeb980c0b2dc5",
+          "message": "pallet-accumulate-and-forward: measure the transfer period from the last forward (#13153)\n\n`on_idle` now records the block of the last forwarding attempt and\nforwards once `now - last >= TransferPeriod`, instead of requiring an\nexact multiple of `TransferPeriod`, which a parachain reading the relay\nchain block number can miss indefinitely.\n\nCloses #13149\n\n---------\n\nCo-authored-by: Luka Ciric <luka.ciric2106@gmail.com>",
+          "timestamp": "2026-09-10T08:41:39Z",
+          "tree_id": "52b05682f9ef361068eadc370f3868d6e90abb69",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8433a78bb6db387dd2af057cc58eeb980c0b2dc5"
+        },
+        "date": 1789036152564,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.146413537366668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1383498977,
             "unit": "seconds"
           }
         ]
