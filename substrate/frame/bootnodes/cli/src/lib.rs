@@ -162,6 +162,7 @@ async fn sign(cmd: SignCmd) -> Result<()> {
 	let pair = ed25519::Pair::from_seed(&seed);
 	let node_key = pair.public();
 	let addr = parse_addr(&cmd.addr)?;
+	let addr_bytes = addr.to_vec();
 
 	let (at, para_id, jam_genesis_hash, seq) = if cmd.offline {
 		// `clap` enforces the presence of the three flags.
@@ -183,10 +184,10 @@ async fn sign(cmd: SignCmd) -> Result<()> {
 			None => chain.constant("JamGenesisHash")?,
 		};
 		let max_addr_len: u32 = chain.constant("MaxAddrLen")?;
-		if addr.len() > max_addr_len as usize {
+		if addr_bytes.len() > max_addr_len as usize {
 			bail!(
 				"the address encodes to {} bytes, the runtime allows at most {max_addr_len}",
-				addr.len()
+				addr_bytes.len()
 			);
 		}
 		let last = chain.last_seq(&node_key).await?;
@@ -203,10 +204,10 @@ async fn sign(cmd: SignCmd) -> Result<()> {
 		(Some(chain.at), para_id, jam_genesis_hash, seq)
 	};
 
-	let payload = pop_payload(&jam_genesis_hash, para_id, seq, &addr);
+	let payload = pop_payload(&jam_genesis_hash, para_id, seq, &addr_bytes);
 	let sig = pair.sign(&payload);
 	let bootnode = StoredBootnode {
-		addr: addr.clone().try_into().map_err(|_| anyhow!("address too long"))?,
+		addr: addr_bytes.try_into().map_err(|_| anyhow!("address too long"))?,
 		node_key,
 		seq,
 		sig,
@@ -218,7 +219,7 @@ async fn sign(cmd: SignCmd) -> Result<()> {
 		jam_genesis_hash,
 		node_key: hex(node_key.as_ref()),
 		peer_id: peer_id(&node_key).map(|p| p.to_string()),
-		addr: cmd.addr,
+		addr: addr.to_string(),
 		seq,
 		sig: hex(sig.as_ref()),
 		encoded_bootnode: hex(&bootnode.encode()),
@@ -330,15 +331,14 @@ fn load_node_key(cmd: &SignCmd) -> Result<Zeroizing<[u8; 32]>> {
 }
 
 /// Parse a multiaddr and check it the way the runtime will.
-fn parse_addr(addr: &str) -> Result<Vec<u8>> {
+fn parse_addr(addr: &str) -> Result<Multiaddr> {
 	let addr: Multiaddr = addr.parse().with_context(|| format!("`{addr}` is not a multiaddr"))?;
 	if addr.iter().any(|p| matches!(p, Protocol::P2p(_))) {
 		bail!("the address must not contain a /p2p/ component; the peer id is derived from the node key");
 	}
-	let bytes = addr.to_vec();
-	addr_check::validate(&bytes)
+	addr_check::validate(&addr.to_vec())
 		.map_err(|e| anyhow!("the runtime would reject `{addr}`: {e:?}"))?;
-	Ok(bytes)
+	Ok(addr)
 }
 
 enum Client {
@@ -568,8 +568,13 @@ mod tests {
 
 	#[test]
 	fn parse_addr_matches_runtime_rules() {
-		let bytes = parse_addr("/ip4/1.2.3.4/tcp/30333").unwrap();
-		assert_eq!(bytes, "/ip4/1.2.3.4/tcp/30333".parse::<Multiaddr>().unwrap().to_vec());
+		let addr = parse_addr("/ip4/1.2.3.4/tcp/30333").unwrap();
+		assert_eq!(addr, "/ip4/1.2.3.4/tcp/30333".parse::<Multiaddr>().unwrap());
+		// The signed bytes are the parsed form, so that is the form to print.
+		assert_eq!(
+			parse_addr("/ip6/2001:0db8::0001/tcp/30333").unwrap().to_string(),
+			"/ip6/2001:db8::1/tcp/30333"
+		);
 		assert!(parse_addr(&format!("/ip4/1.2.3.4/tcp/30333/p2p/{PEER}")).is_err());
 		assert!(parse_addr("not an address").is_err());
 	}
