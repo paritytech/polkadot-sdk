@@ -30,6 +30,7 @@ use codec::Codec;
 use hash_db::HashDB;
 use hash_db::Hasher;
 use sp_core::storage::{ChildInfo, StateVersion};
+use sp_externalities::StateLoad;
 #[cfg(feature = "std")]
 use sp_trie::{
 	cache::{LocalTrieCache, TrieCache},
@@ -430,6 +431,13 @@ where
 		self.essence.storage(key)
 	}
 
+	fn storage_with_status(
+		&self,
+		key: &[u8],
+	) -> Result<StateLoad<Option<StorageValue>>, Self::Error> {
+		self.essence.storage_with_status(key)
+	}
+
 	fn child_storage_hash(
 		&self,
 		child_info: &ChildInfo,
@@ -444,6 +452,14 @@ where
 		key: &[u8],
 	) -> Result<Option<StorageValue>, Self::Error> {
 		self.essence.child_storage(child_info, key)
+	}
+
+	fn child_storage_with_status(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<StateLoad<Option<StorageValue>>, Self::Error> {
+		self.essence.child_storage_with_status(child_info, key)
 	}
 
 	fn closest_merkle_value(&self, key: &[u8]) -> Result<Option<MerkleValue<H::Out>>, Self::Error> {
@@ -1595,6 +1611,124 @@ pub mod tests {
 					child_trie_2_val
 				);
 			}
+		}
+	}
+
+	#[test]
+	fn storage_with_status_switches_from_cold_to_hot() {
+		let trie = test_trie(StateVersion::V1, None, Some(Default::default()));
+		let child_info = ChildInfo::new_default(CHILD_KEY_1);
+		let main: (&[u8], Vec<u8>) = (b"key", b"value".to_vec());
+		let child: (&[u8], Vec<u8>) = (b"value3", vec![142u8; 33]);
+
+		let first_read = trie.storage_with_status(main.0).unwrap();
+		assert_eq!(first_read.data, Some(main.1.clone()));
+		assert!(first_read.is_cold, "first read should be cold");
+		let second_read = trie.storage_with_status(main.0).unwrap();
+		assert_eq!(second_read.data, Some(main.1));
+		assert!(!second_read.is_cold, "second read should be hot");
+
+		let first_read = trie.child_storage_with_status(&child_info, child.0).unwrap();
+		assert_eq!(first_read.data, Some(child.1.clone()));
+		assert!(first_read.is_cold, "first child read should be cold");
+		let second_read = trie.child_storage_with_status(&child_info, child.0).unwrap();
+		assert_eq!(second_read.data, Some(child.1));
+		assert!(!second_read.is_cold, "second child read should be hot");
+	}
+
+	#[test]
+	fn storage_with_status_after_hash_depends_on_inline_threshold() {
+		// In storage V1, values shorter than `TRIE_VALUE_NODE_THRESHOLD` live inside the
+		// leaf; longer ones get their own node referenced by hash.
+		let main_inline_value: (&[u8], Vec<u8>) = (b"main_short", b"v1".to_vec());
+		let main_hashed_value: (&[u8], Vec<u8>) = (b"main_long", vec![1u8; 33]);
+		let child_inline_value: (&[u8], Vec<u8>) = (b"child_short", b"v2".to_vec());
+		let child_hashed_value: (&[u8], Vec<u8>) = (b"child_long", vec![2u8; 33]);
+		let threshold = sp_core::storage::TRIE_VALUE_NODE_THRESHOLD as usize;
+		assert!(main_inline_value.1.len() < threshold);
+		assert!(main_hashed_value.1.len() >= threshold);
+		assert!(child_inline_value.1.len() < threshold);
+		assert!(child_hashed_value.1.len() >= threshold);
+
+		let child_info = ChildInfo::new_default(CHILD_KEY_1);
+		let mut root = H256::default();
+		let mut mdb = PrefixedMemoryDB::<BlakeTwo256>::default();
+		{
+			let mut child_mdb = KeySpacedDBMut::new(&mut mdb, child_info.keyspace());
+			let mut trie = TrieDBMutBuilderV1::new(&mut child_mdb, &mut root).build();
+			trie.insert(child_inline_value.0, &child_inline_value.1).unwrap();
+			trie.insert(child_hashed_value.0, &child_hashed_value.1).unwrap();
+		}
+		{
+			let mut sub_root = Vec::new();
+			root.encode_to(&mut sub_root);
+			let mut trie = TrieDBMutBuilderV1::new(&mut mdb, &mut root).build();
+			trie.insert(child_info.prefixed_storage_key().as_slice(), &sub_root).unwrap();
+			trie.insert(main_inline_value.0, &main_inline_value.1).unwrap();
+			trie.insert(main_hashed_value.0, &main_hashed_value.1).unwrap();
+		}
+		let trie = TrieBackendBuilder::new(mdb, root).with_recorder(Default::default()).build();
+
+		let check_main = |pair: &(&[u8], Vec<u8>), expect_cold: bool, label: &str| {
+			trie.storage_hash(pair.0).unwrap();
+			let r = trie.storage_with_status(pair.0).unwrap();
+			assert_eq!(r.data, Some(pair.1.clone()));
+			assert_eq!(r.is_cold, expect_cold, "{label}");
+		};
+		let check_child = |pair: &(&[u8], Vec<u8>), expect_cold: bool, label: &str| {
+			trie.child_storage_hash(&child_info, pair.0).unwrap();
+			let r = trie.child_storage_with_status(&child_info, pair.0).unwrap();
+			assert_eq!(r.data, Some(pair.1.clone()));
+			assert_eq!(r.is_cold, expect_cold, "{label}");
+		};
+
+		check_main(&main_inline_value, false, "main inline_value");
+		check_main(&main_hashed_value, true, "main hashed_value");
+		check_child(&child_inline_value, false, "child inline_value");
+		check_child(&child_hashed_value, true, "child hashed_value");
+	}
+
+	#[test]
+	fn storage_with_status_without_recorder_is_always_cold() {
+		let trie = test_trie(StateVersion::V1, None, None);
+		let child_info = ChildInfo::new_default(CHILD_KEY_1);
+
+		assert!(trie.storage_with_status(b"key").unwrap().is_cold);
+		assert!(trie.child_storage_with_status(&child_info, b"value3").unwrap().is_cold);
+	}
+
+	#[test]
+	fn storage_with_status_for_missing_key_switches_to_hot() {
+		// Reading a missing key still records the path-to-absence, so a second read is hot.
+		let trie = test_trie(StateVersion::V1, None, Some(Default::default()));
+		let child_info = ChildInfo::new_default(CHILD_KEY_1);
+		let missing = b"missing_key";
+
+		let first_read = trie.storage_with_status(missing).unwrap();
+		assert_eq!(first_read.data, None);
+		assert!(first_read.is_cold, "first read of missing key is cold");
+		let second_read = trie.storage_with_status(missing).unwrap();
+		assert_eq!(second_read.data, None);
+		assert!(!second_read.is_cold, "second read of missing key is hot");
+
+		let first_read = trie.child_storage_with_status(&child_info, missing).unwrap();
+		assert_eq!(first_read.data, None);
+		assert!(first_read.is_cold, "first child read of missing key is cold");
+		let second_read = trie.child_storage_with_status(&child_info, missing).unwrap();
+		assert_eq!(second_read.data, None);
+		assert!(!second_read.is_cold, "second child read of missing key is hot");
+	}
+
+	#[test]
+	fn child_storage_with_status_returns_cold_for_missing_child_trie() {
+		let trie = test_trie(StateVersion::V1, None, Some(Default::default()));
+		let missing_child = ChildInfo::new_default(b"does_not_exist");
+
+		// Repeat reads stay cold: the missing-child-trie path skips the recorder.
+		for _ in 0..2 {
+			let r = trie.child_storage_with_status(&missing_child, b"any_key").unwrap();
+			assert_eq!(r.data, None);
+			assert!(r.is_cold);
 		}
 	}
 }
