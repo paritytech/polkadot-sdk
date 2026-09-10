@@ -304,8 +304,7 @@ where
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
-	/// Whether V3 scheduling is enabled at `at`, from the runtime alone. Cheaper than
-	/// [`SchedulingParams::at`], which also does the relay-parent-offset runtime call.
+	/// Whether V3 scheduling is enabled at `at`.
 	fn v3_enabled_at(&self, at: Block::Hash) -> bool {
 		onchain_runtime_api(&*self.para_client)
 			.scheduling_v3_enabled(at)
