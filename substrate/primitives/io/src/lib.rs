@@ -1985,14 +1985,14 @@ pub fn unreachable() -> ! {
 #[panic_handler]
 pub fn panic(info: &core::panic::PanicInfo) -> ! {
 	let message = alloc::format!("{}", info);
-	#[cfg(feature = "improved_panic_error_reporting")]
-	{
-		panic_handler::abort_on_panic(&message);
-	}
-	#[cfg(not(feature = "improved_panic_error_reporting"))]
+	#[cfg(feature = "legacy_panic_error_reporting")]
 	{
 		logging::log(RuntimeInterfaceLogLevel::Error, "runtime", message.as_bytes());
 		unreachable();
+	}
+	#[cfg(not(feature = "legacy_panic_error_reporting"))]
+	{
+		panic_handler::abort_on_panic(&message);
 	}
 }
 
@@ -2000,11 +2000,7 @@ pub fn panic(info: &core::panic::PanicInfo) -> ! {
 #[cfg(all(not(feature = "disable_oom"), enable_alloc_error_handler))]
 #[alloc_error_handler]
 pub fn oom(_: core::alloc::Layout) -> ! {
-	#[cfg(feature = "improved_panic_error_reporting")]
-	{
-		panic_handler::abort_on_panic("Runtime memory exhausted.");
-	}
-	#[cfg(not(feature = "improved_panic_error_reporting"))]
+	#[cfg(feature = "legacy_panic_error_reporting")]
 	{
 		logging::log(
 			RuntimeInterfaceLogLevel::Error,
@@ -2012,6 +2008,10 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 			b"Runtime memory exhausted. Aborting",
 		);
 		unreachable();
+	}
+	#[cfg(not(feature = "legacy_panic_error_reporting"))]
+	{
+		panic_handler::abort_on_panic("Runtime memory exhausted.");
 	}
 }
 

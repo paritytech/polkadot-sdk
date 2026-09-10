@@ -83,24 +83,24 @@ disable_panic_handler = []
 disable_oom = []
 disable_allocator = []
 
-# This feature flag controls the runtime's behavior when encountering
-# a panic or when it runs out of memory, improving the diagnostics.
+# DEPRECATED: Marshalling the panic message to the host through the
+# `PanicHandler::abort_on_panic` runtime interface is the default behavior
+# now; this feature flag is a no-op kept for backwards compatibility.
+# See `legacy_panic_error_reporting` to opt out of it.
+improved_panic_error_reporting = []
+
+# Restores the legacy behavior when encountering a panic or running out of
+# memory: the error message is only printed to the logs and execution aborts
+# via the `unreachable` instruction, with the caller receiving a generic
+# "wasm `unreachable` instruction executed" error message instead of the
+# panic message.
 #
-# When enabled the runtime will marshal the relevant error message
-# to the host through the `PanicHandler::abort_on_panic` runtime interface.
-# This gives the caller direct programmatic access to the error message.
-#
-# When disabled the error message will only be printed out in the
-# logs, with the caller receiving a generic "wasm `unreachable` instruction executed"
-# error message.
+# Only needed when targeting a host client that does not provide the
+# `PanicHandler::abort_on_panic` host function.
 #
 # This has no effect if both `disable_panic_handler` and `disable_oom`
 # are enabled.
-#
-# WARNING: Enabling this feature flag requires the `PanicHandler::abort_on_panic`
-#          host function to be supported by the host. Do *not* enable it for your
-#          runtime without first upgrading your host client!
-improved_panic_error_reporting = []
+legacy_panic_error_reporting = []
 
 # This feature adds BLS crypto primitives.
 # It should not be used in production since the implementation and interface may still
