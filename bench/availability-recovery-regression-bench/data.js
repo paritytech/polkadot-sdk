@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789044242979,
+  "lastUpdate": 1789052068776,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "94772640+snowmead@users.noreply.github.com",
-            "name": "Michael Assaf",
-            "username": "snowmead"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "fbddee8faabeadef47a375c71c1a8a11274e4e0d",
-          "message": "Add `DecodeWithMemTracking` derive to `CompactProof` (#11028)\n\n# Description\n\nAdd `DecodeWithMemTracking` derive to `CompactProof` in\n`substrate/primitives/trie/src/storage_proof.rs`.\n\n`StorageProof` already derived `DecodeWithMemTracking` but\n`CompactProof` in the same file was missed.\n\n## Integration\n\nNo integration changes required for downstream projects. `CompactProof`\nnow implements `DecodeWithMemTracking`, which is a strictly additive\ntrait implementation. Existing code using `CompactProof` will continue\nto work as before.\n\n## Review Notes\n\nSingle-line change adding `DecodeWithMemTracking` to the derive macro\nlist on `CompactProof`:\n\n```diff\n-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo)]\n+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo)]\n pub struct CompactProof {\n     pub encoded_nodes: Vec<Vec<u8>>,\n }\n```\n\n`CompactProof` only contains `Vec<Vec<u8>>`, which already implements\n`DecodeWithMemTracking`, so the derive works without any manual\nimplementation.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-10T18:41:06Z",
-          "tree_id": "8454baf6ec660756950140fb84b8400668568743",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/fbddee8faabeadef47a375c71c1a8a11274e4e0d"
-        },
-        "date": 1770752817095,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12704608206666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.0828959099,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.053875706233336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f2e0a17b994fe8d347e687ea75a526234c983a2b",
+          "message": "Slot based: Ensure we do not build two blocks on the same relay parent (#13043)\n\nThe collator protocol would silently drop such a block and let the\nparachain get stuck for some time.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-10T13:17:52Z",
+          "tree_id": "53e29e858b3a588ad4676b243c1e426482ac242e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f2e0a17b994fe8d347e687ea75a526234c983a2b"
+        },
+        "date": 1789052027896,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14010535673333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.251789597733335,
             "unit": "seconds"
           }
         ]
