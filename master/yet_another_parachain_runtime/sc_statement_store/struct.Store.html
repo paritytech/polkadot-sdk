@@ -168,8 +168,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 )</h4></section></summary><div class="docblock"><p>Install the resolver that derives the retention mask for each submitted statement.</p>
 <p>Without it, the store persists every submission. Installation is first-wins: the resolver is
 wired once at node startup, so a second install means a wiring bug and is rejected loudly.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.maintain" class="method"><h4 class="code-header">pub fn <a href="#method.maintain" class="fn">maintain</a>(&amp;self)</h4></section></summary><div class="docblock"><p>Perform periodic store maintenance: permanently delete statements whose purge period has
-elapsed and refresh store metrics.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.maintain" class="method"><h4 class="code-header">pub fn <a href="#method.maintain" class="fn">maintain</a>(&amp;self)</h4></section></summary><div class="docblock"><p>Perform periodic store maintenance: drop explicit-affine statements no affinity covers,
+permanently delete statements whose purge period has elapsed, and refresh store metrics.</p>
 <p>Expired and evicted statements are not removed from the database immediately; they are kept
 in the <code>EXPIRED</code> column for <a href="constant.DEFAULT_PURGE_AFTER_SEC.html" title="constant yet_another_parachain_runtime::sc_statement_store::DEFAULT_PURGE_AFTER_SEC"><code>DEFAULT_PURGE_AFTER_SEC</code></a> (default 48h) to prevent
 re-acceptance while they may still be propagating over gossip. This method removes those

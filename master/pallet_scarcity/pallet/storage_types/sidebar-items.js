@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["CollectionMetadata","Collections","InstanceDeposits","InstanceMetadata","InstanceMetadataCount","Instances","ItemDefs","ItemMetadata","Locked","NextCollectionId","NextInstanceId","NftsByOwner"]};

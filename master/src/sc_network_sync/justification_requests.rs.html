@@ -316,8 +316,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#166 id=166 data-nosnippet>166</a>		}
 <a href=#167 id=167 data-nosnippet>167</a>	}
 <a href=#168 id=168 data-nosnippet>168</a>
-<a href=#169 id=169 data-nosnippet>169</a>	<span class="doccomment">/// Retry any pending request if a peer disconnected.
-<a href=#170 id=170 data-nosnippet>170</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>peer_disconnected(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: <span class="kw-2">&amp;</span>PeerId) {
+<a href=#169 id=169 data-nosnippet>169</a>	<span class="doccomment">/// Requeue a canceled request without recording a failure against the peer.
+<a href=#170 id=170 data-nosnippet>170</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>cancel_request(<span class="kw-2">&amp;mut </span><span class="self">self</span>, who: <span class="kw-2">&amp;</span>PeerId) {
 <a href=#171 id=171 data-nosnippet>171</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(request) = <span class="self">self</span>.active_requests.remove(who) {
 <a href=#172 id=172 data-nosnippet>172</a>			<span class="self">self</span>.pending_requests.push_front(request);
 <a href=#173 id=173 data-nosnippet>173</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
@@ -664,7 +664,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#514 id=514 data-nosnippet>514</a>				requests.active_requests.values().cloned().collect::&lt;HashSet&lt;<span class="kw">_</span>&gt;&gt;();
 <a href=#515 id=515 data-nosnippet>515</a>
 <a href=#516 id=516 data-nosnippet>516</a>			<span class="kw">for </span>peer <span class="kw">in </span><span class="kw-2">&amp;</span>active_peers {
-<a href=#517 id=517 data-nosnippet>517</a>				requests.peer_disconnected(peer)
+<a href=#517 id=517 data-nosnippet>517</a>				requests.cancel_request(peer)
 <a href=#518 id=518 data-nosnippet>518</a>			}
 <a href=#519 id=519 data-nosnippet>519</a>
 <a href=#520 id=520 data-nosnippet>520</a>			<span class="macro">assert!</span>(requests.active_requests.is_empty());

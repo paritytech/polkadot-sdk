@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["extension","pallet","weights"],"trait":["MintWithoutDeposit"]};

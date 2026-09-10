@@ -281,6 +281,51 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#131 id=131 data-nosnippet>131</a>		<span class="bool-val">false
 <a href=#132 id=132 data-nosnippet>132</a>	</span>}
 <a href=#133 id=133 data-nosnippet>133</a>}
+<a href=#134 id=134 data-nosnippet>134</a>
+<a href=#135 id=135 data-nosnippet>135</a><span class="attr">#[cfg(test)]
+<a href=#136 id=136 data-nosnippet>136</a></span><span class="kw">mod </span>tests {
+<a href=#137 id=137 data-nosnippet>137</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#138 id=138 data-nosnippet>138</a>
+<a href=#139 id=139 data-nosnippet>139</a>	<span class="attr">#[test]
+<a href=#140 id=140 data-nosnippet>140</a>	</span><span class="kw">fn </span>explicit_cancellation_preserves_replacement_response() {
+<a href=#141 id=141 data-nosnippet>141</a>		<span class="kw">let </span><span class="kw-2">mut </span>pending = PendingResponses::new();
+<a href=#142 id=142 data-nosnippet>142</a>		<span class="kw">let </span>peer = PeerId::random();
+<a href=#143 id=143 data-nosnippet>143</a>		<span class="kw">let </span>key = StrategyKey::new(<span class="string">"test"</span>);
+<a href=#144 id=144 data-nosnippet>144</a>		<span class="kw">let </span>(old_tx, old_rx) = oneshot::channel::&lt;()&gt;();
+<a href=#145 id=145 data-nosnippet>145</a>		pending.insert(
+<a href=#146 id=146 data-nosnippet>146</a>			peer,
+<a href=#147 id=147 data-nosnippet>147</a>			key,
+<a href=#148 id=148 data-nosnippet>148</a>			<span class="kw">async move </span>{
+<a href=#149 id=149 data-nosnippet>149</a>				old_rx.<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#150 id=150 data-nosnippet>150</a>				<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>((Box::new(<span class="number">1u32</span>) <span class="kw">as </span>Box&lt;<span class="kw">dyn </span>Any + Send&gt;, ProtocolName::Static(<span class="string">"test"</span>))))
+<a href=#151 id=151 data-nosnippet>151</a>			}
+<a href=#152 id=152 data-nosnippet>152</a>			.boxed(),
+<a href=#153 id=153 data-nosnippet>153</a>		);
+<a href=#154 id=154 data-nosnippet>154</a>		<span class="macro">assert!</span>(pending.next().now_or_never().is_none());
+<a href=#155 id=155 data-nosnippet>155</a>
+<a href=#156 id=156 data-nosnippet>156</a>		<span class="comment">// CancelRequest removes the old future before StartRequest installs its replacement.
+<a href=#157 id=157 data-nosnippet>157</a>		</span><span class="macro">assert!</span>(pending.remove(peer, key));
+<a href=#158 id=158 data-nosnippet>158</a>		<span class="kw">let </span>(new_tx, new_rx) = oneshot::channel::&lt;()&gt;();
+<a href=#159 id=159 data-nosnippet>159</a>		pending.insert(
+<a href=#160 id=160 data-nosnippet>160</a>			peer,
+<a href=#161 id=161 data-nosnippet>161</a>			key,
+<a href=#162 id=162 data-nosnippet>162</a>			<span class="kw">async move </span>{
+<a href=#163 id=163 data-nosnippet>163</a>				new_rx.<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#164 id=164 data-nosnippet>164</a>				<span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>((Box::new(<span class="number">2u32</span>) <span class="kw">as </span>Box&lt;<span class="kw">dyn </span>Any + Send&gt;, ProtocolName::Static(<span class="string">"test"</span>))))
+<a href=#165 id=165 data-nosnippet>165</a>			}
+<a href=#166 id=166 data-nosnippet>166</a>			.boxed(),
+<a href=#167 id=167 data-nosnippet>167</a>		);
+<a href=#168 id=168 data-nosnippet>168</a>		<span class="macro">assert!</span>(old_tx.send(()).is_err());
+<a href=#169 id=169 data-nosnippet>169</a>		new_tx.send(()).unwrap();
+<a href=#170 id=170 data-nosnippet>170</a>		<span class="kw">let </span>event = futures::executor::block_on(pending.next()).unwrap();
+<a href=#171 id=171 data-nosnippet>171</a>		<span class="macro">assert_eq!</span>(event.peer_id, peer);
+<a href=#172 id=172 data-nosnippet>172</a>		<span class="macro">assert_eq!</span>(event.key, key);
+<a href=#173 id=173 data-nosnippet>173</a>		<span class="kw">let </span>(response, <span class="kw">_</span>) = event.response.unwrap().unwrap();
+<a href=#174 id=174 data-nosnippet>174</a>		<span class="macro">assert_eq!</span>(<span class="kw-2">*</span>response.downcast::&lt;u32&gt;().unwrap(), <span class="number">2</span>);
+<a href=#175 id=175 data-nosnippet>175</a>		<span class="macro">assert_eq!</span>(pending.len(), <span class="number">0</span>);
+<a href=#176 id=176 data-nosnippet>176</a>		<span class="macro">assert!</span>(pending.next().now_or_never().is_none());
+<a href=#177 id=177 data-nosnippet>177</a>	}
+<a href=#178 id=178 data-nosnippet>178</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
