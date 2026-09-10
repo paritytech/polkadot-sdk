@@ -962,6 +962,7 @@ where
 			&block_hash,
 			&Default::default(),
 		);
+		<frame_system::Pallet<System>>::note_pool_transaction_validation();
 
 		enter_span! { sp_tracing::Level::TRACE, "validate_transaction" };
 
