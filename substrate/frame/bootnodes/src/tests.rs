@@ -99,7 +99,8 @@ fn add_bootnode_works() {
 		assert_eq!(BootnodeSet::<Test>::get().to_vec(), vec![bootnode.clone()]);
 		assert_eq!(LastSeq::<Test>::get(bootnode.node_key), Some(0));
 		System::assert_last_event(
-			Event::BootnodeAdded { node_key: bootnode.node_key, seq: 0 }.into(),
+			Event::BootnodeAdded { node_key: bootnode.node_key, addr: bootnode.addr, seq: 0 }
+				.into(),
 		);
 		assert_ok!(Bootnodes::do_try_state());
 	});
@@ -272,7 +273,9 @@ fn higher_seq_updates_entry_in_place() {
 		assert_eq!(node_keys(), vec![a.public(), b.public(), c.public()]);
 		assert_eq!(set[1], updated);
 		assert_eq!(LastSeq::<Test>::get(b.public()), Some(1));
-		System::assert_last_event(Event::BootnodeUpdated { node_key: b.public(), seq: 1 }.into());
+		System::assert_last_event(
+			Event::BootnodeUpdated { node_key: b.public(), addr: updated.addr, seq: 1 }.into(),
+		);
 		assert_ok!(Bootnodes::do_try_state());
 	});
 }

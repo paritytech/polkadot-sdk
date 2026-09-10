@@ -230,9 +230,9 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A bootnode was added to the set.
-		BootnodeAdded { node_key: ed25519::Public, seq: u64 },
+		BootnodeAdded { node_key: ed25519::Public, addr: BoundedVec<u8, T::MaxAddrLen>, seq: u64 },
 		/// A listed bootnode's entry was replaced by one with a higher sequence number.
-		BootnodeUpdated { node_key: ed25519::Public, seq: u64 },
+		BootnodeUpdated { node_key: ed25519::Public, addr: BoundedVec<u8, T::MaxAddrLen>, seq: u64 },
 		/// A bootnode was removed from the set.
 		BootnodeRemoved { node_key: ed25519::Public },
 	}
@@ -319,6 +319,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(Self::verify_pop(&bootnode), Error::<T>::InvalidSignature);
 
 		let node_key = bootnode.node_key;
+		let addr = bootnode.addr.clone();
 		let seq = bootnode.seq;
 		match position {
 			Some(index) => bootnodes[index] = bootnode,
@@ -328,8 +329,8 @@ impl<T: Config> Pallet<T> {
 		LastSeq::<T>::insert(node_key, seq);
 
 		Self::deposit_event(match position {
-			Some(_) => Event::BootnodeUpdated { node_key, seq },
-			None => Event::BootnodeAdded { node_key, seq },
+			Some(_) => Event::BootnodeUpdated { node_key, addr, seq },
+			None => Event::BootnodeAdded { node_key, addr, seq },
 		});
 		Ok(())
 	}
