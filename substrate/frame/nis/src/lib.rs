@@ -90,6 +90,8 @@ pub use pallet::*;
 pub use weights::WeightInfo;
 
 use alloc::{vec, vec::Vec};
+#[cfg(any(feature = "try-runtime", test))]
+use frame::deps::sp_runtime::TryRuntimeError;
 use frame::prelude::*;
 use fungible::{
 	Balanced as FunBalanced, Inspect as FunInspect, Mutate as FunMutate,
@@ -491,6 +493,11 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
+			Self::do_try_state()
+		}
+
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
 			let mut weight_counter =
 				WeightCounter { used: Weight::zero(), limit: T::MaxIntakeWeight::get() };
@@ -1133,6 +1140,120 @@ pub mod pallet {
 			Receipts::<T>::insert(index, receipt);
 
 			result
+		}
+	}
+	#[cfg(any(feature = "try-runtime", test))]
+	impl<T: Config> Pallet<T> {
+		/// Ensure the correctness of the state of this pallet.
+		///
+		/// This should be valid before or after each state transition of this pallet.
+		pub fn do_try_state() -> Result<(), TryRuntimeError> {
+			Self::try_state_queue_totals()?;
+			Self::try_state_receipt_index()?;
+			Self::try_state_proportion_owed()?;
+			Self::try_state_receipts_on_hold()?;
+
+			Ok(())
+		}
+
+		/// # Invariants
+		///
+		/// * `QueueTotals` is a cache of the number of bids and the sum of their amounts for each
+		///   queue, kept so that intake does not have to read every queue. It must therefore agree
+		///   with the bids actually held in `Queues`.
+		/// * A queue holding bids must be tracked by `QueueTotals`, otherwise those bids can never
+		///   be considered for intake.
+		fn try_state_queue_totals() -> Result<(), TryRuntimeError> {
+			let totals = QueueTotals::<T>::get();
+
+			for (index, (count, amount)) in totals.iter().enumerate() {
+				// `QueueTotals` is indexed by duration in periods, offset by one.
+				let duration = index as u32 + 1;
+				let queue = Queues::<T>::get(duration);
+
+				ensure!(
+					*count == queue.len() as u32,
+					"`QueueTotals` count must match the number of bids in the queue it tracks"
+				);
+
+				let total = queue
+					.iter()
+					.fold(BalanceOf::<T>::zero(), |sum, bid| sum.saturating_add(bid.amount));
+
+				ensure!(
+					*amount == total,
+					"`QueueTotals` amount must match the sum of the bids in the queue it tracks"
+				);
+			}
+
+			for (duration, queue) in Queues::<T>::iter() {
+				ensure!(
+					queue.is_empty() || (duration >= 1 && duration as usize <= totals.len()),
+					"a queue holding bids must be tracked by `QueueTotals`"
+				);
+			}
+
+			Ok(())
+		}
+
+		/// # Invariants
+		///
+		/// * `Summary::index` counts every receipt ever created and indices are handed out from it
+		///   sequentially, so no outstanding receipt may sit at or beyond it.
+		fn try_state_receipt_index() -> Result<(), TryRuntimeError> {
+			let summary = Summary::<T>::get();
+
+			for (index, _) in Receipts::<T>::iter() {
+				ensure!(
+					index < summary.index,
+					"a receipt must not be indexed at or beyond the next receipt index"
+				);
+			}
+
+			Ok(())
+		}
+
+		/// # Invariants
+		///
+		/// * `Summary::proportion_owed` is the running total of the proportion of effective total
+		///   issuance owed to receipt holders. It is used to decide how much more may be taken in
+		///   from the queues, so it must equal the sum over all outstanding receipts.
+		fn try_state_proportion_owed() -> Result<(), TryRuntimeError> {
+			let summary = Summary::<T>::get();
+
+			let owed = Receipts::<T>::iter().fold(Perquintill::zero(), |sum, (_, receipt)| {
+				sum.saturating_add(receipt.proportion)
+			});
+
+			ensure!(
+				summary.proportion_owed == owed,
+				"`Summary::proportion_owed` must match the sum of the proportions of all receipts"
+			);
+
+			Ok(())
+		}
+
+		/// # Invariants
+		///
+		/// * `Summary::receipts_on_hold` is the total still on hold in the accounts of receipt
+		///   owners. A communal receipt has had its funds moved into the pot and holds nothing, so
+		///   only private receipts contribute.
+		fn try_state_receipts_on_hold() -> Result<(), TryRuntimeError> {
+			let summary = Summary::<T>::get();
+
+			let on_hold =
+				Receipts::<T>::iter().fold(BalanceOf::<T>::zero(), |sum, (_, receipt)| {
+					sum.saturating_add(
+						receipt.owner.map_or(BalanceOf::<T>::zero(), |(_, on_hold)| on_hold),
+					)
+				});
+
+			ensure!(
+				summary.receipts_on_hold == on_hold,
+				"`Summary::receipts_on_hold` must match the total held for all private receipts"
+			);
+
+			Ok(())
 		}
 	}
 }

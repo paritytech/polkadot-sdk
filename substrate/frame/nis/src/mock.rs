@@ -146,6 +146,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	t.into()
 }
 
+pub fn build_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		Nis::do_try_state().expect("All invariants must hold after a test");
+	});
+}
+
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup, but without any balances.
 #[cfg(feature = "runtime-benchmarks")]
