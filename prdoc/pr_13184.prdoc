@@ -1,0 +1,14 @@
+title: 'bags-list: fix on_idle cursor skipping nodes on weight exhaustion'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `Pallet::on_idle `chose the persistent rebag cursor from a count-based split computed before the per-item loop ran, so it always pointed to `accounts[rebag_budget]`. The loop itself can stop earlier than that for two separate reasons: the weight meter runs out, or the pallet becomes locked mid-run. In both cases processed ends up smaller than `rebag_budget`, and the nodes between the point the loop actually stopped and `accounts[rebag_budget]` were never touched, yet the cursor still jumped past them. Those nodes stayed misplaced until an unrelated end-of-list wrap-around eventually restarted the scan from the head.
+
+    This computes the resume point after the loop instead, as `accounts[processed..]`. Since processed is the true count of items the loop actually got through, this slice is correct for every way the loop can end: the count budget being reached, the weight meter running out, or a lock, as well as the loop finishing the whole collected batch naturally. That also makes the old pre-loop split redundant, so it's removed rather than kept alongside the new logic.
+
+    Added a test with five misplaced nodes, a count budget of four, and a weight limit that only covers two rebags. It asserts the cursor resumes at the third node, the first one the weight limit actually forced it to skip, rather than jumping to the fifth as the old count-based logic would.
+
+    Closes #13138
+crates:
+- name: pallet-bags-list
+  bump: patch
