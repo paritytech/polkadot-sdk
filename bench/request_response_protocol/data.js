@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789051026815,
+  "lastUpdate": 1789056256297,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -122903,6 +122903,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2605516571,
             "range": "± 26374966",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e993420b81cbef53f469a2ea923117024ac71b55",
+          "message": "bridge-grandpa: detect forced changes after other consensus logs (#13160)\n\nGRANDPA bridge headers containing forced authority changes could be\naccepted when another GRANDPA consensus log appeared first. Filter for\nforced changes inside the digest search so these headers are\nconsistently rejected.\n\nNo API changes or storage migration are required.",
+          "timestamp": "2026-09-10T14:47:12Z",
+          "tree_id": "8303e81d32caf258fba458111b9e461947969dd5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e993420b81cbef53f469a2ea923117024ac71b55"
+        },
+        "date": 1789056215096,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20406007,
+            "range": "± 329117",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20507354,
+            "range": "± 422940",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21947453,
+            "range": "± 240542",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27367348,
+            "range": "± 645899",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 63595491,
+            "range": "± 1052671",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 396348282,
+            "range": "± 11102444",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2771426048,
+            "range": "± 14776841",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17316112,
+            "range": "± 300477",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17634136,
+            "range": "± 138526",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18287511,
+            "range": "± 329815",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22729627,
+            "range": "± 261496",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 67089487,
+            "range": "± 1102835",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 407352419,
+            "range": "± 8794597",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2928480340,
+            "range": "± 42747221",
             "unit": "ns/iter"
           }
         ]
