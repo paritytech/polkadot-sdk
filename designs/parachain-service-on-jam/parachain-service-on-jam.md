@@ -989,27 +989,26 @@ for it, it writes no state, records no log entry, and prunes nothing. Otherwise:
    If it matches neither, the candidate is rejected. A `pending_upgrade` whose
    deadline timeslot is `<=` the current timeslot matches nothing, even though
    it is still in state at this point. It is cleared in step 6(a).
+5. **Settlement check**: Every `(ParaId, StreamsRoot)` in the digest's
+   `messages_requires_roots` must be a key of `messages_member` (§8). If any is missing,
+   the candidate is rejected. This is the last check, so a candidate that passes it is
+   enacted.
+6. **Enactment**: Every state change the candidate causes, in order:
 
-5. **Reap timed-out pending upgrade**: If `ParaInfo.pending_upgrade` is set
-   and its deadline timeslot is `<=` the current timeslot, the upgrade is expired
-   before this candidate is considered: release the new code (see §6.1) and clear
+   (a) If `ParaInfo.pending_upgrade` is set and its deadline timeslot is `<=` the current
+   timeslot, the upgrade has expired: release the new code (see §6.1) and clear
    `pending_upgrade`.
-6. **Settlement check + head data update + code upgrade check**: Every
-   `(ParaId, StreamsRoot)` in the digest's `messages_requires_roots` must be a key of
-   `messages_member` (§8). If any is missing, the candidate is rejected. This is
-   the last check, so a candidate that passes it is enacted, and it runs before
-   the head write, so a rejected candidate publishes no root of its own.
 
-   Then writes the new `head_data` from the work digest into `ParaInfo` for the
-   parachain and immediately checks whether the candidate was validated with the
-   pending new PVF code. If so, activate the new code, release the old code (see
-   §6.1), and clear `pending_upgrade`. This must happen here because later
-   candidates from the same parachain in the same block may already use the new
-   code.
+   (b) Write the new `head_data` from the work digest into `ParaInfo` for the parachain.
 
-   Finally, if the digest carries a `messages_streams_root`, push it into the
-   parachain's settlement ring (§8). A root enters the ring only for a candidate
-   that enacted.
+   (c) If the candidate was validated with the pending new PVF code, activate the new code,
+   release the old code (see §6.1), and clear `pending_upgrade`. This must happen here
+   because later candidates from the same parachain in the same block may already use the
+   new code. (a) and (c) are mutually exclusive: step 4 admits the pending code only while
+   it is unexpired, so one candidate never both reaps and activates.
+
+   (d) If the digest carries a `messages_streams_root`, push it into the parachain's
+   settlement ring (§8). A root enters the ring only for a candidate that enacted.
 7. **Process host-function calls from Refine**: Replay the `UpwardMessage`s carried in
    the work digest, applying the effects each one the PVF emitted during Refine carries
    (code upgrades, transfers, authorizer queue updates, validator key updates, etc.).
