@@ -18,6 +18,7 @@
 //! The tests for the public proposal queue.
 
 use super::*;
+use sp_runtime::TokenError;
 
 #[test]
 fn backing_for_should_work() {
@@ -68,9 +69,40 @@ fn proposal_with_deposit_below_minimum_should_not_work() {
 }
 
 #[test]
+fn migrate_v2_converts_proposal_reserves_to_holds() {
+	use frame_support::{
+		traits::{fungible::InspectHold, OnRuntimeUpgrade, ReservableCurrency, StorageVersion},
+		BoundedVec,
+	};
+	new_test_ext().execute_with(|| {
+		// Pretend we are on storage version 1.
+		StorageVersion::new(1).put::<Democracy>();
+
+		let reason = RuntimeHoldReason::Democracy(crate::HoldReason::Proposal);
+		let amount = 5u64;
+
+		// Emulate a pre-v2 proposal: proposer (1) + seconder (2) with *reserved* deposits and a
+		// `DepositOf` entry in the legacy (balance) shape.
+		assert_ok!(<Balances as ReservableCurrency<_>>::reserve(&1, amount));
+		assert_ok!(<Balances as ReservableCurrency<_>>::reserve(&2, amount));
+		let depositors = BoundedVec::truncate_from(vec![1u64, 2u64]);
+		DepositOf::<Test>::insert(0, (depositors, amount));
+
+		assert_eq!(Balances::balance_on_hold(&reason, &1), 0);
+
+		crate::migrations::v2::MigrateToV2::<Test>::on_runtime_upgrade();
+
+		// Reserves became holds of the same amount.
+		assert_eq!(Balances::balance_on_hold(&reason, &1), amount);
+		assert_eq!(Balances::balance_on_hold(&reason, &2), amount);
+		assert_eq!(StorageVersion::get::<Democracy>(), 2);
+	});
+}
+
+#[test]
 fn poor_proposer_should_not_work() {
 	new_test_ext().execute_with(|| {
-		assert_noop!(propose_set_balance(1, 2, 11), BalancesError::<Test, _>::InsufficientBalance);
+		assert_noop!(propose_set_balance(1, 2, 11), TokenError::FundsUnavailable);
 	});
 }
 
@@ -78,10 +110,7 @@ fn poor_proposer_should_not_work() {
 fn poor_seconder_should_not_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(propose_set_balance(2, 2, 11));
-		assert_noop!(
-			Democracy::second(RuntimeOrigin::signed(1), 0),
-			BalancesError::<Test, _>::InsufficientBalance
-		);
+		assert_noop!(Democracy::second(RuntimeOrigin::signed(1), 0), TokenError::FundsUnavailable);
 	});
 }
 
