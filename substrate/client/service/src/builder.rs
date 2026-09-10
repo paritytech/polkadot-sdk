@@ -1018,6 +1018,7 @@ pub fn build_network<Block, Net, TxPool, IQ, Client>(
 		TracingUnboundedSender<sc_rpc::system::Request<Block>>,
 		sc_network_transactions::TransactionsHandlerController<<Block as BlockT>::Hash>,
 		Arc<SyncingService<Block>>,
+		Option<sc_network_bitswap::BitswapHandle>,
 	),
 	Error,
 >
@@ -1174,8 +1175,9 @@ where
 	pub blocks_pruning: BlocksPruning,
 }
 
-/// Build the network service, the network status sinks and an RPC sender, this is a lower-level
-/// version of [`build_network`] for those needing more control.
+/// Builds the lower-level network service.
+///
+/// The final tuple element contains the Bitswap handle when IPFS is enabled.
 pub fn build_network_advanced<Block, Net, TxPool, IQ, Client>(
 	params: BuildNetworkAdvancedParams<Block, Net, TxPool, IQ, Client>,
 ) -> Result<
@@ -1184,6 +1186,7 @@ pub fn build_network_advanced<Block, Net, TxPool, IQ, Client>(
 		TracingUnboundedSender<sc_rpc::system::Request<Block>>,
 		sc_network_transactions::TransactionsHandlerController<<Block as BlockT>::Hash>,
 		Arc<SyncingService<Block>>,
+		Option<sc_network_bitswap::BitswapHandle>,
 	),
 	Error,
 >
@@ -1222,6 +1225,7 @@ where
 	} = params;
 
 	let genesis_hash = client.info().genesis_hash;
+	let sync_service = Arc::new(sync_service);
 
 	let light_client_request_protocol_config = {
 		// Allow both outgoing and incoming requests.
@@ -1234,23 +1238,36 @@ where
 	// install request handlers to `FullNetworkConfiguration`
 	net_config.add_request_response_protocol(light_client_request_protocol_config);
 
-	// Initialize IPFS server.
-	let ipfs_config = net_config.network_config.ipfs_server.then(|| {
-		let (handler, bitswap_config) =
-			Net::bitswap_server(client.clone(), metrics_registry.cloned());
-		spawn_handle.spawn("bitswap-request-handler", Some("networking"), handler);
+	let (ipfs_config, bitswap) = if net_config.network_config.ipfs_server {
+		if !Net::SUPPORTS_IPFS {
+			return Err(Error::Other(
+				"the selected network backend does not support Bitswap; \
+					 set --network-backend litep2p or disable --ipfs-server"
+					.into(),
+			));
+		}
 
 		let ipfs_num_blocks = match blocks_pruning {
 			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => IPFS_MAX_BLOCKS,
 			BlocksPruning::Some(num) => std::cmp::min(num, IPFS_MAX_BLOCKS),
 		};
 
-		IpfsConfig {
-			bitswap_config,
-			block_provider: Box::new(IpfsIndexedTransactions::new(client.clone(), ipfs_num_blocks)),
-			bootnodes: net_config.network_config.ipfs_bootnodes.clone(),
-		}
-	});
+		let (ipfs_config, litep2p_bitswap_handle) = IpfsConfig::new(
+			Box::new(IpfsIndexedTransactions::new(client.clone(), ipfs_num_blocks)),
+			net_config.network_config.ipfs_bootnodes.clone(),
+		);
+
+		let (handler, handle) = sc_network_bitswap::start::<Block, _>(
+			client.clone(),
+			&*sync_service,
+			litep2p_bitswap_handle,
+			metrics_registry,
+		);
+
+		(Some(ipfs_config), Some((handler, handle)))
+	} else {
+		(None, None)
+	};
 
 	// Create transactions protocol and add it to the list of supported protocols of
 	let (transactions_handler_proto, transactions_config) =
@@ -1266,8 +1283,6 @@ where
 	// Start task for `PeerStore`
 	let peer_store = net_config.take_peer_store();
 	spawn_handle.spawn("peer-store", Some("networking"), peer_store.run());
-
-	let sync_service = Arc::new(sync_service);
 
 	let network_params = sc_network::config::Params::<Block, <Block as BlockT>::Hash, Net> {
 		role,
@@ -1290,6 +1305,13 @@ where
 	let has_bootnodes = !network_params.network_config.network_config.boot_nodes.is_empty();
 	let network_mut = Net::new(network_params)?;
 	let network = network_mut.network_service().clone();
+
+	// Essential: on storage chains block import depends on the bitswap actor, so its
+	// death must shut the node down instead of stalling sync silently.
+	let bitswap_handle = bitswap.map(|(handler, handle)| {
+		spawn_essential_handle.spawn("bitswap-service", Some("networking"), handler);
+		handle
+	});
 
 	let (tx_handler, tx_handler_controller) = transactions_handler_proto.build(
 		network.clone(),
@@ -1347,7 +1369,7 @@ where
 	// the service will shut down.
 	spawn_essential_handle.spawn_blocking("network-worker", Some("networking"), future);
 
-	Ok((network, system_rpc_tx, tx_handler_controller, sync_service.clone()))
+	Ok((network, system_rpc_tx, tx_handler_controller, sync_service.clone(), bitswap_handle))
 }
 
 /// Configuration for [`build_default_syncing_engine`].

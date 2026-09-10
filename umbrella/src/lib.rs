@@ -711,10 +711,6 @@ pub use pallet_scarcity;
 #[cfg(feature = "pallet-scheduler")]
 pub use pallet_scheduler;
 
-/// FRAME pallet for scored pools.
-#[cfg(feature = "pallet-scored-pool")]
-pub use pallet_scored_pool;
-
 /// FRAME sessions pallet.
 #[cfg(feature = "pallet-session")]
 pub use pallet_session;
@@ -1188,6 +1184,10 @@ pub use sc_mixnet;
 /// Substrate network protocol.
 #[cfg(feature = "sc-network")]
 pub use sc_network;
+
+/// Substrate Bitswap client/server service.
+#[cfg(feature = "sc-network-bitswap")]
+pub use sc_network_bitswap;
 
 /// Substrate network common.
 #[cfg(feature = "sc-network-common")]

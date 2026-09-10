@@ -92,8 +92,6 @@ where
 	pub sync_service: Arc<dyn sp_consensus::SyncOracle + Send + Sync>,
 	/// Underlying authority discovery service.
 	pub authority_discovery_service: AuthorityDiscoveryService,
-	/// Collations request receiver for network protocol v1.
-	pub collation_req_v1_receiver: IncomingRequestReceiver<request_v1::CollationFetchingRequest>,
 	/// Collations request receiver for network protocol v2.
 	pub collation_req_v2_receiver: IncomingRequestReceiver<request_v2::CollationFetchingRequest>,
 	/// Receiver for available data requests.
@@ -161,7 +159,6 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 		network_service,
 		sync_service,
 		authority_discovery_service,
-		collation_req_v1_receiver: _,
 		collation_req_v2_receiver: _,
 		available_data_req_receiver,
 		registry,
@@ -392,7 +389,6 @@ pub fn collator_overseer_builder<Spawner, RuntimeClient>(
 		network_service,
 		sync_service,
 		authority_discovery_service,
-		collation_req_v1_receiver: _,
 		collation_req_v2_receiver,
 		available_data_req_receiver,
 		registry,

@@ -47,7 +47,6 @@ use cumulus_client_consensus_aura::{
 };
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
-use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::{
 	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId,
 	RelayParentOffsetApi, TargetBlockRate,
@@ -212,7 +211,6 @@ where
 {
 	type BuildRpcExtensions = BuildParachainRpcExtensions<Block, RuntimeApi>;
 	type StartConsensus = StartConsensus;
-	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
 
 	fn start_dev_node(
 		mut config: Configuration,
@@ -252,7 +250,7 @@ where
 			keystore_container,
 			select_chain: _,
 			transaction_pool,
-			other: (_, mut telemetry, _, _, _, _),
+			other: (_, mut telemetry, _, _, _),
 		} = Self::new_partial(&config)?;
 
 		// Since this is a dev node, prevent it from connecting to peers.
@@ -276,7 +274,7 @@ where
 			(proto, *ss_config)
 		});
 
-		let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+		let (network, system_rpc_tx, tx_handler_controller, sync_service, _bitswap_handle) =
 			sc_service::build_network(sc_service::BuildNetworkParams {
 				config: &config,
 				client: client.clone(),
@@ -420,7 +418,12 @@ where
 		}
 		let hop_pool = hop
 			.as_ref()
-			.map(|params| params.build_pool(config.database.path().map(|p| p.to_path_buf())))
+			.map(|params| {
+				params.build_pool(
+					config.database.path().map(|p| p.to_path_buf()),
+					config.prometheus_registry(),
+				)
+			})
 			.transpose()
 			.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 		if let (Some(pool), Some(hop)) = (hop_pool.as_ref(), hop.as_ref()) {
@@ -726,12 +729,7 @@ where
 			telemetry.clone(),
 		);
 
-		let collator_service = CollatorService::new(
-			client.clone(),
-			Arc::new(task_manager.spawn_handle()),
-			announce_block,
-			client.clone(),
-		);
+		let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
 
 		let client_for_aura = client.clone();
 		let client_clone = client.clone();
@@ -899,12 +897,7 @@ where
 			prometheus_registry,
 			telemetry.clone(),
 		);
-		let collator_service = CollatorService::new(
-			client.clone(),
-			Arc::new(task_manager.spawn_handle()),
-			announce_block,
-			client.clone(),
-		);
+		let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
 
 		let client_clone = client.clone();
 		let params = aura::ParamsWithExport {

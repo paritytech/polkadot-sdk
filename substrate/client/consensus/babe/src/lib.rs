@@ -1751,6 +1751,9 @@ where
 }
 
 /// Gets the best finalized block and its slot, and prunes the given epoch tree.
+///
+/// Skips pruning when the finalized header has no BABE pre-digest — not all finalized blocks
+/// have to be BABE-authored.
 fn prune_finalized<Block, Client>(
 	client: Arc<Client>,
 	epoch_changes: &mut EpochChangesFor<Block, Epoch>,
@@ -1761,17 +1764,21 @@ where
 {
 	let info = client.info();
 
-	let finalized_slot = {
-		let finalized_header = client
-			.header(info.finalized_hash)
-			.map_err(|e| ConsensusError::ClientImport(e.to_string()))?
-			.expect(
-				"best finalized hash was given by client; finalized headers must exist in db; qed",
-			);
+	let finalized_header = client
+		.header(info.finalized_hash)
+		.map_err(|e| ConsensusError::ClientImport(e.to_string()))?
+		.expect("best finalized hash was given by client; finalized headers must exist in db; qed");
 
-		find_pre_digest::<Block>(&finalized_header)
-			.expect("finalized header must be valid; valid blocks have a pre-digest; qed")
-			.slot()
+	let finalized_slot = match find_pre_digest::<Block>(&finalized_header) {
+		Ok(pre_digest) => pre_digest.slot(),
+		Err(e) => {
+			debug!(
+				target: LOG_TARGET,
+				"Skipping epoch-tree pruning: finalized header {:?} has no BABE pre-digest ({e:?})",
+				info.finalized_hash,
+			);
+			return Ok(());
+		},
 	};
 
 	epoch_changes

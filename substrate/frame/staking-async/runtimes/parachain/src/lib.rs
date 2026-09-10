@@ -87,8 +87,6 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, Debug, Perbill, Permill,
 };
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use testnet_parachains_constants::westend::{
 	consensus::*, currency::*, fee::WeightToFee, snowbridge::EthereumNetwork, time::*,
@@ -135,12 +133,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	transaction_version: 16,
 	system_version: 1,
 };
-
-/// The version information used to identify this runtime when compiled natively.
-#[cfg(feature = "std")]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
@@ -2012,6 +2004,41 @@ impl_runtime_apis! {
 						id: AssetId(Location::parent()),
 						fun: Fungible(ExistentialDeposit::get()),
 					}
+				}
+
+				fn get_assets(n: u32) -> XcmAssets {
+					use frame_support::{assert_ok, traits::tokens::fungible::{Inspect, Mutate}};
+					let account: AccountId = frame_benchmarking::whitelisted_caller();
+					assert_ok!(<Balances as Mutate<_>>::mint_into(
+						&account,
+						<Balances as Inspect<_>>::minimum_balance(),
+					));
+					let amount = 1_000_000u128;
+					// Worst case: `n` distinct `ForeignAssets`. Keyed by a full `Location`, they
+					// book more proof size per deposit than trust-backed assets, and match later
+					// in `AssetTransactors`.
+					let assets: Vec<Asset> = (0..n)
+						.map(|i| {
+							// Another chain's assets pallet, so the id is genuinely foreign.
+							let asset_location = Location::new(
+								1,
+								[Parachain(3000), PalletInstance(53), GeneralIndex((1984 + i).into())],
+							);
+							assert_ok!(ForeignAssets::force_create(
+								RuntimeOrigin::root(),
+								asset_location.clone().into(),
+								account.clone().into(),
+								true,
+								1u128,
+							));
+							Asset { id: AssetId(asset_location), fun: Fungible(amount) }
+						})
+						.collect();
+					assets.into()
+				}
+
+				fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
+					Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
 				}
 			}
 

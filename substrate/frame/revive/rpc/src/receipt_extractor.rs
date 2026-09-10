@@ -781,30 +781,15 @@ mod tests {
 		assert_eq!(extractor.first_evm_block(), Some(50));
 	}
 
-	use codec::{Compact, Decode, Encode};
+	use crate::block_info_provider::test::chain_config;
+	use codec::{Compact, Encode};
 	use frame_system::EventRecord;
 	use revive_dev_runtime::{Runtime, RuntimeEvent};
-	use subxt::{
-		PolkadotConfig,
-		client::OfflineClient,
-		config::{polkadot::PolkadotConfigBuilder, substrate::SpecVersionForRange},
-		events::Events,
-		metadata::Metadata,
-	};
+	use subxt::{PolkadotConfig, client::OfflineClient, events::Events};
 
 	/// An offline client carrying the generated runtime metadata for every block.
 	fn offline_client() -> OfflineClient<PolkadotConfig> {
-		let metadata_bytes: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/revive_chain.scale"));
-		let metadata = Metadata::decode(&mut &metadata_bytes[..]).unwrap();
-		let config = PolkadotConfigBuilder::new()
-			.set_metadata_for_spec_versions(std::iter::once((0u32, metadata.into())))
-			.set_spec_version_for_block_ranges(std::iter::once(SpecVersionForRange {
-				block_range: 0..u64::MAX,
-				spec_version: 0,
-				transaction_version: 0,
-			}))
-			.build();
-		OfflineClient::<PolkadotConfig>::new_with_config(config)
+		OfflineClient::<PolkadotConfig>::new_with_config(chain_config())
 	}
 
 	/// Build `Events` by SCALE-encoding revive events against the generated runtime metadata.

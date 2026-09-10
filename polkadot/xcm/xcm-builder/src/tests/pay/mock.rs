@@ -16,6 +16,8 @@
 
 use super::*;
 
+use codec::Decode;
+
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{AsEnsureOriginWithArg, ConstU32, Disabled, Everything, Nothing},
