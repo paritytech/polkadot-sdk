@@ -629,6 +629,38 @@ impl<T: frame_system::Config> pallet_assets::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Account` (r:1 w:1)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	fn force_set_persistent() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `612`
+		//  Estimated: `3675`
+		// Minimum execution time: 33_977_000 picoseconds.
+		Weight::from_parts(34_979_000, 0)
+			.saturating_add(Weight::from_parts(0, 3675))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
+	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Account` (r:1 w:1)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	fn force_unset_persistent() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `612`
+		//  Estimated: `3675`
+		// Minimum execution time: 33_977_000 picoseconds.
+		Weight::from_parts(34_979_000, 0)
+			.saturating_add(Weight::from_parts(0, 3675))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
 	/// Storage: `ForeignAssets::Asset` (r:1 w:1)
 	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
 	/// Storage: `ForeignAssets::Account` (r:2 w:2)
