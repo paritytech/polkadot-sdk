@@ -28,7 +28,7 @@ use frame_system::RawOrigin;
 use sp_npos_elections::ElectionScore;
 use sp_runtime::traits::One;
 use sp_staking::budget::PaymentSource;
-use sp_std::boxed::Box;
+use sp_std::{boxed::Box, vec::Vec};
 
 #[benchmarks(where
 	T: crate::Config + crate::verifier::Config + crate::unsigned::Config,
