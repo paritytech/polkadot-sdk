@@ -30,8 +30,9 @@
 //! but no node can be listed without its operator's consent: every entry carries a proof of
 //! possession, a signature by the node key over a domain-separated payload that binds the JAM
 //! genesis hash, this para's id, a sequence number and the address. The sequence number must
-//! strictly exceed the last one accepted for that node key, and the last accepted value is kept
-//! after removal, so an old signature can never be replayed to re-list a node.
+//! strictly exceed the last one accepted for that node key and stay below `u64::MAX`, so a later
+//! entry is always possible. The last accepted value is kept after removal, so an old signature
+//! can never be replayed to re-list a node.
 //!
 //! The address is checked to be a structurally valid multiaddr made of known protocols; the
 //! runtime does not otherwise interpret it.
@@ -95,7 +96,8 @@ pub struct Bootnode<MaxAddrLen: Get<u32>> {
 	pub addr: BoundedVec<u8, MaxAddrLen>,
 	/// The ed25519 public key the node's peer id is derived from.
 	pub node_key: ed25519::Public,
-	/// Sequence number, strictly increasing per `node_key`, preventing replay of old entries.
+	/// Sequence number, strictly increasing per `node_key` and below `u64::MAX`, preventing
+	/// replay of old entries.
 	pub seq: u64,
 	/// Proof of possession: signature by `node_key` over [`pop_payload`].
 	pub sig: ed25519::Signature,
@@ -192,6 +194,8 @@ pub mod pallet {
 		MultiaddrContainsPeerId,
 		/// The sequence number does not exceed the last one accepted for this node key.
 		StaleSeq,
+		/// The sequence number is `u64::MAX`, which no later entry could exceed.
+		SeqTooLarge,
 		/// The proof of possession does not verify against the node key.
 		InvalidSignature,
 		/// The set already holds `MaxBootnodes` entries.
@@ -254,6 +258,7 @@ impl<T: Config> Pallet<T> {
 			multiaddr::Error::ContainsPeerId => Error::<T>::MultiaddrContainsPeerId,
 			_ => Error::<T>::InvalidMultiaddr,
 		})?;
+		ensure!(bootnode.seq < u64::MAX, Error::<T>::SeqTooLarge);
 		if let Some(last) = LastSeq::<T>::get(bootnode.node_key) {
 			ensure!(bootnode.seq > last, Error::<T>::StaleSeq);
 		}

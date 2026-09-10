@@ -200,6 +200,25 @@ fn seq_must_exceed_last_accepted() {
 }
 
 #[test]
+fn seq_u64_max_is_rejected_so_the_key_stays_updatable() {
+	new_test_ext().execute_with(|| {
+		let pair = pair(1);
+		assert_noop!(
+			Bootnodes::add_bootnode(
+				RuntimeOrigin::root(),
+				signed(&pair, u64::MAX, "/ip4/1.2.3.4/tcp/30333")
+			),
+			Error::<Test>::SeqTooLarge
+		);
+		assert_eq!(LastSeq::<Test>::get(pair.public()), None);
+		assert_ok!(Bootnodes::add_bootnode(
+			RuntimeOrigin::root(),
+			signed(&pair, u64::MAX - 1, "/ip4/1.2.3.4/tcp/30333")
+		));
+	});
+}
+
+#[test]
 fn higher_seq_updates_entry_in_place() {
 	new_test_ext().execute_with(|| {
 		let (a, b, c) = (pair(1), pair(2), pair(3));
