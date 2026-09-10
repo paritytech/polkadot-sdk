@@ -104,6 +104,23 @@ fn init_members_works() {
 }
 
 #[test]
+fn init_members_fails_with_overlapping_roles() {
+	build_and_execute(|| {
+		// disband the Alliance to init new
+		assert_ok!(Alliance::disband(RuntimeOrigin::root(), DisbandWitness::new(3, 0)));
+
+		// account 5 cannot be both a Fellow and an Ally
+		assert_noop!(
+			Alliance::init_members(RuntimeOrigin::root(), vec![8, 5], vec![5, 2]),
+			Error::<Test, ()>::FellowAndAllyOverlap,
+		);
+
+		// the Alliance remains uninitialized after the failed call
+		assert!(!Alliance::is_initialized());
+	})
+}
+
+#[test]
 fn disband_works() {
 	build_and_execute(|| {
 		let id_deposit = test_identity_info_deposit();
