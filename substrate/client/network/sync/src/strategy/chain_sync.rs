@@ -933,6 +933,22 @@ where
 					warn!(target: LOG_TARGET, "💔 Error importing block {hash:?}: {}", e.unwrap_err());
 					self.state_sync = None;
 					self.restart();
+					// Safety net behind the proactive `is_fork_at_best_block` detection: if a fork
+					// at our best block still slips through to an import failure (e.g. an orphan
+					// that was not the first ready block), `restart()` re-adds peers assuming
+					// the common block is our (forked) best whenever the import queue is
+					// non-trivial, so without re-anchoring we would keep requesting the
+					// canonical successor whose parent we never download, and never recover.
+					// Re-anchor every peer's common number down to the finalized block — the
+					// highest block we are certain is shared with honest peers — so the next
+					// round of requests re-downloads the canonical chain from the actual fork
+					// point.
+					let finalized_number = self.client.info().finalized_number;
+					for peer in self.peers.values_mut() {
+						if peer.common_number > finalized_number {
+							peer.common_number = finalized_number;
+						}
+					}
 				},
 				Err(BlockImportError::Cancelled) => {},
 			};
@@ -1346,7 +1362,19 @@ where
 						{
 							self.blocks.insert(start_block, blocks, *peer_id);
 						}
-						self.ready_blocks()
+						let ready_blocks = self.ready_blocks();
+						// Detect a fork at our own best block: the next block we would import does
+						// not build on our best queued block and we do not have its parent. This is
+						// easy to hit right after warp sync, when we import a few blocks that turn
+						// out to belong to a fork that gets reverted, leaving our best on a dead
+						// fork above the last finalized block. Importing now would fail with
+						// `UnknownParent` and we would never recover, so instead search for the
+						// real common ancestor with this peer and re-download from there.
+						if self.is_fork_at_best_block(&ready_blocks) {
+							self.start_ancestor_search(peer_id);
+							return Ok(());
+						}
+						ready_blocks
 					},
 					PeerSyncState::DownloadingGap(_) => {
 						peer.state = PeerSyncState::Available;
@@ -1996,6 +2024,82 @@ where
 				}
 			})
 			.collect()
+	}
+
+	/// Returns `true` if the run of blocks ready for import does not connect to our best chain:
+	/// some block's parent is neither the preceding block in the run, our best queued block, nor
+	/// anything else we already know about.
+	///
+	/// This is the signature of a fork at our own best block — our best chain has diverged from
+	/// the peers' chain and a block we would import is an orphan. `ready_blocks` returns blocks in
+	/// ascending order, but a run can be stitched together from ranges served by different peers
+	/// whose cross-range parent linkage is not otherwise validated, so we walk the whole run
+	/// rather than only its first block. A peer that is merely ahead of us on the *same* chain
+	/// hands us blocks that chain onto our best, so this does not misfire on regular catch-up.
+	fn is_fork_at_best_block(&self, ready_blocks: &[IncomingBlock<B>]) -> bool {
+		let mut expected_parent: Option<B::Hash> = None;
+		for block in ready_blocks {
+			// Without a header we cannot verify linkage; be conservative and do not classify the
+			// run as a fork (headers are always requested on this path).
+			let Some(header) = block.header.as_ref() else { return false };
+			let parent = header.parent_hash();
+			let connects = match expected_parent {
+				// Later blocks must build on the previous block in the run.
+				Some(previous) => *parent == previous,
+				// The first block must build on our best queued block or a block we already know.
+				None => *parent == self.best_queued_hash || self.is_known(parent),
+			};
+			if !connects {
+				return true;
+			}
+			expected_parent = Some(block.hash);
+		}
+		false
+	}
+
+	/// React to a fork detected at our best block by searching for the real common ancestor with
+	/// `peer_id`, the same way [`Self::on_validated_block_announce`] reacts to an unknown fork
+	/// announced by a peer (see #11085) — except that here the fork is revealed by a downloaded
+	/// block instead of an announcement, which also works while we are major syncing.
+	///
+	/// We drop the blocks we collected for this download (their first block is an orphan we must
+	/// not import) and put the peer into [`PeerSyncState::AncestorSearch`]. Once the search pins
+	/// the common block down to (at most) the finalized block, the canonical chain is
+	/// re-downloaded from the actual fork point, imported as a new branch, and the client re-orgs
+	/// onto it once the branch outgrows our dead fork.
+	fn start_ancestor_search(&mut self, peer_id: &PeerId) {
+		// Drop every downloaded-but-not-yet-imported block. The block that revealed the fork is an
+		// orphan we must not import, and any range we still hold above the finalized block might
+		// sit on the same dead fork, so all of it has to be re-downloaded once the search corrects
+		// the common block. Clearing the whole collection is deliberately blunt but keeps it
+		// consistent: a range- or peer-scoped drop could leave stale dead-fork blocks that later
+		// get imported as if they were canonical.
+		self.blocks.clear();
+
+		let finalized_number = self.client.info().finalized_number;
+		let best_queued = self.best_queued_number;
+		let Some(current) = self.peers.get_mut(peer_id).map(|peer| {
+			let current = peer.best_number.min(best_queued);
+			// The common block is at most the finalized one — everything above it is in doubt.
+			peer.common_number = peer.common_number.min(finalized_number);
+			peer.state = PeerSyncState::AncestorSearch {
+				current,
+				start: best_queued,
+				state: AncestorSearchState::ExponentialBackoff(One::one()),
+			};
+			current
+		}) else {
+			return;
+		};
+
+		warn!(
+			target: LOG_TARGET,
+			"💔 Detected a fork at our best block #{best_queued}; searching for the common ancestor with {peer_id} to recover.",
+		);
+
+		let request = ancestry_request::<B>(current);
+		let action = self.create_block_request_action(*peer_id, request);
+		self.actions.push(action);
 	}
 
 	/// Get justification requests scheduled by sync to be sent out.

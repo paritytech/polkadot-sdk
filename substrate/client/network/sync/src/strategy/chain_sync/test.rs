@@ -1842,3 +1842,336 @@ fn no_ancestry_search_during_major_sync() {
 		}
 	}
 }
+
+/// Regression test for <https://github.com/paritytech/polkadot-sdk/issues/10398>.
+///
+/// Right after warp sync a node can import a few blocks that turn out to belong to a fork that
+/// gets reverted, leaving its best chain a handful of blocks above the finalized block but on a
+/// dead fork. When it then downloads the canonical successor — whose parent it does not have —
+/// importing it would fail with `UnknownParent` and the node would get stuck forever.
+///
+/// We now detect this at download time: the first block ready for import does not build on our
+/// best block and its parent is unknown, so instead of importing it we put the peer into an
+/// ancestor search (the same fork-detection machinery #11085 uses for announcements) to find the
+/// real common block, and re-download the canonical chain from there. This test asserts that
+/// (1) the orphan block is *not* queued for import (so we never hit `UnknownParent`), (2) the peer
+/// is put into `AncestorSearch` with its common number pulled down to the finalized block, and
+/// (3) once the search completes the node re-downloads and imports the canonical chain from the
+/// fork point, i.e. it recovers on its own.
+#[test]
+fn fork_at_best_block_is_detected_at_download_and_recovers() {
+	sp_tracing::try_init_simple();
+
+	// The canonical chain #1..=20, built on a separate "network" client.
+	let net = Arc::new(TestClientBuilder::new().build());
+	let canonical = (0..20).map(|_| build_block(&net, None, false)).collect::<Vec<_>>();
+	let peer_best_number = *canonical.last().unwrap().header().number();
+
+	// Our node shares the canonical chain only up to the finalized block #10. On top of it we
+	// import a short fork #11..=14 that later gets reverted on the network, leaving our best at
+	// the fork tip (#14), four blocks above the finalized #10.
+	let client = Arc::new(TestClientBuilder::new().build());
+	for b in &canonical[..10] {
+		block_on(client.import(BlockOrigin::Own, b.clone())).unwrap();
+	}
+	let finalized_block = canonical[9].clone();
+	let finalized_number = *finalized_block.header().number();
+	client
+		.finalize_block(finalized_block.hash(), Some((*b"TEST", Vec::new())))
+		.unwrap();
+
+	let mut fork_parent = finalized_block.hash();
+	for _ in 0..4 {
+		fork_parent = build_block(&client, Some(fork_parent), true).hash();
+	}
+	let best_number = client.info().best_number;
+	assert!(best_number > finalized_number, "our best must sit above the finalized block");
+
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client.clone(),
+		5,
+		64,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		false,
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+
+	// A peer on the (unknown to us) canonical chain, ahead of us. Reproduce the state we reach
+	// after importing the now-reverted fork blocks from it: its common number is inflated up to
+	// our forked best, above the finalized block, and it is downloading the next block for us.
+	let peer_id = PeerId::random();
+	sync.peers.insert(
+		peer_id,
+		PeerSync {
+			peer_id,
+			common_number: best_number,
+			best_hash: canonical.last().unwrap().hash(),
+			best_number: peer_best_number,
+			state: PeerSyncState::DownloadingNew(best_number + 1),
+		},
+	);
+
+	// The peer answers our request for the canonical successor of our forked best (#15). We only
+	// have the fork's #14, not the canonical #14, so importing #15 would fail with `UnknownParent`.
+	let canonical_successor = canonical[best_number as usize].clone();
+	assert_eq!(*canonical_successor.header().number(), best_number + 1);
+	let request = BlockRequest::<Block> {
+		id: 0,
+		fields: BlockAttributes::HEADER | BlockAttributes::BODY | BlockAttributes::JUSTIFICATION,
+		from: FromBlock::Number(best_number + 1),
+		direction: Direction::Descending,
+		max: Some(1),
+	};
+	let _ = sync.take_actions();
+	sync.on_block_data(&peer_id, Some(request), create_block_response(vec![canonical_successor]))
+		.unwrap();
+
+	// (1) The orphan block must NOT be queued for import — we never reach `UnknownParent` — and
+	// (2) the peer must be put into an ancestor search with its common number pulled down to the
+	// finalized block.
+	let actions = sync.take_actions().collect::<Vec<_>>();
+	assert!(
+		!actions.iter().any(|a| matches!(a, SyncingAction::ImportBlocks { .. })),
+		"the orphan canonical successor must not be queued for import",
+	);
+	assert!(
+		actions
+			.iter()
+			.any(|a| matches!(a, SyncingAction::StartRequest { peer_id: p, .. } if *p == peer_id)),
+		"an ancestor search request must be issued for the peer",
+	);
+	assert!(
+		matches!(sync.peers.get(&peer_id).unwrap().state, PeerSyncState::AncestorSearch { .. }),
+		"the peer must be put into an ancestor search on fork detection",
+	);
+	assert_eq!(
+		sync.peers.get(&peer_id).unwrap().common_number,
+		finalized_number,
+		"common number must be pulled down to the finalized block on fork detection",
+	);
+
+	// Drive the ancestor search to completion. The next height to query is stored in the peer's
+	// `AncestorSearch { current, .. }` state; answer each query with the block the peer actually
+	// has at that height (the canonical one). The search converges on the highest shared block.
+	let mut guard = 0;
+	let common_after_search = loop {
+		guard += 1;
+		assert!(guard < 64, "ancestor search did not terminate");
+		let current = match sync.peers.get(&peer_id).unwrap().state {
+			PeerSyncState::AncestorSearch { current, .. } => current,
+			_ => break sync.peers.get(&peer_id).unwrap().common_number,
+		};
+		let ancestry_request = BlockRequest::<Block> {
+			id: 0,
+			fields: BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION,
+			from: FromBlock::Number(current),
+			direction: Direction::Ascending,
+			max: Some(1),
+		};
+		let ancestry_response =
+			create_block_response(vec![canonical[(current - 1) as usize].clone()]);
+		let _ = sync.take_actions();
+		sync.on_block_data(&peer_id, Some(ancestry_request), ancestry_response).unwrap();
+	};
+
+	// (3) The search pinned the common block to the finalized block — the highest block we share
+	// with the peer — and the node now re-downloads the canonical chain from there and imports it.
+	assert_eq!(
+		common_after_search, finalized_number,
+		"common ancestor must be the finalized block"
+	);
+
+	let _ = sync.take_actions();
+	let requests = sync.block_requests();
+	let (recovery_peer, recovery_request) =
+		requests.into_iter().next().expect("a recovery request must be issued");
+	assert_eq!(recovery_peer, peer_id);
+
+	let last = match recovery_request.from {
+		FromBlock::Number(n) => n,
+		FromBlock::Hash(_) => peer_best_number,
+	};
+	let max = recovery_request.max.unwrap() as u64;
+	let first = last - max + 1;
+	assert_eq!(
+		first,
+		finalized_number + 1,
+		"recovery must start at the fork point (finalized + 1)"
+	);
+
+	let mut recovery_blocks =
+		(first..=last).map(|n| canonical[(n - 1) as usize].clone()).collect::<Vec<_>>();
+	recovery_blocks.reverse();
+	let _ = sync.take_actions();
+	sync.on_block_data(&peer_id, Some(recovery_request), create_block_response(recovery_blocks))
+		.unwrap();
+
+	let actions = sync.take_actions().collect::<Vec<_>>();
+	assert!(
+		actions.iter().any(|a| matches!(
+			a,
+			SyncingAction::ImportBlocks { blocks, .. } if !blocks.is_empty()
+		)),
+		"the canonical chain from the fork point must be imported after the search (recovery)",
+	);
+}
+
+#[test]
+fn regular_catch_up_does_not_trigger_a_fork_ancestor_search() {
+	sp_tracing::try_init_simple();
+
+	// Canonical chain #1..=20 on a separate "network" client.
+	let net = Arc::new(TestClientBuilder::new().build());
+	let canonical = (0..20).map(|_| build_block(&net, None, false)).collect::<Vec<_>>();
+	let peer_best_number = *canonical.last().unwrap().header().number();
+
+	// Our node is on the canonical chain up to #10 — no fork this time.
+	let client = Arc::new(TestClientBuilder::new().build());
+	for b in &canonical[..10] {
+		block_on(client.import(BlockOrigin::Own, b.clone())).unwrap();
+	}
+	let best_number = client.info().best_number;
+
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client.clone(),
+		5,
+		64,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		false,
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+
+	// A peer ahead of us on the same canonical chain, downloading the next block for us.
+	let peer_id = PeerId::random();
+	sync.peers.insert(
+		peer_id,
+		PeerSync {
+			peer_id,
+			common_number: best_number,
+			best_hash: canonical.last().unwrap().hash(),
+			best_number: peer_best_number,
+			state: PeerSyncState::DownloadingNew(best_number + 1),
+		},
+	);
+
+	// The peer answers with the canonical successor of our best (#11), which builds on our best
+	// (#10). This is ordinary catch-up, not a fork, so it must not be misdetected.
+	let canonical_successor = canonical[best_number as usize].clone();
+	assert_eq!(*canonical_successor.header().number(), best_number + 1);
+	let request = BlockRequest::<Block> {
+		id: 0,
+		fields: BlockAttributes::HEADER | BlockAttributes::BODY | BlockAttributes::JUSTIFICATION,
+		from: FromBlock::Number(best_number + 1),
+		direction: Direction::Descending,
+		max: Some(1),
+	};
+	let _ = sync.take_actions();
+	sync.on_block_data(&peer_id, Some(request), create_block_response(vec![canonical_successor]))
+		.unwrap();
+
+	// The block builds on our best, so it must be queued for import and the peer must NOT be
+	// pulled into a fork ancestor search.
+	let actions = sync.take_actions().collect::<Vec<_>>();
+	assert!(
+		actions.iter().any(|a| matches!(a, SyncingAction::ImportBlocks { .. })),
+		"a block that builds on our best must be queued for import",
+	);
+	assert!(
+		!matches!(sync.peers.get(&peer_id).unwrap().state, PeerSyncState::AncestorSearch { .. }),
+		"regular catch-up must not trigger a fork ancestor search",
+	);
+}
+
+#[test]
+fn fork_at_best_block_is_detected_while_major_syncing() {
+	sp_tracing::try_init_simple();
+
+	// The canonical chain #1..=20, built on a separate "network" client.
+	let net = Arc::new(TestClientBuilder::new().build());
+	let canonical = (0..20).map(|_| build_block(&net, None, false)).collect::<Vec<_>>();
+	let peer_best_number = *canonical.last().unwrap().header().number();
+
+	// Same reverted-fork setup as `fork_at_best_block_is_detected_at_download_and_recovers`: we
+	// share the canonical chain up to the finalized #10 and sit on a reverted fork #11..=14.
+	let client = Arc::new(TestClientBuilder::new().build());
+	for b in &canonical[..10] {
+		block_on(client.import(BlockOrigin::Own, b.clone())).unwrap();
+	}
+	let finalized_block = canonical[9].clone();
+	let finalized_number = *finalized_block.header().number();
+	client
+		.finalize_block(finalized_block.hash(), Some((*b"TEST", Vec::new())))
+		.unwrap();
+
+	let mut fork_parent = finalized_block.hash();
+	for _ in 0..4 {
+		fork_parent = build_block(&client, Some(fork_parent), true).hash();
+	}
+	let best_number = client.info().best_number;
+
+	let mut sync = ChainSync::new(
+		ChainSyncMode::Full,
+		client.clone(),
+		5,
+		64,
+		ProtocolName::Static(""),
+		Arc::new(MockBlockDownloader::new()),
+		false,
+		None,
+		std::iter::empty(),
+	)
+	.unwrap();
+
+	// A peer far ahead of us on the canonical chain (#20 vs our forked best #14) makes the node
+	// classify itself as major syncing — the regime where the announce-based fork detection is
+	// skipped, so the download-time detection here must NOT be gated behind `is_major_syncing`.
+	let peer_id = PeerId::random();
+	sync.peers.insert(
+		peer_id,
+		PeerSync {
+			peer_id,
+			common_number: best_number,
+			best_hash: canonical.last().unwrap().hash(),
+			best_number: peer_best_number,
+			state: PeerSyncState::DownloadingNew(best_number + 1),
+		},
+	);
+	assert!(sync.is_major_syncing(), "test must run while major syncing");
+
+	let canonical_successor = canonical[best_number as usize].clone();
+	let request = BlockRequest::<Block> {
+		id: 0,
+		fields: BlockAttributes::HEADER | BlockAttributes::BODY | BlockAttributes::JUSTIFICATION,
+		from: FromBlock::Number(best_number + 1),
+		direction: Direction::Descending,
+		max: Some(1),
+	};
+	let _ = sync.take_actions();
+	sync.on_block_data(&peer_id, Some(request), create_block_response(vec![canonical_successor]))
+		.unwrap();
+
+	// Detection must fire even while major syncing: the orphan is not imported and the peer is put
+	// into an ancestor search with its common number pulled down to the finalized block.
+	let actions = sync.take_actions().collect::<Vec<_>>();
+	assert!(
+		!actions.iter().any(|a| matches!(a, SyncingAction::ImportBlocks { .. })),
+		"the orphan must not be queued for import while major syncing",
+	);
+	assert!(
+		matches!(sync.peers.get(&peer_id).unwrap().state, PeerSyncState::AncestorSearch { .. }),
+		"the peer must enter an ancestor search while major syncing",
+	);
+	assert_eq!(
+		sync.peers.get(&peer_id).unwrap().common_number,
+		finalized_number,
+		"common number must be pulled down to finalized while major syncing",
+	);
+}
