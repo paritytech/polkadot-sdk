@@ -16,6 +16,7 @@ doc:
 crates:
 - name: pallet-election-provider-multi-block
   bump: major
+  validate: false
 - name: asset-hub-westend-runtime
   bump: minor
 - name: pallet-staking-async-parachain-runtime
