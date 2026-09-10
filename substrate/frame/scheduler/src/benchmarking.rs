@@ -62,6 +62,23 @@ fn fill_schedule<T: Config>(when: BlockNumberFor<T>, n: u32) -> Result<(), &'sta
 	Ok(())
 }
 
+/// Add `n` items to the schedule at `when`, the last of which is unnamed.
+///
+/// Returns the address of that unnamed task.
+fn fill_schedule_last_unnamed<T: Config>(
+	when: BlockNumberFor<T>,
+	n: u32,
+) -> Result<TaskAddress<BlockNumberFor<T>>, &'static str> {
+	ensure!(n > 0, "need at least one task");
+	fill_schedule::<T>(when, n - 1)?;
+	let origin: <T as Config>::PalletsOrigin = frame_system::RawOrigin::Root.into();
+	let call = make_call::<T>(None);
+	let period = Some(((n - 1 + 100).into(), 100));
+	let address = Pallet::<T>::do_schedule(DispatchTime::At(when), period, 0, origin, call)?;
+	ensure!(Agenda::<T>::get(when).len() == n as usize, "didn't fill schedule");
+	Ok(address)
+}
+
 fn u32_to_name(i: u32) -> TaskName {
 	i.using_encoded(blake2_256)
 }
@@ -419,9 +436,8 @@ mod benchmarks {
 		let s = T::MaxScheduledPerBlock::get();
 		let when = BLOCK_NUMBER.into();
 
-		fill_schedule::<T>(when, s)?;
-		let name = u32_to_name(s - 1);
-		let address = Lookup::<T>::get(name).unwrap();
+		// `set_retry` only accepts unnamed tasks.
+		let address = fill_schedule_last_unnamed::<T>(when, s)?;
 		let (when, index) = address;
 		let period = BlockNumberFor::<T>::one();
 
@@ -474,7 +490,8 @@ mod benchmarks {
 		let address = Lookup::<T>::get(name).unwrap();
 		let (when, index) = address;
 		let period = BlockNumberFor::<T>::one();
-		assert!(Pallet::<T>::set_retry(RawOrigin::Root.into(), (when, index), 10, period).is_ok());
+		// `cancel_retry` still accepts named tasks, so keep the worst case: a fully named agenda.
+		assert!(Pallet::<T>::set_retry_named(RawOrigin::Root.into(), name, 10, period).is_ok());
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, (when, index));
