@@ -286,6 +286,10 @@ impl RequestResponseProtocol {
 
 		// Stamped on arrival, matching the libp2p backend, so that the serve time reported by
 		// `requests_in_success_total` covers the time spent queued and generating the response.
+		//
+		// Note that this does not cover the time between litep2p receiving the request and this
+		// event being polled from the handle. Covering it would require litep2p to stamp the
+		// request when it is received. See https://github.com/paritytech/polkadot-sdk/issues/13174.
 		let started = Instant::now();
 
 		let Some(inbound_queue) = &self.inbound_queue else {
