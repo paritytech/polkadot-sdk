@@ -262,28 +262,23 @@ impl<T: Config> Pallet<T> {
 		if let Some(last) = LastSeq::<T>::get(bootnode.node_key) {
 			ensure!(bootnode.seq > last, Error::<T>::StaleSeq);
 		}
+		let mut bootnodes = Bootnodes::<T>::get();
+		let position = bootnodes.iter().position(|b| b.node_key == bootnode.node_key);
+		ensure!(position.is_some() || !bootnodes.is_full(), Error::<T>::TooManyBootnodes);
 		ensure!(Self::verify_pop(&bootnode), Error::<T>::InvalidSignature);
 
 		let node_key = bootnode.node_key;
 		let seq = bootnode.seq;
-		let replaced = Bootnodes::<T>::try_mutate(|bootnodes| -> Result<bool, DispatchError> {
-			match bootnodes.iter_mut().find(|b| b.node_key == node_key) {
-				Some(existing) => {
-					*existing = bootnode;
-					Ok(true)
-				},
-				None => {
-					bootnodes.try_push(bootnode).map_err(|_| Error::<T>::TooManyBootnodes)?;
-					Ok(false)
-				},
-			}
-		})?;
+		match position {
+			Some(index) => bootnodes[index] = bootnode,
+			None => bootnodes.force_push(bootnode),
+		}
+		Bootnodes::<T>::put(bootnodes);
 		LastSeq::<T>::insert(node_key, seq);
 
-		Self::deposit_event(if replaced {
-			Event::BootnodeUpdated { node_key, seq }
-		} else {
-			Event::BootnodeAdded { node_key, seq }
+		Self::deposit_event(match position {
+			Some(_) => Event::BootnodeUpdated { node_key, seq },
+			None => Event::BootnodeAdded { node_key, seq },
 		});
 		Ok(())
 	}
