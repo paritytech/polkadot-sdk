@@ -1,0 +1,24 @@
+title: Serve light-client extrinsics-trie inclusion proof requests (RFC-0174)
+
+doc:
+- audience: Node Dev
+  description: |-
+    Implements the full-node side of RFC-0174: a new light-client network request,
+    `RemoteReadExtrinsicsRequest`, that returns every leaf of a block's extrinsics trie —
+    each extrinsic verbatim if its encoded length is below the trie's inline-value threshold
+    (33 bytes under trie `state_version` 1), or its hash otherwise. A light client can feed
+    the returned leaves into the same ordered-trie-root construction the runtime uses and
+    compare the result against the `extrinsics_root` in the block header, giving it a
+    trustless proof of inclusion (or non-inclusion) of a transaction, together with its
+    index, without downloading the block body.
+
+    The light-client request-response protocol name is bumped from `/light/2` to `/light/3`
+    to make support for the new request discoverable via multistream-select; `/light/2` is
+    kept as a fallback name, and all pre-existing request types continue to work unchanged
+    on both names.
+
+crates:
+- name: sc-network-light
+  bump: minor
+- name: sc-network
+  bump: none

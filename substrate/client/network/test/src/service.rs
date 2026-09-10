@@ -18,17 +18,22 @@
 
 use futures::prelude::*;
 
+use codec::Encode;
+use prost::Message;
+use sc_block_builder::BlockBuilderBuilder;
 use sc_consensus::{ImportQueue, Link};
 use sc_network::{
 	config::{self, FullNetworkConfiguration, MultiaddrWithPeerId, ProtocolId, TransportConfig},
 	event::Event,
 	peer_store::{PeerStore, PeerStoreProvider},
 	service::traits::{NotificationEvent, ValidationResult},
-	Multiaddr, NetworkEventStream, NetworkPeers, NetworkService, NetworkStateInfo, NetworkWorker,
-	NotificationMetrics, NotificationService, PeerId,
+	IfDisconnected, Multiaddr, NetworkEventStream, NetworkPeers, NetworkRequest, NetworkService,
+	NetworkStateInfo, NetworkWorker, NotificationMetrics, NotificationService, PeerId,
 };
 use sc_network_common::role::Roles;
-use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
+use sc_network_light::{
+	light_client_requests::handler::LightClientRequestHandler, schema::v1::light as light_schema,
+};
 use sc_network_sync::{
 	block_request_handler::BlockRequestHandler,
 	engine::SyncingEngine,
@@ -40,10 +45,15 @@ use sc_network_sync::{
 	},
 };
 use sp_blockchain::HeaderBackend;
-use sp_runtime::traits::{Block as BlockT, Zero};
+use sp_consensus::BlockOrigin;
+use sp_runtime::{
+	traits::{BlakeTwo256, Block as BlockT, Hash as HashT, Header as HeaderT, Zero},
+	StateVersion,
+};
 use substrate_test_runtime_client::{
-	runtime::{Block as TestBlock, Hash as TestHash},
-	TestClientBuilder, TestClientBuilderExt as _,
+	runtime::{currency::DOLLARS, Block as TestBlock, Hash as TestHash, Transfer},
+	BlockBuilderExt, ClientBlockImportExt, Sr25519Keyring, TestClientBuilder,
+	TestClientBuilderExt as _,
 };
 
 use std::{sync::Arc, time::Duration};
@@ -105,6 +115,11 @@ impl TestNetworkBuilder {
 		self
 	}
 
+	pub fn with_client(mut self, client: Arc<substrate_test_runtime_client::TestClient>) -> Self {
+		self.client = Some(client);
+		self
+	}
+
 	pub fn with_notification_protocol(mut self, config: config::NonDefaultSetConfig) -> Self {
 		self.notification_protocols.push(config);
 		self
@@ -121,10 +136,9 @@ impl TestNetworkBuilder {
 	}
 
 	pub fn build(mut self) -> (TestNetwork, Option<Box<dyn NotificationService>>) {
-		let client = self.client.as_mut().map_or(
-			Arc::new(TestClientBuilder::with_default_backend().build_with_longest_chain().0),
-			|v| v.clone(),
-		);
+		let client = self.client.take().unwrap_or_else(|| {
+			Arc::new(TestClientBuilder::with_default_backend().build_with_longest_chain().0)
+		});
 
 		let network_config = self.config.unwrap_or(config::NetworkConfiguration {
 			listen_addresses: self.listen_addresses,
@@ -854,4 +868,115 @@ async fn ensure_public_addresses_consistent_with_transport_not_memory() {
 		.build()
 		.0
 		.start_network();
+}
+
+/// The full-node side of [RFC-0174]: a peer can request every leaf of a block's extrinsics trie
+/// over the `/light/3` request-response protocol, recompute the trie root from them, and verify
+/// it against the `extrinsics_root` of the block's header, confirming inclusion (and index) of a
+/// tracked extrinsic without ever downloading the block body.
+///
+/// [RFC-0174]: https://github.com/polkadot-fellows/RFCs/pull/174
+#[tokio::test]
+async fn remote_read_extrinsics_request_works() {
+	let client = Arc::new(TestClientBuilder::with_default_backend().build_with_longest_chain().0);
+
+	let mut builder = BlockBuilderBuilder::new(&*client)
+		.on_parent_block(client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
+	builder
+		.push_transfer(Transfer {
+			from: Sr25519Keyring::Alice.into(),
+			to: Sr25519Keyring::Ferdie.into(),
+			amount: 42 * DOLLARS,
+			nonce: 0,
+		})
+		.unwrap();
+	let block = builder.build().unwrap().block;
+	let header = block.header.clone();
+	let tracked_extrinsic = block.extrinsics[0].encode();
+	client.import(BlockOrigin::Own, block).await.unwrap();
+
+	// Node 1 has the block; node 2 requests the leaves of its extrinsics trie from node 1.
+	let listen_addr = config::build_multiaddr![Memory(rand::random::<u64>())];
+	let (network1, _) = TestNetworkBuilder::new()
+		.with_client(client.clone())
+		.with_listen_addresses(vec![listen_addr.clone()])
+		.build();
+	let (node1, _) = network1.start_network();
+
+	let (network2, _) = TestNetworkBuilder::new()
+		.with_set_config(config::SetConfig {
+			reserved_nodes: vec![MultiaddrWithPeerId {
+				multiaddr: listen_addr,
+				peer_id: node1.local_peer_id(),
+			}],
+			..Default::default()
+		})
+		.build();
+	let (node2, _) = network2.start_network();
+
+	// The name the light client request handler is registered under in `TestNetworkBuilder`:
+	// no fork id is passed to `LightClientRequestHandler::new`.
+	let protocol_name = format!(
+		"/{}/light/3",
+		array_bytes::bytes2hex("", client.chain_info().genesis_hash.as_ref()),
+	);
+	let request = light_schema::Request {
+		request: Some(light_schema::request::Request::RemoteReadExtrinsicsRequest(
+			light_schema::RemoteReadExtrinsicsRequest { block: header.hash().encode() },
+		)),
+	};
+
+	// Node 2 discovers node 1's address asynchronously, through the reserved-peer set, so
+	// retry until the request can be dialed.
+	let response = tokio::time::timeout(Duration::from_secs(30), async {
+		loop {
+			match node2
+				.request(
+					node1.local_peer_id(),
+					protocol_name.clone().into(),
+					request.encode_to_vec(),
+					None,
+					IfDisconnected::TryConnect,
+				)
+				.await
+			{
+				Ok((response, _)) => break response,
+				Err(_) => tokio::time::sleep(Duration::from_millis(100)).await,
+			}
+		}
+	})
+	.await
+	.expect("node 2 connects to node 1 and the request succeeds; qed");
+
+	let response = light_schema::Response::decode(&response[..]).unwrap();
+	let leaves = match response.response {
+		Some(light_schema::response::Response::RemoteReadExtrinsicsResponse(response)) => {
+			response.extrinsics.expect("block is known to node 1; qed").leaves
+		},
+		response => panic!("unexpected response: {response:?}"),
+	};
+
+	// Verify the response the way a light client would: recompute the ordered trie root from the
+	// leaves and compare it against the `extrinsics_root` of the independently verified header.
+	// The test runtime computes its extrinsics root with trie `state_version` 0, so every leaf
+	// carries a full extrinsic.
+	let extrinsics = leaves
+		.into_iter()
+		.map(|leaf| match leaf.value.expect("leaf value is always set; qed") {
+			light_schema::extrinsic_leaf::Value::Raw(extrinsic) => extrinsic,
+			light_schema::extrinsic_leaf::Value::Hash(hash) => {
+				panic!("state_version 0 trie inlines all values, but got a hash: {hash:?}")
+			},
+		})
+		.collect::<Vec<_>>();
+	assert_eq!(
+		BlakeTwo256::ordered_trie_root(extrinsics.clone(), StateVersion::V0),
+		*header.extrinsics_root(),
+	);
+
+	// The verified list proves inclusion of the tracked extrinsic, and its index.
+	assert_eq!(extrinsics.iter().position(|extrinsic| *extrinsic == tracked_extrinsic), Some(0),);
 }
