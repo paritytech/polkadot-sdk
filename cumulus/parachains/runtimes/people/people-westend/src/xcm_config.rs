@@ -22,33 +22,30 @@ use crate::{TransactionByteFee, CENTS};
 use frame_support::{
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::imbalance::ResolveTo, ConstU32, ConstU8, Contains,
-		Equals, Everything, LinearStoragePrice, Nothing,
+		fungible::HoldConsideration, ConstU32, ConstU8, Contains, Equals, Everything,
+		LinearStoragePrice, Nothing,
 	},
 };
 use frame_system::EnsureRoot;
-use pallet_collator_selection::StakingPotAccountId;
 use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
 use parachains_common::xcm_config::{
 	AliasAccountId32FromSiblingSystemChain, AllSiblingSystemParachains, ConcreteAssetFromSystem,
-	ParentRelayOrSiblingParachains, RelayOrOtherSystemParachains,
+	LocalAndSiblingLocationToAccountId, ParentRelayOrSiblingParachains,
+	RelayOrOtherSystemParachains,
 };
-use polkadot_parachain_primitives::primitives::Sibling;
 use testnet_parachains_constants::westend::locations::AssetHubLocation;
 use westend_runtime_constants::system_parachain::COLLECTIVES_ID;
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
-	AccountId32Aliases, AliasChildLocation, AliasOriginRootUsingFilter,
-	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
-	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
-	DescribeFamily, DescribeTerminus, EnsureXcmOrigin, FrameTransactionalProcessor,
-	FungibleAdapter, HashedDescription, IsConcrete, IsParentsOnly, LocationAsSuperuser,
-	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
-	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
-	XcmFeeManagerFromComponents,
+	AliasChildLocation, AliasOriginRootUsingFilter, AllowExplicitUnpaidExecutionFrom,
+	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
+	AllowTopLevelPaidExecutionFrom, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
+	DescribeAllTerminal, DescribeFamily, DescribeTerminus, EnsureXcmOrigin,
+	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete, IsParentsOnly,
+	LocationAsSuperuser, ParentAsSuperuser, RelayChainAsNative, SendXcmFeeToAccount,
+	SiblingParachainAsNative, SignedAccountId32AsNative, SignedToAccountId32,
+	SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId, WeightInfoBounds,
+	WithComputedOrigin, WithUniqueTopic, XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
 
@@ -94,12 +91,8 @@ pub type PriceForSiblingParachainDelivery = polkadot_runtime_common::xcm_sender:
 /// when determining ownership of accounts for asset transacting and when attempting to use XCM
 /// `Transact` in order to determine the dispatch Origin.
 pub type LocationToAccountId = (
-	// The parent (Relay-chain) origin converts to the parent `AccountId`.
-	ParentIsPreset<AccountId>,
-	// Sibling parachain origins convert to AccountId via the `ParaId::into`.
-	SiblingParachainConvertsVia<Sibling, AccountId>,
-	// Straight up local `AccountId32` origins just alias directly to `AccountId`.
-	AccountId32Aliases<RelayNetwork, AccountId>,
+	// Parent Relay Chain, sibling parachains, and local accounts.
+	LocalAndSiblingLocationToAccountId<RelayNetwork, AccountId>,
 	// Here/local root location to `AccountId`.
 	HashedDescription<AccountId, DescribeTerminus>,
 	// Foreign locations alias into accounts according to a hash of their standard description.
@@ -253,16 +246,8 @@ impl xcm_executor::Config for XcmConfig {
 		RuntimeCall,
 		MaxInstructions,
 	>;
-	// TODO: once DAP allocates collator budgets, redirect XCM execution fees to the accumulation
-	// account instead of StakingPot (use crate::DealWithFeesAccumulate as the OnUnbalanced
-	// handler).
-	type Trader = UsingComponents<
-		WeightToFee,
-		RelayLocation,
-		AccountId,
-		Balances,
-		ResolveTo<StakingPotAccountId<Runtime>, Balances>,
-	>;
+	type Trader =
+		parachains_common::xcm_config::StakingPotAsTrader<Runtime, WeightToFee, RelayLocation>;
 	type ResponseHandler = PolkadotXcm;
 	type AssetTrap = PolkadotXcm;
 	type SubscriptionService = PolkadotXcm;
