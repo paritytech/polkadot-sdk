@@ -12,7 +12,8 @@ doc:
       `Id = Self::RuntimeFreezeReason`.
     - `RuntimeFreezeReason` added, set it to the runtime's overarching freeze reason.
     - `OldCurrency: InspectLockableCurrency` added, only to release the legacy lock while
-      migrating. Removable once every legacy lock is gone.
+      migrating. Set it to the same currency as `Currency`. It is marked `#[deprecated]` from the
+      start and is removed, together with `XCM_LOCK_ID`, once every legacy lock is gone.
 
     Runtimes therefore need their fungible to expose that reason: `FreezeIdentifier =
     RuntimeFreezeReason` and a `MaxFreezes` covering its variant count. In-tree runtimes that had

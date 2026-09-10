@@ -553,10 +553,9 @@ pub mod locks_to_freezes {
 					T::Currency::balance_frozen(&Pallet::<T>::freeze_reason(), &who) == expected,
 					"a locked fungible was not converted into a freeze"
 				);
-				ensure!(
-					T::OldCurrency::balance_locked(XCM_LOCK_ID, &who).is_zero(),
-					"a legacy lock was left behind"
-				);
+				#[allow(deprecated)]
+				let locked = T::OldCurrency::balance_locked(XCM_LOCK_ID, &who);
+				ensure!(locked.is_zero(), "a legacy lock was left behind");
 			}
 
 			Ok(())

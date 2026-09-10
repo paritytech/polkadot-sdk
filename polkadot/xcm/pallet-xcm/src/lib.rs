@@ -284,7 +284,14 @@ pub mod pallet {
 		type RuntimeFreezeReason: From<FreezeReason>;
 
 		/// The legacy lockable currency, retained only to release [`XCM_LOCK_ID`] while migrating
-		/// accounts over to freezes. Removable once every legacy lock is gone.
+		/// accounts over to freezes. Set it to the same currency as [`Self::Currency`].
+		///
+		/// Deprecated: remove it, together with [`XCM_LOCK_ID`], once
+		/// [`migration::MigrateLocksToFreezes`] has run and every legacy lock is gone.
+		#[deprecated(
+			note = "Only used to release the legacy `XCM_LOCK_ID` locks; will be removed once every \
+			lock has been migrated to a freeze by `migration::MigrateLocksToFreezes`."
+		)]
 		type OldCurrency: InspectLockableCurrency<
 			Self::AccountId,
 			Moment = BlockNumberFor<Self>,
@@ -3614,6 +3621,7 @@ impl<T: Config> Pallet<T> {
 		let frozen = locks.iter().map(|(amount, _)| *amount).max().unwrap_or_else(Zero::zero);
 		// A zero `amount` thaws, rather than leaving a zero-amount freeze behind.
 		T::Currency::set_freeze(&Self::freeze_reason(), who, frozen)?;
+		#[allow(deprecated)]
 		T::OldCurrency::remove_lock(XCM_LOCK_ID, who);
 		Ok(())
 	}
@@ -3665,6 +3673,7 @@ impl<T: Config> Pallet<T> {
 			let expected = locks.iter().map(|(amount, _)| *amount).max().unwrap_or_else(Zero::zero);
 			let frozen = T::Currency::balance_frozen(&Self::freeze_reason(), &who);
 			// Unmigrated accounts still carry the legacy lock.
+			#[allow(deprecated)]
 			let locked = T::OldCurrency::balance_locked(XCM_LOCK_ID, &who);
 			ensure!(
 				frozen == expected || (frozen.is_zero() && locked == expected),
