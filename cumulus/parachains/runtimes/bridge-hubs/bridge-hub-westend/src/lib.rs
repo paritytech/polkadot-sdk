@@ -104,7 +104,8 @@ use testnet_parachains_constants::westend::{
 };
 use xcm::{Version as XcmVersion, VersionedLocation};
 
-use westend_runtime_constants::system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID};
+#[cfg(feature = "runtime-benchmarks")]
+use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
@@ -145,87 +146,11 @@ pub type UncheckedExtrinsic =
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
-	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
-	pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
-	InitStorageVersions,
-	// unreleased
-	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6<Runtime>,
-	cumulus_pallet_xcmp_queue::migration::v7::MigrateV6ToV7<Runtime>,
-	pallet_bridge_messages::migration::v1::MigrationToV1<
-		Runtime,
-		bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
-	>,
-	bridge_to_rococo_config::migration::FixMessagesV1Migration<
-		Runtime,
-		bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
-	>,
-	frame_support::migrations::RemoveStorage<
-		BridgeRococoMessagesPalletName,
-		OutboundLanesCongestedSignalsKey,
-		RocksDbWeight,
-	>,
-	pallet_bridge_relayers::migration::v1::MigrationToV1<
-		Runtime,
-		bridge_common_config::BridgeRelayersInstance,
-		bp_messages::LegacyLaneId,
-	>,
-	pallet_bridge_relayers::migration::v2::MigrationToV2<
-		Runtime,
-		bridge_common_config::BridgeRelayersInstance,
-		bp_messages::LegacyLaneId,
-	>,
-	snowbridge_pallet_system::migration::v0::InitializeOnUpgrade<
-		Runtime,
-		ConstU32<BRIDGE_HUB_ID>,
-		ConstU32<ASSET_HUB_ID>,
-	>,
-	snowbridge_pallet_system::migration::FeePerGasMigrationV0ToV1<Runtime>,
-	bridge_to_ethereum_config::migrations::MigrationForXcmV5<Runtime>,
-	pallet_session::migrations::v1::MigrateV0ToV1<
-		Runtime,
-		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
-	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
 );
-
-parameter_types! {
-	pub const BridgeRococoMessagesPalletName: &'static str = "BridgeRococoMessages";
-	pub const OutboundLanesCongestedSignalsKey: &'static str = "OutboundLanesCongestedSignals";
-}
-
-/// Migration to initialize storage versions for pallets added after genesis.
-///
-/// Ideally this would be done automatically (see
-/// <https://github.com/paritytech/polkadot-sdk/pull/1297>), but it probably won't be ready for some
-/// time and it's beneficial to get try-runtime-cli on-runtime-upgrade checks into the CI, so we're
-/// doing it manually.
-pub struct InitStorageVersions;
-
-impl frame_support::traits::OnRuntimeUpgrade for InitStorageVersions {
-	fn on_runtime_upgrade() -> Weight {
-		use frame_support::traits::{GetStorageVersion, StorageVersion};
-		use sp_runtime::traits::Saturating;
-
-		let mut writes = 0;
-
-		if PolkadotXcm::on_chain_storage_version() == StorageVersion::new(0) {
-			PolkadotXcm::in_code_storage_version().put::<PolkadotXcm>();
-			writes.saturating_inc();
-		}
-
-		if Balances::on_chain_storage_version() == StorageVersion::new(0) {
-			Balances::in_code_storage_version().put::<Balances>();
-			writes.saturating_inc();
-		}
-
-		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(2, writes)
-	}
-}
 
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
