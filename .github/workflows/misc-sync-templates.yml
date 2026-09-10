@@ -221,14 +221,17 @@ jobs:
           rm -f "${{ env.template-path }}/src/lib.rs"
 
       - name: Run psvm on monorepo workspace dependencies
+        env:
+          PATCH_INPUT: ${{ github.event.inputs.patch }}
+          STABLE_RELEASE_BRANCH: ${{ github.event.inputs.stable_release_branch }}
         run: |
-          patch_input="${{ github.event.inputs.patch }}"
+          patch_input="$PATCH_INPUT"
           if [[ -n "$patch_input" ]]; then
             patch="-$patch_input"
           else
             patch=""
           fi
-          psvm -o -v "${{ github.event.inputs.stable_release_branch }}$patch" -p ./Cargo.toml
+          psvm -o -v "${STABLE_RELEASE_BRANCH}$patch" -p ./Cargo.toml
         working-directory: polkadot-sdk/
       - name: Copy over required workspace dependencies
         run: |
