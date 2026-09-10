@@ -30,7 +30,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::traits::EnsureOrigin;
+use frame_support::{storage::with_storage_layer, traits::EnsureOrigin};
 use hrmp_primitives::{
 	ChannelId, FailureReason, HrmpRegistry, MessageToPara, MessageToParaV1, MessageToRelay,
 	MessageToRelayV1, ParaId, ParaNotification, ParaRequest,
@@ -292,7 +292,6 @@ pub mod pallet {
 		///
 		/// A transport failure is only logged and surfaced as an event: every caller has already
 		/// committed relay-chain state that must not be unwound just because the report bounced.
-		#[allow(dead_code)]
 		fn report(para_id: ParaId, message_id: u64, message: MessageToParaV1) {
 			if T::SendToPara::send(MessageToPara::V1(message)).is_err() {
 				log::error!(
@@ -309,8 +308,38 @@ pub mod pallet {
 			max_capacity: u32,
 			max_message_size: u32,
 		) {
-			let _ = (channel, message_id, max_capacity, max_message_size);
-			todo!()
+			// A refusal is reported rather than raised, so this call always succeeds and the
+			// dispatch's own layer never unwinds. The registry is not required to be atomic on
+			// failure, so it gets one of its own.
+			let outcome = with_storage_layer(|| {
+				T::Registry::open_channel(channel, max_capacity, max_message_size)
+					.map(|()| (max_capacity, max_message_size))
+			});
+
+			let notification = match &outcome {
+				Ok(_) => {
+					Self::deposit_event(Event::ChannelOpened { channel, message_id });
+					ParaNotification::ChannelOpened { channel }
+				},
+				Err(reason) => {
+					Self::deposit_event(Event::OpenChannelRejected {
+						channel,
+						message_id,
+						reason: reason.clone(),
+					});
+					ParaNotification::ChannelOpenFailure { channel, reason: reason.clone() }
+				},
+			};
+
+			// Both ends asked for this channel, and only the relay chain knows whether it exists.
+			Self::on_notify_para(channel.sender, notification.clone());
+			Self::on_notify_para(channel.recipient, notification);
+
+			Self::report(
+				channel.sender,
+				message_id,
+				MessageToParaV1::OpenChannelResponse { channel, message_id, outcome },
+			);
 		}
 
 		fn on_force_open_channel(
