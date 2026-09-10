@@ -21,7 +21,7 @@ use mock::*;
 
 #[test]
 fn should_feed_values_from_member() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		System::set_block_number(1);
 		let account_id: AccountId = 1;
 
@@ -66,7 +66,7 @@ fn should_feed_values_from_member() {
 
 #[test]
 fn should_feed_values_from_root() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let root_feeder: AccountId = OraclePalletId::get().into_account_truncating();
 
 		assert_ok!(ModuleOracle::feed_values(
@@ -101,7 +101,7 @@ fn should_feed_values_from_root() {
 
 #[test]
 fn should_not_feed_values_from_root_directly() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let root_feeder: AccountId = OraclePalletId::get().into_account_truncating();
 
 		assert_noop!(
@@ -116,7 +116,7 @@ fn should_not_feed_values_from_root_directly() {
 
 #[test]
 fn should_read_raw_values() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let key: u32 = 50;
 
 		let raw_values = ModuleOracle::read_raw_values(&key);
@@ -144,7 +144,7 @@ fn should_read_raw_values() {
 
 #[test]
 fn should_combined_data() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let key: u32 = 50;
 
 		assert_ok!(ModuleOracle::feed_values(
@@ -172,14 +172,14 @@ fn should_combined_data() {
 
 #[test]
 fn should_return_none_for_non_exist_key() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_eq!(ModuleOracle::get(&50), None);
 	});
 }
 
 #[test]
 fn multiple_calls_should_fail() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(ModuleOracle::feed_values(
 			RuntimeOrigin::signed(1),
 			vec![(50, 1300)].try_into().unwrap()
@@ -208,7 +208,7 @@ fn multiple_calls_should_fail() {
 
 #[test]
 fn get_all_values_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let eur: u32 = 1;
 		let jpy: u32 = 2;
 
@@ -274,7 +274,7 @@ fn get_all_values_should_work() {
 
 #[test]
 fn change_member_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		set_members(vec![2, 3, 4]);
 		<ModuleOracle as ChangeMembers<AccountId>>::change_members_sorted(&[4], &[1], &[2, 3, 4]);
 		assert_noop!(
@@ -297,7 +297,7 @@ fn change_member_should_work() {
 
 #[test]
 fn should_clear_data_for_removed_members() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(ModuleOracle::feed_values(
 			RuntimeOrigin::signed(1),
 			vec![(50, 1000)].try_into().unwrap()
@@ -314,8 +314,41 @@ fn should_clear_data_for_removed_members() {
 }
 
 #[test]
-fn values_are_updated_on_feed() {
+fn try_state_detects_raw_values_of_non_feeders() {
 	new_test_ext().execute_with(|| {
+		assert_ok!(ModuleOracle::feed_values(
+			RuntimeOrigin::signed(1),
+			vec![(50, 1000)].try_into().unwrap()
+		));
+		assert_ok!(ModuleOracle::do_try_state());
+
+		// Member 1 leaves the oracle, but its data is not cleared.
+		set_members(vec![2, 3]);
+		assert!(ModuleOracle::do_try_state().is_err());
+
+		// Clearing the data of the removed member restores the invariant.
+		ModuleOracle::change_members_sorted(&[], &[1], &[2, 3]);
+		assert_ok!(ModuleOracle::do_try_state());
+	});
+}
+
+#[test]
+fn try_state_detects_values_timestamped_in_the_future() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(ModuleOracle::feed_values(
+			RuntimeOrigin::signed(1),
+			vec![(50, 1000)].try_into().unwrap()
+		));
+		assert_ok!(ModuleOracle::do_try_state());
+
+		Timestamp::set_timestamp(12344);
+		assert!(ModuleOracle::do_try_state().is_err());
+	});
+}
+
+#[test]
+fn values_are_updated_on_feed() {
+	build_and_execute(|| {
 		assert_ok!(ModuleOracle::feed_values(
 			RuntimeOrigin::signed(1),
 			vec![(50, 900)].try_into().unwrap()
