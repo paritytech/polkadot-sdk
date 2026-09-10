@@ -17,7 +17,7 @@
 //! The generated subxt client.
 //! Generated against a substrate chain configured with [`pallet_revive`] using:
 //! subxt metadata  --url ws://localhost:9944 -o rpc/revive_chain.scale
-use crate::client::spec_version_cache::SpecVersionCache;
+use crate::client::runtime_version_cache::RuntimeVersionCache;
 use scale_info_legacy::TypeRegistrySet;
 use std::sync::Arc;
 use subxt::{
@@ -25,25 +25,25 @@ use subxt::{
 	metadata::ArcMetadata,
 };
 
-/// [`PolkadotConfig`] extended with a shared `SpecVersionCache`, so at-block clients answer
-/// the per-block spec-version lookup locally instead of issuing a `Core_version` runtime call
+/// [`PolkadotConfig`] extended with a shared `RuntimeVersionCache`, so at-block clients answer
+/// the per-block runtime-version lookup locally instead of issuing a `Core_version` runtime call
 /// for every block the subscriptions have already observed.
 #[derive(Clone, Debug, Default)]
 pub struct SrcChainConfig {
 	inner: PolkadotConfig,
-	spec_versions: Arc<SpecVersionCache>,
+	runtime_versions: Arc<RuntimeVersionCache>,
 }
 
 impl SrcChainConfig {
 	/// The shared store answering which runtime versions govern a block number.
-	pub fn spec_version_cache(&self) -> Arc<SpecVersionCache> {
-		self.spec_versions.clone()
+	pub fn runtime_version_cache(&self) -> Arc<RuntimeVersionCache> {
+		self.runtime_versions.clone()
 	}
 }
 
 impl From<PolkadotConfig> for SrcChainConfig {
 	fn from(inner: PolkadotConfig) -> Self {
-		Self { inner, spec_versions: Default::default() }
+		Self { inner, runtime_versions: Default::default() }
 	}
 }
 
@@ -64,7 +64,7 @@ impl Config for SrcChainConfig {
 		&self,
 		block_number: u64,
 	) -> Option<(u32, u32)> {
-		self.spec_versions
+		self.runtime_versions
 			.lookup(block_number)
 			.or_else(|| self.inner.spec_and_transaction_version_for_block_number(block_number))
 	}

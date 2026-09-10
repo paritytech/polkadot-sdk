@@ -147,15 +147,14 @@ pub struct CliCommand {
 	#[clap(long, default_value_t = 30)]
 	pub backward_sync_max_blocks_per_sec: u32,
 
-	/// Max `state_call` requests per second issued to the node. Unset disables the limit.
+	/// Max runtime API calls per second this process issues to the node. Unset disables the limit.
 	#[clap(long)]
-	pub node_state_call_rate_limit: Option<std::num::NonZeroU32>,
+	pub node_max_runtime_calls_per_sec: Option<std::num::NonZeroU32>,
 
-	/// Max contract-executing `state_call`s in flight on the node: dry-runs, gas estimates and
-	/// traces share one pool, while state reads and version probes pass freely. Unset disables
-	/// the limit.
+	/// Max potentially expensive runtime API calls (dry-runs, gas estimates and traces) this
+	/// process keeps in flight.
 	#[clap(long)]
-	pub node_state_call_max_concurrency: Option<std::num::NonZeroUsize>,
+	pub node_max_concurrent_expensive_calls: Option<std::num::NonZeroUsize>,
 
 	#[allow(missing_docs)]
 	#[clap(flatten)]
@@ -278,16 +277,16 @@ fn build_client(
 	abort_signal: Signals,
 	subscription_gap_queue: SubscriptionGapQueue,
 	backward_sync_max_blocks_per_sec: u32,
-	node_state_call_rate_limit: Option<std::num::NonZeroU32>,
-	node_state_call_max_concurrency: Option<std::num::NonZeroUsize>,
+	node_max_runtime_calls_per_sec: Option<std::num::NonZeroU32>,
+	node_max_concurrent_expensive_calls: Option<std::num::NonZeroUsize>,
 ) -> anyhow::Result<Client> {
 	let fut = async {
-		let (api, rpc_client, rpc, spec_versions) = connect(
+		let (api, rpc_client, rpc, runtime_versions) = connect(
 			node_rpc_url,
 			max_request_size,
 			max_response_size,
-			node_state_call_rate_limit,
-			node_state_call_max_concurrency,
+			node_max_runtime_calls_per_sec,
+			node_max_concurrent_expensive_calls,
 		)
 		.await?;
 		let block_provider = SubxtBlockInfoProvider::new(api.clone(), rpc.clone()).await?;
@@ -334,7 +333,7 @@ fn build_client(
 			subscription_gap_queue,
 			runtime_api_provider,
 			backward_sync_max_blocks_per_sec,
-			spec_versions,
+			runtime_versions,
 		)
 		.await?;
 
@@ -360,8 +359,8 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		shared_params,
 		allow_unprotected_txs,
 		backward_sync_max_blocks_per_sec,
-		node_state_call_rate_limit,
-		node_state_call_max_concurrency,
+		node_max_runtime_calls_per_sec,
+		node_max_concurrent_expensive_calls,
 		..
 	} = cmd;
 
@@ -423,8 +422,8 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		tokio_runtime.block_on(async { Signals::capture() })?,
 		subscription_gap_queue,
 		backward_sync_max_blocks_per_sec,
-		node_state_call_rate_limit,
-		node_state_call_max_concurrency,
+		node_max_runtime_calls_per_sec,
+		node_max_concurrent_expensive_calls,
 	)?;
 
 	// Prometheus metrics.

@@ -213,14 +213,7 @@ impl BlockInfoProvider for SubxtBlockInfoProvider {
 			return Ok(None);
 		};
 
-		match self.api.at_block(hash).await {
-			Ok(block) => Ok(Some(Arc::new(block))),
-			Err(
-				OnlineClientAtBlockError::BlockHeaderNotFound { .. } |
-				OnlineClientAtBlockError::BlockNotFound { .. },
-			) => Ok(None),
-			Err(err) => Err(err.into()),
-		}
+		Ok(Some(Arc::new(self.api.at_block_hash_and_number(hash, block_number).await?)))
 	}
 
 	async fn block_by_hash(&self, hash: &H256) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
@@ -255,7 +248,7 @@ impl BlockInfoProvider for SubxtBlockInfoProvider {
 pub mod test {
 	use super::*;
 	use crate::BlockInfo;
-	use codec::Decode;
+	use codec::{Decode, Encode};
 	use std::sync::{
 		Mutex,
 		atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -326,12 +319,19 @@ pub mod test {
 		}
 	}
 
+	/// The runtime version the mocked chain reports.
+	const SPEC_VERSION: u32 = 7;
+	const TRANSACTION_VERSION: u32 = 3;
+
+	fn runtime_metadata() -> Metadata {
+		let metadata_bytes: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/revive_chain.scale"));
+		Metadata::decode(&mut &metadata_bytes[..]).unwrap()
+	}
+
 	/// A config carrying the generated runtime metadata for every block.
 	pub(crate) fn chain_config() -> SrcChainConfig {
-		let metadata_bytes: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/revive_chain.scale"));
-		let metadata = Metadata::decode(&mut &metadata_bytes[..]).unwrap();
 		PolkadotConfigBuilder::new()
-			.set_metadata_for_spec_versions(std::iter::once((0u32, metadata.into())))
+			.set_metadata_for_spec_versions(std::iter::once((0u32, runtime_metadata().into())))
 			.set_spec_version_for_block_ranges(std::iter::once(SpecVersionForRange {
 				block_range: 0..u64::MAX,
 				spec_version: 0,
@@ -339,6 +339,23 @@ pub mod test {
 			}))
 			.build()
 			.into()
+	}
+
+	/// A config without static block ranges: runtime versions come from the cache or the chain.
+	fn chain_config_resolving_versions() -> SrcChainConfig {
+		PolkadotConfigBuilder::new()
+			.set_metadata_for_spec_versions(std::iter::once((
+				SPEC_VERSION,
+				runtime_metadata().into(),
+			)))
+			.build()
+			.into()
+	}
+
+	/// `Core_version` output in the layout subxt decodes the spec and transaction version from.
+	fn encoded_runtime_version() -> Vec<u8> {
+		let apis: Vec<([u8; 8], u32)> = vec![];
+		("mock", "mock", 1u32, SPEC_VERSION, 1u32, apis, TRANSACTION_VERSION).encode()
 	}
 
 	/// A block at the given block number, on one of two branches.
@@ -420,12 +437,18 @@ pub mod test {
 	/// The heads of the mocked chain.
 	#[derive(Clone)]
 	struct MockChainHeads {
+		/// The subxt config the clients are built with.
+		config: SrcChainConfig,
 		/// The chain's best block.
 		best_block: Arc<Mutex<MockBlockId>>,
 		/// The chain's finalized block.
 		finalized_block: MockBlockId,
 		/// The number of `chain_getBlockHash` calls received.
 		block_hash_lookup_count: Arc<AtomicUsize>,
+		/// The number of `chain_getHeader` calls received.
+		header_lookup_count: Arc<AtomicUsize>,
+		/// The number of `Core_version` runtime calls received.
+		core_version_call_count: Arc<AtomicUsize>,
 		/// Fail block hash lookups while set.
 		fail_block_hash_lookups: Arc<AtomicBool>,
 		/// Answer best block requests with `null` while set.
@@ -437,11 +460,14 @@ pub mod test {
 			const INITIAL_BEST_BLOCK_NUMBER: u64 = 7;
 			const INITIAL_FINALIZED_BLOCK_NUMBER: u64 = 5;
 			Self {
+				config: chain_config(),
 				best_block: Arc::new(Mutex::new(MockBlockId::MainBranch(
 					INITIAL_BEST_BLOCK_NUMBER,
 				))),
 				finalized_block: MockBlockId::MainBranch(INITIAL_FINALIZED_BLOCK_NUMBER),
 				block_hash_lookup_count: Arc::default(),
+				header_lookup_count: Arc::default(),
+				core_version_call_count: Arc::default(),
 				fail_block_hash_lookups: Arc::default(),
 				report_no_best_block: Arc::default(),
 			}
@@ -466,7 +492,7 @@ pub mod test {
 		async fn clients(
 			&self,
 		) -> (OnlineClient<SrcChainConfig>, LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>) {
-			let config = chain_config();
+			let config = self.config.clone();
 
 			let mock = MockRpcClient::builder()
 				.method_handler("chain_getBlockHash", {
@@ -511,10 +537,11 @@ pub mod test {
 						Json(finalized_hash)
 					}
 				})
-				.method_handler(
-					"chain_getHeader",
-					|params: Option<Box<serde_json::value::RawValue>>| {
+				.method_handler("chain_getHeader", {
+					let chain_heads = self.clone();
+					move |params: Option<Box<serde_json::value::RawValue>>| {
 						let (hash,): (H256,) = decode_params(params);
+						chain_heads.header_lookup_count.fetch_add(1, Ordering::SeqCst);
 						let header = MockBlockId::from_hash(hash).map(|block| SubstrateHeader {
 							parent_hash: H256::zero(),
 							number: block.number(),
@@ -523,8 +550,26 @@ pub mod test {
 							digest: Default::default(),
 						});
 						async move { Json(header) }
-					},
-				)
+					}
+				})
+				.method_handler("state_call", {
+					let chain_heads = self.clone();
+					move |params: Option<Box<serde_json::value::RawValue>>| {
+						let (function, _parameters, _at): (String, String, Option<H256>) =
+							decode_params(params);
+						let response = if function == "Core_version" {
+							chain_heads.core_version_call_count.fetch_add(1, Ordering::SeqCst);
+							Ok(sp_core::Bytes(encoded_runtime_version()))
+						} else {
+							Err(RpcError::User(UserError {
+								code: -32601,
+								message: format!("unmocked runtime call {function}"),
+								data: None,
+							}))
+						};
+						async move { response.map(Json) }
+					}
+				})
 				.build();
 
 			let rpc_client = RpcClient::new(mock);
@@ -542,8 +587,10 @@ pub mod test {
 		async fn provider(&self) -> (SubxtBlockInfoProvider, OnlineClient<SrcChainConfig>) {
 			let (api, rpc) = self.clients().await;
 			let provider = SubxtBlockInfoProvider::new(api.clone(), rpc).await.unwrap();
-			// Setup queries end here: tests count only their own block hash lookups.
+			// Setup queries end here: tests count only their own lookups.
 			self.block_hash_lookup_count.store(0, Ordering::SeqCst);
+			self.header_lookup_count.store(0, Ordering::SeqCst);
+			self.core_version_call_count.store(0, Ordering::SeqCst);
 			(provider, api)
 		}
 	}
@@ -959,6 +1006,11 @@ pub mod test {
 			1,
 			"one block hash lookup for an uncached block number"
 		);
+		assert_eq!(
+			chain_heads.header_lookup_count.load(Ordering::SeqCst),
+			0,
+			"no header lookup for an uncached block number: the number is already known"
+		);
 
 		assert!(
 			provider.block_by_number(best + 1).await.unwrap().is_none(),
@@ -1023,6 +1075,33 @@ pub mod test {
 			chain_heads.block_hash_lookup_count.load(Ordering::SeqCst),
 			0,
 			"fetching by hash never asks the chain for a block hash"
+		);
+	}
+
+	#[tokio::test]
+	async fn cached_runtime_versions_skip_the_core_version_call() {
+		let chain_heads =
+			MockChainHeads { config: chain_config_resolving_versions(), ..Default::default() };
+		let (provider, _api) = chain_heads.provider().await;
+		let block_number = chain_heads.best_block.lock().unwrap().number() - 1;
+
+		provider.block_by_number(block_number).await.unwrap().unwrap();
+		assert_eq!(
+			chain_heads.core_version_call_count.load(Ordering::SeqCst),
+			1,
+			"an unknown block's runtime version is resolved on chain"
+		);
+
+		// The client caches the versions of every block it resolves; here the test does it.
+		chain_heads
+			.config
+			.runtime_version_cache()
+			.cache_standalone(block_number, (SPEC_VERSION, TRANSACTION_VERSION));
+		provider.block_by_number(block_number).await.unwrap().unwrap();
+		assert_eq!(
+			chain_heads.core_version_call_count.load(Ordering::SeqCst),
+			1,
+			"a cached block's runtime version is answered from the cache"
 		);
 	}
 }

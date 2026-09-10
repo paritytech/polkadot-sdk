@@ -17,7 +17,7 @@
 //! The client connects to the source substrate chain
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 
-pub(crate) mod spec_version_cache;
+pub(crate) mod runtime_version_cache;
 pub(crate) mod storage_api;
 pub(crate) mod version_aware_runtime_api;
 
@@ -36,9 +36,9 @@ use pallet_revive::{
 	evm::{H256, TransactionSigned, U256, decode_revert_reason},
 };
 use pallet_revive_types::runtime_api::*;
+use runtime_version_cache::RuntimeVersionCache;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
-use spec_version_cache::SpecVersionCache;
 use std::{
 	num::{NonZeroU32, NonZeroUsize},
 	sync::{
@@ -332,7 +332,7 @@ pub struct Client {
 	/// Whether historic backfill has completed. `false` if not started or in progress.
 	backfill_complete: Arc<AtomicBool>,
 	/// Runtime versions per block-number range.
-	spec_versions: Arc<SpecVersionCache>,
+	runtime_versions: Arc<RuntimeVersionCache>,
 	/// Queue for backfilling blocks missed during subscription reconnects.
 	subscription_gap_queue: SubscriptionGapQueue,
 	/// Hands out the version-aware runtime API of specific blocks.
@@ -454,17 +454,14 @@ struct StateCallGate<Inner> {
 	permits: Option<Arc<Semaphore>>,
 }
 
-/// Whether a `state_call` executes contract code, which costs the node whole seconds, as
-/// opposed to the state reads and version probes that answer in tens of milliseconds and must
-/// not queue behind it. Extend this when adding a runtime API that runs the interpreter.
+/// Whether the provided runtime API call may run long on the node.
 fn is_metered_state_call(function: &str) -> bool {
 	["ReviveApi_eth_transact", "ReviveApi_eth_estimate_gas", "ReviveApi_trace_"]
 		.iter()
 		.any(|executing| function.starts_with(executing))
 }
 
-/// Logs a `state_call` whose future was dropped before completing, distinguishing one the node
-/// is still executing from one that never left this process.
+/// Warns when a `state_call` is cancelled by its caller, noting whether it had reached the node.
 struct CallSpan {
 	context: Option<(String, String, String)>,
 	began: std::time::Instant,
@@ -593,14 +590,14 @@ pub async fn connect(
 	node_rpc_url: &str,
 	max_request_size: u32,
 	max_response_size: u32,
-	state_call_rate_limit: Option<NonZeroU32>,
-	state_call_max_concurrency: Option<NonZeroUsize>,
+	max_runtime_calls_per_sec: Option<NonZeroU32>,
+	max_concurrent_expensive_calls: Option<NonZeroUsize>,
 ) -> Result<
 	(
 		OnlineClient<SrcChainConfig>,
 		RpcClient,
 		LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>,
-		Arc<SpecVersionCache>,
+		Arc<RuntimeVersionCache>,
 	),
 	ClientError,
 > {
@@ -611,9 +608,9 @@ pub async fn connect(
 		.max_response_size(max_response_size)
 		.build(node_rpc_url.to_string())
 		.await?;
-	let rate_limiter =
-		state_call_rate_limit.map(|rate| Arc::new(RateLimiter::direct(Quota::per_second(rate))));
-	let permits = state_call_max_concurrency.map(|max| Arc::new(Semaphore::new(max.get())));
+	let rate_limiter = max_runtime_calls_per_sec
+		.map(|rate| Arc::new(RateLimiter::direct(Quota::per_second(rate))));
+	let permits = max_concurrent_expensive_calls.map(|max| Arc::new(Semaphore::new(max.get())));
 	let rpc_client = RpcClient::new(StateCallGate { inner: rpc_client, rate_limiter, permits });
 	log::info!(target: LOG_TARGET, "🌟 Connected to node at: {node_rpc_url}");
 
@@ -623,10 +620,10 @@ pub async fn connect(
 	// indexing under load (blocks become unresolvable once unpinned).
 	let backend = Arc::new(LegacyBackend::builder().build(rpc_client.clone()));
 	let config = SrcChainConfig::default();
-	let spec_versions = config.spec_version_cache();
+	let runtime_versions = config.runtime_version_cache();
 	let api = OnlineClient::<SrcChainConfig>::from_backend_with_config(config, backend).await?;
 	let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client.clone());
-	Ok((api, rpc_client, rpc, spec_versions))
+	Ok((api, rpc_client, rpc, runtime_versions))
 }
 
 impl Client {
@@ -641,7 +638,7 @@ impl Client {
 		subscription_gap_queue: SubscriptionGapQueue,
 		runtime_api_provider: VersionAwareRuntimeApiProvider,
 		backward_sync_max_blocks_per_sec: u32,
-		spec_versions: Arc<SpecVersionCache>,
+		runtime_versions: Arc<RuntimeVersionCache>,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight, automine) =
 			tokio::try_join!(chain_id(&api), max_block_weight(&api), async {
@@ -653,12 +650,13 @@ impl Client {
 		let latest_finalized_block = block_provider.latest_finalized_block().await;
 		// Seed the spec-version window from the already-resolved finalized block, so startup
 		// components don't each re-resolve it before the subscriptions start feeding.
-		spec_versions.record(
+		runtime_versions.record(
 			latest_finalized_block.block_number(),
-			latest_finalized_block.spec_version(),
-			latest_finalized_block.transaction_version(),
+			(latest_finalized_block.spec_version(), latest_finalized_block.transaction_version()),
 		);
-		runtime_api_provider.at(latest_finalized_block.block_hash()).await?;
+		runtime_api_provider
+			.at_resolved_block(Arc::unwrap_or_clone(latest_finalized_block))
+			.await?;
 
 		// Fall back to 0 when the hardcoded value exceeds the current best block (e.g. zombienet
 		// reusing a known chain ID) and backward sync is disabled.
@@ -699,7 +697,7 @@ impl Client {
 			subscription_gap_queue,
 			runtime_api_provider,
 			backward_sync_rate_limiter,
-			spec_versions,
+			runtime_versions,
 		};
 
 		Ok(client)
@@ -782,14 +780,20 @@ impl Client {
 			.iter()
 			.any(|log| matches!(log, DigestItem::RuntimeEnvironmentUpdated));
 
-		if !upgraded && self.spec_versions.extend_to(block_number) {
+		if !upgraded && self.runtime_versions.bump_highest_observed(block_number) {
 			return Ok(());
 		}
 
 		let version = self.rpc.state_get_runtime_version(Some(block.hash())).await?;
-		self.spec_versions
-			.record(block_number, version.spec_version, version.transaction_version);
+		self.runtime_versions
+			.record(block_number, (version.spec_version, version.transaction_version));
 		Ok(())
+	}
+
+	/// Cache the block's runtime versions.
+	fn cache_runtime_version(&self, block: &SubstrateBlock) {
+		let versions = (block.spec_version(), block.transaction_version());
+		self.runtime_versions.cache_standalone(block.block_number(), versions);
 	}
 
 	/// Subscribe to new blocks, and execute the async closure for each block.
@@ -831,9 +835,7 @@ impl Client {
 				},
 			};
 
-			// Record the block's runtime versions before it is resolved, so the resolution
-			// (and any later request against this block) answers the spec-version lookup
-			// from the cache instead of a `Core_version` runtime call.
+			// Record the versions first, so resolving the block skips `Core_version`.
 			if let Err(err) = self.observe_runtime_version(&block).await {
 				log::debug!(
 					target: LOG_TARGET_SUBSCRIPTION,
@@ -1073,12 +1075,29 @@ impl Client {
 		Ok(StorageApi::new(self.api.at_block(block_hash).await?))
 	}
 
-	/// Get the version-aware runtime API for the given block.
-	pub async fn runtime_api(
+	/// Get the version-aware runtime API for the given block number or tag.
+	pub async fn runtime_api_for(
+		&self,
+		at: BlockId,
+	) -> Result<VersionAwareRuntimeApi, ClientError> {
+		// TODO: Temporarily preserves the errors `block_hash_for_tag` reported here before; both
+		// should become `ClientError::BlockNotFound`.
+		let block = self.block_for_tag(at).await?.ok_or(match at {
+			BlockId::Hash(_) => ClientError::EthereumBlockNotFound,
+			BlockId::Number(_) => ClientError::BlockNotFound,
+		})?;
+		self.runtime_api_provider.at_resolved_block(Arc::unwrap_or_clone(block)).await
+	}
+
+	/// Get the version-aware runtime API for a block whose hash and number are both known.
+	pub async fn runtime_api_at(
 		&self,
 		block_hash: H256,
+		block_number: SubstrateBlockNumber,
 	) -> Result<VersionAwareRuntimeApi, ClientError> {
-		self.runtime_api_provider.at(block_hash).await
+		let block = self.api.at_block_hash_and_number(block_hash, block_number).await?;
+		self.cache_runtime_version(&block);
+		self.runtime_api_provider.at_resolved_block(block).await
 	}
 
 	/// Get the latest finalized block.
@@ -1268,7 +1287,8 @@ impl Client {
 		&self,
 		hash: &SubstrateBlockHash,
 	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
-		self.block_provider.block_by_hash(hash).await
+		let block = self.block_provider.block_by_hash(hash).await?;
+		Ok(block.inspect(|block| self.cache_runtime_version(block)))
 	}
 
 	/// Resolve Ethereum block hash to Substrate block hash, then get the block.
@@ -1306,7 +1326,8 @@ impl Client {
 		&self,
 		block_number: SubstrateBlockNumber,
 	) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
-		self.block_provider.block_by_number(block_number).await
+		let block = self.block_provider.block_by_number(block_number).await?;
+		Ok(block.inspect(|block| self.cache_runtime_version(block)))
 	}
 
 	/// Get a block hash for the given block number.
@@ -1357,9 +1378,10 @@ impl Client {
 		if parent_hash == Default::default() {
 			return Ok(vec![]);
 		}
+		let parent_number = block.header().number.saturating_sub(1).into();
 
 		let CallRecordedOutput { value: trace_entries, degraded } = self
-			.runtime_api(parent_hash)
+			.runtime_api_at(parent_hash, parent_number)
 			.await?
 			.trace_block(block, config, block_hash)
 			.ok_or(ClientError::UnsupportedRuntimeApiMethod("trace_block"))?
@@ -1412,8 +1434,9 @@ impl Client {
 
 		let block = self.tracing_block(block_hash).await?;
 		let parent_hash = block.header.parent_hash;
+		let parent_number = block.header.number.saturating_sub(1).into();
 		let CallRecordedOutput { value: entry, degraded } = self
-			.runtime_api(parent_hash)
+			.runtime_api_at(parent_hash, parent_number)
 			.await?
 			.trace_tx(block, transaction_index, config, block_hash)
 			.ok_or(ClientError::UnsupportedRuntimeApiMethod("trace_tx"))?
@@ -1435,9 +1458,8 @@ impl Client {
 		config: TracerTypeV1,
 		state_overrides: Option<StateOverrideSetV1>,
 	) -> Result<TraceV1, ClientError> {
-		let block_hash = self.block_hash_for_tag(block).await?;
-		let runtime_api = self.runtime_api(block_hash).await?;
-		runtime_api
+		self.runtime_api_for(block)
+			.await?
 			.trace_call(transaction, config, state_overrides)
 			.ok_or(ClientError::UnsupportedRuntimeApiMethod("trace_call"))?
 			.await

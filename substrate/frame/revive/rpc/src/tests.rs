@@ -2254,7 +2254,7 @@ async fn create_sync_test_client_with_subscription_gap_queue(
 	let node_url = SharedResources::node_rpc_url();
 	let max_request_size = RPC_DEFAULT_MAX_REQUEST_SIZE_MB * 1024 * 1024;
 	let max_response_size = RPC_DEFAULT_MAX_RESPONSE_SIZE_MB * 1024 * 1024;
-	let (api, rpc_client, rpc, spec_versions) =
+	let (api, rpc_client, rpc, runtime_versions) =
 		connect(node_url, max_request_size, max_response_size, None, None).await?;
 	let block_provider = SubxtBlockInfoProvider::new(api.clone(), rpc.clone()).await?;
 
@@ -2286,7 +2286,7 @@ async fn create_sync_test_client_with_subscription_gap_queue(
 		subscription_gap_queue,
 		runtime_api_provider,
 		rate,
-		spec_versions,
+		runtime_versions,
 	)
 	.await?;
 	Ok((client, gap_fill_rx))
