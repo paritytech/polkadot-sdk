@@ -31,8 +31,7 @@
 //!   into the buffer account. Incoming funds are deactivated to exclude them from governance
 //!   voting.
 //! - **Buffer Draws**: Pays registered consumers out of the buffer through [`BufferDraw`], capped
-//!   by an absolute per-drip-period budget. DAP deactivates every inflow, so it also owns the
-//!   matching reactivation on outflow.
+//!   per drip period. DAP deactivates every inflow, so it reactivates on outflow.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -91,9 +90,8 @@ pub type BufferDrawMap<T> =
 
 /// The spending budget of one registered draw on the DAP buffer.
 ///
-/// Unlike [`BudgetAllocation`]'s `Perbill` share of a drip, a draw is capped by an absolute
-/// `limit` that refreshes every drip period: the buffer also holds burns and slashes, so a share
-/// of issuance is not a meaningful bound on it.
+/// Capped by an absolute `limit` per drip period rather than [`BudgetAllocation`]'s `Perbill`
+/// share: the buffer also holds burns and slashes, so a share of issuance would not bound it.
 #[derive(
 	Clone,
 	Encode,
@@ -111,8 +109,8 @@ pub struct DrawBudget<Balance> {
 	pub limit: Balance,
 	/// Amount already drawn during the drip period identified by `period`.
 	pub spent: Balance,
-	/// The [`LastIssuanceTimestamp`] that `spent` is accounted against. A stale one reads as
-	/// zero spending, so the budget refreshes without any drip having to reset counters.
+	/// The [`LastIssuanceTimestamp`] `spent` is accounted against; a stale one reads as zero,
+	/// refreshing the budget without any drip resetting counters.
 	pub period: u64,
 }
 
@@ -250,16 +248,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type LastIssuanceTimestamp<T> = StorageValue<_, u64, ValueQuery>;
 
-	/// Registry of authorised draws on the buffer: `BudgetKey -> DrawBudget`.
-	///
-	/// The single place where outflows from the buffer are authorised and capped. Keys are
+	/// Registry of authorised draws, the single place buffer outflows are capped. Keys are
 	/// registered by [`Pallet::set_draw_budget`].
 	#[pallet::storage]
 	pub type BufferDraws<T: Config> = StorageValue<_, BufferDrawMap<T>, ValueQuery>;
 
-	/// Genesis configuration for the buffer draw registry.
-	///
-	/// Existing chains seed it with [`migrations::MigrateV2ToV3`] instead.
+	/// Genesis buffer draws. Existing chains seed them with [`migrations::MigrateV2ToV3`].
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -400,11 +394,11 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Register a draw on the buffer under `key`, capped at `limit` per drip period, or
-		/// deregister it with `limit == None`.
+		/// Register a draw under `key` capped at `limit` per drip period, or deregister it with
+		/// `None`.
 		///
-		/// A new limit applies immediately but keeps what the draw already spent this period, so
-		/// it cannot be used to refresh a depleted budget early.
+		/// A new limit applies at once but keeps this period's spending, so it cannot refresh a
+		/// depleted budget early.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_draw_budget())]
 		pub fn set_draw_budget(
@@ -503,8 +497,7 @@ pub mod pallet {
 			<T::Currency as Unbalanced<T::AccountId>>::reactivate(amount);
 		}
 
-		/// What `draw` has spent in the drip period identified by `period`; zero once a drip has
-		/// moved the period on.
+		/// What `draw` spent in `period`; zero once a drip has moved the period on.
 		pub(crate) fn spent_in(draw: &DrawBudget<BalanceOf<T>>, period: u64) -> BalanceOf<T> {
 			if draw.period == period {
 				draw.spent
@@ -513,8 +506,7 @@ pub mod pallet {
 			}
 		}
 
-		/// Pay `amount` from the buffer to `beneficiary`, charged against the draw registered
-		/// under `key`, and reactivate the paid amount.
+		/// Pay `amount` to `beneficiary` against the draw under `key`, and reactivate it.
 		///
 		/// The only way funds leave the buffer. All-or-nothing: on `Err` nothing changed.
 		pub fn pay_from_buffer(
@@ -685,8 +677,8 @@ pub mod pallet {
 			Self::check_buffer_draws()
 		}
 
-		/// Checks that no [`BufferDraws`] entry is accounted against a future drip period, which
-		/// would let it out-spend its budget once that period arrives.
+		/// No [`BufferDraws`] entry may be accounted against a future drip period, which would
+		/// let it out-spend its budget once that period arrives.
 		fn check_buffer_draws() -> Result<(), sp_runtime::TryRuntimeError> {
 			let current_period = LastIssuanceTimestamp::<T>::get();
 
@@ -794,8 +786,8 @@ where
 
 /// A registered draw on the DAP buffer, bound to the [`BudgetKey`] in `K`.
 ///
-/// Hand this to any pallet that needs paying out of the buffer, instead of it holding the buffer
-/// account. Payments are capped by the draw's budget in [`BufferDraws`].
+/// Give this to a pallet that needs paying out of the buffer instead of the buffer account
+/// itself; payments are capped by the draw's budget in [`BufferDraws`].
 ///
 /// # Example
 /// ```ignore

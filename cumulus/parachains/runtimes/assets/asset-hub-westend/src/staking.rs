@@ -156,9 +156,8 @@ parameter_types! {
 }
 
 parameter_types! {
-	/// Per-drip-period budget of the signed phase's draw on the DAP buffer: a whole submission
-	/// queue's worth of rewards and fee refunds, generous for a one-minute period given rounds
-	/// are an era apart.
+	/// Per-drip-period budget of the signed phase's draw on the DAP buffer: a full submission
+	/// queue's rewards and fee refunds, generous for a minute given rounds are an era apart.
 	pub SignedRewardDrawBudget: Balance = RewardBase::get()
 		.saturating_add(<Runtime as multi_block::signed::Config>::MaxFeeRefund::get())
 		.saturating_mul(MaxSubmissions::get().into());

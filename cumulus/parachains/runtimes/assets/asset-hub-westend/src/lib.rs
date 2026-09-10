@@ -1863,8 +1863,7 @@ pub type Migrations = (
 	// incentive formula applies; pending pre-cutoff eras keep the legacy
 	// stake-only share, avoiding a `HistoryDepth × MaxValidatorSet` backfill.
 	pallet_staking_async::migrations::SetWeightedPointsFormulaStartEra<Runtime>,
-	// Registers the signed phase's draw on the DAP buffer, which this upgrade points its reward
-	// payouts at.
+	// Registers the signed phase's draw, which this upgrade points its reward payouts at.
 	pallet_dap::migrations::MigrateV2ToV3<Runtime, staking::InitialBufferDraws>,
 );
 

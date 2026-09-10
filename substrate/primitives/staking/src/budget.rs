@@ -95,14 +95,13 @@ impl<AccountId> BudgetRecipientList<AccountId> for Tuple {
 
 /// A source of funds that pays a beneficiary on request.
 ///
-/// The counterpart of [`BudgetRecipient`] for outflows: the source owns the account, the
-/// authorisation and any bookkeeping, so callers ask it to pay instead of moving funds themselves.
+/// The counterpart of [`BudgetRecipient`] for outflows: the source owns the account and its
+/// authorisation, so callers ask it to pay instead of moving funds themselves.
 pub trait PaymentSource<AccountId, Balance> {
 	/// Pay `amount` to `beneficiary`. All-or-nothing: on `Err` nothing changed.
 	fn pay(beneficiary: &AccountId, amount: Balance) -> Result<(), DispatchError>;
 
-	/// Make a subsequent [`Self::pay`] of `amount` succeed, so benchmarks measure the payment
-	/// rather than the failure path.
+	/// Make a later [`Self::pay`] of `amount` succeed, so benchmarks skip the failure path.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_can_pay(amount: Balance);
 }

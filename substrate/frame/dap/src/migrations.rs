@@ -49,9 +49,9 @@ pub type MigrateV1ToV2<T, P, B, M> = frame_support::migrations::VersionedMigrati
 /// pallet at the buffer also registers its draw.
 ///
 /// - `T`: DAP pallet config
-/// - `D`: `Get<Vec<(BudgetKey, BalanceOf<T>)>>` providing the initial per-drip-period limits.
+/// - `D`: `Get<Vec<(BudgetKey, BalanceOf<T>)>>` of initial per-drip-period limits.
 ///
-/// Entries already present are left alone, so a governance-set limit survives a re-run.
+/// Existing entries are left alone, so a governance-set limit survives a re-run.
 pub type MigrateV2ToV3<T, D> = frame_support::migrations::VersionedMigration<
 	2,
 	3,

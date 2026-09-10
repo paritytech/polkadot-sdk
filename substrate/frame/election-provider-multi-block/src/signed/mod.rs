@@ -248,8 +248,8 @@ impl<Balance: From<u32> + Saturating, G: Get<Balance>> CalculatePageDeposit<Bala
 	}
 }
 
-/// The key identifying this pallet's draw on a [`Config::RewardSource`] that keys its draws, such
-/// as the DAP buffer. Declared here so every runtime registers it under the same key.
+/// The key identifying this pallet's draw on a [`Config::RewardSource`] that keys draws, such as
+/// the DAP buffer. Declared here so every runtime registers the same key.
 pub struct RewardBudgetKey;
 
 impl Get<BudgetKey> for RewardBudgetKey {
@@ -260,9 +260,8 @@ impl Get<BudgetKey> for RewardBudgetKey {
 
 /// A [`PaymentSource`] paying out of the account in `P`, or minting when `P` is `None`.
 ///
-/// Correct only for a pot holding *active* funds. A pot holding deactivated issuance, such as the
-/// DAP buffer, must reactivate what it pays out, so use the source it provides itself
-/// (`pallet_dap::BufferDraw`) rather than transferring out of it.
+/// Correct only for a pot of *active* funds. One holding deactivated issuance, such as the DAP
+/// buffer, must reactivate what it pays, so use the source it provides (`pallet_dap::BufferDraw`).
 pub struct ActivePot<P, Currency>(sp_std::marker::PhantomData<(P, Currency)>);
 
 impl<AccountId, Balance, P, Currency> PaymentSource<AccountId, Balance> for ActivePot<P, Currency>
@@ -367,9 +366,8 @@ pub mod pallet {
 		/// Handler for slashed deposits. Use `()` to burn them, or redirect them elsewhere.
 		type Slash: OnUnbalanced<FungibleCredit<Self::AccountId, Self::Currency>>;
 
-		/// Where reward payments and invulnerable fee refunds come from. The source owns the
-		/// funds and their authorisation; this pallet only asks it to pay. Use [`ActivePot`] with
-		/// `None` to mint instead.
+		/// Where reward payments and invulnerable fee refunds come from; this pallet only asks
+		/// it to pay. Use [`ActivePot`] with `None` to mint instead.
 		type RewardSource: PaymentSource<Self::AccountId, BalanceOf<Self>>;
 
 		/// Ceiling on the transaction fee that is refunded to a submitter.

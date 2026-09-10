@@ -54,8 +54,7 @@ fn asset_hub_westend_genesis(
 
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig { balances },
-		// Authorise the signed phase to draw on the DAP buffer; existing chains get this from
-		// `pallet_dap::migrations::MigrateV2ToV3`.
+		// Authorise the signed phase's draw; existing chains get it from `MigrateV2ToV3`.
 		dap: DapConfig { buffer_draws: staking::InitialBufferDraws::get() },
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {

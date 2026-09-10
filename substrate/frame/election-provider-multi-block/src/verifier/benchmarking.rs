@@ -80,10 +80,8 @@ mod benchmarks {
 
 		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution()?;
 
-		// Accepting the solution pays the winner out of `RewardSource`. Make it able to pay, so
-		// we measure the payment production takes every era and not the defer fallback. The payout
-		// is `RewardBase` plus the accrued fee, so be generous; the measured work does not depend
-		// on it.
+		// Make `RewardSource` able to pay, so we measure the payout and not the defer fallback.
+		// Be generous: the payout is `RewardBase` plus the submission's accrued fee.
 		<T as crate::signed::Config>::RewardSource::ensure_can_pay(
 			<T as crate::signed::Config>::RewardBase::get().saturating_mul(2u32.into()),
 		);
