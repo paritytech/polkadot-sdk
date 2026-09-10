@@ -3626,6 +3626,12 @@ mod benchmarks {
 		let current_block = BlockNumberFor::<T>::from(1u32);
 		frame_system::Pallet::<T>::set_block_number(current_block);
 
+		// Where `Deposit` mints through `fungibles` and the runtime mirrors balance changes as
+		// logs, creating the contract above buffers one. Drop it, so these benchmarks measure the
+		// transactions and logs they set up themselves and no synthetic transaction on top.
+		let _ = OutsideFrameLogs::<T>::clear(u32::MAX, None);
+		OutsideFrameLogCount::<T>::kill();
+
 		Ok((instance, storage_deposit, evm_value, signer_key, current_block))
 	}
 
