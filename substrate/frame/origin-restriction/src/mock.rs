@@ -237,6 +237,7 @@ impl pallet_transaction_payment::Config for Test {
 	type WeightToFee = IdentityFee<u64>;
 	type LengthToFee = IdentityFee<u64>;
 	type OperationalFeeMultiplier = ConstUint<1>;
+	type OperationalFeeSurcharge = ();
 	type FeeMultiplierUpdate = ConstFeeMultiplier<ConstFeeMultiplierInner>;
 	type OnChargeTransaction = OnChargeTransaction;
 }

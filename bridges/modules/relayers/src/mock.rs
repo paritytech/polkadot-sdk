@@ -225,6 +225,7 @@ impl pallet_utility::Config for TestRuntime {
 impl pallet_transaction_payment::Config for TestRuntime {
 	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
 	type OperationalFeeMultiplier = ConstU8<5>;
+	type OperationalFeeSurcharge = ();
 	type WeightToFee = IdentityFee<ThisChainBalance>;
 	type LengthToFee = ConstantMultiplier<ThisChainBalance, TransactionByteFee>;
 	type FeeMultiplierUpdate = pallet_transaction_payment::TargetedFeeAdjustment<
