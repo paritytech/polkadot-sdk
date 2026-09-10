@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789059318797,
+  "lastUpdate": 1789081868102,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1b9ea1c3656e816dfcaa2624ffb9c8c45ce917d7",
-          "message": "[pallet-revive] Fix storage deposit refunds in nested contract calls (#10920)\n\nfixes https://github.com/paritytech/contract-issues/issues/213 where\nstorage deposit refunds failed in nested/reentrant calls.\n\nProblem\nStorage refunds were calculated incorrectly when a contract allocated\nstorage, then performed a nested call that cleared it. Pending storage\nchanges lived only in the parent FrameMeter, so child frames could not\nsee them and refunds were skipped.\n\nSolution\nApply pending storage deposit changes to a cloned ContractInfo before\ncreating nested frames. This makes the parent’s storage state visible to\nchild frames during refund calculation.\n\nImplementation\n- Added apply_pending_changes_to_contract() to apply pending diffs to\nContractInfo\n- Added apply_pending_storage_changes() wrapper on FrameMeter\n- Applied pending storage changes before nested frame creation in\nexec.rs (3 locations)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: pgherveou <pgherveou@gmail.com>",
-          "timestamp": "2026-02-10T10:26:06Z",
-          "tree_id": "2d78374f47b6b14cca7239e15b9a37c67f730690",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1b9ea1c3656e816dfcaa2624ffb9c8c45ce917d7"
-        },
-        "date": 1770723821845,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.40199999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.06000000000003,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038163368764000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06495127138999993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03848605986000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "597a9f04be6a06d6658b361812fd7cc4d5480026",
+          "message": "statement-store: drop explicit-affine statements once affinity lapses (#13050)\n\n## Description\n\nStatements persisted only for explicit topic affinity are now dropped\nonce no affinity covers them — typically after the last matching RPC\nsubscription ends. Configured-topic and DHT-affine statements stay\nuntouched.\n\nCloses #12551.\n\n## Integration\n\nNo action required. Internal `sc-statement-store` change: no public API\nor configuration changes. With the v2 DHT gate off no retention resolver\nis installed, so behavior is unchanged.\n\n## Review Notes\n\n- `QueryIndex.explicit_only` tracks hashes admitted with\n`EXPLICIT_AFFINITY` and without `DHT_AFFINITY`\n(`RetentionTrack::from(mask)`). Cleared on every removal path, empty\nafter restart — restored statements persist until expiry, as before.\n- `sweep_explicit_affinity` runs at the start of `maintain()` (29s\ntick): re-runs the retention resolver over tracked hashes, removes\nstatements whose current mask carries no persistent reason.\n- Statements still in `recent` — not yet taken by propagation — are\nexempt from the sweep, so a locally submitted statement is handed to\npropagation at least once before it can be dropped.\n- Removal passes `Resubmission::Allowed`, skipping the `EXPIRED`\nre-acceptance ban: dropped statements are valid, a returning\nsubscription can pull them back from peers. Existing removal paths keep\n`Resubmission::Banned`.\n- Sweep is unbounded per tick; worst case is point reads for every\nstored statement. Possible follow-up: statement/time budget with a\nresume cursor, as in `check_expired`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nSigned-off-by: Tomasz Bartos <tomasz.bartos@iohk.io>\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Javier Viola <363911+pepoviola@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: PG Herveou <pgherveou@gmail.com>\nCo-authored-by: dharjeezy <dharjeezy@gmail.com>\nCo-authored-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: Michal Kucharczyk <1728078+michalkucharczyk@users.noreply.github.com>\nCo-authored-by: Nasihudeen Jimoh <nasihudeen04@gmail.com>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>\nCo-authored-by: eskimor <jfanatiker@gmx.at>\nCo-authored-by: Davide Galassi <davxy@datawok.net>\nCo-authored-by: drskalman <35698397+drskalman@users.noreply.github.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: Egor_P <egor@parity.io>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>\nCo-authored-by: Ludovic Domingues <ludovic.domingues96@gmail.com>\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>\nCo-authored-by: Klapeyron <11329616+Klapeyron@users.noreply.github.com>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Tsvetomir Dimitrov <tsvetomir@parity.io>\nCo-authored-by: Ross Bulat <ross@jkrb.io>\nCo-authored-by: Milos Kriz <82968568+miloskriz@users.noreply.github.com>\nCo-authored-by: eskimor <robert@gonimo.com>\nCo-authored-by: eskimor <eskimor@noreply.com>\nCo-authored-by: Marios <marios@parity.io>\nCo-authored-by: Alin Dima <alin@parity.io>\nCo-authored-by: Rodrigo Quelhas <22591718+RomarQ@users.noreply.github.com>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>\nCo-authored-by: DenzelPenzel <15388928+DenzelPenzel@users.noreply.github.com>\nCo-authored-by: eskimor <1527017+eskimor@users.noreply.github.com>\nCo-authored-by: Andrei <54316454+sandreim@users.noreply.github.com>\nCo-authored-by: Javier Viola <javier@parity.io>\nCo-authored-by: Luka Ciric <luka.ciric2106@gmail.com>\nCo-authored-by: Ankan <ankan.anurag@gmail.com>\nCo-authored-by: Dmitry Markin <dmitry@markin.tech>\nCo-authored-by: Lukasz Rubaszewski <117115317+lrubasze@users.noreply.github.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: Omar <OmarAbdulla7@hotmail.com>\nCo-authored-by: Kirill <pisarevkir@gmail.com>\nCo-authored-by: 0xRVE <robertvaneerdewijk@gmail.com>\nCo-authored-by: Alexandru Vasile <60601340+lexnv@users.noreply.github.com>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: gab <79002163+gab8i@users.noreply.github.com>\nCo-authored-by: s0me0ne-unkn0wn <48632512+s0me0ne-unkn0wn@users.noreply.github.com>\nCo-authored-by: ron <yrong1997@gmail.com>\nCo-authored-by: Marian Radu <marian@parity.io>\nCo-authored-by: Nathaniel Bajo <73991674+Nathy-bajo@users.noreply.github.com>\nCo-authored-by: mertwole <mertwole@gmail.com>\nCo-authored-by: Andrei Trandafir <142614787+andreitrand@users.noreply.github.com>\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>\nCo-authored-by: jessechejieh <dev@jessechejieh.com>",
+          "timestamp": "2026-09-10T21:37:19Z",
+          "tree_id": "795dcbe3f7d126dc2729410f9b71c30e74a8c6ed",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/597a9f04be6a06d6658b361812fd7cc4d5480026"
+        },
+        "date": 1789081825984,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.11599999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03863442976399999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08810386350399993,
             "unit": "seconds"
           }
         ]
