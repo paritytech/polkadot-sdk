@@ -13,8 +13,8 @@ doc:
 
     - `Config::RuntimeFreezeReason` gains the `Parameter + Member + MaxEncodedLen + Copy` bounds it
       needs as a stored id, and `fungible::InspectFreeze::Id` is now `T::RuntimeFreezeReason`.
-    - The `MaxFreezes >= VARIANT_COUNT` `integrity_test` is dropped, and a new `freezes_decode`
-      `try_state` check reports entries that do not decode under the new id type.
+    - The `MaxFreezes >= VARIANT_COUNT` `integrity_test` is dropped, as the bound is now derived
+      from the enum itself.
     - The `Balances::MaxFreezes` constant disappears from runtime metadata.
 
     ## Migration
@@ -25,7 +25,8 @@ doc:
     No storage migration is required where `FreezeIdentifier` was already `RuntimeFreezeReason`,
     which is every runtime here: the encoding is unchanged and an account could never hold more
     freezes than there are freeze reasons. Runtimes that used a different `FreezeIdentifier` must
-    translate their `Freezes` entries first, and can verify the result with `try_state`.
+    translate their `Freezes` entries first; try-runtime's `TryDecodeEntireStorage` check will
+    flag any entries left behind.
 crates:
 - name: pallet-balances
   bump: major

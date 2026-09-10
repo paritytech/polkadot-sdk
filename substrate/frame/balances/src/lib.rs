@@ -1360,27 +1360,8 @@ pub mod pallet {
 			_n: BlockNumberFor<T>,
 		) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::hold_and_freeze_count()?;
-			Self::freezes_decode()?;
 			Self::account_frozen_greater_than_locks()?;
 			Self::account_frozen_greater_than_freezes()?;
-			Ok(())
-		}
-
-		/// Every `Freezes` entry must decode with `T::RuntimeFreezeReason` as its id, catching
-		/// entries left behind by a chain that used a different `FreezeIdentifier`.
-		/// `iter_values` skips undecodable values, `iter_keys` does not.
-		fn freezes_decode() -> Result<(), sp_runtime::TryRuntimeError> {
-			let keys = Freezes::<T, I>::iter_keys().count();
-			let values = Freezes::<T, I>::iter_values().count();
-			if keys != values {
-				log::warn!(
-					target: crate::LOG_TARGET,
-					"{} of {} `Freezes` entries do not decode as `IdAmount<RuntimeFreezeReason, _>`",
-					keys.saturating_sub(values),
-					keys,
-				);
-				return Err("Found `Freeze` which does not decode".into());
-			}
 			Ok(())
 		}
 
