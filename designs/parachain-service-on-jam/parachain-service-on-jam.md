@@ -507,6 +507,7 @@ struct SettlementCursor {
 /// A settlement-ring member. See §8.
 struct MemberEntry {
     /// Position of the root's most recent push.
+    /// Evicts the oldest root only if `seq == SettlementCursor.tail` to protect active roots.
     seq: u32,
 }
 
