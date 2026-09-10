@@ -40,11 +40,11 @@ use jsonrpsee::{
 	rpc_params,
 	ws_client::{WsClient, WsClientBuilder},
 };
-use multiaddr::{Multiaddr, Protocol};
+use multiaddr::Multiaddr;
 use pallet_bootnodes::{multiaddr as addr_check, pop_payload, Bootnode};
 use sc_network_types::PeerId;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use sp_core::{crypto::Pair as _, ed25519, Bytes, ConstU32, H256};
+use sp_core::{bounded::BoundedVec, crypto::Pair as _, ed25519, Bytes, ConstU32, H256};
 use sp_crypto_hashing::{blake2_128, twox_128};
 use std::{collections::BTreeMap, path::PathBuf};
 use zeroize::Zeroizing;
@@ -95,7 +95,8 @@ pub struct InspectCmd {
 pub struct SignCmd {
 	#[command(flatten)]
 	pub chain: ChainArgs,
-	/// The node's public multiaddr, without a `/p2p/` component.
+	/// The node's public multiaddr: `/(ip4|ip6|dns|dns4|dns6)/<host>/tcp/<port>`, optionally
+	/// followed by `/ws` or `/wss`, without a `/p2p/` component.
 	#[arg(long)]
 	pub addr: String,
 	/// The node's ed25519 secret key as 64 hex characters (what the node gets as `--node-key`).
@@ -206,12 +207,8 @@ async fn sign(cmd: SignCmd) -> Result<()> {
 
 	let payload = pop_payload(&jam_genesis_hash, para_id, seq, &addr_bytes);
 	let sig = pair.sign(&payload);
-	let bootnode = StoredBootnode {
-		addr: addr_bytes.try_into().map_err(|_| anyhow!("address too long"))?,
-		node_key,
-		seq,
-		sig,
-	};
+	let bootnode =
+		StoredBootnode { addr: BoundedVec::truncate_from(addr_bytes), node_key, seq, sig };
 
 	let out = SignOut {
 		at,
@@ -333,11 +330,15 @@ fn load_node_key(cmd: &SignCmd) -> Result<Zeroizing<[u8; 32]>> {
 /// Parse a multiaddr and check it the way the runtime will.
 fn parse_addr(addr: &str) -> Result<Multiaddr> {
 	let addr: Multiaddr = addr.parse().with_context(|| format!("`{addr}` is not a multiaddr"))?;
-	if addr.iter().any(|p| matches!(p, Protocol::P2p(_))) {
-		bail!("the address must not contain a /p2p/ component; the peer id is derived from the node key");
-	}
-	addr_check::validate(&addr.to_vec())
-		.map_err(|e| anyhow!("the runtime would reject `{addr}`: {e:?}"))?;
+	addr_check::validate(&addr.to_vec()).map_err(|e| match e {
+		addr_check::Error::ContainsPeerId => anyhow!(
+			"the address must not contain a /p2p/ component; the peer id is derived from the node key"
+		),
+		other => anyhow!(
+			"the runtime would reject `{addr}`: {other:?}; the address must be \
+			 /(ip4|ip6|dns|dns4|dns6)/<host>/tcp/<port> optionally followed by /ws or /wss"
+		),
+	})?;
 	Ok(addr)
 }
 
@@ -575,7 +576,10 @@ mod tests {
 			parse_addr("/ip6/2001:0db8::0001/tcp/30333").unwrap().to_string(),
 			"/ip6/2001:db8::1/tcp/30333"
 		);
-		assert!(parse_addr(&format!("/ip4/1.2.3.4/tcp/30333/p2p/{PEER}")).is_err());
+		let with_peer = parse_addr(&format!("/ip4/1.2.3.4/tcp/30333/p2p/{PEER}")).unwrap_err();
+		assert!(with_peer.to_string().contains("/p2p/"), "{with_peer}");
+		let quic = parse_addr("/ip4/1.2.3.4/udp/30333/quic-v1").unwrap_err();
+		assert!(quic.to_string().contains("UnsupportedProtocol(273)"), "{quic}");
 		assert!(parse_addr("not an address").is_err());
 	}
 
