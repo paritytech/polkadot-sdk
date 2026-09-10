@@ -5999,10 +5999,10 @@ async fn v4_mixed_version_double_fetch_converges() {
 
 #[tokio::test]
 // A segment carrying a zero-length cycle (an entry whose parent and output heads are equal)
-// is rejected at the wire: nothing is stored, and — because rejection happens before the
+// is rejected: nothing is stored, and — because rejection happens before the
 // rate-limit counter — the peer's cap is untouched, so a subsequent valid segment from the
 // same peer is accepted.
-async fn v4_zero_length_cycle_segment_rejected_at_wire() {
+async fn v4_zero_length_cycle_segment_rejected() {
 	let mut test_state = TestState::default();
 	let (mut state, _db, scheduling_parent) = v4_two_slot_fixture(&mut test_state).await;
 	let mut sender = test_state.sender.clone();
@@ -6017,6 +6017,19 @@ async fn v4_zero_length_cycle_segment_rejected_at_wire() {
 		claim_queue_offset: 0,
 	};
 	let fp_ok = v4_fingerprint(0xb1);
+
+	let malformed = [vec![], vec![fp_ok.clone(), self_loop.clone()]];
+
+	for segment in malformed.iter().cloned() {
+		test_state
+			.send_v4_segment(&mut state, peer_id, scheduling_parent, segment, 100.into())
+			.await;
+		assert!(state.segments().is_empty());
+		state
+			.try_launch_new_fetch_requests(&mut sender, &test_state.pp_known_output_heads)
+			.await;
+		test_state.assert_no_messages().await;
+	}
 
 	test_state
 		.send_v4_segment(

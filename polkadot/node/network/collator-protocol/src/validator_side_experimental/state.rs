@@ -284,10 +284,37 @@ impl<B: Backend> State<B> {
 			advertisement_log,
 		);
 
-		// V4 has no `Declare`: a peer's first advertisement carries its para and binds it.
-		// Until then a V4 peer holds a reserved slot on every scheduled para; binding here
-		// releases the slots it held on all the other paras.
 		if let Some(para_id) = advertised_para_id {
+			if entries.is_empty() {
+				gum::debug!(
+					target: LOG_TARGET,
+					?scheduling_parent,
+					?peer_id,
+					?para_id,
+					"Received an empty segment advertisement",
+				);
+				self.metrics.on_advertisement_rejected_malformed_segment(&para_id);
+				return;
+			}
+			// A zero-len cycle is impossible for an honest block.
+			if entries.iter().any(|prospective_candidate| {
+				Some(prospective_candidate.parent_head_data_hash()) ==
+					prospective_candidate.output_head_data_hash()
+			}) {
+				gum::debug!(
+					target: LOG_TARGET,
+					?scheduling_parent,
+					?peer_id,
+					?para_id,
+					"Received a segment advertisement with a zero-length cycle",
+				);
+				self.metrics.on_advertisement_rejected_malformed_segment(&para_id);
+				return;
+			}
+
+			// V4 has no `Declare`: a peer's first advertisement carries its para and binds it.
+			// Until then a V4 peer holds a reserved slot on every scheduled para; binding here
+			// releases the slots it held on all the other paras.
 			if !self.peer_manager.declared(sender, peer_id, para_id).await {
 				self.collation_manager.remove_peer(&peer_id);
 				return;
@@ -352,6 +379,9 @@ impl<B: Backend> State<B> {
 					},
 					AdvertisementError::SchedulingParentNotValid => {
 						self.metrics.on_advertisement_rejected_scheduling_parent_invalid(para_id)
+					},
+					AdvertisementError::MixedClaimShapes => {
+						self.metrics.on_advertisement_rejected_mixed_claim_shapes(para_id)
 					},
 				}
 				gum::debug!(

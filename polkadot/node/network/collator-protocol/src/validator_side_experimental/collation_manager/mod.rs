@@ -115,6 +115,8 @@ pub enum AdvertisementError {
 	V1AdvertisementForImplicitParent,
 	#[error("For V3 candidate descriptors, scheduling_parent does not match any expected scheduling parent.")]
 	SchedulingParentNotValid,
+	#[error("Segment mixes by-hash and by-output-head entries")]
+	MixedClaimShapes,
 }
 
 pub struct CollationManager {
@@ -397,10 +399,21 @@ impl CollationManager {
 		entries: Vec<ProspectiveCandidate>,
 	) -> std::result::Result<(), AdvertisementError> {
 		// Segments are homogeneous by construction: one message, one claim shape.
-		debug_assert!(
-			entries.iter().all(|e| matches!(e, ProspectiveCandidate::ByHash { .. })) ||
-				entries.iter().all(|e| matches!(e, ProspectiveCandidate::ByOutputHead { .. }))
-		);
+		if !(entries.iter().all(|e| matches!(e, ProspectiveCandidate::ByHash { .. })) ||
+			entries.iter().all(|e| matches!(e, ProspectiveCandidate::ByOutputHead { .. })))
+		{
+			gum::error!(
+				target: LOG_TARGET,
+				?peer_id,
+				?para_id,
+				?scheduling_parent,
+				?descriptor_version,
+				?entries,
+				"Segment mixes by-hash and by-output-head entries; rejecting. \
+				 Entries should be homogeneous by construction.",
+			);
+			return Err(AdvertisementError::MixedClaimShapes);
+		}
 
 		let segment = StoredSegment {
 			descriptor_version,
