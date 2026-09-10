@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789052169502,
+  "lastUpdate": 1789059269954,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "94772640+snowmead@users.noreply.github.com",
-            "name": "Michael Assaf",
-            "username": "snowmead"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "fbddee8faabeadef47a375c71c1a8a11274e4e0d",
-          "message": "Add `DecodeWithMemTracking` derive to `CompactProof` (#11028)\n\n# Description\n\nAdd `DecodeWithMemTracking` derive to `CompactProof` in\n`substrate/primitives/trie/src/storage_proof.rs`.\n\n`StorageProof` already derived `DecodeWithMemTracking` but\n`CompactProof` in the same file was missed.\n\n## Integration\n\nNo integration changes required for downstream projects. `CompactProof`\nnow implements `DecodeWithMemTracking`, which is a strictly additive\ntrait implementation. Existing code using `CompactProof` will continue\nto work as before.\n\n## Review Notes\n\nSingle-line change adding `DecodeWithMemTracking` to the derive macro\nlist on `CompactProof`:\n\n```diff\n-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo)]\n+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, DecodeWithMemTracking, TypeInfo)]\n pub struct CompactProof {\n     pub encoded_nodes: Vec<Vec<u8>>,\n }\n```\n\n`CompactProof` only contains `Vec<Vec<u8>>`, which already implements\n`DecodeWithMemTracking`, so the derive works without any manual\nimplementation.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-10T18:41:06Z",
-          "tree_id": "8454baf6ec660756950140fb84b8400668568743",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/fbddee8faabeadef47a375c71c1a8a11274e4e0d"
-        },
-        "date": 1770752886804,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52942.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63632.98,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.570149557422937,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3649243682999903,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002115819,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.953347443980007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8549897900200149,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0054725537199999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021430680000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.659307352400001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002115819,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.7164434118700003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6565418213499994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021430680000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6956681463200014,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-2",
             "value": 2.8655083966200006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e993420b81cbef53f469a2ea923117024ac71b55",
+          "message": "bridge-grandpa: detect forced changes after other consensus logs (#13160)\n\nGRANDPA bridge headers containing forced authority changes could be\naccepted when another GRANDPA consensus log appeared first. Filter for\nforced changes inside the digest search so these headers are\nconsistently rejected.\n\nNo API changes or storage migration are required.",
+          "timestamp": "2026-09-10T14:47:12Z",
+          "tree_id": "8303e81d32caf258fba458111b9e461947969dd5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e993420b81cbef53f469a2ea923117024ac71b55"
+        },
+        "date": 1789059229738,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63564.92,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.723124489649999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.762439982540001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001980185,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7294825063799983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3904345585700013,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000019259799999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8127712573399339,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001980185,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.167270318649935,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.383353240772643,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000019259799999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.743193730439998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00582379373,
             "unit": "seconds"
           }
         ]
