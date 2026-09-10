@@ -183,7 +183,10 @@ impl DisputeCoordinatorSubsystem {
 
 		let (participations, votes, first_leaf, initialized, backend) = match res {
 			// Concluded:
-			None => return Ok(()),
+			None => {
+				gum::debug!(target: LOG_TARGET, "received `Conclude` signal, exiting");
+				return Ok(());
+			},
 			Some(r) => r,
 		};
 
@@ -193,6 +196,8 @@ impl DisputeCoordinatorSubsystem {
 	}
 
 	/// Make sure to recover participations properly on startup.
+	///
+	/// Returns `None` if told to conclude before receiving the first leaf.
 	async fn initialize<B, Context>(
 		self,
 		ctx: &mut Context,
@@ -213,7 +218,8 @@ impl DisputeCoordinatorSubsystem {
 		loop {
 			let first_leaf = match wait_for_first_leaf(ctx).await {
 				Ok(Some(activated_leaf)) => activated_leaf,
-				Ok(None) => continue,
+				// Shut down cleanly if asked to conclude before receiving a leaf.
+				Ok(None) => return Ok(None),
 				Err(e) => {
 					e.split()?.log();
 					continue;

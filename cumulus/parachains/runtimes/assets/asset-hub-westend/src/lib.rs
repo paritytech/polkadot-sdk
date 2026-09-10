@@ -608,7 +608,7 @@ impl pallet_assets_precompiles::ForeignAssetsConfig for Runtime {
 
 impl pallet_assets_precompiles::PermitConfig for Runtime {
 	type ChainId = <Runtime as pallet_revive::Config>::ChainId;
-	type WeightInfo = pallet_assets_precompiles::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::pallet_assets_precompiles::WeightInfo<Runtime>;
 }
 
 /// Precompile address identifiers (embedded at bytes [16..18] of the H160 address).
@@ -1435,7 +1435,7 @@ impl pallet_revive::Config for Runtime {
 }
 
 impl pallet_vesting_precompiles::pallet::Config for Runtime {
-	type WeightInfo = pallet_vesting_precompiles::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::pallet_vesting_precompiles::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1456,7 +1456,7 @@ impl pallet_migrations::Config for Runtime {
 		pallet_assets_precompiles::MigrateForeignAssetPrecompileMappings<
 			Runtime,
 			ForeignAssetsInstance,
-			pallet_assets_precompiles::weights::SubstrateWeight<Runtime>,
+			weights::pallet_assets_precompiles::WeightInfo<Runtime>,
 		>,
 		pallet_revive::migrations::v3::Migration<Runtime>,
 	);
