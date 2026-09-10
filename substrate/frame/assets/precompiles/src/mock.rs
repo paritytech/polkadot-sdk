@@ -64,8 +64,6 @@ impl pallet_balances::Config for Test {
 	type Balance = u128;
 	type AccountStore = System;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
 }
 
 parameter_types! {

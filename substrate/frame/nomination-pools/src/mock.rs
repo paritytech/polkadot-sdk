@@ -18,8 +18,7 @@
 use super::*;
 use crate::{self as pools};
 use frame_support::{
-	assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::{fungible::Mutate, VariantCountOf},
+	assert_ok, derive_impl, ord_parameter_types, parameter_types, traits::fungible::Mutate,
 	PalletId,
 };
 use frame_system::{EnsureSignedBy, RawOrigin};
@@ -444,8 +443,6 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
