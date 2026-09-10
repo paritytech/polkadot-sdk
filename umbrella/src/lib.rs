@@ -179,6 +179,10 @@ pub use cumulus_primitives_parachain_inherent;
 #[cfg(feature = "cumulus-primitives-proof-size-hostfunction")]
 pub use cumulus_primitives_proof_size_hostfunction;
 
+/// Speculative Messaging primitives.
+#[cfg(feature = "cumulus-primitives-spec-messaging")]
+pub use cumulus_primitives_spec_messaging;
+
 /// Utilities to reclaim storage weight.
 #[cfg(feature = "cumulus-primitives-storage-weight-reclaim")]
 pub use cumulus_primitives_storage_weight_reclaim;
