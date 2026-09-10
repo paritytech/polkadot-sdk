@@ -23,7 +23,7 @@ use core::{cmp, mem::size_of};
 use sp_runtime::traits::{Bounded, Hash, StaticLookup};
 
 use frame_benchmarking::{account, v2::*, BenchmarkError};
-use frame_support::traits::{EnsureOrigin, Get, UnfilteredDispatchable};
+use frame_support::traits::{Consideration, EnsureOrigin, Get, UnfilteredDispatchable};
 use frame_system::{pallet_prelude::BlockNumberFor, Pallet as System, RawOrigin as SystemOrigin};
 
 use super::{Call as AllianceCall, Pallet as Alliance, *};
@@ -51,8 +51,15 @@ fn announcement(input: impl AsRef<[u8]>) -> Cid {
 
 fn funded_account<T: Config<I>, I: 'static>(name: &'static str, index: u32) -> T::AccountId {
 	let account: T::AccountId = account(name, index, SEED);
-	T::Currency::make_free_balance_be(&account, BalanceOf::<T, I>::max_value() / 100u8.into());
+	T::OldCurrency::make_free_balance_be(&account, BalanceOf::<T, I>::max_value() / 100u8.into());
 	account
+}
+
+/// Hold a candidacy deposit for `who` and record the ticket. `who` must already be funded.
+fn give_deposit<T: Config<I>, I: 'static>(who: &T::AccountId) {
+	let ticket = T::Consideration::new(who, Alliance::<T, I>::deposit_footprint())
+		.expect("benchmark account is funded; qed");
+	<DepositOf<T, I>>::insert(who, ticket);
 }
 
 fn fellow<T: Config<I>, I: 'static>(index: u32) -> T::AccountId {
@@ -74,18 +81,12 @@ fn generate_unscrupulous_account<T: Config<I>, I: 'static>(index: u32) -> T::Acc
 fn set_members<T: Config<I>, I: 'static>() {
 	let fellows: BoundedVec<_, T::MaxMembersCount> =
 		BoundedVec::try_from(vec![fellow::<T, I>(1), fellow::<T, I>(2)]).unwrap();
-	fellows.iter().for_each(|who| {
-		T::Currency::reserve(&who, T::AllyDeposit::get()).unwrap();
-		<DepositOf<T, I>>::insert(&who, T::AllyDeposit::get());
-	});
+	fellows.iter().for_each(|who| give_deposit::<T, I>(who));
 	Members::<T, I>::insert(MemberRole::Fellow, fellows.clone());
 
 	let allies: BoundedVec<_, T::MaxMembersCount> =
 		BoundedVec::try_from(vec![ally::<T, I>(1)]).unwrap();
-	allies.iter().for_each(|who| {
-		T::Currency::reserve(&who, T::AllyDeposit::get()).unwrap();
-		<DepositOf<T, I>>::insert(&who, T::AllyDeposit::get());
-	});
+	allies.iter().for_each(|who| give_deposit::<T, I>(who));
 	Members::<T, I>::insert(MemberRole::Ally, allies);
 
 	T::InitializeMembers::initialize_members(&[fellows.as_slice()].concat());
@@ -519,11 +520,9 @@ mod benchmarks {
 		// setting the Alliance to disband on the benchmark call
 		Alliance::<T, I>::init_members(SystemOrigin::Root.into(), fellows.clone(), allies.clone())?;
 
-		// reserve deposits
-		let deposit = T::AllyDeposit::get();
+		// place candidacy deposit holds
 		for member in fellows.iter().chain(allies.iter()).take(z as usize) {
-			T::Currency::reserve(&member, deposit)?;
-			<DepositOf<T, I>>::insert(&member, deposit);
+			give_deposit::<T, I>(member);
 		}
 
 		assert_eq!(Alliance::<T, I>::voting_members_count(), x);
@@ -536,7 +535,7 @@ mod benchmarks {
 			Event::AllianceDisbanded {
 				fellow_members: x,
 				ally_members: y,
-				unreserved: cmp::min(z, x + y),
+				released: cmp::min(z, x + y),
 			}
 			.into(),
 		);
@@ -619,16 +618,9 @@ mod benchmarks {
 		_(SystemOrigin::Signed(outsider.clone()));
 
 		assert!(Alliance::<T, I>::is_member_of(&outsider, MemberRole::Ally)); // outsider is now an ally
-		assert_eq!(DepositOf::<T, I>::get(&outsider), Some(T::AllyDeposit::get())); // with a deposit
+		assert!(DepositOf::<T, I>::contains_key(&outsider)); // with a deposit
 		assert!(!Alliance::<T, I>::has_voting_rights(&outsider)); // allies don't have voting rights
-		assert_last_event::<T, I>(
-			Event::NewAllyJoined {
-				ally: outsider,
-				nominator: None,
-				reserved: Some(T::AllyDeposit::get()),
-			}
-			.into(),
-		);
+		assert_last_event::<T, I>(Event::NewAllyJoined { ally: outsider, nominator: None }.into());
 		Ok(())
 	}
 
@@ -652,8 +644,7 @@ mod benchmarks {
 		assert_eq!(DepositOf::<T, I>::get(&outsider), None); // without a deposit
 		assert!(!Alliance::<T, I>::has_voting_rights(&outsider)); // allies don't have voting rights
 		assert_last_event::<T, I>(
-			Event::NewAllyJoined { ally: outsider, nominator: Some(fellow1), reserved: None }
-				.into(),
+			Event::NewAllyJoined { ally: outsider, nominator: Some(fellow1) }.into(),
 		);
 
 		Ok(())
@@ -715,17 +706,14 @@ mod benchmarks {
 		);
 		System::<T>::set_block_number(System::<T>::block_number() + T::RetirementPeriod::get());
 
-		assert_eq!(DepositOf::<T, I>::get(&fellow2), Some(T::AllyDeposit::get()));
+		assert!(DepositOf::<T, I>::contains_key(&fellow2));
 
 		#[extrinsic_call]
 		_(SystemOrigin::Signed(fellow2.clone()));
 
 		assert!(!Alliance::<T, I>::is_member(&fellow2));
 		assert_eq!(DepositOf::<T, I>::get(&fellow2), None);
-		assert_last_event::<T, I>(
-			Event::MemberRetired { member: fellow2, unreserved: Some(T::AllyDeposit::get()) }
-				.into(),
-		);
+		assert_last_event::<T, I>(Event::MemberRetired { member: fellow2 }.into());
 		Ok(())
 	}
 
@@ -735,7 +723,7 @@ mod benchmarks {
 
 		let fellow2 = fellow::<T, I>(2);
 		assert!(Alliance::<T, I>::is_member_of(&fellow2, MemberRole::Fellow));
-		assert_eq!(DepositOf::<T, I>::get(&fellow2), Some(T::AllyDeposit::get()));
+		assert!(DepositOf::<T, I>::contains_key(&fellow2));
 
 		let fellow2_lookup = T::Lookup::unlookup(fellow2.clone());
 		let call = Call::<T, I>::kick_member { who: fellow2_lookup };
@@ -749,9 +737,7 @@ mod benchmarks {
 
 		assert!(!Alliance::<T, I>::is_member(&fellow2));
 		assert_eq!(DepositOf::<T, I>::get(&fellow2), None);
-		assert_last_event::<T, I>(
-			Event::MemberKicked { member: fellow2, slashed: Some(T::AllyDeposit::get()) }.into(),
-		);
+		assert_last_event::<T, I>(Event::MemberKicked { member: fellow2 }.into());
 		Ok(())
 	}
 

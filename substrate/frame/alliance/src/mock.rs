@@ -26,7 +26,8 @@ pub use sp_runtime::{
 
 pub use frame_support::{
 	assert_noop, assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::EitherOfDiverse, BoundedVec,
+	traits::{tokens::fungible::HoldConsideration, ConstU64, EitherOfDiverse, LinearStoragePrice},
+	BoundedVec,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use pallet_identity::{
@@ -55,6 +56,7 @@ impl frame_system::Config for Test {
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 const MOTION_DURATION_IN_BLOCKS: BlockNumber = 3;
@@ -220,6 +222,8 @@ parameter_types! {
 	pub const MaxAllies: u32 = 100;
 	pub const AllyDeposit: u64 = 25;
 	pub const RetirementPeriod: BlockNumber = MOTION_DURATION_IN_BLOCKS + 1;
+	pub const AllianceHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::Alliance(pallet_alliance::HoldReason::AllianceDeposit);
 }
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -227,8 +231,14 @@ impl Config for Test {
 	type AdminOrigin = EnsureSignedBy<One, AccountId>;
 	type MembershipManager = EnsureSignedBy<Two, AccountId>;
 	type AnnouncementOrigin = EnsureSignedBy<Three, AccountId>;
-	type Currency = Balances;
-	type Slashed = ();
+	type OldCurrency = Balances;
+	// Flat `AllyDeposit` bond, held under the alliance hold reason.
+	type Consideration = HoldConsideration<
+		AccountId,
+		Balances,
+		AllianceHoldReason,
+		LinearStoragePrice<AllyDeposit, ConstU64<0>, u64>,
+	>;
 	type InitializeMembers = AllianceMotion;
 	type MembershipChanged = AllianceMotion;
 	#[cfg(not(feature = "runtime-benchmarks"))]
@@ -243,7 +253,6 @@ impl Config for Test {
 	type MaxWebsiteUrlLength = ConstU32<255>;
 	type MaxAnnouncementsCount = ConstU32<100>;
 	type MaxMembersCount = MaxMembers;
-	type AllyDeposit = AllyDeposit;
 	type WeightInfo = ();
 	type RetirementPeriod = RetirementPeriod;
 }
