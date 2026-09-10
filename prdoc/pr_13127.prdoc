@@ -1,0 +1,39 @@
+title: '[EPMB] Let DAP own and authorise payouts from its buffer'
+doc:
+- audience: Runtime Dev
+  description: |-
+    DAP now owns every outflow from its buffer, mirroring the deactivation it already does on
+    inflow. It gains a registry of capped draws (`BufferDraws`), each with an absolute budget per
+    drip period rather than a `Perbill` share of issuance, set by `BudgetOrigin` through the new
+    `set_draw_budget` call. `pallet_dap::BufferDraw<T, Key>` hands a registered draw to any pallet
+    that needs paying out of the buffer, so the consumer requests a payment instead of holding the
+    buffer account and transferring from it. DAP authorises against the budget, moves the funds and
+    reactivates them.
+
+    `signed::Config::RewardSource` is now `sp_staking::budget::PaymentSource`, a single atomic
+    `pay` instead of the previous `account()` plus `paid()` pair. `ReactivatingPot` is removed:
+    reactivation belongs to DAP, not to the paying pallet. `ActivePot` stays for pots holding
+    active funds and gains a `Currency` type parameter to cover the minting (`None`) case.
+
+    Asset Hub Westend and the staking-async parachain runtime swap
+    `ReactivatingPot<SignedRewardPot, Balances>` for
+    `pallet_dap::BufferDraw<Runtime, signed::RewardBudgetKey>`, and register the draw at genesis
+    through the new DAP genesis config, or on existing chains through
+    `pallet_dap::migrations::MigrateV2ToV3`.
+- audience: Runtime User
+  description: |-
+    Signed-phase election rewards are still paid out of the DAP buffer, but now through DAP itself
+    and capped by a per-drip-period budget. A payout over that budget is refused and the reward is
+    queued in `UnpaidRewards`, claimable later via `claim_unpaid_reward` exactly as when the buffer
+    is short of funds.
+crates:
+- name: pallet-dap
+  bump: major
+- name: sp-staking
+  bump: minor
+- name: pallet-election-provider-multi-block
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: pallet-staking-async-parachain-runtime
+  bump: minor

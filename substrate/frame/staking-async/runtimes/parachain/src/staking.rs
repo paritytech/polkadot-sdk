@@ -308,8 +308,21 @@ impl multi_block::verifier::Config for Runtime {
 }
 
 parameter_types! {
-	/// The DAP buffer account, used as the signed-phase reward pot.
-	pub SignedRewardPot: Option<AccountId> = Some(Dap::buffer_account());
+	/// Per-drip-period budget of the signed phase's draw on the DAP buffer: a whole submission
+	/// queue's worth of rewards and fee refunds, generous for a one-minute period given rounds
+	/// are an era apart.
+	pub SignedRewardDrawBudget: Balance = RewardBase::get()
+		.saturating_add(<Runtime as multi_block::signed::Config>::MaxFeeRefund::get())
+		.saturating_mul(MaxSubmissions::get().into());
+}
+
+/// Buffer draws registered at genesis.
+pub struct InitialBufferDraws;
+
+impl Get<Vec<(sp_staking::budget::BudgetKey, Balance)>> for InitialBufferDraws {
+	fn get() -> Vec<(sp_staking::budget::BudgetKey, Balance)> {
+		vec![(multi_block::signed::RewardBudgetKey::get(), SignedRewardDrawBudget::get())]
+	}
 }
 
 impl multi_block::signed::Config for Runtime {
@@ -324,7 +337,8 @@ impl multi_block::signed::Config for Runtime {
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
 	type Slash = Dap;
-	type RewardSource = multi_block::signed::ReactivatingPot<SignedRewardPot, Balances>;
+	// DAP pays out of its buffer, reactivating as it goes, capped at `SignedRewardDrawBudget`.
+	type RewardSource = pallet_dap::BufferDraw<Runtime, multi_block::signed::RewardBudgetKey>;
 	type WeightInfo = multi_block::weights::polkadot::MultiBlockSignedWeightInfo<Self>;
 }
 

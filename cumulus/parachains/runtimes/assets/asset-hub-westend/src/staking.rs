@@ -17,7 +17,7 @@
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
-use frame_support::traits::EitherOf;
+use frame_support::traits::{EitherOf, Get};
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
 use pallet_staking_async::UseValidatorsMap;
 use pallet_staking_async_rc_client as rc_client;
@@ -153,8 +153,24 @@ parameter_types! {
 	pub DepositPerPage: Balance = 1 * UNITS;
 	pub RewardBase: Balance = 10 * UNITS;
 	pub MaxSubmissions: u32 = 8;
-	/// The DAP buffer account, used as the signed-phase reward pot.
-	pub SignedRewardPot: Option<AccountId> = Some(Dap::buffer_account());
+}
+
+parameter_types! {
+	/// Per-drip-period budget of the signed phase's draw on the DAP buffer: a whole submission
+	/// queue's worth of rewards and fee refunds, generous for a one-minute period given rounds
+	/// are an era apart.
+	pub SignedRewardDrawBudget: Balance = RewardBase::get()
+		.saturating_add(<Runtime as multi_block::signed::Config>::MaxFeeRefund::get())
+		.saturating_mul(MaxSubmissions::get().into());
+}
+
+/// Buffer draws seeded by [`pallet_dap::migrations::MigrateV2ToV3`].
+pub struct InitialBufferDraws;
+
+impl Get<Vec<(sp_staking::budget::BudgetKey, Balance)>> for InitialBufferDraws {
+	fn get() -> Vec<(sp_staking::budget::BudgetKey, Balance)> {
+		vec![(multi_block::signed::RewardBudgetKey::get(), SignedRewardDrawBudget::get())]
+	}
 }
 
 impl multi_block::signed::Config for Runtime {
@@ -169,7 +185,8 @@ impl multi_block::signed::Config for Runtime {
 	type MaxSubmissions = MaxSubmissions;
 	type EstimateCallFee = TransactionPayment;
 	type Slash = Dap;
-	type RewardSource = multi_block::signed::ReactivatingPot<SignedRewardPot, Balances>;
+	// DAP pays out of its buffer, reactivating as it goes, capped at `SignedRewardDrawBudget`.
+	type RewardSource = pallet_dap::BufferDraw<Runtime, multi_block::signed::RewardBudgetKey>;
 	type WeightInfo = weights::pallet_election_provider_multi_block_signed::WeightInfo<Runtime>;
 }
 

@@ -61,6 +61,18 @@ impl<T: frame_system::Config> pallet_dap::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+	/// Storage: `Dap::BufferDraws` (r:1 w:1)
+	/// Proof: `Dap::BufferDraws` (`max_values`: Some(1), `max_size`: Some(1297), added: 1792, mode: `MaxEncodedLen`)
+	fn set_draw_budget() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `2782`
+		// Minimum execution time: 9_602_000 picoseconds.
+		Weight::from_parts(10_498_000, 0)
+			.saturating_add(Weight::from_parts(0, 2782))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
 	/// Storage: `Timestamp::Now` (r:1 w:0)
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `Dap::LastIssuanceTimestamp` (r:1 w:1)
