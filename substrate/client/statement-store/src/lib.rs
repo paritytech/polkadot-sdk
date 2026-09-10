@@ -665,6 +665,12 @@ impl QueryIndex {
 		self.explicit_only.remove(hash);
 	}
 
+	/// Whether the statement is persisted only for explicit affinity and already propagated,
+	/// which makes it a candidate for the affinity sweep.
+	fn is_explicit_only_propagated(&self, hash: &Hash) -> bool {
+		self.explicit_only.contains(hash) && !self.recent.contains_key(hash)
+	}
+
 	/// Copies the set of recently added hashes with their admission sequence numbers.
 	fn recent_snapshot(&self) -> HashMap<Hash, u64> {
 		self.recent.clone()
@@ -2165,7 +2171,7 @@ impl Store {
 			query_index
 				.explicit_only
 				.iter()
-				.filter(|hash| !query_index.recent.contains_key(*hash))
+				.filter(|hash| query_index.is_explicit_only_propagated(hash))
 				.copied()
 				.collect()
 		};
@@ -2190,7 +2196,16 @@ impl Store {
 			if resolver(&statement).is_persistent() {
 				continue;
 			}
-			if let Err(e) = self.remove_statement(&hash, Resubmission::Allowed) {
+			let mut submit_index = self.submit_index.write();
+			// Admission updates the query index under the submit lock, so this re-check rules
+			// out a copy re-admitted since the candidates were collected: with DHT affinity it
+			// left `explicit_only`, as explicit-only it awaits propagation in `recent`.
+			if !self.query_index.read().is_explicit_only_propagated(&hash) {
+				continue;
+			}
+			if let Err(e) =
+				self.remove_statement_locked(&mut submit_index, &hash, Resubmission::Allowed)
+			{
 				log::warn!(
 					target: LOG_TARGET,
 					"Error removing statement {:?}: {:?}",
@@ -3271,9 +3286,19 @@ impl Store {
 	/// or its body is corrupt. A corrupt body cannot be tied back to its index rows, so nothing
 	/// is removed at all.
 	fn remove_statement(&self, hash: &Hash, resubmission: Resubmission) -> Result<bool> {
+		let mut submit_index = self.submit_index.write();
+		self.remove_statement_locked(&mut submit_index, hash, resubmission)
+	}
+
+	/// [`Self::remove_statement`] for a caller already holding the submit-index write lock.
+	fn remove_statement_locked(
+		&self,
+		submit_index: &mut SubmitIndex,
+		hash: &Hash,
+		resubmission: Resubmission,
+	) -> Result<bool> {
 		let current_time = self.timestamp();
 		{
-			let mut submit_index = self.submit_index.write();
 			// The body is read under the submit-index lock, so it cannot change under our feet
 			let Some(encoded) =
 				self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))?
@@ -3529,14 +3554,16 @@ impl Store {
 #[cfg(test)]
 mod tests {
 
-	use crate::{col, QueryIndex, RetentionReasonMask, RetentionTrack, Store, KEY_VERSION};
+	use crate::{
+		col, QueryIndex, Resubmission, RetentionReasonMask, RetentionTrack, Store, KEY_VERSION,
+	};
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
 		AccountId, Channel, DecryptionKey, FilterDecision, InvalidReason, OptimizedTopicFilter,
 		Proof, RejectionReason, Statement, StatementSource, StatementStore, SubmitResult, Topic,
 	};
-	use std::sync::atomic::{AtomicBool, Ordering};
+	use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
 	type Hash = sp_core::H256;
@@ -4843,6 +4870,43 @@ mod tests {
 		affine.store(false, Ordering::Relaxed);
 		store.maintain();
 		assert!(store.has_statement(&hash));
+	}
+
+	#[test]
+	fn sweep_spares_a_copy_readmitted_while_it_resolves_affinity() {
+		let (store, _temp) = test_store();
+		let store = std::sync::Arc::new(store);
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+		// 0: initial admission, 1: the sweep resolves its candidate, 2: the re-admission.
+		let phase = std::sync::Arc::new(AtomicU8::new(0));
+		store.set_retention_resolver(Box::new({
+			let store = store.clone();
+			let phase = phase.clone();
+			let statement = statement.clone();
+			move |_: &Statement| match phase.load(Ordering::Relaxed) {
+				0 => RetentionReasonMask::EXPLICIT_AFFINITY,
+				1 => {
+					phase.store(2, Ordering::Relaxed);
+					store.remove_statement(&hash, Resubmission::Allowed).unwrap();
+					assert_eq!(
+						store.submit(statement.clone(), StatementSource::Network),
+						SubmitResult::New
+					);
+					RetentionReasonMask::TRANSIENT
+				},
+				_ => RetentionReasonMask::DHT_AFFINITY,
+			}
+		}));
+		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
+		store.take_recent_statements().unwrap();
+
+		// The candidate is deleted and re-admitted with DHT affinity while the sweep resolves
+		// its lapsed explicit affinity: the sweep must not remove the new copy.
+		phase.store(1, Ordering::Relaxed);
+		store.maintain();
+		assert!(store.has_statement(&hash));
+		assert!(!store.query_index.read().explicit_only.contains(&hash));
 	}
 
 	#[test]
