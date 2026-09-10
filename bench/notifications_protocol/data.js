@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789034546562,
+  "lastUpdate": 1789040827272,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -219263,6 +219263,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2642887721,
             "range": "± 139036522",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c68155d0a5d493e7428d309d759a3f5d3f366502",
+          "message": "Gap-sync: Reset duplicate request counter after some time (#13131)\n\nDuplicate request counters never expired, so legitimate retries after\nsync restarts could leave peers permanently refused and repeatedly\nbanned.\n\nReset the counters after 60 seconds and replace fatal duplicate-request\npenalties with a smaller penalty in both block and state request\nhandlers.\n\nA concrete occurence of this issue that we saw recently on a westend RPC\nnode:\n1. Westend Coretime RPC nodes had a one-block history gap.\n2. Tip sync hit “Potential long-range attack” import errors, triggering\nsync restarts and repeated gap requests.\n3. Those retries exhausted the duplicate-request allowance on the only\ntwo reachable peers, the collators.\n4. The collators refused further requests and fatally penalized the RPC\nnodes.\n5. After each ban expired, the nodes reconnected, retried, and were\nbanned again. The counters never reset, leaving gap sync stuck.\n\nIssues like this seem to come up in the past too\n(https://github.com/paritytech/polkadot-sdk/issues/8990,\nhttps://github.com/paritytech/polkadot-sdk/issues/9165), with no real\nresolution. I think this here would solve most of the problems. If in\ndoubt, we could also increase the timer to 3 or 4 minutes.",
+          "timestamp": "2026-09-10T10:06:35Z",
+          "tree_id": "e89f0b0de36c18cb0965578589e186c1ab33de08",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c68155d0a5d493e7428d309d759a3f5d3f366502"
+        },
+        "date": 1789040790121,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4334007,
+            "range": "± 37705",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 285300,
+            "range": "± 1437",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4454131,
+            "range": "± 12216",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 352243,
+            "range": "± 2248",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5247093,
+            "range": "± 26931",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 861679,
+            "range": "± 5002",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10611744,
+            "range": "± 35968",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4609007,
+            "range": "± 34831",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 41100909,
+            "range": "± 244278",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 36215338,
+            "range": "± 374355",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 339958046,
+            "range": "± 3692912",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 290459205,
+            "range": "± 1446889",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2531853870,
+            "range": "± 12783242",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2332083676,
+            "range": "± 226427630",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3271137,
+            "range": "± 35433",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1807906,
+            "range": "± 11083",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3398443,
+            "range": "± 10903",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1868717,
+            "range": "± 10995",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3825744,
+            "range": "± 13996",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2160803,
+            "range": "± 11960",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7644993,
+            "range": "± 25408",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5044849,
+            "range": "± 55196",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 36203364,
+            "range": "± 221241",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 34809857,
+            "range": "± 183836",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 305596624,
+            "range": "± 1952517",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 272349396,
+            "range": "± 2013203",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2423403513,
+            "range": "± 27351831",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2328908584,
+            "range": "± 49603855",
             "unit": "ns/iter"
           }
         ]
