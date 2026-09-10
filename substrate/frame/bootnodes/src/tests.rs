@@ -96,7 +96,14 @@ fn add_bootnode_requires_admin_origin() {
 fn add_bootnode_rejects_invalid_multiaddr() {
 	new_test_ext().execute_with(|| {
 		let pair = pair(1);
-		for bad in [vec![], vec![4, 1, 2, 3], vec![0xff, 0xff, 0xff, 0xff, 0x7f], vec![0x7f, 0]] {
+		for bad in [
+			vec![],
+			vec![4, 1, 2, 3],
+			vec![0xff, 0xff, 0xff, 0xff, 0x7f],
+			vec![0x7f, 0],
+			addr("/ip4/1.2.3.4/udp/30333/quic-v1").to_vec(),
+			addr("/ip4/1.2.3.4").to_vec(),
+		] {
 			let addr: BoundedVec<u8, _> = bad.try_into().unwrap();
 			let sig = pair.sign(&Bootnodes::pop_payload(0, &addr));
 			let bootnode = Bootnode { addr, node_key: pair.public(), seq: 0, sig };

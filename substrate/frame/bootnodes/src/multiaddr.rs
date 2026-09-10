@@ -15,12 +15,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Minimal structural validation of binary multiaddrs.
+//! Validation of binary multiaddrs for bootnode entries.
 //!
-//! The runtime cannot use the `multiaddr` crate and has no need to interpret addresses. It only
-//! checks that an address is a well-formed sequence of known protocol components and that none
-//! of them is `/p2p/`, since a bootnode's peer id is derived from its node key. Payload contents
-//! (DNS names, multihashes, ...) are not inspected.
+//! The runtime cannot use the `multiaddr` crate. It accepts exactly the shapes a node can dial a
+//! bootnode on, the same ones authority discovery publishes: an IP or DNS host, a TCP port and
+//! optionally a WebSocket layer:
+//!
+//! `/(ip4|ip6|dns|dns4|dns6)/<host>/tcp/<port>[/ws|/wss]`
+//!
+//! DNS names must be UTF-8, which is what the `multiaddr` crate requires when decoding. A `/p2p/`
+//! component is rejected with its own error, since a bootnode's peer id is derived from its node
+//! key.
 //!
 //! Protocol codes and payload layouts follow the multiformats protocol table as implemented by
 //! the `multiaddr` crate, version 0.18.
@@ -34,63 +39,27 @@ pub enum Error {
 	InvalidVarint,
 	/// A component's payload runs past the end of the address.
 	UnexpectedEnd,
-	/// A protocol code that is not in the table.
-	UnknownProtocol(u32),
+	/// A protocol other than ip4, ip6, dns, dns4, dns6, tcp, ws or wss.
+	UnsupportedProtocol(u32),
 	/// The address contains a `/p2p/` component.
 	ContainsPeerId,
+	/// A DNS name is not UTF-8.
+	InvalidDnsName,
+	/// The components are not `host/tcp` optionally followed by `ws` or `wss`.
+	InvalidLayout,
 }
 
 /// Multicodec code of the `/p2p/` protocol (also known as `/ipfs/`).
 pub const P2P: u32 = 421;
 
-/// How a protocol's payload is laid out after its code.
-enum Payload {
-	/// No payload.
-	Empty,
-	/// A fixed number of bytes.
-	Fixed(usize),
-	/// An unsigned varint length followed by that many bytes.
-	LengthPrefixed,
-}
-
-/// Payload layout of a protocol, or `None` for an unknown code.
-fn payload(code: u32) -> Option<Payload> {
-	use Payload::*;
-	Some(match code {
-		// ip4
-		4 => Fixed(4),
-		// tcp, dccp, sctp, udp
-		6 | 33 | 132 | 273 => Fixed(2),
-		// ip6
-		41 => Fixed(16),
-		// ip6zone
-		42 => LengthPrefixed,
-		// ipcidr
-		43 => Fixed(1),
-		// dns, dns4, dns6, dnsaddr
-		53..=56 => LengthPrefixed,
-		// p2p-webrtc-star, p2p-webrtc-direct, p2p-stardust, webrtc-direct, webrtc, p2p-circuit
-		275..=277 | 280 | 281 | 290 => Empty,
-		// utp, udt
-		301 | 302 => Empty,
-		// unix
-		400 => LengthPrefixed,
-		// p2p
-		P2P => LengthPrefixed,
-		// https, tls, noise, quic, quic-v1, webtransport, ws, wss, p2p-websocket-star, http
-		443 | 448 | 454 | 460 | 461 | 465 | 477..=480 => Empty,
-		// onion: 10 byte address plus 2 byte port
-		444 => Fixed(12),
-		// onion3: 35 byte address plus 2 byte port
-		445 => Fixed(37),
-		// garlic64, garlic32, sni, certhash
-		446 | 447 | 449 | 466 => LengthPrefixed,
-		// memory
-		777 => Fixed(8),
-		// ws and wss with a path; non-standard, but emitted by the `multiaddr` crate
-		4770 | 4780 => LengthPrefixed,
-		_ => return None,
-	})
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Component {
+	/// ip4, ip6, dns, dns4 or dns6.
+	Host,
+	/// tcp.
+	Tcp,
+	/// ws or wss.
+	WebSocket,
 }
 
 /// Read an unsigned LEB128 varint fitting in a `u32`, returning it and the remaining input.
@@ -115,36 +84,71 @@ fn read_varint(input: &[u8]) -> Result<(u32, &[u8]), Error> {
 	Err(Error::InvalidVarint)
 }
 
-/// Check that `addr` is a well-formed multiaddr made only of known protocols and that it does
-/// not contain a `/p2p/` component.
+/// Read one component, returning its kind and the remaining input.
+fn read_component(input: &[u8]) -> Result<(Component, &[u8]), Error> {
+	let (code, rest) = read_varint(input)?;
+	let (component, payload_len) = match code {
+		// ip4
+		4 => (Component::Host, 4),
+		// ip6
+		41 => (Component::Host, 16),
+		// dns, dns4, dns6
+		53..=55 => {
+			let (len, rest) = read_varint(rest)?;
+			let name = rest.get(..len as usize).ok_or(Error::UnexpectedEnd)?;
+			core::str::from_utf8(name).map_err(|_| Error::InvalidDnsName)?;
+			return Ok((Component::Host, &rest[name.len()..]));
+		},
+		// tcp
+		6 => (Component::Tcp, 2),
+		// ws, wss
+		477 | 478 => (Component::WebSocket, 0),
+		P2P => return Err(Error::ContainsPeerId),
+		other => return Err(Error::UnsupportedProtocol(other)),
+	};
+	let rest = rest.get(payload_len..).ok_or(Error::UnexpectedEnd)?;
+	Ok((component, rest))
+}
+
+/// What may come next while walking an address.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Expect {
+	Host,
+	Tcp,
+	WebSocketOrEnd,
+	End,
+}
+
+/// Check that `addr` is `/(ip4|ip6|dns|dns4|dns6)/<host>/tcp/<port>` optionally followed by
+/// `/ws` or `/wss`, with UTF-8 DNS names and no `/p2p/` component.
 pub fn validate(addr: &[u8]) -> Result<(), Error> {
 	if addr.is_empty() {
 		return Err(Error::Empty);
 	}
 	let mut rest = addr;
+	let mut expect = Expect::Host;
 	while !rest.is_empty() {
-		let (code, mut after) = read_varint(rest)?;
-		if code == P2P {
-			return Err(Error::ContainsPeerId);
-		}
-		let len = match payload(code).ok_or(Error::UnknownProtocol(code))? {
-			Payload::Empty => 0,
-			Payload::Fixed(n) => n,
-			Payload::LengthPrefixed => {
-				let (n, after_len) = read_varint(after)?;
-				after = after_len;
-				n as usize
-			},
+		let (component, after) = read_component(rest)?;
+		expect = match (expect, component) {
+			(Expect::Host, Component::Host) => Expect::Tcp,
+			(Expect::Tcp, Component::Tcp) => Expect::WebSocketOrEnd,
+			(Expect::WebSocketOrEnd, Component::WebSocket) => Expect::End,
+			_ => return Err(Error::InvalidLayout),
 		};
-		rest = after.get(len..).ok_or(Error::UnexpectedEnd)?;
+		rest = after;
 	}
-	Ok(())
+	match expect {
+		Expect::WebSocketOrEnd | Expect::End => Ok(()),
+		Expect::Host | Expect::Tcp => Err(Error::InvalidLayout),
+	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use multiaddr::Multiaddr;
+
+	const PEER: &str = "12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp";
 
 	fn bytes(addr: &str) -> Vec<u8> {
 		addr.parse::<Multiaddr>().expect("valid test address").to_vec()
@@ -164,34 +168,68 @@ mod tests {
 	}
 
 	#[test]
-	fn accepts_common_addresses() {
+	fn accepts_host_tcp_and_optional_websocket() {
 		for addr in [
 			"/ip4/127.0.0.1/tcp/30333",
 			"/ip4/10.0.0.1/tcp/30333/ws",
+			"/ip4/10.0.0.1/tcp/30333/wss",
 			"/ip6/::1/tcp/30333",
 			"/ip6/2001:db8::1/tcp/443/wss",
 			"/dns/boot.example.org/tcp/30333",
 			"/dns4/boot.example.org/tcp/30333/ws",
-			"/dns6/boot.example.org/udp/30333/quic-v1",
-			"/dnsaddr/boot.example.org",
-			"/ip4/1.2.3.4/udp/30333/quic-v1/webtransport",
-			"/ip4/1.2.3.4/tcp/30333/tls/ws",
+			"/dns6/boot.example.org/tcp/30333/wss",
 		] {
 			assert_eq!(validate(&bytes(addr)), Ok(()), "{addr}");
 		}
 	}
 
 	#[test]
-	fn rejects_peer_id_components() {
-		let peer = "12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp";
+	fn rejects_peer_id_components_before_any_layout_error() {
 		for addr in [
-			&format!("/ip4/1.2.3.4/tcp/30333/p2p/{peer}"),
-			&format!("/dns/boot.example.org/tcp/30333/ws/p2p/{peer}"),
-			&format!("/ip4/1.2.3.4/tcp/30333/p2p/{peer}/p2p-circuit"),
-			&format!("/p2p/{peer}"),
+			&format!("/ip4/1.2.3.4/tcp/30333/p2p/{PEER}"),
+			&format!("/dns/boot.example.org/tcp/30333/ws/p2p/{PEER}"),
+			&format!("/ip4/1.2.3.4/p2p/{PEER}"),
+			&format!("/p2p/{PEER}"),
 		] {
 			assert_eq!(validate(&bytes(addr)), Err(Error::ContainsPeerId), "{addr}");
 		}
+	}
+
+	#[test]
+	fn rejects_transports_a_bootnode_cannot_be_dialed_on() {
+		for (addr, code) in [
+			("/ip4/1.2.3.4/udp/30333/quic-v1", 273),
+			("/dnsaddr/boot.example.org", 56),
+			("/ip4/1.2.3.4/tcp/30333/tls/ws", 448),
+			("/ip4/1.2.3.4/tcp/30333/http", 480),
+			("/unix/node.sock", 400),
+			("/memory/1", 777),
+		] {
+			assert_eq!(validate(&bytes(addr)), Err(Error::UnsupportedProtocol(code)), "{addr}");
+		}
+	}
+
+	#[test]
+	fn rejects_layouts_other_than_host_tcp_websocket() {
+		for addr in [
+			"/ip4/1.2.3.4",
+			"/dns/boot.example.org",
+			"/tcp/30333",
+			"/tcp/30333/ip4/1.2.3.4",
+			"/ip4/1.2.3.4/ip4/1.2.3.5/tcp/30333",
+			"/ip4/1.2.3.4/tcp/30333/tcp/30334",
+			"/ip4/1.2.3.4/tcp/30333/ws/wss",
+			"/ip4/1.2.3.4/ws",
+		] {
+			assert_eq!(validate(&bytes(addr)), Err(Error::InvalidLayout), "{addr}");
+		}
+	}
+
+	#[test]
+	fn rejects_dns_names_the_multiaddr_crate_cannot_decode() {
+		let bad = [53, 2, 0xff, 0xfe, 6, 0x76, 0x7d];
+		assert!(Multiaddr::try_from(bad.to_vec()).is_err());
+		assert_eq!(validate(&bad), Err(Error::InvalidDnsName));
 	}
 
 	#[test]
@@ -213,40 +251,34 @@ mod tests {
 		// Unknown protocol code.
 		let mut unknown = varint(999_999);
 		unknown.push(0);
-		assert_eq!(validate(&unknown), Err(Error::UnknownProtocol(999_999)));
+		assert_eq!(validate(&unknown), Err(Error::UnsupportedProtocol(999_999)));
 		// Trailing garbage after a valid address.
 		let mut trailing = bytes("/ip4/1.2.3.4/tcp/30333");
 		trailing.push(0);
-		assert_eq!(validate(&trailing), Err(Error::UnknownProtocol(0)));
+		assert_eq!(validate(&trailing), Err(Error::UnsupportedProtocol(0)));
 	}
 
-	/// Every code in the table, given a payload shaped as the table says, parses with the
-	/// `multiaddr` crate. This pins the table to the reference implementation.
+	/// Every accepted code, given a payload shaped as this module expects, parses with the
+	/// `multiaddr` crate. This pins the payload layouts to the reference implementation.
 	#[test]
-	fn table_agrees_with_multiaddr_crate() {
-		let codes = [
-			4u32, 6, 33, 41, 42, 43, 53, 54, 55, 56, 132, 273, 275, 276, 277, 280, 281, 290, 301,
-			302, 400, 443, 444, 445, 446, 447, 448, 449, 454, 460, 461, 465, 466, 477, 478, 479,
-			480, 777, 4770, 4780,
-		];
-		for code in codes {
+	fn payload_layouts_agree_with_multiaddr_crate() {
+		for (code, payload) in [
+			(4u32, vec![0u8; 4]),
+			(41, vec![0; 16]),
+			(53, vec![0]),
+			(54, vec![0]),
+			(55, vec![0]),
+			(6, vec![0; 2]),
+			(477, vec![]),
+			(478, vec![]),
+		] {
 			let mut addr = varint(code);
-			match payload(code).expect("code is in the table") {
-				Payload::Empty => {},
-				Payload::Fixed(n) => addr.extend(core::iter::repeat_n(0u8, n)),
-				// certhash needs a decodable multihash; the empty identity hash is one.
-				Payload::LengthPrefixed if code == 466 => addr.extend([2, 0, 0]),
-				Payload::LengthPrefixed => addr.push(0),
-			}
+			addr.extend(payload);
 			assert!(
 				Multiaddr::try_from(addr.clone()).is_ok(),
 				"code {code}: {addr:?} rejected by the multiaddr crate"
 			);
-			assert_eq!(validate(&addr), Ok(()), "code {code}");
+			assert_eq!(read_component(&addr).map(|(_, rest)| rest.len()), Ok(0), "code {code}");
 		}
-		// And p2p, which the crate accepts and this module rejects.
-		let peer = bytes("/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp");
-		assert!(Multiaddr::try_from(peer.clone()).is_ok());
-		assert_eq!(validate(&peer), Err(Error::ContainsPeerId));
 	}
 }

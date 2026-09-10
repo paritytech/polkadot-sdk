@@ -34,8 +34,9 @@
 //! entry is always possible. The last accepted value is kept after removal, so an old signature
 //! can never be replayed to re-list a node.
 //!
-//! The address is checked to be a structurally valid multiaddr made of known protocols; the
-//! runtime does not otherwise interpret it.
+//! The address must be `/(ip4|ip6|dns|dns4|dns6)/<host>/tcp/<port>`, optionally followed by
+//! `/ws` or `/wss`: the shapes a node can dial a bootnode on. The runtime does not otherwise
+//! interpret it.
 //!
 //! Publishing the set to the para-owned key-value store is not implemented yet. Readers consume
 //! the pallet's storage directly.
@@ -92,7 +93,8 @@ pub const POP_DOMAIN: &[u8] = b"bootnode-pop-v1";
 pub struct Bootnode<MaxAddrLen: Get<u32>> {
 	/// The node's network address as a binary multiaddr.
 	///
-	/// Must not contain a `/p2p/` component: the peer id is derived from `node_key`.
+	/// Must be `/(ip4|ip6|dns|dns4|dns6)/<host>/tcp/<port>[/ws|/wss]`, without a `/p2p/`
+	/// component: the peer id is derived from `node_key`.
 	pub addr: BoundedVec<u8, MaxAddrLen>,
 	/// The ed25519 public key the node's peer id is derived from.
 	pub node_key: ed25519::Public,
@@ -188,7 +190,7 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// The address is not a structurally valid multiaddr of known protocols.
+		/// The address is not `/(ip4|ip6|dns|dns4|dns6)/<host>/tcp/<port>[/ws|/wss]`.
 		InvalidMultiaddr,
 		/// The address contains a `/p2p/` component; the peer id is derived from the node key.
 		MultiaddrContainsPeerId,
@@ -216,7 +218,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Add a bootnode, or replace the entry of an already listed node key.
 		///
-		/// `bootnode.addr` must be a valid multiaddr without a `/p2p/` component, `bootnode.seq`
+		/// `bootnode.addr` must pass [`multiaddr::validate`], `bootnode.seq`
 		/// must exceed the last sequence number accepted for `bootnode.node_key`, and
 		/// `bootnode.sig` must be the node's signature over [`pop_payload`].
 		///
