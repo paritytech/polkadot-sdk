@@ -467,6 +467,14 @@ pub mod pallet {
 					message_id,
 					outcome,
 				}) => Self::on_cancel_response(para_id, message_id, outcome),
+				// Response variants whose flows have not landed in this pallet yet
+				// (deregistration and its chase-up). The wire format is agreed ahead of the
+				// implementations; a trusted relay chain never sends an unrequested report, so
+				// until the flows exist there is nothing these could settle.
+				MessageToPara::V1(_) => {
+					frame_support::defensive!("response variant not served yet");
+					Ok(())
+				},
 			}
 		}
 	}

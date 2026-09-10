@@ -91,6 +91,78 @@ pub enum MessageToRelayV1<AccountId> {
 		/// The parachain's id for this message, echoed back in the response.
 		message_id: u64,
 	},
+	/// Ask the relay chain to deregister `para_id`.
+	///
+	/// Carries no manager: the parachain holds the deposits and is the authority on who may ask,
+	/// and it has already checked. The relay chain removes the para or reports why it cannot.
+	/// Answered with [`MessageToParaV1::DeregisterResponse`].
+	#[codec(index = 2)]
+	Deregister {
+		/// The para id to deregister.
+		para_id: ParaId,
+		/// The parachain's id for this message, echoed back in the response.
+		message_id: u64,
+	},
+	/// Ask the relay chain whether a deregistration whose verdict never arrived went through.
+	///
+	/// Sent when the manager gives up waiting on a [`MessageToRelayV1::Deregister`] answer. The
+	/// relay chain answers with what actually happened, and only that answer settles the
+	/// parachain's state. Answered with [`MessageToParaV1::CancelDeregistrationResponse`].
+	#[codec(index = 3)]
+	CancelDeregistration {
+		/// The para id whose deregistration is being chased up.
+		para_id: ParaId,
+		/// The parachain's id for this message, echoed back in the response.
+		message_id: u64,
+	},
+	/// Ask the relay chain to accept a validation code upgrade for `para_id`.
+	///
+	/// Carries only the hash and length, for the same reason
+	/// [`MessageToRelayV1::Register`] does; the blob is uploaded to the relay chain separately.
+	/// No deposit changes hands: a registration is priced at the largest code the relay chain
+	/// will accept, so an upgrade is always already paid for.
+	///
+	/// Unanswered. Nothing on the parachain is staked on the outcome, so a refusal is reported
+	/// as a relay-chain event rather than costing a round trip.
+	#[codec(index = 4)]
+	AuthorizeCodeUpgrade {
+		/// The para id being upgraded.
+		para_id: ParaId,
+		/// The parachain's id for this message, for tying the two chains' events together.
+		message_id: u64,
+		/// Blake2-256 hash of the validation code that will be uploaded.
+		code_hash: H256,
+		/// Length of the validation code that will be uploaded, in bytes.
+		code_len: u32,
+	},
+	/// Ask the relay chain to drop `para_id`'s upgrade cooldown.
+	///
+	/// The cost was already burned on the parachain, so the relay chain charges nothing. It is a
+	/// flat price there rather than the relay chain's "time left times a multiplier", because the
+	/// parachain cannot see how much of the cooldown is left without another round trip.
+	///
+	/// Unanswered. Nothing on the parachain is staked on the outcome — the cost is burned, not
+	/// held — so a refusal is reported as a relay-chain event.
+	#[codec(index = 6)]
+	RemoveUpgradeCooldown {
+		/// The para whose cooldown should be dropped.
+		para_id: ParaId,
+		/// The parachain's id for this message, for tying the two chains' events together.
+		message_id: u64,
+	},
+	/// Ask the relay chain to set `para_id`'s head data.
+	///
+	/// Head data is small enough in practice to travel inline, so this needs no upload step.
+	/// Unanswered, for the same reason as [`MessageToRelayV1::AuthorizeCodeUpgrade`].
+	#[codec(index = 5)]
+	SetCurrentHead {
+		/// The para id whose head is being set.
+		para_id: ParaId,
+		/// The parachain's id for this message, for tying the two chains' events together.
+		message_id: u64,
+		/// The new head data.
+		head: Vec<u8>,
+	},
 }
 
 /// Registrar report messages sent back to the parachain.
@@ -140,6 +212,34 @@ pub enum MessageToParaV1 {
 		/// Whether the authorization was dropped.
 		outcome: Outcome,
 	},
+	/// Report how a deregistration requested with [`MessageToRelayV1::Deregister`] ended.
+	///
+	/// `Ok(())` means the para is gone from the relay chain (or was never there), so the deposits
+	/// can be released.
+	#[codec(index = 2)]
+	DeregisterResponse {
+		/// The para id the report is about.
+		para_id: ParaId,
+		/// The id of the [`MessageToRelayV1::Deregister`] this answers, echoed back.
+		message_id: u64,
+		/// Whether the deregistration was applied on the relay chain.
+		outcome: Outcome,
+	},
+	/// Answer a [`MessageToRelayV1::CancelDeregistration`].
+	///
+	/// `Ok(())` means the para is still registered on the relay chain, so the deregistration
+	/// never happened and the parachain can go back to normal. The only refusal is
+	/// [`FailureReason::NotRegistered`]: the deregistration did go through and its report was
+	/// lost, so the deposits go back after all.
+	#[codec(index = 3)]
+	CancelDeregistrationResponse {
+		/// The para id the answer is about.
+		para_id: ParaId,
+		/// The id of the [`MessageToRelayV1::CancelDeregistration`] this answers, echoed back.
+		message_id: u64,
+		/// Whether the deregistration was called off.
+		outcome: Outcome,
+	},
 }
 
 /// How a request ended.
@@ -167,6 +267,24 @@ pub enum FailureReason {
 	/// The relay chain is already holding as many pending registrations as it will accept.
 	#[codec(index = 3)]
 	TooManyPending,
+	/// The request's manager does not match the one in the relay chain's registry.
+	#[codec(index = 4)]
+	NotManager,
+	/// The para is locked from manager control on the relay chain.
+	#[codec(index = 5)]
+	Locked,
+	/// The registry refused to deregister the para: it is a live parachain, known to the relay
+	/// chain outside the registry, mid-upgrade, or its upward message queue is not drained.
+	#[codec(index = 6)]
+	CannotDeregister,
+	/// The answer to a [`MessageToRelayV1::CancelDeregistration`] that came too late: the para is
+	/// no longer registered, so the deregistration went through.
+	#[codec(index = 7)]
+	NotRegistered,
+	/// The registry refused the code upgrade: the para is mid-upgrade, or the code is not
+	/// acceptable to the relay chain's live configuration.
+	#[codec(index = 8)]
+	CannotUpgrade,
 }
 
 /// The parachain registry, as `pallet-registrar-relay` needs to see it.
@@ -197,4 +315,117 @@ pub trait ParachainRegistrar {
 		genesis_head: Vec<u8>,
 		validation_code: Vec<u8>,
 	) -> sp_runtime::DispatchResult;
+
+	/// Remove `para_id` from the registry and free its relay-chain state.
+	///
+	/// No deposit is released here for the same reason [`Self::register`] takes none. Not
+	/// required to be atomic on failure: the caller runs it under a storage layer.
+	///
+	/// The default fails closed so this API can merge ahead of its implementation; real
+	/// registries must override it.
+	fn deregister(para_id: ParaId) -> sp_runtime::DispatchResult {
+		let _ = para_id;
+		Err(sp_runtime::DispatchError::Other("deregister is not implemented by this registry"))
+	}
+
+	/// Schedule `new_code` as `para_id`'s validation code.
+	///
+	/// No deposit is taken or topped up: a registration already paid for the largest code the
+	/// relay chain accepts. Not required to be atomic on failure; the caller runs it under a
+	/// storage layer.
+	///
+	/// The default fails closed so this API can merge ahead of its implementation.
+	fn schedule_code_upgrade(para_id: ParaId, new_code: Vec<u8>) -> sp_runtime::DispatchResult {
+		let _ = (para_id, new_code);
+		Err(sp_runtime::DispatchError::Other(
+			"schedule_code_upgrade is not implemented by this registry",
+		))
+	}
+
+	/// Set `para_id`'s current head data.
+	///
+	/// The default fails closed so this API can merge ahead of its implementation.
+	fn set_current_head(para_id: ParaId, head: Vec<u8>) -> sp_runtime::DispatchResult {
+		let _ = (para_id, head);
+		Err(sp_runtime::DispatchError::Other(
+			"set_current_head is not implemented by this registry",
+		))
+	}
+
+	/// Drop `para_id`'s upgrade cooldown, charging nothing.
+	///
+	/// The caller has already been charged on the chain that holds the money. Returns whether
+	/// there was a cooldown to remove, so a request for a para that was not in one can be
+	/// reported as such rather than looking like a success.
+	///
+	/// The default reports "nothing to remove", which is the fail-closed answer: nobody is told
+	/// a cooldown was dropped that was not.
+	fn remove_upgrade_cooldown(para_id: ParaId) -> bool {
+		let _ = para_id;
+		false
+	}
+
+	/// Arrange for `para_id` to be registered under `manager`, unlocked and deregisterable, so
+	/// the deregistration path can be benchmarked. Default: nothing, for registries that do not
+	/// implement [`Self::deregister`] yet.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_deregisterable(manager: Self::AccountId, para_id: ParaId) {
+		let _ = (manager, para_id);
+	}
+}
+
+/// Where a migrated para sits, as the chain it is arriving from saw it.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
+pub enum MigratedParaState {
+	/// The id is held by its manager and nothing is onboarded against it.
+	Reserved,
+	/// The para is onboarded.
+	Registered {
+		/// Length of the para's current head data.
+		///
+		/// Carried so the arriving registration can be priced exactly the way a fresh one is,
+		/// rather than at some worst case. The chain sending it can read this; the chain
+		/// receiving it cannot.
+		head_len: u32,
+	},
+}
+
+/// One para, as it arrives from the chain that used to own the registry.
+///
+/// Deliberately carries no deposit. The deposits are re-taken at the receiving chain's own prices
+/// from funds that arrived earlier, so a recorded amount from the old chain would only be
+/// something to get wrong.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
+pub struct MigratedPara<AccountId> {
+	/// The para id.
+	pub para_id: ParaId,
+	/// Who manages it, and who the deposits are taken from.
+	pub manager: AccountId,
+	/// Reserved, or registered and how big its head is.
+	pub state: MigratedParaState,
+	/// Whether the manager is locked out. Every live para arrives locked.
+	pub locked: bool,
+}
+
+/// Takes migrated registrations into the pallet that will own them.
+///
+/// A migrator *could* write the storage itself — the maps and `Consideration::new` are both
+/// public. It should not: the state machine and the rule about which deposit is held in which
+/// state live in the pallet, and rebuilding them outside it is how they drift. This is the seam
+/// that keeps them in one place.
+pub trait ReceiveMigratedParas {
+	/// The account a manager is identified by.
+	type AccountId;
+
+	/// Take one para, charging its deposits at this chain's prices — **best effort**.
+	///
+	/// A migrated para is a live parachain; refusing it over a deposit would leave it with no
+	/// control plane on either chain. Implementations take whatever the manager can pay, register
+	/// the para regardless, and report an unpaid remainder observably. Failure is reserved for a
+	/// record that cannot be applied at all (e.g. the id is already taken here), and the caller
+	/// is expected to park such a record rather than lose it.
+	fn receive_para(para: MigratedPara<Self::AccountId>) -> sp_runtime::DispatchResult;
+
+	/// Adopt the id counter from the chain the paras came from.
+	fn receive_next_free_para_id(para_id: ParaId);
 }

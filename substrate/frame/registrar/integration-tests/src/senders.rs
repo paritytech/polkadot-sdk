@@ -91,6 +91,9 @@ impl SendToRelay for ParaSendToRelay {
 			MessageToRelay::V1(MessageToRelayV1::CancelRegistration { .. }) => {
 				RegistrarRelayCalls::CancelAuthorization(message)
 			},
+			// Variants whose flows have not landed yet; nothing produces them, and a transport
+			// that cannot route a message refuses it rather than misdelivering it.
+			MessageToRelay::V1(_) => return Err(()),
 		};
 		let call = RelayRuntimePallets::Registrar(relay_call).encode();
 		let program = Xcm(vec![
