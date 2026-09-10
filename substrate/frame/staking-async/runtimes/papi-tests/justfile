@@ -75,7 +75,8 @@ build-and-generate-chains:
     set -euo pipefail
     echo "🔧 Building chain-spec-builder and runtimes..."
     LOG="runtime::multiblock-election=info,runtime::staking=info"
-    RUST_LOG=${LOG} cargo build --release -p pallet-staking-async-rc-runtime -p pallet-staking-async-parachain-runtime -p staging-chain-spec-builder
+    RUST_LOG=${LOG} cargo build --release --features fast-runtime -p pallet-staking-async-rc-runtime -p pallet-staking-async-parachain-runtime
+    RUST_LOG=${LOG} cargo build --release -p staging-chain-spec-builder
     echo "✅ Removing any old chain-spec file"
     rm -f ./parachain.json
     rm -f ./rc.json
@@ -86,7 +87,7 @@ build-and-generate-chains:
         --runtime ../../../../../target/release/wbuild/pallet-staking-async-parachain-runtime/pallet_staking_async_parachain_runtime.compact.compressed.wasm \
         --relay-chain rococo-local \
         --para-id 1100 \
-        named-preset fake-dot
+        named-preset real-m
     mv ./chain_spec.json ./parachain.json
     echo "✅ Creating rc chain specs"
     RUST_LOG=${LOG} ../../../../../target/release/chain-spec-builder \
