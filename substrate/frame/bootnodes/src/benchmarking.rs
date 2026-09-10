@@ -65,13 +65,13 @@ fn max_multiaddr(max_len: u32) -> Vec<u8> {
 	}
 }
 
-/// A bootnode with a fresh key and a valid proof of possession over `seq` and `addr`.
-fn bootnode<T: Config>(seq: u64, addr: Vec<u8>) -> Result<BootnodeOf<T>, BenchmarkError> {
+/// A bootnode with a fresh key and a valid proof of possession over `addr` and `expiry_slot`.
+fn bootnode<T: Config>(expiry_slot: u32, addr: Vec<u8>) -> Result<BootnodeOf<T>, BenchmarkError> {
 	let addr: BoundedVec<u8, T::MaxAddrLen> =
 		addr.try_into().map_err(|_| BenchmarkError::Stop("MaxAddrLen is too small"))?;
-	let payload = Pallet::<T>::pop_payload(seq, &addr);
+	let payload = Pallet::<T>::pop_payload(&addr, expiry_slot);
 	let (node_key, sig) = T::BenchmarkHelper::sign(&payload);
-	Ok(Bootnode { addr, node_key, seq, sig })
+	Ok(Bootnode { addr, node_key, expiry_slot, sig })
 }
 
 /// Fill the set with `n` bootnodes carrying maximum-length addresses.
@@ -89,11 +89,10 @@ mod benchmarks {
 
 	#[benchmark]
 	fn add_bootnode() -> Result<(), BenchmarkError> {
-		// Worst case: the set is one short of full and the new node key already has a sequence
-		// number on record, so both storage items are read and written.
+		// Worst case: the set is one short of full, so the whole set is read, scanned and written
+		// back with one more maximum-length entry.
 		fill::<T>(T::MaxBootnodes::get().saturating_sub(1))?;
 		let bootnode = bootnode::<T>(1, max_multiaddr(T::MaxAddrLen::get()))?;
-		LastSeq::<T>::insert(bootnode.node_key, 0);
 		let origin =
 			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
@@ -101,7 +100,6 @@ mod benchmarks {
 		_(origin as T::RuntimeOrigin, bootnode.clone());
 
 		assert!(Bootnodes::<T>::get().iter().any(|b| b == &bootnode));
-		assert_eq!(LastSeq::<T>::get(bootnode.node_key), Some(1));
 		Ok(())
 	}
 
@@ -120,7 +118,6 @@ mod benchmarks {
 		_(origin as T::RuntimeOrigin, node_key);
 
 		assert!(!Bootnodes::<T>::get().iter().any(|b| b.node_key == node_key));
-		assert_eq!(LastSeq::<T>::get(node_key), Some(0));
 		Ok(())
 	}
 

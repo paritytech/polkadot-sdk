@@ -17,7 +17,7 @@
 
 //! Tests for `pallet_bootnodes`.
 
-use crate::{mock::*, Bootnode, BootnodeOf, Bootnodes as BootnodeSet, Error, Event, LastSeq};
+use crate::{mock::*, Bootnode, BootnodeOf, Bootnodes as BootnodeSet, Error, Event};
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok, BoundedVec};
 use multiaddr::Multiaddr;
@@ -25,6 +25,7 @@ use sp_core::{crypto::Pair as _, ed25519, H256};
 use sp_runtime::{BuildStorage, DispatchError};
 
 const PEER: &str = "12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp";
+const EXPIRY: u32 = 1_000;
 
 fn pair(seed: u8) -> ed25519::Pair {
 	ed25519::Pair::from_seed(&[seed; 32])
@@ -35,10 +36,10 @@ fn addr(addr: &str) -> BoundedVec<u8, <Test as crate::Config>::MaxAddrLen> {
 }
 
 /// A bootnode entry for `pair` with a valid proof of possession.
-fn signed(pair: &ed25519::Pair, seq: u64, address: &str) -> BootnodeOf<Test> {
+fn signed(pair: &ed25519::Pair, expiry_slot: u32, address: &str) -> BootnodeOf<Test> {
 	let addr = addr(address);
-	let sig = pair.sign(&Bootnodes::pop_payload(seq, &addr));
-	Bootnode { addr, node_key: pair.public(), seq, sig }
+	let sig = pair.sign(&Bootnodes::pop_payload(&addr, expiry_slot));
+	Bootnode { addr, node_key: pair.public(), expiry_slot, sig }
 }
 
 fn node_keys() -> Vec<ed25519::Public> {
@@ -49,24 +50,24 @@ fn node_keys() -> Vec<ed25519::Public> {
 fn pop_payload_has_the_documented_layout() {
 	let genesis = H256::repeat_byte(0x4a);
 	let address = addr("/ip4/1.2.3.4/tcp/30333");
-	let payload = crate::pop_payload(&genesis, 2_000, 7, &address);
+	let payload = crate::pop_payload(&genesis, 2_000, &address, 7);
 
 	let mut expected = b"bootnode-pop-v1".to_vec();
 	expected.extend_from_slice(genesis.as_bytes());
 	expected.extend_from_slice(&2_000u32.to_le_bytes());
-	expected.extend_from_slice(&7u64.to_le_bytes());
 	expected.extend(address.to_vec().encode());
+	expected.extend_from_slice(&7u32.to_le_bytes());
 	assert_eq!(payload, expected);
 
 	// The pallet binds its own constants.
-	assert_eq!(Bootnodes::pop_payload(7, &address), payload);
+	assert_eq!(Bootnodes::pop_payload(&address, 7), payload);
 }
 
 #[test]
-fn genesis_config_lists_bootnodes_and_records_their_seq() {
+fn genesis_config_lists_bootnodes() {
 	let bootnodes = vec![
-		signed(&pair(1), 0, "/ip4/1.2.3.4/tcp/1"),
-		signed(&pair(2), 3, "/dns/boot.example.org/tcp/2/ws"),
+		signed(&pair(1), EXPIRY, "/ip4/1.2.3.4/tcp/1"),
+		signed(&pair(2), EXPIRY, "/dns/boot.example.org/tcp/2/ws"),
 	];
 	let storage = RuntimeGenesisConfig {
 		bootnodes: crate::GenesisConfig { bootnodes: bootnodes.clone() },
@@ -76,15 +77,13 @@ fn genesis_config_lists_bootnodes_and_records_their_seq() {
 	.unwrap();
 	sp_io::TestExternalities::new(storage).execute_with(|| {
 		assert_eq!(BootnodeSet::<Test>::get().to_vec(), bootnodes);
-		assert_eq!(LastSeq::<Test>::get(pair(1).public()), Some(0));
-		assert_eq!(LastSeq::<Test>::get(pair(2).public()), Some(3));
 		assert_ok!(Bootnodes::do_try_state());
 	});
 }
 
 #[test]
 fn bootnode_serializes_addr_as_hex_for_chain_specs() {
-	let bootnode = signed(&pair(1), 0, "/ip4/1.2.3.4/tcp/30333");
+	let bootnode = signed(&pair(1), EXPIRY, "/ip4/1.2.3.4/tcp/30333");
 	let json = serde_json::to_value(&bootnode).unwrap();
 	assert_eq!(json["addr"], serde_json::json!("0x040102030406767d"));
 	assert_eq!(serde_json::from_value::<BootnodeOf<Test>>(json).unwrap(), bootnode);
@@ -93,14 +92,17 @@ fn bootnode_serializes_addr_as_hex_for_chain_specs() {
 #[test]
 fn add_bootnode_works() {
 	new_test_ext().execute_with(|| {
-		let bootnode = signed(&pair(1), 0, "/ip4/1.2.3.4/tcp/30333");
+		let bootnode = signed(&pair(1), EXPIRY, "/ip4/1.2.3.4/tcp/30333");
 		assert_ok!(Bootnodes::add_bootnode(RuntimeOrigin::root(), bootnode.clone()));
 
 		assert_eq!(BootnodeSet::<Test>::get().to_vec(), vec![bootnode.clone()]);
-		assert_eq!(LastSeq::<Test>::get(bootnode.node_key), Some(0));
 		System::assert_last_event(
-			Event::BootnodeAdded { node_key: bootnode.node_key, addr: bootnode.addr, seq: 0 }
-				.into(),
+			Event::BootnodeAdded {
+				node_key: bootnode.node_key,
+				addr: bootnode.addr,
+				expiry_slot: EXPIRY,
+			}
+			.into(),
 		);
 		assert_ok!(Bootnodes::do_try_state());
 	});
@@ -109,7 +111,7 @@ fn add_bootnode_works() {
 #[test]
 fn add_bootnode_requires_admin_origin() {
 	new_test_ext().execute_with(|| {
-		let bootnode = signed(&pair(1), 0, "/ip4/1.2.3.4/tcp/30333");
+		let bootnode = signed(&pair(1), EXPIRY, "/ip4/1.2.3.4/tcp/30333");
 		assert_noop!(
 			Bootnodes::add_bootnode(RuntimeOrigin::signed(1), bootnode.clone()),
 			DispatchError::BadOrigin
@@ -134,8 +136,8 @@ fn add_bootnode_rejects_invalid_multiaddr() {
 			addr("/ip4/1.2.3.4").to_vec(),
 		] {
 			let addr: BoundedVec<u8, _> = bad.try_into().unwrap();
-			let sig = pair.sign(&Bootnodes::pop_payload(0, &addr));
-			let bootnode = Bootnode { addr, node_key: pair.public(), seq: 0, sig };
+			let sig = pair.sign(&Bootnodes::pop_payload(&addr, EXPIRY));
+			let bootnode = Bootnode { addr, node_key: pair.public(), expiry_slot: EXPIRY, sig };
 			assert_noop!(
 				Bootnodes::add_bootnode(RuntimeOrigin::root(), bootnode),
 				Error::<Test>::InvalidMultiaddr
@@ -147,7 +149,7 @@ fn add_bootnode_rejects_invalid_multiaddr() {
 #[test]
 fn add_bootnode_rejects_multiaddr_with_peer_id() {
 	new_test_ext().execute_with(|| {
-		let bootnode = signed(&pair(1), 0, &format!("/ip4/1.2.3.4/tcp/30333/p2p/{PEER}"));
+		let bootnode = signed(&pair(1), EXPIRY, &format!("/ip4/1.2.3.4/tcp/30333/p2p/{PEER}"));
 		assert_noop!(
 			Bootnodes::add_bootnode(RuntimeOrigin::root(), bootnode),
 			Error::<Test>::MultiaddrContainsPeerId
@@ -168,9 +170,9 @@ fn add_bootnode_rejects_bad_proof_of_possession() {
 			Error::<Test>::InvalidSignature
 		);
 
-		// Signed over a different seq.
+		// Signed over a different expiry slot.
 		let mut bad = good.clone();
-		bad.seq = 4;
+		bad.expiry_slot = 4;
 		assert_noop!(
 			Bootnodes::add_bootnode(RuntimeOrigin::root(), bad),
 			Error::<Test>::InvalidSignature
@@ -187,7 +189,7 @@ fn add_bootnode_rejects_bad_proof_of_possession() {
 		// Signed for another para.
 		let mut bad = good.clone();
 		bad.sig =
-			pair(1).sign(&crate::pop_payload(&JamGenesisHash::get(), PARA_ID + 1, 3, &bad.addr));
+			pair(1).sign(&crate::pop_payload(&JamGenesisHash::get(), PARA_ID + 1, &bad.addr, 3));
 		assert_noop!(
 			Bootnodes::add_bootnode(RuntimeOrigin::root(), bad),
 			Error::<Test>::InvalidSignature
@@ -195,7 +197,7 @@ fn add_bootnode_rejects_bad_proof_of_possession() {
 
 		// Signed for another JAM chain.
 		let mut bad = good.clone();
-		bad.sig = pair(1).sign(&crate::pop_payload(&H256::zero(), PARA_ID, 3, &bad.addr));
+		bad.sig = pair(1).sign(&crate::pop_payload(&H256::zero(), PARA_ID, &bad.addr, 3));
 		assert_noop!(
 			Bootnodes::add_bootnode(RuntimeOrigin::root(), bad),
 			Error::<Test>::InvalidSignature
@@ -203,7 +205,7 @@ fn add_bootnode_rejects_bad_proof_of_possession() {
 
 		// Signed without the domain separator.
 		let mut bad = good.clone();
-		bad.sig = pair(1).sign(&(JamGenesisHash::get(), PARA_ID, 3u64, bad.addr.to_vec()).encode());
+		bad.sig = pair(1).sign(&(JamGenesisHash::get(), PARA_ID, bad.addr.to_vec(), 3u32).encode());
 		assert_noop!(
 			Bootnodes::add_bootnode(RuntimeOrigin::root(), bad),
 			Error::<Test>::InvalidSignature
@@ -214,68 +216,35 @@ fn add_bootnode_rejects_bad_proof_of_possession() {
 }
 
 #[test]
-fn seq_must_exceed_last_accepted() {
-	new_test_ext().execute_with(|| {
-		let pair = pair(1);
-		assert_ok!(Bootnodes::add_bootnode(
-			RuntimeOrigin::root(),
-			signed(&pair, 5, "/ip4/1.2.3.4/tcp/30333")
-		));
-
-		for seq in [5, 4, 0] {
-			assert_noop!(
-				Bootnodes::add_bootnode(
-					RuntimeOrigin::root(),
-					signed(&pair, seq, "/ip4/1.2.3.5/tcp/30333")
-				),
-				Error::<Test>::StaleSeq
-			);
-		}
-		assert_eq!(BootnodeSet::<Test>::get()[0].addr, addr("/ip4/1.2.3.4/tcp/30333"));
-	});
-}
-
-#[test]
-fn seq_u64_max_is_rejected_so_the_key_stays_updatable() {
-	new_test_ext().execute_with(|| {
-		let pair = pair(1);
-		assert_noop!(
-			Bootnodes::add_bootnode(
-				RuntimeOrigin::root(),
-				signed(&pair, u64::MAX, "/ip4/1.2.3.4/tcp/30333")
-			),
-			Error::<Test>::SeqTooLarge
-		);
-		assert_eq!(LastSeq::<Test>::get(pair.public()), None);
-		assert_ok!(Bootnodes::add_bootnode(
-			RuntimeOrigin::root(),
-			signed(&pair, u64::MAX - 1, "/ip4/1.2.3.4/tcp/30333")
-		));
-	});
-}
-
-#[test]
-fn higher_seq_updates_entry_in_place() {
+fn same_node_key_replaces_the_entry_in_place_regardless_of_expiry() {
 	new_test_ext().execute_with(|| {
 		let (a, b, c) = (pair(1), pair(2), pair(3));
 		for (p, port) in [(&a, 1), (&b, 2), (&c, 3)] {
 			assert_ok!(Bootnodes::add_bootnode(
 				RuntimeOrigin::root(),
-				signed(p, 0, &format!("/ip4/1.2.3.4/tcp/{port}"))
+				signed(p, EXPIRY, &format!("/ip4/1.2.3.4/tcp/{port}"))
 			));
 		}
 
-		let updated = signed(&b, 1, "/dns/boot.example.org/tcp/30333/ws");
+		let updated = signed(&b, EXPIRY + 1, "/dns/boot.example.org/tcp/30333/ws");
 		assert_ok!(Bootnodes::add_bootnode(RuntimeOrigin::root(), updated.clone()));
 
 		let set = BootnodeSet::<Test>::get();
 		assert_eq!(set.len(), 3);
 		assert_eq!(node_keys(), vec![a.public(), b.public(), c.public()]);
 		assert_eq!(set[1], updated);
-		assert_eq!(LastSeq::<Test>::get(b.public()), Some(1));
 		System::assert_last_event(
-			Event::BootnodeUpdated { node_key: b.public(), addr: updated.addr, seq: 1 }.into(),
+			Event::BootnodeUpdated {
+				node_key: b.public(),
+				addr: updated.addr,
+				expiry_slot: EXPIRY + 1,
+			}
+			.into(),
 		);
+
+		let older = signed(&b, EXPIRY - 1, "/ip4/1.2.3.4/tcp/2");
+		assert_ok!(Bootnodes::add_bootnode(RuntimeOrigin::root(), older.clone()));
+		assert_eq!(BootnodeSet::<Test>::get()[1], older);
 		assert_ok!(Bootnodes::do_try_state());
 	});
 }
@@ -286,23 +255,22 @@ fn set_is_bounded_by_max_bootnodes() {
 		for i in 0..MAX_BOOTNODES as u8 {
 			assert_ok!(Bootnodes::add_bootnode(
 				RuntimeOrigin::root(),
-				signed(&pair(i + 1), 0, &format!("/ip4/1.2.3.4/tcp/{}", 30_000 + i as u16))
+				signed(&pair(i + 1), EXPIRY, &format!("/ip4/1.2.3.4/tcp/{}", 30_000 + i as u16))
 			));
 		}
 		assert_eq!(BootnodeSet::<Test>::get().len(), MAX_BOOTNODES as usize);
 
-		// A new key does not fit and leaves no trace.
-		let extra = signed(&pair(200), 0, "/ip4/1.2.3.4/tcp/40000");
+		// A new key does not fit.
+		let extra = signed(&pair(200), EXPIRY, "/ip4/1.2.3.4/tcp/40000");
 		assert_noop!(
-			Bootnodes::add_bootnode(RuntimeOrigin::root(), extra.clone()),
+			Bootnodes::add_bootnode(RuntimeOrigin::root(), extra),
 			Error::<Test>::TooManyBootnodes
 		);
-		assert_eq!(LastSeq::<Test>::get(extra.node_key), None);
 
 		// A listed key can still be updated.
 		assert_ok!(Bootnodes::add_bootnode(
 			RuntimeOrigin::root(),
-			signed(&pair(1), 1, "/ip4/1.2.3.4/tcp/40000")
+			signed(&pair(1), EXPIRY, "/ip4/1.2.3.4/tcp/40000")
 		));
 		assert_eq!(BootnodeSet::<Test>::get().len(), MAX_BOOTNODES as usize);
 	});
@@ -314,18 +282,16 @@ fn remove_bootnode_works() {
 		let (a, b) = (pair(1), pair(2));
 		assert_ok!(Bootnodes::add_bootnode(
 			RuntimeOrigin::root(),
-			signed(&a, 0, "/ip4/1.2.3.4/tcp/1")
+			signed(&a, EXPIRY, "/ip4/1.2.3.4/tcp/1")
 		));
 		assert_ok!(Bootnodes::add_bootnode(
 			RuntimeOrigin::root(),
-			signed(&b, 0, "/ip4/1.2.3.4/tcp/2")
+			signed(&b, EXPIRY, "/ip4/1.2.3.4/tcp/2")
 		));
 
 		assert_ok!(Bootnodes::remove_bootnode(RuntimeOrigin::root(), a.public()));
 
 		assert_eq!(node_keys(), vec![b.public()]);
-		// The last accepted seq survives removal.
-		assert_eq!(LastSeq::<Test>::get(a.public()), Some(0));
 		System::assert_last_event(Event::BootnodeRemoved { node_key: a.public() }.into());
 		assert_ok!(Bootnodes::do_try_state());
 	});
@@ -337,7 +303,7 @@ fn remove_bootnode_requires_admin_origin_and_listed_key() {
 		let a = pair(1);
 		assert_ok!(Bootnodes::add_bootnode(
 			RuntimeOrigin::root(),
-			signed(&a, 0, "/ip4/1.2.3.4/tcp/1")
+			signed(&a, EXPIRY, "/ip4/1.2.3.4/tcp/1")
 		));
 
 		assert_noop!(
@@ -353,23 +319,15 @@ fn remove_bootnode_requires_admin_origin_and_listed_key() {
 }
 
 #[test]
-fn removed_node_cannot_be_relisted_with_old_signature() {
+fn removed_node_can_be_relisted_with_its_signature() {
 	new_test_ext().execute_with(|| {
 		let a = pair(1);
-		let original = signed(&a, 3, "/ip4/1.2.3.4/tcp/1");
-		assert_ok!(Bootnodes::add_bootnode(RuntimeOrigin::root(), original.clone()));
+		let entry = signed(&a, EXPIRY, "/ip4/1.2.3.4/tcp/1");
+		assert_ok!(Bootnodes::add_bootnode(RuntimeOrigin::root(), entry.clone()));
 		assert_ok!(Bootnodes::remove_bootnode(RuntimeOrigin::root(), a.public()));
 
-		assert_noop!(
-			Bootnodes::add_bootnode(RuntimeOrigin::root(), original),
-			Error::<Test>::StaleSeq
-		);
-		assert_ok!(Bootnodes::add_bootnode(
-			RuntimeOrigin::root(),
-			signed(&a, 4, "/ip4/1.2.3.4/tcp/1")
-		));
-		assert_eq!(node_keys(), vec![a.public()]);
-		assert_eq!(LastSeq::<Test>::get(a.public()), Some(4));
+		assert_ok!(Bootnodes::add_bootnode(RuntimeOrigin::root(), entry.clone()));
+		assert_eq!(BootnodeSet::<Test>::get().to_vec(), vec![entry]);
 	});
 }
 
@@ -379,16 +337,18 @@ fn try_state_detects_broken_invariants() {
 		let a = pair(1);
 		assert_ok!(Bootnodes::add_bootnode(
 			RuntimeOrigin::root(),
-			signed(&a, 2, "/ip4/1.2.3.4/tcp/1")
+			signed(&a, EXPIRY, "/ip4/1.2.3.4/tcp/1")
 		));
 		assert_ok!(Bootnodes::do_try_state());
 
-		LastSeq::<Test>::insert(a.public(), 3);
-		assert!(Bootnodes::do_try_state().is_err());
-		LastSeq::<Test>::insert(a.public(), 2);
-
 		let entry = BootnodeSet::<Test>::get()[0].clone();
 		BootnodeSet::<Test>::mutate(|set| set.try_push(entry).unwrap());
+		assert!(Bootnodes::do_try_state().is_err());
+
+		BootnodeSet::<Test>::mutate(|set| {
+			set.truncate(1);
+			set[0].addr = vec![4, 1, 2, 3].try_into().unwrap();
+		});
 		assert!(Bootnodes::do_try_state().is_err());
 	});
 }

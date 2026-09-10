@@ -37,27 +37,25 @@ pub trait WeightInfo {
 /// Weights for `pallet_bootnodes` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	/// Storage: `Bootnodes::LastSeq` (r:1 w:1)
-	/// Proof: `Bootnodes::LastSeq` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
 	/// Storage: `Bootnodes::Bootnodes` (r:1 w:1)
-	/// Proof: `Bootnodes::Bootnodes` (`max_values`: Some(1), `max_size`: Some(945), added: 1440, mode: `MaxEncodedLen`)
+	/// Proof: `Bootnodes::Bootnodes` (`max_values`: Some(1), `max_size`: Some(929), added: 1424, mode: `MaxEncodedLen`)
 	fn add_bootnode() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
-		//  Estimated: `3537`
+		//  Estimated: `1424`
 		// Minimum execution time: 70_000_000 picoseconds.
-		Weight::from_parts(70_000_000, 3537)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
+		Weight::from_parts(70_000_000, 1424)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Bootnodes::Bootnodes` (r:1 w:1)
-	/// Proof: `Bootnodes::Bootnodes` (`max_values`: Some(1), `max_size`: Some(945), added: 1440, mode: `MaxEncodedLen`)
+	/// Proof: `Bootnodes::Bootnodes` (`max_values`: Some(1), `max_size`: Some(929), added: 1424, mode: `MaxEncodedLen`)
 	fn remove_bootnode() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
-		//  Estimated: `1440`
+		//  Estimated: `1424`
 		// Minimum execution time: 10_000_000 picoseconds.
-		Weight::from_parts(10_000_000, 1440)
+		Weight::from_parts(10_000_000, 1424)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -66,12 +64,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 // For backwards compatibility and tests.
 impl WeightInfo for () {
 	fn add_bootnode() -> Weight {
-		Weight::from_parts(70_000_000, 3537)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
+		Weight::from_parts(70_000_000, 1424)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	fn remove_bootnode() -> Weight {
-		Weight::from_parts(10_000_000, 1440)
+		Weight::from_parts(10_000_000, 1424)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}

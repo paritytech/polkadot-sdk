@@ -29,10 +29,10 @@
 //! Admission into the set is an administrative decision (`AdminOrigin`, typically governance),
 //! but no node can be listed without its operator's consent: every entry carries a proof of
 //! possession, a signature by the node key over a domain-separated payload that binds the JAM
-//! genesis hash, this para's id, a sequence number and the address. The sequence number must
-//! strictly exceed the last one accepted for that node key and stay below `u64::MAX`, so a later
-//! entry is always possible. The last accepted value is kept after removal, so an old signature
-//! can never be replayed to re-list a node.
+//! genesis hash, this para's id, the address and an expiry slot. The expiry slot is a consent
+//! lease: readers drop an entry whose slot has passed on their view of JAM, so an operator that
+//! stops re-signing is de-listed everywhere and an old signature is only usable until its slot.
+//! The runtime stores the slot and does not compare it against JAM time.
 //!
 //! The address must be `/(ip4|ip6|dns|dns4|dns6)/<host>/tcp/<port>`, optionally followed by
 //! `/ws` or `/wss`: the shapes a node can dial a bootnode on. The runtime does not otherwise
@@ -48,8 +48,8 @@
 //!
 //! ### Dispatchable Functions
 //!
-//! - `add_bootnode`: add a bootnode, or replace the entry of an already listed node key with one
-//!   carrying a higher sequence number. Requires `AdminOrigin`.
+//! - `add_bootnode`: add a bootnode, or replace the entry of an already listed node key. Requires
+//!   `AdminOrigin`.
 //! - `remove_bootnode`: remove a bootnode by node key. Requires `AdminOrigin`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -108,9 +108,8 @@ pub struct Bootnode<MaxAddrLen: Get<u32>> {
 	pub addr: BoundedVec<u8, MaxAddrLen>,
 	/// The ed25519 public key the node's peer id is derived from.
 	pub node_key: ed25519::Public,
-	/// Sequence number, strictly increasing per `node_key` and below `u64::MAX`, preventing
-	/// replay of old entries.
-	pub seq: u64,
+	/// Consent lease: the JAM timeslot after which readers drop the entry.
+	pub expiry_slot: u32,
 	/// Proof of possession: signature by `node_key` over [`pop_payload`].
 	pub sig: ed25519::Signature,
 }
@@ -142,12 +141,17 @@ mod addr_hex {
 
 /// The bytes a node signs to prove it consents to being listed as a bootnode of `para_id`.
 ///
-/// Layout: [`POP_DOMAIN`] followed by `SCALE((jam_genesis_hash, para_id, seq, addr))`. The domain
-/// is prepended raw, without a length prefix; `addr` is encoded as a length-prefixed byte
-/// sequence, like a `Vec<u8>`.
-pub fn pop_payload(jam_genesis_hash: &H256, para_id: u32, seq: u64, addr: &[u8]) -> Vec<u8> {
+/// Layout: [`POP_DOMAIN`] followed by `SCALE((jam_genesis_hash, para_id, addr, expiry_slot))`.
+/// The domain is prepended raw, without a length prefix; `addr` is encoded as a length-prefixed
+/// byte sequence, like a `Vec<u8>`.
+pub fn pop_payload(
+	jam_genesis_hash: &H256,
+	para_id: u32,
+	addr: &[u8],
+	expiry_slot: u32,
+) -> Vec<u8> {
 	let mut payload = POP_DOMAIN.to_vec();
-	(jam_genesis_hash, para_id, seq, addr).encode_to(&mut payload);
+	(jam_genesis_hash, para_id, addr, expiry_slot).encode_to(&mut payload);
 	payload
 }
 
@@ -201,14 +205,6 @@ pub mod pallet {
 	pub type Bootnodes<T: Config> =
 		StorageValue<_, BoundedVec<BootnodeOf<T>, T::MaxBootnodes>, ValueQuery>;
 
-	/// The highest sequence number accepted for a node key.
-	///
-	/// Kept after the node is removed from the set, so that a removed node cannot be re-listed
-	/// with an old signature. Only `AdminOrigin` can grow this map.
-	#[pallet::storage]
-	pub type LastSeq<T: Config> =
-		StorageMap<_, Blake2_128Concat, ed25519::Public, u64, OptionQuery>;
-
 	#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -230,9 +226,17 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A bootnode was added to the set.
-		BootnodeAdded { node_key: ed25519::Public, addr: BoundedVec<u8, T::MaxAddrLen>, seq: u64 },
-		/// A listed bootnode's entry was replaced by one with a higher sequence number.
-		BootnodeUpdated { node_key: ed25519::Public, addr: BoundedVec<u8, T::MaxAddrLen>, seq: u64 },
+		BootnodeAdded {
+			node_key: ed25519::Public,
+			addr: BoundedVec<u8, T::MaxAddrLen>,
+			expiry_slot: u32,
+		},
+		/// A listed bootnode's entry was replaced.
+		BootnodeUpdated {
+			node_key: ed25519::Public,
+			addr: BoundedVec<u8, T::MaxAddrLen>,
+			expiry_slot: u32,
+		},
 		/// A bootnode was removed from the set.
 		BootnodeRemoved { node_key: ed25519::Public },
 	}
@@ -243,10 +247,6 @@ pub mod pallet {
 		InvalidMultiaddr,
 		/// The address contains a `/p2p/` component; the peer id is derived from the node key.
 		MultiaddrContainsPeerId,
-		/// The sequence number does not exceed the last one accepted for this node key.
-		StaleSeq,
-		/// The sequence number is `u64::MAX`, which no later entry could exceed.
-		SeqTooLarge,
 		/// The proof of possession does not verify against the node key.
 		InvalidSignature,
 		/// The set already holds `MaxBootnodes` entries.
@@ -267,9 +267,8 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Add a bootnode, or replace the entry of an already listed node key.
 		///
-		/// `bootnode.addr` must pass [`multiaddr::validate`], `bootnode.seq`
-		/// must exceed the last sequence number accepted for `bootnode.node_key`, and
-		/// `bootnode.sig` must be the node's signature over [`pop_payload`].
+		/// `bootnode.addr` must pass [`multiaddr::validate`] and `bootnode.sig` must be the node's
+		/// signature over [`pop_payload`].
 		///
 		/// Emits `BootnodeAdded` for a new node key and `BootnodeUpdated` for a listed one.
 		#[pallet::call_index(0)]
@@ -280,8 +279,6 @@ pub mod pallet {
 		}
 
 		/// Remove the bootnode with the given node key from the set.
-		///
-		/// The last accepted sequence number for the key is retained.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::remove_bootnode())]
 		pub fn remove_bootnode(origin: OriginFor<T>, node_key: ed25519::Public) -> DispatchResult {
@@ -292,14 +289,15 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	/// The bytes a node must sign to be listed as a bootnode of this para with `seq` and `addr`.
-	pub fn pop_payload(seq: u64, addr: &[u8]) -> Vec<u8> {
-		pop_payload(&T::JamGenesisHash::get(), T::ParaId::get(), seq, addr)
+	/// The bytes a node must sign to be listed as a bootnode of this para at `addr` until
+	/// `expiry_slot`.
+	pub fn pop_payload(addr: &[u8], expiry_slot: u32) -> Vec<u8> {
+		pop_payload(&T::JamGenesisHash::get(), T::ParaId::get(), addr, expiry_slot)
 	}
 
 	/// Whether `bootnode.sig` is a valid proof of possession for the entry.
 	pub fn verify_pop(bootnode: &BootnodeOf<T>) -> bool {
-		let payload = Self::pop_payload(bootnode.seq, &bootnode.addr);
+		let payload = Self::pop_payload(&bootnode.addr, bootnode.expiry_slot);
 		sp_io::crypto::ed25519_verify(&bootnode.sig, &payload, &bootnode.node_key)
 	}
 
@@ -309,10 +307,6 @@ impl<T: Config> Pallet<T> {
 			multiaddr::Error::ContainsPeerId => Error::<T>::MultiaddrContainsPeerId,
 			_ => Error::<T>::InvalidMultiaddr,
 		})?;
-		ensure!(bootnode.seq < u64::MAX, Error::<T>::SeqTooLarge);
-		if let Some(last) = LastSeq::<T>::get(bootnode.node_key) {
-			ensure!(bootnode.seq > last, Error::<T>::StaleSeq);
-		}
 		let mut bootnodes = Bootnodes::<T>::get();
 		let position = bootnodes.iter().position(|b| b.node_key == bootnode.node_key);
 		ensure!(position.is_some() || !bootnodes.is_full(), Error::<T>::TooManyBootnodes);
@@ -320,22 +314,21 @@ impl<T: Config> Pallet<T> {
 
 		let node_key = bootnode.node_key;
 		let addr = bootnode.addr.clone();
-		let seq = bootnode.seq;
+		let expiry_slot = bootnode.expiry_slot;
 		match position {
 			Some(index) => bootnodes[index] = bootnode,
 			None => bootnodes.force_push(bootnode),
 		}
 		Bootnodes::<T>::put(bootnodes);
-		LastSeq::<T>::insert(node_key, seq);
 
 		Self::deposit_event(match position {
-			Some(_) => Event::BootnodeUpdated { node_key, addr, seq },
-			None => Event::BootnodeAdded { node_key, addr, seq },
+			Some(_) => Event::BootnodeUpdated { node_key, addr, expiry_slot },
+			None => Event::BootnodeAdded { node_key, addr, expiry_slot },
 		});
 		Ok(())
 	}
 
-	/// Remove the entry for `node_key` from the set, keeping its last accepted sequence number.
+	/// Remove the entry for `node_key` from the set.
 	pub fn do_remove_bootnode(node_key: &ed25519::Public) -> DispatchResult {
 		Bootnodes::<T>::try_mutate(|bootnodes| -> DispatchResult {
 			let pos = bootnodes
@@ -358,10 +351,6 @@ impl<T: Config> Pallet<T> {
 			ensure!(
 				multiaddr::validate(&bootnode.addr).is_ok(),
 				"invalid multiaddr in the bootnode set"
-			);
-			ensure!(
-				LastSeq::<T>::get(bootnode.node_key) == Some(bootnode.seq),
-				"listed bootnode's seq is not the last accepted seq for its key"
 			);
 		}
 		Ok(())
