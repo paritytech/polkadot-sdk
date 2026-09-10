@@ -18762,7 +18762,7 @@ dependencies = [
 [[package]]
 name = "polkavm"
 version = "0.37.0"
-source = "git+https://github.com/paritytech/polkavm?branch=cl/more-instr#09ce634afcbf502000940db0083e73eedbba7132"
+source = "git+https://github.com/paritytech/polkavm?branch=cl/more-instr#77373b512dc9fe2b1874abbcb8a637a8a2f0b936"
 dependencies = [
  "libc",
  "log",
@@ -18784,7 +18784,7 @@ dependencies = [
 [[package]]
 name = "polkavm-assembler"
 version = "0.37.0"
-source = "git+https://github.com/paritytech/polkavm?branch=cl/more-instr#09ce634afcbf502000940db0083e73eedbba7132"
+source = "git+https://github.com/paritytech/polkavm?branch=cl/more-instr#77373b512dc9fe2b1874abbcb8a637a8a2f0b936"
 dependencies = [
  "log",
 ]
@@ -18803,7 +18803,7 @@ dependencies = [
 [[package]]
 name = "polkavm-common"
 version = "0.37.0"
-source = "git+https://github.com/paritytech/polkavm?branch=cl/more-instr#09ce634afcbf502000940db0083e73eedbba7132"
+source = "git+https://github.com/paritytech/polkavm?branch=cl/more-instr#77373b512dc9fe2b1874abbcb8a637a8a2f0b936"
 dependencies = [
  "blake3",
  "log",
@@ -18823,7 +18823,7 @@ dependencies = [
 [[package]]
 name = "polkavm-derive"
 version = "0.37.0"
-source = "git+https://github.com/paritytech/polkavm?branch=cl/more-instr#09ce634afcbf502000940db0083e73eedbba7132"
+source = "git+https://github.com/paritytech/polkavm?branch=cl/more-instr#77373b512dc9fe2b1874abbcb8a637a8a2f0b936"
 dependencies = [
  "polkavm-derive-impl-macro 0.37.0",
 ]
@@ -18843,7 +18843,7 @@ dependencies = [
 [[package]]
 name = "polkavm-derive-impl"
 version = "0.37.0"
-source = "git+https://github.com/paritytech/polkavm?branch=cl/more-instr#09ce634afcbf502000940db0083e73eedbba7132"
+source = "git+https://github.com/paritytech/polkavm?branch=cl/more-instr#77373b512dc9fe2b1874abbcb8a637a8a2f0b936"
 dependencies = [
  "polkavm-common 0.37.0",
  "proc-macro2 1.0.95",
@@ -18864,7 +18864,7 @@ dependencies = [
 [[package]]
 name = "polkavm-derive-impl-macro"
 version = "0.37.0"
-source = "git+https://github.com/paritytech/polkavm?branch=cl/more-instr#09ce634afcbf502000940db0083e73eedbba7132"
+source = "git+https://github.com/paritytech/polkavm?branch=cl/more-instr#77373b512dc9fe2b1874abbcb8a637a8a2f0b936"
 dependencies = [
  "polkavm-derive-impl 0.37.0",
  "syn 2.0.98",
@@ -18873,7 +18873,7 @@ dependencies = [
 [[package]]
 name = "polkavm-linker"
 version = "0.37.0"
-source = "git+https://github.com/paritytech/polkavm?branch=cl/more-instr#09ce634afcbf502000940db0083e73eedbba7132"
+source = "git+https://github.com/paritytech/polkavm?branch=cl/more-instr#77373b512dc9fe2b1874abbcb8a637a8a2f0b936"
 dependencies = [
  "dirs",
  "gimli 0.31.1",
@@ -18894,7 +18894,7 @@ checksum = "42063d4a1c52e569f7794df27dab3e19c9fa8946184023257bdbb43eb4a94be5"
 [[package]]
 name = "polkavm-linux-raw"
 version = "0.37.0"
-source = "git+https://github.com/paritytech/polkavm?branch=cl/more-instr#09ce634afcbf502000940db0083e73eedbba7132"
+source = "git+https://github.com/paritytech/polkavm?branch=cl/more-instr#77373b512dc9fe2b1874abbcb8a637a8a2f0b936"
 
 [[package]]
 name = "polling"
