@@ -99,6 +99,13 @@ where
 		let mut child_root = H::Out::default();
 		let storage = KeySpacedDB::new(essence, child_info.keyspace());
 
+		if root.len() != H::LENGTH {
+			return Err(format!(
+				"Invalid child trie root length: expected {}, got {}",
+				H::LENGTH,
+				root.len()
+			));
+		}
 		child_root.as_mut()[..].copy_from_slice(&root[..]);
 		let (nb, total_top, _) = count_migrate(&storage, &child_root)?;
 		child_remaining_to_migrate += nb;
@@ -182,4 +189,54 @@ fn error_into_rpc_err(err: impl std::fmt::Display) -> ErrorObjectOwned {
 		"Error while checking migration state",
 		Some(err.to_string()),
 	)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	use sp_core::{
+		storage::{well_known_keys, StateVersion},
+		Blake2Hasher,
+	};
+	use sp_state_machine::new_in_mem;
+
+	fn assert_migration_status_panic_safe<H, B>(
+		backend: &B,
+	) -> std::result::Result<MigrationStatusResult, String>
+	where
+		H: Hasher,
+		H::Out: codec::Codec,
+		B: AsTrieBackend<H>,
+	{
+		let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+			migration_status::<H, B>(backend)
+		}));
+		match result {
+			Ok(inner) => inner,
+			Err(payload) => {
+				let msg = payload
+					.downcast_ref::<String>()
+					.map(|s| s.clone())
+					.or_else(|| payload.downcast_ref::<&'static str>().map(|s| s.to_string()))
+					.unwrap_or_else(|| "unknown panic".to_string());
+				panic!("migration_status panicked instead of returning Err: {}", msg);
+			},
+		}
+	}
+
+	fn assert_child_root_wrong_length_panic_safe(child_root_len: usize) {
+		let mut child_key = well_known_keys::DEFAULT_CHILD_STORAGE_KEY_PREFIX.to_vec();
+		child_key.extend_from_slice(b"bogus_child");
+		let backend = new_in_mem::<Blake2Hasher>().update(
+			vec![(None, vec![(child_key, Some(vec![0u8; child_root_len]))])],
+			StateVersion::V1,
+		);
+		let _ = assert_migration_status_panic_safe::<Blake2Hasher, _>(&backend);
+	}
+
+	#[test]
+	fn test_risk_264qyrx2_short_child_root_value_must_be_panic_safe() {
+		assert_child_root_wrong_length_panic_safe(1);
+	}
 }
