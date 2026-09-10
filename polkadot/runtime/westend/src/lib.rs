@@ -1377,8 +1377,9 @@ impl pallet_migrations::Config for Runtime {
 	type CursorMaxLen = ConstU32<65_536>;
 	type IdentifierMaxLen = ConstU32<256>;
 	type MigrationStatusHandler = ();
-	type FailedMigrationHandler = frame_support::migrations::FreezeChainOnFailedMigration;
+	type FailedMigrationHandler = frame_support::migrations::ForceUnstuckOnFailedMigration;
 	type MaxServiceWeight = MbmServiceWeight;
+	type MaxMigrationSteps = ConstU32<{ DAYS }>;
 	type WeightInfo = weights::pallet_migrations::WeightInfo<Runtime>;
 }
 
