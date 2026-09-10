@@ -1858,6 +1858,8 @@ pub mod migrations {
 			FastUnstakePalletStr,
 			<Runtime as frame_system::Config>::DbWeight,
 		>,
+		// Sorts and deduplicates the `Proxies` map, which `binary_search` needs.
+		pallet_proxy::migrations::MigrateV0ToV1<Runtime>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	);

@@ -159,11 +159,12 @@ fn new_test_ext_and_execute(test: impl FnOnce()) {
 	});
 }
 
-/// [`new_test_ext_and_execute`] for tests ending with a deposit left stale by a `*Deposit*`
-/// parameter change, which the hook only warns about.
+/// [`new_test_ext_and_execute`] for tests ending with a stale `Proxies` deposit, which the hook
+/// only warns about: one left behind by a `*Deposit*` parameter change, or by the deduplication
+/// [`crate::migrations::MigrateV0ToV1`] performs without repricing.
 ///
-/// These tests change parameters, so the `fuzzing` premise that they are constant does not hold
-/// and that one error is tolerated. Every other invariant is still asserted under both features.
+/// Neither premise behind the `fuzzing` gate on that check holds in such a test, so that one error
+/// is tolerated. Every other invariant is still asserted under both features.
 fn new_test_ext_and_execute_with_stale_deposit(test: impl FnOnce()) {
 	#[cfg(not(feature = "fuzzing"))]
 	new_test_ext_and_execute(test);
@@ -1075,12 +1076,20 @@ mod try_state {
 	}
 
 	#[test]
-	fn detects_underreserved_announcement_deposit() {
+	fn announcement_deposit_shortfall_only_warns() {
+		// Mirrors the 14 announcements the Westend relay chain carries for announcers that were
+		// moved to Asset Hub with their balances: a deposit recorded with no reserve left to back
+		// it. State this pallet never wrote, hence a warning; a hard error under `fuzzing`, where
+		// every entry comes from an extrinsic that reserves what it records.
 		new_test_ext().execute_with(|| {
 			let ann = Announcement { real: 2, call_hash: [1; 32].into(), height: 1 };
 			// Nothing is reserved on account 1, but a deposit is recorded.
-			let value: AnnouncementsValue = (vec![ann].try_into().unwrap(), 5);
+			let value: AnnouncementsValue = (vec![ann].try_into().unwrap(), 2);
 			Announcements::<Test>::insert(1, value);
+
+			#[cfg(not(feature = "fuzzing"))]
+			assert_ok!(Proxy::do_try_state());
+			#[cfg(feature = "fuzzing")]
 			assert_eq!(
 				Proxy::do_try_state().unwrap_err(),
 				TryRuntimeError::Other(
@@ -1173,6 +1182,220 @@ mod try_state {
 				Proxy::do_try_state().unwrap_err(),
 				TryRuntimeError::Other("Proxies deposit does not match the current parameters")
 			);
+		});
+	}
+
+	#[test]
+	fn announcement_reserve_shortfall_skips_the_sum_check() {
+		// The `Announcements` half of the guard on the cross-map check: an uncovered announcement
+		// deposit says nothing about a sum, so only check 10's warning applies. Guarding on check 4
+		// alone was not enough, a reaped account reading `0 >= 0` there.
+		new_test_ext().execute_with(|| {
+			// Account 2 delegates to 3, reserving its `Proxies` deposit of 2 on itself.
+			assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(2), 3, ProxyType::Any, 0));
+			assert_eq!(Proxies::<Test>::get(2).1, 2);
+			assert_eq!(Balances::reserved_balance(2), 2);
+
+			// It also holds two announcements priced at 3, with nothing left to reserve for them.
+			let pending = vec![
+				Announcement { real: 1, call_hash: [1; 32].into(), height: 1 },
+				Announcement { real: 3, call_hash: [2; 32].into(), height: 1 },
+			];
+			let announcements: AnnouncementsValue = (pending.try_into().unwrap(), 3);
+			Announcements::<Test>::insert(2, announcements);
+
+			// Uncovered `Announcements` deposit: check 10 warns and the sum check is skipped.
+			#[cfg(not(feature = "fuzzing"))]
+			assert_ok!(Proxy::do_try_state());
+			// Under `fuzzing` check 10 is the hard error, and the sum check is still not what
+			// fires.
+			#[cfg(feature = "fuzzing")]
+			assert_eq!(
+				Proxy::do_try_state().unwrap_err(),
+				TryRuntimeError::Other(
+					"Announcements deposit exceeds the key account's reserved balance"
+				)
+			);
+		});
+	}
+}
+
+mod migration {
+	use super::*;
+	use crate::migrations::MigrateV0ToV1;
+	use frame::traits::{GetStorageVersion, OnRuntimeUpgrade};
+
+	type ProxiesValue =
+		(BoundedVec<ProxyDefinition<u64, ProxyType, u64>, <Test as Config>::MaxProxies>, u64);
+
+	fn def(delegate: u64) -> ProxyDefinition<u64, ProxyType, u64> {
+		ProxyDefinition { delegate, proxy_type: ProxyType::Any, delay: 0 }
+	}
+
+	/// Writes a `Proxies` entry verbatim, as only broken state or a migration can.
+	fn insert_proxies(
+		delegator: u64,
+		proxies: Vec<ProxyDefinition<u64, ProxyType, u64>>,
+		deposit: u64,
+	) {
+		let value: ProxiesValue = (proxies.try_into().unwrap(), deposit);
+		Proxies::<Test>::insert(delegator, value);
+	}
+
+	/// The storage version is unset before the migration, which is what version 0 means here.
+	fn assert_unmigrated() {
+		assert_eq!(Proxy::on_chain_storage_version(), 0);
+	}
+
+	fn assert_migrated() {
+		assert_eq!(Proxy::on_chain_storage_version(), 1);
+		assert_eq!(Proxy::in_code_storage_version(), 1);
+	}
+
+	#[test]
+	fn sorts_an_unsorted_entry() {
+		new_test_ext_and_execute(|| {
+			// Two delegates in the wrong order, priced correctly for a list of two.
+			insert_proxies(1, vec![def(3), def(2)], Proxy::deposit(2));
+			assert_unmigrated();
+
+			MigrateV0ToV1::<Test>::on_runtime_upgrade();
+
+			let (proxies, deposit) = Proxies::<Test>::get(1);
+			assert_eq!(proxies.to_vec(), vec![def(2), def(3)]);
+			assert_eq!(deposit, Proxy::deposit(2));
+			assert_migrated();
+		});
+	}
+
+	#[test]
+	fn removes_exact_duplicates() {
+		// A deduplicated list prices below its stored deposit, which only `poke_deposit` corrects.
+		new_test_ext_and_execute_with_stale_deposit(|| {
+			insert_proxies(1, vec![def(2), def(2)], Proxy::deposit(2));
+
+			MigrateV0ToV1::<Test>::on_runtime_upgrade();
+
+			let (proxies, deposit) = Proxies::<Test>::get(1);
+			assert_eq!(proxies.to_vec(), vec![def(2)]);
+			// Untouched, and now above what one proxy prices at.
+			assert_eq!(deposit, Proxy::deposit(2));
+			assert!(deposit > Proxy::deposit(1));
+			assert_migrated();
+		});
+	}
+
+	#[test]
+	fn sorts_and_deduplicates_together() {
+		new_test_ext_and_execute_with_stale_deposit(|| {
+			// An unsorted list that also repeats its first delegate.
+			insert_proxies(1, vec![def(4), def(2), def(4), def(3)], Proxy::deposit(4));
+
+			MigrateV0ToV1::<Test>::on_runtime_upgrade();
+
+			assert_eq!(Proxies::<Test>::get(1).0.to_vec(), vec![def(2), def(3), def(4)]);
+			assert_migrated();
+		});
+	}
+
+	#[test]
+	fn leaves_a_sorted_entry_untouched() {
+		new_test_ext_and_execute(|| {
+			assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+			assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 0));
+			let before = Proxies::<Test>::get(1);
+
+			MigrateV0ToV1::<Test>::on_runtime_upgrade();
+
+			assert_eq!(Proxies::<Test>::get(1), before);
+			assert_migrated();
+		});
+	}
+
+	#[test]
+	fn is_idempotent() {
+		new_test_ext_and_execute(|| {
+			insert_proxies(1, vec![def(3), def(2)], Proxy::deposit(2));
+
+			MigrateV0ToV1::<Test>::on_runtime_upgrade();
+			let after_first = Proxies::<Test>::get(1);
+
+			// The second run is a noop: the version gate has already moved past it.
+			MigrateV0ToV1::<Test>::on_runtime_upgrade();
+
+			assert_eq!(Proxies::<Test>::get(1), after_first);
+			assert_migrated();
+		});
+	}
+
+	#[test]
+	fn repairs_a_broken_entry_for_its_owner() {
+		// The fault this migration exists for: `binary_search` against an unsorted list leaves the
+		// owner unable to remove a proxy, and free to add a duplicate of it.
+		new_test_ext_and_execute_with_stale_deposit(|| {
+			insert_proxies(1, vec![def(3), def(2)], Proxy::deposit(2));
+
+			// `def(3)` is present, yet the search walks past it.
+			assert_noop!(
+				Proxy::remove_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 0),
+				Error::<Test>::NotFound
+			);
+			// And re-adding it succeeds instead of failing with `Duplicate`.
+			assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 0));
+			assert_eq!(Proxies::<Test>::get(1).0.to_vec(), vec![def(3), def(2), def(3)]);
+
+			MigrateV0ToV1::<Test>::on_runtime_upgrade();
+
+			// The duplicate is gone and both operations behave again.
+			assert_eq!(Proxies::<Test>::get(1).0.to_vec(), vec![def(2), def(3)]);
+			assert_noop!(
+				Proxy::add_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 0),
+				Error::<Test>::Duplicate
+			);
+			assert_ok!(Proxy::remove_proxy(RuntimeOrigin::signed(1), 3, ProxyType::Any, 0));
+			assert_eq!(Proxies::<Test>::get(1).0.to_vec(), vec![def(2)]);
+		});
+	}
+
+	#[test]
+	fn walks_every_entry() {
+		new_test_ext_and_execute_with_stale_deposit(|| {
+			insert_proxies(1, vec![def(3), def(2)], Proxy::deposit(2));
+			insert_proxies(2, vec![def(3), def(3)], Proxy::deposit(2));
+			insert_proxies(3, vec![def(4)], Proxy::deposit(1));
+
+			MigrateV0ToV1::<Test>::on_runtime_upgrade();
+
+			assert_eq!(Proxies::<Test>::get(1).0.to_vec(), vec![def(2), def(3)]);
+			assert_eq!(Proxies::<Test>::get(2).0.to_vec(), vec![def(3)]);
+			assert_eq!(Proxies::<Test>::get(3).0.to_vec(), vec![def(4)]);
+			assert_migrated();
+		});
+	}
+
+	#[test]
+	fn leaves_announcements_alone() {
+		new_test_ext_and_execute(|| {
+			assert_ok!(Proxy::add_proxy(RuntimeOrigin::signed(1), 2, ProxyType::Any, 0));
+			assert_ok!(Proxy::announce(RuntimeOrigin::signed(2), 1, [1; 32].into()));
+			let before = Announcements::<Test>::get(2);
+
+			MigrateV0ToV1::<Test>::on_runtime_upgrade();
+
+			assert_eq!(Announcements::<Test>::get(2), before);
+		});
+	}
+
+	#[cfg(feature = "try-runtime")]
+	#[test]
+	fn try_runtime_checks_pass() {
+		new_test_ext_and_execute_with_stale_deposit(|| {
+			insert_proxies(1, vec![def(4), def(2), def(4), def(3)], Proxy::deposit(4));
+			insert_proxies(2, vec![def(3)], Proxy::deposit(1));
+
+			let state = MigrateV0ToV1::<Test>::pre_upgrade().unwrap();
+			MigrateV0ToV1::<Test>::on_runtime_upgrade();
+			assert_ok!(MigrateV0ToV1::<Test>::post_upgrade(state));
 		});
 	}
 }

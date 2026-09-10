@@ -30,6 +30,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod benchmarking;
+pub mod migrations;
 mod tests;
 pub mod weights;
 
@@ -127,11 +128,14 @@ pub enum DepositKind {
 	Announcements,
 }
 
+const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 #[frame::pallet]
 pub mod pallet {
 	use super::*;
 
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	/// Configuration trait.
@@ -1058,8 +1062,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-/// The log target used by this pallet's `try-runtime` checks.
-#[cfg(any(feature = "try-runtime", test))]
+/// The log target used by this pallet's migrations and `try-runtime` checks.
 const LOG_TARGET: &str = "runtime::proxy";
 
 #[cfg(any(feature = "try-runtime", test))]
@@ -1084,22 +1087,23 @@ impl<T: Config> Pallet<T> {
 	/// 8. No self-announcement: the announcer must be a delegate of `real`, and 3 forbids
 	///    self-delegation.
 	/// 9. No height is later than the current block, the one `announce` stamps.
-	/// 10. Reserve covers the deposit; a hard error unlike 4, since it is always reserved on the
-	///     announcer itself.
+	/// 10. (warn, hard error under `fuzzing`) Reserve covers the deposit; warns because an account
+	///     can be gone while its announcement stays, as on the Westend relay chain.
 	/// 11. (warn, hard error under `fuzzing`) Deposit equals `AnnouncementDepositBase +
 	///     AnnouncementDepositFactor * pending.len()`; warns for the same reason as 5.
 	///
 	/// Across both maps, and the only check that reads both:
 	/// 12. Reserve covers the *sum* of an account's two deposits. 4 and 10 read one map each, so
 	///     the same units of reserve can satisfy both while backing only one of the two claims.
-	///     Guarded on 4 holding, since an untouched pure proxy legally has a `Proxies` deposit that
-	///     nothing on the key account reserves.
+	///     Guarded on 4 and 10 holding, since a sum only says something where each deposit is
+	///     covered on its own.
 	///
-	/// The `fuzzing` severity gate on 5 and 11: a fuzzer detects failures, it does not read logs,
-	/// so a warning yields a campaign nothing. `warn!` is nonetheless right for a live chain,
-	/// where a `*Deposit*` parameter change leaves stored deposits stale until each account calls
-	/// [`Pallet::poke_deposit`]. Parameters are constant for the length of a campaign, which makes
-	/// the formula a hard invariant in that context.
+	/// The `fuzzing` severity gate on 5, 10 and 11: a fuzzer detects failures, it does not read
+	/// logs, so a warning yields a campaign nothing, while `warn!` is right for a live chain. A
+	/// `*Deposit*` parameter change leaves 5 and 11 stale until [`Pallet::poke_deposit`], and an
+	/// account migration can leave 10 an announcement this pallet never wrote. A campaign has
+	/// constant parameters and writes every entry through the extrinsics, which reserve what they
+	/// record, so all three are hard invariants there.
 	///
 	/// Not checked. The first two are legally reachable:
 	/// - An announcement outliving its proxy relationship, since `remove_proxy`, `remove_proxies`
@@ -1189,11 +1193,26 @@ impl<T: Config> Pallet<T> {
 				"Announcements entry has a height later than the current block"
 			);
 
-			// 10. The deposit is covered by the key account's reserve.
-			ensure!(
-				T::Currency::reserved_balance(&delegate) >= deposit,
-				"Announcements deposit exceeds the key account's reserved balance"
-			);
+			// 10. (warn, hard error under `fuzzing`) The deposit is covered by the key account's
+			// reserve, unless the account that owns it is gone.
+			let reserved = T::Currency::reserved_balance(&delegate);
+			if reserved < deposit {
+				#[cfg(feature = "fuzzing")]
+				return Err(
+					"Announcements deposit exceeds the key account's reserved balance".into()
+				);
+
+				#[cfg(not(feature = "fuzzing"))]
+				log::warn!(
+					target: LOG_TARGET,
+					"Announcements deposit for {:?} is {:?}, but only {:?} is reserved on the key \
+					account; expected where the account was reaped or moved to another chain, \
+					leaving the announcement behind",
+					delegate,
+					deposit,
+					reserved,
+				);
+			}
 
 			// 11. (warn, hard error under `fuzzing`) The deposit matches what the current
 			// parameters price the entry at, unless a parameter change left it stale.
@@ -1226,8 +1245,9 @@ impl<T: Config> Pallet<T> {
 			let proxies_deposit = Proxies::<T>::get(&delegate).1;
 			let reserved = T::Currency::reserved_balance(&delegate);
 
-			// Skips the pure-proxy case of an uncovered `Proxies` deposit, which 4 warns about.
-			if reserved >= proxies_deposit {
+			// A sum only says something where each deposit is covered on its own, so this skips
+			// whatever 4 and 10 already warned about.
+			if reserved >= proxies_deposit && reserved >= announcements_deposit {
 				// `>=`, not `==`: other pallets reserve on these accounts, so the sum is a lower
 				// bound.
 				ensure!(

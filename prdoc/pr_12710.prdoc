@@ -1,13 +1,45 @@
-title: 'pallet-proxy: add try_state invariant checks'
+title: 'pallet-proxy: add try_state invariant checks and sort the Proxies map'
 
 doc:
 - audience: Runtime Dev
   description: |-
     In the new `try_state` hook, several storage invariants for the pallet are checked,
-    with consideration for future use as an oracle in pallet fuzzing campaigns. The two
-    deposit-amount checks warn by default and become hard errors under a new `fuzzing`
-    feature. Unit tests were added to validate the checks.
+    with consideration for future use as an oracle in pallet fuzzing campaigns. The three
+    deposit checks warn by default and become hard errors under a new `fuzzing` feature,
+    since a live chain can legally hold a stale deposit or an announcement left behind by
+    an account migration, neither of which a campaign can produce.
+
+    The sortedness invariant found live state that breaks it: some `Proxies` entries on the
+    Polkadot, Kusama and Westend Asset Hubs are unsorted, so `binary_search` misses a
+    delegate that is present, leaving the owner unable to remove that proxy or recover its
+    deposit while `add_proxy` adds a duplicate instead of failing with `Duplicate`. The
+    pallet now declares a storage version and adds `migrations::MigrateV0ToV1`, which sorts
+    each entry and drops exact duplicates in a single block. Deposits are left as they are,
+    a deduplicated entry pricing below its deposit until `poke_deposit` corrects it.
+
+    The migration is added to every runtime in this repository that uses the pallet. The
+    Polkadot and Kusama Asset Hub runtimes live in `polkadot-fellows/runtimes` and can take
+    it once this is released.
+- audience: Runtime User
+  description: |-
+    Accounts whose proxy list was stored out of order can add and remove proxies again after
+    the runtime upgrade. A list that held a duplicate is now one entry shorter than the
+    deposit recorded for it, and `poke_deposit` returns the difference.
 
 crates:
 - name: pallet-proxy
   bump: minor
+- name: westend-runtime
+  bump: patch
+- name: rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
