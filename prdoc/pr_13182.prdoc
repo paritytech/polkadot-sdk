@@ -1,0 +1,14 @@
+title: 'core-fellowship: avoid panic on undersized Params salary/period vectors'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `Pallet::get_salary` computed an index from the member's rank and then indexed the `active_salary `or `passive_salary` vector directly. The bump and promote calls did the same thing to `demotion_period `and `min_promotion_period`. All four of these vectors are BoundedVec fields bounded only by MaxRank, so a privileged set_params call is free to store a shorter vector, including the empty default. Once that happens, any of these three call sites panics for a member whose rank sits past the end of the stored vector, which traps the extrinsic instead of failing gracefully.
+
+    This changes all three sites to look up the index with get and fall back to the type's default when the entry is missing, so a rank past the end of the vector now degrades to zero salary, a zero demotion period or a zero minimum promotion period, the same way the pallet already treats rank 0 and untracked members. No panic path remains.
+
+    Added three unit tests that configure an undersized vector for each of the three call sites and assert the graceful fallback instead of a panic.
+
+    Closes #13141
+crates:
+- name: pallet-core-fellowship
+  bump: patch
