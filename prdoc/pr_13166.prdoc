@@ -1,0 +1,18 @@
+title: Fund the DAP buffer as the signed-phase reward pot in genesis presets
+doc:
+- audience: Runtime Dev
+  description: |-
+    The DAP buffer account is the `RewardSource` pot for the
+    `pallet-election-provider-multi-block` signed phase, but the Asset Hub Westend and
+    staking-async parachain genesis presets funded it with exactly the existential deposit. The
+    payout transfers with `Preservation::Preserve`, so the pot had no spendable balance and every
+    round-winner reward was deferred into `UnpaidRewards` instead of emitting `Rewarded`.
+
+    Both presets now fund the buffer with the standard endowment. This affects chains built fresh
+    from these runtimes, such as dev chains and integration tests. Running chains are unaffected,
+    as their buffer is funded and topped up by the DAP budget allocation.
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
+  bump: patch
