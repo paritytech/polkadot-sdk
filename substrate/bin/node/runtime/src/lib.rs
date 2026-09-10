@@ -2190,6 +2190,8 @@ impl pallet_uniques::Config for Runtime {
 	type CollectionId = u32;
 	type ItemId = u32;
 	type Currency = Balances;
+	type OldCurrency = Balances;
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type CollectionDeposit = CollectionDeposit;
 	type ItemDeposit = ItemDeposit;
