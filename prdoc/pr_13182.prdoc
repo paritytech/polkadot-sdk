@@ -6,8 +6,6 @@ doc:
 
     This changes all three sites to look up the index with get and fall back to the type's default when the entry is missing, so a rank past the end of the vector now degrades to zero salary, a zero demotion period or a zero minimum promotion period, the same way the pallet already treats rank 0 and untracked members. No panic path remains.
 
-    Added three unit tests that configure an undersized vector for each of the three call sites and assert the graceful fallback instead of a panic.
-
     Closes #13141
 crates:
 - name: pallet-core-fellowship
