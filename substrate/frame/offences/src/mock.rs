@@ -92,6 +92,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
+pub fn build_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		Offences::do_try_state().expect("All invariants must hold after a test");
+	});
+}
+
 pub const KIND: [u8; 16] = *b"test_report_1234";
 
 /// Returns all offence details for the specific `kind` happened at the specific time slot.
