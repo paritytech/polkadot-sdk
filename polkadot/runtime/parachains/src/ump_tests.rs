@@ -35,7 +35,7 @@ use polkadot_primitives::{
 	well_known_keys, ClaimQueueOffset, CoreSelector, Id as ParaId, UMPSignal, UpwardMessage,
 	UMP_SEPARATOR,
 };
-use sp_crypto_hashing::{blake2_256, twox_64};
+use sp_crypto_hashing::blake2_256;
 use sp_runtime::traits::Bounded;
 
 pub(super) struct GenesisConfigBuilder {
@@ -416,29 +416,10 @@ fn relay_dispatch_queue_size_is_updated() {
 	});
 }
 
-/// Assert that the old and the new way of accessing `relay_dispatch_queue_size` is the same.
 #[test]
-fn relay_dispatch_queue_size_key_is_correct() {
-	#![allow(deprecated)]
-	// Storage alias to the old way of accessing the queue size.
-	#[frame_support::storage_alias]
-	type RelayDispatchQueueSize = StorageMap<Ump, Twox64Concat, ParaId, (u32, u32), ValueQuery>;
-
-	for i in 0..1024 {
-		// A "random" para id.
-		let para: ParaId = u32::from_ne_bytes(twox_64(&i.encode())[..4].try_into().unwrap()).into();
-
-		let well_known = polkadot_primitives::well_known_keys::relay_dispatch_queue_size(para);
-		let aliased = RelayDispatchQueueSize::hashed_key_for(para);
-
-		assert_eq!(well_known, aliased, "Old and new key must match");
-	}
-}
-
-#[test]
-fn verify_relay_dispatch_queue_size_is_externally_accessible() {
-	// Make sure that the relay dispatch queue size storage entry is accessible via well known
-	// keys and is decodable into a (u32, u32).
+fn verify_relay_dispatch_queue_remaining_capacity_is_externally_accessible() {
+	// Make sure that the relay dispatch queue remaining capacity storage entry is accessible via
+	// well known keys and is decodable into a (u32, u32).
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		let cfg = configuration::ActiveConfig::<Test>::get();
 
@@ -464,23 +445,13 @@ fn verify_relay_dispatch_queue_size_is_externally_accessible() {
 }
 
 fn assert_queue_size(para: ParaId, count: u32, size: u32) {
-	#[allow(deprecated)]
-	let raw_queue_size = sp_io::storage::get(&well_known_keys::relay_dispatch_queue_size(para))
-		.expect(
-			"enqueuing a message should create the dispatch queue\
-				and it should be accessible via the well known keys",
-		);
-	let (c, s) = <(u32, u32)>::decode(&mut &raw_queue_size[..])
-		.expect("the dispatch queue size should be decodable into (u32, u32)");
-	assert_eq!((c, s), (count, size));
-
-	// Test the deprecated but at least type-safe `relay_dispatch_queue_size_typed`:
-	#[allow(deprecated)]
-	let (c, s) = well_known_keys::relay_dispatch_queue_size_typed(para).get().expect(
-		"enqueuing a message should create the dispatch queue\
-				and it should be accessible via the well known keys",
+	let fp = MessageQueue::footprint(AggregateMessageOrigin::Ump(UmpQueueId::Para(para)));
+	assert_eq!(
+		(fp.storage.count as u32, fp.storage.size as u32),
+		(count, size),
+		"Wrong queue footprint for Q{}",
+		para,
 	);
-	assert_eq!((c, s), (count, size));
 }
 
 fn assert_queue_remaining(para: ParaId, count: u32, size: u32) {
