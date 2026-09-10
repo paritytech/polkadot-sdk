@@ -17,3 +17,4 @@ crates:
   bump: minor
 - name: emulated-integration-tests-common
   bump: major
+  validate: false
