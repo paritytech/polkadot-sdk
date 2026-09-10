@@ -117,6 +117,28 @@ pub struct Cli {
 	)]
 	pub statement_gossip_target: std::num::NonZeroUsize,
 
+	/// False-positive rate of the topic-affinity bloom filter this node advertises.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(
+		long,
+		value_name = "RATE",
+		default_value_t = sc_statement_store::DEFAULT_BLOOM_FALSE_POS_RATE,
+		hide = true
+	)]
+	pub statement_bloom_false_positive_rate: f64,
+
+	/// Seed of the topic-affinity bloom filter this node advertises. Defaults to a random
+	/// value per node.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "SEED", hide = true)]
+	pub statement_bloom_seed: Option<u128>,
+
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
@@ -204,5 +226,26 @@ mod tests {
 			cli.statement_affinity_topics,
 			vec![sc_statement_store::Topic([0x11; 32]), sc_statement_store::Topic([0x22; 32])]
 		);
+	}
+
+	#[test]
+	fn statement_bloom_flags_parse() {
+		use clap::Parser;
+		let cli = Cli::parse_from([
+			"substrate-node",
+			"--statement-bloom-false-positive-rate",
+			"0.001",
+			"--statement-bloom-seed",
+			"12345678901234567890123456789012345678",
+		]);
+		assert_eq!(cli.statement_bloom_false_positive_rate, 0.001);
+		assert_eq!(cli.statement_bloom_seed, Some(12345678901234567890123456789012345678));
+
+		let cli = Cli::parse_from(["substrate-node"]);
+		assert_eq!(
+			cli.statement_bloom_false_positive_rate,
+			sc_statement_store::DEFAULT_BLOOM_FALSE_POS_RATE
+		);
+		assert_eq!(cli.statement_bloom_seed, None);
 	}
 }

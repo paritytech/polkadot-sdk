@@ -529,6 +529,10 @@ pub use sc_network_statement::config::DEFAULT_GOSSIP_TARGET;
 /// Parameters of the v2 DHT statement path.
 pub use sc_network_statement::V2DhtConfig;
 
+/// Default and lowest accepted false-positive rate of the advertised topic-affinity bloom
+/// filter.
+pub use sc_network_statement::config::DEFAULT_BLOOM_FALSE_POS_RATE;
+
 /// Statement store and network handler configuration.
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -561,6 +565,14 @@ impl Config {
 		}
 		if self.network_workers == 0 {
 			return Err(Error::InvalidConfig("network_workers must be greater than zero".into()));
+		}
+		if self.v2dht.as_ref().is_some_and(|cfg| {
+			!(cfg.bloom_false_pos_rate >= DEFAULT_BLOOM_FALSE_POS_RATE &&
+				cfg.bloom_false_pos_rate < 1.0)
+		}) {
+			return Err(Error::InvalidConfig(format!(
+				"bloom_false_pos_rate must be at least {DEFAULT_BLOOM_FALSE_POS_RATE} and below 1"
+			)));
 		}
 		Ok(())
 	}

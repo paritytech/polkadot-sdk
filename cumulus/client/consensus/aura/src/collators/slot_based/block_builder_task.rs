@@ -40,8 +40,8 @@ use cumulus_client_resubmission_store::prepare_resubmission_aux_data;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	PersistedValidationData, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
-	TargetBlockRate,
+	PersistedValidationData, RelayBlockIdentifier, RelayParentOffsetApi, SchedulingProof,
+	SchedulingV3EnabledApi, TargetBlockRate,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
@@ -189,6 +189,25 @@ struct BuildingPrerequisites<Block: BlockT> {
 	/// `v3_enabled` or `relay_parent_offset` disagree with the para best head's, since the first
 	/// phase then took it at a scheduling parent we no longer build against.
 	included_header_at_execution: Block::Header,
+}
+
+/// Whether the parachain block `para_header` was built on `relay_parent`.
+///
+/// Returns `false` when the header carries no relay-parent digest, leaving callers to treat an
+/// unknown relay parent as "advanced".
+fn is_built_on_relay_parent<Header: HeaderT>(
+	relay_parent: &RelayHeader,
+	para_header: &Header,
+) -> bool {
+	match CumulusDigestItem::find_relay_block_identifier(para_header.digest()) {
+		Some(RelayBlockIdentifier::ByHash(hash)) => hash == relay_parent.hash(),
+		// `parachain-system` currently emits the storage root rather than the hash. The relay
+		// storage root identifies a block uniquely unless the relay author equivocated.
+		Some(RelayBlockIdentifier::ByStorageRoot { storage_root, block_number }) => {
+			storage_root == *relay_parent.state_root() && block_number == *relay_parent.number()
+		},
+		None => false,
+	}
 }
 
 /// The relay chain context `params` imply: the scheduling parent, whether V3 applies to it, and the
@@ -437,55 +456,73 @@ where
 
 		let build_parent_hash = parent_search_result.best_parent_header.hash();
 		let build_params = SchedulingParams::at(&*self.para_client, build_parent_hash);
-		if build_parent_hash == best_hash || build_params == best_params {
-			// The search ran with these very parameters, so V2 can reuse its snapshot: for V2 the
-			// scheduling parent is the relay parent the block will execute against.
-			let included_header_at_execution = match v3_enabled {
-				true => {
-					self.included_header_at_execution(relay_parent_data.relay_parent().hash())
-						.await?
-				},
-				false => parent_search_result.included_at_scheduling,
+		let build_parent_agrees = build_parent_hash == best_hash || build_params == best_params;
+
+		let (scheduling_parent_header, v3_enabled, relay_parent_offset, relay_parent_data) =
+			if build_parent_agrees {
+				(
+					scheduling_parent_header,
+					v3_enabled,
+					best_params.relay_parent_offset,
+					relay_parent_data,
+				)
+			} else {
+				tracing::info!(
+					target: LOG_TARGET,
+					best = ?best_hash,
+					?build_parent_hash,
+					"Build parent's runtime disagrees with the para best's, re-deriving the relay \
+					chain context from the build parent.",
+				);
+
+				let (scheduling_parent_header, v3_enabled, relay_parent_data) =
+					derive_relay_context(
+						&self.relay_client,
+						&mut self.relay_chain_data_cache,
+						&mut self.scheduling_info,
+						build_params,
+					)
+					.await?;
+
+				(
+					scheduling_parent_header,
+					v3_enabled,
+					build_params.relay_parent_offset,
+					relay_parent_data,
+				)
 			};
 
-			return Some(BuildingPrerequisites {
-				scheduling_parent_header,
-				v3_enabled,
-				relay_parent_offset: best_params.relay_parent_offset,
-				relay_parent_data,
-				best_parent_header: parent_search_result.best_parent_header,
-				included_header_at_execution,
-			});
+		let best_parent_header = parent_search_result.best_parent_header;
+
+		// Building on a parent that already sits on our relay parent would put two blocks on the
+		// same one, so the prerequisites are not met for this slot.
+		if is_built_on_relay_parent(relay_parent_data.relay_parent(), &best_parent_header) {
+			tracing::debug!(
+				target: LOG_TARGET,
+				relay_parent = ?relay_parent_data.relay_parent().hash(),
+				relay_parent_num = %relay_parent_data.relay_parent().number(),
+				parent = ?best_parent_header.hash(),
+				"Relay parent did not advance past the parent block's, skipping slot."
+			);
+			return None;
 		}
 
-		tracing::info!(
-			target: LOG_TARGET,
-			best = ?best_hash,
-			?build_parent_hash,
-			"Build parent's runtime disagrees with the para best's, re-deriving the relay chain \
-			context from the build parent.",
-		);
-
-		let (scheduling_parent_header, v3_enabled, relay_parent_data) = derive_relay_context(
-			&self.relay_client,
-			&mut self.relay_chain_data_cache,
-			&mut self.scheduling_info,
-			build_params,
-		)
-		.await?;
-
-		// The context moved, so the search's snapshot belongs to a scheduling parent we no longer
-		// build against: take the included head at the settled relay parent.
-		let included_header_at_execution = self
-			.included_header_at_execution(relay_parent_data.relay_parent().hash())
-			.await?;
+		// The parent search's snapshot of the included head only holds while its own context
+		// survives, and only for V2, whose scheduling parent is the relay parent the block
+		// executes against. Otherwise take it at the settled relay parent.
+		let included_header_at_execution = if build_parent_agrees && !v3_enabled {
+			parent_search_result.included_at_scheduling
+		} else {
+			self.included_header_at_execution(relay_parent_data.relay_parent().hash())
+				.await?
+		};
 
 		Some(BuildingPrerequisites {
 			scheduling_parent_header,
 			v3_enabled,
-			relay_parent_offset: build_params.relay_parent_offset,
+			relay_parent_offset,
 			relay_parent_data,
-			best_parent_header: parent_search_result.best_parent_header,
+			best_parent_header,
 			included_header_at_execution,
 		})
 	}
@@ -1801,5 +1838,71 @@ mod block_production_schedule_tests {
 				);
 			}
 		}
+	}
+}
+
+#[cfg(test)]
+mod relay_parent_advance_tests {
+	use super::*;
+	use cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item;
+	use sp_runtime::generic::Digest;
+
+	fn relay_parent(number: u32, state_root: RelayHash) -> RelayHeader {
+		RelayHeader {
+			parent_hash: Default::default(),
+			number,
+			state_root,
+			extrinsics_root: Default::default(),
+			digest: Digest::default(),
+		}
+	}
+
+	fn para_header_with_digest(digest: Digest) -> RelayHeader {
+		RelayHeader { digest, ..relay_parent(1, Default::default()) }
+	}
+
+	#[test]
+	fn detects_same_relay_parent_by_hash() {
+		let relay = relay_parent(64, RelayHash::repeat_byte(1));
+		let mut digest = Digest::default();
+		digest.push(CumulusDigestItem::RelayParent(relay.hash()).to_digest_item());
+
+		assert!(is_built_on_relay_parent(&relay, &para_header_with_digest(digest)));
+	}
+
+	#[test]
+	fn detects_advanced_relay_parent_by_hash() {
+		let relay = relay_parent(64, RelayHash::repeat_byte(1));
+		let mut digest = Digest::default();
+		digest.push(CumulusDigestItem::RelayParent(RelayHash::repeat_byte(9)).to_digest_item());
+
+		assert!(!is_built_on_relay_parent(&relay, &para_header_with_digest(digest)));
+	}
+
+	#[test]
+	fn detects_same_relay_parent_by_storage_root() {
+		let state_root = RelayHash::repeat_byte(2);
+		let relay = relay_parent(64, state_root);
+		let mut digest = Digest::default();
+		digest.push(relay_parent_storage_root_item(state_root, 64u32));
+
+		assert!(is_built_on_relay_parent(&relay, &para_header_with_digest(digest)));
+	}
+
+	#[test]
+	fn storage_root_match_still_requires_same_block_number() {
+		let state_root = RelayHash::repeat_byte(2);
+		let relay = relay_parent(64, state_root);
+		let mut digest = Digest::default();
+		digest.push(relay_parent_storage_root_item(state_root, 65u32));
+
+		assert!(!is_built_on_relay_parent(&relay, &para_header_with_digest(digest)));
+	}
+
+	#[test]
+	fn missing_digest_is_treated_as_advanced() {
+		let relay = relay_parent(64, RelayHash::repeat_byte(1));
+
+		assert!(!is_built_on_relay_parent(&relay, &para_header_with_digest(Digest::default())));
 	}
 }
