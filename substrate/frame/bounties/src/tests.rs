@@ -43,6 +43,7 @@ use sp_runtime::{
 };
 
 use super::Event as BountiesEvent;
+use pallet_treasury::migration::legacy::{ProposalCount, Proposals};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -168,7 +169,6 @@ parameter_types! {
 }
 
 impl Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type BountyDepositBase = ConstU64<80>;
 	type BountyDepositPayoutDelay = ConstU64<3>;
 	type BountyUpdatePeriod = BountyUpdatePeriod;
@@ -185,7 +185,6 @@ impl Config for Test {
 }
 
 impl Config<Instance1> for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type BountyDepositBase = ConstU64<80>;
 	type BountyDepositPayoutDelay = ConstU64<3>;
 	type BountyUpdatePeriod = BountyUpdatePeriod;
@@ -274,11 +273,10 @@ fn expect_events(e: Vec<BountiesEvent<Test>>) {
 }
 
 #[test]
-#[allow(deprecated)]
 fn genesis_config_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(Treasury::pot(), 0);
-		assert_eq!(Treasury::proposal_count(), 0);
+		assert_eq!(ProposalCount::<Test, ()>::get(), 0);
 	});
 }
 
@@ -287,20 +285,6 @@ fn minting_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Check that accumulate works when we have Some value in Dummy already.
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_eq!(Treasury::pot(), 100);
-	});
-}
-
-#[test]
-#[allow(deprecated)]
-fn accepted_spend_proposal_ignored_outside_spend_period() {
-	ExtBuilder::default().build_and_execute(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 100, 3) });
-
-		go_to_block(1);
-		assert_eq!(Balances::free_balance(3), 0);
 		assert_eq!(Treasury::pot(), 100);
 	});
 }
@@ -315,100 +299,6 @@ fn unused_pot_should_diminish() {
 		go_to_block(2);
 		assert_eq!(Treasury::pot(), 50);
 		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), init_total_issuance + 50);
-	});
-}
-
-#[test]
-#[allow(deprecated)]
-fn accepted_spend_proposal_enacted_on_spend_period() {
-	ExtBuilder::default().build_and_execute(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_eq!(Treasury::pot(), 100);
-
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 100, 3) });
-
-		go_to_block(2);
-		assert_eq!(Balances::free_balance(3), 100);
-		assert_eq!(Treasury::pot(), 0);
-	});
-}
-
-#[test]
-#[allow(deprecated)]
-fn pot_underflow_should_not_diminish() {
-	ExtBuilder::default().build_and_execute(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_eq!(Treasury::pot(), 100);
-
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 150, 3) });
-
-		go_to_block(2);
-		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
-
-		assert_ok!(Balances::deposit_into_existing(&Treasury::account_id(), 100));
-		go_to_block(4);
-		assert_eq!(Balances::free_balance(3), 150); // Fund has been spent
-		assert_eq!(Treasury::pot(), 25); // Pot has finally changed
-	});
-}
-
-// Treasury account doesn't get deleted if amount approved to spend is all its free balance.
-// i.e. pot should not include existential deposit needed for account survival.
-#[test]
-#[allow(deprecated)]
-fn treasury_account_doesnt_get_deleted() {
-	ExtBuilder::default().build_and_execute(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_eq!(Treasury::pot(), 100);
-		let treasury_balance = Balances::free_balance(&Treasury::account_id());
-
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), treasury_balance, 3) });
-
-		go_to_block(2);
-		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
-
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), Treasury::pot(), 3) });
-
-		go_to_block(4);
-		assert_eq!(Treasury::pot(), 0); // Pot is emptied
-		assert_eq!(Balances::free_balance(Treasury::account_id()), 1); // but the account is still there
-	});
-}
-
-// In case treasury account is not existing then it works fine.
-// This is useful for chain that will just update runtime.
-#[test]
-#[allow(deprecated)]
-fn inexistent_account_works() {
-	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(0, 100), (1, 99), (2, 1)],
-		..Default::default()
-	}
-	.assimilate_storage(&mut t)
-	.unwrap();
-	// Treasury genesis config is not build thus treasury account does not exist
-	let mut t: sp_io::TestExternalities = t.into();
-
-	t.execute_with(|| {
-		assert_eq!(Balances::free_balance(Treasury::account_id()), 0); // Account does not exist
-		assert_eq!(Treasury::pot(), 0); // Pot is empty
-
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 99, 3) });
-		assert_ok!({ Treasury::spend_local(RuntimeOrigin::root(), 1, 3) });
-		go_to_block(2);
-
-		assert_eq!(Treasury::pot(), 0); // Pot hasn't changed
-		assert_eq!(Balances::free_balance(3), 0); // Balance of `3` hasn't changed
-
-		Balances::make_free_balance_be(&Treasury::account_id(), 100);
-		assert_eq!(Treasury::pot(), 99); // Pot now contains funds
-		assert_eq!(Balances::free_balance(Treasury::account_id()), 100); // Account does exist
-
-		go_to_block(4);
-
-		assert_eq!(Treasury::pot(), 0); // Pot has changed
-		assert_eq!(Balances::free_balance(3), 99); // Balance of `3` has changed
 	});
 }
 
@@ -475,7 +365,6 @@ fn propose_bounty_validation_works() {
 }
 
 #[test]
-#[allow(deprecated)]
 fn close_bounty_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
@@ -493,14 +382,13 @@ fn close_bounty_works() {
 		assert_eq!(Balances::free_balance(0), 100 - deposit);
 
 		assert_eq!(pallet_bounties::Bounties::<Test>::get(0), None);
-		assert!(!pallet_treasury::Proposals::<Test>::contains_key(0));
+		assert!(!Proposals::<Test, ()>::contains_key(0));
 
 		assert_eq!(pallet_bounties::BountyDescriptions::<Test>::get(0), None);
 	});
 }
 
 #[test]
-#[allow(deprecated)]
 fn close_bounty_with_additional_assets_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let pot = Bounties::bounty_account_id(0);
@@ -587,7 +475,6 @@ fn close_bounty_with_additional_assets_works() {
 }
 
 #[test]
-#[allow(deprecated)]
 fn close_bounty_with_random_references_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		let pot = Bounties::bounty_account_id(0);

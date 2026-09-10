@@ -21,7 +21,7 @@
 
 use core::{cell::RefCell, marker::PhantomData};
 use sp_runtime::{
-	traits::{BadOrigin, Dispatchable, IdentityLookup},
+	traits::{Dispatchable, IdentityLookup},
 	BuildStorage,
 };
 
@@ -31,13 +31,16 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		tokens::{ConversionFromAssetBalance, PaymentStatus},
-		ConstU32, ConstU64, OnInitialize,
+		ConstU32, ConstU64, OnInitialize, OnRuntimeUpgrade,
 	},
 	PalletId,
 };
 
 use super::*;
-use crate as treasury;
+use crate::{
+	self as treasury,
+	migration::legacy::{Approvals, Proposal, ProposalCount, Proposals},
+};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 type UtilityCall = pallet_utility::Call<Test>;
@@ -242,61 +245,27 @@ fn get_payment_id(i: SpendIndex) -> Option<u64> {
 	}
 }
 
+// Directly insert a proposal into the legacy `ProposalCount`/`Proposals`/`Approvals` storage,
+// bypassing the now-removed `spend_local` call. Returns the proposal index. Kept around so that
+// spend-period / integrity tests exercising the legacy approvals queue still work.
+fn add_proposal(value: u64, beneficiary: u128) -> ProposalIndex {
+	let proposal_index = ProposalCount::<Test, ()>::get();
+	Approvals::<Test, ()>::try_append(proposal_index).expect("too many approvals");
+	let proposal = Proposal { proposer: beneficiary, value, beneficiary, bond: Default::default() };
+	Proposals::<Test, ()>::insert(proposal_index, proposal);
+	ProposalCount::<Test, ()>::put(proposal_index + 1);
+	proposal_index
+}
+
+fn run_migration() {
+	crate::migration::migrate_legacy_proposals::Migration::<Test, ()>::on_runtime_upgrade();
+}
+
 #[test]
 fn genesis_config_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_eq!(Treasury::pot(), 0);
-		assert_eq!(ProposalCount::<Test>::get(), 0);
-	});
-}
-
-#[test]
-fn spend_local_origin_permissioning_works() {
-	#[allow(deprecated)]
-	ExtBuilder::default().build().execute_with(|| {
-		assert_noop!(Treasury::spend_local(RuntimeOrigin::signed(1), 1, 1), BadOrigin);
-		assert_noop!(
-			Treasury::spend_local(RuntimeOrigin::signed(10), 6, 1),
-			Error::<Test>::InsufficientPermission
-		);
-		assert_noop!(
-			Treasury::spend_local(RuntimeOrigin::signed(11), 11, 1),
-			Error::<Test>::InsufficientPermission
-		);
-		assert_noop!(
-			Treasury::spend_local(RuntimeOrigin::signed(12), 21, 1),
-			Error::<Test>::InsufficientPermission
-		);
-		assert_noop!(
-			Treasury::spend_local(RuntimeOrigin::signed(13), 51, 1),
-			Error::<Test>::InsufficientPermission
-		);
-	});
-}
-
-#[docify::export]
-#[test]
-fn spend_local_origin_works() {
-	#[allow(deprecated)]
-	ExtBuilder::default().build().execute_with(|| {
-		// Check that accumulate works when we have Some value in Dummy already.
-		Balances::make_free_balance_be(&Treasury::account_id(), 102);
-		// approve spend of some amount to beneficiary `6`.
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(11), 10, 6));
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(12), 20, 6));
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(13), 50, 6));
-		// free balance of `6` is zero, spend period has not passed.
-		go_to_block(1);
-		assert_eq!(Balances::free_balance(6), 0);
-		// free balance of `6` is `100`, spend period has passed.
-		go_to_block(2);
-		assert_eq!(Balances::free_balance(6), 100);
-		// `100` spent, `1` burned, `1` in ED.
-		assert_eq!(Treasury::pot(), 0);
+		assert_eq!(ProposalCount::<Test, ()>::get(), 0);
 	});
 }
 
@@ -305,22 +274,6 @@ fn minting_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Check that accumulate works when we have Some value in Dummy already.
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_eq!(Treasury::pot(), 100);
-	});
-}
-
-#[test]
-fn accepted_spend_proposal_ignored_outside_spend_period() {
-	ExtBuilder::default().build().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-
-		#[allow(deprecated)]
-		{
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 100, 3));
-		}
-
-		go_to_block(1);
-		assert_eq!(Balances::free_balance(3), 0);
 		assert_eq!(Treasury::pot(), 100);
 	});
 }
@@ -338,44 +291,6 @@ fn unused_pot_should_diminish() {
 	});
 }
 
-#[test]
-fn accepted_spend_proposal_enacted_on_spend_period() {
-	ExtBuilder::default().build().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_eq!(Treasury::pot(), 100);
-
-		#[allow(deprecated)]
-		{
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 100, 3));
-		}
-
-		go_to_block(2);
-		assert_eq!(Balances::free_balance(3), 100);
-		assert_eq!(Treasury::pot(), 0);
-	});
-}
-
-#[test]
-fn pot_underflow_should_not_diminish() {
-	ExtBuilder::default().build().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-		assert_eq!(Treasury::pot(), 100);
-
-		#[allow(deprecated)]
-		{
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 150, 3));
-		}
-
-		go_to_block(2);
-		assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
-
-		let _ = Balances::deposit_into_existing(&Treasury::account_id(), 100).unwrap();
-		go_to_block(4);
-		assert_eq!(Balances::free_balance(3), 150); // Fund has been spent
-		assert_eq!(Treasury::pot(), 25); // Pot has finally changed
-	});
-}
-
 // Treasury account doesn't get deleted if amount approved to spend is all its free balance.
 // i.e. pot should not include existential deposit needed for account survival.
 #[test]
@@ -383,24 +298,17 @@ fn treasury_account_doesnt_get_deleted() {
 	ExtBuilder::default().build().execute_with(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), 101);
 		assert_eq!(Treasury::pot(), 100);
-		let treasury_balance = Balances::free_balance(&Treasury::account_id());
-		#[allow(deprecated)]
-		{
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), treasury_balance, 3));
-			<Treasury as OnInitialize<u64>>::on_initialize(2);
-			assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
 
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), treasury_balance, 3));
+		// A proposal for the whole treasury balance exceeds the pot, which excludes the ED.
+		add_proposal(Balances::free_balance(&Treasury::account_id()), 3);
+		run_migration();
+		assert_eq!(Treasury::pot(), 100);
 
-			go_to_block(2);
-			assert_eq!(Treasury::pot(), 100); // Pot hasn't changed
-
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), Treasury::pot(), 3));
-		}
-
-		go_to_block(4);
-		assert_eq!(Treasury::pot(), 0); // Pot is emptied
-		assert_eq!(Balances::free_balance(Treasury::account_id()), 1); // but the account is still there
+		// The pot itself can be paid out in full without reaping the treasury account.
+		add_proposal(Treasury::pot(), 3);
+		run_migration();
+		assert_eq!(Treasury::pot(), 0);
+		assert_eq!(Balances::free_balance(Treasury::account_id()), 1);
 	});
 }
 
@@ -422,13 +330,9 @@ fn inexistent_account_works() {
 		assert_eq!(Balances::free_balance(Treasury::account_id()), 0); // Account does not exist
 		assert_eq!(Treasury::pot(), 0); // Pot is empty
 
-		#[allow(deprecated)]
-		{
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 99, 3));
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 1, 3));
-		}
+		add_proposal(99, 3);
 
-		go_to_block(2);
+		run_migration();
 
 		assert_eq!(Treasury::pot(), 0); // Pot hasn't changed
 		assert_eq!(Balances::free_balance(3), 0); // Balance of `3` hasn't changed
@@ -437,7 +341,7 @@ fn inexistent_account_works() {
 		assert_eq!(Treasury::pot(), 99); // Pot now contains funds
 		assert_eq!(Balances::free_balance(Treasury::account_id()), 100); // Account does exist
 
-		go_to_block(4);
+		run_migration();
 
 		assert_eq!(Treasury::pot(), 0); // Pot has changed
 		assert_eq!(Balances::free_balance(3), 99); // Balance of `3` has changed
@@ -466,65 +370,18 @@ fn genesis_funding_works() {
 
 #[test]
 fn max_approvals_limited() {
-	#[allow(deprecated)]
+	// Regression guard: the legacy `Approvals` queue is still bounded by `Config::MaxApprovals`.
 	ExtBuilder::default().build().execute_with(|| {
 		Balances::make_free_balance_be(&Treasury::account_id(), u64::MAX);
 		Balances::make_free_balance_be(&0, u64::MAX);
 
 		for _ in 0..<Test as Config>::MaxApprovals::get() {
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 100, 3));
+			add_proposal(100, 3);
 		}
 
-		// One too many will fail
-		assert_noop!(
-			Treasury::spend_local(RuntimeOrigin::signed(14), 100, 3),
-			Error::<Test, _>::TooManyApprovals
-		);
+		let proposal_index = ProposalCount::<Test, ()>::get();
+		assert!(Approvals::<Test, ()>::try_append(proposal_index).is_err());
 	});
-}
-
-#[test]
-fn remove_already_removed_approval_fails() {
-	#[allow(deprecated)]
-	ExtBuilder::default().build().execute_with(|| {
-		Balances::make_free_balance_be(&Treasury::account_id(), 101);
-
-		assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 100, 3));
-
-		assert_eq!(Approvals::<Test>::get(), vec![0]);
-		assert_ok!(Treasury::remove_approval(RuntimeOrigin::root(), 0));
-		assert_eq!(Approvals::<Test>::get(), vec![]);
-
-		assert_noop!(
-			Treasury::remove_approval(RuntimeOrigin::root(), 0),
-			Error::<Test, _>::ProposalNotApproved
-		);
-	});
-}
-
-#[test]
-fn spending_local_in_batch_respects_max_total() {
-	ExtBuilder::default().build().execute_with(|| {
-		// Respect the `max_total` for the given origin.
-		assert_ok!(RuntimeCall::from(UtilityCall::batch_all {
-			calls: vec![
-				RuntimeCall::from(TreasuryCall::spend_local { amount: 2, beneficiary: 100 }),
-				RuntimeCall::from(TreasuryCall::spend_local { amount: 2, beneficiary: 101 })
-			]
-		})
-		.dispatch(RuntimeOrigin::signed(10)));
-
-		assert_err_ignore_postinfo!(
-			RuntimeCall::from(UtilityCall::batch_all {
-				calls: vec![
-					RuntimeCall::from(TreasuryCall::spend_local { amount: 2, beneficiary: 100 }),
-					RuntimeCall::from(TreasuryCall::spend_local { amount: 4, beneficiary: 101 })
-				]
-			})
-			.dispatch(RuntimeOrigin::signed(10)),
-			Error::<Test, _>::InsufficientPermission
-		);
-	})
 }
 
 #[test]
@@ -853,18 +710,15 @@ fn check_status_works() {
 fn try_state_proposals_invariant_1_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		use frame_support::pallet_prelude::DispatchError::Other;
-		// Add a proposal and approve using `spend_local`
-		#[allow(deprecated)]
-		{
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 1, 3));
-		}
+		// Add a proposal and approve it
+		add_proposal(1, 3);
 
-		assert_eq!(Proposals::<Test>::iter().count(), 1);
-		assert_eq!(ProposalCount::<Test>::get(), 1);
+		assert_eq!(Proposals::<Test, ()>::iter().count(), 1);
+		assert_eq!(ProposalCount::<Test, ()>::get(), 1);
 		// Check invariant 1 holds
-		assert!(ProposalCount::<Test>::get() as usize >= Proposals::<Test>::iter().count());
+		assert!(ProposalCount::<Test, ()>::get() as usize >= Proposals::<Test, ()>::iter().count());
 		// Break invariant 1 by decreasing `ProposalCount`
-		ProposalCount::<Test>::put(0);
+		ProposalCount::<Test, ()>::put(0);
 		// Invariant 1 should be violated
 		assert_eq!(
 			Treasury::do_try_state(),
@@ -877,30 +731,26 @@ fn try_state_proposals_invariant_1_works() {
 fn try_state_proposals_invariant_2_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		use frame_support::pallet_prelude::DispatchError::Other;
-		#[allow(deprecated)]
-		{
-			// Add a proposal and approve using `spend_local`
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 1, 3));
-		}
+		// Add a proposal and approve it
+		add_proposal(1, 3);
 
-		assert_eq!(Proposals::<Test>::iter().count(), 1);
-		assert_eq!(Approvals::<Test>::get().len(), 1);
-		let current_proposal_count = ProposalCount::<Test>::get();
+		assert_eq!(Proposals::<Test, ()>::iter().count(), 1);
+		assert_eq!(Approvals::<Test, ()>::get().len(), 1);
+		let current_proposal_count = ProposalCount::<Test, ()>::get();
 		assert_eq!(current_proposal_count, 1);
 		// Check invariant 2 holds
-		assert!(
-			Proposals::<Test>::iter_keys()
-			.all(|proposal_index| {
-					proposal_index < current_proposal_count
-			})
-		);
+		assert!(Proposals::<Test, ()>::iter_keys()
+			.all(|proposal_index| { proposal_index < current_proposal_count }));
 		// Break invariant 2 by inserting the proposal under key = 1
-		let proposal = Proposals::<Test>::take(0).unwrap();
-		Proposals::<Test>::insert(1, proposal);
+		let proposal = Proposals::<Test, ()>::take(0).unwrap();
+		Proposals::<Test, ()>::insert(1, proposal);
 		// Invariant 2 should be violated
 		assert_eq!(
 			Treasury::do_try_state(),
-			Err(Other("`ProposalCount` should by strictly greater than any ProposalIndex used as a key for `Proposals`."))
+			Err(Other(
+				"`ProposalCount` should be strictly greater than any ProposalIndex used as a key \
+				 for `Proposals`."
+			))
 		);
 	});
 }
@@ -909,22 +759,19 @@ fn try_state_proposals_invariant_2_works() {
 fn try_state_proposals_invariant_3_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		use frame_support::pallet_prelude::DispatchError::Other;
-		// Add a proposal and approve using `spend_local`
-		#[allow(deprecated)]
-		{
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(14), 10, 3));
-		}
+		// Add a proposal and approve it
+		add_proposal(10, 3);
 
-		assert_eq!(Proposals::<Test>::iter().count(), 1);
-		assert_eq!(Approvals::<Test>::get().len(), 1);
+		assert_eq!(Proposals::<Test, ()>::iter().count(), 1);
+		assert_eq!(Approvals::<Test, ()>::get().len(), 1);
 		// Check invariant 3 holds
-		assert!(Approvals::<Test>::get()
+		assert!(Approvals::<Test, ()>::get()
 			.iter()
-			.all(|proposal_index| { Proposals::<Test>::contains_key(proposal_index) }));
+			.all(|proposal_index| { Proposals::<Test, ()>::contains_key(proposal_index) }));
 		// Break invariant 3 by adding another key to `Approvals`
-		let mut approvals_modified = Approvals::<Test>::get();
+		let mut approvals_modified = Approvals::<Test, ()>::get();
 		approvals_modified.try_push(2).unwrap();
-		Approvals::<Test>::put(approvals_modified);
+		Approvals::<Test, ()>::put(approvals_modified);
 		// Invariant 3 should be violated
 		assert_eq!(
 			Treasury::do_try_state(),
@@ -1015,27 +862,15 @@ fn try_state_spends_invariant_3_works() {
 #[test]
 fn multiple_spend_periods_work() {
 	ExtBuilder::default().build().execute_with(|| {
-		// Check that accumulate works when we have Some value in Dummy already.
-		// 100 will be spent, 1024 will be the burn amount, 1 for ED
-		Balances::make_free_balance_be(&Treasury::account_id(), 100 + 1024 + 1);
-		// approve spend of total amount 100 to beneficiary `6`.
-		#[allow(deprecated)]
-		{
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(10), 5, 6));
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(11), 10, 6));
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(12), 20, 6));
-			assert_ok!(Treasury::spend_local(RuntimeOrigin::signed(13), 50, 6));
-		}
-		// free balance of `6` is zero, spend period has not passed.
+		// 1024 will be the burn amount, 1 for ED.
+		Balances::make_free_balance_be(&Treasury::account_id(), 1024 + 1);
+
+		// Spend period has not passed, so the pot is untouched.
 		go_to_block(1);
-		assert_eq!(Balances::free_balance(6), 0);
-		// free balance of `6` is `100`, spend period has passed.
+		assert_eq!(Treasury::pot(), 1024);
+
+		// Spend period has passed, 50% burned.
 		go_to_block(2);
-		assert_eq!(Balances::free_balance(6), 100);
-		// `100` spent, 50% burned
 		assert_eq!(Treasury::pot(), 512);
 
 		// 3 more spends periods pass at once, and an extra block.
@@ -1044,5 +879,73 @@ fn multiple_spend_periods_work() {
 		assert_eq!(Treasury::pot(), 64);
 		// Even though we are on block 9, the last spend period was block 8.
 		assert_eq!(LastSpendPeriod::<Test>::get(), Some(8));
+	});
+}
+
+#[test]
+fn migrate_legacy_proposals_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+
+		// An approved proposal, paid to `6`.
+		let approved = add_proposal(50, 6);
+		// An unapproved proposal by `1`, who bonded 10 for it.
+		Balances::make_free_balance_be(&1, 100);
+		Balances::reserve(&1, 10).unwrap();
+		let unapproved = ProposalCount::<Test, ()>::get();
+		ProposalCount::<Test, ()>::put(unapproved + 1);
+		Proposals::<Test, ()>::insert(
+			unapproved,
+			Proposal { proposer: 1, value: 30, beneficiary: 7, bond: 10 },
+		);
+
+		let issuance = pallet_balances::TotalIssuance::<Test>::get();
+
+		run_migration();
+
+		// Both proposals are gone along with the rest of the legacy storage.
+		assert_eq!(Proposals::<Test, ()>::iter().count(), 0);
+		assert!(Approvals::<Test, ()>::get().is_empty());
+		assert_eq!(ProposalCount::<Test, ()>::get(), 0);
+
+		// The approved proposal was paid out of the pot; the unapproved one was not.
+		assert_eq!(Balances::free_balance(6), 50);
+		assert_eq!(Balances::free_balance(7), 0);
+		assert_eq!(Treasury::pot(), 50);
+		System::assert_has_event(
+			Event::<Test, _>::Awarded { proposal_index: approved, award: 50, account: 6 }.into(),
+		);
+
+		// Bonds are refunded either way, and the payout does not create new tokens.
+		assert_eq!(Balances::reserved_balance(1), 0);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), issuance);
+	});
+}
+
+#[test]
+fn migrate_legacy_proposals_defers_unaffordable_payouts() {
+	ExtBuilder::default().build().execute_with(|| {
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		assert_eq!(Treasury::pot(), 100);
+
+		add_proposal(150, 3);
+
+		run_migration();
+
+		// The pot cannot cover it, so the proposal and its approval survive untouched.
+		assert_eq!(Treasury::pot(), 100);
+		assert_eq!(Balances::free_balance(3), 0);
+		assert_eq!(Proposals::<Test, ()>::iter().count(), 1);
+		assert_eq!(Approvals::<Test, ()>::get().len(), 1);
+
+		// Re-running the migration after funding the pot clears the deferred entry. On live chains
+		// this only helps while the migration remains in the runtime `Migrations` tuple.
+		let _ = Balances::deposit_into_existing(&Treasury::account_id(), 100).unwrap();
+		run_migration();
+
+		assert_eq!(Balances::free_balance(3), 150);
+		assert_eq!(Treasury::pot(), 50);
+		assert_eq!(Proposals::<Test, ()>::iter().count(), 0);
+		assert!(Approvals::<Test, ()>::get().is_empty());
 	});
 }
