@@ -12,4 +12,4 @@ crates:
 - name: cumulus-client-consensus-aura
   bump: patch
 - name: cumulus-client-consensus-common
-  bump: patch
+  bump: minor
