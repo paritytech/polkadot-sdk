@@ -62,6 +62,8 @@ extern crate alloc;
 /// The log target for this pallet.
 const LOG_TARGET: &str = "runtime::child-bounties";
 
+#[cfg(any(feature = "try-runtime", test))]
+use alloc::collections::BTreeMap;
 use alloc::vec::Vec;
 
 use frame_support::traits::{
@@ -825,6 +827,11 @@ pub mod pallet {
 					"The `AccountId` type must be large enough to fit the child bounty account ID.",
 				);
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: SystemBlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 }
 
@@ -957,6 +964,91 @@ impl<T: Config> Pallet<T> {
 				Ok(())
 			},
 		)
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_child_bounties_count()?;
+		Self::try_state_descriptions_match()?;
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * Each stored child-bounty's `parent_bounty` field must match its parent storage key.
+	/// * Every child-bounty id must be strictly less than its parent's [`ParentTotalChildBounties`]
+	///   counter, since ids are assigned sequentially from it.
+	/// * For each parent bounty, [`ParentChildBounties`] (the number of active child-bounties) must
+	///   match the number of child-bounties actually stored in [`ChildBounties`] for that parent.
+	/// * For each parent bounty, [`ParentTotalChildBounties`] (the number of child-bounties ever
+	///   created) must be greater or equal to [`ParentChildBounties`].
+	/// * Every parent that has stored child-bounties must have a [`ParentChildBounties`] entry.
+	fn try_state_child_bounties_count() -> Result<(), sp_runtime::TryRuntimeError> {
+		let mut active_per_parent: BTreeMap<BountyIndex, u32> = BTreeMap::new();
+
+		for (parent_id, child_id, child_bounty) in ChildBounties::<T>::iter() {
+			ensure!(
+				child_bounty.parent_bounty == parent_id,
+				"Child-bounty's `parent_bounty` must match its parent key in `ChildBounties`."
+			);
+
+			ensure!(
+				child_id < ParentTotalChildBounties::<T>::get(parent_id),
+				"Child-bounty id must be less than the parent's `ParentTotalChildBounties` count."
+			);
+
+			active_per_parent.entry(parent_id).or_default().saturating_inc();
+		}
+
+		for (parent_id, active_count) in ParentChildBounties::<T>::iter() {
+			let counted = active_per_parent.remove(&parent_id).unwrap_or(0);
+			ensure!(
+				active_count == counted,
+				"`ParentChildBounties` must match the number of child-bounties in `ChildBounties`."
+			);
+
+			ensure!(
+				ParentTotalChildBounties::<T>::get(parent_id) >= active_count,
+				"`ParentTotalChildBounties` must be greater or equal to `ParentChildBounties`."
+			);
+		}
+
+		// Anything left here has child-bounties in storage but no active count tracking them.
+		ensure!(
+			active_per_parent.is_empty(),
+			"Every parent with stored child-bounties must have a `ParentChildBounties` entry."
+		);
+
+		Ok(())
+	}
+
+	/// # Invariant
+	///
+	/// * The set of keys in [`ChildBounties`] must be exactly the set of keys in
+	///   [`ChildBountyDescriptionsV1`]: every child-bounty has a description and vice versa, since
+	///   both are inserted on creation and removed together on payout or cancellation.
+	fn try_state_descriptions_match() -> Result<(), sp_runtime::TryRuntimeError> {
+		for (parent_id, child_id, _) in ChildBounties::<T>::iter() {
+			ensure!(
+				ChildBountyDescriptionsV1::<T>::contains_key(parent_id, child_id),
+				"Each child-bounty must have a description in `ChildBountyDescriptionsV1`."
+			);
+		}
+
+		for (parent_id, child_id, _) in ChildBountyDescriptionsV1::<T>::iter() {
+			ensure!(
+				ChildBounties::<T>::contains_key(parent_id, child_id),
+				"Each child-bounty description must correspond to an existing child-bounty."
+			);
+		}
+
+		Ok(())
 	}
 }
 
