@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789052219638,
+  "lastUpdate": 1789059318797,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "seun@polytope.technology",
-            "name": "Seun Lanlege",
-            "username": "seunlanlege"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ba0839dd30e03bd2af44886eb351bdee4e674230",
-          "message": "implement `IERC20Metadata` for pallet-assets-precompiles (#10971)\n\n## Summary\n\nImplements the missing ERC20 metadata functions (`name`, `symbol`,\n`decimals`) for the pallet-assets precompile to provide full ERC20\ncompatibility. These functions were missing from the original\nimplementation and are essential for proper EVM wallet and tooling\nintegration.\n\n## Changes\n\n### Solidity Interface\n- **`substrate/primitives/ethereum-standards/src/IERC20.sol`**\n  - Added `name() external view returns (string memory)`\n  - Added `symbol() external view returns (string memory)`\n  - Added `decimals() external view returns (uint8)`\n\n### Precompile Implementation\n- **`substrate/frame/assets/precompiles/src/lib.rs`**\n- Implemented `name()` - reads metadata from pallet-assets storage and\nreturns UTF-8 string\n- Implemented `symbol()` - reads metadata from pallet-assets storage and\nreturns UTF-8 string\n- Implemented `decimals()` - reads metadata from pallet-assets storage\nand returns uint8 value\n- All functions charge appropriate gas using dedicated weight functions\n- Proper error handling for missing metadata and invalid UTF-8 encoding\n\n### Benchmarks\n- **`substrate/frame/assets/src/benchmarking.rs`**\n  - Added `get_name` benchmark - measures metadata read for name field\n- Added `get_symbol` benchmark - measures metadata read for symbol field\n- Added `get_decimals` benchmark - measures metadata read for decimals\nfield\n\n### Weight Functions\n- **`substrate/frame/assets/src/weights.rs`**\n  - Added `get_name() -> Weight` to WeightInfo trait\n  - Added `get_symbol() -> Weight` to WeightInfo trait\n  - Added `get_decimals() -> Weight` to WeightInfo trait\n  - Implemented for both `SubstrateWeight<T>` and `()` (fallback)\n- Each function: 1 storage read from `Assets::Metadata` (~12-12.5ms,\n2615 bytes proof size)\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/8658\n\n---------\n\nCo-authored-by: 0xRVE <robertvaneerdewijk@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-09T14:33:54Z",
-          "tree_id": "d6a7f365b04bb187d5e5d23668a32d3c38ce3482",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ba0839dd30e03bd2af44886eb351bdee4e674230"
-        },
-        "date": 1770652087455,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.40199999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.04999999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03828103801799999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06474627885799994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08897054260999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e993420b81cbef53f469a2ea923117024ac71b55",
+          "message": "bridge-grandpa: detect forced changes after other consensus logs (#13160)\n\nGRANDPA bridge headers containing forced authority changes could be\naccepted when another GRANDPA consensus log appeared first. Filter for\nforced changes inside the digest search so these headers are\nconsistently rejected.\n\nNo API changes or storage migration are required.",
+          "timestamp": "2026-09-10T14:47:12Z",
+          "tree_id": "8303e81d32caf258fba458111b9e461947969dd5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e993420b81cbef53f469a2ea923117024ac71b55"
+        },
+        "date": 1789059278802,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.14,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08758924974999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03848605986000001,
             "unit": "seconds"
           }
         ]
