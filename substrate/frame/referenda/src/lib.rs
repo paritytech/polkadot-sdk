@@ -1013,11 +1013,23 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let r = Self::begin_deciding(status, index, now, track);
 			(r.0, r.1.into())
 		} else {
-			// Add to queue.
+			// Add to queue. `insert_sorted_by_key` returns `false` when `item` sorts beyond the
+			// `MaxQueued` bound and is therefore not inserted into the (bounded) `TrackQueue`.
 			let item = (index, status.tally.ayes(status.track));
-			status.in_queue = true;
-			TrackQueue::<T, I>::mutate(status.track, |q| q.insert_sorted_by_key(item, |x| x.1));
-			(None, ServiceBranch::Queued)
+			status.in_queue =
+				TrackQueue::<T, I>::mutate(status.track, |q| q.insert_sorted_by_key(item, |x| x.1));
+			if status.in_queue {
+				(None, ServiceBranch::Queued)
+			} else {
+				// The track queue is full and this referendum did not make the cut, so it is not
+				// actually queued. Keep `in_queue` unset so the undeciding timeout still applies,
+				// and schedule a wake-up at that timeout. Otherwise the referendum would be
+				// neither nudged into deciding (it is absent from `TrackQueue`) nor timed out (the
+				// timeout path skips referenda flagged `in_queue`), leaving it permanently
+				// stranded.
+				let timeout = status.submitted.saturating_add(T::UndecidingTimeout::get());
+				(Some(timeout), ServiceBranch::NotQueued)
+			}
 		}
 	}
 

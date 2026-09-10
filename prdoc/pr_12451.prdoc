@@ -1,0 +1,16 @@
+title: 'pallet-referenda: fix referendum stranded when the track queue is full'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes a bug in `pallet-referenda` where a referendum could be permanently stranded
+    when its track queue is full. `ready_for_deciding` set `in_queue = true`
+    unconditionally even when `insert_sorted_by_key` did not insert the item (it sorted
+    beyond the `MaxQueued` bound), so the referendum was flagged as queued while absent
+    from `TrackQueue` - never nudged into deciding and skipped by the undeciding timeout.
+    `in_queue` is now derived from the actual insertion result, and when the queue is full
+    a wake-up is scheduled at the undeciding timeout so the referendum begins deciding (if
+    a slot has freed) or times out, instead of being stranded with its decision deposit
+    locked.
+crates:
+- name: pallet-referenda
+  bump: patch
