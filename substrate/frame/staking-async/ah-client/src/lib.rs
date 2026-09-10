@@ -63,7 +63,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{Defensive, DefensiveSaturating, RewardsReporter},
+	traits::{Defensive, DefensiveSaturating, RewardsReporter, ValidatorRegistration},
 };
 pub use pallet_staking_async_rc_client::SendToAssetHub;
 use pallet_staking_async_rc_client::{self as rc_client};
@@ -245,10 +245,8 @@ pub mod pallet {
 		type MaxOffenceBatchSize: Get<u32>;
 
 		/// Interface to talk to the local Session pallet.
-		type SessionInterface: SessionInterface<
-			ValidatorId = Self::AccountId,
-			AccountId = Self::AccountId,
-		>;
+		type SessionInterface: SessionInterface<ValidatorId = Self::AccountId, AccountId = Self::AccountId>
+			+ ValidatorRegistration<Self::AccountId>;
 
 		/// A fallback implementation to delegate logic to when the pallet is in
 		/// [`OperatingMode::Passive`].
@@ -530,6 +528,12 @@ pub mod pallet {
 		/// This should never happen since AssetHub validates keys before forwarding them.
 		/// If this occurs, it indicates a mismatch between AH and RC key types or a bug.
 		InvalidKeysFromAssetHub,
+
+		/// A session key state report failed to be sent to AssetHub.
+		///
+		/// Not retried: the next key operation for the same stash re-asserts the state. Until
+		/// then, AssetHub's key deposit for that stash may be stale.
+		KeysStateSendFailed,
 	}
 
 	#[pallet::call]
@@ -640,8 +644,8 @@ pub mod pallet {
 
 		/// Set session keys for a validator, forwarded from AssetHub.
 		///
-		/// This is called when a validator sets their session keys on AssetHub, which forwards
-		/// the request to the RelayChain via XCM.
+		/// Called when a validator sets their session keys on AssetHub, forwarding request to
+		/// RelayChain.
 		///
 		/// AssetHub validates both keys and ownership proof before sending.
 		/// RC trusts AH's validation and does not re-validate.
@@ -655,7 +659,7 @@ pub mod pallet {
 			T::AssetHubOrigin::ensure_origin_or_root(origin)?;
 			log::info!(target: LOG_TARGET, "Received set_keys request from AssetHub for {stash:?}");
 
-			// Decode the keys from bytes (AH already validated, this is just for type conversion)
+			// Decode the keys from bytes (AH already validated)
 			let session_keys =
 				match <<T as Config>::SessionInterface as SessionInterface>::Keys::decode(
 					&mut &keys[..],
@@ -673,13 +677,14 @@ pub mod pallet {
 						Self::deposit_event(Event::Unexpected(
 							UnexpectedKind::InvalidKeysFromAssetHub,
 						));
+						Self::report_keys_state(&stash);
 						return Ok(());
 					},
 				};
 
 			match T::SessionInterface::set_keys(&stash, session_keys) {
 				Ok(()) => Self::deposit_event(Event::SessionKeysUpdated {
-					stash,
+					stash: stash.clone(),
 					update: SessionKeysUpdate::Set,
 				}),
 				Err(error) => {
@@ -690,12 +695,14 @@ pub mod pallet {
 						error
 					);
 					Self::deposit_event(Event::SessionKeysUpdateFailed {
-						stash,
+						stash: stash.clone(),
 						update: SessionKeysUpdate::Set,
 						error,
 					});
 				},
 			}
+
+			Self::report_keys_state(&stash);
 			Ok(())
 		}
 
@@ -711,7 +718,7 @@ pub mod pallet {
 
 			match T::SessionInterface::purge_keys(&stash) {
 				Ok(()) => Self::deposit_event(Event::SessionKeysUpdated {
-					stash,
+					stash: stash.clone(),
 					update: SessionKeysUpdate::Purged,
 				}),
 				Err(error) => {
@@ -722,12 +729,14 @@ pub mod pallet {
 						error
 					);
 					Self::deposit_event(Event::SessionKeysUpdateFailed {
-						stash,
+						stash: stash.clone(),
 						update: SessionKeysUpdate::Purged,
 						error,
 					});
 				},
 			}
+
+			Self::report_keys_state(&stash);
 			Ok(())
 		}
 	}
@@ -914,6 +923,19 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		/// Report our resulting session key state for `stash` to AssetHub, so it can reconcile
+		/// the key deposit.
+		///
+		/// Called after every key operation
+		/// TODO: Consider mode gating this as other reports?
+		fn report_keys_state(stash: &T::AccountId) {
+			let has_keys = T::SessionInterface::is_registered(stash);
+			if T::SendToAssetHub::relay_keys_state(stash.clone(), has_keys).is_err() {
+				log!(error, "Failed to send keys state for {:?} to assethub", stash);
+				Self::deposit_event(Event::Unexpected(UnexpectedKind::KeysStateSendFailed));
+			}
+		}
+
 		/// Hook to be called when the AssetHub migration begins.
 		///
 		/// This transitions the pallet into [`OperatingMode::Buffered`], meaning it will act as the
@@ -1222,6 +1244,106 @@ mod keys_from_ah_tests {
 					.into(),
 				);
 				PurgeKeysError::take();
+			});
+		});
+	}
+
+	/// Every key operation reports our *resulting* key state to AssetHub, so it can reconcile
+	/// the key deposit.
+	#[test]
+	fn key_ops_report_resulting_state_to_ah() {
+		new_test_ext().execute_with(|| {
+			System::set_block_number(1);
+			let stash = 42u64;
+			let keys = MockSessionKeys { dummy: [1u8; 32] };
+
+			// a successful set reports `true`
+			hypothetically!({
+				RegisteredKeys::take();
+				KeysStateCalls::take();
+				assert_ok!(StakingAsyncAhClient::set_keys_from_ah(
+					RuntimeOrigin::root(),
+					stash,
+					keys.encode(),
+				));
+				assert_eq!(KeysStateCalls::get(), vec![(stash, true)]);
+			});
+
+			// a successful purge reports `false`
+			hypothetically!({
+				RegisteredKeys::take();
+				assert_ok!(StakingAsyncAhClient::set_keys_from_ah(
+					RuntimeOrigin::root(),
+					stash,
+					keys.encode(),
+				));
+				KeysStateCalls::take();
+				assert_ok!(StakingAsyncAhClient::purge_keys_from_ah(RuntimeOrigin::root(), stash));
+				assert_eq!(KeysStateCalls::get(), vec![(stash, false)]);
+			});
+
+			// a set that fails with no keys previously registered reports `false`, what
+			// refunds the deposit AssetHub already took
+			hypothetically!({
+				RegisteredKeys::take();
+				KeysStateCalls::take();
+				SetKeysError::set(Some(DispatchError::Corruption));
+				assert_ok!(StakingAsyncAhClient::set_keys_from_ah(
+					RuntimeOrigin::root(),
+					stash,
+					keys.encode(),
+				));
+				assert_eq!(KeysStateCalls::get(), vec![(stash, false)]);
+				SetKeysError::take();
+			});
+
+			// a set that fails while keys are already registered reports
+			// `true`. Reporting the operation result here instead would release the deposit
+			// while the earlier keys stay live on this chain.
+			hypothetically!({
+				RegisteredKeys::take();
+				assert_ok!(StakingAsyncAhClient::set_keys_from_ah(
+					RuntimeOrigin::root(),
+					stash,
+					keys.encode(),
+				));
+				KeysStateCalls::take();
+				SetKeysError::set(Some(DispatchError::Corruption));
+				assert_ok!(StakingAsyncAhClient::set_keys_from_ah(
+					RuntimeOrigin::root(),
+					stash,
+					MockSessionKeys { dummy: [2u8; 32] }.encode(),
+				));
+				assert_eq!(KeysStateCalls::get(), vec![(stash, true)]);
+				SetKeysError::take();
+			});
+
+			// Held deposit should release for undecodeable keys
+			hypothetically!({
+				RegisteredKeys::take();
+				KeysStateCalls::take();
+				assert_ok!(StakingAsyncAhClient::set_keys_from_ah(
+					RuntimeOrigin::root(),
+					stash,
+					vec![1u8, 2, 3],
+				));
+				assert_eq!(KeysStateCalls::get(), vec![(stash, false)]);
+			});
+
+			// a failed send is surfaced as an event
+			hypothetically!({
+				RegisteredKeys::take();
+				KeysStateCalls::take();
+				NextKeysStateSendFails::set(true);
+				assert_ok!(StakingAsyncAhClient::set_keys_from_ah(
+					RuntimeOrigin::root(),
+					stash,
+					keys.encode(),
+				));
+				assert!(KeysStateCalls::get().is_empty());
+				System::assert_has_event(
+					Event::<Test>::Unexpected(UnexpectedKind::KeysStateSendFailed).into(),
+				);
 			});
 		});
 	}

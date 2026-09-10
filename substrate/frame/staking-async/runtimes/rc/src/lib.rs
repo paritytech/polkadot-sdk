@@ -692,6 +692,28 @@ impl Convert<rc_client::SessionReport<AccountId>, Xcm<()>> for SessionReportToXc
 	}
 }
 
+pub struct KeysStateToXcm;
+impl Convert<(AccountId, bool), Xcm<()>> for KeysStateToXcm {
+	fn convert((stash, has_keys): (AccountId, bool)) -> Xcm<()> {
+		Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Superuser,
+				fallback_max_weight: None,
+				call: AssetHubRuntimePallets::RcClient(RcClientCalls::RelayKeysState {
+					stash,
+					has_keys,
+				})
+				.encode()
+				.into(),
+			},
+		])
+	}
+}
+
 pub struct QueuedOffenceToXcm;
 impl Convert<Vec<ah_client::QueuedOffenceOf<Runtime>>, Xcm<()>> for QueuedOffenceToXcm {
 	fn convert(offences: Vec<ah_client::QueuedOffenceOf<Runtime>>) -> Xcm<()> {
@@ -738,6 +760,15 @@ impl ah_client::SendToAssetHub for StakingXcmToAssetHub {
 			QueuedOffenceToXcm,
 		>::send(offences)
 	}
+
+	fn relay_keys_state(stash: Self::AccountId, has_keys: bool) -> Result<(), ()> {
+		rc_client::XCMSender::<
+			xcm_config::XcmRouter,
+			AssetHubLocation,
+			(AccountId, bool),
+			KeysStateToXcm,
+		>::send((stash, has_keys))
+	}
 }
 
 #[derive(Encode, Decode)]
@@ -754,6 +785,8 @@ enum RcClientCalls<AccountId> {
 	RelaySessionReport(rc_client::SessionReport<AccountId>),
 	#[codec(index = 1)]
 	RelayNewOffencePaged(Vec<(SessionIndex, rc_client::Offence<AccountId>)>),
+	#[codec(index = 12)]
+	RelayKeysState { stash: AccountId, has_keys: bool },
 }
 
 pub struct EnsureAssetHub;
