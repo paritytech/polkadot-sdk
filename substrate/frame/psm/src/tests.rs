@@ -1708,8 +1708,14 @@ mod helpers {
 
 	#[test]
 	fn can_set_circuit_breaker_covers_full_and_emergency() {
-		assert!(PsmManagerLevel::Full.can_set_circuit_breaker());
-		assert!(PsmManagerLevel::Emergency.can_set_circuit_breaker());
+		// A match, not two asserts: a new PsmManagerLevel variant then fails to
+		// compile here, which forces a decision about its circuit-breaker rights.
+		for level in [PsmManagerLevel::Full, PsmManagerLevel::Emergency] {
+			let expected = match level {
+				PsmManagerLevel::Full | PsmManagerLevel::Emergency => true,
+			};
+			assert_eq!(level.can_set_circuit_breaker(), expected);
+		}
 	}
 }
 
@@ -4117,13 +4123,17 @@ mod try_state {
 			));
 			assert_ok!(dts());
 
-			let _ = Assets::burn_from(
-				INTERNAL_ASSET_ID,
-				&ALICE,
-				1,
-				Preservation::Expendable,
-				Precision::BestEffort,
-				Fortitude::Force,
+			assert_eq!(
+				Assets::burn_from(
+					INTERNAL_ASSET_ID,
+					&ALICE,
+					1,
+					Preservation::Expendable,
+					Precision::BestEffort,
+					Fortitude::Force,
+				),
+				Ok(1),
+				"the burn must happen for the issuance to fall below the debt"
 			);
 			assert_eq!(
 				dts().unwrap_err(),
@@ -4163,13 +4173,17 @@ mod try_state {
 
 			let psm = psm_account();
 			let reserve = get_asset_balance(USDC_ASSET_ID, psm.clone());
-			let _ = Assets::burn_from(
-				USDC_ASSET_ID,
-				&psm,
-				reserve,
-				Preservation::Expendable,
-				Precision::BestEffort,
-				Fortitude::Force,
+			assert_eq!(
+				Assets::burn_from(
+					USDC_ASSET_ID,
+					&psm,
+					reserve,
+					Preservation::Expendable,
+					Precision::BestEffort,
+					Fortitude::Force,
+				),
+				Ok(reserve),
+				"the burn must happen for the reserve to fall below the debt"
 			);
 			assert_eq!(
 				dts().unwrap_err(),
@@ -4381,6 +4395,172 @@ mod try_state {
 				"debt must exceed the ceiling for this test to exercise check 17",
 			);
 			assert_ok!(dts());
+		});
+	}
+}
+
+mod generated_tests {
+	use super::*;
+
+	#[test]
+	fn test_psm_metadata_decimals_drift_after_registration() {
+		new_test_ext().execute_with(|| {
+			let snapshot = crate::Psm::<Test>::get(INTERNAL_ASSET_ID)
+				.expect("PSM installed at genesis")
+				.internal_decimals;
+			assert_eq!(snapshot, 6);
+
+			assert_ok!(Assets::set_metadata(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				b"Internal".to_vec(),
+				b"INT".to_vec(),
+				3,
+			));
+
+			assert_eq!(
+				crate::Pallet::<Test>::do_try_state().unwrap_err(),
+				DispatchError::Other(
+					"Internal asset live decimals differ from the PsmInfo snapshot"
+				)
+			);
+		});
+	}
+
+	#[test]
+	fn test_psm_clear_metadata_zeroes_decimals_after_registration() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Assets::clear_metadata(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID));
+
+			assert_eq!(
+				crate::Pallet::<Test>::do_try_state().unwrap_err(),
+				DispatchError::Other(
+					"External asset live decimals differ from the registration snapshot"
+				)
+			);
+		});
+	}
+
+	#[test]
+	fn test_external_asset_owner_can_brick_minting() {
+		new_test_ext().execute_with(|| {
+			let fee = MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT,
+				fee,
+			));
+
+			assert_ok!(Assets::set_metadata(
+				RuntimeOrigin::signed(ALICE),
+				USDC_ASSET_ID,
+				b"USD Coin".to_vec(),
+				b"USDC".to_vec(),
+				2,
+			));
+
+			assert_noop!(
+				Psm::mint(
+					RuntimeOrigin::signed(BOB),
+					INTERNAL_ASSET_ID,
+					USDC_ASSET_ID,
+					1_000 * INTERNAL_UNIT,
+					fee,
+				),
+				Error::<Test>::DecimalsMismatch
+			);
+
+			assert_ok!(Psm::redeem(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				100 * INTERNAL_UNIT,
+				Permill::from_percent(1),
+			));
+
+			assert_noop!(
+				Psm::remove_external_asset(RuntimeOrigin::root(), INTERNAL_ASSET_ID, USDC_ASSET_ID),
+				Error::<Test>::AssetHasDebt
+			);
+		});
+	}
+
+	#[test]
+	fn test_redeem_pays_recorded_rate_not_live_rate() {
+		new_test_ext().execute_with(|| {
+			let fee = MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT,
+				fee,
+			));
+
+			assert_ok!(Assets::set_metadata(
+				RuntimeOrigin::signed(ALICE),
+				USDC_ASSET_ID,
+				b"USD Coin".to_vec(),
+				b"USDC".to_vec(),
+				2,
+			));
+
+			let before = get_asset_balance(USDC_ASSET_ID, ALICE);
+			assert_ok!(Psm::redeem(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				100 * INTERNAL_UNIT,
+				Permill::from_percent(1),
+			));
+			let paid = get_asset_balance(USDC_ASSET_ID, ALICE) - before;
+
+			assert_eq!(paid, 99_000_000, "redeem must pay the recorded rate");
+			assert_ne!(paid, 9_900, "the live rate would rob the user 10000x");
+			assert_eq!(
+				get_asset_balance(USDC_ASSET_ID, psm_account()),
+				PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID),
+				"reserve stays equal to tracked debt"
+			);
+		});
+	}
+
+	#[test]
+	fn test_psm_decimals_drift_corrupts_conversion() {
+		new_test_ext().execute_with(|| {
+			let fee = MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT,
+				fee,
+			));
+			let debt_before = PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
+
+			assert_ok!(Assets::set_metadata(
+				RuntimeOrigin::signed(ALICE),
+				USDC_ASSET_ID,
+				b"USD Coin".to_vec(),
+				b"USDC".to_vec(),
+				2,
+			));
+
+			assert_ok!(Psm::redeem(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				100 * INTERNAL_UNIT,
+				Permill::from_percent(1),
+			));
+
+			let debt_after = PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
+			assert!(
+				debt_before > debt_after,
+				"redeem must reduce debt; before={debt_before} after={debt_after}"
+			);
 		});
 	}
 }
