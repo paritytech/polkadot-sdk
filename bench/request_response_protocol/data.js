@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789056256297,
+  "lastUpdate": 1789063215564,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -123011,6 +123011,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2928480340,
             "range": "± 42747221",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "shawntabrizi@gmail.com",
+            "name": "Shawn Tabrizi",
+            "username": "shawntabrizi"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1d4aa61cad9f4fd6340096417e1a722cb364a5c1",
+          "message": "Remove `pallet-scarcity` (#13161)\n\n## Summary\n\nRemoves `pallet-scarcity`, added in #12730. The pallet was never part of\na release and has moved to the `individuality-community` repository,\nwhere it continues development alongside the personhood pallets it\ndepends on.\n\n## Changes\n\n- Delete `substrate/frame/scarcity/`\n- Drop the workspace member and dependency entries\n- Drop the `pallet-scarcity` feature,\n`std`/`try-runtime`/`runtime-benchmarks` propagation, and re-export from\nthe `polkadot-sdk` umbrella crate\n- Remove the pallet and the `AsScarcity` transaction extension from the\nkitchensink runtime, node CLI, and `node-testing`\n- Remove the `AsScarcity` subxt config from the zombienet block-building\ntest\n- Delete `prdoc/pr_12730.prdoc`, since the pallet never shipped (same\napproach as #10458 and #10459)\n- Bump the kitchensink `spec_version`\n\n## Notes for reviewers\n\nThis is a clean `git revert` of #12730 on top of current master, plus\nthe spec version bump. Checked with `SKIP_WASM_BUILD=1 cargo check\n--locked` for `kitchensink-runtime`, `staging-node-cli`, `node-testing`,\n`substrate-zombienet-sdk-tests` (`zombie-ci`), and the umbrella crate\n(`runtime-full`).\n\n---------\n\nCo-authored-by: Claude Fable 5.1 <noreply@anthropic.com>",
+          "timestamp": "2026-09-10T16:42:08Z",
+          "tree_id": "1f76d674e676b132100d884f03cbf777f83fa10f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1d4aa61cad9f4fd6340096417e1a722cb364a5c1"
+        },
+        "date": 1789063175550,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19610817,
+            "range": "± 127339",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19706963,
+            "range": "± 139581",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21141172,
+            "range": "± 93900",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26081274,
+            "range": "± 144565",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58807206,
+            "range": "± 1171394",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 369997237,
+            "range": "± 5294445",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2788961957,
+            "range": "± 339769956",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18701037,
+            "range": "± 124464",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18762567,
+            "range": "± 213666",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18939379,
+            "range": "± 119064",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23308521,
+            "range": "± 210956",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 65370833,
+            "range": "± 2093493",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 352321232,
+            "range": "± 6085819",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2635047645,
+            "range": "± 20365857",
             "unit": "ns/iter"
           }
         ]
