@@ -17,15 +17,14 @@
 
 //! Command line companion of [`pallet_bootnodes`].
 //!
-//! - `inspect` reads the pallet's constants, its bootnode set and the last accepted sequence
-//!   numbers at the latest (or a given) block of a running node.
-//! - `sign` derives the node key from the node's secret key, looks up the next sequence number on
-//!   chain, and prints a signed bootnode entry ready to be submitted with `add_bootnode` by the
-//!   pallet's admin origin.
+//! - `inspect` reads the pallet's constants and its bootnode set at the latest (or a given) block
+//!   of a running node.
+//! - `sign` derives the node key from the node's secret key and prints a signed bootnode entry
+//!   ready to be submitted with `add_bootnode` by the pallet's admin origin.
 //!
 //! The pallet is located through the runtime metadata, so the tool needs nothing but an RPC
-//! endpoint; `--para-id`, `--jam-genesis-hash` and `--seq` can override or, with `--offline`,
-//! replace what would be read from the chain.
+//! endpoint; `--para-id` and `--jam-genesis-hash` can override or, with `--offline`, replace what
+//! would be read from the chain.
 //!
 //! [`Command`] is a `clap` parser, so a node binary can embed it as a subcommand and hand it to
 //! [`run`].
@@ -43,9 +42,9 @@ use jsonrpsee::{
 use multiaddr::Multiaddr;
 use pallet_bootnodes::{multiaddr as addr_check, pop_payload, Bootnode};
 use sc_network_types::PeerId;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 use sp_core::{bounded::BoundedVec, crypto::Pair as _, ed25519, Bytes, ConstU32, H256};
-use sp_crypto_hashing::{blake2_128, twox_128};
+use sp_crypto_hashing::twox_128;
 use std::{collections::BTreeMap, path::PathBuf};
 use zeroize::Zeroizing;
 
@@ -65,7 +64,7 @@ pub struct Command {
 
 #[derive(Debug, Subcommand)]
 pub enum Sub {
-	/// Print the pallet's constants, bootnode set and last accepted sequence numbers.
+	/// Print the pallet's constants and bootnode set.
 	Inspect(InspectCmd),
 	/// Produce a signed bootnode entry for this node, to be submitted with `add_bootnode`.
 	Sign(SignCmd),
@@ -109,18 +108,18 @@ pub struct SignCmd {
 	/// as `--node-key-file`, or its `<base-path>/chains/<chain-id>/network/secret_ed25519`).
 	#[arg(long)]
 	pub node_key_file: Option<PathBuf>,
-	/// Sequence number. Defaults to one more than the last one accepted on chain for this key,
-	/// or 0 if the key was never listed.
+	/// JAM timeslot after which readers drop the entry. A consent lease: pick a slot far enough
+	/// ahead to cover the time until the entry is re-signed and re-submitted.
 	#[arg(long)]
-	pub seq: Option<u64>,
+	pub expiry_slot: u32,
 	/// Para id to sign for. Defaults to the pallet's `ParaId` constant.
 	#[arg(long)]
 	pub para_id: Option<u32>,
 	/// JAM genesis hash to sign for. Defaults to the pallet's `JamGenesisHash` constant.
 	#[arg(long)]
 	pub jam_genesis_hash: Option<H256>,
-	/// Do not contact the chain. Requires `--seq`, `--para-id` and `--jam-genesis-hash`.
-	#[arg(long, requires_all = ["seq", "para_id", "jam_genesis_hash"])]
+	/// Do not contact the chain. Requires `--para-id` and `--jam-genesis-hash`.
+	#[arg(long, requires_all = ["para_id", "jam_genesis_hash"])]
 	pub offline: bool,
 }
 
@@ -135,7 +134,6 @@ pub async fn run(cmd: Command) -> Result<()> {
 async fn inspect(cmd: InspectCmd) -> Result<()> {
 	let chain = Chain::connect(&cmd.chain).await?;
 	let bootnodes = chain.bootnodes().await?;
-	let last_seq = chain.all_last_seq().await?;
 
 	let out = InspectOut {
 		at: chain.at,
@@ -145,14 +143,6 @@ async fn inspect(cmd: InspectCmd) -> Result<()> {
 		max_bootnodes: chain.constant("MaxBootnodes")?,
 		max_addr_len: chain.constant("MaxAddrLen")?,
 		bootnodes: bootnodes.iter().map(BootnodeOut::from).collect(),
-		last_seq: last_seq
-			.into_iter()
-			.map(|(node_key, seq)| LastSeqOut {
-				listed: bootnodes.iter().any(|b| b.node_key == node_key),
-				node_key: hex(node_key.as_ref()),
-				seq,
-			})
-			.collect(),
 	};
 	println!("{}", serde_json::to_string_pretty(&out)?);
 	Ok(())
@@ -165,14 +155,13 @@ async fn sign(cmd: SignCmd) -> Result<()> {
 	let addr = parse_addr(&cmd.addr)?;
 	let addr_bytes = addr.to_vec();
 
-	let (at, para_id, jam_genesis_hash, seq) = if cmd.offline {
-		// `clap` enforces the presence of the three flags.
+	let (at, para_id, jam_genesis_hash) = if cmd.offline {
+		// `clap` enforces the presence of the two flags.
 		let missing = |flag: &str| anyhow!("--offline requires {flag}");
 		(
 			None,
 			cmd.para_id.ok_or_else(|| missing("--para-id"))?,
 			cmd.jam_genesis_hash.ok_or_else(|| missing("--jam-genesis-hash"))?,
-			cmd.seq.ok_or_else(|| missing("--seq"))?,
 		)
 	} else {
 		let chain = Chain::connect(&cmd.chain).await?;
@@ -191,24 +180,14 @@ async fn sign(cmd: SignCmd) -> Result<()> {
 				addr_bytes.len()
 			);
 		}
-		let last = chain.last_seq(&node_key).await?;
-		let seq = match (cmd.seq, last) {
-			(Some(seq), Some(last)) if seq <= last => bail!(
-				"--seq {seq} does not exceed the last sequence number {last} accepted for this node key"
-			),
-			(Some(seq), _) => seq,
-			(None, Some(last)) => {
-				last.checked_add(1).ok_or_else(|| anyhow!("sequence numbers exhausted"))?
-			},
-			(None, None) => 0,
-		};
-		(Some(chain.at), para_id, jam_genesis_hash, seq)
+		(Some(chain.at), para_id, jam_genesis_hash)
 	};
 
-	let payload = pop_payload(&jam_genesis_hash, para_id, seq, &addr_bytes);
+	let expiry_slot = cmd.expiry_slot;
+	let payload = pop_payload(&jam_genesis_hash, para_id, &addr_bytes, expiry_slot);
 	let sig = pair.sign(&payload);
 	let bootnode =
-		StoredBootnode { addr: BoundedVec::truncate_from(addr_bytes), node_key, seq, sig };
+		StoredBootnode { addr: BoundedVec::truncate_from(addr_bytes), node_key, expiry_slot, sig };
 
 	let out = SignOut {
 		at,
@@ -217,7 +196,7 @@ async fn sign(cmd: SignCmd) -> Result<()> {
 		node_key: hex(node_key.as_ref()),
 		peer_id: peer_id(&node_key).map(|p| p.to_string()),
 		addr: addr.to_string(),
-		seq,
+		expiry_slot,
 		sig: hex(sig.as_ref()),
 		encoded_bootnode: hex(&bootnode.encode()),
 	};
@@ -234,7 +213,6 @@ struct InspectOut {
 	max_bootnodes: u32,
 	max_addr_len: u32,
 	bootnodes: Vec<BootnodeOut>,
-	last_seq: Vec<LastSeqOut>,
 }
 
 #[derive(Serialize)]
@@ -244,7 +222,7 @@ struct BootnodeOut {
 	addr: String,
 	/// The address with the peer id appended, as accepted by a node's `--bootnodes` flag.
 	dial: Option<String>,
-	seq: u64,
+	expiry_slot: u32,
 	sig: String,
 }
 
@@ -257,30 +235,22 @@ impl From<&StoredBootnode> for BootnodeOut {
 			peer_id: peer_id.map(|p| p.to_string()),
 			addr: addr.as_ref().map(ToString::to_string).unwrap_or_else(|| hex(&b.addr)),
 			dial: addr.zip(peer_id).map(|(addr, peer)| format!("{addr}/p2p/{peer}")),
-			seq: b.seq,
+			expiry_slot: b.expiry_slot,
 			sig: hex(b.sig.as_ref()),
 		}
 	}
 }
 
 #[derive(Serialize)]
-struct LastSeqOut {
-	node_key: String,
-	seq: u64,
-	/// Whether the key is currently in the bootnode set.
-	listed: bool,
-}
-
-#[derive(Serialize)]
 struct SignOut {
-	/// Block the sequence number and constants were read at; absent with `--offline`.
+	/// Block the constants were read at; absent with `--offline`.
 	at: Option<H256>,
 	para_id: u32,
 	jam_genesis_hash: H256,
 	node_key: String,
 	peer_id: Option<String>,
 	addr: String,
-	seq: u64,
+	expiry_slot: u32,
 	sig: String,
 	/// SCALE encoding of the `Bootnode`, the argument of `add_bootnode`.
 	encoded_bootnode: String,
@@ -405,12 +375,6 @@ fn pallet_meta(metadata: &[u8], name: &str) -> Result<PalletMeta> {
 	})
 }
 
-/// One element of a `state_queryStorageAt` response.
-#[derive(Deserialize)]
-struct StorageChangeSet {
-	changes: Vec<(Bytes, Option<Bytes>)>,
-}
-
 /// A connection to a node, pinned to one block.
 struct Chain {
 	client: Client,
@@ -442,20 +406,11 @@ impl Chain {
 		T::decode(&mut &value[..]).with_context(|| format!("decoding the `{name}` constant"))
 	}
 
-	/// Storage key of a `StorageValue`, also the key prefix of a map.
+	/// Storage key of a `StorageValue`.
 	fn value_key(&self, item: &str) -> Vec<u8> {
 		let mut key = twox_128(self.pallet.storage_prefix.as_bytes()).to_vec();
 		key.extend(twox_128(item.as_bytes()));
 		key
-	}
-
-	/// Storage key of an entry of a `Blake2_128Concat` map.
-	fn map_key(&self, item: &str, key: &impl Encode) -> Vec<u8> {
-		let encoded = key.encode();
-		let mut full = self.value_key(item);
-		full.extend(blake2_128(&encoded));
-		full.extend(encoded);
-		full
 	}
 
 	async fn storage<T: Decode>(&self, key: Vec<u8>) -> Result<Option<T>> {
@@ -469,53 +424,6 @@ impl Chain {
 
 	async fn bootnodes(&self) -> Result<Vec<StoredBootnode>> {
 		Ok(self.storage(self.value_key("Bootnodes")).await?.unwrap_or_default())
-	}
-
-	async fn last_seq(&self, node_key: &ed25519::Public) -> Result<Option<u64>> {
-		self.storage(self.map_key("LastSeq", node_key)).await
-	}
-
-	/// Every `LastSeq` entry.
-	async fn all_last_seq(&self) -> Result<Vec<(ed25519::Public, u64)>> {
-		const PAGE: u32 = 256;
-		let prefix = self.value_key("LastSeq");
-		let mut entries = Vec::new();
-		let mut start_key: Option<Bytes> = None;
-		loop {
-			let keys: Vec<Bytes> = self
-				.client
-				.request(
-					"state_getKeysPaged",
-					rpc_params![Bytes(prefix.clone()), PAGE, start_key.clone(), self.at],
-				)
-				.await?;
-			if keys.is_empty() {
-				break;
-			}
-			let change_sets: Vec<StorageChangeSet> = self
-				.client
-				.request("state_queryStorageAt", rpc_params![keys.clone(), self.at])
-				.await?;
-			for (key, value) in change_sets.into_iter().flat_map(|set| set.changes) {
-				// prefix ++ blake2_128(node_key) ++ node_key
-				let raw = key
-					.0
-					.get(prefix.len() + 16..)
-					.ok_or_else(|| anyhow!("unexpected `LastSeq` key length"))?;
-				let node_key =
-					ed25519::Public::decode(&mut &raw[..]).context("decoding a `LastSeq` key")?;
-				if let Some(value) = value {
-					let seq =
-						u64::decode(&mut &value.0[..]).context("decoding a `LastSeq` value")?;
-					entries.push((node_key, seq));
-				}
-			}
-			if keys.len() < PAGE as usize {
-				break;
-			}
-			start_key = keys.last().cloned();
-		}
-		Ok(entries)
 	}
 }
 
@@ -531,7 +439,7 @@ mod tests {
 			addr: String::new(),
 			node_key: node_key.map(str::to_owned),
 			node_key_file,
-			seq: None,
+			expiry_slot: 0,
 			para_id: None,
 			jam_genesis_hash: None,
 			offline: true,
@@ -607,12 +515,5 @@ mod tests {
 		let mut expected = twox_128(b"Bootnodes").to_vec();
 		expected.extend(twox_128(b"Bootnodes"));
 		assert_eq!(chain.value_key("Bootnodes"), expected);
-
-		let node_key = ed25519::Public::from_raw([9u8; 32]);
-		let mut expected = twox_128(b"Bootnodes").to_vec();
-		expected.extend(twox_128(b"LastSeq"));
-		expected.extend(blake2_128(&node_key.encode()));
-		expected.extend(node_key.encode());
-		assert_eq!(chain.map_key("LastSeq", &node_key), expected);
 	}
 }
