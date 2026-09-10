@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789063166427,
+  "lastUpdate": 1789070114234,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -220031,6 +220031,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2509145404,
             "range": "± 103582132",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "07fd6f90e4662a08293155c521d57d35483e0014",
+          "message": "Gap-sync: Fix stall when tip sync causes `AncestorSearch` switch. (#13126)\n\nA best-block announcement on an unknown fork can switch a busy peer to\nancestry search. Previously, replacing its request dropped the response\nfuture but left the old download reserved. That leftover Downloading\nmarker could stall gap sync.\n\nMake cancellation explicit: the strategy releases the old work, then the\nengine drops the old response future before starting the replacement.\nRestart uses the same cancellation path, and `remove_obsolete` is\nremoved.\n\nEncountered this gap sync problem while testing warp sync from time to\ntime. Also fixes a stale GapSync marker that could be stuck in ChainSync\nif the client and ChainSync bookkeeping diverge.",
+          "timestamp": "2026-09-10T18:34:42Z",
+          "tree_id": "89780fdba01b502af328c74f4b90584d1fa6a077",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/07fd6f90e4662a08293155c521d57d35483e0014"
+        },
+        "date": 1789070071752,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4578254,
+            "range": "± 37463",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 287221,
+            "range": "± 2974",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4351002,
+            "range": "± 15135",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 358992,
+            "range": "± 3316",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5443791,
+            "range": "± 45795",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 886917,
+            "range": "± 11190",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10657276,
+            "range": "± 45181",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4678095,
+            "range": "± 76590",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 42024382,
+            "range": "± 356372",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 36955408,
+            "range": "± 409684",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 348397572,
+            "range": "± 4804755",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 294576267,
+            "range": "± 2201597",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2577669191,
+            "range": "± 4094919",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2759802793,
+            "range": "± 214275791",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3316022,
+            "range": "± 26282",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1832920,
+            "range": "± 7892",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3425084,
+            "range": "± 9596",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1897558,
+            "range": "± 7212",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3913730,
+            "range": "± 273768",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2210349,
+            "range": "± 8122",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7823242,
+            "range": "± 23908",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5447651,
+            "range": "± 268016",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37574287,
+            "range": "± 2392581",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 35306367,
+            "range": "± 318058",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 307945772,
+            "range": "± 1863850",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 274067349,
+            "range": "± 860363",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2686010341,
+            "range": "± 113779220",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2612392489,
+            "range": "± 56551888",
             "unit": "ns/iter"
           }
         ]
