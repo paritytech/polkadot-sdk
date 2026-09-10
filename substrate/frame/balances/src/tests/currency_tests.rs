@@ -1314,6 +1314,60 @@ fn named_reserve_should_work() {
 }
 
 #[test]
+fn slash_reserved_named_removes_empty_reserve_entry() {
+	ExtBuilder::default().build_and_execute_with(|| {
+		let _ = Balances::deposit_creating(&1, 111);
+
+		assert_ok!(Balances::reserve_named(&TestId::Foo, &1, 10));
+
+		assert_eq!(Balances::slash_reserved_named(&TestId::Foo, &1, 10).1, 0);
+		assert_eq!(Balances::reserved_balance_named(&TestId::Foo, &1), 0);
+
+		// The zeroed entry must be removed, as `unreserve_named` does.
+		assert!(Balances::reserves(&1).is_empty());
+
+		// With `MaxReserves = 2`, two other ids must still fit. A leaked zero-amount
+		// entry would make the second `reserve_named` fail with `TooManyReserves`.
+		assert_ok!(Balances::reserve_named(&TestId::Bar, &1, 10));
+		assert_ok!(Balances::reserve_named(&TestId::Baz, &1, 10));
+	});
+}
+
+#[test]
+fn repatriate_reserved_named_removes_empty_reserve_entry() {
+	ExtBuilder::default().build_and_execute_with(|| {
+		let _ = Balances::deposit_creating(&1, 111);
+		let _ = Balances::deposit_creating(&2, 100);
+
+		assert_ok!(Balances::reserve_named(&TestId::Foo, &1, 10));
+
+		assert_eq!(Balances::repatriate_reserved_named(&TestId::Foo, &1, &2, 10, Free).unwrap(), 0);
+		assert_eq!(Balances::reserved_balance_named(&TestId::Foo, &1), 0);
+
+		// The zeroed entry must be removed, as `unreserve_named` does.
+		assert!(Balances::reserves(&1).is_empty());
+	});
+}
+
+#[test]
+fn slash_reserved_named_emits_single_slashed_event() {
+	ExtBuilder::default().build_and_execute_with(|| {
+		let _ = Balances::deposit_creating(&1, 111);
+
+		assert_ok!(Balances::reserve_named(&TestId::Foo, &1, 10));
+		let _ = events();
+
+		assert_eq!(Balances::slash_reserved_named(&TestId::Foo, &1, 10).1, 0);
+
+		let slashed_count = events()
+			.into_iter()
+			.filter(|e| matches!(e, RuntimeEvent::Balances(Event::Slashed { .. })))
+			.count();
+		assert_eq!(slashed_count, 1, "`Slashed` must be emitted exactly once");
+	});
+}
+
+#[test]
 fn reserve_must_succeed_if_can_reserve_does() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		let _ = Balances::deposit_creating(&1, 1);
