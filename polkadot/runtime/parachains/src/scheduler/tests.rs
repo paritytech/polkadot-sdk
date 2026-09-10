@@ -46,7 +46,7 @@ fn register_para(id: ParaId) {
 		ParaGenesisArgs {
 			genesis_head: Vec::new().into(),
 			validation_code: validation_code.clone(),
-			para_kind: ParaKind::Parathread, // This most closely mimics our test assigner
+			para_kind: ParaKind::Parachain,
 		}
 	));
 

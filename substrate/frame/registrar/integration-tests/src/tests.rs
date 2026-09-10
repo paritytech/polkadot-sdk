@@ -174,7 +174,7 @@ fn a_registration_travels_from_the_parachain_to_the_relay_chain_and_onboards_a_p
 		relay::conclude_pvf_checking(&ValidationCode(blob.clone()), session);
 		relay::run_to_session(3);
 
-		assert!(polkadot_runtime_parachains::paras::Pallet::<relay::Runtime>::is_parathread(
+		assert!(polkadot_runtime_parachains::paras::Pallet::<relay::Runtime>::is_parachain(
 			para_id.into()
 		));
 

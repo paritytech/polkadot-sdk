@@ -19,20 +19,16 @@
 use crate::traits::Registrar;
 use codec::{Decode, Encode};
 use frame_support::{dispatch::DispatchResult, weights::Weight};
-use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::{
 	HeadData, Id as ParaId, PvfCheckStatement, SessionIndex, ValidationCode,
 };
 use polkadot_runtime_parachains::paras;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::{traits::SaturatedConversion, DispatchError, Permill};
+use sp_runtime::{DispatchError, Permill};
 use std::{cell::RefCell, collections::HashMap};
 
 thread_local! {
-	static OPERATIONS: RefCell<Vec<(ParaId, u32, bool)>> = RefCell::new(Vec::new());
 	static PARACHAINS: RefCell<Vec<ParaId>> = RefCell::new(Vec::new());
-	// On-demand parachains
-	static PARATHREADS: RefCell<Vec<ParaId>> = RefCell::new(Vec::new());
 	static LOCKS: RefCell<HashMap<ParaId, bool>> = RefCell::new(HashMap::new());
 	static MANAGERS: RefCell<HashMap<ParaId, Vec<u8>>> = RefCell::new(HashMap::new());
 }
@@ -50,11 +46,6 @@ impl<T: frame_system::Config> Registrar for TestRegistrar<T> {
 		PARACHAINS.with(|x| x.borrow().clone())
 	}
 
-	// Is on-demand parachain
-	fn is_parathread(id: ParaId) -> bool {
-		PARATHREADS.with(|x| x.borrow().binary_search(&id).is_ok())
-	}
-
 	fn apply_lock(id: ParaId) {
 		LOCKS.with(|x| x.borrow_mut().insert(id, true));
 	}
@@ -69,21 +60,13 @@ impl<T: frame_system::Config> Registrar for TestRegistrar<T> {
 		_genesis_head: HeadData,
 		_validation_code: ValidationCode,
 	) -> DispatchResult {
-		// Should not be parachain.
+		// Every registered para is a parachain.
 		PARACHAINS.with(|x| {
-			let parachains = x.borrow_mut();
+			let mut parachains = x.borrow_mut();
 			match parachains.binary_search(&id) {
-				Ok(_) => Err(DispatchError::Other("Already Parachain")),
-				Err(_) => Ok(()),
-			}
-		})?;
-		// Should not be parathread (on-demand parachain), then make it.
-		PARATHREADS.with(|x| {
-			let mut parathreads = x.borrow_mut();
-			match parathreads.binary_search(&id) {
-				Ok(_) => Err(DispatchError::Other("Already Parathread")),
+				Ok(_) => Err(DispatchError::Other("Already registered")),
 				Err(i) => {
-					parathreads.insert(i, id);
+					parachains.insert(i, id);
 					Ok(())
 				},
 			}
@@ -93,65 +76,6 @@ impl<T: frame_system::Config> Registrar for TestRegistrar<T> {
 	}
 
 	fn deregister(id: ParaId) -> DispatchResult {
-		// Should not be parachain.
-		PARACHAINS.with(|x| {
-			let parachains = x.borrow_mut();
-			match parachains.binary_search(&id) {
-				Ok(_) => Err(DispatchError::Other("cannot deregister parachain")),
-				Err(_) => Ok(()),
-			}
-		})?;
-		// Remove from parathreads (on-demand parachains).
-		PARATHREADS.with(|x| {
-			let mut parathreads = x.borrow_mut();
-			match parathreads.binary_search(&id) {
-				Ok(i) => {
-					parathreads.remove(i);
-					Ok(())
-				},
-				Err(_) => Err(DispatchError::Other("not parathread, so cannot `deregister`")),
-			}
-		})?;
-		MANAGERS.with(|x| x.borrow_mut().remove(&id));
-		Ok(())
-	}
-
-	/// If the ParaId corresponds to a parathread (on-demand parachain),
-	/// then upgrade it to a lease holding parachain
-	fn make_parachain(id: ParaId) -> DispatchResult {
-		PARATHREADS.with(|x| {
-			let mut parathreads = x.borrow_mut();
-			match parathreads.binary_search(&id) {
-				Ok(i) => {
-					parathreads.remove(i);
-					Ok(())
-				},
-				Err(_) => Err(DispatchError::Other("not parathread, so cannot `make_parachain`")),
-			}
-		})?;
-		PARACHAINS.with(|x| {
-			let mut parachains = x.borrow_mut();
-			match parachains.binary_search(&id) {
-				Ok(_) => Err(DispatchError::Other("already parachain, so cannot `make_parachain`")),
-				Err(i) => {
-					parachains.insert(i, id);
-					Ok(())
-				},
-			}
-		})?;
-		OPERATIONS.with(|x| {
-			x.borrow_mut().push((
-				id,
-				frame_system::Pallet::<T>::block_number().saturated_into(),
-				true,
-			))
-		});
-		Ok(())
-	}
-
-	/// If the ParaId corresponds to a lease holding parachain, then downgrade it to a
-	/// parathread (on-demand parachain)
-	fn make_parathread(id: ParaId) -> DispatchResult {
 		PARACHAINS.with(|x| {
 			let mut parachains = x.borrow_mut();
 			match parachains.binary_search(&id) {
@@ -159,28 +83,22 @@ impl<T: frame_system::Config> Registrar for TestRegistrar<T> {
 					parachains.remove(i);
 					Ok(())
 				},
-				Err(_) => Err(DispatchError::Other("not parachain, so cannot `make_parathread`")),
+				Err(_) => Err(DispatchError::Other("not registered, cannot `deregister`")),
 			}
 		})?;
-		PARATHREADS.with(|x| {
-			let mut parathreads = x.borrow_mut();
-			match parathreads.binary_search(&id) {
-				Ok(_) => {
-					Err(DispatchError::Other("already parathread, so cannot `make_parathread`"))
-				},
-				Err(i) => {
-					parathreads.insert(i, id);
-					Ok(())
-				},
-			}
-		})?;
-		OPERATIONS.with(|x| {
-			x.borrow_mut().push((
-				id,
-				frame_system::Pallet::<T>::block_number().saturated_into(),
-				false,
-			))
-		});
+		MANAGERS.with(|x| x.borrow_mut().remove(&id));
+		Ok(())
+	}
+
+	/// All registered paras are already parachains, so this is a no-op that mirrors the production
+	/// registrar.
+	fn make_parachain(_id: ParaId) -> DispatchResult {
+		Ok(())
+	}
+
+	/// Downgrading to a parathread no longer changes any lifecycle (all paras stay parachains), so
+	/// this is a no-op that mirrors the production registrar.
+	fn make_parathread(_id: ParaId) -> DispatchResult {
 		Ok(())
 	}
 
@@ -200,26 +118,14 @@ impl<T: frame_system::Config> Registrar for TestRegistrar<T> {
 }
 
 impl<T: frame_system::Config> TestRegistrar<T> {
-	pub fn operations() -> Vec<(ParaId, BlockNumberFor<T>, bool)> {
-		OPERATIONS
-			.with(|x| x.borrow().iter().map(|(p, b, c)| (*p, (*b).into(), *c)).collect::<Vec<_>>())
-	}
-
 	#[allow(dead_code)]
 	pub fn parachains() -> Vec<ParaId> {
 		PARACHAINS.with(|x| x.borrow().clone())
 	}
 
 	#[allow(dead_code)]
-	pub fn parathreads() -> Vec<ParaId> {
-		PARATHREADS.with(|x| x.borrow().clone())
-	}
-
-	#[allow(dead_code)]
 	pub fn clear_storage() {
-		OPERATIONS.with(|x| x.borrow_mut().clear());
 		PARACHAINS.with(|x| x.borrow_mut().clear());
-		PARATHREADS.with(|x| x.borrow_mut().clear());
 		MANAGERS.with(|x| x.borrow_mut().clear());
 	}
 }

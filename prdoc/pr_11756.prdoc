@@ -1,0 +1,47 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove parathread lifecycle variants; all registered paras are parachains
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Removes the `Parathread`, `UpgradingParathread`, `DowngradingParachain` and
+      `OffboardingParathread` variants from `ParaLifecycle` in `pallet-paras`. Every registered
+      para now onboards directly as a `Parachain`, reflecting that the legacy on-demand/lease
+      lifecycle distinction is obsolete in the coretime model (fixes #3402).
+
+      As a consequence:
+      - `ParaKind` keeps both of its variants and its encoding is unchanged: `true` decodes as
+        `ParaKind::Parachain` and `false` as `ParaKind::Parathread`. It no longer selects a
+        lifecycle, since both variants now onboard as a `Parachain`; it only controls whether
+        `AssignCoretime` is called when the para is initialized, so `ParaKind::Parathread` means
+        no initial core assignment. `paras_registrar` always registers with `ParaKind::Parachain`.
+      - The `paras` pallet functions `schedule_parathread_upgrade` and
+        `schedule_parachain_downgrade`, the `is_parathread` helpers, and the `CannotDowngrade`
+        error are removed.
+      - In `polkadot-runtime-common`, the `Registrar::is_parathread` trait method and the
+        `paras-sudo-wrapper` extrinsics `sudo_schedule_parathread_upgrade` (index 2) and
+        `sudo_schedule_parachain_downgrade` (index 3) are removed. `make_parachain` and
+        `make_parathread` are now no-ops. Slot leasing no longer up/downgrades a para's lifecycle.
+      - `paras_registrar::deregister` no longer refuses a para that holds an active lease. It
+        previously accepted only paras in the `Parathread` lifecycle, which excluded leased ones;
+        with a single `Parachain` lifecycle that distinction no longer exists. Deregistering a
+        leased para leaves its `slots` `Leases` entries in place and the lease deposits reserved
+        until those lease periods elapse. A live para is locked once it produces its first head,
+        so its manager cannot deregister it, but Root and the para itself still can.
+      - A new storage version (v1) and a `MigrateToV1` migration convert any existing parathread
+        lifecycle entries to their parachain equivalents: `Parathread` and `UpgradingParathread`
+        become `Parachain` (and are added to the `Parachains` list), `OffboardingParathread`
+        becomes `OffboardingParachain`, and `DowngradingParachain` becomes `Parachain` (downgrade
+        cancelled). The migration is included in the Rococo and Westend runtimes.
+
+crates:
+  - name: polkadot-runtime-parachains
+    bump: major
+  - name: polkadot-runtime-common
+    bump: major
+  - name: rococo-runtime
+    bump: major
+  - name: westend-runtime
+    bump: major

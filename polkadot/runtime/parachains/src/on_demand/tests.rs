@@ -232,10 +232,10 @@ fn spot_traffic_decreases_between_idle_blocks() {
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		// Initialize the parathread and wait for it to be ready.
-		schedule_blank_para(para_id, ParaKind::Parathread);
-		assert!(!Paras::is_parathread(para_id));
+		schedule_blank_para(para_id, ParaKind::Parachain);
+		assert!(!Paras::is_parachain(para_id));
 		run_to_block(100, |n| if n == 100 { Some(Default::default()) } else { None });
-		assert!(Paras::is_parathread(para_id));
+		assert!(Paras::is_parachain(para_id));
 
 		// Set the spot traffic to a large number
 		OnDemand::set_order_status(OrderStatus {
@@ -264,13 +264,13 @@ fn place_order_works() {
 
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		// Initialize the parathread and wait for it to be ready.
-		schedule_blank_para(para_id, ParaKind::Parathread);
+		schedule_blank_para(para_id, ParaKind::Parachain);
 
-		assert!(!Paras::is_parathread(para_id));
+		assert!(!Paras::is_parachain(para_id));
 
 		run_to_block(100, |n| if n == 100 { Some(Default::default()) } else { None });
 
-		assert!(Paras::is_parathread(para_id));
+		assert!(Paras::is_parachain(para_id));
 
 		// Does not work unsigned
 		assert_noop!(
@@ -310,12 +310,12 @@ fn place_order_keep_alive_keeps_alive() {
 		let config = configuration::ActiveConfig::<Test>::get();
 
 		// Initialize the parathread and wait for it to be ready.
-		schedule_blank_para(para_id, ParaKind::Parathread);
+		schedule_blank_para(para_id, ParaKind::Parachain);
 		Balances::make_free_balance_be(&alice, amt);
 
-		assert!(!Paras::is_parathread(para_id));
+		assert!(!Paras::is_parachain(para_id));
 		run_to_block(100, |n| if n == 100 { Some(Default::default()) } else { None });
-		assert!(Paras::is_parathread(para_id));
+		assert!(Paras::is_parachain(para_id));
 
 		assert_noop!(
 			OnDemand::place_order_keep_alive(RuntimeOrigin::signed(alice), max_amt, para_id),
@@ -346,11 +346,11 @@ fn place_order_with_credits() {
 		let config = configuration::ActiveConfig::<Test>::get();
 
 		// Initialize the parathread and wait for it to be ready.
-		schedule_blank_para(para_id, ParaKind::Parathread);
+		schedule_blank_para(para_id, ParaKind::Parachain);
 		OnDemand::credit_account(alice, initial_credit);
 		assert_eq!(Credits::<Test>::get(alice), initial_credit);
 
-		assert!(!Paras::is_parathread(para_id));
+		assert!(!Paras::is_parachain(para_id));
 		let mut current_block = 100;
 		run_to_block(current_block, |n| {
 			if n == current_block {
@@ -359,7 +359,7 @@ fn place_order_with_credits() {
 				None
 			}
 		});
-		assert!(Paras::is_parathread(para_id));
+		assert!(Paras::is_parachain(para_id));
 
 		let queue_status = OnDemand::get_order_status();
 		let spot_price = queue_status.traffic.saturating_mul_int(
@@ -401,8 +401,8 @@ fn pop_assignment_for_cores_works() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		let para_a = ParaId::from(110);
 		let para_b = ParaId::from(111);
-		schedule_blank_para(para_a, ParaKind::Parathread);
-		schedule_blank_para(para_b, ParaKind::Parathread);
+		schedule_blank_para(para_a, ParaKind::Parachain);
+		schedule_blank_para(para_b, ParaKind::Parachain);
 
 		let mut block_num = 11;
 		run_to_block(block_num, |n| if n == 11 { Some(Default::default()) } else { None });
@@ -442,9 +442,9 @@ fn affinity_prohibits_parallel_scheduling() {
 		let para_b = ParaId::from(222);
 		let para_c = ParaId::from(333);
 
-		schedule_blank_para(para_a, ParaKind::Parathread);
-		schedule_blank_para(para_b, ParaKind::Parathread);
-		schedule_blank_para(para_c, ParaKind::Parathread);
+		schedule_blank_para(para_a, ParaKind::Parachain);
+		schedule_blank_para(para_b, ParaKind::Parachain);
+		schedule_blank_para(para_c, ParaKind::Parachain);
 
 		let mut block_num = 11;
 
@@ -520,7 +520,7 @@ fn affinity_prohibits_parallel_scheduling() {
 fn revenue_information_fetching_works() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		let para_a = ParaId::from(111);
-		schedule_blank_para(para_a, ParaKind::Parathread);
+		schedule_blank_para(para_a, ParaKind::Parachain);
 		// Mock assigner sets max revenue history to 10.
 		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
 		let revenue = OnDemand::claim_revenue_until(10);
@@ -591,7 +591,7 @@ fn pot_account_is_immortal() {
 		let para_a = ParaId::from(111);
 		let pot = OnDemand::account_id();
 		assert!(!System::account_exists(&pot));
-		schedule_blank_para(para_a, ParaKind::Parathread);
+		schedule_blank_para(para_a, ParaKind::Parachain);
 		// Mock assigner sets max revenue history to 10.
 
 		run_to_block(10, |n| if n == 10 { Some(Default::default()) } else { None });
