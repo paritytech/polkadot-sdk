@@ -983,14 +983,17 @@ for it, it writes no state, records no log entry, and prunes nothing. Otherwise:
    `hash(ParaInfo[para_id].head_data)`. If not, the candidate is rejected. This prevents
    a collator from including a candidate that was built on top of a stale, skipped, or
    non-canonical parent head.
-4. **Reap timed-out pending upgrade**: If `ParaInfo.pending_upgrade` is set
+4. **Validation code check**: This is the authoritative check. Verify the work
+   result's `(validation_code_hash, len)` pair matches either the active
+   `ParaInfo.validation_code` or the code of a pending upgrade that has not timed out.
+   If it matches neither, the candidate is rejected. A `pending_upgrade` whose
+   deadline timeslot is `<=` the current timeslot matches nothing, even though
+   it is still in state at this point. It is cleared in step 6(a).
+
+5. **Reap timed-out pending upgrade**: If `ParaInfo.pending_upgrade` is set
    and its deadline timeslot is `<=` the current timeslot, the upgrade is expired
    before this candidate is considered: release the new code (see §6.1) and clear
    `pending_upgrade`.
- 5. **Validation code check**: This is the authoritative check. Verify the work
-   result's `(validation_code_hash, len)` pair matches either the active
-   `ParaInfo.validation_code` or the pending upgrade's code. If it matches neither,
-   the candidate is rejected.
 6. **Settlement check + head data update + code upgrade check**: Every
    `(ParaId, StreamsRoot)` in the digest's `messages_requires_roots` must be a key of
    `messages_member` (§8). If any is missing, the candidate is rejected. This is
