@@ -445,9 +445,8 @@ async fn get_automine(rpc_client: &RpcClient) -> bool {
 	}
 }
 
-/// Wraps the node RPC transport to rate-limit `state_call`s, bound how many of them run on
-/// the node at once, and log each one's runtime function, input size, target block and
-/// duration.
+/// Wraps the node RPC transport to rate-limit runtime API calls, bound how many expensive ones
+/// run on the node at once, and log each one's function, input size, target block and duration.
 struct StateCallGate<Inner> {
 	inner: Inner,
 	rate_limiter: Option<Arc<DefaultDirectRateLimiter>>,
@@ -461,7 +460,7 @@ fn is_metered_state_call(function: &str) -> bool {
 		.any(|executing| function.starts_with(executing))
 }
 
-/// Warns when a `state_call` is cancelled by its caller, noting whether it had reached the node.
+/// Warns when a runtime API call is cancelled by its caller, noting whether it reached the node.
 struct CallSpan {
 	context: Option<(String, String, String)>,
 	began: std::time::Instant,
@@ -1465,6 +1464,30 @@ impl Client {
 			.await
 	}
 
+	/// The Ethereum block stored at `block`. A storage layout the generated code does not know is
+	/// read through the runtime API instead, whose output is versioned.
+	async fn fetch_eth_block(&self, block: &SubstrateBlock) -> Result<BlockV1, ClientError> {
+		let eth_block = match StorageApi::new(block.clone()).eth_block().await {
+			Err(ClientError::SubxtError(subxt::Error::StorageError(
+				subxt::error::StorageError::IncompatibleCodegen,
+			))) => {
+				self.runtime_api_provider
+					.at_resolved_block(block.clone())
+					.await?
+					.eth_block()
+					.ok_or(ClientError::UnsupportedRuntimeApiMethod("eth_block"))?
+					.await?
+			},
+			result => result?,
+		};
+		// Until the pallet builds its first Ethereum block, the `ValueQuery` storage item reads as
+		// `Block::default()` (number 0). A real block's number equals the Substrate height.
+		if eth_block.number != U256::from(block.block_number()) {
+			return Err(ClientError::BlockNotFound);
+		}
+		Ok(eth_block)
+	}
+
 	/// Get the EVM block for the given Substrate block.
 	pub async fn evm_block(
 		&self,
@@ -1487,7 +1510,7 @@ impl Client {
 		//  - the `EthereumBlock` value is absent (BlockNotFound)
 		//  - the node we are targeting has an outdated revive pallet (or ETH block functionality is
 		//    disabled)
-		match StorageApi::new((*block).clone()).eth_block().await {
+		match self.fetch_eth_block(&block).await {
 			Ok(mut eth_block) => {
 				log::trace!(target: LOG_TARGET, "Ethereum block from storage, hash {:?}", eth_block.hash);
 
