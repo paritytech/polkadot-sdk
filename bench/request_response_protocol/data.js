@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789063215564,
+  "lastUpdate": 1789070166375,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -123119,6 +123119,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2635047645,
             "range": "± 20365857",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "07fd6f90e4662a08293155c521d57d35483e0014",
+          "message": "Gap-sync: Fix stall when tip sync causes `AncestorSearch` switch. (#13126)\n\nA best-block announcement on an unknown fork can switch a busy peer to\nancestry search. Previously, replacing its request dropped the response\nfuture but left the old download reserved. That leftover Downloading\nmarker could stall gap sync.\n\nMake cancellation explicit: the strategy releases the old work, then the\nengine drops the old response future before starting the replacement.\nRestart uses the same cancellation path, and `remove_obsolete` is\nremoved.\n\nEncountered this gap sync problem while testing warp sync from time to\ntime. Also fixes a stale GapSync marker that could be stuck in ChainSync\nif the client and ChainSync bookkeeping diverge.",
+          "timestamp": "2026-09-10T18:34:42Z",
+          "tree_id": "89780fdba01b502af328c74f4b90584d1fa6a077",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/07fd6f90e4662a08293155c521d57d35483e0014"
+        },
+        "date": 1789070124134,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20119591,
+            "range": "± 289851",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19827980,
+            "range": "± 152072",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21182394,
+            "range": "± 113723",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25794316,
+            "range": "± 133106",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58334903,
+            "range": "± 898316",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 325180619,
+            "range": "± 5568211",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2474944898,
+            "range": "± 116932980",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16487775,
+            "range": "± 142431",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16992096,
+            "range": "± 146606",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17204965,
+            "range": "± 192552",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21479893,
+            "range": "± 95489",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58959380,
+            "range": "± 416162",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 344408542,
+            "range": "± 5014788",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2617444913,
+            "range": "± 37515401",
             "unit": "ns/iter"
           }
         ]
