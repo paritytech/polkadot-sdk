@@ -46,10 +46,11 @@ fn asset_hub_westend_genesis(
 	foreign_assets: Vec<(Location, AccountId, Balance)>,
 	foreign_assets_endowed_accounts: Vec<(Location, AccountId, Balance)>,
 ) -> serde_json::Value {
-	// Fund DAP buffer account with ED so it can receive slashes. Also fund the
-	// DAP staging account with ED so it can receive incoming funds.
+	// Fund DAP buffer account: it receives slashes and is the signed-phase reward pot. Also fund
+	// the DAP staging account with ED so it can receive incoming funds.
 	let mut balances: Vec<_> = endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect();
-	balances.push((Dap::buffer_account(), ASSET_HUB_WESTEND_ED));
+	// Above ED, as the reward payout transfers with `Preservation::Preserve`.
+	balances.push((Dap::buffer_account(), endowment));
 	balances.push((Dap::staging_account(), ASSET_HUB_WESTEND_ED));
 
 	build_struct_json_patch!(RuntimeGenesisConfig {
