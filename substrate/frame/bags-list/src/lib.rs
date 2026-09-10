@@ -495,22 +495,13 @@ pub mod pallet {
 
 			let accounts: Vec<_> = combined_iter.take((rebag_budget + 1) as usize).collect();
 
-			// Safe split: if we reached (or passed) the tail of the list, we don't want to panic.
-			let (to_process, next_cursor) = if accounts.len() <= rebag_budget as usize {
-				// This guarantees we either get the next account to process
-				// or gracefully receive None.
-				(accounts.as_slice(), &[][..])
-			} else {
-				accounts.split_at(rebag_budget as usize)
-			};
-
 			let mut processed = 0u32;
 			let mut successful_rebags = 0u32;
 			let mut failed_rebags = 0u32;
 			let mut pending_processed = 0u32;
 
 			// First item's weight was already consumed above.
-			for (i, account) in to_process.iter().enumerate() {
+			for (i, account) in accounts.iter().enumerate() {
 				// Consume weight for every item after the first.
 				if i > 0 && meter.try_consume(per_item).is_err() {
 					break;
@@ -544,16 +535,19 @@ pub mod pallet {
 				}
 			}
 
-			// Update cursor - only track regular ListNodes accounts, not PendingRebag
+			// Whatever the count budget, the weight meter, or a lock stopped the loop from
+			// getting to is exactly where the cursor must resume from next time. Only regular
+			// ListNodes accounts are tracked, not PendingRebag.
+			let unprocessed = &accounts[processed as usize..];
 			let next_regular_account =
-				next_cursor.iter().find(|account| !PendingRebag::<T, I>::contains_key(account));
+				unprocessed.iter().find(|account| !PendingRebag::<T, I>::contains_key(account));
 
 			match next_regular_account {
 				// Defensive check: prevents re-processing the same node multiple times within a
 				// single block. This situation should not occur during normal execution, but
 				// can happen in test environments or if `on_idle()` is invoked more than once
 				// per block (e.g. via custom test harnesses or manual calls).
-				Some(next) if to_process.contains(next) => {
+				Some(next) if accounts[..processed as usize].contains(next) => {
 					NextNodeAutoRebagged::<T, I>::kill();
 					defensive!("Loop detected: {:?} already processed — cursor killed", next);
 				},
