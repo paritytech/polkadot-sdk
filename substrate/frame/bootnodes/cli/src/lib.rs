@@ -47,6 +47,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use sp_core::{crypto::Pair as _, ed25519, Bytes, ConstU32, H256};
 use sp_crypto_hashing::{blake2_128, twox_128};
 use std::{collections::BTreeMap, path::PathBuf};
+use zeroize::Zeroizing;
 
 /// A bootnode entry as read from chain.
 ///
@@ -98,6 +99,9 @@ pub struct SignCmd {
 	#[arg(long)]
 	pub addr: String,
 	/// The node's ed25519 secret key as 64 hex characters (what the node gets as `--node-key`).
+	///
+	/// Prefer `--node-key-file`: a key passed here is recorded in the shell history and readable
+	/// by any process that can list this process's command line.
 	#[arg(long, required_unless_present = "node_key_file", conflicts_with = "node_key_file")]
 	pub node_key: Option<String>,
 	/// File holding the node's ed25519 secret key, as hex or as 32 raw bytes (what the node gets
@@ -154,7 +158,8 @@ async fn inspect(cmd: InspectCmd) -> Result<()> {
 }
 
 async fn sign(cmd: SignCmd) -> Result<()> {
-	let pair = ed25519::Pair::from_seed(&load_node_key(&cmd)?);
+	let seed = load_node_key(&cmd)?;
+	let pair = ed25519::Pair::from_seed(&seed);
 	let node_key = pair.public();
 	let addr = parse_addr(&cmd.addr)?;
 
@@ -302,19 +307,25 @@ fn decode_hex_key(s: &str) -> Option<Vec<u8>> {
 }
 
 /// Load the node's ed25519 secret key from the `--node-key` or `--node-key-file` argument.
-fn load_node_key(cmd: &SignCmd) -> Result<[u8; 32]> {
+fn load_node_key(cmd: &SignCmd) -> Result<Zeroizing<[u8; 32]>> {
 	let bytes = match (&cmd.node_key, &cmd.node_key_file) {
-		(Some(hex), None) => {
-			decode_hex_key(hex).ok_or_else(|| anyhow!("--node-key must be 64 hex characters"))?
-		},
+		(Some(hex), None) => Zeroizing::new(
+			decode_hex_key(hex).ok_or_else(|| anyhow!("--node-key must be 64 hex characters"))?,
+		),
 		(None, Some(path)) => {
-			let raw = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+			let raw = Zeroizing::new(
+				std::fs::read(path).with_context(|| format!("reading {}", path.display()))?,
+			);
 			// Same convention as the node: a hex string if it parses as one, raw bytes otherwise.
-			std::str::from_utf8(&raw).ok().and_then(decode_hex_key).unwrap_or(raw)
+			match std::str::from_utf8(&raw).ok().and_then(decode_hex_key) {
+				Some(hex) => Zeroizing::new(hex),
+				None => raw,
+			}
 		},
 		_ => bail!("pass exactly one of --node-key or --node-key-file"),
 	};
 	<[u8; 32]>::try_from(bytes.as_slice())
+		.map(Zeroizing::new)
 		.map_err(|_| anyhow!("the node key must be 32 bytes, got {}", bytes.len()))
 }
 
@@ -514,8 +525,8 @@ mod tests {
 	#[test]
 	fn node_key_from_hex_argument() {
 		let hex = "01".repeat(32);
-		assert_eq!(load_node_key(&sign_cmd(Some(&hex), None)).unwrap(), [1u8; 32]);
-		assert_eq!(load_node_key(&sign_cmd(Some(&format!("0x{hex}")), None)).unwrap(), [1u8; 32]);
+		assert_eq!(*load_node_key(&sign_cmd(Some(&hex), None)).unwrap(), [1u8; 32]);
+		assert_eq!(*load_node_key(&sign_cmd(Some(&format!("0x{hex}")), None)).unwrap(), [1u8; 32]);
 		assert!(load_node_key(&sign_cmd(Some("0102"), None)).is_err());
 		assert!(load_node_key(&sign_cmd(None, None)).is_err());
 	}
@@ -527,11 +538,11 @@ mod tests {
 
 		let raw = dir.join("secret_ed25519");
 		std::fs::write(&raw, [7u8; 32]).unwrap();
-		assert_eq!(load_node_key(&sign_cmd(None, Some(raw))).unwrap(), [7u8; 32]);
+		assert_eq!(*load_node_key(&sign_cmd(None, Some(raw))).unwrap(), [7u8; 32]);
 
 		let hex = dir.join("node-key.hex");
 		std::fs::write(&hex, format!("{}\n", "07".repeat(32))).unwrap();
-		assert_eq!(load_node_key(&sign_cmd(None, Some(hex))).unwrap(), [7u8; 32]);
+		assert_eq!(*load_node_key(&sign_cmd(None, Some(hex))).unwrap(), [7u8; 32]);
 
 		let short = dir.join("short");
 		std::fs::write(&short, [7u8; 31]).unwrap();
