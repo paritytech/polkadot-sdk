@@ -173,9 +173,16 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
+pub fn build_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		Voting::do_try_state().expect("All invariants must hold after a test");
+	});
+}
+
 #[test]
 fn params_should_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_eq!(Balances::free_balance(42), 0);
 		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), 210);
 	});
@@ -234,14 +241,14 @@ fn completed_poll_should_panic() {
 
 #[test]
 fn basic_stuff() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
 	});
 }
 
 #[test]
 fn basic_voting_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(2, 5)));
 		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
 			who: 1,
@@ -300,7 +307,7 @@ fn basic_voting_works() {
 
 #[test]
 fn split_voting_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, split(10, 0)));
 		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
 			who: 1,
@@ -337,7 +344,7 @@ fn split_voting_works() {
 
 #[test]
 fn abstain_voting_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, split_abstain(0, 0, 10)));
 		System::assert_last_event(tests::RuntimeEvent::Voting(Event::Voted {
 			who: 1,
@@ -391,7 +398,7 @@ fn abstain_voting_works() {
 
 #[test]
 fn voting_balance_gets_locked() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(2, 5)));
 		assert_eq!(tally(3), Tally::from_parts(10, 0, 2));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, nay(2, 5)));
@@ -420,7 +427,7 @@ fn voting_balance_gets_locked() {
 
 #[test]
 fn successful_but_zero_conviction_vote_balance_can_be_unlocked() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(1, 1)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 3, nay(20, 0)));
 		let c = class(3);
@@ -433,7 +440,7 @@ fn successful_but_zero_conviction_vote_balance_can_be_unlocked() {
 
 #[test]
 fn unsuccessful_conviction_vote_balance_can_be_unlocked() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(1, 1)));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 3, nay(20, 0)));
 		let c = class(3);
@@ -446,7 +453,7 @@ fn unsuccessful_conviction_vote_balance_can_be_unlocked() {
 
 #[test]
 fn successful_conviction_vote_balance_stays_locked_for_correct_time() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		for i in 1..=5 {
 			assert_ok!(Voting::vote(RuntimeOrigin::signed(i), 3, aye(10, i as u8)));
 		}
@@ -468,7 +475,7 @@ fn successful_conviction_vote_balance_stays_locked_for_correct_time() {
 
 #[test]
 fn classwise_delegation_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Polls::set(
 			vec![
 				(0, Ongoing(Tally::new(0), 0)),
@@ -591,7 +598,7 @@ fn classwise_delegation_works() {
 
 #[test]
 fn redelegation_after_vote_ending_should_keep_lock() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Polls::set(vec![(0, Ongoing(Tally::new(0), 0))].into_iter().collect());
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 5));
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 0, aye(10, 1)));
@@ -607,7 +614,7 @@ fn redelegation_after_vote_ending_should_keep_lock() {
 
 #[test]
 fn lock_amalgamation_valid_with_multiple_removed_votes() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Polls::set(
 			vec![
 				(0, Ongoing(Tally::new(0), 0)),
@@ -655,7 +662,7 @@ fn lock_amalgamation_valid_with_multiple_removed_votes() {
 
 #[test]
 fn lock_amalgamation_valid_with_multiple_delegations() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 5));
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 10));
@@ -681,7 +688,7 @@ fn lock_amalgamation_valid_with_multiple_delegations() {
 
 #[test]
 fn lock_amalgamation_valid_with_move_roundtrip_to_delegation() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Polls::set(vec![(0, Ongoing(Tally::new(0), 0))].into_iter().collect());
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 0, aye(5, 1)));
 		Polls::set(vec![(0, Completed(1, true))].into_iter().collect());
@@ -715,7 +722,7 @@ fn lock_amalgamation_valid_with_move_roundtrip_to_delegation() {
 
 #[test]
 fn lock_amalgamation_valid_with_move_roundtrip_to_casting() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 5));
 		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), 0));
 
@@ -749,7 +756,7 @@ fn lock_amalgamation_valid_with_move_roundtrip_to_casting() {
 
 #[test]
 fn lock_aggregation_over_different_classes_with_delegation_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::Locked1x, 5));
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 1, 2, Conviction::Locked2x, 5));
 		assert_ok!(Voting::delegate(RuntimeOrigin::signed(1), 2, 2, Conviction::Locked1x, 10));
@@ -780,7 +787,7 @@ fn lock_aggregation_over_different_classes_with_delegation_works() {
 
 #[test]
 fn lock_aggregation_over_different_classes_with_casting_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Polls::set(
 			vec![
 				(0, Ongoing(Tally::new(0), 0)),
@@ -824,7 +831,7 @@ fn lock_aggregation_over_different_classes_with_casting_works() {
 
 #[test]
 fn errors_with_vote_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			Voting::vote(RuntimeOrigin::signed(1), 0, aye(10, 0)),
 			Error::<Test>::NotOngoing
@@ -871,7 +878,7 @@ fn errors_with_vote_work() {
 
 #[test]
 fn errors_with_delegating_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			Voting::delegate(RuntimeOrigin::signed(1), 0, 2, Conviction::None, 11),
 			Error::<Test>::InsufficientFunds
@@ -893,7 +900,7 @@ fn errors_with_delegating_work() {
 
 #[test]
 fn remove_other_vote_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			Voting::remove_other_vote(RuntimeOrigin::signed(2), 1, 0, 3),
 			Error::<Test>::NotVoter
@@ -916,7 +923,7 @@ fn remove_other_vote_works() {
 
 #[test]
 fn errors_with_remove_vote_work() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			Voting::remove_vote(RuntimeOrigin::signed(1), Some(0), 3),
 			Error::<Test>::NotVoter
@@ -995,7 +1002,7 @@ impl VotingHooks<u64, u8, u64> for HooksHandler {
 
 #[test]
 fn voting_hooks_are_called_correctly() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let c = class(3);
 
 		let usable_balance_1 = Balances::usable_balance(1);
@@ -1069,7 +1076,7 @@ fn voting_hooks_are_called_correctly() {
 
 #[test]
 fn empty_tally_approval_is_zero() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let empty_tally = Tally::<u64, <Test as Config>::MaxTurnout>::from_parts(0, 0, 0);
 		assert_eq!(
 			<TallyOf<Test> as VoteTally<u64, u8>>::approval(&empty_tally, 0),
