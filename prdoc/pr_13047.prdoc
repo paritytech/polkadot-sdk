@@ -1,0 +1,24 @@
+title: 'fix(sync): do not ban peers that do not have the requested blocks'
+doc:
+- audience: Node Operator
+  description: |-
+    A peer that does not hold the block range we asked for answers with an empty block
+    response. Chain sync scored that identically to sending unrequested block data
+    (-(1 << 29)), so three such answers pushed an honest peer past the peer store's ban
+    threshold, which disconnects it from every notification protocol rather than just
+    block announcements.
+
+    An empty response is not misbehavior. The range is inferred from the peer's announced
+    best number, and `BlockAnnouncesHandshake` carries no earliest-retained-block or
+    pruning field, so a high best number is not a claim to hold the history below it:
+    bodies are pruned oldest-first, and a warp-synced node may still be backfilling its
+    gap.
+
+    Empty responses to regular block requests, and to header-only gap sync requests, now
+    carry a mild penalty instead. The peer is still disconnected, so the in-flight range
+    is immediately reassigned. Non-empty responses that do not start at the requested
+    block keep the harsh verdict. A new metric,
+    `substrate_sync_empty_block_responses_total`, counts the mild drops.
+crates:
+- name: sc-network-sync
+  bump: patch
