@@ -24,8 +24,14 @@ use crate::runtime_api::*;
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct BlockInputPayloadV1;
 
+/// The input type used when calling the `eth_block_versioned` runtime API function. This function
+/// replaces the unversioned `eth_block` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum BlockVersionedInputPayload {
+	/// The arguments provided when calling the `eth_block_versioned` runtime API function.
+	///
+	/// When this version is provided, the function behaves identically to and returns the same
+	/// output as the unversioned `eth_block` runtime API function.
 	V1(BlockInputPayloadV1),
 }
 
@@ -34,7 +40,14 @@ pub struct BlockOutputPayloadV1 {
 	pub block: BlockV1,
 }
 
+/// The output type returned when calling the `eth_block_versioned` runtime API function. This
+/// function replaces the unversioned `eth_block` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum BlockVersionedOutputPayload {
+	/// The output returned when calling the `eth_block_versioned` runtime API function with `V1`
+	/// arguments.
+	///
+	/// This output is identical to the output returned by the unversioned `eth_block` runtime API
+	/// function.
 	V1(BlockOutputPayloadV1),
 }

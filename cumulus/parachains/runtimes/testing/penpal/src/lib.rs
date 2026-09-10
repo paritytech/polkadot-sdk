@@ -109,8 +109,6 @@ use xcm_runtime_apis::{
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm_config::{
 	AssetsAssetId, LocationToAccountId, XcmConfig, XcmOriginToTransactDispatchOrigin,
@@ -312,12 +310,6 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 	WEIGHT_REF_TIME_PER_SECOND.saturating_div(2),
 	cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
 );
-
-/// The version information used to identify this runtime when compiled natively.
-#[cfg(feature = "std")]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;

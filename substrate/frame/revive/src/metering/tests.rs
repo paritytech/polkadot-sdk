@@ -393,6 +393,7 @@ fn substrate_metering_initialization_works() {
 						eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
 						weight_limit: Weight::MAX,
 						eth_tx_info,
+						authorization_deposit: Default::default(),
 					});
 
 				if let Some((gas_left, ref_time_left, proof_size_left, deposit_left)) = remaining {
@@ -431,6 +432,7 @@ fn substrate_metering_initialization_works() {
 						eth_gas_limit: 5_000_000_000 / gas_scale,
 						weight_limit: Weight::from_parts(ref_time_limit, proof_size_limit),
 						eth_tx_info,
+						authorization_deposit: Default::default(),
 					})
 					.unwrap();
 
@@ -523,6 +525,7 @@ fn substrate_metering_charges_works() {
 						eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
 						weight_limit: Weight::MAX,
 						eth_tx_info,
+						authorization_deposit: Default::default(),
 					})
 					.unwrap();
 
@@ -750,6 +753,7 @@ fn substrate_nesting_works() {
 						eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
 						weight_limit: Weight::MAX,
 						eth_tx_info: eth_tx_info.clone(),
+						authorization_deposit: Default::default(),
 					})
 					.unwrap();
 
@@ -854,6 +858,7 @@ fn substrate_nesting_charges_works() {
 						eth_gas_limit: eth_gas_limit.div_ceil(gas_scale),
 						weight_limit: Weight::MAX,
 						eth_tx_info,
+						authorization_deposit: Default::default(),
 					})
 					.unwrap();
 
@@ -974,6 +979,7 @@ fn catch_constructor_test() {
 					eth_gas_limit: eth_gas_limit.into(),
 					weight_limit: Weight::MAX,
 					eth_tx_info: crate::EthTxInfo::new(0, Default::default()),
+					authorization_deposit: Default::default(),
 				})
 				.build()
 		};
@@ -1059,4 +1065,45 @@ fn substrate_nesting_with_large_deposit_and_max_gas_request() {
 			let nested_weight_left = nested.weight_left().unwrap();
 			assert!(nested_weight_left.eq(&weight_left_before));
 		});
+}
+
+/// Regression test: a net-refund `authorization_deposit` (pure-revoke EIP-7702 tx) must increase
+/// the available deposit budget, not be silently clamped to zero.
+#[test]
+fn authorization_deposit_refund_increases_budget() {
+	let gas_scale: u128 = <Test as Config>::GasScale::get().into();
+	let eth_gas_limit: BalanceOf<Test> = 5_000_000_000u128 / gas_scale;
+	let eth_tx_info = EthTxInfo::<Test>::new(0, Weight::from_parts(1_000_000_000, 2_000));
+
+	let mk = |auth: StorageDeposit<BalanceOf<Test>>| {
+		ExtBuilder::default()
+			.with_next_fee_multiplier(FixedU128::from_rational(1, 5))
+			.build()
+			.execute_with(|| {
+				TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
+					eth_gas_limit,
+					weight_limit: Weight::MAX,
+					eth_tx_info: eth_tx_info.clone(),
+					authorization_deposit: auth,
+				})
+				.unwrap()
+				.deposit_left()
+				.unwrap()
+			})
+	};
+
+	let baseline = mk(StorageDeposit::Charge(0));
+	let charged = mk(StorageDeposit::Charge(1_000));
+	let refunded = mk(StorageDeposit::Refund(1_000));
+
+	assert_eq!(
+		baseline.saturating_sub(charged),
+		1_000,
+		"charge must reduce budget by exactly the amount"
+	);
+	assert_eq!(
+		refunded.saturating_sub(baseline),
+		1_000,
+		"refund must increase budget by exactly the amount"
+	);
 }

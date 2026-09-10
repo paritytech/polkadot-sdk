@@ -23,8 +23,14 @@ use sp_core::H160;
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct BlockAuthorInputPayloadV1;
 
+/// The input type used when calling the `block_author_versioned` runtime API function. This
+/// function replaces the unversioned `block_author` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum BlockAuthorVersionedInputPayload {
+	/// The arguments provided when calling the `block_author_versioned` runtime API function.
+	///
+	/// When this version is provided, the function behaves identically to and returns the same
+	/// output as the unversioned `block_author` runtime API function.
 	V1(BlockAuthorInputPayloadV1),
 }
 
@@ -33,7 +39,14 @@ pub struct BlockAuthorOutputPayloadV1 {
 	pub block_author: H160,
 }
 
+/// The output type returned when calling the `block_author_versioned` runtime API function. This
+/// function replaces the unversioned `block_author` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum BlockAuthorVersionedOutputPayload {
+	/// The output returned when calling the `block_author_versioned` runtime API function with `V1`
+	/// arguments.
+	///
+	/// This output is identical to the output returned by the unversioned `block_author` runtime
+	/// API function.
 	V1(BlockAuthorOutputPayloadV1),
 }
