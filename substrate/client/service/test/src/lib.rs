@@ -233,7 +233,7 @@ fn node_config<E: ChainSpecExtension + Clone + 'static + Send + Sync>(
 		transaction_pool: Default::default(),
 		network: network_config,
 		keystore: KeystoreConfig::Path { path: root.join("key"), password: None },
-		database: DatabaseSource::RocksDb { path: root.join("db"), cache_size: 128 },
+		database: DatabaseSource::RocksDb { path: root.join("db"), cache_size: 128, transaction_column_path: None },
 		trie_cache_maximum_size: Some(16 * 1024 * 1024),
 		warm_up_trie_cache: None,
 		state_pruning: Default::default(),

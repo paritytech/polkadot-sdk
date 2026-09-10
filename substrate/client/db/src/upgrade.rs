@@ -206,7 +206,7 @@ mod tests {
 
 	fn open_database(db_path: &Path, db_type: DatabaseType) -> sp_blockchain::Result<()> {
 		crate::utils::open_database::<Block>(
-			&DatabaseSource::RocksDb { path: db_path.to_owned(), cache_size: 128 },
+			&DatabaseSource::RocksDb { path: db_path.to_owned(), cache_size: 128, transaction_column_path: None },
 			db_type,
 			true,
 		)
