@@ -1,0 +1,29 @@
+[package]
+name = "cumulus-primitives-source-discovery"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+description = "Runtime API for cross-parachain source discovery configuration."
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+codec = { features = ["derive"], workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+sp-api = { workspace = true }
+
+# Cumulus
+cumulus-primitives-core = { workspace = true }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"cumulus-primitives-core/std",
+	"scale-info/std",
+	"sp-api/std",
+]

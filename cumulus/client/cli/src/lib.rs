@@ -323,6 +323,14 @@ pub struct RunCmd {
 	/// Disable discovery of the parachain bootnodes via the relay chain DHT.
 	#[arg(long)]
 	pub no_dht_bootnode_discovery: bool,
+
+	/// Advertise this node as a spec-msg-serving parachain bootnode.
+	///
+	/// Publishes the node's bootnode addresses under the `spec-msg/v1` capability-scoped relay-DHT
+	/// provider key (in addition to the plain RFC-0008 key), so spec-msg receivers discover only
+	/// serving collators. Off by default.
+	#[arg(long)]
+	pub spec_msg_serve: bool,
 }
 
 impl RunCmd {
@@ -348,6 +356,7 @@ impl RunCmd {
 			relay_chain_mode,
 			embedded_dht_bootnode: !self.no_dht_bootnode,
 			dht_bootnode_discovery: !self.no_dht_bootnode_discovery,
+			spec_msg_serve: self.spec_msg_serve,
 		}
 	}
 }
@@ -370,6 +379,8 @@ pub struct CollatorOptions {
 	pub embedded_dht_bootnode: bool,
 	/// Enable DHT bootnode discovery.
 	pub dht_bootnode_discovery: bool,
+	/// Advertise this node as a spec-msg-serving bootnode (capability-scoped DHT key).
+	pub spec_msg_serve: bool,
 }
 
 /// A non-redundant version of the `RunCmd` that sets the `validator` field when the
