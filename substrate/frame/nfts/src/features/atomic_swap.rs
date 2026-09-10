@@ -23,7 +23,7 @@
 use crate::*;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{Currency, ExistenceRequirement::KeepAlive},
+	traits::tokens::{fungible::Mutate, Preservation},
 };
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -196,13 +196,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					&receive_item.owner,
 					&send_item.owner,
 					price.amount,
-					KeepAlive,
+					Preservation::Preserve,
 				)?,
 				PriceDirection::Receive => T::Currency::transfer(
 					&send_item.owner,
 					&receive_item.owner,
 					price.amount,
-					KeepAlive,
+					Preservation::Preserve,
 				)?,
 			};
 		}

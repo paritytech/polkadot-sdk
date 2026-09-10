@@ -126,13 +126,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		// and return the deposit to the previous owner.
 		if depositor_has_changed {
 			if let Some(old_depositor) = old_depositor {
-				T::Currency::unreserve(&old_depositor, old_deposit.amount);
+				Self::release_deposit(&old_depositor, old_deposit.amount);
 			}
-			T::Currency::reserve(&depositor, deposit)?;
+			Self::hold_deposit(&depositor, deposit)?;
 		} else if deposit > old_deposit.amount {
-			T::Currency::reserve(&depositor, deposit - old_deposit.amount)?;
+			Self::hold_deposit(&depositor, deposit - old_deposit.amount)?;
 		} else if deposit < old_deposit.amount {
-			T::Currency::unreserve(&depositor, old_deposit.amount - deposit);
+			Self::release_deposit(&depositor, old_deposit.amount - deposit);
 		}
 
 		if is_depositor_collection_owner {
@@ -188,7 +188,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		if let Some((_, deposit)) = attribute {
 			if deposit.account != set_as && deposit.amount != Zero::zero() {
 				if let Some(deposit_account) = deposit.account {
-					T::Currency::unreserve(&deposit_account, deposit.amount);
+					Self::release_deposit(&deposit_account, deposit.amount);
 				}
 			}
 		} else {
@@ -343,11 +343,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		match deposit.account {
 			Some(deposit_account) => {
-				T::Currency::unreserve(&deposit_account, deposit.amount);
+				Self::release_deposit(&deposit_account, deposit.amount);
 			},
 			None if namespace == AttributeNamespace::CollectionOwner => {
 				collection_details.owner_deposit.saturating_reduce(deposit.amount);
-				T::Currency::unreserve(&collection_details.owner, deposit.amount);
+				Self::release_deposit(&collection_details.owner, deposit.amount);
 			},
 			_ => (),
 		}
@@ -440,7 +440,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			ensure!(attributes <= witness.account_attributes, Error::<T, I>::BadWitness);
 
 			if !deposited.is_zero() {
-				T::Currency::unreserve(&delegate, deposited);
+				Self::release_deposit(&delegate, deposited);
 			}
 
 			Self::deposit_event(Event::ItemAttributesApprovalRemoved {
