@@ -1390,4 +1390,123 @@ mod registry {
 			assert!(Hrmp::exists(channel(para_b, para_a)));
 		});
 	}
+
+	fn close(channel: ChannelId, initiator: u32) -> Result<(), FailureReason> {
+		// Qualified: `Pallet` has an inherent `close_channel` that would win otherwise.
+		<Hrmp as HrmpRegistry>::close_channel(channel, initiator)
+	}
+
+	#[test]
+	fn close_channel_closes_it_now() {
+		let (para_a, para_b) = (2000, 2001);
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			run_to_block(2, Some(vec![1, 2]));
+			register_parachain(para_a.into());
+			register_parachain(para_b.into());
+			run_to_block(4, Some(vec![3, 4]));
+			assert_eq!(open(channel(para_a, para_b)), Ok(()));
+
+			assert_eq!(close(channel(para_a, para_b), para_a), Ok(()));
+
+			// No session boundary was needed here either.
+			let id = HrmpChannelId { sender: para_a.into(), recipient: para_b.into() };
+			assert!(HrmpChannels::<Test>::get(&id).is_none());
+			assert!(HrmpEgressChannelsIndex::<Test>::get(&ParaId::from(para_a)).is_empty());
+			assert!(HrmpIngressChannelsIndex::<Test>::get(&ParaId::from(para_b)).is_empty());
+			assert!(!Hrmp::exists(channel(para_a, para_b)));
+
+			Hrmp::assert_storage_consistency_exhaustive();
+		});
+	}
+
+	#[test]
+	fn either_end_may_close() {
+		let (para_a, para_b) = (2000, 2001);
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			run_to_block(2, Some(vec![1, 2]));
+			register_parachain(para_a.into());
+			register_parachain(para_b.into());
+			run_to_block(4, Some(vec![3, 4]));
+			assert_eq!(open(channel(para_a, para_b)), Ok(()));
+
+			assert_eq!(close(channel(para_a, para_b), para_b), Ok(()));
+
+			assert!(!Hrmp::exists(channel(para_a, para_b)));
+			Hrmp::assert_storage_consistency_exhaustive();
+		});
+	}
+
+	#[test]
+	fn close_channel_needs_a_participant_and_an_open_channel() {
+		let (para_a, para_b, para_c) = (2000, 2001, 2002);
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			run_to_block(2, Some(vec![1, 2]));
+			register_parachain(para_a.into());
+			register_parachain(para_b.into());
+			run_to_block(4, Some(vec![3, 4]));
+
+			assert_eq!(close(channel(para_a, para_b), para_a), Err(FailureReason::NotFound));
+
+			assert_eq!(open(channel(para_a, para_b)), Ok(()));
+			assert_eq!(close(channel(para_a, para_b), para_c), Err(FailureReason::InvalidPara));
+			// The reverse direction is a different channel.
+			assert_eq!(close(channel(para_b, para_a), para_a), Err(FailureReason::NotFound));
+		});
+	}
+
+	#[test]
+	fn close_channel_drops_the_messages_still_in_the_channel() {
+		let (para_a, para_b) = (2000, 2001);
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			run_to_block(2, Some(vec![1, 2]));
+			register_parachain(para_a.into());
+			register_parachain(para_b.into());
+			run_to_block(4, Some(vec![3, 4]));
+			assert_eq!(open(channel(para_a, para_b)), Ok(()));
+
+			let id = HrmpChannelId { sender: para_a.into(), recipient: para_b.into() };
+			let msgs: HorizontalMessages =
+				vec![OutboundHrmpMessage { recipient: para_b.into(), data: b"hello".to_vec() }]
+					.try_into()
+					.unwrap();
+			Hrmp::queue_outbound_hrmp(para_a.into(), msgs);
+			assert!(!HrmpChannelContents::<Test>::get(&id).is_empty());
+
+			assert_eq!(close(channel(para_a, para_b), para_a), Ok(()));
+
+			assert!(HrmpChannelContents::<Test>::get(&id).is_empty());
+			Hrmp::assert_storage_consistency_exhaustive();
+		});
+	}
+
+	#[test]
+	fn close_channel_refunds_a_legacy_channels_deposits() {
+		let (para_a, para_b) = (2000, 2001);
+
+		let mut genesis = GenesisConfigBuilder::default();
+		genesis.hrmp_sender_deposit = 20;
+		genesis.hrmp_recipient_deposit = 15;
+		new_test_ext(genesis.build()).execute_with(|| {
+			register_parachain_with_balance(para_a.into(), 100);
+			register_parachain_with_balance(para_b.into(), 110);
+			run_to_block(5, Some(vec![4, 5]));
+
+			// A channel opened the old way holds its deposits here, not on the calling chain.
+			Hrmp::init_open_channel(para_a.into(), para_b.into(), CAPACITY, MESSAGE_SIZE).unwrap();
+			Hrmp::accept_open_channel(para_b.into(), para_a.into()).unwrap();
+			run_to_block(8, Some(vec![8]));
+			assert_eq!(free_balance(para_a), 80);
+			assert_eq!(free_balance(para_b), 95);
+
+			assert_eq!(close(channel(para_a, para_b), para_a), Ok(()));
+
+			assert_eq!(free_balance(para_a), 100);
+			assert_eq!(free_balance(para_b), 110);
+			Hrmp::assert_storage_consistency_exhaustive();
+		});
+	}
+
+	fn free_balance(para: u32) -> Balance {
+		<Test as Config>::Currency::free_balance(&ParaId::from(para).into_account_truncating())
+	}
 }
