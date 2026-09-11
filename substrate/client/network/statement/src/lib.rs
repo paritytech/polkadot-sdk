@@ -933,54 +933,6 @@ fn max_statement_payload_size(envelope_overhead: usize) -> usize {
 	MAX_STATEMENT_NOTIFICATION_SIZE as usize - envelope_overhead
 }
 
-/// Result of finding a sendable chunk of statements.
-enum ChunkResult {
-	/// Found a chunk that fits. Contains the end index (exclusive).
-	Send(usize),
-	/// First statement is oversized, skip it.
-	SkipOversized,
-}
-
-/// Find the largest chunk of statements starting from the beginning that fits
-/// within MAX_STATEMENT_NOTIFICATION_SIZE minus the given `envelope_overhead`.
-///
-/// Uses an incremental approach: adds statements one by one until the limit is reached.
-/// This is efficient because we only compute sizes for statements we'll actually send
-/// in this chunk, rather than computing sizes for all statements upfront.
-fn find_sendable_chunk(statements: &[&Statement], envelope_overhead: usize) -> ChunkResult {
-	if statements.is_empty() {
-		return ChunkResult::Send(0);
-	}
-	let max_size = max_statement_payload_size(envelope_overhead);
-
-	// Incrementally add statements until we exceed the limit.
-	// This is efficient because we only compute sizes for statements in this chunk.
-	// accumulated_size is the sum of encoded sizes of all statements so far (without vec
-	// overhead).
-	let mut accumulated_size = 0;
-	let mut count = 0usize;
-
-	for stmt in &statements[0..] {
-		let stmt_size = stmt.encoded_size();
-		let new_count = count + 1;
-		// Compact encoding overhead for the new count
-		let new_total = accumulated_size + stmt_size;
-		if new_total > max_size {
-			break;
-		}
-
-		accumulated_size += stmt_size;
-		count = new_count;
-	}
-
-	// If we couldn't fit even a single statement, skip it.
-	if count == 0 {
-		ChunkResult::SkipOversized
-	} else {
-		ChunkResult::Send(count)
-	}
-}
-
 fn unix_timestamp_secs() -> u64 {
 	std::time::SystemTime::now()
 		.duration_since(std::time::UNIX_EPOCH)
@@ -1920,9 +1872,14 @@ where
 	/// Queue the given `statements` for propagation to the given `peer`.
 	///
 	/// Internally filters out statements the peer sent to us.
-	/// For v2 peers with a topic affinity filter, also filters by topic match.
+	/// For v2 peers with a topic affinity filter, also filters by topic match, unless the v2 DHT
+	/// path's propagation plan chose the peer.
 	/// Surviving hashes are appended to the peer's outbox.
-	fn queue_statements_for_peer(&mut self, who: &PeerId, statements: &[(u64, Hash, Statement)]) {
+	fn queue_statements_for_peer<'a>(
+		&mut self,
+		who: &PeerId,
+		statements: impl IntoIterator<Item = &'a (u64, Hash, Statement)>,
+	) {
 		let Self {
 			peers,
 			propagation_outboxes,
@@ -1934,11 +1891,14 @@ where
 			return;
 		};
 
+		// TODO(#11288): light peers may need different gating on the v2 DHT path. The
+		// orchestrator already chose the peer, so blocking it until it advertises a filter
+		// may be redundant there.
 		if !peer.can_receive() {
 			return;
 		}
 
-		let to_send = statements.iter().filter_map(|(seq, hash, stmt)| {
+		let to_send = statements.into_iter().filter_map(|(seq, hash, stmt)| {
 			if *seq < peer.sync_watermark {
 				return None;
 			}
@@ -2104,119 +2064,14 @@ where
 		}
 	}
 
-	/// Send the `indices` of `statements` to `peer`, batched.
-	///
-	/// The v2 DHT path's [`V2DhtOrchestrator::propagation_plan`] already decided that `peer`
-	/// should receive these statements, so this skips the explicit-affinity bloom filter that
-	/// [`Self::queue_statements_for_peer`] applies and only drops statements the peer sent to us.
-	// TODO(#11932): fold this into the per-peer outbox path (`try_send_next_chunk`) and delete
-	// `queue_statements_in_chunks`/`find_sendable_chunk`. Blocked on two gaps in the outbox
-	// machinery: transient statement bodies leave the store on `take_recent_statements`, so the
-	// fetch needs the bodies carried alongside the queued hashes, and the fetch re-applies the
-	// peer's affinity filter, which orchestrator-chosen targets must bypass.
-	fn send_targeted_statements_to_peer(
+	/// Queue the statements the orchestrator's propagation `plan` assigned to each peer.
+	fn queue_planned_statements(
 		&mut self,
-		who: &PeerId,
 		statements: &[(u64, Hash, Statement)],
-		indices: &[usize],
+		plan: Vec<(PeerId, Vec<usize>)>,
 	) {
-		let Some(peer) = self.peers.get(who) else {
-			return;
-		};
-
-		// TODO(#11288): light peers may need different gating on the v2 DHT path. The
-		// orchestrator already chose this peer, so blocking it until it advertises a filter
-		// may be redundant here.
-		if !peer.can_receive() {
-			return;
-		}
-
-		let protocol_version = peer.protocol_version;
-		let to_send: Vec<_> = indices
-			.iter()
-			.filter_map(|&index| {
-				let (_, hash, stmt) = &statements[index];
-				// The peer supplied this statement, do not send it back.
-				if has_received_from(
-					&self.recently_received_statements,
-					&self.pending_statements_peers,
-					hash,
-					who,
-				) {
-					return None;
-				}
-				Some(stmt)
-			})
-			.collect();
-
-		if to_send.is_empty() {
-			return;
-		}
-
-		self.queue_statements_in_chunks(who, &to_send, protocol_version);
-	}
-
-	/// Queue statement chunks for asynchronous propagation from the main event loop.
-	///
-	/// Each chunk occupies the peer's send slot and counts toward the propagation in-flight
-	/// bytes, so [`Self::process_send_result`]'s accounting stays symmetric.
-	fn queue_statements_in_chunks(
-		&mut self,
-		who: &PeerId,
-		statements: &[&Statement],
-		protocol_version: PeerProtocolVersion,
-	) {
-		let envelope_overhead = protocol_version.envelope_overhead();
-		let mut offset = 0;
-		while offset < statements.len() {
-			match find_sendable_chunk(&statements[offset..], envelope_overhead) {
-				ChunkResult::Send(0) => return,
-				ChunkResult::Send(chunk_end) => {
-					let chunk = &statements[offset..offset + chunk_end];
-					let encoded = match protocol_version {
-						PeerProtocolVersion::V1 => chunk.encode(),
-						PeerProtocolVersion::V2 => StatementMessage::encode_statement_refs(chunk),
-					};
-					let bytes_sent = encoded.len() as u64;
-					let Some(message_sink) = self.notification_service.message_sink(who) else {
-						let abandoned = statements.len() - offset;
-						log::debug!(
-							target: LOG_TARGET,
-							"Failed to get message sink for peer {who}, abandoning {abandoned} statements ({bytes_sent} bytes in the current chunk)",
-						);
-						self.record_abandoned_send(send_failure::NO_SINK, abandoned);
-						return;
-					};
-					let peer = *who;
-					let chunk_id = self.occupy_send_slot(peer);
-					let in_flight = self.propagation_in_flight_bytes.saturating_add(bytes_sent);
-					self.set_propagation_in_flight_bytes(in_flight);
-					let sent_latency =
-						self.metrics.as_ref().map(|metrics| metrics.sent_latency_seconds.clone());
-					self.pending_sends.push(Box::pin(async move {
-						let sent_latency_timer = sent_latency.map(|metric| metric.start_timer());
-						let result =
-							send_with_timeout(message_sink.send_async_notification(encoded)).await;
-						drop(sent_latency_timer);
-						PendingSendResult {
-							peer,
-							statement_count: chunk_end,
-							bytes_sent,
-							result,
-							kind: SendKind::Propagation,
-							chunk_id,
-						}
-					}));
-					offset += chunk_end;
-				},
-				ChunkResult::SkipOversized => {
-					log::warn!(target: LOG_TARGET, "Statement too large, skipping");
-					self.metrics.as_ref().map(|metrics| {
-						metrics.skipped_oversized_statements.inc();
-					});
-					offset += 1;
-				},
-			}
+		for (who, indices) in plan {
+			self.queue_statements_for_peer(&who, indices.iter().map(|&index| &statements[index]));
 		}
 	}
 
@@ -2355,9 +2210,8 @@ where
 		let Ok(statements) = self.statement_store.take_recent_statements() else { return };
 		if !statements.is_empty() {
 			if v2dht_enabled() {
-				for (who, indices) in self.v2dht.propagation_plan(&statements) {
-					self.send_targeted_statements_to_peer(&who, &statements, &indices);
-				}
+				let plan = self.v2dht.propagation_plan(&statements);
+				self.queue_planned_statements(&statements, plan);
 			} else {
 				self.do_propagate_statements(&statements);
 			}
@@ -3908,73 +3762,29 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn send_targeted_statements_skips_affinity_filter_then_dedups() {
-		let (mut handler, _store, _network, notification_service, _, _) = build_handler(0);
-
-		// A peer whose advertised filter matches no topic; the v2 send must ignore it because the
-		// orchestrator already chose this peer.
-		let peer_id = PeerId::random();
-		handler.peers.insert(
-			peer_id,
-			Peer {
-				rate_limiter: PeerRateLimiter::new(
-					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).expect("nonzero"),
-					NonZeroU32::new(
-						DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
-					)
-					.expect("nonzero"),
-				),
-				protocol_version: PeerProtocolVersion::V1,
-				topic_affinity: Some(AffinityFilter::new(BLOOM_SEED, 0.01, 10)),
-				is_light: false,
-				pending_topic_affinity: None,
-				sync_watermark: 0,
-			},
-		);
-
-		let mut statement = Statement::new();
-		statement.set_plain_data(b"targeted".to_vec());
-		statement.set_topic(0, Topic([7u8; 32]));
-		let hash = statement.hash();
-		let statements = vec![(0, hash, statement)];
-
-		handler.send_targeted_statements_to_peer(&peer_id, &statements, &[0]);
-		handler.flush_pending_sends().await;
-		assert_eq!(
-			get_peer_hashes(&notification_service.get_sent_notifications(), peer_id),
-			vec![hash],
-			"targeted send must deliver the statement despite the non-matching filter"
-		);
-
-		// The peer supplied the statement, so a send delivers nothing back to it.
-		notification_service.clear_sent_notifications();
-		handler.recently_received_statements.entry(hash).or_default().insert(peer_id);
-		handler.send_targeted_statements_to_peer(&peer_id, &statements, &[0]);
-		handler.flush_pending_sends().await;
-		assert!(notification_service.get_sent_notifications().is_empty());
-	}
-
-	#[tokio::test]
-	async fn send_targeted_statements_ignores_a_disconnected_peer() {
-		let (mut handler, _store, _network, notification_service, _, _) = build_handler(0);
+	async fn planned_statements_ignore_a_disconnected_peer() {
+		let (mut handler, statement_store, _network, notification_service, _, _) = build_handler(0);
 
 		let mut statement = Statement::new();
 		statement.set_plain_data(b"orphan".to_vec());
 		let hash = statement.hash();
+		statement_store.insert(statement.clone());
 		let statements = vec![(0, hash, statement)];
 
-		handler.send_targeted_statements_to_peer(&PeerId::random(), &statements, &[0]);
+		handler.queue_planned_statements(&statements, vec![(PeerId::random(), vec![0])]);
 		handler.flush_pending_sends().await;
 		assert!(notification_service.get_sent_notifications().is_empty());
+		assert!(handler.propagation_outboxes.is_empty());
 	}
 
 	#[tokio::test]
-	async fn send_targeted_statements_delivers_only_indexed_statements_not_from_the_peer() {
-		let (mut handler, _store, _network, notification_service, _, _) = build_handler(0);
+	async fn planned_statements_reach_the_outbox_except_those_from_the_peer() {
+		let (mut handler, statement_store, _network, notification_service, _, _) = build_handler(0);
 
 		let make = |seed: u8| {
-			let mut statement = Statement::new();
+			let mut statement = new_live_statement();
 			statement.set_plain_data(vec![seed]);
+			statement_store.insert(statement.clone());
 			(seed as u64, statement.hash(), statement)
 		};
 		let statements = vec![make(1), make(2), make(3)];
@@ -3995,7 +3805,7 @@ mod tests {
 
 		// The plan names indices 0 and 1: index 1 drops as received from the peer, index 2 is
 		// never offered.
-		handler.send_targeted_statements_to_peer(&peer_id, &statements, &[0, 1]);
+		handler.queue_planned_statements(&statements, vec![(peer_id, vec![0, 1])]);
 		handler.flush_pending_sends().await;
 		assert_eq!(
 			get_peer_hashes(&notification_service.get_sent_notifications(), peer_id),
