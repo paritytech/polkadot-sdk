@@ -16,16 +16,19 @@
 // limitations under the License.
 
 use crate::{
-	BalanceOf, Code, Config, H160, Pallet,
+	BalanceOf, Code, Config, FreezeReason, H160, Pallet,
 	address::AddressMapper,
 	test_utils::{ALICE, DJANGO, DJANGO_ADDR, builder::Contract},
 	tests::{
-		Contracts, ExtBuilder, RuntimeOrigin, Test, builder,
+		Balances, Contracts, ExtBuilder, RuntimeFreezeReason, RuntimeOrigin, Test, builder,
 		test_utils::{get_balance, get_contract_checked},
 	},
 };
 use alloy_core::sol_types::{SolCall, SolConstructor};
-use frame_support::traits::fungible::Mutate;
+use frame_support::{
+	assert_ok,
+	traits::fungible::{InspectFreeze, Mutate, MutateFreeze},
+};
 use pallet_revive_fixtures::{
 	FixtureType, Terminate, TerminateCaller, TerminateDelegator, compile_module_with_type,
 };
@@ -69,6 +72,12 @@ fn base_case(fixture_type: FixtureType, method: u8) {
 			.build_and_unwrap_result();
 
 		assert!(result.data.is_empty());
+		if method == METHOD_PRECOMPILE {
+			assert!(
+				get_contract_checked(&addr).is_none(),
+				"System.terminate must destroy the first-frame contract",
+			);
+		}
 	});
 }
 
@@ -696,5 +705,71 @@ fn call_after_terminate_works(fixture_type: FixtureType, method: u8) {
 		assert_eq!(value, expected_value, "unexpected return value from callAfterTerminateCall");
 		assert_eq!(get_balance(&account), 0, "unexpected contract balance after terminate");
 		assert_eq!(get_balance(&DJANGO), 0, "unexpected DJANGO balance after terminate");
+	});
+}
+
+/// A native freeze that pins the contract ED must make `System.terminate` revert
+/// instead of reporting success while leaving the contract live.
+///
+/// The freeze is `reserved + ED` so `reducible_balance` still reports the extra
+/// as transferable (`Preservation::Preserve`), but the polite ED burn in
+/// `destroy_contract` has nothing left to spend. That burn happens in the
+/// deferred destruction, where the error is swallowed, so `terminate_caller`
+/// rejects the freeze up-front: the precompile reverts and the calling contract
+/// can observe it. Previously the beneficiary kept the transfer and the contract
+/// stayed callable.
+///
+/// See <https://github.com/paritytech/polkadot-sdk/issues/13017>.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn precompile_terminate_reverts_when_ed_is_frozen(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let min_balance = Contracts::min_balance();
+		let extra = 1_000u128;
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr, account_id } = builder::bare_instantiate(Code::Upload(code))
+			.constructor_data(
+				Terminate::constructorCall {
+					skip: true,
+					method: METHOD_PRECOMPILE,
+					beneficiary: DJANGO_ADDR.0.into(),
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_contract();
+
+		let _ = <Test as Config>::Currency::set_balance(&account_id, min_balance + extra);
+		// Pin ED *and* current reserved: polite `reducible_balance` subtracts
+		// reserved from frozen, so freezing only the ED is a no-op while holds
+		// remain. `PGasDeposit::destroy_contract` thaws the PGAS freeze itself,
+		// so the pin has to be a native Balances freeze.
+		let pin = Balances::reserved_balance(&account_id).saturating_add(min_balance);
+		let freeze_id = RuntimeFreezeReason::Contracts(FreezeReason::PGasMinBalance);
+		assert_ok!(Balances::set_freeze(&freeze_id, &account_id, pin));
+		assert_eq!(Balances::balance_frozen(&freeze_id, &account_id), pin);
+
+		let django_before = get_balance(&DJANGO);
+		let result = builder::bare_call(addr)
+			.data(
+				Terminate::terminateCall {
+					method: METHOD_PRECOMPILE,
+					beneficiary: DJANGO_ADDR.0.into(),
+				}
+				.abi_encode(),
+			)
+			.build_and_unwrap_result();
+
+		assert!(result.did_revert(), "terminate must revert when a freeze pins the ED");
+		assert_eq!(
+			decode_error(result.data.as_ref()),
+			"terminate pre-compile cannot burn the existential deposit: the contract's balance is locked",
+		);
+		assert_eq!(
+			get_balance(&DJANGO),
+			django_before,
+			"beneficiary must not keep the immediate transfer of a reverted terminate",
+		);
 	});
 }
