@@ -22,9 +22,9 @@
 
 extern crate alloc;
 
-use alloc::vec::Vec;
+use alloc::{format, string::String, vec::Vec};
 use codec::{Compact, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use core::ops::Deref;
+use core::{ops::Deref, str::FromStr};
 use scale_info::{build::Fields, Path, Type, TypeInfo};
 use sp_application_crypto::RuntimeAppPublic;
 #[cfg(feature = "std")]
@@ -105,6 +105,17 @@ impl Deref for Topic {
 
 	fn deref(&self) -> &Self::Target {
 		&self.0
+	}
+}
+
+impl FromStr for Topic {
+	type Err = String;
+
+	/// Parse a topic from exactly 64 hex digits (32 bytes), with an optional `0x` prefix.
+	fn from_str(input: &str) -> core::result::Result<Self, Self::Err> {
+		array_bytes::hex2array(input)
+			.map(Topic)
+			.map_err(|e| format!("invalid topic '{input}': {e:?}"))
 	}
 }
 
@@ -848,9 +859,28 @@ mod test {
 		hash_encoded, Field, Proof, SignatureVerificationResult, Statement, Topic, MAX_TOPICS,
 	};
 	use codec::{Decode, Encode, MaxEncodedLen};
+	use core::str::FromStr;
 	use scale_info::{MetaType, TypeInfo};
 	use sp_application_crypto::Pair;
 	use sp_core::sr25519;
+
+	#[test]
+	fn topic_from_str_accepts_either_case_with_optional_prefix() {
+		let expected = Topic([0xAB; 32]);
+		let lower = "ab".repeat(32);
+		let upper = "AB".repeat(32);
+		assert_eq!(Topic::from_str(&lower), Ok(expected));
+		assert_eq!(Topic::from_str(&upper), Ok(expected));
+		assert_eq!(Topic::from_str(&format!("0x{lower}")), Ok(expected));
+		assert_eq!(Topic::from_str(&format!("0x{upper}")), Ok(expected));
+	}
+
+	#[test]
+	fn topic_from_str_rejects_empty_wrong_length_and_bad_hex() {
+		assert!(Topic::from_str("").is_err());
+		assert!(Topic::from_str("0xdead").is_err());
+		assert!(Topic::from_str(&"zz".repeat(32)).is_err());
+	}
 
 	#[test]
 	fn statement_encoding_matches_vec() {
