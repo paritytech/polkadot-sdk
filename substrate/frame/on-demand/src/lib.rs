@@ -265,12 +265,12 @@ pub mod pallet {
 		) -> DispatchResult {
 			// Fail early if the batch is already full.
 			ensure!(
-				PendingBatch::<T>::decode_len().unwrap_or(0) >= MAX_BATCH_SIZE as usize,
+				PendingBatch::<T>::decode_len().unwrap_or(0) < MAX_BATCH_SIZE as usize,
 				Error::<T>::BatchFull
 			);
 			// Fail early if the account can't cover the declared max_amount.
 			ensure!(
-				T::Currency::reducible_balance(&who, Expendable, Polite) < max_amount,
+				T::Currency::reducible_balance(&who, Expendable, Polite) >= max_amount,
 				Error::<T>::InsufficientFunds
 			);
 
@@ -282,7 +282,7 @@ pub mod pallet {
 			// Assume the Relay chain has drained part of the queue since we last looked at it.
 			let elapsed = now.saturating_sub(queue_state.last_updated).saturated_into();
 			let pool_cores = T::PoolCapacityProvider::pool_cores();
-			ensure!(pool_cores == 0, Error::<T>::EmptyPool);
+			ensure!(pool_cores != 0, Error::<T>::EmptyPool);
 
 			let drained_orders = pricing_config
 				.drain_rate_per_block
