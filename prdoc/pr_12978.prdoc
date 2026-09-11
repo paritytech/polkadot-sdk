@@ -1,0 +1,23 @@
+title: 'Migrate `pallet-election-provider-multi-phase` from the deprecated `ValidateUnsigned` trait to `#[pallet::authorize]`'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-election-provider-multi-phase` no longer uses the deprecated `ValidateUnsigned` trait and
+    the `#[pallet::validate_unsigned]` attribute. The validation of `submit_unsigned` moved to a
+    `#[pallet::authorize]` callback.
+
+    The validation semantics do not change. The callback accepts only `TransactionSource::Local` and
+    `TransactionSource::InBlock`, it runs the same pre-dispatch checks, and it builds the same
+    transaction validity as before.
+
+    Two changes affect a runtime that includes this pallet. The `Config` supertrait changed from
+    `CreateBare<Call<Self>>` to `CreateAuthorizedTransaction<Call<Self>>`, and the runtime must put
+    `frame_system::AuthorizeCall` in its transaction extension pipeline. `submit_unsigned` now needs
+    an authorized origin.
+
+crates:
+- name: pallet-election-provider-multi-phase
+  bump: major
+- name: pallet-staking-async-rc-runtime
+  bump: major
