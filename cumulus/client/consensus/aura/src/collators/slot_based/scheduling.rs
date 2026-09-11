@@ -207,8 +207,6 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 				// arrival order. Like V2, wait for a current-slot block: its parent
 				// names the canonical scheduling parent. This costs a little slot time
 				// (normally milliseconds) but avoids forks at the scheduling parent.
-				// `production_slot` is the only time source; a second clock read can
-				// disagree by +/-1 at a slot boundary and pick a parent one block off.
 				if best_relay_slot < production_slot {
 					continue;
 				}
