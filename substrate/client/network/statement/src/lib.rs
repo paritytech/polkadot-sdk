@@ -1051,7 +1051,7 @@ fn fetch_statement_chunk(
 			if stmt.is_expired(now) {
 				return FilterDecision::Skip;
 			}
-			if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
+			if !peer_data.propagation_affinity_admits(stmt) {
 				return FilterDecision::Skip;
 			}
 			// The peer supplied this statement, do not send it back.
@@ -1113,6 +1113,15 @@ impl Peer {
 		!(self.is_light &&
 			self.protocol_version == PeerProtocolVersion::V2 &&
 			self.topic_affinity.is_none())
+	}
+
+	/// Whether the peer's topic affinity admits `statement` for propagation.
+	///
+	/// With the v2 DHT path on, the orchestrator's propagation plan has already chosen the peer,
+	/// so the filter is not applied.
+	fn propagation_affinity_admits(&self, statement: &Statement) -> bool {
+		v2dht_enabled() ||
+			self.topic_affinity.as_ref().is_none_or(|a| a.matches_statement(statement))
 	}
 
 	fn kind(&self) -> &'static str {
@@ -1938,8 +1947,7 @@ where
 			{
 				return None;
 			}
-			// For v2 peers with topic affinity, filter by topic match.
-			if peer.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
+			if !peer.propagation_affinity_admits(stmt) {
 				return None;
 			}
 			Some(*hash)
