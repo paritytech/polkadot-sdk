@@ -72,9 +72,10 @@
 //!
 //! Propagation queues hashes in a per-peer outbox and fetches, filters and encodes them only when
 //! the slot is free, so a slow peer holds one encoded chunk rather than its whole backlog. An
-//! outbox past `config::MAX_PROPAGATION_OUTBOX_LEN` drops its oldest hashes, since the freshest
-//! statements are the ones still worth delivering. Dropped hashes are counted in
-//! `undelivered_statements`.
+//! outbox past `config::MAX_PROPAGATION_OUTBOX_LEN` drops its oldest entries, since the freshest
+//! statements are the ones still worth delivering. Dropped entries are counted in
+//! `undelivered_statements`. A transient statement never reaches the store, so it travels through
+//! the outbox with its body.
 //!
 //! In-flight bytes of both kinds are held against the shared
 //! `config::MAX_SEND_IN_FLIGHT_BYTES` budget. A peer that finds the budget full, or whose store
@@ -88,7 +89,8 @@
 //! The `statement/2` protocol lets a peer advertise which topics it cares about as a bloom filter
 //! ("topic affinity"). Once a peer has an active affinity filter, only matching statements are
 //! forwarded to it; when its affinity changes, newly relevant statements are re-sent. Affinity
-//! advertisements are rate-limited. See the `affinity` module.
+//! advertisements are rate-limited. See the `affinity` module. On the v2 DHT path the
+//! propagation plan replaces the filter for propagation, while initial sync keeps applying it.
 //!
 //! Light-client peers on `statement/2` must advertise an affinity before receiving any statements:
 //! a light V2 peer pulls only the topics it cares about instead of the full feed, and is synced
@@ -755,9 +757,9 @@ pub struct StatementHandler<
 	/// Encoded bytes of initial-sync chunks in `pending_sends`, held against the shared
 	/// [`MAX_SEND_IN_FLIGHT_BYTES`] budget.
 	initial_sync_in_flight_bytes: u64,
-	/// Statement hashes queued for propagation to each peer, drained from the front as chunks
-	/// are fetched, whether the fetch yields a send or not.
-	propagation_outboxes: HashMap<PeerId, VecDeque<Hash>>,
+	/// Statements queued for propagation to each peer, drained from the front as chunks are
+	/// built, whether the chunk yields a send or not.
+	propagation_outboxes: HashMap<PeerId, VecDeque<OutboxEntry>>,
 	/// Id of the chunk in flight, per peer — the peer's single send slot, shared by
 	/// propagation and initial sync.
 	in_flight_chunks: HashMap<PeerId, u64>,
@@ -985,38 +987,96 @@ fn fetch_admitted_chunk(
 	Ok((batch, accumulated_size))
 }
 
-/// Fetch the next chunk of statements for a peer from `hashes`, filtering in the
-/// `statements_by_hashes` callback so non-matching statements are never materialized.
+/// An entry of a peer's propagation outbox.
+#[derive(Clone, Debug, PartialEq)]
+enum OutboxEntry {
+	/// A stored statement, fetched by hash when its chunk goes out.
+	Stored(Hash),
+	/// A stored statement the v2 DHT propagation plan assigned to the peer. The plan has chosen
+	/// the peer, so the peer's affinity filter does not apply, and an initial sync, which serves
+	/// the peer through that filter, cannot stand in for the entry.
+	Planned(Hash),
+	/// A transient statement the plan assigned to the peer. It never reaches the store, so the
+	/// body travels with the entry.
+	Transient(Hash, Arc<Statement>),
+}
+
+impl OutboxEntry {
+	fn hash(&self) -> &Hash {
+		match self {
+			Self::Stored(hash) | Self::Planned(hash) | Self::Transient(hash, _) => hash,
+		}
+	}
+
+	fn is_planned(&self) -> bool {
+		!matches!(self, Self::Stored(_))
+	}
+}
+
+/// Build the next chunk of statements for a peer from the run of same-kind entries at the front
+/// of `entries`, fetching stored statements through the `statements_by_hashes` callback so
+/// non-matching statements are never materialized.
+///
+/// Returns the chunk, the number of entries consumed and the accumulated encoded size.
 fn fetch_statement_chunk(
 	store: &dyn StatementStore,
 	recently_received_statements: &HashMap<Hash, HashSet<PeerId>>,
 	pending_statements_peers: &HashMap<Hash, HashSet<PeerId>>,
 	who: &PeerId,
 	peer_data: &Peer,
-	hashes: &[Hash],
+	entries: &[OutboxEntry],
 	max_size: usize,
 ) -> sp_statement_store::Result<(Vec<(Hash, Statement)>, usize, usize)> {
+	let Some(first) = entries.first() else {
+		return Ok((Vec::new(), 0, 0));
+	};
 	let now = unix_timestamp_secs();
 	let mut accumulated_size = 0;
-	let (statements, processed) =
-		store.statements_by_hashes(hashes, &mut |hash, encoded, stmt| {
-			if stmt.is_expired(now) {
-				return FilterDecision::Skip;
+	let mut admit = |hash: &Hash, encoded_size: usize, stmt: &Statement| {
+		if stmt.is_expired(now) {
+			return FilterDecision::Skip;
+		}
+		if !first.is_planned() &&
+			peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt))
+		{
+			return FilterDecision::Skip;
+		}
+		// The peer supplied this statement, do not send it back.
+		if has_received_from(recently_received_statements, pending_statements_peers, hash, who) {
+			return FilterDecision::Skip;
+		}
+		if accumulated_size > 0 && accumulated_size + encoded_size > max_size {
+			return FilterDecision::Abort;
+		}
+		accumulated_size += encoded_size;
+		FilterDecision::Take
+	};
+	let (statements, processed) = match first {
+		OutboxEntry::Transient(..) => {
+			let mut statements = Vec::new();
+			let mut processed = 0;
+			for entry in entries {
+				let OutboxEntry::Transient(hash, stmt) = entry else { break };
+				match admit(hash, stmt.encoded_size(), stmt) {
+					FilterDecision::Skip => {},
+					FilterDecision::Take => statements.push((*hash, Statement::clone(stmt))),
+					FilterDecision::Abort => break,
+				}
+				processed += 1;
 			}
-			if !peer_data.propagation_affinity_admits(stmt) {
-				return FilterDecision::Skip;
-			}
-			// The peer supplied this statement, do not send it back.
-			if has_received_from(recently_received_statements, pending_statements_peers, hash, who)
-			{
-				return FilterDecision::Skip;
-			}
-			if accumulated_size > 0 && accumulated_size + encoded.len() > max_size {
-				return FilterDecision::Abort;
-			}
-			accumulated_size += encoded.len();
-			FilterDecision::Take
-		})?;
+			(statements, processed)
+		},
+		OutboxEntry::Stored(_) | OutboxEntry::Planned(_) => {
+			let hashes: Vec<Hash> = entries
+				.iter()
+				.take_while(|entry| std::mem::discriminant(*entry) == std::mem::discriminant(first))
+				.map(|entry| *entry.hash())
+				.collect();
+			store.statements_by_hashes(&hashes, &mut |hash, encoded, stmt| {
+				admit(hash, encoded.len(), stmt)
+			})?
+		},
+	};
 	Ok((statements, processed, accumulated_size))
 }
 
@@ -1065,15 +1125,6 @@ impl Peer {
 		!(self.is_light &&
 			self.protocol_version == PeerProtocolVersion::V2 &&
 			self.topic_affinity.is_none())
-	}
-
-	/// Whether the peer's topic affinity admits `statement` for propagation.
-	///
-	/// With the v2 DHT path on, the orchestrator's propagation plan has already chosen the peer,
-	/// so the filter is not applied.
-	fn propagation_affinity_admits(&self, statement: &Statement) -> bool {
-		v2dht_enabled() ||
-			self.topic_affinity.as_ref().is_none_or(|a| a.matches_statement(statement))
 	}
 
 	fn kind(&self) -> &'static str {
@@ -1871,60 +1922,112 @@ where
 
 	/// Queue the given `statements` for propagation to the given `peer`.
 	///
-	/// Internally filters out statements the peer sent to us.
-	/// For v2 peers with a topic affinity filter, also filters by topic match, unless the v2 DHT
-	/// path's propagation plan chose the peer.
+	/// Internally filters out statements the peer sent to us and statements below the peer's
+	/// sync watermark. For v2 peers with a topic affinity filter, also filters by topic match.
 	/// Surviving hashes are appended to the peer's outbox.
-	fn queue_statements_for_peer<'a>(
-		&mut self,
-		who: &PeerId,
-		statements: impl IntoIterator<Item = &'a (u64, Hash, Statement)>,
-	) {
-		let Self {
-			peers,
-			propagation_outboxes,
-			recently_received_statements,
-			pending_statements_peers,
-			..
-		} = self;
-		let Some(peer) = peers.get(who) else {
+	fn queue_statements_for_peer(&mut self, who: &PeerId, statements: &[(u64, Hash, Statement)]) {
+		let Some(peer) = self.peers.get(who) else {
 			return;
 		};
 
-		// TODO(#11288): light peers may need different gating on the v2 DHT path. The
-		// orchestrator already chose the peer, so blocking it until it advertises a filter
-		// may be redundant there.
 		if !peer.can_receive() {
 			return;
 		}
 
-		let to_send = statements.into_iter().filter_map(|(seq, hash, stmt)| {
-			if *seq < peer.sync_watermark {
-				return None;
-			}
-			// The peer supplied this statement, do not send it back.
-			if has_received_from(recently_received_statements, pending_statements_peers, hash, who)
-			{
-				return None;
-			}
-			if !peer.propagation_affinity_admits(stmt) {
-				return None;
-			}
-			Some(*hash)
-		});
+		let to_send: Vec<_> = statements
+			.iter()
+			.filter_map(|(seq, hash, stmt)| {
+				if *seq < peer.sync_watermark {
+					return None;
+				}
+				// The peer supplied this statement, do not send it back.
+				if has_received_from(
+					&self.recently_received_statements,
+					&self.pending_statements_peers,
+					hash,
+					who,
+				) {
+					return None;
+				}
+				// For v2 peers with topic affinity, filter by topic match.
+				if peer.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
+					return None;
+				}
+				Some(OutboxEntry::Stored(*hash))
+			})
+			.collect();
 
-		let outbox = propagation_outboxes.entry(*who).or_default();
-		let mut queued = 0;
+		self.push_outbox_entries(who, to_send);
+	}
+
+	/// Queue the statements the orchestrator's propagation `plan` assigned to each peer.
+	///
+	/// The plan has chosen the peers, so neither the peer's affinity filter nor its sync
+	/// watermark applies: the initial sync serves a peer through its filter and never sees
+	/// transient statements, so it cannot stand in for a planned statement. Only statements the
+	/// peer sent to us are dropped.
+	fn queue_planned_statements(
+		&mut self,
+		statements: &[(u64, Hash, Statement)],
+		plan: Vec<(PeerId, Vec<usize>)>,
+	) {
+		// Transient statements live outside the admission journal and carry `u64::MAX` as their
+		// sequence number, see `StatementStore::take_recent_statements`. One body is shared by
+		// every peer the plan names.
+		let bodies: Vec<Option<Arc<Statement>>> = statements
+			.iter()
+			.map(|(seq, _, stmt)| (*seq == u64::MAX).then(|| Arc::new(stmt.clone())))
+			.collect();
+
+		for (who, indices) in plan {
+			let Some(peer) = self.peers.get(&who) else {
+				continue;
+			};
+
+			// TODO(#11288): light peers may need different gating on the v2 DHT path. The
+			// orchestrator already chose the peer, so blocking it until it advertises a filter
+			// may be redundant here.
+			if !peer.can_receive() {
+				continue;
+			}
+
+			let to_send: Vec<_> = indices
+				.iter()
+				.filter_map(|&index| {
+					let (_, hash, _) = &statements[index];
+					// The peer supplied this statement, do not send it back.
+					if has_received_from(
+						&self.recently_received_statements,
+						&self.pending_statements_peers,
+						hash,
+						&who,
+					) {
+						return None;
+					}
+					Some(match &bodies[index] {
+						Some(body) => OutboxEntry::Transient(*hash, body.clone()),
+						None => OutboxEntry::Planned(*hash),
+					})
+				})
+				.collect();
+
+			self.push_outbox_entries(&who, to_send);
+		}
+	}
+
+	/// Append `entries` to the peer's outbox and send the next chunk if its slot is free.
+	fn push_outbox_entries(&mut self, who: &PeerId, entries: Vec<OutboxEntry>) {
+		let outbox = self.propagation_outboxes.entry(*who).or_default();
+		let queued = entries.len();
 		let mut overflow = 0;
-		for hash in to_send {
+		for entry in entries {
 			// The freshest statements are the ones still worth delivering, so an
 			// overflowing outbox drops from the front.
 			if outbox.len() == MAX_PROPAGATION_OUTBOX_LEN {
 				outbox.pop_front();
 				overflow += 1;
 			}
-			outbox.push_back(hash);
-			queued += 1;
+			outbox.push_back(entry);
 		}
 
 		log::trace!(target: LOG_TARGET, "We have {queued} statements that the peer doesn't know about");
@@ -2061,17 +2164,6 @@ where
 				}
 			}));
 			return;
-		}
-	}
-
-	/// Queue the statements the orchestrator's propagation `plan` assigned to each peer.
-	fn queue_planned_statements(
-		&mut self,
-		statements: &[(u64, Hash, Statement)],
-		plan: Vec<(PeerId, Vec<usize>)>,
-	) {
-		for (who, indices) in plan {
-			self.queue_statements_for_peer(&who, indices.iter().map(|&index| &statements[index]));
 		}
 	}
 
@@ -2254,10 +2346,15 @@ where
 			if let Some(peer_data) = self.peers.get_mut(&peer) {
 				peer_data.sync_watermark = peer_data.sync_watermark.max(watermark);
 			}
-			// Hashes queued for propagation before this scheduling sit below the new
-			// watermark, so the cursor already covers them; dropping the outbox keeps
-			// them from arriving twice.
-			self.propagation_outboxes.remove(&peer);
+			// Stored hashes queued for propagation before this scheduling sit below the new
+			// watermark, so the cursor already covers them; dropping them keeps them from
+			// arriving twice. Planned entries stay, since the sync cannot stand in for them.
+			if let Some(outbox) = self.propagation_outboxes.get_mut(&peer) {
+				outbox.retain(OutboxEntry::is_planned);
+				if outbox.is_empty() {
+					self.propagation_outboxes.remove(&peer);
+				}
+			}
 			self.pending_initial_syncs.insert(
 				peer,
 				PendingInitialSync { cursor: 0, watermark, started_at: Instant::now(), sync_id },
@@ -3466,9 +3563,10 @@ mod tests {
 		let pruned_hash = pruned.hash();
 
 		// The pruned statement's hash is queued but the statement left the store.
-		handler
-			.propagation_outboxes
-			.insert(peer_id, VecDeque::from(vec![pruned_hash, kept_hash]));
+		handler.propagation_outboxes.insert(
+			peer_id,
+			VecDeque::from(vec![OutboxEntry::Stored(pruned_hash), OutboxEntry::Stored(kept_hash)]),
+		);
 		handler.try_send_next_chunk(peer_id);
 		handler.flush_pending_sends().await;
 
@@ -3490,7 +3588,9 @@ mod tests {
 		statement.set_plain_data(b"statement".to_vec());
 		let hash = statement.hash();
 		statement_store.statements.lock().unwrap().insert(hash, statement);
-		handler.propagation_outboxes.insert(peer_id, VecDeque::from(vec![hash]));
+		handler
+			.propagation_outboxes
+			.insert(peer_id, VecDeque::from(vec![OutboxEntry::Stored(hash)]));
 
 		statement_store.fail_fetches.store(true, Ordering::Relaxed);
 		handler.try_send_next_chunk(peer_id);
@@ -3532,9 +3632,13 @@ mod tests {
 
 		// The oversized statement heads the outbox. It must be consumed, not
 		// re-fetched forever, and the statement behind it must still go out.
-		handler
-			.propagation_outboxes
-			.insert(peer_id, VecDeque::from(vec![oversized_hash, small_hash]));
+		handler.propagation_outboxes.insert(
+			peer_id,
+			VecDeque::from(vec![
+				OutboxEntry::Stored(oversized_hash),
+				OutboxEntry::Stored(small_hash),
+			]),
+		);
 		handler.try_send_next_chunk(peer_id);
 		handler.flush_pending_sends().await;
 
@@ -3592,9 +3696,10 @@ mod tests {
 		let second_hash = second.hash();
 		statement_store.insert(first);
 		statement_store.insert(second);
-		handler
-			.propagation_outboxes
-			.insert(peer_id, VecDeque::from(vec![first_hash, second_hash]));
+		handler.propagation_outboxes.insert(
+			peer_id,
+			VecDeque::from(vec![OutboxEntry::Stored(first_hash), OutboxEntry::Stored(second_hash)]),
+		);
 
 		// Only the first chunk's send fails.
 		notification_service.fail_sends();
@@ -3636,16 +3741,20 @@ mod tests {
 			})
 			.collect();
 		handler.in_flight_chunks.insert(peer_id, 0);
-		handler
-			.propagation_outboxes
-			.insert(peer_id, VecDeque::from(vec![old_hash; MAX_PROPAGATION_OUTBOX_LEN]));
+		handler.propagation_outboxes.insert(
+			peer_id,
+			VecDeque::from(vec![OutboxEntry::Stored(old_hash); MAX_PROPAGATION_OUTBOX_LEN]),
+		);
 
 		handler.propagate_statements().await;
 
 		let outbox = handler.propagation_outboxes.get(&peer_id).unwrap();
 		assert_eq!(outbox.len(), MAX_PROPAGATION_OUTBOX_LEN);
-		let tail: HashSet<_> =
-			outbox.iter().skip(MAX_PROPAGATION_OUTBOX_LEN - 3).copied().collect();
+		let tail: HashSet<_> = outbox
+			.iter()
+			.skip(MAX_PROPAGATION_OUTBOX_LEN - 3)
+			.map(|entry| *entry.hash())
+			.collect();
 		assert_eq!(tail, fresh_hashes, "the freshest hashes must survive the overflow");
 
 		let metrics = handler.metrics.as_ref().unwrap();
@@ -3678,7 +3787,9 @@ mod tests {
 		// The hash was appended while the peer's slot was busy, and the peer sent
 		// us the statement before the slot freed: the encode-time senders check
 		// must catch what the append-time check could not have seen.
-		handler.propagation_outboxes.insert(peer_id, VecDeque::from(vec![hash]));
+		handler
+			.propagation_outboxes
+			.insert(peer_id, VecDeque::from(vec![OutboxEntry::Stored(hash)]));
 		handler.recently_received_statements.insert(hash, HashSet::from_iter([peer_id]));
 
 		handler.try_send_next_chunk(peer_id);
@@ -3811,6 +3922,58 @@ mod tests {
 			get_peer_hashes(&notification_service.get_sent_notifications(), peer_id),
 			vec![statements[0].1]
 		);
+	}
+
+	#[tokio::test]
+	async fn planned_statements_bypass_the_affinity_filter_and_the_sync_watermark() {
+		let (mut handler, statement_store, _network, notification_service, _, _) = build_handler(0);
+
+		let mut statement = new_live_statement();
+		statement.set_plain_data(b"planned".to_vec());
+		statement.set_topic(0, Topic([7u8; 32]));
+		let hash = statement.hash();
+		statement_store.insert(statement.clone());
+		let statements = vec![(0, hash, statement)];
+
+		// The peer's filter matches no topic and its watermark sits above the statement; the
+		// plan chose the peer regardless, and the initial sync would skip the statement.
+		let peer_id = PeerId::random();
+		let mut peer = Peer::new_for_testing(
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).expect("nonzero"),
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT)
+				.expect("nonzero"),
+		);
+		peer.topic_affinity = Some(AffinityFilter::new(BLOOM_SEED, 0.01, 10));
+		peer.sync_watermark = 10;
+		handler.peers.insert(peer_id, peer);
+
+		handler.queue_planned_statements(&statements, vec![(peer_id, vec![0])]);
+		handler.flush_pending_sends().await;
+		assert_eq!(
+			get_peer_hashes(&notification_service.get_sent_notifications(), peer_id),
+			vec![hash]
+		);
+	}
+
+	#[tokio::test]
+	async fn planned_transient_statement_travels_with_its_body() {
+		let (mut handler, _statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		// The statement is in no store: the body must come from the outbox entry.
+		let mut statement = new_live_statement();
+		statement.set_plain_data(b"transient".to_vec());
+		let hash = statement.hash();
+		let statements = vec![(u64::MAX, hash, statement)];
+
+		handler.queue_planned_statements(&statements, vec![(peer_id, vec![0])]);
+		handler.flush_pending_sends().await;
+		assert_eq!(
+			get_peer_hashes(&notification_service.get_sent_notifications(), peer_id),
+			vec![hash]
+		);
+		assert!(!handler.propagation_outboxes.contains_key(&peer_id));
 	}
 
 	#[tokio::test]
@@ -4202,6 +4365,42 @@ mod tests {
 	}
 
 	#[tokio::test]
+	async fn rescheduling_a_sync_keeps_the_planned_outbox_entries() {
+		let (mut handler, statement_store, _network, _notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		let mut stored = new_live_statement();
+		stored.set_plain_data(b"stored".to_vec());
+		let stored_hash = stored.hash();
+		statement_store.insert(stored);
+		let mut planned = new_live_statement();
+		planned.set_plain_data(b"planned".to_vec());
+		let planned_hash = planned.hash();
+		statement_store.insert(planned);
+		let mut transient = new_live_statement();
+		transient.set_plain_data(b"transient".to_vec());
+		let transient_entry = OutboxEntry::Transient(transient.hash(), Arc::new(transient));
+		handler.in_flight_chunks.insert(peer_id, 0);
+		handler.propagation_outboxes.insert(
+			peer_id,
+			VecDeque::from(vec![
+				OutboxEntry::Stored(stored_hash),
+				OutboxEntry::Planned(planned_hash),
+				transient_entry.clone(),
+			]),
+		);
+
+		handler.schedule_initial_sync_for_peer(peer_id);
+
+		assert_eq!(
+			handler.propagation_outboxes.get(&peer_id).unwrap(),
+			&VecDeque::from(vec![OutboxEntry::Planned(planned_hash), transient_entry]),
+			"the sync covers only the stored hash"
+		);
+	}
+
+	#[tokio::test]
 	async fn rescheduling_a_sync_drops_the_propagation_outbox() {
 		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
 			build_handler(1);
@@ -4211,7 +4410,9 @@ mod tests {
 		statement.set_plain_data(b"queued before re-sync".to_vec());
 		let hash = statement.hash();
 		statement_store.insert(statement);
-		handler.propagation_outboxes.insert(peer_id, VecDeque::from(vec![hash]));
+		handler
+			.propagation_outboxes
+			.insert(peer_id, VecDeque::from(vec![OutboxEntry::Stored(hash)]));
 
 		handler.schedule_initial_sync_for_peer(peer_id);
 
@@ -4568,7 +4769,7 @@ mod tests {
 		assert!(handler.pending_sends.is_empty(), "no chunk may be queued over the budget");
 		assert_eq!(
 			handler.propagation_outboxes.get(&peer_id).unwrap(),
-			&VecDeque::from(vec![hash])
+			&VecDeque::from(vec![OutboxEntry::Stored(hash)])
 		);
 		assert_eq!(handler.parked_propagations, VecDeque::from([peer_id]));
 
@@ -4647,7 +4848,7 @@ mod tests {
 		handler.propagation_in_flight_bytes = MAX_SEND_IN_FLIGHT_BYTES;
 		handler
 			.propagation_outboxes
-			.insert(propagation_peer, VecDeque::from(vec![hash]));
+			.insert(propagation_peer, VecDeque::from(vec![OutboxEntry::Stored(hash)]));
 		handler.parked_propagations.push_back(propagation_peer);
 
 		// A completed send frees exactly the reserve: the parked peer must stay parked,
@@ -7092,7 +7293,7 @@ mod tests {
 			&pending,
 			&who,
 			&peer,
-			&[stale_hash, live_hash],
+			&[OutboxEntry::Stored(stale_hash), OutboxEntry::Stored(live_hash)],
 			max_size,
 		)
 		.expect("the test store never fails a fetch");
