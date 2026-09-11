@@ -60,8 +60,11 @@ pub struct ExecutionTracer {
 	/// Current call depth.
 	depth: u16,
 
-	/// Whether any step has been dropped, after which `steps` no longer tracks execution.
-	steps_dropped: bool,
+	/// Number of steps entered so far, whether or not they were captured.
+	steps_seen: u64,
+
+	/// Whether the most recently entered step was captured, and so is the last of `steps`.
+	last_step_captured: bool,
 
 	/// Total gas used by the transaction.
 	total_gas_used: u64,
@@ -90,7 +93,8 @@ impl ExecutionTracer {
 			steps: Vec::new(),
 			pending: Vec::new(),
 			depth: 0,
-			steps_dropped: false,
+			steps_seen: 0,
+			last_step_captured: false,
 			total_gas_used: 0,
 			base_call_weight: Default::default(),
 			weight_consumed: Default::default(),
@@ -114,9 +118,13 @@ impl ExecutionTracer {
 		ExecutionTrace { gas, weight_consumed, base_call_weight, failed, return_value, struct_logs }
 	}
 
-	/// Whether [`ExecutionTracerConfig::limit`] has been reached, so further steps are dropped.
-	fn is_truncated(&self) -> bool {
-		self.config.limit.is_some_and(|limit| self.steps.len() as u64 >= limit)
+	/// Whether the step about to be entered falls inside the configured window
+	/// (step_offset..step_offset + limit).
+	fn is_in_window(&self) -> bool {
+		let start = self.config.step_offset;
+		let end = self.config.limit.map(|limit| start.saturating_add(limit));
+
+		self.steps_seen >= start && end.is_none_or(|end| self.steps_seen < end)
 	}
 
 	/// Index of the step currently executing, or `None` when it was dropped by the limit.
@@ -124,19 +132,21 @@ impl ExecutionTracer {
 		self.pending.last()?.step_index
 	}
 
-	/// Open a pending entry for a starting step, capturing it unless the limit was reached.
+	/// Open a pending entry for a starting step, capturing it unless it falls outside the window.
 	///
 	/// A dropped step still occupies an entry: [`Tracing`] guarantees an `exit_step` either way,
 	/// and that exit pops one.
 	fn push_step(&mut self, build: impl FnOnce(&ExecutionTracerConfig, u16) -> ExecutionStep) {
-		let step_index = if self.is_truncated() {
-			None
-		} else {
+		let step_index = if self.is_in_window() {
 			let step = build(&self.config, self.depth);
 			self.steps.push(step);
 			Some(self.steps.len() - 1)
+		} else {
+			None
 		};
-		self.steps_dropped |= step_index.is_none();
+
+		self.steps_seen = self.steps_seen.saturating_add(1);
+		self.last_step_captured = step_index.is_some();
 
 		self.pending
 			.push(PendingStep { step_index, child_gas: 0, child_weight: Weight::zero() });
@@ -154,16 +164,12 @@ impl ExecutionTracer {
 		self.total_gas_used = gas_used;
 	}
 
-	/// The step a storage snapshot belongs to, or `None` when the access can be ignored.
-	fn storage_snapshot_target(&self) -> Option<usize> {
-		if self.config.disable_storage {
-			return None;
-		}
-
-		self.current_step_index()
-	}
-
-	fn snapshot_storage_into(&mut self, step_index: usize) {
+	/// Attach the frame's storage to the step currently executing.
+	///
+	/// A dropped step has nothing to attach to, but the access has already been recorded against
+	/// the frame, so a later step in the window still sees it.
+	fn snapshot_storage_into_current_step(&mut self) {
+		let Some(step_index) = self.current_step_index() else { return };
 		let Some(storage) = self.storages_per_call.last() else { return };
 
 		if let Some(step) = self.steps.get_mut(step_index) {
@@ -173,15 +179,16 @@ impl ExecutionTracer {
 		}
 	}
 
-	/// Record an error against the step that failed.
+	/// Record an error against the step that failed, which is the one entered most recently.
+	///
+	/// A dropped step takes no annotation and nothing stands in for it: marking the call that
+	/// contains it would tie the annotation to where a window was cut.
 	fn record_error(&mut self, error: String) {
-		let target = if self.steps_dropped {
-			self.current_step_index()
-		} else {
-			self.steps.len().checked_sub(1)
-		};
+		if !self.last_step_captured {
+			return;
+		}
 
-		if let Some(step) = target.and_then(|index| self.steps.get_mut(index)) {
+		if let Some(step) = self.steps.last_mut() {
 			step.error = Some(error);
 		}
 	}
@@ -350,7 +357,9 @@ impl Tracing for ExecutionTracer {
 	}
 
 	fn storage_write(&mut self, key: &Key, _old_value: Option<Vec<u8>>, new_value: Option<&[u8]>) {
-		let Some(step_index) = self.storage_snapshot_target() else { return };
+		if self.config.disable_storage {
+			return;
+		}
 
 		if let Some(storage) = self.storages_per_call.last_mut() {
 			let key_bytes = crate::evm::Bytes(key.unhashed().to_vec());
@@ -360,11 +369,13 @@ impl Tracing for ExecutionTracer {
 			storage.insert(key_bytes, value_bytes);
 		}
 
-		self.snapshot_storage_into(step_index);
+		self.snapshot_storage_into_current_step();
 	}
 
 	fn storage_read(&mut self, key: &Key, value: Option<&[u8]>) {
-		let Some(step_index) = self.storage_snapshot_target() else { return };
+		if self.config.disable_storage {
+			return;
+		}
 
 		if let Some(storage) = self.storages_per_call.last_mut() {
 			let key_bytes = crate::evm::Bytes(key.unhashed().to_vec());
@@ -373,7 +384,7 @@ impl Tracing for ExecutionTracer {
 			});
 		}
 
-		self.snapshot_storage_into(step_index);
+		self.snapshot_storage_into_current_step();
 	}
 }
 
@@ -519,44 +530,53 @@ mod tests {
 		);
 	}
 
-	/// A captured call keeps its error annotation whether or not the callee ran a step before
-	/// failing, which the caller cannot observe.
-	#[test]
-	fn a_captured_call_keeps_its_error_annotation() {
-		for callee_steps in 0..2u64 {
-			let config = ExecutionTracerConfig { limit: Some(1), ..Default::default() };
-			let mut tracer = ExecutionTracer::new(config);
-			let frame = Frame::new(1_000);
+	/// Replays a CALL, captured as step 0 under a limit of one, whose callee runs `callee_steps`
+	/// steps past that limit and then reverts.
+	fn traced_truncated_callee(callee_steps: u64) -> ExecutionTrace {
+		let config = ExecutionTracerConfig { limit: Some(1), ..Default::default() };
+		let mut tracer = ExecutionTracer::new(config);
+		let frame = Frame::new(1_000);
 
-			enter_frame(&mut tracer);
+		enter_frame(&mut tracer);
 
-			// The CALL is step 0, so it is captured and is what reaches the limit.
-			tracer.enter_opcode(0, CALL, &frame);
-			enter_frame(&mut tracer);
+		tracer.enter_opcode(0, CALL, &frame);
+		enter_frame(&mut tracer);
 
-			for pc in 0..callee_steps {
-				tracer.enter_opcode(pc, PUSH1, &frame);
-				frame.burn(5);
-				tracer.exit_step(&frame, None);
-			}
-
+		for pc in 0..callee_steps {
+			tracer.enter_opcode(pc, PUSH1, &frame);
 			frame.burn(5);
-			tracer.exit_child_span(&reverted(), 5, Weight::from_parts(5, 5));
 			tracer.exit_step(&frame, None);
-			exit_frame(&mut tracer, 20);
-
-			let trace = tracer.collect_trace();
-			assert_eq!(trace.struct_logs.len(), 1);
-			assert_eq!(
-				trace.struct_logs[0].error.as_deref(),
-				Some("execution reverted"),
-				"{callee_steps} callee steps: the CALL is captured and is what failed",
-			);
-			assert!(
-				!trace.failed,
-				"{callee_steps} callee steps: the reverting frame is not the outermost one",
-			);
 		}
+
+		frame.burn(5);
+		tracer.exit_child_span(&reverted(), 5, Weight::from_parts(5, 5));
+		tracer.exit_step(&frame, None);
+		exit_frame(&mut tracer, 20);
+
+		tracer.collect_trace()
+	}
+
+	/// With no callee step to enter, the CALL is itself the last step entered, so it is what
+	/// failed.
+	#[test]
+	fn a_call_whose_callee_ran_no_steps_takes_the_annotation() {
+		let trace = traced_truncated_callee(0);
+
+		assert_eq!(trace.struct_logs.len(), 1);
+		assert_eq!(trace.struct_logs[0].error.as_deref(), Some("execution reverted"));
+		assert!(!trace.failed, "the reverting frame is not the outermost one");
+	}
+
+	/// Once the callee runs a step, that step is what failed and the limit dropped it. The CALL is
+	/// deliberately left unannotated: an annotation that exists only because a step was dropped
+	/// would move with the cut.
+	#[test]
+	fn a_truncated_callee_leaves_the_call_unannotated() {
+		let trace = traced_truncated_callee(1);
+
+		assert_eq!(trace.struct_logs.len(), 1);
+		assert_eq!(trace.struct_logs[0].error, None, "the CALL is not what failed");
+		assert!(!trace.failed, "the reverting frame is not the outermost one");
 	}
 
 	/// A step's cost is a window on the meters, exclusive of the child frames it contains, so
@@ -626,5 +646,84 @@ mod tests {
 
 		assert_eq!(trace.gas, 60);
 		assert_eq!(trace.weight_consumed, Weight::from_parts(60, 60));
+	}
+
+	/// Replays one fixed execution against a fresh tracer with the given window.
+	fn traced_window(step_offset: u64, limit: Option<u64>) -> ExecutionTrace {
+		let config = ExecutionTracerConfig { step_offset, limit, ..Default::default() };
+		let mut tracer = ExecutionTracer::new(config);
+		let frame = Frame::new(10_000);
+
+		enter_frame(&mut tracer);
+
+		// Step 0, costing 10.
+		tracer.enter_opcode(0, PUSH1, &frame);
+		frame.burn(10);
+		tracer.exit_step(&frame, None);
+
+		// Steps 1 and 2 write to the same frame either side of a window boundary, so step 2's
+		// snapshot holds both slots only if the dropped write was still recorded.
+		tracer.enter_opcode(1, SSTORE, &frame);
+		tracer.storage_write(&Key::from_fixed([1; 32]), None, Some(&[1]));
+		frame.burn(10);
+		tracer.exit_step(&frame, None);
+
+		tracer.enter_opcode(2, SSTORE, &frame);
+		tracer.storage_write(&Key::from_fixed([2; 32]), None, Some(&[2]));
+		frame.burn(10);
+		tracer.exit_step(&frame, None);
+
+		// Step 3: a CALL entered with 9_970 left, holding step 4.
+		tracer.enter_opcode(3, CALL, &frame);
+		enter_frame(&mut tracer);
+
+		tracer.enter_opcode(4, PUSH1, &frame);
+		frame.burn(7);
+		tracer.exit_step(&frame, None);
+
+		frame.burn(4);
+		tracer.exit_child_span(&reverted(), 7, Weight::from_parts(7, 7));
+		tracer.exit_step(&frame, None);
+
+		// Step 5, costing 9.
+		tracer.enter_opcode(5, PUSH1, &frame);
+		frame.burn(9);
+		tracer.exit_step(&frame, None);
+
+		exit_frame(&mut tracer, 40);
+
+		tracer.collect_trace()
+	}
+
+	#[test]
+	fn caller_can_walk_a_trace_without_knowing_its_length() {
+		let full = traced_window(0, None).struct_logs;
+		assert_eq!(full.len(), 6, "the script enters six steps");
+
+		// Sweep the size so nothing can hold only for the boundaries one size falls on.
+		for window in 1..=full.len() as u64 + 1 {
+			let mut walked = Vec::new();
+			for offset in (0u64..).step_by(window as usize).take(10) {
+				let captured = traced_window(offset, Some(window)).struct_logs;
+				let is_last = (captured.len() as u64) < window;
+
+				walked.extend(captured);
+
+				if is_last {
+					break;
+				}
+			}
+
+			assert_eq!(
+				walked, full,
+				"windows of {window} step(s) hold the same steps, in the same order, with the same \
+				 costs, storage and errors",
+			);
+		}
+
+		assert!(
+			traced_window(full.len() as u64, Some(2)).struct_logs.is_empty(),
+			"a window starting past the last step captures nothing, so overshooting is harmless",
+		);
 	}
 }
