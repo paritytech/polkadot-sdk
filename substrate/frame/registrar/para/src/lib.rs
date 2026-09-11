@@ -560,8 +560,8 @@ pub mod pallet {
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::remove_lock())]
 		pub fn remove_lock(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
-			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
 			Self::ensure_root_or_para(origin, para_id)?;
+			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
 			ensure!(info.is_locked(), Error::<T>::NotLocked);
 
 			info.locked = Some(false);
