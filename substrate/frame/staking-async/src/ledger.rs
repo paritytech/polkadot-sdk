@@ -393,25 +393,27 @@ impl<T: Config> StakingLedger<T> {
 
 	/// Clears all data related to a staking ledger and its bond in both [`Ledger`] and [`Bonded`]
 	/// storage items and updates the stash staking lock.
+	///
+	/// The ledger is fetched through [`Self::get`] so that a bond in bad state is rejected with
+	/// [`Error::BadState`] instead of wiping the ledger of another stash. See
+	/// <https://github.com/paritytech/polkadot-sdk/issues/3245> for more details.
 	pub(crate) fn kill(stash: &T::AccountId) -> DispatchResult {
-		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
+		let ledger = Self::get(StakingAccount::Stash(stash.clone()))?;
+		let controller = ledger.controller().ok_or(Error::<T>::NotController)?;
 
 		Self::checked_mutate_ledger(stash, BondExpectation::Killed, || {
-			<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
-				Ledger::<T>::remove(&controller);
-				<Bonded<T>>::remove(&stash);
-				<Payee<T>>::remove(&stash);
+			Ledger::<T>::remove(&controller);
+			<Bonded<T>>::remove(stash);
+			<Payee<T>>::remove(stash);
 
-				// kill virtual staker if it exists.
-				if <VirtualStakers<T>>::take(&ledger.stash).is_none() {
-					// if not virtual staker, clear locks.
-					asset::kill_stake::<T>(&ledger.stash)?;
-				}
-				Pallet::<T>::deposit_event(crate::Event::<T>::StakerRemoved {
-					stash: ledger.stash.clone(),
-				});
-				Ok(())
-			})?
+			// kill virtual staker if it exists.
+			if <VirtualStakers<T>>::take(stash).is_none() {
+				// if not virtual staker, clear locks.
+				asset::kill_stake::<T>(stash)?;
+			}
+			Pallet::<T>::deposit_event(crate::Event::<T>::StakerRemoved { stash: stash.clone() });
+
+			Ok(())
 		})
 	}
 

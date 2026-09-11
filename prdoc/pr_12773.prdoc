@@ -11,6 +11,11 @@ doc:
     This is a defensive guard to prevent the class of state-corruption bugs described in
     issue #3245.
 
+    Additionally, `StakingLedger::kill` now fetches the ledger through `StakingLedger::get`
+    instead of reading `Bonded` and `Ledger` directly. Killing a bond in bad state, where the
+    controller of the stash bonds a ledger belonging to another stash, is now rejected with
+    `Error::BadState` rather than wiping the other stash's ledger.
+
 crates:
 - name: pallet-staking-async
   bump: patch
