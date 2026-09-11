@@ -245,3 +245,65 @@ fn a_channel_with_a_system_chain_takes_no_deposit() {
 		assert!(pallet_hrmp_para::Channels::<para::Runtime>::get(CHANNEL).is_none());
 	});
 }
+
+#[test]
+fn a_para_closes_a_channel_through_the_channel_managing_parachain() {
+	MockNet::reset();
+
+	let channel_id = polkadot_primitives::HrmpChannelId {
+		sender: CHANNEL.sender.into(),
+		recipient: CHANNEL.recipient.into(),
+	};
+
+	Relay::execute_with(|| {
+		ask(
+			SENDER,
+			ParaRequestV1::InitOpenChannel {
+				recipient: RECIPIENT,
+				proposed_max_capacity: CAPACITY,
+				proposed_max_message_size: MESSAGE_SIZE,
+			},
+		);
+		ask(RECIPIENT, ParaRequestV1::AcceptOpenChannel { sender: SENDER });
+	});
+
+	HrmpPara::execute_with(|| {
+		assert!(pallet_hrmp_para::Channels::<para::Runtime>::get(CHANNEL).is_some());
+	});
+
+	// One end asks, and the whole round trip settles before this closure returns.
+	Relay::execute_with(|| {
+		ask(SENDER, ParaRequestV1::CloseChannel { channel: CHANNEL });
+	});
+
+	Relay::execute_with(|| {
+		assert!(parachains_hrmp::HrmpChannels::<relay::Runtime>::get(&channel_id).is_none());
+		assert!(parachains_hrmp::HrmpEgressChannelsIndex::<relay::Runtime>::get(
+			&polkadot_primitives::Id::from(SENDER)
+		)
+		.is_empty());
+		assert!(parachains_hrmp::HrmpIngressChannelsIndex::<relay::Runtime>::get(
+			&polkadot_primitives::Id::from(RECIPIENT)
+		)
+		.is_empty());
+
+		// Only the other end is told, as the instruction the relay chain has always used.
+		assert_eq!(
+			downward_messages(RECIPIENT).last(),
+			Some(&xcm::opaque::VersionedXcm::from(xcm::opaque::latest::Xcm(vec![
+				xcm::opaque::latest::prelude::HrmpChannelClosing {
+					initiator: SENDER,
+					sender: SENDER,
+					recipient: RECIPIENT,
+				}
+			])))
+		);
+	});
+
+	HrmpPara::execute_with(|| {
+		assert!(pallet_hrmp_para::Channels::<para::Runtime>::get(CHANNEL).is_none());
+		assert!(pallet_hrmp_para::CloseRequests::<para::Runtime>::get(CHANNEL).is_none());
+		assert!(pallet_hrmp_para::EgressIndex::<para::Runtime>::get(CHANNEL.sender).is_empty());
+		assert!(pallet_hrmp_para::IngressIndex::<para::Runtime>::get(CHANNEL.recipient).is_empty());
+	});
+}
