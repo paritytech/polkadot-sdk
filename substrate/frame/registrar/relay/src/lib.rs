@@ -176,7 +176,7 @@ pub mod pallet {
 
 	/// Paras whose first head this pallet has already reported, by para id.
 	#[pallet::storage]
-	pub type ParasFirstHeadProduced<T: Config> = StorageMap<_, Blake2_128Concat, ParaId, ()>;
+	pub type AwaitingFirstHead<T: Config> = StorageMap<_, Blake2_128Concat, ParaId, ()>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -352,6 +352,8 @@ pub mod pallet {
 				PendingRegistration { message_id, manager, genesis_head, code_hash, code_len },
 			);
 
+			AwaitingFirstHead::<T>::insert(para_id, ());
+
 			Self::deposit_event(Event::RegistrationPending { para_id, message_id, code_hash });
 		}
 
@@ -453,7 +455,7 @@ pub mod pallet {
 impl<T: Config> OnNewHead for Pallet<T> {
 	fn on_new_head(id: Id, _head: &HeadData) -> Weight {
 		let para_id: ParaId = id.into();
-		if ParasFirstHeadProduced::<T>::contains_key(para_id) {
+		if !AwaitingFirstHead::<T>::contains_key(para_id) {
 			return T::WeightInfo::on_new_head_already_noted();
 		}
 
@@ -464,7 +466,7 @@ impl<T: Config> OnNewHead for Pallet<T> {
 			);
 			Self::deposit_event(Event::HeadNoteFailed { para_id });
 		} else {
-			ParasFirstHeadProduced::<T>::insert(para_id, ());
+			AwaitingFirstHead::<T>::remove(para_id);
 			Self::deposit_event(Event::HeadNoted { para_id });
 		}
 
