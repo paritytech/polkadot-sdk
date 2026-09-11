@@ -773,7 +773,8 @@ pub mod pallet {
 				bounty.status = BountyStatus::PendingPayout {
 					curator: signer,
 					beneficiary: beneficiary.clone(),
-					unlock_at: Self::treasury_block_number() + T::BountyDepositPayoutDelay::get(),
+					unlock_at: Self::treasury_block_number()
+						.saturating_add(T::BountyDepositPayoutDelay::get()),
 				};
 
 				Ok(())

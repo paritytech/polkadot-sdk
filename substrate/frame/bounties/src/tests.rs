@@ -2296,3 +2296,31 @@ fn reclaim_bounty_funds_respects_native_locks() {
 		assert_eq!(res.unwrap().pays_fee, Pays::No);
 	});
 }
+
+#[test]
+fn award_bounty_saturates_unlock_at_at_block_limit() {
+	ExtBuilder::default().build_and_execute(|| {
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::make_free_balance_be(&4, 10);
+		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
+
+		go_to_block(2);
+		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, 4));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(4), 0));
+
+		// When treasury block is within BountyDepositPayoutDelay (3) of u64::MAX
+		go_to_block(u64::MAX - 2);
+
+		// Then: saturates to max instead of overflowing
+		assert_ok!(Bounties::award_bounty(RuntimeOrigin::signed(4), 0, 3));
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(0).unwrap().status,
+			BountyStatus::PendingPayout {
+				curator: 4,
+				beneficiary: 3,
+				unlock_at: BlockNumberFor::<Test>::max_value(),
+			}
+		);
+	});
+}

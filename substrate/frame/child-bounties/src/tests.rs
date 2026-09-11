@@ -1683,3 +1683,61 @@ fn max_active_child_bounty_count_is_strictly_enforced() {
 		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 2);
 	});
 }
+
+#[test]
+fn award_child_bounty_saturates_unlock_at_at_block_limit() {
+	new_test_ext().execute_with(|| {
+		// Make the parent bounty.
+		go_to_block(1);
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::make_free_balance_be(&account_id(4), 101);
+		Balances::make_free_balance_be(&account_id(8), 101);
+
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(account_id(0)),
+			50,
+			b"12345".to_vec()
+		));
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
+
+		go_to_block(2);
+		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(account_id(4)), 0));
+
+		assert_ok!(ChildBounties::add_child_bounty(
+			RuntimeOrigin::signed(account_id(4)),
+			0,
+			10,
+			b"12345-p1".to_vec()
+		));
+
+		assert_ok!(ChildBounties::propose_curator(
+			RuntimeOrigin::signed(account_id(4)),
+			0,
+			0,
+			account_id(8),
+			8
+		));
+		assert_ok!(ChildBounties::accept_curator(RuntimeOrigin::signed(account_id(8)), 0, 0));
+
+		// When the external block-number provider is within BountyDepositPayoutDelay (3)
+		// of the block-number type maximum:
+		go_to_block(u64::MAX - 2);
+
+		// Then: unlock_at saturates to max instead of overflowing.
+		assert_ok!(ChildBounties::award_child_bounty(
+			RuntimeOrigin::signed(account_id(8)),
+			0,
+			0,
+			account_id(7)
+		));
+		assert_eq!(
+			pallet_child_bounties::ChildBounties::<Test>::get(0, 0).unwrap().status,
+			ChildBountyStatus::PendingPayout {
+				curator: account_id(8),
+				beneficiary: account_id(7),
+				unlock_at: u64::MAX,
+			}
+		);
+	});
+}
