@@ -3223,6 +3223,49 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Benchmark `r` taken JUMPI instructions using the most minimal `JUMPI` code:
+	///
+	/// - `PUSH1 1` - condition (always jump, worst case)
+	/// - `PUSH2 offset`
+	/// - `JUMPI`
+	/// - `JUMPDEST`
+	///
+	/// Weight charging can then remove the stack operations as well as the `JUMPDEST`.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_jumpi_opcode(r: Linear<0, 3_000>) -> Result<(), BenchmarkError> {
+		use revm::bytecode::opcode::{JUMPDEST, JUMPI, PUSH1, PUSH2, STOP};
+
+		const JUMP_BLOCK_SIZE: usize = 7;
+		const JUMPDEST_OFFSET: usize = JUMP_BLOCK_SIZE - 1;
+
+		let mut code = Vec::new();
+		for _ in 0..r {
+			let destination = code.len() + JUMPDEST_OFFSET;
+			let destination = u16::try_from(destination)
+				.map_err(|_| BenchmarkError::Stop("Jump destination does not fit PUSH2"))?;
+
+			code.extend_from_slice(&[PUSH1, 1]);
+			code.push(PUSH2);
+			code.extend_from_slice(&destination.to_be_bytes());
+			code.extend_from_slice(&[JUMPI, JUMPDEST]);
+		}
+		code.push(STOP);
+
+		let code = Bytecode::new_raw(code.into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let inputs = Vec::new();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, inputs);
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+		Ok(())
+	}
+
 	// Benchmark the execution of instructions.
 	//
 	// It benchmarks the absolute worst case by allocating a lot of memory
