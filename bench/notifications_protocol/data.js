@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789117683453,
+  "lastUpdate": 1789127626307,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -220799,6 +220799,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2434493184,
             "range": "± 36411318",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b07bc46ed883db53dccf87bca8313608dcde170c",
+          "message": "cumulus: refactor slot based builder loop (#13163)\n\n### Description\n\nFirst PR of a stack extracted from #12537 (resubmissions support).\n\nRefactor (no behavior change). `run_block_builder`'s monolithic loop is\nsplit into phases so later work can plug in per phase:\n\n- `BuilderEnv` groups the clients, caches, and per-task state; the loop\nbody shrinks to prepare_slot → plan_cores → per-core build.\n- `prepare_slot` resolves everything for one slot iteration up to a\nsuccessful slot claim, returned as `SlotContext`; `plan_cores` resolves\nthe claim queue into a `CorePlan` (cores and per-core block counts).\n- Small extractions along the way: `SchedulingParams::at` and\n`ParentSearchParams::new` constructors, `included_header_at_execution`\nand `allowed_pov_size` helpers, `update_backing_connections` (which now\nlogs a previously silent authorities() failure), `claim_queue_offset`\nand redundant header/hash fields dropped from the context structs.\n\nOne behavior fix (second commit). The two-phase context derivation\nreuses the parent search result when the build parent's runtime\ndisagrees with the para best's. If the search ran with V3 params and the\nre-derive settled on V2, the reused included_at_scheduling snapshot was\ntaken at a V3 scheduling parent and could be stale for the V2 execution\ncontext. The V2 arm now re-fetches the included head at its relay parent\nin that case (search_ran_v3 flag); the reverse direction is\nexpected/assumed to not occur, since a V3 → V2 parachain rollback is not\nsupported, and the plan is to not end up needing it, by testing V3\nparachains before recommending it officially.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-09-11T09:33:06Z",
+          "tree_id": "c1c55f611cf7cadc10b2fad3ee7b4df1cafdb66e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b07bc46ed883db53dccf87bca8313608dcde170c"
+        },
+        "date": 1789127584664,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4214246,
+            "range": "± 20890",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 282489,
+            "range": "± 2407",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4319719,
+            "range": "± 19589",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 351071,
+            "range": "± 2907",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5100179,
+            "range": "± 12456",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 865934,
+            "range": "± 5030",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11021212,
+            "range": "± 183106",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4562989,
+            "range": "± 84803",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 40802333,
+            "range": "± 470671",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 35848663,
+            "range": "± 268344",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 337361431,
+            "range": "± 2400937",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 290778093,
+            "range": "± 1420304",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2522604190,
+            "range": "± 12311701",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2301490833,
+            "range": "± 20929054",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3280956,
+            "range": "± 14410",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1819600,
+            "range": "± 12960",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3400711,
+            "range": "± 15908",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1875090,
+            "range": "± 9715",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3799794,
+            "range": "± 30566",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2181542,
+            "range": "± 9232",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7630176,
+            "range": "± 30468",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5044709,
+            "range": "± 21980",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37155466,
+            "range": "± 242656",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 34647869,
+            "range": "± 278529",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 302646205,
+            "range": "± 1100577",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 272465515,
+            "range": "± 3168468",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2562813780,
+            "range": "± 43545873",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2445358996,
+            "range": "± 152873825",
             "unit": "ns/iter"
           }
         ]
