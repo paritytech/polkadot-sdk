@@ -9,7 +9,8 @@ doc:
     coherent and that the ledger stake bookkeeping (`total == active + sum(unlocking)`) holds.
     If either the mutation or the check fails, all storage changes are rolled back atomically.
     This is a defensive guard to prevent the class of state-corruption bugs described in
-    issue #3245.
+    issue #3245. As a consequence, the `Slashed` event is only emitted when the slash is
+    actually applied, and no longer when the slash and the ledger update are rolled back.
 
     Additionally, `StakingLedger::kill` now fetches the ledger through `StakingLedger::get`
     instead of reading `Bonded` and `Ledger` directly. Killing a bond in bad state, where the

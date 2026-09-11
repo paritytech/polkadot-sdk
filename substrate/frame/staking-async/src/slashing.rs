@@ -605,7 +605,7 @@ pub fn do_slash<T: Config>(
 	}
 
 	// Skip slashing for virtual stakers. The pallets managing them should handle the slashing.
-	if !Pallet::<T>::is_virtual_staker(stash) {
+	let slashed = if !Pallet::<T>::is_virtual_staker(stash) {
 		// Wrap balance slash and ledger update atomically: if ensure_bond_consistent inside
 		// update() rolls back the ledger write, the balance slash is also rolled back.
 		match with_transaction(|| {
@@ -621,21 +621,37 @@ pub fn do_slash<T: Config>(
 					// deduct overslash from the reward payout
 					*reward_payout = reward_payout.saturating_sub(missing);
 				}
+				true
 			},
 			Err(_) => {
 				defensive!(
 					"do_slash: inconsistent ledger; slash and ledger update both rolled back."
 				);
+				false
 			},
 		}
 	} else {
-		let _ = ledger
-			.update()
-			.defensive_proof("ledger fetched from storage so it exists in storage; qed.");
-	}
+		match ledger.update() {
+			Ok(()) => true,
+			Err(e) => {
+				log!(
+					warn,
+					"do_slash: failed to update ledger of virtual staker {:?}: {:?}",
+					stash,
+					e
+				);
+				false
+			},
+		}
+	};
 
-	// trigger the event
-	<Pallet<T>>::deposit_event(super::Event::<T>::Slashed { staker: stash.clone(), amount: value });
+	// trigger the event only if the stash was actually slashed.
+	if slashed {
+		<Pallet<T>>::deposit_event(super::Event::<T>::Slashed {
+			staker: stash.clone(),
+			amount: value,
+		});
+	}
 }
 
 /// Apply a previously-unapplied slash.
