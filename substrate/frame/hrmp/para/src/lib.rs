@@ -135,6 +135,18 @@ pub struct CloseRequest {
 	pub message_id: u64,
 }
 
+/// Something that breaks an invariant this pallet relies on.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+)]
+pub enum UnexpectedKind {
+	/// A channel notification could not be handed to the transport.
+	NotifyFailed {
+		/// The para that was to be told.
+		para_id: ParaId,
+	},
+}
+
 /// A pending open request, with the sizes it asked for.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
@@ -349,6 +361,15 @@ pub mod pallet {
 			/// The id of the message this concludes.
 			message_id: u64,
 		},
+		/// The relay chain refused to close a channel. The deposits stay held.
+		ChannelCloseFailed {
+			/// The channel.
+			channel: ChannelId,
+			/// The id of the message this concludes.
+			message_id: u64,
+			/// Why the relay chain refused.
+			reason: FailureReason,
+		},
 		/// A deposit-free channel with a system chain was asked for.
 		SystemChannelRequested {
 			/// The channel. Both directions are opened.
@@ -403,6 +424,8 @@ pub mod pallet {
 			/// The channel.
 			channel: ChannelId,
 		},
+		/// Something that should never happen.
+		Unexpected(UnexpectedKind),
 	}
 
 	#[pallet::error]
@@ -649,6 +672,11 @@ impl<T: Config> Pallet<T> {
 		.map_err(|()| Error::<T>::SendFailed.into())
 	}
 
+	fn unexpected(kind: UnexpectedKind, error: DispatchError) {
+		log::error!(target: "runtime::hrmp-para", "{kind:?}: {error:?}");
+		Self::deposit_event(Event::Unexpected(kind));
+	}
+
 	fn next_message_id() -> u64 {
 		NextMessageId::<T>::mutate(|next| {
 			let id = *next;
@@ -776,8 +804,30 @@ impl<T: Config> Pallet<T> {
 
 	/// `hrmp_close_channel`, asked for by `initiator` through the relay chain.
 	fn on_close_channel(initiator: ParaId, channel: ChannelId) -> DispatchResult {
-		let _ = (initiator, channel);
-		todo!()
+		ensure!(channel.is_participant(initiator), Error::<T>::CloseHrmpChannelUnauthorized);
+		ensure!(Channels::<T>::contains_key(channel), Error::<T>::CloseHrmpChannelDoesntExist);
+		ensure!(
+			!CloseRequests::<T>::contains_key(channel),
+			Error::<T>::CloseHrmpChannelAlreadyUnderway,
+		);
+
+		let message_id = Self::next_message_id();
+		CloseRequests::<T>::insert(channel, CloseRequest { initiator, message_id });
+
+		T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::CloseChannel {
+			channel,
+			message_id,
+			initiator,
+		}))
+		.map_err(|()| Error::<T>::SendFailed)?;
+
+		Self::deposit_event(Event::ChannelClosedPending {
+			channel,
+			message_id,
+			by_parachain: initiator,
+		});
+
+		Ok(())
 	}
 
 	/// `hrmp_cancel_open_request`, asked for by `initiator` through the relay chain.
@@ -881,8 +931,61 @@ impl<T: Config> Pallet<T> {
 		.defensive();
 	}
 
+	/// Drop a closed channel from both indexes.
+	fn unindex_channel(channel: ChannelId) {
+		EgressIndex::<T>::mutate(channel.sender, |recipients| {
+			if let Ok(i) = recipients.binary_search(&channel.recipient) {
+				recipients.remove(i);
+			}
+		});
+		IngressIndex::<T>::mutate(channel.recipient, |senders| {
+			if let Ok(i) = senders.binary_search(&channel.sender) {
+				senders.remove(i);
+			}
+		});
+	}
+
 	fn on_close_response(channel: ChannelId, message_id: u64, outcome: Outcome) -> DispatchResult {
-		let _ = (channel, message_id, outcome);
-		todo!()
+		let request = CloseRequests::<T>::get(channel).ok_or(Error::<T>::UnexpectedResponse)?;
+		ensure!(request.message_id == message_id, Error::<T>::UnexpectedResponse);
+
+		CloseRequests::<T>::remove(channel);
+
+		match outcome {
+			Ok(()) => {
+				let channel_info =
+					Channels::<T>::take(channel).ok_or(Error::<T>::UnexpectedResponse)?;
+				if let Some(deposit) = channel_info.sender_deposit {
+					deposit.drop(&Self::sovereign_account(channel.sender))?;
+				}
+				if let Some(deposit) = channel_info.recipient_deposit {
+					deposit.drop(&Self::sovereign_account(channel.recipient))?;
+				}
+				Self::unindex_channel(channel);
+
+				let other_end = if request.initiator == channel.sender {
+					channel.recipient
+				} else {
+					channel.sender
+				};
+				if let Err(error) = Self::notify_para(
+					other_end,
+					ParaNotification::ChannelClosing {
+						initiator: request.initiator,
+						sender: channel.sender,
+						recipient: channel.recipient,
+					},
+				) {
+					Self::unexpected(UnexpectedKind::NotifyFailed { para_id: other_end }, error);
+				}
+
+				Self::deposit_event(Event::ChannelCloseDone { channel, message_id });
+			},
+			Err(reason) => {
+				Self::deposit_event(Event::ChannelCloseFailed { channel, message_id, reason });
+			},
+		}
+
+		Ok(())
 	}
 }
