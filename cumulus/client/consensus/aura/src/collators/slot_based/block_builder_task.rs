@@ -40,8 +40,8 @@ use cumulus_client_resubmission_store::prepare_resubmission_aux_data;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	PersistedValidationData, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
-	TargetBlockRate,
+	PersistedValidationData, RelayBlockIdentifier, RelayParentOffsetApi, SchedulingProof,
+	SchedulingV3EnabledApi, TargetBlockRate,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
@@ -434,6 +434,21 @@ where
 
 			let relay_parent_header = relay_parent_data.relay_parent().clone();
 			let relay_parent_hash = relay_parent_header.hash();
+
+			// Do not build two blocks on top of the same relay parent.
+			if is_built_on_relay_parent(
+				&relay_parent_header,
+				&parent_search_result.best_parent_header,
+			) {
+				tracing::debug!(
+					target: LOG_TARGET,
+					relay_parent = ?relay_parent_hash,
+					relay_parent_num = %relay_parent_header.number(),
+					parent = ?parent_search_result.best_parent_header.hash(),
+					"Relay parent did not advance past the parent block's, skipping slot."
+				);
+				continue;
+			}
 
 			// For the logic that follows we need the included header at the relay parent since
 			// it will be used for checking the unincluded segment len.
@@ -1110,6 +1125,25 @@ where
 	}
 }
 
+/// Whether the parachain block `para_header` was built on `relay_parent`.
+///
+/// Returns `false` when the header carries no relay-parent digest, leaving callers to treat an
+/// unknown relay parent as "advanced".
+fn is_built_on_relay_parent<Header: HeaderT>(
+	relay_parent: &RelayHeader,
+	para_header: &Header,
+) -> bool {
+	match CumulusDigestItem::find_relay_block_identifier(para_header.digest()) {
+		Some(RelayBlockIdentifier::ByHash(hash)) => hash == relay_parent.hash(),
+		// `parachain-system` currently emits the storage root rather than the hash. The relay
+		// storage root identifies a block uniquely unless the relay author equivocated.
+		Some(RelayBlockIdentifier::ByStorageRoot { storage_root, block_number }) => {
+			storage_root == *relay_parent.state_root() && block_number == *relay_parent.number()
+		},
+		None => false,
+	}
+}
+
 /// Translate the slot of the relay parent to the slot of the parachain.
 fn adjust_para_to_relay_parent_slot(
 	relay_header: &RelayHeader,
@@ -1643,5 +1677,71 @@ mod block_production_schedule_tests {
 				);
 			}
 		}
+	}
+}
+
+#[cfg(test)]
+mod relay_parent_advance_tests {
+	use super::*;
+	use cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item;
+	use sp_runtime::generic::Digest;
+
+	fn relay_parent(number: u32, state_root: RelayHash) -> RelayHeader {
+		RelayHeader {
+			parent_hash: Default::default(),
+			number,
+			state_root,
+			extrinsics_root: Default::default(),
+			digest: Digest::default(),
+		}
+	}
+
+	fn para_header_with_digest(digest: Digest) -> RelayHeader {
+		RelayHeader { digest, ..relay_parent(1, Default::default()) }
+	}
+
+	#[test]
+	fn detects_same_relay_parent_by_hash() {
+		let relay = relay_parent(64, RelayHash::repeat_byte(1));
+		let mut digest = Digest::default();
+		digest.push(CumulusDigestItem::RelayParent(relay.hash()).to_digest_item());
+
+		assert!(is_built_on_relay_parent(&relay, &para_header_with_digest(digest)));
+	}
+
+	#[test]
+	fn detects_advanced_relay_parent_by_hash() {
+		let relay = relay_parent(64, RelayHash::repeat_byte(1));
+		let mut digest = Digest::default();
+		digest.push(CumulusDigestItem::RelayParent(RelayHash::repeat_byte(9)).to_digest_item());
+
+		assert!(!is_built_on_relay_parent(&relay, &para_header_with_digest(digest)));
+	}
+
+	#[test]
+	fn detects_same_relay_parent_by_storage_root() {
+		let state_root = RelayHash::repeat_byte(2);
+		let relay = relay_parent(64, state_root);
+		let mut digest = Digest::default();
+		digest.push(relay_parent_storage_root_item(state_root, 64u32));
+
+		assert!(is_built_on_relay_parent(&relay, &para_header_with_digest(digest)));
+	}
+
+	#[test]
+	fn storage_root_match_still_requires_same_block_number() {
+		let state_root = RelayHash::repeat_byte(2);
+		let relay = relay_parent(64, state_root);
+		let mut digest = Digest::default();
+		digest.push(relay_parent_storage_root_item(state_root, 65u32));
+
+		assert!(!is_built_on_relay_parent(&relay, &para_header_with_digest(digest)));
+	}
+
+	#[test]
+	fn missing_digest_is_treated_as_advanced() {
+		let relay = relay_parent(64, RelayHash::repeat_byte(1));
+
+		assert!(!is_built_on_relay_parent(&relay, &para_header_with_digest(Digest::default())));
 	}
 }

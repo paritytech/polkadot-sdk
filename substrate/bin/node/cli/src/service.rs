@@ -127,10 +127,7 @@ pub fn create_extrinsic(
 	let tip = 0;
 	let tx_ext: kitchensink_runtime::TxExtension =
 		(
-			(
-				kitchensink_runtime::ScarcityTxExtension::new(None),
-				frame_system::AuthorizeCall::<kitchensink_runtime::Runtime>::new(),
-			),
+			frame_system::AuthorizeCall::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
@@ -155,7 +152,7 @@ pub fn create_extrinsic(
 		function.clone(),
 		tx_ext.clone(),
 		(
-			((), ()),
+			(),
 			(),
 			kitchensink_runtime::VERSION.spec_version,
 			kitchensink_runtime::VERSION.transaction_version,
@@ -869,6 +866,8 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 		rate_limit: cli.statement_rate_limit,
 		v2dht: sc_network_statement::v2dht_enabled().then(|| sc_statement_store::V2DhtConfig {
 			affinity_topics: cli.statement_affinity_topics.clone(),
+			bloom_false_pos_rate: cli.statement_bloom_false_positive_rate,
+			bloom_seed: cli.statement_bloom_seed,
 			replication_factor: cli.statement_replication_factor,
 			gossip_target: cli.statement_gossip_target,
 		}),
@@ -1134,11 +1133,10 @@ mod tests {
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
 				let set_eth_origin = pallet_revive::evm::tx_extension::SetOrigin::default();
-				let as_scarcity = kitchensink_runtime::ScarcityTxExtension::new(None);
 				let weight_reclaim = frame_system::WeightReclaim::new();
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
 				let tx_ext: TxExtension = (
-					(as_scarcity, authorize_call),
+					authorize_call,
 					check_non_zero_sender,
 					check_spec_version,
 					check_tx_version,
@@ -1155,7 +1153,7 @@ mod tests {
 					function,
 					tx_ext,
 					(
-						((), ()),
+						(),
 						(),
 						spec_version,
 						transaction_version,
