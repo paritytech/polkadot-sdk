@@ -5,12 +5,13 @@ doc:
   description: |-
     On nodes running the v2 DHT statement path, statements chosen by the propagation plan now
     go through the same per-peer outbox as v1 propagation: one chunk in flight per peer, the
-    shared in-flight byte budget, a bounded queue and a retry after a failed store fetch. The
-    statement store keeps a transient statement body fetchable by hash until the propagation
-    pull after the one that handed it out. Nodes with the v2 gate off are unaffected.
+    shared in-flight byte budget, a bounded queue and a retry after a failed store fetch.
+    Planned statements bypass the peer's affinity filter and its sync watermark, and a
+    transient statement travels through the outbox with its body. Nodes without the v2 DHT
+    path enabled are unaffected.
 
 crates:
 - name: sc-network-statement
   bump: patch
-- name: sc-statement-store
-  bump: patch
+- name: sp-statement-store
+  bump: none

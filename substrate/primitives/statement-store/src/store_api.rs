@@ -403,6 +403,7 @@ pub trait StatementStore: Send + Sync {
 	///
 	/// This consumes and clears the recently received statements,
 	/// allowing new statements to be collected from this point forward.
+	/// A transient statement is kept outside the admission journal and carries `u64::MAX`.
 	fn take_recent_statements(&self) -> Result<Vec<(u64, Hash, Statement)>>;
 
 	/// Get statement by hash.
