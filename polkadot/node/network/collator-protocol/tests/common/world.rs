@@ -19,7 +19,7 @@
 //! `Effect`s. The fluent surface lives in [`super::world`].
 
 use crate::common::{
-	aux::{
+	auxiliary::{
 		AvailabilityDistributionNoop, AvailabilityStoreStub, CandidateBackingAux, CandidateOutputs,
 		CandidateValidationStub, ProspectiveParachainsAux, ProvisionerNoop,
 		StatementDistributionNoop,
@@ -141,7 +141,7 @@ where
 	// Either install a CanSecond stub (registered FIRST so it wins the slot order
 	// against any later backing aux) or spawn real candidate-backing.
 	if let Some(verdict) = can_second_verdict {
-		sim.register_aux_slot_only(crate::common::aux::CanSecondStub::new(verdict));
+		sim.register_aux_slot_only(crate::common::auxiliary::CanSecondStub::new(verdict));
 	} else {
 		let (cb, cb_rx) = CandidateBackingAux::spawn(sim);
 		sim.register_aux(cb, cb_rx);
