@@ -51,4 +51,20 @@ impl crate::WeightInfo for () {
 			.saturating_add(DbWeight::get().reads(14 + 3 * max_nominators_per_validator as u64))
 			.saturating_add(DbWeight::get().writes(10 + 3 * max_nominators_per_validator as u64))
 	}
+
+	fn authorize_report_equivocation(validator_count: u32) -> Weight {
+		// `check_evidence` checks the membership proof and whether the offence is already known.
+		// It does not verify the equivocation proof, which stays in the dispatch.
+		let validator_count = validator_count.max(100) as u64;
+
+		// checking membership proof
+		Weight::from_parts(35u64 * WEIGHT_REF_TIME_PER_MICROS, 0)
+			.saturating_add(
+				Weight::from_parts(175u64 * WEIGHT_REF_TIME_PER_NANOS, 0)
+					.saturating_mul(validator_count),
+			)
+			.saturating_add(DbWeight::get().reads(5))
+			// checking if the offence is already known
+			.saturating_add(DbWeight::get().reads(1))
+	}
 }
