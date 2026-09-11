@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789081764853,
+  "lastUpdate": 1789119824082,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "yrong1997@gmail.com",
-            "name": "Ron",
-            "username": "yrong"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9c4478123349fcc1d4e964a6dbb07ef2e66011ea",
-          "message": "Snowbridge: Remove unused proof fields (#10955)\n\n### Context\n\nWhen verifying Ethereum-to-Polkadot transfer messages, the key field in\nreceipt_proof is not used. Remove it as a cleanup and update the tests\naccordingly.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2026-02-11T09:33:12Z",
-          "tree_id": "3682eb5b488471e7399805873e1cc68ef21e73de",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9c4478123349fcc1d4e964a6dbb07ef2e66011ea"
-        },
-        "date": 1770806384946,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14627375941333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023048135759999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006559889900000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010075649113333312,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02523511677333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6f0ba62c939476a0ce28df549038e7b736f88f01",
+          "message": "sc-network: register `out_events` metrics on the litep2p backend (#13191)\n\n# Description\n\nThe litep2p backend now passes the Prometheus registry into\n`OutChannels::new`, as the libp2p backend does, instead of `None`. This\nexposes `substrate_sub_libp2p_out_events_events_total` and\n`substrate_sub_libp2p_out_events_num_channels` on litep2p nodes. #12319\nadded the `PeerIdentified` and `PeerRoutingTableUpdate` events to every\n`event_stream`, and we want to see on the fleet that consumers unaware\nof them keep draining their channels.\n\n## Integration\n\nThis PR should not be integrated by downstream projects.",
+          "timestamp": "2026-09-11T07:54:18Z",
+          "tree_id": "1ed196dbc07905fc3c113753fddbe3dabf88a5cf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6f0ba62c939476a0ce28df549038e7b736f88f01"
+        },
+        "date": 1789119782947,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007837068620000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01015810743333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14766322008666669,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025544493606666666,
             "unit": "seconds"
           }
         ]
