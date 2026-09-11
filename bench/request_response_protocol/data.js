@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789080842842,
+  "lastUpdate": 1789117732943,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -123443,6 +123443,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2547509217,
             "range": "± 12316339",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6f0ba62c939476a0ce28df549038e7b736f88f01",
+          "message": "sc-network: register `out_events` metrics on the litep2p backend (#13191)\n\n# Description\n\nThe litep2p backend now passes the Prometheus registry into\n`OutChannels::new`, as the libp2p backend does, instead of `None`. This\nexposes `substrate_sub_libp2p_out_events_events_total` and\n`substrate_sub_libp2p_out_events_num_channels` on litep2p nodes. #12319\nadded the `PeerIdentified` and `PeerRoutingTableUpdate` events to every\n`event_stream`, and we want to see on the fleet that consumers unaware\nof them keep draining their channels.\n\n## Integration\n\nThis PR should not be integrated by downstream projects.",
+          "timestamp": "2026-09-11T07:54:18Z",
+          "tree_id": "1ed196dbc07905fc3c113753fddbe3dabf88a5cf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6f0ba62c939476a0ce28df549038e7b736f88f01"
+        },
+        "date": 1789117693206,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19760017,
+            "range": "± 104034",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20080535,
+            "range": "± 114973",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21579575,
+            "range": "± 159066",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26466416,
+            "range": "± 175513",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59488229,
+            "range": "± 544369",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 356555925,
+            "range": "± 8631125",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2678664315,
+            "range": "± 72941120",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17048895,
+            "range": "± 192556",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17324225,
+            "range": "± 118717",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17869431,
+            "range": "± 212860",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22380679,
+            "range": "± 179287",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62128451,
+            "range": "± 827358",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 374624252,
+            "range": "± 2878371",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2667415399,
+            "range": "± 28438895",
             "unit": "ns/iter"
           }
         ]
