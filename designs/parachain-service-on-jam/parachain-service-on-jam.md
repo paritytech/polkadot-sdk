@@ -215,7 +215,7 @@ struct ParachainServiceState {
 
     /// Head and tail of each parachain's settlement ring. See §8.
     messages_cursor: Map<ParaId, SettlementCursor>,
-    /// Every `StreamsRoot` at a live ring position. See §8.
+    /// Every `StreamsRoot` at a live ring position, held as a single `0x00` byte. See §8.
     messages_member: Set<(ParaId, StreamsRoot)>,
     /// Maps `position` to `StreamsRoot`. See §8.
     messages_queue: Map<(ParaId, u32), StreamsRoot>,
@@ -1473,15 +1473,15 @@ Settlement ring at capacity: the `(ParaId, SettlementCursor)` entry plus
 
 ```
 messages_cursor:     34 + 5 (tag + ParaId) + 8 (SettlementCursor)      =      47
-messages_member:     64 × (34 + 37 (tag + ParaId + root))              =   4 544
+messages_member:     64 × (34 + 37 (tag + ParaId + root) + 1 (marker)) =   4 608
 messages_queue:      64 × (34 + 9 (tag + ParaId + u32) + 32 (root))    =   4 800
-                                                              octets       9 391
+                                                              octets       9 455
                                                               129 items    1 290
                                                                          -------
-                                                                          10 681
+                                                                          10 745
 ```
 
-**`baseline_footprint = 4 246 + 65 585 + 10 681 = 80 512`** balance units per
+**`baseline_footprint = 4 246 + 65 585 + 10 745 = 80 576`** balance units per
 parachain.
 
 #### Asset Hub baseline footprint
@@ -1881,7 +1881,9 @@ A parachain's ring is stored in `messages_cursor`, `messages_member` and `messag
 `SettlementCursor.head` is the position the next root is written at and `SettlementCursor.tail`
 the oldest live position. Both advance with wrapping arithmetic and at most `MAX_SETTLEMENT_RING_CAPACITY`(64)
 positions are present in the ring.
-`messages_member` holds every root at a live position.
+`messages_member` holds every root at a live position. Only the key carries meaning, but the
+entry cannot be valueless: a zero-length write is a deletion, so membership is held as a single
+`0x00` byte.
 
 The settlement check reads only `messages_member`, once per declared `(ParaId, StreamsRoot)`.
 
