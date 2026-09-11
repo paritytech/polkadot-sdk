@@ -168,7 +168,9 @@ module refine {
     parentHead: HeadHash,
     newHead: HeadData,
     msgs: List[UpwardMessage],
-    lookupAnchor: Timeslot
+    lookupAnchor: Timeslot,
+    provides: Option[StreamsRoot],
+    requires: List[(ParaId, StreamsRoot)]
   ): ParachainWorkDigest =
   Ok({
       paraId: paraId,
@@ -176,8 +178,70 @@ module refine {
       parentHeadHash: parentHead,
       headData: newHead,
       upwardMessages: msgs,
-      lookupAnchor: lookupAnchor
+      lookupAnchor: lookupAnchor,
+      messagesStreamsRoot: provides,
+      messagesRequiresRoots: requires
   })
+
+  // --- Messaging declarations (§4.3, §8.1) --------------------------------
+  //
+  // Both host calls are OPTIONAL and may each be called at most once per
+  // Refine invocation; a repeat aborts the PVF with `MessagesCallRepeated`.
+  // Like the head declarations, the PVF is an oracle: the model only sees
+  // what its calls amounted to.
+
+  /// What the PVF's `set_messages_streams_root` calls amounted to:
+  ///   - `StreamsRootUndeclared`: never called; this candidate declares no
+  ///     root (§8.1: a PVF calls it only when the root changed since its
+  ///     last enacted block).
+  ///   - `StreamsRootDeclared(root)`: called exactly once. The service treats
+  ///     `root` as opaque and never derives it from head data.
+  ///   - `StreamsRootRepeated`: called more than once, rejected with
+  ///     `MessagesCallRepeated`.
+  type StreamsRootDeclaration =
+    | StreamsRootUndeclared
+    | StreamsRootDeclared(StreamsRoot)
+    | StreamsRootRepeated
+
+  /// What the PVF's `set_messages_requires_roots` calls amounted to; one call
+  /// carries the whole set (`RequiresRootsDeclared`), a second call is
+  /// `RequiresRootsRepeated`.
+  type RequiresRootsDeclaration =
+    | RequiresRootsUndeclared
+    | RequiresRootsDeclared(List[(ParaId, StreamsRoot)])
+    | RequiresRootsRepeated
+
+  /// §4.3 / §8.1: a `messages_requires_roots` set is well-formed iff it holds
+  /// at most `MaxRequiresSources` entries, repeats no source `ParaId`, and
+  /// never names the candidate's own `para_id`. Refine checks nothing about
+  /// the roots themselves: whether they are settleable is decided on-chain
+  /// (§5.1 step 6).
+  pure def wellFormedRequiresRoots(
+    entries: List[(ParaId, StreamsRoot)], para_id: ParaId
+  ): bool = and {
+    entries.length() <= MaxRequiresSources,
+    // Distinct source count equals entry count iff no `ParaId` repeats.
+    entries.foldl(Set(), (acc, e) => acc.union(Set(e._1))).size()
+      == entries.length(),
+    entries.foldl(true, (acc, e) => acc and e._1 != para_id)
+  }
+
+  /// `true` iff either messaging host call was invoked more than once.
+  pure def messagesCallRepeated(
+    provides: StreamsRootDeclaration, requires: RequiresRootsDeclaration
+  ): bool =
+  (match provides { | StreamsRootRepeated => true | _ => false }) or
+  (match requires { | RequiresRootsRepeated => true | _ => false })
+
+  /// The declared `StreamsRoot` as the digest carries it.
+  pure def declaredStreamsRoot(p: StreamsRootDeclaration): Option[StreamsRoot] =
+  match p { | StreamsRootDeclared(r) => Some(r) | _ => None }
+
+  /// The declared `messages_requires_roots` as the digest carries them.
+  pure def declaredRequiresRoots(
+    r: RequiresRootsDeclaration
+  ): List[(ParaId, StreamsRoot)] =
+  match r { | RequiresRootsDeclared(l) => l | _ => List() }
 
   /// `true` iff the code identified by `ref` has a non-empty referencer set
   /// in the preimage registry, i.e. the `(hash, len)` tuple key exists.
@@ -234,7 +298,9 @@ module refine {
     parentHead: Option[HeadHash],
     newHead: HeadDeclaration,
     msgs: List[UpwardMessage],
-    lookupAnchor: Timeslot
+    lookupAnchor: Timeslot,
+    provides: StreamsRootDeclaration,
+    requires: RequiresRootsDeclaration
   ): Option[ParachainWorkDigest] = {
     if (not(codeAvailable(s, candidate.validationCode)))
     Some(refineErr(para_id, InvalidCodeHash))
@@ -257,6 +323,13 @@ module refine {
         Some(refineErr(para_id, UpwardMessagesTooLarge))
         else if (refineOutputExceedsBudget(msgs))
         Some(refineErr(para_id, RefineOutputTooLarge))
+        // §4.3, §8.1: like `HeadOversized`, both messaging failures abort in
+        // the offending call itself, so they are settled before the wrapper's
+        // post-run head-declaration checks.
+        else if (messagesCallRepeated(provides, requires))
+        Some(refineErr(para_id, MessagesCallRepeated))
+        else if (not(wellFormedRequiresRoots(declaredRequiresRoots(requires), para_id)))
+        Some(refineErr(para_id, MessagesInvalidRequires))
         else
         // `set_parent_head_hash` / `set_head` are both mandatory (§4.2): a
         // missing declaration is rejected with `MissingHeadDeclaration`. An
@@ -269,7 +342,9 @@ module refine {
             match parentHead {
               | None => Some(refineErr(para_id, MissingHeadDeclaration))
               | Some(ph) =>
-                Some(refineOk(para_id, candidate.validationCode, ph, nh, msgs, lookupAnchor))
+                Some(refineOk(
+                  para_id, candidate.validationCode, ph, nh, msgs, lookupAnchor,
+                  declaredStreamsRoot(provides), declaredRequiresRoots(requires)))
             }
         }
     }
@@ -282,11 +357,12 @@ module refine {
   /// useless. Otherwise each item is refined via `refineItem`, with its
   /// `para_id` sourced from `authorized_paras`.
   ///
-  /// Single-item packages only (per §3.2): `pvf`, `parentHead`, `newHead`, and
-  /// `msgs` are per-item scalars declared by the PVF. `parentHead` is `None` and
-  /// `newHead` is `HeadUndeclared` when the PVF skipped the corresponding
-  /// mandatory host call (§4.2).
-  pure def refine(
+  /// Single-item packages only (per §3.2): `pvf`, `parentHead`, `newHead`,
+  /// `msgs`, `provides`, and `requires` are per-item scalars declared by the
+  /// PVF. `parentHead` is `None` and `newHead` is `HeadUndeclared` when the
+  /// PVF skipped the corresponding mandatory host call (§4.2); the messaging
+  /// declarations are optional, `*Undeclared` when never called (§8.1).
+  pure def refineWithRoots(
     s: ParachainServiceState,
     pkg: WorkPackage,
     // The config parsed for the authorizer but carries no `Vec<ParaId>` prefix,
@@ -296,7 +372,9 @@ module refine {
     parentHead: Option[HeadHash],
     newHead: HeadDeclaration,
     msgs: List[UpwardMessage],
-    lookupAnchor: Timeslot
+    lookupAnchor: Timeslot,
+    provides: StreamsRootDeclaration,
+    requires: RequiresRootsDeclaration
   ): List[WorkExecResult] = {
     // Package-level failures are settled before §4.1 step 2 fixes an
     // authoritative `para_id`, so none can name a para to log against and all
@@ -311,10 +389,26 @@ module refine {
     else
     match refineItem(
       s, pkg.authorizedParas[0], pkg.items[0],
-      pvf, parentHead, newHead, msgs, lookupAnchor
+      pvf, parentHead, newHead, msgs, lookupAnchor, provides, requires
     ) {
       | Some(d) => List(WorkOk(d))
       | None => List(WorkErr)
     }
   }
+
+  /// `refineWithRoots` for a PVF that never touched the messaging host calls:
+  /// the common case, and the signature every pre-§8 caller keeps.
+  pure def refine(
+    s: ParachainServiceState,
+    pkg: WorkPackage,
+    authParasPrefixMissing: bool,
+    pvf: PvfOutcome,
+    parentHead: Option[HeadHash],
+    newHead: HeadDeclaration,
+    msgs: List[UpwardMessage],
+    lookupAnchor: Timeslot
+  ): List[WorkExecResult] =
+  refineWithRoots(
+    s, pkg, authParasPrefixMissing, pvf, parentHead, newHead, msgs,
+    lookupAnchor, StreamsRootUndeclared, RequiresRootsUndeclared)
 }

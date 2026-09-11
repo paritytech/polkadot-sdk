@@ -187,6 +187,9 @@ module main {
     // parent-head check's rejection (§5.1 step 3). Forced to active code so it
     // is rejected on the parent rather than on the code.
     nondet wp1StaleParent = oneOf(Set(false, true))
+    // §8.1: what the PVF's optional messaging host calls amounted to.
+    nondet wp1StreamsRoot = oneOf(streamsRootMenu)
+    nondet wp1RequiresRoots = oneOf(requiresRootsMenu(wp1Para))
     // Latest head for wp1's para this block. A non-live para (e.g. not yet
     // registered) has no head; we use 0, so such a candidate is dropped at
     // Accumulate (§5.1 step 1) regardless.
@@ -198,9 +201,10 @@ module main {
     val wp1Wr: WorkResult = {
       result:
         if (wp1IsJamSkip) WorkErr
-        else refine(
+        else refineWithRoots(
           svc, wp1.pkg, wp1NoParasPrefix, wp1Pvf,
-          wp1.parentHead, wp1.newHead, wp1.msgs, lookupAnchor1
+          wp1.parentHead, wp1.newHead, wp1.msgs, lookupAnchor1,
+          wp1StreamsRoot, wp1RequiresRoots
         )[0],
       authTrace: wp1AuthTrace
     }
@@ -221,6 +225,8 @@ module main {
     nondet wp2DeclParent = oneOf(Set(false, true))
     nondet wp2HeadDecl = oneOf(Set(HeadDeclared(0), HeadUndeclared, HeadOversized))
     nondet wp2StaleParent = oneOf(Set(false, true))
+    nondet wp2StreamsRoot = oneOf(streamsRootMenu)
+    nondet wp2RequiresRoots = oneOf(requiresRootsMenu(wp2Para))
     // Chain off wp1's new head when same para; else wp2's own pre-block head.
     val wp2Head =
       if (wp2Para == wp1Para) wp1Head + 1
@@ -232,9 +238,10 @@ module main {
     val wp2Wr: WorkResult = {
       result:
         if (wp2IsJamSkip) WorkErr
-        else refine(
+        else refineWithRoots(
           svc, wp2.pkg, wp2NoParasPrefix, wp2Pvf,
-          wp2.parentHead, wp2.newHead, wp2.msgs, lookupAnchor2
+          wp2.parentHead, wp2.newHead, wp2.msgs, lookupAnchor2,
+          wp2StreamsRoot, wp2RequiresRoots
         )[0],
       authTrace: wp2AuthTrace
     }
@@ -348,6 +355,35 @@ module main {
       { validationCode: { hash: { vchBytes: 99999 }, len: 999 }, pov: 0 }
     )
   }
+
+  /// §8: the two roots the nondet messaging menus draw from. Two distinct
+  /// values are enough to reach settlement hits and misses, membership
+  /// re-pushes, and clean-up interactions, keeping the state space bounded.
+  pure val StreamsRootA: StreamsRoot = { streamsRootBytes: 1 }
+  pure val StreamsRootB: StreamsRoot = { streamsRootBytes: 2 }
+
+  /// Menu of `set_messages_streams_root` outcomes a PVF might declare (§8.1):
+  /// no root, either root, or an aborting repeated call.
+  pure val streamsRootMenu: Set[StreamsRootDeclaration] = Set(
+    StreamsRootUndeclared,
+    StreamsRootDeclared(StreamsRootA),
+    StreamsRootDeclared(StreamsRootB),
+    StreamsRootRepeated
+  )
+
+  /// Menu of `set_messages_requires_roots` outcomes (§8.1): nothing consumed,
+  /// entries that settle once their source has enacted the named root (and
+  /// are silently rejected until then, §5.1 step 6), an ill-formed set naming
+  /// the candidate itself, and an aborting repeated call.
+  pure def requiresRootsMenu(para_id: ParaId): Set[RequiresRootsDeclaration] = Set(
+    RequiresRootsUndeclared,
+    RequiresRootsDeclared(List((CoretimeParaId, StreamsRootA))),
+    RequiresRootsDeclared(List((AssetHubParaId, StreamsRootB))),
+    RequiresRootsDeclared(List(
+      (CoretimeParaId, StreamsRootA), (AssetHubParaId, StreamsRootB))),
+    RequiresRootsDeclared(List((para_id, StreamsRootA))),
+    RequiresRootsRepeated
+  )
 
   /// Menu of individual upward messages a PVF might emit during Refine.
   /// Every parachain draws from the SAME menu: restricted host calls

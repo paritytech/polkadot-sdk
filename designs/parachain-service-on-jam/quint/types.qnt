@@ -77,6 +77,12 @@ module types {
   type HeadData = int
   type Memo = int
 
+  /// A parachain's commitment to the messages it has sent, declared via
+  /// `set_messages_streams_root` and settled through its settlement ring (§8).
+  /// Opaque to the service (never derived from head data); only equality
+  /// matters, so the 32-byte root is one wrapped int.
+  type StreamsRoot = { streamsRootBytes: int }
+
   // --- Hash conversion helpers -------------------------------------------
   //
   // The cross-parachain `preimage_registry` keys preimages by `Hash`, so a
@@ -137,6 +143,29 @@ module types {
 
   /// §3.1: 80-slot authorizer queue length.
   pure val AuthorizerQueueLength: int = 80
+
+  /// §4.3 / §8.1 (`MAX_REQUIRES_SOURCES`): most source parachains one
+  /// candidate may consume from, i.e. the bound on its
+  /// `messages_requires_roots` entries.
+  pure val MaxRequiresSources: int = 32
+
+  /// §8.2 (`MAX_SETTLEMENT_RING_CAPACITY`): per-parachain settlement-ring
+  /// capacity, the last 64 roots the parachain declared in enacted blocks.
+  /// Eviction is strictly position-based: a root leaves the ring only after
+  /// this many newer pushes.
+  pure val MaxSettlementRingCapacity: int = 64
+
+  /// §8.2: settlement-ring positions are `u32` counters advanced with wrapping
+  /// arithmetic, so `head` and `tail` live in `[0, U32Modulus)` and the live
+  /// window `[tail, head)` is a wrapping range.
+  pure val U32Modulus: int = 4294967296
+
+  /// `a.wrapping_add(b)` on `u32`, for `a`, `b` in `[0, U32Modulus)`.
+  pure def wrappingAddU32(a: int, b: int): int = (a + b) % U32Modulus
+
+  /// `a.wrapping_sub(b)` on `u32`, for `a`, `b` in `[0, U32Modulus)`.
+  pure def wrappingSubU32(a: int, b: int): int =
+    if (a >= b) a - b else a - b + U32Modulus
 
   /// §3.1: bounded cap on `staged_validator_keys` (= `CoreCount * 3 = 1023`).
   pure val MaxStagedValidatorKeys: int = CoreCount * 3
