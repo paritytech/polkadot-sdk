@@ -1,0 +1,14 @@
+title: 'statement-store: forward statements to every connected topic replica'
+doc:
+- audience: Node Dev
+  description: |-
+    On the experimental v2 DHT statement path, forwarding capped the whole
+    closest-first target list at `gossip_target`, so the number of persisted
+    copies of a statement saturated at `gossip_target + 1` instead of the
+    configured replication factor. Forwarding now always targets every
+    connected replica of a statement's topic and applies the `gossip_target`
+    cap only to the routing leg (peers closer to the topic than the local
+    node). Only affects nodes running with `STATEMENT_STORE_V2_DHT_ENABLED=1`.
+crates:
+- name: sc-network-statement
+  bump: patch
