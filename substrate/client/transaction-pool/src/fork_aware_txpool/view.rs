@@ -23,7 +23,7 @@
 //!
 //! Refer to [*View*](../index.html#view) section for more details.
 
-use super::metrics::MetricsLink as PrometheusMetrics;
+use super::metrics::{MetricsLink as PrometheusMetrics, RemovalReason};
 use crate::{
 	common::tracing_log_xt::log_xt_trace,
 	graph::{
@@ -651,7 +651,9 @@ where
 			let start = Instant::now();
 			let revalidated_len = revalidation_result.revalidated.len();
 			let validated_pool = self.pool.validated_pool();
-			validated_pool.remove_invalid(&revalidation_result.invalid_hashes);
+			let removed_invalid =
+				validated_pool.remove_invalid(&revalidation_result.invalid_hashes);
+			let removed_at = Instant::now();
 			if revalidated_len > 0 {
 				self.pool.resubmit(revalidation_result.revalidated);
 			}
@@ -666,6 +668,12 @@ where
 					revalidated_len
 						.try_into()
 						.map(|v| metrics.view_revalidation_resubmitted_txs.inc_by(v)),
+				);
+
+				metrics.tx_age_at_removal.observe_batch(
+					RemovalReason::InvalidRevalidationView,
+					removed_at,
+					&removed_invalid,
 				);
 			});
 
