@@ -232,9 +232,10 @@ where
 /// A same-account hold is not a balance change here: `balanceOf` reports
 /// `fungibles::Inspect::total_balance`, so a hold or release moves balance between the free and
 /// held portions of one account without moving `balanceOf`, and needs no log. The hold paths that
-/// move value between accounts — `transfer_on_hold`, `transfer_and_hold`, `burn_held` — have no
-/// mirror yet: they run through pallet-assets' `Unbalanced` impl, which fires no callback, so they
-/// move `balanceOf` with no `Transfer` log. No runtime drives them on a `fungibles` holder today.
+/// move value between accounts — `transfer_on_hold`, `transfer_and_hold`, `burn_held` — do move it,
+/// and reach pallet-assets through its `Unbalanced` impl, below the `Mutate` impl these hooks hang
+/// off. `pallet-assets-holder` reports them from `done_transfer_on_hold` and `done_burn_held`; a
+/// `Holder` that does not do the same moves `balanceOf` with no `Transfer` log.
 ///
 /// Asset destruction has no mirror either: ERC-20 has no equivalent concept, and firing a burn log
 /// per holder would emit an unbounded number of events for one destruction. Consumers must treat

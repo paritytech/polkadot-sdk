@@ -61,11 +61,13 @@ doc:
       - Same-account holds are kept out of the projection: `ERC20::balanceOf` now reports
         `fungibles::Inspect::total_balance` (free plus held), so a hold or release moves balance
         within one account without moving `balanceOf` and needs no log. The hold paths that move
-        value between accounts — `transfer_on_hold`, `transfer_and_hold`, `burn_held` — are a
-        known gap: they run through pallet-assets' `Unbalanced` impl, which fires no callback, so
-        they move `balanceOf` with no `Transfer` log. Nothing drives them on a `fungibles` holder
-        today, so the gap is latent; wiring `pallet-assets-holder` to report them must land before
-        any consumer holds assets on an instance that also wires the mirror.
+        value between accounts — `transfer_on_hold`, `transfer_and_hold`, `burn_held` — do move
+        it, and run through pallet-assets' `Unbalanced` impl, below the `Mutate` impl the balance
+        hooks hang off. `pallet-assets-holder` therefore reports them itself, firing `transferred`
+        and `burned` from `done_transfer_on_hold` and `done_burn_held`; on Asset Hub Westend these
+        are the paths `pallet_revive`'s `PGasDeposit` drives on every contract storage deposit and
+        refund. A runtime pairing the mirror with a different `Holder` implementation must report
+        the same three paths, or balance moves through them with no `Transfer` log.
 crates:
 - name: pallet-assets
   bump: major
@@ -76,6 +78,8 @@ crates:
 - name: pallet-revive-eth-rpc
   bump: major
 - name: pallet-assets-precompiles
+  bump: major
+- name: pallet-assets-holder
   bump: major
 - name: asset-hub-westend-runtime
   bump: major

@@ -1280,3 +1280,100 @@ fn same_account_holds_do_not_move_balance_of() {
 		assert_eq!(erc20_call(token, owner, IERC20::totalSupplyCall {}), U256::from(100));
 	});
 }
+
+// The hold paths that move value between accounts reach pallet-assets below the `Mutate` impl the
+// callbacks hang off, so they report through `pallet-assets-holder`. A revive storage deposit paid
+// in PGAS drives all three, which is why they have to keep `balanceOf` and `totalSupply`
+// reconstructible from the `Transfer` stream.
+#[test]
+fn cross_account_hold_paths_emit_transfer_logs() {
+	use frame_support::traits::{
+		fungibles::MutateHold,
+		tokens::{Fortitude, Precision, Preservation, Restriction},
+	};
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let owner = 1u64;
+		let dest = 2u64;
+		let reason = RuntimeHoldReason::Revive(pallet_revive::HoldReason::StorageDepositReserve);
+		let token = token_address(PRECOMPILE_ADDRESS_PREFIX, asset_id);
+		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+		let dest_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&dest);
+		let account_of = |who: &sp_core::H160| -> alloy::primitives::Address { who.0.into() };
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+
+		// Charging a deposit: owner's free balance becomes dest's held balance.
+		assert_ok!(<AssetsHolder as MutateHold<u64>>::transfer_and_hold(
+			asset_id,
+			&reason,
+			&owner,
+			&dest,
+			30,
+			Precision::Exact,
+			Preservation::Expendable,
+			Fortitude::Polite,
+		));
+		assert_contract_event(
+			token,
+			IERC20Events::Transfer(IERC20::Transfer {
+				from: account_of(&owner_addr),
+				to: account_of(&dest_addr),
+				value: U256::from(30),
+			}),
+		);
+
+		// Refunding part of it: dest's held balance becomes owner's free balance.
+		assert_ok!(<AssetsHolder as MutateHold<u64>>::transfer_on_hold(
+			asset_id,
+			&reason,
+			&dest,
+			&owner,
+			10,
+			Precision::Exact,
+			Restriction::Free,
+			Fortitude::Polite,
+		));
+		assert_contract_event(
+			token,
+			IERC20Events::Transfer(IERC20::Transfer {
+				from: account_of(&dest_addr),
+				to: account_of(&owner_addr),
+				value: U256::from(10),
+			}),
+		);
+
+		// Burning the rest of the hold, which moves `totalSupply` too.
+		assert_ok!(<AssetsHolder as MutateHold<u64>>::burn_held(
+			asset_id,
+			&reason,
+			&dest,
+			20,
+			Precision::Exact,
+			Fortitude::Polite,
+		));
+		assert_contract_event(
+			token,
+			IERC20Events::Transfer(IERC20::Transfer {
+				from: account_of(&dest_addr),
+				to: alloy::primitives::Address::ZERO,
+				value: U256::from(20),
+			}),
+		);
+
+		// Mint plus the three moves, and nothing beyond them.
+		assert_eq!(contract_log_count(token), 4);
+
+		// What the log stream says the balances are is what the precompile reports.
+		assert_eq!(
+			erc20_call(token, owner, IERC20::balanceOfCall { account: account_of(&owner_addr) }),
+			U256::from(80),
+		);
+		assert_eq!(
+			erc20_call(token, owner, IERC20::balanceOfCall { account: account_of(&dest_addr) }),
+			U256::from(0),
+		);
+		assert_eq!(erc20_call(token, owner, IERC20::totalSupplyCall {}), U256::from(80));
+	});
+}
