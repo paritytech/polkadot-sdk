@@ -409,26 +409,37 @@ mod tests {
 	fn block_hash_conflicts_only_with_non_null_range_bounds() {
 		// Arrange
 		let block_hash = H256::repeat_byte(0xab);
-		let with_null_bounds = serde_json::json!({
-			"blockHash": block_hash,
-			"fromBlock": null,
-			"toBlock": null,
-		});
-		let with_non_null_bound = serde_json::json!({
-			"blockHash": block_hash,
-			"fromBlock": "latest",
-		});
+		let valid = [
+			serde_json::json!({ "blockHash": block_hash }),
+			serde_json::json!({
+				"blockHash": block_hash,
+				"fromBlock": null,
+				"toBlock": null,
+			}),
+		];
+		let conflicting = [
+			serde_json::json!({ "blockHash": block_hash, "fromBlock": "latest" }),
+			serde_json::json!({ "blockHash": block_hash, "toBlock": "0x0" }),
+			serde_json::json!({
+				"blockHash": block_hash,
+				"fromBlock": "0x0",
+				"toBlock": "latest",
+			}),
+		];
 
 		// Act
-		let with_null_bounds = serde_json::from_value::<Filter>(with_null_bounds).unwrap();
-		let error = serde_json::from_value::<Filter>(with_non_null_bound).unwrap_err();
+		let valid = valid
+			.map(|value| Filter::try_from(serde_json::from_value::<FilterRepr>(value).unwrap()));
+		let conflicting = conflicting
+			.map(|value| Filter::try_from(serde_json::from_value::<FilterRepr>(value).unwrap()));
 
 		// Assert
-		assert_eq!(with_null_bounds.block_option, FilterBlockOption::AtBlock { block_hash });
-		assert_eq!(
-			error.to_string(),
-			"cannot specify both BlockHash and FromBlock/ToBlock, choose one or the other",
-		);
+		for result in valid {
+			assert_eq!(result.unwrap().block_option, FilterBlockOption::AtBlock { block_hash });
+		}
+		for result in conflicting {
+			assert_eq!(result, Err(FilterError::BlockHashCombinedWithRange));
+		}
 	}
 
 	#[test]
