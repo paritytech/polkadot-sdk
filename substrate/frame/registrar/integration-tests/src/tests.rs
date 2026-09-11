@@ -19,7 +19,7 @@
 
 use crate::*;
 use frame_support::{
-	assert_ok,
+	assert_noop, assert_ok,
 	traits::{fungible::InspectHold, EnsureOrigin},
 };
 use pallet_registrar_para::{HoldReason, RegistrationState};
@@ -113,6 +113,22 @@ type RegistrationTicket = <Runtime as pallet_registrar_para::Config>::Registrati
 
 fn para_state(para_id: u32) -> Option<RegistrationState<RegistrationTicket, u64>> {
 	pallet_registrar_para::Paras::<para::Runtime>::get(para_id).map(|info| info.state)
+}
+
+/// The lock the parachain is holding for `para_id`, as the parachain sees it.
+fn para_lock(para_id: u32) -> Option<bool> {
+	pallet_registrar_para::Paras::<para::Runtime>::get(para_id).unwrap().locked
+}
+
+/// Tell the relay chain that `para_id` produced a head, the way an included candidate does.
+fn note_head_on_relay(para_id: u32) {
+	Relay::execute_with(|| {
+		assert_ok!(relay::Parachains::force_note_new_head(
+			relay::RuntimeOrigin::root(),
+			para_id.into(),
+			polkadot_primitives::HeadData(head(32)),
+		));
+	});
 }
 
 #[test]
@@ -350,18 +366,86 @@ fn only_the_registrar_parachain_may_drive_registrations() {
 		let other_para: relay::RuntimeOrigin =
 			ParachainsOrigin::Parachain((PARA_ID + 1).into()).into();
 		assert!(senders::EnsureRegistrarPara::try_origin(other_para.clone()).is_err());
-		assert!(relay::Registrar::authorize_code(other_para, message.clone()).is_err());
+		assert!(relay::Registrar::receive(other_para, message.clone()).is_err());
 
 		// ...nor is a plain signed account.
-		assert!(relay::Registrar::authorize_code(
-			relay::RuntimeOrigin::signed(BOB),
-			message.clone()
-		)
-		.is_err());
+		assert!(
+			relay::Registrar::receive(relay::RuntimeOrigin::signed(BOB), message.clone()).is_err()
+		);
 
 		// The configured parachain is.
 		let ours: relay::RuntimeOrigin = ParachainsOrigin::Parachain(PARA_ID.into()).into();
-		assert_ok!(relay::Registrar::authorize_code(ours, message));
+		assert_ok!(relay::Registrar::receive(ours, message));
 		assert!(pallet_registrar_relay::PendingRegistrations::<relay::Runtime>::get(3000).is_some());
+	});
+}
+
+#[test]
+fn a_paras_first_head_locks_it_on_the_parachain() {
+	MockNet::reset();
+
+	Relay::execute_with(|| relay::run_to_session(1));
+
+	let para_id = reserve(ALICE);
+	let blob = request_registration(ALICE, para_id, 32, 64);
+	Relay::execute_with(|| {
+		assert_ok!(submit_code(para_id, blob));
+	});
+
+	// Registered, and the manager is still in charge of it.
+	RegistrarPara::execute_with(|| {
+		assert!(matches!(para_state(para_id), Some(RegistrationState::Registered { .. })));
+		assert_eq!(para_lock(para_id), None);
+	});
+
+	note_head_on_relay(para_id);
+
+	// The relay chain locked its own registry entry...
+	Relay::execute_with(|| {
+		let id = polkadot_primitives::Id::from(para_id);
+		let info =
+			polkadot_runtime_common::paras_registrar::Paras::<relay::Runtime>::get(id).unwrap();
+		assert_eq!(info.locked, Some(true));
+	});
+
+	// ...and the notification travelled over XCM, shutting the manager out here, which is where
+	// the deposit and the manager relationship live.
+	RegistrarPara::execute_with(|| {
+		assert_eq!(para_lock(para_id), Some(true));
+		assert_noop!(
+			para::Registrar::add_lock(para::RuntimeOrigin::signed(ALICE), para_id),
+			pallet_registrar_para::Error::<para::Runtime>::ParaLocked,
+		);
+	});
+}
+
+#[test]
+fn a_lock_lifted_on_the_parachain_is_not_reapplied_by_later_heads() {
+	MockNet::reset();
+
+	Relay::execute_with(|| relay::run_to_session(1));
+
+	let para_id = reserve(ALICE);
+	let blob = request_registration(ALICE, para_id, 32, 64);
+	Relay::execute_with(|| {
+		assert_ok!(submit_code(para_id, blob));
+	});
+
+	note_head_on_relay(para_id);
+	RegistrarPara::execute_with(|| {
+		assert_eq!(para_lock(para_id), Some(true));
+
+		// The para's own governance hands control back. Root stands in for the para itself.
+		assert_ok!(para::Registrar::remove_lock(para::RuntimeOrigin::root(), para_id));
+		assert_eq!(para_lock(para_id), Some(false));
+	});
+
+	// Every later head is a no-op on the relay chain, so nothing is sent and the lock stays lifted.
+	note_head_on_relay(para_id);
+	note_head_on_relay(para_id);
+
+	RegistrarPara::execute_with(|| {
+		assert_eq!(para_lock(para_id), Some(false));
+		assert_ok!(para::Registrar::add_lock(para::RuntimeOrigin::signed(ALICE), para_id));
 	});
 }
