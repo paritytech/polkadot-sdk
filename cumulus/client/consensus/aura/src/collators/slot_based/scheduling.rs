@@ -33,6 +33,12 @@ use sp_runtime::traits::Header as HeaderT;
 use sp_timestamp::Timestamp;
 use std::{marker::PhantomData, pin::Pin, time::Duration};
 
+/// The budget for one [`SchedulingInfo::wait_for_scheduling_parent`] call, spent waiting for a
+/// relay chain block of the production slot. Once it is gone, the V3 selection settles for the
+/// best finished-slot block it has seen. Bounds the slot time that wait can take; see the note
+/// there.
+const MAX_SCHEDULING_PARENT_WAIT: Duration = Duration::from_millis(100);
+
 fn get_current_relay_slot_at(
 	now: Duration,
 	slot_offset: Duration,
@@ -186,15 +192,35 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		production_slot: Slot,
 	) -> Option<(RelayHeader, bool)> {
 		let mut maybe_best_relay_header = self.maybe_best_relay_header.take();
+		// The whole call gets one budget, so time spent resolving relay chain data counts
+		// against the wait too. It bounds the V3 wait only, which is the one that has a
+		// finished-slot best to settle for.
+		let deadline = tokio::time::Instant::now() + MAX_SCHEDULING_PARENT_WAIT;
+		let mut finished_slot_best: Option<(Slot, RelayHeader)> = None;
 		let (best_relay_slot, best_relay_header_data) = loop {
 			// Drain buffered notifications.
 			while let Some(Some(header)) = self.best_notifications.next().now_or_never() {
 				maybe_best_relay_header = Some(header);
 			}
 
-			let best_relay_header = match maybe_best_relay_header.take() {
-				Some(header) => header,
-				None => self.best_notifications.next().await?,
+			let best_relay_header = match (maybe_best_relay_header.take(), &finished_slot_best) {
+				(Some(header), _) => header,
+				// V3 waiting for a block of the production slot.
+				(None, Some(_)) => {
+					match tokio::time::timeout_at(deadline, self.best_notifications.next()).await {
+						Ok(maybe_header) => maybe_header?,
+						// None in time: settle for the finished-slot best, which is the pick
+						// this wait was meant to improve on.
+						Err(_) => {
+							let (slot, header) = finished_slot_best.take()?;
+							break (slot, relay_chain_data_cache.get_by_header(header).await.ok()?);
+						},
+					}
+				},
+				// Unbounded: populating the first header has nothing to build against either
+				// way, and V2 has nothing to settle for, so it waits as long as it takes.
+				// Its slot offset absorbs most of that wait anyway.
+				(None, None) => self.best_notifications.next().await?,
 			};
 			self.maybe_best_relay_header = Some(best_relay_header.clone());
 			let best_relay_header_data =
@@ -204,10 +230,11 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 			let v3_enabled = Self::is_v3_enabled(v3_enabled_on_para, Some(&best_relay_header_data));
 			if v3_enabled {
 				// A finished-height best may have same-height siblings, picked by
-				// arrival order. Like V2, wait for a current-slot block: its parent
-				// names the canonical scheduling parent. This costs a little slot time
-				// (normally milliseconds) but avoids forks at the scheduling parent.
+				// arrival order. This wait is an intermediary hack, tracked in
+				// https://github.com/paritytech/polkadot-sdk/issues/13199.
 				if best_relay_slot < production_slot {
+					finished_slot_best =
+						Some((best_relay_slot, best_relay_header_data.relay_header.clone()));
 					continue;
 				}
 				break (best_relay_slot, best_relay_header_data);
@@ -513,7 +540,7 @@ mod tests {
 		tx.unbounded_send(sibling_a.clone()).unwrap();
 		// The claim must hold for a current-slot block rather than settle on `sibling_a`.
 		assert!(
-			tokio::time::timeout(Duration::from_millis(100), &mut handle).await.is_err(),
+			tokio::time::timeout(Duration::from_millis(20), &mut handle).await.is_err(),
 			"must wait for a current-slot block before settling"
 		);
 		tx.unbounded_send(resolver).unwrap();
@@ -546,7 +573,7 @@ mod tests {
 		});
 		tx.unbounded_send(finished_best.clone()).unwrap();
 		assert!(
-			tokio::time::timeout(Duration::from_millis(500), &mut handle).await.is_err(),
+			tokio::time::timeout(Duration::from_millis(20), &mut handle).await.is_err(),
 			"must keep waiting on a finished-slot best"
 		);
 		tx.unbounded_send(resolver).unwrap();
@@ -554,6 +581,35 @@ mod tests {
 			.await
 			.expect("must complete once a current-slot block arrives")
 			.expect("must not panic");
+		assert_eq!(result, Some((finished_best, true)));
+	}
+
+	/// The wait is bounded: when no current-slot block arrives within
+	/// [`MAX_SCHEDULING_PARENT_WAIT`], settle for the finished-slot best rather than holding the
+	/// slot open.
+	#[tokio::test]
+	async fn v3_settles_for_finished_best_once_the_wait_elapses() {
+		let (mut client, mut cache, headers) = build_mock_chain(true, PRODUCTION_SLOT);
+		let finished_best = headers[2].clone();
+
+		// No resolver is ever sent on this channel.
+		let (_tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+		client.set_best_hash(Some(finished_best.hash()));
+		client.set_best_notifications(Box::pin(rx));
+		let mut scheduling_info = SchedulingInfo::new(RELAY_SLOT_DURATION, Duration::ZERO);
+		scheduling_info.ensure_initialized(&client, &mut cache).await;
+
+		let result = tokio::time::timeout(
+			MAX_SCHEDULING_PARENT_WAIT * 4,
+			scheduling_info.wait_for_scheduling_parent(
+				&mut cache,
+				true,
+				Slot::from(PRODUCTION_SLOT),
+			),
+		)
+		.await
+		.expect("must settle once the wait elapses, not hang");
+
 		assert_eq!(result, Some((finished_best, true)));
 	}
 
