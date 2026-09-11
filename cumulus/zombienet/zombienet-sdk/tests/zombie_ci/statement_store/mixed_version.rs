@@ -187,7 +187,7 @@ async fn statement_store_mixed_version() -> Result<(), anyhow::Error> {
 		let active: Vec<&NetworkNode> = all
 			.iter()
 			.copied()
-			.filter(|node| restarting.map_or(true, |r| r.name() != node.name()))
+			.filter(|node| restarting.is_none_or(|r| r.name() != node.name()))
 			.collect();
 
 		let report = match restarting {
