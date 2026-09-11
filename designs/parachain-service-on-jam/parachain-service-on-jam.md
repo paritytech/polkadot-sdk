@@ -213,12 +213,11 @@ struct ParachainServiceState {
     /// See §6.1 for the per-entry formula.
     key_value_storage: Map<(ParaId, Vec<u8>), Vec<u8>>,
 
-    /// Per parachain settlement ring. See §8.
+    /// Head and tail of each parachain's settlement ring. See §8.
     messages_cursor: Map<ParaId, SettlementCursor>,
-    /// Maps `StreamsRoot` to `position`.
-    /// The only ring entry the settlement check reads (§5.1 step 6).
-    /// Maps `StreamsRoot` to `position`. See §5.1 step 6.
-    /// Ring position to root. Read on eviction and teardown.
+    /// Maps `StreamsRoot` to the `position` of its most recent push. See §8.
+    messages_member: Map<(ParaId, StreamsRoot), MemberEntry>,
+    /// Maps `position` to `StreamsRoot`. See §8.
     messages_queue: Map<(ParaId, u32), StreamsRoot>,
 }
 
@@ -507,7 +506,6 @@ struct SettlementCursor {
 /// A settlement-ring member. See §8.
 struct MemberEntry {
     /// Position of the root's most recent push.
-    /// Evicts the oldest root only if `seq == SettlementCursor.tail` to protect active roots.
     seq: u32,
 }
 
@@ -876,7 +874,7 @@ Accumulate:
 | 102 | `send_upward_message(msg: UpwardMessage)` | `()` | Append one upward message to `ParachainWorkDigest.upward_messages`. Aborts Refine with `Err(RefineLog::UpwardMessagesTooLarge)` if the message would carry the encoded upward messages past the parachain's fixed **40 KiB** budget. Individual variants carry further requirements, documented on the variant. Panics if `msg` fails to decode. |
 | 103 | `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the PVF, failing Refine with `RefineLog::Opaque(data)`. Any bytes beyond 1024 are truncated. Never returns. This is the only way a PVF records a reason for its failure. See §4.2. |
 | 104 | `set_messages_streams_root(root: StreamsRoot)` | `()` | Declare the `StreamsRoot` this parachain block publishes (§8). **Optional**, at most once per Refine invocation. Aborts Refine with `Err(RefineLog::MessagesCallRepeated)` on a second call. It is forwarded to Accumulate as `ParachainWorkDigest.messages_streams_root` and pushed into the parachain's settlement ring on enactment (§5.1 step 6). |
-| 105 | `set_messages_requires_roots(entries: Vec<(ParaId, StreamsRoot)>)` | `()` | Declare the senders this parachain block consumed messages from, one `(ParaId, StreamsRoot)` per sender (§8). **Optional**, at most once per Refine invocation, carrying the whole set. Aborts Refine with `Err(RefineLog::MessagesCallRepeated)` on a second call. More than `MAX_REQUIRES_SOURCES` entries, a repeated `ParaId`, or the candidate's own `para_id` aborts with `Err(RefineLog::MessagesInvalidRequires)`. Refine checks nothing else. The entries are forwarded as `ParachainWorkDigest.messages_requires_roots` and checked against the senders' settlement rings on enactment (§5.1 step 6). |
+| 105 | `set_messages_requires_roots(entries: Vec<(ParaId, StreamsRoot)>)` | `()` | Declare the senders this parachain block consumed messages from, one `(ParaId, StreamsRoot)` per sender (§8). **Optional**, at most once per Refine invocation, carrying the whole set. Aborts Refine with `Err(RefineLog::MessagesCallRepeated)` on a second call. More than `MAX_REQUIRES_SOURCES` entries, a repeated `ParaId`, or the candidate's own `para_id` aborts with `Err(RefineLog::MessagesInvalidRequires)`. Refine checks nothing else. The entries are forwarded as `ParachainWorkDigest.messages_requires_roots` and checked against the senders' settlement rings before enactment (§5.1 step 5). |
 
 `UpwardMessage` is part of the parachain-visible ABI. Its SCALE encoding is
 stable, so a message's `encoded_size()` is computable inside the PVF. The 40 KiB
@@ -986,29 +984,20 @@ for it, it writes no state, records no log entry, and prunes nothing. Otherwise:
 4. **Validation code check**: This is the authoritative check. Verify the work
    result's `(validation_code_hash, len)` pair matches either the active
    `ParaInfo.validation_code` or the code of a pending upgrade that has not timed out.
-   If it matches neither, the candidate is rejected. A `pending_upgrade` whose
-   deadline timeslot is `<=` the current timeslot matches nothing, even though
-   it is still in state at this point. It is cleared in step 6(a).
+   If it matches neither, the candidate is rejected.
 5. **Settlement check**: Every `(ParaId, StreamsRoot)` in the digest's
-   `messages_requires_roots` must be a key of `messages_member` (§8). If any is missing,
-   the candidate is rejected. This is the last check, so a candidate that passes it is
-   enacted.
+   `messages_requires_roots` must be a key of `messages_member`.
+   If any is missing, the candidate is rejected.
 6. **Enactment**: Every state change the candidate causes, in order:
 
-   (a) If `ParaInfo.pending_upgrade` is set and its deadline timeslot is `<=` the current
-   timeslot, the upgrade has expired: release the new code (see §6.1) and clear
-   `pending_upgrade`.
-
-   (b) Write the new `head_data` from the work digest into `ParaInfo` for the parachain.
-
-   (c) If the candidate was validated with the pending new PVF code, activate the new code,
-   release the old code (see §6.1), and clear `pending_upgrade`. This must happen here
-   because later candidates from the same parachain in the same block may already use the
-   new code. (a) and (c) are mutually exclusive: step 4 admits the pending code only while
-   it is unexpired, so one candidate never both reaps and activates.
-
-   (d) If the digest carries a `messages_streams_root`, push it into the parachain's
-   settlement ring (§8). A root enters the ring only for a candidate that enacted.
+   - If `ParaInfo.pending_upgrade` is set but the deadline timeslot is `<=` the current slot,
+   the upgrade has expired. In this case, release the pending code and clear `pending_upgrade`.
+   Otherwise, if the candidate was validated with the pending code, active it, release the old
+   code (see §6.1) and clear `pending_upgrade`. This activation must happen immediately because
+   later candidates from the same parachain in the same block may already use the new code.
+   - Write the new `head_data` from the work digest into parachain's `ParaInfo`.
+   - If the digest carries a `messages_streams_root`, push it into the parachain's settlement
+   ring (§8.1).
 7. **Process host-function calls from Refine**: Replay the `UpwardMessage`s carried in
    the work digest, applying the effects each one the PVF emitted during Refine carries
    (code upgrades, transfers, authorizer queue updates, validator key updates, etc.).
@@ -1176,7 +1165,7 @@ Phase 5: Activation or Rejection
     (b) Deadline exceeded: If the deadline (set in Phase 2) passes without
         the preimage becoming available or without any block using the new
         code, the upgrade is rejected on the next per-work-package
-        accumulate for this parachain (see §5.1, step 4): the new code is
+        accumulate for this parachain (see §5.1, step 6): the new code is
         released (§6.1) and pending_upgrade is cleared. The parachain
         continues with the old code.
 ```
@@ -1885,26 +1874,10 @@ every parachain which holds the last 64 (`MAX_SETTLEMENT_RING_CAPACITY`) `Stream
 that the parachain enacted. A receiver block enacts only if every root it consumed messages against
 is in the sender's ring.
 
-### Refine
-
-1. A sender block declares the `StreamsRoot` it publishes via `set_messages_streams_root`.
-2. A receiver block declares one `(ParaId, StreamsRoot)` per sender it consumed messages from via
-   `set_messages_requires_roots`.
-
-Both declarations are forwarded to Accumulate in the `ParachainWorkDigest` (§3.3).
-
-### Accumulate (§5.1 step 6)
-
-1. Every declared `(ParaId, StreamsRoot)` must be a key of `messages_member`. This is the
-   settlement check. Otherwise the candidate is rejected.
-2. If the candidate enacts and declared a `StreamsRoot`, the root is pushed into the parachain's
-   settlement ring (§8.1).
-
-A root stays settleable until 64 newer roots of the same sender enacted.
-With one candidate per core and timeslot this is 64 timeslots on one core, 21 on three cores and 6 on ten cores.
-If the receiver candidate declares a consumption root that was evicted betweeen block building
-and the Accumulate phase, then the candidate is rejected and must be rebuilt against a root
-still in the ring.
+A root stays settleable until the sender enacts `MAX_SETTLEMENT_RING_CAPACITY` declarations after
+its most recent push. With one candidate per core and timeslot this is 64 timeslots on one core,
+21 on three cores and 6 on ten cores. A receiver candidate that declares a root evicted between
+block building and Accumulate is rejected and must be rebuilt against a root still in the ring.
 
 ### 8.1 Settlement Ring
 
@@ -1917,26 +1890,40 @@ positions are present in the ring.
 
 The settlement check reads only `messages_member`, once per declared `(ParaId, StreamsRoot)`.
 
-Pushing `new_root` for `para_id`:
+**Pushing `new_root` for `para_id`**
 
 1. Read `messages_cursor[para_id]` or `{ head: 0, tail: 0 }` if absent.
 
 2. Evict the oldest entry if `head.wrapping_sub(tail) == MAX_SETTLEMENT_RING_CAPACITY`
-    2.1. Read `oldest_root = messages_queue[(para_id, tail)]` and delete that entry.
-    2.2. Delete `messages_member[(para_id, oldest_root)]` only if its `seq` equals `tail`. A different `seq`
-    means the same root was pushed again later and is still live.
-    2.3 Wrapping increment `tail`.
 
-3. Write `messages_queue[(para_id, head)] = new_root`
+   - Read `oldest_root = messages_queue[(para_id, tail)]` and delete that entry.
+   - Delete `messages_member[(para_id, oldest_root)]` only if its `seq` equals `tail`.
+   - Wrapping increment `tail`.
+
+3. Write `messages_queue[(para_id, head)] = new_root`.
 
 4. Write `messages_member[(para_id, new_root)] = MemberEntry { seq: head }`.
 
-5. Write `messages_cursor[para_id]` with `head` wrapping incremented and the `tail` from
-   step 2.3.
+5. Write `messages_cursor[para_id]` with `head` wrapping incremented and the current `tail`.
 
 A parachain should declare a `StreamsRoot` only when it changed since its last enacted block, since
-every push occupies a ring position.
+every push occupies a ring position. Since nothing enforces this, a parachain can declare a root
+that is already in its ring. The `messages_member` is keyed by the root so a repeated `StreamsRoot`
+shares one entry. The `MemberEntry.seq` records the position of the most recent push, so evicting
+an older position leaves the redeclared `StreamsRoot` in the ring.
 
+**`ParachainCleanUp` deletes a parachain's ring on its first accepted call (§6.4)**
+
+1. Read `messages_cursor[para_id]`. If absent, nothing is deleted.
+
+2. For each position from `tail` up to `head - 1`, wrapping:
+
+   - Read `root = messages_queue[(para_id, position)]` and delete that entry.
+   - Delete `messages_member[(para_id, root)]` if still present.
+
+3. Delete `messages_cursor[para_id]`.
+
+---
 
 ## 9. References
 
