@@ -65,7 +65,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
-	defensive, ensure,
+	ensure,
 	traits::{Consideration, EnsureOrigin, Footprint},
 };
 use registrar_primitives::{
@@ -303,6 +303,27 @@ pub mod pallet {
 		ParaLocked { para_id: ParaId },
 		/// The manager may control this para again.
 		ParaUnlocked { para_id: ParaId },
+		/// Something that should never happen did. The pallet carried on regardless.
+		Unexpected(UnexpectedKind),
+	}
+
+	/// A defensive check that failed, reported as [`Event::Unexpected`] so it is visible on chain
+	/// and not just in the node's logs.
+	#[derive(
+		Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+	)]
+	pub enum UnexpectedKind {
+		/// A register response for a para id this pallet does not know.
+		RegisterResponseForUnknownPara { para_id: ParaId, message_id: u64 },
+		/// A register response for a para with no registration in flight.
+		RegisterResponseNotPending { para_id: ParaId, message_id: u64 },
+		/// A head was noted for a para id this pallet does not know.
+		HeadNotedForUnknownPara { para_id: ParaId },
+		/// A cancel response for a para id this pallet does not know.
+		CancelResponseForUnknownPara { para_id: ParaId, message_id: u64 },
+		/// The relay chain refused a cancellation for a reason that is not one of the refusals
+		/// this pallet knows how to settle.
+		CancelRefused { para_id: ParaId, message_id: u64, reason: FailureReason },
 	}
 
 	#[pallet::error]
@@ -590,6 +611,12 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Report a failed defensive check: loud in the logs, and visible on chain.
+	fn report_unexpected(kind: UnexpectedKind) {
+		log::error!(target: "runtime::registrar-para", "unexpected: {kind:?}");
+		Self::deposit_event(Event::Unexpected(kind));
+	}
+
 	/// Take the id for the next message to the relay chain.
 	fn next_message_id() -> u64 {
 		NextMessageId::<T>::mutate(|next| {
@@ -603,15 +630,20 @@ impl<T: Config> Pallet<T> {
 	///
 	/// A response about a para id we are not expecting one for is dropped rather than treated as a
 	/// dispatch error: erroring here would unwind the whole incoming message for something we can
-	/// do nothing about anyway. Unexpected responses still trip a defensive failure so they are
-	/// loud in logs (and panic under `debug_assertions`).
+	/// do nothing about anyway. They are reported as [`Event::Unexpected`] instead.
 	fn on_register_response(para_id: ParaId, message_id: u64, outcome: Outcome) -> DispatchResult {
 		let Some(mut info) = Paras::<T>::get(para_id) else {
-			defensive!("register response for unknown para, dropping", para_id);
+			Self::report_unexpected(UnexpectedKind::RegisterResponseForUnknownPara {
+				para_id,
+				message_id,
+			});
 			return Ok(());
 		};
 		let RegistrationState::Pending { ticket, .. } = info.state else {
-			defensive!("register response for para which is not pending, dropping", para_id);
+			Self::report_unexpected(UnexpectedKind::RegisterResponseNotPending {
+				para_id,
+				message_id,
+			});
 			return Ok(());
 		};
 
@@ -641,7 +673,7 @@ impl<T: Config> Pallet<T> {
 	/// Lock a para the relay chain has seen produce a head.
 	fn on_head_noted(para_id: ParaId) -> DispatchResult {
 		let Some(mut info) = Paras::<T>::get(para_id) else {
-			defensive!("head noted for unknown para, dropping", para_id);
+			Self::report_unexpected(UnexpectedKind::HeadNotedForUnknownPara { para_id });
 			return Ok(());
 		};
 		if info.locked.is_some() || !matches!(info.state, RegistrationState::Registered { .. }) {
@@ -663,11 +695,14 @@ impl<T: Config> Pallet<T> {
 	/// simply lost, so the para is recorded as registered and the deposit stays held.
 	///
 	/// Unlike a register response, an answer for a para that is no longer pending is expected
-	/// rather than defensive: a verdict already in flight when the cancellation was sent settles
+	/// rather than unexpected: a verdict already in flight when the cancellation was sent settles
 	/// the registration first, and this then has nothing left to do.
 	fn on_cancel_response(para_id: ParaId, message_id: u64, outcome: Outcome) -> DispatchResult {
 		let Some(mut info) = Paras::<T>::get(para_id) else {
-			defensive!("cancel response for unknown para, dropping", para_id);
+			Self::report_unexpected(UnexpectedKind::CancelResponseForUnknownPara {
+				para_id,
+				message_id,
+			});
 			return Ok(());
 		};
 		let RegistrationState::Pending { ticket, .. } = info.state else {
@@ -694,7 +729,11 @@ impl<T: Config> Pallet<T> {
 			// Nothing else is a cancellation the relay chain refuses, so leave the registration
 			// pending: the manager can ask again once the deadline comes round.
 			Err(reason) => {
-				defensive!("unexpected cancel refusal, leaving pending", (para_id, &reason));
+				Self::report_unexpected(UnexpectedKind::CancelRefused {
+					para_id,
+					message_id,
+					reason,
+				});
 			},
 		}
 
