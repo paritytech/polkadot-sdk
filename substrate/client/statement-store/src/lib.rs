@@ -597,9 +597,12 @@ struct QueryIndex {
 	topic_counts: HashMap<Topic, usize>,
 	dec_key_counts: HashMap<Option<DecryptionKey>, usize>,
 	recent: HashMap<Hash, u64>,
-	/// Statements held only until the next propagation.
+	/// Statements held only until the propagation pull after the one that handed them out.
 	// TODO: temporary PoC solution for the DHT-affinity work (#11932).
 	transient: HashMap<Hash, Statement>,
+	/// Transient statements handed to the last propagation pull. They stay fetchable by hash
+	/// until the next pull, so the per-peer outboxes can pick them up, and are dropped then.
+	handed_out_transient: Vec<Hash>,
 	/// Statements persisted only for explicit affinity, dropped once no affinity covers them.
 	explicit_only: HashSet<Hash>,
 }
@@ -634,6 +637,7 @@ impl QueryIndex {
 			dec_key_counts: HashMap::new(),
 			recent: HashMap::new(),
 			transient: HashMap::new(),
+			handed_out_transient: Vec::new(),
 			explicit_only: HashSet::new(),
 		}
 	}
@@ -2411,10 +2415,16 @@ impl StatementStore for Store {
 		}
 		{
 			let mut query_index = self.query_index.write();
-			// Transient bodies never reach the database; they are handed out here and dropped.
+			// Transient bodies never reach the database. A body handed out here is dropped on the
+			// next pull, which leaves the outboxes one pull to fetch it by hash.
+			for hash in std::mem::take(&mut query_index.handed_out_transient) {
+				query_index.transient.remove(&hash);
+			}
+			let QueryIndex { transient, handed_out_transient, .. } = &mut *query_index;
 			for (&hash, &seq) in &recent {
-				if let Some(statement) = query_index.transient.remove(&hash) {
-					result.push((seq, hash, statement));
+				if let Some(statement) = transient.get(&hash) {
+					result.push((seq, hash, statement.clone()));
+					handed_out_transient.push(hash);
 				}
 			}
 			query_index.clear_propagated(&recent);
@@ -2580,13 +2590,17 @@ impl StatementStore for Store {
 		let mut processed = 0;
 		for hash in hashes {
 			processed += 1;
-			let Some(encoded) =
+			let (encoded, statement) = if let Some(encoded) =
 				self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))?
-			else {
-				continue;
-			};
-			let Ok(statement) = Statement::decode(&mut encoded.as_slice()) else {
-				log::error!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(hash));
+			{
+				let Ok(statement) = Statement::decode(&mut encoded.as_slice()) else {
+					log::error!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(hash));
+					continue;
+				};
+				(encoded, statement)
+			} else if let Some(statement) = self.query_index.read().transient.get(hash).cloned() {
+				(statement.encode(), statement)
+			} else {
 				continue;
 			};
 			match filter(hash, &encoded, &statement) {
@@ -4692,11 +4706,17 @@ mod tests {
 	}
 
 	#[test]
-	fn transient_statement_is_served_once_then_dropped() {
+	fn transient_statement_is_served_once_then_dropped_on_the_next_pull() {
 		let (store, _temp) = test_store();
 		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::TRANSIENT));
 		let statement = signed_statement(0);
 		let hash = statement.hash();
+		let by_hash = |store: &Store| {
+			store
+				.statements_by_hashes(&[hash], &mut |_, _, _| FilterDecision::Take)
+				.unwrap()
+				.0
+		};
 
 		assert_eq!(store.submit(statement.clone(), StatementSource::Network), SubmitResult::New,);
 
@@ -4707,12 +4727,16 @@ mod tests {
 
 		// Yet the first propagation pull forwards it once.
 		let recent = store.take_recent_statements().unwrap();
-		assert_eq!(recent, vec![(u64::MAX, hash, statement)]);
+		assert_eq!(recent, vec![(u64::MAX, hash, statement.clone())]);
 
-		// And after that it is gone: not pulled again, never persisted.
+		// Until the next pull the outboxes can still fetch the body by hash.
 		assert!(!store.has_statement(&hash));
 		assert_eq!(store.statement(&hash).unwrap(), None);
+		assert_eq!(by_hash(&store), vec![(hash, statement)]);
+
+		// The next pull drops it: not pulled again, no longer fetchable, never persisted.
 		assert!(store.take_recent_statements().unwrap().is_empty());
+		assert!(by_hash(&store).is_empty());
 		assert!(store.statements().unwrap().is_empty());
 	}
 
