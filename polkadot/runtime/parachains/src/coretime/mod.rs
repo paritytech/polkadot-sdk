@@ -266,7 +266,7 @@ pub mod pallet {
 			// Ignore requests not coming from the coretime chain or root.
 			Self::ensure_root_or_para(origin, T::BrokerId::get().into())?;
 
-			<on_demand::Pallet<T>>::queue_order_batch(batch.clone())?;
+			<on_demand::Pallet<T>>::queue_order_batch(&batch)?;
 			Self::deposit_event(Event::<T>::BatchQueued { batch });
 			Ok(())
 		}

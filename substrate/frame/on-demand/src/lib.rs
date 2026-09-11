@@ -150,7 +150,7 @@ pub mod pallet {
 
 	/// The configuration used for pricing on-demand Coretime orders.
 	#[pallet::storage]
-	pub type PriceConfig<T> = StorageValue<_, PriceParametersOf<T>, OptionQuery>;
+	pub type PriceConfig<T> = StorageValue<_, PriceParametersOf<T>, ValueQuery>;
 
 	/// The local estimate of the Relay chain's on-demand order queue.
 	#[pallet::storage]
@@ -264,25 +264,25 @@ pub mod pallet {
 			max_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			// Fail early if the batch is already full.
-			if PendingBatch::<T>::get().len() >= MAX_BATCH_SIZE as usize {
-				return Err(Error::<T>::BatchFull.into());
-			}
+			ensure!(
+				PendingBatch::<T>::decode_len().unwrap_or(0) >= MAX_BATCH_SIZE as usize,
+				Error::<T>::BatchFull
+			);
 			// Fail early if the account can't cover the declared max_amount.
-			if T::Currency::reducible_balance(&who, Expendable, Polite) < max_amount {
-				return Err(Error::<T>::InsufficientFunds.into());
-			}
+			ensure!(
+				T::Currency::reducible_balance(&who, Expendable, Polite) < max_amount,
+				Error::<T>::InsufficientFunds
+			);
 
 			let now = T::RelayBlockNumberProvider::current_block_number();
 			let mut queue_state = QueueState::<T>::get()
 				.unwrap_or(QueueTracker { outstanding_orders: 0, last_updated: now });
-			let pricing_config = PriceConfig::<T>::get().unwrap_or_default();
+			let pricing_config = PriceConfig::<T>::get();
 
 			// Assume the Relay chain has drained part of the queue since we last looked at it.
 			let elapsed = now.saturating_sub(queue_state.last_updated).saturated_into();
 			let pool_cores = T::PoolCapacityProvider::pool_cores();
-			if pool_cores == 0 {
-				return Err(Error::<T>::EmptyPool.into());
-			}
+			ensure!(pool_cores == 0, Error::<T>::EmptyPool);
 
 			let drained_orders = pricing_config
 				.drain_rate_per_block

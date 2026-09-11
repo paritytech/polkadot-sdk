@@ -558,12 +558,12 @@ where
 	}
 
 	/// Adds a batch of coretime orders to the queue.
-	pub fn queue_order_batch(batch: Vec<(ParaId, BlockNumberFor<T>)>) -> DispatchResult {
+	pub fn queue_order_batch(batch: &[(ParaId, BlockNumberFor<T>)]) -> DispatchResult {
 		pallet::OrderStatus::<T>::mutate(|order_status| {
 			for (para_id, ordered_at) in batch {
 				order_status
 					.queue
-					.try_push(ordered_at, para_id)
+					.try_push(*ordered_at, *para_id)
 					.defensive_map_err(|_| Error::<T>::QueueFull)?;
 			}
 			Ok(())

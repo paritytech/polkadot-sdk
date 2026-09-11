@@ -52,7 +52,7 @@ mod benches {
 		#[extrinsic_call]
 		_(origin as T::RuntimeOrigin, config.clone());
 
-		assert_eq!(PriceConfig::<T>::get(), Some(config));
+		assert_eq!(PriceConfig::<T>::get(), config);
 
 		Ok(())
 	}
