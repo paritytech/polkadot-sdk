@@ -130,10 +130,6 @@ pub use cumulus_client_service;
 #[cfg(feature = "cumulus-pallet-aura-ext")]
 pub use cumulus_pallet_aura_ext;
 
-/// Migrates messages from the old DMP queue pallet.
-#[cfg(feature = "cumulus-pallet-dmp-queue")]
-pub use cumulus_pallet_dmp_queue;
-
 /// Base pallet for cumulus-based parachains.
 #[cfg(feature = "cumulus-pallet-parachain-system")]
 pub use cumulus_pallet_parachain_system;
@@ -701,11 +697,6 @@ pub use pallet_safe_mode;
 /// Paymaster.
 #[cfg(feature = "pallet-salary")]
 pub use pallet_salary;
-
-/// FRAME pallet for Scarcity NFTs: coinage-style purse-key ownership with feeless
-/// rest-time-prioritized transfers.
-#[cfg(feature = "pallet-scarcity")]
-pub use pallet_scarcity;
 
 /// FRAME Scheduler pallet.
 #[cfg(feature = "pallet-scheduler")]
