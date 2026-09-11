@@ -1,0 +1,13 @@
+title: 'statement-store: rate-limit topic affinity updates per peer'
+
+doc:
+- audience: Node Dev
+  description: |-
+    `ExplicitTopicAffinity` updates on the `statement/2` protocol now draw from a dedicated
+    per-peer token bucket, one update per second with a burst of five, instead of the peer's
+    statement bucket. An update past the limit is dropped and reported with the new
+    `AFFINITY_FLOODING` reputation change; the peer stays connected.
+
+crates:
+- name: sc-network-statement
+  bump: minor
