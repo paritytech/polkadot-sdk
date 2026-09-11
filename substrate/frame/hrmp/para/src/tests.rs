@@ -20,13 +20,13 @@
 //! One test per flow lands with the extrinsic it covers.
 
 use crate::{
-	mock::*, AcceptedRequestCount, Channels, EgressIndex, Error, Event, HoldReason, IngressIndex,
-	OpenKind, OpenRequestCount, RequestState, Requests,
+	mock::*, AcceptedRequestCount, Channels, CloseRequests, EgressIndex, Error, Event, HoldReason,
+	IngressIndex, OpenKind, OpenRequestCount, RequestState, Requests, UnexpectedKind,
 };
 use frame_support::{assert_noop, assert_ok};
 use hrmp_primitives::{
 	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
-	ParaId, ParaNotification, ParaRequest, ParaRequestV1,
+	Outcome, ParaId, ParaNotification, ParaRequest, ParaRequestV1,
 };
 use sp_runtime::DispatchError;
 
@@ -433,5 +433,254 @@ fn a_refusing_transport_unwinds_the_whole_request() {
 		assert!(Requests::<Test>::get(CHANNEL).is_none());
 		assert_eq!(OpenRequestCount::<Test>::get(CHANNEL.sender), 0);
 		assert_eq!(held(CHANNEL.sender, HoldReason::SenderDeposit), 0);
+	});
+}
+
+/// An open channel, with both logs cleared.
+fn opened(channel: ChannelId) {
+	agreed(channel);
+	let message_id = Requests::<Test>::get(channel).unwrap().message_id;
+	assert_ok!(respond(channel, message_id, Ok((CAPACITY, MESSAGE_SIZE))));
+	let _ = take_sent();
+	let _ = hrmp_events();
+}
+
+fn close(channel: ChannelId, initiator: ParaId) -> sp_runtime::DispatchResult {
+	forwarded(initiator, ParaRequestV1::CloseChannel { channel })
+}
+
+fn respond_close(
+	channel: ChannelId,
+	message_id: u64,
+	outcome: Outcome,
+) -> sp_runtime::DispatchResult {
+	Hrmp::receive(
+		RuntimeOrigin::root(),
+		MessageToPara::V1(MessageToParaV1::CloseResponse { channel, message_id, outcome }),
+	)
+}
+
+/// Ask to close `channel` and hand back the id the relay chain will answer with.
+fn close_pending(channel: ChannelId, initiator: ParaId) -> u64 {
+	assert_ok!(close(channel, initiator));
+	let message_id = CloseRequests::<Test>::get(channel).unwrap().message_id;
+	let _ = take_sent();
+	let _ = hrmp_events();
+	message_id
+}
+
+#[test]
+fn close_channel_records_the_request_and_asks_the_relay_chain() {
+	new_test_ext().execute_with(|| {
+		opened(CHANNEL);
+
+		assert_ok!(close(CHANNEL, CHANNEL.sender));
+
+		let request = CloseRequests::<Test>::get(CHANNEL).unwrap();
+		assert_eq!(request.initiator, CHANNEL.sender);
+
+		// The channel and both deposits stay until the relay chain answers.
+		assert!(Channels::<Test>::get(CHANNEL).is_some());
+		assert_eq!(held(CHANNEL.sender, HoldReason::SenderDeposit), DEPOSIT);
+		assert_eq!(held(CHANNEL.recipient, HoldReason::RecipientDeposit), DEPOSIT);
+
+		assert_eq!(
+			take_sent(),
+			vec![MessageToRelay::V1(MessageToRelayV1::CloseChannel {
+				channel: CHANNEL,
+				message_id: request.message_id,
+				initiator: CHANNEL.sender,
+			})]
+		);
+		assert_eq!(
+			hrmp_events(),
+			vec![Event::ChannelClosedPending {
+				channel: CHANNEL,
+				message_id: request.message_id,
+				by_parachain: CHANNEL.sender,
+			}]
+		);
+	});
+}
+
+#[test]
+fn close_channel_is_only_for_a_participant() {
+	new_test_ext().execute_with(|| {
+		opened(CHANNEL);
+
+		assert_noop!(close(CHANNEL, 2002), Error::<Test>::CloseHrmpChannelUnauthorized);
+	});
+}
+
+#[test]
+fn close_channel_needs_an_open_channel() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(close(CHANNEL, CHANNEL.sender), Error::<Test>::CloseHrmpChannelDoesntExist);
+
+		// A request the relay chain has not confirmed is not a channel either.
+		agreed(CHANNEL);
+		assert_noop!(close(CHANNEL, CHANNEL.sender), Error::<Test>::CloseHrmpChannelDoesntExist);
+	});
+}
+
+#[test]
+fn close_channel_rejects_a_second_request() {
+	new_test_ext().execute_with(|| {
+		opened(CHANNEL);
+		assert_ok!(close(CHANNEL, CHANNEL.sender));
+
+		assert_noop!(
+			close(CHANNEL, CHANNEL.recipient),
+			Error::<Test>::CloseHrmpChannelAlreadyUnderway
+		);
+	});
+}
+
+#[test]
+fn a_confirming_close_response_releases_both_deposits() {
+	new_test_ext().execute_with(|| {
+		opened(CHANNEL);
+		let message_id = close_pending(CHANNEL, CHANNEL.sender);
+
+		assert_ok!(respond_close(CHANNEL, message_id, Ok(())));
+
+		assert!(CloseRequests::<Test>::get(CHANNEL).is_none());
+		assert!(Channels::<Test>::get(CHANNEL).is_none());
+		assert!(EgressIndex::<Test>::get(CHANNEL.sender).is_empty());
+		assert!(IngressIndex::<Test>::get(CHANNEL.recipient).is_empty());
+		assert_eq!(held(CHANNEL.sender, HoldReason::SenderDeposit), 0);
+		assert_eq!(held(CHANNEL.recipient, HoldReason::RecipientDeposit), 0);
+
+		// Only the other end is told: the initiator asked for this.
+		assert_eq!(
+			take_sent(),
+			vec![MessageToRelay::V1(MessageToRelayV1::NotifyPara {
+				para_id: CHANNEL.recipient,
+				notification: ParaNotification::ChannelClosing {
+					initiator: CHANNEL.sender,
+					sender: CHANNEL.sender,
+					recipient: CHANNEL.recipient,
+				},
+			})]
+		);
+		assert_eq!(hrmp_events(), vec![Event::ChannelCloseDone { channel: CHANNEL, message_id }]);
+	});
+}
+
+#[test]
+fn either_end_may_close() {
+	new_test_ext().execute_with(|| {
+		opened(CHANNEL);
+		let message_id = close_pending(CHANNEL, CHANNEL.recipient);
+
+		assert_ok!(respond_close(CHANNEL, message_id, Ok(())));
+
+		assert_eq!(
+			take_sent(),
+			vec![MessageToRelay::V1(MessageToRelayV1::NotifyPara {
+				para_id: CHANNEL.sender,
+				notification: ParaNotification::ChannelClosing {
+					initiator: CHANNEL.recipient,
+					sender: CHANNEL.sender,
+					recipient: CHANNEL.recipient,
+				},
+			})]
+		);
+	});
+}
+
+#[test]
+fn a_refused_close_keeps_the_channel_and_the_deposits() {
+	new_test_ext().execute_with(|| {
+		opened(CHANNEL);
+		let message_id = close_pending(CHANNEL, CHANNEL.sender);
+
+		assert_ok!(respond_close(CHANNEL, message_id, Err(FailureReason::NotFound)));
+
+		assert!(CloseRequests::<Test>::get(CHANNEL).is_none());
+		assert!(Channels::<Test>::get(CHANNEL).is_some());
+		assert_eq!(EgressIndex::<Test>::get(CHANNEL.sender).to_vec(), vec![CHANNEL.recipient]);
+		assert_eq!(held(CHANNEL.sender, HoldReason::SenderDeposit), DEPOSIT);
+		assert_eq!(held(CHANNEL.recipient, HoldReason::RecipientDeposit), DEPOSIT);
+
+		assert!(take_sent().is_empty());
+		assert_eq!(
+			hrmp_events(),
+			vec![Event::ChannelCloseFailed {
+				channel: CHANNEL,
+				message_id,
+				reason: FailureReason::NotFound,
+			}]
+		);
+	});
+}
+
+#[test]
+fn a_close_response_must_match_a_request_this_chain_is_waiting_for() {
+	new_test_ext().execute_with(|| {
+		opened(CHANNEL);
+
+		// Nothing is being closed.
+		assert_noop!(respond_close(CHANNEL, 0, Ok(())), Error::<Test>::UnexpectedResponse);
+
+		let message_id = close_pending(CHANNEL, CHANNEL.sender);
+		assert_noop!(
+			respond_close(CHANNEL, message_id + 1, Ok(())),
+			Error::<Test>::UnexpectedResponse
+		);
+	});
+}
+
+#[test]
+fn a_refusing_transport_unwinds_the_close_request() {
+	new_test_ext().execute_with(|| {
+		opened(CHANNEL);
+		SendFails::set(true);
+
+		assert_noop!(close(CHANNEL, CHANNEL.sender), Error::<Test>::SendFailed);
+
+		assert!(CloseRequests::<Test>::get(CHANNEL).is_none());
+		assert!(Channels::<Test>::get(CHANNEL).is_some());
+	});
+}
+
+#[test]
+fn a_system_channel_closes_without_touching_any_deposit() {
+	new_test_ext().execute_with(|| {
+		opened(SYSTEM_CHANNEL);
+		let message_id = close_pending(SYSTEM_CHANNEL, SYSTEM_CHANNEL.sender);
+
+		assert_ok!(respond_close(SYSTEM_CHANNEL, message_id, Ok(())));
+
+		assert!(Channels::<Test>::get(SYSTEM_CHANNEL).is_none());
+		assert_eq!(held(SYSTEM_CHANNEL.sender, HoldReason::SenderDeposit), 0);
+		assert_eq!(
+			hrmp_events(),
+			vec![Event::ChannelCloseDone { channel: SYSTEM_CHANNEL, message_id }]
+		);
+	});
+}
+
+#[test]
+fn a_refusing_transport_does_not_undo_a_confirmed_close() {
+	new_test_ext().execute_with(|| {
+		opened(CHANNEL);
+		let message_id = close_pending(CHANNEL, CHANNEL.sender);
+		SendFails::set(true);
+
+		assert_ok!(respond_close(CHANNEL, message_id, Ok(())));
+
+		// The relay chain has already closed the channel, so the state stands and the undelivered
+		// notification is only recorded.
+		assert!(Channels::<Test>::get(CHANNEL).is_none());
+		assert_eq!(held(CHANNEL.sender, HoldReason::SenderDeposit), 0);
+		assert_eq!(held(CHANNEL.recipient, HoldReason::RecipientDeposit), 0);
+		assert_eq!(
+			hrmp_events(),
+			vec![
+				Event::Unexpected(UnexpectedKind::NotifyFailed { para_id: CHANNEL.recipient }),
+				Event::ChannelCloseDone { channel: CHANNEL, message_id },
+			]
+		);
 	});
 }
