@@ -247,6 +247,9 @@ pub mod pallet {
 		SpotPriceSet { spot_price: BalanceOf<T> },
 		/// An account was given credits.
 		AccountCredited { who: T::AccountId, amount: BalanceOf<T> },
+		/// The order queue was unexpectedly full - this indicates a problem with the configuration
+		/// of the on-demand pallet on the Coretime chain
+		UnexpectedQueueFull,
 	}
 
 	#[pallet::error]
@@ -553,6 +556,19 @@ where
 				ordered_by: sender,
 			});
 
+			Ok(())
+		})
+	}
+
+	/// Adds a batch of coretime orders to the queue.
+	pub fn queue_order_batch(batch: &[(ParaId, BlockNumberFor<T>)]) -> DispatchResult {
+		pallet::OrderStatus::<T>::mutate(|order_status| {
+			for (para_id, ordered_at) in batch {
+				order_status.queue.try_push(*ordered_at, *para_id).defensive_map_err(|_| {
+					Pallet::<T>::deposit_event(Event::<T>::UnexpectedQueueFull);
+					Error::<T>::QueueFull
+				})?;
+			}
 			Ok(())
 		})
 	}
