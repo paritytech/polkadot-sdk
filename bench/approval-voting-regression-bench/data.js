@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789081816821,
+  "lastUpdate": 1789119873920,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "yrong1997@gmail.com",
-            "name": "Ron",
-            "username": "yrong"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9c4478123349fcc1d4e964a6dbb07ef2e66011ea",
-          "message": "Snowbridge: Remove unused proof fields (#10955)\n\n### Context\n\nWhen verifying Ethereum-to-Polkadot transfer messages, the key field in\nreceipt_proof is not used. Remove it as a cleanup and update the tests\naccordingly.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2026-02-11T09:33:12Z",
-          "tree_id": "3682eb5b488471e7399805873e1cc68ef21e73de",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9c4478123349fcc1d4e964a6dbb07ef2e66011ea"
-        },
-        "date": 1770806420008,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52943.40000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63626.69999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.0000238325,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.0000226747,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.0000226747,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.7084547955600007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005276728549999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.7052676204200026,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6510008242900005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3816088869699907,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7630628160400266,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.0000238325,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.867174174340018,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6525025025099986,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.534953835453101,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-0",
             "value": 2.7430618908700013,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6f0ba62c939476a0ce28df549038e7b736f88f01",
+          "message": "sc-network: register `out_events` metrics on the litep2p backend (#13191)\n\n# Description\n\nThe litep2p backend now passes the Prometheus registry into\n`OutChannels::new`, as the libp2p backend does, instead of `None`. This\nexposes `substrate_sub_libp2p_out_events_events_total` and\n`substrate_sub_libp2p_out_events_num_channels` on litep2p nodes. #12319\nadded the `PeerIdentified` and `PeerRoutingTableUpdate` events to every\n`event_stream`, and we want to see on the fleet that consumers unaware\nof them keep draining their channels.\n\n## Integration\n\nThis PR should not be integrated by downstream projects.",
+          "timestamp": "2026-09-11T07:54:18Z",
+          "tree_id": "1ed196dbc07905fc3c113753fddbe3dabf88a5cf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6f0ba62c939476a0ce28df549038e7b736f88f01"
+        },
+        "date": 1789119833371,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63564.00999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7549738049999462,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.694111277120001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6885437077699987,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000024486259999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001897808,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005264904860000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000024486259999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.37196055115278,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7131395206700013,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001897808,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7272308984000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3173127255599963,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 13.900576839379942,
             "unit": "seconds"
           }
         ]
