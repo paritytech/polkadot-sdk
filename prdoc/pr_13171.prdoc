@@ -1,0 +1,17 @@
+title: Route asset owner changes through one setter and let PSM admins follow the owner
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-assets` gains `AssetsCallback::owner_changed` with a default no-op body. All
+    three owner mutations (`transfer_ownership`, `force_asset_status`, `reset_team`) now go
+    through one internal setter that fires the callback.
+
+    `pallet-psm` gains `handle_internal_asset_owner_change` for runtimes to wire into that
+    callback. A PSM admin role that equals the departing owner's signed origin follows the
+    ownership; any other admin origin does not change. This removes the silent split where
+    an asset transfer left the previous owner holding the PSM admin role.
+crates:
+- name: pallet-assets
+  bump: minor
+- name: pallet-psm
+  bump: minor
