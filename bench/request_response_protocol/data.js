@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789117732943,
+  "lastUpdate": 1789127677547,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -123551,6 +123551,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2667415399,
             "range": "± 28438895",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b07bc46ed883db53dccf87bca8313608dcde170c",
+          "message": "cumulus: refactor slot based builder loop (#13163)\n\n### Description\n\nFirst PR of a stack extracted from #12537 (resubmissions support).\n\nRefactor (no behavior change). `run_block_builder`'s monolithic loop is\nsplit into phases so later work can plug in per phase:\n\n- `BuilderEnv` groups the clients, caches, and per-task state; the loop\nbody shrinks to prepare_slot → plan_cores → per-core build.\n- `prepare_slot` resolves everything for one slot iteration up to a\nsuccessful slot claim, returned as `SlotContext`; `plan_cores` resolves\nthe claim queue into a `CorePlan` (cores and per-core block counts).\n- Small extractions along the way: `SchedulingParams::at` and\n`ParentSearchParams::new` constructors, `included_header_at_execution`\nand `allowed_pov_size` helpers, `update_backing_connections` (which now\nlogs a previously silent authorities() failure), `claim_queue_offset`\nand redundant header/hash fields dropped from the context structs.\n\nOne behavior fix (second commit). The two-phase context derivation\nreuses the parent search result when the build parent's runtime\ndisagrees with the para best's. If the search ran with V3 params and the\nre-derive settled on V2, the reused included_at_scheduling snapshot was\ntaken at a V3 scheduling parent and could be stale for the V2 execution\ncontext. The V2 arm now re-fetches the included head at its relay parent\nin that case (search_ran_v3 flag); the reverse direction is\nexpected/assumed to not occur, since a V3 → V2 parachain rollback is not\nsupported, and the plan is to not end up needing it, by testing V3\nparachains before recommending it officially.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-09-11T09:33:06Z",
+          "tree_id": "c1c55f611cf7cadc10b2fad3ee7b4df1cafdb66e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b07bc46ed883db53dccf87bca8313608dcde170c"
+        },
+        "date": 1789127636399,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19893474,
+            "range": "± 262866",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20062374,
+            "range": "± 265701",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21557398,
+            "range": "± 356196",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26501275,
+            "range": "± 561627",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 65842259,
+            "range": "± 2826067",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 349233707,
+            "range": "± 8926656",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2550280321,
+            "range": "± 80414722",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17227809,
+            "range": "± 329103",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17169928,
+            "range": "± 382315",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17530365,
+            "range": "± 383519",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22074745,
+            "range": "± 201679",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63177641,
+            "range": "± 838605",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 362290318,
+            "range": "± 4711617",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2694644050,
+            "range": "± 31729806",
             "unit": "ns/iter"
           }
         ]
