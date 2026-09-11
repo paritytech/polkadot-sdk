@@ -134,7 +134,7 @@ pub enum ParaRequestV1 {
 	CancelOpenRequest {
 		/// The channel the request is for.
 		channel: ChannelId,
-		/// The asking para's count of open requests, checked against storage.
+		/// The sender's count of open requests, checked against storage.
 		open_requests: u32,
 	},
 	/// Open both deposit-free directions between the asking para and a system chain.
@@ -148,8 +148,8 @@ pub enum ParaRequestV1 {
 /// What a parachain is told about a channel it is one end of.
 ///
 /// The first three are delivered as the XCM `HrmpNewChannelOpenRequest`, `HrmpChannelAccepted`
-/// and `HrmpChannelClosing` instructions, whose fields they mirror. The last two conclude a
-/// request and have no instruction of their own, so how they reach a para is up to the transport.
+/// and `HrmpChannelClosing` instructions, whose fields they mirror. The rest conclude a request
+/// and have no instruction of their own, so how they reach a para is up to the transport.
 /// Versioned by the message carrying it, as [`ChannelId`] and [`FailureReason`] are.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
@@ -194,6 +194,14 @@ pub enum ParaNotification {
 		channel: ChannelId,
 		/// Why the relay chain refused.
 		reason: FailureReason,
+	},
+	/// An open request the para being told is one end of was withdrawn.
+	#[codec(index = 5)]
+	OpenRequestCanceled {
+		/// The channel the request was for.
+		channel: ChannelId,
+		/// Which end withdrew it.
+		by_parachain: ParaId,
 	},
 }
 
