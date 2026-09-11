@@ -816,6 +816,17 @@ pub struct AuthorizationListEntry {
 	pub s: U256,
 }
 
+impl AuthorizationListEntry {
+	/// Pack (r, s, y_parity) into a 65-byte ECDSA signature for `secp256k1_ecdsa_recover`.
+	pub fn signature(&self) -> [u8; 65] {
+		let mut signature = [0u8; 65];
+		signature[..32].copy_from_slice(&self.r.to_big_endian());
+		signature[32..64].copy_from_slice(&self.s.to_big_endian());
+		signature[64] = self.y_parity.low_u32() as u8;
+		signature
+	}
+}
+
 impl From<AuthorizationListEntryV1> for AuthorizationListEntry {
 	fn from(value: AuthorizationListEntryV1) -> Self {
 		Self {
