@@ -217,12 +217,13 @@ async fn derive_relay_context<RelayClient>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 	scheduling_info: &mut SchedulingInfo<RelayClient>,
 	params: SchedulingParams,
+	slot: Slot,
 ) -> Option<(RelayHeader, bool, RelayParentData)>
 where
 	RelayClient: RelayChainInterface + 'static,
 {
 	let Some((scheduling_parent_header, v3_enabled)) = scheduling_info
-		.wait_for_scheduling_parent(relay_chain_data_cache, params.v3_enabled)
+		.wait_for_scheduling_parent(relay_chain_data_cache, params.v3_enabled, slot)
 		.await
 	else {
 		tracing::warn!(target: LOG_TARGET, "Unable to fetch the scheduling parent hash.");
@@ -422,7 +423,7 @@ where
 	/// context from the para best head in order to run the parent search, and the second
 	/// re-derives it from the chosen parent whenever the two disagree, keeping the parent the
 	/// first phase settled on.
-	async fn building_prerequisites(&mut self) -> Option<BuildingPrerequisites<Block>> {
+	async fn building_prerequisites(&mut self, slot: Slot) -> Option<BuildingPrerequisites<Block>> {
 		let best_hash = self.para_client.info().best_hash;
 		let best_params = SchedulingParams::at(&*self.para_client, best_hash);
 
@@ -431,6 +432,7 @@ where
 			&mut self.relay_chain_data_cache,
 			&mut self.scheduling_info,
 			best_params,
+			slot,
 		)
 		.await?;
 
@@ -481,6 +483,7 @@ where
 						&mut self.relay_chain_data_cache,
 						&mut self.scheduling_info,
 						build_params,
+						slot,
 					)
 					.await?;
 
@@ -529,7 +532,7 @@ where
 
 	/// Resolve everything needed to author in the current slot, up to a successful slot claim.
 	/// Returns `None` when this slot should be skipped.
-	async fn prepare_slot(&mut self) -> Option<SlotContext<Block, P::Public>> {
+	async fn prepare_slot(&mut self, slot: Slot) -> Option<SlotContext<Block, P::Public>> {
 		let BuildingPrerequisites {
 			scheduling_parent_header,
 			v3_enabled,
@@ -537,7 +540,7 @@ where
 			relay_parent_data,
 			best_parent_header,
 			included_header_at_execution,
-		} = self.building_prerequisites().await?;
+		} = self.building_prerequisites(slot).await?;
 
 		// Set after the derive: a context re-derived from the build parent's runtime can flip
 		// `v3_enabled`, and the timer offset must follow the final value.
@@ -833,7 +836,7 @@ where
 				return;
 			};
 
-			let Some(cx) = env.prepare_slot().await else { continue };
+			let Some(cx) = env.prepare_slot(slot_time.relay_slot()).await else { continue };
 
 			// We mainly call this to inform users at genesis if there is a mismatch with the
 			// on-chain data.
