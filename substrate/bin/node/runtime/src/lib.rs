@@ -80,7 +80,7 @@ pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
 use pallet_asset_conversion::{AccountIdConverter, Ascending, Chain, WithFirstAsset};
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
-use pallet_assets_precompiles::{Erc20TransferLogsCallback, InlineIdConfig, ERC20};
+use pallet_assets_precompiles::{InlineIdConfig, ERC20};
 use pallet_broker::{CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, TaskId};
 use pallet_election_provider_multi_phase::{GeometricDepositBase, SolutionAccuracyOf};
 use pallet_identity::legacy::IdentityInfo;
@@ -1929,10 +1929,7 @@ impl pallet_assets::Config<Instance1> for Runtime {
 	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
-	type CallbackHandle = (
-		pallet_assets_precompiles::ForeignAssetId<Runtime, Instance1>,
-		Erc20TransferLogsCallback<Runtime, InlineIdConfig<0x1>, Instance1>,
-	);
+	type CallbackHandle = (pallet_assets_precompiles::ForeignAssetId<Runtime, Instance1>,);
 	type AssetIdAllocator = ();
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 	type RemoveItemsLimit = ConstU32<1000>;
@@ -1964,7 +1961,7 @@ impl pallet_assets::Config<Instance2> for Runtime {
 	type Extra = ();
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 	type RemoveItemsLimit = ConstU32<1000>;
-	type CallbackHandle = Erc20TransferLogsCallback<Runtime, InlineIdConfig<0x2>, Instance2>;
+	type CallbackHandle = ();
 	type AssetIdAllocator = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
