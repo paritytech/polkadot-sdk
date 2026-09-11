@@ -1263,6 +1263,63 @@ mod tests {
 	}
 
 	#[sqlx::test]
+	async fn logs_are_ordered_by_block_and_log_index_before_truncation(
+		pool: SqlitePool,
+	) -> anyhow::Result<()> {
+		// Arrange
+		let provider = setup_sqlite_provider(pool).await;
+		let logs_per_block = MAX_LOG_RESULTS as u64 / 2 + 1;
+		let expected = (1..=2u64)
+			.flat_map(|block_number| {
+				(0..logs_per_block).map(move |log_index| Log {
+					block_hash: H256::from_low_u64_be(block_number),
+					block_number: block_number.into(),
+					transaction_hash: H256::from_low_u64_be(block_number + 2),
+					log_index: log_index.into(),
+					address: H160::from_low_u64_be(logs_per_block - log_index),
+					..Default::default()
+				})
+			})
+			.collect::<Vec<_>>();
+		for block_number in (1..=2u64).rev() {
+			let block = MockBlockInfo {
+				hash: H256::from_low_u64_be(block_number + 4),
+				number: block_number,
+			};
+			let receipt = ReceiptInfo {
+				transaction_hash: H256::from_low_u64_be(block_number + 2),
+				logs: expected
+					.iter()
+					.filter(|log| log.block_number == U256::from(block_number))
+					.rev()
+					.cloned()
+					.collect(),
+				..Default::default()
+			};
+			provider
+				.insert(
+					&block,
+					&[(TransactionSigned::default(), receipt)],
+					&H256::from_low_u64_be(block_number),
+				)
+				.await?;
+		}
+
+		// Act
+		let logs = provider
+			.logs(
+				Some(Filter::new().from_block(1u64).to_block(2u64)),
+				mock_resolve_block_number_with_latest(2),
+			)
+			.await?;
+
+		// Assert
+		assert_eq!(logs.len(), MAX_LOG_RESULTS);
+		assert_eq!(logs, expected.into_iter().take(MAX_LOG_RESULTS).collect::<Vec<_>>());
+		Ok(())
+	}
+
+	#[sqlx::test]
 	async fn test_query_logs(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
 		let block1 = MockBlockInfo { hash: H256::from([1u8; 32]), number: 1 };

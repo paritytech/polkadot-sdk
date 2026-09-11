@@ -387,6 +387,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_block_hash_for_tag_with_block_tags_works,
 		test_earliest_block_tag,
 		test_get_logs_with_block_tags_works,
+		unknown_block_hash_returns_a_log_query_error,
 		test_multiple_transactions_in_block,
 		test_mixed_evm_substrate_transactions,
 		test_runtime_pallets_address_upload_code,
@@ -1066,6 +1067,36 @@ async fn test_get_logs_with_block_tags_works() -> anyhow::Result<()> {
 		}
 	}
 
+	Ok(())
+}
+
+async fn unknown_block_hash_returns_a_log_query_error() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let ethan = Account::from(subxt_signer::eth::dev::ethan());
+	let receipt = TransactionBuilder::new(client.clone())
+		.to(ethan.address())
+		.value(U256::from(1))
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+
+	// Act
+	let known_block_logs =
+		client.get_logs(Some(Filter::new().at_block_hash(receipt.block_hash))).await?;
+	let error = client
+		.get_logs(Some(Filter::new().at_block_hash(H256::repeat_byte(0xff))))
+		.await
+		.unwrap_err();
+
+	// Assert
+	assert_eq!(known_block_logs, FilterResults::default());
+	let ClientError::Call(error) = error else {
+		panic!("Expected a JSON-RPC error, got {error:?}");
+	};
+	assert_eq!(error.code(), jsonrpsee::types::error::CALL_EXECUTION_FAILED_CODE);
+	assert_eq!(error.message(), "Failed to filter logs: unknown block");
 	Ok(())
 }
 
