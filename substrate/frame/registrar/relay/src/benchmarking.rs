@@ -132,19 +132,19 @@ mod benchmarks {
 	/// Telling the parachain a para produced its first head.
 	#[benchmark]
 	fn on_new_head() {
+		AwaitingFirstHead::<T>::insert(PARA_ID, ());
+
 		#[block]
 		{
 			<Pallet<T> as OnNewHead>::on_new_head(PARA_ID.into(), &HeadData(alloc::vec![]));
 		}
 
-		assert!(ParasFirstHeadProduced::<T>::contains_key(PARA_ID));
+		assert!(!AwaitingFirstHead::<T>::contains_key(PARA_ID));
 	}
 
 	/// A later head, where the first one has already been reported.
 	#[benchmark]
 	fn on_new_head_already_noted() {
-		ParasFirstHeadProduced::<T>::insert(PARA_ID, ());
-
 		#[block]
 		{
 			<Pallet<T> as OnNewHead>::on_new_head(PARA_ID.into(), &HeadData(alloc::vec![]));
