@@ -1,0 +1,21 @@
+title: 'Snowbridge: Ethereum Glamsterdam Upgrade Support'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds Gloas (Glamsterdam) support to the Snowbridge Ethereum beacon light client.
+
+crates:
+- name: snowbridge-beacon-primitives
+  bump: major
+- name: snowbridge-pallet-ethereum-client
+  bump: major
+- name: snowbridge-pallet-ethereum-client-fixtures
+  bump: minor
+- name: snowbridge-pallet-inbound-queue
+  bump: none
+- name: snowbridge-pallet-inbound-queue-v2
+  bump: none
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch

@@ -32,6 +32,11 @@ pub fn load_checkpoint_update_fixture(
 	load_fixture("initial-checkpoint.json".to_string()).unwrap()
 }
 
+pub fn load_gloas_checkpoint_fixture(
+) -> snowbridge_beacon_primitives::CheckpointUpdate<{ config::SYNC_COMMITTEE_SIZE }> {
+	load_fixture("gloas-checkpoint.json".to_string()).unwrap()
+}
+
 pub fn load_sync_committee_update_fixture() -> snowbridge_beacon_primitives::Update<
 	{ config::SYNC_COMMITTEE_SIZE },
 	{ config::SYNC_COMMITTEE_BITS_SIZE },
@@ -140,7 +145,11 @@ parameter_types! {
 		},
 		fulu: Fork {
 			version: hex!("06000000"),
-			epoch: 100000000,
+			epoch: 2000,
+		},
+		gloas: Fork {
+			version: hex!("80733183"),
+			epoch: 3000,
 		}
 	};
 }
