@@ -1,0 +1,28 @@
+title: Replace secp256k1/libsecp256k1 with k256 in sp-io and sp-core
+
+doc:
+  - audience: [Node Dev, Runtime Dev]
+    description: |
+      The `secp256k1_ecdsa_recover`/`secp256k1_ecdsa_recover_compressed` host functions
+      (both versions) and `sp_core::ecdsa::Pair::verify_deprecated` are now implemented
+      with the pure-Rust `k256` crate, completing the migration started when `sp-core`'s
+      ECDSA moved to k256. The bitcoin-core `secp256k1` bindings and the pure-Rust
+      `libsecp256k1` crate are no longer production dependencies of `sp-io` and
+      `sp-core`; they remain as dev-dependencies backing differential tests that pin the
+      new implementations to the historical backends bit-for-bit.
+
+      The host function ABI is unchanged: version 1 keeps the legacy "overflowing"
+      signature parsing (r/s values above the curve order are reduced modulo the order),
+      version 2 keeps strict parsing (such values are rejected as `BadRS`), both keep
+      accepting high-S signatures during recovery, and every error variant is preserved
+      exactly, so block re-execution of historical chains is unaffected.
+
+      `sp-io` no longer exposes the implicit `secp256k1` cargo feature. Since recovery
+      now runs on k256 (which is slower than the C library), chains making heavy use of
+      ECDSA recovery in weight-sensitive paths should re-run their benchmarks.
+
+crates:
+  - name: sp-io
+    bump: major
+  - name: sp-core
+    bump: patch
