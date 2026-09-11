@@ -1,0 +1,73 @@
+title: 'fix: refine ExtrinsicBaseWeight calculation'
+doc:
+- audience:
+  - Runtime Dev
+  - Node Dev
+  description: |-
+    # Description
+
+    This PR refines the calculation of `ExtrinsicBaseWeight` in the `overhead` benchmark by switching from an isolation model to a **"Subtraction" model**.
+    Previously, `ExtrinsicBaseWeight` often double-counted the overhead charged by `TransactionExtensions` because the benchmark measured a signed extrinsic without accounting for the extension weights that are already defined elsewhere.
+    To resolve this, we now continue to use a standard signed `System::remark` (ensuring we benchmark the real production code path including `Executive::apply_extrinsic`), but we subtract the known weights of the signature verification and included extensions from the final result.
+
+    ## Signature weight
+
+    The cost of verifying a signed extrinsic's signature is now modeled as a static property of the
+    signature type, via the new `sp_runtime::traits::SignatureWeight` trait (implemented for
+    `MultiSignature` and the primitive `sr25519`/`ed25519`/`ecdsa` signatures). It is recorded during
+    signature verification (`Checkable::check`, carried on `ExtrinsicFormat::Signed`) and folded into
+    the dispatch weight of signed extrinsics in `GetDispatchInfo::get_dispatch_info`, so it is
+    reflected in fees and block-weight accounting without any per-runtime configuration.
+
+    ## `pallet-revive`
+
+    Ethereum-style transactions verify their signature via ECDSA/Keccak recovery rather than the
+    standard `Checkable` path, so `pallet-revive` now exposes `EthExtra::signature_weight()` and
+    uses it consistently both when building the dispatched `CheckedExtrinsic` and when estimating
+    fees/weight limits ahead of dispatch (`FeeInfo::dispatch_info`), so the two no longer diverge.
+    The ECDSA/Keccak `SignatureWeight` values are calibrated from `pallet_revive`'s own
+    `ecdsa_recover` benchmark.
+
+    ## Runtime migration note
+
+    When upgrading runtimes to this polkadot-sdk version (including fellowship runtimes), **re-benchmark
+    `ExtrinsicBaseWeight`** with `benchmark overhead`, using `--extrinsic-subtract-weight` and passing
+    the same `--signature-weight` (and `--extension-weight`, if non-zero) as charged at runtime. If
+    `ExtrinsicBaseWeight` is not updated, signed extrinsics will charge signature verification weight
+    twice: once via the old inflated base weight and again via `SignatureWeight`.
+
+crates:
+- name: frame-benchmarking-cli
+  bump: minor
+- name: sp-runtime
+  bump: major
+- name: frame-support
+  bump: major
+- name: pallet-revive
+  bump: minor
+- name: cumulus-pallet-weight-reclaim
+  bump: patch
+- name: westend-runtime-constants
+  bump: patch
+- name: rococo-runtime-constants
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
+- name: yet-another-parachain-runtime
+  bump: patch
+- name: pallet-staking-async-rc-runtime-constants
+  bump: patch
