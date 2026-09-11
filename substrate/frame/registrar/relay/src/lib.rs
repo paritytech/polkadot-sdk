@@ -176,7 +176,7 @@ pub mod pallet {
 
 	/// Paras whose first head this pallet has already reported, by para id.
 	#[pallet::storage]
-	pub type ParasFirstHeadProduced<T: Config> = StorageMap<_, Blake2_128Concat, ParaId, bool>;
+	pub type ParasFirstHeadProduced<T: Config> = StorageMap<_, Blake2_128Concat, ParaId, ()>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -455,7 +455,7 @@ impl<T: Config> OnNewHead for Pallet<T> {
 		if ParasFirstHeadProduced::<T>::contains_key(para_id) {
 			return T::WeightInfo::on_new_head_already_noted();
 		}
-		ParasFirstHeadProduced::<T>::insert(para_id, true);
+		ParasFirstHeadProduced::<T>::insert(para_id, ());
 
 		if T::SendToPara::send(MessageToPara::V1(MessageToParaV1::HeadNoted { para_id })).is_err() {
 			log::error!(

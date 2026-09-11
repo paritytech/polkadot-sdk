@@ -143,7 +143,7 @@ mod benchmarks {
 	/// A later head, where the first one has already been reported.
 	#[benchmark]
 	fn on_new_head_already_noted() {
-		ParasFirstHeadProduced::<T>::insert(PARA_ID, true);
+		ParasFirstHeadProduced::<T>::insert(PARA_ID, ());
 
 		#[block]
 		{
