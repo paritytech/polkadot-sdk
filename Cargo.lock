@@ -14684,20 +14684,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-scarcity"
-version = "1.0.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-balances",
- "parity-scale-codec",
- "scale-info",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
-]
-
-[[package]]
 name = "pallet-scheduler"
 version = "29.0.0"
 dependencies = [
@@ -17831,7 +17817,6 @@ dependencies = [
  "pallet-root-testing",
  "pallet-safe-mode",
  "pallet-salary",
- "pallet-scarcity",
  "pallet-scheduler",
  "pallet-session",
  "pallet-session-benchmarking",
@@ -22237,6 +22222,7 @@ dependencies = [
  "prost 0.12.6",
  "prost-build 0.13.2",
  "quickcheck",
+ "rstest",
  "sc-block-builder",
  "sc-client-api 28.0.0",
  "sc-consensus",
@@ -27395,7 +27381,6 @@ dependencies = [
  "anyhow",
  "env_logger 0.11.3",
  "log",
- "scale-info",
  "tokio",
  "zombienet-configuration",
  "zombienet-orchestrator",
