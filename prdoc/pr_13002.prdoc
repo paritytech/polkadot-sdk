@@ -1,0 +1,40 @@
+title: Fix ETH RPC Log Filtering Logic
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR fixes and consolidates all of the logic we had around log filtering
+    with the introduction of a new `Filter` type.
+
+    The primary behavioral changes clients can observe now are as follows:
+
+    - Log subscriptions now accept block filtering options
+      - Block ranges are both inclusive.
+      - Block ranges are validated and an error is returned if they're invalid.
+      - Block ranges don't fetch logs from past blocks.
+      - Block hashes are not permitted for the block options and return an error
+        for invalid arguments.
+      - The `safe`, `finalized`, and `pending` tags are invalid options for
+        subscriptions but permitted for `eth_getLogs`.
+    - In block options, missing or `null` block range bounds now default to
+      the `latest` tag.
+    - On topic filtering:
+      - We now preserve wildcard positions at the end of the filter.
+      - A wildcard topic filter means "a topic must be present at this position
+        but it can be anything".
+    - Missing, `null`, or empty address and topic filters are treated as
+      wildcards. Filters accept up to 1,000 distinct addresses, four topic
+      positions, and 1,000 distinct topic alternatives per position.
+    - `eth_getLogs` now returns an error for an unknown `blockHash` instead of
+      returning `[]`. The `pending` tag is also rejected.
+      A block hash cannot be combined with a non-null `fromBlock` or `toBlock`,
+      and malformed block hashes are rejected instead of falling back to a
+      range filter.
+    - `eth_getLogs` results are now ordered by block number and log index before
+      the existing result limit is applied.
+    - The `data` field is now always included in log responses. Logs with no
+      data return `"0x"`, including older database entries where the data was
+      stored as `NULL`.
+
+crates:
+- name: pallet-revive-eth-rpc
+  bump: major
