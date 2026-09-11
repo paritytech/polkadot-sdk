@@ -7,8 +7,9 @@ doc:
     go through the same per-peer outbox as v1 propagation: one chunk in flight per peer, the
     shared in-flight byte budget, a bounded queue and a retry after a failed store fetch.
     Planned statements bypass the peer's affinity filter and its sync watermark, and a
-    transient statement travels through the outbox with its body. Nodes without the v2 DHT
-    path enabled are unaffected.
+    transient statement travels through the outbox with its body. A planned statement that
+    left the store before its chunk went out is counted in `undelivered_statements` under
+    `missing_from_store`. Nodes without the v2 DHT path enabled are unaffected.
 
 crates:
 - name: sc-network-statement
