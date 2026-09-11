@@ -136,7 +136,8 @@
 //! ### Callbacks
 //!
 //! Using `CallbackHandle` associated type, user can configure custom callback functions which are
-//! executed when new asset is created or an existing asset is destroyed.
+//! executed when an asset is created or destroyed, and on every balance change: mint, burn,
+//! transfer, and the imbalance deposit and withdraw paths.
 //!
 //! ## Related Modules
 //!
@@ -202,8 +203,8 @@ pub use weights::WeightInfo;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 const LOG_TARGET: &str = "runtime::assets";
 
-/// Trait with callbacks that are executed after successful asset creation or destruction.
-pub trait AssetsCallback<AssetId, AccountId> {
+/// Callbacks executed on asset lifecycle and balance-change events.
+pub trait AssetsCallback<AssetId, AccountId, Balance> {
 	/// Indicates that asset with `id` was successfully created by the `owner`
 	fn created(_id: &AssetId, _owner: &AccountId) -> Result<(), ()> {
 		Ok(())
@@ -213,10 +214,25 @@ pub trait AssetsCallback<AssetId, AccountId> {
 	fn destroyed(_id: &AssetId) -> Result<(), ()> {
 		Ok(())
 	}
+
+	/// Indicates that `amount` of asset `id` was minted into `owner`, increasing total supply.
+	fn issued(_id: &AssetId, _owner: &AccountId, _amount: Balance) {}
+
+	/// Indicates that `amount` of asset `id` was moved from `from` to `to`.
+	fn transferred(_id: &AssetId, _from: &AccountId, _to: &AccountId, _amount: Balance) {}
+
+	/// Indicates that `amount` of asset `id` was burned from `owner`, decreasing total supply.
+	fn burned(_id: &AssetId, _owner: &AccountId, _amount: Balance) {}
+
+	/// Indicates that `amount` of asset `id` was credited to `who` without changing total supply.
+	fn deposited(_id: &AssetId, _who: &AccountId, _amount: Balance) {}
+
+	/// Indicates that `amount` of asset `id` was debited from `who` without changing total supply.
+	fn withdrawn(_id: &AssetId, _who: &AccountId, _amount: Balance) {}
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(10)]
-impl<AssetId, AccountId> AssetsCallback<AssetId, AccountId> for Tuple {
+impl<AssetId, AccountId, Balance: Copy> AssetsCallback<AssetId, AccountId, Balance> for Tuple {
 	fn created(id: &AssetId, owner: &AccountId) -> Result<(), ()> {
 		for_tuples!( #( Tuple::created(id, owner)?; )* );
 		Ok(())
@@ -225,6 +241,26 @@ impl<AssetId, AccountId> AssetsCallback<AssetId, AccountId> for Tuple {
 	fn destroyed(id: &AssetId) -> Result<(), ()> {
 		for_tuples!( #( Tuple::destroyed(id)?; )* );
 		Ok(())
+	}
+
+	fn issued(id: &AssetId, owner: &AccountId, amount: Balance) {
+		for_tuples!( #( Tuple::issued(id, owner, amount); )* );
+	}
+
+	fn transferred(id: &AssetId, from: &AccountId, to: &AccountId, amount: Balance) {
+		for_tuples!( #( Tuple::transferred(id, from, to, amount); )* );
+	}
+
+	fn burned(id: &AssetId, owner: &AccountId, amount: Balance) {
+		for_tuples!( #( Tuple::burned(id, owner, amount); )* );
+	}
+
+	fn deposited(id: &AssetId, who: &AccountId, amount: Balance) {
+		for_tuples!( #( Tuple::deposited(id, who, amount); )* );
+	}
+
+	fn withdrawn(id: &AssetId, who: &AccountId, amount: Balance) {
+		for_tuples!( #( Tuple::withdrawn(id, who, amount); )* );
 	}
 }
 
@@ -468,14 +504,14 @@ pub mod pallet {
 		/// Additional data to be stored with an account's asset balance.
 		type Extra: Member + Parameter + Default + MaxEncodedLen;
 
-		/// Callback methods for asset state change (e.g. asset created or destroyed)
+		/// Callback methods for asset state changes (creation, destruction) and balance changes.
 		///
 		/// Types implementing the [`AssetsCallback`] can be chained when listed together as a
 		/// tuple.
 		///
 		/// Do NOT allocate asset ids through this; use [`Config::AssetIdAllocator`]. A callback
 		/// that also mutates [`NextAssetId`] desyncs [`AutoIncAssetId`].
-		type CallbackHandle: AssetsCallback<Self::AssetId, Self::AccountId>;
+		type CallbackHandle: AssetsCallback<Self::AssetId, Self::AccountId, Self::Balance>;
 
 		/// Allocates the asset ids used by `create`. See [`AssetIdAllocator`].
 		///
@@ -598,6 +634,12 @@ pub mod pallet {
 						approvals: 0,
 						status: AssetStatus::Live,
 					},
+				);
+				// Fire `created` so callback state (e.g. the precompile asset-index map) is seeded
+				// for genesis assets, matching runtime creation.
+				assert!(
+					T::CallbackHandle::created(id, owner).is_ok(),
+					"asset creation callback failed at genesis"
 				);
 			}
 

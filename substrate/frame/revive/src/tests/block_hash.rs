@@ -19,8 +19,11 @@
 
 use crate::{
 	BalanceWithDust, Code, Config, EthBlock, EthBlockBuilderFirstValues, EthBlockBuilderIR,
-	EthereumBlock, Pallet, ReceiptGasInfo, ReceiptInfoData,
-	evm::{Block, TransactionSigned, block_hash::EthereumBlockBuilder, fees::InfoT},
+	EthereumBlock, H160, H256, Pallet, ReceiptGasInfo, ReceiptInfoData, SyntheticReceiptInfo, U256,
+	evm::{
+		Block, HashesOrTransactionInfos, TransactionSigned, block_hash::EthereumBlockBuilder,
+		fees::InfoT,
+	},
 	test_utils::{ALICE, builder::Contract, deposit_limit},
 	tests::{Contracts, ExtBuilder, RuntimeOrigin, System, Test, Timestamp, assert_ok, builder},
 };
@@ -31,6 +34,7 @@ use frame_support::traits::{
 	fungible::{Balanced, Mutate},
 };
 use pallet_revive_fixtures::compile_module;
+use sp_crypto_hashing::keccak_256;
 use sp_state_machine::BasicExternalities;
 
 #[test]
@@ -126,6 +130,87 @@ fn transactions_are_captured() {
 		// Builder is killed on finalize.
 		let block_builder = EthBlockBuilderIR::<Test>::get();
 		assert_eq!(block_builder.gas_info.len(), 0);
+	});
+}
+
+#[test]
+fn receipt_data_written_before_the_synthetic_transaction_existed_still_reads() {
+	// A runtime upgrade enacts mid-block: block N's `on_finalize` runs the old code, while a
+	// runtime API call at N runs the new code against what that wrote. So the entries a runtime
+	// without the synthetic transaction left behind have to keep decoding, with no synthetic
+	// transaction reported for them.
+	//
+	// Spelled out as bytes rather than encoded through the current types, so that any change to
+	// what `ReceiptInfoData` holds — folding the synthetic transaction back in, or a new field on
+	// `ReceiptGasInfo` — fails here instead of round-tripping.
+	let mut old_bytes = vec![0x04]; // `Compact(1)`: one entry follows.
+	old_bytes.extend([0x08, 0x52]); // `gas_used`: 21_000, little-endian…
+	old_bytes.extend([0u8; 30]); // …zero-padded to 32 bytes.
+	old_bytes.push(0x07); // `effective_gas_price`: 7…
+	old_bytes.extend([0u8; 31]); // …likewise.
+
+	ExtBuilder::default().build().execute_with(|| {
+		sp_io::storage::set(&ReceiptInfoData::<Test>::hashed_key(), &old_bytes);
+
+		assert_eq!(
+			Pallet::<Test>::eth_receipt_data(),
+			vec![ReceiptGasInfo { gas_used: 21_000.into(), effective_gas_price: 7.into() }],
+		);
+		assert!(Pallet::<Test>::eth_synthetic_transaction().is_none());
+	});
+}
+
+#[test]
+fn a_mirrored_log_shares_its_block_with_a_real_transaction() {
+	let (binary, _) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		Contracts::on_initialize(0);
+
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(5_000_000_000));
+
+		let real_payload = vec![1u8];
+		assert_ok!(builder::eth_call(addr).transaction_encoded(real_payload.clone()).build());
+
+		// A mirror fired from a plain extrinsic: no ethereum transaction is open, so it is buffered
+		// for the block's synthetic transaction instead of reaching a receipt.
+		Pallet::<Test>::emit_contract_log_outside_frame(
+			H160::from_low_u64_be(0xA1),
+			vec![H256::repeat_byte(0x11)].try_into().unwrap(),
+			vec![1, 2, 3].try_into().unwrap(),
+		);
+
+		Contracts::on_finalize(0);
+
+		let synthetic_payload = crate::evm::synthetic_log_transaction(
+			U256::zero(),
+			U256::from(<Test as Config>::ChainId::get()),
+		);
+		let block = EthereumBlock::<Test>::get();
+
+		// Both tries were fed both transactions, with the synthetic one trailing. The single-
+		// transaction case cannot show this: `process_transaction` stashes a lone transaction as
+		// the builders' first value and returns, so only a second one reaches them at all.
+		let expected_tx_root =
+			Block::compute_trie_root(&[real_payload.clone(), synthetic_payload.clone()]);
+		assert_eq!(block.transactions_root, expected_tx_root.0.into());
+
+		let hashes = match block.transactions {
+			HashesOrTransactionInfos::Hashes(hashes) => hashes,
+			_ => panic!("expected transaction hashes"),
+		};
+		assert_eq!(hashes.len(), 2);
+		assert_eq!(hashes[0], H256(keccak_256(&real_payload)), "the real transaction comes first");
+		assert_eq!(hashes[1], H256(keccak_256(&synthetic_payload)), "the synthetic one trails it");
+
+		// And the gas entries the serving layer reconciles against keep the same split: the real
+		// transaction's is the only one paired with the block body.
+		assert_eq!(ReceiptInfoData::<Test>::get().len(), 1, "one entry per ethereum transaction");
+		let synthetic = SyntheticReceiptInfo::<Test>::get().expect("reported apart");
+		assert_eq!(synthetic.log_count, 1, "with the log count the block committed to it");
 	});
 }
 

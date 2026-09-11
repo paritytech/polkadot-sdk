@@ -795,6 +795,9 @@ impl pallet_revive::Config for Runtime {
 	type AutoMap = ConstBool<false>;
 	type GasScale = ConstU32<1000>;
 	type OnBurn = ();
+	// Buffer off: no assets mirror is wired, and contract logs emitted off the ethereum path
+	// (`Revive::call`, an XCM `Transact`) stay substrate-only here, as they did before the buffer.
+	type MaxOutsideFrameLogs = ConstU32<0>;
 	type Deposit = ();
 }
 
