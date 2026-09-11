@@ -196,6 +196,13 @@ pub struct TrackDetails<Balance, Moment, Name> {
 	/// Minimum pre-conviction aye-votes ("support") as percentage of overall population that is
 	/// needed for approval as a function of time into decision period.
 	pub min_support: Curve,
+	/// Scheduler priority for this track's alarms and enactment.
+	///
+	/// A value at most
+	/// [`RESERVED_PRIORITY_THRESHOLD`](pallet_scheduler::RESERVED_PRIORITY_THRESHOLD) lets the
+	/// track use the scheduler's reserved slots; `128` keeps it in the normal band. Reserve only
+	/// tracks with a substantial `decision_deposit`, such as Root.
+	pub alarm_priority: frame_support::traits::schedule::Priority,
 }
 
 /// Track groups the information of a voting track with its corresponding identifier
@@ -819,6 +826,7 @@ mod tests {
 								floor: Perbill::from_percent(0),
 								ceil: Perbill::from_percent(100),
 							},
+							alarm_priority: 128,
 						},
 					},
 					Track {
@@ -841,6 +849,7 @@ mod tests {
 								floor: Perbill::from_percent(90),
 								ceil: Perbill::from_percent(100),
 							},
+							alarm_priority: 128,
 						},
 					},
 				];
