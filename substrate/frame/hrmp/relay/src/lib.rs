@@ -164,6 +164,15 @@ pub mod pallet {
 			/// The id of the message that asked for it.
 			message_id: u64,
 		},
+		/// A request to close a channel was refused.
+		CloseChannelRejected {
+			/// The channel.
+			channel: ChannelId,
+			/// The id of the message that asked for it.
+			message_id: u64,
+			/// Why it was refused.
+			reason: FailureReason,
+		},
 		/// Every channel of a para was dropped.
 		ChannelsCleaned {
 			/// The para.
@@ -367,9 +376,26 @@ pub mod pallet {
 			todo!()
 		}
 
+		/// The parachain has already checked its own mirror, so a refusal here means the two have
+		/// drifted. It is reported rather than raised, as on the open path.
 		fn on_close_channel(channel: ChannelId, message_id: u64, initiator: ParaId) {
-			let _ = (channel, message_id, initiator);
-			todo!()
+			let outcome = with_storage_layer(|| T::Registry::close_channel(channel, initiator));
+
+			match &outcome {
+				Ok(()) => Self::deposit_event(Event::ChannelClosed { channel, message_id }),
+				Err(reason) => Self::deposit_event(Event::CloseChannelRejected {
+					channel,
+					message_id,
+					reason: reason.clone(),
+				}),
+			}
+
+			// The other end hears about this from the parachain, which is what knows who asked.
+			Self::report(
+				channel.sender,
+				message_id,
+				MessageToParaV1::CloseResponse { channel, message_id, outcome },
+			);
 		}
 
 		fn on_force_clean(para_id: ParaId, message_id: u64) {
