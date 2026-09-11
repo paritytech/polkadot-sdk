@@ -1463,6 +1463,13 @@ pub mod pallet {
 			hard_cap_self_stake: BalanceOf<T>,
 			slope_factor: Perbill,
 		},
+		/// A stash's active stake was merged into another nominator stash.
+		StakeMerged {
+			from: T::AccountId,
+			to: T::AccountId,
+			amount: BalanceOf<T>,
+			from_rest: BalanceOf<T>,
+		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
@@ -1569,6 +1576,16 @@ pub mod pallet {
 		EraNotPrunable,
 		/// The slash has been cancelled and cannot be applied.
 		CancelledSlash,
+		/// Cannot merge a stash into itself.
+		MergeIdentical,
+		/// Cannot merge while unlock chunks are pending.
+		HasPendingUnlock,
+		/// Both accounts in a merge must be nominators.
+		NotANominator,
+		/// Amount is zero or exceeds the source's active stake.
+		InvalidMergeAmount,
+		/// Cannot merge while the source may still be subject to slashing.
+		SlashingRisk,
 		/// Commission is higher than the allowed maximum `MaxCommission`.
 		CommissionTooHigh,
 		/// Optimum self-stake cannot be greater than hard cap.
@@ -3268,6 +3285,24 @@ pub mod pallet {
 			} else {
 				Err(Error::<T>::BadTarget.into())
 			}
+		}
+
+		/// Transfer the specified amount from the source stash's staking position to the target
+		/// stash.
+		///
+		/// The dispatch origin for this call must be signed by the source stash.
+		///
+		/// Both source and target must be nominators. If the source is fully merged, its staking
+		/// metadata is removed.
+		#[pallet::call_index(36)]
+		#[pallet::weight(T::WeightInfo::merge_staked())]
+		pub fn merge_staked(
+			origin: OriginFor<T>,
+			target: T::AccountId,
+			#[pallet::compact] amount: BalanceOf<T>,
+		) -> DispatchResult {
+			let source_stash = ensure_signed(origin)?;
+			Self::do_merge_staked(&source_stash, &target, amount)
 		}
 	}
 
