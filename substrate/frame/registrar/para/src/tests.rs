@@ -17,7 +17,7 @@
 
 //! Tests for `pallet-registrar-para`.
 
-use crate::{mock::*, Error, Event, HoldReason, Paras, RegistrationState};
+use crate::{mock::*, Error, Event, HoldReason, Paras, RegistrationState, UnexpectedKind};
 use frame_support::{assert_noop, assert_ok, traits::fungible::InspectHold};
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
@@ -379,21 +379,37 @@ mod receive {
 	}
 
 	#[test]
-	#[cfg(debug_assertions)]
-	#[should_panic(expected = "register response for unknown para, dropping")]
-	fn a_report_for_an_unknown_para_is_defensive() {
+	fn a_report_for_an_unknown_para_is_reported() {
 		new_test_ext().execute_with(|| {
-			let _ = Registrar::receive(RuntimeOrigin::root(), result_message(4242, 0, Ok(())));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), result_message(4242, 7, Ok(()))));
+
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Unexpected(UnexpectedKind::RegisterResponseForUnknownPara {
+					para_id: 4242,
+					message_id: 7,
+				})]
+			);
 		});
 	}
 
 	#[test]
-	#[cfg(debug_assertions)]
-	#[should_panic(expected = "register response for para which is not pending, dropping")]
-	fn a_report_for_a_non_pending_para_is_defensive() {
+	fn a_report_for_a_non_pending_para_is_reported() {
 		new_test_ext().execute_with(|| {
 			let para_id = reserve_for(ALICE);
-			let _ = Registrar::receive(RuntimeOrigin::root(), result_message(para_id, 0, Ok(())));
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				result_message(para_id, 7, Ok(()))
+			));
+
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Unexpected(UnexpectedKind::RegisterResponseNotPending {
+					para_id,
+					message_id: 7,
+				})]
+			);
 		});
 	}
 
@@ -456,11 +472,44 @@ mod receive {
 	}
 
 	#[test]
-	#[cfg(debug_assertions)]
-	#[should_panic(expected = "cancel response for unknown para, dropping")]
-	fn a_cancel_response_for_an_unknown_para_is_defensive() {
+	fn a_cancel_response_for_an_unknown_para_is_reported() {
 		new_test_ext().execute_with(|| {
-			let _ = Registrar::receive(RuntimeOrigin::root(), cancel_message(4242, 0, Ok(())));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_message(4242, 7, Ok(()))));
+
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Unexpected(UnexpectedKind::CancelResponseForUnknownPara {
+					para_id: 4242,
+					message_id: 7,
+				})]
+			);
+		});
+	}
+
+	#[test]
+	fn a_cancel_refusal_we_cannot_settle_is_reported_and_leaves_it_pending() {
+		new_test_ext().execute_with(|| {
+			let para_id = reserve_for(ALICE);
+			request_registration(ALICE, para_id, 20, 300);
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				cancel_message(para_id, 7, Err(FailureReason::TooManyPending))
+			));
+
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Pending { .. }
+			));
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Unexpected(UnexpectedKind::CancelRefused {
+					para_id,
+					message_id: 7,
+					reason: FailureReason::TooManyPending,
+				})]
+			);
 		});
 	}
 }
@@ -734,8 +783,13 @@ mod head_noted {
 	fn ignores_what_it_cannot_lock() {
 		new_test_ext().execute_with(|| {
 			note_head(4242);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Unexpected(UnexpectedKind::HeadNotedForUnknownPara { para_id: 4242 })]
+			);
 
-			// Reserved here, so as far as this chain knows it was never onboarded.
+			// Reserved here, so as far as this chain knows it was never onboarded. Nothing to
+			// report: it is simply not lockable yet.
 			let reserved = reserve_for(ALICE);
 			note_head(reserved);
 
