@@ -23,7 +23,10 @@
 use crate::{
 	para, relay, senders, HrmpPara, MockNet, Relay, PARA_ID, RECIPIENT, SENDER, SYSTEM_PARA,
 };
-use frame_support::{assert_ok, traits::EnsureOrigin};
+use frame_support::{
+	assert_ok,
+	traits::{fungible::InspectHold, EnsureOrigin},
+};
 use hrmp_primitives::{
 	ChannelId, MessageToRelay, MessageToRelayV1, ParaId, ParaNotification, ParaRequest,
 	ParaRequestV1,
@@ -32,12 +35,22 @@ use pallet_hrmp_para::RequestState;
 use polkadot_runtime_parachains::{
 	dmp as parachains_dmp, hrmp as parachains_hrmp, Origin as ParachainsOrigin,
 };
+use sp_runtime::traits::Convert;
 use xcm_simulator::TestExt;
+use codec::DecodeAll;
 
 const CHANNEL: ChannelId = ChannelId { sender: SENDER, recipient: RECIPIENT };
 const SYSTEM_CHANNEL: ChannelId = ChannelId { sender: SENDER, recipient: SYSTEM_PARA };
 const CAPACITY: u32 = 4;
 const MESSAGE_SIZE: u32 = 512;
+
+/// What `para_id` has held on the channel-managing parachain under `reason`.
+fn held(para_id: ParaId, reason: pallet_hrmp_para::HoldReason) -> para::Balance {
+	para::Balances::balance_on_hold(
+		&para::RuntimeHoldReason::Hrmp(reason),
+		&para::SovereignAccountOf::convert(para_id),
+	)
+}
 
 /// The origin `para_id` reaches the relay chain's HRMP pallet with.
 fn para_origin(para_id: ParaId) -> relay::RuntimeOrigin {
@@ -61,24 +74,22 @@ fn downward_queue(para_id: ParaId) -> Vec<Vec<u8>> {
 
 /// The queued messages that are XCM, which is the three notifications with an instruction.
 ///
-/// The other two go down as a bare [`ParaNotification`], so the two wire formats are told apart
-/// by which one decodes; see [`crate::senders::RelayNotifyParachain`].
+/// The rest go down as a bare [`ParaNotification`], so the two wire formats are told apart by
+/// which one decodes; see [`crate::senders::RelayNotifyParachain`].
 fn downward_messages(para_id: ParaId) -> Vec<xcm::opaque::VersionedXcm> {
-	use codec::Decode;
 
 	downward_queue(para_id)
 		.into_iter()
-		.filter_map(|message| xcm::opaque::VersionedXcm::decode(&mut &message[..]).ok())
+		.filter_map(|message| xcm::opaque::VersionedXcm::decode_all(&mut &message[..]).ok())
 		.collect()
 }
 
 /// The queued messages that conclude an open request, which have no XCM instruction.
 fn downward_conclusions(para_id: ParaId) -> Vec<ParaNotification> {
-	use codec::Decode;
 
 	downward_queue(para_id)
 		.into_iter()
-		.filter_map(|message| ParaNotification::decode(&mut &message[..]).ok())
+		.filter_map(|message| ParaNotification::decode_all(&mut &message[..]).ok())
 		.collect()
 }
 
@@ -243,5 +254,87 @@ fn a_channel_with_a_system_chain_takes_no_deposit() {
 		// The paying channel next to it still holds both deposits, so this is not a blanket free
 		// pass.
 		assert!(pallet_hrmp_para::Channels::<para::Runtime>::get(CHANNEL).is_none());
+	});
+}
+
+#[test]
+fn a_para_cancels_its_open_request_through_the_channel_managing_parachain() {
+	MockNet::reset();
+
+	Relay::execute_with(|| {
+		ask(
+			SENDER,
+			ParaRequestV1::InitOpenChannel {
+				recipient: RECIPIENT,
+				proposed_max_capacity: CAPACITY,
+				proposed_max_message_size: MESSAGE_SIZE,
+			},
+		);
+	});
+
+	HrmpPara::execute_with(|| {
+		assert!(pallet_hrmp_para::Requests::<para::Runtime>::get(CHANNEL).is_some());
+		assert!(held(SENDER, pallet_hrmp_para::HoldReason::SenderDeposit) > 0);
+	});
+
+	// The relay chain was never asked to open this, so the cancel stops at the parachain.
+	Relay::execute_with(|| {
+		ask(SENDER, ParaRequestV1::CancelOpenRequest { channel: CHANNEL, open_requests: 1 });
+	});
+
+	HrmpPara::execute_with(|| {
+		assert!(pallet_hrmp_para::Requests::<para::Runtime>::get(CHANNEL).is_none());
+		assert_eq!(pallet_hrmp_para::OpenRequestCount::<para::Runtime>::get(SENDER), 0);
+		assert_eq!(held(SENDER, pallet_hrmp_para::HoldReason::SenderDeposit), 0);
+	});
+
+	Relay::execute_with(|| {
+		// The routing table never heard of it, before or after.
+		assert!(parachains_hrmp::HrmpChannels::<relay::Runtime>::get(
+			&polkadot_primitives::HrmpChannelId {
+				sender: CHANNEL.sender.into(),
+				recipient: CHANNEL.recipient.into(),
+			},
+		)
+		.is_none());
+
+		// The recipient was told about the request, so it is told the request is gone.
+		assert_eq!(
+			downward_conclusions(RECIPIENT),
+			vec![ParaNotification::OpenRequestCanceled { channel: CHANNEL, by_parachain: SENDER }]
+		);
+	});
+}
+
+#[test]
+fn the_recipient_can_cancel_too_and_the_sender_is_told() {
+	MockNet::reset();
+
+	Relay::execute_with(|| {
+		ask(
+			SENDER,
+			ParaRequestV1::InitOpenChannel {
+				recipient: RECIPIENT,
+				proposed_max_capacity: CAPACITY,
+				proposed_max_message_size: MESSAGE_SIZE,
+			},
+		);
+		ask(RECIPIENT, ParaRequestV1::CancelOpenRequest { channel: CHANNEL, open_requests: 1 });
+	});
+
+	HrmpPara::execute_with(|| {
+		assert!(pallet_hrmp_para::Requests::<para::Runtime>::get(CHANNEL).is_none());
+		// The released deposit is the sender's either way.
+		assert_eq!(held(SENDER, pallet_hrmp_para::HoldReason::SenderDeposit), 0);
+	});
+
+	Relay::execute_with(|| {
+		assert_eq!(
+			downward_conclusions(SENDER),
+			vec![ParaNotification::OpenRequestCanceled {
+				channel: CHANNEL,
+				by_parachain: RECIPIENT,
+			}]
+		);
 	});
 }
