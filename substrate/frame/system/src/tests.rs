@@ -852,6 +852,24 @@ fn ensure_signed_stuff_works() {
 	}
 }
 
+#[test]
+fn ensure_authorized_works() {
+	assert_ok!(<EnsureAuthorized<_> as EnsureOrigin<_>>::try_origin(RuntimeOrigin::from(
+		RawOrigin::Authorized
+	)));
+	for origin in [RuntimeOrigin::root(), RuntimeOrigin::signed(0u64), RuntimeOrigin::none()] {
+		assert!(<EnsureAuthorized<_> as EnsureOrigin<_>>::try_origin(origin).is_err());
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	{
+		let successful_origin: RuntimeOrigin =
+			<EnsureAuthorized<_> as EnsureOrigin<_>>::try_successful_origin()
+				.expect("EnsureAuthorized has a successful origin");
+		assert_ok!(<EnsureAuthorized<_> as EnsureOrigin<_>>::try_origin(successful_origin));
+	}
+}
+
 pub fn from_actual_ref_time(ref_time: Option<u64>) -> PostDispatchInfo {
 	PostDispatchInfo {
 		actual_weight: ref_time.map(|t| Weight::from_all(t)),
