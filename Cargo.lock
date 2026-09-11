@@ -4860,22 +4860,29 @@ dependencies = [
 name = "cumulus-client-collator"
 version = "0.7.0"
 dependencies = [
+ "assert_matches",
  "async-trait",
  "cumulus-client-consensus-common",
  "cumulus-client-network",
  "cumulus-primitives-core",
+ "cumulus-relay-chain-interface",
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
  "cumulus-test-runtime",
  "futures",
  "parity-scale-codec",
  "parking_lot 0.12.3",
+ "polkadot-erasure-coding",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
+ "polkadot-node-subsystem-util",
  "polkadot-overseer",
  "polkadot-primitives",
+ "polkadot-primitives-test-helpers",
+ "rstest",
  "sc-client-api 28.0.0",
+ "schnellru",
  "sp-api 26.0.0",
  "sp-consensus 0.32.0",
  "sp-core 28.0.0",
@@ -4883,6 +4890,10 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "sp-tracing 16.0.0",
+ "sp-version 29.0.0",
+ "substrate-prometheus-endpoint 0.17.0",
+ "thiserror 1.0.65",
+ "tokio",
  "tracing",
 ]
 
@@ -16619,28 +16630,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "polkadot-node-collation-generation"
-version = "7.0.0"
-dependencies = [
- "assert_matches",
- "futures",
- "parity-scale-codec",
- "polkadot-erasure-coding",
- "polkadot-node-primitives",
- "polkadot-node-subsystem",
- "polkadot-node-subsystem-test-helpers",
- "polkadot-node-subsystem-util",
- "polkadot-primitives",
- "polkadot-primitives-test-helpers",
- "rstest",
- "schnellru",
- "sp-core 28.0.0",
- "sp-keyring",
- "thiserror 1.0.65",
- "tracing-gum",
-]
-
-[[package]]
 name = "polkadot-node-core-approval-voting"
 version = "7.0.0"
 dependencies = [
@@ -17160,7 +17149,6 @@ dependencies = [
  "sp-consensus-slots",
  "sp-keystore 0.34.0",
  "sp-maybe-compressed-blob 11.0.0",
- "sp-runtime 31.0.1",
  "thiserror 1.0.65",
  "zstd 0.12.4",
 ]
@@ -17866,7 +17854,6 @@ dependencies = [
  "polkadot-gossip-support",
  "polkadot-network-bridge",
  "polkadot-node-clock",
- "polkadot-node-collation-generation",
  "polkadot-node-core-approval-voting",
  "polkadot-node-core-approval-voting-parallel",
  "polkadot-node-core-av-store",
@@ -18236,7 +18223,6 @@ dependencies = [
  "polkadot-gossip-support",
  "polkadot-network-bridge",
  "polkadot-node-clock",
- "polkadot-node-collation-generation",
  "polkadot-node-core-approval-voting",
  "polkadot-node-core-approval-voting-parallel",
  "polkadot-node-core-av-store",
@@ -18580,7 +18566,6 @@ dependencies = [
  "pallet-balances",
  "pallet-staking",
  "pallet-transaction-payment",
- "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-overseer",
  "polkadot-parachain-primitives",
@@ -18609,6 +18594,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "substrate-test-client",
+ "test-parachain-collator-driver",
  "test-runtime-constants",
  "tokio",
 ]
@@ -28394,7 +28380,29 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-keyring",
  "test-parachain-adder",
+ "test-parachain-collator-driver",
  "tokio",
+]
+
+[[package]]
+name = "test-parachain-collator-driver"
+version = "1.0.0"
+dependencies = [
+ "assert_matches",
+ "cumulus-client-collator",
+ "futures",
+ "parity-scale-codec",
+ "polkadot-node-primitives",
+ "polkadot-node-subsystem",
+ "polkadot-node-subsystem-util",
+ "polkadot-overseer",
+ "polkadot-primitives",
+ "rstest",
+ "sc-client-api 28.0.0",
+ "sp-api 26.0.0",
+ "sp-core 28.0.0",
+ "thiserror 1.0.65",
+ "tracing-gum",
 ]
 
 [[package]]
@@ -28429,7 +28437,6 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "polkadot-cli",
- "polkadot-erasure-coding",
  "polkadot-node-core-pvf",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
@@ -28438,10 +28445,10 @@ dependencies = [
  "polkadot-service",
  "polkadot-test-service",
  "sc-cli",
- "sc-client-api 28.0.0",
  "sc-service",
  "sp-core 28.0.0",
  "sp-keyring",
+ "test-parachain-collator-driver",
  "test-parachain-undying",
  "tokio",
 ]

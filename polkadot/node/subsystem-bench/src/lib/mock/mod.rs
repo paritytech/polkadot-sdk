@@ -66,7 +66,6 @@ macro_rules! dummy_builder {
 			.bitfield_distribution(MockBitfieldDistribution {})
 			.provisioner(MockProvisioner {})
 			.network_bridge_rx(MockNetworkBridgeRx {})
-			.collation_generation(MockCollationGeneration {})
 			.collator_protocol(MockCollatorProtocol {})
 			.gossip_support(MockGossipSupport {})
 			.dispute_distribution(MockDisputeDistribution {})

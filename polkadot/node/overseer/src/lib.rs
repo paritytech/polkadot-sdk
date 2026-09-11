@@ -81,10 +81,10 @@ use polkadot_node_subsystem_types::messages::{
 	ApprovalDistributionMessage, ApprovalVotingMessage, ApprovalVotingParallelMessage,
 	AvailabilityDistributionMessage, AvailabilityRecoveryMessage, AvailabilityStoreMessage,
 	BitfieldDistributionMessage, CandidateBackingMessage, CandidateValidationMessage,
-	ChainApiMessage, ChainSelectionMessage, CollationGenerationMessage, CollatorProtocolMessage,
-	DisputeCoordinatorMessage, DisputeDistributionMessage, GossipSupportMessage,
-	NetworkBridgeRxMessage, NetworkBridgeTxMessage, ProspectiveParachainsMessage,
-	ProvisionerMessage, RuntimeApiMessage, StatementDistributionMessage,
+	ChainApiMessage, ChainSelectionMessage, CollatorProtocolMessage, DisputeCoordinatorMessage,
+	DisputeDistributionMessage, GossipSupportMessage, NetworkBridgeRxMessage,
+	NetworkBridgeTxMessage, ProspectiveParachainsMessage, ProvisionerMessage, RuntimeApiMessage,
+	StatementDistributionMessage,
 };
 
 pub use polkadot_node_subsystem_types::{
@@ -568,7 +568,6 @@ pub struct Overseer<SupportsParachains> {
 		ApprovalVotingParallelMessage,
 		GossipSupportMessage,
 		DisputeDistributionMessage,
-		CollationGenerationMessage,
 		CollatorProtocolMessage,
 	])]
 	network_bridge_rx: NetworkBridgeRx,
@@ -578,12 +577,6 @@ pub struct Overseer<SupportsParachains> {
 
 	#[subsystem(blocking, ChainApiMessage, sends: [])]
 	chain_api: ChainApi,
-
-	#[subsystem(CollationGenerationMessage, sends: [
-		RuntimeApiMessage,
-		CollatorProtocolMessage,
-	])]
-	collation_generation: CollationGeneration,
 
 	#[subsystem(CollatorProtocolMessage, sends: [
 		NetworkBridgeTxMessage,

@@ -22,15 +22,14 @@ use polkadot_node_network_protocol::{
 	peer_set::ValidationVersion, ObservedRole, PeerId, UnifiedReputationChange,
 };
 use polkadot_node_primitives::{
-	BlockData, CollationGenerationConfig, CollationResult, DisputeMessage, InvalidDisputeVote, PoV,
-	UncheckedDisputeMessage, ValidDisputeVote,
+	BlockData, DisputeMessage, InvalidDisputeVote, PoV, UncheckedDisputeMessage, ValidDisputeVote,
 };
 use polkadot_node_subsystem_test_helpers::mock::{dummy_unpin_handle, new_leaf};
 use polkadot_node_subsystem_types::messages::{
 	NetworkBridgeEvent, PvfExecKind, ReportPeerMessage, RuntimeApiRequest,
 };
 use polkadot_primitives::{
-	CandidateHash, CandidateReceiptV2, CollatorPair, Id as ParaId, InvalidDisputeStatementKind,
+	CandidateHash, CandidateReceiptV2, Id as ParaId, InvalidDisputeStatementKind,
 	PersistedValidationData, SessionIndex, ValidDisputeStatementKind, ValidatorIndex,
 };
 use polkadot_primitives_test_helpers::{
@@ -46,7 +45,6 @@ use crate::{
 use metered;
 
 use assert_matches::assert_matches;
-use sp_core::crypto::Pair as _;
 
 use super::*;
 
@@ -827,25 +825,6 @@ fn test_chain_api_msg() -> ChainApiMessage {
 	ChainApiMessage::FinalizedBlockNumber(sender)
 }
 
-fn test_collator_generation_msg() -> CollationGenerationMessage {
-	CollationGenerationMessage::Initialize(CollationGenerationConfig {
-		key: CollatorPair::generate().0,
-		collator: Some(Box::new(|_, _| TestCollator.boxed())),
-		para_id: Default::default(),
-	})
-}
-struct TestCollator;
-
-impl Future for TestCollator {
-	type Output = Option<CollationResult>;
-
-	fn poll(self: Pin<&mut Self>, _cx: &mut futures::task::Context) -> Poll<Self::Output> {
-		panic!("at the Disco")
-	}
-}
-
-impl Unpin for TestCollator {}
-
 fn test_collator_protocol_msg() -> CollatorProtocolMessage {
 	CollatorProtocolMessage::CollateOn(Default::default())
 }
@@ -983,7 +962,7 @@ fn test_prospective_parachains_msg() -> ProspectiveParachainsMessage {
 // Checks that `stop`, `broadcast_signal` and `broadcast_message` are implemented correctly.
 #[test]
 fn overseer_all_subsystems_receive_signals_and_messages() {
-	const NUM_SUBSYSTEMS: usize = 24;
+	const NUM_SUBSYSTEMS: usize = 23;
 	// -4 for BitfieldSigning, GossipSupport, AvailabilityDistribution and PvfCheckerSubsystem.
 	const NUM_SUBSYSTEMS_MESSAGED: usize = NUM_SUBSYSTEMS - 4;
 
@@ -1028,9 +1007,6 @@ fn overseer_all_subsystems_receive_signals_and_messages() {
 			.await;
 		handle
 			.send_msg_anon(AllMessages::CandidateBacking(test_candidate_backing_msg()))
-			.await;
-		handle
-			.send_msg_anon(AllMessages::CollationGeneration(test_collator_generation_msg()))
 			.await;
 		handle
 			.send_msg_anon(AllMessages::CollatorProtocol(test_collator_protocol_msg()))
@@ -1130,7 +1106,6 @@ fn context_holds_onto_message_until_enough_signals_received() {
 	let (network_bridge_tx_bounded_tx, _) = metered::channel(CHANNEL_CAPACITY);
 	let (chain_api_bounded_tx, _) = metered::channel(CHANNEL_CAPACITY);
 	let (collator_protocol_bounded_tx, _) = metered::channel(CHANNEL_CAPACITY);
-	let (collation_generation_bounded_tx, _) = metered::channel(CHANNEL_CAPACITY);
 	let (approval_distribution_bounded_tx, _) = metered::channel(CHANNEL_CAPACITY);
 	let (approval_voting_bounded_tx, _) = metered::channel(CHANNEL_CAPACITY);
 	let (gossip_support_bounded_tx, _) = metered::channel(CHANNEL_CAPACITY);
@@ -1155,7 +1130,6 @@ fn context_holds_onto_message_until_enough_signals_received() {
 	let (network_bridge_rx_unbounded_tx, _) = metered::unbounded();
 	let (chain_api_unbounded_tx, _) = metered::unbounded();
 	let (collator_protocol_unbounded_tx, _) = metered::unbounded();
-	let (collation_generation_unbounded_tx, _) = metered::unbounded();
 	let (approval_distribution_unbounded_tx, _) = metered::unbounded();
 	let (approval_voting_unbounded_tx, _) = metered::unbounded();
 	let (gossip_support_unbounded_tx, _) = metered::unbounded();
@@ -1181,7 +1155,6 @@ fn context_holds_onto_message_until_enough_signals_received() {
 		network_bridge_rx: network_bridge_rx_bounded_tx.clone(),
 		chain_api: chain_api_bounded_tx.clone(),
 		collator_protocol: collator_protocol_bounded_tx.clone(),
-		collation_generation: collation_generation_bounded_tx.clone(),
 		approval_distribution: approval_distribution_bounded_tx.clone(),
 		approval_voting: approval_voting_bounded_tx.clone(),
 		gossip_support: gossip_support_bounded_tx.clone(),
@@ -1206,7 +1179,6 @@ fn context_holds_onto_message_until_enough_signals_received() {
 		network_bridge_rx_unbounded: network_bridge_rx_unbounded_tx.clone(),
 		chain_api_unbounded: chain_api_unbounded_tx.clone(),
 		collator_protocol_unbounded: collator_protocol_unbounded_tx.clone(),
-		collation_generation_unbounded: collation_generation_unbounded_tx.clone(),
 		approval_distribution_unbounded: approval_distribution_unbounded_tx.clone(),
 		approval_voting_unbounded: approval_voting_unbounded_tx.clone(),
 		gossip_support_unbounded: gossip_support_unbounded_tx.clone(),
@@ -1298,7 +1270,6 @@ trait IsPrioMessage {
 impl IsPrioMessage for CandidateValidationMessage {}
 impl IsPrioMessage for CandidateBackingMessage {}
 impl IsPrioMessage for ChainApiMessage {}
-impl IsPrioMessage for CollationGenerationMessage {}
 impl IsPrioMessage for CollatorProtocolMessage {}
 impl IsPrioMessage for StatementDistributionMessage {
 	fn is_prio(&self) -> bool {

@@ -161,7 +161,6 @@ pub async fn build_minimal_relay_chain_node_with_rpc(
 /// Instead of spawning all subsystems, this minimal node will only spawn subsystems
 /// required to collate:
 /// - AvailabilityRecovery
-/// - CollationGeneration
 /// - CollatorProtocol
 /// - NetworkBridgeRx
 /// - NetworkBridgeTx

@@ -18,15 +18,16 @@
 
 use codec::{Decode, Encode};
 use futures_timer::Delay;
-use polkadot_node_primitives::{Collation, CollationResult, CollatorFn, MaybeCompressedPoV, PoV};
+use polkadot_node_primitives::{Collation, MaybeCompressedPoV, PoV};
 use polkadot_primitives::{CollatorId, CollatorPair};
-use sp_core::{traits::SpawnNamed, Pair};
+use sp_core::Pair;
 use std::{
 	collections::HashMap,
 	sync::{Arc, Mutex},
 	time::Duration,
 };
 use test_parachain_adder::{execute, hash_state, BlockData, HeadData};
+use test_parachain_collator_driver::CollationBuilder;
 
 /// The amount we add when producing a new block.
 ///
@@ -173,14 +174,10 @@ impl Collator {
 		self.key.public()
 	}
 
-	/// Create the collation function.
+	/// Create the collation builder.
 	///
-	/// This collation function can be plugged into the overseer to generate collations for the
-	/// adder parachain.
-	pub fn create_collation_function(
-		&self,
-		_spawner: impl SpawnNamed + Clone + 'static,
-	) -> CollatorFn {
+	/// Returns a closure that builds one collation on top of the given persisted validation data.
+	pub fn create_collation_builder(&self) -> CollationBuilder {
 		use futures::FutureExt as _;
 
 		let state = self.state.clone();
@@ -215,7 +212,7 @@ impl Collator {
 				hrmp_watermark: validation_data.relay_parent_number,
 			};
 
-			async move { Some(CollationResult { collation }) }.boxed()
+			async move { Some(collation) }.boxed()
 		})
 	}
 
@@ -244,9 +241,8 @@ mod tests {
 
 	#[test]
 	fn collator_works() {
-		let spawner = sp_core::testing::TaskExecutor::new();
 		let collator = Collator::new();
-		let collation_function = collator.create_collation_function(spawner);
+		let collation_function = collator.create_collation_builder();
 
 		for i in 0..5 {
 			let parent_head =
@@ -259,7 +255,7 @@ mod tests {
 
 			let collation =
 				block_on(collation_function(Default::default(), &validation_data)).unwrap();
-			validate_collation(&collator, (*parent_head).clone(), collation.collation);
+			validate_collation(&collator, (*parent_head).clone(), collation);
 		}
 	}
 
