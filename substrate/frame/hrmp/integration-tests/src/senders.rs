@@ -24,11 +24,13 @@
 
 use codec::Encode;
 use frame_support::traits::{CallerTrait, OriginTrait};
-use hrmp_primitives::{MessageToPara, MessageToRelay};
+use hrmp_primitives::{MessageToPara, MessageToRelay, ParaNotification, ParaRequest};
 use pallet_hrmp_para::SendToRelay;
-use pallet_hrmp_relay::SendToPara;
+use pallet_hrmp_relay::{ForwardToPara, NotifyParachain, SendToPara};
 use polkadot_parachain_primitives::primitives::Id as PolkadotParaId;
-use polkadot_runtime_parachains::Origin as ParachainsOrigin;
+use polkadot_runtime_parachains::{
+	configuration, dmp as parachains_dmp, Origin as ParachainsOrigin,
+};
 use xcm::latest::prelude::*;
 
 /// The para id of the control-plane parachain in this test network.
@@ -66,6 +68,27 @@ pub enum HrmpParaCalls {
 	/// Index of `fn receive` in `pallet-hrmp-para`.
 	#[codec(index = 0)]
 	Receive(MessageToPara),
+	/// Index of `fn receive_request` in `pallet-hrmp-para`.
+	#[codec(index = 1)]
+	ReceiveRequest(hrmp_primitives::ParaId, ParaRequest),
+}
+
+/// The `UnpaidExecution + Transact` program the relay chain sends to the parachain.
+///
+/// `OriginKind::Superuser` so it lands as `Root` via `ParentAsSuperuser`.
+fn transact_to_para(call: HrmpParaCalls) -> Result<(), ()> {
+	let call = ParaRuntimePallets::Hrmp(call).encode();
+	let program = Xcm(vec![
+		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+		Transact {
+			origin_kind: OriginKind::Superuser,
+			fallback_max_weight: None,
+			call: call.into(),
+		},
+	]);
+
+	let dest = Location::new(0, [Junction::Parachain(PARA_ID)]);
+	send_xcm::<crate::relay::XcmRouter>(dest, program).map(|_| ()).map_err(|_| ())
 }
 
 /// The parachain's half of the transport.
@@ -93,25 +116,58 @@ impl SendToRelay for ParaSendToRelay {
 }
 
 /// The relay chain's half of the transport.
-///
-/// `OriginKind::Superuser` so the report lands on the parachain as `Root` via
-/// `ParentAsSuperuser`.
 pub struct RelaySendToPara;
 
 impl SendToPara for RelaySendToPara {
 	fn send(message: MessageToPara) -> Result<(), ()> {
-		let call = ParaRuntimePallets::Hrmp(HrmpParaCalls::Receive(message)).encode();
-		let program = Xcm(vec![
-			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
-			Transact {
-				origin_kind: OriginKind::Superuser,
-				fallback_max_weight: None,
-				call: call.into(),
-			},
-		]);
+		transact_to_para(HrmpParaCalls::Receive(message))
+	}
+}
 
-		let dest = Location::new(0, [Junction::Parachain(PARA_ID)]);
-		send_xcm::<crate::relay::XcmRouter>(dest, program).map(|_| ()).map_err(|_| ())
+/// Carries a request from any parachain to the one that owns channel management.
+pub struct RelayForwardToPara;
+
+impl ForwardToPara for RelayForwardToPara {
+	fn forward(para_id: hrmp_primitives::ParaId, request: ParaRequest) -> Result<(), ()> {
+		transact_to_para(HrmpParaCalls::ReceiveRequest(para_id, request))
+	}
+}
+
+/// Delivers a channel notification to any para.
+///
+/// Queued straight onto DMP, the way `parachains_hrmp` sends the very same instructions, so it
+/// reaches paras the simulator network does not model. Not a `Transact` for the three that are
+/// XCM instructions: a para's XCM config already handles those.
+pub struct RelayNotifyParachain;
+
+impl NotifyParachain for RelayNotifyParachain {
+	fn notify(para_id: hrmp_primitives::ParaId, notification: ParaNotification) -> Result<(), ()> {
+		use xcm::opaque::{latest::Xcm as OpaqueXcm, VersionedXcm};
+
+		let as_xcm = |instruction| VersionedXcm::from(OpaqueXcm(vec![instruction])).encode();
+		let message = match notification {
+			ParaNotification::NewChannelOpenRequest { sender, max_message_size, max_capacity } => {
+				as_xcm(HrmpNewChannelOpenRequest { sender, max_message_size, max_capacity })
+			},
+			ParaNotification::ChannelAccepted { recipient } => {
+				as_xcm(HrmpChannelAccepted { recipient })
+			},
+			ParaNotification::ChannelClosing { initiator, sender, recipient } => {
+				as_xcm(HrmpChannelClosing { initiator, sender, recipient })
+			},
+			// XCM has no instruction that concludes an open request, so these go down as the bare
+			// notification. A production relay chain must pick a wire format: `Transact` into a
+			// receiving pallet on the para, or a new instruction.
+			conclusion => conclusion.encode(),
+		};
+
+		let config = configuration::ActiveConfig::<crate::relay::Runtime>::get();
+		parachains_dmp::Pallet::<crate::relay::Runtime>::queue_downward_message(
+			&config,
+			para_id.into(),
+			message,
+		)
+		.map_err(|_| ())
 	}
 }
 
