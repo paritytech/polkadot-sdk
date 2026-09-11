@@ -88,7 +88,7 @@
 //! The `statement/2` protocol lets a peer advertise which topics it cares about as a bloom filter
 //! ("topic affinity"). Once a peer has an active affinity filter, only matching statements are
 //! forwarded to it; when its affinity changes, newly relevant statements are re-sent. Affinity
-//! advertisements are rate-limited. See the `affinity` module.
+//! advertisements are rate-limited per peer, see `config::AFFINITY_UPDATES_PER_SECOND`.
 //!
 //! Light-client peers on `statement/2` must advertise an affinity before receiving any statements:
 //! a light V2 peer pulls only the topics it cares about instead of the full feed, and is synced
@@ -289,6 +289,7 @@ struct Metrics {
 	initial_sync_peers_active: Gauge<U64>,
 	initial_sync_duration_seconds: HistogramVec,
 	statement_flooding_detected: Counter<U64>,
+	affinity_flooding_detected: Counter<U64>,
 	send_failures: CounterVec<U64>,
 	undelivered_statements: CounterVec<U64>,
 }
@@ -457,6 +458,13 @@ impl Metrics {
 				Counter::new(
 					"substrate_sync_statement_flooding_detected",
 					"Number of peers disconnected for exceeding statement rate limits",
+				)?,
+				r,
+			)?,
+			affinity_flooding_detected: register(
+				Counter::new(
+					"substrate_sync_statement_affinity_flooding_detected",
+					"Number of topic affinity updates dropped for exceeding the per-peer rate limit",
 				)?,
 				r,
 			)?,
@@ -817,11 +825,6 @@ impl PeerRateLimiter {
 		Self::with_clock(statements_per_second, burst, &DefaultClock::default())
 	}
 
-	/// The quota for `ExplicitTopicAffinity` updates from one peer.
-	fn for_affinity_updates() -> Self {
-		Self::new(config::AFFINITY_UPDATES_PER_SECOND, config::AFFINITY_UPDATES_BURST)
-	}
-
 	/// The same quota, measured against `clock`.
 	fn with_clock<C>(statements_per_second: NonZeroU32, burst: NonZeroU32, clock: &C) -> Self
 	where
@@ -832,7 +835,12 @@ impl PeerRateLimiter {
 		Self { bucket: Box::new(RateLimiter::direct_with_clock(quota, clock)) }
 	}
 
-	/// Check if receiving `count` statements would exceed the rate limit.
+	/// The quota for `ExplicitTopicAffinity` updates from one peer.
+	fn for_affinity_updates() -> Self {
+		Self::new(config::AFFINITY_UPDATES_PER_SECOND, config::AFFINITY_UPDATES_BURST)
+	}
+
+	/// Check if receiving `count` more messages would exceed the rate limit.
 	fn is_flooding(&self, count: usize) -> bool {
 		if count > u32::MAX as usize {
 			return true;
@@ -1701,9 +1709,12 @@ where
 									if peer_data.affinity_rate_limiter.is_flooding(1) {
 										log::debug!(
 											target: LOG_TARGET,
-											"Rate-limiting ExplicitTopicAffinity from {peer}"
+											"Dropping rate-limited ExplicitTopicAffinity from {peer}"
 										);
 										self.network.report_peer(peer, rep::AFFINITY_FLOODING);
+										if let Some(ref metrics) = self.metrics {
+											metrics.affinity_flooding_detected.inc();
+										}
 										return;
 									}
 									if v2dht_enabled() {
