@@ -74,8 +74,8 @@
 //! the slot is free, so a slow peer holds one encoded chunk rather than its whole backlog. An
 //! outbox past `config::MAX_PROPAGATION_OUTBOX_LEN` drops its oldest entries, since the freshest
 //! statements are the ones still worth delivering. Dropped entries are counted in
-//! `undelivered_statements`. A transient statement never reaches the store, so it travels through
-//! the outbox with its body.
+//! `undelivered_statements`. A transient statement leaves the store on the propagation pull, so it
+//! travels through the outbox with its body, bounded only by that entry cap.
 //!
 //! In-flight bytes of both kinds are held against the shared
 //! `config::MAX_SEND_IN_FLIGHT_BYTES` budget. A peer that finds the budget full, or whose store
@@ -251,6 +251,9 @@ const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::fr
 /// Maximum admission-journal entries one initial-sync fetch visits, so that a peer whose
 /// affinity matches nothing cannot make one burst walk the whole journal in the event loop.
 const INITIAL_SYNC_SCAN_LIMIT: usize = 4096;
+/// Maximum outbox entries one propagation fetch hands to the store, so that a full outbox is
+/// copied a chunk at a time rather than whole on every send.
+const PROPAGATION_FETCH_LIMIT: usize = 4096;
 /// Interval for processing pending topic affinity changes from peers.
 const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
 /// Interval between sweeps that evict statement-store peers unseen for the staleness TTL, so the
@@ -302,6 +305,9 @@ mod send_failure {
 	pub const NO_SINK: &str = "no_sink";
 	/// The peer's propagation outbox overflowed and the oldest queued hashes were dropped.
 	pub const OUTBOX_FULL: &str = "outbox_full";
+	/// A planned statement left the store before its chunk went out, and no sync stands in
+	/// for it.
+	pub const MISSING_FROM_STORE: &str = "missing_from_store";
 }
 
 mod sync_outcome {
@@ -996,28 +1002,43 @@ enum OutboxEntry {
 	/// the peer, so the peer's affinity filter does not apply, and an initial sync, which serves
 	/// the peer through that filter, cannot stand in for the entry.
 	Planned(Hash),
-	/// A transient statement the plan assigned to the peer. It never reaches the store, so the
-	/// body travels with the entry.
+	/// A transient statement the plan assigned to the peer. It leaves the store on the
+	/// propagation pull, so the body travels with the entry.
 	Transient(Hash, Arc<Statement>),
 }
 
 impl OutboxEntry {
-	fn hash(&self) -> &Hash {
+	fn hash(&self) -> Hash {
 		match self {
-			Self::Stored(hash) | Self::Planned(hash) | Self::Transient(hash, _) => hash,
+			Self::Stored(hash) | Self::Planned(hash) | Self::Transient(hash, _) => *hash,
 		}
 	}
 
-	fn is_planned(&self) -> bool {
+	/// Whether the v2 DHT propagation plan chose the peer for this entry.
+	fn from_plan(&self) -> bool {
 		!matches!(self, Self::Stored(_))
 	}
+
+	fn is_transient(&self) -> bool {
+		matches!(self, Self::Transient(..))
+	}
+}
+
+/// The chunk a fetch built from the front of a peer's outbox.
+struct FetchedChunk {
+	statements: Vec<(Hash, Statement)>,
+	/// Entries consumed from the outbox, whether they yielded a statement or not.
+	processed: usize,
+	/// Consumed entries whose statement the store no longer holds.
+	missing: usize,
+	/// Encoded size of `statements`. A size above the maximum signals a lone oversized
+	/// statement, which the caller must drop.
+	size: usize,
 }
 
 /// Build the next chunk of statements for a peer from the run of same-kind entries at the front
 /// of `entries`, fetching stored statements through the `statements_by_hashes` callback so
 /// non-matching statements are never materialized.
-///
-/// Returns the chunk, the number of entries consumed and the accumulated encoded size.
 fn fetch_statement_chunk(
 	store: &dyn StatementStore,
 	recently_received_statements: &HashMap<Hash, HashSet<PeerId>>,
@@ -1026,9 +1047,9 @@ fn fetch_statement_chunk(
 	peer_data: &Peer,
 	entries: &[OutboxEntry],
 	max_size: usize,
-) -> sp_statement_store::Result<(Vec<(Hash, Statement)>, usize, usize)> {
+) -> sp_statement_store::Result<FetchedChunk> {
 	let Some(first) = entries.first() else {
-		return Ok((Vec::new(), 0, 0));
+		return Ok(FetchedChunk { statements: Vec::new(), processed: 0, missing: 0, size: 0 });
 	};
 	let now = unix_timestamp_secs();
 	let mut accumulated_size = 0;
@@ -1036,7 +1057,7 @@ fn fetch_statement_chunk(
 		if stmt.is_expired(now) {
 			return FilterDecision::Skip;
 		}
-		if !first.is_planned() &&
+		if !first.from_plan() &&
 			peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt))
 		{
 			return FilterDecision::Skip;
@@ -1051,7 +1072,7 @@ fn fetch_statement_chunk(
 		accumulated_size += encoded_size;
 		FilterDecision::Take
 	};
-	let (statements, processed) = match first {
+	let (statements, processed, missing) = match first {
 		OutboxEntry::Transient(..) => {
 			let mut statements = Vec::new();
 			let mut processed = 0;
@@ -1064,20 +1085,29 @@ fn fetch_statement_chunk(
 				}
 				processed += 1;
 			}
-			(statements, processed)
+			(statements, processed, 0)
 		},
 		OutboxEntry::Stored(_) | OutboxEntry::Planned(_) => {
 			let hashes: Vec<Hash> = entries
 				.iter()
-				.take_while(|entry| std::mem::discriminant(*entry) == std::mem::discriminant(first))
-				.map(|entry| *entry.hash())
+				.take(PROPAGATION_FETCH_LIMIT)
+				.take_while(|entry| !entry.is_transient() && entry.from_plan() == first.from_plan())
+				.map(OutboxEntry::hash)
 				.collect();
-			store.statements_by_hashes(&hashes, &mut |hash, encoded, stmt| {
-				admit(hash, encoded.len(), stmt)
-			})?
+			let mut found = 0;
+			let (statements, processed) =
+				store.statements_by_hashes(&hashes, &mut |hash, encoded, stmt| {
+					let decision = admit(hash, encoded.len(), stmt);
+					if !matches!(decision, FilterDecision::Abort) {
+						found += 1;
+					}
+					decision
+				})?;
+			// The store counts a hash it no longer holds as processed without offering it.
+			(statements, processed, processed - found)
 		},
 	};
-	Ok((statements, processed, accumulated_size))
+	Ok(FetchedChunk { statements, processed, missing, size: accumulated_size })
 }
 
 async fn send_with_timeout<F>(send: F) -> SendOutcome
@@ -1962,10 +1992,9 @@ where
 
 	/// Queue the statements the orchestrator's propagation `plan` assigned to each peer.
 	///
-	/// The plan has chosen the peers, so neither the peer's affinity filter nor its sync
-	/// watermark applies: the initial sync serves a peer through its filter and never sees
-	/// transient statements, so it cannot stand in for a planned statement. Only statements the
-	/// peer sent to us are dropped.
+	/// A planned entry skips the peer's affinity filter and sync watermark, see
+	/// [`OutboxEntry::Planned`]. Of the statements offered, only those the peer sent to us are
+	/// dropped.
 	fn queue_planned_statements(
 		&mut self,
 		statements: &[(u64, Hash, Statement)],
@@ -2017,6 +2046,9 @@ where
 
 	/// Append `entries` to the peer's outbox and send the next chunk if its slot is free.
 	fn push_outbox_entries(&mut self, who: &PeerId, entries: Vec<OutboxEntry>) {
+		if entries.is_empty() {
+			return;
+		}
 		let outbox = self.propagation_outboxes.entry(*who).or_default();
 		let queued = entries.len();
 		let mut overflow = 0;
@@ -2075,7 +2107,8 @@ where
 			let Some(outbox) = self.propagation_outboxes.get_mut(&who) else {
 				return;
 			};
-			let (statements, processed, accumulated_size) = match fetch_statement_chunk(
+			let from_plan = outbox.front().is_some_and(OutboxEntry::from_plan);
+			let chunk = match fetch_statement_chunk(
 				&*self.statement_store,
 				&self.recently_received_statements,
 				&self.pending_statements_peers,
@@ -2100,6 +2133,7 @@ where
 					return;
 				},
 			};
+			let FetchedChunk { statements, processed, missing, size: accumulated_size } = chunk;
 
 			debug_assert!(
 				processed > 0,
@@ -2112,6 +2146,12 @@ where
 			// Consume the fetched hashes before the oversized check, otherwise the oversized
 			// statement would be fetched again on the next iteration.
 			outbox.drain(..processed);
+
+			// A stored hash the store dropped is covered by a later sync, a planned one by
+			// nothing.
+			if from_plan && missing > 0 {
+				self.record_abandoned_send(send_failure::MISSING_FROM_STORE, missing);
+			}
 
 			if accumulated_size > max_size {
 				log::warn!(target: LOG_TARGET, "Statement too large, skipping");
@@ -2348,9 +2388,9 @@ where
 			}
 			// Stored hashes queued for propagation before this scheduling sit below the new
 			// watermark, so the cursor already covers them; dropping them keeps them from
-			// arriving twice. Planned entries stay, since the sync cannot stand in for them.
+			// arriving twice. Planned and transient entries stay.
 			if let Some(outbox) = self.propagation_outboxes.get_mut(&peer) {
-				outbox.retain(OutboxEntry::is_planned);
+				outbox.retain(OutboxEntry::from_plan);
 				if outbox.is_empty() {
 					self.propagation_outboxes.remove(&peer);
 				}
@@ -3753,7 +3793,7 @@ mod tests {
 		let tail: HashSet<_> = outbox
 			.iter()
 			.skip(MAX_PROPAGATION_OUTBOX_LEN - 3)
-			.map(|entry| *entry.hash())
+			.map(OutboxEntry::hash)
 			.collect();
 		assert_eq!(tail, fresh_hashes, "the freshest hashes must survive the overflow");
 
@@ -3974,6 +4014,114 @@ mod tests {
 			vec![hash]
 		);
 		assert!(!handler.propagation_outboxes.contains_key(&peer_id));
+	}
+
+	#[tokio::test]
+	async fn planned_transient_run_splits_into_chunks() {
+		let (mut handler, _statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		// Eleven 100 KiB bodies overflow one notification, so the transient loop must stop at
+		// the boundary and hand the rest to the next chunk.
+		let statements: Vec<_> = (0..11u8)
+			.map(|seed| {
+				let mut statement = new_live_statement();
+				let mut data = vec![0u8; 100 * 1024];
+				data[0] = seed;
+				statement.set_plain_data(data);
+				(u64::MAX, statement.hash(), statement)
+			})
+			.collect();
+		let hashes: Vec<_> = statements.iter().map(|(_, hash, _)| *hash).collect();
+
+		handler.queue_planned_statements(&statements, vec![(peer_id, (0..11).collect())]);
+		handler.flush_pending_sends().await;
+
+		let sent = notification_service.get_sent_notifications();
+		assert_eq!(sent.len(), 2, "the run must split into two chunks");
+		for (_, notification) in &sent {
+			assert!(notification.len() <= MAX_STATEMENT_NOTIFICATION_SIZE as usize);
+		}
+		assert_eq!(get_peer_hashes(&sent, peer_id), hashes);
+	}
+
+	#[tokio::test]
+	async fn mixed_planned_and_transient_entries_all_go_out() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+
+		let make = |seed: &[u8]| {
+			let mut statement = new_live_statement();
+			statement.set_plain_data(seed.to_vec());
+			statement
+		};
+		let first = make(b"first planned");
+		let transient = make(b"transient");
+		let last = make(b"last planned");
+		let hashes = vec![first.hash(), transient.hash(), last.hash()];
+		statement_store.insert(first);
+		statement_store.insert(last);
+
+		// A transient hash must never enter the store fetch, where it would count as missing.
+		handler.propagation_outboxes.insert(
+			peer_id,
+			VecDeque::from(vec![
+				OutboxEntry::Planned(hashes[0]),
+				OutboxEntry::Transient(hashes[1], Arc::new(transient)),
+				OutboxEntry::Planned(hashes[2]),
+			]),
+		);
+		handler.try_send_next_chunk(peer_id);
+		handler.flush_pending_sends().await;
+
+		assert_eq!(
+			get_peer_hashes(&notification_service.get_sent_notifications(), peer_id),
+			hashes
+		);
+		assert!(!handler.propagation_outboxes.contains_key(&peer_id));
+	}
+
+	#[tokio::test]
+	async fn planned_statement_missing_from_the_store_is_counted() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
+
+		let mut gone = new_live_statement();
+		gone.set_plain_data(b"gone".to_vec());
+		let gone_hash = gone.hash();
+		let mut kept = new_live_statement();
+		kept.set_plain_data(b"kept".to_vec());
+		let kept_hash = kept.hash();
+		statement_store.insert(kept);
+
+		// The stored hash is covered by a later sync, only the planned one is lost.
+		handler.propagation_outboxes.insert(
+			peer_id,
+			VecDeque::from(vec![
+				OutboxEntry::Stored(gone_hash),
+				OutboxEntry::Planned(gone_hash),
+				OutboxEntry::Planned(kept_hash),
+			]),
+		);
+		handler.try_send_next_chunk(peer_id);
+		handler.flush_pending_sends().await;
+
+		assert_eq!(
+			get_peer_hashes(&notification_service.get_sent_notifications(), peer_id),
+			vec![kept_hash]
+		);
+		let metrics = handler.metrics.as_ref().unwrap();
+		assert_eq!(
+			metrics
+				.undelivered_statements
+				.with_label_values(&[send_failure::MISSING_FROM_STORE])
+				.get(),
+			1
+		);
 	}
 
 	#[tokio::test]
@@ -7287,7 +7435,7 @@ mod tests {
 		let pending = HashMap::new();
 		let max_size = max_statement_payload_size(V1_ENVELOPE_OVERHEAD);
 
-		let (statements, _processed, _size) = fetch_statement_chunk(
+		let chunk = fetch_statement_chunk(
 			&store,
 			&received,
 			&pending,
@@ -7297,7 +7445,10 @@ mod tests {
 			max_size,
 		)
 		.expect("the test store never fails a fetch");
-		assert_eq!(statements.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(), vec![live_hash],);
+		assert_eq!(
+			chunk.statements.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
+			vec![live_hash],
+		);
 
 		let watermark = store.admission_watermark().expect("watermark is readable");
 		let (batch, _size) =
