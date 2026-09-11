@@ -15,7 +15,7 @@
 use super::{
 	chain_spec::{self, DEV_ACCOUNTS},
 	collators::Para,
-	network::PARASIM_SERVICE_ID,
+	network::PARACHAIN_SERVICE_ID,
 };
 use anyhow::Context;
 use codec::Encode;
@@ -30,21 +30,26 @@ use std::path::Path;
 /// therefore what the harness starts every collator with.
 const SLOT_DURATION: u32 = 1;
 
+/// The authorizer config `para`'s core is queued with, built the way the collator builds it:
+/// the para id and host service, the collator-set root in the runtime's own order, the set size
+/// and the slot duration — everything `blake2b-256(code_hash ‖ SCALE(config))` commits to.
+pub fn aura_config(para: &Para) -> AuthConfig {
+	let (collator_set_root, _proofs) = build_collator_tree(&collator_set(para));
+	AuthConfig {
+		para_ids: vec![para.id.into()],
+		parachain_service: PARACHAIN_SERVICE_ID,
+		collator_set_root,
+		collator_set_size: para.collators.len() as u32,
+		slot_duration: SLOT_DURATION,
+	}
+}
+
 /// The authorizer hash `para`'s core has to hold for its collators' work packages to run.
 pub fn authorizer_hash(para: &Para, authorizer_blob: &Path) -> anyhow::Result<AuthorizerHash> {
 	let blob = std::fs::read(authorizer_blob)
 		.with_context(|| format!("reading {}", authorizer_blob.display()))?;
 	let code_hash = CodeHash::from(jam_std_common::hash_raw(&blob));
-	let (collator_set_root, _proofs) = build_collator_tree(&collator_set(para));
-
-	let config = AuthConfig {
-		para_ids: vec![para.id.into()],
-		parachain_service: PARASIM_SERVICE_ID,
-		collator_set_root,
-		collator_set_size: para.collators.len() as u32,
-		slot_duration: SLOT_DURATION,
-	};
-	let authorizer = Authorizer { code_hash, config: AuthConfigBlob(config.encode()) };
+	let authorizer = Authorizer { code_hash, config: AuthConfigBlob(aura_config(para).encode()) };
 	Ok(jam_cumulus_facade::authorizer::authorizer_hash(&authorizer))
 }
 
@@ -107,7 +112,7 @@ mod tests {
 		// set size, the slot duration.
 		config.extend(vec![1u8 << 2]);
 		config.extend(id.to_le_bytes());
-		config.extend(PARASIM_SERVICE_ID.to_le_bytes());
+		config.extend(PARACHAIN_SERVICE_ID.to_le_bytes());
 		config.extend(root.as_bytes());
 		config.extend((keys.len() as u32).to_le_bytes());
 		config.extend(SLOT_DURATION.to_le_bytes());

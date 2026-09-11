@@ -5,18 +5,24 @@
 //! set per para.
 
 use super::{
-	collators::{Collators, JamTarget, Para, POLL_INTERVAL},
+	collators::{Collators, JamTarget, POLL_INTERVAL, Para},
 	env::Binaries,
 	genesis,
 	network::{JamNetwork, ParaHead},
 	rpc::{CollatorRpc, Height},
 };
 use anyhow::Context;
+use codec::DecodeAll;
+use jam_cumulus_facade::{
+	ParaId,
+	service_state::{ParaInfo, Tag, para_info_key, storage_key},
+};
 use std::{
+	collections::BTreeMap,
 	path::{Path, PathBuf},
 	time::Duration,
 };
-use tokio::time::{sleep, Instant};
+use tokio::time::{Instant, sleep};
 
 /// The whole run — network spin-up and block production — has to fit in this.
 ///
@@ -27,6 +33,20 @@ use tokio::time::{sleep, Instant};
 /// rebuilt. Measured average is ~22s per block rather than 6s. This budget is sized for that,
 /// and can come back down to a few minutes once the SDK generates matching addresses.
 pub const DEADLINE: Duration = Duration::from_secs(25 * 60);
+
+/// The para head number JAM's own storage must reach before a progress test passes.
+///
+/// A collator authors blocks regardless of whether JAM accepts them, so `wait_for_blocks` alone
+/// is a false positive when the JAM pipeline is completely dead (wrong PVF format, unregistered
+/// para, missing code preimage). Reaching this target requires sustained accumulation across most
+/// of the run, not a single lucky head. Set below the healthy baseline (~27) to give margin
+/// against network jitter without hiding a true stall.
+const JAM_HEAD_TARGET: u64 = 20;
+
+/// Budget for the JAM-head assertion. On a healthy network the head already exceeds
+/// [`JAM_HEAD_TARGET`] by the time the collator-height check finishes; this budget covers a slow
+/// network without masking a real stall. Matched to the core-test warm-up for comparability.
+const JAM_HEAD_BUDGET: Duration = Duration::from_secs(8 * 60);
 
 /// Set this to a directory to keep every run's work dir: the run then works in a named
 /// subdirectory of it that outlives the run, whether it passed or failed.
@@ -119,16 +139,30 @@ impl Run {
 
 		let network = JamNetwork::spawn(binaries, work_dir.path(), deadline, &paras).await?;
 
+		// Verify every para's registration before touching a collator: all three
+		// silent-drop paths in `accumulate/package.rs` are detectable from the config
+		// file and show up only as a para head that never moves twenty minutes later.
+		let zombienet_dir = work_dir.path().join("zombienet");
+		check_genesis_registrations(&zombienet_dir, network.service_id, &paras)
+			.context("genesis registration check failed — the run would stall silently")?;
+
 		let target = JamTarget {
 			rpc_url: network.rpc_url.clone(),
 			service_id: network.service_id,
 			authorizer_blob: network.authorizer_blob.clone(),
+			wasm_overrides_dir: network.wasm_overrides_dir.clone(),
 		};
 		let mut started = Vec::with_capacity(paras.len());
-		for para in paras {
-			let collators = Collators::spawn(binaries, work_dir.path(), &para, &target)
+		for (index, para) in paras.iter().enumerate() {
+			// The chain spec `JamNetwork::spawn` built — the file the para's genesis head was
+			// derived from, so the collators and the registration cannot disagree.
+			let spec = network
+				.para_specs
+				.get(index)
+				.context(format!("para {}'s chain spec", para.id))?;
+			let collators = Collators::spawn(binaries, work_dir.path(), para, &target, spec)
 				.with_context(|| format!("starting para {}'s collators", para.id))?;
-			started.push(ParaRun { para, collators });
+			started.push(ParaRun { para: para.clone(), collators });
 		}
 
 		let mut run = Run { network, paras: started, work_dir, deadline };
@@ -373,6 +407,157 @@ impl Run {
 	}
 }
 
+/// Verify every para's code is registered and resolvable before starting collators.
+///
+/// Checks the three silent-drop paths in `service/src/accumulate/package.rs` — each a bare
+/// `return` with no log. Without this check they show up only as a para head that never moves:
+/// 1. No `ParaInfo` at `para_info_key` → unregistered para silently skipped.
+/// 2. No `PreimageRegistry` entry for `(hash, len)` → `historical_lookup` returns `None`.
+/// 3. Preimage bytes hash to wrong value → refine rejects with `InvalidCodeHash`.
+fn check_para_code_resolvable(
+	storage: &BTreeMap<Vec<u8>, Vec<u8>>,
+	preimages: &[Vec<u8>],
+	paras: &[Para],
+) -> anyhow::Result<()> {
+	for para in paras {
+		let key = para_info_key(ParaId(para.id));
+		let stored = storage.get(&key).with_context(|| {
+			format!(
+				"para {id}'s registration is absent from genesis (no entry at {k}): \
+				 accumulate will silently drop every candidate — check the genesis builder",
+				id = para.id,
+				k = array_bytes::bytes2hex("", &key),
+			)
+		})?;
+
+		let info = ParaInfo::decode_all(&mut &stored[..]).with_context(|| {
+			format!(
+				"para {id}'s genesis entry at {k} does not decode as ParaInfo ({n} bytes)",
+				id = para.id,
+				k = array_bytes::bytes2hex("", &key),
+				n = stored.len(),
+			)
+		})?;
+
+		let Some(code) = info.validation_code.as_ref() else {
+			anyhow::bail!(
+				"para {id} is registered in genesis without validation code: accumulate \
+				 will silently drop every candidate — check the genesis registration path",
+				id = para.id,
+			);
+		};
+
+		let hash = code.code_ref.hash.0;
+		let len = code.code_ref.len;
+		let hash_hex = array_bytes::bytes2hex("", hash);
+
+		// The registry entry is what `historical_lookup` uses to resolve the code: absent →
+		// `None` → candidate silently dropped. This is the highest-value pre-spawn check because
+		// it is fully detectable from the config and is precisely the silent failure mode a
+		// misbuilt genesis triggers — a hash on chain with no resolvable preimage.
+		let registry_key = storage_key(Tag::PreimageRegistry, &(hash, len));
+		anyhow::ensure!(
+			storage.contains_key(&registry_key),
+			"para {id}'s validation code ({h}, {len} bytes) has no PreimageRegistry entry \
+			 at {rk}: historical_lookup will return None and every candidate will be silently \
+			 dropped — code is registered but not resolvable at refine time",
+			id = para.id,
+			h = hash_hex,
+			rk = array_bytes::bytes2hex("", &registry_key),
+		);
+
+		// The preimage bytes must hash to the registered hash at the registered length;
+		// a mismatch means refine resolves a different hash and rejects with InvalidCodeHash.
+		let hosted = preimages
+			.iter()
+			.any(|blob| blob.len() == len as usize && jam_std_common::hash_raw(blob) == hash);
+		anyhow::ensure!(
+			hosted,
+			"para {id}'s validation code ({h}, {len} bytes) is not hosted as a matching \
+			 preimage: no hosted preimage has length {len} and blake2b-256 hash {h}; \
+			 refine will reject every candidate with InvalidCodeHash",
+			id = para.id,
+			h = hash_hex,
+		);
+
+		log::info!(
+			"para {id}: genesis registration complete — code ({h}, {len} bytes), \
+			 PreimageRegistry entry present, preimage bytes verified",
+			id = para.id,
+			h = hash_hex,
+		);
+	}
+	Ok(())
+}
+
+/// Read the service's genesis storage and hosted preimage bytes from `jam_config.json`, then
+/// run [`check_para_code_resolvable`] on every para.
+///
+/// `jam_config.json` is written by zombienet before it calls `gen-spec`, so it captures exactly
+/// what genesis will carry. Calling this after [`JamNetwork::spawn`] returns but before any
+/// collator starts converts a silent 20-minute stall into a named failure that identifies which
+/// para, which key, and which invariant broke.
+fn check_genesis_registrations(
+	zombienet_dir: &Path,
+	service_id: u32,
+	paras: &[Para],
+) -> anyhow::Result<()> {
+	let config_path = zombienet_dir.join("jam_config.json");
+	let config: serde_json::Value = serde_json::from_slice(
+		&std::fs::read(&config_path)
+			.with_context(|| format!("reading {}", config_path.display()))?,
+	)
+	.with_context(|| format!("parsing {}", config_path.display()))?;
+
+	let services = config["services"]
+		.as_object()
+		.with_context(|| format!("{}: `services` is not a map", config_path.display()))?;
+	let service = services
+		.get(&service_id.to_string())
+		.with_context(|| {
+			format!(
+				"{}: no service with id {service_id} — the genesis config is missing \
+				 this service's record",
+				config_path.display(),
+			)
+		})?;
+
+	let mut storage: BTreeMap<Vec<u8>, Vec<u8>> = BTreeMap::new();
+	if let Some(obj) = service["storage"].as_object() {
+		for (hex_key, hex_val) in obj {
+			let key = array_bytes::hex2bytes(hex_key)
+				.map_err(|e| anyhow::anyhow!("storage key {hex_key:?} is not valid hex: {e:?}"))?;
+			let val_str = hex_val.as_str().with_context(|| {
+				format!(
+					"{}: storage value for key {hex_key} is not a string",
+					config_path.display()
+				)
+			})?;
+			let val = array_bytes::hex2bytes(val_str).map_err(|e| {
+				anyhow::anyhow!("storage value for {hex_key} is not valid hex: {e:?}")
+			})?;
+			storage.insert(key, val);
+		}
+	}
+
+	let preimage_bytes = service["preimages"]
+		.as_array()
+		.map(Vec::as_slice)
+		.unwrap_or_default()
+		.iter()
+		.map(|v| {
+			let path_str = v.as_str().with_context(|| {
+				format!("{}: preimage entry is not a string", config_path.display())
+			})?;
+			std::fs::read(path_str).with_context(|| format!("reading preimage {path_str}"))
+		})
+		.collect::<anyhow::Result<Vec<Vec<u8>>>>()?;
+
+	check_para_code_resolvable(&storage, &preimage_bytes, paras)?;
+	log::info!("genesis registration check passed for {} para(s)", paras.len());
+	Ok(())
+}
+
 /// Run `collators` collators on the single para of [`Para::single`] and assert it keeps moving.
 pub async fn assert_collators_build_blocks(
 	test: &str,
@@ -419,7 +604,125 @@ pub async fn assert_paras_build_blocks(
 	let Some(binaries) = setup(test) else { return Ok(()) };
 
 	let mut run = Run::start(test, &binaries, paras).await?;
-	let heights = run.wait_for_blocks(blocks, finalized).await;
-	let result = heights.map(|heights| log::info!("{test}: {}", run.describe(&heights)));
+	let result = async {
+		let heights = run.wait_for_blocks(blocks, finalized).await?;
+		log::info!("{test}: {}", run.describe(&heights));
+		assert_jam_heads_advance(&mut run).await
+	}
+	.await;
 	finish(run, result).await
+}
+
+/// Assert that JAM has accumulated the para heads to [`JAM_HEAD_TARGET`], not just that the
+/// collator authored blocks.
+///
+/// `wait_for_blocks` checks the collator's own chain height, which advances whether or not JAM
+/// accepts any work. Without this assertion, a completely dead JAM pipeline lets every progress
+/// test pass on collator height alone — the false positive this function was added to kill. Remove
+/// it and a wrong PVF format, unregistered para, or missing code preimage silently pass as green.
+async fn assert_jam_heads_advance(run: &mut Run) -> anyhow::Result<()> {
+	let rpcs = run.rpcs().await?;
+	for (index, rpc) in rpcs.iter().enumerate() {
+		run.wait_for_jam_head(index, rpc, JAM_HEAD_TARGET, JAM_HEAD_BUDGET).await?;
+	}
+	Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use jam_cumulus_facade::{
+		ParaId,
+		service_state::{Tag, para_info_key, storage_key},
+	};
+	use parachain_chain_spec::{ParachainServiceSpec, ParachainSpec};
+
+	const TEST_SERVICE_ID: u32 = 5;
+	/// Distinct enough from the authorizer blob that no hash collision is possible.
+	const TEST_BLOB: &[u8] = b"test-validation-code-for-t8-harness-unit-tests";
+
+	fn test_para() -> Para {
+		Para { id: 0, core: 0, collators: vec![0] }
+	}
+
+	/// Build a minimal genesis with one para registered under `blob` as its validation code.
+	/// Returns the service storage (binary key → value) and hosted preimage bytes — exactly
+	/// what [`check_para_code_resolvable`] takes, so each failure test modifies one side only.
+	fn test_genesis(blob: &[u8]) -> (BTreeMap<Vec<u8>, Vec<u8>>, Vec<Vec<u8>>) {
+		let para = test_para();
+		let genesis = ParachainServiceSpec::new(TEST_SERVICE_ID, b"service-code")
+			.balance(1_000_000_000_000_000u64)
+			.parachain(
+				ParachainSpec::new(ParaId(0))
+					.head_data(b"genesis-head".to_vec())
+					.validation_code(blob)
+					.state_balance(u64::MAX)
+					.authorizer(b"auth-blob", &genesis::aura_config(&para)),
+			)
+			.build()
+			.expect("minimal genesis must build; qed");
+		(genesis.storage, genesis.preimages)
+	}
+
+	/// Happy path: a complete registration passes every check.
+	#[test]
+	fn check_passes_on_a_complete_registration() {
+		let (storage, preimages) = test_genesis(TEST_BLOB);
+		check_para_code_resolvable(&storage, &preimages, &[test_para()])
+			.expect("a complete registration must pass all three checks");
+	}
+
+	/// Silent-drop case 1: no `ParaInfo` at the para key → accumulate drops silently.
+	/// Only the storage side is perturbed; preimages are untouched.
+	#[test]
+	fn check_fails_when_para_record_is_absent() {
+		let (mut storage, preimages) = test_genesis(TEST_BLOB);
+		storage.remove(&para_info_key(ParaId(0)));
+
+		let err = check_para_code_resolvable(&storage, &preimages, &[test_para()])
+			.expect_err("an absent para record must be flagged");
+		assert!(
+			err.to_string().contains("accumulate will silently drop"),
+			"the error must name the consequence: {err}",
+		);
+	}
+
+	/// Silent-drop case 2: `ParaInfo` present but `PreimageRegistry` absent →
+	/// `historical_lookup` returns `None` and the candidate is silently dropped.
+	/// Only the registry key is removed; preimages and para record are untouched.
+	#[test]
+	fn check_fails_when_preimage_registry_entry_is_absent() {
+		let (mut storage, preimages) = test_genesis(TEST_BLOB);
+		let code_hash = jam_std_common::hash_raw(TEST_BLOB);
+		let registry_key = storage_key(Tag::PreimageRegistry, &(code_hash, TEST_BLOB.len() as u32));
+		storage.remove(&registry_key);
+
+		let err = check_para_code_resolvable(&storage, &preimages, &[test_para()])
+			.expect_err("an absent registry entry must be flagged");
+		assert!(
+			err.to_string().contains("historical_lookup"),
+			"the error must name historical_lookup as the failure point: {err}",
+		);
+	}
+
+	/// Silent-drop case 3: registry entry present but preimage bytes hash differently →
+	/// refine rejects with `InvalidCodeHash`.
+	/// Only the preimage side is perturbed; storage (including the registered hash) is untouched.
+	#[test]
+	fn check_fails_when_preimage_bytes_do_not_hash_to_code_ref() {
+		let (storage, _preimages) = test_genesis(TEST_BLOB);
+		let wrong = b"completely-different-preimage-bytes-for-t8-mismatch".to_vec();
+		assert_ne!(
+			jam_std_common::hash_raw(&wrong),
+			jam_std_common::hash_raw(TEST_BLOB),
+			"the wrong blob must hash differently from TEST_BLOB",
+		);
+
+		let err = check_para_code_resolvable(&storage, &[wrong], &[test_para()])
+			.expect_err("a preimage that does not match the registered hash must be flagged");
+		assert!(
+			err.to_string().contains("InvalidCodeHash"),
+			"the error must name the refine rejection path: {err}",
+		);
+	}
 }

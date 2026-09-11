@@ -25,6 +25,9 @@ tempfile = { workspace = true }
 # out of the very crates the collator and the guest use — the same path deps polkadot-omni-node-lib
 # names.
 jam-cumulus-facade = { package = "cumulus", path = "../../../../parachain-service/cumulus" }
+# The genesis `gen-spec` compiles is built by `parachain-chain-spec` (uncommitted sibling-repo
+# work), so the storage layout and authorizer hashes cannot drift from what the service decodes.
+parachain-chain-spec = { path = "../../../../parachain-service/chain-spec" }
 jam-std-common = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-std-common" }
 # The byte strings the JAM RPC carries are base64, and this is where that spelling is defined.
 jam-types = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-types", features = [

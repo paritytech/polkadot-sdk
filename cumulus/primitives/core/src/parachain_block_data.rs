@@ -96,6 +96,16 @@ pub enum ParachainBlockData<Block> {
 		/// the block carries no additional data.
 		additional_data: Vec<Option<AdditionalData>>,
 	},
+	/// V4 adds the parent header of `blocks[0]`, which JAM candidates must carry because a JAM
+	/// PVF has no chain state to look the previous head up in.
+	V4 {
+		blocks: Vec<Block>,
+		proof: CompactProof,
+		scheduling_proof: SchedulingProof,
+		additional_data: Vec<Option<AdditionalData>>,
+		/// SCALE-encoded header of the block `blocks[0]` builds on. Untrusted.
+		parent_header: Vec<u8>,
+	},
 }
 
 impl<Block: Encode> Encode for ParachainBlockData<Block> {
@@ -124,6 +134,16 @@ impl<Block: Encode> Encode for ParachainBlockData<Block> {
 				proof.encode_to(&mut res);
 				scheduling_proof.encode_to(&mut res);
 				additional_data.encode_to(&mut res);
+				res
+			},
+			Self::V4 { blocks, proof, scheduling_proof, additional_data, parent_header } => {
+				let mut res = VERSIONED_PARACHAIN_BLOCK_DATA_PREFIX.to_vec();
+				4u8.encode_to(&mut res);
+				blocks.encode_to(&mut res);
+				proof.encode_to(&mut res);
+				scheduling_proof.encode_to(&mut res);
+				additional_data.encode_to(&mut res);
+				parent_header.encode_to(&mut res);
 				res
 			},
 		}
@@ -158,6 +178,15 @@ impl<Block: Decode> Decode for ParachainBlockData<Block> {
 
 					Ok(Self::V3 { blocks, proof, scheduling_proof, additional_data })
 				},
+				4 => {
+					let blocks = Vec::<Block>::decode(input)?;
+					let proof = CompactProof::decode(input)?;
+					let scheduling_proof = crate::SchedulingProof::decode(input)?;
+					let additional_data = Vec::<Option<AdditionalData>>::decode(input)?;
+					let parent_header = Vec::<u8>::decode(input)?;
+
+					Ok(Self::V4 { blocks, proof, scheduling_proof, additional_data, parent_header })
+				},
 				_ => Err("Unknown `ParachainBlockData` version".into()),
 			}
 		} else {
@@ -181,6 +210,19 @@ impl<Block> ParachainBlockData<Block> {
 			Some(sp) => Self::V2 { blocks, proof, scheduling_proof: sp },
 			None => Self::V1 { blocks, proof },
 		}
+	}
+
+	/// Always produces [`Self::V4`], carrying the SCALE-encoded parent header of `blocks[0]`.
+	/// Unlike [`Self::new_with_additional_data`], this never downgrades to V2/V3: JAM candidates
+	/// always require the parent header, so V4 is unconditional.
+	pub fn new_with_parent_header(
+		blocks: Vec<Block>,
+		proof: CompactProof,
+		scheduling_proof: SchedulingProof,
+		additional_data: Vec<Option<AdditionalData>>,
+		parent_header: Vec<u8>,
+	) -> Self {
+		Self::V4 { blocks, proof, scheduling_proof, additional_data, parent_header }
 	}
 
 	/// Creates a new instance of `Self` carrying additional data: [`Self::V3`] when
@@ -209,6 +251,7 @@ impl<Block> ParachainBlockData<Block> {
 			Self::V1 { blocks, .. } => &blocks,
 			Self::V2 { blocks, .. } => &blocks,
 			Self::V3 { blocks, .. } => &blocks,
+			Self::V4 { blocks, .. } => &blocks,
 		}
 	}
 
@@ -219,6 +262,7 @@ impl<Block> ParachainBlockData<Block> {
 			Self::V1 { ref mut blocks, .. } => blocks,
 			Self::V2 { ref mut blocks, .. } => blocks,
 			Self::V3 { ref mut blocks, .. } => blocks,
+			Self::V4 { ref mut blocks, .. } => blocks,
 		}
 	}
 
@@ -229,6 +273,7 @@ impl<Block> ParachainBlockData<Block> {
 			Self::V1 { blocks, .. } => blocks,
 			Self::V2 { blocks, .. } => blocks,
 			Self::V3 { blocks, .. } => blocks,
+			Self::V4 { blocks, .. } => blocks,
 		}
 	}
 
@@ -240,7 +285,7 @@ impl<Block> ParachainBlockData<Block> {
 	/// recovered blocks may be deferred (waiting for their parent) and re-executed on import.
 	pub fn into_blocks_and_additional_data(self) -> Vec<(Block, Option<AdditionalData>)> {
 		match self {
-			Self::V3 { blocks, additional_data, .. } => {
+			Self::V3 { blocks, additional_data, .. } | Self::V4 { blocks, additional_data, .. } => {
 				let mut additional_data = additional_data.into_iter();
 				blocks.into_iter().map(|b| (b, additional_data.next().flatten())).collect()
 			},
@@ -255,6 +300,7 @@ impl<Block> ParachainBlockData<Block> {
 			Self::V1 { proof, .. } => proof,
 			Self::V2 { proof, .. } => proof,
 			Self::V3 { proof, .. } => proof,
+			Self::V4 { proof, .. } => proof,
 		}
 	}
 
@@ -265,24 +311,33 @@ impl<Block> ParachainBlockData<Block> {
 			Self::V1 { blocks, proof } => (blocks, proof),
 			Self::V2 { blocks, proof, .. } => (blocks, proof),
 			Self::V3 { blocks, proof, .. } => (blocks, proof),
+			Self::V4 { blocks, proof, .. } => (blocks, proof),
 		}
 	}
 
-	/// Returns the scheduling proof if this is a V2 or V3 POV.
+	/// Returns the scheduling proof if this is a V2, V3, or V4 POV.
 	pub fn scheduling_proof(&self) -> Option<&crate::SchedulingProof> {
 		match self {
-			Self::V2 { scheduling_proof, .. } | Self::V3 { scheduling_proof, .. } => {
-				Some(scheduling_proof)
-			},
+			Self::V2 { scheduling_proof, .. } |
+			Self::V3 { scheduling_proof, .. } |
+			Self::V4 { scheduling_proof, .. } => Some(scheduling_proof),
 			_ => None,
 		}
 	}
 
-	/// Returns the per-block additional data if this is a V3 POV; empty slice otherwise.
+	/// Returns the per-block additional data if this is a V3 or V4 POV; empty slice otherwise.
 	pub fn additional_data(&self) -> &[Option<AdditionalData>] {
 		match self {
-			Self::V3 { additional_data, .. } => additional_data,
+			Self::V3 { additional_data, .. } | Self::V4 { additional_data, .. } => additional_data,
 			_ => &[],
+		}
+	}
+
+	/// Returns the SCALE-encoded parent header if this is a V4 POV; `None` for V0–V3.
+	pub fn parent_header(&self) -> Option<&[u8]> {
+		match self {
+			Self::V4 { parent_header, .. } => Some(parent_header),
+			_ => None,
 		}
 	}
 }
@@ -323,7 +378,7 @@ impl<Block: BlockT> ParachainBlockData<Block> {
 					.first()
 					.map(|block| Self::V0 { block: [block.clone()], proof: proof.clone() })
 			},
-			Self::V3 { blocks, proof, .. } => {
+			Self::V3 { blocks, proof, .. } | Self::V4 { blocks, proof, .. } => {
 				if blocks.len() != 1 {
 					return None;
 				}
@@ -650,6 +705,100 @@ mod tests {
 		let (blocks, returned_proof) = v3.into_inner();
 		assert_eq!(blocks.len(), 1);
 		assert_eq!(returned_proof.encoded_nodes, proof.encoded_nodes);
+	}
+
+	#[test]
+	fn v4_round_trips_through_codec() {
+		let mut additional = AdditionalData::new();
+		additional.insert("jam/anchor_state_proof".into(), vec![1u8, 2, 3, 4]);
+
+		let parent_header = vec![0xdeu8, 0xad, 0xbe, 0xef];
+
+		let v4 = ParachainBlockData::<TestBlock>::V4 {
+			blocks: vec![
+				TestBlock::new(
+					Header::new_from_number(10),
+					vec![TestExtrinsic::new_bare(MockCallU64(10))],
+				),
+				TestBlock::new(
+					Header::new_from_number(11),
+					vec![TestExtrinsic::new_bare(MockCallU64(20))],
+				),
+			],
+			proof: CompactProof { encoded_nodes: vec![vec![10u8; 200], vec![20u8; 30]] },
+			scheduling_proof: SchedulingProof::empty(),
+			additional_data: vec![Some(additional.clone()), None],
+			parent_header: parent_header.clone(),
+		};
+
+		let encoded = v4.encode();
+		let decoded = ParachainBlockData::<TestBlock>::decode(&mut &encoded[..]).unwrap();
+
+		assert_eq!(v4.blocks(), decoded.blocks());
+		assert_eq!(v4.proof(), decoded.proof());
+		assert_eq!(v4.scheduling_proof(), decoded.scheduling_proof());
+		assert_eq!(v4.additional_data(), decoded.additional_data());
+		assert_eq!(decoded.parent_header(), Some(parent_header.as_slice()));
+	}
+
+	#[test]
+	fn v4_parent_header_is_none_for_older_versions() {
+		let v1 = ParachainBlockData::<TestBlock>::V1 {
+			blocks: vec![TestBlock::new(Header::new_from_number(1), vec![])],
+			proof: CompactProof { encoded_nodes: vec![] },
+		};
+		assert_eq!(v1.parent_header(), None);
+
+		let v2 = ParachainBlockData::<TestBlock>::V2 {
+			blocks: vec![TestBlock::new(Header::new_from_number(1), vec![])],
+			proof: CompactProof { encoded_nodes: vec![] },
+			scheduling_proof: SchedulingProof::empty(),
+		};
+		assert_eq!(v2.parent_header(), None);
+
+		let v3 = ParachainBlockData::<TestBlock>::V3 {
+			blocks: vec![TestBlock::new(Header::new_from_number(1), vec![])],
+			proof: CompactProof { encoded_nodes: vec![] },
+			scheduling_proof: SchedulingProof::empty(),
+			additional_data: vec![None],
+		};
+		assert_eq!(v3.parent_header(), None);
+
+		let v4 = ParachainBlockData::<TestBlock>::V4 {
+			blocks: vec![TestBlock::new(Header::new_from_number(1), vec![])],
+			proof: CompactProof { encoded_nodes: vec![] },
+			scheduling_proof: SchedulingProof::empty(),
+			additional_data: vec![None],
+			parent_header: vec![0xabu8, 0xcd],
+		};
+		assert_eq!(v4.parent_header(), Some(&[0xabu8, 0xcd][..]));
+	}
+
+	#[test]
+	fn v3_encoding_is_unchanged_by_v4() {
+		let v3 = ParachainBlockData::<TestBlock>::V3 {
+			blocks: vec![TestBlock::new(Header::new_from_number(1), vec![])],
+			proof: CompactProof { encoded_nodes: vec![] },
+			scheduling_proof: SchedulingProof::empty(),
+			additional_data: vec![None],
+		};
+
+		let encoded = v3.encode();
+
+		// Build expected bytes independently: prefix + version byte 3 + SCALE of each field.
+		let mut expected = VERSIONED_PARACHAIN_BLOCK_DATA_PREFIX.to_vec();
+		3u8.encode_to(&mut expected);
+		vec![TestBlock::new(Header::new_from_number(1), vec![])].encode_to(&mut expected);
+		CompactProof { encoded_nodes: vec![] }.encode_to(&mut expected);
+		SchedulingProof::empty().encode_to(&mut expected);
+		vec![Option::<AdditionalData>::None].encode_to(&mut expected);
+
+		assert_eq!(encoded, expected, "V3 wire encoding must not change");
+		assert_eq!(
+			encoded[VERSIONED_PARACHAIN_BLOCK_DATA_PREFIX.len()],
+			3u8,
+			"version byte must be 3"
+		);
 	}
 
 	#[test]

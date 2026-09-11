@@ -49,13 +49,12 @@
 //! compressed PoVs; JIP-2 is silent on compression).
 
 use super::{
-	ANCHOR_STATE_PROOF_KEY, JAM_SLOT_DURATION_MS, JamCollatorMessage, LOG_TARGET,
-	authorizer::AuraAuthorizer, choose_lookup_anchor, fetch_anchor_state_proof, jam_read,
-	jam_slot_at, para_head_stream, resubmission::*, scan_pools_at,
+	JAM_SLOT_DURATION_MS, JamCollatorMessage, LOG_TARGET, authorizer::AuraAuthorizer,
+	choose_lookup_anchor, jam_read, jam_slot_at, para_head_stream, resubmission::*, scan_pools_at,
 };
 use crate::common::{ConstructNodeRuntimeApi, NodeBlock, types::ParachainClient};
 use codec::{Decode, Encode};
-use cumulus_primitives_core::{AdditionalData, ParachainBlockData, SchedulingProof};
+use cumulus_primitives_core::{ParachainBlockData, SchedulingProof};
 use futures::{
 	FutureExt, StreamExt,
 	channel::mpsc,
@@ -68,7 +67,6 @@ use jam_interface::{
 	JamWorkPackageSubmission, ServiceId, Slot as JamSlot, VersionedParameters, WorkPackage,
 	WorkPackageHash, WorkPackageStatus,
 };
-use jam_state_helpers::StateProof;
 use jam_types::{Authorization, CodeHash, RefineContext, UnsignedGas, WorkItem, WorkPayload};
 use polkadot_primitives::Id as ParaId;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
@@ -407,8 +405,6 @@ where
 			block,
 			proof,
 			context,
-			anchor_state_root,
-			anchor_state_proof,
 			anchor_slot,
 			submit_target,
 			triggered_by,
@@ -416,9 +412,10 @@ where
 		let block_hash = block.hash();
 		let block_number = *block.header().number();
 		let parent_hash = parent_header.hash();
+		let state_root = *parent_header.state_root();
 
 		let compact_proof =
-			match proof.into_compact_proof::<HashingFor<Block>>(*parent_header.state_root()) {
+			match proof.into_compact_proof::<HashingFor<Block>>(state_root) {
 				Ok(compact_proof) => compact_proof,
 				Err(error) => {
 					tracing::error!(
@@ -453,14 +450,9 @@ where
 			refine_gas_limit: self.refine_gas_limit,
 			accumulate_gas_limit: self.accumulate_gas_limit,
 			authorizer: self.authorizer.authorizer(),
+			parent_header,
 		};
-		let anchored = Anchored {
-			context,
-			state_root: anchor_state_root,
-			head_proof: anchor_state_proof,
-			anchor_slot,
-			submit_target,
-		};
+		let anchored = Anchored { context, anchor_slot, submit_target };
 		let package = match self.authorized_package(&source, &anchored) {
 			Ok(package) => package,
 			Err(error) => {
@@ -494,7 +486,6 @@ where
 			authorizer_hash = ?self.authorizer.hash(),
 			token_len = package.authorization.len(),
 			pov_len = package.items[0].payload.0.len(),
-			anchor_proof_nodes = anchored.head_proof.nodes.len(),
 			in_flight = self.packages.len(),
 			?triggered_by,
 			"Assembled and signed the work package for the block.",
@@ -711,15 +702,8 @@ where
 		let block_hash = entry.block_hash;
 		self.log_deadline(index, jam_slot_at(Timestamp::current()), reason);
 
-		let Ok(anchored) = recontext(
-			&*self.jam,
-			self.service_id,
-			self.para_id,
-			&self.authorizer,
-			&entry.anchored,
-			block_hash,
-		)
-		.await
+		let Ok(anchored) = recontext(&*self.jam, &self.authorizer, &entry.anchored, block_hash)
+			.await
 		else {
 			self.forget(index, "the package failed and could not be re-anchored");
 			return;
@@ -908,10 +892,14 @@ fn hex_prefix(bytes: &[u8]) -> String {
 }
 
 /// The parts of a work package that survive a change of anchor: the built block(s), the
-/// parachain storage proof witnessing them, and the work-item settings.
-struct PackageSource<Block> {
+/// parachain storage proof witnessing them, the parent header (travels in the V4 PoV), and the
+/// work-item settings.
+struct PackageSource<Block: BlockT> {
 	blocks: Vec<Block>,
 	proof: CompactProof,
+	/// SCALE-encoded header of the block `blocks[0]` extends. Travels untrusted in the V4 PoV;
+	/// the parachain service's accumulate verifies it against its stored head.
+	parent_header: Block::Header,
 	validation_code_hash: [u8; 32],
 	service_id: ServiceId,
 	service_code_hash: CodeHash,
@@ -923,15 +911,10 @@ struct PackageSource<Block> {
 	authorizer: Authorizer,
 }
 
-/// A refine context together with the anchor state proof that has to travel with it.
-///
-/// The two are inseparable: the service verifies the proof in-core against the context's state
-/// root, so a package cannot keep its payload when it changes anchor.
+/// A refine context plus the anchor-derived submission target.
 #[derive(Clone)]
 struct Anchored {
 	context: RefineContext,
-	state_root: [u8; 32],
-	head_proof: StateProof,
 	/// The anchor's timeslot — the start of the window the package has to be reported in.
 	anchor_slot: JamSlot,
 	/// The core the pool scan at this anchor named, if any. Anchor-derived like everything else
@@ -949,12 +932,7 @@ impl<Block: BlockT> PackageSource<Block> {
 			validation_code_hash: jam_cumulus_facade::ValidationCodeHash(
 				self.validation_code_hash.into(),
 			),
-			pov: build_pov(
-				&self.blocks,
-				&self.proof,
-				anchored.state_root,
-				&anchored.head_proof,
-			),
+			pov: build_pov(&self.blocks, &self.proof, &self.parent_header),
 		}
 		.encode();
 
@@ -985,41 +963,28 @@ impl<Block: BlockT> PackageSource<Block> {
 	}
 }
 
-/// The PoV: a V3 [`ParachainBlockData`] whose single additional-data slot carries the
-/// SCALE-encoded `(anchor_state_root, StateProof)` pair the service needs to establish what the
-/// para's previous head was.
+/// The PoV: a V4 [`ParachainBlockData`] carrying the SCALE-encoded parent header of `blocks[0]`.
 ///
-/// The scheduling proof is empty — JAM has no relay-chain scheduling, and the field only exists
-/// because V3 extends V2. The PoV is not zstd-compressed; JIP-2 is silent on compression and the
-/// service refuses compressed PoVs.
+/// The scheduling proof is empty — JAM has no relay-chain scheduling. The PoV is not
+/// zstd-compressed; JIP-2 is silent on compression and the service refuses compressed PoVs.
 fn build_pov<Block: BlockT>(
 	blocks: &[Block],
 	proof: &CompactProof,
-	anchor_state_root: [u8; 32],
-	head_proof: &StateProof,
+	parent_header: &Block::Header,
 ) -> Vec<u8> {
-	let mut additional_data = AdditionalData::new();
-	additional_data
-		.insert(ANCHOR_STATE_PROOF_KEY.into(), (anchor_state_root, head_proof).encode());
-
-	ParachainBlockData::V3 {
-		blocks: blocks.to_vec(),
-		proof: proof.clone(),
-		scheduling_proof: SchedulingProof::empty(),
-		additional_data: vec![Some(additional_data)],
-	}
+	ParachainBlockData::new_with_parent_header(
+		blocks.to_vec(),
+		proof.clone(),
+		SchedulingProof::empty(),
+		vec![None; blocks.len()],
+		parent_header.encode(),
+	)
 	.encode()
 }
 
-/// Re-anchor a package: fresh anchor, fresh para-head proof, same block.
-///
-/// The proof of the para head lives inside the PoV and is checked against the anchor's state
-/// root, so a new anchor needs a new proof; it is verified here for the same reason the builder
-/// verifies its own, namely that a proof the service would reject must never be submitted.
+/// Re-anchor a package: fresh context, fresh pool scan, same block and parent header.
 async fn recontext<Jam, BlockHash>(
 	jam: &Jam,
-	service_id: ServiceId,
-	para_id: u32,
 	authorizer: &AuraAuthorizer,
 	previous: &Anchored,
 	block_hash: BlockHash,
@@ -1041,30 +1006,6 @@ where
 		},
 	};
 
-	let (head_proof, proved_head) = match fetch_anchor_state_proof(
-		jam,
-		context.anchor,
-		&context.state_root,
-		service_id,
-		para_id,
-	)
-	.await
-	{
-		Ok(proof) => proof,
-		Err(error) => {
-			tracing::error!(
-				target: LOG_TARGET,
-				?block_hash,
-				new_anchor = ?context.anchor,
-				error,
-				"Unable to prove the para head at the fresh anchor; abandoning the work package.",
-			);
-			return Err(());
-		},
-	};
-
-	// Re-scanned rather than carried over: a core reassigned since the package was first built is
-	// exactly the reason it stopped being reported, so this is where a stalled package heals.
 	let submit_target = match scan_pools_at(jam, context.anchor, authorizer).await {
 		Ok(scan) => scan.target,
 		Err(error) => {
@@ -1087,20 +1028,11 @@ where
 		new_anchor = ?context.anchor,
 		anchor_slot,
 		lookup_anchor_slot = context.lookup_anchor_slot,
-		anchor_proof_nodes = head_proof.nodes.len(),
-		head_present = proved_head.is_some(),
 		old_core = ?previous.submit_target,
 		new_core = ?submit_target,
-		"Re-anchored the work package around a fresh anchor, re-proved the para head and \
-		 re-scanned the authorizer pools.",
+		"Re-anchored the work package around a fresh anchor and re-scanned the authorizer pools.",
 	);
-	Ok(Anchored {
-		state_root: *context.state_root,
-		head_proof,
-		context,
-		anchor_slot,
-		submit_target,
-	})
+	Ok(Anchored { context, anchor_slot, submit_target })
 }
 
 /// The refine context around the current best JAM block (anchor = parent of best), as in
@@ -1129,13 +1061,21 @@ where
 	let lookup_anchor = choose_lookup_anchor(jam, &anchor, newest_lookup_anchor, authorizer)
 		.await
 		.ok_or_else(|| "no finalized block in reach names this collator".to_string())?;
+	let lookup_anchor_state_root = jam_read(
+		"stateRoot",
+		lookup_anchor.header_hash,
+		jam.state_root(lookup_anchor.header_hash),
+	)
+	.await?;
 	Ok((
 		RefineContext {
 			anchor: anchor.header_hash,
+			anchor_slot: anchor.slot,
 			state_root,
 			beefy_root,
 			lookup_anchor: lookup_anchor.header_hash,
 			lookup_anchor_slot: lookup_anchor.slot,
+			lookup_anchor_state_root,
 			prerequisites: Default::default(),
 		},
 		anchor.slot,
@@ -1161,10 +1101,6 @@ mod tests {
 		package
 	}
 
-	fn test_proof() -> StateProof {
-		StateProof { nodes: vec![[7u8; 64], [8u8; 64]], values: vec![([3u8; 31], vec![9, 9, 9])] }
-	}
-
 	fn wp_hash(byte: u8) -> WorkPackageHash {
 		WorkPackageHash::from([byte; 32])
 	}
@@ -1177,14 +1113,14 @@ mod tests {
 		Anchored {
 			context: RefineContext {
 				anchor: HeaderHash::from([9u8; 32]),
+				anchor_slot,
 				state_root: [4u8; 32].into(),
 				beefy_root: [5u8; 32].into(),
 				lookup_anchor: HeaderHash::from([6u8; 32]),
 				lookup_anchor_slot: anchor_slot,
+				lookup_anchor_state_root: Default::default(),
 				prerequisites: Default::default(),
 			},
-			state_root: [4u8; 32],
-			head_proof: test_proof(),
 			anchor_slot,
 			submit_target: Some(0),
 		}
@@ -1194,6 +1130,7 @@ mod tests {
 		PackageSource {
 			blocks: vec![TestBlock::new(header(1, H256::repeat_byte(7)), vec![])],
 			proof: CompactProof { encoded_nodes: vec![vec![1u8, 2, 3]] },
+			parent_header: header(0, H256::repeat_byte(6)),
 			validation_code_hash: [8u8; 32],
 			service_id: 42,
 			service_code_hash: CodeHash::from([9u8; 32]),
@@ -1416,37 +1353,28 @@ mod tests {
 		);
 	}
 
-	/// The key is a cross-repo contract: the collator writes it, the parachain service reads it,
-	/// and a typo either way would silently strip the ancestry check.
+	/// `build_pov` must produce a V4 PoV whose `parent_header()` accessor returns the
+	/// SCALE-encoded header that was passed in. The PVF reads it to establish `state_root`; the
+	/// parachain service's `accumulate` verifies it against its stored head.
 	#[test]
-	fn the_proof_key_is_the_one_the_service_reads() {
-		assert_eq!(ANCHOR_STATE_PROOF_KEY, parasim_service::pov::ANCHOR_STATE_PROOF_KEY);
-	}
-
-	/// The PoV is checked by parsing it with the reader that will actually consume it in-core,
-	/// so a layout change on either side fails here rather than on a live network.
-	#[test]
-	fn the_pov_is_readable_by_the_parachain_service() {
-		let parent_hash = H256::repeat_byte(7);
-		let block_header = header(5, parent_hash);
-		let anchor_state_root = [4u8; 32];
-		let head_proof = test_proof();
+	fn the_pov_carries_the_parent_header() {
+		let parent_header = header(4, H256::repeat_byte(6));
+		let block_header = header(5, parent_header.hash());
 
 		let pov = build_pov(
-			&[TestBlock::new(block_header.clone(), vec![])],
+			&[TestBlock::new(block_header, vec![])],
 			&CompactProof { encoded_nodes: vec![vec![1u8, 2, 3]] },
-			anchor_state_root,
-			&head_proof,
+			&parent_header,
 		);
 
-		let decoded = parasim_service::pov::decode_pov(&pov).expect("the service parses our PoV");
-		assert_eq!(decoded.head, block_header.encode(), "the new para head is the encoded header");
-		assert_eq!(decoded.parent_hash, <[u8; 32]>::from(parent_hash));
+		let decoded = ParachainBlockData::<TestBlock>::decode(&mut &pov[..])
+			.expect("PoV decodes as ParachainBlockData");
 
-		let (root, proof) =
-			<([u8; 32], StateProof)>::decode(&mut &decoded.anchor_state_proof[..])
-				.expect("the anchor state proof decodes");
-		assert_eq!(root, anchor_state_root);
-		assert_eq!(proof, head_proof);
+		let expected = parent_header.encode();
+		assert_eq!(
+			decoded.parent_header(),
+			Some(expected.as_slice()),
+			"the V4 PoV carries the SCALE-encoded parent header",
+		);
 	}
 }

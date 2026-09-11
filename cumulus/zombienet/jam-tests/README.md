@@ -12,11 +12,34 @@ and nothing outside the test's own temporary work directory is touched.
 From this repository:
 
 ```sh
-cargo build --release -p polkadot-omni-node -p parachain-template-runtime
+cargo build --release -p polkadot-omni-node
 cargo build --release --bin polkadot --bin polkadot-prepare-worker --bin polkadot-execute-worker
 ```
 
 The `polkadot` binary is not used by the test itself — see "Why a relay chain" below.
+
+The parachain runtime must be built twice: once as PolkaVM (the validation code JAM runs) and once
+as WASM (what the collators execute locally). Build both:
+
+```sh
+SUBSTRATE_RUNTIME_TARGET=riscv cargo build --release -p parachain-template-runtime
+cargo build --release -p parachain-template-runtime
+```
+
+The two builds land in *different* directories, and mixing them up is the most common way to
+start a run that cannot work:
+
+| build | path | magic |
+|---|---|---|
+| PolkaVM (`RUNTIME_WASM`) | `target/release/rbuild/parachain-template-runtime/parachain-template-runtime-blob.polkavm` | `PVM\0` |
+| WASM (`RUNTIME_AUTHORING_WASM`) | `target/release/wbuild/parachain-template-runtime/parachain_template_runtime.compact.compressed.wasm` | zstd-wrapped `\0asm` |
+
+The suite rejects a WASM blob at `RUNTIME_WASM` or a PolkaVM blob at `RUNTIME_AUTHORING_WASM` at
+startup with a named diagnostic.
+
+Rebuild **both** after any runtime change. The collators author with the WASM build while the PVF
+validates with the PolkaVM one, so a stale half produces state-root failures that look like
+unrelated bugs.
 
 From the polkajam repository: the `polkajam` node binary. It has to do two things, and today they
 live on two branches:
@@ -34,25 +57,27 @@ Until one build does both, set `JAM_GENSPEC_BIN` to a build with the first and `
 build with the second: only `gen-spec` runs from `JAM_GENSPEC_BIN`, and the generated spec is
 portable between the two.
 
-From the parachain-service repository: the `parasim-service.jam` and
-`parachain-authorizer-sr25519.jam` blobs. Nothing builds them as a side effect of `cargo build`
+From the parachain-service repository: the real `parachain-service.jam` blob and the
+`parachain-authorizer-sr25519.jam` blob. Nothing builds them as a side effect of `cargo build`
 any more — ask for them by name, and each crate's `[package.metadata.jam]` says how it wants
 building (the authorizer at `production-authorizer`, to fit JAM's 64 kB `C_maxauthcodesize`):
 
 ```sh
 cargo build --release -p cargo-jam-build
-./target/release/cargo-jam-build -p parasim-service -p parachain-authorizer-sr25519
+./target/release/cargo-jam-build -p parachain-service -p parachain-authorizer-sr25519
 ```
 
 They land under `target/jam/<target>/<profile>/`, at a path that does not move between builds:
 
 ```
-target/jam/riscv64emac-unknown-none-polkavm/production/parasim-service.jam
+target/jam/riscv64emac-unknown-none-polkavm/production/parachain-service.jam
 target/jam/riscv64emac-unknown-none-polkavm/production-authorizer/parachain-authorizer-sr25519.jam
 ```
 
 The `parasim-tool` CLI is needed only by the two dynamic-core tests, which are the only ones that
-move a core mid-run; without it they skip and everything else runs.
+move a core mid-run; without it they skip and everything else runs. The `parasim-service.jam` blob
+is no longer needed for the progress tests (the real service is used instead), but is retained for
+the dynamic-core tests and the README's toy runs.
 
 There is one authorizer blob per signature scheme, and which one a para needs is decided by its
 runtime's `AuraId`. The parachain template is sr25519, so that is the blob this suite puts on the
@@ -65,10 +90,14 @@ shows up only as a core no collator ever authorizes on.
 export JAM_NODE_BIN=/path/to/polkajam/target/release/polkajam
 # Only while gen-spec and the stateValue RPC are on different polkajam branches:
 export JAM_GENSPEC_BIN=/path/to/a/polkajam/whose/gen-spec/reads/the/genesis/keys
-export PARASIM_BLOB=/path/to/parachain-service/target/jam/riscv64emac-unknown-none-polkavm/\
-production/parasim-service.jam
+export PARACHAIN_SERVICE_BLOB=/path/to/parachain-service/target/jam/riscv64emac-unknown-none-polkavm/\
+production/parachain-service.jam
 export AUTHORIZER_BLOB=/path/to/parachain-service/target/jam/riscv64emac-unknown-none-polkavm/\
 production-authorizer/parachain-authorizer-sr25519.jam
+export RUNTIME_WASM=/path/to/polkadot-sdk3/target/release/rbuild/parachain-template-runtime/\
+parachain-template-runtime-blob.polkavm
+export RUNTIME_AUTHORING_WASM=/path/to/polkadot-sdk3/target/release/wbuild/parachain-template-runtime/\
+parachain_template_runtime.compact.compressed.wasm
 # Only for `jam::core_assignment`'s two dynamic-core tests:
 export PARASIM_TOOL_BIN=/path/to/parachain-service/target/release/parasim-tool
 
@@ -82,17 +111,27 @@ cargo test -p cumulus-jam-zombienet-tests --features jam-ci --test tests \
 | --- | --- |
 | `JAM_NODE_BIN` | the polkajam node binary zombienet spawns for every JAM node |
 | `JAM_GENSPEC_BIN` | the polkajam build that runs `gen-spec`, when it is not `JAM_NODE_BIN` |
-| `PARASIM_TOOL_BIN` | the `parasim-tool` CLI, required only by the dynamic-core tests, which move cores mid-run |
-| `PARASIM_BLOB` | `parasim-service.jam`, the service genesis creates and the collators talk to |
+| `PARACHAIN_SERVICE_BLOB` | the real parachain-service `.jam` blob, which genesis creates the service from |
 | `AUTHORIZER_BLOB` | `parachain-authorizer-sr25519.jam`, the AURA authorizer the cores run |
-| `OMNI_NODE_BIN`, `RUNTIME_WASM`, `RELAY_NODE_BIN` | override the `target/release` defaults |
+| `RUNTIME_WASM` | the PolkaVM build of the parachain runtime (`PVM\0` magic), used as the para's JAM validation code. The name is misleading (it is not WASM); a future rename to `RUNTIME_PVF` is deferred. |
+| `RUNTIME_AUTHORING_WASM` | the WASM build of the parachain runtime, supplied to collators via `--wasm-runtime-overrides` for execution |
+| `PARASIM_BLOB` | optional: `parasim-service.jam`, only needed for the dynamic-core tests and toy runs |
+| `PARASIM_TOOL_BIN` | optional: the `parasim-tool` CLI, required only by the dynamic-core tests, which move cores mid-run |
+| `OMNI_NODE_BIN`, `RELAY_NODE_BIN` | override the `target/release` defaults |
 | `JAM_TEST_BASE_DIR` | keep every run's work dir under this directory |
 | `NUM_COLLATORS` | how many collators the demo runs (default 1) |
 
-Both blobs are copied into the run's work dir before genesis names them: PVM builds are not
+All blobs are copied into the run's work dir before genesis names them: PVM builds are not
 byte-deterministic, so a rebuild during a run would strand a hash on the chain with no resolvable
 preimage. The collators are pointed at the authorizer *copy*, because an authorizer hash is a hash
 of exactly those bytes — and the copy is what genesis hosts.
+
+The two runtime blobs serve different roles. The PolkaVM blob is the para's JAM validation code
+and is registered in the chain spec's `:code`; the collator declares this hash via `code_at`. The
+WASM blob is supplied via `--wasm-runtime-overrides` and changes only what the collator *executes*
+— the declared hash stays the PolkaVM blob's. This asymmetry exists because a PolkaVM runtime
+cannot author: its `sp_io` re-exports crypto from `native::crypto`, whose key-generation functions
+panic by design (they need node-side state), so a PolkaVM runtime traps in `SessionKeys_generate_session_keys`.
 
 `--test-threads 1` is required: each test spawns seven JAM nodes plus its collators, and running
 them concurrently would fight over CPU and make the six-second slot budget unrealistic.
@@ -131,6 +170,32 @@ the same tree rather than somewhere under `/tmp`. The harness logs the resolved 
 
 The demo honours the same variable.
 
+### Reading a PVF failure
+
+When the para head does not move, the reason is in the *guarantors'* logs
+(`zombienet/jam0/jam0.log` … `jam5`), not the collator's. The validation code runs there, as a child
+PVM inside the parachain service, and the service narrates it at `@<core>#<service>`:
+
+```
+INFO  @0#5 PVF dispatch probe: call=200 …     a host call the guest made (200 = set_parent_head_hash,
+                                              201 = set_head, 203 = report_error, 204 = log)
+INFO  @0#5 PVF invoke probe: host|halt|panic  how the child came back from one invoke
+ERROR @0#5 PVF [runtime] panicked at …        the guest's own panic, with file, line and message
+```
+
+A refine that reaches `call=200` but never `call=201` produced no head, so the work result is an
+error — and `accumulate/package.rs` skips error results silently, which is why a dead pipeline looks
+like a quiet one from the JAM side.
+
+The `PVF [runtime] panicked` line exists because `sp-io`'s PolkaVM panic handler forwards to the JAM
+`log` host call (`substrate/primitives/io/src/native/logging.rs`, import index 204, dispatched by
+the service). Without it a guest panic arrives as nothing but `Trap at <pc>: explicit trap`. Only
+the panic and OOM handlers emit: `native::logging::max_level()` is `Off`, so the runtime's ordinary
+`log::` calls stay silent inside refine.
+
+Service-side panics are still opaque — the service guest is built with panic messages compiled out,
+so its own `panic!("… §4.2 whole-refine failure")` shows up only as a `Trap at <pc>` with no text.
+
 The demo runs the same code path with no assertion, until it is killed:
 
 ```sh
@@ -145,7 +210,7 @@ use `cumulus/scripts/jam-collator-demo.sh` instead.
 | file | what it does |
 | --- | --- |
 | `tests/jam/env.rs` | resolves the binaries, or explains what is missing |
-| `tests/jam/network.rs` | builds the genesis override — parasim, the authorizers, the cores — and spawns the JAM network from it |
+| `tests/jam/network.rs` | builds the genesis override — the real parachain service, the authorizers, the cores, and the validation code — and spawns the JAM network from it |
 | `tests/jam/genesis.rs` | derives a para's authorizer hash, the way the collator derives it |
 | `tests/jam/chain_spec.rs` | builds and patches one para's chain spec |
 | `tests/jam/collators.rs` | starts, supervises and tears down one para's collator processes |
@@ -184,14 +249,40 @@ index, so the order is part of the hash: `chain_spec::in_authority_order` is wha
 `genesis.rs` and every `parasim-tool --collators` string go through. A single-collator run cannot
 see any of this, which is how it stayed broken while one test kept passing.
 
+## Why the runtime is built twice
+
+One blob cannot serve both roles. The plan originally had a single blob be both the collator's
+authoring runtime and the para's JAM validation code. That is impossible: on riscv, `sp_io`
+re-exports crypto from `native::crypto`, whose key-generation functions panic by design ("needs
+node-side state and has no in-blob implementation"), so a PolkaVM runtime traps in
+`SessionKeys_generate_session_keys` and cannot author. Nothing in this repo authors with a PolkaVM
+runtime.
+
+The two roles separate via an asymmetry in the collator. `code_at` delegates to
+`code_at_ignoring_overrides`, which returns the on-chain `:code`; `--wasm-runtime-overrides`
+changes only what is *executed*. So the chain spec keeps the PolkaVM blob (the collator therefore
+*declares* the hash genesis registered) while the collator *executes* a WASM override. The
+declared hash stays the PolkaVM blob's, because `code_at` ignores overrides.
+
+This looks wrong until you know why it is right: the chain spec's `:code` is what JAM validates
+with, and the collator must declare that same hash so the service can look up the code preimage at
+refine time. The WASM override is purely local — it never reaches the chain, never reaches JAM,
+and never reaches the preimage store. It is only what the collator executes, and it is safe to
+override because the collator's own crypto (signing work packages) uses the host's `sp_io`, not the
+runtime's.
+
 ## Running a runtime other than the template
 
-`RUNTIME_WASM` chooses the parachain runtime. Two have been run: the parachain template (the
-default) and Asset Hub Rococo, which is the first real chain's runtime on this stack.
+`RUNTIME_WASM` (the PolkaVM build) and `RUNTIME_AUTHORING_WASM` (the WASM build) choose the
+parachain runtime. Two have been run: the parachain template (the default) and Asset Hub Rococo,
+which is the first real chain's runtime on this stack.
 
 ```sh
+SUBSTRATE_RUNTIME_TARGET=riscv cargo build --release -p asset-hub-rococo-runtime
 cargo build --release -p asset-hub-rococo-runtime
 export RUNTIME_WASM=target/release/wbuild/asset-hub-rococo-runtime/\
+asset_hub_rococo_runtime.compact.compressed.wasm
+export RUNTIME_AUTHORING_WASM=target/release/wbuild/asset-hub-rococo-runtime/\
 asset_hub_rococo_runtime.compact.compressed.wasm
 ```
 
@@ -231,15 +322,17 @@ The demo ran two collators to best 42 / finalized 39 and stopped cleanly on Ctrl
 
 Nothing. The chain spec `polkajam gen-spec` generates for a run already holds:
 
-* **parasim as service 5** (`network::PARASIM_SERVICE_ID`), created from the copied-aside
-  `parasim-service.jam` with a balance of 10^15, and **hosting the AURA authorizer blob's
-  preimage**. That is where a guarantor resolves the authorizer code from, because a collator's
-  work package names the parachain service as its `auth_code_host`.
+* **the real parachain service as service 5** (`network::PARASIM_SERVICE_ID`), created from the
+  copied-aside `parachain-service.jam` with a balance of 10^15, and **hosting the AURA authorizer
+  blob's preimage**. That is where a guarantor resolves the authorizer code from, because a
+  collator's work package names the parachain service as its `auth_code_host`.
 * **each para's core queued for that para's authorizer hash**, derived by `tests/jam/genesis.rs`
   exactly as the collator derives it — the blob's code hash, and a config naming the para id, the
   service, the collator-set root, the set size and the slot duration.
-* **each of those cores' assigner privilege held by parasim**, which is what lets a later
-  `free-core` or re-assignment travel the control lane inside an AURA package.
+* **each of those cores' assigner privilege held by the parachain service**, which is what lets a
+  later `free-core` or re-assignment travel the control lane inside an AURA package.
+* **the para's validation code as a PolkaVM blob**, registered in the service's `ParaInfo` and
+  hosted as a preimage so the service can resolve it at refine time.
 
 All of that reaches `gen-spec` as one JSON object. zombienet-sdk knows nothing about these keys:
 `JamNetwork::spawn` hands it the object through `with_genesis_overrides`, and it is merged as is
@@ -248,16 +341,20 @@ writes itself. For a single para on core 0 the object is:
 
 ```json
 {
-  "services": [{
-    "id": 5,
-    "code": "<work dir>/parasim-service.jam",
-    "balance": 1000000000000000,
-    "preimages": ["<work dir>/parachain-authorizer-sr25519.jam"]
-  }],
+  "services": {
+    "5": {
+      "code": "<work dir>/parachain-service.jam",
+      "balance": 1000000000000000,
+      "preimages": ["<work dir>/parachain-authorizer-sr25519.jam", "<work dir>/runtime.polkavm"]
+    }
+  },
   "auth_queues": { "0": "<the para's authorizer hash, bare hex>" },
   "assigners": { "0": 5 }
 }
 ```
+
+`services` is an object keyed by service id, which is what `jam-chainspec` declares
+(`BTreeMap<ServiceId, GenesisService>`) — not an array of `{ "id": ..., ... }` objects.
 
 `network::genesis_overrides` is the one place the harness spells that schema, and its unit test
 pins the keys; the schema's owner is polkajam's `jam-chainspec` crate. A balance above 2^53 is
@@ -268,7 +365,7 @@ checks that the genesis is really the one described. First, before anything is a
 nodes, `zombienet/jam_spec.json` has to hold service 5's record in its `genesis_state` — the key
 `ff05000000000000` followed by 23 zero bytes. A `gen-spec` that does not know the keys drops them
 without a word, so this fails at once and says to point `JAM_GENSPEC_BIN` at a build that does.
-Second, once the ordinary node answers, `listServices` has to include 5: parasim is genesis
+Second, once the ordinary node answers, `listServices` has to include 5: the service is genesis
 state, so a chain without it means the nodes started from some other spec than the one just
 checked; the error names `zombienet/jam_spec.json` and the `jam_config.json` beside it.
 `Run::start` then waits for every collator's startup line and fails unless the authorizer it
@@ -359,25 +456,30 @@ and it is in the local checkout this crate now builds against.
 
 ### Current status of the collator-progress tests
 
-All four pass. Figures from the full-suite run of 2026-09-02 (sr25519 throughout, collator
-identity read from the runtime):
+`one_jam_collator_builds_blocks` passes against the real parachain service: **para 0 best 30 /
+finalized 27 in ~199s**, which is the 6s median a healthy JAM network gives and matches what the
+`parasim` mock used to reach in ~310s.
 
-| test | result | wall clock | effective block rate |
-| --- | --- | --- | --- |
-| `one_jam_collator_builds_blocks` | best 30 / finalized 27 | 311s | 6s median |
-| `two_jam_collators_build_blocks` | best 30 / finalized 27 | 307s | 6s median |
-| `three_jam_collators_build_blocks` | best 30 / finalized 26 | 310s | 6s median |
-| `six_jam_collators_build_blocks` | best 30 / finalized 27 | 320s | 6s median |
+Measured 2026-09-11 over all six guarantors: 258 refines, 258 `set_head` declarations, **0 guest
+panics, 0 traps, 0 `report_error` aborts**, and no `SKIP` line.
 
-`three_` and `six_` used to stall part-way: all collators submit to the same core, so they
-multiplied the work-package contention that the genesis address bug had already made unreliable.
-With the mesh intact they are no slower than the two-collator case. Every validator held
-`6 peers (5 vals)` for the entire run, where before it decayed to `4 peers (3 vals)` within a few
-minutes and never recovered.
+Getting there took three fixes, each of which had silently capped the run at best 3 blocks before:
 
-The multi-collator three were also the ones that caught the authority-order bug above: they are
-the only progress tests where the runtime's order of the set differs from the harness's, so they
-sat at best 3 until `--collators` was given the runtime's order.
+* **`validate_validation_data` was asserting a relay-chain invariant on the JAM path.** It compares
+  `parent_header` against the block's own `set_validation_data` inherent, and the JAM collator's
+  mocked relay state never fills `parent_head`
+  (`cumulus/client/parachain-inherent/src/mock.rs:238` hardcodes `Default::default()`). It is now
+  relay-only *by structure*: the shared core takes an `on_block_validated` hook, the polkadot layer
+  passes the real check and the JAM layer passes a no-op. No `cfg(target_arch)` anywhere.
+* **The PVF had no way to learn the head it was actually built on.** The anchor state proof proves
+  the *accumulated* head, which is wrong the moment the collator pipelines ahead: the PoV's storage
+  proof is taken against the real parent's state root, not the accumulated one. The parent header
+  now travels untrusted in `ParachainBlockData::V4`; `verify_blocks_form_chain` binds it to
+  `blocks[0]`, and the service binds it to the canonical chain by comparing the hash the PVF
+  declares against its own stored head at accumulate. The anchor proof is gone.
+* **Guest panics were invisible.** `sp-io`'s PolkaVM panic handler formatted the message and dropped
+  it, so every failure arrived as `Trap at <pc>: explicit trap`. It now forwards to the JAM `log`
+  host call, which is what made the first bullet diagnosable at all.
 
 ### Current status of the core tests
 

@@ -108,7 +108,7 @@ pub trait RelayChainState {
 	/// # Panics
 	///
 	/// If [`RelayStateExt`] is not registered in the externalities.
-	#[polkavm_index(242)]
+	#[polkavm_index(342)]
 	#[raw_api]
 	fn read_relay_chain_state_into(
 		&mut self,

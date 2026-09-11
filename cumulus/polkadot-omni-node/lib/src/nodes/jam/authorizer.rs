@@ -424,14 +424,16 @@ pub(crate) mod tests {
 			authorization: Authorization::default(),
 			auth_code_host: SERVICE_ID,
 			authorizer: authorizer.authorizer(),
-			context: RefineContext {
-				anchor: [1u8; 32].into(),
-				state_root: [2u8; 32].into(),
-				beefy_root: [3u8; 32].into(),
-				lookup_anchor: [4u8; 32].into(),
-				lookup_anchor_slot,
-				prerequisites: Default::default(),
-			},
+		context: RefineContext {
+			anchor: [1u8; 32].into(),
+			anchor_slot: 0,
+			state_root: [2u8; 32].into(),
+			beefy_root: [3u8; 32].into(),
+			lookup_anchor: [4u8; 32].into(),
+			lookup_anchor_slot,
+			lookup_anchor_state_root: Default::default(),
+			prerequisites: Default::default(),
+		},
 			items: vec![item].try_into().expect("a single work item always fits; qed"),
 		}
 	}

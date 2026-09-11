@@ -18,7 +18,12 @@
 //! Native PolkaVM/JAM implementations of the `panic_handler` interface.
 
 use crate::*;
+use sp_core::RuntimeInterfaceLogLevel;
+
 /// Native PolkaVM/JAM implementation of `abort_on_panic`.
-pub fn abort_on_panic(_message: &str) -> ! {
+pub fn abort_on_panic(message: &str) -> ! {
+	// Without this the abort is a bare `trap` at some program counter, with nothing to say
+	// which assertion fired.
+	logging::log(RuntimeInterfaceLogLevel::Error, "runtime", message.as_bytes());
 	crate::unreachable()
 }

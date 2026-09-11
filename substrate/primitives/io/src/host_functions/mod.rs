@@ -31,12 +31,18 @@
 //! | Range | Owner |
 //! |---|---|
 //! | 0, 1, 2, 7, 8 | JAM host calls forwarded to the PVF at their Gray Paper index: `gas`, `grow_heap`, `fetch`, `historical_lookup`, `export` (spec §4.3) |
-//! | 100+ | host calls native to the parachain service; 100-103 taken (spec §4.3) |
-//! | 200-216 | [`storage`] |
-//! | 220-227 | `default_child_storage` |
-//! | 240 | [`input`] |
-//! | 241 | `cumulus_primitives_proof_size_hostfunction` |
-//! | 242-243 | `sp_additional_data` |
+//! | 100+ | PolkaJam's own non-GP extensions; its `log` is 100 |
+//! | 200-204 | host calls native to the parachain service; 200-203 (spec §4.3), 204 [`crate::native::logging`] |
+//! | 301-311 | [`storage`] |
+//! | 320-327 | `default_child_storage` |
+//! | 340 | [`input`] |
+//! | 341 | `cumulus_primitives_proof_size_hostfunction` |
+//! | 342-343 | `sp_additional_data` |
+//!
+//! The ranges have to stay this tight. The PolkaVM linker pads index gaps with dummy imports
+//! (`program_from_elf.rs`, "if there are any holes in the indexes"), so the import table is
+//! `max_index + 1` entries and is checked against `VM_MAXIMUM_IMPORT_COUNT` (1024) at parse
+//! time. A number is only an identifier at the attribute; it is an array slot in the blob.
 //!
 //! Only the versions a runtime actually calls are indexed. Calling an unindexed older version
 //! from a riscv runtime fails the link with `import without a specified index`, which is the

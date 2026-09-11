@@ -60,6 +60,25 @@ cumulus-primitives-proof-size-hostfunction = { workspace = true }
 # For building docs
 docify = { workspace = true }
 
+# JAM (parachain-service) guest-side types. Only the riscv runtime blob links these, mirroring
+# the `jam_implementation` gate in `src/validate_block/mod.rs`
+# (`cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))`), so the
+# shared types cannot break ordinary WASM (or std host) builds.
+#
+# The facade crate (`parachain-service/cumulus`) is deliberately NOT used: it is a std-only
+# collator shim (its `authorizer` module pulls `jam-null-authorizer-bin`, which cannot compile
+# for the polkavm target). The type is taken from the crate the facade re-exports —
+# `parachain_service_interface::candidate::ParachainCandidate` is exactly the facade's
+# `ParachainCandidate` — so there is still one definition per type.
+[target.'cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))'.dependencies]
+parachain-service-interface = { path = "../../../../parachain-service/service-interface" }
+# `RefineContext` is decoded from the `fetch` host call rather than read at a hardcoded byte
+# offset, so a field reordering upstream becomes a decode error instead of silently wrong
+# randomness. Both crates are already in this target's graph via `parachain-service-interface`;
+# `jam-types` derives `jam-codec`, not `parity-scale-codec`, so both have to be named.
+jam-types = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-types", default-features = false }
+jam-codec = { version = "0.1.1", default-features = false, features = ["derive"] }
+
 [dev-dependencies]
 assert_matches = { workspace = true }
 futures = { workspace = true }

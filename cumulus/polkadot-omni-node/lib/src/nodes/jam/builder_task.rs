@@ -48,7 +48,7 @@
 
 use super::{
 	JamCollatorMessage, LOG_TARGET, PoolScan, authorizer::AuraAuthorizer, choose_lookup_anchor,
-	fetch_anchor_state_proof, jam_read, jam_slot_as_relay_slot, jam_slot_at, scan_pools_at,
+	jam_read, jam_slot_as_relay_slot, jam_slot_at, scan_pools_at,
 };
 use crate::common::{
 	ConstructNodeRuntimeApi, NodeBlock,
@@ -64,9 +64,8 @@ use futures::{FutureExt, StreamExt, channel::mpsc};
 use jam_cumulus_facade::service_state::{ParaInfo, para_info_key};
 use jam_interface::{
 	BlockDesc, CoreIndex, HeaderHash, JamChainSource, JamStateSource, ServiceId, Slot as JamSlot,
-	StateRootHash, WorkPackageHash, WorkReport,
+	WorkPackageHash, WorkReport,
 };
-use jam_state_helpers::StateProof;
 use jam_types::RefineContext;
 use polkadot_primitives::{HeadData, Id as ParaId, UpgradeGoAhead};
 use sc_client_api::Backend as _;
@@ -422,7 +421,7 @@ async fn read_in_flight_reports<Header: HeaderT, Jam: JamStateSource + ?Sized>(
 
 	let mut reports = Vec::new();
 	for assignment in availability.iter().flatten() {
-		push_report(&mut reports, &assignment.report, ReportSource::Availability, service_id);
+		push_report(&mut reports, assignment.report(), ReportSource::Availability, service_id);
 	}
 	let from_availability = reports.len();
 	for record in ready.iter().flatten() {
@@ -615,10 +614,8 @@ impl<Header: HeaderT> BuilderState<Header> {
 struct AnchorReads {
 	anchor: BlockDesc,
 	context: RefineContext,
-	state_root: StateRootHash,
 	/// The para's entry in the service's state, exactly as stored; `None` = no head yet.
 	included: Option<Vec<u8>>,
-	proof: StateProof,
 	/// Which cores hold the para's authorizer at this anchor, and therefore where the package
 	/// built on it may be submitted.
 	pool_scan: PoolScan,
@@ -885,15 +882,7 @@ where
 			return Ok(None);
 		},
 	};
-	let Some(AnchorReads {
-		anchor,
-		context,
-		state_root,
-		included,
-		proof: anchor_state_proof,
-		pool_scan,
-	}) = reads
-	else {
+	let Some(AnchorReads { anchor, context, included, pool_scan }) = reads else {
 		return Ok(None);
 	};
 	let submit_target = state.note_pool_scan(&pool_scan, &anchor, authorizer);
@@ -1195,7 +1184,6 @@ where
 		block_number = %block.header().number(),
 		extrinsics = block.extrinsics().len(),
 		proof_nodes = proof.iter_nodes().count(),
-		anchor_proof_nodes = anchor_state_proof.nodes.len(),
 		depth = depth + 1,
 		?parent_source,
 		"Built and imported a parachain block.",
@@ -1206,8 +1194,6 @@ where
 		block,
 		proof,
 		context,
-		anchor_state_root: *state_root,
-		anchor_state_proof,
 		anchor_slot: anchor.slot,
 		submit_target,
 		triggered_by: tip,
@@ -1242,6 +1228,12 @@ async fn read_anchor<Jam: JamChainSource + JamStateSource + ?Sized>(
 	else {
 		return Ok(None);
 	};
+	let lookup_anchor_state_root = jam_read(
+		"stateRoot",
+		lookup_anchor.header_hash,
+		jam.state_root(lookup_anchor.header_hash),
+	)
+	.await?;
 	let pool_scan = scan_pools_at(jam, anchor.header_hash, authorizer).await?;
 	let included = jam_read(
 		"serviceValue",
@@ -1249,47 +1241,20 @@ async fn read_anchor<Jam: JamChainSource + JamStateSource + ?Sized>(
 		jam.service_value(anchor.header_hash, service_id, &para_info_key(para_id.into())),
 	)
 	.await?;
-	let started = Instant::now();
-	let (proof, proved_head) =
-		fetch_anchor_state_proof(jam, anchor.header_hash, &state_root, service_id, para_id).await?;
-	tracing::debug!(
-		target: LOG_TARGET,
-		method = "stateProof",
-		at = ?anchor.header_hash,
-		nodes = proof.nodes.len(),
-		values = proof.values.len(),
-		proved = proved_head.is_some(),
-		elapsed_ms = started.elapsed().as_millis(),
-		"JAM read.",
-	);
-	// The proof and the head read above describe the same key at the same anchor, so anything
-	// but equality means one of the two reads is stale — shipping it would only earn a refine
-	// rejection.
-	if proved_head != included {
-		tracing::error!(
-			target: LOG_TARGET,
-			anchor = ?anchor.header_hash,
-			proved_head = proved_head.is_some(),
-			read_head = included.is_some(),
-			"The anchor state proof disagrees with the para head read at the same anchor; \
-			 skipping this tick.",
-		);
-		return Ok(None);
-	}
 
 	Ok(Some(AnchorReads {
 		anchor,
 		context: RefineContext {
 			anchor: anchor.header_hash,
+			anchor_slot: anchor.slot,
 			state_root,
 			beefy_root,
 			lookup_anchor: lookup_anchor.header_hash,
 			lookup_anchor_slot: lookup_anchor.slot,
+			lookup_anchor_state_root,
 			prerequisites: Default::default(),
 		},
-		state_root,
 		included,
-		proof,
 		pool_scan,
 	}))
 }
@@ -1552,16 +1517,18 @@ mod tests {
 				exports_root: Default::default(),
 				exports_count: 0,
 			},
-			context: RefineContext {
-				anchor: Default::default(),
-				state_root: Default::default(),
-				beefy_root: Default::default(),
-				lookup_anchor: Default::default(),
-				lookup_anchor_slot: 0,
-				prerequisites: Default::default(),
-			},
-			core_index: 0,
-			authorizer_hash: Default::default(),
+		context: RefineContext {
+			anchor: Default::default(),
+			anchor_slot: 0,
+			state_root: Default::default(),
+			beefy_root: Default::default(),
+			lookup_anchor: Default::default(),
+			lookup_anchor_slot: 0,
+			lookup_anchor_state_root: Default::default(),
+			prerequisites: Default::default(),
+		},
+		core_index: 0,
+		authorizer_hash: Default::default(),
 			auth_gas_used: 0,
 			auth_output: Default::default(),
 			sr_lookup: Default::default(),

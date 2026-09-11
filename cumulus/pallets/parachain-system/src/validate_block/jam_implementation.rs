@@ -19,67 +19,151 @@
 //! On JAM the PVF is invoked with *no arguments* and reads its inputs / writes its outputs
 //! through the child-PVM host functions of the Parachain Service (spec §4.2). The validation
 //! core is shared with the polkadot implementation via
-//! [`super::polkadot_implementation::validate_block`]; this module is responsible for the
-//! host-call surface that feeds it and the host-call side effects that sink its outputs.
+//! [`super::validate_block_core::execute_blocks`]; this module is the host-call surface that
+//! feeds that core and the host-call side effects that sink its outputs.
 //!
-//! Per spec §4.2: "The PVF reads its inputs (PoV, context, downward transfers) through host
-//! functions and writes its outputs (head data, code upgrades, transfers) through host
-//! functions. It does not return a value directly — the `ParachainWorkDigest` is assembled by
-//! the Parachain Service's Refine wrapper from the accumulated host-function side effects."
+//! # Where the validation inputs come from on JAM
 //!
-//! Host calls are imported at fixed indices (spec §4.3): the ones forwarding a JAM host call
-//! keep their Gray Paper index, the ones native to the Parachain Service start at 100.
+//! The work-item payload is the SCALE-encoded [`ParachainCandidate`] the collator's `build_pov`
+//! produced: a validation-code hash and the PoV, which is itself a SCALE-encoded
+//! `ParachainBlockData::V4`. On the relay chain the validator knows the previous head and the
+//! relay-parent context from its own chain state; on JAM the PVF has no chain state, so the
+//! parent header travels *untrusted* in the V4 `parent_header` field and is bound twice:
+//!
+//! - the shared core's `verify_blocks_form_chain` asserts `blocks[0].parent_hash ==
+//!   parent_header.hash()`, so a candidate that declares a parent other than the parent of its own
+//!   first block aborts;
+//! - the parachain service binds it to the canonical chain: its `accumulate` compares the
+//!   `parent_head_hash` declared here (via `host::set_parent_head_hash`, a `blake2_256` of the
+//!   encoded header) against the head it itself stored, so a candidate built on a stale or forged
+//!   parent never accumulates.
+//!
+//! There is no relay chain on JAM: the core runs with `relay_parent_storage_root = None`, so its
+//! relay-proof reader and `validate_validation_data` re-check are never armed, and the trie
+//! randomness seed is derived from the JAM refine context's `lookup_anchor` + block hashes
+//! instead of relay-parent state.
 
-use super::MemoryOptimizedValidationParams;
+use super::{
+	bytes::Bytes,
+	validate_block_core::{execute_blocks, SharedValidationInputs},
+};
+use alloc::vec::Vec;
 use codec::Decode;
-use frame_support::traits::{ExecuteBlock, IsSubType};
-use sp_crypto_hashing::blake2_256;
-use sp_runtime::traits::{Block as BlockT, ExtrinsicCall};
+use cumulus_primitives_core::ParachainBlockData;
+use frame_support::traits::ExecuteBlock;
+use parachain_service_interface::candidate::ParachainCandidate;
+use sp_crypto_hashing::{blake2_128, blake2_256};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, LazyBlock};
 
-/// Bounded, opaque error payload the caller leaves on the failure report path when the PVF
-/// aborts abnormally (spec §4.2 / `report_error`). Kept a static slice so no unbounded
-/// allocation happens on the abort path.
+/// Bounded, opaque error payloads the caller leaves on the failure report path when the PVF
+/// aborts abnormally (spec §4.2 / `report_error`). Kept as static slices so no unbounded
+/// allocation happens on the abort path; each message has a distinct byte length on purpose —
+/// the `RefineLog::Opaque` digest carries the length, which is how an abort is pinned from the
+/// logs without decoding the payload.
 const ERR_PAYLOAD_NO_WORK_ITEM: &[u8] = b"jam_validate_block:no-work-item-payload@0";
-const ERR_PAYLOAD_DECODE_FAILED: &[u8] = b"jam_validate_block:params-decode-failed";
+const ERR_PAYLOAD_DECODE_FAILED: &[u8] = b"jam_validate_block:candidate-decode-failed";
+const ERR_POV_DECODE_FAILED: &[u8] = b"jam_validate_block:pov-decode-failed";
+const ERR_PARENT_HEADER_MISSING: &[u8] = b"jam_validate_block:v4-parent-header-missing";
+const ERR_REFINE_CONTEXT_UNAVAILABLE: &[u8] = b"jam_validate_block:refine-context-fetch-failed";
+const ERR_HEAD_DATA_MISSING: &[u8] = b"jam_validate_block:no-head-data";
 
 /// The single entry point the Parachain Service's Refine (spawned child PVM) calls (spec §4.2).
 ///
-/// SAME validation as the polkadot path — [`super::polkadot_implementation::validate_block`] —
+/// Same validation as the polkadot path — [`super::polkadot_implementation::validate_block`] —
 /// instantiated with the same concrete `B`/`E`/`PSC` by the runtime layer, but with the JAM
-/// setup: the candidate (PoV/params) is read from the child-PVM `work_item_payload` host
-/// function and the `ValidationResult` outputs are written via host side effects instead of
-/// returned.
+/// setup: the candidate is read from the child-PVM `work_item_payload` host function and the
+/// `ValidationResult` outputs are written via host side effects instead of returned.
 #[allow(clippy::unused_unit)]
-pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>()
-where
-	B::Extrinsic: ExtrinsicCall,
-	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
-{
+pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 	// 1. Read the work-item payload. The Refine invokes the child PVM with a single work item
-	// (index 0); its payload *is* the SCALE-encoded `MemoryOptimizedValidationParams`.
+	// (index 0); its payload is the SCALE-encoded `ParachainCandidate` the collator assembled.
 	let payload = match host::work_item_payload(0) {
 		Some(payload) => payload,
 		None => host::report_error(ERR_PAYLOAD_NO_WORK_ITEM),
 	};
 
-	// 2. Decode the same params `validate_block` consumes.
-	let params = match MemoryOptimizedValidationParams::decode(&mut &payload[..]) {
-		Ok(params) => params,
-		Err(_) => host::report_error(ERR_PAYLOAD_DECODE_FAILED),
+	// 2. Decode the candidate with the shared JAM facade type — one definition, owned by the
+	// parachain service, that cannot silently drift from what the collator encodes.
+	let Ok(candidate) = ParachainCandidate::decode(&mut &payload[..]) else {
+		host::report_error(ERR_PAYLOAD_DECODE_FAILED)
 	};
 
-	// 3. Declare the parent head hash this candidate is built on, exactly once (mandatory).
-	host::set_parent_head_hash(&blake2_256(&params.parent_head));
+	// 3. The PoV is itself a SCALE-encoded `ParachainBlockData::V4`. Decode it to reach the
+	// parent header and blocks.
+	let Ok(block_data) =
+		codec::decode_from_bytes::<ParachainBlockData<B::LazyBlock>>(Bytes::from(candidate.pov))
+	else {
+		host::report_error(ERR_POV_DECODE_FAILED)
+	};
 
-	// 4. Run the SAME validation core as the polkadot path, returning the same
-	// `ValidationResult`.
-	let result = super::polkadot_implementation::validate_block::<B, E, PSC>(params);
+	// 4. The parent header is untrusted V4 transport — this module establishes it, the shared
+	// core binds it to the candidate (`verify_blocks_form_chain`), the service to the canonical
+	// chain (accumulate) — so a pre-V4 PoV cannot be validated on JAM: abort.
+	let Some(parent_header_bytes) = block_data.parent_header() else {
+		host::report_error(ERR_PARENT_HEADER_MISSING)
+	};
+	// Owned copy: the header must outlive the move of `block_data` into the core below, as it
+	// feeds both `set_parent_head_hash` and the core's `parent_head` input.
+	let parent_header = parent_header_bytes.to_vec();
+	// The block hashes feed the randomness seed below; grab them before `block_data` is moved
+	// into the core.
+	let blocks = block_data.blocks();
 
-	// 5. Sink the result through host side effects (spec §4.2).
-	host::set_head(&result.head_data.0);
+	// 5. Declare the parent head hash this candidate is built on, exactly once (mandatory). The
+	// service records it in the work digest and compares it against the head it stored at
+	// accumulate, so it must stay an explicit `blake2_256` over the encoded header (NOT
+	// `B::Hashing`): `accumulate` compares its stored `blake2_256(&head_data)` against this.
+	host::set_parent_head_hash(&blake2_256(&parent_header));
+
+	// 6. Seed the trie-hashmap randomness. The relay path seeds from
+	// `relay_parent_storage_root` + block hashes; JAM has no relay state, so the refine
+	// context's `lookup_anchor` (which the collator cannot find out ahead of time) plays the
+	// relay root's role.
+	let Some(lookup_anchor) = host::refine_context().map(|context| *context.lookup_anchor) else {
+		host::report_error(ERR_REFINE_CONTEXT_UNAVAILABLE)
+	};
+	let randomness_seed = build_jam_seed::<B>(lookup_anchor, blocks);
+
+	// 7. Run the SAME validation core as the polkadot path. There is no V3 scheduling on JAM
+	// (`None` skips the signature-override hook) and no relay proof/validation-data re-check
+	// (`|_| {}`; `validate_validation_data` is relay-only).
+	let result = execute_blocks::<B, E, PSC>(
+		SharedValidationInputs::<B> {
+			block_data,
+			parent_head: Bytes::from(parent_header),
+			randomness_seed,
+			relay_parent_storage_root: None,
+		},
+		None,
+		&|_| {},
+	);
+
+	// 8. Sink the result through host side effects (spec §4.2). `head_data` is set by the core
+	// after the last block executes; a `None` here is impossible if any block ran
+	// (`verify_blocks_form_chain` aborts on an empty PoV first), so it means a core invariant
+	// broke, not a malformed candidate — abort loudly instead of declaring no head.
+	let Some(head) = result.head_data else { host::report_error(ERR_HEAD_DATA_MISSING) };
+	host::set_head(&head.0);
 	if let Some(code) = &result.new_validation_code {
-		host::request_code_upgrade(blake2_256(&code.0), code.0.len() as u32);
+		host::request_code_upgrade(blake2_256(&code), code.len() as u32);
 	}
+}
+
+/// Build the trie-hashmap randomness seed from the JAM refine context's `lookup_anchor` plus
+/// every block hash — the JAM analogue of
+/// [`super::polkadot_implementation::build_seed_from_head_data`] (the lookup anchor stands in
+/// for the relay-parent storage root). Mixing a context value the collator cannot fully predict
+/// with the block hashes keeps the seed changing every block and hard to find out ahead of time.
+fn build_jam_seed<B: BlockT>(lookup_anchor: [u8; 32], blocks: &[B::LazyBlock]) -> [u8; 16] {
+	let mut bytes_to_hash =
+		Vec::with_capacity(blocks.len() * size_of::<B::Hash>() + size_of::<[u8; 32]>());
+
+	bytes_to_hash.extend_from_slice(lookup_anchor.as_ref());
+	blocks.iter().for_each(|block| {
+		bytes_to_hash.extend_from_slice(block.header().hash().as_ref());
+	});
+
+	blake2_128(&bytes_to_hash)
 }
 
 /// Child host calls of the Parachain Service's Refine (spec §4.3).
@@ -90,9 +174,14 @@ where
 mod host {
 	use alloc::{vec, vec::Vec};
 	use codec::{Compact, Encode};
+	use jam_codec::Decode as _;
+	use jam_types::RefineContext;
 
 	/// `fetch` selector for `workitems[a].payload` (Gray Paper).
 	const FETCH_WORK_ITEM_PAYLOAD: u64 = 13;
+
+	/// `fetch` selector for the work package's refine context (Gray Paper).
+	const FETCH_REFINE_CONTEXT: u64 = 10;
 
 	/// Gray Paper sentinel for "no such item".
 	const NONE: u64 = u64::MAX;
@@ -111,13 +200,13 @@ mod host {
 		fn fetch_raw(out_ptr: u32, offset: u64, out_len: u64, kind: u64, a: u64, b: u64) -> u64;
 
 		// --- Parachain Service host functions ---
-		#[polkavm_import(index = 100)]
+		#[polkavm_import(index = 200)]
 		fn set_parent_head_hash_raw(hash_ptr: u32);
-		#[polkavm_import(index = 101)]
+		#[polkavm_import(index = 201)]
 		fn set_head_raw(ptr: u32, len: u32);
-		#[polkavm_import(index = 102)]
+		#[polkavm_import(index = 202)]
 		fn send_upward_message_raw(ptr: u32, len: u32);
-		#[polkavm_import(index = 103)]
+		#[polkavm_import(index = 203)]
 		fn report_error_raw(ptr: u32, len: u32);
 	}
 
@@ -147,14 +236,28 @@ mod host {
 		unreachable!("`report_error` aborts the PVF; qed")
 	}
 
+	/// The work package's refine context, decoded from the `fetch` host call.
+	///
+	/// `None` means the host did not serve it or the bytes did not decode, both of which are
+	/// protocol drift: a work package always carries a context. Decoding the real type rather
+	/// than reading a field at a hardcoded offset is what makes an upstream field reordering a
+	/// decode failure instead of silently wrong randomness.
+	pub fn refine_context() -> Option<RefineContext> {
+		let bytes = fetch(FETCH_REFINE_CONTEXT, 0, 0)?;
+		RefineContext::decode(&mut &bytes[..]).ok()
+	}
+
 	/// Fetch the payload of work item `index`; `None` if absent.
 	///
 	/// `fetch` writes at most `out_len` bytes and returns the item's *full* length, so a
 	/// zero-capacity probe yields the size to allocate.
 	pub fn work_item_payload(index: u32) -> Option<Vec<u8>> {
-		let fetch = |ptr: u32, len: u64| unsafe {
-			fetch_raw(ptr, 0, len, FETCH_WORK_ITEM_PAYLOAD, index as u64, 0)
-		};
+		fetch(FETCH_WORK_ITEM_PAYLOAD, index as u64, 0)
+	}
+
+	/// Fetch a `(kind, a, b)` value, probing for its length first (Gray Paper semantics).
+	fn fetch(kind: u64, a: u64, b: u64) -> Option<Vec<u8>> {
+		let fetch = |ptr: u32, len: u64| unsafe { fetch_raw(ptr, 0, len, kind, a, b) };
 
 		let len = fetch(0, 0);
 		if len == NONE {

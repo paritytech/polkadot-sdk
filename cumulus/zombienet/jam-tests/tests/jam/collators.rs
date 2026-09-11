@@ -7,7 +7,7 @@
 //! harness owns. [`Collators`] kills them all on drop, which covers a panicking or timing-out test
 //! as well as a clean one.
 
-use super::{chain_spec, env::Binaries, rpc::CollatorRpc};
+use super::{chain_spec, env::Binaries, network::polkavm_env, rpc::CollatorRpc};
 use anyhow::Context;
 use std::{
 	fs::File,
@@ -45,6 +45,10 @@ pub struct JamTarget {
 	/// collators must hash the very same bytes — PVM builds are not byte-deterministic, so the
 	/// build output is not a safe substitute.
 	pub authorizer_blob: PathBuf,
+	/// The directory holding the frozen WASM authoring runtime, passed as
+	/// `--wasm-runtime-overrides`: the collators *execute* the WASM build while the chain's
+	/// `:code` — and so the validation-code hash they declare — stays the PolkaVM blob.
+	pub wasm_overrides_dir: PathBuf,
 }
 
 /// One parachain of a run: the id it collates under, the core its work packages are authorized
@@ -81,22 +85,15 @@ impl Para {
 }
 
 impl Collators {
-	/// Build `para`'s chain spec and start one collator per dev account in its set.
+	/// Start one collator per dev account in `para`'s set, against the chain spec `spec` —
+	/// the file [`JamNetwork::spawn`] already built and derived the para's genesis head from.
 	pub fn spawn(
 		binaries: &Binaries,
 		work_dir: &Path,
 		para: &Para,
 		jam: &JamTarget,
+		spec: &Path,
 	) -> anyhow::Result<Self> {
-		let spec = work_dir.join(format!("jam-parachain-{}-spec.json", para.id));
-		chain_spec::build(
-			&binaries.omni_node,
-			&binaries.runtime_wasm,
-			&spec,
-			para.id,
-			&para.collators,
-		)?;
-
 		let count = para.collators.len();
 		let first_port = NEXT_PORT.fetch_add(count as u16 * PORTS_PER_COLLATOR, Ordering::Relaxed);
 		let mut collators = Vec::with_capacity(count);
@@ -108,15 +105,18 @@ impl Collators {
 			let p2p_port = first_port + index as u16 * PORTS_PER_COLLATOR;
 			let rpc_port = p2p_port + 1;
 			let prometheus_port = p2p_port + 2;
-			let peer_id = node_key(&binaries.omni_node, &base_path, &spec)?;
+			let peer_id = node_key(&binaries.omni_node, &base_path, spec)?;
 
 			let log_path = work_dir.join(format!("{name}.log"));
 			let log = File::create(&log_path)?;
 
 			let mut command = Command::new(&binaries.omni_node);
 			command
+				// The runtime this chain spec embeds is the blob JAM validates with: a PolkaVM
+				// blob needs the executor flag (and the interpreter the sandbox can run).
+				.envs(polkavm_env())
 				.arg("--chain")
-				.arg(&spec)
+				.arg(spec)
 				.arg("--base-path")
 				.arg(&base_path)
 				.args(["--collator", &chain_spec::dev_account_flag(account), "--force-authoring"])
@@ -132,6 +132,13 @@ impl Collators {
 				// hash.
 				.arg("--jam-authorizer-blob")
 				.arg(&jam.authorizer_blob)
+				// The chain's `:code` is the PolkaVM blob JAM validates with, whose in-blob
+				// crypto stubs panic on riscv — so the collator executes the WASM build of the
+				// same runtime instead, via a local override that matches by spec_version. The
+				// hash it declares (`code_at`) still reads the on-chain PolkaVM bytes, because
+				// overrides apply only to execution, never to that read.
+				.arg("--wasm-runtime-overrides")
+				.arg(&jam.wasm_overrides_dir)
 				// Discovery is explicit: without this the collators would find, and try to sync
 				// with, any other parachain node running on this machine.
 				.arg("--no-mdns")
@@ -143,9 +150,7 @@ impl Collators {
 				command.args(["--bootnodes", bootnode]);
 			}
 
-			let process = command
-				.spawn()
-				.with_context(|| format!("spawning collator {name}"))?;
+			let process = command.spawn().with_context(|| format!("spawning collator {name}"))?;
 			log::info!("collator {name}: rpc 127.0.0.1:{rpc_port}, log {}", log_path.display());
 
 			bootnode.get_or_insert(format!("/ip4/127.0.0.1/tcp/{p2p_port}/p2p/{peer_id}"));

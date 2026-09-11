@@ -21,10 +21,22 @@
 pub mod additional_data_reader;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
+pub(super) mod block_checks;
+#[cfg(not(feature = "std"))]
+#[doc(hidden)]
+pub(super) mod child_storage_host_functions;
+#[cfg(not(feature = "std"))]
+#[doc(hidden)]
+pub(super) mod host_functions;
+#[cfg(not(feature = "std"))]
+#[doc(hidden)]
 pub mod polkadot_implementation;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
 pub use polkadot_implementation as implementation;
+#[cfg(not(feature = "std"))]
+#[doc(hidden)]
+pub mod validate_block_core;
 
 // JAM (parachain-service) implementation; never compiled on wasm.
 #[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]

@@ -172,7 +172,7 @@ pub trait AdditionalData {
 	/// A missing extension is treated as "nothing recorded": this runs on every block — including
 	/// blocks and test contexts that never produced additional data — so it must not panic on a
 	/// missing extension.
-	#[polkavm_index(243)]
+	#[polkavm_index(343)]
 	#[raw_api]
 	fn finalize_into(&mut self, hash_out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
 		match self.extension::<AdditionalDataExt>().and_then(|ext| ext.finalize()) {

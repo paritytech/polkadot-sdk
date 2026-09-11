@@ -78,7 +78,7 @@ pub trait Storage {
 	/// are copied into `value_out`.
 	/// If `allow_partial` is non-zero, the function will copy as many bytes as possible into
 	/// `value_out`, even if the value is longer than `value_out`.
-	#[polkavm_index(201)]
+	#[polkavm_index(301)]
 	#[version(2)]
 	#[raw_api]
 	fn read(
@@ -126,19 +126,19 @@ pub trait Storage {
 	}
 
 	/// Set `key` to `value` in the storage.
-	#[polkavm_index(202)]
+	#[polkavm_index(302)]
 	fn set(&mut self, key: PassFatPointerAndRead<&[u8]>, value: PassFatPointerAndRead<&[u8]>) {
 		self.set_storage(key.to_vec(), value.to_vec());
 	}
 
 	/// Clear the storage of the given `key` and its value.
-	#[polkavm_index(203)]
+	#[polkavm_index(303)]
 	fn clear(&mut self, key: PassFatPointerAndRead<&[u8]>) {
 		self.clear_storage(key)
 	}
 
 	/// Check whether the given `key` exists in storage.
-	#[polkavm_index(204)]
+	#[polkavm_index(304)]
 	fn exists(&mut self, key: PassFatPointerAndRead<&[u8]>) -> bool {
 		self.exists_storage(key)
 	}
@@ -236,7 +236,7 @@ pub trait Storage {
 	// ERRATA: The RFC specifies this as `ext_storage_clear_prefix_version_3`, but since
 	// version 3 was already registered with a different signature prior to the RFC
 	// implementation, this is registered as version 4 instead.
-	#[polkavm_index(205)]
+	#[polkavm_index(305)]
 	#[version(4)]
 	#[raw_api]
 	fn clear_prefix(
@@ -311,7 +311,7 @@ pub trait Storage {
 	///
 	/// If the storage item does not support [`EncodeAppend`](codec::EncodeAppend) or
 	/// something else fails at appending, the storage item will be set to `[value]`.
-	#[polkavm_index(206)]
+	#[polkavm_index(306)]
 	fn append(&mut self, key: PassFatPointerAndRead<&[u8]>, value: PassFatPointerAndRead<Vec<u8>>) {
 		self.storage_append(key.to_vec(), value);
 	}
@@ -347,7 +347,7 @@ pub trait Storage {
 	/// Fills provided output buffer with the SCALE encoded hash. Since the size of the resulting
 	/// value is known to the caller, this function requires the provided buffer to be large enough
 	/// to store the entire value; otherwise, it will panic.
-	#[polkavm_index(207)]
+	#[polkavm_index(307)]
 	#[version(3)]
 	#[raw_api]
 	fn root(&mut self, out: PassFatPointerAndWrite<&mut [u8]>) {
@@ -394,7 +394,7 @@ pub trait Storage {
 
 	/// Get the next key in storage after the given one in lexicographic order.
 	#[raw_api]
-	#[polkavm_index(208)]
+	#[polkavm_index(308)]
 	#[version(2)]
 	fn next_key(
 		&mut self,
@@ -446,7 +446,7 @@ pub trait Storage {
 	/// This is a low level API that is potentially dangerous as it can easily result
 	/// in unbalanced transactions. For example, FRAME users should use high level storage
 	/// abstractions.
-	#[polkavm_index(209)]
+	#[polkavm_index(309)]
 	fn start_transaction(&mut self) {
 		self.storage_start_transaction();
 	}
@@ -458,7 +458,7 @@ pub trait Storage {
 	/// # Panics
 	///
 	/// Will panic if there is no open transaction.
-	#[polkavm_index(210)]
+	#[polkavm_index(310)]
 	fn rollback_transaction(&mut self) {
 		self.storage_rollback_transaction()
 			.expect("No open transaction that can be rolled back.");
@@ -471,7 +471,7 @@ pub trait Storage {
 	/// # Panics
 	///
 	/// Will panic if there is no open transaction.
-	#[polkavm_index(211)]
+	#[polkavm_index(311)]
 	fn commit_transaction(&mut self) {
 		self.storage_commit_transaction()
 			.expect("No open transaction that can be committed.");
@@ -530,7 +530,7 @@ pub trait DefaultChildStorage {
 	///
 	/// If `allow_partial` is non-zero, the function will copy as many bytes as possible into
 	/// `value_out`, even if the value is longer than `value_out`.
-	#[polkavm_index(220)]
+	#[polkavm_index(320)]
 	#[version(2)]
 	#[raw_api]
 	fn read(
@@ -594,7 +594,7 @@ pub trait DefaultChildStorage {
 	/// Set a child storage value.
 	///
 	/// Set `key` to `value` in the child storage denoted by `storage_key`.
-	#[polkavm_index(221)]
+	#[polkavm_index(321)]
 	fn set(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
@@ -608,7 +608,7 @@ pub trait DefaultChildStorage {
 	/// Clear a child storage key.
 	///
 	/// For the default child storage at `storage_key`, clear value at `key`.
-	#[polkavm_index(222)]
+	#[polkavm_index(322)]
 	fn clear(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
@@ -673,7 +673,7 @@ pub trait DefaultChildStorage {
 	// ERRATA: The RFC specifies this as `ext_default_child_storage_storage_kill_version_4`,
 	// but since version 4 was already registered with a different signature prior to the RFC
 	// implementation, this is registered as version 5 instead.
-	#[polkavm_index(223)]
+	#[polkavm_index(323)]
 	#[version(5)]
 	#[raw_api]
 	fn storage_kill(
@@ -744,7 +744,7 @@ pub trait DefaultChildStorage {
 	/// Check a child storage key.
 	///
 	/// Check whether the given `key` exists in default child defined at `storage_key`.
-	#[polkavm_index(224)]
+	#[polkavm_index(324)]
 	fn exists(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
@@ -805,7 +805,7 @@ pub trait DefaultChildStorage {
 	// ERRATA: The RFC specifies this as `ext_default_child_storage_clear_prefix_version_3`,
 	// but since version 3 was already registered with a different signature prior to the RFC
 	// implementation, this is registered as version 4 instead.
-	#[polkavm_index(225)]
+	#[polkavm_index(325)]
 	#[version(4)]
 	#[raw_api]
 	fn clear_prefix(
@@ -914,7 +914,7 @@ pub trait DefaultChildStorage {
 	/// Fills provided output buffer with the SCALE encoded hash. Since the size of the resulting
 	/// value is known to the caller, this function requires the provided buffer to be large enough
 	/// to store the entire value; otherwise, it will panic.
-	#[polkavm_index(226)]
+	#[polkavm_index(326)]
 	#[version(3)]
 	#[raw_api]
 	fn root(
@@ -962,7 +962,7 @@ pub trait DefaultChildStorage {
 	/// Child storage key iteration.
 	///
 	/// Get the next key in storage after the given one in lexicographic order in child storage.
-	#[polkavm_index(227)]
+	#[polkavm_index(327)]
 	#[version(2)]
 	#[raw_api]
 	fn next_key(

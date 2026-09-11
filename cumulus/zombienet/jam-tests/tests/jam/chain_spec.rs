@@ -76,7 +76,10 @@ mod tests {
 		assert_eq!(names(&[0, 1]), ["bob", "alice"]);
 		assert_eq!(names(&[2, 3]), ["dave", "charlie"]);
 		assert_eq!(names(&[0, 1, 2]), ["bob", "charlie", "alice"]);
-		assert_eq!(names(&[0, 1, 2, 3, 4, 5]), ["ferdie", "dave", "bob", "charlie", "alice", "eve"]);
+		assert_eq!(
+			names(&[0, 1, 2, 3, 4, 5]),
+			["ferdie", "dave", "bob", "charlie", "alice", "eve"]
+		);
 		// A single collator is the case that hides the bug: any order is the right one.
 		assert_eq!(names(&[0]), ["alice"]);
 	}
@@ -166,6 +169,10 @@ pub fn build(
 	);
 
 	let status = Command::new(omni_node)
+		// The runtime the chain spec is built from is the code JAM validates with: when it is a
+		// PolkaVM blob (validation code), constructing it requires the experimental PolkaVM
+		// executor, which is off unless this flag is set. Inert for a WASM runtime.
+		.env("SUBSTRATE_ENABLE_POLKAVM", "1")
 		.args(["chain-spec-builder", "--chain-spec-path"])
 		.arg(path)
 		.args(["create", "--relay-chain", "jam", "--para-id", &para_id.to_string(), "-r"])
