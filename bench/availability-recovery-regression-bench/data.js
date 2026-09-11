@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789081713194,
+  "lastUpdate": 1789119773723,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "822c6f6f574e5d35e005d24757241300b458ed81",
-          "message": "[FRAME] Omni bencher run each benchmark at least 10 secs (#10794)\n\nChanges:\n- Ensure all benchmarks run for at least 10 seconds. Configurable with\n`--min-duration <s>`\n- Turn off runtime logging in bench bot to reduce spam log output\n- Reduce DB repetition to 1 since PoV metering must be deterministic\n\nExample of the System benchmark with the `set_heap_pages` benchmark that\ntook less than 10 ms before:\n```pre\n2026-01-13T21:36:10.687286Z [ 22 % ] Starting benchmark: frame_system::set_heap_pages    \n2026-01-13T21:36:10.688437Z [ 33 % ] Starting benchmark: frame_system::set_code    \n```\n\nNow takes 10 seconds:\n```pre\n2026-01-13T21:37:31.392981Z [ 22 % ] Starting benchmark: frame_system::set_heap_pages    \n2026-01-13T21:37:32.271275Z [ 22 % ] Running  benchmark: frame_system::set_heap_pages (overtime)    \n2026-01-13T21:37:37.272099Z [ 22 % ] Running  benchmark: frame_system::set_heap_pages (overtime)    \n2026-01-13T21:37:41.393107Z [ 33 % ] Starting benchmark: frame_system::set_code    \n```\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-11T14:57:49Z",
-          "tree_id": "2dfc4e77e49963eaffc94612715df4068330e2b9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/822c6f6f574e5d35e005d24757241300b458ed81"
-        },
-        "date": 1770827185804,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.068838199333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.11738192933333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.155381432633332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6f0ba62c939476a0ce28df549038e7b736f88f01",
+          "message": "sc-network: register `out_events` metrics on the litep2p backend (#13191)\n\n# Description\n\nThe litep2p backend now passes the Prometheus registry into\n`OutChannels::new`, as the libp2p backend does, instead of `None`. This\nexposes `substrate_sub_libp2p_out_events_events_total` and\n`substrate_sub_libp2p_out_events_num_channels` on litep2p nodes. #12319\nadded the `PeerIdentified` and `PeerRoutingTableUpdate` events to every\n`event_stream`, and we want to see on the fleet that consumers unaware\nof them keep draining their channels.\n\n## Integration\n\nThis PR should not be integrated by downstream projects.",
+          "timestamp": "2026-09-11T07:54:18Z",
+          "tree_id": "1ed196dbc07905fc3c113753fddbe3dabf88a5cf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6f0ba62c939476a0ce28df549038e7b736f88f01"
+        },
+        "date": 1789119732577,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.154953070600003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14619662490000002,
             "unit": "seconds"
           }
         ]
