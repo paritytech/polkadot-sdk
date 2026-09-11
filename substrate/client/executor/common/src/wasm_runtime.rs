@@ -20,6 +20,8 @@
 
 use crate::error::Error;
 
+use std::time::Duration;
+
 pub use sc_allocator::AllocationStats;
 
 /// Default heap allocation strategy.
@@ -80,6 +82,40 @@ pub trait WasmInstance: Send {
 	/// This is used when an instance is reused from a pool but the caller needs
 	/// a different memory limit than what the instance was originally created with.
 	fn set_heap_alloc_strategy(&mut self, _heap_alloc_strategy: HeapAllocStrategy) {}
+}
+
+/// A trait that defines an abstract wasm runtime module only callable with an execution timeout.
+///
+/// This can be implemented by an execution engine.
+pub trait TimedWasmModule: Sync + Send {
+	/// Create a new instance with the given heap allocation strategy.
+	///
+	/// The `heap_alloc_strategy` determines the memory limits applied to this instance.
+	fn new_instance(
+		&self,
+		heap_alloc_strategy: HeapAllocStrategy,
+	) -> Result<Box<dyn TimedWasmInstance>, Error>;
+}
+
+/// A trait that defines an abstract wasm module instance whose calls are bounded in execution
+/// time.
+///
+/// This can be implemented by an execution engine.
+pub trait TimedWasmInstance: Send {
+	/// Call a method on this WASM instance, interrupting execution once `timeout` has elapsed.
+	///
+	/// Before execution, instance is reset.
+	///
+	/// Returns the encoded result on success. Fails with [`Error::ExecutionTimeout`] on timeout.
+	///
+	/// NOTE: engines without an execution-interruption mechanism (PolkaVM) ignore the timeout
+	/// and run uncapped, never producing [`Error::ExecutionTimeout`].
+	fn call_with_timeout(
+		&mut self,
+		method: &str,
+		data: &[u8],
+		timeout: Duration,
+	) -> Result<Vec<u8>, Error>;
 }
 
 /// Defines the heap pages allocation strategy the wasm runtime should use.

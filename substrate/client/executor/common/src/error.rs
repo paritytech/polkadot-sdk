@@ -99,6 +99,9 @@ pub enum Error {
 
 	#[error("Output exceeds bounds of wasm memory")]
 	OutputExceedsBounds,
+
+	#[error("Execution timed out")]
+	ExecutionTimeout,
 }
 
 impl From<&'static str> for Error {
@@ -114,7 +117,7 @@ impl From<String> for Error {
 }
 
 /// Type for errors occurring during Wasm runtime construction.
-#[derive(Debug, thiserror::Error)]
+#[derive(Clone, Debug, thiserror::Error)]
 #[allow(missing_docs)]
 pub enum WasmError {
 	#[error("Code could not be read from the state.")]
