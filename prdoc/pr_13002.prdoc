@@ -37,4 +37,4 @@ doc:
 
 crates:
 - name: pallet-revive-eth-rpc
-  bump: minor
+  bump: major
