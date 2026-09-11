@@ -47,30 +47,38 @@
 //! instead of recomputing them from their own clock — exactly as in relay mode.
 
 use super::{
-	JamCollatorMessage, LOG_TARGET, PoolScan, authorizer::AuraAuthorizer, choose_lookup_anchor,
-	jam_read, jam_slot_as_relay_slot, jam_slot_at, scan_pools_at,
+	authorizer::AuraAuthorizer, choose_lookup_anchor, jam_read, jam_slot_as_relay_slot,
+	jam_slot_at, scan_pools_at, JamCollatorMessage, PoolScan, LOG_TARGET,
 };
-use crate::common::{
-	ConstructNodeRuntimeApi, NodeBlock,
-	aura::{AuraIdT, AuraRuntimeApi},
-	types::{ParachainBackend, ParachainClient},
+use crate::{
+	common::{
+		aura::{AuraIdT, AuraRuntimeApi},
+		types::{ParachainBackend, ParachainClient},
+		ConstructNodeRuntimeApi, NodeBlock,
+	},
+	nodes::jam::JamProofFinalizer,
 };
-use codec::{Decode, DecodeAll};
+use codec::{Decode, DecodeAll, Encode};
 use cumulus_client_consensus_aura::collator::SlotClaim;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
+use cumulus_primitives_additional_data::{JamProofReader, JamStateExt, JAM_PROOF_KEY};
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{CollectCollationInfo, RelayParentOffsetApi};
-use futures::{FutureExt, StreamExt, channel::mpsc};
-use jam_cumulus_facade::service_state::{ParaInfo, para_info_key};
+use futures::{channel::mpsc, FutureExt, StreamExt};
+use jam_cumulus_facade::service_state::{para_info_key, ParaInfo};
 use jam_interface::{
 	BlockDesc, CoreIndex, HeaderHash, JamChainSource, JamStateSource, ServiceId, Slot as JamSlot,
-	WorkPackageHash, WorkReport,
+	StateRootHash, StorageKey, WorkPackageHash, WorkReport,
+};
+use jam_state_helpers::{
+	service_value_state_key, verify as verify_state_proof, StateKey, StateProof,
 };
 use jam_types::RefineContext;
 use polkadot_primitives::{HeadData, Id as ParaId, UpgradeGoAhead};
 use sc_client_api::Backend as _;
 use sc_consensus::{BlockImport, StateAction};
 use sc_consensus_aura::standalone as aura_internal;
+use sp_additional_data::{hash_value, AdditionalData, AdditionalDataExt, AdditionalDataFinalizer};
 use sp_api::{ProofRecorder, ProvideRuntimeApi};
 use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus::{Environment, ProposeArgs, Proposer};
@@ -122,6 +130,9 @@ const STALL_REROOT_SLOTS: u64 = 8;
 /// The runtime's consensus hook owns capacity for real (`can_build_upon`); this only stops a
 /// runaway should that ever answer wrongly, and tripping it is a bug worth a loud log.
 const MAX_UNINCLUDED: usize = 8;
+/// Soft bound on the state proof the node returns. One key's proof is bounded by the trie depth,
+/// so this only has to be comfortably large.
+const PROOF_SIZE_LIMIT: u32 = 64 * 1024;
 
 pub(crate) struct BuilderTaskParams<Block: NodeBlock, RuntimeApi, BI, PF, Jam> {
 	pub para_client: Arc<ParachainClient<Block, RuntimeApi>>,
@@ -228,11 +239,11 @@ fn local_descendants<Block: NodeBlock>(
 ///
 /// This is the whole of phase 5a's parent choice, and the order it applies is deterministic:
 ///
-/// 1. **The deepest block wins.** That is what pipelining is — the collator keeps extending its
-///    own unaccumulated tip instead of waiting for JAM to accept it.
+/// 1. **The deepest block wins.** That is what pipelining is — the collator keeps extending its own
+///    unaccumulated tip instead of waiting for JAM to accept it.
 /// 2. **At equal depth, a block this collator authored beats one imported from a peer.** Its
-///    package is already in flight from here, and preferring it keeps consecutive ticks on one
-///    line rather than hopping between siblings every slot.
+///    package is already in flight from here, and preferring it keeps consecutive ticks on one line
+///    rather than hopping between siblings every slot.
 /// 3. **Otherwise the first one seen**, which is the database's own order of children within a
 ///    generation, walked breadth-first by [`local_descendants`] — stable across ticks for as long
 ///    as the database does not change.
@@ -249,8 +260,9 @@ fn select_parent<'a, Header: HeaderT>(
 		let better = match best {
 			None => true,
 			Some(best) if candidate.depth != best.depth => candidate.depth > best.depth,
-			Some(best) =>
-				ours.contains(&candidate.header.hash()) && !ours.contains(&best.header.hash()),
+			Some(best) => {
+				ours.contains(&candidate.header.hash()) && !ours.contains(&best.header.hash())
+			},
 		};
 		if better {
 			best = Some(candidate);
@@ -280,13 +292,13 @@ enum ParentSource {
 /// Ordinarily this is [`select_parent`]'s answer. The two other cases are the way out of a stall:
 ///
 /// - the head has not moved for [`STALL_REROOT_SLOTS`] para slots and there is a branch above it,
-///   so the branch is abandoned and a sibling of the stuck block authored instead. Nothing else
-///   in phase 5a gets past a package nobody will resubmit; accumulate's freshness check referees
+///   so the branch is abandoned and a sibling of the stuck block authored instead. Nothing else in
+///   phase 5a gets past a package nobody will resubmit; accumulate's freshness check referees
 ///   between the two branches, and any of our newer blocks that can still apply wait in the
 ///   service's reorder buffer meanwhile.
-/// - a previous tick already re-rooted, and this one stays on the branch it started
-///   (`committed`). Without that the abandoned branch — still the deeper of the two — would be
-///   re-selected every slot and a fresh sibling authored every slot, which extends nothing.
+/// - a previous tick already re-rooted, and this one stays on the branch it started (`committed`).
+///   Without that the abandoned branch — still the deeper of the two — would be re-selected every
+///   slot and a fresh sibling authored every slot, which extends nothing.
 ///
 /// The stall check comes first on purpose: the clock is restarted when a re-root is authored, so
 /// a branch that itself goes nowhere is abandoned in turn after another full window.
@@ -412,8 +424,10 @@ async fn read_in_flight_reports<Header: HeaderT, Jam: JamStateSource + ?Sized>(
 	service_id: ServiceId,
 ) -> Result<Vec<InFlightReport<Header>>, String> {
 	let started = Instant::now();
-	let availability =
-		jam.availability(anchor).await.map_err(|error| format!("availability: {error}"))?;
+	let availability = jam
+		.availability(anchor)
+		.await
+		.map_err(|error| format!("availability: {error}"))?;
 	let availability_ms = started.elapsed().as_millis();
 	let started = Instant::now();
 	let ready = jam.ready_queue(anchor).await.map_err(|error| format!("readyQueue: {error}"))?;
@@ -449,8 +463,10 @@ async fn read_in_flight_reports<Header: HeaderT, Jam: JamStateSource + ?Sized>(
 		};
 	}
 	if reports.is_empty() {
-		log_read!("JAM read: nothing of ours is in flight — no work package for our service is \
-		           in availability or in the ready queue at this anchor.");
+		log_read!(
+			"JAM read: nothing of ours is in flight — no work package for our service is \
+		           in availability or in the ready queue at this anchor."
+		);
 	} else {
 		log_read!("JAM read: the work packages in flight for our service.");
 	}
@@ -587,12 +603,7 @@ impl<Header: HeaderT> BuilderState<Header> {
 	/// Record where an authored block leaves the branch commitment: a block authored on a stuck
 	/// head *starts* one — and restarts the stall clock, so the new branch gets a full window
 	/// before it is abandoned in turn — while one authored on an existing branch extends it.
-	fn note_authored(
-		&mut self,
-		source: ParentSource,
-		block_hash: Header::Hash,
-		para_slot: Slot,
-	) {
+	fn note_authored(&mut self, source: ParentSource, block_hash: Header::Hash, para_slot: Slot) {
 		self.remember_authored(block_hash);
 		match source {
 			ParentSource::Reroot => {
@@ -641,6 +652,70 @@ fn para_slot_claimed(last_claimed: Option<Slot>, para_slot: Slot) -> bool {
 /// Whether the cached JAM tip is recent enough to anchor against.
 fn tip_is_fresh(wall_jam_slot: JamSlot, tip_slot: JamSlot) -> bool {
 	wall_jam_slot.saturating_sub(tip_slot) <= MAX_TIP_LAG_SLOTS
+}
+
+/// The 31-octet JAM state key of a para's head entry in the parachain service's storage.
+///
+/// Three parties must derive this identically — the collator asking for a proof, the node
+/// serving it and the service verifying it in-core — so both halves come from shared code:
+/// the service-local key from the facade, the state-key merklization from `jam-state-helpers`.
+fn para_head_state_key(service_id: ServiceId, para_id: u32) -> StateKey {
+	service_value_state_key(service_id, &para_info_key(para_id.into()))
+}
+
+/// Fetch a proof of the para's head at `anchor` and check it against that anchor's state root.
+///
+/// Returns the proof to carry in the block together with the value it proves; `None` means the
+/// proof shows the para has no head yet, which is how a first block is recognised. Verifying
+/// with the very code the service runs means a proof refine would reject never leaves the node.
+async fn fetch_anchor_state_proof<Jam: JamStateSource + ?Sized>(
+	jam: &Jam,
+	anchor: HeaderHash,
+	state_root: &StateRootHash,
+	service_id: ServiceId,
+	para_id: u32,
+) -> Result<(StateProof, Option<Vec<u8>>), String> {
+	let key = para_head_state_key(service_id, para_id);
+	let range_proof = jam
+		.state_proof(anchor, StorageKey(key), StorageKey(key), PROOF_SIZE_LIMIT)
+		.await
+		.map_err(|error| format!("state proof: {error}"))?;
+	// polkajam's `RangeProof` is a host-side JSON type with no SCALE codec at all, so the form
+	// that travels in the PoV is `jam-state-helpers`' own; converting is the host's job.
+	let proof = StateProof {
+		nodes: range_proof.nodes.iter().map(|node| **node).collect(),
+		values: range_proof.values.iter().map(|(key, value)| (**key, value.to_vec())).collect(),
+	};
+	let proved = verify_state_proof(&proof, state_root, &key)
+		.map_err(|error| format!("the node's own state proof does not verify: {error:?}"))?;
+	Ok((proof, proved))
+}
+
+/// Register the JAM state reader and the additional-data finalizer over a verified anchor proof.
+///
+/// One [`StateProof`] backs both the read side — [`JamStateExt`], so the runtime's
+/// `jam_state_read` serves reads during block execution — and the digest side — `AdditionalDataExt`
+/// under [`JAM_PROOF_KEY`], so `frame_executive` deposits the `DigestItem::AdditionalData`
+/// committing `hash_value((state_root, proof).encode())`. Returns the additional-data map to
+/// carry in the PoV: the `JAM_PROOF_KEY` entry holding the encoded `(state_root, proof)`.
+fn register_jam_state_reader(
+	extra_extensions: &mut Extensions,
+	service_id: ServiceId,
+	state_root: [u8; 32],
+	proof: StateProof,
+) -> AdditionalData {
+	let encoded = (state_root, &proof).encode();
+	let reader = Arc::new(JamProofReader::new(service_id, state_root, proof));
+	extra_extensions.register(JamStateExt(Box::new(reader)));
+	extra_extensions.register(AdditionalDataExt(
+		[(
+			JAM_PROOF_KEY.to_string(),
+			Box::new(JamProofFinalizer { commitment: hash_value(&encoded) })
+				as Box<dyn AdditionalDataFinalizer>,
+		)]
+		.into(),
+	));
+	core::iter::once((JAM_PROOF_KEY.to_string(), encoded)).collect()
 }
 
 /// Run the builder task. Ends (taking the node down, it is an essential task) only if the JAM
@@ -988,7 +1063,11 @@ where
 	);
 	// Only the accumulated-head fallback can name a block we do not have: everything the walk
 	// returns came out of the local database in the first place.
-	if para_client.header(parent_hash).map_err(|e| format!("parent header: {e}"))?.is_none() {
+	if para_client
+		.header(parent_hash)
+		.map_err(|e| format!("parent header: {e}"))?
+		.is_none()
+	{
 		tracing::warn!(
 			target: LOG_TARGET,
 			parent = ?parent_hash,
@@ -1136,6 +1215,39 @@ where
 	let mut extra_extensions = Extensions::new();
 	extra_extensions.register(ProofSizeExt::new(storage_proof_recorder.clone()));
 
+	// The para-head state proof is prefetched here — the JAM RPC is async, host calls are sync —
+	// and verified against the anchor's own state root with the very code the service runs, so a
+	// proof refine would reject never leaves the node: an unverifiable proof fails this tick
+	// loudly (`?`) instead of shipping a block JAM would refuse.
+	let (anchor_state_proof, proved_head) = fetch_anchor_state_proof(
+		jam,
+		anchor.header_hash,
+		&context.state_root,
+		service_id,
+		para_id_u32,
+	)
+	.await?;
+	// The proof and the head read above describe the same key at the same anchor, so anything
+	// but equality means one of the two reads is stale — shipping it would only earn a refine
+	// rejection.
+	if proved_head != included {
+		tracing::error!(
+			target: LOG_TARGET,
+			anchor = ?anchor.header_hash,
+			proved_head = proved_head.is_some(),
+			read_head = included.is_some(),
+			"The anchor state proof disagrees with the para head read at the same anchor; \
+			 skipping this JAM block.",
+		);
+		return Ok(None);
+	}
+	let additional_data = register_jam_state_reader(
+		&mut extra_extensions,
+		service_id,
+		*context.state_root,
+		anchor_state_proof,
+	);
+
 	let proposal = proposer
 		.propose(ProposeArgs {
 			inherent_data,
@@ -1150,7 +1262,7 @@ where
 		.await
 		.map_err(|e| format!("propose: {e}"))?;
 
-	let sealed_importable =
+	let mut sealed_importable =
 		cumulus_client_consensus_aura::collator::seal::<_, <AuraId as AuraIdT>::BoundedPair>(
 			proposal.block,
 			proposal.storage_changes,
@@ -1158,6 +1270,11 @@ where
 			keystore,
 		)
 		.map_err(|e| format!("seal: {e}"))?;
+
+	// Mirror the relay collator's `build_block_and_import` (`collator.rs`): carry the built
+	// additional-data blob (the `JAM_PROOF_KEY` entry for this block's reads) on the sealed
+	// import, so the importing path and peer sync serve `jam_state_read` instead of trapping.
+	sealed_importable.additional_data = Some(additional_data.clone());
 
 	let block = Block::new(
 		sealed_importable.post_header(),
@@ -1196,6 +1313,7 @@ where
 		context,
 		anchor_slot: anchor.slot,
 		submit_target,
+		additional_data,
 		triggered_by: tip,
 	}))
 }
@@ -1228,12 +1346,9 @@ async fn read_anchor<Jam: JamChainSource + JamStateSource + ?Sized>(
 	else {
 		return Ok(None);
 	};
-	let lookup_anchor_state_root = jam_read(
-		"stateRoot",
-		lookup_anchor.header_hash,
-		jam.state_root(lookup_anchor.header_hash),
-	)
-	.await?;
+	let lookup_anchor_state_root =
+		jam_read("stateRoot", lookup_anchor.header_hash, jam.state_root(lookup_anchor.header_hash))
+			.await?;
 	let pool_scan = scan_pools_at(jam, anchor.header_hash, authorizer).await?;
 	let included = jam_read(
 		"serviceValue",
@@ -1407,8 +1522,9 @@ where
 mod tests {
 	use super::*;
 	use codec::Encode;
-	use cumulus_client_parachain_inherent::{INHERENT_IDENTIFIER, ParachainInherentData};
+	use cumulus_client_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
 	use cumulus_pallet_parachain_system::RelayChainStateProof;
+	use sp_additional_data::hash_commitments;
 	use sp_core::H256;
 	use sp_runtime::traits::{BlakeTwo256, Hash as _};
 
@@ -1517,18 +1633,18 @@ mod tests {
 				exports_root: Default::default(),
 				exports_count: 0,
 			},
-		context: RefineContext {
-			anchor: Default::default(),
-			anchor_slot: 0,
-			state_root: Default::default(),
-			beefy_root: Default::default(),
-			lookup_anchor: Default::default(),
-			lookup_anchor_slot: 0,
-			lookup_anchor_state_root: Default::default(),
-			prerequisites: Default::default(),
-		},
-		core_index: 0,
-		authorizer_hash: Default::default(),
+			context: RefineContext {
+				anchor: Default::default(),
+				anchor_slot: 0,
+				state_root: Default::default(),
+				beefy_root: Default::default(),
+				lookup_anchor: Default::default(),
+				lookup_anchor_slot: 0,
+				lookup_anchor_state_root: Default::default(),
+				prerequisites: Default::default(),
+			},
+			core_index: 0,
+			authorizer_hash: Default::default(),
 			auth_gas_used: 0,
 			auth_output: Default::default(),
 			sr_lookup: Default::default(),
@@ -1585,8 +1701,7 @@ mod tests {
 		let chain = chain(2);
 		let theirs = sibling(&chain[1]);
 
-		let theirs_first =
-			descendants(&[(&chain[0], 1), (&theirs, 2), (&chain[1], 2)]);
+		let theirs_first = descendants(&[(&chain[0], 1), (&theirs, 2), (&chain[1], 2)]);
 		let parent = select_parent(&theirs_first, &ours(&[&chain[1]])).expect("not empty");
 
 		assert_eq!(parent.header.hash(), chain[1].hash());
@@ -1688,8 +1803,7 @@ mod tests {
 		let sibling = sibling(&chain[0]);
 		let committed = Descendant { header: sibling.clone(), depth: 1 };
 
-		let (parent, source) =
-			choose_parent(&abandoned, &VecDeque::new(), Some(&committed), 0);
+		let (parent, source) = choose_parent(&abandoned, &VecDeque::new(), Some(&committed), 0);
 
 		assert_eq!(source, ParentSource::Rerooted);
 		assert_eq!(parent.map(|parent| parent.header.hash()), Some(sibling.hash()));
@@ -1778,10 +1892,7 @@ mod tests {
 
 		assert_eq!(head_move(Some(&chain[0]), Some(&chain[0]), &mine), HeadMove::Unchanged);
 		assert_eq!(head_move(Some(&chain[0]), Some(&chain[1]), &mine), HeadMove::Ours);
-		assert_eq!(
-			head_move(Some(&chain[0]), Some(&sibling(&chain[1])), &mine),
-			HeadMove::Foreign,
-		);
+		assert_eq!(head_move(Some(&chain[0]), Some(&sibling(&chain[1])), &mine), HeadMove::Foreign,);
 		assert_eq!(
 			head_move(Some(&chain[0]), None, &mine),
 			HeadMove::Foreign,
@@ -1996,5 +2107,207 @@ mod tests {
 				"disagreement {offset_ms} ms into the JAM common era",
 			);
 		}
+	}
+
+	/// The SCALE-encoding of the service's `ParaInfo` entry: compact-length-prefixed head data,
+	/// no validation code, no pending upgrade, zero balances, not deregistering.
+	fn para_info_value(head: &[u8]) -> Vec<u8> {
+		let mut value = codec::Compact::<u32>(head.len() as u32).encode();
+		value.extend(head);
+		// `None` validation code, `None` pending upgrade, compact(0) balance, compact(0) used,
+		// `false` — five zero bytes after the head.
+		value.extend([0u8; 5]);
+		value
+	}
+
+	/// A single-key trie proof of `value` under `state_key`, the shape polkajam returns: a large
+	/// leaf (the value exceeds a leaf's 32-byte payload) plus its preimage.
+	fn range_proof_of(state_key: StateKey, value: &[u8]) -> (jam_interface::RangeProof, [u8; 32]) {
+		let mut node = [0u8; 64];
+		node[0] = 0b1100_0000;
+		node[1..32].copy_from_slice(&state_key);
+		node[32..].copy_from_slice(&jam_state_helpers::blake2_256(value));
+		let state_root = jam_state_helpers::blake2_256(&node);
+		let proof = jam_interface::RangeProof {
+			nodes: vec![jam_std_common::ProofNode::from(node)],
+			values: vec![(
+				StorageKey(state_key),
+				jam_types::AnyBytes::from(bytes::Bytes::from(value.to_vec())),
+			)],
+		};
+		(proof, state_root)
+	}
+
+	/// A JAM state source serving one fixed range proof, so the state-proof path is exercised
+	/// without a live node.
+	struct StubJam {
+		proof: jam_interface::RangeProof,
+	}
+
+	#[async_trait::async_trait]
+	impl JamStateSource for StubJam {
+		async fn state_value(
+			&self,
+			_at: HeaderHash,
+			_key: StorageKey,
+		) -> jam_interface::Result<Option<Vec<u8>>> {
+			unimplemented!()
+		}
+
+		async fn state_value_stream(
+			&self,
+			_key: StorageKey,
+			_finalized: bool,
+		) -> jam_interface::Result<
+			jam_interface::BoxStream<'static, jam_interface::ChainSubUpdate<Option<Vec<u8>>>>,
+		> {
+			unimplemented!()
+		}
+
+		async fn state_proof(
+			&self,
+			_at: HeaderHash,
+			_start_key: StorageKey,
+			_end_key: StorageKey,
+			_size_limit: u32,
+		) -> jam_interface::Result<jam_interface::RangeProof> {
+			Ok(self.proof.clone())
+		}
+
+		async fn service_value(
+			&self,
+			_at: HeaderHash,
+			_service: ServiceId,
+			_key: &[u8],
+		) -> jam_interface::Result<Option<Vec<u8>>> {
+			unimplemented!()
+		}
+
+		async fn service_value_stream(
+			&self,
+			_service: ServiceId,
+			_key: &[u8],
+			_finalized: bool,
+		) -> jam_interface::Result<
+			jam_interface::BoxStream<'static, jam_interface::ChainSubUpdate<Option<Vec<u8>>>>,
+		> {
+			unimplemented!()
+		}
+	}
+
+	/// Every authored block carries exactly one `JAM_PROOF_KEY` entry — the encoded
+	/// `(state_root, proof)` of the para head at the anchor — and its digest commits exactly that
+	/// one entry. The entry decodes, verifies against the anchor root, and reads back the head.
+	#[tokio::test]
+	async fn the_state_proof_is_verified_and_carried_as_one_entry() {
+		let service_id = 9;
+		let para_id = jam_cumulus_facade::ParaId::from(TEST_PARA_ID);
+		let expected_head = chain(1).remove(0).encode();
+		let value = para_info_value(&expected_head);
+		assert!(value.len() > 32, "the head entry is a large leaf, as on the real service");
+		let state_key = service_value_state_key(service_id, &para_info_key(para_id));
+		let (range_proof, state_root) = range_proof_of(state_key, &value);
+
+		let (proof, proved) = fetch_anchor_state_proof(
+			&StubJam { proof: range_proof },
+			HeaderHash::default(),
+			&StateRootHash::from(state_root),
+			service_id,
+			TEST_PARA_ID,
+		)
+		.await
+		.expect("the node's own verification of a well-formed proof succeeds");
+
+		assert_eq!(proved, Some(value.clone()), "the proof proves the stored head entry");
+
+		let mut extra_extensions = Extensions::new();
+		let additional_data =
+			register_jam_state_reader(&mut extra_extensions, service_id, state_root, proof.clone());
+
+		assert_eq!(additional_data.len(), 1, "exactly one JAM_PROOF_KEY entry per block");
+		let entry = additional_data.get(JAM_PROOF_KEY).expect("the entry is present");
+
+		let (decoded_root, decoded_proof) =
+			<(jam_state_helpers::Hash, StateProof)>::decode(&mut &entry[..])
+				.expect("the entry decodes as (state_root, StateProof)");
+		assert_eq!(decoded_root, state_root);
+		assert_eq!(decoded_proof, proof);
+		assert_eq!(
+			verify_state_proof(&decoded_proof, &decoded_root, &state_key),
+			Ok(Some(value.clone())),
+			"the carried proof verifies against the anchor root",
+		);
+
+		let info = jam_state_helpers::ParaInfo::decode(&mut &value[..])
+			.expect("the stored head entry is a ParaInfo");
+		assert_eq!(
+			info.head_data.to_vec(),
+			expected_head,
+			"the value at the state key is the head"
+		);
+
+		// The same proof backs the runtime's reads and the digest while the block is built.
+		let reader = extra_extensions
+			.get_mut(std::any::TypeId::of::<JamStateExt>())
+			.expect("the reader extension is registered")
+			.downcast_mut::<JamStateExt>()
+			.expect("the reader extension is a JamStateExt")
+			.0
+			.read(&para_info_key(para_id));
+		assert_eq!(reader, Some(value.clone()));
+
+		let digest = extra_extensions
+			.get_mut(std::any::TypeId::of::<AdditionalDataExt>())
+			.expect("the finalizer extension is registered")
+			.downcast_mut::<AdditionalDataExt>()
+			.expect("the finalizer extension is an AdditionalDataExt")
+			.finalize();
+		assert_eq!(
+			digest,
+			hash_commitments(core::iter::once(hash_value(entry))),
+			"the digest commits exactly the one carried entry — one DigestItem::AdditionalData",
+		);
+	}
+
+	/// A proof the node itself cannot verify must abort the tick — never ship a block JAM would
+	/// refuse. Both a tampered proof and a well-formed proof under a wrong state root do.
+	#[tokio::test]
+	async fn an_unverifiable_state_proof_aborts_the_build() {
+		let service_id = 9;
+		let head = chain(1).remove(0);
+		let value = para_info_value(&head.encode());
+		let state_key = service_value_state_key(
+			service_id,
+			&para_info_key(jam_cumulus_facade::ParaId::from(TEST_PARA_ID)),
+		);
+		let (range_proof, state_root) = range_proof_of(state_key, &value);
+
+		let mut tampered = range_proof.clone();
+		tampered.nodes.clear();
+		assert!(
+			fetch_anchor_state_proof(
+				&StubJam { proof: tampered },
+				HeaderHash::default(),
+				&StateRootHash::from(state_root),
+				service_id,
+				TEST_PARA_ID,
+			)
+			.await
+			.is_err(),
+			"an incomplete proof must fail the tick, not ship",
+		);
+
+		assert!(
+			fetch_anchor_state_proof(
+				&StubJam { proof: range_proof },
+				HeaderHash::default(),
+				&StateRootHash::from([7u8; 32]),
+				service_id,
+				TEST_PARA_ID,
+			)
+			.await
+			.is_err(),
+			"a proof for another state root must fail the tick",
+		);
 	}
 }

@@ -118,21 +118,25 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 	// 6. Seed the trie-hashmap randomness. The relay path seeds from
 	// `relay_parent_storage_root` + block hashes; JAM has no relay state, so the refine
 	// context's `lookup_anchor` (which the collator cannot find out ahead of time) plays the
-	// relay root's role.
-	let Some(lookup_anchor) = host::refine_context().map(|context| *context.lookup_anchor) else {
+	// relay root's role. The same context carries the trusted `state_root` of the anchor block —
+	// checked on-chain when the package is reported — which the core verifies the carried JAM
+	// state proof against.
+	let Some(context) = host::refine_context() else {
 		host::report_error(ERR_REFINE_CONTEXT_UNAVAILABLE)
 	};
-	let randomness_seed = build_jam_seed::<B>(lookup_anchor, blocks);
+	let randomness_seed = build_jam_seed::<B>(*context.lookup_anchor, blocks);
 
 	// 7. Run the SAME validation core as the polkadot path. There is no V3 scheduling on JAM
 	// (`None` skips the signature-override hook) and no relay proof/validation-data re-check
-	// (`|_| {}`; `validate_validation_data` is relay-only).
+	// (`|_| {}`; `validate_validation_data` is relay-only). The trusted JAM anchor state root is
+	// sourced from the refine context, so the core can verify the carried `JAM_PROOF_KEY` proof.
 	let result = execute_blocks::<B, E, PSC>(
 		SharedValidationInputs::<B> {
 			block_data,
 			parent_head: Bytes::from(parent_header),
 			randomness_seed,
 			relay_parent_storage_root: None,
+			jam_anchor_state_root: Some(*context.state_root),
 		},
 		None,
 		&|_| {},

@@ -34,6 +34,19 @@
 
 extern crate alloc;
 
+pub mod jam;
+// The reader's `jam-state-helpers` dependency cannot compile for `wasm32v1-none` (its transitive
+// `parachain-service-interface` hard-codes riscv-only `no_std`), and non-riscv WASM runtimes read
+// relay state, never JAM state, so the reader is only needed on riscv and the host node. Mirrors
+// the Cargo.toml target gate.
+#[cfg(not(target_family = "wasm"))]
+pub mod jam_proof;
+#[cfg(feature = "std")]
+pub use jam::JamStateExt;
+pub use jam::{jam_state, JamStateReader, JAM_PROOF_KEY};
+#[cfg(not(target_family = "wasm"))]
+pub use jam_proof::JamProofReader;
+
 use alloc::vec::Vec;
 use sp_runtime_interface::{
 	pass_by::{PassFatPointerAndRead, PassFatPointerAndWrite},

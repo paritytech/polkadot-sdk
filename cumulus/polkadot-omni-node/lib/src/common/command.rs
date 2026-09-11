@@ -88,7 +88,7 @@ where
 		config: Configuration,
 		cmd: &CheckBlockCmd,
 	) -> AsyncCmdResult<'_> {
-		let partial = T::new_partial(&config).map_err(sc_cli::Error::Service)?;
+		let partial = T::new_partial(&config, false).map_err(sc_cli::Error::Service)?;
 		Ok((Box::pin(cmd.run(partial.client, partial.import_queue)), partial.task_manager))
 	}
 
@@ -97,7 +97,7 @@ where
 		config: Configuration,
 		cmd: &ExportBlocksCmd,
 	) -> AsyncCmdResult<'_> {
-		let partial = T::new_partial(&config).map_err(sc_cli::Error::Service)?;
+		let partial = T::new_partial(&config, false).map_err(sc_cli::Error::Service)?;
 		Ok((Box::pin(cmd.run(partial.client, config.database)), partial.task_manager))
 	}
 
@@ -106,7 +106,7 @@ where
 		config: Configuration,
 		cmd: &ExportStateCmd,
 	) -> AsyncCmdResult<'_> {
-		let partial = T::new_partial(&config).map_err(sc_cli::Error::Service)?;
+		let partial = T::new_partial(&config, false).map_err(sc_cli::Error::Service)?;
 		Ok((Box::pin(cmd.run(partial.client, config.chain_spec)), partial.task_manager))
 	}
 
@@ -115,7 +115,7 @@ where
 		config: Configuration,
 		cmd: &ImportBlocksCmd,
 	) -> AsyncCmdResult<'_> {
-		let partial = T::new_partial(&config).map_err(sc_cli::Error::Service)?;
+		let partial = T::new_partial(&config, false).map_err(sc_cli::Error::Service)?;
 		Ok((Box::pin(cmd.run(partial.client, partial.import_queue)), partial.task_manager))
 	}
 
@@ -124,7 +124,7 @@ where
 		config: Configuration,
 		cmd: &RevertCmd,
 	) -> AsyncCmdResult<'_> {
-		let partial = T::new_partial(&config).map_err(sc_cli::Error::Service)?;
+		let partial = T::new_partial(&config, false).map_err(sc_cli::Error::Service)?;
 		Ok((Box::pin(cmd.run(partial.client, partial.backend, None)), partial.task_manager))
 	}
 
@@ -133,7 +133,7 @@ where
 		config: Configuration,
 		cmd: &ExportGenesisHeadCommand,
 	) -> SyncCmdResult {
-		let partial = T::new_partial(&config).map_err(sc_cli::Error::Service)?;
+		let partial = T::new_partial(&config, false).map_err(sc_cli::Error::Service)?;
 		cmd.run(partial.client)
 	}
 
@@ -142,7 +142,7 @@ where
 		config: Configuration,
 		cmd: &BlockCmd,
 	) -> SyncCmdResult {
-		let partial = T::new_partial(&config).map_err(sc_cli::Error::Service)?;
+		let partial = T::new_partial(&config, false).map_err(sc_cli::Error::Service)?;
 		cmd.run(partial.client)
 	}
 
@@ -152,7 +152,7 @@ where
 		config: Configuration,
 		cmd: &StorageCmd,
 	) -> SyncCmdResult {
-		let partial = T::new_partial(&config).map_err(sc_cli::Error::Service)?;
+		let partial = T::new_partial(&config, false).map_err(sc_cli::Error::Service)?;
 		let db = partial.backend.expose_db();
 		let storage = partial.backend.expose_storage();
 		let shared_trie_cache = partial.backend.expose_shared_trie_cache();

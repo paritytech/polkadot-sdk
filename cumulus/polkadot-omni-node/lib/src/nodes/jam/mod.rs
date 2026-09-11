@@ -26,33 +26,55 @@
 //!   primitives and a *mocked* parachain inherent, and feeds the channel;
 //! - the [collation task](collation_task) turns each block into one independent work package —
 //!   phase 5a links nothing to anything, so there is no prerequisite, no import and no export —
-//!   submits it, follows `workPackageStatus` for every package in flight, and drives
-//!   resubmission and re-anchoring behind a pluggable [policy](resubmission).
+//!   submits it, follows `workPackageStatus` for every package in flight, and drives resubmission
+//!   and re-anchoring behind a pluggable [policy](resubmission).
 //!
 //! Heads following reuses `cumulus_client_consensus_common::run_parachain_consensus` with
 //! streams built from the parachain service's per-para state entry (`ParaInfo.head_data`).
 
 pub(crate) mod authorizer;
+pub(crate) mod block_import;
 pub(crate) mod builder_task;
 pub(crate) mod collation_task;
 pub(crate) mod resubmission;
 
 use authorizer::AuraAuthorizer;
 use codec::Decode;
+use cumulus_primitives_additional_data::{JamStateExt, JamStateReader};
 use futures::{Stream, StreamExt};
-use jam_cumulus_facade::service_state::{ParaInfo, para_info_key};
+use jam_cumulus_facade::service_state::{para_info_key, ParaInfo};
 use jam_interface::{
 	AuthPool, AuthorizerHash, BlockDesc, CoreIndex, HeaderHash, JamChainSource, JamStateSource,
 	ServiceId, Slot as JamSlot,
 };
 use jam_types::RefineContext;
+use sp_additional_data::AdditionalData;
+use sp_consensus::ProposeArgs;
 use sp_runtime::traits::Block as BlockT;
 use sp_timestamp::Timestamp;
-use std::{future::Future, time::Instant};
+use std::{future::Future, pin::Pin, time::Instant};
 
 pub(crate) const LOG_TARGET: &str = "jam-collator";
 
 pub(crate) const JAM_SLOT_DURATION_MS: u64 = 6000;
+
+/// The `AdditionalDataFinalizer` committing the carried JAM state proof under
+/// `JAM_PROOF_KEY`.
+///
+/// The commitment is `sp_additional_data::hash_value` of the exact bytes the `JAM_PROOF_KEY`
+/// entry carries in the additional-data map, so the digest recomputed from the carried map on
+/// import matches the one committed at authoring — one finalizer shape for both sides of the
+/// channel.
+#[derive(Debug)]
+pub(crate) struct JamProofFinalizer {
+	pub commitment: [u8; 32],
+}
+
+impl sp_additional_data::AdditionalDataFinalizer for JamProofFinalizer {
+	fn finalize(&self) -> Option<[u8; 32]> {
+		Some(self.commitment)
+	}
+}
 
 /// Message from the builder task to the collation task: one built parachain block plus the JAM
 /// context it was built against.
@@ -70,8 +92,78 @@ pub(crate) struct JamCollatorMessage<Block: BlockT> {
 	/// The core whose authorizer pool held this para's authorizer at the anchor, if any. `None`
 	/// means the package must not be submitted anywhere — no guarantor would authorize it.
 	pub submit_target: Option<CoreIndex>,
+	/// The additional-data map to carry in the PoV: the `JAM_PROOF_KEY` entry holding the
+	/// SCALE-encoding of `(state_root, proof)` for the para head at the anchor.
+	pub additional_data: AdditionalData,
 	/// The JAM best block that triggered this build (for logging).
 	pub triggered_by: BlockDesc,
+}
+
+/// A JAM-state reader that proves every key absent: the only truthful answer for a node with no
+/// JAM state behind it. `jam_state_read` then returns `-1` and the runtime falls back to the
+/// relay path instead of trapping on a missing [`JamStateExt`].
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct NoJamStateReader;
+
+impl JamStateReader for NoJamStateReader {
+	fn read(&self, _key: &[u8]) -> Option<Vec<u8>> {
+		None
+	}
+
+	fn proof_size(&self) -> usize {
+		0
+	}
+}
+
+/// Wraps a block-authoring [`sp_consensus::Proposer`] so every proposal runs with a proven-absent
+/// JAM state reader registered — the omni-node dev (manual/instant-seal) path authors the same
+/// polkavm runtime the JAM collator does, but holds no JAM state to read from.
+pub(crate) struct JamStateInjectingProposer<P> {
+	inner: P,
+}
+
+impl<B, P> sp_consensus::Proposer<B> for JamStateInjectingProposer<P>
+where
+	B: BlockT,
+	P: sp_consensus::Proposer<B>,
+{
+	type Error = P::Error;
+	type Proposal = P::Proposal;
+
+	fn propose(self, mut args: ProposeArgs<B>) -> Self::Proposal {
+		args.extra_extensions.register(JamStateExt(Box::new(NoJamStateReader)));
+		self.inner.propose(args)
+	}
+}
+
+/// Wraps a block-authoring [`sp_consensus::Environment`] so every proposer it yields injects
+/// [`JamStateExt`].
+pub(crate) struct JamStateInjectingEnv<E> {
+	inner: E,
+}
+
+impl<E> JamStateInjectingEnv<E> {
+	pub(crate) fn new(inner: E) -> Self {
+		Self { inner }
+	}
+}
+
+impl<B, E> sp_consensus::Environment<B> for JamStateInjectingEnv<E>
+where
+	B: BlockT,
+	E: sp_consensus::Environment<B>,
+{
+	type CreateProposer = Pin<Box<dyn Future<Output = Result<Self::Proposer, Self::Error>> + Send>>;
+	type Proposer = JamStateInjectingProposer<E::Proposer>;
+	type Error = E::Error;
+
+	fn init(&mut self, parent_header: &B::Header) -> Self::CreateProposer {
+		let init = self.inner.init(parent_header);
+		Box::pin(async move {
+			let proposer = init.await?;
+			Ok(JamStateInjectingProposer { inner: proposer })
+		})
+	}
 }
 
 /// The wall-clock timestamp of a JAM timeslot: slots are 6 s, counted from the JAM common era.
@@ -88,10 +180,8 @@ pub(crate) fn jam_slot_timestamp(slot: JamSlot) -> Timestamp {
 /// what tells it whether the JAM tip it caches is current, and it is the slot the mocked
 /// parachain inherent advertises.
 pub(crate) fn jam_slot_at(timestamp: Timestamp) -> JamSlot {
-	(timestamp
-		.as_millis()
-		.saturating_sub(jam_types::JAM_COMMON_ERA * 1000)
-		/ JAM_SLOT_DURATION_MS) as JamSlot
+	(timestamp.as_millis().saturating_sub(jam_types::JAM_COMMON_ERA * 1000) / JAM_SLOT_DURATION_MS)
+		as JamSlot
 }
 
 /// The fake relay slot the mocked parachain inherent advertises for a JAM timeslot (both are
@@ -166,8 +256,9 @@ where
 		if walked < window {
 			match parent(block.header_hash).await {
 				Ok(parent) => block = parent,
-				Err(error) =>
-					return LookupAnchorWalk { chosen: None, walked, stopped_early: Some(error) },
+				Err(error) => {
+					return LookupAnchorWalk { chosen: None, walked, stopped_early: Some(error) }
+				},
 			}
 		}
 	}
@@ -431,14 +522,18 @@ mod tests {
 	/// Walk `chain` (newest first) as the builder walks the finalized chain, and say what it
 	/// picked. Every step past the first is one `parent` round-trip on the real thing.
 	fn walk(chain: &[BlockDesc], authorizer: &AuraAuthorizer) -> LookupAnchorWalk {
-		futures::executor::block_on(walk_back_to_our_slot(chain[0], authorizer, |hash| async move {
-			chain
-				.iter()
-				.position(|block| block.header_hash == hash)
-				.and_then(|index| chain.get(index + 1))
-				.copied()
-				.ok_or_else(|| "the chain ends here".to_string())
-		}))
+		futures::executor::block_on(walk_back_to_our_slot(
+			chain[0],
+			authorizer,
+			|hash| async move {
+				chain
+					.iter()
+					.position(|block| block.header_hash == hash)
+					.and_then(|index| chain.get(index + 1))
+					.copied()
+					.ok_or_else(|| "the chain ends here".to_string())
+			},
+		))
 	}
 
 	/// The authorizer reads the *lookup* anchor's slot, so a package is only ever signable by the
@@ -574,7 +669,6 @@ mod tests {
 		assert!(!lookup_anchor_survives_reporting(100, 100 - budget - 1));
 		assert!(lookup_anchor_survives_reporting(0, 0), "a chain younger than the window is fine");
 	}
-
 
 	#[test]
 	fn jam_slot_timestamp_is_common_era_based() {

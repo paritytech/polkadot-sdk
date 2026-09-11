@@ -5347,6 +5347,7 @@ dependencies = [
  "hex-literal",
  "impl-trait-for-tuples",
  "jam-codec",
+ "jam-state-helpers",
  "jam-types 0.1.28",
  "log",
  "pallet-message-queue",
@@ -5515,8 +5516,11 @@ dependencies = [
 name = "cumulus-primitives-additional-data"
 version = "0.1.0"
 dependencies = [
+ "jam-state-helpers",
+ "parity-scale-codec",
  "sp-externalities 0.25.0",
  "sp-runtime-interface 24.0.0",
+ "sp-state-machine 0.35.0",
 ]
 
 [[package]]
@@ -9730,6 +9734,7 @@ name = "jam-state-helpers"
 version = "0.1.0"
 dependencies = [
  "blake2b_simd",
+ "parachain-service-interface",
  "parity-scale-codec",
 ]
 
@@ -17693,6 +17698,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "assert_cmd",
  "async-trait",
+ "bytes",
  "clap",
  "color-print",
  "cumulus",
@@ -17708,6 +17714,7 @@ dependencies = [
  "cumulus-jam-interface",
  "cumulus-jam-rpc-interface",
  "cumulus-pallet-parachain-system",
+ "cumulus-primitives-additional-data",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",
@@ -17767,6 +17774,7 @@ dependencies = [
  "schnorrkel 0.11.5",
  "serde",
  "serde_json",
+ "sp-additional-data",
  "sp-api 26.0.0",
  "sp-application-crypto 30.0.0",
  "sp-authority-discovery",

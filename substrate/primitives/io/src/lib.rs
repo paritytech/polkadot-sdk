@@ -818,6 +818,9 @@ pub type SubstrateHostFunctions = (
 mod tests {
 	use super::*;
 	use sp_core::{crypto::UncheckedInto, map, storage::Storage};
+	use sp_core::testing::{ECDSA, ED25519, SR25519};
+	use sp_keystore::testing::MemoryKeystore;
+	use sp_keystore::KeystoreExt;
 	use sp_state_machine::BasicExternalities;
 
 	#[test]
@@ -971,6 +974,203 @@ mod tests {
 				&Vec::new(),
 				&zero_ed_pub()
 			));
+		});
+	}
+
+	/// Locates `native/crypto.rs` (the riscv-facing forwarding module) from a test working dir.
+	fn read_native_crypto_src() -> String {
+		let candidates = vec![
+			std::path::PathBuf::from("substrate/primitives/io/src/native/crypto.rs"),
+			std::path::PathBuf::from("src/native/crypto.rs"),
+		];
+		match candidates.iter().find_map(|path| std::fs::read_to_string(path.clone()).ok()) {
+			Some(src) => src,
+			None => panic!(
+				"failed to locate `native/crypto.rs` for the crypto index spec test; tried both \
+				`substrate/primitives/io/src/native/crypto.rs` and `src/native/crypto.rs`"
+			),
+		}
+	}
+
+	fn find_bytes_in(haystack: &[u8], needle: &[u8], from: usize) -> Option<usize> {
+		fn slice_eq(haystack: &[u8], needle: &[u8], pos: usize) -> bool {
+			for idx in 0..needle.len() {
+				if haystack[pos + idx] != needle[idx] {
+					return false;
+				}
+			}
+			true
+		}
+
+		let mut pos = from;
+		while pos + needle.len() <= haystack.len() {
+			if slice_eq(haystack, needle, pos) {
+				return Some(pos);
+			}
+			pos += 1;
+		}
+		None
+	}
+
+	fn is_ident_byte(byte: u8) -> bool {
+		byte >= 0x61 && byte <= 0x7a // a-z
+		|| byte >= 0x41 && byte <= 0x5a // A-Z
+		|| byte >= 0x30 && byte <= 0x39 // 0-9
+		|| byte == 0x5f // _
+	}
+
+	/// Collects every `#[polkavm_import(index = N)]` + `fn name` pair from the given source.
+	fn parse_polkavm_imports(source: &[u8]) -> Vec<(u32, &[u8])> {
+		const MARKER: &[u8] = b"#[polkavm_import(index = ";
+		let mut out = Vec::new();
+		let mut from = 0;
+		while let Some(marker) = find_bytes_in(source, MARKER, from) {
+			let mut cur = marker + MARKER.len();
+			// The digit scan must consume at least one byte (qed: the literal ends in `= `).
+			if cur >= source.len() || source[cur] < 0x30 || source[cur] > 0x39 {
+				panic!("malformed `#[polkavm_import(index = ...)]` attribute in `native/crypto.rs`");
+			}
+			let mut index = 0u32;
+			while cur < source.len() && source[cur] >= 0x30 && source[cur] <= 0x39 {
+				index = index * 10 + (source[cur] as u32 - 0x30);
+				cur += 1;
+			}
+			let Some(fn_at) = find_bytes_in(source, b"fn ", cur) else { break };
+			let name_start = fn_at + 3;
+			let mut name_end = name_start;
+			while name_end < source.len() && is_ident_byte(source[name_end]) {
+				name_end += 1;
+			}
+			out.push((index, &source[name_start..name_end]));
+			from = cur;
+		}
+		out
+	}
+
+	// The keystore-dependent crypto calls are forwarded to the node from the riscv runtime blob
+	// through `#[polkavm_import(index = N)]` externs in `native/crypto.rs` (the allocation table
+	// lives in `host_functions/mod.rs`).  This pins the assignment: indices 328..337 exactly once
+	// each, named `ext_crypto_<fn>_version_2` so the node-side polkavm linker resolves them by
+	// symbol name, and nothing may push the high-water mark past 343.  The cross-crate uniqueness
+	// check is the workspace scan
+	// `rg -n '#[polkavm_(index|import)\(index\s*=\s*[0-9]+' substrate cumulus polkadot --glob '*.rs'`.
+	#[test]
+	fn crypto_keystore_extern_indexes_are_exactly_328_to_337() {
+		let expected: Vec<(u32, &[u8])> = vec![
+			(328, &b"ext_crypto_ed25519_generate_version_2"[..]),
+			(329, &b"ext_crypto_ed25519_public_keys_version_2"[..]),
+			(330, &b"ext_crypto_ed25519_sign_version_2"[..]),
+			(331, &b"ext_crypto_sr25519_generate_version_2"[..]),
+			(332, &b"ext_crypto_sr25519_public_keys_version_2"[..]),
+			(333, &b"ext_crypto_sr25519_sign_version_2"[..]),
+			(334, &b"ext_crypto_ecdsa_generate_version_2"[..]),
+			(335, &b"ext_crypto_ecdsa_public_keys_version_2"[..]),
+			(336, &b"ext_crypto_ecdsa_sign_version_2"[..]),
+			(337, &b"ext_crypto_ecdsa_sign_prehashed_version_2"[..]),
+		];
+
+		let source = read_native_crypto_src();
+		let imports = parse_polkavm_imports(source.as_bytes());
+
+		// No other module of the riscv-facing forwarding layer may claim the 328..337 range.
+		assert_eq!(imports.len(), expected.len());
+
+		let mut max_index = 0u32;
+		for (index, name) in imports {
+			if index > max_index {
+				max_index = index;
+			}
+			let mut expect: Option<(u32, &[u8])> = None;
+			for candidate in expected.iter() {
+				if candidate.0 == index {
+					expect = Some(*candidate);
+				}
+			}
+			let Some(expect) = expect else {
+				panic!("unexpected `polkavm_import(index = {index})` in `native/crypto.rs`");
+			};
+			assert_eq!(name, expect.1, "index {index} must be wired to the expected extern");
+		}
+
+		// The PolkaVM linker pads holes in the import table, so every index up to the maximum
+		// costs a slot. `jam_state_read_into` owns 344 in a later change; nothing may pass 343.
+		assert!(max_index <= 343, "crypto forwarding may not exceed 343; max is {max_index}");
+	}
+
+	/// Exercises the two-pass sizing contract of the raw API version-2 host functions through the
+	/// `MemoryKeystore` stub: the empty-buffer pass must return the full byte length and the
+	/// second pass must fill the buffer.  This is exactly the code path the riscv forwarding in
+	/// `native/crypto.rs` must reproduce on the guest side (same FFI contract, same host
+	/// function); the end-to-end guest-to-host byte flow is proven by the riscv runtime link gate
+	/// instead.
+	#[test]
+	fn ed25519_public_keys_sizing_dance_contract() {
+		let mut ext = BasicExternalities::default();
+		ext.register_extension(KeystoreExt::new(MemoryKeystore::new()));
+
+		ext.execute_with(|| {
+			crypto::ed25519_generate(ED25519, Some("//Alice".as_bytes().to_vec()));
+			crypto::ed25519_generate(ED25519, Some("//Bob".as_bytes().to_vec()));
+
+			let key_size = core::mem::size_of::<ed25519::Public>() as u32;
+
+			// First pass with an empty buffer: reports the full byte count, fills nothing.
+			assert_eq!(crypto::ed25519_public_keys__raw(ED25519, &mut []), 2 * key_size);
+
+			// Second pass with a large enough buffer: same length, and the keys land in it.
+			let mut keys = vec![ed25519::Public::default(); 2];
+			assert_eq!(crypto::ed25519_public_keys__raw(ED25519, &mut keys), 2 * key_size);
+			assert_eq!(keys.len(), 2);
+			assert!(!keys[0].0.iter().all(|b| *b == 0));
+
+			// The public wrapper performs exactly these two passes.
+			assert_eq!(crypto::ed25519_public_keys(ED25519).len(), 2);
+		});
+	}
+
+	/// `sr25519` analog of `ed25519_public_keys_sizing_dance_contract`.
+	#[test]
+	fn sr25519_public_keys_sizing_dance_contract() {
+		let mut ext = BasicExternalities::default();
+		ext.register_extension(KeystoreExt::new(MemoryKeystore::new()));
+
+		ext.execute_with(|| {
+			crypto::sr25519_generate(SR25519, Some("//Alice".as_bytes().to_vec()));
+			crypto::sr25519_generate(SR25519, Some("//Bob".as_bytes().to_vec()));
+
+			let key_size = core::mem::size_of::<sr25519::Public>() as u32;
+
+			assert_eq!(crypto::sr25519_public_keys__raw(SR25519, &mut []), 2 * key_size);
+
+			let mut keys = vec![sr25519::Public::default(); 2];
+			assert_eq!(crypto::sr25519_public_keys__raw(SR25519, &mut keys), 2 * key_size);
+			assert_eq!(keys.len(), 2);
+			assert!(!keys[0].0.iter().all(|b| *b == 0));
+
+			assert_eq!(crypto::sr25519_public_keys(SR25519).len(), 2);
+		});
+	}
+
+	/// `ecdsa` analog of `ed25519_public_keys_sizing_dance_contract` (33-byte public keys).
+	#[test]
+	fn ecdsa_public_keys_sizing_dance_contract() {
+		let mut ext = BasicExternalities::default();
+		ext.register_extension(KeystoreExt::new(MemoryKeystore::new()));
+
+		ext.execute_with(|| {
+			crypto::ecdsa_generate(ECDSA, Some("//Alice".as_bytes().to_vec()));
+			crypto::ecdsa_generate(ECDSA, Some("//Bob".as_bytes().to_vec()));
+
+			let key_size = core::mem::size_of::<ecdsa::Public>() as u32;
+
+			assert_eq!(crypto::ecdsa_public_keys__raw(ECDSA, &mut []), 2 * key_size);
+
+			let mut keys = vec![ecdsa::Public::default(); 2];
+			assert_eq!(crypto::ecdsa_public_keys__raw(ECDSA, &mut keys), 2 * key_size);
+			assert_eq!(keys.len(), 2);
+			assert!(!keys[0].0.iter().all(|b| *b == 0));
+
+			assert_eq!(crypto::ecdsa_public_keys(ECDSA).len(), 2);
 		});
 	}
 }

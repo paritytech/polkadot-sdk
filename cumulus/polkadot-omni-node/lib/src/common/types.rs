@@ -32,11 +32,13 @@ pub type Block<BlockNumber> = generic::Block<Header<BlockNumber>, UncheckedExtri
 pub type ParachainHostFunctions = (
 	cumulus_client_service::ParachainHostFunctions,
 	sp_statement_store::runtime_api::HostFunctions,
+	cumulus_primitives_additional_data::jam_state::HostFunctions,
 );
 #[cfg(feature = "runtime-benchmarks")]
 pub type ParachainHostFunctions = (
 	cumulus_client_service::ParachainHostFunctions,
 	sp_statement_store::runtime_api::HostFunctions,
+	cumulus_primitives_additional_data::jam_state::HostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 

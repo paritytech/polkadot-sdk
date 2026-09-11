@@ -17,4 +17,5 @@ mod env;
 mod genesis;
 mod harness;
 mod network;
+mod polkavm_authoring;
 mod rpc;

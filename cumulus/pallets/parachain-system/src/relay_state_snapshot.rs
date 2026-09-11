@@ -296,8 +296,48 @@ impl RelayChainStateProof {
 	/// Read latest included parachain [head data](`relay_chain::HeadData`) from the relay chain
 	/// state.
 	pub fn read_included_para_head(&self) -> Result<relay_chain::HeadData, Error> {
-		self.read_entry_inner(&relay_chain::well_known_keys::para_head(self.para_id), None)
-			.map_err(Error::ParaHead)
+		// The riscv (parachain-service) runtime reads the included head from the service's JAM
+		// state via the `jam_state_read` host function; host and wasm builds keep reading it from
+		// the relay chain state proof, byte-identical to before.
+		#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+		{
+			return self.read_included_para_head_jam();
+		}
+		#[cfg(not(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64"))))]
+		{
+			self.read_entry_inner(&relay_chain::well_known_keys::para_head(self.para_id), None)
+				.map_err(Error::ParaHead)
+		}
+	}
+
+	/// Read the latest included parachain head from the parachain-service JAM state (riscv
+	/// runtime).
+	///
+	/// The service stores the included head in the `ParaInfo` entry under
+	/// [`jam_state_helpers::para_info_key`]. Compiled on the riscv runtime and, so the mock tests
+	/// can exercise it, on host test builds (where it is reached directly, not through
+	/// [`Self::read_included_para_head`]).
+	///
+	/// INTERIM (task 8 → task 11): while no JAM state proof is carried in the PoV yet, a read that
+	/// JAM state cannot serve (absent value / missing reader) falls back to the relay chain state
+	/// proof — byte-identical to the pre-task-8 behaviour. Task 11 replaces the fallback with the
+	/// proof-backed JAM read.
+	#[cfg(any(
+		test,
+		all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64"))
+	))]
+	pub(crate) fn read_included_para_head_jam(&self) -> Result<relay_chain::HeadData, Error> {
+		let para_id = parachain_service_interface::types::ParaId::from(u32::from(self.para_id));
+		if let Some(raw) = cumulus_primitives_additional_data::jam_state::jam_state_read(
+			&jam_state_helpers::para_info_key(para_id),
+		) {
+			let info = jam_state_helpers::ParaInfo::decode(&mut &raw[..])
+				.map_err(|_| Error::ParaHead(ReadEntryErr::Decode))?;
+			Ok(relay_chain::HeadData(info.head_data.into()))
+		} else {
+			self.read_entry_inner(&relay_chain::well_known_keys::para_head(self.para_id), None)
+				.map_err(Error::ParaHead)
+		}
 	}
 
 	/// Read relay chain authorities.

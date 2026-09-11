@@ -42,8 +42,10 @@ static NEXT_JAM_RPC_PORT: AtomicU16 = AtomicU16::new(42000);
 
 /// PolkaVM cannot use its recompiler in this sandbox (no userfaultfd), and the native provider
 /// clears the environment before spawning, so every JAM node needs these explicitly. The last
-/// one also turns on the collator-side PolkaVM executor, which a chain spec built from a
-/// PolkaVM runtime blob needs to construct that runtime at all.
+/// one turns on the PolkaVM executor everywhere, which both a JAM chain spec built from a
+/// PolkaVM runtime blob and the collators — whose `:code` is that same blob — need to
+/// construct the runtime at all. The collators get the same environment here, from `spawn` in
+/// `collators.rs`.
 pub fn polkavm_env() -> Vec<(&'static str, &'static str)> {
 	vec![
 		("POLKAVM_BACKEND", "interpreter"),
@@ -78,10 +80,6 @@ pub struct JamNetwork {
 	/// The copy of the authorizer blob whose hash went into genesis. Everything that has to agree
 	/// on the authorizer hash — the assigned cores, the collators — is pointed at this file.
 	pub authorizer_blob: PathBuf,
-	/// The frozen copy of the WASM authoring runtime, alone in its own directory. The collators
-	/// get the directory as `--wasm-runtime-overrides`, which scrapes every `.wasm` file in it —
-	/// so the copy lives in `wasm-overrides/`, never next to the chain's own blobs.
-	pub wasm_overrides_dir: PathBuf,
 	/// Each para's chain spec, in para order: built once here so each para's genesis head can be
 	/// derived from the very file its collators run.
 	pub para_specs: Vec<PathBuf>,
@@ -117,13 +115,6 @@ impl JamNetwork {
 		let service_blob = copy_aside(&binaries.parachain_service_blob, work_dir)?;
 		let authorizer_blob = copy_aside(&binaries.authorizer_blob, work_dir)?;
 		let runtime_blob = copy_aside(&binaries.runtime_wasm, work_dir)?;
-		// The WASM authoring build, frozen into its own directory: it is handed to the collators
-		// as `--wasm-runtime-overrides`, whose scraper reads every `.wasm` file in the
-		// directory — so the copy has to be alone, and named `.wasm` whatever the source build
-		// called it. The chain never names these bytes; the freeze is for the run's record.
-		let wasm_overrides_dir = work_dir.join("wasm-overrides");
-		std::fs::create_dir_all(&wasm_overrides_dir)?;
-		copy_aside_into(&binaries.runtime_authoring, &wasm_overrides_dir)?;
 
 		// Each para's chain spec is built here, before the genesis: the para's genesis head is
 		// derived from it, and the collators run the very same file (`para_specs`).
@@ -236,7 +227,6 @@ impl JamNetwork {
 			rpc_url,
 			service_id: PARACHAIN_SERVICE_ID,
 			authorizer_blob,
-			wasm_overrides_dir,
 			para_specs,
 			spec_path,
 		};
@@ -667,18 +657,6 @@ fn copy_aside(blob: &Path, work_dir: &Path) -> anyhow::Result<PathBuf> {
 	Ok(copy)
 }
 
-/// Copy a blob into `dir` as `runtime-authoring.wasm`, and return the copy.
-///
-/// Like [`copy_aside`], but with a dictated name: the WASM override scraper only reads files
-/// ending in `.wasm`, so the frozen copy must be named `.wasm` whatever the source build called
-/// it — and no other `.wasm` may share the directory (the scraper would read that too).
-fn copy_aside_into(blob: &Path, dir: &Path) -> anyhow::Result<PathBuf> {
-	let copy = dir.join("runtime-authoring.wasm");
-	std::fs::copy(blob, &copy)
-		.with_context(|| format!("copying {} to {}", blob.display(), copy.display()))?;
-	Ok(copy)
-}
-
 /// Write bytes a service's genesis record names — `gen-spec` reads `code` and `preimages` off
 /// disk — and return the file, which is the copy everything else refers to, like [`copy_aside`].
 fn write_sidecar(bytes: &[u8], work_dir: &Path, name: &str) -> anyhow::Result<PathBuf> {
@@ -849,7 +827,7 @@ mod tests {
 
 	/// T7's canonical build of the real parachain service, at the evidence path T7 installed it.
 	/// sha256 verified externally on 2026-09-09:
-	/// `4dacfc8a982bb66246dea4751cd83a2c63b3cf56f70219a23b28650556ef60ce`.
+	/// `aba975fc9aa57a2b471c23d8be68f29b98bb77ef62e4f1a3a65c3bc3a34681c6`.
 	///
 	/// Repinned 2026-09-09 after the first end-to-end run froze the head: the previous canonical
 	/// blob (`fc1cb0e2…`) predated the child-PVF host-call ABI consolidation (per-message calls →
@@ -954,20 +932,19 @@ mod tests {
 	}
 
 	/// T2's canonical PolkaVM build of the parachain template runtime, at the path T3's test
-	/// pins it at. sha256 verified externally on 2026-09-10:
-	/// `27b9a65d11d5597467fecd0eaf19446584de88785de2d863f077f40a414498b8`.
+	/// pins it at. sha256 verified externally on 2026-09-11:
+	/// `ac1816f3461d84956b977f8a9f24fbff25222078b6dc3b62130760ac2e721791`.
 	const POLKAVM_BLOB: &str = concat!(
 		env!("CARGO_MANIFEST_DIR"),
 		"/../../../.omo/evidence/jam-zombienet-real-service/parachain-template-runtime.polkavm",
 	);
-	const POLKAVM_BLOB_LEN: usize = 7_004_302;
+	const POLKAVM_BLOB_LEN: usize = 7_014_288;
 	/// `blake2b-256` of the T2 blob, which is what
 	/// `parachain_service::work_digest::validation_code_hash` computes: the `code_ref.hash` the
 	/// registration must land on.
 	const T2_CODE_HASH: [u8; 32] = [
-		0xea, 0xdd, 0x53, 0xe9, 0x9c, 0xcf, 0x59, 0xb4, 0x4b, 0x65, 0xd4, 0xe4, 0xf9, 0xa7, 0xc6,
-		0xa4, 0x59, 0x74, 0x1b, 0xe7, 0xfb, 0xa3, 0x1b, 0x08, 0x15, 0xbf, 0x49, 0x39, 0xa8, 0xea,
-		0x2f, 0x8c,
+		0xf0, 0x44, 0xfb, 0xb9, 0xde, 0x5b, 0x4c, 0xed, 0x38, 0x44, 0x3f, 0x53, 0x74, 0xfa, 0x5d, 0x0d,
+		0x6a, 0x92, 0x31, 0x5c, 0x10, 0x3b, 0xb5, 0x3c, 0x65, 0xf7, 0x73, 0x61, 0x57, 0xdd, 0xdc, 0xf1,
 	];
 	/// A para's registration baseline plus the preimage footprint of the T2 blob, from PS
 	/// `service/src/state_balance.rs`: `PARA_INFO_FOOTPRINT` 4_246 + `PARA_LOG_FOOTPRINT` 65_585

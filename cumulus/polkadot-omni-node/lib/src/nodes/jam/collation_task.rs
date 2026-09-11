@@ -49,26 +49,27 @@
 //! compressed PoVs; JIP-2 is silent on compression).
 
 use super::{
-	JAM_SLOT_DURATION_MS, JamCollatorMessage, LOG_TARGET, authorizer::AuraAuthorizer,
-	choose_lookup_anchor, jam_read, jam_slot_at, para_head_stream, resubmission::*, scan_pools_at,
+	authorizer::AuraAuthorizer, choose_lookup_anchor, jam_read, jam_slot_at, para_head_stream,
+	resubmission::*, scan_pools_at, JamCollatorMessage, JAM_SLOT_DURATION_MS, LOG_TARGET,
 };
-use crate::common::{ConstructNodeRuntimeApi, NodeBlock, types::ParachainClient};
+use crate::common::{types::ParachainClient, ConstructNodeRuntimeApi, NodeBlock};
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{ParachainBlockData, SchedulingProof};
 use futures::{
-	FutureExt, StreamExt,
 	channel::mpsc,
 	future::AbortHandle,
-	stream::{SelectAll, abortable},
+	stream::{abortable, SelectAll},
+	FutureExt, StreamExt,
 };
-use jam_cumulus_facade::{ParachainCandidate, authorizer::Authorizer};
+use jam_cumulus_facade::{authorizer::Authorizer, ParachainCandidate};
 use jam_interface::{
-	BoxStream, CoreIndex, HeaderHash, JamChainSource, JamStateSource,
-	JamWorkPackageSubmission, ServiceId, Slot as JamSlot, VersionedParameters, WorkPackage,
-	WorkPackageHash, WorkPackageStatus,
+	BoxStream, CoreIndex, HeaderHash, JamChainSource, JamStateSource, JamWorkPackageSubmission,
+	ServiceId, Slot as JamSlot, VersionedParameters, WorkPackage, WorkPackageHash,
+	WorkPackageStatus,
 };
 use jam_types::{Authorization, CodeHash, RefineContext, UnsignedGas, WorkItem, WorkPayload};
 use polkadot_primitives::Id as ParaId;
+use sp_additional_data::AdditionalData;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
 use sp_timestamp::Timestamp;
 use sp_trie::CompactProof;
@@ -283,7 +284,9 @@ impl<Block: BlockT> InFlightPackages<Block> {
 	}
 
 	fn remove(&mut self, index: usize) -> InFlight<Block> {
-		self.entries.remove(index).expect("callers only ever pass an index they just found; qed")
+		self.entries
+			.remove(index)
+			.expect("callers only ever pass an index they just found; qed")
 	}
 
 	/// Take out every package whose block is at or below `number`, newest first, and say for each
@@ -292,10 +295,7 @@ impl<Block: BlockT> InFlightPackages<Block> {
 	/// The parachain service applies a head only if it chains onto the stored one and evicts
 	/// everything at or below the stored head's height, so a package for a block at that height
 	/// or lower has either just accumulated or lost its fork. Either way it is done.
-	fn remove_up_to(
-		&mut self,
-		number: <Block::Header as HeaderT>::Number,
-	) -> Vec<InFlight<Block>> {
+	fn remove_up_to(&mut self, number: <Block::Header as HeaderT>::Number) -> Vec<InFlight<Block>> {
 		let (settled, remaining): (Vec<_>, Vec<_>) =
 			self.entries.drain(..).partition(|entry| entry.block_number <= number);
 		self.entries = remaining.into();
@@ -407,6 +407,7 @@ where
 			context,
 			anchor_slot,
 			submit_target,
+			additional_data,
 			triggered_by,
 		} = message;
 		let block_hash = block.hash();
@@ -414,19 +415,18 @@ where
 		let parent_hash = parent_header.hash();
 		let state_root = *parent_header.state_root();
 
-		let compact_proof =
-			match proof.into_compact_proof::<HashingFor<Block>>(state_root) {
-				Ok(compact_proof) => compact_proof,
-				Err(error) => {
-					tracing::error!(
-						target: LOG_TARGET,
-						?block_hash,
-						?error,
-						"Failed to compact the storage proof; dropping the block.",
-					);
-					return;
-				},
-			};
+		let compact_proof = match proof.into_compact_proof::<HashingFor<Block>>(state_root) {
+			Ok(compact_proof) => compact_proof,
+			Err(error) => {
+				tracing::error!(
+					target: LOG_TARGET,
+					?block_hash,
+					?error,
+					"Failed to compact the storage proof; dropping the block.",
+				);
+				return;
+			},
+		};
 
 		let validation_code = match self.para_client.code_at(parent_hash) {
 			Ok(code) => code,
@@ -444,6 +444,10 @@ where
 		let source = PackageSource {
 			blocks: vec![block],
 			proof: compact_proof,
+			// The additional-data map assembled at build time — the `JAM_PROOF_KEY` entry — is
+			// part of what makes this block's package what it is, and survives a re-anchor like
+			// the block it proves.
+			additional_data,
 			validation_code_hash: sp_crypto_hashing::blake2_256(&validation_code),
 			service_id: self.service_id,
 			service_code_hash: self.service_code_hash,
@@ -656,10 +660,10 @@ where
 			let Some(index) = self.packages.position_of_package(wp_hash) else { continue };
 			match action {
 				PolicyAction::Resubmit => self.resubmit(index).await,
-				PolicyAction::Reanchor =>
-					self.reanchor(index, "no report within the resubmit budget").await,
-				PolicyAction::Forget =>
-					self.forget(index, "no report within the resubmit budget"),
+				PolicyAction::Reanchor => {
+					self.reanchor(index, "no report within the resubmit budget").await
+				},
+				PolicyAction::Forget => self.forget(index, "no report within the resubmit budget"),
 				PolicyAction::Wait | PolicyAction::Done => {},
 			}
 		}
@@ -702,8 +706,8 @@ where
 		let block_hash = entry.block_hash;
 		self.log_deadline(index, jam_slot_at(Timestamp::current()), reason);
 
-		let Ok(anchored) = recontext(&*self.jam, &self.authorizer, &entry.anchored, block_hash)
-			.await
+		let Ok(anchored) =
+			recontext(&*self.jam, &self.authorizer, &entry.anchored, block_hash).await
 		else {
 			self.forget(index, "the package failed and could not be re-anchored");
 			return;
@@ -900,6 +904,9 @@ struct PackageSource<Block: BlockT> {
 	/// SCALE-encoded header of the block `blocks[0]` extends. Travels untrusted in the V4 PoV;
 	/// the parachain service's accumulate verifies it against its stored head.
 	parent_header: Block::Header,
+	/// The additional-data map assembled at build time, carried in the V4 PoV's
+	/// `additional_data` slot for `blocks[0]`.
+	additional_data: AdditionalData,
 	validation_code_hash: [u8; 32],
 	service_id: ServiceId,
 	service_code_hash: CodeHash,
@@ -932,7 +939,7 @@ impl<Block: BlockT> PackageSource<Block> {
 			validation_code_hash: jam_cumulus_facade::ValidationCodeHash(
 				self.validation_code_hash.into(),
 			),
-			pov: build_pov(&self.blocks, &self.proof, &self.parent_header),
+			pov: build_pov(&self.blocks, &self.proof, &self.parent_header, &self.additional_data),
 		}
 		.encode();
 
@@ -963,7 +970,8 @@ impl<Block: BlockT> PackageSource<Block> {
 	}
 }
 
-/// The PoV: a V4 [`ParachainBlockData`] carrying the SCALE-encoded parent header of `blocks[0]`.
+/// The PoV: a V4 [`ParachainBlockData`] carrying the SCALE-encoded parent header of `blocks[0]`
+/// and the additional-data map assembled at build time.
 ///
 /// The scheduling proof is empty — JAM has no relay-chain scheduling. The PoV is not
 /// zstd-compressed; JIP-2 is silent on compression and the service refuses compressed PoVs.
@@ -971,12 +979,13 @@ fn build_pov<Block: BlockT>(
 	blocks: &[Block],
 	proof: &CompactProof,
 	parent_header: &Block::Header,
+	additional_data: &AdditionalData,
 ) -> Vec<u8> {
 	ParachainBlockData::new_with_parent_header(
 		blocks.to_vec(),
 		proof.clone(),
 		SchedulingProof::empty(),
-		vec![None; blocks.len()],
+		blocks.iter().map(|_| Some(additional_data.clone())).collect(),
 		parent_header.encode(),
 	)
 	.encode()
@@ -1061,12 +1070,9 @@ where
 	let lookup_anchor = choose_lookup_anchor(jam, &anchor, newest_lookup_anchor, authorizer)
 		.await
 		.ok_or_else(|| "no finalized block in reach names this collator".to_string())?;
-	let lookup_anchor_state_root = jam_read(
-		"stateRoot",
-		lookup_anchor.header_hash,
-		jam.state_root(lookup_anchor.header_hash),
-	)
-	.await?;
+	let lookup_anchor_state_root =
+		jam_read("stateRoot", lookup_anchor.header_hash, jam.state_root(lookup_anchor.header_hash))
+			.await?;
 	Ok((
 		RefineContext {
 			anchor: anchor.header_hash,
@@ -1085,7 +1091,9 @@ where
 #[cfg(test)]
 mod tests {
 	use super::{super::authorizer::tests::authorizer_of, *};
+	use cumulus_primitives_additional_data::JAM_PROOF_KEY;
 	use cumulus_test_runtime::{Block as TestBlock, Header as TestHeader};
+	use jam_state_helpers::StateProof;
 	use jam_std_common::build_encoded_bundle;
 	use sp_core::H256;
 
@@ -1097,7 +1105,9 @@ mod tests {
 	/// A package as the manager builds one: assembled, then signed.
 	fn signed(source: &PackageSource<TestBlock>, anchored: &Anchored) -> WorkPackage {
 		let mut package = source.package(anchored);
-		aura().authorize(&mut package).expect("the keystore holds Alice's aura key; qed");
+		aura()
+			.authorize(&mut package)
+			.expect("the keystore holds Alice's aura key; qed");
 		package
 	}
 
@@ -1131,6 +1141,7 @@ mod tests {
 			blocks: vec![TestBlock::new(header(1, H256::repeat_byte(7)), vec![])],
 			proof: CompactProof { encoded_nodes: vec![vec![1u8, 2, 3]] },
 			parent_header: header(0, H256::repeat_byte(6)),
+			additional_data: [(JAM_PROOF_KEY.to_string(), vec![1u8, 2, 3])].into(),
 			validation_code_hash: [8u8; 32],
 			service_id: 42,
 			service_code_hash: CodeHash::from([9u8; 32]),
@@ -1355,16 +1366,21 @@ mod tests {
 
 	/// `build_pov` must produce a V4 PoV whose `parent_header()` accessor returns the
 	/// SCALE-encoded header that was passed in. The PVF reads it to establish `state_root`; the
-	/// parachain service's `accumulate` verifies it against its stored head.
+	/// parachain service's `accumulate` verifies it against its stored head. The additional-data
+	/// map assembled at build time travels with it, under `JAM_PROOF_KEY`.
 	#[test]
 	fn the_pov_carries_the_parent_header() {
 		let parent_header = header(4, H256::repeat_byte(6));
 		let block_header = header(5, parent_header.hash());
+		// Shaped like the production entry `register_jam_state_reader` stores.
+		let entry = ([7u8; 32], StateProof { nodes: vec![], values: vec![] }).encode();
+		let additional_data = [(JAM_PROOF_KEY.to_string(), entry.clone())].into();
 
 		let pov = build_pov(
 			&[TestBlock::new(block_header, vec![])],
 			&CompactProof { encoded_nodes: vec![vec![1u8, 2, 3]] },
 			&parent_header,
+			&additional_data,
 		);
 
 		let decoded = ParachainBlockData::<TestBlock>::decode(&mut &pov[..])
@@ -1375,6 +1391,17 @@ mod tests {
 			decoded.parent_header(),
 			Some(expected.as_slice()),
 			"the V4 PoV carries the SCALE-encoded parent header",
+		);
+		assert_eq!(
+			decoded.additional_data(),
+			vec![Some(additional_data.clone())],
+			"and the additional-data map assembled at build time",
+		);
+		let carried = decoded.additional_data()[0].as_ref().expect("the V4 PoV carries the map");
+		assert_eq!(
+			carried.get(JAM_PROOF_KEY).map(|value| value.as_slice()),
+			Some(entry.as_slice()),
+			"the `JAM_PROOF_KEY` entry round-trips byte-exact",
 		);
 	}
 }

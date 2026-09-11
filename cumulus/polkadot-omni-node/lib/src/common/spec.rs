@@ -18,7 +18,6 @@ use crate::{
 	chain_spec::Extensions,
 	cli::{DevSealMode, JamNodeParams},
 	common::{
-		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 		command::NodeCommandRunner,
 		rpc::BuildRpcExtensions,
 		statement_store::{build_statement_store, new_statement_handler_proto},
@@ -26,15 +25,17 @@ use crate::{
 			ParachainBackend, ParachainBlockImport, ParachainClient, ParachainHostFunctions,
 			ParachainService,
 		},
+		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
+	nodes::jam::block_import::JamBlockImport,
 };
 use codec::Encode;
-use cumulus_client_bootnodes::{StartBootnodeTasksParams, start_bootnode_tasks};
+use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
 use cumulus_client_cli::CollatorOptions;
 use cumulus_client_service::{
+	build_network, build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
 	BuildNetworkParams, DARecoveryProfile, ParachainTracingExecuteBlock,
-	StartRelayChainTasksParams, build_network, build_relay_chain_interface, prepare_node_config,
-	start_relay_chain_tasks,
+	StartRelayChainTasksParams,
 };
 use cumulus_primitives_core::{BlockT, GetParachainInfo, ParaId};
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
@@ -45,9 +46,9 @@ use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
 use sc_client_api::Backend;
 use sc_consensus::DefaultImportQueue;
-use sc_executor::{DEFAULT_HEAP_ALLOC_STRATEGY, HeapAllocStrategy};
+use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{
-	NetworkBackend, NetworkBlock, NetworkStateInfo, PeerId, config::FullNetworkConfiguration,
+	config::FullNetworkConfiguration, NetworkBackend, NetworkBlock, NetworkStateInfo, PeerId,
 };
 use sc_service::{Configuration, ImportQueue, PartialComponents, TaskManager};
 use sc_statement_store::Store;
@@ -82,13 +83,16 @@ pub(crate) trait BuildImportQueue<
 	BlockImport: sc_consensus::BlockImport<Block>,
 >
 {
-	fn build_import_queue(
+	fn build_import_queue<QueuedBI>(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
-		block_import: ParachainBlockImport<Block, BlockImport>,
+		block_import: QueuedBI,
 		config: &Configuration,
 		telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
-	) -> sc_service::error::Result<DefaultImportQueue<Block>>;
+	) -> sc_service::error::Result<DefaultImportQueue<Block>>
+	where
+		QueuedBI:
+			sc_consensus::BlockImport<Block, Error = sp_consensus::Error> + Send + Sync + 'static;
 }
 
 pub(crate) trait StartConsensus<Block: BlockT, RuntimeApi, BI, BIAuxiliaryData>
@@ -135,7 +139,8 @@ pub(crate) trait InitBlockImport<Block: BlockT, RuntimeApi> {
 	type BlockImport: sc_consensus::BlockImport<Block, Error = sp_consensus::Error>
 		+ Clone
 		+ Send
-		+ Sync;
+		+ Sync
+		+ 'static;
 	type BlockImportAuxiliaryData;
 
 	/// Build the path-specific outer block import on top of the supplied
@@ -179,13 +184,16 @@ where
 pub(crate) trait BaseNodeSpec {
 	type Block: NodeBlock;
 
-	type RuntimeApi: ConstructNodeRuntimeApi<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>;
+	type RuntimeApi: ConstructNodeRuntimeApi<
+		Self::Block,
+		ParachainClient<Self::Block, Self::RuntimeApi>,
+	>;
 
 	type BuildImportQueue: BuildImportQueue<
-			Self::Block,
-			Self::RuntimeApi,
-			<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
-		>;
+		Self::Block,
+		Self::RuntimeApi,
+		<Self::InitBlockImport as InitBlockImport<Self::Block, Self::RuntimeApi>>::BlockImport,
+	>;
 
 	type InitBlockImport: self::InitBlockImport<Self::Block, Self::RuntimeApi>;
 
@@ -233,8 +241,15 @@ pub(crate) trait BaseNodeSpec {
 	///
 	/// Use this macro if you don't actually need the full service, but just the builder in order to
 	/// be able to perform chain operations.
+	///
+	/// On the JAM path (`jam` is `true`) the import queue is built over the
+	/// [`JamBlockImport`] re-execution wrapper: the queue `new_partial` builds is the one the
+	/// essential `basic-block-import-worker` runs over for the life of the node, so it must import
+	/// through the wrapper (task 12) — never a queue built here and rebuilt after, which would
+	/// orphan that worker by dropping its queue.
 	fn new_partial(
 		config: &Configuration,
+		jam: bool,
 	) -> sc_service::error::Result<
 		ParachainService<
 			Self::Block,
@@ -308,13 +323,27 @@ pub(crate) trait BaseNodeSpec {
 
 		let block_import = ParachainBlockImport::new(outer_block_import, backend.clone());
 
-		let import_queue = Self::BuildImportQueue::build_import_queue(
-			client.clone(),
-			block_import.clone(),
-			config,
-			telemetry.as_ref().map(|telemetry| telemetry.handle()),
-			&task_manager,
-		)?;
+		// The queue built here is the one the essential `basic-block-import-worker` runs over for
+		// the life of the node, so on the JAM path it must be built over the `JamBlockImport`
+		// re-execution wrapper (task 12) — never built once and rebuilt after, which would orphan
+		// that worker by dropping its queue.
+		let import_queue = if jam {
+			Self::BuildImportQueue::build_import_queue(
+				client.clone(),
+				JamBlockImport::new(block_import.clone(), client.clone()),
+				config,
+				telemetry.as_ref().map(|telemetry| telemetry.handle()),
+				&task_manager,
+			)?
+		} else {
+			Self::BuildImportQueue::build_import_queue(
+				client.clone(),
+				block_import.clone(),
+				config,
+				telemetry.as_ref().map(|telemetry| telemetry.handle()),
+				&task_manager,
+			)?
+		};
 
 		Ok(PartialComponents {
 			backend,
@@ -337,11 +366,11 @@ pub(crate) trait BaseNodeSpec {
 
 pub(crate) trait NodeSpec: BaseNodeSpec {
 	type BuildRpcExtensions: BuildRpcExtensions<
-			ParachainClient<Self::Block, Self::RuntimeApi>,
-			ParachainBackend<Self::Block>,
-			TransactionPoolHandle<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
-			Store,
-		>;
+		ParachainClient<Self::Block, Self::RuntimeApi>,
+		ParachainBackend<Self::Block>,
+		TransactionPoolHandle<Self::Block, ParachainClient<Self::Block, Self::RuntimeApi>>,
+		Store,
+	>;
 
 	type StartConsensus: StartConsensus<
 		Self::Block,
@@ -397,7 +426,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let parachain_fork_id = parachain_config.chain_spec.fork_id().map(ToString::to_string);
 			let advertise_non_global_ips = parachain_config.network.allow_non_globals_in_dht;
 
-			let params = Self::new_partial(&parachain_config)?;
+			let params = Self::new_partial(&parachain_config, false)?;
 			let (
 				block_import,
 				mut telemetry,

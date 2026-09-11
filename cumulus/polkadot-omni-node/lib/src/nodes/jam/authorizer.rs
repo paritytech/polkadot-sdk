@@ -34,19 +34,18 @@ use super::LOG_TARGET;
 use crate::common::aura::AuraIdT;
 use codec::Encode;
 use jam_cumulus_facade::{
-	H256,
 	aura::{
-		AuthConfig, AuthToken, CollatorKey, CollatorSignature, build_collator_tree,
-		expected_collator_index, signable_work_package_hash,
+		build_collator_tree, expected_collator_index, signable_work_package_hash, AuthConfig,
+		AuthToken, CollatorKey, CollatorSignature,
 	},
-	authorizer::{AuthConfigBlob, Authorizer, AuthorizerHash, authorizer_hash},
+	authorizer::{authorizer_hash, AuthConfigBlob, Authorizer, AuthorizerHash},
+	H256,
 };
 use jam_interface::{ServiceId, Slot as JamSlot};
 use jam_types::{Authorization, CodeHash, WorkPackage};
 use sp_core::{
-	Pair,
 	crypto::{ByteArray, CryptoTypeId, KeyTypeId},
-	ed25519, sr25519,
+	ed25519, sr25519, Pair,
 };
 use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::app_crypto::AppCrypto;
@@ -216,8 +215,10 @@ impl AuraAuthorizer {
 		if !self.set_drifted(authorities) {
 			return;
 		}
-		let current: Vec<_> =
-			authorities.iter().map(|key| array_bytes::bytes2hex("0x", key.as_slice())).collect();
+		let current: Vec<_> = authorities
+			.iter()
+			.map(|key| array_bytes::bytes2hex("0x", key.as_slice()))
+			.collect();
 		tracing::warn!(
 			target: LOG_TARGET,
 			at = ?at,
@@ -340,8 +341,8 @@ fn scheme_name(crypto_id: CryptoTypeId) -> String {
 pub(crate) mod tests {
 	use super::*;
 	use codec::DecodeAll;
-	use jam_types::{RefineContext, WorkItem, WorkPayload};
 	use jam_cumulus_facade::aura::{AuthToken as GuestToken, Ed25519, Sr25519};
+	use jam_types::{RefineContext, WorkItem, WorkPayload};
 	use sp_consensus_aura::{
 		ed25519::AuthorityId as Ed25519AuraId, sr25519::AuthorityId as Sr25519AuraId,
 	};
@@ -424,16 +425,16 @@ pub(crate) mod tests {
 			authorization: Authorization::default(),
 			auth_code_host: SERVICE_ID,
 			authorizer: authorizer.authorizer(),
-		context: RefineContext {
-			anchor: [1u8; 32].into(),
-			anchor_slot: 0,
-			state_root: [2u8; 32].into(),
-			beefy_root: [3u8; 32].into(),
-			lookup_anchor: [4u8; 32].into(),
-			lookup_anchor_slot,
-			lookup_anchor_state_root: Default::default(),
-			prerequisites: Default::default(),
-		},
+			context: RefineContext {
+				anchor: [1u8; 32].into(),
+				anchor_slot: 0,
+				state_root: [2u8; 32].into(),
+				beefy_root: [3u8; 32].into(),
+				lookup_anchor: [4u8; 32].into(),
+				lookup_anchor_slot,
+				lookup_anchor_state_root: Default::default(),
+				prerequisites: Default::default(),
+			},
 			items: vec![item].try_into().expect("a single work item always fits; qed"),
 		}
 	}

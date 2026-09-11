@@ -15,9 +15,29 @@ workspace = true
 sp-externalities = { workspace = true }
 sp-runtime-interface = { workspace = true }
 
+# JAM state-proof reading (`jam_proof.rs`). Gated off the wasm family: `jam-state-helpers`
+# transitively pulls `parachain-service-interface`, whose `no_std` gate is hard-coded to riscv
+# (`#![cfg_attr(any(target_arch = "riscv32", target_arch = "riscv64"), no_std)]`), so it cannot
+# compile for `wasm32v1-none` (no `std` there). Non-riscv WASM runtimes read relay state, never
+# JAM state, so the reader is only needed on riscv (task 11) and on the host node (tasks 9/12).
+# `parachain-system` target-gates the same dependency for the same reason.
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+codec = { workspace = true }
+# no_std by default (`default = []`): the riscv build of this crate needs the verifier no_std,
+# while the std feature gates its std side. Wired the same way omni-node-lib pulls it, except
+# feature-driven instead of hard-coded to std.
+jam-state-helpers = { path = "../../../../parachain-service/cumulus/jam-state-helpers", default-features = false }
+
+[dev-dependencies]
+# Tests run only on the host (std); enabling sp-state-machine/std keeps its own
+# std-gated impls compiled so the dep builds 0-warning.
+sp-state-machine = { workspace = true, features = ["std"] }
+
 [features]
 default = ["std"]
 std = [
+	"codec/std",
+	"jam-state-helpers/std",
 	"sp-externalities/std",
 	"sp-runtime-interface/std",
 ]

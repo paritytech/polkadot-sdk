@@ -81,6 +81,12 @@ pub(super) fn install_overrides() -> impl Sized {
 			.replace_implementation(host_storage_proof_size),
 		cumulus_primitives_additional_data::relay_chain_state::host_read_relay_chain_state_into
 			.replace_implementation(host_read_relay_chain_state_into),
+		// The riscv runtime reads its included head via `jam_state_read`, served from the JAM
+		// state proof carried in the PoV under `JAM_PROOF_KEY`, verified against the trusted
+		// anchor root.
+		#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+		cumulus_primitives_additional_data::jam_state::host_jam_state_read_into
+			.replace_implementation(host_jam_state_read_into),
 		sp_additional_data::additional_data::host_finalize_into
 			.replace_implementation(host_finalize_into),
 		#[cfg(all(
@@ -127,6 +133,23 @@ pub(super) mod additional_data {
 		env::using(t, f)
 	}
 	pub fn with<R, F: for<'a> FnOnce(&'a mut (dyn Provider + 'a)) -> R>(f: F) -> Option<R> {
+		env::with(f)
+	}
+}
+
+/// The proof-backed JAM state reader threaded into the replaced `jam_state_read` host function
+/// for the duration of block execution (riscv builds only, mirroring `additional_data`). Own
+/// module for the same reason as `additional_data`: `environmental!` emits a scope-level `GLOBAL`
+/// static.
+#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+pub(super) mod jam_data {
+	use cumulus_primitives_additional_data::JamStateReader;
+
+	environmental::environmental!(env: trait JamStateReader);
+	pub fn using<R, F: FnOnce() -> R>(t: &mut dyn JamStateReader, f: F) -> R {
+		env::using(t, f)
+	}
+	pub fn with<R, F: for<'a> FnOnce(&'a mut (dyn JamStateReader + 'a)) -> R>(f: F) -> Option<R> {
 		env::with(f)
 	}
 }
@@ -276,6 +299,21 @@ pub(super) fn host_read_relay_chain_state_into(key: &[u8], value_out: &mut [u8])
 	// Served by the verifying provider set up around block execution; if none is set (a block with
 	// no relay reads), reports the key as absent.
 	match additional_data::with(|p| p.read(key)).flatten() {
+		Some(v) => {
+			let n = core::cmp::min(v.len(), value_out.len());
+			value_out[..n].copy_from_slice(&v[..n]);
+			v.len() as i64
+		},
+		None => -1,
+	}
+}
+
+#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+pub(super) fn host_jam_state_read_into(key: &[u8], value_out: &mut [u8]) -> i64 {
+	// Served by the verifying proof-backed reader set up around block execution; if none is set (a
+	// block with no JAM reads), reports the key as absent. A reader whose proof cannot
+	// authenticate the key panics inside `read` (task 7's semantic), never reports absence.
+	match jam_data::with(|p| p.read(key)).flatten() {
 		Some(v) => {
 			let n = core::cmp::min(v.len(), value_out.len());
 			value_out[..n].copy_from_slice(&v[..n]);

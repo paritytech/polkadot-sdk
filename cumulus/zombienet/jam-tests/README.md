@@ -18,28 +18,24 @@ cargo build --release --bin polkadot --bin polkadot-prepare-worker --bin polkado
 
 The `polkadot` binary is not used by the test itself — see "Why a relay chain" below.
 
-The parachain runtime must be built twice: once as PolkaVM (the validation code JAM runs) and once
-as WASM (what the collators execute locally). Build both:
+The parachain runtime is built once, as PolkaVM — the same blob is the para's JAM validation
+code *and* the runtime the collators execute:
 
 ```sh
 SUBSTRATE_RUNTIME_TARGET=riscv cargo build --release -p parachain-template-runtime
-cargo build --release -p parachain-template-runtime
 ```
 
-The two builds land in *different* directories, and mixing them up is the most common way to
-start a run that cannot work:
+The build lands at
+`target/release/rbuild/parachain-template-runtime/parachain-template-runtime-blob.polkavm`,
+with `PVM\0` magic. The chain spec embeds it as the para's `:code`; the collator's
+`SUBSTRATE_ENABLE_POLKAVM=1` executor runs that same blob to author, and JAM runs it at refine
+to validate. There is no WASM build any more: node-side crypto forwarding (the keystore host
+calls) made a PolkaVM runtime able to author, which is why one blob can serve both roles — see
+"Why the runtime is built once".
 
-| build | path | magic |
-|---|---|---|
-| PolkaVM (`RUNTIME_WASM`) | `target/release/rbuild/parachain-template-runtime/parachain-template-runtime-blob.polkavm` | `PVM\0` |
-| WASM (`RUNTIME_AUTHORING_WASM`) | `target/release/wbuild/parachain-template-runtime/parachain_template_runtime.compact.compressed.wasm` | zstd-wrapped `\0asm` |
-
-The suite rejects a WASM blob at `RUNTIME_WASM` or a PolkaVM blob at `RUNTIME_AUTHORING_WASM` at
-startup with a named diagnostic.
-
-Rebuild **both** after any runtime change. The collators author with the WASM build while the PVF
-validates with the PolkaVM one, so a stale half produces state-root failures that look like
-unrelated bugs.
+The suite rejects a WASM blob at `RUNTIME_WASM` at startup with a named diagnostic. Rebuild
+after any runtime change, and the harness copies the blob into the run's work dir first (see
+below), so nothing else can go stale under it.
 
 From the polkajam repository: the `polkajam` node binary. It has to do two things, and today they
 live on two branches:
@@ -96,8 +92,6 @@ export AUTHORIZER_BLOB=/path/to/parachain-service/target/jam/riscv64emac-unknown
 production-authorizer/parachain-authorizer-sr25519.jam
 export RUNTIME_WASM=/path/to/polkadot-sdk3/target/release/rbuild/parachain-template-runtime/\
 parachain-template-runtime-blob.polkavm
-export RUNTIME_AUTHORING_WASM=/path/to/polkadot-sdk3/target/release/wbuild/parachain-template-runtime/\
-parachain_template_runtime.compact.compressed.wasm
 # Only for `jam::core_assignment`'s two dynamic-core tests:
 export PARASIM_TOOL_BIN=/path/to/parachain-service/target/release/parasim-tool
 
@@ -113,8 +107,7 @@ cargo test -p cumulus-jam-zombienet-tests --features jam-ci --test tests \
 | `JAM_GENSPEC_BIN` | the polkajam build that runs `gen-spec`, when it is not `JAM_NODE_BIN` |
 | `PARACHAIN_SERVICE_BLOB` | the real parachain-service `.jam` blob, which genesis creates the service from |
 | `AUTHORIZER_BLOB` | `parachain-authorizer-sr25519.jam`, the AURA authorizer the cores run |
-| `RUNTIME_WASM` | the PolkaVM build of the parachain runtime (`PVM\0` magic), used as the para's JAM validation code. The name is misleading (it is not WASM); a future rename to `RUNTIME_PVF` is deferred. |
-| `RUNTIME_AUTHORING_WASM` | the WASM build of the parachain runtime, supplied to collators via `--wasm-runtime-overrides` for execution |
+| `RUNTIME_WASM` | the PolkaVM build of the parachain runtime (`PVM\0` magic), the para's JAM validation code *and* the runtime the collators execute. The name is misleading (it is not WASM); a future rename to `RUNTIME_PVF` is deferred. |
 | `PARASIM_BLOB` | optional: `parasim-service.jam`, only needed for the dynamic-core tests and toy runs |
 | `PARASIM_TOOL_BIN` | optional: the `parasim-tool` CLI, required only by the dynamic-core tests, which move cores mid-run |
 | `OMNI_NODE_BIN`, `RELAY_NODE_BIN` | override the `target/release` defaults |
@@ -126,12 +119,12 @@ byte-deterministic, so a rebuild during a run would strand a hash on the chain w
 preimage. The collators are pointed at the authorizer *copy*, because an authorizer hash is a hash
 of exactly those bytes — and the copy is what genesis hosts.
 
-The two runtime blobs serve different roles. The PolkaVM blob is the para's JAM validation code
-and is registered in the chain spec's `:code`; the collator declares this hash via `code_at`. The
-WASM blob is supplied via `--wasm-runtime-overrides` and changes only what the collator *executes*
-— the declared hash stays the PolkaVM blob's. This asymmetry exists because a PolkaVM runtime
-cannot author: its `sp_io` re-exports crypto from `native::crypto`, whose key-generation functions
-panic by design (they need node-side state), so a PolkaVM runtime traps in `SessionKeys_generate_session_keys`.
+One runtime blob serves both roles. The PolkaVM blob is the para's JAM validation code, so it
+is registered in the chain spec's `:code`; the collator declares that very hash via `code_at`
+and executes the same blob to author — the `SUBSTRATE_ENABLE_POLKAVM=1` in the node environment
+(see `polkavm_env`) turns on the PolkaVM executor. Authoring works on riscv because `sp_io`'s
+keystore-dependent crypto forwards to the node as host calls instead of panicking; see "Why the
+runtime is built once".
 
 `--test-threads 1` is required: each test spawns seven JAM nodes plus its collators, and running
 them concurrently would fight over CPU and make the six-second slot budget unrealistic.
@@ -249,42 +242,37 @@ index, so the order is part of the hash: `chain_spec::in_authority_order` is wha
 `genesis.rs` and every `parasim-tool --collators` string go through. A single-collator run cannot
 see any of this, which is how it stayed broken while one test kept passing.
 
-## Why the runtime is built twice
+## Why the runtime is built once
 
-One blob cannot serve both roles. The plan originally had a single blob be both the collator's
-authoring runtime and the para's JAM validation code. That is impossible: on riscv, `sp_io`
-re-exports crypto from `native::crypto`, whose key-generation functions panic by design ("needs
-node-side state and has no in-blob implementation"), so a PolkaVM runtime traps in
-`SessionKeys_generate_session_keys` and cannot author. Nothing in this repo authors with a PolkaVM
-runtime.
+One riscv build serves both roles: the para's JAM validation code and the runtime the collator
+executes. That was not always possible. On riscv, `sp_io` re-exports the keystore-dependent
+crypto (session-key generation, sr25519/ed25519/ecdsa signing) from `native::crypto`, whose
+in-blob implementations used to panic by design ("needs node-side state and has no in-blob
+implementation") — so a PolkaVM runtime trapped in `SessionKeys_generate_session_keys` and could
+not author. The harness worked around that with a second, WASM build of the same runtime, handed
+to the collator as `--wasm-runtime-overrides`, so the collator *executed* WASM while JAM
+*validated* the PolkaVM blob.
 
-The two roles separate via an asymmetry in the collator. `code_at` delegates to
-`code_at_ignoring_overrides`, which returns the on-chain `:code`; `--wasm-runtime-overrides`
-changes only what is *executed*. So the chain spec keeps the PolkaVM blob (the collator therefore
-*declares* the hash genesis registered) while the collator *executes* a WASM override. The
-declared hash stays the PolkaVM blob's, because `code_at` ignores overrides.
-
-This looks wrong until you know why it is right: the chain spec's `:code` is what JAM validates
-with, and the collator must declare that same hash so the service can look up the code preimage at
-refine time. The WASM override is purely local — it never reaches the chain, never reaches JAM,
-and never reaches the preimage store. It is only what the collator executes, and it is safe to
-override because the collator's own crypto (signing work packages) uses the host's `sp_io`, not the
-runtime's.
+That workaround is gone. The keystore crypto now forwards to the node as host calls
+(`substrate/primitives/io/src/native/crypto.rs`), the node serves them from its keystore, and a
+PolkaVM runtime authors like any other. One build — `SUBSTRATE_RUNTIME_TARGET=riscv`, the
+`.polkavm` blob — is both what the chain spec embeds as `:code` and what the collators execute,
+so the hash they declare and the bytes they run can never disagree.
 
 ## Running a runtime other than the template
 
-`RUNTIME_WASM` (the PolkaVM build) and `RUNTIME_AUTHORING_WASM` (the WASM build) choose the
-parachain runtime. Two have been run: the parachain template (the default) and Asset Hub Rococo,
-which is the first real chain's runtime on this stack.
+`RUNTIME_WASM` chooses the parachain runtime — the PolkaVM build of it, exactly the one build
+described above. Two runtimes have been run: the parachain template (the default) and Asset Hub
+Rococo, which is the first real chain's runtime on this stack.
 
 ```sh
 SUBSTRATE_RUNTIME_TARGET=riscv cargo build --release -p asset-hub-rococo-runtime
-cargo build --release -p asset-hub-rococo-runtime
-export RUNTIME_WASM=target/release/wbuild/asset-hub-rococo-runtime/\
-asset_hub_rococo_runtime.compact.compressed.wasm
-export RUNTIME_AUTHORING_WASM=target/release/wbuild/asset-hub-rococo-runtime/\
-asset_hub_rococo_runtime.compact.compressed.wasm
+export RUNTIME_WASM=target/release/rbuild/asset-hub-rococo-runtime/\
+<the .polkavm blob that build landed in>
 ```
+
+The blob name is whatever the riscv build produces under its `rbuild/` directory — the crate
+names it, exactly as the template's `parachain-template-runtime-blob.polkavm`.
 
 What `chain_spec.rs` needs from that runtime's `development` preset, and checks before it patches:
 

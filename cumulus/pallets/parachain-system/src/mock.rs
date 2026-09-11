@@ -46,7 +46,9 @@ use std::cell::RefCell;
 use crate as parachain_system;
 use crate::consensus_hook::UnincludedSegmentCapacity;
 use cumulus_client_additional_data::VerifyingAdditionalDataProvider;
-use cumulus_primitives_additional_data::{RelayStateExt, RelayStateReader};
+use cumulus_primitives_additional_data::{
+	JamStateExt, JamStateReader, RelayStateExt, RelayStateReader,
+};
 use sp_additional_data::{AdditionalData, AdditionalDataExt, AdditionalDataFinalizer};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -235,7 +237,7 @@ thread_local! {
 }
 
 /// Configure the relay-state reads served for the block currently being processed.
-fn set_mock_relay_reads(root: relay_chain::Hash, proof: sp_trie::StorageProof) {
+pub(crate) fn set_mock_relay_reads(root: relay_chain::Hash, proof: sp_trie::StorageProof) {
 	let mut map = AdditionalData::new();
 	map.insert(cumulus_primitives_additional_data::RELAY_PROOF_KEY.into(), (root, proof).encode());
 	let provider = VerifyingAdditionalDataProvider::<BlakeTwo256>::from_map_with_root(root, map)
@@ -281,16 +283,49 @@ impl AdditionalDataFinalizer for MockRelayReads {
 	}
 }
 
+thread_local! {
+	/// Serves the JAM-state reads made by the riscv `read_included_para_head_jam` branch during
+	/// the mock tests, keyed by the service-local storage key.
+	static MOCK_JAM_READS: RefCell<Option<BTreeMap<Vec<u8>, Vec<u8>>>> =
+		const { RefCell::new(None) };
+}
+
+/// Configure the JAM-state reads served to `read_included_para_head_jam` (the riscv branch).
+pub(crate) fn set_mock_jam_reads(map: BTreeMap<Vec<u8>, Vec<u8>>) {
+	MOCK_JAM_READS.with(|c| *c.borrow_mut() = Some(map));
+}
+
+/// Externalities extension provider that serves `jam_state_read` from [`MOCK_JAM_READS`] (the
+/// JAM state configured for the current test), mirroring how the riscv runtime reads it.
+struct MockJamReads;
+
+impl JamStateReader for MockJamReads {
+	fn read(&self, key: &[u8]) -> Option<Vec<u8>> {
+		MOCK_JAM_READS.with(|c| {
+			c.borrow()
+				.as_ref()
+				.expect("jam reads configured for the current test")
+				.get(key)
+				.cloned()
+		})
+	}
+	fn proof_size(&self) -> usize {
+		0
+	}
+}
+
 // This function basically just builds a genesis storage key/value store according to
 // our desired mockup.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	HANDLED_DMP_MESSAGES.with(|m| m.borrow_mut().clear());
 	HANDLED_XCMP_MESSAGES.with(|m| m.borrow_mut().clear());
 	MOCK_RELAY_READS.with(|c| *c.borrow_mut() = None);
+	MOCK_JAM_READS.with(|c| *c.borrow_mut() = None);
 
 	let mut ext: sp_io::TestExternalities =
 		frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into();
 	ext.register_extension(RelayStateExt(Box::new(MockRelayReads)));
+	ext.register_extension(JamStateExt(Box::new(MockJamReads)));
 	ext.register_extension(AdditionalDataExt(
 		[(
 			cumulus_primitives_additional_data::RELAY_PROOF_KEY.to_string(),

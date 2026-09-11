@@ -17,7 +17,6 @@
 use crate::{
 	cli::{Cli, RelayChainCli, Subcommand},
 	common::{
-		NodeBlock, NodeExtraArgs,
 		chain_spec::LoadSpec,
 		runtime::{
 			AuraConsensusId, Consensus, Runtime, RuntimeResolver as RuntimeResolverT,
@@ -25,6 +24,7 @@ use crate::{
 		},
 		spec::DynNodeSpec,
 		types::Block,
+		NodeBlock, NodeExtraArgs,
 	},
 	extra_subcommand::DefaultExtraSubcommands,
 	fake_runtime_api,

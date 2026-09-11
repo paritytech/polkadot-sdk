@@ -150,7 +150,6 @@ impl Run {
 			rpc_url: network.rpc_url.clone(),
 			service_id: network.service_id,
 			authorizer_blob: network.authorizer_blob.clone(),
-			wasm_overrides_dir: network.wasm_overrides_dir.clone(),
 		};
 		let mut started = Vec::with_capacity(paras.len());
 		for (index, para) in paras.iter().enumerate() {

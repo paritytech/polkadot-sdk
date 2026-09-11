@@ -117,6 +117,7 @@ where
 			parent_head: parachain_head,
 			randomness_seed,
 			relay_parent_storage_root: Some(relay_parent_storage_root),
+			jam_anchor_state_root: None,
 		},
 		// Signature verification of the override needs the parachain state behind the relay
 		// parent, which only exists inside an externalities scope over the just-built memory DB.

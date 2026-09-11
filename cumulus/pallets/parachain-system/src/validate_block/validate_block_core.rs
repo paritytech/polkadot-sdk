@@ -34,6 +34,8 @@
 //!   block's seal check, where the relay layer re-verifies the block's `set_validation_data`
 //!   against the relay-parent context (JAM passes `|_| {}`).
 
+#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+use super::host_functions::jam_data;
 use super::{
 	additional_data_reader::AdditionalDataReader,
 	block_checks::verify_blocks_form_chain,
@@ -44,13 +46,19 @@ use super::{
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_additional_data::RELAY_PROOF_KEY;
+#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+use cumulus_primitives_additional_data::{JamProofReader, RelayStateReader, JAM_PROOF_KEY};
 use cumulus_primitives_core::{
-	relay_chain::{BlockNumber as RNumber, Hash as RHash, MAX_HEAD_DATA_SIZE, UMP_SEPARATOR},
-	CumulusDigestItem, ParachainBlockData,
+	relay_chain::{BlockNumber as RNumber, Hash as RHash, UMP_SEPARATOR},
+	ParachainBlockData,
 };
 use frame_support::traits::{ExecuteBlock, Get};
+#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+use jam_state_helpers::StateProof;
 use polkadot_parachain_primitives::primitives::{HeadData, HorizontalMessages, UpwardMessages};
 use sp_additional_data::AdditionalData;
+#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+use sp_additional_data::{hash_value, AdditionalDataFinalizer};
 use sp_core::storage::{well_known_keys, StateVersion};
 use sp_runtime::traits::{
 	Block as BlockT, Hash as HashT, HashingFor, Header as HeaderT, LazyBlock,
@@ -58,6 +66,45 @@ use sp_runtime::traits::{
 use sp_state_machine::OverlayedChanges;
 use sp_trie::{HashDBT, MemoryDB, StorageProof, EMPTY_PREFIX};
 use trie_recorder::{SeenNodes, SizeOnlyRecorderProvider};
+
+/// The parachain service's id on the JAM chain: the single service that hosts this and every other
+/// para's `ParaInfo` records. Phase-1 network constant — the service id is assigned when the
+/// service is registered (it cannot live in a chain spec), so this must match the value the
+/// network's genesis registered the parachain service under (and the collator's
+/// `--jam-service-id`). The state-key derivation interleaves it, so a mismatch reads the wrong key
+/// and every read panics.
+#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+const PARACHAIN_SERVICE_ID: u32 = 5;
+
+/// The `AdditionalDataFinalizer` committing the carried JAM state proof under `JAM_PROOF_KEY`.
+///
+/// The commitment is `sp_additional_data::hash_value` of the exact bytes the `JAM_PROOF_KEY`
+/// entry carries in the additional-data map, so the digest recomputed on refine matches the one
+/// committed at authoring (the omni-node's `JamProofFinalizer`). Implements [`RelayStateReader`]
+/// trivially — JAM blocks carry no relay reads — so it can ride the relay-style
+/// `additional_data::using` provider seam that `host_finalize_into` folds.
+#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+struct JamProofFinalizer {
+	commitment: [u8; 32],
+}
+
+#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+impl AdditionalDataFinalizer for JamProofFinalizer {
+	fn finalize(&self) -> Option<[u8; 32]> {
+		Some(self.commitment)
+	}
+}
+
+#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+impl RelayStateReader for JamProofFinalizer {
+	fn read(&self, _key: &[u8]) -> Option<Vec<u8>> {
+		None
+	}
+
+	fn proof_size(&self) -> usize {
+		0
+	}
+}
 
 /// The input of a single [`execute_blocks`] call.
 ///
@@ -69,6 +116,13 @@ pub(super) struct SharedValidationInputs<B: BlockT> {
 	pub parent_head: Bytes,
 	pub randomness_seed: [u8; 16],
 	pub relay_parent_storage_root: Option<RHash>,
+	/// Trusted JAM anchor state root the carried `JAM_PROOF_KEY` proof must verify against. `None`
+	/// on the relay chain (polkadot), where there is no JAM anchor and the field is never read.
+	#[cfg_attr(
+		not(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64"))),
+		allow(dead_code)
+	)]
+	pub jam_anchor_state_root: Option<[u8; 32]>,
 }
 
 /// The raw outcome of the validation engine, before relay-layer post-processing.
@@ -270,8 +324,50 @@ pub(super) fn execute_blocks<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 				},
 			);
 		};
+		// Build the proof-backed JAM reader from the state proof carried in the additional-data
+		// blob under `JAM_PROOF_KEY` (the SCALE-encoding of `(state_root, proof)`), verified
+		// against the trusted `jam_anchor_state_root` from the JAM refine context. As with the
+		// relay blob, the carried root is *ignored* — reads verify against the trusted root, so a
+		// candidate that recorded its JAM reads against a different root fails at the first read.
+		// A malformed blob, or a proof that cannot authenticate a key, panics inside `read`
+		// (task 7's semantic) rather than silently serving `None`. Without a trusted anchor root no
+		// proof can be verified against anything, so the reader is skipped entirely (polkadot
+		// passes `None`; its blocks carry no JAM reads).
+		//
+		// The same entry also arms the digest finalizer: it commits `hash_value` of the exact
+		// carried bytes, so `host_finalize_into` folds it into the same
+		// `DigestItem::AdditionalData` the collator committed at authoring (task 9). Threading
+		// the reader without the finalizer recomputes an empty digest — `frame_executive`'s
+		// digest-count check then panics (3 vs 2).
+		#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+		let mut jam_provider: Option<(JamProofReader, JamProofFinalizer)> = None;
+		#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+		if let Some(root) = inputs.jam_anchor_state_root {
+			jam_provider = map_opt.as_ref().map(|map| {
+				let proof_bytes = map
+					.get(JAM_PROOF_KEY)
+					.expect("additional data map (present) must contain the jam-proof entry");
+				let (_, proof) = <([u8; 32], StateProof)>::decode(&mut &proof_bytes[..])
+					.expect("jam-proof entry must decode as (state_root, proof)");
+				(
+					JamProofReader::new(PARACHAIN_SERVICE_ID, root, proof),
+					JamProofFinalizer { commitment: hash_value(proof_bytes) },
+				)
+			});
+		}
 		// Serve `read_relay_chain_state`/`finalize` from the verified proof for the duration of
-		// execution.
+		// execution, and on JAM the `jam_state_read` read from the proof-backed JAM reader and the
+		// `finalize` fold from the JAM-proof finalizer (both armed together from the same entry).
+		#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+		match (verify_provider.as_mut(), jam_provider.as_mut()) {
+			(Some(vp), Some((jr, _))) => {
+				additional_data::using(vp, || jam_data::using(jr, execute))
+			},
+			(Some(vp), None) => additional_data::using(vp, execute),
+			(None, Some((jr, jf))) => additional_data::using(jf, || jam_data::using(jr, execute)),
+			(None, None) => execute(),
+		}
+		#[cfg(not(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64"))))]
 		match verify_provider.as_mut() {
 			Some(vp) => additional_data::using(vp, execute),
 			None => execute(),

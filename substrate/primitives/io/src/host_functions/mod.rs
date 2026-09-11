@@ -34,10 +34,13 @@
 //! | 100+ | PolkaJam's own non-GP extensions; its `log` is 100 |
 //! | 200-204 | host calls native to the parachain service; 200-203 (spec §4.3), 204 [`crate::native::logging`] |
 //! | 301-311 | [`storage`] |
+//! | 312-316 | reserved — `bandersnatch_generate`/`bandersnatch_sign` (312/313), `bls381_generate`/`bls381_generate_proof_of_possession` (314/315), `ecdsa_bls381_generate` (316). Feature-gated and without a host-side version-2 raw-API variant to forward to, so no runtime emits them today. |
 //! | 320-327 | `default_child_storage` |
+//! | 328-337 | [`crate::native::crypto`] keystore forwarding: the version-2 raw API of `ed25519`/`sr25519`/`ecdsa` `generate`, `public_keys`, `sign`, plus `ecdsa_sign_prehashed` — served by the node through the `crypto` host interface |
 //! | 340 | [`input`] |
 //! | 341 | `cumulus_primitives_proof_size_hostfunction` |
 //! | 342-343 | `sp_additional_data` |
+//! | 344 | `cumulus_primitives_additional_data::jam_state_read_into` |
 //!
 //! The ranges have to stay this tight. The PolkaVM linker pads index gaps with dummy imports
 //! (`program_from_elf.rs`, "if there are any holes in the indexes"), so the import table is

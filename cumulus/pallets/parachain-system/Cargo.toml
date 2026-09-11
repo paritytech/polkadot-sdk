@@ -78,6 +78,10 @@ parachain-service-interface = { path = "../../../../parachain-service/service-in
 # `jam-types` derives `jam-codec`, not `parity-scale-codec`, so both have to be named.
 jam-types = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-types", default-features = false }
 jam-codec = { version = "0.1.1", default-features = false, features = ["derive"] }
+# The riscv runtime reads the included para head from the parachain service's JAM state, so it
+# needs the no_std `para_info_key`/`ParaInfo` mirror (task 5). Already in this target's graph via
+# `cumulus-primitives-additional-data`; named directly so the pallet can import it.
+jam-state-helpers = { path = "../../../../parachain-service/cumulus/jam-state-helpers", default-features = false }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
@@ -86,6 +90,10 @@ hex-literal = { workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
 rstest = { workspace = true }
 trie-standardmap = { workspace = true }
+# Host tests compile the riscv-gated JAM branch (`read_included_para_head_jam`) via `cfg(test)`,
+# so `jam-state-helpers` (and its `parachain-service-interface` type) must be direct deps there.
+jam-state-helpers = { path = "../../../../parachain-service/cumulus/jam-state-helpers", features = ["std"] }
+parachain-service-interface = { path = "../../../../parachain-service/service-interface", features = ["std"] }
 
 # Substrate
 frame-executive = { workspace = true }

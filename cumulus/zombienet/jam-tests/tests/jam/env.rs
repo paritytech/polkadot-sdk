@@ -50,16 +50,6 @@ pub struct Binaries {
 	/// TODO(T11): rename field and env var to `runtime_pvf`/`RUNTIME_PVF` once the README is
 	/// updated — the current name misleads, but the rename touches network.rs and the README.
 	pub runtime_wasm: PathBuf,
-	/// The **WASM** build of the parachain runtime the collators *execute*. Nothing on chain —
-	/// no `:code`, no preimage, no hash — ever names this file: it only reaches the collators'
-	/// command lines as `--wasm-runtime-overrides`, and only replaces the on-chain PolkaVM
-	/// runtime for *execution* when its embedded `spec_version` matches. The declared
-	/// validation-code hash stays the PolkaVM blob's, because `code_at` ignores overrides.
-	///
-	/// Must be the WASM build (`cargo build --release -p parachain-template-runtime`), not the
-	/// PolkaVM one [`Binaries::runtime_wasm`] points at — [`Binaries::from_env`] rejects a
-	/// PolkaVM blob with a named diagnostic.
-	pub runtime_authoring: PathBuf,
 }
 
 /// Where this crate sits relative to the workspace root, so the defaults can find `target/`.
@@ -95,12 +85,6 @@ impl Binaries {
 					 parachain_template_runtime.compact.compressed.wasm",
 				)
 			}),
-			runtime_authoring: from_env_or("RUNTIME_AUTHORING_WASM", || {
-				root.join(
-					"target/release/wbuild/parachain-template-runtime/\
-					 parachain_template_runtime.compact.compressed.wasm",
-				)
-			}),
 		};
 
 		let mut wanted: Vec<(&str, &PathBuf)> = vec![
@@ -120,11 +104,6 @@ impl Binaries {
 				"RUNTIME_WASM (SUBSTRATE_RUNTIME_TARGET=riscv cargo build --release \
 				 -p parachain-template-runtime — the PolkaVM blob, not the WASM one)",
 				&binaries.runtime_wasm,
-			),
-			(
-				"RUNTIME_AUTHORING_WASM (cargo build --release -p parachain-template-runtime — \
-				 the WASM blob the collators execute via --wasm-runtime-overrides)",
-				&binaries.runtime_authoring,
 			),
 		];
 		// Only when it was asked for: an unset `JAM_GENSPEC_BIN` means the node binary generates
@@ -151,17 +130,12 @@ impl Binaries {
 			return Err(reason);
 		}
 
-		// Format guard: `runtime_wasm` now feeds the para's JAM validation code as well as the
-		// collators' runtime. A WASM blob here records a WASM hash in genesis and the real service
-		// refuses every candidate — silent 8-minute stall. The WASM default path passes the
-		// `missing` check above; this catches it before the run starts.
+		// Format guard: `runtime_wasm` is the para's JAM validation code AND the collators'
+		// runtime, and must be the PolkaVM build. A WASM blob here records a WASM hash in
+		// genesis and the real service refuses every candidate — silent 8-minute stall. The
+		// WASM default path passes the `missing` check above; this catches it before the run
+		// starts.
 		check_polkavm_format(&binaries.runtime_wasm)?;
-
-		// Format guard, mirrored: the authoring blob must be the WASM build. A PolkaVM blob here
-		// would be scraped as an override and fail instantiation the moment the collator starts,
-		// deep in the client with a version error; the default path is the WASM build's and
-		// passes `missing`, so this catches the swapped-variable mistake before the run starts.
-		check_authoring_format(&binaries.runtime_authoring)?;
 
 		Ok(binaries)
 	}
@@ -194,35 +168,6 @@ fn check_polkavm_format(path: &Path) -> Result<(), String> {
 		 -p parachain-template-runtime",
 		path.display(),
 	))
-}
-
-/// Reject any authoring blob that is a PolkaVM program (`PVM\0` magic).
-///
-/// The authoring blob has to be the WASM build, but unlike [`check_polkavm_format`] there is no
-/// positive magic to demand: the wasm-builder ships it compact+compressed, so its first bytes
-/// are a compression header, not `\0asm`. What is always wrong is a `PVM\0` blob — the fatal
-/// swapped-variable mistake the two differently-named env vars invite.
-fn check_authoring_format(path: &Path) -> Result<(), String> {
-	use std::io::Read;
-	let mut header = [0u8; 4];
-	let n = std::fs::File::open(path)
-		.and_then(|mut f| f.read(&mut header))
-		.map_err(|e| format!("RUNTIME_AUTHORING_WASM: cannot read {}: {e}", path.display()))?;
-	if n < 4 {
-		return Err(format!(
-			"RUNTIME_AUTHORING_WASM: {} is only {n} bytes — too small to be a WASM runtime",
-			path.display(),
-		));
-	}
-	if &header == b"PVM\0" {
-		return Err(format!(
-			"RUNTIME_AUTHORING_WASM: {} is a PolkaVM blob; the collators execute the WASM \
-			 build via --wasm-runtime-overrides instead — build with: cargo build --release \
-			 -p parachain-template-runtime",
-			path.display(),
-		));
-	}
-	Ok(())
 }
 
 /// How `PARASIM_TOOL_BIN` is named in a skip message, wherever it is missed.
@@ -302,39 +247,6 @@ mod tests {
 		);
 	}
 
-	/// The authoring format guard accepts a WASM blob (which may start with a compression
-	/// header — no positive magic is demanded) and rejects a `PVM\0` blob, with a message that
-	/// names the file and gives the WASM build command.
-	///
-	/// Adversarial: only the input file changes between the two halves — the predicate itself is
-	/// not perturbed — so both a false accept and a false reject would surface as a test failure.
-	#[test]
-	fn authoring_format_guard_accepts_wasm_and_rejects_polkavm() {
-		let dir = tempfile::tempdir().expect("temp dir; qed");
-
-		let wasm = dir.path().join("runtime.wasm");
-		std::fs::write(&wasm, b"\0asm\x01\0\0\0more-content").expect("write; qed");
-		check_authoring_format(&wasm).expect("a WASM blob must pass the authoring guard");
-
-		// The wasm-builder ships the runtime compact+compressed, so the first bytes are a
-		// compression header, not `\0asm` — that must pass too.
-		let compressed = dir.path().join("runtime.compact.wasm");
-		std::fs::write(&compressed, b"\x28\xb5\x2f\xfdcompressed-content").expect("write; qed");
-		check_authoring_format(&compressed).expect("a compressed WASM blob must pass too");
-
-		let pvf = dir.path().join("runtime.polkavm");
-		std::fs::write(&pvf, b"PVM\0some-content").expect("write; qed");
-		let err = check_authoring_format(&pvf).expect_err("a PolkaVM blob must be rejected");
-		assert!(
-			err.contains("PolkaVM blob"),
-			"error must say the blob is PolkaVM: {err}",
-		);
-		assert!(
-			err.contains("wasm-runtime-overrides"),
-			"error must name what the WASM build is for: {err}",
-		);
-	}
-
 	/// The mandatory set for the real-service path resolves when all required files are present
 	/// and `PARASIM_BLOB` is absent — the target test must not skip merely because the mock blob
 	/// is missing.
@@ -350,13 +262,11 @@ mod tests {
 		let auth_blob = dir.path().join("authorizer.jam");
 		let omni_node = dir.path().join("polkadot-omni-node");
 		let runtime = dir.path().join("runtime.polkavm");
-		let authoring = dir.path().join("runtime.wasm");
 
 		for path in [&jam_node, &service_blob, &auth_blob, &omni_node] {
 			std::fs::write(path, b"placeholder").expect("write; qed");
 		}
 		std::fs::write(&runtime, b"PVM\0placeholder").expect("write; qed");
-		std::fs::write(&authoring, b"\0asmplaceholder").expect("write; qed");
 
 		// Happy path: the real-service mandatory set, with PARASIM_BLOB absent.
 		let wanted: Vec<(&str, &PathBuf)> = vec![
@@ -365,7 +275,6 @@ mod tests {
 			("AUTHORIZER_BLOB", &auth_blob),
 			("OMNI_NODE_BIN", &omni_node),
 			("RUNTIME_WASM", &runtime),
-			("RUNTIME_AUTHORING_WASM", &authoring),
 			// PARASIM_BLOB is deliberately not in this list.
 		];
 		assert!(

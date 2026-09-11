@@ -45,10 +45,6 @@ pub struct JamTarget {
 	/// collators must hash the very same bytes — PVM builds are not byte-deterministic, so the
 	/// build output is not a safe substitute.
 	pub authorizer_blob: PathBuf,
-	/// The directory holding the frozen WASM authoring runtime, passed as
-	/// `--wasm-runtime-overrides`: the collators *execute* the WASM build while the chain's
-	/// `:code` — and so the validation-code hash they declare — stays the PolkaVM blob.
-	pub wasm_overrides_dir: PathBuf,
 }
 
 /// One parachain of a run: the id it collates under, the core its work packages are authorized
@@ -132,13 +128,10 @@ impl Collators {
 				// hash.
 				.arg("--jam-authorizer-blob")
 				.arg(&jam.authorizer_blob)
-				// The chain's `:code` is the PolkaVM blob JAM validates with, whose in-blob
-				// crypto stubs panic on riscv — so the collator executes the WASM build of the
-				// same runtime instead, via a local override that matches by spec_version. The
-				// hash it declares (`code_at`) still reads the on-chain PolkaVM bytes, because
-				// overrides apply only to execution, never to that read.
-				.arg("--wasm-runtime-overrides")
-				.arg(&jam.wasm_overrides_dir)
+				// The chain's `:code` is the PolkaVM blob JAM validates with — and the only
+				// runtime the collator executes now: `polkavm_env` turns on the PolkaVM
+				// executor, which constructs that blob. The hash it declares (`code_at`) reads
+				// the same bytes it runs.
 				// Discovery is explicit: without this the collators would find, and try to sync
 				// with, any other parachain node running on this machine.
 				.arg("--no-mdns")

@@ -20,7 +20,9 @@ use super::*;
 use crate::mock::*;
 
 use alloc::collections::BTreeMap;
+use codec::{Decode, Encode};
 use core::num::NonZeroU32;
+use cumulus_primitives_additional_data::{JamProofReader, JamStateExt, JAM_PROOF_KEY};
 use cumulus_primitives_core::{
 	relay_chain::ApprovedPeerId, AbridgedHrmpChannel, ClaimQueueOffset, CoreInfo, CoreSelector,
 	InboundDownwardMessage, InboundHrmpMessage, CUMULUS_CONSENSUS_ID,
@@ -28,11 +30,16 @@ use cumulus_primitives_core::{
 use cumulus_primitives_parachain_inherent::{
 	v0, INHERENT_IDENTIFIER, PARACHAIN_INHERENT_IDENTIFIER_V0,
 };
+use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use frame_support::{assert_ok, parameter_types, weights::Weight};
 use frame_system::RawOrigin;
 use hex_literal::hex;
+use jam_state_helpers as jam_helpers;
 use rand::Rng;
 use relay_chain::HrmpChannelId;
+use sp_additional_data::{
+	hash_commitments, hash_value, AdditionalDataExt, AdditionalDataFinalizer,
+};
 use sp_core::H256;
 use sp_inherents::InherentDataProvider;
 use sp_runtime::DigestItem;
@@ -1828,4 +1835,314 @@ fn ump_signals_are_sent_correctly() {
 				},
 			);
 	}
+}
+
+/// The riscv (parachain-service) branch reads the included para head from JAM state.
+///
+/// `read_included_para_head_jam` is the `#[cfg(all(substrate_runtime, riscv))]` branch of
+/// `read_included_para_head`, compiled on host test builds via `cfg(test)` and reached here
+/// directly (the public entry point stays on the relay branch on host).
+#[test]
+fn read_included_para_head_reads_from_jam_state() {
+	let head = relay_chain::HeadData(vec![0xca, 0xfe, 0x00, 0x01]);
+	let para_info = jam_state_helpers::ParaInfo {
+		head_data: parachain_service_interface::types::HeadData::try_from(head.0.clone())
+			.expect("4 bytes < 4 KiB; qed"),
+		validation_code: None,
+		pending_upgrade: None,
+		total_state_balance: 0,
+		used_state_balance: 0,
+		is_deregistering: false,
+	};
+	let mut jam_reads = BTreeMap::new();
+	jam_reads.insert(
+		jam_state_helpers::para_info_key(parachain_service_interface::types::ParaId::from(200)),
+		para_info.encode(),
+	);
+
+	// `new_test_ext` clears the mock stores, so seed them after building the externality.
+	let mut ext = new_test_ext();
+	set_mock_jam_reads(jam_reads);
+	ext.execute_with(|| {
+		let proof = RelayChainStateProof::new(ParaId::from(200));
+		assert_eq!(proof.read_included_para_head_jam().unwrap(), head);
+	});
+}
+
+/// The host/wasm branch reads the included para head from the relay chain state proof.
+#[test]
+fn read_included_para_head_reads_from_relay_state() {
+	let head = relay_chain::HeadData(vec![0xde, 0xad, 0xbe, 0xef]);
+	let mut proof_builder = RelayStateSproofBuilder::default();
+	proof_builder.included_para_head = Some(head.clone());
+	let (root, proof) = proof_builder.into_state_root_and_proof();
+
+	// `new_test_ext` clears the mock stores, so seed them after building the externality.
+	let mut ext = new_test_ext();
+	set_mock_relay_reads(root, proof);
+	ext.execute_with(|| {
+		let relay_state_proof = RelayChainStateProof::new(ParaId::from(200));
+		assert_eq!(relay_state_proof.read_included_para_head().unwrap(), head);
+	});
+}
+
+/// An absent JAM `ParaInfo` key falls back to the relay chain state proof (interim task 8 → 11
+/// behaviour: byte-identical to pre-task-8), so the read still returns the relay head.
+#[test]
+fn read_included_para_head_jam_absent_key_falls_back_to_relay() {
+	let head = relay_chain::HeadData(vec![0xde, 0xad, 0xbe, 0xef]);
+	let mut proof_builder = RelayStateSproofBuilder::default();
+	proof_builder.included_para_head = Some(head.clone());
+	let (root, proof) = proof_builder.into_state_root_and_proof();
+
+	// `new_test_ext` clears the mock stores, so seed them after building the externality.
+	let mut ext = new_test_ext();
+	set_mock_jam_reads(BTreeMap::new());
+	set_mock_relay_reads(root, proof);
+	ext.execute_with(|| {
+		let proof = RelayChainStateProof::new(ParaId::from(200));
+		assert_eq!(proof.read_included_para_head_jam().unwrap(), head);
+	});
+}
+
+/// A malformed `ParaInfo` payload in JAM state is a decode error, not a panic.
+#[test]
+fn read_included_para_head_jam_malformed_value_errors() {
+	let mut jam_reads = BTreeMap::new();
+	jam_reads.insert(
+		jam_state_helpers::para_info_key(parachain_service_interface::types::ParaId::from(200)),
+		vec![0xff, 0x00, 0x01], // not a valid `ParaInfo` SCALE encoding
+	);
+
+	// `new_test_ext` clears the mock stores, so seed them after building the externality.
+	let mut ext = new_test_ext();
+	set_mock_jam_reads(jam_reads);
+	ext.execute_with(|| {
+		let proof = RelayChainStateProof::new(ParaId::from(200));
+		assert!(matches!(
+			proof.read_included_para_head_jam(),
+			Err(relay_state_snapshot::Error::ParaHead(relay_state_snapshot::ReadEntryErr::Decode))
+		));
+	});
+}
+
+/// A JAM state trie for tests: builds the Gray-Paper binary-trie nodes for a set of key/value
+/// entries and can emit a proof for the whole trie. Independent merklization, mirroring the
+/// `Trie` helper in `cumulus-primitives-additional-data`'s `jam_proof.rs` tests (which pins the
+/// layout against polkajam's own trie).
+struct JamTrie {
+	nodes: Vec<jam_helpers::ProofNode>,
+	root: jam_helpers::Hash,
+}
+
+impl JamTrie {
+	fn new(mut entries: Vec<(jam_helpers::StateKey, Vec<u8>)>) -> Self {
+		entries.sort_by_key(|(a, _)| *a);
+		let mut trie = JamTrie { nodes: Vec::new(), root: [0u8; 32] };
+		trie.root = trie.hash_subtree(0, &entries);
+		trie
+	}
+
+	fn hash_subtree(
+		&mut self,
+		depth: usize,
+		entries: &[(jam_helpers::StateKey, Vec<u8>)],
+	) -> jam_helpers::Hash {
+		match entries {
+			[] => [0u8; 32],
+			[(key, value)] => self.push(jam_leaf_node(key, value)),
+			_ => {
+				let (left, right): (Vec<_>, Vec<_>) =
+					entries.iter().cloned().partition(|(key, _)| jam_bit_at(key, depth) == 0);
+				let left = self.hash_subtree(depth + 1, &left);
+				let right = self.hash_subtree(depth + 1, &right);
+				self.push(jam_branch_node(&left, &right))
+			},
+		}
+	}
+
+	fn push(&mut self, node: jam_helpers::ProofNode) -> jam_helpers::Hash {
+		let hash = jam_helpers::blake2_256(&node);
+		self.nodes.push(node);
+		hash
+	}
+
+	fn proof(&self) -> jam_helpers::StateProof {
+		jam_helpers::StateProof { nodes: self.nodes.clone(), values: Vec::new() }
+	}
+}
+
+fn jam_bit_at(key: &jam_helpers::StateKey, depth: usize) -> u8 {
+	(key[depth / 8] >> (7 - (depth % 8))) & 1
+}
+
+fn jam_leaf_node(key: &jam_helpers::StateKey, value: &[u8]) -> jam_helpers::ProofNode {
+	let mut node = [0u8; 64];
+	node[1..32].copy_from_slice(key);
+	if value.len() > 32 {
+		node[0] = 0b1100_0000;
+		node[32..].copy_from_slice(&jam_helpers::blake2_256(value));
+	} else {
+		node[0] = 0b1000_0000 | value.len() as u8;
+		node[32..32 + value.len()].copy_from_slice(value);
+	}
+	node
+}
+
+fn jam_branch_node(left: &jam_helpers::Hash, right: &jam_helpers::Hash) -> jam_helpers::ProofNode {
+	let mut node = [0u8; 64];
+	node[..32].copy_from_slice(left);
+	node[32..].copy_from_slice(right);
+	node[0] &= 0b0111_1111;
+	node
+}
+
+/// The parachain service's id these tests build proofs for; must match the runtime constant the
+/// reader derives state keys with.
+const JAM_SERVICE_ID: u32 = 5;
+
+/// A `ParaInfo` with `head` as head data, SCALE-encoded as stored in the parachain service.
+fn jam_para_info(head: &[u8]) -> Vec<u8> {
+	let para_info = jam_helpers::ParaInfo {
+		head_data: parachain_service_interface::types::HeadData::try_from(head.to_vec())
+			.expect("head is shorter than 4 KiB; qed"),
+		validation_code: None,
+		pending_upgrade: None,
+		total_state_balance: 0,
+		used_state_balance: 0,
+		is_deregistering: false,
+	};
+	para_info.encode()
+}
+
+/// The state key of `para_id`'s `ParaInfo` entry in the parachain service.
+fn jam_para_info_state_key(para_id: u32) -> jam_helpers::StateKey {
+	jam_helpers::service_value_state_key(
+		JAM_SERVICE_ID,
+		&jam_helpers::para_info_key(parachain_service_interface::types::ParaId::from(para_id)),
+	)
+}
+
+/// The riscv refine read is served from the JAM state proof carried in the PoV, verified against
+/// the trusted anchor state root — the head comes from the proof, with no live state access and no
+/// relay fallback. Mirrors the relay override's end-to-end tests, which run the same proof-backed
+/// reader against the carried entry.
+#[test]
+fn read_included_para_head_reads_from_carried_jam_proof() {
+	let head = relay_chain::HeadData(vec![0xca, 0xfe, 0x00, 0x01]);
+	let encoded = jam_para_info(&head.0);
+	let trie = JamTrie::new(vec![(jam_para_info_state_key(200), encoded)]);
+
+	// The PoV carries the `(state_root, proof)` entry; build the reader the way `validate_block`
+	// does, from the decoded entry, against the trusted anchor state root.
+	let entry = (trie.root, &trie.proof()).encode();
+	let (root, proof) = <([u8; 32], jam_helpers::StateProof)>::decode(&mut &entry[..])
+		.expect("entry decodes as (state_root, proof)");
+	let reader = JamProofReader::new(JAM_SERVICE_ID, root, proof);
+
+	let mut ext = new_test_ext();
+	ext.register_extension(JamStateExt(Box::new(reader)));
+	ext.execute_with(|| {
+		let proof = RelayChainStateProof::new(ParaId::from(200));
+		assert_eq!(proof.read_included_para_head_jam().unwrap(), head);
+	});
+}
+
+/// A carried proof that shows the `ParaInfo` key absent (a different para's leaf sits on the
+/// walk) reads `None` through `jam_state_read`, and the read falls back to the relay head — the
+/// genesis / not-yet-registered case, unchanged from before.
+#[test]
+fn read_included_para_head_jam_absent_in_carried_proof_falls_back_to_relay() {
+	let head = relay_chain::HeadData(vec![0xde, 0xad, 0xbe, 0xef]);
+	let mut proof_builder = RelayStateSproofBuilder::default();
+	proof_builder.included_para_head = Some(head.clone());
+	let (relay_root, relay_proof) = proof_builder.into_state_root_and_proof();
+
+	// Prove a *different* para's key: the walk for para 200 reaches that leaf and concludes it is
+	// absent.
+	let other_encoded = jam_para_info(&[0x00, 0x00]);
+	let trie = JamTrie::new(vec![(jam_para_info_state_key(201), other_encoded)]);
+	let reader = JamProofReader::new(JAM_SERVICE_ID, trie.root, trie.proof());
+
+	// `new_test_ext` clears the mock stores, so seed them after building the externality.
+	let mut ext = new_test_ext();
+	ext.register_extension(JamStateExt(Box::new(reader)));
+	set_mock_relay_reads(relay_root, relay_proof);
+	ext.execute_with(|| {
+		let proof = RelayChainStateProof::new(ParaId::from(200));
+		assert_eq!(proof.read_included_para_head_jam().unwrap(), head);
+	});
+}
+
+/// A carried proof missing a node the read needs must panic, never serve `None` — collapsing the
+/// verify error to absence would let a collator suppress a present value by omitting proof nodes.
+#[test]
+#[should_panic(expected = "cannot authenticate the requested key")]
+fn read_included_para_head_jam_tampered_proof_panics() {
+	let head = relay_chain::HeadData(vec![0xca, 0xfe, 0x00, 0x01]);
+	let encoded = jam_para_info(&head.0);
+	let state_key = jam_para_info_state_key(200);
+	let trie = JamTrie::new(vec![(state_key, encoded.clone())]);
+	let mut proof = trie.proof();
+	proof.nodes.retain(|node| node != &jam_leaf_node(&state_key, &encoded));
+	let reader = JamProofReader::new(JAM_SERVICE_ID, trie.root, proof);
+
+	let mut ext = new_test_ext();
+	ext.register_extension(JamStateExt(Box::new(reader)));
+	ext.execute_with(|| {
+		let proof = RelayChainStateProof::new(ParaId::from(200));
+		let _ = proof.read_included_para_head_jam();
+	});
+}
+
+/// Test mirror of `validate_block_core`'s JAM-proof finalizer: commits `hash_value` of the exact
+/// carried `JAM_PROOF_KEY` entry bytes.
+struct JamProofFinalizer {
+	commitment: [u8; 32],
+}
+
+impl AdditionalDataFinalizer for JamProofFinalizer {
+	fn finalize(&self) -> Option<[u8; 32]> {
+		Some(self.commitment)
+	}
+}
+
+/// The JAM refine digest fold: a carried `JAM_PROOF_KEY` entry arms both the proof-backed reader
+/// (serving `read_included_para_head_jam`) and the digest finalizer, and the registry fold
+/// recomputes exactly the `DigestItem::AdditionalData` the collator committed at authoring —
+/// `hash_commitments([hash_value(entry)])` — the very digest `frame_executive::final_checks`
+/// compares on refine (a missing finalizer leaves the recomputed digest empty and the 3-vs-2
+/// digest-count panic).
+#[test]
+fn carried_jam_proof_finalizes_to_authored_digest() {
+	let head = relay_chain::HeadData(vec![0xca, 0xfe, 0x00, 0x01]);
+	let encoded = jam_para_info(&head.0);
+	let trie = JamTrie::new(vec![(jam_para_info_state_key(200), encoded)]);
+	let entry = (trie.root, &trie.proof()).encode();
+
+	// Build the reader + finalizer pair the way `validate_block_core` does, from the carried
+	// `JAM_PROOF_KEY` entry.
+	let (root, proof) = <([u8; 32], jam_helpers::StateProof)>::decode(&mut &entry[..])
+		.expect("entry decodes as (state_root, proof)");
+	let reader = JamProofReader::new(JAM_SERVICE_ID, root, proof);
+	let finalizer = JamProofFinalizer { commitment: hash_value(&entry) };
+
+	let mut ext = new_test_ext();
+	ext.register_extension(JamStateExt(Box::new(reader)));
+	ext.register_extension(AdditionalDataExt(
+		[(JAM_PROOF_KEY.to_string(), Box::new(finalizer) as Box<dyn AdditionalDataFinalizer>)]
+			.into(),
+	));
+	ext.execute_with(|| {
+		// The reader keeps serving the included head through `jam_state_read`.
+		let proof = RelayChainStateProof::new(ParaId::from(200));
+		assert_eq!(proof.read_included_para_head_jam().unwrap(), head);
+
+		// The finalizer commits the carried entry, and the registry fold — the same one
+		// `frame_executive::note_additional_data` performs — recomputes the authored digest.
+		assert_eq!(
+			sp_additional_data::additional_data::finalize(),
+			hash_commitments(core::iter::once(hash_value(&entry)))
+		);
+	});
 }

@@ -28,6 +28,82 @@ use sp_core::{
 	crypto::{KeyTypeId, Pair},
 	ecdsa, ed25519, sr25519,
 };
+use sp_runtime_interface::pack_ptr_and_len;
+
+// Forwarding externs for the keystore-dependent `crypto` host calls. The keystore lives on the
+// node: on riscv the runtime forwards these calls through `ecalli` and the node's
+// `crypto::HostFunctions` serve them from the authoritative `KeystoreExt` (the version-2 raw API
+// in `host_functions/crypto.rs`, where the `PublicKeysCacheExt` result caching also lives). Each
+// extern's name byte-matches the host-registered `ext_crypto_<fn>_version_2` function so the
+// node-side polkavm linker resolves the import by symbol (`polkavm::Linker::instantiate_pre`);
+// the index fixes the blob import slot. Keep the allocation in `host_functions/mod.rs` in sync;
+// nothing may pass 343 in this change.
+#[polkavm_derive::polkavm_import]
+extern "C" {
+	/// Forward `crypto::ed25519_generate_version_2`: generate an ed25519 key in the node
+	/// keystore and write the 32-byte public key into `out`.
+	#[polkavm_import(index = 328)]
+	fn ext_crypto_ed25519_generate_version_2(id_ptr: u32, seed: u64, out_ptr: u32);
+
+	/// Forward `crypto::ed25519_public_keys_version_2`: write all ed25519 public keys for `id`
+	/// into `out`, returning the full byte count whether or not the buffer was written.
+	#[polkavm_import(index = 329)]
+	fn ext_crypto_ed25519_public_keys_version_2(id_ptr: u32, out_ptr_len: u64) -> u32;
+
+	/// Forward `crypto::ed25519_sign_version_2`: sign `msg` with the ed25519 key matching
+	/// `pub_key` and write the 64-byte signature into `out`; `0` is `Ok`, any other value `Err`.
+	#[polkavm_import(index = 330)]
+	fn ext_crypto_ed25519_sign_version_2(
+		id_ptr: u32,
+		pub_key_ptr: u32,
+		msg_ptr_len: u64,
+		out_ptr: u32,
+	) -> i32;
+
+	/// Forward `crypto::sr25519_generate_version_2`; see `ext_crypto_ed25519_generate_version_2`.
+	#[polkavm_import(index = 331)]
+	fn ext_crypto_sr25519_generate_version_2(id_ptr: u32, seed: u64, out_ptr: u32);
+
+	/// Forward `crypto::sr25519_public_keys_version_2`; see the ed25519 analog.
+	#[polkavm_import(index = 332)]
+	fn ext_crypto_sr25519_public_keys_version_2(id_ptr: u32, out_ptr_len: u64) -> u32;
+
+	/// Forward `crypto::sr25519_sign_version_2`; see `ext_crypto_ed25519_sign_version_2`.
+	#[polkavm_import(index = 333)]
+	fn ext_crypto_sr25519_sign_version_2(
+		id_ptr: u32,
+		pub_key_ptr: u32,
+		msg_ptr_len: u64,
+		out_ptr: u32,
+	) -> i32;
+
+	/// Forward `crypto::ecdsa_generate_version_2`: write the 33-byte ecdsa public key into `out`.
+	#[polkavm_import(index = 334)]
+	fn ext_crypto_ecdsa_generate_version_2(id_ptr: u32, seed: u64, out_ptr: u32);
+
+	/// Forward `crypto::ecdsa_public_keys_version_2`; see `ext_crypto_ed25519_public_keys_version_2`.
+	#[polkavm_import(index = 335)]
+	fn ext_crypto_ecdsa_public_keys_version_2(id_ptr: u32, out_ptr_len: u64) -> u32;
+
+	/// Forward `crypto::ecdsa_sign_version_2`: write the 65-byte ecdsa signature into `out`.
+	#[polkavm_import(index = 336)]
+	fn ext_crypto_ecdsa_sign_version_2(
+		id_ptr: u32,
+		pub_key_ptr: u32,
+		msg_ptr_len: u64,
+		out_ptr: u32,
+	) -> i32;
+
+	/// Forward `crypto::ecdsa_sign_prehashed_version_2`: sign the 32-byte pre-hashed `msg`
+	/// (passed by pointer, not by fat pointer) with the ecdsa key matching `pub_key`.
+	#[polkavm_import(index = 337)]
+	fn ext_crypto_ecdsa_sign_prehashed_version_2(
+		id_ptr: u32,
+		pub_key_ptr: u32,
+		msg_ptr: u32,
+		out_ptr: u32,
+	) -> i32;
+}
 /// Native PolkaVM/JAM implementation of `bandersnatch_generate`.
 #[cfg(feature = "bandersnatch-experimental")]
 pub fn bandersnatch_generate(_id: KeyTypeId, _seed: Option<Vec<u8>>) -> bandersnatch::Public {
@@ -71,35 +147,75 @@ pub fn ecdsa_bls381_generate(_id: KeyTypeId, _seed: Option<Vec<u8>>) -> ecdsa_bl
 }
 
 /// Native PolkaVM/JAM implementation of `ecdsa_generate__raw`.
-pub fn ecdsa_generate__raw(_id: KeyTypeId, _seed: Option<Vec<u8>>, _out: &mut ecdsa::Public) {
-	panic!("`crypto::ecdsa_generate__raw` needs node-side state and has no in-blob implementation")
+pub fn ecdsa_generate__raw(id: KeyTypeId, seed: Option<Vec<u8>>, out: &mut ecdsa::Public) {
+	let seed = seed.encode();
+	let out_mut: &mut [u8] = (*out).as_mut();
+	unsafe {
+		ext_crypto_ecdsa_generate_version_2(
+			id.as_ref().as_ptr() as u32,
+			pack_ptr_and_len(seed.as_ptr() as u32, seed.len() as u32),
+			out_mut.as_ptr() as u32,
+		)
+	}
 }
 
 /// Native PolkaVM/JAM implementation of `ecdsa_public_keys__raw`.
-pub fn ecdsa_public_keys__raw(_id: KeyTypeId, _out: &mut [ecdsa::Public]) -> u32 {
-	panic!(
-		"`crypto::ecdsa_public_keys__raw` needs node-side state and has no in-blob implementation"
-	)
+pub fn ecdsa_public_keys__raw(id: KeyTypeId, out: &mut [ecdsa::Public]) -> u32 {
+	unsafe {
+		ext_crypto_ecdsa_public_keys_version_2(
+			id.as_ref().as_ptr() as u32,
+			pack_ptr_and_len(out.as_ptr() as u32, core::mem::size_of_val(out) as u32),
+		)
+	}
 }
 
 /// Native PolkaVM/JAM implementation of `ecdsa_sign__raw`.
 pub fn ecdsa_sign__raw(
-	_id: KeyTypeId,
-	_pub_key: &ecdsa::Public,
-	_msg: &[u8],
-	_out: &mut ecdsa::Signature,
+	id: KeyTypeId,
+	pub_key: &ecdsa::Public,
+	msg: &[u8],
+	out: &mut ecdsa::Signature,
 ) -> Result<(), ()> {
-	panic!("`crypto::ecdsa_sign__raw` needs node-side state and has no in-blob implementation")
+	let pub_key_ref: &[u8] = (*pub_key).as_ref();
+	let out_mut: &mut [u8] = (*out).as_mut();
+	let result = unsafe {
+		ext_crypto_ecdsa_sign_version_2(
+			id.as_ref().as_ptr() as u32,
+			pub_key_ref.as_ptr() as u32,
+			pack_ptr_and_len(msg.as_ptr() as u32, msg.len() as u32),
+			out_mut.as_ptr() as u32,
+		)
+	};
+	if result == 0 {
+		Ok(())
+	} else {
+		Err(())
+	}
 }
 
 /// Native PolkaVM/JAM implementation of `ecdsa_sign_prehashed__raw`.
 pub fn ecdsa_sign_prehashed__raw(
-	_id: KeyTypeId,
-	_pub_key: &ecdsa::Public,
-	_msg: &[u8; 32],
-	_out: &mut ecdsa::Signature,
+	id: KeyTypeId,
+	pub_key: &ecdsa::Public,
+	msg: &[u8; 32],
+	out: &mut ecdsa::Signature,
 ) -> Result<(), ()> {
-	panic!("`crypto::ecdsa_sign_prehashed__raw` needs node-side state and has no in-blob implementation")
+	let pub_key_ref: &[u8] = (*pub_key).as_ref();
+	let msg_ref: &[u8] = (*msg).as_ref();
+	let out_mut: &mut [u8] = (*out).as_mut();
+	let result = unsafe {
+		ext_crypto_ecdsa_sign_prehashed_version_2(
+			id.as_ref().as_ptr() as u32,
+			pub_key_ref.as_ptr() as u32,
+			msg_ref.as_ptr() as u32,
+			out_mut.as_ptr() as u32,
+		)
+	};
+	if result == 0 {
+		Ok(())
+	} else {
+		Err(())
+	}
 }
 
 /// Native PolkaVM/JAM implementation of `ecdsa_verify`.
@@ -117,25 +233,50 @@ pub fn ecdsa_verify_prehashed(
 }
 
 /// Native PolkaVM/JAM implementation of `ed25519_generate__raw`.
-pub fn ed25519_generate__raw(_id: KeyTypeId, _seed: Option<Vec<u8>>, _out: &mut ed25519::Public) {
-	panic!(
-		"`crypto::ed25519_generate__raw` needs node-side state and has no in-blob implementation"
-	)
+pub fn ed25519_generate__raw(id: KeyTypeId, seed: Option<Vec<u8>>, out: &mut ed25519::Public) {
+	let seed = seed.encode();
+	let out_mut: &mut [u8] = (*out).as_mut();
+	unsafe {
+		ext_crypto_ed25519_generate_version_2(
+			id.as_ref().as_ptr() as u32,
+			pack_ptr_and_len(seed.as_ptr() as u32, seed.len() as u32),
+			out_mut.as_ptr() as u32,
+		)
+	}
 }
 
 /// Native PolkaVM/JAM implementation of `ed25519_public_keys__raw`.
-pub fn ed25519_public_keys__raw(_id: KeyTypeId, _out: &mut [ed25519::Public]) -> u32 {
-	panic!("`crypto::ed25519_public_keys__raw` needs node-side state and has no in-blob implementation")
+pub fn ed25519_public_keys__raw(id: KeyTypeId, out: &mut [ed25519::Public]) -> u32 {
+	unsafe {
+		ext_crypto_ed25519_public_keys_version_2(
+			id.as_ref().as_ptr() as u32,
+			pack_ptr_and_len(out.as_ptr() as u32, core::mem::size_of_val(out) as u32),
+		)
+	}
 }
 
 /// Native PolkaVM/JAM implementation of `ed25519_sign__raw`.
 pub fn ed25519_sign__raw(
-	_id: KeyTypeId,
-	_pub_key: &ed25519::Public,
-	_msg: &[u8],
-	_out: &mut ed25519::Signature,
+	id: KeyTypeId,
+	pub_key: &ed25519::Public,
+	msg: &[u8],
+	out: &mut ed25519::Signature,
 ) -> Result<(), ()> {
-	panic!("`crypto::ed25519_sign__raw` needs node-side state and has no in-blob implementation")
+	let pub_key_ref: &[u8] = (*pub_key).as_ref();
+	let out_mut: &mut [u8] = (*out).as_mut();
+	let result = unsafe {
+		ext_crypto_ed25519_sign_version_2(
+			id.as_ref().as_ptr() as u32,
+			pub_key_ref.as_ptr() as u32,
+			pack_ptr_and_len(msg.as_ptr() as u32, msg.len() as u32),
+			out_mut.as_ptr() as u32,
+		)
+	};
+	if result == 0 {
+		Ok(())
+	} else {
+		Err(())
+	}
 }
 
 /// Native PolkaVM/JAM implementation of `ed25519_verify`.
@@ -180,25 +321,50 @@ pub fn secp256k1_ecdsa_recover_compressed__raw(
 }
 
 /// Native PolkaVM/JAM implementation of `sr25519_generate__raw`.
-pub fn sr25519_generate__raw(_id: KeyTypeId, _seed: Option<Vec<u8>>, _out: &mut sr25519::Public) {
-	panic!(
-		"`crypto::sr25519_generate__raw` needs node-side state and has no in-blob implementation"
-	)
+pub fn sr25519_generate__raw(id: KeyTypeId, seed: Option<Vec<u8>>, out: &mut sr25519::Public) {
+	let seed = seed.encode();
+	let out_mut: &mut [u8] = (*out).as_mut();
+	unsafe {
+		ext_crypto_sr25519_generate_version_2(
+			id.as_ref().as_ptr() as u32,
+			pack_ptr_and_len(seed.as_ptr() as u32, seed.len() as u32),
+			out_mut.as_ptr() as u32,
+		)
+	}
 }
 
 /// Native PolkaVM/JAM implementation of `sr25519_public_keys__raw`.
-pub fn sr25519_public_keys__raw(_id: KeyTypeId, _out: &mut [sr25519::Public]) -> u32 {
-	panic!("`crypto::sr25519_public_keys__raw` needs node-side state and has no in-blob implementation")
+pub fn sr25519_public_keys__raw(id: KeyTypeId, out: &mut [sr25519::Public]) -> u32 {
+	unsafe {
+		ext_crypto_sr25519_public_keys_version_2(
+			id.as_ref().as_ptr() as u32,
+			pack_ptr_and_len(out.as_ptr() as u32, core::mem::size_of_val(out) as u32),
+		)
+	}
 }
 
 /// Native PolkaVM/JAM implementation of `sr25519_sign__raw`.
 pub fn sr25519_sign__raw(
-	_id: KeyTypeId,
-	_pub_key: &sr25519::Public,
-	_msg: &[u8],
-	_out: &mut sr25519::Signature,
+	id: KeyTypeId,
+	pub_key: &sr25519::Public,
+	msg: &[u8],
+	out: &mut sr25519::Signature,
 ) -> Result<(), ()> {
-	panic!("`crypto::sr25519_sign__raw` needs node-side state and has no in-blob implementation")
+	let pub_key_ref: &[u8] = (*pub_key).as_ref();
+	let out_mut: &mut [u8] = (*out).as_mut();
+	let result = unsafe {
+		ext_crypto_sr25519_sign_version_2(
+			id.as_ref().as_ptr() as u32,
+			pub_key_ref.as_ptr() as u32,
+			pack_ptr_and_len(msg.as_ptr() as u32, msg.len() as u32),
+			out_mut.as_ptr() as u32,
+		)
+	};
+	if result == 0 {
+		Ok(())
+	} else {
+		Err(())
+	}
 }
 
 /// Native PolkaVM/JAM implementation of `sr25519_verify`.

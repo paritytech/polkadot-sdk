@@ -17,7 +17,6 @@
 use crate::{
 	cli::{AuthoringPolicy, DevSealMode, JamNodeParams},
 	common::{
-		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 		aura::{AuraIdT, AuraRuntimeApi},
 		rpc::{BuildParachainRpcExtensions, BuildRpcExtensions},
 		spec::{
@@ -28,6 +27,7 @@ use crate::{
 			AccountId, Balance, Hash, Nonce, ParachainBackend, ParachainBlockImport,
 			ParachainClient,
 		},
+		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
 	nodes::jam,
 };
@@ -50,22 +50,22 @@ use cumulus_client_consensus_common as consensus_common;
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_primitives_core::{
-	CollectCollationInfo, GetParachainInfo, ParaId, RelayParentOffsetApi, TargetBlockRate,
-	relay_chain::ValidationCode,
+	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId,
+	RelayParentOffsetApi, TargetBlockRate,
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
-use futures::{FutureExt, prelude::*};
+use futures::{prelude::*, FutureExt};
 use jam_rpc_interface::JamRpcInterface;
 use polkadot_primitives::{CollatorPair, UpgradeGoAhead};
 use prometheus_endpoint::Registry;
 use sc_client_api::{Backend, BlockchainEvents};
 use sc_client_db::DbHash;
 use sc_consensus::{
-	BlockImportParams, DefaultImportQueue, LongestChain,
 	import_queue::{BasicQueue, Verifier as VerifierT},
+	BlockImportParams, DefaultImportQueue, LongestChain,
 };
 use sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider;
-use sc_network::{NetworkBlock, NotificationMetrics, PeerId, config::FullNetworkConfiguration};
+use sc_network::{config::FullNetworkConfiguration, NetworkBlock, NotificationMetrics, PeerId};
 use sc_service::{Configuration, Error, PartialComponents, TaskManager};
 use sc_storage_chain_sync::StorageChainBlockImport;
 use sc_telemetry::TelemetryHandle;
@@ -127,13 +127,17 @@ where
 	BlockImport:
 		sc_consensus::BlockImport<Block, Error = sp_consensus::Error> + Send + Sync + 'static,
 {
-	fn build_import_queue(
+	fn build_import_queue<QueuedBI>(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
-		block_import: ParachainBlockImport<Block, BlockImport>,
+		block_import: QueuedBI,
 		config: &Configuration,
 		telemetry_handle: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
-	) -> sc_service::error::Result<DefaultImportQueue<Block>> {
+	) -> sc_service::error::Result<DefaultImportQueue<Block>>
+	where
+		QueuedBI:
+			sc_consensus::BlockImport<Block, Error = sp_consensus::Error> + Send + Sync + 'static,
+	{
 		let inherent_data_providers =
 			move |_, _| async move { Ok(sp_timestamp::InherentDataProvider::from_system_time()) };
 		let registry = config.prometheus_registry();
@@ -256,7 +260,7 @@ where
 			select_chain: _,
 			transaction_pool,
 			other: (_, mut telemetry, _, _, _),
-		} = Self::new_partial(&config)?;
+		} = Self::new_partial(&config, false)?;
 
 		// Since this is a dev node, prevent it from connecting to peers.
 		config.network.default_peers_set.in_peers = 0;
@@ -341,13 +345,16 @@ where
 			);
 		}
 
-		let proposer = sc_basic_authorship::ProposerFactory::new(
+		// The dev node holds no JAM state, so authoring runs with a proven-absent JAM-state reader
+		// registered: `jam_state_read` answers `-1` instead of trapping on a missing `JamStateExt`
+		// when the runtime is the polkavm JAM blob (task 13).
+		let proposer = jam::JamStateInjectingEnv::new(sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
 			client.clone(),
 			transaction_pool.clone(),
 			None,
 			None,
-		);
+		));
 
 		// Note: Changing slot durations are currently not supported
 		let slot_duration = sc_consensus_aura::slot_duration(&*client)
@@ -536,7 +543,14 @@ where
 			select_chain: _,
 			transaction_pool,
 			other: (block_import, mut telemetry, _, _, _),
-		} = Self::new_partial(&config)?;
+		} = Self::new_partial(&config, true)?;
+
+		// The JAM import path (task 12): wrap the inner import so every block that re-executes on
+		// import does so with the carried JAM state proof registered. The import queue
+		// `new_partial` built is already over this wrapper, so network imports take that path too
+		// and the essential `basic-block-import-worker` it spawned is never orphaned.
+		let block_import =
+			jam::block_import::JamBlockImport::new(block_import.clone(), client.clone());
 
 		let net_config = FullNetworkConfiguration::<_, _, sc_network::Litep2pNetworkBackend>::new(
 			&config.network,
@@ -808,7 +822,7 @@ where
 			Box<dyn std::error::Error + Send + Sync>,
 		>,
 	> + Send
-	+ Sync {
+	       + Sync {
 		const RELAY_CHAIN_SLOT_DURATION_MILLIS: u64 = 6000;
 
 		// Start 2 hours in the past to avoid timestamps immediately running into the future.
