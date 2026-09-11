@@ -16,21 +16,15 @@
 // limitations under the License.
 
 use crate::{
-	signed::RewardSource,
 	verifier::{Config, Event, FeasibilityError, Pallet, Status, StatusStorage},
 	CurrentPhase, Phase,
 };
 use frame_benchmarking::v2::*;
 use frame_election_provider_support::{ElectionProvider, NposSolution};
-use frame_support::{
-	pallet_prelude::*,
-	traits::fungible::{Inspect, Mutate},
-};
+use frame_support::pallet_prelude::*;
 use sp_runtime::traits::Saturating;
+use sp_staking::budget::PaymentSource;
 use sp_std::prelude::*;
-
-/// The currency configured on the signed pallet, which is what reward payouts are drawn from.
-type SignedCurrencyOf<T> = <T as crate::signed::Config>::Currency;
 
 #[benchmarks(where
 	T: crate::Config + crate::signed::Config + crate::unsigned::Config,
@@ -86,17 +80,11 @@ mod benchmarks {
 
 		crate::Pallet::<T>::roll_to_signed_and_submit_full_solution()?;
 
-		// Accepting the solution pays the winner out of `RewardSource`, which holds nothing in
-		// genesis. Fund it so the measured path is the transfer that production takes every era,
-		// rather than the failed-transfer-then-defer fallback. The payout is `RewardBase` plus the
-		// submission's accrued fee, so fund generously; the measured work does not depend on how
-		// much the source holds.
-		if let Some(source) = <T as crate::signed::Config>::RewardSource::account() {
-			let funds = <T as crate::signed::Config>::RewardBase::get()
-				.saturating_mul(2u32.into())
-				.saturating_add(SignedCurrencyOf::<T>::minimum_balance());
-			SignedCurrencyOf::<T>::mint_into(&source, funds)?;
-		}
+		// Make `RewardSource` able to pay, so we measure the payout and not the defer fallback.
+		// Be generous: the payout is `RewardBase` plus the submission's accrued fee.
+		<T as crate::signed::Config>::RewardSource::ensure_can_pay(
+			<T as crate::signed::Config>::RewardBase::get().saturating_mul(2u32.into()),
+		);
 
 		// roll to before the last page of verification
 		crate::Pallet::<T>::roll_until_matches(|| {

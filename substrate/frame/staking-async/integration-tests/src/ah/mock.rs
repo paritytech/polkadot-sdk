@@ -420,8 +420,8 @@ parameter_types! {
 	pub static DepositPerPage: Balance = 1;
 	pub static MaxSubmissions: u32 = 2;
 	pub static RewardBase: Balance = 5;
-	/// The DAP buffer account, used as the signed-phase reward pot.
-	pub SignedRewardPot: Option<AccountId> = Some(Dap::buffer_account());
+	/// Per-drip-period budget of the signed phase's draw on the DAP buffer.
+	pub static SignedRewardDrawBudget: Balance = 1_000;
 }
 
 impl multi_block::signed::Config for Runtime {
@@ -436,7 +436,7 @@ impl multi_block::signed::Config for Runtime {
 	type MaxSubmissions = MaxSubmissions;
 	type RewardBase = RewardBase;
 	type Slash = Dap;
-	type RewardSource = multi_block::signed::ReactivatingPot<SignedRewardPot, Balances>;
+	type RewardSource = pallet_dap::BufferDraw<Runtime, multi_block::signed::RewardBudgetKey>;
 	type WeightInfo = super::weights::MultiBlockElectionWeightInfo;
 }
 
@@ -950,6 +950,13 @@ pub(crate) fn setup_dap() {
 	]));
 
 	pallet_dap::LastIssuanceTimestamp::<Runtime>::put(MockTime::get());
+
+	// Authorise the signed phase to be paid out of the buffer.
+	assert_ok!(Dap::set_draw_budget(
+		RuntimeOrigin::root(),
+		multi_block::signed::RewardBudgetKey::get(),
+		Some(SignedRewardDrawBudget::get()),
+	));
 
 	// Fund general pots with ED to keep them alive.
 	let general_staker = pallet_staking_async::SequentialTest::pot_account(

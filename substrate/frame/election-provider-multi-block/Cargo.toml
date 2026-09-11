@@ -32,6 +32,7 @@ sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-npos-elections = { workspace = true }
 sp-runtime = { workspace = true }
+sp-staking = { workspace = true }
 sp-std = { workspace = true }
 
 # Optional imports for benchmarking
@@ -62,6 +63,7 @@ std = [
 	"sp-io/std",
 	"sp-npos-elections/std",
 	"sp-runtime/std",
+	"sp-staking/std",
 	"sp-std/std",
 	"sp-tracing/std",
 ]
@@ -73,6 +75,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"rand",
 	"sp-runtime/runtime-benchmarks",
+	"sp-staking/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",

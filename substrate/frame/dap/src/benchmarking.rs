@@ -57,6 +57,27 @@ mod benchmarks {
 	}
 
 	#[benchmark]
+	fn set_draw_budget() {
+		// Worst case: a full registry, read and written back in whole.
+		let mut draws = BufferDrawMap::<T>::new();
+		for i in 0..MAX_BUFFER_DRAWS {
+			let key = BudgetKey::truncate_from(alloc::format!("draw{i}").into_bytes());
+			draws
+				.try_insert(key, DrawBudget { limit: 1u32.into(), spent: 0u32.into(), period: 0 })
+				.expect("loop is bounded by MAX_BUFFER_DRAWS; qed");
+		}
+		BufferDraws::<T>::put(draws);
+		let key =
+			BudgetKey::truncate_from(alloc::format!("draw{}", MAX_BUFFER_DRAWS - 1).into_bytes());
+		let limit: BalanceOf<T> = 1_000u32.into();
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, key.clone(), Some(limit));
+
+		assert_eq!(BufferDraws::<T>::get().get(&key).map(|draw| draw.limit), Some(limit));
+	}
+
+	#[benchmark]
 	fn drip_issuance() {
 		let allocations = build_even_allocation::<T>();
 		BudgetAllocation::<T>::put(allocations);

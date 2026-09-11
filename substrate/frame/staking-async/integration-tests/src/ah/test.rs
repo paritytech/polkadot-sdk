@@ -20,11 +20,16 @@ use frame::prelude::Perbill;
 use frame_election_provider_support::Weight;
 use frame_support::{
 	assert_ok, hypothetically,
-	traits::fungible::{hold::Inspect as HoldInspect, Inspect, Mutate, Unbalanced},
+	traits::{
+		fungible::{hold::Inspect as HoldInspect, Inspect, Mutate, Unbalanced},
+		Get,
+	},
 };
 use pallet_election_provider_multi_block::{
-	signed::Event as SignedEvent, unsigned::miner::OffchainWorkerMiner,
-	verifier::Event as VerifierEvent, CurrentPhase, ElectionScore, Event as ElectionEvent, Phase,
+	signed::{Event as SignedEvent, RewardBudgetKey},
+	unsigned::miner::OffchainWorkerMiner,
+	verifier::Event as VerifierEvent,
+	CurrentPhase, ElectionScore, Event as ElectionEvent, Phase,
 };
 use pallet_staking_async::{
 	self as staking_async, session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra,
@@ -1511,7 +1516,66 @@ fn signed_reward_reactivates_dap_buffer_inactive_issuance() {
 		assert_eq!(
 			inactive_before - inactive_after,
 			rewarded,
-			"reactivate() must drop InactiveIssuance by exactly the reward paid"
+			"DAP must drop InactiveIssuance by exactly the reward it paid"
+		);
+
+		// The payout went through DAP, charged against the signed phase's draw.
+		assert!(
+			System::events().into_iter().any(|r| matches!(
+				r.event,
+				RuntimeEvent::Dap(pallet_dap::Event::BufferDrawn { ref key, amount, .. })
+					if *key == RewardBudgetKey::get() && amount == rewarded
+			)),
+			"expected a BufferDrawn event for the reward"
+		);
+	});
+}
+
+#[test]
+fn signed_reward_is_deferred_once_the_draw_budget_is_spent() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		pallet_dap::BudgetAllocation::<T>::put(build_budget(&[(staker_reward_key(), 100)]));
+
+		// Plenty of funds in the buffer, but the draw may only take a fraction of one reward.
+		Balances::mint_into(&Dap::buffer_account(), 1_000).unwrap();
+		<Balances as Unbalanced<AccountId>>::deactivate(1_000);
+		assert_ok!(Dap::set_draw_budget(RuntimeOrigin::root(), RewardBudgetKey::get(), Some(1),));
+
+		assert_ok!(rc_client::Pallet::<T>::relay_session_report(
+			RuntimeOrigin::root(),
+			rc_client::SessionReport {
+				end_index: 0,
+				validator_points: vec![(1, 10)],
+				activation_timestamp: None,
+				leftover: false,
+			}
+		));
+
+		roll_until_matches(|| MultiBlock::current_phase().is_signed(), false);
+
+		let solution = OffchainWorkerMiner::<T>::mine_solution(3, true).unwrap();
+		assert_ok!(MultiBlockSigned::register(RuntimeOrigin::signed(1), solution.score));
+		for (index, page) in solution.solution_pages.into_iter().enumerate() {
+			assert_ok!(MultiBlockSigned::submit_page(
+				RuntimeOrigin::signed(1),
+				index as u32,
+				Some(Box::new(page))
+			));
+		}
+
+		let buffer_before = Balances::free_balance(Dap::buffer_account());
+		roll_until_matches(|| MultiBlock::current_phase().is_done(), false);
+
+		let events = signed_events_since_last_call();
+		assert!(
+			events.iter().any(|e| matches!(e, SignedEvent::RewardPaymentDeferred(..))),
+			"a reward over the draw budget must be deferred, not paid"
+		);
+		assert!(!events.iter().any(|e| matches!(e, SignedEvent::Rewarded(..))));
+		assert_eq!(
+			Balances::free_balance(Dap::buffer_account()),
+			buffer_before,
+			"a refused draw must not move funds out of the buffer"
 		);
 	});
 }

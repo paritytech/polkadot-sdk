@@ -45,6 +45,69 @@ pub type MigrateV1ToV2<T, P, B, M> = frame_support::migrations::VersionedMigrati
 	<T as frame_system::Config>::DbWeight,
 >;
 
+/// V2 to V3 migration: seeds [`BufferDraws`] with the draws in `D`, so the upgrade that points a
+/// pallet at the buffer also registers its draw.
+///
+/// - `T`: DAP pallet config
+/// - `D`: `Get<Vec<(BudgetKey, BalanceOf<T>)>>` of initial per-drip-period limits.
+///
+/// Existing entries are left alone, so a governance-set limit survives a re-run.
+pub type MigrateV2ToV3<T, D> = frame_support::migrations::VersionedMigration<
+	2,
+	3,
+	InnerMigrateV2ToV3<T, D>,
+	pallet::Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
+
+/// Inner (unversioned) migration logic. Use [`MigrateV2ToV3`] instead.
+pub struct InnerMigrateV2ToV3<T, D>(core::marker::PhantomData<(T, D)>);
+
+impl<T: Config, D: Get<alloc::vec::Vec<(BudgetKey, BalanceOf<T>)>>> UncheckedOnRuntimeUpgrade
+	for InnerMigrateV2ToV3<T, D>
+{
+	fn on_runtime_upgrade() -> frame_support::weights::Weight {
+		let period = LastIssuanceTimestamp::<T>::get();
+
+		BufferDraws::<T>::mutate(|draws| {
+			for (key, limit) in D::get() {
+				if draws.contains_key(&key) {
+					log::warn!(
+						target: LOG_TARGET,
+						"DAP V2->V3: draw {key:?} already registered; leaving it as is"
+					);
+					continue;
+				}
+
+				let draw = DrawBudget { limit, spent: Zero::zero(), period };
+				if draws.try_insert(key.clone(), draw).is_err() {
+					defensive!("DAP V2->V3: BufferDraws is full, draw not registered");
+					continue;
+				}
+
+				log::info!(
+					target: LOG_TARGET,
+					"DAP V2->V3: registered buffer draw {key:?} with limit {limit:?} per period"
+				);
+			}
+		});
+
+		T::DbWeight::get().reads_writes(2, 1)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		for (key, _) in D::get() {
+			frame_support::ensure!(
+				BufferDraws::<T>::get().contains_key(&key),
+				"every seeded draw must be registered after the migration"
+			);
+		}
+
+		pallet::Pallet::<T>::do_try_state()
+	}
+}
+
 /// Inner (unversioned) migration logic. Use [`MigrateV1ToV2`] instead.
 pub struct InnerMigrateV1ToV2<T, P, B, M>(core::marker::PhantomData<(T, P, B, M)>);
 
