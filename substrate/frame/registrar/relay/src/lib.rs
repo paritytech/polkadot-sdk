@@ -448,14 +448,14 @@ pub mod pallet {
 
 /// Tells the parachain the first time a para produces a head, so it can lock the para.
 ///
-/// A send failure is only logged and evented: the caller is a hook that cannot fail.
+/// The caller is a hook that cannot fail, so a send failure is only logged and evented. Nothing is
+/// recorded in that case, so the next head retries.
 impl<T: Config> OnNewHead for Pallet<T> {
 	fn on_new_head(id: Id, _head: &HeadData) -> Weight {
 		let para_id: ParaId = id.into();
 		if ParasFirstHeadProduced::<T>::contains_key(para_id) {
 			return T::WeightInfo::on_new_head_already_noted();
 		}
-		ParasFirstHeadProduced::<T>::insert(para_id, ());
 
 		if T::SendToPara::send(MessageToPara::V1(MessageToParaV1::HeadNoted { para_id })).is_err() {
 			log::error!(
@@ -464,6 +464,7 @@ impl<T: Config> OnNewHead for Pallet<T> {
 			);
 			Self::deposit_event(Event::HeadNoteFailed { para_id });
 		} else {
+			ParasFirstHeadProduced::<T>::insert(para_id, ());
 			Self::deposit_event(Event::HeadNoted { para_id });
 		}
 

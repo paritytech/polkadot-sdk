@@ -17,7 +17,7 @@
 
 //! Tests for `pallet-registrar-relay`.
 
-use crate::{mock::*, Error, Event, PendingRegistrations};
+use crate::{mock::*, Error, Event, ParasFirstHeadProduced, PendingRegistrations};
 use frame_support::{assert_noop, assert_ok};
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, ParaId,
@@ -630,6 +630,36 @@ mod head_noted {
 
 			assert!(take_sent().is_empty());
 			assert_eq!(registrar_events(), vec![Event::HeadNoteFailed { para_id: PARA_A }]);
+		});
+	}
+
+	#[test]
+	fn a_bounced_notification_is_retried_on_the_next_head() {
+		new_test_ext().execute_with(|| {
+			SendFails::set(true);
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			// A bounced notification leaves nothing behind, otherwise the para would never learn
+			// about its first head and could stay unlocked forever.
+			assert!(ParasFirstHeadProduced::<Test>::get(PARA_A).is_none());
+			assert!(take_sent().is_empty());
+			assert_eq!(registrar_events(), vec![Event::HeadNoteFailed { para_id: PARA_A }]);
+
+			SendFails::set(false);
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			assert_eq!(
+				take_sent(),
+				vec![MessageToPara::V1(MessageToParaV1::HeadNoted { para_id: PARA_A })]
+			);
+			assert_eq!(registrar_events(), vec![Event::HeadNoted { para_id: PARA_A }]);
+			assert!(ParasFirstHeadProduced::<Test>::get(PARA_A).is_some());
+
+			// And once it lands it is not sent again.
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			assert!(take_sent().is_empty());
+			assert!(registrar_events().is_empty());
 		});
 	}
 }
