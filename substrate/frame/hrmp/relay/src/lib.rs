@@ -41,7 +41,8 @@ pub use weights::WeightInfo;
 
 pub mod weights;
 
-// TODO: `benchmarking.rs`, one benchmark per handler, once the bodies land.
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]

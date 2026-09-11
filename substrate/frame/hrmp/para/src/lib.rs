@@ -47,7 +47,8 @@ pub use weights::WeightInfo;
 
 pub mod weights;
 
-// TODO: `benchmarking.rs`, one benchmark per extrinsic, once the bodies land.
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -459,7 +460,12 @@ pub mod pallet {
 		///
 		/// Not callable by users: the origin must be the relay chain.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::receive())]
+		#[pallet::weight(match message {
+			MessageToPara::V1(MessageToParaV1::OpenChannelResponse { .. }) =>
+				T::WeightInfo::receive_open_channel_response(),
+			MessageToPara::V1(MessageToParaV1::CloseResponse { .. }) =>
+				T::WeightInfo::receive_close_response(),
+		})]
 		pub fn receive(origin: OriginFor<T>, message: MessageToPara) -> DispatchResult {
 			T::RelayOrigin::ensure_origin_or_root(origin)?;
 

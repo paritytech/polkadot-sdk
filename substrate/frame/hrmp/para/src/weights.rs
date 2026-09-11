@@ -17,7 +17,8 @@
 
 //! Weights for `pallet-hrmp-para`.
 //!
-//! Placeholders. Regenerate with `/cmd bench` once the extrinsics have bodies.
+//! Placeholders. Regenerate with `/cmd bench` once the extrinsics have bodies. `receive` is
+//! split per message variant, since it is weighed by the variant it carries.
 
 #![allow(missing_docs)]
 
@@ -36,7 +37,8 @@ pub trait WeightInfo {
 	fn establish_system_channel() -> Weight;
 	fn poke_channel_deposits() -> Weight;
 	fn establish_channel_with_system() -> Weight;
-	fn receive() -> Weight;
+	fn receive_open_channel_response() -> Weight;
+	fn receive_close_response() -> Weight;
 }
 
 pub struct SubstrateWeight<T>(PhantomData<T>);
@@ -75,7 +77,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn establish_channel_with_system() -> Weight {
 		Weight::zero()
 	}
-	fn receive() -> Weight {
+	fn receive_open_channel_response() -> Weight {
+		Weight::zero()
+	}
+	fn receive_close_response() -> Weight {
 		Weight::zero()
 	}
 }
@@ -115,7 +120,10 @@ impl WeightInfo for () {
 	fn establish_channel_with_system() -> Weight {
 		Weight::zero()
 	}
-	fn receive() -> Weight {
+	fn receive_open_channel_response() -> Weight {
+		Weight::zero()
+	}
+	fn receive_close_response() -> Weight {
 		Weight::zero()
 	}
 }
