@@ -1,0 +1,17 @@
+title: Kanas/module invalidity
+doc:
+- audience:
+  - Node Dev
+  - Runtime Dev
+  description: |-
+    # Description
+
+    This PR implements refined, descriptive module-specific invalidity support for transactions. It introduces a dedicated `ModuleInvalidity` struct to separate transaction validation reasons from execution-time dispatch errors. The `InvalidTransaction` enum is extended with a new `Module(ModuleInvalidity)` variant, enabling pallets to return per-module error numbers when a transaction is rejected during the validation phase.
+
+crates:
+- name: sc-rpc-api
+  bump: minor
+- name: sc-rpc-spec-v2
+  bump: minor
+- name: sp-runtime
+  bump: major
