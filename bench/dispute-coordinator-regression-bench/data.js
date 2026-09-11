@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789081919480,
+  "lastUpdate": 1789119974606,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a20ac9bd4fedd78da159fa4bbd8452dc8c17ec4b",
-          "message": "xcm-emulator: advance relay block number by relay_blocks_per_para_block (#11031)\n\nAfter `AuraDigestProvider` was introduced, emulated integration tests\nfor parachains with `slot_duration != relay_slot_duration` (e.g. 12s\nPolkadot/Kusama chains) panic because `FixedVelocityConsensusHook`\nderives a parachain slot that doesn't match `CurrentSlot`.\nFix by advancing the relay block number by `slot_duration /\nRELAY_CHAIN_SLOT_DURATION_MILLIS` per parachain block (instead of always\n+1), and computing the aura digest slot inline using both durations.\nThis removes the `DigestProvider` associated type from the `Parachain`\ntrait and the `AuraDigestProvider` struct — the emulator now handles the\ndigest automatically.\nDownstream users must remove `DigestProvider: AuraDigestProvider,` from\ntheir `decl_test_parachains!` invocations.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-10T13:18:35Z",
-          "tree_id": "e5cf27b46ffd198010768292a5ca63d9fbc31f35",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a20ac9bd4fedd78da159fa4bbd8452dc8c17ec4b"
-        },
-        "date": 1770733791779,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027132001399999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006817779959999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009455372159999972,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.00915501952999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6f0ba62c939476a0ce28df549038e7b736f88f01",
+          "message": "sc-network: register `out_events` metrics on the litep2p backend (#13191)\n\n# Description\n\nThe litep2p backend now passes the Prometheus registry into\n`OutChannels::new`, as the libp2p backend does, instead of `None`. This\nexposes `substrate_sub_libp2p_out_events_events_total` and\n`substrate_sub_libp2p_out_events_num_channels` on litep2p nodes. #12319\nadded the `PeerIdentified` and `PeerRoutingTableUpdate` events to every\n`event_stream`, and we want to see on the fleet that consumers unaware\nof them keep draining their channels.\n\n## Integration\n\nThis PR should not be integrated by downstream projects.",
+          "timestamp": "2026-09-11T07:54:18Z",
+          "tree_id": "1ed196dbc07905fc3c113753fddbe3dabf88a5cf",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6f0ba62c939476a0ce28df549038e7b736f88f01"
+        },
+        "date": 1789119933605,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009623287809999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00250347065,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009138281719999992,
             "unit": "seconds"
           }
         ]
