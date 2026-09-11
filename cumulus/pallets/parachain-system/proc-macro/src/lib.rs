@@ -106,6 +106,38 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 			mod parachain_validate_block {
 				use super::*;
 
+				// RFC-145 (V2) entry point: the input data is pulled in through the
+				// `input::read` host function instead of being written into the runtime
+				// memory by the host.
+				#[cfg(rfc145)]
+				#[no_mangle]
+				#[cfg_attr(
+					target_arch = "riscv64",
+					#crate_::validate_block::sp_api::__private::polkavm_export(abi = #crate_::validate_block::sp_api::__private::polkavm_abi)
+				)]
+				unsafe fn validate_block(arguments_len: usize) -> u64 {
+					let mut args = #crate_::validate_block::vec![0u8; arguments_len];
+					#crate_::validate_block::sp_io::input::read(&mut args[..]);
+
+					let args = #crate_::validate_block::bytes::Bytes::from(args);
+
+					// Then we decode from these bytes the `MemoryOptimizedValidationParams`.
+					let params = #crate_::validate_block::decode_from_bytes::<
+						#crate_::validate_block::MemoryOptimizedValidationParams
+					>(args).expect("Invalid arguments to `validate_block`.");
+
+					let res = #crate_::validate_block::implementation::validate_block::<
+						<#runtime as #crate_::validate_block::GetRuntimeBlockType>::RuntimeBlock,
+						#block_executor,
+						#runtime,
+					>(params);
+
+					#crate_::validate_block::polkadot_parachain_primitives::write_result(&res)
+				}
+
+				// Legacy (V1) entry point: the host allocates runtime memory and writes the
+				// input data into it before the call.
+				#[cfg(not(rfc145))]
 				#[no_mangle]
 				#[cfg_attr(
 					target_arch = "riscv64",

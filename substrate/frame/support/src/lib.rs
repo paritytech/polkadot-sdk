@@ -64,7 +64,20 @@ pub mod __private {
 	pub use sp_inherents;
 	#[cfg(feature = "std")]
 	pub use sp_io::TestExternalities;
-	pub use sp_io::{self, hashing, storage::root as storage_root};
+	pub use sp_io::{self, hashing};
+
+	/// An opaque fingerprint of the current storage that is only meaningful for equality
+	/// comparisons: two fingerprints are equal if and only if the storage roots are equal.
+	///
+	/// The RFC-145 `storage::root` host function writes the root into a buffer sized by the
+	/// runtime's hash type. The testing helpers of this crate (`assert_noop!`,
+	/// `assert_storage_noop!`, `StorageNoopGuard`) have no hash type in scope, so they use a
+	/// buffer large enough for any hash and compare the whole zero padded buffer. Code that has
+	/// the hash type at hand must use `sp_io::storage::root::<H>` instead.
+	pub fn storage_fingerprint() -> alloc::vec::Vec<u8> {
+		type MaxHashBytes = [u8; 256];
+		sp_io::storage::root::<MaxHashBytes>(sp_runtime::StateVersion::V1)
+	}
 	pub use sp_metadata_ir as metadata_ir;
 	#[cfg(feature = "std")]
 	pub use sp_runtime::{bounded_btree_map, bounded_vec};

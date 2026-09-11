@@ -16,6 +16,9 @@
 // limitations under the License.
 
 //! Tests for the runtime interface traits and proc macros.
+//!
+//! This crate uses V2 entry points (runtime-side allocation). Tests for V1 host-side
+//! allocation strategies (AllocateAndReturn*) live in `test-wasm-deprecated`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -23,8 +26,7 @@ extern crate alloc;
 
 use sp_runtime_interface::{
 	pass_by::{
-		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer, PassAs,
-		PassFatPointerAndDecode, PassFatPointerAndDecodeSlice, PassFatPointerAndRead,
+		ConvertAndReturnAs, PassAs, PassFatPointerAndDecodeSlice, PassFatPointerAndRead,
 		PassFatPointerAndReadWrite, PassPointerAndRead, PassPointerAndReadCopy,
 		PassPointerAndWrite, ReturnAs,
 	},
@@ -35,7 +37,8 @@ use sp_runtime_interface::{
 use core::mem;
 
 use alloc::{vec, vec::Vec};
-use sp_core::{sr25519::Public, wasm_export_functions};
+use sp_core::wasm_export_functions;
+use sp_io::RIIntOption;
 
 // Include the WASM binary
 #[cfg(feature = "std")]
@@ -55,33 +58,7 @@ const TEST_ARRAY: [u8; 16] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
 
 #[runtime_interface]
 pub trait TestApi {
-	/// Returns the input data as result.
-	fn return_input(data: PassFatPointerAndRead<Vec<u8>>) -> AllocateAndReturnFatPointer<Vec<u8>> {
-		data
-	}
-
-	/// Returns 16kb data.
-	///
-	/// # Note
-	///
-	/// We return a `Vec<u32>` because this will use the code path that uses SCALE
-	/// to pass the data between native/wasm. (`Vec<u8>` is passed without encoding the
-	/// data)
-	fn return_16kb() -> AllocateAndReturnByCodec<Vec<u32>> {
-		vec![0; 4 * 1024]
-	}
-
-	fn return_option_vec() -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
-		let mut vec = Vec::new();
-		vec.resize(16 * 1024, 0xAA);
-		Some(vec)
-	}
-
-	fn return_option_bytes() -> AllocateAndReturnByCodec<Option<bytes::Bytes>> {
-		let mut vec = Vec::new();
-		vec.resize(16 * 1024, 0xAA);
-		Some(vec.into())
-	}
+	// ---- Host functions that don't allocate on the host side ----
 
 	/// Set the storage at key with value.
 	fn set_storage(
@@ -98,32 +75,9 @@ pub trait TestApi {
 		data[..res.len()].copy_from_slice(res.as_bytes());
 	}
 
-	/// Returns the input data wrapped in an `Option` as result.
-	fn return_option_input(
-		data: PassFatPointerAndRead<Vec<u8>>,
-	) -> AllocateAndReturnByCodec<Option<Vec<u8>>> {
-		Some(data)
-	}
-
-	/// Get an array as input and returns a subset of this array.
-	fn get_and_return_array(
-		data: PassPointerAndReadCopy<[u8; 34], 34>,
-	) -> AllocateAndReturnPointer<[u8; 16], 16> {
-		let mut res = [0u8; 16];
-		res.copy_from_slice(&data[..16]);
-		res
-	}
-
 	/// Take and fill mutable array.
 	fn array_as_mutable_reference(data: PassPointerAndWrite<&mut [u8; 16], 16>) {
 		data.copy_from_slice(&TEST_ARRAY);
-	}
-
-	/// Returns the given public key as result.
-	fn return_input_public_key(
-		key: PassPointerAndReadCopy<Public, 32>,
-	) -> AllocateAndReturnPointer<Public, 32> {
-		key
 	}
 
 	/// A function that is called with invalid utf8 data from the runtime.
@@ -155,17 +109,7 @@ pub trait TestApi {
 		data == 42
 	}
 
-	/// Returns the input values as tuple.
-	fn return_input_as_tuple(
-		a: PassFatPointerAndRead<Vec<u8>>,
-		b: u32,
-		c: PassFatPointerAndDecode<Option<Vec<u32>>>,
-		d: u8,
-	) -> AllocateAndReturnByCodec<(Vec<u8>, u32, Option<Vec<u32>>, u8)> {
-		(a, b, c, d)
-	}
-
-	// Host functions for testing every marshaling strategy:
+	// ---- V1 marshalling strategies (no host alloc needed) ----
 
 	fn pass_pointer_and_read_copy(value: PassPointerAndReadCopy<[u8; 3], 3>) {
 		assert_eq!(value, [1, 2, 3]);
@@ -189,7 +133,7 @@ pub trait TestApi {
 		*value = [1, 2, 3];
 	}
 
-	fn pass_by_codec(value: PassFatPointerAndDecode<Vec<u16>>) {
+	fn pass_by_codec(value: sp_runtime_interface::pass_by::PassFatPointerAndDecode<Vec<u16>>) {
 		assert_eq!(value, [1, 2, 3]);
 	}
 
@@ -205,16 +149,55 @@ pub trait TestApi {
 		Opaque(123)
 	}
 
-	fn allocate_and_return_pointer() -> AllocateAndReturnPointer<[u8; 3], 3> {
-		[1, 2, 3]
+	// ---- V2 marshalling strategies (runtime-side allocation) ----
+
+	/// Test PassFatPointerAndWrite: host writes into a runtime-provided buffer.
+	#[raw_api]
+	fn return_input(
+		data: PassFatPointerAndRead<&[u8]>,
+		out: sp_runtime_interface::pass_by::PassFatPointerAndWrite<&mut [u8]>,
+	) -> u32 {
+		let copy_len = data.len().min(out.len());
+		out[..copy_len].copy_from_slice(&data[..copy_len]);
+		data.len() as u32
 	}
 
-	fn allocate_and_return_fat_pointer() -> AllocateAndReturnFatPointer<Vec<u8>> {
-		vec![1, 2, 3]
+	/// Wrapper: developer-friendly interface for return_input.
+	#[wrapper]
+	fn return_input(data: Vec<u8>) -> Vec<u8> {
+		let mut out = vec![0u8; data.len()];
+		let len = return_input__raw(&data, &mut out) as usize;
+		out.truncate(len);
+		out
 	}
 
-	fn allocate_and_return_by_codec() -> AllocateAndReturnByCodec<Vec<u16>> {
-		vec![1, 2, 3]
+	/// Test ConvertAndReturnAs: return an `Option<u32>` as `i64`.
+	fn return_option_value(
+		&self,
+		data: u32,
+	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
+		if data == 0 {
+			None
+		} else {
+			Some(data * 2)
+		}
+	}
+
+	/// Test PassPointerAndWrite with `#[raw_api]`/`#[wrapper]`.
+	#[raw_api]
+	fn get_and_return_array(
+		data: PassPointerAndReadCopy<[u8; 34], 34>,
+		out: PassPointerAndWrite<&mut [u8; 16], 16>,
+	) {
+		out.copy_from_slice(&data[..16]);
+	}
+
+	/// Wrapper for get_and_return_array.
+	#[wrapper]
+	fn get_and_return_array(data: [u8; 34]) -> [u8; 16] {
+		let mut out = [0u8; 16];
+		get_and_return_array__raw(data, &mut out);
+		out
 	}
 }
 
@@ -247,13 +230,6 @@ wasm_export_functions! {
 		let res = test_api::return_input(input.clone());
 
 		assert_eq!(input, res);
-	}
-
-	fn test_return_option_data() {
-		let input = vec![1, 2, 3, 4, 5, 6];
-		let res = test_api::return_option_input(input.clone());
-
-		assert_eq!(Some(input), res);
 	}
 
 	fn test_set_storage() {
@@ -291,20 +267,6 @@ wasm_export_functions! {
 		assert_eq!(array, TEST_ARRAY);
 	}
 
-	fn test_return_input_public_key() {
-		let key = Public::try_from(
-			&[
-				1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-				25, 26, 27, 28, 29, 30, 31, 32,
-			][..],
-		).unwrap();
-		let ret_key = test_api::return_input_public_key(key.clone());
-
-		let key_data: &[u8] = key.as_ref();
-		let ret_key_data: &[u8] = ret_key.as_ref();
-		assert_eq!(key_data, ret_key_data);
-	}
-
 	fn test_invalid_utf8_data_should_return_an_error() {
 		let data = vec![0, 159, 146, 150];
 		// I'm an evil hacker, trying to hack!
@@ -327,30 +289,6 @@ wasm_export_functions! {
 		assert!(test_api::overwrite_native_function_implementation());
 	}
 
-	fn test_vec_return_value_memory_is_freed() {
-		let mut len = 0;
-		for _ in 0..1024 {
-			len += test_api::return_16kb().len();
-		}
-		assert_eq!(1024 * 1024 * 4, len);
-	}
-
-	fn test_encoded_return_value_memory_is_freed() {
-		let mut len = 0;
-		for _ in 0..1024 {
-			len += test_api::return_option_input(vec![0; 16 * 1024]).map(|v| v.len()).unwrap();
-		}
-		assert_eq!(1024 * 1024 * 16, len);
-	}
-
-	fn test_array_return_value_memory_is_freed() {
-		let mut len = 0;
-		for _ in 0..1024 * 1024 {
-			len += test_api::get_and_return_array([0; 34])[1];
-		}
-		assert_eq!(0, len);
-	}
-
 	fn test_versioning_works() {
 		// we fix new api to accept only 42 as a proper input
 		// as opposed to sp-runtime-interface-test-wasm-deprecated::test_api::verify_input
@@ -368,29 +306,8 @@ wasm_export_functions! {
 		assert!(test_api::test_versioning_register_only(80));
 	}
 
-	fn test_return_input_as_tuple() {
-		let a = vec![1, 3, 4, 5];
-		let b = 10000;
-		let c = Some(vec![2, 3]);
-		let d = 5;
-
-		let res = test_api::return_input_as_tuple(a.clone(), b, c.clone(), d);
-
-		assert_eq!(a, res.0);
-		assert_eq!(b, res.1);
-		assert_eq!(c, res.2);
-		assert_eq!(d, res.3);
-	}
-
-	fn test_return_option_vec() {
-		test_api::return_option_vec();
-	}
-
-	fn test_return_option_bytes() {
-		test_api::return_option_bytes();
-	}
-
-	fn test_marshalling_strategies() {
+	fn test_v2_marshalling_strategies() {
+		// Strategies that don't allocate on the host side:
 		test_api::pass_pointer_and_read_copy([1_u8, 2, 3]);
 		test_api::pass_pointer_and_read(&[1_u8, 2, 3]);
 		test_api::pass_fat_pointer_and_read(&[1_u8, 2, 3][..]);
@@ -408,8 +325,18 @@ wasm_export_functions! {
 		test_api::pass_slice_ref_by_codec(&[1_u16, 2, 3][..]);
 		test_api::pass_as(Opaque(123));
 		assert_eq!(test_api::return_as(), Opaque(123));
-		assert_eq!(test_api::allocate_and_return_pointer(), [1_u8, 2, 3]);
-		assert_eq!(test_api::allocate_and_return_fat_pointer(), vec![1_u8, 2, 3]);
-		assert_eq!(test_api::allocate_and_return_by_codec(), vec![1_u16, 2, 3]);
+
+		// V2-specific strategies:
+		assert_eq!(test_api::return_option_value(5), Some(10));
+		assert_eq!(test_api::return_option_value(0), None);
+
+		let input = vec![10, 20, 30, 40, 50];
+		let res = test_api::return_input(input.clone());
+		assert_eq!(input, res);
+
+		let mut arr = [0u8; 34];
+		arr[0..4].copy_from_slice(&[99, 88, 77, 66]);
+		let res = test_api::get_and_return_array(arr);
+		assert_eq!(&res, &arr[..16]);
 	}
 }

@@ -85,14 +85,105 @@ macro_rules! wasm_export_functions {
 	) => {
 		#[no_mangle]
 		#[allow(unreachable_code)]
+		#[cfg(all(not(feature = "std"), rfc145))]
+		pub fn $name(input_len: usize) -> u64 {
+			let mut input_buf = ::alloc::vec![0u8; input_len];
+			if input_len > 0 {
+				sp_io::input::read(&mut input_buf[..]);
+			}
+			let input: &[u8] = &input_buf[..];
+
+			{
+				let ($( $arg_name ),*) : ($( $arg_ty ),*) = $crate::Decode::decode(
+					&mut &input[..],
+				).expect("Input data is correctly encoded");
+
+				(|| { $( $fn_impl )* })()
+			}
+
+			$crate::to_substrate_wasm_fn_return_value(&())
+		}
+
+		#[cfg(all(not(feature = "std"), not(rfc145)))]
+		$crate::wasm_export_functions_v1! {
+			@IMPL
+			fn $name (
+				$( $arg_name: $arg_ty ),*
+			) { $( $fn_impl )* }
+		}
+	};
+	(@IMPL
+		fn $name:ident (
+				$( $arg_name:ident: $arg_ty:ty ),*
+		) $( -> $ret_ty:ty )? { $( $fn_impl:tt )* }
+	) => {
+		#[no_mangle]
+		#[allow(unreachable_code)]
+		#[cfg(all(not(feature = "std"), rfc145))]
+		pub fn $name(input_len: usize) -> u64 {
+			let mut input_buf = ::alloc::vec![0u8; input_len];
+			if input_len > 0 {
+				sp_io::input::read(&mut input_buf[..]);
+			}
+			let input: &[u8] = &input_buf[..];
+
+			let output $( : $ret_ty )? = {
+				let ($( $arg_name ),*) : ($( $arg_ty ),*) = $crate::Decode::decode(
+					&mut &input[..],
+				).expect("Input data is correctly encoded");
+
+				(|| { $( $fn_impl )* })()
+			};
+
+			$crate::to_substrate_wasm_fn_return_value(&output)
+		}
+
+		#[cfg(all(not(feature = "std"), not(rfc145)))]
+		$crate::wasm_export_functions_v1! {
+			@IMPL
+			fn $name (
+				$( $arg_name: $arg_ty ),*
+			) $( -> $ret_ty )? { $( $fn_impl )* }
+		}
+	};
+}
+
+/// Same as [`wasm_export_functions`] but generates V1 entry points that receive input data
+/// via a host-provided pointer. Use this for tests that exercise host-side allocation
+/// (e.g. `AllocateAndReturn*` marshalling strategies).
+///
+/// V1 entry point signature: `fn(input_data: *mut u8, input_len: usize) -> u64`
+#[macro_export]
+macro_rules! wasm_export_functions_v1 {
+	(
+		$(
+			fn $name:ident (
+				$( $arg_name:ident: $arg_ty:ty ),* $(,)?
+			) $( -> $ret_ty:ty )? { $( $fn_impl:tt )* }
+		)*
+	) => {
+		$(
+			$crate::wasm_export_functions_v1! {
+				@IMPL
+				fn $name (
+					$( $arg_name: $arg_ty ),*
+				) $( -> $ret_ty )? { $( $fn_impl )* }
+			}
+		)*
+	};
+	(@IMPL
+		fn $name:ident (
+				$( $arg_name:ident: $arg_ty:ty ),*
+		) { $( $fn_impl:tt )* }
+	) => {
+		#[no_mangle]
+		#[allow(unreachable_code)]
 		#[cfg(not(feature = "std"))]
 		pub fn $name(input_data: *mut u8, input_len: usize) -> u64 {
 			let input: &[u8] = if input_len == 0 {
 				&[0u8; 0]
 			} else {
-				unsafe {
-					::core::slice::from_raw_parts(input_data, input_len)
-				}
+				unsafe { ::core::slice::from_raw_parts(input_data, input_len) }
 			};
 
 			{
@@ -118,9 +209,7 @@ macro_rules! wasm_export_functions {
 			let input: &[u8] = if input_len == 0 {
 				&[0u8; 0]
 			} else {
-				unsafe {
-					::core::slice::from_raw_parts(input_data, input_len)
-				}
+				unsafe { ::core::slice::from_raw_parts(input_data, input_len) }
 			};
 
 			let output $( : $ret_ty )? = {

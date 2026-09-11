@@ -341,6 +341,9 @@ where
 			heap_alloc_strategy,
 			self.allow_missing_host_functions,
 			|module, instance, version, ext| {
+				if let Some(v) = version {
+					ext.set_runtime_state_version(v.state_version());
+				}
 				let module = AssertUnwindSafe(module);
 				let instance = AssertUnwindSafe(instance);
 				let ext = AssertUnwindSafe(ext);

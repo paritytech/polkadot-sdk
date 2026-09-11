@@ -22,7 +22,7 @@ use super::*;
 use crate as recovery;
 use crate::HoldReason;
 use frame::{
-	deps::sp_io,
+	deps::{sp_core, sp_io},
 	testing_prelude::*,
 	token::fungible::{Balanced as _, HoldConsideration},
 	traits::{LinearStoragePrice, OnUnbalanced},
@@ -240,7 +240,7 @@ pub fn can_control_account(
 pub fn root_without_events() -> Vec<u8> {
 	hypothetically!({
 		clear_events();
-		sp_io::storage::root(sp_runtime::StateVersion::V1)
+		sp_io::storage::root::<sp_core::H256>(sp_runtime::StateVersion::V1)
 	})
 }
 

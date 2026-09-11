@@ -24,8 +24,7 @@ use frame_support::{
 	weights::WeightMeter,
 };
 use sp_core::Get;
-use sp_crypto_hashing::twox_128;
-use sp_io::{storage::clear_prefix, KillStorageResult};
+use sp_io::storage::clear_prefix;
 use sp_runtime::SaturatedConversion;
 
 /// Remove all of a pallet's state and re-initializes it to the current in-code storage version.
@@ -65,7 +64,7 @@ where
 	type Identifier = [u8; 16];
 
 	fn id() -> Self::Identifier {
-		("RemovePallet::", P::name()).using_encoded(twox_128)
+		("RemovePallet::", P::name()).using_encoded(sp_io::hashing::twox_128)
 	}
 
 	fn step(
@@ -97,14 +96,13 @@ where
 			});
 		}
 
-		let (keys_removed, is_done) = match clear_prefix(&P::name_hash(), Some(key_budget)) {
-			KillStorageResult::AllRemoved(value) => (value, true),
-			KillStorageResult::SomeRemaining(value) => (value, false),
-		};
+		let outcome = clear_prefix(P::name_hash(), Some(key_budget), None);
 
-		meter.consume(T::WeightInfo::reset_pallet_migration(keys_removed));
+		// `loops` is used here rather than `backend` to keep the same behavior as the
+		// pre-RFC-145 `KillStorageResult` conversion, which counted iterations.
+		meter.consume(T::WeightInfo::reset_pallet_migration(outcome.loops));
 
-		Ok(Some(is_done))
+		Ok(Some(outcome.maybe_cursor.is_none()))
 	}
 
 	#[cfg(feature = "try-runtime")]

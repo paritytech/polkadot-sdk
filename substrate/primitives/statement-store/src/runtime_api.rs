@@ -28,6 +28,9 @@ use sp_runtime_interface::{
 	},
 	runtime_interface,
 };
+
+#[cfg(rfc145)]
+use sp_runtime_interface::pass_by::PassFatPointerAndWrite;
 use Debug;
 
 #[cfg(feature = "std")]
@@ -145,6 +148,53 @@ pub trait StatementStore {
 		}
 	}
 
+	/// Same as version 1 but avoids host-side allocation.
+	///
+	/// Returns the full encoded length of the result, or 0 if there is nothing to return (so the
+	/// caller can avoid allocating a buffer). The result is written into the runtime-provided `out`
+	/// buffer only if the buffer is large enough; otherwise the buffer is left unchanged and the
+	/// caller is expected to retry with a buffer of the returned size.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn statements(&mut self, out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
+		let statements =
+			if let Some(StatementStoreExt(store)) = self.extension::<StatementStoreExt>() {
+				store.statements().unwrap_or_default()
+			} else {
+				Vec::default()
+			};
+		if statements.is_empty() {
+			return 0;
+		}
+		let encoded = codec::Encode::encode(&statements);
+		if out.len() >= encoded.len() {
+			out[..encoded.len()].copy_from_slice(&encoded);
+		}
+		encoded.len() as u32
+	}
+
+	/// Wrapper for `statements`.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn statements() -> Vec<(Hash, Statement)> {
+		// The store can be modified concurrently, so keep growing the buffer to the reported size
+		// and retrying until one call fits, then decode exactly the number of bytes that call
+		// reported — which may be fewer than the buffer if statements were removed in the meantime.
+		let mut buf: Vec<u8> = Vec::new();
+		loop {
+			let len = statements__raw(&mut buf) as usize;
+			if len == 0 {
+				return Vec::new();
+			}
+			if len <= buf.len() {
+				return codec::Decode::decode(&mut &buf[..len])
+					.expect("statements: decoding should not fail");
+			}
+			buf.resize(len, 0);
+		}
+	}
+
 	/// Return the data of all known statements which include all topics and have no `DecryptionKey`
 	/// field.
 	fn broadcasts(
@@ -155,6 +205,50 @@ pub trait StatementStore {
 			store.broadcasts(match_all_topics).unwrap_or_default()
 		} else {
 			Vec::default()
+		}
+	}
+
+	/// Same as version 1 but avoids host-side allocation. See `StatementStore::statements`
+	/// version 2 for the buffer semantics.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn broadcasts(
+		&mut self,
+		match_all_topics: PassFatPointerAndDecodeSlice<&[Topic]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> u32 {
+		let broadcasts =
+			if let Some(StatementStoreExt(store)) = self.extension::<StatementStoreExt>() {
+				store.broadcasts(match_all_topics).unwrap_or_default()
+			} else {
+				Vec::default()
+			};
+		if broadcasts.is_empty() {
+			return 0;
+		}
+		let encoded = codec::Encode::encode(&broadcasts);
+		if out.len() >= encoded.len() {
+			out[..encoded.len()].copy_from_slice(&encoded);
+		}
+		encoded.len() as u32
+	}
+
+	/// Wrapper for `broadcasts`.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn broadcasts(match_all_topics: &[Topic]) -> Vec<Vec<u8>> {
+		let mut buf: Vec<u8> = Vec::new();
+		loop {
+			let len = broadcasts__raw(match_all_topics, &mut buf) as usize;
+			if len == 0 {
+				return Vec::new();
+			}
+			if len <= buf.len() {
+				return codec::Decode::decode(&mut &buf[..len])
+					.expect("broadcasts: decoding should not fail");
+			}
+			buf.resize(len, 0);
 		}
 	}
 
@@ -173,6 +267,51 @@ pub trait StatementStore {
 		}
 	}
 
+	/// Same as version 1 but avoids host-side allocation. See `StatementStore::statements`
+	/// version 2 for the buffer semantics.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn posted(
+		&mut self,
+		match_all_topics: PassFatPointerAndDecodeSlice<&[Topic]>,
+		dest: PassPointerAndReadCopy<[u8; 32], 32>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> u32 {
+		let posted = if let Some(StatementStoreExt(store)) = self.extension::<StatementStoreExt>() {
+			store.posted(match_all_topics, dest).unwrap_or_default()
+		} else {
+			Vec::default()
+		};
+		if posted.is_empty() {
+			return 0;
+		}
+		let encoded = codec::Encode::encode(&posted);
+		if out.len() >= encoded.len() {
+			out[..encoded.len()].copy_from_slice(&encoded);
+		}
+		encoded.len() as u32
+	}
+
+	/// Wrapper for `posted`.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn posted(match_all_topics: &[Topic], dest: [u8; 32]) -> Vec<Vec<u8>> {
+		// Probe first and retry on a consistent snapshot; see `statements` for details.
+		let mut buf: Vec<u8> = Vec::new();
+		loop {
+			let len = posted__raw(match_all_topics, dest, &mut buf) as usize;
+			if len == 0 {
+				return Vec::new();
+			}
+			if len <= buf.len() {
+				return codec::Decode::decode(&mut &buf[..len])
+					.expect("posted: decoding should not fail");
+			}
+			buf.resize(len, 0);
+		}
+	}
+
 	/// Return the decrypted data of all known statements whose decryption key is identified as
 	/// `dest`. The key must be available to the client.
 	fn posted_clear(
@@ -184,6 +323,51 @@ pub trait StatementStore {
 			store.posted_clear(match_all_topics, dest).unwrap_or_default()
 		} else {
 			Vec::default()
+		}
+	}
+
+	/// Same as version 1 but avoids host-side allocation.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn posted_clear(
+		&mut self,
+		match_all_topics: PassFatPointerAndDecodeSlice<&[Topic]>,
+		dest: PassPointerAndReadCopy<[u8; 32], 32>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> u32 {
+		let posted_clear =
+			if let Some(StatementStoreExt(store)) = self.extension::<StatementStoreExt>() {
+				store.posted_clear(match_all_topics, dest).unwrap_or_default()
+			} else {
+				Vec::default()
+			};
+		if posted_clear.is_empty() {
+			return 0;
+		}
+		let encoded = codec::Encode::encode(&posted_clear);
+		if out.len() >= encoded.len() {
+			out[..encoded.len()].copy_from_slice(&encoded);
+		}
+		encoded.len() as u32
+	}
+
+	/// Wrapper for `posted_clear`.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn posted_clear(match_all_topics: &[Topic], dest: [u8; 32]) -> Vec<Vec<u8>> {
+		// Probe first and retry on a consistent snapshot; see `statements` for details.
+		let mut buf: Vec<u8> = Vec::new();
+		loop {
+			let len = posted_clear__raw(match_all_topics, dest, &mut buf) as usize;
+			if len == 0 {
+				return Vec::new();
+			}
+			if len <= buf.len() {
+				return codec::Decode::decode(&mut &buf[..len])
+					.expect("posted_clear: decoding should not fail");
+			}
+			buf.resize(len, 0);
 		}
 	}
 

@@ -84,7 +84,7 @@ pub use sp_std;
 /// ```
 /// # mod wrapper {
 /// # use sp_runtime_interface::runtime_interface;
-/// # use sp_runtime_interface::pass_by::{PassFatPointerAndDecode, PassFatPointerAndRead, AllocateAndReturnFatPointer};
+/// # use sp_runtime_interface::pass_by::{PassFatPointerAndDecode, PassFatPointerAndRead, PassFatPointerAndWrite, AllocateAndReturnFatPointer};
 ///
 /// #[runtime_interface]
 /// trait Interface {
@@ -124,6 +124,32 @@ pub use sp_std;
 ///         [18].to_vec()
 ///     }
 ///
+///     /// A function version can be declared as belonging to an ABI epoch. Epoch 1 is the
+///     /// original, pre-RFC-145 ABI using host-side allocation and is always compiled in.
+///     /// Higher epochs are gated behind a `cfg` (`--cfg rfc145` for epoch 2): their versions
+///     /// only exist in builds with that `cfg` enabled. In such builds the bare function calls
+///     /// the latest version as usual; in builds without it, the bare function falls back to
+///     /// the latest first-epoch version. The versions of gated epochs must be the newest
+///     /// versions of a function.
+///     ///
+///     /// `#[abi_epoch]` can also be put on a `#[wrapper]` function, where it means "this
+///     /// wrapper only exists in builds of this ABI epoch". A wrapper takes over the
+///     /// module-level name it is defined with, so no bare function with the same name is
+///     /// generated for the epochs the wrapper exists in. That allows keeping one public API
+///     /// across the epochs: a wrapper gated to an epoch provides the name where the bare
+///     /// function signature changed, and the bare function provides it elsewhere.
+///     ///
+///     /// Versions of the RFC-145 epoch must not use the host-allocating `AllocateAndReturn*`
+///     /// strategies, which is checked at compile time; the result is written into a buffer
+///     /// provided by the runtime instead. In a build with the `cfg` the bare `call` function
+///     /// therefore has the signature of this version.
+///     #[version(4)]
+///     #[abi_epoch(2)]
+///     fn call(data: PassFatPointerAndRead<&[u8]>, out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
+///         out[0] = 19;
+///         1
+///     }
+///
 ///     /// A function can take a `&self` or `&mut self` argument to get access to the
 ///     /// `Externalities`. (The generated method does not require
 ///     /// this argument, so the function can be called just with the `optional` argument)
@@ -135,10 +161,10 @@ pub use sp_std;
 ///     }
 ///
 ///     /// A function can be gated behind a configuration (`cfg`) attribute.
-///     /// To prevent ambiguity and confusion about what will be the final exposed host
-///     /// functions list, conditionally compiled functions can't be versioned.
-///     /// That is, conditionally compiled functions with `version`s greater than 1
-///     /// are not allowed.
+///     /// To prevent ambiguity about what will be the final exposed host functions list, all
+///     /// callable versions of a function must carry identical `cfg` attributes, and
+///     /// `register_only` versions must not have any, as the host always registers them. The
+///     /// only sanctioned way to gate a subset of the versions is `#[abi_epoch]`.
 ///     #[cfg(feature = "experimental-function")]
 ///     fn gated_call(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnFatPointer<Vec<u8>> {
 ///         [42].to_vec()
@@ -384,6 +410,9 @@ pub trait RIType: Sized {
 
 	/// The inner type without any serialization strategy wrapper.
 	type Inner;
+
+	/// Whether this marshalling strategy makes the host allocate guest memory.
+	const HOST_ALLOCATES: bool = false;
 }
 
 /// A raw pointer that can be used in a runtime interface function signature.

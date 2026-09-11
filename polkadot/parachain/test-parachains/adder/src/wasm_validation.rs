@@ -17,14 +17,35 @@
 //! WASM validation for adder parachain.
 
 use crate::{BlockData, HeadData};
-use alloc::vec::Vec;
+#[cfg(rfc145)]
+use alloc::vec;
 use codec::{Decode, Encode};
 use core::panic;
-use polkadot_parachain_primitives::primitives::{HeadData as GenericHeadData, ValidationResult};
+use polkadot_parachain_primitives::primitives::{
+	HeadData as GenericHeadData, ValidationParams, ValidationResult,
+};
 
+// RFC-145 (V2) entry point: the input data is pulled in through the `input::read` host
+// function instead of being written into the runtime memory by the host.
+#[cfg(rfc145)]
+#[no_mangle]
+pub extern "C" fn validate_block(arguments_len: usize) -> u64 {
+	let mut buf = vec![0u8; arguments_len];
+	sp_io::input::read(&mut buf[..]);
+	let params = ValidationParams::decode(&mut &buf[..]).expect("Invalid input data");
+	do_validate_block(params)
+}
+
+// Legacy (V1) entry point: the host allocates runtime memory and writes the input data into
+// it before the call.
+#[cfg(not(rfc145))]
 #[no_mangle]
 pub extern "C" fn validate_block(params: *const u8, len: usize) -> u64 {
 	let params = unsafe { polkadot_parachain_primitives::load_params(params, len) };
+	do_validate_block(params)
+}
+
+fn do_validate_block(params: ValidationParams) -> u64 {
 	let parent_head =
 		HeadData::decode(&mut &params.parent_head.0[..]).expect("invalid parent head format.");
 

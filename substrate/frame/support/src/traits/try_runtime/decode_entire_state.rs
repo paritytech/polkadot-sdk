@@ -128,20 +128,22 @@ fn decode_storage_info<V: Decode>(
 	};
 
 	let mut errors = vec![];
-	let mut next_key = Some(info.prefix.clone());
+	let mut key = info.prefix.clone();
+	let mut next_key = Vec::new();
 	loop {
-		match next_key {
-			Some(key) if key.starts_with(&info.prefix) => {
-				match decode_key(&key) {
-					Ok(bytes) => {
-						decoded += bytes;
-					},
-					Err(e) => errors.push(e),
-				};
-				next_key = sp_io::storage::next_key(&key);
-			},
-			_ => break,
+		if !key.starts_with(&info.prefix) {
+			break;
 		}
+		match decode_key(&key) {
+			Ok(bytes) => {
+				decoded += bytes;
+			},
+			Err(e) => errors.push(e),
+		};
+		if !sp_io::storage::next_key(&key, &mut next_key) {
+			break;
+		}
+		core::mem::swap(&mut key, &mut next_key);
 	}
 
 	if errors.is_empty() {

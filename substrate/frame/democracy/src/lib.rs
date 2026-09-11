@@ -1740,7 +1740,7 @@ impl<T: Config> Pallet<T> {
 fn decode_compact_u32_at(key: &[u8]) -> Option<u32> {
 	// `Compact<u32>` takes at most 5 bytes.
 	let mut buf = [0u8; 5];
-	let bytes = sp_io::storage::read(key, &mut buf, 0)?;
+	let bytes = sp_io::storage::read_partial(key, &mut buf, 0)?;
 	// The value may be smaller than 5 bytes.
 	let mut input = &buf[0..buf.len().min(bytes as usize)];
 	match codec::Compact::<u32>::decode(&mut input) {

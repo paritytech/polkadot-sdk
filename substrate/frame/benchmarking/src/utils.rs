@@ -23,12 +23,19 @@ use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_io::hashing::blake2_256;
+#[cfg(rfc145)]
+use sp_io::RIIntOption;
 use sp_runtime::{
 	traits::TrailingZeroInput, transaction_validity::TransactionValidityError, DispatchError,
 };
 use sp_runtime_interface::pass_by::{
 	AllocateAndReturnByCodec, AllocateAndReturnPointer, PassFatPointerAndDecode,
 	PassFatPointerAndRead,
+};
+// Marshalling strategies only used by the RFC-145 versions of the host functions.
+#[cfg(rfc145)]
+use sp_runtime_interface::pass_by::{
+	ConvertAndReturnAs, PassFatPointerAndWrite, PassPointerAndWrite,
 };
 use sp_storage::TrackedStorageKey;
 
@@ -282,6 +289,28 @@ pub trait Benchmarking {
 			.to_le_bytes()
 	}
 
+	/// Same as version 1 but avoids host-side allocation.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn current_time(out: PassPointerAndWrite<&mut [u8; 16], 16>) {
+		let time = std::time::SystemTime::now()
+			.duration_since(std::time::SystemTime::UNIX_EPOCH)
+			.expect("Unix time doesn't go backwards; qed")
+			.as_nanos()
+			.to_le_bytes();
+		out.copy_from_slice(&time);
+	}
+
+	/// Wrapper for `current_time`.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn current_time() -> [u8; 16] {
+		let mut out = [0u8; 16];
+		current_time__raw(&mut out);
+		out
+	}
+
 	/// Reset the trie database to the genesis state.
 	fn wipe_db(&mut self) {
 		self.wipe()
@@ -297,6 +326,32 @@ pub trait Benchmarking {
 		self.read_write_count()
 	}
 
+	/// Same as version 1 but avoids host-side allocation.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn read_write_count(&self, out: PassPointerAndWrite<&mut [u8; 16], 16>) {
+		let (a, b, c, d) = self.read_write_count();
+		out[0..4].copy_from_slice(&a.to_le_bytes());
+		out[4..8].copy_from_slice(&b.to_le_bytes());
+		out[8..12].copy_from_slice(&c.to_le_bytes());
+		out[12..16].copy_from_slice(&d.to_le_bytes());
+	}
+
+	/// Wrapper for `read_write_count`.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn read_write_count() -> (u32, u32, u32, u32) {
+		let mut out = [0u8; 16];
+		read_write_count__raw(&mut out);
+		(
+			u32::from_le_bytes(out[0..4].try_into().expect("slice is 4 bytes")),
+			u32::from_le_bytes(out[4..8].try_into().expect("slice is 4 bytes")),
+			u32::from_le_bytes(out[8..12].try_into().expect("slice is 4 bytes")),
+			u32::from_le_bytes(out[12..16].try_into().expect("slice is 4 bytes")),
+		)
+	}
+
 	/// Reset the read/write count.
 	fn reset_read_write_count(&mut self) {
 		self.reset_read_write_count()
@@ -305,6 +360,32 @@ pub trait Benchmarking {
 	/// Get the DB whitelist.
 	fn get_whitelist(&self) -> AllocateAndReturnByCodec<Vec<TrackedStorageKey>> {
 		self.get_whitelist()
+	}
+
+	/// Same as version 1 but avoids host-side allocation.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn get_whitelist(&self, out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
+		let whitelist = self.get_whitelist();
+		let encoded = codec::Encode::encode(&whitelist);
+		let copy_len = encoded.len().min(out.len());
+		out[..copy_len].copy_from_slice(&encoded[..copy_len]);
+		encoded.len() as u32
+	}
+
+	/// Wrapper for `get_whitelist`.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn get_whitelist() -> Vec<TrackedStorageKey> {
+		let mut buf = alloc::vec![0u8; 1024 * 1024];
+		let len = get_whitelist__raw(&mut buf) as usize;
+		if len > buf.len() {
+			buf.resize(len, 0);
+			let len2 = get_whitelist__raw(&mut buf) as usize;
+			debug_assert_eq!(len, len2);
+		}
+		codec::Decode::decode(&mut &buf[..len]).expect("get_whitelist: decoding should not fail")
 	}
 
 	/// Set the DB whitelist.
@@ -347,9 +428,51 @@ pub trait Benchmarking {
 		self.get_read_and_written_keys()
 	}
 
+	/// Same as version 1 but avoids host-side allocation.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn get_read_and_written_keys(&self, out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
+		let keys = self.get_read_and_written_keys();
+		let encoded = codec::Encode::encode(&keys);
+		let copy_len = encoded.len().min(out.len());
+		out[..copy_len].copy_from_slice(&encoded[..copy_len]);
+		encoded.len() as u32
+	}
+
+	/// Wrapper for `get_read_and_written_keys`.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn get_read_and_written_keys() -> Vec<(Vec<u8>, u32, u32, bool)> {
+		let mut buf = alloc::vec![0u8; 4 * 1024 * 1024];
+		let len = get_read_and_written_keys__raw(&mut buf) as usize;
+		if len > buf.len() {
+			buf.resize(len, 0);
+			let len2 = get_read_and_written_keys__raw(&mut buf) as usize;
+			debug_assert_eq!(len, len2);
+		}
+		codec::Decode::decode(&mut &buf[..len])
+			.expect("get_read_and_written_keys: decoding should not fail")
+	}
+
 	/// Get current estimated proof size.
 	fn proof_size(&self) -> AllocateAndReturnByCodec<Option<u32>> {
 		self.proof_size()
+	}
+
+	/// Same as version 1 but avoids host-side allocation.
+	#[version(2)]
+	#[raw_api]
+	#[abi_epoch(2)]
+	fn proof_size(&self) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
+		self.proof_size()
+	}
+
+	/// Wrapper for `proof_size`.
+	#[wrapper]
+	#[abi_epoch(2)]
+	fn proof_size() -> Option<u32> {
+		proof_size__raw()
 	}
 }
 

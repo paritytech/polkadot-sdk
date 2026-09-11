@@ -179,6 +179,10 @@ impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 	fn register_panic_error_message(&mut self, _message: &str) {
 		unimplemented!("'register_panic_error_message' is never used when running under PolkaVM");
 	}
+
+	fn take_input_data(&mut self) -> sp_wasm_interface::Result<Vec<u8>> {
+		todo!("Implement 'take_input_data' for PolkaVM");
+	}
 }
 
 fn call_host_function(caller: &mut Caller<()>, function: &dyn Function) -> Result<(), String> {
@@ -301,6 +305,20 @@ where
 			call_host_function(&mut caller, function)
 		})?;
 	}
+
+	// Temporary shim: `sbrk` was removed from the `jam_v1` instruction set (GP 0.8.0)
+	// and replaced with a `grow_heap` host call. The guest-side allocator in
+	// `sp-io` imports this symbol.
+	linker.define_untyped("grow_heap", |caller: Caller<()>| {
+		let size = caller.instance.reg(Reg::A0) as u32;
+		match caller.instance.sbrk(size) {
+			Ok(Some(ptr)) => caller.instance.set_reg(Reg::A0, ptr as u64),
+			Ok(None) => caller.instance.set_reg(Reg::A0, 0),
+			Err(e) => return Err(e.to_string()),
+		}
+		Ok(())
+	})?;
+
 	let instance_pre = linker.instantiate_pre(&module)?;
 	Ok(Box::new(InstancePre(instance_pre)))
 }

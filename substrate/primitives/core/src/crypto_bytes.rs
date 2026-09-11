@@ -26,6 +26,8 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use scale_info::TypeInfo;
 
+use byte_slice_cast::{ToByteSlice, ToMutByteSlice};
+
 #[cfg(feature = "serde")]
 use crate::crypto::Ss58Codec;
 #[cfg(feature = "serde")]
@@ -157,6 +159,24 @@ impl<const N: usize, T> core::ops::Deref for CryptoBytes<N, T> {
 
 	fn deref(&self) -> &Self::Target {
 		&self.0
+	}
+}
+
+// SAFETY: `CryptoBytes<N, T>` is `#[repr(transparent)]` over `[u8; N]`, so a slice of `M` of them
+// is exactly the `M * N` bytes it stores, without padding, and any byte pattern is a valid value.
+// `M * N` cannot overflow as the slice already exists in memory.
+unsafe impl<const N: usize, T> ToByteSlice for CryptoBytes<N, T> {
+	fn to_byte_slice<U: AsRef<[Self]> + ?Sized>(slice: &U) -> &[u8] {
+		let slice = slice.as_ref();
+		unsafe { core::slice::from_raw_parts(slice.as_ptr().cast::<u8>(), slice.len() * N) }
+	}
+}
+
+// SAFETY: see the `ToByteSlice` impl above.
+unsafe impl<const N: usize, T> ToMutByteSlice for CryptoBytes<N, T> {
+	fn to_mut_byte_slice<U: AsMut<[Self]> + ?Sized>(slice: &mut U) -> &mut [u8] {
+		let slice = slice.as_mut();
+		unsafe { core::slice::from_raw_parts_mut(slice.as_mut_ptr().cast::<u8>(), slice.len() * N) }
 	}
 }
 

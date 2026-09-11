@@ -911,12 +911,12 @@ fn test_read_storage() {
 	sp_io::storage::set(KEY, b"test");
 
 	let mut v = [0u8; 4];
-	let r = sp_io::storage::read(KEY, &mut v, 0);
+	let r = sp_io::storage::read_exact(KEY, &mut v, 0);
 	assert_eq!(r, Some(4));
 	assert_eq!(&v, b"test");
 
 	let mut v = [0u8; 4];
-	let r = sp_io::storage::read(KEY, &mut v, 4);
+	let r = sp_io::storage::read_exact(KEY, &mut v, 4);
 	assert_eq!(r, Some(0));
 	assert_eq!(&v, &[0, 0, 0, 0]);
 }
@@ -927,12 +927,12 @@ fn test_read_child_storage() {
 	sp_io::default_child_storage::set(STORAGE_KEY, KEY, b"test");
 
 	let mut v = [0u8; 4];
-	let r = sp_io::default_child_storage::read(STORAGE_KEY, KEY, &mut v, 0);
+	let r = sp_io::default_child_storage::read_exact(STORAGE_KEY, KEY, &mut v, 0);
 	assert_eq!(r, Some(4));
 	assert_eq!(&v, b"test");
 
 	let mut v = [0u8; 4];
-	let r = sp_io::default_child_storage::read(STORAGE_KEY, KEY, &mut v, 8);
+	let r = sp_io::default_child_storage::read_exact(STORAGE_KEY, KEY, &mut v, 8);
 	assert_eq!(r, Some(0));
 	assert_eq!(&v, &[0, 0, 0, 0]);
 }
@@ -949,9 +949,9 @@ fn test_witness(proof: StorageProof, root: crate::Hash) {
 		None,
 	);
 	assert!(ext.storage(b"value3").is_some());
-	assert!(ext.storage_root(Default::default()).as_slice() == &root[..]);
+	assert!(ext.storage_root().as_slice() == &root[..]);
 	ext.place_storage(vec![0], Some(vec![1]));
-	assert!(ext.storage_root(Default::default()).as_slice() != &root[..]);
+	assert!(ext.storage_root().as_slice() != &root[..]);
 }
 
 /// Some tests require the hashed keys of the storage. As the values of hashed keys are not trivial

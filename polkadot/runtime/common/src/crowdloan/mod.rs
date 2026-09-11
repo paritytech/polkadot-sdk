@@ -704,9 +704,8 @@ impl<T: Config> Pallet<T> {
 		who.using_encoded(|b| child::kill(&Self::id_from_index(index), b));
 	}
 
-	pub fn crowdloan_kill(index: FundIndex) -> child::KillStorageResult {
-		#[allow(deprecated)]
-		child::kill_storage(&Self::id_from_index(index), Some(T::RemoveKeysLimit::get()))
+	pub fn crowdloan_kill(index: FundIndex) -> child::MultiRemovalResults {
+		child::clear_storage(&Self::id_from_index(index), Some(T::RemoveKeysLimit::get()), None)
 	}
 
 	pub fn contribution_iterator(

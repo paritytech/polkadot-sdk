@@ -274,6 +274,11 @@ pub trait MaybeRefUnwindSafe {}
 #[cfg(not(feature = "std"))]
 impl<T> MaybeRefUnwindSafe for T {}
 
+/// The first ABI epoch: the original, pre-RFC-145 ABI using host-side allocation.
+pub const ABI_EPOCH_LEGACY: u32 = 1;
+/// The second ABI epoch: the RFC-145 ABI using runtime-side allocation.
+pub const ABI_EPOCH_RFC145: u32 = 2;
+
 /// Something that provides a function implementation on the host for a wasm function.
 pub trait Function: MaybeRefUnwindSafe + Send + Sync {
 	/// Returns the name of this function.
@@ -286,6 +291,16 @@ pub trait Function: MaybeRefUnwindSafe + Send + Sync {
 		context: &mut dyn FunctionContext,
 		args: &mut dyn Iterator<Item = Value>,
 	) -> Result<Option<Value>>;
+	/// Returns whether any of the marshalling strategies of this host function makes the host
+	/// allocate guest memory, or `None` if unknown (e.g. for external implementations that
+	/// don't provide this information).
+	fn host_allocates(&self) -> Option<bool> {
+		None
+	}
+	/// Returns the ABI epoch this host function version belongs to, or `None` if unknown.
+	fn abi_epoch(&self) -> Option<u32> {
+		None
+	}
 }
 
 impl PartialEq for dyn Function {
@@ -310,6 +325,8 @@ pub trait FunctionContext {
 	fn allocate_memory(&mut self, size: WordSize) -> Result<Pointer<u8>>;
 	/// Deallocate a given memory instance.
 	fn deallocate_memory(&mut self, ptr: Pointer<u8>) -> Result<()>;
+	/// Take the input data from the host state.
+	fn take_input_data(&mut self) -> Result<Vec<u8>>;
 	/// Registers a panic error message within the executor.
 	///
 	/// This is meant to be used in situations where the runtime

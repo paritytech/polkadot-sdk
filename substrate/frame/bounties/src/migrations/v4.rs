@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::vec::Vec;
 use core::str;
 use frame_support::{
 	storage::{generator::StorageValue, StoragePrefixedMap},
@@ -144,21 +145,21 @@ pub fn pre_migration<T: pallet_bounties::Config, P: GetStorageVersion + 'static,
 		[&new_pallet_prefix, &twox_128(STORAGE_VERSION_STORAGE_KEY_POSTFIX)[..]].concat();
 
 	// ensure nothing is stored in the new prefix.
-	assert!(
-		storage::next_key(&new_pallet_prefix).map_or(
-			// either nothing is there
-			true,
+	let mut first_next_key = Vec::new();
+	let mut second_next_key = Vec::new();
+	let new_prefix_empty =
+		// either nothing is there
+		!storage::next_key(&new_pallet_prefix, &mut first_next_key) ||
 			// or we ensure that the next key has no common prefix with twox_128(new),
 			// or is the pallet version that is already stored using the pallet name
-			|next_key| {
-				storage::next_key(&next_key).map_or(true, |next_key| {
-					!next_key.starts_with(&new_pallet_prefix) || next_key == storage_version_key
-				})
-			},
-		),
+			!storage::next_key(&first_next_key, &mut second_next_key) ||
+			!second_next_key.starts_with(&new_pallet_prefix) ||
+			second_next_key == storage_version_key;
+	assert!(
+		new_prefix_empty,
 		"unexpected next_key({}) = {:?}",
 		new_pallet_name,
-		HexDisplay::from(&sp_io::storage::next_key(&new_pallet_prefix).unwrap()),
+		HexDisplay::from(&first_next_key),
 	);
 	assert!(<P as GetStorageVersion>::on_chain_storage_version() < 4);
 }
@@ -206,14 +207,23 @@ pub fn post_migration<T: pallet_bounties::Config, P: GetStorageVersion, N: AsRef
 		[&old_pallet_prefix, &twox_128(storage_prefix_bounties_description)[..]].concat();
 	let old_bounties_approvals_key =
 		[&old_pallet_prefix, &twox_128(storage_prefix_bounties_approvals)[..]].concat();
-	assert!(storage::next_key(&old_bounties_count_key)
-		.map_or(true, |next_key| !next_key.starts_with(&old_bounties_count_key)));
-	assert!(storage::next_key(&old_bounties_key)
-		.map_or(true, |next_key| !next_key.starts_with(&old_bounties_key)));
-	assert!(storage::next_key(&old_bounties_description_key)
-		.map_or(true, |next_key| !next_key.starts_with(&old_bounties_description_key)));
-	assert!(storage::next_key(&old_bounties_approvals_key)
-		.map_or(true, |next_key| !next_key.starts_with(&old_bounties_approvals_key)));
+	let mut next_key = Vec::new();
+	assert!(
+		!storage::next_key(&old_bounties_count_key, &mut next_key) ||
+			!next_key.starts_with(&old_bounties_count_key)
+	);
+	assert!(
+		!storage::next_key(&old_bounties_key, &mut next_key) ||
+			!next_key.starts_with(&old_bounties_key)
+	);
+	assert!(
+		!storage::next_key(&old_bounties_description_key, &mut next_key) ||
+			!next_key.starts_with(&old_bounties_description_key)
+	);
+	assert!(
+		!storage::next_key(&old_bounties_approvals_key, &mut next_key) ||
+			!next_key.starts_with(&old_bounties_approvals_key)
+	);
 
 	assert_eq!(<P as GetStorageVersion>::on_chain_storage_version(), 4);
 }
