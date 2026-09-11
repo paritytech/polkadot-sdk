@@ -5,7 +5,7 @@ use crate::{
 	*,
 };
 use alloy_core::primitives::FixedBytes;
-use codec::Encode;
+use codec::{Decode, Encode};
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
 	traits::{Hooks, ProcessMessage, ProcessMessageError, QueueFootprintQuery},
@@ -40,6 +40,53 @@ fn submit_messages_and_commit() {
 		let digest_items = digest.logs();
 		assert!(digest_items.len() == 1 && digest_items[0].as_other().is_some());
 		assert_eq!(Messages::<Test>::decode_len(), Some(4));
+	});
+}
+
+#[test]
+fn prove_message_recomputes_committed_leaves_after_commit() {
+	new_tester().execute_with(|| {
+		for para_id in 1000..1004 {
+			let message = mock_message(para_id);
+			let ticket = OutboundQueue::validate(&message).unwrap();
+			assert_ok!(OutboundQueue::deliver(ticket));
+		}
+
+		ServiceWeight::set(Some(Weight::MAX));
+		run_to_end_of_next_block();
+
+		// The messages stay available for relayers, but the transient leaves have been dropped from
+		// state by `commit`.
+		let messages = Messages::<Test>::get();
+		assert_eq!(messages.len(), 4);
+		assert_eq!(MessageLeaves::<Test>::decode_len().unwrap_or_default(), 0);
+
+		// Recover the merkle root that was committed on-chain into the header digest.
+		let digest = System::digest();
+		let committed_root = digest
+			.logs()
+			.iter()
+			.find_map(|item| item.as_other())
+			.and_then(|bytes| SnowbridgeDigestItem::decode(&mut &bytes[..]).ok())
+			.map(|item| match item {
+				SnowbridgeDigestItem::SnowbridgeV2(root) => root,
+				other => panic!("unexpected digest item: {:?}", other),
+			})
+			.expect("commitment digest item should be present");
+
+		// `prove_message` recomputes the leaves from `Messages` (since `MessageLeaves` is gone) and
+		// must produce proofs that verify against the very same root committed on-chain.
+		for (index, message) in messages.iter().enumerate() {
+			let proof = crate::api::prove_message::<Test>(index as u64)
+				.expect("a proof should be generated for a committed message");
+			assert_eq!(proof.root, committed_root);
+			assert_eq!(proof.leaf, OutboundQueue::message_leaf(message));
+			assert_eq!(proof.leaf_index, index as u64);
+			assert_eq!(proof.number_of_leaves, messages.len() as u64);
+		}
+
+		// An out-of-range `leaf_index` returns `None` instead of panicking in `merkle_proof`.
+		assert!(crate::api::prove_message::<Test>(messages.len() as u64).is_none());
 	});
 }
 

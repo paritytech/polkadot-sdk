@@ -113,8 +113,8 @@ fn pool_lifecycle_e2e() {
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![
-				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 },
-				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10, era: 3 },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10, era: 3 },
 			]
 		);
 		assert_eq!(
@@ -175,7 +175,7 @@ fn pool_lifecycle_e2e() {
 			staking_events_since_last_call(),
 			vec![
 				StakingEvent::Chilled { stash: POOL1_BONDED },
-				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 50 },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 50, era: 6 },
 			]
 		);
 		assert_eq!(
@@ -323,9 +323,9 @@ fn pool_chill_e2e() {
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![
-				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10, era: 3 },
 				StakingEvent::Chilled { stash: POOL1_BONDED },
-				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10, era: 3 },
 				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 10 }, // other member bonding
 				StakingEvent::Bonded { stash: POOL1_BONDED, amount: 10 }, // depositor bond extra
 				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 20 },
@@ -391,8 +391,8 @@ fn pool_slash_e2e() {
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![
-				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 },
-				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 }
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10, era: 4 },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10, era: 4 }
 			]
 		);
 		assert_eq!(
@@ -414,9 +414,9 @@ fn pool_slash_e2e() {
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![
-				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 },
-				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 },
-				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10, era: 5 },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10, era: 5 },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10, era: 5 },
 			]
 		);
 
@@ -468,7 +468,7 @@ fn pool_slash_e2e() {
 		);
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 5 }]
+			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 5, era: 6 }]
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
@@ -503,7 +503,7 @@ fn pool_slash_e2e() {
 
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 }]
+			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10, era: 9 }]
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
@@ -629,7 +629,7 @@ fn pool_slash_proportional() {
 
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: bond },]
+			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: bond, era: 127 },]
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
@@ -646,7 +646,7 @@ fn pool_slash_proportional() {
 		assert_ok!(Pools::unbond(RuntimeOrigin::signed(21), 21, bond));
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: bond },]
+			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: bond, era: 128 },]
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
@@ -663,7 +663,7 @@ fn pool_slash_proportional() {
 		assert_ok!(Pools::unbond(RuntimeOrigin::signed(22), 22, bond));
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: bond },]
+			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: bond, era: 129 },]
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
@@ -831,7 +831,7 @@ fn pool_slash_non_proportional_only_bonded_pool() {
 		assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, bond));
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: bond }]
+			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: bond, era: 127 }]
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
@@ -910,7 +910,7 @@ fn pool_slash_non_proportional_bonded_pool_and_chunks() {
 		assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, bond));
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: bond }]
+			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: bond, era: 127 }]
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
@@ -1022,8 +1022,8 @@ fn pool_migration_e2e() {
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![
-				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 5 },
-				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 5, era: 5 },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10, era: 6 },
 			]
 		);
 		assert_eq!(
@@ -1199,7 +1199,7 @@ fn pool_migration_e2e() {
 			staking_events_since_last_call(),
 			vec![
 				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 10 },
-				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 5 },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 5, era: 9 },
 				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 5 }
 			]
 		);
@@ -1501,7 +1501,7 @@ fn pool_no_dangling_delegation() {
 
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 20 },]
+			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 20, era: 4 },]
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
@@ -1517,8 +1517,8 @@ fn pool_no_dangling_delegation() {
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![
-				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 },
-				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10, era: 5 },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10, era: 5 },
 			]
 		);
 
@@ -1614,7 +1614,7 @@ fn pool_no_dangling_delegation() {
 
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 5 }]
+			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 5, era: 18 }]
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
@@ -1691,7 +1691,7 @@ fn pool_no_dangling_delegation() {
 
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 15 }]
+			vec![StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 15, era: 21 }]
 		);
 		assert_eq!(
 			pool_events_since_last_call(),
@@ -1799,7 +1799,7 @@ fn pool_members_unbond_in_one_era_when_nominators_not_slashable() {
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![
-				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10 },
+				StakingEvent::Unbonded { stash: POOL1_BONDED, amount: 10, era: 3 },
 				StakingEvent::Withdrawn { stash: POOL1_BONDED, amount: 10 },
 			]
 		);

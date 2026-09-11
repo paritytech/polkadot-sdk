@@ -58,7 +58,7 @@ use {
 };
 
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{BTreeMap, HashMap, HashSet, VecDeque},
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -70,19 +70,26 @@ use futures::{
 };
 
 use polkadot_node_subsystem::CollatorProtocolSenderTrait;
-use polkadot_node_subsystem_util::{database::Database, reputation::ReputationAggregator};
+use polkadot_node_subsystem_util::{
+	database::Database,
+	reputation::ReputationAggregator,
+	request_claim_queue,
+	runtime::{self, fetch_scheduling_lookahead, recv_runtime},
+};
 use sp_consensus_babe::digests::CompatibleDigestItem;
 use sp_core::H256;
 use sp_keystore::KeystorePtr;
 
 use polkadot_node_network_protocol::{
-	request_response::{v2 as protocol_v2, IncomingRequestReceiver},
+	request_response::{v2 as protocol_v2, v3 as protocol_v3, IncomingRequestReceiver},
 	PeerId, UnifiedReputationChange as Rep,
 };
 use polkadot_node_subsystem::{
 	errors::SubsystemError, messages::ChainApiMessage, overseer, DummySubsystem, SpawnedSubsystem,
 };
-use polkadot_primitives::{CollatorPair, Hash, RELAY_CHAIN_SLOT_DURATION_MILLIS};
+use polkadot_primitives::{
+	CollatorPair, CoreIndex, Hash, Id as ParaId, SessionIndex, RELAY_CHAIN_SLOT_DURATION_MILLIS,
+};
 use sp_consensus_slots::SlotDuration;
 pub use validator_side_experimental::ReputationConfig;
 
@@ -156,6 +163,8 @@ pub enum ProtocolSide {
 		collator_pair: CollatorPair,
 		/// Receiver for v2 collation fetching requests.
 		request_receiver_v2: IncomingRequestReceiver<protocol_v2::CollationFetchingRequest>,
+		/// Receiver for v3 collation fetching requests.
+		request_receiver_v3: IncomingRequestReceiver<protocol_v3::CollationFetchingRequest>,
 		/// Metrics.
 		metrics: collator_side::Metrics,
 		/// Clock used for all time reads. Production passes [`polkadot_node_clock::SystemClock`];
@@ -229,13 +238,20 @@ impl<Context> CollatorProtocolSubsystem {
 				peer_id,
 				collator_pair,
 				request_receiver_v2,
+				request_receiver_v3,
 				metrics,
 				clock,
-			} => {
-				collator_side::run(ctx, peer_id, collator_pair, request_receiver_v2, metrics, clock)
-					.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
-					.boxed()
-			},
+			} => collator_side::run(
+				ctx,
+				peer_id,
+				collator_pair,
+				request_receiver_v2,
+				request_receiver_v3,
+				metrics,
+				clock,
+			)
+			.map_err(|e| SubsystemError::with_origin("collator-protocol", e))
+			.boxed(),
 			ProtocolSide::None => return DummySubsystem.start(ctx),
 		};
 
@@ -318,13 +334,119 @@ pub(crate) fn is_scheduling_parent_valid(
 	);
 	if let Some(info) = leaf_scheduling_info.get(scheduling_parent) {
 		// scheduling_parent is a leaf. This is allowed only when the leaf's slot is
-		// the previous slot.
-		*current_slot == *info.slot + 1
+		// the previous slot. The slot comes from an untrusted header, so use checked
+		// addition to avoid overflowing at `u64::MAX`.
+		info.slot.checked_add(1).is_some_and(|next_slot| *current_slot == next_slot)
 	} else {
 		// scheduling_parent is not a leaf. This is allowed only if the sp is the parent of
 		// any leaf whose slot is still in progress.
 		leaf_scheduling_info
 			.iter()
 			.any(|(_, info)| *current_slot == *info.slot && *scheduling_parent == info.parent_hash)
+	}
+}
+
+/// The per-core claim queues for one active leaf, together with the runtime scheduling lookahead
+/// that bounds them.
+///
+/// Experimental (`validator_side_experimental`) goes through the [`Self::slots`] / [`Self::window`]
+/// helpers, which own the lookahead arithmetic. Legacy (`validator_side`) has its own
+/// bitfield-based allocation and reads the fields directly — a properly factored legacy would go
+/// through the helpers too, but legacy is on its way out so we don't invest in that.
+pub(crate) struct LeafClaimQueues {
+	claim_queues: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+	scheduling_lookahead: usize,
+}
+
+impl LeafClaimQueues {
+	/// Fetch the per-core claim queues and the scheduling lookahead for `leaf` from the runtime.
+	pub(crate) async fn fetch<Sender: CollatorProtocolSenderTrait>(
+		leaf: Hash,
+		session_index: SessionIndex,
+		sender: &mut Sender,
+	) -> std::result::Result<Self, runtime::Error> {
+		let scheduling_lookahead =
+			fetch_scheduling_lookahead(leaf, session_index, sender).await? as usize;
+		let claim_queues = recv_runtime(request_claim_queue(leaf, sender).await).await?;
+		Ok(Self { claim_queues, scheduling_lookahead })
+	}
+
+	/// The core's claim queue padded to the scheduling lookahead: slot `i` is `Some(para)` where
+	/// scheduled, `None` for positions within the lookahead the runtime left unscheduled. Length
+	/// is always the lookahead. `None` if the core has no claim queue at this leaf.
+	pub(crate) fn slots(&self, core: CoreIndex) -> Option<Vec<Option<ParaId>>> {
+		let cq = self.claim_queues.get(&core)?;
+		Some(
+			cq.iter()
+				.copied()
+				.map(Some)
+				.chain(std::iter::repeat(None))
+				.take(self.scheduling_lookahead)
+				.collect(),
+		)
+	}
+
+	/// Claim-queue positions on `core` reachable from a scheduling parent at `depth` from this
+	/// leaf (leaf = depth 0). A depth-`d` SP can host advertisements landing at leaf-CQ positions
+	/// `i` with `i + d < lookahead`, so the window is `cq[0 .. lookahead - d]` capped to the
+	/// scheduled entries.
+	pub(crate) fn window(&self, core: CoreIndex, depth: usize) -> Vec<ParaId> {
+		let Some(cq) = self.claim_queues.get(&core) else { return Vec::new() };
+		let valid_len = self.scheduling_lookahead.saturating_sub(depth).min(cq.len());
+		cq.iter().take(valid_len).copied().collect()
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use polkadot_node_clock::MockClock;
+	use sp_consensus_slots::Slot;
+
+	/// Creates a mock clock positioned at the given relay-chain slot.
+	fn clock_at_slot(slot: u64) -> MockClock {
+		let clock = MockClock::default();
+		clock.advance(Duration::from_millis(slot * RELAY_CHAIN_SLOT_DURATION_MILLIS));
+		clock
+	}
+
+	fn leaf_info(parent_hash: Hash, slot: u64) -> LeafSchedulingInfo {
+		LeafSchedulingInfo { parent_hash, slot: Slot::from(slot) }
+	}
+
+	#[test]
+	fn leaf_at_previous_slot_is_valid() {
+		let leaf = Hash::repeat_byte(0xAB);
+		let info = HashMap::from([(leaf, leaf_info(Hash::repeat_byte(0x42), 4))]);
+
+		assert!(is_scheduling_parent_valid(&clock_at_slot(5), &leaf, &info));
+	}
+
+	#[test]
+	fn leaf_at_current_slot_is_invalid() {
+		let leaf = Hash::repeat_byte(0xAB);
+		let info = HashMap::from([(leaf, leaf_info(Hash::repeat_byte(0x42), 5))]);
+
+		assert!(!is_scheduling_parent_valid(&clock_at_slot(5), &leaf, &info));
+	}
+
+	#[test]
+	fn parent_of_leaf_in_current_slot_is_valid() {
+		let leaf = Hash::repeat_byte(0xAB);
+		let parent = Hash::repeat_byte(0x42);
+		let info = HashMap::from([(leaf, leaf_info(parent, 5))]);
+
+		assert!(is_scheduling_parent_valid(&clock_at_slot(5), &parent, &info));
+		// The parent is no longer valid once the leaf's slot ends.
+		assert!(!is_scheduling_parent_valid(&clock_at_slot(6), &parent, &info));
+	}
+
+	// Verify that a leaf slot at `u64::MAX` is safely rejected without overflowing.
+	#[test]
+	fn max_leaf_slot_is_rejected_without_overflowing() {
+		let leaf = Hash::repeat_byte(0xAB);
+		let info = HashMap::from([(leaf, leaf_info(Hash::repeat_byte(0x42), u64::MAX))]);
+
+		assert!(!is_scheduling_parent_valid(&clock_at_slot(0), &leaf, &info));
 	}
 }
