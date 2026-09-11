@@ -215,8 +215,8 @@ struct ParachainServiceState {
 
     /// Head and tail of each parachain's settlement ring. See §8.
     messages_cursor: Map<ParaId, SettlementCursor>,
-    /// Maps `StreamsRoot` to the `position` of its most recent push. See §8.
-    messages_member: Map<(ParaId, StreamsRoot), MemberEntry>,
+    /// Every `StreamsRoot` at a live ring position. See §8.
+    messages_member: Set<(ParaId, StreamsRoot)>,
     /// Maps `position` to `StreamsRoot`. See §8.
     messages_queue: Map<(ParaId, u32), StreamsRoot>,
 }
@@ -501,12 +501,6 @@ struct SettlementCursor {
     head: u32,
     /// Oldest live position.
     tail: u32,
-}
-
-/// A settlement-ring member. See §8.
-struct MemberEntry {
-    /// Position of the root's most recent push.
-    seq: u32,
 }
 
 /// Fixed 128-byte transfer memo, matching Gray Paper `C_memosize = 128`.
@@ -1479,15 +1473,15 @@ Settlement ring at capacity: the `(ParaId, SettlementCursor)` entry plus
 
 ```
 messages_cursor:     34 + 5 (tag + ParaId) + 8 (SettlementCursor)      =      47
-messages_member:     64 × (34 + 37 (tag + ParaId + root) + 4 (seq))    =   4 800
+messages_member:     64 × (34 + 37 (tag + ParaId + root))              =   4 544
 messages_queue:      64 × (34 + 9 (tag + ParaId + u32) + 32 (root))    =   4 800
-                                                              octets       9 647
+                                                              octets       9 391
                                                               129 items    1 290
                                                                          -------
-                                                                          10 937
+                                                                          10 681
 ```
 
-**`baseline_footprint = 4 246 + 65 585 + 10 937 = 80 768`** balance units per
+**`baseline_footprint = 4 246 + 65 585 + 10 681 = 80 512`** balance units per
 parachain.
 
 #### Asset Hub baseline footprint
@@ -1874,10 +1868,11 @@ every parachain which holds the last 64 (`MAX_SETTLEMENT_RING_CAPACITY`) `Stream
 that the parachain enacted. A receiver block enacts only if every root it consumed messages against
 is in the sender's ring.
 
-A root stays settleable until the sender enacts `MAX_SETTLEMENT_RING_CAPACITY` declarations after
-its most recent push. With one candidate per core and timeslot this is 64 timeslots on one core,
-21 on three cores and 6 on ten cores. A receiver candidate that declares a root evicted between
-block building and Accumulate is rejected and must be rebuilt against a root still in the ring.
+A root stays settleable until the sender enacts `MAX_SETTLEMENT_RING_CAPACITY` further distinct
+roots after it. With one candidate per core and timeslot this is at least 64 timeslots on one
+core, 21 on three cores and 6 on ten cores. A receiver candidate that declares a root evicted
+between block building and Accumulate is rejected and must be rebuilt against a root still in
+the ring.
 
 ### 8.1 Settlement Ring
 
@@ -1886,7 +1881,7 @@ A parachain's ring is stored in `messages_cursor`, `messages_member` and `messag
 `SettlementCursor.head` is the position the next root is written at and `SettlementCursor.tail`
 the oldest live position. Both advance with wrapping arithmetic and at most `MAX_SETTLEMENT_RING_CAPACITY`(64)
 positions are present in the ring.
-`messages_member` holds every root at a live position together with the position of its most recent push.
+`messages_member` holds every root at a live position.
 
 The settlement check reads only `messages_member`, once per declared `(ParaId, StreamsRoot)`.
 
@@ -1894,23 +1889,19 @@ The settlement check reads only `messages_member`, once per declared `(ParaId, S
 
 1. Read `messages_cursor[para_id]` or `{ head: 0, tail: 0 }` if absent.
 
-2. Evict the oldest entry if `head.wrapping_sub(tail) == MAX_SETTLEMENT_RING_CAPACITY`
+2. Stop if `messages_member` already holds `(para_id, new_root)`.
+
+3. Evict the oldest entry if `head.wrapping_sub(tail) == MAX_SETTLEMENT_RING_CAPACITY`
 
    - Read `oldest_root = messages_queue[(para_id, tail)]` and delete that entry.
-   - Delete `messages_member[(para_id, oldest_root)]` only if its `seq` equals `tail`.
+   - Delete `messages_member[(para_id, oldest_root)]`.
    - Wrapping increment `tail`.
 
-3. Write `messages_queue[(para_id, head)] = new_root`.
+4. Write `messages_queue[(para_id, head)] = new_root`.
 
-4. Write `messages_member[(para_id, new_root)] = MemberEntry { seq: head }`.
+5. Insert `(para_id, new_root)` into `messages_member`.
 
-5. Write `messages_cursor[para_id]` with `head` wrapping incremented and the current `tail`.
-
-A parachain should declare a `StreamsRoot` only when it changed since its last enacted block, since
-every push occupies a ring position. Since nothing enforces this, a parachain can declare a root
-that is already in its ring. The `messages_member` is keyed by the root so a repeated `StreamsRoot`
-shares one entry. The `MemberEntry.seq` records the position of the most recent push, so evicting
-an older position leaves the redeclared `StreamsRoot` in the ring.
+6. Write `messages_cursor[para_id]` with `head` wrapping incremented and the current `tail`.
 
 **`ParachainCleanUp` deletes a parachain's ring on its first accepted call (§6.4)**
 
@@ -1919,7 +1910,7 @@ an older position leaves the redeclared `StreamsRoot` in the ring.
 2. For each position from `tail` up to `head - 1`, wrapping:
 
    - Read `root = messages_queue[(para_id, position)]` and delete that entry.
-   - Delete `messages_member[(para_id, root)]` if still present.
+   - Delete `messages_member[(para_id, root)]`.
 
 3. Delete `messages_cursor[para_id]`.
 
