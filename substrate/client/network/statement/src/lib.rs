@@ -88,7 +88,7 @@
 //! The `statement/2` protocol lets a peer advertise which topics it cares about as a bloom filter
 //! ("topic affinity"). Once a peer has an active affinity filter, only matching statements are
 //! forwarded to it; when its affinity changes, newly relevant statements are re-sent. Affinity
-//! advertisements are rate-limited. See the `affinity` module.
+//! advertisements are rate-limited per peer, see `config::AFFINITY_UPDATES_PER_SECOND`.
 //!
 //! Light-client peers on `statement/2` must advertise an affinity before receiving any statements:
 //! a light V2 peer pulls only the topics it cares about instead of the full feed, and is synced
@@ -233,6 +233,8 @@ mod rep {
 	pub const STATEMENT_FLOODING: Rep = Rep::new_fatal("Statement flooding");
 	/// Reputation change when a peer sends us a message we can't decode.
 	pub const BAD_MESSAGE: Rep = Rep::new(-(1 << 12), "Bad statement message");
+	/// Reputation change when a peer sends topic affinity updates faster than the limit.
+	pub const AFFINITY_FLOODING: Rep = Rep::new(-(1 << 12), "Topic affinity flooding");
 }
 
 const LOG_TARGET: &str = "statement-gossip";
@@ -287,6 +289,7 @@ struct Metrics {
 	initial_sync_peers_active: Gauge<U64>,
 	initial_sync_duration_seconds: HistogramVec,
 	statement_flooding_detected: Counter<U64>,
+	affinity_flooding_detected: Counter<U64>,
 	send_failures: CounterVec<U64>,
 	undelivered_statements: CounterVec<U64>,
 }
@@ -455,6 +458,13 @@ impl Metrics {
 				Counter::new(
 					"substrate_sync_statement_flooding_detected",
 					"Number of peers disconnected for exceeding statement rate limits",
+				)?,
+				r,
+			)?,
+			affinity_flooding_detected: register(
+				Counter::new(
+					"substrate_sync_statement_affinity_flooding_detected",
+					"Number of topic affinity updates dropped for exceeding the per-peer rate limit",
 				)?,
 				r,
 			)?,
@@ -825,7 +835,12 @@ impl PeerRateLimiter {
 		Self { bucket: Box::new(RateLimiter::direct_with_clock(quota, clock)) }
 	}
 
-	/// Check if receiving `count` statements would exceed the rate limit.
+	/// The quota for `ExplicitTopicAffinity` updates from one peer.
+	fn for_affinity_updates() -> Self {
+		Self::new(config::AFFINITY_UPDATES_PER_SECOND, config::AFFINITY_UPDATES_BURST)
+	}
+
+	/// Check if receiving `count` more messages would exceed the rate limit.
 	fn is_flooding(&self, count: usize) -> bool {
 		if count > u32::MAX as usize {
 			return true;
@@ -844,6 +859,9 @@ impl PeerRateLimiter {
 pub struct Peer {
 	/// Rate limiter for statement flooding protection.
 	rate_limiter: PeerRateLimiter,
+	/// Rate limiter for `ExplicitTopicAffinity` updates, kept apart from the statement bucket
+	/// so a statement burst cannot reject a filter change.
+	affinity_rate_limiter: PeerRateLimiter,
 	/// Protocol version negotiated with this peer.
 	protocol_version: PeerProtocolVersion,
 	/// Topic affinity filter received from a v2 peer.
@@ -1098,6 +1116,7 @@ impl Peer {
 	pub fn new_for_testing(statements_per_second: NonZeroU32, burst: NonZeroU32) -> Self {
 		Self {
 			rate_limiter: PeerRateLimiter::new(statements_per_second, burst),
+			affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
@@ -1539,8 +1558,8 @@ where
 	/// - Decodes incoming notifications: V1 peers send raw statement batches; V2 peers send a
 	///   `StatementMessage` that is either a batch of statements or an `ExplicitTopicAffinity`
 	///   advertisement.
-	/// - Rate-limits affinity advertisements (reporting `rep::BAD_MESSAGE` on abuse); otherwise
-	///   stores the filter as pending until applied by the main loop.
+	/// - Rate-limits affinity advertisements (reporting `rep::AFFINITY_FLOODING` on abuse);
+	///   otherwise stores the filter as pending until applied by the main loop.
 	async fn handle_notification_event(&mut self, event: NotificationEvent) {
 		match event {
 			NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx, .. } => {
@@ -1590,6 +1609,7 @@ where
 							)
 							.expect("burst capacity is nonzero"),
 						),
+						affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
 						protocol_version,
 						topic_affinity: None,
 						is_light,
@@ -1686,12 +1706,15 @@ where
 									self.on_statements(peer, statements.into_inner());
 								},
 								StatementMessage::ExplicitTopicAffinity(filter) => {
-									if peer_data.rate_limiter.is_flooding(1) {
+									if peer_data.affinity_rate_limiter.is_flooding(1) {
 										log::debug!(
 											target: LOG_TARGET,
-											"Rate-limiting ExplicitTopicAffinity from {peer}"
+											"Dropping rate-limited ExplicitTopicAffinity from {peer}"
 										);
-										self.network.report_peer(peer, rep::BAD_MESSAGE);
+										self.network.report_peer(peer, rep::AFFINITY_FLOODING);
+										if let Some(ref metrics) = self.metrics {
+											metrics.affinity_flooding_detected.inc();
+										}
 										return;
 									}
 									if v2dht_enabled() {
@@ -3272,6 +3295,7 @@ mod tests {
 						)
 						.expect("burst capacity is nonzero"),
 					),
+					affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
 					protocol_version: PeerProtocolVersion::V1,
 					topic_affinity: None,
 					is_light: false,
@@ -3916,6 +3940,7 @@ mod tests {
 					)
 					.expect("nonzero"),
 				),
+				affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
 				protocol_version: PeerProtocolVersion::V1,
 				topic_affinity: Some(AffinityFilter::new(BLOOM_SEED, 0.01, 10)),
 				is_light: false,
@@ -5692,6 +5717,69 @@ mod tests {
 		);
 	}
 
+	async fn send_affinity(
+		handler: &mut StatementHandler<TestNetwork, TestSync>,
+		peer_id: PeerId,
+		topic: [u8; 32],
+	) {
+		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, 100);
+		filter.insert(&topic);
+		let notification = StatementMessage::ExplicitTopicAffinity(filter).encode().into();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer: peer_id,
+				notification,
+			})
+			.await;
+	}
+
+	#[tokio::test]
+	async fn affinity_updates_are_rate_limited_per_peer() {
+		let (mut handler, _statement_store, network, _notification_service) =
+			build_handler_no_peers();
+		let peer_id = PeerId::random();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+		let clock = FakeRelativeClock::default();
+		handler.peers.get_mut(&peer_id).unwrap().affinity_rate_limiter =
+			PeerRateLimiter::with_clock(
+				config::AFFINITY_UPDATES_PER_SECOND,
+				config::AFFINITY_UPDATES_BURST,
+				&clock,
+			);
+		let flooding_reports = || {
+			network
+				.get_reports()
+				.iter()
+				.filter(|(id, rep)| *id == peer_id && *rep == rep::AFFINITY_FLOODING)
+				.count()
+		};
+
+		let burst = config::AFFINITY_UPDATES_BURST.get() as u8;
+		for i in 0..=burst {
+			send_affinity(&mut handler, peer_id, [i; 32]).await;
+		}
+		assert_eq!(flooding_reports(), 1, "only the update past the burst is reported");
+		assert!(!network.get_disconnected_peers().contains(&peer_id));
+		handler.process_pending_affinities();
+		let affinity = handler.peers[&peer_id].topic_affinity.clone().unwrap();
+		assert!(affinity.contains(&[burst - 1; 32]), "last accepted update is applied");
+		assert!(!affinity.contains(&[burst; 32]), "dropped update is not applied");
+
+		clock.advance(Duration::from_secs(1));
+		send_affinity(&mut handler, peer_id, [burst; 32]).await;
+		assert_eq!(flooding_reports(), 1, "the refilled token admits the next update");
+		handler.process_pending_affinities();
+		let affinity = handler.peers[&peer_id].topic_affinity.clone().unwrap();
+		assert!(affinity.contains(&[burst; 32]), "update after the refill is applied");
+	}
+
 	#[tokio::test]
 	async fn test_topic_affinity_filters_propagation() {
 		let (mut handler, statement_store, _network, notification_service) =
@@ -6192,6 +6280,7 @@ mod tests {
 					)
 					.expect("nonzero"),
 				),
+				affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
 				protocol_version: version,
 				topic_affinity,
 				is_light,
@@ -6466,6 +6555,7 @@ mod tests {
 					)
 					.unwrap(),
 				),
+				affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
 				protocol_version: PeerProtocolVersion::V1,
 				topic_affinity: None,
 				is_light: false,
@@ -7035,6 +7125,7 @@ mod tests {
 					)
 					.expect("burst capacity is nonzero"),
 				),
+				affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
 				protocol_version: PeerProtocolVersion::V1,
 				topic_affinity: None,
 				is_light: false,
@@ -7152,6 +7243,7 @@ mod tests {
 				)
 				.expect("burst capacity is nonzero"),
 			),
+			affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
@@ -7257,6 +7349,7 @@ mod tests {
 				)
 				.expect("burst capacity is nonzero"),
 			),
+			affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
