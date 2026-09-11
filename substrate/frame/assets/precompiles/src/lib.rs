@@ -339,8 +339,9 @@ where
 			return;
 		};
 		let Some(token) = Self::token_address(id) else {
-			frame_support::defensive!(
-				"asset has no precompile address mapping; Transfer log dropped (unreachable unless a foreign asset predates its mapping migration)",
+			log::error!(
+				target: frame_support::LOG_TARGET,
+				"asset has no precompile address mapping; Transfer log dropped (a foreign asset predating the index-map migration): {:?}",
 				(id, from, to, amount)
 			);
 			return;
