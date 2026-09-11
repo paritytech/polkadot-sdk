@@ -54,7 +54,7 @@ pub type ParachainService<Block, RuntimeApi, BI, BIExtraReturnValue> = PartialCo
 	ParachainBackend<Block>,
 	(),
 	DefaultImportQueue<Block>,
-	TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
+	TransactionPoolHandle<Block>,
 	(
 		ParachainBlockImport<Block, BI>,
 		Option<Telemetry>,

@@ -52,7 +52,7 @@ pub(crate) type PolkadotPartialComponents<ChainSelection> = sc_service::PartialC
 	FullBackend,
 	ChainSelection,
 	sc_consensus::DefaultImportQueue<Block>,
-	sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
+	sc_transaction_pool::TransactionPoolHandle<Block>,
 	(
 		Box<
 			dyn Fn(
@@ -154,16 +154,14 @@ pub(crate) fn new_partial<ChainSelection>(
 where
 	ChainSelection: 'static + SelectChain<Block>,
 {
-	let transaction_pool = Arc::from(
-		sc_transaction_pool::Builder::new(
-			task_manager.spawn_essential_handle(),
-			client.clone(),
-			config.role.is_authority().into(),
-		)
-		.with_options(config.transaction_pool.clone())
-		.with_prometheus(config.prometheus_registry())
-		.build(),
-	);
+	let transaction_pool = sc_transaction_pool::Builder::new(
+		task_manager.spawn_essential_handle(),
+		client.clone(),
+		config.role.is_authority().into(),
+	)
+	.with_options(config.transaction_pool.clone())
+	.with_prometheus(config.prometheus_registry())
+	.build();
 
 	let grandpa_hard_forks = if config.chain_spec.is_kusama() {
 		grandpa_support::kusama_hard_forks()
