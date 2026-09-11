@@ -217,13 +217,13 @@ async fn derive_relay_context<RelayClient>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 	scheduling_info: &mut SchedulingInfo<RelayClient>,
 	params: SchedulingParams,
-	slot: &Slot,
+	slot: Slot,
 ) -> Option<(RelayHeader, bool, RelayParentData)>
 where
 	RelayClient: RelayChainInterface + 'static,
 {
 	let Some((scheduling_parent_header, v3_enabled)) = scheduling_info
-		.wait_for_scheduling_parent(relay_chain_data_cache, params.v3_enabled, *slot)
+		.wait_for_scheduling_parent(relay_chain_data_cache, params.v3_enabled, slot)
 		.await
 	else {
 		tracing::warn!(target: LOG_TARGET, "Unable to fetch the scheduling parent hash.");
@@ -432,7 +432,7 @@ where
 			&mut self.relay_chain_data_cache,
 			&mut self.scheduling_info,
 			best_params,
-			&slot,
+			slot,
 		)
 		.await?;
 
@@ -483,7 +483,7 @@ where
 						&mut self.relay_chain_data_cache,
 						&mut self.scheduling_info,
 						build_params,
-						&slot,
+						slot,
 					)
 					.await?;
 
@@ -836,7 +836,7 @@ where
 				return;
 			};
 
-			let Some(cx) = env.prepare_slot(slot_time.slot()).await else { continue };
+			let Some(cx) = env.prepare_slot(slot_time.relay_slot()).await else { continue };
 
 			// We mainly call this to inform users at genesis if there is a mismatch with the
 			// on-chain data.
