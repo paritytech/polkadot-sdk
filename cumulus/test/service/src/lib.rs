@@ -374,6 +374,7 @@ where
 			metrics: Net::register_notification_metrics(
 				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 			),
+			gap_sync_body_policy: None,
 		})
 		.await?;
 
