@@ -787,13 +787,48 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// `hrmp_cancel_open_request`, asked for by `initiator` through the relay chain.
+	///
+	/// The relay chain has nothing to undo: it was never told about this request. It is only
+	/// asked to carry word of the withdrawal to the other end.
 	fn on_cancel_open_request(
 		initiator: ParaId,
 		channel: ChannelId,
 		open_requests: u32,
 	) -> DispatchResult {
-		let _ = (initiator, channel, open_requests);
-		todo!()
+		ensure!(
+			OpenRequestCount::<T>::get(channel.sender) <= open_requests,
+			Error::<T>::WrongWitness,
+		);
+		ensure!(channel.is_participant(initiator), Error::<T>::CancelHrmpOpenChannelUnauthorized);
+
+		let request = Requests::<T>::get(channel).ok_or(Error::<T>::OpenHrmpChannelDoesntExist)?;
+		let RequestState::Requested { sender_deposit } = request.state else {
+			return Err(Error::<T>::OpenHrmpChannelAlreadyConfirmed.into());
+		};
+
+		Requests::<T>::remove(channel);
+		OpenRequestCount::<T>::mutate(channel.sender, |count| *count = count.saturating_sub(1));
+
+		// Only the sender can have paid: an unaccepted request never held the recipient's deposit,
+		// which is also why `AcceptedRequestCount` is left alone.
+		if let Some(deposit) = sender_deposit {
+			deposit.drop(&Self::sovereign_account(channel.sender))?;
+		}
+
+		let other_end =
+			if initiator == channel.sender { channel.recipient } else { channel.sender };
+		Self::notify_para(
+			other_end,
+			ParaNotification::OpenRequestCanceled { channel, by_parachain: initiator },
+		)?;
+
+		Self::deposit_event(Event::OpenChannelCanceled {
+			channel,
+			message_id: request.message_id,
+			by_parachain: initiator,
+		});
+
+		Ok(())
 	}
 
 	/// `establish_channel_with_system`, asked for by `sender` through the relay chain.

@@ -73,6 +73,20 @@ fn agreed(channel: ChannelId) {
 	let _ = hrmp_events();
 }
 
+/// A request the sender has made and nobody has accepted, with the logs cleared.
+fn requested(channel: ChannelId) -> u64 {
+	fund(channel);
+	assert_ok!(init(channel, CAPACITY, MESSAGE_SIZE));
+	let message_id = Requests::<Test>::get(channel).unwrap().message_id;
+	let _ = take_sent();
+	let _ = hrmp_events();
+	message_id
+}
+
+fn cancel(initiator: ParaId, channel: ChannelId, open_requests: u32) -> sp_runtime::DispatchResult {
+	forwarded(initiator, ParaRequestV1::CancelOpenRequest { channel, open_requests })
+}
+
 fn respond(
 	channel: ChannelId,
 	message_id: u64,
@@ -433,5 +447,161 @@ fn a_refusing_transport_unwinds_the_whole_request() {
 		assert!(Requests::<Test>::get(CHANNEL).is_none());
 		assert_eq!(OpenRequestCount::<Test>::get(CHANNEL.sender), 0);
 		assert_eq!(held(CHANNEL.sender, HoldReason::SenderDeposit), 0);
+	});
+}
+
+#[test]
+fn cancel_open_request_releases_the_sender_deposit() {
+	new_test_ext().execute_with(|| {
+		let message_id = requested(CHANNEL);
+		assert_eq!(held(CHANNEL.sender, HoldReason::SenderDeposit), DEPOSIT);
+
+		assert_ok!(cancel(CHANNEL.sender, CHANNEL, 1));
+
+		assert!(Requests::<Test>::get(CHANNEL).is_none());
+		assert_eq!(OpenRequestCount::<Test>::get(CHANNEL.sender), 0);
+		assert_eq!(held(CHANNEL.sender, HoldReason::SenderDeposit), 0);
+		assert_eq!(
+			hrmp_events(),
+			vec![Event::OpenChannelCanceled {
+				channel: CHANNEL,
+				message_id,
+				by_parachain: CHANNEL.sender,
+			}]
+		);
+	});
+}
+
+#[test]
+fn cancel_open_request_can_be_done_by_the_recipient() {
+	new_test_ext().execute_with(|| {
+		let message_id = requested(CHANNEL);
+
+		assert_ok!(cancel(CHANNEL.recipient, CHANNEL, 1));
+
+		assert!(Requests::<Test>::get(CHANNEL).is_none());
+		assert_eq!(OpenRequestCount::<Test>::get(CHANNEL.sender), 0);
+		// The released deposit is the sender's either way.
+		assert_eq!(held(CHANNEL.sender, HoldReason::SenderDeposit), 0);
+		assert_eq!(
+			hrmp_events(),
+			vec![Event::OpenChannelCanceled {
+				channel: CHANNEL,
+				message_id,
+				by_parachain: CHANNEL.recipient,
+			}]
+		);
+	});
+}
+
+#[test]
+fn cancel_open_request_tells_the_other_end() {
+	new_test_ext().execute_with(|| {
+		requested(CHANNEL);
+		assert_ok!(cancel(CHANNEL.sender, CHANNEL, 1));
+		assert_eq!(
+			take_sent(),
+			vec![MessageToRelay::V1(MessageToRelayV1::NotifyPara {
+				para_id: CHANNEL.recipient,
+				notification: ParaNotification::OpenRequestCanceled {
+					channel: CHANNEL,
+					by_parachain: CHANNEL.sender,
+				},
+			})]
+		);
+
+		requested(CHANNEL);
+		assert_ok!(cancel(CHANNEL.recipient, CHANNEL, 1));
+		assert_eq!(
+			take_sent(),
+			vec![MessageToRelay::V1(MessageToRelayV1::NotifyPara {
+				para_id: CHANNEL.sender,
+				notification: ParaNotification::OpenRequestCanceled {
+					channel: CHANNEL,
+					by_parachain: CHANNEL.recipient,
+				},
+			})]
+		);
+	});
+}
+
+#[test]
+fn cancel_open_request_rejects_a_stranger() {
+	new_test_ext().execute_with(|| {
+		requested(CHANNEL);
+
+		assert_noop!(cancel(2002, CHANNEL, 1), Error::<Test>::CancelHrmpOpenChannelUnauthorized);
+		assert!(Requests::<Test>::get(CHANNEL).is_some());
+		assert_eq!(held(CHANNEL.sender, HoldReason::SenderDeposit), DEPOSIT);
+	});
+}
+
+#[test]
+fn cancel_open_request_needs_an_unaccepted_request() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(cancel(CHANNEL.sender, CHANNEL, 0), Error::<Test>::OpenHrmpChannelDoesntExist);
+
+		agreed(CHANNEL);
+		assert_noop!(
+			cancel(CHANNEL.sender, CHANNEL, 1),
+			Error::<Test>::OpenHrmpChannelAlreadyConfirmed
+		);
+		assert!(Requests::<Test>::get(CHANNEL).is_some());
+		assert_eq!(held(CHANNEL.sender, HoldReason::SenderDeposit), DEPOSIT);
+		assert_eq!(held(CHANNEL.recipient, HoldReason::RecipientDeposit), DEPOSIT);
+	});
+}
+
+#[test]
+fn cancel_open_request_checks_the_witness() {
+	new_test_ext().execute_with(|| {
+		requested(CHANNEL);
+
+		assert_noop!(cancel(CHANNEL.sender, CHANNEL, 0), Error::<Test>::WrongWitness);
+		// The count checked is the sender's, whoever is cancelling: the recipient has none of its
+		// own, so a witness of zero would pass if the initiator's were used.
+		assert_noop!(cancel(CHANNEL.recipient, CHANNEL, 0), Error::<Test>::WrongWitness);
+		// Over-declaring only overpays.
+		assert_ok!(cancel(CHANNEL.sender, CHANNEL, 2));
+	});
+}
+
+#[test]
+fn cancelling_a_system_channel_releases_nothing() {
+	new_test_ext().execute_with(|| {
+		// Only the sender is funded: a channel with the system holds nothing on either end.
+		fund_para(SYSTEM_CHANNEL.sender);
+		assert_ok!(init(SYSTEM_CHANNEL, CAPACITY, MESSAGE_SIZE));
+
+		assert_ok!(cancel(SYSTEM_CHANNEL.sender, SYSTEM_CHANNEL, 1));
+
+		assert!(Requests::<Test>::get(SYSTEM_CHANNEL).is_none());
+		assert_eq!(held(SYSTEM_CHANNEL.sender, HoldReason::SenderDeposit), 0);
+	});
+}
+
+#[test]
+fn cancelling_lets_the_sender_ask_again() {
+	new_test_ext().execute_with(|| {
+		requested(CHANNEL);
+		assert_ok!(cancel(CHANNEL.sender, CHANNEL, 1));
+
+		// Nothing of the first request is left to get in the way.
+		assert_ok!(init(CHANNEL, CAPACITY, MESSAGE_SIZE));
+		assert_eq!(OpenRequestCount::<Test>::get(CHANNEL.sender), 1);
+		assert_eq!(held(CHANNEL.sender, HoldReason::SenderDeposit), DEPOSIT);
+	});
+}
+
+#[test]
+fn a_refusing_transport_unwinds_the_cancel() {
+	new_test_ext().execute_with(|| {
+		requested(CHANNEL);
+		SendFails::set(true);
+
+		assert_noop!(cancel(CHANNEL.sender, CHANNEL, 1), Error::<Test>::SendFailed);
+		assert!(Requests::<Test>::get(CHANNEL).is_some());
+		assert_eq!(OpenRequestCount::<Test>::get(CHANNEL.sender), 1);
+		assert_eq!(held(CHANNEL.sender, HoldReason::SenderDeposit), DEPOSIT);
 	});
 }
