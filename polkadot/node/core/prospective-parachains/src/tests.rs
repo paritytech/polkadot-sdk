@@ -3457,3 +3457,109 @@ fn get_pvd_for_candidate_with_older_relay_parent(#[case] runtime_api_version: u3
 		virtual_overseer
 	});
 }
+
+async fn get_known_output_heads(
+	virtual_overseer: &mut VirtualOverseer,
+	para_ids: Vec<ParaId>,
+) -> std::collections::HashMap<Hash, std::collections::HashMap<ParaId, HashSet<Hash>>> {
+	let (tx, rx) = oneshot::channel();
+	virtual_overseer
+		.send(overseer::FromOrchestra::Communication {
+			msg: ProspectiveParachainsMessage::GetKnownOutputHeads(para_ids, tx),
+		})
+		.await;
+	rx.await.unwrap()
+}
+
+// Leaves: A #100, B #101 and C #101 both children of A. Y (SP A, head [1]) is reported under A,
+// B and C; X (SP B, head [2]) under B only. Three keys in the answer.
+#[test]
+fn known_output_heads_are_reported_per_leaf() {
+	let test_state = TestState::default();
+	let para_id = ParaId::from(1);
+	let view = test_harness(|mut virtual_overseer| async move {
+		// Leaf B (#101) and its parent A (#100).
+		let leaf_b = TestLeaf {
+			number: 101,
+			hash: Hash::from_low_u64_be(131),
+			para_data: vec![
+				(1.into(), PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![4, 5, 6]))),
+			],
+		};
+		let leaf_a = TestLeaf {
+			number: 100,
+			hash: get_parent_hash(leaf_b.hash),
+			para_data: vec![
+				(1.into(), PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
+			],
+		};
+		// Leaf C (#101): a sibling of B, also a child of A.
+		let leaf_c = TestLeaf {
+			number: 101,
+			hash: Hash::from_low_u64_be(12),
+			para_data: vec![
+				(1.into(), PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![4, 5, 6]))),
+			],
+		};
+
+		activate_leaf(&mut virtual_overseer, &leaf_a, &test_state).await;
+		activate_leaf(&mut virtual_overseer, &leaf_b, &test_state).await;
+		activate_leaf_with_parent_hash_fn(&mut virtual_overseer, &leaf_c, &test_state, |hash| {
+			if hash == leaf_c.hash {
+				leaf_a.hash
+			} else {
+				get_parent_hash(hash)
+			}
+		})
+		.await;
+
+		// Y: built on the common ancestor A. Known at A, B and C.
+		let (candidate_y, pvd_y) = make_candidate(
+			leaf_a.hash,
+			leaf_a.number,
+			para_id,
+			HeadData(vec![1, 2, 3]),
+			HeadData(vec![1]),
+			test_state.validation_code_hash,
+		);
+		introduce_seconded_candidate(&mut virtual_overseer, &test_state, candidate_y, pvd_y).await;
+
+		// X: child of Y, built on leaf B. Known at B only.
+		let (candidate_x, pvd_x) = make_candidate(
+			leaf_b.hash,
+			leaf_b.number,
+			para_id,
+			HeadData(vec![1]),
+			HeadData(vec![2]),
+			test_state.validation_code_hash,
+		);
+		introduce_seconded_candidate(&mut virtual_overseer, &test_state, candidate_x, pvd_x).await;
+
+		let y_head = HeadData(vec![1]).hash();
+		let x_head = HeadData(vec![2]).hash();
+
+		let known = get_known_output_heads(&mut virtual_overseer, vec![para_id]).await;
+		let at = |leaf: Hash| {
+			known
+				.get(&leaf)
+				.and_then(|per_para| per_para.get(&para_id))
+				.cloned()
+				.unwrap_or_default()
+		};
+
+		assert!(at(leaf_a.hash).contains(&y_head));
+		assert!(at(leaf_b.hash).contains(&y_head));
+		assert!(at(leaf_c.hash).contains(&y_head));
+		assert!(at(leaf_b.hash).contains(&x_head));
+		assert!(!at(leaf_a.hash).contains(&x_head));
+		assert!(!at(leaf_c.hash).contains(&x_head));
+		assert_eq!(known.len(), 3);
+
+		virtual_overseer
+	});
+
+	assert_eq!(view.active_leaves.len(), 3);
+}

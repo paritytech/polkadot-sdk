@@ -30,11 +30,14 @@ use crate::{
 	LOG_TARGET,
 };
 use fatality::Split;
-use futures::stream::FusedStream;
+use futures::{channel::oneshot, stream::FusedStream};
 use polkadot_node_network_protocol::{peer_set::CollationVersion, OurView, PeerId};
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
-	messages::{CandidateBackingMessage, IfDisconnected, NetworkBridgeTxMessage},
+	messages::{
+		CandidateBackingMessage, IfDisconnected, NetworkBridgeTxMessage,
+		ProspectiveParachainsMessage,
+	},
 	CollatorProtocolSenderTrait,
 };
 use polkadot_node_subsystem_util::{request_session_index_for_child, runtime::recv_runtime};
@@ -42,7 +45,10 @@ use polkadot_primitives::{
 	BlockNumber, CandidateDescriptorVersion, CandidateReceiptV2 as CandidateReceipt, Hash,
 	Id as ParaId,
 };
-use std::time::Duration;
+use std::{
+	collections::{HashMap, HashSet},
+	time::Duration,
+};
 
 /// All state relevant for the validator side of the protocol lives here.
 pub struct State<B> {
@@ -278,10 +284,37 @@ impl<B: Backend> State<B> {
 			advertisement_log,
 		);
 
-		// V4 has no `Declare`: a peer's first advertisement carries its para and binds it.
-		// Until then a V4 peer holds a reserved slot on every scheduled para; binding here
-		// releases the slots it held on all the other paras.
 		if let Some(para_id) = advertised_para_id {
+			if entries.is_empty() {
+				gum::debug!(
+					target: LOG_TARGET,
+					?scheduling_parent,
+					?peer_id,
+					?para_id,
+					"Received an empty segment advertisement",
+				);
+				self.metrics.on_advertisement_rejected_malformed_segment(&para_id);
+				return;
+			}
+			// A zero-len cycle is impossible for an honest block.
+			if entries.iter().any(|prospective_candidate| {
+				Some(prospective_candidate.parent_head_data_hash()) ==
+					prospective_candidate.output_head_data_hash()
+			}) {
+				gum::debug!(
+					target: LOG_TARGET,
+					?scheduling_parent,
+					?peer_id,
+					?para_id,
+					"Received a segment advertisement with a zero-length cycle",
+				);
+				self.metrics.on_advertisement_rejected_malformed_segment(&para_id);
+				return;
+			}
+
+			// V4 has no `Declare`: a peer's first advertisement carries its para and binds it.
+			// Until then a V4 peer holds a reserved slot on every scheduled para; binding here
+			// releases the slots it held on all the other paras.
 			if !self.peer_manager.declared(sender, peer_id, para_id).await {
 				self.collation_manager.remove_peer(&peer_id);
 				return;
@@ -346,6 +379,9 @@ impl<B: Backend> State<B> {
 					},
 					AdvertisementError::SchedulingParentNotValid => {
 						self.metrics.on_advertisement_rejected_scheduling_parent_invalid(para_id)
+					},
+					AdvertisementError::MixedClaimShapes => {
+						self.metrics.on_advertisement_rejected_mixed_claim_shapes(para_id)
 					},
 				}
 				gum::debug!(
@@ -612,9 +648,49 @@ impl<B: Backend> State<B> {
 		}
 	}
 
+	pub fn mark_replan(&mut self) {
+		self.collation_manager.mark_replan()
+	}
+
+	#[cfg(test)]
+	pub fn take_replan(&mut self) -> bool {
+		self.collation_manager.take_replan()
+	}
+
+	/// Runs a planner pass if a launch-enabling mutation happened since the last one.
+	/// Outer `None`: no pass ran. Inner value: the pass's fetch-delay, as before.
+	pub async fn maybe_replan<Sender: CollatorProtocolSenderTrait>(
+		&mut self,
+		sender: &mut Sender,
+	) -> Option<Option<Duration>> {
+		if !self.collation_manager.take_replan() {
+			return None;
+		}
+		let paras: Vec<ParaId> = self.collation_manager.assignments().into_iter().collect();
+		if paras.is_empty() {
+			return None;
+		}
+		let (tx, rx) = oneshot::channel();
+		sender
+			.send_message(ProspectiveParachainsMessage::GetKnownOutputHeads(paras, tx))
+			.await;
+		let pp_known = match rx.await {
+			Ok(known) => known,
+			Err(_) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					"GetKnownOutputHeads responder dropped; skipping planner pass",
+				);
+				return None;
+			},
+		};
+		Some(self.try_launch_new_fetch_requests(sender, &pp_known).await)
+	}
+
 	pub async fn try_launch_new_fetch_requests<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
+		pp_known: &HashMap<Hash, HashMap<ParaId, HashSet<Hash>>>,
 	) -> Option<Duration> {
 		let _timer = self.metrics.time_handler(TimedHandler::LaunchFetchRequests);
 
@@ -633,6 +709,7 @@ impl<B: Backend> State<B> {
 		let (requests, maybe_delay) = self.collation_manager.try_make_new_fetch_requests(
 			connected_rep_query_fn,
 			max_reps,
+			pp_known,
 			create_timer_fn,
 		);
 

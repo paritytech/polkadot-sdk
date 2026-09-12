@@ -33,6 +33,8 @@ pub mod spawn;
 
 pub use availability_store::AvailabilityStoreStub;
 pub use can_second_stub::CanSecondStub;
-pub use candidate_validation::{CandidateOutputs, CandidateValidationStub, Verdict};
+pub use candidate_validation::{
+	CandidateOutputs, CandidateValidationStub, SharedInvalidSet, Verdict,
+};
 pub use noop::{AvailabilityDistributionNoop, ProvisionerNoop, StatementDistributionNoop};
 pub use spawn::{spawn_aux, AuxSlot};

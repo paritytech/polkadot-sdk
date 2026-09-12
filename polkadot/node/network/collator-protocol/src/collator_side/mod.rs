@@ -1197,12 +1197,7 @@ async fn send_collation(
 			let r = rx.timeout(MAX_UNSHARED_UPLOAD_TIME).await;
 			let timed_out = r.is_none();
 
-			CollationSendResult {
-				relay_parent: scheduling_parent,
-				candidate_hash,
-				peer_id,
-				timed_out,
-			}
+			CollationSendResult { scheduling_parent, candidate_hash, peer_id, timed_out }
 		}
 		.boxed(),
 	);
@@ -2104,19 +2099,19 @@ async fn run_inner<Context>(
 				}
 				FromOrchestra::Signal(Conclude) => return Ok(()),
 			},
-			CollationSendResult { relay_parent, candidate_hash, peer_id, timed_out } =
+			CollationSendResult { scheduling_parent, candidate_hash, peer_id, timed_out } =
 				state.active_collation_fetches.select_next_some() => {
 
-				let next = if let Some(waiting) = state.waiting_collation_fetches.get_mut(&relay_parent) {
+				let next = if let Some(waiting) = state.waiting_collation_fetches.get_mut(&scheduling_parent) {
 					if timed_out {
 						gum::debug!(
 							target: LOG_TARGET_STATS,
-							?relay_parent,
+							?scheduling_parent,
 							?peer_id,
 							?candidate_hash,
 							"Sending collation to validator timed out, carrying on with next validator."
 						);
-						// We try to throttle requests per relay parent to give validators
+						// We try to throttle requests per scheduling parent to give validators
 						// more bandwidth, but if the collation is not received within the
 						// timeout, we simply start processing next request.
 						// The request it still alive, it should be kept in a waiting queue.
@@ -2124,8 +2119,8 @@ async fn run_inner<Context>(
 						waiting.waiting_peers.remove(&(peer_id, candidate_hash));
 
 						// Update collation status to fetched.
-						if let Some(per_relay_parent) =  state.per_scheduling_parent.get_mut(&relay_parent) {
-							if let Some(collation_with_core) = per_relay_parent.collation_by_hash_mut(&candidate_hash) {
+						if let Some(per_scheduling_parent) =  state.per_scheduling_parent.get_mut(&scheduling_parent) {
+							if let Some(collation_with_core) = per_scheduling_parent.collation_by_hash_mut(&candidate_hash) {
 								let maybe_stats = collation_with_core.take_stats();
 								let our_para_id = collation_with_core.collation().receipt.descriptor.para_id();
 
@@ -2167,7 +2162,7 @@ async fn run_inner<Context>(
 				};
 
 				let next_collation_with_core = {
-					let per_relay_parent = match state.per_scheduling_parent.get(&relay_parent) {
+					let per_relay_parent = match state.per_scheduling_parent.get(&scheduling_parent) {
 						Some(per_relay_parent) => per_relay_parent,
 						None => continue,
 					};

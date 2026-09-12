@@ -43,7 +43,7 @@ use polkadot_primitives::{
 	PersistedValidationData,
 };
 use std::{
-	collections::HashMap,
+	collections::{HashMap, HashSet},
 	sync::{Arc, Mutex},
 };
 
@@ -79,6 +79,26 @@ impl CandidateOutputs {
 	}
 }
 
+/// Shared set of candidate hashes the validation stub should reject. The
+/// [`CandidateValidationStub::valid_unless`] constructor consults it on every request,
+/// so tests can mark candidates invalid before or after spawning the aux graph.
+#[derive(Clone, Default)]
+pub struct SharedInvalidSet {
+	inner: Arc<Mutex<HashSet<CandidateHash>>>,
+}
+
+impl SharedInvalidSet {
+	/// Mark `hash` as invalid: subsequent validation requests for it return
+	/// `ValidationResult::Invalid`.
+	pub fn insert(&self, hash: CandidateHash) {
+		self.inner.lock().expect("SharedInvalidSet lock").insert(hash);
+	}
+
+	fn contains(&self, hash: &CandidateHash) -> bool {
+		self.inner.lock().expect("SharedInvalidSet lock").contains(hash)
+	}
+}
+
 /// Verdict the stub returns for a single validate request.
 pub enum Verdict {
 	/// Candidate validates with the given commitments and PVD.
@@ -108,6 +128,33 @@ impl CandidateValidationStub {
 		AllMessages: From<S::Message>,
 	{
 		Self::with_verdict(sim, move |receipt, _| {
+			if let Some((commitments, pvd)) = outputs.get(&receipt.hash()) {
+				return Verdict::Valid(commitments, pvd);
+			}
+			let pvd = crate::builders::fixtures::dummy_pvd();
+			Verdict::Valid(default_commitments(), pvd)
+		})
+	}
+
+	/// Like [`Self::always_valid`], but candidates in `invalid` fail validation with
+	/// `InvalidCandidate::InvalidOutputs`. Everything else follows the `always_valid`
+	/// logic: registry lookup first, canned defaults otherwise. This is the real-verdict
+	/// path for "fetched fine, failed validation" scenarios — backing reacts to the
+	/// invalid result exactly as in production.
+	pub fn valid_unless<S>(
+		sim: &mut crate::harness::Sim<S>,
+		outputs: CandidateOutputs,
+		invalid: SharedInvalidSet,
+	) -> Self
+	where
+		S: crate::harness::SubsystemUnderTest,
+		AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+		AllMessages: From<S::Message>,
+	{
+		Self::with_verdict(sim, move |receipt, _| {
+			if invalid.contains(&receipt.hash()) {
+				return Verdict::Invalid(InvalidCandidate::InvalidOutputs);
+			}
 			if let Some((commitments, pvd)) = outputs.get(&receipt.hash()) {
 				return Verdict::Valid(commitments, pvd);
 			}
