@@ -17,9 +17,10 @@ doc:
     each entry and drops exact duplicates in a single block. Deposits are left as they are,
     a deduplicated entry pricing below its deposit until `poke_deposit` corrects it.
 
-    The migration is added to every runtime in this repository that uses the pallet. The
-    Polkadot and Kusama Asset Hub runtimes live in `polkadot-fellows/runtimes` and can take
-    it once this is released.
+    The migration is added to every live runtime in this repository that uses the pallet.
+    The Rococo runtimes are skipped because that testnet is retired. The Polkadot and Kusama
+    Asset Hub runtimes live in `polkadot-fellows/runtimes` and can take it once this is
+    released.
 - audience: Runtime User
   description: |-
     Accounts whose proxy list was stored out of order can add and remove proxies again after
@@ -31,11 +32,7 @@ crates:
   bump: minor
 - name: westend-runtime
   bump: patch
-- name: rococo-runtime
-  bump: patch
 - name: asset-hub-westend-runtime
-  bump: patch
-- name: asset-hub-rococo-runtime
   bump: patch
 - name: collectives-westend-runtime
   bump: patch
