@@ -17,13 +17,13 @@
 //! The client connects to the source substrate chain
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 
-pub(crate) mod runtime_api;
 pub(crate) mod storage_api;
+pub(crate) mod version_aware_runtime_api;
 
 use crate::{
 	BlockId, BlockInfoProvider, BlockNumberOrTag, FeeHistoryProvider, FeeHistoryResult, Filter,
 	Log, ReceiptInfo, ReceiptProvider, SubxtBlockInfoProvider, SyncLabel, SyncingProgress,
-	SyncingStatus, TransactionTrace,
+	SyncingStatus, TraceOutcome, TransactionTrace,
 	block_sync::SyncCheckpoint,
 	subxt_client::{self, SrcChainConfig, revive::calls::EthTransact},
 };
@@ -34,7 +34,6 @@ use pallet_revive::{
 	evm::{H256, TransactionSigned, U256, decode_revert_reason},
 };
 use pallet_revive_types::runtime_api::*;
-use runtime_api::RuntimeApi;
 use sp_runtime::traits::Block as BlockT;
 use sp_weights::Weight;
 use std::{
@@ -46,8 +45,8 @@ use std::{
 };
 use storage_api::StorageApi;
 use subxt::{
-	Config, OnlineClient,
-	backend::{StreamOf, StreamOfResults},
+	OnlineClient,
+	backend::{LegacyBackend, StreamOf, StreamOfResults},
 	client::OnlineClientAtBlock,
 	config::{HashFor, RpcConfigFor},
 	rpcs::{
@@ -63,9 +62,9 @@ use subxt::{
 
 use thiserror::Error;
 use tokio::sync::{Mutex, mpsc};
-
-/// The substrate block header.
-pub type SubstrateBlockHeader = <SrcChainConfig as Config>::Header;
+use version_aware_runtime_api::{
+	CallRecordedOutput, TraceEntry, VersionAwareRuntimeApi, VersionAwareRuntimeApiProvider,
+};
 
 /// The substrate block number type.
 pub type SubstrateBlockNumber = u64;
@@ -153,6 +152,9 @@ pub enum ClientError {
 	ContractNotFound,
 	#[error("No Ethereum extrinsic found")]
 	EthExtrinsicNotFound,
+	/// The transaction exists but the node could not produce its trace.
+	#[error("trace unavailable: the node could not produce a trace for this transaction")]
+	TraceUnavailable,
 	/// The transaction fee could not be found
 	#[error("transactionFeePaid event not found")]
 	TxFeeNotFound,
@@ -177,22 +179,58 @@ pub enum ClientError {
 	/// Transaction submission timeout.
 	#[error("Transaction submission timeout")]
 	Timeout,
-	/// All of the estimation methods `eth_estimate`, `eth_transact_with_config`, and
-	/// `eth_transact` were not found and therefore none of the estimation methods succeeded.
-	#[error("None of the estimation methods were found")]
-	NoEstimationMethodSucceeded,
 	/// Chain identity mismatch between stored genesis and connected node.
 	#[error("Genesis hash mismatch")]
 	ChainMismatch,
 	/// Stored sync boundary does not match the connected node.
 	#[error("Sync boundary mismatch")]
 	SyncBoundaryMismatch,
+	/// The runtime of the queried block does not support the requested runtime API method.
+	#[error("The `{0}` runtime API method is not supported at the queried block")]
+	UnsupportedRuntimeApiMethod(&'static str),
 }
 
 impl ClientError {
 	/// Errors that indicate a mismatch between the stored sync state and the connected node.
 	pub(crate) fn is_chain_validation_error(&self) -> bool {
 		matches!(self, Self::ChainMismatch | Self::SyncBoundaryMismatch)
+	}
+
+	/// Why the node cannot service `state_callRecorded`, if it can't; `None` for any genuine
+	/// failure that must propagate rather than fall back to a recorder-less replay.
+	pub(crate) fn recorded_unavailable_reason(&self) -> Option<RecordedUnavailable> {
+		use sc_rpc_api::state::error::{
+			CALL_RECORDED_DENIED_ERROR_CODE, CALL_RECORDED_UNSUPPORTED_ERROR_CODE,
+		};
+		const METHOD_NOT_FOUND: i32 = -32601;
+
+		let ClientError::RpcError(subxt::rpcs::Error::User(e)) = self else {
+			return None;
+		};
+		match e.code {
+			METHOD_NOT_FOUND => Some(RecordedUnavailable::MethodMissing),
+			CALL_RECORDED_DENIED_ERROR_CODE => Some(RecordedUnavailable::Denied),
+			CALL_RECORDED_UNSUPPORTED_ERROR_CODE => Some(RecordedUnavailable::NoRecorder),
+			_ => None,
+		}
+	}
+}
+
+/// Why a node cannot service `state_callRecorded`; the variants differ in fallback log detail.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RecordedUnavailable {
+	/// The node's binary predates `state_callRecorded` (`-32601`).
+	MethodMissing,
+	/// `state_callRecorded` is unsafe and disabled on this node (`CALL_RECORDED_DENIED`).
+	Denied,
+	/// The node registers no proof-size recorder (e.g. a solochain).
+	NoRecorder,
+}
+
+impl RecordedUnavailable {
+	/// Whether a recorder-less replay under this reason may have dropped traces.
+	pub(crate) fn is_degraded(self) -> bool {
+		matches!(self, Self::MethodMissing | Self::Denied)
 	}
 }
 
@@ -288,6 +326,8 @@ pub struct Client {
 	backfill_complete: Arc<AtomicBool>,
 	/// Queue for backfilling blocks missed during subscription reconnects.
 	subscription_gap_queue: SubscriptionGapQueue,
+	/// Hands out the version-aware runtime API of specific blocks.
+	runtime_api_provider: VersionAwareRuntimeApiProvider,
 }
 
 /// A request to backfill a range of missed blocks (both bounds inclusive).
@@ -413,7 +453,12 @@ pub async fn connect(
 	let rpc_client = RpcClient::new(rpc_client);
 	log::info!(target: LOG_TARGET, "🌟 Connected to node at: {node_rpc_url}");
 
-	let api = OnlineClient::<SrcChainConfig>::from_rpc_client(rpc_client.clone()).await?;
+	// Pin the legacy backend explicitly. Since subxt 0.50, from_rpc_client defaults
+	// to the CombinedBackend, which routes block streams and header fetches through
+	// the chainHead protocol; its follow restarts and pinning limits stall receipt
+	// indexing under load (blocks become unresolvable once unpinned).
+	let backend = Arc::new(LegacyBackend::builder().build(rpc_client.clone()));
+	let api = OnlineClient::<SrcChainConfig>::from_backend(backend).await?;
 	let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client.clone());
 	Ok((api, rpc_client, rpc))
 }
@@ -428,11 +473,17 @@ impl Client {
 		receipt_provider: ReceiptProvider,
 		is_archive: bool,
 		subscription_gap_queue: SubscriptionGapQueue,
+		runtime_api_provider: VersionAwareRuntimeApiProvider,
 	) -> Result<Self, ClientError> {
 		let (chain_id, max_block_weight, automine) =
 			tokio::try_join!(chain_id(&api), max_block_weight(&api), async {
 				Ok(get_automine(&rpc_client).await)
 			},)?;
+
+		// Compute the very first capabilities so that the provider's cache has an anchor which
+		// the subscriptions grow forward and the backfill grows backward.
+		let latest_finalized_block = block_provider.latest_finalized_block().await;
+		runtime_api_provider.at(latest_finalized_block.block_hash()).await?;
 
 		// Fall back to 0 when the hardcoded value exceeds the current best block (e.g. zombienet
 		// reusing a known chain ID) and backward sync is disabled.
@@ -468,6 +519,7 @@ impl Client {
 			is_archive,
 			backfill_complete: Arc::new(AtomicBool::new(false)),
 			subscription_gap_queue,
+			runtime_api_provider,
 		};
 
 		Ok(client)
@@ -571,9 +623,22 @@ impl Client {
 				},
 			};
 
-			let block = block.at().await.inspect_err(|err| {
-				log::error!(target: LOG_TARGET, "Failed to resolve streamed block: {err:?}");
-			})?;
+			// Resolution fails for pruned/retracted blocks and on transient RPC errors;
+			// erroring out here would kill the essential subscription task and with it the
+			// whole server. Skip instead: a skipped finalized block doesn't advance
+			// `last_finalized_seen`, so the gap filler backfills it.
+			let block = match block.at().await {
+				Ok(block) => block,
+				Err(err) => {
+					log::warn!(
+						target: LOG_TARGET,
+						"Failed to resolve streamed {subscription_type:?} block #{} ({:?}), skipping: {err:?}",
+						block.number(),
+						block.hash(),
+					);
+					continue;
+				},
+			};
 
 			// Acquire lock to ensure only one subscription can perform write operations at a time
 			let _guard = self.subscription_lock.lock().await;
@@ -607,6 +672,7 @@ impl Client {
 		block: &SubstrateBlock,
 	) -> Result<(BlockV1, Vec<ReceiptInfo>), ClientError> {
 		let block_number = block.block_number();
+		let hash = block.block_hash();
 
 		macro_rules! time {
 			($label:expr, $expr:expr) => {{
@@ -621,7 +687,14 @@ impl Client {
 			}};
 		}
 
-		let eth_block = time!("eth_block", RuntimeApi::new(block.clone()).eth_block().await?);
+		let eth_block = time!(
+			"eth_block",
+			self.runtime_api(hash)
+				.await?
+				.eth_block()
+				.ok_or(ClientError::UnsupportedRuntimeApiMethod("eth_block"))?
+				.await?
+		);
 		let receipts = time!(
 			"receipts_from_block",
 			self.receipt_provider.receipts_from_block(block, eth_block.hash).await?
@@ -781,9 +854,12 @@ impl Client {
 		Ok(StorageApi::new(self.api.at_block(block_hash).await?))
 	}
 
-	/// Get the runtime API for the given block.
-	pub async fn runtime_api(&self, block_hash: H256) -> Result<RuntimeApi, ClientError> {
-		Ok(RuntimeApi::new(self.api.at_block(block_hash).await?))
+	/// Get the version-aware runtime API for the given block.
+	pub async fn runtime_api(
+		&self,
+		block_hash: H256,
+	) -> Result<VersionAwareRuntimeApi, ClientError> {
+		self.runtime_api_provider.at(block_hash).await
 	}
 
 	/// Get the latest finalized block.
@@ -1062,8 +1138,13 @@ impl Client {
 		if parent_hash == Default::default() {
 			return Ok(vec![]);
 		}
-		let runtime_api = self.runtime_api(parent_hash).await?;
-		let traces = runtime_api.trace_block(block, config.clone()).await?;
+
+		let CallRecordedOutput { value: trace_entries, degraded } = self
+			.runtime_api(parent_hash)
+			.await?
+			.trace_block(block, config, block_hash)
+			.ok_or(ClientError::UnsupportedRuntimeApiMethod("trace_block"))?
+			.await?;
 
 		let mut hashes = self
 			.receipt_provider
@@ -1071,11 +1152,30 @@ impl Client {
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
 
-		let traces = traces.into_iter().filter_map(|(index, trace)| {
-			Some(TransactionTrace { tx_hash: hashes.remove(&(index as usize))?, trace })
-		});
+		let mut entries = trace_entries
+			.into_iter()
+			.filter_map(|(index, entry)| {
+				let index = index as usize;
+				let tx_hash = hashes.remove(&index)?;
+				let outcome = match entry {
+					TraceEntry::Traced(trace) => TraceOutcome::Trace(trace),
+					TraceEntry::NotTraced => {
+						TraceOutcome::Error(ClientError::TraceUnavailable.to_string())
+					},
+				};
+				Some((index, TransactionTrace { tx_hash, outcome }))
+			})
+			.collect::<Vec<_>>();
 
-		Ok(traces.collect())
+		if degraded {
+			entries.extend(hashes.into_iter().map(|(index, tx_hash)| {
+				let outcome = TraceOutcome::Error(ClientError::TraceUnavailable.to_string());
+				(index, TransactionTrace { tx_hash, outcome })
+			}));
+			entries.sort_unstable_by_key(|(index, _)| *index);
+		}
+
+		Ok(entries.into_iter().map(|(_, entry)| entry).collect())
 	}
 
 	/// Get the transaction traces for the given transaction.
@@ -1089,12 +1189,23 @@ impl Client {
 			.find_transaction(&transaction_hash)
 			.await
 			.ok_or(ClientError::EthExtrinsicNotFound)?;
+		let transaction_index = transaction_index as u32;
 
 		let block = self.tracing_block(block_hash).await?;
 		let parent_hash = block.header.parent_hash;
-		let runtime_api = self.runtime_api(parent_hash).await?;
+		let CallRecordedOutput { value: entry, degraded } = self
+			.runtime_api(parent_hash)
+			.await?
+			.trace_tx(block, transaction_index, config, block_hash)
+			.ok_or(ClientError::UnsupportedRuntimeApiMethod("trace_tx"))?
+			.await?;
 
-		runtime_api.trace_tx(block, transaction_index as u32, config).await
+		match entry {
+			Some(TraceEntry::Traced(trace)) => Ok(trace),
+			Some(TraceEntry::NotTraced) => Err(ClientError::TraceUnavailable),
+			None if degraded => Err(ClientError::TraceUnavailable),
+			None => Err(ClientError::EthExtrinsicNotFound),
+		}
 	}
 
 	/// Get the transaction traces for the given block.
@@ -1107,7 +1218,10 @@ impl Client {
 	) -> Result<TraceV1, ClientError> {
 		let block_hash = self.block_hash_for_tag(block).await?;
 		let runtime_api = self.runtime_api(block_hash).await?;
-		runtime_api.trace_call(transaction, config, state_overrides).await
+		runtime_api
+			.trace_call(transaction, config, state_overrides)
+			.ok_or(ClientError::UnsupportedRuntimeApiMethod("trace_call"))?
+			.await
 	}
 
 	/// Get the EVM block for the given Substrate block.
@@ -1132,8 +1246,15 @@ impl Client {
 		//  - the block author cannot be obtained from the digest logs (highly unlikely)
 		//  - the node we are targeting has an outdated revive pallet (or ETH block functionality is
 		//    disabled)
-		let runtime_api = RuntimeApi::new((*block).clone());
-		match runtime_api.eth_block().await {
+		let eth_block_result = async {
+			self.runtime_api(block.block_hash())
+				.await?
+				.eth_block()
+				.ok_or(ClientError::UnsupportedRuntimeApiMethod("eth_block"))?
+				.await
+		}
+		.await;
+		match eth_block_result {
 			Ok(mut eth_block) => {
 				log::trace!(target: LOG_TARGET, "Ethereum block from runtime API hash {:?}", eth_block.hash);
 
@@ -1231,4 +1352,53 @@ impl Client {
 
 fn to_hex(bytes: impl AsRef<[u8]>) -> String {
 	format!("0x{}", hex::encode(bytes.as_ref()))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sc_rpc_api::state::error::{
+		CALL_RECORDED_DENIED_ERROR_CODE, CALL_RECORDED_UNSUPPORTED_ERROR_CODE,
+	};
+	use subxt::rpcs::UserError;
+
+	fn rpc_user_error(code: i32) -> ClientError {
+		ClientError::RpcError(subxt::rpcs::Error::User(UserError {
+			code,
+			message: "..".to_string(),
+			data: None,
+		}))
+	}
+
+	#[test]
+	fn missing_method_is_version_skew() {
+		assert_eq!(
+			rpc_user_error(-32601).recorded_unavailable_reason(),
+			Some(RecordedUnavailable::MethodMissing),
+		);
+	}
+
+	#[test]
+	fn unsafe_denied_is_a_fallback_reason() {
+		assert_eq!(
+			rpc_user_error(CALL_RECORDED_DENIED_ERROR_CODE).recorded_unavailable_reason(),
+			Some(RecordedUnavailable::Denied),
+		);
+	}
+
+	#[test]
+	fn no_recorder_code_is_expected() {
+		assert_eq!(
+			rpc_user_error(CALL_RECORDED_UNSUPPORTED_ERROR_CODE).recorded_unavailable_reason(),
+			Some(RecordedUnavailable::NoRecorder),
+		);
+	}
+
+	#[test]
+	fn genuine_errors_do_not_trigger_fallback() {
+		assert!(rpc_user_error(-32000).recorded_unavailable_reason().is_none());
+		assert!(rpc_user_error(-32602).recorded_unavailable_reason().is_none());
+		assert!(ClientError::EthExtrinsicNotFound.recorded_unavailable_reason().is_none());
+		assert!(ClientError::BlockNotFound.recorded_unavailable_reason().is_none());
+	}
 }

@@ -16,7 +16,10 @@
 // limitations under the License.
 use crate::{
 	ClientError, H160, LOG_TARGET, Log, ReceiptGasInfoV1, ReceiptInfo,
-	client::{SubstrateBlock, SubstrateBlockNumber, runtime_api::RuntimeApi},
+	client::{
+		SubstrateBlock, SubstrateBlockNumber,
+		version_aware_runtime_api::VersionAwareRuntimeApiProvider,
+	},
 	subxt_client::{
 		SrcChainConfig,
 		revive::{
@@ -41,8 +44,9 @@ use std::{
 	},
 };
 use subxt::{
-	OnlineClient,
+	client::OfflineClientAtBlockT,
 	events::{DecodeAsEvent, Phase},
+	extrinsics::Extrinsics,
 };
 
 type EventDetails<'a> = subxt::events::Event<'a, SrcChainConfig>;
@@ -153,8 +157,42 @@ fn extract_revive_events(
 	(reverted_extrinsics, logs_by_extrinsic)
 }
 
+/// Returns the revive transactions from a block, and whether any extrinsic decode failed.
+fn extract_eth_transacts<C: OfflineClientAtBlockT<SrcChainConfig>>(
+	block_extrinsics: &Extrinsics<'_, SrcChainConfig, C>,
+	block_number: SubstrateBlockNumber,
+) -> Result<(Vec<(EthTransact, usize)>, bool), ClientError> {
+	let mut extrinsics = Vec::new();
+	let mut undecoded_extrinsic = false;
+	for (ext_idx, ext) in block_extrinsics.iter().enumerate() {
+		let ext = match ext {
+			Ok(ext) => ext,
+			// Don't error here since the call type is unknown.
+			Err(err) => {
+				log::debug!(target: LOG_TARGET,
+					"Failed to decode extrinsic {ext_idx} of block #{block_number}: {err:?}");
+				undecoded_extrinsic = true;
+				continue;
+			},
+		};
+		match ext.decode_call_data_fields_as::<EthTransact>() {
+			Some(Ok(call)) => extrinsics.push((call, ext_idx)),
+			Some(Err(err)) => {
+				log::error!(target: LOG_TARGET,
+					"Failed to decode the EthTransact call in extrinsic {ext_idx} of block \
+					#{block_number}: {err:?}");
+				return Err(subxt::Error::from(err).into());
+			},
+			// Not a revive transaction.
+			None => {},
+		}
+	}
+
+	Ok((extrinsics, undecoded_extrinsic))
+}
+
 type FetchReceiptDataFn = Arc<
-	dyn Fn(H256) -> Pin<Box<dyn Future<Output = Option<Vec<ReceiptGasInfoV1>>> + Send>>
+	dyn Fn(SubstrateBlock) -> Pin<Box<dyn Future<Output = Option<Vec<ReceiptGasInfoV1>>> + Send>>
 		+ Send
 		+ Sync,
 >;
@@ -187,9 +225,11 @@ pub struct ReceiptExtractor {
 
 impl ReceiptExtractor {
 	/// Create a new `ReceiptExtractor`.
-	pub async fn new(api: OnlineClient<SrcChainConfig>) -> Result<Self, ClientError> {
+	pub async fn new(
+		runtime_api_provider: VersionAwareRuntimeApiProvider,
+	) -> Result<Self, ClientError> {
 		Self::new_with_custom_address_recovery(
-			api,
+			runtime_api_provider,
 			Arc::new(|signed_tx: &TransactionSigned| signed_tx.recover_eth_address()),
 		)
 		.await
@@ -200,36 +240,69 @@ impl ReceiptExtractor {
 	/// Use `ReceiptExtractor::new` if the default Ethereum address recovery
 	/// logic ([`TransactionSigned::recover_eth_address`] based) is enough.
 	pub async fn new_with_custom_address_recovery(
-		api: OnlineClient<SrcChainConfig>,
+		runtime_api_provider: VersionAwareRuntimeApiProvider,
 		recover_eth_address_fn: RecoverEthAddressFn,
 	) -> Result<Self, ClientError> {
-		let api_inner = api.clone();
-		let fetch_eth_block_hash = Arc::new(move |block_hash, block_number| {
-			let api_inner = api_inner.clone();
+		let provider = runtime_api_provider.clone();
+		let fetch_eth_block_hash = Arc::new(move |substrate_block_hash, substrate_block_number| {
+			let provider = provider.clone();
 
 			let fut = async move {
-				let at_block = api_inner
-					.at_block_hash_and_number(block_hash, block_number)
+				let runtime_api = provider
+					.at_block_hash_and_number(substrate_block_hash, substrate_block_number)
 					.await
 					.inspect_err(|err| {
-						log::debug!(target: LOG_TARGET, "Failed to resolve block #{block_number} ({block_hash:?}) for eth_block_hash query: {err:?}");
+						log::debug!(
+							target: LOG_TARGET,
+							"Failed to access the runtime API at block #{substrate_block_number} \
+							({substrate_block_hash:?}) for an eth_block_hash query: {err:?}"
+						);
 					})
 					.ok()?;
-				let runtime_api = RuntimeApi::new(at_block);
-				runtime_api.eth_block_hash(U256::from(block_number)).await.ok().flatten()
+				runtime_api
+					.eth_block_hash(U256::from(substrate_block_number))?
+					.await
+					.inspect_err(|err| {
+						log::debug!(
+							target: LOG_TARGET,
+							"Failed to query eth_block_hash at block #{substrate_block_number} \
+							({substrate_block_hash:?}): {err:?}"
+						);
+					})
+					.ok()
+					.flatten()
 			};
 
 			Box::pin(fut) as Pin<Box<_>>
 		});
 
-		let api_inner = api.clone();
-		let fetch_receipt_data = Arc::new(move |block_hash| {
-			let api_inner = api_inner.clone();
+		let provider = runtime_api_provider;
+		let fetch_receipt_data = Arc::new(move |at_block: SubstrateBlock| {
+			let provider = provider.clone();
 
 			let fut = async move {
-				let at_block = api_inner.at_block(block_hash).await.ok()?;
-				let runtime_api = RuntimeApi::new(at_block);
-				runtime_api.eth_receipt_data().await.ok()
+				let block_hash = at_block.block_hash();
+				let runtime_api = provider
+					.at_resolved_block(at_block)
+					.await
+					.inspect_err(|err| {
+						log::debug!(
+							target: LOG_TARGET,
+							"Failed to access the runtime API at block {block_hash:?} for an \
+							eth_receipt_data query: {err:?}"
+						);
+					})
+					.ok()?;
+				runtime_api
+					.eth_receipt_data()?
+					.await
+					.inspect_err(|err| {
+						log::debug!(
+							target: LOG_TARGET,
+							"Failed to query eth_receipt_data at block {block_hash:?}: {err:?}"
+						);
+					})
+					.ok()
 			};
 
 			Box::pin(fut) as Pin<Box<_>>
@@ -437,36 +510,25 @@ impl ReceiptExtractor {
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<impl Iterator<Item = (EthTransact, ReceiptGasInfoV1, usize)>, ClientError> {
-		// Filter extrinsics from pallet_revive
-		let extrinsics = block.extrinsics().fetch().await.inspect_err(|err| {
+		let block_extrinsics = block.extrinsics().fetch().await.inspect_err(|err| {
 			log::debug!(target: LOG_TARGET, "Error fetching for #{:?} extrinsics: {err:?}", block.block_number());
 		})?;
 
-		let receipt_data =
-			(self.fetch_receipt_data)(block.block_hash()).await.ok_or_else(|| {
+		let block_number = block.block_number();
+		let (extrinsics, undecoded_extrinsic) =
+			extract_eth_transacts(&block_extrinsics, block_number)?;
+
+		// Skip the runtime query for blocks with no revive extrinsics.
+		let receipt_data = if extrinsics.is_empty() && !undecoded_extrinsic {
+			Vec::new()
+		} else {
+			(self.fetch_receipt_data)(block.clone()).await.ok_or_else(|| {
 				log::trace!(target: LOG_TARGET,
 				"Receipt data not found for block #{} ({:?})",
 				block.block_number(), block.block_hash());
 				ClientError::ReceiptDataNotFound
-			})?;
-		let block_number = block.block_number();
-		let extrinsics: Vec<_> = extrinsics
-			.iter()
-			.enumerate()
-			.flat_map(|(ext_idx, ext)| {
-				let ext = ext.ok()?;
-				match ext.decode_call_data_fields_as::<EthTransact>()? {
-					Ok(call) => Some((call, ext_idx)),
-					Err(err) => {
-						log::warn!(
-							target: LOG_TARGET,
-							"Failed to decode EthTransact call in extrinsic {ext_idx} of block #{block_number}: {err:?}, transaction dropped from receipts"
-						);
-						None
-					},
-				}
-			})
-			.collect();
+			})?
+		};
 
 		// Sanity check we received enough data from the pallet revive.
 		if receipt_data.len() != extrinsics.len() {
@@ -719,30 +781,26 @@ mod tests {
 		assert_eq!(extractor.first_evm_block(), Some(50));
 	}
 
-	use codec::{Compact, Decode, Encode};
+	use crate::block_info_provider::test::chain_config;
+	use codec::{Compact, Encode};
 	use frame_system::EventRecord;
 	use revive_dev_runtime::{Runtime, RuntimeEvent};
-	use subxt::{
-		PolkadotConfig,
-		client::OfflineClient,
-		config::{polkadot::PolkadotConfigBuilder, substrate::SpecVersionForRange},
-		events::Events,
-		metadata::Metadata,
-	};
+	use subxt::{PolkadotConfig, client::OfflineClient, events::Events};
+
+	/// An offline client carrying the generated runtime metadata for every block.
+	fn offline_client() -> OfflineClient<PolkadotConfig> {
+		OfflineClient::<PolkadotConfig>::new_with_config(chain_config())
+	}
 
 	/// Build `Events` by SCALE-encoding revive events against the generated runtime metadata.
 	struct EventsBuilder {
-		metadata: Metadata,
 		bytes: Vec<u8>,
 		count: u32,
 	}
 
 	impl EventsBuilder {
 		fn new() -> Self {
-			let metadata_bytes: &[u8] =
-				include_bytes!(concat!(env!("OUT_DIR"), "/revive_chain.scale"));
-			let metadata = Metadata::decode(&mut &metadata_bytes[..]).unwrap();
-			Self { metadata, bytes: Vec::new(), count: 0 }
+			Self { bytes: Vec::new(), count: 0 }
 		}
 
 		fn push_event(
@@ -765,15 +823,7 @@ mod tests {
 			Compact(self.count).encode_to(&mut encoded_events);
 			encoded_events.extend(self.bytes);
 
-			let config = PolkadotConfigBuilder::new()
-				.set_metadata_for_spec_versions(std::iter::once((0u32, self.metadata.into())))
-				.set_spec_version_for_block_ranges(std::iter::once(SpecVersionForRange {
-					block_range: 0..u64::MAX,
-					spec_version: 0,
-					transaction_version: 0,
-				}))
-				.build();
-			let client = OfflineClient::<PolkadotConfig>::new_with_config(config);
+			let client = offline_client();
 			let at_block =
 				client.at_block(0u64).expect("spec version range covers all block numbers; qed");
 			at_block.events().from_bytes(encoded_events)
@@ -887,5 +937,66 @@ mod tests {
 		assert_eq!(logs[&0][0].log_index, U256::from(0));
 		assert_eq!(logs[&0][1].log_index, U256::from(1));
 		assert_eq!(logs[&2][0].log_index, U256::from(3));
+	}
+
+	const ETH_TRANSACT_PAYLOAD: [u8; 4] = [0xde, 0xad, 0xbe, 0xef];
+
+	/// SCALE-encode a bare extrinsic the way a block body carries it, length prefix included.
+	fn encode_bare(call: revive_dev_runtime::RuntimeCall) -> Vec<u8> {
+		let extrinsic: revive_dev_runtime::UncheckedExtrinsic =
+			pallet_revive::evm::runtime::UncheckedExtrinsic(
+				sp_runtime::generic::UncheckedExtrinsic::new_bare(call),
+			);
+		extrinsic.encode()
+	}
+
+	fn eth_transact_extrinsic() -> Vec<u8> {
+		encode_bare(revive_dev_runtime::RuntimeCall::Revive(pallet_revive::Call::eth_transact {
+			payload: ETH_TRANSACT_PAYLOAD.to_vec(),
+		}))
+	}
+
+	fn non_revive_extrinsic() -> Vec<u8> {
+		encode_bare(revive_dev_runtime::RuntimeCall::System(frame_system::Call::remark {
+			remark: vec![0x01],
+		}))
+	}
+
+	/// Run the extraction over a synthetic block body.
+	async fn extract_from(
+		blobs: Vec<Vec<u8>>,
+	) -> Result<(Vec<(EthTransact, usize)>, bool), ClientError> {
+		const BLOCK_NUMBER: SubstrateBlockNumber = 42;
+
+		let client = offline_client();
+		let at_block = client
+			.at_block(BLOCK_NUMBER)
+			.expect("spec version range covers every block number; qed");
+		let extrinsics = at_block.extrinsics().from_bytes(blobs).await;
+		extract_eth_transacts(&extrinsics, BLOCK_NUMBER)
+	}
+
+	#[tokio::test]
+	async fn extract_eth_transacts_collects_revive_calls() {
+		let (calls, undecoded) =
+			extract_from(vec![non_revive_extrinsic(), eth_transact_extrinsic()])
+				.await
+				.unwrap();
+
+		assert!(!undecoded, "every extrinsic decoded");
+		assert_eq!(calls.len(), 1, "only the revive extrinsic is collected");
+		assert_eq!(calls[0].1, 1, "the extrinsic index is preserved");
+		assert_eq!(calls[0].0.payload, ETH_TRANSACT_PAYLOAD, "the call fields are decoded");
+	}
+
+	#[tokio::test]
+	async fn extract_eth_transacts_keeps_revive_calls_next_to_an_undecodable_one() {
+		let (calls, undecoded) =
+			extract_from(vec![vec![0xff; 4], eth_transact_extrinsic()]).await.unwrap();
+
+		assert_eq!(calls.len(), 1, "an undecodable extrinsic must not hide a decoded one");
+		assert_eq!(calls[0].1, 1, "the extrinsic index is preserved");
+		assert_eq!(calls[0].0.payload, ETH_TRANSACT_PAYLOAD, "the call fields are decoded");
+		assert!(undecoded, "it may be a revive one, so report it");
 	}
 }
