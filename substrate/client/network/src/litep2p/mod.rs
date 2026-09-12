@@ -606,7 +606,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			Arc::new(Litep2pBandwidthSink { sink: litep2p.bandwidth_sink() });
 
 		if let Some(registry) = &params.metrics_registry {
-			MetricSources::register(registry, bandwidth, Arc::clone(&num_connected))?;
+			MetricSources::register(registry, bandwidth)?;
 		}
 
 		Ok(Self {

@@ -549,13 +549,9 @@ where
 
 		// Initialize the metrics.
 		let metrics = match &params.metrics_registry {
-			Some(registry) => Some(metrics::register(
-				registry,
-				MetricSources {
-					bandwidth: bandwidth.clone(),
-					connected_peers: num_connected.clone(),
-				},
-			)?),
+			Some(registry) => {
+				Some(metrics::register(registry, MetricSources { bandwidth: bandwidth.clone() })?)
+			},
 			None => None,
 		};
 
