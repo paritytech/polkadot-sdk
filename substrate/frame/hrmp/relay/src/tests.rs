@@ -24,7 +24,7 @@ use crate::{mock::*, Error, Event};
 use frame_support::{assert_noop, assert_ok};
 use hrmp_primitives::{
 	ChannelId, FailureReason, HrmpRegistry, MessageToPara, MessageToParaV1, MessageToRelay,
-	MessageToRelayV1, ParaNotification, ParaRequest, ParaRequestV1,
+	MessageToRelayV1, Outcome, ParaId, ParaNotification, ParaRequest, ParaRequestV1,
 };
 use sp_runtime::DispatchError;
 
@@ -245,6 +245,94 @@ fn a_refusing_notify_transport_does_not_undo_the_channel() {
 				Event::ChannelOpened { channel: CHANNEL, message_id: MESSAGE_ID },
 				Event::NotifyFailed { para_id: CHANNEL.sender },
 				Event::NotifyFailed { para_id: CHANNEL.recipient },
+			]
+		);
+	});
+}
+
+fn close_channel(initiator: ParaId) -> sp_runtime::DispatchResult {
+	Hrmp::receive(
+		RuntimeOrigin::root(),
+		MessageToRelay::V1(MessageToRelayV1::CloseChannel {
+			channel: CHANNEL,
+			message_id: MESSAGE_ID,
+			initiator,
+		}),
+	)
+}
+
+fn close_response(outcome: Outcome) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::CloseResponse {
+		channel: CHANNEL,
+		message_id: MESSAGE_ID,
+		outcome,
+	})
+}
+
+#[test]
+fn close_channel_clears_the_registry_and_answers() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(open_channel());
+		let _ = take_sent();
+		let _ = take_notified();
+		let _ = hrmp_events();
+
+		assert_ok!(close_channel(CHANNEL.sender));
+
+		assert!(!MockRegistry::exists(CHANNEL));
+		assert_eq!(take_sent(), vec![close_response(Ok(()))]);
+		// Unlike an open, neither end is told from here: the parachain knows who asked.
+		assert!(take_notified().is_empty());
+		assert_eq!(
+			hrmp_events(),
+			vec![Event::ChannelClosed { channel: CHANNEL, message_id: MESSAGE_ID }]
+		);
+	});
+}
+
+#[test]
+fn a_refused_close_is_reported_back() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(open_channel());
+		let _ = take_sent();
+		let _ = take_notified();
+		let _ = hrmp_events();
+		RegistryRefuses::set(Some(FailureReason::NotFound));
+
+		assert_ok!(close_channel(CHANNEL.sender));
+
+		assert!(MockRegistry::exists(CHANNEL));
+		assert_eq!(take_sent(), vec![close_response(Err(FailureReason::NotFound))]);
+		assert!(take_notified().is_empty());
+		assert_eq!(
+			hrmp_events(),
+			vec![Event::CloseChannelRejected {
+				channel: CHANNEL,
+				message_id: MESSAGE_ID,
+				reason: FailureReason::NotFound,
+			}]
+		);
+	});
+}
+
+#[test]
+fn a_refusing_transport_does_not_reopen_the_channel() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(open_channel());
+		let _ = take_sent();
+		let _ = take_notified();
+		let _ = hrmp_events();
+		SendFails::set(true);
+
+		assert_ok!(close_channel(CHANNEL.sender));
+
+		assert!(!MockRegistry::exists(CHANNEL));
+		assert!(take_sent().is_empty());
+		assert_eq!(
+			hrmp_events(),
+			vec![
+				Event::ChannelClosed { channel: CHANNEL, message_id: MESSAGE_ID },
+				Event::ReportFailed { para_id: CHANNEL.sender, message_id: MESSAGE_ID },
 			]
 		);
 	});

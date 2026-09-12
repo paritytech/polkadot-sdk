@@ -2015,8 +2015,16 @@ impl<T: Config> HrmpRegistry for Pallet<T> {
 	}
 
 	fn close_channel(channel: ChannelId, initiator: HrmpParaId) -> Result<(), FailureReason> {
-		let _ = (channel, initiator);
-		todo!()
+		let channel_id = to_hrmp_channel_id(channel);
+		ensure!(channel_id.is_participant(ParaId::from(initiator)), FailureReason::InvalidPara);
+		ensure!(HrmpChannels::<T>::contains_key(&channel_id), FailureReason::NotFound);
+
+		// One end asked on the calling chain, so the channel closes now rather than at the next
+		// session boundary. The refund inside is a no-op for channels this path opened, and the
+		// real thing for a channel that predates it.
+		Self::close_hrmp_channel(&channel_id);
+
+		Ok(())
 	}
 
 	fn force_clean(para_id: HrmpParaId) -> Result<(), FailureReason> {
