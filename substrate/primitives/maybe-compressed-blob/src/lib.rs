@@ -52,7 +52,7 @@ fn read_from_decoder(
 	blob_len: usize,
 	bomb_limit: usize,
 ) -> Result<Vec<u8>, Error> {
-	let mut decoder = decoder.take((bomb_limit + 1) as u64);
+	let mut decoder = decoder.take((bomb_limit as u64).saturating_add(1));
 
 	let mut buf = Vec::with_capacity(blob_len);
 	decoder.read_to_end(&mut buf).map_err(|_| Error::Invalid)?;
@@ -157,6 +157,14 @@ mod tests {
 
 		assert_eq!(&decompress(&compressed_weakly, BOMB_LIMIT).unwrap()[..], &v[..]);
 		assert_eq!(&decompress(&compressed_strongly, BOMB_LIMIT).unwrap()[..], &v[..]);
+	}
+
+	#[test]
+	fn decompresses_at_maximum_bomb_limit() {
+		let original = b"small zstd payload";
+		let compressed = compress_weakly(original, original.len()).unwrap();
+
+		assert_eq!(decompress(&compressed, usize::MAX).unwrap().as_ref(), original);
 	}
 
 	#[test]
