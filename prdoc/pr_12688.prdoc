@@ -1,0 +1,9 @@
+title: '`pallet-scheduler`: fix `cancel_named` leaking retry and `preimage` state'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `do_cancel_named` removed the task and its `Lookup` entry regardless of origin, but cleared the `Retries` entry and dropped the preimage only inside the `origin.is_some()` block. The `schedule::v2::Named` and `schedule::v3::Named` trait impls cancel with `origin = None`, so that path left an orphaned `RetryConfig` in `Retries` and leaked a preimage reference. Cleanup now runs whenever the task is removed, matching the anonymous `do_cancel`.
+
+crates:
+- name: pallet-scheduler
+  bump: patch
