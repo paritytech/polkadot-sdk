@@ -719,6 +719,13 @@ impl Stream for Discovery {
 					provided_key,
 				}));
 			},
+			Poll::Ready(Some(KademliaEvent::PeersDiscovered { peers })) => {
+				log::trace!(target: LOG_TARGET, "peers discovered, {} peers", peers.len());
+
+				return Poll::Ready(Some(DiscoveryEvent::RoutingTableUpdate {
+					peers: peers.into_iter().collect(),
+				}));
+			},
 			// We do not validate incoming providers.
 			Poll::Ready(Some(KademliaEvent::IncomingProvider { .. })) => {},
 		}
