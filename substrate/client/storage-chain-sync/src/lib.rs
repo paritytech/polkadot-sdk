@@ -448,12 +448,10 @@ where
 		runtime_api.record_proof_with_recorder(recorder.clone());
 		runtime_api.register_extension(ProofSizeExt::new(recorder));
 
-		runtime_api
-			.execute_block(parent_hash, block.into())
-			.map_err(|e| Error::ExecuteBlock {
-				block: format!("{:?}", params.post_hash()),
-				error: e,
-			})?;
+		runtime_api.execute_block(parent_hash, block).map_err(|e| Error::ExecuteBlock {
+			block: format!("{:?}", params.post_hash()),
+			error: e,
+		})?;
 
 		let infos = runtime_api
 			.execute_in_transaction(|api| {
