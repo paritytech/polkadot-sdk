@@ -918,9 +918,7 @@ mod tests {
 			},
 			// `split_bit = 255` is >= KEY_BITS, so `streams_root_from_proof` rejects the walk.
 			tree_proof: StreamProof {
-				steps: vec![TreeStep { split_bit: 255, sibling: H256::zero() }]
-					.try_into()
-					.unwrap(),
+				steps: vec![TreeStep { split_bit: 255, sibling: H256::zero() }].try_into().unwrap(),
 			},
 		};
 		assert_eq!(

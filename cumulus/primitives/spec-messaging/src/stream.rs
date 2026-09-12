@@ -33,6 +33,39 @@ use polkadot_parachain_primitives::primitives::Id as ParaId;
 /// Encoded length of every `StreamId`.
 pub const STREAM_ID_LEN: usize = 8;
 
+/// A private-use kind byte, constrained to `0x80..=0xFF`.
+///
+/// The range is not cosmetic. `StreamId`'s codec is hand-written and byte 0 is the discriminant for
+/// the standard kinds but the payload for `Private`, so a kind below `0x03` would encode
+/// byte-identically to a `Channel` or `Ack`. It would also invert `Ord`: the derive ranks `Private`
+/// last by variant index, which only matches the encoding while every private kind exceeds every
+/// standard one. Two keys that encode alike then reach `first_diverging_bit`, whose `expect`
+/// assumes distinct bytes.
+///
+/// Keeping the byte behind a validating constructor makes that state unrepresentable, so direct
+/// construction and `Decode` enforce the same rule.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, scale_info::TypeInfo)]
+pub struct PrivateKind(u8);
+
+impl PrivateKind {
+	/// Lowest private-use kind byte; everything below is standard or reserved.
+	pub const MIN: u8 = 0x80;
+
+	/// `None` unless `kind` is in `0x80..=0xFF`.
+	pub const fn new(kind: u8) -> Option<Self> {
+		if kind >= Self::MIN {
+			Some(Self(kind))
+		} else {
+			None
+		}
+	}
+
+	/// The underlying byte, as it appears at offset 0 of the encoding.
+	pub const fn get(self) -> u8 {
+		self.0
+	}
+}
+
 /// A relay-invisible, parachain-structured stream key. See the module docs for the frozen encoding.
 ///
 /// The `recipient` / addressee is the party that *reads* the stream: a channel's messages are for
@@ -48,7 +81,7 @@ pub enum StreamId {
 	/// Sender-wide event stream (pub-sub), no addressee.
 	Broadcast { domain: u16, subdomain: u8, num: u32 },
 	/// Private-use kind (`0x80..=0xFF`); 7 chain-defined body bytes.
-	Private { kind: u8, body: [u8; 7] },
+	Private { kind: PrivateKind, body: [u8; 7] },
 }
 
 impl StreamId {
@@ -89,7 +122,7 @@ impl Encode for StreamId {
 				dest.write(&num.to_be_bytes());
 			},
 			StreamId::Private { kind, body } => {
-				dest.push_byte(*kind);
+				dest.push_byte(kind.get());
 				dest.write(body);
 			},
 		}
@@ -136,6 +169,9 @@ impl Decode for StreamId {
 			0x80..=0xFF => {
 				let mut body = [0u8; 7];
 				input.read(&mut body)?;
+				// The arm guarantees the range; route through `new` so the invariant has a single
+				// enforcement point rather than two that can drift apart.
+				let kind = PrivateKind::new(kind).ok_or("StreamId: private kind out of range")?;
 				Ok(StreamId::Private { kind, body })
 			},
 			// 0x03..=0x7F are reserved for future standard kinds and REJECTED (canonicality).
@@ -157,9 +193,35 @@ mod tests {
 			StreamId::Ack { recipient: ParaId::from(1000), domain: 0, num: 0 },
 			StreamId::Broadcast { domain: 0, subdomain: 0, num: 0 },
 			StreamId::Broadcast { domain: 1, subdomain: 0, num: 0 },
-			StreamId::Private { kind: 0x80, body: [0; 7] },
-			StreamId::Private { kind: 0xFF, body: [7; 7] },
+			StreamId::Private { kind: PrivateKind::new(0x80).unwrap(), body: [0; 7] },
+			StreamId::Private { kind: PrivateKind::new(0xFF).unwrap(), body: [7; 7] },
 		]
+	}
+
+	#[test]
+	fn private_kind_rejects_standard_and_reserved_bytes() {
+		// Anything below MIN would collide with a standard kind's first byte, or land in the
+		// reserved block `Decode` rejects.
+		for byte in 0x00..PrivateKind::MIN {
+			assert!(PrivateKind::new(byte).is_none(), "0x{byte:02X} must not be a private kind");
+		}
+		for byte in PrivateKind::MIN..=0xFF {
+			assert_eq!(PrivateKind::new(byte).map(PrivateKind::get), Some(byte));
+		}
+	}
+
+	#[test]
+	fn ord_matches_byte_order() {
+		// §2 states these are the same relation. The derive orders by variant index, so it only
+		// agrees while every private kind exceeds every standard one — `PrivateKind` is what keeps
+		// that true, and the `StreamsRoot` trie splits on key-sorted input.
+		let mut by_ord = sample_ids();
+		by_ord.sort();
+
+		let mut by_bytes = sample_ids();
+		by_bytes.sort_by_key(|id| id.encode());
+
+		assert_eq!(by_ord, by_bytes);
 	}
 
 	#[test]
@@ -178,7 +240,11 @@ mod tests {
 			vec![0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01],
 		);
 		assert_eq!(
-			StreamId::Private { kind: 0x80, body: [1, 2, 3, 4, 5, 6, 7] }.encode(),
+			StreamId::Private {
+				kind: PrivateKind::new(0x80).unwrap(),
+				body: [1, 2, 3, 4, 5, 6, 7]
+			}
+			.encode(),
 			vec![0x80, 1, 2, 3, 4, 5, 6, 7],
 		);
 		for id in sample_ids() {
@@ -236,6 +302,9 @@ mod tests {
 			Some(ParaId::from(9)),
 		);
 		assert_eq!(StreamId::Broadcast { domain: 0, subdomain: 0, num: 0 }.recipient(), None);
-		assert_eq!(StreamId::Private { kind: 0x80, body: [0; 7] }.recipient(), None);
+		assert_eq!(
+			StreamId::Private { kind: PrivateKind::new(0x80).unwrap(), body: [0; 7] }.recipient(),
+			None
+		);
 	}
 }

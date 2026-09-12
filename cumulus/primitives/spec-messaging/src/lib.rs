@@ -67,7 +67,7 @@ pub use message::{
 	MessagesResponse, SpecHasher, VerifiedEvent, VerifyError, MAX_SPECULATIVE_MESSAGE_LEN,
 };
 pub use mmr::MessagePosition;
-pub use stream::{StreamId, STREAM_ID_LEN};
+pub use stream::{PrivateKind, StreamId, STREAM_ID_LEN};
 pub use streams_root::{StreamProof, StreamsRoot};
 
 // Domain Tags to ensure that the same message structure used in different contexts (e.g. leaf vs

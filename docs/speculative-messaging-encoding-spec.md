@@ -48,6 +48,13 @@ kinds `0x03..=0x7F` are **rejected** (reserved; no consensus path decodes
 an unknown kind). `Ord` on `StreamId` = lexicographic order of these bytes
 (= numeric order of the field tuple, by construction).
 
+Private sits at `0x80..` so that byte order and variant order agree: the
+derived `Ord` ranks `Channel < Ack < Broadcast < Private`, which only matches
+the encoding while every private kind exceeds every standard one. Moving it
+below `0x03` would invert the two and break the key-sorted assumption the
+`StreamsRoot` trie splits on. Standard kinds therefore grow upward from
+`0x03`, private downward from `0xFF`.
+
 ## 3. Message MMR
 
 ### 3.1 Leaf
