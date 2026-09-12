@@ -1,0 +1,36 @@
+title: 'pallet-revive: implement the eth_newFilter polling filter API'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    The `pallet-revive` Ethereum JSON-RPC server only offered `eth_subscribe` (a WebSocket push
+    API) for watching logs and new blocks, leaving the standard HTTP polling filter family
+    unimplemented. Tooling that cannot hold a WebSocket open — many indexers, serverless
+    functions, and the default transports of several Ethereum client libraries — relies on that
+    family and could not watch the chain.
+
+    The following `execution-apis` methods are now supported, matching go-ethereum:
+
+    - `eth_newFilter`: install a log filter (address/topics/range) and get an id.
+    - `eth_newBlockFilter`: install a filter that reports the hashes of new blocks.
+    - `eth_getFilterChanges`: poll a filter for the logs or block hashes seen since the last poll.
+    - `eth_getFilterLogs`: return all logs matching a log filter over its full range.
+    - `eth_uninstallFilter`: remove a filter.
+
+    The polling filters and `eth_subscribe` are driven by the same block and log broadcast
+    channels, so both APIs report the same events and cannot diverge. A polling filter owns its
+    channel and drains it on each `eth_getFilterChanges`; a filter's `fromBlock`/`toBlock` bound
+    only the historical `eth_getFilterLogs` replay, which reuses the existing `eth_getLogs`
+    machinery.
+
+    Memory is bounded on two axes: the number of installed filters is capped, and each filter
+    holds only a broadcast cursor into the shared, fixed-capacity ring buffer rather than its own
+    growing backlog. Ids are unpredictable (128-bit random) so a client cannot enumerate or tamper
+    with filters it does not own, and a background task evicts filters not polled within five
+    minutes as well as log filters whose fixed `toBlock` the chain has passed.
+    `eth_newPendingTransactionFilter` is intentionally out of scope, as the server does not expose
+    a pending-transaction pool (the same reason `eth_subscribe` has no `newPendingTransactions`).
+
+crates:
+- name: pallet-revive-eth-rpc
+  bump: major

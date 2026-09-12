@@ -16,10 +16,10 @@
 // limitations under the License.
 
 use crate::*;
+use alloy_primitives::{Address as AlloyAddress, B256, LogData};
 use serde::{Deserialize, Serialize};
 use sp_core::ConstU32;
 use sp_runtime::BoundedVec;
-use std::collections::BTreeSet;
 
 /// Block header object returned by `newHeads` subscriptions.
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -111,69 +111,50 @@ pub enum SubscriptionOptions {
 }
 
 /// A type used as a filter for logs in subscriptions.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct LogsSubscriptionFilter {
-	/// Defines if the filter is configured to make use of addresses or not.
-	addresses: Option<BTreeSet<H160>>,
-
-	/// Defines if the filter is configured to filter based on the topics.
-	topics: Option<[Option<BTreeSet<H256>>; 4]>,
-}
+///
+/// Wraps alloy's [`Filter`] so that address and topic matching uses the same implementation the
+/// rest of the Ethereum ecosystem does, and so `eth_subscribe` and the polling filter API — which
+/// is handed an `eth_newFilter` [`Filter`] directly — cannot drift apart.
+#[derive(Clone, Debug, PartialEq, Eq, derive_more::From)]
+pub struct LogsSubscriptionFilter(Filter);
 
 impl LogsSubscriptionFilter {
 	/// Constructs a new logs filter.
+	///
+	/// An absent address or topic leaves the corresponding [`Filter`] set empty, which alloy treats
+	/// as a wildcard.
 	pub fn new(
 		address: Option<BoundedOneOrMany<Address, 1000>>,
 		topics: Option<BoundedVec<Option<BoundedOneOrMany<H256, 1000>>, ConstU32<4>>>,
 	) -> Self {
-		Self {
-			addresses: address.map(|addresses| addresses.into_iter().collect()),
-			topics: topics.map(|topics| {
-				let mut resolved_topics = [None, None, None, None];
-				for (index, topic) in topics.into_iter().enumerate() {
-					resolved_topics[index] =
-						topic.map(|topic_filter| topic_filter.into_iter().collect());
-				}
-				resolved_topics
-			}),
+		let mut filter = Filter::new();
+		if let Some(address) = address {
+			filter.address =
+				address.into_iter().map(|address| AlloyAddress::from(address.0)).collect();
 		}
+		for (index, topic) in topics.into_iter().flatten().enumerate() {
+			if let Some(topic) = topic {
+				filter.topics[index] = topic.into_iter().map(|topic| B256::from(topic.0)).collect();
+			}
+		}
+		Self(filter)
 	}
 
 	/// Checks if a certain log matches this filter.
 	pub fn matches(&self, log: &Log) -> bool {
-		// Check the emitter address. If it doesn't match, then we return.
-		if let Some(ref address_filter) = self.addresses &&
-			!address_filter.contains(&log.address) &&
-			!address_filter.is_empty()
-		{
-			return false;
-		}
+		self.0.matches(&alloy_primitives::Log {
+			address: AlloyAddress::from(log.address.0),
+			data: LogData::new_unchecked(
+				log.topics.iter().map(|topic| B256::from(topic.0)).collect(),
+				log.data.as_ref().map(|data| data.0.clone().into()).unwrap_or_default(),
+			),
+		})
+	}
+}
 
-		// Check the topics filter to ensure that the log matches the topics filter.
-		if let Some(ref topics_filters) = self.topics {
-			let mut event_topics = log.topics.iter();
-			for topics_filter in topics_filters {
-				let event_topic = event_topics.next();
-
-				match (topics_filter, event_topic) {
-					// Wildcard filters.
-					(None, _) => {},
-					(Some(topic_filters), _) if topic_filters.is_empty() => {},
-					// There's a filter but there's no topic at this index, return false at this
-					// point.
-					(Some(..), None) => return false,
-					// There's a filter and there's also a topic at this index. So filter based on
-					// it.
-					(Some(topics_filter), Some(topic)) => {
-						if !topics_filter.contains(topic) {
-							return false;
-						}
-					},
-				}
-			}
-		}
-
-		true
+impl AsRef<Filter> for LogsSubscriptionFilter {
+	fn as_ref(&self) -> &Filter {
+		&self.0
 	}
 }
 
