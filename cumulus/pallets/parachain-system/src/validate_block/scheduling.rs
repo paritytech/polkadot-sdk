@@ -270,11 +270,12 @@ impl SchedulingSignals {
 					}
 				},
 				// Speculative-messaging commitments (`Provides`/`Requires`) are not scheduling
-				// signals: they are built and emitted per candidate by the spec-messaging signal
-				// builder (`spec_messaging::SpecMessagingSignals` in the poc-mvp), with their own
-				// cardinality rules. Matched here — never silently dropped — to satisfy the
-				// exhaustive guard above; scheduling itself leaves them to that builder.
-				UMPSignal::Provides(_) | UMPSignal::Requires(_) => {},
+				// signals and `emit` does not carry them, so reaching here would delete the
+				// block's commitment from the candidate. Nothing emits them yet; panic until the
+				// pass-through exists.
+				UMPSignal::Provides(_) | UMPSignal::Requires(_) => panic!(
+					"Parachain emitted a speculative-messaging UMP signal, which `validate_block` does not yet forward"
+				),
 			}
 		}
 		signals.emit(upward_messages);
