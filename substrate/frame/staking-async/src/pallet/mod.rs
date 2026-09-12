@@ -50,7 +50,7 @@ use rand_chacha::{
 };
 use sp_core::{sr25519::Pair as SrPair, Pair};
 use sp_runtime::{
-	traits::{StaticLookup, Zero},
+	traits::{CheckedAdd, StaticLookup, Zero},
 	ArithmeticError, Perbill, Percent,
 };
 use sp_staking::{
@@ -2923,7 +2923,8 @@ pub mod pallet {
 		///
 		/// The `maybe_*` input parameters will overwrite the corresponding data and metadata of the
 		/// ledger associated with the stash. If the input parameters are not set, the ledger will
-		/// be reset values from on-chain state.
+		/// be reset values from on-chain state. `active` is always derived as
+		/// `maybe_total - sum(maybe_unlocking)` and cannot be set directly.
 		#[pallet::call_index(29)]
 		#[pallet::weight(T::WeightInfo::restore_ledger())]
 		pub fn restore_ledger(
@@ -2999,6 +3000,14 @@ pub mod pallet {
 			let mut ledger = StakingLedger::<T>::new(stash.clone(), new_total);
 			ledger.controller = Some(new_controller);
 			ledger.unlocking = maybe_unlocking.unwrap_or_default();
+			// Derive active as total minus unlocking so that total == active + sum(unlocking).
+			let unlocking_sum = ledger
+				.unlocking
+				.iter()
+				.try_fold(Zero::zero(), |acc: BalanceOf<T>, c| acc.checked_add(&c.value))
+				.ok_or(Error::<T>::CannotRestoreLedger)?;
+			ensure!(unlocking_sum <= new_total, Error::<T>::CannotRestoreLedger);
+			ledger.active = new_total - unlocking_sum;
 			ledger.update()?;
 
 			ensure!(
