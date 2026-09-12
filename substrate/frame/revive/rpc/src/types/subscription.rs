@@ -117,7 +117,7 @@ pub struct LogsSubscriptionFilter {
 	addresses: Option<BTreeSet<H160>>,
 
 	/// Defines if the filter is configured to filter based on the topics.
-	topics: Option<[Option<BTreeSet<H256>>; 4]>,
+	topics: Option<Vec<Option<BTreeSet<H256>>>>,
 }
 
 impl LogsSubscriptionFilter {
@@ -129,12 +129,12 @@ impl LogsSubscriptionFilter {
 		Self {
 			addresses: address.map(|addresses| addresses.into_iter().collect()),
 			topics: topics.map(|topics| {
-				let mut resolved_topics = [None, None, None, None];
-				for (index, topic) in topics.into_iter().enumerate() {
-					resolved_topics[index] =
-						topic.map(|topic_filter| topic_filter.into_iter().collect());
-				}
-				resolved_topics
+				// Preserve the request's length so a filter of length `N` matches only logs 
+				// with `N`+ topics.
+				topics
+					.into_iter()
+					.map(|topic| topic.map(|topic_filter| topic_filter.into_iter().collect()))
+					.collect()
 			}),
 		}
 	}
@@ -156,14 +156,15 @@ impl LogsSubscriptionFilter {
 				let event_topic = event_topics.next();
 
 				match (topics_filter, event_topic) {
-					// Wildcard filters.
-					(None, _) => {},
-					(Some(topic_filters), _) if topic_filters.is_empty() => {},
-					// There's a filter but there's no topic at this index, return false at this
-					// point.
-					(Some(..), None) => return false,
-					// There's a filter and there's also a topic at this index. So filter based on
-					// it.
+					// A filter position with no corresponding log topic fails: as in go-ethereum,
+					// a filter of length `N` only matches logs with at least `N` topics. This
+					// covers both an explicit `null` and a concrete filter at that position.
+					(_, None) => return false,
+					// A `null` or empty-set position is a wildcard: it matches any value at this
+					// position, which is now known to exist.
+					(None, Some(_)) => {},
+					(Some(topic_filters), Some(_)) if topic_filters.is_empty() => {},
+					// Otherwise the log topic must be one of the filtered values.
 					(Some(topics_filter), Some(topic)) => {
 						if !topics_filter.contains(topic) {
 							return false;
@@ -229,5 +230,55 @@ impl<T: 'static, const BOUND: u32> IntoIterator for BoundedOneOrMany<T, BOUND> {
 			BoundedOneOrMany::One(item) => Box::new(core::iter::once(item)) as _,
 			BoundedOneOrMany::Many(bounded_vec) => Box::new(bounded_vec.into_iter()) as _,
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	fn topic(n: u8) -> H256 {
+		H256::from([n; 32])
+	}
+
+	fn log_with_topics(topics: Vec<H256>) -> Log {
+		Log { topics, ..Default::default() }
+	}
+
+	fn logs_filter(topics: Vec<Option<Vec<H256>>>) -> LogsSubscriptionFilter {
+		LogsSubscriptionFilter {
+			addresses: None,
+			topics: Some(
+				topics
+					.into_iter()
+					.map(|position| position.map(|set| set.into_iter().collect()))
+					.collect(),
+			),
+		}
+	}
+
+	#[test]
+	fn logs_filter_enforces_go_ethereum_topic_length() {
+		let one_topic = log_with_topics(vec![topic(1)]);
+		let two_topics = log_with_topics(vec![topic(1), topic(2)]);
+
+		// `[topic0]` matches any log whose first topic is topic0, regardless of its length.
+		assert!(logs_filter(vec![Some(vec![topic(1)])]).matches(&one_topic));
+		assert!(logs_filter(vec![Some(vec![topic(1)])]).matches(&two_topics));
+
+		// `[topic0, null]` requires a second topic, so the single-topic log is excluded.
+		let filter = logs_filter(vec![Some(vec![topic(1)]), None]);
+		assert!(!filter.matches(&one_topic));
+		assert!(filter.matches(&two_topics));
+
+		// A `null` or empty-set wildcard still requires the position to exist.
+		assert!(!logs_filter(vec![None]).matches(&log_with_topics(vec![])));
+		assert!(logs_filter(vec![None]).matches(&one_topic));
+		assert!(!logs_filter(vec![Some(vec![])]).matches(&log_with_topics(vec![])));
+
+		// A concrete second position must match the log's topic when present.
+		let filter = logs_filter(vec![Some(vec![topic(1)]), Some(vec![topic(2)])]);
+		assert!(filter.matches(&two_topics));
+		assert!(!filter.matches(&log_with_topics(vec![topic(1), topic(9)])));
 	}
 }
