@@ -136,22 +136,23 @@ fn node_hash(entries: &[([u8; STREAM_ID_LEN], Hash)]) -> Hash {
 	hash_inner(split_bit as u8, &node_hash(left), &node_hash(right))
 }
 
-/// Sort `entries` into canonical (key) order for trie construction.
 /// Encoded keys in trie order.
 ///
-/// Relies on `BTreeMap` iterating in `StreamId`'s `Ord`, which the encoding spec §2 fixes as equal
-/// to the canonical byte order the trie splits on (pinned by
-/// `ord_equals_canonical_encoding_order`). A map with any other ordering — a `HashMap`, say — would
-/// silently produce a different root.
+/// `BTreeMap` iterates in `StreamId`'s `Ord`, which the encoding spec §2 fixes as equal to the
+/// canonical byte order — but the trie splits on the key *bytes*, so sort by them explicitly
+/// rather than rely on that equivalence here. Unsorted input would make `split`'s
+/// `partition_point` leave one side empty and `prove` recurse on its own slice.
 fn keyed(entries: &BTreeMap<StreamId, Hash>) -> Vec<([u8; STREAM_ID_LEN], Hash)> {
-	entries.iter().map(|(stream, root)| (key_of(stream), *root)).collect()
+	let mut keyed: Vec<_> = entries.iter().map(|(stream, root)| (key_of(stream), *root)).collect();
+	keyed.sort_unstable_by_key(|(key, _)| *key);
+	keyed
 }
 
 /// The `StreamsRoot` over `(stream, stream_root)` entries, `None` when there are no active streams.
 /// Sender/node side.
 ///
-/// Takes a `BTreeMap` so the two things the trie requires — unique keys, trie order — hold by
-/// construction. Duplicates would otherwise reach `first_diverging_bit` with identical keys.
+/// Takes a `BTreeMap` so keys are unique by construction; duplicates would otherwise reach
+/// `first_diverging_bit` with identical keys. Trie order comes from `keyed`, not the map.
 pub fn streams_root(entries: &BTreeMap<StreamId, Hash>) -> Option<StreamsRoot> {
 	let entries = keyed(entries);
 	if entries.is_empty() {
