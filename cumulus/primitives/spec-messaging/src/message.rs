@@ -496,8 +496,9 @@ mod tests {
 
 		// Sender's current stream root (6 leaves) and the StreamsRoot committing it.
 		let r_current = current_root(&leaves, 6);
-		let under = streams_root(vec![(stream, r_current)]).unwrap();
-		let (_r, tree_proof) = gen_stream_proof(vec![(stream, r_current)], stream).unwrap();
+		let under = streams_root(&BTreeMap::from([(stream, r_current)])).unwrap();
+		let (_r, tree_proof) =
+			gen_stream_proof(&BTreeMap::from([(stream, r_current)]), stream).unwrap();
 
 		// Fetch: base 2 (non-empty start_peaks), payloads [2,3] only → a real extension (4 → 6).
 		let resp = MessagesResponse {
@@ -570,9 +571,9 @@ mod tests {
 		let stream_root = src.get_root().unwrap();
 
 		let stream = ch(2000);
-		let entries = vec![(stream, stream_root)];
-		let under = streams_root(entries.clone()).unwrap();
-		let (_r, tree_proof) = gen_stream_proof(entries, stream).unwrap();
+		let entries = BTreeMap::from([(stream, stream_root)]);
+		let under = streams_root(&entries).unwrap();
+		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
 
 		// Full stream from base 0: empty start_peaks, identity extension (payloads reach the root).
 		let resp = MessagesResponse {
@@ -602,9 +603,9 @@ mod tests {
 			src.push(leaf_hash::<SpecHasher>(0, p)).unwrap();
 		}
 		let stream = ch(2000);
-		let entries = vec![(stream, src.get_root().unwrap())];
-		let under = streams_root(entries.clone()).unwrap();
-		let (_r, tree_proof) = gen_stream_proof(entries, stream).unwrap();
+		let entries = BTreeMap::from([(stream, src.get_root().unwrap())]);
+		let under = streams_root(&entries).unwrap();
+		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
 
 		// Full stream from base 0 (identity extension) — verifies under `under`.
 		let resp = MessagesResponse {
@@ -654,9 +655,9 @@ mod tests {
 			src.push(leaf_hash::<SpecHasher>(0, p)).unwrap();
 		}
 		let stream = ch(2000);
-		let entries = vec![(stream, src.get_root().unwrap())];
-		let under = streams_root(entries.clone()).unwrap();
-		let (_r, tree_proof) = gen_stream_proof(entries, stream).unwrap();
+		let entries = BTreeMap::from([(stream, src.get_root().unwrap())]);
+		let under = streams_root(&entries).unwrap();
+		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
 
 		let resp = MessagesResponse {
 			base: MessagePosition(0),
@@ -766,9 +767,9 @@ mod tests {
 			.collect();
 		let stream_root = src.get_root().unwrap();
 
-		let entries = vec![(stream, stream_root)];
-		let under = streams_root(entries.clone()).unwrap();
-		let (_r, tree_proof) = gen_stream_proof(entries, stream).unwrap();
+		let entries = BTreeMap::from([(stream, stream_root)]);
+		let under = streams_root(&entries).unwrap();
+		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
 
 		// Inclusion proof for the head leaf (index 5).
 		let head = payloads.len() - 1;
@@ -843,9 +844,9 @@ mod tests {
 			.collect();
 		let stream_root = src.get_root().unwrap();
 
-		let entries = vec![(stream, stream_root)];
-		let under = streams_root(entries.clone()).unwrap();
-		let (_r, tree_proof) = gen_stream_proof(entries, stream).unwrap();
+		let entries = BTreeMap::from([(stream, stream_root)]);
+		let under = streams_root(&entries).unwrap();
+		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
 
 		// Inclusion proof for a NON-head leaf (index 2) — the positional read path.
 		let at = 2usize;
@@ -937,9 +938,9 @@ mod tests {
 			msrc.push(leaf_hash::<SpecHasher>(0, p)).unwrap();
 		}
 		let mstream = ch(2000);
-		let mentries = vec![(mstream, msrc.get_root().unwrap())];
-		let munder = streams_root(mentries.clone()).unwrap();
-		let (_r, mtree) = gen_stream_proof(mentries, mstream).unwrap();
+		let mentries = BTreeMap::from([(mstream, msrc.get_root().unwrap())]);
+		let munder = streams_root(&mentries).unwrap();
+		let (_r, mtree) = gen_stream_proof(&mentries, mstream).unwrap();
 		let mresp = MessagesResponse {
 			base: MessagePosition(0),
 			leaf_version: 0,
@@ -965,9 +966,9 @@ mod tests {
 			.map(|p| esrc.push(leaf_hash::<SpecHasher>(0, p)).unwrap())
 			.collect();
 		let estream = ch(3000);
-		let eentries = vec![(estream, esrc.get_root().unwrap())];
-		let eunder = streams_root(eentries.clone()).unwrap();
-		let (_r2, etree) = gen_stream_proof(eentries, estream).unwrap();
+		let eentries = BTreeMap::from([(estream, esrc.get_root().unwrap())]);
+		let eunder = streams_root(&eentries).unwrap();
+		let (_r2, etree) = gen_stream_proof(&eentries, estream).unwrap();
 		let ehead = epayloads.len() - 1;
 		let eproof = esrc.gen_proof(vec![epos[ehead]]).unwrap();
 		let eresp = EventResponse {

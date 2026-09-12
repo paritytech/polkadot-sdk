@@ -211,20 +211,6 @@ mod tests {
 	}
 
 	#[test]
-	fn ord_matches_byte_order() {
-		// §2 states these are the same relation. The derive orders by variant index, so it only
-		// agrees while every private kind exceeds every standard one — `PrivateKind` is what keeps
-		// that true, and the `StreamsRoot` trie splits on key-sorted input.
-		let mut by_ord = sample_ids();
-		by_ord.sort();
-
-		let mut by_bytes = sample_ids();
-		by_bytes.sort_by_key(|id| id.encode());
-
-		assert_eq!(by_ord, by_bytes);
-	}
-
-	#[test]
 	fn encoding_layout_is_exact() {
 		// Frozen test vectors — any change here is a consensus break.
 		assert_eq!(

@@ -28,7 +28,7 @@
 //! - inner `= H(STREAMS_INNER_TAG ++ split_bit[1] ++ left[32] ++ right[32])` — binds the branch
 //!   depth.
 
-use alloc::vec::Vec;
+use alloc::{collections::BTreeMap, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use polkadot_core_primitives::Hash;
 use sp_core::ConstU32;
@@ -137,16 +137,23 @@ fn node_hash(entries: &[([u8; STREAM_ID_LEN], Hash)]) -> Hash {
 }
 
 /// Sort `entries` into canonical (key) order for trie construction.
-fn sorted(mut entries: Vec<(StreamId, Hash)>) -> Vec<([u8; STREAM_ID_LEN], Hash)> {
-	entries.sort_by_key(|(stream, _)| *stream);
-	entries.into_iter().map(|(stream, root)| (key_of(&stream), root)).collect()
+/// Encoded keys in trie order.
+///
+/// Relies on `BTreeMap` iterating in `StreamId`'s `Ord`, which the encoding spec §2 fixes as equal
+/// to the canonical byte order the trie splits on (pinned by
+/// `ord_equals_canonical_encoding_order`). A map with any other ordering — a `HashMap`, say — would
+/// silently produce a different root.
+fn keyed(entries: &BTreeMap<StreamId, Hash>) -> Vec<([u8; STREAM_ID_LEN], Hash)> {
+	entries.iter().map(|(stream, root)| (key_of(stream), *root)).collect()
 }
 
 /// The `StreamsRoot` over `(stream, stream_root)` entries, `None` when there are no active streams.
-/// Entries need not be sorted or deduplicated by the caller for ordering, but keys MUST be unique
-/// (the messaging inherent carries at most one item per stream). Sender/node side.
-pub fn streams_root(entries: Vec<(StreamId, Hash)>) -> Option<StreamsRoot> {
-	let entries = sorted(entries);
+/// Sender/node side.
+///
+/// Takes a `BTreeMap` so the two things the trie requires — unique keys, trie order — hold by
+/// construction. Duplicates would otherwise reach `first_diverging_bit` with identical keys.
+pub fn streams_root(entries: &BTreeMap<StreamId, Hash>) -> Option<StreamsRoot> {
+	let entries = keyed(entries);
 	if entries.is_empty() {
 		return None;
 	}
@@ -180,14 +187,14 @@ fn prove(
 /// membership, or `None` if `stream` is absent. Sender/node side; the receiver only runs
 /// [`verify_stream_membership`].
 pub fn gen_stream_proof(
-	entries: Vec<(StreamId, Hash)>,
+	entries: &BTreeMap<StreamId, Hash>,
 	stream: StreamId,
 ) -> Option<(StreamsRoot, StreamProof)> {
-	let entries = sorted(entries);
-	let key = key_of(&stream);
-	if !entries.iter().any(|(k, _)| *k == key) {
+	if !entries.contains_key(&stream) {
 		return None;
 	}
+	let entries = keyed(entries);
+	let key = key_of(&stream);
 	let mut steps = Vec::new();
 	let root = prove(&entries, &key, &mut steps);
 	// `prove` pushes root-first; the wire order is leaf-to-root (split bits strictly
@@ -273,15 +280,15 @@ mod tests {
 		H256::repeat_byte(b)
 	}
 
-	fn entries() -> Vec<(StreamId, Hash)> {
-		// deliberately unsorted — the primitives must canonicalize
-		vec![
+	fn entries() -> BTreeMap<StreamId, Hash> {
+		// deliberately inserted out of order — the map canonicalizes
+		BTreeMap::from([
 			(ch(4000), root(0xB)),
 			(ch(2000), root(0xA)),
 			(ch(3000), root(0xC)),
 			(StreamId::Ack { recipient: 2000.into(), domain: 0, num: 0 }, root(0xD)),
 			(StreamId::Broadcast { domain: 1, subdomain: 0, num: 7 }, root(0xE)),
-		]
+		])
 	}
 
 	#[test]
@@ -292,7 +299,7 @@ mod tests {
 		// (Round-trip tests can't catch a silent byte-format change; this pins the bytes.)
 		// Companion to `StreamId`'s frozen encoding.
 		assert_eq!(
-			streams_root(entries()).unwrap(),
+			streams_root(&entries()).unwrap(),
 			StreamsRoot(H256(hex_literal::hex!(
 				"12de235fb6d96933d6ba770efe16f891c87fb8a88a75e37a384b88ba11dee0dc"
 			))),
@@ -302,15 +309,15 @@ mod tests {
 	#[test]
 	fn round_trip_membership_verifies() {
 		for (stream, sr) in entries() {
-			let (r, proof) = gen_stream_proof(entries(), stream).unwrap();
-			assert_eq!(Some(r), streams_root(entries()));
+			let (r, proof) = gen_stream_proof(&entries(), stream).unwrap();
+			assert_eq!(Some(r), streams_root(&entries()));
 			assert!(verify_stream_membership(r, stream, sr, &proof), "{stream:?} must verify");
 		}
 	}
 
 	#[test]
 	fn wrong_root_or_stream_or_value_fails() {
-		let (r, proof) = gen_stream_proof(entries(), ch(3000)).unwrap();
+		let (r, proof) = gen_stream_proof(&entries(), ch(3000)).unwrap();
 		// wrong stream_root for the (correct) stream
 		assert!(!verify_stream_membership(r, ch(3000), root(0xFF), &proof));
 		// right value/proof but claimed for a different stream (key binding must reject)
@@ -323,7 +330,7 @@ mod tests {
 	fn proof_is_not_transferable_between_streams() {
 		// A proof minted for one stream must not verify for any other stream, even with that
 		// other stream's own committed value — the keyed walk binds the StreamId.
-		let (r, proof) = gen_stream_proof(entries(), ch(4000)).unwrap();
+		let (r, proof) = gen_stream_proof(&entries(), ch(4000)).unwrap();
 		for (other, other_root) in entries() {
 			if other == ch(4000) {
 				continue;
@@ -337,36 +344,36 @@ mod tests {
 
 	#[test]
 	fn order_independent_root() {
-		let mut reversed = entries();
-		reversed.reverse();
-		assert_eq!(streams_root(entries()), streams_root(reversed));
+		// Insertion order cannot affect the root: the map orders by key, not by arrival.
+		let reversed: BTreeMap<_, _> = entries().into_iter().rev().collect();
+		assert_eq!(streams_root(&entries()), streams_root(&reversed));
 	}
 
 	#[test]
 	fn single_stream_tree_has_empty_proof() {
-		let one = vec![(ch(2000), root(0xA))];
-		let (r, proof) = gen_stream_proof(one.clone(), ch(2000)).unwrap();
+		let one = BTreeMap::from([(ch(2000), root(0xA))]);
+		let (r, proof) = gen_stream_proof(&one, ch(2000)).unwrap();
 		assert!(proof.steps.is_empty());
-		assert_eq!(Some(r), streams_root(one));
+		assert_eq!(Some(r), streams_root(&one));
 		assert!(verify_stream_membership(r, ch(2000), root(0xA), &proof));
 	}
 
 	#[test]
 	fn proof_is_logarithmic() {
 		// 64 clustered channels: a Patricia proof is O(log S), never the 64-bit key width.
-		let many: Vec<_> = (0..64u32).map(|i| (ch(2000 + i), root(i as u8))).collect();
-		let (_r, proof) = gen_stream_proof(many, ch(2000 + 33)).unwrap();
+		let many: BTreeMap<_, _> = (0..64u32).map(|i| (ch(2000 + i), root(i as u8))).collect();
+		let (_r, proof) = gen_stream_proof(&many, ch(2000 + 33)).unwrap();
 		assert!(proof.steps.len() <= 7, "log2(64) = 6-ish, got {}", proof.steps.len());
 	}
 
 	#[test]
 	fn absent_stream_has_no_proof() {
-		assert!(gen_stream_proof(entries(), ch(9999)).is_none());
+		assert!(gen_stream_proof(&entries(), ch(9999)).is_none());
 	}
 
 	#[test]
 	fn out_of_range_split_bit_is_rejected() {
-		let (r, mut proof) = gen_stream_proof(entries(), ch(3000)).unwrap();
+		let (r, mut proof) = gen_stream_proof(&entries(), ch(3000)).unwrap();
 		// Splice the bogus step in FIRST (largest bit position), keeping the strictly
 		// decreasing order intact — so the range check, not the order check, rejects it.
 		let mut steps = vec![TreeStep { split_bit: 64, sibling: root(0) }];
@@ -387,7 +394,7 @@ mod tests {
 	fn non_decreasing_step_order_is_rejected() {
 		// Wire order is leaf-to-root, split bits strictly decreasing; a reversed sequence
 		// is early garbage even though every hash in it is genuine.
-		let (r, proof) = gen_stream_proof(entries(), ch(3000)).unwrap();
+		let (r, proof) = gen_stream_proof(&entries(), ch(3000)).unwrap();
 		assert!(proof.steps.len() >= 2, "need a multi-step proof");
 		let reversed: Vec<TreeStep> = proof.steps.iter().rev().copied().collect();
 		let bad = StreamProof { steps: reversed.try_into().unwrap() };
@@ -396,7 +403,7 @@ mod tests {
 
 	#[test]
 	fn read_streams_root_extracts_digest() {
-		let r = streams_root(entries()).unwrap();
+		let r = streams_root(&entries()).unwrap();
 		let digest = Digest {
 			logs: vec![
 				DigestItem::Other(vec![1, 2, 3]),

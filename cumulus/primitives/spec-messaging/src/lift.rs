@@ -648,10 +648,10 @@ mod tests {
 	/// streams. Recipients are clustered (`2000..2000+n`), so keys diverge only in the low bits —
 	/// the realistic worst case for Patricia depth.
 	fn tree_proof(n_streams: u32) -> StreamProof {
-		let entries: Vec<(StreamId, Hash)> =
+		let entries: BTreeMap<StreamId, Hash> =
 			(0..n_streams).map(|i| (ch(2_000 + i), H256::repeat_byte(i as u8))).collect();
 		let target = ch(2_000 + n_streams / 2);
-		gen_stream_proof(entries, target).expect("target stream is present; qed").1
+		gen_stream_proof(&entries, target).expect("target stream is present; qed").1
 	}
 
 	/// An extension proof of a given connecting-node count, for sizing the design's *day-scale*
@@ -771,9 +771,9 @@ mod tests {
 		let root3 = root_at(&all, 3);
 		let stream = ch(2000);
 		// StreamsRoot over the single active stream at root@3.
-		let entries = vec![(stream, root3.0)];
-		let expected = streams_root(entries.clone()).unwrap();
-		let (_r, tree_proof) = gen_stream_proof(entries, stream).unwrap();
+		let entries = BTreeMap::from([(stream, root3.0)]);
+		let expected = streams_root(&entries).unwrap();
+		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
 
 		// One interval, endpoint = frontier@3; identity extension (caught up).
 		let interval = Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 3) };
@@ -792,9 +792,9 @@ mod tests {
 		let root3 = root_at(&all, 3);
 		let source = ParaId::from(1000);
 		let stream = ch(2000);
-		let entries = vec![(stream, root3.0)];
-		let expected = streams_root(entries.clone()).unwrap();
-		let (_r, tree_proof) = gen_stream_proof(entries, stream).unwrap();
+		let entries = BTreeMap::from([(stream, root3.0)]);
+		let expected = streams_root(&entries).unwrap();
+		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
 
 		let record = ConsumptionRecord {
 			entries: BTreeMap::from([(
@@ -831,8 +831,8 @@ mod tests {
 		let (sa, sb) = (ch(2000), ch(3000));
 
 		// Two single-stream trees → each stream's tree_proof folds to a DIFFERENT StreamsRoot.
-		let (_ra, proof_a) = gen_stream_proof(vec![(sa, root3.0)], sa).unwrap();
-		let (_rb, proof_b) = gen_stream_proof(vec![(sb, root3.0)], sb).unwrap();
+		let (_ra, proof_a) = gen_stream_proof(&BTreeMap::from([(sa, root3.0)]), sa).unwrap();
+		let (_rb, proof_b) = gen_stream_proof(&BTreeMap::from([(sb, root3.0)]), sb).unwrap();
 
 		let mk = |tree_proof| RequiresLift {
 			advances: Vec::new(),
