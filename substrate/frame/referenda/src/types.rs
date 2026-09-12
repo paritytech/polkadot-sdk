@@ -369,16 +369,18 @@ impl<
 		}
 	}
 
-	/// Take the Submission Deposit from `self`, if there is one and it's in a valid state to be
-	/// taken. Returns an `Err` if `self` is not in a valid state for the Submission Deposit to be
-	/// refunded.
-	pub fn take_submission_deposit(&mut self) -> Result<Option<Deposit<AccountId, Balance>>, ()> {
+	/// Take the Submission Deposit from `self`, if there is one. Returns `None` if the deposit has
+	/// already been taken.
+	///
+	/// The caller is responsible for ensuring the referendum is in a state where the deposit can be
+	/// taken
+	pub fn take_submission_deposit(&mut self) -> Option<Deposit<AccountId, Balance>> {
 		use ReferendumInfo::*;
 		match self {
-			// Can only refund deposit if it's approved or cancelled.
-			Approved(_, s, _) | Cancelled(_, s, _) => Ok(s.take()),
-			// Cannot refund deposit if Ongoing as this breaks assumptions.
-			Ongoing(..) | Rejected(..) | TimedOut(..) | Killed(..) => Err(()),
+			Approved(_, s, _) | Cancelled(_, s, _) | Rejected(_, s, _) | TimedOut(_, s, _) => {
+				s.take()
+			},
+			Ongoing(..) | Killed(..) => None,
 		}
 	}
 }

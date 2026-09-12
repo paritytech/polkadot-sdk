@@ -707,10 +707,12 @@ pub mod pallet {
 			ensure_signed_or_root(origin)?;
 			let mut info =
 				ReferendumInfoFor::<T, I>::get(index).ok_or(Error::<T, I>::BadReferendum)?;
-			let deposit = info
-				.take_submission_deposit()
-				.map_err(|_| Error::<T, I>::BadStatus)?
-				.ok_or(Error::<T, I>::NoDeposit)?;
+			// Can only refund deposit if it's approved or cancelled.
+			ensure!(
+				matches!(info, ReferendumInfo::Approved(..) | ReferendumInfo::Cancelled(..)),
+				Error::<T, I>::BadStatus
+			);
+			let deposit = info.take_submission_deposit().ok_or(Error::<T, I>::NoDeposit)?;
 			Self::refund_deposit(Some(deposit.clone()));
 			ReferendumInfoFor::<T, I>::insert(index, info);
 			let e = Event::<T, I>::SubmissionDepositRefunded {
@@ -719,6 +721,33 @@ pub mod pallet {
 				amount: deposit.amount,
 			};
 			Self::deposit_event(e);
+			Ok(())
+		}
+
+		/// Slash the Submission Deposit for a closed referendum.
+		///
+		/// - `origin`: must be `Signed` or `Root`.
+		/// - `index`: The index of a closed referendum whose Submission Deposit has not yet been
+		///   slashed.
+		///
+		/// Emits `DepositSlashed`.
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::slash_submission_deposit())]
+		pub fn slash_submission_deposit(
+			origin: OriginFor<T>,
+			index: ReferendumIndex,
+		) -> DispatchResult {
+			ensure_signed_or_root(origin)?;
+			let mut info =
+				ReferendumInfoFor::<T, I>::get(index).ok_or(Error::<T, I>::BadReferendum)?;
+			// Can only slash deposit if it's rejected or timed out.
+			ensure!(
+				matches!(info, ReferendumInfo::Rejected(..) | ReferendumInfo::TimedOut(..)),
+				Error::<T, I>::BadStatus
+			);
+			let deposit = info.take_submission_deposit().ok_or(Error::<T, I>::NoDeposit)?;
+			Self::slash_deposit(Some(deposit));
+			ReferendumInfoFor::<T, I>::insert(index, info);
 			Ok(())
 		}
 
