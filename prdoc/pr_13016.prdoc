@@ -1,0 +1,9 @@
+title: Aggregate the genesis vesting lock across an account's schedules
+doc:
+- audience: Runtime Dev
+  description: |-
+    Set the genesis vesting lock to the sum of an account's schedules, so an account with
+    several genesis entries locks every entry instead of only the last one.
+crates:
+- name: pallet-vesting
+  bump: patch

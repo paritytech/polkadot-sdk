@@ -670,11 +670,10 @@ mod claim_queue_capacity {
 	/// Setup: lookahead=3 (default), override leaf CQ to `[A]` (length 1). Advertise at
 	/// grandparent (depth 2): position 0 maps to leaf+2 = within sp's lookahead window.
 	///
-	/// Legacy bounds the reachability window by the claim-queue length (1) instead of the
-	/// runtime scheduling lookahead (3), so it rejects the depth-2 ancestor advertisement.
-	/// #12255 sources the lookahead from the runtime and fixes it. Experimental already
-	/// derives the window from the ancestry path length and accepts.
-	#[crate::sim_test(bug_on = "legacy", bug_url = "github:paritytech/polkadot-sdk#12255")]
+	/// Both sides source the reachability window from the runtime scheduling lookahead (3)
+	/// rather than the claim-queue length (1), so the depth-2 ancestor advertisement is
+	/// accepted.
+	#[crate::sim_test]
 	fn short_claim_queue_does_not_reject_ancestor_advertisements<S: CollatorSut>() {
 		let config =
 			collator_world_config().with_schedule(CoreIndex(0), CoreSchedule::always(PARA_A));
@@ -750,14 +749,7 @@ mod claim_queue_capacity {
 	/// relay parent by design (`validator_side`: "there's always a single collation being
 	/// fetched at any moment of time"), so it can never satisfy this. See the inverse
 	/// `collation_fetching_prefer_entries_earlier_in_claim_queue` (only = "legacy").
-	///
-	/// Experimental needs the runtime scheduling lookahead (#12255) to size `common`'s
-	/// window to 2 rather than the truncated ancestry-path length.
-	#[crate::sim_test(
-		only = "experimental",
-		bug_on = "experimental",
-		bug_url = "github:paritytech/polkadot-sdk#12255"
-	)]
+	#[crate::sim_test(only = "experimental")]
 	fn fork_capacity_uses_longest_window_across_paths<S: CollatorSut>() {
 		let config =
 			collator_world_config().with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X));
@@ -801,13 +793,7 @@ mod claim_queue_capacity {
 	/// produce exactly 2 fetches (the shared `common` slot is not double-counted per fork).
 	/// Both fetches fire concurrently from `common` — experimental-only: legacy serialises
 	/// to one in-flight fetch per relay parent by design, so it never reaches 2.
-	///
-	/// Experimental needs the runtime scheduling lookahead (#12255) to size the window.
-	#[crate::sim_test(
-		only = "experimental",
-		bug_on = "experimental",
-		bug_url = "github:paritytech/polkadot-sdk#12255"
-	)]
+	#[crate::sim_test(only = "experimental")]
 	fn fork_shared_sp_capacity_not_double_counted<S: CollatorSut>() {
 		let config =
 			collator_world_config().with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X));

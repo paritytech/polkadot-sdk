@@ -185,12 +185,10 @@ impl<Number: Codec> GrandpaConsensusLogReader<Number> {
 	pub fn find_forced_change(digest: &Digest) -> Option<(Number, ScheduledChange<Number>)> {
 		// find the first consensus digest with the right ID which converts to
 		// the right kind of consensus log.
-		digest
-			.convert_first(|log| log.consensus_try_to(&GRANDPA_ENGINE_ID))
-			.and_then(|log| match log {
-				ConsensusLog::ForcedChange(delay, change) => Some((delay, change)),
-				_ => None,
-			})
+		digest.convert_first(|log| {
+			log.consensus_try_to(&GRANDPA_ENGINE_ID)
+				.and_then(ConsensusLog::try_into_forced_change)
+		})
 	}
 }
 
@@ -435,6 +433,53 @@ mod tests {
 			max_expected_submit_finality_proof_arguments_size::<TestChain>(true, 100) >
 				max_expected_submit_finality_proof_arguments_size::<TestChain>(false, 100),
 		);
+	}
+
+	#[test]
+	fn find_forced_change_returns_first_match() {
+		let change = ScheduledChange { next_authorities: vec![], delay: 3u64 };
+		let mut digest = Digest::default();
+		assert_eq!(GrandpaConsensusLogReader::<u64>::find_forced_change(&digest), None);
+
+		digest.push(DigestItem::Consensus(
+			GRANDPA_ENGINE_ID,
+			ConsensusLog::ForcedChange(7, change.clone()).encode(),
+		));
+		assert_eq!(
+			GrandpaConsensusLogReader::find_forced_change(&digest),
+			Some((7, change.clone()))
+		);
+
+		digest.push(DigestItem::Consensus(
+			GRANDPA_ENGINE_ID,
+			ConsensusLog::ForcedChange(9, change.clone()).encode(),
+		));
+		assert_eq!(GrandpaConsensusLogReader::find_forced_change(&digest), Some((7, change)));
+	}
+
+	#[test]
+	fn find_forced_change_skips_other_grandpa_logs() {
+		let change = ScheduledChange { next_authorities: vec![], delay: 3u64 };
+		for preceding in [
+			ConsensusLog::OnDisabled(0),
+			ConsensusLog::ScheduledChange(change.clone()),
+			ConsensusLog::Pause(1),
+			ConsensusLog::Resume(1),
+		] {
+			let mut digest = Digest::default();
+			digest.push(DigestItem::Consensus(GRANDPA_ENGINE_ID, preceding.encode()));
+			assert_eq!(GrandpaConsensusLogReader::<u64>::find_forced_change(&digest), None);
+
+			digest.push(DigestItem::Consensus(
+				GRANDPA_ENGINE_ID,
+				ConsensusLog::ForcedChange(7, change.clone()).encode(),
+			));
+			assert_eq!(
+				GrandpaConsensusLogReader::find_forced_change(&digest),
+				Some((7, change.clone())),
+				"forced change must be found after {preceding:?}",
+			);
+		}
 	}
 
 	#[test]

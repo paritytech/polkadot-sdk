@@ -815,7 +815,7 @@ where
 	///
 	/// If `enacts_change` is set to true, then finalizing this block *must*
 	/// enact an authority set change, the function will panic otherwise.
-	fn import_justification(
+	pub(crate) fn import_justification(
 		&self,
 		hash: Block::Hash,
 		number: NumberFor<Block>,
@@ -832,28 +832,29 @@ where
 			return Ok(());
 		}
 
-		let justification = GrandpaJustification::decode_and_verify_finalizes(
-			&justification.1,
-			(hash, number),
-			self.authority_set.set_id(),
-			&self.authority_set.current_authorities(),
-		);
+		// Decode without holding the authority-set lock; verification must happen
+		// under the lock so it is atomic with the finalization below.
+		let justification = GrandpaJustification::decode(&justification.1)
+			.map_err(|e| ConsensusError::ClientImport(e.to_string()))?;
 
-		let justification = match justification {
-			Err(e) => {
-				return match e {
-					sp_blockchain::Error::OutdatedJustification => {
-						Err(ConsensusError::OutdatedJustification)
-					},
-					_ => Err(ConsensusError::ClientImport(e.to_string())),
-				};
-			},
-			Ok(justification) => justification,
-		};
+		let authority_set = self.authority_set.inner();
+
+		justification
+			.verify_finalizes(
+				(hash, number),
+				authority_set.set_id,
+				&authority_set.current_voter_set(),
+			)
+			.map_err(|e| match e {
+				sp_blockchain::Error::OutdatedJustification => {
+					ConsensusError::OutdatedJustification
+				},
+				_ => ConsensusError::ClientImport(e.to_string()),
+			})?;
 
 		let result = environment::finalize_block(
 			self.inner.clone(),
-			&self.authority_set,
+			authority_set,
 			None,
 			hash,
 			number,
@@ -889,6 +890,9 @@ where
 				})
 			},
 			Ok(_) => {
+				// Verification above and finalization below share the same authority-set
+				// lock, so a competing finalizer cannot advance the set in between.
+				// Reaching this arm with `enacts_change` set would be a genuine bug.
 				assert!(
 					!enacts_change,
 					"returns Ok when no authority set change should be enacted; qed;"
