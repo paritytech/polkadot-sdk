@@ -51,7 +51,7 @@ use crate::{
 	mmr::{MessagePosition, MmrFrontier},
 	stream::StreamId,
 	streams_root::{streams_root_from_proof, StreamProof, StreamsRoot},
-	LEAF_TAG,
+	SpecHasher, LEAF_TAG,
 };
 
 /// Why verifying an off-chain response ([`verify_messages_response`], [`verify_event_response`],
@@ -97,11 +97,6 @@ pub const MAX_SPECULATIVE_MESSAGE_LEN: u32 = 102_400;
 /// Bound for a single speculative message payload.
 pub type MaxSpeculativeMessageLen = ConstU32<MAX_SPECULATIVE_MESSAGE_LEN>;
 
-/// The hash function used throughout speculative messaging (leaf hashing, MMR merges, stream
-/// roots). The crate primitives are generic over the hasher; this alias is the single concrete
-/// choice for the protocol, so switching (e.g. to Keccak256) is a one-line change here.
-pub type SpecHasher = sp_runtime::traits::BlakeTwo256;
-
 /// Hash a payload into a stream MMR leaf under `leaf_version`: `H(LEAF_TAG ++ leaf_version ++
 /// payload)`.
 ///
@@ -109,12 +104,12 @@ pub type SpecHasher = sp_runtime::traits::BlakeTwo256;
 /// stream, and position are structural (the sender's outbox, the `StreamId` key, the MMR leaf
 /// index), so none are in the preimage. `leaf_version` domains are hash-disjoint, so only the
 /// correct version reproduces a committed root.
-pub fn leaf_hash<H: HashT<Output = Hash>>(leaf_version: u8, payload: &[u8]) -> Hash {
+pub fn leaf_hash(leaf_version: u8, payload: &[u8]) -> Hash {
 	let mut preimage = Vec::new();
 	preimage.extend_from_slice(&LEAF_TAG.to_le_bytes());
 	preimage.extend_from_slice(&leaf_version.to_le_bytes());
 	preimage.extend_from_slice(payload);
-	<H as HashT>::hash(&preimage)
+	<SpecHasher as HashT>::hash(&preimage)
 }
 
 /// Off-chain request for a range of a stream's messages, to be verified under a chosen
@@ -222,7 +217,7 @@ pub fn verify_messages_response(
 
 	// Append the response's payloads as leaves onto the frontier at `base`.
 	for payload in &resp.payloads {
-		frontier.append(leaf_hash::<SpecHasher>(resp.leaf_version, payload));
+		frontier.append(leaf_hash(resp.leaf_version, payload));
 	}
 
 	// Extend to the stream's current root, then walk the tree to the committed `StreamsRoot`.
@@ -347,7 +342,7 @@ pub fn verify_event_response(
 	if resp.payload.len() as u64 > MAX_SPECULATIVE_MESSAGE_LEN as u64 {
 		return Err(VerifyError::PayloadTooLarge);
 	}
-	let leaf = leaf_hash::<SpecHasher>(resp.leaf_version, &resp.payload);
+	let leaf = leaf_hash(resp.leaf_version, &resp.payload);
 	let (position, frontier) = resp.inclusion.verify_head(leaf)?;
 	let root = frontier.root();
 	let streams_root =
@@ -374,7 +369,7 @@ pub fn verify_positional_event_response(
 	if resp.payload.len() as u64 > MAX_SPECULATIVE_MESSAGE_LEN as u64 {
 		return Err(VerifyError::PayloadTooLarge);
 	}
-	let leaf = leaf_hash::<SpecHasher>(resp.leaf_version, &resp.payload);
+	let leaf = leaf_hash(resp.leaf_version, &resp.payload);
 	let root = resp.inclusion.verify_leaf(position, leaf)?;
 	let streams_root =
 		streams_root_from_proof(stream, root.0, &resp.tree_proof).ok_or(VerifyError::TreeProof)?;
@@ -454,7 +449,7 @@ mod tests {
 	/// The stream root over the first `n` leaves.
 	fn current_root(leaves: &[Hash], n: usize) -> Hash {
 		let store = MemStore::<Hash>::default();
-		let mut mmr = MemMMR::<Hash, SpecMerge<SpecHasher>>::new(0, &store);
+		let mut mmr = MemMMR::<Hash, SpecMerge>::new(0, &store);
 		for l in &leaves[..n] {
 			mmr.push(*l).unwrap();
 		}
@@ -464,7 +459,7 @@ mod tests {
 	/// O(log n) ancestry extension from `k` leaves to `n` leaves.
 	fn ancestry(leaves: &[Hash], k: usize, n: usize) -> MMRExtensionProof {
 		let store = MemStore::<Hash>::default();
-		let mut mmr = MemMMR::<Hash, SpecMerge<SpecHasher>>::new(0, &store);
+		let mut mmr = MemMMR::<Hash, SpecMerge>::new(0, &store);
 		for l in &leaves[..n] {
 			mmr.push(*l).unwrap();
 		}
@@ -487,7 +482,7 @@ mod tests {
 		let stream = ch(2000);
 
 		let payloads: Vec<Vec<u8>> = (0..6u8).map(|i| vec![i, i.wrapping_add(10)]).collect();
-		let leaves: Vec<Hash> = payloads.iter().map(|p| leaf_hash::<SpecHasher>(0, p)).collect();
+		let leaves: Vec<Hash> = payloads.iter().map(|p| leaf_hash(0, p)).collect();
 
 		// Sender's current stream root (6 leaves) and the StreamsRoot committing it.
 		let r_current = current_root(&leaves, 6);
@@ -545,9 +540,9 @@ mod tests {
 		pre.push(LEAF_TAG);
 		pre.push(0u8);
 		pre.extend_from_slice(payload);
-		assert_eq!(leaf_hash::<SpecHasher>(0, payload), <SpecHasher as HashT>::hash(&pre));
+		assert_eq!(leaf_hash(0, payload), <SpecHasher as HashT>::hash(&pre));
 		// Different version → different leaf (hash-disjoint domains).
-		assert_ne!(leaf_hash::<SpecHasher>(0, payload), leaf_hash::<SpecHasher>(1, payload));
+		assert_ne!(leaf_hash(0, payload), leaf_hash(1, payload));
 	}
 
 	/// End-to-end: a sender builds a stream MMR, commits its root into a `StreamsRoot`, and serves
@@ -559,9 +554,9 @@ mod tests {
 
 		// Sender stream MMR over the payload leaves; its root is the stream root.
 		let store = MemStore::<Hash>::default();
-		let mut src = MemMMR::<Hash, SpecMerge<SpecHasher>>::new(0, &store);
+		let mut src = MemMMR::<Hash, SpecMerge>::new(0, &store);
 		for p in &payloads {
-			src.push(leaf_hash::<SpecHasher>(0, p)).unwrap();
+			src.push(leaf_hash(0, p)).unwrap();
 		}
 		let stream_root = src.get_root().unwrap();
 
@@ -584,18 +579,18 @@ mod tests {
 		// Sanity: the recomputed root matches the sender's.
 		let mut mmr = MmrFrontier::new();
 		for p in &resp.payloads {
-			mmr.append(leaf_hash::<SpecHasher>(0, p));
+			mmr.append(leaf_hash(0, p));
 		}
-		assert_eq!(root_from_peaks::<SpecHasher>(mmr.peaks()), Some(stream_root));
+		assert_eq!(root_from_peaks(mmr.peaks()), Some(stream_root));
 	}
 
 	#[test]
 	fn verify_messages_binds_base_to_request_start() {
 		let payloads: Vec<Vec<u8>> = (0..4u8).map(|i| vec![i, i + 1]).collect();
 		let store = MemStore::<Hash>::default();
-		let mut src = MemMMR::<Hash, SpecMerge<SpecHasher>>::new(0, &store);
+		let mut src = MemMMR::<Hash, SpecMerge>::new(0, &store);
 		for p in &payloads {
-			src.push(leaf_hash::<SpecHasher>(0, p)).unwrap();
+			src.push(leaf_hash(0, p)).unwrap();
 		}
 		let stream = ch(2000);
 		let entries = BTreeMap::from([(stream, src.get_root().unwrap())]);
@@ -645,9 +640,9 @@ mod tests {
 	fn messages_response_rejects_wrong_root_or_tampered_payload() {
 		let payloads: Vec<Vec<u8>> = (0..3u8).map(|i| vec![i]).collect();
 		let store = MemStore::<Hash>::default();
-		let mut src = MemMMR::<Hash, SpecMerge<SpecHasher>>::new(0, &store);
+		let mut src = MemMMR::<Hash, SpecMerge>::new(0, &store);
 		for p in &payloads {
-			src.push(leaf_hash::<SpecHasher>(0, p)).unwrap();
+			src.push(leaf_hash(0, p)).unwrap();
 		}
 		let stream = ch(2000);
 		let entries = BTreeMap::from([(stream, src.get_root().unwrap())]);
@@ -771,11 +766,9 @@ mod tests {
 		let payloads: Vec<Vec<u8>> = (0..6u8).map(|i| vec![i, i.wrapping_add(7)]).collect();
 
 		let store = MemStore::<Hash>::default();
-		let mut src = MemMMR::<Hash, SpecMerge<SpecHasher>>::new(0, &store);
-		let positions: Vec<u64> = payloads
-			.iter()
-			.map(|p| src.push(leaf_hash::<SpecHasher>(0, p)).unwrap())
-			.collect();
+		let mut src = MemMMR::<Hash, SpecMerge>::new(0, &store);
+		let positions: Vec<u64> =
+			payloads.iter().map(|p| src.push(leaf_hash(0, p)).unwrap()).collect();
 		let stream_root = src.get_root().unwrap();
 
 		let entries = BTreeMap::from([(stream, stream_root)]);
@@ -848,11 +841,9 @@ mod tests {
 		let payloads: Vec<Vec<u8>> = (0..6u8).map(|i| vec![i, i.wrapping_add(7)]).collect();
 
 		let store = MemStore::<Hash>::default();
-		let mut src = MemMMR::<Hash, SpecMerge<SpecHasher>>::new(0, &store);
-		let positions: Vec<u64> = payloads
-			.iter()
-			.map(|p| src.push(leaf_hash::<SpecHasher>(0, p)).unwrap())
-			.collect();
+		let mut src = MemMMR::<Hash, SpecMerge>::new(0, &store);
+		let positions: Vec<u64> =
+			payloads.iter().map(|p| src.push(leaf_hash(0, p)).unwrap()).collect();
 		let stream_root = src.get_root().unwrap();
 
 		let entries = BTreeMap::from([(stream, stream_root)]);
@@ -914,11 +905,9 @@ mod tests {
 		let stream = ch(2000);
 		let payloads: Vec<Vec<u8>> = (0..6u8).map(|i| vec![i]).collect();
 		let store = MemStore::<Hash>::default();
-		let mut src = MemMMR::<Hash, SpecMerge<SpecHasher>>::new(0, &store);
-		let positions: Vec<u64> = payloads
-			.iter()
-			.map(|p| src.push(leaf_hash::<SpecHasher>(0, p)).unwrap())
-			.collect();
+		let mut src = MemMMR::<Hash, SpecMerge>::new(0, &store);
+		let positions: Vec<u64> =
+			payloads.iter().map(|p| src.push(leaf_hash(0, p)).unwrap()).collect();
 		let head = payloads.len() - 1;
 		let mproof = src.gen_proof(vec![positions[head]]).unwrap();
 		let resp = EventResponse {
@@ -944,9 +933,9 @@ mod tests {
 		// A valid Messages request/response pair.
 		let mpayloads: Vec<Vec<u8>> = (0..3u8).map(|i| vec![i]).collect();
 		let mstore = MemStore::<Hash>::default();
-		let mut msrc = MemMMR::<Hash, SpecMerge<SpecHasher>>::new(0, &mstore);
+		let mut msrc = MemMMR::<Hash, SpecMerge>::new(0, &mstore);
 		for p in &mpayloads {
-			msrc.push(leaf_hash::<SpecHasher>(0, p)).unwrap();
+			msrc.push(leaf_hash(0, p)).unwrap();
 		}
 		let mstream = ch(2000);
 		let mentries = BTreeMap::from([(mstream, msrc.get_root().unwrap())]);
@@ -971,11 +960,9 @@ mod tests {
 		// A valid Event (head) request/response pair.
 		let epayloads: Vec<Vec<u8>> = (0..6u8).map(|i| vec![i, i + 1]).collect();
 		let estore = MemStore::<Hash>::default();
-		let mut esrc = MemMMR::<Hash, SpecMerge<SpecHasher>>::new(0, &estore);
-		let epos: Vec<u64> = epayloads
-			.iter()
-			.map(|p| esrc.push(leaf_hash::<SpecHasher>(0, p)).unwrap())
-			.collect();
+		let mut esrc = MemMMR::<Hash, SpecMerge>::new(0, &estore);
+		let epos: Vec<u64> =
+			epayloads.iter().map(|p| esrc.push(leaf_hash(0, p)).unwrap()).collect();
 		let estream = ch(3000);
 		let eentries = BTreeMap::from([(estream, esrc.get_root().unwrap())]);
 		let eunder = streams_root(&eentries).unwrap();

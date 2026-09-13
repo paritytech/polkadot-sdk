@@ -34,7 +34,6 @@
 
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, Error as CodecError, Input, MaxEncodedLen};
-use core::marker::PhantomData;
 use mmr_lib::{Error as MmrError, Merge};
 use polkadot_core_primitives::Hash;
 use scale_info::TypeInfo;
@@ -71,38 +70,38 @@ pub struct MessagePosition(pub u64);
 
 /// Domain-tagged merge for the speculative-messaging MMR, generic over the hash
 /// function `H`. Used as the `mmr_lib::Merge` implementation for the subtree.
-pub struct SpecMerge<H>(PhantomData<H>);
+pub struct SpecMerge;
 
-impl<H: HashT<Output = Hash>> Merge for SpecMerge<H> {
+impl Merge for SpecMerge {
 	type Item = Hash;
 
 	/// Inner-node merge: `H(INNER_TAG ++ left ++ right)`.
 	fn merge(left: &Hash, right: &Hash) -> Result<Hash, MmrError> {
-		Ok(tagged_node::<H>(INNER_TAG, left, right))
+		Ok(tagged_node(INNER_TAG, left, right))
 	}
 
 	/// Peak-bagging merge: `H(PEAK_TAG ++ left ++ right)`. Domain-separated from
 	/// `merge` so a bagged value can never be reinterpreted as an inner node.
 	fn merge_peaks(left: &Hash, right: &Hash) -> Result<Hash, MmrError> {
-		Ok(tagged_node::<H>(PEAK_TAG, left, right))
+		Ok(tagged_node(PEAK_TAG, left, right))
 	}
 }
 
 /// `H(tag ++ left ++ right)`.
-fn tagged_node<H: HashT<Output = Hash>>(tag: u8, left: &Hash, right: &Hash) -> Hash {
+fn tagged_node(tag: u8, left: &Hash, right: &Hash) -> Hash {
 	let mut preimage = [0u8; 1 + 32 + 32];
 	preimage[0] = tag;
 	preimage[1..33].copy_from_slice(left.as_bytes());
 	preimage[33..65].copy_from_slice(right.as_bytes());
-	<H as HashT>::hash(&preimage)
+	<SpecHasher as HashT>::hash(&preimage)
 }
 
 /// The defined root of an *empty* MMR frontier: `H(EMPTY_TAG)`. `mmr_lib` errors on
 /// empty MMRs, but the protocol needs a comparable value — the `Interval.start` of a
 /// stream's first-ever consumption is exactly this root (encoding spec §3.4). Empty
 /// streams are still never committed to a `StreamsRoot` tree entry.
-pub fn empty_root<H: HashT<Output = Hash>>() -> Hash {
-	<H as HashT>::hash(&[EMPTY_TAG])
+pub fn empty_root() -> Hash {
+	<SpecHasher as HashT>::hash(&[EMPTY_TAG])
 }
 
 /// Bag the MMR peaks (highest to lowest) into a root, matching `mmr_lib`'s bagging
@@ -113,11 +112,11 @@ pub fn empty_root<H: HashT<Output = Hash>>() -> Hash {
 /// This lets the on-chain outbox keep only the O(log n) peaks and still derive the
 /// same stream root that `mmr_lib`'s `MMR::get_root` and `MerkleProof::verify`
 /// produce.
-pub fn root_from_peaks<H: HashT<Output = Hash>>(peaks: &[Hash]) -> Option<Hash> {
+pub fn root_from_peaks(peaks: &[Hash]) -> Option<Hash> {
 	let (last, rest) = peaks.split_last()?;
 	// mmr_lib bags as merge_peaks(right, left); the accumulator carries the right side.
 	Some(rest.iter().rev().fold(*last, |acc, left| {
-		<SpecMerge<H> as Merge>::merge_peaks(&acc, left).expect("SpecMerge is infallible; qed")
+		<SpecMerge as Merge>::merge_peaks(&acc, left).expect("SpecMerge is infallible; qed")
 	}))
 }
 
@@ -183,8 +182,7 @@ impl MmrFrontier {
 				.peaks
 				.pop()
 				.expect("the constructors enforce one peak per set bit of `leaf_count`; qed");
-			node = <SpecMerge<SpecHasher> as Merge>::merge(&left, &node)
-				.expect("SpecMerge is infallible; qed");
+			node = <SpecMerge as Merge>::merge(&left, &node).expect("SpecMerge is infallible; qed");
 		}
 		self.peaks.push(node);
 		self.leaf_count += 1;
@@ -194,7 +192,7 @@ impl MmrFrontier {
 	/// encoding spec §3.4) — a comparable value, so a frontier that has consumed nothing yet
 	/// compares and extends like any other.
 	pub fn root(&self) -> MmrRoot {
-		MmrRoot(root_from_peaks::<SpecHasher>(&self.peaks).unwrap_or_else(empty_root::<SpecHasher>))
+		MmrRoot(root_from_peaks(&self.peaks).unwrap_or_else(empty_root))
 	}
 
 	/// The `mmr_lib` node count (size) of this frontier's MMR. Total under the leaf-count
@@ -230,10 +228,6 @@ mod tests {
 		util::{MemMMR, MemStore},
 		MerkleProof,
 	};
-	use sp_runtime::traits::BlakeTwo256;
-
-	type H = BlakeTwo256;
-
 	fn h(byte: u8) -> Hash {
 		Hash::repeat_byte(byte)
 	}
@@ -244,8 +238,8 @@ mod tests {
 		let b = h(2);
 		// Inner-node merge and peak-bagging of the same inputs must differ (domain tags).
 		assert_ne!(
-			<SpecMerge<H> as Merge>::merge(&a, &b).unwrap(),
-			<SpecMerge<H> as Merge>::merge_peaks(&a, &b).unwrap()
+			<SpecMerge as Merge>::merge(&a, &b).unwrap(),
+			<SpecMerge as Merge>::merge_peaks(&a, &b).unwrap()
 		);
 	}
 
@@ -254,8 +248,8 @@ mod tests {
 		let a = h(1);
 		let b = h(2);
 		assert_ne!(
-			<SpecMerge<H> as Merge>::merge(&a, &b).unwrap(),
-			<SpecMerge<H> as Merge>::merge(&b, &a).unwrap()
+			<SpecMerge as Merge>::merge(&a, &b).unwrap(),
+			<SpecMerge as Merge>::merge(&b, &a).unwrap()
 		);
 	}
 
@@ -281,7 +275,7 @@ mod tests {
 		// roots and peak-count invariant must agree.
 		let mut acc = MmrFrontier::new();
 		let store = MemStore::<Hash>::default();
-		let mut reference = MemMMR::<Hash, SpecMerge<H>>::new(0, &store);
+		let mut reference = MemMMR::<Hash, SpecMerge>::new(0, &store);
 		for i in 1..=5u8 {
 			acc.append(h(i));
 			reference.push(h(i)).unwrap();
@@ -294,9 +288,9 @@ mod tests {
 	fn empty_accumulator_root_is_empty_root() {
 		// A fresh accumulator is a legitimate state, and its root must be the defined constant —
 		// not a panic in `root_from_peaks`, which has no peaks to bag.
-		assert_eq!(root_from_peaks::<H>(&[]), None);
-		assert_eq!(MmrFrontier::new().root().0, empty_root::<H>());
-		assert_eq!(MmrFrontier::from_parts(Vec::new(), 0).unwrap().root().0, empty_root::<H>());
+		assert_eq!(root_from_peaks(&[]), None);
+		assert_eq!(MmrFrontier::new().root().0, empty_root());
+		assert_eq!(MmrFrontier::from_parts(Vec::new(), 0).unwrap().root().0, empty_root());
 	}
 
 	#[test]
@@ -317,7 +311,7 @@ mod tests {
 		// FROZEN consensus vector: blake2b-256 of the single byte 0x04 (EMPTY_TAG),
 		// the defined root of an empty frontier (encoding spec §3.4).
 		assert_eq!(
-			empty_root::<H>(),
+			empty_root(),
 			Hash::from(hex_literal::hex!(
 				"642206314f534b29ad297d82440a5f9f210e30ca5ced805a587ca402de927342"
 			))
@@ -345,11 +339,11 @@ mod tests {
 	#[test]
 	fn inclusion_proof_round_trips() {
 		let store = MemStore::<Hash>::default();
-		let mut mmr = MemMMR::<Hash, SpecMerge<H>>::new(0, &store);
+		let mut mmr = MemMMR::<Hash, SpecMerge>::new(0, &store);
 		let positions: Vec<u64> = (0..6u8).map(|i| mmr.push(h(i)).unwrap()).collect();
 		let root = mmr.get_root().unwrap();
 
-		let proof: MerkleProof<Hash, SpecMerge<H>> =
+		let proof: MerkleProof<Hash, SpecMerge> =
 			mmr.gen_proof(vec![leaf_index_to_pos(1), leaf_index_to_pos(4)]).unwrap();
 
 		assert!(proof.verify(root, vec![(positions[1], h(1)), (positions[4], h(4))]).unwrap());

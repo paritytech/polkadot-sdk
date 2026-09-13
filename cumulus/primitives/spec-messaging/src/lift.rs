@@ -54,7 +54,6 @@ use crate::{
 	mmr::{MessagePosition, MmrFrontier, MmrRoot, SpecMerge, MAX_MMR_LEAF_COUNT},
 	stream::StreamId,
 	streams_root::{streams_root_from_proof, StreamProof, StreamsRoot},
-	SpecHasher,
 };
 
 /// The keyed `StreamsRoot`-tree inclusion proof a lift walks from a stream root up to the
@@ -189,7 +188,7 @@ impl MMRExtensionProof {
 			positions.into_iter().zip(self.connecting_nodes.iter().copied()).collect();
 		let nodes: Vec<(u64, Hash)> =
 			old_positions.into_iter().zip(from.peaks().iter().copied()).collect();
-		NodeMerkleProof::<Hash, SpecMerge<SpecHasher>>::new(new_mmr_size, proof)
+		NodeMerkleProof::<Hash, SpecMerge>::new(new_mmr_size, proof)
 			.calculate_root(nodes)
 			.map(MmrRoot)
 			.map_err(|_| ProofError::InvalidProof)
@@ -344,7 +343,7 @@ impl MmrInclusionProof {
 		let (peak_items, path) = self.items.split_at(other_peaks);
 		let mut last_peak = leaf;
 		for sibling in path {
-			last_peak = <SpecMerge<SpecHasher> as mmr_lib::Merge>::merge(sibling, &last_peak)
+			last_peak = <SpecMerge as mmr_lib::Merge>::merge(sibling, &last_peak)
 				.expect("SpecMerge::merge is infallible; qed");
 		}
 		let peaks: Vec<Hash> =
@@ -388,7 +387,7 @@ impl MmrInclusionProof {
 			return Err(ProofError::PositionOutOfRange);
 		}
 		let pos = leaf_index_to_pos(position.0);
-		MerkleProof::<Hash, SpecMerge<SpecHasher>>::new(self.mmr_size, self.items.clone())
+		MerkleProof::<Hash, SpecMerge>::new(self.mmr_size, self.items.clone())
 			.calculate_root(vec![(pos, leaf)])
 			.map(MmrRoot)
 			.map_err(|_| ProofError::InvalidProof)
@@ -571,8 +570,6 @@ mod tests {
 	use polkadot_primitives::{v9::MAX_COMMITMENT_ENTRIES, MAX_POV_SIZE};
 	use sp_core::H256;
 
-	type H = SpecHasher;
-
 	fn leaves(n: u64) -> Vec<Hash> {
 		// Distinct for any `n` (the old `repeat_byte(i as u8 + 1)` wrapped past 255 leaves).
 		(0..n).map(|i| H256::from_low_u64_be(i + 1)).collect()
@@ -605,7 +602,7 @@ mod tests {
 	/// `gen_ancestry_proof`.
 	fn extension(all: &[Hash], k: usize, n: usize) -> MMRExtensionProof {
 		let store = MemStore::<Hash>::default();
-		let mut mmr = MemMMR::<Hash, SpecMerge<H>>::new(0, &store);
+		let mut mmr = MemMMR::<Hash, SpecMerge>::new(0, &store);
 		for l in &all[..n] {
 			mmr.push(*l).unwrap();
 		}
@@ -670,7 +667,7 @@ mod tests {
 		for n in 2..=256usize {
 			let all = leaves(n as u64);
 			let store = MemStore::<Hash>::default();
-			let mut mmr = MemMMR::<Hash, SpecMerge<H>>::new(0, &store);
+			let mut mmr = MemMMR::<Hash, SpecMerge>::new(0, &store);
 			for l in &all {
 				mmr.push(*l).unwrap();
 			}
@@ -884,7 +881,7 @@ mod tests {
 		// tip (the unconsumed tail a lagging receiver must extend over).
 		const N: usize = 100_000;
 		let store = MemStore::<Hash>::default();
-		let mut mmr = MemMMR::<Hash, SpecMerge<H>>::new(0, &store);
+		let mut mmr = MemMMR::<Hash, SpecMerge>::new(0, &store);
 		for i in 0..N as u64 {
 			mmr.push(H256::from_low_u64_be(i)).unwrap();
 		}
@@ -1008,7 +1005,7 @@ mod tests {
 	/// Single-leaf inclusion proof for leaf `index` of an `n`-leaf MMR (`mmr_lib`'s `gen_proof`).
 	fn inclusion(all: &[Hash], n: usize, index: usize) -> MmrInclusionProof {
 		let store = MemStore::<Hash>::default();
-		let mut mmr = MemMMR::<Hash, SpecMerge<H>>::new(0, &store);
+		let mut mmr = MemMMR::<Hash, SpecMerge>::new(0, &store);
 		for l in &all[..n] {
 			mmr.push(*l).unwrap();
 		}

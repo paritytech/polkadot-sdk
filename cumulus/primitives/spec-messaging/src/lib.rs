@@ -63,11 +63,17 @@ pub use message::{
 	leaf_hash, verify_event, verify_event_response, verify_exchange, verify_messages,
 	verify_messages_response, verify_positional_event_response, EventRequest, EventResponse,
 	ExchangeRequest, ExchangeResponse, ExchangeVerified, MaxSpeculativeMessageLen, MessagesRequest,
-	MessagesResponse, SpecHasher, VerifiedEvent, VerifyError, MAX_SPECULATIVE_MESSAGE_LEN,
+	MessagesResponse, VerifiedEvent, VerifyError, MAX_SPECULATIVE_MESSAGE_LEN,
 };
 pub use mmr::{MessagePosition, MmrFrontier, MmrRoot};
 pub use stream::{PrivateKind, StreamId, STREAM_ID_LEN};
 pub use streams_root::{StreamProof, StreamsRoot};
+
+/// The hash function used throughout speculative messaging: leaf hashing, MMR merges, stream and
+/// commitment-tree roots. It is a protocol constant, not a parameter — every root, proof and
+/// frozen test vector in this crate is defined in terms of it, so changing it is a consensus
+/// break, and nothing here is generic over it.
+pub type SpecHasher = sp_runtime::traits::BlakeTwo256;
 
 // Domain Tags to ensure that the same message structure used in different contexts (e.g. leaf vs
 // inner node) do not collide on the same hash. Tag values are part of the hash preimages. The MMR
