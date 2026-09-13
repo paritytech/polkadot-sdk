@@ -19,11 +19,11 @@ exclude-from-umbrella = true
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-frame-support.workspace = true
+frame-support = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-snowbridge-merkle-tree.workspace = true
-sp-api.workspace = true
-sp-std.workspace = true
+snowbridge-merkle-tree = { workspace = true }
+sp-api = { workspace = true }
+sp-std = { workspace = true }
 
 [features]
 default = ["std"]
