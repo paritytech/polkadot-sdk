@@ -917,11 +917,14 @@ pub mod pallet {
 						};
 
 						let code_hash = *blob.code_hash();
-						let Ok(info) = <ContractInfo<T>>::new(&address, 0u32.into(), code_hash)
-							.inspect_err(|err| {
-								log::error!(target: LOG_TARGET, "Failed to create ContractInfo for {address:?}: {err:?}");
-							})
-						else {
+						let Ok(info) = <ContractInfo<T>>::new_without_collision_check(
+							&address,
+							0u32.into(),
+							code_hash,
+						)
+						.inspect_err(|err| {
+							log::error!(target: LOG_TARGET, "Failed to create ContractInfo for {address:?}: {err:?}");
+						}) else {
 							continue;
 						};
 
