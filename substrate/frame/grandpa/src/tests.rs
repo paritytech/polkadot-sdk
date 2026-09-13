@@ -25,9 +25,9 @@ use fg_primitives::ScheduledChange;
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
 	dispatch::{GetDispatchInfo, Pays},
-	traits::{Currency, KeyOwnerProofSystem, OnFinalize, OneSessionHandler},
+	traits::{Authorize, Currency, KeyOwnerProofSystem, OnFinalize, OneSessionHandler},
 };
-use frame_system::{EventRecord, Phase};
+use frame_system::{EventRecord, Phase, RawOrigin};
 use sp_core::H256;
 use sp_keyring::Ed25519Keyring;
 use sp_runtime::testing::Digest;
@@ -361,7 +361,7 @@ fn report_equivocation_current_set_works() {
 
 		// report the equivocation and the tx should be dispatched successfully
 		assert_ok!(Grandpa::report_equivocation_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::from(RawOrigin::Authorized),
 			Box::new(equivocation_proof),
 			key_owner_proof,
 		),);
@@ -439,7 +439,7 @@ fn report_equivocation_old_set_works() {
 		// report the equivocation using the key ownership proof generated on
 		// the old set, the tx should be dispatched successfully
 		assert_ok!(Grandpa::report_equivocation_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::from(RawOrigin::Authorized),
 			Box::new(equivocation_proof),
 			key_owner_proof,
 		),);
@@ -502,7 +502,7 @@ fn report_equivocation_invalid_set_id() {
 		// the call for reporting the equivocation should error
 		assert_err!(
 			Grandpa::report_equivocation_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(RawOrigin::Authorized),
 				Box::new(equivocation_proof),
 				key_owner_proof,
 			),
@@ -543,7 +543,7 @@ fn report_equivocation_invalid_session() {
 		// proof from the previous set, the session should be invalid.
 		assert_err!(
 			Grandpa::report_equivocation_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(RawOrigin::Authorized),
 				Box::new(equivocation_proof),
 				key_owner_proof,
 			),
@@ -588,7 +588,7 @@ fn report_equivocation_invalid_key_owner_proof() {
 		// proof for a different key than the one in the equivocation proof.
 		assert_err!(
 			Grandpa::report_equivocation_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(RawOrigin::Authorized),
 				Box::new(equivocation_proof),
 				invalid_key_owner_proof,
 			),
@@ -619,7 +619,7 @@ fn report_equivocation_invalid_equivocation_proof() {
 		let assert_invalid_equivocation_proof = |equivocation_proof| {
 			assert_err!(
 				Grandpa::report_equivocation_unsigned(
-					RuntimeOrigin::none(),
+					RuntimeOrigin::from(RawOrigin::Authorized),
 					Box::new(equivocation_proof),
 					key_owner_proof.clone(),
 				),
@@ -661,11 +661,9 @@ fn report_equivocation_invalid_equivocation_proof() {
 }
 
 #[test]
-#[allow(deprecated)]
-fn report_equivocation_validate_unsigned_prevents_duplicates() {
+fn report_equivocation_authorize_prevents_duplicates() {
 	use sp_runtime::transaction_validity::{
-		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
-		ValidTransaction,
+		InvalidTransaction, TransactionPriority, TransactionSource, ValidTransaction,
 	};
 
 	let authorities = test_authorities();
@@ -690,61 +688,55 @@ fn report_equivocation_validate_unsigned_prevents_duplicates() {
 		let key_owner_proof =
 			Historical::prove((sp_consensus_grandpa::KEY_TYPE, &equivocation_key)).unwrap();
 
-		let call = Call::report_equivocation_unsigned {
+		let call = Call::<Test>::report_equivocation_unsigned {
 			equivocation_proof: Box::new(equivocation_proof.clone()),
 			key_owner_proof: key_owner_proof.clone(),
 		};
 
 		// only local/inblock reports are allowed
 		assert_eq!(
-			<Grandpa as sp_runtime::traits::ValidateUnsigned>::validate_unsigned(
-				TransactionSource::External,
-				&call,
-			),
-			InvalidTransaction::Call.into(),
+			call.authorize(TransactionSource::External),
+			Some(Err(InvalidTransaction::Call.into())),
 		);
 
 		// the transaction is valid when passed as local
 		let tx_tag = (equivocation_key, set_id, 1u64);
 
 		assert_eq!(
-			<Grandpa as sp_runtime::traits::ValidateUnsigned>::validate_unsigned(
-				TransactionSource::Local,
-				&call,
-			),
-			TransactionValidity::Ok(ValidTransaction {
-				priority: TransactionPriority::max_value(),
-				requires: vec![],
-				provides: vec![("GrandpaEquivocation", tx_tag).encode()],
-				longevity: ReportLongevity::get(),
-				propagate: false,
-			})
+			call.authorize(TransactionSource::Local),
+			Some(Ok((
+				ValidTransaction {
+					priority: TransactionPriority::max_value(),
+					requires: vec![],
+					provides: vec![("GrandpaEquivocation", tx_tag).encode()],
+					longevity: ReportLongevity::get(),
+					propagate: false,
+				},
+				Weight::zero(),
+			))),
 		);
 
-		// the pre dispatch checks should also pass
-		assert_ok!(<Grandpa as sp_runtime::traits::ValidateUnsigned>::pre_dispatch(&call));
+		// a report already in a block is also allowed
+		assert!(call.authorize(TransactionSource::InBlock).unwrap().is_ok());
 
 		// we submit the report
 		Grandpa::report_equivocation_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::from(RawOrigin::Authorized),
 			Box::new(equivocation_proof),
 			key_owner_proof,
 		)
 		.unwrap();
 
 		// the report should now be considered stale and the transaction is invalid
-		// the check for staleness should be done on both `validate_unsigned` and on `pre_dispatch`
-		assert_err!(
-			<Grandpa as sp_runtime::traits::ValidateUnsigned>::validate_unsigned(
-				TransactionSource::Local,
-				&call,
-			),
-			InvalidTransaction::Stale,
+		// the check for staleness applies to both pool validation and block import
+		assert_eq!(
+			call.authorize(TransactionSource::Local),
+			Some(Err(InvalidTransaction::Stale.into())),
 		);
 
-		assert_err!(
-			<Grandpa as sp_runtime::traits::ValidateUnsigned>::pre_dispatch(&call),
-			InvalidTransaction::Stale,
+		assert_eq!(
+			call.authorize(TransactionSource::InBlock),
+			Some(Err(InvalidTransaction::Stale.into())),
 		);
 	});
 }
@@ -891,7 +883,7 @@ fn valid_equivocation_reports_dont_pay_fees() {
 
 		// report the equivocation.
 		let post_info = Grandpa::report_equivocation_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::from(RawOrigin::Authorized),
 			Box::new(equivocation_proof.clone()),
 			key_owner_proof.clone(),
 		)
@@ -905,7 +897,7 @@ fn valid_equivocation_reports_dont_pay_fees() {
 		// report the equivocation again which is invalid now since it is
 		// duplicate.
 		let post_info = Grandpa::report_equivocation_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::from(RawOrigin::Authorized),
 			Box::new(equivocation_proof),
 			key_owner_proof,
 		)
