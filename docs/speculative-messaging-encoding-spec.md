@@ -237,6 +237,12 @@ one per header; foreign nodes parse it directly (protocol standard, not
 chain-internal). Proposed value: **`*b"SPMS"`** (self-describing), to be
 frozen before anything cross-chain ships.
 
+A reader accepts only what the sender produces: exactly one `SPMS` item in
+the header, whose payload is exactly 32 bytes. Anything else — a second item,
+a trailing byte, a short payload — means the header carries **no**
+`StreamsRoot`, not a best-effort one. Readers must agree on validity, so the
+rule is part of the format.
+
 ## 8. Lift transport
 
 ```rust

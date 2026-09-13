@@ -29,7 +29,7 @@
 //!   depth.
 
 use alloc::{collections::BTreeMap, vec::Vec};
-use codec::{Decode, DecodeWithMemTracking, Encode};
+use codec::{Decode, DecodeAll, DecodeWithMemTracking, Encode};
 use polkadot_core_primitives::Hash;
 use sp_core::ConstU32;
 use sp_runtime::{traits::Hash as HashT, BoundedVec, Digest, DigestItem};
@@ -205,14 +205,20 @@ pub fn gen_stream_proof(
 	Some((StreamsRoot(root), StreamProof { steps }))
 }
 
-/// Read the sender's `StreamsRoot` from its header digest, if present.
+/// Read the sender's `StreamsRoot` from its header digest. `None` if absent — or if the digest is
+/// not exactly what the sender's runtime deposits (encoding spec §7.4): one `SPMS` item, a 32-byte
+/// payload and nothing after it. The format is protocol-standard, so foreign readers must agree on
+/// validity; this accepts nothing the sender does not produce.
 pub fn read_streams_root(digest: &Digest) -> Option<StreamsRoot> {
-	digest.logs().iter().find_map(|item| match item {
-		DigestItem::Consensus(id, payload) if *id == SPMS_ENGINE_ID => {
-			StreamsRoot::decode(&mut &payload[..]).ok()
-		},
+	let mut items = digest.logs().iter().filter_map(|item| match item {
+		DigestItem::Consensus(id, payload) if *id == SPMS_ENGINE_ID => Some(payload),
 		_ => None,
-	})
+	});
+	let payload = items.next()?;
+	if items.next().is_some() {
+		return None;
+	}
+	StreamsRoot::decode_all(&mut &payload[..]).ok()
 }
 
 /// Fold a keyed membership proof for `(stream, stream_root)` up to the `StreamsRoot` it *implies*,
@@ -413,5 +419,28 @@ mod tests {
 		};
 		assert_eq!(read_streams_root(&digest), Some(r));
 		assert_eq!(read_streams_root(&Digest { logs: vec![] }), None);
+	}
+
+	#[test]
+	fn read_streams_root_accepts_only_the_canonical_digest() {
+		let r = streams_root(&entries()).unwrap();
+		let spms = |payload: Vec<u8>| DigestItem::Consensus(SPMS_ENGINE_ID, payload);
+		let digest = |logs: Vec<DigestItem>| Digest { logs };
+
+		// Exactly 32 bytes: a trailing byte is not a root the sender produces, so it is not a root.
+		let mut trailing = r.encode();
+		trailing.push(0);
+		assert_eq!(read_streams_root(&digest(vec![spms(trailing)])), None);
+		assert_eq!(read_streams_root(&digest(vec![spms(r.encode()[..31].to_vec())])), None);
+
+		// Exactly one item (§7.4): two roots is not "the first one", and a malformed item is not
+		// skipped in favour of a later well-formed one.
+		let other = StreamsRoot(Hash::repeat_byte(0xAB));
+		assert_eq!(read_streams_root(&digest(vec![spms(r.encode()), spms(other.encode())])), None);
+		assert_eq!(read_streams_root(&digest(vec![spms(vec![0; 3]), spms(r.encode())])), None);
+
+		// Other engines' items are not counted against it.
+		let foreign = DigestItem::Consensus(*b"AURA", vec![0; 32]);
+		assert_eq!(read_streams_root(&digest(vec![foreign, spms(r.encode())])), Some(r));
 	}
 }
