@@ -29,7 +29,8 @@ use alloc::vec::Vec;
 use core::{marker::PhantomData, mem};
 use frame_support::{DebugNoBound, DefaultNoBound, traits::Get};
 use sp_runtime::{
-	DispatchError, FixedPointNumber, FixedU128,
+	DispatchError, Rounding, SaturatedConversion,
+	helpers_128bit::multiply_by_rational_with_rounding,
 	traits::{Saturating, Zero},
 };
 
@@ -121,55 +122,61 @@ impl Diff {
 	pub fn update_contract<T: Config>(&self, info: Option<&mut ContractInfo<T>>) -> DepositOf<T> {
 		let per_byte = T::DepositPerByte::get();
 		let per_item = T::DepositPerChildTrieItem::get();
-		let bytes_added = self.bytes_added.saturating_sub(self.bytes_removed);
-		let items_added = self.items_added.saturating_sub(self.items_removed);
-		let mut bytes_deposit = Deposit::Charge(per_byte.saturating_mul((bytes_added).into()));
-		let mut items_deposit = Deposit::Charge(per_item.saturating_mul((items_added).into()));
 
 		// Without any contract info we can only calculate diffs which add storage
-		let info = if let Some(info) = info {
-			info
-		} else {
-			return bytes_deposit.saturating_add(&items_deposit);
+		let Some(info) = info else {
+			let bytes_added = self.bytes_added.saturating_sub(self.bytes_removed);
+			let items_added = self.items_added.saturating_sub(self.items_removed);
+			return Deposit::Charge(
+				per_byte
+					.saturating_mul(bytes_added.into())
+					.saturating_add(per_item.saturating_mul(items_added.into())),
+			);
 		};
 
-		// Refunds are calculated pro rata based on the accumulated storage within the contract
-		let bytes_removed = self.bytes_removed.saturating_sub(self.bytes_added);
-		let items_removed = self.items_removed.saturating_sub(self.items_added);
-		let ratio = FixedU128::checked_from_rational(bytes_removed, info.storage_bytes)
-			.unwrap_or_default()
-			.min(FixedU128::from_u32(1));
-		bytes_deposit = bytes_deposit
-			.saturating_add(&Deposit::Refund(ratio.saturating_mul_int(info.storage_byte_deposit)));
-		let ratio = FixedU128::checked_from_rational(items_removed, info.storage_items)
-			.unwrap_or_default()
-			.min(FixedU128::from_u32(1));
-		items_deposit = items_deposit
-			.saturating_add(&Deposit::Refund(ratio.saturating_mul_int(info.storage_item_deposit)));
-
-		// We need to update the contract info structure with the new deposits
-		info.storage_bytes =
-			info.storage_bytes.saturating_add(bytes_added).saturating_sub(bytes_removed);
-		info.storage_items =
-			info.storage_items.saturating_add(items_added).saturating_sub(items_removed);
-		match &bytes_deposit {
-			Deposit::Charge(amount) => {
-				info.storage_byte_deposit = info.storage_byte_deposit.saturating_add(*amount)
-			},
-			Deposit::Refund(amount) => {
-				info.storage_byte_deposit = info.storage_byte_deposit.saturating_sub(*amount)
-			},
-		}
-		match &items_deposit {
-			Deposit::Charge(amount) => {
-				info.storage_item_deposit = info.storage_item_deposit.saturating_add(*amount)
-			},
-			Deposit::Refund(amount) => {
-				info.storage_item_deposit = info.storage_item_deposit.saturating_sub(*amount)
-			},
-		}
-
+		let bytes_deposit = Self::price::<T>(
+			self.bytes_added,
+			self.bytes_removed,
+			per_byte,
+			&mut info.storage_bytes,
+			&mut info.storage_byte_deposit,
+		);
+		let items_deposit = Self::price::<T>(
+			self.items_added,
+			self.items_removed,
+			per_item,
+			&mut info.storage_items,
+			&mut info.storage_item_deposit,
+		);
 		bytes_deposit.saturating_add(&items_deposit)
+	}
+
+	/// Prices one dimension of the diff before netting, so that storage added after a change of
+	/// `rate` is paid at the new rate even when it replaces storage paid at the old one.
+	fn price<T: Config>(
+		added: u32,
+		removed: u32,
+		rate: BalanceOf<T>,
+		stored: &mut u32,
+		deposit: &mut BalanceOf<T>,
+	) -> DepositOf<T> {
+		let removed_existing = removed.min(*stored);
+		let added_kept = added.saturating_sub(removed - removed_existing);
+
+		let refund: BalanceOf<T> = multiply_by_rational_with_rounding(
+			(*deposit).saturated_into(),
+			removed_existing.into(),
+			(*stored).into(),
+			Rounding::Down,
+		)
+		.unwrap_or_default()
+		.saturated_into();
+		let charge = rate.saturating_mul(added_kept.into());
+
+		*stored = stored.saturating_sub(removed_existing).saturating_add(added_kept);
+		*deposit = deposit.saturating_sub(refund).saturating_add(charge);
+
+		Deposit::Charge(charge).saturating_add(&Deposit::Refund(refund))
 	}
 }
 
@@ -284,10 +291,8 @@ where
 		// We are now at the position to calculate the actual final net charge of `absorbed` as we
 		// now have the contract information `info`. Before that we only took net charges related to
 		// the contract storage into account but ignored net refunds.
-		// However, with this complete information there is no need to recalculate `max_charged` for
-		// `absorbed` here before we absorb it because the actual final net charge will not be more
-		// than the net charge we observed before (as we only ignored net refunds but not net
-		// charges).
+		// There is no need to recalculate `max_charged` for `absorbed` here: a frame is finalized
+		// before it is absorbed, and finalizing already folds its actual charge into it.
 		self.max_charged = self
 			.max_charged
 			.max(self.consumed().saturating_add(&absorbed.max_charged()).charge_or_zero());
@@ -489,8 +494,9 @@ impl<T: Config, E: Ext<T>> RawMeter<T, E, Nested> {
 		let deposit = self.own_contribution.update_contract(info);
 		self.own_contribution = Contribution::Checked(deposit);
 
-		// no need to recalculate max_charged here as the consumed amount cannot increase
-		// when taking removed bytes/items into account
+		// The info-less estimate nets bytes at the current rate, which undershoots when storage
+		// paid at a lower historical rate was replaced.
+		self.recalulculate_max_charged();
 	}
 
 	/// Apply pending storage changes to a ContractInfo without finalizing the meter.

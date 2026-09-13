@@ -1555,9 +1555,9 @@ fn bank_after_invalidate_loads_cache_for_refund_pro_rating() {
 		));
 		meter.execute_postponed_deposits(&origin, &exec_config).unwrap();
 
-		// K1 = 35 bytes → deposit 37; 30-byte removal refunds floor(30/35 * 35) = 29 → net 8.
+		// K1 = 35 bytes → deposit 37; 30-byte removal refunds 30/35 of 35 = 30 → net 7.
 		let charged = min_balance * 1000 - get_balance(&ALICE);
-		assert_eq!(charged, 8, "banked removal refund not applied: expected net deposit 8");
+		assert_eq!(charged, 7, "banked removal refund not applied: expected net deposit 7");
 	});
 }
 
