@@ -25,4 +25,4 @@ doc:
     dependencies.
 crates:
 - name: polkadot-network-bridge
-  bump: patch
+  bump: minor
