@@ -47,8 +47,8 @@ use sp_core::ConstU32;
 use sp_runtime::traits::Hash as HashT;
 
 use crate::{
-	lift::{MMRExtensionProof, MmrFrontier, MmrInclusionProof, ProofError},
-	mmr::{MessagePosition, Mmr, MmrAccumulator},
+	lift::{MMRExtensionProof, MmrInclusionProof, ProofError},
+	mmr::{MessagePosition, MmrFrontier},
 	stream::StreamId,
 	streams_root::{streams_root_from_proof, StreamProof, StreamsRoot},
 	LEAF_TAG,
@@ -197,12 +197,12 @@ pub fn verify_messages_response(
 	under: StreamsRoot,
 	resp: &MessagesResponse,
 ) -> Result<Vec<Vec<u8>>, VerifyError> {
-	// `start_peaks` and `base` are untrusted; `Mmr::from_parts` rejects an inconsistent shape (one
-	// peak per set bit of `base`, which also caps `start_peaks` at 64) or a `base` past
+	// `start_peaks` and `base` are untrusted; `MmrFrontier::from_parts` rejects an inconsistent
+	// shape (one peak per set bit of `base`, which also caps `start_peaks` at 64) or a `base` past
 	// `MAX_MMR_LEAF_COUNT`, so a crafted response can neither drive `append` into a pop-from-empty
 	// panic nor reach the node-position arithmetic downstream. A rejected response is simply
 	// unverifiable — the correct outcome, reached without panicking.
-	let mut mmr = Mmr::<SpecHasher>::from_parts(resp.start_peaks.clone(), resp.base.0)
+	let mut frontier = MmrFrontier::from_parts(resp.start_peaks.clone(), resp.base.0)
 		.ok_or(VerifyError::MalformedResponse)?;
 	// `base + len` overflowing the leaf counter is unreachable under the ceiling; kept so the
 	// accumulator arithmetic stays total on its own terms.
@@ -222,10 +222,8 @@ pub fn verify_messages_response(
 
 	// Append the response's payloads as leaves onto the frontier at `base`.
 	for payload in &resp.payloads {
-		mmr.append(leaf_hash::<SpecHasher>(resp.leaf_version, payload));
+		frontier.append(leaf_hash::<SpecHasher>(resp.leaf_version, payload));
 	}
-	let (peaks, leaf_count) = mmr.into_parts();
-	let frontier = MmrFrontier { peaks, leaf_count };
 
 	// Extend to the stream's current root, then walk the tree to the committed `StreamsRoot`.
 	let current = resp.extension.verify(&frontier)?;
@@ -446,12 +444,11 @@ mod tests {
 
 	/// Peaks-only frontier after the first `k` leaves.
 	fn frontier_at(leaves: &[Hash], k: usize) -> MmrFrontier {
-		let mut mmr = Mmr::<SpecHasher>::new();
+		let mut frontier = MmrFrontier::new();
 		for l in &leaves[..k] {
-			mmr.append(*l);
+			frontier.append(*l);
 		}
-		let (peaks, leaf_count) = mmr.into_parts();
-		MmrFrontier { peaks, leaf_count }
+		frontier
 	}
 
 	/// The stream root over the first `n` leaves.
@@ -503,7 +500,7 @@ mod tests {
 			base: MessagePosition(2),
 			leaf_version: 0,
 			payloads: vec![payloads[2].clone(), payloads[3].clone()],
-			start_peaks: frontier_at(&leaves, 2).peaks,
+			start_peaks: frontier_at(&leaves, 2).peaks().to_vec(),
 			extension: ancestry(&leaves, 4, 6),
 			tree_proof: tree_proof.clone(),
 		};
@@ -585,7 +582,7 @@ mod tests {
 
 		assert_eq!(verify_messages_response(stream, under, &resp), Ok(payloads));
 		// Sanity: the recomputed root matches the sender's.
-		let mut mmr = Mmr::<SpecHasher>::new();
+		let mut mmr = MmrFrontier::new();
 		for p in &resp.payloads {
 			mmr.append(leaf_hash::<SpecHasher>(0, p));
 		}
@@ -683,7 +680,7 @@ mod tests {
 		let under = StreamsRoot(H256::repeat_byte(0xff));
 
 		// `start_peaks` shape inconsistent with `base` (empty peaks, base = 1): the pre-fix
-		// pop-from-empty panic in `Mmr::append`. `from_parts` must reject it cleanly, not panic.
+		// pop-from-empty panic in `append`. `from_parts` must reject it cleanly, not panic.
 		let crafted = MessagesResponse {
 			base: MessagePosition(1),
 			leaf_version: 0,
@@ -805,7 +802,7 @@ mod tests {
 			verify_event_response(stream, under, &resp).expect("head verifies");
 		assert_eq!(pos, MessagePosition(head as u64));
 		assert_eq!(payload, payloads[head]);
-		assert_eq!(frontier.leaf_count, 6);
+		assert_eq!(frontier.leaf_count(), 6);
 		assert_eq!(frontier.root().0, stream_root);
 
 		// The request-aware dispatcher (`at = None`) yields the same head result.

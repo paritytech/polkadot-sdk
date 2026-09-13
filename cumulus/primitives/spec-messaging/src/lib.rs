@@ -30,8 +30,8 @@
 //!
 //! # Key types
 //!
-//! - [`mmr::SpecMerge`] — the domain-tagged `mmr_lib::Merge` that backs each per-stream MMR;
-//!   [`mmr::root_from_peaks`] derives a stream root from peaks-only state. Inclusion and ancestry
+//! - [`mmr::MmrFrontier`] — the peaks-only per-stream MMR state, and the accumulator that extends
+//!   it; [`mmr::SpecMerge`] is the domain-tagged `mmr_lib::Merge` behind it. Inclusion and ancestry
 //!   proofs come from `mmr_lib` itself.
 //! - [`message`] — the off-chain protocol messages: the fetch protocol
 //!   (`MessagesRequest`/`MessagesResponse` + [`message::verify_messages_response`]), the lossy
@@ -57,8 +57,7 @@ pub mod streams_root;
 pub use flow_control::{Register, SpecMsgKind, SpecMsgSignal, WindowGrant};
 pub use lift::{
 	build_requires, build_requires_entry, stitch, ConsumptionRecord, Interval, LiftError,
-	MMRExtensionProof, MmrFrontier, MmrInclusionProof, MmrRoot, ProofError, RequiresLift,
-	TreeInclusionProof,
+	MMRExtensionProof, MmrInclusionProof, ProofError, RequiresLift, TreeInclusionProof,
 };
 pub use message::{
 	leaf_hash, verify_event, verify_event_response, verify_exchange, verify_messages,
@@ -66,7 +65,7 @@ pub use message::{
 	ExchangeRequest, ExchangeResponse, ExchangeVerified, MaxSpeculativeMessageLen, MessagesRequest,
 	MessagesResponse, SpecHasher, VerifiedEvent, VerifyError, MAX_SPECULATIVE_MESSAGE_LEN,
 };
-pub use mmr::MessagePosition;
+pub use mmr::{MessagePosition, MmrFrontier, MmrRoot};
 pub use stream::{PrivateKind, StreamId, STREAM_ID_LEN};
 pub use streams_root::{StreamProof, StreamsRoot};
 
