@@ -50,6 +50,9 @@ pub use fp_coretime::{
 };
 pub use types::*;
 
+#[cfg(any(feature = "try-runtime", test))]
+use sp_runtime::{traits::Zero, TryRuntimeError};
+
 extern crate alloc;
 
 /// The log target for this pallet.
@@ -618,6 +621,11 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
 			Self::do_tick()
 		}
@@ -1089,5 +1097,174 @@ pub mod pallet {
 			Self::do_swap_leases(id, other)?;
 			Ok(())
 		}
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), TryRuntimeError> {
+		Self::try_state_configuration()?;
+		Self::try_state_sale_info()?;
+		Self::try_state_regions()?;
+		Self::try_state_potential_renewals()?;
+		Self::try_state_pool_contributions()?;
+		Self::try_state_pool_history()?;
+		Self::try_state_auto_renewals()?;
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * The stored configuration must satisfy the same validity check that `configure` applies
+	///   before accepting it. Nothing else in the pallet may write a configuration, so one which
+	///   fails the check could only come from a faulty migration.
+	fn try_state_configuration() -> Result<(), TryRuntimeError> {
+		let Some(config) = Configuration::<T>::get() else { return Ok(()) };
+
+		frame_support::ensure!(
+			config.validate().is_ok(),
+			"the stored configuration does not pass its own validity check"
+		);
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * Cores are only ever sold out of those offered, so the number sold never exceeds the number
+	///   offered. `ensure_cores_for_sale` is what upholds this on every purchase and renewal.
+	/// * The number of cores we would ideally sell is a proportion of those offered, so it too
+	///   never exceeds them.
+	/// * A sale's region never ends before it begins; its end is its begin advanced by the
+	///   configured region length.
+	/// * A sellout price is recorded for every sale which offered at least one core, since the
+	///   price adapter needs it to price the following sale.
+	fn try_state_sale_info() -> Result<(), TryRuntimeError> {
+		let Some(sale) = SaleInfo::<T>::get() else { return Ok(()) };
+
+		frame_support::ensure!(
+			sale.cores_sold <= sale.cores_offered,
+			"more cores have been sold than were offered for sale"
+		);
+		frame_support::ensure!(
+			sale.ideal_cores_sold <= sale.cores_offered,
+			"the ideal number of cores to sell exceeds the number offered for sale"
+		);
+		frame_support::ensure!(
+			sale.region_end >= sale.region_begin,
+			"the region being sold ends before it begins"
+		);
+		frame_support::ensure!(
+			sale.cores_offered == 0 || sale.sellout_price.is_some(),
+			"a sale which offered cores has no sellout price"
+		);
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * Every Region covers at least one timeslice. A Region is issued spanning the whole sale
+	///   period, and the only operations which narrow it (partitioning and interlacing) refuse to
+	///   place the pivot outside the Region, so an empty Region can never come about.
+	fn try_state_regions() -> Result<(), TryRuntimeError> {
+		for (region_id, region) in Regions::<T>::iter() {
+			frame_support::ensure!(
+				region.end > region_id.begin,
+				"a region ends no later than it begins"
+			);
+		}
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * A potential renewal is only renewable once its workload is complete, so a completion
+	///   status which is still `Partial` must genuinely leave part of the core unassigned. If it
+	///   covered the whole core it would have been recorded as `Complete` instead, and the workload
+	///   would be wrongly withheld from renewal.
+	/// * Conversely, the workload of a `Complete` status must cover the whole core, since
+	///   `do_renew` hands it straight to the workplan as the core's entire schedule.
+	fn try_state_potential_renewals() -> Result<(), TryRuntimeError> {
+		for (_, record) in PotentialRenewals::<T>::iter() {
+			match record.completion {
+				CompletionStatus::Partial(mask) => {
+					frame_support::ensure!(
+						!mask.is_complete(),
+						"a partial renewal workload covers the whole core"
+					);
+				},
+				CompletionStatus::Complete(schedule) => {
+					let assigned =
+						schedule.iter().fold(CoreMask::void(), |acc, item| acc | item.mask);
+					frame_support::ensure!(
+						assigned.is_complete(),
+						"a complete renewal workload does not cover the whole core"
+					);
+				},
+			}
+		}
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * Every contribution to the Instantaneous Coretime Pool covers at least one timeslice. A
+	///   contribution is recorded for the remaining duration of a Region, which is never empty, and
+	///   claiming revenue keeps the record only for as long as timeslices remain to claim for.
+	fn try_state_pool_contributions() -> Result<(), TryRuntimeError> {
+		for (_, contribution) in InstaPoolContribution::<T>::iter() {
+			frame_support::ensure!(
+				!contribution.length.is_zero(),
+				"a pool contribution record covers no timeslices"
+			);
+		}
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * A payout is only ever recorded against a history record while there is both something left
+	///   to pay out and somebody left to pay it to. Both reporting the revenue for a timeslice and
+	///   claiming a share of it drop the record instead of leaving a payout which nobody can claim,
+	///   which would otherwise strand the funds in the pallet's pot.
+	fn try_state_pool_history() -> Result<(), TryRuntimeError> {
+		for (_, record) in InstaPoolHistory::<T>::iter() {
+			let Some(payout) = record.maybe_payout else { continue };
+
+			frame_support::ensure!(
+				!payout.is_zero(),
+				"a pool history record has a payout of nothing left to claim"
+			);
+			frame_support::ensure!(
+				!record.private_contributions.is_zero(),
+				"a pool history record has a payout but no private contribution to pay it to"
+			);
+		}
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * The cores with auto-renewal enabled are held in ascending order of core index. Both
+	///   enabling and disabling auto-renewal locate a core by binary search, which would silently
+	///   look at the wrong record, or miss one altogether, were the order to be broken.
+	fn try_state_auto_renewals() -> Result<(), TryRuntimeError> {
+		let renewals = AutoRenewals::<T>::get();
+
+		frame_support::ensure!(
+			renewals.windows(2).all(|w| w[0].core <= w[1].core),
+			"the auto-renewal records are not sorted by ascending core index"
+		);
+
+		Ok(())
 	}
 }
