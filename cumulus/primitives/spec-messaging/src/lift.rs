@@ -514,14 +514,18 @@ pub enum LiftError {
 
 /// Stitch one stream's intervals (bundle order) into its endpoint frontier. `advances` must supply
 /// exactly one extension per gap — a `start` that is not the previous `end`'s bagged root — in gap
-/// order. Gaps are proven *forward* (extension proofs only exist forward), so verified states can
-/// never regress.
+/// order. Gaps are proven *forward* (extension proofs only exist forward), so within a candidate
+/// verified states can never regress. Across candidates that is the STF's to hold (see below).
 pub fn stitch(
 	intervals: &[Interval],
 	advances: &[MMRExtensionProof],
 ) -> Result<MmrFrontier, LiftError> {
 	let (first, rest) = intervals.split_first().ok_or(LiftError::EmptyRecord)?;
 	let mut gaps = advances.iter();
+	// `first.start` is the boundary with the previous candidate, so nothing in this one can check
+	// it — and nothing needs to: every message consumed is bound through the chain from
+	// `first.end`. Cross-candidate continuity is the STF's (the stored frontier for channels;
+	// value monotonicity for register reads).
 	let mut current = first.end.clone();
 	for next in rest {
 		let current_root = current.root();
