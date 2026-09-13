@@ -74,6 +74,8 @@ pub use signed::{EncodeAs, Signed, UncheckedSigned};
 pub mod async_backing;
 pub mod executor_params;
 pub mod slashing;
+pub mod speculative;
+pub use speculative::{CommitmentError, RequiresSet, StreamsRoot, MAX_COMMITMENT_ENTRIES};
 
 pub use async_backing::AsyncBackingParams;
 pub use executor_params::{
@@ -2716,6 +2718,13 @@ pub enum UMPSignal {
 	SelectCore(CoreSelector, ClaimQueueOffset),
 	/// A message sent by a parachain to promote the reputation of a given peerid.
 	ApprovedPeer(ApprovedPeerId),
+	/// A speculative-messaging signal carrying this candidate's outgoing stream commitment root
+	/// (`Provides(StreamsRoot)`). The relay chain records these into its provides window.
+	Provides(StreamsRoot),
+	/// A speculative-messaging signal carrying this candidate's expected incoming per-source
+	/// stream commitment roots (`Requires(RequiresSet)`). The relay chain matches these against
+	/// the provides window of the corresponding source parachains.
+	Requires(RequiresSet),
 }
 
 /// The default claim queue offset to be used if it's not configured/accessible in the parachain
@@ -2732,6 +2741,8 @@ pub type ApprovedPeerId = BoundedVec<u8, ConstU32<64>>;
 pub struct CandidateUMPSignals {
 	pub(super) select_core: Option<(CoreSelector, ClaimQueueOffset)>,
 	pub(super) approved_peer: Option<ApprovedPeerId>,
+	pub(super) provides: Option<StreamsRoot>,
+	pub(super) requires: Option<RequiresSet>,
 }
 
 impl CandidateUMPSignals {
@@ -2745,9 +2756,22 @@ impl CandidateUMPSignals {
 		self.approved_peer.as_ref()
 	}
 
+	/// Get a reference to the speculative-messaging `provides` UMP signal.
+	pub fn provides(&self) -> Option<&StreamsRoot> {
+		self.provides.as_ref()
+	}
+
+	/// Get a reference to the speculative-messaging `requires` UMP signal.
+	pub fn requires(&self) -> Option<&RequiresSet> {
+		self.requires.as_ref()
+	}
+
 	/// Returns `true` if UMP signals are empty.
 	pub fn is_empty(&self) -> bool {
-		self.select_core.is_none() && self.approved_peer.is_none()
+		self.select_core.is_none() &&
+			self.approved_peer.is_none() &&
+			self.provides.is_none() &&
+			self.requires.is_none()
 	}
 
 	fn try_decode_signal(
@@ -2762,6 +2786,12 @@ impl CandidateUMPSignals {
 			},
 			UMPSignal::SelectCore(core_selector, cq_offset) if self.select_core.is_none() => {
 				self.select_core = Some((core_selector, cq_offset));
+			},
+			UMPSignal::Provides(provides) if self.provides.is_none() => {
+				self.provides = Some(provides);
+			},
+			UMPSignal::Requires(requires) if self.requires.is_none() => {
+				self.requires = Some(requires);
 			},
 			_ => {
 				// This means that we got duplicate UMP signals.
@@ -2778,12 +2808,16 @@ impl CandidateUMPSignals {
 		select_core: Option<(CoreSelector, ClaimQueueOffset)>,
 		approved_peer: Option<ApprovedPeerId>,
 	) -> Self {
-		Self { select_core, approved_peer }
+		Self { select_core, approved_peer, provides: None, requires: None }
 	}
 }
 
 /// Separator between `XCM` and `UMPSignal`.
 pub const UMP_SEPARATOR: Vec<u8> = vec![];
+
+/// The maximum number of `UMPSignal` messages a candidate may carry — one per
+/// [`UMPSignal`] variant (`SelectCore`, `ApprovedPeer`, `Provides`, `Requires`).
+pub const MAX_UMP_SIGNALS: usize = 4;
 
 /// Utility function for skipping the ump signals.
 pub fn skip_ump_signals<'a>(
@@ -2806,15 +2840,15 @@ impl CandidateCommitments {
 			return Ok(res);
 		}
 
-		// Process first signal
-		let Some(first_signal) = signals_iter.next() else { return Ok(res) };
-		res.try_decode_signal(&mut first_signal.as_slice())?;
+		// At most one signal of each `UMPSignal` variant is allowed; `try_decode_signal`
+		// rejects duplicates. Bound the loop by the number of variants so a malformed
+		// candidate cannot force unbounded work.
+		for _ in 0..MAX_UMP_SIGNALS {
+			let Some(signal) = signals_iter.next() else { return Ok(res) };
+			res.try_decode_signal(&mut signal.as_slice())?;
+		}
 
-		// Process second signal
-		let Some(second_signal) = signals_iter.next() else { return Ok(res) };
-		res.try_decode_signal(&mut second_signal.as_slice())?;
-
-		// At most two signals are allowed
+		// No more signals than there are distinct variants are allowed.
 		if signals_iter.next().is_some() {
 			return Err(CommittedCandidateReceiptError::TooManyUMPSignals);
 		}
@@ -3314,6 +3348,52 @@ pub mod tests {
 
 		assert_eq!(info.next_rotation_at(), 20);
 		assert_eq!(info.last_rotation_at(), 15);
+	}
+
+	#[test]
+	fn ump_signals_extracts_provides_and_requires_roots() {
+		let provides = StreamsRoot(Hash::repeat_byte(1));
+		let requires =
+			RequiresSet::try_from_iter([(Id::from(2u32), StreamsRoot(Hash::repeat_byte(2)))])
+				.unwrap();
+
+		let upward_messages = alloc::vec![
+			UMP_SEPARATOR,
+			UMPSignal::Provides(provides.clone()).encode(),
+			UMPSignal::Requires(requires.clone()).encode(),
+		];
+
+		let commitments = CandidateCommitments {
+			upward_messages: upward_messages.try_into().unwrap(),
+			..Default::default()
+		};
+
+		let signals = commitments.ump_signals().expect("valid signals");
+		assert_eq!(signals.provides(), Some(&provides));
+		assert_eq!(signals.requires(), Some(&requires));
+	}
+
+	#[test]
+	fn ump_signals_rejects_more_than_max_signals() {
+		// One of every variant (== `MAX_UMP_SIGNALS`) plus one extra is rejected.
+		let upward_messages = alloc::vec![
+			UMP_SEPARATOR,
+			UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode(),
+			UMPSignal::ApprovedPeer(Default::default()).encode(),
+			UMPSignal::Provides(Default::default()).encode(),
+			UMPSignal::Requires(RequiresSet::default()).encode(),
+			UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(1)).encode(),
+		];
+
+		let commitments = CandidateCommitments {
+			upward_messages: upward_messages.try_into().unwrap(),
+			..Default::default()
+		};
+
+		assert_eq!(
+			commitments.ump_signals(),
+			Err(CommittedCandidateReceiptError::TooManyUMPSignals)
+		);
 	}
 
 	#[test]
