@@ -1317,7 +1317,7 @@ where
 			self.exec_config,
 		)? {
 			// EIP-684: an in-construction address is not in `AccountInfoOf` yet, so the
-			// `is_contract` guard in `ContractInfo::new` misses this re-entrant collision.
+			// collision check in `ContractInfo::new` can miss this re-entrant collision.
 			if frame.entry_point == ExportedFunction::Constructor &&
 				self.frames().any(|f| {
 					f.entry_point == ExportedFunction::Constructor &&
@@ -2128,6 +2128,12 @@ where
 			&mut frame.frame_meter,
 			self.exec_config,
 		)?;
+
+		// EIP-7702: the balance still moves, but a delegated EOA is never destroyed. Its
+		// `contract_info` is the authority's delegation trie and the target's code hash.
+		if AccountInfo::<T>::is_delegated(&contract_address) {
+			return Ok(CodeRemoved::No);
+		}
 
 		// schedule for delayed deletion
 		let account_id = frame.account_id.clone();
