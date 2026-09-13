@@ -618,7 +618,8 @@ mod tests {
 	type H = SpecHasher;
 
 	fn leaves(n: u64) -> Vec<Hash> {
-		(0..n).map(|i| H256::repeat_byte(i as u8 + 1)).collect()
+		// Distinct for any `n` (the old `repeat_byte(i as u8 + 1)` wrapped past 255 leaves).
+		(0..n).map(|i| H256::from_low_u64_be(i + 1)).collect()
 	}
 
 	/// Peaks-only frontier after the first `k` leaves.
@@ -705,11 +706,13 @@ mod tests {
 
 	/// The derived connecting-node positions must equal what `gen_ancestry_proof` actually emits,
 	/// for every `(k, n)` shape — the consensus-critical invariant that lets `connecting_nodes`
-	/// store bare hashes. Sweeps enough leaf counts to exercise multi-peak proofs and the
-	/// RHS-peak bagging collapse; if `mmr_lib`'s node set/order ever drifts, this trips.
+	/// store bare hashes. Exhaustive over every `(old, new)` pair up to 256 leaves — through the
+	/// all-ones sizes 127 and 255 (seven and eight peaks, the most bagging the range allows) and
+	/// the single-peak powers of two either side of them. If `mmr_lib`'s node set/order ever
+	/// drifts, this trips.
 	#[test]
 	fn ancestry_positions_matches_mmr_lib() {
-		for n in 2..=64usize {
+		for n in 2..=256usize {
 			let all = leaves(n as u64);
 			let store = MemStore::<Hash>::default();
 			let mut mmr = MemMMR::<Hash, SpecMerge<H>>::new(0, &store);
