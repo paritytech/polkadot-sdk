@@ -1,0 +1,15 @@
+title: 'pallet-asset-rewards: fix post-expiry underflow and persist pool on harvest'
+doc:
+- audience: Runtime Dev
+  description: |-
+    A stake or unstake after a pool's expiry stored a `last_update_block` past the
+    `expiry_block`, after which every `stake`, `unstake`, `harvest_rewards`,
+    `set_pool_expiry_block` and `set_pool_reward_rate_per_block` on that pool failed with
+    `ArithmeticError::Underflow`, leaving the remaining stakes frozen. Rewardable blocks are now
+    counted with `saturating_sub`, so a pool last updated after expiry accrues nothing. Pools
+    already in this state work again after the upgrade without a storage migration.
+
+    `harvest_rewards` now writes the updated pool back to `Pools`, as `stake` and `unstake` do.
+crates:
+- name: pallet-asset-rewards
+  bump: patch
