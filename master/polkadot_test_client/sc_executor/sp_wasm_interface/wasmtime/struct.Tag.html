@@ -156,6 +156,9 @@ which has a <a href="%60crate::ResourceLimiterAsync%60"><code>ResourceLimiterAsy
 (see also: <a href="%60crate::Store::limiter_async%60"><code>Store::limiter_async</code></a>.
 When using an async resource limiter, use [<code>Tag::new_async</code>]
 instead.</p>
+<h5 id="errors"><a class="doc-anchor" href="#errors">§</a>Errors</h5>
+<p>Returns an error if <code>ty</code> was not created with the same
+<a href="struct.Engine.html" title="struct polkadot_test_client::sc_executor::sp_wasm_interface::wasmtime::Engine"><code>Engine</code></a> as <code>store</code>.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.ty" class="method"><h4 class="code-header">pub fn <a href="#method.ty" class="fn">ty</a>(&amp;self, store: impl <a class="trait" href="trait.AsContext.html" title="trait polkadot_test_client::sc_executor::sp_wasm_interface::wasmtime::AsContext">AsContext</a>) -&gt; <a class="struct" href="struct.TagType.html" title="struct polkadot_test_client::sc_executor::sp_wasm_interface::wasmtime::TagType">TagType</a></h4></section></summary><div class="docblock"><p>Returns the underlying type of this <code>tag</code>.</p>
 <h5 id="panics-1"><a class="doc-anchor" href="#panics-1">§</a>Panics</h5>
 <p>Panics if <code>store</code> does not own this tag.</p>

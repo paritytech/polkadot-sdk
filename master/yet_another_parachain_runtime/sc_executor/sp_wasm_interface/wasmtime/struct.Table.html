@@ -174,6 +174,8 @@ table starts with an initial size.</li>
 <h5 id="errors"><a class="doc-anchor" href="#errors">§</a>Errors</h5>
 <p>Returns an error if <code>init</code> does not match the element type of the table,
 or if <code>init</code> does not belong to the <code>store</code> provided.</p>
+<p>Returns an error if the element type of <code>ty</code> was not created with the
+same <a href="struct.Engine.html" title="struct yet_another_parachain_runtime::sc_executor::sp_wasm_interface::wasmtime::Engine"><code>Engine</code></a> as <code>store</code>.</p>
 <h5 id="panics"><a class="doc-anchor" href="#panics">§</a>Panics</h5>
 <p>This function will panic when used with a <a href="struct.Store.html" title="struct yet_another_parachain_runtime::sc_executor::sp_wasm_interface::wasmtime::Store"><code>Store</code></a>
 which has a <a href="%60crate::ResourceLimiterAsync%60"><code>ResourceLimiterAsync</code></a>

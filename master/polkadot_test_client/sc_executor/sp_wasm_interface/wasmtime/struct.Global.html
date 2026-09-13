@@ -172,6 +172,8 @@ For example this could be provided as an argument to
 <h5 id="errors"><a class="doc-anchor" href="#errors">§</a>Errors</h5>
 <p>Returns an error if the <code>ty</code> provided does not match the type of the
 value <code>val</code>, or if <code>val</code> comes from a different store than <code>store</code>.</p>
+<p>Returns an error if the content type of <code>ty</code> was not created with the
+same <a href="struct.Engine.html" title="struct polkadot_test_client::sc_executor::sp_wasm_interface::wasmtime::Engine"><code>Engine</code></a> as <code>store</code>.</p>
 <h5 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h5>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>engine = Engine::default();
 <span class="kw">let </span><span class="kw-2">mut </span>store = Store::new(<span class="kw-2">&amp;</span>engine, ());

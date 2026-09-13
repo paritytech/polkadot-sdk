@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["TerminateStorageInnerCalls"],"struct":["constructorCall","terminateSelfCall","terminateSelfReturn"]};
