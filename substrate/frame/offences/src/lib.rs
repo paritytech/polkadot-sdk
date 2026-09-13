@@ -52,6 +52,7 @@ const LOG_TARGET: &str = "runtime::offences";
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::BlockNumberFor;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -92,6 +93,14 @@ pub mod pallet {
 		Vec<ReportIdOf<T>>,
 		ValueQuery,
 	>;
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
 
 	/// Events type.
 	#[pallet::event]
@@ -207,6 +216,68 @@ impl<T: Config> Pallet<T> {
 		} else {
 			None
 		}
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_concurrent_reports_index()?;
+		Self::try_state_reports_are_indexed()?;
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * Every report id held in `ConcurrentReportsIndex` must resolve to a report in `Reports`.
+	///   The index is only ever written alongside the report it points at, so a dangling id means
+	///   the report behind it was lost.
+	/// * A report id must not be listed more than once. A report is only indexed at the point it is
+	///   first created, and a repeated offence for the same kind, time slot and offender is
+	///   discarded as a duplicate rather than indexed again.
+	fn try_state_concurrent_reports_index() -> Result<(), sp_runtime::TryRuntimeError> {
+		let mut seen = alloc::collections::BTreeSet::new();
+
+		for (_, _, report_ids) in ConcurrentReportsIndex::<T>::iter() {
+			for report_id in report_ids {
+				frame_support::ensure!(
+					Reports::<T>::contains_key(report_id),
+					"a report id in `ConcurrentReportsIndex` must resolve to a report"
+				);
+
+				frame_support::ensure!(
+					seen.insert(report_id),
+					"a report id must not be listed twice in `ConcurrentReportsIndex`"
+				);
+			}
+		}
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * Every report in `Reports` must be listed in `ConcurrentReportsIndex`. A report is only
+	///   ever inserted together with its index entry, and the index is the sole means of finding
+	///   the reports for a given kind and time slot, so an unindexed report can never be found
+	///   again when a later offence is triaged.
+	fn try_state_reports_are_indexed() -> Result<(), sp_runtime::TryRuntimeError> {
+		let indexed = ConcurrentReportsIndex::<T>::iter()
+			.flat_map(|(_, _, report_ids)| report_ids)
+			.collect::<alloc::collections::BTreeSet<_>>();
+
+		for report_id in Reports::<T>::iter_keys() {
+			frame_support::ensure!(
+				indexed.contains(&report_id),
+				"a report in `Reports` must be listed in `ConcurrentReportsIndex`"
+			);
+		}
+
+		Ok(())
 	}
 }
 
