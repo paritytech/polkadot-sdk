@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789127626307,
+  "lastUpdate": 1789337108257,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -220991,6 +220991,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2445358996,
             "range": "± 152873825",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49699333+dependabot[bot]@users.noreply.github.com",
+            "name": "dependabot[bot]",
+            "username": "dependabot[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e34add8b49d5ba0ad1e5acb694c3bd1a706aaa0e",
+          "message": "Bump wasmtime from 36.0.7 to 36.0.8 (#12013)\n\nBumps [wasmtime](https://github.com/bytecodealliance/wasmtime) from\n36.0.7 to 36.0.8.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/bytecodealliance/wasmtime/releases\">wasmtime's\nreleases</a>.</em></p>\n<blockquote>\n<h2>v36.0.8</h2>\n<h2>36.0.8</h2>\n<p>Released 2026-04-30.</p>\n<h3>Fixed</h3>\n<ul>\n<li>Panic when allocating a table exceeding the size of the host's\naddress space.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-p8xm-42r7-89xg\">GHSA-p8xm-42r7-89xg</a></li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/bytecodealliance/wasmtime/blob/v36.0.8/RELEASES.md\">wasmtime's\nchangelog</a>.</em></p>\n<blockquote>\n<h2>36.0.8</h2>\n<p>Released 2026-04-30.</p>\n<h3>Fixed</h3>\n<ul>\n<li>Panic when allocating a table exceeding the size of the host's\naddress space.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-p8xm-42r7-89xg\">GHSA-p8xm-42r7-89xg</a></li>\n</ul>\n<hr />\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/332e8ad2374e78adba1127f725d6603a4a5f96f3\"><code>332e8ad</code></a>\nRelease Wasmtime 36.0.8 (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/13239\">#13239</a>)</li>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/82baadae5f71f27f1d32090349316d27e8a5a9e1\"><code>82baada</code></a>\nFix panicking overflow when calculating table sizes (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/13242\">#13242</a>)</li>\n<li>See full diff in <a\nhref=\"https://github.com/bytecodealliance/wasmtime/compare/v36.0.7...v36.0.8\">compare\nview</a></li>\n</ul>\n</details>\n<br />\n\n\n> **Note**\n> Automatic rebases have been disabled on this pull request as it has\nbeen open for over 30 days.\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-13T20:40:12Z",
+          "tree_id": "99f5ec5b19ad88953fd0611864243b7c9b69b928",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e34add8b49d5ba0ad1e5acb694c3bd1a706aaa0e"
+        },
+        "date": 1789337067785,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4699670,
+            "range": "± 53815",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 301357,
+            "range": "± 2823",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4586891,
+            "range": "± 73438",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 380757,
+            "range": "± 3101",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5783530,
+            "range": "± 47871",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 936433,
+            "range": "± 13416",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11386438,
+            "range": "± 61012",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5079836,
+            "range": "± 93176",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 47171899,
+            "range": "± 707989",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 40782148,
+            "range": "± 644788",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 402428790,
+            "range": "± 3327586",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 325800977,
+            "range": "± 1830183",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2813388682,
+            "range": "± 15441467",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2540117678,
+            "range": "± 22448134",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3694600,
+            "range": "± 49123",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1914366,
+            "range": "± 11686",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3821510,
+            "range": "± 35683",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1965288,
+            "range": "± 8493",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4286811,
+            "range": "± 53904",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2301161,
+            "range": "± 14980",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8412160,
+            "range": "± 62106",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5448280,
+            "range": "± 29248",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 39917647,
+            "range": "± 394937",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 38611475,
+            "range": "± 271883",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 332434456,
+            "range": "± 3873529",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 288586407,
+            "range": "± 2546418",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2643808618,
+            "range": "± 30613613",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2571135623,
+            "range": "± 99311333",
             "unit": "ns/iter"
           }
         ]
