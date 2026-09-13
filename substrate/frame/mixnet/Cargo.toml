@@ -21,8 +21,8 @@ frame = { workspace = true, features = ["runtime"] }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["derive"], workspace = true }
-sp-application-crypto = { workspace = true }
-sp-mixnet = { workspace = true }
+sp-application-crypto.workspace = true
+sp-mixnet.workspace = true
 
 [features]
 default = ["std"]
