@@ -1,76 +1,28 @@
 title: 'network-bridge: zero emptied peer-count version buckets'
 doc:
-- audience: Todo
-  description: "# Description\n\n`polkadot_parachain_peer_count` keeps reporting a\
-    \ stale, non-zero count for a protocol\nversion after that version's last peer\
-    \ disconnects.\n\n`note_peers_count` derives its counts from `count_peers_by_version`,\
-    \ which only yields\nversions that currently have peers. Prometheus gauge children\
-    \ retain their last written\nvalue, so once a `(peer set, version)` bucket empties\
-    \ it is never written again and keeps\nits final non-zero count for the lifetime\
-    \ of the process \u2014 e.g. the last `collation/1`\npeer leaves while `collation/2`\
-    \ peers remain, and the node goes on claiming `collation/1`\npeers indefinitely.\
-    \ Telemetry accuracy only; node behaviour is unaffected.\n\nCloses #13145\n\n\
-    ## Integration\n\n**No code changes required downstream.** Everything touched\
-    \ is private to\n`polkadot-network-bridge`; metric names, help texts and label\
-    \ sets are unchanged. `strum`\nmoves from `[dev-dependencies]` to `[dependencies]`;\
-    \ patch bump.\n\n**Operators scraping Prometheus** \u2014 `polkadot_parachain_peer_count`\
-    \ now publishes every\nknown version on each re-report, zero-filled when empty:\n\
-    \n```diff\n  polkadot_parachain_peer_count{protocol=\"validation/3\"} 42\n- polkadot_parachain_peer_count{protocol=\"\
-    collation/1\"} 3   # stale: last peer left hours ago\n+ polkadot_parachain_peer_count{protocol=\"\
-    collation/1\"} 0\n  polkadot_parachain_peer_count{protocol=\"collation/2\"} 17\n\
-    + polkadot_parachain_peer_count{protocol=\"collation/3\"} 0\n+ polkadot_parachain_peer_count{protocol=\"\
-    collation/4\"} 0\n```\n\nThe label space is fixed at five values, so this adds\
-    \ a handful of series per node.\n`\u2026 == 0` rules can now fire; `count(\u2026\
-    )` becomes constant; `sum(\u2026)` is unaffected.\n\n\u26A0\uFE0F **`polkadot_parachain_peer_connectivity`\
-    \ is written by the same code path**, so\nzero-filled buckets also record `observe(0.0)`.\
-    \ Deliberate \u2014 the histogram's bucket list\nalready starts at `0.0`, previously\
-    \ unreachable, and \"no peers on this version\" is the\nconnectivity pattern it\
-    \ documents itself as tracking. But it is cumulative and\nirreversible: `_count`\
-    \ now advances once per `ActiveLeaves` for every known version rath\nthan only\
-    \ populated ones, so `rate(_sum)/rate(_count)` shifts from *\"mean peers while\
-    \ pe\nwere present\"* to *\"mean peers including zeros\"* and steps down at upgrade.\
-    \ If reviewers\nprefer the histogram untouched, a gauge-only write path is a small\
-    \ change.\n\n## Review Notes\n\n`count_peers_by_version` is unchanged on purpose:\
-    \ it stays a strict partition with no empty\nbuckets, because the zero-fill reads\
-    \ a version's *absence* as \"no peers\". A test pins th\nThe fill happens one\
-    \ level up:\n\n```diff\n-     for (version, count) in validation_stats {\n-  \
-    \           metrics.note_peer_count(PeerSet::Validation, version, count)\n-  \
-    \   }\n-\n-     for (version, count) in collation_stats {\n-             metrics.note_peer_count(PeerSet::Collation,\
-    \ version, count)\n-     }\n+     note_peer_set_count(metrics, PeerSet::Validation,\
-    \ &validation_stats);\n+     note_peer_set_count(metrics, PeerSet::Collation,\
-    \ &collation_stats);\n```\n\n`all_known_versions` derives the version list from\
-    \ the `ValidationVersion` /\n`CollationVersion` enums via `strum::IntoEnumIterator`\
-    \ \u2014 the pattern\n`PeerSetProtocolNames::new` already uses. No new mutable\
-    \ state (no remembered-label set on\n`Metrics`, which is `Clone` and shared across\
-    \ Rx/Tx), and it cannot drift from the proto\ndefinitions, which is the class\
-    \ of bug being fixed. That is the only reason `strum` move\nThe new risk \u2014\
-    \ a version added to the enums without an arm in `get_protocol_label` would\n\
-    publish `<internal error>` on every node \u2014 is guarded by a test.\n\n`set(0)`\
-    \ rather than `remove_label_values` because an absent series is stale, not zero:\n\
-    graphs gap instead of dropping, and `== 0` rules never fire. Removal is for unbounded\
-    \ la\nspaces; this one is five fixed values.\n\n### Tests\n\nFive tests in a new\
-    \ `#[cfg(test)] mod tests` in `lib.rs`, driving `note_peers_count`\nagainst a\
-    \ real `Registry` and reading back via `registry.gather()` \u2014 the same call\
-    \ the\n`/metrics` handler makes.\n\n- `count_peers_by_version_is_an_exact_partition`\
-    \ \u2014 the no-empty-buckets property above.\n- `every_known_version_has_a_protocol_label`\
-    \ \u2014 the `<internal error>` guard.\n- `note_peers_count_zeroes_emptied_version_buckets`\
-    \ \u2014 the regression test. One long-lived\n  `Metrics` across two publishes\
-    \ (a fresh registry cannot observe a stale sample); empti\n  `collation/1` while\
-    \ shrinking `validation/3` from 2 peers to 1, so a bucket that merely\n  changes\
-    \ isn't confused with one that empties.\n- `note_peers_count_publishes_zeroes_when_no_peers_are_connected`\n\
-    - `note_peers_count_is_idempotent_over_unchanged_state`\n\nNegative control: with\
-    \ the zero-fill reverted, the two behavioural tests fail and the ot\n23 pass.\
-    \ `cargo test -p polkadot-network-bridge --profile testnet`: 25 passed, 0 failed.\n\
-    \n`rx/tests.rs` builds the bridge with `Metrics(None)`, making every metric call\
-    \ a no-op,\nsubsystem-level metrics tests would need the harness threaded with\
-    \ a registry first \u2014 left\nout to keep the diff focused.\n\n# Checklist\n\
-    \n* [x] My PR includes a detailed description as outlined in the \"Description\"\
-    \ and its two\n* [x] My PR follows the [labeling requirements](\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#\n\
-    ) of this project (at minimum one label for `T` required)\n    * External contributors:\
-    \ Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add\
-    \ labels manually\n* [ ] I have made corresponding changes to the documentation\
-    \ (if applicable)\n* [x] I have added tests that prove my fix is effective or\
-    \ that my feature works (if applicable)"
+- audience: Node Operator
+  description: |-
+    `polkadot_parachain_peer_count` no longer keeps reporting a stale, non-zero peer count
+    for a protocol version after that version's last peer disconnects. Every known version
+    is now published on each re-report, zero-filled when it has no peers, so series for
+    versions this node has never seen appear reporting 0, and rules such as
+    `polkadot_parachain_peer_count{protocol="collation/1"} == 0` can now fire.
+
+    `polkadot_parachain_peer_connectivity` is written by the same code path, so emptied
+    buckets now record an observation of 0. This is intentional - the histogram's bucket
+    list already starts at 0.0, a boundary that was previously unreachable - but it is
+    cumulative: `_count` now advances once per `ActiveLeaves` for every known version
+    rather than only populated ones, so `rate(_sum)/rate(_count)` shifts from "mean peers
+    while peers were present" to "mean peers including zeros" and steps down at upgrade.
+- audience: Node Dev
+  description: |-
+    `note_peers_count` now publishes a sample for every version returned by the new
+    `all_known_versions`, defaulting absent versions to zero, instead of only the versions
+    present in `count_peers_by_version`. Prometheus gauge children retain their last
+    written value, so a skipped bucket reported a stale count for the lifetime of the
+    process. `count_peers_by_version` is deliberately left as a strict partition with no
+    empty buckets. No public API change; `strum` moves from dev-dependencies to
+    dependencies.
 crates:
 - name: polkadot-network-bridge
-  bump: major
+  bump: patch
