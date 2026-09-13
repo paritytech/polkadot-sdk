@@ -61,7 +61,7 @@ use frame_support::{
 	BoundedVec, WeakBoundedVec,
 };
 use frame_system::{
-	offchain::{CreateBare, SubmitTransaction},
+	offchain::{CreateAuthorizedTransaction, SubmitTransaction},
 	pallet_prelude::BlockNumberFor,
 };
 use sp_consensus_sassafras::{
@@ -127,8 +127,11 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	/// Configuration parameters.
+	///
+	/// The runtime must include [`frame_system::AuthorizeCall`] in its transaction extension
+	/// pipeline, otherwise `submit_tickets` never gets an authorized origin.
 	#[pallet::config]
-	pub trait Config: frame_system::Config + CreateBare<Call<Self>> {
+	pub trait Config: frame_system::Config + CreateAuthorizedTransaction<Call<Self>> {
 		/// Amount of slots that each epoch should last.
 		#[pallet::constant]
 		type EpochLength: Get<u32>;
@@ -359,11 +362,13 @@ pub mod pallet {
 		/// The number of tickets allowed to be submitted in one call is equal to the epoch length.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::submit_tickets(tickets.len() as u32))]
+		#[pallet::weight_of_authorize(T::WeightInfo::authorize_submit_tickets(tickets.len() as u32))]
+		#[pallet::authorize(Self::authorize_submit_tickets)]
 		pub fn submit_tickets(
 			origin: OriginFor<T>,
 			tickets: BoundedVec<TicketEnvelope, EpochLengthFor<T>>,
 		) -> DispatchResultWithPostInfo {
-			ensure_none(origin)?;
+			ensure_authorized(origin)?;
 
 			debug!(target: LOG_TARGET, "Received {} tickets", tickets.len());
 
@@ -463,23 +468,19 @@ pub mod pallet {
 		}
 	}
 
-	#[allow(deprecated)]
-	#[pallet::validate_unsigned]
-	impl<T: Config> ValidateUnsigned for Pallet<T> {
-		type Call = Call<T>;
-
-		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			let Call::submit_tickets { tickets } = call else {
-				return InvalidTransaction::Call.into();
-			};
-
+	impl<T: Config> Pallet<T> {
+		/// Authorization logic for the [`Call::submit_tickets`] call.
+		fn authorize_submit_tickets(
+			source: TransactionSource,
+			tickets: &BoundedVec<TicketEnvelope, EpochLengthFor<T>>,
+		) -> TransactionValidityWithRefund {
 			// Discard tickets not coming from the local node or that are not included in a block
 			if source == TransactionSource::External {
 				warn!(
 					target: LOG_TARGET,
-					"Rejecting unsigned `submit_tickets` transaction from external source",
+					"Rejecting `submit_tickets` transaction from external source",
 				);
-				return InvalidTransaction::BadSigner.into();
+				return Err(InvalidTransaction::BadSigner.into());
 			}
 
 			// Current slot should be less than half of epoch length.
@@ -487,7 +488,7 @@ pub mod pallet {
 			let current_slot_idx = Self::current_slot_index();
 			if current_slot_idx > epoch_length / 2 {
 				warn!(target: LOG_TARGET, "Tickets shall be proposed in the first epoch half",);
-				return InvalidTransaction::Stale.into();
+				return Err(InvalidTransaction::Stale.into());
 			}
 
 			// This should be set such that it is discarded after the first epoch half
@@ -500,6 +501,7 @@ pub mod pallet {
 				.and_provides(tickets_tag)
 				.propagate(true)
 				.build()
+				.map(|validity| (validity, Weight::zero()))
 		}
 	}
 }
@@ -983,8 +985,7 @@ impl<T: Config> Pallet<T> {
 		TicketsMeta::<T>::kill();
 	}
 
-	/// Submit next epoch validator tickets via an unsigned extrinsic constructed with a call to
-	/// `submit_unsigned_transaction`.
+	/// Submit next epoch validator tickets via an authorized transaction.
 	///
 	/// The submitted tickets are added to the next epoch outstanding tickets as long as the
 	/// extrinsic is called within the first half of the epoch. Tickets received during the
@@ -992,7 +993,7 @@ impl<T: Config> Pallet<T> {
 	pub fn submit_tickets_unsigned_extrinsic(tickets: Vec<TicketEnvelope>) -> bool {
 		let tickets = BoundedVec::truncate_from(tickets);
 		let call = Call::submit_tickets { tickets };
-		let xt = T::create_bare(call.into());
+		let xt = T::create_authorized_transaction(call.into());
 		match SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			Ok(_) => true,
 			Err(e) => {

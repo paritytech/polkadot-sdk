@@ -20,7 +20,12 @@
 use crate::*;
 use mock::*;
 
+use codec::Encode;
+use frame_support::traits::Authorize;
 use sp_consensus_sassafras::Slot;
+use sp_runtime::transaction_validity::{
+	InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidityError,
+};
 
 fn h2b<const N: usize>(hex: &str) -> [u8; N] {
 	array_bytes::hex2array_unchecked(hex)
@@ -826,7 +831,11 @@ fn submit_tickets_with_ring_proof_check_works() {
 		let max_tickets_per_call = Sassafras::epoch_length() as usize;
 		tickets.chunks(max_tickets_per_call).for_each(|chunk| {
 			let chunk = BoundedVec::truncate_from(chunk.to_vec());
-			Sassafras::submit_tickets(RuntimeOrigin::none(), chunk).unwrap();
+			Sassafras::submit_tickets(
+				RuntimeOrigin::from(frame_system::RawOrigin::Authorized),
+				chunk,
+			)
+			.unwrap();
 		});
 
 		// Check state after submission
@@ -838,6 +847,58 @@ fn submit_tickets_with_ring_proof_check_works() {
 		assert_eq!(UnsortedSegments::<Test>::get(1).len(), 0);
 
 		finalize_block(start_block);
+	})
+}
+
+fn empty_tickets_call() -> Call<Test> {
+	Call::<Test>::submit_tickets { tickets: BoundedVec::truncate_from(Vec::new()) }
+}
+
+#[test]
+fn authorize_submit_tickets_rejects_external_source() {
+	new_test_ext(1).execute_with(|| {
+		assert_eq!(
+			empty_tickets_call().authorize(TransactionSource::External),
+			Some(Err(TransactionValidityError::Invalid(InvalidTransaction::BadSigner))),
+		);
+	})
+}
+
+#[test]
+fn authorize_submit_tickets_rejects_second_epoch_half() {
+	new_test_ext(1).execute_with(|| {
+		// `EPOCH_LENGTH` is 10, so any slot index above 5 is in the second half.
+		CurrentSlot::<Test>::set(Slot::from(6));
+
+		assert_eq!(
+			empty_tickets_call().authorize(TransactionSource::InBlock),
+			Some(Err(TransactionValidityError::Invalid(InvalidTransaction::Stale))),
+		);
+	})
+}
+
+#[test]
+fn authorize_submit_tickets_works() {
+	new_test_ext(1).execute_with(|| {
+		let call = empty_tickets_call();
+		let Call::<Test>::submit_tickets { ref tickets } = call else { unreachable!() };
+		let expected_tag =
+			("Sassafras", tickets.using_encoded(|bytes| sp_io::hashing::blake2_256(bytes)))
+				.encode();
+
+		CurrentSlot::<Test>::set(Slot::from(2));
+
+		let (validity, refund) = call
+			.authorize(TransactionSource::Local)
+			.expect("submit_tickets declares an authorize callback; qed")
+			.expect("slot 2 is in the first epoch half; qed");
+
+		assert_eq!(validity.priority, TransactionPriority::max_value());
+		// Discarded once the first epoch half is over: `EPOCH_LENGTH / 2 - slot_index`.
+		assert_eq!(validity.longevity, 3);
+		assert_eq!(validity.provides, vec![expected_tag]);
+		assert!(validity.propagate);
+		assert!(refund.is_zero());
 	})
 }
 
