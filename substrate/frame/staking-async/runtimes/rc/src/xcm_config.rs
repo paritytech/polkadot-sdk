@@ -18,8 +18,8 @@
 
 use super::{
 	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, FellowshipAdmin,
-	GeneralAdmin, ParaId, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, StakingAdmin,
-	TransactionByteFee, Treasury, WeightToFee, XcmPallet,
+	GeneralAdmin, ParaId, Runtime, RuntimeCall, RuntimeEvent, RuntimeFreezeReason, RuntimeOrigin,
+	StakingAdmin, TransactionByteFee, Treasury, WeightToFee, XcmPallet,
 };
 use crate::{governance::pallet_custom_origins::Treasurer, Balance, RuntimeHoldReason};
 use frame_support::{
@@ -310,6 +310,8 @@ impl pallet_xcm::Config for Runtime {
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
 	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type OldCurrency = Balances;
 	type CurrencyMatcher = IsConcrete<TokenLocation>;
 	type TrustedLockers = ();
 	type SovereignAccountOf = LocationConverter;

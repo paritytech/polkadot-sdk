@@ -82,6 +82,9 @@ impl frame_system::Config for TestRuntime {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for TestRuntime {
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
 	type AccountStore = System;
 	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
@@ -465,6 +468,8 @@ impl pallet_xcm::Config for TestRuntime {
 	type TrustedLockers = ();
 	type SovereignAccountOf = ();
 	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type OldCurrency = Balances;
 	type CurrencyMatcher = IsConcrete<HereLocation>;
 	type MaxLockers = ConstU32<0>;
 	type MaxRemoteLockConsumers = ConstU32<0>;

@@ -182,6 +182,8 @@ impl pallet_xcm::Config for Runtime {
 	type SovereignAccountOf = LocationToAccountId;
 	// A currency to pay for things and its matcher, we are using the relay token
 	type Currency = Balances;
+	type RuntimeFreezeReason = super::RuntimeFreezeReason;
+	type OldCurrency = Balances;
 	type CurrencyMatcher = IsConcrete<RelayLocation>;
 	// Pallet benchmarks, no need for this recipe
 	type WeightInfo = pallet_xcm::TestWeightInfo;
