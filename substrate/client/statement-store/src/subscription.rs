@@ -375,6 +375,39 @@ enum MatcherMessage {
 	Unsubscribe(SeqID),
 }
 
+// Topics each live subscription holds.
+#[derive(Clone, Default)]
+struct SubscriptionTopics {
+	by_sub_id: Arc<Mutex<HashMap<SeqID, Vec<Topic>>>>,
+}
+
+impl SubscriptionTopics {
+	// The concrete topics a filter references.
+	fn filter_topics(filter: &OptimizedTopicFilter) -> Vec<Topic> {
+		match filter {
+			OptimizedTopicFilter::Any => Vec::new(), // matches everything and so names no topic.
+			OptimizedTopicFilter::MatchAll(topics) | OptimizedTopicFilter::MatchAny(topics) => {
+				topics.iter().copied().collect()
+			},
+		}
+	}
+
+	fn insert(&self, sub_id: SeqID, filter: &OptimizedTopicFilter) {
+		let topics = Self::filter_topics(filter);
+		if !topics.is_empty() {
+			self.by_sub_id.lock().insert(sub_id, topics);
+		}
+	}
+
+	fn remove(&self, sub_id: SeqID) {
+		self.by_sub_id.lock().remove(&sub_id);
+	}
+
+	fn snapshot(&self) -> HashSet<Topic> {
+		self.by_sub_id.lock().values().flatten().copied().collect()
+	}
+}
+
 // Handle to manage all subscriptions.
 pub struct SubscriptionsHandle {
 	// Sequence generator for subscription IDs, atomic for thread safety.
@@ -382,6 +415,8 @@ pub struct SubscriptionsHandle {
 	id_sequence: AtomicU64,
 	//  Subscriptions matchers handlers.
 	matchers: SubscriptionsMatchersHandlers,
+	// Topics of all live subscriptions.
+	topics: SubscriptionTopics,
 }
 
 impl SubscriptionsHandle {
@@ -458,6 +493,7 @@ impl SubscriptionsHandle {
 		SubscriptionsHandle {
 			id_sequence: AtomicU64::new(0),
 			matchers: SubscriptionsMatchersHandlers::new(subscriptions_matchers_senders),
+			topics: SubscriptionTopics::default(),
 		}
 	}
 
@@ -483,12 +519,15 @@ impl SubscriptionsHandle {
 		};
 		let subscription_tx = tx.clone();
 
+		self.topics.insert(subscription_info.seq_id, &topic_filter);
+
 		let result = (
 			tx,
 			SubscriptionStatementsStream {
 				rx,
 				sub_id: subscription_info.seq_id,
 				matchers: self.matchers.clone(),
+				topics: self.topics.clone(),
 			},
 		);
 
@@ -521,6 +560,11 @@ impl SubscriptionsHandle {
 
 	pub(crate) fn matchers(&self) -> SubscriptionsMatchersHandlers {
 		self.matchers.clone()
+	}
+
+	/// The topics across all live subscriptions, for advertising topic affinity.
+	pub(crate) fn subscription_topics(&self) -> HashSet<Topic> {
+		self.topics.snapshot()
 	}
 }
 
@@ -1095,6 +1139,8 @@ pub struct SubscriptionStatementsStream {
 	sub_id: SeqID,
 	// Reference to the matchers for cleanup.
 	matchers: SubscriptionsMatchersHandlers,
+	// Shared affinity map.
+	topics: SubscriptionTopics,
 }
 
 // When the stream is dropped, unsubscribe from the matchers.
@@ -1102,6 +1148,7 @@ impl Drop for SubscriptionStatementsStream {
 	fn drop(&mut self) {
 		self.matchers
 			.send_by_seq_id(self.sub_id, MatcherMessage::Unsubscribe(self.sub_id));
+		self.topics.remove(self.sub_id);
 	}
 }
 
@@ -1570,6 +1617,52 @@ mod tests {
 			ReadyEventDelivery::Closed
 		));
 		assert!(!state.stopped);
+	}
+
+	#[test]
+	fn filter_topics_maps_each_variant() {
+		let t1 = Topic::from([1u8; 32]);
+		let t2 = Topic::from([2u8; 32]);
+		assert!(SubscriptionTopics::filter_topics(&OptimizedTopicFilter::Any).is_empty());
+		assert_eq!(
+			SubscriptionTopics::filter_topics(&OptimizedTopicFilter::MatchAll(
+				[t1, t2].into_iter().collect()
+			))
+			.into_iter()
+			.collect::<HashSet<_>>(),
+			HashSet::from([t1, t2])
+		);
+		assert_eq!(
+			SubscriptionTopics::filter_topics(&OptimizedTopicFilter::MatchAny(
+				[t1].into_iter().collect()
+			)),
+			vec![t1]
+		);
+	}
+
+	#[test]
+	fn handle_tracks_live_subscription_topics() {
+		let handle = SubscriptionsHandle::new(Box::new(sp_core::testing::TaskExecutor::new()), 1);
+		let t1 = Topic::from([1u8; 32]);
+		let t2 = Topic::from([2u8; 32]);
+
+		let (_tx1, stream1) =
+			handle.subscribe(OptimizedTopicFilter::MatchAny([t1, t2].into_iter().collect()), 0);
+		assert_eq!(handle.subscription_topics(), HashSet::from([t1, t2]));
+
+		// A second subscription on t1 keeps it after the first drops.
+		let (_tx2, stream2) =
+			handle.subscribe(OptimizedTopicFilter::MatchAny([t1].into_iter().collect()), 0);
+		drop(stream1);
+		assert_eq!(handle.subscription_topics(), HashSet::from([t1]));
+
+		// An `Any` subscription contributes no topics.
+		let (_tx3, stream3) = handle.subscribe(OptimizedTopicFilter::Any, 0);
+		assert_eq!(handle.subscription_topics(), HashSet::from([t1]));
+
+		drop(stream2);
+		drop(stream3);
+		assert!(handle.subscription_topics().is_empty());
 	}
 
 	#[test]
