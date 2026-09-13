@@ -1,0 +1,35 @@
+title: '[pallet-assets-precompiles] Make ERC-20 transfer/transferFrom move exactly `value`'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The `ERC20` precompile called `pallet_assets::do_transfer` / `do_transfer_approved` with
+    `TransferFlags { keep_alive: false, best_effort: false, burn_dust: false }`. When the debit
+    would leave the sender holding a non-zero balance below the asset's `min_balance`,
+    `prep_debit` promotes the debit to the sender's whole balance and `prep_credit` credits all
+    of it to the destination. That is documented behaviour for the pallet's own extrinsics, but
+    through an ERC-20 interface it meant the recipient was credited `value + dust` while the
+    `Transfer` log reported `value`, and `transferFrom` charged only `value` against the
+    allowance.
+
+    `transfer` and `transferFrom` now reject a transfer whose remainder would be non-zero and
+    below `min_balance`, reverting with `Error("Transfer would leave sender below minimum
+    balance")`. Transfers of the sender's entire balance leave a zero remainder and are still
+    allowed, as are zero-value transfers and self-transfers (both of which `pallet_assets`
+    short-circuits before touching any balance). `pallet_assets` itself is unchanged.
+
+    Both calls now charge `WeightInfo::balance() + WeightInfo::total_issuance()` for the
+    guard's two storage reads.
+- audience: Runtime User
+  description: |-
+    ERC-20 `transfer` and `transferFrom` on `pallet-assets` tokens now move exactly the
+    requested amount or revert. Previously, a transfer that would have left the sender with a
+    dust balance below the asset's minimum balance silently moved the sender's entire balance
+    while the `Transfer` event reported the smaller requested amount.
+
+    This also affects assets moved over XCM through `assets_common::ERC20Transactor`, which
+    drives the same precompile: such transfers were debiting more than the XCM declared and
+    stranding the difference in the transfers checking account. To transfer a whole balance,
+    send exactly `balanceOf(sender)`.
+crates:
+- name: pallet-assets-precompiles
+  bump: patch
