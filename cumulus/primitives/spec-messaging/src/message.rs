@@ -47,7 +47,7 @@ use sp_core::ConstU32;
 use sp_runtime::traits::Hash as HashT;
 
 use crate::{
-	lift::{MMRExtensionProof, MmrFrontier, MmrInclusionProof, ProofError},
+	lift::{MMRExtensionProof, MmrFrontier, MmrInclusionProof, ProofError, MAX_MMR_LEAF_COUNT},
 	mmr::{MessagePosition, Mmr, MmrAccumulator},
 	stream::StreamId,
 	streams_root::{streams_root_from_proof, StreamProof, StreamsRoot},
@@ -197,13 +197,18 @@ pub fn verify_messages_response(
 	under: StreamsRoot,
 	resp: &MessagesResponse,
 ) -> Result<Vec<Vec<u8>>, VerifyError> {
-	// `start_peaks` and `base` are untrusted. A well-formed frontier has exactly one peak per set
+	// `start_peaks` and `base` are untrusted. Bound `base` first: it becomes the frontier's leaf
+	// count, which `MMRExtensionProof::verify` derives node positions from (see
+	// [`MAX_MMR_LEAF_COUNT`]). A well-formed frontier then has exactly one peak per set
 	// bit of its leaf count; reject any other shape so a crafted response cannot drive
 	// `Mmr::append` into a pop-from-empty panic. This equality also bounds `start_peaks` to ≤ 64
 	// (a `u64` has ≤ 64 set bits), enforcing the documented peak-set limit. Also reject a `base +
 	// len` that would overflow the leaf counter (only reachable near `u64::MAX`, but keeps the
 	// accumulator arithmetic total). A rejected response is simply unverifiable — the correct
 	// outcome, reached without panicking.
+	if resp.base.0 > MAX_MMR_LEAF_COUNT {
+		return Err(VerifyError::MalformedResponse);
+	}
 	if resp.start_peaks.len() != resp.base.0.count_ones() as usize {
 		return Err(VerifyError::MalformedResponse);
 	}
@@ -699,9 +704,25 @@ mod tests {
 			Err(VerifyError::MalformedResponse),
 		);
 
-		// `base + payloads` overflowing the leaf counter must also reject cleanly. `base =
-		// u64::MAX` has 64 set bits, so give 64 peaks to pass the shape check and hit the
-		// overflow guard.
+		// A `base` past the leaf-count ceiling must reject cleanly: it becomes the frontier's leaf
+		// count, which the extension derives node positions from. One set bit, so one peak passes
+		// the shape check and the ceiling is what rejects.
+		let too_large = MessagesResponse {
+			base: MessagePosition(1 << 63),
+			leaf_version: 0,
+			payloads: vec![vec![0x01]],
+			start_peaks: vec![H256::zero(); 1],
+			extension: MMRExtensionProof::identity(),
+			tree_proof: StreamProof { steps: Default::default() },
+		};
+		assert_eq!(
+			verify_messages_response(stream, under, &too_large),
+			Err(VerifyError::MalformedResponse),
+		);
+
+		// `base = u64::MAX` (64 set bits, 64 peaks) once reached the `base + payloads` counter
+		// guard; the ceiling now rejects it first. Kept so both remain covered — the counter guard
+		// is unreachable while the ceiling stands, and should stay that way.
 		let overflow = MessagesResponse {
 			base: MessagePosition(u64::MAX),
 			leaf_version: 0,

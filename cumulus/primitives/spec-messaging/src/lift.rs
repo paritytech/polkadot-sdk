@@ -75,6 +75,13 @@ const MAX_EXTENSION_CONNECTING_NODES: usize = 4 * 64;
 /// defense-in-depth `MMRExtensionProof::verify` applies via [`MAX_EXTENSION_CONNECTING_NODES`].
 const MAX_INCLUSION_PROOF_ITEMS: usize = 2 * 64;
 
+/// Upper bound on any MMR leaf count this crate derives node positions from. `mmr_lib` derives a
+/// tree's node count as `2 * leaf_count - leaf_count.count_ones()`, which leaves `u64` above
+/// `2^63`; every peer-supplied leaf count is rejected against this ceiling before it reaches that
+/// derivation. `2^48` leaves is orders of magnitude beyond any stream a chain can produce, so no
+/// honest input approaches it.
+pub const MAX_MMR_LEAF_COUNT: u64 = 1 << 48;
+
 /// Why an MMR proof verification (`MMRExtensionProof::verify`, `MmrInclusionProof::verify_head` /
 /// `verify_leaf`) rejected its input. Typed so callers (peer scoring, retry logic) can tell a
 /// malformed/forged proof from a merely out-of-range or non-forward one.
@@ -95,6 +102,9 @@ pub enum ProofError {
 	/// An extension proof carries more connecting nodes than any valid ancestry proof
 	/// ([`MAX_EXTENSION_CONNECTING_NODES`]) — rejected before doing untrusted-input work.
 	NodeLimitExceeded,
+	/// A leaf count exceeds [`MAX_MMR_LEAF_COUNT`] — rejected as a precondition, before any node
+	/// position is derived from it.
+	LeafCountTooLarge,
 }
 
 /// A bagged MMR root — a stream's committed root at some point in its history. Newtyped so it can
@@ -145,9 +155,10 @@ impl MmrFrontier {
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo, Default)]
 pub struct MMRExtensionProof {
 	/// Leaf count of the extended (newer) MMR. The `mmr_lib` node count is *derived* from it
-	/// (`leaf_index_to_mmr_size`), so an out-of-range size can never be smuggled in. `0` with
-	/// empty `connecting_nodes` is the identity extension (the endpoint already is the current
-	/// root). Compact-encoded: this proof is PoV-carried.
+	/// (`leaf_index_to_mmr_size`), so no size independent of it can be smuggled in — but the
+	/// derivation is only total up to [`MAX_MMR_LEAF_COUNT`], which `verify` enforces first. `0`
+	/// with empty `connecting_nodes` is the identity extension (the endpoint already is the
+	/// current root). Compact-encoded: this proof is PoV-carried.
 	#[codec(compact)]
 	pub leaf_count: u64,
 	/// The O(log n) connecting-node **hashes** — the extended MMR's witnesses not derivable from
@@ -173,10 +184,18 @@ impl MMRExtensionProof {
 
 	/// Extend `from` and **return** the new root, computed from `from`'s peaks + the connecting
 	/// nodes; an [`Err`] if the proof is not well-formed for that placement. The identity extension
-	/// yields `from`'s own root. `from` is the verifier's own state — its self-consistency is
-	/// asserted but its contents are not re-checked. The `mmr_lib` size is *derived* from
-	/// `leaf_count`, so it is always a valid MMR size.
+	/// yields `from`'s own root. `from`'s *contents* are never re-checked — a forged peak yields a
+	/// root no committed `StreamsRoot` can bind — but its leaf count is untrusted on the network
+	/// path (`verify_messages_response` builds the frontier from a response's `base`), so it is
+	/// bounded like the proof's own. Within [`MAX_MMR_LEAF_COUNT`] the `mmr_lib` size *derived*
+	/// from `leaf_count` is always a valid MMR size; that ceiling is what makes the derivation
+	/// total.
 	pub fn verify(&self, from: &MmrFrontier) -> Result<MmrRoot, ProofError> {
+		// Preconditions first, on every leaf count this will derive a node position from — the
+		// proof's and the frontier's alike. Both are untrusted on the network path.
+		if self.leaf_count > MAX_MMR_LEAF_COUNT || from.leaf_count > MAX_MMR_LEAF_COUNT {
+			return Err(ProofError::LeafCountTooLarge);
+		}
 		// Frontier self-consistency: exactly one peak per set bit of its leaf count.
 		if from.peaks.len() != from.leaf_count.count_ones() as usize {
 			return Err(ProofError::InconsistentFrontier);
@@ -184,8 +203,10 @@ impl MMRExtensionProof {
 		if self.is_identity() {
 			return Ok(from.root());
 		}
-		// Strictly forward: the extended MMR must have more leaves than the frontier.
-		if self.leaf_count <= from.leaf_count {
+		// Strictly forward: the extended MMR must have more leaves than the frontier. `0` is
+		// covered by this (no frontier has fewer), but reject it by name — the derivation below
+		// subtracts one, so its exclusion is a precondition, not a side effect of the ordering.
+		if self.leaf_count == 0 || self.leaf_count <= from.leaf_count {
 			return Err(ProofError::NotForward);
 		}
 		// Defense-in-depth: bound an untrusted proof's connecting nodes before doing O(n) work in
@@ -366,6 +387,11 @@ impl MmrInclusionProof {
 			return Err(ProofError::InvalidProof);
 		}
 		let leaf_count = self.leaf_count();
+		// `is_valid_mmr_size` already keeps this in range; state the precondition anyway so every
+		// entry point taking an untrusted leaf count reads the same way.
+		if leaf_count > MAX_MMR_LEAF_COUNT {
+			return Err(ProofError::LeafCountTooLarge);
+		}
 		if leaf_count == 0 {
 			return Err(ProofError::PositionOutOfRange);
 		}
@@ -402,6 +428,11 @@ impl MmrInclusionProof {
 	) -> Result<MmrRoot, ProofError> {
 		if !is_valid_mmr_size(self.mmr_size) {
 			return Err(ProofError::InvalidProof);
+		}
+		// See `verify_head`: redundant under `is_valid_mmr_size`, kept so the precondition is
+		// explicit at every entry point.
+		if self.leaf_count() > MAX_MMR_LEAF_COUNT {
+			return Err(ProofError::LeafCountTooLarge);
 		}
 		// Defense-in-depth: bound untrusted `items` before the O(n) `calculate_root` (and its
 		// clone). A valid single-leaf proof is far below this ceiling; `verify_head` gets the
@@ -713,6 +744,38 @@ mod tests {
 		// forward → rejected up front, before any crypto work.
 		let mut ext = extension(&all, 2, 5);
 		ext.leaf_count = 2;
+		assert_eq!(ext.verify(&frontier_at(&all, 2)), Err(ProofError::NotForward));
+	}
+
+	#[test]
+	fn extension_verify_bounds_untrusted_leaf_counts() {
+		let all = leaves(5);
+		// The proof's own count: a value whose derived node count would leave `u64` is rejected as
+		// a precondition, before any position is computed from it.
+		let mut ext = extension(&all, 2, 5);
+		ext.leaf_count = u64::MAX;
+		assert_eq!(ext.verify(&frontier_at(&all, 2)), Err(ProofError::LeafCountTooLarge));
+		ext.leaf_count = MAX_MMR_LEAF_COUNT + 1;
+		assert_eq!(ext.verify(&frontier_at(&all, 2)), Err(ProofError::LeafCountTooLarge));
+		// The frontier's count too — untrusted on the network path, where it comes from a
+		// response's `base`. One peak keeps the self-consistency check satisfied.
+		let forged = MmrFrontier { peaks: vec![all[0]], leaf_count: 1 << 63 };
+		assert_eq!(extension(&all, 2, 5).verify(&forged), Err(ProofError::LeafCountTooLarge));
+		// The ceiling binds ahead of the identity short-circuit, so an identity extension cannot
+		// carry an out-of-range frontier past it either.
+		assert_eq!(
+			MMRExtensionProof::identity().verify(&forged),
+			Err(ProofError::LeafCountTooLarge)
+		);
+	}
+
+	#[test]
+	fn extension_verify_rejects_zero_leaf_count() {
+		let all = leaves(5);
+		// `0` with connecting nodes is not the identity; it must reject rather than reach the
+		// `leaf_count - 1` the node-count derivation needs.
+		let mut ext = extension(&all, 2, 5);
+		ext.leaf_count = 0;
 		assert_eq!(ext.verify(&frontier_at(&all, 2)), Err(ProofError::NotForward));
 	}
 
