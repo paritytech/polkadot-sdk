@@ -836,6 +836,22 @@ mod on_idle {
 	}
 
 	#[test]
+	fn rebags_nodes_when_budget_is_u32_max() {
+		ExtBuilder::default().build_and_execute(|| {
+			// A "weight-governed, uncapped" budget must not overflow the lookahead
+			// collection in `on_idle`.
+			<Runtime as Config>::MaxAutoRebagPerBlock::set(u32::MAX);
+
+			StakingMock::set_score_of(&3, 10);
+			run_to_block(1, Weight::MAX);
+
+			assert_eq!(List::<Runtime>::get_bags(), vec![(10, vec![1, 3]), (1_000, vec![2, 4])]);
+			// The whole list fits under the budget, so no cursor is left for next block.
+			assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), None);
+		});
+	}
+
+	#[test]
 	fn does_nothing_when_list_empty() {
 		ExtBuilder::default().skip_genesis_ids().build_and_execute(|| {
 			// Set auto-rebag limit to 2 nodes per block

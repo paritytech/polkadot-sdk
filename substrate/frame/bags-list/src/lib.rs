@@ -493,7 +493,8 @@ pub mod pallet {
 			// PendingRebag comes first for priority processing
 			let combined_iter = PendingRebag::<T, I>::iter_keys().chain(regular_iter);
 
-			let accounts: Vec<_> = combined_iter.take((rebag_budget + 1) as usize).collect();
+			let accounts: Vec<_> =
+				combined_iter.take(rebag_budget.saturating_add(1) as usize).collect();
 
 			// Safe split: if we reached (or passed) the tail of the list, we don't want to panic.
 			let (to_process, next_cursor) = if accounts.len() <= rebag_budget as usize {

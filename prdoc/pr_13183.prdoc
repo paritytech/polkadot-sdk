@@ -1,0 +1,11 @@
+title: 'bags-list: fix overflow in on_idle lookahead when MaxAutoRebagPerBlock is
+  u32::MAX'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `Pallet::on_idle `computed the lookahead collection size as (rebag_budget + 1) as usize, a plain addition on the u32 value returned by `Config::MaxAutoRebagPerBlock`. That config trait accepts `u32::MAX` with no documented upper bound, and it is a natural choice for a runtime that wants the feature weight-governed rather than artificially capped. With that value the addition overflows, which panics in overflow-checked builds and silently wraps to 0 in standard release builds, disabling auto-rebag on every block without any error.
+
+    Closes #13139
+crates:
+- name: pallet-bags-list
+  bump: patch
