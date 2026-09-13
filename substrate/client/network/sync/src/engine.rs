@@ -35,7 +35,7 @@ use crate::{
 
 use codec::{Decode, DecodeAll, Encode};
 use futures::{channel::oneshot, StreamExt};
-use log::{debug, error, trace, warn};
+use log::{debug, error, trace};
 use prometheus_endpoint::{
 	register, Counter, Gauge, MetricSource, Opts, PrometheusError, Registry, SourcedGauge, U64,
 };
@@ -602,7 +602,7 @@ where
 	fn process_strategy_actions(&mut self) -> Result<(), ClientError> {
 		for action in self.strategy.actions(&self.network_service)? {
 			match action {
-				SyncingAction::StartRequest { peer_id, key, request, remove_obsolete } => {
+				SyncingAction::StartRequest { peer_id, key, request } => {
 					if !self.peers.contains_key(&peer_id) {
 						trace!(
 							target: LOG_TARGET,
@@ -611,21 +611,6 @@ where
 						);
 						debug_assert!(false);
 						continue;
-					}
-					if remove_obsolete {
-						if self.pending_responses.remove(peer_id, key) {
-							warn!(
-								target: LOG_TARGET,
-								"Processed `SyncingAction::StartRequest` to {peer_id} with \
-								strategy key {key:?}. Stale response removed!",
-							)
-						} else {
-							trace!(
-								target: LOG_TARGET,
-								"Processed `SyncingAction::StartRequest` to {peer_id} with \
-								strategy key {key:?}.",
-							)
-						}
 					}
 
 					self.pending_responses.insert(peer_id, key, request);

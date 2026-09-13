@@ -619,7 +619,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			pending_queries: HashMap::new(),
 			peerstore_handle: peer_store_handle,
 			block_announce_protocol,
-			event_streams: out_events::OutChannels::new(None)?,
+			event_streams: out_events::OutChannels::new(params.metrics_registry.as_ref())?,
 			peers: HashMap::new(),
 			litep2p,
 		})
