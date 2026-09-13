@@ -475,6 +475,7 @@ fn max_deposits_work_nested() {
 	assert_eq!(nested2a.consumed(), Deposit::Charge(22));
 	assert_eq!(nested2a.max_charged(), Deposit::Charge(22));
 
+	// Items were paid at 1 each but `DepositPerItem` is now 2.
 	let mut nested2a_info = new_info(StorageInfo {
 		bytes: 100,
 		items: 100,
@@ -483,16 +484,16 @@ fn max_deposits_work_nested() {
 		immutable_data_len: 0,
 	});
 	nested1.absorb(nested2a, &BOB, Some(&mut nested2a_info));
-	assert_eq!(nested1.consumed(), Deposit::Charge(27));
-	assert_eq!(nested1.max_charged(), Deposit::Charge(32));
-
-	nested1.charge(&Diff { bytes_added: 10, ..Default::default() });
 	assert_eq!(nested1.consumed(), Deposit::Charge(37));
 	assert_eq!(nested1.max_charged(), Deposit::Charge(37));
 
+	nested1.charge(&Diff { bytes_added: 10, ..Default::default() });
+	assert_eq!(nested1.consumed(), Deposit::Charge(47));
+	assert_eq!(nested1.max_charged(), Deposit::Charge(47));
+
 	nested1.record_charge(&Deposit::Refund(10));
-	assert_eq!(nested1.consumed(), Deposit::Charge(27));
-	assert_eq!(nested1.max_charged(), Deposit::Charge(37));
+	assert_eq!(nested1.consumed(), Deposit::Charge(37));
+	assert_eq!(nested1.max_charged(), Deposit::Charge(47));
 
 	let mut nested2b = nested1.nested(None);
 	nested2b.record_charge(&Deposit::Refund(10));
@@ -515,12 +516,12 @@ fn max_deposits_work_nested() {
 		immutable_data_len: 0,
 	});
 	nested1.absorb(nested2b, &BOB, Some(&mut nested2b_info));
-	assert_eq!(nested1.consumed(), Deposit::Refund(3));
-	assert_eq!(nested1.max_charged(), Deposit::Charge(47));
+	assert_eq!(nested1.consumed(), Deposit::Charge(17));
+	assert_eq!(nested1.max_charged(), Deposit::Charge(57));
 
 	meter.absorb(nested1, &ALICE, None);
-	assert_eq!(meter.consumed(), Deposit::Refund(3));
-	assert_eq!(meter.max_charged(), Deposit::Charge(47));
+	assert_eq!(meter.consumed(), Deposit::Charge(17));
+	assert_eq!(meter.max_charged(), Deposit::Charge(57));
 }
 
 #[test]
@@ -532,4 +533,56 @@ fn max_deposits_work_for_reverts() {
 
 	meter.absorb_only_max_charged(nested1);
 	assert_eq!(meter.max_charged(), Deposit::Charge(10));
+}
+
+#[test]
+fn replacing_storage_after_rate_increase_charges_new_rate() {
+	crate::tests::DepositPerByte::set(10);
+	let mut info = new_info(StorageInfo { bytes: 100, bytes_deposit: 100, ..Default::default() });
+
+	let diff = Diff { bytes_added: 100, bytes_removed: 100, ..Default::default() };
+	assert_eq!(diff.update_contract::<Test>(Some(&mut info)), Deposit::Charge(900));
+	assert_eq!((info.storage_bytes, info.storage_byte_deposit), (100, 1000));
+}
+
+#[test]
+fn storage_added_and_removed_in_same_diff_is_free() {
+	crate::tests::DepositPerByte::set(10);
+	let mut info = new_info(StorageInfo::default());
+
+	let diff = Diff { bytes_added: 100, bytes_removed: 100, ..Default::default() };
+	assert_eq!(diff.update_contract::<Test>(Some(&mut info)), Deposit::Charge(0));
+	assert_eq!((info.storage_bytes, info.storage_byte_deposit), (0, 0));
+}
+
+#[test]
+fn netting_is_unchanged_without_rate_change() {
+	let mut info = new_info(StorageInfo {
+		bytes: 100,
+		items: 10,
+		bytes_deposit: 100,
+		items_deposit: 20,
+		..Default::default()
+	});
+
+	let diff = Diff { bytes_added: 30, bytes_removed: 50, items_added: 1, items_removed: 3 };
+	assert_eq!(diff.update_contract::<Test>(Some(&mut info)), Deposit::Refund(24));
+	assert_eq!((info.storage_bytes, info.storage_byte_deposit), (80, 80));
+	assert_eq!((info.storage_items, info.storage_item_deposit), (8, 16));
+}
+
+#[test]
+fn finalize_raises_max_charged_after_rate_increase() {
+	clear_ext();
+	crate::tests::DepositPerByte::set(10);
+	let meter = TestMeter::new(Some(1_000));
+	let mut nested = meter.nested(None);
+	let mut info = new_info(StorageInfo { bytes: 100, bytes_deposit: 100, ..Default::default() });
+
+	nested.charge(&Diff { bytes_added: 100, bytes_removed: 100, ..Default::default() });
+	assert_eq!(nested.max_charged(), Deposit::Charge(0));
+
+	nested.finalize_own_contributions(Some(&mut info));
+	assert_eq!(nested.consumed(), Deposit::Charge(900));
+	assert_eq!(nested.max_charged(), Deposit::Charge(900));
 }
