@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789127677547,
+  "lastUpdate": 1789337157997,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -123659,6 +123659,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2694644050,
             "range": "± 31729806",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49699333+dependabot[bot]@users.noreply.github.com",
+            "name": "dependabot[bot]",
+            "username": "dependabot[bot]"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e34add8b49d5ba0ad1e5acb694c3bd1a706aaa0e",
+          "message": "Bump wasmtime from 36.0.7 to 36.0.8 (#12013)\n\nBumps [wasmtime](https://github.com/bytecodealliance/wasmtime) from\n36.0.7 to 36.0.8.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/bytecodealliance/wasmtime/releases\">wasmtime's\nreleases</a>.</em></p>\n<blockquote>\n<h2>v36.0.8</h2>\n<h2>36.0.8</h2>\n<p>Released 2026-04-30.</p>\n<h3>Fixed</h3>\n<ul>\n<li>Panic when allocating a table exceeding the size of the host's\naddress space.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-p8xm-42r7-89xg\">GHSA-p8xm-42r7-89xg</a></li>\n</ul>\n</blockquote>\n</details>\n<details>\n<summary>Changelog</summary>\n<p><em>Sourced from <a\nhref=\"https://github.com/bytecodealliance/wasmtime/blob/v36.0.8/RELEASES.md\">wasmtime's\nchangelog</a>.</em></p>\n<blockquote>\n<h2>36.0.8</h2>\n<p>Released 2026-04-30.</p>\n<h3>Fixed</h3>\n<ul>\n<li>Panic when allocating a table exceeding the size of the host's\naddress space.\n<a\nhref=\"https://github.com/bytecodealliance/wasmtime/security/advisories/GHSA-p8xm-42r7-89xg\">GHSA-p8xm-42r7-89xg</a></li>\n</ul>\n<hr />\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/332e8ad2374e78adba1127f725d6603a4a5f96f3\"><code>332e8ad</code></a>\nRelease Wasmtime 36.0.8 (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/13239\">#13239</a>)</li>\n<li><a\nhref=\"https://github.com/bytecodealliance/wasmtime/commit/82baadae5f71f27f1d32090349316d27e8a5a9e1\"><code>82baada</code></a>\nFix panicking overflow when calculating table sizes (<a\nhref=\"https://redirect.github.com/bytecodealliance/wasmtime/issues/13242\">#13242</a>)</li>\n<li>See full diff in <a\nhref=\"https://github.com/bytecodealliance/wasmtime/compare/v36.0.7...v36.0.8\">compare\nview</a></li>\n</ul>\n</details>\n<br />\n\n\n> **Note**\n> Automatic rebases have been disabled on this pull request as it has\nbeen open for over 30 days.\n\nSigned-off-by: dependabot[bot] <support@github.com>\nCo-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-13T20:40:12Z",
+          "tree_id": "99f5ec5b19ad88953fd0611864243b7c9b69b928",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e34add8b49d5ba0ad1e5acb694c3bd1a706aaa0e"
+        },
+        "date": 1789337117624,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19469727,
+            "range": "± 165936",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19896651,
+            "range": "± 194495",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21238374,
+            "range": "± 130212",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25731584,
+            "range": "± 236279",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56846486,
+            "range": "± 351298",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 330479598,
+            "range": "± 4063335",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2568146604,
+            "range": "± 90214941",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16707842,
+            "range": "± 172945",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16726142,
+            "range": "± 134484",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17156461,
+            "range": "± 192669",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21580173,
+            "range": "± 87853",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58728023,
+            "range": "± 732270",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 347621077,
+            "range": "± 3157421",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2602470742,
+            "range": "± 23878354",
             "unit": "ns/iter"
           }
         ]
