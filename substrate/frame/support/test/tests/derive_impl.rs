@@ -40,3 +40,40 @@ fn test_feature_parsing() {
 	let square = SomeSquare {};
 	assert_eq!(square.area(), 10);
 }
+
+// `legs` is `#[pallet::no_default]`: it stays on the default impl but is not copied to derivers.
+trait Animal {
+	fn legs(&self) -> u8;
+	fn sound(&self) -> &'static str;
+}
+
+struct DefaultAnimal {}
+
+#[frame_support::register_default_impl(DefaultAnimal)]
+impl Animal for DefaultAnimal {
+	#[pallet::no_default]
+	fn legs(&self) -> u8 {
+		4
+	}
+
+	fn sound(&self) -> &'static str {
+		"generic"
+	}
+}
+
+struct Bird {}
+
+// `legs` must be set explicitly (not inherited); `sound` is inherited from `DefaultAnimal`.
+#[derive_impl(DefaultAnimal)]
+impl Animal for Bird {
+	fn legs(&self) -> u8 {
+		2
+	}
+}
+
+#[test]
+fn no_default_items_are_not_copied_but_remain_on_the_default_impl() {
+	assert_eq!(Bird {}.legs(), 2);
+	assert_eq!(Bird {}.sound(), "generic");
+	assert_eq!(DefaultAnimal {}.legs(), 4);
+}

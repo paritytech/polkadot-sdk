@@ -153,6 +153,8 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::RelayChainDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type SystemWeightInfo = ();
+	type ExtensionsWeightInfo = ();
 	type BlockWeights = BlockWeights;
 	type BlockLength = BlockLength;
 	type Nonce = Nonce;

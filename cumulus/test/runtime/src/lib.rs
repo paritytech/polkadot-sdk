@@ -208,6 +208,8 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type SystemWeightInfo = ();
+	type ExtensionsWeightInfo = ();
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
 	/// The index type for storing how many extrinsics an account has signed.

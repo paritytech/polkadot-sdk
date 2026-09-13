@@ -87,6 +87,8 @@ parameter_types! {
 /// Implements the types required for the system pallet.
 #[derive_impl(frame_system::config_preludes::SolochainDefaultConfig)]
 impl frame_system::Config for Runtime {
+	type SystemWeightInfo = ();
+	type ExtensionsWeightInfo = ();
 	type Block = Block;
 	type Version = Version;
 }
