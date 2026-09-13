@@ -415,13 +415,13 @@ impl<P: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>> frame_support::traits
 /// WARNING: `RemoveStorage` has no guard rails preventing it from bricking the chain if the
 /// operation of removing storage for the given pallet would exceed the block weight limit.
 ///
-/// If your storage has too many keys to be removed in a single block, it is advised to wait for
-/// a multi-block scheduler currently under development which will allow for removal of storage
-/// items (and performing other heavy migrations) over multiple blocks
-/// (see <https://github.com/paritytech/substrate/issues/13690>).
+/// If your storage has too many keys to be removed in a single block, prefer
+/// `pallet_migrations::ClearStorage`, which uses the multi-block migration framework to remove
+/// storage items safely over multiple blocks.
 pub struct RemoveStorage<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>(
 	PhantomData<(P, S, DbWeight)>,
 );
+
 impl<P: Get<&'static str>, S: Get<&'static str>, DbWeight: Get<RuntimeDbWeight>>
 	frame_support::traits::OnRuntimeUpgrade for RemoveStorage<P, S, DbWeight>
 {
