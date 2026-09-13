@@ -1427,19 +1427,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					let status = match ReferendumInfoFor::<T, I>::get(referendum_index) {
 						Some(ReferendumInfo::Ongoing(status)) => status,
 						_ => {
-							return Err(
-								"A `TrackQueue` entry must be an ongoing referendum".into()
-							)
+							return Err("A `TrackQueue` entry must be an ongoing referendum".into())
 						},
 					};
 					ensure!(
 						status.track == track.id,
 						"A queued referendum must be on the queue of its own track"
 					);
-					ensure!(
-						status.in_queue,
-						"A queued referendum must have `in_queue` set"
-					);
+					ensure!(status.in_queue, "A queued referendum must have `in_queue` set");
 					Ok(())
 				},
 			)?;
