@@ -51,7 +51,7 @@ use polkadot_primitives::RequiresSet;
 use scale_info::TypeInfo;
 
 use crate::{
-	mmr::{empty_root, root_from_peaks, MessagePosition, SpecMerge},
+	mmr::{empty_root, root_from_peaks, MessagePosition, SpecMerge, MAX_MMR_LEAF_COUNT},
 	stream::StreamId,
 	streams_root::{streams_root_from_proof, StreamProof, StreamsRoot},
 	SpecHasher,
@@ -74,13 +74,6 @@ const MAX_EXTENSION_CONNECTING_NODES: usize = 4 * 64;
 /// bounds `calculate_root`'s work (and the items clone) on untrusted input — the same
 /// defense-in-depth `MMRExtensionProof::verify` applies via [`MAX_EXTENSION_CONNECTING_NODES`].
 const MAX_INCLUSION_PROOF_ITEMS: usize = 2 * 64;
-
-/// Upper bound on any MMR leaf count this crate derives node positions from. `mmr_lib` derives a
-/// tree's node count as `2 * leaf_count - leaf_count.count_ones()`, which leaves `u64` above
-/// `2^63`; every peer-supplied leaf count is rejected against this ceiling before it reaches that
-/// derivation. `2^48` leaves is orders of magnitude beyond any stream a chain can produce, so no
-/// honest input approaches it.
-pub const MAX_MMR_LEAF_COUNT: u64 = 1 << 48;
 
 /// Why an MMR proof verification (`MMRExtensionProof::verify`, `MmrInclusionProof::verify_head` /
 /// `verify_leaf`) rejected its input. Typed so callers (peer scoring, retry logic) can tell a
@@ -129,11 +122,7 @@ impl MmrFrontier {
 	/// value, so an `Interval.start` of a stream's first-ever consumption stitches
 	/// like any other.
 	pub fn root(&self) -> MmrRoot {
-		if self.peaks.is_empty() {
-			MmrRoot(empty_root::<SpecHasher>())
-		} else {
-			MmrRoot(root_from_peaks::<SpecHasher>(&self.peaks))
-		}
+		MmrRoot(root_from_peaks::<SpecHasher>(&self.peaks).unwrap_or_else(empty_root::<SpecHasher>))
 	}
 
 	/// The `mmr_lib` node count (size) of this frontier's MMR.

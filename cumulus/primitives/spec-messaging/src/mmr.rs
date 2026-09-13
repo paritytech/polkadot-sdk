@@ -42,6 +42,13 @@ use sp_runtime::traits::Hash as HashT;
 
 use crate::{EMPTY_TAG, INNER_TAG, PEAK_TAG};
 
+/// Upper bound on any MMR leaf count this crate derives node positions from. `mmr_lib` derives a
+/// tree's node count as `2 * leaf_count - leaf_count.count_ones()`, which leaves `u64` above
+/// `2^63`; every peer-supplied leaf count is rejected against this ceiling before it reaches that
+/// derivation. `2^48` leaves is orders of magnitude beyond any stream a chain can produce, so no
+/// honest input approaches it.
+pub const MAX_MMR_LEAF_COUNT: u64 = 1 << 48;
+
 /// A leaf position within a stream's MMR (its leaf count). Newtype, per the design's
 /// `MessagePosition` — a position is not an arbitrary `u64`. Lives here (a leaf module both `lift`
 /// and `message` depend on) so neither has to depend on the other for it.
@@ -98,28 +105,20 @@ pub fn empty_root<H: HashT<Output = Hash>>() -> Hash {
 	<H as HashT>::hash(&[EMPTY_TAG])
 }
 
-/// Compute the MMR root from its non-empty peaks (highest to lowest), matching
-/// `mmr_lib`'s bagging (`merge_peaks(right, left)` folded right-to-left).
+/// Bag the MMR peaks (highest to lowest) into a root, matching `mmr_lib`'s bagging
+/// (`merge_peaks(right, left)` folded right-to-left). `None` for no peaks: the empty
+/// root is a *distinct constant* ([`empty_root`]), not a bag of zero peaks, and the
+/// public root paths (`Mmr::root`, `MmrFrontier::root`) substitute it.
 ///
 /// This lets the on-chain outbox keep only the O(log n) peaks and still derive the
 /// same stream root that `mmr_lib`'s `MMR::get_root` and `MerkleProof::verify`
 /// produce.
-///
-/// # Panics
-///
-/// Panics on an empty `peaks` slice — the empty root is a *distinct constant*, not a
-/// bag of zero peaks: use [`empty_root`] (via `MmrFrontier::root`, which branches).
-pub fn root_from_peaks<H: HashT<Output = Hash>>(peaks: &[Hash]) -> Hash {
-	let mut iter = peaks.iter().rev();
-	let mut acc = *iter.next().expect(
-		"root_from_peaks called on empty peaks; the empty root is `empty_root`, not a bag; qed",
-	);
-	for left in iter {
-		// mmr_lib bags as merge_peaks(right, left); `acc` carries the right side.
-		acc =
-			<SpecMerge<H> as Merge>::merge_peaks(&acc, left).expect("SpecMerge is infallible; qed");
-	}
-	acc
+pub fn root_from_peaks<H: HashT<Output = Hash>>(peaks: &[Hash]) -> Option<Hash> {
+	let (last, rest) = peaks.split_last()?;
+	// mmr_lib bags as merge_peaks(right, left); the accumulator carries the right side.
+	Some(rest.iter().rev().fold(*last, |acc, left| {
+		<SpecMerge<H> as Merge>::merge_peaks(&acc, left).expect("SpecMerge is infallible; qed")
+	}))
 }
 
 /// Generic interface for accumulating MMR leaves and producing a root commitment.
@@ -155,9 +154,18 @@ impl<H> Mmr<H> {
 		Self { peaks: Vec::new(), size: 0, _marker: PhantomData }
 	}
 
-	/// Reconstruct an accumulator from previously stored `(peaks, size)`.
-	pub fn from_parts(peaks: Vec<Hash>, size: u64) -> Self {
-		Self { peaks, size, _marker: PhantomData }
+	/// Reconstruct an accumulator from `(peaks, size)`. `None` unless the pair is consistent —
+	/// exactly one peak per set bit of `size` — and `size` is within [`MAX_MMR_LEAF_COUNT`]. The
+	/// first is the invariant [`append`](MmrAccumulator::append)'s peak pops rely on; the second
+	/// keeps every node-position derivation downstream total. Checked here, not at each caller,
+	/// so both are properties of the type rather than of whoever built it: the fields are private
+	/// and this is the only constructor that takes external input.
+	pub fn from_parts(peaks: Vec<Hash>, size: u64) -> Option<Self> {
+		(size <= MAX_MMR_LEAF_COUNT && peaks.len() == size.count_ones() as usize).then(|| Self {
+			peaks,
+			size,
+			_marker: PhantomData,
+		})
 	}
 
 	/// Decompose into `(peaks, size)` for storage.
@@ -187,7 +195,10 @@ impl<H: HashT<Output = Hash>> MmrAccumulator for Mmr<H> {
 		// `trailing_zeros(size + 1)` pairs of peaks (binary-counter carry).
 		let merges = (self.size + 1).trailing_zeros();
 		for _ in 0..merges {
-			let left = self.peaks.pop().expect("a peak exists for each merge; qed");
+			let left = self
+				.peaks
+				.pop()
+				.expect("`from_parts` enforces one peak per set bit of `size`; qed");
 			node =
 				<SpecMerge<H> as Merge>::merge(&left, &node).expect("SpecMerge is infallible; qed");
 		}
@@ -195,8 +206,10 @@ impl<H: HashT<Output = Hash>> MmrAccumulator for Mmr<H> {
 		self.size += 1;
 	}
 
+	/// The empty accumulator — `new()`, or `from_parts` at size `0` — has the defined
+	/// [`empty_root`], the same value `MmrFrontier::root` yields for it.
 	fn root(&self) -> Hash {
-		root_from_peaks::<H>(&self.peaks)
+		root_from_peaks::<H>(&self.peaks).unwrap_or_else(empty_root::<H>)
 	}
 
 	fn size(&self) -> u64 {
@@ -242,6 +255,22 @@ mod tests {
 	}
 
 	#[test]
+	fn from_parts_enforces_append_invariants() {
+		// Consistent pairs round-trip, including the empty accumulator.
+		assert!(Mmr::<H>::from_parts(Vec::new(), 0).is_some());
+		assert!(Mmr::<H>::from_parts(vec![h(1)], 1).is_some());
+		assert!(Mmr::<H>::from_parts(vec![h(1), h(2)], 3).is_some());
+		// One peak per set bit, or `append`'s pops would run dry — the pre-fix panic.
+		assert!(Mmr::<H>::from_parts(Vec::new(), 1).is_none());
+		assert!(Mmr::<H>::from_parts(vec![h(1)], 3).is_none());
+		assert!(Mmr::<H>::from_parts(vec![h(1), h(2)], 1).is_none());
+		// And within the ceiling, or the node-position arithmetic downstream is not total.
+		assert!(Mmr::<H>::from_parts(vec![h(1)], MAX_MMR_LEAF_COUNT).is_some());
+		assert!(Mmr::<H>::from_parts(vec![h(1)], 1 << 63).is_none());
+		assert!(Mmr::<H>::from_parts(vec![h(1); 64], u64::MAX).is_none());
+	}
+
+	#[test]
 	fn accumulator_root_matches_mmr_lib() {
 		// Build via the peaks-only accumulator and via a full mmr_lib MMR; the
 		// roots and peak-count invariant must agree.
@@ -254,6 +283,20 @@ mod tests {
 			assert_eq!(acc.peaks().len() as u32, acc.size().count_ones());
 		}
 		assert_eq!(acc.root(), reference.get_root().unwrap());
+	}
+
+	#[test]
+	fn empty_accumulator_root_is_empty_root() {
+		// A fresh accumulator is a legitimate state, and its root must be the defined constant —
+		// not a panic in `root_from_peaks`, which has no peaks to bag.
+		assert_eq!(root_from_peaks::<H>(&[]), None);
+		assert_eq!(Mmr::<H>::new().root(), empty_root::<H>());
+		assert_eq!(Mmr::<H>::from_parts(Vec::new(), 0).unwrap().root(), empty_root::<H>());
+		// And the two public root paths agree on it (same hasher, so the comparison is exact).
+		assert_eq!(
+			crate::lift::MmrFrontier { peaks: Vec::new(), leaf_count: 0 }.root().0,
+			Mmr::<crate::SpecHasher>::new().root(),
+		);
 	}
 
 	#[test]

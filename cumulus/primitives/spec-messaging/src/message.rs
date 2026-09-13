@@ -47,7 +47,7 @@ use sp_core::ConstU32;
 use sp_runtime::traits::Hash as HashT;
 
 use crate::{
-	lift::{MMRExtensionProof, MmrFrontier, MmrInclusionProof, ProofError, MAX_MMR_LEAF_COUNT},
+	lift::{MMRExtensionProof, MmrFrontier, MmrInclusionProof, ProofError},
 	mmr::{MessagePosition, Mmr, MmrAccumulator},
 	stream::StreamId,
 	streams_root::{streams_root_from_proof, StreamProof, StreamsRoot},
@@ -197,21 +197,15 @@ pub fn verify_messages_response(
 	under: StreamsRoot,
 	resp: &MessagesResponse,
 ) -> Result<Vec<Vec<u8>>, VerifyError> {
-	// `start_peaks` and `base` are untrusted. Bound `base` first: it becomes the frontier's leaf
-	// count, which `MMRExtensionProof::verify` derives node positions from (see
-	// [`MAX_MMR_LEAF_COUNT`]). A well-formed frontier then has exactly one peak per set
-	// bit of its leaf count; reject any other shape so a crafted response cannot drive
-	// `Mmr::append` into a pop-from-empty panic. This equality also bounds `start_peaks` to ≤ 64
-	// (a `u64` has ≤ 64 set bits), enforcing the documented peak-set limit. Also reject a `base +
-	// len` that would overflow the leaf counter (only reachable near `u64::MAX`, but keeps the
-	// accumulator arithmetic total). A rejected response is simply unverifiable — the correct
-	// outcome, reached without panicking.
-	if resp.base.0 > MAX_MMR_LEAF_COUNT {
-		return Err(VerifyError::MalformedResponse);
-	}
-	if resp.start_peaks.len() != resp.base.0.count_ones() as usize {
-		return Err(VerifyError::MalformedResponse);
-	}
+	// `start_peaks` and `base` are untrusted; `Mmr::from_parts` rejects an inconsistent shape (one
+	// peak per set bit of `base`, which also caps `start_peaks` at 64) or a `base` past
+	// `MAX_MMR_LEAF_COUNT`, so a crafted response can neither drive `append` into a pop-from-empty
+	// panic nor reach the node-position arithmetic downstream. A rejected response is simply
+	// unverifiable — the correct outcome, reached without panicking.
+	let mut mmr = Mmr::<SpecHasher>::from_parts(resp.start_peaks.clone(), resp.base.0)
+		.ok_or(VerifyError::MalformedResponse)?;
+	// `base + len` overflowing the leaf counter is unreachable under the ceiling; kept so the
+	// accumulator arithmetic stays total on its own terms.
 	resp.base
 		.0
 		.checked_add(resp.payloads.len() as u64)
@@ -226,8 +220,7 @@ pub fn verify_messages_response(
 		return Err(VerifyError::PayloadTooLarge);
 	}
 
-	// Frontier at `base` (the response's peak set), then append the response's payloads as leaves.
-	let mut mmr = Mmr::<SpecHasher>::from_parts(resp.start_peaks.clone(), resp.base.0);
+	// Append the response's payloads as leaves onto the frontier at `base`.
 	for payload in &resp.payloads {
 		mmr.append(leaf_hash::<SpecHasher>(resp.leaf_version, payload));
 	}
@@ -596,7 +589,7 @@ mod tests {
 		for p in &resp.payloads {
 			mmr.append(leaf_hash::<SpecHasher>(0, p));
 		}
-		assert_eq!(root_from_peaks::<SpecHasher>(mmr.peaks()), stream_root);
+		assert_eq!(root_from_peaks::<SpecHasher>(mmr.peaks()), Some(stream_root));
 	}
 
 	#[test]
@@ -690,7 +683,7 @@ mod tests {
 		let under = StreamsRoot(H256::repeat_byte(0xff));
 
 		// `start_peaks` shape inconsistent with `base` (empty peaks, base = 1): the pre-fix
-		// pop-from-empty panic in `Mmr::append`. Must reject cleanly, not panic.
+		// pop-from-empty panic in `Mmr::append`. `from_parts` must reject it cleanly, not panic.
 		let crafted = MessagesResponse {
 			base: MessagePosition(1),
 			leaf_version: 0,
@@ -706,7 +699,7 @@ mod tests {
 
 		// A `base` past the leaf-count ceiling must reject cleanly: it becomes the frontier's leaf
 		// count, which the extension derives node positions from. One set bit, so one peak passes
-		// the shape check and the ceiling is what rejects.
+		// the shape check and `from_parts`'s ceiling is what rejects.
 		let too_large = MessagesResponse {
 			base: MessagePosition(1 << 63),
 			leaf_version: 0,
@@ -721,8 +714,8 @@ mod tests {
 		);
 
 		// `base = u64::MAX` (64 set bits, 64 peaks) once reached the `base + payloads` counter
-		// guard; the ceiling now rejects it first. Kept so both remain covered — the counter guard
-		// is unreachable while the ceiling stands, and should stay that way.
+		// guard; `from_parts`'s ceiling now rejects it first. Kept so both remain covered — the
+		// counter guard is unreachable while the ceiling stands, and should stay that way.
 		let overflow = MessagesResponse {
 			base: MessagePosition(u64::MAX),
 			leaf_version: 0,
