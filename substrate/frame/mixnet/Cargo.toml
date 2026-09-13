@@ -24,6 +24,9 @@ serde = { features = ["derive"], workspace = true }
 sp-application-crypto = { workspace = true }
 sp-mixnet = { workspace = true }
 
+[dev-dependencies]
+sp-keystore = { workspace = true, default-features = true }
+
 [features]
 default = ["std"]
 std = [
@@ -34,6 +37,9 @@ std = [
 	"serde/std",
 	"sp-application-crypto/std",
 	"sp-mixnet/std",
+]
+runtime-benchmarks = [
+	"frame/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame/try-runtime",
