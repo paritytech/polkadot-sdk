@@ -2508,6 +2508,7 @@ impl pallet_on_demand::Config for Runtime {
 	type PricingProvider = pallet_on_demand::DefaultPricingProvider;
 	// Orders are dropped instead of being forwarded to a Relay chain.
 	type OrderQueue = ();
+	type MaxBatchSize = ConstU32<1000>;
 	type PalletId = OnDemandPalletId;
 }
 

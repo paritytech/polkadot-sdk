@@ -23,7 +23,9 @@ use crate::{
 };
 use fp_coretime::TaskId;
 use frame_support::{
-	derive_impl, ord_parameter_types, parameter_types,
+	derive_impl, ord_parameter_types,
+	pallet_prelude::*,
+	parameter_types,
 	traits::{EitherOfDiverse, Hooks},
 	PalletId,
 };
@@ -115,6 +117,7 @@ impl Config for Test {
 	type PoolCapacityProvider = MockCorePool;
 	type PricingProvider = DefaultPricingProvider;
 	type OrderQueue = RecordingOrderQueue;
+	type MaxBatchSize = ConstU32<1000>;
 	type PalletId = OnDemandPalletId;
 }
 

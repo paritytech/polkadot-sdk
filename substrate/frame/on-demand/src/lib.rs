@@ -59,14 +59,6 @@ pub use types::*;
 pub use weightinfo_extension::WeightInfoExt;
 pub use weights::WeightInfo;
 
-/// Maximum pending batch size.
-/// NOTE: Since we don't do chunking, this number of pending orders needs to fit within a single XCM
-/// message. This way `on_finalize` will never send more than one message. Since this pallet is
-/// intended to be a temporary solution, and current (as of September 2026) usage of the on-demand
-/// feature is low, it is expected not to be necessary to extend this functionality to allow more
-/// orders in a single block.
-const MAX_BATCH_SIZE: u32 = 1000;
-
 /// The default maximum number of outstanding on-demand orders beyond which new orders will be
 /// rejected.
 const DEFAULT_ORDER_CAP: u32 = 100;
@@ -147,6 +139,15 @@ pub mod pallet {
 		/// Used to instruct the Relay chain to enqueue the orders placed here.
 		type OrderQueue: QueueOnDemandOrders<RelayBlockNumberOf<Self>>;
 
+		/// Maximum pending batch size.
+		/// NOTE: Since we don't do chunking, this number of pending orders needs to fit within a
+		/// single XCM message. This way `on_finalize` will never send more than one message.
+		/// Since this pallet is intended to be a temporary solution, and current (as of September
+		/// 2026) usage of the on-demand feature is low, it is expected not to be necessary to
+		/// extend this functionality to allow more orders in a single block.
+		#[pallet::constant]
+		type MaxBatchSize: Get<u32>;
+
 		/// Identifier from which the internal Pot is generated.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -162,9 +163,9 @@ pub mod pallet {
 
 	/// Orders placed in the current block, forwarded to the Relay chain on finalization.
 	#[pallet::storage]
-	pub type PendingBatch<T> = StorageValue<
+	pub type PendingBatch<T: Config> = StorageValue<
 		_,
-		BoundedVec<EnqueuedOrder<RelayBlockNumberOf<T>>, ConstU32<MAX_BATCH_SIZE>>,
+		BoundedVec<EnqueuedOrder<RelayBlockNumberOf<T>>, T::MaxBatchSize>,
 		ValueQuery,
 	>;
 
@@ -269,7 +270,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			// Fail early if the batch is already full.
 			ensure!(
-				PendingBatch::<T>::decode_len().unwrap_or(0) < MAX_BATCH_SIZE as usize,
+				PendingBatch::<T>::decode_len().unwrap_or(0) < T::MaxBatchSize::get() as usize,
 				Error::<T>::BatchFull
 			);
 			// Fail early if the account can't cover the declared max_amount.
