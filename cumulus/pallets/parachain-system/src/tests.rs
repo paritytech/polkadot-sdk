@@ -22,23 +22,23 @@ use crate::mock::*;
 use alloc::collections::BTreeMap;
 use codec::{Decode, Encode};
 use core::num::NonZeroU32;
-use cumulus_jam_state_reader::{JAM_PROOF_KEY, JamProofReader, JamStateExt};
+use cumulus_jam_state_reader::{JamProofReader, JamStateExt, JAM_PROOF_KEY};
 use cumulus_primitives_core::{
-	AbridgedHrmpChannel, CUMULUS_CONSENSUS_ID, ClaimQueueOffset, CoreInfo, CoreSelector,
-	InboundDownwardMessage, InboundHrmpMessage, relay_chain::ApprovedPeerId,
+	relay_chain::ApprovedPeerId, AbridgedHrmpChannel, ClaimQueueOffset, CoreInfo, CoreSelector,
+	InboundDownwardMessage, InboundHrmpMessage, CUMULUS_CONSENSUS_ID,
 };
 use cumulus_primitives_parachain_inherent::{
-	INHERENT_IDENTIFIER, PARACHAIN_INHERENT_IDENTIFIER_V0, v0,
+	v0, INHERENT_IDENTIFIER, PARACHAIN_INHERENT_IDENTIFIER_V0,
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use frame_support::{assert_ok, parameter_types, weights::Weight};
 use frame_system::RawOrigin;
 use hex_literal::hex;
-use jam_state_helpers as jam_helpers;
+use parachain_service_core as jam_helpers;
 use rand::Rng;
 use relay_chain::HrmpChannelId;
 use sp_additional_data::{
-	AdditionalDataExt, AdditionalDataFinalizer, hash_commitments, hash_value,
+	hash_commitments, hash_value, AdditionalDataExt, AdditionalDataFinalizer,
 };
 use sp_core::H256;
 use sp_inherents::InherentDataProvider;
@@ -915,12 +915,10 @@ fn runtime_upgrade_events() {
 					})
 				);
 
-				assert!(
-					System::digest()
-						.logs()
-						.iter()
-						.any(|d| *d == sp_runtime::generic::DigestItem::RuntimeEnvironmentUpdated)
-				);
+				assert!(System::digest()
+					.logs()
+					.iter()
+					.any(|d| *d == sp_runtime::generic::DigestItem::RuntimeEnvironmentUpdated));
 			},
 		);
 }
@@ -1710,10 +1708,10 @@ fn deposits_relay_parent_storage_root() {
 		|| {},
 		|| {
 			let digest = System::digest();
-			assert!(
-				cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(&digest)
-					.is_some()
-			);
+			assert!(cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(
+				&digest
+			)
+			.is_some());
 		},
 	);
 }
@@ -1847,8 +1845,8 @@ fn ump_signals_are_sent_correctly() {
 #[test]
 fn read_included_para_head_reads_from_jam_state() {
 	let head = relay_chain::HeadData(vec![0xca, 0xfe, 0x00, 0x01]);
-	let para_info = jam_state_helpers::ParaInfo {
-		head_data: parachain_service_interface::types::HeadData::try_from(head.0.clone())
+	let para_info = parachain_service_core::ParaInfo {
+		head_data: parachain_service_core::types::HeadData::try_from(head.0.clone())
 			.expect("4 bytes < 4 KiB; qed"),
 		validation_code: None,
 		pending_upgrade: None,
@@ -1858,7 +1856,7 @@ fn read_included_para_head_reads_from_jam_state() {
 	};
 	let mut jam_reads = BTreeMap::new();
 	jam_reads.insert(
-		jam_state_helpers::para_info_key(parachain_service_interface::types::ParaId::from(200)),
+		parachain_service_core::para_info_key(parachain_service_core::types::ParaId::from(200)),
 		para_info.encode(),
 	);
 
@@ -1912,7 +1910,7 @@ fn read_included_para_head_jam_absent_key_falls_back_to_relay() {
 fn read_included_para_head_jam_malformed_value_errors() {
 	let mut jam_reads = BTreeMap::new();
 	jam_reads.insert(
-		jam_state_helpers::para_info_key(parachain_service_interface::types::ParaId::from(200)),
+		parachain_service_core::para_info_key(parachain_service_core::types::ParaId::from(200)),
 		vec![0xff, 0x00, 0x01], // not a valid `ParaInfo` SCALE encoding
 	);
 
@@ -1999,14 +1997,14 @@ fn jam_branch_node(left: &jam_helpers::Hash, right: &jam_helpers::Hash) -> jam_h
 	node
 }
 
-/// The parachain service's id these tests build proofs for; must match the runtime constant the
-/// reader derives state keys with.
-const JAM_SERVICE_ID: u32 = 1337;
+/// The parachain service's id these tests build proofs for; must match the runtime constant
+/// the reader derives state keys with.
+use parachain_service_core::PARACHAIN_SERVICE_ID as JAM_SERVICE_ID;
 
 /// A `ParaInfo` with `head` as head data, SCALE-encoded as stored in the parachain service.
 fn jam_para_info(head: &[u8]) -> Vec<u8> {
 	let para_info = jam_helpers::ParaInfo {
-		head_data: parachain_service_interface::types::HeadData::try_from(head.to_vec())
+		head_data: parachain_service_core::types::HeadData::try_from(head.to_vec())
 			.expect("head is shorter than 4 KiB; qed"),
 		validation_code: None,
 		pending_upgrade: None,
@@ -2021,7 +2019,7 @@ fn jam_para_info(head: &[u8]) -> Vec<u8> {
 fn jam_para_info_state_key(para_id: u32) -> jam_helpers::StateKey {
 	jam_helpers::service_value_state_key(
 		JAM_SERVICE_ID,
-		&jam_helpers::para_info_key(parachain_service_interface::types::ParaId::from(para_id)),
+		&jam_helpers::para_info_key(parachain_service_core::types::ParaId::from(para_id)),
 	)
 }
 

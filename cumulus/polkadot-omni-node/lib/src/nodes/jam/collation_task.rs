@@ -49,25 +49,25 @@
 //! compressed PoVs; JIP-2 is silent on compression).
 
 use super::{
-	JAM_SLOT_DURATION_MS, JamCollatorMessage, LOG_TARGET, authorizer::AuraAuthorizer,
-	choose_lookup_anchor, jam_read, jam_slot_at, para_head_stream, resubmission::*, scan_pools_at,
+	authorizer::AuraAuthorizer, choose_lookup_anchor, jam_read, jam_slot_at, para_head_stream,
+	resubmission::*, scan_pools_at, JamCollatorMessage, JAM_SLOT_DURATION_MS, LOG_TARGET,
 };
-use crate::common::{ConstructNodeRuntimeApi, NodeBlock, types::ParachainClient};
+use crate::common::{types::ParachainClient, ConstructNodeRuntimeApi, NodeBlock};
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{ParachainBlockData, SchedulingProof};
 use futures::{
-	FutureExt, StreamExt,
 	channel::mpsc,
 	future::AbortHandle,
-	stream::{SelectAll, abortable},
+	stream::{abortable, SelectAll},
+	FutureExt, StreamExt,
 };
-use jam_cumulus_facade::{ParachainCandidate, authorizer::Authorizer};
 use jam_interface::{
 	BoxStream, CoreIndex, HeaderHash, JamChainSource, JamStateSource, JamWorkPackageSubmission,
 	ServiceId, Slot as JamSlot, VersionedParameters, WorkPackage, WorkPackageHash,
 	WorkPackageStatus,
 };
 use jam_types::{Authorization, CodeHash, RefineContext, UnsignedGas, WorkItem, WorkPayload};
+use parachain_service_core::{authorizer::Authorizer, candidate::ParachainCandidate};
 use polkadot_primitives::Id as ParaId;
 use sp_additional_data::AdditionalData;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
@@ -936,7 +936,7 @@ impl<Block: BlockT> PackageSource<Block> {
 	/// the step after this one ([`AuraAuthorizer::authorize`]).
 	fn package(&self, anchored: &Anchored) -> WorkPackage {
 		let payload = ParachainCandidate {
-			validation_code_hash: jam_cumulus_facade::ValidationCodeHash(
+			validation_code_hash: parachain_service_core::types::ValidationCodeHash(
 				self.validation_code_hash.into(),
 			),
 			pov: build_pov(&self.blocks, &self.proof, &self.parent_header, &self.additional_data),
@@ -1093,8 +1093,8 @@ mod tests {
 	use super::{super::authorizer::tests::authorizer_of, *};
 	use cumulus_jam_state_reader::JAM_PROOF_KEY;
 	use cumulus_test_runtime::{Block as TestBlock, Header as TestHeader};
-	use jam_state_helpers::StateProof;
 	use jam_std_common::build_encoded_bundle;
+	use parachain_service_core::StateProof;
 	use sp_core::H256;
 
 	/// The one-collator set this node is in, so every package a test builds can be signed.
@@ -1206,7 +1206,7 @@ mod tests {
 		// service rather than to the bootstrap service 0 the blob used to be hosted by.
 		assert_eq!(package.auth_code_host, 42);
 		assert_eq!(
-			jam_cumulus_facade::authorizer::authorizer_hash(&package.authorizer),
+			parachain_service_core::authorizer::authorizer_hash(&package.authorizer),
 			aura().hash(),
 			"the package names the authorizer whose hash a core's pool must hold",
 		);

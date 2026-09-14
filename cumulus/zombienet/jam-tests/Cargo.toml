@@ -23,8 +23,12 @@ sp-runtime = { workspace = true, default-features = true }
 tempfile = { workspace = true }
 # The authorizer hash written into genesis has to be the one the collator derives, so it is built
 # out of the very crates the collator and the guest use — the same path deps polkadot-omni-node-lib
-# names.
-jam-cumulus-facade = { package = "cumulus", path = "../../../../parachain-service/cumulus" }
+# names. `parachain-service-core` is the consolidated types/keys/authorizer crate the former
+# `cumulus` facade re-exported from.
+parachain-service-core = { path = "../../../../parachain-service/core", features = ["std"] }
+parachain-authorizer = { path = "../../../../parachain-service/authorizer", features = ["std"] }
+parachain-authorizer-ed25519 = { path = "../../../../parachain-service/authorizer-ed25519" }
+parachain-authorizer-sr25519 = { path = "../../../../parachain-service/authorizer-sr25519" }
 # The genesis `gen-spec` compiles is built by `parachain-chain-spec` (uncommitted sibling-repo
 # work), so the storage layout and authorizer hashes cannot drift from what the service decodes.
 parachain-chain-spec = { path = "../../../../parachain-service/chain-spec" }

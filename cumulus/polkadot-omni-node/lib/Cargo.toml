@@ -33,8 +33,13 @@ url = { workspace = true }
 # crates are this repo's own: parachain-service dropped its copies of them.
 jam-interface = { package = "cumulus-jam-interface", path = "../../jam/interface" }
 jam-rpc-interface = { package = "cumulus-jam-rpc-interface", path = "../../jam/rpc-interface" }
-jam-cumulus-facade = { package = "cumulus", path = "../../../../parachain-service/cumulus" }
-jam-state-helpers = { path = "../../../../parachain-service/cumulus/jam-state-helpers", features = ["std"] }
+# The parachain-service sibling's consolidated core crate (types, storage keys, service id,
+# authorizer helpers). The aura/authorizer machinery the old `cumulus` facade re-exported now
+# comes straight from its source crates.
+parachain-service-core = { path = "../../../../parachain-service/core", features = ["std"] }
+parachain-authorizer = { path = "../../../../parachain-service/authorizer", features = ["std"] }
+parachain-authorizer-ed25519 = { path = "../../../../parachain-service/authorizer-ed25519" }
+parachain-authorizer-sr25519 = { path = "../../../../parachain-service/authorizer-sr25519" }
 jam-types = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-types", features = ["std"] }
 jam-codec = { version = "0.1.1", features = ["std", "derive"] }
 jam-std-common = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-std-common" }

@@ -27,7 +27,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use codec::Encode;
-use jam_state_helpers::{Hash, StateProof, service_value_state_key, verify};
+use parachain_service_core::{service_value_state_key, verify, Hash, StateProof};
 
 use crate::JamStateReader;
 
@@ -39,7 +39,7 @@ use crate::JamStateReader;
 ///
 /// # Panics
 ///
-/// [`read`](JamStateReader::read) panics when [`verify`](jam_state_helpers::verify) returns an
+/// [`read`](JamStateReader::read) panics when [`verify`](parachain_service_core::verify) returns an
 /// error: an incomplete or malformed proof cannot authenticate the key, which makes the candidate
 /// block invalid. It must fail loudly, never read as `None` — collapsing a verify error to `None`
 /// would let a collator suppress a present value by omitting proof nodes.
@@ -75,7 +75,7 @@ impl JamStateReader for JamProofReader {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use jam_state_helpers::{ProofNode, StateKey, blake2_256};
+	use parachain_service_core::{blake2_256, ProofNode, StateKey};
 
 	const SERVICE_ID: u32 = 9;
 	const EMPTY_HASH: Hash = [0u8; 32];

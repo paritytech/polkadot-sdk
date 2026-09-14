@@ -13,10 +13,7 @@ use super::{
 };
 use anyhow::Context;
 use codec::DecodeAll;
-use jam_cumulus_facade::{
-	service_state::{para_info_key, storage_key, ParaInfo, Tag},
-	ParaId,
-};
+use parachain_service_core::{para_info_key, storage_key, types::ParaId, ParaInfo, Tag};
 use std::{
 	collections::BTreeMap,
 	path::{Path, PathBuf},
@@ -628,13 +625,10 @@ async fn assert_jam_heads_advance(run: &mut Run) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use jam_cumulus_facade::{
-		service_state::{para_info_key, storage_key, Tag},
-		ParaId,
-	};
 	use parachain_chain_spec::{ParachainServiceSpec, ParachainSpec};
+	use parachain_service_core::{para_info_key, storage_key, types::ParaId, Tag};
 
-	const TEST_SERVICE_ID: u32 = 1337;
+	use parachain_service_core::PARACHAIN_SERVICE_ID as TEST_SERVICE_ID;
 	/// Distinct enough from the authorizer blob that no hash collision is possible.
 	const TEST_BLOB: &[u8] = b"test-validation-code-for-t8-harness-unit-tests";
 

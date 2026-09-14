@@ -46,37 +46,28 @@ use super::{
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 #[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
-use cumulus_jam_state_reader::{JAM_PROOF_KEY, JamProofReader};
-use cumulus_primitives_additional_data::RELAY_PROOF_KEY;
+use cumulus_jam_state_reader::{JamProofReader, JAM_PROOF_KEY};
 #[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
 use cumulus_primitives_additional_data::RelayStateReader;
+use cumulus_primitives_additional_data::RELAY_PROOF_KEY;
 use cumulus_primitives_core::{
-	ParachainBlockData,
 	relay_chain::{BlockNumber as RNumber, Hash as RHash, UMP_SEPARATOR},
+	ParachainBlockData,
 };
 use frame_support::traits::{ExecuteBlock, Get};
 #[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
-use jam_state_helpers::StateProof;
+use parachain_service_core::{StateProof, PARACHAIN_SERVICE_ID};
 use polkadot_parachain_primitives::primitives::{HeadData, HorizontalMessages, UpwardMessages};
 use sp_additional_data::AdditionalData;
 #[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
-use sp_additional_data::{AdditionalDataFinalizer, hash_value};
-use sp_core::storage::{StateVersion, well_known_keys};
+use sp_additional_data::{hash_value, AdditionalDataFinalizer};
+use sp_core::storage::{well_known_keys, StateVersion};
 use sp_runtime::traits::{
 	Block as BlockT, Hash as HashT, HashingFor, Header as HeaderT, LazyBlock,
 };
 use sp_state_machine::OverlayedChanges;
-use sp_trie::{EMPTY_PREFIX, HashDBT, MemoryDB, StorageProof};
+use sp_trie::{HashDBT, MemoryDB, StorageProof, EMPTY_PREFIX};
 use trie_recorder::{SeenNodes, SizeOnlyRecorderProvider};
-
-/// The parachain service's id on the JAM chain: the single service that hosts this and every other
-/// para's `ParaInfo` records. Phase-1 network constant — the service id is assigned when the
-/// service is registered (it cannot live in a chain spec), so this must match the value the
-/// network's genesis registered the parachain service under (and the collator's
-/// `--jam-service-id`). The state-key derivation interleaves it, so a mismatch reads the wrong key
-/// and every read panics.
-#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
-const PARACHAIN_SERVICE_ID: u32 = 1337;
 
 /// The `AdditionalDataFinalizer` committing the carried JAM state proof under `JAM_PROOF_KEY`.
 ///

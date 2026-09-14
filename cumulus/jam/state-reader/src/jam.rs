@@ -46,7 +46,7 @@ use sp_externalities::ExternalitiesExt;
 
 /// Key under which the JAM state read-proof lives in the additional-data map.
 ///
-/// The value is the SCALE-encoding of `(state_root, jam_state_helpers::StateProof)`.
+/// The value is the SCALE-encoding of `(state_root, parachain_service_core::StateProof)`.
 pub const JAM_PROOF_KEY: &str = "jam/state_proof";
 
 /// Serves JAM chain-state reads for [`jam_state::jam_state_read`], recording the proof it
@@ -162,7 +162,7 @@ pub trait JamState {
 mod tests {
 	use sp_state_machine::BasicExternalities;
 
-	use super::{JamStateExt, JamStateReader, jam_state};
+	use super::{jam_state, JamStateExt, JamStateReader};
 
 	struct StubReader;
 

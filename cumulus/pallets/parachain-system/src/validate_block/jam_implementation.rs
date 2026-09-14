@@ -51,7 +51,7 @@ use alloc::vec::Vec;
 use codec::Decode;
 use cumulus_primitives_core::ParachainBlockData;
 use frame_support::traits::ExecuteBlock;
-use parachain_service_interface::candidate::ParachainCandidate;
+use parachain_service_core::candidate::ParachainCandidate;
 use sp_crypto_hashing::{blake2_128, blake2_256};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, LazyBlock};
 
@@ -172,14 +172,20 @@ fn build_jam_seed<B: BlockT>(lookup_anchor: [u8; 32], blocks: &[B::LazyBlock]) -
 
 /// Child host calls of the Parachain Service's Refine (spec §4.3).
 ///
-/// Every import sits at a fixed index: those forwarding a JAM host call keep its Gray Paper
-/// index, those native to the Parachain Service are numbered from 100 up.
+/// The parachain-service-native wrappers (indices 200-203) live in
+/// `parachain_service_core::host`, shared with the frameless runtime; the fetch-based JAM
+/// helpers below stay local because they are specific to this runtime's validate-block surface.
 #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
 mod host {
 	use alloc::{vec, vec::Vec};
-	use codec::{Compact, Encode};
 	use jam_codec::Decode as _;
 	use jam_types::RefineContext;
+
+	// The parachain-service host functions (indices 200-203) are defined once, in
+	// `parachain_service_core::host`, so the two guests cannot drift apart on the ABI.
+	pub use parachain_service_core::host::{
+		report_error, request_code_upgrade, set_head, set_parent_head_hash,
+	};
 
 	/// `fetch` selector for `workitems[a].payload` (Gray Paper).
 	const FETCH_WORK_ITEM_PAYLOAD: u64 = 13;
@@ -190,54 +196,11 @@ mod host {
 	/// Gray Paper sentinel for "no such item".
 	const NONE: u64 = u64::MAX;
 
-	/// The subset of the service's `UpwardMessage` ABI this runtime emits. The SCALE variant
-	/// index is positional, so the ordering has to match the spec's `enum UpwardMessage`.
-	#[derive(Encode)]
-	enum UpwardMessage {
-		RequestCodeUpgrade { hash: [u8; 32], len: Compact<u32> },
-	}
-
 	#[polkavm_derive::polkavm_import]
 	extern "C" {
-		// --- JAM host functions, forwarded at their Gray Paper index ---
+		// --- JAM host function, forwarded at its Gray Paper index ---
 		#[polkavm_import(index = 2)]
 		fn fetch_raw(out_ptr: u32, offset: u64, out_len: u64, kind: u64, a: u64, b: u64) -> u64;
-
-		// --- Parachain Service host functions ---
-		#[polkavm_import(index = 200)]
-		fn set_parent_head_hash_raw(hash_ptr: u32);
-		#[polkavm_import(index = 201)]
-		fn set_head_raw(ptr: u32, len: u32);
-		#[polkavm_import(index = 202)]
-		fn send_upward_message_raw(ptr: u32, len: u32);
-		#[polkavm_import(index = 203)]
-		fn report_error_raw(ptr: u32, len: u32);
-	}
-
-	/// Declare the parent head hash this candidate was built on (called once).
-	pub fn set_parent_head_hash(hash: &[u8; 32]) {
-		unsafe { set_parent_head_hash_raw(hash.as_ptr() as u32) }
-	}
-
-	/// Declare the new head data this parachain block produced.
-	pub fn set_head(head: &[u8]) {
-		unsafe { set_head_raw(head.as_ptr() as u32, head.len() as u32) }
-	}
-
-	/// Signal a PVF code upgrade request (`hash` + encoded-code length).
-	pub fn request_code_upgrade(hash: [u8; 32], len: u32) {
-		send_upward_message(&UpwardMessage::RequestCodeUpgrade { hash, len: Compact(len) }.encode())
-	}
-
-	/// Append one upward message to the work digest.
-	fn send_upward_message(msg: &[u8]) {
-		unsafe { send_upward_message_raw(msg.as_ptr() as u32, msg.len() as u32) }
-	}
-
-	/// Abort the PVF with an opaque error payload; never returns.
-	pub fn report_error(data: &[u8]) -> ! {
-		unsafe { report_error_raw(data.as_ptr() as u32, data.len() as u32) }
-		unreachable!("`report_error` aborts the PVF; qed")
 	}
 
 	/// The work package's refine context, decoded from the `fetch` host call.

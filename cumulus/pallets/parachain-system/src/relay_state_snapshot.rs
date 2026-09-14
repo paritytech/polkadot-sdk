@@ -19,12 +19,12 @@
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
-	AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId, relay_chain,
+	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::HashingFor;
 use sp_state_machine::{Backend, TrieBackend, TrieBackendBuilder};
-use sp_trie::{EMPTY_PREFIX, HashDBT, MemoryDB, StorageProof};
+use sp_trie::{HashDBT, MemoryDB, StorageProof, EMPTY_PREFIX};
 
 /// The capacity of the upward message queue of a parachain on the relay chain.
 // The field order should stay the same as the data can be found in the proof to ensure both are
@@ -314,8 +314,8 @@ impl RelayChainStateProof {
 	/// runtime).
 	///
 	/// The service stores the included head in the `ParaInfo` entry under
-	/// [`jam_state_helpers::para_info_key`]. Compiled on the riscv runtime and, so the mock tests
-	/// can exercise it, on host test builds (where it is reached directly, not through
+	/// [`parachain_service_core::para_info_key`]. Compiled on the riscv runtime and, so the mock
+	/// tests can exercise it, on host test builds (where it is reached directly, not through
 	/// [`Self::read_included_para_head`]).
 	///
 	/// INTERIM (task 8 → task 11): while no JAM state proof is carried in the PoV yet, a read that
@@ -327,11 +327,11 @@ impl RelayChainStateProof {
 		all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64"))
 	))]
 	pub(crate) fn read_included_para_head_jam(&self) -> Result<relay_chain::HeadData, Error> {
-		let para_id = parachain_service_interface::types::ParaId::from(u32::from(self.para_id));
+		let para_id = parachain_service_core::types::ParaId::from(u32::from(self.para_id));
 		if let Some(raw) = cumulus_jam_state_reader::jam_state::jam_state_read(
-			&jam_state_helpers::para_info_key(para_id),
+			&parachain_service_core::para_info_key(para_id),
 		) {
-			let info = jam_state_helpers::ParaInfo::decode(&mut &raw[..])
+			let info = parachain_service_core::ParaInfo::decode(&mut &raw[..])
 				.map_err(|_| Error::ParaHead(ReadEntryErr::Decode))?;
 			Ok(relay_chain::HeadData(info.head_data.into()))
 		} else {

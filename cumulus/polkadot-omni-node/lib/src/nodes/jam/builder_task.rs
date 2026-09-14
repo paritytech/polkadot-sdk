@@ -47,35 +47,35 @@
 //! instead of recomputing them from their own clock — exactly as in relay mode.
 
 use super::{
-	JamCollatorMessage, LOG_TARGET, PoolScan, authorizer::AuraAuthorizer, choose_lookup_anchor,
-	jam_read, jam_slot_as_relay_slot, jam_slot_at, scan_pools_at,
+	authorizer::AuraAuthorizer, choose_lookup_anchor, jam_read, jam_slot_as_relay_slot,
+	jam_slot_at, scan_pools_at, JamCollatorMessage, PoolScan, LOG_TARGET,
 };
 use crate::common::{
-	ConstructNodeRuntimeApi, NodeBlock,
 	aura::{AuraIdT, AuraRuntimeApi},
 	types::{ParachainBackend, ParachainClient},
+	ConstructNodeRuntimeApi, NodeBlock,
 };
 use codec::{Decode, DecodeAll, Encode};
 use cumulus_client_consensus_aura::collator::SlotClaim;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
-use cumulus_jam_state_reader::{JAM_PROOF_KEY, JamProofFinalizer, JamProofReader, JamStateExt};
+use cumulus_jam_state_reader::{JamProofFinalizer, JamProofReader, JamStateExt, JAM_PROOF_KEY};
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{CollectCollationInfo, RelayParentOffsetApi};
-use futures::{FutureExt, StreamExt, channel::mpsc};
-use jam_cumulus_facade::service_state::{ParaInfo, para_info_key};
+use futures::{channel::mpsc, FutureExt, StreamExt};
 use jam_interface::{
 	BlockDesc, CoreIndex, HeaderHash, JamChainSource, JamStateSource, ServiceId, Slot as JamSlot,
 	StateRootHash, StorageKey, WorkPackageHash, WorkReport,
 };
-use jam_state_helpers::{
-	StateKey, StateProof, service_value_state_key, verify as verify_state_proof,
-};
 use jam_types::RefineContext;
+use parachain_service_core::{
+	para_info_key, service_value_state_key, verify as verify_state_proof, ParaInfo, StateKey,
+	StateProof,
+};
 use polkadot_primitives::{HeadData, Id as ParaId, UpgradeGoAhead};
 use sc_client_api::Backend as _;
 use sc_consensus::{BlockImport, StateAction};
 use sc_consensus_aura::standalone as aura_internal;
-use sp_additional_data::{AdditionalData, AdditionalDataExt, AdditionalDataFinalizer, hash_value};
+use sp_additional_data::{hash_value, AdditionalData, AdditionalDataExt, AdditionalDataFinalizer};
 use sp_api::{ProofRecorder, ProvideRuntimeApi};
 use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus::{Environment, ProposeArgs, Proposer};
@@ -1519,7 +1519,7 @@ where
 mod tests {
 	use super::*;
 	use codec::Encode;
-	use cumulus_client_parachain_inherent::{INHERENT_IDENTIFIER, ParachainInherentData};
+	use cumulus_client_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
 	use cumulus_pallet_parachain_system::RelayChainStateProof;
 	use sp_additional_data::hash_commitments;
 	use sp_core::H256;
@@ -2123,8 +2123,8 @@ mod tests {
 		let mut node = [0u8; 64];
 		node[0] = 0b1100_0000;
 		node[1..32].copy_from_slice(&state_key);
-		node[32..].copy_from_slice(&jam_state_helpers::blake2_256(value));
-		let state_root = jam_state_helpers::blake2_256(&node);
+		node[32..].copy_from_slice(&parachain_service_core::blake2_256(value));
+		let state_root = parachain_service_core::blake2_256(&node);
 		let proof = jam_interface::RangeProof {
 			nodes: vec![jam_std_common::ProofNode::from(node)],
 			values: vec![(
@@ -2198,7 +2198,7 @@ mod tests {
 	#[tokio::test]
 	async fn the_state_proof_is_verified_and_carried_as_one_entry() {
 		let service_id = 9;
-		let para_id = jam_cumulus_facade::ParaId::from(TEST_PARA_ID);
+		let para_id = parachain_service_core::types::ParaId::from(TEST_PARA_ID);
 		let expected_head = chain(1).remove(0).encode();
 		let value = para_info_value(&expected_head);
 		assert!(value.len() > 32, "the head entry is a large leaf, as on the real service");
@@ -2225,7 +2225,7 @@ mod tests {
 		let entry = additional_data.get(JAM_PROOF_KEY).expect("the entry is present");
 
 		let (decoded_root, decoded_proof) =
-			<(jam_state_helpers::Hash, StateProof)>::decode(&mut &entry[..])
+			<(parachain_service_core::Hash, StateProof)>::decode(&mut &entry[..])
 				.expect("the entry decodes as (state_root, StateProof)");
 		assert_eq!(decoded_root, state_root);
 		assert_eq!(decoded_proof, proof);
@@ -2235,7 +2235,7 @@ mod tests {
 			"the carried proof verifies against the anchor root",
 		);
 
-		let info = jam_state_helpers::ParaInfo::decode(&mut &value[..])
+		let info = parachain_service_core::ParaInfo::decode(&mut &value[..])
 			.expect("the stored head entry is a ParaInfo");
 		assert_eq!(
 			info.head_data.to_vec(),
@@ -2275,7 +2275,7 @@ mod tests {
 		let value = para_info_value(&head.encode());
 		let state_key = service_value_state_key(
 			service_id,
-			&para_info_key(jam_cumulus_facade::ParaId::from(TEST_PARA_ID)),
+			&para_info_key(parachain_service_core::types::ParaId::from(TEST_PARA_ID)),
 		);
 		let (range_proof, state_root) = range_proof_of(state_key, &value);
 

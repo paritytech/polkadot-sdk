@@ -33,20 +33,18 @@
 use super::LOG_TARGET;
 use crate::common::aura::AuraIdT;
 use codec::Encode;
-use jam_cumulus_facade::{
-	H256,
-	aura::{
-		AuthConfig, AuthToken, CollatorKey, CollatorSignature, build_collator_tree,
-		expected_collator_index, signable_work_package_hash,
-	},
-	authorizer::{AuthConfigBlob, Authorizer, AuthorizerHash, authorizer_hash},
-};
 use jam_interface::{ServiceId, Slot as JamSlot};
 use jam_types::{Authorization, CodeHash, WorkPackage};
+use parachain_authorizer::aura::{
+	build_collator_tree, expected_collator_index, signable_work_package_hash, AuthConfig,
+	AuthToken, CollatorKey, CollatorSignature,
+};
+use parachain_service_core::authorizer::{
+	authorizer_hash, AuthConfigBlob, Authorizer, AuthorizerHash,
+};
 use sp_core::{
-	Pair,
 	crypto::{ByteArray, CryptoTypeId, KeyTypeId},
-	ed25519, sr25519,
+	ed25519, sr25519, Pair, H256,
 };
 use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::app_crypto::AppCrypto;
@@ -342,15 +340,17 @@ fn scheme_name(crypto_id: CryptoTypeId) -> String {
 pub(crate) mod tests {
 	use super::*;
 	use codec::DecodeAll;
-	use jam_cumulus_facade::aura::{AuthToken as GuestToken, Ed25519, Sr25519};
 	use jam_types::{RefineContext, WorkItem, WorkPayload};
+	use parachain_authorizer::aura::AuthToken as GuestToken;
+	use parachain_authorizer_ed25519::Ed25519;
+	use parachain_authorizer_sr25519::Sr25519;
 	use sp_consensus_aura::{
 		ed25519::AuthorityId as Ed25519AuraId, sr25519::AuthorityId as Sr25519AuraId,
 	};
 	use sp_keystore::testing::MemoryKeystore;
 	use std::sync::Arc;
 
-	pub(crate) const SERVICE_ID: ServiceId = 1337;
+	pub(crate) use parachain_service_core::PARACHAIN_SERVICE_ID as SERVICE_ID;
 	pub(crate) const PARA_ID: u32 = 1000;
 
 	/// Any file will do: the blob reaches the config only through its hash, and nothing here

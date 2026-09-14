@@ -19,10 +19,8 @@ use super::{
 };
 use anyhow::Context;
 use codec::Encode;
-use jam_cumulus_facade::{
-	aura::{build_collator_tree, AuthConfig, CollatorKey},
-	authorizer::{AuthConfigBlob, Authorizer, AuthorizerHash, CodeHash},
-};
+use parachain_authorizer::aura::{build_collator_tree, AuthConfig, CollatorKey};
+use parachain_service_core::authorizer::{AuthConfigBlob, Authorizer, AuthorizerHash, CodeHash};
 use sp_core::crypto::ByteArray;
 use std::path::Path;
 
@@ -50,7 +48,7 @@ pub fn authorizer_hash(para: &Para, authorizer_blob: &Path) -> anyhow::Result<Au
 		.with_context(|| format!("reading {}", authorizer_blob.display()))?;
 	let code_hash = CodeHash::from(jam_std_common::hash_raw(&blob));
 	let authorizer = Authorizer { code_hash, config: AuthConfigBlob(aura_config(para).encode()) };
-	Ok(jam_cumulus_facade::authorizer::authorizer_hash(&authorizer))
+	Ok(parachain_service_core::authorizer::authorizer_hash(&authorizer))
 }
 
 /// The hash as `gen-spec` and a log line spell it: bare lowercase hex, no `0x`.

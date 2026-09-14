@@ -25,8 +25,8 @@
 //! `DigestItem::AdditionalData` over the carried proof.
 
 use codec::Decode;
-use cumulus_jam_state_reader::{JAM_PROOF_KEY, JamProofReader, JamStateExt};
-use jam_state_helpers::StateProof;
+use cumulus_jam_state_reader::{JamProofReader, JamStateExt, JAM_PROOF_KEY};
+use parachain_service_core::{StateProof, PARACHAIN_SERVICE_ID};
 use sc_client_api::backend::AuxStore;
 use sc_consensus::{BlockImport, BlockImportParams, ImportResult, StateAction};
 use sp_additional_data::{AdditionalData, AdditionalDataExt, AdditionalDataFinalizer};
@@ -36,11 +36,6 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use std::{marker::PhantomData, sync::Arc};
 
 use cumulus_jam_state_reader::JamProofFinalizer;
-
-/// The parachain-service id whose state the carried proof reads — the same value the runtime's
-/// `validate_block` uses, so both sides derive identical 31-byte state keys. A mismatch here
-/// makes every read derive the wrong key and panic.
-const PARACHAIN_SERVICE_ID: u32 = 1337;
 
 /// Turn the carried additional-data map into the JAM reader and finalizer re-execution needs.
 ///
@@ -200,8 +195,8 @@ mod tests {
 	use super::*;
 	use codec::Encode;
 	use cumulus_jam_state_reader::JamStateReader;
-	use jam_state_helpers::{Hash, ProofNode, blake2_256, service_value_state_key};
-	use sp_additional_data::{AdditionalData, hash_commitments, hash_value};
+	use parachain_service_core::{blake2_256, service_value_state_key, Hash, ProofNode};
+	use sp_additional_data::{hash_commitments, hash_value, AdditionalData};
 
 	/// A fixed service-local key standing in for `para_info_key(para_id)`; the reader derives the
 	/// 31-byte state key from it via `service_value_state_key`.

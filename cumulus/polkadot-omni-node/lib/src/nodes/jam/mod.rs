@@ -42,12 +42,12 @@ use authorizer::AuraAuthorizer;
 use codec::Decode;
 use cumulus_jam_state_reader::{JamStateExt, JamStateReader};
 use futures::{Stream, StreamExt};
-use jam_cumulus_facade::service_state::{ParaInfo, para_info_key};
 use jam_interface::{
 	AuthPool, AuthorizerHash, BlockDesc, CoreIndex, HeaderHash, JamChainSource, JamStateSource,
 	ServiceId, Slot as JamSlot,
 };
 use jam_types::RefineContext;
+use parachain_service_core::{para_info_key, ParaInfo};
 use sp_additional_data::AdditionalData;
 use sp_consensus::ProposeArgs;
 use sp_runtime::traits::Block as BlockT;

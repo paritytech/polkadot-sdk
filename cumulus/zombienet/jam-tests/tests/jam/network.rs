@@ -7,12 +7,10 @@
 use super::{chain_spec, collators::Para, env::Binaries, genesis, rpc::JamRpc};
 use anyhow::Context;
 use codec::DecodeAll;
-use jam_cumulus_facade::{
-	authorizer::AuthorizerHash,
-	service_state::{para_info_key, storage_key, ParaInfo, Tag},
-	ParaId,
-};
 use parachain_chain_spec::{ParachainServiceSpec, ParachainSpec};
+use parachain_service_core::{
+	authorizer::AuthorizerHash, para_info_key, storage_key, types::ParaId, ParaInfo, Tag,
+};
 use serde_json::json;
 use sp_runtime::traits::BlakeTwo256;
 use std::{
@@ -28,10 +26,11 @@ use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder, NetworkConfi
 const VALIDATORS: usize = 6;
 const ORDINARY_NODE: &str = "jam-or";
 
-/// The service id the genesis creates the parachain service under. The network is freshly spawned
-/// and private to one test, so a fixed id is always free — and it is the id the collators are
-/// started with (`--jam-service-id`) and the one the authorizer config commits to.
-pub const PARACHAIN_SERVICE_ID: u32 = 1337;
+/// The service id the genesis creates the parachain service under. The network is freshly
+/// spawned and private to one test, so a fixed id is always free — and it is the id the
+/// collators are started with (`--jam-service-id`) and the one the authorizer config commits
+/// to.
+pub use parachain_service_core::PARACHAIN_SERVICE_ID;
 
 /// The balance the service is created with.
 const PARACHAIN_SERVICE_ENDOWMENT: u64 = 1_000_000_000_000_000;

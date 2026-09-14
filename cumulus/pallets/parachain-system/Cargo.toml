@@ -66,23 +66,19 @@ docify = { workspace = true }
 # (`cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))`), so the
 # shared types cannot break ordinary WASM (or std host) builds.
 #
-# The facade crate (`parachain-service/cumulus`) is deliberately NOT used: it is a std-only
-# collator shim (its `authorizer` module pulls `jam-null-authorizer-bin`, which cannot compile
-# for the polkavm target). The type is taken from the crate the facade re-exports —
-# `parachain_service_interface::candidate::ParachainCandidate` is exactly the facade's
-# `ParachainCandidate` — so there is still one definition per type.
+# The former `cumulus` facade crate is deleted. `parachain_service_core::candidate::ParachainCandidate`
+# is exactly what the facade re-exported — so there is still one definition per type.
 [target.'cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))'.dependencies]
-parachain-service-interface = { path = "../../../../parachain-service/service-interface" }
+parachain-service-core = { path = "../../../../parachain-service/core", default-features = false }
 # `RefineContext` is decoded from the `fetch` host call rather than read at a hardcoded byte
 # offset, so a field reordering upstream becomes a decode error instead of silently wrong
-# randomness. Both crates are already in this target's graph via `parachain-service-interface`;
+# randomness. Both crates are already in this target's graph via `parachain-service-core`;
 # `jam-types` derives `jam-codec`, not `parity-scale-codec`, so both have to be named.
 jam-types = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-types", default-features = false }
 jam-codec = { version = "0.1.1", default-features = false, features = ["derive"] }
 # The riscv runtime reads the included para head from the parachain service's JAM state, so it
 # needs the no_std `para_info_key`/`ParaInfo` mirror (task 5). Already in this target's graph via
 # `cumulus-primitives-additional-data`; named directly so the pallet can import it.
-jam-state-helpers = { path = "../../../../parachain-service/cumulus/jam-state-helpers", default-features = false }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
@@ -92,9 +88,8 @@ rand = { workspace = true, default-features = true }
 rstest = { workspace = true }
 trie-standardmap = { workspace = true }
 # Host tests compile the riscv-gated JAM branch (`read_included_para_head_jam`) via `cfg(test)`,
-# so `jam-state-helpers` (and its `parachain-service-interface` type) must be direct deps there.
-jam-state-helpers = { path = "../../../../parachain-service/cumulus/jam-state-helpers", features = ["std"] }
-parachain-service-interface = { path = "../../../../parachain-service/service-interface", features = ["std"] }
+# so `parachain-service-core` must be a direct dev-dep there.
+parachain-service-core = { path = "../../../../parachain-service/core", features = ["std"] }
 
 # Substrate
 frame-executive = { workspace = true }
