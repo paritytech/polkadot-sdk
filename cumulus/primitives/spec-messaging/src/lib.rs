@@ -57,7 +57,8 @@ pub mod streams_root;
 pub use flow_control::{Register, SpecMsgKind, SpecMsgSignal, WindowGrant};
 pub use lift::{
 	build_requires, build_requires_entry, stitch, ConsumptionRecord, Interval, LiftError,
-	MMRExtensionProof, MmrInclusionProof, ProofError, RequiresLift, TreeInclusionProof,
+	MMRExtensionProof, MmrInclusionProof, ProofError, RequiresLift, SourceStreams,
+	TreeInclusionProof,
 };
 pub use message::{
 	leaf_hash, verify_event, verify_exchange, verify_messages, EventRequest, EventResponse,

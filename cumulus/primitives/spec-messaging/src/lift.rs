@@ -415,14 +415,19 @@ pub struct Interval {
 }
 
 /// Written per block: the streams this block touched and the interval it consumed on each, grouped
-/// by source. Per source the entries are `StreamId`-sorted and unique (the messaging inherent
-/// carries at most one item per stream). This is the API view of a flat, host-append-only outbox
-/// vec, grouped and sorted at read time.
+/// by source. One interval per stream (the messaging inherent carries at most one item per
+/// stream), keyed so that is structural and the per-source order is the canonical `StreamId`
+/// order the lifts match against. This is the API view of a flat, host-append-only outbox vec,
+/// grouped and sorted at read time; it encodes exactly as the sorted vec of pairs would.
 #[derive(Clone, Encode, Decode, PartialEq, Eq, Debug, TypeInfo, Default)]
 pub struct ConsumptionRecord {
-	/// `source -> [(stream, interval)]`; each source's streams `StreamId`-sorted and unique.
-	pub entries: BTreeMap<ParaId, Vec<(StreamId, Interval)>>,
+	/// `source -> stream -> interval`.
+	pub entries: BTreeMap<ParaId, BTreeMap<StreamId, Interval>>,
 }
+
+/// One source's streams with their intervals across a bundle, in block order — what
+/// [`build_requires`] merges the per-block records into and [`build_requires_entry`] lifts.
+pub type SourceStreams = BTreeMap<StreamId, Vec<Interval>>;
 
 /// One lift, carried in the POV (never in the block or commitments). Matched positionally to a
 /// source's consumption-record streams (`StreamId`-sorted); a mispaired lift cannot verify because
@@ -504,7 +509,7 @@ pub fn stitch(
 /// that root; the caller ([`build_requires`]) already holds the source and pairs it. `streams`
 /// iterates in `StreamId` order; `lifts` matches it positionally.
 pub fn build_requires_entry(
-	streams: &[(StreamId, Vec<Interval>)],
+	streams: &SourceStreams,
 	lifts: &[RequiresLift],
 ) -> Result<StreamsRoot, LiftError> {
 	if streams.len() != lifts.len() {
@@ -536,7 +541,7 @@ pub fn build_requires(
 	lifts: &BTreeMap<ParaId, Vec<RequiresLift>>,
 ) -> Result<RequiresSet, LiftError> {
 	// Merge per (source, stream) intervals across the bundle, preserving block order.
-	let mut merged: BTreeMap<ParaId, BTreeMap<StreamId, Vec<Interval>>> = BTreeMap::new();
+	let mut merged: BTreeMap<ParaId, SourceStreams> = BTreeMap::new();
 	for record in records {
 		for (source, streams) in &record.entries {
 			let by_stream = merged.entry(*source).or_default();
@@ -553,9 +558,7 @@ pub fn build_requires(
 		.iter()
 		.zip(lifts.values())
 		.map(|((source, by_stream), source_lifts)| {
-			let streams: Vec<(StreamId, Vec<Interval>)> =
-				by_stream.iter().map(|(s, i)| (*s, i.clone())).collect();
-			build_requires_entry(&streams, source_lifts).map(|root| (*source, root))
+			build_requires_entry(by_stream, source_lifts).map(|root| (*source, root))
 		})
 		.collect::<Result<Vec<_>, _>>()?;
 	RequiresSet::try_from_iter(entries).map_err(|_| LiftError::TooManySources)
@@ -765,6 +768,27 @@ mod tests {
 	}
 
 	#[test]
+	fn consumption_record_encodes_as_the_sorted_vec_of_pairs() {
+		// The record crosses the runtime-API boundary; keying it must not move a byte relative to
+		// the design's `Vec<(StreamId, Interval)>` view of the same sorted, unique entries.
+		let all = leaves(3);
+		let (a, b) = (ch(1), ch(2));
+		let (ia, ib) = (
+			Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 1) },
+			Interval { start: root_at(&all, 1), end: frontier_at(&all, 3) },
+		);
+		let keyed = ConsumptionRecord {
+			entries: BTreeMap::from([(
+				ParaId::from(7),
+				BTreeMap::from([(b, ib.clone()), (a, ia.clone())]),
+			)]),
+		};
+		let as_vec: BTreeMap<ParaId, Vec<(StreamId, Interval)>> =
+			BTreeMap::from([(ParaId::from(7), vec![(a, ia), (b, ib)])]);
+		assert_eq!(keyed.encode(), as_vec.encode());
+	}
+
+	#[test]
 	fn hot_path_single_block_single_stream() {
 		let all = leaves(3);
 		let root3 = root_at(&all, 3);
@@ -781,7 +805,8 @@ mod tests {
 			extension: MMRExtensionProof::identity(),
 			tree_proof,
 		};
-		let root = build_requires_entry(&[(stream, vec![interval])], &[lift]).unwrap();
+		let streams = SourceStreams::from([(stream, vec![interval])]);
+		let root = build_requires_entry(&streams, &[lift]).unwrap();
 		assert_eq!(root, expected);
 	}
 
@@ -798,10 +823,10 @@ mod tests {
 		let record = ConsumptionRecord {
 			entries: BTreeMap::from([(
 				source,
-				vec![(
+				BTreeMap::from([(
 					stream,
 					Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 3) },
-				)],
+				)]),
 			)]),
 		};
 		let mut lifts = BTreeMap::new();
@@ -838,10 +863,10 @@ mod tests {
 			extension: MMRExtensionProof::identity(),
 			tree_proof,
 		};
-		let streams = vec![
+		let streams = SourceStreams::from([
 			(sa, vec![Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 3) }]),
 			(sb, vec![Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 3) }]),
-		];
+		]);
 		assert_eq!(
 			build_requires_entry(&streams, &[mk(proof_a), mk(proof_b)]),
 			Err(LiftError::DivergentRoots),
