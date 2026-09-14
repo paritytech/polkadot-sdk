@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789374594549,
+  "lastUpdate": 1789392644472,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "b5de070244e81a3524a78366f3a21d2b20f2adb0",
-          "message": "Fix link-checker CI job (#11038)\n\nLets give the link-checker job some new life.\n\nSadly our blog posts are not available anymore (or at least I could not\nfind them), so I removed all references to them. Was thinking about\nlinking web archive, but its silly to first remove our blog and then\nlink to an archive.",
-          "timestamp": "2026-02-10T20:04:57Z",
-          "tree_id": "cc40a52e95a27e8fe53cb2541bae42169fd19dd2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b5de070244e81a3524a78366f3a21d2b20f2adb0"
-        },
-        "date": 1770758368768,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009288604379999987,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00648055650999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00266205088,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.008606298410000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c208ccc5d3dfa7f7c0f63af6014e4e9edd366392",
+          "message": "asset-hub-westend: Remove PSM reset migration (#13137)\n\nRemoves the `RemovePallet<Psm>` and `RemovePallet<Parameters>`\nmigrations added in #12245 from the Westend Asset Hub runtime.\n\nBoth already ran on Westend Asset Hub (spec 1_025_000). Since\n`RemovePallet` runs on every upgrade, leaving them in would wipe any PSM\ncreated from now on.",
+          "timestamp": "2026-09-14T11:52:39Z",
+          "tree_id": "9215876ce0ba6bdc0f1f9978a8ac4d4be6d95ef5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c208ccc5d3dfa7f7c0f63af6014e4e9edd366392"
+        },
+        "date": 1789392604767,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026494019900000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009337716469999976,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010202348379999993,
             "unit": "seconds"
           }
         ]
