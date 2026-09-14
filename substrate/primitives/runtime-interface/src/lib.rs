@@ -100,7 +100,9 @@ pub use sp_std;
 ///     ///
 ///     /// For new runtimes, only function with latest version is reachable.
 ///     /// But old version (above) is still accessible for old runtimes.
-///     /// Default version is 1.
+///     /// Default version is 1. The versions of a function must be consecutive, but they don't
+///     /// have to start at 1: an interface exposing only the newest ABI of a function declares
+///     /// just that version.
 ///     #[version(2)]
 ///     fn call(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnFatPointer<Vec<u8>> {
 ///         // Here you could call some rather complex code that only compiles on native or

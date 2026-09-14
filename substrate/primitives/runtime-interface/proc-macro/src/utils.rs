@@ -503,7 +503,7 @@ pub fn get_runtime_interface(trait_def: &ItemTrait) -> Result<RuntimeInterface> 
 	}
 
 	for function in functions.values() {
-		let mut next_expected = 1;
+		let mut next_expected = function.versions.keys().next().copied().unwrap_or(1);
 		let mut callable_cfg: Option<(String, Span)> = None;
 		let mut last_epoch = ABI_EPOCH_LEGACY;
 		for (version, item) in function.versions.iter() {
