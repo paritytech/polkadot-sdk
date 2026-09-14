@@ -117,7 +117,7 @@ pub enum AccessEntry {
 	/// decides on `slot` first, the most-discriminating field in the typical
 	/// access pattern (one contract touching many slots within a transaction).
 	Storage { slot: Slot, address: H160 },
-	/// Account metadata (`AccountInfoOf`) of `address`.
+	/// Contract info (`AccountInfoOf`) of `address`.
 	AccountInfo { address: H160 },
 	/// Code info (`CodeInfoOf`), keyed by code hash: contracts with the same code share one entry.
 	CodeInfo { hash: H256 },
@@ -232,7 +232,7 @@ pub trait Access {
 #[derive(Clone, Copy, Debug)]
 pub enum CallWarmth {
 	/// A normal call reads the target's address mapping and contract info; `transfer` carries the
-	/// value transfer's keys when the call moves value.
+	/// value transfer's warmth when the call moves value.
 	Plain { original_account: Warmth, account_info: Warmth, transfer: Option<TransferWarmth> },
 	/// A delegate call reads only the target's contract info.
 	Delegate { account_info: Warmth },
@@ -250,8 +250,8 @@ pub struct TransferWarmth {
 }
 
 impl CallWarmth {
-	/// The transfer's keys, when the call moves value.
-	pub fn transfer_keys(self) -> Option<TransferWarmth> {
+	/// The value transfer's warmth, `None` when the call moves no value.
+	pub fn transfer_warmth(self) -> Option<TransferWarmth> {
 		match self {
 			Self::Plain { transfer, .. } => transfer,
 			Self::Delegate { .. } => None,
@@ -747,6 +747,31 @@ mod tests {
 			al.metrics().size,
 			MAX_ACCESS_LIST_ENTRIES,
 			"the cap holds across past-cap touches and upgrades",
+		);
+	}
+
+	#[test]
+	fn a_transfer_warms_the_sender_too() {
+		let mut al = AccessList::new();
+		let sender = H160::from_low_u64_be(0xcafe);
+		let transfer = Some(Transfer { from: sender, dust: false });
+		al.warm(CallAccess::new(H160::from_low_u64_be(1), false, transfer));
+
+		let expected = CallWarmth::Plain {
+			original_account: Warmth::cold_non_revertible(),
+			account_info: Warmth::cold_non_revertible(),
+			transfer: Some(TransferWarmth {
+				account: Warmth::cold_non_revertible(),
+				sender_account: Warmth::Hot { charged: StorageOp::Write },
+				account_info: Warmth::cold_non_revertible(),
+				sender_account_info: Warmth::Hot { charged: StorageOp::Read },
+			}),
+		};
+		assert_eq!(
+			al.warmth_of(CallAccess::Plain { target: H160::from_low_u64_be(2), transfer }),
+			expected,
+			"the sender's entries are keyed by the sender, so they read hot whichever target \
+			 the call names",
 		);
 	}
 

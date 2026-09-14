@@ -131,8 +131,8 @@ pub enum RuntimeCosts {
 	PrecompileDecode(u32),
 	/// Weight of the transfer performed during a call.
 	/// parameter `dust_transfer` indicates whether the transfer has a `dust` value.
-	/// A precompile's account state is untracked, so it has no `keys` and prices cold.
-	CallTransferSurcharge { dust_transfer: bool, keys: Option<TransferWarmth> },
+	/// A precompile's account state is untracked, so it has no `warmth` and prices cold.
+	CallTransferSurcharge { dust_transfer: bool, warmth: Option<TransferWarmth> },
 	/// Weight per byte that is cloned by supplying the `CLONE_INPUT` flag.
 	CallInputCloned(u32),
 	/// Weight of calling `seal_instantiate`.
@@ -480,14 +480,14 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
-			CallTransferSurcharge { dust_transfer, keys } => {
+			CallTransferSurcharge { dust_transfer, warmth } => {
 				let dust = dust_transfer.into();
 				let cold_transfer = || cost_args!(seal_call, 1, dust, 0);
-				match keys {
+				match warmth {
 					None => cold_transfer(),
-					Some(keys) => {
+					Some(warmth) => {
 						let surcharge = weight_by_warmth::<T, _>(
-							[keys.account, keys.sender_account, keys.sender_account_info],
+							[warmth.account, warmth.sender_account, warmth.sender_account_info],
 							CallAccess::KEY_FAMILY,
 							cold_transfer,
 							|| {
@@ -499,10 +499,10 @@ impl<T: Config> Token<T> for RuntimeCosts {
 						// commit.
 						let info_op = Transfer::info_op(dust_transfer);
 						let commits = [
-							(keys.account, StorageOp::Write),
-							(keys.sender_account, StorageOp::Write),
-							(keys.account_info, info_op),
-							(keys.sender_account_info, info_op),
+							(warmth.account, StorageOp::Write),
+							(warmth.sender_account, StorageOp::Write),
+							(warmth.account_info, info_op),
+							(warmth.sender_account_info, info_op),
 						]
 						.into_iter()
 						.map(|(warmth, op)| Self::write_commit_owed::<T>(warmth, op))
@@ -754,7 +754,7 @@ mod tests {
 		let weight_of = |dust_transfer, warmth: Option<Warmth>| {
 			<RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::CallTransferSurcharge {
 				dust_transfer,
-				keys: warmth.map(|warmth| TransferWarmth {
+				warmth: warmth.map(|warmth| TransferWarmth {
 					account: warmth,
 					sender_account: warmth,
 					account_info: write_paid,
@@ -816,7 +816,7 @@ mod tests {
 		let weight_of = |dust_transfer, accounts, infos| {
 			<RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::CallTransferSurcharge {
 				dust_transfer,
-				keys: Some(TransferWarmth {
+				warmth: Some(TransferWarmth {
 					account: accounts,
 					sender_account: accounts,
 					account_info: infos,

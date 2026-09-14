@@ -647,7 +647,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		};
 		let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 		let dust_transfer = Pallet::<E::T>::has_dust(value);
-		let mut transfer_keys = None;
+		let mut transfer_warmth = None;
 		match &precompile {
 			Some(precompile) if precompile.has_contract_info() => {
 				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?
@@ -659,7 +659,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				let call_access =
 					CallAccess::new(callee, matches!(&call_type, CallType::DelegateCall), transfer);
 				let warmth = self.ext.warm(call_access);
-				transfer_keys = warmth.transfer_keys();
+				transfer_warmth = warmth.transfer_warmth();
 				self.charge_gas(RuntimeCosts::CallBase(warmth))?
 			},
 		};
@@ -698,7 +698,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 					self.charge_gas(RuntimeCosts::CallTransferSurcharge {
 						dust_transfer,
-						keys: transfer_keys,
+						warmth: transfer_warmth,
 					})?;
 				}
 

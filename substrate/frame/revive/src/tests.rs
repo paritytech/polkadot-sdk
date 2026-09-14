@@ -20,7 +20,7 @@ mod deposit_payment;
 mod eip7702;
 mod eth_estimate_gas;
 mod pallet_dummy;
-mod precompiles;
+pub(crate) mod precompiles;
 mod pvm;
 mod sol;
 mod stipends;

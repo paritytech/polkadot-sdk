@@ -67,7 +67,7 @@ pub fn charge_call_gas<'a, E: Ext>(
 	let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 
 	let dust_transfer = Pallet::<E::T>::has_dust(value);
-	let mut transfer_keys = None;
+	let mut transfer_warmth = None;
 	match precompile {
 		Some(precompile) => {
 			// Base cost depending on contract info
@@ -91,7 +91,7 @@ pub fn charge_call_gas<'a, E: Ext>(
 				.then(|| Transfer { from: interpreter.ext.address(), dust: dust_transfer });
 			let call_access = CallAccess::new(callee, scheme.is_delegate_call(), transfer);
 			let warmth = interpreter.ext.warm(call_access);
-			transfer_keys = warmth.transfer_keys();
+			transfer_warmth = warmth.transfer_warmth();
 			interpreter.ext.charge_or_halt(RuntimeCosts::CallBase(warmth))?;
 
 			interpreter
@@ -107,7 +107,7 @@ pub fn charge_call_gas<'a, E: Ext>(
 			.frame_meter_mut()
 			.charge_or_halt(RuntimeCosts::CallTransferSurcharge {
 				dust_transfer,
-				keys: transfer_keys,
+				warmth: transfer_warmth,
 			})?;
 	}
 

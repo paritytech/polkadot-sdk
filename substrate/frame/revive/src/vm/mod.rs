@@ -501,7 +501,7 @@ mod tests {
 			assert_eq!(
 				bytes_of(CodeLoadWarmth { info: Warmth::cold_non_revertible(), blob: hot_blob }),
 				bytes_of(warmth(hot_blob)),
-				"the metadata's warmth does not price the bytes: only the blob is read by length",
+				"the code info's warmth does not price the bytes: only the blob is read by length",
 			);
 			assert!(
 				bytes_of(warmth(hot_blob)).ref_time() > 0,
