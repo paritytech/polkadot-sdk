@@ -1,0 +1,57 @@
+title: 'Reserve scheduler capacity for privileged governance alarms and enactments'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds a priority-based reservation to `pallet-scheduler` and uses it in `pallet-referenda`,
+      so that privileged governance keeps scheduling capacity when a block's agenda is contended.
+
+      Previously `pallet-referenda` admitted alarms and enactments by agenda count alone. When a
+      target block's agenda was already at `MaxScheduledPerBlock`, scheduling failed, and that
+      failure was neither reported nor retried: `set_alarm` fired a `debug_assert!` and stored
+      `alarm = None`, leaving a referendum that is never serviced, and enactment scheduling
+      discarded its result.
+
+      Changes:
+      - `pallet-scheduler` gains a `PriorityReserve` config constant. Once a block's agenda
+        holds `MaxScheduledPerBlock - PriorityReserve` tasks, only tasks with priority at most
+        `RESERVED_PRIORITY_THRESHOLD` (62) may take the remaining reserved slots; lower-priority
+        tasks are rejected with `Exhausted`. `PriorityReserve = 0` preserves the previous
+        behaviour.
+      - `pallet-referenda` no longer asserts on a failed alarm schedule. `set_alarm` returns
+        `None`, and `submit` propagates this as the new `Error::AlarmScheduleFailed`, reverting
+        its state instead of storing a referendum that will never be serviced.
+      - `TrackInfo` gains an `alarm_priority` field. A track's alarms and enactments use that
+        priority only after the decision deposit has been posted. Before the deposit the
+        least-urgent priority applies. Only privileged tracks are given a reserved-band
+        `alarm_priority`, so the reserved slots are reachable only by a privileged referendum
+        that has committed its decision deposit.
+
+      The per-block agenda remains finite, so this does not remove contention for agenda space.
+      It reserves a portion of that space for privileged tracks whose referenda have committed
+      their decision deposit.
+
+      Runtimes must set `type PriorityReserve` on their scheduler config and give each referenda
+      track an `alarm_priority` (`128` reproduces the previous, unreserved behaviour).
+
+crates:
+  - name: pallet-scheduler
+    bump: major
+  - name: pallet-referenda
+    bump: major
+  - name: pallet-democracy
+    bump: patch
+  - name: westend-runtime
+    bump: minor
+  - name: rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: collectives-westend-runtime
+    bump: minor
+  - name: kitchensink-runtime
+    bump: patch
+  - name: pallet-staking-async-parachain-runtime
+    bump: patch
+  - name: pallet-staking-async-rc-runtime
+    bump: patch

@@ -217,6 +217,7 @@ impl WeightInfo for TestWeightInfo {
 parameter_types! {
 	pub storage MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
 		BlockWeights::get().max_block;
+	pub static PriorityReserve: u32 = 0;
 }
 
 impl Config for Test {
@@ -228,6 +229,7 @@ impl Config for Test {
 	type ScheduleOrigin = EitherOfDiverse<EnsureRoot<u64>, EnsureSignedBy<One, u64>>;
 	type OriginPrivilegeCmp = EqualPrivilegeOnly;
 	type MaxScheduledPerBlock = ConstU32<10>;
+	type PriorityReserve = PriorityReserve;
 	type WeightInfo = TestWeightInfo;
 	type Preimages = Preimage;
 	type BlockNumberProvider = frame_system::Pallet<Self>;
