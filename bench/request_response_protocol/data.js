@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789337157997,
+  "lastUpdate": 1789373489410,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -123767,6 +123767,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2602470742,
             "range": "± 23878354",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "86f2e26675a0d5e1f1764d6eb2bc56ec3c1e445d",
+          "message": "[HRMP] Extend InboundMessageId for horizontal messages (#12876)\n\n[HRMP] Extend `InboundMessageId` for horizontal messages\n\nMake `InboundMessageId` more specific for horizontal messages, in order\nto cover possible corner cases. For example when a channel is force\nclosed\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-14T06:56:06Z",
+          "tree_id": "101821dc4976214de65fd78fddb23c755a4fc1a4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/86f2e26675a0d5e1f1764d6eb2bc56ec3c1e445d"
+        },
+        "date": 1789373450795,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19394953,
+            "range": "± 163661",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19438527,
+            "range": "± 163727",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20888664,
+            "range": "± 77656",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25807682,
+            "range": "± 116948",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58993846,
+            "range": "± 650986",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 331240921,
+            "range": "± 4176500",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2518856433,
+            "range": "± 93910281",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16629581,
+            "range": "± 249682",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16812942,
+            "range": "± 130667",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17352192,
+            "range": "± 205568",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21746960,
+            "range": "± 139372",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59718450,
+            "range": "± 687270",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 345451613,
+            "range": "± 2924952",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2590553422,
+            "range": "± 28722182",
             "unit": "ns/iter"
           }
         ]
