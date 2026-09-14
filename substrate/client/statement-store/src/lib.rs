@@ -604,7 +604,8 @@ struct QueryIndex {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum RetentionTrack {
-	/// No affinity covers the statement: it is kept only until propagated.
+	/// No affinity covers the statement, it only passes through on its way to the replicas: kept
+	/// until propagated.
 	Transient,
 	/// Only explicit affinity covers the statement: it is dropped once that affinity lapses.
 	ExplicitOnly,
