@@ -572,6 +572,20 @@ fn netting_is_unchanged_without_rate_change() {
 }
 
 #[test]
+fn partial_refund_rounds_down() {
+	let mut info = new_info(StorageInfo { bytes: 3, bytes_deposit: 10, ..Default::default() });
+
+	let diff = Diff { bytes_removed: 1, ..Default::default() };
+	assert_eq!(diff.update_contract::<Test>(Some(&mut info)), Deposit::Refund(3));
+	assert_eq!((info.storage_bytes, info.storage_byte_deposit), (2, 7));
+
+	// The unit kept back above is returned once the last byte goes.
+	let diff = Diff { bytes_removed: 2, ..Default::default() };
+	assert_eq!(diff.update_contract::<Test>(Some(&mut info)), Deposit::Refund(7));
+	assert_eq!((info.storage_bytes, info.storage_byte_deposit), (0, 0));
+}
+
+#[test]
 fn finalize_raises_max_charged_after_rate_increase() {
 	clear_ext();
 	crate::tests::DepositPerByte::set(10);
