@@ -12,4 +12,4 @@ doc:
     timer is the single source of truth for the current slot.
 crates:
 - name: cumulus-client-consensus-aura
-  bump: patch
+  bump: minor
