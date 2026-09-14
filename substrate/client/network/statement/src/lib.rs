@@ -255,6 +255,13 @@ const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::fr
 const INITIAL_SYNC_SCAN_LIMIT: usize = 4096;
 /// Interval for processing pending topic affinity changes from peers.
 const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
+/// How long a full `statement/2` peer may stay silent about its affinity before it is treated as
+/// wanting every statement.
+///
+/// TODO: Remove once the filter is mandatory by protocol version. A full node running without
+/// the v2 DHT path never sends a filter, so a node with the path on would wait for it forever.
+/// The rollout flips every node at once, so the grace period is a safety net in case it does not.
+const AFFINITY_FILTER_GRACE_PERIOD: std::time::Duration = std::time::Duration::from_secs(10);
 /// Interval between sweeps that evict statement-store peers unseen for the staleness TTL, so the
 /// topology converges on live peers even while discovery is quiet.
 const PEER_EVICTION_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
@@ -678,6 +685,7 @@ impl StatementHandlerPrototype {
 				Box::pin(pending().fuse())
 			},
 			pending_initial_syncs: HashMap::new(),
+			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -745,6 +753,8 @@ pub struct StatementHandler<
 	peer_eviction_timeout: Pin<Box<dyn FusedFuture<Output = ()> + Send>>,
 	/// Pending initial syncs per peer.
 	pending_initial_syncs: HashMap<PeerId, PendingInitialSync>,
+	/// Full `statement/2` peers whose affinity filter is still due, keyed by connection time.
+	awaiting_affinity_filter: HashMap<PeerId, Instant>,
 	/// Queue for round-robin processing of initial syncs.
 	initial_sync_peer_queue: VecDeque<PeerId>,
 	/// Next value to hand out as [`PendingInitialSync::sync_id`].
@@ -1177,6 +1187,7 @@ where
 			pending_affinities_timeout: Box::pin(pending().fuse()),
 			peer_eviction_timeout: Box::pin(pending().fuse()),
 			pending_initial_syncs: HashMap::new(),
+			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -1272,6 +1283,7 @@ where
 						self.v2dht.on_pending_affinities();
 						self.v2dht.refresh_connections(&self.network);
 					}
+					self.assume_match_all_after_filter_grace();
 					self.process_pending_affinities();
 					self.pending_affinities_timeout =
 						Box::pin(tokio::time::sleep(PENDING_AFFINITIES_INTERVAL).fuse());
@@ -1604,8 +1616,12 @@ where
 				}
 
 				// Peers awaiting their affinity filter are synced by the pending-affinity tick.
+				// Light peers owe the filter by protocol; full peers owe it only with the v2 DHT
+				// path on, so they get [`AFFINITY_FILTER_GRACE_PERIOD`] to deliver it.
 				if self.peers.get(&peer).map_or(false, |p| p.can_receive()) {
 					self.schedule_initial_sync_for_peer(peer);
+				} else if !is_light {
+					self.awaiting_affinity_filter.insert(peer, Instant::now());
 				}
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
@@ -1614,6 +1630,7 @@ where
 				}
 				let removed_peer = self.peers.remove(&peer);
 				debug_assert!(removed_peer.is_some());
+				self.awaiting_affinity_filter.remove(&peer);
 
 				if let Some(removed_peer) = removed_peer {
 					self.metrics.as_ref().map(|metrics| {
@@ -1701,6 +1718,7 @@ where
 										// Defer both the affinity update and sync scheduling
 										// to the main loop tick.
 										peer_data.pending_topic_affinity = Some(filter);
+										self.awaiting_affinity_filter.remove(&peer);
 									}
 								},
 							}
@@ -2393,6 +2411,33 @@ where
 			self.metrics.as_ref().map(|metrics| {
 				metrics.initial_sync_peers_active.inc();
 			});
+		}
+	}
+
+	/// Give peers silent past [`AFFINITY_FILTER_GRACE_PERIOD`] a match-all filter, the v1 meaning
+	/// of no filter, and schedule their initial sync.
+	fn assume_match_all_after_filter_grace(&mut self) {
+		let now = Instant::now();
+		let expired: Vec<PeerId> = self
+			.awaiting_affinity_filter
+			.iter()
+			.filter(|(_, connected_at)| {
+				now.duration_since(**connected_at) >= AFFINITY_FILTER_GRACE_PERIOD
+			})
+			.map(|(peer, _)| *peer)
+			.collect();
+		for peer in expired {
+			self.awaiting_affinity_filter.remove(&peer);
+			let Some(peer_data) = self.peers.get_mut(&peer) else {
+				continue;
+			};
+			log::warn!(
+				target: LOG_TARGET,
+				"No affinity filter from {peer} within the grace period, assuming it wants everything"
+			);
+			// The seed is irrelevant to a filter with every bit set.
+			peer_data.topic_affinity = Some(AffinityFilter::match_all(0));
+			self.schedule_initial_sync_for_peer(peer);
 		}
 	}
 
@@ -3309,6 +3354,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
+			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -4145,6 +4191,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
+			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -4208,6 +4255,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
+			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -6364,6 +6412,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
+			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -6868,6 +6917,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
+			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -6962,6 +7012,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
+			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -7059,6 +7110,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			peer_eviction_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
+			awaiting_affinity_filter: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
@@ -7180,6 +7232,7 @@ mod tests {
 					pending_affinities_timeout: Box::pin(futures::future::pending()),
 					peer_eviction_timeout: Box::pin(futures::future::pending()),
 					pending_initial_syncs: HashMap::new(),
+					awaiting_affinity_filter: HashMap::new(),
 					initial_sync_peer_queue: VecDeque::new(),
 					next_initial_sync_id: 0,
 					initial_sync_in_flight_bytes: 0,
