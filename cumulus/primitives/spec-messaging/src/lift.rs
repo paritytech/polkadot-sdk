@@ -319,8 +319,8 @@ impl MmrInclusionProof {
 	///
 	/// **Only reconstructs** a frontier from `(leaf, items)`; it does **not** bind the result to
 	/// any committed `StreamsRoot`. An `Ok` here is *not* authentication — a caller must bind the
-	/// derived root to a trusted `under`. Prefer [`crate::message::verify_event`] /
-	/// [`crate::message::verify_event_response`], which do that; never trust a raw `verify_head`.
+	/// derived root to a trusted `under`. Prefer [`crate::message::verify_event`], which does that;
+	/// never trust a raw `verify_head`.
 	pub fn verify_head(&self, leaf: Hash) -> Result<(MessagePosition, MmrFrontier), ProofError> {
 		if !is_valid_mmr_size(self.mmr_size) {
 			return Err(ProofError::InvalidProof);
@@ -361,9 +361,8 @@ impl MmrInclusionProof {
 	/// malformed.
 	///
 	/// **Only reconstructs** the implied root; it does **not** bind it to any committed
-	/// `StreamsRoot` — an `Ok` is not authentication. Prefer
-	/// [`crate::message::verify_positional_event_response`], which binds the result to a trusted
-	/// `under`.
+	/// `StreamsRoot` — an `Ok` is not authentication. Prefer [`crate::message::verify_event`],
+	/// which binds the result to a trusted `under`.
 	pub fn verify_leaf(
 		&self,
 		position: MessagePosition,

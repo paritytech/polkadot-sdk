@@ -28,9 +28,9 @@
 //!   structural (the sender's outbox, the `StreamId` key, the MMR leaf index), so only the payload
 //!   and its hash are primitives.
 //! - **Fetch protocol** — [`MessagesRequest`] / [`MessagesResponse`]: a collator fetches a range of
-//!   a source stream's messages and authenticates the response ([`verify_messages_response`])
-//!   against a `StreamsRoot` it has independently verified, reusing the same `extension` +
-//!   `tree_proof` machinery as the requires-lift (see [`crate::lift`]).
+//!   a source stream's messages and authenticates the response ([`verify_messages`]) against a
+//!   `StreamsRoot` it has independently verified, reusing the same `extension` + `tree_proof`
+//!   machinery as the requires-lift (see [`crate::lift`]).
 //! - **Event read** — [`EventRequest`] / [`EventResponse`]: the lossy single-event (register /
 //!   head) read of an `Ack`/`Broadcast`/`Private` stream, authenticated by a single-leaf
 //!   [`MmrInclusionProof`]. Verify request-aware via [`verify_event`] (the safe entry point).
@@ -54,8 +54,8 @@ use crate::{
 	SpecHasher, LEAF_TAG,
 };
 
-/// Why verifying an off-chain response ([`verify_messages_response`], [`verify_event_response`],
-/// [`verify_positional_event_response`], [`verify_event`]) failed. Typed so the fetch subsystem can
+/// Why verifying an off-chain response ([`verify_exchange`], [`verify_messages`], [`verify_event`])
+/// failed. Typed so the fetch subsystem can
 /// react per reason — [`RootMismatch`](VerifyError::RootMismatch) is benign (retry under a fresher
 /// root), whereas the others indicate a peer served a malformed/forged response (down-score / ban).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -130,9 +130,8 @@ pub struct MessagesRequest {
 }
 
 /// Off-chain response: payloads from `base` on, plus the proofs binding them — and everything
-/// before them — to the requested `StreamsRoot`. Verify request-aware via [`verify_messages`] (the
-/// safe entry point; or the lower-level [`verify_messages_response`]); nothing is trusted
-/// (fabricated peaks/payloads/proofs cannot reproduce a committed root).
+/// before them — to the requested `StreamsRoot`. Verify request-aware via [`verify_messages`];
+/// nothing is trusted (fabricated peaks/payloads/proofs cannot reproduce a committed root).
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub struct MessagesResponse {
 	/// Position of the first payload (trust-free hint; a lie only fails the proofs).
@@ -159,9 +158,9 @@ pub struct MessagesResponse {
 /// Binds the response to the request — `resp.base == req.start` (a peer must answer the range that
 /// was asked, not a different internally-valid one) and the payloads' total size ≤ `req.max_bytes`
 /// (`max_bytes == 0` requests a payload-free / lift-material proof) — then authenticates the
-/// payloads via [`verify_messages_response`] using `req.stream` / `req.under`. Prefer this over
-/// calling `verify_messages_response` directly: without these checks a caller must otherwise apply
-/// payloads at the *proven* `resp.base` and enforce the base / budget itself.
+/// payloads via `verify_messages_response` using `req.stream` / `req.under`. That step is
+/// crate-internal: without these checks a caller would have to apply payloads at the *proven*
+/// `resp.base` and enforce the base / budget itself.
 pub fn verify_messages(
 	req: &MessagesRequest,
 	resp: &MessagesResponse,
@@ -179,15 +178,15 @@ pub fn verify_messages(
 }
 
 /// Verify a [`MessagesResponse`] for `stream` under `under`, returning the authenticated payloads
-/// on success. Prefer the request-aware [`verify_messages`], which additionally binds `resp.base`
-/// to the requested `start`; a caller of this lower-level function must apply payloads at the
-/// *proven* `resp.base` and reject an unexpected base itself.
+/// on success. Crate-internal: it does not bind `resp.base` to a requested `start`, so a caller
+/// would have to apply payloads at the *proven* `resp.base` and reject an unexpected base itself.
+/// [`verify_messages`] does that and is the public entry.
 ///
 /// Recomputes the stream frontier from `start_peaks` + the hashed `payloads`, extends it to the
 /// stream's current root (`extension`), and walks the keyed tree (`tree_proof`) to a `StreamsRoot`
 /// — which must equal `under`. This is the same `extension` + `tree_proof` check the requires-lift
 /// performs, so a fetched batch and a consumption lift authenticate identically.
-pub fn verify_messages_response(
+pub(crate) fn verify_messages_response(
 	stream: StreamId,
 	under: StreamsRoot,
 	resp: &MessagesResponse,
@@ -244,9 +243,8 @@ pub struct EventRequest {
 }
 
 /// Off-chain response carrying one event leaf and the proofs placing it under the requested
-/// `StreamsRoot`. Verify request-aware via [`verify_event`] (the safe entry point; or the
-/// lower-level [`verify_event_response`] / [`verify_positional_event_response`]); nothing is
-/// trusted (a fabricated payload or proof cannot reproduce a committed root).
+/// `StreamsRoot`. Verify request-aware via [`verify_event`]; nothing is trusted (a fabricated
+/// payload or proof cannot reproduce a committed root).
 ///
 /// Head-ness comes with the check: `under` fixes the stream's leaf count, so the head is the leaf
 /// at `count - 1` — an old leaf cannot be served as the head under that root.
@@ -332,9 +330,9 @@ pub fn verify_event(
 /// ([`MmrInclusionProof::verify_head`]), bags that frontier to the stream root, and walks the keyed
 /// tree (`tree_proof`) to a `StreamsRoot` — which must equal `under`. The frontier is returned
 /// because it is *not* reconstructible from the response alone, and lossy consumption needs it as
-/// the interval endpoint. Prefer [`verify_event`] (request-aware); for a positional read use
-/// [`verify_positional_event_response`].
-pub fn verify_event_response(
+/// the interval endpoint. Crate-internal: [`verify_event`] dispatches here for a head request and
+/// to `verify_positional_event_response` for a positional one, and is the public entry.
+pub(crate) fn verify_event_response(
 	stream: StreamId,
 	under: StreamsRoot,
 	resp: &EventResponse,
@@ -353,14 +351,14 @@ pub fn verify_event_response(
 }
 
 /// Verify an [`EventResponse`] as the leaf at `position` of `stream` under `under`, returning the
-/// payload on success. The positional counterpart of [`verify_event_response`] (which reads the
-/// head); prefer [`verify_event`] (request-aware) over calling either directly.
+/// payload on success. The positional counterpart of `verify_event_response` (which reads the
+/// head). Crate-internal: [`verify_event`] is the public entry.
 ///
 /// Same trust chain as the head read — hashes the payload, verifies it at `position`
 /// ([`MmrInclusionProof::verify_leaf`]), and binds the implied stream root through `tree_proof` to
 /// a `StreamsRoot` that must equal `under` — so callers never hand-roll the security-critical
 /// `verify → tree_proof → under` sequence.
-pub fn verify_positional_event_response(
+pub(crate) fn verify_positional_event_response(
 	stream: StreamId,
 	under: StreamsRoot,
 	position: MessagePosition,

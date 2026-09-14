@@ -34,8 +34,8 @@
 //!   it; [`mmr::SpecMerge`] is the domain-tagged `mmr_lib::Merge` behind it. Inclusion and ancestry
 //!   proofs come from `mmr_lib` itself.
 //! - [`message`] — the off-chain protocol messages: the fetch protocol
-//!   (`MessagesRequest`/`MessagesResponse` + [`message::verify_messages_response`]), the lossy
-//!   event/register read (`EventRequest`/`EventResponse` + [`message::verify_event_response`]), the
+//!   (`MessagesRequest`/`MessagesResponse` + [`message::verify_messages`]), the lossy
+//!   event/register read (`EventRequest`/`EventResponse` + [`message::verify_event`]), the
 //!   `/spec-msg/exchange` envelope (`ExchangeRequest`/`ExchangeResponse`) multiplexing the two, and
 //!   the protocol's concrete instantiation (`SpecHasher`, [`message::leaf_hash`] for a payload →
 //!   MMR leaf, the payload bound).
@@ -60,8 +60,7 @@ pub use lift::{
 	MMRExtensionProof, MmrInclusionProof, ProofError, RequiresLift, TreeInclusionProof,
 };
 pub use message::{
-	leaf_hash, verify_event, verify_event_response, verify_exchange, verify_messages,
-	verify_messages_response, verify_positional_event_response, EventRequest, EventResponse,
+	leaf_hash, verify_event, verify_exchange, verify_messages, EventRequest, EventResponse,
 	ExchangeRequest, ExchangeResponse, ExchangeVerified, MaxSpeculativeMessageLen, MessagesRequest,
 	MessagesResponse, VerifiedEvent, VerifyError, MAX_SPECULATIVE_MESSAGE_LEN,
 };
