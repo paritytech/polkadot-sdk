@@ -2238,15 +2238,21 @@ impl Store {
 					} else {
 						Resubmission::Banned
 					};
-					if let Err(e) =
-						self.remove_statement_locked(&mut submit_index, &hash, resubmission)
-					{
-						log::warn!(
+					match self.remove_statement_locked(&mut submit_index, &hash, resubmission) {
+						Ok(true) => {},
+						// The re-check above saw the entry under the submit lock, so a missing
+						// body is an index inconsistency, left in place for investigation.
+						Ok(false) => log::error!(
+							target: LOG_TARGET,
+							"Missing body for tracked statement {:?}",
+							HexDisplay::from(&hash)
+						),
+						Err(e) => log::warn!(
 							target: LOG_TARGET,
 							"Error removing statement {:?}: {:?}",
 							HexDisplay::from(&hash),
 							e
-						);
+						),
 					}
 				},
 			}
