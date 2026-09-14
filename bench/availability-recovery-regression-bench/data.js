@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789392448263,
+  "lastUpdate": 1789415869564,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "890e5eb532e88c414843393aea3f20c2b0ffe14e",
-          "message": "tracing-subscriber: Pin version to prevent ANSI colour code issues (#11053)\n\nLatest version of tracing-subscriber right now doesn't support ASNI\ncolour codes correctly: https://github.com/tokio-rs/tracing/issues/3378\n\nSo, the workaround right now is to pin it to `0.3.19`.\n\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/11030\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-12T10:01:27Z",
-          "tree_id": "5bb773a013effddfaef860fda55071ee698cc140",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/890e5eb532e88c414843393aea3f20c2b0ffe14e"
-        },
-        "date": 1770894753062,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.28323031296667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12482137900000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13130391096666666,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "diego2737@gmail.com",
+            "name": "Diego",
+            "username": "dimartiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9769d37ca6cf296624956f7482dae96b875f4f1e",
+          "message": "network: Move the connected peers metric to the sync component (#12979)\n\n# Description\n\nCloses #5024\n\n`substrate_sub_libp2p_peers_count` was registered by `sc-network`,\nsourced from an `Arc<AtomicUsize>` that each backend kept updated purely\nso that metric could be published:\n\n- the libp2p backend stored `user_protocol().num_sync_peers()` into it\non every worker poll (`service.rs`),\n- the litep2p backend stored the block-announce peerset's\n`connected_peers` into it on every loop iteration (`litep2p/mod.rs`).\n\nBoth are syncing-level numbers, not networking ones — which is what\n@bkchr pointed out in\nhttps://github.com/paritytech/polkadot-sdk/pull/4942#discussion_r1669297505.\n\nThis moves the gauge to `sc-network-sync`, where `SyncingEngine` already\nmaintains an equivalent `num_connected` counter, and drops\n`connected_peers` from `sc-network`'s `MetricSources`. The metric keeps\nits name.\n\n## Review Notes\n\nThe gauge is now registered by `Metrics::register` in\n`sc-network-sync`'s `engine.rs`, next to `MajorSyncingGauge`, and fed\nthe `num_connected` counter the engine already owns:\n\n```diff\n impl Metrics {\n-     fn register(r: &Registry, major_syncing: Arc<AtomicBool>) -> Result<Self, PrometheusError> {\n+     fn register(\n+             r: &Registry,\n+             major_syncing: Arc<AtomicBool>,\n+             num_connected: Arc<AtomicUsize>,\n+     ) -> Result<Self, PrometheusError> {\n              MajorSyncingGauge::register(r, major_syncing)?;\n+             NumConnectedGauge::register(r, num_connected)?;\n```\n\nand correspondingly removed from `sc-network`:\n\n```diff\n pub struct MetricSources {\n      pub bandwidth: Arc<dyn BandwidthSink>,\n-     pub connected_peers: Arc<AtomicUsize>,\n }\n```\n\n**Test.** Added `num_connected_gauge_tracks_the_shared_counter` in\n`engine.rs`, asserting the gauge\nregisters under exactly `substrate_sub_libp2p_peers_count` and reads\nthrough to the live counter\nrather than a snapshot. Name stability is the whole contract of this\nchange, so it seemed worth\npinning.\n\n<details>\n<summary>Local verification</summary>\n\n- `cargo check -p sc-network -p sc-network-sync` — clean, no warnings\n- `cargo clippy -p sc-network -p sc-network-sync --all-targets` — no\nwarnings in either crate\n- `cargo test -p sc-network-sync --lib` — 94 passed, 0 failed\n- `cargo +nightly fmt --check` — clean\n\n</details>\n\nThe approach matches the earlier attempt in #11012, which was closed\nwithout review because its author never signed the CLA.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-09-14T18:26:09Z",
+          "tree_id": "4941632e2416c1f1d97628e6bb92be4fa4dfbf9b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9769d37ca6cf296624956f7482dae96b875f4f1e"
+        },
+        "date": 1789415826278,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.133438754966665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14112538583333334,
             "unit": "seconds"
           }
         ]
