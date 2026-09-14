@@ -24,11 +24,12 @@
 
 extern crate alloc;
 
+#[cfg(jam)]
+use sp_runtime_interface::pass_by::ConvertAndReturnAs;
 use sp_runtime_interface::{
 	pass_by::{
-		ConvertAndReturnAs, PassAs, PassFatPointerAndDecodeSlice, PassFatPointerAndRead,
-		PassFatPointerAndReadWrite, PassPointerAndRead, PassPointerAndReadCopy,
-		PassPointerAndWrite, ReturnAs,
+		PassAs, PassFatPointerAndDecodeSlice, PassFatPointerAndRead, PassFatPointerAndReadWrite,
+		PassPointerAndRead, PassPointerAndReadCopy, PassPointerAndWrite, ReturnAs,
 	},
 	runtime_interface,
 };
@@ -38,6 +39,8 @@ use core::mem;
 
 use alloc::{vec, vec::Vec};
 use sp_core::wasm_export_functions;
+// `RIIntOption` is a marshalling helper of the JAM host function set.
+#[cfg(jam)]
 use sp_io::RIIntOption;
 
 // Include the WASM binary
@@ -172,6 +175,7 @@ pub trait TestApi {
 	}
 
 	/// Test ConvertAndReturnAs: return an `Option<u32>` as `i64`.
+	#[cfg(jam)]
 	fn return_option_value(
 		&self,
 		data: u32,
@@ -327,7 +331,9 @@ wasm_export_functions! {
 		assert_eq!(test_api::return_as(), Opaque(123));
 
 		// V2-specific strategies:
+		#[cfg(jam)]
 		assert_eq!(test_api::return_option_value(5), Some(10));
+		#[cfg(jam)]
 		assert_eq!(test_api::return_option_value(0), None);
 
 		let input = vec![10, 20, 30, 40, 50];

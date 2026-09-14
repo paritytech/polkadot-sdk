@@ -423,7 +423,7 @@ mod tests {
 		let root = array_bytes::hex_n_into_unchecked::<_, H256, 32>(
 			"ed4d8c799d996add422395a6abd7545491d40bd838d738afafa1b8a4de625489",
 		);
-		assert_eq!(H256::from_slice(ext.storage_root().as_slice()), root);
+		assert_eq!(H256::from_slice(ext.storage_root(Default::default()).as_slice()), root);
 	}
 
 	#[test]
@@ -553,11 +553,12 @@ mod tests {
 			);
 			let mut ext = ext.ext();
 			ext.set_storage(b"key".to_vec(), vec![0x42; 64]);
-			ext.storage_root()
+			ext.storage_root(ext.runtime_state_version())
 		};
 
-		// `ext()` must honour the configured state version. Previously it dropped
-		// `self.state_version` and defaulted to `V1`, so both closures returned the same root.
+		// `ext()` must pass the configured state version on as the one declared by the runtime.
+		// Previously it dropped `self.state_version` and defaulted to `V1`, so both closures
+		// returned the same root.
 		assert_ne!(
 			root_via_ext(StateVersion::V0),
 			root_via_ext(StateVersion::V1),
@@ -574,7 +575,7 @@ mod tests {
 			let root_in_ext = {
 				let mut ext = ext.ext();
 				ext.set_storage(b"key".to_vec(), vec![0x42; 64]);
-				ext.storage_root()
+				ext.storage_root(ext.runtime_state_version())
 			};
 			ext.commit_all().unwrap();
 			assert_eq!(

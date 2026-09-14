@@ -32,7 +32,7 @@ use frame_support::{
 	BoundedVec,
 };
 use polkadot_parachain_primitives::primitives::{HeadData, ValidationResult};
-use sp_core::storage::{well_known_keys, ChildInfo};
+use sp_core::storage::{well_known_keys, ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
 use sp_io::hashing::blake2_128;
 #[cfg(not(jam))]
@@ -143,39 +143,38 @@ where
 	let _guard = (
 		// Replace storage calls with our own implementations, targeting the legacy
 		// (pre-RFC-145, host-allocating) host function versions
-		sp_io::storage::host_get_version_1.replace_implementation(host_storage_get),
-		sp_io::storage::host_read_version_1.replace_implementation(host_storage_read),
+		sp_io::storage::host_read.replace_implementation(host_storage_read),
 		sp_io::storage::host_set.replace_implementation(host_storage_set),
+		sp_io::storage::host_get.replace_implementation(host_storage_get),
 		sp_io::storage::host_exists.replace_implementation(host_storage_exists),
 		sp_io::storage::host_clear.replace_implementation(host_storage_clear),
-		sp_io::storage::host_root_version_2.replace_implementation(host_storage_root),
-		sp_io::storage::host_clear_prefix_version_2
-			.replace_implementation(host_storage_clear_prefix),
+		sp_io::storage::host_root.replace_implementation(host_storage_root),
+		sp_io::storage::host_clear_prefix.replace_implementation(host_storage_clear_prefix),
 		sp_io::storage::host_append.replace_implementation(host_storage_append),
-		sp_io::storage::host_next_key_version_1.replace_implementation(host_storage_next_key),
+		sp_io::storage::host_next_key.replace_implementation(host_storage_next_key),
 		sp_io::storage::host_start_transaction
 			.replace_implementation(host_storage_start_transaction),
 		sp_io::storage::host_rollback_transaction
 			.replace_implementation(host_storage_rollback_transaction),
 		sp_io::storage::host_commit_transaction
 			.replace_implementation(host_storage_commit_transaction),
-		sp_io::default_child_storage::host_get_version_1
+		sp_io::default_child_storage::host_get
 			.replace_implementation(host_default_child_storage_get),
-		sp_io::default_child_storage::host_read_version_1
+		sp_io::default_child_storage::host_read
 			.replace_implementation(host_default_child_storage_read),
 		sp_io::default_child_storage::host_set
 			.replace_implementation(host_default_child_storage_set),
 		sp_io::default_child_storage::host_clear
 			.replace_implementation(host_default_child_storage_clear),
-		sp_io::default_child_storage::host_storage_kill_version_3
+		sp_io::default_child_storage::host_storage_kill
 			.replace_implementation(host_default_child_storage_storage_kill),
 		sp_io::default_child_storage::host_exists
 			.replace_implementation(host_default_child_storage_exists),
-		sp_io::default_child_storage::host_clear_prefix_version_2
+		sp_io::default_child_storage::host_clear_prefix
 			.replace_implementation(host_default_child_storage_clear_prefix),
-		sp_io::default_child_storage::host_root_version_2
+		sp_io::default_child_storage::host_root
 			.replace_implementation(host_default_child_storage_root),
-		sp_io::default_child_storage::host_next_key_version_1
+		sp_io::default_child_storage::host_next_key
 			.replace_implementation(host_default_child_storage_next_key),
 		sp_io::offchain_index::host_set.replace_implementation(host_offchain_index_set),
 		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
@@ -559,7 +558,7 @@ fn run_with_externalities_and_recorder<Block: BlockT, R, F: FnOnce() -> R>(
 	backend: &impl sp_state_machine::Backend<HashingFor<Block>>,
 	recorder: &mut SizeOnlyRecorderProvider<HashingFor<Block>>,
 	overlay: &mut OverlayedChanges<HashingFor<Block>>,
-	state_version: sp_core::storage::StateVersion,
+	state_version: StateVersion,
 	execute: F,
 ) -> R {
 	let mut ext = Ext::<Block, _>::new(overlay, backend).with_state_version(state_version);
@@ -626,7 +625,7 @@ fn host_storage_proof_size() -> u64 {
 #[cfg(jam)]
 fn host_storage_root(out: &mut [u8]) {
 	with_externalities(|ext| {
-		let root = ext.storage_root();
+		let root = ext.storage_root(ext.runtime_state_version());
 		assert!(
 			out.len() >= root.len(),
 			"Output buffer provided to store the storage root hash must be large enough"
@@ -636,11 +635,8 @@ fn host_storage_root(out: &mut [u8]) {
 }
 
 #[cfg(not(jam))]
-fn host_storage_root(version: sp_core::storage::StateVersion) -> Vec<u8> {
-	with_externalities(|ext| {
-		ext.set_runtime_state_version(version);
-		ext.storage_root()
-	})
+fn host_storage_root(version: StateVersion) -> Vec<u8> {
+	with_externalities(|ext| ext.storage_root(version))
 }
 
 #[cfg(jam)]
@@ -851,7 +847,7 @@ fn host_default_child_storage_clear_prefix(
 fn host_default_child_storage_root(storage_key: &[u8], out: &mut [u8]) {
 	let child_info = ChildInfo::new_default(storage_key);
 	with_externalities(|ext| {
-		let root = ext.child_storage_root(&child_info);
+		let root = ext.child_storage_root(&child_info, ext.runtime_state_version());
 		assert!(
 			out.len() >= root.len(),
 			"Output buffer provided to store the child storage root hash must be large enough"
@@ -861,15 +857,9 @@ fn host_default_child_storage_root(storage_key: &[u8], out: &mut [u8]) {
 }
 
 #[cfg(not(jam))]
-fn host_default_child_storage_root(
-	storage_key: &[u8],
-	version: sp_core::storage::StateVersion,
-) -> Vec<u8> {
+fn host_default_child_storage_root(storage_key: &[u8], version: StateVersion) -> Vec<u8> {
 	let child_info = ChildInfo::new_default(storage_key);
-	with_externalities(|ext| {
-		ext.set_runtime_state_version(version);
-		ext.child_storage_root(&child_info)
-	})
+	with_externalities(|ext| ext.child_storage_root(&child_info, version))
 }
 
 #[cfg(jam)]

@@ -26,9 +26,26 @@ use std::path::Path;
 /// The host functions that we provide when calling into the wasm file.
 ///
 /// Any other host function will return an error.
+#[cfg(not(jam))]
 type HostFunctions = (
 	// The allocator functions.
 	sp_io::allocator::HostFunctions,
+	// Logging is good to have for debugging issues.
+	sp_io::logging::HostFunctions,
+	// Give access to the "state", actually the state will be empty, but some chains put constants
+	// into the state and this would panic at metadata generation. Thus, we give them an empty
+	// state to not panic.
+	sp_io::storage::HostFunctions,
+	// The hashing functions.
+	sp_io::hashing::HostFunctions,
+);
+
+/// The host functions that we provide when calling into the wasm file of a JAM runtime, which
+/// manages its memory itself and pulls the input data in through the `input` host functions.
+///
+/// Any other host function will return an error.
+#[cfg(jam)]
+type HostFunctions = (
 	// Logging is good to have for debugging issues.
 	sp_io::logging::HostFunctions,
 	// Give access to the "state", actually the state will be empty, but some chains put constants
@@ -50,15 +67,10 @@ type HostFunctions = (
 pub fn generate_metadata_hash(wasm: &Path, extra_info: MetadataExtraInfo) -> [u8; 32] {
 	sp_tracing::try_init_simple();
 
-	// An RFC-145 runtime pulls its input in through the `input::read` host function, which
-	// only exists in builds with `--cfg jam`. `wasm-builder` is a build dependency, so it
-	// only inherits the flag when `RUSTFLAGS` applies to build scripts (i.e. when no explicit
-	// `--target` is passed to the outer `cargo` invocation). Fail early with a clear message
-	// instead of a cryptic instantiation error.
 	if crate::is_jam_build() && !cfg!(jam) {
 		panic!(
-			"The runtime is built with RFC-145 support, but `substrate-wasm-builder` is not, \
-			 so it cannot execute the runtime to extract the metadata. Make sure \
+			"The runtime is built with the JAM host function set, but `substrate-wasm-builder` \
+			 is not, so it cannot execute the runtime to extract the metadata. Make sure \
 			 `--cfg jam` in `RUSTFLAGS` applies to build dependencies as well, e.g. by not \
 			 passing an explicit `--target` to `cargo`.",
 		);
