@@ -250,8 +250,7 @@ const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::fr
 /// Maximum admission-journal entries one initial-sync fetch visits, so that a peer whose
 /// affinity matches nothing cannot make one burst walk the whole journal in the event loop.
 const INITIAL_SYNC_SCAN_LIMIT: usize = 4096;
-/// Maximum outbox entries one propagation fetch hands to the store, so that a full outbox is
-/// copied a chunk at a time rather than whole on every send.
+/// Outbox entries one fetch hands to the store, so a full outbox is not copied whole per send.
 const PROPAGATION_FETCH_LIMIT: usize = 4096;
 /// Interval for processing pending topic affinity changes from peers.
 const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
@@ -304,11 +303,9 @@ mod send_failure {
 	pub const NO_SINK: &str = "no_sink";
 	/// The peer's propagation outbox overflowed and the oldest queued hashes were dropped.
 	pub const OUTBOX_FULL: &str = "outbox_full";
-	/// A planned statement left the store before its chunk went out, so the peer never received
-	/// the placement the plan made.
+	/// A planned statement left the store before its chunk went out.
 	pub const MISSING_FROM_STORE: &str = "missing_from_store";
-	/// The peer disconnected with planned statements still queued, and the reconnect's sync
-	/// serves the peer through its affinity filter rather than the plan.
+	/// The peer disconnected with planned statements still queued.
 	pub const DISCONNECTED: &str = "disconnected";
 }
 
@@ -995,14 +992,11 @@ fn fetch_admitted_chunk(
 	Ok((batch, accumulated_size))
 }
 
-/// An entry of a peer's propagation outbox.
 #[derive(Clone, Debug, PartialEq)]
 enum OutboxEntry {
-	/// A stored statement, fetched by hash when its chunk goes out.
 	Stored(Hash),
-	/// A stored statement the v2 DHT propagation plan assigned to the peer. The plan has chosen
-	/// the peer, so the peer's affinity filter does not apply, and an initial sync, which serves
-	/// the peer through that filter, cannot stand in for the entry.
+	/// Assigned by the v2 DHT propagation plan, so the peer's affinity filter does not apply and
+	/// a sync, which applies that filter, cannot stand in for a lost entry.
 	Planned(Hash),
 }
 
@@ -1013,27 +1007,23 @@ impl OutboxEntry {
 		}
 	}
 
-	/// Whether the v2 DHT propagation plan chose the peer for this entry.
 	fn from_plan(&self) -> bool {
 		matches!(self, Self::Planned(_))
 	}
 }
 
-/// The chunk a fetch built from the front of a peer's outbox.
 struct FetchedChunk {
 	statements: Vec<(Hash, Statement)>,
 	/// Entries consumed from the outbox, whether they yielded a statement or not.
 	processed: usize,
 	/// Consumed entries whose statement the store no longer holds.
 	missing: usize,
-	/// Encoded size of `statements`. A size above the maximum signals a lone oversized
-	/// statement, which the caller must drop.
+	/// Encoded size of `statements`, above the maximum only for a lone oversized statement.
 	size: usize,
 }
 
-/// Build the next chunk of statements for a peer from the run of same-kind entries at the front
-/// of `entries`, fetching stored statements through the `statements_by_hashes` callback so
-/// non-matching statements are never materialized.
+/// Build the next chunk from the run of same-kind entries at the front of `entries`, filtering
+/// in the store callback so non-matching statements are never materialized.
 fn fetch_statement_chunk(
 	store: &dyn StatementStore,
 	recently_received_statements: &HashMap<Hash, HashSet<PeerId>>,
@@ -1082,7 +1072,6 @@ fn fetch_statement_chunk(
 			}
 			decision
 		})?;
-	// The store counts a hash it no longer holds as processed without offering it.
 	Ok(FetchedChunk { statements, processed, missing: processed - found, size: accumulated_size })
 }
 
@@ -1657,7 +1646,6 @@ where
 					);
 				}
 				self.initial_sync_peer_queue.retain(|p| *p != peer);
-				// A reconnect's sync covers the stored hashes, its filter may skip planned ones.
 				if let Some(outbox) = self.propagation_outboxes.remove(&peer) {
 					let planned = outbox.iter().filter(|entry| entry.from_plan()).count();
 					if planned > 0 {
@@ -1972,11 +1960,8 @@ where
 		self.push_outbox_entries(who, to_send);
 	}
 
-	/// Queue the statements the orchestrator's propagation `plan` assigned to each peer.
-	///
-	/// A planned entry skips the peer's affinity filter and sync watermark, see
-	/// [`OutboxEntry::Planned`]. A peer that is gone or cannot receive yet is skipped, and of
-	/// the statements offered only those the peer sent to us are dropped.
+	/// Queue the statements the propagation `plan` assigned to each peer as
+	/// [`OutboxEntry::Planned`].
 	fn queue_planned_statements(
 		&mut self,
 		statements: &[(u64, Hash, Statement)],
@@ -2118,8 +2103,7 @@ where
 			// statement would be fetched again on the next iteration.
 			outbox.drain(..processed);
 
-			// A stored hash that left the store is gossip with nothing left to send, a planned
-			// one is a placement the peer never received.
+			// A planned miss is a lost placement, a stored one is gossip with nothing left to send.
 			if from_plan && missing > 0 {
 				self.record_abandoned_send(send_failure::MISSING_FROM_STORE, missing);
 			}
@@ -2357,9 +2341,8 @@ where
 			if let Some(peer_data) = self.peers.get_mut(&peer) {
 				peer_data.sync_watermark = peer_data.sync_watermark.max(watermark);
 			}
-			// Stored hashes queued for propagation before this scheduling sit below the new
-			// watermark, so the cursor already covers them; dropping them keeps them from
-			// arriving twice. Planned entries stay.
+			// Stored hashes queued before this scheduling sit below the new watermark, so the
+			// cursor already covers them and they would arrive twice.
 			if let Some(outbox) = self.propagation_outboxes.get_mut(&peer) {
 				outbox.retain(OutboxEntry::from_plan);
 				if outbox.is_empty() {
@@ -4022,7 +4005,6 @@ mod tests {
 		let kept_hash = kept.hash();
 		statement_store.insert(kept);
 
-		// The stored hash is gone for everyone, only the planned one is a lost placement.
 		handler.propagation_outboxes.insert(
 			peer_id,
 			VecDeque::from(vec![
