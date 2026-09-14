@@ -598,60 +598,58 @@ pub fn do_slash<T: Config>(
 			Err(_) => return, // nothing to do.
 		};
 
-	let value = ledger.slash(value, asset::existential_deposit::<T>(), offence_era);
-	if value.is_zero() {
-		// nothing to do
-		return;
-	}
+	// `ledger.slash()` notifies the listeners while `ledger.update()` commits the slash on the
+	// staking side, so both must share a transaction: `update()` may roll its write back and the
+	// listeners must not stay committed to a slash that staking never applied.
+	let outcome = with_transaction(|| {
+		let value = ledger.slash(value, asset::existential_deposit::<T>(), offence_era);
+		if value.is_zero() {
+			// nothing was slashed, so there is no ledger update to make.
+			return TransactionOutcome::Commit(Ok(None));
+		}
 
-	// Skip slashing for virtual stakers. The pallets managing them should handle the slashing.
-	let slashed = if !Pallet::<T>::is_virtual_staker(stash) {
-		// Wrap balance slash and ledger update atomically: if ensure_bond_consistent inside
-		// update() rolls back the ledger write, the balance slash is also rolled back.
-		match with_transaction(|| {
-			let (imbalance, missing) = asset::slash::<T>(stash, value);
-			match ledger.update() {
-				Ok(()) => TransactionOutcome::Commit(Ok((imbalance, missing))),
-				Err(e) => TransactionOutcome::Rollback(Err(DispatchError::from(e))),
-			}
-		}) {
-			Ok((imbalance, missing)) => {
-				slashed_imbalance.subsume(imbalance);
-				if !missing.is_zero() {
-					// deduct overslash from the reward payout
-					*reward_payout = reward_payout.saturating_sub(missing);
-				}
-				true
-			},
-			Err(_) => {
+		// Skip slashing for virtual stakers. The pallets managing them should handle the slashing.
+		let (imbalance, missing) = if Pallet::<T>::is_virtual_staker(stash) {
+			(NegativeImbalanceOf::<T>::zero(), Zero::zero())
+		} else {
+			asset::slash::<T>(stash, value)
+		};
+
+		match ledger.update() {
+			Ok(()) => TransactionOutcome::Commit(Ok(Some((value, imbalance, missing)))),
+			Err(e) => TransactionOutcome::Rollback(Err(DispatchError::from(e))),
+		}
+	});
+
+	let (value, imbalance, missing) = match outcome {
+		Ok(Some(slashed)) => slashed,
+		// nothing to do.
+		Ok(None) => return,
+		Err(_) => {
+			// bond in bad state: slash, ledger update and notifications were all rolled back.
+			if Pallet::<T>::is_virtual_staker(stash) {
+				log!(
+					warn,
+					"do_slash: failed to update ledger of virtual staker {:?}; slash rolled back.",
+					stash
+				);
+			} else {
 				defensive!(
 					"do_slash: inconsistent ledger; slash and ledger update both rolled back."
 				);
-				false
-			},
-		}
-	} else {
-		match ledger.update() {
-			Ok(()) => true,
-			Err(e) => {
-				log!(
-					warn,
-					"do_slash: failed to update ledger of virtual staker {:?}: {:?}",
-					stash,
-					e
-				);
-				false
-			},
-		}
+			}
+			return;
+		},
 	};
 
-	// trigger the event only if the stash was actually slashed.
-	if slashed {
-		<Pallet<T>>::deposit_event(super::Event::<T>::Slashed {
-			staker: stash.clone(),
-			amount: value,
-		});
+	slashed_imbalance.subsume(imbalance);
+	if !missing.is_zero() {
+		// deduct overslash from the reward payout
+		*reward_payout = reward_payout.saturating_sub(missing);
 	}
+
+	// the stash was actually slashed, trigger the event.
+	<Pallet<T>>::deposit_event(super::Event::<T>::Slashed { staker: stash.clone(), amount: value });
 }
 
 /// Apply a previously-unapplied slash.

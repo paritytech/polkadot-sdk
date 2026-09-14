@@ -375,7 +375,12 @@ impl<T: Config> Pallet<T> {
 			}
 		})?;
 
-		ledger.clone().update()?;
+		// No-op write that re-syncs the stash lock. An inconsistent ledger is rejected with
+		// `BadState`, but it must not block the payout of this page, so tolerate it here.
+		match ledger.clone().update() {
+			Ok(()) | Err(Error::<T>::BadState) => {},
+			Err(e) => return Err(e.into()),
+		}
 
 		let stash = ledger.stash.clone();
 
