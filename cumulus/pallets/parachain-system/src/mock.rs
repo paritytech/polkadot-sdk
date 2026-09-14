@@ -24,8 +24,8 @@ use alloc::collections::vec_deque::VecDeque;
 use codec::Encode;
 use core::num::NonZeroU32;
 use cumulus_primitives_core::{
-	relay_chain::BlockNumber as RelayBlockNumber, AggregateMessageOrigin, InboundDownwardMessage,
-	InboundHrmpMessage, PersistedValidationData,
+	AggregateMessageOrigin, InboundDownwardMessage, InboundHrmpMessage, PersistedValidationData,
+	relay_chain::BlockNumber as RelayBlockNumber,
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use frame_support::{
@@ -37,18 +37,17 @@ use frame_support::{
 	},
 	weights::{Weight, WeightMeter},
 };
-use frame_system::{limits::BlockWeights, pallet_prelude::BlockNumberFor, RawOrigin};
+use frame_system::{RawOrigin, limits::BlockWeights, pallet_prelude::BlockNumberFor};
 use sp_core::ConstU32;
-use sp_runtime::{traits::BlakeTwo256, BuildStorage};
+use sp_runtime::{BuildStorage, traits::BlakeTwo256};
 use sp_version::RuntimeVersion;
 use std::cell::RefCell;
 
 use crate as parachain_system;
 use crate::consensus_hook::UnincludedSegmentCapacity;
 use cumulus_client_additional_data::VerifyingAdditionalDataProvider;
-use cumulus_primitives_additional_data::{
-	JamStateExt, JamStateReader, RelayStateExt, RelayStateReader,
-};
+use cumulus_jam_state_reader::{JamStateExt, JamStateReader};
+use cumulus_primitives_additional_data::{RelayStateExt, RelayStateReader};
 use sp_additional_data::{AdditionalData, AdditionalDataExt, AdditionalDataFinalizer};
 
 type Block = frame_system::mocking::MockBlock<Test>;

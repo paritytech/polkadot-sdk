@@ -19,12 +19,12 @@
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
-	relay_chain, AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId,
+	AbridgedHostConfiguration, AbridgedHrmpChannel, ParaId, relay_chain,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::HashingFor;
 use sp_state_machine::{Backend, TrieBackend, TrieBackendBuilder};
-use sp_trie::{HashDBT, MemoryDB, StorageProof, EMPTY_PREFIX};
+use sp_trie::{EMPTY_PREFIX, HashDBT, MemoryDB, StorageProof};
 
 /// The capacity of the upward message queue of a parachain on the relay chain.
 // The field order should stay the same as the data can be found in the proof to ensure both are
@@ -328,7 +328,7 @@ impl RelayChainStateProof {
 	))]
 	pub(crate) fn read_included_para_head_jam(&self) -> Result<relay_chain::HeadData, Error> {
 		let para_id = parachain_service_interface::types::ParaId::from(u32::from(self.para_id));
-		if let Some(raw) = cumulus_primitives_additional_data::jam_state::jam_state_read(
+		if let Some(raw) = cumulus_jam_state_reader::jam_state::jam_state_read(
 			&jam_state_helpers::para_info_key(para_id),
 		) {
 			let info = jam_state_helpers::ParaInfo::decode(&mut &raw[..])

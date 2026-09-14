@@ -47,38 +47,35 @@
 //! instead of recomputing them from their own clock — exactly as in relay mode.
 
 use super::{
-	authorizer::AuraAuthorizer, choose_lookup_anchor, jam_read, jam_slot_as_relay_slot,
-	jam_slot_at, scan_pools_at, JamCollatorMessage, PoolScan, LOG_TARGET,
+	JamCollatorMessage, LOG_TARGET, PoolScan, authorizer::AuraAuthorizer, choose_lookup_anchor,
+	jam_read, jam_slot_as_relay_slot, jam_slot_at, scan_pools_at,
 };
-use crate::{
-	common::{
-		aura::{AuraIdT, AuraRuntimeApi},
-		types::{ParachainBackend, ParachainClient},
-		ConstructNodeRuntimeApi, NodeBlock,
-	},
-	nodes::jam::JamProofFinalizer,
+use crate::common::{
+	ConstructNodeRuntimeApi, NodeBlock,
+	aura::{AuraIdT, AuraRuntimeApi},
+	types::{ParachainBackend, ParachainClient},
 };
 use codec::{Decode, DecodeAll, Encode};
 use cumulus_client_consensus_aura::collator::SlotClaim;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
-use cumulus_primitives_additional_data::{JamProofReader, JamStateExt, JAM_PROOF_KEY};
+use cumulus_jam_state_reader::{JAM_PROOF_KEY, JamProofFinalizer, JamProofReader, JamStateExt};
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::{CollectCollationInfo, RelayParentOffsetApi};
-use futures::{channel::mpsc, FutureExt, StreamExt};
-use jam_cumulus_facade::service_state::{para_info_key, ParaInfo};
+use futures::{FutureExt, StreamExt, channel::mpsc};
+use jam_cumulus_facade::service_state::{ParaInfo, para_info_key};
 use jam_interface::{
 	BlockDesc, CoreIndex, HeaderHash, JamChainSource, JamStateSource, ServiceId, Slot as JamSlot,
 	StateRootHash, StorageKey, WorkPackageHash, WorkReport,
 };
 use jam_state_helpers::{
-	service_value_state_key, verify as verify_state_proof, StateKey, StateProof,
+	StateKey, StateProof, service_value_state_key, verify as verify_state_proof,
 };
 use jam_types::RefineContext;
 use polkadot_primitives::{HeadData, Id as ParaId, UpgradeGoAhead};
 use sc_client_api::Backend as _;
 use sc_consensus::{BlockImport, StateAction};
 use sc_consensus_aura::standalone as aura_internal;
-use sp_additional_data::{hash_value, AdditionalData, AdditionalDataExt, AdditionalDataFinalizer};
+use sp_additional_data::{AdditionalData, AdditionalDataExt, AdditionalDataFinalizer, hash_value};
 use sp_api::{ProofRecorder, ProvideRuntimeApi};
 use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus::{Environment, ProposeArgs, Proposer};
@@ -1522,7 +1519,7 @@ where
 mod tests {
 	use super::*;
 	use codec::Encode;
-	use cumulus_client_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
+	use cumulus_client_parachain_inherent::{INHERENT_IDENTIFIER, ParachainInherentData};
 	use cumulus_pallet_parachain_system::RelayChainStateProof;
 	use sp_additional_data::hash_commitments;
 	use sp_core::H256;

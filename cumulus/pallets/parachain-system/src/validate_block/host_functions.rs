@@ -18,7 +18,7 @@
 
 use alloc::vec::Vec;
 use codec::Encode;
-use sp_externalities::{set_and_run_with_externalities, Externalities};
+use sp_externalities::{Externalities, set_and_run_with_externalities};
 
 pub(super) use super::child_storage_host_functions::{
 	host_default_child_storage_clear, host_default_child_storage_clear_prefix,
@@ -85,7 +85,7 @@ pub(super) fn install_overrides() -> impl Sized {
 		// state proof carried in the PoV under `JAM_PROOF_KEY`, verified against the trusted
 		// anchor root.
 		#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
-		cumulus_primitives_additional_data::jam_state::host_jam_state_read_into
+		cumulus_jam_state_reader::jam_state::host_jam_state_read_into
 			.replace_implementation(host_jam_state_read_into),
 		sp_additional_data::additional_data::host_finalize_into
 			.replace_implementation(host_finalize_into),
@@ -143,7 +143,7 @@ pub(super) mod additional_data {
 /// static.
 #[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
 pub(super) mod jam_data {
-	use cumulus_primitives_additional_data::JamStateReader;
+	use cumulus_jam_state_reader::JamStateReader;
 
 	environmental::environmental!(env: trait JamStateReader);
 	pub fn using<R, F: FnOnce() -> R>(t: &mut dyn JamStateReader, f: F) -> R {

@@ -49,19 +49,19 @@
 //! compressed PoVs; JIP-2 is silent on compression).
 
 use super::{
-	authorizer::AuraAuthorizer, choose_lookup_anchor, jam_read, jam_slot_at, para_head_stream,
-	resubmission::*, scan_pools_at, JamCollatorMessage, JAM_SLOT_DURATION_MS, LOG_TARGET,
+	JAM_SLOT_DURATION_MS, JamCollatorMessage, LOG_TARGET, authorizer::AuraAuthorizer,
+	choose_lookup_anchor, jam_read, jam_slot_at, para_head_stream, resubmission::*, scan_pools_at,
 };
-use crate::common::{types::ParachainClient, ConstructNodeRuntimeApi, NodeBlock};
+use crate::common::{ConstructNodeRuntimeApi, NodeBlock, types::ParachainClient};
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{ParachainBlockData, SchedulingProof};
 use futures::{
+	FutureExt, StreamExt,
 	channel::mpsc,
 	future::AbortHandle,
-	stream::{abortable, SelectAll},
-	FutureExt, StreamExt,
+	stream::{SelectAll, abortable},
 };
-use jam_cumulus_facade::{authorizer::Authorizer, ParachainCandidate};
+use jam_cumulus_facade::{ParachainCandidate, authorizer::Authorizer};
 use jam_interface::{
 	BoxStream, CoreIndex, HeaderHash, JamChainSource, JamStateSource, JamWorkPackageSubmission,
 	ServiceId, Slot as JamSlot, VersionedParameters, WorkPackage, WorkPackageHash,
@@ -1091,7 +1091,7 @@ where
 #[cfg(test)]
 mod tests {
 	use super::{super::authorizer::tests::authorizer_of, *};
-	use cumulus_primitives_additional_data::JAM_PROOF_KEY;
+	use cumulus_jam_state_reader::JAM_PROOF_KEY;
 	use cumulus_test_runtime::{Block as TestBlock, Header as TestHeader};
 	use jam_state_helpers::StateProof;
 	use jam_std_common::build_encoded_bundle;

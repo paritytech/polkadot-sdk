@@ -27,7 +27,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use codec::Encode;
-use jam_state_helpers::{service_value_state_key, verify, Hash, StateProof};
+use jam_state_helpers::{Hash, StateProof, service_value_state_key, verify};
 
 use crate::JamStateReader;
 
@@ -75,7 +75,7 @@ impl JamStateReader for JamProofReader {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use jam_state_helpers::{blake2_256, ProofNode, StateKey};
+	use jam_state_helpers::{ProofNode, StateKey, blake2_256};
 
 	const SERVICE_ID: u32 = 9;
 	const EMPTY_HASH: Hash = [0u8; 32];

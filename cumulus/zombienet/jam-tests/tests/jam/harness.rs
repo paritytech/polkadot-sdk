@@ -5,7 +5,7 @@
 //! set per para.
 
 use super::{
-	collators::{Collators, JamTarget, POLL_INTERVAL, Para},
+	collators::{Collators, JamTarget, Para, POLL_INTERVAL},
 	env::Binaries,
 	genesis,
 	network::{JamNetwork, ParaHead},
@@ -14,15 +14,15 @@ use super::{
 use anyhow::Context;
 use codec::DecodeAll;
 use jam_cumulus_facade::{
+	service_state::{para_info_key, storage_key, ParaInfo, Tag},
 	ParaId,
-	service_state::{ParaInfo, Tag, para_info_key, storage_key},
 };
 use std::{
 	collections::BTreeMap,
 	path::{Path, PathBuf},
 	time::Duration,
 };
-use tokio::time::{Instant, sleep};
+use tokio::time::{sleep, Instant};
 
 /// The whole run — network spin-up and block production — has to fit in this.
 ///
@@ -511,15 +511,13 @@ fn check_genesis_registrations(
 	let services = config["services"]
 		.as_object()
 		.with_context(|| format!("{}: `services` is not a map", config_path.display()))?;
-	let service = services
-		.get(&service_id.to_string())
-		.with_context(|| {
-			format!(
-				"{}: no service with id {service_id} — the genesis config is missing \
+	let service = services.get(&service_id.to_string()).with_context(|| {
+		format!(
+			"{}: no service with id {service_id} — the genesis config is missing \
 				 this service's record",
-				config_path.display(),
-			)
-		})?;
+			config_path.display(),
+		)
+	})?;
 
 	let mut storage: BTreeMap<Vec<u8>, Vec<u8>> = BTreeMap::new();
 	if let Some(obj) = service["storage"].as_object() {
@@ -631,12 +629,12 @@ async fn assert_jam_heads_advance(run: &mut Run) -> anyhow::Result<()> {
 mod tests {
 	use super::*;
 	use jam_cumulus_facade::{
+		service_state::{para_info_key, storage_key, Tag},
 		ParaId,
-		service_state::{Tag, para_info_key, storage_key},
 	};
 	use parachain_chain_spec::{ParachainServiceSpec, ParachainSpec};
 
-	const TEST_SERVICE_ID: u32 = 5;
+	const TEST_SERVICE_ID: u32 = 1337;
 	/// Distinct enough from the authorizer blob that no hash collision is possible.
 	const TEST_BLOB: &[u8] = b"test-validation-code-for-t8-harness-unit-tests";
 

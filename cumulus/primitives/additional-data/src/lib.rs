@@ -14,38 +14,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Relay/JAM chain-state read side of the additional-data channel.
+//! Relay chain-state read side of the additional-data channel.
 //!
 //! The generic additional-data machinery (the [`AdditionalData`] map, the finalizer registry and
 //! the `finalize` host function) lives in `sp-additional-data`. This crate holds the parts specific
-//! to *reading relay/JAM chain state* into that channel:
+//! to *reading relay chain state* into that channel:
 //!
 //! - [`RELAY_PROOF_KEY`] — the map key under which the relay read-proof is carried,
 //! - [`RelayStateReader`] + [`RelayStateExt`] — the externalities extension the read host function
 //!   dispatches through,
 //! - [`relay_chain_state::read_relay_chain_state`] — the host function a parachain runtime calls to
-//!   read relay/JAM storage dynamically during block execution.
+//!   read relay storage dynamically during block execution.
 //!
 //! A read [`RELAY_PROOF_KEY`] entry pairs with an `sp-additional-data` finalizer registered under
 //! the same key, so the relay read-proof is both served (here) and committed to (in the generic
 //! digest).
+//!
+//! The JAM state-reading surface (previously `jam.rs`/`jam_proof.rs`) moved to
+//! `cumulus-jam-state-reader`; this crate is relay-only.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
-
-pub mod jam;
-// The reader's `jam-state-helpers` dependency cannot compile for `wasm32v1-none` (its transitive
-// `parachain-service-interface` hard-codes riscv-only `no_std`), and non-riscv WASM runtimes read
-// relay state, never JAM state, so the reader is only needed on riscv and the host node. Mirrors
-// the Cargo.toml target gate.
-#[cfg(not(target_family = "wasm"))]
-pub mod jam_proof;
-#[cfg(feature = "std")]
-pub use jam::JamStateExt;
-pub use jam::{jam_state, JamStateReader, JAM_PROOF_KEY};
-#[cfg(not(target_family = "wasm"))]
-pub use jam_proof::JamProofReader;
 
 use alloc::vec::Vec;
 use sp_runtime_interface::{
@@ -61,8 +51,7 @@ use sp_externalities::ExternalitiesExt;
 /// The value is the SCALE-encoding of `(root, sp_trie::StorageProof)`.
 pub const RELAY_PROOF_KEY: &str = "polkadot/relay_proof";
 
-/// Serves relay/JAM chain-state reads for [`read_relay_chain_state`], recording the proof it
-/// touches.
+/// Serves relay chain-state reads for [`read_relay_chain_state`], recording the proof it touches.
 ///
 /// On build it reads the value live and collects the touched proof nodes; on validation/import it
 /// reads the value back from — and authenticates it against — the collected proof and the trusted
@@ -70,7 +59,7 @@ pub const RELAY_PROOF_KEY: &str = "polkadot/relay_proof";
 ///
 /// [`read_relay_chain_state`]: relay_chain_state::read_relay_chain_state
 pub trait RelayStateReader: Send {
-	/// Read a relay/JAM storage `key`, returning its value or `None` when (provably) absent.
+	/// Read a relay storage `key`, returning its value or `None` when (provably) absent.
 	fn read(&self, key: &[u8]) -> Option<Vec<u8>>;
 
 	/// Estimated encoded size of the proof recorded so far — the additional-data contribution to
@@ -102,14 +91,14 @@ sp_externalities::decl_extension! {
 	pub struct RelayStateExt(alloc::boxed::Box<dyn RelayStateReader>);
 }
 
-/// Runtime interface for reading relay/JAM chain state into a block's additional data.
+/// Runtime interface for reading relay chain state into a block's additional data.
 ///
 /// `read_relay_chain_state` **panics** when [`RelayStateExt`] is not registered — the read is
 /// consensus-critical (its proof feeds the additional-data digest), so a missing extension must
 /// fail loudly rather than silently diverge.
 #[runtime_interface]
 pub trait RelayChainState {
-	/// Read `key` from the relay/JAM chain state, writing the value into `value_out` and returning
+	/// Read `key` from the relay chain state, writing the value into `value_out` and returning
 	/// its full length, or `-1` when the key is (provably) absent.
 	///
 	/// Runtime-side-allocation compatible: the runtime owns `value_out`; this host function never
@@ -146,7 +135,7 @@ pub trait RelayChainState {
 		}
 	}
 
-	/// Read `key` from the relay/JAM chain state, returning its value or `None` when (provably)
+	/// Read `key` from the relay chain state, returning its value or `None` when (provably)
 	/// absent.
 	///
 	/// Ergonomic wrapper over [`read_relay_chain_state_into`] that owns the destination buffer

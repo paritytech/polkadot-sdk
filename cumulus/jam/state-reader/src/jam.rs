@@ -162,7 +162,7 @@ pub trait JamState {
 mod tests {
 	use sp_state_machine::BasicExternalities;
 
-	use super::{jam_state, JamStateExt, JamStateReader};
+	use super::{JamStateExt, JamStateReader, jam_state};
 
 	struct StubReader;
 

@@ -81,6 +81,7 @@ members = [
 	"cumulus/client/service",
 	"cumulus/jam/interface",
 	"cumulus/jam/rpc-interface",
+	"cumulus/jam/state-reader",
 	"cumulus/pallets/ah-ops",
 	"cumulus/pallets/aura-ext",
 	"cumulus/pallets/collator-selection",
@@ -798,6 +799,7 @@ cumulus-client-resubmission-store = { path = "cumulus/client/resubmission-store"
 cumulus-client-service = { path = "cumulus/client/service", default-features = false }
 cumulus-jam-interface = { path = "cumulus/jam/interface", default-features = false }
 cumulus-jam-rpc-interface = { path = "cumulus/jam/rpc-interface", default-features = false }
+cumulus-jam-state-reader = { path = "cumulus/jam/state-reader", default-features = false }
 cumulus-pallet-aura-ext = { path = "cumulus/pallets/aura-ext", default-features = false }
 cumulus-pallet-parachain-system = { path = "cumulus/pallets/parachain-system", default-features = false }
 cumulus-pallet-parachain-system-proc-macro = { path = "cumulus/pallets/parachain-system/proc-macro", default-features = false }

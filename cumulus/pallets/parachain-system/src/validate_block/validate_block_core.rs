@@ -45,12 +45,14 @@ use super::{
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
+#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+use cumulus_jam_state_reader::{JAM_PROOF_KEY, JamProofReader};
 use cumulus_primitives_additional_data::RELAY_PROOF_KEY;
 #[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
-use cumulus_primitives_additional_data::{JamProofReader, RelayStateReader, JAM_PROOF_KEY};
+use cumulus_primitives_additional_data::RelayStateReader;
 use cumulus_primitives_core::{
-	relay_chain::{BlockNumber as RNumber, Hash as RHash, UMP_SEPARATOR},
 	ParachainBlockData,
+	relay_chain::{BlockNumber as RNumber, Hash as RHash, UMP_SEPARATOR},
 };
 use frame_support::traits::{ExecuteBlock, Get};
 #[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
@@ -58,13 +60,13 @@ use jam_state_helpers::StateProof;
 use polkadot_parachain_primitives::primitives::{HeadData, HorizontalMessages, UpwardMessages};
 use sp_additional_data::AdditionalData;
 #[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
-use sp_additional_data::{hash_value, AdditionalDataFinalizer};
-use sp_core::storage::{well_known_keys, StateVersion};
+use sp_additional_data::{AdditionalDataFinalizer, hash_value};
+use sp_core::storage::{StateVersion, well_known_keys};
 use sp_runtime::traits::{
 	Block as BlockT, Hash as HashT, HashingFor, Header as HeaderT, LazyBlock,
 };
 use sp_state_machine::OverlayedChanges;
-use sp_trie::{HashDBT, MemoryDB, StorageProof, EMPTY_PREFIX};
+use sp_trie::{EMPTY_PREFIX, HashDBT, MemoryDB, StorageProof};
 use trie_recorder::{SeenNodes, SizeOnlyRecorderProvider};
 
 /// The parachain service's id on the JAM chain: the single service that hosts this and every other
@@ -74,7 +76,7 @@ use trie_recorder::{SeenNodes, SizeOnlyRecorderProvider};
 /// `--jam-service-id`). The state-key derivation interleaves it, so a mismatch reads the wrong key
 /// and every read panics.
 #[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
-const PARACHAIN_SERVICE_ID: u32 = 5;
+const PARACHAIN_SERVICE_ID: u32 = 1337;
 
 /// The `AdditionalDataFinalizer` committing the carried JAM state proof under `JAM_PROOF_KEY`.
 ///

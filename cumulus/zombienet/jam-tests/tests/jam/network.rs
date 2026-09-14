@@ -31,7 +31,7 @@ const ORDINARY_NODE: &str = "jam-or";
 /// The service id the genesis creates the parachain service under. The network is freshly spawned
 /// and private to one test, so a fixed id is always free — and it is the id the collators are
 /// started with (`--jam-service-id`) and the one the authorizer config commits to.
-pub const PARACHAIN_SERVICE_ID: u32 = 5;
+pub const PARACHAIN_SERVICE_ID: u32 = 1337;
 
 /// The balance the service is created with.
 const PARACHAIN_SERVICE_ENDOWMENT: u64 = 1_000_000_000_000_000;
@@ -757,13 +757,13 @@ mod tests {
 		assert_eq!(
 			overrides,
 			json!({
-				"services": { "5": {
+				"services": { "1337": {
 					"code": "/run/parachain-service.jam",
 					"balance": 1_000_000_000_000_000u64,
 					"preimages": ["/run/parachain-authorizer-sr25519.jam"],
 				}},
 				"auth_queues": { "0": "aa".repeat(32), "1": "bb".repeat(32) },
-				"assigners": { "0": 5, "1": 5 },
+				"assigners": { "0": 1337, "1": 1337 },
 			})
 		);
 	}
@@ -782,7 +782,7 @@ mod tests {
 	/// key `gen-spec` really writes and not merely for one this code computes.
 	#[test]
 	fn the_service_record_key_is_ff_and_the_id_interleaved_with_zeros() {
-		assert_eq!(service_record_key(5), format!("ff05000000000000{}", "00".repeat(23)));
+		assert_eq!(service_record_key(1337), format!("ff39000500000000{}", "00".repeat(23)));
 		assert_eq!(service_record_key(0x0403_0201), format!("ff01000200030004{}", "00".repeat(23)));
 	}
 
@@ -932,19 +932,20 @@ mod tests {
 	}
 
 	/// T2's canonical PolkaVM build of the parachain template runtime, at the path T3's test
-	/// pins it at. sha256 verified externally on 2026-09-11:
-	/// `ac1816f3461d84956b977f8a9f24fbff25222078b6dc3b62130760ac2e721791`.
+	/// pins it at. sha256 verified externally on 2026-09-12:
+	/// `436df0a4bb8954327b8d9fc12b8c01fcb4fcd99c4d7d39c305d5454dc9a9874d`.
 	const POLKAVM_BLOB: &str = concat!(
 		env!("CARGO_MANIFEST_DIR"),
 		"/../../../.omo/evidence/jam-zombienet-real-service/parachain-template-runtime.polkavm",
 	);
-	const POLKAVM_BLOB_LEN: usize = 7_014_288;
+	const POLKAVM_BLOB_LEN: usize = 7_014_285;
 	/// `blake2b-256` of the T2 blob, which is what
 	/// `parachain_service::work_digest::validation_code_hash` computes: the `code_ref.hash` the
 	/// registration must land on.
 	const T2_CODE_HASH: [u8; 32] = [
-		0xf0, 0x44, 0xfb, 0xb9, 0xde, 0x5b, 0x4c, 0xed, 0x38, 0x44, 0x3f, 0x53, 0x74, 0xfa, 0x5d, 0x0d,
-		0x6a, 0x92, 0x31, 0x5c, 0x10, 0x3b, 0xb5, 0x3c, 0x65, 0xf7, 0x73, 0x61, 0x57, 0xdd, 0xdc, 0xf1,
+		0x8c, 0x56, 0x26, 0x34, 0x4e, 0x95, 0xf6, 0xf7, 0x5e, 0xa3, 0xe5, 0x6a, 0xb7, 0x81, 0xd2,
+		0x0f, 0x0d, 0xb0, 0xc6, 0xfa, 0xb4, 0x60, 0x43, 0x4e, 0xad, 0xa2, 0x55, 0x77, 0x1e, 0xe4,
+		0xde, 0x2d,
 	];
 	/// A para's registration baseline plus the preimage footprint of the T2 blob, from PS
 	/// `service/src/state_balance.rs`: `PARA_INFO_FOOTPRINT` 4_246 + `PARA_LOG_FOOTPRINT` 65_585

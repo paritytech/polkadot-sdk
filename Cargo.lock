@@ -5270,6 +5270,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-jam-state-reader"
+version = "0.1.0"
+dependencies = [
+ "jam-state-helpers",
+ "parity-scale-codec",
+ "sp-additional-data",
+ "sp-externalities 0.25.0",
+ "sp-runtime-interface 24.0.0",
+ "sp-state-machine 0.35.0",
+]
+
+[[package]]
 name = "cumulus-jam-zombienet-tests"
 version = "0.1.0"
 dependencies = [
@@ -5328,6 +5340,7 @@ dependencies = [
  "assert_matches",
  "bytes",
  "cumulus-client-additional-data",
+ "cumulus-jam-state-reader",
  "cumulus-pallet-parachain-system-proc-macro",
  "cumulus-primitives-additional-data",
  "cumulus-primitives-core",
@@ -5516,11 +5529,8 @@ dependencies = [
 name = "cumulus-primitives-additional-data"
 version = "0.1.0"
 dependencies = [
- "jam-state-helpers",
- "parity-scale-codec",
  "sp-externalities 0.25.0",
  "sp-runtime-interface 24.0.0",
- "sp-state-machine 0.35.0",
 ]
 
 [[package]]
@@ -5757,6 +5767,7 @@ version = "0.1.0"
 dependencies = [
  "cumulus-client-additional-data",
  "cumulus-client-consensus-common",
+ "cumulus-jam-state-reader",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-weight-reclaim",
  "cumulus-primitives-additional-data",
@@ -17713,8 +17724,8 @@ dependencies = [
  "cumulus-client-service",
  "cumulus-jam-interface",
  "cumulus-jam-rpc-interface",
+ "cumulus-jam-state-reader",
  "cumulus-pallet-parachain-system",
- "cumulus-primitives-additional-data",
  "cumulus-primitives-aura",
  "cumulus-primitives-core",
  "cumulus-relay-chain-interface",

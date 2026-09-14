@@ -40,9 +40,9 @@ pub(crate) mod resubmission;
 
 use authorizer::AuraAuthorizer;
 use codec::Decode;
-use cumulus_primitives_additional_data::{JamStateExt, JamStateReader};
+use cumulus_jam_state_reader::{JamStateExt, JamStateReader};
 use futures::{Stream, StreamExt};
-use jam_cumulus_facade::service_state::{para_info_key, ParaInfo};
+use jam_cumulus_facade::service_state::{ParaInfo, para_info_key};
 use jam_interface::{
 	AuthPool, AuthorizerHash, BlockDesc, CoreIndex, HeaderHash, JamChainSource, JamStateSource,
 	ServiceId, Slot as JamSlot,
@@ -57,24 +57,6 @@ use std::{future::Future, pin::Pin, time::Instant};
 pub(crate) const LOG_TARGET: &str = "jam-collator";
 
 pub(crate) const JAM_SLOT_DURATION_MS: u64 = 6000;
-
-/// The `AdditionalDataFinalizer` committing the carried JAM state proof under
-/// `JAM_PROOF_KEY`.
-///
-/// The commitment is `sp_additional_data::hash_value` of the exact bytes the `JAM_PROOF_KEY`
-/// entry carries in the additional-data map, so the digest recomputed from the carried map on
-/// import matches the one committed at authoring — one finalizer shape for both sides of the
-/// channel.
-#[derive(Debug)]
-pub(crate) struct JamProofFinalizer {
-	pub commitment: [u8; 32],
-}
-
-impl sp_additional_data::AdditionalDataFinalizer for JamProofFinalizer {
-	fn finalize(&self) -> Option<[u8; 32]> {
-		Some(self.commitment)
-	}
-}
 
 /// Message from the builder task to the collation task: one built parachain block plus the JAM
 /// context it was built against.
@@ -257,7 +239,7 @@ where
 			match parent(block.header_hash).await {
 				Ok(parent) => block = parent,
 				Err(error) => {
-					return LookupAnchorWalk { chosen: None, walked, stopped_early: Some(error) }
+					return LookupAnchorWalk { chosen: None, walked, stopped_early: Some(error) };
 				},
 			}
 		}

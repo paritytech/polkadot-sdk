@@ -310,7 +310,7 @@ The demo ran two collators to best 42 / finalized 39 and stopped cleanly on Ctrl
 
 Nothing. The chain spec `polkajam gen-spec` generates for a run already holds:
 
-* **the real parachain service as service 5** (`network::PARASIM_SERVICE_ID`), created from the
+* **the real parachain service as service 1337** (`network::PARACHAIN_SERVICE_ID`), created from the
   copied-aside `parachain-service.jam` with a balance of 10^15, and **hosting the AURA authorizer
   blob's preimage**. That is where a guarantor resolves the authorizer code from, because a
   collator's work package names the parachain service as its `auth_code_host`.
@@ -330,14 +330,14 @@ writes itself. For a single para on core 0 the object is:
 ```json
 {
   "services": {
-    "5": {
+    "1337": {
       "code": "<work dir>/parachain-service.jam",
       "balance": 1000000000000000,
       "preimages": ["<work dir>/parachain-authorizer-sr25519.jam", "<work dir>/runtime.polkavm"]
     }
   },
   "auth_queues": { "0": "<the para's authorizer hash, bare hex>" },
-  "assigners": { "0": 5 }
+  "assigners": { "0": 1337 }
 }
 ```
 
@@ -350,10 +350,11 @@ written as a decimal string, because `gen-spec` refuses a JSON number it cannot 
 
 So a run goes straight from "the network finalized a block" to starting collators, after two
 checks that the genesis is really the one described. First, before anything is asked of the
-nodes, `zombienet/jam_spec.json` has to hold service 5's record in its `genesis_state` — the key
-`ff05000000000000` followed by 23 zero bytes. A `gen-spec` that does not know the keys drops them
+nodes, `zombienet/jam_spec.json` has to hold service 1337's record in its `genesis_state` — the
+key `ff39000500000000` followed by 23 zero bytes. A `gen-spec` that does not know the keys drops
+them
 without a word, so this fails at once and says to point `JAM_GENSPEC_BIN` at a build that does.
-Second, once the ordinary node answers, `listServices` has to include 5: the service is genesis
+Second, once the ordinary node answers, `listServices` has to include 1337: the service is genesis
 state, so a chain without it means the nodes started from some other spec than the one just
 checked; the error names `zombienet/jam_spec.json` and the `jam_config.json` beside it.
 `Run::start` then waits for every collator's startup line and fails unless the authorizer it

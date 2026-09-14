@@ -40,7 +40,7 @@
 //! | 340 | [`input`] |
 //! | 341 | `cumulus_primitives_proof_size_hostfunction` |
 //! | 342-343 | `sp_additional_data` |
-//! | 344 | `cumulus_primitives_additional_data::jam_state_read_into` |
+//! | 344 | `cumulus_jam_state_reader::jam_state_read_into` |
 //!
 //! The ranges have to stay this tight. The PolkaVM linker pads index gaps with dummy imports
 //! (`program_from_elf.rs`, "if there are any holes in the indexes"), so the import table is

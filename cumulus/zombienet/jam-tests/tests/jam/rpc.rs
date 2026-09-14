@@ -60,8 +60,11 @@ impl JamRpc {
 
 	/// The JAM timeslot of the latest finalized block. Slot 0 is genesis.
 	pub async fn finalized_slot(&self) -> anyhow::Result<u64> {
-		let block: Value =
-			self.client.request("finalizedBlock", rpc_params![]).await.context("finalizedBlock")?;
+		let block: Value = self
+			.client
+			.request("finalizedBlock", rpc_params![])
+			.await
+			.context("finalizedBlock")?;
 		Ok(block["slot"].as_u64().unwrap_or(0))
 	}
 
@@ -132,8 +135,11 @@ impl CollatorRpc {
 			Some(hash) => rpc_params![hash],
 			None => rpc_params![],
 		};
-		let header: Value =
-			self.client.request("chain_getHeader", params).await.context("chain_getHeader")?;
+		let header: Value = self
+			.client
+			.request("chain_getHeader", params)
+			.await
+			.context("chain_getHeader")?;
 		number_of(&header)
 	}
 

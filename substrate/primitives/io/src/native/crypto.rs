@@ -81,7 +81,8 @@ extern "C" {
 	#[polkavm_import(index = 334)]
 	fn ext_crypto_ecdsa_generate_version_2(id_ptr: u32, seed: u64, out_ptr: u32);
 
-	/// Forward `crypto::ecdsa_public_keys_version_2`; see `ext_crypto_ed25519_public_keys_version_2`.
+	/// Forward `crypto::ecdsa_public_keys_version_2`; see
+	/// `ext_crypto_ed25519_public_keys_version_2`.
 	#[polkavm_import(index = 335)]
 	fn ext_crypto_ecdsa_public_keys_version_2(id_ptr: u32, out_ptr_len: u64) -> u32;
 

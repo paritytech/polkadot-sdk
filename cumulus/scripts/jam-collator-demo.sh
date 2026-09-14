@@ -4,7 +4,7 @@
 #
 # This script does NOT start a JAM network. It assumes one is already running and reachable
 # at JAM_RPC (default ws://127.0.0.1:19800), with the parasim service registered on it: either
-# an existing service pinned with JAM_SERVICE_ID (default 5), or a fresh one this script
+# an existing service pinned with JAM_SERVICE_ID (default 1337), or a fresh one this script
 # registers itself when JAMT_BIN and PARASIM_BLOB are set. Sequential runs against one testnet
 # must not share a service id -- see JAM_SERVICE_ID below.
 #
@@ -17,7 +17,7 @@
 #      (In sandboxes without userfaultfd: POLKAVM_BACKEND=interpreter POLKAVM_ALLOW_INSECURE=1.)
 #   2. The parasim service registered on it (parachain-service repo):
 #        jamt --force-core 0 create-service <parasim-service.jam> 1000000000000000 \
-#            --register=parasim --raw --id 5
+#            --register=parasim --raw --id 1337
 #      Register from a COPY of the blob: PVM builds are not byte-deterministic and a later
 #      cargo run can rewrite the blob after its hash was registered, leaving the service
 #      without a resolvable code preimage ("Service code not found").
@@ -39,7 +39,7 @@
 # AUTHORIZER_BLOB plus the collator set its runtime names, and scans the authorizer pools
 # for it.
 #
-# Usage: JAM_RPC=ws://127.0.0.1:19800 JAM_SERVICE_ID=5 cumulus/scripts/jam-collator-demo.sh
+# Usage: JAM_RPC=ws://127.0.0.1:19800 JAM_SERVICE_ID=1337 cumulus/scripts/jam-collator-demo.sh
 #
 # Required environment:
 #   AUTHORIZER_BLOB   path to parachain-authorizer-sr25519.jam (the AURA authorizer the
@@ -131,7 +131,7 @@ if [[ -z "${JAM_SERVICE_ID:-}" && -n "${JAMT_BIN:-}" && -n "${PARASIM_BLOB:-}" ]
 	# `jamt --raw` prints the id as eight hex digits, omni-node wants it in decimal.
 	JAM_SERVICE_ID="$((16#$JAM_SERVICE_ID))"
 fi
-JAM_SERVICE_ID="${JAM_SERVICE_ID:-5}"
+JAM_SERVICE_ID="${JAM_SERVICE_ID:-1337}"
 echo "JAM_SERVICE_ID=$JAM_SERVICE_ID"
 
 # 1. The AURA authorizer, and the core that runs it. Three steps, in this order:

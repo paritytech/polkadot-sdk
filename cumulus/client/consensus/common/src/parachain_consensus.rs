@@ -32,9 +32,8 @@ use polkadot_primitives::Id as ParaId;
 
 use codec::Decode;
 use futures::{
-	FutureExt, SinkExt, Stream, StreamExt,
 	channel::mpsc::{Sender, UnboundedSender},
-	pin_mut, select,
+	pin_mut, select, FutureExt, SinkExt, Stream, StreamExt,
 };
 use sp_core::traits::SpawnEssentialNamed;
 

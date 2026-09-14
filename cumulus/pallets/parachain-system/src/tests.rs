@@ -22,13 +22,13 @@ use crate::mock::*;
 use alloc::collections::BTreeMap;
 use codec::{Decode, Encode};
 use core::num::NonZeroU32;
-use cumulus_primitives_additional_data::{JamProofReader, JamStateExt, JAM_PROOF_KEY};
+use cumulus_jam_state_reader::{JAM_PROOF_KEY, JamProofReader, JamStateExt};
 use cumulus_primitives_core::{
-	relay_chain::ApprovedPeerId, AbridgedHrmpChannel, ClaimQueueOffset, CoreInfo, CoreSelector,
-	InboundDownwardMessage, InboundHrmpMessage, CUMULUS_CONSENSUS_ID,
+	AbridgedHrmpChannel, CUMULUS_CONSENSUS_ID, ClaimQueueOffset, CoreInfo, CoreSelector,
+	InboundDownwardMessage, InboundHrmpMessage, relay_chain::ApprovedPeerId,
 };
 use cumulus_primitives_parachain_inherent::{
-	v0, INHERENT_IDENTIFIER, PARACHAIN_INHERENT_IDENTIFIER_V0,
+	INHERENT_IDENTIFIER, PARACHAIN_INHERENT_IDENTIFIER_V0, v0,
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use frame_support::{assert_ok, parameter_types, weights::Weight};
@@ -38,7 +38,7 @@ use jam_state_helpers as jam_helpers;
 use rand::Rng;
 use relay_chain::HrmpChannelId;
 use sp_additional_data::{
-	hash_commitments, hash_value, AdditionalDataExt, AdditionalDataFinalizer,
+	AdditionalDataExt, AdditionalDataFinalizer, hash_commitments, hash_value,
 };
 use sp_core::H256;
 use sp_inherents::InherentDataProvider;
@@ -915,10 +915,12 @@ fn runtime_upgrade_events() {
 					})
 				);
 
-				assert!(System::digest()
-					.logs()
-					.iter()
-					.any(|d| *d == sp_runtime::generic::DigestItem::RuntimeEnvironmentUpdated));
+				assert!(
+					System::digest()
+						.logs()
+						.iter()
+						.any(|d| *d == sp_runtime::generic::DigestItem::RuntimeEnvironmentUpdated)
+				);
 			},
 		);
 }
@@ -1708,10 +1710,10 @@ fn deposits_relay_parent_storage_root() {
 		|| {},
 		|| {
 			let digest = System::digest();
-			assert!(cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(
-				&digest
-			)
-			.is_some());
+			assert!(
+				cumulus_primitives_core::rpsr_digest::extract_relay_parent_storage_root(&digest)
+					.is_some()
+			);
 		},
 	);
 }
@@ -1999,7 +2001,7 @@ fn jam_branch_node(left: &jam_helpers::Hash, right: &jam_helpers::Hash) -> jam_h
 
 /// The parachain service's id these tests build proofs for; must match the runtime constant the
 /// reader derives state keys with.
-const JAM_SERVICE_ID: u32 = 5;
+const JAM_SERVICE_ID: u32 = 1337;
 
 /// A `ParaInfo` with `head` as head data, SCALE-encoded as stored in the parachain service.
 fn jam_para_info(head: &[u8]) -> Vec<u8> {

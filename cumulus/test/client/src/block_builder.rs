@@ -17,9 +17,9 @@
 use crate::Client;
 use codec::Encode;
 use cumulus_client_additional_data::RecordingAdditionalDataProvider;
-use cumulus_primitives_additional_data::{RelayStateExt, RELAY_PROOF_KEY};
+use cumulus_primitives_additional_data::{RELAY_PROOF_KEY, RelayStateExt};
 use cumulus_primitives_core::{ParachainBlockData, PersistedValidationData};
-use cumulus_primitives_parachain_inherent::{ParachainInherentData, INHERENT_IDENTIFIER};
+use cumulus_primitives_parachain_inherent::{INHERENT_IDENTIFIER, ParachainInherentData};
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{Block, GetLastTimestamp, Hash, Header};
 use polkadot_primitives::{BlockNumber as PBlockNumber, Hash as PHash};
@@ -27,7 +27,7 @@ use sp_additional_data::{AdditionalDataExt, AdditionalDataFinalizer, AdditionalD
 use sp_api::{ApiExt, ProofRecorder, ProofRecorderIgnoredNodes, ProvideRuntimeApi};
 use sp_consensus_aura::{AuraApi, Slot};
 use sp_externalities::Extensions;
-use sp_runtime::{traits::Header as HeaderT, Digest, DigestItem};
+use sp_runtime::{Digest, DigestItem, traits::Header as HeaderT};
 use sp_trie::proof_size_extension::ProofSizeExt;
 use std::sync::Arc;
 

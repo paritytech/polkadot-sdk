@@ -51,6 +51,7 @@ xcm = { workspace = true }
 xcm-builder = { workspace = true }
 
 # Cumulus
+cumulus-jam-state-reader = { workspace = true }
 cumulus-pallet-parachain-system-proc-macro = { workspace = true }
 cumulus-primitives-additional-data = { workspace = true }
 cumulus-primitives-core = { workspace = true }
@@ -115,6 +116,7 @@ default = ["std"]
 std = [
 	"bytes/std",
 	"codec/std",
+	"cumulus-jam-state-reader/std",
 	"cumulus-pallet-parachain-system-proc-macro/std",
 	"cumulus-primitives-additional-data/std",
 	"cumulus-primitives-core/std",

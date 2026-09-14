@@ -817,10 +817,13 @@ pub type SubstrateHostFunctions = (
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_core::{crypto::UncheckedInto, map, storage::Storage};
-	use sp_core::testing::{ECDSA, ED25519, SR25519};
-	use sp_keystore::testing::MemoryKeystore;
-	use sp_keystore::KeystoreExt;
+	use sp_core::{
+		crypto::UncheckedInto,
+		map,
+		storage::Storage,
+		testing::{ECDSA, ED25519, SR25519},
+	};
+	use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 	use sp_state_machine::BasicExternalities;
 
 	#[test]
@@ -1028,7 +1031,9 @@ mod tests {
 			let mut cur = marker + MARKER.len();
 			// The digit scan must consume at least one byte (qed: the literal ends in `= `).
 			if cur >= source.len() || source[cur] < 0x30 || source[cur] > 0x39 {
-				panic!("malformed `#[polkavm_import(index = ...)]` attribute in `native/crypto.rs`");
+				panic!(
+					"malformed `#[polkavm_import(index = ...)]` attribute in `native/crypto.rs`"
+				);
 			}
 			let mut index = 0u32;
 			while cur < source.len() && source[cur] >= 0x30 && source[cur] <= 0x39 {
@@ -1053,7 +1058,8 @@ mod tests {
 	// each, named `ext_crypto_<fn>_version_2` so the node-side polkavm linker resolves them by
 	// symbol name, and nothing may push the high-water mark past 343.  The cross-crate uniqueness
 	// check is the workspace scan
-	// `rg -n '#[polkavm_(index|import)\(index\s*=\s*[0-9]+' substrate cumulus polkadot --glob '*.rs'`.
+	// `rg -n '#[polkavm_(index|import)\(index\s*=\s*[0-9]+' substrate cumulus polkadot --glob
+	// '*.rs'`.
 	#[test]
 	fn crypto_keystore_extern_indexes_are_exactly_328_to_337() {
 		let expected: Vec<(u32, &[u8])> = vec![
@@ -1093,7 +1099,8 @@ mod tests {
 		}
 
 		// The PolkaVM linker pads holes in the import table, so every index up to the maximum
-		// costs a slot. `jam_state_read_into` owns 344 in a later change; nothing may pass 343.
+		// costs a slot. Index 344 is owned by `cumulus_jam_state_reader::jam_state_read_into`;
+		// nothing may pass 343.
 		assert!(max_index <= 343, "crypto forwarding may not exceed 343; max is {max_index}");
 	}
 

@@ -34,18 +34,19 @@ use super::LOG_TARGET;
 use crate::common::aura::AuraIdT;
 use codec::Encode;
 use jam_cumulus_facade::{
-	aura::{
-		build_collator_tree, expected_collator_index, signable_work_package_hash, AuthConfig,
-		AuthToken, CollatorKey, CollatorSignature,
-	},
-	authorizer::{authorizer_hash, AuthConfigBlob, Authorizer, AuthorizerHash},
 	H256,
+	aura::{
+		AuthConfig, AuthToken, CollatorKey, CollatorSignature, build_collator_tree,
+		expected_collator_index, signable_work_package_hash,
+	},
+	authorizer::{AuthConfigBlob, Authorizer, AuthorizerHash, authorizer_hash},
 };
 use jam_interface::{ServiceId, Slot as JamSlot};
 use jam_types::{Authorization, CodeHash, WorkPackage};
 use sp_core::{
+	Pair,
 	crypto::{ByteArray, CryptoTypeId, KeyTypeId},
-	ed25519, sr25519, Pair,
+	ed25519, sr25519,
 };
 use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::app_crypto::AppCrypto;
@@ -349,7 +350,7 @@ pub(crate) mod tests {
 	use sp_keystore::testing::MemoryKeystore;
 	use std::sync::Arc;
 
-	pub(crate) const SERVICE_ID: ServiceId = 5;
+	pub(crate) const SERVICE_ID: ServiceId = 1337;
 	pub(crate) const PARA_ID: u32 = 1000;
 
 	/// Any file will do: the blob reaches the config only through its hash, and nothing here
