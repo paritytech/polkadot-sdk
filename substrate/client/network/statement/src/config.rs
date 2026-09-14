@@ -63,10 +63,12 @@ pub const DEFAULT_STATEMENTS_PER_SECOND: u32 = 50_000;
 pub const STATEMENTS_BURST_COEFFICIENT: u32 = 5;
 
 /// Maximum topic affinity updates per second from one peer before rate limiting kicks in.
-pub const AFFINITY_UPDATES_PER_SECOND: NonZeroU32 = NonZeroU32::new(1).expect("1 is non-zero");
+pub const AFFINITY_UPDATES_PER_SECOND: NonZeroU32 = NonZeroU32::new(100).expect("100 is non-zero");
 
 /// Burst capacity for the affinity update rate limiter.
-pub const AFFINITY_UPDATES_BURST: NonZeroU32 = NonZeroU32::new(5).expect("5 is non-zero");
+pub const AFFINITY_UPDATES_BURST: NonZeroU32 =
+	NonZeroU32::new(AFFINITY_UPDATES_PER_SECOND.get() * STATEMENTS_BURST_COEFFICIENT)
+		.expect("non-zero rate times non-zero coefficient; qed");
 
 /// Default and lowest accepted false-positive rate for an affinity bloom filter built from a
 /// local topic list. Lower rates inflate the filter's size and hash count toward the wire limits

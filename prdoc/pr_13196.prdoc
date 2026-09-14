@@ -4,8 +4,8 @@ doc:
 - audience: Node Dev
   description: |-
     `ExplicitTopicAffinity` updates on the `statement/2` protocol now draw from a dedicated
-    per-peer token bucket, one update per second with a burst of five, instead of the peer's
-    statement bucket. An update past the limit is dropped and reported with the new
+    per-peer token bucket, a hundred updates per second with a burst of five hundred, instead
+    of the peer's statement bucket. An update past the limit is dropped and reported with the new
     `AFFINITY_FLOODING` reputation change; the peer stays connected. Dropped updates are
     counted by the new `substrate_sync_statement_affinity_flooding_detected` metric.
 

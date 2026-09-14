@@ -5761,23 +5761,29 @@ mod tests {
 				.count()
 		};
 
-		let burst = config::AFFINITY_UPDATES_BURST.get() as u8;
+		let nth_topic = |n: u32| {
+			let mut topic = [0u8; 32];
+			topic[..4].copy_from_slice(&n.to_le_bytes());
+			topic
+		};
+
+		let burst = config::AFFINITY_UPDATES_BURST.get();
 		for i in 0..=burst {
-			send_affinity(&mut handler, peer_id, [i; 32]).await;
+			send_affinity(&mut handler, peer_id, nth_topic(i)).await;
 		}
 		assert_eq!(flooding_reports(), 1, "only the update past the burst is reported");
 		assert!(!network.get_disconnected_peers().contains(&peer_id));
 		handler.process_pending_affinities();
 		let affinity = handler.peers[&peer_id].topic_affinity.clone().unwrap();
-		assert!(affinity.contains(&[burst - 1; 32]), "last accepted update is applied");
-		assert!(!affinity.contains(&[burst; 32]), "dropped update is not applied");
+		assert!(affinity.contains(&nth_topic(burst - 1)), "last accepted update is applied");
+		assert!(!affinity.contains(&nth_topic(burst)), "dropped update is not applied");
 
 		clock.advance(Duration::from_secs(1));
-		send_affinity(&mut handler, peer_id, [burst; 32]).await;
+		send_affinity(&mut handler, peer_id, nth_topic(burst)).await;
 		assert_eq!(flooding_reports(), 1, "the refilled token admits the next update");
 		handler.process_pending_affinities();
 		let affinity = handler.peers[&peer_id].topic_affinity.clone().unwrap();
-		assert!(affinity.contains(&[burst; 32]), "update after the refill is applied");
+		assert!(affinity.contains(&nth_topic(burst)), "update after the refill is applied");
 	}
 
 	#[tokio::test]
