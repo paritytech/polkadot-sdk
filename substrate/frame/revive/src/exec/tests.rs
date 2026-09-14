@@ -1493,6 +1493,7 @@ fn termination_of_delegated_eoa_created_in_same_tx_is_skipped() {
 				crate::storage::AccountInfo::<Test>::get_delegation_target(&address),
 				Some(CHARLIE_ADDR)
 			);
+			assert_eq!(Pallet::<Test>::evm_balance(&address), U256::zero());
 		});
 }
 
