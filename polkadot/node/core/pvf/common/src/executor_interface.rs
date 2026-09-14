@@ -226,7 +226,7 @@ type HostFunctions = (
 	sp_io::allocator::HostFunctions,
 	sp_io::logging::HostFunctions,
 	sp_io::trie::HostFunctions,
-	// Empty in builds without RFC-145 support (`--cfg rfc145`)
+	// Empty in builds without RFC-145 support (`--cfg jam`)
 	sp_io::input::HostFunctions,
 );
 

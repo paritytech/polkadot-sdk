@@ -79,7 +79,7 @@
 
 extern crate alloc;
 
-#[cfg(rfc145)]
+#[cfg(jam)]
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -126,7 +126,7 @@ use sp_runtime_interface::{
 	runtime_interface, Pointer,
 };
 
-#[cfg(rfc145)]
+#[cfg(jam)]
 use sp_runtime_interface::pass_by::{
 	ConvertAndPassAs, ConvertAndReturnAs, PassFatPointerAndWrite, PassOptionalFatPointerAndRead,
 	PassPointerAndWrite,
@@ -145,13 +145,13 @@ use sp_externalities::{Externalities, ExternalitiesExt};
 
 pub use sp_externalities::MultiRemovalResults;
 
-#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, not(rfc145)))]
+#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, not(jam)))]
 mod global_alloc;
 
-#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, rfc145, target_family = "wasm"))]
+#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, jam, target_family = "wasm"))]
 mod global_alloc_wasm;
 
-#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, rfc145, target_arch = "riscv64"))]
+#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, jam, target_arch = "riscv64"))]
 mod global_alloc_riscv;
 
 #[cfg(not(substrate_runtime))]
@@ -948,7 +948,7 @@ pub trait Storage {
 	fn root(&mut self) -> AllocateAndReturnFatPointer<Vec<u8>> {
 		// A pre-RFC-145 node computes the root with the state version implied by this host
 		// function version (`V0`) rather than with the ambient one.
-		#[cfg(not(rfc145))]
+		#[cfg(not(jam))]
 		self.set_runtime_state_version(StateVersion::V0);
 		self.storage_root()
 	}
@@ -967,7 +967,7 @@ pub trait Storage {
 	fn root(&mut self, _version: PassAs<StateVersion, u8>) -> AllocateAndReturnFatPointer<Vec<u8>> {
 		// A pre-RFC-145 node computes the root with the state version passed by the runtime
 		// rather than with the ambient one.
-		#[cfg(not(rfc145))]
+		#[cfg(not(jam))]
 		self.set_runtime_state_version(_version);
 		self.storage_root()
 	}
@@ -1616,7 +1616,7 @@ pub trait DefaultChildStorage {
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
 	) -> AllocateAndReturnFatPointer<Vec<u8>> {
-		#[cfg(not(rfc145))]
+		#[cfg(not(jam))]
 		self.set_runtime_state_version(StateVersion::V0);
 		let child_info = ChildInfo::new_default(storage_key);
 		self.child_storage_root(&child_info)
@@ -1634,7 +1634,7 @@ pub trait DefaultChildStorage {
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		_version: PassAs<StateVersion, u8>,
 	) -> AllocateAndReturnFatPointer<Vec<u8>> {
-		#[cfg(not(rfc145))]
+		#[cfg(not(jam))]
 		self.set_runtime_state_version(_version);
 		let child_info = ChildInfo::new_default(storage_key);
 		self.child_storage_root(&child_info)
@@ -2258,7 +2258,7 @@ impl Default for PublicKeysCacheExt {
 	}
 }
 
-#[cfg(all(not(substrate_runtime), rfc145))]
+#[cfg(all(not(substrate_runtime), jam))]
 macro_rules! ensure_public_keys_cache_ext_registered {
 	($self:expr) => {
 		match $self.register_extension(PublicKeysCacheExt::default()) {
@@ -4556,9 +4556,9 @@ mod tests {
 			// (RFC-145). The legacy implementation copies partial data.
 			let mut v = [0u8; 4];
 			assert_eq!(storage::read_exact(b":test", &mut v[..], 0).unwrap(), value.len() as u32);
-			#[cfg(rfc145)]
+			#[cfg(jam)]
 			assert_eq!(v, [0u8, 0, 0, 0]);
-			#[cfg(not(rfc145))]
+			#[cfg(not(jam))]
 			assert_eq!(v, [11u8, 0, 0, 0]);
 
 			// `read_partial` with a buffer that is too small DOES write partial data.

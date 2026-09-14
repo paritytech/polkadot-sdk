@@ -191,8 +191,8 @@ jobs:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
-  # RFC-145 (`--cfg rfc145`) coverage, part 1: host function marshalling and the executor.
-  test-rfc145:
+  # RFC-145 (`--cfg jam`) coverage, part 1: host function marshalling and the executor.
+  test-jam:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
@@ -201,7 +201,7 @@ jobs:
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       RUST_TOOLCHAIN: stable
-      RUSTFLAGS: "--cfg rfc145 -Cdebug-assertions=y -Dwarnings"
+      RUSTFLAGS: "--cfg jam -Cdebug-assertions=y -Dwarnings"
       RUST_BACKTRACE: 1
       WASM_BUILD_NO_COLOR: 1
     steps:
@@ -217,11 +217,11 @@ jobs:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
-  # RFC-145 (`--cfg rfc145`) coverage, part 2: builds the substrate test runtime and the
+  # RFC-145 (`--cfg jam`) coverage, part 2: builds the substrate test runtime and the
   # kitchensink runtime with the cfg and runs them through a node built with the same cfg, so the
   # RFC-145 host functions, the V2 entry point and the runtime-side allocator are exercised on a
   # full FRAME runtime and not only in the marshalling tests above.
-  test-rfc145-node:
+  test-jam-node:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
@@ -232,7 +232,7 @@ jobs:
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
       RUST_TOOLCHAIN: stable
-      RUSTFLAGS: "--cfg rfc145 -Cdebug-assertions=y -Dwarnings"
+      RUSTFLAGS: "--cfg jam -Cdebug-assertions=y -Dwarnings"
       RUST_BACKTRACE: 1
       WASM_BUILD_NO_COLOR: 1
     steps:
@@ -269,8 +269,8 @@ jobs:
         test-linux-stable-runtime-benchmarks,
         test-linux-stable,
         test-linux-stable-no-try-runtime,
-        test-rfc145,
-        test-rfc145-node,
+        test-jam,
+        test-jam-node,
       ]
     if: always() && !cancelled()
     steps:

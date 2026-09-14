@@ -3,7 +3,7 @@ doc:
 - audience: Runtime Dev
   description: |-
     This implements the host functions introduced by [RFC-145](https://github.com/polkadot-fellows/RFCs/pull/145).
-    The implementation is gated behind the `rfc145` compile-time `cfg`: without `--cfg rfc145` a runtime
+    The implementation is gated behind the `jam` compile-time `cfg`: without `--cfg jam` a runtime
     imports and a node registers exactly the same host functions as before, while the RFC-145 host
     functions, the V2 entry point and the runtime-side allocator are only compiled in with the `cfg`
     set, both for the node and (through `substrate-wasm-builder`) for the runtime.

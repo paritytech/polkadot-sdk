@@ -126,7 +126,7 @@ pub use sp_std;
 ///
 ///     /// A function version can be declared as belonging to an ABI epoch. Epoch 1 is the
 ///     /// original, pre-RFC-145 ABI using host-side allocation and is always compiled in.
-///     /// Higher epochs are gated behind a `cfg` (`--cfg rfc145` for epoch 2): their versions
+///     /// Higher epochs are gated behind a `cfg` (`--cfg jam` for epoch 2): their versions
 ///     /// only exist in builds with that `cfg` enabled. In such builds the bare function calls
 ///     /// the latest version as usual; in builds without it, the bare function falls back to
 ///     /// the latest first-epoch version. The versions of gated epochs must be the newest

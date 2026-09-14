@@ -17,7 +17,7 @@
 //! WASM validation for the `Undying` parachain.
 
 use crate::{BlockData, HeadData};
-#[cfg(rfc145)]
+#[cfg(jam)]
 use alloc::vec;
 use codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::{
@@ -26,7 +26,7 @@ use polkadot_parachain_primitives::primitives::{
 
 // RFC-145 (V2) entry point: the input data is pulled in through the `input::read` host
 // function instead of being written into the runtime memory by the host.
-#[cfg(rfc145)]
+#[cfg(jam)]
 #[no_mangle]
 pub extern "C" fn validate_block(arguments_len: usize) -> u64 {
 	let mut buf = vec![0u8; arguments_len];
@@ -37,7 +37,7 @@ pub extern "C" fn validate_block(arguments_len: usize) -> u64 {
 
 // Legacy (V1) entry point: the host allocates runtime memory and writes the input data into
 // it before the call.
-#[cfg(not(rfc145))]
+#[cfg(not(jam))]
 #[no_mangle]
 pub extern "C" fn validate_block(params: *const u8, len: usize) -> u64 {
 	let params = unsafe { polkadot_parachain_primitives::load_params(params, len) };

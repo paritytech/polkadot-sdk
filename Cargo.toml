@@ -625,7 +625,7 @@ unexpected_cfgs = { level = "warn", check-cfg = [
 	'cfg(fuzzing)',
 	'cfg(ignore_flaky_test)',
 	'cfg(revive_debug)',
-	'cfg(rfc145)',
+	'cfg(jam)',
 	'cfg(substrate_runtime)',
 ] }
 

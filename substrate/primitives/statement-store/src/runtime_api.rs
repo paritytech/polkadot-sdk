@@ -29,7 +29,7 @@ use sp_runtime_interface::{
 	runtime_interface,
 };
 
-#[cfg(rfc145)]
+#[cfg(jam)]
 use sp_runtime_interface::pass_by::PassFatPointerAndWrite;
 use Debug;
 

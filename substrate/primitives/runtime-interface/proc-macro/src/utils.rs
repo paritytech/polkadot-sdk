@@ -47,13 +47,13 @@ pub const ABI_EPOCH_RFC145: u32 = 2;
 /// Returns the `#[cfg]` attribute gating items that belong to the given ABI epoch, or `None`
 /// for epoch 1 items, which are always compiled in.
 pub fn abi_epoch_cfg(epoch: u32) -> Option<syn::Attribute> {
-	(epoch >= ABI_EPOCH_RFC145).then(|| parse_quote!( #[cfg(rfc145)] ))
+	(epoch >= ABI_EPOCH_RFC145).then(|| parse_quote!( #[cfg(jam)] ))
 }
 
 /// Returns the `#[cfg]` attribute gating items that must only be compiled when everything
 /// above the first ABI epoch is disabled.
 pub fn abi_epoch_negative_cfg() -> syn::Attribute {
-	parse_quote!( #[cfg(not(rfc145))] )
+	parse_quote!( #[cfg(not(jam))] )
 }
 
 /// Parses and strips an `#[abi_epoch(N)]` attribute, if present.

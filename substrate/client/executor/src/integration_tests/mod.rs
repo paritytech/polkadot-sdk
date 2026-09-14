@@ -431,7 +431,7 @@ fn should_trap_when_heap_exhausted(wasm_method: WasmExecutionMethod) {
 
 	match err {
 		// The runtime-side allocator aborts through the Rust allocation error handler.
-		#[cfg(rfc145)]
+		#[cfg(jam)]
 		Error::AbortedDueToPanic(error) => {
 			assert!(
 				error.message.contains("memory allocation of"),
@@ -440,7 +440,7 @@ fn should_trap_when_heap_exhausted(wasm_method: WasmExecutionMethod) {
 			);
 		},
 		// The host-side allocator makes the `malloc` host function panic.
-		#[cfg(not(rfc145))]
+		#[cfg(not(jam))]
 		Error::AbortedDueToTrap(error)
 			if matches!(wasm_method, WasmExecutionMethod::Compiled { .. }) =>
 		{

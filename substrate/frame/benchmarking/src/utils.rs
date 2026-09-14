@@ -23,7 +23,7 @@ use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_io::hashing::blake2_256;
-#[cfg(rfc145)]
+#[cfg(jam)]
 use sp_io::RIIntOption;
 use sp_runtime::{
 	traits::TrailingZeroInput, transaction_validity::TransactionValidityError, DispatchError,
@@ -33,7 +33,7 @@ use sp_runtime_interface::pass_by::{
 	PassFatPointerAndRead,
 };
 // Marshalling strategies only used by the RFC-145 versions of the host functions.
-#[cfg(rfc145)]
+#[cfg(jam)]
 use sp_runtime_interface::pass_by::{
 	ConvertAndReturnAs, PassFatPointerAndWrite, PassPointerAndWrite,
 };

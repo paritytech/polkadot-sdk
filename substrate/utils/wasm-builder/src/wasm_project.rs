@@ -941,8 +941,8 @@ fn build_bloaty_blob(
 
 	rustflags.push_str(default_rustflags);
 	rustflags.push_str(" --cfg substrate_runtime ");
-	if crate::is_rfc145_build() {
-		rustflags.push_str(" --cfg rfc145 ");
+	if crate::is_jam_build() {
+		rustflags.push_str(" --cfg jam ");
 	}
 	rustflags.push_str(&env::var(crate::WASM_BUILD_RUSTFLAGS_ENV).unwrap_or_default());
 
@@ -1270,7 +1270,7 @@ fn generate_rerun_if_changed_instructions(
 	println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_STD);
 	println!("cargo:rerun-if-env-changed={}", crate::RUNTIME_TARGET);
 	println!("cargo:rerun-if-env-changed={}", crate::WASM_BUILD_CARGO_ARGS);
-	println!("cargo:rerun-if-env-changed={}", crate::RFC145_ENV);
+	println!("cargo:rerun-if-env-changed={}", crate::JAM_ENV);
 }
 
 /// Track files and paths related to the given package to rerun `build.rs` on any relevant change.

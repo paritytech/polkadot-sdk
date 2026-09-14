@@ -109,7 +109,7 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 				// RFC-145 (V2) entry point: the input data is pulled in through the
 				// `input::read` host function instead of being written into the runtime
 				// memory by the host.
-				#[cfg(rfc145)]
+				#[cfg(jam)]
 				#[no_mangle]
 				#[cfg_attr(
 					target_arch = "riscv64",
@@ -137,7 +137,7 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 
 				// Legacy (V1) entry point: the host allocates runtime memory and writes the
 				// input data into it before the call.
-				#[cfg(not(rfc145))]
+				#[cfg(not(jam))]
 				#[no_mangle]
 				#[cfg_attr(
 					target_arch = "riscv64",
