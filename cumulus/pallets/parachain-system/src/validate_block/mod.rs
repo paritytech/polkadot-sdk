@@ -30,10 +30,10 @@ pub(super) mod child_storage_host_functions;
 pub(super) mod host_functions;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
-pub mod polkadot_implementation;
+pub mod relay_chain_implementation;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
-pub use polkadot_implementation as implementation;
+pub use relay_chain_implementation as implementation;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
 pub mod validate_block_core;

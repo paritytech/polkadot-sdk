@@ -69,7 +69,7 @@ const ERR_HEAD_DATA_MISSING: &[u8] = b"jam_validate_block:no-head-data";
 
 /// The single entry point the Parachain Service's Refine (spawned child PVM) calls (spec §4.2).
 ///
-/// Same validation as the polkadot path — [`super::polkadot_implementation::validate_block`] —
+/// Same validation as the relay-chain path — [`super::relay_chain_implementation::validate_block`] —
 /// instantiated with the same concrete `B`/`E`/`PSC` by the runtime layer, but with the JAM
 /// setup: the candidate is read from the child-PVM `work_item_payload` host function and the
 /// `ValidationResult` outputs are written via host side effects instead of returned.
@@ -155,7 +155,7 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 
 /// Build the trie-hashmap randomness seed from the JAM refine context's `lookup_anchor` plus
 /// every block hash — the JAM analogue of
-/// [`super::polkadot_implementation::build_seed_from_head_data`] (the lookup anchor stands in
+/// [`super::relay_chain_implementation::build_seed_from_head_data`] (the lookup anchor stands in
 /// for the relay-parent storage root). Mixing a context value the collator cannot fully predict
 /// with the block hashes keeps the seed changing every block and hard to find out ahead of time.
 fn build_jam_seed<B: BlockT>(lookup_anchor: [u8; 32], blocks: &[B::LazyBlock]) -> [u8; 16] {

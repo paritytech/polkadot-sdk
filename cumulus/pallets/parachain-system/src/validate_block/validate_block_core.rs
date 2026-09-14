@@ -22,7 +22,7 @@
 //! assembling the resulting head/message outputs into a [`PartialValidationResult`].
 //!
 //! Relay-chain-only concerns stay out of the seam and live in
-//! [`super::polkadot_implementation`]: V3 scheduling shape validation, the scheduling-signature
+//! [`super::relay_chain_implementation`]: V3 scheduling shape validation, the scheduling-signature
 //! override, `validate_validation_data` and the final `ValidationResult` assembly. The two
 //! callbacks are the boundary:
 //!
