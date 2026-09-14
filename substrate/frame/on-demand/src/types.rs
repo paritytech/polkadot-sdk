@@ -23,7 +23,7 @@ use crate::{
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use fp_coretime::TaskId;
-use frame_support::traits::{fungible::Inspect, tokens::Balance};
+use frame_support::traits::tokens::{currency::Currency, Balance};
 use frame_system::Config as SConfig;
 use scale_info::TypeInfo;
 use sp_arithmetic::{
@@ -32,7 +32,7 @@ use sp_arithmetic::{
 };
 use sp_runtime::DispatchError;
 
-pub type BalanceOf<T> = <<T as Config>::Currency as Inspect<<T as SConfig>::AccountId>>::Balance;
+pub type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as SConfig>::AccountId>>::Balance;
 
 /// The parameters used for pricing on-demand orders.
 #[derive(

@@ -23,10 +23,7 @@ use crate::{Pallet as OnDemand, DEFAULT_BASE_FEE, DEFAULT_PRICE_STEP};
 use frame_benchmarking::v2::*;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{
-		fungible::{Inspect, Mutate},
-		Hooks,
-	},
+	traits::{tokens::currency::Currency, Hooks},
 };
 use frame_system::{pallet_prelude::*, Pallet as System, RawOrigin};
 use sp_runtime::{Perbill, Saturating};
@@ -65,12 +62,8 @@ mod benches {
 		let base_fee = BalanceOf::<T>::from(DEFAULT_BASE_FEE);
 
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::set_balance(
-			&caller.clone(),
-			T::Currency::minimum_balance().saturating_add(base_fee),
-		);
-		// Store minimum balance in the pallet's account, so that small transfers to it don't fail
-		T::Currency::set_balance(&OnDemand::<T>::account_id(), T::Currency::minimum_balance());
+		let amount = T::Currency::issue(T::Currency::minimum_balance().saturating_add(base_fee));
+		T::Currency::resolve_creating(&caller.clone(), amount);
 
 		let _ = OnDemand::<T>::on_initialize(current_block);
 
@@ -127,12 +120,9 @@ mod benches {
 			.expect("maximum price should fit within the balance type");
 
 		let caller: T::AccountId = whitelisted_caller();
-		T::Currency::set_balance(
-			&caller.clone(),
-			T::Currency::minimum_balance().saturating_add(required_amount),
-		);
-		// Store minimum balance in the pallet's account, so that small transfers to it don't fail
-		T::Currency::set_balance(&OnDemand::<T>::account_id(), T::Currency::minimum_balance());
+		let amount =
+			T::Currency::issue(T::Currency::minimum_balance().saturating_add(required_amount));
+		T::Currency::resolve_creating(&caller.clone(), amount);
 
 		// Pre-populate InflightTransactions with n transactions of fixed size
 		if n > 0 {
