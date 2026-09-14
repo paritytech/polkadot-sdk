@@ -7,6 +7,13 @@ doc:
 
     This complements the existing `refund_submission_deposit` which only works for `Approved`
     or `Cancelled` referenda.
+- audience: Runtime User
+  description: |
+    A new permissionless `slash_submission_deposit` call allows any signed account to slash the
+    submission deposit of a referendum that has been rejected or timed out.
+    
+    The deposit is removed from the submitter's reserved balance and a `DepositSlashed` event
+    is emitted.
 
 crates:
 - name: pallet-referenda
