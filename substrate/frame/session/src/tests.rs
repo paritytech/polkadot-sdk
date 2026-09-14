@@ -32,7 +32,7 @@ use sp_runtime::{testing::UintAuthorityId, Perbill};
 
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
-	traits::{ConstU64, OnInitialize},
+	traits::{ConstU64, FindAuthor, OnFinalize, OnInitialize},
 };
 
 fn initialize_block(block: u64) {
@@ -1083,4 +1083,156 @@ mod disabling_with_reenabling {
 			assert!(disabling_decision.disable.is_none() && disabling_decision.reenable.is_none());
 		});
 	}
+}
+
+struct AlwaysAuthorIndex0;
+
+impl FindAuthor<u32> for AlwaysAuthorIndex0 {
+	fn find_author<'a, I>(_: I) -> Option<u32>
+	where
+		I: 'a + IntoIterator<Item = (sp_runtime::ConsensusEngineId, &'a [u8])>,
+	{
+		Some(0)
+	}
+}
+
+fn register_keys_for(ids: &[u64]) {
+	for &id in ids {
+		NextKeys::<Test>::insert(id, MockSessionKeys { dummy: UintAuthorityId(id) });
+	}
+}
+
+#[test]
+fn current_block_validators_is_populated_on_session_transition() {
+	new_test_ext().execute_with(|| {
+		// Genesis: validators [1, 2, 3], no snapshot.
+		assert_eq!(Validators::<Test>::get(), vec![1u64, 2, 3]);
+		assert!(CurrentBlockValidators::<Test>::get().is_none());
+
+		// Block 1: no rotation, snapshot remains absent.
+		System::set_block_number(1);
+		Session::on_initialize(1);
+		assert!(CurrentBlockValidators::<Test>::get().is_none());
+
+		// Register keys for the new validator candidates so `rotate_session` can queue them.
+		register_keys_for(&[4, 5, 6]);
+		set_next_validators(vec![4u64, 5, 6]);
+
+		// Block 2: first rotation. The queued set from genesis ([1,2,3] keys) becomes active;
+		// [4,5,6] are queued for the NEXT session. Snapshot = pre-rotation [1,2,3].
+		System::set_block_number(2);
+		Session::on_initialize(2);
+		assert_eq!(
+			CurrentBlockValidators::<Test>::get(),
+			Some(vec![1u64, 2, 3]),
+			"snapshot must hold the pre-rotation validator set during the transition block"
+		);
+
+		// Finalise block 2: snapshot is cleared.
+		Session::on_finalize(2);
+		assert!(CurrentBlockValidators::<Test>::get().is_none());
+
+		// Block 3: mid-session, no snapshot.
+		System::set_block_number(3);
+		Session::on_initialize(3);
+		assert!(CurrentBlockValidators::<Test>::get().is_none());
+
+		// Block 4: second rotation. [4,5,6] (queued at block 2) now become active.
+		// Snapshot = pre-rotation [1,2,3].
+		System::set_block_number(4);
+		Session::on_initialize(4);
+		assert_eq!(Validators::<Test>::get(), vec![4u64, 5, 6], "new validators must be active");
+		assert_eq!(
+			CurrentBlockValidators::<Test>::get(),
+			Some(vec![1u64, 2, 3]),
+			"snapshot must still reflect the old set so author lookup is correct"
+		);
+	});
+}
+
+#[test]
+fn current_block_validators_cleared_after_finalize() {
+	new_test_ext().execute_with(|| {
+		// Trigger any rotation to populate the snapshot.
+		System::set_block_number(2);
+		Session::on_initialize(2);
+		assert!(CurrentBlockValidators::<Test>::get().is_some());
+
+		Session::on_finalize(2);
+		assert!(
+			CurrentBlockValidators::<Test>::get().is_none(),
+			"snapshot must be cleared at end of transition block so it does not bleed into the next"
+		);
+	});
+}
+
+#[test]
+fn find_account_from_author_index_uses_snapshot_on_transition_block() {
+	new_test_ext().execute_with(|| {
+		// Simulate: old set [10, 20, 30] was active when the block was produced.
+		// New set [40, 50, 60] is now live in `Validators` after rotation.
+		Validators::<Test>::put(vec![40u64, 50, 60]);
+		CurrentBlockValidators::<Test>::put(vec![10u64, 20, 30]);
+
+		// Authority index 0 is relative to the OLD set → must resolve to 10, not 40.
+		let found =
+			<FindAccountFromAuthorIndex<Test, AlwaysAuthorIndex0> as FindAuthor<u64>>::find_author(
+				core::iter::empty(),
+			);
+		assert_eq!(
+			found,
+			Some(10u64),
+			"on a transition block, authority index must be resolved against the pre-rotation set"
+		);
+	});
+}
+
+#[test]
+fn find_account_from_author_index_uses_live_set_on_non_transition_block() {
+	new_test_ext().execute_with(|| {
+		// No session rotation on block 1 → no snapshot.
+		System::set_block_number(1);
+		Session::on_initialize(1);
+		assert!(CurrentBlockValidators::<Test>::get().is_none());
+
+		// Index 0 must resolve to validator 1 from the live [1, 2, 3] set.
+		let found =
+			<FindAccountFromAuthorIndex<Test, AlwaysAuthorIndex0> as FindAuthor<u64>>::find_author(
+				core::iter::empty(),
+			);
+		assert_eq!(found, Some(1u64));
+	});
+}
+
+#[test]
+fn find_account_from_author_index_end_to_end_transition() {
+	new_test_ext().execute_with(|| {
+		// Register keys and queue [4, 5, 6] for the next session.
+		register_keys_for(&[4, 5, 6]);
+		set_next_validators(vec![4u64, 5, 6]);
+
+		// Block 2 → session 1: still [1,2,3] active, [4,5,6] queued.
+		System::set_block_number(2);
+		Session::on_initialize(2);
+		Session::on_finalize(2);
+
+		// Block 4 → session 2: [4,5,6] become active; snapshot = [1,2,3].
+		System::set_block_number(4);
+		Session::on_initialize(4);
+
+		assert_eq!(Validators::<Test>::get(), vec![4u64, 5, 6]);
+		assert_eq!(CurrentBlockValidators::<Test>::get(), Some(vec![1u64, 2, 3]));
+
+		// A block authored under the OLD set (index 0 → validator 1) must still be
+		// attributed to validator 1 even though validator 1 is no longer in `Validators`.
+		let found =
+			<FindAccountFromAuthorIndex<Test, AlwaysAuthorIndex0> as FindAuthor<u64>>::find_author(
+				core::iter::empty(),
+			);
+		assert_eq!(
+			found,
+			Some(1u64),
+			"authority index 0 must resolve to validator 1 (pre-rotation), not validator 4"
+		);
+	});
 }
