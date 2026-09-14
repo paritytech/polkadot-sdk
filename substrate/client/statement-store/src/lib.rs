@@ -683,9 +683,10 @@ impl QueryIndex {
 	/// The conditional track of an already propagated statement, which makes it a candidate
 	/// for the retention sweep.
 	fn propagated_track(&self, hash: &Hash) -> Option<RetentionTrack> {
-		(!self.recent.contains_key(hash))
-			.then(|| self.conditional.get(hash).copied())
-			.flatten()
+		if self.recent.contains_key(hash) {
+			return None;
+		}
+		self.conditional.get(hash).copied()
 	}
 
 	/// Copies the set of recently added hashes with their admission sequence numbers.
@@ -2231,11 +2232,10 @@ impl Store {
 				RetentionTrack::Transient => {
 					// A lapsed explicit-only statement may return with its affinity, a forwarded
 					// transient one must not be forwarded again.
-					let resubmission = match track {
-						RetentionTrack::ExplicitOnly => Resubmission::Allowed,
-						RetentionTrack::Transient | RetentionTrack::Persistent => {
-							Resubmission::Banned
-						},
+					let resubmission = if track == RetentionTrack::ExplicitOnly {
+						Resubmission::Allowed
+					} else {
+						Resubmission::Banned
 					};
 					if let Err(e) =
 						self.remove_statement_locked(&mut submit_index, &hash, resubmission)
