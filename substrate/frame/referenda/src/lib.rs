@@ -724,11 +724,11 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Slash the Submission Deposit for a closed referendum.
+		/// Slash the Submission Deposit for a rejected or timed-out referendum.
 		///
 		/// - `origin`: must be `Signed` or `Root`.
-		/// - `index`: The index of a closed referendum whose Submission Deposit has not yet been
-		///   slashed.
+		/// - `index`: The index of a rejected or timed-out referendum whose Submission Deposit has
+		///   not yet been slashed.
 		///
 		/// Emits `DepositSlashed`.
 		#[pallet::call_index(9)]
