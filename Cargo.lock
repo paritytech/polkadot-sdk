@@ -13857,6 +13857,7 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-application-crypto 30.0.0",
+ "sp-keystore 0.34.0",
  "sp-mixnet",
 ]
 
