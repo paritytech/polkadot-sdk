@@ -74,8 +74,7 @@
 //! the slot is free, so a slow peer holds one encoded chunk rather than its whole backlog. An
 //! outbox past `config::MAX_PROPAGATION_OUTBOX_LEN` drops its oldest entries, since the freshest
 //! statements are the ones still worth delivering. Dropped entries are counted in
-//! `undelivered_statements`. A transient statement leaves the store on the propagation pull, so it
-//! travels through the outbox with its body, bounded only by that entry cap.
+//! `undelivered_statements`.
 //!
 //! In-flight bytes of both kinds are held against the shared
 //! `config::MAX_SEND_IN_FLIGHT_BYTES` budget. A peer that finds the budget full, or whose store
@@ -1002,25 +1001,18 @@ enum OutboxEntry {
 	/// the peer, so the peer's affinity filter does not apply, and an initial sync, which serves
 	/// the peer through that filter, cannot stand in for the entry.
 	Planned(Hash),
-	/// A transient statement the plan assigned to the peer. It leaves the store on the
-	/// propagation pull, so the body travels with the entry.
-	Transient(Hash, Arc<Statement>),
 }
 
 impl OutboxEntry {
 	fn hash(&self) -> Hash {
 		match self {
-			Self::Stored(hash) | Self::Planned(hash) | Self::Transient(hash, _) => *hash,
+			Self::Stored(hash) | Self::Planned(hash) => *hash,
 		}
 	}
 
 	/// Whether the v2 DHT propagation plan chose the peer for this entry.
 	fn from_plan(&self) -> bool {
-		!matches!(self, Self::Stored(_))
-	}
-
-	fn is_transient(&self) -> bool {
-		matches!(self, Self::Transient(..))
+		matches!(self, Self::Planned(_))
 	}
 }
 
@@ -1072,42 +1064,23 @@ fn fetch_statement_chunk(
 		accumulated_size += encoded_size;
 		FilterDecision::Take
 	};
-	let (statements, processed, missing) = match first {
-		OutboxEntry::Transient(..) => {
-			let mut statements = Vec::new();
-			let mut processed = 0;
-			for entry in entries {
-				let OutboxEntry::Transient(hash, stmt) = entry else { break };
-				match admit(hash, stmt.encoded_size(), stmt) {
-					FilterDecision::Skip => {},
-					FilterDecision::Take => statements.push((*hash, Statement::clone(stmt))),
-					FilterDecision::Abort => break,
-				}
-				processed += 1;
+	let hashes: Vec<Hash> = entries
+		.iter()
+		.take(PROPAGATION_FETCH_LIMIT)
+		.take_while(|entry| entry.from_plan() == first.from_plan())
+		.map(OutboxEntry::hash)
+		.collect();
+	let mut found = 0;
+	let (statements, processed) =
+		store.statements_by_hashes(&hashes, &mut |hash, encoded, stmt| {
+			let decision = admit(hash, encoded.len(), stmt);
+			if !matches!(decision, FilterDecision::Abort) {
+				found += 1;
 			}
-			(statements, processed, 0)
-		},
-		OutboxEntry::Stored(_) | OutboxEntry::Planned(_) => {
-			let hashes: Vec<Hash> = entries
-				.iter()
-				.take(PROPAGATION_FETCH_LIMIT)
-				.take_while(|entry| !entry.is_transient() && entry.from_plan() == first.from_plan())
-				.map(OutboxEntry::hash)
-				.collect();
-			let mut found = 0;
-			let (statements, processed) =
-				store.statements_by_hashes(&hashes, &mut |hash, encoded, stmt| {
-					let decision = admit(hash, encoded.len(), stmt);
-					if !matches!(decision, FilterDecision::Abort) {
-						found += 1;
-					}
-					decision
-				})?;
-			// The store counts a hash it no longer holds as processed without offering it.
-			(statements, processed, processed - found)
-		},
-	};
-	Ok(FetchedChunk { statements, processed, missing, size: accumulated_size })
+			decision
+		})?;
+	// The store counts a hash it no longer holds as processed without offering it.
+	Ok(FetchedChunk { statements, processed, missing: processed - found, size: accumulated_size })
 }
 
 async fn send_with_timeout<F>(send: F) -> SendOutcome
@@ -2000,14 +1973,6 @@ where
 		statements: &[(u64, Hash, Statement)],
 		plan: Vec<(PeerId, Vec<usize>)>,
 	) {
-		// Transient statements live outside the admission journal and carry `u64::MAX` as their
-		// sequence number, see `StatementStore::take_recent_statements`. One body is shared by
-		// every peer the plan names.
-		let bodies: Vec<Option<Arc<Statement>>> = statements
-			.iter()
-			.map(|(seq, _, stmt)| (*seq == u64::MAX).then(|| Arc::new(stmt.clone())))
-			.collect();
-
 		for (who, indices) in plan {
 			let Some(peer) = self.peers.get(&who) else {
 				continue;
@@ -2033,10 +1998,7 @@ where
 					) {
 						return None;
 					}
-					Some(match &bodies[index] {
-						Some(body) => OutboxEntry::Transient(*hash, body.clone()),
-						None => OutboxEntry::Planned(*hash),
-					})
+					Some(OutboxEntry::Planned(*hash))
 				})
 				.collect();
 
@@ -2388,7 +2350,7 @@ where
 			}
 			// Stored hashes queued for propagation before this scheduling sit below the new
 			// watermark, so the cursor already covers them; dropping them keeps them from
-			// arriving twice. Planned and transient entries stay.
+			// arriving twice. Planned entries stay.
 			if let Some(outbox) = self.propagation_outboxes.get_mut(&peer) {
 				outbox.retain(OutboxEntry::from_plan);
 				if outbox.is_empty() {
@@ -3996,94 +3958,6 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn planned_transient_statement_travels_with_its_body() {
-		let (mut handler, _statement_store, _network, notification_service, _, peer_ids) =
-			build_handler(1);
-		let peer_id = peer_ids[0];
-
-		// The statement is in no store: the body must come from the outbox entry.
-		let mut statement = new_live_statement();
-		statement.set_plain_data(b"transient".to_vec());
-		let hash = statement.hash();
-		let statements = vec![(u64::MAX, hash, statement)];
-
-		handler.queue_planned_statements(&statements, vec![(peer_id, vec![0])]);
-		handler.flush_pending_sends().await;
-		assert_eq!(
-			get_peer_hashes(&notification_service.get_sent_notifications(), peer_id),
-			vec![hash]
-		);
-		assert!(!handler.propagation_outboxes.contains_key(&peer_id));
-	}
-
-	#[tokio::test]
-	async fn planned_transient_run_splits_into_chunks() {
-		let (mut handler, _statement_store, _network, notification_service, _, peer_ids) =
-			build_handler(1);
-		let peer_id = peer_ids[0];
-
-		// Eleven 100 KiB bodies overflow one notification, so the transient loop must stop at
-		// the boundary and hand the rest to the next chunk.
-		let statements: Vec<_> = (0..11u8)
-			.map(|seed| {
-				let mut statement = new_live_statement();
-				let mut data = vec![0u8; 100 * 1024];
-				data[0] = seed;
-				statement.set_plain_data(data);
-				(u64::MAX, statement.hash(), statement)
-			})
-			.collect();
-		let hashes: Vec<_> = statements.iter().map(|(_, hash, _)| *hash).collect();
-
-		handler.queue_planned_statements(&statements, vec![(peer_id, (0..11).collect())]);
-		handler.flush_pending_sends().await;
-
-		let sent = notification_service.get_sent_notifications();
-		assert_eq!(sent.len(), 2, "the run must split into two chunks");
-		for (_, notification) in &sent {
-			assert!(notification.len() <= MAX_STATEMENT_NOTIFICATION_SIZE as usize);
-		}
-		assert_eq!(get_peer_hashes(&sent, peer_id), hashes);
-	}
-
-	#[tokio::test]
-	async fn mixed_planned_and_transient_entries_all_go_out() {
-		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
-			build_handler(1);
-		let peer_id = peer_ids[0];
-
-		let make = |seed: &[u8]| {
-			let mut statement = new_live_statement();
-			statement.set_plain_data(seed.to_vec());
-			statement
-		};
-		let first = make(b"first planned");
-		let transient = make(b"transient");
-		let last = make(b"last planned");
-		let hashes = vec![first.hash(), transient.hash(), last.hash()];
-		statement_store.insert(first);
-		statement_store.insert(last);
-
-		// A transient hash must never enter the store fetch, where it would count as missing.
-		handler.propagation_outboxes.insert(
-			peer_id,
-			VecDeque::from(vec![
-				OutboxEntry::Planned(hashes[0]),
-				OutboxEntry::Transient(hashes[1], Arc::new(transient)),
-				OutboxEntry::Planned(hashes[2]),
-			]),
-		);
-		handler.try_send_next_chunk(peer_id);
-		handler.flush_pending_sends().await;
-
-		assert_eq!(
-			get_peer_hashes(&notification_service.get_sent_notifications(), peer_id),
-			hashes
-		);
-		assert!(!handler.propagation_outboxes.contains_key(&peer_id));
-	}
-
-	#[tokio::test]
 	async fn planned_statement_missing_from_the_store_is_counted() {
 		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
 			build_handler(1);
@@ -4526,16 +4400,12 @@ mod tests {
 		planned.set_plain_data(b"planned".to_vec());
 		let planned_hash = planned.hash();
 		statement_store.insert(planned);
-		let mut transient = new_live_statement();
-		transient.set_plain_data(b"transient".to_vec());
-		let transient_entry = OutboxEntry::Transient(transient.hash(), Arc::new(transient));
 		handler.in_flight_chunks.insert(peer_id, 0);
 		handler.propagation_outboxes.insert(
 			peer_id,
 			VecDeque::from(vec![
 				OutboxEntry::Stored(stored_hash),
 				OutboxEntry::Planned(planned_hash),
-				transient_entry.clone(),
 			]),
 		);
 
@@ -4543,7 +4413,7 @@ mod tests {
 
 		assert_eq!(
 			handler.propagation_outboxes.get(&peer_id).unwrap(),
-			&VecDeque::from(vec![OutboxEntry::Planned(planned_hash), transient_entry]),
+			&VecDeque::from(vec![OutboxEntry::Planned(planned_hash)]),
 			"the sync covers only the stored hash"
 		);
 	}
