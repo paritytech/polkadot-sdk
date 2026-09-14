@@ -2341,8 +2341,9 @@ where
 			if let Some(peer_data) = self.peers.get_mut(&peer) {
 				peer_data.sync_watermark = peer_data.sync_watermark.max(watermark);
 			}
-			// Stored hashes queued before this scheduling sit below the new watermark, so the
-			// cursor already covers them and they would arrive twice.
+			// Stored hashes queued for propagation before this scheduling sit below the new
+			// watermark, so the cursor already covers them; dropping them keeps them from
+			// arriving twice.
 			if let Some(outbox) = self.propagation_outboxes.get_mut(&peer) {
 				outbox.retain(OutboxEntry::from_plan);
 				if outbox.is_empty() {
