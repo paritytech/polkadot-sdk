@@ -1260,8 +1260,6 @@ pub mod pallet {
 				false => Expendable,
 			};
 			if preservation == Preserve {
-				// TODO drop the ensure! when this issue addressed
-				// https://github.com/paritytech/polkadot-sdk/issues/1698
 				let free = T::Assets::reducible_balance(asset.clone(), who, preservation, Polite);
 				ensure!(free >= value, TokenError::NotExpendable);
 			} else if let Some(remainder) =
