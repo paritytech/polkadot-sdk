@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789391246429,
+  "lastUpdate": 1789409657579,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -123983,6 +123983,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2628421195,
             "range": "± 17189401",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8ace06674a3e4a3d06c804a21cb24ea3392ca498",
+          "message": "statement-store: rate-limit topic affinity updates per peer (#13196)\n\n# Description\n\nGives `ExplicitTopicAffinity` its own per-peer token bucket and reports\n`rep::AFFINITY_FLOODING` for updates past it. Until now an affinity\nupdate drew one token from the peer's statement bucket, 50k/s with a\n250k burst, so a peer could push tens of thousands of 1 MiB filters per\nsecond unchecked, and a burst of its own statements could reject a\nlegitimate filter change.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12556.\n\n## Integration\n\nNode operators: no action. Two new constants in `sc-network-statement`:\n\n```rust\npub const AFFINITY_UPDATES_PER_SECOND: NonZeroU32 = 100;\npub const AFFINITY_UPDATES_BURST: NonZeroU32 =\n\tAFFINITY_UPDATES_PER_SECOND * STATEMENTS_BURST_COEFFICIENT; // 500\n```\n\nA peer past the limit keeps its connection, the extra update is dropped,\nreported, and counted by the new\n`substrate_sync_statement_affinity_flooding_detected` metric.\n\n## Review Notes\n\n- Handling an update costs a decode plus a map insert that replaces the\npeer's previous filter, and the filter itself is applied only at the\nnext tick, so a queue drained in one poll is not abuse. The bucket is\ntherefore loose: it exists to catch a runaway peer and to give peer\nscoring a signal, not to police the honest rate. The statement path\nalready admits 50k notifications per second, so a much tighter affinity\nlimit would buy no protection while risking false positives on a light\nclient that changes its subscriptions.\n- The burst reuses `STATEMENTS_BURST_COEFFICIENT`, leaving the sustained\nrate as the only number chosen by hand.\n- `Peer` gains `affinity_rate_limiter`, built via\n`PeerRateLimiter::for_affinity_updates()` at every construction site.\n- New reputation constant so peer scoring has a signal to build on.\n- Test: `affinity_updates_are_rate_limited_per_peer`.\n- Files: `substrate/client/network/statement/src/{lib.rs,config.rs}`.",
+          "timestamp": "2026-09-14T16:56:14Z",
+          "tree_id": "3383ebbcf13a6e4bf09a2b4b052e92edcb53565a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8ace06674a3e4a3d06c804a21cb24ea3392ca498"
+        },
+        "date": 1789409613124,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19402977,
+            "range": "± 137719",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19987770,
+            "range": "± 86099",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21235647,
+            "range": "± 100556",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26078599,
+            "range": "± 184320",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57470049,
+            "range": "± 956915",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 321814667,
+            "range": "± 4950885",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2418166328,
+            "range": "± 43894856",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17055427,
+            "range": "± 217283",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16998810,
+            "range": "± 169999",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17353978,
+            "range": "± 150696",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21699194,
+            "range": "± 177852",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59393851,
+            "range": "± 1079061",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 354450171,
+            "range": "± 3604186",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2624508874,
+            "range": "± 14783709",
             "unit": "ns/iter"
           }
         ]
