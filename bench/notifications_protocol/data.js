@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789391201882,
+  "lastUpdate": 1789409602169,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -221567,6 +221567,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2576999432,
             "range": "± 82614796",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8ace06674a3e4a3d06c804a21cb24ea3392ca498",
+          "message": "statement-store: rate-limit topic affinity updates per peer (#13196)\n\n# Description\n\nGives `ExplicitTopicAffinity` its own per-peer token bucket and reports\n`rep::AFFINITY_FLOODING` for updates past it. Until now an affinity\nupdate drew one token from the peer's statement bucket, 50k/s with a\n250k burst, so a peer could push tens of thousands of 1 MiB filters per\nsecond unchecked, and a burst of its own statements could reject a\nlegitimate filter change.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12556.\n\n## Integration\n\nNode operators: no action. Two new constants in `sc-network-statement`:\n\n```rust\npub const AFFINITY_UPDATES_PER_SECOND: NonZeroU32 = 100;\npub const AFFINITY_UPDATES_BURST: NonZeroU32 =\n\tAFFINITY_UPDATES_PER_SECOND * STATEMENTS_BURST_COEFFICIENT; // 500\n```\n\nA peer past the limit keeps its connection, the extra update is dropped,\nreported, and counted by the new\n`substrate_sync_statement_affinity_flooding_detected` metric.\n\n## Review Notes\n\n- Handling an update costs a decode plus a map insert that replaces the\npeer's previous filter, and the filter itself is applied only at the\nnext tick, so a queue drained in one poll is not abuse. The bucket is\ntherefore loose: it exists to catch a runaway peer and to give peer\nscoring a signal, not to police the honest rate. The statement path\nalready admits 50k notifications per second, so a much tighter affinity\nlimit would buy no protection while risking false positives on a light\nclient that changes its subscriptions.\n- The burst reuses `STATEMENTS_BURST_COEFFICIENT`, leaving the sustained\nrate as the only number chosen by hand.\n- `Peer` gains `affinity_rate_limiter`, built via\n`PeerRateLimiter::for_affinity_updates()` at every construction site.\n- New reputation constant so peer scoring has a signal to build on.\n- Test: `affinity_updates_are_rate_limited_per_peer`.\n- Files: `substrate/client/network/statement/src/{lib.rs,config.rs}`.",
+          "timestamp": "2026-09-14T16:56:14Z",
+          "tree_id": "3383ebbcf13a6e4bf09a2b4b052e92edcb53565a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8ace06674a3e4a3d06c804a21cb24ea3392ca498"
+        },
+        "date": 1789409558038,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4305232,
+            "range": "± 28495",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 287974,
+            "range": "± 2980",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4233936,
+            "range": "± 23492",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 356129,
+            "range": "± 4816",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5236905,
+            "range": "± 19092",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 876496,
+            "range": "± 3255",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10609169,
+            "range": "± 46956",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4621301,
+            "range": "± 30165",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 41466026,
+            "range": "± 315171",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 36710232,
+            "range": "± 288922",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 342608997,
+            "range": "± 3499561",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 294683307,
+            "range": "± 2323783",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2545888718,
+            "range": "± 7192503",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2301177778,
+            "range": "± 15041186",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3305887,
+            "range": "± 15697",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1827860,
+            "range": "± 11308",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3427875,
+            "range": "± 16222",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1890803,
+            "range": "± 10249",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3897037,
+            "range": "± 15547",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2173939,
+            "range": "± 7229",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7694609,
+            "range": "± 25675",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5077668,
+            "range": "± 43745",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 35960183,
+            "range": "± 157957",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 34707506,
+            "range": "± 319786",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 304982188,
+            "range": "± 1748848",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 275380784,
+            "range": "± 2192474",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2470674336,
+            "range": "± 22163193",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2252278558,
+            "range": "± 69198746",
             "unit": "ns/iter"
           }
         ]
