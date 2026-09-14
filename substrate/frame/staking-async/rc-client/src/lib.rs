@@ -337,6 +337,17 @@ pub trait SendToAssetHub {
 	fn relay_new_offence_paged(
 		offences: Vec<(SessionIndex, Offence<Self::AccountId>)>,
 	) -> Result<(), ()>;
+
+	/// Report a stash's session key state on RC, so AH can reconcile the key
+	/// deposit against it.
+	///
+	/// This asserts RC's current state, which makes it idempotent and insensitive to message
+	/// ordering.
+	///
+	/// Returning `Err(())` means the DMP queue is full. Losing this message is recoverable: the
+	/// next key operation for the same stash re-asserts the state.
+	#[allow(clippy::result_unit_err)]
+	fn relay_keys_state(stash: Self::AccountId, has_keys: bool) -> Result<(), ()>;
 }
 
 /// A no-op implementation of [`SendToAssetHub`].
@@ -351,6 +362,10 @@ impl SendToAssetHub for () {
 	fn relay_new_offence_paged(
 		_offences: Vec<(SessionIndex, Offence<Self::AccountId>)>,
 	) -> Result<(), ()> {
+		unimplemented!()
+	}
+
+	fn relay_keys_state(_stash: Self::AccountId, _has_keys: bool) -> Result<(), ()> {
 		unimplemented!()
 	}
 }
@@ -1118,6 +1133,8 @@ pub mod pallet {
 		///
 		/// The fee includes both XCM delivery fee and relay chain execution cost.
 		FeesPaid { who: T::AccountId, fees: BalanceOf<T> },
+		/// Key deposit was reconciled against relay chain's state
+		KeysStateReconciled { who: T::AccountId, has_keys: bool },
 		/// Something occurred that should never happen under normal operation.
 		/// Logged as an event for fail-safe observability.
 		Unexpected(UnexpectedKind),
@@ -1145,6 +1162,8 @@ pub mod pallet {
 		ValidatorSetSendFailed,
 		/// A validator set was dropped.
 		ValidatorSetDropped,
+		/// Key deposit was not reconciled
+		KeyDepositUnavailable,
 	}
 
 	impl<T: Config> RcClientInterface for Pallet<T> {
@@ -1355,9 +1374,12 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Remove session keys for a validator and release the key deposit.
+		/// Remove session keys for a validator.
 		///
-		/// This purges the keys from the Relay Chain.
+		/// This purges the keys from the Relay Chain. The key deposit is **not** released here:
+		/// the Relay Chain reports its resulting key state back via [`Call::relay_keys_state`],
+		/// and the deposit is released then. This keeps the deposit and the keys in sync even
+		/// when the remote purge fails.
 		///
 		/// Unlike `set_keys`, this does not require the caller to be a registered validator.
 		/// This is intentional: a validator who has chilled (stopped validating) should still
@@ -1389,13 +1411,6 @@ pub mod pallet {
 		) -> DispatchResult {
 			let stash = ensure_signed(origin)?;
 
-			// Release the key deposit if one was held (no-op if nothing held).
-			let _ = T::Currency::release_all(
-				&HoldReason::Keys.into(),
-				&stash,
-				frame_support::traits::tokens::Precision::BestEffort,
-			);
-
 			// Forward purge request to RC
 			// Note: RC will fail with NoKeys if the account has no keys set
 			let fees = T::SendToRelayChain::purge_keys(
@@ -1410,6 +1425,37 @@ pub mod pallet {
 
 			log::info!(target: LOG_TARGET, "Session keys purged for {stash:?}, forwarded to RC");
 
+			Ok(())
+		}
+
+		/// Reconcile the key deposit with the relay chain's session-key state for `stash`.
+		///
+		/// Sent by `ah-client` after every `set_keys`/`purge_keys` attempt.
+		#[pallet::call_index(12)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(2, 2))]
+		pub fn relay_keys_state(
+			origin: OriginFor<T>,
+			stash: T::AccountId,
+			has_keys: bool,
+		) -> DispatchResult {
+			T::RelayChainOrigin::ensure_origin_or_root(origin)?;
+
+			let deposit = T::KeyDeposit::get();
+			if has_keys {
+				if !deposit.is_zero() &&
+					T::Currency::set_on_hold(&HoldReason::Keys.into(), &stash, deposit).is_err()
+				{
+					Self::deposit_event(Event::Unexpected(UnexpectedKind::KeyDepositUnavailable));
+				}
+			} else {
+				let _ = T::Currency::release_all(
+					&HoldReason::Keys.into(),
+					&stash,
+					frame_support::traits::tokens::Precision::BestEffort,
+				);
+			}
+
+			Self::deposit_event(Event::KeysStateReconciled { who: stash, has_keys });
 			Ok(())
 		}
 	}
