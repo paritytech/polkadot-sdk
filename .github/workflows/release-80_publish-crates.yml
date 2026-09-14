@@ -70,7 +70,7 @@ jobs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - id: set_image
         run: cat .github/env >> $GITHUB_OUTPUT
@@ -117,7 +117,7 @@ jobs:
           echo "CRATES_RELEASE_BRANCH=post-crates-release-$RELEASE_NAME" >> $GITHUB_OUTPUT
 
       - name: Checkout stable branch
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ steps.derive_branch.outputs.STABLE_BRANCH }}
           fetch-depth: 0
@@ -389,7 +389,7 @@ jobs:
 
       - name: Generate token for paritytech/polkadot-sdk
         id: generate_write_token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
             app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
             private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
