@@ -42,12 +42,14 @@ use std::{
 	iter,
 };
 
-/// Per-connection score changes
+/// Per-connection score changes.
+///
+/// The weights are a first cut, not a tuned reputation model.
 pub(crate) mod score {
 	/// A peer delivered a valid statement.
 	pub(crate) const GOOD_ACTION: i32 = 1;
 	/// A peer sent an invalid statement, a duplicate, or an undecodable message.
-	pub(crate) const BAD_ACTION: i32 = -2;
+	pub(crate) const BAD_ACTION: i32 = -50;
 }
 
 /// Upper bound, as a percent of the connected peers, on how many connections a single refresh
