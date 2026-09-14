@@ -9,3 +9,4 @@ doc:
 crates:
 - name: sc-network-sync
   bump: major
+  validate: false
