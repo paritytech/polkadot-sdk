@@ -34,7 +34,7 @@
 
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, Error as CodecError, Input, MaxEncodedLen};
-use mmr_lib::{Error as MmrError, Merge};
+use mmr_lib::{ancestry_proof::bagging_peaks_hashes, Error as MmrError, Merge};
 use polkadot_core_primitives::Hash;
 use scale_info::TypeInfo;
 use sp_runtime::traits::Hash as HashT;
@@ -104,20 +104,15 @@ pub fn empty_root() -> Hash {
 	<SpecHasher as HashT>::hash(&[EMPTY_TAG])
 }
 
-/// Bag the MMR peaks (highest to lowest) into a root, matching `mmr_lib`'s bagging
-/// (`merge_peaks(right, left)` folded right-to-left). `None` for no peaks: the empty
-/// root is a *distinct constant* ([`empty_root`]), not a bag of zero peaks, and the
-/// public root path (`MmrFrontier::root`) substitutes it.
-///
-/// This lets the on-chain outbox keep only the O(log n) peaks and still derive the
-/// same stream root that `mmr_lib`'s `MMR::get_root` and `MerkleProof::verify`
-/// produce.
+/// Bag the MMR peaks (highest to lowest) into a root — `mmr_lib`'s own bagging, so this is the
+/// root `MMR::get_root` and `MerkleProof::verify` produce, and the on-chain outbox can keep only
+/// the O(log n) peaks. `None` for no peaks: the empty root is a *distinct constant*
+/// ([`empty_root`]), not a bag of zero peaks, and the public root path (`MmrFrontier::root`)
+/// substitutes it.
 pub fn root_from_peaks(peaks: &[Hash]) -> Option<Hash> {
-	let (last, rest) = peaks.split_last()?;
-	// mmr_lib bags as merge_peaks(right, left); the accumulator carries the right side.
-	Some(rest.iter().rev().fold(*last, |acc, left| {
-		<SpecMerge as Merge>::merge_peaks(&acc, left).expect("SpecMerge is infallible; qed")
-	}))
+	// The only error on a non-empty input is a merge failure, and `SpecMerge` is infallible, so
+	// `Err` means "no peaks".
+	bagging_peaks_hashes::<Hash, SpecMerge>(peaks.to_vec()).ok()
 }
 
 /// A bagged MMR root — a stream's committed root at some point in its history. Newtyped so it can
