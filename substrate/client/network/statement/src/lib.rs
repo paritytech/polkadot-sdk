@@ -307,6 +307,9 @@ mod send_failure {
 	/// A planned statement left the store before its chunk went out, and no sync stands in
 	/// for it.
 	pub const MISSING_FROM_STORE: &str = "missing_from_store";
+	/// The peer disconnected with planned statements still queued, and no sync stands in for
+	/// them.
+	pub const DISCONNECTED: &str = "disconnected";
 }
 
 mod sync_outcome {
@@ -1654,7 +1657,13 @@ where
 					);
 				}
 				self.initial_sync_peer_queue.retain(|p| *p != peer);
-				self.propagation_outboxes.remove(&peer);
+				// A reconnect's sync covers the stored hashes, the planned ones are lost.
+				if let Some(outbox) = self.propagation_outboxes.remove(&peer) {
+					let planned = outbox.iter().filter(|entry| entry.from_plan()).count();
+					if planned > 0 {
+						self.record_abandoned_send(send_failure::DISCONNECTED, planned);
+					}
+				}
 				self.in_flight_chunks.remove(&peer);
 			},
 			NotificationEvent::NotificationReceived { peer, notification } => {
@@ -3681,6 +3690,47 @@ mod tests {
 
 		assert!(!handler.propagation_outboxes.contains_key(&peer_id));
 		assert!(!handler.in_flight_chunks.contains_key(&peer_id));
+	}
+
+	#[tokio::test]
+	async fn disconnect_counts_the_queued_planned_statements() {
+		let (mut handler, _statement_store, _network, _notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
+		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
+
+		let hashes: Vec<Hash> = (0..3u8)
+			.map(|seed| {
+				let mut statement = new_live_statement();
+				statement.set_plain_data(vec![seed]);
+				statement.hash()
+			})
+			.collect();
+		handler.in_flight_chunks.insert(peer_id, 0);
+		handler.propagation_outboxes.insert(
+			peer_id,
+			VecDeque::from(vec![
+				OutboxEntry::Stored(hashes[0]),
+				OutboxEntry::Planned(hashes[1]),
+				OutboxEntry::Planned(hashes[2]),
+			]),
+		);
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamClosed {
+				peer: peer_id,
+			})
+			.await;
+
+		let metrics = handler.metrics.as_ref().unwrap();
+		assert_eq!(
+			metrics
+				.undelivered_statements
+				.with_label_values(&[send_failure::DISCONNECTED])
+				.get(),
+			2,
+			"the stored hash is covered by the reconnect's sync"
+		);
 	}
 
 	#[tokio::test]
