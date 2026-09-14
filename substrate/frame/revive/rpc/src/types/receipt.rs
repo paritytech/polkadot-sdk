@@ -130,15 +130,15 @@ impl ReceiptInfo {
 		bloom.into()
 	}
 
-	/// Create a new [`TransactionInfo`] from a receipt and a signed transaction.
-	pub fn transaction_info(&self, transaction_signed: TransactionSigned) -> TransactionInfo {
-		TransactionInfo {
+	/// Create a new [`TransactionInfoV1`] from a receipt and a signed transaction.
+	pub fn transaction_info(&self, transaction_signed: TransactionSigned) -> TransactionInfoV1 {
+		TransactionInfoV1 {
 			block_hash: self.block_hash,
 			block_number: self.block_number,
 			from: self.from,
 			hash: self.transaction_hash,
 			transaction_index: self.transaction_index,
-			transaction_signed,
+			transaction_signed: transaction_signed.into(),
 		}
 	}
 }

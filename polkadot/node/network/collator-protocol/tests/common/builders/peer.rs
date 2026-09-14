@@ -22,7 +22,7 @@
 
 use polkadot_node_network_protocol::{
 	peer_set::CollationVersion as ProtoCollationVersion, v1 as protocol_v1, v2 as protocol_v2,
-	v3_collation as protocol_v3, CollationProtocols, ObservedRole,
+	v3_collation as protocol_v3, v4_collation as protocol_v4, CollationProtocols, ObservedRole,
 };
 use polkadot_node_subsystem::messages::{CollatorProtocolMessage, NetworkBridgeEvent};
 use polkadot_primitives::{CandidateHash, CollatorPair, Hash, Id as ParaId};
@@ -90,6 +90,7 @@ impl Peer {
 				protocol_v1::CollatorProtocolMessage,
 				protocol_v2::CollatorProtocolMessage,
 				protocol_v3::CollatorProtocolMessage,
+				protocol_v4::AdvertiseSegment,
 			>,
 		>,
 	) -> CollatorProtocolMessage {

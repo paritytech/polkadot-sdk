@@ -84,16 +84,19 @@ impl pallet_election_provider_multi_block_signed::WeightInfo for MultiBlockElect
 		unreachable!()
 	}
 	fn register_eject() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn register_not_full() -> Weight {
 		// we submit pages in tests
 		Default::default()
 	}
 	fn submit_page() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn unset_page() -> Weight {
+		unreachable!()
+	}
+	fn claim_unpaid_reward() -> Weight {
 		unreachable!()
 	}
 }

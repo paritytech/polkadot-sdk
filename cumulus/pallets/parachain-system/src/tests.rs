@@ -448,7 +448,11 @@ fn inherent_messages_are_compressed() {
 		);
 		assert_eq!(
 			LastProcessedHrmpMessage::<Test>::get(),
-			Some(InboundMessageId { sent_at: 1, reverse_idx: 10 })
+			Some(InboundHrmpMessageId::Specific {
+				sent_at: 1,
+				sender: ParaId::new(200),
+				reverse_idx: 10
+			})
 		);
 		assert_eq!(HrmpWatermark::<Test>::get(), 0);
 	});
@@ -474,7 +478,11 @@ fn inherent_messages_are_compressed() {
 		);
 		assert_eq!(
 			LastProcessedHrmpMessage::<Test>::get(),
-			Some(InboundMessageId { sent_at: 1, reverse_idx: 0 })
+			Some(InboundHrmpMessageId::Specific {
+				sent_at: 1,
+				sender: ParaId::new(200),
+				reverse_idx: 0
+			})
 		);
 		assert_eq!(HrmpWatermark::<Test>::get(), 1);
 	});
@@ -500,7 +508,11 @@ fn inherent_messages_are_compressed() {
 		);
 		assert_eq!(
 			LastProcessedHrmpMessage::<Test>::get(),
-			Some(InboundMessageId { sent_at: 2, reverse_idx: 1 })
+			Some(InboundHrmpMessageId::Specific {
+				sent_at: 2,
+				sender: ParaId::new(100),
+				reverse_idx: 0
+			})
 		);
 		assert_eq!(HrmpWatermark::<Test>::get(), 1);
 	});
@@ -640,7 +652,11 @@ fn hrmp_messages_respect_handling_limit() {
 		);
 		assert_eq!(
 			LastProcessedHrmpMessage::<Test>::get(),
-			Some(InboundMessageId { sent_at: 2, reverse_idx: 0 })
+			Some(InboundHrmpMessageId::Specific {
+				sent_at: 2,
+				sender: ParaId::new(200),
+				reverse_idx: 0
+			})
 		);
 		assert_eq!(HrmpWatermark::<Test>::get(), 2);
 	});
@@ -1794,6 +1810,80 @@ fn ump_fee_factor_increases_and_decreases() {
 				assert_eq!(UpwardDeliveryFeeFactor::<Test>::get(), FixedU128::from_u32(1));
 			},
 		);
+}
+
+#[test]
+fn claim_queue_offset_at_the_bound_is_accepted() {
+	let core_info = CoreInfo {
+		selector: CoreSelector(0),
+		claim_queue_offset: ClaimQueueOffset(1),
+		number_of_cores: codec::Compact(1),
+	};
+
+	BlockTests::new()
+		.with_pre_inherent_digests(vec![DigestItem::PreRuntime(
+			CUMULUS_CONSENSUS_ID,
+			CumulusDigestItem::CoreInfo(core_info.clone()).encode(),
+		)])
+		.add_with_post_test(
+			1,
+			|| {},
+			move || {
+				// Forwarded to the relay untouched; the relay resolves the core from it.
+				assert_eq!(
+					UpwardMessages::<Test>::get(),
+					vec![
+						UMP_SEPARATOR,
+						UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
+							.encode(),
+					]
+				);
+			},
+		);
+}
+
+/// One past the bound is still rejected, so the check has not been widened into a no-op.
+#[test]
+#[should_panic(expected = "claim_queue_offset 2 exceeds maximum allowed 1")]
+fn claim_queue_offset_beyond_the_bound_is_rejected() {
+	BlockTests::new()
+		.with_pre_inherent_digests(vec![DigestItem::PreRuntime(
+			CUMULUS_CONSENSUS_ID,
+			CumulusDigestItem::CoreInfo(CoreInfo {
+				selector: CoreSelector(0),
+				claim_queue_offset: ClaimQueueOffset(2),
+				number_of_cores: codec::Compact(1),
+			})
+			.encode(),
+		)])
+		.add(1, || {});
+}
+
+#[test]
+fn max_allowed_claim_queue_offset_matrix() {
+	assert_eq!(max_allowed_claim_queue_offset(false, 0), 1);
+	assert_eq!(max_allowed_claim_queue_offset(false, 2), 3);
+	assert_eq!(max_allowed_claim_queue_offset(true, 0), 2);
+	assert_eq!(max_allowed_claim_queue_offset(true, 2), 2);
+}
+
+/// The bound in the panic message is the computed one, so this also proves the configured
+/// `RelayParentOffset` reaches the assert: "maximum allowed 3" is only reachable via 1 + 2.
+#[test]
+#[should_panic(expected = "claim_queue_offset 4 exceeds maximum allowed 3")]
+fn claim_queue_offset_beyond_the_relay_parent_offset_bound_is_rejected() {
+	BlockTests::new()
+		.with_relay_parent_offset(2)
+		.with_pre_inherent_digests(vec![DigestItem::PreRuntime(
+			CUMULUS_CONSENSUS_ID,
+			CumulusDigestItem::CoreInfo(CoreInfo {
+				selector: CoreSelector(0),
+				claim_queue_offset: ClaimQueueOffset(4),
+				number_of_cores: codec::Compact(1),
+			})
+			.encode(),
+		)])
+		.add(1, || {});
 }
 
 #[test]

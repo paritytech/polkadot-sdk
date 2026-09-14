@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 mod approval_voting_coalescing;
+mod approved_peer_mixed_collators;
 mod approved_peer_mixed_validators;
 mod async_backing_6_seconds_rate;
 mod beefy_and_mmr;
 mod chunk_fetching_network_compatibility;
+mod collation_protocol_version_negotiation;
 mod collators_reputation_persistence;
 mod coretime_collation_fetching_fairness;
 mod coretime_partitioning;
