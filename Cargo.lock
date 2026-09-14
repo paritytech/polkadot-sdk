@@ -5408,7 +5408,6 @@ dependencies = [
 name = "cumulus-primitives-core"
 version = "0.7.0"
 dependencies = [
- "cumulus-primitives-spec-messaging",
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
