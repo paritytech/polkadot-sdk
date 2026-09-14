@@ -208,7 +208,7 @@ while the timer-driven sync bursts would otherwise always find the budget full.<
 <p>The <code>statement/2</code> protocol lets a peer advertise which topics it cares about as a bloom filter
 (“topic affinity”). Once a peer has an active affinity filter, only matching statements are
 forwarded to it; when its affinity changes, newly relevant statements are re-sent. Affinity
-advertisements are rate-limited. See the <code>affinity</code> module.</p>
+advertisements are rate-limited per peer, see <code>config::AFFINITY_UPDATES_PER_SECOND</code>.</p>
 <p>Light-client peers on <code>statement/2</code> must advertise an affinity before receiving any statements:
 a light V2 peer pulls only the topics it cares about instead of the full feed, and is synced
 those statements in an initial burst on connect. Full nodes receive all statements unless they
