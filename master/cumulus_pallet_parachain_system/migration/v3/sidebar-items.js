@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["LastProcessedHrmpMessage_Storage_Instance","Migration"],"type":["LastProcessedHrmpMessage"]};

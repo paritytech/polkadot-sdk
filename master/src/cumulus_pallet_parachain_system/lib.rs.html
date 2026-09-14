@@ -257,7 +257,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#107 id=107 data-nosnippet>107</a><span class="kw">pub use </span>unincluded_segment::{Ancestor, UsedBandwidth};
 <a href=#108 id=108 data-nosnippet>108</a><span class="kw">pub use </span>weights::WeightInfo;
 <a href=#109 id=109 data-nosnippet>109</a>
-<a href=#110 id=110 data-nosnippet>110</a><span class="kw">use </span><span class="kw">crate</span>::parachain_inherent::AbridgedInboundMessagesSizeInfo;
+<a href=#110 id=110 data-nosnippet>110</a><span class="kw">use </span><span class="kw">crate</span>::parachain_inherent::{AbridgedInboundMessagesSizeInfo, InboundHrmpMessageId};
 <a href=#111 id=111 data-nosnippet>111</a><span class="kw">pub use </span>pallet::<span class="kw-2">*</span>;
 <a href=#112 id=112 data-nosnippet>112</a>
 <a href=#113 id=113 data-nosnippet>113</a><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span>str = <span class="string">"runtime::parachain-system"</span>;
@@ -1199,7 +1199,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1049 id=1049 data-nosnippet>1049</a>	///
 <a href=#1050 id=1050 data-nosnippet>1050</a>	/// We need to keep track of this to filter the messages that have been already processed.
 <a href=#1051 id=1051 data-nosnippet>1051</a>	</span><span class="attr">#[pallet::storage]
-<a href=#1052 id=1052 data-nosnippet>1052</a>	</span><span class="kw">pub type </span>LastProcessedHrmpMessage&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, InboundMessageId&gt;;
+<a href=#1052 id=1052 data-nosnippet>1052</a>	</span><span class="kw">pub type </span>LastProcessedHrmpMessage&lt;T: Config&gt; = StorageValue&lt;<span class="kw">_</span>, InboundHrmpMessageId&gt;;
 <a href=#1053 id=1053 data-nosnippet>1053</a>
 <a href=#1054 id=1054 data-nosnippet>1054</a>	<span class="doccomment">/// HRMP messages that were sent in a block.
 <a href=#1055 id=1055 data-nosnippet>1055</a>	///
@@ -1455,802 +1455,821 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1305 id=1305 data-nosnippet>1305</a>		<span class="kw">let </span>downward_messages = downward_messages.into_abridged(<span class="kw-2">&amp;mut </span>size_limit);
 <a href=#1306 id=1306 data-nosnippet>1306</a>
 <a href=#1307 id=1307 data-nosnippet>1307</a>		<span class="comment">// HRMP.
-<a href=#1308 id=1308 data-nosnippet>1308</a>		</span><span class="kw">let </span>last_processed_msg = LastProcessedHrmpMessage::&lt;T&gt;::get()
-<a href=#1309 id=1309 data-nosnippet>1309</a>			.unwrap_or(InboundMessageId { sent_at: last_relay_block_number, reverse_idx: <span class="number">0 </span>});
-<a href=#1310 id=1310 data-nosnippet>1310</a>		horizontal_messages.drop_processed_messages(<span class="kw-2">&amp;</span>last_processed_msg);
-<a href=#1311 id=1311 data-nosnippet>1311</a>		size_limit = size_limit.saturating_add(messages_collection_size_limit);
-<a href=#1312 id=1312 data-nosnippet>1312</a>		<span class="kw">let </span>horizontal_messages = horizontal_messages.into_abridged(<span class="kw-2">&amp;mut </span>size_limit);
-<a href=#1313 id=1313 data-nosnippet>1313</a>
-<a href=#1314 id=1314 data-nosnippet>1314</a>		<span class="kw">let </span>inbound_messages_data =
-<a href=#1315 id=1315 data-nosnippet>1315</a>			InboundMessagesData::new(downward_messages, horizontal_messages);
-<a href=#1316 id=1316 data-nosnippet>1316</a>
-<a href=#1317 id=1317 data-nosnippet>1317</a>		Call::set_validation_data { data, inbound_messages_data }
-<a href=#1318 id=1318 data-nosnippet>1318</a>	}
-<a href=#1319 id=1319 data-nosnippet>1319</a>
-<a href=#1320 id=1320 data-nosnippet>1320</a>	<span class="doccomment">/// Enqueue all inbound downward messages relayed by the collator into the MQ pallet.
-<a href=#1321 id=1321 data-nosnippet>1321</a>	///
-<a href=#1322 id=1322 data-nosnippet>1322</a>	/// Checks if the sequence of the messages is valid, dispatches them and communicates the
-<a href=#1323 id=1323 data-nosnippet>1323</a>	/// number of processed messages to the collator via a storage update.
-<a href=#1324 id=1324 data-nosnippet>1324</a>	///
-<a href=#1325 id=1325 data-nosnippet>1325</a>	/// # Panics
+<a href=#1308 id=1308 data-nosnippet>1308</a>		</span><span class="kw">let </span>last_processed_msg =
+<a href=#1309 id=1309 data-nosnippet>1309</a>			LastProcessedHrmpMessage::&lt;T&gt;::get().unwrap_or(InboundHrmpMessageId::Generic(
+<a href=#1310 id=1310 data-nosnippet>1310</a>				InboundMessageId { sent_at: last_relay_block_number, reverse_idx: <span class="number">0 </span>},
+<a href=#1311 id=1311 data-nosnippet>1311</a>			));
+<a href=#1312 id=1312 data-nosnippet>1312</a>		horizontal_messages.drop_hrmp_processed_messages(<span class="kw-2">&amp;</span>last_processed_msg);
+<a href=#1313 id=1313 data-nosnippet>1313</a>		size_limit = size_limit.saturating_add(messages_collection_size_limit);
+<a href=#1314 id=1314 data-nosnippet>1314</a>		<span class="kw">let </span>horizontal_messages = horizontal_messages.into_abridged(<span class="kw-2">&amp;mut </span>size_limit);
+<a href=#1315 id=1315 data-nosnippet>1315</a>
+<a href=#1316 id=1316 data-nosnippet>1316</a>		<span class="kw">let </span>inbound_messages_data =
+<a href=#1317 id=1317 data-nosnippet>1317</a>			InboundMessagesData::new(downward_messages, horizontal_messages);
+<a href=#1318 id=1318 data-nosnippet>1318</a>
+<a href=#1319 id=1319 data-nosnippet>1319</a>		Call::set_validation_data { data, inbound_messages_data }
+<a href=#1320 id=1320 data-nosnippet>1320</a>	}
+<a href=#1321 id=1321 data-nosnippet>1321</a>
+<a href=#1322 id=1322 data-nosnippet>1322</a>	<span class="doccomment">/// Enqueue all inbound downward messages relayed by the collator into the MQ pallet.
+<a href=#1323 id=1323 data-nosnippet>1323</a>	///
+<a href=#1324 id=1324 data-nosnippet>1324</a>	/// Checks if the sequence of the messages is valid, dispatches them and communicates the
+<a href=#1325 id=1325 data-nosnippet>1325</a>	/// number of processed messages to the collator via a storage update.
 <a href=#1326 id=1326 data-nosnippet>1326</a>	///
-<a href=#1327 id=1327 data-nosnippet>1327</a>	/// If it turns out that after processing all messages the Message Queue Chain
-<a href=#1328 id=1328 data-nosnippet>1328</a>	/// hash doesn't match the expected.
-<a href=#1329 id=1329 data-nosnippet>1329</a>	</span><span class="kw">fn </span>enqueue_inbound_downward_messages(
-<a href=#1330 id=1330 data-nosnippet>1330</a>		expected_dmq_mqc_head: relay_chain::Hash,
-<a href=#1331 id=1331 data-nosnippet>1331</a>		downward_messages: AbridgedInboundDownwardMessages,
-<a href=#1332 id=1332 data-nosnippet>1332</a>	) -&gt; Weight {
-<a href=#1333 id=1333 data-nosnippet>1333</a>		downward_messages.check_enough_messages_included_basic(<span class="string">"DMQ"</span>);
-<a href=#1334 id=1334 data-nosnippet>1334</a>
-<a href=#1335 id=1335 data-nosnippet>1335</a>		<span class="kw">let </span><span class="kw-2">mut </span>dmq_head = &lt;LastDmqMqcHead&lt;T&gt;&gt;::get();
+<a href=#1327 id=1327 data-nosnippet>1327</a>	/// # Panics
+<a href=#1328 id=1328 data-nosnippet>1328</a>	///
+<a href=#1329 id=1329 data-nosnippet>1329</a>	/// If it turns out that after processing all messages the Message Queue Chain
+<a href=#1330 id=1330 data-nosnippet>1330</a>	/// hash doesn't match the expected.
+<a href=#1331 id=1331 data-nosnippet>1331</a>	</span><span class="kw">fn </span>enqueue_inbound_downward_messages(
+<a href=#1332 id=1332 data-nosnippet>1332</a>		expected_dmq_mqc_head: relay_chain::Hash,
+<a href=#1333 id=1333 data-nosnippet>1333</a>		downward_messages: AbridgedInboundDownwardMessages,
+<a href=#1334 id=1334 data-nosnippet>1334</a>	) -&gt; Weight {
+<a href=#1335 id=1335 data-nosnippet>1335</a>		downward_messages.check_enough_messages_included_basic(<span class="string">"DMQ"</span>);
 <a href=#1336 id=1336 data-nosnippet>1336</a>
-<a href=#1337 id=1337 data-nosnippet>1337</a>		<span class="kw">let </span>(messages, hashed_messages) = downward_messages.messages();
-<a href=#1338 id=1338 data-nosnippet>1338</a>		<span class="kw">let </span>message_count = messages.len() <span class="kw">as </span>u32;
-<a href=#1339 id=1339 data-nosnippet>1339</a>		<span class="kw">let </span>weight_used = T::WeightInfo::enqueue_inbound_downward_messages(message_count);
-<a href=#1340 id=1340 data-nosnippet>1340</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(last_msg) = messages.last() {
-<a href=#1341 id=1341 data-nosnippet>1341</a>			<span class="self">Self</span>::deposit_event(Event::DownwardMessagesReceived { count: message_count });
-<a href=#1342 id=1342 data-nosnippet>1342</a>
-<a href=#1343 id=1343 data-nosnippet>1343</a>			<span class="comment">// Eagerly update the MQC head hash:
-<a href=#1344 id=1344 data-nosnippet>1344</a>			</span><span class="kw">for </span>msg <span class="kw">in </span>messages {
-<a href=#1345 id=1345 data-nosnippet>1345</a>				dmq_head.extend_downward(msg);
-<a href=#1346 id=1346 data-nosnippet>1346</a>			}
-<a href=#1347 id=1347 data-nosnippet>1347</a>			&lt;LastDmqMqcHead&lt;T&gt;&gt;::put(<span class="kw-2">&amp;</span>dmq_head);
-<a href=#1348 id=1348 data-nosnippet>1348</a>			<span class="self">Self</span>::deposit_event(Event::DownwardMessagesProcessed {
-<a href=#1349 id=1349 data-nosnippet>1349</a>				weight_used,
-<a href=#1350 id=1350 data-nosnippet>1350</a>				dmq_head: dmq_head.head(),
-<a href=#1351 id=1351 data-nosnippet>1351</a>			});
-<a href=#1352 id=1352 data-nosnippet>1352</a>
-<a href=#1353 id=1353 data-nosnippet>1353</a>			<span class="kw">let </span><span class="kw-2">mut </span>last_processed_msg =
-<a href=#1354 id=1354 data-nosnippet>1354</a>				InboundMessageId { sent_at: last_msg.sent_at, reverse_idx: <span class="number">0 </span>};
-<a href=#1355 id=1355 data-nosnippet>1355</a>			<span class="kw">for </span>msg <span class="kw">in </span>hashed_messages {
-<a href=#1356 id=1356 data-nosnippet>1356</a>				dmq_head.extend_with_hashed_msg(msg);
-<a href=#1357 id=1357 data-nosnippet>1357</a>
-<a href=#1358 id=1358 data-nosnippet>1358</a>				<span class="kw">if </span>msg.sent_at == last_processed_msg.sent_at {
-<a href=#1359 id=1359 data-nosnippet>1359</a>					last_processed_msg.reverse_idx += <span class="number">1</span>;
-<a href=#1360 id=1360 data-nosnippet>1360</a>				}
-<a href=#1361 id=1361 data-nosnippet>1361</a>			}
-<a href=#1362 id=1362 data-nosnippet>1362</a>			LastProcessedDownwardMessage::&lt;T&gt;::put(last_processed_msg);
-<a href=#1363 id=1363 data-nosnippet>1363</a>
-<a href=#1364 id=1364 data-nosnippet>1364</a>			T::DmpQueue::handle_messages(downward_messages.bounded_msgs_iter());
-<a href=#1365 id=1365 data-nosnippet>1365</a>		}
-<a href=#1366 id=1366 data-nosnippet>1366</a>
-<a href=#1367 id=1367 data-nosnippet>1367</a>		<span class="comment">// After hashing each message in the message queue chain submitted by the collator, we
-<a href=#1368 id=1368 data-nosnippet>1368</a>		// should arrive to the MQC head provided by the relay chain.
-<a href=#1369 id=1369 data-nosnippet>1369</a>		//
-<a href=#1370 id=1370 data-nosnippet>1370</a>		// A mismatch means that at least some of the submitted messages were altered, omitted or
-<a href=#1371 id=1371 data-nosnippet>1371</a>		// added improperly.
-<a href=#1372 id=1372 data-nosnippet>1372</a>		</span><span class="macro">assert_eq!</span>(dmq_head.head(), expected_dmq_mqc_head, <span class="string">"DMQ head mismatch"</span>);
-<a href=#1373 id=1373 data-nosnippet>1373</a>
-<a href=#1374 id=1374 data-nosnippet>1374</a>		ProcessedDownwardMessages::&lt;T&gt;::put(message_count);
+<a href=#1337 id=1337 data-nosnippet>1337</a>		<span class="kw">let </span><span class="kw-2">mut </span>dmq_head = &lt;LastDmqMqcHead&lt;T&gt;&gt;::get();
+<a href=#1338 id=1338 data-nosnippet>1338</a>
+<a href=#1339 id=1339 data-nosnippet>1339</a>		<span class="kw">let </span>(messages, hashed_messages) = downward_messages.messages();
+<a href=#1340 id=1340 data-nosnippet>1340</a>		<span class="kw">let </span>message_count = messages.len() <span class="kw">as </span>u32;
+<a href=#1341 id=1341 data-nosnippet>1341</a>		<span class="kw">let </span>weight_used = T::WeightInfo::enqueue_inbound_downward_messages(message_count);
+<a href=#1342 id=1342 data-nosnippet>1342</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(last_msg) = messages.last() {
+<a href=#1343 id=1343 data-nosnippet>1343</a>			<span class="self">Self</span>::deposit_event(Event::DownwardMessagesReceived { count: message_count });
+<a href=#1344 id=1344 data-nosnippet>1344</a>
+<a href=#1345 id=1345 data-nosnippet>1345</a>			<span class="comment">// Eagerly update the MQC head hash:
+<a href=#1346 id=1346 data-nosnippet>1346</a>			</span><span class="kw">for </span>msg <span class="kw">in </span>messages {
+<a href=#1347 id=1347 data-nosnippet>1347</a>				dmq_head.extend_downward(msg);
+<a href=#1348 id=1348 data-nosnippet>1348</a>			}
+<a href=#1349 id=1349 data-nosnippet>1349</a>			&lt;LastDmqMqcHead&lt;T&gt;&gt;::put(<span class="kw-2">&amp;</span>dmq_head);
+<a href=#1350 id=1350 data-nosnippet>1350</a>			<span class="self">Self</span>::deposit_event(Event::DownwardMessagesProcessed {
+<a href=#1351 id=1351 data-nosnippet>1351</a>				weight_used,
+<a href=#1352 id=1352 data-nosnippet>1352</a>				dmq_head: dmq_head.head(),
+<a href=#1353 id=1353 data-nosnippet>1353</a>			});
+<a href=#1354 id=1354 data-nosnippet>1354</a>
+<a href=#1355 id=1355 data-nosnippet>1355</a>			<span class="kw">let </span><span class="kw-2">mut </span>last_processed_msg =
+<a href=#1356 id=1356 data-nosnippet>1356</a>				InboundMessageId { sent_at: last_msg.sent_at, reverse_idx: <span class="number">0 </span>};
+<a href=#1357 id=1357 data-nosnippet>1357</a>			<span class="kw">for </span>msg <span class="kw">in </span>hashed_messages {
+<a href=#1358 id=1358 data-nosnippet>1358</a>				dmq_head.extend_with_hashed_msg(msg);
+<a href=#1359 id=1359 data-nosnippet>1359</a>
+<a href=#1360 id=1360 data-nosnippet>1360</a>				<span class="kw">if </span>msg.sent_at == last_processed_msg.sent_at {
+<a href=#1361 id=1361 data-nosnippet>1361</a>					last_processed_msg.reverse_idx += <span class="number">1</span>;
+<a href=#1362 id=1362 data-nosnippet>1362</a>				}
+<a href=#1363 id=1363 data-nosnippet>1363</a>			}
+<a href=#1364 id=1364 data-nosnippet>1364</a>			LastProcessedDownwardMessage::&lt;T&gt;::put(last_processed_msg);
+<a href=#1365 id=1365 data-nosnippet>1365</a>
+<a href=#1366 id=1366 data-nosnippet>1366</a>			T::DmpQueue::handle_messages(downward_messages.bounded_msgs_iter());
+<a href=#1367 id=1367 data-nosnippet>1367</a>		}
+<a href=#1368 id=1368 data-nosnippet>1368</a>
+<a href=#1369 id=1369 data-nosnippet>1369</a>		<span class="comment">// After hashing each message in the message queue chain submitted by the collator, we
+<a href=#1370 id=1370 data-nosnippet>1370</a>		// should arrive to the MQC head provided by the relay chain.
+<a href=#1371 id=1371 data-nosnippet>1371</a>		//
+<a href=#1372 id=1372 data-nosnippet>1372</a>		// A mismatch means that at least some of the submitted messages were altered, omitted or
+<a href=#1373 id=1373 data-nosnippet>1373</a>		// added improperly.
+<a href=#1374 id=1374 data-nosnippet>1374</a>		</span><span class="macro">assert_eq!</span>(dmq_head.head(), expected_dmq_mqc_head, <span class="string">"DMQ head mismatch"</span>);
 <a href=#1375 id=1375 data-nosnippet>1375</a>
-<a href=#1376 id=1376 data-nosnippet>1376</a>		weight_used
-<a href=#1377 id=1377 data-nosnippet>1377</a>	}
-<a href=#1378 id=1378 data-nosnippet>1378</a>
-<a href=#1379 id=1379 data-nosnippet>1379</a>	<span class="kw">fn </span>get_ingress_channel_or_panic(
-<a href=#1380 id=1380 data-nosnippet>1380</a>		ingress_channels: <span class="kw-2">&amp;</span>[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
-<a href=#1381 id=1381 data-nosnippet>1381</a>		sender: ParaId,
-<a href=#1382 id=1382 data-nosnippet>1382</a>	) -&gt; <span class="kw-2">&amp;</span>cumulus_primitives_core::AbridgedHrmpChannel {
-<a href=#1383 id=1383 data-nosnippet>1383</a>		<span class="kw">let </span>maybe_channel_idx = ingress_channels
-<a href=#1384 id=1384 data-nosnippet>1384</a>			.binary_search_by_key(<span class="kw-2">&amp;</span>sender, |<span class="kw-2">&amp;</span>(channel_sender, <span class="kw">_</span>)| channel_sender)
-<a href=#1385 id=1385 data-nosnippet>1385</a>			.ok();
-<a href=#1386 id=1386 data-nosnippet>1386</a>		<span class="kw">let </span>maybe_channel = maybe_channel_idx
-<a href=#1387 id=1387 data-nosnippet>1387</a>			.and_then(|channel_idx| ingress_channels.get(channel_idx))
-<a href=#1388 id=1388 data-nosnippet>1388</a>			.map(|(<span class="kw">_</span>, channel)| channel);
-<a href=#1389 id=1389 data-nosnippet>1389</a>		maybe_channel.unwrap_or_else(|| {
-<a href=#1390 id=1390 data-nosnippet>1390</a>			<span class="macro">panic!</span>(
-<a href=#1391 id=1391 data-nosnippet>1391</a>				<span class="string">"One of the messages submitted by the collator was sent from a sender ({}) \
-<a href=#1392 id=1392 data-nosnippet>1392</a>				that doesn't have a channel opened to this parachain"</span>,
-<a href=#1393 id=1393 data-nosnippet>1393</a>				&lt;ParaId <span class="kw">as </span>Into&lt;u32&gt;&gt;::into(sender)
-<a href=#1394 id=1394 data-nosnippet>1394</a>			)
-<a href=#1395 id=1395 data-nosnippet>1395</a>		})
-<a href=#1396 id=1396 data-nosnippet>1396</a>	}
-<a href=#1397 id=1397 data-nosnippet>1397</a>
-<a href=#1398 id=1398 data-nosnippet>1398</a>	<span class="kw">fn </span>check_hrmp_mcq_heads(
-<a href=#1399 id=1399 data-nosnippet>1399</a>		ingress_channels: <span class="kw-2">&amp;</span>[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
-<a href=#1400 id=1400 data-nosnippet>1400</a>		mqc_heads: <span class="kw-2">&amp;mut </span>BTreeMap&lt;ParaId, MessageQueueChain&gt;,
-<a href=#1401 id=1401 data-nosnippet>1401</a>	) {
-<a href=#1402 id=1402 data-nosnippet>1402</a>		<span class="comment">// Check that the MQC heads for each channel provided by the relay chain match the MQC
-<a href=#1403 id=1403 data-nosnippet>1403</a>		// heads we have after processing all incoming messages.
-<a href=#1404 id=1404 data-nosnippet>1404</a>		//
-<a href=#1405 id=1405 data-nosnippet>1405</a>		// Along the way we also carry over the relevant entries from the `last_mqc_heads` to
-<a href=#1406 id=1406 data-nosnippet>1406</a>		// `running_mqc_heads`. Otherwise, in a block where no messages were sent in a channel
-<a href=#1407 id=1407 data-nosnippet>1407</a>		// it won't get into next block's `last_mqc_heads` and thus will be all zeros, which
-<a href=#1408 id=1408 data-nosnippet>1408</a>		// would corrupt the message queue chain.
-<a href=#1409 id=1409 data-nosnippet>1409</a>		</span><span class="kw">for </span>(sender, channel) <span class="kw">in </span>ingress_channels {
-<a href=#1410 id=1410 data-nosnippet>1410</a>			<span class="kw">let </span>cur_head = mqc_heads.entry(<span class="kw-2">*</span>sender).or_default().head();
-<a href=#1411 id=1411 data-nosnippet>1411</a>			<span class="kw">let </span>target_head = channel.mqc_head.unwrap_or_default();
-<a href=#1412 id=1412 data-nosnippet>1412</a>			<span class="macro">assert_eq!</span>(cur_head, target_head, <span class="string">"HRMP head mismatch"</span>);
-<a href=#1413 id=1413 data-nosnippet>1413</a>		}
-<a href=#1414 id=1414 data-nosnippet>1414</a>	}
-<a href=#1415 id=1415 data-nosnippet>1415</a>
-<a href=#1416 id=1416 data-nosnippet>1416</a>	<span class="doccomment">/// Performs some checks related to the sender and the `sent_at` field of an HRMP message.
-<a href=#1417 id=1417 data-nosnippet>1417</a>	///
-<a href=#1418 id=1418 data-nosnippet>1418</a>	/// **Panics** if the message submitted by the collator doesn't respect the expected order or if
-<a href=#1419 id=1419 data-nosnippet>1419</a>	///            it was sent from a para which has no open channel to this parachain.
-<a href=#1420 id=1420 data-nosnippet>1420</a>	</span><span class="kw">fn </span>check_hrmp_message_metadata(
-<a href=#1421 id=1421 data-nosnippet>1421</a>		ingress_channels: <span class="kw-2">&amp;</span>[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
-<a href=#1422 id=1422 data-nosnippet>1422</a>		maybe_prev_msg_metadata: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;(u32, ParaId)&gt;,
-<a href=#1423 id=1423 data-nosnippet>1423</a>		msg_metadata: (u32, ParaId),
-<a href=#1424 id=1424 data-nosnippet>1424</a>	) {
-<a href=#1425 id=1425 data-nosnippet>1425</a>		<span class="comment">// Check that the message is properly ordered.
-<a href=#1426 id=1426 data-nosnippet>1426</a>		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(prev_msg) = maybe_prev_msg_metadata {
-<a href=#1427 id=1427 data-nosnippet>1427</a>			<span class="macro">assert!</span>(<span class="kw-2">&amp;</span>msg_metadata &gt;= prev_msg, <span class="string">"[HRMP] Messages order violation"</span>);
-<a href=#1428 id=1428 data-nosnippet>1428</a>		}
-<a href=#1429 id=1429 data-nosnippet>1429</a>		<span class="kw-2">*</span>maybe_prev_msg_metadata = <span class="prelude-val">Some</span>(msg_metadata);
-<a href=#1430 id=1430 data-nosnippet>1430</a>
-<a href=#1431 id=1431 data-nosnippet>1431</a>		<span class="comment">// Check that the message is sent from an existing channel.
-<a href=#1432 id=1432 data-nosnippet>1432</a>		</span><span class="self">Self</span>::get_ingress_channel_or_panic(ingress_channels, msg_metadata.<span class="number">1</span>);
-<a href=#1433 id=1433 data-nosnippet>1433</a>	}
-<a href=#1434 id=1434 data-nosnippet>1434</a>
-<a href=#1435 id=1435 data-nosnippet>1435</a>	<span class="doccomment">/// Process all inbound horizontal messages relayed by the collator.
-<a href=#1436 id=1436 data-nosnippet>1436</a>	///
-<a href=#1437 id=1437 data-nosnippet>1437</a>	/// This is similar to [`enqueue_inbound_downward_messages`], but works with multiple inbound
-<a href=#1438 id=1438 data-nosnippet>1438</a>	/// channels. It immediately dispatches signals and queues all other XCMs. Blob messages are
-<a href=#1439 id=1439 data-nosnippet>1439</a>	/// ignored.
-<a href=#1440 id=1440 data-nosnippet>1440</a>	///
-<a href=#1441 id=1441 data-nosnippet>1441</a>	/// **Panics** if either any of horizontal messages submitted by the collator was sent from
-<a href=#1442 id=1442 data-nosnippet>1442</a>	///            a para which has no open channel to this parachain or if after processing
-<a href=#1443 id=1443 data-nosnippet>1443</a>	///            messages across all inbound channels MQCs were obtained which do not
-<a href=#1444 id=1444 data-nosnippet>1444</a>	///            correspond to the ones found on the relay-chain.
-<a href=#1445 id=1445 data-nosnippet>1445</a>	</span><span class="kw">fn </span>enqueue_inbound_horizontal_messages(
-<a href=#1446 id=1446 data-nosnippet>1446</a>		ingress_channels: <span class="kw-2">&amp;</span>[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
-<a href=#1447 id=1447 data-nosnippet>1447</a>		horizontal_messages: AbridgedInboundHrmpMessages,
-<a href=#1448 id=1448 data-nosnippet>1448</a>		relay_parent_number: relay_chain::BlockNumber,
-<a href=#1449 id=1449 data-nosnippet>1449</a>	) -&gt; Weight {
-<a href=#1450 id=1450 data-nosnippet>1450</a>		<span class="kw">let </span><span class="kw-2">mut </span>mqc_heads = &lt;LastHrmpMqcHeads&lt;T&gt;&gt;::get();
-<a href=#1451 id=1451 data-nosnippet>1451</a>		<span class="kw">let </span>(messages, hashed_messages) = horizontal_messages.messages();
-<a href=#1452 id=1452 data-nosnippet>1452</a>
-<a href=#1453 id=1453 data-nosnippet>1453</a>		<span class="comment">// First, check the HRMP advancement rule.
-<a href=#1454 id=1454 data-nosnippet>1454</a>		</span><span class="kw">let </span>maybe_first_hashed_msg_sender = hashed_messages.first().map(|(sender, _msg)| <span class="kw-2">*</span>sender);
-<a href=#1455 id=1455 data-nosnippet>1455</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(first_hashed_msg_sender) = maybe_first_hashed_msg_sender {
-<a href=#1456 id=1456 data-nosnippet>1456</a>			<span class="kw">let </span>channel =
-<a href=#1457 id=1457 data-nosnippet>1457</a>				<span class="self">Self</span>::get_ingress_channel_or_panic(ingress_channels, first_hashed_msg_sender);
-<a href=#1458 id=1458 data-nosnippet>1458</a>			horizontal_messages.check_enough_messages_included_advanced(
-<a href=#1459 id=1459 data-nosnippet>1459</a>				<span class="string">"HRMP"</span>,
-<a href=#1460 id=1460 data-nosnippet>1460</a>				AbridgedInboundMessagesSizeInfo {
-<a href=#1461 id=1461 data-nosnippet>1461</a>					max_full_messages_size: <span class="self">Self</span>::messages_collection_size_limit(),
-<a href=#1462 id=1462 data-nosnippet>1462</a>					first_hashed_msg_max_size: channel.max_message_size <span class="kw">as </span>usize,
-<a href=#1463 id=1463 data-nosnippet>1463</a>				},
-<a href=#1464 id=1464 data-nosnippet>1464</a>			);
-<a href=#1465 id=1465 data-nosnippet>1465</a>		}
-<a href=#1466 id=1466 data-nosnippet>1466</a>
-<a href=#1467 id=1467 data-nosnippet>1467</a>		<span class="self">Self</span>::prune_closed_mqc_heads(ingress_channels, <span class="kw-2">&amp;mut </span>mqc_heads);
+<a href=#1376 id=1376 data-nosnippet>1376</a>		ProcessedDownwardMessages::&lt;T&gt;::put(message_count);
+<a href=#1377 id=1377 data-nosnippet>1377</a>
+<a href=#1378 id=1378 data-nosnippet>1378</a>		weight_used
+<a href=#1379 id=1379 data-nosnippet>1379</a>	}
+<a href=#1380 id=1380 data-nosnippet>1380</a>
+<a href=#1381 id=1381 data-nosnippet>1381</a>	<span class="kw">fn </span>get_ingress_channel_or_panic(
+<a href=#1382 id=1382 data-nosnippet>1382</a>		ingress_channels: <span class="kw-2">&amp;</span>[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
+<a href=#1383 id=1383 data-nosnippet>1383</a>		sender: ParaId,
+<a href=#1384 id=1384 data-nosnippet>1384</a>	) -&gt; <span class="kw-2">&amp;</span>cumulus_primitives_core::AbridgedHrmpChannel {
+<a href=#1385 id=1385 data-nosnippet>1385</a>		<span class="kw">let </span>maybe_channel_idx = ingress_channels
+<a href=#1386 id=1386 data-nosnippet>1386</a>			.binary_search_by_key(<span class="kw-2">&amp;</span>sender, |<span class="kw-2">&amp;</span>(channel_sender, <span class="kw">_</span>)| channel_sender)
+<a href=#1387 id=1387 data-nosnippet>1387</a>			.ok();
+<a href=#1388 id=1388 data-nosnippet>1388</a>		<span class="kw">let </span>maybe_channel = maybe_channel_idx
+<a href=#1389 id=1389 data-nosnippet>1389</a>			.and_then(|channel_idx| ingress_channels.get(channel_idx))
+<a href=#1390 id=1390 data-nosnippet>1390</a>			.map(|(<span class="kw">_</span>, channel)| channel);
+<a href=#1391 id=1391 data-nosnippet>1391</a>		maybe_channel.unwrap_or_else(|| {
+<a href=#1392 id=1392 data-nosnippet>1392</a>			<span class="macro">panic!</span>(
+<a href=#1393 id=1393 data-nosnippet>1393</a>				<span class="string">"One of the messages submitted by the collator was sent from a sender ({}) \
+<a href=#1394 id=1394 data-nosnippet>1394</a>				that doesn't have a channel opened to this parachain"</span>,
+<a href=#1395 id=1395 data-nosnippet>1395</a>				&lt;ParaId <span class="kw">as </span>Into&lt;u32&gt;&gt;::into(sender)
+<a href=#1396 id=1396 data-nosnippet>1396</a>			)
+<a href=#1397 id=1397 data-nosnippet>1397</a>		})
+<a href=#1398 id=1398 data-nosnippet>1398</a>	}
+<a href=#1399 id=1399 data-nosnippet>1399</a>
+<a href=#1400 id=1400 data-nosnippet>1400</a>	<span class="kw">fn </span>check_hrmp_mcq_heads(
+<a href=#1401 id=1401 data-nosnippet>1401</a>		ingress_channels: <span class="kw-2">&amp;</span>[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
+<a href=#1402 id=1402 data-nosnippet>1402</a>		mqc_heads: <span class="kw-2">&amp;mut </span>BTreeMap&lt;ParaId, MessageQueueChain&gt;,
+<a href=#1403 id=1403 data-nosnippet>1403</a>	) {
+<a href=#1404 id=1404 data-nosnippet>1404</a>		<span class="comment">// Check that the MQC heads for each channel provided by the relay chain match the MQC
+<a href=#1405 id=1405 data-nosnippet>1405</a>		// heads we have after processing all incoming messages.
+<a href=#1406 id=1406 data-nosnippet>1406</a>		//
+<a href=#1407 id=1407 data-nosnippet>1407</a>		// Along the way we also carry over the relevant entries from the `last_mqc_heads` to
+<a href=#1408 id=1408 data-nosnippet>1408</a>		// `running_mqc_heads`. Otherwise, in a block where no messages were sent in a channel
+<a href=#1409 id=1409 data-nosnippet>1409</a>		// it won't get into next block's `last_mqc_heads` and thus will be all zeros, which
+<a href=#1410 id=1410 data-nosnippet>1410</a>		// would corrupt the message queue chain.
+<a href=#1411 id=1411 data-nosnippet>1411</a>		</span><span class="kw">for </span>(sender, channel) <span class="kw">in </span>ingress_channels {
+<a href=#1412 id=1412 data-nosnippet>1412</a>			<span class="kw">let </span>cur_head = mqc_heads.entry(<span class="kw-2">*</span>sender).or_default().head();
+<a href=#1413 id=1413 data-nosnippet>1413</a>			<span class="kw">let </span>target_head = channel.mqc_head.unwrap_or_default();
+<a href=#1414 id=1414 data-nosnippet>1414</a>			<span class="macro">assert_eq!</span>(cur_head, target_head, <span class="string">"HRMP head mismatch"</span>);
+<a href=#1415 id=1415 data-nosnippet>1415</a>		}
+<a href=#1416 id=1416 data-nosnippet>1416</a>	}
+<a href=#1417 id=1417 data-nosnippet>1417</a>
+<a href=#1418 id=1418 data-nosnippet>1418</a>	<span class="doccomment">/// Performs some checks related to the sender and the `sent_at` field of an HRMP message.
+<a href=#1419 id=1419 data-nosnippet>1419</a>	///
+<a href=#1420 id=1420 data-nosnippet>1420</a>	/// **Panics** if the message submitted by the collator doesn't respect the expected order or if
+<a href=#1421 id=1421 data-nosnippet>1421</a>	///            it was sent from a para which has no open channel to this parachain.
+<a href=#1422 id=1422 data-nosnippet>1422</a>	</span><span class="kw">fn </span>check_hrmp_message_metadata(
+<a href=#1423 id=1423 data-nosnippet>1423</a>		ingress_channels: <span class="kw-2">&amp;</span>[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
+<a href=#1424 id=1424 data-nosnippet>1424</a>		maybe_prev_msg_metadata: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;(u32, ParaId)&gt;,
+<a href=#1425 id=1425 data-nosnippet>1425</a>		msg_metadata: (u32, ParaId),
+<a href=#1426 id=1426 data-nosnippet>1426</a>	) {
+<a href=#1427 id=1427 data-nosnippet>1427</a>		<span class="comment">// Check that the message is properly ordered.
+<a href=#1428 id=1428 data-nosnippet>1428</a>		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(prev_msg) = maybe_prev_msg_metadata {
+<a href=#1429 id=1429 data-nosnippet>1429</a>			<span class="macro">assert!</span>(<span class="kw-2">&amp;</span>msg_metadata &gt;= prev_msg, <span class="string">"[HRMP] Messages order violation"</span>);
+<a href=#1430 id=1430 data-nosnippet>1430</a>		}
+<a href=#1431 id=1431 data-nosnippet>1431</a>		<span class="kw-2">*</span>maybe_prev_msg_metadata = <span class="prelude-val">Some</span>(msg_metadata);
+<a href=#1432 id=1432 data-nosnippet>1432</a>
+<a href=#1433 id=1433 data-nosnippet>1433</a>		<span class="comment">// Check that the message is sent from an existing channel.
+<a href=#1434 id=1434 data-nosnippet>1434</a>		</span><span class="self">Self</span>::get_ingress_channel_or_panic(ingress_channels, msg_metadata.<span class="number">1</span>);
+<a href=#1435 id=1435 data-nosnippet>1435</a>	}
+<a href=#1436 id=1436 data-nosnippet>1436</a>
+<a href=#1437 id=1437 data-nosnippet>1437</a>	<span class="doccomment">/// Process all inbound horizontal messages relayed by the collator.
+<a href=#1438 id=1438 data-nosnippet>1438</a>	///
+<a href=#1439 id=1439 data-nosnippet>1439</a>	/// This is similar to [`enqueue_inbound_downward_messages`], but works with multiple inbound
+<a href=#1440 id=1440 data-nosnippet>1440</a>	/// channels. It immediately dispatches signals and queues all other XCMs. Blob messages are
+<a href=#1441 id=1441 data-nosnippet>1441</a>	/// ignored.
+<a href=#1442 id=1442 data-nosnippet>1442</a>	///
+<a href=#1443 id=1443 data-nosnippet>1443</a>	/// **Panics** if either any of horizontal messages submitted by the collator was sent from
+<a href=#1444 id=1444 data-nosnippet>1444</a>	///            a para which has no open channel to this parachain or if after processing
+<a href=#1445 id=1445 data-nosnippet>1445</a>	///            messages across all inbound channels MQCs were obtained which do not
+<a href=#1446 id=1446 data-nosnippet>1446</a>	///            correspond to the ones found on the relay-chain.
+<a href=#1447 id=1447 data-nosnippet>1447</a>	</span><span class="kw">fn </span>enqueue_inbound_horizontal_messages(
+<a href=#1448 id=1448 data-nosnippet>1448</a>		ingress_channels: <span class="kw-2">&amp;</span>[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
+<a href=#1449 id=1449 data-nosnippet>1449</a>		horizontal_messages: AbridgedInboundHrmpMessages,
+<a href=#1450 id=1450 data-nosnippet>1450</a>		relay_parent_number: relay_chain::BlockNumber,
+<a href=#1451 id=1451 data-nosnippet>1451</a>	) -&gt; Weight {
+<a href=#1452 id=1452 data-nosnippet>1452</a>		<span class="kw">let </span><span class="kw-2">mut </span>mqc_heads = &lt;LastHrmpMqcHeads&lt;T&gt;&gt;::get();
+<a href=#1453 id=1453 data-nosnippet>1453</a>		<span class="kw">let </span>(messages, hashed_messages) = horizontal_messages.messages();
+<a href=#1454 id=1454 data-nosnippet>1454</a>
+<a href=#1455 id=1455 data-nosnippet>1455</a>		<span class="comment">// First, check the HRMP advancement rule.
+<a href=#1456 id=1456 data-nosnippet>1456</a>		</span><span class="kw">let </span>maybe_first_hashed_msg_sender = hashed_messages.first().map(|(sender, _msg)| <span class="kw-2">*</span>sender);
+<a href=#1457 id=1457 data-nosnippet>1457</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(first_hashed_msg_sender) = maybe_first_hashed_msg_sender {
+<a href=#1458 id=1458 data-nosnippet>1458</a>			<span class="kw">let </span>channel =
+<a href=#1459 id=1459 data-nosnippet>1459</a>				<span class="self">Self</span>::get_ingress_channel_or_panic(ingress_channels, first_hashed_msg_sender);
+<a href=#1460 id=1460 data-nosnippet>1460</a>			horizontal_messages.check_enough_messages_included_advanced(
+<a href=#1461 id=1461 data-nosnippet>1461</a>				<span class="string">"HRMP"</span>,
+<a href=#1462 id=1462 data-nosnippet>1462</a>				AbridgedInboundMessagesSizeInfo {
+<a href=#1463 id=1463 data-nosnippet>1463</a>					max_full_messages_size: <span class="self">Self</span>::messages_collection_size_limit(),
+<a href=#1464 id=1464 data-nosnippet>1464</a>					first_hashed_msg_max_size: channel.max_message_size <span class="kw">as </span>usize,
+<a href=#1465 id=1465 data-nosnippet>1465</a>				},
+<a href=#1466 id=1466 data-nosnippet>1466</a>			);
+<a href=#1467 id=1467 data-nosnippet>1467</a>		}
 <a href=#1468 id=1468 data-nosnippet>1468</a>
-<a href=#1469 id=1469 data-nosnippet>1469</a>		<span class="kw">if </span>messages.is_empty() {
-<a href=#1470 id=1470 data-nosnippet>1470</a>			<span class="self">Self</span>::check_hrmp_mcq_heads(ingress_channels, <span class="kw-2">&amp;mut </span>mqc_heads);
-<a href=#1471 id=1471 data-nosnippet>1471</a>			<span class="kw">let </span>last_processed_msg =
-<a href=#1472 id=1472 data-nosnippet>1472</a>				InboundMessageId { sent_at: relay_parent_number, reverse_idx: <span class="number">0 </span>};
+<a href=#1469 id=1469 data-nosnippet>1469</a>		<span class="self">Self</span>::prune_closed_mqc_heads(ingress_channels, <span class="kw-2">&amp;mut </span>mqc_heads);
+<a href=#1470 id=1470 data-nosnippet>1470</a>
+<a href=#1471 id=1471 data-nosnippet>1471</a>		<span class="kw">if </span>messages.is_empty() {
+<a href=#1472 id=1472 data-nosnippet>1472</a>			<span class="self">Self</span>::check_hrmp_mcq_heads(ingress_channels, <span class="kw-2">&amp;mut </span>mqc_heads);
 <a href=#1473 id=1473 data-nosnippet>1473</a>
-<a href=#1474 id=1474 data-nosnippet>1474</a>			LastProcessedHrmpMessage::&lt;T&gt;::put(last_processed_msg);
-<a href=#1475 id=1475 data-nosnippet>1475</a>			HrmpWatermark::&lt;T&gt;::put(relay_parent_number);
-<a href=#1476 id=1476 data-nosnippet>1476</a>			LastHrmpMqcHeads::&lt;T&gt;::put(<span class="kw-2">&amp;</span>mqc_heads); <span class="comment">// write back in case of modification
-<a href=#1477 id=1477 data-nosnippet>1477</a>
-<a href=#1478 id=1478 data-nosnippet>1478</a>			</span><span class="kw">return </span>T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">2</span>);
-<a href=#1479 id=1479 data-nosnippet>1479</a>		}
-<a href=#1480 id=1480 data-nosnippet>1480</a>
-<a href=#1481 id=1481 data-nosnippet>1481</a>		<span class="kw">let </span><span class="kw-2">mut </span>prev_msg_metadata = <span class="prelude-val">None</span>;
-<a href=#1482 id=1482 data-nosnippet>1482</a>		<span class="kw">let </span><span class="kw-2">mut </span>last_processed_block = HrmpWatermark::&lt;T&gt;::get();
-<a href=#1483 id=1483 data-nosnippet>1483</a>		<span class="kw">let </span><span class="kw-2">mut </span>last_processed_msg = InboundMessageId { sent_at: <span class="number">0</span>, reverse_idx: <span class="number">0 </span>};
-<a href=#1484 id=1484 data-nosnippet>1484</a>		<span class="kw">for </span>(sender, msg) <span class="kw">in </span>messages {
-<a href=#1485 id=1485 data-nosnippet>1485</a>			<span class="self">Self</span>::check_hrmp_message_metadata(
-<a href=#1486 id=1486 data-nosnippet>1486</a>				ingress_channels,
-<a href=#1487 id=1487 data-nosnippet>1487</a>				<span class="kw-2">&amp;mut </span>prev_msg_metadata,
-<a href=#1488 id=1488 data-nosnippet>1488</a>				(msg.sent_at, <span class="kw-2">*</span>sender),
-<a href=#1489 id=1489 data-nosnippet>1489</a>			);
-<a href=#1490 id=1490 data-nosnippet>1490</a>			mqc_heads.entry(<span class="kw-2">*</span>sender).or_default().extend_hrmp(msg);
-<a href=#1491 id=1491 data-nosnippet>1491</a>
-<a href=#1492 id=1492 data-nosnippet>1492</a>			<span class="kw">if </span>msg.sent_at &gt; last_processed_msg.sent_at &amp;&amp; last_processed_msg.sent_at &gt; <span class="number">0 </span>{
-<a href=#1493 id=1493 data-nosnippet>1493</a>				last_processed_block = last_processed_msg.sent_at;
-<a href=#1494 id=1494 data-nosnippet>1494</a>			}
-<a href=#1495 id=1495 data-nosnippet>1495</a>			last_processed_msg.sent_at = msg.sent_at;
-<a href=#1496 id=1496 data-nosnippet>1496</a>		}
-<a href=#1497 id=1497 data-nosnippet>1497</a>
-<a href=#1498 id=1498 data-nosnippet>1498</a>		LastHrmpMqcHeads::&lt;T&gt;::put(<span class="kw-2">&amp;</span>mqc_heads);
-<a href=#1499 id=1499 data-nosnippet>1499</a>
-<a href=#1500 id=1500 data-nosnippet>1500</a>		<span class="kw">for </span>(sender, msg) <span class="kw">in </span>hashed_messages {
-<a href=#1501 id=1501 data-nosnippet>1501</a>			<span class="self">Self</span>::check_hrmp_message_metadata(
-<a href=#1502 id=1502 data-nosnippet>1502</a>				ingress_channels,
-<a href=#1503 id=1503 data-nosnippet>1503</a>				<span class="kw-2">&amp;mut </span>prev_msg_metadata,
-<a href=#1504 id=1504 data-nosnippet>1504</a>				(msg.sent_at, <span class="kw-2">*</span>sender),
-<a href=#1505 id=1505 data-nosnippet>1505</a>			);
-<a href=#1506 id=1506 data-nosnippet>1506</a>			mqc_heads.entry(<span class="kw-2">*</span>sender).or_default().extend_with_hashed_msg(msg);
-<a href=#1507 id=1507 data-nosnippet>1507</a>
-<a href=#1508 id=1508 data-nosnippet>1508</a>			<span class="kw">if </span>msg.sent_at == last_processed_msg.sent_at {
-<a href=#1509 id=1509 data-nosnippet>1509</a>				last_processed_msg.reverse_idx += <span class="number">1</span>;
-<a href=#1510 id=1510 data-nosnippet>1510</a>			}
-<a href=#1511 id=1511 data-nosnippet>1511</a>		}
-<a href=#1512 id=1512 data-nosnippet>1512</a>		<span class="kw">if </span>last_processed_msg.sent_at &gt; <span class="number">0 </span>&amp;&amp; last_processed_msg.reverse_idx == <span class="number">0 </span>{
-<a href=#1513 id=1513 data-nosnippet>1513</a>			last_processed_block = last_processed_msg.sent_at;
-<a href=#1514 id=1514 data-nosnippet>1514</a>		}
-<a href=#1515 id=1515 data-nosnippet>1515</a>		LastProcessedHrmpMessage::&lt;T&gt;::put(<span class="kw-2">&amp;</span>last_processed_msg);
-<a href=#1516 id=1516 data-nosnippet>1516</a>		<span class="self">Self</span>::check_hrmp_mcq_heads(ingress_channels, <span class="kw-2">&amp;mut </span>mqc_heads);
-<a href=#1517 id=1517 data-nosnippet>1517</a>
-<a href=#1518 id=1518 data-nosnippet>1518</a>		<span class="kw">let </span>max_weight =
-<a href=#1519 id=1519 data-nosnippet>1519</a>			&lt;ReservedXcmpWeightOverride&lt;T&gt;&gt;::get().unwrap_or_else(T::ReservedXcmpWeight::get);
-<a href=#1520 id=1520 data-nosnippet>1520</a>		<span class="kw">let </span>weight_used = T::XcmpMessageHandler::handle_xcmp_messages(
-<a href=#1521 id=1521 data-nosnippet>1521</a>			horizontal_messages.flat_msgs_iter(),
-<a href=#1522 id=1522 data-nosnippet>1522</a>			max_weight,
-<a href=#1523 id=1523 data-nosnippet>1523</a>		);
-<a href=#1524 id=1524 data-nosnippet>1524</a>
-<a href=#1525 id=1525 data-nosnippet>1525</a>		<span class="comment">// Update watermark
-<a href=#1526 id=1526 data-nosnippet>1526</a>		</span>HrmpWatermark::&lt;T&gt;::put(last_processed_block);
-<a href=#1527 id=1527 data-nosnippet>1527</a>
-<a href=#1528 id=1528 data-nosnippet>1528</a>		weight_used.saturating_add(T::DbWeight::get().reads_writes(<span class="number">2</span>, <span class="number">3</span>))
-<a href=#1529 id=1529 data-nosnippet>1529</a>	}
-<a href=#1530 id=1530 data-nosnippet>1530</a>
-<a href=#1531 id=1531 data-nosnippet>1531</a>	<span class="doccomment">/// Remove all MQC heads that do not correspond to an open channel.
-<a href=#1532 id=1532 data-nosnippet>1532</a>	</span><span class="kw">fn </span>prune_closed_mqc_heads(
-<a href=#1533 id=1533 data-nosnippet>1533</a>		ingress_channels: <span class="kw-2">&amp;</span>[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
-<a href=#1534 id=1534 data-nosnippet>1534</a>		mqc_heads: <span class="kw-2">&amp;mut </span>BTreeMap&lt;ParaId, MessageQueueChain&gt;,
-<a href=#1535 id=1535 data-nosnippet>1535</a>	) {
-<a href=#1536 id=1536 data-nosnippet>1536</a>		<span class="comment">// Complexity is O(N * lg N) but could be optimized for O(N)
-<a href=#1537 id=1537 data-nosnippet>1537</a>		</span>mqc_heads.retain(|para, <span class="kw">_</span>| {
-<a href=#1538 id=1538 data-nosnippet>1538</a>			ingress_channels
-<a href=#1539 id=1539 data-nosnippet>1539</a>				.binary_search_by_key(para, |<span class="kw-2">&amp;</span>(channel_sender, <span class="kw">_</span>)| channel_sender)
-<a href=#1540 id=1540 data-nosnippet>1540</a>				.is_ok()
-<a href=#1541 id=1541 data-nosnippet>1541</a>		});
-<a href=#1542 id=1542 data-nosnippet>1542</a>	}
+<a href=#1474 id=1474 data-nosnippet>1474</a>			HrmpWatermark::&lt;T&gt;::put(relay_parent_number);
+<a href=#1475 id=1475 data-nosnippet>1475</a>			LastHrmpMqcHeads::&lt;T&gt;::put(<span class="kw-2">&amp;</span>mqc_heads); <span class="comment">// write back in case of modification
+<a href=#1476 id=1476 data-nosnippet>1476</a>
+<a href=#1477 id=1477 data-nosnippet>1477</a>			</span><span class="kw">return </span>T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">2</span>);
+<a href=#1478 id=1478 data-nosnippet>1478</a>		}
+<a href=#1479 id=1479 data-nosnippet>1479</a>
+<a href=#1480 id=1480 data-nosnippet>1480</a>		<span class="kw">let </span><span class="kw-2">mut </span>prev_msg_metadata = <span class="prelude-val">None</span>;
+<a href=#1481 id=1481 data-nosnippet>1481</a>		<span class="kw">let </span><span class="kw-2">mut </span>last_processed_block = HrmpWatermark::&lt;T&gt;::get();
+<a href=#1482 id=1482 data-nosnippet>1482</a>		<span class="kw">let </span><span class="kw-2">mut </span>last_processed_msg =
+<a href=#1483 id=1483 data-nosnippet>1483</a>			LastProcessedHrmpMessage::&lt;T&gt;::get().unwrap_or(InboundHrmpMessageId::Specific {
+<a href=#1484 id=1484 data-nosnippet>1484</a>				sent_at: <span class="number">0</span>,
+<a href=#1485 id=1485 data-nosnippet>1485</a>				sender: <span class="number">0</span>.into(),
+<a href=#1486 id=1486 data-nosnippet>1486</a>				reverse_idx: u32::MAX,
+<a href=#1487 id=1487 data-nosnippet>1487</a>			});
+<a href=#1488 id=1488 data-nosnippet>1488</a>
+<a href=#1489 id=1489 data-nosnippet>1489</a>		<span class="kw">for </span>(sender, msg) <span class="kw">in </span>messages {
+<a href=#1490 id=1490 data-nosnippet>1490</a>			<span class="self">Self</span>::check_hrmp_message_metadata(
+<a href=#1491 id=1491 data-nosnippet>1491</a>				ingress_channels,
+<a href=#1492 id=1492 data-nosnippet>1492</a>				<span class="kw-2">&amp;mut </span>prev_msg_metadata,
+<a href=#1493 id=1493 data-nosnippet>1493</a>				(msg.sent_at, <span class="kw-2">*</span>sender),
+<a href=#1494 id=1494 data-nosnippet>1494</a>			);
+<a href=#1495 id=1495 data-nosnippet>1495</a>			mqc_heads.entry(<span class="kw-2">*</span>sender).or_default().extend_hrmp(msg);
+<a href=#1496 id=1496 data-nosnippet>1496</a>
+<a href=#1497 id=1497 data-nosnippet>1497</a>			<span class="kw">if </span>msg.sent_at &gt; last_processed_msg.sent_at() {
+<a href=#1498 id=1498 data-nosnippet>1498</a>				last_processed_block = last_processed_block.max(last_processed_msg.sent_at());
+<a href=#1499 id=1499 data-nosnippet>1499</a>			}
+<a href=#1500 id=1500 data-nosnippet>1500</a>			last_processed_msg = InboundHrmpMessageId::Specific {
+<a href=#1501 id=1501 data-nosnippet>1501</a>				sent_at: msg.sent_at,
+<a href=#1502 id=1502 data-nosnippet>1502</a>				sender: <span class="kw-2">*</span>sender,
+<a href=#1503 id=1503 data-nosnippet>1503</a>				reverse_idx: <span class="number">0</span>,
+<a href=#1504 id=1504 data-nosnippet>1504</a>			};
+<a href=#1505 id=1505 data-nosnippet>1505</a>		}
+<a href=#1506 id=1506 data-nosnippet>1506</a>
+<a href=#1507 id=1507 data-nosnippet>1507</a>		LastHrmpMqcHeads::&lt;T&gt;::put(<span class="kw-2">&amp;</span>mqc_heads);
+<a href=#1508 id=1508 data-nosnippet>1508</a>
+<a href=#1509 id=1509 data-nosnippet>1509</a>		<span class="kw">for </span>(sender, msg) <span class="kw">in </span>hashed_messages {
+<a href=#1510 id=1510 data-nosnippet>1510</a>			<span class="self">Self</span>::check_hrmp_message_metadata(
+<a href=#1511 id=1511 data-nosnippet>1511</a>				ingress_channels,
+<a href=#1512 id=1512 data-nosnippet>1512</a>				<span class="kw-2">&amp;mut </span>prev_msg_metadata,
+<a href=#1513 id=1513 data-nosnippet>1513</a>				(msg.sent_at, <span class="kw-2">*</span>sender),
+<a href=#1514 id=1514 data-nosnippet>1514</a>			);
+<a href=#1515 id=1515 data-nosnippet>1515</a>			mqc_heads.entry(<span class="kw-2">*</span>sender).or_default().extend_with_hashed_msg(msg);
+<a href=#1516 id=1516 data-nosnippet>1516</a>
+<a href=#1517 id=1517 data-nosnippet>1517</a>			<span class="kw">if </span>last_processed_msg.sent_at() == msg.sent_at &amp;&amp;
+<a href=#1518 id=1518 data-nosnippet>1518</a>				(last_processed_msg.sender() == <span class="prelude-val">Some</span>(<span class="kw-2">*</span>sender) ||
+<a href=#1519 id=1519 data-nosnippet>1519</a>					last_processed_msg.sender() == <span class="prelude-val">None</span>)
+<a href=#1520 id=1520 data-nosnippet>1520</a>			{
+<a href=#1521 id=1521 data-nosnippet>1521</a>				last_processed_msg.inc_reverse_idx();
+<a href=#1522 id=1522 data-nosnippet>1522</a>			}
+<a href=#1523 id=1523 data-nosnippet>1523</a>		}
+<a href=#1524 id=1524 data-nosnippet>1524</a>		<span class="kw">match </span>hashed_messages.first() {
+<a href=#1525 id=1525 data-nosnippet>1525</a>			<span class="prelude-val">Some</span>((<span class="kw">_</span>, first_hashed_msg)) =&gt; {
+<a href=#1526 id=1526 data-nosnippet>1526</a>				<span class="kw">if </span>first_hashed_msg.sent_at &gt; last_processed_msg.sent_at() {
+<a href=#1527 id=1527 data-nosnippet>1527</a>					last_processed_block = last_processed_block.max(last_processed_msg.sent_at());
+<a href=#1528 id=1528 data-nosnippet>1528</a>				}
+<a href=#1529 id=1529 data-nosnippet>1529</a>			},
+<a href=#1530 id=1530 data-nosnippet>1530</a>			<span class="prelude-val">None </span>=&gt; {
+<a href=#1531 id=1531 data-nosnippet>1531</a>				last_processed_block = last_processed_block.max(last_processed_msg.sent_at());
+<a href=#1532 id=1532 data-nosnippet>1532</a>			},
+<a href=#1533 id=1533 data-nosnippet>1533</a>		}
+<a href=#1534 id=1534 data-nosnippet>1534</a>		LastProcessedHrmpMessage::&lt;T&gt;::put(<span class="kw-2">&amp;</span>last_processed_msg);
+<a href=#1535 id=1535 data-nosnippet>1535</a>		<span class="self">Self</span>::check_hrmp_mcq_heads(ingress_channels, <span class="kw-2">&amp;mut </span>mqc_heads);
+<a href=#1536 id=1536 data-nosnippet>1536</a>
+<a href=#1537 id=1537 data-nosnippet>1537</a>		<span class="kw">let </span>max_weight =
+<a href=#1538 id=1538 data-nosnippet>1538</a>			&lt;ReservedXcmpWeightOverride&lt;T&gt;&gt;::get().unwrap_or_else(T::ReservedXcmpWeight::get);
+<a href=#1539 id=1539 data-nosnippet>1539</a>		<span class="kw">let </span>weight_used = T::XcmpMessageHandler::handle_xcmp_messages(
+<a href=#1540 id=1540 data-nosnippet>1540</a>			horizontal_messages.flat_msgs_iter(),
+<a href=#1541 id=1541 data-nosnippet>1541</a>			max_weight,
+<a href=#1542 id=1542 data-nosnippet>1542</a>		);
 <a href=#1543 id=1543 data-nosnippet>1543</a>
-<a href=#1544 id=1544 data-nosnippet>1544</a>	<span class="doccomment">/// Drop blocks from the unincluded segment with respect to the latest parachain head.
-<a href=#1545 id=1545 data-nosnippet>1545</a>	</span><span class="kw">fn </span>maybe_drop_included_ancestors(
-<a href=#1546 id=1546 data-nosnippet>1546</a>		relay_state_proof: <span class="kw-2">&amp;</span>RelayChainStateProof,
-<a href=#1547 id=1547 data-nosnippet>1547</a>		capacity: consensus_hook::UnincludedSegmentCapacity,
-<a href=#1548 id=1548 data-nosnippet>1548</a>	) -&gt; Weight {
-<a href=#1549 id=1549 data-nosnippet>1549</a>		<span class="kw">let </span><span class="kw-2">mut </span>weight_used = Weight::zero();
-<a href=#1550 id=1550 data-nosnippet>1550</a>		<span class="comment">// If the unincluded segment length is nonzero, then the parachain head must be present.
-<a href=#1551 id=1551 data-nosnippet>1551</a>		</span><span class="kw">let </span>para_head =
-<a href=#1552 id=1552 data-nosnippet>1552</a>			relay_state_proof.read_included_para_head().ok().map(|h| T::Hashing::hash(<span class="kw-2">&amp;</span>h.<span class="number">0</span>));
-<a href=#1553 id=1553 data-nosnippet>1553</a>
-<a href=#1554 id=1554 data-nosnippet>1554</a>		<span class="kw">let </span>unincluded_segment_len = &lt;UnincludedSegment&lt;T&gt;&gt;::decode_len().unwrap_or(<span class="number">0</span>);
-<a href=#1555 id=1555 data-nosnippet>1555</a>		weight_used += T::DbWeight::get().reads(<span class="number">1</span>);
-<a href=#1556 id=1556 data-nosnippet>1556</a>
-<a href=#1557 id=1557 data-nosnippet>1557</a>		<span class="comment">// Clean up unincluded segment if nonempty.
-<a href=#1558 id=1558 data-nosnippet>1558</a>		</span><span class="kw">let </span>included_head = <span class="kw">match </span>(para_head, capacity.is_expecting_included_parent()) {
-<a href=#1559 id=1559 data-nosnippet>1559</a>			(<span class="prelude-val">Some</span>(h), <span class="bool-val">true</span>) =&gt; {
-<a href=#1560 id=1560 data-nosnippet>1560</a>				<span class="macro">assert_eq!</span>(
-<a href=#1561 id=1561 data-nosnippet>1561</a>					h,
-<a href=#1562 id=1562 data-nosnippet>1562</a>					frame_system::Pallet::&lt;T&gt;::parent_hash(),
-<a href=#1563 id=1563 data-nosnippet>1563</a>					<span class="string">"expected parent to be included"
-<a href=#1564 id=1564 data-nosnippet>1564</a>				</span>);
-<a href=#1565 id=1565 data-nosnippet>1565</a>
-<a href=#1566 id=1566 data-nosnippet>1566</a>				h
-<a href=#1567 id=1567 data-nosnippet>1567</a>			},
-<a href=#1568 id=1568 data-nosnippet>1568</a>			(<span class="prelude-val">Some</span>(h), <span class="bool-val">false</span>) =&gt; h,
-<a href=#1569 id=1569 data-nosnippet>1569</a>			(<span class="prelude-val">None</span>, <span class="bool-val">true</span>) =&gt; {
-<a href=#1570 id=1570 data-nosnippet>1570</a>				<span class="comment">// All this logic is essentially a workaround to support collators which
-<a href=#1571 id=1571 data-nosnippet>1571</a>				// might still not provide the included block with the state proof.
-<a href=#1572 id=1572 data-nosnippet>1572</a>				</span>frame_system::Pallet::&lt;T&gt;::parent_hash()
-<a href=#1573 id=1573 data-nosnippet>1573</a>			},
-<a href=#1574 id=1574 data-nosnippet>1574</a>			(<span class="prelude-val">None</span>, <span class="bool-val">false</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"included head not present in relay storage proof"</span>),
-<a href=#1575 id=1575 data-nosnippet>1575</a>		};
-<a href=#1576 id=1576 data-nosnippet>1576</a>
-<a href=#1577 id=1577 data-nosnippet>1577</a>		<span class="kw">let </span>new_len = {
-<a href=#1578 id=1578 data-nosnippet>1578</a>			<span class="kw">let </span>para_head_hash = included_head;
-<a href=#1579 id=1579 data-nosnippet>1579</a>			<span class="kw">let </span>dropped: Vec&lt;Ancestor&lt;T::Hash&gt;&gt; = &lt;UnincludedSegment&lt;T&gt;&gt;::mutate(|chain| {
-<a href=#1580 id=1580 data-nosnippet>1580</a>				<span class="comment">// Drop everything up to (inclusive) the block with an included para head, if
-<a href=#1581 id=1581 data-nosnippet>1581</a>				// present.
-<a href=#1582 id=1582 data-nosnippet>1582</a>				</span><span class="kw">let </span>idx = chain
-<a href=#1583 id=1583 data-nosnippet>1583</a>					.iter()
-<a href=#1584 id=1584 data-nosnippet>1584</a>					.position(|block| {
-<a href=#1585 id=1585 data-nosnippet>1585</a>						<span class="kw">let </span>head_hash = block
-<a href=#1586 id=1586 data-nosnippet>1586</a>							.para_head_hash()
-<a href=#1587 id=1587 data-nosnippet>1587</a>							.expect(<span class="string">"para head hash is updated during block initialization; qed"</span>);
-<a href=#1588 id=1588 data-nosnippet>1588</a>						head_hash == <span class="kw-2">&amp;</span>para_head_hash
-<a href=#1589 id=1589 data-nosnippet>1589</a>					})
-<a href=#1590 id=1590 data-nosnippet>1590</a>					.map_or(<span class="number">0</span>, |idx| idx + <span class="number">1</span>); <span class="comment">// inclusive.
-<a href=#1591 id=1591 data-nosnippet>1591</a>
-<a href=#1592 id=1592 data-nosnippet>1592</a>				</span>chain.drain(..idx).collect()
-<a href=#1593 id=1593 data-nosnippet>1593</a>			});
-<a href=#1594 id=1594 data-nosnippet>1594</a>			weight_used += T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>);
+<a href=#1544 id=1544 data-nosnippet>1544</a>		<span class="comment">// Update watermark
+<a href=#1545 id=1545 data-nosnippet>1545</a>		</span>HrmpWatermark::&lt;T&gt;::put(last_processed_block);
+<a href=#1546 id=1546 data-nosnippet>1546</a>
+<a href=#1547 id=1547 data-nosnippet>1547</a>		weight_used.saturating_add(T::DbWeight::get().reads_writes(<span class="number">2</span>, <span class="number">3</span>))
+<a href=#1548 id=1548 data-nosnippet>1548</a>	}
+<a href=#1549 id=1549 data-nosnippet>1549</a>
+<a href=#1550 id=1550 data-nosnippet>1550</a>	<span class="doccomment">/// Remove all MQC heads that do not correspond to an open channel.
+<a href=#1551 id=1551 data-nosnippet>1551</a>	</span><span class="kw">fn </span>prune_closed_mqc_heads(
+<a href=#1552 id=1552 data-nosnippet>1552</a>		ingress_channels: <span class="kw-2">&amp;</span>[(ParaId, cumulus_primitives_core::AbridgedHrmpChannel)],
+<a href=#1553 id=1553 data-nosnippet>1553</a>		mqc_heads: <span class="kw-2">&amp;mut </span>BTreeMap&lt;ParaId, MessageQueueChain&gt;,
+<a href=#1554 id=1554 data-nosnippet>1554</a>	) {
+<a href=#1555 id=1555 data-nosnippet>1555</a>		<span class="comment">// Complexity is O(N * lg N) but could be optimized for O(N)
+<a href=#1556 id=1556 data-nosnippet>1556</a>		</span>mqc_heads.retain(|para, <span class="kw">_</span>| {
+<a href=#1557 id=1557 data-nosnippet>1557</a>			ingress_channels
+<a href=#1558 id=1558 data-nosnippet>1558</a>				.binary_search_by_key(para, |<span class="kw-2">&amp;</span>(channel_sender, <span class="kw">_</span>)| channel_sender)
+<a href=#1559 id=1559 data-nosnippet>1559</a>				.is_ok()
+<a href=#1560 id=1560 data-nosnippet>1560</a>		});
+<a href=#1561 id=1561 data-nosnippet>1561</a>	}
+<a href=#1562 id=1562 data-nosnippet>1562</a>
+<a href=#1563 id=1563 data-nosnippet>1563</a>	<span class="doccomment">/// Drop blocks from the unincluded segment with respect to the latest parachain head.
+<a href=#1564 id=1564 data-nosnippet>1564</a>	</span><span class="kw">fn </span>maybe_drop_included_ancestors(
+<a href=#1565 id=1565 data-nosnippet>1565</a>		relay_state_proof: <span class="kw-2">&amp;</span>RelayChainStateProof,
+<a href=#1566 id=1566 data-nosnippet>1566</a>		capacity: consensus_hook::UnincludedSegmentCapacity,
+<a href=#1567 id=1567 data-nosnippet>1567</a>	) -&gt; Weight {
+<a href=#1568 id=1568 data-nosnippet>1568</a>		<span class="kw">let </span><span class="kw-2">mut </span>weight_used = Weight::zero();
+<a href=#1569 id=1569 data-nosnippet>1569</a>		<span class="comment">// If the unincluded segment length is nonzero, then the parachain head must be present.
+<a href=#1570 id=1570 data-nosnippet>1570</a>		</span><span class="kw">let </span>para_head =
+<a href=#1571 id=1571 data-nosnippet>1571</a>			relay_state_proof.read_included_para_head().ok().map(|h| T::Hashing::hash(<span class="kw-2">&amp;</span>h.<span class="number">0</span>));
+<a href=#1572 id=1572 data-nosnippet>1572</a>
+<a href=#1573 id=1573 data-nosnippet>1573</a>		<span class="kw">let </span>unincluded_segment_len = &lt;UnincludedSegment&lt;T&gt;&gt;::decode_len().unwrap_or(<span class="number">0</span>);
+<a href=#1574 id=1574 data-nosnippet>1574</a>		weight_used += T::DbWeight::get().reads(<span class="number">1</span>);
+<a href=#1575 id=1575 data-nosnippet>1575</a>
+<a href=#1576 id=1576 data-nosnippet>1576</a>		<span class="comment">// Clean up unincluded segment if nonempty.
+<a href=#1577 id=1577 data-nosnippet>1577</a>		</span><span class="kw">let </span>included_head = <span class="kw">match </span>(para_head, capacity.is_expecting_included_parent()) {
+<a href=#1578 id=1578 data-nosnippet>1578</a>			(<span class="prelude-val">Some</span>(h), <span class="bool-val">true</span>) =&gt; {
+<a href=#1579 id=1579 data-nosnippet>1579</a>				<span class="macro">assert_eq!</span>(
+<a href=#1580 id=1580 data-nosnippet>1580</a>					h,
+<a href=#1581 id=1581 data-nosnippet>1581</a>					frame_system::Pallet::&lt;T&gt;::parent_hash(),
+<a href=#1582 id=1582 data-nosnippet>1582</a>					<span class="string">"expected parent to be included"
+<a href=#1583 id=1583 data-nosnippet>1583</a>				</span>);
+<a href=#1584 id=1584 data-nosnippet>1584</a>
+<a href=#1585 id=1585 data-nosnippet>1585</a>				h
+<a href=#1586 id=1586 data-nosnippet>1586</a>			},
+<a href=#1587 id=1587 data-nosnippet>1587</a>			(<span class="prelude-val">Some</span>(h), <span class="bool-val">false</span>) =&gt; h,
+<a href=#1588 id=1588 data-nosnippet>1588</a>			(<span class="prelude-val">None</span>, <span class="bool-val">true</span>) =&gt; {
+<a href=#1589 id=1589 data-nosnippet>1589</a>				<span class="comment">// All this logic is essentially a workaround to support collators which
+<a href=#1590 id=1590 data-nosnippet>1590</a>				// might still not provide the included block with the state proof.
+<a href=#1591 id=1591 data-nosnippet>1591</a>				</span>frame_system::Pallet::&lt;T&gt;::parent_hash()
+<a href=#1592 id=1592 data-nosnippet>1592</a>			},
+<a href=#1593 id=1593 data-nosnippet>1593</a>			(<span class="prelude-val">None</span>, <span class="bool-val">false</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"included head not present in relay storage proof"</span>),
+<a href=#1594 id=1594 data-nosnippet>1594</a>		};
 <a href=#1595 id=1595 data-nosnippet>1595</a>
-<a href=#1596 id=1596 data-nosnippet>1596</a>			<span class="kw">let </span>new_len = unincluded_segment_len - dropped.len();
-<a href=#1597 id=1597 data-nosnippet>1597</a>			<span class="kw">if </span>!dropped.is_empty() {
-<a href=#1598 id=1598 data-nosnippet>1598</a>				&lt;AggregatedUnincludedSegment&lt;T&gt;&gt;::mutate(|agg| {
-<a href=#1599 id=1599 data-nosnippet>1599</a>					<span class="kw">let </span>agg = agg.as_mut().expect(
-<a href=#1600 id=1600 data-nosnippet>1600</a>						<span class="string">"dropped part of the segment wasn't empty, hence value exists; qed"</span>,
-<a href=#1601 id=1601 data-nosnippet>1601</a>					);
-<a href=#1602 id=1602 data-nosnippet>1602</a>					<span class="kw">for </span>block <span class="kw">in </span>dropped {
-<a href=#1603 id=1603 data-nosnippet>1603</a>						agg.subtract(<span class="kw-2">&amp;</span>block);
-<a href=#1604 id=1604 data-nosnippet>1604</a>					}
-<a href=#1605 id=1605 data-nosnippet>1605</a>				});
-<a href=#1606 id=1606 data-nosnippet>1606</a>				weight_used += T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>);
-<a href=#1607 id=1607 data-nosnippet>1607</a>			}
-<a href=#1608 id=1608 data-nosnippet>1608</a>
-<a href=#1609 id=1609 data-nosnippet>1609</a>			new_len <span class="kw">as </span>u32
-<a href=#1610 id=1610 data-nosnippet>1610</a>		};
-<a href=#1611 id=1611 data-nosnippet>1611</a>
-<a href=#1612 id=1612 data-nosnippet>1612</a>		<span class="comment">// Current block validity check: ensure there is space in the unincluded segment.
-<a href=#1613 id=1613 data-nosnippet>1613</a>		//
-<a href=#1614 id=1614 data-nosnippet>1614</a>		// If this fails, the parachain needs to wait for ancestors to be included before
-<a href=#1615 id=1615 data-nosnippet>1615</a>		// a new block is allowed.
-<a href=#1616 id=1616 data-nosnippet>1616</a>		</span><span class="macro">assert!</span>(
-<a href=#1617 id=1617 data-nosnippet>1617</a>			new_len &lt; capacity.get(),
-<a href=#1618 id=1618 data-nosnippet>1618</a>			<span class="string">"No space left for the block in the unincluded segment: new_len({new_len}) &lt; capacity({})"</span>,
-<a href=#1619 id=1619 data-nosnippet>1619</a>			capacity.get()
-<a href=#1620 id=1620 data-nosnippet>1620</a>		);
-<a href=#1621 id=1621 data-nosnippet>1621</a>		weight_used
-<a href=#1622 id=1622 data-nosnippet>1622</a>	}
-<a href=#1623 id=1623 data-nosnippet>1623</a>
-<a href=#1624 id=1624 data-nosnippet>1624</a>	<span class="doccomment">/// This adjusts the `RelevantMessagingState` according to the bandwidth limits in the
-<a href=#1625 id=1625 data-nosnippet>1625</a>	/// unincluded segment.
-<a href=#1626 id=1626 data-nosnippet>1626</a>	</span><span class="comment">// Reads: 2
-<a href=#1627 id=1627 data-nosnippet>1627</a>	// Writes: 1
-<a href=#1628 id=1628 data-nosnippet>1628</a>	</span><span class="kw">fn </span>adjust_egress_bandwidth_limits() {
-<a href=#1629 id=1629 data-nosnippet>1629</a>		<span class="kw">let </span><span class="prelude-val">Some</span>(unincluded_segment) = AggregatedUnincludedSegment::&lt;T&gt;::get() <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href=#1596 id=1596 data-nosnippet>1596</a>		<span class="kw">let </span>new_len = {
+<a href=#1597 id=1597 data-nosnippet>1597</a>			<span class="kw">let </span>para_head_hash = included_head;
+<a href=#1598 id=1598 data-nosnippet>1598</a>			<span class="kw">let </span>dropped: Vec&lt;Ancestor&lt;T::Hash&gt;&gt; = &lt;UnincludedSegment&lt;T&gt;&gt;::mutate(|chain| {
+<a href=#1599 id=1599 data-nosnippet>1599</a>				<span class="comment">// Drop everything up to (inclusive) the block with an included para head, if
+<a href=#1600 id=1600 data-nosnippet>1600</a>				// present.
+<a href=#1601 id=1601 data-nosnippet>1601</a>				</span><span class="kw">let </span>idx = chain
+<a href=#1602 id=1602 data-nosnippet>1602</a>					.iter()
+<a href=#1603 id=1603 data-nosnippet>1603</a>					.position(|block| {
+<a href=#1604 id=1604 data-nosnippet>1604</a>						<span class="kw">let </span>head_hash = block
+<a href=#1605 id=1605 data-nosnippet>1605</a>							.para_head_hash()
+<a href=#1606 id=1606 data-nosnippet>1606</a>							.expect(<span class="string">"para head hash is updated during block initialization; qed"</span>);
+<a href=#1607 id=1607 data-nosnippet>1607</a>						head_hash == <span class="kw-2">&amp;</span>para_head_hash
+<a href=#1608 id=1608 data-nosnippet>1608</a>					})
+<a href=#1609 id=1609 data-nosnippet>1609</a>					.map_or(<span class="number">0</span>, |idx| idx + <span class="number">1</span>); <span class="comment">// inclusive.
+<a href=#1610 id=1610 data-nosnippet>1610</a>
+<a href=#1611 id=1611 data-nosnippet>1611</a>				</span>chain.drain(..idx).collect()
+<a href=#1612 id=1612 data-nosnippet>1612</a>			});
+<a href=#1613 id=1613 data-nosnippet>1613</a>			weight_used += T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>);
+<a href=#1614 id=1614 data-nosnippet>1614</a>
+<a href=#1615 id=1615 data-nosnippet>1615</a>			<span class="kw">let </span>new_len = unincluded_segment_len - dropped.len();
+<a href=#1616 id=1616 data-nosnippet>1616</a>			<span class="kw">if </span>!dropped.is_empty() {
+<a href=#1617 id=1617 data-nosnippet>1617</a>				&lt;AggregatedUnincludedSegment&lt;T&gt;&gt;::mutate(|agg| {
+<a href=#1618 id=1618 data-nosnippet>1618</a>					<span class="kw">let </span>agg = agg.as_mut().expect(
+<a href=#1619 id=1619 data-nosnippet>1619</a>						<span class="string">"dropped part of the segment wasn't empty, hence value exists; qed"</span>,
+<a href=#1620 id=1620 data-nosnippet>1620</a>					);
+<a href=#1621 id=1621 data-nosnippet>1621</a>					<span class="kw">for </span>block <span class="kw">in </span>dropped {
+<a href=#1622 id=1622 data-nosnippet>1622</a>						agg.subtract(<span class="kw-2">&amp;</span>block);
+<a href=#1623 id=1623 data-nosnippet>1623</a>					}
+<a href=#1624 id=1624 data-nosnippet>1624</a>				});
+<a href=#1625 id=1625 data-nosnippet>1625</a>				weight_used += T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>);
+<a href=#1626 id=1626 data-nosnippet>1626</a>			}
+<a href=#1627 id=1627 data-nosnippet>1627</a>
+<a href=#1628 id=1628 data-nosnippet>1628</a>			new_len <span class="kw">as </span>u32
+<a href=#1629 id=1629 data-nosnippet>1629</a>		};
 <a href=#1630 id=1630 data-nosnippet>1630</a>
-<a href=#1631 id=1631 data-nosnippet>1631</a>		&lt;RelevantMessagingState&lt;T&gt;&gt;::mutate(|messaging_state| {
-<a href=#1632 id=1632 data-nosnippet>1632</a>			<span class="kw">let </span><span class="prelude-val">Some</span>(messaging_state) = messaging_state <span class="kw">else </span>{ <span class="kw">return </span>};
-<a href=#1633 id=1633 data-nosnippet>1633</a>
-<a href=#1634 id=1634 data-nosnippet>1634</a>			<span class="kw">let </span>used_bandwidth = unincluded_segment.used_bandwidth();
-<a href=#1635 id=1635 data-nosnippet>1635</a>
-<a href=#1636 id=1636 data-nosnippet>1636</a>			<span class="kw">let </span>channels = <span class="kw-2">&amp;mut </span>messaging_state.egress_channels;
-<a href=#1637 id=1637 data-nosnippet>1637</a>			<span class="kw">for </span>(para_id, used) <span class="kw">in </span>used_bandwidth.hrmp_outgoing.iter() {
-<a href=#1638 id=1638 data-nosnippet>1638</a>				<span class="kw">let </span><span class="prelude-val">Ok</span>(i) = channels.binary_search_by_key(para_id, |item| item.<span class="number">0</span>) <span class="kw">else </span>{
-<a href=#1639 id=1639 data-nosnippet>1639</a>					<span class="kw">continue</span>; <span class="comment">// indicates channel closed.
-<a href=#1640 id=1640 data-nosnippet>1640</a>				</span>};
-<a href=#1641 id=1641 data-nosnippet>1641</a>
-<a href=#1642 id=1642 data-nosnippet>1642</a>				<span class="kw">let </span>c = <span class="kw-2">&amp;mut </span>channels[i].<span class="number">1</span>;
-<a href=#1643 id=1643 data-nosnippet>1643</a>
-<a href=#1644 id=1644 data-nosnippet>1644</a>				c.total_size = (c.total_size + used.total_bytes).min(c.max_total_size);
-<a href=#1645 id=1645 data-nosnippet>1645</a>				c.msg_count = (c.msg_count + used.msg_count).min(c.max_capacity);
-<a href=#1646 id=1646 data-nosnippet>1646</a>			}
-<a href=#1647 id=1647 data-nosnippet>1647</a>
-<a href=#1648 id=1648 data-nosnippet>1648</a>			<span class="kw">let </span>upward_capacity = <span class="kw-2">&amp;mut </span>messaging_state.relay_dispatch_queue_remaining_capacity;
-<a href=#1649 id=1649 data-nosnippet>1649</a>			upward_capacity.remaining_count =
-<a href=#1650 id=1650 data-nosnippet>1650</a>				upward_capacity.remaining_count.saturating_sub(used_bandwidth.ump_msg_count);
-<a href=#1651 id=1651 data-nosnippet>1651</a>			upward_capacity.remaining_size =
-<a href=#1652 id=1652 data-nosnippet>1652</a>				upward_capacity.remaining_size.saturating_sub(used_bandwidth.ump_total_bytes);
-<a href=#1653 id=1653 data-nosnippet>1653</a>		});
-<a href=#1654 id=1654 data-nosnippet>1654</a>	}
-<a href=#1655 id=1655 data-nosnippet>1655</a>
-<a href=#1656 id=1656 data-nosnippet>1656</a>	<span class="doccomment">/// Put a new validation function into a particular location where polkadot
-<a href=#1657 id=1657 data-nosnippet>1657</a>	/// monitors for updates. Calling this function notifies polkadot that a new
-<a href=#1658 id=1658 data-nosnippet>1658</a>	/// upgrade has been scheduled.
-<a href=#1659 id=1659 data-nosnippet>1659</a>	</span><span class="kw">fn </span>notify_polkadot_of_pending_upgrade(code: <span class="kw-2">&amp;</span>[u8]) {
-<a href=#1660 id=1660 data-nosnippet>1660</a>		NewValidationCode::&lt;T&gt;::put(code);
-<a href=#1661 id=1661 data-nosnippet>1661</a>		&lt;DidSetValidationCode&lt;T&gt;&gt;::put(<span class="bool-val">true</span>);
-<a href=#1662 id=1662 data-nosnippet>1662</a>	}
-<a href=#1663 id=1663 data-nosnippet>1663</a>
-<a href=#1664 id=1664 data-nosnippet>1664</a>	<span class="doccomment">/// The maximum code size permitted, in bytes.
-<a href=#1665 id=1665 data-nosnippet>1665</a>	///
-<a href=#1666 id=1666 data-nosnippet>1666</a>	/// Returns `None` if the relay chain parachain host configuration hasn't been submitted yet.
-<a href=#1667 id=1667 data-nosnippet>1667</a>	</span><span class="kw">pub fn </span>max_code_size() -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
-<a href=#1668 id=1668 data-nosnippet>1668</a>		&lt;HostConfiguration&lt;T&gt;&gt;::get().map(|cfg| cfg.max_code_size)
-<a href=#1669 id=1669 data-nosnippet>1669</a>	}
-<a href=#1670 id=1670 data-nosnippet>1670</a>
-<a href=#1671 id=1671 data-nosnippet>1671</a>	<span class="doccomment">/// The implementation of the runtime upgrade functionality for parachains.
-<a href=#1672 id=1672 data-nosnippet>1672</a>	</span><span class="kw">pub fn </span>schedule_code_upgrade(validation_function: Vec&lt;u8&gt;) -&gt; DispatchResult {
-<a href=#1673 id=1673 data-nosnippet>1673</a>		<span class="comment">// Ensure that `ValidationData` exists. We do not care about the validation data per se,
-<a href=#1674 id=1674 data-nosnippet>1674</a>		// but we do care about the [`UpgradeRestrictionSignal`] which arrives with the same
-<a href=#1675 id=1675 data-nosnippet>1675</a>		// inherent.
-<a href=#1676 id=1676 data-nosnippet>1676</a>		</span><span class="macro">ensure!</span>(&lt;ValidationData&lt;T&gt;&gt;::exists(), Error::&lt;T&gt;::ValidationDataNotAvailable);
-<a href=#1677 id=1677 data-nosnippet>1677</a>		<span class="macro">ensure!</span>(&lt;UpgradeRestrictionSignal&lt;T&gt;&gt;::get().is_none(), Error::&lt;T&gt;::ProhibitedByPolkadot);
-<a href=#1678 id=1678 data-nosnippet>1678</a>
-<a href=#1679 id=1679 data-nosnippet>1679</a>		<span class="macro">ensure!</span>(!&lt;PendingValidationCode&lt;T&gt;&gt;::exists(), Error::&lt;T&gt;::OverlappingUpgrades);
-<a href=#1680 id=1680 data-nosnippet>1680</a>		<span class="kw">let </span>cfg = HostConfiguration::&lt;T&gt;::get().ok_or(Error::&lt;T&gt;::HostConfigurationNotAvailable)<span class="question-mark">?</span>;
-<a href=#1681 id=1681 data-nosnippet>1681</a>		<span class="macro">ensure!</span>(validation_function.len() &lt;= cfg.max_code_size <span class="kw">as </span>usize, Error::&lt;T&gt;::TooBig);
+<a href=#1631 id=1631 data-nosnippet>1631</a>		<span class="comment">// Current block validity check: ensure there is space in the unincluded segment.
+<a href=#1632 id=1632 data-nosnippet>1632</a>		//
+<a href=#1633 id=1633 data-nosnippet>1633</a>		// If this fails, the parachain needs to wait for ancestors to be included before
+<a href=#1634 id=1634 data-nosnippet>1634</a>		// a new block is allowed.
+<a href=#1635 id=1635 data-nosnippet>1635</a>		</span><span class="macro">assert!</span>(
+<a href=#1636 id=1636 data-nosnippet>1636</a>			new_len &lt; capacity.get(),
+<a href=#1637 id=1637 data-nosnippet>1637</a>			<span class="string">"No space left for the block in the unincluded segment: new_len({new_len}) &lt; capacity({})"</span>,
+<a href=#1638 id=1638 data-nosnippet>1638</a>			capacity.get()
+<a href=#1639 id=1639 data-nosnippet>1639</a>		);
+<a href=#1640 id=1640 data-nosnippet>1640</a>		weight_used
+<a href=#1641 id=1641 data-nosnippet>1641</a>	}
+<a href=#1642 id=1642 data-nosnippet>1642</a>
+<a href=#1643 id=1643 data-nosnippet>1643</a>	<span class="doccomment">/// This adjusts the `RelevantMessagingState` according to the bandwidth limits in the
+<a href=#1644 id=1644 data-nosnippet>1644</a>	/// unincluded segment.
+<a href=#1645 id=1645 data-nosnippet>1645</a>	</span><span class="comment">// Reads: 2
+<a href=#1646 id=1646 data-nosnippet>1646</a>	// Writes: 1
+<a href=#1647 id=1647 data-nosnippet>1647</a>	</span><span class="kw">fn </span>adjust_egress_bandwidth_limits() {
+<a href=#1648 id=1648 data-nosnippet>1648</a>		<span class="kw">let </span><span class="prelude-val">Some</span>(unincluded_segment) = AggregatedUnincludedSegment::&lt;T&gt;::get() <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href=#1649 id=1649 data-nosnippet>1649</a>
+<a href=#1650 id=1650 data-nosnippet>1650</a>		&lt;RelevantMessagingState&lt;T&gt;&gt;::mutate(|messaging_state| {
+<a href=#1651 id=1651 data-nosnippet>1651</a>			<span class="kw">let </span><span class="prelude-val">Some</span>(messaging_state) = messaging_state <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href=#1652 id=1652 data-nosnippet>1652</a>
+<a href=#1653 id=1653 data-nosnippet>1653</a>			<span class="kw">let </span>used_bandwidth = unincluded_segment.used_bandwidth();
+<a href=#1654 id=1654 data-nosnippet>1654</a>
+<a href=#1655 id=1655 data-nosnippet>1655</a>			<span class="kw">let </span>channels = <span class="kw-2">&amp;mut </span>messaging_state.egress_channels;
+<a href=#1656 id=1656 data-nosnippet>1656</a>			<span class="kw">for </span>(para_id, used) <span class="kw">in </span>used_bandwidth.hrmp_outgoing.iter() {
+<a href=#1657 id=1657 data-nosnippet>1657</a>				<span class="kw">let </span><span class="prelude-val">Ok</span>(i) = channels.binary_search_by_key(para_id, |item| item.<span class="number">0</span>) <span class="kw">else </span>{
+<a href=#1658 id=1658 data-nosnippet>1658</a>					<span class="kw">continue</span>; <span class="comment">// indicates channel closed.
+<a href=#1659 id=1659 data-nosnippet>1659</a>				</span>};
+<a href=#1660 id=1660 data-nosnippet>1660</a>
+<a href=#1661 id=1661 data-nosnippet>1661</a>				<span class="kw">let </span>c = <span class="kw-2">&amp;mut </span>channels[i].<span class="number">1</span>;
+<a href=#1662 id=1662 data-nosnippet>1662</a>
+<a href=#1663 id=1663 data-nosnippet>1663</a>				c.total_size = (c.total_size + used.total_bytes).min(c.max_total_size);
+<a href=#1664 id=1664 data-nosnippet>1664</a>				c.msg_count = (c.msg_count + used.msg_count).min(c.max_capacity);
+<a href=#1665 id=1665 data-nosnippet>1665</a>			}
+<a href=#1666 id=1666 data-nosnippet>1666</a>
+<a href=#1667 id=1667 data-nosnippet>1667</a>			<span class="kw">let </span>upward_capacity = <span class="kw-2">&amp;mut </span>messaging_state.relay_dispatch_queue_remaining_capacity;
+<a href=#1668 id=1668 data-nosnippet>1668</a>			upward_capacity.remaining_count =
+<a href=#1669 id=1669 data-nosnippet>1669</a>				upward_capacity.remaining_count.saturating_sub(used_bandwidth.ump_msg_count);
+<a href=#1670 id=1670 data-nosnippet>1670</a>			upward_capacity.remaining_size =
+<a href=#1671 id=1671 data-nosnippet>1671</a>				upward_capacity.remaining_size.saturating_sub(used_bandwidth.ump_total_bytes);
+<a href=#1672 id=1672 data-nosnippet>1672</a>		});
+<a href=#1673 id=1673 data-nosnippet>1673</a>	}
+<a href=#1674 id=1674 data-nosnippet>1674</a>
+<a href=#1675 id=1675 data-nosnippet>1675</a>	<span class="doccomment">/// Put a new validation function into a particular location where polkadot
+<a href=#1676 id=1676 data-nosnippet>1676</a>	/// monitors for updates. Calling this function notifies polkadot that a new
+<a href=#1677 id=1677 data-nosnippet>1677</a>	/// upgrade has been scheduled.
+<a href=#1678 id=1678 data-nosnippet>1678</a>	</span><span class="kw">fn </span>notify_polkadot_of_pending_upgrade(code: <span class="kw-2">&amp;</span>[u8]) {
+<a href=#1679 id=1679 data-nosnippet>1679</a>		NewValidationCode::&lt;T&gt;::put(code);
+<a href=#1680 id=1680 data-nosnippet>1680</a>		&lt;DidSetValidationCode&lt;T&gt;&gt;::put(<span class="bool-val">true</span>);
+<a href=#1681 id=1681 data-nosnippet>1681</a>	}
 <a href=#1682 id=1682 data-nosnippet>1682</a>
-<a href=#1683 id=1683 data-nosnippet>1683</a>		<span class="comment">// When a code upgrade is scheduled, it has to be applied in two
-<a href=#1684 id=1684 data-nosnippet>1684</a>		// places, synchronized: both polkadot and the individual parachain
-<a href=#1685 id=1685 data-nosnippet>1685</a>		// have to upgrade on the same relay chain block.
-<a href=#1686 id=1686 data-nosnippet>1686</a>		//
-<a href=#1687 id=1687 data-nosnippet>1687</a>		// `notify_polkadot_of_pending_upgrade` notifies polkadot; the `PendingValidationCode`
-<a href=#1688 id=1688 data-nosnippet>1688</a>		// storage keeps track locally for the parachain upgrade, which will
-<a href=#1689 id=1689 data-nosnippet>1689</a>		// be applied later: when the relay-chain communicates go-ahead signal to us.
-<a href=#1690 id=1690 data-nosnippet>1690</a>		</span><span class="self">Self</span>::notify_polkadot_of_pending_upgrade(<span class="kw-2">&amp;</span>validation_function);
-<a href=#1691 id=1691 data-nosnippet>1691</a>		&lt;PendingValidationCode&lt;T&gt;&gt;::put(validation_function);
-<a href=#1692 id=1692 data-nosnippet>1692</a>		<span class="self">Self</span>::deposit_event(Event::ValidationFunctionStored);
-<a href=#1693 id=1693 data-nosnippet>1693</a>
-<a href=#1694 id=1694 data-nosnippet>1694</a>		<span class="prelude-val">Ok</span>(())
-<a href=#1695 id=1695 data-nosnippet>1695</a>	}
-<a href=#1696 id=1696 data-nosnippet>1696</a>
-<a href=#1697 id=1697 data-nosnippet>1697</a>	<span class="doccomment">/// Returns the [`CollationInfo`] of the current active block.
-<a href=#1698 id=1698 data-nosnippet>1698</a>	///
-<a href=#1699 id=1699 data-nosnippet>1699</a>	/// The given `header` is the header of the built block we are collecting the collation info
-<a href=#1700 id=1700 data-nosnippet>1700</a>	/// for.
-<a href=#1701 id=1701 data-nosnippet>1701</a>	///
-<a href=#1702 id=1702 data-nosnippet>1702</a>	/// This is expected to be used by the
-<a href=#1703 id=1703 data-nosnippet>1703</a>	/// [`CollectCollationInfo`](cumulus_primitives_core::CollectCollationInfo) runtime api.
-<a href=#1704 id=1704 data-nosnippet>1704</a>	</span><span class="kw">pub fn </span>collect_collation_info(header: <span class="kw-2">&amp;</span>HeaderFor&lt;T&gt;) -&gt; CollationInfo {
-<a href=#1705 id=1705 data-nosnippet>1705</a>		CollationInfo {
-<a href=#1706 id=1706 data-nosnippet>1706</a>			hrmp_watermark: HrmpWatermark::&lt;T&gt;::get(),
-<a href=#1707 id=1707 data-nosnippet>1707</a>			horizontal_messages: HrmpOutboundMessages::&lt;T&gt;::get(),
-<a href=#1708 id=1708 data-nosnippet>1708</a>			upward_messages: UpwardMessages::&lt;T&gt;::get(),
-<a href=#1709 id=1709 data-nosnippet>1709</a>			processed_downward_messages: ProcessedDownwardMessages::&lt;T&gt;::get(),
-<a href=#1710 id=1710 data-nosnippet>1710</a>			new_validation_code: NewValidationCode::&lt;T&gt;::get().map(Into::into),
-<a href=#1711 id=1711 data-nosnippet>1711</a>			<span class="comment">// Check if there is a custom header that will also be returned by the validation phase.
-<a href=#1712 id=1712 data-nosnippet>1712</a>			// If so, we need to also return it here.
-<a href=#1713 id=1713 data-nosnippet>1713</a>			</span>head_data: CustomValidationHeadData::&lt;T&gt;::get()
-<a href=#1714 id=1714 data-nosnippet>1714</a>				.map_or_else(|| header.encode(), |v| v)
-<a href=#1715 id=1715 data-nosnippet>1715</a>				.into(),
-<a href=#1716 id=1716 data-nosnippet>1716</a>		}
-<a href=#1717 id=1717 data-nosnippet>1717</a>	}
-<a href=#1718 id=1718 data-nosnippet>1718</a>
-<a href=#1719 id=1719 data-nosnippet>1719</a>	<span class="doccomment">/// Set a custom head data that should be returned as result of `validate_block`.
+<a href=#1683 id=1683 data-nosnippet>1683</a>	<span class="doccomment">/// The maximum code size permitted, in bytes.
+<a href=#1684 id=1684 data-nosnippet>1684</a>	///
+<a href=#1685 id=1685 data-nosnippet>1685</a>	/// Returns `None` if the relay chain parachain host configuration hasn't been submitted yet.
+<a href=#1686 id=1686 data-nosnippet>1686</a>	</span><span class="kw">pub fn </span>max_code_size() -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
+<a href=#1687 id=1687 data-nosnippet>1687</a>		&lt;HostConfiguration&lt;T&gt;&gt;::get().map(|cfg| cfg.max_code_size)
+<a href=#1688 id=1688 data-nosnippet>1688</a>	}
+<a href=#1689 id=1689 data-nosnippet>1689</a>
+<a href=#1690 id=1690 data-nosnippet>1690</a>	<span class="doccomment">/// The implementation of the runtime upgrade functionality for parachains.
+<a href=#1691 id=1691 data-nosnippet>1691</a>	</span><span class="kw">pub fn </span>schedule_code_upgrade(validation_function: Vec&lt;u8&gt;) -&gt; DispatchResult {
+<a href=#1692 id=1692 data-nosnippet>1692</a>		<span class="comment">// Ensure that `ValidationData` exists. We do not care about the validation data per se,
+<a href=#1693 id=1693 data-nosnippet>1693</a>		// but we do care about the [`UpgradeRestrictionSignal`] which arrives with the same
+<a href=#1694 id=1694 data-nosnippet>1694</a>		// inherent.
+<a href=#1695 id=1695 data-nosnippet>1695</a>		</span><span class="macro">ensure!</span>(&lt;ValidationData&lt;T&gt;&gt;::exists(), Error::&lt;T&gt;::ValidationDataNotAvailable);
+<a href=#1696 id=1696 data-nosnippet>1696</a>		<span class="macro">ensure!</span>(&lt;UpgradeRestrictionSignal&lt;T&gt;&gt;::get().is_none(), Error::&lt;T&gt;::ProhibitedByPolkadot);
+<a href=#1697 id=1697 data-nosnippet>1697</a>
+<a href=#1698 id=1698 data-nosnippet>1698</a>		<span class="macro">ensure!</span>(!&lt;PendingValidationCode&lt;T&gt;&gt;::exists(), Error::&lt;T&gt;::OverlappingUpgrades);
+<a href=#1699 id=1699 data-nosnippet>1699</a>		<span class="kw">let </span>cfg = HostConfiguration::&lt;T&gt;::get().ok_or(Error::&lt;T&gt;::HostConfigurationNotAvailable)<span class="question-mark">?</span>;
+<a href=#1700 id=1700 data-nosnippet>1700</a>		<span class="macro">ensure!</span>(validation_function.len() &lt;= cfg.max_code_size <span class="kw">as </span>usize, Error::&lt;T&gt;::TooBig);
+<a href=#1701 id=1701 data-nosnippet>1701</a>
+<a href=#1702 id=1702 data-nosnippet>1702</a>		<span class="comment">// When a code upgrade is scheduled, it has to be applied in two
+<a href=#1703 id=1703 data-nosnippet>1703</a>		// places, synchronized: both polkadot and the individual parachain
+<a href=#1704 id=1704 data-nosnippet>1704</a>		// have to upgrade on the same relay chain block.
+<a href=#1705 id=1705 data-nosnippet>1705</a>		//
+<a href=#1706 id=1706 data-nosnippet>1706</a>		// `notify_polkadot_of_pending_upgrade` notifies polkadot; the `PendingValidationCode`
+<a href=#1707 id=1707 data-nosnippet>1707</a>		// storage keeps track locally for the parachain upgrade, which will
+<a href=#1708 id=1708 data-nosnippet>1708</a>		// be applied later: when the relay-chain communicates go-ahead signal to us.
+<a href=#1709 id=1709 data-nosnippet>1709</a>		</span><span class="self">Self</span>::notify_polkadot_of_pending_upgrade(<span class="kw-2">&amp;</span>validation_function);
+<a href=#1710 id=1710 data-nosnippet>1710</a>		&lt;PendingValidationCode&lt;T&gt;&gt;::put(validation_function);
+<a href=#1711 id=1711 data-nosnippet>1711</a>		<span class="self">Self</span>::deposit_event(Event::ValidationFunctionStored);
+<a href=#1712 id=1712 data-nosnippet>1712</a>
+<a href=#1713 id=1713 data-nosnippet>1713</a>		<span class="prelude-val">Ok</span>(())
+<a href=#1714 id=1714 data-nosnippet>1714</a>	}
+<a href=#1715 id=1715 data-nosnippet>1715</a>
+<a href=#1716 id=1716 data-nosnippet>1716</a>	<span class="doccomment">/// Returns the [`CollationInfo`] of the current active block.
+<a href=#1717 id=1717 data-nosnippet>1717</a>	///
+<a href=#1718 id=1718 data-nosnippet>1718</a>	/// The given `header` is the header of the built block we are collecting the collation info
+<a href=#1719 id=1719 data-nosnippet>1719</a>	/// for.
 <a href=#1720 id=1720 data-nosnippet>1720</a>	///
-<a href=#1721 id=1721 data-nosnippet>1721</a>	/// This will overwrite the head data that is returned as result of `validate_block` while
-<a href=#1722 id=1722 data-nosnippet>1722</a>	/// validating a `PoV` on the relay chain. Normally the head data that is being returned
-<a href=#1723 id=1723 data-nosnippet>1723</a>	/// by `validate_block` is the header of the block that is validated, thus it can be
-<a href=#1724 id=1724 data-nosnippet>1724</a>	/// enacted as the new best block. However, for features like forking it can be useful
-<a href=#1725 id=1725 data-nosnippet>1725</a>	/// to overwrite the head data with a custom header.
-<a href=#1726 id=1726 data-nosnippet>1726</a>	///
-<a href=#1727 id=1727 data-nosnippet>1727</a>	/// # Attention
-<a href=#1728 id=1728 data-nosnippet>1728</a>	///
-<a href=#1729 id=1729 data-nosnippet>1729</a>	/// This should only be used when you are sure what you are doing as this can brick
-<a href=#1730 id=1730 data-nosnippet>1730</a>	/// your Parachain.
-<a href=#1731 id=1731 data-nosnippet>1731</a>	</span><span class="kw">pub fn </span>set_custom_validation_head_data(head_data: Vec&lt;u8&gt;) {
-<a href=#1732 id=1732 data-nosnippet>1732</a>		CustomValidationHeadData::&lt;T&gt;::put(head_data);
-<a href=#1733 id=1733 data-nosnippet>1733</a>	}
-<a href=#1734 id=1734 data-nosnippet>1734</a>
-<a href=#1735 id=1735 data-nosnippet>1735</a>	<span class="doccomment">/// Send the pending ump signals
-<a href=#1736 id=1736 data-nosnippet>1736</a>	</span><span class="kw">fn </span>send_ump_signals(core_info: <span class="prelude-ty">Option</span>&lt;CoreInfo&gt;) {
-<a href=#1737 id=1737 data-nosnippet>1737</a>		<span class="kw">let </span><span class="kw-2">mut </span>ump_signals = PendingUpwardSignals::&lt;T&gt;::take();
-<a href=#1738 id=1738 data-nosnippet>1738</a>
-<a href=#1739 id=1739 data-nosnippet>1739</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(core_info) = core_info {
-<a href=#1740 id=1740 data-nosnippet>1740</a>			ump_signals.push(
-<a href=#1741 id=1741 data-nosnippet>1741</a>				UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset).encode(),
-<a href=#1742 id=1742 data-nosnippet>1742</a>			);
-<a href=#1743 id=1743 data-nosnippet>1743</a>		}
-<a href=#1744 id=1744 data-nosnippet>1744</a>
-<a href=#1745 id=1745 data-nosnippet>1745</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(approved_peer) = PendingApprovedPeer::&lt;T&gt;::take() {
-<a href=#1746 id=1746 data-nosnippet>1746</a>			ump_signals.push(UMPSignal::ApprovedPeer(approved_peer).encode());
-<a href=#1747 id=1747 data-nosnippet>1747</a>		}
-<a href=#1748 id=1748 data-nosnippet>1748</a>
-<a href=#1749 id=1749 data-nosnippet>1749</a>		<span class="kw">if </span>!ump_signals.is_empty() {
-<a href=#1750 id=1750 data-nosnippet>1750</a>			UpwardMessages::&lt;T&gt;::append(UMP_SEPARATOR);
-<a href=#1751 id=1751 data-nosnippet>1751</a>			ump_signals.into_iter().for_each(|s| UpwardMessages::&lt;T&gt;::append(s));
-<a href=#1752 id=1752 data-nosnippet>1752</a>		}
-<a href=#1753 id=1753 data-nosnippet>1753</a>	}
-<a href=#1754 id=1754 data-nosnippet>1754</a>
-<a href=#1755 id=1755 data-nosnippet>1755</a>	<span class="doccomment">/// Open HRMP channel for using it in benchmarks or tests.
-<a href=#1756 id=1756 data-nosnippet>1756</a>	///
-<a href=#1757 id=1757 data-nosnippet>1757</a>	/// The caller assumes that the pallet will accept regular outbound message to the sibling
-<a href=#1758 id=1758 data-nosnippet>1758</a>	/// `target_parachain` after this call. No other assumptions are made.
-<a href=#1759 id=1759 data-nosnippet>1759</a>	</span><span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, feature = <span class="string">"std"</span>))]
-<a href=#1760 id=1760 data-nosnippet>1760</a>	</span><span class="kw">pub fn </span>open_outbound_hrmp_channel_for_benchmarks_or_tests(target_parachain: ParaId) {
-<a href=#1761 id=1761 data-nosnippet>1761</a>		RelevantMessagingState::&lt;T&gt;::put(MessagingStateSnapshot {
-<a href=#1762 id=1762 data-nosnippet>1762</a>			dmq_mqc_head: Default::default(),
-<a href=#1763 id=1763 data-nosnippet>1763</a>			relay_dispatch_queue_remaining_capacity: Default::default(),
-<a href=#1764 id=1764 data-nosnippet>1764</a>			ingress_channels: Default::default(),
-<a href=#1765 id=1765 data-nosnippet>1765</a>			egress_channels: <span class="macro">vec!</span>[(
-<a href=#1766 id=1766 data-nosnippet>1766</a>				target_parachain,
-<a href=#1767 id=1767 data-nosnippet>1767</a>				cumulus_primitives_core::AbridgedHrmpChannel {
-<a href=#1768 id=1768 data-nosnippet>1768</a>					max_capacity: <span class="number">10</span>,
-<a href=#1769 id=1769 data-nosnippet>1769</a>					max_total_size: <span class="number">10_000_000_u32</span>,
-<a href=#1770 id=1770 data-nosnippet>1770</a>					max_message_size: <span class="number">10_000_000_u32</span>,
-<a href=#1771 id=1771 data-nosnippet>1771</a>					msg_count: <span class="number">5</span>,
-<a href=#1772 id=1772 data-nosnippet>1772</a>					total_size: <span class="number">5_000_000_u32</span>,
-<a href=#1773 id=1773 data-nosnippet>1773</a>					mqc_head: <span class="prelude-val">None</span>,
-<a href=#1774 id=1774 data-nosnippet>1774</a>				},
-<a href=#1775 id=1775 data-nosnippet>1775</a>			)],
-<a href=#1776 id=1776 data-nosnippet>1776</a>		})
-<a href=#1777 id=1777 data-nosnippet>1777</a>	}
-<a href=#1778 id=1778 data-nosnippet>1778</a>
-<a href=#1779 id=1779 data-nosnippet>1779</a>	<span class="doccomment">/// Open HRMP channel for using it in benchmarks or tests.
-<a href=#1780 id=1780 data-nosnippet>1780</a>	///
-<a href=#1781 id=1781 data-nosnippet>1781</a>	/// The caller assumes that the pallet will accept regular outbound message to the sibling
-<a href=#1782 id=1782 data-nosnippet>1782</a>	/// `target_parachain` after this call. No other assumptions are made.
-<a href=#1783 id=1783 data-nosnippet>1783</a>	</span><span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, feature = <span class="string">"std"</span>))]
-<a href=#1784 id=1784 data-nosnippet>1784</a>	</span><span class="kw">pub fn </span>open_custom_outbound_hrmp_channel_for_benchmarks_or_tests(
-<a href=#1785 id=1785 data-nosnippet>1785</a>		target_parachain: ParaId,
-<a href=#1786 id=1786 data-nosnippet>1786</a>		channel: cumulus_primitives_core::AbridgedHrmpChannel,
-<a href=#1787 id=1787 data-nosnippet>1787</a>	) {
-<a href=#1788 id=1788 data-nosnippet>1788</a>		RelevantMessagingState::&lt;T&gt;::put(MessagingStateSnapshot {
-<a href=#1789 id=1789 data-nosnippet>1789</a>			dmq_mqc_head: Default::default(),
-<a href=#1790 id=1790 data-nosnippet>1790</a>			relay_dispatch_queue_remaining_capacity: Default::default(),
-<a href=#1791 id=1791 data-nosnippet>1791</a>			ingress_channels: Default::default(),
-<a href=#1792 id=1792 data-nosnippet>1792</a>			egress_channels: <span class="macro">vec!</span>[(target_parachain, channel)],
-<a href=#1793 id=1793 data-nosnippet>1793</a>		})
-<a href=#1794 id=1794 data-nosnippet>1794</a>	}
-<a href=#1795 id=1795 data-nosnippet>1795</a>
-<a href=#1796 id=1796 data-nosnippet>1796</a>	<span class="doccomment">/// Prepare/insert relevant data for `schedule_code_upgrade` for benchmarks.
-<a href=#1797 id=1797 data-nosnippet>1797</a>	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#1798 id=1798 data-nosnippet>1798</a>	</span><span class="kw">pub fn </span>initialize_for_set_code_benchmark(max_code_size: u32) {
-<a href=#1799 id=1799 data-nosnippet>1799</a>		<span class="comment">// insert dummy ValidationData
-<a href=#1800 id=1800 data-nosnippet>1800</a>		</span><span class="kw">let </span>vfp = PersistedValidationData {
-<a href=#1801 id=1801 data-nosnippet>1801</a>			parent_head: polkadot_parachain_primitives::primitives::HeadData(Default::default()),
-<a href=#1802 id=1802 data-nosnippet>1802</a>			relay_parent_number: <span class="number">1</span>,
-<a href=#1803 id=1803 data-nosnippet>1803</a>			relay_parent_storage_root: Default::default(),
-<a href=#1804 id=1804 data-nosnippet>1804</a>			max_pov_size: <span class="number">1_000</span>,
-<a href=#1805 id=1805 data-nosnippet>1805</a>		};
-<a href=#1806 id=1806 data-nosnippet>1806</a>		&lt;ValidationData&lt;T&gt;&gt;::put(<span class="kw-2">&amp;</span>vfp);
-<a href=#1807 id=1807 data-nosnippet>1807</a>
-<a href=#1808 id=1808 data-nosnippet>1808</a>		<span class="comment">// insert dummy HostConfiguration with
-<a href=#1809 id=1809 data-nosnippet>1809</a>		</span><span class="kw">let </span>host_config = AbridgedHostConfiguration {
-<a href=#1810 id=1810 data-nosnippet>1810</a>			max_code_size,
-<a href=#1811 id=1811 data-nosnippet>1811</a>			max_head_data_size: <span class="number">32 </span>* <span class="number">1024</span>,
-<a href=#1812 id=1812 data-nosnippet>1812</a>			max_upward_queue_count: <span class="number">8</span>,
-<a href=#1813 id=1813 data-nosnippet>1813</a>			max_upward_queue_size: <span class="number">1024 </span>* <span class="number">1024</span>,
-<a href=#1814 id=1814 data-nosnippet>1814</a>			max_upward_message_size: <span class="number">4 </span>* <span class="number">1024</span>,
-<a href=#1815 id=1815 data-nosnippet>1815</a>			max_upward_message_num_per_candidate: <span class="number">2</span>,
-<a href=#1816 id=1816 data-nosnippet>1816</a>			hrmp_max_message_num_per_candidate: <span class="number">2</span>,
-<a href=#1817 id=1817 data-nosnippet>1817</a>			validation_upgrade_cooldown: <span class="number">2</span>,
-<a href=#1818 id=1818 data-nosnippet>1818</a>			validation_upgrade_delay: <span class="number">2</span>,
-<a href=#1819 id=1819 data-nosnippet>1819</a>			async_backing_params: relay_chain::AsyncBackingParams {
-<a href=#1820 id=1820 data-nosnippet>1820</a>				allowed_ancestry_len: <span class="number">0</span>,
-<a href=#1821 id=1821 data-nosnippet>1821</a>				max_candidate_depth: <span class="number">0</span>,
-<a href=#1822 id=1822 data-nosnippet>1822</a>			},
-<a href=#1823 id=1823 data-nosnippet>1823</a>		};
-<a href=#1824 id=1824 data-nosnippet>1824</a>		&lt;HostConfiguration&lt;T&gt;&gt;::put(host_config);
-<a href=#1825 id=1825 data-nosnippet>1825</a>	}
-<a href=#1826 id=1826 data-nosnippet>1826</a>}
-<a href=#1827 id=1827 data-nosnippet>1827</a>
-<a href=#1828 id=1828 data-nosnippet>1828</a><span class="doccomment">/// Type that implements `SetCode`.
-<a href=#1829 id=1829 data-nosnippet>1829</a></span><span class="kw">pub struct </span>ParachainSetCode&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
-<a href=#1830 id=1830 data-nosnippet>1830</a><span class="kw">impl</span>&lt;T: Config&gt; frame_system::SetCode&lt;T&gt; <span class="kw">for </span>ParachainSetCode&lt;T&gt; {
-<a href=#1831 id=1831 data-nosnippet>1831</a>	<span class="kw">fn </span>set_code(code: Vec&lt;u8&gt;) -&gt; DispatchResult {
-<a href=#1832 id=1832 data-nosnippet>1832</a>		Pallet::&lt;T&gt;::schedule_code_upgrade(code)
-<a href=#1833 id=1833 data-nosnippet>1833</a>	}
-<a href=#1834 id=1834 data-nosnippet>1834</a>}
-<a href=#1835 id=1835 data-nosnippet>1835</a>
-<a href=#1836 id=1836 data-nosnippet>1836</a><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
-<a href=#1837 id=1837 data-nosnippet>1837</a>	<span class="doccomment">/// Puts a message in the `PendingUpwardMessages` storage item.
-<a href=#1838 id=1838 data-nosnippet>1838</a>	/// The message will be later sent in `on_finalize`.
-<a href=#1839 id=1839 data-nosnippet>1839</a>	/// Checks host configuration to see if message is too big.
-<a href=#1840 id=1840 data-nosnippet>1840</a>	/// Increases the delivery fee factor if the queue is sufficiently (see
-<a href=#1841 id=1841 data-nosnippet>1841</a>	/// [`ump_constants::THRESHOLD_FACTOR`]) congested.
-<a href=#1842 id=1842 data-nosnippet>1842</a>	</span><span class="kw">pub fn </span>send_upward_message(message: UpwardMessage) -&gt; <span class="prelude-ty">Result</span>&lt;(u32, XcmHash), MessageSendError&gt; {
-<a href=#1843 id=1843 data-nosnippet>1843</a>		<span class="kw">let </span>message_len = message.len();
-<a href=#1844 id=1844 data-nosnippet>1844</a>		<span class="comment">// Check if the message fits into the relay-chain constraints.
-<a href=#1845 id=1845 data-nosnippet>1845</a>		//
-<a href=#1846 id=1846 data-nosnippet>1846</a>		// Note, that we are using `host_configuration` here which may be from the previous
-<a href=#1847 id=1847 data-nosnippet>1847</a>		// block, in case this is called from `on_initialize`, i.e. before the inherent with fresh
-<a href=#1848 id=1848 data-nosnippet>1848</a>		// data is submitted.
-<a href=#1849 id=1849 data-nosnippet>1849</a>		//
-<a href=#1850 id=1850 data-nosnippet>1850</a>		// That shouldn't be a problem since this is a preliminary check and the actual check would
-<a href=#1851 id=1851 data-nosnippet>1851</a>		// be performed just before submitting the message from the candidate, and it already can
-<a href=#1852 id=1852 data-nosnippet>1852</a>		// happen that during the time the message is buffered for sending the relay-chain setting
-<a href=#1853 id=1853 data-nosnippet>1853</a>		// may change so that the message is no longer valid.
-<a href=#1854 id=1854 data-nosnippet>1854</a>		//
-<a href=#1855 id=1855 data-nosnippet>1855</a>		// However, changing this setting is expected to be rare.
-<a href=#1856 id=1856 data-nosnippet>1856</a>		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(cfg) = HostConfiguration::&lt;T&gt;::get() {
-<a href=#1857 id=1857 data-nosnippet>1857</a>			<span class="kw">if </span>message_len &gt; cfg.max_upward_message_size <span class="kw">as </span>usize {
-<a href=#1858 id=1858 data-nosnippet>1858</a>				<span class="kw">return </span><span class="prelude-val">Err</span>(MessageSendError::TooBig);
-<a href=#1859 id=1859 data-nosnippet>1859</a>			}
-<a href=#1860 id=1860 data-nosnippet>1860</a>			<span class="kw">let </span>threshold =
-<a href=#1861 id=1861 data-nosnippet>1861</a>				cfg.max_upward_queue_size.saturating_div(ump_constants::THRESHOLD_FACTOR);
-<a href=#1862 id=1862 data-nosnippet>1862</a>			<span class="comment">// We check the threshold against total size and not number of messages since messages
-<a href=#1863 id=1863 data-nosnippet>1863</a>			// could be big or small.
-<a href=#1864 id=1864 data-nosnippet>1864</a>			</span>&lt;PendingUpwardMessages&lt;T&gt;&gt;::append(message.clone());
-<a href=#1865 id=1865 data-nosnippet>1865</a>			<span class="kw">let </span>pending_messages = PendingUpwardMessages::&lt;T&gt;::get();
-<a href=#1866 id=1866 data-nosnippet>1866</a>			<span class="kw">let </span>total_size: usize = pending_messages.iter().map(UpwardMessage::len).sum();
-<a href=#1867 id=1867 data-nosnippet>1867</a>			<span class="kw">if </span>total_size &gt; threshold <span class="kw">as </span>usize {
-<a href=#1868 id=1868 data-nosnippet>1868</a>				<span class="comment">// We increase the fee factor by a factor based on the new message's size in KB
-<a href=#1869 id=1869 data-nosnippet>1869</a>				</span><span class="self">Self</span>::increase_fee_factor((), message_len <span class="kw">as </span>u128);
-<a href=#1870 id=1870 data-nosnippet>1870</a>			}
-<a href=#1871 id=1871 data-nosnippet>1871</a>		} <span class="kw">else </span>{
-<a href=#1872 id=1872 data-nosnippet>1872</a>			<span class="comment">// This storage field should carry over from the previous block. So if it's None
-<a href=#1873 id=1873 data-nosnippet>1873</a>			// then it must be that this is an edge-case where a message is attempted to be
-<a href=#1874 id=1874 data-nosnippet>1874</a>			// sent at the first block.
-<a href=#1875 id=1875 data-nosnippet>1875</a>			//
-<a href=#1876 id=1876 data-nosnippet>1876</a>			// Let's pass this message through. I think it's not unreasonable to expect that
-<a href=#1877 id=1877 data-nosnippet>1877</a>			// the message is not huge and it comes through, but if it doesn't it can be
-<a href=#1878 id=1878 data-nosnippet>1878</a>			// returned back to the sender.
-<a href=#1879 id=1879 data-nosnippet>1879</a>			//
-<a href=#1880 id=1880 data-nosnippet>1880</a>			// Thus fall through here.
-<a href=#1881 id=1881 data-nosnippet>1881</a>			</span>&lt;PendingUpwardMessages&lt;T&gt;&gt;::append(message.clone());
-<a href=#1882 id=1882 data-nosnippet>1882</a>		};
-<a href=#1883 id=1883 data-nosnippet>1883</a>
-<a href=#1884 id=1884 data-nosnippet>1884</a>		<span class="comment">// The relay ump does not use using_encoded
-<a href=#1885 id=1885 data-nosnippet>1885</a>		// We apply the same this to use the same hash
-<a href=#1886 id=1886 data-nosnippet>1886</a>		</span><span class="kw">let </span>hash = sp_io::hashing::blake2_256(<span class="kw-2">&amp;</span>message);
-<a href=#1887 id=1887 data-nosnippet>1887</a>		<span class="self">Self</span>::deposit_event(Event::UpwardMessageSent { message_hash: <span class="prelude-val">Some</span>(hash) });
-<a href=#1888 id=1888 data-nosnippet>1888</a>		<span class="prelude-val">Ok</span>((<span class="number">0</span>, hash))
-<a href=#1889 id=1889 data-nosnippet>1889</a>	}
-<a href=#1890 id=1890 data-nosnippet>1890</a>
-<a href=#1891 id=1891 data-nosnippet>1891</a>	<span class="doccomment">/// Get the relay chain block number which was used as an anchor for the last block in this
-<a href=#1892 id=1892 data-nosnippet>1892</a>	/// chain.
-<a href=#1893 id=1893 data-nosnippet>1893</a>	</span><span class="kw">pub fn </span>last_relay_block_number() -&gt; RelayChainBlockNumber {
-<a href=#1894 id=1894 data-nosnippet>1894</a>		LastRelayChainBlockNumber::&lt;T&gt;::get()
-<a href=#1895 id=1895 data-nosnippet>1895</a>	}
-<a href=#1896 id=1896 data-nosnippet>1896</a>}
-<a href=#1897 id=1897 data-nosnippet>1897</a>
-<a href=#1898 id=1898 data-nosnippet>1898</a><span class="kw">impl</span>&lt;T: Config&gt; UpwardMessageSender <span class="kw">for </span>Pallet&lt;T&gt; {
-<a href=#1899 id=1899 data-nosnippet>1899</a>	<span class="kw">fn </span>send_upward_message(message: UpwardMessage) -&gt; <span class="prelude-ty">Result</span>&lt;(u32, XcmHash), MessageSendError&gt; {
-<a href=#1900 id=1900 data-nosnippet>1900</a>		<span class="self">Self</span>::send_upward_message(message)
-<a href=#1901 id=1901 data-nosnippet>1901</a>	}
+<a href=#1721 id=1721 data-nosnippet>1721</a>	/// This is expected to be used by the
+<a href=#1722 id=1722 data-nosnippet>1722</a>	/// [`CollectCollationInfo`](cumulus_primitives_core::CollectCollationInfo) runtime api.
+<a href=#1723 id=1723 data-nosnippet>1723</a>	</span><span class="kw">pub fn </span>collect_collation_info(header: <span class="kw-2">&amp;</span>HeaderFor&lt;T&gt;) -&gt; CollationInfo {
+<a href=#1724 id=1724 data-nosnippet>1724</a>		CollationInfo {
+<a href=#1725 id=1725 data-nosnippet>1725</a>			hrmp_watermark: HrmpWatermark::&lt;T&gt;::get(),
+<a href=#1726 id=1726 data-nosnippet>1726</a>			horizontal_messages: HrmpOutboundMessages::&lt;T&gt;::get(),
+<a href=#1727 id=1727 data-nosnippet>1727</a>			upward_messages: UpwardMessages::&lt;T&gt;::get(),
+<a href=#1728 id=1728 data-nosnippet>1728</a>			processed_downward_messages: ProcessedDownwardMessages::&lt;T&gt;::get(),
+<a href=#1729 id=1729 data-nosnippet>1729</a>			new_validation_code: NewValidationCode::&lt;T&gt;::get().map(Into::into),
+<a href=#1730 id=1730 data-nosnippet>1730</a>			<span class="comment">// Check if there is a custom header that will also be returned by the validation phase.
+<a href=#1731 id=1731 data-nosnippet>1731</a>			// If so, we need to also return it here.
+<a href=#1732 id=1732 data-nosnippet>1732</a>			</span>head_data: CustomValidationHeadData::&lt;T&gt;::get()
+<a href=#1733 id=1733 data-nosnippet>1733</a>				.map_or_else(|| header.encode(), |v| v)
+<a href=#1734 id=1734 data-nosnippet>1734</a>				.into(),
+<a href=#1735 id=1735 data-nosnippet>1735</a>		}
+<a href=#1736 id=1736 data-nosnippet>1736</a>	}
+<a href=#1737 id=1737 data-nosnippet>1737</a>
+<a href=#1738 id=1738 data-nosnippet>1738</a>	<span class="doccomment">/// Set a custom head data that should be returned as result of `validate_block`.
+<a href=#1739 id=1739 data-nosnippet>1739</a>	///
+<a href=#1740 id=1740 data-nosnippet>1740</a>	/// This will overwrite the head data that is returned as result of `validate_block` while
+<a href=#1741 id=1741 data-nosnippet>1741</a>	/// validating a `PoV` on the relay chain. Normally the head data that is being returned
+<a href=#1742 id=1742 data-nosnippet>1742</a>	/// by `validate_block` is the header of the block that is validated, thus it can be
+<a href=#1743 id=1743 data-nosnippet>1743</a>	/// enacted as the new best block. However, for features like forking it can be useful
+<a href=#1744 id=1744 data-nosnippet>1744</a>	/// to overwrite the head data with a custom header.
+<a href=#1745 id=1745 data-nosnippet>1745</a>	///
+<a href=#1746 id=1746 data-nosnippet>1746</a>	/// # Attention
+<a href=#1747 id=1747 data-nosnippet>1747</a>	///
+<a href=#1748 id=1748 data-nosnippet>1748</a>	/// This should only be used when you are sure what you are doing as this can brick
+<a href=#1749 id=1749 data-nosnippet>1749</a>	/// your Parachain.
+<a href=#1750 id=1750 data-nosnippet>1750</a>	</span><span class="kw">pub fn </span>set_custom_validation_head_data(head_data: Vec&lt;u8&gt;) {
+<a href=#1751 id=1751 data-nosnippet>1751</a>		CustomValidationHeadData::&lt;T&gt;::put(head_data);
+<a href=#1752 id=1752 data-nosnippet>1752</a>	}
+<a href=#1753 id=1753 data-nosnippet>1753</a>
+<a href=#1754 id=1754 data-nosnippet>1754</a>	<span class="doccomment">/// Send the pending ump signals
+<a href=#1755 id=1755 data-nosnippet>1755</a>	</span><span class="kw">fn </span>send_ump_signals(core_info: <span class="prelude-ty">Option</span>&lt;CoreInfo&gt;) {
+<a href=#1756 id=1756 data-nosnippet>1756</a>		<span class="kw">let </span><span class="kw-2">mut </span>ump_signals = PendingUpwardSignals::&lt;T&gt;::take();
+<a href=#1757 id=1757 data-nosnippet>1757</a>
+<a href=#1758 id=1758 data-nosnippet>1758</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(core_info) = core_info {
+<a href=#1759 id=1759 data-nosnippet>1759</a>			ump_signals.push(
+<a href=#1760 id=1760 data-nosnippet>1760</a>				UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset).encode(),
+<a href=#1761 id=1761 data-nosnippet>1761</a>			);
+<a href=#1762 id=1762 data-nosnippet>1762</a>		}
+<a href=#1763 id=1763 data-nosnippet>1763</a>
+<a href=#1764 id=1764 data-nosnippet>1764</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(approved_peer) = PendingApprovedPeer::&lt;T&gt;::take() {
+<a href=#1765 id=1765 data-nosnippet>1765</a>			ump_signals.push(UMPSignal::ApprovedPeer(approved_peer).encode());
+<a href=#1766 id=1766 data-nosnippet>1766</a>		}
+<a href=#1767 id=1767 data-nosnippet>1767</a>
+<a href=#1768 id=1768 data-nosnippet>1768</a>		<span class="kw">if </span>!ump_signals.is_empty() {
+<a href=#1769 id=1769 data-nosnippet>1769</a>			UpwardMessages::&lt;T&gt;::append(UMP_SEPARATOR);
+<a href=#1770 id=1770 data-nosnippet>1770</a>			ump_signals.into_iter().for_each(|s| UpwardMessages::&lt;T&gt;::append(s));
+<a href=#1771 id=1771 data-nosnippet>1771</a>		}
+<a href=#1772 id=1772 data-nosnippet>1772</a>	}
+<a href=#1773 id=1773 data-nosnippet>1773</a>
+<a href=#1774 id=1774 data-nosnippet>1774</a>	<span class="doccomment">/// Open HRMP channel for using it in benchmarks or tests.
+<a href=#1775 id=1775 data-nosnippet>1775</a>	///
+<a href=#1776 id=1776 data-nosnippet>1776</a>	/// The caller assumes that the pallet will accept regular outbound message to the sibling
+<a href=#1777 id=1777 data-nosnippet>1777</a>	/// `target_parachain` after this call. No other assumptions are made.
+<a href=#1778 id=1778 data-nosnippet>1778</a>	</span><span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, feature = <span class="string">"std"</span>))]
+<a href=#1779 id=1779 data-nosnippet>1779</a>	</span><span class="kw">pub fn </span>open_outbound_hrmp_channel_for_benchmarks_or_tests(target_parachain: ParaId) {
+<a href=#1780 id=1780 data-nosnippet>1780</a>		RelevantMessagingState::&lt;T&gt;::put(MessagingStateSnapshot {
+<a href=#1781 id=1781 data-nosnippet>1781</a>			dmq_mqc_head: Default::default(),
+<a href=#1782 id=1782 data-nosnippet>1782</a>			relay_dispatch_queue_remaining_capacity: Default::default(),
+<a href=#1783 id=1783 data-nosnippet>1783</a>			ingress_channels: Default::default(),
+<a href=#1784 id=1784 data-nosnippet>1784</a>			egress_channels: <span class="macro">vec!</span>[(
+<a href=#1785 id=1785 data-nosnippet>1785</a>				target_parachain,
+<a href=#1786 id=1786 data-nosnippet>1786</a>				cumulus_primitives_core::AbridgedHrmpChannel {
+<a href=#1787 id=1787 data-nosnippet>1787</a>					max_capacity: <span class="number">10</span>,
+<a href=#1788 id=1788 data-nosnippet>1788</a>					max_total_size: <span class="number">10_000_000_u32</span>,
+<a href=#1789 id=1789 data-nosnippet>1789</a>					max_message_size: <span class="number">10_000_000_u32</span>,
+<a href=#1790 id=1790 data-nosnippet>1790</a>					msg_count: <span class="number">5</span>,
+<a href=#1791 id=1791 data-nosnippet>1791</a>					total_size: <span class="number">5_000_000_u32</span>,
+<a href=#1792 id=1792 data-nosnippet>1792</a>					mqc_head: <span class="prelude-val">None</span>,
+<a href=#1793 id=1793 data-nosnippet>1793</a>				},
+<a href=#1794 id=1794 data-nosnippet>1794</a>			)],
+<a href=#1795 id=1795 data-nosnippet>1795</a>		})
+<a href=#1796 id=1796 data-nosnippet>1796</a>	}
+<a href=#1797 id=1797 data-nosnippet>1797</a>
+<a href=#1798 id=1798 data-nosnippet>1798</a>	<span class="doccomment">/// Open HRMP channel for using it in benchmarks or tests.
+<a href=#1799 id=1799 data-nosnippet>1799</a>	///
+<a href=#1800 id=1800 data-nosnippet>1800</a>	/// The caller assumes that the pallet will accept regular outbound message to the sibling
+<a href=#1801 id=1801 data-nosnippet>1801</a>	/// `target_parachain` after this call. No other assumptions are made.
+<a href=#1802 id=1802 data-nosnippet>1802</a>	</span><span class="attr">#[cfg(any(feature = <span class="string">"runtime-benchmarks"</span>, feature = <span class="string">"std"</span>))]
+<a href=#1803 id=1803 data-nosnippet>1803</a>	</span><span class="kw">pub fn </span>open_custom_outbound_hrmp_channel_for_benchmarks_or_tests(
+<a href=#1804 id=1804 data-nosnippet>1804</a>		target_parachain: ParaId,
+<a href=#1805 id=1805 data-nosnippet>1805</a>		channel: cumulus_primitives_core::AbridgedHrmpChannel,
+<a href=#1806 id=1806 data-nosnippet>1806</a>	) {
+<a href=#1807 id=1807 data-nosnippet>1807</a>		RelevantMessagingState::&lt;T&gt;::put(MessagingStateSnapshot {
+<a href=#1808 id=1808 data-nosnippet>1808</a>			dmq_mqc_head: Default::default(),
+<a href=#1809 id=1809 data-nosnippet>1809</a>			relay_dispatch_queue_remaining_capacity: Default::default(),
+<a href=#1810 id=1810 data-nosnippet>1810</a>			ingress_channels: Default::default(),
+<a href=#1811 id=1811 data-nosnippet>1811</a>			egress_channels: <span class="macro">vec!</span>[(target_parachain, channel)],
+<a href=#1812 id=1812 data-nosnippet>1812</a>		})
+<a href=#1813 id=1813 data-nosnippet>1813</a>	}
+<a href=#1814 id=1814 data-nosnippet>1814</a>
+<a href=#1815 id=1815 data-nosnippet>1815</a>	<span class="doccomment">/// Prepare/insert relevant data for `schedule_code_upgrade` for benchmarks.
+<a href=#1816 id=1816 data-nosnippet>1816</a>	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#1817 id=1817 data-nosnippet>1817</a>	</span><span class="kw">pub fn </span>initialize_for_set_code_benchmark(max_code_size: u32) {
+<a href=#1818 id=1818 data-nosnippet>1818</a>		<span class="comment">// insert dummy ValidationData
+<a href=#1819 id=1819 data-nosnippet>1819</a>		</span><span class="kw">let </span>vfp = PersistedValidationData {
+<a href=#1820 id=1820 data-nosnippet>1820</a>			parent_head: polkadot_parachain_primitives::primitives::HeadData(Default::default()),
+<a href=#1821 id=1821 data-nosnippet>1821</a>			relay_parent_number: <span class="number">1</span>,
+<a href=#1822 id=1822 data-nosnippet>1822</a>			relay_parent_storage_root: Default::default(),
+<a href=#1823 id=1823 data-nosnippet>1823</a>			max_pov_size: <span class="number">1_000</span>,
+<a href=#1824 id=1824 data-nosnippet>1824</a>		};
+<a href=#1825 id=1825 data-nosnippet>1825</a>		&lt;ValidationData&lt;T&gt;&gt;::put(<span class="kw-2">&amp;</span>vfp);
+<a href=#1826 id=1826 data-nosnippet>1826</a>
+<a href=#1827 id=1827 data-nosnippet>1827</a>		<span class="comment">// insert dummy HostConfiguration with
+<a href=#1828 id=1828 data-nosnippet>1828</a>		</span><span class="kw">let </span>host_config = AbridgedHostConfiguration {
+<a href=#1829 id=1829 data-nosnippet>1829</a>			max_code_size,
+<a href=#1830 id=1830 data-nosnippet>1830</a>			max_head_data_size: <span class="number">32 </span>* <span class="number">1024</span>,
+<a href=#1831 id=1831 data-nosnippet>1831</a>			max_upward_queue_count: <span class="number">8</span>,
+<a href=#1832 id=1832 data-nosnippet>1832</a>			max_upward_queue_size: <span class="number">1024 </span>* <span class="number">1024</span>,
+<a href=#1833 id=1833 data-nosnippet>1833</a>			max_upward_message_size: <span class="number">4 </span>* <span class="number">1024</span>,
+<a href=#1834 id=1834 data-nosnippet>1834</a>			max_upward_message_num_per_candidate: <span class="number">2</span>,
+<a href=#1835 id=1835 data-nosnippet>1835</a>			hrmp_max_message_num_per_candidate: <span class="number">2</span>,
+<a href=#1836 id=1836 data-nosnippet>1836</a>			validation_upgrade_cooldown: <span class="number">2</span>,
+<a href=#1837 id=1837 data-nosnippet>1837</a>			validation_upgrade_delay: <span class="number">2</span>,
+<a href=#1838 id=1838 data-nosnippet>1838</a>			async_backing_params: relay_chain::AsyncBackingParams {
+<a href=#1839 id=1839 data-nosnippet>1839</a>				allowed_ancestry_len: <span class="number">0</span>,
+<a href=#1840 id=1840 data-nosnippet>1840</a>				max_candidate_depth: <span class="number">0</span>,
+<a href=#1841 id=1841 data-nosnippet>1841</a>			},
+<a href=#1842 id=1842 data-nosnippet>1842</a>		};
+<a href=#1843 id=1843 data-nosnippet>1843</a>		&lt;HostConfiguration&lt;T&gt;&gt;::put(host_config);
+<a href=#1844 id=1844 data-nosnippet>1844</a>	}
+<a href=#1845 id=1845 data-nosnippet>1845</a>}
+<a href=#1846 id=1846 data-nosnippet>1846</a>
+<a href=#1847 id=1847 data-nosnippet>1847</a><span class="doccomment">/// Type that implements `SetCode`.
+<a href=#1848 id=1848 data-nosnippet>1848</a></span><span class="kw">pub struct </span>ParachainSetCode&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
+<a href=#1849 id=1849 data-nosnippet>1849</a><span class="kw">impl</span>&lt;T: Config&gt; frame_system::SetCode&lt;T&gt; <span class="kw">for </span>ParachainSetCode&lt;T&gt; {
+<a href=#1850 id=1850 data-nosnippet>1850</a>	<span class="kw">fn </span>set_code(code: Vec&lt;u8&gt;) -&gt; DispatchResult {
+<a href=#1851 id=1851 data-nosnippet>1851</a>		Pallet::&lt;T&gt;::schedule_code_upgrade(code)
+<a href=#1852 id=1852 data-nosnippet>1852</a>	}
+<a href=#1853 id=1853 data-nosnippet>1853</a>}
+<a href=#1854 id=1854 data-nosnippet>1854</a>
+<a href=#1855 id=1855 data-nosnippet>1855</a><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+<a href=#1856 id=1856 data-nosnippet>1856</a>	<span class="doccomment">/// Puts a message in the `PendingUpwardMessages` storage item.
+<a href=#1857 id=1857 data-nosnippet>1857</a>	/// The message will be later sent in `on_finalize`.
+<a href=#1858 id=1858 data-nosnippet>1858</a>	/// Checks host configuration to see if message is too big.
+<a href=#1859 id=1859 data-nosnippet>1859</a>	/// Increases the delivery fee factor if the queue is sufficiently (see
+<a href=#1860 id=1860 data-nosnippet>1860</a>	/// [`ump_constants::THRESHOLD_FACTOR`]) congested.
+<a href=#1861 id=1861 data-nosnippet>1861</a>	</span><span class="kw">pub fn </span>send_upward_message(message: UpwardMessage) -&gt; <span class="prelude-ty">Result</span>&lt;(u32, XcmHash), MessageSendError&gt; {
+<a href=#1862 id=1862 data-nosnippet>1862</a>		<span class="kw">let </span>message_len = message.len();
+<a href=#1863 id=1863 data-nosnippet>1863</a>		<span class="comment">// Check if the message fits into the relay-chain constraints.
+<a href=#1864 id=1864 data-nosnippet>1864</a>		//
+<a href=#1865 id=1865 data-nosnippet>1865</a>		// Note, that we are using `host_configuration` here which may be from the previous
+<a href=#1866 id=1866 data-nosnippet>1866</a>		// block, in case this is called from `on_initialize`, i.e. before the inherent with fresh
+<a href=#1867 id=1867 data-nosnippet>1867</a>		// data is submitted.
+<a href=#1868 id=1868 data-nosnippet>1868</a>		//
+<a href=#1869 id=1869 data-nosnippet>1869</a>		// That shouldn't be a problem since this is a preliminary check and the actual check would
+<a href=#1870 id=1870 data-nosnippet>1870</a>		// be performed just before submitting the message from the candidate, and it already can
+<a href=#1871 id=1871 data-nosnippet>1871</a>		// happen that during the time the message is buffered for sending the relay-chain setting
+<a href=#1872 id=1872 data-nosnippet>1872</a>		// may change so that the message is no longer valid.
+<a href=#1873 id=1873 data-nosnippet>1873</a>		//
+<a href=#1874 id=1874 data-nosnippet>1874</a>		// However, changing this setting is expected to be rare.
+<a href=#1875 id=1875 data-nosnippet>1875</a>		</span><span class="kw">if let </span><span class="prelude-val">Some</span>(cfg) = HostConfiguration::&lt;T&gt;::get() {
+<a href=#1876 id=1876 data-nosnippet>1876</a>			<span class="kw">if </span>message_len &gt; cfg.max_upward_message_size <span class="kw">as </span>usize {
+<a href=#1877 id=1877 data-nosnippet>1877</a>				<span class="kw">return </span><span class="prelude-val">Err</span>(MessageSendError::TooBig);
+<a href=#1878 id=1878 data-nosnippet>1878</a>			}
+<a href=#1879 id=1879 data-nosnippet>1879</a>			<span class="kw">let </span>threshold =
+<a href=#1880 id=1880 data-nosnippet>1880</a>				cfg.max_upward_queue_size.saturating_div(ump_constants::THRESHOLD_FACTOR);
+<a href=#1881 id=1881 data-nosnippet>1881</a>			<span class="comment">// We check the threshold against total size and not number of messages since messages
+<a href=#1882 id=1882 data-nosnippet>1882</a>			// could be big or small.
+<a href=#1883 id=1883 data-nosnippet>1883</a>			</span>&lt;PendingUpwardMessages&lt;T&gt;&gt;::append(message.clone());
+<a href=#1884 id=1884 data-nosnippet>1884</a>			<span class="kw">let </span>pending_messages = PendingUpwardMessages::&lt;T&gt;::get();
+<a href=#1885 id=1885 data-nosnippet>1885</a>			<span class="kw">let </span>total_size: usize = pending_messages.iter().map(UpwardMessage::len).sum();
+<a href=#1886 id=1886 data-nosnippet>1886</a>			<span class="kw">if </span>total_size &gt; threshold <span class="kw">as </span>usize {
+<a href=#1887 id=1887 data-nosnippet>1887</a>				<span class="comment">// We increase the fee factor by a factor based on the new message's size in KB
+<a href=#1888 id=1888 data-nosnippet>1888</a>				</span><span class="self">Self</span>::increase_fee_factor((), message_len <span class="kw">as </span>u128);
+<a href=#1889 id=1889 data-nosnippet>1889</a>			}
+<a href=#1890 id=1890 data-nosnippet>1890</a>		} <span class="kw">else </span>{
+<a href=#1891 id=1891 data-nosnippet>1891</a>			<span class="comment">// This storage field should carry over from the previous block. So if it's None
+<a href=#1892 id=1892 data-nosnippet>1892</a>			// then it must be that this is an edge-case where a message is attempted to be
+<a href=#1893 id=1893 data-nosnippet>1893</a>			// sent at the first block.
+<a href=#1894 id=1894 data-nosnippet>1894</a>			//
+<a href=#1895 id=1895 data-nosnippet>1895</a>			// Let's pass this message through. I think it's not unreasonable to expect that
+<a href=#1896 id=1896 data-nosnippet>1896</a>			// the message is not huge and it comes through, but if it doesn't it can be
+<a href=#1897 id=1897 data-nosnippet>1897</a>			// returned back to the sender.
+<a href=#1898 id=1898 data-nosnippet>1898</a>			//
+<a href=#1899 id=1899 data-nosnippet>1899</a>			// Thus fall through here.
+<a href=#1900 id=1900 data-nosnippet>1900</a>			</span>&lt;PendingUpwardMessages&lt;T&gt;&gt;::append(message.clone());
+<a href=#1901 id=1901 data-nosnippet>1901</a>		};
 <a href=#1902 id=1902 data-nosnippet>1902</a>
-<a href=#1903 id=1903 data-nosnippet>1903</a>	<span class="kw">fn </span>can_send_upward_message(message: <span class="kw-2">&amp;</span>UpwardMessage) -&gt; <span class="prelude-ty">Result</span>&lt;(), MessageSendError&gt; {
-<a href=#1904 id=1904 data-nosnippet>1904</a>		<span class="kw">let </span>max_upward_message_size = HostConfiguration::&lt;T&gt;::get()
-<a href=#1905 id=1905 data-nosnippet>1905</a>			.map(|cfg| cfg.max_upward_message_size)
-<a href=#1906 id=1906 data-nosnippet>1906</a>			.ok_or(MessageSendError::Other)<span class="question-mark">?</span>;
-<a href=#1907 id=1907 data-nosnippet>1907</a>		<span class="kw">if </span>message.len() &gt; max_upward_message_size <span class="kw">as </span>usize {
-<a href=#1908 id=1908 data-nosnippet>1908</a>			<span class="prelude-val">Err</span>(MessageSendError::TooBig)
-<a href=#1909 id=1909 data-nosnippet>1909</a>		} <span class="kw">else </span>{
-<a href=#1910 id=1910 data-nosnippet>1910</a>			<span class="prelude-val">Ok</span>(())
-<a href=#1911 id=1911 data-nosnippet>1911</a>		}
-<a href=#1912 id=1912 data-nosnippet>1912</a>	}
-<a href=#1913 id=1913 data-nosnippet>1913</a>
-<a href=#1914 id=1914 data-nosnippet>1914</a>	<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"runtime-benchmarks"</span>, test))]
-<a href=#1915 id=1915 data-nosnippet>1915</a>	</span><span class="kw">fn </span>ensure_successful_delivery() {
-<a href=#1916 id=1916 data-nosnippet>1916</a>		<span class="kw">const </span>MAX_UPWARD_MESSAGE_SIZE: u32 = <span class="number">65_531 </span>* <span class="number">3</span>;
-<a href=#1917 id=1917 data-nosnippet>1917</a>		<span class="kw">const </span>MAX_CODE_SIZE: u32 = <span class="number">3 </span>* <span class="number">1024 </span>* <span class="number">1024</span>;
-<a href=#1918 id=1918 data-nosnippet>1918</a>		HostConfiguration::&lt;T&gt;::mutate(|cfg| <span class="kw">match </span>cfg {
-<a href=#1919 id=1919 data-nosnippet>1919</a>			<span class="prelude-val">Some</span>(cfg) =&gt; cfg.max_upward_message_size = MAX_UPWARD_MESSAGE_SIZE,
-<a href=#1920 id=1920 data-nosnippet>1920</a>			<span class="prelude-val">None </span>=&gt; {
-<a href=#1921 id=1921 data-nosnippet>1921</a>				<span class="kw-2">*</span>cfg = <span class="prelude-val">Some</span>(AbridgedHostConfiguration {
-<a href=#1922 id=1922 data-nosnippet>1922</a>					max_code_size: MAX_CODE_SIZE,
-<a href=#1923 id=1923 data-nosnippet>1923</a>					max_head_data_size: <span class="number">32 </span>* <span class="number">1024</span>,
-<a href=#1924 id=1924 data-nosnippet>1924</a>					max_upward_queue_count: <span class="number">8</span>,
-<a href=#1925 id=1925 data-nosnippet>1925</a>					max_upward_queue_size: <span class="number">1024 </span>* <span class="number">1024</span>,
-<a href=#1926 id=1926 data-nosnippet>1926</a>					max_upward_message_size: MAX_UPWARD_MESSAGE_SIZE,
-<a href=#1927 id=1927 data-nosnippet>1927</a>					max_upward_message_num_per_candidate: <span class="number">2</span>,
-<a href=#1928 id=1928 data-nosnippet>1928</a>					hrmp_max_message_num_per_candidate: <span class="number">2</span>,
-<a href=#1929 id=1929 data-nosnippet>1929</a>					validation_upgrade_cooldown: <span class="number">2</span>,
-<a href=#1930 id=1930 data-nosnippet>1930</a>					validation_upgrade_delay: <span class="number">2</span>,
-<a href=#1931 id=1931 data-nosnippet>1931</a>					async_backing_params: relay_chain::AsyncBackingParams {
-<a href=#1932 id=1932 data-nosnippet>1932</a>						allowed_ancestry_len: <span class="number">0</span>,
-<a href=#1933 id=1933 data-nosnippet>1933</a>						max_candidate_depth: <span class="number">0</span>,
-<a href=#1934 id=1934 data-nosnippet>1934</a>					},
-<a href=#1935 id=1935 data-nosnippet>1935</a>				})
-<a href=#1936 id=1936 data-nosnippet>1936</a>			},
-<a href=#1937 id=1937 data-nosnippet>1937</a>		})
-<a href=#1938 id=1938 data-nosnippet>1938</a>	}
-<a href=#1939 id=1939 data-nosnippet>1939</a>}
-<a href=#1940 id=1940 data-nosnippet>1940</a>
-<a href=#1941 id=1941 data-nosnippet>1941</a><span class="kw">impl</span>&lt;T: Config&gt; InspectMessageQueues <span class="kw">for </span>Pallet&lt;T&gt; {
-<a href=#1942 id=1942 data-nosnippet>1942</a>	<span class="kw">fn </span>clear_messages() {
-<a href=#1943 id=1943 data-nosnippet>1943</a>		PendingUpwardMessages::&lt;T&gt;::kill();
-<a href=#1944 id=1944 data-nosnippet>1944</a>	}
-<a href=#1945 id=1945 data-nosnippet>1945</a>
-<a href=#1946 id=1946 data-nosnippet>1946</a>	<span class="kw">fn </span>get_messages() -&gt; Vec&lt;(VersionedLocation, Vec&lt;VersionedXcm&lt;()&gt;&gt;)&gt; {
-<a href=#1947 id=1947 data-nosnippet>1947</a>		<span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
-<a href=#1948 id=1948 data-nosnippet>1948</a>
-<a href=#1949 id=1949 data-nosnippet>1949</a>		<span class="kw">let </span>messages: Vec&lt;VersionedXcm&lt;()&gt;&gt; = PendingUpwardMessages::&lt;T&gt;::get()
-<a href=#1950 id=1950 data-nosnippet>1950</a>			.iter()
-<a href=#1951 id=1951 data-nosnippet>1951</a>			.map(|encoded_message| {
-<a href=#1952 id=1952 data-nosnippet>1952</a>				VersionedXcm::&lt;()&gt;::decode_all_with_mem_and_depth_limit(<span class="kw-2">&amp;mut &amp;</span>encoded_message[..])
-<a href=#1953 id=1953 data-nosnippet>1953</a>					.unwrap()
-<a href=#1954 id=1954 data-nosnippet>1954</a>			})
-<a href=#1955 id=1955 data-nosnippet>1955</a>			.collect();
-<a href=#1956 id=1956 data-nosnippet>1956</a>
-<a href=#1957 id=1957 data-nosnippet>1957</a>		<span class="kw">if </span>messages.is_empty() {
-<a href=#1958 id=1958 data-nosnippet>1958</a>			<span class="macro">vec!</span>[]
-<a href=#1959 id=1959 data-nosnippet>1959</a>		} <span class="kw">else </span>{
-<a href=#1960 id=1960 data-nosnippet>1960</a>			<span class="macro">vec!</span>[(VersionedLocation::from(Location::parent()), messages)]
-<a href=#1961 id=1961 data-nosnippet>1961</a>		}
-<a href=#1962 id=1962 data-nosnippet>1962</a>	}
-<a href=#1963 id=1963 data-nosnippet>1963</a>}
+<a href=#1903 id=1903 data-nosnippet>1903</a>		<span class="comment">// The relay ump does not use using_encoded
+<a href=#1904 id=1904 data-nosnippet>1904</a>		// We apply the same this to use the same hash
+<a href=#1905 id=1905 data-nosnippet>1905</a>		</span><span class="kw">let </span>hash = sp_io::hashing::blake2_256(<span class="kw-2">&amp;</span>message);
+<a href=#1906 id=1906 data-nosnippet>1906</a>		<span class="self">Self</span>::deposit_event(Event::UpwardMessageSent { message_hash: <span class="prelude-val">Some</span>(hash) });
+<a href=#1907 id=1907 data-nosnippet>1907</a>		<span class="prelude-val">Ok</span>((<span class="number">0</span>, hash))
+<a href=#1908 id=1908 data-nosnippet>1908</a>	}
+<a href=#1909 id=1909 data-nosnippet>1909</a>
+<a href=#1910 id=1910 data-nosnippet>1910</a>	<span class="doccomment">/// Get the relay chain block number which was used as an anchor for the last block in this
+<a href=#1911 id=1911 data-nosnippet>1911</a>	/// chain.
+<a href=#1912 id=1912 data-nosnippet>1912</a>	</span><span class="kw">pub fn </span>last_relay_block_number() -&gt; RelayChainBlockNumber {
+<a href=#1913 id=1913 data-nosnippet>1913</a>		LastRelayChainBlockNumber::&lt;T&gt;::get()
+<a href=#1914 id=1914 data-nosnippet>1914</a>	}
+<a href=#1915 id=1915 data-nosnippet>1915</a>}
+<a href=#1916 id=1916 data-nosnippet>1916</a>
+<a href=#1917 id=1917 data-nosnippet>1917</a><span class="kw">impl</span>&lt;T: Config&gt; UpwardMessageSender <span class="kw">for </span>Pallet&lt;T&gt; {
+<a href=#1918 id=1918 data-nosnippet>1918</a>	<span class="kw">fn </span>send_upward_message(message: UpwardMessage) -&gt; <span class="prelude-ty">Result</span>&lt;(u32, XcmHash), MessageSendError&gt; {
+<a href=#1919 id=1919 data-nosnippet>1919</a>		<span class="self">Self</span>::send_upward_message(message)
+<a href=#1920 id=1920 data-nosnippet>1920</a>	}
+<a href=#1921 id=1921 data-nosnippet>1921</a>
+<a href=#1922 id=1922 data-nosnippet>1922</a>	<span class="kw">fn </span>can_send_upward_message(message: <span class="kw-2">&amp;</span>UpwardMessage) -&gt; <span class="prelude-ty">Result</span>&lt;(), MessageSendError&gt; {
+<a href=#1923 id=1923 data-nosnippet>1923</a>		<span class="kw">let </span>max_upward_message_size = HostConfiguration::&lt;T&gt;::get()
+<a href=#1924 id=1924 data-nosnippet>1924</a>			.map(|cfg| cfg.max_upward_message_size)
+<a href=#1925 id=1925 data-nosnippet>1925</a>			.ok_or(MessageSendError::Other)<span class="question-mark">?</span>;
+<a href=#1926 id=1926 data-nosnippet>1926</a>		<span class="kw">if </span>message.len() &gt; max_upward_message_size <span class="kw">as </span>usize {
+<a href=#1927 id=1927 data-nosnippet>1927</a>			<span class="prelude-val">Err</span>(MessageSendError::TooBig)
+<a href=#1928 id=1928 data-nosnippet>1928</a>		} <span class="kw">else </span>{
+<a href=#1929 id=1929 data-nosnippet>1929</a>			<span class="prelude-val">Ok</span>(())
+<a href=#1930 id=1930 data-nosnippet>1930</a>		}
+<a href=#1931 id=1931 data-nosnippet>1931</a>	}
+<a href=#1932 id=1932 data-nosnippet>1932</a>
+<a href=#1933 id=1933 data-nosnippet>1933</a>	<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"runtime-benchmarks"</span>, test))]
+<a href=#1934 id=1934 data-nosnippet>1934</a>	</span><span class="kw">fn </span>ensure_successful_delivery() {
+<a href=#1935 id=1935 data-nosnippet>1935</a>		<span class="kw">const </span>MAX_UPWARD_MESSAGE_SIZE: u32 = <span class="number">65_531 </span>* <span class="number">3</span>;
+<a href=#1936 id=1936 data-nosnippet>1936</a>		<span class="kw">const </span>MAX_CODE_SIZE: u32 = <span class="number">3 </span>* <span class="number">1024 </span>* <span class="number">1024</span>;
+<a href=#1937 id=1937 data-nosnippet>1937</a>		HostConfiguration::&lt;T&gt;::mutate(|cfg| <span class="kw">match </span>cfg {
+<a href=#1938 id=1938 data-nosnippet>1938</a>			<span class="prelude-val">Some</span>(cfg) =&gt; cfg.max_upward_message_size = MAX_UPWARD_MESSAGE_SIZE,
+<a href=#1939 id=1939 data-nosnippet>1939</a>			<span class="prelude-val">None </span>=&gt; {
+<a href=#1940 id=1940 data-nosnippet>1940</a>				<span class="kw-2">*</span>cfg = <span class="prelude-val">Some</span>(AbridgedHostConfiguration {
+<a href=#1941 id=1941 data-nosnippet>1941</a>					max_code_size: MAX_CODE_SIZE,
+<a href=#1942 id=1942 data-nosnippet>1942</a>					max_head_data_size: <span class="number">32 </span>* <span class="number">1024</span>,
+<a href=#1943 id=1943 data-nosnippet>1943</a>					max_upward_queue_count: <span class="number">8</span>,
+<a href=#1944 id=1944 data-nosnippet>1944</a>					max_upward_queue_size: <span class="number">1024 </span>* <span class="number">1024</span>,
+<a href=#1945 id=1945 data-nosnippet>1945</a>					max_upward_message_size: MAX_UPWARD_MESSAGE_SIZE,
+<a href=#1946 id=1946 data-nosnippet>1946</a>					max_upward_message_num_per_candidate: <span class="number">2</span>,
+<a href=#1947 id=1947 data-nosnippet>1947</a>					hrmp_max_message_num_per_candidate: <span class="number">2</span>,
+<a href=#1948 id=1948 data-nosnippet>1948</a>					validation_upgrade_cooldown: <span class="number">2</span>,
+<a href=#1949 id=1949 data-nosnippet>1949</a>					validation_upgrade_delay: <span class="number">2</span>,
+<a href=#1950 id=1950 data-nosnippet>1950</a>					async_backing_params: relay_chain::AsyncBackingParams {
+<a href=#1951 id=1951 data-nosnippet>1951</a>						allowed_ancestry_len: <span class="number">0</span>,
+<a href=#1952 id=1952 data-nosnippet>1952</a>						max_candidate_depth: <span class="number">0</span>,
+<a href=#1953 id=1953 data-nosnippet>1953</a>					},
+<a href=#1954 id=1954 data-nosnippet>1954</a>				})
+<a href=#1955 id=1955 data-nosnippet>1955</a>			},
+<a href=#1956 id=1956 data-nosnippet>1956</a>		})
+<a href=#1957 id=1957 data-nosnippet>1957</a>	}
+<a href=#1958 id=1958 data-nosnippet>1958</a>}
+<a href=#1959 id=1959 data-nosnippet>1959</a>
+<a href=#1960 id=1960 data-nosnippet>1960</a><span class="kw">impl</span>&lt;T: Config&gt; InspectMessageQueues <span class="kw">for </span>Pallet&lt;T&gt; {
+<a href=#1961 id=1961 data-nosnippet>1961</a>	<span class="kw">fn </span>clear_messages() {
+<a href=#1962 id=1962 data-nosnippet>1962</a>		PendingUpwardMessages::&lt;T&gt;::kill();
+<a href=#1963 id=1963 data-nosnippet>1963</a>	}
 <a href=#1964 id=1964 data-nosnippet>1964</a>
-<a href=#1965 id=1965 data-nosnippet>1965</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#1966 id=1966 data-nosnippet>1966</a></span><span class="kw">impl</span>&lt;T: Config&gt; polkadot_runtime_parachains::EnsureForParachain <span class="kw">for </span>Pallet&lt;T&gt; {
-<a href=#1967 id=1967 data-nosnippet>1967</a>	<span class="kw">fn </span>ensure(para_id: ParaId) {
-<a href=#1968 id=1968 data-nosnippet>1968</a>		<span class="kw">if let </span>ChannelStatus::Closed = <span class="self">Self</span>::get_channel_status(para_id) {
-<a href=#1969 id=1969 data-nosnippet>1969</a>			<span class="self">Self</span>::open_outbound_hrmp_channel_for_benchmarks_or_tests(para_id)
-<a href=#1970 id=1970 data-nosnippet>1970</a>		}
-<a href=#1971 id=1971 data-nosnippet>1971</a>	}
-<a href=#1972 id=1972 data-nosnippet>1972</a>}
-<a href=#1973 id=1973 data-nosnippet>1973</a>
-<a href=#1974 id=1974 data-nosnippet>1974</a><span class="doccomment">/// Something that should be informed about system related events.
-<a href=#1975 id=1975 data-nosnippet>1975</a>///
-<a href=#1976 id=1976 data-nosnippet>1976</a>/// This includes events like [`on_validation_data`](Self::on_validation_data) that is being
-<a href=#1977 id=1977 data-nosnippet>1977</a>/// called when the parachain inherent is executed that contains the validation data.
-<a href=#1978 id=1978 data-nosnippet>1978</a>/// Or like [`on_validation_code_applied`](Self::on_validation_code_applied) that is called
-<a href=#1979 id=1979 data-nosnippet>1979</a>/// when the new validation is written to the state. This means that
-<a href=#1980 id=1980 data-nosnippet>1980</a>/// from the next block the runtime is being using this new code.
-<a href=#1981 id=1981 data-nosnippet>1981</a></span><span class="kw">pub trait </span>OnSystemEvent {
-<a href=#1982 id=1982 data-nosnippet>1982</a>	<span class="doccomment">/// Called in each blocks once when the validation data is set by the inherent.
-<a href=#1983 id=1983 data-nosnippet>1983</a>	</span><span class="kw">fn </span>on_validation_data(data: <span class="kw-2">&amp;</span>PersistedValidationData);
-<a href=#1984 id=1984 data-nosnippet>1984</a>	<span class="doccomment">/// Called when the validation code is being applied, aka from the next block on this is the new
-<a href=#1985 id=1985 data-nosnippet>1985</a>	/// runtime.
-<a href=#1986 id=1986 data-nosnippet>1986</a>	</span><span class="kw">fn </span>on_validation_code_applied();
-<a href=#1987 id=1987 data-nosnippet>1987</a>	<span class="doccomment">/// Called to process keys from the verified relay chain state proof.
-<a href=#1988 id=1988 data-nosnippet>1988</a>	</span><span class="kw">fn </span>on_relay_state_proof(
-<a href=#1989 id=1989 data-nosnippet>1989</a>		relay_state_proof: <span class="kw-2">&amp;</span>relay_state_snapshot::RelayChainStateProof,
-<a href=#1990 id=1990 data-nosnippet>1990</a>	) -&gt; Weight;
+<a href=#1965 id=1965 data-nosnippet>1965</a>	<span class="kw">fn </span>get_messages() -&gt; Vec&lt;(VersionedLocation, Vec&lt;VersionedXcm&lt;()&gt;&gt;)&gt; {
+<a href=#1966 id=1966 data-nosnippet>1966</a>		<span class="kw">use </span>xcm::prelude::<span class="kw-2">*</span>;
+<a href=#1967 id=1967 data-nosnippet>1967</a>
+<a href=#1968 id=1968 data-nosnippet>1968</a>		<span class="kw">let </span>messages: Vec&lt;VersionedXcm&lt;()&gt;&gt; = PendingUpwardMessages::&lt;T&gt;::get()
+<a href=#1969 id=1969 data-nosnippet>1969</a>			.iter()
+<a href=#1970 id=1970 data-nosnippet>1970</a>			.map(|encoded_message| {
+<a href=#1971 id=1971 data-nosnippet>1971</a>				VersionedXcm::&lt;()&gt;::decode_all_with_mem_and_depth_limit(<span class="kw-2">&amp;mut &amp;</span>encoded_message[..])
+<a href=#1972 id=1972 data-nosnippet>1972</a>					.unwrap()
+<a href=#1973 id=1973 data-nosnippet>1973</a>			})
+<a href=#1974 id=1974 data-nosnippet>1974</a>			.collect();
+<a href=#1975 id=1975 data-nosnippet>1975</a>
+<a href=#1976 id=1976 data-nosnippet>1976</a>		<span class="kw">if </span>messages.is_empty() {
+<a href=#1977 id=1977 data-nosnippet>1977</a>			<span class="macro">vec!</span>[]
+<a href=#1978 id=1978 data-nosnippet>1978</a>		} <span class="kw">else </span>{
+<a href=#1979 id=1979 data-nosnippet>1979</a>			<span class="macro">vec!</span>[(VersionedLocation::from(Location::parent()), messages)]
+<a href=#1980 id=1980 data-nosnippet>1980</a>		}
+<a href=#1981 id=1981 data-nosnippet>1981</a>	}
+<a href=#1982 id=1982 data-nosnippet>1982</a>}
+<a href=#1983 id=1983 data-nosnippet>1983</a>
+<a href=#1984 id=1984 data-nosnippet>1984</a><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#1985 id=1985 data-nosnippet>1985</a></span><span class="kw">impl</span>&lt;T: Config&gt; polkadot_runtime_parachains::EnsureForParachain <span class="kw">for </span>Pallet&lt;T&gt; {
+<a href=#1986 id=1986 data-nosnippet>1986</a>	<span class="kw">fn </span>ensure(para_id: ParaId) {
+<a href=#1987 id=1987 data-nosnippet>1987</a>		<span class="kw">if let </span>ChannelStatus::Closed = <span class="self">Self</span>::get_channel_status(para_id) {
+<a href=#1988 id=1988 data-nosnippet>1988</a>			<span class="self">Self</span>::open_outbound_hrmp_channel_for_benchmarks_or_tests(para_id)
+<a href=#1989 id=1989 data-nosnippet>1989</a>		}
+<a href=#1990 id=1990 data-nosnippet>1990</a>	}
 <a href=#1991 id=1991 data-nosnippet>1991</a>}
 <a href=#1992 id=1992 data-nosnippet>1992</a>
-<a href=#1993 id=1993 data-nosnippet>1993</a><span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
-<a href=#1994 id=1994 data-nosnippet>1994</a></span><span class="kw">impl </span>OnSystemEvent <span class="kw">for </span>Tuple {
-<a href=#1995 id=1995 data-nosnippet>1995</a>	<span class="kw">fn </span>on_validation_data(data: <span class="kw-2">&amp;</span>PersistedValidationData) {
-<a href=#1996 id=1996 data-nosnippet>1996</a>		<span class="macro">for_tuples!</span>( #( Tuple::on_validation_data(data); )* );
-<a href=#1997 id=1997 data-nosnippet>1997</a>	}
-<a href=#1998 id=1998 data-nosnippet>1998</a>
-<a href=#1999 id=1999 data-nosnippet>1999</a>	<span class="kw">fn </span>on_validation_code_applied() {
-<a href=#2000 id=2000 data-nosnippet>2000</a>		<span class="macro">for_tuples!</span>( #( Tuple::on_validation_code_applied(); )* );
-<a href=#2001 id=2001 data-nosnippet>2001</a>	}
-<a href=#2002 id=2002 data-nosnippet>2002</a>
-<a href=#2003 id=2003 data-nosnippet>2003</a>	<span class="kw">fn </span>on_relay_state_proof(
-<a href=#2004 id=2004 data-nosnippet>2004</a>		relay_state_proof: <span class="kw-2">&amp;</span>relay_state_snapshot::RelayChainStateProof,
-<a href=#2005 id=2005 data-nosnippet>2005</a>	) -&gt; Weight {
-<a href=#2006 id=2006 data-nosnippet>2006</a>		<span class="kw">let </span><span class="kw-2">mut </span>weight = Weight::zero();
-<a href=#2007 id=2007 data-nosnippet>2007</a>		<span class="macro">for_tuples!</span>( #( weight = weight.saturating_add(Tuple::on_relay_state_proof(relay_state_proof)); )* );
-<a href=#2008 id=2008 data-nosnippet>2008</a>		weight
-<a href=#2009 id=2009 data-nosnippet>2009</a>	}
+<a href=#1993 id=1993 data-nosnippet>1993</a><span class="doccomment">/// Something that should be informed about system related events.
+<a href=#1994 id=1994 data-nosnippet>1994</a>///
+<a href=#1995 id=1995 data-nosnippet>1995</a>/// This includes events like [`on_validation_data`](Self::on_validation_data) that is being
+<a href=#1996 id=1996 data-nosnippet>1996</a>/// called when the parachain inherent is executed that contains the validation data.
+<a href=#1997 id=1997 data-nosnippet>1997</a>/// Or like [`on_validation_code_applied`](Self::on_validation_code_applied) that is called
+<a href=#1998 id=1998 data-nosnippet>1998</a>/// when the new validation is written to the state. This means that
+<a href=#1999 id=1999 data-nosnippet>1999</a>/// from the next block the runtime is being using this new code.
+<a href=#2000 id=2000 data-nosnippet>2000</a></span><span class="kw">pub trait </span>OnSystemEvent {
+<a href=#2001 id=2001 data-nosnippet>2001</a>	<span class="doccomment">/// Called in each blocks once when the validation data is set by the inherent.
+<a href=#2002 id=2002 data-nosnippet>2002</a>	</span><span class="kw">fn </span>on_validation_data(data: <span class="kw-2">&amp;</span>PersistedValidationData);
+<a href=#2003 id=2003 data-nosnippet>2003</a>	<span class="doccomment">/// Called when the validation code is being applied, aka from the next block on this is the new
+<a href=#2004 id=2004 data-nosnippet>2004</a>	/// runtime.
+<a href=#2005 id=2005 data-nosnippet>2005</a>	</span><span class="kw">fn </span>on_validation_code_applied();
+<a href=#2006 id=2006 data-nosnippet>2006</a>	<span class="doccomment">/// Called to process keys from the verified relay chain state proof.
+<a href=#2007 id=2007 data-nosnippet>2007</a>	</span><span class="kw">fn </span>on_relay_state_proof(
+<a href=#2008 id=2008 data-nosnippet>2008</a>		relay_state_proof: <span class="kw-2">&amp;</span>relay_state_snapshot::RelayChainStateProof,
+<a href=#2009 id=2009 data-nosnippet>2009</a>	) -&gt; Weight;
 <a href=#2010 id=2010 data-nosnippet>2010</a>}
 <a href=#2011 id=2011 data-nosnippet>2011</a>
-<a href=#2012 id=2012 data-nosnippet>2012</a><span class="doccomment">/// Holds the most recent relay-parent state root and block number of the current parachain block.
-<a href=#2013 id=2013 data-nosnippet>2013</a></span><span class="attr">#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Default, Debug)]
-<a href=#2014 id=2014 data-nosnippet>2014</a></span><span class="kw">pub struct </span>RelayChainState {
-<a href=#2015 id=2015 data-nosnippet>2015</a>	<span class="doccomment">/// Current relay chain height.
-<a href=#2016 id=2016 data-nosnippet>2016</a>	</span><span class="kw">pub </span>number: relay_chain::BlockNumber,
-<a href=#2017 id=2017 data-nosnippet>2017</a>	<span class="doccomment">/// State root for current relay chain height.
-<a href=#2018 id=2018 data-nosnippet>2018</a>	</span><span class="kw">pub </span>state_root: relay_chain::Hash,
-<a href=#2019 id=2019 data-nosnippet>2019</a>}
-<a href=#2020 id=2020 data-nosnippet>2020</a>
-<a href=#2021 id=2021 data-nosnippet>2021</a><span class="doccomment">/// This exposes the [`RelayChainState`] to other runtime modules.
-<a href=#2022 id=2022 data-nosnippet>2022</a>///
-<a href=#2023 id=2023 data-nosnippet>2023</a>/// Enables parachains to read relay chain state via state proofs.
-<a href=#2024 id=2024 data-nosnippet>2024</a></span><span class="kw">pub trait </span>RelaychainStateProvider {
-<a href=#2025 id=2025 data-nosnippet>2025</a>	<span class="doccomment">/// May be called by any runtime module to obtain the current state of the relay chain.
-<a href=#2026 id=2026 data-nosnippet>2026</a>	///
-<a href=#2027 id=2027 data-nosnippet>2027</a>	/// **NOTE**: This is not guaranteed to return monotonically increasing relay parents.
-<a href=#2028 id=2028 data-nosnippet>2028</a>	</span><span class="kw">fn </span>current_relay_chain_state() -&gt; RelayChainState;
-<a href=#2029 id=2029 data-nosnippet>2029</a>
-<a href=#2030 id=2030 data-nosnippet>2030</a>	<span class="doccomment">/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
-<a href=#2031 id=2031 data-nosnippet>2031</a>	/// else a noop.
-<a href=#2032 id=2032 data-nosnippet>2032</a>	///
-<a href=#2033 id=2033 data-nosnippet>2033</a>	/// It allows for setting a custom RelayChainState.
-<a href=#2034 id=2034 data-nosnippet>2034</a>	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#2035 id=2035 data-nosnippet>2035</a>	</span><span class="kw">fn </span>set_current_relay_chain_state(_state: RelayChainState) {}
-<a href=#2036 id=2036 data-nosnippet>2036</a>}
-<a href=#2037 id=2037 data-nosnippet>2037</a>
-<a href=#2038 id=2038 data-nosnippet>2038</a><span class="doccomment">/// Implements [`BlockNumberProvider`] that returns relay chain block number fetched from validation
-<a href=#2039 id=2039 data-nosnippet>2039</a>/// data.
-<a href=#2040 id=2040 data-nosnippet>2040</a>///
-<a href=#2041 id=2041 data-nosnippet>2041</a>/// When validation data is not available (e.g. within `on_initialize`), it will fallback to use
-<a href=#2042 id=2042 data-nosnippet>2042</a>/// [`Pallet::last_relay_block_number()`].
-<a href=#2043 id=2043 data-nosnippet>2043</a>///
-<a href=#2044 id=2044 data-nosnippet>2044</a>/// Implements [`BlockNumberProvider`] and [`RelaychainStateProvider`] that returns relevant relay
-<a href=#2045 id=2045 data-nosnippet>2045</a>/// data fetched from validation data.
-<a href=#2046 id=2046 data-nosnippet>2046</a>///
-<a href=#2047 id=2047 data-nosnippet>2047</a>/// NOTE: When validation data is not available (e.g. within `on_initialize`):
-<a href=#2048 id=2048 data-nosnippet>2048</a>///
-<a href=#2049 id=2049 data-nosnippet>2049</a>/// - [`current_relay_chain_state`](Self::current_relay_chain_state): Will return the default value
-<a href=#2050 id=2050 data-nosnippet>2050</a>///   of [`RelayChainState`].
-<a href=#2051 id=2051 data-nosnippet>2051</a>/// - [`current_block_number`](Self::current_block_number): Will return
-<a href=#2052 id=2052 data-nosnippet>2052</a>///   [`Pallet::last_relay_block_number()`].
-<a href=#2053 id=2053 data-nosnippet>2053</a></span><span class="kw">pub struct </span>RelaychainDataProvider&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
-<a href=#2054 id=2054 data-nosnippet>2054</a>
-<a href=#2055 id=2055 data-nosnippet>2055</a><span class="kw">impl</span>&lt;T: Config&gt; BlockNumberProvider <span class="kw">for </span>RelaychainDataProvider&lt;T&gt; {
-<a href=#2056 id=2056 data-nosnippet>2056</a>	<span class="kw">type </span>BlockNumber = relay_chain::BlockNumber;
-<a href=#2057 id=2057 data-nosnippet>2057</a>
-<a href=#2058 id=2058 data-nosnippet>2058</a>	<span class="kw">fn </span>current_block_number() -&gt; relay_chain::BlockNumber {
-<a href=#2059 id=2059 data-nosnippet>2059</a>		ValidationData::&lt;T&gt;::get()
-<a href=#2060 id=2060 data-nosnippet>2060</a>			.map(|d| d.relay_parent_number)
-<a href=#2061 id=2061 data-nosnippet>2061</a>			.unwrap_or_else(|| Pallet::&lt;T&gt;::last_relay_block_number())
-<a href=#2062 id=2062 data-nosnippet>2062</a>	}
-<a href=#2063 id=2063 data-nosnippet>2063</a>
-<a href=#2064 id=2064 data-nosnippet>2064</a>	<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"runtime-benchmarks"</span>, test))]
-<a href=#2065 id=2065 data-nosnippet>2065</a>	</span><span class="kw">fn </span>set_block_number(block: <span class="self">Self</span>::BlockNumber) {
-<a href=#2066 id=2066 data-nosnippet>2066</a>		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = ValidationData::&lt;T&gt;::get().unwrap_or_else(||
-<a href=#2067 id=2067 data-nosnippet>2067</a>			<span class="comment">// PersistedValidationData does not impl default in non-std
-<a href=#2068 id=2068 data-nosnippet>2068</a>			</span>PersistedValidationData {
-<a href=#2069 id=2069 data-nosnippet>2069</a>				parent_head: <span class="macro">vec!</span>[].into(),
-<a href=#2070 id=2070 data-nosnippet>2070</a>				relay_parent_number: Default::default(),
-<a href=#2071 id=2071 data-nosnippet>2071</a>				max_pov_size: Default::default(),
-<a href=#2072 id=2072 data-nosnippet>2072</a>				relay_parent_storage_root: Default::default(),
-<a href=#2073 id=2073 data-nosnippet>2073</a>			});
-<a href=#2074 id=2074 data-nosnippet>2074</a>		validation_data.relay_parent_number = block;
-<a href=#2075 id=2075 data-nosnippet>2075</a>		ValidationData::&lt;T&gt;::put(validation_data)
-<a href=#2076 id=2076 data-nosnippet>2076</a>	}
-<a href=#2077 id=2077 data-nosnippet>2077</a>}
-<a href=#2078 id=2078 data-nosnippet>2078</a>
-<a href=#2079 id=2079 data-nosnippet>2079</a><span class="kw">impl</span>&lt;T: Config&gt; RelaychainStateProvider <span class="kw">for </span>RelaychainDataProvider&lt;T&gt; {
-<a href=#2080 id=2080 data-nosnippet>2080</a>	<span class="kw">fn </span>current_relay_chain_state() -&gt; RelayChainState {
-<a href=#2081 id=2081 data-nosnippet>2081</a>		ValidationData::&lt;T&gt;::get()
-<a href=#2082 id=2082 data-nosnippet>2082</a>			.map(|d| RelayChainState {
-<a href=#2083 id=2083 data-nosnippet>2083</a>				number: d.relay_parent_number,
-<a href=#2084 id=2084 data-nosnippet>2084</a>				state_root: d.relay_parent_storage_root,
-<a href=#2085 id=2085 data-nosnippet>2085</a>			})
-<a href=#2086 id=2086 data-nosnippet>2086</a>			.unwrap_or_default()
-<a href=#2087 id=2087 data-nosnippet>2087</a>	}
-<a href=#2088 id=2088 data-nosnippet>2088</a>
-<a href=#2089 id=2089 data-nosnippet>2089</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#2090 id=2090 data-nosnippet>2090</a>	</span><span class="kw">fn </span>set_current_relay_chain_state(state: RelayChainState) {
-<a href=#2091 id=2091 data-nosnippet>2091</a>		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = ValidationData::&lt;T&gt;::get().unwrap_or_else(||
-<a href=#2092 id=2092 data-nosnippet>2092</a>			<span class="comment">// PersistedValidationData does not impl default in non-std
-<a href=#2093 id=2093 data-nosnippet>2093</a>			</span>PersistedValidationData {
-<a href=#2094 id=2094 data-nosnippet>2094</a>				parent_head: <span class="macro">vec!</span>[].into(),
-<a href=#2095 id=2095 data-nosnippet>2095</a>				relay_parent_number: Default::default(),
-<a href=#2096 id=2096 data-nosnippet>2096</a>				max_pov_size: Default::default(),
-<a href=#2097 id=2097 data-nosnippet>2097</a>				relay_parent_storage_root: Default::default(),
-<a href=#2098 id=2098 data-nosnippet>2098</a>			});
-<a href=#2099 id=2099 data-nosnippet>2099</a>		validation_data.relay_parent_number = state.number;
-<a href=#2100 id=2100 data-nosnippet>2100</a>		validation_data.relay_parent_storage_root = state.state_root;
-<a href=#2101 id=2101 data-nosnippet>2101</a>		ValidationData::&lt;T&gt;::put(validation_data)
-<a href=#2102 id=2102 data-nosnippet>2102</a>	}
-<a href=#2103 id=2103 data-nosnippet>2103</a>}
+<a href=#2012 id=2012 data-nosnippet>2012</a><span class="attr">#[impl_trait_for_tuples::impl_for_tuples(<span class="number">30</span>)]
+<a href=#2013 id=2013 data-nosnippet>2013</a></span><span class="kw">impl </span>OnSystemEvent <span class="kw">for </span>Tuple {
+<a href=#2014 id=2014 data-nosnippet>2014</a>	<span class="kw">fn </span>on_validation_data(data: <span class="kw-2">&amp;</span>PersistedValidationData) {
+<a href=#2015 id=2015 data-nosnippet>2015</a>		<span class="macro">for_tuples!</span>( #( Tuple::on_validation_data(data); )* );
+<a href=#2016 id=2016 data-nosnippet>2016</a>	}
+<a href=#2017 id=2017 data-nosnippet>2017</a>
+<a href=#2018 id=2018 data-nosnippet>2018</a>	<span class="kw">fn </span>on_validation_code_applied() {
+<a href=#2019 id=2019 data-nosnippet>2019</a>		<span class="macro">for_tuples!</span>( #( Tuple::on_validation_code_applied(); )* );
+<a href=#2020 id=2020 data-nosnippet>2020</a>	}
+<a href=#2021 id=2021 data-nosnippet>2021</a>
+<a href=#2022 id=2022 data-nosnippet>2022</a>	<span class="kw">fn </span>on_relay_state_proof(
+<a href=#2023 id=2023 data-nosnippet>2023</a>		relay_state_proof: <span class="kw-2">&amp;</span>relay_state_snapshot::RelayChainStateProof,
+<a href=#2024 id=2024 data-nosnippet>2024</a>	) -&gt; Weight {
+<a href=#2025 id=2025 data-nosnippet>2025</a>		<span class="kw">let </span><span class="kw-2">mut </span>weight = Weight::zero();
+<a href=#2026 id=2026 data-nosnippet>2026</a>		<span class="macro">for_tuples!</span>( #( weight = weight.saturating_add(Tuple::on_relay_state_proof(relay_state_proof)); )* );
+<a href=#2027 id=2027 data-nosnippet>2027</a>		weight
+<a href=#2028 id=2028 data-nosnippet>2028</a>	}
+<a href=#2029 id=2029 data-nosnippet>2029</a>}
+<a href=#2030 id=2030 data-nosnippet>2030</a>
+<a href=#2031 id=2031 data-nosnippet>2031</a><span class="doccomment">/// Holds the most recent relay-parent state root and block number of the current parachain block.
+<a href=#2032 id=2032 data-nosnippet>2032</a></span><span class="attr">#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Default, Debug)]
+<a href=#2033 id=2033 data-nosnippet>2033</a></span><span class="kw">pub struct </span>RelayChainState {
+<a href=#2034 id=2034 data-nosnippet>2034</a>	<span class="doccomment">/// Current relay chain height.
+<a href=#2035 id=2035 data-nosnippet>2035</a>	</span><span class="kw">pub </span>number: relay_chain::BlockNumber,
+<a href=#2036 id=2036 data-nosnippet>2036</a>	<span class="doccomment">/// State root for current relay chain height.
+<a href=#2037 id=2037 data-nosnippet>2037</a>	</span><span class="kw">pub </span>state_root: relay_chain::Hash,
+<a href=#2038 id=2038 data-nosnippet>2038</a>}
+<a href=#2039 id=2039 data-nosnippet>2039</a>
+<a href=#2040 id=2040 data-nosnippet>2040</a><span class="doccomment">/// This exposes the [`RelayChainState`] to other runtime modules.
+<a href=#2041 id=2041 data-nosnippet>2041</a>///
+<a href=#2042 id=2042 data-nosnippet>2042</a>/// Enables parachains to read relay chain state via state proofs.
+<a href=#2043 id=2043 data-nosnippet>2043</a></span><span class="kw">pub trait </span>RelaychainStateProvider {
+<a href=#2044 id=2044 data-nosnippet>2044</a>	<span class="doccomment">/// May be called by any runtime module to obtain the current state of the relay chain.
+<a href=#2045 id=2045 data-nosnippet>2045</a>	///
+<a href=#2046 id=2046 data-nosnippet>2046</a>	/// **NOTE**: This is not guaranteed to return monotonically increasing relay parents.
+<a href=#2047 id=2047 data-nosnippet>2047</a>	</span><span class="kw">fn </span>current_relay_chain_state() -&gt; RelayChainState;
+<a href=#2048 id=2048 data-nosnippet>2048</a>
+<a href=#2049 id=2049 data-nosnippet>2049</a>	<span class="doccomment">/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
+<a href=#2050 id=2050 data-nosnippet>2050</a>	/// else a noop.
+<a href=#2051 id=2051 data-nosnippet>2051</a>	///
+<a href=#2052 id=2052 data-nosnippet>2052</a>	/// It allows for setting a custom RelayChainState.
+<a href=#2053 id=2053 data-nosnippet>2053</a>	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#2054 id=2054 data-nosnippet>2054</a>	</span><span class="kw">fn </span>set_current_relay_chain_state(_state: RelayChainState) {}
+<a href=#2055 id=2055 data-nosnippet>2055</a>}
+<a href=#2056 id=2056 data-nosnippet>2056</a>
+<a href=#2057 id=2057 data-nosnippet>2057</a><span class="doccomment">/// Implements [`BlockNumberProvider`] that returns relay chain block number fetched from validation
+<a href=#2058 id=2058 data-nosnippet>2058</a>/// data.
+<a href=#2059 id=2059 data-nosnippet>2059</a>///
+<a href=#2060 id=2060 data-nosnippet>2060</a>/// When validation data is not available (e.g. within `on_initialize`), it will fallback to use
+<a href=#2061 id=2061 data-nosnippet>2061</a>/// [`Pallet::last_relay_block_number()`].
+<a href=#2062 id=2062 data-nosnippet>2062</a>///
+<a href=#2063 id=2063 data-nosnippet>2063</a>/// Implements [`BlockNumberProvider`] and [`RelaychainStateProvider`] that returns relevant relay
+<a href=#2064 id=2064 data-nosnippet>2064</a>/// data fetched from validation data.
+<a href=#2065 id=2065 data-nosnippet>2065</a>///
+<a href=#2066 id=2066 data-nosnippet>2066</a>/// NOTE: When validation data is not available (e.g. within `on_initialize`):
+<a href=#2067 id=2067 data-nosnippet>2067</a>///
+<a href=#2068 id=2068 data-nosnippet>2068</a>/// - [`current_relay_chain_state`](Self::current_relay_chain_state): Will return the default value
+<a href=#2069 id=2069 data-nosnippet>2069</a>///   of [`RelayChainState`].
+<a href=#2070 id=2070 data-nosnippet>2070</a>/// - [`current_block_number`](Self::current_block_number): Will return
+<a href=#2071 id=2071 data-nosnippet>2071</a>///   [`Pallet::last_relay_block_number()`].
+<a href=#2072 id=2072 data-nosnippet>2072</a></span><span class="kw">pub struct </span>RelaychainDataProvider&lt;T&gt;(core::marker::PhantomData&lt;T&gt;);
+<a href=#2073 id=2073 data-nosnippet>2073</a>
+<a href=#2074 id=2074 data-nosnippet>2074</a><span class="kw">impl</span>&lt;T: Config&gt; BlockNumberProvider <span class="kw">for </span>RelaychainDataProvider&lt;T&gt; {
+<a href=#2075 id=2075 data-nosnippet>2075</a>	<span class="kw">type </span>BlockNumber = relay_chain::BlockNumber;
+<a href=#2076 id=2076 data-nosnippet>2076</a>
+<a href=#2077 id=2077 data-nosnippet>2077</a>	<span class="kw">fn </span>current_block_number() -&gt; relay_chain::BlockNumber {
+<a href=#2078 id=2078 data-nosnippet>2078</a>		ValidationData::&lt;T&gt;::get()
+<a href=#2079 id=2079 data-nosnippet>2079</a>			.map(|d| d.relay_parent_number)
+<a href=#2080 id=2080 data-nosnippet>2080</a>			.unwrap_or_else(|| Pallet::&lt;T&gt;::last_relay_block_number())
+<a href=#2081 id=2081 data-nosnippet>2081</a>	}
+<a href=#2082 id=2082 data-nosnippet>2082</a>
+<a href=#2083 id=2083 data-nosnippet>2083</a>	<span class="attr">#[cfg(any(feature = <span class="string">"std"</span>, feature = <span class="string">"runtime-benchmarks"</span>, test))]
+<a href=#2084 id=2084 data-nosnippet>2084</a>	</span><span class="kw">fn </span>set_block_number(block: <span class="self">Self</span>::BlockNumber) {
+<a href=#2085 id=2085 data-nosnippet>2085</a>		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = ValidationData::&lt;T&gt;::get().unwrap_or_else(||
+<a href=#2086 id=2086 data-nosnippet>2086</a>			<span class="comment">// PersistedValidationData does not impl default in non-std
+<a href=#2087 id=2087 data-nosnippet>2087</a>			</span>PersistedValidationData {
+<a href=#2088 id=2088 data-nosnippet>2088</a>				parent_head: <span class="macro">vec!</span>[].into(),
+<a href=#2089 id=2089 data-nosnippet>2089</a>				relay_parent_number: Default::default(),
+<a href=#2090 id=2090 data-nosnippet>2090</a>				max_pov_size: Default::default(),
+<a href=#2091 id=2091 data-nosnippet>2091</a>				relay_parent_storage_root: Default::default(),
+<a href=#2092 id=2092 data-nosnippet>2092</a>			});
+<a href=#2093 id=2093 data-nosnippet>2093</a>		validation_data.relay_parent_number = block;
+<a href=#2094 id=2094 data-nosnippet>2094</a>		ValidationData::&lt;T&gt;::put(validation_data)
+<a href=#2095 id=2095 data-nosnippet>2095</a>	}
+<a href=#2096 id=2096 data-nosnippet>2096</a>}
+<a href=#2097 id=2097 data-nosnippet>2097</a>
+<a href=#2098 id=2098 data-nosnippet>2098</a><span class="kw">impl</span>&lt;T: Config&gt; RelaychainStateProvider <span class="kw">for </span>RelaychainDataProvider&lt;T&gt; {
+<a href=#2099 id=2099 data-nosnippet>2099</a>	<span class="kw">fn </span>current_relay_chain_state() -&gt; RelayChainState {
+<a href=#2100 id=2100 data-nosnippet>2100</a>		ValidationData::&lt;T&gt;::get()
+<a href=#2101 id=2101 data-nosnippet>2101</a>			.map(|d| RelayChainState {
+<a href=#2102 id=2102 data-nosnippet>2102</a>				number: d.relay_parent_number,
+<a href=#2103 id=2103 data-nosnippet>2103</a>				state_root: d.relay_parent_storage_root,
+<a href=#2104 id=2104 data-nosnippet>2104</a>			})
+<a href=#2105 id=2105 data-nosnippet>2105</a>			.unwrap_or_default()
+<a href=#2106 id=2106 data-nosnippet>2106</a>	}
+<a href=#2107 id=2107 data-nosnippet>2107</a>
+<a href=#2108 id=2108 data-nosnippet>2108</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#2109 id=2109 data-nosnippet>2109</a>	</span><span class="kw">fn </span>set_current_relay_chain_state(state: RelayChainState) {
+<a href=#2110 id=2110 data-nosnippet>2110</a>		<span class="kw">let </span><span class="kw-2">mut </span>validation_data = ValidationData::&lt;T&gt;::get().unwrap_or_else(||
+<a href=#2111 id=2111 data-nosnippet>2111</a>			<span class="comment">// PersistedValidationData does not impl default in non-std
+<a href=#2112 id=2112 data-nosnippet>2112</a>			</span>PersistedValidationData {
+<a href=#2113 id=2113 data-nosnippet>2113</a>				parent_head: <span class="macro">vec!</span>[].into(),
+<a href=#2114 id=2114 data-nosnippet>2114</a>				relay_parent_number: Default::default(),
+<a href=#2115 id=2115 data-nosnippet>2115</a>				max_pov_size: Default::default(),
+<a href=#2116 id=2116 data-nosnippet>2116</a>				relay_parent_storage_root: Default::default(),
+<a href=#2117 id=2117 data-nosnippet>2117</a>			});
+<a href=#2118 id=2118 data-nosnippet>2118</a>		validation_data.relay_parent_number = state.number;
+<a href=#2119 id=2119 data-nosnippet>2119</a>		validation_data.relay_parent_storage_root = state.state_root;
+<a href=#2120 id=2120 data-nosnippet>2120</a>		ValidationData::&lt;T&gt;::put(validation_data)
+<a href=#2121 id=2121 data-nosnippet>2121</a>	}
+<a href=#2122 id=2122 data-nosnippet>2122</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

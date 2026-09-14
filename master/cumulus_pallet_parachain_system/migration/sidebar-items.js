@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["STORAGE_VERSION"],"struct":["Migration"]};
+window.SIDEBAR_ITEMS = {"constant":["STORAGE_VERSION"],"mod":["v3","v4"]};
