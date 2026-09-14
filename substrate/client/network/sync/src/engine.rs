@@ -191,10 +191,6 @@ impl MetricSource for MajorSyncingGauge {
 }
 
 /// The "number of connected peers" metric.
-///
-/// Moved here from `sc-network`, which had no business tracking a syncing-level number. The
-/// `substrate_sub_libp2p_` name is kept so existing dashboards and alerts keep resolving, the same
-/// way `substrate_sub_libp2p_is_major_syncing` above is kept.
 #[derive(Clone)]
 struct NumConnectedGauge(Arc<AtomicUsize>);
 
