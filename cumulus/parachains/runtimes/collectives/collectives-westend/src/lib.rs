@@ -859,11 +859,16 @@ type Migrations = (
 	// unreleased
 	pallet_core_fellowship::migration::MigrateV0ToV1<Runtime, AmbassadorCoreInstance>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
+<<<<<<< HEAD
 	pallet_session::migrations::v1::MigrateV0ToV1<
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
 	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
+=======
+	cumulus_pallet_parachain_system::migration::v3::Migration<Runtime>,
+	cumulus_pallet_parachain_system::migration::MigrateV3ToV4<Runtime>,
+>>>>>>> 86f2e266 ([HRMP] Extend InboundMessageId for horizontal messages (#12876))
 );
 
 /// Executive: handles dispatch to the various modules.
