@@ -44,7 +44,6 @@ use sc_client_api::BackendTransaction;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction};
 use sc_consensus_aura::standalone as aura_internal;
 use sc_network_types::PeerId;
-use sp_additional_data::{AdditionalData, AdditionalDataGetter};
 use sp_api::{ApiExt, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_consensus::{BlockOrigin, Environment, ProposeArgs, Proposer};
@@ -106,12 +105,6 @@ pub struct BuildBlockAndImportParams<'a, Block: BlockT, P: Pair> {
 	pub storage_proof_recorder: Option<ProofRecorder<Block>>,
 	/// Extra extensions to forward to the block production.
 	pub extra_extensions: Extensions,
-	/// Getter for the additional-data map recorded into the `AdditionalDataExt` registered in
-	/// `extra_extensions`, if any.
-	///
-	/// Shares that recorder's proof, so after the block is built calling it returns the relay/JAM
-	/// read proof collected during execution.
-	pub additional_data_handle: Option<AdditionalDataGetter>,
 }
 
 /// Result of [`Collator::build_block_and_import`].
@@ -124,12 +117,6 @@ pub struct BuiltBlock<Block: BlockT> {
 	///
 	/// This contains all the state changes.
 	pub backend_transaction: BackendTransaction<HashingFor<Block>>,
-	/// The additional-data map produced while building the block (e.g. the recorded relay-state
-	/// proof under [`RELAY_PROOF_KEY`](cumulus_primitives_additional_data::RELAY_PROOF_KEY)).
-	///
-	/// `None` when no `additional_data_handle` was supplied, or when the block read no relay state
-	/// (the shared recorder is empty, so `take_data()` returns `None`).
-	pub additional_data: Option<AdditionalData>,
 }
 
 impl<Block: BlockT> From<BuiltBlock<Block>> for ParachainCandidate<Block> {
@@ -324,20 +311,13 @@ where
 			.await
 			.map_err(|e| Box::new(e) as Box<dyn Error + Send>)?;
 
-		// The additional-data blob (relay/JAM read proof) is collected by the provider registered
-		// as `AdditionalDataExt`; our handle shares its recorder, so `take_data()` returns whatever
-		// the runtime read during execution (or `None` if it read nothing).
-		let additional_data = params.additional_data_handle.and_then(|h| h());
-
-		let mut sealed_importable = seal::<_, P>(
+		let sealed_importable = seal::<_, P>(
 			proposal.block,
 			proposal.storage_changes,
 			&params.slot_claim.author_pub,
 			&self.keystore,
 		)
 		.map_err(|e| e as Box<dyn Error + Send>)?;
-
-		sealed_importable.additional_data = additional_data.clone();
 
 		let block = Block::new(
 			sealed_importable.post_header(),
@@ -360,10 +340,7 @@ where
 
 		let proof = storage_proof_recorder.drain_storage_proof();
 
-		Ok(Some((
-			BuiltBlock { block, proof, backend_transaction, additional_data },
-			sealed_importable,
-		)))
+		Ok(Some((BuiltBlock { block, proof, backend_transaction }, sealed_importable)))
 	}
 
 	/// Import the given `import_block`.
@@ -396,14 +373,10 @@ where
 		max_pov_size: usize,
 		scheduling_proof: Option<cumulus_primitives_core::SchedulingProof>,
 	) -> Result<Option<(Collation, ParachainBlockData<Block>)>, Box<dyn Error + Send + 'static>> {
-		// NOTE: the basic and lookahead collators do NOT support the dynamic relay-read /
-		// additional-data channel. It requires `ParachainBlockData::V3`, which is only produced
-		// when the relay chain's `CandidateReceiptV3` node feature (V3 scheduling) is enabled —
-		// and only the slot-based collator gates on `v3_enabled`. So here no `AdditionalDataExt`
-		// is registered and no additional data is carried (`build_block` yields
-		// `BuiltBlock.additional_data = None`, so the produced `ParachainBlockData` is V1/V2).
-		// See `build_block` / `BuildBlockAndImportParams::additional_data_handle` for the
-		// slot-based path.
+		// NOTE: the basic and lookahead collators do NOT support the V3 additional-data channel
+		// (it requires `ParachainBlockData::V3`, which is only produced when V3 scheduling is
+		// enabled — and only the slot-based collator gates on `v3_enabled`). No additional data is
+		// carried here, so the produced `ParachainBlockData` is V1/V2.
 		let maybe_candidate = self
 			.build_block_and_import(BuildBlockAndImportParams {
 				parent_header,
@@ -415,20 +388,18 @@ where
 				max_pov_size,
 				storage_proof_recorder: None,
 				extra_extensions: Extensions::default(),
-				additional_data_handle: None,
 			})
 			.await?;
 
 		let Some(candidate) = maybe_candidate else { return Ok(None) };
 
-		let additional_data = vec![candidate.additional_data.clone()];
 		let hash = candidate.block.header().hash();
 		if let Some((collation, block_data)) = self.collator_service.build_collation(
 			parent_header,
 			hash,
 			candidate.into(),
 			scheduling_proof,
-			additional_data,
+			vec![None],
 		) {
 			block_data.log_size_info();
 

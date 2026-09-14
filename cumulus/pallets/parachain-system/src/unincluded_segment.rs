@@ -20,7 +20,9 @@
 //! Unincluded segment describes a chain of latest included block descendants, which are not yet
 //! sent to relay chain.
 
-use super::relay_state_snapshot::{MessagingStateSnapshot, RelayDispatchQueueRemainingCapacity};
+use super::relay_chain::relay_state_snapshot::{
+	MessagingStateSnapshot, RelayDispatchQueueRemainingCapacity,
+};
 use alloc::collections::btree_map::BTreeMap;
 use codec::{Decode, Encode};
 use core::marker::PhantomData;

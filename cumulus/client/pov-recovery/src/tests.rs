@@ -23,8 +23,7 @@ use cumulus_primitives_core::relay_chain::{
 };
 use cumulus_relay_chain_interface::{
 	ChildInfo, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, PHash, PHeader,
-	PersistedValidationData, RelayChainResult, RelayStateProver, StorageValue, ValidationCodeHash,
-	ValidatorId,
+	PersistedValidationData, RelayChainResult, StorageValue, ValidationCodeHash, ValidatorId,
 };
 use cumulus_test_client::runtime::{Block, Header};
 use futures::{channel::mpsc, SinkExt, Stream};
@@ -320,13 +319,6 @@ impl Relaychain {
 
 #[async_trait::async_trait]
 impl RelayChainInterface for Relaychain {
-	async fn relay_state_prover(
-		&self,
-		_relay_parent: PHash,
-	) -> RelayChainResult<Box<dyn RelayStateProver>> {
-		unimplemented!()
-	}
-
 	async fn version(&self, _: PHash) -> RelayChainResult<RuntimeVersion> {
 		let version = self.inner.lock().expect("Poisoned lock").runtime_version;
 

@@ -30,7 +30,6 @@ use crate::{
 	LOG_TARGET,
 };
 use codec::{Codec, Encode};
-use cumulus_client_additional_data::RecordingAdditionalDataProvider;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{
 	self as consensus_common, fetch_included_from_relay_chain, get_relay_slot,
@@ -38,7 +37,6 @@ use cumulus_client_consensus_common::{
 };
 use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
 use cumulus_client_resubmission_store::prepare_resubmission_aux_data;
-use cumulus_primitives_additional_data::{RelayStateExt, RELAY_PROOF_KEY};
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
@@ -52,7 +50,6 @@ use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
 use sc_network_types::PeerId;
-use sp_additional_data::{AdditionalData, AdditionalDataExt, AdditionalDataFinalizer};
 use sp_api::{ApiExt, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
 use sp_block_builder::BlockBuilder;
@@ -749,7 +746,6 @@ where
 
 	let mut blocks = Vec::new();
 	let mut proofs = Vec::new();
-	let mut per_block_additional_data: Vec<Option<AdditionalData>> = Vec::new();
 	let mut ignored_nodes = IgnoredNodes::default();
 
 	let mut parent_hash = pov_parent_hash;
@@ -829,41 +825,6 @@ where
 		let mut extra_extensions = Extensions::default();
 		extra_extensions.register(ProofSizeExt::new(proof_size_recorder.clone()));
 
-		// Wrap the relay-state prover (if this relay interface supports it) into the
-		// additional-data recorder and register it as `AdditionalDataExt`, so
-		// `set_validation_data` (and any runtime code) can serve `read_relay_chain_state` from
-		// the live relay state at this relay parent, recording a minimal proof into the block's
-		// additional data. Keep a getter to extract that map after the block is built.
-		let additional_data_handle = match relay_client.relay_state_prover(relay_parent_hash).await
-		{
-			Ok(prover) => {
-				// One `Arc`-shared provider serves both `read_relay_chain_state` (as the reader in
-				// `RelayStateExt`) and the additional-data digest (as the finalizer keyed by
-				// `RELAY_PROOF_KEY` in `AdditionalDataExt`, driven by `frame_executive`) — same
-				// recorder behind both. Keep a getter to extract the carried map after the build.
-				let provider = Arc::new(RecordingAdditionalDataProvider::new(prover));
-				let getter = provider.getter();
-				extra_extensions.register(RelayStateExt(Box::new(provider.clone())));
-				extra_extensions.register(AdditionalDataExt(
-					[(
-						RELAY_PROOF_KEY.to_string(),
-						Box::new(provider) as Box<dyn AdditionalDataFinalizer>,
-					)]
-					.into(),
-				));
-				Some(getter)
-			},
-			Err(err) => {
-				tracing::warn!(
-					target: LOG_TARGET,
-					?err,
-					?relay_parent_hash,
-					"Failed to build relay-state prover; additional-data extension not registered",
-				);
-				None
-			},
-		};
-
 		let block_production_start = Instant::now();
 		// The time we have left to spent for the block.
 		let time_left_for_block = slot_time_for_core.saturating_sub(core_start.elapsed()) /
@@ -905,7 +866,6 @@ where
 				max_pov_size: allowed_pov_size,
 				storage_proof_recorder: storage_proof_recorder.into(),
 				extra_extensions,
-				additional_data_handle,
 			})
 			.await
 		else {
@@ -952,7 +912,6 @@ where
 		// Announce the newly built block to our peers.
 		collator.collator_service().announce_block(parent_hash, None);
 
-		per_block_additional_data.push(built_block.additional_data.clone());
 		blocks.push(built_block.block);
 		proofs.push(Arc::unwrap_or_clone(proof));
 
@@ -1022,7 +981,7 @@ where
 		validation_code_hash,
 		core_index,
 		validation_data,
-		additional_data: per_block_additional_data,
+		additional_data: Vec::new(),
 	}) {
 		tracing::error!(target: LOG_TARGET, ?err, "Unable to send block to collation task.");
 		Err(())

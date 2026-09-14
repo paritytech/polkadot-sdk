@@ -18,7 +18,7 @@
 
 use alloc::vec::Vec;
 use codec::Encode;
-use sp_externalities::{Externalities, set_and_run_with_externalities};
+use sp_externalities::{set_and_run_with_externalities, Externalities};
 
 pub(super) use super::child_storage_host_functions::{
 	host_default_child_storage_clear, host_default_child_storage_clear_prefix,
@@ -79,8 +79,6 @@ pub(super) fn install_overrides() -> impl Sized {
 		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
 		cumulus_primitives_proof_size_hostfunction::storage_proof_size::host_storage_proof_size
 			.replace_implementation(host_storage_proof_size),
-		cumulus_primitives_additional_data::relay_chain_state::host_read_relay_chain_state_into
-			.replace_implementation(host_read_relay_chain_state_into),
 		// The riscv runtime reads its included head via `jam_state_read`, served from the JAM
 		// state proof carried in the PoV under `JAM_PROOF_KEY`, verified against the trusted
 		// anchor root.
@@ -113,20 +111,17 @@ pub(super) fn with_externalities<F: FnOnce(&mut dyn Externalities) -> R, R>(f: F
 // Recorder instance to be used during this validate_block call.
 environmental::environmental!(recorder: trait ProofSizeProvider);
 
-// The verified relay-state reader is threaded into the replaced
-// `read_relay_chain_state`/`finalize` host functions for the duration of block execution. This
-// lives in its own module because `environmental!` emits a scope-level `GLOBAL` static that would
-// otherwise collide with the `recorder` invocation above.
+// The additional-data finalizer is threaded into the replaced `finalize` host function for the
+// duration of block execution. This lives in its own module because `environmental!` emits a
+// scope-level `GLOBAL` static that would otherwise collide with the `recorder` invocation above.
 pub(super) mod additional_data {
-	use cumulus_primitives_additional_data::RelayStateReader;
 	use sp_additional_data::AdditionalDataFinalizer;
 
-	/// The combined read + finalize provider served to the relay-read and finalize host functions
-	/// during PVF block execution. Read side comes from [`RelayStateReader`], digest side from
-	/// [`AdditionalDataFinalizer`]; blanket-implemented for any reader that is both (e.g. the
-	/// `AdditionalDataReader`).
-	pub trait Provider: RelayStateReader + AdditionalDataFinalizer {}
-	impl<T: RelayStateReader + AdditionalDataFinalizer> Provider for T {}
+	/// The finalize provider served to the `finalize` host function during PVF block execution.
+	/// Digest side comes from [`AdditionalDataFinalizer`]; blanket-implemented for any finalizer
+	/// (e.g. the JAM-proof finalizer).
+	pub trait Provider: AdditionalDataFinalizer {}
+	impl<T: AdditionalDataFinalizer> Provider for T {}
 
 	environmental::environmental!(env: trait Provider);
 	pub fn using<R, F: FnOnce() -> R>(t: &mut dyn Provider, f: F) -> R {
@@ -202,11 +197,7 @@ pub(super) fn host_storage_clear(key: &[u8]) {
 pub(super) fn host_storage_proof_size() -> u64 {
 	let para =
 		recorder::with(|rec| rec.estimate_encoded_size()).expect("Recorder is always set; qed");
-	// The relay-read proof rides in the PoV outside the block body; count it here too so the
-	// runtime's proof-size accounting (weight-reclaim) budgets for the full PoV. Symmetric with the
-	// build side, which adds `AdditionalDataExt`'s size to `storage_proof_size`.
-	let relay = additional_data::with(|p| p.proof_size()).unwrap_or(0);
-	(para + relay) as _
+	para as _
 }
 
 pub(super) fn host_storage_root(out: &mut [u8]) {
@@ -295,19 +286,6 @@ pub(super) fn host_offchain_index_set(_key: &[u8], _value: &[u8]) {}
 #[cfg(any(not(substrate_runtime), target_family = "wasm"))]
 pub(super) fn host_offchain_index_clear(_key: &[u8]) {}
 
-pub(super) fn host_read_relay_chain_state_into(key: &[u8], value_out: &mut [u8]) -> i64 {
-	// Served by the verifying provider set up around block execution; if none is set (a block with
-	// no relay reads), reports the key as absent.
-	match additional_data::with(|p| p.read(key)).flatten() {
-		Some(v) => {
-			let n = core::cmp::min(v.len(), value_out.len());
-			value_out[..n].copy_from_slice(&v[..n]);
-			v.len() as i64
-		},
-		None => -1,
-	}
-}
-
 #[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
 pub(super) fn host_jam_state_read_into(key: &[u8], value_out: &mut [u8]) -> i64 {
 	// Served by the verifying proof-backed reader set up around block execution; if none is set (a
@@ -324,9 +302,10 @@ pub(super) fn host_jam_state_read_into(key: &[u8], value_out: &mut [u8]) -> i64 
 }
 
 pub(super) fn host_finalize_into(hash_out: &mut [u8]) -> u32 {
-	// The digest folds each producer's sub-hash; on the PVF the sole producer is the relay reader,
-	// so fold exactly its one commitment to match what the collator committed (and what
-	// `AdditionalDataExt::finalize` recomputes on build/import).
+	// The digest folds each producer's sub-hash; on the PVF the sole producer is now the JAM
+	// finalizer (relay V2 candidates carry no additional data), so fold exactly its one
+	// commitment to match what the collator committed (and what `AdditionalDataExt::finalize`
+	// recomputes on build/import).
 	match additional_data::with(|p| p.finalize()).flatten() {
 		Some(sub) => {
 			let folded = sp_additional_data::hash_commitments(core::iter::once(sub))

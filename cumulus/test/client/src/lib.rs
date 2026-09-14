@@ -26,15 +26,15 @@ pub use polkadot_parachain_primitives::primitives::{
 	BlockData, HeadData, ValidationParams, ValidationResult,
 };
 use runtime::{
-	Balance, Block, BlockHashCount, Runtime, RuntimeCall, Signature, SignedPayload, TxExtension,
-	UncheckedExtrinsic, VERSION, test_pallet,
+	test_pallet, Balance, Block, BlockHashCount, Runtime, RuntimeCall, Signature, SignedPayload,
+	TxExtension, UncheckedExtrinsic, VERSION,
 };
 use sc_consensus_aura::{
 	find_pre_digest,
 	standalone::{seal, slot_author},
 };
-use sc_executor::HeapAllocStrategy;
 pub use sc_executor::error::Result as ExecutorResult;
+use sc_executor::HeapAllocStrategy;
 use sc_executor_common::runtime_blob::RuntimeBlob;
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppCrypto;
@@ -43,7 +43,7 @@ use sp_consensus_aura::AuraApi;
 use sp_core::Pair;
 use sp_io::TestExternalities;
 use sp_keystore::testing::MemoryKeystore;
-use sp_runtime::{BuildStorage, MultiAddress, SaturatedConversion, generic::Era, traits::Header};
+use sp_runtime::{generic::Era, traits::Header, BuildStorage, MultiAddress, SaturatedConversion};
 use std::sync::Arc;
 pub use substrate_test_client::*;
 
@@ -59,7 +59,6 @@ pub type Executor = client::LocalCallExecutor<
 	WasmExecutor<(
 		sp_io::SubstrateHostFunctions,
 		cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
-		cumulus_primitives_additional_data::relay_chain_state::HostFunctions,
 		cumulus_jam_state_reader::jam_state::HostFunctions,
 	)>,
 >;
@@ -222,7 +221,6 @@ pub fn validate_block_raw(
 	let executor = WasmExecutor::<(
 		sp_io::SubstrateHostFunctions,
 		cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
-		cumulus_primitives_additional_data::relay_chain_state::HostFunctions,
 		cumulus_jam_state_reader::jam_state::HostFunctions,
 	)>::builder()
 	.with_execution_method(WasmExecutionMethod::default())

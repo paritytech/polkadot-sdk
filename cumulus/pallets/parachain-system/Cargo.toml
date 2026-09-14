@@ -53,7 +53,6 @@ xcm-builder = { workspace = true }
 # Cumulus
 cumulus-jam-state-reader = { workspace = true }
 cumulus-pallet-parachain-system-proc-macro = { workspace = true }
-cumulus-primitives-additional-data = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-parachain-inherent = { workspace = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true }
@@ -76,9 +75,6 @@ parachain-service-core = { path = "../../../../parachain-service/core", default-
 # `jam-types` derives `jam-codec`, not `parity-scale-codec`, so both have to be named.
 jam-types = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-types", default-features = false }
 jam-codec = { version = "0.1.1", default-features = false, features = ["derive"] }
-# The riscv runtime reads the included para head from the parachain service's JAM state, so it
-# needs the no_std `para_info_key`/`ParaInfo` mirror (task 5). Already in this target's graph via
-# `cumulus-primitives-additional-data`; named directly so the pallet can import it.
 
 [dev-dependencies]
 assert_matches = { workspace = true }
@@ -102,7 +98,6 @@ sp-tracing = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 
 # Cumulus
-cumulus-client-additional-data = { workspace = true, default-features = true }
 cumulus-test-client = { workspace = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
 
@@ -113,7 +108,6 @@ std = [
 	"codec/std",
 	"cumulus-jam-state-reader/std",
 	"cumulus-pallet-parachain-system-proc-macro/std",
-	"cumulus-primitives-additional-data/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-parachain-inherent/std",
 	"cumulus-primitives-proof-size-hostfunction/std",

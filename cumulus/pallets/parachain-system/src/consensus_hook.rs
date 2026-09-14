@@ -17,7 +17,7 @@
 //! The definition of a [`ConsensusHook`] trait for consensus logic to manage the backlog
 //! of parachain blocks ready to submit to the relay chain, as well as some basic implementations.
 
-use super::relay_state_snapshot::RelayChainStateProof;
+use super::relay_chain::relay_state_snapshot::RelayChainStateProof;
 use core::num::NonZeroU32;
 use frame_support::weights::Weight;
 

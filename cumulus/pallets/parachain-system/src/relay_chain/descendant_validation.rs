@@ -13,9 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{
+use crate::relay_chain::{
 	descendant_validation::RelayParentVerificationError::InvalidNumberOfDescendants,
-	RelayChainStateProof,
+	relay_state_snapshot::RelayChainStateProof,
 };
 use alloc::vec::Vec;
 use sp_consensus_babe::{
@@ -216,7 +216,6 @@ mod tests {
 	use cumulus_primitives_core::relay_chain;
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 	use rstest::rstest;
-	use sp_additional_data::{AdditionalData, AdditionalDataExt, AdditionalDataFinalizer};
 	use sp_consensus_babe::{
 		digests::{CompatibleDigestItem, NextEpochDescriptor, PreDigest, PrimaryPreDigest},
 		AuthorityId, AuthorityPair, BabeAuthorityWeight, ConsensusLog, BABE_ENGINE_ID,
@@ -246,7 +245,7 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		assert!(verify_with_relay_reads(
+		assert!(verify_with_inherent_proof(
 			relay_read_root,
 			relay_read_proof,
 			relay_parent_descendants,
@@ -269,7 +268,7 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		let result = verify_with_relay_reads(
+		let result = verify_with_inherent_proof(
 			relay_read_root,
 			relay_read_proof,
 			relay_parent_descendants,
@@ -301,7 +300,7 @@ mod tests {
 		// Make sure that the first relay parent has the correct state root set
 		let relay_parent_state_root = relay_parent_descendants.get(0).unwrap().state_root;
 
-		let result = verify_with_relay_reads(
+		let result = verify_with_inherent_proof(
 			relay_read_root,
 			relay_read_proof,
 			relay_parent_descendants,
@@ -329,7 +328,7 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		let result = verify_with_relay_reads(
+		let result = verify_with_inherent_proof(
 			relay_read_root,
 			relay_read_proof,
 			relay_parent_descendants,
@@ -356,7 +355,7 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		let result = verify_with_relay_reads(
+		let result = verify_with_inherent_proof(
 			relay_read_root,
 			relay_read_proof,
 			relay_parent_descendants,
@@ -395,7 +394,7 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		let result = verify_with_relay_reads(
+		let result = verify_with_inherent_proof(
 			relay_read_root,
 			relay_read_proof,
 			relay_parent_descendants,
@@ -426,7 +425,7 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		let result = verify_with_relay_reads(
+		let result = verify_with_inherent_proof(
 			relay_read_root,
 			relay_read_proof,
 			relay_parent_descendants,
@@ -458,7 +457,7 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		assert!(verify_with_relay_reads(
+		assert!(verify_with_inherent_proof(
 			relay_read_root,
 			relay_read_proof,
 			relay_parent_descendants,
@@ -485,7 +484,7 @@ mod tests {
 		// Expected number of parents passed to the function does not include actual relay parent
 		let expected_number_of_descendants = (relay_parent_descendants.len() - 1) as u32;
 
-		assert!(verify_with_relay_reads(
+		assert!(verify_with_inherent_proof(
 			relay_read_root,
 			relay_read_proof,
 			relay_parent_descendants,
@@ -518,48 +517,24 @@ mod tests {
 		proof_builder.into_state_root_and_proof()
 	}
 
-	/// Run `verify_relay_parent_descendants` with a host-backed [`RelayChainStateProof`] whose
-	/// reads are served (and verified against `root`) from the given relay-state `proof` —
-	/// mirroring how the reads flow through the `read_relay_chain_state` host function in
-	/// production.
-	fn verify_with_relay_reads(
+	/// Run `verify_relay_parent_descendants` with a [`RelayChainStateProof`] built from the fixed
+	/// relay-state `proof` carried in the inherent (the V2 path), verified against `root`.
+	fn verify_with_inherent_proof(
 		root: H256,
 		proof: sp_trie::StorageProof,
 		relay_parent_descendants: Vec<TestHeader>,
 		relay_parent_state_root: H256,
 		expected_number_of_descendants: u32,
 	) -> Result<(), RelayParentVerificationError<TestHeader>> {
-		let mut map = AdditionalData::new();
-		map.insert(
-			cumulus_primitives_additional_data::RELAY_PROOF_KEY.into(),
-			(root, proof).encode(),
-		);
-		let provider = std::sync::Arc::new(
-			cumulus_client_additional_data::VerifyingAdditionalDataProvider::<
-				sp_runtime::traits::BlakeTwo256,
-			>::from_map_with_root(root, map)
-			.expect("valid relay-proof map"),
-		);
-		let mut ext = sp_io::TestExternalities::default();
-		ext.register_extension(cumulus_primitives_additional_data::RelayStateExt(Box::new(
-			provider.clone(),
-		)));
-		ext.register_extension(AdditionalDataExt(
-			[(
-				cumulus_primitives_additional_data::RELAY_PROOF_KEY.to_string(),
-				Box::new(provider) as Box<dyn AdditionalDataFinalizer>,
-			)]
-			.into(),
-		));
-		ext.execute_with(|| {
-			let relay_state_proof = RelayChainStateProof::new(PARA_ID.into());
-			verify_relay_parent_descendants(
-				&relay_state_proof,
-				relay_parent_descendants,
-				relay_parent_state_root,
-				expected_number_of_descendants,
-			)
-		})
+		let relay_state_proof =
+			RelayChainStateProof::from_inherent_proof(PARA_ID.into(), root, proof)
+				.expect("valid relay-state proof");
+		verify_relay_parent_descendants(
+			&relay_state_proof,
+			relay_parent_descendants,
+			relay_parent_state_root,
+			expected_number_of_descendants,
+		)
 	}
 
 	/// This method generates some vrf data, but only to make the compiler happy.

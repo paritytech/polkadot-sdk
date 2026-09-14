@@ -16,15 +16,15 @@
 
 //! The relay-chain implementation of the validate block functionality.
 //!
-//! Thin layer over [`super::validate_block_core::execute_blocks`]: it owns everything that is
-//! specific to validating on a relay chain and straddles the core call with it — the V3
-//! scheduling shape validation before, the scheduling-signature override and the
+//! Thin layer over [`crate::validate_block::validate_block_core::execute_blocks`]: it owns
+//! everything that is specific to validating on a relay chain and straddles the core call with
+//! it — the V3 scheduling shape validation before, the scheduling-signature override and the
 //! `set_validation_data` re-check inside the two callbacks, the scheduling signal tail after,
 //! and the final [`ValidationResult`] assembly.
 
-use super::{
+use super::scheduling;
+use crate::validate_block::{
 	host_functions::run_with_externalities_and_recorder,
-	scheduling,
 	trie_cache::CacheProvider,
 	trie_recorder::SizeOnlyRecorderProvider,
 	validate_block_core::{execute_blocks, SharedValidationInputs},
@@ -69,8 +69,8 @@ use sp_trie::MemoryDB;
 /// ensuring that the final storage root matches the storage root in the header of the block. In the
 /// end we return back the [`ValidationResult`] with all the required information for the validator.
 ///
-/// Steps 1, 3, 4 and 5 live in [`super::validate_block_core::execute_blocks`]; this function
-/// provides the relay-specific parts around it.
+/// Steps 1, 3, 4 and 5 live in [`crate::validate_block::validate_block_core::execute_blocks`];
+/// this function provides the relay-specific parts around it.
 #[doc(hidden)]
 pub fn validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 	MemoryOptimizedValidationParams {
@@ -112,13 +112,7 @@ where
 
 	let randomness_seed = build_seed_from_head_data::<B>(&block_data, relay_parent_storage_root);
 	let mut partial = execute_blocks::<B, E, PSC>(
-		SharedValidationInputs::<B> {
-			block_data,
-			parent_head: parachain_head,
-			randomness_seed,
-			relay_parent_storage_root: Some(relay_parent_storage_root),
-			jam_anchor_state_root: None,
-		},
+		SharedValidationInputs::<B> { block_data, parent_head: parachain_head, randomness_seed },
 		// Signature verification of the override needs the parachain state behind the relay
 		// parent, which only exists inside an externalities scope over the just-built memory DB.
 		// The core hands it over exactly here, together with the ORIGINAL parent header; passing
@@ -173,6 +167,8 @@ where
 				relay_parent_storage_root,
 			);
 		},
+		// Relay-chain candidates carry no additional data, so nothing is armed around execution.
+		&|_, execute: &dyn Fn()| execute(),
 	);
 
 	// A `signed_scheduling_info` overrides the block's emitted signals wholesale — they
@@ -203,7 +199,8 @@ where
 /// There is no relay chain under JAM, so the comparisons carry no weight there:
 /// `relay_parent_number` and `relay_parent_storage_root` are mirrored out of the block's own
 /// `set_validation_data` before the call, and `parent_head` is established by the anchor state
-/// proof rather than by the collator. See [`super::jam_implementation::jam_validate_block`].
+/// proof rather than by the collator. See
+/// [`crate::validate_block::jam_implementation::jam_validate_block`].
 fn validate_validation_data(
 	validation_data: PersistedValidationData,
 	parent_header: &[u8],

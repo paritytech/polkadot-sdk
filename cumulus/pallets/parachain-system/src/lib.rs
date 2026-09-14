@@ -31,12 +31,10 @@ extern crate alloc;
 
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
 use codec::{Decode, Encode};
-use core::cmp;
 use cumulus_primitives_core::{
-	relay_chain::{self, UMPSignal, UMP_SEPARATOR},
-	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, CoreInfo,
-	CumulusDigestItem, GetChannelInfo, ListChannelInfos, MessageSendError, OutboundHrmpMessage,
-	ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender, VerifySchedulingSignature,
+	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, CumulusDigestItem,
+	GetChannelInfo, ListChannelInfos, MessageSendError, OutboundHrmpMessage, ParaId,
+	PersistedValidationData, UpwardMessage, UpwardMessageSender, VerifySchedulingSignature,
 	XcmpMessageHandler, XcmpMessageSource,
 };
 use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
@@ -55,10 +53,7 @@ use parachain_inherent::{
 use polkadot_parachain_primitives::primitives::RelayChainBlockNumber;
 use polkadot_runtime_parachains::{FeeTracker, GetMinFeeFactor};
 use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{BlockNumberProvider, Hash},
-	Debug, FixedU128, SaturatedConversion,
-};
+use sp_runtime::{Debug, FixedU128, SaturatedConversion};
 use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm};
 use xcm_builder::InspectMessageQueues;
 
@@ -67,19 +62,16 @@ pub mod block_weight;
 pub mod consensus_hook;
 pub mod migration;
 mod mock;
-pub mod relay_state_snapshot;
 #[cfg(test)]
 mod tests;
 mod unincluded_segment;
 pub mod weights;
 #[macro_use]
 pub mod validate_block;
-mod descendant_validation;
 pub mod parachain_inherent;
+mod relay_chain;
 
-use unincluded_segment::{
-	HrmpChannelUpdate, HrmpWatermarkUpdate, OutboundBandwidthLimits, SegmentTracker,
-};
+use unincluded_segment::{OutboundBandwidthLimits, SegmentTracker};
 
 pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
 /// Register the `validate_block` function that is used by parachains to validate blocks on a
@@ -103,7 +95,14 @@ pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
 /// # fn main() {}
 /// ```
 pub use cumulus_pallet_parachain_system_proc_macro::register_validate_block;
-pub use relay_state_snapshot::{MessagingStateSnapshot, RelayChainStateProof};
+pub use relay_chain::{
+	events::OnSystemEvent,
+	relay_state_snapshot,
+	relay_state_snapshot::{MessagingStateSnapshot, RelayChainStateProof},
+	state::{RelayChainState, RelaychainDataProvider, RelaychainStateProvider},
+	AnyRelayNumber, CheckAssociatedRelayNumber, RelayNumberMonotonicallyIncreases,
+	RelayNumberStrictlyIncreases,
+};
 pub use unincluded_segment::{Ancestor, UsedBandwidth};
 pub use weights::WeightInfo;
 
@@ -127,70 +126,6 @@ pub struct PoVMessages {
 	pub hrmp_outbound_count: u32,
 	/// Recipients already used for HRMP outbound messages in this PoV.
 	pub hrmp_outbound_recipients: Vec<ParaId>,
-}
-
-/// Something that can check the associated relay block number.
-///
-/// Each Parachain block is built in the context of a relay chain block, this trait allows us
-/// to validate the given relay chain block number. With async backing it is legal to build
-/// multiple Parachain blocks per relay chain parent. With this trait it is possible for the
-/// Parachain to ensure that still only one Parachain block is build per relay chain parent.
-///
-/// By default [`RelayNumberStrictlyIncreases`] and [`AnyRelayNumber`] are provided.
-pub trait CheckAssociatedRelayNumber {
-	/// Check the current relay number versus the previous relay number.
-	///
-	/// The implementation should panic when there is something wrong.
-	fn check_associated_relay_number(
-		current: RelayChainBlockNumber,
-		previous: RelayChainBlockNumber,
-	);
-}
-
-/// Provides an implementation of [`CheckAssociatedRelayNumber`].
-///
-/// It will ensure that the associated relay block number strictly increases between Parachain
-/// blocks. This should be used by production Parachains when in doubt.
-pub struct RelayNumberStrictlyIncreases;
-
-impl CheckAssociatedRelayNumber for RelayNumberStrictlyIncreases {
-	fn check_associated_relay_number(
-		current: RelayChainBlockNumber,
-		previous: RelayChainBlockNumber,
-	) {
-		if current <= previous {
-			panic!("Relay chain block number needs to strictly increase between Parachain blocks!")
-		}
-	}
-}
-
-/// Provides an implementation of [`CheckAssociatedRelayNumber`].
-///
-/// This will accept any relay chain block number combination. This is mainly useful for
-/// test parachains.
-pub struct AnyRelayNumber;
-
-impl CheckAssociatedRelayNumber for AnyRelayNumber {
-	fn check_associated_relay_number(_: RelayChainBlockNumber, _: RelayChainBlockNumber) {}
-}
-
-/// Provides an implementation of [`CheckAssociatedRelayNumber`].
-///
-/// It will ensure that the associated relay block number monotonically increases between Parachain
-/// blocks. This should be used when asynchronous backing is enabled.
-pub struct RelayNumberMonotonicallyIncreases;
-
-impl CheckAssociatedRelayNumber for RelayNumberMonotonicallyIncreases {
-	fn check_associated_relay_number(
-		current: RelayChainBlockNumber,
-		previous: RelayChainBlockNumber,
-	) {
-		if current < previous {
-			panic!(
-				"Relay chain block number needs to monotonically increase between Parachain blocks!"
-			)
-		}
-	}
 }
 
 /// The max length of a DMP message.
@@ -363,182 +298,27 @@ pub mod pallet {
 			// unincluded segment.
 			Self::adjust_egress_bandwidth_limits();
 
-			let current_core_selector =
-				CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
-					.map_or(0, |ci| ci.selector.0);
+			let mut pov_tracker = crate::relay_chain::messaging::refresh_pov_tracker::<T>(&vfp);
 
-			let current_bundle_index =
-				CumulusDigestItem::find_block_bundle_info(&frame_system::Pallet::<T>::digest())
-					.map_or(0, |bi| bi.index);
+			let (ump_msg_count, ump_total_bytes) = crate::relay_chain::messaging::send_ump_messages::<
+				T,
+			>(&mut pov_tracker, &host_config);
 
-			let mut pov_tracker = PoVMessagesTracker::<T>::get()
-				.filter(|tracker| {
-					// If the relay parent changes, this is for sure a different `PoV`.
-					tracker.relay_storage_root_or_hash == vfp.relay_parent_storage_root &&
-					// A different core selector also means we are on a different `PoV`.
-					tracker.core_selector == current_core_selector &&
-					// The bundle index needs to increase, or we are in a different `PoV`.
-					current_bundle_index > tracker.bundle_index
-				})
-				.unwrap_or_default();
-
-			pov_tracker.bundle_index = current_bundle_index;
-			pov_tracker.core_selector = current_core_selector;
-			pov_tracker.relay_storage_root_or_hash = vfp.relay_parent_storage_root;
-
-			let (ump_msg_count, ump_total_bytes) = <PendingUpwardMessages<T>>::mutate(|up| {
-				let (available_capacity, available_size) = match RelevantMessagingState::<T>::get()
-				{
-					Some(limits) => (
-						limits.relay_dispatch_queue_remaining_capacity.remaining_count,
-						limits.relay_dispatch_queue_remaining_capacity.remaining_size,
-					),
-					None => {
-						debug_assert!(
-							false,
-							"relevant messaging state is promised to be set until `on_finalize`; \
-								qed",
-						);
-						return (0, 0);
-					},
-				};
-
-				let available_capacity = cmp::min(
-					available_capacity,
-					host_config
-						.max_upward_message_num_per_candidate
-						.saturating_sub(pov_tracker.ump_msg_count),
-				);
-
-				// Count the number of messages we can possibly fit in the given constraints, i.e.
-				// available_capacity and available_size.
-				let (num, total_size) = up
-					.iter()
-					.scan((0u32, 0u32), |state, msg| {
-						let (cap_used, size_used) = *state;
-						let new_cap = cap_used.saturating_add(1);
-						let new_size = size_used.saturating_add(msg.len() as u32);
-						match available_capacity
-							.checked_sub(new_cap)
-							.and(available_size.checked_sub(new_size))
-						{
-							Some(_) => {
-								*state = (new_cap, new_size);
-								Some(*state)
-							},
-							_ => None,
-						}
-					})
-					.last()
-					.unwrap_or_default();
-
-				// TODO: #274 Return back messages that do not longer fit into the queue.
-
-				UpwardMessages::<T>::put(&up[..num as usize]);
-				*up = up.split_off(num as usize);
-
-				pov_tracker.ump_msg_count = pov_tracker.ump_msg_count.saturating_add(num);
-
-				let digest = frame_system::Pallet::<T>::digest();
-
-				let core_info = CumulusDigestItem::find_core_info(&digest);
-				PreviousCoreCount::<T>::put(
-					core_info.as_ref().map_or(Compact(1u16), |ci| ci.number_of_cores),
-				);
-
-				// Only send UMP signals on the last block of a PoV.
-				// For single-block PoVs (no BlockBundleInfo), always send signals.
-				if CumulusDigestItem::is_last_block_in_core(&digest).unwrap_or(true) {
-					Self::send_ump_signals(core_info);
-				}
-
-				// If the total size of the pending messages is less than the threshold,
-				// we decrease the fee factor, since the queue is less congested.
-				// This makes delivery of new messages cheaper.
-				let threshold = host_config
-					.max_upward_queue_size
-					.saturating_div(ump_constants::THRESHOLD_FACTOR);
-				let remaining_total_size: usize = up.iter().map(UpwardMessage::len).sum();
-				if remaining_total_size <= threshold as usize {
-					Self::decrease_fee_factor(());
-				}
-
-				(num, total_size)
-			});
-
-			// Sending HRMP messages is a little bit more involved. There are the following
-			// constraints:
-			//
-			// - a channel should exist (and it can be closed while a message is buffered),
-			// - at most one message can be sent in a channel,
-			// - the sent out messages should be ordered by ascension of recipient para id.
-			// - the capacity and total size of the channel is limited,
-			// - the maximum size of a message is limited (and can potentially be changed),
-
-			let maximum_channels = host_config
-				.hrmp_max_message_num_per_candidate
-				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take())
-				as usize;
-
-			let maximum_channels =
-				maximum_channels.saturating_sub(pov_tracker.hrmp_outbound_count as usize);
-
-			// Note: this internally calls the `GetChannelInfo` implementation for this
-			// pallet, which draws on the `RelevantMessagingState`. That in turn has
-			// been adjusted above to reflect the correct limits in all channels.
-			let outbound_messages = T::OutboundXcmpMessageSource::take_outbound_messages(
-				maximum_channels,
-				&pov_tracker.hrmp_outbound_recipients,
-			)
-			.into_iter()
-			.map(|(recipient, data)| OutboundHrmpMessage { recipient, data })
-			.collect::<Vec<_>>();
-
-			pov_tracker
-				.hrmp_outbound_recipients
-				.extend(outbound_messages.iter().map(|m| m.recipient));
-			pov_tracker.hrmp_outbound_count =
-				pov_tracker.hrmp_outbound_count.saturating_add(outbound_messages.len() as u32);
-			PoVMessagesTracker::<T>::put(pov_tracker);
+			let outbound_messages = crate::relay_chain::messaging::send_hrmp_messages::<T>(
+				&mut pov_tracker,
+				&host_config,
+			);
 
 			// Update the unincluded segment length; capacity checks were done previously in
 			// `set_validation_data`, so this can be done unconditionally.
-			{
-				let hrmp_outgoing = outbound_messages
-					.iter()
-					.map(|msg| {
-						(
-							msg.recipient,
-							HrmpChannelUpdate { msg_count: 1, total_bytes: msg.data.len() as u32 },
-						)
-					})
-					.collect();
-				let used_bandwidth =
-					UsedBandwidth { ump_msg_count, ump_total_bytes, hrmp_outgoing };
-
-				let mut aggregated_segment =
-					AggregatedUnincludedSegment::<T>::get().unwrap_or_default();
-				let consumed_go_ahead_signal =
-					if aggregated_segment.consumed_go_ahead_signal().is_some() {
-						// Some ancestor within the segment already processed this signal --
-						// validated during inherent creation.
-						None
-					} else {
-						relay_upgrade_go_ahead
-					};
-				// The bandwidth constructed was ensured to satisfy relay chain constraints.
-				let ancestor = Ancestor::new_unchecked(used_bandwidth, consumed_go_ahead_signal);
-
-				let watermark = HrmpWatermark::<T>::get();
-				let watermark_update = HrmpWatermarkUpdate::new(watermark, vfp.relay_parent_number);
-
-				aggregated_segment
-					.append(&ancestor, watermark_update, &total_bandwidth_out)
-					.expect("unincluded segment limits exceeded");
-				AggregatedUnincludedSegment::<T>::put(aggregated_segment);
-				// Check in `on_initialize` guarantees there's space for this block.
-				UnincludedSegment::<T>::append(ancestor);
-			}
+			crate::relay_chain::messaging::update_unincluded_segment::<T>(
+				&outbound_messages,
+				ump_msg_count,
+				ump_total_bytes,
+				relay_upgrade_go_ahead,
+				vfp.relay_parent_number,
+				&total_bandwidth_out,
+			);
 
 			HrmpOutboundMessages::<T>::put(outbound_messages);
 		}
@@ -702,73 +482,50 @@ pub mod pallet {
 			} = data;
 
 			// Check that the associated relay chain block number is as expected.
-			T::CheckAssociatedRelayNumber::check_associated_relay_number(
+			crate::relay_chain::validation_data::check_associated_relay_number::<T>(
 				vfp.relay_parent_number,
-				LastRelayChainBlockNumber::<T>::get(),
 			);
 
-			// Relay parent offset validation:
-			// When V3 scheduling is disabled: validate relay_parent_descendants (old mechanism)
-			// When V3 scheduling is enabled: skip this validation, V3 scheduling validation
-			// happens in validate_block with header chain from PVF params
-			let expected_rp_descendants_num = T::RelayParentOffset::get();
-			let v3_enabled = T::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED;
-
-			// V3: reads are served by the `read_relay_chain_state` host function (live relay state
-			// while building, recorded proof on validation/import). V2 (no additional-data
-			// channel): reads are served from the fixed proof carried in the inherent, verified
+			// Reads are served from the fixed relay-state proof carried in the inherent, verified
 			// against `relay_parent_storage_root`.
-			let relay_state_proof = if v3_enabled {
-				RelayChainStateProof::new(T::SelfParaId::get())
-			} else {
-				RelayChainStateProof::from_inherent_proof(
-					T::SelfParaId::get(),
-					vfp.relay_parent_storage_root,
-					relay_chain_state,
-				)
-				.expect("Invalid relay chain state proof")
-			};
+			let relay_state_proof = crate::relay_chain::validation_data::relay_state_proof::<T>(
+				&vfp,
+				relay_chain_state,
+			);
 
-			if expected_rp_descendants_num > 0 && !v3_enabled {
-				if let Err(err) = descendant_validation::verify_relay_parent_descendants(
-					&relay_state_proof,
-					relay_parent_descendants,
-					vfp.relay_parent_storage_root,
-					expected_rp_descendants_num,
-				) {
-					panic!(
-						"Unable to verify provided relay parent descendants. \
-						expected_rp_descendants_num: {expected_rp_descendants_num} \
-						error: {err:?}"
-					);
-				};
-			}
+			crate::relay_chain::validation_data::verify_relay_parent_descendants::<T>(
+				&relay_state_proof,
+				relay_parent_descendants,
+				vfp.relay_parent_storage_root,
+			);
 
 			// Update the desired maximum capacity according to the consensus hook.
 			let (consensus_hook_weight, capacity) =
 				T::ConsensusHook::on_state_proof(&relay_state_proof);
 			total_weight += consensus_hook_weight;
-			total_weight += Self::maybe_drop_included_ancestors(&relay_state_proof, capacity);
+			total_weight += crate::relay_chain::maybe_drop_included_ancestors::<T>(
+				&relay_state_proof,
+				capacity,
+			);
 			// Deposit a log indicating the relay-parent storage root.
 			// TODO: remove this in favor of the relay-parent's hash after
 			// https://github.com/paritytech/cumulus/issues/303
-			frame_system::Pallet::<T>::deposit_log(
-				cumulus_primitives_core::rpsr_digest::relay_parent_storage_root_item(
-					vfp.relay_parent_storage_root,
-					vfp.relay_parent_number,
-				),
+			crate::relay_chain::validation_data::deposit_relay_parent_storage_root::<T>(
+				vfp.relay_parent_storage_root,
+				vfp.relay_parent_number,
 			);
 
 			// Initialization logic: we know that this runs exactly once every block,
 			// which means we can put the initialization logic here to remove the
 			// sequencing problem.
-			let upgrade_go_ahead_signal = relay_state_proof
-				.read_upgrade_go_ahead_signal()
-				.expect("Invalid upgrade go ahead signal");
+			let crate::relay_chain::validation_data::RelayStateReads {
+				upgrade_go_ahead_signal,
+				upgrade_signal_in_segment,
+				upgrade_restriction_signal,
+				host_config,
+				relevant_messaging_state,
+			} = crate::relay_chain::validation_data::read_relay_state::<T>(&relay_state_proof);
 
-			let upgrade_signal_in_segment = AggregatedUnincludedSegment::<T>::get()
-				.as_ref()
-				.and_then(SegmentTracker::consumed_go_ahead_signal);
 			if let Some(signal_in_segment) = upgrade_signal_in_segment.as_ref() {
 				// Unincluded ancestor consuming upgrade signal is still within the segment,
 				// sanity check that it matches with the signal from relay chain.
@@ -797,20 +554,8 @@ pub mod pallet {
 				},
 				None => {},
 			}
-			<UpgradeRestrictionSignal<T>>::put(
-				relay_state_proof
-					.read_upgrade_restriction_signal()
-					.expect("Invalid upgrade restriction signal"),
-			);
+			<UpgradeRestrictionSignal<T>>::put(upgrade_restriction_signal);
 			<UpgradeGoAhead<T>>::put(upgrade_go_ahead_signal);
-
-			let host_config = relay_state_proof
-				.read_abridged_host_configuration()
-				.expect("Invalid host configuration in relay chain state proof");
-
-			let relevant_messaging_state = relay_state_proof
-				.read_messaging_state_snapshot(&host_config)
-				.expect("Invalid messaging state in relay chain state proof");
 
 			<ValidationData<T>>::put(&vfp);
 			<RelevantMessagingState<T>>::put(relevant_messaging_state.clone());
@@ -1529,86 +1274,6 @@ impl<T: Config> Pallet<T> {
 		});
 	}
 
-	/// Drop blocks from the unincluded segment with respect to the latest parachain head.
-	fn maybe_drop_included_ancestors(
-		relay_state_proof: &RelayChainStateProof,
-		capacity: consensus_hook::UnincludedSegmentCapacity,
-	) -> Weight {
-		let mut weight_used = Weight::zero();
-		// If the unincluded segment length is nonzero, then the parachain head must be present.
-		let para_head =
-			relay_state_proof.read_included_para_head().ok().map(|h| T::Hashing::hash(&h.0));
-
-		let unincluded_segment_len = <UnincludedSegment<T>>::decode_len().unwrap_or(0);
-		weight_used += T::DbWeight::get().reads(1);
-
-		// Clean up unincluded segment if nonempty.
-		let included_head = match (para_head, capacity.is_expecting_included_parent()) {
-			(Some(h), true) => {
-				assert_eq!(
-					h,
-					frame_system::Pallet::<T>::parent_hash(),
-					"expected parent to be included"
-				);
-
-				h
-			},
-			(Some(h), false) => h,
-			(None, true) => {
-				// All this logic is essentially a workaround to support collators which
-				// might still not provide the included block with the state proof.
-				frame_system::Pallet::<T>::parent_hash()
-			},
-			(None, false) => panic!("included head not present in relay storage proof"),
-		};
-
-		let new_len = {
-			let para_head_hash = included_head;
-			let dropped: Vec<Ancestor<T::Hash>> = <UnincludedSegment<T>>::mutate(|chain| {
-				// Drop everything up to (inclusive) the block with an included para head, if
-				// present.
-				let idx = chain
-					.iter()
-					.position(|block| {
-						let head_hash = block
-							.para_head_hash()
-							.expect("para head hash is updated during block initialization; qed");
-						head_hash == &para_head_hash
-					})
-					.map_or(0, |idx| idx + 1); // inclusive.
-
-				chain.drain(..idx).collect()
-			});
-			weight_used += T::DbWeight::get().reads_writes(1, 1);
-
-			let new_len = unincluded_segment_len - dropped.len();
-			if !dropped.is_empty() {
-				<AggregatedUnincludedSegment<T>>::mutate(|agg| {
-					let agg = agg.as_mut().expect(
-						"dropped part of the segment wasn't empty, hence value exists; qed",
-					);
-					for block in dropped {
-						agg.subtract(&block);
-					}
-				});
-				weight_used += T::DbWeight::get().reads_writes(1, 1);
-			}
-
-			new_len as u32
-		};
-
-		// Current block validity check: ensure there is space in the unincluded segment.
-		//
-		// If this fails, the parachain needs to wait for ancestors to be included before
-		// a new block is allowed.
-		assert!(
-			new_len < capacity.get(),
-			"No space left for the block in the unincluded segment: new_len({new_len}) < capacity({})",
-			capacity.get()
-		);
-		weight_used
-	}
-
 	/// This adjusts the `RelevantMessagingState` according to the bandwidth limits in the
 	/// unincluded segment.
 	// Reads: 2
@@ -1718,26 +1383,6 @@ impl<T: Config> Pallet<T> {
 	/// your Parachain.
 	pub fn set_custom_validation_head_data(head_data: Vec<u8>) {
 		CustomValidationHeadData::<T>::put(head_data);
-	}
-
-	/// Send the pending ump signals
-	fn send_ump_signals(core_info: Option<CoreInfo>) {
-		let mut ump_signals = PendingUpwardSignals::<T>::take();
-
-		if let Some(core_info) = core_info {
-			ump_signals.push(
-				UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset).encode(),
-			);
-		}
-
-		if let Some(approved_peer) = PendingApprovedPeer::<T>::take() {
-			ump_signals.push(UMPSignal::ApprovedPeer(approved_peer).encode());
-		}
-
-		if !ump_signals.is_empty() {
-			UpwardMessages::<T>::append(UMP_SEPARATOR);
-			ump_signals.into_iter().for_each(|s| UpwardMessages::<T>::append(s));
-		}
 	}
 
 	/// Open HRMP channel for using it in benchmarks or tests.
@@ -1956,136 +1601,5 @@ impl<T: Config> polkadot_runtime_parachains::EnsureForParachain for Pallet<T> {
 		if let ChannelStatus::Closed = Self::get_channel_status(para_id) {
 			Self::open_outbound_hrmp_channel_for_benchmarks_or_tests(para_id)
 		}
-	}
-}
-
-/// Something that should be informed about system related events.
-///
-/// This includes events like [`on_validation_data`](Self::on_validation_data) that is being
-/// called when the parachain inherent is executed that contains the validation data.
-/// Or like [`on_validation_code_applied`](Self::on_validation_code_applied) that is called
-/// when the new validation is written to the state. This means that
-/// from the next block the runtime is being using this new code.
-pub trait OnSystemEvent {
-	/// Called in each blocks once when the validation data is set by the inherent.
-	fn on_validation_data(data: &PersistedValidationData);
-	/// Called when the validation code is being applied, aka from the next block on this is the new
-	/// runtime.
-	fn on_validation_code_applied();
-	/// Called to process keys from the verified relay chain state proof.
-	fn on_relay_state_proof(
-		relay_state_proof: &relay_state_snapshot::RelayChainStateProof,
-	) -> Weight;
-}
-
-#[impl_trait_for_tuples::impl_for_tuples(30)]
-impl OnSystemEvent for Tuple {
-	fn on_validation_data(data: &PersistedValidationData) {
-		for_tuples!( #( Tuple::on_validation_data(data); )* );
-	}
-
-	fn on_validation_code_applied() {
-		for_tuples!( #( Tuple::on_validation_code_applied(); )* );
-	}
-
-	fn on_relay_state_proof(
-		relay_state_proof: &relay_state_snapshot::RelayChainStateProof,
-	) -> Weight {
-		let mut weight = Weight::zero();
-		for_tuples!( #( weight = weight.saturating_add(Tuple::on_relay_state_proof(relay_state_proof)); )* );
-		weight
-	}
-}
-
-/// Holds the most recent relay-parent state root and block number of the current parachain block.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, TypeInfo, Default, Debug)]
-pub struct RelayChainState {
-	/// Current relay chain height.
-	pub number: relay_chain::BlockNumber,
-	/// State root for current relay chain height.
-	pub state_root: relay_chain::Hash,
-}
-
-/// This exposes the [`RelayChainState`] to other runtime modules.
-///
-/// Enables parachains to read relay chain state via state proofs.
-pub trait RelaychainStateProvider {
-	/// May be called by any runtime module to obtain the current state of the relay chain.
-	///
-	/// **NOTE**: This is not guaranteed to return monotonically increasing relay parents.
-	fn current_relay_chain_state() -> RelayChainState;
-
-	/// Utility function only to be used in benchmarking scenarios, to be implemented optionally,
-	/// else a noop.
-	///
-	/// It allows for setting a custom RelayChainState.
-	#[cfg(feature = "runtime-benchmarks")]
-	fn set_current_relay_chain_state(_state: RelayChainState) {}
-}
-
-/// Implements [`BlockNumberProvider`] that returns relay chain block number fetched from validation
-/// data.
-///
-/// When validation data is not available (e.g. within `on_initialize`), it will fallback to use
-/// [`Pallet::last_relay_block_number()`].
-///
-/// Implements [`BlockNumberProvider`] and [`RelaychainStateProvider`] that returns relevant relay
-/// data fetched from validation data.
-///
-/// NOTE: When validation data is not available (e.g. within `on_initialize`):
-///
-/// - [`current_relay_chain_state`](Self::current_relay_chain_state): Will return the default value
-///   of [`RelayChainState`].
-/// - [`current_block_number`](Self::current_block_number): Will return
-///   [`Pallet::last_relay_block_number()`].
-pub struct RelaychainDataProvider<T>(core::marker::PhantomData<T>);
-
-impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
-	type BlockNumber = relay_chain::BlockNumber;
-
-	fn current_block_number() -> relay_chain::BlockNumber {
-		ValidationData::<T>::get()
-			.map(|d| d.relay_parent_number)
-			.unwrap_or_else(|| Pallet::<T>::last_relay_block_number())
-	}
-
-	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
-	fn set_block_number(block: Self::BlockNumber) {
-		let mut validation_data = ValidationData::<T>::get().unwrap_or_else(||
-			// PersistedValidationData does not impl default in non-std
-			PersistedValidationData {
-				parent_head: vec![].into(),
-				relay_parent_number: Default::default(),
-				max_pov_size: Default::default(),
-				relay_parent_storage_root: Default::default(),
-			});
-		validation_data.relay_parent_number = block;
-		ValidationData::<T>::put(validation_data)
-	}
-}
-
-impl<T: Config> RelaychainStateProvider for RelaychainDataProvider<T> {
-	fn current_relay_chain_state() -> RelayChainState {
-		ValidationData::<T>::get()
-			.map(|d| RelayChainState {
-				number: d.relay_parent_number,
-				state_root: d.relay_parent_storage_root,
-			})
-			.unwrap_or_default()
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn set_current_relay_chain_state(state: RelayChainState) {
-		let mut validation_data = ValidationData::<T>::get().unwrap_or_else(||
-			// PersistedValidationData does not impl default in non-std
-			PersistedValidationData {
-				parent_head: vec![].into(),
-				relay_parent_number: Default::default(),
-				max_pov_size: Default::default(),
-				relay_parent_storage_root: Default::default(),
-			});
-		validation_data.relay_parent_number = state.number;
-		validation_data.relay_parent_storage_root = state.state_root;
-		ValidationData::<T>::put(validation_data)
 	}
 }

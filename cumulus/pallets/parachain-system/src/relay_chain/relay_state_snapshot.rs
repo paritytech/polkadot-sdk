@@ -119,32 +119,15 @@ type RelayStateBackend =
 
 /// Reader for the relay chain state.
 ///
-/// Serves reads one of two ways, chosen at construction:
-///
-/// - **Dynamic (V3):** [`new`](Self::new) — every read goes through the `read_relay_chain_state`
-///   host function. On block building it reads the live relay state and records a minimal proof
-///   into the block's additional data; on validation/import it reads back from — and is verified
-///   against — that recorded proof. Requires the `AdditionalDataExt` externalities extension (the
-///   host function panics otherwise, as the read is consensus-critical).
-///
-/// - **Fixed inherent proof (legacy V2):** [`from_inherent_proof`](Self::from_inherent_proof) —
-///   reads are served from a fixed relay-state proof carried in the parachain inherent, verified
-///   against `relay_parent_storage_root`. Used by parachains that have not enabled V3 scheduling,
-///   where the additional-data channel (and its V3 candidate) is unavailable.
+/// Serves reads from a fixed relay-state proof carried in the parachain inherent (the legacy V2
+/// path), verified against `relay_parent_storage_root`.
 pub struct RelayChainStateProof {
 	para_id: ParaId,
-	/// `None` => read dynamically via the host function (V3); `Some` => read from the fixed
-	/// inherent-carried proof (legacy V2).
-	backend: Option<RelayStateBackend>,
+	/// The fixed inherent-carried proof backend (legacy V2).
+	backend: RelayStateBackend,
 }
 
 impl RelayChainStateProof {
-	/// Create a reader that serves reads dynamically via the `read_relay_chain_state` host
-	/// function (V3 scheduling).
-	pub fn new(para_id: ParaId) -> Self {
-		Self { para_id, backend: None }
-	}
-
 	/// Create a reader backed by a fixed relay-state `proof` carried in the parachain inherent
 	/// (legacy V2 path), verified against `relay_parent_storage_root`.
 	///
@@ -159,19 +142,13 @@ impl RelayChainStateProof {
 			return Err(Error::RootMismatch);
 		}
 		let backend = TrieBackendBuilder::new(db, relay_parent_storage_root).build();
-		Ok(Self { para_id, backend: Some(backend) })
+		Ok(Self { para_id, backend })
 	}
 
-	/// Read the raw stored bytes under `key`. Served from the fixed inherent proof when present
-	/// (V2), otherwise via the `read_relay_chain_state` host function (V3). `Ok(None)` for a
-	/// (proven) absent key.
+	/// Read the raw stored bytes under `key`, served from the fixed inherent proof (V2).
+	/// `Ok(None)` for a (proven) absent key.
 	fn read_raw_inner(&self, key: &[u8]) -> Result<Option<Vec<u8>>, ReadEntryErr> {
-		match &self.backend {
-			Some(backend) => backend.storage(key).map_err(|_| ReadEntryErr::Proof),
-			None => Ok(
-				cumulus_primitives_additional_data::relay_chain_state::read_relay_chain_state(key),
-			),
-		}
+		self.backend.storage(key).map_err(|_| ReadEntryErr::Proof)
 	}
 
 	/// Read an entry and try to decode it, falling back to `fallback` when the key is (provably)

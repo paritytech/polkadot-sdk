@@ -16,8 +16,6 @@
 
 use crate::{validate_block::MemoryOptimizedValidationParams, *};
 use codec::{Decode, DecodeAll, Encode};
-use cumulus_client_additional_data::VerifyingAdditionalDataProvider;
-use cumulus_primitives_additional_data::RelayStateExt;
 use cumulus_primitives_core::{
 	relay_chain,
 	relay_chain::{UMPSignal, UMP_SEPARATOR},
@@ -39,7 +37,7 @@ use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use polkadot_parachain_primitives::primitives::ValidationResult;
 use rstest::rstest;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
-use sp_additional_data::{AdditionalData, AdditionalDataExt, AdditionalDataFinalizer};
+use sp_additional_data::AdditionalData;
 use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_consensus_babe::SlotDuration;
 use sp_core::{Hasher, H256};
@@ -170,28 +168,8 @@ fn call_validate_block_v3_in(
 		.map(|v| Header::decode(&mut &v.head_data.0[..]).expect("Decodes `Header`."))
 }
 
-/// Call `validate_block` in the runtime with V3 scheduling activated (the `v3-descriptor` feature).
-///
-/// V3 is what enables the dynamic `read_relay_chain_state` / additional-data channel; the default
-/// runtime reads relay state from the fixed inherent proof instead, so the additional-data tests
-/// must run against this variant.
-fn call_validate_block_v3(
-	parent_head: Header,
-	block_data: ParachainBlockData<Block>,
-	relay_parent_storage_root: Hash,
-) -> cumulus_test_client::ExecutorResult<Header> {
-	call_validate_block_v3_in(
-		test_runtime::v3::WASM_BINARY
-			.expect("You need to build the WASM binaries to run the tests!"),
-		parent_head,
-		block_data,
-		relay_parent_storage_root,
-	)
-}
-
-/// Like [`call_validate_block_v3`], but against the `elastic_scaling_v3` runtime (V3 scheduling
-/// plus block bundling / velocity), so a single PoV can carry several V3 blocks. Used by the
-/// multi-block additional-data tests.
+/// Call `validate_block` in the `elastic_scaling_v3` runtime (V3 scheduling plus block bundling /
+/// velocity), so a single PoV can carry several V3 blocks. Used by the multi-block V3 tests.
 fn call_validate_block_elastic_scaling_v3(
 	parent_head: Header,
 	block_data: ParachainBlockData<Block>,
@@ -245,27 +223,6 @@ fn create_elastic_scaling_v3_test_client() -> (Client, Header) {
 	let mut builder = TestClientBuilder::new();
 	builder.genesis_init_mut().wasm = Some(
 		test_runtime::elastic_scaling_v3::WASM_BINARY
-			.expect("You need to build the WASM binaries to run the tests!")
-			.to_vec(),
-	);
-	let client = builder.enable_import_proof_recording().build();
-
-	let genesis_header = client
-		.header(client.chain_info().genesis_hash)
-		.ok()
-		.flatten()
-		.expect("Genesis header exists; qed");
-
-	(client, genesis_header)
-}
-
-/// Create test client using the runtime with V3 scheduling enabled (the `v3-descriptor` feature),
-/// so `set_validation_data` reads relay state via the `read_relay_chain_state` host function and
-/// records it into the block's additional data. Required by the additional-data channel tests.
-fn create_v3_test_client() -> (Client, Header) {
-	let mut builder = TestClientBuilder::new();
-	builder.genesis_init_mut().wasm = Some(
-		test_runtime::v3::WASM_BINARY
 			.expect("You need to build the WASM binaries to run the tests!")
 			.to_vec(),
 	);
@@ -404,24 +361,6 @@ fn build_multiple_blocks_with_witness(
 			let proof_recorder = ProofRecorder::<Block>::with_ignored_nodes(ignored_nodes.clone());
 			api.record_proof_with_recorder(proof_recorder.clone());
 			api.register_extension(ProofSizeExt::new(proof_recorder));
-			// Serve `read_relay_chain_state` from the recorded proof for this re-execution, and
-			// register a finalizer sharing the same recorder for the additional-data digest.
-			if let Some(ref map) = additional_data {
-				let provider = std::sync::Arc::new(
-					VerifyingAdditionalDataProvider::<sp_runtime::traits::BlakeTwo256>::from_map(
-						map.clone(),
-					)
-					.expect("valid relay-proof map"),
-				);
-				api.register_extension(RelayStateExt(Box::new(provider.clone())));
-				api.register_extension(AdditionalDataExt(
-					[(
-						cumulus_primitives_additional_data::RELAY_PROOF_KEY.to_string(),
-						Box::new(provider) as Box<dyn AdditionalDataFinalizer>,
-					)]
-					.into(),
-				));
-			}
 			api.execute_block(parent_hash, pop_seal(built_block.block.clone()).into())
 				.unwrap();
 
@@ -760,26 +699,16 @@ fn validate_block_invalid_parent_hash() {
 	}
 }
 
-/// A candidate validated against the wrong `relay_parent_storage_root` must be rejected — on both
-/// the **V2** path (the fixed relay-state proof carried in the inherent) and the **V3** path (the
-/// dynamic relay-read proof recorded in the additional data). Parameterized so we keep coverage of
-/// the V2 inherent path alongside V3; the two paths reject with different messages, so each case
-/// carries the client, the matching `validate_block` caller and its expected rejection message.
-///
-/// The rejection is a runtime panic, whose message reaches only the process' stderr, so — like the
-/// other `validate_block` failure tests — we re-run the test binary in a subprocess (`RUN_TEST=1`)
-/// and assert on its stderr. The subprocess filter is the base test name, so both cases run under
-/// it and both messages land in the combined stderr; each case asserts its own.
+/// A candidate validated against the wrong `relay_parent_storage_root` must be rejected: the fixed
+/// relay-state proof carried in the inherent fails to verify against it (the V2 path), and
+/// validation panics. The panic message reaches only the process' stderr, so — like the other
+/// `validate_block` failure tests — we re-run the test binary in a subprocess (`RUN_TEST=1`) and
+/// assert on its stderr.
 #[rstest]
 #[case::v2_inherent(
 	create_test_client,
 	call_validate_block,
 	"Relay parent storage root doesn't match"
-)]
-#[case::v3_additional_data(
-	create_v3_test_client,
-	call_validate_block_v3,
-	"additional data proof must verify against relay_parent_storage_root"
 )]
 fn validate_block_fails_on_invalid_validation_data(
 	#[case] make_client: fn() -> (Client, Header),
@@ -871,8 +800,6 @@ fn validate_block_works_with_child_tries() {
 	import.body = Some(extrinsics);
 	import.post_digests.push(seal);
 	import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
-	// Carry the recorded relay-read proof so the executing import can serve
-	// `read_relay_chain_state`.
 	import.additional_data = block.additional_data().first().cloned().flatten();
 
 	futures::executor::block_on(BlockImport::import_block(&client, import)).unwrap();
@@ -1726,267 +1653,8 @@ fn dummy_scheduling_proof() -> SchedulingProof {
 	}
 }
 
-/// Build a single-block candidate. Every block reads relay state during `set_validation_data`, so
-/// the candidate carries the recorded relay-read proof in `ParachainBlockData::V3.additional_data`
-/// and the header commits its hash via `DigestItem::AdditionalData`. Returns the candidate, its
-/// validation data (carrying the trusted `relay_parent_storage_root`), and the committed blob.
-fn build_v3_with_runtime_relay_read(
-	client: &Client,
-	parent_head: Header,
-) -> (ParachainBlockData<Block>, PersistedValidationData, AdditionalData) {
-	let TestBlockData { block, validation_data } = build_block_with_witness(
-		client,
-		Vec::new(),
-		parent_head,
-		Default::default(),
-		Default::default(),
-	);
-	let blob = block.additional_data()[0]
-		.clone()
-		.expect("every block reads relay state during set_validation_data; qed");
-	(block, validation_data, blob)
-}
-
-#[test]
-fn validate_block_v3_with_additional_data_succeeds() {
-	sp_tracing::try_init_simple();
-
-	let (client, parent_head) = create_v3_test_client();
-	let (block, validation_data, _blob) =
-		build_v3_with_runtime_relay_read(&client, parent_head.clone());
-	let header = block.blocks()[0].header().clone();
-	let res_header =
-		call_validate_block_v3(parent_head, block, validation_data.relay_parent_storage_root)
-			.expect("V3 block with correct additional data must validate");
-	assert_eq!(header, res_header);
-}
-
-#[test]
-fn validate_block_v3_tampered_additional_data_fails() {
-	sp_tracing::try_init_simple();
-
-	if env::var("RUN_TEST").is_ok() {
-		let (client, parent_head) = create_v3_test_client();
-		let (mut block, validation_data, _blob) =
-			build_v3_with_runtime_relay_read(&client, parent_head.clone());
-		if let ParachainBlockData::V3 { ref mut additional_data, .. } = block {
-			additional_data[0] = Some(AdditionalData::from([(
-				cumulus_primitives_additional_data::RELAY_PROOF_KEY.to_string(),
-				vec![0u8; 32],
-			)]));
-		}
-		call_validate_block_v3(parent_head, block, validation_data.relay_parent_storage_root)
-			.unwrap_err();
-	} else {
-		let output = Command::new(env::current_exe().unwrap())
-			.args(["validate_block_v3_tampered_additional_data_fails", "--", "--nocapture"])
-			.env("RUN_TEST", "1")
-			.output()
-			.expect("Runs the test");
-		assert!(output.status.success());
-		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
-			.contains("relay-proof entry must decode as (root, proof)"));
-	}
-}
-
-#[test]
-fn validate_block_v3_additional_data_digest_without_data_fails() {
-	sp_tracing::try_init_simple();
-
-	if env::var("RUN_TEST").is_ok() {
-		let (client, parent_head) = create_v3_test_client();
-		let (block, validation_data, _blob) =
-			build_v3_with_runtime_relay_read(&client, parent_head.clone());
-		let (blocks, proof) = block.into_inner();
-		let v3 = ParachainBlockData::V3 {
-			blocks,
-			proof,
-			scheduling_proof: dummy_scheduling_proof(),
-			additional_data: vec![None],
-		};
-		call_validate_block_v3(parent_head, v3, validation_data.relay_parent_storage_root)
-			.unwrap_err();
-	} else {
-		let output = Command::new(env::current_exe().unwrap())
-			.args([
-				"validate_block_v3_additional_data_digest_without_data_fails",
-				"--",
-				"--nocapture",
-			])
-			.env("RUN_TEST", "1")
-			.output()
-			.expect("Runs the test");
-		assert!(output.status.success());
-		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
-			.contains("header has AdditionalData digest but no additional data provided"));
-	}
-}
-
-#[test]
-fn validate_block_v3_additional_data_without_digest_fails() {
-	sp_tracing::try_init_simple();
-
-	if env::var("RUN_TEST").is_ok() {
-		let (client, parent_head) = create_v3_test_client();
-		let (block, validation_data, _blob) =
-			build_v3_with_runtime_relay_read(&client, parent_head.clone());
-		let (mut blocks, proof) = block.into_inner();
-		// Strip the committing `AdditionalData` digest from the header, but still carry an
-		// additional-data item — this malformed candidate must be rejected.
-		blocks[0].header.digest.logs.retain(|item| item.as_additional_data().is_none());
-		let v3 = ParachainBlockData::V3 {
-			blocks,
-			proof,
-			scheduling_proof: dummy_scheduling_proof(),
-			additional_data: vec![Some(AdditionalData::from([(
-				cumulus_primitives_additional_data::RELAY_PROOF_KEY.to_string(),
-				vec![1u8, 2, 3],
-			)]))],
-		};
-		call_validate_block_v3(parent_head, v3, validation_data.relay_parent_storage_root)
-			.unwrap_err();
-	} else {
-		let output = Command::new(env::current_exe().unwrap())
-			.args(["validate_block_v3_additional_data_without_digest_fails", "--", "--nocapture"])
-			.env("RUN_TEST", "1")
-			.output()
-			.expect("Runs the test");
-		assert!(output.status.success());
-		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
-			.contains("additional data present but header digest missing AdditionalData item"));
-	}
-}
-
-/// Decode the `(root, StorageProof)` the runtime recorded under [`RELAY_PROOF_KEY`] in `blob`.
-fn decode_relay_proof(blob: &AdditionalData) -> (Hash, StorageProof) {
-	<(Hash, StorageProof)>::decode(
-		&mut &blob
-			.get(cumulus_primitives_additional_data::RELAY_PROOF_KEY)
-			.expect("relay-read blob carries the relay-proof entry")[..],
-	)
-	.expect("relay-proof entry decodes as (root, proof)")
-}
-
-/// An [`AdditionalData`] map carrying `(root, proof)` under [`RELAY_PROOF_KEY`].
-fn relay_proof_map(root: Hash, proof: StorageProof) -> AdditionalData {
-	AdditionalData::from([(
-		cumulus_primitives_additional_data::RELAY_PROOF_KEY.to_string(),
-		(root, proof).encode(),
-	)])
-}
-
-/// Rebuild a single-block `V3` candidate carrying `new_map` as its additional data: rewrite the
-/// header's `AdditionalData` digest to the fold of `new_map`'s per-entry commitments and re-seal,
-/// so the candidate stays *self-consistent* — its header digest matches what re-execution
-/// recomputes from the carried data, so it reaches the deeper proof-verification layers instead of
-/// being rejected by `frame_executive`'s digest equality check.
-fn reseal_v3_with_additional_data(
-	client: &Client,
-	block: ParachainBlockData<Block>,
-	new_map: AdditionalData,
-) -> ParachainBlockData<Block> {
-	let (mut blocks, proof) = block.into_inner();
-	let mut inner = pop_seal(blocks[0].clone());
-	let new_digest = DigestItem::AdditionalData(
-		sp_additional_data::hash_commitments(
-			new_map.values().map(|v| sp_additional_data::hash_value(v)),
-		)
-		.expect("new_map is non-empty; qed"),
-	);
-	for item in inner.header.digest.logs.iter_mut() {
-		if item.as_additional_data().is_some() {
-			*item = new_digest.clone();
-		}
-	}
-	blocks[0] = seal_block(inner, client);
-	ParachainBlockData::V3 {
-		blocks,
-		proof,
-		scheduling_proof: dummy_scheduling_proof(),
-		additional_data: vec![Some(new_map)],
-	}
-}
-
-/// A V3 candidate whose relay-read proof is missing nodes needed for the reads the runtime performs
-/// must be rejected. Keeping only the root node still lets the proof verify against the trusted
-/// `relay_parent_storage_root` (`AdditionalDataReader::new` succeeds), but any relay read that
-/// needs a child node hits a missing node — the PVF must reject the candidate, not silently serve
-/// `None` (which would let a collator suppress a value by omitting its proof nodes, consistently on
-/// build and validate, so re-execution wouldn't catch it).
-#[test]
-fn validate_block_v3_incomplete_relay_proof_fails() {
-	sp_tracing::try_init_simple();
-
-	if env::var("RUN_TEST").is_ok() {
-		let (client, parent_head) = create_v3_test_client();
-		let (block, validation_data, blob) =
-			build_v3_with_runtime_relay_read(&client, parent_head.clone());
-
-		let (root, proof) = decode_relay_proof(&blob);
-		let root_only = StorageProof::new(
-			proof
-				.iter_nodes()
-				.filter(|n| BlakeTwo256::hash(n.as_slice()) == root)
-				.cloned()
-				.collect::<Vec<_>>(),
-		);
-		let corrupted =
-			reseal_v3_with_additional_data(&client, block, relay_proof_map(root, root_only));
-
-		call_validate_block_v3(parent_head, corrupted, validation_data.relay_parent_storage_root)
-			.unwrap_err();
-	} else {
-		let output = Command::new(env::current_exe().unwrap())
-			.args(["validate_block_v3_incomplete_relay_proof_fails", "--", "--nocapture"])
-			.env("RUN_TEST", "1")
-			.output()
-			.expect("Runs the test");
-		assert!(output.status.success());
-		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
-			.contains("candidate omitted required nodes"));
-	}
-}
-
-/// A V3 candidate whose relay-read proof carries *extra*, unread nodes must be rejected. All the
-/// real reads still succeed, but the PVF re-records only the nodes actually touched, so the hash it
-/// commits at `finalize` is of the minimal proof and no longer matches the digest of the bloated
-/// blob the candidate carries — `frame_executive`'s digest-item equality rejects it. This enforces
-/// that a candidate carries *exactly* the proof nodes it read (no PoV bloat).
-#[test]
-fn validate_block_v3_unused_relay_proof_nodes_fail() {
-	sp_tracing::try_init_simple();
-
-	if env::var("RUN_TEST").is_ok() {
-		let (client, parent_head) = create_v3_test_client();
-		let (block, validation_data, blob) =
-			build_v3_with_runtime_relay_read(&client, parent_head.clone());
-
-		let (root, proof) = decode_relay_proof(&blob);
-		let mut nodes: Vec<Vec<u8>> = proof.iter_nodes().cloned().collect();
-		// An extra node the runtime never reads (its exact bytes are irrelevant; it is never looked
-		// up on any read path — it only bloats the carried proof).
-		nodes.push(vec![0xABu8; 64]);
-		let bloated = StorageProof::new(nodes);
-		let corrupted =
-			reseal_v3_with_additional_data(&client, block, relay_proof_map(root, bloated));
-
-		call_validate_block_v3(parent_head, corrupted, validation_data.relay_parent_storage_root)
-			.unwrap_err();
-	} else {
-		let output = Command::new(env::current_exe().unwrap())
-			.args(["validate_block_v3_unused_relay_proof_nodes_fail", "--", "--nocapture"])
-			.env("RUN_TEST", "1")
-			.output()
-			.expect("Runs the test");
-		assert!(output.status.success());
-		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
-			.contains("Digest item must match that calculated"));
-	}
-}
-
 /// Build a multi-block `V3` candidate: `num_blocks` bundled blocks on the `elastic_scaling_v3`
-/// runtime, each of which reads relay state during `set_validation_data` and therefore carries its
-/// own additional-data blob.
+/// runtime.
 fn build_v3_block_bundle(client: &Client, parent_head: Header, num_blocks: u32) -> TestBlockData {
 	build_multiple_blocks_with_witness(
 		client,
@@ -2005,8 +1673,8 @@ fn build_v3_block_bundle(client: &Client, parent_head: Header, num_blocks: u32) 
 	)
 }
 
-/// A multi-block `V3` candidate whose every bundled block dynamically read relay state validates,
-/// and each block carries its own additional-data blob (one entry per block).
+/// A multi-block `V3` candidate (each bundled block carrying its own additional-data entry)
+/// validates.
 #[test]
 fn validate_block_v3_multiple_blocks_succeeds() {
 	sp_tracing::try_init_simple();
@@ -2017,10 +1685,6 @@ fn validate_block_v3_multiple_blocks_succeeds() {
 		build_v3_block_bundle(&client, parent_head.clone(), num_blocks);
 
 	assert_eq!(block.additional_data().len(), num_blocks as usize);
-	assert!(
-		block.additional_data().iter().all(|d| d.is_some()),
-		"every V3 block in the bundle carries its own additional data"
-	);
 
 	let header = block.blocks().last().unwrap().header().clone();
 	let res_header = call_validate_block_elastic_scaling_v3(
@@ -2028,7 +1692,7 @@ fn validate_block_v3_multiple_blocks_succeeds() {
 		block,
 		validation_data.relay_parent_storage_root,
 	)
-	.expect("multi-block V3 candidate with correct additional data validates");
+	.expect("multi-block V3 candidate validates");
 	assert_eq!(header, res_header);
 }
 
@@ -2069,52 +1733,5 @@ fn validate_block_v3_additional_data_length_mismatch_fails() {
 		assert!(output.status.success());
 		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
 			.contains("additional data vector length does not match the number of blocks"));
-	}
-}
-
-/// The per-block additional-data integrity check must run for *every* block, not just the first.
-/// Corrupting only the second block's blob (leaving its header digest intact) must be caught by the
-/// integrity check as the validation loop reaches that block.
-#[test]
-fn validate_block_v3_malformed_additional_data_in_second_block_fails() {
-	sp_tracing::try_init_simple();
-
-	if env::var("RUN_TEST").is_ok() {
-		let num_blocks = 2u32;
-		let (client, parent_head) = create_elastic_scaling_v3_test_client();
-		let TestBlockData { block, validation_data } =
-			build_v3_block_bundle(&client, parent_head.clone(), num_blocks);
-
-		let mut additional_data = block.additional_data().to_vec();
-		additional_data[1] = Some(AdditionalData::from([(
-			cumulus_primitives_additional_data::RELAY_PROOF_KEY.to_string(),
-			vec![0u8; 32],
-		)]));
-		let (blocks, proof) = block.into_inner();
-		let v3 = ParachainBlockData::V3 {
-			blocks,
-			proof,
-			scheduling_proof: dummy_scheduling_proof(),
-			additional_data,
-		};
-		call_validate_block_elastic_scaling_v3(
-			parent_head,
-			v3,
-			validation_data.relay_parent_storage_root,
-		)
-		.unwrap_err();
-	} else {
-		let output = Command::new(env::current_exe().unwrap())
-			.args([
-				"validate_block_v3_malformed_additional_data_in_second_block_fails",
-				"--",
-				"--nocapture",
-			])
-			.env("RUN_TEST", "1")
-			.output()
-			.expect("Runs the test");
-		assert!(output.status.success());
-		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
-			.contains("relay-proof entry must decode as (root, proof)"));
 	}
 }

@@ -18,22 +18,16 @@
 
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
-pub mod additional_data_reader;
-#[cfg(not(feature = "std"))]
-#[doc(hidden)]
 pub(super) mod block_checks;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
 pub(super) mod child_storage_host_functions;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
-pub(super) mod host_functions;
+pub mod host_functions;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
-pub mod relay_chain_implementation;
-#[cfg(not(feature = "std"))]
-#[doc(hidden)]
-pub use relay_chain_implementation as implementation;
+pub use crate::relay_chain::relay_chain_implementation as implementation;
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]
 pub mod validate_block_core;
@@ -42,10 +36,6 @@ pub mod validate_block_core;
 #[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
 #[doc(hidden)]
 pub mod jam_implementation;
-
-#[cfg(any(test, not(feature = "std")))]
-#[doc(hidden)]
-pub mod scheduling;
 
 #[cfg(test)]
 mod tests;

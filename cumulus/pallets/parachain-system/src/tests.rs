@@ -17,7 +17,10 @@
 #![cfg(test)]
 
 use super::*;
-use crate::mock::*;
+use crate::{
+	mock::*,
+	relay_chain::{UMPSignal, UMP_SEPARATOR},
+};
 
 use alloc::collections::BTreeMap;
 use codec::{Decode, Encode};
@@ -1863,9 +1866,12 @@ fn read_included_para_head_reads_from_jam_state() {
 	// `new_test_ext` clears the mock stores, so seed them after building the externality.
 	let mut ext = new_test_ext();
 	set_mock_jam_reads(jam_reads);
+	let (root, relay_proof) = RelayStateSproofBuilder::default().into_state_root_and_proof();
 	ext.execute_with(|| {
-		let proof = RelayChainStateProof::new(ParaId::from(200));
-		assert_eq!(proof.read_included_para_head_jam().unwrap(), head);
+		let relay_state_proof =
+			RelayChainStateProof::from_inherent_proof(ParaId::from(200), root, relay_proof)
+				.expect("valid relay-state proof");
+		assert_eq!(relay_state_proof.read_included_para_head_jam().unwrap(), head);
 	});
 }
 
@@ -1879,9 +1885,10 @@ fn read_included_para_head_reads_from_relay_state() {
 
 	// `new_test_ext` clears the mock stores, so seed them after building the externality.
 	let mut ext = new_test_ext();
-	set_mock_relay_reads(root, proof);
 	ext.execute_with(|| {
-		let relay_state_proof = RelayChainStateProof::new(ParaId::from(200));
+		let relay_state_proof =
+			RelayChainStateProof::from_inherent_proof(ParaId::from(200), root, proof)
+				.expect("valid relay-state proof");
 		assert_eq!(relay_state_proof.read_included_para_head().unwrap(), head);
 	});
 }
@@ -1898,10 +1905,11 @@ fn read_included_para_head_jam_absent_key_falls_back_to_relay() {
 	// `new_test_ext` clears the mock stores, so seed them after building the externality.
 	let mut ext = new_test_ext();
 	set_mock_jam_reads(BTreeMap::new());
-	set_mock_relay_reads(root, proof);
 	ext.execute_with(|| {
-		let proof = RelayChainStateProof::new(ParaId::from(200));
-		assert_eq!(proof.read_included_para_head_jam().unwrap(), head);
+		let relay_state_proof =
+			RelayChainStateProof::from_inherent_proof(ParaId::from(200), root, proof)
+				.expect("valid relay-state proof");
+		assert_eq!(relay_state_proof.read_included_para_head_jam().unwrap(), head);
 	});
 }
 
@@ -1917,19 +1925,23 @@ fn read_included_para_head_jam_malformed_value_errors() {
 	// `new_test_ext` clears the mock stores, so seed them after building the externality.
 	let mut ext = new_test_ext();
 	set_mock_jam_reads(jam_reads);
+	let (root, relay_proof) = RelayStateSproofBuilder::default().into_state_root_and_proof();
 	ext.execute_with(|| {
-		let proof = RelayChainStateProof::new(ParaId::from(200));
+		let relay_state_proof =
+			RelayChainStateProof::from_inherent_proof(ParaId::from(200), root, relay_proof)
+				.expect("valid relay-state proof");
 		assert!(matches!(
-			proof.read_included_para_head_jam(),
-			Err(relay_state_snapshot::Error::ParaHead(relay_state_snapshot::ReadEntryErr::Decode))
+			relay_state_proof.read_included_para_head_jam(),
+			Err(relay_chain::relay_state_snapshot::Error::ParaHead(
+				relay_chain::relay_state_snapshot::ReadEntryErr::Decode
+			))
 		));
 	});
 }
 
 /// A JAM state trie for tests: builds the Gray-Paper binary-trie nodes for a set of key/value
-/// entries and can emit a proof for the whole trie. Independent merklization, mirroring the
-/// `Trie` helper in `cumulus-primitives-additional-data`'s `jam_proof.rs` tests (which pins the
-/// layout against polkajam's own trie).
+/// entries and can emit a proof for the whole trie. Independent merklization, pinning the layout
+/// against polkajam's own trie.
 struct JamTrie {
 	nodes: Vec<jam_helpers::ProofNode>,
 	root: jam_helpers::Hash,
@@ -2042,9 +2054,12 @@ fn read_included_para_head_reads_from_carried_jam_proof() {
 
 	let mut ext = new_test_ext();
 	ext.register_extension(JamStateExt(Box::new(reader)));
+	let (root, relay_proof) = RelayStateSproofBuilder::default().into_state_root_and_proof();
 	ext.execute_with(|| {
-		let proof = RelayChainStateProof::new(ParaId::from(200));
-		assert_eq!(proof.read_included_para_head_jam().unwrap(), head);
+		let relay_state_proof =
+			RelayChainStateProof::from_inherent_proof(ParaId::from(200), root, relay_proof)
+				.expect("valid relay-state proof");
+		assert_eq!(relay_state_proof.read_included_para_head_jam().unwrap(), head);
 	});
 }
 
@@ -2067,10 +2082,11 @@ fn read_included_para_head_jam_absent_in_carried_proof_falls_back_to_relay() {
 	// `new_test_ext` clears the mock stores, so seed them after building the externality.
 	let mut ext = new_test_ext();
 	ext.register_extension(JamStateExt(Box::new(reader)));
-	set_mock_relay_reads(relay_root, relay_proof);
 	ext.execute_with(|| {
-		let proof = RelayChainStateProof::new(ParaId::from(200));
-		assert_eq!(proof.read_included_para_head_jam().unwrap(), head);
+		let relay_state_proof =
+			RelayChainStateProof::from_inherent_proof(ParaId::from(200), relay_root, relay_proof)
+				.expect("valid relay-state proof");
+		assert_eq!(relay_state_proof.read_included_para_head_jam().unwrap(), head);
 	});
 }
 
@@ -2089,9 +2105,12 @@ fn read_included_para_head_jam_tampered_proof_panics() {
 
 	let mut ext = new_test_ext();
 	ext.register_extension(JamStateExt(Box::new(reader)));
+	let (root, relay_proof) = RelayStateSproofBuilder::default().into_state_root_and_proof();
 	ext.execute_with(|| {
-		let proof = RelayChainStateProof::new(ParaId::from(200));
-		let _ = proof.read_included_para_head_jam();
+		let relay_state_proof =
+			RelayChainStateProof::from_inherent_proof(ParaId::from(200), root, relay_proof)
+				.expect("valid relay-state proof");
+		let _ = relay_state_proof.read_included_para_head_jam();
 	});
 }
 
@@ -2133,10 +2152,13 @@ fn carried_jam_proof_finalizes_to_authored_digest() {
 		[(JAM_PROOF_KEY.to_string(), Box::new(finalizer) as Box<dyn AdditionalDataFinalizer>)]
 			.into(),
 	));
+	let (root, relay_proof) = RelayStateSproofBuilder::default().into_state_root_and_proof();
 	ext.execute_with(|| {
 		// The reader keeps serving the included head through `jam_state_read`.
-		let proof = RelayChainStateProof::new(ParaId::from(200));
-		assert_eq!(proof.read_included_para_head_jam().unwrap(), head);
+		let relay_state_proof =
+			RelayChainStateProof::from_inherent_proof(ParaId::from(200), root, relay_proof)
+				.expect("valid relay-state proof");
+		assert_eq!(relay_state_proof.read_included_para_head_jam().unwrap(), head);
 
 		// The finalizer commits the carried entry, and the registry fold — the same one
 		// `frame_executive::note_additional_data` performs — recomputes the authored digest.
