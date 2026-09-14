@@ -1,0 +1,9 @@
+title: 'statement-store: v2 DHT soak zombienet test behind a PR label'
+doc:
+- audience: Node Dev
+  description: 'Adds an on-demand zombienet soak of the statement store v2 DHT path:
+    a network sized nodes > replication_factor > gossip_target + 1 under continuous
+    load, asserting subscriber delivery, placement on exactly the K XOR-closest nodes,
+    and clean logs. Triggered by the GHA-statement-store PR label or a manual workflow
+    dispatch onto the zombienet k8s cluster; not part of the default per-PR matrix.'
+crates: []
