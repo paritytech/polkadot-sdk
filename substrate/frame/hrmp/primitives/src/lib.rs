@@ -278,6 +278,10 @@ pub enum MessageToRelayV1 {
 		para_id: ParaId,
 		/// The parachain's id for this message.
 		message_id: u64,
+		/// Upper bound on the para's inbound channels, checked against the relay chain's own.
+		num_inbound: u32,
+		/// Upper bound on the para's outbound channels, checked against the relay chain's own.
+		num_outbound: u32,
 	},
 	/// Deliver a channel notification to a para. Nothing is answered.
 	///
@@ -402,8 +406,12 @@ pub trait HrmpRegistry {
 	/// Close an open channel. `initiator` must be one of its two ends.
 	fn close_channel(channel: ChannelId, initiator: ParaId) -> Result<(), FailureReason>;
 
-	/// Drop every channel belonging to `para_id`.
-	fn force_clean(para_id: ParaId) -> Result<(), FailureReason>;
+	/// Drop every channel belonging to `para_id`, refusing a witness that does not cover them.
+	fn force_clean(
+		para_id: ParaId,
+		num_inbound: u32,
+		num_outbound: u32,
+	) -> Result<(), FailureReason>;
 
 	/// Whether there is a channel or a pending request for `channel`.
 	fn exists(channel: ChannelId) -> bool;

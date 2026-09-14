@@ -24,7 +24,7 @@ use crate::{mock::*, Error, Event};
 use frame_support::{assert_noop, assert_ok};
 use hrmp_primitives::{
 	ChannelId, FailureReason, HrmpRegistry, MessageToPara, MessageToParaV1, MessageToRelay,
-	MessageToRelayV1, ParaNotification, ParaRequest, ParaRequestV1,
+	MessageToRelayV1, ParaId, ParaNotification, ParaRequest, ParaRequestV1,
 };
 use sp_runtime::DispatchError;
 
@@ -246,6 +246,60 @@ fn a_refusing_notify_transport_does_not_undo_the_channel() {
 				Event::NotifyFailed { para_id: CHANNEL.sender },
 				Event::NotifyFailed { para_id: CHANNEL.recipient },
 			]
+		);
+	});
+}
+
+fn force_clean(para_id: ParaId, num_inbound: u32, num_outbound: u32) -> sp_runtime::DispatchResult {
+	Hrmp::receive(
+		RuntimeOrigin::root(),
+		MessageToRelay::V1(MessageToRelayV1::ForceClean {
+			para_id,
+			message_id: MESSAGE_ID,
+			num_inbound,
+			num_outbound,
+		}),
+	)
+}
+
+#[test]
+fn force_clean_drops_the_paras_channels() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(open_channel());
+		let _ = take_sent();
+		let _ = take_notified();
+		let _ = hrmp_events();
+
+		assert_ok!(force_clean(CHANNEL.sender, 1, 1));
+
+		assert!(!MockRegistry::exists(CHANNEL));
+		// Nothing is answered: the parachain has already dropped its own state.
+		assert!(take_sent().is_empty());
+		assert!(take_notified().is_empty());
+		assert_eq!(
+			hrmp_events(),
+			vec![Event::ChannelsCleaned { para_id: CHANNEL.sender, message_id: MESSAGE_ID }]
+		);
+	});
+}
+
+#[test]
+fn a_refused_force_clean_leaves_the_channels_alone() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(open_channel());
+		let _ = hrmp_events();
+
+		// The witness does not cover the one outbound channel the registry has.
+		assert_ok!(force_clean(CHANNEL.sender, 1, 0));
+
+		assert!(MockRegistry::exists(CHANNEL));
+		assert_eq!(
+			hrmp_events(),
+			vec![Event::ForceCleanRejected {
+				para_id: CHANNEL.sender,
+				message_id: MESSAGE_ID,
+				reason: FailureReason::Refused,
+			}]
 		);
 	});
 }
