@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789373489410,
+  "lastUpdate": 1789391246429,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -123875,6 +123875,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2590553422,
             "range": "± 28722182",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c208ccc5d3dfa7f7c0f63af6014e4e9edd366392",
+          "message": "asset-hub-westend: Remove PSM reset migration (#13137)\n\nRemoves the `RemovePallet<Psm>` and `RemovePallet<Parameters>`\nmigrations added in #12245 from the Westend Asset Hub runtime.\n\nBoth already ran on Westend Asset Hub (spec 1_025_000). Since\n`RemovePallet` runs on every upgrade, leaving them in would wipe any PSM\ncreated from now on.",
+          "timestamp": "2026-09-14T11:52:39Z",
+          "tree_id": "9215876ce0ba6bdc0f1f9978a8ac4d4be6d95ef5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c208ccc5d3dfa7f7c0f63af6014e4e9edd366392"
+        },
+        "date": 1789391211955,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20030336,
+            "range": "± 175793",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20107087,
+            "range": "± 132523",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21587654,
+            "range": "± 216240",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26412772,
+            "range": "± 180511",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58079398,
+            "range": "± 565755",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 329643613,
+            "range": "± 1671962",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2508090904,
+            "range": "± 83971928",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17084243,
+            "range": "± 134236",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17560282,
+            "range": "± 243791",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17581153,
+            "range": "± 150186",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22144682,
+            "range": "± 173681",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 60391209,
+            "range": "± 655619",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 345460027,
+            "range": "± 2789923",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2628421195,
+            "range": "± 17189401",
             "unit": "ns/iter"
           }
         ]
