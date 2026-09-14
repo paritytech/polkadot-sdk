@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789392497280,
+  "lastUpdate": 1789415922492,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1e793fe2670b8c3eacaded7d1ed4f3863e8123c1",
-          "message": "Fix link-checker job: I am not giving up (#11049)\n\nFollow up of https://github.com/paritytech/polkadot-sdk/pull/11038\n\nEven though the job passed in my last PR, I missed this broken link. So\nhere we go again.",
-          "timestamp": "2026-02-12T09:20:55Z",
-          "tree_id": "a499a9c85c9baffb696cb1c1657e470499bc573e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1e793fe2670b8c3eacaded7d1ed4f3863e8123c1"
-        },
-        "date": 1770892240737,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009669477979999981,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14601010599333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02324295162666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007001020046666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.00794023966,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "diego2737@gmail.com",
+            "name": "Diego",
+            "username": "dimartiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9769d37ca6cf296624956f7482dae96b875f4f1e",
+          "message": "network: Move the connected peers metric to the sync component (#12979)\n\n# Description\n\nCloses #5024\n\n`substrate_sub_libp2p_peers_count` was registered by `sc-network`,\nsourced from an `Arc<AtomicUsize>` that each backend kept updated purely\nso that metric could be published:\n\n- the libp2p backend stored `user_protocol().num_sync_peers()` into it\non every worker poll (`service.rs`),\n- the litep2p backend stored the block-announce peerset's\n`connected_peers` into it on every loop iteration (`litep2p/mod.rs`).\n\nBoth are syncing-level numbers, not networking ones — which is what\n@bkchr pointed out in\nhttps://github.com/paritytech/polkadot-sdk/pull/4942#discussion_r1669297505.\n\nThis moves the gauge to `sc-network-sync`, where `SyncingEngine` already\nmaintains an equivalent `num_connected` counter, and drops\n`connected_peers` from `sc-network`'s `MetricSources`. The metric keeps\nits name.\n\n## Review Notes\n\nThe gauge is now registered by `Metrics::register` in\n`sc-network-sync`'s `engine.rs`, next to `MajorSyncingGauge`, and fed\nthe `num_connected` counter the engine already owns:\n\n```diff\n impl Metrics {\n-     fn register(r: &Registry, major_syncing: Arc<AtomicBool>) -> Result<Self, PrometheusError> {\n+     fn register(\n+             r: &Registry,\n+             major_syncing: Arc<AtomicBool>,\n+             num_connected: Arc<AtomicUsize>,\n+     ) -> Result<Self, PrometheusError> {\n              MajorSyncingGauge::register(r, major_syncing)?;\n+             NumConnectedGauge::register(r, num_connected)?;\n```\n\nand correspondingly removed from `sc-network`:\n\n```diff\n pub struct MetricSources {\n      pub bandwidth: Arc<dyn BandwidthSink>,\n-     pub connected_peers: Arc<AtomicUsize>,\n }\n```\n\n**Test.** Added `num_connected_gauge_tracks_the_shared_counter` in\n`engine.rs`, asserting the gauge\nregisters under exactly `substrate_sub_libp2p_peers_count` and reads\nthrough to the live counter\nrather than a snapshot. Name stability is the whole contract of this\nchange, so it seemed worth\npinning.\n\n<details>\n<summary>Local verification</summary>\n\n- `cargo check -p sc-network -p sc-network-sync` — clean, no warnings\n- `cargo clippy -p sc-network -p sc-network-sync --all-targets` — no\nwarnings in either crate\n- `cargo test -p sc-network-sync --lib` — 94 passed, 0 failed\n- `cargo +nightly fmt --check` — clean\n\n</details>\n\nThe approach matches the earlier attempt in #11012, which was closed\nwithout review because its author never signed the CLA.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-09-14T18:26:09Z",
+          "tree_id": "4941632e2416c1f1d97628e6bb92be4fa4dfbf9b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9769d37ca6cf296624956f7482dae96b875f4f1e"
+        },
+        "date": 1789415879147,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02532632536666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010058801479999982,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007809937879999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14473375581333336,
             "unit": "seconds"
           }
         ]
