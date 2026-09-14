@@ -126,30 +126,26 @@ pub use sp_std;
 ///         [18].to_vec()
 ///     }
 ///
-///     /// A function version can be declared as belonging to an ABI epoch. Epoch 1 is the
-///     /// original, pre-RFC-145 ABI using host-side allocation and is always compiled in.
-///     /// Higher epochs are gated behind a `cfg` (`--cfg jam` for epoch 2): their versions
-///     /// only exist in builds with that `cfg` enabled. In such builds the bare function calls
-///     /// the latest version as usual; in builds without it, the bare function falls back to
-///     /// the latest first-epoch version. The versions of gated epochs must be the newest
-///     /// versions of a function.
-///     ///
-///     /// `#[abi_epoch]` can also be put on a `#[wrapper]` function, where it means "this
-///     /// wrapper only exists in builds of this ABI epoch". A wrapper takes over the
-///     /// module-level name it is defined with, so no bare function with the same name is
-///     /// generated for the epochs the wrapper exists in. That allows keeping one public API
-///     /// across the epochs: a wrapper gated to an epoch provides the name where the bare
-///     /// function signature changed, and the bare function provides it elsewhere.
-///     ///
-///     /// Versions of the RFC-145 epoch must not use the host-allocating `AllocateAndReturn*`
-///     /// strategies, which is checked at compile time; the result is written into a buffer
-///     /// provided by the runtime instead. In a build with the `cfg` the bare `call` function
-///     /// therefore has the signature of this version.
-///     #[version(4)]
-///     #[abi_epoch(2)]
-///     fn call(data: PassFatPointerAndRead<&[u8]>, out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
-///         out[0] = 19;
+///     /// The bare function of a method marked `#[raw_api]` is generated under the `<name>__raw`
+///     /// name, which leaves the method name free for a `#[wrapper]`: a plain function that is
+///     /// put into the interface module as it is declared. Wrappers are meant to provide a
+///     /// convenient interface on top of host functions that write their result into a buffer
+///     /// provided by the runtime, like the host functions of the JAM host function set do. A
+///     /// wrapper is not a host function: it has no versions, is compiled for the host and the
+///     /// runtime alike and may only share its name with a `#[raw_api]` method.
+///     #[raw_api]
+///     fn write_to(data: PassFatPointerAndRead<&[u8]>, out: PassFatPointerAndWrite<&mut [u8]>) -> u32 {
+///         out[0] = data.len() as u8;
 ///         1
+///     }
+///
+///     /// Returns the data written by `write_to__raw`.
+///     #[wrapper]
+///     fn write_to(data: &[u8]) -> Vec<u8> {
+///         let mut out = vec![0u8; 1];
+///         let len = write_to__raw(data, &mut out[..]);
+///         out.truncate(len as usize);
+///         out
 ///     }
 ///
 ///     /// A function can take a `&self` or `&mut self` argument to get access to the
@@ -163,10 +159,8 @@ pub use sp_std;
 ///     }
 ///
 ///     /// A function can be gated behind a configuration (`cfg`) attribute.
-///     /// To prevent ambiguity about what will be the final exposed host functions list, all
-///     /// callable versions of a function must carry identical `cfg` attributes, and
-///     /// `register_only` versions must not have any, as the host always registers them. The
-///     /// only sanctioned way to gate a subset of the versions is `#[abi_epoch]`.
+///     /// To prevent ambiguity and confusion about what will be the final exposed host
+///     /// functions list, conditionally compiled functions can't be versioned.
 ///     #[cfg(feature = "experimental-function")]
 ///     fn gated_call(data: PassFatPointerAndRead<&[u8]>) -> AllocateAndReturnFatPointer<Vec<u8>> {
 ///         [42].to_vec()
@@ -187,6 +181,7 @@ pub use sp_std;
 ///         fn call_version_1(data: &[u8]) -> Vec<u8>;
 ///         fn call_version_2(data: &[u8]) -> Vec<u8>;
 ///         fn call_version_3(data: &[u8]) -> Vec<u8>;
+///         fn write_to_version_1(data: &[u8], out: &mut [u8]) -> u32;
 ///         fn set_or_clear_version_1(&mut self, optional: Option<Vec<u8>>);
 ///         #[cfg(feature = "experimental-function")]
 ///         fn gated_call_version_1(data: &[u8]) -> Vec<u8>;
@@ -196,6 +191,7 @@ pub use sp_std;
 ///         fn call_version_1(data: &[u8]) -> Vec<u8> { Vec::new() }
 ///         fn call_version_2(data: &[u8]) -> Vec<u8> { [17].to_vec() }
 ///         fn call_version_3(data: &[u8]) -> Vec<u8> { [18].to_vec() }
+///         fn write_to_version_1(data: &[u8], out: &mut [u8]) -> u32 { out[0] = data.len() as u8; 1 }
 ///         fn set_or_clear_version_1(&mut self, optional: Option<Vec<u8>>) {
 ///             match optional {
 ///                 Some(value) => self.set_storage([1, 2, 3, 4].to_vec(), value),
@@ -221,6 +217,24 @@ pub use sp_std;
 ///
 ///     fn call_version_3(data: &[u8]) -> Vec<u8> {
 ///         <&mut dyn sp_externalities::Externalities as Interface>::call_version_3(data)
+///     }
+///
+///     // the bare function of a `#[raw_api]` method
+///     #[allow(non_snake_case)]
+///     pub fn write_to__raw(data: &[u8], out: &mut [u8]) -> u32 {
+///         write_to_version_1(data, out)
+///     }
+///
+///     fn write_to_version_1(data: &[u8], out: &mut [u8]) -> u32 {
+///         <&mut dyn sp_externalities::Externalities as Interface>::write_to_version_1(data, out)
+///     }
+///
+///     // a `#[wrapper]` is generated as it is declared
+///     pub fn write_to(data: &[u8]) -> Vec<u8> {
+///         let mut out = vec![0u8; 1];
+///         let len = write_to__raw(data, &mut out[..]);
+///         out.truncate(len as usize);
+///         out
 ///     }
 ///
 ///     pub fn set_or_clear(optional: Option<Vec<u8>>) {
@@ -412,9 +426,6 @@ pub trait RIType: Sized {
 
 	/// The inner type without any serialization strategy wrapper.
 	type Inner;
-
-	/// Whether this marshalling strategy makes the host allocate guest memory.
-	const HOST_ALLOCATES: bool = false;
 }
 
 /// A raw pointer that can be used in a runtime interface function signature.
