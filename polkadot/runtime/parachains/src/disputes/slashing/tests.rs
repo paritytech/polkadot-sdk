@@ -26,7 +26,7 @@ use crate::{
 	},
 };
 use codec::Encode;
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok, traits::Authorize};
 use polkadot_primitives::{
 	slashing::{DisputeProof, DisputesTimeSlot, PendingSlashes},
 	CandidateHash, DisputeOffenceKind, Hash, SessionIndex, ValidatorId, ValidatorIndex,
@@ -35,6 +35,13 @@ use sp_core::{sr25519, Pair};
 use sp_runtime::transaction_validity::{
 	InvalidTransaction, TransactionSource, TransactionValidity,
 };
+
+/// Runs the call's authorize callback, dropping the unspent weight.
+fn authorize(source: TransactionSource, call: &Call<Test>) -> TransactionValidity {
+	call.authorize(source)
+		.expect("report_dispute_lost_unsigned declares an authorize callback; qed")
+		.map(|(valid, _unspent)| valid)
+}
 
 const SESSION_PAST: SessionIndex = 5;
 const SESSION_CURRENT: SessionIndex = 10;
@@ -150,7 +157,7 @@ fn report_dispute_lost_for_invalid_backed_succeeds() {
 			dispute_proof(SESSION_PAST, candidate, index, id, DisputeOffenceKind::ForInvalidBacked);
 
 		assert_ok!(Slashing::report_dispute_lost_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::from(frame_system::RawOrigin::Authorized),
 			Box::new(dispute),
 			key_owner_proof,
 		));
@@ -190,7 +197,7 @@ fn report_dispute_lost_for_invalid_approved_succeeds() {
 		);
 
 		assert_ok!(Slashing::report_dispute_lost_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::from(frame_system::RawOrigin::Authorized),
 			Box::new(dispute),
 			key_owner_proof,
 		));
@@ -222,7 +229,7 @@ fn report_dispute_lost_against_valid_succeeds() {
 			dispute_proof(SESSION_PAST, candidate, index, id, DisputeOffenceKind::AgainstValid);
 
 		assert_ok!(Slashing::report_dispute_lost_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::from(frame_system::RawOrigin::Authorized),
 			Box::new(dispute),
 			key_owner_proof,
 		));
@@ -259,7 +266,7 @@ fn report_dispute_lost_only_removes_reported_validator_keeps_others() {
 		);
 
 		assert_ok!(Slashing::report_dispute_lost_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::from(frame_system::RawOrigin::Authorized),
 			Box::new(dispute),
 			key_owner_proof,
 		));
@@ -341,7 +348,7 @@ fn report_dispute_lost_invalid_key_ownership_proof_is_rejected() {
 
 		assert_noop!(
 			Slashing::report_dispute_lost_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(frame_system::RawOrigin::Authorized),
 				Box::new(dispute),
 				unregistered_proof,
 			),
@@ -379,7 +386,7 @@ fn report_dispute_lost_invalid_candidate_hash_is_rejected() {
 
 		assert_noop!(
 			Slashing::report_dispute_lost_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(frame_system::RawOrigin::Authorized),
 				Box::new(dispute),
 				key_owner_proof,
 			),
@@ -409,7 +416,7 @@ fn report_dispute_lost_kind_mismatch_is_rejected_as_invalid_candidate_hash() {
 
 		assert_noop!(
 			Slashing::report_dispute_lost_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(frame_system::RawOrigin::Authorized),
 				Box::new(dispute),
 				key_owner_proof,
 			),
@@ -443,7 +450,7 @@ fn report_dispute_lost_invalid_validator_index_is_rejected() {
 
 		assert_noop!(
 			Slashing::report_dispute_lost_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(frame_system::RawOrigin::Authorized),
 				Box::new(dispute),
 				key_owner_proof,
 			),
@@ -478,7 +485,7 @@ fn report_dispute_lost_validator_index_id_mismatch_is_rejected() {
 
 		assert_noop!(
 			Slashing::report_dispute_lost_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(frame_system::RawOrigin::Authorized),
 				Box::new(dispute),
 				key_owner_proof,
 			),
@@ -509,7 +516,7 @@ fn report_dispute_lost_duplicate_report_is_rejected() {
 
 		assert_err!(
 			Slashing::report_dispute_lost_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(frame_system::RawOrigin::Authorized),
 				Box::new(dispute),
 				key_owner_proof,
 			),
@@ -547,7 +554,7 @@ fn report_dispute_lost_rejects_proof_from_different_session() {
 
 		assert_noop!(
 			Slashing::report_dispute_lost_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(frame_system::RawOrigin::Authorized),
 				Box::new(dispute),
 				mismatched_proof,
 			),
@@ -559,7 +566,7 @@ fn report_dispute_lost_rejects_proof_from_different_session() {
 }
 
 #[test]
-fn validate_unsigned_rejects_proof_from_different_session() {
+fn authorize_rejects_proof_from_different_session() {
 	ext().execute_with(|| {
 		let candidate = candidate_hash(1);
 		let id = validator_id(1);
@@ -580,15 +587,15 @@ fn validate_unsigned_rejects_proof_from_different_session() {
 			key_owner_proof: mismatched_proof,
 		};
 
-		let outcome = Pallet::<Test>::validate_unsigned(TransactionSource::Local, &call);
+		let outcome = authorize(TransactionSource::Local, &call);
 		assert_eq!(outcome, InvalidTransaction::BadProof.into());
 	});
 }
 
-// ---- ValidateUnsigned / pre_dispatch ----
+// ---- authorize ----
 
 #[test]
-fn validate_unsigned_rejects_external_source() {
+fn authorize_rejects_external_source() {
 	ext().execute_with(|| {
 		let candidate = candidate_hash(1);
 		let id = validator_id(1);
@@ -607,14 +614,13 @@ fn validate_unsigned_rejects_external_source() {
 			key_owner_proof,
 		};
 
-		let outcome: TransactionValidity =
-			Pallet::<Test>::validate_unsigned(TransactionSource::External, &call);
+		let outcome: TransactionValidity = authorize(TransactionSource::External, &call);
 		assert_eq!(outcome, InvalidTransaction::Call.into());
 	});
 }
 
 #[test]
-fn validate_unsigned_accepts_local_source() {
+fn authorize_accepts_local_source() {
 	ext().execute_with(|| {
 		let candidate = candidate_hash(1);
 		let id = validator_id(1);
@@ -633,13 +639,13 @@ fn validate_unsigned_accepts_local_source() {
 			key_owner_proof,
 		};
 
-		let outcome = Pallet::<Test>::validate_unsigned(TransactionSource::Local, &call);
+		let outcome = authorize(TransactionSource::Local, &call);
 		assert!(outcome.is_ok(), "Local source should be accepted, got {:?}", outcome);
 	});
 }
 
 #[test]
-fn validate_unsigned_accepts_in_block_source() {
+fn authorize_accepts_in_block_source() {
 	ext().execute_with(|| {
 		let candidate = candidate_hash(1);
 		let id = validator_id(1);
@@ -658,12 +664,12 @@ fn validate_unsigned_accepts_in_block_source() {
 			key_owner_proof,
 		};
 
-		assert!(Pallet::<Test>::validate_unsigned(TransactionSource::InBlock, &call).is_ok());
+		assert!(authorize(TransactionSource::InBlock, &call).is_ok());
 	});
 }
 
 #[test]
-fn validate_unsigned_rejects_bad_proof() {
+fn authorize_rejects_bad_proof() {
 	ext().execute_with(|| {
 		let candidate = candidate_hash(1);
 		let id = validator_id(1);
@@ -681,13 +687,13 @@ fn validate_unsigned_rejects_bad_proof() {
 			key_owner_proof: unregistered_proof,
 		};
 
-		let outcome = Pallet::<Test>::validate_unsigned(TransactionSource::Local, &call);
+		let outcome = authorize(TransactionSource::Local, &call);
 		assert_eq!(outcome, InvalidTransaction::BadProof.into());
 	});
 }
 
 #[test]
-fn validate_unsigned_rejects_known_offence_as_stale() {
+fn authorize_rejects_known_offence_as_stale() {
 	ext().execute_with(|| {
 		let candidate = candidate_hash(1);
 		let id = validator_id(1);
@@ -708,13 +714,13 @@ fn validate_unsigned_rejects_known_offence_as_stale() {
 			key_owner_proof,
 		};
 
-		let outcome = Pallet::<Test>::validate_unsigned(TransactionSource::Local, &call);
+		let outcome = authorize(TransactionSource::Local, &call);
 		assert_eq!(outcome, InvalidTransaction::Stale.into());
 	});
 }
 
 #[test]
-fn validate_unsigned_uses_kind_specific_tag_prefix() {
+fn authorize_uses_kind_specific_tag_prefix() {
 	ext().execute_with(|| {
 		let candidate = candidate_hash(1);
 		let id = validator_id(1);
@@ -732,8 +738,7 @@ fn validate_unsigned_uses_kind_specific_tag_prefix() {
 				dispute_proof: Box::new(dispute),
 				key_owner_proof: key_owner_proof.clone(),
 			};
-			let valid = Pallet::<Test>::validate_unsigned(TransactionSource::Local, &call)
-				.expect("call should validate");
+			let valid = authorize(TransactionSource::Local, &call).expect("call should validate");
 			let provides_tag = (time_slot(SESSION_PAST, candidate), id.clone()).encode();
 			let mut full_tag = expected.encode();
 			full_tag.extend(provides_tag);
@@ -743,29 +748,6 @@ fn validate_unsigned_uses_kind_specific_tag_prefix() {
 				valid.provides,
 			);
 		}
-	});
-}
-
-#[test]
-fn pre_dispatch_replays_validation() {
-	ext().execute_with(|| {
-		let candidate = candidate_hash(1);
-		let id = validator_id(1);
-		let unregistered_proof = proof(SESSION_PAST, VALIDATOR_SET_COUNT, 1);
-
-		let dispute = dispute_proof(
-			SESSION_PAST,
-			candidate,
-			ValidatorIndex(0),
-			id,
-			DisputeOffenceKind::ForInvalidBacked,
-		);
-		let call = Call::<Test>::report_dispute_lost_unsigned {
-			dispute_proof: Box::new(dispute),
-			key_owner_proof: unregistered_proof,
-		};
-
-		assert_eq!(Pallet::<Test>::pre_dispatch(&call), Err(InvalidTransaction::BadProof.into()));
 	});
 }
 
