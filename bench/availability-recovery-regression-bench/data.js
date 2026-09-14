@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789374398166,
+  "lastUpdate": 1789392448263,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1e793fe2670b8c3eacaded7d1ed4f3863e8123c1",
-          "message": "Fix link-checker job: I am not giving up (#11049)\n\nFollow up of https://github.com/paritytech/polkadot-sdk/pull/11038\n\nEven though the job passed in my last PR, I missed this broken link. So\nhere we go again.",
-          "timestamp": "2026-02-12T09:20:55Z",
-          "tree_id": "a499a9c85c9baffb696cb1c1657e470499bc573e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1e793fe2670b8c3eacaded7d1ed4f3863e8123c1"
-        },
-        "date": 1770892206964,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12353285633333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.45039749653333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13252395576666673,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c208ccc5d3dfa7f7c0f63af6014e4e9edd366392",
+          "message": "asset-hub-westend: Remove PSM reset migration (#13137)\n\nRemoves the `RemovePallet<Psm>` and `RemovePallet<Parameters>`\nmigrations added in #12245 from the Westend Asset Hub runtime.\n\nBoth already ran on Westend Asset Hub (spec 1_025_000). Since\n`RemovePallet` runs on every upgrade, leaving them in would wipe any PSM\ncreated from now on.",
+          "timestamp": "2026-09-14T11:52:39Z",
+          "tree_id": "9215876ce0ba6bdc0f1f9978a8ac4d4be6d95ef5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c208ccc5d3dfa7f7c0f63af6014e4e9edd366392"
+        },
+        "date": 1789392408575,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.281038176066668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13130391096666666,
             "unit": "seconds"
           }
         ]
