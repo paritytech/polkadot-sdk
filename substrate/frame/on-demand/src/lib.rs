@@ -29,6 +29,10 @@
 //!   derived from that estimate using [`PriceParameters`].
 //! - Orders accepted within a block are accumulated in [`PendingBatch`] and forwarded to the Relay
 //!   chain in one go on finalization, via [`QueueOnDemandOrders`].
+//!
+//!   NOTE: It is important to make sure that this pallet is ordered before `ParachainSystem` in the
+//!   runtime - otherwise the messages will not be sent in the block in which they are created,
+//!   introducing additional latency.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

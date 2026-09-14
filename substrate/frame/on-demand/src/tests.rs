@@ -26,7 +26,7 @@ use frame_support::{assert_noop, assert_ok, traits::fungible::Inspect};
 const ALICE: u64 = 1;
 
 fn set_order_cap(order_cap: u32) {
-	let mut config = PriceConfig::<Test>::get().unwrap_or_default();
+	let mut config = PriceConfig::<Test>::get();
 	config.order_cap = order_cap;
 	PriceConfig::<Test>::put(config);
 }
