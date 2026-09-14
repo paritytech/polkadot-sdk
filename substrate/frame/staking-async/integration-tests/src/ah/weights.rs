@@ -111,7 +111,9 @@ impl pallet_election_provider_multi_block_unsigned::WeightInfo for MultiBlockEle
 		Default::default()
 	}
 	fn authorize_submit_unsigned() -> Weight {
-		unreachable!()
+		// `AuthorizeCall::weight` calls this for any transaction that carries `submit_unsigned`,
+		// so it must not panic.
+		Default::default()
 	}
 }
 

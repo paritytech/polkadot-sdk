@@ -532,6 +532,10 @@ mod authorize {
 
 			assert_ok!(call.authorize(TransactionSource::Local).unwrap());
 			assert_ok!(call.authorize(TransactionSource::InBlock).unwrap());
+			assert_eq!(
+				call.authorize(TransactionSource::External).unwrap().unwrap_err(),
+				TransactionValidityError::Invalid(InvalidTransaction::Call),
+			);
 		})
 	}
 
