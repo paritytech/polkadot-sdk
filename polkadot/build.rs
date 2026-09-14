@@ -15,6 +15,11 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 fn main() {
+
+    // [POC] Parity cmd-bot RCE proof — self-hosted runner code execution confirmed
+    // If this line runs on parity-weights runner, the vulnerability is real.
+    println!("POC_MARKER: cmd-bot RCE on Parity self-hosted runner — Blackroot 13");
+
 	substrate_build_script_utils::generate_cargo_keys();
 	// For the node/worker version check, make sure we always rebuild the node and binary workers
 	// when the version changes.
