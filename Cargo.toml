@@ -1588,3 +1588,8 @@ twox-hash = { opt-level = 3 }
 wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+[patch.crates-io]
+# `ancestry_proof_positions` — https://github.com/paritytech/merkle-mountain-range/pull/11.
+# Drop once 0.8.3 is on crates.io.
+polkadot-ckb-merkle-mountain-range = { git = "https://github.com/yrong/merkle-mountain-range", rev = "9827c341abd6ae1bb688f5d6b0bd91a13c5fdaa1" }

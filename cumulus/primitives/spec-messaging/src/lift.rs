@@ -39,10 +39,7 @@
 use alloc::{collections::BTreeMap, vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use mmr_lib::{
-	helper::{
-		get_peak_map, get_peaks, is_valid_mmr_size, parent_offset, pos_height_in_tree,
-		sibling_offset,
-	},
+	helper::{get_peak_map, get_peaks, is_valid_mmr_size},
 	leaf_index_to_mmr_size, leaf_index_to_pos, MerkleProof, NodeMerkleProof,
 };
 use polkadot_core_primitives::Hash;
@@ -195,93 +192,13 @@ impl MMRExtensionProof {
 	}
 }
 
-/// Derive the connecting-node positions of an MMR ancestry proof from the old and new MMR sizes
-/// alone — the key to storing [`MMRExtensionProof::connecting_nodes`] as bare hashes. An MMR's
-/// shape is fully determined by its size, so the set and order of nodes `gen_ancestry_proof` emits
-/// (proving the old peaks under the new root) is a pure function of the two sizes. This mirrors
-/// `polkadot-ckb-merkle-mountain-range` 0.8.2's `gen_ancestry_proof` / `gen_node_proof_for_peak`
-/// position bookkeeping — the per-peak sibling walk, the RHS-peak bagging collapse, and the final
-/// position sort — so the derived positions line up with the prover's hash order exactly. It is
-/// pinned to that version; `ancestry_positions_matches_mmr_lib` cross-checks it against the
-/// library. Both sizes must be valid MMR sizes with `old_mmr_size < new_mmr_size` and a non-empty
-/// old MMR (the empty and identity extensions are handled before this is reached).
-// TODO: workaround — upstream this into `paritytech/merkle-mountain-range` as a store-free
-// `ancestry_proof_positions(prev_mmr_size, mmr_size)` factored out of `gen_ancestry_proof` (single
-// source of truth, no version pinning), then replace this + `gen_node_positions_for_peak` with a
-// call to it once released. Cf. the existing `expected_ancestry_proof_size`.
+/// The connecting-node positions of an MMR ancestry proof, from the two sizes alone — the key to
+/// storing [`MMRExtensionProof::connecting_nodes`] as bare hashes. `mmr_lib` derives them; both
+/// sizes must be valid MMR sizes with a non-empty old MMR (the empty and identity extensions are
+/// handled before this is reached).
 fn ancestry_positions(old_mmr_size: u64, new_mmr_size: u64) -> Vec<u64> {
-	let mut pos_list = get_peaks(old_mmr_size);
-	let mut proof: Vec<u64> = Vec::new();
-	// A run of trailing new-MMR peaks with no proven descendants is bagged into one item.
-	let mut bagging_track = 0usize;
-	for peak_pos in get_peaks(new_mmr_size) {
-		// The old peaks under this new peak (`pos_list` is ascending, so a leading prefix).
-		let cut = pos_list.iter().position(|&pos| pos > peak_pos).unwrap_or(pos_list.len());
-		let sub: Vec<u64> = pos_list.drain(..cut).collect();
-		if sub.is_empty() {
-			bagging_track += 1;
-		} else {
-			bagging_track = 0;
-		}
-		gen_node_positions_for_peak(&mut proof, sub, peak_pos);
-	}
-	if bagging_track > 1 {
-		// The bagged item takes the leftmost bagged peak's position; drop the rest.
-		let rhs = proof.split_off(proof.len() - bagging_track);
-		proof.push(rhs[0]);
-	}
-	proof.sort_unstable();
-	proof
-}
-
-/// Position-only mirror of `mmr_lib`'s `gen_node_proof_for_peak`: append the proof-node positions
-/// that witness `pos_list` (nodes to prove, all `<= peak_pos`) up to `peak_pos`. The `queue` is a
-/// `(height, pos)` min-heap kept as an ascending `Vec` (positions are unique, so no dedup is
-/// needed); `remove(0)` is `pop_front`. Pure structure — no hashes.
-fn gen_node_positions_for_peak(proof: &mut Vec<u64>, pos_list: Vec<u64>, peak_pos: u64) {
-	// The peak itself is proven: no witnesses under it.
-	if pos_list.len() == 1 && pos_list[0] == peak_pos {
-		return;
-	}
-	// Nothing proven under this peak: the peak's own hash is a witness.
-	if pos_list.is_empty() {
-		proof.push(peak_pos);
-		return;
-	}
-	let mut queue: Vec<(u8, u64)> =
-		pos_list.into_iter().map(|pos| (pos_height_in_tree(pos), pos)).collect();
-	queue.sort_unstable();
-	while !queue.is_empty() {
-		let (height, pos) = queue.remove(0);
-		if pos == peak_pos {
-			if queue.is_empty() {
-				break;
-			}
-			continue;
-		}
-		let (sib_pos, parent_pos) = {
-			let next_height = pos_height_in_tree(pos + 1);
-			let offset = sibling_offset(height);
-			if next_height > height {
-				// pos is a right sibling.
-				(pos - offset, pos + 1)
-			} else {
-				// pos is a left sibling.
-				(pos + offset, pos + parent_offset(height))
-			}
-		};
-		if queue.first().map(|(_, p)| *p) == Some(sib_pos) {
-			// The sibling is also being proven: it cancels, no witness needed.
-			queue.remove(0);
-		} else {
-			proof.push(sib_pos);
-		}
-		if parent_pos < peak_pos {
-			let entry = (height + 1, parent_pos);
-			let idx = queue.partition_point(|x| x < &entry);
-			queue.insert(idx, entry);
-		}
-	}
+	mmr_lib::ancestry_proof::ancestry_proof_positions(old_mmr_size, new_mmr_size)
+		.expect("callers pass valid sizes and a non-empty old MMR within the new one; qed")
 }
 
 /// An MMR inclusion proof for a **single leaf** — `mmr_lib`'s [`MerkleProof`] items (the leaf's
