@@ -536,7 +536,11 @@ fn inherent_messages_are_compressed() {
 		);
 		assert_eq!(
 			LastProcessedHrmpMessage::<Test>::get(),
-			Some(InboundMessageId { sent_at: 2, reverse_idx: 0 })
+			Some(InboundHrmpMessageId::Specific {
+				sent_at: 2,
+				sender: ParaId::new(200),
+				reverse_idx: 0
+			})
 		);
 		assert_eq!(HrmpWatermark::<Test>::get(), 2);
 	});
@@ -604,7 +608,11 @@ fn hrmp_messages_respect_handling_limit() {
 		);
 		assert_eq!(
 			LastProcessedHrmpMessage::<Test>::get(),
-			Some(InboundMessageId { sent_at: 1, reverse_idx: 30 })
+			Some(InboundHrmpMessageId::Specific {
+				sent_at: 1,
+				sender: ParaId::new(100),
+				reverse_idx: 5
+			})
 		);
 		assert_eq!(HrmpWatermark::<Test>::get(), 0);
 	});
@@ -620,7 +628,11 @@ fn hrmp_messages_respect_handling_limit() {
 		);
 		assert_eq!(
 			LastProcessedHrmpMessage::<Test>::get(),
-			Some(InboundMessageId { sent_at: 1, reverse_idx: 10 })
+			Some(InboundHrmpMessageId::Specific {
+				sent_at: 1,
+				sender: ParaId::new(200),
+				reverse_idx: 10
+			})
 		);
 		assert_eq!(HrmpWatermark::<Test>::get(), 0);
 	});
@@ -636,7 +648,11 @@ fn hrmp_messages_respect_handling_limit() {
 		);
 		assert_eq!(
 			LastProcessedHrmpMessage::<Test>::get(),
-			Some(InboundMessageId { sent_at: 2, reverse_idx: 15 })
+			Some(InboundHrmpMessageId::Specific {
+				sent_at: 2,
+				sender: ParaId::new(50),
+				reverse_idx: 15
+			})
 		);
 		assert_eq!(HrmpWatermark::<Test>::get(), 1);
 	});
@@ -654,7 +670,7 @@ fn hrmp_messages_respect_handling_limit() {
 			LastProcessedHrmpMessage::<Test>::get(),
 			Some(InboundHrmpMessageId::Specific {
 				sent_at: 2,
-				sender: ParaId::new(200),
+				sender: ParaId::new(50),
 				reverse_idx: 0
 			})
 		);
