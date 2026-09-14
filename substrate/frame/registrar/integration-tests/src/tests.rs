@@ -369,9 +369,8 @@ fn only_the_registrar_parachain_may_drive_registrations() {
 		assert!(relay::RegistrarRelay::receive(other_para, message.clone()).is_err());
 
 		// ...nor is a plain signed account.
-		assert!(
-			relay::RegistrarRelay::receive(relay::RuntimeOrigin::signed(BOB), message.clone()).is_err()
-		);
+		assert!(relay::RegistrarRelay::receive(relay::RuntimeOrigin::signed(BOB), message.clone())
+			.is_err());
 
 		// The configured parachain is.
 		let ours: relay::RuntimeOrigin = ParachainsOrigin::Parachain(PARA_ID.into()).into();

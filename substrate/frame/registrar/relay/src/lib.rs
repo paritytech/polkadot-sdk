@@ -174,7 +174,7 @@ pub mod pallet {
 	pub type PendingRegistrations<T: Config> =
 		CountedStorageMap<_, Blake2_128Concat, ParaId, PendingRegistrationOf<T>>;
 
-	/// Paras whose first head this pallet has already reported, by para id.
+	/// Paras registered here that have not produced their first head yet, by para id.
 	#[pallet::storage]
 	pub type AwaitingFirstHead<T: Config> = StorageMap<_, Blake2_128Concat, ParaId, ()>;
 
@@ -363,10 +363,10 @@ pub mod pallet {
 			Self::deposit_event(Event::RegistrationRejected { para_id, message_id, reason });
 		}
 
-		/// Drop the authorization for `para_id`, unless the code beat the cancellation here.
+		/// Drop the authorization for `para_id` and tell the parachain to release the deposit.
 		///
-		/// A registered id keeps its deposit. Nothing pending still gets an `Ok`: the request may
-		/// have been rejected here and the report lost.
+		/// If the code already landed the cancellation is refused and the deposit is kept. Nothing
+		/// pending still gets an `Ok`: the request may have been rejected here and the report lost.
 		fn on_cancel_request(para_id: ParaId, message_id: u64) {
 			PendingRegistrations::<T>::remove(para_id);
 
@@ -378,6 +378,8 @@ pub mod pallet {
 				);
 				return Self::deposit_event(Event::CancellationRefused { para_id, message_id });
 			}
+
+			AwaitingFirstHead::<T>::remove(para_id);
 
 			Self::report_cancellation(para_id, message_id, Ok(()));
 			Self::deposit_event(Event::AuthorizationCancelled { para_id, message_id });
