@@ -37,7 +37,6 @@ use frame_support::{
 	defensive,
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
-	storage::{with_transaction, TransactionOutcome},
 	traits::{
 		fungible::Mutate as FunMutate, tokens::Preservation, Defensive, DefensiveSaturating, Get,
 		Imbalance, InspectLockableCurrency, LockableCurrency, OnUnbalanced,
@@ -606,48 +605,7 @@ impl<T: Config> Pallet<T> {
 		let staker_rewards_pot =
 			T::RewardPots::pot_account(RewardPot::Era(era, RewardKind::StakerRewards));
 
-		if matches!(dest, RewardDestination::Staked) {
-			// For Staked destination the transfer and ledger update must be atomic: if
-			// ensure_bond_consistent rolls back the ledger write, the transfer is rolled back too.
-			let mut ledger = match Self::ledger(Stash(stash.clone())) {
-				Ok(l) => l,
-				Err(e) => {
-					log!(
-						error,
-						"Failed to load ledger for Staked payout for era {:?}, stash {:?}: {:?}",
-						era,
-						stash,
-						e
-					);
-					return None;
-				},
-			};
-			ledger.active += amount;
-			ledger.total += amount;
-			if let Err(e) = with_transaction(|| {
-				if let Err(e) = T::Currency::transfer(
-					&staker_rewards_pot,
-					&payout_account,
-					amount,
-					Preservation::Expendable,
-				) {
-					return TransactionOutcome::Rollback(Err(DispatchError::from(e)));
-				}
-				match ledger.update() {
-					Ok(()) => TransactionOutcome::Commit(Ok(())),
-					Err(e) => TransactionOutcome::Rollback(Err(DispatchError::from(e))),
-				}
-			}) {
-				log!(
-					error,
-					"Failed to transfer/update ledger for era {:?}, stash {:?}: {:?}",
-					era,
-					stash,
-					e
-				);
-				return None;
-			}
-		} else if let Err(e) = T::Currency::transfer(
+		if let Err(e) = T::Currency::transfer(
 			&staker_rewards_pot,
 			&payout_account,
 			amount,
@@ -661,6 +619,24 @@ impl<T: Config> Pallet<T> {
 				e
 			);
 			return None;
+		}
+
+		// For Staked destination, update ledger. Best-effort on purpose: the transfer above is
+		// never reverted, a ledger that `update()` rejects only misses out on the restake.
+		if matches!(dest, RewardDestination::Staked) {
+			if let Ok(mut ledger) = Self::ledger(Stash(stash.clone())) {
+				ledger.active += amount;
+				ledger.total += amount;
+				if let Err(e) = ledger.update() {
+					log!(
+						error,
+						"Failed to restake reward for era {:?}, stash {:?}: {:?}",
+						era,
+						stash,
+						e
+					);
+				}
+			}
 		}
 
 		Some((amount, dest))
@@ -692,17 +668,18 @@ impl<T: Config> Pallet<T> {
 				Self::ledger(Stash(stash.clone())).ok().and_then(|mut ledger| {
 					ledger.active += amount;
 					ledger.total += amount;
-					// Wrap mint and ledger update atomically: if update() rolls back, the
-					// minted tokens are also rolled back.
-					with_transaction(|| {
-						let r = asset::mint_into_existing::<T>(stash, amount);
-						match ledger.update() {
-							Ok(()) => TransactionOutcome::Commit(Ok(r)),
-							Err(e) => TransactionOutcome::Rollback(Err(DispatchError::from(e))),
-						}
-					})
-					.ok()
-					.flatten()
+					let imbalance = asset::mint_into_existing::<T>(stash, amount);
+					// Best-effort, as above: the mint stands even if the ledger is rejected.
+					if let Err(e) = ledger.update() {
+						log!(
+							error,
+							"Failed to restake reward for era {:?}, stash {:?}: {:?}",
+							era,
+							stash,
+							e
+						);
+					}
+					imbalance
 				})
 			},
 			RewardDestination::Account(ref dest_account) => {

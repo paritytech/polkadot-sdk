@@ -1803,14 +1803,22 @@ fn payout_is_not_blocked_by_inconsistent_ledger() {
 		let _ = validator_payout_for(time_per_era());
 		Session::roll_until_active_era(3);
 
-		// corrupt the bookkeeping of 11's ledger, such that `total != active + sum(unlocking)`.
-		let mut corrupt = Ledger::<T>::get(11).unwrap();
-		corrupt.active -= 100;
-		Ledger::<T>::insert(11, corrupt.clone());
-		assert_eq!(
-			Staking::ledger(StakingAccount::Stash(11)).unwrap().update(),
-			Err(Error::<T>::BadState)
-		);
+		// the nominator restakes its rewards, so its payout also touches its ledger.
+		Payee::<T>::insert(101, RewardDestination::Staked);
+
+		// corrupt the bookkeeping of both ledgers, such that `total != active + sum(unlocking)`.
+		let corrupt = |who| {
+			let mut ledger = Ledger::<T>::get(who).unwrap();
+			ledger.active -= 100;
+			Ledger::<T>::insert(who, ledger.clone());
+			assert_eq!(
+				Staking::ledger(StakingAccount::Stash(who)).unwrap().update(),
+				Err(Error::<T>::BadState)
+			);
+			ledger
+		};
+		let corrupt_11 = corrupt(11);
+		let corrupt_101 = corrupt(101);
 
 		let balance_11 = asset::total_balance::<T>(&11);
 		let balance_101 = asset::total_balance::<T>(&101);
@@ -1820,7 +1828,8 @@ fn payout_is_not_blocked_by_inconsistent_ledger() {
 		assert!(asset::total_balance::<T>(&11) > balance_11);
 		assert!(asset::total_balance::<T>(&101) > balance_101);
 
-		// and the inconsistent ledger is left untouched.
-		assert_eq!(Ledger::<T>::get(11).unwrap().active, corrupt.active);
+		// the rewards are paid out, only the restake of 101 is skipped.
+		assert_eq!(Ledger::<T>::get(11).unwrap(), corrupt_11);
+		assert_eq!(Ledger::<T>::get(101).unwrap(), corrupt_101);
 	})
 }
