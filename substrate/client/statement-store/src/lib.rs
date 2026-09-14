@@ -598,7 +598,7 @@ struct QueryIndex {
 	dec_key_counts: HashMap<Option<DecryptionKey>, usize>,
 	recent: HashMap<Hash, u64>,
 	/// Statements kept on a condition the maintenance sweep re-checks once they are propagated,
-	/// under the track they were admitted with.
+	/// under their current track.
 	conditional: HashMap<Hash, RetentionTrack>,
 }
 
@@ -2414,7 +2414,7 @@ impl StatementStore for Store {
 	}
 
 	fn take_recent_statements(&self) -> Result<Vec<(u64, Hash, Statement)>> {
-		// `recent` is cleared only once the bodies are in hand: membership in it is the affinity
+		// `recent` is cleared only once the bodies are in hand: membership in it is the retention
 		// sweep's only signal that a statement still awaits propagation.
 		let recent = self.query_index.read().recent_snapshot();
 		let mut result = Vec::with_capacity(recent.len());
@@ -4695,8 +4695,9 @@ mod tests {
 		// Stored like any other statement, and tracked for the sweep.
 		assert!(store.has_statement(&hash));
 		assert_eq!(store.statement(&hash).unwrap(), Some(statement.clone()));
-		assert!(
-			store.query_index.read().conditional.get(&hash) == Some(&RetentionTrack::Transient)
+		assert_eq!(
+			store.query_index.read().conditional.get(&hash),
+			Some(&RetentionTrack::Transient)
 		);
 
 		// Pulled once under its admission sequence, then it stays fetchable by hash.
@@ -4704,8 +4705,9 @@ mod tests {
 		assert_eq!(recent, vec![(0, hash, statement)]);
 		assert!(store.take_recent_statements().unwrap().is_empty());
 		assert!(store.has_statement(&hash));
-		assert!(
-			store.query_index.read().conditional.get(&hash) == Some(&RetentionTrack::Transient)
+		assert_eq!(
+			store.query_index.read().conditional.get(&hash),
+			Some(&RetentionTrack::Transient)
 		);
 	}
 
@@ -4792,8 +4794,9 @@ mod tests {
 		let hash = statement.hash();
 
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
-		assert!(
-			store.query_index.read().conditional.get(&hash) == Some(&RetentionTrack::Transient),
+		assert_eq!(
+			store.query_index.read().conditional.get(&hash),
+			Some(&RetentionTrack::Transient),
 			"the first, transient resolver still applies"
 		);
 	}
