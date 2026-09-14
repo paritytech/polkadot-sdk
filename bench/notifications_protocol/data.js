@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789409602169,
+  "lastUpdate": 1789414964516,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -221759,6 +221759,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2252278558,
             "range": "± 69198746",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "diego2737@gmail.com",
+            "name": "Diego",
+            "username": "dimartiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9769d37ca6cf296624956f7482dae96b875f4f1e",
+          "message": "network: Move the connected peers metric to the sync component (#12979)\n\n# Description\n\nCloses #5024\n\n`substrate_sub_libp2p_peers_count` was registered by `sc-network`,\nsourced from an `Arc<AtomicUsize>` that each backend kept updated purely\nso that metric could be published:\n\n- the libp2p backend stored `user_protocol().num_sync_peers()` into it\non every worker poll (`service.rs`),\n- the litep2p backend stored the block-announce peerset's\n`connected_peers` into it on every loop iteration (`litep2p/mod.rs`).\n\nBoth are syncing-level numbers, not networking ones — which is what\n@bkchr pointed out in\nhttps://github.com/paritytech/polkadot-sdk/pull/4942#discussion_r1669297505.\n\nThis moves the gauge to `sc-network-sync`, where `SyncingEngine` already\nmaintains an equivalent `num_connected` counter, and drops\n`connected_peers` from `sc-network`'s `MetricSources`. The metric keeps\nits name.\n\n## Review Notes\n\nThe gauge is now registered by `Metrics::register` in\n`sc-network-sync`'s `engine.rs`, next to `MajorSyncingGauge`, and fed\nthe `num_connected` counter the engine already owns:\n\n```diff\n impl Metrics {\n-     fn register(r: &Registry, major_syncing: Arc<AtomicBool>) -> Result<Self, PrometheusError> {\n+     fn register(\n+             r: &Registry,\n+             major_syncing: Arc<AtomicBool>,\n+             num_connected: Arc<AtomicUsize>,\n+     ) -> Result<Self, PrometheusError> {\n              MajorSyncingGauge::register(r, major_syncing)?;\n+             NumConnectedGauge::register(r, num_connected)?;\n```\n\nand correspondingly removed from `sc-network`:\n\n```diff\n pub struct MetricSources {\n      pub bandwidth: Arc<dyn BandwidthSink>,\n-     pub connected_peers: Arc<AtomicUsize>,\n }\n```\n\n**Test.** Added `num_connected_gauge_tracks_the_shared_counter` in\n`engine.rs`, asserting the gauge\nregisters under exactly `substrate_sub_libp2p_peers_count` and reads\nthrough to the live counter\nrather than a snapshot. Name stability is the whole contract of this\nchange, so it seemed worth\npinning.\n\n<details>\n<summary>Local verification</summary>\n\n- `cargo check -p sc-network -p sc-network-sync` — clean, no warnings\n- `cargo clippy -p sc-network -p sc-network-sync --all-targets` — no\nwarnings in either crate\n- `cargo test -p sc-network-sync --lib` — 94 passed, 0 failed\n- `cargo +nightly fmt --check` — clean\n\n</details>\n\nThe approach matches the earlier attempt in #11012, which was closed\nwithout review because its author never signed the CLA.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-09-14T18:26:09Z",
+          "tree_id": "4941632e2416c1f1d97628e6bb92be4fa4dfbf9b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9769d37ca6cf296624956f7482dae96b875f4f1e"
+        },
+        "date": 1789414919815,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4524734,
+            "range": "± 39882",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 298609,
+            "range": "± 2570",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4705951,
+            "range": "± 27975",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 369435,
+            "range": "± 6012",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5252704,
+            "range": "± 41339",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 911332,
+            "range": "± 9383",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11131180,
+            "range": "± 64478",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5110782,
+            "range": "± 78381",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 48263474,
+            "range": "± 543628",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 41580439,
+            "range": "± 472287",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 407593820,
+            "range": "± 3788954",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 329068306,
+            "range": "± 3655293",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2826602705,
+            "range": "± 9560197",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2551753563,
+            "range": "± 56193301",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3495176,
+            "range": "± 57512",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1896522,
+            "range": "± 10523",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3617716,
+            "range": "± 30879",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1958766,
+            "range": "± 12615",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4105001,
+            "range": "± 36590",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2289560,
+            "range": "± 13944",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8285928,
+            "range": "± 105966",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5544984,
+            "range": "± 43114",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 40340923,
+            "range": "± 406463",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 39384594,
+            "range": "± 677141",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 344538112,
+            "range": "± 4042162",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 296447355,
+            "range": "± 2146209",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2624373603,
+            "range": "± 15167181",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2564509761,
+            "range": "± 68867563",
             "unit": "ns/iter"
           }
         ]
