@@ -175,10 +175,10 @@ where
 
 		match input {
 			// State-changing calls - check read-only
-			IERC20Calls::transfer(_) |
-			IERC20Calls::approve(_) |
-			IERC20Calls::transferFrom(_) |
-			IERC20Calls::permit(_)
+			IERC20Calls::transfer(_)
+			| IERC20Calls::approve(_)
+			| IERC20Calls::transferFrom(_)
+			| IERC20Calls::permit(_)
 				if env.is_read_only() =>
 			{
 				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
@@ -247,7 +247,10 @@ where
 			.map_err(|_| Error::Revert(Revert { reason: ERR_BALANCE_CONVERSION_FAILED.into() }))
 	}
 
-	/// ERC-20 amounts are exact; `pallet_assets` transfers are not.
+	/// ERC-20 amounts are exact. `pallet_assets` now refuses a transfer that would sweep a
+	/// sub-`min_balance` remainder (`Error::WouldSweepDust`), but that surfaces here as a
+	/// dispatch error. Re-check first so the EVM caller gets a stable `Error(string)` revert
+	/// and so this interface does not depend on the pallet continuing to enforce the rule.
 	fn ensure_exact_transfer(
 		asset_id: <Runtime as Config<Instance>>::AssetId,
 		source: &<Runtime as frame_system::Config>::AccountId,

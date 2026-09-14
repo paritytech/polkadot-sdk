@@ -1,0 +1,62 @@
+title: Make `pallet-assets` transfers move exactly the requested amount
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet_assets::prep_debit` promotes a debit to the account's whole balance when debiting the
+    requested amount exactly would strand a remainder below the asset's `min_balance`. That is
+    sound where the caller can observe it — `fungibles::Balanced::withdraw` reports the promoted
+    figure in the credit it returns, and `burn` destroys what it takes and squares supply — but
+    at least three consumers could not, and each lost track of the difference:
+
+    - `transfer_and_die` (so `transfer`, `transfer_keep_alive`, `force_transfer`,
+      `transfer_approved`, and the `ERC20` precompile) fed the promoted debit into `prep_credit`,
+      so the destination received `amount + remainder`. For `transfer_approved` this moved more
+      of the owner's funds than the allowance the owner had granted, while charging only `amount`
+      against that allowance.
+    - The default `fungibles::Mutate::transfer` pairs a `BestEffort` `decrease_balance` with an
+      `increase_balance` of `amount` and discards the amount actually debited. The remainder left
+      the source without being credited anywhere or deducted from `Asset::supply`, so total
+      issuance drifted above the sum of all balances. This is the path XCM's `FungiblesAdapter`
+      and other pallets take.
+    - `pallet_asset_conversion`'s `withdraw` helper resolves the whole returned credit into the
+      pool while pricing the swap on the `amount_in` it asked for, so an expendable
+      `swap_exact_tokens_for_tokens` paid the remainder into the pool for nothing in return.
+
+    Fixes, none of which change any public signature or require a migration:
+
+    - `transfer_and_die` now requires the debit to equal `amount` unless the caller passed
+      `best_effort`, returning the new `Error::WouldSweepDust` otherwise. Sending the whole
+      balance leaves no remainder and still reaps the account, and a self-transfer is exempt
+      because it is settled as a no-op. `prep_debit` is unchanged, so `burn` and the
+      imbalance-returning withdrawals keep promoting as before.
+    - `pallet-assets` now implements `fungibles::Mutate::transfer` itself, deferring to
+      `do_transfer` after running the same preconditions as the default implementation so the
+      same `TokenError`s still surface. Debit and credit are settled against one figure and
+      supply stays consistent.
+    - `pallet_asset_conversion::withdraw` rejects an expendable withdrawal that would strand a
+      remainder before touching state, and asserts the returned credit matches the requested
+      value as a backstop.
+
+    The `ERC20` precompile keeps its own pre-flight check, which reverts with
+    `Error("Transfer would leave sender below minimum balance")` rather than surfacing a dispatch
+    error to the caller. It is now redundant with the pallet-level rule but is retained so the
+    EVM-facing contract does not depend on `pallet-assets` continuing to enforce it.
+- audience: Runtime User
+  description: |-
+    Transferring an amount that would leave you holding less than an asset's minimum balance now
+    fails with `WouldSweepDust` instead of quietly moving your entire balance. This applies to
+    `transfer`, `transfer_keep_alive`, `force_transfer` and `transfer_approved`, to ERC-20
+    `transfer`/`transferFrom` on `pallet-assets` tokens, to assets moved over XCM, and to
+    `swap_exact_tokens_for_tokens` with `keep_alive: false`. Send your whole balance instead —
+    that leaves no remainder and still cleans up the account.
+
+crates:
+- name: pallet-assets
+  bump: major
+- name: pallet-asset-conversion
+  bump: patch
+- name: pallet-assets-precompiles
+  bump: patch
+- name: pallet-asset-conversion-precompiles
+  bump: patch

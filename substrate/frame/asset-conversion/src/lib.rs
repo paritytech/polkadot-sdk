@@ -1242,7 +1242,13 @@ pub mod pallet {
 			Ok(credit_out)
 		}
 
-		/// Removes `value` balance of `asset` from `who` account if possible.
+		/// Removes exactly `value` balance of `asset` from `who` account if possible.
+		///
+		/// An expendable withdrawal is permitted to take *more* than `value`: where debiting
+		/// `value` would strand a remainder too small for `who` to keep, the fungible sweeps
+		/// that remainder out too and reports the larger figure in the returned credit. Every
+		/// caller here resolves the whole credit into a pool while pricing the swap on `value`,
+		/// so the surplus would be paid into the pool for nothing in return. Refuse instead.
 		fn withdraw(
 			asset: T::AssetKind,
 			who: &T::AccountId,
@@ -1258,8 +1264,18 @@ pub mod pallet {
 				// https://github.com/paritytech/polkadot-sdk/issues/1698
 				let free = T::Assets::reducible_balance(asset.clone(), who, preservation, Polite);
 				ensure!(free >= value, TokenError::NotExpendable);
+			} else if let Some(remainder) =
+				T::Assets::balance(asset.clone(), who).checked_sub(&value)
+			{
+				let minimum = T::Assets::minimum_balance(asset.clone());
+				ensure!(remainder.is_zero() || remainder >= minimum, TokenError::BelowMinimum);
 			}
-			T::Assets::withdraw(asset, who, value, Exact, preservation, Polite)
+
+			let credit = T::Assets::withdraw(asset, who, value, Exact, preservation, Polite)?;
+
+			ensure!(credit.peek() == value, TokenError::BelowMinimum);
+
+			Ok(credit)
 		}
 
 		/// Get the `owner`'s balance of `asset`, which could be the chain's native asset or another

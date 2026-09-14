@@ -757,3 +757,62 @@ fn delegatecall_is_rejected() {
 		);
 	});
 }
+
+/// `keepAlive: false` plus a `min_balance` above 1 opens a window of remainders the fungible
+/// used to sweep into the pool while still quoting the output on `amountIn`. The precompile
+/// must revert with a stable reason and leave balances untouched.
+#[test]
+fn swap_exact_tokens_for_tokens_reverts_when_it_would_sweep_remainder() {
+	use pallet_revive::precompiles::alloy::sol_types::{Revert, SolError};
+
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+		let swapper = 2u64;
+		let asset_id = 1u32;
+		let native = NativeOrWithId::Native;
+		let token = NativeOrWithId::WithId(asset_id);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, provider, true, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), asset_id, provider, 400));
+		assert_ok!(AssetConversionPallet::create_pool(
+			RuntimeOrigin::signed(provider),
+			Box::new(native.clone()),
+			Box::new(token.clone()),
+		));
+		assert_ok!(AssetConversionPallet::add_liquidity(
+			RuntimeOrigin::signed(provider),
+			Box::new(native),
+			Box::new(token),
+			10_000,
+			200,
+			0,
+			0,
+			provider,
+		));
+
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), asset_id, swapper, 800));
+		assert_eq!(
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(asset_id), &swapper),
+			800
+		);
+
+		let data = IAssetConversion::swapExactTokensForTokensCall {
+			path: vec![encode_asset(asset_id).into(), encode_native().into()],
+			amountIn: U256::from(750),
+			amountOutMin: U256::from(1),
+			sendTo: account_addr(&swapper),
+			keepAlive: false,
+		}
+		.abi_encode();
+
+		let result = bare_call(swapper, data);
+		let exec = result.result.expect("must not trap");
+		assert!(exec.did_revert(), "dust-producing swap must revert");
+		let decoded = Revert::abi_decode(&exec.data).expect("Error(string) revert");
+		assert_eq!(decoded.reason, "Swap would leave sender below minimum balance");
+		assert_eq!(
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(asset_id), &swapper),
+			800
+		);
+	});
+}

@@ -30,7 +30,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::Decode;
 use core::marker::PhantomData;
-use frame_support::traits::Get;
+use frame_support::traits::{fungibles::Inspect, Get};
 use pallet_asset_conversion::{
 	weights::WeightInfo as _, AddLiquidityAsset, MutateLiquidity, QuotePrice, Swap,
 };
@@ -41,6 +41,7 @@ use pallet_revive::precompiles::{
 	},
 	AddressMatcher, Error, Ext, Precompile, H160,
 };
+use sp_runtime::traits::{CheckedSub, Zero};
 
 #[cfg(test)]
 mod mock;
@@ -199,11 +200,11 @@ where
 		);
 
 		match input {
-			IAssetConversionCalls::swapExactTokensForTokens(_) |
-			IAssetConversionCalls::swapTokensForExactTokens(_) |
-			IAssetConversionCalls::createPool(_) |
-			IAssetConversionCalls::addLiquidity(_) |
-			IAssetConversionCalls::removeLiquidity(_)
+			IAssetConversionCalls::swapExactTokensForTokens(_)
+			| IAssetConversionCalls::swapTokensForExactTokens(_)
+			| IAssetConversionCalls::createPool(_)
+			| IAssetConversionCalls::addLiquidity(_)
+			| IAssetConversionCalls::removeLiquidity(_)
 				if env.is_read_only() =>
 			{
 				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
@@ -236,6 +237,7 @@ const ERR_POOL_EMPTY: &str = "Pool exists but has no liquidity";
 const ERR_UNEXPECTED: &str = "Unexpected error";
 const ERR_PATH_TOO_LONG: &str = "Swap path exceeds MaxSwapPathLength";
 const ERR_INVALID_ASSET_ENCODING: &str = "Failed to SCALE-decode asset kind";
+const ERR_WOULD_SWEEP_REMAINDER: &str = "Swap would leave sender below minimum balance";
 
 impl<const ADDRESS: u16, Runtime> AssetConversion<ADDRESS, Runtime>
 where
@@ -286,6 +288,34 @@ where
 			.map_err(|_| Error::Revert(Revert { reason: ERR_BALANCE_CONVERSION_FAILED.into() }))
 	}
 
+	/// `swapExactTokensForTokens` prices the output on `amountIn`. An expendable
+	/// `pallet_asset_conversion::withdraw` used to resolve a swept remainder into the pool
+	/// while still quoting against `amountIn`. The pallet now refuses that; this check
+	/// turns the same condition into a stable EVM `Error(string)` so the Solidity caller
+	/// does not depend on the pallet continuing to enforce it.
+	fn ensure_exact_withdraw(
+		asset: <Runtime as pallet_asset_conversion::Config>::AssetKind,
+		who: &<Runtime as frame_system::Config>::AccountId,
+		value: <Runtime as pallet_asset_conversion::Config>::Balance,
+		keep_alive: bool,
+	) -> Result<(), Error> {
+		if keep_alive || value.is_zero() {
+			return Ok(());
+		}
+
+		let Some(remainder) =
+			<Runtime as pallet_asset_conversion::Config>::Assets::balance(asset.clone(), who)
+				.checked_sub(&value)
+		else {
+			return Ok(());
+		};
+		let minimum = <Runtime as pallet_asset_conversion::Config>::Assets::minimum_balance(asset);
+		if !remainder.is_zero() && remainder < minimum {
+			return Err(Error::Revert(Revert { reason: ERR_WOULD_SWEEP_REMAINDER.into() }));
+		}
+		Ok(())
+	}
+
 	fn swap_exact_tokens_for_tokens(
 		call: &IAssetConversion::swapExactTokensForTokensCall,
 		env: &mut impl Ext<T = Runtime>,
@@ -301,13 +331,17 @@ where
 
 		let sender = Self::caller_account_id(env)?;
 		let send_to = env.to_account_id(&H160(call.sendTo.0 .0));
+		let amount_in = Self::to_balance(call.amountIn)?;
+		if let Some(asset_in) = path.first() {
+			Self::ensure_exact_withdraw(asset_in.clone(), &sender, amount_in, call.keepAlive)?;
+		}
 
 		let amount_out = <pallet_asset_conversion::Pallet<Runtime> as Swap<
 			<Runtime as frame_system::Config>::AccountId,
 		>>::swap_exact_tokens_for_tokens(
 			sender,
 			path,
-			Self::to_balance(call.amountIn)?,
+			amount_in,
 			Some(Self::to_balance(call.amountOutMin)?),
 			send_to,
 			call.keepAlive,
@@ -512,29 +546,29 @@ where
 			},
 			// get_reserves only produces the two variants above; list the rest
 			// exhaustively so adding a new Error variant triggers a compile error.
-			pallet_asset_conversion::Error::PoolExists |
-			pallet_asset_conversion::Error::WrongDesiredAmount |
-			pallet_asset_conversion::Error::AmountOneLessThanMinimal |
-			pallet_asset_conversion::Error::AmountTwoLessThanMinimal |
-			pallet_asset_conversion::Error::ReserveLeftLessThanMinimal |
-			pallet_asset_conversion::Error::AmountOutTooHigh |
-			pallet_asset_conversion::Error::PoolNotFound |
-			pallet_asset_conversion::Error::Overflow |
-			pallet_asset_conversion::Error::AssetOneDepositDidNotMeetMinimum |
-			pallet_asset_conversion::Error::AssetTwoDepositDidNotMeetMinimum |
-			pallet_asset_conversion::Error::AssetOneWithdrawalDidNotMeetMinimum |
-			pallet_asset_conversion::Error::AssetTwoWithdrawalDidNotMeetMinimum |
-			pallet_asset_conversion::Error::OptimalAmountLessThanDesired |
-			pallet_asset_conversion::Error::InsufficientLiquidityMinted |
-			pallet_asset_conversion::Error::ZeroLiquidity |
-			pallet_asset_conversion::Error::ZeroAmount |
-			pallet_asset_conversion::Error::ProvidedMinimumNotSufficientForSwap |
-			pallet_asset_conversion::Error::ProvidedMaximumNotSufficientForSwap |
-			pallet_asset_conversion::Error::InvalidPath |
-			pallet_asset_conversion::Error::NonUniquePath |
-			pallet_asset_conversion::Error::IncorrectPoolAssetId |
-			pallet_asset_conversion::Error::BelowMinimum |
-			pallet_asset_conversion::Error::FeeTooHigh => {
+			pallet_asset_conversion::Error::PoolExists
+			| pallet_asset_conversion::Error::WrongDesiredAmount
+			| pallet_asset_conversion::Error::AmountOneLessThanMinimal
+			| pallet_asset_conversion::Error::AmountTwoLessThanMinimal
+			| pallet_asset_conversion::Error::ReserveLeftLessThanMinimal
+			| pallet_asset_conversion::Error::AmountOutTooHigh
+			| pallet_asset_conversion::Error::PoolNotFound
+			| pallet_asset_conversion::Error::Overflow
+			| pallet_asset_conversion::Error::AssetOneDepositDidNotMeetMinimum
+			| pallet_asset_conversion::Error::AssetTwoDepositDidNotMeetMinimum
+			| pallet_asset_conversion::Error::AssetOneWithdrawalDidNotMeetMinimum
+			| pallet_asset_conversion::Error::AssetTwoWithdrawalDidNotMeetMinimum
+			| pallet_asset_conversion::Error::OptimalAmountLessThanDesired
+			| pallet_asset_conversion::Error::InsufficientLiquidityMinted
+			| pallet_asset_conversion::Error::ZeroLiquidity
+			| pallet_asset_conversion::Error::ZeroAmount
+			| pallet_asset_conversion::Error::ProvidedMinimumNotSufficientForSwap
+			| pallet_asset_conversion::Error::ProvidedMaximumNotSufficientForSwap
+			| pallet_asset_conversion::Error::InvalidPath
+			| pallet_asset_conversion::Error::NonUniquePath
+			| pallet_asset_conversion::Error::IncorrectPoolAssetId
+			| pallet_asset_conversion::Error::BelowMinimum
+			| pallet_asset_conversion::Error::FeeTooHigh => {
 				frame_support::defensive!("get_reserves returned unexpected error");
 				Error::Revert(Revert { reason: ERR_UNEXPECTED.into() })
 			},
