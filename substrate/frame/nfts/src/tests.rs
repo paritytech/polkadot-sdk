@@ -1317,6 +1317,8 @@ fn set_external_account_attributes_should_work() {
 			]
 		);
 		assert_eq!(Balances::reserved_balance(account(2)), 6);
+		// the collection attribute counter tracks the two attributes just set
+		assert_eq!(Collection::<Test>::get(0).unwrap().attributes, 2);
 
 		// remove permission to set attributes
 		assert_ok!(Nfts::cancel_item_attributes_approval(
@@ -1327,6 +1329,10 @@ fn set_external_account_attributes_should_work() {
 			CancelAttributesApprovalWitness { account_attributes: 2 },
 		));
 		assert_eq!(attributes(0), vec![]);
+		// cancelling the approval must also decrement the collection counter,
+		// otherwise it drifts above the real `Attribute` storage count and the
+		// destroy witness no longer matches (regression test for #12775).
+		assert_eq!(Collection::<Test>::get(0).unwrap().attributes, 0);
 		assert_eq!(Balances::reserved_balance(account(2)), 0);
 		assert_noop!(
 			Nfts::set_attribute(
