@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789119773723,
+  "lastUpdate": 1789374398166,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "b44a93e39116ba68656ed1e8b3354efcab54b588",
-          "message": "[Release|CI/CD] Automate publishing crates (#10913)",
-          "timestamp": "2026-02-11T17:43:31Z",
-          "tree_id": "7635021793139894efb864e32465109f0c2d78f0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b44a93e39116ba68656ed1e8b3354efcab54b588"
-        },
-        "date": 1770835779353,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12015020013333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.4135842047,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14619662490000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "86f2e26675a0d5e1f1764d6eb2bc56ec3c1e445d",
+          "message": "[HRMP] Extend InboundMessageId for horizontal messages (#12876)\n\n[HRMP] Extend `InboundMessageId` for horizontal messages\n\nMake `InboundMessageId` more specific for horizontal messages, in order\nto cover possible corner cases. For example when a channel is force\nclosed\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-14T06:56:06Z",
+          "tree_id": "101821dc4976214de65fd78fddb23c755a4fc1a4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/86f2e26675a0d5e1f1764d6eb2bc56ec3c1e445d"
+        },
+        "date": 1789374357659,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.404398706633337,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13252395576666673,
             "unit": "seconds"
           }
         ]
