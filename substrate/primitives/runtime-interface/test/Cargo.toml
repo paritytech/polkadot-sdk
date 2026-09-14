@@ -21,7 +21,9 @@ sp-io = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-runtime-interface = { workspace = true, default-features = true }
 sp-runtime-interface-test-wasm = { workspace = true }
-sp-runtime-interface-test-wasm-deprecated = { workspace = true }
 sp-state-machine = { workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
 tracing-core = { workspace = true, default-features = true }
+
+[target.'cfg(not(jam))'.dependencies]
+sp-runtime-interface-test-wasm-deprecated = { workspace = true }
