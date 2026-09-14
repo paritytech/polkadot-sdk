@@ -24,8 +24,10 @@ use std::{
 use frame_support::{
 	assert_err, assert_ok,
 	dispatch::{DispatchResultWithPostInfo, Pays},
-	traits::{Currency, KeyOwnerProofSystem, OnInitialize},
+	traits::{Authorize, Currency, KeyOwnerProofSystem, OnInitialize},
+	weights::Weight,
 };
+use frame_system::RawOrigin;
 use sp_consensus_beefy::{
 	check_double_voting_proof, ecdsa_crypto,
 	known_payloads::MMR_ROOT_ID,
@@ -306,7 +308,7 @@ fn report_double_voting(
 	);
 
 	Beefy::report_double_voting_unsigned(
-		RuntimeOrigin::none(),
+		RuntimeOrigin::from(RawOrigin::Authorized),
 		Box::new(equivocation_proof),
 		key_owner_proof,
 	)
@@ -681,7 +683,7 @@ fn report_double_voting_invalid_equivocation_proof() {
 		let assert_invalid_equivocation_proof = |equivocation_proof| {
 			assert_err!(
 				Beefy::report_double_voting_unsigned(
-					RuntimeOrigin::none(),
+					RuntimeOrigin::from(RawOrigin::Authorized),
 					Box::new(equivocation_proof),
 					key_owner_proof.clone(),
 				),
@@ -728,11 +730,9 @@ fn report_double_voting_invalid_equivocation_proof() {
 }
 
 #[test]
-#[allow(deprecated)]
-fn report_double_voting_validate_unsigned_prevents_duplicates() {
+fn report_double_voting_authorize_prevents_duplicates() {
 	use sp_runtime::transaction_validity::{
-		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
-		ValidTransaction,
+		InvalidTransaction, TransactionPriority, TransactionSource, ValidTransaction,
 	};
 
 	let authorities = test_authorities();
@@ -759,61 +759,55 @@ fn report_double_voting_validate_unsigned_prevents_duplicates() {
 
 		let key_owner_proof = Historical::prove((BEEFY_KEY_TYPE, &equivocation_key)).unwrap();
 
-		let call = Call::report_double_voting_unsigned {
+		let call = Call::<Test>::report_double_voting_unsigned {
 			equivocation_proof: Box::new(equivocation_proof.clone()),
 			key_owner_proof: key_owner_proof.clone(),
 		};
 
 		// only local/inblock reports are allowed
 		assert_eq!(
-			<Beefy as sp_runtime::traits::ValidateUnsigned>::validate_unsigned(
-				TransactionSource::External,
-				&call,
-			),
-			InvalidTransaction::Call.into(),
+			call.authorize(TransactionSource::External),
+			Some(Err(InvalidTransaction::Call.into())),
 		);
 
 		// the transaction is valid when passed as local
 		let tx_tag = (equivocation_key, set_id, 3u64);
 
 		assert_eq!(
-			<Beefy as sp_runtime::traits::ValidateUnsigned>::validate_unsigned(
-				TransactionSource::Local,
-				&call,
-			),
-			TransactionValidity::Ok(ValidTransaction {
-				priority: TransactionPriority::max_value(),
-				requires: vec![],
-				provides: vec![("BeefyEquivocation", tx_tag).encode()],
-				longevity: ReportLongevity::get(),
-				propagate: false,
-			})
+			call.authorize(TransactionSource::Local),
+			Some(Ok((
+				ValidTransaction {
+					priority: TransactionPriority::max_value(),
+					requires: vec![],
+					provides: vec![("BeefyEquivocation", tx_tag).encode()],
+					longevity: ReportLongevity::get(),
+					propagate: false,
+				},
+				Weight::zero(),
+			))),
 		);
 
-		// the pre dispatch checks should also pass
-		assert_ok!(<Beefy as sp_runtime::traits::ValidateUnsigned>::pre_dispatch(&call));
+		// a report already in a block is also allowed
+		assert!(call.authorize(TransactionSource::InBlock).unwrap().is_ok());
 
 		// we submit the report
 		Beefy::report_double_voting_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::from(RawOrigin::Authorized),
 			Box::new(equivocation_proof),
 			key_owner_proof,
 		)
 		.unwrap();
 
 		// the report should now be considered stale and the transaction is invalid
-		// the check for staleness should be done on both `validate_unsigned` and on `pre_dispatch`
-		assert_err!(
-			<Beefy as sp_runtime::traits::ValidateUnsigned>::validate_unsigned(
-				TransactionSource::Local,
-				&call,
-			),
-			InvalidTransaction::Stale,
+		// the check for staleness applies to both pool validation and block import
+		assert_eq!(
+			call.authorize(TransactionSource::Local),
+			Some(Err(InvalidTransaction::Stale.into())),
 		);
 
-		assert_err!(
-			<Beefy as sp_runtime::traits::ValidateUnsigned>::pre_dispatch(&call),
-			InvalidTransaction::Stale,
+		assert_eq!(
+			call.authorize(TransactionSource::InBlock),
+			Some(Err(InvalidTransaction::Stale.into())),
 		);
 	});
 }
@@ -862,7 +856,7 @@ fn report_fork_voting(
 	);
 
 	Beefy::report_fork_voting_unsigned(
-		RuntimeOrigin::none(),
+		RuntimeOrigin::from(RawOrigin::Authorized),
 		Box::new(equivocation_proof),
 		key_owner_proof,
 	)
@@ -932,7 +926,7 @@ fn report_fork_voting_non_optimal_equivocation_proof() {
 		);
 		assert_err!(
 			Beefy::report_fork_voting_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(RawOrigin::Authorized),
 				Box::new(equivocation_proof),
 				key_owner_proof.clone(),
 			),
@@ -980,7 +974,7 @@ fn report_fork_voting_invalid_equivocation_proof() {
 		);
 		assert_err!(
 			Beefy::report_fork_voting_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(RawOrigin::Authorized),
 				Box::new(equivocation_proof),
 				key_owner_proof.clone(),
 			),
@@ -995,7 +989,7 @@ fn report_fork_voting_invalid_equivocation_proof() {
 		);
 		assert_err!(
 			Beefy::report_fork_voting_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(RawOrigin::Authorized),
 				Box::new(equivocation_proof),
 				key_owner_proof.clone(),
 			),
@@ -1063,7 +1057,7 @@ fn report_fork_voting_invalid_context() {
 		AncestryProofContext::set(&None);
 		assert_err!(
 			Beefy::report_fork_voting_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(RawOrigin::Authorized),
 				Box::new(equivocation_proof.clone()),
 				key_owner_proof.clone(),
 			),
@@ -1074,7 +1068,7 @@ fn report_fork_voting_invalid_context() {
 		AncestryProofContext::set(&Some(MockAncestryProofContext { is_valid: false }));
 		assert_err!(
 			Beefy::report_fork_voting_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(RawOrigin::Authorized),
 				Box::new(equivocation_proof),
 				key_owner_proof,
 			),
@@ -1105,7 +1099,7 @@ fn report_future_block_voting(
 	));
 
 	Beefy::report_future_block_voting_unsigned(
-		RuntimeOrigin::none(),
+		RuntimeOrigin::from(RawOrigin::Authorized),
 		Box::new(equivocation_proof),
 		key_owner_proof,
 	)
@@ -1164,7 +1158,7 @@ fn report_future_block_voting_invalid_equivocation_proof() {
 		// vote targeting old block
 		assert_err!(
 			Beefy::report_future_block_voting_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(RawOrigin::Authorized),
 				Box::new(generate_future_block_voting_proof((
 					1,
 					payload.clone(),

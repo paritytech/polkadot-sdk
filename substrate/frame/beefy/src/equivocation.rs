@@ -31,12 +31,15 @@
 //!
 //! IMPORTANT:
 //! When using this module for enabling equivocation reporting it is required
-//! that the `ValidateUnsigned` for the BEEFY pallet is used in the runtime
-//! definition.
+//! that the runtime includes `frame_system::AuthorizeCall` in its transaction
+//! extension pipeline.
 
-use alloc::{vec, vec::Vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{self as codec, Decode, Encode};
-use frame_support::traits::{Get, KeyOwnerProofSystem};
+use frame_support::{
+	traits::{Get, KeyOwnerProofSystem},
+	weights::Weight,
+};
 use frame_system::pallet_prelude::{BlockNumberFor, HeaderFor};
 use log::{error, info};
 use sp_consensus_beefy::{
@@ -45,8 +48,8 @@ use sp_consensus_beefy::{
 };
 use sp_runtime::{
 	transaction_validity::{
-		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
-		TransactionValidityError, ValidTransaction,
+		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidityError,
+		TransactionValidityWithRefund, ValidTransaction,
 	},
 	DispatchError, KeyTypeId, Perbill, RuntimeAppPublic,
 };
@@ -125,11 +128,11 @@ where
 /// BEEFY equivocation offence report system.
 ///
 /// This type implements `OffenceReportSystem` such that:
-/// - Equivocation reports are published on-chain as unsigned extrinsic via
+/// - Equivocation reports are published on-chain as authorized transactions via
 ///   `offchain::CreateTransactionBase`.
 /// - On-chain validity checks and processing are mostly delegated to the user provided generic
 ///   types implementing `KeyOwnerProofSystem` and `ReportOffence` traits.
-/// - Offence reporter for unsigned transactions is fetched via the authorship pallet.
+/// - Offence reporter for authorized transactions is fetched via the authorship pallet.
 pub struct EquivocationReportSystem<T, R, P, L>(core::marker::PhantomData<(T, R, P, L)>);
 
 /// Equivocation evidence convenience alias.
@@ -301,7 +304,9 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 impl<T, R, P, L> OffenceReportSystem<Option<T::AccountId>, EquivocationEvidenceFor<T>>
 	for EquivocationReportSystem<T, R, P, L>
 where
-	T: Config + pallet_authorship::Config + frame_system::offchain::CreateBare<Call<T>>,
+	T: Config
+		+ pallet_authorship::Config
+		+ frame_system::offchain::CreateAuthorizedTransaction<Call<T>>,
 	R: ReportOffence<
 		T::AccountId,
 		P::IdentificationTuple,
@@ -317,7 +322,7 @@ where
 		use frame_system::offchain::SubmitTransaction;
 
 		let call: Call<T> = evidence.into();
-		let xt = T::create_bare(call.into());
+		let xt = T::create_authorized_transaction(call.into());
 		let res = SubmitTransaction::<T, Call<T>>::submit_transaction(xt);
 		match res {
 			Ok(_) => info!(target: LOG_TARGET, "Submitted equivocation report."),
@@ -386,25 +391,27 @@ where
 	}
 }
 
-/// Methods for the `ValidateUnsigned` implementation:
-/// It restricts calls to `report_equivocation_unsigned` to local calls (i.e. extrinsics generated
-/// on this node) or that already in a block. This guarantees that only block authors can include
-/// unsigned equivocation reports.
+/// Authorization logic for the equivocation reporting calls.
+///
+/// It restricts the calls to local calls (i.e. extrinsics generated on this node) or to calls
+/// already in a block. This guarantees that only block authors can include equivocation reports.
 impl<T: Config> Pallet<T> {
-	pub fn validate_unsigned(source: TransactionSource, call: &Call<T>) -> TransactionValidity {
+	fn authorize_equivocation_report(
+		source: TransactionSource,
+		evidence: EquivocationEvidenceFor<T>,
+	) -> TransactionValidityWithRefund {
 		// discard equivocation report not coming from the local node
 		match source {
 			TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
 			_ => {
 				log::warn!(
 					target: LOG_TARGET,
-					"rejecting unsigned report equivocation transaction because it is not local/in-block."
+					"rejecting report equivocation transaction because it is not local/in-block."
 				);
-				return InvalidTransaction::Call.into();
+				return Err(InvalidTransaction::Call.into());
 			},
 		}
 
-		let evidence = call.to_equivocation_evidence_for().ok_or(InvalidTransaction::Call)?;
 		let tag = (evidence.offender_id().clone(), evidence.set_id(), *evidence.round_number());
 		T::EquivocationReportSystem::check_evidence(evidence)?;
 
@@ -419,10 +426,60 @@ impl<T: Config> Pallet<T> {
 			// We don't propagate this. This can never be included on a remote node.
 			.propagate(false)
 			.build()
+			.map(|validity| (validity, Weight::zero()))
 	}
 
-	pub fn pre_dispatch(call: &Call<T>) -> Result<(), TransactionValidityError> {
-		let evidence = call.to_equivocation_evidence_for().ok_or(InvalidTransaction::Call)?;
-		T::EquivocationReportSystem::check_evidence(evidence)
+	pub(crate) fn authorize_report_double_voting(
+		source: TransactionSource,
+		equivocation_proof: &Box<
+			DoubleVotingProof<
+				BlockNumberFor<T>,
+				T::BeefyId,
+				<T::BeefyId as RuntimeAppPublic>::Signature,
+			>,
+		>,
+		key_owner_proof: &T::KeyOwnerProof,
+	) -> TransactionValidityWithRefund {
+		Self::authorize_equivocation_report(
+			source,
+			EquivocationEvidenceFor::<T>::DoubleVotingProof(
+				*equivocation_proof.clone(),
+				key_owner_proof.clone(),
+			),
+		)
+	}
+
+	pub(crate) fn authorize_report_fork_voting(
+		source: TransactionSource,
+		equivocation_proof: &Box<
+			ForkVotingProof<
+				HeaderFor<T>,
+				T::BeefyId,
+				<T::AncestryHelper as AncestryHelper<HeaderFor<T>>>::Proof,
+			>,
+		>,
+		key_owner_proof: &T::KeyOwnerProof,
+	) -> TransactionValidityWithRefund {
+		Self::authorize_equivocation_report(
+			source,
+			EquivocationEvidenceFor::<T>::ForkVotingProof(
+				*equivocation_proof.clone(),
+				key_owner_proof.clone(),
+			),
+		)
+	}
+
+	pub(crate) fn authorize_report_future_block_voting(
+		source: TransactionSource,
+		equivocation_proof: &Box<FutureBlockVotingProof<BlockNumberFor<T>, T::BeefyId>>,
+		key_owner_proof: &T::KeyOwnerProof,
+	) -> TransactionValidityWithRefund {
+		Self::authorize_equivocation_report(
+			source,
+			EquivocationEvidenceFor::<T>::FutureBlockVotingProof(
+				*equivocation_proof.clone(),
+				key_owner_proof.clone(),
+			),
+		)
 	}
 }
