@@ -569,6 +569,10 @@ fn slash_submission_deposit_works() {
 
 		// Now slashing should work.
 		assert_ok!(Referenda::slash_submission_deposit(RuntimeOrigin::signed(3), 1));
+		System::assert_last_event(RuntimeEvent::Referenda(crate::Event::DepositSlashed {
+			who: 1,
+			amount: 2,
+		}));
 		// The slashed deposit is removed from account 1's reserved balance.
 		assert_eq!(Balances::reserved_balance(&1), 2);
 		// The free balance shouldn't have changed
@@ -590,6 +594,10 @@ fn slash_submission_deposit_works() {
 		assert_eq!(timed_out_since(2), 29);
 		// Slashing timed out referendum works.
 		assert_ok!(Referenda::slash_submission_deposit(RuntimeOrigin::signed(3), 2));
+		System::assert_last_event(RuntimeEvent::Referenda(crate::Event::DepositSlashed {
+			who: 1,
+			amount: 2,
+		}));
 	});
 }
 
