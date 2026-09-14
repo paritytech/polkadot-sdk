@@ -375,7 +375,6 @@ impl<B: BlockT> StateStrategy<B> {
 					}))
 				}
 				.boxed(),
-				remove_obsolete: false,
 			}
 		});
 		self.actions.extend(state_request);
