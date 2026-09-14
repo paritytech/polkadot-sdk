@@ -31,6 +31,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use frame_support::{
 	ensure,
 	traits::{Consideration, Defensive, EnsureOrigin, Footprint, Get},
@@ -174,6 +175,15 @@ pub type ChannelRequestOf<T> =
 pub type ChannelInfoOf<T> =
 	ChannelInfo<<T as Config>::SenderConsideration, <T as Config>::RecipientConsideration>;
 
+/// The most pending requests one para can be party to, as both ends put together.
+pub struct MaxRequests<T>(PhantomData<T>);
+
+impl<T: Config> Get<u32> for MaxRequests<T> {
+	fn get() -> u32 {
+		T::MaxInboundChannels::get().saturating_add(T::MaxOutboundChannels::get())
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -273,6 +283,11 @@ pub mod pallet {
 		BoundedVec<ParaId, <T as Config>::MaxOutboundChannels>,
 		ValueQuery,
 	>;
+
+	/// Channels a para has a pending request on, as either end, sorted.
+	#[pallet::storage]
+	pub type RequestIndex<T: Config> =
+		StorageMap<_, Blake2_128Concat, ParaId, BoundedVec<ChannelId, MaxRequests<T>>, ValueQuery>;
 
 	/// How many open requests a para has initiated.
 	#[pallet::storage]
@@ -538,8 +553,53 @@ pub mod pallet {
 			num_inbound: u32,
 			num_outbound: u32,
 		) -> DispatchResult {
-			let _ = (origin, para, num_inbound, num_outbound);
-			todo!()
+			T::ChannelManager::ensure_origin(origin)?;
+
+			let (inbound_requests, outbound_requests): (Vec<_>, Vec<_>) =
+				RequestIndex::<T>::get(para)
+					.into_iter()
+					.partition(|channel| channel.recipient == para);
+			let ingress_cnt = IngressIndex::<T>::decode_len(para).unwrap_or(0);
+			let egress_cnt = EgressIndex::<T>::decode_len(para).unwrap_or(0);
+
+			ensure!(
+				ingress_cnt + inbound_requests.len() <= num_inbound as usize,
+				Error::<T>::WrongWitness,
+			);
+			ensure!(
+				egress_cnt + outbound_requests.len() <= num_outbound as usize,
+				Error::<T>::WrongWitness,
+			);
+
+			RequestIndex::<T>::remove(para);
+			for channel in inbound_requests.into_iter().chain(outbound_requests) {
+				Self::drop_request(para, channel)?;
+			}
+			OpenRequestCount::<T>::remove(para);
+			AcceptedRequestCount::<T>::remove(para);
+
+			let ingress = IngressIndex::<T>::take(para)
+				.into_iter()
+				.map(|sender| ChannelId { sender, recipient: para });
+			let egress = EgressIndex::<T>::take(para)
+				.into_iter()
+				.map(|recipient| ChannelId { sender: para, recipient });
+			for channel in ingress.chain(egress) {
+				Self::drop_channel(para, channel)?;
+			}
+
+			let message_id = Self::next_message_id();
+			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::ForceClean {
+				para_id: para,
+				message_id,
+				num_inbound,
+				num_outbound,
+			}))
+			.map_err(|()| Error::<T>::SendFailed)?;
+
+			Self::deposit_event(Event::ForceCleanExecuted { para_id: para, message_id });
+
+			Ok(())
 		}
 
 		/// Open every confirmed request now, rather than at the next session boundary.
@@ -638,9 +698,53 @@ impl<T: Config> Pallet<T> {
 		.map(Some)
 	}
 
+	/// Release a deposit back to `para_id`. A system channel held nothing to begin with.
+	fn release<C: Consideration<T::AccountId, Footprint>>(
+		deposit: Option<C>,
+		para_id: ParaId,
+	) -> DispatchResult {
+		match deposit {
+			Some(deposit) => deposit.drop(&Self::sovereign_account(para_id)),
+			None => Ok(()),
+		}
+	}
+
 	/// The account a para's deposits are taken from.
 	fn sovereign_account(para_id: ParaId) -> T::AccountId {
 		T::SovereignAccountOf::convert(para_id)
+	}
+
+	/// How many pending requests `para_id` is the recipient of.
+	fn inbound_requests(para_id: ParaId) -> u32 {
+		RequestIndex::<T>::get(para_id)
+			.iter()
+			.filter(|channel| channel.recipient == para_id)
+			.count() as u32
+	}
+
+	/// Record a pending request under both of its ends. An overflow means the per-para limits
+	/// checked before it got here have drifted, which is a bug rather than a reason to unwind.
+	fn index_request(channel: ChannelId) {
+		for para_id in [channel.sender, channel.recipient] {
+			let _ = RequestIndex::<T>::try_mutate(para_id, |channels| {
+				match channels.binary_search(&channel) {
+					Ok(_) => Ok(()),
+					Err(i) => channels.try_insert(i, channel),
+				}
+			})
+			.defensive();
+		}
+	}
+
+	/// Drop a pending request from both of its ends.
+	fn unindex_request(channel: ChannelId) {
+		for para_id in [channel.sender, channel.recipient] {
+			RequestIndex::<T>::mutate(para_id, |channels| {
+				if let Ok(i) = channels.binary_search(&channel) {
+					channels.remove(i);
+				}
+			});
+		}
 	}
 
 	/// Ask the relay chain to tell `para_id` about a channel it is one end of.
@@ -661,6 +765,63 @@ impl<T: Config> Pallet<T> {
 			*next = next.wrapping_add(1);
 			id
 		})
+	}
+
+	/// Drop one pending request of `para`. `para`'s own index entry and counters are the caller's.
+	fn drop_request(para: ParaId, channel: ChannelId) -> DispatchResult {
+		let counterparty = if channel.sender == para { channel.recipient } else { channel.sender };
+		RequestIndex::<T>::mutate(counterparty, |channels| {
+			if let Ok(i) = channels.binary_search(&channel) {
+				channels.remove(i);
+			}
+		});
+
+		let Some(request) = Requests::<T>::take(channel) else {
+			return Ok(());
+		};
+
+		OpenRequestCount::<T>::mutate(channel.sender, |count| *count = count.saturating_sub(1));
+		match request.state {
+			RequestState::Requested { sender_deposit } => {
+				Self::release(sender_deposit, channel.sender)?;
+			},
+			RequestState::Accepted { sender_deposit, recipient_deposit, .. } => {
+				AcceptedRequestCount::<T>::mutate(channel.recipient, |count| {
+					*count = count.saturating_sub(1)
+				});
+				Self::release(sender_deposit, channel.sender)?;
+				Self::release(recipient_deposit, channel.recipient)?;
+			},
+		}
+
+		Ok(())
+	}
+
+	/// Drop one open channel of `para`. `para`'s own index entries are the caller's.
+	fn drop_channel(para: ParaId, channel: ChannelId) -> DispatchResult {
+		if channel.sender == para {
+			IngressIndex::<T>::mutate(channel.recipient, |senders| {
+				if let Ok(i) = senders.binary_search(&para) {
+					senders.remove(i);
+				}
+			});
+		} else {
+			EgressIndex::<T>::mutate(channel.sender, |recipients| {
+				if let Ok(i) = recipients.binary_search(&para) {
+					recipients.remove(i);
+				}
+			});
+		}
+
+		CloseRequests::<T>::remove(channel);
+		let Some(info) = Channels::<T>::take(channel) else {
+			return Ok(());
+		};
+
+		Self::release(info.sender_deposit, channel.sender)?;
+		Self::release(info.recipient_deposit, channel.recipient)?;
+
+		Ok(())
 	}
 
 	/// `hrmp_init_open_channel`, asked for by `sender` through the relay chain.
@@ -696,6 +857,14 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::OpenHrmpChannelLimitExceeded,
 		);
 
+		// Counted here rather than only at accept time, so `RequestIndex` stays within its bound.
+		let ingress_cnt = IngressIndex::<T>::decode_len(recipient).unwrap_or(0) as u32;
+		let inbound_req_cnt = Self::inbound_requests(recipient);
+		ensure!(
+			ingress_cnt + inbound_req_cnt < T::MaxInboundChannels::get(),
+			Error::<T>::AcceptHrmpChannelLimitExceeded,
+		);
+
 		let sender_deposit = Self::hold_sender(channel, proposed_max_capacity)?;
 
 		// One id for the request's whole life: it goes out with the eventual `OpenChannel` and
@@ -703,6 +872,7 @@ impl<T: Config> Pallet<T> {
 		let message_id = Self::next_message_id();
 
 		OpenRequestCount::<T>::insert(sender, open_req_cnt + 1);
+		Self::index_request(channel);
 		Requests::<T>::insert(
 			channel,
 			ChannelRequest {
@@ -818,6 +988,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		Requests::<T>::remove(channel);
+		Self::unindex_request(channel);
 		OpenRequestCount::<T>::mutate(channel.sender, |count| *count = count.saturating_sub(1));
 		AcceptedRequestCount::<T>::mutate(channel.recipient, |count| {
 			*count = count.saturating_sub(1)

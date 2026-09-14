@@ -1912,6 +1912,37 @@ impl<T: Config> Pallet<T> {
 			debug_assert!(false);
 		}
 	}
+
+	fn clean_hrmp_without_refund(para: &ParaId) {
+		HrmpOpenChannelRequestCount::<T>::remove(para);
+		HrmpAcceptedChannelRequestCount::<T>::remove(para);
+
+		let ingress = HrmpIngressChannelsIndex::<T>::take(para)
+			.into_iter()
+			.map(|sender| HrmpChannelId { sender, recipient: *para });
+		let egress = HrmpEgressChannelsIndex::<T>::take(para)
+			.into_iter()
+			.map(|recipient| HrmpChannelId { sender: *para, recipient });
+		let mut to_close = ingress.chain(egress).collect::<Vec<_>>();
+		to_close.sort();
+		to_close.dedup();
+
+		for channel in to_close {
+			HrmpChannels::<T>::remove(&channel);
+			HrmpChannelContents::<T>::remove(&channel);
+
+			HrmpEgressChannelsIndex::<T>::mutate(&channel.sender, |v| {
+				if let Ok(i) = v.binary_search(&channel.recipient) {
+					v.remove(i);
+				}
+			});
+			HrmpIngressChannelsIndex::<T>::mutate(&channel.recipient, |v| {
+				if let Ok(i) = v.binary_search(&channel.sender) {
+					v.remove(i);
+				}
+			});
+		}
+	}
 }
 
 /// Not a `From` impl: neither type is local to this crate.
@@ -2019,9 +2050,29 @@ impl<T: Config> HrmpRegistry for Pallet<T> {
 		todo!()
 	}
 
-	fn force_clean(para_id: HrmpParaId) -> Result<(), FailureReason> {
-		let _ = para_id;
-		todo!()
+	fn force_clean(
+		para_id: HrmpParaId,
+		num_inbound: u32,
+		num_outbound: u32,
+	) -> Result<(), FailureReason> {
+		let para = ParaId::from(para_id);
+
+		// The witness may over-declare, as it does on the legacy extrinsic: one number covers both
+		// this chain and the one that asked.
+		ensure!(
+			HrmpIngressChannelsIndex::<T>::decode_len(para).unwrap_or_default() <=
+				num_inbound as usize,
+			FailureReason::Refused,
+		);
+		ensure!(
+			HrmpEgressChannelsIndex::<T>::decode_len(para).unwrap_or_default() <=
+				num_outbound as usize,
+			FailureReason::Refused,
+		);
+
+		Self::clean_hrmp_without_refund(&para);
+
+		Ok(())
 	}
 
 	fn exists(channel: ChannelId) -> bool {

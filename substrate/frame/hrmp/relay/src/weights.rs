@@ -31,7 +31,7 @@ pub trait WeightInfo {
 	fn receive_open_system_channel() -> Weight;
 	fn receive_open_system_pair() -> Weight;
 	fn receive_close_channel() -> Weight;
-	fn receive_force_clean() -> Weight;
+	fn receive_force_clean(i: u32, e: u32) -> Weight;
 	fn receive_notify_para() -> Weight;
 	fn relay_request() -> Weight;
 }
@@ -54,7 +54,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn receive_close_channel() -> Weight {
 		Weight::zero()
 	}
-	fn receive_force_clean() -> Weight {
+	fn receive_force_clean(_i: u32, _e: u32) -> Weight {
 		Weight::zero()
 	}
 	fn receive_notify_para() -> Weight {
@@ -82,7 +82,7 @@ impl WeightInfo for () {
 	fn receive_close_channel() -> Weight {
 		Weight::zero()
 	}
-	fn receive_force_clean() -> Weight {
+	fn receive_force_clean(_i: u32, _e: u32) -> Weight {
 		Weight::zero()
 	}
 	fn receive_notify_para() -> Weight {

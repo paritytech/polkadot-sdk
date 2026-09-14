@@ -1367,6 +1367,81 @@ mod registry {
 	}
 
 	#[test]
+	fn force_clean_drops_every_channel() {
+		let (para_a, para_b) = (2000, 2001);
+		let mut genesis = GenesisConfigBuilder::default();
+		genesis.hrmp_sender_deposit = 20;
+		genesis.hrmp_recipient_deposit = 15;
+		new_test_ext(genesis.build()).execute_with(|| {
+			run_to_block(2, Some(vec![1, 2]));
+			register_parachain_with_balance(para_a.into(), 100);
+			register_parachain_with_balance(para_b.into(), 100);
+			run_to_block(4, Some(vec![3, 4]));
+
+			// A channel opened the legacy way, so its deposits really are reserved here.
+			assert_ok!(Hrmp::init_open_channel(
+				para_a.into(),
+				para_b.into(),
+				CAPACITY,
+				MESSAGE_SIZE
+			));
+			assert_ok!(Hrmp::accept_open_channel(para_b.into(), para_a.into()));
+			run_to_block(8, Some(vec![8]));
+			assert!(Hrmp::exists(channel(para_a, para_b)));
+
+			assert_eq!(Hrmp::force_clean(para_a, 0, 1), Ok(()));
+
+			assert!(!Hrmp::exists(channel(para_a, para_b)));
+			assert!(HrmpEgressChannelsIndex::<Test>::get(&ParaId::from(para_a)).is_empty());
+			assert!(HrmpIngressChannelsIndex::<Test>::get(&ParaId::from(para_b)).is_empty());
+			assert_eq!(HrmpOpenChannelRequestCount::<Test>::get(&ParaId::from(para_a)), 0);
+			assert_eq!(HrmpAcceptedChannelRequestCount::<Test>::get(&ParaId::from(para_b)), 0);
+
+			// Nothing is given back: the chain that asked holds the deposits for these channels.
+			assert_eq!(
+				<Test as Config>::Currency::reserved_balance(
+					&ParaId::from(para_a).into_account_truncating()
+				),
+				20
+			);
+			assert_eq!(
+				<Test as Config>::Currency::reserved_balance(
+					&ParaId::from(para_b).into_account_truncating()
+				),
+				15
+			);
+
+			Hrmp::assert_storage_consistency_exhaustive();
+		});
+	}
+
+	#[test]
+	fn force_clean_needs_a_witness_that_covers_the_paras_channels() {
+		let (para_a, para_b) = (2000, 2001);
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			run_to_block(2, Some(vec![1, 2]));
+			register_parachain(para_a.into());
+			register_parachain(para_b.into());
+			run_to_block(4, Some(vec![3, 4]));
+
+			assert_eq!(open(channel(para_a, para_b)), Ok(()));
+
+			assert_eq!(Hrmp::force_clean(para_a, 0, 0), Err(FailureReason::Refused));
+			assert_eq!(Hrmp::force_clean(para_b, 0, 0), Err(FailureReason::Refused));
+			assert!(Hrmp::exists(channel(para_a, para_b)));
+
+			// Over-declaring is fine, so one number can cover both chains.
+			assert_ok!(Hrmp::force_clean_hrmp(
+				RuntimeOrigin::root(),
+				para_a.into(),
+				4,
+				4
+			));
+			assert!(!Hrmp::exists(channel(para_a, para_b)));
+		});
+	}
+
+	#[test]
 	fn exists_covers_open_channels_and_pending_requests() {
 		let (para_a, para_b) = (2000, 2001);
 		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {

@@ -38,6 +38,8 @@ const CHANNEL: ChannelId = ChannelId { sender: SENDER, recipient: RECIPIENT };
 const SYSTEM_CHANNEL: ChannelId = ChannelId { sender: SENDER, recipient: SYSTEM_PARA };
 const CAPACITY: u32 = 4;
 const MESSAGE_SIZE: u32 = 512;
+/// Comfortably over the one channel each way the force-clean test has.
+const CHANNEL_WITNESS: u32 = 4;
 
 /// The origin `para_id` reaches the relay chain's HRMP pallet with.
 fn para_origin(para_id: ParaId) -> relay::RuntimeOrigin {
@@ -243,5 +245,89 @@ fn a_channel_with_a_system_chain_takes_no_deposit() {
 		// The paying channel next to it still holds both deposits, so this is not a blanket free
 		// pass.
 		assert!(pallet_hrmp_para::Channels::<para::Runtime>::get(CHANNEL).is_none());
+	});
+}
+
+/// What `para_id`'s sovereign account on the channel-managing parachain has held under `reason`.
+fn held(para_id: ParaId, reason: pallet_hrmp_para::HoldReason) -> para::Balance {
+	use frame_support::traits::fungible::InspectHold;
+	para::Balances::balance_on_hold(
+		&para::RuntimeHoldReason::Hrmp(reason),
+		&<para::SovereignAccountOf as sp_runtime::traits::Convert<_, _>>::convert(para_id),
+	)
+}
+
+#[test]
+fn governance_force_cleans_a_paras_channels_on_both_chains() {
+	MockNet::reset();
+
+	Relay::execute_with(|| {
+		ask(
+			SENDER,
+			ParaRequestV1::InitOpenChannel {
+				recipient: RECIPIENT,
+				proposed_max_capacity: CAPACITY,
+				proposed_max_message_size: MESSAGE_SIZE,
+			},
+		);
+		ask(RECIPIENT, ParaRequestV1::AcceptOpenChannel { sender: SENDER });
+	});
+
+	Relay::execute_with(|| {
+		assert!(parachains_hrmp::HrmpChannels::<relay::Runtime>::get(
+			&polkadot_primitives::HrmpChannelId {
+				sender: CHANNEL.sender.into(),
+				recipient: CHANNEL.recipient.into(),
+			},
+		)
+		.is_some());
+	});
+
+	HrmpPara::execute_with(|| {
+		assert!(pallet_hrmp_para::Channels::<para::Runtime>::get(CHANNEL).is_some());
+		assert!(held(SENDER, pallet_hrmp_para::HoldReason::SenderDeposit) > 0);
+		assert!(held(RECIPIENT, pallet_hrmp_para::HoldReason::RecipientDeposit) > 0);
+
+		assert_ok!(para::Hrmp::force_clean_hrmp(
+			para::RuntimeOrigin::root(),
+			SENDER,
+			CHANNEL_WITNESS,
+			CHANNEL_WITNESS,
+		));
+
+		assert!(pallet_hrmp_para::Channels::<para::Runtime>::get(CHANNEL).is_none());
+		assert!(pallet_hrmp_para::Requests::<para::Runtime>::get(CHANNEL).is_none());
+		assert!(pallet_hrmp_para::RequestIndex::<para::Runtime>::get(SENDER).is_empty());
+		assert!(pallet_hrmp_para::EgressIndex::<para::Runtime>::get(SENDER).is_empty());
+		assert!(pallet_hrmp_para::IngressIndex::<para::Runtime>::get(RECIPIENT).is_empty());
+		assert_eq!(held(SENDER, pallet_hrmp_para::HoldReason::SenderDeposit), 0);
+		assert_eq!(held(RECIPIENT, pallet_hrmp_para::HoldReason::RecipientDeposit), 0);
+	});
+
+	// The `Transact` reaches the relay chain, which drops the channel from the routing table.
+	Relay::execute_with(|| {
+		assert!(parachains_hrmp::HrmpChannels::<relay::Runtime>::get(
+			&polkadot_primitives::HrmpChannelId {
+				sender: CHANNEL.sender.into(),
+				recipient: CHANNEL.recipient.into(),
+			},
+		)
+		.is_none());
+		assert!(parachains_hrmp::HrmpEgressChannelsIndex::<relay::Runtime>::get(
+			&polkadot_primitives::Id::from(SENDER)
+		)
+		.is_empty());
+		assert!(parachains_hrmp::HrmpIngressChannelsIndex::<relay::Runtime>::get(
+			&polkadot_primitives::Id::from(RECIPIENT)
+		)
+		.is_empty());
+
+		assert!(relay::System::events().iter().any(|record| matches!(
+			record.event,
+			relay::RuntimeEvent::Hrmp(pallet_hrmp_relay::Event::ChannelsCleaned {
+				para_id: SENDER,
+				..
+			})
+		)));
 	});
 }
