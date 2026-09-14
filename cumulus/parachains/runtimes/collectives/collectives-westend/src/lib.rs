@@ -851,7 +851,8 @@ type Migrations = (
 		AmbassadorCoreInstance,
 	>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
-	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
+	cumulus_pallet_parachain_system::migration::v3::Migration<Runtime>,
+	cumulus_pallet_parachain_system::migration::MigrateV3ToV4<Runtime>,
 );
 
 // Helpers for the core fellowship pallet v1->v2 storage migration.
