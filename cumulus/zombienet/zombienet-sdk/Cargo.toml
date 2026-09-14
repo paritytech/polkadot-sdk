@@ -9,6 +9,7 @@ publish = false
 
 [dependencies]
 anyhow = { workspace = true }
+bs58 = { features = ["alloc"], workspace = true, default-features = true }
 env_logger = { workspace = true }
 log = { workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }
