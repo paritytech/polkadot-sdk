@@ -87,7 +87,7 @@ preimage order is the reverse of the visual left-to-right).
 ### 3.3 Frontier and position
 
 ```rust
-struct MmrFrontier { leaf_count: u64, peaks: Vec<Hash> }  // peaks high→low
+struct MmrFrontier { peaks: Vec<Hash>, leaf_count: u64 }  // peaks high→low
 struct MessagePosition(u64);                              // leaf index, 0-based
 ```
 
@@ -285,7 +285,7 @@ Objects exactly as the design doc's §Fetch Protocol:
 `MessagesRequest { stream, start, under, max_bytes }`,
 `MessagesResponse { base, leaf_version, payloads, start_peaks, extension,
 tree_proof }`, `EventRequest { stream, under, at }`,
-`EventResponse { payload, inclusion, tree_proof }` — SCALE, with the §5
+`EventResponse { payload, leaf_version, inclusion, tree_proof }` — SCALE, with the §5
 proof encodings. Every response verifies against the requester-named
 `under`; `max_bytes = 0` = payload-free (pure lift material).
 
