@@ -108,6 +108,8 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::coretime::WeightInfo 
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
+	/// TODO: measure in benchmarks
+	fn queue_on_demand_batch(_: u32) -> frame_election_provider_support::Weight { todo!() }
 	/// Storage: `OnDemandAssignmentProvider::Credits` (r:1 w:1)
 	/// Proof: `OnDemandAssignmentProvider::Credits` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn credit_account() -> Weight {
