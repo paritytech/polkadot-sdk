@@ -8,7 +8,7 @@ COPY . /cumulus
 RUN cargo build --release --locked -p polkadot-parachain
 
 # This is the 2nd stage: a very small image where we copy the Polkadot binary."
-FROM docker.io/library/ubuntu:20.04
+FROM docker.io/library/ubuntu:24.04
 
 LABEL io.parity.image.type="builder" \
     io.parity.image.authors="devops-team@parity.io" \

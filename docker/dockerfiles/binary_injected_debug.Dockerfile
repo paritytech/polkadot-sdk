@@ -1,4 +1,4 @@
-FROM docker.io/library/ubuntu:20.04
+FROM docker.io/library/ubuntu:24.04
 
 # This file allows building a Generic debug container image
 # based on one or multiple pre-built Linux binaries.
