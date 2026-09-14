@@ -28,8 +28,7 @@ doc:
     - `transfer_and_die` now requires the debit to equal `amount` unless the caller passed
       `best_effort`, returning the new `Error::WouldSweepDust` otherwise. Sending the whole
       balance leaves no remainder and still reaps the account, and a self-transfer is exempt
-      because it is settled as a no-op. `prep_debit` is unchanged, so `burn` and the
-      imbalance-returning withdrawals keep promoting as before.
+      because it is settled as a no-op.
     - `pallet-assets` now implements `fungibles::Mutate::transfer` itself, deferring to
       `do_transfer` after running the same preconditions as the default implementation so the
       same `TokenError`s still surface. Debit and credit are settled against one figure and
@@ -37,11 +36,7 @@ doc:
     - `pallet_asset_conversion::withdraw` rejects an expendable withdrawal that would strand a
       remainder before touching state, and asserts the returned credit matches the requested
       value as a backstop.
-
-    The `ERC20` precompile keeps its own pre-flight check, which reverts with
-    `Error("Transfer would leave sender below minimum balance")` rather than surfacing a dispatch
-    error to the caller. It is now redundant with the pallet-level rule but is retained so the
-    EVM-facing contract does not depend on `pallet-assets` continuing to enforce it.
+      
 - audience: Runtime User
   description: |-
     Transferring an amount that would leave you holding less than an asset's minimum balance now
@@ -60,3 +55,6 @@ crates:
   bump: patch
 - name: pallet-asset-conversion-precompiles
   bump: patch
+# Test-only: exercises the fix end-to-end over XCM; no runtime API change.
+- name: asset-hub-westend-runtime
+  bump: none

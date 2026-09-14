@@ -2044,30 +2044,19 @@ fn erc20_precompile_xcm_round_trip(
 /// The `pallet-assets` ERC-20 precompile is reachable from XCM, not just from contracts:
 /// `ERC20Matcher` accepts any local `AccountKey20`, and `xcm_config::ERC20Transactor`
 /// implements `withdraw_asset` / `deposit_asset` as `IERC20::transfer` calls through
-/// `pallet_revive::bare_call`. the beneficiary on the way out.
-///
-/// `min_balance = 10`, sender holds 100, the XCM declares 95 — a remainder of 5, non-zero
-/// and below `min_balance`.
+/// `pallet_revive::bare_call`.
 #[test]
 fn erc20_precompile_xcm_transfer_is_exact() {
 	let (succeeded, sender_balance, beneficiary_balance) =
 		erc20_precompile_xcm_round_trip(10, 100, 95);
 
-	if succeeded {
-		assert_eq!(
-			100 - sender_balance,
-			95,
-			"sender was debited {} but the XCM declared 95 — the remainder was swept and is \
-			 unaccounted for in the holding register",
-			100 - sender_balance,
-		);
-		assert_eq!(beneficiary_balance, 95);
-	} else {
-		// Refusing the dust-producing transfer is acceptable: the whole XCM fails and the
-		// dispatchable's storage layer rolls everything back.
-		assert_eq!(sender_balance, 100);
-		assert_eq!(beneficiary_balance, 0);
-	}
+	assert!(
+		!succeeded,
+		"a dust-producing transfer must revert, failing the whole XCM rather than sweeping \
+		 the remainder into the holding register",
+	);
+	assert_eq!(sender_balance, 100);
+	assert_eq!(beneficiary_balance, 0);
 }
 
 /// `erc20_precompile_xcm_transfer_is_exact`: the same XCM with an amount that

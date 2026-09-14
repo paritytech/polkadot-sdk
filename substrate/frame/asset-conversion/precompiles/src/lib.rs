@@ -30,16 +30,16 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::Decode;
 use core::marker::PhantomData;
-use frame_support::traits::{Get, fungibles::Inspect};
+use frame_support::traits::{fungibles::Inspect, Get};
 use pallet_asset_conversion::{
-	AddLiquidityAsset, MutateLiquidity, QuotePrice, Swap, weights::WeightInfo as _,
+	weights::WeightInfo as _, AddLiquidityAsset, MutateLiquidity, QuotePrice, Swap,
 };
 use pallet_revive::precompiles::{
-	AddressMatcher, Error, Ext, H160, Precompile,
 	alloy::{
 		self,
 		sol_types::{Revert, SolCall},
 	},
+	AddressMatcher, Error, Ext, Precompile, H160,
 };
 use sp_runtime::traits::{CheckedSub, Zero};
 
@@ -352,7 +352,7 @@ where
 			call.path.iter().map(|e| Self::decode_asset_kind(e)).collect::<Result<_, _>>()?;
 
 		let sender = Self::caller_account_id(env)?;
-		let send_to = env.to_account_id(&H160(call.sendTo.0.0));
+		let send_to = env.to_account_id(&H160(call.sendTo.0 .0));
 		let amount_in = Self::to_balance(call.amountIn)?;
 		if let Some(asset_in) = path.first() {
 			Self::ensure_exact_withdraw(asset_in.clone(), &sender, amount_in, call.keepAlive)?;
@@ -388,7 +388,7 @@ where
 			call.path.iter().map(|e| Self::decode_asset_kind(e)).collect::<Result<_, _>>()?;
 
 		let sender = Self::caller_account_id(env)?;
-		let send_to = env.to_account_id(&H160(call.sendTo.0.0));
+		let send_to = env.to_account_id(&H160(call.sendTo.0 .0));
 		let amount_out = Self::to_balance(call.amountOut)?;
 		if path.len() >= 2 {
 			if let (Some(asset_in), Some(quoted_in)) =
@@ -501,7 +501,7 @@ where
 		let asset2 = Self::decode_asset_kind(&call.asset2)?;
 
 		let sender = Self::caller_account_id(env)?;
-		let mint_to = env.to_account_id(&H160(call.mintTo.0.0));
+		let mint_to = env.to_account_id(&H160(call.mintTo.0 .0));
 
 		let lp_tokens = <pallet_asset_conversion::Pallet<Runtime> as MutateLiquidity<
 			<Runtime as frame_system::Config>::AccountId,
@@ -533,7 +533,7 @@ where
 		let asset2 = Self::decode_asset_kind(&call.asset2)?;
 
 		let sender = Self::caller_account_id(env)?;
-		let withdraw_to = env.to_account_id(&H160(call.withdrawTo.0.0));
+		let withdraw_to = env.to_account_id(&H160(call.withdrawTo.0 .0));
 
 		let (amount1, amount2) = <pallet_asset_conversion::Pallet<Runtime> as MutateLiquidity<
 			<Runtime as frame_system::Config>::AccountId,

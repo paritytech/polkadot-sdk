@@ -19,18 +19,19 @@
 
 pub use super::*;
 use frame_support::{
-	PalletId, construct_runtime, derive_impl,
+	construct_runtime, derive_impl,
 	instances::{Instance1, Instance2},
 	parameter_types,
 	traits::{
-		AsEnsureOriginWithArg, ConstU32, ConstU64,
 		tokens::fungible::{NativeFromLeft, NativeOrWithId, UnionOf},
+		AsEnsureOriginWithArg, ConstU32, ConstU64,
 	},
+	PalletId,
 };
 use frame_system::EnsureSignedBy;
 use pallet_asset_conversion::{AccountIdConverter, Ascending, Chain, WithFirstAsset};
 use pallet_revive::precompiles::H160;
-use sp_runtime::{BuildStorage, Permill, traits::AccountIdConversion};
+use sp_runtime::{traits::AccountIdConversion, BuildStorage, Permill};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 

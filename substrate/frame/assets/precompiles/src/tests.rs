@@ -1150,6 +1150,11 @@ fn transfer_from_of_full_balance_is_allowed(asset_index: u16) {
 /// the same movement, so they must agree on the amount. `Transferred` carries `credit`
 /// (what actually landed in `dest`) while the log carries `call.value`, which is how the
 /// dust sweep becomes observable from two different indexing surfaces at once.
+///
+/// `min_balance = 10`, sender holds `100`, `transfer(90)` leaves exactly `10` — at, not
+/// below, `min_balance` — so this stays outside the dust window and must succeed; a value
+/// inside the window (e.g. 95) would revert before either surface reports anything, which
+/// would make the agreement assertion below vacuous.
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
 #[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
 fn transfer_log_agrees_with_pallet_event(asset_index: u16) {
@@ -1165,12 +1170,10 @@ fn transfer_log_agrees_with_pallet_event(asset_index: u16) {
 		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
 		setup_asset_with_min_balance(asset_id, asset_index, from, 10, 100);
 
-		let exec = raw_transfer(from, asset_addr, to_addr, U256::from(95u64))
+		let exec = raw_transfer(from, asset_addr, to_addr, U256::from(90u64))
 			.result
 			.expect("must not trap");
-		if exec.did_revert() {
-			return;
-		}
+		assert!(!exec.did_revert(), "a transfer outside the dust window must not revert");
 
 		let pallet_amount = System::events()
 			.into_iter()
@@ -1182,9 +1185,9 @@ fn transfer_log_agrees_with_pallet_event(asset_index: u16) {
 			})
 			.expect("pallet_assets::Event::Transferred must be emitted");
 		assert_eq!(
-			pallet_amount, 95,
+			pallet_amount, 90,
 			"pallet_assets reported a transfer of {pallet_amount} while the ERC-20 \
-			 Transfer log reports 95",
+			 Transfer log reports 90",
 		);
 	});
 }

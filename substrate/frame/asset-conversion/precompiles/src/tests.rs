@@ -17,8 +17,8 @@
 
 use super::*;
 use crate::mock::{
-	AssetConversion as AssetConversionPallet, Assets, NativeAndAssets, RuntimeOrigin, Test,
-	new_test_ext, precompile_address,
+	new_test_ext, precompile_address, AssetConversion as AssetConversionPallet, Assets,
+	NativeAndAssets, RuntimeOrigin, Test,
 };
 use alloy::primitives::U256;
 use codec::Encode;
@@ -27,8 +27,8 @@ use frame_support::{
 	traits::{fungibles::Inspect, tokens::fungible::NativeOrWithId},
 };
 use pallet_revive::{
+	precompiles::{alloy::sol_types::SolCall, TransactionLimits},
 	AddressMapper, Code, ExecConfig,
-	precompiles::{TransactionLimits, alloy::sol_types::SolCall},
 };
 use sp_runtime::Weight;
 
