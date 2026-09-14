@@ -1602,8 +1602,6 @@ mod tests {
 		assert!(disconnects.is_empty());
 	}
 
-	/// The gauge moved here from `sc-network` must keep the name operators' dashboards resolve it
-	/// by, and must stay sourced from the engine's live peer counter rather than a snapshot.
 	#[test]
 	fn num_connected_gauge_tracks_the_shared_counter() {
 		let registry = Registry::new();
