@@ -14,3 +14,5 @@ doc:
 crates:
 - name: sc-network-statement
   bump: patch
+- name: sp-statement-store
+  bump: none

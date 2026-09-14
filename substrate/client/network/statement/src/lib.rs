@@ -304,11 +304,11 @@ mod send_failure {
 	pub const NO_SINK: &str = "no_sink";
 	/// The peer's propagation outbox overflowed and the oldest queued hashes were dropped.
 	pub const OUTBOX_FULL: &str = "outbox_full";
-	/// A planned statement left the store before its chunk went out, and no sync stands in
-	/// for it.
+	/// A planned statement left the store before its chunk went out, so the peer never received
+	/// the placement the plan made.
 	pub const MISSING_FROM_STORE: &str = "missing_from_store";
-	/// The peer disconnected with planned statements still queued, and no sync stands in for
-	/// them.
+	/// The peer disconnected with planned statements still queued, and the reconnect's sync
+	/// serves the peer through its affinity filter rather than the plan.
 	pub const DISCONNECTED: &str = "disconnected";
 }
 
@@ -1657,7 +1657,7 @@ where
 					);
 				}
 				self.initial_sync_peer_queue.retain(|p| *p != peer);
-				// A reconnect's sync covers the stored hashes, the planned ones are lost.
+				// A reconnect's sync covers the stored hashes, its filter may skip planned ones.
 				if let Some(outbox) = self.propagation_outboxes.remove(&peer) {
 					let planned = outbox.iter().filter(|entry| entry.from_plan()).count();
 					if planned > 0 {
@@ -1975,8 +1975,8 @@ where
 	/// Queue the statements the orchestrator's propagation `plan` assigned to each peer.
 	///
 	/// A planned entry skips the peer's affinity filter and sync watermark, see
-	/// [`OutboxEntry::Planned`]. Of the statements offered, only those the peer sent to us are
-	/// dropped.
+	/// [`OutboxEntry::Planned`]. A peer that is gone or cannot receive yet is skipped, and of
+	/// the statements offered only those the peer sent to us are dropped.
 	fn queue_planned_statements(
 		&mut self,
 		statements: &[(u64, Hash, Statement)],
@@ -2118,8 +2118,8 @@ where
 			// statement would be fetched again on the next iteration.
 			outbox.drain(..processed);
 
-			// A stored hash the store dropped is covered by a later sync, a planned one by
-			// nothing.
+			// A stored hash that left the store is gossip with nothing left to send, a planned
+			// one is a placement the peer never received.
 			if from_plan && missing > 0 {
 				self.record_abandoned_send(send_failure::MISSING_FROM_STORE, missing);
 			}
@@ -4022,7 +4022,7 @@ mod tests {
 		let kept_hash = kept.hash();
 		statement_store.insert(kept);
 
-		// The stored hash is covered by a later sync, only the planned one is lost.
+		// The stored hash is gone for everyone, only the planned one is a lost placement.
 		handler.propagation_outboxes.insert(
 			peer_id,
 			VecDeque::from(vec![
