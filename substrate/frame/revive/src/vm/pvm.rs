@@ -654,10 +654,13 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			},
 			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
 			None => {
-				let transfer = (!value.is_zero())
+				let transfer_access = (!value.is_zero())
 					.then(|| Transfer { from: self.ext.address(), dust: dust_transfer });
-				let call_access =
-					CallAccess::new(callee, matches!(&call_type, CallType::DelegateCall), transfer);
+				let call_access = CallAccess::new(
+					callee,
+					matches!(&call_type, CallType::DelegateCall),
+					transfer_access,
+				);
 				let warmth = self.ext.warm(call_access);
 				transfer_warmth = warmth.transfer_warmth();
 				self.charge_gas(RuntimeCosts::CallBase(warmth))?

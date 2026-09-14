@@ -1417,7 +1417,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 	}
 	/// The range of component `d` is `[0, 1]`.
-	fn seal_call_hot_transfer(d: u32, ) -> Weight {
+	fn seal_call_transfer_hot(d: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

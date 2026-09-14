@@ -25,7 +25,7 @@ use alloc::{
 	collections::btree_map::{BTreeMap, Entry},
 	vec::Vec,
 };
-use frame_support::BoundedVec;
+use frame_support::{BoundedVec, defensive_assert};
 use sp_core::{ConstU32, H160, H256};
 
 use crate::{exec::Key, limits};
@@ -148,6 +148,22 @@ pub enum KeyFamily {
 	Slot,
 	/// An address or a code hash.
 	Address,
+}
+
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+impl AccessEntry {
+	/// Builds the `i`-th entry of `key`'s family. Only the trailing bytes carry `i`, so a
+	/// comparison runs the whole shared prefix before it can decide.
+	pub fn with_index(i: usize, key: KeyFamily) -> Self {
+		match key {
+			KeyFamily::Slot => {
+				let slot = Key::try_from_var(vec![0xFFu8; limits::STORAGE_KEY_BYTES as usize])
+					.expect("key fits STORAGE_KEY_BYTES bound; qed");
+				Self::Storage { slot: Slot::from(&slot), address: H160::from_low_u64_be(i as u64) }
+			},
+			KeyFamily::Address => Self::CodeInfo { hash: H256::from_low_u64_be(i as u64) },
+		}
+	}
 }
 
 /// The operation a storage access performs.
@@ -275,8 +291,8 @@ pub struct Transfer {
 }
 
 impl Transfer {
-	/// What a transfer does to the two contract infos.
-	pub(crate) fn info_op(dust: bool) -> StorageOp {
+	/// `Write` when the transfer carries dust, which lives in the account info, else `Read`.
+	pub(crate) fn account_info_op(dust: bool) -> StorageOp {
 		if dust { StorageOp::Write } else { StorageOp::Read }
 	}
 }
@@ -319,10 +335,11 @@ impl Access for CallAccess {
 		match self {
 			Self::Plain { target, transfer } => {
 				let dust = transfer.is_some_and(|transfer| transfer.dust);
-				let info_op = Transfer::info_op(dust);
+				let account_info_op = Transfer::account_info_op(dust);
 				let original_account =
 					resolve(AccessEntry::OriginalAccount { address: target }, StorageOp::Read);
-				let account_info = resolve(AccessEntry::AccountInfo { address: target }, info_op);
+				let account_info =
+					resolve(AccessEntry::AccountInfo { address: target }, account_info_op);
 				let transfer = transfer.map(|transfer| TransferWarmth {
 					account: resolve(AccessEntry::Account { address: target }, StorageOp::Write),
 					sender_account: resolve(
@@ -332,7 +349,7 @@ impl Access for CallAccess {
 					account_info,
 					sender_account_info: resolve(
 						AccessEntry::AccountInfo { address: transfer.from },
-						info_op,
+						account_info_op,
 					),
 				});
 				CallWarmth::Plain { original_account, account_info, transfer }
@@ -513,10 +530,10 @@ impl AccessList {
 				self.hot_count = self.hot_count.saturating_add(1);
 				let prev_charged = *tree_entry.get();
 				if !prev_charged.covers(op) {
-					// Defensive: one upgrade per tracked slot, so the journal
+					// Defensive: one upgrade per tracked entry, so the journal
 					// cannot fill. If it does, later writes just pay the surcharge again.
 					let journaled = self.upgrades.try_push(tree_entry.key().clone());
-					debug_assert!(journaled.is_ok(), "at most one live upgrade per tracked slot");
+					defensive_assert!(journaled.is_ok(), "at most one upgrade per tracked entry");
 					if journaled.is_ok() {
 						*tree_entry.get_mut() = StorageOp::Write;
 					}
@@ -559,6 +576,46 @@ impl AccessList {
 	/// Per-transaction metrics snapshot.
 	pub fn metrics(&self) -> AccessListMetrics {
 		AccessListMetrics { size: self.accessed.len(), cold: self.cold_count, hot: self.hot_count }
+	}
+
+	/// An access list holding entries `0..entries` of the given `key` family.
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	pub fn with_entries(entries: usize, key: KeyFamily) -> Self {
+		let mut list = Self::new();
+		list.fill_to(entries, key);
+		list
+	}
+
+	/// Adds fresh entries of `key`'s family until the list holds `target_size` of them.
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	pub fn fill_to(&mut self, target_size: usize, key: KeyFamily) {
+		let already = self.metrics().size;
+		assert!(already <= target_size, "the map is already past the target");
+		for i in 0..target_size - already {
+			let entry = AccessEntry::with_index(i, key);
+			assert!(!self.touch(entry, StorageOp::Read).is_hot(), "fill entries must be new");
+		}
+		assert_eq!(self.metrics().size, target_size, "the map reached the requested size");
+	}
+
+	/// The first entry in key order.
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	pub fn first(&self) -> AccessEntry {
+		self.accessed
+			.keys()
+			.next()
+			.expect("fixtures only ask a non-empty list; qed")
+			.clone()
+	}
+
+	/// The last entry in key order.
+	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	pub fn last(&self) -> AccessEntry {
+		self.accessed
+			.keys()
+			.next_back()
+			.expect("fixtures only ask a non-empty list; qed")
+			.clone()
 	}
 
 	/// Returns the number of open checkpoints.
@@ -630,17 +687,6 @@ mod tests {
 		);
 	}
 
-	/// Touch read-paid entries with distinct addresses until the map holds `target_size` of them.
-	fn fill_to(al: &mut AccessList, target_size: usize) {
-		assert!(al.metrics().size <= target_size, "the map is already past the target");
-		for i in 0..target_size - al.metrics().size {
-			let address = H160::from_low_u64_be(i as u64);
-			let entry = AccessEntry::Storage { address, slot: Slot::Fix([0; 32]) };
-			assert!(!al.touch(entry, StorageOp::Read).is_hot(), "fill entries must be new");
-		}
-		assert_eq!(al.metrics().size, target_size, "the map reached the requested size");
-	}
-
 	#[test]
 	fn each_access_prices_its_own_key_family() {
 		fn families_of<A: Access>(access: A) -> Vec<KeyFamily> {
@@ -704,12 +750,9 @@ mod tests {
 	#[test]
 	fn touch_caps_at_max_entries() {
 		let mut al = AccessList::new();
-		fill_to(&mut al, MAX_ACCESS_LIST_ENTRIES);
+		al.fill_to(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Slot);
 
-		let new_entry = AccessEntry::Storage {
-			address: H160::from_low_u64_be(MAX_ACCESS_LIST_ENTRIES as u64),
-			slot: Slot::Fix([0; 32]),
-		};
+		let new_entry = AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Slot);
 		al.enter_frame();
 		assert_eq!(
 			al.touch(new_entry.clone(), StorageOp::Read),
@@ -725,7 +768,7 @@ mod tests {
 			"past cap re-touch: still cold (not tracked)"
 		);
 
-		let existing = AccessEntry::Storage { address: H160::zero(), slot: Slot::Fix([0; 32]) };
+		let existing = AccessEntry::with_index(0, KeyFamily::Slot);
 		assert!(
 			al.touch(existing.clone(), StorageOp::Read).is_hot(),
 			"existing entry still hot at cap"
@@ -778,7 +821,7 @@ mod tests {
 	#[test]
 	fn call_peek_matches_touch_at_cap_boundary() {
 		let mut al = AccessList::new();
-		fill_to(&mut al, MAX_ACCESS_LIST_ENTRIES - 1);
+		al.fill_to(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::Slot);
 
 		let target = H160::from_low_u64_be(0xdead_beef);
 		// Nested frame, so a journaled cold touch would be revertible.
@@ -862,14 +905,13 @@ mod tests {
 		agree(&mut al, entry(2), StorageOp::Write, Warmth::Cold { revertible: true });
 		al.rollback_frame();
 
-		fill_to(&mut al, MAX_ACCESS_LIST_ENTRIES);
+		al.fill_to(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Slot);
 
 		al.enter_frame();
 		// Peek's own past-cap arm must agree with touch too.
 		agree(&mut al, entry(3), StorageOp::Write, Warmth::Cold { revertible: false });
 		// A tracked read-paid slot still upgrades at the cap.
-		let filled =
-			AccessEntry::Storage { address: H160::from_low_u64_be(0), slot: Slot::Fix([0; 32]) };
+		let filled = AccessEntry::with_index(0, KeyFamily::Slot);
 		agree(&mut al, filled.clone(), StorageOp::Write, Warmth::Hot { charged: StorageOp::Read });
 		al.rollback_frame();
 		assert_eq!(

@@ -21,8 +21,8 @@
 use crate::{
 	Pallet as Contracts,
 	access_list::{
-		AccessEntry, AccessList, CallAccess, CodeLoad, KeyFamily, MAX_ACCESS_LIST_ENTRIES,
-		StorageOp, Transfer,
+		AccessEntry, AccessList, CallAccess, CodeLoad, CodeLoadWarmth, KeyFamily,
+		MAX_ACCESS_LIST_ENTRIES, StorageOp, Transfer,
 	},
 	call_builder::{
 		CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit,
@@ -427,7 +427,7 @@ mod benchmarks {
 			let callee_bytes = callee.encode();
 			let $callee_len = callee_bytes.len() as u32;
 
-			// Same amounts as the cold `seal_call` bench, so both slopes measure the same work.
+			// Same amounts as the cold `seal_call` bench, so both take the same transfer branches.
 			let native: BalanceOf<T> = (1_000_000u32 * $t).into();
 			let dust = 100u32 * $d;
 			let value = BalanceWithDust::new_unchecked::<T>(native, dust);
@@ -444,9 +444,10 @@ mod benchmarks {
 
 			let transfer = (!value.is_zero())
 				.then(|| Transfer { from: setup.contract().address, dust: dust != 0 });
+
 			let call_access = CallAccess::new(callee_contract.address, $delegate, transfer);
-			let code_access = CodeLoad { hash: code_hash };
 			whitelist_access::<T>(call_access);
+			let code_access = CodeLoad { hash: code_hash };
 			whitelist_access::<T>(code_access);
 
 			let (mut ext, _) = setup.ext();
@@ -488,6 +489,7 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// c: code size in bytes.
 	#[benchmark(pov_mode = Measured)]
 	fn call_with_pvm_code_per_byte_hot(c: Linear<0, { 100 * 1024 }>) -> Result<(), BenchmarkError> {
 		hot_call_setup!(do_call, VmBinaryModule::sized(c));
@@ -536,6 +538,7 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// c: code size in bytes.
 	#[benchmark(pov_mode = Measured)]
 	fn call_with_evm_code_per_byte_hot(c: Linear<1, { 10 * 1024 }>) -> Result<(), BenchmarkError> {
 		hot_call_setup!(do_call, VmBinaryModule::evm_init_code_for_runtime_size(c));
@@ -732,6 +735,28 @@ mod benchmarks {
 		// contract has the full value
 		assert_eq!(T::Currency::balance(&account_id), value + Pallet::<T>::min_balance());
 
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn code_load() -> Result<(), BenchmarkError> {
+		let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+		let code_hash = contract.info()?.code_hash;
+		let mut meter = TransactionMeter::<T>::new(TransactionLimits::WeightAndDeposit {
+			weight_limit: Weight::MAX,
+			deposit_limit: BalanceOf::<T>::max_value(),
+		})
+		.map_err(|_| BenchmarkError::Stop("could not build the meter"))?;
+		let blob;
+		#[block]
+		{
+			blob = ContractBlob::<T>::from_storage(
+				code_hash,
+				&mut meter,
+				CodeLoadWarmth::cold_non_revertible(),
+			);
+		}
+		assert!(blob.is_ok(), "an existing contract must load");
 		Ok(())
 	}
 
@@ -2272,51 +2297,10 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Entry number `i`, a storage slot or an account depending on `key`. Only the trailing
-	/// bytes carry `i`, so a comparison runs the whole shared prefix before it can decide.
-	fn access_entry(key: KeyFamily, i: u32) -> AccessEntry {
-		match key {
-			// One slot, at the maximum length, shared by every entry, so each comparison
-			// runs its full length before the address can decide.
-			KeyFamily::Slot => {
-				let slot = Key::try_from_var(vec![0xFFu8; limits::STORAGE_KEY_BYTES as usize])
-					.expect("key fits STORAGE_KEY_BYTES bound; qed");
-				AccessEntry::Storage {
-					slot: crate::access_list::Slot::from(&slot),
-					address: H160::from_low_u64_be(i as u64),
-				}
-			},
-			KeyFamily::Address => {
-				let mut hash = [0xFFu8; 32];
-				hash[30] = (i >> 8) as u8;
-				hash[31] = i as u8;
-				AccessEntry::CodeInfo { hash: H256::from(hash) }
-			},
-		}
-	}
-
-	/// Builds an access list filled with `entries` entries of the given `key` and returns it
-	/// with the last entry inserted, so touching that is hot, or cold when `entries` is zero.
-	fn access_list_with(
-		entries: u32,
-		key: KeyFamily,
-	) -> (crate::access_list::AccessList, AccessEntry) {
-		let mut al = AccessList::new();
-		for i in 0..entries {
-			al.touch(access_entry(key, i), StorageOp::Read);
-		}
-		assert_eq!(
-			al.metrics().size as u32,
-			entries,
-			"the keys must stay distinct, or the list is smaller than it looks",
-		);
-		(al, access_entry(key, entries.saturating_sub(1)))
-	}
-
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_cold_empty() -> Result<(), BenchmarkError> {
-		// Empty, so the entry it hands back is absent and the touch is cold.
-		let (mut al, entry) = access_list_with(0, KeyFamily::Slot);
+		let mut al = AccessList::new();
+		let entry = AccessEntry::with_index(0, KeyFamily::Slot);
 		let outcome;
 		#[block]
 		{
@@ -2328,8 +2312,8 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_cold_address_empty() -> Result<(), BenchmarkError> {
-		// The address family needs its own baseline: its keys are shorter and never on the heap.
-		let (mut al, entry) = access_list_with(0, KeyFamily::Address);
+		let mut al = AccessList::new();
+		let entry = AccessEntry::with_index(0, KeyFamily::Address);
 		let outcome;
 		#[block]
 		{
@@ -2341,8 +2325,8 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_single_element() -> Result<(), BenchmarkError> {
-		// One entry, and it is the one handed back, so the touch is hot.
-		let (mut al, entry) = access_list_with(1, KeyFamily::Slot);
+		let mut al = AccessList::with_entries(1, KeyFamily::Slot);
+		let entry = al.first();
 		let outcome;
 		#[block]
 		{
@@ -2353,7 +2337,8 @@ mod benchmarks {
 	}
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_address_single_element() -> Result<(), BenchmarkError> {
-		let (mut al, entry) = access_list_with(1, KeyFamily::Address);
+		let mut al = AccessList::with_entries(1, KeyFamily::Address);
+		let entry = al.first();
 		let outcome;
 		#[block]
 		{
@@ -2365,8 +2350,8 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_cold_full() -> Result<(), BenchmarkError> {
-		let (mut al, _) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32 - 1, KeyFamily::Slot);
-		let entry = access_entry(KeyFamily::Slot, MAX_ACCESS_LIST_ENTRIES as u32);
+		let mut al = AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::Slot);
+		let entry = AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Slot);
 		let outcome;
 		#[block]
 		{
@@ -2378,7 +2363,8 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
-		let (mut al, entry) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32, KeyFamily::Slot);
+		let mut al = AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Slot);
+		let entry = al.last();
 		let outcome;
 		#[block]
 		{
@@ -2390,8 +2376,8 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_cold_address_full() -> Result<(), BenchmarkError> {
-		let (mut al, _) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32 - 1, KeyFamily::Address);
-		let entry = access_entry(KeyFamily::Address, MAX_ACCESS_LIST_ENTRIES as u32);
+		let mut al = AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::Address);
+		let entry = AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Address);
 		let outcome;
 		#[block]
 		{
@@ -2403,7 +2389,8 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_address_full() -> Result<(), BenchmarkError> {
-		let (mut al, entry) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32, KeyFamily::Address);
+		let mut al = AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Address);
+		let entry = al.last();
 		let outcome;
 		#[block]
 		{
@@ -2415,7 +2402,8 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_upgrade() -> Result<(), BenchmarkError> {
-		let (mut al, entry) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32, KeyFamily::Slot);
+		let mut al = AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Slot);
+		let entry = al.last();
 		let outcome;
 		#[block]
 		{
@@ -2427,9 +2415,12 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_rollback_amortization() -> Result<(), BenchmarkError> {
-		let (mut al, _) = access_list_with(MAX_ACCESS_LIST_ENTRIES as u32 - 1, KeyFamily::Slot);
+		let mut al = AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::Slot);
 		al.enter_frame();
-		al.touch(access_entry(KeyFamily::Slot, MAX_ACCESS_LIST_ENTRIES as u32), StorageOp::Read);
+		al.touch(
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Slot),
+			StorageOp::Read,
+		);
 		#[block]
 		{
 			al.rollback_frame();
@@ -2764,8 +2755,8 @@ mod benchmarks {
 		// does not, and that arm charges the destination's ED to the origin, leaving it nothing
 		// for `ensure_sufficient_dust` to burn into dust when `d == 1`.
 		T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
-		// The delegation snapshots the target's code hash, so that is the code this call loads;
-		// its read is priced by `code_load`.
+
+		// The code read is priced by `code_load`.
 		target.whitelist_code()?;
 
 		let callee_bytes = callee.encode();
@@ -2832,8 +2823,9 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// d: with or without dust value to transfer
 	#[benchmark(pov_mode = Measured)]
-	fn seal_call_hot_transfer(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+	fn seal_call_transfer_hot(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
 		hot_call_setup!(do_call, VmBinaryModule::dummy(), 1, d);
 
 		let result;
@@ -2961,22 +2953,6 @@ mod benchmarks {
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
-		Ok(())
-	}
-
-	/// Both reads of a code load in one block, so the trie path they share is paid for once.
-	#[benchmark(pov_mode = Measured)]
-	fn code_load() -> Result<(), BenchmarkError> {
-		let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
-		let code_hash = contract.info()?.code_hash;
-		let code_info;
-		let code;
-		#[block]
-		{
-			code_info = <CodeInfoOf<T>>::get(code_hash);
-			code = <PristineCode<T>>::get(&code_hash);
-		}
-		assert!(code_info.is_some() && code.is_some(), "an existing contract must have both");
 		Ok(())
 	}
 

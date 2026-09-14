@@ -42,6 +42,7 @@ use core::{cmp, fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
 use frame_support::{
 	Blake2_128Concat, BoundedVec, DebugNoBound, StorageHasher,
 	crypto::ecdsa::ECDSAExt,
+	defensive_assert,
 	dispatch::DispatchResult,
 	ensure,
 	storage::{TransactionOutcome, with_transaction},
@@ -1037,21 +1038,9 @@ where
 		origin.ensure_mapped()?;
 		// Create before the first frame is built, to capture its state accesses.
 		let mut access_list = AccessList::new();
-		// The top-level call has no interpreter to warm its target, so warm it here. The
-		// `call` extrinsic's weight covers reading it, so no charge is due.
-		if let FrameArgs::Call { dest, delegated_call: None, .. } = &args {
-			let address = T::AddressMapper::to_address(dest);
-			if <AllPrecompiles<T>>::get::<Self>(address.as_fixed_bytes()).is_none() {
-				let transfer =
-					origin.account_id().ok().filter(|_| !value.is_zero()).map(|account| {
-						access_list::Transfer {
-							from: T::AddressMapper::to_address(account),
-							dust: Contracts::<T>::has_dust(value),
-						}
-					});
-				access_list.warm(CallAccess::new(address, false, transfer));
-			}
-		}
+		// The `call` and `eth_call` extrinsic weights already pay for these reads.
+		// TODO: move the charge up to those extrinsics, so a bench edit cannot drop it silently.
+		Self::warm_first_frame_access(&mut access_list, &args, &origin, value);
 		let Some((first_frame, executable)) = Self::new_frame(
 			args,
 			value,
@@ -1092,6 +1081,32 @@ where
 			_phantom: Default::default(),
 		};
 		Ok(Some((stack, executable)))
+	}
+
+	/// Warms the target's entries, plus the transfer's when the call moves value.
+	fn warm_first_frame_access(
+		access_list: &mut AccessList,
+		args: &FrameArgs<T, E>,
+		origin: &Origin<T>,
+		value: U256,
+	) {
+		defensive_assert!(
+			access_list.frame_depth() == 0,
+			"the first frame's target is warmed before any frame opens",
+		);
+		let FrameArgs::Call { dest, delegated_call: None, .. } = args else { return };
+		let address = T::AddressMapper::to_address(dest);
+		if <AllPrecompiles<T>>::get::<Self>(address.as_fixed_bytes()).is_some() {
+			return;
+		}
+		let transfer_access =
+			origin.account_id().ok().filter(|_| !value.is_zero()).map(|account| {
+				access_list::Transfer {
+					from: T::AddressMapper::to_address(account),
+					dust: Contracts::<T>::has_dust(value),
+				}
+			});
+		access_list.warm(CallAccess::new(address, false, transfer_access));
 	}
 
 	/// Loads code, warming the code info and blob on success.
@@ -1197,11 +1212,11 @@ where
 				});
 				// in case of delegate the executable is not the one at `address`
 				let executable = if let Some(delegated_call) = &delegated_call {
-					if let Some(instance) =
+					if let Some(precompile) =
 						<AllPrecompiles<T>>::get::<Self>(delegated_call.callee.as_fixed_bytes())
 					{
 						ExecutableOrPrecompile::Precompile {
-							instance,
+							instance: precompile,
 							_phantom: Default::default(),
 						}
 					} else {
@@ -1215,8 +1230,11 @@ where
 						let executable = Self::load_code(access_list, meter, info.code_hash)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
-				} else if let Some(instance) = precompile {
-					ExecutableOrPrecompile::Precompile { instance, _phantom: Default::default() }
+				} else if let Some(precompile) = precompile {
+					ExecutableOrPrecompile::Precompile {
+						instance: precompile,
+						_phantom: Default::default(),
+					}
 				} else {
 					let code_hash = contract
 						.as_contract()
@@ -1704,9 +1722,8 @@ where
 		} else {
 			self.access_list.rollback_frame();
 		}
-		debug_assert_eq!(
-			self.access_list.frame_depth(),
-			access_list_checkpoints_len,
+		defensive_assert!(
+			self.access_list.frame_depth() == access_list_checkpoints_len,
 			"this frame closed exactly the checkpoint it opened",
 		);
 		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");

@@ -26,6 +26,7 @@ use crate::{
 	weights::WeightInfo,
 };
 use frame_support::{
+	defensive_assert,
 	traits::Get,
 	weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND},
 };
@@ -355,7 +356,7 @@ pub(crate) fn weight_by_warmth<T: Config, I: IntoIterator<Item = Warmth>>(
 			)
 		},
 	);
-	debug_assert!(count > 0, "an access reads at least one state item");
+	defensive_assert!(count > 0, "an access reads at least one state item");
 	// An empty access would price hot, so charge cold if that ever happens.
 	let operation_weight = if all_hot && count > 0 {
 		// One overlay lookup per item, since each stands for one state read.
@@ -461,7 +462,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
 			CallBase(access_kind) => match access_kind {
-				// The transfer is priced by `CallTransferSurcharge`, at its own keys' warmth.
 				CallWarmth::Plain { original_account, account_info, transfer: _ } => {
 					weight_by_warmth::<T, _>(
 						[original_account, account_info],
@@ -491,18 +491,17 @@ impl<T: Config> Token<T> for RuntimeCosts {
 							CallAccess::KEY_FAMILY,
 							cold_transfer,
 							|| {
-								T::WeightInfo::seal_call_hot_transfer(dust)
+								T::WeightInfo::seal_call_transfer_hot(dust)
 									.saturating_sub(T::WeightInfo::seal_call_hot())
 							},
 						);
-						// The hot benches whitelist these keys, so each written one owes its
-						// commit.
-						let info_op = Transfer::info_op(dust_transfer);
+						// The hot benches whitelist these keys, so their writes are charged here.
+						let account_info_op = Transfer::account_info_op(dust_transfer);
 						let commits = [
 							(warmth.account, StorageOp::Write),
 							(warmth.sender_account, StorageOp::Write),
-							(warmth.account_info, info_op),
-							(warmth.sender_account_info, info_op),
+							(warmth.account_info, account_info_op),
+							(warmth.sender_account_info, account_info_op),
 						]
 						.into_iter()
 						.map(|(warmth, op)| Self::write_commit_owed::<T>(warmth, op))
@@ -764,7 +763,7 @@ mod tests {
 		};
 		let cold_term = |dust: u32| W::seal_call(1, dust, 0).saturating_sub(W::seal_call(0, 0, 0));
 		let hot_term =
-			|dust: u32| W::seal_call_hot_transfer(dust).saturating_sub(W::seal_call_hot());
+			|dust: u32| W::seal_call_transfer_hot(dust).saturating_sub(W::seal_call_hot());
 		let arms = [
 			("hot", Some(write_paid), hot_term(0)),
 			("cold", Some(Warmth::cold_non_revertible()), cold_term(0)),
@@ -786,7 +785,7 @@ mod tests {
 			"a transfer to untracked state is exactly the cold bench's transfer term",
 		);
 		assert!(
-			weight_of(false, Some(write_paid)).ref_time() < W::seal_call_hot_transfer(0).ref_time(),
+			weight_of(false, Some(write_paid)).ref_time() < W::seal_call_transfer_hot(0).ref_time(),
 			"the hot surcharge is the transfer's share, not the whole hot value call",
 		);
 	}
@@ -867,7 +866,7 @@ mod tests {
 			("hot storage overlay", overlay),
 			(
 				"hot call transfer",
-				<Test as Config>::WeightInfo::seal_call_hot_transfer(0)
+				<Test as Config>::WeightInfo::seal_call_transfer_hot(0)
 					.saturating_sub(<Test as Config>::WeightInfo::seal_call_hot()),
 			),
 		];

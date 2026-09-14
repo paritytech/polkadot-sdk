@@ -62,7 +62,7 @@ use sp_runtime::{
 };
 
 parameter_types! {
-	/// The metrics of the last transaction that ran a first frame, recorded by `Stack::run`.
+	/// Access-list metrics of the last call.
 	pub static LastAccessListMetrics: Option<AccessListMetrics> = None;
 }
 

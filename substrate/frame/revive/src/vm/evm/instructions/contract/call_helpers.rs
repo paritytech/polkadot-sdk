@@ -87,9 +87,9 @@ pub fn charge_call_gas<'a, E: Ext>(
 		},
 		None => {
 			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported.
-			let transfer = (!value.is_zero())
+			let transfer_access = (!value.is_zero())
 				.then(|| Transfer { from: interpreter.ext.address(), dust: dust_transfer });
-			let call_access = CallAccess::new(callee, scheme.is_delegate_call(), transfer);
+			let call_access = CallAccess::new(callee, scheme.is_delegate_call(), transfer_access);
 			let warmth = interpreter.ext.warm(call_access);
 			transfer_warmth = warmth.transfer_warmth();
 			interpreter.ext.charge_or_halt(RuntimeCosts::CallBase(warmth))?;
