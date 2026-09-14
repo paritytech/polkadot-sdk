@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789392595740,
+  "lastUpdate": 1789416027207,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "yrong1997@gmail.com",
-            "name": "Ron",
-            "username": "yrong"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "9c4478123349fcc1d4e964a6dbb07ef2e66011ea",
-          "message": "Snowbridge: Remove unused proof fields (#10955)\n\n### Context\n\nWhen verifying Ethereum-to-Polkadot transfer messages, the key field in\nreceipt_proof is not used. Remove it as a cleanup and update the tests\naccordingly.\n\n---------\n\nCo-authored-by: Branislav Kontur <bkontur@gmail.com>",
-          "timestamp": "2026-02-11T09:33:12Z",
-          "tree_id": "3682eb5b488471e7399805873e1cc68ef21e73de",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9c4478123349fcc1d4e964a6dbb07ef2e66011ea"
-        },
-        "date": 1770806453503,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.018,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06724874717399994,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038984563508,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08651017905999984,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "diego2737@gmail.com",
+            "name": "Diego",
+            "username": "dimartiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9769d37ca6cf296624956f7482dae96b875f4f1e",
+          "message": "network: Move the connected peers metric to the sync component (#12979)\n\n# Description\n\nCloses #5024\n\n`substrate_sub_libp2p_peers_count` was registered by `sc-network`,\nsourced from an `Arc<AtomicUsize>` that each backend kept updated purely\nso that metric could be published:\n\n- the libp2p backend stored `user_protocol().num_sync_peers()` into it\non every worker poll (`service.rs`),\n- the litep2p backend stored the block-announce peerset's\n`connected_peers` into it on every loop iteration (`litep2p/mod.rs`).\n\nBoth are syncing-level numbers, not networking ones — which is what\n@bkchr pointed out in\nhttps://github.com/paritytech/polkadot-sdk/pull/4942#discussion_r1669297505.\n\nThis moves the gauge to `sc-network-sync`, where `SyncingEngine` already\nmaintains an equivalent `num_connected` counter, and drops\n`connected_peers` from `sc-network`'s `MetricSources`. The metric keeps\nits name.\n\n## Review Notes\n\nThe gauge is now registered by `Metrics::register` in\n`sc-network-sync`'s `engine.rs`, next to `MajorSyncingGauge`, and fed\nthe `num_connected` counter the engine already owns:\n\n```diff\n impl Metrics {\n-     fn register(r: &Registry, major_syncing: Arc<AtomicBool>) -> Result<Self, PrometheusError> {\n+     fn register(\n+             r: &Registry,\n+             major_syncing: Arc<AtomicBool>,\n+             num_connected: Arc<AtomicUsize>,\n+     ) -> Result<Self, PrometheusError> {\n              MajorSyncingGauge::register(r, major_syncing)?;\n+             NumConnectedGauge::register(r, num_connected)?;\n```\n\nand correspondingly removed from `sc-network`:\n\n```diff\n pub struct MetricSources {\n      pub bandwidth: Arc<dyn BandwidthSink>,\n-     pub connected_peers: Arc<AtomicUsize>,\n }\n```\n\n**Test.** Added `num_connected_gauge_tracks_the_shared_counter` in\n`engine.rs`, asserting the gauge\nregisters under exactly `substrate_sub_libp2p_peers_count` and reads\nthrough to the live counter\nrather than a snapshot. Name stability is the whole contract of this\nchange, so it seemed worth\npinning.\n\n<details>\n<summary>Local verification</summary>\n\n- `cargo check -p sc-network -p sc-network-sync` — clean, no warnings\n- `cargo clippy -p sc-network -p sc-network-sync --all-targets` — no\nwarnings in either crate\n- `cargo test -p sc-network-sync --lib` — 94 passed, 0 failed\n- `cargo +nightly fmt --check` — clean\n\n</details>\n\nThe approach matches the earlier attempt in #11012, which was closed\nwithout review because its author never signed the CLA.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-09-14T18:26:09Z",
+          "tree_id": "4941632e2416c1f1d97628e6bb92be4fa4dfbf9b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/9769d37ca6cf296624956f7482dae96b875f4f1e"
+        },
+        "date": 1789415984408,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.18,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08884790272799992,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038995422914,
             "unit": "seconds"
           }
         ]
