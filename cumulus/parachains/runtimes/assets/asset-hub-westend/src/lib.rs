@@ -1835,7 +1835,8 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
-	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
+	cumulus_pallet_parachain_system::migration::v3::Migration<Runtime>,
+	cumulus_pallet_parachain_system::migration::MigrateV3ToV4<Runtime>,
 	// unreleased
 	// Only needed on WAH.
 	// Relocates funded era pots from per-era to slot-based pot addresses.
