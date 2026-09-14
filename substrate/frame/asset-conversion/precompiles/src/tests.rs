@@ -17,8 +17,8 @@
 
 use super::*;
 use crate::mock::{
-	new_test_ext, precompile_address, AssetConversion as AssetConversionPallet, Assets,
-	NativeAndAssets, RuntimeOrigin, Test,
+	AssetConversion as AssetConversionPallet, Assets, NativeAndAssets, RuntimeOrigin, Test,
+	new_test_ext, precompile_address,
 };
 use alloy::primitives::U256;
 use codec::Encode;
@@ -27,8 +27,8 @@ use frame_support::{
 	traits::{fungibles::Inspect, tokens::fungible::NativeOrWithId},
 };
 use pallet_revive::{
-	precompiles::{alloy::sol_types::SolCall, TransactionLimits},
 	AddressMapper, Code, ExecConfig,
+	precompiles::{TransactionLimits, alloy::sol_types::SolCall},
 };
 use sp_runtime::Weight;
 
@@ -813,6 +813,155 @@ fn swap_exact_tokens_for_tokens_reverts_when_it_would_sweep_remainder() {
 		assert_eq!(
 			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(asset_id), &swapper),
 			800
+		);
+	});
+}
+
+/// Same dust window as `swap_exact_tokens_for_tokens_reverts_when_it_would_sweep_remainder`,
+/// but the debit is the *quoted* input for `amountOut`, not `amountIn`. Checking
+/// `amountInMax` here would be wrong: that value is only a ceiling.
+#[test]
+fn swap_tokens_for_exact_tokens_reverts_when_it_would_sweep_remainder() {
+	use pallet_revive::precompiles::alloy::sol_types::{Revert, SolError};
+
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+		let swapper = 2u64;
+		let asset_id = 1u32;
+		let native = NativeOrWithId::Native;
+		let token = NativeOrWithId::WithId(asset_id);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, provider, true, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), asset_id, provider, 400));
+		assert_ok!(AssetConversionPallet::create_pool(
+			RuntimeOrigin::signed(provider),
+			Box::new(native.clone()),
+			Box::new(token.clone()),
+		));
+		assert_ok!(AssetConversionPallet::add_liquidity(
+			RuntimeOrigin::signed(provider),
+			Box::new(native.clone()),
+			Box::new(token.clone()),
+			10_000,
+			200,
+			0,
+			0,
+			provider,
+		));
+
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), asset_id, swapper, 800));
+		assert_eq!(
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(asset_id), &swapper),
+			800
+		);
+
+		let amount_out = AssetConversionPallet::quote_price_exact_tokens_for_tokens(
+			token.clone(),
+			native.clone(),
+			750,
+			true,
+		)
+		.expect("quote");
+		let quoted_in = AssetConversionPallet::quote_price_tokens_for_exact_tokens(
+			token.clone(),
+			native,
+			amount_out,
+			true,
+		)
+		.expect("reverse quote");
+		assert!(
+			quoted_in > 700 && quoted_in < 800,
+			"quoted input {quoted_in} must stay in the dust window against balance 800 / ed 100",
+		);
+
+		let data = IAssetConversion::swapTokensForExactTokensCall {
+			path: vec![encode_asset(asset_id).into(), encode_native().into()],
+			amountOut: U256::from(amount_out),
+			amountInMax: U256::from(800),
+			sendTo: account_addr(&swapper),
+			keepAlive: false,
+		}
+		.abi_encode();
+
+		let result = bare_call(swapper, data);
+		let exec = result.result.expect("must not trap");
+		assert!(exec.did_revert(), "dust-producing exact-out swap must revert");
+		let decoded = Revert::abi_decode(&exec.data).expect("Error(string) revert");
+		assert_eq!(decoded.reason, "Swap would leave sender below minimum balance");
+		assert_eq!(
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(asset_id), &swapper),
+			800
+		);
+	});
+}
+
+/// `amountInMax` can sit in the dust window while the quoted debit does not. The swap
+/// must still succeed; the precompile must not treat the ceiling as the debit.
+#[test]
+fn swap_tokens_for_exact_tokens_ignores_amount_in_max_for_dust() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+		let swapper = 2u64;
+		let asset_id = 1u32;
+		let native = NativeOrWithId::Native;
+		let token = NativeOrWithId::WithId(asset_id);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, provider, true, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), asset_id, provider, 400));
+		assert_ok!(AssetConversionPallet::create_pool(
+			RuntimeOrigin::signed(provider),
+			Box::new(native.clone()),
+			Box::new(token.clone()),
+		));
+		assert_ok!(AssetConversionPallet::add_liquidity(
+			RuntimeOrigin::signed(provider),
+			Box::new(native.clone()),
+			Box::new(token.clone()),
+			10_000,
+			200,
+			0,
+			0,
+			provider,
+		));
+
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), asset_id, swapper, 800));
+
+		let amount_out = AssetConversionPallet::quote_price_exact_tokens_for_tokens(
+			token.clone(),
+			native.clone(),
+			50,
+			true,
+		)
+		.expect("quote");
+		let quoted_in = AssetConversionPallet::quote_price_tokens_for_exact_tokens(
+			token.clone(),
+			native,
+			amount_out,
+			true,
+		)
+		.expect("reverse quote");
+		assert!(quoted_in < 100, "quoted input {quoted_in} must leave remainder >= ed");
+
+		let data = IAssetConversion::swapTokensForExactTokensCall {
+			path: vec![encode_asset(asset_id).into(), encode_native().into()],
+			amountOut: U256::from(amount_out),
+			// Would leave dust if this were the debit; it is only a ceiling.
+			amountInMax: U256::from(750),
+			sendTo: account_addr(&swapper),
+			keepAlive: false,
+		}
+		.abi_encode();
+
+		let result = bare_call(swapper, data);
+		let return_data = result.result.expect("swap must succeed");
+		assert!(!return_data.did_revert(), "quoted debit leaves a legal remainder");
+		let amount_in =
+			IAssetConversion::swapTokensForExactTokensCall::abi_decode_returns(&return_data.data)
+				.expect("return data must decode");
+		assert_eq!(amount_in, U256::from(quoted_in));
+		assert_eq!(
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(asset_id), &swapper),
+			800 - quoted_in
 		);
 	});
 }

@@ -48,8 +48,8 @@ doc:
     fails with `WouldSweepDust` instead of quietly moving your entire balance. This applies to
     `transfer`, `transfer_keep_alive`, `force_transfer` and `transfer_approved`, to ERC-20
     `transfer`/`transferFrom` on `pallet-assets` tokens, to assets moved over XCM, and to
-    `swap_exact_tokens_for_tokens` with `keep_alive: false`. Send your whole balance instead —
-    that leaves no remainder and still cleans up the account.
+    `swap_exact_tokens_for_tokens` / `swap_tokens_for_exact_tokens` with `keep_alive: false`. Send
+    your whole balance instead — that leaves no remainder and still cleans up the account.
 
 crates:
 - name: pallet-assets

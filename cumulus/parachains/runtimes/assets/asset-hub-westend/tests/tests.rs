@@ -2072,7 +2072,7 @@ fn erc20_precompile_xcm_transfer_is_exact() {
 
 /// `erc20_precompile_xcm_transfer_is_exact`: the same XCM with an amount that
 /// leaves the sender at exactly `min_balance` never enters the dust window, so it must
-/// succeed and move exactly what was declared. 
+/// succeed and move exactly what was declared.
 #[test]
 fn erc20_precompile_xcm_transfer_outside_dust_window_succeeds() {
 	let (succeeded, sender_balance, beneficiary_balance) =

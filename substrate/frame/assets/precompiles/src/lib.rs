@@ -175,10 +175,10 @@ where
 
 		match input {
 			// State-changing calls - check read-only
-			IERC20Calls::transfer(_)
-			| IERC20Calls::approve(_)
-			| IERC20Calls::transferFrom(_)
-			| IERC20Calls::permit(_)
+			IERC20Calls::transfer(_) |
+			IERC20Calls::approve(_) |
+			IERC20Calls::transferFrom(_) |
+			IERC20Calls::permit(_)
 				if env.is_read_only() =>
 			{
 				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
