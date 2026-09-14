@@ -574,8 +574,8 @@ fn bump_undersized_demotion_period_vec_works() {
 		params.demotion_period = bounded_vec![2, 4, 6, 8];
 		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));
 
-		// Rank 5 has no `demotion_period` entry; that's treated as zero, not a panic.
-		assert_noop!(CoreFellowship::bump(signed(0), 14), Error::<Test>::NothingDoing);
+		// Rank 5 has no `demotion_period` entry; that's rejected, not a panic.
+		assert_noop!(CoreFellowship::bump(signed(0), 14), Error::<Test>::InvalidRank);
 	});
 }
 
@@ -589,7 +589,7 @@ fn promote_undersized_min_promotion_period_vec_works() {
 		params.min_promotion_period = bounded_vec![2, 4, 6, 8];
 		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));
 
-		// Rank 5 has no `min_promotion_period` entry; that's treated as zero, not a panic.
-		assert_ok!(CoreFellowship::promote(signed(5), 14, 5));
+		// Rank 5 has no `min_promotion_period` entry; that's rejected, not a panic.
+		assert_noop!(CoreFellowship::promote(signed(5), 14, 5), Error::<Test>::InvalidRank);
 	});
 }
