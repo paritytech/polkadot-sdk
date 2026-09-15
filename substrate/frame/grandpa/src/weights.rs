@@ -1,4 +1,41 @@
 // This file is part of Substrate.
+// SPDX-License-Identifier: Apache-2.0
+
+#![allow(dead_code)]
+
+use frame_support::weights::Weight;
+
+/// Weights for GRANDPA session-related operations.
+///
+/// These will be implemented per-runtime via benchmarking and codegen.
+pub trait SessionWeightInfo {
+    fn on_new_session_changed(num_validators: u32) -> Weight;
+    fn on_new_session_unchanged() -> Weight;
+    fn on_new_session_stalled(num_validators: u32) -> Weight;
+    fn on_new_session_pruning_boundary(num_validators: u32) -> Weight;
+    fn on_genesis_session(num_validators: u32) -> Weight;
+}
+
+/// Fallback implementation returning zero costs; useful until wired in runtimes.
+impl SessionWeightInfo for () {
+    fn on_new_session_changed(_num_validators: u32) -> Weight {
+        Weight::zero()
+    }
+    fn on_new_session_unchanged() -> Weight {
+        Weight::zero()
+    }
+    fn on_new_session_stalled(_num_validators: u32) -> Weight {
+        Weight::zero()
+    }
+    fn on_new_session_pruning_boundary(_num_validators: u32) -> Weight {
+        Weight::zero()
+    }
+    fn on_genesis_session(_num_validators: u32) -> Weight {
+        Weight::zero()
+    }
+}
+
+// This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
