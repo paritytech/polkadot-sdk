@@ -248,7 +248,7 @@ fn schedule_para_init_rejects_empty_code() {
 			Paras::schedule_para_initialize(
 				1000.into(),
 				ParaGenesisArgs {
-					para_kind: ParaKind::Parathread,
+					para_kind: ParaKind::Parachain,
 					genesis_head: dummy_head_data(),
 					validation_code: ValidationCode(vec![]),
 				}
@@ -259,7 +259,7 @@ fn schedule_para_init_rejects_empty_code() {
 		assert_ok!(Paras::schedule_para_initialize(
 			1000.into(),
 			ParaGenesisArgs {
-				para_kind: ParaKind::Parathread,
+				para_kind: ParaKind::Parachain,
 				genesis_head: dummy_head_data(),
 				validation_code: ValidationCode(vec![1]),
 			}
@@ -328,7 +328,7 @@ fn para_past_code_pruning_in_initialize() {
 		(
 			1u32.into(),
 			ParaGenesisArgs {
-				para_kind: ParaKind::Parathread,
+				para_kind: ParaKind::Parachain,
 				genesis_head: dummy_head_data(),
 				validation_code: dummy_validation_code(),
 			},
@@ -421,7 +421,7 @@ fn note_past_code_sets_up_pruning_correctly() {
 		(
 			1u32.into(),
 			ParaGenesisArgs {
-				para_kind: ParaKind::Parathread,
+				para_kind: ParaKind::Parachain,
 				genesis_head: dummy_head_data(),
 				validation_code: dummy_validation_code(),
 			},
@@ -1111,7 +1111,7 @@ fn para_incoming_at_session() {
 		assert_ok!(Paras::schedule_para_initialize(
 			a,
 			ParaGenesisArgs {
-				para_kind: ParaKind::Parathread,
+				para_kind: ParaKind::Parachain,
 				genesis_head: vec![2].into(),
 				validation_code: code_a.clone(),
 			},
@@ -1174,11 +1174,12 @@ fn para_incoming_at_session() {
 		// Two sessions pass, so action queue is triggered
 		run_to_block(4, Some(vec![3, 4]));
 
-		assert_eq!(paras::Parachains::<Test>::get(), vec![c, b]);
+		// `a` now also onboards as a parachain, so all three appear in the parachains list.
+		assert_eq!(paras::Parachains::<Test>::get(), vec![c, b, a]);
 		assert_eq!(ActionsQueue::<Test>::get(Paras::scheduled_session()), Vec::new());
 
 		// Lifecycle is tracked correctly
-		assert_eq!(ParaLifecycles::<Test>::get(&a), Some(ParaLifecycle::Parathread));
+		assert_eq!(ParaLifecycles::<Test>::get(&a), Some(ParaLifecycle::Parachain));
 		assert_eq!(ParaLifecycles::<Test>::get(&b), Some(ParaLifecycle::Parachain));
 		assert_eq!(ParaLifecycles::<Test>::get(&c), Some(ParaLifecycle::Parachain));
 
@@ -1384,7 +1385,7 @@ fn pvf_check_onboarding_reject_on_expiry() {
 		assert_ok!(Paras::schedule_para_initialize(
 			a,
 			ParaGenesisArgs {
-				para_kind: ParaKind::Parathread,
+				para_kind: ParaKind::Parachain,
 				genesis_head: vec![2].into(),
 				validation_code: validation_code.clone(),
 			},
@@ -1423,7 +1424,7 @@ fn pvf_check_upgrade_reject() {
 	let paras = vec![(
 		a,
 		ParaGenesisArgs {
-			para_kind: ParaKind::Parathread,
+			para_kind: ParaKind::Parachain,
 			genesis_head: Default::default(),
 			validation_code: old_code,
 		},
@@ -1523,7 +1524,7 @@ fn pvf_check_submit_vote() {
 		assert_ok!(Paras::schedule_para_initialize(
 			1000.into(),
 			ParaGenesisArgs {
-				para_kind: ParaKind::Parathread,
+				para_kind: ParaKind::Parachain,
 				genesis_head: vec![2].into(),
 				validation_code: code_a.clone(),
 			},
@@ -1610,7 +1611,7 @@ fn include_pvf_check_statement_refunds_weight() {
 	let paras = vec![(
 		a,
 		ParaGenesisArgs {
-			para_kind: ParaKind::Parathread,
+			para_kind: ParaKind::Parachain,
 			genesis_head: Default::default(),
 			validation_code: old_code,
 		},
@@ -1962,40 +1963,22 @@ fn most_recent_context() {
 
 #[test]
 fn parakind_encodes_decodes_to_bool_scale() {
-	let chain_kind = ParaKind::Parachain.encode();
-	let chain_bool = true.encode();
-	assert_eq!(chain_kind, chain_bool);
+	assert_eq!(ParaKind::Parachain.encode(), true.encode());
+	assert_eq!(ParaKind::Parathread.encode(), false.encode());
 
-	let chain_dec = ParaKind::decode(&mut chain_kind.as_slice());
-	assert_eq!(chain_dec, Ok(ParaKind::Parachain));
-
-	let thread_kind = ParaKind::Parathread.encode();
-	let thread_bool = false.encode();
-	assert_eq!(thread_kind, thread_bool);
-
-	let thread_dec = ParaKind::decode(&mut thread_kind.as_slice());
-	assert_eq!(thread_dec, Ok(ParaKind::Parathread));
+	assert_eq!(ParaKind::decode(&mut true.encode().as_slice()), Ok(ParaKind::Parachain));
+	assert_eq!(ParaKind::decode(&mut false.encode().as_slice()), Ok(ParaKind::Parathread));
 
 	assert_eq!(bool::type_info(), ParaKind::type_info());
 }
 
 #[test]
 fn parakind_encodes_decodes_to_bool_serde() {
-	let chain = ParaKind::Parachain;
-	let ser_chain = serde_json::to_string(&ParaKind::Parachain).unwrap();
-	let de_chain: ParaKind = serde_json::from_str(&ser_chain).unwrap();
-	assert_eq!(chain, de_chain);
+	assert_eq!(serde_json::to_string(&ParaKind::Parachain).unwrap(), "true");
+	assert_eq!(serde_json::to_string(&ParaKind::Parathread).unwrap(), "false");
 
-	let ser_true = serde_json::to_string(&true).unwrap();
-	assert_eq!(ser_true, ser_chain);
-
-	let thread = ParaKind::Parathread;
-	let ser_thread = serde_json::to_string(&thread).unwrap();
-	let de_thread: ParaKind = serde_json::from_str(&ser_thread).unwrap();
-	assert_eq!(thread, de_thread);
-
-	let ser_false = serde_json::to_string(&false).unwrap();
-	assert_eq!(ser_false, ser_thread);
+	assert_eq!(serde_json::from_str::<ParaKind>("true").unwrap(), ParaKind::Parachain);
+	assert_eq!(serde_json::from_str::<ParaKind>("false").unwrap(), ParaKind::Parathread);
 }
 
 #[test]
