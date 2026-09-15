@@ -41,10 +41,10 @@ use test_case::test_case;
 // arguments with different per-unit weights, so swapping them silently undercharges
 // the per-byte event cost on every Transfer/Approval.
 //
-// A bare-call `transfer` charges exactly `WeightInfo::transfer() + DepositEvent`,
-// so we can assert the consumed weight against that sum. With the bug, the actual
-// consumed weight is lower by `DepositEvent{len:32} - DepositEvent{len:3}` and the
-// equality fails.
+// A bare-call `transfer` charges `WeightInfo::transfer() + DepositEvent`, so we can
+// assert the consumed weight against that sum. With the bug, the actual consumed
+// weight is lower by `DepositEvent{len:32} - DepositEvent{len:3}` and the equality
+// fails.
 #[test]
 fn deposit_event_charges_data_byte_length() {
 	use pallet_revive::precompiles::Token;
@@ -76,12 +76,12 @@ fn deposit_event_charges_data_byte_length() {
 		);
 		assert!(result.result.is_ok(), "transfer call failed: {:?}", result.result);
 
-		let expected =
-			<() as pallet_assets::WeightInfo>::transfer().saturating_add(<RuntimeCosts as Token<
-				Test,
-			>>::weight(
-				&RuntimeCosts::DepositEvent { num_topic: 3, len: 32 },
-			));
+		let expected = <() as pallet_assets::WeightInfo>::transfer().saturating_add(
+			<RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::DepositEvent {
+				num_topic: 3,
+				len: 32,
+			}),
+		);
 		assert_eq!(
 			result.weight_consumed, expected,
 			"transfer weight does not match WeightInfo::transfer() + \
@@ -900,5 +900,532 @@ fn transfer_from_decrements_normally_after_max_approve(asset_index: u16) {
 		assert!(!result.result.unwrap().did_revert(), "transferFrom must succeed");
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), u128::MAX - 10);
 		assert_eq!(Assets::balance(asset_id, &recipient), 10);
+	});
+}
+
+/// Helper to call `transfer` via the precompile. Returns the bare call result.
+fn raw_transfer(
+	from: u64,
+	asset_addr: H160,
+	to_addr: H160,
+	value: U256,
+) -> pallet_revive::ContractResult<pallet_revive::ExecReturnValue, u128> {
+	let data = IERC20::transferCall { to: to_addr.0.into(), value }.abi_encode();
+	pallet_revive::Pallet::<Test>::bare_call(
+		RuntimeOrigin::signed(from),
+		asset_addr,
+		0u32.into(),
+		TransactionLimits::WeightAndDeposit { weight_limit: Weight::MAX, deposit_limit: u128::MAX },
+		data,
+		&ExecConfig::new_substrate_tx(),
+	)
+}
+
+/// Helper to call `transferFrom` via the precompile. Returns the bare call result.
+fn raw_transfer_from(
+	spender: u64,
+	asset_addr: H160,
+	from_addr: H160,
+	to_addr: H160,
+	value: U256,
+) -> pallet_revive::ContractResult<pallet_revive::ExecReturnValue, u128> {
+	let data = IERC20::transferFromCall { from: from_addr.0.into(), to: to_addr.0.into(), value }
+		.abi_encode();
+	pallet_revive::Pallet::<Test>::bare_call(
+		RuntimeOrigin::signed(spender),
+		asset_addr,
+		0u32.into(),
+		TransactionLimits::WeightAndDeposit { weight_limit: Weight::MAX, deposit_limit: u128::MAX },
+		data,
+		&ExecConfig::new_substrate_tx(),
+	)
+}
+
+/// Creates asset `asset_id` with `min_balance`, owned and fully minted to `owner`.
+fn setup_asset_with_min_balance(
+	asset_id: u32,
+	asset_index: u16,
+	owner: u64,
+	min_balance: u128,
+	mint: u128,
+) {
+	setup_asset_for_prefix(asset_id, asset_index);
+	assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, min_balance));
+	assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, mint));
+}
+
+/// Exactness pin for `transfer`: an ERC-20 `transfer(to, value)` either moves exactly
+/// `value` or moves nothing at all. It must never sweep the sender's sub-`min_balance`
+/// remainder into `to` on top of `value`, because the `Transfer` log carries `value`
+/// and every indexer, router and accounting contract reconciles balances against it.
+///
+/// `min_balance = 10`, sender holds `100`, `transfer(95)` would leave `5` — non-zero and
+/// below `min_balance`. `prep_debit` promotes the debit to `100` and, with
+/// `burn_dust: false`, `prep_credit` hands all `100` to `to`.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn transfer_never_moves_more_than_value(asset_index: u16) {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+		let from = 123456789u64;
+		let to = 987654321u64;
+		Balances::make_free_balance_be(&from, 1000);
+		Balances::make_free_balance_be(&to, 1000);
+		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
+		setup_asset_with_min_balance(asset_id, asset_index, from, 10, 100);
+
+		let exec = raw_transfer(from, asset_addr, to_addr, U256::from(95u64))
+			.result
+			.expect("must not trap");
+
+		if exec.did_revert() {
+			// Refusing the dust-producing transfer is an acceptable outcome: amounts stay
+			// exact and nothing moved.
+			assert_eq!(Assets::balance(asset_id, from), 100);
+			assert_eq!(Assets::balance(asset_id, to), 0);
+		} else {
+			// If it succeeds it must move exactly `value`.
+			assert_eq!(
+				Assets::balance(asset_id, to),
+				95,
+				"recipient credited more than `value` — sub-min_balance dust was swept into \
+				 the transfer while the Transfer log reports `value`",
+			);
+			assert_eq!(Assets::balance(asset_id, from), 5);
+		}
+	});
+}
+
+/// Exactness pin for `transferFrom`: the spender must never move more than the allowance
+/// it spends. Same setup as `transfer_never_moves_more_than_value`, but the sweep is
+/// additionally an allowance overrun — `do_transfer_approved` decrements the approval by
+/// `amount` while `transfer_and_die` moves `amount + dust`.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn transfer_from_never_moves_more_than_allowance_spent(asset_index: u16) {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+		let owner = 123456789u64;
+		let spender = 555555555u64;
+		let to = 987654321u64;
+		for who in [owner, spender, to] {
+			Balances::make_free_balance_be(&who, 1000);
+		}
+		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
+		setup_asset_with_min_balance(asset_id, asset_index, owner, 10, 100);
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(owner), asset_id, spender, 200));
+
+		let exec = raw_transfer_from(spender, asset_addr, owner_addr, to_addr, U256::from(95u64))
+			.result
+			.expect("must not trap");
+
+		let moved = 100 - Assets::balance(asset_id, owner);
+		let spent = 200 - Assets::allowance(asset_id, &owner, &spender);
+
+		if exec.did_revert() {
+			assert_eq!(moved, 0);
+			assert_eq!(spent, 0);
+			assert_eq!(Assets::balance(asset_id, to), 0);
+		} else {
+			assert_eq!(
+				moved, spent,
+				"spender moved {moved} but only {spent} allowance was consumed — \
+				 sub-min_balance dust escaped the allowance accounting",
+			);
+			assert_eq!(Assets::balance(asset_id, to), 95);
+		}
+	});
+}
+
+/// Control for the two exactness pins: when the sender keeps at least `min_balance` the
+/// dust path is never reached, so this asserts the same invariants unconditionally and
+/// proves the setup itself is sound.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn transfer_is_exact_when_remainder_covers_min_balance(asset_index: u16) {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+		let from = 123456789u64;
+		let to = 987654321u64;
+		Balances::make_free_balance_be(&from, 1000);
+		Balances::make_free_balance_be(&to, 1000);
+		let from_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&from);
+		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
+		setup_asset_with_min_balance(asset_id, asset_index, from, 10, 100);
+
+		// Leaves exactly `min_balance` behind.
+		let exec = raw_transfer(from, asset_addr, to_addr, U256::from(90u64))
+			.result
+			.expect("must not trap");
+		assert!(!exec.did_revert(), "transfer leaving exactly min_balance must succeed");
+		assert_eq!(Assets::balance(asset_id, from), 10);
+		assert_eq!(Assets::balance(asset_id, to), 90);
+		assert_contract_event(
+			asset_addr,
+			IERC20Events::Transfer(IERC20::Transfer {
+				from: from_addr.0.into(),
+				to: to_addr.0.into(),
+				value: U256::from(90u64),
+			}),
+		);
+	});
+}
+
+/// Full-balance transfers must keep working: `transfer(balanceOf(sender))` leaves a zero
+/// remainder, so there is no dust to sweep and the amount is already exact. Any guard
+/// against the dust sweep must not regress this — reaping the sender's asset account is
+/// expected here.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn transfer_of_full_balance_is_allowed(asset_index: u16) {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+		let from = 123456789u64;
+		let to = 987654321u64;
+		Balances::make_free_balance_be(&from, 1000);
+		Balances::make_free_balance_be(&to, 1000);
+		let from_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&from);
+		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
+		setup_asset_with_min_balance(asset_id, asset_index, from, 10, 100);
+
+		let exec = raw_transfer(from, asset_addr, to_addr, U256::from(100u64))
+			.result
+			.expect("must not trap");
+		assert!(!exec.did_revert(), "full-balance transfer must succeed");
+		assert_eq!(Assets::balance(asset_id, from), 0);
+		assert_eq!(Assets::balance(asset_id, to), 100);
+		assert_contract_event(
+			asset_addr,
+			IERC20Events::Transfer(IERC20::Transfer {
+				from: from_addr.0.into(),
+				to: to_addr.0.into(),
+				value: U256::from(100u64),
+			}),
+		);
+	});
+}
+
+/// Same for `transferFrom`: spending the whole balance through an allowance is exact.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn transfer_from_of_full_balance_is_allowed(asset_index: u16) {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+		let owner = 123456789u64;
+		let spender = 555555555u64;
+		let to = 987654321u64;
+		for who in [owner, spender, to] {
+			Balances::make_free_balance_be(&who, 1000);
+		}
+		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
+		setup_asset_with_min_balance(asset_id, asset_index, owner, 10, 100);
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(owner), asset_id, spender, 200));
+
+		let exec = raw_transfer_from(spender, asset_addr, owner_addr, to_addr, U256::from(100u64))
+			.result
+			.expect("must not trap");
+		assert!(!exec.did_revert(), "full-balance transferFrom must succeed");
+		assert_eq!(Assets::balance(asset_id, owner), 0);
+		assert_eq!(Assets::balance(asset_id, to), 100);
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 100);
+	});
+}
+
+/// The precompile's `Transfer` log and `pallet_assets`' own `Transferred` event describe
+/// the same movement, so they must agree on the amount. `Transferred` carries `credit`
+/// (what actually landed in `dest`) while the log carries `call.value`, which is how the
+/// dust sweep becomes observable from two different indexing surfaces at once.
+///
+/// `min_balance = 10`, sender holds `100`, `transfer(90)` leaves exactly `10` — at, not
+/// below, `min_balance` — so this stays outside the dust window and must succeed; a value
+/// inside the window (e.g. 95) would revert before either surface reports anything, which
+/// would make the agreement assertion below vacuous.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn transfer_log_agrees_with_pallet_event(asset_index: u16) {
+	use crate::mock::{RuntimeEvent, System};
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+		let from = 123456789u64;
+		let to = 987654321u64;
+		Balances::make_free_balance_be(&from, 1000);
+		Balances::make_free_balance_be(&to, 1000);
+		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
+		setup_asset_with_min_balance(asset_id, asset_index, from, 10, 100);
+
+		let exec = raw_transfer(from, asset_addr, to_addr, U256::from(90u64))
+			.result
+			.expect("must not trap");
+		assert!(!exec.did_revert(), "a transfer outside the dust window must not revert");
+
+		let pallet_amount = System::events()
+			.into_iter()
+			.find_map(|record| match record.event {
+				RuntimeEvent::Assets(pallet_assets::Event::Transferred { amount, .. }) => {
+					Some(amount)
+				},
+				_ => None,
+			})
+			.expect("pallet_assets::Event::Transferred must be emitted");
+		assert_eq!(
+			pallet_amount, 90,
+			"pallet_assets reported a transfer of {pallet_amount} while the ERC-20 \
+			 Transfer log reports 90",
+		);
+	});
+}
+
+/// A dust-producing `transfer` must revert with a legible reason rather than silently
+/// moving more than `value`, and must leave no state behind — no balance change and no
+/// `Transfer` log.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn transfer_reverts_when_it_would_sweep_remainder(asset_index: u16) {
+	use crate::mock::{RuntimeEvent, System};
+	use alloy::sol_types::{Revert, SolError};
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+		let from = 123456789u64;
+		let to = 987654321u64;
+		Balances::make_free_balance_be(&from, 1000);
+		Balances::make_free_balance_be(&to, 1000);
+		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
+		setup_asset_with_min_balance(asset_id, asset_index, from, 10, 100);
+
+		let exec = raw_transfer(from, asset_addr, to_addr, U256::from(95u64))
+			.result
+			.expect("must not trap");
+		assert!(exec.did_revert(), "dust-producing transfer must revert");
+		let decoded = Revert::abi_decode(&exec.data).expect("Error(string) revert");
+		assert_eq!(decoded.reason, "Transfer would leave sender below minimum balance");
+
+		assert_eq!(Assets::balance(asset_id, from), 100);
+		assert_eq!(Assets::balance(asset_id, to), 0);
+		assert!(
+			!System::events().iter().any(|record| matches!(
+				record.event,
+				RuntimeEvent::Revive(pallet_revive::Event::ContractEmitted { .. })
+			)),
+			"no Transfer log may survive the revert",
+		);
+	});
+}
+
+/// Same guard on the `transferFrom` path: revert, allowance untouched, approval deposit
+/// still held.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn transfer_from_reverts_when_it_would_sweep_remainder(asset_index: u16) {
+	use alloy::sol_types::{Revert, SolError};
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+		let owner = 123456789u64;
+		let spender = 555555555u64;
+		let to = 987654321u64;
+		for who in [owner, spender, to] {
+			Balances::make_free_balance_be(&who, 1000);
+		}
+		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
+		setup_asset_with_min_balance(asset_id, asset_index, owner, 10, 100);
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(owner), asset_id, spender, 200));
+
+		let exec = raw_transfer_from(spender, asset_addr, owner_addr, to_addr, U256::from(95u64))
+			.result
+			.expect("must not trap");
+		assert!(exec.did_revert(), "dust-producing transferFrom must revert");
+		let decoded = Revert::abi_decode(&exec.data).expect("Error(string) revert");
+		assert_eq!(decoded.reason, "Transfer would leave sender below minimum balance");
+
+		assert_eq!(Assets::balance(asset_id, owner), 100);
+		assert_eq!(Assets::balance(asset_id, to), 0);
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 200);
+	});
+}
+
+/// A self-transfer must not revert. `pallet_assets` short-circuits `source == dest`
+/// before touching any balance, so the net movement is zero regardless of what the
+/// remainder would have been.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn self_transfer_of_dust_producing_amount_is_a_noop(asset_index: u16) {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+		let from = 123456789u64;
+		Balances::make_free_balance_be(&from, 1000);
+		let from_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&from);
+		setup_asset_with_min_balance(asset_id, asset_index, from, 10, 100);
+
+		let exec = raw_transfer(from, asset_addr, from_addr, U256::from(95u64))
+			.result
+			.expect("must not trap");
+		assert!(!exec.did_revert(), "self-transfer must not revert");
+		assert_eq!(Assets::balance(asset_id, from), 100);
+	});
+}
+
+/// Zero-value transfers are a normal ERC-20 idiom and move nothing. They must not revert
+/// — not even from a sender whose balance already sits below `min_balance`.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn zero_value_transfer_is_never_rejected(asset_index: u16) {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+		let from = 123456789u64;
+		let to = 987654321u64;
+		Balances::make_free_balance_be(&from, 1000);
+		Balances::make_free_balance_be(&to, 1000);
+		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
+		setup_asset_with_min_balance(asset_id, asset_index, from, 10, 100);
+
+		let exec = raw_transfer(from, asset_addr, to_addr, U256::ZERO)
+			.result
+			.expect("must not trap");
+		assert!(!exec.did_revert(), "transfer(to, 0) must not revert");
+		assert_eq!(Assets::balance(asset_id, from), 100);
+		assert_eq!(Assets::balance(asset_id, to), 0);
+
+		// `force_set_metadata`-free way to put the sender below `min_balance`: raise the
+		// asset's minimum after the fact. The sender now holds less than the minimum, which
+		// is exactly the state a remainder-only check would reject.
+		assert_ok!(Assets::force_asset_status(
+			RuntimeOrigin::root(),
+			asset_id,
+			from,
+			from,
+			from,
+			from,
+			1_000,
+			true,
+			false,
+		));
+		let exec = raw_transfer(from, asset_addr, to_addr, U256::ZERO)
+			.result
+			.expect("must not trap");
+		assert!(!exec.did_revert(), "transfer(to, 0) must not revert below min_balance either");
+		assert_eq!(Assets::balance(asset_id, from), 100);
+	});
+}
+
+/// A `transfer` larger than the sender's balance must still fail as `BalanceLow`, a
+/// dispatch error / trapped call, rather than an `Error(string)` remainder revert.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn transfer_above_balance_still_fails_on_funds(asset_index: u16) {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+		let from = 123456789u64;
+		let to = 987654321u64;
+		Balances::make_free_balance_be(&from, 1000);
+		Balances::make_free_balance_be(&to, 1000);
+		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
+		setup_asset_with_min_balance(asset_id, asset_index, from, 10, 100);
+
+		let err = raw_transfer(from, asset_addr, to_addr, U256::from(150u64))
+			.result
+			.expect_err("overspending transfer must fail");
+		assert_eq!(
+			err,
+			pallet_assets::Error::<Test>::BalanceLow.into(),
+			"overspend must not be reported as a minimum-balance failure",
+		);
+		assert_eq!(Assets::balance(asset_id, from), 100);
+		assert_eq!(Assets::balance(asset_id, to), 0);
+	});
+}
+
+/// XCM accounting depends on this exactness too, not just contracts.
+///
+/// `assets_common::ERC20Transactor` (used by Asset Hub's `AssetTransactors`) implements
+/// `withdraw_asset` as an `IERC20::transfer` from the user to a checking account and then
+/// credits the XCM holding register with the *requested* amount. `deposit_asset` is the
+/// mirror image, transferring out of the checking account. `ERC20Matcher` accepts any
+/// local `AccountKey20`, so an asset precompile address routes through it.
+///
+/// A dust sweep on the way in silently strands the remainder in the checking account
+/// (holding is credited less than the checking account received); a sweep on the way out
+/// hands the checking account's residue to whoever happens to deposit last. Both break the
+/// invariant this test pins: the checking account's balance moves by exactly the amount
+/// the holding register is credited.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn checking_account_round_trip_is_exact(asset_index: u16) {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+		let user = 123456789u64;
+		let checking = 4242424242u64;
+		Balances::make_free_balance_be(&user, 1000);
+		Balances::make_free_balance_be(&checking, 1000);
+		let checking_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&checking);
+		setup_asset_with_min_balance(asset_id, asset_index, user, 10, 100);
+
+		// `withdraw_asset`: move `amount` into the checking account. The XCM holding
+		// register is credited with `amount`, so the checking account must not gain more.
+		let amount = 95u64;
+		let exec = raw_transfer(user, asset_addr, checking_addr, U256::from(amount))
+			.result
+			.expect("must not trap");
+		let credited = Assets::balance(asset_id, checking);
+		if exec.did_revert() {
+			assert_eq!(credited, 0, "a rejected withdraw must not credit the checking account");
+			assert_eq!(Assets::balance(asset_id, user), 100);
+		} else {
+			assert_eq!(
+				credited, amount as u128,
+				"checking account gained {credited} while XCM holding was credited {amount} — \
+				 the difference is stranded in the checking account",
+			);
+		}
+	});
+}
+
+/// `min_balance = 1` assets have no dust window at all: any non-zero remainder already
+/// satisfies the minimum, so the guard is inert. Pins that the guard costs existing
+/// `min_balance = 1` deployments nothing, including the transfer that empties the
+/// sender's account.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn guard_is_inert_for_min_balance_one(asset_index: u16) {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+		let from = 123456789u64;
+		let to = 987654321u64;
+		Balances::make_free_balance_be(&from, 1000);
+		Balances::make_free_balance_be(&to, 1000);
+		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
+		setup_asset_with_min_balance(asset_id, asset_index, from, 1, 100);
+
+		// The last transfer empties the sender, which reaps the asset account.
+		for value in [1u64, 98, 1] {
+			let exec = raw_transfer(from, asset_addr, to_addr, U256::from(value))
+				.result
+				.expect("must not trap");
+			assert!(!exec.did_revert(), "transfer({value}) must succeed at min_balance = 1");
+		}
+		assert_eq!(Assets::balance(asset_id, from), 0);
+		assert_eq!(Assets::balance(asset_id, to), 100);
 	});
 }

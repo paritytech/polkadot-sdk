@@ -209,6 +209,7 @@ where
 
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
+const ERR_WOULD_SWEEP_REMAINDER: &str = "Transfer would leave sender below minimum balance";
 
 impl<Runtime, PrecompileConfig, Instance: 'static> ERC20<Runtime, PrecompileConfig, Instance>
 where
@@ -270,16 +271,20 @@ where
 		let dest = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(
 			&call.to.into_array().into(),
 		);
+		let source = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from);
+		let value = Self::to_balance(call.value)?;
 
 		let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
 		pallet_assets::Pallet::<Runtime, Instance>::do_transfer(
-			asset_id,
-			&<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from),
-			&dest,
-			Self::to_balance(call.value)?,
-			None,
-			f,
-		)?;
+			asset_id, &source, &dest, value, None, f,
+		)
+		.map_err(|e| {
+			if e == pallet_assets::Error::<Runtime, Instance>::WouldSweepDust.into() {
+				Error::Revert(Revert { reason: ERR_WOULD_SWEEP_REMAINDER.into() })
+			} else {
+				e.into()
+			}
+		})?;
 
 		Self::deposit_event(
 			env,
@@ -448,13 +453,21 @@ where
 		let to = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&to);
 
 		let approval_amount = Self::to_balance(call.value)?;
+
 		pallet_assets::Pallet::<Runtime, Instance>::do_transfer_approved(
 			asset_id,
 			&from,
 			&spender,
 			&to,
 			approval_amount,
-		)?;
+		)
+		.map_err(|e| {
+			if e == pallet_assets::Error::<Runtime, Instance>::WouldSweepDust.into() {
+				Error::Revert(Revert { reason: ERR_WOULD_SWEEP_REMAINDER.into() })
+			} else {
+				e.into()
+			}
+		})?;
 
 		Self::deposit_event(
 			env,
