@@ -374,7 +374,12 @@ impl<T: Config> Pallet<T> {
 			}
 		})?;
 
-		ledger.clone().update()?;
+		// No-op write that re-syncs the stash lock. An inconsistent ledger is rejected with
+		// `BadState`, but it must not block the payout of this page, so tolerate it here.
+		match ledger.clone().update() {
+			Ok(()) | Err(Error::<T>::BadState) => {},
+			Err(e) => return Err(e.into()),
+		}
 
 		let stash = ledger.stash.clone();
 
@@ -599,6 +604,7 @@ impl<T: Config> Pallet<T> {
 
 		let staker_rewards_pot =
 			T::RewardPots::pot_account(RewardPot::Era(era, RewardKind::StakerRewards));
+
 		if let Err(e) = T::Currency::transfer(
 			&staker_rewards_pot,
 			&payout_account,
@@ -615,14 +621,21 @@ impl<T: Config> Pallet<T> {
 			return None;
 		}
 
-		// For Staked destination, update ledger.
+		// For Staked destination, update ledger. Best-effort on purpose: the transfer above is
+		// never reverted, a ledger that `update()` rejects only misses out on the restake.
 		if matches!(dest, RewardDestination::Staked) {
 			if let Ok(mut ledger) = Self::ledger(Stash(stash.clone())) {
 				ledger.active += amount;
 				ledger.total += amount;
-				let _ = ledger
-					.update()
-					.defensive_proof("ledger fetched from storage, so it exists; qed.");
+				if let Err(e) = ledger.update() {
+					log!(
+						error,
+						"Failed to restake reward for era {:?}, stash {:?}: {:?}",
+						era,
+						stash,
+						e
+					);
+				}
 			}
 		}
 
@@ -651,17 +664,24 @@ impl<T: Config> Pallet<T> {
 
 		let maybe_imbalance = match dest {
 			RewardDestination::Stash => asset::mint_into_existing::<T>(stash, amount),
-			RewardDestination::Staked => Self::ledger(Stash(stash.clone()))
-				.and_then(|mut ledger| {
+			RewardDestination::Staked => {
+				Self::ledger(Stash(stash.clone())).ok().and_then(|mut ledger| {
 					ledger.active += amount;
 					ledger.total += amount;
-					let r = asset::mint_into_existing::<T>(stash, amount);
-					let _ = ledger
-						.update()
-						.defensive_proof("ledger fetched from storage, so it exists; qed.");
-					Ok(r)
+					let imbalance = asset::mint_into_existing::<T>(stash, amount);
+					// Best-effort, as above: the mint stands even if the ledger is rejected.
+					if let Err(e) = ledger.update() {
+						log!(
+							error,
+							"Failed to restake reward for era {:?}, stash {:?}: {:?}",
+							era,
+							stash,
+							e
+						);
+					}
+					imbalance
 				})
-				.unwrap_or_default(),
+			},
 			RewardDestination::Account(ref dest_account) => {
 				Some(asset::mint_creating::<T>(dest_account, amount))
 			},
@@ -1148,12 +1168,25 @@ impl<T: Config> Pallet<T> {
 			// from ledger, but that's okay since anyways user do not have funds for it.
 			let force_withdraw = staked.saturating_sub(max_hold);
 
-			// we ignore if active is 0. It implies the locked amount is not actively staked. The
-			// account can still get away from potential slash but we can't do much better here.
+			let new_active = ledger.active.saturating_sub(force_withdraw);
+			// If force_withdraw exceeds active, drain the remainder from unlocking chunks
+			// (most recently queued first) so total == active + sum(unlocking) holds.
+			let mut new_unlocking = ledger.unlocking.clone();
+			let mut remaining = force_withdraw.saturating_sub(ledger.active);
+			for chunk in new_unlocking.iter_mut().rev() {
+				if remaining.is_zero() {
+					break;
+				}
+				let reduce = remaining.min(chunk.value);
+				chunk.value -= reduce;
+				remaining -= reduce;
+			}
+			new_unlocking.retain(|c| !c.value.is_zero());
+
 			StakingLedger {
 				total: max_hold,
-				active: ledger.active.saturating_sub(force_withdraw),
-				// we are not changing the stash, so we can keep the stash.
+				active: new_active,
+				unlocking: new_unlocking,
 				..ledger
 			}
 			.update()?;
@@ -2167,10 +2200,6 @@ impl<T: Config> Pallet<T> {
 	/// * A bonded (stash, controller) pair should have only one associated ledger. I.e. if the
 	///   ledger is bonded by stash, the controller account must not bond a different ledger.
 	/// * A bonded (stash, controller) pair must have an associated ledger.
-	///
-	/// NOTE: these checks result in warnings only. Once
-	/// <https://github.com/paritytech/polkadot-sdk/issues/3245> is resolved, turn warns into check
-	/// failures.
 	fn check_bonded_consistency() -> Result<(), TryRuntimeError> {
 		use alloc::collections::btree_set::BTreeSet;
 
@@ -2203,21 +2232,18 @@ impl<T: Config> Pallet<T> {
 			};
 		}
 
-		if count_controller_double != 0 {
-			log!(
-				warn,
-				"a controller is associated with more than one ledger ({} occurrences)",
-				count_controller_double
-			);
-		};
-
-		if count_double != 0 {
-			log!(warn, "single tuple of (stash, controller) pair bonds more than one ledger ({} occurrences)", count_double);
-		}
-
-		if count_none != 0 {
-			log!(warn, "inconsistent bonded state: (stash, controller) pair missing associated ledger ({} occurrences)", count_none);
-		}
+		ensure!(
+			count_controller_double == 0,
+			"a controller is associated with more than one ledger"
+		);
+		ensure!(
+			count_double == 0,
+			"single tuple of (stash, controller) pair bonds more than one ledger"
+		);
+		ensure!(
+			count_none == 0,
+			"inconsistent bonded state: (stash, controller) pair missing associated ledger"
+		);
 
 		Ok(())
 	}
