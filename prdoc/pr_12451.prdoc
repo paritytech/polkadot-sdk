@@ -10,7 +10,9 @@ doc:
     `in_queue` is now derived from the actual insertion result, and when the queue is full
     a wake-up is scheduled at the undeciding timeout so the referendum begins deciding (if
     a slot has freed) or times out, instead of being stranded with its decision deposit
-    locked.
+    locked. An insertion into a full queue can also evict the weakest entry; the evicted
+    referendum now gets the same treatment: `in_queue` cleared and a wake-up at its
+    undeciding timeout.
 crates:
 - name: pallet-referenda
   bump: patch
