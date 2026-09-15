@@ -807,8 +807,22 @@ fn kill_queued_referendum_does_not_desync_deciding_count() {
 	});
 }
 
+/// A referendum that does not fit its track's full queue must not strand.
+///
+/// Before the fix, `ready_for_deciding` set `in_queue` even when the insert was rejected.
+/// The flag blocks the undeciding timeout, the referendum has no queue entry to pop and no
+/// alarm, so no code path ever touches it again.
+///
+/// With the fix, the flag stays unset and a wake-up is set at the undeciding timeout. The
+/// outcome of that wake-up depends on the queue at that block: if a place has freed, the
+/// referendum queues or begins deciding; if the queue is still full, it times out. Every
+/// resolved outcome is correct, so the test rejects only the stranded state: ongoing, not
+/// deciding, no queue entry, no alarm.
+///
+/// Out of scope: a queued referendum that a stronger one evicts from a full queue strands
+/// the same way and is not covered by the fix or by this test.
 #[test]
-fn referendum_rejected_from_a_full_queue_times_out() {
+fn referendum_rejected_from_a_full_queue_does_not_strand() {
 	ExtBuilder::default().build_and_execute(|| {
 		// One deciding place on track 0 and MaxQueued == 3. Five referenda: 0 takes the
 		// deciding place, 1..=3 fill the queue with positive support, and 4, with zero
