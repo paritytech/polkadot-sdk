@@ -28,7 +28,7 @@ use pallet_registrar_para::SendToRelay;
 use pallet_registrar_relay::SendToPara;
 use polkadot_parachain_primitives::primitives::Id as PolkadotParaId;
 use polkadot_runtime_parachains::Origin as ParachainsOrigin;
-use registrar_primitives::{MessageToPara, MessageToRelay, MessageToRelayV1};
+use registrar_primitives::{MessageToPara, MessageToRelay};
 use sp_runtime::AccountId32;
 use xcm::latest::prelude::*;
 
@@ -47,12 +47,9 @@ pub enum RelayRuntimePallets<AccountId> {
 
 #[derive(Encode)]
 pub enum RegistrarRelayCalls<AccountId> {
-	/// Index of `fn authorize_code` in `pallet-registrar-relay`.
+	/// Index of `fn receive` in `pallet-registrar-relay`.
 	#[codec(index = 0)]
-	AuthorizeCode(MessageToRelay<AccountId>),
-	/// Index of `fn cancel_authorization` in `pallet-registrar-relay`.
-	#[codec(index = 2)]
-	CancelAuthorization(MessageToRelay<AccountId>),
+	Receive(MessageToRelay<AccountId>),
 }
 
 /// Calls on the parachain, as the relay chain must encode them.
@@ -68,7 +65,7 @@ pub enum ParaRuntimePallets {
 #[derive(Encode)]
 pub enum RegistrarParaCalls {
 	/// Index of `fn receive` in `pallet-registrar-para`.
-	#[codec(index = 3)]
+	#[codec(index = 0)]
 	Receive(MessageToPara),
 }
 
@@ -82,17 +79,7 @@ impl SendToRelay for ParaSendToRelay {
 	type AccountId = AccountId32;
 
 	fn send(message: MessageToRelay<Self::AccountId>) -> Result<(), ()> {
-		// One call per message on that side, so the transport picks the index the variant belongs
-		// to.
-		let relay_call = match message {
-			MessageToRelay::V1(MessageToRelayV1::Register { .. }) => {
-				RegistrarRelayCalls::AuthorizeCode(message)
-			},
-			MessageToRelay::V1(MessageToRelayV1::CancelRegistration { .. }) => {
-				RegistrarRelayCalls::CancelAuthorization(message)
-			},
-		};
-		let call = RelayRuntimePallets::Registrar(relay_call).encode();
+		let call = RelayRuntimePallets::Registrar(RegistrarRelayCalls::Receive(message)).encode();
 		let program = Xcm(vec![
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 			Transact {

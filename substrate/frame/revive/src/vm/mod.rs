@@ -246,6 +246,13 @@ impl<T: Config> CodeInfo<T> {
 		}
 	}
 
+	/// Override the refcount. Test-only — used to engineer overflow scenarios on
+	/// `increment_refcount`.
+	#[cfg(test)]
+	pub fn set_refcount(&mut self, refcount: u64) {
+		self.refcount = refcount;
+	}
+
 	/// Returns reference count of the module.
 	#[cfg(test)]
 	pub fn refcount(&self) -> u64 {

@@ -81,6 +81,10 @@ impl<T: Config<I>, I: 'static> fungibles::Inspect<<T as SystemConfig>::AccountId
 	fn asset_exists(asset: Self::AssetId) -> bool {
 		Asset::<T, I>::contains_key(asset)
 	}
+
+	fn is_sufficient(asset: Self::AssetId) -> bool {
+		Asset::<T, I>::get(asset).map(|x| x.is_sufficient).unwrap_or(false)
+	}
 }
 
 impl<T: Config<I>, I: 'static> fungibles::Mutate<<T as SystemConfig>::AccountId> for Pallet<T, I> {
