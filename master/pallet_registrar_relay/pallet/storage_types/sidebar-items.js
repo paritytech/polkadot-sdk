@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["PendingRegistrations"]};
+window.SIDEBAR_ITEMS = {"struct":["AwaitingFirstHead","PendingRegistrations"]};

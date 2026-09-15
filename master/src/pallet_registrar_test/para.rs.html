@@ -346,30 +346,31 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#196 id=196 data-nosnippet>196</a>	<span class="comment">// The relay chain reports with `OriginKind::Superuser`, which `ParentAsSuperuser` turns into
 <a href=#197 id=197 data-nosnippet>197</a>	// `Root`. Nothing else on this chain can produce a `Root` origin in these tests.
 <a href=#198 id=198 data-nosnippet>198</a>	</span><span class="kw">type </span>RelayOrigin = EnsureRoot&lt;AccountId&gt;;
-<a href=#199 id=199 data-nosnippet>199</a>	<span class="kw">type </span>FirstPublicParaId = ConstU32&lt;FIRST_PARA_ID&gt;;
-<a href=#200 id=200 data-nosnippet>200</a>	<span class="kw">type </span>MinCodeSize = ConstU32&lt;MIN_CODE_SIZE&gt;;
-<a href=#201 id=201 data-nosnippet>201</a>	<span class="kw">type </span>MaxCodeSize = ConstU32&lt;MAX_CODE_SIZE&gt;;
-<a href=#202 id=202 data-nosnippet>202</a>	<span class="kw">type </span>MaxHeadDataSize = ConstU32&lt;MAX_HEAD_SIZE&gt;;
-<a href=#203 id=203 data-nosnippet>203</a>	<span class="kw">type </span>PendingDeadline = ConstU64&lt;PENDING_DEADLINE&gt;;
-<a href=#204 id=204 data-nosnippet>204</a>	<span class="comment">// No parachain-system in this simulator; production runtimes should use
-<a href=#205 id=205 data-nosnippet>205</a>	// `cumulus_pallet_parachain_system::RelaychainDataProvider`.
-<a href=#206 id=206 data-nosnippet>206</a>	</span><span class="kw">type </span>BlockNumberProvider = System;
-<a href=#207 id=207 data-nosnippet>207</a>	<span class="kw">type </span>WeightInfo = ();
-<a href=#208 id=208 data-nosnippet>208</a>}
-<a href=#209 id=209 data-nosnippet>209</a>
-<a href=#210 id=210 data-nosnippet>210</a><span class="kw">use </span>frame_support::traits::ConstU64;
-<a href=#211 id=211 data-nosnippet>211</a>
-<a href=#212 id=212 data-nosnippet>212</a><span class="kw">type </span>Block = frame_system::mocking::MockBlock&lt;Runtime&gt;;
-<a href=#213 id=213 data-nosnippet>213</a>
-<a href=#214 id=214 data-nosnippet>214</a><span class="macro">construct_runtime!</span>(
-<a href=#215 id=215 data-nosnippet>215</a>	<span class="kw">pub struct </span>Runtime {
-<a href=#216 id=216 data-nosnippet>216</a>		System: frame_system,
-<a href=#217 id=217 data-nosnippet>217</a>		Balances: pallet_balances,
-<a href=#218 id=218 data-nosnippet>218</a>		MsgQueue: mock_message_queue,
-<a href=#219 id=219 data-nosnippet>219</a>		PolkadotXcm: pallet_xcm,
-<a href=#220 id=220 data-nosnippet>220</a>		Registrar: pallet_registrar_para,
-<a href=#221 id=221 data-nosnippet>221</a>	}
-<a href=#222 id=222 data-nosnippet>222</a>);
+<a href=#199 id=199 data-nosnippet>199</a>	<span class="kw">type </span>ParachainOrigin = frame_system::EnsureNever&lt;u32&gt;;
+<a href=#200 id=200 data-nosnippet>200</a>	<span class="kw">type </span>FirstPublicParaId = ConstU32&lt;FIRST_PARA_ID&gt;;
+<a href=#201 id=201 data-nosnippet>201</a>	<span class="kw">type </span>MinCodeSize = ConstU32&lt;MIN_CODE_SIZE&gt;;
+<a href=#202 id=202 data-nosnippet>202</a>	<span class="kw">type </span>MaxCodeSize = ConstU32&lt;MAX_CODE_SIZE&gt;;
+<a href=#203 id=203 data-nosnippet>203</a>	<span class="kw">type </span>MaxHeadDataSize = ConstU32&lt;MAX_HEAD_SIZE&gt;;
+<a href=#204 id=204 data-nosnippet>204</a>	<span class="kw">type </span>PendingDeadline = ConstU64&lt;PENDING_DEADLINE&gt;;
+<a href=#205 id=205 data-nosnippet>205</a>	<span class="comment">// No parachain-system in this simulator; production runtimes should use
+<a href=#206 id=206 data-nosnippet>206</a>	// `cumulus_pallet_parachain_system::RelaychainDataProvider`.
+<a href=#207 id=207 data-nosnippet>207</a>	</span><span class="kw">type </span>BlockNumberProvider = System;
+<a href=#208 id=208 data-nosnippet>208</a>	<span class="kw">type </span>WeightInfo = ();
+<a href=#209 id=209 data-nosnippet>209</a>}
+<a href=#210 id=210 data-nosnippet>210</a>
+<a href=#211 id=211 data-nosnippet>211</a><span class="kw">use </span>frame_support::traits::ConstU64;
+<a href=#212 id=212 data-nosnippet>212</a>
+<a href=#213 id=213 data-nosnippet>213</a><span class="kw">type </span>Block = frame_system::mocking::MockBlock&lt;Runtime&gt;;
+<a href=#214 id=214 data-nosnippet>214</a>
+<a href=#215 id=215 data-nosnippet>215</a><span class="macro">construct_runtime!</span>(
+<a href=#216 id=216 data-nosnippet>216</a>	<span class="kw">pub struct </span>Runtime {
+<a href=#217 id=217 data-nosnippet>217</a>		System: frame_system,
+<a href=#218 id=218 data-nosnippet>218</a>		Balances: pallet_balances,
+<a href=#219 id=219 data-nosnippet>219</a>		MsgQueue: mock_message_queue,
+<a href=#220 id=220 data-nosnippet>220</a>		PolkadotXcm: pallet_xcm,
+<a href=#221 id=221 data-nosnippet>221</a>		Registrar: pallet_registrar_para,
+<a href=#222 id=222 data-nosnippet>222</a>	}
+<a href=#223 id=223 data-nosnippet>223</a>);
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

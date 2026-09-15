@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["head_data_len"],"mod":["pallet","weights"],"struct":["PendingRegistration"],"trait":["SendToPara"],"type":["PendingRegistrationOf"]};
+window.SIDEBAR_ITEMS = {"mod":["pallet","weights"],"struct":["PendingRegistration"],"trait":["SendToPara"],"type":["PendingRegistrationOf"]};
