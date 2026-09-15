@@ -1025,10 +1025,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			(id.clone(), &owner, delegate),
 			|maybe_approved| -> DispatchResult {
 				let mut approved = maybe_approved.take().ok_or(Error::<T, I>::Unapproved)?;
-				let remaining =
-					approved.amount.checked_sub(&amount).ok_or(Error::<T, I>::Unapproved)?;
 
 				let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
+				// The approval is a ceiling on what the delegate may move. A debit that sweeps
+				// the owner's sub-`min_balance` remainder exceeds `amount`, so the approval has
+				// to be measured against the debit rather than against what was asked for.
+				let debit = Self::prep_debit(id.clone(), owner, amount, f.into())?;
+				let remaining =
+					approved.amount.checked_sub(&debit).ok_or(Error::<T, I>::Unapproved)?;
+
 				owner_died =
 					Self::transfer_and_die(id.clone(), owner, destination, amount, None, f)?.1;
 
