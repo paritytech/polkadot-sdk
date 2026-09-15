@@ -780,21 +780,36 @@ mod head_noted {
 	}
 
 	#[test]
-	fn ignores_what_it_cannot_lock() {
+	fn reports_an_unknown_para() {
 		new_test_ext().execute_with(|| {
 			note_head(4242);
+
 			assert_eq!(
 				registrar_events(),
 				vec![Event::Unexpected(UnexpectedKind::HeadNotedForUnknownPara { para_id: 4242 })]
 			);
+		});
+	}
 
-			// Reserved here, so as far as this chain knows it was never onboarded. Nothing to
-			// report: it is simply not lockable yet.
-			let reserved = reserve_for(ALICE);
-			note_head(reserved);
+	#[test]
+	fn reports_a_para_whose_registration_is_still_pending() {
+		new_test_ext().execute_with(|| {
+			let para_id = reserve_for(ALICE);
+			request_registration(ALICE, para_id, 20, 300);
+			let _ = registrar_events();
 
-			assert!(!Paras::<Test>::get(reserved).unwrap().is_locked());
-			assert!(registrar_events().is_empty());
+			note_head(para_id);
+
+			let info = Paras::<Test>::get(para_id).unwrap();
+			assert!(info.is_locked());
+			assert!(matches!(info.state, RegistrationState::Pending { .. }));
+			assert_eq!(
+				registrar_events(),
+				vec![
+					Event::Unexpected(UnexpectedKind::HeadNotedForUnregisteredPara { para_id }),
+					Event::ParaLocked { para_id }
+				]
+			);
 		});
 	}
 

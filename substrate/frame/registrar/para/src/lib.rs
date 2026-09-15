@@ -324,6 +324,8 @@ pub mod pallet {
 		/// The relay chain refused a cancellation for a reason that is not one of the refusals
 		/// this pallet knows how to settle.
 		CancelRefused { para_id: ParaId, message_id: u64, reason: FailureReason },
+		/// A head was noted for a para that is not registered.
+		HeadNotedForUnregisteredPara { para_id: ParaId },
 	}
 
 	#[pallet::error]
@@ -676,8 +678,13 @@ impl<T: Config> Pallet<T> {
 			Self::report_unexpected(UnexpectedKind::HeadNotedForUnknownPara { para_id });
 			return Ok(());
 		};
-		if info.locked.is_some() || !matches!(info.state, RegistrationState::Registered { .. }) {
+
+		if info.locked.is_some() {
 			return Ok(());
+		}
+
+		if !matches!(info.state, RegistrationState::Registered { .. }) {
+			Self::report_unexpected(UnexpectedKind::HeadNotedForUnregisteredPara { para_id });
 		}
 
 		info.locked = Some(true);
