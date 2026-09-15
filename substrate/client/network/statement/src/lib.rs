@@ -73,7 +73,8 @@
 //! Propagation queues hashes in a per-peer outbox and fetches, filters and encodes them only when
 //! the slot is free, so a slow peer holds one encoded chunk rather than its whole backlog. An
 //! outbox past `config::MAX_PROPAGATION_OUTBOX_LEN` drops its oldest hashes, since the freshest
-//! statements are the ones still worth delivering. Dropped hashes are counted in
+//! statements are the ones still worth delivering. Dropped hashes, and on the v2 DHT path hashes
+//! lost to a disconnect or to a statement leaving the store, are counted in
 //! `undelivered_statements`.
 //!
 //! In-flight bytes of both kinds are held against the shared
@@ -250,7 +251,7 @@ const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::fr
 /// Maximum admission-journal entries one initial-sync fetch visits, so that a peer whose
 /// affinity matches nothing cannot make one burst walk the whole journal in the event loop.
 const INITIAL_SYNC_SCAN_LIMIT: usize = 4096;
-/// Outbox hashes one fetch hands to the store, so a full outbox is not copied whole per send.
+/// Outbox hashes one fetch hands to the store, bounding the lookups a single store call performs.
 const PROPAGATION_FETCH_LIMIT: usize = 4096;
 /// Interval for processing pending topic affinity changes from peers.
 const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
@@ -303,9 +304,9 @@ mod send_failure {
 	pub const NO_SINK: &str = "no_sink";
 	/// The peer's propagation outbox overflowed and the oldest queued hashes were dropped.
 	pub const OUTBOX_FULL: &str = "outbox_full";
-	/// On the v2 DHT path, a queued statement left the store before its chunk went out.
+	/// On the v2 DHT path, a queued statement left the store or expired before its chunk went out.
 	pub const MISSING_FROM_STORE: &str = "missing_from_store";
-	/// On the v2 DHT path, the peer disconnected with statements still queued.
+	/// On the v2 DHT path, the peer is not connected while statements are planned or queued for it.
 	pub const DISCONNECTED: &str = "disconnected";
 }
 
@@ -996,7 +997,7 @@ struct FetchedChunk {
 	statements: Vec<(Hash, Statement)>,
 	/// Hashes consumed from the outbox, whether they yielded a statement or not.
 	processed: usize,
-	/// Consumed hashes whose statement the store no longer holds.
+	/// Consumed hashes with no statement left to send, gone from the store or expired.
 	missing: usize,
 	/// Encoded size of `statements`, above the maximum only for a lone oversized statement.
 	size: usize,
@@ -1016,9 +1017,6 @@ fn fetch_statement_chunk(
 	let now = unix_timestamp_secs();
 	let mut accumulated_size = 0;
 	let mut admit = |hash: &Hash, encoded_size: usize, stmt: &Statement| {
-		if stmt.is_expired(now) {
-			return FilterDecision::Skip;
-		}
 		if topic_affinity.is_some_and(|a| !a.matches_statement(stmt)) {
 			return FilterDecision::Skip;
 		}
@@ -1036,6 +1034,9 @@ fn fetch_statement_chunk(
 	let mut found = 0;
 	let (statements, processed) =
 		store.statements_by_hashes(hashes, &mut |hash, encoded, stmt| {
+			if stmt.is_expired(now) {
+				return FilterDecision::Skip;
+			}
 			let decision = admit(hash, encoded.len(), stmt);
 			if !matches!(decision, FilterDecision::Abort) {
 				found += 1;
@@ -1616,8 +1617,8 @@ where
 					);
 				}
 				self.initial_sync_peer_queue.retain(|p| *p != peer);
-				// The reconnect's sync serves the peer through its filter, not the
-				// orchestrator's choice.
+				// A reconnect's sync applies the peer's filter, so queued orchestrator-chosen
+				// statements are lost.
 				if let Some(outbox) = self.propagation_outboxes.remove(&peer) {
 					if v2dht_enabled() && !outbox.is_empty() {
 						self.record_abandoned_send(send_failure::DISCONNECTED, outbox.len());
@@ -1942,6 +1943,7 @@ where
 	) {
 		for (who, indices) in targets {
 			let Some(peer) = self.peers.get(&who) else {
+				self.record_abandoned_send(send_failure::DISCONNECTED, indices.len());
 				continue;
 			};
 
@@ -2078,8 +2080,7 @@ where
 			// statement would be fetched again on the next iteration.
 			outbox.drain(..processed);
 
-			// Gossip that left the store has nothing left to send, a target the orchestrator
-			// chose is a lost placement.
+			// Only the v2 DHT path loses something here: the orchestrator's placement.
 			if v2dht_enabled() && missing > 0 {
 				self.record_abandoned_send(send_failure::MISSING_FROM_STORE, missing);
 			}
@@ -2320,7 +2321,8 @@ where
 			// Hashes queued for propagation before this scheduling sit below the new
 			// watermark, so the cursor already covers them; dropping the outbox keeps
 			// them from arriving twice. On the v2 DHT path the sync applies the peer's
-			// filter and cannot replace the orchestrator's choice, so the outbox stays.
+			// filter and cannot replace the orchestrator's choice, so the outbox stays and
+			// a queued hash the sync also covers arrives twice.
 			if !v2dht_enabled() {
 				self.propagation_outboxes.remove(&peer);
 			}
@@ -7150,6 +7152,43 @@ mod tests {
 	}
 
 	#[test]
+	fn fetch_without_affinity_serves_a_statement_the_peer_filter_rejects() {
+		let mut statement = new_live_statement();
+		statement.set_plain_data(vec![1u8; 16]);
+		statement.set_topic(0, Topic([7u8; 32]));
+		let hash = statement.hash();
+		let store = TestStatementStore::new();
+		store.insert(statement);
+
+		let who = PeerId::random();
+		let received = HashMap::new();
+		let pending = HashMap::new();
+		let max_size = max_statement_payload_size(V1_ENVELOPE_OVERHEAD);
+		let filter = AffinityFilter::new(BLOOM_SEED, 0.01, 10);
+
+		let filtered = fetch_statement_chunk(
+			&store,
+			&received,
+			&pending,
+			&who,
+			Some(&filter),
+			&[hash],
+			max_size,
+		)
+		.expect("the test store never fails a fetch");
+		assert!(filtered.statements.is_empty());
+		assert_eq!(filtered.missing, 0, "a filtered statement is still in the store");
+
+		let targeted =
+			fetch_statement_chunk(&store, &received, &pending, &who, None, &[hash], max_size)
+				.expect("the test store never fails a fetch");
+		assert_eq!(
+			targeted.statements.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
+			vec![hash]
+		);
+	}
+
+	#[test]
 	fn send_paths_skip_expired_statements() {
 		let mut live = new_live_statement();
 		live.set_expiry_from_parts(u32::MAX, 0);
@@ -7203,7 +7242,7 @@ mod tests {
 			vec![live_hash],
 		);
 		assert_eq!(chunk.processed, 3);
-		assert_eq!(chunk.missing, 1, "only the hash the store never held is missing");
+		assert_eq!(chunk.missing, 2, "the hash the store never held and the expired one are lost");
 
 		let watermark = store.admission_watermark().expect("watermark is readable");
 		let (batch, _size) =
