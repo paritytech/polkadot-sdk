@@ -68,6 +68,8 @@ mod unincluded_segment;
 pub mod weights;
 #[macro_use]
 pub mod validate_block;
+#[cfg(jam)]
+mod jam;
 pub mod parachain_inherent;
 mod relay_chain;
 
@@ -95,14 +97,20 @@ pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
 /// # fn main() {}
 /// ```
 pub use cumulus_pallet_parachain_system_proc_macro::register_validate_block;
+#[cfg(jam)]
+pub use jam::slot::JamSlotNumber;
 pub use relay_chain::{
 	events::OnSystemEvent,
 	relay_state_snapshot,
 	relay_state_snapshot::{MessagingStateSnapshot, RelayChainStateProof},
-	state::{RelayChainState, RelaychainDataProvider, RelaychainStateProvider},
+	state::{RelayChainState, RelaychainStateProvider},
 	AnyRelayNumber, CheckAssociatedRelayNumber, RelayNumberMonotonicallyIncreases,
 	RelayNumberStrictlyIncreases,
 };
+// `RelaychainDataProvider` reads relay validation data — it does not exist on JAM, where the
+// relay block number comes from `JamSlotNumber`.
+#[cfg(not(jam))]
+pub use relay_chain::state::RelaychainDataProvider;
 pub use unincluded_segment::{Ancestor, UsedBandwidth};
 pub use weights::WeightInfo;
 

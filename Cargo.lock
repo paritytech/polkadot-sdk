@@ -15939,6 +15939,7 @@ dependencies = [
  "blake2b_simd",
  "bounded-collections 0.3.2",
  "jam-null-authorizer-bin",
+ "jam-pvm-common",
  "jam-types 0.1.28",
  "num_enum",
  "parity-scale-codec",

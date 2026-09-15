@@ -67,7 +67,6 @@ const ERR_PAYLOAD_NO_WORK_ITEM: &[u8] = b"jam_validate_block:no-work-item-payloa
 const ERR_PAYLOAD_DECODE_FAILED: &[u8] = b"jam_validate_block:candidate-decode-failed";
 const ERR_POV_DECODE_FAILED: &[u8] = b"jam_validate_block:pov-decode-failed";
 const ERR_PARENT_HEADER_MISSING: &[u8] = b"jam_validate_block:v4-parent-header-missing";
-const ERR_REFINE_CONTEXT_UNAVAILABLE: &[u8] = b"jam_validate_block:refine-context-fetch-failed";
 const ERR_HEAD_DATA_MISSING: &[u8] = b"jam_validate_block:no-head-data";
 
 /// The `AdditionalDataFinalizer` committing the carried JAM state proof under `JAM_PROOF_KEY`.
@@ -139,10 +138,9 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 	// context's `lookup_anchor` (which the collator cannot find out ahead of time) plays the
 	// relay root's role. The same context carries the trusted `state_root` of the anchor block —
 	// checked on-chain when the package is reported — which the core verifies the carried JAM
-	// state proof against.
-	let Some(context) = host::refine_context() else {
-		host::report_error(ERR_REFINE_CONTEXT_UNAVAILABLE)
-	};
+	// state proof against. The shared `refine_context` wrapper aborts if the host does not
+	// serve the context: a work package always carries one.
+	let context = host::refine_context();
 	let randomness_seed = build_jam_seed::<B>(*context.lookup_anchor, blocks);
 	let jam_anchor_state_root = *context.state_root;
 
@@ -150,7 +148,8 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 	// (`None` skips the signature-override hook) and no relay proof/validation-data re-check
 	// (`|_| {}`; `validate_validation_data` is relay-only). The trusted JAM anchor state root is
 	// sourced from the refine context, so the `on_execute` hook below can verify the carried
-	// `JAM_PROOF_KEY` proof.
+	// `JAM_PROOF_KEY` proof. `BlockNumberProvider` reads (`JamSlotNumber`) fetch the slot from
+	// the `fetch` host call directly, so nothing is threaded through this core.
 	let result = execute_blocks::<B, E, PSC>(
 		SharedValidationInputs::<B> {
 			block_data,
@@ -160,11 +159,12 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 		None,
 		&|_| {},
 		// Arm the JAM proof reader + finalizer from the carried `JAM_PROOF_KEY` entry for the
-		// duration of each block's execution, so `jam_state_read` and `finalize` are served from
-		// the proof that travels with the block. The carried state root is *ignored* — reads
-		// verify against the trusted anchor root from the refine context, so a candidate that
-		// recorded its JAM reads against a different root fails at the first read. A malformed
-		// blob, or a proof that cannot authenticate a key, panics rather than serving `None`.
+		// duration of each block's execution, so `jam_state_read` and `finalize` are served
+		// from the proof that travels with the block. The carried state root is *ignored* —
+		// reads verify against the trusted anchor root from the refine context, so a
+		// candidate that recorded its JAM reads against a different root fails at the first
+		// read. A malformed blob, or a proof that cannot authenticate a key, panics rather
+		// than serving `None`.
 		&|additional_data: &Option<AdditionalData>, execute: &dyn Fn()| {
 			let Some((mut jam_reader, mut jam_finalizer)) = additional_data.as_ref().map(|map| {
 				let proof_bytes = map
@@ -180,9 +180,9 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 				return execute();
 			};
 			// The same entry arms both the digest finalizer (so `host_finalize_into` folds it
-			// into the `DigestItem::AdditionalData` the collator committed at authoring) and the
-			// state reader; threading one without the other recomputes an empty digest, which
-			// `frame_executive`'s digest-count check rejects.
+			// into the `DigestItem::AdditionalData` the collator committed at authoring) and
+			// the state reader; threading one without the other recomputes an empty digest,
+			// which `frame_executive`'s digest-count check rejects.
 			additional_data::using(&mut jam_finalizer, || {
 				jam_data::using(&mut jam_reader, execute)
 			});
@@ -219,77 +219,22 @@ fn build_jam_seed<B: BlockT>(lookup_anchor: [u8; 32], blocks: &[B::LazyBlock]) -
 
 /// Child host calls of the Parachain Service's Refine (spec §4.3).
 ///
-/// The parachain-service-native wrappers (indices 200-203) live in
-/// `parachain_service_core::host`, shared with the frameless runtime; the fetch-based JAM
-/// helpers below stay local because they are specific to this runtime's validate-block surface.
+/// None of these are declared here: the parachain-service-native wrappers (indices 200-203) and
+/// the JAM `fetch` surface (work package, refine context, work-item payloads) are re-exported
+/// from `parachain_service_core::host` / `parachain_service_core::refine`, so this runtime and
+/// the node drive the exact same ABI definitions instead of per-runtime copies of the raw
+/// `fetch` import.
 #[cfg(jam)]
-mod host {
-	use alloc::{vec, vec::Vec};
-	use jam_codec::Decode as _;
-	use jam_types::RefineContext;
-
+pub mod host {
 	// The parachain-service host functions (indices 200-203) are defined once, in
 	// `parachain_service_core::host`, so the two guests cannot drift apart on the ABI.
 	pub use parachain_service_core::host::{
 		report_error, request_code_upgrade, set_head, set_parent_head_hash,
 	};
-
-	/// `fetch` selector for `workitems[a].payload` (Gray Paper).
-	const FETCH_WORK_ITEM_PAYLOAD: u64 = 13;
-
-	/// `fetch` selector for the work package's refine context (Gray Paper).
-	const FETCH_REFINE_CONTEXT: u64 = 10;
-
-	/// Gray Paper sentinel for "no such item".
-	const NONE: u64 = u64::MAX;
-
-	#[polkavm_derive::polkavm_import]
-	extern "C" {
-		// --- JAM host function, forwarded at its Gray Paper index ---
-		#[polkavm_import(index = 2)]
-		fn fetch_raw(out_ptr: u32, offset: u64, out_len: u64, kind: u64, a: u64, b: u64) -> u64;
-	}
-
-	/// The work package's refine context, decoded from the `fetch` host call.
-	///
-	/// `None` means the host did not serve it or the bytes did not decode, both of which are
-	/// protocol drift: a work package always carries a context. Decoding the real type rather
-	/// than reading a field at a hardcoded offset is what makes an upstream field reordering a
-	/// decode failure instead of silently wrong randomness.
-	pub fn refine_context() -> Option<RefineContext> {
-		let bytes = fetch(FETCH_REFINE_CONTEXT, 0, 0)?;
-		RefineContext::decode(&mut &bytes[..]).ok()
-	}
-
-	/// Fetch the payload of work item `index`; `None` if absent.
-	///
-	/// `fetch` writes at most `out_len` bytes and returns the item's *full* length, so a
-	/// zero-capacity probe yields the size to allocate.
-	pub fn work_item_payload(index: u32) -> Option<Vec<u8>> {
-		fetch(FETCH_WORK_ITEM_PAYLOAD, index as u64, 0)
-	}
-
-	/// Fetch a `(kind, a, b)` value, probing for its length first (Gray Paper semantics).
-	fn fetch(kind: u64, a: u64, b: u64) -> Option<Vec<u8>> {
-		let fetch = |ptr: u32, len: u64| unsafe { fetch_raw(ptr, 0, len, kind, a, b) };
-
-		let len = fetch(0, 0);
-		if len == NONE {
-			return None;
-		}
-
-		let mut buf = vec![0u8; len as usize];
-		loop {
-			let actual = fetch(buf.as_ptr() as u32, buf.len() as u64);
-			if actual == NONE {
-				return None;
-			}
-			let actual = actual as usize;
-			if actual <= buf.len() {
-				buf.truncate(actual);
-				return Some(buf);
-			}
-			buf.resize(actual, 0);
-		}
-	}
+	// The fetch-based JAM helpers (`Fetch::RefineContext`, `workitems[a].payload`, …) are the
+	// same ones the service's own refine entry point drives from; re-exported through
+	// `parachain_service_core::refine` rather than re-declared. `refine_context` decodes the
+	// real type instead of reading a field at a hardcoded offset, so an upstream field
+	// reordering is a decode failure instead of silently wrong randomness.
+	use parachain_service_core::refine::{refine_context, work_item_payload};
 }

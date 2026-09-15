@@ -67,8 +67,13 @@ pub trait RelaychainStateProvider {
 ///   of [`RelayChainState`].
 /// - [`current_block_number`](Self::current_block_number): Will return
 ///   [`crate::Pallet::last_relay_block_number`].
+///
+/// On JAM there is no relay chain and this type is absent: the relay block number is served by
+/// the crate's `JamSlotNumber` (jam-only) instead.
+#[cfg(not(jam))]
 pub struct RelaychainDataProvider<T>(core::marker::PhantomData<T>);
 
+#[cfg(not(jam))]
 impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
 	type BlockNumber = BlockNumber;
 
@@ -93,6 +98,7 @@ impl<T: Config> BlockNumberProvider for RelaychainDataProvider<T> {
 	}
 }
 
+#[cfg(not(jam))]
 impl<T: Config> RelaychainStateProvider for RelaychainDataProvider<T> {
 	fn current_relay_chain_state() -> RelayChainState {
 		ValidationData::<T>::get()
