@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789499727440,
+  "lastUpdate": 1789507414537,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -222911,6 +222911,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2256143633,
             "range": "± 22432742",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "576ec2a144c29d294c0cc190f7c4cb3849221113",
+          "message": "Registrar: lock and unlock (#13060)\n\nCloses #12817\n\nMoves the manager lock onto the CT chain. Everything here is CT-side; no\nrelay leg.\n\n# Added:\n\n- `registrar-para::add_lock`: shuts the manager out of a registered\npara. Callable by the manager, the para itself (new `ParachainOrigin`\nconfig item), or root. Emits `ParaLocked`.\n- `registrar-para::remove_lock`: lifts it again, for root or the para\nitself only — a lock the manager could lift would not be a lock. Emits\n`ParaUnlocked`.\n- `ParaInfo.locked`, enforced through a new\n`ensure_root_para_or_manager` helper: a locked para refuses the manager\nand still answers to root and to itself, matching\n`ensure_root_para_or_owner` today.\n\nChange made from original RC flow Manager lock was triggered when\nparachain produced first block and PVF verified it. Now it's triggered\nto lock when parachain gets assigned first core on CT.\n\n# Moved:\n\nNow as before lock is triggered on same `OnNewHead` hook for parachain\nhead production. Difference is that now RC XCMs change to CT when\nneeded. Storage `AwaitingFirstHead` on RC is filled when para registers\nand awaits for first block to be produced. After XCM this storage will\nremove para id key and won't trigger lock for every block.\n\n# Migration\n\nMigration of the lock for each para will be just copying state to\n`pallet-registrar-para` from `paras-registrar` and newly registered\nparachains won't be needed any new migration after.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-09-15T20:05:54Z",
+          "tree_id": "51fe6c480dfb92b53daa3cb24cd990509e866515",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/576ec2a144c29d294c0cc190f7c4cb3849221113"
+        },
+        "date": 1789507380491,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4661298,
+            "range": "± 57445",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 300158,
+            "range": "± 2722",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4476684,
+            "range": "± 26089",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 373626,
+            "range": "± 3720",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5670607,
+            "range": "± 70269",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 909454,
+            "range": "± 8092",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11026930,
+            "range": "± 87336",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4978531,
+            "range": "± 55418",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 44967832,
+            "range": "± 417397",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 39129335,
+            "range": "± 543529",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 383516480,
+            "range": "± 4868578",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 314007789,
+            "range": "± 1537756",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2699797278,
+            "range": "± 13515133",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2431960325,
+            "range": "± 10700729",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3543338,
+            "range": "± 42068",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1879085,
+            "range": "± 14853",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3595933,
+            "range": "± 34796",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1941759,
+            "range": "± 7018",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4123448,
+            "range": "± 52452",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2279464,
+            "range": "± 14502",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8263126,
+            "range": "± 70100",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5345604,
+            "range": "± 23389",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37659159,
+            "range": "± 254159",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 36582195,
+            "range": "± 232642",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 321476463,
+            "range": "± 1914664",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 281943933,
+            "range": "± 1808099",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2591172134,
+            "range": "± 40991054",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2520023675,
+            "range": "± 66264219",
             "unit": "ns/iter"
           }
         ]
