@@ -584,15 +584,75 @@ pub mod pallet {
 			todo!()
 		}
 
+		/// Open one deposit-free direction between two system chains.
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::establish_system_channel())]
 		pub fn establish_system_channel(
 			origin: OriginFor<T>,
 			sender: ParaId,
 			recipient: ParaId,
-		) -> DispatchResult {
-			let _ = (origin, sender, recipient);
-			todo!()
+		) -> DispatchResultWithPostInfo {
+			ensure_signed(origin)?;
+			ensure!(sender != recipient, Error::<T>::OpenHrmpChannelToSelf);
+			ensure!(
+				hrmp_primitives::is_system(sender) && hrmp_primitives::is_system(recipient),
+				Error::<T>::ChannelCreationNotAuthorized
+			);
+
+			let channel = ChannelId { sender, recipient };
+			ensure!(
+				!Requests::<T>::contains_key(channel),
+				Error::<T>::OpenHrmpChannelAlreadyRequested
+			);
+			ensure!(
+				!Channels::<T>::contains_key(channel),
+				Error::<T>::OpenHrmpChannelAlreadyExists
+			);
+
+			// Nobody has to agree to this, so both ends' limits are checked here at once.
+			let egress_cnt = EgressIndex::<T>::decode_len(sender).unwrap_or(0) as u32;
+			let open_req_cnt = OpenRequestCount::<T>::get(sender);
+			ensure!(
+				egress_cnt + open_req_cnt < T::MaxOutboundChannels::get(),
+				Error::<T>::OpenHrmpChannelLimitExceeded,
+			);
+			let ingress_cnt = IngressIndex::<T>::decode_len(recipient).unwrap_or(0) as u32;
+			let accepted_cnt = AcceptedRequestCount::<T>::get(recipient);
+			ensure!(
+				ingress_cnt + accepted_cnt < T::MaxInboundChannels::get(),
+				Error::<T>::AcceptHrmpChannelLimitExceeded,
+			);
+
+			let message_id = Self::next_message_id();
+
+			OpenRequestCount::<T>::insert(sender, open_req_cnt + 1);
+			AcceptedRequestCount::<T>::insert(recipient, accepted_cnt + 1);
+			Requests::<T>::insert(
+				channel,
+				ChannelRequest {
+					// Two system chains, so neither end holds anything.
+					state: RequestState::Accepted {
+						sender_deposit: None,
+						recipient_deposit: None,
+						kind: OpenKind::System,
+					},
+					// The relay chain picks the sizes; its answer carries them.
+					max_capacity: 0,
+					max_message_size: 0,
+					message_id,
+				},
+			);
+
+			// Neither end was asked for anything, so neither is told until the channel exists.
+			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::OpenSystemChannel {
+				channel,
+				message_id,
+			}))
+			.map_err(|()| Error::<T>::SendFailed)?;
+
+			Self::deposit_event(Event::SystemChannelRequested { channel, message_id });
+
+			Ok(Pays::No.into())
 		}
 	}
 }
