@@ -22,11 +22,16 @@ use core::iter;
 use crate::{
 	BalanceOf, Code, Config, DelegateInfo, DispatchError, Error, ExecConfig, ExecOrigin,
 	ExecReturnValue, Weight,
+	access_list::CallItems,
 	address::AddressMapper,
 	evm::{decode_revert_reason, fees::InfoT},
+	limits,
 	metering::TransactionLimits,
 	test_utils::{ALICE, ALICE_ADDR, BOB_ADDR, WEIGHT_LIMIT, builder::Contract, deposit_limit},
-	tests::{ExtBuilder, MOCK_CODE, MockHandlerImpl, RuntimeOrigin, Test, builder},
+	tests::{
+		ExtBuilder, MOCK_CODE, MockHandlerImpl, RuntimeOrigin, Test, access_list_metrics_of,
+		builder,
+	},
 };
 use alloy_core::{
 	primitives::{Bytes, FixedBytes},
@@ -37,7 +42,9 @@ use frame_support::{
 	traits::fungible::{Balanced, Inspect, Mutate},
 };
 use itertools::Itertools;
-use pallet_revive_fixtures::{Callee, Caller, FixtureType, Host, compile_module_with_type};
+use pallet_revive_fixtures::{
+	Callee, Caller, Counter, FixtureType, Host, Recurse, compile_module_with_type,
+};
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
 use sp_core::{H160, H256};
@@ -1050,5 +1057,245 @@ fn delegatecall_with_large_deposit_limit_succeeds(
 
 		let echo_result = Callee::echoCall::abi_decode_returns(&decoded.output).unwrap();
 		assert_eq!(echo_result, 42, "echo must return the magic number");
+	});
+}
+
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+#[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
+#[test_case(FixtureType::Resolc, FixtureType::Resolc; "resolc->resolc")]
+fn cold_hot_call_and_delegate_reuse_target_warmth(
+	caller_type: FixtureType,
+	target_type: FixtureType,
+) {
+	let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
+	let (target_code, _) = compile_module_with_type("Caller", target_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr: caller, .. } = builder::bare_instantiate(Code::Upload(caller_code))
+			.salt(Some([1; 32]))
+			.build_and_unwrap_contract();
+		let Contract { addr: target, .. } = builder::bare_instantiate(Code::Upload(target_code))
+			.salt(Some([2; 32]))
+			.build_and_unwrap_contract();
+
+		let noop_call = Caller::dataCall {}.abi_encode();
+
+		let call_target_with = |data: Vec<u8>| {
+			access_list_metrics_of(|| {
+				builder::bare_call(caller)
+					.data(
+						Caller::normalCall {
+							_callee: target.0.into(),
+							_value: 0,
+							_data: data.into(),
+							_gas: u64::MAX,
+						}
+						.abi_encode(),
+					)
+					.build_and_unwrap_result();
+			})
+		};
+
+		let plain_only = call_target_with(noop_call.clone());
+
+		let plain_then_plain = call_target_with(
+			Caller::normalCall {
+				_callee: target.0.into(),
+				_value: 0,
+				_data: noop_call.clone().into(),
+				_gas: u64::MAX,
+			}
+			.abi_encode(),
+		);
+
+		let plain_then_delegate = call_target_with(
+			Caller::delegateCall {
+				_callee: target.0.into(),
+				_data: noop_call.into(),
+				_gas: u64::MAX,
+			}
+			.abi_encode(),
+		);
+
+		assert_eq!(
+			plain_then_plain.cold, plain_only.cold,
+			"a warm plain re-call adds no new cold touch",
+		);
+		assert_eq!(
+			plain_then_delegate.cold, plain_only.cold,
+			"a warm delegate adds no new cold touch",
+		);
+		assert_eq!(
+			plain_then_plain.hot,
+			plain_only.hot + CallItems::plain_entries(),
+			"the plain re-call re-reads the target's account and code hot",
+		);
+		assert_eq!(
+			plain_then_delegate.hot,
+			plain_only.hot + CallItems::delegate_entries(),
+			"the delegate re-reads account info and code hot, but not the original account",
+		);
+	});
+}
+
+// The two VMs differ once the depth limit denies a call, though both charge the same for it: EVM
+// keeps the frame running, so its touch stays, while PVM traps the frame and its touch is rolled
+// back. Which behavior is right is still undecided, so only EVM is pinned.
+#[test_case(FixtureType::Solc;   "evm")]
+#[test_case(FixtureType::Resolc => ignore; "pvm")]
+fn cold_hot_a_denied_call_leaves_its_target_in_the_list(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("Recurse", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let entries_left_by_denied_call_to = |final_target: H160| {
+			access_list_metrics_of(|| {
+				builder::bare_call(addr)
+					.data(
+						Recurse::recurseCall {
+							callsLeft: limits::CALL_STACK_DEPTH,
+							finalTarget: final_target.0.into(),
+						}
+						.abi_encode(),
+					)
+					.build_and_unwrap_result();
+			})
+			.size
+		};
+
+		assert_eq!(
+			entries_left_by_denied_call_to(H160::from_low_u64_be(0xdead)),
+			entries_left_by_denied_call_to(H160::zero()) + 2,
+			"the frame runs on after the denial, so the target's entries stay in the list",
+		);
+	});
+}
+
+#[test_case(FixtureType::Solc;   "evm")]
+#[test_case(FixtureType::Resolc; "pvm")]
+fn cold_hot_call_past_the_depth_limit_pays_by_target_warmth(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("Recurse", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// The innermost frame already sits at the depth limit, so the call it makes to
+		// `final_target` is denied. The zero address stands for making no such call at all.
+		let recurse_to_the_limit_then_call = |final_target: H160| {
+			access_list_metrics_of(|| {
+				builder::bare_call(addr)
+					.data(
+						Recurse::recurseCall {
+							callsLeft: limits::CALL_STACK_DEPTH,
+							finalTarget: final_target.0.into(),
+						}
+						.abi_encode(),
+					)
+					.build_and_unwrap_result();
+			})
+		};
+
+		let no_denied_call = recurse_to_the_limit_then_call(H160::zero());
+		let warm_target = recurse_to_the_limit_then_call(addr);
+		let cold_target = recurse_to_the_limit_then_call(H160::from_low_u64_be(0xdead));
+
+		assert_eq!(
+			warm_target.hot - no_denied_call.hot,
+			2,
+			"a denied call pays hot for a target already in the list: its mapping and account info",
+		);
+		assert_eq!(
+			warm_target.cold, no_denied_call.cold,
+			"a target already in the list costs the denied call nothing cold",
+		);
+		assert_eq!(
+			cold_target.cold - no_denied_call.cold,
+			2,
+			"a denied call pays cold for the same two entries when the target is not in the list",
+		);
+		assert_eq!(
+			cold_target.hot, no_denied_call.hot,
+			"a target outside the list costs the denied call nothing hot",
+		);
+	});
+}
+
+#[test_case(FixtureType::Solc;   "evm")]
+#[test_case(FixtureType::Resolc; "pvm")]
+fn cold_hot_value_transfer_warms_the_account(fixture_type: FixtureType) {
+	let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr: caller, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+		// Fund the caller so it can forward value.
+		let _ = crate::Pallet::<Test>::set_evm_balance(&caller, 100_000_000_000u128.into());
+
+		let eoa = H160::from([0xfe; 20]);
+		let call_with_value = |value: u64| {
+			access_list_metrics_of(|| {
+				builder::bare_call(caller)
+					.data(
+						Caller::normalCall {
+							_callee: eoa.0.into(),
+							_value: value,
+							_data: Vec::<u8>::new().into(),
+							_gas: u64::MAX,
+						}
+						.abi_encode(),
+					)
+					.build_and_unwrap_result();
+			})
+		};
+
+		let zero_value = call_with_value(0);
+		let with_value = call_with_value(1_000_000);
+
+		let value_transfer_only = CallItems::value_call_entries() - CallItems::plain_entries();
+		let extra_cold = with_value.cold - zero_value.cold;
+		let extra_hot = with_value.hot - zero_value.hot;
+
+		assert_eq!(
+			extra_hot, 1,
+			"only the sender's account is already warm: it is the calling contract",
+		);
+		assert_eq!(
+			extra_cold,
+			value_transfer_only - 1,
+			"the rest of the value-transfer state is newly touched",
+		);
+	});
+}
+
+#[test_case(FixtureType::Solc;   "evm")]
+#[test_case(FixtureType::Resolc; "pvm")]
+fn cold_hot_storage_reread_is_hot(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("Counter", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let metrics_after = |data: Vec<u8>| {
+			access_list_metrics_of(|| {
+				builder::bare_call(addr).data(data).build_and_unwrap_result();
+			})
+		};
+
+		// A single write to the slot: touched cold once, never hot.
+		let write_only = metrics_after(Counter::setNumberCall { newNumber: 1 }.abi_encode());
+
+		let read_then_write = metrics_after(Counter::incrementCall {}.abi_encode());
+
+		assert_eq!(read_then_write.cold, write_only.cold, "the slot is touched cold exactly once",);
+		assert_eq!(
+			read_then_write.hot,
+			write_only.hot + 1,
+			"the read warms the slot, so the following write is hot",
+		);
 	});
 }

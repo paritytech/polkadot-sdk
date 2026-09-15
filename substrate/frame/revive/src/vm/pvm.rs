@@ -22,7 +22,7 @@ pub mod env;
 use crate::{
 	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
 	StorageAccessKind,
-	access_list::StorageOp,
+	access_list::{CallItems, StorageItems, StorageOp, TransferItems},
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
@@ -279,15 +279,6 @@ enum CallType {
 	DelegateCall,
 }
 
-impl CallType {
-	fn cost(&self) -> RuntimeCosts {
-		match self {
-			CallType::Call { .. } => RuntimeCosts::CallBase,
-			CallType::DelegateCall => RuntimeCosts::DelegateCallBase,
-		}
-	}
-}
-
 /// This is only appropriate when writing out data of constant size that does not depend on user
 /// input. In this case the costs for this copy was already charged as part of the token at
 /// the beginning of the API entry point.
@@ -495,9 +486,12 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 
 		if value_len > max_size {
-			// Don't warm the slot on a failed validation as the storage was not accessed.
-			let access_kind =
-				StorageAccessKind::new(transient, || self.ext.peek_storage_access(&key));
+			// A failed validation accesses no storage: the peek neither warms the slot nor owes
+			// a rollback.
+			let access_kind = StorageAccessKind::new(transient, || {
+				let access = StorageItems::new(self.ext.address(), &key, StorageOp::Write);
+				self.ext.warmth_of(access).to_non_revertible()
+			});
 			self.charge_gas(RuntimeCosts::SetStorage {
 				new_bytes: value_len,
 				old_bytes: max_size,
@@ -507,7 +501,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		}
 
 		let access_kind = StorageAccessKind::new(transient, || {
-			self.ext.touch_storage_access(&key, StorageOp::Write)
+			let access = StorageItems::new(self.ext.address(), &key, StorageOp::Write);
+			self.ext.warm(access)
 		});
 		let charged = self.charge_gas(RuntimeCosts::SetStorage {
 			new_bytes: value_len,
@@ -546,7 +541,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let transient = Self::is_transient(flags)?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let access_kind = StorageAccessKind::new(transient, || {
-			self.ext.touch_storage_access(&key, StorageOp::Write)
+			let access = StorageItems::new(self.ext.address(), &key, StorageOp::Write);
+			self.ext.warm(access)
 		});
 		let charged = self.charge_gas(RuntimeCosts::ClearStorage {
 			len: limits::STORAGE_BYTES,
@@ -576,7 +572,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let transient = Self::is_transient(flags)?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let access_kind = StorageAccessKind::new(transient, || {
-			self.ext.touch_storage_access(&key, StorageOp::Read)
+			let access = StorageItems::new(self.ext.address(), &key, StorageOp::Read);
+			self.ext.warm(access)
 		});
 		let charged = self.charge_gas(RuntimeCosts::GetStorage {
 			len: limits::STORAGE_BYTES,
@@ -648,13 +645,30 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		output_len_ptr: u32,
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let callee = memory.read_h160(callee_ptr)?;
+		let value = match &call_type {
+			CallType::Call { value_ptr } => memory.read_u256(*value_ptr)?,
+			CallType::DelegateCall => U256::zero(),
+		};
 		let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
+		let dust_transfer = Pallet::<E::T>::has_dust(value);
+		let mut transfer_warmth = None;
 		match &precompile {
 			Some(precompile) if precompile.has_contract_info() => {
 				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?
 			},
 			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
-			None => self.charge_gas(call_type.cost())?,
+			None => {
+				let transfer_access = (!value.is_zero())
+					.then(|| TransferItems { from: self.ext.address(), dust: dust_transfer });
+				let call_items = CallItems::new(
+					callee,
+					matches!(&call_type, CallType::DelegateCall),
+					transfer_access,
+				);
+				let warmth = self.ext.warm(call_items);
+				transfer_warmth = warmth.transfer_warmth();
+				self.charge_gas(RuntimeCosts::CallBase(warmth))?
+			},
 		};
 
 		// we do check this in exec.rs but we want to error out early
@@ -680,9 +694,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		memory.reset_interpreter_cache();
 
 		let call_outcome = match call_type {
-			CallType::Call { value_ptr } => {
+			CallType::Call { .. } => {
 				let read_only = flags.contains(CallFlags::READ_ONLY);
-				let value = memory.read_u256(value_ptr)?;
 				if value > 0u32.into() {
 					// If the call value is non-zero and state change is not allowed, issue an
 					// error.
@@ -691,7 +704,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					}
 
 					self.charge_gas(RuntimeCosts::CallTransferSurcharge {
-						dust_transfer: Pallet::<E::T>::has_dust(value),
+						dust_transfer,
+						warmth: transfer_warmth,
 					})?;
 				}
 
