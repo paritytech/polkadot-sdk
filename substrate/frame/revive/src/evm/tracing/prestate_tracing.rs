@@ -182,6 +182,12 @@ where
 {
 	/// Get the code of the contract.
 	fn bytecode(address: &H160) -> Option<Bytes> {
+		use crate::precompiles::{All, Precompiles};
+		// Precompiles: report the code stub, matching eth_getCode / EXTCODEHASH. An empty
+		// stub reports as no code, like eth_getCode's `0x`.
+		if let Some(code) = <All<T>>::code(address.as_fixed_bytes()) {
+			return (!code.is_empty()).then(|| code.to_vec().into());
+		}
 		// EIP-7702: report the delegation indicator, matching eth_getCode / EXTCODEHASH.
 		if let Some(target) = AccountInfo::<T>::get_delegation_target(address) {
 			return Some(AccountInfo::<T>::delegation_indicator(&target).to_vec().into());

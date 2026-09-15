@@ -656,6 +656,10 @@ impl Default for Origin<Test> {
 /// executed; its bytes are non-zero so that tests can tell it apart from zero padding.
 pub const MOCK_CODE: [u8; 2] = [0x5B, 0x00];
 
+/// Address of the `System` builtin pre-compile.
+pub const SYSTEM_PRECOMPILE_ADDR: H160 =
+	H160(sp_core::hex2array!("0000000000000000000000000000000000000900"));
+
 /// A mock handler implementation for testing purposes.
 #[derive(DefaultNoBound)]
 pub struct MockHandlerImpl<T: crate::pallet::Config> {
