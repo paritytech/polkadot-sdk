@@ -2125,10 +2125,9 @@ where
 	/// should receive these statements, so this skips the explicit-affinity bloom filter that
 	/// [`Self::queue_statements_for_peer`] applies and only drops statements the peer sent to us.
 	// TODO(#11932): fold this into the per-peer outbox path (`try_send_next_chunk`) and delete
-	// `queue_statements_in_chunks`/`find_sendable_chunk`. Blocked on two gaps in the outbox
-	// machinery: transient statement bodies leave the store on `take_recent_statements`, so the
-	// fetch needs the bodies carried alongside the queued hashes, and the fetch re-applies the
-	// peer's affinity filter, which orchestrator-chosen targets must bypass.
+	// `queue_statements_in_chunks`/`find_sendable_chunk`. Blocked on one gap in the outbox
+	// machinery: the fetch re-applies the peer's affinity filter, which orchestrator-chosen
+	// targets must bypass.
 	fn send_targeted_statements_to_peer(
 		&mut self,
 		who: &PeerId,
