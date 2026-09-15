@@ -46,7 +46,7 @@ use frame_support::{
 	traits::{
 		Time,
 		fungible::{Balanced as _, Inspect, Mutate},
-		tokens::Preservation,
+		tokens::{Fortitude, Preservation},
 	},
 	weights::Weight,
 };
@@ -2711,6 +2711,24 @@ where
 			&mut top_frame_mut!(self).frame_meter,
 			&self.exec_config,
 		)?;
+
+		// The deferred destruction cannot fail: the contract is no longer on the call stack by
+		// then, so its error is swallowed. Reject here instead the one failure we can still see:
+		// a freeze that pins the ED and would make the `Polite` burn in `destroy_contract` fail.
+		//
+		// `refund_all` only lowers `reserved` and never touches `frozen`, so a burn that does not
+		// fit now will not fit later either. Checking after the transfer above is what makes this
+		// exact: `Preservation::Preserve` leaves exactly `max(frozen - reserved, ED)` behind, so
+		// the reducible balance is below the ED precisely when a foreign freeze exceeds our holds.
+		let ed = T::Currency::minimum_balance();
+		ensure!(
+			T::Currency::reducible_balance(
+				&parent_account_id,
+				Preservation::Expendable,
+				Fortitude::Polite,
+			) >= ed,
+			Error::<T>::TerminateBalanceLocked,
+		);
 
 		// schedule for delayed deletion
 		let args = TerminateArgs { beneficiary, trie_id, code_hash, only_if_same_tx: false };
