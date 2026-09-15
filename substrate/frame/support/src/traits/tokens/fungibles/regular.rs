@@ -194,6 +194,11 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 	/// Minimum balance will be respected and thus the returned amount may be up to
 	/// `Self::minimum_balance() - 1` greater than `amount` in the case that the reduction caused
 	/// the account to be deleted.
+	///
+	/// Any such excess must still be in the system when this returns — it must not have been
+	/// disposed of through [`Unbalanced::handle_dust`]. Callers account for the returned amount,
+	/// so an implementation that both reports the excess and traps it as dust makes them issue it
+	/// a second time.
 	fn decrease_balance(
 		asset: Self::AssetId,
 		who: &AccountId,
@@ -384,12 +389,23 @@ where
 			return Ok(amount);
 		}
 
-		Self::decrease_balance(asset.clone(), source, amount, BestEffort, preservation, Polite)?;
+		// `decrease_balance` may take up to `minimum_balance() - 1` more than `amount` when the
+		// reduction empties the source, so the destination is credited with what was actually
+		// taken. Crediting `amount` would leave the difference debited from the source, credited
+		// to nobody, and still counted in total issuance.
+		let actual = Self::decrease_balance(
+			asset.clone(),
+			source,
+			amount,
+			BestEffort,
+			preservation,
+			Polite,
+		)?;
 		// This should never fail as we checked `can_deposit` earlier. But we do a best-effort
 		// anyway.
-		let _ = Self::increase_balance(asset.clone(), dest, amount, BestEffort);
-		Self::done_transfer(asset, source, dest, amount);
-		Ok(amount)
+		let _ = Self::increase_balance(asset.clone(), dest, actual, BestEffort);
+		Self::done_transfer(asset, source, dest, actual);
+		Ok(actual)
 	}
 
 	/// Simple infallible function to force an account to have a particular balance, good for use
