@@ -1,15 +1,15 @@
-title: 'cumulus: fix V3 scheduling parent picking, wait for RC tip'
+title: 'cumulus: fix V3 scheduling parent picking'
 doc:
 - audience: Node Dev
   description: |
-    At relay parent offset 0 the V3 scheduling parent is the last
-    finished-slot relay block, which may have same-height siblings; picking
-    among them from the local view is arrival-order luck, and building on
-    the losing sibling wastes the slot. The collator now waits for a relay
-    block of the current production slot, whose parent hash names the
-    canonical scheduling parent. The walk-back is also bounded by the slot
-    timer's production slot instead of a second wall-clock read: the slot
-    timer is the single source of truth for the current slot.
+    The V3 scheduling parent is found by walking back from the relay chain best
+    block until a slot older than the one being produced for. That walk read the
+    wall clock a second time to decide which slot that was. The slot timer wakes
+    2ms before the slot it reports begins, on purpose, so a clock read at that
+    moment still returns the previous slot and the walk stepped one block too far
+    back, anchoring the candidate at an older relay block than intended. The slot
+    timer's production slot is now threaded through and used as the single source
+    of truth for the walk.
 crates:
 - name: cumulus-client-consensus-aura
   bump: minor
