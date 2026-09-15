@@ -22,7 +22,7 @@ use futures::executor::block_on;
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::{
 	in_mem, Backend as BackendT, BlockBackend, BlockchainEvents, ExecutorProvider,
-	FinalityNotifications, HeaderBackend, StorageProvider,
+	FinalityNotifications, HeaderBackend, ProofProvider, StorageProvider,
 };
 use sc_client_db::{Backend, BlocksPruning, DatabaseSettings, DatabaseSource, PruningMode};
 use sc_consensus::{
@@ -43,7 +43,11 @@ use sp_state_machine::{
 	InMemoryBackend, OverlayedChanges, StateMachine,
 };
 use sp_storage::{ChildInfo, StorageKey};
-use std::{collections::HashSet, sync::Arc};
+use std::{
+	collections::HashSet,
+	sync::Arc,
+	time::{Duration, Instant},
+};
 use substrate_test_runtime::TestAPI;
 use substrate_test_runtime_client::{
 	runtime::{
@@ -2339,4 +2343,52 @@ fn finalize_after_best_block_updates_best() {
 
 	assert_eq!(client.chain_info().finalized_hash, a3.hash());
 	assert_eq!(client.chain_info().best_hash, a3.hash());
+}
+
+#[test]
+fn execution_proof_works() {
+	// The uncapped path: no execution timeout.
+	let client = substrate_test_runtime_client::new();
+
+	// The method must read storage for the recorded proof to be non-empty.
+	let (result, proof) = client
+		.execution_proof(client.chain_info().genesis_hash, "TestAPI_get_block_number", &[], None)
+		.unwrap();
+
+	assert!(!result.is_empty());
+	assert!(!proof.is_empty());
+}
+
+#[test]
+fn execution_proof_with_generous_timeout_works() {
+	// A generous timeout must not interfere: the call is routed through the timed path
+	// (including waiting for the background compilation of the timed runtime) and succeeds.
+	let client = substrate_test_runtime_client::new();
+
+	// The method must read storage for the recorded proof to be non-empty.
+	let (result, proof) = client
+		.execution_proof(
+			client.chain_info().genesis_hash,
+			"TestAPI_get_block_number",
+			&[],
+			Some(Duration::from_secs(60)),
+		)
+		.unwrap();
+
+	assert!(!result.is_empty());
+	assert!(!proof.is_empty());
+}
+
+#[test]
+fn execution_proof_timeout_interrupts_runtime_call() {
+	let client = substrate_test_runtime_client::new();
+	let timeout = Duration::from_millis(300);
+
+	let started = Instant::now();
+	let error = client
+		.execution_proof(client.chain_info().genesis_hash, "TestAPI_spin", &[], Some(timeout))
+		.unwrap_err();
+
+	assert!(started.elapsed() >= timeout);
+	assert!(error.to_string().contains("Execution timed out"), "{error}");
 }

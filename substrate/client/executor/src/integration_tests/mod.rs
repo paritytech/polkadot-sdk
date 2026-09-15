@@ -28,14 +28,14 @@ use sp_core::{
 	ed25519, map,
 	offchain::{testing, OffchainDbExt, OffchainWorkerExt},
 	sr25519,
-	traits::Externalities,
+	traits::{CallContext, CodeExecutor, Externalities, FetchRuntimeCode, RuntimeCode},
 	Pair,
 };
 use sp_crypto_hashing::{blake2_128, blake2_256, sha2_256, twox_128, twox_256};
 use sp_runtime::traits::BlakeTwo256;
 use sp_state_machine::TestExternalities as CoreTestExternalities;
 use sp_trie::{LayoutV1 as Layout, TrieConfiguration};
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use tracing_subscriber::layer::SubscriberExt;
 
 use crate::WasmExecutionMethod;
@@ -838,10 +838,20 @@ fn different_heap_strategy_per_instance(wasm_method: WasmExecutionMethod) {
 	assert!(res.is_err(), "Small strategy should reject 1 MiB allocation");
 }
 
+struct CodeFetcher<'a>(&'a [u8]);
+
+impl<'a> FetchRuntimeCode for CodeFetcher<'a> {
+	fn fetch_runtime_code(&self) -> Option<std::borrow::Cow<'_, [u8]>> {
+		Some(self.0.into())
+	}
+}
+
+fn runtime_code<'a>(code_fetcher: &'a CodeFetcher<'a>, heap_pages: Option<u64>) -> RuntimeCode<'a> {
+	RuntimeCode { code_fetcher, heap_pages, hash: blake2_256(code_fetcher.0).to_vec() }
+}
+
 test_wasm_execution!(import_doubles_heap_strategy);
 fn import_doubles_heap_strategy(wasm_method: WasmExecutionMethod) {
-	use sp_core::traits::{CallContext, CodeExecutor, FetchRuntimeCode, RuntimeCode};
-
 	// Use 32 extra pages (~2 MiB). Doubled for import = 64 pages (~4 MiB).
 	let heap_pages = 32u64;
 
@@ -853,21 +863,8 @@ fn import_doubles_heap_strategy(wasm_method: WasmExecutionMethod) {
 		.with_allow_missing_host_functions(true)
 		.build();
 
-	let wasm = wasm_binary_unwrap();
-
-	struct CodeFetcher<'a>(&'a [u8]);
-	impl<'a> FetchRuntimeCode for CodeFetcher<'a> {
-		fn fetch_runtime_code(&self) -> Option<std::borrow::Cow<'_, [u8]>> {
-			Some(self.0.into())
-		}
-	}
-
-	let code_fetcher = CodeFetcher(wasm);
-	let runtime_code = RuntimeCode {
-		code_fetcher: &code_fetcher,
-		heap_pages: Some(heap_pages),
-		hash: blake2_256(wasm).to_vec(),
-	};
+	let code_fetcher = CodeFetcher(wasm_binary_unwrap());
+	let runtime_code = runtime_code(&code_fetcher, Some(heap_pages));
 
 	// Allocation of ~3 MiB: too large for 32 extra pages (~2 MiB heap),
 	// but fits in 64 extra pages (~4 MiB heap, doubled for import).
@@ -895,4 +892,94 @@ fn import_doubles_heap_strategy(wasm_method: WasmExecutionMethod) {
 		CallContext::Onchain { import: true },
 	);
 	assert!(result.is_ok(), "Doubled strategy (64 pages) should allow 3 MiB allocation");
+}
+
+test_wasm_execution!(timed_call_times_out);
+fn timed_call_times_out(wasm_method: WasmExecutionMethod) {
+	let executor = crate::WasmExecutor::<HostFunctions>::builder()
+		.with_execution_method(wasm_method)
+		.with_allow_missing_host_functions(true)
+		.build();
+
+	let code_fetcher = CodeFetcher(wasm_binary_unwrap());
+	let runtime_code = runtime_code(&code_fetcher, None);
+	let mut ext = TestExternalities::default();
+
+	let timeout = Duration::from_millis(100);
+	let start = std::time::Instant::now();
+	let result = executor.call_with_execution_timeout(
+		&mut ext.ext(),
+		&runtime_code,
+		"test_spin",
+		&[],
+		CallContext::Offchain,
+		timeout,
+	);
+	let elapsed = start.elapsed();
+
+	assert_matches!(result, Err(Error::ExecutionTimeout));
+	// No upper bound: returning at all proves interruption, and tight bounds are flaky on
+	// loaded CI.
+	assert!(elapsed >= timeout, "expected to run at least {timeout:?}, ran for {elapsed:?}");
+}
+
+test_wasm_execution!(timed_call_completes_and_cache_stays_usable);
+fn timed_call_completes_and_cache_stays_usable(wasm_method: WasmExecutionMethod) {
+	let executor = crate::WasmExecutor::<HostFunctions>::builder()
+		.with_execution_method(wasm_method)
+		.with_allow_missing_host_functions(true)
+		.build();
+
+	let code_fetcher = CodeFetcher(wasm_binary_unwrap());
+	let runtime_code = runtime_code(&code_fetcher, None);
+	let mut ext = TestExternalities::default();
+
+	let generous_timeout = Duration::from_secs(1000);
+
+	// Blocks until the background compile of the timed module finishes, then completes.
+	let result = executor
+		.call_with_execution_timeout(
+			&mut ext.ext(),
+			&runtime_code,
+			"test_empty_return",
+			&[],
+			CallContext::Offchain,
+			generous_timeout,
+		)
+		.unwrap();
+	assert_eq!(result, vec![0u8; 0]);
+
+	// A timed-out call...
+	let result = executor.call_with_execution_timeout(
+		&mut ext.ext(),
+		&runtime_code,
+		"test_spin",
+		&[],
+		CallContext::Offchain,
+		Duration::from_millis(100),
+	);
+	assert_matches!(result, Err(Error::ExecutionTimeout));
+
+	// ...affects neither the main module...
+	let (result, _) = executor.call(
+		&mut ext.ext(),
+		&runtime_code,
+		"test_empty_return",
+		&[],
+		CallContext::Offchain,
+	);
+	assert_eq!(result.unwrap(), vec![0u8; 0]);
+
+	// ...nor subsequent timed calls (fresh instance per call, cache-hit path).
+	let result = executor
+		.call_with_execution_timeout(
+			&mut ext.ext(),
+			&runtime_code,
+			"test_empty_return",
+			&[],
+			CallContext::Offchain,
+			generous_timeout,
+		)
+		.unwrap();
+	assert_eq!(result, vec![0u8; 0]);
 }

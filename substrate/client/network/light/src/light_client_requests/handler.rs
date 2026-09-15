@@ -39,7 +39,7 @@ use sp_core::{
 	storage::{ChildInfo, ChildType, PrefixedStorageKey},
 };
 use sp_runtime::traits::Block;
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 const LOG_TARGET: &str = "light-client-request-handler";
 
@@ -52,6 +52,8 @@ pub struct LightClientRequestHandler<B, Client> {
 	request_receiver: async_channel::Receiver<IncomingRequest>,
 	/// Blockchain client.
 	client: Arc<Client>,
+	/// Wall-clock limit for a single runtime call serving a remote-call request.
+	execution_timeout: Option<Duration>,
 	_block: PhantomData<B>,
 }
 
@@ -65,6 +67,7 @@ where
 		protocol_id: &ProtocolId,
 		fork_id: Option<&str>,
 		client: Arc<Client>,
+		execution_timeout: Option<Duration>,
 	) -> (Self, N::RequestResponseProtocolConfig) {
 		let (tx, request_receiver) = async_channel::bounded(MAX_LIGHT_REQUEST_QUEUE);
 
@@ -79,7 +82,10 @@ where
 			tx,
 		);
 
-		(Self { client, request_receiver, _block: PhantomData::default() }, protocol_config)
+		(
+			Self { client, request_receiver, execution_timeout, _block: PhantomData::default() },
+			protocol_config,
+		)
 	}
 
 	/// Run [`LightClientRequestHandler`].
@@ -178,7 +184,12 @@ where
 
 		let block = Decode::decode(&mut request.block.as_ref())?;
 
-		let response = match self.client.execution_proof(block, &request.method, &request.data) {
+		let response = match self.client.execution_proof(
+			block,
+			&request.method,
+			&request.data,
+			self.execution_timeout,
+		) {
 			Ok((_, proof)) => schema::v1::light::RemoteCallResponse { proof: Some(proof.encode()) },
 			Err(e) => {
 				trace!(
@@ -313,5 +324,77 @@ fn fmt_keys(first: Option<&Vec<u8>>, last: Option<&Vec<u8>>) -> String {
 		}
 	} else {
 		String::from("n/a")
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sc_network::NetworkWorker;
+	use std::time::Instant;
+	use substrate_test_runtime_client::{
+		runtime::{Block, Hash},
+		TestClient,
+	};
+
+	fn make_handler(
+		execution_timeout: Option<Duration>,
+	) -> LightClientRequestHandler<Block, TestClient> {
+		let client = Arc::new(substrate_test_runtime_client::new());
+		let (handler, _protocol_config) =
+			LightClientRequestHandler::new::<NetworkWorker<Block, Hash>>(
+				&ProtocolId::from("test"),
+				None,
+				client,
+				execution_timeout,
+			);
+		handler
+	}
+
+	/// Handle a `RemoteCallRequest` for `method` at the genesis block.
+	fn remote_call(
+		handler: &mut LightClientRequestHandler<Block, TestClient>,
+		method: &str,
+	) -> schema::v1::light::RemoteCallResponse {
+		let genesis_hash = handler.client.block_hash(0u32.into()).unwrap().unwrap();
+		let request = schema::v1::light::Request {
+			request: Some(schema::v1::light::request::Request::RemoteCallRequest(
+				schema::v1::light::RemoteCallRequest {
+					block: genesis_hash.encode(),
+					method: method.into(),
+					data: Vec::new(),
+				},
+			)),
+		};
+
+		let response = handler.handle_request(PeerId::random(), request.encode_to_vec()).unwrap();
+		let response = schema::v1::light::Response::decode(&response[..]).unwrap();
+		match response.response {
+			Some(schema::v1::light::response::Response::RemoteCallResponse(response)) => response,
+			response => panic!("unexpected response: {response:?}"),
+		}
+	}
+
+	#[test]
+	fn remote_call_with_generous_timeout_succeeds() {
+		// A generous timeout must not interfere: the call is routed through the timed path
+		// (including waiting for the background compilation of the timed runtime) and succeeds.
+		let mut handler = make_handler(Some(Duration::from_secs(60)));
+
+		let response = remote_call(&mut handler, "TestAPI_get_block_number");
+
+		assert!(response.proof.is_some());
+	}
+
+	#[test]
+	fn execution_timeout_interrupts_remote_call() {
+		let timeout = Duration::from_millis(300);
+		let mut handler = make_handler(Some(timeout));
+
+		let started = Instant::now();
+		let response = remote_call(&mut handler, "TestAPI_spin");
+
+		assert!(started.elapsed() >= timeout);
+		assert_eq!(response.proof, None);
 	}
 }
