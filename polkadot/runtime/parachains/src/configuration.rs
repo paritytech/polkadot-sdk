@@ -27,9 +27,9 @@ use polkadot_parachain_primitives::primitives::{
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
 use polkadot_primitives::{
-	ApprovalVotingParams, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
-	NodeFeatures, SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_COALESCE_APPROVALS, MAX_CODE_SIZE,
-	MAX_HEAD_DATA_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
+	vstaging::SessionExecutionConfig, ApprovalVotingParams, AsyncBackingParams, Balance,
+	ExecutorParamError, ExecutorParams, NodeFeatures, SessionIndex, LEGACY_MIN_BACKING_VOTES,
+	MAX_COALESCE_APPROVALS, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill, Percent};
 
@@ -354,6 +354,21 @@ impl<BlockNumber> HostConfiguration<BlockNumber>
 where
 	BlockNumber: Zero + PartialOrd + core::fmt::Debug + Clone + From<u32>,
 {
+	/// The maximum size of a decompressed validation code, derived from
+	/// [`Self::max_code_size`] and [`MAX_VALIDATION_CODE_COMPRESSION_RATIO`].
+	pub(crate) fn validation_code_bomb_limit(&self) -> u32 {
+		self.max_code_size * MAX_VALIDATION_CODE_COMPRESSION_RATIO
+	}
+
+	/// Build the execution-relevant subset of this configuration for per-session
+	/// snapshotting.
+	pub(crate) fn session_execution_config(&self) -> SessionExecutionConfig {
+		SessionExecutionConfig {
+			max_pov_size: self.max_pov_size,
+			validation_code_bomb_limit: self.validation_code_bomb_limit(),
+		}
+	}
+
 	/// Checks that this instance is consistent with the requirements on each individual member.
 	///
 	/// # Errors
