@@ -20,7 +20,10 @@ use crate::{
 	debug::DebugSettings,
 	precompiles::Token,
 	tracing,
-	vm::{BytecodeType, ExecResult, Ext, evm::instructions::exec_instruction},
+	vm::{
+		BytecodeType, ExecResult, Ext, evm::instructions::exec_instruction,
+		runtime_costs::cost_args,
+	},
 	weights::WeightInfo,
 };
 use alloc::vec::Vec;
@@ -58,6 +61,27 @@ impl<T: Config> Token<T> for EVMGas {
 	fn weight(&self) -> Weight {
 		let base_cost = T::WeightInfo::evm_opcode(1).saturating_sub(T::WeightInfo::evm_opcode(0));
 		base_cost.saturating_mul(self.0)
+	}
+}
+
+/// Weight costs for EVM opcodes.
+#[derive(Eq, PartialEq, Debug, Clone, Copy)]
+pub(crate) enum EvmOpcodeCosts {
+	JUMP,
+	JUMPI,
+	JUMPDEST,
+}
+
+impl<T: Config> Token<T> for EvmOpcodeCosts {
+	fn weight(&self) -> Weight {
+		match self {
+			// TODO: Subtract the PUSH1
+			Self::JUMP => cost_args!(evm_jumpi_opcode, 1).saturating_sub(Token::<T>::weight(&Self::JUMPDEST)),
+			// TODO: Subtract the PUSH1
+			// TODO: Subtract the PUSH2
+			Self::JUMPI => cost_args!(evm_jumpi_opcode, 1).saturating_sub(Token::<T>::weight(&Self::JUMPDEST)),
+			Self::JUMPDEST => cost_args!(evm_opcode, 1),
+		}
 	}
 }
 
