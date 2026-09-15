@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789482266764,
+  "lastUpdate": 1789489902018,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1e793fe2670b8c3eacaded7d1ed4f3863e8123c1",
-          "message": "Fix link-checker job: I am not giving up (#11049)\n\nFollow up of https://github.com/paritytech/polkadot-sdk/pull/11038\n\nEven though the job passed in my last PR, I missed this broken link. So\nhere we go again.",
-          "timestamp": "2026-02-12T09:20:55Z",
-          "tree_id": "a499a9c85c9baffb696cb1c1657e470499bc573e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1e793fe2670b8c3eacaded7d1ed4f3863e8123c1"
-        },
-        "date": 1770892307289,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.08399999999992,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06483726973799991,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03824137674800002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03939009359400001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4ad1aa893b6c7697b3292396ca08f591aea77537",
+          "message": "cumulus: use slot timer's slot to determine the scheduling parent (#13165)\n\n# Description\n\nA V3 candidate takes its scheduling parent by walking back from the\nrelay chain best block until a slot older than the one being produced\nfor. That walk read the wall clock a second time to decide which slot\nthat was. The slot timer wakes 2ms before the slot it reports begins, so\nthe second read still returned the previous slot. The walk then stepped\none block too far back, anchoring the candidate at an older relay block\nthan the slot intended. The production slot is now passed down from the\nslot timer and used as the only source of truth for the walk.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>",
+          "timestamp": "2026-09-15T14:57:42Z",
+          "tree_id": "bc618d05cca92d5ffc3bc634555dbbd2d52a32b3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4ad1aa893b6c7697b3292396ca08f591aea77537"
+        },
+        "date": 1789489867287,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.11199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08643645109799993,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038863057731999995,
             "unit": "seconds"
           }
         ]
