@@ -27,7 +27,7 @@ pub use runtime_costs::{RuntimeCosts, StorageAccessKind};
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
 	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
-	access_list::{Access, CodeLoad, CodeLoadWarmth},
+	access_list::CodeLoadWarmth,
 	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::ensure,
@@ -119,8 +119,7 @@ impl ExportedFunction {
 	}
 }
 
-/// The two charges of a code load, one per read: the trie path both reads share, then the code's
-/// bytes, whose length only the first read reveals.
+/// The charges a code load pays: a flat cost and the code's bytes.
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Clone, Copy)]
 enum CodeLoadToken {
@@ -131,11 +130,9 @@ enum CodeLoadToken {
 impl CodeLoadToken {
 	/// Both reads, at the warmth of the code's own keys, never the calling frame's.
 	fn flat<T: Config>(warmth: CodeLoadWarmth) -> Weight {
-		runtime_costs::weight_by_warmth::<T, _>(
-			[warmth.info, warmth.blob],
-			CodeLoad::KEY_FAMILY,
+		warmth.weight::<T>(
 			T::WeightInfo::code_load,
-			// A hot read pays only the overlay lookup `weight_by_warmth` adds per item.
+			// Nothing on top of the base hot access.
 			Weight::zero,
 		)
 	}
@@ -440,7 +437,7 @@ pub(crate) fn exec_error_into_return_code<E: Ext>(
 mod tests {
 	use super::*;
 	use crate::{
-		access_list::{StorageOp, Warmth},
+		access_list::Warmth,
 		metering::TransactionMeter,
 		test_utils::ALICE,
 		tests::{ExtBuilder, Test},
@@ -455,11 +452,7 @@ mod tests {
 		let code_len = 1024_u32;
 		for code_type in [BytecodeType::Pvm, BytecodeType::Evm] {
 			let cold = code_load_weight(code_len, code_type, warmth(Warmth::cold_non_revertible()));
-			let hot = code_load_weight(
-				code_len,
-				code_type,
-				warmth(Warmth::Hot { charged: StorageOp::Read }),
-			);
+			let hot = code_load_weight(code_len, code_type, warmth(Warmth::read_paid()));
 			assert!(
 				cold.ref_time() > hot.ref_time(),
 				"expected cold > hot ref_time for {code_type:?}: cold={cold:?} hot={hot:?}",
@@ -473,10 +466,7 @@ mod tests {
 			let hot_info_cold_blob = code_load_weight(
 				code_len,
 				code_type,
-				CodeLoadWarmth {
-					info: Warmth::Hot { charged: StorageOp::Read },
-					blob: Warmth::cold_non_revertible(),
-				},
+				CodeLoadWarmth { info: Warmth::read_paid(), blob: Warmth::cold_non_revertible() },
 			);
 			assert!(
 				hot_info_cold_blob.proof_size() >= both_reads_proof + u64::from(code_len),
@@ -497,7 +487,7 @@ mod tests {
 				code_load_weight(code_len, code_type, load)
 					.saturating_sub(code_load_weight(0, code_type, load))
 			};
-			let hot_blob = Warmth::Hot { charged: StorageOp::Read };
+			let hot_blob = Warmth::read_paid();
 			assert_eq!(
 				bytes_of(CodeLoadWarmth { info: Warmth::cold_non_revertible(), blob: hot_blob }),
 				bytes_of(warmth(hot_blob)),

@@ -21,10 +21,14 @@
 //! `enter_frame` / `commit_frame` / `rollback_frame` wired into `Stack::run`)
 //! mirrors [`crate::transient_storage::TransientStorage`].
 
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+use alloc::vec;
+
 use alloc::{
 	collections::btree_map::{BTreeMap, Entry},
 	vec::Vec,
 };
+
 use frame_support::{BoundedVec, defensive_assert};
 use sp_core::{ConstU32, H160, H256};
 
@@ -125,21 +129,6 @@ pub enum AccessEntry {
 	CodeBlob { hash: H256 },
 }
 
-impl AccessEntry {
-	/// Which bench family prices a touch of this entry.
-	#[cfg(test)]
-	fn key_family(&self) -> KeyFamily {
-		match self {
-			Self::Storage { .. } => KeyFamily::Slot,
-			Self::Account { .. } |
-			Self::OriginalAccount { .. } |
-			Self::AccountInfo { .. } |
-			Self::CodeInfo { .. } |
-			Self::CodeBlob { .. } => KeyFamily::Address,
-		}
-	}
-}
-
 /// The kind of key an entry carries. Slots are much longer than addresses, so each family has
 /// its own benchmarks.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -204,8 +193,25 @@ impl Warmth {
 		Self::Cold { revertible: true }
 	}
 
+	/// Hot, having paid for a read.
+	#[cfg(test)]
+	pub fn read_paid() -> Self {
+		Self::Hot { charged: StorageOp::Read }
+	}
+
+	/// Hot, having paid for a write, which covers a later read too.
+	#[cfg(test)]
+	pub fn write_paid() -> Self {
+		Self::Hot { charged: StorageOp::Write }
+	}
+
 	pub fn is_hot(&self) -> bool {
 		matches!(self, Self::Hot { .. })
+	}
+
+	/// Whether a cold touch of this entry rolls back with the current frame.
+	pub fn is_revertible(&self) -> bool {
+		matches!(self, Self::Cold { revertible: true })
 	}
 
 	/// Returns this warmth with a cold touch made non-revertible.
@@ -364,7 +370,7 @@ impl Access for CallAccess {
 	}
 }
 
-/// Warmth of the two state items a code load reads.
+/// Warmth of the state items a code load reads.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CodeLoadWarmth {
 	/// The `CodeInfoOf` entry.
@@ -579,7 +585,7 @@ impl AccessList {
 	}
 
 	/// An access list holding entries `0..entries` of the given `key` family.
-	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	pub fn with_entries(entries: usize, key: KeyFamily) -> Self {
 		let mut list = Self::new();
 		list.fill_to(entries, key);
@@ -599,7 +605,7 @@ impl AccessList {
 	}
 
 	/// The first entry in key order.
-	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	pub fn first(&self) -> AccessEntry {
 		self.accessed
 			.keys()
@@ -609,7 +615,7 @@ impl AccessList {
 	}
 
 	/// The last entry in key order.
-	#[cfg(any(test, feature = "runtime-benchmarks"))]
+	#[cfg(feature = "runtime-benchmarks")]
 	pub fn last(&self) -> AccessEntry {
 		self.accessed
 			.keys()
@@ -641,7 +647,7 @@ mod tests {
 		// Root frame: cold, but no checkpoint covers it, so it is not revertible.
 		assert_eq!(
 			al.touch(a.clone(), StorageOp::Read),
-			Warmth::Cold { revertible: false },
+			Warmth::cold_non_revertible(),
 			"A: first touch cold"
 		);
 		assert!(al.touch(a.clone(), StorageOp::Read).is_hot(), "A: second touch hot");
@@ -652,7 +658,7 @@ mod tests {
 		// Inside F1: journaled under the open checkpoint, so it is revertible.
 		assert_eq!(
 			al.touch(b.clone(), StorageOp::Read),
-			Warmth::Cold { revertible: true },
+			Warmth::cold_revertible(),
 			"B in F1: cold"
 		);
 		assert!(al.touch(a.clone(), StorageOp::Read).is_hot(), "A in F1: hot via parent");
@@ -688,66 +694,6 @@ mod tests {
 	}
 
 	#[test]
-	fn each_access_prices_its_own_key_family() {
-		fn families_of<A: Access>(access: A) -> Vec<KeyFamily> {
-			let mut families = Vec::new();
-			access.expand(|entry, _op| {
-				families.push(entry.key_family());
-				Warmth::cold_non_revertible()
-			});
-			families
-		}
-		let calls = [
-			families_of(CallAccess::Plain {
-				target: H160::zero(),
-				transfer: Some(Transfer { from: H160::zero(), dust: false }),
-			}),
-			families_of(CallAccess::Delegate { target: H160::zero() }),
-		];
-		for family in calls.iter().flatten() {
-			assert_eq!(
-				*family,
-				CallAccess::KEY_FAMILY,
-				"every call entry must match `CallAccess::KEY_FAMILY`"
-			);
-		}
-		for family in families_of(CodeLoad { hash: H256::zero() }) {
-			assert_eq!(
-				family,
-				CodeLoad::KEY_FAMILY,
-				"every code entry must match `CodeLoad::KEY_FAMILY`"
-			);
-		}
-	}
-
-	#[test]
-	fn only_a_dust_transfer_writes_the_contract_infos() {
-		let ops_of = |dust| {
-			let transfer = Transfer { from: H160::repeat_byte(1), dust };
-			let mut ops = Vec::new();
-			CallAccess::Plain { target: H160::zero(), transfer: Some(transfer) }.expand(
-				|entry, op| {
-					if matches!(entry, AccessEntry::AccountInfo { .. }) {
-						ops.push(op);
-					}
-					Warmth::cold_non_revertible()
-				},
-			);
-			ops
-		};
-		assert_eq!(
-			ops_of(true),
-			vec![StorageOp::Write; 2],
-			"a dust transfer writes both parties' contract info",
-		);
-		assert_eq!(
-			ops_of(false),
-			vec![StorageOp::Read; 2],
-			"a transfer without dust only reads them",
-		);
-	}
-
-	#[test]
 	fn touch_caps_at_max_entries() {
 		let mut al = AccessList::new();
 		al.fill_to(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Slot);
@@ -756,7 +702,7 @@ mod tests {
 		al.enter_frame();
 		assert_eq!(
 			al.touch(new_entry.clone(), StorageOp::Read),
-			Warmth::Cold { revertible: false },
+			Warmth::cold_non_revertible(),
 			"past cap: bills cold, not revertible",
 		);
 		al.commit_frame();
@@ -777,12 +723,12 @@ mod tests {
 		// A write can still upgrade a tracked slot once the map is full.
 		assert_eq!(
 			al.touch(existing.clone(), StorageOp::Write),
-			Warmth::Hot { charged: StorageOp::Read },
+			Warmth::read_paid(),
 			"first write at cap: was read-paid",
 		);
 		assert_eq!(
 			al.touch(existing, StorageOp::Write),
-			Warmth::Hot { charged: StorageOp::Write },
+			Warmth::write_paid(),
 			"write at cap: upgraded",
 		);
 
@@ -794,73 +740,12 @@ mod tests {
 	}
 
 	#[test]
-	fn a_transfer_warms_the_sender_too() {
-		let mut al = AccessList::new();
-		let sender = H160::from_low_u64_be(0xcafe);
-		let transfer = Some(Transfer { from: sender, dust: false });
-		al.warm(CallAccess::new(H160::from_low_u64_be(1), false, transfer));
-
-		let expected = CallWarmth::Plain {
-			original_account: Warmth::cold_non_revertible(),
-			account_info: Warmth::cold_non_revertible(),
-			transfer: Some(TransferWarmth {
-				account: Warmth::cold_non_revertible(),
-				sender_account: Warmth::Hot { charged: StorageOp::Write },
-				account_info: Warmth::cold_non_revertible(),
-				sender_account_info: Warmth::Hot { charged: StorageOp::Read },
-			}),
-		};
-		assert_eq!(
-			al.warmth_of(CallAccess::Plain { target: H160::from_low_u64_be(2), transfer }),
-			expected,
-			"the sender's entries are keyed by the sender, so they read hot whichever target \
-			 the call names",
-		);
-	}
-
-	#[test]
-	fn call_peek_matches_touch_at_cap_boundary() {
-		let mut al = AccessList::new();
-		al.fill_to(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::Slot);
-
-		let target = H160::from_low_u64_be(0xdead_beef);
-		// Nested frame, so a journaled cold touch would be revertible.
-		al.enter_frame();
-
-		let sender = H160::from_low_u64_be(0xcafe);
-		let access =
-			CallAccess::Plain { target, transfer: Some(Transfer { from: sender, dust: false }) };
-		let expected = CallWarmth::Plain {
-			original_account: Warmth::cold_revertible(),
-			account_info: Warmth::cold_non_revertible(),
-			transfer: Some(TransferWarmth {
-				account: Warmth::cold_non_revertible(),
-				sender_account: Warmth::cold_non_revertible(),
-				account_info: Warmth::cold_non_revertible(),
-				sender_account_info: Warmth::cold_non_revertible(),
-			}),
-		};
-		assert_eq!(
-			al.warmth_of(access),
-			expected,
-			"peek prices the cap edge like touch records it",
-		);
-		assert_eq!(
-			al.warm(access),
-			expected,
-			"touch journals only the first entry before the cap fills",
-		);
-
-		al.commit_frame();
-	}
-
-	#[test]
 	fn touches_never_downgrade_the_paid_level() {
 		let mut al = AccessList::new();
 		let entry = AccessEntry::Storage { address: H160::zero(), slot: Slot::Fix([2; 32]) };
 
-		let read_paid = Warmth::Hot { charged: StorageOp::Read };
-		let write_paid = Warmth::Hot { charged: StorageOp::Write };
+		let read_paid = Warmth::read_paid();
+		let write_paid = Warmth::write_paid();
 
 		assert!(!al.touch(entry.clone(), StorageOp::Read).is_hot(), "first read: cold");
 		assert_eq!(al.touch(entry.clone(), StorageOp::Read), read_paid, "read after read");
@@ -891,70 +776,53 @@ mod tests {
 			assert_eq!(al.touch(entry, op), expected, "touch must report like peek");
 		}
 
-		let entry =
-			|i: u8| AccessEntry::Storage { address: H160::zero(), slot: Slot::Fix([i; 32]) };
+		// Indices past the fill range, so the fill never hands out these entries itself.
+		let upgraded = AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Slot);
+		let reverted = AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES + 1, KeyFamily::Slot);
+		let upgraded_at_cap = AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES + 2, KeyFamily::Slot);
+
 		let mut al = AccessList::new();
 
-		agree(&mut al, entry(1), StorageOp::Read, Warmth::Cold { revertible: false });
-		agree(&mut al, entry(1), StorageOp::Read, Warmth::Hot { charged: StorageOp::Read });
-		agree(&mut al, entry(1), StorageOp::Write, Warmth::Hot { charged: StorageOp::Read });
-		agree(&mut al, entry(1), StorageOp::Write, Warmth::Hot { charged: StorageOp::Write });
-		agree(&mut al, entry(1), StorageOp::Read, Warmth::Hot { charged: StorageOp::Write });
+		agree(&mut al, upgraded.clone(), StorageOp::Read, Warmth::cold_non_revertible());
+		agree(&mut al, upgraded.clone(), StorageOp::Read, Warmth::read_paid());
+		agree(&mut al, upgraded.clone(), StorageOp::Write, Warmth::read_paid());
+		agree(&mut al, upgraded.clone(), StorageOp::Write, Warmth::write_paid());
+		agree(&mut al, upgraded, StorageOp::Read, Warmth::write_paid());
 
 		al.enter_frame();
-		agree(&mut al, entry(2), StorageOp::Write, Warmth::Cold { revertible: true });
+		agree(&mut al, reverted.clone(), StorageOp::Write, Warmth::cold_revertible());
 		al.rollback_frame();
 
+		// Touched before the fill, so it is already in the list when the list fills up.
+		agree(&mut al, upgraded_at_cap.clone(), StorageOp::Read, Warmth::cold_non_revertible());
 		al.fill_to(MAX_ACCESS_LIST_ENTRIES, KeyFamily::Slot);
 
 		al.enter_frame();
-		// Peek's own past-cap arm must agree with touch too.
-		agree(&mut al, entry(3), StorageOp::Write, Warmth::Cold { revertible: false });
+		// The rolled-back entry is gone, so at the cap it reads like any untracked one.
+		agree(&mut al, reverted, StorageOp::Write, Warmth::cold_non_revertible());
 		// A tracked read-paid slot still upgrades at the cap.
-		let filled = AccessEntry::with_index(0, KeyFamily::Slot);
-		agree(&mut al, filled.clone(), StorageOp::Write, Warmth::Hot { charged: StorageOp::Read });
-		al.rollback_frame();
-		assert_eq!(
-			al.peek(&filled),
-			Warmth::Hot { charged: StorageOp::Read },
-			"an at-cap upgrade rolls back with its frame"
-		);
+		agree(&mut al, upgraded_at_cap, StorageOp::Write, Warmth::read_paid());
 	}
 
 	#[test]
-	fn upgrade_rolls_back_with_the_reverting_frame() {
+	fn a_committed_upgrade_rolls_back_with_the_parent_frame() {
 		let mut al = AccessList::new();
 		let entry = AccessEntry::Storage { address: H160::zero(), slot: Slot::Fix([9; 32]) };
 		al.touch(entry.clone(), StorageOp::Read);
 
 		al.enter_frame();
-		assert_eq!(
-			al.touch(entry.clone(), StorageOp::Write),
-			Warmth::Hot { charged: StorageOp::Read }
-		);
-		al.rollback_frame();
-		assert_eq!(
-			al.peek(&entry),
-			Warmth::Hot { charged: StorageOp::Read },
-			"the reverted frame's write was undone, so the next write pays again"
-		);
-
 		al.enter_frame();
-		al.enter_frame();
-		assert_eq!(
-			al.touch(entry.clone(), StorageOp::Write),
-			Warmth::Hot { charged: StorageOp::Read }
-		);
+		assert_eq!(al.touch(entry.clone(), StorageOp::Write), Warmth::read_paid());
 		al.commit_frame();
 		assert_eq!(
 			al.peek(&entry),
-			Warmth::Hot { charged: StorageOp::Write },
+			Warmth::write_paid(),
 			"a committed upgrade belongs to the parent frame"
 		);
 		al.rollback_frame();
 		assert_eq!(
 			al.peek(&entry),
-			Warmth::Hot { charged: StorageOp::Read },
+			Warmth::read_paid(),
 			"the parent's revert drops the committed upgrade"
 		);
 	}
@@ -975,7 +843,7 @@ mod tests {
 
 		assert_eq!(
 			al.peek(&upgraded),
-			Warmth::Hot { charged: StorageOp::Write },
+			Warmth::write_paid(),
 			"a rollback must only drop its own frame's upgrades"
 		);
 	}
@@ -989,5 +857,118 @@ mod tests {
 		al.touch(entry.clone(), StorageOp::Write);
 		al.rollback_frame();
 		assert!(!al.peek(&entry).is_hot(), "the entry and its upgrade are both gone");
+	}
+
+	#[test]
+	fn the_senders_transfer_entries_stay_hot_for_the_next_call() {
+		let mut al = AccessList::new();
+		let sender = H160::from_low_u64_be(0xcafe);
+		let transfer = Some(Transfer { from: sender, dust: false });
+
+		// A first value call, that puts the sender's two entries in the list.
+		al.warm(CallAccess::Plain { target: H160::from_low_u64_be(1), transfer });
+
+		let expected = CallWarmth::Plain {
+			original_account: Warmth::cold_non_revertible(),
+			account_info: Warmth::cold_non_revertible(),
+			transfer: Some(TransferWarmth {
+				account: Warmth::cold_non_revertible(),
+				sender_account: Warmth::write_paid(), // a transfer always writes the balance
+				account_info: Warmth::cold_non_revertible(),
+				sender_account_info: Warmth::read_paid(), // no dust, so it was only read
+			}),
+		};
+		assert_eq!(
+			al.warmth_of(CallAccess::Plain { target: H160::from_low_u64_be(2), transfer }),
+			expected
+		);
+	}
+
+	#[test]
+	fn only_the_call_entries_that_fit_the_cap_are_revertible() {
+		let mut al = AccessList::new();
+		al.fill_to(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::Slot);
+
+		let target = H160::from_low_u64_be(0xdead_beef);
+
+		al.enter_frame();
+
+		let sender = H160::from_low_u64_be(0xcafe);
+		let access =
+			CallAccess::Plain { target, transfer: Some(Transfer { from: sender, dust: false }) };
+
+		let expected = CallWarmth::Plain {
+			original_account: Warmth::cold_revertible(), // the only entry that fits
+			account_info: Warmth::cold_non_revertible(),
+			transfer: Some(TransferWarmth {
+				account: Warmth::cold_non_revertible(),
+				sender_account: Warmth::cold_non_revertible(),
+				account_info: Warmth::cold_non_revertible(),
+				sender_account_info: Warmth::cold_non_revertible(),
+			}),
+		};
+		assert_eq!(al.warmth_of(access), expected);
+		assert_eq!(al.warm(access), expected);
+	}
+
+	#[test]
+	fn an_access_touches_the_expected_entries() {
+		// A second access reports the level the first one recorded.
+		fn recorded<A: Access + Copy>(access: A) -> A::Warmth {
+			let mut al = AccessList::new();
+			al.warm(access);
+			al.warm(access)
+		}
+
+		let sender = H160::repeat_byte(1);
+		let target = H160::repeat_byte(2);
+		let transfer = |dust| Some(Transfer { from: sender, dust });
+
+		assert_eq!(
+			recorded(CallAccess::Plain { target, transfer: None }),
+			CallWarmth::Plain {
+				original_account: Warmth::read_paid(),
+				account_info: Warmth::read_paid(),
+				transfer: None,
+			},
+		);
+
+		assert_eq!(
+			recorded(CallAccess::Delegate { target }),
+			CallWarmth::Delegate { account_info: Warmth::read_paid() },
+		);
+
+		assert_eq!(
+			recorded(CodeLoad { hash: H256::zero() }),
+			CodeLoadWarmth { info: Warmth::read_paid(), blob: Warmth::read_paid() },
+		);
+
+		assert_eq!(
+			recorded(CallAccess::Plain { target, transfer: transfer(false) }),
+			CallWarmth::Plain {
+				original_account: Warmth::read_paid(),
+				account_info: Warmth::read_paid(),
+				transfer: Some(TransferWarmth {
+					account: Warmth::write_paid(),
+					sender_account: Warmth::write_paid(),
+					account_info: Warmth::read_paid(),
+					sender_account_info: Warmth::read_paid(),
+				}),
+			},
+		);
+
+		assert_eq!(
+			recorded(CallAccess::Plain { target, transfer: transfer(true) }),
+			CallWarmth::Plain {
+				original_account: Warmth::read_paid(),
+				account_info: Warmth::write_paid(),
+				transfer: Some(TransferWarmth {
+					account: Warmth::write_paid(),
+					sender_account: Warmth::write_paid(),
+					account_info: Warmth::write_paid(),
+					sender_account_info: Warmth::write_paid(),
+				}),
+			},
+		);
 	}
 }

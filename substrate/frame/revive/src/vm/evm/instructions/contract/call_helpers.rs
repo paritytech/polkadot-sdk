@@ -67,6 +67,7 @@ pub fn charge_call_gas<'a, E: Ext>(
 	let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 
 	let dust_transfer = Pallet::<E::T>::has_dust(value);
+	// A precompile's account state is untracked, so its transfer stays `None` and pays cold.
 	let mut transfer_warmth = None;
 	match precompile {
 		Some(precompile) => {

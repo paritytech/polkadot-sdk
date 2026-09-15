@@ -3814,10 +3814,7 @@ fn cold_hot_a_load_warms_both_code_entries() {
 			.unwrap();
 		assert_eq!(
 			ctx.ext.warmth_of(CodeLoad { hash: own_hash }),
-			CodeLoadWarmth {
-				info: Warmth::Hot { charged: StorageOp::Read },
-				blob: Warmth::Hot { charged: StorageOp::Read }
-			},
+			CodeLoadWarmth { info: Warmth::read_paid(), blob: Warmth::read_paid() },
 			"a call warms the code it loads",
 		);
 
@@ -3834,10 +3831,7 @@ fn cold_hot_a_load_warms_both_code_entries() {
 			.unwrap();
 		assert_eq!(
 			ctx.ext.warmth_of(CodeLoad { hash: dummy_code_hash }),
-			CodeLoadWarmth {
-				info: Warmth::Hot { charged: StorageOp::Read },
-				blob: Warmth::Hot { charged: StorageOp::Read }
-			},
+			CodeLoadWarmth { info: Warmth::read_paid(), blob: Warmth::read_paid() },
 			"an instantiate warms the code it loads the same way",
 		);
 		exec_success()
