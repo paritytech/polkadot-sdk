@@ -63,8 +63,8 @@ pub const STATEMENTS_BURST_COEFFICIENT: u32 = 5;
 /// responsible for storing a given topic.
 pub const DEFAULT_REPLICATION_FACTOR: NonZeroUsize = NonZeroUsize::new(20).expect("20 is non-zero");
 
-/// Default gossip target for v2 DHT-affinity routing: maximum number of connected peers we forward
-/// a statement to for a given topic.
+/// Default gossip target for v2 DHT-affinity routing: maximum number of connected non-replica
+/// peers a statement is routed to for a given topic, on top of the topic's connected replicas.
 pub const DEFAULT_GOSSIP_TARGET: NonZeroUsize = NonZeroUsize::new(3).expect("3 is non-zero");
 
 /// Parameters of the v2 DHT statement path.

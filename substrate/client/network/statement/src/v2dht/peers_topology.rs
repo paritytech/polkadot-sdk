@@ -34,10 +34,10 @@ pub struct PeersTopologyConfig {
 	/// The DHT-affinity decision uses this to decide whether the local node belongs to the
 	/// K-closest peers for a topic according to the locally learned topology.
 	pub replication_factor: NonZeroUsize,
-	/// Maximum number of connected nodes that we gossip to.
+	/// Maximum number of connected non-replica nodes that we gossip to.
 	///
-	/// This caps `routing_targets`, i.e. the forwarding candidates selected from
-	/// currently connected peers for a topic.
+	/// This caps only the routing leg of `routing_targets`: connected replicas of a topic
+	/// are always forwarding candidates.
 	pub gossip_target: NonZeroUsize,
 }
 
@@ -207,11 +207,9 @@ impl PeersTopology {
 		for (peer, key) in self.connected.closest(*topic) {
 			if is_peer_topic_affine(&self.discovered_index, local, (key, peer), k, topic) {
 				targets.push(peer);
-			} else if xor_distance(*topic, key) < local_distance {
-				if routed < gossip_target {
-					targets.push(peer);
-					routed += 1;
-				}
+			} else if xor_distance(*topic, key) < local_distance && routed < gossip_target {
+				targets.push(peer);
+				routed += 1;
 			} else {
 				break;
 			}
@@ -573,25 +571,29 @@ mod tests {
 		// deterministically saturates at gossip_target + 1 nodes instead of K.
 		let local = peer(1);
 		let mut topology = PeersTopology::new(local, topology_config(8, 3));
-		let peers = (2..=11).map(peer).collect::<Vec<_>>();
-		for p in &peers {
-			dht_peer(&mut topology, *p);
-			topology.on_substream_opened(*p);
-		}
 		let topic = topic(42);
+		let self_distance = distance_to(topic, &local);
 
-		let mut with_local = peers.clone();
-		with_local.push(local);
-		with_local.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
-		let co_replicas: Vec<PeerId> =
-			with_local.iter().take(8).filter(|p| **p != local).copied().collect();
+		// 12 peers closer than self: the closest 8 are the topic's replicas, the other 4
+		// compete for the 3 routing slots.
+		let mut peers = (2..=200)
+			.map(peer)
+			.filter(|candidate| distance_to(topic, candidate) < self_distance)
+			.take(12)
+			.collect::<Vec<_>>();
+		assert_eq!(peers.len(), 12, "test peer fixture must include 12 peers closer than self");
 
-		let targets = topology.routing_targets(topic);
-		for replica in &co_replicas {
-			assert!(targets.contains(replica), "replica {replica} must be a forwarding target",);
+		for peer in &peers {
+			dht_peer(&mut topology, *peer);
+			topology.on_substream_opened(*peer);
 		}
-		// The non-replica tail is still capped: at most gossip_target routing extras.
-		assert!(targets.len() <= co_replicas.len() + 3);
+
+		peers.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
+		// All 8 co-replicas plus exactly gossip_target routing extras, never the 12th
+		// closer peer.
+		peers.truncate(11);
+
+		assert_eq!(topology.routing_targets(topic), peers);
 	}
 
 	#[test]
