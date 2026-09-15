@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789500588805,
+  "lastUpdate": 1789508364712,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "40807189+AlexandruCihodaru@users.noreply.github.com",
-            "name": "Alexandru Cihodaru",
-            "username": "AlexandruCihodaru"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "744acf5599bcf978350015a73c75e05455a4d8f3",
-          "message": "Implement persistent reputation database for collator protocol (#7751) (#10917)\n\nImplements persistent storage for the experimental collator protocol's\nreputation database.\n\nChanges:\n\n- Adds `PersistentDb` wrapper that persists the in-memory reputation DB\nto disk\n  - Periodic persistence every 10 minutes (30s in test mode)\n  - Immediate persistence on slashes and parachain deregistration\n  - Loads existing state on startup with lookback for missed blocks\n  \nImplementation:\n  \n  `PersistentDb` wraps the existing `Db` and adds persistence on top:\n\n    - All reputation logic (scoring, decay, LRU) stays in `Db`\n    - Persistence layer handles disk I/O and serialization\n    - Per-para data stored in parachains_db\n    \nTests:\n\n- `basic_persistence.rs`: Validates persistence across restarts and\nstartup lookback\n- `pruning.rs`: Validates automatic cleanup on parachain deregistration\n\n---------\n\nSigned-off-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>\nCo-authored-by: alindima <alin@parity.io>\nCo-authored-by: Tsvetomir Dimitrov <tsvetomir@parity.io>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-13T11:09:46Z",
-          "tree_id": "c5ea4bb300af28d1a2569244ef9ce654a0da4602",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/744acf5599bcf978350015a73c75e05455a4d8f3"
-        },
-        "date": 1770984955408,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.140324259099998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1317452164,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13380684803333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "576ec2a144c29d294c0cc190f7c4cb3849221113",
+          "message": "Registrar: lock and unlock (#13060)\n\nCloses #12817\n\nMoves the manager lock onto the CT chain. Everything here is CT-side; no\nrelay leg.\n\n# Added:\n\n- `registrar-para::add_lock`: shuts the manager out of a registered\npara. Callable by the manager, the para itself (new `ParachainOrigin`\nconfig item), or root. Emits `ParaLocked`.\n- `registrar-para::remove_lock`: lifts it again, for root or the para\nitself only — a lock the manager could lift would not be a lock. Emits\n`ParaUnlocked`.\n- `ParaInfo.locked`, enforced through a new\n`ensure_root_para_or_manager` helper: a locked para refuses the manager\nand still answers to root and to itself, matching\n`ensure_root_para_or_owner` today.\n\nChange made from original RC flow Manager lock was triggered when\nparachain produced first block and PVF verified it. Now it's triggered\nto lock when parachain gets assigned first core on CT.\n\n# Moved:\n\nNow as before lock is triggered on same `OnNewHead` hook for parachain\nhead production. Difference is that now RC XCMs change to CT when\nneeded. Storage `AwaitingFirstHead` on RC is filled when para registers\nand awaits for first block to be produced. After XCM this storage will\nremove para id key and won't trigger lock for every block.\n\n# Migration\n\nMigration of the lock for each para will be just copying state to\n`pallet-registrar-para` from `paras-registrar` and newly registered\nparachains won't be needed any new migration after.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-09-15T20:05:54Z",
+          "tree_id": "51fe6c480dfb92b53daa3cb24cd990509e866515",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/576ec2a144c29d294c0cc190f7c4cb3849221113"
+        },
+        "date": 1789508324870,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.679451903333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13470641963333332,
             "unit": "seconds"
           }
         ]
