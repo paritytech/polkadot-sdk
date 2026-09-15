@@ -2055,6 +2055,52 @@ fn normal_asset_create_and_destroy_callbacks_should_work() {
 }
 
 #[test]
+fn owner_changed_callback_fires_on_every_owner_mutation_path() {
+	build_and_execute(|| {
+		let taken = || {
+			let v = storage::get(AssetsCallbackHandle::OWNER_CHANGED.as_bytes());
+			storage::clear(AssetsCallbackHandle::OWNER_CHANGED.as_bytes());
+			v
+		};
+
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1));
+		assert!(taken().is_none());
+
+		assert_ok!(Assets::transfer_ownership(RuntimeOrigin::signed(1), 0, 2));
+		assert_eq!(taken(), Some(codec::Encode::encode(&(1u64, 2u64)).into()));
+
+		assert_ok!(Assets::force_asset_status(
+			RuntimeOrigin::root(),
+			0,
+			3,
+			3,
+			3,
+			3,
+			1,
+			true,
+			false
+		));
+		assert_eq!(taken(), Some(codec::Encode::encode(&(2u64, 3u64)).into()));
+
+		use frame_support::traits::fungibles::roles::ResetTeam;
+		assert_ok!(<Assets as ResetTeam<u64>>::reset_team(0, 4, 4, 4, 4));
+		assert_eq!(taken(), Some(codec::Encode::encode(&(3u64, 4u64)).into()));
+	});
+}
+
+#[test]
+fn owner_changed_callback_does_not_fire_on_self_transfer() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::create(RuntimeOrigin::signed(1), 0, 1, 1));
+		assert_ok!(Assets::transfer_ownership(RuntimeOrigin::signed(1), 0, 1));
+		assert!(storage::get(AssetsCallbackHandle::OWNER_CHANGED.as_bytes()).is_none());
+	});
+}
+
+#[test]
 fn root_asset_create_should_work() {
 	build_and_execute(|| {
 		assert!(storage::get(AssetsCallbackHandle::CREATED.as_bytes()).is_none());
