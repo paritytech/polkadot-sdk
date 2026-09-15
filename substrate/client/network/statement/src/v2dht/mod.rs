@@ -287,6 +287,11 @@ impl V2DhtOrchestrator {
 
 	// === Forward decision ===
 
+	/// Whether the peer is a DHT routing target for the topic.
+	pub(crate) fn peer_is_dht_target_for_topic(&self, peer: PeerId, topic: Topic) -> bool {
+		self.peers_topology.routing_targets(topic).contains(&peer)
+	}
+
 	// === Post-submit hook ===
 
 	/// Score peer on the outcome of importing a statement it sent: a valid statement rewards it, an
