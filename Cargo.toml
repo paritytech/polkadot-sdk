@@ -544,6 +544,7 @@ members = [
 	"substrate/primitives/npos-elections/fuzzer",
 	"substrate/primitives/offchain",
 	"substrate/primitives/panic-handler",
+	"substrate/primitives/price-oracle",
 	"substrate/primitives/rpc",
 	"substrate/primitives/runtime",
 	"substrate/primitives/runtime-interface",
@@ -1395,6 +1396,7 @@ sp-mmr-primitives = { path = "substrate/primitives/merkle-mountain-range", defau
 sp-npos-elections = { path = "substrate/primitives/npos-elections", default-features = false }
 sp-offchain = { path = "substrate/primitives/offchain", default-features = false }
 sp-panic-handler = { path = "substrate/primitives/panic-handler", default-features = false }
+sp-price-oracle = { path = "substrate/primitives/price-oracle", default-features = false }
 sp-rpc = { path = "substrate/primitives/rpc", default-features = false }
 sp-runtime = { path = "substrate/primitives/runtime", default-features = false }
 sp-runtime-interface = { path = "substrate/primitives/runtime-interface", default-features = false }
