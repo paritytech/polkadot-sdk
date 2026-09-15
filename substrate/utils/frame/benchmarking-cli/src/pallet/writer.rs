@@ -32,14 +32,19 @@ use crate::{
 	pallet::{
 		command::{PovEstimationMode, PovModesMap},
 		types::{ComponentRange, ComponentRangeMap},
+		SanityWeightCheck, LOG_TARGET,
 	},
 	shared::UnderscoreHelper,
 	PalletCmd,
 };
 use frame_benchmarking::{
 	Analysis, AnalysisChoice, BenchmarkBatchSplitResults, BenchmarkResult, BenchmarkSelector,
+	RuntimeBlockLimits,
 };
-use frame_support::traits::StorageInfo;
+use frame_support::{
+	traits::StorageInfo,
+	weights::{RuntimeDbWeight, Weight},
+};
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::Zero;
 
@@ -174,6 +179,213 @@ fn map_results(
 		pallet_benchmarks.push(benchmark_data);
 	}
 	Ok(all_benchmarks)
+}
+
+// Returns the maximum value in `component_ranges` for the given component name, or 0 if the
+// component is not part of the ranges.
+fn max_component_value(name: &str, component_ranges: &[ComponentRange]) -> u64 {
+	component_ranges
+		.iter()
+		.find(|c| c.name == name)
+		.map(|c| c.max as u64)
+		.unwrap_or(0)
+}
+
+// Computes the worst-case [`Weight`] of a single benchmark function by evaluating its base cost
+// plus every component slope at the maximum component value.
+fn worst_case_weight(data: &BenchmarkData, db_weight: &RuntimeDbWeight) -> Weight {
+	let mut total = Weight::from_parts(
+		data.base_weight.saturating_cast_u64(),
+		data.base_calculated_proof_size.saturating_cast_u64(),
+	);
+
+	for slope in &data.component_weight {
+		let max = max_component_value(&slope.name, &data.component_ranges);
+		total = total.saturating_add(
+			Weight::from_parts(slope.slope.saturating_cast_u64(), 0).saturating_mul(max),
+		);
+	}
+
+	total = total.saturating_add(db_weight.reads(data.base_reads.saturating_cast_u64()));
+	for slope in &data.component_reads {
+		let max = max_component_value(&slope.name, &data.component_ranges);
+		total = total
+			.saturating_add(db_weight.reads(slope.slope.saturating_cast_u64()).saturating_mul(max));
+	}
+
+	total = total.saturating_add(db_weight.writes(data.base_writes.saturating_cast_u64()));
+	for slope in &data.component_writes {
+		let max = max_component_value(&slope.name, &data.component_ranges);
+		total = total.saturating_add(
+			db_weight.writes(slope.slope.saturating_cast_u64()).saturating_mul(max),
+		);
+	}
+
+	for slope in &data.component_calculated_proof_size {
+		let max = max_component_value(&slope.name, &data.component_ranges);
+		total = total.saturating_add(
+			Weight::from_parts(0, slope.slope.saturating_cast_u64()).saturating_mul(max),
+		);
+	}
+
+	total
+}
+
+// Helper trait to silently saturate u128 -> u64 for benchmark slopes that are stored as u128 in
+// `BenchmarkData` but always fit in u64 in practice.
+trait SaturatingCastU64 {
+	fn saturating_cast_u64(self) -> u64;
+}
+
+impl SaturatingCastU64 for u128 {
+	fn saturating_cast_u64(self) -> u64 {
+		u64::try_from(self).unwrap_or(u64::MAX)
+	}
+}
+
+/// Compares each benchmark's worst-case weight against the runtime's max extrinsic weight.
+///
+/// Behaviour is controlled by `mode`:
+/// * `Error`   — print results and return `Err` if any extrinsic exceeds the limit.
+/// * `Warning` — print results and a warning, but always return `Ok`.
+/// * `Ignore`  — skip the check entirely.
+pub(crate) fn sanity_weight_check(
+	batches: &[BenchmarkBatchSplitResults],
+	storage_info: &[StorageInfo],
+	component_ranges: &ComponentRangeMap,
+	pov_modes: PovModesMap,
+	cmd: &PalletCmd,
+	limits: &RuntimeBlockLimits,
+	mode: SanityWeightCheck,
+	quiet: bool,
+) -> Result<(), sc_cli::Error> {
+	if mode == SanityWeightCheck::Ignore {
+		return Ok(());
+	}
+
+	// `RuntimeBlockLimits::default()` means we could not fetch real limits from the runtime — for
+	// example the runtime is on `Benchmark` API v2, or we are re-analysing a JSON dump. Skip the
+	// check rather than producing false positives.
+	if limits == &RuntimeBlockLimits::default() {
+		log::warn!(
+			target: LOG_TARGET,
+			"Skipping sanity weight check: runtime did not expose `runtime_block_limits` (Benchmark API v2 or re-analysis input).",
+		);
+		return Ok(());
+	}
+
+	// Runtime returned `None` for `max_extrinsic`, meaning it has no per-extrinsic cap configured
+	// for `DispatchClass::Normal`. There is nothing to compare against, so skip with a warning
+	// rather than producing a vacuous pass.
+	let max_extrinsic_weight = match limits.max_extrinsic_weight {
+		Some(w) => w,
+		None => {
+			log::warn!(
+				target: LOG_TARGET,
+				"Skipping sanity weight check: runtime has no `max_extrinsic` configured for `DispatchClass::Normal`.",
+			);
+			return Ok(());
+		},
+	};
+
+	let analysis_choice: AnalysisChoice =
+		cmd.output_analysis.clone().try_into().map_err(io_error)?;
+	let pov_analysis_choice: AnalysisChoice =
+		cmd.output_pov_analysis.clone().try_into().map_err(io_error)?;
+
+	let all_results = map_results(
+		batches,
+		storage_info,
+		component_ranges,
+		pov_modes,
+		cmd.default_pov_mode,
+		&analysis_choice,
+		&pov_analysis_choice,
+		cmd.worst_case_map_values,
+		cmd.additional_trie_layers,
+	)?;
+
+	if !quiet {
+		color_print::cprintln!(
+			"\n<s>Sanity Weight Check:</> each benchmark's weight function is evaluated in the \
+			worst-case scenario (every complexity component at its max value) and compared with \
+			the runtime's max extrinsic weight for `DispatchClass::Normal`.\n\n<s>Note:</> the \
+			check currently treats every benchmark as if it were a `Normal`-class extrinsic. \
+			Hooks (`on_initialize`/`on_finalize`) and `Operational`/`Mandatory` extrinsics may \
+			produce false positives or false negatives — see issue #152 for follow-up work to \
+			distinguish dispatch classes.\n\n<u>Results:</>\n"
+		);
+	}
+
+	let mut failed = false;
+	for ((pallet, instance), results) in all_results.iter() {
+		if !quiet {
+			println!("Pallet: {pallet}\nInstance: {instance}\n");
+		}
+		for data in results {
+			let total = worst_case_weight(data, &limits.db_weight);
+			// Saturated arithmetic clamps to `Weight::MAX` on overflow. Surface that case
+			// explicitly: the check still flags it as a fail (via `>=` below), but the user
+			// deserves to know the displayed `total` is a clamp, not a real measurement.
+			let saturated = total.ref_time() == u64::MAX || total.proof_size() == u64::MAX;
+			// Use `>=` instead of `>` so an extrinsic whose worst-case exactly fills the block is
+			// flagged. Combined with saturating arithmetic this also catches overflow cases where
+			// `total` saturates to `Weight::MAX`.
+			let exceeds_ref_time = total.ref_time() >= max_extrinsic_weight.ref_time();
+			let exceeds_proof_size = total.proof_size() >= max_extrinsic_weight.proof_size();
+			if exceeds_ref_time || exceeds_proof_size {
+				failed = true;
+				if !quiet {
+					color_print::cprintln!(
+						"<s,r>EXCEEDS MAX EXTRINSIC WEIGHT:</> the worst-case weight of `{}` does \
+						not fit in a single block.",
+						data.name,
+					);
+					if saturated {
+						color_print::cprintln!(
+							"<s,y>NOTE:</> the worst-case computation saturated. The reported \
+							total may be lower than the true unbounded value — review the \
+							benchmark's component slopes for unrealistic magnitudes."
+						);
+					}
+				}
+			}
+			if !quiet {
+				let ref_time_pct = (total.ref_time() as f64 /
+					max_extrinsic_weight.ref_time().max(1) as f64) *
+					100.0;
+				let proof_size_pct = (total.proof_size() as f64 /
+					max_extrinsic_weight.proof_size().max(1) as f64) *
+					100.0;
+				color_print::cprintln!(
+					"- <s>{}</>: {:?}\n  ref_time {:.2}% / proof_size {:.2}% of max extrinsic weight\n",
+					data.name,
+					total,
+					ref_time_pct,
+					proof_size_pct,
+				);
+			}
+		}
+	}
+
+	if failed {
+		if !quiet {
+			color_print::cprintln!(
+				"<r>One or more extrinsics exceed the runtime's max extrinsic weight. Review the \
+				extrinsic logic and/or its benchmark function.</>\n"
+			);
+		}
+		if mode == SanityWeightCheck::Error {
+			return Err(io_error(
+				"sanity weight check failed: one or more extrinsics exceed the max extrinsic weight",
+			)
+			.into());
+		}
+	} else if !quiet {
+		color_print::cprintln!("<g>All extrinsics passed the sanity weight check.</>\n");
+	}
+
+	Ok(())
 }
 
 // Get an iterator of errors.
@@ -1355,5 +1567,302 @@ mod test {
 		assert_eq!(easy_log_16(16u32.pow(7)), 7);
 		assert_eq!(easy_log_16(16u32.pow(7) + 1), 8);
 		assert_eq!(easy_log_16(u32::MAX), 8);
+	}
+
+	mod sanity_weight_check {
+		use super::*;
+
+		// Build a `BenchmarkData` with a single component slope plus base values.
+		fn benchmark_data(
+			name: &str,
+			base_weight: u128,
+			weight_slope: u128,
+			base_reads: u128,
+			read_slope: u128,
+			base_writes: u128,
+			write_slope: u128,
+			base_proof_size: u128,
+			proof_size_slope: u128,
+			component_max: u32,
+		) -> BenchmarkData {
+			let component = "n".to_string();
+			BenchmarkData {
+				name: name.to_string(),
+				components: vec![Component { name: component.clone(), is_used: true }],
+				base_weight,
+				base_reads,
+				base_writes,
+				base_calculated_proof_size: base_proof_size,
+				base_recorded_proof_size: 0,
+				component_weight: vec![ComponentSlope {
+					name: component.clone(),
+					slope: weight_slope,
+					error: 0,
+				}],
+				component_reads: vec![ComponentSlope {
+					name: component.clone(),
+					slope: read_slope,
+					error: 0,
+				}],
+				component_writes: vec![ComponentSlope {
+					name: component.clone(),
+					slope: write_slope,
+					error: 0,
+				}],
+				component_calculated_proof_size: vec![ComponentSlope {
+					name: component.clone(),
+					slope: proof_size_slope,
+					error: 0,
+				}],
+				component_recorded_proof_size: vec![],
+				component_ranges: vec![ComponentRange {
+					name: component,
+					min: 0,
+					max: component_max,
+				}],
+				comments: vec![],
+				min_execution_time: 0,
+			}
+		}
+
+		fn rocksdb() -> RuntimeDbWeight {
+			RuntimeDbWeight { read: 25_000, write: 100_000 }
+		}
+
+		#[test]
+		fn worst_case_weight_combines_base_and_slopes() {
+			let data = benchmark_data("dummy", 1_000, 100, 2, 1, 3, 2, 4_096, 16, 10);
+			let total = worst_case_weight(&data, &rocksdb());
+
+			let expected_ref_time = 1_000 // base
+				+ 100 * 10 // weight slope * max
+				+ 25_000 * 2 // base reads
+				+ 25_000 * 1 * 10 // read slope * max
+				+ 100_000 * 3 // base writes
+				+ 100_000 * 2 * 10; // write slope * max
+			let expected_proof_size = 4_096 + 16 * 10;
+			assert_eq!(total.ref_time(), expected_ref_time);
+			assert_eq!(total.proof_size(), expected_proof_size);
+		}
+
+		#[test]
+		fn empty_runtime_block_limits_is_default() {
+			let limits = RuntimeBlockLimits::default();
+			assert_eq!(limits.max_extrinsic_weight, None);
+			assert_eq!(limits.db_weight.read, 0);
+			assert_eq!(limits.db_weight.write, 0);
+		}
+
+		#[test]
+		fn worst_case_weight_with_no_slope_uses_base_only() {
+			let data = benchmark_data("flat", 5_000, 0, 1, 0, 1, 0, 2_048, 0, 100);
+			let total = worst_case_weight(&data, &rocksdb());
+			assert_eq!(total.ref_time(), 5_000 + 25_000 + 100_000);
+			assert_eq!(total.proof_size(), 2_048);
+		}
+
+		#[test]
+		fn worst_case_weight_saturates_on_overflow() {
+			let data = benchmark_data(
+				"overflow",
+				u128::MAX,
+				u128::MAX,
+				u128::MAX,
+				u128::MAX,
+				u128::MAX,
+				u128::MAX,
+				u128::MAX,
+				u128::MAX,
+				u32::MAX,
+			);
+			let total = worst_case_weight(&data, &rocksdb());
+			// Overflow saturates at Weight::MAX.
+			assert_eq!(total.ref_time(), u64::MAX);
+			assert_eq!(total.proof_size(), u64::MAX);
+		}
+
+		#[test]
+		fn saturating_cast_u128_to_u64() {
+			assert_eq!(0u128.saturating_cast_u64(), 0);
+			assert_eq!(42u128.saturating_cast_u64(), 42);
+			assert_eq!((u64::MAX as u128).saturating_cast_u64(), u64::MAX);
+			assert_eq!((u64::MAX as u128 + 1).saturating_cast_u64(), u64::MAX);
+			assert_eq!(u128::MAX.saturating_cast_u64(), u64::MAX);
+		}
+
+		#[test]
+		fn max_component_value_returns_zero_for_unknown_component() {
+			let ranges = vec![ComponentRange { name: "n".into(), min: 0, max: 100 }];
+			assert_eq!(max_component_value("n", &ranges), 100);
+			assert_eq!(max_component_value("missing", &ranges), 0);
+		}
+
+		// Build a minimal `PalletCmd` for end-to-end tests of `sanity_weight_check`.
+		fn cmd() -> PalletCmd {
+			use clap::Parser;
+			PalletCmd::try_parse_from([
+				"test",
+				"--pallet",
+				"",
+				"--extrinsic",
+				"",
+				"--runtime",
+				"path/to/runtime",
+			])
+			.unwrap()
+		}
+
+		// `BenchmarkBatchSplitResults` whose worst-case ref_time is well above the test limits but
+		// stays small enough that the storage-results pipeline does not itself overflow.
+		fn fat_batch() -> BenchmarkBatchSplitResults {
+			test_data(b"fat", b"fat", BenchmarkParameter::a, 100, 10)
+		}
+
+		// `BenchmarkBatchSplitResults` whose worst-case stays well under the test limits.
+		fn lean_batch() -> BenchmarkBatchSplitResults {
+			test_data(b"lean", b"lean", BenchmarkParameter::a, 1, 0)
+		}
+
+		fn limits(max_ref_time: u64, max_proof_size: u64) -> RuntimeBlockLimits {
+			RuntimeBlockLimits {
+				max_extrinsic_weight: Some(Weight::from_parts(max_ref_time, max_proof_size)),
+				db_weight: RuntimeDbWeight { read: 25_000, write: 100_000 },
+			}
+		}
+
+		#[test]
+		fn sanity_check_ignore_mode_short_circuits() {
+			let r = sanity_weight_check(
+				&[fat_batch()],
+				&test_storage_info(),
+				&Default::default(),
+				Default::default(),
+				&cmd(),
+				&limits(10, 10),
+				SanityWeightCheck::Ignore,
+				true,
+			);
+			// Even with limits that an extrinsic would clearly exceed, Ignore returns Ok.
+			assert!(r.is_ok());
+		}
+
+		#[test]
+		fn sanity_check_default_limits_skip() {
+			let r = sanity_weight_check(
+				&[fat_batch()],
+				&test_storage_info(),
+				&Default::default(),
+				Default::default(),
+				&cmd(),
+				&RuntimeBlockLimits::default(),
+				SanityWeightCheck::Error,
+				true,
+			);
+			// `Default::default()` is the v2-runtime / re-analysis sentinel — must skip.
+			assert!(r.is_ok());
+		}
+
+		#[test]
+		fn sanity_check_no_max_extrinsic_skip() {
+			let r = sanity_weight_check(
+				&[fat_batch()],
+				&test_storage_info(),
+				&Default::default(),
+				Default::default(),
+				&cmd(),
+				&RuntimeBlockLimits {
+					max_extrinsic_weight: None,
+					db_weight: RuntimeDbWeight { read: 25_000, write: 100_000 },
+				},
+				SanityWeightCheck::Error,
+				true,
+			);
+			// Runtime configured no per-extrinsic cap → cannot evaluate, skip.
+			assert!(r.is_ok());
+		}
+
+		#[test]
+		fn sanity_check_error_mode_fails_when_exceeding() {
+			let r = sanity_weight_check(
+				&[fat_batch()],
+				&test_storage_info(),
+				&Default::default(),
+				Default::default(),
+				&cmd(),
+				&limits(10, 10),
+				SanityWeightCheck::Error,
+				true,
+			);
+			assert!(r.is_err());
+		}
+
+		#[test]
+		fn sanity_check_warning_mode_returns_ok_even_when_exceeding() {
+			let r = sanity_weight_check(
+				&[fat_batch()],
+				&test_storage_info(),
+				&Default::default(),
+				Default::default(),
+				&cmd(),
+				&limits(10, 10),
+				SanityWeightCheck::Warning,
+				true,
+			);
+			assert!(r.is_ok());
+		}
+
+		#[test]
+		fn sanity_check_passes_when_within_limits() {
+			let r = sanity_weight_check(
+				&[lean_batch()],
+				&test_storage_info(),
+				&Default::default(),
+				Default::default(),
+				&cmd(),
+				&limits(u64::MAX / 2, u64::MAX / 2),
+				SanityWeightCheck::Error,
+				true,
+			);
+			assert!(r.is_ok());
+		}
+
+		#[test]
+		fn sanity_check_flags_exact_limit_match() {
+			// `>=` semantics: a benchmark whose total exactly matches the cap is flagged.
+			let lean = lean_batch();
+			let mut all = HashMap::new();
+			let mapped = map_results(
+				&[lean.clone()],
+				&test_storage_info(),
+				&Default::default(),
+				Default::default(),
+				PovEstimationMode::MaxEncodedLen,
+				&AnalysisChoice::default(),
+				&AnalysisChoice::MedianSlopes,
+				1_000_000,
+				0,
+			)
+			.unwrap();
+			let data = mapped.values().next().unwrap()[0].clone();
+			let exact_total =
+				worst_case_weight(&data, &RuntimeDbWeight { read: 25_000, write: 100_000 });
+			all.insert(("p".to_string(), "i".to_string()), vec![data]);
+			drop(all); // we just needed `mapped` to compute `exact_total`.
+
+			let r = sanity_weight_check(
+				&[lean],
+				&test_storage_info(),
+				&Default::default(),
+				Default::default(),
+				&cmd(),
+				&RuntimeBlockLimits {
+					max_extrinsic_weight: Some(exact_total),
+					db_weight: RuntimeDbWeight { read: 25_000, write: 100_000 },
+				},
+				SanityWeightCheck::Error,
+				true,
+			);
+			assert!(r.is_err(), "exact match must fail (>= semantics)");
+		}
 	}
 }
