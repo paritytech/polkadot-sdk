@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789481360695,
+  "lastUpdate": 1789488972662,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -124523,6 +124523,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2661802337,
             "range": "± 10062531",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4ad1aa893b6c7697b3292396ca08f591aea77537",
+          "message": "cumulus: use slot timer's slot to determine the scheduling parent (#13165)\n\n# Description\n\nA V3 candidate takes its scheduling parent by walking back from the\nrelay chain best block until a slot older than the one being produced\nfor. That walk read the wall clock a second time to decide which slot\nthat was. The slot timer wakes 2ms before the slot it reports begins, so\nthe second read still returned the previous slot. The walk then stepped\none block too far back, anchoring the candidate at an older relay block\nthan the slot intended. The production slot is now passed down from the\nslot timer and used as the only source of truth for the walk.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>",
+          "timestamp": "2026-09-15T14:57:42Z",
+          "tree_id": "bc618d05cca92d5ffc3bc634555dbbd2d52a32b3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4ad1aa893b6c7697b3292396ca08f591aea77537"
+        },
+        "date": 1789488934322,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20119873,
+            "range": "± 111434",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20707632,
+            "range": "± 218514",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22068582,
+            "range": "± 186569",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27221886,
+            "range": "± 189210",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61195651,
+            "range": "± 1161546",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 357719889,
+            "range": "± 8277989",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2672746282,
+            "range": "± 120486518",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17736309,
+            "range": "± 186348",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18021996,
+            "range": "± 170311",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18575754,
+            "range": "± 196893",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22923110,
+            "range": "± 269026",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63512045,
+            "range": "± 969797",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 372544945,
+            "range": "± 4132973",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2732311539,
+            "range": "± 61485716",
             "unit": "ns/iter"
           }
         ]
