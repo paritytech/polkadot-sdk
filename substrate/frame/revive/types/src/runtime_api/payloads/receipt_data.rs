@@ -25,6 +25,9 @@ use crate::runtime_api::*;
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct ReceiptDataInputPayloadV1;
 
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+pub struct ReceiptDataInputPayloadV2;
+
 /// The input type used when calling the `eth_receipt_data_versioned` runtime API function. This
 /// function replaces the unversioned `eth_receipt_data` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
@@ -34,11 +37,37 @@ pub enum ReceiptDataVersionedInputPayload {
 	/// When this version is provided, the function behaves identically to and returns the same
 	/// output as the unversioned `eth_receipt_data` runtime API function.
 	V1(ReceiptDataInputPayloadV1),
+	/// This version takes the same (empty) arguments as `V1` and additionally reports the block's
+	/// synthetic transaction, which `V1` omits.
+	V2(ReceiptDataInputPayloadV2),
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct ReceiptDataOutputPayloadV1 {
 	pub receipt_data: Vec<ReceiptGasInfoV1>,
+}
+
+/// What a block committed to its synthetic transaction, the one carrying the logs emitted outside
+/// any ethereum transaction.
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+pub struct SyntheticTransactionV1 {
+	/// Its receipt gas entry.
+	pub gas_info: ReceiptGasInfoV1,
+	/// How many logs went into it.
+	///
+	/// The count the block's `logs_bloom` and `receipts_root` commit to. A consumer that rebuilds
+	/// the logs from block events must reconcile against this: it can hold more of them than the
+	/// header accounts for, because a runtime bounds the buffer these logs are drained from and
+	/// deposits the event whether or not the log fitted.
+	pub log_count: u32,
+}
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+pub struct ReceiptDataOutputPayloadV2 {
+	/// One entry per ethereum transaction in the block, in transaction-index order.
+	pub receipt_data: Vec<ReceiptGasInfoV1>,
+	/// The block's synthetic transaction, if it has one.
+	pub synthetic: Option<SyntheticTransactionV1>,
 }
 
 /// The output type returned when calling the `eth_receipt_data_versioned` runtime API function.
@@ -51,4 +80,12 @@ pub enum ReceiptDataVersionedOutputPayload {
 	/// This output is identical to the output returned by the unversioned `eth_receipt_data`
 	/// runtime API function.
 	V1(ReceiptDataOutputPayloadV1),
+	/// This version reports the block's synthetic transaction separately from its ethereum
+	/// transactions.
+	///
+	/// A block whose runtime mirrors substrate-native balance changes as EVM logs carries one
+	/// synthetic transaction for the logs emitted outside any ethereum transaction. `V1` cannot
+	/// report it: its contract is one entry per ethereum transaction, and a `V1` consumer rejects
+	/// a longer vec.
+	V2(ReceiptDataOutputPayloadV2),
 }

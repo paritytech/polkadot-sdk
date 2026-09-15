@@ -54,6 +54,20 @@ pub trait OnFinalizeBlockParts {
 	/// # Parameters
 	/// - `data_len`: Total bytes of event data (includes topics and data field)
 	fn on_finalize_block_per_event(data_len: u32) -> Weight;
+
+	/// Returns the weight of draining one buffered outside-of-frame log (see `OutsideFrameLogs`)
+	/// in `on_finalize`.
+	///
+	/// Charged at the emit site via `frame_system::register_extra_weight_unchecked`, so blocks pay
+	/// for the buffered logs they produce instead of reserving the cap up-front. The charge sits
+	/// past the point where a log destined for a real transaction's receipt has already been
+	/// taken, so only a log that actually landed in the buffer reaches it.
+	///
+	/// Covers the drain alone: the buffer insert is measured by the emitting pallet's own
+	/// benchmark, and the drain runs after every extrinsic is done, so it belongs to none. Also
+	/// disjoint from [`Self::on_finalize_block_per_event`], which folds a log into the receipt of
+	/// the transaction that emitted it and never touches this buffer.
+	fn per_outside_frame_log() -> Weight;
 }
 
 /// Implementation of `OnFinalizeBlockParts` that derives high-level weights from `WeightInfo`
@@ -64,7 +78,8 @@ pub trait OnFinalizeBlockParts {
 ///
 /// **Weight Formula:**
 /// ```text
-/// Total weight = fixed_part + Σ(per_tx_part(payload_i)) + Σ(per_event_part(data_len_j))
+/// Total weight = fixed_part + Σ(per_tx_part(payload_i)) + Σ(per_event_part(data_len_j)) +
+///                Σ(per_outside_frame_log_part_k)
 /// where:
 ///   per_tx_part(payload) = tx_marginal_cost + (payload × byte_marginal_cost)
 /// ```
@@ -120,5 +135,11 @@ impl<W: WeightInfo> OnFinalizeBlockParts for W {
 		};
 
 		per_event_cost.saturating_add(data_cost)
+	}
+
+	fn per_outside_frame_log() -> Weight {
+		// The dedicated benchmark is `pov_mode = Measured`, so this marginal carries the per-log
+		// proof size of the buffer take.
+		W::outside_frame_log(1).saturating_sub(W::outside_frame_log(0))
 	}
 }

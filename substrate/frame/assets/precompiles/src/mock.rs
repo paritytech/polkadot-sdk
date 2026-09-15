@@ -49,6 +49,8 @@ mod runtime {
 	pub type ForeignAssets = super::foreign_assets;
 	#[runtime::pallet_index(23)]
 	pub type Permit = super::permit;
+	#[runtime::pallet_index(24)]
+	pub type AssetsHolder = pallet_assets_holder;
 }
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -85,6 +87,13 @@ impl pallet_assets::Config for Test {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type Currency = Balances;
+	type CallbackHandle = Erc20TransferLogsCallback<Test, InlineIdConfig<0x0120>>;
+	type Holder = AssetsHolder;
+}
+
+impl pallet_assets_holder::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeHoldReason = RuntimeHoldReason;
 }
 
 impl foreign_assets::pallet::Config for Test {

@@ -73,7 +73,9 @@ use frame_system::{
 	EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy,
 };
 use pallet_asset_conversion_tx_payment::SwapAssetAdapter;
-use pallet_assets_precompiles::{ForeignAssetId, ForeignIdConfig, InlineIdConfig, ERC20};
+use pallet_assets_precompiles::{
+	Erc20TransferLogsCallback, ForeignAssetId, ForeignIdConfig, InlineIdConfig, ERC20,
+};
 use pallet_nfts::PalletFeatures;
 use pallet_nomination_pools::PoolId;
 use pallet_revive::evm::runtime::EthExtra;
@@ -328,7 +330,11 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type Freezer = AssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_local::WeightInfo<Runtime>;
-	type CallbackHandle = ();
+	type CallbackHandle = Erc20TransferLogsCallback<
+		Runtime,
+		InlineIdConfig<{ TRUST_BACKED_ASSETS_PRECOMPILE }>,
+		TrustBackedAssetsInstance,
+	>;
 	type AssetIdAllocator = pallet_assets::AutoIncAssetId<Runtime, TrustBackedAssetsInstance>;
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type RemoveItemsLimit = ConstU32<1000>;
@@ -384,7 +390,11 @@ impl pallet_assets::Config<PoolAssetsInstance> for Runtime {
 	type Freezer = PoolAssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_pool::WeightInfo<Runtime>;
-	type CallbackHandle = ();
+	type CallbackHandle = Erc20TransferLogsCallback<
+		Runtime,
+		InlineIdConfig<{ POOL_ASSETS_PRECOMPILE }>,
+		PoolAssetsInstance,
+	>;
 	type AssetIdAllocator = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
@@ -612,7 +622,7 @@ impl pallet_assets_precompiles::PermitConfig for Runtime {
 }
 
 /// Precompile address identifiers (embedded at bytes [16..18] of the H160 address).
-const TRUST_BACKED_ASSETS_PRECOMPILE: u16 = 0x0120;
+pub const TRUST_BACKED_ASSETS_PRECOMPILE: u16 = 0x0120;
 const FOREIGN_ASSETS_PRECOMPILE: u16 = 0x0220;
 const POOL_ASSETS_PRECOMPILE: u16 = 0x0320;
 const ASSET_CONVERSION_PRECOMPILE: u16 = 0x0420;
@@ -649,7 +659,14 @@ impl pallet_assets::Config<ForeignAssetsInstance> for Runtime {
 	type Freezer = ForeignAssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_foreign::WeightInfo<Runtime>;
-	type CallbackHandle = (ForeignAssetId<Runtime, ForeignAssetsInstance>,);
+	type CallbackHandle = (
+		ForeignAssetId<Runtime, ForeignAssetsInstance>,
+		Erc20TransferLogsCallback<
+			Runtime,
+			ForeignIdConfig<{ FOREIGN_ASSETS_PRECOMPILE }, Runtime, ForeignAssetsInstance>,
+			ForeignAssetsInstance,
+		>,
+	);
 	type AssetIdAllocator = ();
 	type AssetAccountDeposit = ForeignAssetsAssetAccountDeposit;
 	type RemoveItemsLimit = frame_support::traits::ConstU32<1000>;
@@ -1424,6 +1441,12 @@ impl pallet_revive::Config for Runtime {
 	type AutoMap = ConstBool<true>;
 	type GasScale = ConstU32<1000>;
 	type OnBurn = Dap;
+	// A storage backstop, not a cost bound, and no honest per-block ceiling exists to size it
+	// against: the marginal cost of one more log approaches the buffer insert alone, since
+	// repeated transfers between the same accounts re-touch keys already in the proof. A block
+	// that does hit the cap stays visible through the committed count the runtime reports
+	// (`Revive::eth_synthetic_transaction`) rather than being silently over-reported.
+	type MaxOutsideFrameLogs = ConstU32<2048>;
 	type Deposit = pallet_revive::PGasDeposit<
 		Runtime,
 		Assets,

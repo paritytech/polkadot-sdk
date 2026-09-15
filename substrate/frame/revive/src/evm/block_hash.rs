@@ -33,13 +33,13 @@ use crate::evm::Block;
 use alloc::vec::Vec;
 use alloy_core::primitives::{B256, bytes::BufMut};
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::{H256, U256};
 
 /// Details needed to reconstruct the receipt info in the RPC
 /// layer without losing accuracy.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
 pub struct ReceiptGasInfo {
 	/// The amount of gas used for this specific transaction alone.
 	pub gas_used: U256,
@@ -51,6 +51,27 @@ pub struct ReceiptGasInfo {
 impl From<ReceiptGasInfo> for ReceiptGasInfoV1 {
 	fn from(value: ReceiptGasInfo) -> Self {
 		Self { gas_used: value.gas_used, effective_gas_price: value.effective_gas_price }
+	}
+}
+
+/// What the block committed to its synthetic transaction, the one carrying the logs emitted
+/// outside any ethereum transaction.
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
+pub struct SyntheticTransactionInfo {
+	/// Its receipt gas entry. Kept out of [`crate::ReceiptInfoData`] because the
+	/// `eth_receipt_data` runtime API is versioned on exactly that split: V1 promises one entry
+	/// per ethereum transaction.
+	pub gas_info: ReceiptGasInfo,
+
+	/// How many logs went into it. The count the block's `logs_bloom` and `receipts_root` commit
+	/// to, which is what lets the serving layer notice it has more `ContractEmitted` events than
+	/// the header accounts for.
+	pub log_count: u32,
+}
+
+impl From<SyntheticTransactionInfo> for SyntheticTransactionV1 {
+	fn from(value: SyntheticTransactionInfo) -> Self {
+		Self { gas_info: value.gas_info.into(), log_count: value.log_count }
 	}
 }
 
