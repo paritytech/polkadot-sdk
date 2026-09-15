@@ -175,7 +175,11 @@ pub struct NetworkParams {
 	pub ipfs_bootnodes: Vec<MultiaddrWithPeerId>,
 
 	/// Wall-clock limit, in milliseconds, for a single runtime call serving an (untrusted)
-	/// light-client request. `0` disables the limit. The limit applies with the accuracy of 100ms.
+	/// light-client request. 
+	///
+	/// `0` disables the limit. 
+	///
+	/// The limit applies with the accuracy of 100ms.
 	///
 	/// Requests exceeding the limit are interrupted and answered with an empty proof.
 	#[arg(
