@@ -24,10 +24,11 @@
 // Helpers the per-flow tests will reach for as the extrinsic bodies land.
 #![allow(dead_code)]
 
-use crate::{self as pallet_hrmp_para, HoldReason, SendToRelay};
+use crate::{self as pallet_hrmp_para, HoldReason, SendToRelay, WeightInfo};
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{fungible::HoldConsideration, ConstU128, ConstU32, LinearStoragePrice},
+	weights::Weight,
 };
 use hrmp_primitives::{MessageToRelay, ParaId};
 use sp_runtime::BuildStorage;
@@ -191,6 +192,64 @@ parameter_types! {
 	pub const SystemChannelSizes: (u32, u32) = SYSTEM_CHANNEL_SIZE_AND_CAPACITY;
 }
 
+/// Zero everywhere, except that `force_open_hrmp_channel` tells its two cases apart so the weight
+/// it refunds can be asserted.
+pub struct TestWeights;
+
+impl WeightInfo for TestWeights {
+	fn force_open_hrmp_channel(c: u32) -> Weight {
+		Weight::from_parts(c as u64, 0)
+	}
+
+	fn hrmp_init_open_channel() -> Weight {
+		Weight::zero()
+	}
+
+	fn hrmp_accept_open_channel() -> Weight {
+		Weight::zero()
+	}
+
+	fn hrmp_close_channel() -> Weight {
+		Weight::zero()
+	}
+
+	fn force_clean_hrmp(_i: u32, _e: u32) -> Weight {
+		Weight::zero()
+	}
+
+	fn force_process_hrmp_open(_c: u32) -> Weight {
+		Weight::zero()
+	}
+
+	fn force_process_hrmp_close(_c: u32) -> Weight {
+		Weight::zero()
+	}
+
+	fn hrmp_cancel_open_request(_c: u32) -> Weight {
+		Weight::zero()
+	}
+
+	fn establish_system_channel() -> Weight {
+		Weight::zero()
+	}
+
+	fn poke_channel_deposits() -> Weight {
+		Weight::zero()
+	}
+
+	fn establish_channel_with_system() -> Weight {
+		Weight::zero()
+	}
+
+	fn receive_open_channel_response() -> Weight {
+		Weight::zero()
+	}
+
+	fn receive_close_response() -> Weight {
+		Weight::zero()
+	}
+}
+
 impl pallet_hrmp_para::Config for Test {
 	type SenderConsideration = HoldConsideration<
 		AccountId,
@@ -213,7 +272,7 @@ impl pallet_hrmp_para::Config for Test {
 	type MaxInboundChannels = ConstU32<MAX_INBOUND_CHANNELS>;
 	type MaxOutboundChannels = ConstU32<MAX_OUTBOUND_CHANNELS>;
 	type DefaultChannelSizeAndCapacityWithSystem = SystemChannelSizes;
-	type WeightInfo = ();
+	type WeightInfo = TestWeights;
 }
 
 /// Externalities with Alice and Bob funded, and the message log cleared.

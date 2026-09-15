@@ -49,6 +49,8 @@ pub const SENDER: u32 = 2000;
 pub const RECIPIENT: u32 = 2001;
 /// A system chain, which an id at or below 1999 makes it. Channels with it are deposit-free.
 pub const SYSTEM_PARA: u32 = 1001;
+/// A para the relay chain has never onboarded, so every channel with it is refused there.
+pub const UNKNOWN: u32 = 2002;
 
 pub const ALICE: AccountId32 = AccountId32::new([1u8; 32]);
 pub const BOB: AccountId32 = AccountId32::new([2u8; 32]);
@@ -120,6 +122,7 @@ pub fn para_ext() -> sp_io::TestExternalities {
 			(BOB, INITIAL_BALANCE),
 			sovereign(SENDER),
 			sovereign(RECIPIENT),
+			sovereign(UNKNOWN),
 		],
 		..Default::default()
 	}

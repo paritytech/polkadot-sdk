@@ -249,3 +249,66 @@ fn a_refusing_notify_transport_does_not_undo_the_channel() {
 		);
 	});
 }
+
+/// A forced open, which reaches the registry by the same path an agreed one does.
+fn force_open_channel() -> sp_runtime::DispatchResult {
+	Hrmp::receive(
+		RuntimeOrigin::root(),
+		MessageToRelay::V1(MessageToRelayV1::ForceOpenChannel {
+			channel: CHANNEL,
+			message_id: MESSAGE_ID,
+			max_capacity: CAPACITY,
+			max_message_size: MESSAGE_SIZE,
+		}),
+	)
+}
+
+#[test]
+fn force_open_channel_writes_the_registry_and_answers() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(force_open_channel());
+
+		assert!(MockRegistry::exists(CHANNEL));
+		assert_eq!(take_sent(), vec![response(Ok((CAPACITY, MESSAGE_SIZE)))]);
+		// The recipient never agreed, so this notification is the first it hears of the channel.
+		assert_eq!(
+			take_notified(),
+			vec![
+				(CHANNEL.sender, ParaNotification::ChannelOpened { channel: CHANNEL }),
+				(CHANNEL.recipient, ParaNotification::ChannelOpened { channel: CHANNEL }),
+			]
+		);
+		assert_eq!(
+			hrmp_events(),
+			vec![Event::ChannelOpened { channel: CHANNEL, message_id: MESSAGE_ID }]
+		);
+	});
+}
+
+#[test]
+fn a_refused_force_open_channel_is_reported_back() {
+	new_test_ext().execute_with(|| {
+		RegistryRefuses::set(Some(FailureReason::InvalidPara));
+
+		assert_ok!(force_open_channel());
+
+		assert!(!MockRegistry::exists(CHANNEL));
+		assert_eq!(take_sent(), vec![response(Err(FailureReason::InvalidPara))]);
+		let failure = ParaNotification::ChannelOpenFailure {
+			channel: CHANNEL,
+			reason: FailureReason::InvalidPara,
+		};
+		assert_eq!(
+			take_notified(),
+			vec![(CHANNEL.sender, failure.clone()), (CHANNEL.recipient, failure)]
+		);
+		assert_eq!(
+			hrmp_events(),
+			vec![Event::OpenChannelRejected {
+				channel: CHANNEL,
+				message_id: MESSAGE_ID,
+				reason: FailureReason::InvalidPara,
+			}]
+		);
+	});
+}

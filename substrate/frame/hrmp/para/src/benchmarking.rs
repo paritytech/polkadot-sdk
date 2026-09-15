@@ -223,14 +223,34 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		let origin = manager_origin::<T>()?;
 		let max_capacity = T::MaxCapacity::get();
+		let max_message_size = T::MaxMessageSize::get();
 		fund::<T>(SENDER, max_capacity);
-		// TODO: when `c` is 1, leave `SENDER`'s open request for `CHANNEL` in `Requests`.
-		let _ = c;
+		fund::<T>(RECIPIENT, max_capacity);
+
+		if c == 1 {
+			let sender_deposit = T::SenderConsideration::new(
+				&T::SovereignAccountOf::convert(SENDER),
+				Pallet::<T>::channel_footprint(max_capacity),
+			)?;
+			Requests::<T>::insert(
+				CHANNEL,
+				ChannelRequest {
+					state: RequestState::Requested { sender_deposit: Some(sender_deposit) },
+					max_capacity,
+					max_message_size,
+					message_id: 0,
+				},
+			);
+			OpenRequestCount::<T>::insert(SENDER, 1);
+		}
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, SENDER, RECIPIENT, max_capacity, T::MaxMessageSize::get());
+		_(origin as T::RuntimeOrigin, SENDER, RECIPIENT, max_capacity, max_message_size);
 
-		assert!(Requests::<T>::contains_key(CHANNEL));
+		assert!(matches!(
+			Requests::<T>::get(CHANNEL).expect("the forced request was recorded").state,
+			RequestState::Accepted { kind: OpenKind::Forced, .. },
+		));
 		Ok(())
 	}
 

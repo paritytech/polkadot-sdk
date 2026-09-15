@@ -559,6 +559,9 @@ pub mod pallet {
 		}
 
 		/// Open a channel without the recipient's consent.
+		///
+		/// Weighed for having to clear a request the sender already made; the rest is refunded when
+		/// there was none.
 		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::force_open_hrmp_channel(1))]
 		pub fn force_open_hrmp_channel(
@@ -568,8 +571,77 @@ pub mod pallet {
 			max_capacity: u32,
 			max_message_size: u32,
 		) -> DispatchResultWithPostInfo {
-			let _ = (origin, sender, recipient, max_capacity, max_message_size);
-			todo!()
+			T::ChannelManager::ensure_origin_or_root(origin)?;
+			Self::ensure_open_parameters(sender, recipient, max_capacity, max_message_size)?;
+
+			let channel = ChannelId { sender, recipient };
+			ensure!(
+				!Channels::<T>::contains_key(channel),
+				Error::<T>::OpenHrmpChannelAlreadyExists
+			);
+
+			let cancelled = match Requests::<T>::take(channel) {
+				Some(ChannelRequest {
+					state: RequestState::Requested { sender_deposit }, ..
+				}) => {
+					if let Some(deposit) = sender_deposit {
+						deposit.drop(&Self::sovereign_account(sender))?;
+					}
+					OpenRequestCount::<T>::mutate(sender, |count| *count = count.saturating_sub(1));
+					1
+				},
+				// The relay chain still owes an answer for it. The `take` is undone with the rest
+				// of the dispatch.
+				Some(_) => return Err(Error::<T>::OpenHrmpChannelAlreadyConfirmed.into()),
+				None => 0,
+			};
+
+			// Counted after the cancellation, so replacing a request does not count it twice.
+			let egress_cnt = EgressIndex::<T>::decode_len(sender).unwrap_or(0) as u32;
+			let open_req_cnt = OpenRequestCount::<T>::get(sender);
+			ensure!(
+				egress_cnt + open_req_cnt < T::MaxOutboundChannels::get(),
+				Error::<T>::OpenHrmpChannelLimitExceeded,
+			);
+			let ingress_cnt = IngressIndex::<T>::decode_len(recipient).unwrap_or(0) as u32;
+			let accepted_cnt = AcceptedRequestCount::<T>::get(recipient);
+			ensure!(
+				ingress_cnt + accepted_cnt < T::MaxInboundChannels::get(),
+				Error::<T>::AcceptHrmpChannelLimitExceeded,
+			);
+
+			let sender_deposit = Self::hold_sender(channel, max_capacity)?;
+			let recipient_deposit = Self::hold_recipient(channel, max_capacity)?;
+			let message_id = Self::next_message_id();
+
+			OpenRequestCount::<T>::insert(sender, open_req_cnt + 1);
+			AcceptedRequestCount::<T>::insert(recipient, accepted_cnt + 1);
+			Requests::<T>::insert(
+				channel,
+				ChannelRequest {
+					state: RequestState::Accepted {
+						sender_deposit,
+						recipient_deposit,
+						kind: OpenKind::Forced,
+					},
+					max_capacity,
+					max_message_size,
+					message_id,
+				},
+			);
+
+			// The recipient never agreed, so it is told nothing until the relay chain confirms.
+			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::ForceOpenChannel {
+				channel,
+				message_id,
+				max_capacity,
+				max_message_size,
+			}))
+			.map_err(|()| Error::<T>::SendFailed)?;
+
+			Self::deposit_event(Event::ForceOpenRequested { channel, message_id });
+
+			Ok(Some(T::WeightInfo::force_open_hrmp_channel(cancelled)).into())
 		}
 
 		/// Bring a channel's deposits in line with the current prices.
@@ -655,6 +727,28 @@ impl<T: Config> Pallet<T> {
 		.map_err(|()| Error::<T>::SendFailed.into())
 	}
 
+	/// The sizes every open path checks. Para validity is the relay chain's to decide.
+	fn ensure_open_parameters(
+		sender: ParaId,
+		recipient: ParaId,
+		max_capacity: u32,
+		max_message_size: u32,
+	) -> DispatchResult {
+		ensure!(sender != recipient, Error::<T>::OpenHrmpChannelToSelf);
+		ensure!(max_capacity > 0, Error::<T>::OpenHrmpChannelZeroCapacity);
+		ensure!(
+			max_capacity <= T::MaxCapacity::get(),
+			Error::<T>::OpenHrmpChannelCapacityExceedsLimit,
+		);
+		ensure!(max_message_size > 0, Error::<T>::OpenHrmpChannelZeroMessageSize);
+		ensure!(
+			max_message_size <= T::MaxMessageSize::get(),
+			Error::<T>::OpenHrmpChannelMessageSizeExceedsLimit,
+		);
+
+		Ok(())
+	}
+
 	fn next_message_id() -> u64 {
 		NextMessageId::<T>::mutate(|next| {
 			let id = *next;
@@ -673,17 +767,12 @@ impl<T: Config> Pallet<T> {
 		proposed_max_capacity: u32,
 		proposed_max_message_size: u32,
 	) -> DispatchResult {
-		ensure!(sender != recipient, Error::<T>::OpenHrmpChannelToSelf);
-		ensure!(proposed_max_capacity > 0, Error::<T>::OpenHrmpChannelZeroCapacity);
-		ensure!(
-			proposed_max_capacity <= T::MaxCapacity::get(),
-			Error::<T>::OpenHrmpChannelCapacityExceedsLimit,
-		);
-		ensure!(proposed_max_message_size > 0, Error::<T>::OpenHrmpChannelZeroMessageSize);
-		ensure!(
-			proposed_max_message_size <= T::MaxMessageSize::get(),
-			Error::<T>::OpenHrmpChannelMessageSizeExceedsLimit,
-		);
+		Self::ensure_open_parameters(
+			sender,
+			recipient,
+			proposed_max_capacity,
+			proposed_max_message_size,
+		)?;
 
 		let channel = ChannelId { sender, recipient };
 		ensure!(!Requests::<T>::contains_key(channel), Error::<T>::OpenHrmpChannelAlreadyRequested);
