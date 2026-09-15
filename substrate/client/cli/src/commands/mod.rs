@@ -18,7 +18,6 @@
 
 //! Various subcommands that can be included in a substrate-based chain's CLI.
 
-mod build_spec_cmd;
 mod chain_info_cmd;
 mod check_block_cmd;
 mod export_blocks_cmd;
@@ -41,7 +40,7 @@ mod vanity;
 mod verify;
 
 pub use self::{
-	build_spec_cmd::BuildSpecCmd, chain_info_cmd::ChainInfoCmd, check_block_cmd::CheckBlockCmd,
+	chain_info_cmd::ChainInfoCmd, check_block_cmd::CheckBlockCmd,
 	export_blocks_cmd::ExportBlocksCmd, export_chain_spec_cmd::ExportChainSpecCmd,
 	export_state_cmd::ExportStateCmd, generate::GenerateCmd,
 	generate_node_key::GenerateKeyCmdCommon, import_blocks_cmd::ImportBlocksCmd,
