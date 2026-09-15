@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789473226722,
+  "lastUpdate": 1789482221723,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "3512a73031550aa3c149e756cb4d18049cc66f2d",
-          "message": "staking-async/ah-client: emit event when session key update from AssettHub fails on relay chain (#11055)\n\nEmit SessionKeysUpdateFailed with the operation type and dispatch error\nfor observability so set_keys/purge_kets failures from AssetHub are\nobservable on-chain.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-12T13:59:59Z",
-          "tree_id": "51f1aa02033303e532bbbd4ea4765c0b71e53f6a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3512a73031550aa3c149e756cb4d18049cc66f2d"
-        },
-        "date": 1770909179044,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52939.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63627.96,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000020494210000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00001957276,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.648463325729999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.304514468049999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00001957276,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6690127790800005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.69067833453,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8637863747600101,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.57806415943315,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005180355969999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000020494210000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.821358429040009,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.639722790919999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-db",
             "value": 2.313963799759999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a0fae9d44617843c51674469a1bc04dd4f884111",
+          "message": "core-fellowship: avoid panic on undersized Params salary/period vectors (#13182)\n\n`Pallet::get_salary` computed an index from the member's rank and then\nindexed the `active_salary `or `passive_salary` vector directly. The\nbump and promote calls did the same thing to `demotion_period `and\n`min_promotion_period`. All four of these vectors are BoundedVec fields\nbounded only by MaxRank, so a privileged set_params call is free to\nstore a shorter vector, including the empty default. Once that happens,\nany of these three call sites panics for a member whose rank sits past\nthe end of the stored vector, which traps the extrinsic instead of\nfailing gracefully.\n\nThis changes all three sites to look up the index with get and fall back\nto the type's default when the entry is missing, so a rank past the end\nof the vector now degrades to zero salary, a zero demotion period or a\nzero minimum promotion period, the same way the pallet already treats\nrank 0 and untracked members. No panic path remains.\n\nAdded three unit tests that configure an undersized vector for each of\nthe three call sites and assert the graceful fallback instead of a\npanic.\n\nCloses #13141\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-09-15T11:54:42Z",
+          "tree_id": "14bb6872e181d4a421031b421ea8bf87266a5be2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a0fae9d44617843c51674469a1bc04dd4f884111"
+        },
+        "date": 1789482186131,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63562.73,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018991609999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.325143718652594,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002257251,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002257251,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7479474648800015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018991609999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.71145703497,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.726603516329999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.022875603529963,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00493926775,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.306910554300008,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8205748417999541,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7044429235000003,
             "unit": "seconds"
           }
         ]
