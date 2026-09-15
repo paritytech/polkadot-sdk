@@ -74,18 +74,23 @@ pub struct StreamsRoot(pub Hash);
 /// chain all produce the same bytes for the same set. This is the design's `RequiresSet` (Appendix
 /// D); the relay matches each `(source, StreamsRoot)` against that source's provides window.
 #[derive(
-	Clone, codec::Encode, codec::MaxEncodedLen, Debug, Default, Eq, PartialEq, scale_info::TypeInfo,
+	Clone, codec::Encode, codec::MaxEncodedLen, Debug, Eq, PartialEq, scale_info::TypeInfo,
 )]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct RequiresSet(BoundedVec<(ParaId, StreamsRoot), ConstU32<MAX_COMMITMENT_ENTRIES>>);
 
-/// Decode is manually implemented to enforce that `ParaId`s are strictly increasing (canonical
-/// form).
+/// Decode is manually implemented to enforce the canonical form: non-empty, `ParaId`s strictly
+/// increasing. An empty set has no entry the relay could match, so a candidate that requires
+/// nothing says so by emitting no `Requires` signal — there is one way to say nothing, and it is
+/// not this.
 impl codec::Decode for RequiresSet {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		let inner =
 			BoundedVec::<(ParaId, StreamsRoot), ConstU32<MAX_COMMITMENT_ENTRIES>>::decode(input)?;
 
+		if inner.is_empty() {
+			return Err(codec::Error::from("RequiresSet must not be empty"));
+		}
 		for pair in inner.windows(2) {
 			if pair[0].0 >= pair[1].0 {
 				return Err(codec::Error::from(
@@ -134,6 +139,9 @@ impl RequiresSet {
 		let mut entries: Vec<(ParaId, StreamsRoot)> = it.into_iter().collect();
 		entries.sort_by_key(|(source, _)| *source);
 
+		if entries.is_empty() {
+			return Err(CommitmentError::Empty);
+		}
 		if entries.windows(2).any(|w| w[0].0 == w[1].0) {
 			return Err(CommitmentError::DuplicateParaId);
 		}
@@ -156,6 +164,8 @@ impl<'a> IntoIterator for &'a RequiresSet {
 /// Errors that can occur when constructing a [`RequiresSet`].
 #[derive(Debug, PartialEq, Eq)]
 pub enum CommitmentError {
+	/// No entries. A candidate that requires nothing emits no `Requires` signal instead.
+	Empty,
 	/// The same source `ParaId` appears more than once.
 	DuplicateParaId,
 	/// More entries were provided than `MAX_COMMITMENT_ENTRIES` allows.
@@ -249,13 +259,18 @@ mod tests {
 
 	#[test]
 	fn len_and_is_empty() {
-		let empty = RequiresSet::default();
-		assert!(empty.is_empty());
-		assert_eq!(empty.len(), 0);
-
 		let set = RequiresSet::try_from_iter([(ParaId::from(1), sr(1))]).unwrap();
 		assert!(!set.is_empty());
 		assert_eq!(set.len(), 1);
+	}
+
+	#[test]
+	fn empty_set_is_not_constructible_or_decodable() {
+		// One way to say nothing: no signal. Neither the constructor nor the wire admits an
+		// empty set.
+		assert_eq!(RequiresSet::try_from_iter([]), Err(CommitmentError::Empty));
+		let encoded = Vec::<(ParaId, StreamsRoot)>::new().encode();
+		assert!(RequiresSet::decode(&mut &encoded[..]).is_err());
 	}
 
 	#[test]

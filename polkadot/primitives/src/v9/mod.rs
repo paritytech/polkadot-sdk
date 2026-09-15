@@ -3359,7 +3359,7 @@ pub mod tests {
 
 		let upward_messages = alloc::vec![
 			UMP_SEPARATOR,
-			UMPSignal::Provides(provides.clone()).encode(),
+			UMPSignal::Provides(provides).encode(),
 			UMPSignal::Requires(requires.clone()).encode(),
 		];
 
@@ -3381,7 +3381,11 @@ pub mod tests {
 			UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode(),
 			UMPSignal::ApprovedPeer(Default::default()).encode(),
 			UMPSignal::Provides(Default::default()).encode(),
-			UMPSignal::Requires(RequiresSet::default()).encode(),
+			UMPSignal::Requires(
+				RequiresSet::try_from_iter([(Id::from(3u32), StreamsRoot(Hash::repeat_byte(3)))])
+					.unwrap(),
+			)
+			.encode(),
 			UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(1)).encode(),
 		];
 

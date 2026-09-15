@@ -410,7 +410,10 @@ pub fn verify_exchange(
 mod tests {
 	use super::*;
 	use crate::{
-		lift::{build_requires, ConsumptionRecord, Interval, MmrInclusionProof, RequiresLift},
+		lift::{
+			build_requires, ConsumptionRecord, Interval, LiftsBySource, MmrInclusionProof,
+			RequiresLift,
+		},
 		mmr::{root_from_peaks, SpecMerge},
 		streams_root::{gen_stream_proof, streams_root, TreeStep},
 	};
@@ -525,7 +528,8 @@ mod tests {
 			}],
 		);
 
-		let requires = build_requires(&[record], &lifts).unwrap();
+		let lifts = LiftsBySource::try_from(lifts).unwrap();
+		let requires = build_requires(&[record], &lifts).unwrap().expect("consumed, so a set");
 		// The fetch and the requires resolve to the SAME committed StreamsRoot.
 		assert_eq!(requires.get(source), Some(&under));
 	}

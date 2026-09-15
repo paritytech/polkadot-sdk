@@ -44,8 +44,10 @@ use mmr_lib::{
 };
 use polkadot_core_primitives::Hash;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
-use polkadot_primitives::RequiresSet;
+use polkadot_primitives::{v9::MAX_COMMITMENT_ENTRIES, RequiresSet};
 use scale_info::TypeInfo;
+use sp_core::ConstU32;
+use sp_runtime::BoundedVec;
 
 use crate::{
 	mmr::{MessagePosition, MmrFrontier, MmrRoot, SpecMerge, MAX_MMR_LEAF_COUNT},
@@ -361,6 +363,65 @@ pub struct RequiresLift {
 	pub tree_proof: TreeInclusionProof,
 }
 
+/// The candidate's lifts, grouped per source — the PoV transport form (encoding spec §8). `Decode`
+/// enforces the canonical form, strictly increasing `ParaId`s, and bounds the source count at
+/// [`MAX_COMMITMENT_ENTRIES`] (more sources than a `RequiresSet` can hold cannot be a valid
+/// candidate, so they are rejected before any lift is verified). The only other way in,
+/// [`TryFrom<BTreeMap>`](Self::try_from), is canonical by construction. So wherever the lifts come
+/// from, [`build_requires`] zips them against the record's sources by position.
+#[derive(Clone, Encode, PartialEq, Eq, Debug, TypeInfo, Default)]
+pub struct LiftsBySource(BoundedVec<(ParaId, Vec<RequiresLift>), ConstU32<MAX_COMMITMENT_ENTRIES>>);
+
+impl LiftsBySource {
+	/// The sources, in strictly increasing order.
+	pub fn sources(&self) -> impl Iterator<Item = &ParaId> {
+		self.0.iter().map(|(source, _)| source)
+	}
+
+	/// `(source, lifts)` pairs, in source order.
+	pub fn iter(&self) -> impl Iterator<Item = &(ParaId, Vec<RequiresLift>)> {
+		self.0.iter()
+	}
+
+	/// The number of sources.
+	pub fn len(&self) -> usize {
+		self.0.len()
+	}
+
+	/// Whether there are no sources.
+	pub fn is_empty(&self) -> bool {
+		self.0.is_empty()
+	}
+}
+
+impl TryFrom<BTreeMap<ParaId, Vec<RequiresLift>>> for LiftsBySource {
+	type Error = LiftError;
+
+	/// A map iterates in `ParaId` order with unique keys, so only the bound can fail.
+	fn try_from(map: BTreeMap<ParaId, Vec<RequiresLift>>) -> Result<Self, LiftError> {
+		BoundedVec::try_from(map.into_iter().collect::<Vec<_>>())
+			.map(Self)
+			.map_err(|_| LiftError::TooManySources)
+	}
+}
+
+/// Field-for-field the derived `Encode`; the decoded sequence must be strictly increasing by
+/// `ParaId`, so a PoV holds the same invariant a map built here does.
+impl Decode for LiftsBySource {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
+		let inner =
+			BoundedVec::<(ParaId, Vec<RequiresLift>), ConstU32<MAX_COMMITMENT_ENTRIES>>::decode(
+				input,
+			)?;
+		if inner.windows(2).any(|w| w[0].0 >= w[1].0) {
+			return Err("LiftsBySource: sources must be strictly increasing".into());
+		}
+		Ok(Self(inner))
+	}
+}
+
+impl DecodeWithMemTracking for LiftsBySource {}
+
 /// Everything that can invalidate requires synthesis. All are deterministic functions of the
 /// records and POV, so every validator reaches the same verdict.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -453,10 +514,14 @@ pub fn build_requires_entry(
 /// Synthesize the candidate's [`RequiresSet`] from the per-block consumption records (bundle order)
 /// and the POV lifts (grouped per source). Sources must match exactly — a recorded source without
 /// lifts, or lifts for an unrecorded source, invalidates the candidate.
+///
+/// `None` when the candidate consumed nothing: there is then no entry the relay could match, and
+/// the candidate emits no `Requires` signal. (`RequiresSet` cannot be empty, so this is the only
+/// way to say so.)
 pub fn build_requires(
 	records: &[ConsumptionRecord],
-	lifts: &BTreeMap<ParaId, Vec<RequiresLift>>,
-) -> Result<RequiresSet, LiftError> {
+	lifts: &LiftsBySource,
+) -> Result<Option<RequiresSet>, LiftError> {
 	// Merge per (source, stream) intervals across the bundle, preserving block order.
 	let mut merged: BTreeMap<ParaId, SourceStreams> = BTreeMap::new();
 	for record in records {
@@ -468,17 +533,23 @@ pub fn build_requires(
 		}
 	}
 	// Recorded sources and lift sources must be exactly equal (both iterate ParaId-sorted).
-	if !merged.keys().eq(lifts.keys()) {
+	// Recorded sources and lift sources must be exactly equal (both are ParaId-sorted).
+	if !merged.keys().eq(lifts.sources()) {
 		return Err(LiftError::LiftSourceMismatch);
+	}
+	if merged.is_empty() {
+		return Ok(None);
 	}
 	let entries = merged
 		.iter()
-		.zip(lifts.values())
-		.map(|((source, by_stream), source_lifts)| {
+		.zip(lifts.iter())
+		.map(|((source, by_stream), (_, source_lifts))| {
 			build_requires_entry(by_stream, source_lifts).map(|root| (*source, root))
 		})
 		.collect::<Result<Vec<_>, _>>()?;
-	RequiresSet::try_from_iter(entries).map_err(|_| LiftError::TooManySources)
+	RequiresSet::try_from_iter(entries)
+		.map(Some)
+		.map_err(|_| LiftError::TooManySources)
 }
 
 #[cfg(test)]
@@ -756,13 +827,42 @@ mod tests {
 			}],
 		);
 
-		let requires = build_requires(&[record.clone()], &lifts).unwrap();
+		let lifts_by_source = LiftsBySource::try_from(lifts.clone()).unwrap();
+		let requires = build_requires(&[record.clone()], &lifts_by_source).unwrap().unwrap();
 		assert_eq!(requires.get(source), Some(&expected));
 
 		// A lift for an unrecorded source (or a missing one) is rejected.
 		let mut extra = lifts.clone();
 		extra.insert(ParaId::from(9999), Vec::new());
+		let extra = LiftsBySource::try_from(extra).unwrap();
 		assert_eq!(build_requires(&[record], &extra), Err(LiftError::LiftSourceMismatch));
+
+		// Nothing consumed, nothing lifted: no set at all, rather than an empty one.
+		assert_eq!(build_requires(&[], &LiftsBySource::default()), Ok(None));
+	}
+
+	#[test]
+	fn lifts_by_source_decode_enforces_canonical_form() {
+		let lift = || RequiresLift {
+			advances: Vec::new(),
+			extension: MMRExtensionProof::identity(),
+			tree_proof: StreamProof { steps: Default::default() },
+		};
+		let pair = |id: u32| (ParaId::from(id), vec![lift()]);
+		// Canonical round-trips …
+		let good = vec![pair(1), pair(2)].encode();
+		assert!(LiftsBySource::decode(&mut &good[..]).is_ok());
+		// … out of order and duplicate sources do not (spec §8) …
+		let unsorted = vec![pair(2), pair(1)].encode();
+		assert!(LiftsBySource::decode(&mut &unsorted[..]).is_err());
+		let duplicate = vec![pair(1), pair(1)].encode();
+		assert!(LiftsBySource::decode(&mut &duplicate[..]).is_err());
+		// … and more sources than a RequiresSet could hold are rejected before any verification.
+		let too_many: Vec<_> = (0..=MAX_COMMITMENT_ENTRIES).map(pair).collect();
+		assert!(LiftsBySource::decode(&mut &too_many.encode()[..]).is_err());
+		// A map is canonical by construction; only the bound can fail it.
+		let map: BTreeMap<_, _> = (0..=MAX_COMMITMENT_ENTRIES).map(pair).collect();
+		assert_eq!(LiftsBySource::try_from(map).err(), Some(LiftError::TooManySources));
 	}
 
 	#[test]

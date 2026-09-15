@@ -255,8 +255,10 @@ struct RequiresLift {
 lifts: Vec<(ParaId, Vec<RequiresLift>)>
 ```
 
-Decode rejects non-strictly-increasing `ParaId`s (same canonicality
-discipline as `RequiresSet`).
+Decode rejects non-strictly-increasing `ParaId`s and more than
+`MAX_COMMITMENT_ENTRIES` sources (same canonicality discipline as
+`RequiresSet`, which is also never empty: a candidate that requires
+nothing emits no `Requires` signal).
 Within a source, lifts match the consumption record's streams
 **positionally** in canonical `StreamId` order — a mispaired lift cannot
 verify (the tree walk binds the record's key). Carried in
