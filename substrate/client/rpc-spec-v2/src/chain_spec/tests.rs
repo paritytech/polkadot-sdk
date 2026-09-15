@@ -57,5 +57,5 @@ async fn chain_spec_properties_works() {
 		.call::<_, Properties>("chainSpec_v1_properties", EmptyParams::new())
 		.await
 		.unwrap();
-	assert_eq!(properties, serde_json::from_str(CHAIN_PROPERTIES).unwrap());
+	assert_eq!(properties, serde_json::from_str::<Properties>(CHAIN_PROPERTIES).unwrap());
 }
