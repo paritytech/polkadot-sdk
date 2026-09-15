@@ -82,7 +82,7 @@ pub(super) fn install_overrides() -> impl Sized {
 		// The riscv runtime reads its included head via `jam_state_read`, served from the JAM
 		// state proof carried in the PoV under `JAM_PROOF_KEY`, verified against the trusted
 		// anchor root.
-		#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+		#[cfg(jam)]
 		cumulus_jam_state_reader::jam_state::host_jam_state_read_into
 			.replace_implementation(host_jam_state_read_into),
 		sp_additional_data::additional_data::host_finalize_into
@@ -136,7 +136,7 @@ pub(super) mod additional_data {
 /// for the duration of block execution (riscv builds only, mirroring `additional_data`). Own
 /// module for the same reason as `additional_data`: `environmental!` emits a scope-level `GLOBAL`
 /// static.
-#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+#[cfg(jam)]
 pub(super) mod jam_data {
 	use cumulus_jam_state_reader::JamStateReader;
 
@@ -286,7 +286,7 @@ pub(super) fn host_offchain_index_set(_key: &[u8], _value: &[u8]) {}
 #[cfg(any(not(substrate_runtime), target_family = "wasm"))]
 pub(super) fn host_offchain_index_clear(_key: &[u8]) {}
 
-#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+#[cfg(jam)]
 pub(super) fn host_jam_state_read_into(key: &[u8], value_out: &mut [u8]) -> i64 {
 	// Served by the verifying proof-backed reader set up around block execution; if none is set (a
 	// block with no JAM reads), reports the key as absent. A reader whose proof cannot

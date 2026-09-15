@@ -222,7 +222,7 @@ fn build_jam_seed<B: BlockT>(lookup_anchor: [u8; 32], blocks: &[B::LazyBlock]) -
 /// The parachain-service-native wrappers (indices 200-203) live in
 /// `parachain_service_core::host`, shared with the frameless runtime; the fetch-based JAM
 /// helpers below stay local because they are specific to this runtime's validate-block surface.
-#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
+#[cfg(jam)]
 mod host {
 	use alloc::{vec, vec::Vec};
 	use jam_codec::Decode as _;

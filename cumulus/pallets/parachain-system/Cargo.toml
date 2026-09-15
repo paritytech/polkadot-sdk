@@ -62,12 +62,12 @@ docify = { workspace = true }
 
 # JAM (parachain-service) guest-side types. Only the riscv runtime blob links these, mirroring
 # the `jam_implementation` gate in `src/validate_block/mod.rs`
-# (`cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))`), so the
+# (`cfg(jam)`), so the
 # shared types cannot break ordinary WASM (or std host) builds.
 #
 # The former `cumulus` facade crate is deleted. `parachain_service_core::candidate::ParachainCandidate`
 # is exactly what the facade re-exported — so there is still one definition per type.
-[target.'cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), substrate_runtime))'.dependencies]
+[target.'cfg(jam)'.dependencies]
 parachain-service-core = { path = "../../../../parachain-service/core", default-features = false }
 # `RefineContext` is decoded from the `fetch` host call rather than read at a hardcoded byte
 # offset, so a field reordering upstream becomes a decode error instead of silently wrong

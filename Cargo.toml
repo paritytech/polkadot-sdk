@@ -114,8 +114,8 @@ members = [
 	"cumulus/parachains/integration-tests/emulated/tests/governance/westend",
 	"cumulus/parachains/integration-tests/emulated/tests/people/people-westend",
 	"cumulus/parachains/pallets/collective-content",
-	"cumulus/parachains/pallets/parachain-info",
 	"cumulus/parachains/pallets/ping",
+	"cumulus/parachains/pallets/parachain-info",
 	"cumulus/parachains/runtimes/assets/asset-hub-rococo",
 	"cumulus/parachains/runtimes/assets/asset-hub-rococo/bridge-primitives",
 	"cumulus/parachains/runtimes/assets/asset-hub-westend",
@@ -629,6 +629,7 @@ unexpected_cfgs = { level = "warn", check-cfg = [
 	'cfg(enable_alloc_error_handler)',
 	'cfg(fuzzing)',
 	'cfg(ignore_flaky_test)',
+	'cfg(jam)',
 	'cfg(revive_debug)',
 	'cfg(substrate_runtime)',
 ] }

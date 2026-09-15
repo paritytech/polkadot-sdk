@@ -111,7 +111,7 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 				// the polkadot entry: Substrate's executor never calls it, and its child-PVM
 				// imports stay inert there because PolkaVM only traps on an undefined import
 				// when it is actually called.
-				#[cfg(target_arch = "riscv64")]
+				#[cfg(jam)]
 				#[#crate_::validate_block::sp_api::__private::polkavm_export(abi = #crate_::validate_block::sp_api::__private::polkavm_abi)]
 				unsafe fn jam_validate_block() -> () {
 					#crate_::validate_block::jam_implementation::jam_validate_block::<
@@ -124,7 +124,7 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 				// The wasm entry point, unchanged (reads input via `sp_io::input::read`).
 				#[no_mangle]
 				#[cfg_attr(
-					target_arch = "riscv64",
+					jam,
 					#crate_::validate_block::sp_api::__private::polkavm_export(abi = #crate_::validate_block::sp_api::__private::polkavm_abi)
 				)]
 				unsafe fn validate_block(arguments_len: usize) -> u64 {

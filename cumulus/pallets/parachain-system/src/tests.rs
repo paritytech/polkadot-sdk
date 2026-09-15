@@ -1842,7 +1842,7 @@ fn ump_signals_are_sent_correctly() {
 
 /// The riscv (parachain-service) branch reads the included para head from JAM state.
 ///
-/// `read_included_para_head_jam` is the `#[cfg(all(substrate_runtime, riscv))]` branch of
+/// `read_included_para_head_jam` is the `#[cfg(jam)]` branch of
 /// `read_included_para_head`, compiled on host test builds via `cfg(test)` and reached here
 /// directly (the public entry point stays on the relay branch on host).
 #[test]

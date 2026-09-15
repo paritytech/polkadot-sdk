@@ -276,11 +276,11 @@ impl RelayChainStateProof {
 		// The riscv (parachain-service) runtime reads the included head from the service's JAM
 		// state via the `jam_state_read` host function; host and wasm builds keep reading it from
 		// the relay chain state proof, byte-identical to before.
-		#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+		#[cfg(jam)]
 		{
 			return self.read_included_para_head_jam();
 		}
-		#[cfg(not(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64"))))]
+		#[cfg(not(jam))]
 		{
 			self.read_entry_inner(&relay_chain::well_known_keys::para_head(self.para_id), None)
 				.map_err(Error::ParaHead)
@@ -299,10 +299,7 @@ impl RelayChainStateProof {
 	/// JAM state cannot serve (absent value / missing reader) falls back to the relay chain state
 	/// proof — byte-identical to the pre-task-8 behaviour. Task 11 replaces the fallback with the
 	/// proof-backed JAM read.
-	#[cfg(any(
-		test,
-		all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64"))
-	))]
+	#[cfg(any(test, jam))]
 	pub(crate) fn read_included_para_head_jam(&self) -> Result<relay_chain::HeadData, Error> {
 		let para_id = parachain_service_core::types::ParaId::from(u32::from(self.para_id));
 		if let Some(raw) = cumulus_jam_state_reader::jam_state::jam_state_read(

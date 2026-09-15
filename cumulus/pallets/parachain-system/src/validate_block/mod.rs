@@ -33,7 +33,7 @@ pub use crate::relay_chain::relay_chain_implementation as implementation;
 pub mod validate_block_core;
 
 // JAM (parachain-service) implementation; never compiled on wasm.
-#[cfg(all(substrate_runtime, any(target_arch = "riscv32", target_arch = "riscv64")))]
+#[cfg(jam)]
 #[doc(hidden)]
 pub mod jam_implementation;
 
