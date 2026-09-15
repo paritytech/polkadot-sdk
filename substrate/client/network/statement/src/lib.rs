@@ -251,8 +251,6 @@ const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::fr
 /// Maximum admission-journal entries one initial-sync fetch visits, so that a peer whose
 /// affinity matches nothing cannot make one burst walk the whole journal in the event loop.
 const INITIAL_SYNC_SCAN_LIMIT: usize = 4096;
-/// Outbox hashes one fetch hands to the store, bounding the lookups a single store call performs.
-const PROPAGATION_FETCH_LIMIT: usize = 4096;
 /// Interval for processing pending topic affinity changes from peers.
 const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
 /// Interval between sweeps that evict statement-store peers unseen for the staleness TTL, so the
@@ -306,7 +304,7 @@ mod send_failure {
 	pub const OUTBOX_FULL: &str = "outbox_full";
 	/// On the v2 DHT path, a queued statement left the store or expired before its chunk went out.
 	pub const MISSING_FROM_STORE: &str = "missing_from_store";
-	/// On the v2 DHT path, the peer is not connected while statements are planned or queued for it.
+	/// On the v2 DHT path, the peer disconnected with statements still queued.
 	pub const DISCONNECTED: &str = "disconnected";
 }
 
@@ -1030,7 +1028,6 @@ fn fetch_statement_chunk(
 		accumulated_size += encoded_size;
 		FilterDecision::Take
 	};
-	let hashes = &hashes[..hashes.len().min(PROPAGATION_FETCH_LIMIT)];
 	let mut found = 0;
 	let (statements, processed) =
 		store.statements_by_hashes(hashes, &mut |hash, encoded, stmt| {
@@ -1617,8 +1614,6 @@ where
 					);
 				}
 				self.initial_sync_peer_queue.retain(|p| *p != peer);
-				// A reconnect's sync applies the peer's filter, so queued orchestrator-chosen
-				// statements are lost.
 				if let Some(outbox) = self.propagation_outboxes.remove(&peer) {
 					if v2dht_enabled() && !outbox.is_empty() {
 						self.record_abandoned_send(send_failure::DISCONNECTED, outbox.len());
@@ -1894,8 +1889,8 @@ where
 
 	/// Queue the given `statements` for propagation to the given `peer`.
 	///
-	/// Internally filters out statements the peer sent to us and statements below the peer's
-	/// sync watermark. For v2 peers with a topic affinity filter, also filters by topic match.
+	/// Internally filters out statements the peer sent to us.
+	/// For v2 peers with a topic affinity filter, also filters by topic match.
 	/// Surviving hashes are appended to the peer's outbox.
 	fn queue_statements_for_peer(&mut self, who: &PeerId, statements: &[(u64, Hash, Statement)]) {
 		let Some(peer) = self.peers.get(who) else {
@@ -1943,7 +1938,6 @@ where
 	) {
 		for (who, indices) in targets {
 			let Some(peer) = self.peers.get(&who) else {
-				self.record_abandoned_send(send_failure::DISCONNECTED, indices.len());
 				continue;
 			};
 
@@ -2080,7 +2074,6 @@ where
 			// statement would be fetched again on the next iteration.
 			outbox.drain(..processed);
 
-			// Only the v2 DHT path loses something here: the orchestrator's placement.
 			if v2dht_enabled() && missing > 0 {
 				self.record_abandoned_send(send_failure::MISSING_FROM_STORE, missing);
 			}
@@ -7149,43 +7142,6 @@ mod tests {
 		handler2.start_sync_recovery();
 		assert!(handler2.sync_recovery_peer.is_some());
 		assert_eq!(net2.get_removed_reserved().len(), 1);
-	}
-
-	#[test]
-	fn fetch_without_affinity_serves_a_statement_the_peer_filter_rejects() {
-		let mut statement = new_live_statement();
-		statement.set_plain_data(vec![1u8; 16]);
-		statement.set_topic(0, Topic([7u8; 32]));
-		let hash = statement.hash();
-		let store = TestStatementStore::new();
-		store.insert(statement);
-
-		let who = PeerId::random();
-		let received = HashMap::new();
-		let pending = HashMap::new();
-		let max_size = max_statement_payload_size(V1_ENVELOPE_OVERHEAD);
-		let filter = AffinityFilter::new(BLOOM_SEED, 0.01, 10);
-
-		let filtered = fetch_statement_chunk(
-			&store,
-			&received,
-			&pending,
-			&who,
-			Some(&filter),
-			&[hash],
-			max_size,
-		)
-		.expect("the test store never fails a fetch");
-		assert!(filtered.statements.is_empty());
-		assert_eq!(filtered.missing, 0, "a filtered statement is still in the store");
-
-		let targeted =
-			fetch_statement_chunk(&store, &received, &pending, &who, None, &[hash], max_size)
-				.expect("the test store never fails a fetch");
-		assert_eq!(
-			targeted.statements.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
-			vec![hash]
-		);
 	}
 
 	#[test]

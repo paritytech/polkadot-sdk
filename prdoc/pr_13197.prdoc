@@ -8,12 +8,10 @@ doc:
     the shared in-flight byte budget, a bounded queue and a retry after a failed store fetch.
     The orchestrator has already chosen the peer, so its affinity filter and sync watermark are
     not applied to them, and a scheduled initial sync no longer clears the outbox on that path.
-    A queued statement that left the store or expired before its chunk went out, or was planned
-    or queued for a peer that is not connected, is counted in `undelivered_statements` under
+    A queued statement that left the store or expired before its chunk went out, or was still
+    queued when the peer disconnected, is counted in `undelivered_statements` under
     `missing_from_store` or `disconnected`. Nodes without the v2 DHT path enabled are unaffected.
 
 crates:
 - name: sc-network-statement
   bump: patch
-- name: sp-statement-store
-  bump: none
