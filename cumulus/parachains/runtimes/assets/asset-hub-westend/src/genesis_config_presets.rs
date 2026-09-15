@@ -21,7 +21,7 @@ use crate::{
 };
 use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
-use frame_support::{build_struct_json_patch, PalletId};
+use frame_support::{build_struct_json_patch, traits::Get, PalletId};
 use hex_literal::hex;
 use parachains_common::{AccountId, AuraId};
 use sp_core::crypto::UncheckedInto;
@@ -57,6 +57,8 @@ fn asset_hub_westend_genesis(
 
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig { balances },
+		// Authorise the signed phase's draw; existing chains get it from `MigrateV2ToV3`.
+		dap: DapConfig { buffer_draws: staking::InitialBufferDraws::get() },
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
