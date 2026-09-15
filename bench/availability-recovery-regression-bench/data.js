@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789489768107,
+  "lastUpdate": 1789500588805,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bab8ed7347e783af162d0921d476ab61af2f68ce",
-          "message": "Consolidate pallet-assets metadata benchmarks into single get_metadata benchmark (#11037)\n\n## Summary\n\nConsolidates the three identical `get_name`, `get_symbol`, and\n`get_decimals` benchmarks into a single `get_metadata` benchmark. This\naddresses the follow-up from #10971 where it was noted that these\nbenchmarks perform the same operation (`Pallet::get_metadata()`).\n\n## Changes\n\n### Benchmarks\n- **`substrate/frame/assets/src/benchmarking.rs`**\n- Replaced `get_name`, `get_symbol`, `get_decimals` with single\n`get_metadata` benchmark\n- Updated verification to check all three metadata fields (name, symbol,\ndecimals)\n\n### Weight Functions\n- **`substrate/frame/assets/src/weights.rs`**\n- Replaced `get_name()`, `get_symbol()`, `get_decimals()` with single\n`get_metadata()` in `WeightInfo` trait\n  - Updated implementations for `SubstrateWeight<T>` and `()`\n\n### Precompile\n- **`substrate/frame/assets/precompiles/src/lib.rs`**\n- Updated `name()`, `symbol()`, and `decimals()` methods to all charge\n`get_metadata()` weight\n\n### Cumulus Runtimes\nUpdated weight implementations in:\n- `asset-hub-rococo`: `pallet_assets_foreign.rs`,\n`pallet_assets_local.rs`, `pallet_assets_pool.rs`\n- `asset-hub-westend`: `pallet_assets_foreign.rs`,\n`pallet_assets_local.rs`, `pallet_assets_pool.rs`\n\n## Rationale\n\nAll three original benchmarks were measuring the exact same operation -\na single metadata storage read. Consolidating them:\n1. Reduces code duplication\n2. Simplifies the `WeightInfo` trait\n3. Accurately reflects that `name()`, `symbol()`, and `decimals()` have\nidentical costs\n\nCloses follow-up from\nhttps://github.com/paritytech/polkadot-sdk/pull/10971#discussion_r2782977769\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-13T10:18:25Z",
-          "tree_id": "23a183c194e6dc101de6273eeff05b420e8a96ae",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bab8ed7347e783af162d0921d476ab61af2f68ce"
-        },
-        "date": 1770982100749,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13092951679999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.991225467066664,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13320397596666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "50047cb3b75f62307f2a44b0fcebe8ce4b70273f",
+          "message": "statement-store: replica fanout (#13154)\n\n## Description\n\nOn the v2 DHT path a statement never reaches all of its K replicas.\n`routing_targets` caps the whole forwarding list at `gossip_target`, and\nsince it always picks the topic-closest peers, every holder selects the\nsame nodes and forwarding closes over `gossip_target + 1` of them: with\nK=8 and gossip-target=3 a statement is stored on 4 nodes instead of 8.\nThe configured `replication_factor` has no effect on durability.\n\nThe fix: every connected replica of the topic is always a forwarding\ntarget; the `gossip_target` cap applies only to routing peers (those\ncloser to the topic than the local node).\n\nOnly affects nodes running with `STATEMENT_STORE_V2_DHT_ENABLED=1`.\n\nVerified on a 100-node zombienet: 4/8 replicas before, 8/8 after, zero\nextra holders in both cases - full test report in the comment below.\n\nCloses #13189.",
+          "timestamp": "2026-09-15T17:56:50Z",
+          "tree_id": "aea57b8f477f43848d3d3ad2ecae71fd9805f993",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/50047cb3b75f62307f2a44b0fcebe8ce4b70273f"
+        },
+        "date": 1789500548840,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.765756019833331,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13380684803333334,
             "unit": "seconds"
           }
         ]
