@@ -49,6 +49,10 @@ pub const SENDER: u32 = 2000;
 pub const RECIPIENT: u32 = 2001;
 /// A system chain, which an id at or below 1999 makes it. Channels with it are deposit-free.
 pub const SYSTEM_PARA: u32 = 1001;
+/// A second system chain, for the channel two system chains share.
+pub const SYSTEM_PEER: u32 = 1002;
+/// A system id the relay chain has never onboarded, so every channel with it is refused there.
+pub const UNKNOWN_SYSTEM: u32 = 1500;
 
 pub const ALICE: AccountId32 = AccountId32::new([1u8; 32]);
 pub const BOB: AccountId32 = AccountId32::new([2u8; 32]);
@@ -157,7 +161,13 @@ pub fn relay_ext() -> sp_io::TestExternalities {
 		)
 	};
 	paras::GenesisConfig::<Runtime> {
-		paras: vec![para(PARA_ID), para(SENDER), para(RECIPIENT), para(SYSTEM_PARA)],
+		paras: vec![
+			para(PARA_ID),
+			para(SENDER),
+			para(RECIPIENT),
+			para(SYSTEM_PARA),
+			para(SYSTEM_PEER),
+		],
 		..Default::default()
 	}
 	.assimilate_storage(&mut t)
