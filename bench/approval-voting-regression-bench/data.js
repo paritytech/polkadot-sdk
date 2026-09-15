@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789489856940,
+  "lastUpdate": 1789500688327,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "117115317+lrubasze@users.noreply.github.com",
-            "name": "Lukasz Rubaszewski",
-            "username": "lrubasze"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b2a4296a96f7c7465d469c1fca0895d40ee1de5e",
-          "message": "Block import improvements (#10373)\n\nThis PR fixes block import during Warp sync, which was silently failing\ndue to \"Unknown parent\" errors - a typical case during Warp sync and the\n`full_node_warp_sync` test was not detecting such failure.\n\nChanges\n - Relaxed verification for Warp synced blocks:\nThe fix relaxes verification requirements for Warp synced blocks by not\nperforming full verification, with the assumption that these blocks are\npart of the finalized chain and have already been verified using the\nprovided warp sync proof.\n- New `BlockOrigin` variants:\nFor improved clarity, two additional `BlockOrigin` items have been\nintroduced:\n  - `WarpSync`\n  - `GapSync`\n- Gap sync improvements:\nWarp synced blocks are now skipped during the gap sync block import\nphase, which required improvements to gap handling when committing the\nblock import operation in the database.\n- Enhanced testing:\nThe Warp sync zombienet test has been modified to more thoroughly assert\nboth warp and gap sync phases.\n\nThis PR builds on changes by @sistemd in #9678\n\n---------\n\nCo-authored-by: sistemd <enntheprogrammer@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-13T09:44:10Z",
-          "tree_id": "1e75e4c4365950adcbcd2009129ffde387ecfafa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b2a4296a96f7c7465d469c1fca0895d40ee1de5e"
-        },
-        "date": 1770979836421,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63631.84999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52937.40000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.735861266359999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.652008758189999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.661201259460002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7813687109599987,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.561869808172968,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.297160006370002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001966339,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000022314699999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005282322440000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001966339,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000022314699999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.686894815579998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6519453933600006,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting/test-environment",
             "value": 0.00001986129,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "50047cb3b75f62307f2a44b0fcebe8ce4b70273f",
+          "message": "statement-store: replica fanout (#13154)\n\n## Description\n\nOn the v2 DHT path a statement never reaches all of its K replicas.\n`routing_targets` caps the whole forwarding list at `gossip_target`, and\nsince it always picks the topic-closest peers, every holder selects the\nsame nodes and forwarding closes over `gossip_target + 1` of them: with\nK=8 and gossip-target=3 a statement is stored on 4 nodes instead of 8.\nThe configured `replication_factor` has no effect on durability.\n\nThe fix: every connected replica of the topic is always a forwarding\ntarget; the `gossip_target` cap applies only to routing peers (those\ncloser to the topic than the local node).\n\nOnly affects nodes running with `STATEMENT_STORE_V2_DHT_ENABLED=1`.\n\nVerified on a 100-node zombienet: 4/8 replicas before, 8/8 after, zero\nextra holders in both cases - full test report in the comment below.\n\nCloses #13189.",
+          "timestamp": "2026-09-15T17:56:50Z",
+          "tree_id": "aea57b8f477f43848d3d3ad2ecae71fd9805f993",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/50047cb3b75f62307f2a44b0fcebe8ce4b70273f"
+        },
+        "date": 1789500648390,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63559.83999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020895600000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7300557399099987,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001922033,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.136628067209978,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020895600000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.328660483100008,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.374542989962569,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001922033,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005278385460000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7763426472799977,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7663827691099985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7378946467699983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7920133955799769,
             "unit": "seconds"
           }
         ]
