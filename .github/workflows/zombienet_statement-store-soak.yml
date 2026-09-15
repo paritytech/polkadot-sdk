@@ -47,6 +47,9 @@ jobs:
     with:
       tests_yaml: .github/zombienet-tests/zombienet_statement_store_soak_tests.yml
       test_pattern: ${{ inputs.test_pattern }}
+      # Required input; empty makes the preflight auto-detect the branch's latest successful
+      # "Build and push images" run.
+      build_run_id: ""
 
   zombienet-statement-store-soak:
     name: ${{ matrix.test.job-name }}
