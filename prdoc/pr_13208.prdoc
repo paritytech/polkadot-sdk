@@ -13,3 +13,5 @@ doc:
 crates:
 - name: pallet-asset-rewards
   bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
