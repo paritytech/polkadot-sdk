@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789415922492,
+  "lastUpdate": 1789473176973,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "890e5eb532e88c414843393aea3f20c2b0ffe14e",
-          "message": "tracing-subscriber: Pin version to prevent ANSI colour code issues (#11053)\n\nLatest version of tracing-subscriber right now doesn't support ASNI\ncolour codes correctly: https://github.com/tokio-rs/tracing/issues/3378\n\nSo, the workaround right now is to pin it to `0.3.19`.\n\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/11030\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-12T10:01:27Z",
-          "tree_id": "5bb773a013effddfaef860fda55071ee698cc140",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/890e5eb532e88c414843393aea3f20c2b0ffe14e"
-        },
-        "date": 1770894786897,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024772275226666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007002798633333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14339288338666675,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010172275819999974,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14473375581333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f18d8ce7f64e9663a755aae8cd9886523f15e9f4",
+          "message": "ci: rm oldlinux runners (#13221)\n\ncc https://github.com/paritytech/devops/issues/5661",
+          "timestamp": "2026-09-15T10:04:29Z",
+          "tree_id": "23b640114fe1bede092f3454a3ab521d298281b1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f18d8ce7f64e9663a755aae8cd9886523f15e9f4"
+        },
+        "date": 1789473136651,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025353540573333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1437337658333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007673054626666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009759698633333312,
             "unit": "seconds"
           }
         ]
