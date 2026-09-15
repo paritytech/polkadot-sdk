@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789473326051,
+  "lastUpdate": 1789482312465,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "b44a93e39116ba68656ed1e8b3354efcab54b588",
-          "message": "[Release|CI/CD] Automate publishing crates (#10913)",
-          "timestamp": "2026-02-11T17:43:31Z",
-          "tree_id": "7635021793139894efb864e32465109f0c2d78f0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b44a93e39116ba68656ed1e8b3354efcab54b588"
-        },
-        "date": 1770835916975,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006557345810000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00264919403,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009275133619999983,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009232501619999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a0fae9d44617843c51674469a1bc04dd4f884111",
+          "message": "core-fellowship: avoid panic on undersized Params salary/period vectors (#13182)\n\n`Pallet::get_salary` computed an index from the member's rank and then\nindexed the `active_salary `or `passive_salary` vector directly. The\nbump and promote calls did the same thing to `demotion_period `and\n`min_promotion_period`. All four of these vectors are BoundedVec fields\nbounded only by MaxRank, so a privileged set_params call is free to\nstore a shorter vector, including the empty default. Once that happens,\nany of these three call sites panics for a member whose rank sits past\nthe end of the stored vector, which traps the extrinsic instead of\nfailing gracefully.\n\nThis changes all three sites to look up the index with get and fall back\nto the type's default when the entry is missing, so a rank past the end\nof the vector now degrades to zero salary, a zero demotion period or a\nzero minimum promotion period, the same way the pallet already treats\nrank 0 and untracked members. No panic path remains.\n\nAdded three unit tests that configure an undersized vector for each of\nthe three call sites and assert the graceful fallback instead of a\npanic.\n\nCloses #13141\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-09-15T11:54:42Z",
+          "tree_id": "14bb6872e181d4a421031b421ea8bf87266a5be2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a0fae9d44617843c51674469a1bc04dd4f884111"
+        },
+        "date": 1789482277327,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010762286049999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002603406159999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009630549519999964,
             "unit": "seconds"
           }
         ]
