@@ -17,7 +17,7 @@
 
 use crate::{
 	Config, Key,
-	access_list::StorageOp,
+	access_list::{StorageItems, StorageOp},
 	limits,
 	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
 	storage::WriteOutcome,
@@ -65,7 +65,8 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				let transient = is_transient(*flags)?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
 				let access_kind = StorageAccessKind::new(transient, || {
-					env.touch_storage_access(&key, StorageOp::Write)
+					let access = StorageItems::new(env.address(), &key, StorageOp::Write);
+					env.warm(access)
 				});
 				let charged =
 					env.frame_meter_mut().charge_weight_token(RuntimeCosts::ClearStorage {
@@ -93,7 +94,8 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				let transient = is_transient(*flags)?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
 				let access_kind = StorageAccessKind::new(transient, || {
-					env.touch_storage_access(&key, StorageOp::Read)
+					let access = StorageItems::new(env.address(), &key, StorageOp::Read);
+					env.warm(access)
 				});
 				let charged =
 					env.frame_meter_mut().charge_weight_token(RuntimeCosts::ContainsStorage {
@@ -116,7 +118,8 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				let transient = is_transient(*flags)?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
 				let access_kind = StorageAccessKind::new(transient, || {
-					env.touch_storage_access(&key, StorageOp::Write)
+					let access = StorageItems::new(env.address(), &key, StorageOp::Write);
+					env.warm(access)
 				});
 				let charged =
 					env.frame_meter_mut().charge_weight_token(RuntimeCosts::TakeStorage {

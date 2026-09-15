@@ -22,7 +22,7 @@ pub mod env;
 use crate::{
 	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
 	StorageAccessKind,
-	access_list::{CallItems, StorageOp, TransferItems},
+	access_list::{CallItems, StorageItems, StorageOp, TransferItems},
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
@@ -489,7 +489,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			// A failed validation accesses no storage: the peek neither warms the slot nor owes
 			// a rollback.
 			let access_kind = StorageAccessKind::new(transient, || {
-				self.ext.peek_storage_access(&key).to_non_revertible()
+				let access = StorageItems::new(self.ext.address(), &key, StorageOp::Write);
+				self.ext.warmth_of(access).to_non_revertible()
 			});
 			self.charge_gas(RuntimeCosts::SetStorage {
 				new_bytes: value_len,
@@ -500,7 +501,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		}
 
 		let access_kind = StorageAccessKind::new(transient, || {
-			self.ext.touch_storage_access(&key, StorageOp::Write)
+			let access = StorageItems::new(self.ext.address(), &key, StorageOp::Write);
+			self.ext.warm(access)
 		});
 		let charged = self.charge_gas(RuntimeCosts::SetStorage {
 			new_bytes: value_len,
@@ -539,7 +541,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let transient = Self::is_transient(flags)?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let access_kind = StorageAccessKind::new(transient, || {
-			self.ext.touch_storage_access(&key, StorageOp::Write)
+			let access = StorageItems::new(self.ext.address(), &key, StorageOp::Write);
+			self.ext.warm(access)
 		});
 		let charged = self.charge_gas(RuntimeCosts::ClearStorage {
 			len: limits::STORAGE_BYTES,
@@ -569,7 +572,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let transient = Self::is_transient(flags)?;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let access_kind = StorageAccessKind::new(transient, || {
-			self.ext.touch_storage_access(&key, StorageOp::Read)
+			let access = StorageItems::new(self.ext.address(), &key, StorageOp::Read);
+			self.ext.warm(access)
 		});
 		let charged = self.charge_gas(RuntimeCosts::GetStorage {
 			len: limits::STORAGE_BYTES,

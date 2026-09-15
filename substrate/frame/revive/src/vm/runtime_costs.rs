@@ -18,8 +18,8 @@
 use crate::{
 	Config,
 	access_list::{
-		Access, CallItems, CallWarmth, CodeLoadItems, CodeLoadWarmth, KeyFamily, StorageOp,
-		TransferItems, TransferWarmth, Warmth,
+		Access, CallItems, CallWarmth, CodeLoadItems, CodeLoadWarmth, KeyFamily, StorageItems,
+		StorageOp, TransferItems, TransferWarmth, Warmth,
 	},
 	limits,
 	metering::Token,
@@ -199,9 +199,6 @@ pub enum StorageAccessKind {
 }
 
 impl StorageAccessKind {
-	/// Storage is keyed by slot.
-	pub(crate) const KEY_FAMILY: KeyFamily = KeyFamily::Slot;
-
 	/// Builds the storage access kind. `warmth` is called only for persistent storage.
 	pub fn new(transient: bool, warmth: impl FnOnce() -> Warmth) -> Self {
 		if transient { Self::Transient } else { Self::Persistent(warmth()) }
@@ -218,7 +215,7 @@ impl StorageAccessKind {
 		match self {
 			Self::Persistent(warmth) => {
 				let surcharge = RuntimeCosts::write_surcharge::<T>(warmth, op);
-				weight_by_warmth::<T, _>([warmth], Self::KEY_FAMILY, cold, hot)
+				weight_by_warmth::<T, _>([warmth], StorageItems::KEY_FAMILY, cold, hot)
 					.saturating_add(surcharge)
 			},
 			Self::Transient => transient(),

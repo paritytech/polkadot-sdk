@@ -261,18 +261,6 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::set_storage")
 	}
 
-	fn touch_storage_access(
-		&mut self,
-		_key: &Key,
-		_op: crate::access_list::StorageOp,
-	) -> crate::access_list::Warmth {
-		panic!("MockExt::touch_storage_access")
-	}
-
-	fn peek_storage_access(&self, _key: &Key) -> crate::access_list::Warmth {
-		panic!("MockExt::peek_storage_access")
-	}
-
 	fn warmth_of<A: Access>(&self, _access: A) -> A::Warmth {
 		panic!("MockExt::warmth_of")
 	}

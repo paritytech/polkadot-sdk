@@ -19,9 +19,7 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
-	access_list::{
-		self, Access, AccessEntry, AccessList, CallItems, CodeLoadWarmth, StorageOp, Warmth,
-	},
+	access_list::{self, Access, AccessList, CallItems, CodeLoadWarmth},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -551,16 +549,6 @@ pub trait PrecompileExt: sealing::Sealed {
 		value: Option<Vec<u8>>,
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError>;
-
-	/// Checks if the persistent storage slot `key` was already accessed in this transaction
-	/// and inserts it otherwise, so subsequent accesses to the same slot bill as hot. Returns
-	/// the slot's [`Warmth`]. `op` is the operation being performed: a write upgrades a slot
-	/// that had only paid for a read.
-	fn touch_storage_access(&mut self, key: &Key, op: StorageOp) -> Warmth;
-
-	/// Non-mutating sibling of `touch_storage_access`: reports the persistent storage
-	/// slot's warmth without warming it.
-	fn peek_storage_access(&self, key: &Key) -> Warmth;
 
 	/// Warms the state items the access touches, returning the warmth they had
 	/// **before** this call.
@@ -2811,16 +2799,6 @@ where
 			Some(&mut frame.frame_meter),
 			take_old,
 		)
-	}
-
-	fn touch_storage_access(&mut self, key: &Key, op: StorageOp) -> Warmth {
-		let address = self.address();
-		self.access_list.touch(AccessEntry::Storage { address, slot: key.into() }, op)
-	}
-
-	fn peek_storage_access(&self, key: &Key) -> Warmth {
-		let address = self.address();
-		self.access_list.peek(&AccessEntry::Storage { address, slot: key.into() })
 	}
 
 	fn warmth_of<A: Access>(&self, access: A) -> A::Warmth {

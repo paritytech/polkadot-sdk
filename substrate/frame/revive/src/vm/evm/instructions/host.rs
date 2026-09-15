@@ -16,7 +16,7 @@
 // limitations under the License.
 use crate::{
 	DispatchError, Error, Key, LOG_TARGET, RuntimeCosts, StorageAccessKind, U256,
-	access_list::StorageOp,
+	access_list::{StorageItems, StorageOp},
 	limits,
 	metering::Token,
 	storage::WriteOutcome,
@@ -124,8 +124,8 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	// Storage values can exceed 32 bytes when written by a PVM contract sharing this
 	// namespace (delegatecall, EIP-7702). Charge worst case, refund the unused portion.
 	let key = Key::Fix(index.to_big_endian());
-	let access_kind =
-		StorageAccessKind::Persistent(interpreter.ext.touch_storage_access(&key, StorageOp::Read));
+	let access = StorageItems::new(interpreter.ext.address(), &key, StorageOp::Read);
+	let access_kind = StorageAccessKind::Persistent(interpreter.ext.warm(access));
 	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage {
 		len: limits::STORAGE_BYTES,
 		kind: access_kind,
@@ -168,7 +168,8 @@ fn store_helper<'ext, E: Ext>(
 	let key = Key::Fix(index.to_big_endian());
 
 	let access_kind = StorageAccessKind::new(transient, || {
-		interpreter.ext.touch_storage_access(&key, StorageOp::Write)
+		let access = StorageItems::new(interpreter.ext.address(), &key, StorageOp::Write);
+		interpreter.ext.warm(access)
 	});
 	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::SetStorage {
 		new_bytes: 32,

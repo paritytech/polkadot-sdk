@@ -22,7 +22,7 @@ use crate::{
 	Pallet as Contracts,
 	access_list::{
 		AccessEntry, AccessList, CallItems, CodeLoadItems, CodeLoadWarmth, KeyFamily,
-		MAX_ACCESS_LIST_ENTRIES, StorageOp, TransferItems,
+		MAX_ACCESS_LIST_ENTRIES, StorageItems, StorageOp, TransferItems,
 	},
 	call_builder::{
 		CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit,
@@ -2079,7 +2079,8 @@ mod benchmarks {
 		);
 
 		// Add the key to access list so the op's touch is hot.
-		runtime.ext().touch_storage_access(&key, StorageOp::Write);
+		let access = StorageItems::new(runtime.ext().address(), &key, StorageOp::Write);
+		runtime.ext().warm(access);
 
 		let result;
 		#[block]
@@ -2132,7 +2133,8 @@ mod benchmarks {
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		ext.touch_storage_access(&key, StorageOp::Write);
+		let access = StorageItems::new(ext.address(), &key, StorageOp::Write);
+		ext.warm(access);
 
 		let result;
 		#[block]
@@ -2195,7 +2197,8 @@ mod benchmarks {
 			key.hash(),
 		);
 
-		runtime.ext().touch_storage_access(&key, StorageOp::Read);
+		let access = StorageItems::new(runtime.ext().address(), &key, StorageOp::Read);
+		runtime.ext().warm(access);
 
 		let out_ptr = max_key_len + 4;
 		let result;
@@ -2249,7 +2252,8 @@ mod benchmarks {
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		ext.touch_storage_access(&key, StorageOp::Read);
+		let access = StorageItems::new(ext.address(), &key, StorageOp::Read);
+		ext.warm(access);
 
 		let result;
 		#[block]
@@ -2299,7 +2303,8 @@ mod benchmarks {
 		ext.set_storage(&key, Some(vec![42u8; n as usize]), false)
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
-		ext.touch_storage_access(&key, StorageOp::Write);
+		let access = StorageItems::new(ext.address(), &key, StorageOp::Write);
+		ext.warm(access);
 
 		let result;
 		#[block]

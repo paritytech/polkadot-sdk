@@ -24,6 +24,8 @@
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 use alloc::vec;
 
+use core::cmp::Ordering;
+
 use alloc::{
 	collections::btree_map::{BTreeMap, Entry},
 	vec::Vec,
@@ -78,7 +80,7 @@ const MAX_ACCESS_LIST_ENTRY_BYTES: usize = 768;
 pub const MAX_ACCESS_LIST_BYTES: u32 =
 	MAX_ACCESS_LIST_ENTRIES.saturating_mul(MAX_ACCESS_LIST_ENTRY_BYTES) as u32;
 
-/// The storage key of an [`AccessEntry::Storage`] entry.
+/// A contract's storage key, in the form the access list keeps it.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
 pub enum Slot {
 	/// Fixed 32-byte storage key.
@@ -110,23 +112,25 @@ impl From<&Key> for Slot {
 	}
 }
 
-/// A state item the access list tracks, with the address, code hash or slot that identifies it.
-#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
-pub enum AccessEntry {
-	/// Account state (`System::Account`) of `address`.
-	Account { address: H160 },
-	/// Address mapping (`OriginalAccount`) of `address`.
-	OriginalAccount { address: H160 },
-	/// A contract storage slot. Field order is `slot, address` so comparison
-	/// decides on `slot` first, the most-discriminating field in the typical
-	/// access pattern (one contract touching many slots within a transaction).
-	Storage { slot: Slot, address: H160 },
-	/// Contract info (`AccountInfoOf`) of `address`.
-	AccountInfo { address: H160 },
-	/// Code info (`CodeInfoOf`), keyed by code hash: contracts with the same code share one entry.
-	CodeInfo { hash: H256 },
-	/// Code blob (`PristineCode`), keyed by code hash for the same reason.
-	CodeBlob { hash: H256 },
+/// A slot inside one contract's storage.
+#[derive(Eq, PartialEq, Debug, Clone)]
+pub struct ContractSlot {
+	pub slot: Slot,
+	pub address: H160,
+}
+
+impl Ord for ContractSlot {
+	/// Compares on `slot` first, the most-discriminating field in the typical access pattern
+	/// (one contract touching many slots within a transaction).
+	fn cmp(&self, other: &Self) -> Ordering {
+		self.slot.cmp(&other.slot).then_with(|| self.address.cmp(&other.address))
+	}
+}
+
+impl PartialOrd for ContractSlot {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		Some(self.cmp(other))
+	}
 }
 
 /// The kind of key an entry carries. Slots are much longer than addresses, so each family has
@@ -137,22 +141,6 @@ pub enum KeyFamily {
 	Slot,
 	/// An address or a code hash.
 	Address,
-}
-
-#[cfg(any(test, feature = "runtime-benchmarks"))]
-impl AccessEntry {
-	/// Builds the `i`-th entry of `key`'s family. Only the trailing bytes carry `i`, so a
-	/// comparison runs the whole shared prefix before it can decide.
-	pub fn with_index(i: usize, key: KeyFamily) -> Self {
-		match key {
-			KeyFamily::Slot => {
-				let slot = Key::try_from_var(vec![0xFFu8; limits::STORAGE_KEY_BYTES as usize])
-					.expect("key fits STORAGE_KEY_BYTES bound; qed");
-				Self::Storage { slot: Slot::from(&slot), address: H160::from_low_u64_be(i as u64) }
-			},
-			KeyFamily::Address => Self::CodeInfo { hash: H256::from_low_u64_be(i as u64) },
-		}
-	}
 }
 
 /// The operation an access performs on a state item.
@@ -221,6 +209,42 @@ impl Warmth {
 	#[cfg(test)]
 	pub fn write_paid() -> Self {
 		Self::Hot { charged: StorageOp::Write }
+	}
+}
+
+/// A state item the access list tracks, with the address, code hash or slot that identifies it.
+#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
+pub enum AccessEntry {
+	/// Account state (`System::Account`) of `address`.
+	Account { address: H160 },
+	/// Address mapping (`OriginalAccount`) of `address`.
+	OriginalAccount { address: H160 },
+	/// Contract info (`AccountInfoOf`) of `address`.
+	AccountInfo { address: H160 },
+	/// Code info (`CodeInfoOf`), keyed by code hash: contracts with the same code share one entry.
+	CodeInfo { hash: H256 },
+	/// Code blob (`PristineCode`), keyed by code hash for the same reason.
+	CodeBlob { hash: H256 },
+	/// A contract storage slot, the only entry a contract can hold many of.
+	Storage(ContractSlot),
+}
+
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+impl AccessEntry {
+	/// Builds the `i`-th entry of `key`'s family. Only the trailing bytes carry `i`, so a
+	/// comparison runs the whole shared prefix before it can decide.
+	pub fn with_index(i: usize, key: KeyFamily) -> Self {
+		match key {
+			KeyFamily::Slot => {
+				let slot = Key::try_from_var(vec![0xFFu8; limits::STORAGE_KEY_BYTES as usize])
+					.expect("key fits STORAGE_KEY_BYTES bound; qed");
+				Self::Storage(ContractSlot {
+					slot: Slot::from(&slot),
+					address: H160::from_low_u64_be(i as u64),
+				})
+			},
+			KeyFamily::Address => Self::CodeInfo { hash: H256::from_low_u64_be(i as u64) },
+		}
 	}
 }
 
@@ -399,6 +423,29 @@ impl Access for CodeLoadItems {
 	}
 }
 
+/// A read or write of one contract slot.
+#[derive(Clone, Debug)]
+pub struct StorageItems {
+	pub key: ContractSlot,
+	pub op: StorageOp,
+}
+
+impl StorageItems {
+	/// Builds the items `op` touches on `address`'s storage slot `key`.
+	pub fn new(address: H160, key: &Key, op: StorageOp) -> Self {
+		Self { key: ContractSlot { slot: key.into(), address }, op }
+	}
+}
+
+impl Access for StorageItems {
+	type Warmth = Warmth;
+	const KEY_FAMILY: KeyFamily = KeyFamily::Slot;
+
+	fn expand(self, mut resolve: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> Warmth {
+		resolve(AccessEntry::Storage(self.key), self.op)
+	}
+}
+
 /// Snapshot of per-transaction access-list counters.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AccessListMetrics {
@@ -512,7 +559,7 @@ impl AccessList {
 	}
 
 	/// Reports the warmth [`Self::touch`] would return, without recording it.
-	pub fn peek(&self, entry: &AccessEntry) -> Warmth {
+	fn peek(&self, entry: &AccessEntry) -> Warmth {
 		match self.accessed.get(entry) {
 			Some(charged) => Warmth::Hot { charged: *charged },
 			None if self.is_full() => Warmth::Cold { revertible: false },
@@ -575,7 +622,12 @@ impl AccessList {
 		})
 	}
 
-	/// Per-transaction metrics snapshot.
+	/// Returns the number of open checkpoints.
+	pub fn frame_depth(&self) -> usize {
+		self.checkpoints.len()
+	}
+
+	/// Returns a snapshot of the per-transaction metrics.
 	pub fn metrics(&self) -> AccessListMetrics {
 		AccessListMetrics { size: self.accessed.len(), cold: self.cold_count, hot: self.hot_count }
 	}
@@ -619,11 +671,6 @@ impl AccessList {
 			.expect("fixtures only ask a non-empty list; qed")
 			.clone()
 	}
-
-	/// Returns the number of open checkpoints.
-	pub fn frame_depth(&self) -> usize {
-		self.checkpoints.len()
-	}
 }
 
 #[cfg(test)]
@@ -634,7 +681,10 @@ mod tests {
 	fn nested_commit_then_parent_rollback_drops_all() {
 		let mut al = AccessList::new();
 		let (a, b, c, d) = (
-			AccessEntry::Storage { address: H160::zero(), slot: Slot::Fix([0xA; 32]) },
+			AccessEntry::Storage(ContractSlot {
+				slot: Slot::Fix([0xA; 32]),
+				address: H160::zero(),
+			}),
 			AccessEntry::Account { address: H160::zero() },
 			AccessEntry::AccountInfo { address: H160::zero() },
 			AccessEntry::CodeBlob { hash: H256::repeat_byte(0xD) },
@@ -738,7 +788,8 @@ mod tests {
 	#[test]
 	fn touches_never_downgrade_the_paid_level() {
 		let mut al = AccessList::new();
-		let entry = AccessEntry::Storage { address: H160::zero(), slot: Slot::Fix([2; 32]) };
+		let entry =
+			AccessEntry::Storage(ContractSlot { slot: Slot::Fix([2; 32]), address: H160::zero() });
 
 		let read_paid = Warmth::read_paid();
 		let write_paid = Warmth::write_paid();
@@ -758,7 +809,8 @@ mod tests {
 			"a read never downgrades the level"
 		);
 
-		let written = AccessEntry::Storage { address: H160::zero(), slot: Slot::Fix([3; 32]) };
+		let written =
+			AccessEntry::Storage(ContractSlot { slot: Slot::Fix([3; 32]), address: H160::zero() });
 		assert!(!al.touch(written.clone(), StorageOp::Write).is_hot(), "first write: cold");
 		assert_eq!(al.touch(written, StorageOp::Write), write_paid, "cold write starts at Write");
 	}
@@ -803,7 +855,8 @@ mod tests {
 	#[test]
 	fn a_committed_upgrade_rolls_back_with_the_parent_frame() {
 		let mut al = AccessList::new();
-		let entry = AccessEntry::Storage { address: H160::zero(), slot: Slot::Fix([9; 32]) };
+		let entry =
+			AccessEntry::Storage(ContractSlot { slot: Slot::Fix([9; 32]), address: H160::zero() });
 		al.touch(entry.clone(), StorageOp::Read);
 
 		al.enter_frame();
@@ -826,13 +879,14 @@ mod tests {
 	#[test]
 	fn upgrade_survives_a_nested_frames_rollback() {
 		let mut al = AccessList::new();
-		let upgraded = AccessEntry::Storage { address: H160::zero(), slot: Slot::Fix([7; 32]) };
+		let upgraded =
+			AccessEntry::Storage(ContractSlot { slot: Slot::Fix([7; 32]), address: H160::zero() });
 		al.touch(upgraded.clone(), StorageOp::Read);
 		al.touch(upgraded.clone(), StorageOp::Write);
 
 		al.enter_frame();
 		al.touch(
-			AccessEntry::Storage { address: H160::zero(), slot: Slot::Fix([6; 32]) },
+			AccessEntry::Storage(ContractSlot { slot: Slot::Fix([6; 32]), address: H160::zero() }),
 			StorageOp::Write,
 		);
 		al.rollback_frame();
@@ -847,7 +901,8 @@ mod tests {
 	#[test]
 	fn same_frame_insert_and_upgrade_roll_back_together() {
 		let mut al = AccessList::new();
-		let entry = AccessEntry::Storage { address: H160::zero(), slot: Slot::Fix([8; 32]) };
+		let entry =
+			AccessEntry::Storage(ContractSlot { slot: Slot::Fix([8; 32]), address: H160::zero() });
 		al.enter_frame();
 		al.touch(entry.clone(), StorageOp::Read);
 		al.touch(entry.clone(), StorageOp::Write);
@@ -910,11 +965,25 @@ mod tests {
 	}
 
 	#[test]
+	fn a_storage_key_orders_by_slot_before_address() {
+		let key = |slot: u8, address: u64| ContractSlot {
+			slot: Slot::Fix([slot; 32]),
+			address: H160::from_low_u64_be(address),
+		};
+
+		assert!(
+			key(1, 9) < key(2, 0),
+			"a smaller slot sorts first even when its address is larger"
+		);
+		assert!(key(1, 0) < key(1, 1), "the address only breaks ties inside the same slot");
+	}
+
+	#[test]
 	fn an_access_touches_the_expected_entries() {
 		// A second access reports the level the first one recorded.
-		fn recorded<A: Access + Copy>(access: A) -> A::Warmth {
+		fn recorded<A: Access + Clone>(access: A) -> A::Warmth {
 			let mut al = AccessList::new();
-			al.warm(access);
+			al.warm(access.clone());
 			al.warm(access)
 		}
 
@@ -940,6 +1009,10 @@ mod tests {
 			recorded(CodeLoadItems { hash: H256::zero() }),
 			CodeLoadWarmth { info: Warmth::read_paid(), blob: Warmth::read_paid() },
 		);
+
+		let slot_access = |op| StorageItems::new(target, &Key::Fix([3; 32]), op);
+		assert_eq!(recorded(slot_access(StorageOp::Read)), Warmth::read_paid());
+		assert_eq!(recorded(slot_access(StorageOp::Write)), Warmth::write_paid());
 
 		assert_eq!(
 			recorded(CallItems::Plain { target, transfer: transfer(false) }),

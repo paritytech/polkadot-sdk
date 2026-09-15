@@ -255,7 +255,7 @@ fn whitelist_entry<T: Config>(entry: &AccessEntry) {
 			add_to_whitelist(PristineCode::<T>::hashed_key_for(hash).into())
 		},
 		// Child-trie slots have no fixed key here; benches whitelist them ad hoc.
-		AccessEntry::Storage { .. } => {},
+		AccessEntry::Storage(_) => {},
 	}
 }
 
