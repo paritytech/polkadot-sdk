@@ -77,9 +77,10 @@
 //!   environment variable should only be required in certain circumstances.
 //! - `WASM_BUILD_RUSTFLAGS` - Extend `RUSTFLAGS` given to `cargo build` while building the wasm
 //!   binary.
-//! - `SUBSTRATE_JAM` - Build the runtime with RFC-145 support (`--cfg jam`), i.e. using the
-//!   allocator-free host function ABI. This is implied when the outer build itself is compiled with
-//!   `--cfg jam` in its `RUSTFLAGS` or when `WASM_BUILD_RUSTFLAGS` contains `--cfg jam`.
+//! - `SUBSTRATE_JAM` - Build the runtime for the JAM host function set (`--cfg jam`): the RFC-145
+//!   host functions, which never make the host allocate runtime memory. This is implied when the
+//!   outer build itself is compiled with `--cfg jam` in its `RUSTFLAGS` or when
+//!   `WASM_BUILD_RUSTFLAGS` contains `--cfg jam`.
 //! - `WASM_BUILD_NO_COLOR` - Disable color output of the wasm build.
 //! - `WASM_TARGET_DIRECTORY` - Will copy any build Wasm binary to the given directory. The path
 //!   needs to be absolute.
@@ -177,20 +178,20 @@ const WASM_BUILD_CARGO_ARGS: &str = "WASM_BUILD_CARGO_ARGS";
 /// The target to use for the runtime. Valid values are `wasm` (default) or `riscv`.
 const RUNTIME_TARGET: &str = "SUBSTRATE_RUNTIME_TARGET";
 
-/// Environment variable that makes the runtime be built with RFC-145 support
-/// (`--cfg jam`), the same as when the outer build itself is compiled with that
-/// `cfg` in its `RUSTFLAGS`.
+/// Environment variable that makes the runtime be built for the JAM host function set
+/// (`--cfg jam`), the same as when the outer build itself is compiled with that `cfg` in its
+/// `RUSTFLAGS`.
 const JAM_ENV: &str = "SUBSTRATE_JAM";
 
 /// Environment variable through which cargo tells the build script that the outer build is
 /// compiled with `--cfg jam`.
 const CARGO_CFG_JAM_ENV: &str = "CARGO_CFG_JAM";
 
-/// Returns `true` if the runtime should be built with RFC-145 support (`--cfg jam`).
+/// Returns `true` if the runtime should be built for the JAM host function set (`--cfg jam`).
 ///
 /// That is the case when the outer build itself is compiled with `--cfg jam` (cargo exposes
 /// every `cfg` of the outer build to the build script as `CARGO_CFG_<NAME>`, so that a node built
-/// with RFC-145 support embeds an RFC-145 runtime), when the `SUBSTRATE_JAM` environment
+/// for the JAM host function set embeds a JAM runtime), when the `SUBSTRATE_JAM` environment
 /// variable is set to a truthy value (for runtime-only builds), or when `WASM_BUILD_RUSTFLAGS`
 /// passes the `cfg` to the runtime build directly.
 fn is_jam_build() -> bool {

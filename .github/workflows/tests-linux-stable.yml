@@ -191,7 +191,8 @@ jobs:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
-  # RFC-145 (`--cfg jam`) coverage, part 1: host function marshalling and the executor.
+  # JAM host function set (`--cfg jam`) coverage, part 1: host function marshalling, the executor
+  # and the parachain block validation.
   test-jam:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
@@ -209,7 +210,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: script
         id: required
-        run: forklift cargo test --locked --release -p sp-io -p sp-runtime-interface-test -p sc-executor
+        run: forklift cargo test --locked --release -p sp-io -p sp-runtime-interface-test -p sc-executor -p cumulus-pallet-parachain-system
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
@@ -217,10 +218,10 @@ jobs:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
-  # RFC-145 (`--cfg jam`) coverage, part 2: builds the substrate test runtime and the
-  # kitchensink runtime with the cfg and runs them through a node built with the same cfg, so the
-  # RFC-145 host functions, the V2 entry point and the runtime-side allocator are exercised on a
-  # full FRAME runtime and not only in the marshalling tests above.
+  # JAM host function set (`--cfg jam`) coverage, part 2: builds the substrate test runtime and
+  # the kitchensink runtime with the cfg and runs them through a node built with the same cfg, so
+  # the JAM host functions, the JAM entry point and the runtime-side allocator are exercised on a
+  # full FRAME runtime and not only in the tests above.
   test-jam-node:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
