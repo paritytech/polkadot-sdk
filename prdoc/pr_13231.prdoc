@@ -1,0 +1,9 @@
+title: 'fix(pallet-bounties): use saturating_add for award unlock deadline'
+doc:
+  - audience: Runtime Dev
+    description: |-
+      Use saturating_add when computing unlock_at in pallet-bounties::award_bounty
+      to prevent arithmetic overflow panics when operating near the block number ceiling.
+crates:
+  - name: pallet-bounties
+    bump: patch
