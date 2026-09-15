@@ -48,6 +48,10 @@ use tokio::{
 /// `quick_cache::unsync::Cache` wrapped in async-aware synchronization primitives.
 type SyncCache<K, V> = Arc<RwLock<Cache<K, V>>>;
 
+/// Guard against hanging in `CachingClient::header_hash_by_number_walking_back`, not a tuning
+/// knob - a walk this long is already unusable.
+const MAX_HEADER_HASH_BY_NUMBER_WALK_BACK: u32 = 8192;
+
 /// Client implementation that is caching (whenever possible) results of its backend
 /// method calls. Apart from caching call results, it also supports some (at the
 /// moment: justifications) subscription sharing, meaning that the single server
@@ -69,6 +73,7 @@ struct ClientData<C: Chain> {
 	// but it uses synchronization primitives that are not aware of async execution. They
 	// can block the executor threads and cause deadlocks => let's use primitives from
 	// `async_std` crate around `quick_cache::unsync::Cache`
+	// only finalized headers may be cached here: a best header can be reorged away
 	header_hash_by_number_cache: SyncCache<BlockNumberOf<C>, HashOf<C>>,
 	header_by_hash_cache: SyncCache<HashOf<C>, HeaderOf<C>>,
 	block_by_hash_cache: SyncCache<HashOf<C>, SignedBlockOf<C>>,
@@ -85,11 +90,15 @@ impl<C: Chain, B: Client<C>> CachingClient<C, B> {
 		let best_header = Arc::new(RwLock::new(None));
 		let best_finalized_header = Arc::new(RwLock::new(None));
 		let header_by_hash_cache = Arc::new(RwLock::new(Cache::new(chain_state_capacity)));
+		// a whole walk of `header_hash_by_number_walking_back` must fit here to be of any use
+		let header_hash_by_number_cache =
+			Arc::new(RwLock::new(Cache::new(MAX_HEADER_HASH_BY_NUMBER_WALK_BACK as usize)));
 		let background_task_handle = Self::start_background_task(
 			backend.clone(),
 			best_header.clone(),
 			best_finalized_header.clone(),
 			header_by_hash_cache.clone(),
+			header_hash_by_number_cache.clone(),
 		)
 		.await;
 		CachingClient {
@@ -100,9 +109,7 @@ impl<C: Chain, B: Client<C>> CachingClient<C, B> {
 				background_task_handle: Arc::new(Mutex::new(background_task_handle)),
 				best_header,
 				best_finalized_header,
-				header_hash_by_number_cache: Arc::new(RwLock::new(Cache::new(
-					chain_state_capacity,
-				))),
+				header_hash_by_number_cache,
 				header_by_hash_cache,
 				block_by_hash_cache: Arc::new(RwLock::new(Cache::new(chain_state_capacity))),
 				raw_storage_value_cache: Arc::new(RwLock::new(Cache::new(1_024))),
@@ -135,6 +142,66 @@ impl<C: Chain, B: Client<C>> CachingClient<C, B> {
 		Ok(value)
 	}
 
+	async fn header_hash_by_number_uncached(&self, number: BlockNumberOf<C>) -> Result<HashOf<C>> {
+		match self.backend.header_hash_by_number(number).await {
+			Err(Error::UnknownHeaderHashByNumber { .. }) => {
+				self.header_hash_by_number_walking_back(number).await
+			},
+			result => result,
+		}
+	}
+
+	/// Fallback for nodes that do not answer `chain_getBlockHash` - light clients in particular,
+	/// which cannot verify a number-to-hash mapping served by a peer. Walking back is verifiable
+	/// instead: every header read is checked against the hash we asked for. Mappings are cached
+	/// along the way, so that reading a range of numbers does not restart the walk each time.
+	async fn header_hash_by_number_walking_back(
+		&self,
+		number: BlockNumberOf<C>,
+	) -> Result<HashOf<C>> {
+		let mut header = self
+			.read_header_from_background(
+				&self.data.best_finalized_header,
+				self.backend.best_finalized_header(),
+			)
+			.await?;
+		if number > *header.number() {
+			return Err(Error::unknown_header_hash_by_number::<C>(number));
+		}
+
+		let mut steps = 0;
+		loop {
+			let hash = header.hash();
+			self.data
+				.header_hash_by_number_cache
+				.write()
+				.await
+				.insert(*header.number(), hash);
+			if *header.number() == number {
+				if steps > ANCIENT_BLOCK_THRESHOLD {
+					tracing::warn!(
+						target: "bridge",
+						node=%C::NAME,
+						%number,
+						steps,
+						"Node has no `chain_getBlockHash` support - had to read many headers to \
+						resolve header hash by number"
+					);
+				}
+
+				return Ok(hash);
+			}
+
+			if steps >= MAX_HEADER_HASH_BY_NUMBER_WALK_BACK {
+				return Err(Error::unknown_header_hash_by_number::<C>(number));
+			}
+
+			// through the backend: stepping stones must not evict the header-by-hash cache
+			header = self.backend.header_by_hash(*header.parent_hash()).await?;
+			steps += 1;
+		}
+	}
+
 	/// Subscribe to finality justifications, trying to reuse existing subscription.
 	async fn subscribe_finality_justifications<'a>(
 		&'a self,
@@ -162,12 +229,17 @@ impl<C: Chain, B: Client<C>> CachingClient<C, B> {
 		best_header: Arc<RwLock<Option<HeaderOf<C>>>>,
 		best_finalized_header: Arc<RwLock<Option<HeaderOf<C>>>>,
 		header_by_hash_cache: SyncCache<HashOf<C>, HeaderOf<C>>,
+		header_hash_by_number_cache: SyncCache<BlockNumberOf<C>, HashOf<C>>,
 	) -> JoinHandle<Result<()>> {
 		tokio::spawn(async move {
 			// initialize by reading headers directly from backend to avoid doing that in the
 			// high-level code
 			let mut last_finalized_header =
 				backend.header_by_hash(backend.best_finalized_header_hash().await?).await?;
+			header_hash_by_number_cache
+				.write()
+				.await
+				.insert(*last_finalized_header.number(), last_finalized_header.hash());
 			*best_header.write().await = Some(backend.best_header().await?);
 			*best_finalized_header.write().await = Some(last_finalized_header.clone());
 
@@ -196,6 +268,7 @@ impl<C: Chain, B: Client<C>> CachingClient<C, B> {
 							Ordering::Greater => {
 								let new_finalized_header_hash = new_finalized_header.hash();
 								header_by_hash_cache.write().await.insert(new_finalized_header_hash, new_finalized_header.clone());
+								header_hash_by_number_cache.write().await.insert(new_finalized_header_number, new_finalized_header_hash);
 								*best_finalized_header.write().await = Some(new_finalized_header.clone());
 								last_finalized_header = new_finalized_header;
 							},
@@ -274,6 +347,7 @@ impl<C: Chain, B: Client<C>> Client<C> for CachingClient<C, B> {
 			self.data.best_header.clone(),
 			self.data.best_finalized_header.clone(),
 			self.data.header_by_hash_cache.clone(),
+			self.data.header_hash_by_number_cache.clone(),
 		)
 		.await;
 		Ok(())
@@ -287,7 +361,7 @@ impl<C: Chain, B: Client<C>> Client<C> for CachingClient<C, B> {
 		self.get_or_insert_async(
 			&self.data.header_hash_by_number_cache,
 			&number,
-			self.backend.header_hash_by_number(number),
+			self.header_hash_by_number_uncached(number),
 		)
 		.await
 	}
