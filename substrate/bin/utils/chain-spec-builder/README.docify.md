@@ -121,6 +121,22 @@ Refer to [_patch file_](#patch-file) for some details on the patch file format.
 
 Refer to [_full config file_](#full-genesis-config-file) for some details on the full file format.
 
+### Manage the boot nodes of a chain spec
+
+Add boot nodes to an existing chain spec. Plain and raw chain specs are both supported, and the
+addresses that are already stored in the chain spec are skipped:
+
+<!-- docify::embed!("tests/test.rs", cmd_add_bootnodes) -->
+
+List the boot nodes stored in a chain spec:
+
+<!-- docify::embed!("tests/test.rs", cmd_list_bootnodes) -->
+
+Boot nodes can be removed one by one with `remove-bootnodes`, or all at once with
+`remove-bootnodes <CHAIN_SPEC> --all`, and the whole list can be replaced with `set-bootnodes`. The
+boot nodes of a newly created chain spec can be given with the `--bootnodes` argument of the
+`create` command.
+
 ## Patch and full genesis config files
 
 This section provides details on the files that can be used with `create patch` or `create full` subcommands.

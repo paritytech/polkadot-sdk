@@ -1,0 +1,14 @@
+title: 'chain-spec-builder: manage the boot nodes of a chain spec'
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |-
+    `chain-spec-builder` can now manage the boot nodes of a chain specification. The new
+    `add-bootnodes`, `remove-bootnodes`, `set-bootnodes` and `list-bootnodes` commands operate on
+    an existing chain spec, in both plain and raw format, and the `create` command takes a new
+    `--bootnodes` argument. The given addresses are validated: they must be multiaddresses
+    containing the peer id of the node.
+crates:
+- name: staging-chain-spec-builder
+  bump: minor
+- name: sc-chain-spec
+  bump: minor
