@@ -19,9 +19,9 @@
 //! [evm-test-suite](https://github.com/paritytech/evm-test-suite) repository.
 
 use crate::{
-	BlockHeader, BlockInfoProvider, BoundedOneOrMany, ChainMetadata, DbContext, DebugRpcClient,
-	EthRpcClient, FilterResults, Log, ReceiptExtractor, ReceiptProvider, SubscriptionItem,
-	SubscriptionKind, SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
+	BlockHeader, BlockInfoProvider, ChainMetadata, DbContext, DebugRpcClient, EthRpcClient, Filter,
+	FilterResults, Log, ReceiptExtractor, ReceiptProvider, SubscriptionItem, SubscriptionKind,
+	SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
 	client::{
 		Client, GapFillRequest, SubscriptionGapQueue, connect,
@@ -34,7 +34,7 @@ use alloy_network::EthereumWallet;
 use alloy_primitives::{Address as AlloyAddress, B256, Bytes as AlloyBytes, U256 as AlloyU256};
 use alloy_provider::{Provider, ProviderBuilder, ext::DebugApi as _};
 use alloy_rpc_types::{
-	BlockId, BlockNumberOrTag, Filter, TransactionRequest,
+	BlockId, BlockNumberOrTag, TransactionRequest,
 	state::{AccountOverride, StateOverride},
 };
 use alloy_signer_local::PrivateKeySigner;
@@ -60,7 +60,7 @@ use pallet_revive_types::runtime_api::{
 };
 use sp_runtime::BoundedVec;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use std::{sync::Arc, thread};
+use std::{collections::BTreeSet, sync::Arc, thread};
 use subxt::{
 	OnlineClient,
 	client::OnlineClientAtBlockImpl,
@@ -387,6 +387,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_block_hash_for_tag_with_block_tags_works,
 		test_earliest_block_tag,
 		test_get_logs_with_block_tags_works,
+		unknown_block_hash_returns_a_log_query_error,
 		test_multiple_transactions_in_block,
 		test_mixed_evm_substrate_transactions,
 		test_runtime_pallets_address_upload_code,
@@ -394,6 +395,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_subscribe_new_heads,
 		test_subscribe_new_heads_multiple_blocks,
 		test_subscribe_logs,
+		test_log_subscription_respects_inclusive_block_bounds,
 		test_subscribe_logs_with_address_filter,
 		test_subscribe_logs_with_topic_filter,
 		test_subscribe_logs_address_filter_excludes_non_matching,
@@ -649,8 +651,8 @@ async fn test_receipt_mixed_revert_and_logs_same_block() -> anyhow::Result<()> {
 	}
 
 	// Verify log data values
-	let ping_data = &emit_receipt.logs[0].data.as_ref().unwrap().0;
-	let pong_data = &emit_receipt.logs[1].data.as_ref().unwrap().0;
+	let ping_data = &emit_receipt.logs[0].data.0;
+	let pong_data = &emit_receipt.logs[1].data.0;
 	let ping = Ping::abi_decode_data(ping_data).expect("decode Ping data");
 	let pong = Pong::abi_decode_data(pong_data).expect("decode Pong data");
 	assert_eq!(ping.0, 1, "Ping value should be 1");
@@ -1028,23 +1030,34 @@ async fn test_get_logs_with_block_tags_works() -> anyhow::Result<()> {
 	};
 	let has_emitted_log = |logs: &[Log]| logs.iter().any(|log| log.block_number == emit_block);
 
-	// `<tag>..latest` range should span the emitted log.
+	// `<tag>..latest` range should span the emitted log, except `pending` which is rejected.
 	for from in BLOCK_TAGS {
+		let result = client
+			.get_logs(Some(Filter::new().from_block(from).to_block(BlockNumberOrTag::Latest)))
+			.await;
+		if matches!(from, BlockNumberOrTag::Pending) {
+			assert!(result.is_err(), "pending..latest should be rejected");
+			continue;
+		}
 		let logs = logs_of(
-			client
-				.get_logs(Some(Filter::new().from_block(from).to_block(BlockNumberOrTag::Latest)))
-				.await
+			result
 				.map_err(|err| anyhow::anyhow!("eth_getLogs {from:?}..latest failed: {err:?}"))?,
 		);
 		assert!(has_emitted_log(&logs), "{from:?}..latest should include the emitted log");
 	}
 
-	// `earliest..<tag>` range should span the emitted log for every tag except `earliest`.
+	// `earliest..<tag>` range should span the emitted log for every tag except `earliest`,
+	// while `pending` is rejected.
 	for to in BLOCK_TAGS {
+		let result = client
+			.get_logs(Some(Filter::new().from_block(BlockNumberOrTag::Earliest).to_block(to)))
+			.await;
+		if matches!(to, BlockNumberOrTag::Pending) {
+			assert!(result.is_err(), "earliest..pending should be rejected");
+			continue;
+		}
 		let logs = logs_of(
-			client
-				.get_logs(Some(Filter::new().from_block(BlockNumberOrTag::Earliest).to_block(to)))
-				.await
+			result
 				.map_err(|err| anyhow::anyhow!("eth_getLogs earliest..{to:?} failed: {err:?}"))?,
 		);
 		if matches!(to, BlockNumberOrTag::Earliest) {
@@ -1057,6 +1070,36 @@ async fn test_get_logs_with_block_tags_works() -> anyhow::Result<()> {
 		}
 	}
 
+	Ok(())
+}
+
+async fn unknown_block_hash_returns_a_log_query_error() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let ethan = Account::from(subxt_signer::eth::dev::ethan());
+	let receipt = TransactionBuilder::new(client.clone())
+		.to(ethan.address())
+		.value(U256::from(1))
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+
+	// Act
+	let known_block_logs =
+		client.get_logs(Some(Filter::new().at_block_hash(receipt.block_hash))).await?;
+	let error = client
+		.get_logs(Some(Filter::new().at_block_hash(H256::repeat_byte(0xff))))
+		.await
+		.unwrap_err();
+
+	// Assert
+	assert_eq!(known_block_logs, FilterResults::default());
+	let ClientError::Call(error) = error else {
+		panic!("Expected a JSON-RPC error, got {error:?}");
+	};
+	assert_eq!(error.code(), jsonrpsee::types::error::CALL_EXECUTION_FAILED_CODE);
+	assert_eq!(error.message(), "Failed to filter logs: unknown block");
 	Ok(())
 }
 
@@ -1572,7 +1615,7 @@ async fn test_subscribe_logs() -> anyhow::Result<()> {
 		other => panic!("Expected Log, got: {other:?}"),
 	};
 
-	let filter = Filter::new().at_block_hash(B256::from(call_receipt.block_hash.0));
+	let filter = Filter::new().at_block_hash(call_receipt.block_hash);
 	let rpc_logs = client.get_logs(Some(filter)).await?;
 	let rpc_logs: Vec<Log> = match rpc_logs {
 		FilterResults::Logs(logs) => logs,
@@ -1598,6 +1641,74 @@ async fn test_subscribe_logs() -> anyhow::Result<()> {
 	Ok(())
 }
 
+async fn test_log_subscription_respects_inclusive_block_bounds() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
+		"SimpleReceiver",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let deployment = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
+	let deployment_receipt = deployment.wait_for_receipt().await?;
+	let contract_address = deployment_receipt.contract_address.expect("Contract was deployed");
+	let from_block = deployment_receipt.block_number.as_u64() + 2;
+	let to_block = from_block + 1;
+	let filter = Filter::new()
+		.from_block(from_block)
+		.to_block(to_block)
+		.address([contract_address]);
+	let mut sub = client
+		.eth_subscribe(SubscriptionKind::Logs, Some(SubscriptionOptions::LogsOptions(filter)))
+		.await?;
+
+	// Act
+	let mut receipts = Vec::new();
+	for _ in 0..4 {
+		let tx = TransactionBuilder::new(client.clone())
+			.to(contract_address)
+			.value(U256::from(1_000_000_000_000u128))
+			.send()
+			.await?;
+		receipts.push(tx.wait_for_receipt().await?);
+	}
+	let logs = tokio::time::timeout(tokio::time::Duration::from_secs(10), async {
+		let mut logs = Vec::new();
+		for _ in 0..2 {
+			let notification = sub.next().await.expect("Subscription ended before both bounds")?;
+			match notification {
+				SubscriptionItem::Log(log) => logs.push(log),
+				other => panic!("Expected Log, got: {other:?}"),
+			}
+		}
+		anyhow::Ok(logs)
+	})
+	.await
+	.expect("Timed out waiting for logs at both window bounds")?;
+	let extra_notification =
+		tokio::time::timeout(tokio::time::Duration::from_secs(1), sub.next()).await;
+
+	// Assert
+	assert_eq!(
+		receipts.iter().map(|receipt| receipt.block_number).collect::<Vec<_>>(),
+		[from_block - 1, from_block, to_block, to_block + 1].map(U256::from),
+	);
+	for receipt in &receipts {
+		assert_eq!(receipt.logs.len(), 1, "Each transaction must emit a log to exercise its bound");
+	}
+	assert_eq!(
+		logs,
+		receipts[1..=2]
+			.iter()
+			.flat_map(|receipt| receipt.logs.iter().cloned())
+			.collect::<Vec<_>>(),
+	);
+	assert!(
+		matches!(extra_notification, Err(_) | Ok(None)),
+		"Unexpected notification outside the block window: {extra_notification:?}",
+	);
+	Ok(())
+}
+
 /// Verify that subscribing to `logs` with an address filter only delivers logs
 /// emitted from the specified contract address.
 async fn test_subscribe_logs_with_address_filter() -> anyhow::Result<()> {
@@ -1615,10 +1726,12 @@ async fn test_subscribe_logs_with_address_filter() -> anyhow::Result<()> {
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
 	assert_eq!(Some(contract_address), receipt.contract_address);
 
-	let options = SubscriptionOptions::LogsOptions {
-		address: Some(BoundedOneOrMany::One(contract_address)),
-		topics: None,
-	};
+	let options = SubscriptionOptions::LogsOptions(Filter {
+		addresses: BTreeSet::from([contract_address])
+			.try_into()
+			.expect("Single address is within bounds"),
+		..Default::default()
+	});
 	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
 
 	// Act
@@ -1666,13 +1779,15 @@ async fn test_subscribe_logs_with_topic_filter() -> anyhow::Result<()> {
 	assert_eq!(Some(contract_address), receipt.contract_address);
 
 	let event_signature = H256(sp_io::hashing::keccak_256(b"Received(address,uint256)"));
-	let options = SubscriptionOptions::LogsOptions {
-		address: None,
-		topics: Some(
-			BoundedVec::try_from(vec![Some(BoundedOneOrMany::One(event_signature))])
-				.expect("Single topic filter is within bounds"),
-		),
-	};
+	let options = SubscriptionOptions::LogsOptions(Filter {
+		topics: BoundedVec::try_from(vec![
+			BTreeSet::from([event_signature])
+				.try_into()
+				.expect("Single topic set is within bounds"),
+		])
+		.expect("Single topic filter is within bounds"),
+		..Default::default()
+	});
 	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
 
 	// Act
@@ -1798,10 +1913,12 @@ async fn test_subscribe_logs_address_filter_excludes_non_matching() -> anyhow::R
 	assert_eq!(Some(contract_b), receipt_b.contract_address);
 	assert_ne!(contract_a, contract_b, "The two contracts must have different addresses");
 
-	let options = SubscriptionOptions::LogsOptions {
-		address: Some(BoundedOneOrMany::One(contract_a)),
-		topics: None,
-	};
+	let options = SubscriptionOptions::LogsOptions(Filter {
+		addresses: BTreeSet::from([contract_a])
+			.try_into()
+			.expect("Single address is within bounds"),
+		..Default::default()
+	});
 	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
 
 	// Act
@@ -1866,13 +1983,12 @@ async fn test_subscribe_logs_with_multiple_addresses_filter() -> anyhow::Result<
 	let contract_b = create1(&account.address(), nonce_b.try_into().unwrap());
 	assert_eq!(Some(contract_b), receipt_b.contract_address);
 
-	let options = SubscriptionOptions::LogsOptions {
-		address: Some(BoundedOneOrMany::Many(
-			BoundedVec::try_from(vec![contract_a, contract_b])
-				.expect("Two addresses is within bounds"),
-		)),
-		topics: None,
-	};
+	let options = SubscriptionOptions::LogsOptions(Filter {
+		addresses: BTreeSet::from([contract_a, contract_b])
+			.try_into()
+			.expect("Two addresses are within bounds"),
+		..Default::default()
+	});
 	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
 
 	// Act
@@ -1991,10 +2107,12 @@ async fn test_subscribe_with_invalid_params_rejected() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
 
-	let options = SubscriptionOptions::LogsOptions {
-		address: Some(BoundedOneOrMany::One(Account::default().address())),
-		topics: None,
-	};
+	let options = SubscriptionOptions::LogsOptions(Filter {
+		addresses: BTreeSet::from([Account::default().address()])
+			.try_into()
+			.expect("Single address is within bounds"),
+		..Default::default()
+	});
 
 	// Act
 	let result = client.eth_subscribe(SubscriptionKind::NewBlockHeaders, Some(options)).await;
