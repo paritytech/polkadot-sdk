@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789416027207,
+  "lastUpdate": 1789473276641,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "822c6f6f574e5d35e005d24757241300b458ed81",
-          "message": "[FRAME] Omni bencher run each benchmark at least 10 secs (#10794)\n\nChanges:\n- Ensure all benchmarks run for at least 10 seconds. Configurable with\n`--min-duration <s>`\n- Turn off runtime logging in bench bot to reduce spam log output\n- Reduce DB repetition to 1 since PoV metering must be deterministic\n\nExample of the System benchmark with the `set_heap_pages` benchmark that\ntook less than 10 ms before:\n```pre\n2026-01-13T21:36:10.687286Z [ 22 % ] Starting benchmark: frame_system::set_heap_pages    \n2026-01-13T21:36:10.688437Z [ 33 % ] Starting benchmark: frame_system::set_code    \n```\n\nNow takes 10 seconds:\n```pre\n2026-01-13T21:37:31.392981Z [ 22 % ] Starting benchmark: frame_system::set_heap_pages    \n2026-01-13T21:37:32.271275Z [ 22 % ] Running  benchmark: frame_system::set_heap_pages (overtime)    \n2026-01-13T21:37:37.272099Z [ 22 % ] Running  benchmark: frame_system::set_heap_pages (overtime)    \n2026-01-13T21:37:41.393107Z [ 33 % ] Starting benchmark: frame_system::set_code    \n```\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-11T14:57:49Z",
-          "tree_id": "2dfc4e77e49963eaffc94612715df4068330e2b9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/822c6f6f574e5d35e005d24757241300b458ed81"
-        },
-        "date": 1770827273121,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.03799999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038647473386,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06649311403999988,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038995422914,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f18d8ce7f64e9663a755aae8cd9886523f15e9f4",
+          "message": "ci: rm oldlinux runners (#13221)\n\ncc https://github.com/paritytech/devops/issues/5661",
+          "timestamp": "2026-09-15T10:04:29Z",
+          "tree_id": "23b640114fe1bede092f3454a3ab521d298281b1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f18d8ce7f64e9663a755aae8cd9886523f15e9f4"
+        },
+        "date": 1789473235858,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.15999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038590103066,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08717707048999991,
             "unit": "seconds"
           }
         ]
