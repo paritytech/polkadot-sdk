@@ -175,42 +175,30 @@ impl CoretimeInterface for CoretimeAllocator {
 		// Add 5% to each component and round to 2 significant figures.
 		let call_weight = Weight::from_parts(980_000_000, 3800);
 
-		// A maximum of 28 assignments fit in one message, so we split the assignments and send as
-		// multiple messages. This will get reassembled into a full list of assignments on the
-		// relay chain side.
+		let assign_core_call =
+			RelayRuntimePallets::Coretime(AssignCore(core, begin, assignment, end_hint));
 
-		for chunk in assignment.chunks(28) {
-			let partial_assignment = chunk.to_vec();
+		let message = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Native,
+				call: assign_core_call.encode().into(),
+				fallback_max_weight: Some(call_weight),
+			},
+		]);
 
-			let assign_core_call = RelayRuntimePallets::Coretime(AssignCore(
-				core,
-				begin,
-				partial_assignment,
-				end_hint,
-			));
-
-			let message = Xcm(vec![
-				Instruction::UnpaidExecution {
-					weight_limit: WeightLimit::Unlimited,
-					check_origin: None,
-				},
-				Instruction::Transact {
-					origin_kind: OriginKind::Native,
-					call: assign_core_call.encode().into(),
-					fallback_max_weight: Some(call_weight),
-				},
-			]);
-
-			match PolkadotXcm::send_xcm(Here, Location::parent(), message) {
-				Ok(_) => tracing::debug!(
-					target: "runtime::coretime",
-					"Core assignment sent successfully."
-				),
-				Err(e) => tracing::error!(
-					target: "runtime::coretime", error=?e,
-					"Core assignment failed to send"
-				),
-			}
+		match PolkadotXcm::send_xcm(Here, Location::parent(), message) {
+			Ok(_) => tracing::debug!(
+				target: "runtime::coretime",
+				"Core assignment sent successfully."
+			),
+			Err(e) => tracing::error!(
+				target: "runtime::coretime", error=?e,
+				"Core assignment failed to send"
+			),
 		}
 	}
 }
