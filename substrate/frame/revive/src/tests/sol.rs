@@ -303,9 +303,8 @@ fn precompile_prestate_tracing_returns_code_stub() {
 
 		match tracer.collect_trace() {
 			PrestateTrace::Prestate(accounts) => {
-				let info = accounts
-					.get(&precompile_addr)
-					.expect("precompile should be in prestate trace");
+				let info =
+					accounts.get(&precompile_addr).expect("precompile should be in prestate trace");
 				let code = info.code.as_ref().expect("precompile should report code");
 				assert_eq!(
 					code.0,
