@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789415019219,
+  "lastUpdate": 1789464493440,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -124199,6 +124199,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2639382877,
             "range": "± 7462833",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "serban@parity.io",
+            "name": "Serban Iorga",
+            "username": "serban300"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c0fa7aba504f8d6d55ca48de85bf869a2120ff44",
+          "message": "[XCMP/HRMP] Retry some types of pages (#12638)\n\nRetry:\n- XcmpMessageFormat::Signals pages\n- XcmpMessageFormat::ConcatenatedOpaqueVersionedXcm pages\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-15T08:09:31Z",
+          "tree_id": "7493c9b2e0d66f8bfa1cbfc40a832f286f551cb0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c0fa7aba504f8d6d55ca48de85bf869a2120ff44"
+        },
+        "date": 1789464451873,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 22465767,
+            "range": "± 589528",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 23575375,
+            "range": "± 1011290",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21772593,
+            "range": "± 628692",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28023660,
+            "range": "± 246824",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 65017854,
+            "range": "± 1018640",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 407837456,
+            "range": "± 13893167",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2525039630,
+            "range": "± 28665824",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18204263,
+            "range": "± 820174",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17868490,
+            "range": "± 361418",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18755071,
+            "range": "± 193634",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23661617,
+            "range": "± 288160",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 68294546,
+            "range": "± 738427",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 406264092,
+            "range": "± 7680957",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2915376308,
+            "range": "± 34060909",
             "unit": "ns/iter"
           }
         ]
