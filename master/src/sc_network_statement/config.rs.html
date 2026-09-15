@@ -229,8 +229,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#79 id=79 data-nosnippet>79</a>/// responsible for storing a given topic.
 <a href=#80 id=80 data-nosnippet>80</a></span><span class="kw">pub const </span>DEFAULT_REPLICATION_FACTOR: NonZeroUsize = NonZeroUsize::new(<span class="number">20</span>).expect(<span class="string">"20 is non-zero"</span>);
 <a href=#81 id=81 data-nosnippet>81</a>
-<a href=#82 id=82 data-nosnippet>82</a><span class="doccomment">/// Default gossip target for v2 DHT-affinity routing: maximum number of connected peers we forward
-<a href=#83 id=83 data-nosnippet>83</a>/// a statement to for a given topic.
+<a href=#82 id=82 data-nosnippet>82</a><span class="doccomment">/// Default gossip target for v2 DHT-affinity routing: maximum number of connected non-replica
+<a href=#83 id=83 data-nosnippet>83</a>/// peers a statement is routed to for a given topic, on top of the topic's connected replicas.
 <a href=#84 id=84 data-nosnippet>84</a></span><span class="kw">pub const </span>DEFAULT_GOSSIP_TARGET: NonZeroUsize = NonZeroUsize::new(<span class="number">3</span>).expect(<span class="string">"3 is non-zero"</span>);
 <a href=#85 id=85 data-nosnippet>85</a>
 <a href=#86 id=86 data-nosnippet>86</a><span class="doccomment">/// Parameters of the v2 DHT statement path.
