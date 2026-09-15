@@ -282,6 +282,41 @@ fn delegated_eoa_prestate_tracing_returns_indicator() {
 	});
 }
 
+/// Prestate-tracer must surface a precompile's `code` as its stub, matching what
+/// eth_getCode and EXTCODESIZE/EXTCODEHASH/EXTCODECOPY report for the same address.
+#[test]
+fn precompile_prestate_tracing_returns_code_stub() {
+	use crate::{evm::PrestateTrace, tests::SYSTEM_PRECOMPILE_ADDR};
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		// the system builtin pre-compile, serving the default `EVM_REVERT` stub
+		let precompile_addr = SYSTEM_PRECOMPILE_ADDR;
+
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			diff_mode: false,
+			disable_storage: true,
+			disable_code: false,
+		});
+		let _ = trace(&mut tracer, || builder::bare_call(precompile_addr).build());
+
+		match tracer.collect_trace() {
+			PrestateTrace::Prestate(accounts) => {
+				let info =
+					accounts.get(&precompile_addr).expect("precompile should be in prestate trace");
+				let code = info.code.as_ref().expect("precompile should report code");
+				assert_eq!(
+					code.0,
+					sp_core::hex2array!("60006000fd").to_vec(),
+					"prestate trace code should be the precompile's code stub",
+				);
+			},
+			other => panic!("expected Prestate mode, got {:?}", other),
+		}
+	});
+}
+
 /// Prestate-tracer (diff mode) must surface the indicator in the pre-state when
 /// the traced call mutates the delegated EOA (otherwise diff mode correctly
 /// filters unchanged addresses out). Uses a Counter target + setNumber so the
