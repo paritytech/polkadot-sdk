@@ -806,3 +806,63 @@ fn kill_queued_referendum_does_not_desync_deciding_count() {
 		);
 	});
 }
+
+#[test]
+fn referendum_rejected_from_a_full_queue_times_out() {
+	ExtBuilder::default().build_and_execute(|| {
+		// One deciding place on track 0 and MaxQueued == 3. Five referenda: 0 takes the
+		// deciding place, 1..=3 fill the queue with positive support, and 4, with zero
+		// support, does not make the cut.
+		for i in 0..5u64 {
+			assert_ok!(Referenda::submit(
+				RuntimeOrigin::signed(i + 1),
+				Box::new(RawOrigin::Root.into()),
+				set_balance_proposal_bounded(i + 1),
+				DispatchTime::At(100),
+			));
+		}
+		set_tally(1, 10, 0);
+		set_tally(2, 20, 0);
+		set_tally(3, 30, 0);
+		// Deposits after the tallies: placing a deposit re-creates the alarm, so the
+		// service order at the prepare-period end is the submission order, and 4 meets
+		// a queue that is already full.
+		for i in 0..5u32 {
+			assert_ok!(Referenda::place_decision_deposit(RuntimeOrigin::signed(6), i));
+		}
+
+		run_to(5);
+
+		assert_eq!(DecidingCount::<Test>::get(0u8), 1);
+		let queue = TrackQueue::<Test>::get(0u8);
+		assert_eq!(queue.len(), 3);
+		assert!(queue.iter().all(|(idx, _)| *idx != 4), "4 must not fit the full queue");
+
+		// Referendum 4 must not carry the queued flag it would never lose: the flag
+		// blocks the undeciding timeout, and nothing pops an entry that is not there.
+		let status = match ReferendumInfoFor::<Test>::get(4) {
+			Some(ReferendumInfo::Ongoing(status)) => status,
+			other => panic!("referendum 4 must still be ongoing, got {:?}", other),
+		};
+		assert!(!status.in_queue, "a rejected insertion must not set in_queue");
+		assert!(status.alarm.is_some(), "a wake-up must exist for the timeout");
+
+		// The wake-up at the undeciding timeout (block 21) must resolve the referendum:
+		// it re-queues or decides when a place has freed, or it times out. It must not
+		// stay ongoing with no queue entry and no alarm, which nothing would ever touch.
+		run_to(23);
+		match ReferendumInfoFor::<Test>::get(4) {
+			Some(ReferendumInfo::TimedOut(..)) => (),
+			Some(ReferendumInfo::Approved(..)) | Some(ReferendumInfo::Rejected(..)) => (),
+			Some(ReferendumInfo::Ongoing(status)) => {
+				let queued = status.in_queue &&
+					TrackQueue::<Test>::get(0u8).iter().any(|(idx, _)| *idx == 4);
+				assert!(
+					status.deciding.is_some() || queued || status.alarm.is_some(),
+					"referendum 4 is stranded: not deciding, not queued, no alarm"
+				);
+			},
+			other => panic!("unexpected state for referendum 4: {:?}", other),
+		}
+	});
+}
