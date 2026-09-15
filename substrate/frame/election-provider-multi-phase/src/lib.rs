@@ -257,7 +257,9 @@ use frame_support::{
 	weights::Weight,
 	DefaultNoBound, EqNoBound, PartialEqNoBound,
 };
-use frame_system::{ensure_none, offchain::CreateBare, pallet_prelude::BlockNumberFor};
+use frame_system::{
+	ensure_authorized, offchain::CreateAuthorizedTransaction, pallet_prelude::BlockNumberFor,
+};
 use scale_info::TypeInfo;
 use sp_arithmetic::{
 	traits::{CheckedAdd, Zero},
@@ -266,8 +268,8 @@ use sp_arithmetic::{
 use sp_npos_elections::{ElectionScore, IdentifierT, Supports, VoteWeight};
 use sp_runtime::{
 	transaction_validity::{
-		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
-		TransactionValidityError, ValidTransaction,
+		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidityWithRefund,
+		ValidTransaction,
 	},
 	Debug, DispatchError, ModuleError, PerThing, Perbill, SaturatedConversion,
 };
@@ -599,7 +601,7 @@ pub mod pallet {
 	use sp_runtime::traits::Convert;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + CreateBare<Call<Self>> {
+	pub trait Config: frame_system::Config + CreateAuthorizedTransaction<Call<Self>> {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>
@@ -918,7 +920,7 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Submit a solution for the unsigned phase.
 		///
-		/// The dispatch origin fo this call must be __none__.
+		/// The dispatch origin of this call must be __authorized__.
 		///
 		/// This submission is checked on the fly. Moreover, this unsigned solution is only
 		/// validated when submitted to the pool from the **local** node. Effectively, this means
@@ -940,12 +942,17 @@ pub mod pallet {
 			),
 			DispatchClass::Operational,
 		))]
+		#[pallet::weight_of_authorize(T::WeightInfo::authorize_submit_unsigned(
+			raw_solution.solution.voter_count() as u32,
+			raw_solution.solution.unique_targets().len() as u32
+		))]
+		#[pallet::authorize(Self::authorize_submit_unsigned)]
 		pub fn submit_unsigned(
 			origin: OriginFor<T>,
 			raw_solution: Box<RawSolution<SolutionOf<T::MinerConfig>>>,
 			witness: SolutionOrSnapshotSize,
 		) -> DispatchResult {
-			ensure_none(origin)?;
+			ensure_authorized(origin)?;
 			let error_message = "Invalid unsigned submission must produce invalid block and \
 				 deprive validator from their authoring reward.";
 
@@ -1214,51 +1221,40 @@ pub mod pallet {
 		PreDispatchDifferentRound,
 	}
 
-	#[allow(deprecated)]
-	#[pallet::validate_unsigned]
-	impl<T: Config> ValidateUnsigned for Pallet<T> {
-		type Call = Call<T>;
-		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			if let Call::submit_unsigned { raw_solution, .. } = call {
-				// Discard solution not coming from the local OCW.
-				match source {
-					TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
-					_ => return InvalidTransaction::Call.into(),
-				}
-
-				Self::unsigned_pre_dispatch_checks(raw_solution)
-					.inspect_err(|err| {
-						log!(debug, "unsigned transaction validation failed due to {:?}", err);
-					})
-					.map_err(dispatch_error_to_invalid)?;
-
-				ValidTransaction::with_tag_prefix("OffchainElection")
-					// The higher the score.minimal_stake, the better a solution is.
-					.priority(
-						T::MinerTxPriority::get()
-							.saturating_add(raw_solution.score.minimal_stake.saturated_into()),
-					)
-					// Used to deduplicate unsigned solutions: each validator should produce one
-					// solution per round at most, and solutions are not propagate.
-					.and_provides(raw_solution.round)
-					// Transaction should stay in the pool for the duration of the unsigned phase.
-					.longevity(T::UnsignedPhase::get().saturated_into::<u64>())
-					// We don't propagate this. This can never be validated at a remote node.
-					.propagate(false)
-					.build()
-			} else {
-				InvalidTransaction::Call.into()
+	impl<T: Config> Pallet<T> {
+		/// Authorization logic for the [`Call::submit_unsigned`] call.
+		fn authorize_submit_unsigned(
+			source: TransactionSource,
+			raw_solution: &Box<RawSolution<SolutionOf<T::MinerConfig>>>,
+			_witness: &SolutionOrSnapshotSize,
+		) -> TransactionValidityWithRefund {
+			// Discard solution not coming from the local OCW.
+			match source {
+				TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
+				_ => return Err(InvalidTransaction::Call.into()),
 			}
-		}
 
-		fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
-			if let Call::submit_unsigned { raw_solution, .. } = call {
-				Self::unsigned_pre_dispatch_checks(raw_solution)
-					.map_err(dispatch_error_to_invalid)
-					.map_err(Into::into)
-			} else {
-				Err(InvalidTransaction::Call.into())
-			}
+			Self::unsigned_pre_dispatch_checks(raw_solution)
+				.inspect_err(|err| {
+					log!(debug, "solution authorization failed due to {:?}", err);
+				})
+				.map_err(dispatch_error_to_invalid)?;
+
+			ValidTransaction::with_tag_prefix("OffchainElection")
+				// The higher the score.minimal_stake, the better a solution is.
+				.priority(
+					T::MinerTxPriority::get()
+						.saturating_add(raw_solution.score.minimal_stake.saturated_into()),
+				)
+				// Used to deduplicate unsigned solutions: each validator should produce one
+				// solution per round at most, and solutions are not propagate.
+				.and_provides(raw_solution.round)
+				// Transaction should stay in the pool for the duration of the unsigned phase.
+				.longevity(T::UnsignedPhase::get().saturated_into::<u64>())
+				// We don't propagate this. This can never be validated at a remote node.
+				.propagate(false)
+				.build()
+				.map(|validity| (validity, Weight::zero()))
 		}
 	}
 
@@ -2455,7 +2451,7 @@ mod tests {
 			// ensure this solution is valid.
 			assert!(QueuedSolution::<Runtime>::get().is_none());
 			assert_ok!(MultiPhase::submit_unsigned(
-				crate::mock::RuntimeOrigin::none(),
+				crate::mock::RuntimeOrigin::from(frame_system::RawOrigin::Authorized),
 				Box::new(solution),
 				witness
 			));
