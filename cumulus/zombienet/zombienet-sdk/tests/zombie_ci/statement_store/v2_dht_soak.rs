@@ -224,7 +224,7 @@ async fn launch_soak_network(
 	// No `wait_until_is_up` here: it polls every node in parallel and overwhelms the
 	// workstation-side port-forwards on large networks. The sequential per-node metric waits
 	// that follow the spawn cover readiness with scaled timeouts and name the failing node.
-	crate::utils::initialize_network(config).await.map_err(Into::into)
+	crate::utils::initialize_network(config).await
 }
 
 /// Reads each node's peer id and maps it into the XOR topic space.
