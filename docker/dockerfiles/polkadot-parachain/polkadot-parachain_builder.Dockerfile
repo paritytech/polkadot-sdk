@@ -19,7 +19,9 @@ LABEL io.parity.image.type="builder" \
 
 COPY --from=builder /cumulus/target/release/polkadot-parachain /usr/local/bin
 
-RUN useradd -m -u 1000 -U -s /bin/sh -d /cumulus polkadot-parachain && \
+# ubuntu:24.04 ships a default 'ubuntu' user that occupies uid/gid 1000
+RUN userdel -r ubuntu 2>/dev/null || true; \
+	useradd -m -u 1000 -U -s /bin/sh -d /cumulus polkadot-parachain && \
     mkdir -p /data /cumulus/.local/share && \
     chown -R polkadot-parachain:polkadot-parachain /data && \
     ln -s /data /cumulus/.local/share/polkadot-parachain && \

@@ -20,7 +20,7 @@ ENV RUST_BACKTRACE 1
 # install tools and dependencies
 RUN apt-get update && \
 	DEBIAN_FRONTEND=noninteractive apt-get install -y \
-	libssl1.1 \
+	libssl3 \
 	ca-certificates \
 	curl && \
 	# apt cleanup

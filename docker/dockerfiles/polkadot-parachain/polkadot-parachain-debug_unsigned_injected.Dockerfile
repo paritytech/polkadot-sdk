@@ -20,7 +20,7 @@ ENV RUST_BACKTRACE 1
 # install tools and dependencies
 RUN apt-get update && \
 	DEBIAN_FRONTEND=noninteractive apt-get install -y \
-	libssl1.1 \
+	libssl3 \
 	ca-certificates \
 	curl && \
 	# apt cleanup
@@ -28,6 +28,8 @@ RUN apt-get update && \
 	apt-get clean && \
 	find /var/lib/apt/lists/ -type f -not -name lock -delete; \
 	# add user and link ~/.local/share/polkadot-parachain to /data
+	# ubuntu:24.04 ships a default 'ubuntu' user that occupies uid/gid 1000
+	userdel -r ubuntu 2>/dev/null || true; \
 	useradd -m -u 1000 -U -s /bin/sh -d /polkadot-parachain polkadot-parachain && \
 	mkdir -p /data /polkadot-parachain/.local/share && \
 	chown -R polkadot-parachain:polkadot-parachain /data && \

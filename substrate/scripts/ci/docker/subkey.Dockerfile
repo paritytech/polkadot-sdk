@@ -18,7 +18,9 @@ LABEL io.parity.image.authors="devops-team@parity.io" \
 ENV RUST_BACKTRACE 1
 
 # add user
-RUN useradd -m -u 1000 -U -s /bin/sh -d /subkey subkey
+# ubuntu:24.04 ships a default 'ubuntu' user that occupies uid/gid 1000
+RUN userdel -r ubuntu 2>/dev/null || true; \
+	useradd -m -u 1000 -U -s /bin/sh -d /subkey subkey
 
 # add subkey binary to docker image
 COPY ./subkey /usr/local/bin

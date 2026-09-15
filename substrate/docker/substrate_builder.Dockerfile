@@ -20,7 +20,9 @@ COPY --from=builder /substrate/target/release/subkey /usr/local/bin
 COPY --from=builder /substrate/target/release/node-template /usr/local/bin
 COPY --from=builder /substrate/target/release/chain-spec-builder /usr/local/bin
 
-RUN useradd -m -u 1000 -U -s /bin/sh -d /substrate substrate && \
+# ubuntu:24.04 ships a default 'ubuntu' user that occupies uid/gid 1000
+RUN userdel -r ubuntu 2>/dev/null || true; \
+	useradd -m -u 1000 -U -s /bin/sh -d /substrate substrate && \
 	mkdir -p /data /substrate/.local/share/substrate && \
 	chown -R substrate:substrate /data && \
 	ln -s /data /substrate/.local/share/substrate && \

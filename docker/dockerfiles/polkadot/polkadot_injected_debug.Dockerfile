@@ -20,13 +20,15 @@ ENV RUST_BACKTRACE 1
 # install tools and dependencies
 RUN apt-get update && \
 	DEBIAN_FRONTEND=noninteractive apt-get install -y \
-	libssl1.1 \
+	libssl3 \
 	ca-certificates && \
 	# apt cleanup
 	apt-get autoremove -y && \
 	apt-get clean && \
 	find /var/lib/apt/lists/ -type f -not -name lock -delete; \
 	# add user and link ~/.local/share/polkadot to /data
+	# ubuntu:24.04 ships a default 'ubuntu' user that occupies uid/gid 1000
+	userdel -r ubuntu 2>/dev/null || true; \
 	useradd -m -u 1000 -U -s /bin/sh -d /polkadot polkadot && \
 	mkdir -p /data /polkadot/.local/share /polkdot/runtimes && \
 	chown -R polkadot:polkadot /data && \
