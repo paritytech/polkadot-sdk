@@ -73,8 +73,7 @@
 //! Propagation queues hashes in a per-peer outbox and fetches, filters and encodes them only when
 //! the slot is free, so a slow peer holds one encoded chunk rather than its whole backlog. An
 //! outbox past `config::MAX_PROPAGATION_OUTBOX_LEN` drops its oldest hashes, since the freshest
-//! statements are the ones still worth delivering. Dropped hashes, and on the v2 DHT path hashes
-//! lost to a disconnect or to a statement leaving the store, are counted in
+//! statements are the ones still worth delivering. Dropped hashes are counted in
 //! `undelivered_statements`.
 //!
 //! In-flight bytes of both kinds are held against the shared
@@ -89,8 +88,7 @@
 //! The `statement/2` protocol lets a peer advertise which topics it cares about as a bloom filter
 //! ("topic affinity"). Once a peer has an active affinity filter, only matching statements are
 //! forwarded to it; when its affinity changes, newly relevant statements are re-sent. Affinity
-//! advertisements are rate-limited. See the `affinity` module. On the v2 DHT path the
-//! orchestrator picks the propagation targets itself, so only initial sync applies the filter.
+//! advertisements are rate-limited. See the `affinity` module.
 //!
 //! Light-client peers on `statement/2` must advertise an affinity before receiving any statements:
 //! a light V2 peer pulls only the topics it cares about instead of the full feed, and is synced
