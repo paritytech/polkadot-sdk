@@ -850,6 +850,8 @@ type Migrations = (
 		BlockNumberConverter,
 		AmbassadorCoreInstance,
 	>,
+	// Sorts and deduplicates the `Proxies` map, which `binary_search` needs.
+	pallet_proxy::migrations::MigrateV0ToV1<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 	cumulus_pallet_parachain_system::migration::v3::Migration<Runtime>,
 	cumulus_pallet_parachain_system::migration::MigrateV3ToV4<Runtime>,
