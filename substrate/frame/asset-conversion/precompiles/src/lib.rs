@@ -30,7 +30,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::Decode;
 use core::marker::PhantomData;
-use frame_support::traits::{fungibles::Inspect, Get};
+use frame_support::traits::Get;
 use pallet_asset_conversion::{
 	weights::WeightInfo as _, AddLiquidityAsset, MutateLiquidity, QuotePrice, Swap,
 };
@@ -41,7 +41,7 @@ use pallet_revive::precompiles::{
 	},
 	AddressMatcher, Error, Ext, Precompile, H160,
 };
-use sp_runtime::traits::{CheckedSub, Zero};
+use sp_runtime::TokenError;
 
 #[cfg(test)]
 mod mock;
@@ -288,56 +288,6 @@ where
 			.map_err(|_| Error::Revert(Revert { reason: ERR_BALANCE_CONVERSION_FAILED.into() }))
 	}
 
-	/// Quoted `path[0]` debit for an exact-out swap. `None` if a hop cannot be priced; the
-	/// swap then fails with its own error, so this helper must not invent a dust revert.
-	fn quoted_amount_in(
-		path: &[<Runtime as pallet_asset_conversion::Config>::AssetKind],
-		amount_out: <Runtime as pallet_asset_conversion::Config>::Balance,
-	) -> Option<<Runtime as pallet_asset_conversion::Config>::Balance> {
-		let mut amount = amount_out;
-		for pair in path.windows(2).rev() {
-			amount =
-				pallet_asset_conversion::Pallet::<Runtime>::quote_price_tokens_for_exact_tokens(
-					pair[0].clone(),
-					pair[1].clone(),
-					amount,
-					true,
-				)?;
-		}
-		Some(amount)
-	}
-
-	/// Both swap entry points withdraw a priced input amount. An expendable
-	/// `pallet_asset_conversion::withdraw` used to resolve a swept remainder into the pool
-	/// while still quoting against that priced amount. The pallet now refuses that; this
-	/// check turns the same condition into a stable EVM `Error(string)` so the Solidity
-	/// caller does not depend on the pallet continuing to enforce it.
-	///
-	/// For exact-out, pass the *quoted* input, not `amountInMax`. `amountInMax` is only a
-	/// ceiling; checking it would reject swaps whose actual debit leaves a legal remainder.
-	fn ensure_exact_withdraw(
-		asset: <Runtime as pallet_asset_conversion::Config>::AssetKind,
-		who: &<Runtime as frame_system::Config>::AccountId,
-		value: <Runtime as pallet_asset_conversion::Config>::Balance,
-		keep_alive: bool,
-	) -> Result<(), Error> {
-		if keep_alive || value.is_zero() {
-			return Ok(());
-		}
-
-		let Some(remainder) =
-			<Runtime as pallet_asset_conversion::Config>::Assets::balance(asset.clone(), who)
-				.checked_sub(&value)
-		else {
-			return Ok(());
-		};
-		let minimum = <Runtime as pallet_asset_conversion::Config>::Assets::minimum_balance(asset);
-		if !remainder.is_zero() && remainder < minimum {
-			return Err(Error::Revert(Revert { reason: ERR_WOULD_SWEEP_REMAINDER.into() }));
-		}
-		Ok(())
-	}
-
 	fn swap_exact_tokens_for_tokens(
 		call: &IAssetConversion::swapExactTokensForTokensCall,
 		env: &mut impl Ext<T = Runtime>,
@@ -354,9 +304,6 @@ where
 		let sender = Self::caller_account_id(env)?;
 		let send_to = env.to_account_id(&H160(call.sendTo.0 .0));
 		let amount_in = Self::to_balance(call.amountIn)?;
-		if let Some(asset_in) = path.first() {
-			Self::ensure_exact_withdraw(asset_in.clone(), &sender, amount_in, call.keepAlive)?;
-		}
 
 		let amount_out = <pallet_asset_conversion::Pallet<Runtime> as Swap<
 			<Runtime as frame_system::Config>::AccountId,
@@ -367,7 +314,14 @@ where
 			Some(Self::to_balance(call.amountOutMin)?),
 			send_to,
 			call.keepAlive,
-		)?;
+		)
+		.map_err(|e| {
+			if e == TokenError::BelowMinimum.into() {
+				Error::Revert(Revert { reason: ERR_WOULD_SWEEP_REMAINDER.into() })
+			} else {
+				e.into()
+			}
+		})?;
 
 		Ok(IAssetConversion::swapExactTokensForTokensCall::abi_encode_returns(&Self::to_u256(
 			amount_out,
@@ -390,13 +344,6 @@ where
 		let sender = Self::caller_account_id(env)?;
 		let send_to = env.to_account_id(&H160(call.sendTo.0 .0));
 		let amount_out = Self::to_balance(call.amountOut)?;
-		if path.len() >= 2 {
-			if let (Some(asset_in), Some(quoted_in)) =
-				(path.first(), Self::quoted_amount_in(&path, amount_out))
-			{
-				Self::ensure_exact_withdraw(asset_in.clone(), &sender, quoted_in, call.keepAlive)?;
-			}
-		}
 
 		let amount_in = <pallet_asset_conversion::Pallet<Runtime> as Swap<
 			<Runtime as frame_system::Config>::AccountId,
@@ -407,7 +354,14 @@ where
 			Some(Self::to_balance(call.amountInMax)?),
 			send_to,
 			call.keepAlive,
-		)?;
+		)
+		.map_err(|e| {
+			if e == TokenError::BelowMinimum.into() {
+				Error::Revert(Revert { reason: ERR_WOULD_SWEEP_REMAINDER.into() })
+			} else {
+				e.into()
+			}
+		})?;
 
 		Ok(IAssetConversion::swapTokensForExactTokensCall::abi_encode_returns(&Self::to_u256(
 			amount_in,

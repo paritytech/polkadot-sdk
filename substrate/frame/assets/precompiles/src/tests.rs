@@ -41,11 +41,10 @@ use test_case::test_case;
 // arguments with different per-unit weights, so swapping them silently undercharges
 // the per-byte event cost on every Transfer/Approval.
 //
-// A bare-call `transfer` charges exactly the exactness guard's two reads
-// (`WeightInfo::balance() + WeightInfo::total_issuance()`, see `ensure_exact_transfer`)
-// plus `WeightInfo::transfer() + DepositEvent`, so we can assert the consumed weight
-// against that sum. With the bug, the actual consumed weight is lower by
-// `DepositEvent{len:32} - DepositEvent{len:3}` and the equality fails.
+// A bare-call `transfer` charges `WeightInfo::transfer() + DepositEvent`, so we can
+// assert the consumed weight against that sum. With the bug, the actual consumed
+// weight is lower by `DepositEvent{len:32} - DepositEvent{len:3}` and the equality
+// fails.
 #[test]
 fn deposit_event_charges_data_byte_length() {
 	use pallet_revive::precompiles::Token;
@@ -77,20 +76,17 @@ fn deposit_event_charges_data_byte_length() {
 		);
 		assert!(result.result.is_ok(), "transfer call failed: {:?}", result.result);
 
-		let guard = <() as pallet_assets::WeightInfo>::balance()
-			.saturating_add(<() as pallet_assets::WeightInfo>::total_issuance());
-		let expected = guard
-			.saturating_add(<() as pallet_assets::WeightInfo>::transfer())
-			.saturating_add(<RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::DepositEvent {
+		let expected = <() as pallet_assets::WeightInfo>::transfer().saturating_add(
+			<RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::DepositEvent {
 				num_topic: 3,
 				len: 32,
-			}));
+			}),
+		);
 		assert_eq!(
 			result.weight_consumed, expected,
-			"transfer weight does not match balance() + total_issuance() + \
-			 WeightInfo::transfer() + DepositEvent{{num_topic: 3, len: 32}} — \
-			 deposit_event has likely regressed to charging len=topics.len() \
-			 instead of len=data.len()",
+			"transfer weight does not match WeightInfo::transfer() + \
+			 DepositEvent{{num_topic: 3, len: 32}} — deposit_event has likely \
+			 regressed to charging len=topics.len() instead of len=data.len()",
 		);
 	});
 }
@@ -1265,9 +1261,9 @@ fn transfer_from_reverts_when_it_would_sweep_remainder(asset_index: u16) {
 	});
 }
 
-/// The exactness guard must not reject a self-transfer. `pallet_assets` short-circuits
-/// `source == dest` before touching any balance, so the net movement is zero regardless
-/// of what the remainder would have been.
+/// A self-transfer must not revert. `pallet_assets` short-circuits `source == dest`
+/// before touching any balance, so the net movement is zero regardless of what the
+/// remainder would have been.
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
 #[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
 fn self_transfer_of_dust_producing_amount_is_a_noop(asset_index: u16) {
@@ -1282,14 +1278,13 @@ fn self_transfer_of_dust_producing_amount_is_a_noop(asset_index: u16) {
 		let exec = raw_transfer(from, asset_addr, from_addr, U256::from(95u64))
 			.result
 			.expect("must not trap");
-		assert!(!exec.did_revert(), "self-transfer must not be rejected by the exactness guard");
+		assert!(!exec.did_revert(), "self-transfer must not revert");
 		assert_eq!(Assets::balance(asset_id, from), 100);
 	});
 }
 
-/// Zero-value transfers are a normal ERC-20 idiom and move nothing, so the guard must not
-/// be able to reject one — not even from a sender whose balance already sits below
-/// `min_balance`, which is where a naive remainder check would misfire.
+/// Zero-value transfers are a normal ERC-20 idiom and move nothing. They must not revert
+/// — not even from a sender whose balance already sits below `min_balance`.
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
 #[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
 fn zero_value_transfer_is_never_rejected(asset_index: u16) {
@@ -1332,10 +1327,8 @@ fn zero_value_transfer_is_never_rejected(asset_index: u16) {
 	});
 }
 
-/// A `transfer` larger than the sender's balance must still fail the way it did before
-/// the guard: `pallet_assets` returns `BalanceLow` as a dispatch error, which surfaces as
-/// a failed call rather than an `Error(string)` revert. The guard has no remainder to
-/// reason about in that case and defers instead of masking the cause.
+/// A `transfer` larger than the sender's balance must still fail as `BalanceLow`, a
+/// dispatch error / trapped call, rather than an `Error(string)` remainder revert.
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
 #[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
 fn transfer_above_balance_still_fails_on_funds(asset_index: u16) {

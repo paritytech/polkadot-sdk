@@ -36,7 +36,7 @@ use pallet_revive::precompiles::{
 	},
 	AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H160, H256,
 };
-use sp_runtime::traits::{CheckedSub, UniqueSaturatedInto, Zero};
+use sp_runtime::traits::{UniqueSaturatedInto, Zero};
 
 pub mod foreign_assets;
 pub mod migration;
@@ -247,42 +247,6 @@ where
 			.map_err(|_| Error::Revert(Revert { reason: ERR_BALANCE_CONVERSION_FAILED.into() }))
 	}
 
-	/// ERC-20 amounts are exact. `pallet_assets` now refuses a transfer that would sweep a
-	/// sub-`min_balance` remainder (`Error::WouldSweepDust`), but that surfaces here as a
-	/// dispatch error. Re-check first so the EVM caller gets a stable `Error(string)` revert
-	/// and so this interface does not depend on the pallet continuing to enforce the rule.
-	fn ensure_exact_transfer(
-		asset_id: <Runtime as Config<Instance>>::AssetId,
-		source: &<Runtime as frame_system::Config>::AccountId,
-		dest: &<Runtime as frame_system::Config>::AccountId,
-		value: <Runtime as Config<Instance>>::Balance,
-		env: &mut impl Ext<T = Runtime>,
-	) -> Result<(), Error> {
-		use frame_support::traits::fungibles::Inspect;
-
-		// Neither a zero-value transfer nor a self-transfer moves anything — `pallet_assets`
-		// short-circuits both before touching a balance — so there is no remainder to sweep.
-		if value.is_zero() || source == dest {
-			return Ok(());
-		}
-
-		// One `Assets::Account` read plus one `Assets::Asset` read.
-		env.charge(
-			<Runtime as Config<Instance>>::WeightInfo::balance()
-				.saturating_add(<Runtime as Config<Instance>>::WeightInfo::total_issuance()),
-		)?;
-
-		let balance = pallet_assets::Pallet::<Runtime, Instance>::balance(asset_id.clone(), source);
-		// An underfunded transfer has no remainder to reason about; leave it to
-		// `pallet_assets` to reject with its own error.
-		let Some(remainder) = balance.checked_sub(&value) else { return Ok(()) };
-		let min_balance = pallet_assets::Pallet::<Runtime, Instance>::minimum_balance(asset_id);
-		if !remainder.is_zero() && remainder < min_balance {
-			return Err(Error::Revert(Revert { reason: ERR_WOULD_SWEEP_REMAINDER.into() }));
-		}
-		Ok(())
-	}
-
 	/// Deposit an event to the runtime.
 	fn deposit_event(env: &mut impl Ext<T = Runtime>, event: IERC20Events) -> Result<(), Error> {
 		let (topics, data) = event.into_log_data().split();
@@ -310,12 +274,17 @@ where
 		let source = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from);
 		let value = Self::to_balance(call.value)?;
 
-		Self::ensure_exact_transfer(asset_id.clone(), &source, &dest, value, env)?;
-
 		let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
 		pallet_assets::Pallet::<Runtime, Instance>::do_transfer(
 			asset_id, &source, &dest, value, None, f,
-		)?;
+		)
+		.map_err(|e| {
+			if e == pallet_assets::Error::<Runtime, Instance>::WouldSweepDust.into() {
+				Error::Revert(Revert { reason: ERR_WOULD_SWEEP_REMAINDER.into() })
+			} else {
+				e.into()
+			}
+		})?;
 
 		Self::deposit_event(
 			env,
@@ -485,15 +454,20 @@ where
 
 		let approval_amount = Self::to_balance(call.value)?;
 
-		Self::ensure_exact_transfer(asset_id.clone(), &from, &to, approval_amount, env)?;
-
 		pallet_assets::Pallet::<Runtime, Instance>::do_transfer_approved(
 			asset_id,
 			&from,
 			&spender,
 			&to,
 			approval_amount,
-		)?;
+		)
+		.map_err(|e| {
+			if e == pallet_assets::Error::<Runtime, Instance>::WouldSweepDust.into() {
+				Error::Revert(Revert { reason: ERR_WOULD_SWEEP_REMAINDER.into() })
+			} else {
+				e.into()
+			}
+		})?;
 
 		Self::deposit_event(
 			env,
