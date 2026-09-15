@@ -249,3 +249,81 @@ fn a_refusing_notify_transport_does_not_undo_the_channel() {
 		);
 	});
 }
+
+/// Two system chains, which is what `OpenSystemChannel` is for.
+const SYSTEM_CHANNEL: ChannelId = ChannelId { sender: 1000, recipient: 1001 };
+
+fn open_system_channel() -> sp_runtime::DispatchResult {
+	Hrmp::receive(
+		RuntimeOrigin::root(),
+		MessageToRelay::V1(MessageToRelayV1::OpenSystemChannel {
+			channel: SYSTEM_CHANNEL,
+			message_id: MESSAGE_ID,
+		}),
+	)
+}
+
+fn system_response(outcome: Result<(u32, u32), FailureReason>) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::OpenChannelResponse {
+		channel: SYSTEM_CHANNEL,
+		message_id: MESSAGE_ID,
+		outcome,
+	})
+}
+
+#[test]
+fn open_system_channel_writes_the_registry_and_answers_with_its_sizes() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(open_system_channel());
+
+		assert!(MockRegistry::exists(SYSTEM_CHANNEL));
+		// The request named no sizes, so the answer is where the parachain learns them.
+		assert_eq!(take_sent(), vec![system_response(Ok(SYSTEM_CHANNEL_SIZES))]);
+		assert_eq!(
+			take_notified(),
+			vec![
+				(
+					SYSTEM_CHANNEL.sender,
+					ParaNotification::ChannelOpened { channel: SYSTEM_CHANNEL }
+				),
+				(
+					SYSTEM_CHANNEL.recipient,
+					ParaNotification::ChannelOpened { channel: SYSTEM_CHANNEL }
+				),
+			]
+		);
+		assert_eq!(
+			hrmp_events(),
+			vec![Event::ChannelOpened { channel: SYSTEM_CHANNEL, message_id: MESSAGE_ID }]
+		);
+	});
+}
+
+#[test]
+fn a_refused_system_channel_is_reported_back() {
+	new_test_ext().execute_with(|| {
+		RegistryRefuses::set(Some(FailureReason::InvalidPara));
+
+		// A refusal is reported, not raised.
+		assert_ok!(open_system_channel());
+
+		assert!(!MockRegistry::exists(SYSTEM_CHANNEL));
+		assert_eq!(take_sent(), vec![system_response(Err(FailureReason::InvalidPara))]);
+		let failure = ParaNotification::ChannelOpenFailure {
+			channel: SYSTEM_CHANNEL,
+			reason: FailureReason::InvalidPara,
+		};
+		assert_eq!(
+			take_notified(),
+			vec![(SYSTEM_CHANNEL.sender, failure.clone()), (SYSTEM_CHANNEL.recipient, failure)]
+		);
+		assert_eq!(
+			hrmp_events(),
+			vec![Event::OpenChannelRejected {
+				channel: SYSTEM_CHANNEL,
+				message_id: MESSAGE_ID,
+				reason: FailureReason::InvalidPara,
+			}]
+		);
+	});
+}
