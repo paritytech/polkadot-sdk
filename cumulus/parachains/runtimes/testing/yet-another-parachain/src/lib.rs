@@ -157,7 +157,21 @@ parameter_types! {
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
 		.for_class(DispatchClass::all(), |weights| {
-			weights.base_extrinsic = <pallet_verify_signature::weights::SubstrateWeight::<Runtime> as pallet_verify_signature::WeightInfo>::verify_signature();
+			// This runtime's active extrinsics are natively signed (the commented-out
+			// `pallet_verify_signature::VerifySignature` extension is not wired in above), so
+			// `Signature = MultiSignature`'s `SignatureWeight` is now folded into
+			// `GetDispatchInfo::get_dispatch_info` for every signed extrinsic. Re-using
+			// `verify_signature()`'s weight here as `base_extrinsic` (as a stand-in for "the cost
+			// of verifying a signature") would double-charge it. Subtract the sr25519
+			// `SignatureWeight` (the two happen to be calibrated from the same benchmark and are
+			// numerically equal) to avoid that; this leaves `base_extrinsic` at zero, i.e. this
+			// runtime's declared base extrinsic overhead is now entirely attributed to
+			// `SignatureWeight` rather than block-weight configuration.
+			weights.base_extrinsic =
+				<pallet_verify_signature::weights::SubstrateWeight::<Runtime> as pallet_verify_signature::WeightInfo>::verify_signature()
+					.saturating_sub(<sp_core::sr25519::Signature as sp_runtime::traits::SignatureWeight>::weight(
+						&sp_core::sr25519::Signature::from_raw([0u8; 64]),
+					));
 		})
 		.for_class(DispatchClass::Normal, |weights| {
 			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
@@ -400,10 +414,15 @@ impl WeightToFeePolynomial for WeightToFee {
 	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
 		// in Rococo, extrinsic base weight (smallest non-zero weight) is mapped to 1 MILLI_UNIT:
 		// in our template, we map to 1/10 of that, or 1/10 MILLI_UNIT
+		// `ExtrinsicBaseWeight` no longer includes signature-verification weight (it is
+		// charged separately via `SignatureWeight`), so add it back here to keep the
+		// smallest non-zero weight, and thus `q`, unchanged.
 		let p = YAP / 10;
 		let q = 100 *
 			Balance::from(
-				frame_support::weights::constants::ExtrinsicBaseWeight::get().ref_time(),
+				frame_support::weights::constants::ExtrinsicBaseWeight::get()
+					.ref_time()
+					.saturating_add(42_814_000),
 			);
 		vec![WeightToFeeCoefficient {
 			degree: 1,

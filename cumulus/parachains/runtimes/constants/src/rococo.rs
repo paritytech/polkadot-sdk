@@ -75,8 +75,12 @@ pub mod fee {
 		fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
 			// In Rococo, extrinsic base weight (smallest non-zero weight) is mapped to 1/10 CENT:
 			// The standard system parachain configuration is 1/10 of that, as in 1/100 CENT.
+			// `ExtrinsicBaseWeight` no longer includes signature-verification weight (it is
+			// charged separately via `SignatureWeight`), so add it back here to keep the
+			// smallest non-zero weight, and thus `q`, unchanged.
 			let p = super::currency::CENTS;
-			let q = 100 * Balance::from(ExtrinsicBaseWeight::get().ref_time());
+			let q = 100 *
+				Balance::from(ExtrinsicBaseWeight::get().ref_time().saturating_add(42_814_000));
 
 			smallvec![WeightToFeeCoefficient {
 				degree: 1,
