@@ -15,4 +15,4 @@ doc:
     undeciding timeout.
 crates:
 - name: pallet-referenda
-  bump: patch
+  bump: major
