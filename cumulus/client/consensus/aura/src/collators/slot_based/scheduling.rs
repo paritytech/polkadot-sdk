@@ -382,6 +382,8 @@ mod tests {
 		tests::{babe_epoch_change_digest_item, TestRelayClient},
 	};
 	use polkadot_primitives::{node_features::FeatureIndex, NodeFeatures};
+	use sp_consensus_aura::sr25519::{AuthorityId, AuthorityPair};
+	use sp_keystore::{testing::MemoryKeystore, Keystore};
 	use std::collections::HashMap;
 
 	const RELAY_SLOT_DURATION: Duration = Duration::from_secs(6);
@@ -395,6 +397,88 @@ mod tests {
 	/// how far into that slot we are (0..6000).
 	fn now_at(relay_slot: u64, ms_into_slot: u64) -> Duration {
 		Duration::from_millis(relay_slot * 6000 + ms_into_slot)
+	}
+
+	/// The core info and peer id a signed payload commits to, alongside a relay header to act as
+	/// the internal scheduling parent.
+	fn signing_inputs() -> (RelayHeader, CoreInfo, PeerId) {
+		let header = tests::relay_header_with_slot(1, Default::default(), PRODUCTION_SLOT);
+		let core_info = CoreInfo {
+			selector: cumulus_primitives_core::CoreSelector(7),
+			claim_queue_offset: cumulus_primitives_core::ClaimQueueOffset(3),
+			number_of_cores: 2u16.into(),
+		};
+
+		(header, core_info, PeerId::random())
+	}
+
+	#[test]
+	fn signed_payload_commits_to_the_builder_inputs() {
+		// The payload has to carry the very same core info and peer id the block puts in its
+		// `CoreInfo` pre-digest and parachain inherent. `validate_block` rebuilds the candidate's
+		// UMP tail from this payload and discards the block's own signals, while the receipt's
+		// commitments are still built from those signals — so any divergence here is a
+		// commitments mismatch at backing.
+		let (header, core_info, peer_id) = signing_inputs();
+		let keystore: KeystorePtr = MemoryKeystore::new().into();
+		let author_pub: AuthorityId = keystore
+			.sr25519_generate_new(sp_application_crypto::key_types::AURA, Some("//Alice"))
+			.expect("can generate a key in a memory keystore; qed")
+			.into();
+
+		let proof = SchedulingProofBuilder::<AuthorityPair>::new(header.clone())
+			.for_core(&core_info)
+			.crediting_peer(peer_id)
+			.keystore(&keystore)
+			.build_with_signed_payload(&author_pub)
+			.expect("the key is in the keystore; qed");
+
+		let signed = proof.signed_scheduling_info.expect("built with a signature; qed");
+		assert_eq!(signed.payload.core_selector, core_info.selector);
+		assert_eq!(signed.payload.claim_queue_offset, core_info.claim_queue_offset.0);
+		assert_eq!(
+			signed.payload.peer_id,
+			ApprovedPeerId::try_from(peer_id.to_bytes()).expect("a peer id fits; qed")
+		);
+		assert_eq!(signed.payload.internal_scheduling_parent, header.hash());
+
+		assert!(AuthorityPair::verify(
+			&sp_core::sr25519::Signature::from_raw(signed.signature).into(),
+			signed.payload.encode(),
+			&author_pub,
+		));
+	}
+
+	#[test]
+	fn signing_fails_when_the_keystore_has_no_key() {
+		// The collator only reaches here holding the slot claim for `author_pub`, so an empty
+		// keystore is a defect; the caller skips the slot rather than submitting unsigned.
+		let (header, core_info, peer_id) = signing_inputs();
+		let keystore: KeystorePtr = MemoryKeystore::new().into();
+		let author_pub: AuthorityId = sp_keyring::Sr25519Keyring::Alice.public().into();
+
+		let err = SchedulingProofBuilder::<AuthorityPair>::new(header)
+			.for_core(&core_info)
+			.crediting_peer(peer_id)
+			.keystore(&keystore)
+			.build_with_signed_payload(&author_pub)
+			.expect_err("nothing in the keystore can sign for this key; qed");
+
+		assert!(matches!(err, SchedulingSignError::NoKey), "unexpected error: {err:?}");
+	}
+
+	#[test]
+	fn signing_fails_when_an_input_is_missing() {
+		let (header, _, _) = signing_inputs();
+		let keystore: KeystorePtr = MemoryKeystore::new().into();
+		let author_pub: AuthorityId = sp_keyring::Sr25519Keyring::Alice.public().into();
+
+		let err = SchedulingProofBuilder::<AuthorityPair>::new(header)
+			.keystore(&keystore)
+			.build_with_signed_payload(&author_pub)
+			.expect_err("no core info was supplied; qed");
+
+		assert!(matches!(err, SchedulingSignError::MissingInput(_)), "unexpected error: {err:?}");
 	}
 
 	#[test]
