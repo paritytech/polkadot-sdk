@@ -1,0 +1,44 @@
+title: Vesting incentive for validator self-stake
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Extend the `vesting` and `staking-async` pallets to deliver validator self-stake
+    incentives as vested payouts (issue #11876) instead of liquid transfers. Each account's
+    vesting schedule space is partitioned between distinct schedule origins. Vested
+    transfers that cannot be accommodated into any schedule get dropped (no liquid fallback).
+
+    ## Changes to `pallet-vesting`:
+
+    - A new `VestedPayout` trait allows the addition of new vesting schedules either as new
+      entries or through merging with existing schedules that start at the same block
+    - A new `VestingKind` enum that differentiates the vesting schedule origins (currently
+      supporting `Public` and `System`) and which is used to partition the vesting schedule
+      capacity, with merging allowed only for schedules from the same origin
+    - All existing schedules are tagged as `Public` so a V1 → V2 migration is needed
+
+    ## Changes to `pallet-staking-async`:
+
+    - New `Config` items that define how vesting schedules execute (`VestingBondingPeriods`,
+      `BlocksPerSession`, `VestingBlockNumberProvider` and `ValidatorIncentivePayout`)
+    - The `VestingEpochStartBlocks` map correlates bonding-period windows (past or present)
+      with unique start blocks that are used for same-origin vesting schedule merging
+
+
+crates:
+- name: frame-support
+  bump: major
+- name: pallet-staking-async
+  bump: major
+- name: pallet-vesting
+  bump: major
+- name: pallet-staking-async-parachain-runtime
+  bump: minor
+- name: pallet-nomination-pools-benchmarking
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: westend-runtime
+  bump: patch
+- name: rococo-runtime
+  bump: patch
