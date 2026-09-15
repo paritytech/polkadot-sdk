@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789488972662,
+  "lastUpdate": 1789499781707,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -124631,6 +124631,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2732311539,
             "range": "± 61485716",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "50047cb3b75f62307f2a44b0fcebe8ce4b70273f",
+          "message": "statement-store: replica fanout (#13154)\n\n## Description\n\nOn the v2 DHT path a statement never reaches all of its K replicas.\n`routing_targets` caps the whole forwarding list at `gossip_target`, and\nsince it always picks the topic-closest peers, every holder selects the\nsame nodes and forwarding closes over `gossip_target + 1` of them: with\nK=8 and gossip-target=3 a statement is stored on 4 nodes instead of 8.\nThe configured `replication_factor` has no effect on durability.\n\nThe fix: every connected replica of the topic is always a forwarding\ntarget; the `gossip_target` cap applies only to routing peers (those\ncloser to the topic than the local node).\n\nOnly affects nodes running with `STATEMENT_STORE_V2_DHT_ENABLED=1`.\n\nVerified on a 100-node zombienet: 4/8 replicas before, 8/8 after, zero\nextra holders in both cases - full test report in the comment below.\n\nCloses #13189.",
+          "timestamp": "2026-09-15T17:56:50Z",
+          "tree_id": "aea57b8f477f43848d3d3ad2ecae71fd9805f993",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/50047cb3b75f62307f2a44b0fcebe8ce4b70273f"
+        },
+        "date": 1789499736120,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21185492,
+            "range": "± 228595",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20982153,
+            "range": "± 118198",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22300565,
+            "range": "± 133894",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27280112,
+            "range": "± 90060",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60516341,
+            "range": "± 489219",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 345965283,
+            "range": "± 10169985",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2647525597,
+            "range": "± 65757916",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17232411,
+            "range": "± 163229",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17533361,
+            "range": "± 182063",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17669717,
+            "range": "± 192146",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22230908,
+            "range": "± 156814",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62323402,
+            "range": "± 694768",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 366914469,
+            "range": "± 5006438",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2699296545,
+            "range": "± 14997580",
             "unit": "ns/iter"
           }
         ]
