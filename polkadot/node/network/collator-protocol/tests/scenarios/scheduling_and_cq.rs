@@ -68,7 +68,7 @@ mod claim_queue_window {
 		w
 	}
 
-	#[crate::sim_test(bug_on = "experimental", bug_url = "github:paritytech/polkadot-sdk#12255")]
+	#[crate::sim_test]
 	fn para_at_last_claim_queue_position_accepts_at_leaf<S: CollatorSut>() {
 		let mut w = world_with_leaf_cq::<S>(0, [PARA_B, PARA_B, PARA_A]);
 		let peer = w.declared_peer(PARA_A, V2);
@@ -95,16 +95,7 @@ mod claim_queue_window {
 	/// Lookahead is 3; the leaf is at height 1 (ancestry reaches only genesis) with claim queue
 	/// `[A, B]`. B's slot is one ahead of the leaf, which the genesis ancestor can still serve, so
 	/// the advertisement must fetch.
-	///
-	/// Both sides bound the reachability window by a length that is below the true scheduling
-	/// lookahead near genesis — legacy by the claim-queue length, experimental by the
-	/// allowed-ancestry path length — and so reject the advertisement. #12255 sources the
-	/// lookahead from the runtime and fixes both.
-	#[crate::sim_test(
-		bug_on = "legacy",
-		bug_on = "experimental",
-		bug_url = "github:paritytech/polkadot-sdk#12255"
-	)]
+	#[crate::sim_test]
 	fn ancestor_can_fetch_last_claim_queue_position<S: CollatorSut>() {
 		let config =
 			collator_world_config().with_schedule(CoreIndex(0), CoreSchedule::always(PARA_B));
@@ -333,7 +324,7 @@ mod cq_position_window {
 	/// Off-by-one boundary: the last CQ position at the leaf is reachable (offset 0 → window
 	/// covers all `lookahead` positions). With CQ `[other, other, A]` on the assigned core,
 	/// para A at index 2 must accept an advertisement at the leaf.
-	#[crate::sim_test(bug_on = "experimental", bug_url = "github:paritytech/polkadot-sdk#12255")]
+	#[crate::sim_test]
 	fn last_claim_queue_position_accepted_at_leaf<S: CollatorSut>() {
 		let config = collator_world_config()
 			.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A));
@@ -350,7 +341,7 @@ mod cq_position_window {
 	/// Seconded candidates count as consumers in the per-core CQ pool. Leaf CQ
 	/// `[A, other, A]` has exactly 2 slots for A. After two A-candidates are seconded, a third
 	/// advertisement at the same RP for the same para must NOT trigger a fetch — capacity full.
-	#[crate::sim_test(bug_on = "experimental", bug_url = "github:paritytech/polkadot-sdk#12255")]
+	#[crate::sim_test]
 	fn seconded_candidates_consume_capacity<S: CollatorSut>() {
 		let config = collator_world_config()
 			.with_schedule(CoreIndex(0), crate::common::chain::CoreSchedule::always(PARA_A));

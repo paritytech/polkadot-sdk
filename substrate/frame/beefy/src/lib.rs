@@ -55,7 +55,7 @@ use sp_session::{GetSessionNumber, GetValidatorCount};
 use sp_staking::{offence::OffenceReportSystem, SessionIndex};
 
 use crate::equivocation::EquivocationEvidenceFor;
-pub use crate::equivocation::{EquivocationOffence, EquivocationReportSystem, TimeSlot};
+pub use crate::equivocation::{EquivocationOffence, EquivocationReportSystem, Slot};
 pub use pallet::*;
 
 const LOG_TARGET: &str = "runtime::beefy";

@@ -25,6 +25,7 @@ on:
           - polkadot-omni-node
           - frame-omni-bencher
           - chain-spec-builder
+          - eth-rpc
 
       registry:
         description: Container registry for Docker images
@@ -160,6 +161,24 @@ jobs:
     with:
       image_type: release
       binary: chain-spec-builder
+      registry: ${{ inputs.registry }}
+      owner: ${{ inputs.owner }}
+      version: ${{ inputs.version }}
+      stable_tag: ${{ needs.promote-rc-to-final.outputs.final_tag }}
+
+    secrets: inherit
+    permissions:
+      contents: write
+
+  publish-docker-eth-rpc:
+    name: Publish Docker image - eth-rpc
+    # needs: [publish-deb-package, publish-rpm-package]
+    needs: [promote-rc-to-final]
+    if: ${{ inputs.binary == 'eth-rpc' || inputs.binary == 'all' }}
+    uses: ./.github/workflows/release-50_publish-docker.yml
+    with:
+      image_type: release
+      binary: eth-rpc
       registry: ${{ inputs.registry }}
       owner: ${{ inputs.owner }}
       version: ${{ inputs.version }}

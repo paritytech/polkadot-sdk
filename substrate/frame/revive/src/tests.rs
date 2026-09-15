@@ -17,6 +17,8 @@
 
 mod block_hash;
 mod deposit_payment;
+mod eip7702;
+mod eth_estimate_gas;
 mod pallet_dummy;
 mod precompiles;
 mod pvm;
@@ -83,6 +85,36 @@ impl EthExtra for EthExtraImpl {
 			ChargeTransactionPayment::from(tip),
 			crate::evm::tx_extension::SetOrigin::<Test>::new_from_eth_transaction(),
 		)
+	}
+}
+
+/// Helper function to generate a simple dummy EVM contract
+/// Returns bytecode that stores a value (42) in memory and returns it
+pub(crate) fn dummy_evm_contract() -> Vec<u8> {
+	use revm::bytecode::opcode::*;
+	vec![PUSH1, 0x2a, PUSH1, 0x00, MSTORE, PUSH1, 0x20, PUSH1, 0x00, RETURN]
+}
+
+/// Test keypair for signing EIP-7702 authorizations
+pub(crate) struct TestSigner {
+	key: k256::ecdsa::SigningKey,
+	pub address: H160,
+}
+
+impl TestSigner {
+	pub fn new(seed: &[u8; 32]) -> Self {
+		let key = k256::ecdsa::SigningKey::from_bytes(seed.into()).expect("valid key; qed");
+		let address = crate::evm::eip7702::eth_address(&key);
+		Self { key, address }
+	}
+
+	pub fn sign_authorization(
+		&self,
+		chain_id: U256,
+		address: H160,
+		nonce: U256,
+	) -> crate::evm::AuthorizationListEntry {
+		crate::evm::eip7702::sign_authorization(&self.key, chain_id, address, nonce)
 	}
 }
 
@@ -277,12 +309,16 @@ parameter_types! {
 			Weight::from_parts(2 * WEIGHT_REF_TIME_PER_SECOND, 10 * 1024 * 1024),
 		);
 	pub static ExistentialDeposit: u128 = 1;
+	// Non-zero, so tests fail when a DB access is not charged.
+	pub const TestDbWeight: frame_support::weights::RuntimeDbWeight =
+		frame_support::weights::RuntimeDbWeight { read: 100, write: 300 };
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
 	type BlockWeights = BlockWeights;
+	type DbWeight = TestDbWeight;
 	type AccountId = AccountId32;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type AccountData = pallet_balances::AccountData<u128>;

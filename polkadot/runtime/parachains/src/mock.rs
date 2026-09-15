@@ -257,7 +257,9 @@ impl crate::paras::Config for Test {
 	type AuthorizeCurrentCodeOrigin = EnsureRoot<AccountId>;
 }
 
-impl crate::dmp::Config for Test {}
+impl crate::dmp::Config for Test {
+	type WeightInfo = ();
+}
 
 parameter_types! {
 	pub const DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (4, 1);

@@ -356,7 +356,7 @@ pub fn session_info<T: session_info::Config>(index: SessionIndex) -> Option<Sess
 pub fn dmq_contents<T: dmp::Config>(
 	recipient: ParaId,
 ) -> Vec<InboundDownwardMessage<BlockNumberFor<T>>> {
-	dmp::Pallet::<T>::dmq_contents(recipient)
+	dmp::Pallet::<T>::dmq_contents_do_not_call_in_consensus(recipient)
 }
 
 /// Implementation for the `inbound_hrmp_channels_contents` function of the runtime API.
@@ -493,7 +493,7 @@ pub fn backing_constraints<T: initializer::Config>(
 	let ump_remaining = config.max_upward_queue_count - ump_msg_count;
 	let ump_remaining_bytes = config.max_upward_queue_size - ump_total_bytes;
 
-	let dmp_remaining_messages = dmp::Pallet::<T>::dmq_contents(para_id)
+	let dmp_remaining_messages = dmp::Pallet::<T>::dmq_contents_do_not_call_in_consensus(para_id)
 		.into_iter()
 		.map(|msg| msg.sent_at)
 		.collect();

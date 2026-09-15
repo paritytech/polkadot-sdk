@@ -84,16 +84,19 @@ impl pallet_election_provider_multi_block_signed::WeightInfo for MultiBlockElect
 		unreachable!()
 	}
 	fn register_eject() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn register_not_full() -> Weight {
 		// we submit pages in tests
 		Default::default()
 	}
 	fn submit_page() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn unset_page() -> Weight {
+		unreachable!()
+	}
+	fn claim_unpaid_reward() -> Weight {
 		unreachable!()
 	}
 }
@@ -222,7 +225,7 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 	fn rc_on_offence(_: u32) -> Weight {
 		Default::default()
 	}
-	fn rc_on_session_report() -> Weight {
+	fn rc_on_session_report(_: u32) -> Weight {
 		Default::default()
 	}
 	fn prune_era_stakers_paged(_: u32) -> Weight {
@@ -247,6 +250,9 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 		unreachable!()
 	}
 	fn prune_era_validator_slash_in_era(_: u32) -> Weight {
+		unreachable!()
+	}
+	fn chill_inactive(_: u32) -> Weight {
 		unreachable!()
 	}
 }

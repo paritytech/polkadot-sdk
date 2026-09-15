@@ -19,6 +19,7 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
+	access_list::{AccessEntry, AccessList, StorageAccessKind, StorageOp},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -283,10 +284,9 @@ pub trait Ext: PrecompileWithInfoExt {
 	#[allow(dead_code)]
 	fn own_code_hash(&mut self) -> &H256;
 
-	/// Get the length of the immutable data.
-	///
 	/// This query is free as it does not need to load the immutable data from storage.
 	/// Useful when we need a constant time lookup of the length.
+	/// For foreign code (delegate call, EIP-7702 delegated EOA) returns the `IMMUTABLE_BYTES` cap.
 	fn immutable_data_len(&mut self) -> u32;
 
 	/// Returns the immutable data of the current contract.
@@ -401,6 +401,12 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Check if the caller is origin, and this origin is root.
 	fn caller_is_root(&self, use_caller_of_caller: bool) -> bool;
+
+	/// Check if the origin of the whole call stack is root.
+	///
+	/// Unlike [`Self::caller_is_root`], this does not require the caller to be the origin: any
+	/// number of intermediate frames may sit between this contract and the original dispatch.
+	fn origin_is_root(&self) -> bool;
 
 	/// Returns a reference to the account id of the current contract.
 	fn account_id(&self) -> &AccountIdOf<Self::T>;
@@ -543,6 +549,23 @@ pub trait PrecompileExt: sealing::Sealed {
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError>;
 
+	/// Checks if `key` was already accessed in this transaction and inserts it
+	/// otherwise, so subsequent accesses to the same slot bill as hot. Returns
+	/// the slot's [`StorageAccessKind`]. `op` is the operation being performed:
+	/// a write upgrades a slot that had only paid for a read. When
+	/// `transient` is true, skips the access list and returns the `Transient`
+	/// variant.
+	fn touch_storage_access(
+		&mut self,
+		transient: bool,
+		key: &Key,
+		op: StorageOp,
+	) -> StorageAccessKind;
+
+	/// Non-mutating sibling of `touch_storage_access`: prices the access without
+	/// warming the slot.
+	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind;
+
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
 }
@@ -637,6 +660,8 @@ pub struct Stack<'a, T: Config, E> {
 	first_frame: Frame<T>,
 	/// Transient storage used to store data, which is kept for the duration of a transaction.
 	transient_storage: TransientStorage<T>,
+	/// Per-transaction cold/hot access list for storage slots (EIP-2929 style).
+	access_list: AccessList,
 	/// Global behavior determined by the creater of this stack.
 	exec_config: &'a ExecConfig<T>,
 	/// No executable is held by the struct but influences its behaviour.
@@ -665,6 +690,12 @@ struct Frame<T: Config> {
 	/// The delegate call info of the currently executing frame which was spawned by
 	/// `delegate_call`.
 	delegate: Option<DelegateInfo<T>>,
+	/// The address where the code (and immutable data) originates from.
+	///
+	/// For regular contracts, this equals the contract's own address.
+	/// For delegated accounts (EIP-7702), this is the delegation target's address.
+	/// For explicit delegate_call, this is the callee's address.
+	code_address: H160,
 	/// The output of the last executed call frame.
 	last_frame_output: ExecReturnValue,
 	/// The set of contracts that were created during this call stack.
@@ -867,6 +898,7 @@ where
 					T::AddressMapper::to_address(&dest),
 					None,
 					false,
+					false,
 					value,
 					&input_data,
 					Default::default(),
@@ -1034,10 +1066,32 @@ where
 			first_frame,
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
+			access_list: AccessList::new(),
 			exec_config,
 			_phantom: Default::default(),
 		};
 		Ok(Some((stack, executable)))
+	}
+
+	/// EIP-7702 chained delegation check for an account with no loadable code.
+	///
+	/// A chained delegation always surfaces with an empty snapshot: `set_delegation` only
+	/// snapshots a `code_hash` when the target is a deployed contract, and a contract can
+	/// never become delegated. So when `load_contract_with_delegation` returns no contract
+	/// info but a delegation target, one read of the target decides: if the target is itself
+	/// delegated, the spec resolves one hop, retrieves the target's indicator bytes
+	/// `0xef0100 || ..`, and traps on the leading `0xef` invalid opcode. Otherwise the
+	/// resolved code is genuinely empty and the call falls through to the transfer path.
+	fn fail_if_chained_delegation(target: Option<H160>) -> Result<(), ExecError> {
+		if let Some(target) = target &&
+			AccountInfo::<T>::is_delegated(&target)
+		{
+			return Err(ExecError {
+				error: <Error<T>>::ContractTrapped.into(),
+				origin: ErrorOrigin::Callee,
+			});
+		}
+		Ok(())
 	}
 
 	/// Construct a new frame.
@@ -1054,6 +1108,14 @@ where
 		input_data: &[u8],
 		exec_config: &ExecConfig<T>,
 	) -> Result<Option<(Frame<T>, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
+		// `Some` once the account entry has been read: the delegation target it carried, so
+		// `code_address` below does not decode the same entry a second time.
+		let mut read_delegation: Option<Option<H160>> = None;
+		// `Some` when this is a delegate call whose callee is an EIP-7702 delegated EOA: the
+		// callee's delegation target, which is where the executed code (and therefore its
+		// immutable data) lives.
+		let mut delegate_code_target: Option<H160> = None;
+
 		let (account_id, contract_info, executable, delegate, entry_point) = match frame_args {
 			FrameArgs::Call { dest, cached_info, delegated_call } => {
 				let address = T::AddressMapper::to_address(&dest);
@@ -1064,22 +1126,34 @@ where
 				let mut contract = match (cached_info, &precompile) {
 					(Some(info), _) => CachedContract::Cached(info),
 					(None, None) => {
-						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
+						let (info, target) =
+							AccountInfo::<T>::load_contract_with_delegation(&address);
+						read_delegation = Some(target);
+						if let Some(info) = info {
 							CachedContract::Cached(info)
 						} else {
+							Self::fail_if_chained_delegation(target)?;
 							return Ok(None);
 						}
 					},
 					(None, Some(precompile)) if precompile.has_contract_info() => {
 						log::trace!(target: LOG_TARGET, "found precompile for address {address:?}");
-						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
+						let (info, target) =
+							AccountInfo::<T>::load_contract_with_delegation(&address);
+						read_delegation = Some(target);
+						if let Some(info) = info {
 							CachedContract::Cached(info)
 						} else {
 							let info = ContractInfo::new(&address, 0u32.into(), H256::zero())?;
 							CachedContract::Cached(info)
 						}
 					},
-					(None, Some(_)) => CachedContract::None,
+					// A precompile address can never be delegated: skip the `code_address`
+					// delegation lookup below.
+					(None, Some(_)) => {
+						read_delegation = Some(None);
+						CachedContract::None
+					},
 				};
 
 				let delegated_call = delegated_call.or_else(|| {
@@ -1097,10 +1171,13 @@ where
 							_phantom: Default::default(),
 						}
 					} else {
-						let Some(info) = AccountInfo::<T>::load_contract(&delegated_call.callee)
-						else {
+						let (info, target) =
+							AccountInfo::<T>::load_contract_with_delegation(&delegated_call.callee);
+						let Some(info) = info else {
+							Self::fail_if_chained_delegation(target)?;
 							return Ok(None);
 						};
+						delegate_code_target = target;
 						let executable = E::from_storage(info.code_hash, meter)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
@@ -1157,12 +1234,30 @@ where
 			},
 		};
 
+		// Compute the code_address: the address where the code (and immutable data) comes from.
+		// For delegate_call this is the callee — or the callee's delegation target when the
+		// callee is itself a delegated EOA. For a call to an EIP-7702 delegated account it's
+		// the delegation target, otherwise it's the account's own address.
+		let address = T::AddressMapper::to_address(&account_id);
+		let code_address = delegate
+			.as_ref()
+			.map(|d| delegate_code_target.unwrap_or(d.callee))
+			.or_else(|| {
+				// Constructors can't be delegated, skip the storage read.
+				if entry_point == ExportedFunction::Constructor {
+					return None;
+				}
+				read_delegation.unwrap_or_else(|| AccountInfo::<T>::get_delegation_target(&address))
+			})
+			.unwrap_or(address);
+
 		let frame = Frame {
 			delegate,
 			value_transferred,
 			contract_info,
 			account_id,
 			entry_point,
+			code_address,
 			frame_meter: meter.new_nested(call_resources)?,
 			allows_reentry: true,
 			read_only,
@@ -1221,6 +1316,15 @@ where
 			input_data,
 			self.exec_config,
 		)? {
+			// EIP-684: an in-construction address is not in `AccountInfoOf` yet, so the
+			// `is_contract` guard in `ContractInfo::new` misses this re-entrant collision.
+			if frame.entry_point == ExportedFunction::Constructor &&
+				self.frames().any(|f| {
+					f.entry_point == ExportedFunction::Constructor &&
+						f.account_id == frame.account_id
+				}) {
+				return Err(Error::<T>::DuplicateContract.into());
+			}
 			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
 			Ok(Some(executable))
 		} else {
@@ -1258,7 +1362,8 @@ where
 			tracer.enter_child_span(
 				from,
 				to,
-				frame.delegate.as_ref().map(|delegate| delegate.callee),
+				(frame.code_address != to).then_some(frame.code_address),
+				frame.delegate.is_some(),
 				frame.read_only,
 				frame.value_transferred,
 				&input_data,
@@ -1297,6 +1402,13 @@ where
 			transient_storage.start_transaction();
 		});
 		let is_first_frame = self.frames.is_empty();
+		let access_list_checkpoints_len = self.access_list.frame_depth();
+		// Open an access-list frame for nested CALL/CREATE. The first frame
+		// is skipped; its touches land in the bare journal and persist
+		// for the whole transaction.
+		if !is_first_frame {
+			self.access_list.enter_frame();
+		}
 
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
@@ -1548,6 +1660,25 @@ where
 				transient_storage.rollback_transaction();
 			}
 		});
+		// For the first frame, only log the final metrics since it doesn't open a
+		// checkpoint. Nested frames commit or roll back the checkpoint they opened.
+		if is_first_frame {
+			let m = self.access_list.metrics();
+			log::trace!(
+				target: LOG_TARGET,
+				"access list metrics: size={size} cold={cold} hot={hot}",
+				size = m.size, cold = m.cold, hot = m.hot,
+			);
+		} else if success {
+			self.access_list.commit_frame();
+		} else {
+			self.access_list.rollback_frame();
+		}
+		debug_assert_eq!(
+			self.access_list.frame_depth(),
+			access_list_checkpoints_len,
+			"this frame closed exactly the checkpoint it opened",
+		);
 		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");
 
 		self.pop_frame(success);
@@ -1561,6 +1692,27 @@ where
 	/// This is called after running the current frame. It commits cached values to storage
 	/// and invalidates all stale references to it that might exist further down the call stack.
 	fn pop_frame(&mut self, persist: bool) {
+		/// Bank the pending storage diff into the cached `ContractInfo`, then invalidate.
+		///
+		/// The `load` covers the case where an earlier same-contract reentry already
+		/// invalidated this frame; without it a removal-bearing diff would be banked with
+		/// no info and silently drop the refund pro-rata. A `None` after `load` means the
+		/// frame is a precompile with no contract info, which has nothing to bank.
+		fn bank_pending_changes_and_invalidate<T: Config>(f: &mut Frame<T>) {
+			let contract = f.account_id.clone();
+			f.contract_info.load(&f.account_id);
+			if let Some(info) = f.contract_info.as_contract() {
+				f.frame_meter.bank_pending_storage_changes(contract, info);
+			}
+			// `invalidate` drops the in-memory update `bank` made to `info`; that is safe
+			// because storage already reflects it. Additions and `set_storage` removals leave
+			// the frame `Cached` (write reloads the cache), so `push_frame` preview-persists
+			// them before we get here. The only diff not yet in storage would be a removal on
+			// an already-invalidated frame — reachable solely via `charge_storage`, which has
+			// no contract-level caller. If that changes, persist here instead of invalidating.
+			f.contract_info.invalidate();
+		}
+
 		// Pop the current frame from the stack and return it in case it needs to interact
 		// with duplicates that might exist on the stack.
 		// A `None` means that we are returning from the `first_frame`.
@@ -1601,7 +1753,8 @@ where
 					contract,
 				);
 				if let Some(f) = self.frames_mut().find(|f| f.account_id == *account_id) {
-					f.contract_info.invalidate();
+					// Bank before invalidating so finalize doesn't apply the diff a second time.
+					bank_pending_changes_and_invalidate(f);
 				}
 			}
 		} else {
@@ -1678,8 +1831,9 @@ where
 		let ed = <T as Config>::Currency::minimum_balance();
 		let is_eth_tx = exec_config.collect_deposit_from_hold.is_some();
 		with_transaction(|| -> TransactionOutcome<DispatchResult> {
-			match meter
-				.charge_deposit(&StorageDeposit::Charge(ed))
+			// Meter the ED deposit only after the transfer succeeds: the meter is not rolled
+			// back, so metering earlier would count an ED for an account never created.
+			match Ok::<(), DispatchError>(())
 				.and_then(|_| {
 					if is_eth_tx {
 						let credit = T::FeeInfo::withdraw_txfee(ed)
@@ -1694,6 +1848,7 @@ where
 					}
 				})
 				.and_then(|_| transfer_with_dust::<T>(from, to, value, preservation))
+				.and_then(|_| meter.charge_deposit(&StorageDeposit::Charge(ed)))
 			{
 				Ok(_) => TransactionOutcome::Commit(Ok(())),
 				Err(err) => TransactionOutcome::Rollback(Err(err)),
@@ -1988,7 +2143,12 @@ where
 	}
 
 	fn immutable_data_len(&mut self) -> u32 {
-		self.top_frame_mut().contract_info().immutable_data_len()
+		let frame = self.top_frame_mut();
+		if frame.code_address == T::AddressMapper::to_address(&frame.account_id) {
+			frame.contract_info().immutable_data_len()
+		} else {
+			limits::IMMUTABLE_BYTES
+		}
 	}
 
 	fn get_immutable_data(&mut self) -> Result<ImmutableData, DispatchError> {
@@ -1996,13 +2156,9 @@ where
 			return Err(Error::<T>::InvalidImmutableAccess.into());
 		}
 
-		// Immutable is read from contract code being executed
-		let address = self
-			.top_frame()
-			.delegate
-			.as_ref()
-			.map(|d| d.callee)
-			.unwrap_or(T::AddressMapper::to_address(self.account_id()));
+		// Immutable data is read from the address where the code originates.
+		// This handles regular contracts, delegated accounts (EIP-7702), and delegate_call.
+		let address = self.top_frame().code_address;
 		Ok(<ImmutableDataOf<T>>::get(address).ok_or_else(|| Error::<T>::InvalidImmutableAccess)?)
 	}
 
@@ -2093,6 +2249,10 @@ where
 		allows_reentry: ReentrancyProtection,
 		read_only: bool,
 	) -> Result<(), ExecError> {
+		// We reset the return data now, so it is cleared out even if no new frame was executed.
+		// This is for example the case for balance transfers or when creating the frame fails.
+		*self.last_frame_output_mut() = Default::default();
+
 		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
 		// is caught by it.
@@ -2100,10 +2260,6 @@ where
 		if allows_reentry == ReentrancyProtection::Strict {
 			self.top_frame_mut().allows_reentry = false;
 		}
-
-		// We reset the return data now, so it is cleared out even if no new frame was executed.
-		// This is for example the case for balance transfers or when creating the frame fails.
-		*self.last_frame_output_mut() = Default::default();
 
 		let try_call = || {
 			// Enable read-only access if requested; cannot disable it if already set.
@@ -2157,6 +2313,7 @@ where
 						T::AddressMapper::to_address(self.account_id()),
 						T::AddressMapper::to_address(&dest),
 						None,
+						false,
 						is_read_only,
 						value,
 						&input_data,
@@ -2306,6 +2463,14 @@ where
 			return sp_io::hashing::keccak_256(code).into();
 		}
 
+		// EIP-7702: delegated EOAs return keccak256(0xef0100 || target). This is the
+		// EXTCODEHASH path; CODEHASH (self) uses the separate `own_code_hash` host
+		// function and is therefore unaffected.
+		if let Some(target) = <AccountInfo<T>>::get_delegation_target(address) {
+			let indicator = <AccountInfo<T>>::delegation_indicator(&target);
+			return sp_io::hashing::keccak_256(&indicator).into();
+		}
+
 		<AccountInfo<T>>::load_contract(&address)
 			.map(|contract| contract.code_hash)
 			.unwrap_or_else(|| {
@@ -2326,6 +2491,18 @@ where
 			return code.len() as u64;
 		}
 
+		// EIP-7702: delegated EOAs return the delegation indicator size (23 bytes).
+		//
+		// PVM caveat: on PolkaVM, EXTCODESIZE and CODESIZE both lower to this
+		// host function, so this branch is reached for both. It is spec-correct
+		// for EXTCODESIZE but wrong for CODESIZE inside a delegated EOA's
+		// execution — the executing code there is the target's PVM blob, whose
+		// size is not 23. Spec-correct CODESIZE requires a separate host
+		// function and a matching resolc change; tracked as a follow-up.
+		if <AccountInfo<T>>::is_delegated(address) {
+			return 23;
+		}
+
 		<AccountInfo<T>>::load_contract(&address)
 			.and_then(|contract| CodeInfoOf::<T>::get(contract.code_hash))
 			.map(|info| info.code_len())
@@ -2340,6 +2517,10 @@ where
 	fn caller_is_root(&self, use_caller_of_caller: bool) -> bool {
 		// if the caller isn't origin, then it can't be root.
 		self.caller_is_origin(use_caller_of_caller) && self.origin == Origin::Root
+	}
+
+	fn origin_is_root(&self) -> bool {
+		self.origin == Origin::Root
 	}
 
 	fn balance(&self) -> U256 {
@@ -2469,15 +2650,34 @@ where
 			return;
 		}
 
-		let code_hash = self.code_hash(address);
-		let code = crate::PristineCode::<T>::get(&code_hash).unwrap_or_default();
+		let code = if let Some(code) =
+			<AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
+				self.exec_config
+					.mock_handler
+					.as_ref()
+					.and_then(|handler| handler.mocked_code(*address))
+			}) {
+			code.to_vec()
+		} else if let Some(target) = <AccountInfo<T>>::get_delegation_target(address) {
+			// EIP-7702: delegated EOAs return 0xef0100 || target as their code.
+			//
+			// PVM caveat: on PolkaVM, EXTCODECOPY and CODECOPY both lower to this
+			// host function, so this branch is reached for both. It is spec-correct
+			// for EXTCODECOPY but wrong for CODECOPY inside a delegated EOA's
+			// execution — the executing code there is the target's PVM blob, not
+			// the 23-byte indicator. Spec-correct CODECOPY requires a separate
+			// host function and a matching resolc change; tracked as a follow-up.
+			<AccountInfo<T>>::delegation_indicator(&target).to_vec()
+		} else {
+			let code_hash = self.code_hash(address);
+			crate::PristineCode::<T>::get(&code_hash).unwrap_or_default()
+		};
 
-		let len = len.min(code.len().saturating_sub(code_offset));
-		if len > 0 {
-			buf[..len].copy_from_slice(&code[code_offset..code_offset + len]);
+		let copy_len = len.min(code.len().saturating_sub(code_offset));
+		if copy_len > 0 {
+			buf[..copy_len].copy_from_slice(&code[code_offset..code_offset + copy_len]);
 		}
-
-		buf[len..].fill(0);
+		buf[copy_len..].fill(0);
 	}
 
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {
@@ -2486,10 +2686,17 @@ where
 		ensure!(parent.entry_point == ExportedFunction::Call, Error::<T>::TerminatedInConstructor);
 		ensure!(parent.delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
 
+		let contract_address = T::AddressMapper::to_address(&parent.account_id);
+
+		// EIP-7702: delegated EOAs cannot be destroyed via the system precompile.
+		ensure!(
+			!AccountInfo::<T>::is_delegated(&contract_address),
+			Error::<T>::CannotTerminateDelegatedAccount,
+		);
+
 		let info = parent.contract_info();
 		let trie_id = info.trie_id.clone();
 		let code_hash = info.code_hash;
-		let contract_address = T::AddressMapper::to_address(&parent.account_id);
 		let beneficiary = T::AddressMapper::to_account_id(beneficiary);
 
 		let parent_account_id = parent.account_id.clone();
@@ -2547,6 +2754,31 @@ where
 			value,
 			Some(&mut frame.frame_meter),
 			take_old,
+		)
+	}
+
+	fn touch_storage_access(
+		&mut self,
+		transient: bool,
+		key: &Key,
+		op: StorageOp,
+	) -> StorageAccessKind {
+		if transient {
+			return StorageAccessKind::Transient;
+		}
+		let address = self.address();
+		StorageAccessKind::Persistent(
+			self.access_list.touch(AccessEntry { address, slot: key.into() }, op),
+		)
+	}
+
+	fn peek_storage_access(&self, transient: bool, key: &Key) -> StorageAccessKind {
+		if transient {
+			return StorageAccessKind::Transient;
+		}
+		let address = self.address();
+		StorageAccessKind::Persistent(
+			self.access_list.peek(&AccessEntry { address, slot: key.into() }),
 		)
 	}
 

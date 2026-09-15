@@ -2823,3 +2823,60 @@ fn fatp_watcher_ready_event_after_instant_finalization() {
 		"First event should be Ready, delivered from the finalized view"
 	);
 }
+
+#[test]
+fn fatp_watcher_replaced_tx_not_reported_as_inblock() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+
+	let header01 = api.push_block(1, vec![], true);
+	let event = new_best_block_event(&pool, None, header01.hash());
+	block_on(pool.maintain(event));
+
+	// Create two transactions with same sender+nonce (different hashes due to Sr25519).
+	let xt_original = uxt(Alice, 200);
+	let xt_replacement = uxt(Alice, 200);
+	api.set_priority(&xt_replacement, 10);
+
+	// Submit original, then replacement — original gets usurped.
+	let xt_original_watcher =
+		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt_original.clone())).unwrap();
+	let xt_replacement_watcher =
+		block_on(pool.submit_and_watch(invalid_hash(), SOURCE, xt_replacement.clone())).unwrap();
+
+	// Verify original was usurped.
+	let xt_original_events = futures::executor::block_on_stream(xt_original_watcher)
+		.take(2)
+		.collect::<Vec<_>>();
+	assert_eq!(
+		xt_original_events,
+		vec![
+			TransactionStatus::Ready,
+			TransactionStatus::Usurped(api.hash_and_length(&xt_replacement).0),
+		]
+	);
+
+	// Only replacement should be in the pool now.
+	assert_pool_status!(header01.hash(), &pool, 1, 0);
+
+	// Create a block containing the ORIGINAL tx — simulates another node including it
+	// before the replacement reached that node.
+	let header02 = api.push_block(2, vec![xt_original.clone()], true);
+	api.set_nonce(header02.hash(), Alice.into(), 201);
+
+	// Finalize and produce enough blocks for mempool revalidation to trigger.
+	let mut prev_header = header01;
+	for n in 2..=11 {
+		let header = if n == 2 { header02.clone() } else { api.push_block(n, vec![], true) };
+		api.set_nonce(header.hash(), Alice.into(), 201);
+		let event = finalized_block_event(&pool, prev_header.hash(), header.hash());
+		block_on(pool.maintain(event));
+		prev_header = header;
+	}
+
+	// The replacement tx was never in any block. It must NOT get InBlock or Finalized.
+	// It should only get Ready, then Invalid (purged as stale on finalization).
+	let xt_replacement_events = block_on(xt_replacement_watcher.collect::<Vec<_>>());
+	assert_eq!(xt_replacement_events, vec![TransactionStatus::Ready, TransactionStatus::Invalid,]);
+}

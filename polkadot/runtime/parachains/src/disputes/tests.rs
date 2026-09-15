@@ -1898,7 +1898,8 @@ fn test_check_signature_approval_multiple_candidates_coalesce_limit() {
 			candidates.clone().try_into().expect("within the coalesce bound"),
 		));
 
-	// Coalescing disabled (`max_approval_coalesce_count == 1`): always rejected.
+	// Coalescing disabled (`max_approval_coalesce_count == 1`): a set larger than the limit is
+	// rejected by the per-session cap (`candidates.len() > max_approval_coalesce_count`).
 	assert!(check_signature(
 		&validator_id.public(),
 		candidate_hash,
@@ -1908,6 +1909,24 @@ fn test_check_signature_approval_multiple_candidates_coalesce_limit() {
 		1,
 	)
 	.is_err());
+
+	// Check a single-candidate coalesced statement is accepted.
+	let single = vec![candidate_hash];
+	let signed_single =
+		validator_id.sign(&ApprovalVoteMultipleCandidates(&single).signing_payload(session));
+	let statement_single =
+		DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(
+			single.try_into().expect("within the coalesce bound"),
+		));
+	assert!(check_signature(
+		&validator_id.public(),
+		candidate_hash,
+		session,
+		&statement_single,
+		&signed_single,
+		1,
+	)
+	.is_ok());
 
 	// More candidates than the limit allows: rejected (the enforced cap).
 	assert!(check_signature(

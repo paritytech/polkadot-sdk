@@ -385,6 +385,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			pallet_staking_async::ConfigOp::Noop,
 			pallet_staking_async::ConfigOp::Noop,
 			pallet_staking_async::ConfigOp::Noop, // are_nominators_slashable
+			pallet_staking_async::ConfigOp::Noop,
 		));
 
 		// Set up validators that tests can nominate
