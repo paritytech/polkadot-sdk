@@ -33,6 +33,10 @@ pub const CHANGED_IN_ATTRIBUTE: &str = "changed_in";
 ///
 /// Is used when a trait method was renamed.
 pub const RENAMED_ATTRIBUTE: &str = "renamed";
+/// The `encode_like` attribute.
+///
+/// Is placed on a parameter to let the client side accept any type with the same encoding.
+pub const ENCODE_LIKE_ATTRIBUTE: &str = "encode_like";
 
 /// All attributes that we support in the declaration of a runtime api trait.
 pub const SUPPORTED_ATTRIBUTE_NAMES: &[&str] =
