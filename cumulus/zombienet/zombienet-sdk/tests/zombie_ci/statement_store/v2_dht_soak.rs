@@ -11,7 +11,7 @@
 //! in the logs. `STATEMENT_V2_SOAK_NODES` (default 12; above 51 the statement graph goes
 //! sparse) and `STATEMENT_V2_SOAK_SECS` (default 900) size the run.
 //!
-//! Runs on demand only: the `GHA-statement-store` PR label, a workflow dispatch, or locally —
+//! Runs on demand only: the `A6-statement-store` PR label, a workflow dispatch, or locally —
 //! against the cluster given a kubeconfig:
 //!
 //! ```text
@@ -221,11 +221,10 @@ async fn launch_soak_network(
 		.build()
 		.map_err(format_build_errors)?;
 
-	let network = crate::utils::initialize_network(config).await?;
-	// Spawn time grows with the network, so the readiness window scales with it.
-	let up_timeout = 60 + 10 * (AUTHORING_COLLATORS.len() + full_node_names.len() + 2) as u64;
-	assert!(network.wait_until_is_up(up_timeout).await.is_ok());
-	Ok(network)
+	// No `wait_until_is_up` here: it polls every node in parallel and overwhelms the
+	// workstation-side port-forwards on large networks. The sequential per-node metric waits
+	// that follow the spawn cover readiness with scaled timeouts and name the failing node.
+	crate::utils::initialize_network(config).await.map_err(Into::into)
 }
 
 /// Reads each node's peer id and maps it into the XOR topic space.

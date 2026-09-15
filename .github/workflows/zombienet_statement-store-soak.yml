@@ -1,7 +1,7 @@
 name: Zombienet Statement Store Soak
 
 # On-demand statement-store on the zombienet k8s cluster: runs when a PR carries the
-# `GHA-statement-store` label (and again on every push while it does), or via manual dispatch.
+# `A6-statement-store` label (and again on every push while it does), or via manual dispatch.
 # Not part of the default per-PR zombienet matrix. Needs a completed "Build and push images"
 # run for the head — if the label lands before that build finishes, re-run this workflow.
 
@@ -42,7 +42,7 @@ env:
 jobs:
   preflight:
     # The label is the opt-in – no draft gate.
-    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.label.name, 'GHA-statement-store') || contains(github.event.pull_request.labels.*.name, 'GHA-statement-store') }}
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.label.name, 'A6-statement-store') || contains(github.event.pull_request.labels.*.name, 'A6-statement-store') }}
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
     with:
       tests_yaml: .github/zombienet-tests/zombienet_statement_store_soak_tests.yml
