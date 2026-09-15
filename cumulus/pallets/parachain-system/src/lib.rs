@@ -39,7 +39,9 @@ use cumulus_primitives_core::{
 	ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender, VerifySchedulingSignature,
 	XcmpMessageHandler, XcmpMessageSource,
 };
-use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
+use cumulus_primitives_parachain_inherent::{
+	v0, HashedMessage, MessageQueueChain, ParachainInherentData,
+};
 use frame_support::{
 	dispatch::{DispatchClass, DispatchResult},
 	ensure,
@@ -1477,6 +1479,15 @@ impl<T: Config> Pallet<T> {
 			return T::DbWeight::get().reads_writes(1, 2);
 		}
 
+		let max_weight =
+			<ReservedXcmpWeightOverride<T>>::get().unwrap_or_else(T::ReservedXcmpWeight::get);
+		let (mut num_processed_pages, weight_used) = T::XcmpMessageHandler::handle_xcmp_messages(
+			horizontal_messages.flat_msgs_iter(),
+			max_weight,
+		);
+		num_processed_pages = cmp::min(num_processed_pages, messages.len());
+		let (processed_messages, unprocessed_messages) = messages.split_at(num_processed_pages);
+
 		let mut prev_msg_metadata = None;
 		let mut last_processed_block = HrmpWatermark::<T>::get();
 		let mut last_processed_msg =
@@ -1486,7 +1497,7 @@ impl<T: Config> Pallet<T> {
 				reverse_idx: u32::MAX,
 			});
 
-		for (sender, msg) in messages {
+		for (sender, msg) in processed_messages {
 			Self::check_hrmp_message_metadata(
 				ingress_channels,
 				&mut prev_msg_metadata,
@@ -1506,7 +1517,11 @@ impl<T: Config> Pallet<T> {
 
 		LastHrmpMqcHeads::<T>::put(&mqc_heads);
 
-		for (sender, msg) in hashed_messages {
+		let unprocessed_messages = unprocessed_messages
+			.iter()
+			.map(|(sender, msg)| (*sender, HashedMessage::from(msg)))
+			.collect::<Vec<_>>();
+		for (sender, msg) in unprocessed_messages.iter().chain(hashed_messages) {
 			Self::check_hrmp_message_metadata(
 				ingress_channels,
 				&mut prev_msg_metadata,
@@ -1533,13 +1548,6 @@ impl<T: Config> Pallet<T> {
 		}
 		LastProcessedHrmpMessage::<T>::put(&last_processed_msg);
 		Self::check_hrmp_mcq_heads(ingress_channels, &mut mqc_heads);
-
-		let max_weight =
-			<ReservedXcmpWeightOverride<T>>::get().unwrap_or_else(T::ReservedXcmpWeight::get);
-		let weight_used = T::XcmpMessageHandler::handle_xcmp_messages(
-			horizontal_messages.flat_msgs_iter(),
-			max_weight,
-		);
 
 		// Update watermark
 		HrmpWatermark::<T>::put(last_processed_block);
