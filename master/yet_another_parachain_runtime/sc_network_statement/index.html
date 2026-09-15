@@ -213,6 +213,9 @@ advertisements are rate-limited per peer, see <code>config::AFFINITY_UPDATES_PER
 a light V2 peer pulls only the topics it cares about instead of the full feed, and is synced
 those statements in an initial burst on connect. Full nodes receive all statements unless they
 opt into an affinity.</p>
+<p>With the v2 DHT path enabled, every <code>statement/2</code> peer sends its affinity filter as the first
+message on connect, and the initial sync waits for the peer’s filter, replaying the statements
+it matches and those the peer is a DHT routing target for.</p>
 <h3 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h3>
 <ul>
 <li>Use <a href="struct.StatementHandlerPrototype.html#method.new" title="associated function yet_another_parachain_runtime::sc_network_statement::StatementHandlerPrototype::new"><code>StatementHandlerPrototype::new</code></a> to create a prototype.</li>
