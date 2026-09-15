@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789482174975,
+  "lastUpdate": 1789489812230,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "84690100+metricaez@users.noreply.github.com",
-            "name": "Emiliano",
-            "username": "metricaez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3d6768bb613732a2dc29fa87f64e2da88c4d05d7",
-          "message": "Feat: Add API and mechanism to retrieve additional top-level and child proofs via the relay state proof (#10678)\n\n## Purpose\n\nThis pull request introduces a new runtime API and implements the full\nfeature pipeline for requesting additional relay-chain storage proofs in\nlookahead collators. The API allows parachain runtimes to specify extra\ntop-level storage keys or child-trie data that must be included in the\nrelay-chain state proof. The collator collects these additional proofs\nand merges them into the relay-chain state proof provided to the runtime\nduring block execution, enabling the runtime to later process custom\nrelay-chain data.\n\n## Rationale \n\nImmediate application in pubsub mechanism proposed in #9994\n\nThis is a narrow down of scope for easier review of PR #10679 \n\nDue to early exits when defaulted it adds no significant overhead to\ncurrent flows.\n\n## What this PR adds\n### Runtime API\n\n- Introduces `KeyToIncludeInRelayProofApi`. (_Suggestions for better\nnaming are very welcome._)\n\n- Adds supporting types` RelayProofRequest` and `RelayStorageKey`.\n\n- Allows runtimes to declare which relay-chain storage entries must be\nincluded in the relay state proof.\n\n### Collator integration\n\n- The lookahead collator calls the runtime API before block production.\n\n- Requested relay-chain proofs are collected, batched, and merged in a\nsingle operation.\n\n- The additional proofs are merged into the existing relay-chain state\nproof and passed to the runtime via parachain inherent data.\n\n### Proof extraction\n\n- `parachain-system` exposes an extraction method for processing this\nadditional proofs.\n\n- Uses a handler pattern:\n\n  - `parachain-system` manages proof lifecycle and initial validation.\n\n- Application pallets consume proofs (data extraction or additional\nvalidation) by implementing `ProcessRelayProofKeys`.\n\n- Keeps extra proofs processing logic out of parachain-system.\n\n### About RelayStorageKey\n\n`RelayStorageKey` is an enum with two variants:\n\n- `Top`: a `Vec<u8>` representing a top-level relay-chain storage key.\n\n- `Child`, which contains:\n\n- `storage_key`: an unprefixed identifier of the child trie root (the\ndefault _:child_storage:default:_ prefix is applied automatically),\n\n  - `key`: the specific key within that child trie.\n\nOn the client side, child trie access is performed via\nChildInfo::new_default(&storage_key).\n\nWhy `storage_key` instead of `ChildInfo`:\n\n- `ChildInfo` from `sp-storage` does not implement `TypeInfo`, which\nruntime APIs require.\n\n- Adding `TypeInfo` to `sp-storage` (or introducing a wrapper to avoid\nbloating a critical core component like `sp-storage`) would\nsignificantly expand the scope of this PR.\n\nAs a result, the current design:\n\n- Uses raw `storage_key` bytes.\n\n- Is limited to child tries using the default prefix.\n\n## Future improvements\n\n- Full `ChildInfo` support if `TypeInfo` is added to `sp-storage`\n(directly or via a wrapper), enabling arbitrary child-trie prefixes.\n\n- Possible unification with `additional_relay_state_keys` for top-level\nproofs, subject to careful analysis of semantics and backward\ncompatibility.\n\n- Integration with additional collator implementations beyond lookahead\ncollators.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-02-12T21:20:43Z",
-          "tree_id": "ce83e45aa5c1043f464e55380ff5599433a180ea",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3d6768bb613732a2dc29fa87f64e2da88c4d05d7"
-        },
-        "date": 1770935602771,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006939484200000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00988731819333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14636496520000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025122347186666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.00993834045333331,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4ad1aa893b6c7697b3292396ca08f591aea77537",
+          "message": "cumulus: use slot timer's slot to determine the scheduling parent (#13165)\n\n# Description\n\nA V3 candidate takes its scheduling parent by walking back from the\nrelay chain best block until a slot older than the one being produced\nfor. That walk read the wall clock a second time to decide which slot\nthat was. The slot timer wakes 2ms before the slot it reports begins, so\nthe second read still returned the previous slot. The walk then stepped\none block too far back, anchoring the candidate at an older relay block\nthan the slot intended. The production slot is now passed down from the\nslot timer and used as the only source of truth for the walk.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>",
+          "timestamp": "2026-09-15T14:57:42Z",
+          "tree_id": "bc618d05cca92d5ffc3bc634555dbbd2d52a32b3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4ad1aa893b6c7697b3292396ca08f591aea77537"
+        },
+        "date": 1789489776693,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02540885860666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007555556439999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14936772906,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010247424039999975,
             "unit": "seconds"
           }
         ]
