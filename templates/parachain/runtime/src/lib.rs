@@ -122,8 +122,8 @@ impl WeightToFeePolynomial for WeightToFee {
 		// charged separately via `SignatureWeight`), so add it back here to keep the
 		// smallest non-zero weight, and thus `q`, unchanged.
 		let p = MILLI_UNIT / 10;
-		let q = 100 *
-			Balance::from(ExtrinsicBaseWeight::get().ref_time().saturating_add(42_814_000));
+		let q =
+			100 * Balance::from(ExtrinsicBaseWeight::get().ref_time().saturating_add(42_814_000));
 		smallvec![WeightToFeeCoefficient {
 			degree: 1,
 			negative: false,

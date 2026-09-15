@@ -89,9 +89,7 @@ pub mod fee {
 			// smallest non-zero weight, and thus `q`, unchanged.
 			let p = super::currency::CENTS;
 			let q = 10 *
-				Balance::from(
-					ExtrinsicBaseWeight::get().ref_time().saturating_add(42_814_000),
-				);
+				Balance::from(ExtrinsicBaseWeight::get().ref_time().saturating_add(42_814_000));
 			smallvec![WeightToFeeCoefficient {
 				degree: 1,
 				negative: false,
