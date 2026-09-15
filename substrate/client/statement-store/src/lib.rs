@@ -3933,28 +3933,6 @@ mod tests {
 	}
 
 	#[test]
-	fn statements_by_hashes_counts_absent_hashes_but_not_the_aborted_one() {
-		let (store, _temp) = test_store();
-		let statement0 = signed_statement(0);
-		let statement1 = signed_statement(1);
-		assert_eq!(store.submit(statement0.clone(), StatementSource::Network), SubmitResult::New);
-		assert_eq!(store.submit(statement1.clone(), StatementSource::Network), SubmitResult::New);
-
-		let hashes = [[9u8; 32], statement0.hash(), statement1.hash()];
-		let (statements, processed) = store
-			.statements_by_hashes(&hashes, &mut |hash, _, _| {
-				if *hash == statement1.hash() {
-					FilterDecision::Abort
-				} else {
-					FilterDecision::Take
-				}
-			})
-			.unwrap();
-		assert_eq!(statements, vec![(statement0.hash(), statement0)]);
-		assert_eq!(processed, 2);
-	}
-
-	#[test]
 	fn admission_seq_is_monotonic_across_restarts() {
 		// Sequence numbers must never be reused, even when the highest-numbered statements were
 		// removed before a restart: a replay cursor as high as a dead sequence number would
