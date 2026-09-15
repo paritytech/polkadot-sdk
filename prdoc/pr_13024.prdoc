@@ -1,0 +1,32 @@
+title: Check configured address identity against the node key
+doc:
+- audience: Node Operator
+  description: |-
+    `--listen-addr` and `--public-addr` now accept the identity components an operator is likely
+    to paste back from an advertised or published address: a trailing `/p2p/<peer id>` on any
+    address, and a `/certhash/<hash>` before it on a `webrtc-direct` address.
+
+    Both are checked against the node key and stripped before use. The node refuses to start if
+    either disagrees with the key, and the error names the address, the component given, the one
+    the node key yields, and where that key comes from (`--node-key`, the node key file, or a key
+    generated on this start). An identity component anywhere else in the address, or a repeated
+    one, is rejected as malformed.
+
+    Previously a `/certhash` in these flags was always rejected, and a `/p2p` was handed to the
+    network backend unchecked.
+- audience: Node Dev
+  description: |-
+    `NetworkConfiguration::validate_and_complete_webrtc_addresses` is renamed to
+    `validate_and_complete_addresses`. Besides completing the public `webrtc-direct` addresses
+    with the node's `/certhash`, it now checks the `/p2p` and `/certhash` components of every
+    listen and public address against the node key and strips them, on both network backends.
+    Running it twice is idempotent. When an address carries an identity, the node key is resolved
+    and pinned into `NetworkConfiguration::node_key` even without a WebRTC listener.
+
+    `sc_network::error::Error` gains two variants: `MismatchedAddressIdentity` and
+    `MalformedAddressIdentity`.
+crates:
+- name: sc-cli
+  bump: minor
+- name: sc-network
+  bump: major
