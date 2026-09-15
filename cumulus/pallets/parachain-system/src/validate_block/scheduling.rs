@@ -1084,6 +1084,36 @@ mod tests {
 	}
 
 	#[test]
+	fn override_reproduces_block_signals_for_an_initial_submission() {
+		// An initial submission signs the same core info and peer id the block emits, so the
+		// PVF's override reproduces the block's own tail byte for byte. The candidate's
+		// commitments are built collator-side from the block's tail and checked against the
+		// PVF's result, so this equality is what lets a *signed* initial submission be backed
+		// at all. A resubmission is what deliberately breaks it, and it carries a collator-side
+		// override to keep the two in step.
+		let selector = CoreSelector(7);
+		let offset = ClaimQueueOffset(3);
+		let peer_id = peer(0xAA);
+
+		let mut from_block = TestUpwardMessages::default();
+		SchedulingSignals::from_block_signals(
+			&[
+				UMPSignal::SelectCore(selector, offset).encode(),
+				UMPSignal::ApprovedPeer(peer_id.clone()).encode(),
+			],
+			&mut from_block,
+		);
+
+		let mut from_signed = TestUpwardMessages::default();
+		SchedulingSignals::from_scheduling_info(
+			&signed_with(selector, offset.0, peer_id),
+			&mut from_signed,
+		);
+
+		assert_eq!(from_block.into_inner(), from_signed.into_inner());
+	}
+
+	#[test]
 	fn from_scheduling_info_emits_even_when_block_emitted_nothing() {
 		// The override is authoritative and independent of what the block emitted: a
 		// resubmission always produces its tail. (At the call site this is what decouples

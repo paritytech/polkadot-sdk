@@ -1,0 +1,19 @@
+title: 'cumulus: add support for signed scheduling info'
+doc:
+- audience: Node Dev
+  description: |
+    V3 candidates built by the slot-based collator now carry a signed scheduling info in
+    their scheduling proof, where previously the proof went out unsigned. The collator
+    signs the core selector, the claim queue offset, its approved peer id and the internal
+    scheduling parent with the Aura key that won the slot. An initial submission is valid
+    without the signature, since the relay chain takes core selection from the block's UMP
+    signals, but a resubmission is not, so this is a prerequisite for resubmitting a
+    candidate. A collator that cannot sign skips the slot rather than producing a candidate
+    that could never be resubmitted.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
+- name: cumulus-primitives-core
+  bump: minor
+- name: cumulus-pallet-parachain-system
+  bump: none
