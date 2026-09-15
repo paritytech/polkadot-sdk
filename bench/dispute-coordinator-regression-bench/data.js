@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789489946207,
+  "lastUpdate": 1789500785613,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "890e5eb532e88c414843393aea3f20c2b0ffe14e",
-          "message": "tracing-subscriber: Pin version to prevent ANSI colour code issues (#11053)\n\nLatest version of tracing-subscriber right now doesn't support ASNI\ncolour codes correctly: https://github.com/tokio-rs/tracing/issues/3378\n\nSo, the workaround right now is to pin it to `0.3.19`.\n\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/11030\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-12T10:01:27Z",
-          "tree_id": "5bb773a013effddfaef860fda55071ee698cc140",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/890e5eb532e88c414843393aea3f20c2b0ffe14e"
-        },
-        "date": 1770894887854,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006708858449999991,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002715308280000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009320834989999988,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0029209545600000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "50047cb3b75f62307f2a44b0fcebe8ce4b70273f",
+          "message": "statement-store: replica fanout (#13154)\n\n## Description\n\nOn the v2 DHT path a statement never reaches all of its K replicas.\n`routing_targets` caps the whole forwarding list at `gossip_target`, and\nsince it always picks the topic-closest peers, every holder selects the\nsame nodes and forwarding closes over `gossip_target + 1` of them: with\nK=8 and gossip-target=3 a statement is stored on 4 nodes instead of 8.\nThe configured `replication_factor` has no effect on durability.\n\nThe fix: every connected replica of the topic is always a forwarding\ntarget; the `gossip_target` cap applies only to routing peers (those\ncloser to the topic than the local node).\n\nOnly affects nodes running with `STATEMENT_STORE_V2_DHT_ENABLED=1`.\n\nVerified on a 100-node zombienet: 4/8 replicas before, 8/8 after, zero\nextra holders in both cases - full test report in the comment below.\n\nCloses #13189.",
+          "timestamp": "2026-09-15T17:56:50Z",
+          "tree_id": "aea57b8f477f43848d3d3ad2ecae71fd9805f993",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/50047cb3b75f62307f2a44b0fcebe8ce4b70273f"
+        },
+        "date": 1789500745689,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025495599600000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00954101483999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01115537840999999,
             "unit": "seconds"
           }
         ]
