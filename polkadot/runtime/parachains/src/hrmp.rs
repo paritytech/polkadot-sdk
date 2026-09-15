@@ -2001,8 +2001,18 @@ impl<T: Config> HrmpRegistry for Pallet<T> {
 	}
 
 	fn open_system_channel(channel: ChannelId) -> Result<(u32, u32), FailureReason> {
-		let _ = channel;
-		todo!()
+		// The calling chain checks this too; the relay chain does not take its word for it.
+		ensure!(
+			hrmp_primitives::is_system(channel.sender) &&
+				hrmp_primitives::is_system(channel.recipient),
+			FailureReason::InvalidPara
+		);
+
+		let config = configuration::ActiveConfig::<T>::get();
+		let sizes = (config.hrmp_channel_max_capacity, config.hrmp_channel_max_message_size);
+		<Self as HrmpRegistry>::open_channel(channel, sizes.0, sizes.1)?;
+
+		Ok(sizes)
 	}
 
 	fn open_system_pair(

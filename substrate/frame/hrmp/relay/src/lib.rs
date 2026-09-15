@@ -353,9 +353,34 @@ pub mod pallet {
 			todo!()
 		}
 
+		/// The sizes are the relay chain's to pick, so they come back on the answer.
 		fn on_open_system_channel(channel: ChannelId, message_id: u64) {
-			let _ = (channel, message_id);
-			todo!()
+			let outcome = with_storage_layer(|| T::Registry::open_system_channel(channel));
+
+			let notification = match &outcome {
+				Ok(_) => {
+					Self::deposit_event(Event::ChannelOpened { channel, message_id });
+					ParaNotification::ChannelOpened { channel }
+				},
+				Err(reason) => {
+					Self::deposit_event(Event::OpenChannelRejected {
+						channel,
+						message_id,
+						reason: reason.clone(),
+					});
+					ParaNotification::ChannelOpenFailure { channel, reason: reason.clone() }
+				},
+			};
+
+			// Neither end asked for this channel, so the relay chain is where both learn of it.
+			Self::on_notify_para(channel.sender, notification.clone());
+			Self::on_notify_para(channel.recipient, notification);
+
+			Self::report(
+				channel.sender,
+				message_id,
+				MessageToParaV1::OpenChannelResponse { channel, message_id, outcome },
+			);
 		}
 
 		fn on_open_system_pair(

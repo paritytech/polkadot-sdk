@@ -23,7 +23,10 @@ use crate::{
 	mock::*, AcceptedRequestCount, Channels, EgressIndex, Error, Event, HoldReason, IngressIndex,
 	OpenKind, OpenRequestCount, RequestState, Requests,
 };
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{
+	assert_noop, assert_ok,
+	dispatch::{DispatchResultWithPostInfo, Pays},
+};
 use hrmp_primitives::{
 	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
 	ParaId, ParaNotification, ParaRequest, ParaRequestV1,
@@ -433,5 +436,197 @@ fn a_refusing_transport_unwinds_the_whole_request() {
 		assert!(Requests::<Test>::get(CHANNEL).is_none());
 		assert_eq!(OpenRequestCount::<Test>::get(CHANNEL.sender), 0);
 		assert_eq!(held(CHANNEL.sender, HoldReason::SenderDeposit), 0);
+	});
+}
+
+/// Two system chains, which is what `establish_system_channel` is for.
+const SYSTEM_PAIR: ChannelId = ChannelId { sender: 1000, recipient: 1001 };
+
+/// Anyone asking for a channel between two system chains.
+fn establish(channel: ChannelId) -> DispatchResultWithPostInfo {
+	Hrmp::establish_system_channel(RuntimeOrigin::signed(ALICE), channel.sender, channel.recipient)
+}
+
+#[test]
+fn establish_system_channel_records_an_accepted_request_and_asks_the_relay_chain() {
+	new_test_ext().execute_with(|| {
+		// Neither sovereign account is funded, or needs to be.
+		assert_ok!(establish(SYSTEM_PAIR));
+
+		let request = Requests::<Test>::get(SYSTEM_PAIR).unwrap();
+		assert!(matches!(request.state, RequestState::Accepted { kind: OpenKind::System, .. }));
+		// Nobody has to accept, so both counts move at once.
+		assert_eq!(OpenRequestCount::<Test>::get(SYSTEM_PAIR.sender), 1);
+		assert_eq!(AcceptedRequestCount::<Test>::get(SYSTEM_PAIR.recipient), 1);
+
+		assert_eq!(held(SYSTEM_PAIR.sender, HoldReason::SenderDeposit), 0);
+		assert_eq!(held(SYSTEM_PAIR.recipient, HoldReason::RecipientDeposit), 0);
+
+		// Neither end agreed to anything, so neither is told until the channel exists.
+		assert_eq!(
+			take_sent(),
+			vec![MessageToRelay::V1(MessageToRelayV1::OpenSystemChannel {
+				channel: SYSTEM_PAIR,
+				message_id: request.message_id,
+			})]
+		);
+		assert_eq!(
+			hrmp_events(),
+			vec![Event::SystemChannelRequested {
+				channel: SYSTEM_PAIR,
+				message_id: request.message_id,
+			}]
+		);
+	});
+}
+
+#[test]
+fn establish_system_channel_is_free_when_it_records_a_request() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(establish(SYSTEM_PAIR).unwrap().pays_fee, Pays::No);
+	});
+}
+
+#[test]
+fn establish_system_channel_needs_both_ends_to_be_system() {
+	new_test_ext().execute_with(|| {
+		for channel in [
+			ChannelId { sender: 2000, recipient: 1001 },
+			ChannelId { sender: 1000, recipient: 2001 },
+			CHANNEL,
+		] {
+			assert_noop!(establish(channel), Error::<Test>::ChannelCreationNotAuthorized);
+			assert!(Requests::<Test>::get(channel).is_none());
+		}
+	});
+}
+
+#[test]
+fn establish_system_channel_refuses_a_channel_to_itself() {
+	new_test_ext().execute_with(|| {
+		let to_self = ChannelId { sender: SYSTEM_PAIR.sender, recipient: SYSTEM_PAIR.sender };
+
+		assert_noop!(establish(to_self), Error::<Test>::OpenHrmpChannelToSelf);
+	});
+}
+
+#[test]
+fn establish_system_channel_refuses_a_second_request_or_an_open_channel() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(establish(SYSTEM_PAIR));
+		assert_noop!(establish(SYSTEM_PAIR), Error::<Test>::OpenHrmpChannelAlreadyRequested);
+
+		let message_id = Requests::<Test>::get(SYSTEM_PAIR).unwrap().message_id;
+		assert_ok!(respond(SYSTEM_PAIR, message_id, Ok((CAPACITY, MESSAGE_SIZE))));
+
+		assert_noop!(establish(SYSTEM_PAIR), Error::<Test>::OpenHrmpChannelAlreadyExists);
+	});
+}
+
+#[test]
+fn establish_system_channel_respects_the_outbound_limit() {
+	new_test_ext().execute_with(|| {
+		let sender = SYSTEM_PAIR.sender;
+		for i in 0..MAX_OUTBOUND_CHANNELS {
+			assert_ok!(establish(ChannelId { sender, recipient: 1_100 + i }));
+		}
+
+		assert_noop!(
+			establish(ChannelId { sender, recipient: 1_900 }),
+			Error::<Test>::OpenHrmpChannelLimitExceeded
+		);
+	});
+}
+
+#[test]
+fn establish_system_channel_respects_the_inbound_limit() {
+	new_test_ext().execute_with(|| {
+		let recipient = SYSTEM_PAIR.recipient;
+		for i in 0..MAX_INBOUND_CHANNELS {
+			assert_ok!(establish(ChannelId { sender: 1_100 + i, recipient }));
+		}
+
+		assert_noop!(
+			establish(ChannelId { sender: 1_900, recipient }),
+			Error::<Test>::AcceptHrmpChannelLimitExceeded
+		);
+	});
+}
+
+#[test]
+fn a_system_response_opens_the_channel_with_the_relay_chains_sizes() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(establish(SYSTEM_PAIR));
+		let message_id = Requests::<Test>::get(SYSTEM_PAIR).unwrap().message_id;
+		let _ = take_sent();
+		let _ = hrmp_events();
+
+		// Sizes the request never carried: the relay chain picked them.
+		assert_ok!(respond(SYSTEM_PAIR, message_id, Ok((7, 77))));
+
+		assert!(Requests::<Test>::get(SYSTEM_PAIR).is_none());
+		let channel = Channels::<Test>::get(SYSTEM_PAIR).unwrap();
+		assert_eq!(channel.max_capacity, 7);
+		assert_eq!(channel.max_message_size, 77);
+		assert!(channel.sender_deposit.is_none());
+		assert!(channel.recipient_deposit.is_none());
+
+		assert_eq!(
+			EgressIndex::<Test>::get(SYSTEM_PAIR.sender).to_vec(),
+			vec![SYSTEM_PAIR.recipient]
+		);
+		assert_eq!(
+			IngressIndex::<Test>::get(SYSTEM_PAIR.recipient).to_vec(),
+			vec![SYSTEM_PAIR.sender]
+		);
+		assert_eq!(OpenRequestCount::<Test>::get(SYSTEM_PAIR.sender), 0);
+		assert_eq!(AcceptedRequestCount::<Test>::get(SYSTEM_PAIR.recipient), 0);
+
+		assert_eq!(
+			hrmp_events(),
+			vec![Event::HrmpSystemChannelOpened {
+				channel: SYSTEM_PAIR,
+				proposed_max_capacity: 7,
+				proposed_max_message_size: 77,
+			}]
+		);
+	});
+}
+
+#[test]
+fn a_refused_system_request_is_dropped() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(establish(SYSTEM_PAIR));
+		let message_id = Requests::<Test>::get(SYSTEM_PAIR).unwrap().message_id;
+		let _ = take_sent();
+		let _ = hrmp_events();
+
+		assert_ok!(respond(SYSTEM_PAIR, message_id, Err(FailureReason::InvalidPara)));
+
+		assert!(Requests::<Test>::get(SYSTEM_PAIR).is_none());
+		assert!(Channels::<Test>::get(SYSTEM_PAIR).is_none());
+		assert_eq!(OpenRequestCount::<Test>::get(SYSTEM_PAIR.sender), 0);
+		assert_eq!(AcceptedRequestCount::<Test>::get(SYSTEM_PAIR.recipient), 0);
+		assert_eq!(
+			hrmp_events(),
+			vec![Event::OpenChannelFailed {
+				channel: SYSTEM_PAIR,
+				message_id,
+				reason: FailureReason::InvalidPara,
+			}]
+		);
+	});
+}
+
+#[test]
+fn a_refusing_transport_unwinds_the_system_request() {
+	new_test_ext().execute_with(|| {
+		SendFails::set(true);
+
+		assert_noop!(establish(SYSTEM_PAIR), Error::<Test>::SendFailed);
+
+		assert!(Requests::<Test>::get(SYSTEM_PAIR).is_none());
+		assert_eq!(OpenRequestCount::<Test>::get(SYSTEM_PAIR.sender), 0);
+		assert_eq!(AcceptedRequestCount::<Test>::get(SYSTEM_PAIR.recipient), 0);
 	});
 }

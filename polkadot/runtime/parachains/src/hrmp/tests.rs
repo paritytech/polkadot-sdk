@@ -1367,6 +1367,118 @@ mod registry {
 	}
 
 	#[test]
+	fn open_system_channel_uses_the_relay_chains_configured_sizes() {
+		let (system_a, system_b) = (1, 3);
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			run_to_block(2, Some(vec![1, 2]));
+			register_parachain(system_a.into());
+			register_parachain(system_b.into());
+			run_to_block(4, Some(vec![3, 4]));
+
+			// The caller named no sizes: these are the active config's maxima.
+			assert_eq!(
+				Hrmp::open_system_channel(channel(system_a, system_b)),
+				Ok((CAPACITY, MESSAGE_SIZE))
+			);
+
+			let id = HrmpChannelId { sender: system_a.into(), recipient: system_b.into() };
+			let opened = HrmpChannels::<Test>::get(&id).unwrap();
+			assert_eq!(opened.max_capacity, CAPACITY);
+			assert_eq!(opened.max_message_size, MESSAGE_SIZE);
+			assert_eq!(opened.max_total_size, 16);
+			assert_eq!(opened.sender_deposit, 0);
+			assert_eq!(opened.recipient_deposit, 0);
+
+			assert_eq!(
+				HrmpEgressChannelsIndex::<Test>::get(&ParaId::from(system_a)),
+				vec![ParaId::from(system_b)]
+			);
+			assert_eq!(
+				HrmpIngressChannelsIndex::<Test>::get(&ParaId::from(system_b)),
+				vec![ParaId::from(system_a)]
+			);
+
+			Hrmp::assert_storage_consistency_exhaustive();
+		});
+	}
+
+	#[test]
+	fn open_system_channel_needs_both_ends_to_be_system() {
+		let (system, para_a, para_b) = (1, 2000, 2001);
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			run_to_block(2, Some(vec![1, 2]));
+			register_parachain(system.into());
+			register_parachain(para_a.into());
+			register_parachain(para_b.into());
+			run_to_block(4, Some(vec![3, 4]));
+
+			// All three are valid paras, so only the system check can be refusing them.
+			assert_eq!(
+				Hrmp::open_system_channel(channel(system, para_a)),
+				Err(FailureReason::InvalidPara)
+			);
+			assert_eq!(
+				Hrmp::open_system_channel(channel(para_a, system)),
+				Err(FailureReason::InvalidPara)
+			);
+			assert_eq!(
+				Hrmp::open_system_channel(channel(para_a, para_b)),
+				Err(FailureReason::InvalidPara)
+			);
+
+			Hrmp::assert_storage_consistency_exhaustive();
+		});
+	}
+
+	#[test]
+	fn open_system_channel_needs_both_paras_registered() {
+		let (system_a, system_b) = (1, 3);
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			run_to_block(2, Some(vec![1, 2]));
+			register_parachain(system_a.into());
+			run_to_block(4, Some(vec![3, 4]));
+
+			assert_eq!(
+				Hrmp::open_system_channel(channel(system_a, system_b)),
+				Err(FailureReason::InvalidPara)
+			);
+			assert_eq!(
+				Hrmp::open_system_channel(channel(system_a, system_a)),
+				Err(FailureReason::InvalidPara)
+			);
+		});
+	}
+
+	#[test]
+	fn open_system_channel_refuses_a_channel_that_is_already_there() {
+		let (system_a, system_b) = (1, 3);
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			run_to_block(2, Some(vec![1, 2]));
+			register_parachain(system_a.into());
+			register_parachain(system_b.into());
+			run_to_block(4, Some(vec![3, 4]));
+
+			assert!(Hrmp::open_system_channel(channel(system_a, system_b)).is_ok());
+			assert_eq!(
+				Hrmp::open_system_channel(channel(system_a, system_b)),
+				Err(FailureReason::AlreadyExists)
+			);
+
+			// A request the legacy path left pending counts too.
+			assert_ok!(Hrmp::init_open_channel(
+				system_b.into(),
+				system_a.into(),
+				CAPACITY,
+				MESSAGE_SIZE
+			));
+			assert_eq!(
+				Hrmp::open_system_channel(channel(system_b, system_a)),
+				Err(FailureReason::AlreadyExists)
+			);
+		});
+	}
+
+	#[test]
 	fn exists_covers_open_channels_and_pending_requests() {
 		let (para_a, para_b) = (2000, 2001);
 		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
