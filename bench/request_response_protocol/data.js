@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789471844596,
+  "lastUpdate": 1789481360695,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -124415,6 +124415,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2688013290,
             "range": "± 16896491",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a0fae9d44617843c51674469a1bc04dd4f884111",
+          "message": "core-fellowship: avoid panic on undersized Params salary/period vectors (#13182)\n\n`Pallet::get_salary` computed an index from the member's rank and then\nindexed the `active_salary `or `passive_salary` vector directly. The\nbump and promote calls did the same thing to `demotion_period `and\n`min_promotion_period`. All four of these vectors are BoundedVec fields\nbounded only by MaxRank, so a privileged set_params call is free to\nstore a shorter vector, including the empty default. Once that happens,\nany of these three call sites panics for a member whose rank sits past\nthe end of the stored vector, which traps the extrinsic instead of\nfailing gracefully.\n\nThis changes all three sites to look up the index with get and fall back\nto the type's default when the entry is missing, so a rank past the end\nof the vector now degrades to zero salary, a zero demotion period or a\nzero minimum promotion period, the same way the pallet already treats\nrank 0 and untracked members. No panic path remains.\n\nAdded three unit tests that configure an undersized vector for each of\nthe three call sites and assert the graceful fallback instead of a\npanic.\n\nCloses #13141\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
+          "timestamp": "2026-09-15T11:54:42Z",
+          "tree_id": "14bb6872e181d4a421031b421ea8bf87266a5be2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a0fae9d44617843c51674469a1bc04dd4f884111"
+        },
+        "date": 1789481320094,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19944431,
+            "range": "± 149260",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20114858,
+            "range": "± 147344",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21559558,
+            "range": "± 126842",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26101016,
+            "range": "± 212054",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60003454,
+            "range": "± 794174",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 349951651,
+            "range": "± 5260005",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2697839864,
+            "range": "± 51130708",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16673007,
+            "range": "± 185713",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16756309,
+            "range": "± 165222",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17405017,
+            "range": "± 124594",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21892995,
+            "range": "± 161544",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62155004,
+            "range": "± 544243",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 367152984,
+            "range": "± 4132292",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2661802337,
+            "range": "± 10062531",
             "unit": "ns/iter"
           }
         ]
