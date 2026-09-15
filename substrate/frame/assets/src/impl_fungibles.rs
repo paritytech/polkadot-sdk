@@ -204,9 +204,13 @@ impl<T: Config<I>, I: 'static> fungibles::Unbalanced<T::AccountId> for Pallet<T,
 		preservation: Preservation,
 		_: Fortitude,
 	) -> Result<Self::Balance, DispatchError> {
+		// `exact` is not `Precision::Exact`: this trait documents that the reduction may exceed
+		// `amount` by up to `minimum_balance() - 1` under either precision, and callers such as
+		// `Balanced::settle` rely on receiving that excess back.
 		let f = DebitFlags {
 			keep_alive: preservation != Expendable,
 			best_effort: precision == BestEffort,
+			exact: false,
 		};
 		Self::decrease_balance(asset, who, amount, f, |_, _| Ok(()))
 	}

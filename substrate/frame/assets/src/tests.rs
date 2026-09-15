@@ -737,11 +737,17 @@ fn min_balance_should_work() {
 			]
 		);
 
-		// Death by `transfer_approved`.
+		// Death by `transfer_approved`. The delegate must move the whole balance: an approved
+		// transfer never sweeps a sub-`min_balance` remainder, since that would spend more of
+		// the approval than it asked for.
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
 		Balances::make_free_balance_be(&1, 2);
 		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 100));
-		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 91));
+		assert_noop!(
+			Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 91),
+			Error::<Test>::WouldDust
+		);
+		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 100));
 		assert_eq!(
 			take_hooks(),
 			vec![
@@ -2392,5 +2398,96 @@ fn fungibles_inspect_is_sufficient_works() {
 			false
 		));
 		assert!(!<Assets as Inspect<u64>>::is_sufficient(0));
+	});
+}
+
+#[test]
+fn fungibles_transfer_should_never_burn_above_unit_min_balance() {
+	use frame_support::traits::tokens::Preservation::Expendable;
+
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+
+		// Leaves the source with 5, below the asset's `min_balance` of 10, so the remainder is
+		// swept and the destination is credited with the whole 100.
+		assert_eq!(<Assets as fungibles::Mutate<_>>::transfer(0, &1, &2, 95, Expendable), Ok(100));
+
+		assert_eq!(Assets::balance(0, 1), 0);
+		assert_eq!(Assets::balance(0, 2), 100);
+		assert_eq!(
+			Assets::balance(0, 1) + Assets::balance(0, 2),
+			Assets::total_supply(0),
+			"balances must sum to the reported supply",
+		);
+		// Indexers read this, so it must report what moved rather than what was asked for.
+		System::assert_has_event(RuntimeEvent::Assets(crate::Event::Transferred {
+			asset_id: 0,
+			from: 1,
+			to: 2,
+			amount: 100,
+		}));
+	});
+}
+
+/// A refused approved transfer must leave the approval intact — a delegate call that moves
+/// nothing must not consume allowance.
+#[test]
+fn transfer_approved_refuses_to_sweep_and_keeps_the_approval() {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 95));
+
+		// Would leave the owner with 5, below the asset's `min_balance` of 10.
+		assert_noop!(
+			Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 95),
+			Error::<Test>::WouldDust
+		);
+		assert_eq!(Assets::balance(0, 1), 100);
+		assert_eq!(Assets::allowance(0, &1, &2), 95);
+
+		// An amount leaving the owner at exactly `min_balance` is still allowed.
+		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 90));
+		assert_eq!(Assets::balance(0, 1), 10);
+		assert_eq!(Assets::balance(0, 3), 90);
+		assert_eq!(Assets::allowance(0, &1, &2), 5);
+	});
+}
+
+/// The same invariant through the single-asset adapter, which is how a runtime exposes one
+/// pallet-assets asset as a `fungible`. pallet-balances is unaffected by the change — its
+/// `decrease_balance` returns exactly `amount` and disposes of dust separately — so this
+/// adapter is the only place the `fungible::Mutate::transfer` half is reachable.
+#[test]
+fn fungible_item_of_transfer_should_never_burn_above_unit_min_balance() {
+	use frame_support::traits::tokens::{
+		fungible::Mutate as FungibleMutate, Preservation::Expendable,
+	};
+
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+
+		type Item = frame_support::traits::tokens::fungible::ItemOf<Assets, ConstU32<0>, u64>;
+		assert_eq!(<Item as FungibleMutate<u64>>::transfer(&1, &2, 95, Expendable), Ok(100));
+
+		assert_eq!(Assets::balance(0, 1), 0);
+		assert_eq!(Assets::balance(0, 2), 100);
+		assert_eq!(
+			Assets::balance(0, 1) + Assets::balance(0, 2),
+			Assets::total_supply(0),
+			"balances must sum to the reported supply",
+		);
 	});
 }

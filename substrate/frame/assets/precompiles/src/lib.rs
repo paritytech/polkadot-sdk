@@ -36,7 +36,10 @@ use pallet_revive::precompiles::{
 	},
 	AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H160, H256,
 };
-use sp_runtime::traits::{UniqueSaturatedInto, Zero};
+use sp_runtime::{
+	traits::{UniqueSaturatedInto, Zero},
+	DispatchError,
+};
 
 pub mod foreign_assets;
 pub mod migration;
@@ -209,6 +212,7 @@ where
 
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
+const ERR_WOULD_DUST: &str = "Transfer would leave the sender below the minimum balance";
 
 impl<Runtime, PrecompileConfig, Instance: 'static> ERC20<Runtime, PrecompileConfig, Instance>
 where
@@ -246,6 +250,16 @@ where
 			.map_err(|_| Error::Revert(Revert { reason: ERR_BALANCE_CONVERSION_FAILED.into() }))
 	}
 
+	/// Surface a refused dust sweep as a revert rather than a trap, so callers get a reason
+	/// string and a Solidity `try`/`catch` can handle it.
+	fn transfer_error(err: DispatchError) -> Error {
+		if err == pallet_assets::Error::<Runtime, Instance>::WouldDust.into() {
+			Error::Revert(Revert { reason: ERR_WOULD_DUST.into() })
+		} else {
+			err.into()
+		}
+	}
+
 	/// Deposit an event to the runtime.
 	fn deposit_event(env: &mut impl Ext<T = Runtime>, event: IERC20Events) -> Result<(), Error> {
 		let (topics, data) = event.into_log_data().split();
@@ -271,7 +285,10 @@ where
 			&call.to.into_array().into(),
 		);
 
-		let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
+		// `exact`: EIP-20 callers authorise `value` and nothing more, so a debit inflated by a
+		// dust sweep must fail rather than move the difference.
+		let f =
+			TransferFlags { keep_alive: false, best_effort: false, burn_dust: false, exact: true };
 		pallet_assets::Pallet::<Runtime, Instance>::do_transfer(
 			asset_id,
 			&<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from),
@@ -279,7 +296,8 @@ where
 			Self::to_balance(call.value)?,
 			None,
 			f,
-		)?;
+		)
+		.map_err(Self::transfer_error)?;
 
 		Self::deposit_event(
 			env,
@@ -454,7 +472,8 @@ where
 			&spender,
 			&to,
 			approval_amount,
-		)?;
+		)
+		.map_err(Self::transfer_error)?;
 
 		Self::deposit_event(
 			env,

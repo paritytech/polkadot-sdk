@@ -807,6 +807,10 @@ pub mod pallet {
 		TooManyReserves,
 		/// The asset deposit could not be fully moved due to a lock or freeze on the owner.
 		IncompleteDepositTransfer,
+		/// The operation would leave the source with a non-zero balance below the minimum, and an
+		/// exact debit was requested. Sweeping that remainder instead would move more than the
+		/// amount asked for.
+		WouldDust,
 	}
 
 	#[pallet::hooks]
@@ -1070,7 +1074,7 @@ pub mod pallet {
 			let who = T::Lookup::lookup(who)?;
 			let id: T::AssetId = id.into();
 
-			let f = DebitFlags { keep_alive: false, best_effort: true };
+			let f = DebitFlags { keep_alive: false, best_effort: true, exact: false };
 			Self::do_burn(id, &who, amount, Some(origin), f)?;
 			Ok(())
 		}
@@ -1104,7 +1108,12 @@ pub mod pallet {
 			let dest = T::Lookup::lookup(target)?;
 			let id: T::AssetId = id.into();
 
-			let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
+			let f = TransferFlags {
+				keep_alive: false,
+				best_effort: false,
+				burn_dust: false,
+				exact: false,
+			};
 			Self::do_transfer(id, &origin, &dest, amount, None, f).map(|_| ())
 		}
 
@@ -1137,7 +1146,12 @@ pub mod pallet {
 			let dest = T::Lookup::lookup(target)?;
 			let id: T::AssetId = id.into();
 
-			let f = TransferFlags { keep_alive: true, best_effort: false, burn_dust: false };
+			let f = TransferFlags {
+				keep_alive: true,
+				best_effort: false,
+				burn_dust: false,
+				exact: false,
+			};
 			Self::do_transfer(id, &source, &dest, amount, None, f).map(|_| ())
 		}
 
@@ -1173,7 +1187,12 @@ pub mod pallet {
 			let dest = T::Lookup::lookup(dest)?;
 			let id: T::AssetId = id.into();
 
-			let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
+			let f = TransferFlags {
+				keep_alive: false,
+				best_effort: false,
+				burn_dust: false,
+				exact: false,
+			};
 			Self::do_transfer(id, &source, &dest, amount, Some(origin), f).map(|_| ())
 		}
 

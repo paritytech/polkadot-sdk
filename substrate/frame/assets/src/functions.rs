@@ -284,8 +284,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// - `best_effort`: The debit amount may be less than `amount`.
 	///
 	/// On success, the amount which should be debited (this will always be at least `amount` unless
-	/// `best_effort` is `true`) together with an optional value indicating the argument which must
-	/// be passed into the `melted` function of the `T::Freezer` if `Some`.
+	/// `best_effort` is `true`, and exactly `amount` if `exact` is `true`) together with an
+	/// optional value indicating the argument which must be passed into the `melted` function of
+	/// the `T::Freezer` if `Some`.
 	///
 	/// If no valid debit can be made then return an `Err`.
 	pub(super) fn prep_debit(
@@ -299,7 +300,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let conseq = Self::can_decrease(id, target, actual, f.keep_alive);
 		let actual = match conseq.into_result(f.keep_alive) {
-			Ok(dust) => actual.saturating_add(dust), //< guaranteed by reducible_balance
+			Ok(dust) => {
+				// Also covers `best_effort`, which can otherwise resolve below `amount`.
+				ensure!(!f.exact || (dust.is_zero() && actual == amount), Error::<T, I>::WouldDust);
+				actual.saturating_add(dust) //< guaranteed by reducible_balance
+			},
 			Err(e) => {
 				debug_assert!(false, "passed from reducible_balance; qed");
 				return Err(e);
@@ -661,6 +666,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		}
 		let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 		ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
+
+		// A self-transfer moves nothing, so there is no remainder to sweep and nothing for
+		// `exact` to constrain; refusing one would fail a call that cannot overreach.
+		let f = if source == dest { TransferFlags { exact: false, ..f } } else { f };
 
 		// Figure out the debit and credit, together with side-effects.
 		let debit = Self::prep_debit(id.clone(), source, amount, f.into())?;
@@ -1028,7 +1037,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				let remaining =
 					approved.amount.checked_sub(&amount).ok_or(Error::<T, I>::Unapproved)?;
 
-				let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
+				// `exact`: the approval is a ceiling on what the delegate may move, so a debit
+				// inflated by a dust sweep would spend more than was approved.
+				let f = TransferFlags {
+					keep_alive: false,
+					best_effort: false,
+					burn_dust: false,
+					exact: true,
+				};
 				owner_died =
 					Self::transfer_and_die(id.clone(), owner, destination, amount, None, f)?.1;
 

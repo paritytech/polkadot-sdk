@@ -286,6 +286,10 @@ pub struct TransferFlags {
 	/// Any additional funds debited (due to minimum balance requirements) should be burned rather
 	/// than credited to the destination account.
 	pub burn_dust: bool,
+	/// The amount debited must equal the amount specified. If the operation would leave the
+	/// source with a non-zero balance below the minimum, it fails with
+	/// [`Error::WouldDust`](crate::Error::WouldDust) rather than sweeping that remainder.
+	pub exact: bool,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -297,11 +301,15 @@ pub struct DebitFlags {
 	/// successful. If `false`, then the amount debited will always be at least the amount
 	/// specified.
 	pub best_effort: bool,
+	/// The amount debited must equal the amount specified. If the operation would leave the
+	/// account with a non-zero balance below the minimum, it fails with
+	/// [`Error::WouldDust`](crate::Error::WouldDust) rather than sweeping that remainder.
+	pub exact: bool,
 }
 
 impl From<TransferFlags> for DebitFlags {
 	fn from(f: TransferFlags) -> Self {
-		Self { keep_alive: f.keep_alive, best_effort: f.best_effort }
+		Self { keep_alive: f.keep_alive, best_effort: f.best_effort, exact: f.exact }
 	}
 }
 

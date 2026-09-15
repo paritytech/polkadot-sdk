@@ -902,3 +902,249 @@ fn transfer_from_decrements_normally_after_max_approve(asset_index: u16) {
 		assert_eq!(Assets::balance(asset_id, &recipient), 10);
 	});
 }
+
+/// `transfer(value)` must move exactly `value`, or move nothing at all.
+///
+/// For an asset whose `min_balance` is above 1, a transfer that would leave the sender below it
+/// has no exact outcome: the remainder cannot legally stay where it is. The debit is taken with
+/// `exact`, so the call is refused rather than sweeping that remainder to the destination and
+/// moving `value + dust` on the authority of a `value` the caller approved.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn transfer_moves_exactly_the_requested_value(asset_index: u16) {
+	use alloy::sol_types::{Revert, SolError};
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+
+		let from = 123456789u64;
+		let to = 987654321u64;
+
+		Balances::make_free_balance_be(&from, 100);
+		Balances::make_free_balance_be(&to, 100);
+
+		let from_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&from);
+		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
+
+		setup_asset_for_prefix(asset_id, asset_index);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, from, true, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(from), asset_id, from, 100));
+
+		// Leaves the sender with 5, below the asset's `min_balance` of 10.
+		let value = 95u128;
+		let data =
+			IERC20::transferCall { to: to_addr.0.into(), value: U256::from(value) }.abi_encode();
+
+		let exec = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(from),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.result
+		.expect("must not trap");
+
+		assert!(
+			exec.did_revert(),
+			"a transfer with no exact outcome must be refused, not settled by sweeping the \
+			 remainder to the destination",
+		);
+		let decoded = Revert::abi_decode(&exec.data).expect("Error(string) revert");
+		assert_eq!(
+			decoded.reason, "Transfer would leave the sender below the minimum balance",
+			"the refusal must carry a reason a caller can catch, not trap",
+		);
+		assert_eq!(100 - Assets::balance(asset_id, from), 0, "refusal must not debit the sender");
+		assert_eq!(Assets::balance(asset_id, to), 0, "refusal must not credit the destination");
+
+		// Positive control: the same call for an amount that leaves the sender at exactly
+		// `min_balance` must still go through, moving exactly what was asked for.
+		let value = 90u128;
+		let data =
+			IERC20::transferCall { to: to_addr.0.into(), value: U256::from(value) }.abi_encode();
+
+		let exec = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(from),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.result
+		.expect("must not trap");
+
+		assert!(!exec.did_revert(), "`exact` must not refuse a transfer that has an exact outcome");
+		assert_eq!(100 - Assets::balance(asset_id, from), value);
+		assert_eq!(Assets::balance(asset_id, to), value);
+		assert_contract_event(
+			asset_addr,
+			IERC20Events::Transfer(IERC20::Transfer {
+				from: from_addr.0.into(),
+				to: to_addr.0.into(),
+				value: U256::from(value),
+			}),
+		);
+	});
+}
+
+/// A self-transfer moves nothing, so it cannot overreach and must not be refused.
+///
+/// `prep_debit` runs before `transfer_and_die` skips the no-op, so without the `source == dest`
+/// relaxation `exact` would reject a call EIP-20 requires to succeed.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn self_transfer_in_the_dust_window_is_allowed(asset_index: u16) {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+		let from = 123456789u64;
+
+		Balances::make_free_balance_be(&from, 100);
+		let from_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&from);
+
+		setup_asset_for_prefix(asset_id, asset_index);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, from, true, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(from), asset_id, from, 100));
+
+		// Would leave 5 behind if it moved anything — but it moves nothing.
+		let data =
+			IERC20::transferCall { to: from_addr.0.into(), value: U256::from(95u128) }.abi_encode();
+
+		let exec = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(from),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.result
+		.expect("must not trap");
+
+		assert!(!exec.did_revert(), "a self-transfer moves nothing and must not be refused");
+		assert_eq!(Assets::balance(asset_id, from), 100);
+	});
+}
+
+/// A delegate approved for `N` must never move more than `N`.
+///
+/// `do_transfer_approved` decrements the approval by the requested `amount`, so a debit
+/// inflated by a dust sweep would move more than the delegate was approved for, to a
+/// destination of its own choosing. It takes the debit with `exact` for that reason.
+#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
+#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
+fn transfer_from_never_moves_more_than_the_allowance(asset_index: u16) {
+	use alloy::sol_types::{Revert, SolError};
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(asset_index));
+
+		let owner = 123456789u64;
+		let spender = 987654321u64;
+		let recipient = 111222333u64;
+
+		Balances::make_free_balance_be(&owner, 100);
+		Balances::make_free_balance_be(&spender, 100);
+		Balances::make_free_balance_be(&recipient, 100);
+
+		let owner_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&owner);
+		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+		let recipient_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&recipient);
+
+		setup_asset_for_prefix(asset_id, asset_index);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, 100));
+
+		// Leaves the owner with 5, below the asset's `min_balance` of 10.
+		let allowance = 95u128;
+		call_approve(owner, asset_addr, spender_addr, U256::from(allowance));
+
+		let data = IERC20::transferFromCall {
+			from: owner_addr.0.into(),
+			to: recipient_addr.0.into(),
+			value: U256::from(allowance),
+		}
+		.abi_encode();
+
+		let exec = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(spender),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.result
+		.expect("must not trap");
+
+		let debited = 100 - Assets::balance(asset_id, owner);
+		let credited = Assets::balance(asset_id, recipient);
+
+		assert!(
+			debited <= allowance,
+			"delegate approved for {allowance} debited the owner {debited}",
+		);
+		assert!(
+			credited <= allowance,
+			"delegate approved for {allowance} moved {credited} to its own destination",
+		);
+		assert_eq!(
+			Assets::allowance(asset_id, &owner, &spender),
+			allowance - debited,
+			"allowance must be decremented by the amount actually moved",
+		);
+
+		// The refusal must reach the caller as a catchable revert, not a trap — this is the
+		// `transfer_from` half of the error mapping.
+		assert!(exec.did_revert(), "a transferFrom with no exact outcome must be refused");
+		let decoded = Revert::abi_decode(&exec.data).expect("Error(string) revert");
+		assert_eq!(decoded.reason, "Transfer would leave the sender below the minimum balance",);
+
+		// Positive control: an amount that leaves the owner at exactly `min_balance` goes
+		// through and spends exactly that much of the approval.
+		let value = 90u128;
+		let data = IERC20::transferFromCall {
+			from: owner_addr.0.into(),
+			to: recipient_addr.0.into(),
+			value: U256::from(value),
+		}
+		.abi_encode();
+
+		let exec = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(spender),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.result
+		.expect("must not trap");
+
+		assert!(!exec.did_revert(), "`exact` must not refuse a transferFrom with an exact outcome");
+		assert_eq!(Assets::balance(asset_id, owner), 10);
+		assert_eq!(Assets::balance(asset_id, recipient), value);
+		assert_eq!(Assets::allowance(asset_id, &owner, &spender), allowance - value);
+	});
+}
