@@ -402,9 +402,6 @@ pub mod runtime {
 		pub use sp_version::create_runtime_str;
 		pub use sp_version::{runtime_version, RuntimeVersion};
 
-		#[cfg(feature = "std")]
-		pub use sp_version::NativeVersion;
-
 		/// Macro to implement runtime APIs.
 		pub use sp_api::impl_runtime_apis;
 

@@ -42,6 +42,14 @@ pub enum TraceV2 {
 	Execution(ExecutionTraceV1),
 }
 
+/// A single extrinsic's trace, or a signal that the runtime could not produce one. An absent entry
+/// means there was nothing to trace.
+#[derive(TypeInfo, Deserialize, Serialize, From, Encode, Decode, Clone, Debug, Eq, PartialEq)]
+pub enum TraceEntryV1 {
+	Traced(TraceV2),
+	NotTraced,
+}
+
 #[derive(
 	TypeInfo, Default, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
 )]

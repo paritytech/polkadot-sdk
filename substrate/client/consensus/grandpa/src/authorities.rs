@@ -110,11 +110,7 @@ where
 
 	/// Get the current authorities and their weights (for the current set ID).
 	pub fn current_authorities(&self) -> VoterSet<AuthorityId> {
-		VoterSet::new(self.inner().current_authorities.iter().cloned()).expect(
-			"current_authorities is non-empty and weights are non-zero; \
-			 constructor and all mutating operations on `AuthoritySet` ensure this; \
-			 qed.",
-		)
+		self.inner().current_voter_set()
 	}
 
 	/// Clone the inner `AuthoritySet`.
@@ -219,6 +215,15 @@ where
 	/// Get the current set id and a reference to the current authority set.
 	pub(crate) fn current(&self) -> (u64, &[(AuthorityId, u64)]) {
 		(self.set_id, &self.current_authorities[..])
+	}
+
+	/// Get the current authorities as a [`VoterSet`].
+	pub(crate) fn current_voter_set(&self) -> VoterSet<AuthorityId> {
+		VoterSet::new(self.current_authorities.iter().cloned()).expect(
+			"current_authorities is non-empty and weights are non-zero; \
+			 constructor and all mutating operations on `AuthoritySet` ensure this; \
+			 qed.",
+		)
 	}
 
 	/// Revert to a specified block given its `hash` and `number`.

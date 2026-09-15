@@ -125,6 +125,35 @@ pub(super) async fn expect_one_statement(
 	}
 }
 
+/// Reads `subscription` until `expected` is delivered, tolerating other statements first — a
+/// subscription serves every statement matching its topic, not only the one under test.
+pub(super) async fn expect_statement_delivered(
+	subscription: &mut RpcSubscription<StatementEvent>,
+	expected: &Bytes,
+	timeout_secs: u64,
+) -> Result<(), anyhow::Error> {
+	let deadline = tokio::time::Instant::now() + Duration::from_secs(timeout_secs);
+	loop {
+		let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+		if remaining.is_zero() {
+			return Err(anyhow!(
+				"Timeout after {timeout_secs}s waiting for the expected statement"
+			));
+		}
+		let item = tokio::time::timeout(remaining, subscription.next())
+			.await
+			.map_err(|_| {
+				anyhow!("Timeout after {timeout_secs}s waiting for the expected statement")
+			})?
+			.ok_or_else(|| anyhow!("Subscription stream ended unexpectedly"))?
+			.map_err(|e| anyhow!("Subscription error: {}", e))?;
+		let StatementEvent::NewStatements { statements, .. } = item;
+		if statements.iter().any(|s| s == expected) {
+			return Ok(());
+		}
+	}
+}
+
 pub(super) async fn assert_no_more_statements(
 	subscription: &mut RpcSubscription<StatementEvent>,
 	timeout_secs: u64,
@@ -296,6 +325,7 @@ async fn launch_network(
 	collators: &[&str],
 	chain_spec_path: &Path,
 	collator_args: Vec<zombienet_sdk::Arg>,
+	collator_env: &[(&str, &str)],
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let base_dir = base_dir()?;
@@ -316,11 +346,11 @@ async fn launch_network(
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(collator_args)
-				.with_collator(|n| n.with_name(collators[0]));
+				.with_collator(|n| n.with_name(collators[0]).with_env(collator_env.to_vec()));
 
-			collators[1..]
-				.iter()
-				.fold(p, |acc, &name| acc.with_collator(|n| n.with_name(name)))
+			collators[1..].iter().fold(p, |acc, &name| {
+				acc.with_collator(|n| n.with_name(name).with_env(collator_env.to_vec()))
+			})
 		})
 		.with_global_settings(|global_settings| {
 			global_settings
@@ -358,7 +388,7 @@ pub(super) async fn spawn_network_with_injected_allowances(
 	let base_dir = base_dir()?;
 	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
 	let args = collator_args(participant_count, COLLATOR_TRACE_LOG_FILTER);
-	launch_network(collators, &chain_spec_path, args).await
+	launch_network(collators, &chain_spec_path, args, &[]).await
 }
 
 /// Spawns a network using `people-westend-local-spec.json`, waits for block production
@@ -376,7 +406,7 @@ async fn spawn_network_inner(
 	let participant_count_u32 = u32::try_from(participant_count)
 		.expect("participant_count must fit in u32 for collator args");
 	let args = collator_args(participant_count_u32, log_filter);
-	let network = launch_network(collators, &chain_spec_path, args).await?;
+	let network = launch_network(collators, &chain_spec_path, args, &[]).await?;
 
 	info!("Waiting for parachain to produce blocks...");
 	let node = network.get_node(collators[0])?;
@@ -420,4 +450,73 @@ pub(super) async fn wait_for_first_block(
 		.await?;
 	}
 	Ok(())
+}
+
+/// Builds collator CLI args that pin the v2 DHT replication factor `K` and gossip target, on top of
+/// [`collator_args`]. The v2 path itself is switched on by the `STATEMENT_STORE_V2_DHT_ENABLED`
+/// environment variable, not a CLI flag (see [`spawn_network_with_injected_allowances_v2`]).
+pub(super) fn collator_args_v2(
+	participant_count: u32,
+	log_filter: &str,
+	replication_factor: u32,
+	gossip_target: u32,
+) -> Vec<zombienet_sdk::Arg> {
+	let mut args = collator_args(participant_count, log_filter);
+	let replication = format!("--statement-replication-factor={replication_factor}");
+	args.push(replication.as_str().into());
+	let gossip = format!("--statement-gossip-target={gossip_target}");
+	args.push(gossip.as_str().into());
+	args
+}
+
+/// Spawns a network on the v2 DHT path with injected allowances, pinning `K` and the gossip target.
+///
+/// The v2 DHT path is gated by `v2dht_enabled()`, which reads `STATEMENT_STORE_V2_DHT_ENABLED`, so
+/// we set that on every collator rather than passing a CLI flag.
+pub(super) async fn spawn_network_with_injected_allowances_v2(
+	collators: &[&str],
+	participant_count: u32,
+	replication_factor: u32,
+	gossip_target: u32,
+) -> Result<Network<LocalFileSystem>, anyhow::Error> {
+	assert!(!collators.is_empty());
+	let base_dir = base_dir()?;
+	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
+	let args = collator_args_v2(
+		participant_count,
+		COLLATOR_TRACE_LOG_FILTER,
+		replication_factor,
+		gossip_target,
+	);
+	launch_network(collators, &chain_spec_path, args, &[("STATEMENT_STORE_V2_DHT_ENABLED", "1")])
+		.await
+}
+
+/// Probes whether the node behind `rpc` persistently stores `expected` for `topic`.
+///
+/// A fresh subscription first replays every matching statement already in the store, ending the
+/// replay with `remaining == Some(0)` (or a single empty batch when the store holds none). We scan
+/// that replay for `expected`. Subscribing grants explicit affinity for *future* statements only,
+/// so the probe cannot turn an already-dropped statement into a stored one.
+pub(super) async fn stores_locally(
+	rpc: &RpcClient,
+	topic: Topic,
+	expected: &Bytes,
+) -> Result<bool, anyhow::Error> {
+	let mut subscription = subscribe_topic(rpc, topic).await?;
+	loop {
+		let item = match tokio::time::timeout(Duration::from_secs(10), subscription.next()).await {
+			Ok(Some(Ok(item))) => item,
+			// Timeout or stream end before `expected` appeared: the node does not store it.
+			_ => return Ok(false),
+		};
+		let StatementEvent::NewStatements { statements, remaining } = item;
+		if statements.iter().any(|s| s == expected) {
+			return Ok(true);
+		}
+		// The replay is done once a batch is empty or reports nothing more to come.
+		if statements.is_empty() || remaining == Some(0) {
+			return Ok(false);
+		}
+	}
 }

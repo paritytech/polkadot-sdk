@@ -203,11 +203,33 @@ impl TryAcceptOutcome {
 
 /// Candidate supplied with a para head it's built on top of.
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
-pub struct ProspectiveCandidate {
-	/// Candidate hash.
-	pub candidate_hash: CandidateHash,
-	/// Parent head-data hash as supplied in advertisement.
-	pub parent_head_data_hash: Hash,
+pub enum ProspectiveCandidate {
+	ByHash { candidate_hash: CandidateHash, parent_head_data_hash: Hash },
+	ByOutputHead { output_head_data_hash: Hash, parent_head_data_hash: Hash },
+}
+
+impl ProspectiveCandidate {
+	pub fn candidate_hash(&self) -> Option<CandidateHash> {
+		match self {
+			Self::ByHash { candidate_hash, .. } => Some(*candidate_hash),
+			Self::ByOutputHead { .. } => None,
+		}
+	}
+
+	#[cfg(test)]
+	pub fn output_head_data_hash(&self) -> Option<Hash> {
+		match self {
+			Self::ByHash { .. } => None,
+			Self::ByOutputHead { output_head_data_hash, .. } => Some(*output_head_data_hash),
+		}
+	}
+
+	pub fn parent_head_data_hash(&self) -> Hash {
+		match self {
+			Self::ByHash { parent_head_data_hash, .. } |
+			Self::ByOutputHead { parent_head_data_hash, .. } => *parent_head_data_hash,
+		}
+	}
 }
 
 /// Identifier of a collation being requested.
@@ -229,7 +251,7 @@ pub struct Advertisement {
 
 impl Advertisement {
 	pub fn candidate_hash(&self) -> Option<CandidateHash> {
-		self.prospective_candidate.map(|candidate| candidate.candidate_hash)
+		self.prospective_candidate.and_then(|candidate| candidate.candidate_hash())
 	}
 }
 

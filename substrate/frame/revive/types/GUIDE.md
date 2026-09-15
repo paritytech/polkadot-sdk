@@ -101,8 +101,28 @@ Let's assume that we want to version a runtime API function called `${function-n
     - With the same generics as the unversioned runtime API function `${function-name}` has in its arguments.
   - An enum with the following specifications:
     - Named `${function-name} VersionedInputPayload`
+    - With the following doc comment, substituting the name of the unversioned runtime API function for
+      `${function-name}`:
+
+      ```rust
+      /// The input type used when calling the `${function-name}_versioned` runtime API function. This
+      /// function replaces the unversioned `${function-name}` runtime API function.
+      ```
+
     - With a single variant named `V1` which uses tuple-fields with a single field of the type
       `${function-name} InputPayloadV1`.
+    - With the following doc comment on the `V1` variant when it maps directly to one unversioned function:
+
+      ```rust
+      /// The arguments provided when calling the `${function-name}_versioned` runtime API function.
+      ///
+      /// When this version is provided, the function behaves identically to and returns the same output
+      /// as the unversioned `${function-name}` runtime API function.
+      ```
+
+      If `V1` combines multiple unversioned functions or otherwise changes how their arguments are represented, replace
+      the simple equivalence paragraph with the exact mapping from the `V1` fields or variants to each unversioned
+      function and state which behavior and output each mapping preserves.
     - Derives `TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto` with `PartialEq` being an optional
       derive if the types used for the fields can not satisfy `PartialEq`.
     - With the same generics as the unversioned runtime API function `${function-name}` has in its arguments.
@@ -122,8 +142,28 @@ Let's assume that we want to version a runtime API function called `${function-n
     -->
   - An enum with the following specifications:
     - Named `${function-name} VersionedOutputPayload`
+    - With the following doc comment, substituting the name of the unversioned runtime API function for
+      `${function-name}`:
+
+      ```rust
+      /// The output type returned when calling the `${function-name}_versioned` runtime API function.
+      /// This function replaces the unversioned `${function-name}` runtime API function.
+      ```
+
     - With a single variant named `V1` which uses tuple-fields with a single field of the type
       `${function-name} OutputPayloadV1`.
+    - With the following doc comment on the `V1` variant when it maps directly to one unversioned function:
+
+      ```rust
+      /// The output returned when calling the `${function-name}_versioned` runtime API function with `V1`
+      /// arguments.
+      ///
+      /// This output is identical to the output returned by the unversioned `${function-name}` runtime
+      /// API function.
+      ```
+
+      If `V1` combines multiple unversioned functions, replace the simple equivalence paragraph with the exact
+      unversioned output associated with each input mapping.
     - Derives `TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto` with `PartialEq` being an optional
       derive if the types used for the fields can not satisfy `PartialEq`.
     - With the same generics as the unversioned runtime API function `${function-name}` has in its return type.
@@ -306,11 +346,182 @@ defined for them as part of this procedure check:
     `Trace` type (and all of the non-primitive types which are in this type graph) since the new wire types handle all
     of the serde serialization and deserialization implementations.
 
-<!--
-TODO: Add the section for updating an already versioned runtime API function. I fist need to have the script which
-created the type graph which is the main missing piece for this.
--->
+## Updating a Versioned Runtime API Function
 
+Let's assume that we want to update an already versioned runtime API function called `${function-name}`. Throughout this
+procedure, `Vn` means the latest version of the specific type or payload being discussed and `Vn+1` means the new
+version being added. The value of `n` does not need to be the same for every type or runtime API function.
+
+### Setup
+
+- Run `types/scripts/typegraph.sh` from the pallet-revive directory. This generates an interactive SVG in the workspace
+  target directory by default. A different output path can optionally be provided as the first argument.
+- Open the generated SVG in a browser and click on each wire type which needs to be updated. Clicking on a type
+  highlights every type in `pallet-revive-types` which transitively contains it.
+- The graph contains every historical version of each type. Group the highlighted nodes by type family and inspect the
+  latest definition in each family. A highlighted historical definition reveals dependency history but does not
+  independently require a version bump. A family needs a new version if it is intentionally being updated or if its
+  latest definition contains a type being versioned in this procedure, either directly or through another affected
+  latest definition.
+- Note down the affected non-payload wire type families and payload type families from this latest containment chain.
+  Each affected family is versioned exactly once from its latest definition. The versioned input and output payload
+  enums are extended with a new variant rather than being versioned.
+- The affected runtime API functions are the `${function-name}` function which is intentionally being updated plus every
+  additional function identified by an affected payload type family. Use this complete set throughout the procedure even
+  when the intended update introduces only new types or changes only primitive fields and therefore can not identify the
+  function through the pre-change graph.
+  - **Example:** If `CallLogV2` needed to be updated, clicking it would show that `CallTraceV2` contains it, `TraceV2`
+    contains `CallTraceV2`, and the V2 output payloads of the trace runtime API functions contain `TraceV2`. We would
+    define a new `CallLogV3` with the intended update, a new `CallTraceV3` which contains `CallLogV3`, a new `TraceV3`
+    which contains `CallTraceV3`, and new V3 payloads for those runtime API functions. None of the existing V1 or V2
+    type definitions would be changed.
+
+### Type Definitions
+
+- If the intended inputs or outputs introduce non-primitive types which are not already defined in the
+  `pallet-revive-types` crate then define them with a `V1` postfix in either an existing module or a new file module in
+  `types/src/runtime_api/types`. Wire any new file module up in the `mod.rs` file. These types will not appear in the
+  type graph generated before the update because they do not exist yet.
+  - **Example:** When adding V3 reporting to the `trace_block` and `trace_tx` runtime API functions, `TraceEntry` was a
+    new non-primitive wire type and was therefore defined as `TraceEntryV1` even though the payloads using it were V3.
+- Work outwards from each wire type family which was clicked in the graph towards the affected payload type families,
+  following only the latest containment chain identified during setup.
+  - For each wire type family which was clicked, define exactly one new type in the same module in
+    `types/src/runtime_api/types` with the next version postfix. Use the family's latest definition as the starting
+    point, apply the intended update only to the new definition, and leave all of the existing definitions unchanged.
+  - For each candidate non-payload wire type family whose latest definition transitively contains a type versioned in
+    the previous step, define exactly one new version of the containing type. Use the family's latest definition as the
+    starting point and, only in the new definition, replace references to the contained type with the new version
+    defined in this procedure. Continue this process outwards until reaching the affected payload type families.
+  - If multiple historical definitions from the same family are highlighted then process that family only once. If
+    containment exists only in an older definition and not in the family's latest definition then the family does not
+    need a new version for that historical path.
+  - Increment each type from its own latest version rather than giving every type the same postfix. For example, if
+    `ContainedTypeV2` is contained by `ContainingTypeV4`, define `ContainedTypeV3` and `ContainingTypeV5`.
+  - Types which are not part of the affected latest containment chain continue using their existing versions. Keep the
+    derives, serde attributes, field names, generics, and other behavior of the latest version unless the intended
+    update requires them to change.
+- Add the appropriate conversion traits for each new wire type in `pallet-revive`. These traits need to be implemented
+  right underneath their equivalent execution types.
+  - If the wire type is used as an input type then add a conversion of `From<WireType> for ExecutionType`.
+  - If the wire type is used as an output type then add a conversion of `From<ExecutionType> for WireType`.
+  - If it's being used as both then add both conversion implementations.
+  - Keep conversion implementations for all of the older wire type versions. If an execution type changes as part of the
+    update then change the bodies of those older conversion implementations as needed to preserve their existing wire
+    shapes and semantics. Never change the older wire type definitions or remove their conversion support.
+    - **Example:** When the execution output for `trace_block` changed to hold traced and untraced entries, the existing
+      V1 and V2 output conversions were updated to keep projecting only traced entries. Their wire definitions and
+      behavior remained unchanged.
+
+### Payload Definitions
+
+- For each affected versioned runtime API function, update its existing file module in `types/src/runtime_api/payloads`
+  with the following:
+  - A struct with the following specifications:
+    - Named `${function-name} InputPayloadVn+1`.
+    - With named fields which represent the intended inputs for the new version. These fields are determined by the
+      update being made and may optionally form a no-field struct if the new version takes no inputs.
+    - Derives `TypeInfo, Debug, Clone, Encode, Decode, PartialEq` with `PartialEq` being an optional derive if the types
+      used for the fields can not satisfy `PartialEq`.
+    - Use the latest input payload version as the starting point, apply the intended additions, removals, or changes to
+      the new definition, and use the new versions defined in this procedure for any affected wire types.
+    - With the generics required by the intended inputs for the new version.
+  - A new variant in `${function-name} VersionedInputPayload` with the following specifications:
+    - Named `Vn+1` and uses tuple-fields with a single field of the type `${function-name} InputPayloadVn+1`.
+    - With a doc comment which describes only the difference from `Vn`. State whether the arguments changed or remained
+      unchanged and name the output version selected by an otherwise unchanged input when relevant. Do not restate what
+      the runtime API function does.
+    - Added after all of the existing variants without changing them.
+    - Add any generics required by the new input payload to `${function-name} VersionedInputPayload` and apply the
+      appropriate generics to each of its variants.
+  - A struct with the following specifications:
+    - Named `${function-name} OutputPayloadVn+1`.
+    - With named fields which represent the intended outputs for the new version. These fields are determined by the
+      update being made and may optionally form a no-field struct if the new version has no outputs.
+    - Derives `TypeInfo, Debug, Clone, Encode, Decode, PartialEq` with `PartialEq` being an optional derive if the types
+      used for the fields can not satisfy `PartialEq`.
+    - Use the latest output payload version as the starting point, apply the intended additions, removals, or changes to
+      the new definition, and use the new versions defined in this procedure for any affected wire types.
+    - With the generics required by the intended outputs for the new version.
+    - If the intended output of the new version is an `Option<T>` then this struct needs to have a single named-field of
+    type `Option<T>` (notice that we didn't just make it `T`). If the intended output of the new version is
+    `Result<T, E>` then this struct needs to have a single named-field of type `T`.
+    <!--
+    TODO: The above needs to change once/if we decide to version the error types but it's currently something that we do
+    not do.
+    -->
+  - A new variant in `${function-name} VersionedOutputPayload` with the following specifications:
+    - Named `Vn+1` and uses tuple-fields with a single field of the type `${function-name} OutputPayloadVn+1`.
+    - With a doc comment which describes only the difference from `Vn`. Name every changed wire type or field, explain
+      the meaning of each change, and identify fields or portions which were removed or remained unchanged when that
+      distinction matters. Do not restate what the runtime API function does.
+    - Added after all of the existing variants without changing them.
+    - Add any generics required by the new output payload to `${function-name} VersionedOutputPayload` and apply the
+      appropriate generics to each of its variants.
+- Add both the `Vn+1` input payload and the `Vn+1` output payload as new structs without changing any of the existing
+  payload structs, even if only one side contains the type which initiated the update. The unchanged side uses the same
+  fields and wire types as its latest version. This is needed to fulfill the invariant that a caller who provides a
+  `Vn+1` input is guaranteed to get back a `Vn+1` output or an error.
+
+### Pallet Revive Execution Types
+
+- For each affected versioned runtime API function, update its existing `src/runtime_api/${function-name}.rs` module
+  with the following conversions:
+  - Add an implementation of `From<${function-name} InputPayloadVn+1> for ${function-name} InputPayload`.
+  - Add the `Vn+1` variant to the existing implementation of
+    `From<${function-name} VersionedInputPayload> for ${function-name} InputPayload`.
+  - Add an implementation of `From<${function-name} OutputPayload> for ${function-name} OutputPayloadVn+1`.
+  - Keep conversion implementations for all of the older payload versions. If an execution input or output payload
+    changes as part of the update then change the bodies of those older conversion implementations as needed to preserve
+    their existing wire shapes and semantics. Never change the older wire payload definitions or remove their conversion
+    support.
+  - Never implement `From<${function-name} OutputPayload> for ${function-name} VersionedOutputPayload` since there is no
+    way to tell what version the execution output needs to be converted into and therefore it's the responsibility of
+    the caller to make that conscious decision on their own.
+- If the intended update changes an execution type then make the corresponding change to that execution type before
+  implementing its conversions. Keep the execution input and output payload types unversioned and using the appropriate
+  execution types.
+
+### Updating The Runtime API
+
+- For each affected versioned runtime API function, update the implementation of `${function-name}_versioned` in
+  pallet-revive in the `src/lib.rs` `impl_runtime_apis_plus_revive_traits` block by adding the new version to its
+  existing match statement:
+
+  ```rust
+  FunctionNameVersionedInputPayload::VnPlus1(payload) => (
+      FunctionNameInputPayload::from(payload),
+      Box::new(|output| FunctionNameVersionedOutputPayload::VnPlus1(output.into())),
+  ),
+  ```
+
+- Add the match arm after all of the existing variants without changing them. This converts the new wire input into the
+  existing execution input and wraps the execution output in the same version as the input.
+- If the new payloads require generics which are not already present on the versioned payload enums, propagate those
+  generics through the enums and their uses in the existing `${function-name}_versioned` declaration and implementation.
+  The function must still have exactly one versioned input payload enum argument and one versioned output payload enum
+  return type.
+- In `version_declarations()`, update the existing `.insert("${function-name}_versioned", n)` entry to use `n+1`, the
+  new latest payload version. Do this for every affected versioned runtime API function.
+- Do not declare a new runtime API function or change the name of the existing `${function-name}_versioned` function or
+  its `#[api_version(2)]` attribute.
+
+### State
+
+At this point in the procedure, the state of the codebase should be as follows:
+
+- Any new non-primitive wire types introduced by the intended inputs or outputs have been defined in the
+  `pallet-revive-types` crate with a `V1` postfix.
+- Each affected non-payload wire type family from the latest containment chain has exactly one new version based on its
+  latest definition and all of its older definitions remain unchanged.
+- Each affected versioned runtime API function has new `Vn+1` input and output payloads, and its versioned input and
+  output payload enums contain new `Vn+1` variants.
+- The execution input and output payload types remain unversioned and have conversions to or from every supported wire
+  payload version. Conversions for older versions continue preserving their existing wire shapes and semantics.
+- Each affected existing versioned runtime API function handles the new variant and guarantees that `Vn+1` input
+  produces `Vn+1` output.
+- The entry for each updated runtime API function in `version_declarations()` advertises its new latest payload version.
+- No new runtime API function, deprecation, cleanup, or ETH-RPC integration has been added as part of this procedure.
 ## Commands
 
 <table>

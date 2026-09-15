@@ -91,12 +91,17 @@ async fn approved_peer_mixed_collators_test() -> Result<(), anyhow::Error> {
 
 	// The parachain should keep producing blocks at a healthy rate, regardless of which collator
 	// (recent or old) authored a given block.
+	//
+	// Both paras are bulk-scheduled in genesis and `num_cores` resolves to 2, so each para owns
+	// one core for the whole run. One core backs at most one candidate per relay block, so over
+	// the 20 counted blocks the ceiling is 20 candidates per para -- and both paras are expected
+	// to sit at that ceiling.
 	assert_para_throughput(
 		&relay_client,
 		20,
 		[
-			(ParaId::from(PRE_APPROVED_UMP_SIGNAL_PARA_ID), 10..16),
-			(ParaId::from(V1_PARA_ID), 10..16),
+			(ParaId::from(PRE_APPROVED_UMP_SIGNAL_PARA_ID), 19..21),
+			(ParaId::from(V1_PARA_ID), 19..21),
 		],
 		[],
 	)

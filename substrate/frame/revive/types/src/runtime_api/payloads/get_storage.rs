@@ -29,8 +29,15 @@ pub struct GetStorageInputPayloadV1 {
 	pub key: StorageKeyV1,
 }
 
+/// The input type used when calling the `get_storage_versioned` runtime API function. This function
+/// replaces the unversioned `get_storage` and `get_storage_var_key` runtime API functions.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum GetStorageVersionedInputPayload {
+	/// The arguments provided when calling the `get_storage_versioned` runtime API function.
+	///
+	/// This version combines the unversioned `get_storage` and `get_storage_var_key` runtime API
+	/// functions. `StorageKeyV1::Fixed` preserves the behavior and output of `get_storage`, while
+	/// `StorageKeyV1::Variable` preserves the behavior and output of `get_storage_var_key`.
 	V1(GetStorageInputPayloadV1),
 }
 
@@ -39,7 +46,15 @@ pub struct GetStorageOutputPayloadV1 {
 	pub storage: Option<Vec<u8>>,
 }
 
+/// The output type returned when calling the `get_storage_versioned` runtime API function. This
+/// function replaces the unversioned `get_storage` and `get_storage_var_key` runtime API functions.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum GetStorageVersionedOutputPayload {
+	/// The output returned when calling the `get_storage_versioned` runtime API function with `V1`
+	/// arguments.
+	///
+	/// This output is identical to the output of the unversioned `get_storage` runtime API function
+	/// for `StorageKeyV1::Fixed` and to the output of `get_storage_var_key` for
+	/// `StorageKeyV1::Variable`.
 	V1(GetStorageOutputPayloadV1),
 }

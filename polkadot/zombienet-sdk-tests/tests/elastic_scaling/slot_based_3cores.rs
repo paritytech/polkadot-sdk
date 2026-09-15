@@ -4,6 +4,7 @@
 // Test that parachains that use a single slot-based collator with elastic scaling MVP and with
 // elastic scaling with RFC103 can achieve full throughput of 3 candidates per block.
 
+use crate::utils::maybe_enable_experimental_collator_protocol;
 use anyhow::anyhow;
 
 use cumulus_zombienet_sdk_helpers::{
@@ -30,7 +31,9 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug").into()])
+				.with_default_args(maybe_enable_experimental_collator_protocol(vec![
+					("-lparachain=debug").into(),
+				]))
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
