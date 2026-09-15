@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789415869564,
+  "lastUpdate": 1789473127646,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "3512a73031550aa3c149e756cb4d18049cc66f2d",
-          "message": "staking-async/ah-client: emit event when session key update from AssettHub fails on relay chain (#11055)\n\nEmit SessionKeysUpdateFailed with the operation type and dispatch error\nfor observability so set_keys/purge_kets failures from AssetHub are\nobservable on-chain.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-12T13:59:59Z",
-          "tree_id": "51f1aa02033303e532bbbd4ea4765c0b71e53f6a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3512a73031550aa3c149e756cb4d18049cc66f2d"
-        },
-        "date": 1770909111034,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.097821882366663,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12400224553333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14112538583333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f18d8ce7f64e9663a755aae8cd9886523f15e9f4",
+          "message": "ci: rm oldlinux runners (#13221)\n\ncc https://github.com/paritytech/devops/issues/5661",
+          "timestamp": "2026-09-15T10:04:29Z",
+          "tree_id": "23b640114fe1bede092f3454a3ab521d298281b1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f18d8ce7f64e9663a755aae8cd9886523f15e9f4"
+        },
+        "date": 1789473086854,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.457194756533333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13560941366666668,
             "unit": "seconds"
           }
         ]
