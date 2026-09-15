@@ -20,7 +20,7 @@ use crate::{
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
 	access_list::{
-		self, Access, AccessEntry, AccessList, CallAccess, CodeLoadWarmth, StorageOp, Warmth,
+		self, Access, AccessEntry, AccessList, CallItems, CodeLoadWarmth, StorageOp, Warmth,
 	},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
@@ -562,11 +562,11 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// slot's warmth without warming it.
 	fn peek_storage_access(&self, key: &Key) -> Warmth;
 
-	/// Warm the state items the access reads, returning the warmth they had
+	/// Warms the state items the access touches, returning the warmth they had
 	/// **before** this call.
 	fn warm<A: Access>(&mut self, access: A) -> A::Warmth;
 
-	/// Warmth of the state items the access reads.
+	/// Reports the warmth of the state items the access touches, without recording anything.
 	fn warmth_of<A: Access>(&self, access: A) -> A::Warmth;
 
 	/// Charges `diff` from the meter.
@@ -1101,12 +1101,12 @@ where
 		}
 		let transfer_access =
 			origin.account_id().ok().filter(|_| !value.is_zero()).map(|account| {
-				access_list::Transfer {
+				access_list::TransferItems {
 					from: T::AddressMapper::to_address(account),
 					dust: Contracts::<T>::has_dust(value),
 				}
 			});
-		access_list.warm(CallAccess::new(address, false, transfer_access));
+		access_list.warm(CallItems::new(address, false, transfer_access));
 	}
 
 	/// Loads code, warming the code info and blob on success.
@@ -1115,7 +1115,7 @@ where
 		meter: &mut ResourceMeter<T, S>,
 		code_hash: H256,
 	) -> Result<E, DispatchError> {
-		let code_load = access_list::CodeLoad { hash: code_hash };
+		let code_load = access_list::CodeLoadItems { hash: code_hash };
 		let executable = E::from_storage(code_hash, meter, access_list.warmth_of(code_load))?;
 		access_list.warm(code_load);
 		Ok(executable)

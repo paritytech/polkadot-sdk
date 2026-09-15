@@ -66,9 +66,12 @@ parameter_types! {
 	pub static LastAccessListMetrics: Option<AccessListMetrics> = None;
 }
 
-pub(crate) fn last_access_list_metrics() -> AccessListMetrics {
+/// The access-list metrics `operation` recorded.
+pub(crate) fn access_list_metrics_of(operation: impl FnOnce()) -> AccessListMetrics {
+	LastAccessListMetrics::take();
+	operation();
 	LastAccessListMetrics::take()
-		.expect("the call under test ran a first frame and recorded metrics")
+		.expect("the operation under test ran a first frame and recorded metrics")
 }
 
 pub type Address = MultiAddress<AccountId32, u32>;

@@ -18,15 +18,14 @@
 use crate::{
 	Config,
 	access_list::{
-		Access, CallAccess, CallWarmth, CodeLoad, CodeLoadWarmth, KeyFamily, StorageOp, Transfer,
-		TransferWarmth, Warmth,
+		Access, CallItems, CallWarmth, CodeLoadItems, CodeLoadWarmth, KeyFamily, StorageOp,
+		TransferItems, TransferWarmth, Warmth,
 	},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
 	weights::WeightInfo,
 };
-use alloc::{vec, vec::Vec};
 use frame_support::{
 	defensive_assert,
 	traits::Get,
@@ -331,23 +330,21 @@ impl RuntimeCosts {
 }
 
 impl CallWarmth {
-	/// Computes the call cost from the warmth of its entries.
+	/// Computes the call cost from the warmth of the entries it reads. The transfer's entries are
+	/// priced apart, by `CallTransferSurcharge`.
 	pub(crate) fn weight<T: Config>(self) -> Weight {
-		let (items, cold, hot) = self.pricing::<T>();
-		weight_by_warmth::<T, _>(items, CallAccess::KEY_FAMILY, cold, hot)
-	}
-
-	/// Returns the entries the call pays to read, and the benches that price them. The transfer's
-	/// entries are priced apart, by `CallTransferSurcharge`.
-	fn pricing<T: Config>(self) -> (Vec<Warmth>, fn() -> Weight, fn() -> Weight) {
 		match self {
-			Self::Plain { original_account, account_info, transfer: _ } => (
-				vec![original_account, account_info],
-				|| T::WeightInfo::seal_call(0, 0, 0),
-				T::WeightInfo::seal_call_hot,
-			),
-			Self::Delegate { account_info } => (
-				vec![account_info],
+			Self::Plain { original_account, account_info, transfer: _ } => {
+				weight_by_warmth::<T, _>(
+					[original_account, account_info],
+					CallItems::KEY_FAMILY,
+					|| T::WeightInfo::seal_call(0, 0, 0),
+					T::WeightInfo::seal_call_hot,
+				)
+			},
+			Self::Delegate { account_info } => weight_by_warmth::<T, _>(
+				[account_info],
+				CallItems::KEY_FAMILY,
 				T::WeightInfo::seal_delegate_call,
 				T::WeightInfo::seal_delegate_call_hot,
 			),
@@ -362,7 +359,7 @@ impl CodeLoadWarmth {
 		cold: impl FnOnce() -> Weight,
 		hot: impl FnOnce() -> Weight,
 	) -> Weight {
-		weight_by_warmth::<T, _>([self.info, self.blob], CodeLoad::KEY_FAMILY, cold, hot)
+		weight_by_warmth::<T, _>([self.info, self.blob], CodeLoadItems::KEY_FAMILY, cold, hot)
 	}
 }
 
@@ -383,12 +380,12 @@ impl TransferWarmth {
 	pub(crate) fn weight<T: Config>(self, dust_transfer: bool) -> Weight {
 		let reads = weight_by_warmth::<T, _>(
 			self.priced_items(),
-			CallAccess::KEY_FAMILY,
+			CallItems::KEY_FAMILY,
 			|| Self::cold_weight::<T>(dust_transfer),
 			|| Self::hot_weight::<T>(dust_transfer),
 		);
 		// The hot benches whitelist these keys, so their writes are charged here.
-		let account_info_op = Transfer::account_info_op(dust_transfer);
+		let account_info_op = TransferItems::account_info_op(dust_transfer);
 		let commits = [
 			(self.account, StorageOp::Write),
 			(self.sender_account, StorageOp::Write),
@@ -582,6 +579,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 mod tests {
 	use super::*;
 	use crate::tests::Test;
+	use alloc::{vec, vec::Vec};
 
 	/// Returns the weight the runtime charges for `cost`.
 	fn weight(cost: &RuntimeCosts) -> Weight {

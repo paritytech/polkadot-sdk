@@ -22,15 +22,15 @@ use core::iter;
 use crate::{
 	BalanceOf, Code, Config, DelegateInfo, DispatchError, Error, ExecConfig, ExecOrigin,
 	ExecReturnValue, Weight,
-	access_list::CallAccess,
+	access_list::CallItems,
 	address::AddressMapper,
 	evm::{decode_revert_reason, fees::InfoT},
 	limits,
 	metering::TransactionLimits,
 	test_utils::{ALICE, ALICE_ADDR, BOB_ADDR, WEIGHT_LIMIT, builder::Contract, deposit_limit},
 	tests::{
-		ExtBuilder, MOCK_CODE, MockHandlerImpl, RuntimeOrigin, Test, builder,
-		last_access_list_metrics,
+		ExtBuilder, MOCK_CODE, MockHandlerImpl, RuntimeOrigin, Test, access_list_metrics_of,
+		builder,
 	},
 };
 use alloy_core::{
@@ -1082,18 +1082,19 @@ fn cold_hot_call_and_delegate_reuse_target_warmth(
 		let noop_call = Caller::dataCall {}.abi_encode();
 
 		let call_target_with = |data: Vec<u8>| {
-			builder::bare_call(caller)
-				.data(
-					Caller::normalCall {
-						_callee: target.0.into(),
-						_value: 0,
-						_data: data.into(),
-						_gas: u64::MAX,
-					}
-					.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			last_access_list_metrics()
+			access_list_metrics_of(|| {
+				builder::bare_call(caller)
+					.data(
+						Caller::normalCall {
+							_callee: target.0.into(),
+							_value: 0,
+							_data: data.into(),
+							_gas: u64::MAX,
+						}
+						.abi_encode(),
+					)
+					.build_and_unwrap_result();
+			})
 		};
 
 		let plain_only = call_target_with(noop_call.clone());
@@ -1127,12 +1128,12 @@ fn cold_hot_call_and_delegate_reuse_target_warmth(
 		);
 		assert_eq!(
 			plain_then_plain.hot,
-			plain_only.hot + CallAccess::plain_entries(),
+			plain_only.hot + CallItems::plain_entries(),
 			"the plain re-call re-reads the target's account and code hot",
 		);
 		assert_eq!(
 			plain_then_delegate.hot,
-			plain_only.hot + CallAccess::delegate_entries(),
+			plain_only.hot + CallItems::delegate_entries(),
 			"the delegate re-reads account info and code hot, but not the original account",
 		);
 	});
@@ -1151,16 +1152,18 @@ fn cold_hot_a_denied_call_leaves_its_target_in_the_list(fixture_type: FixtureTyp
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		let entries_left_by_denied_call_to = |final_target: H160| {
-			builder::bare_call(addr)
-				.data(
-					Recurse::recurseCall {
-						callsLeft: limits::CALL_STACK_DEPTH,
-						finalTarget: final_target.0.into(),
-					}
-					.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			last_access_list_metrics().size
+			access_list_metrics_of(|| {
+				builder::bare_call(addr)
+					.data(
+						Recurse::recurseCall {
+							callsLeft: limits::CALL_STACK_DEPTH,
+							finalTarget: final_target.0.into(),
+						}
+						.abi_encode(),
+					)
+					.build_and_unwrap_result();
+			})
+			.size
 		};
 
 		assert_eq!(
@@ -1183,16 +1186,17 @@ fn cold_hot_call_past_the_depth_limit_pays_by_target_warmth(fixture_type: Fixtur
 		// The innermost frame already sits at the depth limit, so the call it makes to
 		// `final_target` is denied. The zero address stands for making no such call at all.
 		let recurse_to_the_limit_then_call = |final_target: H160| {
-			builder::bare_call(addr)
-				.data(
-					Recurse::recurseCall {
-						callsLeft: limits::CALL_STACK_DEPTH,
-						finalTarget: final_target.0.into(),
-					}
-					.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			last_access_list_metrics()
+			access_list_metrics_of(|| {
+				builder::bare_call(addr)
+					.data(
+						Recurse::recurseCall {
+							callsLeft: limits::CALL_STACK_DEPTH,
+							finalTarget: final_target.0.into(),
+						}
+						.abi_encode(),
+					)
+					.build_and_unwrap_result();
+			})
 		};
 
 		let no_denied_call = recurse_to_the_limit_then_call(H160::zero());
@@ -1233,24 +1237,25 @@ fn cold_hot_value_transfer_warms_the_account(fixture_type: FixtureType) {
 
 		let eoa = H160::from([0xfe; 20]);
 		let call_with_value = |value: u64| {
-			builder::bare_call(caller)
-				.data(
-					Caller::normalCall {
-						_callee: eoa.0.into(),
-						_value: value,
-						_data: Vec::<u8>::new().into(),
-						_gas: u64::MAX,
-					}
-					.abi_encode(),
-				)
-				.build_and_unwrap_result();
-			last_access_list_metrics()
+			access_list_metrics_of(|| {
+				builder::bare_call(caller)
+					.data(
+						Caller::normalCall {
+							_callee: eoa.0.into(),
+							_value: value,
+							_data: Vec::<u8>::new().into(),
+							_gas: u64::MAX,
+						}
+						.abi_encode(),
+					)
+					.build_and_unwrap_result();
+			})
 		};
 
 		let zero_value = call_with_value(0);
 		let with_value = call_with_value(1_000_000);
 
-		let value_transfer_only = CallAccess::value_call_entries() - CallAccess::plain_entries();
+		let value_transfer_only = CallItems::value_call_entries() - CallItems::plain_entries();
 		let extra_cold = with_value.cold - zero_value.cold;
 		let extra_hot = with_value.hot - zero_value.hot;
 
@@ -1276,8 +1281,9 @@ fn cold_hot_storage_reread_is_hot(fixture_type: FixtureType) {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		let metrics_after = |data: Vec<u8>| {
-			builder::bare_call(addr).data(data).build_and_unwrap_result();
-			last_access_list_metrics()
+			access_list_metrics_of(|| {
+				builder::bare_call(addr).data(data).build_and_unwrap_result();
+			})
 		};
 
 		// A single write to the slot: touched cold once, never hot.

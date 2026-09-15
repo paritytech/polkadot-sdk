@@ -128,7 +128,7 @@ enum CodeLoadToken {
 }
 
 impl CodeLoadToken {
-	/// Both reads, at the warmth of the code's own keys, never the calling frame's.
+	/// Computes the flat cost of both reads, at the code's own warmth.
 	fn flat<T: Config>(warmth: CodeLoadWarmth) -> Weight {
 		warmth.weight::<T>(
 			T::WeightInfo::code_load,
@@ -137,7 +137,7 @@ impl CodeLoadToken {
 		)
 	}
 
-	/// The code's bytes at the blob's warmth, plus PVM compilation.
+	/// Computes the cost of the code's bytes at the blob's warmth, plus PVM compilation.
 	fn blob<T: Config>(warmth: CodeLoadWarmth, code_len: u32, code_type: BytecodeType) -> Weight {
 		let per_byte: fn(u32) -> Weight = match (code_type, warmth.blob.is_hot()) {
 			(BytecodeType::Pvm, false) => T::WeightInfo::call_with_pvm_code_per_byte,

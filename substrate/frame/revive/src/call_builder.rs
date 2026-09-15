@@ -38,7 +38,7 @@ use crate::{
 #[cfg(feature = "runtime-benchmarks")]
 use crate::{
 	AccountInfoOf,
-	access_list::{Access, AccessEntry, CodeLoad, Warmth},
+	access_list::{Access, AccessEntry, CodeLoadItems, Warmth},
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
@@ -426,7 +426,7 @@ where
 	/// Whitelist this contract's code keys; `code_load` prices those reads.
 	#[cfg(feature = "runtime-benchmarks")]
 	pub fn whitelist_code(&self) -> Result<(), &'static str> {
-		whitelist_access::<T>(CodeLoad { hash: self.info()?.code_hash });
+		whitelist_access::<T>(CodeLoadItems { hash: self.info()?.code_hash });
 		Ok(())
 	}
 

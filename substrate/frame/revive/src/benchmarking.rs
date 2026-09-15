@@ -21,8 +21,8 @@
 use crate::{
 	Pallet as Contracts,
 	access_list::{
-		AccessEntry, AccessList, CallAccess, CodeLoad, CodeLoadWarmth, KeyFamily,
-		MAX_ACCESS_LIST_ENTRIES, StorageOp, Transfer,
+		AccessEntry, AccessList, CallItems, CodeLoadItems, CodeLoadWarmth, KeyFamily,
+		MAX_ACCESS_LIST_ENTRIES, StorageOp, TransferItems,
 	},
 	call_builder::{
 		CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit,
@@ -388,10 +388,14 @@ mod benchmarks {
 	/// the `delegate` prefix, to a delegate call, which cannot transfer).
 	macro_rules! hot_call_setup {
 		($do_call:ident, $module:expr) => {
-			hot_call_setup!($do_call, $module, 0, 0);
+			hot_call_setup!($do_call, _transferred, $module, 0, 0);
 		};
 		($do_call:ident, $module:expr, $t:expr, $d:expr) => {
-			hot_call_setup!(@setup runtime, memory, callee_len, deposit_len, $module, false, $t, $d);
+			hot_call_setup!($do_call, _transferred, $module, $t, $d);
+		};
+		($do_call:ident, $assert_transferred:ident, $module:expr, $t:expr, $d:expr) => {
+			hot_call_setup!(@setup runtime, memory, callee_len, deposit_len,
+				$assert_transferred, $module, false, $t, $d);
 			let mut $do_call = || {
 				runtime.bench_call(
 					memory.as_mut_slice(),
@@ -405,7 +409,8 @@ mod benchmarks {
 			};
 		};
 		(delegate $do_call:ident, $module:expr) => {
-			hot_call_setup!(@setup runtime, memory, callee_len, _deposit_len, $module, true, 0, 0);
+			hot_call_setup!(@setup runtime, memory, callee_len, _deposit_len,
+				_transferred, $module, true, 0, 0);
 			let mut $do_call = || {
 				runtime.bench_delegate_call(
 					memory.as_mut_slice(),
@@ -419,10 +424,14 @@ mod benchmarks {
 			};
 		};
 		(@setup $runtime:ident, $memory:ident, $callee_len:ident, $deposit_len:ident,
-			$module:expr, $delegate:expr, $t:expr, $d:expr) => {
+			$assert_transferred:ident, $module:expr, $delegate:expr, $t:expr, $d:expr) => {
 			let callee_contract = Contract::<T>::with_index(1, $module, vec![])?;
-			let callee = callee_contract.account_id.clone();
 			let code_hash = callee_contract.info()?.code_hash;
+			// Delegated callee, the same worst case the cold benches measure. See `seal_call`.
+			let callee_addr = H160([0x42; 20]);
+			let callee = delegated_eoa::<T>(callee_addr, callee_contract.address)?;
+			// A fresh EOA would make the origin pay its ED, leaving nothing to burn into dust.
+			T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
 
 			let callee_bytes = callee.encode();
 			let $callee_len = callee_bytes.len() as u32;
@@ -443,18 +452,28 @@ mod benchmarks {
 			setup.set_balance(native + 1u32.into() + Pallet::<T>::min_balance());
 
 			let transfer = (!value.is_zero())
-				.then(|| Transfer { from: setup.contract().address, dust: dust != 0 });
+				.then(|| TransferItems { from: setup.contract().address, dust: dust != 0 });
 
-			let call_access = CallAccess::new(callee_contract.address, $delegate, transfer);
-			whitelist_access::<T>(call_access);
-			let code_access = CodeLoad { hash: code_hash };
-			whitelist_access::<T>(code_access);
+			let call_items = CallItems::new(callee_addr, $delegate, transfer);
+			whitelist_access::<T>(call_items);
+			let code_items = CodeLoadItems { hash: code_hash };
+			whitelist_access::<T>(code_items);
 
 			let (mut ext, _) = setup.ext();
-			ext.warm(call_access);
-			ext.warm(code_access);
+			ext.warm(call_items);
+			ext.warm(code_items);
 			let mut $runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 			let mut $memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
+
+			let evm_value = Pallet::<T>::convert_native_to_evm(value);
+			let before = Pallet::<T>::evm_balance(&callee_addr);
+			let $assert_transferred = || {
+				assert!(!evm_value.is_zero(), "the bench has no transfer to measure");
+				assert_eq!(
+					Pallet::<T>::evm_balance(&callee_addr),
+					before + evm_value,
+				);
+			};
 		};
 	}
 
@@ -2826,7 +2845,7 @@ mod benchmarks {
 	// d: with or without dust value to transfer
 	#[benchmark(pov_mode = Measured)]
 	fn seal_call_transfer_hot(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
-		hot_call_setup!(do_call, VmBinaryModule::dummy(), 1, d);
+		hot_call_setup!(do_call, assert_transferred, VmBinaryModule::dummy(), 1, d);
 
 		let result;
 		#[block]
@@ -2835,6 +2854,7 @@ mod benchmarks {
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert_transferred();
 		Ok(())
 	}
 

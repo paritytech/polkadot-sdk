@@ -17,7 +17,7 @@
 
 use crate::{
 	Pallet, RuntimeCosts,
-	access_list::{CallAccess, Transfer},
+	access_list::{CallItems, TransferItems},
 	precompiles::{All as AllPrecompiles, Precompiles},
 	vm::{
 		Ext,
@@ -89,9 +89,9 @@ pub fn charge_call_gas<'a, E: Ext>(
 		None => {
 			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported.
 			let transfer_access = (!value.is_zero())
-				.then(|| Transfer { from: interpreter.ext.address(), dust: dust_transfer });
-			let call_access = CallAccess::new(callee, scheme.is_delegate_call(), transfer_access);
-			let warmth = interpreter.ext.warm(call_access);
+				.then(|| TransferItems { from: interpreter.ext.address(), dust: dust_transfer });
+			let call_items = CallItems::new(callee, scheme.is_delegate_call(), transfer_access);
+			let warmth = interpreter.ext.warm(call_items);
 			transfer_warmth = warmth.transfer_warmth();
 			interpreter.ext.charge_or_halt(RuntimeCosts::CallBase(warmth))?;
 
