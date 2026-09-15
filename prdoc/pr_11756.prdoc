@@ -24,6 +24,12 @@ doc:
         `paras-sudo-wrapper` extrinsics `sudo_schedule_parathread_upgrade` (index 2) and
         `sudo_schedule_parachain_downgrade` (index 3) are removed. `make_parachain` and
         `make_parathread` are now no-ops. Slot leasing no longer up/downgrades a para's lifecycle.
+      - The `Registrar` trait gains a required `is_active_parachain` method, which is true only for
+        paras whose lifecycle has settled on `Parachain`. `assigned_slots` gates permanent and
+        temporary slot assignment on it, failing with the new `NotActiveParachain` error, because
+        `is_parachain` also matches a para that is being offboarded. Its `NotParathread` and
+        `CannotDowngrade` errors are removed, and `paras_registrar` drops its now unused
+        `NotParachain` and `CannotUpgrade` errors.
       - `paras_registrar::deregister` no longer refuses a para that holds an active lease. It
         previously accepted only paras in the `Parathread` lifecycle, which excluded leased ones;
         with a single `Parachain` lifecycle that distinction no longer exists. Deregistering a

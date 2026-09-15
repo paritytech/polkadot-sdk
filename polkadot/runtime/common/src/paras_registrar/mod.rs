@@ -186,12 +186,8 @@ pub mod pallet {
 		CodeTooLarge,
 		/// Invalid para head data size.
 		HeadDataTooLarge,
-		/// Para is not a Parachain.
-		NotParachain,
 		/// Cannot deregister para
 		CannotDeregister,
-		/// Cannot schedule upgrade of on-demand parachain to lease holding parachain
-		CannotUpgrade,
 		/// Para is locked from manipulation by the manager. Must use parachain or relay chain
 		/// governance.
 		ParaLocked,
@@ -314,18 +310,17 @@ pub mod pallet {
 			Self::do_deregister(id)
 		}
 
-		/// Swap a lease holding parachain with another parachain, either on-demand or lease
-		/// holding.
+		/// Swap a parachain with another parachain.
 		///
 		/// The origin must be Root, the `para` owner, or the `para` itself.
 		///
-		/// The swap will happen only if there is already an opposite swap pending. If there is not,
-		/// the swap will be stored in the pending swaps map, ready for a later confirmatory swap.
+		/// The swap will happen only if there is already an opposite swap pending, and both paras
+		/// are settled parachains. If there is no opposite swap pending, the swap will be stored in
+		/// the pending swaps map, ready for a later confirmatory swap.
 		///
 		/// The `ParaId`s remain mapped to the same head data and code so external code can rely on
-		/// `ParaId` to be a long-term identifier of a notional "parachain". However, their
-		/// scheduling info (i.e. whether they're an on-demand parachain or lease holding
-		/// parachain), auction information and the auction deposit are switched.
+		/// `ParaId` to be a long-term identifier of a notional "parachain". However, their lease
+		/// and auction information and the auction deposit are switched.
 		#[pallet::call_index(3)]
 		#[pallet::weight(<T as Config>::WeightInfo::swap())]
 		pub fn swap(origin: OriginFor<T>, id: ParaId, other: ParaId) -> DispatchResult {
@@ -476,6 +471,11 @@ impl<T: Config> Registrar for Pallet<T> {
 	// Return if a para is a lease holding parachain
 	fn is_parachain(id: ParaId) -> bool {
 		paras::Pallet::<T>::is_parachain(id)
+	}
+
+	// Return if a para is a parachain that is neither onboarding nor being offboarded.
+	fn is_active_parachain(id: ParaId) -> bool {
+		paras::Pallet::<T>::lifecycle(id) == Some(ParaLifecycle::Parachain)
 	}
 
 	// Apply a lock to the parachain.

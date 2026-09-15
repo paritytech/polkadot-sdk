@@ -29,6 +29,7 @@ use std::{cell::RefCell, collections::HashMap};
 
 thread_local! {
 	static PARACHAINS: RefCell<Vec<ParaId>> = RefCell::new(Vec::new());
+	static IN_TRANSITION: RefCell<Vec<ParaId>> = RefCell::new(Vec::new());
 	static LOCKS: RefCell<HashMap<ParaId, bool>> = RefCell::new(HashMap::new());
 	static MANAGERS: RefCell<HashMap<ParaId, Vec<u8>>> = RefCell::new(HashMap::new());
 }
@@ -44,6 +45,11 @@ impl<T: frame_system::Config> Registrar for TestRegistrar<T> {
 
 	fn parachains() -> Vec<ParaId> {
 		PARACHAINS.with(|x| x.borrow().clone())
+	}
+
+	fn is_active_parachain(id: ParaId) -> bool {
+		PARACHAINS.with(|x| x.borrow().binary_search(&id).is_ok()) &&
+			IN_TRANSITION.with(|x| x.borrow().binary_search(&id).is_err())
 	}
 
 	fn apply_lock(id: ParaId) {
@@ -86,6 +92,12 @@ impl<T: frame_system::Config> Registrar for TestRegistrar<T> {
 				Err(_) => Err(DispatchError::Other("not registered, cannot `deregister`")),
 			}
 		})?;
+		IN_TRANSITION.with(|x| {
+			let mut in_transition = x.borrow_mut();
+			if let Ok(i) = in_transition.binary_search(&id) {
+				in_transition.remove(i);
+			}
+		});
 		MANAGERS.with(|x| x.borrow_mut().remove(&id));
 		Ok(())
 	}
@@ -123,9 +135,22 @@ impl<T: frame_system::Config> TestRegistrar<T> {
 		PARACHAINS.with(|x| x.borrow().clone())
 	}
 
+	/// Mark a registered para as not yet settled on the `Parachain` lifecycle, so that
+	/// `is_active_parachain` reports `false` for it.
+	#[allow(dead_code)]
+	pub fn mark_in_transition(id: ParaId) {
+		IN_TRANSITION.with(|x| {
+			let mut in_transition = x.borrow_mut();
+			if let Err(i) = in_transition.binary_search(&id) {
+				in_transition.insert(i, id);
+			}
+		});
+	}
+
 	#[allow(dead_code)]
 	pub fn clear_storage() {
 		PARACHAINS.with(|x| x.borrow_mut().clear());
+		IN_TRANSITION.with(|x| x.borrow_mut().clear());
 		MANAGERS.with(|x| x.borrow_mut().clear());
 	}
 }

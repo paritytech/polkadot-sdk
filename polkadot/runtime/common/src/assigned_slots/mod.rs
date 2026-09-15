@@ -216,6 +216,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The specified parachain is not registered.
 		ParaDoesntExist,
+		/// The specified para is registered, but is not a parachain yet, or is being offboarded.
+		NotActiveParachain,
 		/// Cannot upgrade on-demand parachain to lease holding
 		/// parachain.
 		CannotUpgrade,
@@ -256,7 +258,7 @@ pub mod pallet {
 
 			let manager = T::Registrar::manager_of(id).ok_or(Error::<T>::ParaDoesntExist)?;
 
-			ensure!(T::Registrar::is_parachain(id), Error::<T>::ParaDoesntExist);
+			ensure!(T::Registrar::is_active_parachain(id), Error::<T>::NotActiveParachain);
 
 			ensure!(
 				!Self::has_permanent_slot(id) && !Self::has_temporary_slot(id),
@@ -318,7 +320,7 @@ pub mod pallet {
 
 			let manager = T::Registrar::manager_of(id).ok_or(Error::<T>::ParaDoesntExist)?;
 
-			ensure!(T::Registrar::is_parachain(id), Error::<T>::ParaDoesntExist);
+			ensure!(T::Registrar::is_active_parachain(id), Error::<T>::NotActiveParachain);
 
 			ensure!(
 				!Self::has_permanent_slot(id) && !Self::has_temporary_slot(id),
@@ -815,6 +817,29 @@ mod tests {
 	}
 
 	#[test]
+	fn assign_perm_slot_fails_when_para_not_settled() {
+		new_test_ext().execute_with(|| {
+			System::run_to_block::<AllPalletsWithSystem>(1);
+
+			assert_ok!(TestRegistrar::<Test>::register(
+				1,
+				ParaId::from(1_u32),
+				dummy_head_data(),
+				dummy_validation_code(),
+			));
+			TestRegistrar::<Test>::mark_in_transition(ParaId::from(1_u32));
+
+			assert_noop!(
+				AssignedSlots::assign_perm_parachain_slot(
+					RuntimeOrigin::root(),
+					ParaId::from(1_u32),
+				),
+				Error::<Test>::NotActiveParachain
+			);
+		});
+	}
+
+	#[test]
 	fn assign_perm_slot_fails_when_existing_lease() {
 		new_test_ext().execute_with(|| {
 			System::run_to_block::<AllPalletsWithSystem>(1);
@@ -973,6 +998,30 @@ mod tests {
 					SlotLeasePeriodStart::Current
 				),
 				BadOrigin
+			);
+		});
+	}
+
+	#[test]
+	fn assign_temp_slot_fails_when_para_not_settled() {
+		new_test_ext().execute_with(|| {
+			System::run_to_block::<AllPalletsWithSystem>(1);
+
+			assert_ok!(TestRegistrar::<Test>::register(
+				1,
+				ParaId::from(1_u32),
+				dummy_head_data(),
+				dummy_validation_code(),
+			));
+			TestRegistrar::<Test>::mark_in_transition(ParaId::from(1_u32));
+
+			assert_noop!(
+				AssignedSlots::assign_temp_parachain_slot(
+					RuntimeOrigin::root(),
+					ParaId::from(1_u32),
+					SlotLeasePeriodStart::Current
+				),
+				Error::<Test>::NotActiveParachain
 			);
 		});
 	}

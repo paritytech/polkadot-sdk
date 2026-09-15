@@ -40,6 +40,9 @@ pub trait Registrar {
 		Self::parachains().binary_search(&id).is_ok()
 	}
 
+	/// Return if a `ParaId` is a parachain that is neither onboarding nor being offboarded.
+	fn is_active_parachain(id: ParaId) -> bool;
+
 	/// Return if a `ParaId` is registered in the system.
 	fn is_registered(id: ParaId) -> bool {
 		Self::is_parachain(id)
