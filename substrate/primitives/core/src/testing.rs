@@ -85,7 +85,7 @@ macro_rules! wasm_export_functions {
 	) => {
 		#[no_mangle]
 		#[allow(unreachable_code)]
-		#[cfg(not(feature = "std"))]
+		#[cfg(all(not(feature = "std"), not(jam)))]
 		pub fn $name(input_data: *mut u8, input_len: usize) -> u64 {
 			let input: &[u8] = if input_len == 0 {
 				&[0u8; 0]
@@ -105,6 +105,28 @@ macro_rules! wasm_export_functions {
 
 			$crate::to_substrate_wasm_fn_return_value(&())
 		}
+
+		// A JAM runtime pulls the input data in through the `input` host functions.
+		#[no_mangle]
+		#[allow(unreachable_code)]
+		#[cfg(all(not(feature = "std"), jam))]
+		pub fn $name(input_len: usize) -> u64 {
+			let mut input_buf = ::alloc::vec![0u8; input_len];
+			if input_len > 0 {
+				sp_io::input::read(&mut input_buf[..]);
+			}
+			let input: &[u8] = &input_buf[..];
+
+			{
+				let ($( $arg_name ),*) : ($( $arg_ty ),*) = $crate::Decode::decode(
+					&mut &input[..],
+				).expect("Input data is correctly encoded");
+
+				(|| { $( $fn_impl )* })()
+			}
+
+			$crate::to_substrate_wasm_fn_return_value(&())
+		}
 	};
 	(@IMPL
 		fn $name:ident (
@@ -113,7 +135,7 @@ macro_rules! wasm_export_functions {
 	) => {
 		#[no_mangle]
 		#[allow(unreachable_code)]
-		#[cfg(not(feature = "std"))]
+		#[cfg(all(not(feature = "std"), not(jam)))]
 		pub fn $name(input_data: *mut u8, input_len: usize) -> u64 {
 			let input: &[u8] = if input_len == 0 {
 				&[0u8; 0]
@@ -122,6 +144,28 @@ macro_rules! wasm_export_functions {
 					::core::slice::from_raw_parts(input_data, input_len)
 				}
 			};
+
+			let output $( : $ret_ty )? = {
+				let ($( $arg_name ),*) : ($( $arg_ty ),*) = $crate::Decode::decode(
+					&mut &input[..],
+				).expect("Input data is correctly encoded");
+
+				(|| { $( $fn_impl )* })()
+			};
+
+			$crate::to_substrate_wasm_fn_return_value(&output)
+		}
+
+
+		#[no_mangle]
+		#[allow(unreachable_code)]
+		#[cfg(all(not(feature = "std"), jam))]
+		pub fn $name(input_len: usize) -> u64 {
+			let mut input_buf = ::alloc::vec![0u8; input_len];
+			if input_len > 0 {
+				sp_io::input::read(&mut input_buf[..]);
+			}
+			let input: &[u8] = &input_buf[..];
 
 			let output $( : $ret_ty )? = {
 				let ($( $arg_name ),*) : ($( $arg_ty ),*) = $crate::Decode::decode(
