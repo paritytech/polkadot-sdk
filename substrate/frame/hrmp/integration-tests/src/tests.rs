@@ -22,13 +22,14 @@
 
 use crate::{
 	para, relay, senders, HrmpPara, MockNet, Relay, PARA_ID, RECIPIENT, SENDER, SYSTEM_PARA,
+	UNKNOWN,
 };
 use frame_support::{assert_ok, traits::EnsureOrigin};
 use hrmp_primitives::{
-	ChannelId, MessageToRelay, MessageToRelayV1, ParaId, ParaNotification, ParaRequest,
-	ParaRequestV1,
+	ChannelId, FailureReason, MessageToRelay, MessageToRelayV1, ParaId, ParaNotification,
+	ParaRequest, ParaRequestV1,
 };
-use pallet_hrmp_para::RequestState;
+use pallet_hrmp_para::{HoldReason, OpenKind, RequestState};
 use polkadot_runtime_parachains::{
 	dmp as parachains_dmp, hrmp as parachains_hrmp, Origin as ParachainsOrigin,
 };
@@ -243,5 +244,122 @@ fn a_channel_with_a_system_chain_takes_no_deposit() {
 		// The paying channel next to it still holds both deposits, so this is not a blanket free
 		// pass.
 		assert!(pallet_hrmp_para::Channels::<para::Runtime>::get(CHANNEL).is_none());
+	});
+}
+
+/// What a para has held on the channel-managing parachain under `reason`.
+fn held(para_id: ParaId, reason: HoldReason) -> u128 {
+	use frame_support::traits::fungible::InspectHold;
+	use sp_runtime::traits::Convert;
+
+	para::Balances::balance_on_hold(
+		&para::RuntimeHoldReason::Hrmp(reason),
+		&para::SovereignAccountOf::convert(para_id),
+	)
+}
+
+/// The channel manager forcing a channel open, which on this chain is Root.
+fn force_open(
+	channel: ChannelId,
+) -> sp_runtime::DispatchResultWithInfo<frame_support::dispatch::PostDispatchInfo> {
+	para::Hrmp::force_open_hrmp_channel(
+		para::RuntimeOrigin::root(),
+		channel.sender,
+		channel.recipient,
+		CAPACITY,
+		MESSAGE_SIZE,
+	)
+}
+
+#[test]
+fn root_force_opens_a_channel_the_recipient_never_agreed_to() {
+	MockNet::reset();
+
+	HrmpPara::execute_with(|| {
+		assert_ok!(force_open(CHANNEL));
+
+		let request = pallet_hrmp_para::Requests::<para::Runtime>::get(CHANNEL)
+			.expect("the forced request was recorded");
+		assert!(matches!(request.state, RequestState::Accepted { kind: OpenKind::Forced, .. }));
+		// Both ends pay, even though only one of them asked for anything.
+		assert!(held(CHANNEL.sender, HoldReason::SenderDeposit) > 0);
+		assert!(held(CHANNEL.recipient, HoldReason::RecipientDeposit) > 0);
+	});
+
+	Relay::execute_with(|| {
+		let channel = parachains_hrmp::HrmpChannels::<relay::Runtime>::get(
+			&polkadot_primitives::HrmpChannelId {
+				sender: CHANNEL.sender.into(),
+				recipient: CHANNEL.recipient.into(),
+			},
+		)
+		.expect("the channel is in the routing table");
+		assert_eq!(channel.max_capacity, CAPACITY);
+		assert_eq!(channel.max_message_size, MESSAGE_SIZE);
+		// The parachain holds the money, so the relay chain took nothing.
+		assert_eq!(channel.sender_deposit, 0);
+		assert_eq!(channel.recipient_deposit, 0);
+
+		// The recipient was never asked, so the opened channel is the first it hears of it.
+		let opened = ParaNotification::ChannelOpened { channel: CHANNEL };
+		assert_eq!(downward_conclusions(SENDER), vec![opened.clone()]);
+		assert_eq!(downward_conclusions(RECIPIENT), vec![opened]);
+		assert!(downward_messages(RECIPIENT).is_empty());
+	});
+
+	HrmpPara::execute_with(|| {
+		assert!(pallet_hrmp_para::Requests::<para::Runtime>::get(CHANNEL).is_none());
+		let channel = pallet_hrmp_para::Channels::<para::Runtime>::get(CHANNEL)
+			.expect("the relay chain confirmed the channel");
+		assert_eq!(channel.max_capacity, CAPACITY);
+		assert_eq!(channel.max_message_size, MESSAGE_SIZE);
+		assert_eq!(
+			pallet_hrmp_para::EgressIndex::<para::Runtime>::get(CHANNEL.sender).to_vec(),
+			vec![CHANNEL.recipient]
+		);
+		assert_eq!(
+			pallet_hrmp_para::IngressIndex::<para::Runtime>::get(CHANNEL.recipient).to_vec(),
+			vec![CHANNEL.sender]
+		);
+	});
+}
+
+#[test]
+fn a_force_open_the_relay_chain_refuses_gives_both_deposits_back() {
+	MockNet::reset();
+
+	let refused = ChannelId { sender: SENDER, recipient: UNKNOWN };
+
+	HrmpPara::execute_with(|| {
+		// The channel-managing parachain does not decide para validity, so it takes the deposits
+		// and asks anyway.
+		assert_ok!(force_open(refused));
+		assert!(held(refused.sender, HoldReason::SenderDeposit) > 0);
+		assert!(held(refused.recipient, HoldReason::RecipientDeposit) > 0);
+	});
+
+	Relay::execute_with(|| {
+		assert!(parachains_hrmp::HrmpChannels::<relay::Runtime>::get(
+			&polkadot_primitives::HrmpChannelId {
+				sender: refused.sender.into(),
+				recipient: refused.recipient.into(),
+			},
+		)
+		.is_none());
+
+		assert_eq!(
+			downward_conclusions(SENDER),
+			vec![ParaNotification::ChannelOpenFailure {
+				channel: refused,
+				reason: FailureReason::InvalidPara,
+			}]
+		);
+	});
+
+	HrmpPara::execute_with(|| {
+		assert!(pallet_hrmp_para::Requests::<para::Runtime>::get(refused).is_none());
+		assert!(pallet_hrmp_para::Channels::<para::Runtime>::get(refused).is_none());
+		assert_eq!(held(refused.sender, HoldReason::SenderDeposit), 0);
+		assert_eq!(held(refused.recipient, HoldReason::RecipientDeposit), 0);
 	});
 }
