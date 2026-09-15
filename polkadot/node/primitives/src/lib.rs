@@ -674,7 +674,15 @@ impl ErasureChunk {
 #[cfg(not(target_os = "unknown"))]
 pub fn maybe_compress_pov(pov: PoV) -> PoV {
 	let PoV { block_data: BlockData(raw) } = pov;
-	let raw = sp_maybe_compressed_blob::compress_weakly(&raw, POV_BOMB_LIMIT).unwrap_or(raw);
+	// PoVs are still compressed with the legacy prefix. Per the RFC-135 rollout plan, the
+	// typed `MaybeCompressedBlobType::Pov` prefix may only be emitted after the majority of
+	// the network has upgraded to nodes able to decompress the new prefixes.
+	let raw = sp_maybe_compressed_blob::compress_weakly_as(
+		sp_maybe_compressed_blob::MaybeCompressedBlobType::Legacy,
+		&raw,
+		POV_BOMB_LIMIT,
+	)
+	.unwrap_or(raw);
 
 	let pov = PoV { block_data: BlockData(raw) };
 	pov
