@@ -808,6 +808,7 @@ mod v4_tests {
 					end_hint: Some(100u32),
 					pos: 0,
 					step: PartsOf57600::new_saturating(1),
+					kind: super::super::assigner_coretime::ScheduleKind::Windowed,
 				}),
 			);
 
