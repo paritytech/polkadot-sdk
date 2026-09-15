@@ -433,16 +433,12 @@ async fn get_automine(rpc_client: &RpcClient) -> bool {
 	}
 }
 
-/// Connect to a node at the given URL, and return the underlying API, RPC client, and legacy RPC
-/// clients.
+/// Open a reconnecting WebSocket transport to the node at the given URL.
 pub async fn connect(
 	node_rpc_url: &str,
 	max_request_size: u32,
 	max_response_size: u32,
-) -> Result<
-	(OnlineClient<SrcChainConfig>, RpcClient, LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>),
-	ClientError,
-> {
+) -> Result<RpcClient, ClientError> {
 	log::info!(target: LOG_TARGET, "🌐 Connecting to node at: {node_rpc_url} ...");
 	let rpc_client = ReconnectingRpcClient::builder()
 		.retry_policy(ExponentialBackoff::from_millis(100).max_delay(Duration::from_secs(10)))
@@ -450,17 +446,25 @@ pub async fn connect(
 		.max_response_size(max_response_size)
 		.build(node_rpc_url.to_string())
 		.await?;
-	let rpc_client = RpcClient::new(rpc_client);
 	log::info!(target: LOG_TARGET, "🌟 Connected to node at: {node_rpc_url}");
+	Ok(RpcClient::new(rpc_client))
+}
 
+/// Build the subxt clients that the ETH RPC server drives, on top of any transport.
+pub async fn connect_with(
+	rpc_client: RpcClient,
+) -> Result<
+	(OnlineClient<SrcChainConfig>, LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>),
+	ClientError,
+> {
 	// Pin the legacy backend explicitly. Since subxt 0.50, from_rpc_client defaults
 	// to the CombinedBackend, which routes block streams and header fetches through
 	// the chainHead protocol; its follow restarts and pinning limits stall receipt
 	// indexing under load (blocks become unresolvable once unpinned).
 	let backend = Arc::new(LegacyBackend::builder().build(rpc_client.clone()));
 	let api = OnlineClient::<SrcChainConfig>::from_backend(backend).await?;
-	let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client.clone());
-	Ok((api, rpc_client, rpc))
+	let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client);
+	Ok((api, rpc))
 }
 
 impl Client {

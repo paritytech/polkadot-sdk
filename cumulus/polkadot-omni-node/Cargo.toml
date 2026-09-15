@@ -30,6 +30,9 @@ substrate-build-script-utils = { workspace = true, default-features = true }
 
 [features]
 default = []
+experimental-eth-rpc-in-node = [
+	"polkadot-omni-node-lib/experimental-eth-rpc-in-node",
+]
 jemalloc-allocator = ["polkadot-jemalloc-shim/jemalloc-allocator"]
 runtime-benchmarks = [
 	"polkadot-omni-node-lib/runtime-benchmarks",

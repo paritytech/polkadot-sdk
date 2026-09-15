@@ -330,6 +330,11 @@ pub struct Cli<Config: CliConfig> {
 	#[command(flatten)]
 	pub hop: sc_hop::HopParams,
 
+	/// Options for the embedded Ethereum JSON-RPC endpoint.
+	#[cfg(feature = "experimental-eth-rpc-in-node")]
+	#[command(flatten)]
+	pub eth_rpc: crate::common::eth_rpc::EthRpcParams,
+
 	#[arg(skip)]
 	pub(crate) _phantom: PhantomData<Config>,
 }
@@ -395,6 +400,8 @@ impl<Config: CliConfig> Cli<Config> {
 			storage_monitor: self.storage_monitor.clone(),
 			collator_reserved_slots: self.collator_reserved_slots,
 			hop: self.hop.enabled.then(|| self.hop.clone()),
+			#[cfg(feature = "experimental-eth-rpc-in-node")]
+			eth_rpc: self.eth_rpc.enabled.then(|| self.eth_rpc.clone()),
 		}
 	}
 
@@ -711,5 +718,38 @@ mod tests {
 			sc_statement_store::DEFAULT_BLOOM_FALSE_POS_RATE
 		);
 		assert_eq!(cli.statement_bloom_seed, None);
+	}
+
+	#[cfg(feature = "experimental-eth-rpc-in-node")]
+	fn extra_args(args: &[&str]) -> NodeExtraArgs {
+		let matches = Cli::<TestCliConfig>::command()
+			.version("0.0.0")
+			.try_get_matches_from(std::iter::once("polkadot-omni-node").chain(args.iter().copied()))
+			.expect("arguments parse");
+
+		Cli::<TestCliConfig>::from_arg_matches(&matches)
+			.expect("arguments map onto the struct")
+			.node_extra_args()
+	}
+
+	/// `experimental-eth-rpc-in-node` only compiles the server in. Cargo unifies features across
+	/// a build, so every binary linking this lib gets it; with the feature on and no flag passed
+	/// the node has to behave exactly as with the feature off.
+	#[cfg(feature = "experimental-eth-rpc-in-node")]
+	#[test]
+	fn eth_rpc_stays_off_without_the_flag() {
+		assert!(extra_args(&[]).eth_rpc.is_none());
+		assert!(extra_args(&["--eth-rpc-port", "1234"]).eth_rpc.is_none());
+	}
+
+	#[cfg(feature = "experimental-eth-rpc-in-node")]
+	#[test]
+	fn eth_rpc_flag_carries_its_options() {
+		let params = extra_args(&["--eth-rpc", "--eth-rpc-port", "1234", "--eth-rpc-external"])
+			.eth_rpc
+			.expect("--eth-rpc switches the server on");
+
+		assert_eq!(params.eth_rpc_port, 1234);
+		assert!(params.eth_rpc_external);
 	}
 }
