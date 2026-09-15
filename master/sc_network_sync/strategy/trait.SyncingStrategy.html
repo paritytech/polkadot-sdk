@@ -182,14 +182,14 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
         &amp;mut self,
         peer_id: &amp;<a class="struct" href="../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>,
         key: <a class="struct" href="struct.StrategyKey.html" title="struct sc_network_sync::strategy::StrategyKey">StrategyKey</a>,
-        protocol_name: <a class="enum" href="../../sc_network/types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>,
+        protocol_name: ProtocolName,
         response: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a> + <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>&gt;,
     );
 <span class="item-spacer"></span>    fn <a href="#tymethod.on_blocks_processed" class="fn">on_blocks_processed</a>(
         &amp;mut self,
         imported: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.usize.html">usize</a>,
         count: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.usize.html">usize</a>,
-        results: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="../../sc_consensus/import_queue/enum.BlockImportStatus.html" title="enum sc_consensus::import_queue::BlockImportStatus">BlockImportStatus</a>&lt;<a class="type" href="../../sp_runtime/traits/type.NumberFor.html" title="type sp_runtime::traits::NumberFor">NumberFor</a>&lt;B&gt;&gt;, <a class="enum" href="../../sc_consensus/import_queue/enum.BlockImportError.html" title="enum sc_consensus::import_queue::BlockImportError">BlockImportError</a>&gt;, B::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>)&gt;,
+        results: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;BlockImportStatus&lt;<a class="type" href="../../sp_runtime/traits/type.NumberFor.html" title="type sp_runtime::traits::NumberFor">NumberFor</a>&lt;B&gt;&gt;, BlockImportError&gt;, B::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>)&gt;,
     );
 <span class="item-spacer"></span>    fn <a href="#tymethod.on_block_finalized" class="fn">on_block_finalized</a>(&amp;mut self, hash: &amp;B::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>, number: <a class="type" href="../../sp_runtime/traits/type.NumberFor.html" title="type sp_runtime::traits::NumberFor">NumberFor</a>&lt;B&gt;);
 <span class="item-spacer"></span>    fn <a href="#tymethod.update_chain_info" class="fn">update_chain_info</a>(
@@ -243,7 +243,7 @@ Sync should be able to download all the recent forks normally.</p>
     &amp;mut self,
     peer_id: &amp;<a class="struct" href="../../sc_network_types/peer_id/struct.PeerId.html" title="struct sc_network_types::peer_id::PeerId">PeerId</a>,
     key: <a class="struct" href="struct.StrategyKey.html" title="struct sc_network_sync::strategy::StrategyKey">StrategyKey</a>,
-    protocol_name: <a class="enum" href="../../sc_network/types/enum.ProtocolName.html" title="enum sc_network::types::ProtocolName">ProtocolName</a>,
+    protocol_name: ProtocolName,
     response: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/any/trait.Any.html" title="trait core::any::Any">Any</a> + <a class="trait" href="https://doc.rust-lang.org/1.93.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>&gt;,
 )</h4></section></summary><div class="docblock"><p>Process generic response.</p>
 <p>Strategy has to create opaque response and should be to downcast it back into concrete type
@@ -252,7 +252,7 @@ internally. Failure to downcast is an implementation bug.</p>
     &amp;mut self,
     imported: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.usize.html">usize</a>,
     count: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.usize.html">usize</a>,
-    results: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="../../sc_consensus/import_queue/enum.BlockImportStatus.html" title="enum sc_consensus::import_queue::BlockImportStatus">BlockImportStatus</a>&lt;<a class="type" href="../../sp_runtime/traits/type.NumberFor.html" title="type sp_runtime::traits::NumberFor">NumberFor</a>&lt;B&gt;&gt;, <a class="enum" href="../../sc_consensus/import_queue/enum.BlockImportError.html" title="enum sc_consensus::import_queue::BlockImportError">BlockImportError</a>&gt;, B::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>)&gt;,
+    results: <a class="struct" href="https://doc.rust-lang.org/1.93.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(<a class="enum" href="https://doc.rust-lang.org/1.93.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;BlockImportStatus&lt;<a class="type" href="../../sp_runtime/traits/type.NumberFor.html" title="type sp_runtime::traits::NumberFor">NumberFor</a>&lt;B&gt;&gt;, BlockImportError&gt;, B::<a class="associatedtype" href="../../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>)&gt;,
 )</h4></section></summary><div class="docblock"><p>A batch of blocks that have been processed, with or without errors.</p>
 <p>Call this when a batch of blocks that have been processed by the import queue, with or
 without errors.</p>

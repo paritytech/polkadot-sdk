@@ -543,164 +543,163 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#393 id=393 data-nosnippet>393</a>	</span><span class="kw">fn </span>handle_xcmp_messages&lt;<span class="lifetime">'a</span>, I: Iterator&lt;Item = (Id, RelayChainBlockNumber, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8])&gt;&gt;(
 <a href=#394 id=394 data-nosnippet>394</a>		iter: I,
 <a href=#395 id=395 data-nosnippet>395</a>		max_weight: Weight,
-<a href=#396 id=396 data-nosnippet>396</a>	) -&gt; Weight;
+<a href=#396 id=396 data-nosnippet>396</a>	) -&gt; (usize, Weight);
 <a href=#397 id=397 data-nosnippet>397</a>}
 <a href=#398 id=398 data-nosnippet>398</a><span class="kw">impl </span>XcmpMessageHandler <span class="kw">for </span>() {
 <a href=#399 id=399 data-nosnippet>399</a>	<span class="kw">fn </span>handle_xcmp_messages&lt;<span class="lifetime">'a</span>, I: Iterator&lt;Item = (Id, RelayChainBlockNumber, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8])&gt;&gt;(
 <a href=#400 id=400 data-nosnippet>400</a>		iter: I,
 <a href=#401 id=401 data-nosnippet>401</a>		_max_weight: Weight,
-<a href=#402 id=402 data-nosnippet>402</a>	) -&gt; Weight {
-<a href=#403 id=403 data-nosnippet>403</a>		<span class="kw">for _ in </span>iter {}
-<a href=#404 id=404 data-nosnippet>404</a>		Weight::zero()
-<a href=#405 id=405 data-nosnippet>405</a>	}
-<a href=#406 id=406 data-nosnippet>406</a>}
-<a href=#407 id=407 data-nosnippet>407</a>
-<a href=#408 id=408 data-nosnippet>408</a><span class="doccomment">/// Extension to ValidationParams for V3+ candidates.
-<a href=#409 id=409 data-nosnippet>409</a>/// Versioned enum where the variant index serves as the version number.
-<a href=#410 id=410 data-nosnippet>410</a>///
-<a href=#411 id=411 data-nosnippet>411</a>/// When introducing a new candidate descriptor version, add a new variant here.
-<a href=#412 id=412 data-nosnippet>412</a>/// PVFs that don't understand the new variant will fail to decode, which is
-<a href=#413 id=413 data-nosnippet>413</a>/// expected - parachains must upgrade their PVF to use new features.
-<a href=#414 id=414 data-nosnippet>414</a></span><span class="attr">#[derive(Clone, Encode, Decode)]
-<a href=#415 id=415 data-nosnippet>415</a>#[cfg_attr(feature = <span class="string">"std"</span>, derive(Debug))]
-<a href=#416 id=416 data-nosnippet>416</a></span><span class="kw">pub enum </span>ValidationParamsExtension {
-<a href=#417 id=417 data-nosnippet>417</a>	<span class="doccomment">/// V3 extension - contains relay_parent and scheduling_parent hashes.
-<a href=#418 id=418 data-nosnippet>418</a>	</span><span class="attr">#[codec(index = <span class="number">3</span>)]
-<a href=#419 id=419 data-nosnippet>419</a>	</span>V3 {
-<a href=#420 id=420 data-nosnippet>420</a>		<span class="doccomment">/// The relay parent block hash.
-<a href=#421 id=421 data-nosnippet>421</a>		</span>relay_parent: Hash,
-<a href=#422 id=422 data-nosnippet>422</a>		<span class="doccomment">/// The scheduling parent block hash (may differ from relay_parent in V3).
-<a href=#423 id=423 data-nosnippet>423</a>		</span>scheduling_parent: Hash,
-<a href=#424 id=424 data-nosnippet>424</a>	},
-<a href=#425 id=425 data-nosnippet>425</a>	<span class="comment">// Future versions would add new variants:
-<a href=#426 id=426 data-nosnippet>426</a>	// #[codec(index = 4)]
-<a href=#427 id=427 data-nosnippet>427</a>	// V4 {
-<a href=#428 id=428 data-nosnippet>428</a>	//     relay_parent: Hash,
-<a href=#429 id=429 data-nosnippet>429</a>	//     scheduling_parent: Hash,
-<a href=#430 id=430 data-nosnippet>430</a>	//     new_field: SomeType,
-<a href=#431 id=431 data-nosnippet>431</a>	// },
-<a href=#432 id=432 data-nosnippet>432</a></span>}
-<a href=#433 id=433 data-nosnippet>433</a>
-<a href=#434 id=434 data-nosnippet>434</a><span class="doccomment">/// A wrapper that decodes `T` if bytes remain after prior fields, or returns
-<a href=#435 id=435 data-nosnippet>435</a>/// `None` if at EOF. Unlike `Option&lt;T&gt;`, this does NOT expect a 0x00/0x01
-<a href=#436 id=436 data-nosnippet>436</a>/// discriminant byte - it simply checks whether there is remaining input.
-<a href=#437 id=437 data-nosnippet>437</a>///
-<a href=#438 id=438 data-nosnippet>438</a>/// This is used to guarantee no breakage for existing chains with v1/v2
-<a href=#439 id=439 data-nosnippet>439</a>/// descriptors. For v1/v2, no extension bytes are sent at all, and
-<a href=#440 id=440 data-nosnippet>440</a>/// TrailingOption gracefully returns None instead of failing to decode.
-<a href=#441 id=441 data-nosnippet>441</a>///
-<a href=#442 id=442 data-nosnippet>442</a>/// # ⚠️ DANGER - Do Not Use This as a General-Purpose Utility! ⚠️
-<a href=#443 id=443 data-nosnippet>443</a>///
-<a href=#444 id=444 data-nosnippet>444</a>/// **CRITICAL ASSUMPTIONS:**
-<a href=#445 id=445 data-nosnippet>445</a>/// - The type containing `TrailingOption&lt;T&gt;` MUST be the final/top-level struct being decoded
-<a href=#446 id=446 data-nosnippet>446</a>/// - There MUST NOT be any fields after the `TrailingOption&lt;T&gt;` field
-<a href=#447 id=447 data-nosnippet>447</a>/// - There MUST NOT be any legitimate trailing data except `T`
-<a href=#448 id=448 data-nosnippet>448</a>///
-<a href=#449 id=449 data-nosnippet>449</a>/// **Why this is dangerous:**
-<a href=#450 id=450 data-nosnippet>450</a>/// `TrailingOption` greedily consumes ALL remaining bytes and attempts to decode them as `T`.
-<a href=#451 id=451 data-nosnippet>451</a>/// If your struct is embedded in a larger message, or if you add fields after it,
-<a href=#452 id=452 data-nosnippet>452</a>/// `TrailingOption` will incorrectly steal bytes belonging to those fields.
-<a href=#453 id=453 data-nosnippet>453</a>///
-<a href=#454 id=454 data-nosnippet>454</a>/// **Current safe usage:**
-<a href=#455 id=455 data-nosnippet>455</a>/// - `ValidationParams` is encoded as a complete standalone message
-<a href=#456 id=456 data-nosnippet>456</a>/// - `ValidationParamsExtension` is manually appended as trailing bytes
-<a href=#457 id=457 data-nosnippet>457</a>/// - The PVF receives this as the entire input (no wrapper struct)
-<a href=#458 id=458 data-nosnippet>458</a>///
-<a href=#459 id=459 data-nosnippet>459</a>/// If you're considering using this elsewhere, you probably want `Option&lt;T&gt;` instead.
-<a href=#460 id=460 data-nosnippet>460</a></span><span class="attr">#[derive(Clone)]
-<a href=#461 id=461 data-nosnippet>461</a>#[cfg_attr(feature = <span class="string">"std"</span>, derive(Debug))]
-<a href=#462 id=462 data-nosnippet>462</a></span><span class="kw">pub struct </span>TrailingOption&lt;T&gt;(<span class="kw">pub </span><span class="prelude-ty">Option</span>&lt;T&gt;);
-<a href=#463 id=463 data-nosnippet>463</a>
-<a href=#464 id=464 data-nosnippet>464</a><span class="kw">impl</span>&lt;T: Decode&gt; Decode <span class="kw">for </span>TrailingOption&lt;T&gt; {
-<a href=#465 id=465 data-nosnippet>465</a>	<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
-<a href=#466 id=466 data-nosnippet>466</a>		<span class="comment">// Check if input is exhausted - return None instead of failing
-<a href=#467 id=467 data-nosnippet>467</a>		</span><span class="kw">if </span>input.remaining_len()<span class="question-mark">? </span>== <span class="prelude-val">Some</span>(<span class="number">0</span>) {
-<a href=#468 id=468 data-nosnippet>468</a>			<span class="kw">return </span><span class="prelude-val">Ok</span>(TrailingOption(<span class="prelude-val">None</span>));
-<a href=#469 id=469 data-nosnippet>469</a>		}
-<a href=#470 id=470 data-nosnippet>470</a>		<span class="comment">// Bytes remain - decode T (the ValidationParamsExtension enum)
-<a href=#471 id=471 data-nosnippet>471</a>		</span><span class="prelude-val">Ok</span>(TrailingOption(<span class="prelude-val">Some</span>(T::decode(input)<span class="question-mark">?</span>)))
-<a href=#472 id=472 data-nosnippet>472</a>	}
-<a href=#473 id=473 data-nosnippet>473</a>}
-<a href=#474 id=474 data-nosnippet>474</a>
-<a href=#475 id=475 data-nosnippet>475</a><span class="kw">impl</span>&lt;T: Encode&gt; Encode <span class="kw">for </span>TrailingOption&lt;T&gt; {
-<a href=#476 id=476 data-nosnippet>476</a>	<span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
-<a href=#477 id=477 data-nosnippet>477</a>		<span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
-<a href=#478 id=478 data-nosnippet>478</a>			<span class="prelude-val">Some</span>(inner) =&gt; inner.encode(),
-<a href=#479 id=479 data-nosnippet>479</a>			<span class="prelude-val">None </span>=&gt; Vec::new(), <span class="comment">// Encode nothing for None
-<a href=#480 id=480 data-nosnippet>480</a>		</span>}
-<a href=#481 id=481 data-nosnippet>481</a>	}
-<a href=#482 id=482 data-nosnippet>482</a>}
-<a href=#483 id=483 data-nosnippet>483</a>
-<a href=#484 id=484 data-nosnippet>484</a><span class="kw">impl</span>&lt;T&gt; TrailingOption&lt;T&gt; {
-<a href=#485 id=485 data-nosnippet>485</a>	<span class="doccomment">/// Extract the inner `Option&lt;T&gt;`.
-<a href=#486 id=486 data-nosnippet>486</a>	</span><span class="kw">pub fn </span>into_inner(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
-<a href=#487 id=487 data-nosnippet>487</a>		<span class="self">self</span>.<span class="number">0
-<a href=#488 id=488 data-nosnippet>488</a>	</span>}
-<a href=#489 id=489 data-nosnippet>489</a>}
-<a href=#490 id=490 data-nosnippet>490</a>
-<a href=#491 id=491 data-nosnippet>491</a><span class="doccomment">/// Validation parameters for evaluating the parachain validity function.
-<a href=#492 id=492 data-nosnippet>492</a></span><span class="comment">// TODO: balance downloads (https://github.com/paritytech/polkadot/issues/220)
-<a href=#493 id=493 data-nosnippet>493</a></span><span class="attr">#[derive(PartialEq, Eq, Decode, Clone)]
-<a href=#494 id=494 data-nosnippet>494</a>#[cfg_attr(feature = <span class="string">"std"</span>, derive(Debug, Encode))]
-<a href=#495 id=495 data-nosnippet>495</a></span><span class="kw">pub struct </span>ValidationParams {
-<a href=#496 id=496 data-nosnippet>496</a>	<span class="doccomment">/// Previous head-data.
-<a href=#497 id=497 data-nosnippet>497</a>	</span><span class="kw">pub </span>parent_head: HeadData,
-<a href=#498 id=498 data-nosnippet>498</a>	<span class="doccomment">/// The collation body.
-<a href=#499 id=499 data-nosnippet>499</a>	</span><span class="kw">pub </span>block_data: BlockData,
-<a href=#500 id=500 data-nosnippet>500</a>	<span class="doccomment">/// The current relay-chain block number.
-<a href=#501 id=501 data-nosnippet>501</a>	</span><span class="kw">pub </span>relay_parent_number: RelayChainBlockNumber,
-<a href=#502 id=502 data-nosnippet>502</a>	<span class="doccomment">/// The relay-chain block's storage root.
-<a href=#503 id=503 data-nosnippet>503</a>	</span><span class="kw">pub </span>relay_parent_storage_root: Hash,
-<a href=#504 id=504 data-nosnippet>504</a>}
-<a href=#505 id=505 data-nosnippet>505</a>
-<a href=#506 id=506 data-nosnippet>506</a><span class="doccomment">/// Maximum number of HRMP messages allowed per candidate.
-<a href=#507 id=507 data-nosnippet>507</a>///
-<a href=#508 id=508 data-nosnippet>508</a>/// We also use this as a generous limit, which still prevents possible memory exhaustion, from
-<a href=#509 id=509 data-nosnippet>509</a>/// malicious parachains that may otherwise return a huge amount of messages in `ValidationResult`.
-<a href=#510 id=510 data-nosnippet>510</a></span><span class="kw">pub const </span>MAX_HORIZONTAL_MESSAGE_NUM: u32 = <span class="number">16 </span>* <span class="number">1024</span>;
-<a href=#511 id=511 data-nosnippet>511</a><span class="doccomment">/// Maximum number of UMP messages allowed per candidate.
-<a href=#512 id=512 data-nosnippet>512</a>///
-<a href=#513 id=513 data-nosnippet>513</a>/// We also use this as a generous limit, which still prevents possible memory exhaustion, from
-<a href=#514 id=514 data-nosnippet>514</a>/// malicious parachains that may otherwise return a huge amount of messages in `ValidationResult`.
-<a href=#515 id=515 data-nosnippet>515</a></span><span class="kw">pub const </span>MAX_UPWARD_MESSAGE_NUM: u32 = <span class="number">16 </span>* <span class="number">1024</span>;
-<a href=#516 id=516 data-nosnippet>516</a>
-<a href=#517 id=517 data-nosnippet>517</a><span class="kw">pub type </span>UpwardMessages = BoundedVec&lt;UpwardMessage, ConstU32&lt;MAX_UPWARD_MESSAGE_NUM&gt;&gt;;
-<a href=#518 id=518 data-nosnippet>518</a>
-<a href=#519 id=519 data-nosnippet>519</a><span class="kw">pub type </span>HorizontalMessages =
-<a href=#520 id=520 data-nosnippet>520</a>	BoundedVec&lt;OutboundHrmpMessage&lt;Id&gt;, ConstU32&lt;MAX_HORIZONTAL_MESSAGE_NUM&gt;&gt;;
-<a href=#521 id=521 data-nosnippet>521</a>
-<a href=#522 id=522 data-nosnippet>522</a><span class="doccomment">/// The result of parachain validation.
-<a href=#523 id=523 data-nosnippet>523</a></span><span class="comment">// TODO: balance uploads (https://github.com/paritytech/polkadot/issues/220)
-<a href=#524 id=524 data-nosnippet>524</a></span><span class="attr">#[derive(PartialEq, Eq, Clone, Encode)]
-<a href=#525 id=525 data-nosnippet>525</a>#[cfg_attr(feature = <span class="string">"std"</span>, derive(Debug, Decode))]
-<a href=#526 id=526 data-nosnippet>526</a></span><span class="kw">pub struct </span>ValidationResult {
-<a href=#527 id=527 data-nosnippet>527</a>	<span class="doccomment">/// New head data that should be included in the relay chain state.
-<a href=#528 id=528 data-nosnippet>528</a>	</span><span class="kw">pub </span>head_data: HeadData,
-<a href=#529 id=529 data-nosnippet>529</a>	<span class="doccomment">/// An update to the validation code that should be scheduled in the relay chain.
-<a href=#530 id=530 data-nosnippet>530</a>	</span><span class="kw">pub </span>new_validation_code: <span class="prelude-ty">Option</span>&lt;ValidationCode&gt;,
-<a href=#531 id=531 data-nosnippet>531</a>	<span class="doccomment">/// Upward messages send by the Parachain.
-<a href=#532 id=532 data-nosnippet>532</a>	</span><span class="kw">pub </span>upward_messages: UpwardMessages,
-<a href=#533 id=533 data-nosnippet>533</a>	<span class="doccomment">/// Outbound horizontal messages sent by the parachain.
-<a href=#534 id=534 data-nosnippet>534</a>	</span><span class="kw">pub </span>horizontal_messages: HorizontalMessages,
-<a href=#535 id=535 data-nosnippet>535</a>	<span class="doccomment">/// Number of downward messages that were processed by the Parachain.
-<a href=#536 id=536 data-nosnippet>536</a>	///
-<a href=#537 id=537 data-nosnippet>537</a>	/// It is expected that the Parachain processes them from first to last.
-<a href=#538 id=538 data-nosnippet>538</a>	</span><span class="kw">pub </span>processed_downward_messages: u32,
-<a href=#539 id=539 data-nosnippet>539</a>	<span class="doccomment">/// The mark which specifies the block number up to which all inbound HRMP messages are
-<a href=#540 id=540 data-nosnippet>540</a>	/// processed.
-<a href=#541 id=541 data-nosnippet>541</a>	</span><span class="kw">pub </span>hrmp_watermark: RelayChainBlockNumber,
-<a href=#542 id=542 data-nosnippet>542</a>}
-<a href=#543 id=543 data-nosnippet>543</a>
-<a href=#544 id=544 data-nosnippet>544</a><span class="attr">#[cfg(test)]
-<a href=#545 id=545 data-nosnippet>545</a></span><span class="kw">mod </span>tests {
-<a href=#546 id=546 data-nosnippet>546</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#547 id=547 data-nosnippet>547</a>
-<a href=#548 id=548 data-nosnippet>548</a>	<span class="attr">#[test]
-<a href=#549 id=549 data-nosnippet>549</a>	</span><span class="kw">fn </span>para_id_debug() {
-<a href=#550 id=550 data-nosnippet>550</a>		<span class="kw">let </span>id = Id::new(<span class="number">42</span>);
-<a href=#551 id=551 data-nosnippet>551</a>		<span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, id), <span class="string">"42"</span>);
-<a href=#552 id=552 data-nosnippet>552</a>	}
-<a href=#553 id=553 data-nosnippet>553</a>}
+<a href=#402 id=402 data-nosnippet>402</a>	) -&gt; (usize, Weight) {
+<a href=#403 id=403 data-nosnippet>403</a>		(iter.count(), Weight::zero())
+<a href=#404 id=404 data-nosnippet>404</a>	}
+<a href=#405 id=405 data-nosnippet>405</a>}
+<a href=#406 id=406 data-nosnippet>406</a>
+<a href=#407 id=407 data-nosnippet>407</a><span class="doccomment">/// Extension to ValidationParams for V3+ candidates.
+<a href=#408 id=408 data-nosnippet>408</a>/// Versioned enum where the variant index serves as the version number.
+<a href=#409 id=409 data-nosnippet>409</a>///
+<a href=#410 id=410 data-nosnippet>410</a>/// When introducing a new candidate descriptor version, add a new variant here.
+<a href=#411 id=411 data-nosnippet>411</a>/// PVFs that don't understand the new variant will fail to decode, which is
+<a href=#412 id=412 data-nosnippet>412</a>/// expected - parachains must upgrade their PVF to use new features.
+<a href=#413 id=413 data-nosnippet>413</a></span><span class="attr">#[derive(Clone, Encode, Decode)]
+<a href=#414 id=414 data-nosnippet>414</a>#[cfg_attr(feature = <span class="string">"std"</span>, derive(Debug))]
+<a href=#415 id=415 data-nosnippet>415</a></span><span class="kw">pub enum </span>ValidationParamsExtension {
+<a href=#416 id=416 data-nosnippet>416</a>	<span class="doccomment">/// V3 extension - contains relay_parent and scheduling_parent hashes.
+<a href=#417 id=417 data-nosnippet>417</a>	</span><span class="attr">#[codec(index = <span class="number">3</span>)]
+<a href=#418 id=418 data-nosnippet>418</a>	</span>V3 {
+<a href=#419 id=419 data-nosnippet>419</a>		<span class="doccomment">/// The relay parent block hash.
+<a href=#420 id=420 data-nosnippet>420</a>		</span>relay_parent: Hash,
+<a href=#421 id=421 data-nosnippet>421</a>		<span class="doccomment">/// The scheduling parent block hash (may differ from relay_parent in V3).
+<a href=#422 id=422 data-nosnippet>422</a>		</span>scheduling_parent: Hash,
+<a href=#423 id=423 data-nosnippet>423</a>	},
+<a href=#424 id=424 data-nosnippet>424</a>	<span class="comment">// Future versions would add new variants:
+<a href=#425 id=425 data-nosnippet>425</a>	// #[codec(index = 4)]
+<a href=#426 id=426 data-nosnippet>426</a>	// V4 {
+<a href=#427 id=427 data-nosnippet>427</a>	//     relay_parent: Hash,
+<a href=#428 id=428 data-nosnippet>428</a>	//     scheduling_parent: Hash,
+<a href=#429 id=429 data-nosnippet>429</a>	//     new_field: SomeType,
+<a href=#430 id=430 data-nosnippet>430</a>	// },
+<a href=#431 id=431 data-nosnippet>431</a></span>}
+<a href=#432 id=432 data-nosnippet>432</a>
+<a href=#433 id=433 data-nosnippet>433</a><span class="doccomment">/// A wrapper that decodes `T` if bytes remain after prior fields, or returns
+<a href=#434 id=434 data-nosnippet>434</a>/// `None` if at EOF. Unlike `Option&lt;T&gt;`, this does NOT expect a 0x00/0x01
+<a href=#435 id=435 data-nosnippet>435</a>/// discriminant byte - it simply checks whether there is remaining input.
+<a href=#436 id=436 data-nosnippet>436</a>///
+<a href=#437 id=437 data-nosnippet>437</a>/// This is used to guarantee no breakage for existing chains with v1/v2
+<a href=#438 id=438 data-nosnippet>438</a>/// descriptors. For v1/v2, no extension bytes are sent at all, and
+<a href=#439 id=439 data-nosnippet>439</a>/// TrailingOption gracefully returns None instead of failing to decode.
+<a href=#440 id=440 data-nosnippet>440</a>///
+<a href=#441 id=441 data-nosnippet>441</a>/// # ⚠️ DANGER - Do Not Use This as a General-Purpose Utility! ⚠️
+<a href=#442 id=442 data-nosnippet>442</a>///
+<a href=#443 id=443 data-nosnippet>443</a>/// **CRITICAL ASSUMPTIONS:**
+<a href=#444 id=444 data-nosnippet>444</a>/// - The type containing `TrailingOption&lt;T&gt;` MUST be the final/top-level struct being decoded
+<a href=#445 id=445 data-nosnippet>445</a>/// - There MUST NOT be any fields after the `TrailingOption&lt;T&gt;` field
+<a href=#446 id=446 data-nosnippet>446</a>/// - There MUST NOT be any legitimate trailing data except `T`
+<a href=#447 id=447 data-nosnippet>447</a>///
+<a href=#448 id=448 data-nosnippet>448</a>/// **Why this is dangerous:**
+<a href=#449 id=449 data-nosnippet>449</a>/// `TrailingOption` greedily consumes ALL remaining bytes and attempts to decode them as `T`.
+<a href=#450 id=450 data-nosnippet>450</a>/// If your struct is embedded in a larger message, or if you add fields after it,
+<a href=#451 id=451 data-nosnippet>451</a>/// `TrailingOption` will incorrectly steal bytes belonging to those fields.
+<a href=#452 id=452 data-nosnippet>452</a>///
+<a href=#453 id=453 data-nosnippet>453</a>/// **Current safe usage:**
+<a href=#454 id=454 data-nosnippet>454</a>/// - `ValidationParams` is encoded as a complete standalone message
+<a href=#455 id=455 data-nosnippet>455</a>/// - `ValidationParamsExtension` is manually appended as trailing bytes
+<a href=#456 id=456 data-nosnippet>456</a>/// - The PVF receives this as the entire input (no wrapper struct)
+<a href=#457 id=457 data-nosnippet>457</a>///
+<a href=#458 id=458 data-nosnippet>458</a>/// If you're considering using this elsewhere, you probably want `Option&lt;T&gt;` instead.
+<a href=#459 id=459 data-nosnippet>459</a></span><span class="attr">#[derive(Clone)]
+<a href=#460 id=460 data-nosnippet>460</a>#[cfg_attr(feature = <span class="string">"std"</span>, derive(Debug))]
+<a href=#461 id=461 data-nosnippet>461</a></span><span class="kw">pub struct </span>TrailingOption&lt;T&gt;(<span class="kw">pub </span><span class="prelude-ty">Option</span>&lt;T&gt;);
+<a href=#462 id=462 data-nosnippet>462</a>
+<a href=#463 id=463 data-nosnippet>463</a><span class="kw">impl</span>&lt;T: Decode&gt; Decode <span class="kw">for </span>TrailingOption&lt;T&gt; {
+<a href=#464 id=464 data-nosnippet>464</a>	<span class="kw">fn </span>decode&lt;I: codec::Input&gt;(input: <span class="kw-2">&amp;mut </span>I) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, codec::Error&gt; {
+<a href=#465 id=465 data-nosnippet>465</a>		<span class="comment">// Check if input is exhausted - return None instead of failing
+<a href=#466 id=466 data-nosnippet>466</a>		</span><span class="kw">if </span>input.remaining_len()<span class="question-mark">? </span>== <span class="prelude-val">Some</span>(<span class="number">0</span>) {
+<a href=#467 id=467 data-nosnippet>467</a>			<span class="kw">return </span><span class="prelude-val">Ok</span>(TrailingOption(<span class="prelude-val">None</span>));
+<a href=#468 id=468 data-nosnippet>468</a>		}
+<a href=#469 id=469 data-nosnippet>469</a>		<span class="comment">// Bytes remain - decode T (the ValidationParamsExtension enum)
+<a href=#470 id=470 data-nosnippet>470</a>		</span><span class="prelude-val">Ok</span>(TrailingOption(<span class="prelude-val">Some</span>(T::decode(input)<span class="question-mark">?</span>)))
+<a href=#471 id=471 data-nosnippet>471</a>	}
+<a href=#472 id=472 data-nosnippet>472</a>}
+<a href=#473 id=473 data-nosnippet>473</a>
+<a href=#474 id=474 data-nosnippet>474</a><span class="kw">impl</span>&lt;T: Encode&gt; Encode <span class="kw">for </span>TrailingOption&lt;T&gt; {
+<a href=#475 id=475 data-nosnippet>475</a>	<span class="kw">fn </span>encode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
+<a href=#476 id=476 data-nosnippet>476</a>		<span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0 </span>{
+<a href=#477 id=477 data-nosnippet>477</a>			<span class="prelude-val">Some</span>(inner) =&gt; inner.encode(),
+<a href=#478 id=478 data-nosnippet>478</a>			<span class="prelude-val">None </span>=&gt; Vec::new(), <span class="comment">// Encode nothing for None
+<a href=#479 id=479 data-nosnippet>479</a>		</span>}
+<a href=#480 id=480 data-nosnippet>480</a>	}
+<a href=#481 id=481 data-nosnippet>481</a>}
+<a href=#482 id=482 data-nosnippet>482</a>
+<a href=#483 id=483 data-nosnippet>483</a><span class="kw">impl</span>&lt;T&gt; TrailingOption&lt;T&gt; {
+<a href=#484 id=484 data-nosnippet>484</a>	<span class="doccomment">/// Extract the inner `Option&lt;T&gt;`.
+<a href=#485 id=485 data-nosnippet>485</a>	</span><span class="kw">pub fn </span>into_inner(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt; {
+<a href=#486 id=486 data-nosnippet>486</a>		<span class="self">self</span>.<span class="number">0
+<a href=#487 id=487 data-nosnippet>487</a>	</span>}
+<a href=#488 id=488 data-nosnippet>488</a>}
+<a href=#489 id=489 data-nosnippet>489</a>
+<a href=#490 id=490 data-nosnippet>490</a><span class="doccomment">/// Validation parameters for evaluating the parachain validity function.
+<a href=#491 id=491 data-nosnippet>491</a></span><span class="comment">// TODO: balance downloads (https://github.com/paritytech/polkadot/issues/220)
+<a href=#492 id=492 data-nosnippet>492</a></span><span class="attr">#[derive(PartialEq, Eq, Decode, Clone)]
+<a href=#493 id=493 data-nosnippet>493</a>#[cfg_attr(feature = <span class="string">"std"</span>, derive(Debug, Encode))]
+<a href=#494 id=494 data-nosnippet>494</a></span><span class="kw">pub struct </span>ValidationParams {
+<a href=#495 id=495 data-nosnippet>495</a>	<span class="doccomment">/// Previous head-data.
+<a href=#496 id=496 data-nosnippet>496</a>	</span><span class="kw">pub </span>parent_head: HeadData,
+<a href=#497 id=497 data-nosnippet>497</a>	<span class="doccomment">/// The collation body.
+<a href=#498 id=498 data-nosnippet>498</a>	</span><span class="kw">pub </span>block_data: BlockData,
+<a href=#499 id=499 data-nosnippet>499</a>	<span class="doccomment">/// The current relay-chain block number.
+<a href=#500 id=500 data-nosnippet>500</a>	</span><span class="kw">pub </span>relay_parent_number: RelayChainBlockNumber,
+<a href=#501 id=501 data-nosnippet>501</a>	<span class="doccomment">/// The relay-chain block's storage root.
+<a href=#502 id=502 data-nosnippet>502</a>	</span><span class="kw">pub </span>relay_parent_storage_root: Hash,
+<a href=#503 id=503 data-nosnippet>503</a>}
+<a href=#504 id=504 data-nosnippet>504</a>
+<a href=#505 id=505 data-nosnippet>505</a><span class="doccomment">/// Maximum number of HRMP messages allowed per candidate.
+<a href=#506 id=506 data-nosnippet>506</a>///
+<a href=#507 id=507 data-nosnippet>507</a>/// We also use this as a generous limit, which still prevents possible memory exhaustion, from
+<a href=#508 id=508 data-nosnippet>508</a>/// malicious parachains that may otherwise return a huge amount of messages in `ValidationResult`.
+<a href=#509 id=509 data-nosnippet>509</a></span><span class="kw">pub const </span>MAX_HORIZONTAL_MESSAGE_NUM: u32 = <span class="number">16 </span>* <span class="number">1024</span>;
+<a href=#510 id=510 data-nosnippet>510</a><span class="doccomment">/// Maximum number of UMP messages allowed per candidate.
+<a href=#511 id=511 data-nosnippet>511</a>///
+<a href=#512 id=512 data-nosnippet>512</a>/// We also use this as a generous limit, which still prevents possible memory exhaustion, from
+<a href=#513 id=513 data-nosnippet>513</a>/// malicious parachains that may otherwise return a huge amount of messages in `ValidationResult`.
+<a href=#514 id=514 data-nosnippet>514</a></span><span class="kw">pub const </span>MAX_UPWARD_MESSAGE_NUM: u32 = <span class="number">16 </span>* <span class="number">1024</span>;
+<a href=#515 id=515 data-nosnippet>515</a>
+<a href=#516 id=516 data-nosnippet>516</a><span class="kw">pub type </span>UpwardMessages = BoundedVec&lt;UpwardMessage, ConstU32&lt;MAX_UPWARD_MESSAGE_NUM&gt;&gt;;
+<a href=#517 id=517 data-nosnippet>517</a>
+<a href=#518 id=518 data-nosnippet>518</a><span class="kw">pub type </span>HorizontalMessages =
+<a href=#519 id=519 data-nosnippet>519</a>	BoundedVec&lt;OutboundHrmpMessage&lt;Id&gt;, ConstU32&lt;MAX_HORIZONTAL_MESSAGE_NUM&gt;&gt;;
+<a href=#520 id=520 data-nosnippet>520</a>
+<a href=#521 id=521 data-nosnippet>521</a><span class="doccomment">/// The result of parachain validation.
+<a href=#522 id=522 data-nosnippet>522</a></span><span class="comment">// TODO: balance uploads (https://github.com/paritytech/polkadot/issues/220)
+<a href=#523 id=523 data-nosnippet>523</a></span><span class="attr">#[derive(PartialEq, Eq, Clone, Encode)]
+<a href=#524 id=524 data-nosnippet>524</a>#[cfg_attr(feature = <span class="string">"std"</span>, derive(Debug, Decode))]
+<a href=#525 id=525 data-nosnippet>525</a></span><span class="kw">pub struct </span>ValidationResult {
+<a href=#526 id=526 data-nosnippet>526</a>	<span class="doccomment">/// New head data that should be included in the relay chain state.
+<a href=#527 id=527 data-nosnippet>527</a>	</span><span class="kw">pub </span>head_data: HeadData,
+<a href=#528 id=528 data-nosnippet>528</a>	<span class="doccomment">/// An update to the validation code that should be scheduled in the relay chain.
+<a href=#529 id=529 data-nosnippet>529</a>	</span><span class="kw">pub </span>new_validation_code: <span class="prelude-ty">Option</span>&lt;ValidationCode&gt;,
+<a href=#530 id=530 data-nosnippet>530</a>	<span class="doccomment">/// Upward messages send by the Parachain.
+<a href=#531 id=531 data-nosnippet>531</a>	</span><span class="kw">pub </span>upward_messages: UpwardMessages,
+<a href=#532 id=532 data-nosnippet>532</a>	<span class="doccomment">/// Outbound horizontal messages sent by the parachain.
+<a href=#533 id=533 data-nosnippet>533</a>	</span><span class="kw">pub </span>horizontal_messages: HorizontalMessages,
+<a href=#534 id=534 data-nosnippet>534</a>	<span class="doccomment">/// Number of downward messages that were processed by the Parachain.
+<a href=#535 id=535 data-nosnippet>535</a>	///
+<a href=#536 id=536 data-nosnippet>536</a>	/// It is expected that the Parachain processes them from first to last.
+<a href=#537 id=537 data-nosnippet>537</a>	</span><span class="kw">pub </span>processed_downward_messages: u32,
+<a href=#538 id=538 data-nosnippet>538</a>	<span class="doccomment">/// The mark which specifies the block number up to which all inbound HRMP messages are
+<a href=#539 id=539 data-nosnippet>539</a>	/// processed.
+<a href=#540 id=540 data-nosnippet>540</a>	</span><span class="kw">pub </span>hrmp_watermark: RelayChainBlockNumber,
+<a href=#541 id=541 data-nosnippet>541</a>}
+<a href=#542 id=542 data-nosnippet>542</a>
+<a href=#543 id=543 data-nosnippet>543</a><span class="attr">#[cfg(test)]
+<a href=#544 id=544 data-nosnippet>544</a></span><span class="kw">mod </span>tests {
+<a href=#545 id=545 data-nosnippet>545</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#546 id=546 data-nosnippet>546</a>
+<a href=#547 id=547 data-nosnippet>547</a>	<span class="attr">#[test]
+<a href=#548 id=548 data-nosnippet>548</a>	</span><span class="kw">fn </span>para_id_debug() {
+<a href=#549 id=549 data-nosnippet>549</a>		<span class="kw">let </span>id = Id::new(<span class="number">42</span>);
+<a href=#550 id=550 data-nosnippet>550</a>		<span class="macro">assert_eq!</span>(<span class="macro">format!</span>(<span class="string">"{:?}"</span>, id), <span class="string">"42"</span>);
+<a href=#551 id=551 data-nosnippet>551</a>	}
+<a href=#552 id=552 data-nosnippet>552</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
