@@ -35,6 +35,7 @@ on:
           Main runner for resource-intensive tasks
           By default we use spot machines that can be terminated at any time.
           Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
+<<<<<<< HEAD
       RUNNER_OLDLINUX:
         value: ${{ jobs.preflight.outputs.RUNNER_OLDLINUX }}
         description: |
@@ -54,6 +55,8 @@ on:
           parity-oldlinux
           By default we use spot machines that can be terminated at any time.
           Merge queues use persistent runners to avoid kicking off from queue when the runner is terminated.
+=======
+>>>>>>> f18d8ce7 (ci: rm oldlinux runners (#13221))
       RUNNER_DEFAULT:
         value: ${{ jobs.preflight.outputs.RUNNER_DEFAULT }}
         description: "Relatively lightweight runner. When `ubuntu-latest` is not enough"
@@ -98,9 +101,12 @@ jobs:
       # Runners
       # https://github.com/paritytech/ci_cd/wiki/GitHub#paritytech-self-hosted-runners
       RUNNER: ${{ steps.set_runner.outputs.RUNNER }}
+<<<<<<< HEAD
       RUNNER_NEW: ${{ steps.set_runner.outputs.RUNNER_NEW }}
       RUNNER_OLDLINUX: ${{ steps.set_runner.outputs.RUNNER_OLDLINUX }}
       RUNNER_OLDLINUX_NEW: ${{ steps.set_runner.outputs.RUNNER_OLDLINUX_NEW }}
+=======
+>>>>>>> f18d8ce7 (ci: rm oldlinux runners (#13221))
       RUNNER_DEFAULT: ${{ steps.set_runner.outputs.RUNNER_DEFAULT }}
       RUNNER_WEIGHTS: ${{ steps.set_runner.outputs.RUNNER_WEIGHTS }}
       RUNNER_BENCHMARK: ${{ steps.set_runner.outputs.RUNNER_BENCHMARK }}
@@ -165,6 +171,7 @@ jobs:
           # Run merge queues on persistent runners
           if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
             echo "RUNNER=parity-large-persistent" >> $GITHUB_OUTPUT
+<<<<<<< HEAD
             echo "RUNNER_OLDLINUX=parity-oldlinux-persistent" >> $GITHUB_OUTPUT
             echo "RUNNER_NEW=parity-large-persistent-test" >> $GITHUB_OUTPUT
             echo "RUNNER_OLDLINUX_NEW=parity-oldlinux-persistent-new" >> $GITHUB_OUTPUT
@@ -173,6 +180,14 @@ jobs:
             echo "RUNNER_OLDLINUX=parity-oldlinux" >> $GITHUB_OUTPUT
             echo "RUNNER_NEW=parity-large-new" >> $GITHUB_OUTPUT
             echo "RUNNER_OLDLINUX_NEW=parity-oldlinux-new" >> $GITHUB_OUTPUT
+=======
+            echo "RUNNER_BENCHMARK=parity-benchmark-persistent" >> $GITHUB_OUTPUT
+            echo "RUNNER_DEFAULT=parity-default-persistent" >> $GITHUB_OUTPUT
+          else
+            echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
+            echo "RUNNER_BENCHMARK=parity-benchmark" >> $GITHUB_OUTPUT
+            echo "RUNNER_DEFAULT=parity-default" >> $GITHUB_OUTPUT
+>>>>>>> f18d8ce7 (ci: rm oldlinux runners (#13221))
           fi
 
       #
