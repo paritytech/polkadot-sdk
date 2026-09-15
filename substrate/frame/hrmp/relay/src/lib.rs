@@ -228,15 +228,13 @@ pub mod pallet {
 					message_id,
 					max_capacity,
 					max_message_size,
-				}) => Self::on_open_channel(channel, message_id, max_capacity, max_message_size),
+				}) |
 				MessageToRelay::V1(MessageToRelayV1::ForceOpenChannel {
 					channel,
 					message_id,
 					max_capacity,
 					max_message_size,
-				}) => {
-					Self::on_force_open_channel(channel, message_id, max_capacity, max_message_size)
-				},
+				}) => Self::on_open_channel(channel, message_id, max_capacity, max_message_size),
 				MessageToRelay::V1(MessageToRelayV1::OpenSystemChannel { channel, message_id }) => {
 					Self::on_open_system_channel(channel, message_id)
 				},
@@ -341,16 +339,6 @@ pub mod pallet {
 				message_id,
 				MessageToParaV1::OpenChannelResponse { channel, message_id, outcome },
 			);
-		}
-
-		fn on_force_open_channel(
-			channel: ChannelId,
-			message_id: u64,
-			max_capacity: u32,
-			max_message_size: u32,
-		) {
-			let _ = (channel, message_id, max_capacity, max_message_size);
-			todo!()
 		}
 
 		fn on_open_system_channel(channel: ChannelId, message_id: u64) {
