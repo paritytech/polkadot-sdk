@@ -176,6 +176,11 @@ impl Warmth {
 		matches!(self, Self::Hot { .. })
 	}
 
+	/// Returns whether a write on this entry costs more than what it already paid.
+	fn owes_upgrade(self, op: StorageOp) -> bool {
+		matches!(self, Self::Hot { charged } if !charged.covers(op))
+	}
+
 	/// Returns whether the entry is removed from the access list if the frame reverts.
 	pub fn is_revertible(&self) -> bool {
 		matches!(self, Self::Cold { revertible: true })
@@ -209,6 +214,46 @@ impl Warmth {
 	#[cfg(test)]
 	pub fn write_paid() -> Self {
 		Self::Hot { charged: StorageOp::Write }
+	}
+}
+
+/// An access's entries counted by warmth.
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub struct WarmthSummary {
+	/// Entries this access pays for.
+	pub total: u32,
+	/// How many are cold.
+	pub cold: u32,
+	/// How many of the cold ones roll back with the frame.
+	pub cold_revertible: u32,
+	/// Hot entries being written that had paid only for a read.
+	pub upgrades: u32,
+}
+
+impl WarmthSummary {
+	/// Counts an entry this access pays for, at the operation it performs on it.
+	pub fn count(mut self, warmth: Warmth, op: StorageOp) -> Self {
+		self.total = self.total.saturating_add(1);
+		match warmth {
+			Warmth::Cold { revertible } => {
+				self.cold = self.cold.saturating_add(1);
+				self.cold_revertible = self.cold_revertible.saturating_add(u32::from(revertible));
+			},
+			Warmth::Hot { .. } => {
+				self.upgrades = self.upgrades.saturating_add(u32::from(warmth.owes_upgrade(op)))
+			},
+		}
+		self
+	}
+
+	/// Returns whether every entry was already in the access list.
+	pub fn all_hot(&self) -> bool {
+		self.cold == 0
+	}
+
+	/// Returns how many entries were already in the access list.
+	pub fn hot(&self) -> u32 {
+		self.total.saturating_sub(self.cold)
 	}
 }
 
@@ -285,6 +330,19 @@ pub enum CallWarmth {
 }
 
 impl CallWarmth {
+	/// Summarizes the entries the call itself pays for. A dust transfer pays the write on the
+	/// callee's account info, so this counts it as a read.
+	pub(crate) fn summary(&self) -> WarmthSummary {
+		match self {
+			Self::Plain { original_account, account_info, .. } => WarmthSummary::default()
+				.count(*original_account, StorageOp::Read)
+				.count(*account_info, StorageOp::Read),
+			Self::Delegate { account_info } => {
+				WarmthSummary::default().count(*account_info, StorageOp::Read)
+			},
+		}
+	}
+
 	/// Returns the value transfer's warmth, `None` when the call moves no value.
 	pub fn transfer_warmth(self) -> Option<TransferWarmth> {
 		match self {
@@ -383,6 +441,20 @@ pub struct TransferItems {
 	pub dust: bool,
 }
 
+impl TransferWarmth {
+	/// Summarizes the transfer's entries: the three it pays for, plus the write it owes on the
+	/// callee's account info, which the call pays only to read.
+	pub(crate) fn summary(&self, dust: bool) -> WarmthSummary {
+		let account_info_op = TransferItems::account_info_op(dust);
+		let mut summary = WarmthSummary::default()
+			.count(self.account, StorageOp::Write)
+			.count(self.sender_account, StorageOp::Write)
+			.count(self.sender_account_info, account_info_op);
+		summary.upgrades += u32::from(self.account_info.owes_upgrade(account_info_op));
+		summary
+	}
+}
+
 impl TransferItems {
 	/// Returns `Write` when the transfer carries dust, else `Read`.
 	pub(crate) fn account_info_op(dust: bool) -> StorageOp {
@@ -400,6 +472,13 @@ pub struct CodeLoadWarmth {
 }
 
 impl CodeLoadWarmth {
+	/// Summarizes both entries a code load pays for.
+	pub(crate) fn summary(&self) -> WarmthSummary {
+		WarmthSummary::default()
+			.count(self.info, StorageOp::Read)
+			.count(self.blob, StorageOp::Read)
+	}
+
 	pub fn cold_non_revertible() -> Self {
 		Self { info: Warmth::cold_non_revertible(), blob: Warmth::cold_non_revertible() }
 	}

@@ -27,7 +27,7 @@ pub use runtime_costs::{RuntimeCosts, StorageAccessKind};
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
 	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
-	access_list::CodeLoadWarmth,
+	access_list::{Access, CodeLoadItems, CodeLoadWarmth},
 	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::ensure,
@@ -130,7 +130,9 @@ enum CodeLoadToken {
 impl CodeLoadToken {
 	/// Computes the flat cost of both reads, at the code's own warmth.
 	fn flat<T: Config>(warmth: CodeLoadWarmth) -> Weight {
-		warmth.weight::<T>(
+		runtime_costs::weight_by_warmth::<T>(
+			warmth.summary(),
+			CodeLoadItems::KEY_FAMILY,
 			T::WeightInfo::code_load,
 			// Nothing on top of the base hot access.
 			Weight::zero,
