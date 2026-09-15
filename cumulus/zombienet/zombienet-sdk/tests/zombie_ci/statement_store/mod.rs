@@ -5,3 +5,4 @@ mod bench;
 mod common;
 mod integration;
 mod integration_v2_dht;
+mod v2_dht_soak;
