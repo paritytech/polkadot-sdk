@@ -19,8 +19,8 @@ use crate::{
 	validator_side_experimental::{
 		collation_manager::{AdvertisementError, CollationManager},
 		common::{
-			Advertisement, CanSecond, CollationFetchResponse, PeerInfo, PeerState,
-			ProspectiveCandidate, TryAcceptOutcome, INVALID_COLLATION_SLASH,
+			CanSecond, CollationFetchResponse, PeerInfo, PeerState, ProspectiveCandidate,
+			TryAcceptOutcome, INVALID_COLLATION_SLASH,
 		},
 		error::{Error, FatalResult},
 		peer_manager::{Backend, PersistentDb},
@@ -139,6 +139,7 @@ impl<B: Backend> State<B> {
 	}
 
 	/// Handle a peer's declaration message.
+	/// V4 peers do not declare anymore.
 	pub async fn handle_declare<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
@@ -258,18 +259,34 @@ impl<B: Backend> State<B> {
 		sender: &mut Sender,
 		peer_id: PeerId,
 		scheduling_parent: Hash,
-		maybe_prospective_candidate: Option<ProspectiveCandidate>,
-		advertised_descriptor_version: Option<CandidateDescriptorVersion>,
+		entries: Vec<ProspectiveCandidate>,
+		descriptor_version: Option<CandidateDescriptorVersion>,
+		// Some for V4 self declaring ad.
+		advertised_para_id: Option<ParaId>,
 	) {
+		let advertisement_log = if advertised_para_id.is_some() {
+			"Received a segment advertisement"
+		} else {
+			"Received advertisement"
+		};
 		let _timer = self.metrics.time_handler(TimedHandler::Advertisement);
 
 		gum::debug!(
 			target: LOG_TARGET,
 			?scheduling_parent,
-			?maybe_prospective_candidate,
 			?peer_id,
-			"Received advertisement",
+			advertisement_log,
 		);
+
+		// V4 has no `Declare`: a peer's first advertisement carries its para and binds it.
+		// Until then a V4 peer holds a reserved slot on every scheduled para; binding here
+		// releases the slots it held on all the other paras.
+		if let Some(para_id) = advertised_para_id {
+			if !self.peer_manager.declared(sender, peer_id, para_id).await {
+				self.collation_manager.remove_peer(&peer_id);
+				return;
+			}
+		}
 
 		let Some(PeerInfo { state, .. }) = self.peer_manager.peer_info(&peer_id) else {
 			self.metrics.on_advertisement_rejected_unconnected_peer();
@@ -277,7 +294,6 @@ impl<B: Backend> State<B> {
 				target: LOG_TARGET,
 				?scheduling_parent,
 				?peer_id,
-				?maybe_prospective_candidate,
 				"Received an advertisement from an unconnected peer"
 			);
 			return;
@@ -289,26 +305,28 @@ impl<B: Backend> State<B> {
 			gum::debug!(
 				target: LOG_TARGET,
 				?scheduling_parent,
-				?maybe_prospective_candidate,
 				?peer_id,
 				"Received advertisement for undeclared peer",
 			);
 			return;
 		};
 
-		let advertisement = Advertisement {
-			peer_id,
-			para_id: *para_id,
-			scheduling_parent,
-			prospective_candidate: maybe_prospective_candidate,
-			advertised_descriptor_version,
-		};
-
 		// We have a result here, but it's not worth affecting reputations because advertisements
 		// are cheap.
-		// Note: `try_accept_advertisement` involves two other subsystems, so it's not super cheap,
+		// Note: `try_accept_segment` involves two other subsystems, so it's not super cheap,
 		// actually, but cheap enough.
-		match self.collation_manager.try_accept_advertisement(sender, advertisement).await {
+		match self
+			.collation_manager
+			.try_accept_segment(
+				sender,
+				peer_id,
+				*para_id,
+				scheduling_parent,
+				descriptor_version,
+				entries,
+			)
+			.await
+		{
 			Err(err) => {
 				match err {
 					AdvertisementError::Duplicate => {
@@ -333,7 +351,6 @@ impl<B: Backend> State<B> {
 				gum::debug!(
 					target: LOG_TARGET,
 					?scheduling_parent,
-					?maybe_prospective_candidate,
 					?peer_id,
 					?para_id,
 					?err,
@@ -345,7 +362,6 @@ impl<B: Backend> State<B> {
 				gum::debug!(
 					target: LOG_TARGET,
 					?scheduling_parent,
-					?maybe_prospective_candidate,
 					?peer_id,
 					?para_id,
 					"Advertisement accepted",
@@ -722,6 +738,13 @@ impl<B: Backend> State<B> {
 	#[cfg(test)]
 	pub fn advertisements(&self) -> std::collections::BTreeSet<super::common::Advertisement> {
 		self.collation_manager.advertisements()
+	}
+
+	#[cfg(test)]
+	pub fn segments(
+		&self,
+	) -> std::collections::BTreeSet<(Hash, PeerId, Vec<super::common::ProspectiveCandidate>)> {
+		self.collation_manager.segments()
 	}
 
 	#[cfg(test)]

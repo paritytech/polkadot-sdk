@@ -340,18 +340,21 @@ pub type Barrier = TrailingSetTopicAsId<
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
 					// Parent and sibling system parachains get free execution.
-					AllowExplicitUnpaidExecutionFrom<(
-						IsParentsOnly<ConstU8<1>>,
-						RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
-						FellowshipEntities,
-						AmbassadorEntities,
-						SecretaryEntities,
-					)>,
+					AllowExplicitUnpaidExecutionFrom<
+						(
+							IsParentsOnly<ConstU8<1>>,
+							RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
+							FellowshipEntities,
+							AmbassadorEntities,
+							SecretaryEntities,
+						),
+						CheapTrustedAliasers,
+					>,
 					// Accumulation accounts get free execution, while aliasing allows the chain
 					// (as the XCM sending origin) to claim the identity of these accounts.
 					AllowExplicitUnpaidExecutionFrom<
 						SystemChainAccumulationAccounts,
-						AliasChildLocation,
+						CheapTrustedAliasers,
 					>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<Everything>,
@@ -397,11 +400,20 @@ pub type TrustedTeleporters = (
 	>,
 );
 
-/// Defines origin aliasing rules for this chain.
+/// Aliasing rules that are pure computation and thus cheap enough to also be evaluated by
+/// barriers, before any payment is taken.
 ///
-/// - Allow any origin to alias into a child sub-location (equivalent to DescendOrigin),
+/// - Allow any origin to alias into a child sub-location (equivalent to DescendOrigin).
+///
+/// `AuthorizedAliasers` is deliberately NOT part of this: it reads storage, which is more than a
+/// barrier is allowed to cost.
+pub type CheapTrustedAliasers = (AliasChildLocation,);
+
+/// Defines origin aliasing rules for this chain. Used by the executor.
+///
+/// - Allow all the cheap aliasing rules also used by the barriers,
 /// - Allow origins explicitly authorized by the alias target location.
-pub type TrustedAliasers = (AliasChildLocation, AuthorizedAliasers<Runtime>);
+pub type TrustedAliasers = (CheapTrustedAliasers, AuthorizedAliasers<Runtime>);
 
 /// Asset converter for pool assets.
 /// Used to convert one asset to another, when there is a pool available between the two.

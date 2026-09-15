@@ -432,15 +432,16 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 			);
 
-			let statement_handler_proto = node_extra_args.statement_store_config.map(|config| {
-				let proto = new_statement_handler_proto(
-					&*client,
-					&parachain_config,
-					&metrics,
-					&mut net_config,
-				);
-				(proto, config)
-			});
+			let statement_handler_proto =
+				node_extra_args.statement_store_config.clone().map(|config| {
+					let proto = new_statement_handler_proto(
+						&*client,
+						&parachain_config,
+						&metrics,
+						&mut net_config,
+					);
+					(proto, config)
+				});
 
 			let (network, system_rpc_tx, tx_handler_controller, sync_service, bitswap_handle) =
 				build_network(BuildNetworkParams {
@@ -454,6 +455,10 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					relay_chain_interface: relay_chain_interface.clone(),
 					import_queue: params.import_queue,
 					metrics,
+					gap_sync_body_policy: Some(crate::common::gap_sync_body_policy_provider(
+						client.clone(),
+						parachain_config.blocks_pruning,
+					)),
 				})
 				.await?;
 

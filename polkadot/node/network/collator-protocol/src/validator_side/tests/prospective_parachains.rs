@@ -400,6 +400,8 @@ async fn assert_collation_seconded(
 				}
 			);
 		},
+		// V4 sends no `CollationSeconded`, so there is nothing to assert.
+		CollationVersion::V4 => {},
 	}
 }
 
@@ -429,7 +431,7 @@ async fn assert_persisted_validation_data(
 				tx.send(Ok(pvd)).unwrap();
 			}
 		),
-		CollationVersion::V2 | CollationVersion::V3 => assert_matches!(
+		CollationVersion::V2 | CollationVersion::V3 | CollationVersion::V4 => assert_matches!(
 			msg,
 			AllMessages::ProspectiveParachains(
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),

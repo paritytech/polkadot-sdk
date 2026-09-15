@@ -271,7 +271,7 @@ where
 				&metrics,
 				&mut net_config,
 			);
-			(proto, *ss_config)
+			(proto, ss_config.clone())
 		});
 
 		let (network, system_rpc_tx, tx_handler_controller, sync_service, _bitswap_handle) =
@@ -287,6 +287,7 @@ where
 				warp_sync_config: None,
 				block_relay: None,
 				metrics,
+				gap_sync_body_policy: None,
 			})?;
 
 		let statement_store = statement_handler_proto
