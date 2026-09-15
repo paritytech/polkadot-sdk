@@ -277,7 +277,11 @@ pub type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<
 	// p
 	CENTS,
 	// q
-	{ 100 * ExtrinsicBaseWeight::get().ref_time() as u128 },
+	//
+	// `ExtrinsicBaseWeight` no longer includes signature-verification weight (it is charged
+	// separately via `SignatureWeight`), so add it back here to keep the smallest non-zero
+	// weight, and thus `q`, unchanged.
+	{ 100 * ExtrinsicBaseWeight::get().ref_time().saturating_add(42_814_000) as u128 },
 	Runtime,
 	Balance,
 >;

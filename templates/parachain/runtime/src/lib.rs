@@ -118,8 +118,12 @@ impl WeightToFeePolynomial for WeightToFee {
 	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
 		// in Rococo, extrinsic base weight (smallest non-zero weight) is mapped to 1 MILLI_UNIT:
 		// in our template, we map to 1/10 of that, or 1/10 MILLI_UNIT
+		// `ExtrinsicBaseWeight` no longer includes signature-verification weight (it is
+		// charged separately via `SignatureWeight`), so add it back here to keep the
+		// smallest non-zero weight, and thus `q`, unchanged.
 		let p = MILLI_UNIT / 10;
-		let q = 100 * Balance::from(ExtrinsicBaseWeight::get().ref_time());
+		let q = 100 *
+			Balance::from(ExtrinsicBaseWeight::get().ref_time().saturating_add(42_814_000));
 		smallvec![WeightToFeeCoefficient {
 			degree: 1,
 			negative: false,

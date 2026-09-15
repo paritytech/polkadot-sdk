@@ -76,8 +76,14 @@ pub mod fee {
 	impl WeightToFeePolynomial for WeightToFee {
 		type Balance = Balance;
 		fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
+			// `ExtrinsicBaseWeight` no longer includes signature-verification weight (it is
+			// charged separately via `SignatureWeight`), so add it back here to keep the
+			// smallest non-zero weight, and thus `q`, unchanged.
 			let p = super::currency::CENTS;
-			let q = 10 * Balance::from(ExtrinsicBaseWeight::get().ref_time());
+			let q = 10 *
+				Balance::from(
+					ExtrinsicBaseWeight::get().ref_time().saturating_add(42_814_000),
+				);
 			smallvec![WeightToFeeCoefficient {
 				degree: 1,
 				negative: false,
