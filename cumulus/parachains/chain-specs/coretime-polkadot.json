@@ -6,8 +6,7 @@
     "/dns/polkadot-coretime-connect-a-0.polkadot.io/tcp/30334/p2p/12D3KooWKjnixAHbKMsPTJwGx8SrBeGEJLHA8KmKcEDYMp3YmWgR",
     "/dns/polkadot-coretime-connect-a-1.polkadot.io/tcp/30334/p2p/12D3KooWQ7B7p4DFv1jWqaKfhrZBcMmi5g8bWFnmskguLaGEmT6n",
     "/dns/polkadot-coretime-connect-a-0.polkadot.io/tcp/443/wss/p2p/12D3KooWKjnixAHbKMsPTJwGx8SrBeGEJLHA8KmKcEDYMp3YmWgR",
-    "/dns/polkadot-coretime-connect-a-1.polkadot.io/tcp/443/wss/p2p/12D3KooWQ7B7p4DFv1jWqaKfhrZBcMmi5g8bWFnmskguLaGEmT6n",
-    "/dns/boot-coretime-polkadot.stakeworld.io/tcp/443/wss/p2p/12D3KooWF2uEx9xYFCJVe8ZdjKXSxsJgL47c5TyW8opEuicpxrnx"
+    "/dns/polkadot-coretime-connect-a-1.polkadot.io/tcp/443/wss/p2p/12D3KooWQ7B7p4DFv1jWqaKfhrZBcMmi5g8bWFnmskguLaGEmT6n"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

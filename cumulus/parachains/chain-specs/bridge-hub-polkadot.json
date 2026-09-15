@@ -7,8 +7,7 @@
     "/dns/polkadot-bridge-hub-connect-a-1.polkadot.io/tcp/30334/p2p/12D3KooWG4ypDHLKGCv4BZ6PuaGUwQHKAH6p2D6arR2uQ1eiR1T3",
     "/dns/polkadot-bridge-hub-connect-a-0.polkadot.io/tcp/443/wss/p2p/12D3KooWAVQMhkXmc5ueSYasdsRWQbKus2YGZ6HDZUB4ViJMCxXy",
     "/dns/polkadot-bridge-hub-connect-a-1.polkadot.io/tcp/443/wss/p2p/12D3KooWG4ypDHLKGCv4BZ6PuaGUwQHKAH6p2D6arR2uQ1eiR1T3",
-    "/dns/boot-polkadot-bridgehub.luckyfriday.io/tcp/443/wss/p2p/12D3KooWKf3mBXHjLbwtPqv1BdbQuwbFNcQQYxASS7iQ25264AXH",
-    "/dns/boot-bridge-hub-polkadot.stakeworld.io/tcp/443/wss/p2p/12D3KooWLVZHDjoBQBVj1DvZHKz8pXwgqH1k6gniHCs7F5ZMfaNy"
+    "/dns/boot-polkadot-bridgehub.luckyfriday.io/tcp/443/wss/p2p/12D3KooWKf3mBXHjLbwtPqv1BdbQuwbFNcQQYxASS7iQ25264AXH"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
