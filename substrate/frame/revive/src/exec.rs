@@ -19,7 +19,7 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
-	access_list::{self, Access, AccessList, CallItems, CodeLoadWarmth},
+	access_list::{self, Access, AccessList, CallItems, CodeLoadWarmth, Summarized},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -550,12 +550,12 @@ pub trait PrecompileExt: sealing::Sealed {
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError>;
 
-	/// Warms the state items the access touches, returning the warmth they had
-	/// **before** this call.
-	fn warm<A: Access>(&mut self, access: A) -> A::Warmth;
+	/// Warms the state items the access touches, returning the warmth each had
+	/// **before** this call, with its entries counted.
+	fn warm_summarized<A: Access>(&mut self, access: A) -> Summarized<A::Warmth>;
 
 	/// Reports the warmth of the state items the access touches, without recording anything.
-	fn warmth_of<A: Access>(&self, access: A) -> A::Warmth;
+	fn warmth_of_summarized<A: Access>(&self, access: A) -> Summarized<A::Warmth>;
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
@@ -592,7 +592,7 @@ pub trait Executable<T: Config>: Sized {
 	fn from_storage<S: State>(
 		code_hash: H256,
 		meter: &mut ResourceMeter<T, S>,
-		warmth: CodeLoadWarmth,
+		warmth: Summarized<CodeLoadWarmth>,
 	) -> Result<Self, DispatchError>;
 
 	/// Load the executable from EVM bytecode
@@ -1108,7 +1108,8 @@ where
 		code_hash: H256,
 	) -> Result<E, DispatchError> {
 		let code_load = access_list::CodeLoadItems { hash: code_hash };
-		let executable = E::from_storage(code_hash, meter, access_list.warmth_of(code_load))?;
+		let executable =
+			E::from_storage(code_hash, meter, access_list.warmth_of_summarized(code_load))?;
 		access_list.warm(code_load);
 		Ok(executable)
 	}
@@ -2805,12 +2806,12 @@ where
 		)
 	}
 
-	fn warmth_of<A: Access>(&self, access: A) -> A::Warmth {
-		self.access_list.warmth_of(access)
+	fn warmth_of_summarized<A: Access>(&self, access: A) -> Summarized<A::Warmth> {
+		self.access_list.warmth_of_summarized(access)
 	}
 
-	fn warm<A: Access>(&mut self, access: A) -> A::Warmth {
-		self.access_list.warm(access)
+	fn warm_summarized<A: Access>(&mut self, access: A) -> Summarized<A::Warmth> {
+		self.access_list.warm_summarized(access)
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {

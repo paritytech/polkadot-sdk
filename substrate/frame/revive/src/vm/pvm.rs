@@ -490,7 +490,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			// a rollback.
 			let access_kind = StorageAccessKind::new(transient, || {
 				let access = StorageItems::new(self.ext.address(), &key, StorageOp::Write);
-				self.ext.warmth_of(access).to_non_revertible()
+				self.ext.warmth_of_summarized(access).to_non_revertible()
 			});
 			self.charge_gas(RuntimeCosts::SetStorage {
 				new_bytes: value_len,
@@ -502,7 +502,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		let access_kind = StorageAccessKind::new(transient, || {
 			let access = StorageItems::new(self.ext.address(), &key, StorageOp::Write);
-			self.ext.warm(access)
+			self.ext.warm_summarized(access)
 		});
 		let charged = self.charge_gas(RuntimeCosts::SetStorage {
 			new_bytes: value_len,
@@ -542,7 +542,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let access_kind = StorageAccessKind::new(transient, || {
 			let access = StorageItems::new(self.ext.address(), &key, StorageOp::Write);
-			self.ext.warm(access)
+			self.ext.warm_summarized(access)
 		});
 		let charged = self.charge_gas(RuntimeCosts::ClearStorage {
 			len: limits::STORAGE_BYTES,
@@ -573,7 +573,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let access_kind = StorageAccessKind::new(transient, || {
 			let access = StorageItems::new(self.ext.address(), &key, StorageOp::Read);
-			self.ext.warm(access)
+			self.ext.warm_summarized(access)
 		});
 		let charged = self.charge_gas(RuntimeCosts::GetStorage {
 			len: limits::STORAGE_BYTES,
@@ -661,7 +661,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			None => {
 				let call_items =
 					CallItems::new(callee, matches!(&call_type, CallType::DelegateCall));
-				let warmth = self.ext.warm(call_items);
+				let warmth = self.ext.warm_summarized(call_items);
 				self.charge_gas(RuntimeCosts::CallBase(warmth))?;
 			},
 		};
@@ -706,7 +706,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 							to: callee,
 							dust: dust_transfer,
 						};
-						self.ext.warm(transfer)
+						self.ext.warm_summarized(transfer)
 					});
 					self.charge_gas(RuntimeCosts::CallTransferSurcharge { dust_transfer, warmth })?;
 				}

@@ -25,7 +25,8 @@ use crate::{
 	AddressMapper, Error, Pallet, ReentrancyProtection,
 	access_list::{
 		CallItems, CallWarmth, CodeLoadItems, CodeLoadWarmth, MAX_ACCESS_LIST_ENTRIES,
-		MAX_INLINE_KEY_LEN, StorageItems, StorageOp, TransferItems, TransferWarmth, Warmth,
+		MAX_INLINE_KEY_LEN, StorageItems, StorageOp, Summarized, TransferItems, TransferWarmth,
+		Warmth,
 	},
 	exec::ExportedFunction::*,
 	metering::TransactionMeter,
@@ -145,7 +146,7 @@ impl Executable<Test> for MockExecutable {
 	fn from_storage<S: State>(
 		code_hash: H256,
 		_meter: &mut ResourceMeter<Test, S>,
-		_warmth: CodeLoadWarmth,
+		_warmth: Summarized<CodeLoadWarmth>,
 	) -> Result<Self, DispatchError> {
 		Loader::mutate(|loader| {
 			loader.map.get(&code_hash).cloned().ok_or(Error::<Test>::CodeNotFound.into())
@@ -208,7 +209,11 @@ fn from_storage_cold<S: crate::metering::State>(
 	code_hash: H256,
 	meter: &mut crate::metering::ResourceMeter<Test, S>,
 ) -> Result<MockExecutable, sp_runtime::DispatchError> {
-	MockExecutable::from_storage(code_hash, meter, CodeLoadWarmth::cold_non_revertible())
+	MockExecutable::from_storage(
+		code_hash,
+		meter,
+		Summarized::all_cold(CodeLoadItems { hash: code_hash }),
+	)
 }
 
 #[test]
@@ -3234,11 +3239,12 @@ fn delegatecall_tracer_reports_correct_addresses() {
 
 fn warm_slot<E: Ext>(ext: &mut E, key: &Key, op: StorageOp) -> Warmth {
 	let access = StorageItems::new(ext.address(), key, op);
-	ext.warm(access)
+	ext.warm_summarized(access).entries
 }
 
 fn slot_warmth<E: Ext>(ext: &E, key: &Key) -> Warmth {
-	ext.warmth_of(StorageItems::new(ext.address(), key, StorageOp::Read))
+	ext.warmth_of_summarized(StorageItems::new(ext.address(), key, StorageOp::Read))
+		.entries
 }
 
 fn is_cold_touch<E: Ext>(ext: &mut E, key: &Key) -> bool {
@@ -3265,7 +3271,7 @@ fn run_root_call_with_value(contract_addr: H160, input: Vec<u8>, value: U256) {
 
 fn run_child_call<E: Ext>(ext: &mut E, to: &H160, input: Vec<u8>) -> Result<(), ExecError> {
 	// Mirror the interpreter: warm the zero-value plain target, then call it.
-	ext.warm(CallItems::new(*to, false));
+	ext.warm_summarized(CallItems::new(*to, false));
 	ext.call(
 		&CallResources::NoLimits,
 		to,
@@ -3519,7 +3525,7 @@ fn cold_hot_zero_value_call_warms_what_it_reads_not_the_account_state() {
 
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext.warmth_of(CallItems::Plain { target: BOB_ADDR }),
+			ctx.ext.warmth_of_summarized(CallItems::Plain { target: BOB_ADDR }).entries,
 			CallWarmth::Plain {
 				original_account: Warmth::Cold { .. },
 				account_info: Warmth::Cold { .. }
@@ -3527,7 +3533,9 @@ fn cold_hot_zero_value_call_warms_what_it_reads_not_the_account_state() {
 			"an uncalled target starts cold",
 		);
 		assert_matches!(
-			ctx.ext.warmth_of(TransferItems { from: ALICE_ADDR, to: BOB_ADDR, dust: false }),
+			ctx.ext
+				.warmth_of_summarized(TransferItems { from: ALICE_ADDR, to: BOB_ADDR, dust: false })
+				.entries,
 			TransferWarmth {
 				receiver_account: Warmth::Cold { .. },
 				sender_account: Warmth::Cold { .. },
@@ -3539,7 +3547,7 @@ fn cold_hot_zero_value_call_warms_what_it_reads_not_the_account_state() {
 
 		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Ok(_));
 		assert_matches!(
-			ctx.ext.warmth_of(CallItems::Plain { target: BOB_ADDR }),
+			ctx.ext.warmth_of_summarized(CallItems::Plain { target: BOB_ADDR }).entries,
 			CallWarmth::Plain {
 				original_account: Warmth::Hot { .. },
 				account_info: Warmth::Hot { .. }
@@ -3547,7 +3555,9 @@ fn cold_hot_zero_value_call_warms_what_it_reads_not_the_account_state() {
 			"a zero-value call warms the mapping and contract info but not the account state",
 		);
 		assert_matches!(
-			ctx.ext.warmth_of(TransferItems { from: ALICE_ADDR, to: BOB_ADDR, dust: false }),
+			ctx.ext
+				.warmth_of_summarized(TransferItems { from: ALICE_ADDR, to: BOB_ADDR, dust: false })
+				.entries,
 			TransferWarmth {
 				receiver_account: Warmth::Cold { .. },
 				sender_account: Warmth::Cold { .. },
@@ -3588,7 +3598,7 @@ fn cold_hot_delegate_call_leaves_target_account_cold() {
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		let before = ctx.ext.access_list_metrics();
 		// Mirror the interpreter: warm the delegate target, then call it.
-		ctx.ext.warm(CallItems::new(BOB_ADDR, true));
+		ctx.ext.warm_summarized(CallItems::new(BOB_ADDR, true));
 		assert_matches!(ctx.ext.delegate_call(&CallResources::NoLimits, BOB_ADDR, vec![]), Ok(_));
 		let after_delegate = ctx.ext.access_list_metrics();
 		assert_eq!(
@@ -3628,7 +3638,7 @@ fn cold_hot_caller_touch_outlives_callee_revert() {
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(run_child_call(ctx.ext, &BOB_ADDR, vec![]), Err(_));
 		assert_matches!(
-			ctx.ext.warmth_of(CallItems::Plain { target: DJANGO_ADDR }),
+			ctx.ext.warmth_of_summarized(CallItems::Plain { target: DJANGO_ADDR }).entries,
 			CallWarmth::Plain {
 				original_account: Warmth::Cold { .. },
 				account_info: Warmth::Cold { .. }
@@ -3637,7 +3647,12 @@ fn cold_hot_caller_touch_outlives_callee_revert() {
 		);
 		assert_matches!(
 			ctx.ext
-				.warmth_of(TransferItems { from: ALICE_ADDR, to: DJANGO_ADDR, dust: false }),
+				.warmth_of_summarized(TransferItems {
+					from: ALICE_ADDR,
+					to: DJANGO_ADDR,
+					dust: false
+				})
+				.entries,
 			TransferWarmth {
 				receiver_account: Warmth::Cold { .. },
 				sender_account: Warmth::Cold { .. },
@@ -3646,7 +3661,7 @@ fn cold_hot_caller_touch_outlives_callee_revert() {
 			}
 		);
 		assert_matches!(
-			ctx.ext.warmth_of(CallItems::Plain { target: BOB_ADDR }),
+			ctx.ext.warmth_of_summarized(CallItems::Plain { target: BOB_ADDR }).entries,
 			CallWarmth::Plain {
 				original_account: Warmth::Hot { .. },
 				account_info: Warmth::Hot { .. }
@@ -3654,7 +3669,9 @@ fn cold_hot_caller_touch_outlives_callee_revert() {
 			"the caller's touch of B persists even though B reverted",
 		);
 		assert_matches!(
-			ctx.ext.warmth_of(TransferItems { from: ALICE_ADDR, to: BOB_ADDR, dust: false }),
+			ctx.ext
+				.warmth_of_summarized(TransferItems { from: ALICE_ADDR, to: BOB_ADDR, dust: false })
+				.entries,
 			TransferWarmth {
 				receiver_account: Warmth::Cold { .. },
 				sender_account: Warmth::Cold { .. },
@@ -3702,7 +3719,7 @@ fn cold_hot_shared_code_hash_is_hot_across_addresses() {
 fn cold_hot_first_frame_warms_entry_target() {
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext.warmth_of(CallItems::Plain { target: BOB_ADDR }),
+			ctx.ext.warmth_of_summarized(CallItems::Plain { target: BOB_ADDR }).entries,
 			CallWarmth::Plain {
 				original_account: Warmth::Hot { .. },
 				account_info: Warmth::Hot { .. }
@@ -3710,7 +3727,9 @@ fn cold_hot_first_frame_warms_entry_target() {
 			"the entry target's mapping and contract info are pre-warmed by the first frame",
 		);
 		assert_matches!(
-			ctx.ext.warmth_of(TransferItems { from: ALICE_ADDR, to: BOB_ADDR, dust: false }),
+			ctx.ext
+				.warmth_of_summarized(TransferItems { from: ALICE_ADDR, to: BOB_ADDR, dust: false })
+				.entries,
 			TransferWarmth {
 				receiver_account: Warmth::Cold { .. },
 				sender_account: Warmth::Cold { .. },
@@ -3728,7 +3747,7 @@ fn cold_hot_first_frame_warms_entry_target() {
 
 	let value_transfer_root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
-			ctx.ext.warmth_of(CallItems::Plain { target: BOB_ADDR }),
+			ctx.ext.warmth_of_summarized(CallItems::Plain { target: BOB_ADDR }).entries,
 			CallWarmth::Plain {
 				original_account: Warmth::Hot { .. },
 				account_info: Warmth::Hot { .. }
@@ -3736,7 +3755,9 @@ fn cold_hot_first_frame_warms_entry_target() {
 			"a transaction carrying value pre-warms both sides of the transfer as well",
 		);
 		assert_matches!(
-			ctx.ext.warmth_of(TransferItems { from: ALICE_ADDR, to: BOB_ADDR, dust: false }),
+			ctx.ext
+				.warmth_of_summarized(TransferItems { from: ALICE_ADDR, to: BOB_ADDR, dust: false })
+				.entries,
 			TransferWarmth {
 				receiver_account: Warmth::Hot { .. },
 				sender_account: Warmth::Hot { .. },
@@ -3761,7 +3782,7 @@ fn cold_hot_code_entries_warm_only_when_code_is_loaded() {
 
 	let root_code_hash = MockLoader::insert(Call, move |ctx, _| {
 		assert_matches!(
-			ctx.ext.warmth_of(CallItems::Plain { target: DJANGO_ADDR }),
+			ctx.ext.warmth_of_summarized(CallItems::Plain { target: DJANGO_ADDR }).entries,
 			CallWarmth::Plain {
 				original_account: Warmth::Cold { .. },
 				account_info: Warmth::Cold { .. }
@@ -3770,7 +3791,12 @@ fn cold_hot_code_entries_warm_only_when_code_is_loaded() {
 		);
 		assert_matches!(
 			ctx.ext
-				.warmth_of(TransferItems { from: ALICE_ADDR, to: DJANGO_ADDR, dust: false }),
+				.warmth_of_summarized(TransferItems {
+					from: ALICE_ADDR,
+					to: DJANGO_ADDR,
+					dust: false
+				})
+				.entries,
 			TransferWarmth {
 				receiver_account: Warmth::Cold { .. },
 				sender_account: Warmth::Cold { .. },
@@ -3782,7 +3808,7 @@ fn cold_hot_code_entries_warm_only_when_code_is_loaded() {
 		let before = ctx.ext.access_list_metrics();
 		assert_matches!(run_child_call(ctx.ext, &DJANGO_ADDR, vec![]), Ok(_));
 		assert_matches!(
-			ctx.ext.warmth_of(CallItems::Plain { target: DJANGO_ADDR }),
+			ctx.ext.warmth_of_summarized(CallItems::Plain { target: DJANGO_ADDR }).entries,
 			CallWarmth::Plain {
 				original_account: Warmth::Hot { .. },
 				account_info: Warmth::Hot { .. }
@@ -3791,7 +3817,12 @@ fn cold_hot_code_entries_warm_only_when_code_is_loaded() {
 		);
 		assert_matches!(
 			ctx.ext
-				.warmth_of(TransferItems { from: ALICE_ADDR, to: DJANGO_ADDR, dust: false }),
+				.warmth_of_summarized(TransferItems {
+					from: ALICE_ADDR,
+					to: DJANGO_ADDR,
+					dust: false
+				})
+				.entries,
 			TransferWarmth {
 				receiver_account: Warmth::Cold { .. },
 				sender_account: Warmth::Cold { .. },
@@ -3825,7 +3856,7 @@ fn cold_hot_a_load_warms_both_code_entries() {
 			.find(|hash| *hash != dummy_code_hash)
 			.unwrap();
 		assert_eq!(
-			ctx.ext.warmth_of(CodeLoadItems { hash: own_hash }),
+			ctx.ext.warmth_of_summarized(CodeLoadItems { hash: own_hash }).entries,
 			CodeLoadWarmth { info: Warmth::read_paid(), blob: Warmth::read_paid() },
 			"a call warms the code it loads",
 		);
@@ -3842,7 +3873,7 @@ fn cold_hot_a_load_warms_both_code_entries() {
 			)
 			.unwrap();
 		assert_eq!(
-			ctx.ext.warmth_of(CodeLoadItems { hash: dummy_code_hash }),
+			ctx.ext.warmth_of_summarized(CodeLoadItems { hash: dummy_code_hash }).entries,
 			CodeLoadWarmth { info: Warmth::read_paid(), blob: Warmth::read_paid() },
 			"an instantiate warms the code it loads",
 		);

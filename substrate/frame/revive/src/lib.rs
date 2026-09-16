@@ -54,7 +54,7 @@ pub mod tracing;
 pub mod weights;
 
 use crate::{
-	access_list::{CodeLoadWarmth, Warmth},
+	access_list::{CodeLoadItems, StorageOp, Summarized, Warmth},
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
 		StateOverrideSet, TYPE_EIP1559, TYPE_EIP7702, Tracer, TracerType,
@@ -1119,7 +1119,10 @@ pub mod pallet {
 					&<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::SetStorage {
 						new_bytes: limits::STORAGE_BYTES,
 						old_bytes: 0,
-						kind: StorageAccessKind::Persistent(Warmth::cold_revertible()),
+						kind: StorageAccessKind::Persistent(Summarized::new_single(
+							Warmth::cold_revertible(),
+							StorageOp::Write,
+						)),
 					})
 					.saturating_mul(u64::from(limits::STORAGE_BYTES).saturating_add(max_key_size)),
 				)
@@ -1909,7 +1912,7 @@ impl<T: Config> Pallet<T> {
 					let executable = ContractBlob::from_storage(
 						code_hash,
 						&mut transaction_meter,
-						CodeLoadWarmth::cold_non_revertible(),
+						Summarized::all_cold(CodeLoadItems { hash: code_hash }),
 					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable

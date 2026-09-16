@@ -27,7 +27,7 @@ pub use runtime_costs::{RuntimeCosts, StorageAccessKind};
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
 	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
-	access_list::{Access, CodeLoadItems, CodeLoadWarmth},
+	access_list::{Access, CodeLoadItems, CodeLoadWarmth, Summarized},
 	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::ensure,
@@ -123,15 +123,15 @@ impl ExportedFunction {
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Clone, Copy)]
 enum CodeLoadToken {
-	Flat(CodeLoadWarmth),
-	Blob { warmth: CodeLoadWarmth, code_len: u32, code_type: BytecodeType },
+	Flat(Summarized<CodeLoadWarmth>),
+	Blob { warmth: Summarized<CodeLoadWarmth>, code_len: u32, code_type: BytecodeType },
 }
 
 impl CodeLoadToken {
 	/// Computes the flat cost of both reads, at the code's own warmth.
-	fn flat<T: Config>(warmth: CodeLoadWarmth) -> Weight {
-		runtime_costs::weight_by_warmth::<T>(
-			warmth.summary(),
+	fn flat<T: Config>(warmth: Summarized<CodeLoadWarmth>) -> Weight {
+		runtime_costs::weight_from_warmth_summary::<T>(
+			warmth.summary,
 			CodeLoadItems::KEY_FAMILY,
 			T::WeightInfo::code_load,
 			// Nothing on top of the base hot access.
@@ -140,8 +140,12 @@ impl CodeLoadToken {
 	}
 
 	/// Computes the cost of the code's bytes at the blob's warmth, plus PVM compilation.
-	fn blob<T: Config>(warmth: CodeLoadWarmth, code_len: u32, code_type: BytecodeType) -> Weight {
-		let per_byte: fn(u32) -> Weight = match (code_type, warmth.blob.is_hot()) {
+	fn blob<T: Config>(
+		warmth: Summarized<CodeLoadWarmth>,
+		code_len: u32,
+		code_type: BytecodeType,
+	) -> Weight {
+		let per_byte: fn(u32) -> Weight = match (code_type, warmth.entries.blob.is_hot()) {
 			(BytecodeType::Pvm, false) => T::WeightInfo::call_with_pvm_code_per_byte,
 			(BytecodeType::Pvm, true) => T::WeightInfo::call_with_pvm_code_per_byte_hot,
 			(BytecodeType::Evm, false) => T::WeightInfo::call_with_evm_code_per_byte,
@@ -174,7 +178,11 @@ impl<T: Config> Token<T> for CodeLoadToken {
 
 /// The weight a load of `code_len` bytes is charged.
 #[cfg(test)]
-pub fn code_load_weight(code_len: u32, code_type: BytecodeType, warmth: CodeLoadWarmth) -> Weight {
+pub fn code_load_weight(
+	code_len: u32,
+	code_type: BytecodeType,
+	warmth: Summarized<CodeLoadWarmth>,
+) -> Weight {
 	let flat = Token::<crate::tests::Test>::weight(&CodeLoadToken::Flat(warmth));
 	let blob =
 		Token::<crate::tests::Test>::weight(&CodeLoadToken::Blob { warmth, code_len, code_type });
@@ -359,7 +367,7 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 	fn from_storage<S: State>(
 		code_hash: H256,
 		meter: &mut ResourceMeter<T, S>,
-		warmth: CodeLoadWarmth,
+		warmth: Summarized<CodeLoadWarmth>,
 	) -> Result<Self, DispatchError> {
 		meter.charge_weight_token(CodeLoadToken::Flat(warmth))?;
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
@@ -445,8 +453,12 @@ mod tests {
 		tests::{ExtBuilder, Test},
 	};
 
-	fn warmth(blob: Warmth) -> CodeLoadWarmth {
-		CodeLoadWarmth { info: blob, blob }
+	fn load_warmth(info: Warmth, blob: Warmth) -> Summarized<CodeLoadWarmth> {
+		Summarized::from_warmths(CodeLoadItems { hash: H256::zero() }, [info, blob])
+	}
+
+	fn warmth(both: Warmth) -> Summarized<CodeLoadWarmth> {
+		load_warmth(both, both)
 	}
 
 	#[test]
@@ -468,7 +480,7 @@ mod tests {
 			let hot_info_cold_blob = code_load_weight(
 				code_len,
 				code_type,
-				CodeLoadWarmth { info: Warmth::read_paid(), blob: Warmth::cold_non_revertible() },
+				load_warmth(Warmth::read_paid(), Warmth::cold_non_revertible()),
 			);
 			assert!(
 				hot_info_cold_blob.proof_size() >= both_reads_proof + u64::from(code_len),
@@ -485,13 +497,13 @@ mod tests {
 			);
 
 			// The bytes alone, with the entries' touches subtracted out.
-			let bytes_of = |load: CodeLoadWarmth| {
+			let bytes_of = |load: Summarized<CodeLoadWarmth>| {
 				code_load_weight(code_len, code_type, load)
 					.saturating_sub(code_load_weight(0, code_type, load))
 			};
 			let hot_blob = Warmth::read_paid();
 			assert_eq!(
-				bytes_of(CodeLoadWarmth { info: Warmth::cold_non_revertible(), blob: hot_blob }),
+				bytes_of(load_warmth(Warmth::cold_non_revertible(), hot_blob)),
 				bytes_of(warmth(hot_blob)),
 				"the code info's warmth does not price the bytes: only the blob is read by length",
 			);

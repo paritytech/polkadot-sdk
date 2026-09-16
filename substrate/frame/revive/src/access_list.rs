@@ -250,6 +250,70 @@ impl WarmthSummary {
 	pub fn hot(&self) -> u32 {
 		self.total.saturating_sub(self.cold)
 	}
+
+	/// Returns the same counts with no entry rolling back with the frame.
+	pub fn non_revertible(self) -> Self {
+		Self { cold_revertible: 0, ..self }
+	}
+}
+
+/// The warmth of an access, with its entries counted.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct Summarized<W> {
+	/// The warmth of each entry the access touches.
+	pub entries: W,
+	/// Those same warmths, counted.
+	pub summary: WarmthSummary,
+}
+
+impl<W> Summarized<W> {
+	/// Builds the warmth of an untracked access, with every entry cold.
+	pub fn all_cold<A: Access<Warmth = W>>(access: A) -> Self {
+		Self::from_access(access, |_entry, _op| Warmth::cold_non_revertible())
+	}
+
+	/// Expands the access, taking each entry's warmth from `visit`, and counts them.
+	fn from_access<A: Access<Warmth = W>>(
+		access: A,
+		mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth,
+	) -> Self {
+		let mut summary = WarmthSummary::default();
+		let entries = access.expand(|entry, op| {
+			let warmth = visit(entry, op);
+			summary = summary.count(warmth, op);
+			warmth
+		});
+		Self { entries, summary }
+	}
+}
+
+#[cfg(test)]
+impl<W> Summarized<W> {
+	/// Builds the warmth of `access`, taking one warmth per entry in the order `expand` visits
+	/// them.
+	pub fn from_warmths<A: Access<Warmth = W>>(
+		access: A,
+		warmths: impl IntoIterator<Item = Warmth>,
+	) -> Self {
+		let mut warmths = warmths.into_iter();
+		let summarized = Self::from_access(access, |_entry, _op| {
+			warmths.next().expect("a warmth for every entry touched")
+		});
+		assert!(warmths.next().is_none(), "more warmths than the access has entries");
+		summarized
+	}
+}
+
+impl Summarized<Warmth> {
+	/// Builds the warmth of a single entry, at the operation performed on it.
+	pub fn new_single(warmth: Warmth, op: StorageOp) -> Self {
+		Self { entries: warmth, summary: WarmthSummary::default().count(warmth, op) }
+	}
+
+	/// Returns the same warmth with the rollback dropped, for a peek that touched nothing.
+	pub fn to_non_revertible(self) -> Self {
+		Self { entries: self.entries.to_non_revertible(), summary: self.summary.non_revertible() }
+	}
 }
 
 /// A state item the access list tracks, with the address, code hash or slot that identifies it.
@@ -323,20 +387,6 @@ pub enum CallWarmth {
 	Delegate { account_info: Warmth },
 }
 
-impl CallWarmth {
-	/// Summarizes the warmth of the call's own entries.
-	pub(crate) fn summary(&self) -> WarmthSummary {
-		match self {
-			Self::Plain { original_account, account_info } => WarmthSummary::default()
-				.count(*original_account, CallItems::OP)
-				.count(*account_info, CallItems::OP),
-			Self::Delegate { account_info } => {
-				WarmthSummary::default().count(*account_info, CallItems::OP)
-			},
-		}
-	}
-}
-
 /// A call opcode's access, one variant per call kind.
 #[derive(Clone, Copy, Debug)]
 pub enum CallItems {
@@ -345,9 +395,6 @@ pub enum CallItems {
 }
 
 impl CallItems {
-	/// A call only reads the entries it touches.
-	pub(crate) const OP: StorageOp = StorageOp::Read;
-
 	/// Builds the call variant matching the `delegate` flag.
 	pub fn new(target: H160, delegate: bool) -> Self {
 		if delegate { Self::Delegate { target } } else { Self::Plain { target } }
@@ -381,11 +428,14 @@ impl Access for CallItems {
 	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> CallWarmth {
 		match self {
 			Self::Plain { target } => CallWarmth::Plain {
-				original_account: visit(AccessEntry::OriginalAccount { address: target }, Self::OP),
-				account_info: visit(AccessEntry::AccountInfo { address: target }, Self::OP),
+				original_account: visit(
+					AccessEntry::OriginalAccount { address: target },
+					StorageOp::Read,
+				),
+				account_info: visit(AccessEntry::AccountInfo { address: target }, StorageOp::Read),
 			},
 			Self::Delegate { target } => CallWarmth::Delegate {
-				account_info: visit(AccessEntry::AccountInfo { address: target }, Self::OP),
+				account_info: visit(AccessEntry::AccountInfo { address: target }, StorageOp::Read),
 			},
 		}
 	}
@@ -419,8 +469,8 @@ impl Access for TransferItems {
 	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> TransferWarmth {
 		let account_info_op = Self::account_info_op(self.dust);
 		TransferWarmth {
-			receiver_account: visit(AccessEntry::Account { address: self.to }, Self::ACCOUNT_OP),
-			sender_account: visit(AccessEntry::Account { address: self.from }, Self::ACCOUNT_OP),
+			receiver_account: visit(AccessEntry::Account { address: self.to }, StorageOp::Write),
+			sender_account: visit(AccessEntry::Account { address: self.from }, StorageOp::Write),
 			receiver_account_info: visit(
 				AccessEntry::AccountInfo { address: self.to },
 				account_info_op,
@@ -433,24 +483,9 @@ impl Access for TransferItems {
 	}
 }
 
-impl TransferWarmth {
-	/// Summarizes the warmth of both sides' account state and account info.
-	pub(crate) fn summary(&self, dust: bool) -> WarmthSummary {
-		let account_info_op = TransferItems::account_info_op(dust);
-		WarmthSummary::default()
-			.count(self.receiver_account, TransferItems::ACCOUNT_OP)
-			.count(self.sender_account, TransferItems::ACCOUNT_OP)
-			.count(self.receiver_account_info, account_info_op)
-			.count(self.sender_account_info, account_info_op)
-	}
-}
-
 impl TransferItems {
-	/// A transfer moves value on both sides, so both balances are written.
-	pub(crate) const ACCOUNT_OP: StorageOp = StorageOp::Write;
-
 	/// Returns `Write` when the transfer carries dust, else `Read`.
-	pub(crate) fn account_info_op(dust: bool) -> StorageOp {
+	fn account_info_op(dust: bool) -> StorageOp {
 		if dust { StorageOp::Write } else { StorageOp::Read }
 	}
 }
@@ -464,28 +499,10 @@ pub struct CodeLoadWarmth {
 	pub blob: Warmth,
 }
 
-impl CodeLoadWarmth {
-	/// Summarizes the warmth of both entries a code load pays for.
-	pub(crate) fn summary(&self) -> WarmthSummary {
-		WarmthSummary::default()
-			.count(self.info, CodeLoadItems::OP)
-			.count(self.blob, CodeLoadItems::OP)
-	}
-
-	pub fn cold_non_revertible() -> Self {
-		Self { info: Warmth::cold_non_revertible(), blob: Warmth::cold_non_revertible() }
-	}
-}
-
 /// A code load reads the info and the blob at `hash`.
 #[derive(Clone, Copy, Debug)]
 pub struct CodeLoadItems {
 	pub hash: H256,
-}
-
-impl CodeLoadItems {
-	/// A code load only reads both entries.
-	pub(crate) const OP: StorageOp = StorageOp::Read;
 }
 
 impl Access for CodeLoadItems {
@@ -494,8 +511,8 @@ impl Access for CodeLoadItems {
 
 	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> CodeLoadWarmth {
 		CodeLoadWarmth {
-			info: visit(AccessEntry::CodeInfo { hash: self.hash }, Self::OP),
-			blob: visit(AccessEntry::CodeBlob { hash: self.hash }, Self::OP),
+			info: visit(AccessEntry::CodeInfo { hash: self.hash }, StorageOp::Read),
+			blob: visit(AccessEntry::CodeBlob { hash: self.hash }, StorageOp::Read),
 		}
 	}
 }
@@ -518,8 +535,8 @@ impl Access for StorageItems {
 	type Warmth = Warmth;
 	const KEY_FAMILY: KeyFamily = KeyFamily::Slot;
 
-	fn expand(self, mut resolve: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> Warmth {
-		resolve(AccessEntry::Storage(self.key), self.op)
+	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> Warmth {
+		visit(AccessEntry::Storage(self.key), self.op)
 	}
 }
 
@@ -686,10 +703,15 @@ impl AccessList {
 		access.expand(|entry, op| self.touch(entry, op))
 	}
 
-	/// Reports what [`Self::warm`] would return, without recording anything.
-	pub fn warmth_of<A: Access>(&self, access: A) -> A::Warmth {
+	/// Warms the access and counts its entries.
+	pub fn warm_summarized<A: Access>(&mut self, access: A) -> Summarized<A::Warmth> {
+		Summarized::from_access(access, |entry, op| self.touch(entry, op))
+	}
+
+	/// Reports what [`Self::warm_summarized`] would return, without recording anything.
+	pub fn warmth_of_summarized<A: Access>(&self, access: A) -> Summarized<A::Warmth> {
 		let mut free_slots = MAX_ACCESS_LIST_ENTRIES.saturating_sub(self.accessed.len());
-		access.expand(|entry, _op| match self.peek(&entry) {
+		Summarized::from_access(access, |entry, _op| match self.peek(&entry) {
 			Warmth::Cold { .. } => {
 				let revertible = self.in_nested_frame() && free_slots > 0;
 				free_slots = free_slots.saturating_sub(1);
@@ -997,7 +1019,7 @@ mod tests {
 		al.warm(transfer_to(H160::from_low_u64_be(1)));
 
 		assert_eq!(
-			al.warmth_of(transfer_to(H160::from_low_u64_be(2))),
+			al.warmth_of_summarized(transfer_to(H160::from_low_u64_be(2))).entries,
 			TransferWarmth {
 				receiver_account: Warmth::cold_non_revertible(),
 				sender_account: Warmth::write_paid(), // a transfer always writes the balance
@@ -1026,7 +1048,7 @@ mod tests {
 			receiver_account_info: Warmth::cold_non_revertible(),
 			sender_account_info: Warmth::cold_non_revertible(),
 		};
-		assert_eq!(al.warmth_of(access), expected);
+		assert_eq!(al.warmth_of_summarized(access).entries, expected);
 		assert_eq!(al.warm(access), expected);
 	}
 
@@ -1047,10 +1069,10 @@ mod tests {
 	#[test]
 	fn an_access_touches_the_expected_entries() {
 		// A second access reports the level the first one recorded.
-		fn recorded<A: Access + Clone>(access: A) -> A::Warmth {
+		fn recorded<A: Access + Clone>(access: A) -> Summarized<A::Warmth> {
 			let mut al = AccessList::new();
 			al.warm(access.clone());
-			al.warm(access)
+			al.warm_summarized(access)
 		}
 
 		let sender = H160::repeat_byte(1);
@@ -1058,7 +1080,7 @@ mod tests {
 		let transfer = |dust| TransferItems { from: sender, to: target, dust };
 
 		assert_eq!(
-			recorded(CallItems::Plain { target }),
+			recorded(CallItems::Plain { target }).entries,
 			CallWarmth::Plain {
 				original_account: Warmth::read_paid(),
 				account_info: Warmth::read_paid(),
@@ -1066,21 +1088,21 @@ mod tests {
 		);
 
 		assert_eq!(
-			recorded(CallItems::Delegate { target }),
+			recorded(CallItems::Delegate { target }).entries,
 			CallWarmth::Delegate { account_info: Warmth::read_paid() },
 		);
 
 		assert_eq!(
-			recorded(CodeLoadItems { hash: H256::zero() }),
+			recorded(CodeLoadItems { hash: H256::zero() }).entries,
 			CodeLoadWarmth { info: Warmth::read_paid(), blob: Warmth::read_paid() },
 		);
 
 		let slot_access = |op| StorageItems::new(target, &Key::Fix([3; 32]), op);
-		assert_eq!(recorded(slot_access(StorageOp::Read)), Warmth::read_paid());
-		assert_eq!(recorded(slot_access(StorageOp::Write)), Warmth::write_paid());
+		assert_eq!(recorded(slot_access(StorageOp::Read)).entries, Warmth::read_paid());
+		assert_eq!(recorded(slot_access(StorageOp::Write)).entries, Warmth::write_paid());
 
 		assert_eq!(
-			recorded(transfer(false)),
+			recorded(transfer(false)).entries,
 			TransferWarmth {
 				receiver_account: Warmth::write_paid(),
 				sender_account: Warmth::write_paid(),
@@ -1090,7 +1112,7 @@ mod tests {
 		);
 
 		assert_eq!(
-			recorded(transfer(true)),
+			recorded(transfer(true)).entries,
 			TransferWarmth {
 				receiver_account: Warmth::write_paid(),
 				sender_account: Warmth::write_paid(),
@@ -1102,17 +1124,17 @@ mod tests {
 		for (entries, summarized) in [
 			(
 				CallItems::Plain { target }.entry_count(),
-				recorded(CallItems::Plain { target }).summary().total,
+				recorded(CallItems::Plain { target }).summary.total,
 			),
 			(
 				CallItems::Delegate { target }.entry_count(),
-				recorded(CallItems::Delegate { target }).summary().total,
+				recorded(CallItems::Delegate { target }).summary.total,
 			),
 			(
 				CodeLoadItems { hash: H256::zero() }.entry_count(),
-				recorded(CodeLoadItems { hash: H256::zero() }).summary().total,
+				recorded(CodeLoadItems { hash: H256::zero() }).summary.total,
 			),
-			(transfer(true).entry_count(), recorded(transfer(true)).summary(true).total),
+			(transfer(true).entry_count(), recorded(transfer(true)).summary.total),
 		] {
 			assert_eq!(entries, summarized, "every entry the walk visits is summarized");
 		}

@@ -21,8 +21,8 @@
 use crate::{
 	Pallet as Contracts,
 	access_list::{
-		AccessEntry, AccessList, CallItems, CodeLoadItems, CodeLoadWarmth, KeyFamily,
-		MAX_ACCESS_LIST_ENTRIES, StorageItems, StorageOp, TransferItems,
+		AccessEntry, AccessList, CallItems, CodeLoadItems, KeyFamily, MAX_ACCESS_LIST_ENTRIES,
+		StorageItems, StorageOp, Summarized, TransferItems,
 	},
 	call_builder::{
 		CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit,
@@ -466,10 +466,10 @@ mod benchmarks {
 			}
 
 			let (mut ext, _) = setup.ext();
-			ext.warm(call_items);
-			ext.warm(code_items);
+			ext.warm_summarized(call_items);
+			ext.warm_summarized(code_items);
 			if let Some(transfer) = transfer {
-				ext.warm(transfer);
+				ext.warm_summarized(transfer);
 			}
 			let mut $runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 			let mut $memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
@@ -781,7 +781,7 @@ mod benchmarks {
 			blob = ContractBlob::<T>::from_storage(
 				code_hash,
 				&mut meter,
-				CodeLoadWarmth::cold_non_revertible(),
+				Summarized::all_cold(CodeLoadItems { hash: code_hash }),
 			);
 		}
 		assert!(blob.is_ok(), "an existing contract must load");
@@ -2089,7 +2089,7 @@ mod benchmarks {
 
 		// Add the key to access list so the op's touch is hot.
 		let access = StorageItems::new(runtime.ext().address(), &key, StorageOp::Write);
-		runtime.ext().warm(access);
+		runtime.ext().warm_summarized(access);
 
 		let result;
 		#[block]
@@ -2143,7 +2143,7 @@ mod benchmarks {
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let access = StorageItems::new(ext.address(), &key, StorageOp::Write);
-		ext.warm(access);
+		ext.warm_summarized(access);
 
 		let result;
 		#[block]
@@ -2207,7 +2207,7 @@ mod benchmarks {
 		);
 
 		let access = StorageItems::new(runtime.ext().address(), &key, StorageOp::Read);
-		runtime.ext().warm(access);
+		runtime.ext().warm_summarized(access);
 
 		let out_ptr = max_key_len + 4;
 		let result;
@@ -2262,7 +2262,7 @@ mod benchmarks {
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let access = StorageItems::new(ext.address(), &key, StorageOp::Read);
-		ext.warm(access);
+		ext.warm_summarized(access);
 
 		let result;
 		#[block]
@@ -2313,7 +2313,7 @@ mod benchmarks {
 			.map_err(|_| "Failed to write to storage during setup.")?;
 
 		let access = StorageItems::new(ext.address(), &key, StorageOp::Write);
-		ext.warm(access);
+		ext.warm_summarized(access);
 
 		let result;
 		#[block]

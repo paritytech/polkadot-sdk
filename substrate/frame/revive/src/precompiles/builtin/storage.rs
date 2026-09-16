@@ -66,7 +66,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
 				let access_kind = StorageAccessKind::new(transient, || {
 					let access = StorageItems::new(env.address(), &key, StorageOp::Write);
-					env.warm(access)
+					env.warm_summarized(access)
 				});
 				let charged =
 					env.frame_meter_mut().charge_weight_token(RuntimeCosts::ClearStorage {
@@ -95,7 +95,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
 				let access_kind = StorageAccessKind::new(transient, || {
 					let access = StorageItems::new(env.address(), &key, StorageOp::Read);
-					env.warm(access)
+					env.warm_summarized(access)
 				});
 				let charged =
 					env.frame_meter_mut().charge_weight_token(RuntimeCosts::ContainsStorage {
@@ -119,7 +119,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
 				let access_kind = StorageAccessKind::new(transient, || {
 					let access = StorageItems::new(env.address(), &key, StorageOp::Write);
-					env.warm(access)
+					env.warm_summarized(access)
 				});
 				let charged =
 					env.frame_meter_mut().charge_weight_token(RuntimeCosts::TakeStorage {

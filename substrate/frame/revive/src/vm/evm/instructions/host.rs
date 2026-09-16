@@ -125,7 +125,7 @@ pub fn sload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	// namespace (delegatecall, EIP-7702). Charge worst case, refund the unused portion.
 	let key = Key::Fix(index.to_big_endian());
 	let access = StorageItems::new(interpreter.ext.address(), &key, StorageOp::Read);
-	let access_kind = StorageAccessKind::Persistent(interpreter.ext.warm(access));
+	let access_kind = StorageAccessKind::Persistent(interpreter.ext.warm_summarized(access));
 	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::GetStorage {
 		len: limits::STORAGE_BYTES,
 		kind: access_kind,
@@ -169,7 +169,7 @@ fn store_helper<'ext, E: Ext>(
 
 	let access_kind = StorageAccessKind::new(transient, || {
 		let access = StorageItems::new(interpreter.ext.address(), &key, StorageOp::Write);
-		interpreter.ext.warm(access)
+		interpreter.ext.warm_summarized(access)
 	});
 	let charged = interpreter.ext.charge_or_halt(RuntimeCosts::SetStorage {
 		new_bytes: 32,

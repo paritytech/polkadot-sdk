@@ -19,7 +19,7 @@
 use crate::{
 	BalanceOf, Code, CodeRemoved, Config, DispatchResult, ExecReturnValue, ImmutableData,
 	ReentrancyProtection,
-	access_list::Access,
+	access_list::{Access, Summarized},
 	exec::{
 		AccountIdOf, CallResources, ExecError, Ext, Key, Origin, PrecompileExt,
 		PrecompileWithInfoExt,
@@ -261,12 +261,12 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::set_storage")
 	}
 
-	fn warmth_of<A: Access>(&self, _access: A) -> A::Warmth {
-		panic!("MockExt::warmth_of")
+	fn warmth_of_summarized<A: Access>(&self, _access: A) -> Summarized<A::Warmth> {
+		panic!("MockExt::warmth_of_summarized")
 	}
 
-	fn warm<A: Access>(&mut self, _access: A) -> A::Warmth {
-		panic!("MockExt::warm")
+	fn warm_summarized<A: Access>(&mut self, _access: A) -> Summarized<A::Warmth> {
+		panic!("MockExt::warm_summarized")
 	}
 
 	fn charge_storage(&mut self, _diff: &Diff) -> DispatchResult {

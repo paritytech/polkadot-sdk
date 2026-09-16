@@ -625,7 +625,9 @@ fn deploy_and_call_other_contract() {
 	let code_load_weight = crate::vm::code_load_weight(
 		callee_binary.len() as u32,
 		crate::vm::BytecodeType::Pvm,
-		crate::access_list::CodeLoadWarmth::cold_non_revertible(),
+		crate::access_list::Summarized::all_cold(crate::access_list::CodeLoadItems {
+			hash: callee_code_hash,
+		}),
 	);
 
 	ExtBuilder::default().existential_deposit(1).build().execute_with(|| {
