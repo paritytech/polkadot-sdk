@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789575989455,
+  "lastUpdate": 1789589277601,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "40807189+AlexandruCihodaru@users.noreply.github.com",
-            "name": "Alexandru Cihodaru",
-            "username": "AlexandruCihodaru"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "744acf5599bcf978350015a73c75e05455a4d8f3",
-          "message": "Implement persistent reputation database for collator protocol (#7751) (#10917)\n\nImplements persistent storage for the experimental collator protocol's\nreputation database.\n\nChanges:\n\n- Adds `PersistentDb` wrapper that persists the in-memory reputation DB\nto disk\n  - Periodic persistence every 10 minutes (30s in test mode)\n  - Immediate persistence on slashes and parachain deregistration\n  - Loads existing state on startup with lookback for missed blocks\n  \nImplementation:\n  \n  `PersistentDb` wraps the existing `Db` and adds persistence on top:\n\n    - All reputation logic (scoring, decay, LRU) stays in `Db`\n    - Persistence layer handles disk I/O and serialization\n    - Per-para data stored in parachains_db\n    \nTests:\n\n- `basic_persistence.rs`: Validates persistence across restarts and\nstartup lookback\n- `pruning.rs`: Validates automatic cleanup on parachain deregistration\n\n---------\n\nSigned-off-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>\nCo-authored-by: alindima <alin@parity.io>\nCo-authored-by: Tsvetomir Dimitrov <tsvetomir@parity.io>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-13T11:09:46Z",
-          "tree_id": "c5ea4bb300af28d1a2569244ef9ce654a0da4602",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/744acf5599bcf978350015a73c75e05455a4d8f3"
-        },
-        "date": 1770985082717,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027082451899999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006952153609999992,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009367542869999987,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009104116719999987,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "22591718+RomarQ@users.noreply.github.com",
+            "name": "Rodrigo Quelhas",
+            "username": "RomarQ"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3f0afb7ee7d5a57e0605fab294ec4e7def98a9bd",
+          "message": "Migrate `pallet-election-provider-multi-block` from the deprecated `ValidateUnsigned` trait to `#[pallet::authorize]` (#13032)\n\n## Summary\n\nPart of #2415 (follow-up to #10150)\n\nMigrate `pallet-election-provider-multi-block` from the deprecated\n`ValidateUnsigned` trait to `#[pallet::authorize]`, following the\npattern established in #10716.\n\n## Changes\n\n- Replace the `ValidateUnsigned` impl with `#[pallet::authorize]` on the\n`submit_unsigned` call. The validation logic is unchanged, just moved\ninto the authorize callback. It still restricts the call to\n`TransactionSource::Local` and `TransactionSource::InBlock`, runs\n`validate_unsigned_checks`, and builds the same transaction validity.\n- Change the `Config` supertrait from `CreateBare<Call<Self>>` to\n`CreateAuthorizedTransaction<Call<Self>>`.\n- Replace `ensure_none` with `ensure_authorized` and `create_bare` with\n`create_authorized_transaction`.\n- Add `#[pallet::weight_of_authorize]`. The weight already existed as\n`validate_unsigned`, so rename it to `authorize_submit_unsigned` and\npoint its benchmark at the authorize callback.\n- Add `frame_system::AuthorizeCall` to the\n`pallet-staking-async-parachain-runtime` transaction extension pipeline,\nand a `CreateAuthorizedTransaction` implementation for it and for\n`asset-hub-westend-runtime`.\n\n## Migration\n\nThe `Config` trait now requires\n`CreateAuthorizedTransaction<Call<Self>>` instead of\n`CreateBare<Call<Self>>`. The runtime must also include\n`frame_system::AuthorizeCall` in its transaction extension pipeline.\n\nThe `WeightInfo` trait renamed `validate_unsigned` to\n`authorize_submit_unsigned`.\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-09-16T18:35:13Z",
+          "tree_id": "c23ec157321b0d956785a405f7e7fdc3162aa33e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3f0afb7ee7d5a57e0605fab294ec4e7def98a9bd"
+        },
+        "date": 1789589246167,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010026143120000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0024984325599999987,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009230129189999983,
             "unit": "seconds"
           }
         ]
