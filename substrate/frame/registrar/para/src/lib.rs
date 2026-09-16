@@ -616,14 +616,16 @@ pub mod pallet {
 		#[pallet::weight(Weight::zero())]
 		pub fn deregister(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let _ = (origin, para_id);
-			todo!()
+			// TODO!: request deregistration on the relay chain.
+			Ok(())
 		}
 
 		#[pallet::call_index(7)]
 		#[pallet::weight(Weight::zero())]
 		pub fn cancel_deregistration(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let _ = (origin, para_id);
-			todo!()
+			// TODO!: ask the relay chain to cancel a pending deregistration.
+			Ok(())
 		}
 
 		#[pallet::call_index(8)]
@@ -635,7 +637,8 @@ pub mod pallet {
 			code_len: u32,
 		) -> DispatchResult {
 			let _ = (origin, para_id, code_hash, code_len);
-			todo!()
+			// TODO!: send the code upgrade authorization to the relay chain.
+			Ok(())
 		}
 
 		#[pallet::call_index(9)]
@@ -646,7 +649,8 @@ pub mod pallet {
 			head: Vec<u8>,
 		) -> DispatchResult {
 			let _ = (origin, para_id, head);
-			todo!()
+			// TODO!: send the new head to the relay chain.
+			Ok(())
 		}
 
 		#[pallet::call_index(10)]
@@ -660,7 +664,8 @@ pub mod pallet {
 			code_hash: H256,
 		) -> DispatchResult {
 			let _ = (origin, para_id, manager, genesis_head, code_len, code_hash);
-			todo!()
+			// TODO!: send a root-authorized registration to the relay chain.
+			Ok(())
 		}
 	}
 }
@@ -843,7 +848,8 @@ impl<T: Config> Pallet<T> {
 		outcome: Outcome,
 	) -> DispatchResult {
 		let _ = (para_id, message_id, outcome);
-		todo!()
+		// TODO!: settle the pending deregistration from the relay chain's answer.
+		Ok(())
 	}
 
 	fn on_code_upgrade_response(
@@ -852,17 +858,20 @@ impl<T: Config> Pallet<T> {
 		outcome: Result<u32, FailureReason>,
 	) -> DispatchResult {
 		let _ = (para_id, message_id, outcome);
-		todo!()
+		// TODO!: settle the pending code upgrade from the relay chain's answer.
+		Ok(())
 	}
 
 	fn on_code_upgrade_scheduled(para_id: ParaId, message_id: u64) -> DispatchResult {
 		let _ = (para_id, message_id);
-		todo!()
+		// TODO!: finish the code upgrade once the relay chain has scheduled it.
+		Ok(())
 	}
 
 	fn on_set_head_response(para_id: ParaId, message_id: u64, outcome: Outcome) -> DispatchResult {
 		let _ = (para_id, message_id, outcome);
-		todo!()
+		// TODO!: settle the pending head update from the relay chain's answer.
+		Ok(())
 	}
 
 	fn on_cancel_deregistration_response(
@@ -871,7 +880,8 @@ impl<T: Config> Pallet<T> {
 		outcome: Outcome,
 	) -> DispatchResult {
 		let _ = (para_id, message_id, outcome);
-		todo!()
+		// TODO!: settle the pending cancellation from the relay chain's answer.
+		Ok(())
 	}
 
 	fn on_force_register_response(
@@ -880,6 +890,7 @@ impl<T: Config> Pallet<T> {
 		outcome: Outcome,
 	) -> DispatchResult {
 		let _ = (para_id, message_id, outcome);
-		todo!()
+		// TODO!: settle the pending forced registration from the relay chain's answer.
+		Ok(())
 	}
 }

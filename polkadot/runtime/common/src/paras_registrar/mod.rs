@@ -598,7 +598,8 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 	}
 
 	fn is_deregistering(_para_id: u32) -> bool {
-		todo!()
+		// TODO!: report whether a deregistration is already pending for this para.
+		false
 	}
 
 	fn register(
@@ -618,26 +619,30 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 	}
 
 	fn deregister(_para_id: u32) -> Result<(), registrar_primitives::FailureReason> {
-		todo!()
+		// TODO!: deregister the para and clear its registry entry.
+		Ok(())
 	}
 
 	fn check_head_data(_head_len: u32) -> Result<(), ()> {
-		todo!()
+		// TODO!: validate the head data length against the active configuration.
+		Ok(())
 	}
 
 	fn set_current_head(_para_id: u32, _head: Vec<u8>) {
-		todo!()
+		// TODO!: set the para's current head.
 	}
 
 	fn check_code_upgrade(
 		_para_id: u32,
 		_code_len: u32,
 	) -> Result<(), registrar_primitives::FailureReason> {
-		todo!()
+		// TODO!: validate the code length and that an upgrade may be scheduled now.
+		Ok(())
 	}
 
 	fn schedule_code_upgrade(_para_id: u32, _validation_code: Vec<u8>) -> DispatchResult {
-		todo!()
+		// TODO!: schedule the validation code upgrade.
+		Ok(())
 	}
 }
 

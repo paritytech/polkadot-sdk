@@ -476,7 +476,7 @@ pub mod pallet {
 
 		fn on_deregister_request(para_id: ParaId, message_id: u64) {
 			let _ = (para_id, message_id);
-			todo!()
+			// TODO!: deregister the para and report the outcome back.
 		}
 
 		fn on_authorize_code_upgrade_request(
@@ -486,17 +486,17 @@ pub mod pallet {
 			code_len: u32,
 		) {
 			let _ = (para_id, message_id, code_hash, code_len);
-			todo!()
+			// TODO!: authorize the code upgrade and report the outcome back.
 		}
 
 		fn on_set_current_head_request(para_id: ParaId, message_id: u64, head: Vec<u8>) {
 			let _ = (para_id, message_id, head);
-			todo!()
+			// TODO!: set the para's head and report the outcome back.
 		}
 
 		fn on_cancel_deregistration_request(para_id: ParaId, message_id: u64) {
 			let _ = (para_id, message_id);
-			todo!()
+			// TODO!: cancel the pending deregistration and report the outcome back.
 		}
 
 		fn on_force_register_request(
@@ -508,7 +508,7 @@ pub mod pallet {
 			code_len: u32,
 		) {
 			let _ = (para_id, message_id, manager, genesis_head, code_hash, code_len);
-			todo!()
+			// TODO!: force-register the para and report the outcome back.
 		}
 
 		#[allow(dead_code)]
