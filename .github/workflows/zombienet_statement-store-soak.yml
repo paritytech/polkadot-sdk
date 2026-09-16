@@ -3,7 +3,7 @@ name: Zombienet Statement Store Soak
 # On-demand statement-store on the zombienet k8s cluster: runs when a PR carries the
 # `A6-statement-store` label (and again on every push while it does), or via manual dispatch.
 # Not part of the default per-PR zombienet matrix. Needs a completed "Build and push images"
-# run for the head — if the label lands before that build finishes, re-run this workflow.
+# run for the commit — if the label lands before that build finishes, re-run this workflow.
 
 on:
   pull_request:
@@ -25,6 +25,11 @@ on:
         description: "Statement node count (STATEMENT_V2_SOAK_NODES); above 51 the topology goes sparse"
         default: "12"
         required: false
+      build_run_id:
+        type: string
+        description: "Build run to take images and the test archive from (default: resolve it)"
+        default: ""
+        required: false
 
 concurrency:
   group: statement-store-soak-${{ github.event.pull_request.number || github.ref }}
@@ -40,16 +45,64 @@ env:
   ZOMBIE_CLEANER_DISABLED: 1
 
 jobs:
-  preflight:
+  resolve-build:
     # The label is the opt-in – no draft gate.
     if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.label.name, 'A6-statement-store') || contains(github.event.pull_request.labels.*.name, 'A6-statement-store') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      build_run_id: ${{ steps.pick.outputs.build_run_id }}
+    steps:
+      - name: Pick the build run carrying this commit's images and test archive
+        id: pick
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          OVERRIDE: ${{ inputs.build_run_id }}
+        run: |
+          set -euo pipefail
+          if [[ -n "${OVERRIDE}" ]]; then
+            echo "build_run_id=${OVERRIDE}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # The preflight's own auto-detection takes the newest fully successful build run. A
+          # build run also builds images this soak never uses, so one of those failing would
+          # block it; accept any run of this commit whose jobs below are green instead.
+          required=(
+            prepare-cumulus-zombienet-artifacts
+            build-push-image-polkadot-parachain-debug
+            build-push-image-polkadot-debug
+          )
+          runs=$(gh run list --repo "$REPO" --workflow build-publish-images.yml \
+            --branch "$BRANCH" --limit 20 --json databaseId,headSha,status \
+            --jq ".[] | select(.status == \"completed\" and .headSha == \"$HEAD_SHA\") | .databaseId")
+          for id in $runs; do
+            jobs=$(gh run view "$id" --repo "$REPO" --json jobs)
+            green=true
+            for job in "${required[@]}"; do
+              conclusion=$(jq -r --arg job "$job" \
+                '[.jobs[] | select(.name == $job) | .conclusion] | first // "missing"' <<< "$jobs")
+              [[ "$conclusion" == "success" ]] || green=false
+            done
+            if [[ "$green" == "true" ]]; then
+              echo "Using build run $id"
+              echo "build_run_id=$id" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "::error::No completed build-publish-images run for ${HEAD_SHA} has all of: ${required[*]}"
+          exit 1
+
+  preflight:
+    needs: [resolve-build]
     uses: ./.github/workflows/zombienet-reusable-preflight.yml
     with:
       tests_yaml: .github/zombienet-tests/zombienet_statement_store_soak_tests.yml
       test_pattern: ${{ inputs.test_pattern }}
-      # Required input; empty makes the preflight auto-detect the branch's latest successful
-      # "Build and push images" run.
-      build_run_id: ""
+      build_run_id: ${{ needs.resolve-build.outputs.build_run_id }}
 
   zombienet-statement-store-soak:
     name: ${{ matrix.test.job-name }}
