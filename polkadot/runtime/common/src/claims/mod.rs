@@ -506,8 +506,9 @@ pub mod pallet {
 		}
 	}
 
-	// TODO: remove once claim tooling submits general transactions; `#[pallet::authorize]` on
-	// `claim` and `claim_attest` then covers every claim.
+	// TODO: remove once claim tooling submits general transactions (polkadot-js/api#6276,
+	// polkadot-js/apps#12446, polkadot-api/polkadot-api#760); `#[pallet::authorize]` on `claim`
+	// and `claim_attest` then covers every claim.
 	#[allow(deprecated)]
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {

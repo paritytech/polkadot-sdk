@@ -6,7 +6,8 @@ doc:
     The `claim` and `claim_attest` calls of `polkadot_runtime_common::claims` carry
     `#[pallet::authorize]` and accept a general transaction, in addition to the bare (unsigned)
     transaction they accepted before. The deprecated `ValidateUnsigned` impl stays until claim
-    tooling can submit general transactions. A follow-up removes it before the SDK removes
+    tooling can submit general transactions (polkadot-js/api#6276, polkadot-js/apps#12446,
+    polkadot-api/polkadot-api#760). A follow-up removes it before the SDK removes
     `#[pallet::validate_unsigned]` after April 2027.
 
     The validation semantics do not change. A bare and a general transaction run the same checks
