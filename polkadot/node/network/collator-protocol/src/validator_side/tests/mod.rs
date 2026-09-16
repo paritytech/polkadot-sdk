@@ -314,7 +314,7 @@ async fn assert_candidate_backing_second(
 				tx.send(Ok(Some(pvd.clone()))).unwrap();
 			}
 		),
-		CollationVersion::V2 | CollationVersion::V3 => assert_matches!(
+		CollationVersion::V2 | CollationVersion::V3 | CollationVersion::V4 => assert_matches!(
 			msg,
 			AllMessages::ProspectiveParachains(
 				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),
@@ -435,6 +435,10 @@ async fn connect_and_declare_collator(
 				collator.sign(&protocol_v3::declare_signature_payload(&peer)),
 			))
 		},
+		CollationVersion::V4 => unreachable!(
+			"legacy validator_side never negotiates V4; V4 flows are covered by \
+			 validator_side_experimental tests"
+		),
 	};
 
 	overseer_send(

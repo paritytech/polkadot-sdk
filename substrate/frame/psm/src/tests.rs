@@ -1106,6 +1106,31 @@ mod governance {
 	}
 
 	#[test]
+	fn add_external_asset_uses_recorded_internal_decimals_after_metadata_changes() {
+		new_test_ext().execute_with(|| {
+			let new_asset = 99u32;
+			create_asset_with_metadata(new_asset);
+
+			assert_ok!(Assets::set_metadata(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				b"Internal Asset".to_vec(),
+				b"INTERNAL".to_vec(),
+				31
+			));
+
+			assert_ok!(Psm::add_external_asset(
+				RuntimeOrigin::root(),
+				INTERNAL_ASSET_ID,
+				new_asset
+			));
+			let stored = crate::ExternalAssets::<Test>::get(INTERNAL_ASSET_ID, new_asset)
+				.expect("external present");
+			assert_eq!(stored.decimals, 6);
+		});
+	}
+
+	#[test]
 	fn add_external_asset_fails_decimals_out_of_range() {
 		new_test_ext().execute_with(|| {
 			let new_asset = 99u32;
@@ -2949,12 +2974,13 @@ mod decimal_scaling {
 		});
 	}
 
-	// Runtime decimals guard
+	// Metadata changes after registration
 
 	#[test]
-	fn mint_halts_when_asset_decimals_drift() {
+	fn mint_uses_snapshot_when_asset_decimals_drift() {
 		new_test_ext().execute_with(|| {
 			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(100));
+			set_zero_fees(USDX_ASSET_ID);
 
 			// Owner (ALICE) unilaterally changes USDX decimals from 2 -> 4.
 			assert_ok!(Assets::set_metadata(
@@ -2965,15 +2991,16 @@ mod decimal_scaling {
 				4
 			));
 
-			assert_noop!(
-				Psm::mint(
-					RuntimeOrigin::signed(BOB),
-					INTERNAL_ASSET_ID,
-					USDX_ASSET_ID,
-					10_000 * USDX_UNIT,
-					Permill::zero()
-				),
-				Error::<Test>::DecimalsMismatch
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(BOB),
+				INTERNAL_ASSET_ID,
+				USDX_ASSET_ID,
+				10_000 * USDX_UNIT,
+				Permill::zero()
+			));
+			assert_eq!(
+				PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDX_ASSET_ID),
+				10_000 * INTERNAL_UNIT
 			);
 		});
 	}
@@ -3028,8 +3055,9 @@ mod decimal_scaling {
 	}
 
 	#[test]
-	fn mint_halts_when_internal_decimals_drift() {
+	fn mint_uses_snapshot_when_internal_decimals_drift() {
 		new_test_ext().execute_with(|| {
+			set_zero_fees(USDC_ASSET_ID);
 			// internal starts at 6 decimals; InternalDecimals snapshot matches. The owner
 			// (ALICE) changes the internal asset's live metadata to simulate drift.
 			assert_ok!(Assets::set_metadata(
@@ -3040,15 +3068,16 @@ mod decimal_scaling {
 				8
 			));
 
-			assert_noop!(
-				Psm::mint(
-					RuntimeOrigin::signed(ALICE),
-					INTERNAL_ASSET_ID,
-					USDC_ASSET_ID,
-					1000 * INTERNAL_UNIT,
-					Permill::from_percent(1)
-				),
-				Error::<Test>::DecimalsMismatch
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1000 * INTERNAL_UNIT,
+				Permill::zero()
+			));
+			assert_eq!(
+				PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID),
+				1000 * INTERNAL_UNIT
 			);
 		});
 	}
@@ -3500,6 +3529,35 @@ mod admin {
 			);
 			// Nothing was created.
 			assert!(!crate::Psm::<Test>::contains_key(NEW_INTERNAL));
+		});
+	}
+
+	#[test]
+	fn create_psm_charges_deposit_for_instance_footprint() {
+		use codec::MaxEncodedLen;
+
+		new_test_ext().execute_with(|| {
+			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
+			let reserved_before = Balances::reserved_balance(&ALICE);
+
+			assert_ok!(Psm::create_psm(
+				RuntimeOrigin::signed(ALICE),
+				NEW_INTERNAL,
+				Box::new(signed_origin(ALICE)),
+				Box::new(signed_origin(ALICE)),
+				INSURANCE_FUND,
+				DEFAULT_MAX_DEBT,
+				DEFAULT_MIN_SWAP,
+			));
+
+			// Recompute the expected deposit from the stored types instead of calling
+			// `psm_creation_footprint`, so this test fails if that helper breaks.
+			let items = 2u128;
+			let size = (2 * u32::max_encoded_len() +
+				crate::PsmInfo::<Test>::max_encoded_len() +
+				crate::PsmAdminInfo::<Test>::max_encoded_len()) as u128;
+			let expected = PsmCreationDeposit::get() + PsmDepositSlope::get() * items * size;
+			assert_eq!(Balances::reserved_balance(&ALICE) - reserved_before, expected);
 		});
 	}
 

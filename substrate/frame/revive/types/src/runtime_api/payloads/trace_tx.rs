@@ -56,7 +56,7 @@ pub struct TraceTxOutputPayloadV1 {
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct TraceTxOutputPayloadV2 {
-	pub trace: Option<TraceV2>,
+	pub entry: Option<TraceEntryV1>,
 }
 
 /// The output type returned when calling the `trace_tx_versioned` runtime API function. This

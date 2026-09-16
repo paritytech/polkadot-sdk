@@ -143,11 +143,17 @@ pub mod ecdsa_crypto {
 		}
 
 		fn verify(&self, signature: &<Self as RuntimeAppPublic>::Signature, msg: &[u8]) -> bool {
+			let sig_bytes: &[u8] = signature.as_inner_ref().as_ref();
+			// Reject high-S signatures (malleability protection, Ethereum compatibility)
+			let sig_array: &[u8; 65] = match sig_bytes.try_into() {
+				Ok(arr) => arr,
+				Err(_) => return false,
+			};
+			if !sp_core::ecdsa::is_signature_normalized(sig_array) {
+				return false;
+			}
 			let msg_hash = keccak_256(msg);
-			match sp_io::crypto::secp256k1_ecdsa_recover_compressed(
-				signature.as_inner_ref().as_ref(),
-				&msg_hash,
-			) {
+			match sp_io::crypto::secp256k1_ecdsa_recover_compressed(sig_array, &msg_hash) {
 				Ok(raw_pubkey) => raw_pubkey.as_ref() == AsRef::<[u8]>::as_ref(self),
 				_ => false,
 			}
@@ -647,6 +653,55 @@ mod tests {
 		// Other public key doesn't work
 		let (other_pair, _) = ecdsa_crypto::Pair::generate();
 		assert!(!BeefyAuthorityId::verify(&other_pair.public(), &signature, msg,));
+	}
+
+	#[test]
+	fn ecdsa_beefy_rejects_high_s_signature() {
+		// secp256k1 curve order N
+		let order: [u8; 32] = [
+			0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+			0xff, 0xfe, 0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48, 0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c,
+			0xd0, 0x36, 0x41, 0x41,
+		];
+
+		let msg = &b"test-message"[..];
+		let (pair, _) = ecdsa_crypto::Pair::generate();
+
+		let signature: ecdsa_crypto::Signature =
+			pair.as_inner_ref().sign_prehashed(&keccak_256(msg)).into();
+
+		// Valid low-S signature should verify
+		assert!(BeefyAuthorityId::verify(&pair.public(), &signature, msg));
+
+		// Construct a high-S malleable variant: s' = order - s, v' = v ^ 1
+		let sig_bytes: &[u8] = signature.as_inner_ref().as_ref();
+		let s_bytes: [u8; 32] = sig_bytes[32..64].try_into().unwrap();
+		let mut s_prime = [0u8; 32];
+		let mut borrow = 0i16;
+		for i in (0..32).rev() {
+			let diff = order[i] as i16 - s_bytes[i] as i16 - borrow;
+			if diff < 0 {
+				s_prime[i] = (diff + 256) as u8;
+				borrow = 1;
+			} else {
+				s_prime[i] = diff as u8;
+				borrow = 0;
+			}
+		}
+
+		let mut malleable_bytes = [0u8; 65];
+		malleable_bytes[0..32].copy_from_slice(&sig_bytes[0..32]);
+		malleable_bytes[32..64].copy_from_slice(&s_prime);
+		malleable_bytes[64] = sig_bytes[64] ^ 1;
+
+		let malleable_sig =
+			ecdsa_crypto::Signature::from(sp_core::ecdsa::Signature::from_raw(malleable_bytes));
+
+		// High-S signature should be rejected
+		assert!(
+			!BeefyAuthorityId::verify(&pair.public(), &malleable_sig, msg),
+			"high-S BEEFY signature should be rejected"
+		);
 	}
 
 	#[test]
