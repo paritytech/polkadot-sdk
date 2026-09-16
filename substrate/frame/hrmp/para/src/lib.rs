@@ -36,8 +36,8 @@ use frame_support::{
 	traits::{Consideration, Defensive, EnsureOrigin, Footprint, Get},
 };
 use hrmp_primitives::{
-	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
-	Outcome, ParaId, ParaNotification, ParaRequest, ParaRequestV1,
+	is_system, ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay,
+	MessageToRelayV1, Outcome, ParaId, ParaNotification, ParaRequest, ParaRequestV1,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Convert, DispatchError, DispatchResult};
@@ -797,12 +797,78 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// `establish_channel_with_system`, asked for by `sender` through the relay chain.
+	///
+	/// Both directions are opened at once, so nobody has to accept and neither end pays. Neither
+	/// is told anything here either: the relay chain tells them both once the channels exist.
 	fn on_establish_channel_with_system(
 		sender: ParaId,
 		target_system_chain: ParaId,
 	) -> DispatchResult {
-		let _ = (sender, target_system_chain);
-		todo!()
+		ensure!(sender != target_system_chain, Error::<T>::OpenHrmpChannelToSelf);
+		ensure!(is_system(target_system_chain), Error::<T>::ChannelCreationNotAuthorized);
+
+		let channel = ChannelId { sender, recipient: target_system_chain };
+		for direction in [channel, channel.reversed()] {
+			ensure!(
+				!Requests::<T>::contains_key(direction),
+				Error::<T>::OpenHrmpChannelAlreadyRequested
+			);
+			ensure!(
+				!Channels::<T>::contains_key(direction),
+				Error::<T>::OpenHrmpChannelAlreadyExists
+			);
+		}
+
+		// The pair gives each end one outbound and one inbound channel.
+		for para in [sender, target_system_chain] {
+			let egress_cnt = EgressIndex::<T>::decode_len(para).unwrap_or(0) as u32;
+			let open_req_cnt = OpenRequestCount::<T>::get(para);
+			ensure!(
+				egress_cnt + open_req_cnt < T::MaxOutboundChannels::get(),
+				Error::<T>::OpenHrmpChannelLimitExceeded,
+			);
+			let ingress_cnt = IngressIndex::<T>::decode_len(para).unwrap_or(0) as u32;
+			let accepted_cnt = AcceptedRequestCount::<T>::get(para);
+			ensure!(
+				ingress_cnt + accepted_cnt < T::MaxInboundChannels::get(),
+				Error::<T>::AcceptHrmpChannelLimitExceeded,
+			);
+		}
+
+		let (max_message_size, max_capacity) = T::DefaultChannelSizeAndCapacityWithSystem::get();
+		// One id for the pair: the relay chain answers both directions at once.
+		let message_id = Self::next_message_id();
+
+		for direction in [channel, channel.reversed()] {
+			OpenRequestCount::<T>::mutate(direction.sender, |count| *count += 1);
+			AcceptedRequestCount::<T>::mutate(direction.recipient, |count| *count += 1);
+			Requests::<T>::insert(
+				direction,
+				ChannelRequest {
+					// One end is a system chain, so neither direction holds anything.
+					state: RequestState::Accepted {
+						sender_deposit: None,
+						recipient_deposit: None,
+						kind: OpenKind::SystemPair,
+					},
+					max_capacity,
+					max_message_size,
+					message_id,
+				},
+			);
+		}
+
+		T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::OpenSystemPair {
+			channel,
+			message_id,
+			max_capacity,
+			max_message_size,
+		}))
+		.map_err(|()| Error::<T>::SendFailed)?;
+
+		Self::deposit_event(Event::SystemChannelRequested { channel, message_id });
+
+		Ok(())
 	}
 
 	fn on_open_channel_response(
@@ -810,6 +876,20 @@ impl<T: Config> Pallet<T> {
 		message_id: u64,
 		outcome: Result<(u32, u32), FailureReason>,
 	) -> DispatchResult {
+		// A pair is answered once, so the reverse direction is settled on the same answer.
+		if Self::settle_open(channel, message_id, outcome.clone())? == OpenKind::SystemPair {
+			Self::settle_open(channel.reversed(), message_id, outcome)?;
+		}
+
+		Ok(())
+	}
+
+	/// Settle one direction of an answered open request, saying which call had asked for it.
+	fn settle_open(
+		channel: ChannelId,
+		message_id: u64,
+		outcome: Result<(u32, u32), FailureReason>,
+	) -> Result<OpenKind, DispatchError> {
 		let request = Requests::<T>::get(channel).ok_or(Error::<T>::UnexpectedResponse)?;
 		ensure!(request.message_id == message_id, Error::<T>::UnexpectedResponse);
 		let RequestState::Accepted { sender_deposit, recipient_deposit, kind } = request.state
@@ -862,7 +942,7 @@ impl<T: Config> Pallet<T> {
 			},
 		}
 
-		Ok(())
+		Ok(kind)
 	}
 
 	/// Record an open channel in both indexes.
