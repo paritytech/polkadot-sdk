@@ -25,7 +25,12 @@ use alloc::{
 };
 use codec::{Decode, Encode};
 use core::{fmt, mem};
-use frame_support::{pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound};
+use frame_support::{
+	pallet_prelude::*,
+	storage::{transactional::with_transaction, TransactionOutcome},
+	traits::ReservableCurrency,
+	DefaultNoBound,
+};
 use frame_system::pallet_prelude::*;
 use hrmp_primitives::{ChannelId, FailureReason, HrmpRegistry, ParaId as HrmpParaId};
 use polkadot_parachain_primitives::primitives::{HorizontalMessages, IsSystem};
@@ -2010,8 +2015,26 @@ impl<T: Config> HrmpRegistry for Pallet<T> {
 		max_capacity: u32,
 		max_message_size: u32,
 	) -> Result<(), FailureReason> {
-		let _ = (channel, max_capacity, max_message_size);
-		todo!()
+		// The calling chain checks this too; the relay chain does not take its word for it.
+		ensure!(hrmp_primitives::is_system(channel.recipient), FailureReason::InvalidPara);
+
+		// A layer of its own, so a caller that has none still gets both directions or neither.
+		with_transaction(|| {
+			let opened =
+				<Self as HrmpRegistry>::open_channel(channel, max_capacity, max_message_size)
+					.and_then(|()| {
+						<Self as HrmpRegistry>::open_channel(
+							channel.reversed(),
+							max_capacity,
+							max_message_size,
+						)
+					});
+
+			match opened {
+				Ok(()) => TransactionOutcome::Commit(Ok(())),
+				Err(reason) => TransactionOutcome::Rollback(Err(reason)),
+			}
+		})
 	}
 
 	fn close_channel(channel: ChannelId, initiator: HrmpParaId) -> Result<(), FailureReason> {
