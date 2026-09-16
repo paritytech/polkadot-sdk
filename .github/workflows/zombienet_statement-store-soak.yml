@@ -68,17 +68,18 @@ jobs:
             echo "build_run_id=${OVERRIDE}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # The preflight's own auto-detection takes the newest fully successful build run. A
-          # build run also builds images this soak never uses, so one of those failing would
-          # block it; accept any run of this commit whose jobs below are green instead.
+          # The preflight's own auto-detection waits for a fully successful build run. A build
+          # run also builds images this soak never uses and then waits on the test suites it
+          # triggers, so it blocks on both unrelated failures and unrelated runtime; take any
+          # run of this commit whose jobs below are green instead.
           required=(
             prepare-cumulus-zombienet-artifacts
             build-push-image-polkadot-parachain-debug
             build-push-image-polkadot-debug
           )
           runs=$(gh run list --repo "$REPO" --workflow build-publish-images.yml \
-            --branch "$BRANCH" --limit 20 --json databaseId,headSha,status \
-            --jq ".[] | select(.status == \"completed\" and .headSha == \"$HEAD_SHA\") | .databaseId")
+            --branch "$BRANCH" --limit 20 --json databaseId,headSha \
+            --jq ".[] | select(.headSha == \"$HEAD_SHA\") | .databaseId")
           for id in $runs; do
             jobs=$(gh run view "$id" --repo "$REPO" --json jobs)
             green=true
