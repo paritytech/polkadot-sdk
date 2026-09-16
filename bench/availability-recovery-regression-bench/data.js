@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789562501045,
+  "lastUpdate": 1789575778338,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6ed951984c065c843dfbe292c11b1c38d22083e2",
-          "message": "pallet-revive: minor cleanups and fixes (#11054)\n\n## Summary\n\nPreparatory cleanup PR extracted from the EIP-7702 branch to simplify\nreview.\n\n- **Counter.sol uint64**: Change `uint256` to `uint64` in\nCounter/NestedCounter fixtures, to avoid U256 conversion in tests.\n- **Debug log**: Add debug log for `eth_transact` substrate tx hash\n- **RLP fix**: Fix `Transaction7702Signed` decoder field order (removed\nincorrect `gas_price` field at index 4, aligned with encoder)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-13T17:42:01Z",
-          "tree_id": "924edcd8a7b4426c4410e7250615f9c07bac8fd1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6ed951984c065c843dfbe292c11b1c38d22083e2"
-        },
-        "date": 1771008929200,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12820778973333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.0974337255,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.171698338733332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "177c490356fab38f8de89c7d9c5f2408ba3b06fb",
+          "message": "statement-store: persist transient statements and sweep them once propagated (#13216)\n\n# Description\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/11932,\nprerequisite for\nhttps://github.com/paritytech/polkadot-sdk/issues/13193.\n\nA statement no affinity covers (the node is neither a DHT replica for\nits topics nor has explicit affinity for them) is transient: the node\nforwards it once and does not keep it. The PoC kept such statements in\nan in-memory map inside the store and handed the body out once on the\npropagation pull, so nothing downstream could fetch it by hash again,\nand a copy redelivered after the pull was admitted and forwarded anew.\nTransient statements now go through the normal admission and are swept\non maintenance once propagated, like explicit-only statements already\nare.\n\n# Integration\n\nNode-side only, no API changes, no effect with the v2 DHT gate off.\n\n# Review Notes\n\n- `explicit_only` and the PoC `transient` map become one\n`retention_tracks` map of hash to `RetentionTrack`, and\n`sweep_explicit_affinity` becomes `sweep_retention`: the resolver's\nverdict becomes the track, a verdict of Transient removes the statement.\n- Removal bans re-acceptance for a transient statement, so a redelivery\ncannot start another forwarding round, and keeps allowing it for a\nlapsed explicit-only one.\n- Deleted: the transient branch in `submit`, the body hand-out in\n`take_recent_statements`, the `u64::MAX` sequence sentinel.\n\n- Transient statements take the per-account quota like any other\nstatement and are visible to the query API until swept. A transient\nstatement admitted within the sweep window before a restart reloads\nuntracked and stays until expiry, the same in-memory limit explicit-only\ntracking already has.\n- The zombienet v2 DHT tests told a replica from a non-replica by\nwhether the node stored a probe right after submit. They now wait for\nthe sweep to remove the non-replica's copy.\n- Files: substrate/client/statement-store/src/lib.rs,\nsubstrate/client/network/statement/src/v2dht/mod.rs (docs),\ncumulus/zombienet/zombienet-sdk/tests/zombie_ci/statement_store/.",
+          "timestamp": "2026-09-16T14:37:10Z",
+          "tree_id": "b79517841c0ce2d621b513089e770078798ae2cc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/177c490356fab38f8de89c7d9c5f2408ba3b06fb"
+        },
+        "date": 1789575736017,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13937032546666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.216868146233335,
             "unit": "seconds"
           }
         ]
