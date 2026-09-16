@@ -484,31 +484,21 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		let max_size = limits::STORAGE_BYTES;
 		let key = self.decode_key(memory, key_ptr, key_len)?;
+		let access = StorageItems::new(self.ext.address(), &key, StorageOp::Write);
+		let cost =
+			|kind| RuntimeCosts::SetStorage { new_bytes: value_len, old_bytes: max_size, kind };
 
 		if value_len > max_size {
-			// A failed validation accesses no storage: the peek neither warms the slot nor owes
-			// a rollback.
+			// Nothing is accessed on this failure, so the slot stays cold and owes no rollback.
 			let access_kind = StorageAccessKind::new(transient, || {
-				let access = StorageItems::new(self.ext.address(), &key, StorageOp::Write);
 				self.ext.warmth_of_summarized(access).to_non_revertible()
 			});
-			self.charge_gas(RuntimeCosts::SetStorage {
-				new_bytes: value_len,
-				old_bytes: max_size,
-				kind: access_kind,
-			})?;
+			self.charge_gas(cost(access_kind))?;
 			return Err(Error::<E::T>::ValueTooLarge.into());
 		}
 
-		let access_kind = StorageAccessKind::new(transient, || {
-			let access = StorageItems::new(self.ext.address(), &key, StorageOp::Write);
-			self.ext.warm_summarized(access)
-		});
-		let charged = self.charge_gas(RuntimeCosts::SetStorage {
-			new_bytes: value_len,
-			old_bytes: max_size,
-			kind: access_kind,
-		})?;
+		let access_kind = StorageAccessKind::new(transient, || self.ext.warm_summarized(access));
+		let charged = self.charge_gas(cost(access_kind))?;
 		let value = match value {
 			StorageValue::Memory { ptr, len } => Some(memory.read(ptr, len)?),
 			StorageValue::Value(data) => Some(data),

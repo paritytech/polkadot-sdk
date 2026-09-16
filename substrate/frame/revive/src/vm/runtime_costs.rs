@@ -189,37 +189,6 @@ pub enum RuntimeCosts {
 	Delegations { new_accounts: u32, existing_accounts: u32, invalid_accounts: u32 },
 }
 
-/// How a storage access is priced.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum StorageAccessKind {
-	/// Persistent storage, priced by its access-list warmth.
-	Persistent(Summarized<Warmth>),
-	/// Transient storage, every access costs the same.
-	Transient,
-}
-
-impl StorageAccessKind {
-	/// Builds the storage access kind. `warmth` is called only for persistent storage.
-	pub fn new(transient: bool, warmth: impl FnOnce() -> Summarized<Warmth>) -> Self {
-		if transient { Self::Transient } else { Self::Persistent(warmth()) }
-	}
-
-	/// Computes the cost of an access of this kind.
-	fn weight<T: Config>(
-		self,
-		cold: impl FnOnce() -> Weight,
-		hot: impl FnOnce() -> Weight,
-		transient: impl FnOnce() -> Weight,
-	) -> Weight {
-		match self {
-			Self::Persistent(warmth) => {
-				weight_from_warmth_summary::<T>(warmth.summary, StorageItems::KEY_FAMILY, cold, hot)
-			},
-			Self::Transient => transient(),
-		}
-	}
-}
-
 /// For functions that modify storage, benchmarks are performed with one item in the
 /// storage. To account for the worst-case scenario, the weight of the overhead of
 /// writing to or reading from full storage is included. For transient storage writes,
@@ -277,7 +246,7 @@ impl RuntimeCosts {
 		summary: WarmthSummary,
 		key: KeyFamily,
 	) -> Weight {
-		let benches: [fn() -> Weight; 4] = match key {
+		let [cold_full, cold_base, hot_full, hot_base]: [fn() -> Weight; 4] = match key {
 			KeyFamily::Slot => [
 				T::WeightInfo::access_list_touch_cold_full,
 				T::WeightInfo::access_list_touch_cold_empty,
@@ -291,7 +260,6 @@ impl RuntimeCosts {
 				T::WeightInfo::access_list_touch_hot_address_single_element,
 			],
 		};
-		let [cold_full, cold_base, hot_full, hot_base] = benches;
 		let cold_touch = cold_full().saturating_sub(cold_base());
 		let hot_touch = hot_full().saturating_sub(hot_base());
 		cold_touch
@@ -344,8 +312,10 @@ impl Summarized<CallWarmth> {
 	}
 }
 
-/// Computes the weight of an operation, given the warmth of each state item it touches.
-/// Charges the hot price only when every item is hot.
+/// Computes the cost of an access from the warmth of its entries.
+///
+/// Each bench measures the whole access, so the hot one applies only when every entry is hot. The
+/// access list's own costs come on top, entry by entry.
 pub(crate) fn weight_from_warmth_summary<T: Config>(
 	summary: WarmthSummary,
 	key: KeyFamily,
@@ -365,6 +335,37 @@ pub(crate) fn weight_from_warmth_summary<T: Config>(
 	operation_weight
 		.saturating_add(RuntimeCosts::access_list_overhead::<T>(summary, key))
 		.saturating_add(RuntimeCosts::write_surcharge::<T>(summary))
+}
+
+/// How a storage access is priced.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StorageAccessKind {
+	/// Persistent storage, priced by its access-list warmth.
+	Persistent(Summarized<Warmth>),
+	/// Transient storage, every access costs the same.
+	Transient,
+}
+
+impl StorageAccessKind {
+	/// Builds the storage access kind. `warmth` is called only for persistent storage.
+	pub fn new(transient: bool, warmth: impl FnOnce() -> Summarized<Warmth>) -> Self {
+		if transient { Self::Transient } else { Self::Persistent(warmth()) }
+	}
+
+	/// Computes the cost of an access of this kind.
+	fn weight<T: Config>(
+		self,
+		cold: impl FnOnce() -> Weight,
+		hot: impl FnOnce() -> Weight,
+		transient: impl FnOnce() -> Weight,
+	) -> Weight {
+		match self {
+			Self::Persistent(warmth) => {
+				weight_from_warmth_summary::<T>(warmth.summary, StorageItems::KEY_FAMILY, cold, hot)
+			},
+			Self::Transient => transient(),
+		}
+	}
 }
 
 impl<T: Config> Token<T> for RuntimeCosts {

@@ -1088,16 +1088,15 @@ where
 			return;
 		}
 		access_list.warm(CallItems::new(address, false));
-		let transfer_access =
-			origin.account_id().ok().filter(|_| !value.is_zero()).map(|account| {
-				access_list::TransferItems {
-					from: T::AddressMapper::to_address(account),
-					to: address,
-					dust: Contracts::<T>::has_dust(value),
-				}
+		// Only a signed origin has a sender account, and a Root origin cannot move value.
+		if !value.is_zero() &&
+			let Origin::Signed(account) = origin
+		{
+			access_list.warm(access_list::TransferItems {
+				from: T::AddressMapper::to_address(account),
+				to: address,
+				dust: Contracts::<T>::has_dust(value),
 			});
-		if let Some(transfer) = transfer_access {
-			access_list.warm(transfer);
 		}
 	}
 

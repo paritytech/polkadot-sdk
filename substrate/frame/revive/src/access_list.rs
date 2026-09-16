@@ -381,7 +381,7 @@ pub trait Access {
 #[cfg_attr(test, derive(PartialEq, Eq))]
 #[derive(Clone, Copy, Debug)]
 pub enum CallWarmth {
-	/// A normal call touches the target's address mapping and account info.
+	/// A normal call reads the target's address mapping and reads and writes its account info.
 	Plain { original_account: Warmth, account_info: Warmth },
 	/// A delegate call reads only the target's account info.
 	Delegate { account_info: Warmth },
@@ -432,7 +432,8 @@ impl Access for CallItems {
 					AccessEntry::OriginalAccount { address: target },
 					StorageOp::Read,
 				),
-				account_info: visit(AccessEntry::AccountInfo { address: target }, StorageOp::Read),
+				// A frame that succeeds writes its account info back when it ends.
+				account_info: visit(AccessEntry::AccountInfo { address: target }, StorageOp::Write),
 			},
 			Self::Delegate { target } => CallWarmth::Delegate {
 				account_info: visit(AccessEntry::AccountInfo { address: target }, StorageOp::Read),
@@ -709,6 +710,7 @@ impl AccessList {
 	}
 
 	/// Reports what [`Self::warm_summarized`] would return, without recording anything.
+	// TODO: an entry named twice reads cold twice here, while warming reads it cold then hot.
 	pub fn warmth_of_summarized<A: Access>(&self, access: A) -> Summarized<A::Warmth> {
 		let mut free_slots = MAX_ACCESS_LIST_ENTRIES.saturating_sub(self.accessed.len());
 		Summarized::from_access(access, |entry, _op| match self.peek(&entry) {
@@ -1083,7 +1085,7 @@ mod tests {
 			recorded(CallItems::Plain { target }).entries,
 			CallWarmth::Plain {
 				original_account: Warmth::read_paid(),
-				account_info: Warmth::read_paid(),
+				account_info: Warmth::write_paid(),
 			},
 		);
 
