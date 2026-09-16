@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789508364712,
+  "lastUpdate": 1789549605557,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "117115317+lrubasze@users.noreply.github.com",
-            "name": "Lukasz Rubaszewski",
-            "username": "lrubasze"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "e23e645c4e1c57ba2b40ef95b51e5015ad940cba",
-          "message": "  Gap Sync: Skip Body Requests for Non-Archive Nodes (#10752)\n\n### Summary\nThis PR optimizes gap sync bandwidth usage by skipping body requests for\nnon-archive nodes. Bodies are unnecessary during gap sync when the node\ndoesn't maintain full block history, while archive nodes continue to\nrequest bodies to preserve complete history.\nIt reduces bandwidth consumption and database size significantly for\ntypical validator/full nodes.\n\nAdditionally added some gap sync statistics for observability:\n- Introduced `GapSyncStats` to track bandwidth usage: header bytes, body\nbytes, justification bytes\n- Logged on gap sync completion to provide visibility into bandwidth\nsavings\n\n---------\n\nCo-authored-by: sistemd <enntheprogrammer@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-13T15:01:49Z",
-          "tree_id": "0aeca6e0c5c392f43263ad5e5e87b94831e39bc3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e23e645c4e1c57ba2b40ef95b51e5015ad940cba"
-        },
-        "date": 1770998832085,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.158902899800001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12021615753333337,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13470641963333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "117115317+lrubasze@users.noreply.github.com",
+            "name": "Lukasz Rubaszewski",
+            "username": "lrubasze"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c5b3121ccc4f35a8391e8d515f63e3e9ac82b201",
+          "message": "litep2p/req-resp: fix inbound request serve time reporting (#13097)\n\nThe litep2p backend reported a near-zero serve time in the\n`substrate_sub_libp2p_requests_in_success_total` histogram for inbound\nrequests.\n\nThe timestamp paired with a pending inbound request was evaluated only\nafter the response was ready (`Instant::now()` after awaiting the\nresponse channel), so the reported duration covered just the response\nhand-off to the transport instead of the actual time spent serving the\nrequest.\n\n## Changes\n\n- Stamp the start time when the request arrives, matching the libp2p\nbackend, so the reported serve time covers the time the request spends\nqueued and being processed by the handler.\n- Add a regression test\n(`inbound_request_serve_time_includes_handler_time`) which delays the\nresponse in the request handler and asserts the recorded serve time\ncovers that delay. The test fails against the previous behavior.\n\n## Review notes\n\nThe analogous outbound metric (`requests_out_success_total`) already\nstamps on send and is unaffected.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-16T07:27:41Z",
+          "tree_id": "d55d7268a3680a6e40d70de9620d279a2fb1ec47",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c5b3121ccc4f35a8391e8d515f63e3e9ac82b201"
+        },
+        "date": 1789549570081,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.010997143166666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1411520168333333,
             "unit": "seconds"
           }
         ]
