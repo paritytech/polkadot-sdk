@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789549605557,
+  "lastUpdate": 1789562501045,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "e9b9f740fab72060252628ebce5a5e30c1c5da2a",
-          "message": "Fix delegatecall callTracer addresses (#10918)\n\n## Summary\n- Fix address tracking in delegatecall operations for callTracer\n\n## Changes\n- Update callTracer to correctly track addresses during delegatecall\noperations\n\n## Test plan\n- Existing tests should pass\n- Verify callTracer correctly reports addresses for delegatecall\noperations\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Robert van Eerdewijk <robertvaneerdewijk@gmail.com>",
-          "timestamp": "2026-02-13T17:05:07Z",
-          "tree_id": "66e1df46dd29065e796d19322c083a20cd5ac214",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e9b9f740fab72060252628ebce5a5e30c1c5da2a"
-        },
-        "date": 1771006825567,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.052355861399999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12245193133333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1411520168333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "618071368d69f663c167e66d775c654d08088da5",
+          "message": "Version bumps  and prdocs reordering from release stable2606-2 (#13228)\n\nThis PR backports regular prdcos reordering and version bumps from\nrelease branch stable2606 back to master\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
+          "timestamp": "2026-09-16T11:10:10Z",
+          "tree_id": "574a8fd319b60078b664966d08370af97f871ca7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/618071368d69f663c167e66d775c654d08088da5"
+        },
+        "date": 1789562460958,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13407576193333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.171698338733332,
             "unit": "seconds"
           }
         ]
