@@ -1,0 +1,10 @@
+title: '[asset-hub-westend] Add pallet_revive v4 migration'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+    - Wire the missing `pallet_revive::migrations::v4::Migration` into the Asset Hub Westend `pallet_migrations::Config::Migrations` tuple, alongside `v3`.
+    - v4 is the multi-block migration that switches storage deposits from the native currency to PGAS (introduced in #11847); without this entry it would never run on WAH.
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch
