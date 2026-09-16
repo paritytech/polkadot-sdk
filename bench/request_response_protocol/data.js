@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789574212576,
+  "lastUpdate": 1789588347702,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -125279,6 +125279,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2574229107,
             "range": "± 37926253",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "22591718+RomarQ@users.noreply.github.com",
+            "name": "Rodrigo Quelhas",
+            "username": "RomarQ"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3f0afb7ee7d5a57e0605fab294ec4e7def98a9bd",
+          "message": "Migrate `pallet-election-provider-multi-block` from the deprecated `ValidateUnsigned` trait to `#[pallet::authorize]` (#13032)\n\n## Summary\n\nPart of #2415 (follow-up to #10150)\n\nMigrate `pallet-election-provider-multi-block` from the deprecated\n`ValidateUnsigned` trait to `#[pallet::authorize]`, following the\npattern established in #10716.\n\n## Changes\n\n- Replace the `ValidateUnsigned` impl with `#[pallet::authorize]` on the\n`submit_unsigned` call. The validation logic is unchanged, just moved\ninto the authorize callback. It still restricts the call to\n`TransactionSource::Local` and `TransactionSource::InBlock`, runs\n`validate_unsigned_checks`, and builds the same transaction validity.\n- Change the `Config` supertrait from `CreateBare<Call<Self>>` to\n`CreateAuthorizedTransaction<Call<Self>>`.\n- Replace `ensure_none` with `ensure_authorized` and `create_bare` with\n`create_authorized_transaction`.\n- Add `#[pallet::weight_of_authorize]`. The weight already existed as\n`validate_unsigned`, so rename it to `authorize_submit_unsigned` and\npoint its benchmark at the authorize callback.\n- Add `frame_system::AuthorizeCall` to the\n`pallet-staking-async-parachain-runtime` transaction extension pipeline,\nand a `CreateAuthorizedTransaction` implementation for it and for\n`asset-hub-westend-runtime`.\n\n## Migration\n\nThe `Config` trait now requires\n`CreateAuthorizedTransaction<Call<Self>>` instead of\n`CreateBare<Call<Self>>`. The runtime must also include\n`frame_system::AuthorizeCall` in its transaction extension pipeline.\n\nThe `WeightInfo` trait renamed `validate_unsigned` to\n`authorize_submit_unsigned`.\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-09-16T18:35:13Z",
+          "tree_id": "c23ec157321b0d956785a405f7e7fdc3162aa33e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3f0afb7ee7d5a57e0605fab294ec4e7def98a9bd"
+        },
+        "date": 1789588309038,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19340643,
+            "range": "± 114281",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19328149,
+            "range": "± 77352",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20932649,
+            "range": "± 122083",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25606624,
+            "range": "± 293908",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58466183,
+            "range": "± 910799",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 347173456,
+            "range": "± 8498343",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2485711396,
+            "range": "± 165173990",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16432082,
+            "range": "± 169492",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16743920,
+            "range": "± 141691",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17139416,
+            "range": "± 211693",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21655112,
+            "range": "± 212762",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59953559,
+            "range": "± 806247",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 347058631,
+            "range": "± 2481098",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2648638116,
+            "range": "± 20988418",
             "unit": "ns/iter"
           }
         ]
