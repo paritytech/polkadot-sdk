@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789508560035,
+  "lastUpdate": 1789549785800,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "84690100+metricaez@users.noreply.github.com",
-            "name": "Emiliano",
-            "username": "metricaez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3d6768bb613732a2dc29fa87f64e2da88c4d05d7",
-          "message": "Feat: Add API and mechanism to retrieve additional top-level and child proofs via the relay state proof (#10678)\n\n## Purpose\n\nThis pull request introduces a new runtime API and implements the full\nfeature pipeline for requesting additional relay-chain storage proofs in\nlookahead collators. The API allows parachain runtimes to specify extra\ntop-level storage keys or child-trie data that must be included in the\nrelay-chain state proof. The collator collects these additional proofs\nand merges them into the relay-chain state proof provided to the runtime\nduring block execution, enabling the runtime to later process custom\nrelay-chain data.\n\n## Rationale \n\nImmediate application in pubsub mechanism proposed in #9994\n\nThis is a narrow down of scope for easier review of PR #10679 \n\nDue to early exits when defaulted it adds no significant overhead to\ncurrent flows.\n\n## What this PR adds\n### Runtime API\n\n- Introduces `KeyToIncludeInRelayProofApi`. (_Suggestions for better\nnaming are very welcome._)\n\n- Adds supporting types` RelayProofRequest` and `RelayStorageKey`.\n\n- Allows runtimes to declare which relay-chain storage entries must be\nincluded in the relay state proof.\n\n### Collator integration\n\n- The lookahead collator calls the runtime API before block production.\n\n- Requested relay-chain proofs are collected, batched, and merged in a\nsingle operation.\n\n- The additional proofs are merged into the existing relay-chain state\nproof and passed to the runtime via parachain inherent data.\n\n### Proof extraction\n\n- `parachain-system` exposes an extraction method for processing this\nadditional proofs.\n\n- Uses a handler pattern:\n\n  - `parachain-system` manages proof lifecycle and initial validation.\n\n- Application pallets consume proofs (data extraction or additional\nvalidation) by implementing `ProcessRelayProofKeys`.\n\n- Keeps extra proofs processing logic out of parachain-system.\n\n### About RelayStorageKey\n\n`RelayStorageKey` is an enum with two variants:\n\n- `Top`: a `Vec<u8>` representing a top-level relay-chain storage key.\n\n- `Child`, which contains:\n\n- `storage_key`: an unprefixed identifier of the child trie root (the\ndefault _:child_storage:default:_ prefix is applied automatically),\n\n  - `key`: the specific key within that child trie.\n\nOn the client side, child trie access is performed via\nChildInfo::new_default(&storage_key).\n\nWhy `storage_key` instead of `ChildInfo`:\n\n- `ChildInfo` from `sp-storage` does not implement `TypeInfo`, which\nruntime APIs require.\n\n- Adding `TypeInfo` to `sp-storage` (or introducing a wrapper to avoid\nbloating a critical core component like `sp-storage`) would\nsignificantly expand the scope of this PR.\n\nAs a result, the current design:\n\n- Uses raw `storage_key` bytes.\n\n- Is limited to child tries using the default prefix.\n\n## Future improvements\n\n- Full `ChildInfo` support if `TypeInfo` is added to `sp-storage`\n(directly or via a wrapper), enabling arbitrary child-trie prefixes.\n\n- Possible unification with `additional_relay_state_keys` for top-level\nproofs, subject to careful analysis of semantics and backward\ncompatibility.\n\n- Integration with additional collator implementations beyond lookahead\ncollators.\n\n---------\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-02-12T21:20:43Z",
-          "tree_id": "ce83e45aa5c1043f464e55380ff5599433a180ea",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3d6768bb613732a2dc29fa87f64e2da88c4d05d7"
-        },
-        "date": 1770935685698,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006554961749999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026760388999999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009249134829999976,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025244813200000008,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "117115317+lrubasze@users.noreply.github.com",
+            "name": "Lukasz Rubaszewski",
+            "username": "lrubasze"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c5b3121ccc4f35a8391e8d515f63e3e9ac82b201",
+          "message": "litep2p/req-resp: fix inbound request serve time reporting (#13097)\n\nThe litep2p backend reported a near-zero serve time in the\n`substrate_sub_libp2p_requests_in_success_total` histogram for inbound\nrequests.\n\nThe timestamp paired with a pending inbound request was evaluated only\nafter the response was ready (`Instant::now()` after awaiting the\nresponse channel), so the reported duration covered just the response\nhand-off to the transport instead of the actual time spent serving the\nrequest.\n\n## Changes\n\n- Stamp the start time when the request arrives, matching the libp2p\nbackend, so the reported serve time covers the time the request spends\nqueued and being processed by the handler.\n- Add a regression test\n(`inbound_request_serve_time_includes_handler_time`) which delays the\nresponse in the request handler and asserts the recorded serve time\ncovers that delay. The test fails against the previous behavior.\n\n## Review notes\n\nThe analogous outbound metric (`requests_out_success_total`) already\nstamps on send and is unaffected.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-16T07:27:41Z",
+          "tree_id": "d55d7268a3680a6e40d70de9620d279a2fb1ec47",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c5b3121ccc4f35a8391e8d515f63e3e9ac82b201"
+        },
+        "date": 1789549751410,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025224021000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00945797583999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010898722219999995,
             "unit": "seconds"
           }
         ]
