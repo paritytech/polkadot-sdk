@@ -117,14 +117,15 @@ jobs:
 
   zombienet-statement-store-soak:
     name: ${{ matrix.test.job-name }}
-    # The in-cluster runner and its image (ZOMBIENET_SDK_*_FOR_K8S in .github/zombienet-env),
-    # pinned here because the preflight outputs carry the flavour selected there (native).
-    # ci-unified does not fit: it is twice the size and the runner ran out of disk pulling it.
+    # The in-cluster runner (ZOMBIENET_SDK_RUNNER_FOR_K8S in .github/zombienet-env), pinned here
+    # because the preflight outputs carry the flavour selected there (native). The image is the
+    # current zombienet release rather than the v1.3.133 that file still names; ci-unified does
+    # not fit — it is twice the size and the runner ran out of disk pulling it.
     runs-on: parity-zombienet
     timeout-minutes: 90
     needs: [resolve-build, preflight]
     container:
-      image: docker.io/paritytech/zombienet:v1.3.133
+      image: docker.io/paritytech/zombienet:v1.3.140
     env:
       POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:${{ needs.resolve-build.outputs.images_version }}"
       CUMULUS_IMAGE: "docker.io/paritypr/${{ matrix.test.cumulus-image }}:${{ needs.resolve-build.outputs.images_version }}"
