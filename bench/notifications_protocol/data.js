@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789574161290,
+  "lastUpdate": 1789588302592,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -223871,6 +223871,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2313318356,
             "range": "± 12564959",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "22591718+RomarQ@users.noreply.github.com",
+            "name": "Rodrigo Quelhas",
+            "username": "RomarQ"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3f0afb7ee7d5a57e0605fab294ec4e7def98a9bd",
+          "message": "Migrate `pallet-election-provider-multi-block` from the deprecated `ValidateUnsigned` trait to `#[pallet::authorize]` (#13032)\n\n## Summary\n\nPart of #2415 (follow-up to #10150)\n\nMigrate `pallet-election-provider-multi-block` from the deprecated\n`ValidateUnsigned` trait to `#[pallet::authorize]`, following the\npattern established in #10716.\n\n## Changes\n\n- Replace the `ValidateUnsigned` impl with `#[pallet::authorize]` on the\n`submit_unsigned` call. The validation logic is unchanged, just moved\ninto the authorize callback. It still restricts the call to\n`TransactionSource::Local` and `TransactionSource::InBlock`, runs\n`validate_unsigned_checks`, and builds the same transaction validity.\n- Change the `Config` supertrait from `CreateBare<Call<Self>>` to\n`CreateAuthorizedTransaction<Call<Self>>`.\n- Replace `ensure_none` with `ensure_authorized` and `create_bare` with\n`create_authorized_transaction`.\n- Add `#[pallet::weight_of_authorize]`. The weight already existed as\n`validate_unsigned`, so rename it to `authorize_submit_unsigned` and\npoint its benchmark at the authorize callback.\n- Add `frame_system::AuthorizeCall` to the\n`pallet-staking-async-parachain-runtime` transaction extension pipeline,\nand a `CreateAuthorizedTransaction` implementation for it and for\n`asset-hub-westend-runtime`.\n\n## Migration\n\nThe `Config` trait now requires\n`CreateAuthorizedTransaction<Call<Self>>` instead of\n`CreateBare<Call<Self>>`. The runtime must also include\n`frame_system::AuthorizeCall` in its transaction extension pipeline.\n\nThe `WeightInfo` trait renamed `validate_unsigned` to\n`authorize_submit_unsigned`.\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-09-16T18:35:13Z",
+          "tree_id": "c23ec157321b0d956785a405f7e7fdc3162aa33e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3f0afb7ee7d5a57e0605fab294ec4e7def98a9bd"
+        },
+        "date": 1789588264291,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4432810,
+            "range": "± 45489",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 286771,
+            "range": "± 2818",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4357099,
+            "range": "± 39977",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 361011,
+            "range": "± 3660",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5146008,
+            "range": "± 30547",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 882492,
+            "range": "± 7494",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10779908,
+            "range": "± 103446",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4757706,
+            "range": "± 46607",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 43421595,
+            "range": "± 527620",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 37356698,
+            "range": "± 442939",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 361746673,
+            "range": "± 7039109",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 301147257,
+            "range": "± 2758143",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2619043263,
+            "range": "± 20950771",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2395172845,
+            "range": "± 29535258",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3371240,
+            "range": "± 29072",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1849938,
+            "range": "± 14341",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3490896,
+            "range": "± 35624",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1890529,
+            "range": "± 16159",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3934354,
+            "range": "± 26629",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2221952,
+            "range": "± 19519",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8020441,
+            "range": "± 51720",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5229787,
+            "range": "± 504377",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37280359,
+            "range": "± 340554",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 35465696,
+            "range": "± 643166",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 315867639,
+            "range": "± 5828073",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 275741899,
+            "range": "± 2176200",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2542110924,
+            "range": "± 30472610",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2274378713,
+            "range": "± 123726101",
             "unit": "ns/iter"
           }
         ]
