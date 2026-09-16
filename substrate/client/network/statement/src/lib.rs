@@ -97,8 +97,8 @@
 //!
 //! With the v2 DHT path enabled, every `statement/2` peer sends its affinity filter as the first
 //! message on connect, and the initial sync waits for the peer's filter, replaying the statements
-//! it matches and those the peer is a DHT routing target for. The outbox drain applies the same
-//! rule.
+//! it matches and those the peer is a DHT routing target for. Propagation targets are chosen by
+//! the orchestrator, so the outbox drain applies no affinity filter of its own.
 //!
 //! ## Usage
 //!
@@ -1037,21 +1037,24 @@ struct FetchedChunk {
 
 /// Fetch the next chunk of statements for a peer from the front of `hashes`, filtering in the
 /// `statements_by_hashes` callback so non-matching statements are never materialized.
+///
+/// `filter_by_affinity` is off when the hashes were queued by the v2 DHT orchestrator, whose
+/// choice of peer is final.
 fn fetch_statement_chunk(
 	store: &dyn StatementStore,
 	recently_received_statements: &HashMap<Hash, HashSet<PeerId>>,
 	pending_statements_peers: &HashMap<Hash, HashSet<PeerId>>,
 	who: &PeerId,
 	peer_data: &Peer,
-	is_dht_target: &dyn Fn(&Statement) -> bool,
+	filter_by_affinity: bool,
 	hashes: &[Hash],
 	max_size: usize,
 ) -> sp_statement_store::Result<FetchedChunk> {
 	let now = unix_timestamp_secs();
 	let mut accumulated_size = 0;
 	let mut admit = |hash: &Hash, encoded_size: usize, stmt: &Statement| {
-		if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) &&
-			(peer_data.is_light || !is_dht_target(stmt))
+		if filter_by_affinity &&
+			peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt))
 		{
 			return FilterDecision::Skip;
 		}
@@ -1985,9 +1988,8 @@ where
 
 	/// Queue the `indices` of `statements` for each peer the orchestrator chose as a target.
 	///
-	/// The orchestrator already picked the peer, so its sync watermark does not apply and only
-	/// statements the peer sent to us are dropped here. The drain applies the peer's filter or
-	/// routing-target rule.
+	/// The orchestrator already picked the peer, so neither its sync watermark nor its affinity
+	/// filter applies and only statements the peer sent to us are dropped.
 	fn queue_statements_for_targets(
 		&mut self,
 		statements: &[(u64, Hash, Statement)],
@@ -2095,7 +2097,7 @@ where
 				&self.pending_statements_peers,
 				&who,
 				peer_data,
-				&self.v2dht.dht_target_predicate(who),
+				!v2dht_enabled(),
 				outbox.make_contiguous(),
 				max_size,
 			) {
@@ -7351,7 +7353,7 @@ mod tests {
 			&pending,
 			&who,
 			&peer,
-			&|_| false,
+			true,
 			&[gone_hash, stale_hash, live_hash],
 			max_size,
 		)
@@ -7383,7 +7385,7 @@ mod tests {
 	}
 
 	#[test]
-	fn sync_and_drain_serve_dht_targeted_statements_outside_the_explicit_filter() {
+	fn initial_sync_serves_dht_targeted_statements_outside_the_explicit_filter() {
 		let mut statement = new_live_statement();
 		statement.set_plain_data(vec![1u8; 16]);
 		statement.set_topic(0, topic(7));
@@ -7415,7 +7417,7 @@ mod tests {
 		let watermark = store.admission_watermark().expect("watermark is readable");
 
 		let fetch = |peer: &Peer, is_dht_target: &dyn Fn(&Statement) -> bool| {
-			let batch = fetch_admitted_chunk(
+			fetch_admitted_chunk(
 				&store,
 				&received,
 				&pending,
@@ -7427,20 +7429,7 @@ mod tests {
 				max_size,
 			)
 			.expect("the test store never fails a walk")
-			.0;
-			let chunk = fetch_statement_chunk(
-				&store,
-				&received,
-				&pending,
-				&who,
-				peer,
-				is_dht_target,
-				&[hash],
-				max_size,
-			)
-			.expect("the test store never fails a fetch");
-			assert_eq!(chunk.statements, batch.statements, "the drain serves what the sync serves");
-			batch
+			.0
 		};
 
 		let batch = fetch(&peer, &|_| false);
@@ -7457,5 +7446,49 @@ mod tests {
 		light_peer.is_light = true;
 		let batch = fetch(&light_peer, &|_| true);
 		assert!(batch.statements.is_empty(), "a light peer gets filter matches only");
+	}
+
+	#[test]
+	fn drain_applies_the_explicit_filter_only_when_asked() {
+		let mut statement = new_live_statement();
+		statement.set_plain_data(vec![1u8; 16]);
+		statement.set_topic(0, topic(7));
+		let hash = statement.hash();
+
+		let store = TestStatementStore::new();
+		store.insert(statement);
+
+		let mut peer = Peer::new_for_testing(
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).expect("nonzero"),
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT)
+				.expect("nonzero"),
+		);
+		peer.topic_affinity = Some(filter_over(&[topic(9)]));
+		let who = PeerId::random();
+		let received = HashMap::new();
+		let pending = HashMap::new();
+		let max_size = max_statement_payload_size(V2_ENVELOPE_OVERHEAD);
+
+		let fetch = |filter_by_affinity: bool| {
+			fetch_statement_chunk(
+				&store,
+				&received,
+				&pending,
+				&who,
+				&peer,
+				filter_by_affinity,
+				&[hash],
+				max_size,
+			)
+			.expect("the test store never fails a fetch")
+			.statements
+		};
+
+		assert!(fetch(true).is_empty(), "the explicit filter rejects the statement");
+		assert_eq!(
+			fetch(false).iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
+			vec![hash],
+			"an orchestrator target receives the statement despite its explicit filter"
+		);
 	}
 }

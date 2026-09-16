@@ -4,13 +4,12 @@ doc:
 - audience: Node Dev
   description: |-
     On nodes running the v2 DHT statement path, statements the orchestrator targets at a peer
-    now go through the same per-peer outbox as v1 propagation: one chunk in flight per peer,
-    the shared in-flight byte budget, a bounded queue and a retry after a failed store fetch.
-    The outbox serves a peer the statements its affinity filter matches and those it is a DHT
-    routing target for, the same set the initial sync replays. A queued statement that left
-    the store or expired before its chunk went out, or was still queued when the peer
-    disconnected, is counted in `undelivered_statements` under `missing_from_store` or
-    `disconnected`.
+    go through the same per-peer outbox as v1 propagation: one chunk in flight per peer, the
+    shared in-flight byte budget, a bounded queue and a retry after a failed store fetch. The
+    orchestrator's choice of peer is final, so the outbox applies no affinity filter of its
+    own on that path. A queued statement that left the store or expired before its chunk went
+    out, or was still queued when the peer disconnected, is counted in
+    `undelivered_statements` under `missing_from_store` or `disconnected`.
 
 crates:
 - name: sc-network-statement
