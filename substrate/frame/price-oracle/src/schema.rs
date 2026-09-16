@@ -43,6 +43,13 @@ pub enum PathStep {
 	Index(u32),
 }
 
+impl PathStep {
+	/// The step selecting the value under `key`, or `None` if `key` exceeds [`MaxKey`].
+	pub fn key(key: &str) -> Option<Self> {
+		key.as_bytes().to_vec().try_into().ok().map(PathStep::Key)
+	}
+}
+
 /// A path into a JSON document, from the root.
 pub type Path = BoundedVec<PathStep, MaxPathDepth>;
 
@@ -297,7 +304,7 @@ mod tests {
 	use sp_runtime::FixedPointNumber;
 
 	fn key(k: &str) -> PathStep {
-		PathStep::Key(k.as_bytes().to_vec().try_into().unwrap())
+		PathStep::key(k).unwrap()
 	}
 	fn path(steps: Vec<PathStep>) -> Path {
 		steps.try_into().unwrap()
