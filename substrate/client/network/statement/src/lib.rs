@@ -97,7 +97,8 @@
 //!
 //! With the v2 DHT path enabled, every `statement/2` peer sends its affinity filter as the first
 //! message on connect, and the initial sync waits for the peer's filter, replaying the statements
-//! it matches and those the peer is a DHT routing target for.
+//! it matches and those the peer is a DHT routing target for. Propagation serves a peer the same
+//! set.
 //!
 //! ## Usage
 //!
@@ -314,9 +315,9 @@ mod send_failure {
 	pub const NO_SINK: &str = "no_sink";
 	/// The peer's propagation outbox overflowed and the oldest queued hashes were dropped.
 	pub const OUTBOX_FULL: &str = "outbox_full";
-	/// On the v2 DHT path, a queued statement left the store or expired before its chunk went out.
+	/// A queued statement left the store or expired before its chunk went out.
 	pub const MISSING_FROM_STORE: &str = "missing_from_store";
-	/// On the v2 DHT path, the peer disconnected with statements still queued.
+	/// The peer disconnected with statements still queued.
 	pub const DISCONNECTED: &str = "disconnected";
 }
 
@@ -1041,14 +1042,17 @@ fn fetch_statement_chunk(
 	recently_received_statements: &HashMap<Hash, HashSet<PeerId>>,
 	pending_statements_peers: &HashMap<Hash, HashSet<PeerId>>,
 	who: &PeerId,
-	topic_affinity: Option<&AffinityFilter>,
+	peer_data: &Peer,
+	is_dht_target: &dyn Fn(&Statement) -> bool,
 	hashes: &[Hash],
 	max_size: usize,
 ) -> sp_statement_store::Result<FetchedChunk> {
 	let now = unix_timestamp_secs();
 	let mut accumulated_size = 0;
 	let mut admit = |hash: &Hash, encoded_size: usize, stmt: &Statement| {
-		if topic_affinity.is_some_and(|a| !a.matches_statement(stmt)) {
+		if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) &&
+			(peer_data.is_light || !is_dht_target(stmt))
+		{
 			return FilterDecision::Skip;
 		}
 		// The peer supplied this statement, do not send it back.
@@ -1648,7 +1652,7 @@ where
 				}
 				self.initial_sync_peer_queue.retain(|p| *p != peer);
 				if let Some(outbox) = self.propagation_outboxes.remove(&peer) {
-					if v2dht_enabled() && !outbox.is_empty() {
+					if !outbox.is_empty() {
 						self.record_abandoned_send(send_failure::DISCONNECTED, outbox.len());
 					}
 				}
@@ -2084,15 +2088,15 @@ where
 			let Some(outbox) = self.propagation_outboxes.get_mut(&who) else {
 				return;
 			};
-			// The orchestrator chose the peer on the v2 DHT path, so its filter does not apply.
-			let topic_affinity =
-				if v2dht_enabled() { None } else { peer_data.topic_affinity.as_ref() };
 			let chunk = match fetch_statement_chunk(
 				&*self.statement_store,
 				&self.recently_received_statements,
 				&self.pending_statements_peers,
 				&who,
-				topic_affinity,
+				peer_data,
+				&|stmt: &Statement| {
+					stmt.topics().iter().any(|t| self.v2dht.peer_is_dht_target_for_topic(who, *t))
+				},
 				outbox.make_contiguous(),
 				max_size,
 			) {
@@ -2126,7 +2130,7 @@ where
 			// statement would be fetched again on the next iteration.
 			outbox.drain(..processed);
 
-			if v2dht_enabled() && missing > 0 {
+			if missing > 0 {
 				self.record_abandoned_send(send_failure::MISSING_FROM_STORE, missing);
 			}
 
@@ -2365,12 +2369,8 @@ where
 			}
 			// Hashes queued for propagation before this scheduling sit below the new
 			// watermark, so the cursor already covers them; dropping the outbox keeps
-			// them from arriving twice. On the v2 DHT path the sync applies the peer's
-			// filter and cannot replace the orchestrator's choice, so the outbox stays and
-			// a queued hash the sync also covers arrives twice.
-			if !v2dht_enabled() {
-				self.propagation_outboxes.remove(&peer);
-			}
+			// them from arriving twice.
+			self.propagation_outboxes.remove(&peer);
 			self.pending_initial_syncs.insert(
 				peer,
 				PendingInitialSync { cursor: 0, watermark, started_at: Instant::now(), sync_id },
@@ -7362,7 +7362,8 @@ mod tests {
 			&received,
 			&pending,
 			&who,
-			peer.topic_affinity.as_ref(),
+			&peer,
+			&|_| false,
 			&[gone_hash, stale_hash, live_hash],
 			max_size,
 		)
@@ -7394,7 +7395,7 @@ mod tests {
 	}
 
 	#[test]
-	fn initial_sync_serves_dht_targeted_statements_outside_the_explicit_filter() {
+	fn sync_and_drain_serve_dht_targeted_statements_outside_the_explicit_filter() {
 		let mut statement = new_live_statement();
 		statement.set_plain_data(vec![1u8; 16]);
 		statement.set_topic(0, topic(7));
@@ -7426,7 +7427,7 @@ mod tests {
 		let watermark = store.admission_watermark().expect("watermark is readable");
 
 		let fetch = |peer: &Peer, is_dht_target: &dyn Fn(&Statement) -> bool| {
-			fetch_admitted_chunk(
+			let batch = fetch_admitted_chunk(
 				&store,
 				&received,
 				&pending,
@@ -7438,7 +7439,20 @@ mod tests {
 				max_size,
 			)
 			.expect("the test store never fails a walk")
-			.0
+			.0;
+			let chunk = fetch_statement_chunk(
+				&store,
+				&received,
+				&pending,
+				&who,
+				peer,
+				is_dht_target,
+				&[hash],
+				max_size,
+			)
+			.expect("the test store never fails a fetch");
+			assert_eq!(chunk.statements, batch.statements, "the drain serves what the sync serves");
+			batch
 		};
 
 		let batch = fetch(&peer, &|_| false);
