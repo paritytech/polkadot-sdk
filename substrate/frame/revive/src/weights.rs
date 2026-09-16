@@ -72,6 +72,9 @@ use core::marker::PhantomData;
 /// Weight functions needed for `pallet_revive`.
 pub trait WeightInfo {
 	fn deletion_queue_batch() -> Weight;
+	fn process_new_account_authorization(n: u32, ) -> Weight;
+	fn process_existing_account_authorization(n: u32, ) -> Weight;
+	fn process_invalid_authorization(n: u32, ) -> Weight;
 	fn deletion_queue_per_entry() -> Weight;
 	fn deletion_queue_per_trie_key(k: u32, ) -> Weight;
 	fn deletion_queue_per_native_deposit_key(k: u32, ) -> Weight;
@@ -205,6 +208,72 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 3_090_000 picoseconds.
 		Weight::from_parts(3_361_000, 1698)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
+	/// Storage: `Revive::OriginalAccount` (r:255 w:0)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
+	/// Storage: `System::Account` (r:255 w:255)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:510 w:255)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
+	/// Storage: `Revive::CodeInfoOf` (r:255 w:255)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: `Balances::Holds` (r:255 w:255)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(535), added: 3010, mode: `Measured`)
+	/// The range of component `n` is `[0, 255]`.
+	fn process_new_account_authorization(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1055 + n * (353 ±0)`
+		//  Estimated: `2055 + n * (5303 ±0)`
+		// Minimum execution time: 297_000 picoseconds.
+		Weight::from_parts(323_000, 2055)
+			// Standard Error: 156_387
+			.saturating_add(Weight::from_parts(161_518_675, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads((6_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes((4_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 5303).saturating_mul(n.into()))
+	}
+	/// Storage: `Revive::OriginalAccount` (r:255 w:0)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
+	/// Storage: `System::Account` (r:257 w:257)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:510 w:255)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
+	/// Storage: `Revive::CodeInfoOf` (r:510 w:510)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: `Balances::Holds` (r:256 w:256)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(535), added: 3010, mode: `Measured`)
+	/// Storage: `Revive::PristineCode` (r:0 w:255)
+	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `n` is `[0, 255]`.
+	fn process_existing_account_authorization(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1463 + n * (909 ±0)`
+		//  Estimated: `7464 + n * (5859 ±0)`
+		// Minimum execution time: 310_000 picoseconds.
+		Weight::from_parts(342_000, 7464)
+			// Standard Error: 320_695
+			.saturating_add(Weight::from_parts(242_081_181, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().reads((7_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+			.saturating_add(T::DbWeight::get().writes((6_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 5859).saturating_mul(n.into()))
+	}
+	/// Storage: `Revive::OriginalAccount` (r:255 w:0)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
+	/// Storage: `System::Account` (r:255 w:0)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// The range of component `n` is `[0, 255]`.
+	fn process_invalid_authorization(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1258 + n * (3 ±0)`
+		//  Estimated: `2172 + n * (2478 ±0)`
+		// Minimum execution time: 418_000 picoseconds.
+		Weight::from_parts(39_227_620, 2172)
+			// Standard Error: 16_354
+			.saturating_add(Weight::from_parts(52_261_884, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 2478).saturating_mul(n.into()))
 	}
 	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:1)
 	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
@@ -1759,6 +1828,72 @@ impl WeightInfo for () {
 		// Minimum execution time: 3_090_000 picoseconds.
 		Weight::from_parts(3_361_000, 1698)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	/// Storage: `Revive::OriginalAccount` (r:255 w:0)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
+	/// Storage: `System::Account` (r:255 w:255)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:510 w:255)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
+	/// Storage: `Revive::CodeInfoOf` (r:255 w:255)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: `Balances::Holds` (r:255 w:255)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(535), added: 3010, mode: `Measured`)
+	/// The range of component `n` is `[0, 255]`.
+	fn process_new_account_authorization(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1055 + n * (353 ±0)`
+		//  Estimated: `2055 + n * (5303 ±0)`
+		// Minimum execution time: 297_000 picoseconds.
+		Weight::from_parts(323_000, 2055)
+			// Standard Error: 156_387
+			.saturating_add(Weight::from_parts(161_518_675, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads((6_u64).saturating_mul(n.into())))
+			.saturating_add(RocksDbWeight::get().writes((4_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 5303).saturating_mul(n.into()))
+	}
+	/// Storage: `Revive::OriginalAccount` (r:255 w:0)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
+	/// Storage: `System::Account` (r:257 w:257)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:510 w:255)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
+	/// Storage: `Revive::CodeInfoOf` (r:510 w:510)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: `Balances::Holds` (r:256 w:256)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(535), added: 3010, mode: `Measured`)
+	/// Storage: `Revive::PristineCode` (r:0 w:255)
+	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `n` is `[0, 255]`.
+	fn process_existing_account_authorization(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1463 + n * (909 ±0)`
+		//  Estimated: `7464 + n * (5859 ±0)`
+		// Minimum execution time: 310_000 picoseconds.
+		Weight::from_parts(342_000, 7464)
+			// Standard Error: 320_695
+			.saturating_add(Weight::from_parts(242_081_181, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().reads((7_u64).saturating_mul(n.into())))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
+			.saturating_add(RocksDbWeight::get().writes((6_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 5859).saturating_mul(n.into()))
+	}
+	/// Storage: `Revive::OriginalAccount` (r:255 w:0)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
+	/// Storage: `System::Account` (r:255 w:0)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// The range of component `n` is `[0, 255]`.
+	fn process_invalid_authorization(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1258 + n * (3 ±0)`
+		//  Estimated: `2172 + n * (2478 ±0)`
+		// Minimum execution time: 418_000 picoseconds.
+		Weight::from_parts(39_227_620, 2172)
+			// Standard Error: 16_354
+			.saturating_add(Weight::from_parts(52_261_884, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads((2_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 2478).saturating_mul(n.into()))
 	}
 	/// Storage: `Revive::DeletionQueueCounter` (r:1 w:1)
 	/// Proof: `Revive::DeletionQueueCounter` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)

@@ -1768,6 +1768,115 @@ fn call_deny_reentry() {
 }
 
 #[test]
+fn chain_delegated_call_does_not_leak_strict_reentry() {
+	// A `Strict` call flips the caller's `allows_reentry` to `false` before pushing the new
+	// frame. When frame creation fails (here: chained delegation traps in `new_frame`), the
+	// trailing reset must still run or the caller's frame stays at `false`, denying later
+	// cross-contract callbacks.
+	use crate::{
+		AccountInfoOf,
+		storage::{
+			AccountInfo as PalletAccountInfo, AccountType, ContractInfo as PalletContractInfo,
+		},
+	};
+
+	let code_bob = MockLoader::insert(Call, |ctx, _| {
+		match ctx.input_data[0] {
+			0 => {
+				// Strict call into chain-delegated DJANGO → traps in `new_frame`.
+				assert_err!(
+					ctx.ext
+						.call(
+							&Default::default(),
+							&DJANGO_ADDR,
+							U256::zero(),
+							vec![],
+							ReentrancyProtection::Strict,
+							false,
+						)
+						.map_err(|e| e.error),
+					<Error<Test>>::ContractTrapped
+				);
+
+				// CHARLIE will call BOB back; succeeds iff BOB's `allows_reentry` is still true.
+				ctx.ext
+					.call(
+						&Default::default(),
+						&CHARLIE_ADDR,
+						U256::zero(),
+						vec![],
+						ReentrancyProtection::AllowReentry,
+						false,
+					)
+					.map(|_| ctx.ext.last_frame_output().clone())
+			},
+			_ => exec_success(),
+		}
+	});
+
+	let code_charlie = MockLoader::insert(Call, |ctx, _| {
+		ctx.ext
+			.call(
+				&Default::default(),
+				&BOB_ADDR,
+				U256::zero(),
+				vec![1],
+				ReentrancyProtection::AllowReentry,
+				false,
+			)
+			.map(|_| ctx.ext.last_frame_output().clone())
+	});
+
+	ExtBuilder::default().build().execute_with(|| {
+		place_contract(&BOB, code_bob);
+		place_contract(&CHARLIE, code_charlie);
+
+		// DJANGO -> EVE -> any addr: a call to DJANGO is a chained delegation.
+		let eve_target = H160::from([0x99; 20]);
+		AccountInfoOf::<Test>::insert(
+			EVE_ADDR,
+			PalletAccountInfo::<Test> {
+				account_type: AccountType::DelegatedEOA {
+					delegate_target: Some(eve_target),
+					contract_info: PalletContractInfo::<Test>::new_for_delegation(
+						&EVE_ADDR,
+						H256::zero(),
+					),
+					payer: None,
+				},
+				dust: 0,
+			},
+		);
+		AccountInfoOf::<Test>::insert(
+			DJANGO_ADDR,
+			PalletAccountInfo::<Test> {
+				account_type: AccountType::DelegatedEOA {
+					delegate_target: Some(EVE_ADDR),
+					contract_info: PalletContractInfo::<Test>::new_for_delegation(
+						&DJANGO_ADDR,
+						H256::zero(),
+					),
+					payer: None,
+				},
+				dust: 0,
+			},
+		);
+
+		let origin = Origin::from_account_id(ALICE);
+		let mut meter = TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, 0).unwrap();
+
+		assert_ok!(MockStack::run_call(
+			origin,
+			BOB_ADDR,
+			&mut meter,
+			U256::zero(),
+			vec![0],
+			&ExecConfig::new_substrate_tx(),
+		));
+	});
+}
+
+#[test]
 fn minimum_balance_must_return_converted_balance() {
 	let min_balance: BalanceOf<Test> = <Test as Config>::Currency::minimum_balance();
 	let min_balance_evm_value: U256 = Pallet::<Test>::convert_native_to_evm(min_balance);
