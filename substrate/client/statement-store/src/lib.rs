@@ -527,7 +527,7 @@ pub use sc_network_statement::config::DEFAULT_REPLICATION_FACTOR;
 pub use sc_network_statement::config::DEFAULT_GOSSIP_TARGET;
 
 /// Parameters of the v2 DHT statement path.
-pub use sc_network_statement::V2DhtConfig;
+pub use sc_network_statement::{AffinityTopicsFile, V2DhtConfig};
 
 /// Default and lowest accepted false-positive rate of the advertised topic-affinity bloom
 /// filter.
