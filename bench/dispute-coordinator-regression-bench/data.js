@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789562693139,
+  "lastUpdate": 1789575989455,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bab8ed7347e783af162d0921d476ab61af2f68ce",
-          "message": "Consolidate pallet-assets metadata benchmarks into single get_metadata benchmark (#11037)\n\n## Summary\n\nConsolidates the three identical `get_name`, `get_symbol`, and\n`get_decimals` benchmarks into a single `get_metadata` benchmark. This\naddresses the follow-up from #10971 where it was noted that these\nbenchmarks perform the same operation (`Pallet::get_metadata()`).\n\n## Changes\n\n### Benchmarks\n- **`substrate/frame/assets/src/benchmarking.rs`**\n- Replaced `get_name`, `get_symbol`, `get_decimals` with single\n`get_metadata` benchmark\n- Updated verification to check all three metadata fields (name, symbol,\ndecimals)\n\n### Weight Functions\n- **`substrate/frame/assets/src/weights.rs`**\n- Replaced `get_name()`, `get_symbol()`, `get_decimals()` with single\n`get_metadata()` in `WeightInfo` trait\n  - Updated implementations for `SubstrateWeight<T>` and `()`\n\n### Precompile\n- **`substrate/frame/assets/precompiles/src/lib.rs`**\n- Updated `name()`, `symbol()`, and `decimals()` methods to all charge\n`get_metadata()` weight\n\n### Cumulus Runtimes\nUpdated weight implementations in:\n- `asset-hub-rococo`: `pallet_assets_foreign.rs`,\n`pallet_assets_local.rs`, `pallet_assets_pool.rs`\n- `asset-hub-westend`: `pallet_assets_foreign.rs`,\n`pallet_assets_local.rs`, `pallet_assets_pool.rs`\n\n## Rationale\n\nAll three original benchmarks were measuring the exact same operation -\na single metadata storage read. Consolidating them:\n1. Reduces code duplication\n2. Simplifies the `WeightInfo` trait\n3. Accurately reflects that `name()`, `symbol()`, and `decimals()` have\nidentical costs\n\nCloses follow-up from\nhttps://github.com/paritytech/polkadot-sdk/pull/10971#discussion_r2782977769\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-13T10:18:25Z",
-          "tree_id": "23a183c194e6dc101de6273eeff05b420e8a96ae",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bab8ed7347e783af162d0921d476ab61af2f68ce"
-        },
-        "date": 1770982231050,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026896188700000013,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006422999100000007,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009181069839999985,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009283401159999987,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "177c490356fab38f8de89c7d9c5f2408ba3b06fb",
+          "message": "statement-store: persist transient statements and sweep them once propagated (#13216)\n\n# Description\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/11932,\nprerequisite for\nhttps://github.com/paritytech/polkadot-sdk/issues/13193.\n\nA statement no affinity covers (the node is neither a DHT replica for\nits topics nor has explicit affinity for them) is transient: the node\nforwards it once and does not keep it. The PoC kept such statements in\nan in-memory map inside the store and handed the body out once on the\npropagation pull, so nothing downstream could fetch it by hash again,\nand a copy redelivered after the pull was admitted and forwarded anew.\nTransient statements now go through the normal admission and are swept\non maintenance once propagated, like explicit-only statements already\nare.\n\n# Integration\n\nNode-side only, no API changes, no effect with the v2 DHT gate off.\n\n# Review Notes\n\n- `explicit_only` and the PoC `transient` map become one\n`retention_tracks` map of hash to `RetentionTrack`, and\n`sweep_explicit_affinity` becomes `sweep_retention`: the resolver's\nverdict becomes the track, a verdict of Transient removes the statement.\n- Removal bans re-acceptance for a transient statement, so a redelivery\ncannot start another forwarding round, and keeps allowing it for a\nlapsed explicit-only one.\n- Deleted: the transient branch in `submit`, the body hand-out in\n`take_recent_statements`, the `u64::MAX` sequence sentinel.\n\n- Transient statements take the per-account quota like any other\nstatement and are visible to the query API until swept. A transient\nstatement admitted within the sweep window before a restart reloads\nuntracked and stays until expiry, the same in-memory limit explicit-only\ntracking already has.\n- The zombienet v2 DHT tests told a replica from a non-replica by\nwhether the node stored a probe right after submit. They now wait for\nthe sweep to remove the non-replica's copy.\n- Files: substrate/client/statement-store/src/lib.rs,\nsubstrate/client/network/statement/src/v2dht/mod.rs (docs),\ncumulus/zombienet/zombienet-sdk/tests/zombie_ci/statement_store/.",
+          "timestamp": "2026-09-16T14:37:10Z",
+          "tree_id": "b79517841c0ce2d621b513089e770078798ae2cc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/177c490356fab38f8de89c7d9c5f2408ba3b06fb"
+        },
+        "date": 1789575946519,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009604570679999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025132166099999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009104116719999987,
             "unit": "seconds"
           }
         ]
