@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789575884758,
+  "lastUpdate": 1789589193950,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6ed951984c065c843dfbe292c11b1c38d22083e2",
-          "message": "pallet-revive: minor cleanups and fixes (#11054)\n\n## Summary\n\nPreparatory cleanup PR extracted from the EIP-7702 branch to simplify\nreview.\n\n- **Counter.sol uint64**: Change `uint256` to `uint64` in\nCounter/NestedCounter fixtures, to avoid U256 conversion in tests.\n- **Debug log**: Add debug log for `eth_transact` substrate tx hash\n- **RLP fix**: Fix `Transaction7702Signed` decoder field order (removed\nincorrect `gas_price` field at index 4, aligned with encoder)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-13T17:42:01Z",
-          "tree_id": "924edcd8a7b4426c4410e7250615f9c07bac8fd1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6ed951984c065c843dfbe292c11b1c38d22083e2"
-        },
-        "date": 1771008995823,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63635.75,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52944.7,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.7404380686599996,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.541493907903055,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0051727282200000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.7223337584999983,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.7080497607899985,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021578880000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001901757,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.7032966793999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3630762310300013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021578880000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.025163526840029,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7827963002400316,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001901757,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
             "value": 0.8015259616799794,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "22591718+RomarQ@users.noreply.github.com",
+            "name": "Rodrigo Quelhas",
+            "username": "RomarQ"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3f0afb7ee7d5a57e0605fab294ec4e7def98a9bd",
+          "message": "Migrate `pallet-election-provider-multi-block` from the deprecated `ValidateUnsigned` trait to `#[pallet::authorize]` (#13032)\n\n## Summary\n\nPart of #2415 (follow-up to #10150)\n\nMigrate `pallet-election-provider-multi-block` from the deprecated\n`ValidateUnsigned` trait to `#[pallet::authorize]`, following the\npattern established in #10716.\n\n## Changes\n\n- Replace the `ValidateUnsigned` impl with `#[pallet::authorize]` on the\n`submit_unsigned` call. The validation logic is unchanged, just moved\ninto the authorize callback. It still restricts the call to\n`TransactionSource::Local` and `TransactionSource::InBlock`, runs\n`validate_unsigned_checks`, and builds the same transaction validity.\n- Change the `Config` supertrait from `CreateBare<Call<Self>>` to\n`CreateAuthorizedTransaction<Call<Self>>`.\n- Replace `ensure_none` with `ensure_authorized` and `create_bare` with\n`create_authorized_transaction`.\n- Add `#[pallet::weight_of_authorize]`. The weight already existed as\n`validate_unsigned`, so rename it to `authorize_submit_unsigned` and\npoint its benchmark at the authorize callback.\n- Add `frame_system::AuthorizeCall` to the\n`pallet-staking-async-parachain-runtime` transaction extension pipeline,\nand a `CreateAuthorizedTransaction` implementation for it and for\n`asset-hub-westend-runtime`.\n\n## Migration\n\nThe `Config` trait now requires\n`CreateAuthorizedTransaction<Call<Self>>` instead of\n`CreateBare<Call<Self>>`. The runtime must also include\n`frame_system::AuthorizeCall` in its transaction extension pipeline.\n\nThe `WeightInfo` trait renamed `validate_unsigned` to\n`authorize_submit_unsigned`.\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-09-16T18:35:13Z",
+          "tree_id": "c23ec157321b0d956785a405f7e7fdc3162aa33e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3f0afb7ee7d5a57e0605fab294ec4e7def98a9bd"
+        },
+        "date": 1789589161901,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52946.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63573.79,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000023515840000000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00501447754,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000023515840000000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7473651279999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8344834780799765,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7347958931199985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7556592989800013,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000023882399999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.146208600069974,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.72903913816,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3398511861900007,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.259547804982729,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000023882399999999997,
             "unit": "seconds"
           }
         ]
