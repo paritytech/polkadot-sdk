@@ -35,10 +35,13 @@
 //!    and the parachain has already made the manager pay for them. If the blob matches, the para is
 //!    onboarded and the outcome is reported back to the parachain.
 //!
-//! An authorization never times out here. The parachain sends
+//! A registration authorization never times out here. The parachain sends
 //! [`MessageToRelayV1::CancelRegistration`] when the manager gives up, this pallet drops the entry
 //! and confirms, and the parachain releases the deposit. So the relay chain runs no per-block
 //! sweep, and whoever wants the deposit back pays for the round trip. No deposit is taken here.
+//!
+//! Code upgrade authorizations do lapse instead: no deposit is at stake, and their validity
+//! depends on relay-chain state the parachain does not track.
 //!
 //! ## Locking
 //!
