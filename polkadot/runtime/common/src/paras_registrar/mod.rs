@@ -598,7 +598,7 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 	}
 
 	fn is_deregistering(_para_id: u32) -> bool {
-		// TODO!: report whether a deregistration is already pending for this para.
+		// TODO(ahm-v2): report whether a deregistration is already pending for this para.
 		false
 	}
 
@@ -619,29 +619,29 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 	}
 
 	fn deregister(_para_id: u32) -> Result<(), registrar_primitives::FailureReason> {
-		// TODO!: deregister the para and clear its registry entry.
+		// TODO(ahm-v2): deregister the para and clear its registry entry.
 		Ok(())
 	}
 
 	fn check_head_data(_head_len: u32) -> Result<(), ()> {
-		// TODO!: validate the head data length against the active configuration.
+		// TODO(ahm-v2): validate the head data length against the active configuration.
 		Ok(())
 	}
 
 	fn set_current_head(_para_id: u32, _head: Vec<u8>) {
-		// TODO!: set the para's current head.
+		// TODO(ahm-v2): set the para's current head.
 	}
 
 	fn check_code_upgrade(
 		_para_id: u32,
 		_code_len: u32,
 	) -> Result<(), registrar_primitives::FailureReason> {
-		// TODO!: validate the code length and that an upgrade may be scheduled now.
+		// TODO(ahm-v2): validate the code length and that an upgrade may be scheduled now.
 		Ok(())
 	}
 
 	fn schedule_code_upgrade(_para_id: u32, _validation_code: Vec<u8>) -> DispatchResult {
-		// TODO!: schedule the validation code upgrade.
+		// TODO(ahm-v2): schedule the validation code upgrade.
 		Ok(())
 	}
 }

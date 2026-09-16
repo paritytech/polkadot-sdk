@@ -96,7 +96,7 @@ impl ParachainRegistrar for MockRegistrar {
 	}
 
 	fn is_deregistering(_para_id: ParaId) -> bool {
-		// TODO!: track deregistering paras in the mock.
+		// TODO(ahm-v2): track deregistering paras in the mock.
 		false
 	}
 
@@ -119,21 +119,21 @@ impl ParachainRegistrar for MockRegistrar {
 	}
 
 	fn deregister(_para_id: ParaId) -> Result<(), FailureReason> {
-		// TODO!: record the deregistration in the mock.
+		// TODO(ahm-v2): record the deregistration in the mock.
 		Ok(())
 	}
 
 	fn check_head_data(_head_len: u32) -> Result<(), ()> {
-		// TODO!: check the head data length in the mock.
+		// TODO(ahm-v2): check the head data length in the mock.
 		Ok(())
 	}
 
 	fn set_current_head(_para_id: ParaId, _head: Vec<u8>) {
-		// TODO!: record the head update in the mock.
+		// TODO(ahm-v2): record the head update in the mock.
 	}
 
 	fn check_code_upgrade(_para_id: ParaId, _code_len: u32) -> Result<(), FailureReason> {
-		// TODO!: check the code upgrade in the mock.
+		// TODO(ahm-v2): check the code upgrade in the mock.
 		Ok(())
 	}
 
@@ -141,7 +141,7 @@ impl ParachainRegistrar for MockRegistrar {
 		_para_id: ParaId,
 		_validation_code: Vec<u8>,
 	) -> sp_runtime::DispatchResult {
-		// TODO!: record the scheduled code upgrade in the mock.
+		// TODO(ahm-v2): record the scheduled code upgrade in the mock.
 		Ok(())
 	}
 }

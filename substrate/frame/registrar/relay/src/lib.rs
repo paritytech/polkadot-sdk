@@ -231,7 +231,7 @@ pub mod pallet {
 			MessageToRelay::V1(MessageToRelayV1::CancelDeregistration { .. }) |
 			MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade { .. }) |
 			MessageToRelay::V1(MessageToRelayV1::SetCurrentHead { .. }) |
-			MessageToRelay::V1(MessageToRelayV1::ForceRegister { .. }) => Weight::zero(),
+			MessageToRelay::V1(MessageToRelayV1::ForceRegister { .. }) => Weight::MAX,
 		})]
 		pub fn receive(
 			origin: OriginFor<T>,
@@ -479,7 +479,7 @@ pub mod pallet {
 
 		fn on_deregister_request(para_id: ParaId, message_id: u64) {
 			let _ = (para_id, message_id);
-			// TODO!: deregister the para and report the outcome back.
+			// TODO(ahm-v2): deregister the para and report the outcome back.
 		}
 
 		fn on_authorize_code_upgrade_request(
@@ -489,17 +489,17 @@ pub mod pallet {
 			code_len: u32,
 		) {
 			let _ = (para_id, message_id, code_hash, code_len);
-			// TODO!: authorize the code upgrade and report the outcome back.
+			// TODO(ahm-v2): authorize the code upgrade and report the outcome back.
 		}
 
 		fn on_set_current_head_request(para_id: ParaId, message_id: u64, head: Vec<u8>) {
 			let _ = (para_id, message_id, head);
-			// TODO!: set the para's head and report the outcome back.
+			// TODO(ahm-v2): set the para's head and report the outcome back.
 		}
 
 		fn on_cancel_deregistration_request(para_id: ParaId, message_id: u64) {
 			let _ = (para_id, message_id);
-			// TODO!: cancel the pending deregistration and report the outcome back.
+			// TODO(ahm-v2): cancel the pending deregistration and report the outcome back.
 		}
 
 		fn on_force_register_request(
@@ -511,7 +511,7 @@ pub mod pallet {
 			code_len: u32,
 		) {
 			let _ = (para_id, message_id, manager, genesis_head, code_hash, code_len);
-			// TODO!: force-register the para and report the outcome back.
+			// TODO(ahm-v2): force-register the para and report the outcome back.
 		}
 
 		#[allow(dead_code)]

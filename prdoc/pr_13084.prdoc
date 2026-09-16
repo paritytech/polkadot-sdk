@@ -5,8 +5,8 @@ doc:
   - audience: Runtime Dev
     description: |-
       Lays out the protocol for the registrar calls that are not implemented yet. The message
-      types, call signatures and response routing are in place; the bodies are `todo!()` and land
-      in follow-ups.
+      types, call signatures and response routing are in place; the bodies are stubbed with
+      `TODO(ahm-v2)` and land in follow-ups.
 
 crates:
   - name: registrar-primitives
@@ -15,3 +15,5 @@ crates:
     bump: major
   - name: pallet-registrar-relay
     bump: major
+  - name: polkadot-runtime-common
+    bump: minor
