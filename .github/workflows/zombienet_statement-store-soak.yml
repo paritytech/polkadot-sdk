@@ -52,6 +52,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       build_run_id: ${{ steps.pick.outputs.build_run_id }}
+      images_version: ${{ steps.pick.outputs.images_version }}
     steps:
       - name: Pick the build run carrying this commit's images and test archive
         id: pick
@@ -61,9 +62,18 @@ jobs:
           REPO: ${{ github.repository }}
           BRANCH: ${{ github.head_ref || github.ref_name }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           OVERRIDE: ${{ inputs.build_run_id }}
         run: |
           set -euo pipefail
+          # Nodes are spawned from the Docker Hub images, tagged <pr>-<short sha>. The temp-images
+          # registry cannot be used: the build stamps those tags with its own timestamp, which
+          # nothing downstream knows.
+          if [[ -n "${PR_NUMBER}" ]]; then
+            echo "images_version=${PR_NUMBER}-${HEAD_SHA:0:8}" >> "$GITHUB_OUTPUT"
+          else
+            echo "images_version=master-${HEAD_SHA:0:8}" >> "$GITHUB_OUTPUT"
+          fi
           if [[ -n "${OVERRIDE}" ]]; then
             echo "build_run_id=${OVERRIDE}" >> "$GITHUB_OUTPUT"
             exit 0
@@ -112,12 +122,12 @@ jobs:
     # ci-unified does not fit: it is twice the size and the runner ran out of disk pulling it.
     runs-on: parity-zombienet
     timeout-minutes: 90
-    needs: [preflight]
+    needs: [resolve-build, preflight]
     container:
       image: docker.io/paritytech/zombienet:v1.3.133
     env:
-      POLKADOT_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/polkadot-debug:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
-      CUMULUS_IMAGE: "${{ needs.preflight.outputs.TEMP_IMAGES_BASE }}/${{ matrix.test.cumulus-image }}:${{ needs.preflight.outputs.DOCKER_IMAGES_VERSION }}"
+      POLKADOT_IMAGE: "docker.io/paritypr/polkadot-debug:${{ needs.resolve-build.outputs.images_version }}"
+      CUMULUS_IMAGE: "docker.io/paritypr/${{ matrix.test.cumulus-image }}:${{ needs.resolve-build.outputs.images_version }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: "k8s"
       STATEMENT_V2_SOAK_SECS: ${{ inputs.soak_secs || '900' }}
