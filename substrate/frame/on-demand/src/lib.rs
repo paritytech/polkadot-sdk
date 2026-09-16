@@ -101,12 +101,12 @@ pub mod pallet {
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{
-			tokens::{currency::Currency, ExistenceRequirement},
-			WithdrawReasons,
+			fungible::{Inspect, Mutate},
+			tokens::{Fortitude::Polite, Preservation::Expendable},
 		},
 		PalletId,
 	};
-	use frame_system::{pallet_prelude::*, Pallet as System};
+	use frame_system::pallet_prelude::*;
 	use sp_arithmetic::traits::{SaturatedConversion, Saturating};
 	use sp_runtime::traits::AccountIdConversion;
 
@@ -122,7 +122,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// Currency used to pay for on-demand Coretime.
-		type Currency: Currency<Self::AccountId>;
+		type Currency: Mutate<Self::AccountId>;
 
 		/// The origin test needed for administrating this pallet.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -274,12 +274,10 @@ pub mod pallet {
 				Error::<T>::BatchFull
 			);
 			// Fail early if the account can't cover the declared max_amount.
-			T::Currency::ensure_can_withdraw(
-				&who,
-				max_amount,
-				WithdrawReasons::FEE,
-				BalanceOf::<T>::zero(),
-			)?;
+			ensure!(
+				T::Currency::reducible_balance(&who, Expendable, Polite) >= max_amount,
+				Error::<T>::InsufficientFunds
+			);
 
 			let now = T::RelayBlockNumberProvider::current_block_number();
 			let mut queue_state = QueueState::<T>::get()
@@ -304,20 +302,7 @@ pub mod pallet {
 			ensure!(spot_price <= max_amount, Error::<T>::SpotPriceHigherThanMaxAmount);
 
 			// Charge the sending account the spot price.
-			let amt = T::Currency::withdraw(
-				&who,
-				spot_price,
-				WithdrawReasons::FEE,
-				ExistenceRequirement::AllowDeath,
-			)?;
-
-			// Consume the negative imbalance and deposit it into the pallet account. Make
-			// sure the account preserves even without the existential deposit.
-			let pot = Self::account_id();
-			if !System::<T>::account_exists(&pot) {
-				System::<T>::inc_providers(&pot);
-			}
-			T::Currency::resolve_creating(&pot, amt);
+			T::Currency::transfer(&who, &Self::account_id(), spot_price, Expendable)?;
 
 			// Add the order to the batch that gets sent to the Relay chain on finalization.
 			PendingBatch::<T>::try_mutate(|batch| {
