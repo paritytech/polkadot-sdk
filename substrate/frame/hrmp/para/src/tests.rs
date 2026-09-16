@@ -33,6 +33,9 @@ use sp_runtime::DispatchError;
 const CHANNEL: ChannelId = ChannelId { sender: 2000, recipient: 2001 };
 /// The same sender, but towards a system chain: ids at or below 1999 pay no deposit.
 const SYSTEM_CHANNEL: ChannelId = ChannelId { sender: 2000, recipient: 1001 };
+/// The sizes a pair with a system chain is opened at, as `(max_capacity, max_message_size)`.
+const SYSTEM_SIZES: (u32, u32) =
+	(SYSTEM_CHANNEL_SIZE_AND_CAPACITY.1, SYSTEM_CHANNEL_SIZE_AND_CAPACITY.0);
 const CAPACITY: u32 = 4;
 const MESSAGE_SIZE: u32 = 512;
 /// `LinearStoragePrice` over `channel_footprint`, which is `(count 1, size capacity)`.
@@ -71,6 +74,11 @@ fn agreed(channel: ChannelId) {
 	assert_ok!(accept(channel));
 	let _ = take_sent();
 	let _ = hrmp_events();
+}
+
+/// The relay chain forwarding `sender`'s `establish_channel_with_system`.
+fn establish_with_system(sender: ParaId, target: ParaId) -> sp_runtime::DispatchResult {
+	forwarded(sender, ParaRequestV1::EstablishChannelWithSystem { target_system_chain: target })
 }
 
 fn respond(
@@ -433,5 +441,205 @@ fn a_refusing_transport_unwinds_the_whole_request() {
 		assert!(Requests::<Test>::get(CHANNEL).is_none());
 		assert_eq!(OpenRequestCount::<Test>::get(CHANNEL.sender), 0);
 		assert_eq!(held(CHANNEL.sender, HoldReason::SenderDeposit), 0);
+	});
+}
+
+#[test]
+fn establish_channel_with_system_asks_for_both_directions() {
+	new_test_ext().execute_with(|| {
+		let (capacity, message_size) = SYSTEM_SIZES;
+
+		// Neither end is funded, and neither has to be.
+		assert_ok!(establish_with_system(SYSTEM_CHANNEL.sender, SYSTEM_CHANNEL.recipient));
+
+		let request = Requests::<Test>::get(SYSTEM_CHANNEL).unwrap();
+		assert!(matches!(
+			request.state,
+			RequestState::Accepted {
+				sender_deposit: None,
+				recipient_deposit: None,
+				kind: OpenKind::SystemPair,
+			}
+		));
+		assert_eq!(request.max_capacity, capacity);
+		assert_eq!(request.max_message_size, message_size);
+
+		// The way back is recorded too, under the same id: one answer settles both.
+		let back = Requests::<Test>::get(SYSTEM_CHANNEL.reversed()).unwrap();
+		assert!(matches!(back.state, RequestState::Accepted { kind: OpenKind::SystemPair, .. }));
+		assert_eq!(back.message_id, request.message_id);
+
+		for para in [SYSTEM_CHANNEL.sender, SYSTEM_CHANNEL.recipient] {
+			assert_eq!(OpenRequestCount::<Test>::get(para), 1);
+			assert_eq!(AcceptedRequestCount::<Test>::get(para), 1);
+			assert_eq!(held(para, HoldReason::SenderDeposit), 0);
+			assert_eq!(held(para, HoldReason::RecipientDeposit), 0);
+		}
+
+		assert_eq!(
+			take_sent(),
+			vec![MessageToRelay::V1(MessageToRelayV1::OpenSystemPair {
+				channel: SYSTEM_CHANNEL,
+				message_id: request.message_id,
+				max_capacity: capacity,
+				max_message_size: message_size,
+			})]
+		);
+		assert_eq!(
+			hrmp_events(),
+			vec![Event::SystemChannelRequested {
+				channel: SYSTEM_CHANNEL,
+				message_id: request.message_id,
+			}]
+		);
+	});
+}
+
+#[test]
+fn establish_channel_with_system_rejects_a_non_system_target() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			establish_with_system(CHANNEL.sender, CHANNEL.recipient),
+			Error::<Test>::ChannelCreationNotAuthorized
+		);
+		assert_noop!(
+			establish_with_system(SYSTEM_CHANNEL.recipient, SYSTEM_CHANNEL.recipient),
+			Error::<Test>::OpenHrmpChannelToSelf
+		);
+	});
+}
+
+#[test]
+fn establish_channel_with_system_rejects_an_existing_direction() {
+	new_test_ext().execute_with(|| {
+		let back = SYSTEM_CHANNEL.reversed();
+
+		// A request the other way round is enough to refuse the pair.
+		assert_ok!(init(back, CAPACITY, MESSAGE_SIZE));
+		assert_noop!(
+			establish_with_system(SYSTEM_CHANNEL.sender, SYSTEM_CHANNEL.recipient),
+			Error::<Test>::OpenHrmpChannelAlreadyRequested
+		);
+
+		// And so is a channel that is already open.
+		assert_ok!(accept(back));
+		let message_id = Requests::<Test>::get(back).unwrap().message_id;
+		assert_ok!(respond(back, message_id, Ok((CAPACITY, MESSAGE_SIZE))));
+		assert_noop!(
+			establish_with_system(SYSTEM_CHANNEL.sender, SYSTEM_CHANNEL.recipient),
+			Error::<Test>::OpenHrmpChannelAlreadyExists
+		);
+	});
+}
+
+#[test]
+fn establish_channel_with_system_respects_the_channel_limits() {
+	new_test_ext().execute_with(|| {
+		// The target has as many inbound channels as it is allowed.
+		let target = SYSTEM_CHANNEL.recipient;
+		for i in 0..MAX_INBOUND_CHANNELS {
+			let channel = ChannelId { sender: 3_000 + i, recipient: target };
+			assert_ok!(init(channel, CAPACITY, MESSAGE_SIZE));
+			assert_ok!(accept(channel));
+		}
+		assert_noop!(
+			establish_with_system(SYSTEM_CHANNEL.sender, target),
+			Error::<Test>::AcceptHrmpChannelLimitExceeded
+		);
+
+		// And the asking para has as many outbound as it is allowed.
+		let sender = 2_002;
+		fund_para(sender);
+		for i in 0..MAX_OUTBOUND_CHANNELS {
+			let channel = ChannelId { sender, recipient: 4_000 + i };
+			assert_ok!(init(channel, CAPACITY, MESSAGE_SIZE));
+		}
+		assert_noop!(
+			establish_with_system(sender, 1_002),
+			Error::<Test>::OpenHrmpChannelLimitExceeded
+		);
+	});
+}
+
+#[test]
+fn a_confirming_response_opens_both_directions_of_a_system_pair() {
+	new_test_ext().execute_with(|| {
+		let (capacity, message_size) = SYSTEM_SIZES;
+		assert_ok!(establish_with_system(SYSTEM_CHANNEL.sender, SYSTEM_CHANNEL.recipient));
+		let message_id = Requests::<Test>::get(SYSTEM_CHANNEL).unwrap().message_id;
+		let _ = take_sent();
+		let _ = hrmp_events();
+
+		assert_ok!(respond(SYSTEM_CHANNEL, message_id, Ok((capacity, message_size))));
+
+		for direction in [SYSTEM_CHANNEL, SYSTEM_CHANNEL.reversed()] {
+			assert!(Requests::<Test>::get(direction).is_none());
+			let channel = Channels::<Test>::get(direction).unwrap();
+			assert_eq!(channel.max_capacity, capacity);
+			assert_eq!(channel.max_message_size, message_size);
+			assert!(channel.sender_deposit.is_none());
+			assert!(channel.recipient_deposit.is_none());
+
+			assert_eq!(
+				EgressIndex::<Test>::get(direction.sender).to_vec(),
+				vec![direction.recipient]
+			);
+			assert_eq!(
+				IngressIndex::<Test>::get(direction.recipient).to_vec(),
+				vec![direction.sender]
+			);
+			assert_eq!(OpenRequestCount::<Test>::get(direction.sender), 0);
+			assert_eq!(AcceptedRequestCount::<Test>::get(direction.recipient), 0);
+		}
+
+		let opened = |channel: ChannelId| Event::HrmpSystemChannelOpened {
+			channel,
+			proposed_max_capacity: capacity,
+			proposed_max_message_size: message_size,
+		};
+		assert_eq!(hrmp_events(), vec![opened(SYSTEM_CHANNEL), opened(SYSTEM_CHANNEL.reversed())]);
+	});
+}
+
+#[test]
+fn a_refusing_response_drops_both_system_pair_requests() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(establish_with_system(SYSTEM_CHANNEL.sender, SYSTEM_CHANNEL.recipient));
+		let message_id = Requests::<Test>::get(SYSTEM_CHANNEL).unwrap().message_id;
+		let _ = take_sent();
+		let _ = hrmp_events();
+
+		assert_ok!(respond(SYSTEM_CHANNEL, message_id, Err(FailureReason::InvalidPara)));
+
+		for direction in [SYSTEM_CHANNEL, SYSTEM_CHANNEL.reversed()] {
+			assert!(Requests::<Test>::get(direction).is_none());
+			assert!(Channels::<Test>::get(direction).is_none());
+			assert_eq!(OpenRequestCount::<Test>::get(direction.sender), 0);
+			assert_eq!(AcceptedRequestCount::<Test>::get(direction.recipient), 0);
+		}
+
+		let failed = |channel: ChannelId| Event::OpenChannelFailed {
+			channel,
+			message_id,
+			reason: FailureReason::InvalidPara,
+		};
+		assert_eq!(hrmp_events(), vec![failed(SYSTEM_CHANNEL), failed(SYSTEM_CHANNEL.reversed())]);
+	});
+}
+
+#[test]
+fn a_refusing_transport_unwinds_the_system_pair() {
+	new_test_ext().execute_with(|| {
+		SendFails::set(true);
+
+		assert_noop!(
+			establish_with_system(SYSTEM_CHANNEL.sender, SYSTEM_CHANNEL.recipient),
+			Error::<Test>::SendFailed
+		);
+
+		assert!(Requests::<Test>::get(SYSTEM_CHANNEL).is_none());
+		assert!(Requests::<Test>::get(SYSTEM_CHANNEL.reversed()).is_none());
+		assert_eq!(OpenRequestCount::<Test>::get(SYSTEM_CHANNEL.sender), 0);
+		assert_eq!(AcceptedRequestCount::<Test>::get(SYSTEM_CHANNEL.recipient), 0);
 	});
 }

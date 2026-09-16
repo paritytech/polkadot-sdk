@@ -167,6 +167,7 @@ mod benchmarks {
 		receive_request(origin as T::RuntimeOrigin, SENDER, request);
 
 		assert!(Requests::<T>::contains_key(ChannelId { sender: SENDER, recipient: SYSTEM }));
+		assert!(Requests::<T>::contains_key(ChannelId { sender: SYSTEM, recipient: SENDER }));
 		Ok(())
 	}
 

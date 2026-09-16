@@ -1247,6 +1247,10 @@ mod registry {
 		Hrmp::open_channel(channel, CAPACITY, MESSAGE_SIZE)
 	}
 
+	fn open_pair(channel: ChannelId) -> Result<(), FailureReason> {
+		Hrmp::open_system_pair(channel, CAPACITY, MESSAGE_SIZE)
+	}
+
 	#[test]
 	fn open_channel_opens_it_now_and_takes_no_deposit() {
 		let (para_a, para_b) = (2000, 2001);
@@ -1388,6 +1392,76 @@ mod registry {
 				MESSAGE_SIZE
 			));
 			assert!(Hrmp::exists(channel(para_b, para_a)));
+		});
+	}
+
+	#[test]
+	fn open_system_pair_opens_both_directions_now() {
+		let (para, system) = (2000, 1001);
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			run_to_block(2, Some(vec![1, 2]));
+			register_parachain(para.into());
+			register_parachain(system.into());
+			run_to_block(4, Some(vec![3, 4]));
+
+			assert_eq!(open_pair(channel(para, system)), Ok(()));
+
+			for (sender, recipient) in [(para, system), (system, para)] {
+				let id = HrmpChannelId { sender: sender.into(), recipient: recipient.into() };
+				let opened = HrmpChannels::<Test>::get(&id).unwrap();
+				assert_eq!(opened.max_capacity, CAPACITY);
+				assert_eq!(opened.max_message_size, MESSAGE_SIZE);
+				assert_eq!(opened.sender_deposit, 0);
+				assert_eq!(opened.recipient_deposit, 0);
+
+				assert_eq!(
+					HrmpEgressChannelsIndex::<Test>::get(&ParaId::from(sender)),
+					vec![ParaId::from(recipient)]
+				);
+				assert_eq!(
+					HrmpIngressChannelsIndex::<Test>::get(&ParaId::from(recipient)),
+					vec![ParaId::from(sender)]
+				);
+			}
+
+			Hrmp::assert_storage_consistency_exhaustive();
+		});
+	}
+
+	#[test]
+	fn open_system_pair_refuses_a_target_that_is_not_system() {
+		let (para_a, para_b) = (2000, 2001);
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			run_to_block(2, Some(vec![1, 2]));
+			register_parachain(para_a.into());
+			register_parachain(para_b.into());
+			run_to_block(4, Some(vec![3, 4]));
+
+			assert_eq!(open_pair(channel(para_a, para_b)), Err(FailureReason::InvalidPara));
+			assert!(!Hrmp::exists(channel(para_a, para_b)));
+		});
+	}
+
+	#[test]
+	fn open_system_pair_rolls_both_back_if_either_is_refused() {
+		let (para, system) = (2000, 1001);
+		new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+			run_to_block(2, Some(vec![1, 2]));
+			register_parachain(para.into());
+			register_parachain(system.into());
+			run_to_block(4, Some(vec![3, 4]));
+
+			// A request the other way round is what the second direction trips over.
+			assert_ok!(Hrmp::init_open_channel(system.into(), para.into(), CAPACITY, MESSAGE_SIZE));
+
+			assert_eq!(open_pair(channel(para, system)), Err(FailureReason::AlreadyExists));
+
+			// The first direction was opened before the second was refused, and went back out.
+			assert!(!Hrmp::exists(channel(para, system)));
+			assert!(HrmpEgressChannelsIndex::<Test>::get(&ParaId::from(para)).is_empty());
+			assert!(HrmpIngressChannelsIndex::<Test>::get(&ParaId::from(system)).is_empty());
+
+			Hrmp::assert_storage_consistency_exhaustive();
 		});
 	}
 }

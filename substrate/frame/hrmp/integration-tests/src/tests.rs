@@ -21,12 +21,13 @@
 //! the pallets' bodies are `todo!()`.
 
 use crate::{
-	para, relay, senders, HrmpPara, MockNet, Relay, PARA_ID, RECIPIENT, SENDER, SYSTEM_PARA,
+	para, relay, senders, HrmpPara, MockNet, Relay, MAX_CAPACITY, MAX_MESSAGE_SIZE, PARA_ID,
+	RECIPIENT, SENDER, SYSTEM_PARA, UNKNOWN_SYSTEM,
 };
 use frame_support::{assert_ok, traits::EnsureOrigin};
 use hrmp_primitives::{
-	ChannelId, MessageToRelay, MessageToRelayV1, ParaId, ParaNotification, ParaRequest,
-	ParaRequestV1,
+	ChannelId, FailureReason, MessageToRelay, MessageToRelayV1, ParaId, ParaNotification,
+	ParaRequest, ParaRequestV1,
 };
 use pallet_hrmp_para::RequestState;
 use polkadot_runtime_parachains::{
@@ -243,5 +244,106 @@ fn a_channel_with_a_system_chain_takes_no_deposit() {
 		// The paying channel next to it still holds both deposits, so this is not a blanket free
 		// pass.
 		assert!(pallet_hrmp_para::Channels::<para::Runtime>::get(CHANNEL).is_none());
+	});
+}
+
+/// The relay chain's view of one direction, if it is open.
+fn relay_channel(channel: ChannelId) -> Option<parachains_hrmp::HrmpChannel> {
+	parachains_hrmp::HrmpChannels::<relay::Runtime>::get(&polkadot_primitives::HrmpChannelId {
+		sender: channel.sender.into(),
+		recipient: channel.recipient.into(),
+	})
+}
+
+#[test]
+fn a_para_establishes_a_pair_with_a_system_chain() {
+	MockNet::reset();
+
+	// The whole round trip runs while the bus drains: nobody has to accept a pair.
+	Relay::execute_with(|| {
+		ask(SENDER, ParaRequestV1::EstablishChannelWithSystem { target_system_chain: SYSTEM_PARA });
+	});
+
+	Relay::execute_with(|| {
+		for direction in [SYSTEM_CHANNEL, SYSTEM_CHANNEL.reversed()] {
+			let opened = relay_channel(direction).expect("the channel is in the routing table");
+			// The sizes are the ones the channel-managing parachain named.
+			assert_eq!(opened.max_capacity, MAX_CAPACITY);
+			assert_eq!(opened.max_message_size, MAX_MESSAGE_SIZE);
+			assert_eq!(opened.sender_deposit, 0);
+			assert_eq!(opened.recipient_deposit, 0);
+		}
+
+		// Both ends learn of both directions, which only the relay chain can tell them.
+		let told = vec![
+			ParaNotification::ChannelOpened { channel: SYSTEM_CHANNEL },
+			ParaNotification::ChannelOpened { channel: SYSTEM_CHANNEL.reversed() },
+		];
+		assert_eq!(downward_conclusions(SENDER), told);
+		assert_eq!(downward_conclusions(SYSTEM_PARA), told);
+	});
+
+	HrmpPara::execute_with(|| {
+		for direction in [SYSTEM_CHANNEL, SYSTEM_CHANNEL.reversed()] {
+			assert!(pallet_hrmp_para::Requests::<para::Runtime>::get(direction).is_none());
+			let opened = pallet_hrmp_para::Channels::<para::Runtime>::get(direction)
+				.expect("the relay chain confirmed the channel");
+			assert_eq!(opened.max_capacity, MAX_CAPACITY);
+			assert_eq!(opened.max_message_size, MAX_MESSAGE_SIZE);
+			// The system chain has no sovereign account here, and needs none.
+			assert!(opened.sender_deposit.is_none());
+			assert!(opened.recipient_deposit.is_none());
+
+			assert_eq!(
+				pallet_hrmp_para::EgressIndex::<para::Runtime>::get(direction.sender).to_vec(),
+				vec![direction.recipient]
+			);
+			assert_eq!(
+				pallet_hrmp_para::IngressIndex::<para::Runtime>::get(direction.recipient).to_vec(),
+				vec![direction.sender]
+			);
+		}
+	});
+}
+
+#[test]
+fn a_system_pair_the_relay_chain_refuses_is_dropped() {
+	MockNet::reset();
+
+	let refused = ChannelId { sender: SENDER, recipient: UNKNOWN_SYSTEM };
+
+	Relay::execute_with(|| {
+		// The channel-managing parachain does not decide para validity, so it asks anyway.
+		ask(
+			SENDER,
+			ParaRequestV1::EstablishChannelWithSystem { target_system_chain: UNKNOWN_SYSTEM },
+		);
+	});
+
+	Relay::execute_with(|| {
+		assert!(relay_channel(refused).is_none());
+		assert!(relay_channel(refused.reversed()).is_none());
+
+		assert_eq!(
+			downward_conclusions(SENDER),
+			vec![
+				ParaNotification::ChannelOpenFailure {
+					channel: refused,
+					reason: FailureReason::InvalidPara,
+				},
+				ParaNotification::ChannelOpenFailure {
+					channel: refused.reversed(),
+					reason: FailureReason::InvalidPara,
+				},
+			]
+		);
+	});
+
+	HrmpPara::execute_with(|| {
+		// Both directions were asked for at once, so both are dropped at once.
+		for direction in [refused, refused.reversed()] {
+			assert!(pallet_hrmp_para::Requests::<para::Runtime>::get(direction).is_none());
+			assert!(pallet_hrmp_para::Channels::<para::Runtime>::get(direction).is_none());
+		}
 	});
 }
