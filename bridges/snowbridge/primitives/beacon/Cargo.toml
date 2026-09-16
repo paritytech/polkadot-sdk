@@ -15,6 +15,7 @@ workspace = true
 exclude-from-umbrella = true
 
 [dependencies]
+alloy-rlp = { workspace = true }
 codec = { workspace = true }
 hex = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -40,6 +41,7 @@ hex-literal = { workspace = true, default-features = true }
 [features]
 default = ["std"]
 std = [
+	"alloy-rlp/std",
 	"byte-slice-cast/std",
 	"codec/std",
 	"frame-support/std",
