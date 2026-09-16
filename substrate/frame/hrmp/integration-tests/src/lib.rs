@@ -43,6 +43,13 @@ use xcm_simulator::{decl_test_network, decl_test_parachain, decl_test_relay_chai
 
 pub use senders::PARA_ID;
 
+/// The para that asks for a channel in the flow tests.
+pub const SENDER: u32 = 2000;
+/// The para the channel is asked of.
+pub const RECIPIENT: u32 = 2001;
+/// A system chain, which an id at or below 1999 makes it. Channels with it are deposit-free.
+pub const SYSTEM_PARA: u32 = 1001;
+
 pub const ALICE: AccountId32 = AccountId32::new([1u8; 32]);
 pub const BOB: AccountId32 = AccountId32::new([2u8; 32]);
 pub const INITIAL_BALANCE: u128 = 1_000_000_000;
@@ -98,11 +105,22 @@ decl_test_network! {
 }
 
 pub fn para_ext() -> sp_io::TestExternalities {
-	use para::{MsgQueue, Runtime, System};
+	use para::{MsgQueue, Runtime, SovereignAccountOf, System};
+	use sp_runtime::traits::Convert;
 
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+	// The two ends of the flow tests put up their deposits out of these.
+	//
+	// [`SYSTEM_PARA`] is deliberately left out: a channel with the system takes no deposit, so it
+	// must work without a sovereign account here at all.
+	let sovereign = |id: u32| (SovereignAccountOf::convert(id), INITIAL_BALANCE);
 	pallet_balances::GenesisConfig::<Runtime> {
-		balances: vec![(ALICE, INITIAL_BALANCE), (BOB, INITIAL_BALANCE)],
+		balances: vec![
+			(ALICE, INITIAL_BALANCE),
+			(BOB, INITIAL_BALANCE),
+			sovereign(SENDER),
+			sovereign(RECIPIENT),
+		],
 		..Default::default()
 	}
 	.assimilate_storage(&mut t)
@@ -117,13 +135,38 @@ pub fn para_ext() -> sp_io::TestExternalities {
 }
 
 pub fn relay_ext() -> sp_io::TestExternalities {
-	use polkadot_runtime_parachains::configuration;
+	use polkadot_primitives::{HeadData, ValidationCode};
+	use polkadot_runtime_parachains::{
+		configuration,
+		paras::{self, ParaGenesisArgs, ParaKind},
+	};
 	use relay::{Runtime, System};
 
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 
+	// `hrmp` refuses a channel unless both ends are valid paras, so the two ends of the flow
+	// tests are onboarded here rather than through the registrar.
+	let para = |id: u32| {
+		(
+			id.into(),
+			ParaGenesisArgs {
+				genesis_head: HeadData(vec![id as u8]),
+				validation_code: ValidationCode(vec![id as u8]),
+				para_kind: ParaKind::Parachain,
+			},
+		)
+	};
+	paras::GenesisConfig::<Runtime> {
+		paras: vec![para(PARA_ID), para(SENDER), para(RECIPIENT), para(SYSTEM_PARA)],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
+
 	configuration::GenesisConfig::<Runtime> {
 		config: configuration::HostConfiguration {
+			// Channel notifications to the two ends travel down this queue.
+			max_downward_message_size: 1_024,
 			hrmp_channel_max_capacity: MAX_CAPACITY,
 			hrmp_channel_max_message_size: MAX_MESSAGE_SIZE,
 			hrmp_channel_max_total_size: MAX_TOTAL_SIZE,

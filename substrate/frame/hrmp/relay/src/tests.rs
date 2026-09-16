@@ -23,8 +23,8 @@
 use crate::{mock::*, Error, Event};
 use frame_support::{assert_noop, assert_ok};
 use hrmp_primitives::{
-	ChannelId, HrmpRegistry, MessageToRelay, MessageToRelayV1, ParaNotification, ParaRequest,
-	ParaRequestV1,
+	ChannelId, FailureReason, HrmpRegistry, MessageToPara, MessageToParaV1, MessageToRelay,
+	MessageToRelayV1, ParaNotification, ParaRequest, ParaRequestV1,
 };
 use sp_runtime::DispatchError;
 
@@ -130,5 +130,122 @@ fn notify_para_reports_a_refusing_transport() {
 
 		assert!(take_notified().is_empty());
 		assert_eq!(hrmp_events(), vec![Event::NotifyFailed { para_id: CHANNEL.sender }]);
+	});
+}
+
+const MESSAGE_ID: u64 = 7;
+const CAPACITY: u32 = 8;
+const MESSAGE_SIZE: u32 = 1_024;
+
+fn open_channel() -> sp_runtime::DispatchResult {
+	Hrmp::receive(
+		RuntimeOrigin::root(),
+		MessageToRelay::V1(MessageToRelayV1::OpenChannel {
+			channel: CHANNEL,
+			message_id: MESSAGE_ID,
+			max_capacity: CAPACITY,
+			max_message_size: MESSAGE_SIZE,
+		}),
+	)
+}
+
+fn response(outcome: Result<(u32, u32), FailureReason>) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::OpenChannelResponse {
+		channel: CHANNEL,
+		message_id: MESSAGE_ID,
+		outcome,
+	})
+}
+
+#[test]
+fn open_channel_writes_the_registry_and_answers() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(open_channel());
+
+		assert!(MockRegistry::exists(CHANNEL));
+		assert_eq!(take_sent(), vec![response(Ok((CAPACITY, MESSAGE_SIZE)))]);
+		// Both ends are told, since only the relay chain knows the channel now exists.
+		assert_eq!(
+			take_notified(),
+			vec![
+				(CHANNEL.sender, ParaNotification::ChannelOpened { channel: CHANNEL }),
+				(CHANNEL.recipient, ParaNotification::ChannelOpened { channel: CHANNEL }),
+			]
+		);
+		assert_eq!(
+			hrmp_events(),
+			vec![Event::ChannelOpened { channel: CHANNEL, message_id: MESSAGE_ID }]
+		);
+	});
+}
+
+#[test]
+fn a_refused_open_channel_is_reported_back() {
+	new_test_ext().execute_with(|| {
+		RegistryRefuses::set(Some(FailureReason::LimitExceeded));
+
+		assert_ok!(open_channel());
+
+		assert!(!MockRegistry::exists(CHANNEL));
+		assert_eq!(take_sent(), vec![response(Err(FailureReason::LimitExceeded))]);
+		let failure = ParaNotification::ChannelOpenFailure {
+			channel: CHANNEL,
+			reason: FailureReason::LimitExceeded,
+		};
+		assert_eq!(
+			take_notified(),
+			vec![(CHANNEL.sender, failure.clone()), (CHANNEL.recipient, failure)]
+		);
+		assert_eq!(
+			hrmp_events(),
+			vec![Event::OpenChannelRejected {
+				channel: CHANNEL,
+				message_id: MESSAGE_ID,
+				reason: FailureReason::LimitExceeded,
+			}]
+		);
+	});
+}
+
+#[test]
+fn a_refusing_transport_does_not_undo_the_channel() {
+	new_test_ext().execute_with(|| {
+		SendFails::set(true);
+
+		assert_ok!(open_channel());
+
+		// The relay chain has committed the channel, so the bounced report is only surfaced.
+		assert!(MockRegistry::exists(CHANNEL));
+		assert!(take_sent().is_empty());
+		assert_eq!(take_notified().len(), 2);
+		assert_eq!(
+			hrmp_events(),
+			vec![
+				Event::ChannelOpened { channel: CHANNEL, message_id: MESSAGE_ID },
+				Event::ReportFailed { para_id: CHANNEL.sender, message_id: MESSAGE_ID },
+			]
+		);
+	});
+}
+
+#[test]
+fn a_refusing_notify_transport_does_not_undo_the_channel() {
+	new_test_ext().execute_with(|| {
+		NotifyFails::set(true);
+
+		assert_ok!(open_channel());
+
+		// Same reasoning as a bounced report: the channel is already committed on both chains.
+		assert!(MockRegistry::exists(CHANNEL));
+		assert!(take_notified().is_empty());
+		assert_eq!(take_sent(), vec![response(Ok((CAPACITY, MESSAGE_SIZE)))]);
+		assert_eq!(
+			hrmp_events(),
+			vec![
+				Event::ChannelOpened { channel: CHANNEL, message_id: MESSAGE_ID },
+				Event::NotifyFailed { para_id: CHANNEL.sender },
+				Event::NotifyFailed { para_id: CHANNEL.recipient },
+			]
+		);
 	});
 }

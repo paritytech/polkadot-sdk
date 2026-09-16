@@ -1915,7 +1915,6 @@ impl<T: Config> Pallet<T> {
 }
 
 /// Not a `From` impl: neither type is local to this crate.
-#[allow(dead_code)]
 fn to_hrmp_channel_id(channel: ChannelId) -> HrmpChannelId {
 	HrmpChannelId {
 		sender: ParaId::from(channel.sender),
@@ -1931,8 +1930,74 @@ impl<T: Config> HrmpRegistry for Pallet<T> {
 		max_capacity: u32,
 		max_message_size: u32,
 	) -> Result<(), FailureReason> {
-		let _ = (channel, max_capacity, max_message_size);
-		todo!()
+		let channel_id = to_hrmp_channel_id(channel);
+		ensure!(channel_id.sender != channel_id.recipient, FailureReason::InvalidPara);
+		ensure!(
+			paras::Pallet::<T>::is_valid_para(channel_id.sender) &&
+				paras::Pallet::<T>::is_valid_para(channel_id.recipient),
+			FailureReason::InvalidPara,
+		);
+
+		let config = configuration::ActiveConfig::<T>::get();
+		ensure!(
+			max_capacity > 0 && max_capacity <= config.hrmp_channel_max_capacity,
+			FailureReason::InvalidParameters,
+		);
+		ensure!(
+			max_message_size > 0 && max_message_size <= config.hrmp_channel_max_message_size,
+			FailureReason::InvalidParameters,
+		);
+
+		ensure!(
+			!HrmpChannels::<T>::contains_key(&channel_id) &&
+				!HrmpOpenChannelRequests::<T>::contains_key(&channel_id),
+			FailureReason::AlreadyExists,
+		);
+
+		// The indexes are unbounded vectors, so the configured per-para limits are what keeps
+		// them from growing without end.
+		let egress_cnt =
+			HrmpEgressChannelsIndex::<T>::decode_len(&channel_id.sender).unwrap_or(0) as u32;
+		let open_req_cnt = HrmpOpenChannelRequestCount::<T>::get(&channel_id.sender);
+		ensure!(
+			egress_cnt + open_req_cnt < config.hrmp_max_parachain_outbound_channels,
+			FailureReason::LimitExceeded,
+		);
+		let ingress_cnt =
+			HrmpIngressChannelsIndex::<T>::decode_len(&channel_id.recipient).unwrap_or(0) as u32;
+		let accepted_cnt = HrmpAcceptedChannelRequestCount::<T>::get(&channel_id.recipient);
+		ensure!(
+			ingress_cnt + accepted_cnt < config.hrmp_max_parachain_inbound_channels,
+			FailureReason::LimitExceeded,
+		);
+
+		// Both ends already agreed on the calling chain, so the channel opens now rather than at
+		// the next session boundary.
+		HrmpChannels::<T>::insert(
+			&channel_id,
+			HrmpChannel {
+				max_capacity,
+				max_total_size: config.hrmp_channel_max_total_size,
+				max_message_size,
+				msg_count: 0,
+				total_size: 0,
+				mqc_head: None,
+				sender_deposit: 0,
+				recipient_deposit: 0,
+			},
+		);
+		HrmpIngressChannelsIndex::<T>::mutate(&channel_id.recipient, |v| {
+			if let Err(i) = v.binary_search(&channel_id.sender) {
+				v.insert(i, channel_id.sender);
+			}
+		});
+		HrmpEgressChannelsIndex::<T>::mutate(&channel_id.sender, |v| {
+			if let Err(i) = v.binary_search(&channel_id.recipient) {
+				v.insert(i, channel_id.recipient);
+			}
+		});
+
+		Ok(())
 	}
 
 	fn open_system_channel(channel: ChannelId) -> Result<(u32, u32), FailureReason> {
@@ -1960,8 +2025,9 @@ impl<T: Config> HrmpRegistry for Pallet<T> {
 	}
 
 	fn exists(channel: ChannelId) -> bool {
-		let _ = channel;
-		todo!()
+		let channel_id = to_hrmp_channel_id(channel);
+		HrmpChannels::<T>::contains_key(&channel_id) ||
+			HrmpOpenChannelRequests::<T>::contains_key(&channel_id)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
