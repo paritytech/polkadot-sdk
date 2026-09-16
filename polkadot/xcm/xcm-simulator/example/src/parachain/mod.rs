@@ -55,6 +55,9 @@ impl frame_system::Config for Runtime {
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Runtime {
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
 	type Balance = Balance;
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
@@ -160,6 +163,8 @@ impl pallet_xcm::Config for Runtime {
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
 	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type OldCurrency = Balances;
 	type CurrencyMatcher = ();
 	type TrustedLockers = TrustedLockers;
 	type SovereignAccountOf = location_converter::LocationConverter;

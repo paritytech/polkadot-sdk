@@ -18,9 +18,9 @@
 use super::{
 	AccountId, AllPalletsWithSystem, Assets, Balance, Balances, BaseDeliveryFee, CollatorSelection,
 	FeeAssetId, FellowshipAdmin, ForeignAssets, ForeignAssetsInstance, GeneralAdmin, ParachainInfo,
-	ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	StakingAdmin, ToRococoXcmRouter, TransactionByteFee, Treasurer, TrustBackedAssetsInstance,
-	Uniques, WeightToFee, XcmpQueue,
+	ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeFreezeReason, RuntimeOrigin, StakingAdmin, ToRococoXcmRouter, TransactionByteFee,
+	Treasurer, TrustBackedAssetsInstance, Uniques, WeightToFee, XcmpQueue,
 };
 use assets_common::{
 	matching::{FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
@@ -558,6 +558,8 @@ impl pallet_xcm::Config for Runtime {
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
 	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type OldCurrency = Balances;
 	type CurrencyMatcher = ();
 	type TrustedLockers = ();
 	type SovereignAccountOf = LocationToAccountId;

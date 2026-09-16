@@ -17,8 +17,8 @@ use super::{
 	AccountId, AllPalletsWithSystem, Assets, Balance, Balances, BaseDeliveryFee, CollatorSelection,
 	DepositPerByte, DepositPerItem, FeeAssetId, ForeignAssets, GeneralAdmin, ParachainInfo,
 	ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeHoldReason, RuntimeOrigin, ToRococoXcmRouter, TransactionByteFee, Uniques, WeightToFee,
-	XcmpQueue,
+	RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, ToRococoXcmRouter, TransactionByteFee,
+	Uniques, WeightToFee, XcmpQueue,
 };
 use alloc::{collections::BTreeSet, vec, vec::Vec};
 use assets_common::{
@@ -577,6 +577,8 @@ impl pallet_xcm::Config for Runtime {
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
 	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type OldCurrency = Balances;
 	type CurrencyMatcher = ();
 	type TrustedLockers = ();
 	type SovereignAccountOf = LocationToAccountId;

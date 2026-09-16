@@ -18,8 +18,8 @@
 
 use super::{
 	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, Fellows, ParaId, Runtime,
-	RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, Treasurer, Treasury, WeightToFee,
-	XcmPallet,
+	RuntimeCall, RuntimeEvent, RuntimeFreezeReason, RuntimeOrigin, TransactionByteFee, Treasurer,
+	Treasury, WeightToFee, XcmPallet,
 };
 
 use crate::governance::StakingAdmin;
@@ -291,6 +291,8 @@ impl pallet_xcm::Config for Runtime {
 	const VERSION_DISCOVERY_QUEUE_SIZE: u32 = 100;
 	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type Currency = Balances;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type OldCurrency = Balances;
 	type CurrencyMatcher = IsConcrete<TokenLocation>;
 	type TrustedLockers = ();
 	type SovereignAccountOf = LocationConverter;
