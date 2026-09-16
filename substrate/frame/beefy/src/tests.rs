@@ -1201,7 +1201,7 @@ fn report_future_block_voting_invalid_signature() {
 
 		assert_err!(
 			Beefy::report_future_block_voting_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(RawOrigin::Authorized),
 				Box::new(equivocation_proof),
 				key_owner_proof,
 			),
