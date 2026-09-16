@@ -351,45 +351,37 @@ async fn run_wave(
 		expectations.push(("ring".to_string(), expected[idx].clone(), ring_holders.clone()));
 	}
 
-	// Positive direction: poll store snapshots until every expectation sits on all of its
-	// holders — forwarding is asynchronous.
+	// Placement converges from both sides: a replica may still be receiving the statement, and
+	// a non-replica that submitted one holds it until propagation drains it. Poll until every
+	// expectation matches, and report whatever still disagrees at the deadline.
 	let deadline = Instant::now() + Duration::from_secs(PLACEMENT_TIMEOUT_SECS);
-	let mut snapshots: Vec<HashSet<Vec<u8>>>;
 	loop {
-		let mut collected = Vec::with_capacity(nodes.len());
+		let mut snapshots = Vec::with_capacity(nodes.len());
 		for handle in nodes {
-			collected.push(store_snapshot(&handle.rpc).await?);
+			snapshots.push(store_snapshot(&handle.rpc).await?);
 		}
-		snapshots = collected;
-		let missing = expectations.iter().find_map(|(context, blob, holders)| {
-			holders
-				.iter()
-				.find(|&&holder| !snapshots[holder].contains(blob))
-				.map(|&h| (context, h))
-		});
-		match missing {
-			None => break,
-			Some((context, holder)) if Instant::now() >= deadline => {
-				return Err(anyhow!(
-					"wave {wave} {context}: {} did not store the statement within \
-					 {PLACEMENT_TIMEOUT_SECS}s",
-					nodes[holder].name()
-				))
-			},
-			Some(_) => tokio::time::sleep(Duration::from_secs(2)).await,
-		}
-	}
-
-	// Negative direction, judged from the same converged snapshots: nothing sits on a node
-	// outside its holder set.
-	for (context, blob, holders) in &expectations {
-		for (idx, handle) in nodes.iter().enumerate() {
-			if !holders.contains(&idx) && snapshots[idx].contains(blob) {
-				return Err(anyhow!(
-					"wave {wave} {context}: {} stores a statement it is not a replica for",
-					handle.name()
+		let disagreement = expectations.iter().find_map(|(context, blob, holders)| {
+			if let Some(&idx) = holders.iter().find(|&&holder| !snapshots[holder].contains(blob)) {
+				return Some(format!(
+					"wave {wave} {context}: {} did not store the statement",
+					nodes[idx].name()
 				));
 			}
+			(0..nodes.len())
+				.find(|idx| !holders.contains(idx) && snapshots[*idx].contains(blob))
+				.map(|idx| {
+					format!(
+						"wave {wave} {context}: {} stores a statement it is not a replica for",
+						nodes[idx].name()
+					)
+				})
+		});
+		match disagreement {
+			None => break,
+			Some(problem) if Instant::now() >= deadline => {
+				return Err(anyhow!("{problem}, {PLACEMENT_TIMEOUT_SECS}s after the wave"))
+			},
+			Some(_) => tokio::time::sleep(Duration::from_secs(2)).await,
 		}
 	}
 
