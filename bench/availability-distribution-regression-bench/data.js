@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789508413229,
+  "lastUpdate": 1789549651841,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "40807189+AlexandruCihodaru@users.noreply.github.com",
-            "name": "Alexandru Cihodaru",
-            "username": "AlexandruCihodaru"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "744acf5599bcf978350015a73c75e05455a4d8f3",
-          "message": "Implement persistent reputation database for collator protocol (#7751) (#10917)\n\nImplements persistent storage for the experimental collator protocol's\nreputation database.\n\nChanges:\n\n- Adds `PersistentDb` wrapper that persists the in-memory reputation DB\nto disk\n  - Periodic persistence every 10 minutes (30s in test mode)\n  - Immediate persistence on slashes and parachain deregistration\n  - Loads existing state on startup with lookback for missed blocks\n  \nImplementation:\n  \n  `PersistentDb` wraps the existing `Db` and adds persistence on top:\n\n    - All reputation logic (scoring, decay, LRU) stays in `Db`\n    - Persistence layer handles disk I/O and serialization\n    - Per-para data stored in parachains_db\n    \nTests:\n\n- `basic_persistence.rs`: Validates persistence across restarts and\nstartup lookback\n- `pruning.rs`: Validates automatic cleanup on parachain deregistration\n\n---------\n\nSigned-off-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>\nCo-authored-by: alindima <alin@parity.io>\nCo-authored-by: Tsvetomir Dimitrov <tsvetomir@parity.io>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-13T11:09:46Z",
-          "tree_id": "c5ea4bb300af28d1a2569244ef9ce654a0da4602",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/744acf5599bcf978350015a73c75e05455a4d8f3"
-        },
-        "date": 1770984987142,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14505457350000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010003556053333317,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007107386213333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024805433646666666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02537024729333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "117115317+lrubasze@users.noreply.github.com",
+            "name": "Lukasz Rubaszewski",
+            "username": "lrubasze"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c5b3121ccc4f35a8391e8d515f63e3e9ac82b201",
+          "message": "litep2p/req-resp: fix inbound request serve time reporting (#13097)\n\nThe litep2p backend reported a near-zero serve time in the\n`substrate_sub_libp2p_requests_in_success_total` histogram for inbound\nrequests.\n\nThe timestamp paired with a pending inbound request was evaluated only\nafter the response was ready (`Instant::now()` after awaiting the\nresponse channel), so the reported duration covered just the response\nhand-off to the transport instead of the actual time spent serving the\nrequest.\n\n## Changes\n\n- Stamp the start time when the request arrives, matching the libp2p\nbackend, so the reported serve time covers the time the request spends\nqueued and being processed by the handler.\n- Add a regression test\n(`inbound_request_serve_time_includes_handler_time`) which delays the\nresponse in the request handler and asserts the recorded serve time\ncovers that delay. The test fails against the previous behavior.\n\n## Review notes\n\nThe analogous outbound metric (`requests_out_success_total`) already\nstamps on send and is unaffected.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-16T07:27:41Z",
+          "tree_id": "d55d7268a3680a6e40d70de9620d279a2fb1ec47",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c5b3121ccc4f35a8391e8d515f63e3e9ac82b201"
+        },
+        "date": 1789549615800,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025222413386666663,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1479876445266667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007657444533333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009803284206666641,
             "unit": "seconds"
           }
         ]
