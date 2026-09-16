@@ -735,14 +735,22 @@ fn authorize_call_extension_dispatches_claim() {
 }
 
 #[test]
-fn bare_claim_still_works() {
+fn bare_claims_still_work() {
 	new_test_ext().execute_with(|| {
 		assert_ok!(claims::mock::Claims::claim(
 			RuntimeOrigin::none(),
 			42,
 			sig::<Test>(&alice(), &42u64.encode(), &[][..])
 		));
+		assert_ok!(claims::mock::Claims::claim_attest(
+			RuntimeOrigin::none(),
+			44,
+			sig::<Test>(&dave(), &44u64.encode(), StatementKind::Regular.to_text()),
+			StatementKind::Regular.to_text().to_vec(),
+		));
 		assert_eq!(Balances::free_balance(&42), 100);
+		assert_eq!(Balances::free_balance(&44), 200);
+		assert_eq!(claims::Total::<Test>::get(), total_claims() - 300);
 	});
 }
 
@@ -764,7 +772,18 @@ fn bare_and_general_validation_agree() {
 			),
 			statement: StatementKind::Regular.to_text().to_vec(),
 		};
-		for call in [claim, claim_attest] {
+		let bad_signature =
+			ClaimsCall::claim { dest: 1, ethereum_signature: EcdsaSignature([0; 65]) };
+		let no_claim = ClaimsCall::claim {
+			dest: 1,
+			ethereum_signature: sig::<Test>(&bob(), &1u64.encode(), &[][..]),
+		};
+		let wrong_statement = ClaimsCall::claim_attest {
+			dest: 1,
+			ethereum_signature: sig::<Test>(&dave(), &1u64.encode(), StatementKind::Saft.to_text()),
+			statement: StatementKind::Saft.to_text().to_vec(),
+		};
+		for call in [claim, claim_attest, bad_signature, no_claim, wrong_statement] {
 			assert_eq!(
 				<Test as ValidateUnsigned>::validate_unsigned(
 					External,
