@@ -279,6 +279,10 @@ pub mod pallet {
 				Error::<T>::InsufficientFunds
 			);
 
+			let pool_cores = T::PoolCapacityProvider::pool_cores();
+			// Fail early if the pool is empty.
+			ensure!(pool_cores != 0, Error::<T>::EmptyPool);
+
 			let now = T::RelayBlockNumberProvider::current_block_number();
 			let mut queue_state = QueueState::<T>::get()
 				.unwrap_or(QueueTracker { outstanding_orders: 0, last_updated: now });
@@ -286,8 +290,6 @@ pub mod pallet {
 
 			// Assume the Relay chain has drained part of the queue since we last looked at it.
 			let elapsed = now.saturating_sub(queue_state.last_updated).saturated_into();
-			let pool_cores = T::PoolCapacityProvider::pool_cores();
-			ensure!(pool_cores != 0, Error::<T>::EmptyPool);
 
 			let drained_orders = pricing_config
 				.drain_rate_per_block
