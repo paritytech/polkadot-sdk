@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789562548867,
+  "lastUpdate": 1789575831288,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "e9b9f740fab72060252628ebce5a5e30c1c5da2a",
-          "message": "Fix delegatecall callTracer addresses (#10918)\n\n## Summary\n- Fix address tracking in delegatecall operations for callTracer\n\n## Changes\n- Update callTracer to correctly track addresses during delegatecall\noperations\n\n## Test plan\n- Existing tests should pass\n- Verify callTracer correctly reports addresses for delegatecall\noperations\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Robert van Eerdewijk <robertvaneerdewijk@gmail.com>",
-          "timestamp": "2026-02-13T17:05:07Z",
-          "tree_id": "66e1df46dd29065e796d19322c083a20cd5ac214",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e9b9f740fab72060252628ebce5a5e30c1c5da2a"
-        },
-        "date": 1771006858527,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006959790279999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14441415312000008,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00994141572666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024790878026666664,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009865765386666638,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "177c490356fab38f8de89c7d9c5f2408ba3b06fb",
+          "message": "statement-store: persist transient statements and sweep them once propagated (#13216)\n\n# Description\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/11932,\nprerequisite for\nhttps://github.com/paritytech/polkadot-sdk/issues/13193.\n\nA statement no affinity covers (the node is neither a DHT replica for\nits topics nor has explicit affinity for them) is transient: the node\nforwards it once and does not keep it. The PoC kept such statements in\nan in-memory map inside the store and handed the body out once on the\npropagation pull, so nothing downstream could fetch it by hash again,\nand a copy redelivered after the pull was admitted and forwarded anew.\nTransient statements now go through the normal admission and are swept\non maintenance once propagated, like explicit-only statements already\nare.\n\n# Integration\n\nNode-side only, no API changes, no effect with the v2 DHT gate off.\n\n# Review Notes\n\n- `explicit_only` and the PoC `transient` map become one\n`retention_tracks` map of hash to `RetentionTrack`, and\n`sweep_explicit_affinity` becomes `sweep_retention`: the resolver's\nverdict becomes the track, a verdict of Transient removes the statement.\n- Removal bans re-acceptance for a transient statement, so a redelivery\ncannot start another forwarding round, and keeps allowing it for a\nlapsed explicit-only one.\n- Deleted: the transient branch in `submit`, the body hand-out in\n`take_recent_statements`, the `u64::MAX` sequence sentinel.\n\n- Transient statements take the per-account quota like any other\nstatement and are visible to the query API until swept. A transient\nstatement admitted within the sweep window before a restart reloads\nuntracked and stays until expiry, the same in-memory limit explicit-only\ntracking already has.\n- The zombienet v2 DHT tests told a replica from a non-replica by\nwhether the node stored a probe right after submit. They now wait for\nthe sweep to remove the non-replica's copy.\n- Files: substrate/client/statement-store/src/lib.rs,\nsubstrate/client/network/statement/src/v2dht/mod.rs (docs),\ncumulus/zombienet/zombienet-sdk/tests/zombie_ci/statement_store/.",
+          "timestamp": "2026-09-16T14:37:10Z",
+          "tree_id": "b79517841c0ce2d621b513089e770078798ae2cc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/177c490356fab38f8de89c7d9c5f2408ba3b06fb"
+        },
+        "date": 1789575789198,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007503313406666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025239113586666674,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009886504906666644,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14435729652000007,
             "unit": "seconds"
           }
         ]
