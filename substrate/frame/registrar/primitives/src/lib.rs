@@ -140,6 +140,14 @@ pub enum MessageToParaV1 {
 		/// Whether the authorization was dropped.
 		outcome: Outcome,
 	},
+	/// Note that `para_id` has produced a head on the relay chain.
+	///
+	/// Correlates with no request, so it carries no `message_id` and is not answered.
+	#[codec(index = 7)]
+	HeadNoted {
+		/// The para id that produced a head.
+		para_id: ParaId,
+	},
 }
 
 /// How a request ended.
