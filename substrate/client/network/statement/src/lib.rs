@@ -97,8 +97,8 @@
 //!
 //! With the v2 DHT path enabled, every `statement/2` peer sends its affinity filter as the first
 //! message on connect, and the initial sync waits for the peer's filter, replaying the statements
-//! it matches and those the peer is a DHT routing target for. Propagation serves a peer the same
-//! set.
+//! it matches and those the peer is a DHT routing target for. The outbox drain applies the same
+//! rule.
 //!
 //! ## Usage
 //!
@@ -1985,8 +1985,9 @@ where
 
 	/// Queue the `indices` of `statements` for each peer the orchestrator chose as a target.
 	///
-	/// The orchestrator already picked the peer, so neither its affinity filter nor its sync
-	/// watermark applies and only statements the peer sent to us are dropped.
+	/// The orchestrator already picked the peer, so its sync watermark does not apply and only
+	/// statements the peer sent to us are dropped here. The drain applies the peer's filter or
+	/// routing-target rule.
 	fn queue_statements_for_targets(
 		&mut self,
 		statements: &[(u64, Hash, Statement)],
@@ -2094,9 +2095,7 @@ where
 				&self.pending_statements_peers,
 				&who,
 				peer_data,
-				&|stmt: &Statement| {
-					stmt.topics().iter().any(|t| self.v2dht.peer_is_dht_target_for_topic(who, *t))
-				},
+				&self.v2dht.dht_target_predicate(who),
 				outbox.make_contiguous(),
 				max_size,
 			) {
@@ -2561,24 +2560,13 @@ where
 		let peer_version = peer_data.protocol_version;
 		let envelope_overhead = peer_version.envelope_overhead();
 		let max_size = max_statement_payload_size(envelope_overhead);
-		let v2dht = &self.v2dht;
-		// Checking a topic scans all connected peers, so cache the answer per topic for this chunk.
-		let dht_target_topics = std::cell::RefCell::new(HashMap::new());
-		let is_dht_target = |stmt: &Statement| {
-			stmt.topics().iter().any(|topic| {
-				*dht_target_topics
-					.borrow_mut()
-					.entry(*topic)
-					.or_insert_with(|| v2dht.peer_is_dht_target_for_topic(peer_id, *topic))
-			})
-		};
 		let (batch, accumulated_size) = match fetch_admitted_chunk(
 			&*self.statement_store,
 			&self.recently_received_statements,
 			&self.pending_statements_peers,
 			&peer_id,
 			peer_data,
-			&is_dht_target,
+			&self.v2dht.dht_target_predicate(peer_id),
 			entry.get().cursor,
 			entry.get().watermark,
 			max_size,
