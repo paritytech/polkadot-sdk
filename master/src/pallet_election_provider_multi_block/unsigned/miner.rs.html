@@ -937,13 +937,13 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#787 id=787 data-nosnippet>787</a>	}
 <a href=#788 id=788 data-nosnippet>788</a>
 <a href=#789 id=789 data-nosnippet>789</a>	<span class="kw">fn </span>submit_call(call: Call&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), OffchainMinerError&lt;T&gt;&gt; {
-<a href=#790 id=790 data-nosnippet>790</a>		<span class="kw">let </span>xt = T::create_bare(call.into());
+<a href=#790 id=790 data-nosnippet>790</a>		<span class="kw">let </span>xt = T::create_authorized_transaction(call.into());
 <a href=#791 id=791 data-nosnippet>791</a>		frame_system::offchain::SubmitTransaction::&lt;T, Call&lt;T&gt;&gt;::submit_transaction(xt)
 <a href=#792 id=792 data-nosnippet>792</a>			.map(|<span class="kw">_</span>| {
 <a href=#793 id=793 data-nosnippet>793</a>				<span class="macro">sublog!</span>(
 <a href=#794 id=794 data-nosnippet>794</a>					debug,
 <a href=#795 id=795 data-nosnippet>795</a>					<span class="string">"unsigned::ocw-miner"</span>,
-<a href=#796 id=796 data-nosnippet>796</a>					<span class="string">"miner submitted a solution as an unsigned transaction"</span>,
+<a href=#796 id=796 data-nosnippet>796</a>					<span class="string">"miner submitted a solution as an authorized transaction"</span>,
 <a href=#797 id=797 data-nosnippet>797</a>				);
 <a href=#798 id=798 data-nosnippet>798</a>			})
 <a href=#799 id=799 data-nosnippet>799</a>			.map_err(|<span class="kw">_</span>| OffchainMinerError::PoolSubmissionFailed)

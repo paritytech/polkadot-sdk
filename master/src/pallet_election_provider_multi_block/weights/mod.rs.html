@@ -226,7 +226,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#76 id=76 data-nosnippet>76</a>
 <a href=#77 id=77 data-nosnippet>77</a>		<span class="doccomment">/// Weight functions needed for `pallet_election_provider_multi_block::unsigned`.
 <a href=#78 id=78 data-nosnippet>78</a>		</span><span class="kw">pub trait </span>WeightInfo {
-<a href=#79 id=79 data-nosnippet>79</a>			<span class="kw">fn </span>validate_unsigned() -&gt; Weight;
+<a href=#79 id=79 data-nosnippet>79</a>			<span class="kw">fn </span>authorize_submit_unsigned() -&gt; Weight;
 <a href=#80 id=80 data-nosnippet>80</a>			<span class="kw">fn </span>submit_unsigned() -&gt; Weight;
 <a href=#81 id=81 data-nosnippet>81</a>			<span class="comment">// This has an auto-impl as the associated benchmark is `#[extra]`.
 <a href=#82 id=82 data-nosnippet>82</a>			</span><span class="kw">fn </span>mine_solution(_p: u32) -&gt; Weight {
@@ -236,7 +236,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#86 id=86 data-nosnippet>86</a>
 <a href=#87 id=87 data-nosnippet>87</a>		<span class="attr">#[cfg(feature = <span class="string">"std"</span>)]
 <a href=#88 id=88 data-nosnippet>88</a>		</span><span class="kw">impl </span>WeightInfo <span class="kw">for </span>() {
-<a href=#89 id=89 data-nosnippet>89</a>			<span class="kw">fn </span>validate_unsigned() -&gt; Weight {
+<a href=#89 id=89 data-nosnippet>89</a>			<span class="kw">fn </span>authorize_submit_unsigned() -&gt; Weight {
 <a href=#90 id=90 data-nosnippet>90</a>				Default::default()
 <a href=#91 id=91 data-nosnippet>91</a>			}
 <a href=#92 id=92 data-nosnippet>92</a>			<span class="kw">fn </span>submit_unsigned() -&gt; Weight {

@@ -165,7 +165,7 @@ a backup and we should primarily rely on offchain staking miners to fulfill this
 <h3 id="future-idea-multi-page-unsigned-submission"><a class="doc-anchor" href="#future-idea-multi-page-unsigned-submission">§</a>Future Idea: Multi-Page unsigned submission</h3>
 <p>the following is the idea of how to implement multi-page unsigned, which we don’t have.</p>
 <p>All validators will run their miners and compute the full paginated solution. They submit all
-pages as individual unsigned transactions to their local tx-pool.</p>
+pages as individual authorized transactions to their local tx-pool.</p>
 <p>Upon validation, if any page is now present the corresponding transaction is dropped.</p>
 <p>At each block, the first page that may be valid is included as a high priority operational
 transaction. This page is validated on the fly to be correct. Since this transaction is sourced
