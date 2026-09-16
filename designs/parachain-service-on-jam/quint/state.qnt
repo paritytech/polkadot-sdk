@@ -65,6 +65,11 @@ module state {
   // --- Per-parachain log (design §3.1, capacity-bounded) -----------------
   type ParachainLog = List[(Timeslot, LogEntry)]
 
+  /// One recorded incoming transfer (§3.1). `toSupervisorBalance` is JAM's
+  /// `destsupervisor` flag: the amount went to the supervisor balance.
+  type IncomingTransfer =
+    { from: ServiceId, amount: Balance, toSupervisorBalance: bool, memo: Memo }
+
   // --- Top-level service state -------------------------------------------
 
   type ParachainServiceState = {
@@ -76,8 +81,7 @@ module state {
     // then opens the following id. Ids are contiguous, so the queue order is the
     // id order and enumerating it needs no per-bucket successor pointer, which
     // JAM storage could not substitute for anyway: it has no prefix iteration.
-    incomingTransfers:
-      BucketId -> List[{ from: ServiceId, amount: Balance, memo: Memo }],
+    incomingTransfers: BucketId -> List[IncomingTransfer],
     // First and last bucket id, `None` when the queue is empty — in real state
     // that is the storage key being absent, not an encoded `Option` tag. Ids
     // restart at 0 once a clean-up empties the queue, so they stay small.
@@ -286,8 +290,12 @@ module state {
         | FromSolicit(p) => 32 + compactLen(p.len)
         | FromSetKV(_) => 32
       }
+    // ParaId 4 + Compact attempted + reason discriminant 1 + reason body.
     | StateBalanceUpdateRejected(p) =>
-      compactLen(p.attempted) + compactLen(p.currentTotal) + compactLen(p.currentUsed)
+      4 + compactLen(p.attempted) + 1 + match p.reason {
+        | BelowUsed(r) => compactLen(r.currentTotal) + compactLen(r.currentUsed)
+        | ParachainIsDeregistering => 0
+      }
     | DesignateRejected(p) => compactLen(p.len)
     | StagedValidatorKeysOverflow => 0
     | ServiceUpgradePreimageMissing(_) => 32
