@@ -19,7 +19,7 @@
 
 use crate::PairId;
 use alloc::vec::Vec;
-use codec::{Decode, DecodeWithMemTracking, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 /// Identifier of a venue, an exchange the oracle fetches prices from.
@@ -34,6 +34,7 @@ use scale_info::TypeInfo;
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
+	MaxEncodedLen,
 	TypeInfo,
 )]
 pub struct VenueId(pub u32);
@@ -50,6 +51,7 @@ pub struct VenueId(pub u32);
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
+	MaxEncodedLen,
 	TypeInfo,
 )]
 pub struct MarketId(pub u32);
@@ -68,12 +70,24 @@ pub struct MarketId(pub u32);
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
+	MaxEncodedLen,
 	TypeInfo,
 )]
 pub struct QueryTag(pub u8);
 
 /// HTTP method of a request.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+#[derive(
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Debug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 pub enum Method {
 	Get,
 	Post,

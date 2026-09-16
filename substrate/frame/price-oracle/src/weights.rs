@@ -27,6 +27,16 @@ pub trait WeightInfo {
 	fn set_parameters() -> Weight;
 	/// Setting the pause flags.
 	fn set_pause() -> Weight;
+	/// Adding or updating a venue.
+	fn set_venue() -> Weight;
+	/// Removing a venue.
+	fn remove_venue() -> Weight;
+	/// Adding or updating a market.
+	fn set_market() -> Weight;
+	/// Removing a market.
+	fn remove_market() -> Weight;
+	/// Setting the health limits of a pair.
+	fn set_pair_settings() -> Weight;
 }
 
 impl WeightInfo for () {
@@ -37,6 +47,21 @@ impl WeightInfo for () {
 		Weight::zero()
 	}
 	fn set_pause() -> Weight {
+		Weight::zero()
+	}
+	fn set_venue() -> Weight {
+		Weight::zero()
+	}
+	fn remove_venue() -> Weight {
+		Weight::zero()
+	}
+	fn set_market() -> Weight {
+		Weight::zero()
+	}
+	fn remove_market() -> Weight {
+		Weight::zero()
+	}
+	fn set_pair_settings() -> Weight {
 		Weight::zero()
 	}
 }

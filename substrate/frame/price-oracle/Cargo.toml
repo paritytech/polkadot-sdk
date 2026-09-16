@@ -22,6 +22,7 @@ frame-system = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+serde_json = { features = ["alloc", "arbitrary_precision"], workspace = true }
 sp-inherents = { workspace = true }
 sp-price-oracle = { workspace = true }
 sp-runtime = { workspace = true }
@@ -35,6 +36,7 @@ std = [
 	"frame-system/std",
 	"log/std",
 	"scale-info/std",
+	"serde_json/std",
 	"sp-inherents/std",
 	"sp-price-oracle/std",
 	"sp-runtime/std",
