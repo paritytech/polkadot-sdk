@@ -583,13 +583,10 @@ impl<T: Config> Registrar for Pallet<T> {
 impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 	type AccountId = T::AccountId;
 
-	fn check_onboarding(
-		head_len: u32,
-		code_len: u32,
-	) -> Result<(), registrar_primitives::FailureReason> {
+	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()> {
 		let config = configuration::ActiveConfig::<T>::get();
 		Self::validate_onboarding_sizes(&config, head_len as usize, code_len as usize)
-			.map_err(|_| registrar_primitives::FailureReason::InvalidOnboardingData)
+			.map_err(|_| ())
 	}
 
 	fn is_registered(para_id: u32) -> bool {
@@ -618,7 +615,7 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		)
 	}
 
-	fn deregister(_para_id: u32) -> Result<(), registrar_primitives::FailureReason> {
+	fn deregister(_para_id: u32) -> DispatchResult {
 		// TODO(ahm-v2): deregister the para and clear its registry entry.
 		Ok(())
 	}
@@ -632,10 +629,7 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		// TODO(ahm-v2): set the para's current head.
 	}
 
-	fn check_code_upgrade(
-		_para_id: u32,
-		_code_len: u32,
-	) -> Result<(), registrar_primitives::FailureReason> {
+	fn check_code_upgrade(_para_id: u32, _code_len: u32) -> Result<(), ()> {
 		// TODO(ahm-v2): validate the code length and that an upgrade may be scheduled now.
 		Ok(())
 	}

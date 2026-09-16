@@ -2687,10 +2687,7 @@ pub struct AcceptingRegistrar;
 impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 	type AccountId = AccountId;
 
-	fn check_onboarding(
-		_head_len: u32,
-		_code_len: u32,
-	) -> Result<(), registrar_primitives::FailureReason> {
+	fn check_onboarding(_head_len: u32, _code_len: u32) -> Result<(), ()> {
 		Ok(())
 	}
 
@@ -2711,9 +2708,7 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 		Ok(())
 	}
 
-	fn deregister(
-		_para_id: registrar_primitives::ParaId,
-	) -> Result<(), registrar_primitives::FailureReason> {
+	fn deregister(_para_id: registrar_primitives::ParaId) -> sp_runtime::DispatchResult {
 		Ok(())
 	}
 
@@ -2726,7 +2721,7 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 	fn check_code_upgrade(
 		_para_id: registrar_primitives::ParaId,
 		_code_len: u32,
-	) -> Result<(), registrar_primitives::FailureReason> {
+	) -> Result<(), ()> {
 		Ok(())
 	}
 

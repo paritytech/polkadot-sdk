@@ -25,7 +25,7 @@
 
 use crate::{self as pallet_registrar_relay, SendToPara};
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
-use registrar_primitives::{FailureReason, MessageToPara, ParaId, ParachainRegistrar};
+use registrar_primitives::{MessageToPara, ParaId, ParachainRegistrar};
 use sp_runtime::BuildStorage;
 
 pub type AccountId = u64;
@@ -88,9 +88,9 @@ pub struct MockRegistrar;
 impl ParachainRegistrar for MockRegistrar {
 	type AccountId = AccountId;
 
-	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), FailureReason> {
+	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()> {
 		if !(MIN_CODE_SIZE..=MAX_CODE_SIZE).contains(&code_len) || head_len > MAX_HEAD_SIZE {
-			return Err(FailureReason::InvalidOnboardingData);
+			return Err(());
 		}
 		Ok(())
 	}
@@ -118,7 +118,7 @@ impl ParachainRegistrar for MockRegistrar {
 		Ok(())
 	}
 
-	fn deregister(_para_id: ParaId) -> Result<(), FailureReason> {
+	fn deregister(_para_id: ParaId) -> sp_runtime::DispatchResult {
 		// TODO(ahm-v2): record the deregistration in the mock.
 		Ok(())
 	}
@@ -132,7 +132,7 @@ impl ParachainRegistrar for MockRegistrar {
 		// TODO(ahm-v2): record the head update in the mock.
 	}
 
-	fn check_code_upgrade(_para_id: ParaId, _code_len: u32) -> Result<(), FailureReason> {
+	fn check_code_upgrade(_para_id: ParaId, _code_len: u32) -> Result<(), ()> {
 		// TODO(ahm-v2): check the code upgrade in the mock.
 		Ok(())
 	}

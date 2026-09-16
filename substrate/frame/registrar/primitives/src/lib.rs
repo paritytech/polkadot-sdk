@@ -335,7 +335,8 @@ pub trait ParachainRegistrar {
 	///
 	/// Checked against the relay chain's live configuration so a doomed request can be rejected
 	/// before the user goes and uploads megabytes of code.
-	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), FailureReason>;
+	#[allow(clippy::result_unit_err)]
+	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()>;
 
 	/// Whether the relay chain already knows this para id.
 	fn is_registered(para_id: ParaId) -> bool;
@@ -357,7 +358,7 @@ pub trait ParachainRegistrar {
 	) -> sp_runtime::DispatchResult;
 
 	/// Drop `para_id` from the registry. An id it does not know is dropped as a no-op.
-	fn deregister(para_id: ParaId) -> Result<(), FailureReason>;
+	fn deregister(para_id: ParaId) -> sp_runtime::DispatchResult;
 
 	/// Whether head data of this size is acceptable right now.
 	#[allow(clippy::result_unit_err)]
@@ -367,7 +368,8 @@ pub trait ParachainRegistrar {
 	fn set_current_head(para_id: ParaId, head: Vec<u8>);
 
 	/// Whether `para_id` could take a code upgrade of this size right now.
-	fn check_code_upgrade(para_id: ParaId, code_len: u32) -> Result<(), FailureReason>;
+	#[allow(clippy::result_unit_err)]
+	fn check_code_upgrade(para_id: ParaId, code_len: u32) -> Result<(), ()>;
 
 	/// Schedule a validation code upgrade for `para_id`.
 	fn schedule_code_upgrade(
