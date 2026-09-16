@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789562596587,
+  "lastUpdate": 1789575884758,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "e9b9f740fab72060252628ebce5a5e30c1c5da2a",
-          "message": "Fix delegatecall callTracer addresses (#10918)\n\n## Summary\n- Fix address tracking in delegatecall operations for callTracer\n\n## Changes\n- Update callTracer to correctly track addresses during delegatecall\noperations\n\n## Test plan\n- Existing tests should pass\n- Verify callTracer correctly reports addresses for delegatecall\noperations\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Robert van Eerdewijk <robertvaneerdewijk@gmail.com>",
-          "timestamp": "2026-02-13T17:05:07Z",
-          "tree_id": "66e1df46dd29065e796d19322c083a20cd5ac214",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e9b9f740fab72060252628ebce5a5e30c1c5da2a"
-        },
-        "date": 1771006890698,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52944.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63638.44,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000023086229999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002474604,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6625613450700003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.7138978591000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.693087009720002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000023086229999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8473197182700215,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.52731821026288,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002474604,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.700671552280001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.980254212270022,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3565972593,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006119468530000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.4393972650128735,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "177c490356fab38f8de89c7d9c5f2408ba3b06fb",
+          "message": "statement-store: persist transient statements and sweep them once propagated (#13216)\n\n# Description\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/11932,\nprerequisite for\nhttps://github.com/paritytech/polkadot-sdk/issues/13193.\n\nA statement no affinity covers (the node is neither a DHT replica for\nits topics nor has explicit affinity for them) is transient: the node\nforwards it once and does not keep it. The PoC kept such statements in\nan in-memory map inside the store and handed the body out once on the\npropagation pull, so nothing downstream could fetch it by hash again,\nand a copy redelivered after the pull was admitted and forwarded anew.\nTransient statements now go through the normal admission and are swept\non maintenance once propagated, like explicit-only statements already\nare.\n\n# Integration\n\nNode-side only, no API changes, no effect with the v2 DHT gate off.\n\n# Review Notes\n\n- `explicit_only` and the PoC `transient` map become one\n`retention_tracks` map of hash to `RetentionTrack`, and\n`sweep_explicit_affinity` becomes `sweep_retention`: the resolver's\nverdict becomes the track, a verdict of Transient removes the statement.\n- Removal bans re-acceptance for a transient statement, so a redelivery\ncannot start another forwarding round, and keeps allowing it for a\nlapsed explicit-only one.\n- Deleted: the transient branch in `submit`, the body hand-out in\n`take_recent_statements`, the `u64::MAX` sequence sentinel.\n\n- Transient statements take the per-account quota like any other\nstatement and are visible to the query API until swept. A transient\nstatement admitted within the sweep window before a restart reloads\nuntracked and stays until expiry, the same in-memory limit explicit-only\ntracking already has.\n- The zombienet v2 DHT tests told a replica from a non-replica by\nwhether the node stored a probe right after submit. They now wait for\nthe sweep to remove the non-replica's copy.\n- Files: substrate/client/statement-store/src/lib.rs,\nsubstrate/client/network/statement/src/v2dht/mod.rs (docs),\ncumulus/zombienet/zombienet-sdk/tests/zombie_ci/statement_store/.",
+          "timestamp": "2026-09-16T14:37:10Z",
+          "tree_id": "b79517841c0ce2d621b513089e770078798ae2cc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/177c490356fab38f8de89c7d9c5f2408ba3b06fb"
+        },
+        "date": 1789575841018,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.09999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63554.079999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.23696849735999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.786082392550002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.35164578089261,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.0000190774,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3295646448900063,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7654723333100004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002091037,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.749212463180002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002091037,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7995908081899996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0055198935599999974,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.0000190774,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8015259616799794,
             "unit": "seconds"
           }
         ]
