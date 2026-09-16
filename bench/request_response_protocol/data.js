@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789572139535,
+  "lastUpdate": 1789574212576,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -125171,6 +125171,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2677792497,
             "range": "± 38805752",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "177c490356fab38f8de89c7d9c5f2408ba3b06fb",
+          "message": "statement-store: persist transient statements and sweep them once propagated (#13216)\n\n# Description\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/11932,\nprerequisite for\nhttps://github.com/paritytech/polkadot-sdk/issues/13193.\n\nA statement no affinity covers (the node is neither a DHT replica for\nits topics nor has explicit affinity for them) is transient: the node\nforwards it once and does not keep it. The PoC kept such statements in\nan in-memory map inside the store and handed the body out once on the\npropagation pull, so nothing downstream could fetch it by hash again,\nand a copy redelivered after the pull was admitted and forwarded anew.\nTransient statements now go through the normal admission and are swept\non maintenance once propagated, like explicit-only statements already\nare.\n\n# Integration\n\nNode-side only, no API changes, no effect with the v2 DHT gate off.\n\n# Review Notes\n\n- `explicit_only` and the PoC `transient` map become one\n`retention_tracks` map of hash to `RetentionTrack`, and\n`sweep_explicit_affinity` becomes `sweep_retention`: the resolver's\nverdict becomes the track, a verdict of Transient removes the statement.\n- Removal bans re-acceptance for a transient statement, so a redelivery\ncannot start another forwarding round, and keeps allowing it for a\nlapsed explicit-only one.\n- Deleted: the transient branch in `submit`, the body hand-out in\n`take_recent_statements`, the `u64::MAX` sequence sentinel.\n\n- Transient statements take the per-account quota like any other\nstatement and are visible to the query API until swept. A transient\nstatement admitted within the sweep window before a restart reloads\nuntracked and stays until expiry, the same in-memory limit explicit-only\ntracking already has.\n- The zombienet v2 DHT tests told a replica from a non-replica by\nwhether the node stored a probe right after submit. They now wait for\nthe sweep to remove the non-replica's copy.\n- Files: substrate/client/statement-store/src/lib.rs,\nsubstrate/client/network/statement/src/v2dht/mod.rs (docs),\ncumulus/zombienet/zombienet-sdk/tests/zombie_ci/statement_store/.",
+          "timestamp": "2026-09-16T14:37:10Z",
+          "tree_id": "b79517841c0ce2d621b513089e770078798ae2cc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/177c490356fab38f8de89c7d9c5f2408ba3b06fb"
+        },
+        "date": 1789574171752,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19337628,
+            "range": "± 84794",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19666216,
+            "range": "± 127966",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20980298,
+            "range": "± 122447",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25422079,
+            "range": "± 148306",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56192877,
+            "range": "± 383875",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 334755499,
+            "range": "± 3428711",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2402498603,
+            "range": "± 131712134",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16362858,
+            "range": "± 208064",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16530593,
+            "range": "± 188606",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 16948165,
+            "range": "± 242693",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21573800,
+            "range": "± 124422",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 57820043,
+            "range": "± 219096",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 333858796,
+            "range": "± 3749086",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2574229107,
+            "range": "± 37926253",
             "unit": "ns/iter"
           }
         ]
