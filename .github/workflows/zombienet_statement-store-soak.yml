@@ -132,6 +132,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Reuse the namespace the runner was given
+        shell: bash
+        run: |
+          # The runner's kubernetes mode pre-creates a namespace for the job and scopes its
+          # service account to it, so the provider has to spawn there instead of creating its
+          # own namespace. The action only exports this when ZOMBIENET_SDK_DEFAULT_RUNNER is in
+          # the job environment, which no workflow sets.
+          echo "ZOMBIE_K8S_CI_NAMESPACE=$(cat /data/namespace)" >> "$GITHUB_ENV"
+
       - name: zombienet_test
         timeout-minutes: 80
         uses: ./.github/actions/zombienet-sdk
