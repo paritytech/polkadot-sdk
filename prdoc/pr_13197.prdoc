@@ -9,8 +9,11 @@ doc:
     orchestrator's choice of peer is final, so the outbox applies no affinity filter of its
     own on that path. A queued statement that left the store or expired before its chunk went
     out, or was still queued when the peer disconnected, is counted in
-    `undelivered_statements` under `missing_from_store` or `disconnected`.
+    `substrate_sync_statement_undelivered_total` under the reasons `missing_from_store` and
+    `disconnected`.
 
 crates:
 - name: sc-network-statement
   bump: patch
+- name: sp-statement-store
+  bump: none

@@ -294,8 +294,10 @@ impl V2DhtOrchestrator {
 		self.peers_topology.routing_targets(topic).contains(&peer)
 	}
 
-	/// Whether `peer` is a DHT routing target for a statement. Checking a topic scans all
-	/// connected peers, so the answer is cached per topic for the predicate's lifetime.
+	/// Whether `peer` is a DHT routing target for a statement.
+	///
+	/// Checking a topic scans the connected peers, so the answer is cached per topic for the
+	/// predicate's lifetime.
 	pub(crate) fn dht_target_predicate(&self, peer: PeerId) -> impl Fn(&Statement) -> bool + '_ {
 		let topics = RefCell::new(HashMap::new());
 		move |stmt: &Statement| {

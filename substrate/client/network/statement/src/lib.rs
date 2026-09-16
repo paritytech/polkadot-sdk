@@ -315,7 +315,7 @@ mod send_failure {
 	pub const NO_SINK: &str = "no_sink";
 	/// The peer's propagation outbox overflowed and the oldest queued hashes were dropped.
 	pub const OUTBOX_FULL: &str = "outbox_full";
-	/// A queued statement left the store or expired before its chunk went out.
+	/// A queued statement left the store, failed to decode or expired before its chunk went out.
 	pub const MISSING_FROM_STORE: &str = "missing_from_store";
 	/// The peer disconnected with statements still queued.
 	pub const DISCONNECTED: &str = "disconnected";
@@ -1029,7 +1029,7 @@ struct FetchedChunk {
 	statements: Vec<(Hash, Statement)>,
 	/// Hashes consumed from the outbox, whether they yielded a statement or not.
 	processed: usize,
-	/// Consumed hashes with no statement left to send, gone from the store or expired.
+	/// Consumed hashes the store yielded no live statement for: absent, corrupt or expired.
 	missing: usize,
 	/// Encoded size of `statements`, above the maximum only for a lone oversized statement.
 	size: usize,
@@ -3707,8 +3707,10 @@ mod tests {
 				.insert(statement.hash(), statement);
 		}
 		notification_service.block_sends();
+		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
 		handler.propagate_statements().await;
-		assert!(handler.propagation_outboxes.contains_key(&peer_id));
+		let queued = handler.propagation_outboxes.get(&peer_id).map_or(0, |outbox| outbox.len());
+		assert!(queued > 0);
 		assert!(handler.in_flight_chunks.contains_key(&peer_id));
 
 		handler
@@ -3719,6 +3721,80 @@ mod tests {
 
 		assert!(!handler.propagation_outboxes.contains_key(&peer_id));
 		assert!(!handler.in_flight_chunks.contains_key(&peer_id));
+		let metrics = handler.metrics.as_ref().unwrap();
+		assert_eq!(
+			metrics
+				.undelivered_statements
+				.with_label_values(&[send_failure::DISCONNECTED])
+				.get(),
+			queued as u64,
+			"every hash still queued at disconnect counts as undelivered"
+		);
+		assert_eq!(
+			metrics.send_failures.with_label_values(&[send_failure::DISCONNECTED]).get(),
+			1,
+			"one disconnect event"
+		);
+	}
+
+	#[tokio::test]
+	async fn disconnect_with_an_empty_outbox_records_no_loss() {
+		let (mut handler, _store, _network, _notification_service, _, peer_ids) = build_handler(1);
+		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
+
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamClosed {
+				peer: peer_ids[0],
+			})
+			.await;
+
+		let metrics = handler.metrics.as_ref().unwrap();
+		assert_eq!(
+			metrics
+				.undelivered_statements
+				.with_label_values(&[send_failure::DISCONNECTED])
+				.get(),
+			0
+		);
+		assert_eq!(metrics.send_failures.with_label_values(&[send_failure::DISCONNECTED]).get(), 0);
+	}
+
+	#[tokio::test]
+	async fn drain_counts_queued_statements_the_store_no_longer_serves() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(1);
+		handler.metrics = Some(Metrics::register(&Registry::new()).unwrap());
+		let peer_id = peer_ids[0];
+
+		let mut gone = new_live_statement();
+		gone.set_plain_data(b"gone".to_vec());
+		let gone_hash = gone.hash();
+		let mut expired = Statement::new();
+		expired.set_plain_data(b"expired".to_vec());
+		let expired_hash = expired.hash();
+		let mut live = new_live_statement();
+		live.set_plain_data(b"live".to_vec());
+		let live_hash = live.hash();
+		statement_store.insert(expired);
+		statement_store.insert(live);
+
+		handler
+			.propagation_outboxes
+			.insert(peer_id, VecDeque::from(vec![gone_hash, expired_hash, live_hash]));
+		handler.try_send_next_chunk(peer_id);
+		handler.flush_pending_sends().await;
+
+		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
+		assert_eq!(sent, vec![live_hash]);
+		let metrics = handler.metrics.as_ref().unwrap();
+		assert_eq!(
+			metrics
+				.undelivered_statements
+				.with_label_values(&[send_failure::MISSING_FROM_STORE])
+				.get(),
+			2,
+			"the hash the store never held and the expired one are lost"
+		);
 	}
 
 	#[tokio::test]
@@ -3969,7 +4045,7 @@ mod tests {
 		statement_store.insert(statement.clone());
 		let statements = vec![(0, hash, statement)];
 
-		// The peer's filter matches no topic and its watermark sits above the statement; the
+		// The peer's filter matches no topic and its watermark sits above the statement. The
 		// orchestrator chose the peer regardless, and the initial sync would skip the statement.
 		let peer_id = PeerId::random();
 		let mut peer = Peer::new_for_testing(
@@ -3987,6 +4063,32 @@ mod tests {
 			handler.propagation_outboxes.get(&peer_id).unwrap(),
 			&VecDeque::from(vec![hash])
 		);
+	}
+
+	#[tokio::test]
+	async fn targets_skip_a_peer_that_cannot_receive_yet() {
+		let (mut handler, statement_store, _network, _notification_service, _, _) =
+			build_handler(0);
+
+		let mut statement = new_live_statement();
+		statement.set_plain_data(b"targeted".to_vec());
+		let hash = statement.hash();
+		statement_store.insert(statement.clone());
+		let statements = vec![(0, hash, statement)];
+
+		// A light V2 peer owes its affinity filter before it may receive anything.
+		let peer_id = PeerId::random();
+		let mut peer = Peer::new_for_testing(
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).expect("nonzero"),
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT)
+				.expect("nonzero"),
+		);
+		peer.protocol_version = PeerProtocolVersion::V2;
+		peer.is_light = true;
+		handler.peers.insert(peer_id, peer);
+
+		handler.queue_statements_for_targets(&statements, vec![(peer_id, vec![0])]);
+		assert!(handler.propagation_outboxes.is_empty());
 	}
 
 	#[tokio::test]
