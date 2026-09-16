@@ -401,7 +401,8 @@ impl RelayChainInterface for TestRelayClient {
 	async fn import_notification_stream(
 		&self,
 	) -> RelayChainResult<Pin<Box<dyn Stream<Item = PHeader> + Send>>> {
-		unimplemented!("Not needed for test")
+		// Siblings are exercised directly against the buffer in `scheduling::tests`.
+		Ok(Box::pin(futures::stream::empty()))
 	}
 
 	async fn finality_notification_stream(
@@ -637,6 +638,37 @@ impl RelayChainDataCache<TestRelayClient> {
 }
 
 /// Create a relay header with a BABE pre-digest containing the given slot.
+/// Like [`relay_header_with_slot`] but claiming a BABE *primary* slot, which outweighs a
+/// secondary claim at the same height. The VRF data is dummy: only the digest variant matters.
+pub fn relay_header_primary_with_slot(
+	number: u32,
+	parent_hash: RelayHash,
+	slot: u64,
+) -> RelayHeader {
+	use codec::Decode;
+	use sc_consensus_babe::{CompatibleDigestItem, PreDigest, PrimaryPreDigest};
+	use sp_core::sr25519::vrf::{VrfPreOutput, VrfProof, VrfSignature};
+	use sp_runtime::DigestItem;
+
+	let vrf_signature = VrfSignature {
+		pre_output: VrfPreOutput::decode(&mut [0u8; 32].as_slice()).expect("valid preout; qed"),
+		proof: VrfProof::decode(&mut [0u8; 64].as_slice()).expect("valid proof; qed"),
+	};
+
+	let mut digest = sp_runtime::generic::Digest::default();
+	digest.push(<DigestItem as CompatibleDigestItem>::babe_pre_digest(PreDigest::Primary(
+		PrimaryPreDigest { authority_index: 0, slot: slot.into(), vrf_signature },
+	)));
+
+	RelayHeader {
+		parent_hash,
+		number,
+		state_root: Default::default(),
+		extrinsics_root: Default::default(),
+		digest,
+	}
+}
+
 pub fn relay_header_with_slot(number: u32, parent_hash: RelayHash, slot: u64) -> RelayHeader {
 	use sc_consensus_babe::{CompatibleDigestItem, PreDigest, SecondaryPlainPreDigest};
 	use sp_runtime::DigestItem;

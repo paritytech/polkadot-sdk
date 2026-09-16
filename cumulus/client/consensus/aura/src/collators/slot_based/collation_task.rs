@@ -38,10 +38,7 @@ use futures::prelude::*;
 
 use crate::export_pov_to_path;
 use sc_utils::mpsc::TracingUnboundedReceiver;
-use sp_runtime::{
-	traits::{Block as BlockT, Header},
-	BoundedVec,
-};
+use sp_runtime::traits::{Block as BlockT, Header};
 
 use super::{CollatorMessage, CollatorSegmentEntry, CollatorSegmentMessage};
 
