@@ -249,10 +249,10 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 	}
 }
 
-/// Assembles a V3 [`SchedulingProof`], converting collator-side values into the shapes the proof
-/// needs: relay parent descendants become the backwards header chain, and the core assignment plus
-/// collator peer id become a signed [`SchedulingInfoPayload`].
 /// Why [`SchedulingProofBuilder::build_with_signed_payload`] could not sign.
+// The signed terminal has no production caller until the resubmission path lands. Outside tests
+// only `build` is reachable.
+#[cfg_attr(not(test), allow(dead_code))]
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum SchedulingSignError {
 	#[error("scheduling proof builder is missing the {0}")]
@@ -271,6 +271,10 @@ pub(crate) enum SchedulingSignError {
 	SignatureSize(usize),
 }
 
+/// Assembles a V3 [`SchedulingProof`], converting collator-side values into the shapes the proof
+/// needs: relay parent descendants become the backwards header chain, and the core assignment plus
+/// collator peer id become a signed [`SchedulingInfoPayload`].
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct SchedulingProofBuilder<'a, P: Pair> {
 	internal_scheduling_parent_header: RelayHeader,
 	header_chain: Vec<RelayHeader>,
@@ -280,6 +284,7 @@ pub(crate) struct SchedulingProofBuilder<'a, P: Pair> {
 	_phantom: PhantomData<P>,
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 impl<'a, P> SchedulingProofBuilder<'a, P>
 where
 	P: Pair,
@@ -326,10 +331,17 @@ where
 		self
 	}
 
-	/// Sign the scheduling info with `author_pub`, the key eligible for the slot at the internal
-	/// scheduling parent, and assemble the proof around it.
-	///
-	/// Everything the signature commits to has to be supplied first.
+	/// Assemble the proof unsigned, for an initial submission
+	/// (`relay_parent == internal scheduling parent`). An initial submission must stay valid
+	/// without any additional signed data. Core selection comes from the block's UMP signals.
+	pub(crate) fn build(self) -> SchedulingProof {
+		SchedulingProof::new(self.header_chain, self.internal_scheduling_parent_header, None)
+	}
+
+	/// Assemble the proof around a signed scheduling info, for a resubmission (`relay_parent` an
+	/// ancestor of the internal scheduling parent). Validators require the signature there.
+	/// Everything it commits to has to be supplied first. `author_pub` is the key eligible for
+	/// the slot at the internal scheduling parent.
 	pub(crate) fn build_with_signed_payload(
 		self,
 		author_pub: &P::Public,
@@ -414,11 +426,10 @@ mod tests {
 
 	#[test]
 	fn signed_payload_commits_to_the_builder_inputs() {
-		// The payload has to carry the very same core info and peer id the block puts in its
-		// `CoreInfo` pre-digest and parachain inherent. `validate_block` rebuilds the candidate's
-		// UMP tail from this payload and discards the block's own signals, while the receipt's
-		// commitments are still built from those signals — so any divergence here is a
-		// commitments mismatch at backing.
+		// On a resubmission `validate_block` rebuilds the candidate's UMP tail from this payload.
+		// The receipt's commitments come from the blocks' own signals. The payload must carry the
+		// same core info and peer id the blocks emitted, or the commitments check fails at
+		// backing.
 		let (header, core_info, peer_id) = signing_inputs();
 		let keystore: KeystorePtr = MemoryKeystore::new().into();
 		let author_pub: AuthorityId = keystore
@@ -447,6 +458,22 @@ mod tests {
 			signed.payload.encode(),
 			&author_pub,
 		));
+	}
+
+	#[test]
+	fn initial_submission_stays_unsigned_even_with_signing_inputs() {
+		// The unsigned terminal ignores the signing inputs and cannot fail. An unsignable
+		// keystore proves it.
+		let (header, core_info, peer_id) = signing_inputs();
+		let keystore: KeystorePtr = MemoryKeystore::new().into();
+
+		let proof = SchedulingProofBuilder::<AuthorityPair>::new(header)
+			.for_core(&core_info)
+			.crediting_peer(peer_id)
+			.keystore(&keystore)
+			.build();
+
+		assert!(proof.signed_scheduling_info.is_none());
 	}
 
 	#[test]

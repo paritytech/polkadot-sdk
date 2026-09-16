@@ -1084,13 +1084,11 @@ mod tests {
 	}
 
 	#[test]
-	fn override_reproduces_block_signals_for_an_initial_submission() {
-		// An initial submission signs the same core info and peer id the block emits, so the
-		// PVF's override reproduces the block's own tail byte for byte. The candidate's
-		// commitments are built collator-side from the block's tail and checked against the
-		// PVF's result, so this equality is what lets a *signed* initial submission be backed
-		// at all. A resubmission is what deliberately breaks it, and it carries a collator-side
-		// override to keep the two in step.
+	fn override_matches_block_signals_when_values_agree() {
+		// Given the same core info and peer id, the override emits the block's own tail byte for
+		// byte. Resubmissions rely on this: the collator rebuilds the commitments from the signed
+		// payload, and the PVF's override must land on identical bytes to pass the commitments
+		// check at backing.
 		let selector = CoreSelector(7);
 		let offset = ClaimQueueOffset(3);
 		let peer_id = peer(0xAA);

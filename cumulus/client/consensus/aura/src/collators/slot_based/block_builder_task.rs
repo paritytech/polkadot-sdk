@@ -882,7 +882,6 @@ where
 					para_slot: cx.para_slot.slot,
 					para_client: &*env.para_client,
 					v3_enabled: cx.v3_enabled,
-					keystore: &env.keystore,
 				})
 				.await
 				{
@@ -938,7 +937,6 @@ struct BuildCollationParams<
 	para_slot: cumulus_primitives_aura::Slot,
 	para_client: &'a Client,
 	v3_enabled: bool,
-	keystore: &'a KeystorePtr,
 }
 
 /// Build a collation for one core.
@@ -980,7 +978,6 @@ async fn build_collation_for_core<
 		para_slot,
 		para_client,
 		v3_enabled,
-		keystore,
 	}: BuildCollationParams<'_, Block, P, RelayClient, BI, CIDP, Proposer, CS, CHP, Client>,
 ) -> Result<Option<Block::Header>, ()>
 where
@@ -1014,32 +1011,11 @@ where
 	// Check if V3 scheduling is enabled and build scheduling proof if so.
 	let mut scheduling_proof = None;
 	if v3_enabled {
-		// Initial submission: `internal_scheduling_parent == relay_parent`, so the internal
-		// scheduling parent header is the relay parent's header itself, and the slot claim's
-		// author is the key eligible to sign for it. The relay parent descendants are only
-		// needed for v2.
-		let builder = SchedulingProofBuilder::<P>::new(relay_parent_header.clone())
+		// Initial submission: `internal_scheduling_parent == relay_parent`, unsigned. The relay
+		// parent descendants are only needed for v2.
+		let proof = SchedulingProofBuilder::<P>::new(relay_parent_header.clone())
 			.descendants(relay_parent_data.take_descendants())
-			.for_core(&core_info)
-			.crediting_peer(collator_peer_id)
-			.keystore(keystore);
-
-		// TODO: skip the signing when the core's resubmittable segment is empty, since the
-		// signature only matters for a resubmission.
-		let proof = match builder.build_with_signed_payload(slot_claim.author_pub()) {
-			Ok(proof) => proof,
-			Err(err) => {
-				tracing::error!(
-					target: LOG_TARGET,
-					?err,
-					?core_index,
-					core_selector = ?core_info.selector,
-					"Could not sign the scheduling info; skipping the slot.",
-				);
-
-				return Err(());
-			},
-		};
+			.build();
 
 		tracing::debug!(
 			target: LOG_TARGET,
