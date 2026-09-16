@@ -802,9 +802,10 @@ parent-head and the new-head declarations are mandatory.
 ### 4.3 Host Functions & PVM Imports
 
 On JAM, PVFs execute inside a child PVM instance spawned by the Parachain Service's Refine
-function. **Hashing**, and **signature verification** are expected to
-move into PVM guest code, since transpilation to native code should bring acceptable performance,
-though benchmarks are needed to confirm exact numbers.
+function. The child PVM's heap is capped at **1 GiB**, the upper bound `grow_heap` can reach.
+**Hashing** and **signature verification** run as PVM guest code, not as host calls. Their
+performance impact is small, and future PVM improvements should shrink it further
+([parachain-service#13](https://github.com/paritytech/parachain-service/issues/13)).
 
 Every host function is imported at a **fixed index**. Those forwarding a JAM host call keep
 its Gray Paper index. Those native to the Parachain Service are numbered from 200 up.
