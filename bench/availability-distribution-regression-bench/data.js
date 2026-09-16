@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789575831288,
+  "lastUpdate": 1789589152050,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6ed951984c065c843dfbe292c11b1c38d22083e2",
-          "message": "pallet-revive: minor cleanups and fixes (#11054)\n\n## Summary\n\nPreparatory cleanup PR extracted from the EIP-7702 branch to simplify\nreview.\n\n- **Counter.sol uint64**: Change `uint256` to `uint64` in\nCounter/NestedCounter fixtures, to avoid U256 conversion in tests.\n- **Debug log**: Add debug log for `eth_transact` substrate tx hash\n- **RLP fix**: Fix `Transaction7702Signed` decoder field order (removed\nincorrect `gas_price` field at index 4, aligned with encoder)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-13T17:42:01Z",
-          "tree_id": "924edcd8a7b4426c4410e7250615f9c07bac8fd1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6ed951984c065c843dfbe292c11b1c38d22083e2"
-        },
-        "date": 1771008962341,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024758244586666672,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.01005050178666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007045236960000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14427063441333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14435729652000007,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "22591718+RomarQ@users.noreply.github.com",
+            "name": "Rodrigo Quelhas",
+            "username": "RomarQ"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3f0afb7ee7d5a57e0605fab294ec4e7def98a9bd",
+          "message": "Migrate `pallet-election-provider-multi-block` from the deprecated `ValidateUnsigned` trait to `#[pallet::authorize]` (#13032)\n\n## Summary\n\nPart of #2415 (follow-up to #10150)\n\nMigrate `pallet-election-provider-multi-block` from the deprecated\n`ValidateUnsigned` trait to `#[pallet::authorize]`, following the\npattern established in #10716.\n\n## Changes\n\n- Replace the `ValidateUnsigned` impl with `#[pallet::authorize]` on the\n`submit_unsigned` call. The validation logic is unchanged, just moved\ninto the authorize callback. It still restricts the call to\n`TransactionSource::Local` and `TransactionSource::InBlock`, runs\n`validate_unsigned_checks`, and builds the same transaction validity.\n- Change the `Config` supertrait from `CreateBare<Call<Self>>` to\n`CreateAuthorizedTransaction<Call<Self>>`.\n- Replace `ensure_none` with `ensure_authorized` and `create_bare` with\n`create_authorized_transaction`.\n- Add `#[pallet::weight_of_authorize]`. The weight already existed as\n`validate_unsigned`, so rename it to `authorize_submit_unsigned` and\npoint its benchmark at the authorize callback.\n- Add `frame_system::AuthorizeCall` to the\n`pallet-staking-async-parachain-runtime` transaction extension pipeline,\nand a `CreateAuthorizedTransaction` implementation for it and for\n`asset-hub-westend-runtime`.\n\n## Migration\n\nThe `Config` trait now requires\n`CreateAuthorizedTransaction<Call<Self>>` instead of\n`CreateBare<Call<Self>>`. The runtime must also include\n`frame_system::AuthorizeCall` in its transaction extension pipeline.\n\nThe `WeightInfo` trait renamed `validate_unsigned` to\n`authorize_submit_unsigned`.\n\n---------\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
+          "timestamp": "2026-09-16T18:35:13Z",
+          "tree_id": "c23ec157321b0d956785a405f7e7fdc3162aa33e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3f0afb7ee7d5a57e0605fab294ec4e7def98a9bd"
+        },
+        "date": 1789589120038,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025136785079999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009698266659999974,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00765525872,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14434607957333348,
             "unit": "seconds"
           }
         ]
