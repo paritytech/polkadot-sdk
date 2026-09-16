@@ -651,23 +651,18 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		};
 		let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 		let dust_transfer = Pallet::<E::T>::has_dust(value);
-		let mut transfer_warmth = None;
 		match &precompile {
 			Some(precompile) if precompile.has_contract_info() => {
-				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?
+				self.charge_gas(RuntimeCosts::PrecompileWithInfoBase)?;
 			},
-			Some(_) => self.charge_gas(RuntimeCosts::PrecompileBase)?,
+			Some(_) => {
+				self.charge_gas(RuntimeCosts::PrecompileBase)?;
+			},
 			None => {
-				let transfer_access = (!value.is_zero())
-					.then(|| TransferItems { from: self.ext.address(), dust: dust_transfer });
-				let call_items = CallItems::new(
-					callee,
-					matches!(&call_type, CallType::DelegateCall),
-					transfer_access,
-				);
+				let call_items =
+					CallItems::new(callee, matches!(&call_type, CallType::DelegateCall));
 				let warmth = self.ext.warm(call_items);
-				transfer_warmth = warmth.transfer_warmth();
-				self.charge_gas(RuntimeCosts::CallBase(warmth))?
+				self.charge_gas(RuntimeCosts::CallBase(warmth))?;
 			},
 		};
 
@@ -703,10 +698,17 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						return Err(Error::<E::T>::StateChangeDenied.into());
 					}
 
-					self.charge_gas(RuntimeCosts::CallTransferSurcharge {
-						dust_transfer,
-						warmth: transfer_warmth,
-					})?;
+					// A precompile's account state is untracked, so its transfer has no warmth
+					// and pays cold.
+					let warmth = precompile.is_none().then(|| {
+						let transfer = TransferItems {
+							from: self.ext.address(),
+							to: callee,
+							dust: dust_transfer,
+						};
+						self.ext.warm(transfer)
+					});
+					self.charge_gas(RuntimeCosts::CallTransferSurcharge { dust_transfer, warmth })?;
 				}
 
 				let reentrancy = if flags.contains(CallFlags::ALLOW_REENTRY) {

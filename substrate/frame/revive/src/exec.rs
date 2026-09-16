@@ -1087,14 +1087,18 @@ where
 		if <AllPrecompiles<T>>::get::<Self>(address.as_fixed_bytes()).is_some() {
 			return;
 		}
+		access_list.warm(CallItems::new(address, false));
 		let transfer_access =
 			origin.account_id().ok().filter(|_| !value.is_zero()).map(|account| {
 				access_list::TransferItems {
 					from: T::AddressMapper::to_address(account),
+					to: address,
 					dust: Contracts::<T>::has_dust(value),
 				}
 			});
-		access_list.warm(CallItems::new(address, false, transfer_access));
+		if let Some(transfer) = transfer_access {
+			access_list.warm(transfer);
+		}
 	}
 
 	/// Loads code, warming the code info and blob on success.

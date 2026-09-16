@@ -743,7 +743,6 @@ mod tests {
 			weight(&RuntimeCosts::CallBase(CallWarmth::Plain {
 				original_account: warmth,
 				account_info: warmth,
-				transfer: None,
 			}))
 		};
 		let delegate =
@@ -752,6 +751,18 @@ mod tests {
 		assert!(plain(hot).ref_time() > delegate(hot).ref_time());
 		assert!(plain(cold).ref_time() > delegate(cold).ref_time());
 		assert!(plain(cold).proof_size() > delegate(cold).proof_size());
+
+		for (shape, cold_weight, hot_weight) in
+			[("plain", plain(cold), plain(hot)), ("delegate", delegate(cold), delegate(hot))]
+		{
+			assert!(
+				cold_weight.ref_time() > hot_weight.ref_time(),
+				"{shape}: a warm call must not cost more than a cold one: \
+				 cold={cold_weight:?} hot={hot_weight:?}",
+			);
+			assert_eq!(hot_weight.proof_size(), 0, "{shape}: a warm call doesn't pay proof");
+			assert!(cold_weight.proof_size() > 0, "{shape}: a cold call pays proof",);
+		}
 	}
 
 	#[test]
@@ -761,9 +772,9 @@ mod tests {
 			weight(&RuntimeCosts::CallTransferSurcharge {
 				dust_transfer,
 				warmth: warmth.map(|warmth| TransferWarmth {
-					account: warmth,
+					receiver_account: warmth,
 					sender_account: warmth,
-					account_info: write_paid,
+					receiver_account_info: write_paid,
 					sender_account_info: warmth,
 				}),
 			})
@@ -796,9 +807,9 @@ mod tests {
 			weight(&RuntimeCosts::CallTransferSurcharge {
 				dust_transfer,
 				warmth: Some(TransferWarmth {
-					account: accounts,
+					receiver_account: accounts,
 					sender_account: accounts,
-					account_info: infos,
+					receiver_account_info: infos,
 					sender_account_info: infos,
 				}),
 			})

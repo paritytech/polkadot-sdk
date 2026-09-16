@@ -1255,17 +1255,17 @@ fn cold_hot_value_transfer_warms_the_account(fixture_type: FixtureType) {
 		let zero_value = call_with_value(0);
 		let with_value = call_with_value(1_000_000);
 
-		let value_transfer_only = CallItems::value_call_entries() - CallItems::plain_entries();
+		let value_transfer_only = CallItems::transfer_entries();
 		let extra_cold = with_value.cold - zero_value.cold;
 		let extra_hot = with_value.hot - zero_value.hot;
 
 		assert_eq!(
-			extra_hot, 1,
-			"only the sender's account is already warm: it is the calling contract",
+			extra_hot, 2,
+			"two are already warm: the sender's account, and the callee's account info",
 		);
 		assert_eq!(
 			extra_cold,
-			value_transfer_only - 1,
+			value_transfer_only - extra_hot,
 			"the rest of the value-transfer state is newly touched",
 		);
 	});

@@ -451,17 +451,26 @@ mod benchmarks {
 			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 			setup.set_balance(native + 1u32.into() + Pallet::<T>::min_balance());
 
-			let transfer = (!value.is_zero())
-				.then(|| TransferItems { from: setup.contract().address, dust: dust != 0 });
+			let transfer = (!value.is_zero()).then(|| TransferItems {
+				from: setup.contract().address,
+				to: callee_addr,
+				dust: dust != 0,
+			});
 
-			let call_items = CallItems::new(callee_addr, $delegate, transfer);
+			let call_items = CallItems::new(callee_addr, $delegate);
 			whitelist_access::<T>(call_items);
 			let code_items = CodeLoadItems { hash: code_hash };
 			whitelist_access::<T>(code_items);
+			if let Some(transfer) = transfer {
+				whitelist_access::<T>(transfer);
+			}
 
 			let (mut ext, _) = setup.ext();
 			ext.warm(call_items);
 			ext.warm(code_items);
+			if let Some(transfer) = transfer {
+				ext.warm(transfer);
+			}
 			let mut $runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 			let mut $memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
 

@@ -67,9 +67,7 @@ pub fn charge_call_gas<'a, E: Ext>(
 	let precompile = <AllPrecompiles<E::T>>::get::<E>(&callee.as_fixed_bytes());
 
 	let dust_transfer = Pallet::<E::T>::has_dust(value);
-	// A precompile's account state is untracked, so its transfer stays `None` and pays cold.
-	let mut transfer_warmth = None;
-	match precompile {
+	match &precompile {
 		Some(precompile) => {
 			// Base cost depending on contract info
 			interpreter.ext.frame_meter_mut().charge_or_halt(
@@ -88,11 +86,8 @@ pub fn charge_call_gas<'a, E: Ext>(
 		},
 		None => {
 			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported.
-			let transfer_access = (!value.is_zero())
-				.then(|| TransferItems { from: interpreter.ext.address(), dust: dust_transfer });
-			let call_items = CallItems::new(callee, scheme.is_delegate_call(), transfer_access);
+			let call_items = CallItems::new(callee, scheme.is_delegate_call());
 			let warmth = interpreter.ext.warm(call_items);
-			transfer_warmth = warmth.transfer_warmth();
 			interpreter.ext.charge_or_halt(RuntimeCosts::CallBase(warmth))?;
 
 			interpreter
@@ -103,13 +98,16 @@ pub fn charge_call_gas<'a, E: Ext>(
 	};
 
 	if !value.is_zero() {
+		// A precompile's account state is untracked, so its transfer has no warmth and pays cold.
+		let warmth = precompile.is_none().then(|| {
+			let transfer =
+				TransferItems { from: interpreter.ext.address(), to: callee, dust: dust_transfer };
+			interpreter.ext.warm(transfer)
+		});
 		interpreter
 			.ext
 			.frame_meter_mut()
-			.charge_or_halt(RuntimeCosts::CallTransferSurcharge {
-				dust_transfer,
-				warmth: transfer_warmth,
-			})?;
+			.charge_or_halt(RuntimeCosts::CallTransferSurcharge { dust_transfer, warmth })?;
 	}
 
 	ControlFlow::Continue(())

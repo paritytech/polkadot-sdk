@@ -181,11 +181,6 @@ impl Warmth {
 		matches!(self, Self::Hot { charged } if !charged.covers(op))
 	}
 
-	/// Returns whether the entry is removed from the access list if the frame reverts.
-	pub fn is_revertible(&self) -> bool {
-		matches!(self, Self::Cold { revertible: true })
-	}
-
 	/// Returns a cold warmth whose touch stays in the list if the frame reverts.
 	pub fn cold_non_revertible() -> Self {
 		Self::Cold { revertible: false }
@@ -220,18 +215,18 @@ impl Warmth {
 /// An access's entries counted by warmth.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct WarmthSummary {
-	/// Entries this access pays for.
+	/// How many entries in total.
 	pub total: u32,
 	/// How many are cold.
 	pub cold: u32,
 	/// How many of the cold ones roll back with the frame.
 	pub cold_revertible: u32,
-	/// Hot entries being written that had paid only for a read.
+	/// How many are written after paying only for a read.
 	pub upgrades: u32,
 }
 
 impl WarmthSummary {
-	/// Counts an entry this access pays for, at the operation it performs on it.
+	/// Counts one entry, at the operation performed on it.
 	pub fn count(mut self, warmth: Warmth, op: StorageOp) -> Self {
 		self.total = self.total.saturating_add(1);
 		match warmth {
@@ -322,32 +317,22 @@ pub trait Access {
 #[cfg_attr(test, derive(PartialEq, Eq))]
 #[derive(Clone, Copy, Debug)]
 pub enum CallWarmth {
-	/// A normal call touches the target's address mapping and account info; `transfer` carries the
-	/// value transfer's warmth when the call moves value.
-	Plain { original_account: Warmth, account_info: Warmth, transfer: Option<TransferWarmth> },
+	/// A normal call touches the target's address mapping and account info.
+	Plain { original_account: Warmth, account_info: Warmth },
 	/// A delegate call reads only the target's account info.
 	Delegate { account_info: Warmth },
 }
 
 impl CallWarmth {
-	/// Summarizes the entries the call itself pays for. A dust transfer pays the write on the
-	/// callee's account info, so this counts it as a read.
+	/// Summarizes the warmth of the call's own entries.
 	pub(crate) fn summary(&self) -> WarmthSummary {
 		match self {
-			Self::Plain { original_account, account_info, .. } => WarmthSummary::default()
-				.count(*original_account, StorageOp::Read)
-				.count(*account_info, StorageOp::Read),
+			Self::Plain { original_account, account_info } => WarmthSummary::default()
+				.count(*original_account, CallItems::OP)
+				.count(*account_info, CallItems::OP),
 			Self::Delegate { account_info } => {
-				WarmthSummary::default().count(*account_info, StorageOp::Read)
+				WarmthSummary::default().count(*account_info, CallItems::OP)
 			},
-		}
-	}
-
-	/// Returns the value transfer's warmth, `None` when the call moves no value.
-	pub fn transfer_warmth(self) -> Option<TransferWarmth> {
-		match self {
-			Self::Plain { transfer, .. } => transfer,
-			Self::Delegate { .. } => None,
 		}
 	}
 }
@@ -355,34 +340,34 @@ impl CallWarmth {
 /// A call opcode's access, one variant per call kind.
 #[derive(Clone, Copy, Debug)]
 pub enum CallItems {
-	Plain { target: H160, transfer: Option<TransferItems> },
+	Plain { target: H160 },
 	Delegate { target: H160 },
 }
 
 impl CallItems {
+	/// A call only reads the entries it touches.
+	pub(crate) const OP: StorageOp = StorageOp::Read;
+
 	/// Builds the call variant matching the `delegate` flag.
-	pub fn new(target: H160, delegate: bool, transfer: Option<TransferItems>) -> Self {
-		if delegate { Self::Delegate { target } } else { Self::Plain { target, transfer } }
+	pub fn new(target: H160, delegate: bool) -> Self {
+		if delegate { Self::Delegate { target } } else { Self::Plain { target } }
 	}
 }
 
 #[cfg(test)]
 impl CallItems {
-	/// Returns the entries a plain call to a contract touches: its own, plus the callee's code.
+	/// Returns how many entries a plain call to a contract touches, its own plus the callee's code.
 	pub(crate) fn plain_entries() -> u32 {
-		Self::Plain { target: H160::zero(), transfer: None }.entry_count() +
+		Self::Plain { target: H160::zero() }.entry_count() +
 			CodeLoadItems { hash: H256::zero() }.entry_count()
 	}
 
-	/// Returns the entries a plain call touches when it moves value: everything a zero-value call
-	/// touches, plus the sender's and the receiver's account state and the sender's account info.
-	pub(crate) fn value_call_entries() -> u32 {
-		let transfer = TransferItems { from: H160::repeat_byte(1), dust: false };
-		Self::Plain { target: H160::zero(), transfer: Some(transfer) }.entry_count() +
-			CodeLoadItems { hash: H256::zero() }.entry_count()
+	/// Returns how many entries a transfer touches.
+	pub(crate) fn transfer_entries() -> u32 {
+		TransferItems { from: H160::repeat_byte(1), to: H160::zero(), dust: false }.entry_count()
 	}
 
-	/// Returns the entries a delegate call touches: the target's account info, plus its code.
+	/// Returns how many entries a delegate call touches, the target's account info plus its code.
 	pub(crate) fn delegate_entries() -> u32 {
 		Self::Delegate { target: H160::zero() }.entry_count() +
 			CodeLoadItems { hash: H256::zero() }.entry_count()
@@ -395,29 +380,12 @@ impl Access for CallItems {
 
 	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> CallWarmth {
 		match self {
-			Self::Plain { target, transfer } => {
-				let dust = transfer.is_some_and(|transfer| transfer.dust);
-				let account_info_op = TransferItems::account_info_op(dust);
-				let original_account =
-					visit(AccessEntry::OriginalAccount { address: target }, StorageOp::Read);
-				let account_info =
-					visit(AccessEntry::AccountInfo { address: target }, account_info_op);
-				let transfer = transfer.map(|transfer| TransferWarmth {
-					account: visit(AccessEntry::Account { address: target }, StorageOp::Write),
-					sender_account: visit(
-						AccessEntry::Account { address: transfer.from },
-						StorageOp::Write,
-					),
-					account_info,
-					sender_account_info: visit(
-						AccessEntry::AccountInfo { address: transfer.from },
-						account_info_op,
-					),
-				});
-				CallWarmth::Plain { original_account, account_info, transfer }
+			Self::Plain { target } => CallWarmth::Plain {
+				original_account: visit(AccessEntry::OriginalAccount { address: target }, Self::OP),
+				account_info: visit(AccessEntry::AccountInfo { address: target }, Self::OP),
 			},
 			Self::Delegate { target } => CallWarmth::Delegate {
-				account_info: visit(AccessEntry::AccountInfo { address: target }, StorageOp::Read),
+				account_info: visit(AccessEntry::AccountInfo { address: target }, Self::OP),
 			},
 		}
 	}
@@ -427,35 +395,60 @@ impl Access for CallItems {
 #[cfg_attr(test, derive(PartialEq, Eq))]
 #[derive(Clone, Copy, Debug)]
 pub struct TransferWarmth {
-	pub account: Warmth,
+	pub receiver_account: Warmth,
 	pub sender_account: Warmth,
 	/// The target's account info: the call reads it either way, a dust transfer also writes it.
-	pub account_info: Warmth,
+	pub receiver_account_info: Warmth,
 	pub sender_account_info: Warmth,
 }
 
 /// The value transfer a call performs.
 #[derive(Clone, Copy, Debug)]
 pub struct TransferItems {
+	/// The contract sending the value.
 	pub from: H160,
+	/// The account receiving it.
+	pub to: H160,
 	pub dust: bool,
 }
 
+impl Access for TransferItems {
+	type Warmth = TransferWarmth;
+	const KEY_FAMILY: KeyFamily = KeyFamily::Address;
+
+	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> TransferWarmth {
+		let account_info_op = Self::account_info_op(self.dust);
+		TransferWarmth {
+			receiver_account: visit(AccessEntry::Account { address: self.to }, Self::ACCOUNT_OP),
+			sender_account: visit(AccessEntry::Account { address: self.from }, Self::ACCOUNT_OP),
+			receiver_account_info: visit(
+				AccessEntry::AccountInfo { address: self.to },
+				account_info_op,
+			),
+			sender_account_info: visit(
+				AccessEntry::AccountInfo { address: self.from },
+				account_info_op,
+			),
+		}
+	}
+}
+
 impl TransferWarmth {
-	/// Summarizes the transfer's entries: the three it pays for, plus the write it owes on the
-	/// callee's account info, which the call pays only to read.
+	/// Summarizes the warmth of both sides' account state and account info.
 	pub(crate) fn summary(&self, dust: bool) -> WarmthSummary {
 		let account_info_op = TransferItems::account_info_op(dust);
-		let mut summary = WarmthSummary::default()
-			.count(self.account, StorageOp::Write)
-			.count(self.sender_account, StorageOp::Write)
-			.count(self.sender_account_info, account_info_op);
-		summary.upgrades += u32::from(self.account_info.owes_upgrade(account_info_op));
-		summary
+		WarmthSummary::default()
+			.count(self.receiver_account, TransferItems::ACCOUNT_OP)
+			.count(self.sender_account, TransferItems::ACCOUNT_OP)
+			.count(self.receiver_account_info, account_info_op)
+			.count(self.sender_account_info, account_info_op)
 	}
 }
 
 impl TransferItems {
+	/// A transfer moves value on both sides, so both balances are written.
+	pub(crate) const ACCOUNT_OP: StorageOp = StorageOp::Write;
+
 	/// Returns `Write` when the transfer carries dust, else `Read`.
 	pub(crate) fn account_info_op(dust: bool) -> StorageOp {
 		if dust { StorageOp::Write } else { StorageOp::Read }
@@ -472,11 +465,11 @@ pub struct CodeLoadWarmth {
 }
 
 impl CodeLoadWarmth {
-	/// Summarizes both entries a code load pays for.
+	/// Summarizes the warmth of both entries a code load pays for.
 	pub(crate) fn summary(&self) -> WarmthSummary {
 		WarmthSummary::default()
-			.count(self.info, StorageOp::Read)
-			.count(self.blob, StorageOp::Read)
+			.count(self.info, CodeLoadItems::OP)
+			.count(self.blob, CodeLoadItems::OP)
 	}
 
 	pub fn cold_non_revertible() -> Self {
@@ -490,14 +483,19 @@ pub struct CodeLoadItems {
 	pub hash: H256,
 }
 
+impl CodeLoadItems {
+	/// A code load only reads both entries.
+	pub(crate) const OP: StorageOp = StorageOp::Read;
+}
+
 impl Access for CodeLoadItems {
 	type Warmth = CodeLoadWarmth;
 	const KEY_FAMILY: KeyFamily = KeyFamily::Address;
 
 	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> CodeLoadWarmth {
 		CodeLoadWarmth {
-			info: visit(AccessEntry::CodeInfo { hash: self.hash }, StorageOp::Read),
-			blob: visit(AccessEntry::CodeBlob { hash: self.hash }, StorageOp::Read),
+			info: visit(AccessEntry::CodeInfo { hash: self.hash }, Self::OP),
+			blob: visit(AccessEntry::CodeBlob { hash: self.hash }, Self::OP),
 		}
 	}
 }
@@ -993,51 +991,40 @@ mod tests {
 	fn the_senders_transfer_entries_stay_hot_for_the_next_call() {
 		let mut al = AccessList::new();
 		let sender = H160::from_low_u64_be(0xcafe);
-		let transfer = Some(TransferItems { from: sender, dust: false });
+		let transfer_to = |target| TransferItems { from: sender, to: target, dust: false };
 
 		// A first value call, that puts the sender's two entries in the list.
-		al.warm(CallItems::Plain { target: H160::from_low_u64_be(1), transfer });
+		al.warm(transfer_to(H160::from_low_u64_be(1)));
 
-		let expected = CallWarmth::Plain {
-			original_account: Warmth::cold_non_revertible(),
-			account_info: Warmth::cold_non_revertible(),
-			transfer: Some(TransferWarmth {
-				account: Warmth::cold_non_revertible(),
-				sender_account: Warmth::write_paid(), // a transfer always writes the balance
-				account_info: Warmth::cold_non_revertible(),
-				sender_account_info: Warmth::read_paid(), // no dust, so it was only read
-			}),
-		};
 		assert_eq!(
-			al.warmth_of(CallItems::Plain { target: H160::from_low_u64_be(2), transfer }),
-			expected
+			al.warmth_of(transfer_to(H160::from_low_u64_be(2))),
+			TransferWarmth {
+				receiver_account: Warmth::cold_non_revertible(),
+				sender_account: Warmth::write_paid(), // a transfer always writes the balance
+				receiver_account_info: Warmth::cold_non_revertible(),
+				sender_account_info: Warmth::read_paid(), // no dust, so it was only read
+			}
 		);
 	}
 
 	#[test]
-	fn only_the_call_entries_that_fit_the_cap_are_revertible() {
+	fn only_the_entries_that_fit_the_cap_are_revertible() {
 		let mut al = AccessList::new();
 		al.fill_to(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::Slot);
 
-		let target = H160::from_low_u64_be(0xdead_beef);
-
 		al.enter_frame();
 
-		let sender = H160::from_low_u64_be(0xcafe);
-		let access = CallItems::Plain {
-			target,
-			transfer: Some(TransferItems { from: sender, dust: false }),
+		let access = TransferItems {
+			from: H160::from_low_u64_be(0xcafe),
+			to: H160::from_low_u64_be(0xdead_beef),
+			dust: false,
 		};
 
-		let expected = CallWarmth::Plain {
-			original_account: Warmth::cold_revertible(), // the only entry that fits
-			account_info: Warmth::cold_non_revertible(),
-			transfer: Some(TransferWarmth {
-				account: Warmth::cold_non_revertible(),
-				sender_account: Warmth::cold_non_revertible(),
-				account_info: Warmth::cold_non_revertible(),
-				sender_account_info: Warmth::cold_non_revertible(),
-			}),
+		let expected = TransferWarmth {
+			receiver_account: Warmth::cold_revertible(), // the only entry that fits
+			sender_account: Warmth::cold_non_revertible(),
+			receiver_account_info: Warmth::cold_non_revertible(),
+			sender_account_info: Warmth::cold_non_revertible(),
 		};
 		assert_eq!(al.warmth_of(access), expected);
 		assert_eq!(al.warm(access), expected);
@@ -1068,14 +1055,13 @@ mod tests {
 
 		let sender = H160::repeat_byte(1);
 		let target = H160::repeat_byte(2);
-		let transfer = |dust| Some(TransferItems { from: sender, dust });
+		let transfer = |dust| TransferItems { from: sender, to: target, dust };
 
 		assert_eq!(
-			recorded(CallItems::Plain { target, transfer: None }),
+			recorded(CallItems::Plain { target }),
 			CallWarmth::Plain {
 				original_account: Warmth::read_paid(),
 				account_info: Warmth::read_paid(),
-				transfer: None,
 			},
 		);
 
@@ -1094,31 +1080,41 @@ mod tests {
 		assert_eq!(recorded(slot_access(StorageOp::Write)), Warmth::write_paid());
 
 		assert_eq!(
-			recorded(CallItems::Plain { target, transfer: transfer(false) }),
-			CallWarmth::Plain {
-				original_account: Warmth::read_paid(),
-				account_info: Warmth::read_paid(),
-				transfer: Some(TransferWarmth {
-					account: Warmth::write_paid(),
-					sender_account: Warmth::write_paid(),
-					account_info: Warmth::read_paid(),
-					sender_account_info: Warmth::read_paid(),
-				}),
+			recorded(transfer(false)),
+			TransferWarmth {
+				receiver_account: Warmth::write_paid(),
+				sender_account: Warmth::write_paid(),
+				receiver_account_info: Warmth::read_paid(),
+				sender_account_info: Warmth::read_paid(),
 			},
 		);
 
 		assert_eq!(
-			recorded(CallItems::Plain { target, transfer: transfer(true) }),
-			CallWarmth::Plain {
-				original_account: Warmth::read_paid(),
-				account_info: Warmth::write_paid(),
-				transfer: Some(TransferWarmth {
-					account: Warmth::write_paid(),
-					sender_account: Warmth::write_paid(),
-					account_info: Warmth::write_paid(),
-					sender_account_info: Warmth::write_paid(),
-				}),
+			recorded(transfer(true)),
+			TransferWarmth {
+				receiver_account: Warmth::write_paid(),
+				sender_account: Warmth::write_paid(),
+				receiver_account_info: Warmth::write_paid(),
+				sender_account_info: Warmth::write_paid(),
 			},
 		);
+
+		for (entries, summarized) in [
+			(
+				CallItems::Plain { target }.entry_count(),
+				recorded(CallItems::Plain { target }).summary().total,
+			),
+			(
+				CallItems::Delegate { target }.entry_count(),
+				recorded(CallItems::Delegate { target }).summary().total,
+			),
+			(
+				CodeLoadItems { hash: H256::zero() }.entry_count(),
+				recorded(CodeLoadItems { hash: H256::zero() }).summary().total,
+			),
+			(transfer(true).entry_count(), recorded(transfer(true)).summary(true).total),
+		] {
+			assert_eq!(entries, summarized, "every entry the walk visits is summarized");
+		}
 	}
 }
