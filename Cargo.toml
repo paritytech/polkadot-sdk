@@ -1571,3 +1571,10 @@ twox-hash = { opt-level = 3 }
 wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+# Interim: pull kvdb + kvdb-rocksdb with per-column path/memory-budget support from
+# parity-common#979 until it is released to crates.io. Both must come from the same
+# source so the graph has a single `kvdb`.
+[patch.crates-io]
+kvdb = { git = "https://github.com/dr333ws/parity-common", branch = "cf-paths" }
+kvdb-rocksdb = { git = "https://github.com/dr333ws/parity-common", branch = "cf-paths" }
