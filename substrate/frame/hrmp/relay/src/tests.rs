@@ -29,6 +29,8 @@ use hrmp_primitives::{
 use sp_runtime::DispatchError;
 
 const CHANNEL: ChannelId = ChannelId { sender: 2000, recipient: 2001 };
+/// One direction of the pair a para shares with a system chain.
+const WITH_SYSTEM: ChannelId = ChannelId { sender: 2000, recipient: 1001 };
 
 #[test]
 fn receive_is_only_for_the_channel_managing_parachain() {
@@ -149,6 +151,26 @@ fn open_channel() -> sp_runtime::DispatchResult {
 	)
 }
 
+fn pair_response(outcome: Result<(u32, u32), FailureReason>) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::OpenChannelResponse {
+		channel: WITH_SYSTEM,
+		message_id: MESSAGE_ID,
+		outcome,
+	})
+}
+
+fn open_system_pair() -> sp_runtime::DispatchResult {
+	Hrmp::receive(
+		RuntimeOrigin::root(),
+		MessageToRelay::V1(MessageToRelayV1::OpenSystemPair {
+			channel: WITH_SYSTEM,
+			message_id: MESSAGE_ID,
+			max_capacity: CAPACITY,
+			max_message_size: MESSAGE_SIZE,
+		}),
+	)
+}
+
 fn response(outcome: Result<(u32, u32), FailureReason>) -> MessageToPara {
 	MessageToPara::V1(MessageToParaV1::OpenChannelResponse {
 		channel: CHANNEL,
@@ -245,6 +267,81 @@ fn a_refusing_notify_transport_does_not_undo_the_channel() {
 				Event::ChannelOpened { channel: CHANNEL, message_id: MESSAGE_ID },
 				Event::NotifyFailed { para_id: CHANNEL.sender },
 				Event::NotifyFailed { para_id: CHANNEL.recipient },
+			]
+		);
+	});
+}
+
+#[test]
+fn open_system_pair_opens_both_directions_and_answers() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(open_system_pair());
+
+		assert!(MockRegistry::exists(WITH_SYSTEM));
+		assert!(MockRegistry::exists(WITH_SYSTEM.reversed()));
+
+		// One answer for the pair; the parachain settles both directions from it.
+		assert_eq!(take_sent(), vec![pair_response(Ok((CAPACITY, MESSAGE_SIZE)))]);
+
+		// Both ends are told about both directions: only the asking para knew this was coming.
+		let opened = |channel| ParaNotification::ChannelOpened { channel };
+		assert_eq!(
+			take_notified(),
+			vec![
+				(WITH_SYSTEM.sender, opened(WITH_SYSTEM)),
+				(WITH_SYSTEM.recipient, opened(WITH_SYSTEM)),
+				(WITH_SYSTEM.recipient, opened(WITH_SYSTEM.reversed())),
+				(WITH_SYSTEM.sender, opened(WITH_SYSTEM.reversed())),
+			]
+		);
+		assert_eq!(
+			hrmp_events(),
+			vec![
+				Event::ChannelOpened { channel: WITH_SYSTEM, message_id: MESSAGE_ID },
+				Event::ChannelOpened { channel: WITH_SYSTEM.reversed(), message_id: MESSAGE_ID },
+			]
+		);
+	});
+}
+
+#[test]
+fn a_refused_system_pair_is_reported_back() {
+	new_test_ext().execute_with(|| {
+		RegistryRefuses::set(Some(FailureReason::InvalidPara));
+
+		assert_ok!(open_system_pair());
+
+		assert!(!MockRegistry::exists(WITH_SYSTEM));
+		assert!(!MockRegistry::exists(WITH_SYSTEM.reversed()));
+
+		assert_eq!(take_sent(), vec![pair_response(Err(FailureReason::InvalidPara))]);
+
+		let failure = |channel| ParaNotification::ChannelOpenFailure {
+			channel,
+			reason: FailureReason::InvalidPara,
+		};
+		assert_eq!(
+			take_notified(),
+			vec![
+				(WITH_SYSTEM.sender, failure(WITH_SYSTEM)),
+				(WITH_SYSTEM.recipient, failure(WITH_SYSTEM)),
+				(WITH_SYSTEM.recipient, failure(WITH_SYSTEM.reversed())),
+				(WITH_SYSTEM.sender, failure(WITH_SYSTEM.reversed())),
+			]
+		);
+		assert_eq!(
+			hrmp_events(),
+			vec![
+				Event::OpenChannelRejected {
+					channel: WITH_SYSTEM,
+					message_id: MESSAGE_ID,
+					reason: FailureReason::InvalidPara,
+				},
+				Event::OpenChannelRejected {
+					channel: WITH_SYSTEM.reversed(),
+					message_id: MESSAGE_ID,
+					reason: FailureReason::InvalidPara,
+				},
 			]
 		);
 	});

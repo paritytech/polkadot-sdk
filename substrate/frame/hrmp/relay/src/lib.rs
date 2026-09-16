@@ -358,14 +358,52 @@ pub mod pallet {
 			todo!()
 		}
 
+		/// Both directions stand or fall together, and each end is one end of both.
 		fn on_open_system_pair(
 			channel: ChannelId,
 			message_id: u64,
 			max_capacity: u32,
 			max_message_size: u32,
 		) {
-			let _ = (channel, message_id, max_capacity, max_message_size);
-			todo!()
+			let outcome = with_storage_layer(|| {
+				T::Registry::open_system_pair(channel, max_capacity, max_message_size)
+					.map(|()| (max_capacity, max_message_size))
+			});
+
+			for direction in [channel, channel.reversed()] {
+				let notification = match &outcome {
+					Ok(_) => {
+						Self::deposit_event(Event::ChannelOpened {
+							channel: direction,
+							message_id,
+						});
+						ParaNotification::ChannelOpened { channel: direction }
+					},
+					Err(reason) => {
+						Self::deposit_event(Event::OpenChannelRejected {
+							channel: direction,
+							message_id,
+							reason: reason.clone(),
+						});
+						ParaNotification::ChannelOpenFailure {
+							channel: direction,
+							reason: reason.clone(),
+						}
+					},
+				};
+
+				// Only the asking para knew this was coming, and only through the chain that
+				// holds the deposits.
+				Self::on_notify_para(direction.sender, notification.clone());
+				Self::on_notify_para(direction.recipient, notification);
+			}
+
+			// One answer for the pair: the parachain settles both directions from it.
+			Self::report(
+				channel.sender,
+				message_id,
+				MessageToParaV1::OpenChannelResponse { channel, message_id, outcome },
+			);
 		}
 
 		fn on_close_channel(channel: ChannelId, message_id: u64, initiator: ParaId) {
