@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789561686386,
+  "lastUpdate": 1789572139535,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -125063,6 +125063,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2834881841,
             "range": "± 43422097",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marios@parity.io",
+            "name": "Marios",
+            "username": "mchristou"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0bb78dd2572695b8a797ee6b29f7c1c701cdc5d5",
+          "message": "More v3 candidates zombienet-sdk tests (#12743)\n\nCoverage of #12164 \n \n Scenario 1: added in existing test: `v3_rolling_upgrade`\n Scenario 2/3:  covered in #12695 \n Scenario 4: v3_old_validator_dispute_storm.rs \n Scenario 5: manual test\n Scenario 6: parameter changes added to doesnt_break_parachains_test\n \n \n \n**NOTE** v3_old_validator_dispute_storm is expensive to add it in CI.\nAdded here to run it manually while its still relevant\n\n---------\n\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
+          "timestamp": "2026-09-16T14:01:25Z",
+          "tree_id": "c60c18e624a6bb21dc2390ab2d058176becf4fb0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0bb78dd2572695b8a797ee6b29f7c1c701cdc5d5"
+        },
+        "date": 1789572099367,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19735873,
+            "range": "± 151116",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19769878,
+            "range": "± 192393",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21122284,
+            "range": "± 164290",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26049263,
+            "range": "± 171397",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60105273,
+            "range": "± 606842",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 361848403,
+            "range": "± 3483084",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2789975944,
+            "range": "± 90846910",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16634118,
+            "range": "± 132414",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17050867,
+            "range": "± 198299",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17142595,
+            "range": "± 153392",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21743817,
+            "range": "± 204798",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61922005,
+            "range": "± 1156053",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 357128360,
+            "range": "± 5901527",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2677792497,
+            "range": "± 38805752",
             "unit": "ns/iter"
           }
         ]
