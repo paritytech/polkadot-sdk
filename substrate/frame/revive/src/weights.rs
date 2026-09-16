@@ -1597,7 +1597,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 2
 			.saturating_add(Weight::from_parts(7_746, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 3000]`.
+	/// The range of component `r` is `[0, 512]`.
 	fn evm_jumpi_opcode(r: u32, ) -> Weight {
 		// Dummy values. These weights will be generated in CI.
 		Weight::from_parts(1_000_000, 0)
@@ -3223,7 +3223,7 @@ impl WeightInfo for () {
 			// Standard Error: 2
 			.saturating_add(Weight::from_parts(7_746, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 3000]`.
+	/// The range of component `r` is `[0, 512]`.
 	fn evm_jumpi_opcode(r: u32, ) -> Weight {
 		// Dummy values. These weights will be generated in CI.
 		Weight::from_parts(1_000_000, 0)

@@ -39,7 +39,7 @@ use crate::{
 	storage::WriteOutcome,
 	vm::{
 		evm,
-		evm::{Interpreter, instructions, instructions::utility::IntoAddress},
+		evm::{ExtBytecode, Halt, Interpreter, instructions, instructions::utility::IntoAddress},
 		pvm,
 	},
 	*,
@@ -47,6 +47,7 @@ use crate::{
 use alloc::{vec, vec::Vec};
 use alloy_core::sol_types::{SolInterface, SolValue};
 use codec::{Encode, MaxEncodedLen};
+use core::ops::ControlFlow;
 use frame_benchmarking::v2::*;
 use frame_support::{
 	self, assert_ok,
@@ -3223,46 +3224,44 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Benchmark `r` taken JUMPI instructions using the most minimal `JUMPI` code:
-	///
-	/// - `PUSH1 1` - condition (always jump, worst case)
-	/// - `PUSH2 offset`
-	/// - `JUMPI`
-	/// - `JUMPDEST`
-	///
-	/// Weight charging can then remove the stack operations as well as the `JUMPDEST`.
+	/// Benchmark `r` taken `JUMPI` instructions. The operands of every jump are placed on the stack
+	/// ahead of time, so the code is nothing but `JUMPI; JUMPDEST` pairs and the slope is one taken
+	/// `JUMPI` plus one `JUMPDEST`. Each jump consumes two stack items.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_jumpi_opcode(r: Linear<0, 3_000>) -> Result<(), BenchmarkError> {
-		use revm::bytecode::opcode::{JUMPDEST, JUMPI, PUSH1, PUSH2, STOP};
-
-		const JUMP_BLOCK_SIZE: usize = 7;
-		const JUMPDEST_OFFSET: usize = JUMP_BLOCK_SIZE - 1;
+	fn evm_jumpi_opcode(
+		r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>,
+	) -> Result<(), BenchmarkError> {
+		use revm::bytecode::opcode::{JUMPDEST, JUMPI};
 
 		let mut code = Vec::new();
+		let mut stack = Vec::new();
 		for _ in 0..r {
-			let destination = code.len() + JUMPDEST_OFFSET;
-			let destination = u16::try_from(destination)
-				.map_err(|_| BenchmarkError::Stop("Jump destination does not fit PUSH2"))?;
-
-			code.extend_from_slice(&[PUSH1, 1]);
-			code.push(PUSH2);
-			code.extend_from_slice(&destination.to_be_bytes());
-			code.extend_from_slice(&[JUMPI, JUMPDEST]);
+			code.push(JUMPI);
+			let destination = U256::from(code.len());
+			code.push(JUMPDEST);
+			stack.push(destination);
+			stack.push(U256::one());
 		}
-		code.push(STOP);
 
-		let code = Bytecode::new_raw(code.into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
-		let inputs = Vec::new();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+		for operand in stack.into_iter().rev() {
+			if interpreter.stack.push(operand).is_break() {
+				return Err(BenchmarkError::Stop("Operands exceed the stack limit"));
+			}
+		}
 
 		let result;
 		#[block]
 		{
-			result = evm::call(code, &mut ext, inputs);
+			result = evm::run_plain(&mut interpreter);
 		}
 
-		assert_eq!(result, Ok(ExecReturnValue::default()));
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
 		Ok(())
 	}
 

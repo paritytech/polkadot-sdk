@@ -39,7 +39,7 @@ mod interpreter;
 pub use interpreter::{Halt, Interpreter};
 
 mod ext_bytecode;
-use ext_bytecode::ExtBytecode;
+pub(crate) use ext_bytecode::ExtBytecode;
 
 mod memory;
 mod stack;
@@ -74,13 +74,16 @@ pub(crate) enum EvmOpcodeCosts {
 
 impl<T: Config> Token<T> for EvmOpcodeCosts {
 	fn weight(&self) -> Weight {
+		use EvmOpcodeCosts::*;
+
+		let weight_of = |token: EvmOpcodeCosts| Token::<T>::weight(&token);
+
 		match self {
-			// TODO: Subtract the PUSH1
-			Self::JUMP => cost_args!(evm_jumpi_opcode, 1).saturating_sub(Token::<T>::weight(&Self::JUMPDEST)),
-			// TODO: Subtract the PUSH1
-			// TODO: Subtract the PUSH2
-			Self::JUMPI => cost_args!(evm_jumpi_opcode, 1).saturating_sub(Token::<T>::weight(&Self::JUMPDEST)),
-			Self::JUMPDEST => cost_args!(evm_opcode, 1),
+			// Both have roughly the same cost. We're slightly over charging for `JUMP` since it
+			// doesn't actually do the "check condition then jump" but it's a very slight over
+			// charge that doesn't warrant it having its own benchmark.
+			JUMP | JUMPI => cost_args!(evm_jumpi_opcode, 1).saturating_sub(weight_of(JUMPDEST)),
+			JUMPDEST => cost_args!(evm_opcode, 1),
 		}
 	}
 }
@@ -185,7 +188,7 @@ pub fn call<E: Ext>(bytecode: Bytecode, ext: &mut E, input: Vec<u8>) -> ExecResu
 	halt.into()
 }
 
-fn run_plain<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt, Infallible> {
+pub(crate) fn run_plain<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt, Infallible> {
 	loop {
 		let opcode = interpreter.bytecode.opcode();
 		interpreter.bytecode.relative_jump(1);
