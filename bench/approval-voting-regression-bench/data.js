@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789508462317,
+  "lastUpdate": 1789549697376,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "40807189+AlexandruCihodaru@users.noreply.github.com",
-            "name": "Alexandru Cihodaru",
-            "username": "AlexandruCihodaru"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "744acf5599bcf978350015a73c75e05455a4d8f3",
-          "message": "Implement persistent reputation database for collator protocol (#7751) (#10917)\n\nImplements persistent storage for the experimental collator protocol's\nreputation database.\n\nChanges:\n\n- Adds `PersistentDb` wrapper that persists the in-memory reputation DB\nto disk\n  - Periodic persistence every 10 minutes (30s in test mode)\n  - Immediate persistence on slashes and parachain deregistration\n  - Loads existing state on startup with lookback for missed blocks\n  \nImplementation:\n  \n  `PersistentDb` wraps the existing `Db` and adds persistence on top:\n\n    - All reputation logic (scoring, decay, LRU) stays in `Db`\n    - Persistence layer handles disk I/O and serialization\n    - Per-para data stored in parachains_db\n    \nTests:\n\n- `basic_persistence.rs`: Validates persistence across restarts and\nstartup lookback\n- `pruning.rs`: Validates automatic cleanup on parachain deregistration\n\n---------\n\nSigned-off-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>\nCo-authored-by: alindima <alin@parity.io>\nCo-authored-by: Tsvetomir Dimitrov <tsvetomir@parity.io>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-13T11:09:46Z",
-          "tree_id": "c5ea4bb300af28d1a2569244ef9ce654a0da4602",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/744acf5599bcf978350015a73c75e05455a4d8f3"
-        },
-        "date": 1770985019385,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63624.1,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52938.59999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002362154,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002362154,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002271906,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.87260343146998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.686128581229997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3342215238599966,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002271906,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6549474450899977,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6555617507,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8739898717099892,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.557109581642914,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005597552240000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6621567066400003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-0",
             "value": 2.7836274556099987,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "117115317+lrubasze@users.noreply.github.com",
+            "name": "Lukasz Rubaszewski",
+            "username": "lrubasze"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c5b3121ccc4f35a8391e8d515f63e3e9ac82b201",
+          "message": "litep2p/req-resp: fix inbound request serve time reporting (#13097)\n\nThe litep2p backend reported a near-zero serve time in the\n`substrate_sub_libp2p_requests_in_success_total` histogram for inbound\nrequests.\n\nThe timestamp paired with a pending inbound request was evaluated only\nafter the response was ready (`Instant::now()` after awaiting the\nresponse channel), so the reported duration covered just the response\nhand-off to the transport instead of the actual time spent serving the\nrequest.\n\n## Changes\n\n- Stamp the start time when the request arrives, matching the libp2p\nbackend, so the reported serve time covers the time the request spends\nqueued and being processed by the handler.\n- Add a regression test\n(`inbound_request_serve_time_includes_handler_time`) which delays the\nresponse in the request handler and asserts the recorded serve time\ncovers that delay. The test fails against the previous behavior.\n\n## Review notes\n\nThe analogous outbound metric (`requests_out_success_total`) already\nstamps on send and is unaffected.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-16T07:27:41Z",
+          "tree_id": "d55d7268a3680a6e40d70de9620d279a2fb1ec47",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c5b3121ccc4f35a8391e8d515f63e3e9ac82b201"
+        },
+        "date": 1789549663530,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63561.02,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52937.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7106061731899995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7296001578099984,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001895371,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001895371,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005704519770000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.073393274189973,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7678225374600007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7010049548599984,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8288537706999775,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000019925300000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.455182383432689,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000019925300000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.329801160399998,
             "unit": "seconds"
           }
         ]
