@@ -148,6 +148,7 @@ The CRJA pipeline for a parachain block:
 
 The Parachain Service is a JAM service whose code implements the on-chain logic of the parachain
 host. It holds all per-parachain state and drives the CRJA pipeline for every registered parachain.
+It uses the fixed JAM service ID **1337**.
 
 The Parachain Service is expected to be an **always-accumulate** service in the Gray Paper sense.
 Even in blocks where no parachain candidate becomes available, it still needs an accumulation step
