@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789507456935,
+  "lastUpdate": 1789548321245,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -124847,6 +124847,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2769281075,
             "range": "± 40158221",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "117115317+lrubasze@users.noreply.github.com",
+            "name": "Lukasz Rubaszewski",
+            "username": "lrubasze"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c5b3121ccc4f35a8391e8d515f63e3e9ac82b201",
+          "message": "litep2p/req-resp: fix inbound request serve time reporting (#13097)\n\nThe litep2p backend reported a near-zero serve time in the\n`substrate_sub_libp2p_requests_in_success_total` histogram for inbound\nrequests.\n\nThe timestamp paired with a pending inbound request was evaluated only\nafter the response was ready (`Instant::now()` after awaiting the\nresponse channel), so the reported duration covered just the response\nhand-off to the transport instead of the actual time spent serving the\nrequest.\n\n## Changes\n\n- Stamp the start time when the request arrives, matching the libp2p\nbackend, so the reported serve time covers the time the request spends\nqueued and being processed by the handler.\n- Add a regression test\n(`inbound_request_serve_time_includes_handler_time`) which delays the\nresponse in the request handler and asserts the recorded serve time\ncovers that delay. The test fails against the previous behavior.\n\n## Review notes\n\nThe analogous outbound metric (`requests_out_success_total`) already\nstamps on send and is unaffected.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-16T07:27:41Z",
+          "tree_id": "d55d7268a3680a6e40d70de9620d279a2fb1ec47",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c5b3121ccc4f35a8391e8d515f63e3e9ac82b201"
+        },
+        "date": 1789548282252,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20265752,
+            "range": "± 264445",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20387896,
+            "range": "± 308882",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22086318,
+            "range": "± 145494",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27018585,
+            "range": "± 141276",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 62645978,
+            "range": "± 749812",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 380246605,
+            "range": "± 7119481",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2768403409,
+            "range": "± 128488735",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17366458,
+            "range": "± 152477",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17442673,
+            "range": "± 137072",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17910530,
+            "range": "± 171539",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22647530,
+            "range": "± 234534",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 64303302,
+            "range": "± 694590",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 384676907,
+            "range": "± 4722886",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2763233065,
+            "range": "± 26109579",
             "unit": "ns/iter"
           }
         ]
