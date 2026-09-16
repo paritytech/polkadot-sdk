@@ -14241,6 +14241,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-price-oracle"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "impl-trait-for-tuples",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-inherents 26.0.0",
+ "sp-price-oracle",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "pallet-proxy"
 version = "28.0.0"
 dependencies = [
