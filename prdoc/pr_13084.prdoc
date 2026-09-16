@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: 'Registrar: scaffolding for the remaining para lifecycle calls'
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      Lays out the protocol for the registrar calls that are not implemented yet. The message
+      types, call signatures and response routing are in place; the bodies are `todo!()` and land
+      in follow-ups.
+
+crates:
+  - name: registrar-primitives
+    bump: major
+  - name: pallet-registrar-para
+    bump: major
+  - name: pallet-registrar-relay
+    bump: major
