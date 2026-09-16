@@ -25,7 +25,7 @@
 
 use crate::{self as pallet_registrar_relay, SendToPara};
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
-use registrar_primitives::{MessageToPara, ParaId, ParachainRegistrar};
+use registrar_primitives::{FailureReason, MessageToPara, ParaId, ParachainRegistrar};
 use sp_runtime::BuildStorage;
 
 pub type AccountId = u64;
@@ -88,11 +88,15 @@ pub struct MockRegistrar;
 impl ParachainRegistrar for MockRegistrar {
 	type AccountId = AccountId;
 
-	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()> {
+	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), FailureReason> {
 		if !(MIN_CODE_SIZE..=MAX_CODE_SIZE).contains(&code_len) || head_len > MAX_HEAD_SIZE {
-			return Err(());
+			return Err(FailureReason::InvalidOnboardingData);
 		}
 		Ok(())
+	}
+
+	fn is_deregistering(_para_id: ParaId) -> bool {
+		todo!()
 	}
 
 	fn is_registered(para_id: ParaId) -> bool {
@@ -111,6 +115,29 @@ impl ParachainRegistrar for MockRegistrar {
 		}
 		Onboarded::mutate(|v| v.push((para_id, manager, genesis_head, validation_code)));
 		Ok(())
+	}
+
+	fn deregister(_para_id: ParaId) -> Result<(), FailureReason> {
+		todo!()
+	}
+
+	fn check_head_data(_head_len: u32) -> Result<(), ()> {
+		todo!()
+	}
+
+	fn set_current_head(_para_id: ParaId, _head: Vec<u8>) {
+		todo!()
+	}
+
+	fn check_code_upgrade(_para_id: ParaId, _code_len: u32) -> Result<(), FailureReason> {
+		todo!()
+	}
+
+	fn schedule_code_upgrade(
+		_para_id: ParaId,
+		_validation_code: Vec<u8>,
+	) -> sp_runtime::DispatchResult {
+		todo!()
 	}
 }
 

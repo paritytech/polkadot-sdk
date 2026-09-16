@@ -431,6 +431,11 @@ pub mod pallet {
 					message_id,
 					outcome,
 				}) => Self::on_cancel_deregistration_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::ForceRegisterResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_force_register_response(para_id, message_id, outcome),
 			}
 		}
 
@@ -861,6 +866,15 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn on_cancel_deregistration_response(
+		para_id: ParaId,
+		message_id: u64,
+		outcome: Outcome,
+	) -> DispatchResult {
+		let _ = (para_id, message_id, outcome);
+		todo!()
+	}
+
+	fn on_force_register_response(
 		para_id: ParaId,
 		message_id: u64,
 		outcome: Outcome,

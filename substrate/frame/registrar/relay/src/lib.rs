@@ -227,7 +227,8 @@ pub mod pallet {
 			MessageToRelay::V1(MessageToRelayV1::Deregister { .. }) |
 			MessageToRelay::V1(MessageToRelayV1::CancelDeregistration { .. }) |
 			MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade { .. }) |
-			MessageToRelay::V1(MessageToRelayV1::SetCurrentHead { .. }) => Weight::zero(),
+			MessageToRelay::V1(MessageToRelayV1::SetCurrentHead { .. }) |
+			MessageToRelay::V1(MessageToRelayV1::ForceRegister { .. }) => Weight::zero(),
 		})]
 		pub fn receive(
 			origin: OriginFor<T>,
@@ -255,30 +256,41 @@ pub mod pallet {
 					para_id,
 					message_id,
 				}) => Self::on_cancel_request(para_id, message_id),
-				MessageToRelay::V1(MessageToRelayV1::Deregister {
-					para_id,
-					message_id,
-					manager,
-				}) => Self::on_deregister_request(para_id, message_id, manager),
+				MessageToRelay::V1(MessageToRelayV1::Deregister { para_id, message_id }) => {
+					Self::on_deregister_request(para_id, message_id)
+				},
 				MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
 					para_id,
 					message_id,
-					manager,
 					code_hash,
 					code_len,
 				}) => Self::on_authorize_code_upgrade_request(
-					para_id, message_id, manager, code_hash, code_len,
+					para_id, message_id, code_hash, code_len,
 				),
 				MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
 					para_id,
 					message_id,
-					manager,
 					head,
-				}) => Self::on_set_current_head_request(para_id, message_id, manager, head),
+				}) => Self::on_set_current_head_request(para_id, message_id, head),
 				MessageToRelay::V1(MessageToRelayV1::CancelDeregistration {
 					para_id,
 					message_id,
 				}) => Self::on_cancel_deregistration_request(para_id, message_id),
+				MessageToRelay::V1(MessageToRelayV1::ForceRegister {
+					para_id,
+					message_id,
+					manager,
+					genesis_head,
+					code_hash,
+					code_len,
+				}) => Self::on_force_register_request(
+					para_id,
+					message_id,
+					manager,
+					genesis_head,
+					code_hash,
+					code_len,
+				),
 			}
 
 			Ok(())
@@ -462,34 +474,40 @@ pub mod pallet {
 			);
 		}
 
-		fn on_deregister_request(para_id: ParaId, message_id: u64, manager: T::AccountId) {
-			let _ = (para_id, message_id, manager);
+		fn on_deregister_request(para_id: ParaId, message_id: u64) {
+			let _ = (para_id, message_id);
 			todo!()
 		}
 
 		fn on_authorize_code_upgrade_request(
 			para_id: ParaId,
 			message_id: u64,
-			manager: T::AccountId,
 			code_hash: H256,
 			code_len: u32,
 		) {
-			let _ = (para_id, message_id, manager, code_hash, code_len);
+			let _ = (para_id, message_id, code_hash, code_len);
 			todo!()
 		}
 
-		fn on_set_current_head_request(
-			para_id: ParaId,
-			message_id: u64,
-			manager: T::AccountId,
-			head: Vec<u8>,
-		) {
-			let _ = (para_id, message_id, manager, head);
+		fn on_set_current_head_request(para_id: ParaId, message_id: u64, head: Vec<u8>) {
+			let _ = (para_id, message_id, head);
 			todo!()
 		}
 
 		fn on_cancel_deregistration_request(para_id: ParaId, message_id: u64) {
 			let _ = (para_id, message_id);
+			todo!()
+		}
+
+		fn on_force_register_request(
+			para_id: ParaId,
+			message_id: u64,
+			manager: T::AccountId,
+			genesis_head: Vec<u8>,
+			code_hash: H256,
+			code_len: u32,
+		) {
+			let _ = (para_id, message_id, manager, genesis_head, code_hash, code_len);
 			todo!()
 		}
 
@@ -539,6 +557,15 @@ pub mod pallet {
 				para_id,
 				message_id,
 				MessageToParaV1::SetHeadResponse { para_id, message_id, outcome },
+			);
+		}
+
+		#[allow(dead_code)]
+		fn report_force_registration(para_id: ParaId, message_id: u64, outcome: Outcome) {
+			Self::report(
+				para_id,
+				message_id,
+				MessageToParaV1::ForceRegisterResponse { para_id, message_id, outcome },
 			);
 		}
 

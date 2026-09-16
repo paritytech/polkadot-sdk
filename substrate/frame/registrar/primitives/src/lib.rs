@@ -102,9 +102,6 @@ pub enum MessageToRelayV1<AccountId> {
 		para_id: ParaId,
 		/// The parachain's id for this message, echoed back in the response.
 		message_id: u64,
-		/// The account that manages this para on the parachain, matched against the relay chain's
-		/// own record of the manager.
-		manager: AccountId,
 	},
 	/// Ask the relay chain to abandon a [`MessageToRelayV1::Deregister`] it has not acted on.
 	///
@@ -127,8 +124,6 @@ pub enum MessageToRelayV1<AccountId> {
 		para_id: ParaId,
 		/// The parachain's id for this message, echoed back in the response.
 		message_id: u64,
-		/// The account that manages this para on the parachain.
-		manager: AccountId,
 		/// Blake2-256 hash of the validation code that will be uploaded.
 		code_hash: H256,
 		/// Length of the validation code that will be uploaded, in bytes.
@@ -144,10 +139,28 @@ pub enum MessageToRelayV1<AccountId> {
 		para_id: ParaId,
 		/// The parachain's id for this message, echoed back in the response.
 		message_id: u64,
-		/// The account that manages this para on the parachain.
-		manager: AccountId,
 		/// The new head data.
 		head: Vec<u8>,
+	},
+	/// Ask the relay chain to register `para_id` without a deposit or an authorization step.
+	///
+	/// Governance-originated, so the relay chain takes it on trust and skips the checks a
+	/// [`MessageToRelayV1::Register`] goes through. Answered with
+	/// [`MessageToParaV1::ForceRegisterResponse`].
+	#[codec(index = 6)]
+	ForceRegister {
+		/// The para id being registered.
+		para_id: ParaId,
+		/// The parachain's id for this message, echoed back in the response.
+		message_id: u64,
+		/// The account recorded as the manager of this para.
+		manager: AccountId,
+		/// The genesis head data of the new parachain.
+		genesis_head: Vec<u8>,
+		/// Blake2-256 hash of the validation code that will be uploaded.
+		code_hash: H256,
+		/// Length of the validation code that will be uploaded, in bytes.
+		code_len: u32,
 	},
 }
 
@@ -270,6 +283,16 @@ pub enum MessageToParaV1 {
 		/// The para id that produced a head.
 		para_id: ParaId,
 	},
+	/// Answer a [`MessageToRelayV1::ForceRegister`].
+	#[codec(index = 8)]
+	ForceRegisterResponse {
+		/// The para id the answer is about.
+		para_id: ParaId,
+		/// The id of the [`MessageToRelayV1::ForceRegister`] this answers, echoed back.
+		message_id: u64,
+		/// Whether the registration was applied on the relay chain.
+		outcome: Outcome,
+	},
 }
 
 /// How a request ended.
@@ -294,6 +317,7 @@ pub enum FailureReason {
 	/// The head data or the declared code length is not acceptable to the relay chain.
 	#[codec(index = 1)]
 	InvalidOnboardingData,
+	// Index 2 is reserved for `NotRegistered`, which lands with the deregister flow.
 	/// The relay chain is already holding as many pending registrations as it will accept.
 	#[codec(index = 3)]
 	TooManyPending,
@@ -311,11 +335,15 @@ pub trait ParachainRegistrar {
 	///
 	/// Checked against the relay chain's live configuration so a doomed request can be rejected
 	/// before the user goes and uploads megabytes of code.
-	#[allow(clippy::result_unit_err)]
-	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()>;
+	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), FailureReason>;
 
 	/// Whether the relay chain already knows this para id.
 	fn is_registered(para_id: ParaId) -> bool;
+
+	/// Whether `para_id` has left the registry, or is on its way out.
+	///
+	/// Not the inverse of [`Self::is_registered`]: a para being cleaned up is both.
+	fn is_deregistering(para_id: ParaId) -> bool;
 
 	/// Onboard `para_id` under `manager`.
 	///
@@ -325,6 +353,25 @@ pub trait ParachainRegistrar {
 		manager: Self::AccountId,
 		para_id: ParaId,
 		genesis_head: Vec<u8>,
+		validation_code: Vec<u8>,
+	) -> sp_runtime::DispatchResult;
+
+	/// Drop `para_id` from the registry. An id it does not know is dropped as a no-op.
+	fn deregister(para_id: ParaId) -> Result<(), FailureReason>;
+
+	/// Whether head data of this size is acceptable right now.
+	#[allow(clippy::result_unit_err)]
+	fn check_head_data(head_len: u32) -> Result<(), ()>;
+
+	/// Set the current head of `para_id`.
+	fn set_current_head(para_id: ParaId, head: Vec<u8>);
+
+	/// Whether `para_id` could take a code upgrade of this size right now.
+	fn check_code_upgrade(para_id: ParaId, code_len: u32) -> Result<(), FailureReason>;
+
+	/// Schedule a validation code upgrade for `para_id`.
+	fn schedule_code_upgrade(
+		para_id: ParaId,
 		validation_code: Vec<u8>,
 	) -> sp_runtime::DispatchResult;
 }

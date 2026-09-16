@@ -583,15 +583,22 @@ impl<T: Config> Registrar for Pallet<T> {
 impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 	type AccountId = T::AccountId;
 
-	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()> {
+	fn check_onboarding(
+		head_len: u32,
+		code_len: u32,
+	) -> Result<(), registrar_primitives::FailureReason> {
 		let config = configuration::ActiveConfig::<T>::get();
 		Self::validate_onboarding_sizes(&config, head_len as usize, code_len as usize)
-			.map_err(|_| ())
+			.map_err(|_| registrar_primitives::FailureReason::InvalidOnboardingData)
 	}
 
 	fn is_registered(para_id: u32) -> bool {
 		let id = ParaId::from(para_id);
 		Paras::<T>::contains_key(id) || paras::Pallet::<T>::lifecycle(id).is_some()
+	}
+
+	fn is_deregistering(_para_id: u32) -> bool {
+		todo!()
 	}
 
 	fn register(
@@ -608,6 +615,29 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 			ValidationCode(validation_code),
 			false,
 		)
+	}
+
+	fn deregister(_para_id: u32) -> Result<(), registrar_primitives::FailureReason> {
+		todo!()
+	}
+
+	fn check_head_data(_head_len: u32) -> Result<(), ()> {
+		todo!()
+	}
+
+	fn set_current_head(_para_id: u32, _head: Vec<u8>) {
+		todo!()
+	}
+
+	fn check_code_upgrade(
+		_para_id: u32,
+		_code_len: u32,
+	) -> Result<(), registrar_primitives::FailureReason> {
+		todo!()
+	}
+
+	fn schedule_code_upgrade(_para_id: u32, _validation_code: Vec<u8>) -> DispatchResult {
+		todo!()
 	}
 }
 
