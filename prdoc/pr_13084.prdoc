@@ -1,7 +1,5 @@
-# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
-# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
 
-title: 'Registrar: scaffolding for the remaining para lifecycle calls'
+title: 'Registrar: Scaffolding'
 
 doc:
   - audience: Runtime Dev
