@@ -230,7 +230,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		let head = self.get_sync_label(SyncLabel::Head).await.ok().flatten();
 		let tail = self.get_sync_label(SyncLabel::Tail).await.ok().flatten();
 		let genesis = self.get_sync_label(ChainMetadata::Genesis).await.ok().flatten();
-		let stored_first_evm = self.get_sync_label(ChainMetadata::FirstEvmBlock).await.ok().flatten();
+		let stored_first_evm =
+			self.get_sync_label(ChainMetadata::FirstEvmBlock).await.ok().flatten();
 		let floor = self.receipt_extractor.first_evm_block();
 
 		log::info!(target: LOG_TARGET,
