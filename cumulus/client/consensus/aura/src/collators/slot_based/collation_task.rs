@@ -201,7 +201,8 @@ impl<Block: BlockT> CollatorMessage<Block> {
 					let hedged = index > 0;
 
 					// Only the last submission can consume the entries; earlier ones still need
-					// them, so the common (unhedged) single-proof case pays no clone at all.
+					// them. The clone copies block bodies but shares the witness (`Arc`), and the
+					// common (unhedged) single-proof case pays nothing at all.
 					let entries = if proofs.peek().is_some() {
 						all_entries.clone()
 					} else {
@@ -339,7 +340,7 @@ async fn build_collation<Block: BlockT, RClient: RelayChainInterface + Clone + '
 	let (mut collation, block_data) = match collator_service.build_multi_block_collation(
 		&parent_header,
 		blocks,
-		proof,
+		&proof,
 		scheduling_proof,
 	) {
 		Some(collation) => collation,

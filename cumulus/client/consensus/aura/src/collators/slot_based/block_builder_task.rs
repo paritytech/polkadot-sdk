@@ -785,7 +785,7 @@ where
 				reason = "cap",
 				"SP hedge: sibling rejected",
 			);
-			continue;
+			break;
 		}
 
 		// The blocks were executed against `cx.relay_parent_hash`; a sibling whose walk-back
@@ -1546,7 +1546,7 @@ where
 		relay_parent: relay_parent_hash,
 		parent_header: pov_parent_header.clone(),
 		blocks,
-		proof,
+		proof: Arc::new(proof),
 		validation_code_hash,
 		validation_data,
 	};

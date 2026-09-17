@@ -34,6 +34,7 @@ use sp_blockchain::{Backend as BlockchainBackend, Error as BlockchainError, Head
 use sp_crypto_hashing::twox_128;
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 use sp_state_machine::Backend as StateBackend;
+use std::sync::Arc;
 
 const LOG_TARGET: &str = "aura::cumulus::block_builder_task";
 
@@ -259,7 +260,7 @@ where
 		blocks,
 		// Merge the per-block (bundle-compacted) proofs back into the full bundle proof, matching
 		// how the block builder assembled the fresh collation's PoV.
-		proof: StorageProof::merge(proofs),
+		proof: Arc::new(StorageProof::merge(proofs)),
 		validation_code_hash,
 		validation_data,
 	})
