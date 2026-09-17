@@ -302,7 +302,7 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::ReceiptDataOutputPayloadV2>"
 	),
 	substitute_type(
-		path = "pallet_revive_types::runtime_api::payloads::receipt_data::SyntheticTransactionV1",
+		path = "pallet_revive_types::runtime_api::types::receipt::SyntheticTransactionV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::SyntheticTransactionV1>"
 	),
 	substitute_type(

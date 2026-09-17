@@ -47,21 +47,6 @@ pub struct ReceiptDataOutputPayloadV1 {
 	pub receipt_data: Vec<ReceiptGasInfoV1>,
 }
 
-/// What a block committed to its synthetic transaction, the one carrying the logs emitted outside
-/// any ethereum transaction.
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct SyntheticTransactionV1 {
-	/// Its receipt gas entry.
-	pub gas_info: ReceiptGasInfoV1,
-	/// How many logs went into it.
-	///
-	/// The count the block's `logs_bloom` and `receipts_root` commit to. A consumer that rebuilds
-	/// the logs from block events must reconcile against this: it can hold more of them than the
-	/// header accounts for, because a runtime bounds the buffer these logs are drained from and
-	/// deposits the event whether or not the log fitted.
-	pub log_count: u32,
-}
-
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct ReceiptDataOutputPayloadV2 {
 	/// One entry per ethereum transaction in the block, in transaction-index order.
