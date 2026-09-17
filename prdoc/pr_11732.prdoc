@@ -73,3 +73,5 @@ crates:
   bump: patch
 - name: testnet-parachains-constants
   bump: patch
+- name: bp-bridge-hub-cumulus
+  bump: patch
