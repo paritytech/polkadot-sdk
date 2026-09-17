@@ -42,19 +42,30 @@
 //! - [`lift`] — the requires-lift / consumption-record POV types (`RequiresLift`,
 //!   `ConsumptionRecord`, `MMRExtensionProof`, `MmrInclusionProof`, …) and the `build_requires`
 //!   synthesizer.
+//! - [`inherent`] — the node ↔ runtime consumption interface: what the runtime asks to have fetched
+//!   (`ConsumedStream`) and what the messaging inherent delivers (`MessagingInherentData` /
+//!   `ConsumeItem`) — payloads and placement hints, never proofs.
+//! - [`channel`] — the channel key (`ChannelId`) and per-direction states (`OutChannelState`,
+//!   `InChannelState`) the pallet stores and the runtime API's channel views return.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
 
+pub mod channel;
 pub mod flow_control;
+pub mod inherent;
 pub mod lift;
 pub mod message;
 pub mod mmr;
 pub mod stream;
 pub mod streams_root;
 
+pub use channel::{ChannelId, ChannelPhase, InChannelState, OutChannelState};
 pub use flow_control::{Register, SpecMsgKind, SpecMsgSignal, WindowGrant};
+pub use inherent::{
+	ConsumeItem, ConsumedStream, MessagingInherentData, Payload, INHERENT_IDENTIFIER,
+};
 pub use lift::{
 	build_requires, build_requires_entry, stitch, ConsumptionRecord, Interval, LiftError,
 	LiftsBySource, MMRExtensionProof, MmrInclusionProof, ProofError, RequiresLift, SourceStreams,

@@ -12,10 +12,12 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
+async-trait = { optional = true, workspace = true }
 codec = { features = ["derive"], workspace = true }
 mmr-lib = { workspace = true, default-features = false }
 scale-info = { features = ["derive"], workspace = true }
 sp-core = { workspace = true }
+sp-inherents = { workspace = true }
 sp-runtime = { workspace = true }
 
 # Polkadot
@@ -24,16 +26,19 @@ polkadot-parachain-primitives = { workspace = true }
 polkadot-primitives = { workspace = true }
 
 [dev-dependencies]
+futures = { workspace = true }
 hex-literal = { workspace = true }
 
 [features]
 default = ["std"]
 std = [
+	"async-trait",
 	"codec/std",
 	"mmr-lib/std",
 	"polkadot-core-primitives/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-primitives/std",
 	"sp-core/std",
+	"sp-inherents/std",
 	"sp-runtime/std",
 ]
