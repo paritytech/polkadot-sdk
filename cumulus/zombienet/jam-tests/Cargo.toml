@@ -17,6 +17,7 @@ log = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 tokio = { workspace = true, features = ["macros", "process", "rt-multi-thread", "signal", "time"] }
 jsonrpsee = { workspace = true, features = ["ws-client"] }
+cumulus-primitives-core = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }

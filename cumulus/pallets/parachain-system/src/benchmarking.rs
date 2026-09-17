@@ -36,7 +36,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use sp_core::ConstU32;
-use sp_runtime::traits::{BlakeTwo256, DispatchTransaction, Dispatchable};
+use sp_runtime::traits::{BlakeTwo256, DispatchTransaction, Dispatchable, Hash};
 
 fn has_use_full_core_digest<T: Config>() -> bool {
 	let digest = frame_system::Pallet::<T>::digest();

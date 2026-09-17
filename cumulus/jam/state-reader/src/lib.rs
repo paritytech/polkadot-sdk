@@ -50,7 +50,7 @@ pub mod jam_proof;
 pub mod jam_proof_finalizer;
 #[cfg(feature = "std")]
 pub use jam::JamStateExt;
-pub use jam::{JAM_PROOF_KEY, JamStateReader, jam_state};
+pub use jam::{jam_state, JamStateReader, JAM_PROOF_KEY};
 #[cfg(not(target_family = "wasm"))]
 pub use jam_proof::JamProofReader;
 #[cfg(feature = "std")]

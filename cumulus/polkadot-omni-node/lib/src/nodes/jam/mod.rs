@@ -686,4 +686,5 @@ mod tests {
 	fn jam_slot_at_clamps_before_the_common_era() {
 		assert_eq!(jam_slot_at(Timestamp::new(0)), 0);
 	}
+
 }

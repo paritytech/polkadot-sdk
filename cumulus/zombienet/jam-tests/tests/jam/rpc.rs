@@ -169,4 +169,17 @@ impl CollatorRpc {
 		let finalized = self.header_number(Some(finalized_hash)).await?;
 		Ok(Height { best, finalized })
 	}
+
+	/// The raw header JSON (`chain_getHeader`) for the current finalized head.
+	pub async fn finalized_header(&self) -> anyhow::Result<Value> {
+		let hash: Value = self
+			.client
+			.request("chain_getFinalizedHead", rpc_params![])
+			.await
+			.context("chain_getFinalizedHead")?;
+		self.client
+			.request("chain_getHeader", rpc_params![hash])
+			.await
+			.context("chain_getHeader")
+	}
 }

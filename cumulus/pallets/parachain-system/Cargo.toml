@@ -68,7 +68,7 @@ docify = { workspace = true }
 # The former `cumulus` facade crate is deleted. `parachain_service_core::candidate::ParachainCandidate`
 # is exactly what the facade re-exported — so there is still one definition per type.
 [target.'cfg(jam)'.dependencies]
-parachain-service-core = { path = "../../../../parachain-service/core", default-features = false }
+parachain-service-core = { path = "../../../../parachain-service/core", default-features = false, features = ["no-lang-items"] }
 # `RefineContext` is decoded from the `fetch` host call rather than read at a hardcoded byte
 # offset, so a field reordering upstream becomes a decode error instead of silently wrong
 # randomness. Both crates are already in this target's graph via `parachain-service-core`;

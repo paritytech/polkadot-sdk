@@ -67,6 +67,7 @@ members = [
 	"cumulus/client/consensus/aura",
 	"cumulus/client/consensus/common",
 	"cumulus/client/consensus/relay-chain",
+	"cumulus/client/jam-work-package-recovery",
 	"cumulus/client/network",
 	"cumulus/client/parachain-inherent",
 	"cumulus/client/pov-recovery",
@@ -789,6 +790,7 @@ cumulus-client-collator-discovery = { path = "cumulus/client/collator-discovery"
 cumulus-client-consensus-aura = { path = "cumulus/client/consensus/aura", default-features = false }
 cumulus-client-consensus-common = { path = "cumulus/client/consensus/common", default-features = false }
 cumulus-client-consensus-relay-chain = { path = "cumulus/client/consensus/relay-chain", default-features = false }
+cumulus-client-jam-work-package-recovery = { path = "cumulus/client/jam-work-package-recovery", default-features = false }
 cumulus-client-network = { path = "cumulus/client/network", default-features = false }
 cumulus-client-parachain-inherent = { path = "cumulus/client/parachain-inherent", default-features = false }
 cumulus-client-pov-recovery = { path = "cumulus/client/pov-recovery", default-features = false }

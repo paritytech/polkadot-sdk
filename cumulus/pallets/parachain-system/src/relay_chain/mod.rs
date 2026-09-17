@@ -37,9 +37,10 @@ pub(crate) use segment::maybe_drop_included_ancestors;
 
 // Re-exports of the shared relay-chain primitive types: the crate root binds `relay_chain` to
 // this module, so every `relay_chain::X` path across the pallet resolves through these.
+#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
+pub use cumulus_primitives_core::relay_chain::AsyncBackingParams;
 pub use cumulus_primitives_core::relay_chain::{
-	ApprovedPeerId, AsyncBackingParams, BlockNumber, Hash, UMPSignal, UpgradeGoAhead,
-	UpgradeRestriction, UMP_SEPARATOR,
+	ApprovedPeerId, BlockNumber, Hash, UMPSignal, UpgradeGoAhead, UpgradeRestriction, UMP_SEPARATOR,
 };
 // Test-only re-exports used by the pallet's own `mock` and `tests` modules.
 #[cfg(test)]

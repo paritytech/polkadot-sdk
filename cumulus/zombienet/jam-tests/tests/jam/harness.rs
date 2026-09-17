@@ -13,7 +13,9 @@ use super::{
 };
 use anyhow::Context;
 use codec::DecodeAll;
+use cumulus_primitives_core::{relay_chain, CumulusDigestItem};
 use parachain_service_core::{para_info_key, storage_key, types::ParaId, ParaInfo, Tag};
+use sp_runtime::generic::Digest as SubstrateDigest;
 use std::{
 	collections::BTreeMap,
 	path::{Path, PathBuf},
@@ -601,7 +603,8 @@ pub async fn assert_paras_build_blocks(
 	let result = async {
 		let heights = run.wait_for_blocks(blocks, finalized).await?;
 		log::info!("{test}: {}", run.describe(&heights));
-		assert_jam_heads_advance(&mut run).await
+		assert_jam_heads_advance(&mut run).await?;
+		assert_jam_parent_in_blocks(&mut run).await
 	}
 	.await;
 	finish(run, result).await
@@ -619,6 +622,54 @@ async fn assert_jam_heads_advance(run: &mut Run) -> anyhow::Result<()> {
 	for (index, rpc) in rpcs.iter().enumerate() {
 		run.wait_for_jam_head(index, rpc, JAM_HEAD_TARGET, JAM_HEAD_BUDGET).await?;
 	}
+	Ok(())
+}
+
+async fn assert_jam_parent_in_blocks(run: &mut Run) -> anyhow::Result<()> {
+	let rpcs = run.rpcs().await?;
+	let rpc = rpcs.first().context("no collator RPC available")?;
+
+	let header = rpc.finalized_header().await?;
+
+	let height = {
+		let raw = header["number"].as_str().context("header.number is not a string")?;
+		u64::from_str_radix(raw.trim_start_matches("0x"), 16)
+			.with_context(|| format!("header.number {raw:?} is not valid hex"))?
+	};
+
+	if height <= 2 {
+		log::warn!(
+			"assert_jam_parent_in_blocks: finalized head at height {height}, \
+			 skipping (no prior anchor at height ≤ 2)"
+		);
+		return Ok(());
+	}
+
+	let digest: SubstrateDigest = serde_json::from_value(header["digest"].clone())
+		.context("decoding finalized header digest")?;
+
+	let (anchor, lookup_anchor) = CumulusDigestItem::find_jam_parent(&digest).ok_or_else(|| {
+		anyhow::anyhow!(
+			"finalized block at height {height} has no JamParent digest — \
+				 rebuild RUNTIME_WASM with --cfg jam"
+		)
+	})?;
+
+	anyhow::ensure!(
+		anchor != relay_chain::Hash::default(),
+		"finalized block at height {height}: JamParent anchor is all-zero — \
+		 this is a protocol error; the JAM host served a zero anchor in the refine context",
+	);
+	anyhow::ensure!(
+		lookup_anchor != relay_chain::Hash::default(),
+		"finalized block at height {height}: JamParent lookup_anchor is all-zero — \
+		 this is a protocol error; the JAM host served a zero lookup_anchor in the refine context",
+	);
+
+	log::info!(
+		"assert_jam_parent_in_blocks: height {height}: anchor={anchor:?} \
+		 lookup_anchor={lookup_anchor:?}",
+	);
 	Ok(())
 }
 

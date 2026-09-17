@@ -149,8 +149,9 @@ pub(super) mod jam_data {
 	}
 }
 
+
 /// Run the given closure with the externalities and recorder set.
-pub(super) fn run_with_externalities_and_recorder<Block: BlockT, R, F: FnOnce() -> R>(
+pub(crate) fn run_with_externalities_and_recorder<Block: BlockT, R, F: FnOnce() -> R>(
 	backend: &impl sp_state_machine::Backend<HashingFor<Block>>,
 	recorder: &mut SizeOnlyRecorderProvider<HashingFor<Block>>,
 	overlay: &mut OverlayedChanges<HashingFor<Block>>,

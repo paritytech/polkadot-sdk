@@ -5,7 +5,9 @@ use anyhow::anyhow;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{BlockBundleInfo, CoreInfo, CumulusDigestItem, RelayBlockIdentifier};
 use futures::stream::StreamExt;
-use polkadot_primitives::{BlakeTwo256, CandidateReceiptV2, HashT, Id as ParaId};
+use polkadot_primitives::{
+	BlakeTwo256, CandidateReceiptV2, Hash as RelayHash, HashT, Id as ParaId,
+};
 use std::{cmp::max, collections::HashMap, ops::Range, sync::Arc};
 use tokio::{
 	join,
@@ -366,6 +368,21 @@ fn find_relay_block_identifier(
 
 	CumulusDigestItem::find_relay_block_identifier(&substrate_digest)
 		.ok_or_else(|| anyhow!("Failed to find `RelayBlockIdentifier` digest"))
+}
+
+/// Returns the JAM anchor and lookup anchor from the given parachain block, or `None` if the
+/// block carries no `JamParent` digest item.
+///
+/// Returns `Option` rather than `Result` so callers can skip blocks at low heights — where no
+/// prior anchor exists — without treating the absence of the digest as an error.
+pub fn find_jam_parent(
+	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+) -> Option<(RelayHash, RelayHash)> {
+	let substrate_digest =
+		sp_runtime::generic::Digest::decode(&mut &block.header().digest.encode()[..])
+			.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
+
+	CumulusDigestItem::find_jam_parent(&substrate_digest)
 }
 
 /// Wait for the first block with a session change.

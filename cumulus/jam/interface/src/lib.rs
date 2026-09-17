@@ -29,12 +29,13 @@
 pub use futures::stream::BoxStream;
 pub use jam_std_common::{
 	AuthPool, AuthPools, AuthQueues, AvailabilityAssignment, AvailabilityAssignments, BlockDesc,
-	ChainSubUpdate, NodeError as Error, NodeResult as Result, RangeProof, ReadyQueue, ReadyRecord,
-	Service, ServiceKey, StorageKey, SystemKey, VersionedParameters, WorkPackageStatus, WorkReport,
+	ChainSubUpdate, EpochIndex, NodeError as Error, NodeResult as Result, RangeProof, ReadyQueue,
+	ReadyRecord, Service, ServiceKey, StorageKey, SystemKey, VersionedParameters, WorkPackageStatus,
+	WorkReport,
 };
 pub use jam_types::{
 	AuthorizerHash, CoreIndex, Hash, HeaderHash, MmrPeakHash, ServiceId, Slot, StateRootHash,
-	WorkPackage, WorkPackageHash,
+	WorkPackage, WorkPackageHash, WorkReportHash,
 };
 
 use jam_codec::DecodeAll;
@@ -204,6 +205,14 @@ pub trait JamWorkPackageSubmission: Send + Sync {
 		anchor: HeaderHash,
 		finalized: bool,
 	) -> Result<BoxStream<'static, WorkPackageStatus>>;
+
+	/// Recover the encoded bundle for the work report identified by `report_hash`, guaranteed
+	/// in `assurance_epoch`. Returns the raw bundle bytes (decoded by jam-codec as `Bundle`).
+	async fn recover_bundle(
+		&self,
+		report_hash: WorkReportHash,
+		assurance_epoch: EpochIndex,
+	) -> Result<Vec<u8>>;
 }
 
 fn decode_system_value<T: DecodeAll>(value: Option<Vec<u8>>, what: &str) -> Result<T> {

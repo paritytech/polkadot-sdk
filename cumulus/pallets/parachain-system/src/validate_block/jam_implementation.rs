@@ -51,7 +51,7 @@ use super::{
 use alloc::vec::Vec;
 use codec::Decode;
 use cumulus_jam_state_reader::{JamProofReader, JAM_PROOF_KEY};
-use cumulus_primitives_core::ParachainBlockData;
+use cumulus_primitives_core::{CumulusDigestItem, ParachainBlockData};
 use frame_support::traits::ExecuteBlock;
 use parachain_service_core::{candidate::ParachainCandidate, StateProof, PARACHAIN_SERVICE_ID};
 use sp_additional_data::{hash_value, AdditionalData, AdditionalDataFinalizer};
@@ -68,6 +68,9 @@ const ERR_PAYLOAD_DECODE_FAILED: &[u8] = b"jam_validate_block:candidate-decode-f
 const ERR_POV_DECODE_FAILED: &[u8] = b"jam_validate_block:pov-decode-failed";
 const ERR_PARENT_HEADER_MISSING: &[u8] = b"jam_validate_block:v4-parent-header-missing";
 const ERR_HEAD_DATA_MISSING: &[u8] = b"jam_validate_block:no-head-data";
+const ERR_JAM_PARENT_MISMATCH: &[u8] = b"jam_validate_block:jam-parent-mismatch";
+const ERR_JAM_PARENT_MISSING: &[u8] = b"jam_validate_block:jam-parent-missing";
+const ERR_NO_DIGEST_AT_ALL: &[u8] = b"jam_validate_block:no-digest-at-all";
 
 /// The `AdditionalDataFinalizer` committing the carried JAM state proof under `JAM_PROOF_KEY`.
 ///
@@ -144,12 +147,35 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 	let randomness_seed = build_jam_seed::<B>(*context.lookup_anchor, blocks);
 	let jam_anchor_state_root = *context.state_root;
 
+	// The collator asserts which JAM block this candidate is anchored to by carrying a
+	// `JamParent` digest in the header; this is where that assertion is checked against the real
+	// refine context. A collator naming an anchor other than the one this work package was
+	// actually refined against cannot produce a matching digest, so the claim is only ever as
+	// good as the context the JAM host serves here.
+	let expected = (
+		cumulus_primitives_core::relay_chain::Hash::from(*context.anchor),
+		cumulus_primitives_core::relay_chain::Hash::from(*context.lookup_anchor),
+	);
+	let claimed = blocks
+		.iter()
+		.find_map(|block| CumulusDigestItem::find_jam_parent(block.header().digest()));
+	if claimed.is_none() {
+		if blocks.iter().all(|block| block.header().digest().logs.is_empty()) {
+			host::report_error(ERR_NO_DIGEST_AT_ALL)
+		}
+		host::report_error(ERR_JAM_PARENT_MISSING)
+	}
+	if claimed != Some(expected) {
+		host::report_error(ERR_JAM_PARENT_MISMATCH)
+	}
+
 	// 7. Run the SAME validation core as the polkadot path. There is no V3 scheduling on JAM
 	// (`None` skips the signature-override hook) and no relay proof/validation-data re-check
 	// (`|_| {}`; `validate_validation_data` is relay-only). The trusted JAM anchor state root is
 	// sourced from the refine context, so the `on_execute` hook below can verify the carried
-	// `JAM_PROOF_KEY` proof. `BlockNumberProvider` reads (`JamSlotNumber`) fetch the slot from
-	// the `fetch` host call directly, so nothing is threaded through this core.
+	// `JAM_PROOF_KEY` proof. `BlockNumberProvider` reads (`JamSlotNumber`) and
+	// `deposit_jam_parent` both call `refine_context()` — the same `Fetch::RefineContext` host
+	// call made above — so nothing is threaded through this core.
 	let result = execute_blocks::<B, E, PSC>(
 		SharedValidationInputs::<B> {
 			block_data,
@@ -158,31 +184,33 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 		},
 		None,
 		&|_| {},
-		// Arm the JAM proof reader + finalizer from the carried `JAM_PROOF_KEY` entry for the
-		// duration of each block's execution, so `jam_state_read` and `finalize` are served
-		// from the proof that travels with the block. The carried state root is *ignored* —
-		// reads verify against the trusted anchor root from the refine context, so a
-		// candidate that recorded its JAM reads against a different root fails at the first
-		// read. A malformed blob, or a proof that cannot authenticate a key, panics rather
-		// than serving `None`.
-		&|additional_data: &Option<AdditionalData>, execute: &dyn Fn()| {
-			let Some((mut jam_reader, mut jam_finalizer)) = additional_data.as_ref().map(|map| {
-				let proof_bytes = map
-					.get(JAM_PROOF_KEY)
-					.expect("additional data map (present) must contain the jam-proof entry");
-				let (_, proof) = <([u8; 32], StateProof)>::decode(&mut &proof_bytes[..])
-					.expect("jam-proof entry must decode as (state_root, proof)");
-				(
-					JamProofReader::new(PARACHAIN_SERVICE_ID, jam_anchor_state_root, proof),
-					JamProofFinalizer { commitment: hash_value(proof_bytes) },
-				)
-			}) else {
+		// Arm the JAM proof reader + finalizer from the carried `JAM_PROOF_KEY` entry for
+		// the duration of each block's execution, so `jam_state_read` and `finalize` are
+		// served from the proof that travels with the block. The carried state root is
+		// *ignored* — reads verify against the trusted anchor root from the refine context,
+		// so a candidate that recorded its JAM reads against a different root fails at the
+		// first read. A malformed blob, or a proof that cannot authenticate a key, panics
+		// rather than serving `None`.
+		&|additional_data: &Option<AdditionalData>, execute: &mut dyn FnMut()| {
+			let Some((mut jam_reader, mut jam_finalizer)) =
+				additional_data.as_ref().map(|map| {
+					let proof_bytes = map.get(JAM_PROOF_KEY).expect(
+						"additional data map (present) must contain the jam-proof entry",
+					);
+					let (_, proof) = <([u8; 32], StateProof)>::decode(&mut &proof_bytes[..])
+						.expect("jam-proof entry must decode as (state_root, proof)");
+					(
+						JamProofReader::new(PARACHAIN_SERVICE_ID, jam_anchor_state_root, proof),
+						JamProofFinalizer { commitment: hash_value(proof_bytes) },
+					)
+				})
+			else {
 				return execute();
 			};
-			// The same entry arms both the digest finalizer (so `host_finalize_into` folds it
-			// into the `DigestItem::AdditionalData` the collator committed at authoring) and
-			// the state reader; threading one without the other recomputes an empty digest,
-			// which `frame_executive`'s digest-count check rejects.
+			// The same entry arms both the digest finalizer (so `host_finalize_into` folds
+			// it into the `DigestItem::AdditionalData` the collator committed at authoring)
+			// and the state reader; threading one without the other recomputes an empty
+			// digest, which `frame_executive`'s digest-count check rejects.
 			additional_data::using(&mut jam_finalizer, || {
 				jam_data::using(&mut jam_reader, execute)
 			});
@@ -236,5 +264,5 @@ pub mod host {
 	// `parachain_service_core::refine` rather than re-declared. `refine_context` decodes the
 	// real type instead of reading a field at a hardcoded offset, so an upstream field
 	// reordering is a decode failure instead of silently wrong randomness.
-	use parachain_service_core::refine::{refine_context, work_item_payload};
+	pub use parachain_service_core::refine::{refine_context, work_item_payload};
 }

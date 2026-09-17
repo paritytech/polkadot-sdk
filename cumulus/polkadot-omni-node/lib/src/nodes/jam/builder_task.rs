@@ -1249,7 +1249,14 @@ where
 		.propose(ProposeArgs {
 			inherent_data,
 			inherent_digests: sp_runtime::generic::Digest {
-				logs: vec![slot_claim.pre_digest().clone()],
+				logs: vec![
+					slot_claim.pre_digest().clone(),
+					cumulus_primitives_core::CumulusDigestItem::JamParent {
+						anchor: context.anchor.0.into(),
+						lookup_anchor: context.lookup_anchor.0.into(),
+					}
+					.to_digest_item(),
+				],
 			},
 			max_duration: PROPOSAL_DURATION,
 			block_size_limit: Some(MAX_POV_SIZE),
@@ -1258,6 +1265,12 @@ where
 		})
 		.await
 		.map_err(|e| format!("propose: {e}"))?;
+
+	tracing::info!(
+		target: LOG_TARGET,
+		digest = ?proposal.block.header().digest().logs,
+		"JAM-PARENT-DIAG: digest of the freshly proposed block",
+	);
 
 	let mut sealed_importable =
 		cumulus_client_consensus_aura::collator::seal::<_, <AuraId as AuraIdT>::BoundedPair>(
@@ -2307,4 +2320,5 @@ mod tests {
 			"a proof for another state root must fail the tick",
 		);
 	}
+
 }

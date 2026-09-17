@@ -107,7 +107,7 @@ cargo test -p cumulus-jam-zombienet-tests --features jam-ci --test tests \
 | `JAM_GENSPEC_BIN` | the polkajam build that runs `gen-spec`, when it is not `JAM_NODE_BIN` |
 | `PARACHAIN_SERVICE_BLOB` | the real parachain-service `.jam` blob, which genesis creates the service from |
 | `AUTHORIZER_BLOB` | `parachain-authorizer-sr25519.jam`, the AURA authorizer the cores run |
-| `RUNTIME_WASM` | the PolkaVM build of the parachain runtime (`PVM\0` magic), the para's JAM validation code *and* the runtime the collators execute. The name is misleading (it is not WASM); a future rename to `RUNTIME_PVF` is deferred. |
+| `RUNTIME_WASM` | the PolkaVM build of the parachain runtime (`PVM\0` magic), the para's JAM validation code *and* the runtime the collators execute. The name is misleading (it is not WASM); a future rename to `RUNTIME_PVF` is deferred. **Must be built with `--cfg jam`** (e.g. `RUSTFLAGS="--cfg jam" SUBSTRATE_RUNTIME_TARGET=riscv cargo build …`) for the `JamParent` digest assertion to pass; without it the runtime never deposits the digest and the assertion fails for a configuration reason rather than a code reason. |
 | `PARASIM_BLOB` | optional: `parasim-service.jam`, only needed for the dynamic-core tests and toy runs |
 | `PARASIM_TOOL_BIN` | optional: the `parasim-tool` CLI, required only by the dynamic-core tests, which move cores mid-run |
 | `OMNI_NODE_BIN`, `RELAY_NODE_BIN` | override the `target/release` defaults |

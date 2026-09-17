@@ -16,7 +16,10 @@
 
 //! Types that expose the relay chain state to other runtime modules.
 
+#[cfg(all(not(feature = "std"), any(feature = "runtime-benchmarks", test)))]
+use alloc::vec;
 use codec::{Decode, Encode};
+#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 use cumulus_primitives_core::PersistedValidationData;
 use scale_info::TypeInfo;
 use sp_runtime::traits::BlockNumberProvider;

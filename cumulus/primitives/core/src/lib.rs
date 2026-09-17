@@ -322,6 +322,19 @@ pub enum CumulusDigestItem {
 	/// production for this core should be stopped.
 	#[codec(index = 3)]
 	UseFullCore,
+
+	/// The JAM anchor and lookup anchor this parachain block was built against.
+	///
+	/// Deposited by `parachain-system` under `cfg(jam)`. The anchor is the JAM block whose state
+	/// root the block's reads are verified against; the lookup anchor is the finalized JAM block
+	/// whose slot determines the AURA collator.
+	#[codec(index = 4)]
+	JamParent {
+		/// The JAM block hash serving as the work-package anchor.
+		anchor: relay_chain::Hash,
+		/// The JAM block hash whose slot names the collator round-robin position.
+		lookup_anchor: relay_chain::Hash,
+	},
 }
 
 impl CumulusDigestItem {
@@ -408,6 +421,22 @@ impl CumulusDigestItem {
 					storage_root,
 					block_number: block_number.into(),
 				})
+			},
+			_ => None,
+		})
+	}
+
+	/// Returns the JAM anchor and lookup anchor from the given `digest`, when present.
+	pub fn find_jam_parent(digest: &Digest) -> Option<(relay_chain::Hash, relay_chain::Hash)> {
+		digest.convert_first(|d| match d {
+			DigestItem::PreRuntime(id, val) if id == &CUMULUS_CONSENSUS_ID => {
+				let Ok(CumulusDigestItem::JamParent { anchor, lookup_anchor }) =
+					CumulusDigestItem::decode_all(&mut &val[..])
+				else {
+					return None;
+				};
+
+				Some((anchor, lookup_anchor))
 			},
 			_ => None,
 		})
@@ -737,5 +766,70 @@ sp_api::decl_runtime_apis! {
 		///
 		/// The collator will include them in the relay chain proof that is passed alongside the parachain inherent into the runtime.
 		fn keys_to_prove() -> RelayProofRequest;
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn jam_parent_codec_round_trip() {
+		let jam_parent = CumulusDigestItem::JamParent {
+			anchor: [1u8; 32].into(),
+			lookup_anchor: [2u8; 32].into(),
+		};
+
+		let encoded = jam_parent.encode();
+		let decoded = CumulusDigestItem::decode(&mut &encoded[..]).unwrap();
+		assert_eq!(decoded, jam_parent);
+	}
+
+	#[test]
+	fn jam_parent_to_digest_item_is_pre_runtime() {
+		let item = CumulusDigestItem::JamParent {
+			anchor: [1u8; 32].into(),
+			lookup_anchor: [2u8; 32].into(),
+		};
+
+		// The item travels in the block header, and `frame_executive::extract_pre_digest` seeds
+		// only pre-runtime items into the runtime's digest, so any other kind is dropped at
+		// initialize and never reappears.
+		assert!(matches!(
+			item.to_digest_item(),
+			DigestItem::PreRuntime(id, _) if id == CUMULUS_CONSENSUS_ID
+		));
+	}
+
+	#[test]
+	fn find_jam_parent_extracts_anchors() {
+		let mut digest = Digest::default();
+		digest.push(
+			CumulusDigestItem::JamParent {
+				anchor: [1u8; 32].into(),
+				lookup_anchor: [2u8; 32].into(),
+			}
+			.to_digest_item(),
+		);
+
+		assert_eq!(
+			CumulusDigestItem::find_jam_parent(&digest),
+			Some(([1u8; 32].into(), [2u8; 32].into()))
+		);
+	}
+
+	#[test]
+	fn find_jam_parent_on_empty_digest_returns_none() {
+		let digest = Digest::default();
+
+		assert_eq!(CumulusDigestItem::find_jam_parent(&digest), None);
+	}
+
+	#[test]
+	fn find_jam_parent_ignores_relay_parent() {
+		let mut digest = Digest::default();
+		digest.push(CumulusDigestItem::RelayParent([3u8; 32].into()).to_digest_item());
+
+		assert_eq!(CumulusDigestItem::find_jam_parent(&digest), None);
 	}
 }

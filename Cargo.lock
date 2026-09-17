@@ -5042,6 +5042,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-client-jam-work-package-recovery"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "cumulus-jam-interface",
+ "cumulus-primitives-core",
+ "futures",
+ "futures-timer",
+ "jam-codec",
+ "jam-std-common 0.1.28",
+ "jam-types 0.1.28",
+ "parachain-service-core",
+ "parity-scale-codec",
+ "rand 0.8.5",
+ "sp-additional-data",
+ "sp-consensus 0.32.0",
+ "sp-runtime 31.0.1",
+ "sp-trie 29.0.0",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "cumulus-client-network"
 version = "0.7.0"
 dependencies = [
@@ -5254,6 +5277,7 @@ dependencies = [
  "anyhow",
  "array-bytes 6.2.2",
  "chrono",
+ "cumulus-primitives-core",
  "env_logger 0.11.3",
  "jam-std-common 0.1.28",
  "jam-types 0.1.28",
@@ -17667,6 +17691,7 @@ dependencies = [
  "cumulus-client-consensus-aura",
  "cumulus-client-consensus-common",
  "cumulus-client-consensus-relay-chain",
+ "cumulus-client-jam-work-package-recovery",
  "cumulus-client-parachain-inherent",
  "cumulus-client-service",
  "cumulus-jam-interface",

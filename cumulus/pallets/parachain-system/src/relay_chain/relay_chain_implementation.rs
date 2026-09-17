@@ -168,7 +168,7 @@ where
 			);
 		},
 		// Relay-chain candidates carry no additional data, so nothing is armed around execution.
-		&|_, execute: &dyn Fn()| execute(),
+		&|_, execute: &mut dyn FnMut()| execute(),
 	);
 
 	// A `signed_scheduling_info` overrides the block's emitted signals wholesale — they

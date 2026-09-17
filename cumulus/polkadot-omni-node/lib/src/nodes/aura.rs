@@ -48,6 +48,10 @@ use cumulus_client_consensus_aura::{
 };
 use cumulus_client_consensus_common as consensus_common;
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
+use cumulus_client_jam_work_package_recovery::{
+	ImportBlocksSink, JamWorkPackageRecovery, RecoveredBlock, RecoveryDelayRange,
+	RpcBundleRecovery, WorkReportNotification,
+};
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_primitives_core::{
 	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId,
@@ -62,18 +66,18 @@ use sc_client_api::{Backend, BlockchainEvents};
 use sc_client_db::DbHash;
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
-	BlockImportParams, DefaultImportQueue, LongestChain,
+	BlockImportParams, DefaultImportQueue, IncomingBlock, LongestChain,
 };
 use sc_consensus_manual_seal::consensus::aura::AuraConsensusDataProvider;
 use sc_network::{config::FullNetworkConfiguration, NetworkBlock, NotificationMetrics, PeerId};
-use sc_service::{Configuration, Error, PartialComponents, TaskManager};
+use sc_service::{Configuration, Error, ImportQueue as _, PartialComponents, TaskManager};
 use sc_storage_chain_sync::StorageChainBlockImport;
 use sc_telemetry::TelemetryHandle;
 use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
-use sp_consensus::Environment;
+use sp_consensus::{BlockOrigin, BlockStatus, Environment};
 use sp_consensus_aura::AuraApi;
 use sp_core::traits::SpawnEssentialNamed;
 use sp_inherents::CreateInherentDataProviders;
@@ -108,6 +112,32 @@ where
 		} else {
 			self.relay_chain_verifier.verify(block_import).await
 		}
+	}
+}
+
+struct JamImportSink<Block: BlockT> {
+	service: Box<dyn sc_consensus::import_queue::ImportQueueService<Block>>,
+}
+
+impl<Block: BlockT> ImportBlocksSink<Block> for JamImportSink<Block> {
+	fn import_blocks(&mut self, blocks: Vec<RecoveredBlock<Block>>) {
+		let incoming: Vec<IncomingBlock<Block>> = blocks
+			.into_iter()
+			.map(|b| IncomingBlock {
+				hash: b.hash,
+				header: Some(b.header),
+				body: Some(b.body),
+				indexed_body: None,
+				justifications: None,
+				origin: None,
+				allow_missing_state: true,
+				import_existing: false,
+				state: None,
+				skip_execution: false,
+				additional_data: b.additional_data,
+			})
+			.collect();
+		self.service.import_blocks(BlockOrigin::NetworkBroadcast, incoming);
 	}
 }
 
@@ -557,6 +587,7 @@ where
 			None,
 		);
 		let metrics = NotificationMetrics::new(None);
+		let import_queue_service = import_queue.service();
 
 		let (network, system_rpc_tx, tx_handler_controller, sync_service, _bitswap_handle) =
 			sc_service::build_network(sc_service::BuildNetworkParams {
@@ -676,6 +707,10 @@ where
 					Ok(connection) => connection,
 					Err(error) => {
 						log::error!("Unable to connect to any JAM node: {error}");
+						log::warn!(
+							"Skipping JAM work-package recovery: this collator will not \
+							 recover blocks it did not author.",
+						);
 						return;
 					},
 				};
@@ -728,6 +763,50 @@ where
 						None,
 					)),
 				);
+
+				// Work-package recovery: randomised bundle fetch from the JAM DA layer.
+				//
+				// Slot timing: one JAM timeslot = JAM_SLOT_DURATION_MS (6 s);
+				// jam_params.slot_duration is the para-slot length in JAM timeslots,
+				// so a para slot lasts (slot_duration × 6 s).  We wait half a para
+				// slot (min) before attempting recovery — enough time for the authoring
+				// collator to gossip its bundle normally.  The upper bound (max) is one
+				// full para slot: the window in which the block was originally produced,
+				// keeping recovery timely.  Mirrors the Collator profile in
+				// start_relay_chain_tasks, adapted to JAM timing.
+				let para_slot_ms = Duration::from_millis(
+					jam::JAM_SLOT_DURATION_MS * u64::from(jam_params.slot_duration),
+				);
+				let recovery_delay_range =
+					RecoveryDelayRange { min: para_slot_ms / 2, max: para_slot_ms };
+				let (work_report_tx, work_report_rx) =
+					futures::channel::mpsc::channel::<WorkReportNotification<Block>>(64);
+				let recovery = JamWorkPackageRecovery::new(
+					recovery_delay_range,
+					Box::new(JamImportSink { service: import_queue_service }),
+					work_report_rx,
+				);
+				let block_status_fn = {
+					let client = client.clone();
+					move |hash: Block::Hash| -> BlockStatus {
+						client.block_status(hash).unwrap_or(BlockStatus::Unknown)
+					}
+				};
+				let import_notifications =
+					client.import_notification_stream().map(|n| n.hash).boxed();
+				let finality_notifications =
+					client.finality_notification_stream().map(|n| *n.header.number()).boxed();
+				spawn_essential.spawn(
+					"cumulus-jam-wp-recovery",
+					None,
+					Box::pin(recovery.run(
+						Box::new(RpcBundleRecovery::new((*jam).clone())),
+						block_status_fn,
+						import_notifications,
+						finality_notifications,
+					)),
+				);
+				let _work_report_tx = work_report_tx;
 
 				let Some(jam_authorizer) = jam_authorizer else {
 					// Essential task: park forever, returning would shut the node down.

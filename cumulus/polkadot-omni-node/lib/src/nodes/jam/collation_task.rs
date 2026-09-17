@@ -30,11 +30,16 @@
 //! the block) and settled by the parachain service at accumulate, which applies a head only if
 //! it chains onto the stored one and buffers the rest.
 //!
-//! What a package still carries is the anchor state proof of the para head, inside the PoV. The
-//! service verifies it in-core, which is why anchor and PoV are inseparable: re-anchoring a
-//! package means re-proving the head and rebuilding the payload, not just swapping the context
-//! out. Re-anchoring is legal for *any* package now — nothing names a package's hash any more,
-//! so changing it cannot orphan anything.
+//! What a package still carries is the anchor state proof of the para head, inside the PoV.
+//! Each block also carries a `JamParent` digest that names the anchor it was built against;
+//! that digest is baked in at authoring and verified at refine. A package re-signed against a
+//! *different* anchor hash has a stale digest and can never validate.
+//!
+//! **Re-anchoring policy**: when the anchor *hash* changes, `reanchor()` drops the package and
+//! lets the builder re-author a fresh block with the correct digest on the next tick. When only
+//! the lookup anchor changes (same anchor hash), the digest is still valid and re-signing is
+//! safe and cheap. Nothing names a package's hash any more, so a hash change cannot orphan
+//! anything regardless.
 //!
 //! Failure handling is per package and has no tail: a package that can no longer be reported is
 //! forgotten. Nothing else has to be undone, because no other package depended on it; the block
@@ -43,7 +48,7 @@
 //!
 //! Every package runs under the para's own [AURA authorizer](super::authorizer) and carries a
 //! token this collator signs with its aura key, so assembling a package and signing it are one
-//! step here, and re-anchoring re-signs.
+//! step here. A lookup-anchor-only change re-signs; an anchor-hash change drops.
 //!
 //! Phase-1 simplification that still stands: the PoV is NOT zstd-compressed (parasim rejects
 //! compressed PoVs; JIP-2 is silent on compression).
@@ -694,13 +699,11 @@ where
 		self.submit(wp_hash, &package, &anchored, block_hash).await;
 	}
 
-	/// Rebuild a package around a fresh anchor and a fresh para-head proof, and submit it as the
-	/// new package it now is.
+	/// Obtain a fresh context and, if the anchor hash is unchanged, re-sign and resubmit.
 	///
-	/// Phase 5a made this legal for *any* package: a re-anchored package has different bytes and
-	/// therefore a different hash, which used to orphan every child that had named the old one.
-	/// Nothing names a package's hash any more. If the re-anchoring cannot be completed the
-	/// package is forgotten, which is what would have happened anyway.
+	/// When the anchor *hash* changes the block's baked-in `JamParent` digest is stale; the
+	/// package is dropped and the builder re-authors a fresh block on the next tick. When only
+	/// the lookup anchor changes the digest is still valid — re-signing is safe and cheap.
 	async fn reanchor(&mut self, index: usize, reason: &str) {
 		let entry = &self.packages.entries[index];
 		let block_hash = entry.block_hash;
@@ -712,6 +715,15 @@ where
 			self.forget(index, "the package failed and could not be re-anchored");
 			return;
 		};
+
+		if needs_drop_on_reanchor(&self.packages.entries[index].anchored, &anchored) {
+			self.forget(
+				index,
+				"anchor changed; the block's JamParent digest names the old anchor and cannot \
+				 be reused — the builder will produce a fresh block with the correct digest",
+			);
+			return;
+		}
 
 		let old_wp_hash = self.packages.entries[index].wp_hash;
 		// A fresh anchor is a fresh lookup anchor, so the old token signs nothing here.
@@ -991,6 +1003,16 @@ fn build_pov<Block: BlockT>(
 	.encode()
 }
 
+/// Returns `true` when a re-anchored package must be dropped rather than re-signed.
+///
+/// The block carries a `JamParent` digest naming `old.context.anchor`. If the anchor *hash*
+/// changes that digest is stale and the package can never validate; drop it and let the builder
+/// re-author. A change confined to the lookup anchor leaves the digest intact — re-signing is
+/// safe.
+fn needs_drop_on_reanchor(old: &Anchored, fresh: &Anchored) -> bool {
+	fresh.context.anchor != old.context.anchor
+}
+
 /// Re-anchor a package: fresh context, fresh pool scan, same block and parent header.
 async fn recontext<Jam, BlockHash>(
 	jam: &Jam,
@@ -1224,10 +1246,35 @@ mod tests {
 		assert_eq!(bundle, jam_codec::Encode::encode(&package), "nothing travels beside it");
 	}
 
-	/// Re-anchoring keeps the block and its witness and changes only the anchor, which is the
-	/// whole reason `PackageSource` is kept alongside the submitted package.
+	/// When the anchor *hash* changes, the block's baked-in `JamParent` digest names the old
+	/// anchor and can never validate against the fresh one. `reanchor()` must drop the package
+	/// so the builder re-authors a fresh block with the correct digest on the next tick.
 	#[test]
-	fn re_anchoring_changes_the_package_hash_and_nothing_else() {
+	fn re_anchoring_with_new_anchor_drops_the_package() {
+		let old = anchored(11); // anchor = [9u8; 32]
+						  // A fresh context where the anchor hash itself changed.
+		let fresh_new_anchor = Anchored {
+			context: RefineContext { anchor: HeaderHash::from([99u8; 32]), ..old.context.clone() },
+			..old.clone()
+		};
+		// A fresh context where only the slot moved (anchor hash unchanged).
+		let fresh_same_anchor = anchored(12); // anchor still [9u8; 32]
+
+		assert!(
+			needs_drop_on_reanchor(&old, &fresh_new_anchor),
+			"anchor hash changed: must drop so the builder re-authors with a fresh JamParent digest",
+		);
+		assert!(
+			!needs_drop_on_reanchor(&old, &fresh_same_anchor),
+			"only the slot moved, anchor hash is the same: re-sign is safe",
+		);
+	}
+
+	/// Re-anchoring keeps the block and its PoV untouched when the anchor *hash* is unchanged.
+	/// Only the context (and therefore the package hash and token) changes — a cheap re-sign.
+	/// This is the whole reason `PackageSource` is kept alongside the submitted package.
+	#[test]
+	fn re_anchoring_with_same_anchor_resigns_without_rebuild() {
 		let source = package_source();
 		let first = signed(&source, &anchored(11));
 		let second = signed(&source, &anchored(12));

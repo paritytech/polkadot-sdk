@@ -29,9 +29,9 @@ pub use worker::JamRpcWorker;
 
 use async_trait::async_trait;
 use cumulus_jam_interface::{
-	BlockDesc, BoxStream, ChainSubUpdate, CoreIndex, Error, HeaderHash, JamChainSource,
+	BlockDesc, BoxStream, ChainSubUpdate, CoreIndex, EpochIndex, Error, HeaderHash, JamChainSource,
 	JamStateSource, JamWorkPackageSubmission, MmrPeakHash, RangeProof, Result, ServiceId,
-	StateRootHash, StorageKey, WorkPackage, WorkPackageHash, WorkPackageStatus,
+	StateRootHash, StorageKey, WorkPackage, WorkPackageHash, WorkPackageStatus, WorkReportHash,
 };
 use futures::{channel::mpsc, future::Future, StreamExt};
 use jam_std_common::{Node, NodeExt};
@@ -214,6 +214,14 @@ impl JamWorkPackageSubmission for JamRpcInterface {
 
 	async fn submit_bundle(&self, core: CoreIndex, bundle: Vec<u8>) -> Result<()> {
 		self.client.submit_encoded_work_package_bundle(core, bundle.into()).await
+	}
+
+	async fn recover_bundle(
+		&self,
+		report_hash: WorkReportHash,
+		assurance_epoch: EpochIndex,
+	) -> Result<Vec<u8>> {
+		Ok(self.client.recover_bundle(report_hash, assurance_epoch).await?.into())
 	}
 
 	async fn work_package_status_stream(

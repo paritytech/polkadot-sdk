@@ -1,0 +1,36 @@
+[package]
+name = "cumulus-client-jam-work-package-recovery"
+version = "0.1.0"
+authors.workspace = true
+description = "JAM work-package bundle recovery"
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+codec = { workspace = true }
+cumulus-jam-interface = { workspace = true, default-features = true }
+cumulus-primitives-core = { workspace = true, features = ["std"] }
+futures = { workspace = true }
+futures-timer = { workspace = true }
+jam-codec = { workspace = true }
+jam-std-common = { workspace = true }
+rand = { workspace = true, default-features = true }
+sp-additional-data = { workspace = true }
+sp-consensus = { workspace = true }
+sp-runtime = { workspace = true, features = ["std"] }
+tracing = { workspace = true, default-features = true }
+
+[dependencies.parachain-service-core]
+path = "../../../../parachain-service/core"
+features = ["std"]
+
+[dev-dependencies]
+jam-types = { workspace = true }
+sp-trie = { workspace = true }
+tokio = { features = ["macros", "rt"], workspace = true, default-features = true }

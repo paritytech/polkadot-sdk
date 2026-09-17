@@ -65,7 +65,7 @@ use trie_recorder::{SeenNodes, SizeOnlyRecorderProvider};
 /// `block_data` is already decoded and `randomness_seed` already derived by the caller: the seed
 /// hashes the relay-parent storage root alongside the block hashes, which is relay-specific, so
 /// only its `[u8; 16]` result crosses the seam.
-pub(super) struct SharedValidationInputs<B: BlockT> {
+pub(crate) struct SharedValidationInputs<B: BlockT> {
 	pub block_data: ParachainBlockData<B::LazyBlock>,
 	pub parent_head: Bytes,
 	pub randomness_seed: [u8; 16],
@@ -77,7 +77,7 @@ pub(super) struct SharedValidationInputs<B: BlockT> {
 /// (polkadot_parachain_primitives::primitives::ValidationResult): it appends the scheduling
 /// signal tail to `upward_messages` (from `upward_message_signals` or the signed override,
 /// whichever applies) and unwraps `head_data`/`new_validation_code`.
-pub(super) struct PartialValidationResult {
+pub(crate) struct PartialValidationResult {
 	pub head_data: Option<HeadData>,
 	pub new_validation_code: Option<Vec<u8>>,
 	pub upward_messages: UpwardMessages,
@@ -108,7 +108,7 @@ pub(super) struct PartialValidationResult {
 /// 4. The last step is to execute the entire block in the machinery we just have setup. Executing
 ///    the blocks include running all transactions in the block against our in-memory database and
 ///    ensuring that the final storage root matches the storage root in the header of the block.
-pub(super) fn execute_blocks<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
+pub(crate) fn execute_blocks<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 	inputs: SharedValidationInputs<B>,
 	on_db_ready: Option<
 		&dyn Fn(
@@ -119,12 +119,12 @@ pub(super) fn execute_blocks<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 		),
 	>,
 	on_block_validated: &dyn Fn(&[u8]),
-	/// Runs a block against the just-built backend with whichever readers/finalizers the caller's
-	/// flavor needs armed. Receives the block's additional-data entry (absent for V0-V2) and the
-	/// base execute closure. The relay path arms nothing; JAM arms its proof reader + finalizer
-	/// from the carried `JAM_PROOF_KEY` entry. This keeps the core free of JAM-only `cfg` — the
-	/// armed code lives in the caller, which is itself target-gated.
-	on_execute: &dyn Fn(&Option<AdditionalData>, &dyn Fn()),
+	// Runs a block against the just-built backend with whichever readers/finalizers the caller's
+	// flavor needs armed. Receives the block's additional-data entry (absent for V0-V2) and the
+	// base execute closure. The relay path arms nothing; JAM arms its proof reader + finalizer
+	// from the carried `JAM_PROOF_KEY` entry. This keeps the core free of JAM-only `cfg` — the
+	// armed code lives in the caller, which is itself target-gated.
+	on_execute: &dyn Fn(&Option<AdditionalData>, &mut dyn FnMut()),
 ) -> PartialValidationResult {
 	let _guard = super::host_functions::install_overrides();
 
@@ -236,7 +236,12 @@ pub(super) fn execute_blocks<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 			},
 		);
 
-		let execute = || {
+		// block is moved into the inner FnOnce, so wrap it in RefCell<Option<_>> so that
+		// the outer `execute` closure can implement FnMut (required by `on_execute`'s
+		// `&mut dyn FnMut()` parameter). The `.take()` panics on a second call, preserving
+		// exactly-once semantics.
+		let block = core::cell::RefCell::new(Some(block));
+		let mut execute = || {
 			run_with_externalities_and_recorder::<B, _, _>(
 				&execute_backend,
 				// Here is the only place where we want to use the recorder.
@@ -247,7 +252,12 @@ pub(super) fn execute_blocks<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 				&mut overlay,
 				state_version,
 				|| {
-					E::execute_verified_block(block);
+					E::execute_verified_block(
+						block
+							.borrow_mut()
+							.take()
+							.expect("the execute closure is invoked exactly once; qed"),
+					);
 				},
 			);
 		};
@@ -255,7 +265,7 @@ pub(super) fn execute_blocks<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 		// `finalize` from its proof finalizer and `jam_state_read` from its proof-backed reader
 		// (both armed together from the same `JAM_PROOF_KEY` additional-data entry); the relay
 		// chain arms nothing and executes the block directly.
-		on_execute(&map_opt, &execute);
+		on_execute(&map_opt, &mut execute);
 
 		let code_upgrade_detected =
 			if <PSC as frame_system::Config>::Version::get().system_version >= 3 {
