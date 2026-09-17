@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789671482575,
+  "lastUpdate": 1789680790525,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6ed951984c065c843dfbe292c11b1c38d22083e2",
-          "message": "pallet-revive: minor cleanups and fixes (#11054)\n\n## Summary\n\nPreparatory cleanup PR extracted from the EIP-7702 branch to simplify\nreview.\n\n- **Counter.sol uint64**: Change `uint256` to `uint64` in\nCounter/NestedCounter fixtures, to avoid U256 conversion in tests.\n- **Debug log**: Add debug log for `eth_transact` substrate tx hash\n- **RLP fix**: Fix `Transaction7702Signed` decoder field order (removed\nincorrect `gas_price` field at index 4, aligned with encoder)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-13T17:42:01Z",
-          "tree_id": "924edcd8a7b4426c4410e7250615f9c07bac8fd1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6ed951984c065c843dfbe292c11b1c38d22083e2"
-        },
-        "date": 1771009063227,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026401642600000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006354847550000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009021117459999986,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.00911379213999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dharjeezy@gmail.com",
+            "name": "dharjeezy",
+            "username": "dharjeezy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4bf6d91ddb771991001e628477900e129e3cb2c3",
+          "message": "fatxpool: hold the transaction pool as a trait object instead of a wrapper (#12845)\n\n`TransactionPoolWrapper` was a struct wrapping a boxed transaction pool,\nexisting only to give it a sized type, at the cost of ~190 lines\nforwarding every trait method to the inner box. `TransactionPoolHandle`\nis now a type alias for the trait object itself rather than for that\nwrapper, so the forwarding layer is gone and `Builder::build` hands back\nan `Arc<TransactionPoolHandle<Block>>` instead of a wrapper by value.\n\nThis also folds in #12942. `FullClientTransactionPool` no longer carries\na `Client` type parameter: all three of its associated types are\nprojections that discard the client, so `Hash`, `InPoolTransaction` and\n`Error` are spelled out in terms of `Block` alone. Naming them that way\nrequired exporting `sc_transaction_pool::error` and\n`sc_transaction_pool::Transaction`.\n\n`BuildNetworkParams`, `BuildNetworkAdvancedParams`, `SpawnTasksParams`\nand `GenRpcModuleParams` keep a generic transaction pool parameter,\nrelaxed to `?Sized` so the trait object can be passed in. The service\ntherefore does not pin the pool's error or in-pool transaction type, and\nan alternative pool implementation is free to define its own. What those\nentry points no longer do is constrain the client on the transaction\npool's behalf: the `BlockIdTo` and `TaggedTransactionQueue` bounds that\nonly existed to build a pool are gone from `build_network`,\n`build_network_advanced`, `spawn_tasks`, `gen_rpc_module` and the\ncumulus `build_network`.\n\nThe client capabilities each side genuinely needs are each spelled out\nonce:\n\n- `sc_transaction_pool::ClientForTransactionPool`, for building a pool.\nUsed by the `Builder` and internally by `FullChainApi`,\n`BasicPool::new_full` and `ForkAwareTxPool::new_full`. It does not pin\nthe `BlockIdTo` error, so a hand written client is free to choose its\nown.\n- `sc_service::ClientForService`, for the service entry points, in the\nsame shape as the existing `ClientForGrandpa` and with each entry point\nadding only the few capabilities it genuinely uses on top.\n\nComponents holding the pool behind an `Arc` stay generic over the pool\ntype and accept unsized pools now, which is a relaxation requiring no\nchanges on their side.\n\ncloses #5489\ncloses #12942\n\n---------\n\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
+          "timestamp": "2026-09-17T19:58:26Z",
+          "tree_id": "d2777dd8a34588efbedd923f7519a3ab5bbeff2b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4bf6d91ddb771991001e628477900e129e3cb2c3"
+        },
+        "date": 1789680746999,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002493072670000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009345531079999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010982002270000004,
             "unit": "seconds"
           }
         ]
