@@ -1657,10 +1657,8 @@ pub mod pallet {
 		/// (yielding `Emergency`). The resolved level is then checked against `required`. No
 		/// other authority can manage a PSM.
 		///
-		/// The system `None` origin is rejected outright, before any comparison. It carries no
-		/// authority, yet a bare extrinsic still reaches dispatch with it, so matching it against
-		/// a stored admin would hand the PSM to whoever authors the block. The setters refuse to
-		/// store it, and this guard also covers any record written before that check existed.
+		/// We reject the `None` origin to prevent the block author from controlling PSMs with an admin
+		/// set to `None`.
 		pub(crate) fn ensure_psm_admin(
 			origin: OriginFor<T>,
 			internal_asset: &T::AssetId,
