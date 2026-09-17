@@ -99,12 +99,17 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn queue_on_demand_batch(s: Linear<1, 100>) {
+	fn queue_on_demand_batch(s: Linear<0, 100>) {
 		// Setup
 		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
 
+		on_demand::Pallet::<T>::populate_queue(
+			ParaId::from(111u32),
+			polkadot_primitives::ON_DEMAND_MAX_QUEUE_MAX_SIZE - s,
+		);
+
 		// Use parameterized order count
-		let batch: Vec<(ParaId, BlockNumberFor<T>)> = vec![0u32; s as usize - 1]
+		let batch: Vec<(ParaId, BlockNumberFor<T>)> = vec![0u32; s as usize]
 			.into_iter()
 			.enumerate()
 			.map(|(index, block_number)| {
