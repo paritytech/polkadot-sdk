@@ -252,7 +252,23 @@ mod benchmarks {
 		let max_capacity = T::MaxCapacity::get();
 		fund::<T>(SENDER, max_capacity);
 		fund::<T>(RECIPIENT, max_capacity);
-		// TODO: leave an open `CHANNEL` whose held deposits are below the current price.
+
+		// A runtime's prices are fixed at compile time, so the stale deposits come from the
+		// footprint instead: held for one message, recorded at full capacity.
+		let stale = Pallet::<T>::channel_footprint(1);
+		let sender_deposit =
+			T::SenderConsideration::new(&T::SovereignAccountOf::convert(SENDER), stale)?;
+		let recipient_deposit =
+			T::RecipientConsideration::new(&T::SovereignAccountOf::convert(RECIPIENT), stale)?;
+		Channels::<T>::insert(
+			CHANNEL,
+			ChannelInfo {
+				max_capacity,
+				max_message_size: T::MaxMessageSize::get(),
+				sender_deposit: Some(sender_deposit),
+				recipient_deposit: Some(recipient_deposit),
+			},
+		);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), SENDER, RECIPIENT);

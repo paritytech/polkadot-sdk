@@ -197,7 +197,8 @@ impl Convert<HrmpParaId, AccountId> for SovereignAccountOf {
 }
 
 parameter_types! {
-	pub const DepositPerMessage: Balance = PER_MESSAGE;
+	/// Mutable, so a test can move the price under an open channel and poke it.
+	pub static DepositPerMessage: Balance = PER_MESSAGE;
 	pub const SenderHoldReason: RuntimeHoldReason =
 		RuntimeHoldReason::Hrmp(pallet_hrmp_para::HoldReason::SenderDeposit);
 	pub const RecipientHoldReason: RuntimeHoldReason =

@@ -183,7 +183,8 @@ impl sp_runtime::traits::Convert<ParaId, AccountId> for SovereignAccountOf {
 }
 
 parameter_types! {
-	pub const DepositPerMessage: Balance = PER_MESSAGE;
+	/// Mutable, so a test can move the price under an open channel and poke it.
+	pub static DepositPerMessage: Balance = PER_MESSAGE;
 	pub const SenderHoldReason: RuntimeHoldReason =
 		RuntimeHoldReason::Hrmp(HoldReason::SenderDeposit);
 	pub const RecipientHoldReason: RuntimeHoldReason =
@@ -221,6 +222,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
 	ParaOriginAccounts::set(Vec::new());
+	DepositPerMessage::set(PER_MESSAGE);
 
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {

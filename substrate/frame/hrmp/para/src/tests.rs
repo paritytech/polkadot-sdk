@@ -28,7 +28,7 @@ use hrmp_primitives::{
 	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
 	ParaId, ParaNotification, ParaRequest, ParaRequestV1,
 };
-use sp_runtime::DispatchError;
+use sp_runtime::{DispatchError, TokenError};
 
 const CHANNEL: ChannelId = ChannelId { sender: 2000, recipient: 2001 };
 /// The same sender, but towards a system chain: ids at or below 1999 pay no deposit.
@@ -82,6 +82,21 @@ fn respond(
 		RuntimeOrigin::root(),
 		MessageToPara::V1(MessageToParaV1::OpenChannelResponse { channel, message_id, outcome }),
 	)
+}
+
+/// A channel the relay chain has confirmed, with whatever the deposits cost at the time. Funding
+/// is the caller's, so a channel with the system can be opened without any.
+fn opened(channel: ChannelId) {
+	assert_ok!(init(channel, CAPACITY, MESSAGE_SIZE));
+	assert_ok!(accept(channel));
+	let message_id = Requests::<Test>::get(channel).unwrap().message_id;
+	assert_ok!(respond(channel, message_id, Ok((CAPACITY, MESSAGE_SIZE))));
+	let _ = take_sent();
+	let _ = hrmp_events();
+}
+
+fn poke(channel: ChannelId) -> sp_runtime::DispatchResult {
+	Hrmp::poke_channel_deposits(RuntimeOrigin::signed(ALICE), channel.sender, channel.recipient)
 }
 
 #[test]
@@ -433,5 +448,116 @@ fn a_refusing_transport_unwinds_the_whole_request() {
 		assert!(Requests::<Test>::get(CHANNEL).is_none());
 		assert_eq!(OpenRequestCount::<Test>::get(CHANNEL.sender), 0);
 		assert_eq!(held(CHANNEL.sender, HoldReason::SenderDeposit), 0);
+	});
+}
+
+#[test]
+fn a_poke_takes_the_difference_when_the_price_rises() {
+	new_test_ext().execute_with(|| {
+		fund(CHANNEL);
+		opened(CHANNEL);
+
+		DepositPerMessage::set(2 * PER_MESSAGE);
+		assert_ok!(poke(CHANNEL));
+
+		assert_eq!(held(CHANNEL.sender, HoldReason::SenderDeposit), 2 * DEPOSIT);
+		assert_eq!(held(CHANNEL.recipient, HoldReason::RecipientDeposit), 2 * DEPOSIT);
+		// Deposits live here, so the relay chain is told nothing.
+		assert!(take_sent().is_empty());
+		assert_eq!(hrmp_events(), vec![Event::OpenChannelDepositsUpdated { channel: CHANNEL }]);
+	});
+}
+
+#[test]
+fn a_poke_returns_the_difference_when_the_price_falls() {
+	new_test_ext().execute_with(|| {
+		fund(CHANNEL);
+		opened(CHANNEL);
+
+		DepositPerMessage::set(PER_MESSAGE / 2);
+		assert_ok!(poke(CHANNEL));
+
+		assert_eq!(held(CHANNEL.sender, HoldReason::SenderDeposit), DEPOSIT / 2);
+		assert_eq!(held(CHANNEL.recipient, HoldReason::RecipientDeposit), DEPOSIT / 2);
+	});
+}
+
+#[test]
+fn a_poke_at_the_price_already_paid_still_reports() {
+	new_test_ext().execute_with(|| {
+		fund(CHANNEL);
+		opened(CHANNEL);
+
+		assert_ok!(poke(CHANNEL));
+
+		assert_eq!(held(CHANNEL.sender, HoldReason::SenderDeposit), DEPOSIT);
+		assert_eq!(held(CHANNEL.recipient, HoldReason::RecipientDeposit), DEPOSIT);
+		assert_eq!(hrmp_events(), vec![Event::OpenChannelDepositsUpdated { channel: CHANNEL }]);
+	});
+}
+
+#[test]
+fn a_poke_on_a_channel_with_the_system_stays_free() {
+	new_test_ext().execute_with(|| {
+		// Neither end is funded, and a price rise must not change that.
+		opened(SYSTEM_CHANNEL);
+		DepositPerMessage::set(2 * PER_MESSAGE);
+
+		assert_ok!(poke(SYSTEM_CHANNEL));
+
+		let channel = Channels::<Test>::get(SYSTEM_CHANNEL).unwrap();
+		assert!(channel.sender_deposit.is_none());
+		assert!(channel.recipient_deposit.is_none());
+		assert_eq!(held(SYSTEM_CHANNEL.sender, HoldReason::SenderDeposit), 0);
+		assert_eq!(held(SYSTEM_CHANNEL.recipient, HoldReason::RecipientDeposit), 0);
+	});
+}
+
+#[test]
+fn only_an_open_channel_can_be_poked() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(poke(CHANNEL), Error::<Test>::OpenHrmpChannelDoesntExist);
+
+		// A request holds deposits too, but it is not repriced until it opens.
+		fund(CHANNEL);
+		assert_ok!(init(CHANNEL, CAPACITY, MESSAGE_SIZE));
+		assert_noop!(poke(CHANNEL), Error::<Test>::OpenHrmpChannelDoesntExist);
+	});
+}
+
+#[test]
+fn a_poke_needs_a_signed_origin() {
+	new_test_ext().execute_with(|| {
+		fund(CHANNEL);
+		opened(CHANNEL);
+
+		assert_noop!(
+			Hrmp::poke_channel_deposits(RuntimeOrigin::root(), CHANNEL.sender, CHANNEL.recipient),
+			DispatchError::BadOrigin
+		);
+		assert_noop!(
+			Hrmp::poke_channel_deposits(RuntimeOrigin::none(), CHANNEL.sender, CHANNEL.recipient),
+			DispatchError::BadOrigin
+		);
+	});
+}
+
+#[test]
+fn a_poke_one_end_cannot_cover_unwinds_both() {
+	new_test_ext().execute_with(|| {
+		fund(CHANNEL);
+		opened(CHANNEL);
+		// Only the sender can afford the new price, so the sender's top-up must come back too.
+		let _ = Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			para_account(CHANNEL.sender),
+			10_000_000,
+		);
+
+		DepositPerMessage::set(1_000_000);
+		assert_noop!(poke(CHANNEL), TokenError::FundsUnavailable);
+
+		assert_eq!(held(CHANNEL.sender, HoldReason::SenderDeposit), DEPOSIT);
+		assert_eq!(held(CHANNEL.recipient, HoldReason::RecipientDeposit), DEPOSIT);
 	});
 }

@@ -21,14 +21,14 @@
 //! the pallets' bodies are `todo!()`.
 
 use crate::{
-	para, relay, senders, HrmpPara, MockNet, Relay, PARA_ID, RECIPIENT, SENDER, SYSTEM_PARA,
+	para, relay, senders, HrmpPara, MockNet, Relay, ALICE, PARA_ID, RECIPIENT, SENDER, SYSTEM_PARA,
 };
 use frame_support::{assert_ok, traits::EnsureOrigin};
 use hrmp_primitives::{
 	ChannelId, MessageToRelay, MessageToRelayV1, ParaId, ParaNotification, ParaRequest,
 	ParaRequestV1,
 };
-use pallet_hrmp_para::RequestState;
+use pallet_hrmp_para::{HoldReason, RequestState};
 use polkadot_runtime_parachains::{
 	dmp as parachains_dmp, hrmp as parachains_hrmp, Origin as ParachainsOrigin,
 };
@@ -80,6 +80,41 @@ fn downward_conclusions(para_id: ParaId) -> Vec<ParaNotification> {
 		.into_iter()
 		.filter_map(|message| ParaNotification::decode(&mut &message[..]).ok())
 		.collect()
+}
+
+/// What a para has held on the channel-managing parachain under `reason`.
+fn held(para_id: ParaId, reason: HoldReason) -> u128 {
+	use frame_support::traits::fungible::InspectHold;
+	use sp_runtime::traits::Convert;
+
+	para::Balances::balance_on_hold(
+		&para::RuntimeHoldReason::Hrmp(reason),
+		&para::SovereignAccountOf::convert(para_id),
+	)
+}
+
+/// The relay chain's own record of `channel`, where routing and message state live.
+fn relay_channel(channel: ChannelId) -> parachains_hrmp::HrmpChannel {
+	parachains_hrmp::HrmpChannels::<relay::Runtime>::get(&polkadot_primitives::HrmpChannelId {
+		sender: channel.sender.into(),
+		recipient: channel.recipient.into(),
+	})
+	.expect("the channel is in the routing table")
+}
+
+/// A channel both ends agreed to and the relay chain confirmed, driven the way a para would.
+fn open_channel(channel: ChannelId) {
+	Relay::execute_with(|| {
+		ask(
+			channel.sender,
+			ParaRequestV1::InitOpenChannel {
+				recipient: channel.recipient,
+				proposed_max_capacity: CAPACITY,
+				proposed_max_message_size: MESSAGE_SIZE,
+			},
+		);
+		ask(channel.recipient, ParaRequestV1::AcceptOpenChannel { sender: channel.sender });
+	});
 }
 
 #[test]
@@ -243,5 +278,64 @@ fn a_channel_with_a_system_chain_takes_no_deposit() {
 		// The paying channel next to it still holds both deposits, so this is not a blanket free
 		// pass.
 		assert!(pallet_hrmp_para::Channels::<para::Runtime>::get(CHANNEL).is_none());
+	});
+}
+
+#[test]
+fn a_poke_reprices_on_the_parachain_without_touching_the_relay_chain() {
+	MockNet::reset();
+
+	open_channel(CHANNEL);
+
+	let queued =
+		Relay::execute_with(|| (downward_queue(SENDER).len(), downward_queue(RECIPIENT).len()));
+
+	HrmpPara::execute_with(|| {
+		let deposit = held(SENDER, HoldReason::SenderDeposit);
+		assert!(deposit > 0);
+		assert_eq!(held(RECIPIENT, HoldReason::RecipientDeposit), deposit);
+
+		para::DepositPerMessage::set(2 * para::PER_MESSAGE);
+		assert_ok!(para::Hrmp::poke_channel_deposits(
+			para::RuntimeOrigin::signed(ALICE),
+			SENDER,
+			RECIPIENT,
+		));
+
+		assert_eq!(held(SENDER, HoldReason::SenderDeposit), 2 * deposit);
+		assert_eq!(held(RECIPIENT, HoldReason::RecipientDeposit), 2 * deposit);
+	});
+
+	Relay::execute_with(|| {
+		let channel = relay_channel(CHANNEL);
+		assert_eq!(channel.max_capacity, CAPACITY);
+		assert_eq!(channel.max_message_size, MESSAGE_SIZE);
+		// The deposits were never the relay chain's, and nothing went out to tell it otherwise.
+		assert_eq!(channel.sender_deposit, 0);
+		assert_eq!(channel.recipient_deposit, 0);
+		assert_eq!((downward_queue(SENDER).len(), downward_queue(RECIPIENT).len()), queued);
+	});
+}
+
+#[test]
+fn a_poke_on_a_channel_with_a_system_chain_stays_free() {
+	MockNet::reset();
+
+	open_channel(SYSTEM_CHANNEL);
+
+	HrmpPara::execute_with(|| {
+		para::DepositPerMessage::set(2 * para::PER_MESSAGE);
+		assert_ok!(para::Hrmp::poke_channel_deposits(
+			para::RuntimeOrigin::signed(ALICE),
+			SYSTEM_CHANNEL.sender,
+			SYSTEM_CHANNEL.recipient,
+		));
+
+		// [`SYSTEM_PARA`] has no sovereign account here, and a poke must not start needing one.
+		let channel = pallet_hrmp_para::Channels::<para::Runtime>::get(SYSTEM_CHANNEL)
+			.expect("the relay chain confirmed the channel");
+		assert!(channel.sender_deposit.is_none());
+		assert!(channel.recipient_deposit.is_none());
+		assert_eq!(held(SYSTEM_CHANNEL.sender, HoldReason::SenderDeposit), 0);
 	});
 }
