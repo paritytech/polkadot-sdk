@@ -142,26 +142,6 @@ pub enum MessageToRelayV1<AccountId> {
 		/// The new head data.
 		head: Vec<u8>,
 	},
-	/// Ask the relay chain to register `para_id` without a deposit or an authorization step.
-	///
-	/// Governance-originated, so the relay chain takes it on trust and skips the checks a
-	/// [`MessageToRelayV1::Register`] goes through. Answered with
-	/// [`MessageToParaV1::ForceRegisterResponse`].
-	#[codec(index = 6)]
-	ForceRegister {
-		/// The para id being registered.
-		para_id: ParaId,
-		/// The parachain's id for this message, echoed back in the response.
-		message_id: u64,
-		/// The account recorded as the manager of this para.
-		manager: AccountId,
-		/// The genesis head data of the new parachain.
-		genesis_head: Vec<u8>,
-		/// Blake2-256 hash of the validation code that will be uploaded.
-		code_hash: H256,
-		/// Length of the validation code that will be uploaded, in bytes.
-		code_len: u32,
-	},
 }
 
 /// Registrar report messages sent back to the parachain.
@@ -282,16 +262,6 @@ pub enum MessageToParaV1 {
 	HeadNoted {
 		/// The para id that produced a head.
 		para_id: ParaId,
-	},
-	/// Answer a [`MessageToRelayV1::ForceRegister`].
-	#[codec(index = 8)]
-	ForceRegisterResponse {
-		/// The para id the answer is about.
-		para_id: ParaId,
-		/// The id of the [`MessageToRelayV1::ForceRegister`] this answers, echoed back.
-		message_id: u64,
-		/// Whether the registration was applied on the relay chain.
-		outcome: Outcome,
 	},
 }
 
