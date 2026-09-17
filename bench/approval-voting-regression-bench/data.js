@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789643642197,
+  "lastUpdate": 1789671383634,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "adrian@parity.io",
-            "name": "Adrian Catangiu",
-            "username": "acatangiu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "13236110860ec5003dfe8844ff27a4a7eda7cf62",
-          "message": "XCM executor keeps track and resolves all imbalances created by XCM operations (#10384)\n\nIntroduce \"ImbalanceAccounting\" traits for dynamic dispatch management\nof imbalances. These are helper traits to be used for generic Imbalance,\nhelpful for tracking multiple concrete types of `Imbalance` using\ndynamic dispatch of these traits.\n\n`xcm-executor` now tracks imbalances in holding.\n\nChange the xcm executor implementation and inner types and adapters so\nthat it keeps track of imbalances across the stack.\n\nPreviously, XCM operations on fungible assets would break the respective\nfungibles' total issuance invariants by burning and minting them in\ndifferent stages of XCM processing pipeline.\n\nThis commit fixes that by keeping track of the \"withdrawn\" or\n\"deposited\" fungible assets in holding and other XCM registers as\nimbalances. The imbalances are tied to the underlying pallet managing\nthe asset so that they keep the assets' total issuance correctness\nthroughout the execution of the XCM program.\n\nImbalances in XCM registers are resolved by the underlying pallets\nmanaging them whenever they move from XCM registers to other parts of\nthe stack (e.g. deposited to accounts, burned, etc).\n\nXCM emulated tests now also verify total issuance before/after\ntransfers, swaps, traps, claims, etc to guarantee implementation\ncorrectness.\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Daniel Shiposha <dev@shiposha.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: 0xRVE <robertvaneerdewijk@gmail.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>\nCo-authored-by: Manuel Mauro <manuel.mauro@protonmail.com>\nCo-authored-by: Alexandre R. Baldé <alexandre.balde@parity.io>\nCo-authored-by: Omar <OmarAbdulla7@hotmail.com>\nCo-authored-by: BDevParity <bruno.devic@parity.io>\nCo-authored-by: Egor_P <egor@parity.io>\nCo-authored-by: Andrei Eres <eresav@me.com>\nCo-authored-by: Klapeyron <11329616+Klapeyron@users.noreply.github.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>\nCo-authored-by: Xavier Lau <x@acg.box>\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
-          "timestamp": "2026-02-16T10:47:52Z",
-          "tree_id": "2b4879ee2258b11f546c8c21980a9a85ba19830b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/13236110860ec5003dfe8844ff27a4a7eda7cf62"
-        },
-        "date": 1771243670431,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63626.479999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52939.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.31716469931001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8025255850299924,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00536643468,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.68050146875,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000027926339999999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.75374180919,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.49101111838314,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000027926339999999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002356216,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.668208146119999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002356216,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.619525898900001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.660449576399999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 14.20052762416996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e7c242653aba8f3dae834c71546aa0d6f731e0d5",
+          "message": "pallet-psm: reject the `None` origin as a PSM admin (#13256)\n\nA PSM admin could be set to the `None` origin. The pool rejects unsigned\nPSM calls, but a block author bypasses the pool, so such a PSM would be\nmanaged by whoever authors the block.\n\nThis PR rejects the `None` origin both when storing an admin and when\nchecking one.\n\n---------\n\nCo-authored-by: Dónal Murray <donal.murray@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-17T17:25:23Z",
+          "tree_id": "fe506f2eac8f15fae1abeccde9294ef56416ea21",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e7c242653aba8f3dae834c71546aa0d6f731e0d5"
+        },
+        "date": 1789671343141,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63573.259999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000018474249999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000018474249999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7582242243399997,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.341198084572918,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000019334429999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7233063375399995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4617803300500074,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005459662160000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000019334429999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.786687704789999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.29810940379999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.768271055330001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7943800895899832,
             "unit": "seconds"
           }
         ]
