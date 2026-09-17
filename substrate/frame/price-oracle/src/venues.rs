@@ -49,9 +49,6 @@ const TIMEOUT_MS: u32 = 1_000;
 const MAX_BOOK_BYTES: u32 = 8 * 1024;
 /// The maximum size of a trades response. A single trade with its envelope is about 300 bytes.
 const MAX_TRADES_BYTES: u32 = 512;
-/// The maximum size of a trades response of a venue that returns its recent trades regardless of
-/// the limit asked for, about a hundred trades.
-const FULL_TRADES_BYTES: u32 = 32 * 1024;
 /// The number of levels requested where the exchange allows choosing.
 const DEPTH: &str = "100";
 /// The number of trades requested where the exchange allows choosing. Only the latest trade is
@@ -278,8 +275,8 @@ pub fn mexc_perp(
 
 /// The KuCoin spot market of `symbol`.
 ///
-/// The book is `{"data": {"bids": [[price, size], ..], "asks": [..]}}` and the trades are
-/// `{"data": [{"time": ns, ..}, ..]}`, always the last hundred.
+/// The book is `{"data": {"bids": [[price, size], ..], "asks": [..]}}` and the ticker is
+/// `{"data": {"time": ms, ..}}`.
 pub fn kucoin_spot(venue: VenueId, pair: PairId, symbol: &str) -> Option<StoredMarket> {
 	const HOST: &str = "api.kucoin.com";
 	market(
@@ -298,10 +295,15 @@ pub fn kucoin_spot(venue: VenueId, pair: PairId, symbol: &str) -> Option<StoredM
 			ARRAY,
 		)?,
 		trades(
-			request(HOST, "/api/v1/market/histories", &[("symbol", symbol)], FULL_TRADES_BYTES)?,
+			request(
+				HOST,
+				"/api/v1/market/orderbook/level1",
+				&[("symbol", symbol)],
+				MAX_TRADES_BYTES,
+			)?,
 			&[PathStep::key("data")?],
 			&[PathStep::key("time")?],
-			TimeFormat::Nanos,
+			TimeFormat::Millis,
 		)?,
 	)
 }
@@ -309,8 +311,8 @@ pub fn kucoin_spot(venue: VenueId, pair: PairId, symbol: &str) -> Option<StoredM
 /// The KuCoin USDT perpetual of `symbol`. Sizes are in lots of `contract_size` base units, the
 /// contract's `multiplier`.
 ///
-/// The book is `{"data": {"bids": [[price, size], ..], "asks": [..]}}` and the trades are
-/// `{"data": [{"ts": ns, ..}, ..]}`, always the last hundred.
+/// The book is `{"data": {"bids": [[price, size], ..], "asks": [..]}}` and the ticker, the
+/// last trade, is `{"data": {"ts": ns, ..}}`.
 pub fn kucoin_perp(
 	venue: VenueId,
 	pair: PairId,
@@ -329,7 +331,7 @@ pub fn kucoin_perp(
 			ARRAY,
 		)?,
 		trades(
-			request(HOST, "/api/v1/trade/history", &[("symbol", symbol)], FULL_TRADES_BYTES)?,
+			request(HOST, "/api/v1/ticker", &[("symbol", symbol)], MAX_TRADES_BYTES)?,
 			&[PathStep::key("data")?],
 			&[PathStep::key("ts")?],
 			TimeFormat::Nanos,
@@ -487,8 +489,8 @@ pub fn coinbase_spot(venue: VenueId, pair: PairId, product_id: &str) -> Option<S
 
 /// The Kraken Futures perpetual of `symbol`. Sizes are in the base asset.
 ///
-/// The book is `{"orderBook": {"bids": [[price, size], ..], "asks": [..]}}` and the trades are
-/// `{"history": [{"time": iso8601, ..}, ..]}`, always the last hundred.
+/// The book is `{"orderBook": {"bids": [[price, size], ..], "asks": [..]}}` and the ticker,
+/// with the last trade, is `{"ticker": {"lastTime": iso8601, ..}}`.
 pub fn kraken_perp(venue: VenueId, pair: PairId, symbol: &str) -> Option<StoredMarket> {
 	const HOST: &str = "futures.kraken.com";
 	market(
@@ -502,9 +504,15 @@ pub fn kraken_perp(venue: VenueId, pair: PairId, symbol: &str) -> Option<StoredM
 			ARRAY,
 		)?,
 		trades(
-			request(HOST, "/derivatives/api/v3/history", &[("symbol", symbol)], FULL_TRADES_BYTES)?,
-			&[PathStep::key("history")?],
-			&[PathStep::key("time")?],
+			request(
+				HOST,
+				&format!("/derivatives/api/v3/tickers/{symbol}"),
+				&[],
+				// The ticker carries the day's statistics as well.
+				2 * MAX_TRADES_BYTES,
+			)?,
+			&[PathStep::key("ticker")?],
+			&[PathStep::key("lastTime")?],
 			TimeFormat::Iso8601,
 		)?,
 	)
@@ -587,9 +595,9 @@ mod tests {
 	use sp_price_oracle::runtime_api::ParseError;
 	use sp_runtime::Permill;
 
-	/// 2026-09-16T21:00:00Z. The fixtures were recorded in the two hours before it, with the
+	/// 2026-09-17T10:00:00Z. The fixtures were recorded in the two hours before it, with the
 	/// recorded asset trading near 1 USDT.
-	const NOW_MS: u64 = 1_789_592_400_000;
+	const NOW_MS: u64 = 1_789_639_200_000;
 	/// Long enough to cover the recording session.
 	const MAX_TRADE_AGE_MS: u32 = 2 * 60 * 60 * 1_000;
 	const VENUE: VenueId = VenueId(0);

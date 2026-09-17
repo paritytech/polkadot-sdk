@@ -1,1 +1,1 @@
-{"trades":[{"trade_id":"56433740", "product_id":"DOT-USD", "price":"1.008", "size":"48.01587302", "time":"2026-09-16T20:25:50.058161Z", "side":"SELL", "bid":"", "ask":"", "exchange":"coinbase"}], "best_bid":"1.0072", "best_ask":"1.0079"}
+{"trades":[{"trade_id":"56448921", "product_id":"DOT-USD", "price":"1.0144", "size":"1.23458775", "time":"2026-09-17T09:14:09.189486Z", "side":"SELL", "bid":"", "ask":"", "exchange":"coinbase"}], "best_bid":"1.0139", "best_ask":"1.0144"}

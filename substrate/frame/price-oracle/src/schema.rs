@@ -104,7 +104,7 @@ pub enum ResponseSchema {
 	},
 	/// A list of recent trades.
 	Trades {
-		/// Path to the array of trades.
+		/// Path to the array of trades, or to a single trade.
 		trades: Path,
 		/// Path from one trade to its timestamp.
 		time: Path,
@@ -160,8 +160,12 @@ impl ResponseSchema {
 				Ok(Parsed::OrderBook(OrderBook { bids, asks }))
 			},
 			ResponseSchema::Trades { trades, time, format } => {
-				let rows =
-					follow(&doc, trades)?.as_array().ok_or(ResponseSchemaError::NotAnArray)?;
+				let value = follow(&doc, trades)?;
+				let rows = match value {
+					Value::Array(rows) => rows.as_slice(),
+					Value::Object(_) => core::slice::from_ref(value),
+					_ => return Err(ResponseSchemaError::NotAnArray),
+				};
 				let mut latest = None;
 				for row in rows {
 					let ms = read_time(
@@ -402,6 +406,20 @@ mod tests {
 			read(TimeFormat::Millis, br#"[{"time":1},{"x":2}]"#, vec![key("time")]),
 			Err(ResponseSchemaError::MalformedTime)
 		);
+	}
+
+	#[test]
+	fn a_single_trade_is_read_like_a_list() {
+		let schema = ResponseSchema::Trades {
+			trades: path(vec![key("ticker")]),
+			time: path(vec![key("lastTime")]),
+			format: TimeFormat::Iso8601,
+		};
+		assert_eq!(
+			schema.read(br#"{"ticker":{"last":1.01,"lastTime":"2026-08-14T12:00:00.5Z"}}"#),
+			Ok(Parsed::LatestTradeMs(1_786_708_800_500))
+		);
+		assert_eq!(schema.read(br#"{"ticker":"1.01"}"#), Err(ResponseSchemaError::NotAnArray));
 	}
 
 	#[test]
