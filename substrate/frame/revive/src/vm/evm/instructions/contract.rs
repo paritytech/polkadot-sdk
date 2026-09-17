@@ -190,17 +190,18 @@ fn run_call<'a, E: Ext>(
 	value: U256,
 	return_memory_range: Range<usize>,
 ) -> ControlFlow<Halt> {
-	let (add_stipend, reentracy) =
-		match (value.is_zero(), gas_limit.try_into().is_ok_and(|limit: u64| limit == CALL_STIPEND))
-		{
-			(false, _) => (true, ReentrancyProtection::AllowReentry),
-			// Heuristic: detect when solc passes `gas_limit = 2300` (the call stipend).
-			// For zero-value transfer/send, solc injects `gas_limit = 2300` explicitly.
-			// We apply `AllowNext` reentrancy protection and set `add_stipend = true` since the
-			// raw 2300 gas value is only meaningful at Ethereum's gas scale.
-			(_, true) => (true, ReentrancyProtection::AllowNext),
-			(_, _) => (false, ReentrancyProtection::AllowReentry),
-		};
+	let (add_stipend, reentracy) = match (value.is_zero(), gas_limit.try_into().ok()) {
+		// Heuristic: detect when solc passes `gas_limit = 2300` (the call stipend).
+		// For zero-value transfer/send, solc injects `gas_limit = 2300` explicitly.
+		// We apply `AllowNext` reentrancy protection and set `add_stipend = true` since the
+		// raw 2300 gas value is only meaningful at Ethereum's gas scale.
+		(true, Some(CALL_STIPEND)) => (true, ReentrancyProtection::AllowNext),
+		// When transfer/send moves value, solc passes `gas_limit = 0` and relies on the 2300 gas
+		// stipend the EVM grants a call that moves value, so the same protection applies.
+		(false, Some(0u64)) => (true, ReentrancyProtection::AllowNext),
+		(false, _) => (true, ReentrancyProtection::AllowReentry),
+		(true, _) => (false, ReentrancyProtection::AllowReentry),
+	};
 
 	let call_result = match scheme {
 		CallScheme::Call | CallScheme::StaticCall => interpreter.ext.call(
