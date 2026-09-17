@@ -1,0 +1,9 @@
+title: 'fix(elections-phragmen): correct runners-up try_state invariant'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Remove the incorrect approval-stake ordering check because `RunnersUp` storage
+    follows election/Phragmen merit order rather than approval-stake ordering.
+crates:
+- name: pallet-elections-phragmen
+  bump: patch
