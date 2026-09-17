@@ -49,7 +49,8 @@ jobs:
     # The label is the opt-in – no draft gate.
     if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.label.name, 'A6-statement-store') || contains(github.event.pull_request.labels.*.name, 'A6-statement-store') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # Long enough to outlast the build this waits on; see the wait loop below.
+    timeout-minutes: 40
     outputs:
       build_run_id: ${{ steps.pick.outputs.build_run_id }}
       images_version: ${{ steps.pick.outputs.images_version }}
@@ -101,25 +102,50 @@ jobs:
             build-push-image-polkadot-parachain-debug
             build-push-image-polkadot-debug
           )
-          runs=$(gh run list --repo "$REPO" --workflow build-publish-images.yml \
-            --branch "$BRANCH" --limit 20 --json databaseId,headSha \
-            --jq ".[] | select(.headSha == \"$HEAD_SHA\") | .databaseId")
-          for id in $runs; do
-            jobs=$(gh run view "$id" --repo "$REPO" --json jobs)
-            green=true
-            for job in "${required[@]}"; do
-              conclusion=$(jq -r --arg job "$job" \
-                '[.jobs[] | select(.name == $job) | .conclusion] | first // "missing"' <<< "$jobs")
-              [[ "$conclusion" == "success" ]] || green=false
+          # A push fires this workflow and the build at the same moment, so on a label or
+          # synchronize event the artifacts are minutes away, not ready. Wait for them instead
+          # of failing: exiting here costs a manual re-run of the whole soak once the build
+          # lands. Only a required job that has finished unsuccessfully ends the wait early.
+          deadline=$(( SECONDS + 35 * 60 ))
+          while :; do
+            runs=$(gh run list --repo "$REPO" --workflow build-publish-images.yml \
+              --branch "$BRANCH" --limit 20 --json databaseId,headSha \
+              --jq ".[] | select(.headSha == \"$HEAD_SHA\") | .databaseId")
+            pending=false
+            blocked=""
+            for id in $runs; do
+              jobs=$(gh run view "$id" --repo "$REPO" --json jobs)
+              green=true
+              for job in "${required[@]}"; do
+                state=$(jq -r --arg job "$job" \
+                  '[.jobs[] | select(.name == $job) | "\(.status):\(.conclusion)"] | first // "absent:none"' \
+                  <<< "$jobs")
+                case "$state" in
+                  completed:success) ;;
+                  completed:*) green=false; blocked+="  run $id: $job is ${state#completed:}"$'\n' ;;
+                  *) green=false; pending=true ;;
+                esac
+              done
+              if [[ "$green" == "true" ]]; then
+                echo "Using build run $id"
+                echo "build_run_id=$id" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
             done
-            if [[ "$green" == "true" ]]; then
-              echo "Using build run $id"
-              echo "build_run_id=$id" >> "$GITHUB_OUTPUT"
-              exit 0
+            # Nothing green, nothing still running: every build of this commit has a required
+            # job that failed, and waiting cannot change that.
+            if [[ -n "$runs" && "$pending" == "false" ]]; then
+              echo "::error::No build-publish-images run for ${HEAD_SHA} can serve this soak:"
+              echo "$blocked"
+              exit 1
             fi
+            if (( SECONDS >= deadline )); then
+              echo "::error::Timed out waiting for a build-publish-images run of ${HEAD_SHA} with: ${required[*]}"
+              exit 1
+            fi
+            echo "Waiting for the build of ${HEAD_SHA:0:8} to produce: ${required[*]}"
+            sleep 30
           done
-          echo "::error::No completed build-publish-images run for ${HEAD_SHA} has all of: ${required[*]}"
-          exit 1
 
   preflight:
     needs: [resolve-build]
