@@ -14,20 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Relay-visible speculative-messaging commitments (Phase 1).
+//! Relay-visible speculative-messaging commitments.
 //!
-//! The relay chain only sees the **commitments** carried in the `UMPSignal::Provides`/`Requires`
-//! signals (inside `CandidateCommitments.upward_messages`):
-//! - **`Provides(StreamsRoot)`** — one root per sender block, the root of the sender's keyed stream
-//!   commitment tree. Recorded into the relay's provides window.
-//! - **`Requires(RequiresSet)`** — a receiver's expected `(source, StreamsRoot)` entries: a
-//!   canonical sorted set (strictly increasing `ParaId`, one entry per source), matched against
-//!   each source's window.
+//! The relay chain sees only the commitments in the `UMPSignal::Provides` / `Requires` signals:
+//! - `Provides(StreamsRoot)`: the root of the sender's keyed stream commitment tree, one per sender
+//! block, recorded into the relay's provides window.
+//! - `Requires(RequiresSet)`: a receiver's expected `(source, StreamsRoot)` entries, matched
+//! against each source's window.
 //!
-//! These types live here (not in `cumulus-primitives-spec-messaging`) because the `UMPSignal` enum
-//! is defined in `polkadot-primitives::v9` and the relay chain decodes them — putting them in the
-//! parachain crate would force a `polkadot -> cumulus` dependency. The parachain off-chain / PoV
-//! types and the MMR primitives that *build* these commitments live in that crate.
+//! These live here because `UMPSignal` is defined in `polkadot-primitives::v9` and the relay chain
+//! decodes them. The parachain-side types that build them are in
+//! `cumulus-primitives-spec-messaging`.
 
 use alloc::vec::Vec;
 use polkadot_core_primitives::Hash;
@@ -35,21 +32,17 @@ use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_core::ConstU32;
 use sp_runtime::BoundedVec;
 
-/// Maximum number of source parachains a receiver can consume from in one block.
-/// Bounds the size of the `requires` commitment (one entry per source). The design's
-/// `MaxCommitmentEntries`: today's registered-parachain count (~200) rounded up, so a
-/// maximally-connected receiver is expressible; the bound is consensus-relevant (decode
-/// rejects larger sets), so all implementations must agree on it.
+/// Maximum number of source parachains a receiver can consume from in one block; bounds the
+/// `requires` commitment. The design's `MaxCommitmentEntries`: today's parachain count rounded up.
+/// Consensus-relevant, since decode rejects larger sets.
 pub const MAX_COMMITMENT_ENTRIES: u32 = 256;
 
-/// Root of a sender's stream commitment tree: a binary compact (Patricia) trie keyed by the
-/// canonical SCALE encoding of `StreamId` (8 bytes), leaves = the streams' MMR roots.
+/// Root of a sender's stream commitment tree: a compact binary trie keyed by the 8-byte `StreamId`
+/// encoding, with the streams' MMR roots as leaves.
 ///
-/// A **newtype** over `Hash` (wire-transparent), deliberately *distinct* from an MMR / stream root
-/// so the two kinds of root cannot be confused — they flow through different checks ("confusing
-/// roots must not typecheck"; see the design's "Stream Commitment Tree"). The relay chain treats it
-/// as opaque; the tree structure and inclusion proofs live in
-/// `cumulus-primitives-spec-messaging::streams_root`, which re-exports this type.
+/// A newtype over `Hash`, distinct from an MMR root so the two cannot be confused. The relay chain
+/// treats it as opaque; the tree and its proofs are in
+/// `cumulus-primitives-spec-messaging::streams_root`.
 #[derive(
 	Clone,
 	Copy,
@@ -66,23 +59,18 @@ pub const MAX_COMMITMENT_ENTRIES: u32 = 256;
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct StreamsRoot(pub Hash);
 
-/// A receiver's `requires` commitment: a canonical, bounded set of `(ParaId, StreamsRoot)` entries
-/// — one per **source** parachain (covering all its streams), sorted by strictly-increasing
-/// `ParaId`.
-///
-/// The order is enforced at decode so the encoding is canonical — collators, PVF, and the relay
-/// chain all produce the same bytes for the same set. This is the design's `RequiresSet` (Appendix
-/// D); the relay matches each `(source, StreamsRoot)` against that source's provides window.
+/// A receiver's `requires` commitment: a bounded set of `(ParaId, StreamsRoot)` entries, one per
+/// source parachain, sorted by strictly increasing `ParaId`. The order is enforced at decode so the
+/// encoding is canonical. The relay matches each entry against that source's provides window.
 #[derive(
 	Clone, codec::Encode, codec::MaxEncodedLen, Debug, Eq, PartialEq, scale_info::TypeInfo,
 )]
 #[cfg_attr(feature = "std", derive(Hash))]
 pub struct RequiresSet(BoundedVec<(ParaId, StreamsRoot), ConstU32<MAX_COMMITMENT_ENTRIES>>);
 
-/// Decode is manually implemented to enforce the canonical form: non-empty, `ParaId`s strictly
-/// increasing. An empty set has no entry the relay could match, so a candidate that requires
-/// nothing says so by emitting no `Requires` signal — there is one way to say nothing, and it is
-/// not this.
+/// Manual `Decode` to enforce the canonical form: non-empty, strictly increasing `ParaId`s. An
+/// empty set has nothing the relay could match; a candidate that requires nothing emits no
+/// `Requires` signal.
 impl codec::Decode for RequiresSet {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		let inner =
@@ -103,8 +91,7 @@ impl codec::Decode for RequiresSet {
 	}
 }
 
-// Marker: the manual `Decode` (a sortedness check over `BoundedVec`) is mem-tracking safe. A derive
-// does not compose with a manual `Decode`, so it is impl'd by hand.
+// Mem-tracking safe; the derive does not compose with a manual `Decode`.
 impl codec::DecodeWithMemTracking for RequiresSet {}
 
 impl RequiresSet {
@@ -131,8 +118,7 @@ impl RequiresSet {
 		self.0.iter()
 	}
 
-	/// Build a [`RequiresSet`] from an arbitrary (possibly unordered) iterator, sorting by `ParaId`
-	/// to produce the canonical encoding.
+	/// Build a [`RequiresSet`] from any iterator, sorting by `ParaId`.
 	pub fn try_from_iter(
 		it: impl IntoIterator<Item = (ParaId, StreamsRoot)>,
 	) -> Result<Self, CommitmentError> {
@@ -266,8 +252,7 @@ mod tests {
 
 	#[test]
 	fn empty_set_is_not_constructible_or_decodable() {
-		// One way to say nothing: no signal. Neither the constructor nor the wire admits an
-		// empty set.
+		// Neither the constructor nor the wire admits an empty set.
 		assert_eq!(RequiresSet::try_from_iter([]), Err(CommitmentError::Empty));
 		let encoded = Vec::<(ParaId, StreamsRoot)>::new().encode();
 		assert!(RequiresSet::decode(&mut &encoded[..]).is_err());

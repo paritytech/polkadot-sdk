@@ -14,33 +14,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Channel flow-control primitives (spec-msg v0.5) — **type primitives only**.
-//!
-//! The wire/encoding types of the channel protocol: the sender's channel-stream leaf payload
+//! Channel flow-control types (spec-msg v0.5): the sender's channel-stream leaf payload
 //! ([`SpecMsgKind`] / [`SpecMsgSignal`]) and the receiver's out-of-band confirmation [`Register`]
-//! (with its advisory [`WindowGrant`]). The messaging pallet's *logic* — windowing, version
-//! enforcement, `OutChannels`/`InChannels` storage (keyed by a `ChannelId`), the accept extrinsic —
-//! lives with the pallet at integration, not here.
+//! with its advisory [`WindowGrant`]. The pallet owns the logic: windowing, version enforcement,
+//! channel storage, the accept extrinsic.
 //!
 //! # Consensus surface
 //!
-//! - [`SpecMsgKind`] is the SCALE-encoded payload of every **channel-stream** MMR leaf: it fills
-//!   the `payload` in [`crate::message::leaf_hash`]'s `LEAF_TAG ++ LEAF_VERSION ++ payload`
-//!   framing. The framing and `LEAF_VERSION` are untouched — `SpecMsgKind` is the (otherwise
-//!   opaque) `payload` content, so no leaf-format version bump is needed to evolve it.
-//! - [`Register`] is the SCALE-encoded payload of every **ack-stream** leaf — the receiver's whole
-//!   channel voice (lossy, latest-wins), committed via the receiver's `StreamsRoot` and read
-//!   out-of-band by the sender.
+//! - [`SpecMsgKind`] is the SCALE payload of every channel-stream MMR leaf, inside
+//! [`crate::message::leaf_hash`]'s `LEAF_TAG ++ LEAF_VERSION ++ payload` framing. It can evolve
+//! without a `LEAF_VERSION` bump.
+//! - [`Register`] is the SCALE payload of every ack-stream leaf: the receiver's whole channel
+//! state, lossy and latest-wins, read out-of-band by the sender.
 //!
 //! # Frozen core
 //!
-//! Per the design a **frozen core** must parse at every protocol version: [`SpecMsgSignal`]'s
-//! `OpenChannel` (variant index **0** — it must decode before any version is announced),
-//! `CloseChannel`, `Upgrade`, and the [`Register`] format itself (the machinery the receiver's
-//! announcements ride on). These encodings are consensus-critical; the frozen vectors in the tests
-//! pin them. Protocol versioning is by monotonic per-side announcements (sender in-band via
-//! `OpenChannel`/`Upgrade`, receiver via [`Register::version`]); the effective version is the min
-//! of the two latest announcements.
+//! These must parse at every protocol version: `OpenChannel` (variant 0, so it decodes before any
+//! version is announced), `CloseChannel`, `Upgrade`, and the `Register` format. The tests pin their
+//! bytes. Versioning is by monotonic per-side announcements (sender in-band, receiver via
+//! [`Register::version`]); the effective version is the lower of the two.
 
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
@@ -48,28 +40,22 @@ use scale_info::TypeInfo;
 
 use crate::mmr::MessagePosition;
 
-/// The payload of every channel-stream MMR leaf: protocol signalling or userspace data.
-///
-/// SCALE-encoded into the leaf preimage's `payload` (see the module docs). The transport is
-/// deliberately blind to `Data`'s meaning — the only distinction it acts on is `Signal` vs `Data`
-/// (window accounting, pallet-internal consumption); demultiplexing among userspace protocols
-/// (incl. the XCM envelope) is an upper-layer convention.
+/// The payload of every channel-stream MMR leaf: protocol signalling or userspace data. The
+/// transport acts only on `Signal` vs `Data` (window accounting, pallet-internal consumption);
+/// demultiplexing within `Data` is an upper-layer convention.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub enum SpecMsgKind {
-	/// Channel lifecycle signalling. Emitted and consumed by the messaging pallet's own lifecycle
-	/// logic, never by applications; window-counted and ordered like any other leaf.
+	/// Channel lifecycle signalling. Emitted and consumed by the pallet, never by applications;
+	/// window-counted and ordered like any other leaf.
 	Signal(SpecMsgSignal),
-	/// Userspace payload bytes, delivered in order. The size bound is the sender STF's
-	/// message-size constant ([`crate::message::MAX_SPECULATIVE_MESSAGE_LEN`]), not a type bound
-	/// — matching the design's `Data(Vec<u8>)`.
+	/// Userspace payload bytes, delivered in order. Bounded by
+	/// [`crate::message::MAX_SPECULATIVE_MESSAGE_LEN`] in the sender STF, not by the type.
 	Data(Vec<u8>),
 }
 
-/// Sender-side channel lifecycle signal — part of the design's **frozen core**.
-///
-/// `OpenChannel` MUST stay variant index **0**: it has to parse before any version announcement
-/// exists. `CloseChannel` and `Upgrade` complete the frozen core. Only variants *beyond* the core
-/// would ever be version-gated.
+/// Sender-side channel lifecycle signal. Frozen core: `OpenChannel` must stay variant 0, since it
+/// parses before any version announcement exists. Only variants beyond these three could ever be
+/// version-gated.
 #[derive(
 	Clone,
 	Copy,
@@ -83,8 +69,7 @@ pub enum SpecMsgKind {
 	TypeInfo,
 )]
 pub enum SpecMsgSignal {
-	/// Open the channel and announce the sender's initial protocol version. **Variant index 0**
-	/// (consensus-critical — must decode before any announcement exists).
+	/// Open the channel and announce the sender's initial protocol version. Variant 0.
 	OpenChannel {
 		/// The sender's initial protocol-version announcement.
 		version: u8,
@@ -98,11 +83,10 @@ pub enum SpecMsgSignal {
 	},
 }
 
-/// Advisory send-window credit a receiver grants a sender, beyond the confirmed watermark.
-///
-/// **Advisory**, not enforced: registers are lossy and read with delay, and on an ordered stream
-/// the receiver can't reject without stalling — so the hard bound is the sender STF's message-size
-/// constant. A grant may shrink between publishes.
+/// Advisory send-window credit a receiver grants a sender beyond the confirmed watermark. Not
+/// enforced: registers are lossy and read late, and on an ordered stream the receiver cannot reject
+/// without stalling. The hard bound is the sender STF's message-size constant. A grant may shrink
+/// between publishes.
 #[derive(
 	Clone,
 	Copy,
@@ -125,11 +109,9 @@ pub struct WindowGrant {
 	pub max_message_size: u32,
 }
 
-/// The receiver's entire channel voice — part of the design's **frozen core**.
-///
-/// Published as the ack-stream's (lossy, latest-wins) leaf payload and read out-of-band by the
-/// sender via an inclusion proof. The first publish is the sender-visible channel *acceptance*
-/// (produced by the receiver's accept extrinsic).
+/// The receiver's whole channel state as the sender sees it. Frozen core. Published as the
+/// ack-stream's lossy, latest-wins leaf payload and read out-of-band by the sender via an inclusion
+/// proof. The first publish is the channel acceptance.
 #[derive(
 	Clone,
 	Copy,
@@ -146,8 +128,8 @@ pub struct WindowGrant {
 pub struct Register {
 	/// The receiver's monotonic protocol-version announcement.
 	pub version: u8,
-	/// Cumulative confirmation watermark: consumed up to this position (monotonic, idempotent — a
-	/// single `u64`, so losing or delaying confirmations is harmless, the latest supersedes).
+	/// Cumulative confirmation watermark: consumed up to this position. Monotonic and idempotent,
+	/// so lost or delayed confirmations are harmless; the latest supersedes.
 	pub up_to: MessagePosition,
 	/// Advisory send-window credit beyond `up_to`.
 	pub grant: WindowGrant,
@@ -162,8 +144,7 @@ mod tests {
 
 	#[test]
 	fn signal_frozen_core_variant_indices() {
-		// FROZEN CORE: OpenChannel MUST be variant index 0 (it must parse before any version
-		// announcement exists). Any renumbering is a consensus break.
+		// Frozen core: `OpenChannel` is variant 0. Renumbering is a consensus break.
 		assert_eq!(SpecMsgSignal::OpenChannel { version: 7 }.encode(), vec![0x00, 0x07]);
 		assert_eq!(SpecMsgSignal::CloseChannel.encode(), vec![0x01]);
 		assert_eq!(SpecMsgSignal::Upgrade { version: 9 }.encode(), vec![0x02, 0x09]);
@@ -182,8 +163,8 @@ mod tests {
 
 	#[test]
 	fn register_frozen_layout() {
-		// FROZEN CORE: the Register wire format is read cross-chain out-of-band; pin its exact byte
-		// layout (little-endian SCALE ints). Any field reorder / width change is a consensus break.
+		// Frozen core: `Register` is read cross-chain. Pin its byte layout; any reorder or width
+		// change is a consensus break.
 		let r = Register {
 			version: 2,
 			up_to: MessagePosition(5),

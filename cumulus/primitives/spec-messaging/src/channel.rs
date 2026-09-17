@@ -14,14 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Channel state primitives (spec-msg v0.5): the key and the two per-direction states the
-//! messaging pallet keeps in `OutChannels` / `InChannels` and exposes through the runtime API's
-//! channel views (`out_channels()` / `in_channels()`).
+//! Channel state primitives (spec-msg v0.5): the key and the two per-direction states the messaging
+//! pallet keeps in `OutChannels` / `InChannels` and returns from the runtime API's `out_channels()`
+//! / `in_channels()`.
 //!
-//! These are **state shapes**, not wire types: they never leave the chain except through the
-//! runtime API. The channel *protocol* — the in-band [`crate::SpecMsgSignal`]s and the
-//! out-of-band [`Register`] — is in [`crate::flow_control`]; the logic that drives these states is
-//! the pallet's.
+//! State shapes, not wire types. The channel protocol (the in-band [`crate::SpecMsgSignal`]s and
+//! the out-of-band [`Register`]) is in [`crate::flow_control`]; the logic is the pallet's.
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_parachain_primitives::primitives::Id as ParaId;
@@ -29,9 +27,8 @@ use scale_info::TypeInfo;
 
 use crate::flow_control::Register;
 
-/// Channel discriminator. `peer` is the other end — the recipient of an outbound channel, the
-/// sender of an inbound one — so the same value keys both maps and mirrors the fields of the
-/// channel's `StreamId` (and, inbound, of our `Ack` stream for it).
+/// Channel discriminator. `peer` is the other end: the recipient of an outbound channel, the sender
+/// of an inbound one. Mirrors the fields of the channel's `StreamId`.
 #[derive(
 	Clone,
 	Copy,
@@ -55,7 +52,7 @@ pub struct ChannelId {
 	pub num: u16,
 }
 
-/// A channel's phase, as a *view* over [`OutChannelState`]: nothing here is stored.
+/// A channel's phase, derived from [`OutChannelState`]. Not stored.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ChannelPhase {
 	/// Sent `OpenChannel`, no register read yet.
@@ -80,19 +77,19 @@ pub enum ChannelPhase {
 	TypeInfo,
 )]
 pub struct OutChannelState {
-	/// The one phase bit not derivable from `register`: whether WE sent `CloseChannel` (the
-	/// peer's close arrives in the register).
+	/// Whether we sent `CloseChannel`. The peer's close arrives in the register; this is the one
+	/// phase bit the register cannot carry.
 	pub closed_by_us: bool,
 	/// Our latest in-band version announcement.
 	pub announced_version: u8,
-	/// Latest register read: the peer's watermark for our stream, its credit, its version
-	/// announcement, and its closed flag. `None` until the first read.
+	/// Latest register read: the peer's watermark, credit, version announcement and closed flag.
+	/// `None` until the first read.
 	pub register: Option<Register>,
 }
 
 impl OutChannelState {
-	/// The version both sides can speak — the lower of our announcement and the peer's — or `None`
-	/// while still `Opening` (no register read yet, so the peer's is unknown).
+	/// The lower of our announced version and the peer's. `None` while `Opening`: no register has
+	/// been read, so the peer's is unknown.
 	pub fn effective_version(&self) -> Option<u8> {
 		self.register.map(|register| self.announced_version.min(register.version))
 	}
@@ -123,20 +120,20 @@ impl OutChannelState {
 	TypeInfo,
 )]
 pub struct InChannelState {
-	/// The register we last published on our `Ack` stream — our entire channel state as far as
-	/// the peer is concerned; also decides when the next publish is due.
+	/// The register we last published on our `Ack` stream. This is our channel state as the peer
+	/// sees it, and it decides when the next publish is due.
 	pub published: Register,
 	/// The sender's latest in-band version announcement (from consumed `OpenChannel` /
 	/// `Upgrade` signals).
 	pub peer_version: u8,
-	/// Upper-layer consumption switch. While set: the STF refuses this channel's messages,
+	/// Upper-layer consumption switch. While set, the STF refuses this channel's messages,
 	/// `consumed_streams()` omits the stream, and published registers grant zero. A pause, not a
-	/// close — all state persists.
+	/// close: all state persists.
 	pub suspended: bool,
 }
 
 impl InChannelState {
-	/// The version both sides can speak: the lower of ours and the peer's announcement.
+	/// The lower of our published version and the peer's announcement.
 	pub fn effective_version(&self) -> u8 {
 		self.published.version.min(self.peer_version)
 	}
@@ -157,7 +154,7 @@ mod tests {
 		assert_eq!(out.phase(), ChannelPhase::Opening);
 		out.register = Some(register(1, false));
 		assert_eq!(out.phase(), ChannelPhase::Open);
-		// Either side closing closes the channel; ours takes effect even before a register read.
+		// Either side's close closes the channel. Ours counts before any register read.
 		out.register = Some(register(1, true));
 		assert_eq!(out.phase(), ChannelPhase::Closed);
 		let ours = OutChannelState { closed_by_us: true, announced_version: 1, register: None };

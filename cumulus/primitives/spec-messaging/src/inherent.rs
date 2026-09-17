@@ -14,15 +14,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The node ↔ runtime consumption interface (spec-msg v0.5): what the runtime asks the node to
-//! fetch ([`ConsumedStream`], via the `consumed_streams()` runtime API) and what the node delivers
-//! back in the messaging inherent ([`MessagingInherentData`] / [`ConsumeItem`]).
+//! The node/runtime consumption interface (spec-msg v0.5): what the runtime asks the node to fetch
+//! ([`ConsumedStream`], via the `consumed_streams()` runtime API) and what the node delivers in the
+//! messaging inherent ([`MessagingInherentData`] / [`ConsumeItem`]).
 //!
-//! The inherent carries payloads and placement hints only — **no roots and no proofs of any
-//! kind**. The node assembles it from responses it verified under the receiver's tier roots; the
-//! runtime re-verifies everything it uses by recomputation (hash payloads into leaves, append to a
-//! frontier) and lets the candidate's lift bind the endpoint. A wrong payload, `base` or peak set
-//! yields an endpoint no lift can bind, so none of these fields is trusted.
+//! The inherent carries payloads and placement hints. No roots, no proofs. The runtime verifies by
+//! recomputation: hash payloads into leaves, append to a frontier, let the candidate's lift bind
+//! the endpoint. A wrong payload, `base` or peak set yields an endpoint no lift can bind.
 
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
@@ -32,16 +30,16 @@ use scale_info::TypeInfo;
 
 use crate::{mmr::MessagePosition, stream::StreamId};
 
-/// The messaging inherent's identifier — the key it is stored under in `InherentData`. Shared by
-/// the node's provider and the pallet's `ProvideInherent`, so it lives here.
+/// Key of the messaging inherent in `InherentData`. Used by the node's provider and the pallet's
+/// `ProvideInherent`.
 pub const INHERENT_IDENTIFIER: sp_inherents::InherentIdentifier = *b"specmsg0";
 
 /// A message payload.
 pub type Payload = Vec<u8>;
 
-/// One stream the runtime wants fetched, as returned by `consumed_streams()` per source. `from` is
-/// the fetch cursor: positions `>= from` are wanted. Suspended channels are omitted from the
-/// view — the omission is how the chain's own collators learn to stop fetching.
+/// One stream the runtime wants fetched, per source, as returned by `consumed_streams()`. `from` is
+/// the fetch cursor: positions `>= from` are wanted. Suspended channels are omitted, which is how
+/// collators learn to stop fetching.
 #[derive(
 	Clone,
 	Copy,
@@ -55,19 +53,19 @@ pub type Payload = Vec<u8>;
 	TypeInfo,
 )]
 pub enum ConsumedStream {
-	/// The source's `Channel { us, domain, num }`: ordered prefix consumption; `from` is the
+	/// The source's `Channel { us, domain, num }`. Ordered prefix consumption; `from` is the
 	/// tracked frontier's leaf count.
 	#[codec(index = 0)]
 	Channel { domain: u8, num: u16, from: MessagePosition },
-	/// The source's `Broadcast { domain, subdomain, num }`: lossy, latest-wins; `from` is the
-	/// highwater plus one (typically only the head matters).
+	/// The source's `Broadcast { domain, subdomain, num }`. Lossy, latest-wins; `from` is the
+	/// highwater plus one.
 	#[codec(index = 1)]
 	Broadcast { domain: u16, subdomain: u8, num: u32, from: MessagePosition },
 }
 
 impl ConsumedStream {
-	/// The fetch-cursor view of `stream`, or `None` for kinds the runtime never asks to have
-	/// fetched (`Ack` registers are read out-of-band by the sender; `Private` is chain-defined).
+	/// The fetch-cursor view of `stream`. `None` for kinds the runtime never asks to fetch: `Ack`
+	/// registers are read out-of-band by the sender, `Private` is chain-defined.
 	pub fn project(stream: &StreamId, from: MessagePosition) -> Option<Self> {
 		match *stream {
 			StreamId::Channel { domain, num, .. } => Some(Self::Channel { domain, num, from }),
@@ -78,7 +76,7 @@ impl ConsumedStream {
 		}
 	}
 
-	/// The `StreamId` this view names, on the source's side: a channel's `recipient` is us.
+	/// The `StreamId` this view names on the source's side. A channel's `recipient` is us.
 	pub fn stream_id(&self, recipient: ParaId) -> StreamId {
 		match *self {
 			Self::Channel { domain, num, .. } => StreamId::Channel { recipient, domain, num },
@@ -98,13 +96,12 @@ impl ConsumedStream {
 
 /// The messaging inherent: this block's consumption, per `(source, stream)`.
 ///
-/// **Strict on import.** Dispatch is mandatory and first in the block, and one invalid item — a
-/// duplicate stream, an undeclared stream, a cap violation, a kind/discipline mismatch, a `base`
-/// at or below the highwater — invalidates the whole block. Items are filtered when *building*
-/// (an honest node never includes one), never tolerated on *import*: inherent items pay no fees,
-/// so tolerance would let a collator pad blocks with garbage. It also keeps the record simple —
-/// [`crate::ConsumptionRecord`] is every item, with no rejected-item bookkeeping. Absent data is
-/// no call at all: a block that fetched nothing carries no inherent.
+/// Strict on import. Dispatch is mandatory and first in the block. One invalid item (duplicate or
+/// undeclared stream, cap violation, kind/discipline mismatch, `base` at or below the highwater)
+/// invalidates the block. Bad items are filtered when building, not tolerated on import: inherent
+/// items pay no fees, so tolerance would let a collator pad blocks. It also keeps
+/// [`crate::ConsumptionRecord`] simple: every item, no rejected-item bookkeeping. A block that
+/// fetched nothing carries no inherent.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo, Default)]
 pub struct MessagingInherentData {
 	/// One item per stream consumed this block.
@@ -112,15 +109,14 @@ pub struct MessagingInherentData {
 }
 
 impl MessagingInherentData {
-	/// Whether this block consumed nothing — in which case no inherent is placed at all.
+	/// Whether this block consumed nothing. Then no inherent is placed.
 	pub fn is_empty(&self) -> bool {
 		self.items.is_empty()
 	}
 }
 
-/// Node side: the provider places the data under [`INHERENT_IDENTIFIER`] — or, when empty, places
-/// nothing, so a block that fetched nothing carries no inherent call ("absent = consumed
-/// nothing"). The rule is enforced here rather than left to whoever builds the data.
+/// Node side. Places the data under [`INHERENT_IDENTIFIER`], or nothing when empty, so a block that
+/// fetched nothing carries no inherent call.
 #[cfg(feature = "std")]
 #[async_trait::async_trait]
 impl sp_inherents::InherentDataProvider for MessagingInherentData {
@@ -139,28 +135,28 @@ impl sp_inherents::InherentDataProvider for MessagingInherentData {
 		_: &sp_inherents::InherentIdentifier,
 		_: &[u8],
 	) -> Option<Result<(), sp_inherents::Error>> {
-		// Not ours to handle: an import-time error on this inherent invalidates the block.
+		// An import-time error on this inherent invalidates the block.
 		None
 	}
 }
 
-/// One stream's consumption this block. Both arms verify identically — hash payloads into leaves,
-/// append to a frontier, let the lift bind the endpoint — differing only in where the frontier
+/// One stream's consumption this block. Both arms verify the same way (hash payloads into leaves,
+/// append to a frontier, let the lift bind the endpoint) and differ only in where the frontier
 /// comes from.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub enum ConsumeItem {
-	/// Prefix discipline: the frontier is consensus state (the stored inbound frontier);
-	/// `payloads` are the stream's next messages, in order. Order and count are self-enforcing —
-	/// any deviation yields an endpoint no lift can bind.
+	/// Prefix discipline: the frontier is the stored inbound frontier; `payloads` are the stream's
+	/// next messages, in order. Any deviation in order or count yields an endpoint no lift can
+	/// bind.
 	#[codec(index = 0)]
 	Channel { payloads: Vec<Payload> },
-	/// Inclusion discipline (registers, event streams): the frontier arrives in the item —
+	/// Inclusion discipline (registers, event streams): the frontier arrives in the item.
 	/// `start_peaks` is the stream's peak set at `base`, standing in for the frontier a lossy
-	/// consumer deliberately doesn't keep. `payloads.len() >= 1`; a register or head read is the
-	/// single-payload case at the head. `base` and `start_peaks` are trust-free hints: the STF
-	/// rebuilds the frontier through `MmrFrontier::from_parts`, and a lie in either yields a root
-	/// no lift can bind. Replay is stopped by the highwater rule: `base` must exceed the stream's
-	/// highwater, consumption is ascending, and the highwater becomes `base + len - 1`.
+	/// consumer does not keep. `payloads.len() >= 1`; a register or head read is the
+	/// single-payload case at the head. `base` and `start_peaks` are hints: the STF rebuilds the
+	/// frontier with `MmrFrontier::from_parts`, and a lie in either yields a root no lift can
+	/// bind. Replay is stopped by the highwater rule: `base` must exceed the stream's highwater,
+	/// consumption is ascending, and the highwater becomes `base + len - 1`.
 	#[codec(index = 1)]
 	Events { base: MessagePosition, start_peaks: Vec<Hash>, payloads: Vec<Payload> },
 }
@@ -199,7 +195,7 @@ mod tests {
 			assert_eq!(view.stream_id(us), stream, "round-trips through the view");
 			assert_eq!(view.from(), from);
 		}
-		// Registers are read out-of-band and private kinds are chain-defined: never fetched.
+		// Never fetched: registers are read out-of-band, private kinds are chain-defined.
 		let ack = StreamId::Ack { recipient: us, domain: 0, num: 0 };
 		assert_eq!(ConsumedStream::project(&ack, from), None);
 		let private =

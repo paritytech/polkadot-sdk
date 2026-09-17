@@ -14,27 +14,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Requires-lift & consumption-record primitives (spec-msg v0.5).
+//! Requires-lift and consumption-record primitives (spec-msg v0.5).
 //!
 //! Blocks never emit `Requires` and never see a `StreamsRoot`. Processing the messaging inherent
-//! writes a [`ConsumptionRecord`] — which streams the block touched, and the MMR [`Interval`] it
-//! consumed on each. The `validate_block` wrapper then **synthesizes** the candidate's `Requires`
-//! set from the records plus POV-carried **lifts** ([`RequiresLift`]): one per recorded stream,
-//! binding that stream's consumption to a *current* committed `StreamsRoot`. The relay chain only
-//! ever sees entries it can match. This unifies 0.3's in-block catch-up and late-block proofs into
-//! one mechanism.
+//! writes a [`ConsumptionRecord`]: which streams the block touched and the [`Interval`] consumed on
+//! each. The `validate_block` wrapper then synthesizes the candidate's `Requires` set from the
+//! records plus PoV-carried lifts ([`RequiresLift`]), one per recorded stream, binding that
+//! stream's consumption to a current committed `StreamsRoot`. The relay chain sees only entries it
+//! can match.
 //!
-//! The invariant [`build_requires`] enforces, per stream and candidate:
+//! The invariant [`build_requires`] enforces, per stream and candidate: the recorded intervals form
+//! a proven forward chain (each block continues where the previous ended, or a PoV proof shows the
+//! gap is a forward extension, see [`stitch`]), and one lift binds the chain's endpoint to a
+//! committed root, which binds everything consumed.
 //!
-//! > the recorded intervals form a **proven forward chain** — each block continues where the
-//! > previous ended, or a POV proof shows the gap is a forward extension ([`stitch`]) — and one
-//! > lift binds the chain's endpoint to a committed root, transitively binding everything consumed.
-//!
-//! Trust split: the **record** is authoritative (STF output — consumption can't be hidden); the
-//! **lifts** are untrusted POV data, verified here against the record's key and a committed root.
-//! Lifts are matched *positionally* to a source's `StreamId`-sorted record streams; a mispaired
-//! lift cannot verify because the `tree_proof` walk binds the record's key (see
-//! [`crate::streams_root::streams_root_from_proof`]).
+//! The record is STF output and trusted; the lifts are PoV data and verified here. Lifts are
+//! matched to a source's `StreamId`-sorted record streams by position. A mispaired lift cannot
+//! verify, because the `tree_proof` walk binds the record's key
+//! ([`crate::streams_root::streams_root_from_proof`]).
 
 use alloc::{collections::BTreeMap, vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode};
@@ -55,27 +52,22 @@ use crate::{
 	streams_root::{streams_root_from_proof, StreamProof, StreamsRoot},
 };
 
-/// The keyed `StreamsRoot`-tree inclusion proof a lift walks from a stream root up to the
-/// `StreamsRoot` (the design's `TreeInclusionProof`; concretely the keyed Patricia
-/// [`StreamProof`]).
+/// The keyed-tree proof a lift walks from a stream root to the `StreamsRoot`: the design's
+/// `TreeInclusionProof`, concretely [`StreamProof`].
 pub type TreeInclusionProof = StreamProof;
 
-/// Upper bound on an [`MMRExtensionProof`]'s connecting nodes. A valid append-only ancestry proof
-/// over an MMR whose leaf count fits in `u64` needs O(log n) nodes — never more than a small
-/// multiple of the 64-bit height. `4 * 64` is a generous ceiling no valid proof reaches; rejecting
-/// beyond it is pure defense-in-depth (PoV size already bounds the decoded length loosely).
+/// Upper bound on an [`MMRExtensionProof`]'s connecting nodes. A valid ancestry proof needs O(log
+/// n) nodes, a small multiple of the 64-bit height; `4 * 64` is a ceiling no valid proof reaches.
+/// Defence in depth: the PoV size already bounds the decoded length.
 pub const MAX_EXTENSION_CONNECTING_NODES: usize = 4 * 64;
 
-/// Upper bound on an [`MmrInclusionProof`]'s items (the leaf's sibling path plus the other peaks).
-/// A single-leaf proof over a `u64`-leaf-count MMR needs at most the subtree height (≤ 63) plus the
-/// other peaks (≤ 63); `2 * 64` is a generous ceiling no valid proof reaches. Rejecting beyond it
-/// bounds `calculate_root`'s work (and the items clone) on untrusted input — the same
-/// defense-in-depth `MMRExtensionProof::verify` applies via [`MAX_EXTENSION_CONNECTING_NODES`].
+/// Upper bound on an [`MmrInclusionProof`]'s items. A single-leaf proof needs at most the subtree
+/// height plus the other peaks, each at most 63; `2 * 64` is a ceiling no valid proof reaches.
+/// Bounds `calculate_root`'s work on untrusted input.
 pub const MAX_INCLUSION_PROOF_ITEMS: usize = 2 * 64;
 
-/// Why an MMR proof verification (`MMRExtensionProof::verify`, `MmrInclusionProof::verify_head` /
-/// `verify_leaf`) rejected its input. Typed so callers (peer scoring, retry logic) can tell a
-/// malformed/forged proof from a merely out-of-range or non-forward one.
+/// Why an MMR proof verification rejected its input. Typed so callers can tell a malformed or
+/// forged proof from an out-of-range or non-forward one.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ProofError {
 	/// The proof is structurally malformed: an invalid `mmr_size`, a wrong item/node count, or
@@ -85,63 +77,52 @@ pub enum ProofError {
 	PositionOutOfRange,
 	/// An extension does not go strictly forward (its target is not newer than the frontier).
 	NotForward,
-	/// An inclusion proof carries more items than any valid single-leaf proof
-	/// ([`MAX_INCLUSION_PROOF_ITEMS`]) — rejected before doing untrusted-input work.
+	/// An inclusion proof carries more items than [`MAX_INCLUSION_PROOF_ITEMS`].
 	ItemLimitExceeded,
-	/// An extension proof carries more connecting nodes than any valid ancestry proof
-	/// ([`MAX_EXTENSION_CONNECTING_NODES`]) — rejected before doing untrusted-input work.
+	/// An extension proof carries more connecting nodes than [`MAX_EXTENSION_CONNECTING_NODES`].
 	NodeLimitExceeded,
-	/// A leaf count exceeds [`MAX_MMR_LEAF_COUNT`] — rejected as a precondition, before any node
-	/// position is derived from it.
+	/// A leaf count exceeds [`MAX_MMR_LEAF_COUNT`].
 	LeafCountTooLarge,
 }
 
-/// An append-only MMR extension proof: **O(log n) connecting nodes** that, with a frontier's own
-/// peaks, reconstruct a newer root — the concrete `polkadot-ckb-merkle-mountain-range`
-/// (`gen_ancestry_proof`) form of the design's `connecting_nodes`. Verification **computes and
-/// returns** the new root (never declared alongside the proof), treating the frontier's peaks as
-/// opaque fixed subtrees whose placement is fixed by its `leaf_count`. Payloads / appended leaves
-/// are never needed.
+/// An append-only MMR extension proof: O(log n) connecting nodes that, with a frontier's own peaks,
+/// reconstruct a newer root. The `mmr_lib` `gen_ancestry_proof` form of the design's
+/// `connecting_nodes`. Verification computes the new root; it is never declared alongside the
+/// proof. Payloads are not needed.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo, Default)]
 pub struct MMRExtensionProof {
-	/// Leaf count of the extended (newer) MMR. The `mmr_lib` node count is *derived* from it
-	/// (`leaf_index_to_mmr_size`), so no size independent of it can be smuggled in — but the
-	/// derivation is only total up to [`MAX_MMR_LEAF_COUNT`], which `verify` enforces first. `0`
-	/// with empty `connecting_nodes` is the identity extension (the endpoint already is the
-	/// current root). Compact-encoded: this proof is PoV-carried.
+	/// Leaf count of the extended MMR. The `mmr_lib` node count is derived from it, so no
+	/// independent size can be smuggled in; the derivation is total up to [`MAX_MMR_LEAF_COUNT`],
+	/// which `verify` checks first. `0` with empty `connecting_nodes` is the identity extension.
+	/// Compact-encoded, since this is PoV-carried.
 	#[codec(compact)]
 	pub leaf_count: u64,
-	/// The O(log n) connecting-node **hashes** — the extended MMR's witnesses not derivable from
-	/// the frontier's own peaks (from `gen_ancestry_proof`), in `mmr_lib`'s proof order. Their
-	/// positions are *not* stored: an MMR's shape is fixed by its size, so they are re-derived at
-	/// verify time from `(from.leaf_count, self.leaf_count)` (see `ancestry_positions`). Empty for
-	/// the identity.
+	/// The connecting-node hashes, in `mmr_lib`'s proof order. Positions are not stored: an MMR's
+	/// shape is fixed by its size, so they are derived at verify time from the two leaf counts
+	/// (`ancestry_positions`). Empty for the identity.
 	pub connecting_nodes: Vec<Hash>,
 }
 
 impl MMRExtensionProof {
-	/// The identity extension: `leaf_count = 0`, no connecting nodes — yields a frontier's own root
-	/// unchanged (the common caught-up case where the endpoint already *is* the current stream
-	/// root).
+	/// The identity extension: `leaf_count = 0`, no connecting nodes. Yields a frontier's own root,
+	/// for the caught-up case.
 	pub fn identity() -> Self {
 		Self { leaf_count: 0, connecting_nodes: Vec::new() }
 	}
 
-	/// Whether this is the identity (empty) extension.
+	/// Whether this is the identity extension.
 	pub fn is_identity(&self) -> bool {
 		self.leaf_count == 0 && self.connecting_nodes.is_empty()
 	}
 
-	/// Extend `from` and **return** the new root, computed from `from`'s peaks + the connecting
-	/// nodes; an [`Err`] if the proof is not well-formed for that placement. The identity extension
-	/// yields `from`'s own root. `from`'s *contents* are never re-checked — a forged peak yields a
-	/// root no committed `StreamsRoot` can bind — and its shape needs no check here: an
-	/// [`MmrFrontier`] is consistent and in range by construction. Within [`MAX_MMR_LEAF_COUNT`]
-	/// the `mmr_lib` size *derived* from `leaf_count` is always a valid MMR size; that ceiling is
-	/// what makes the derivation total, and the proof's own count is checked against it first.
+	/// Extend `from` and return the new root, computed from `from`'s peaks and the connecting
+	/// nodes; `Err` if the proof does not fit that placement. The identity extension yields
+	/// `from`'s own root. `from`'s contents are not re-checked: a forged peak yields a root no
+	/// committed `StreamsRoot` can bind. The proof's own leaf count is checked against
+	/// [`MAX_MMR_LEAF_COUNT`] first; within it, the derived `mmr_lib` size is always valid.
 	pub fn verify(&self, from: &MmrFrontier) -> Result<MmrRoot, ProofError> {
-		// Precondition first, on the one leaf count that arrives raw: the proof's own. `from` is an
-		// `MmrFrontier`, whose constructors already hold it in range and self-consistent.
+		// The proof's leaf count arrives raw. `from` is already in range and consistent by
+		// construction.
 		if self.leaf_count > MAX_MMR_LEAF_COUNT {
 			return Err(ProofError::LeafCountTooLarge);
 		}
@@ -149,36 +130,33 @@ impl MMRExtensionProof {
 			return Ok(from.root());
 		}
 		// Strictly forward: the extended MMR must have more leaves than the frontier. `0` is
-		// covered by this (no frontier has fewer), but reject it by name — the derivation below
-		// subtracts one, so its exclusion is a precondition, not a side effect of the ordering.
+		// covered by this, but reject it by name: the derivation below subtracts one.
 		if self.leaf_count == 0 || self.leaf_count <= from.leaf_count() {
 			return Err(ProofError::NotForward);
 		}
-		// Defense-in-depth: bound an untrusted proof's connecting nodes before doing O(n) work in
-		// `calculate_root`. A valid ancestry proof is far below this ceiling.
+		// Bound the connecting nodes before `calculate_root` does O(n) work on them.
 		if self.connecting_nodes.len() > MAX_EXTENSION_CONNECTING_NODES {
 			return Err(ProofError::NodeLimitExceeded);
 		}
 		let new_mmr_size = leaf_index_to_mmr_size(self.leaf_count - 1);
 
-		// Extending from the empty stream: nothing binds (a prefix of nothing is vacuous), so the
-		// connecting nodes must simply BE the new MMR's peaks, in canonical (`get_peaks`) order.
+		// Extending from the empty stream: nothing binds, so the connecting nodes must be the new
+		// MMR's peaks in `get_peaks` order.
 		if from.leaf_count() == 0 {
-			// The connecting nodes must form a frontier of exactly `self.leaf_count` leaves;
-			// `from_parts` is that check.
+			// The nodes must form a frontier of exactly `self.leaf_count` leaves; `from_parts`
+			// checks that.
 			return MmrFrontier::from_parts(self.connecting_nodes.clone(), self.leaf_count)
 				.map(|f| f.root())
 				.ok_or(ProofError::InvalidProof);
 		}
 
-		// General: `from`'s peaks are complete subtrees of the new MMR at their unchanged
-		// positions; combined with the connecting nodes they reconstruct the new root
-		// (`calculate_root` merges them under `SpecMerge`, matching the sender's MMR).
+		// `from`'s peaks are complete subtrees of the new MMR at unchanged positions; with the
+		// connecting nodes they reconstruct the new root under `SpecMerge`.
 		let old_mmr_size = from.mmr_size();
 		let old_positions = get_peaks(old_mmr_size);
-		// The connecting-node positions aren't carried: derive them from the two MMR sizes (an
-		// MMR's shape is fixed by its size) and re-pair them with the stored hashes, in `mmr_lib`'s
-		// proof order. A length mismatch means the proof doesn't fit the claimed extension.
+		// Positions are not carried: derive them from the two sizes and pair them with the hashes
+		// in `mmr_lib`'s proof order. A length mismatch means the proof does not fit the claimed
+		// extension.
 		let positions = ancestry_positions(old_mmr_size, new_mmr_size);
 		if positions.len() != self.connecting_nodes.len() {
 			return Err(ProofError::InvalidProof);
@@ -194,59 +172,55 @@ impl MMRExtensionProof {
 	}
 }
 
-/// The connecting-node positions of an MMR ancestry proof, from the two sizes alone — the key to
-/// storing [`MMRExtensionProof::connecting_nodes`] as bare hashes. `mmr_lib` derives them; both
-/// sizes must be valid MMR sizes with a non-empty old MMR (the empty and identity extensions are
-/// handled before this is reached).
+/// The connecting-node positions of an MMR ancestry proof, from the two sizes alone; this is what
+/// lets [`MMRExtensionProof::connecting_nodes`] be bare hashes. Derived by `mmr_lib`. Both sizes
+/// must be valid MMR sizes with a non-empty old MMR; the empty and identity extensions are handled
+/// before this is reached.
 fn ancestry_positions(old_mmr_size: u64, new_mmr_size: u64) -> Vec<u64> {
 	mmr_lib::ancestry_proof::ancestry_proof_positions(old_mmr_size, new_mmr_size)
 		.expect("callers pass valid sizes and a non-empty old MMR within the new one; qed")
 }
 
-/// An MMR inclusion proof for a **single leaf** — `mmr_lib`'s [`MerkleProof`] items (the leaf's
-/// sibling path plus the other peaks, for bagging) and the node count they were generated against.
-/// The concrete `polkadot-ckb-merkle-mountain-range` (`gen_proof`) form used by the lossy
-/// event/register head read: where [`MMRExtensionProof`] bridges a frontier *forward*, this places
-/// one leaf under a *fixed* stream MMR. As everywhere, the root is **derived**, never declared — a
-/// tampered item yields a root no `tree_proof` can bind.
+/// A single-leaf MMR inclusion proof: `mmr_lib`'s [`MerkleProof`] items (the sibling path plus the
+/// other peaks) and the node count it was generated against. Used by the event and register head
+/// read. Where [`MMRExtensionProof`] moves a frontier forward, this places one leaf under a fixed
+/// MMR. The root is derived, never declared.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub struct MmrInclusionProof {
-	/// `mmr_lib` node count (size) of the MMR the proof was generated against; with the leaf count
-	/// (`get_peak_map`) it pins a head read.
+	/// `mmr_lib` node count of the MMR the proof was generated against. With the leaf count it
+	/// derives (`get_peak_map`), it pins a head read.
 	pub mmr_size: u64,
-	/// Proof items — the leaf's sibling path plus the other peaks, in `mmr_lib` order.
+	/// The leaf's sibling path plus the other peaks, in `mmr_lib` order.
 	pub items: Vec<Hash>,
 }
 
 impl MmrInclusionProof {
-	/// Leaf count of the proven MMR (the peak map of a valid MMR size *is* the leaf count).
+	/// Leaf count of the proven MMR: the peak map of a valid MMR size.
 	pub fn leaf_count(&self) -> u64 {
 		get_peak_map(self.mmr_size)
 	}
 
-	/// Verify `leaf` (already hashed via [`crate::message::leaf_hash`]) as the **head** — the last
-	/// leaf — of the proven MMR, returning the head position and the full frontier (peaks + leaf
-	/// count) of exactly that MMR. An [`Err`] on any structural defect.
+	/// Verify `leaf` (already hashed by [`crate::message::leaf_hash`]) as the last leaf of the
+	/// proven MMR. Returns the head position and the frontier of that MMR; `Err` on any structural
+	/// defect.
 	///
-	/// This is the register/event head-read verification: lossy consumers need the peaks, not just
-	/// the root, because the read enters the consumption record as an interval whose `end` frontier
-	/// the next gap check — or the lift's extension proof — extends from.
+	/// This is the register and event head read. Lossy consumers need the peaks, not just the root:
+	/// the read enters the consumption record as an interval whose `end` frontier the next gap
+	/// check or the lift extends from.
 	///
-	/// The expected shape is what `gen_proof` for the last leaf produces: the other peaks
-	/// left-to-right, then the head's `leaf_count.trailing_zeros()` LEFT siblings bottom-up. The
-	/// item count is checked exactly — the bytes have one valid form.
+	/// The expected shape is what `gen_proof` produces for the last leaf: the other peaks left to
+	/// right, then the head's `leaf_count.trailing_zeros()` left siblings bottom up. The item count
+	/// is checked exactly.
 	///
-	/// **Only reconstructs** a frontier from `(leaf, items)`; it does **not** bind the result to
-	/// any committed `StreamsRoot`. An `Ok` here is *not* authentication — a caller must bind the
-	/// derived root to a trusted `under`. Prefer [`crate::message::verify_event`], which does that;
-	/// never trust a raw `verify_head`.
+	/// Only reconstructs a frontier; does not bind it to any committed `StreamsRoot`. `Ok` is not
+	/// authentication. Prefer [`crate::message::verify_event`], which binds the result to a trusted
+	/// `under`.
 	pub fn verify_head(&self, leaf: Hash) -> Result<(MessagePosition, MmrFrontier), ProofError> {
 		if !is_valid_mmr_size(self.mmr_size) {
 			return Err(ProofError::InvalidProof);
 		}
 		let leaf_count = self.leaf_count();
-		// `is_valid_mmr_size` already keeps this in range; state the precondition anyway so every
-		// entry point taking an untrusted leaf count reads the same way.
+		// Already in range under `is_valid_mmr_size`; stated so every entry point reads the same.
 		if leaf_count > MAX_MMR_LEAF_COUNT {
 			return Err(ProofError::LeafCountTooLarge);
 		}
@@ -267,20 +241,17 @@ impl MmrInclusionProof {
 		}
 		let peaks: Vec<Hash> =
 			peak_items.iter().copied().chain(core::iter::once(last_peak)).collect();
-		// `other_peaks + 1 == leaf_count.count_ones()` and the ceiling was checked above, so this
-		// is `Some`; routing through the constructor keeps the invariant in one place.
+		// `other_peaks + 1 == leaf_count.count_ones()` and the ceiling was checked, so this is
+		// `Some`.
 		let frontier =
 			MmrFrontier::from_parts(peaks, leaf_count).ok_or(ProofError::InvalidProof)?;
 
 		Ok((MessagePosition(leaf_count - 1), frontier))
 	}
 
-	/// Verify `leaf` (already hashed via [`crate::message::leaf_hash`]) at `position`, returning
-	/// the implied stream [`MmrRoot`]. An [`Err`] if the position is out of range or the proof is
-	/// malformed.
-	///
-	/// **Only reconstructs** the implied root; it does **not** bind it to any committed
-	/// `StreamsRoot` — an `Ok` is not authentication. Prefer [`crate::message::verify_event`],
+	/// Verify `leaf` (already hashed by [`crate::message::leaf_hash`]) at `position` and return the
+	/// implied [`MmrRoot`]. `Err` if the position is out of range or the proof malformed. Only
+	/// reconstructs the root; `Ok` is not authentication. Prefer [`crate::message::verify_event`],
 	/// which binds the result to a trusted `under`.
 	pub fn verify_leaf(
 		&self,
@@ -290,14 +261,12 @@ impl MmrInclusionProof {
 		if !is_valid_mmr_size(self.mmr_size) {
 			return Err(ProofError::InvalidProof);
 		}
-		// See `verify_head`: redundant under `is_valid_mmr_size`, kept so the precondition is
-		// explicit at every entry point.
+		// Redundant under `is_valid_mmr_size`; stated so every entry point reads the same.
 		if self.leaf_count() > MAX_MMR_LEAF_COUNT {
 			return Err(ProofError::LeafCountTooLarge);
 		}
-		// Defense-in-depth: bound untrusted `items` before the O(n) `calculate_root` (and its
-		// clone). A valid single-leaf proof is far below this ceiling; `verify_head` gets the
-		// same bound for free from its exact item-count check.
+		// Bound `items` before `calculate_root` does O(n) work on them. `verify_head` gets the same
+		// from its exact item count.
 		if self.items.len() > MAX_INCLUSION_PROOF_ITEMS {
 			return Err(ProofError::ItemLimitExceeded);
 		}
@@ -314,15 +283,15 @@ impl MmrInclusionProof {
 
 /// Per stream and block: consumption entered the block at `start` and left it at `end`.
 ///
-/// The candidate's lift binds only the LAST state to a committed root; the intervals stretch that
-/// guarantee back over the whole bundle — each block must start where the previous ended, or prove
-/// the jump moved forward ([`stitch`]).
+/// The candidate's lift binds only the last state to a committed root; the intervals extend that
+/// guarantee back over the bundle. Each block must start where the previous ended, or prove the
+/// jump moved forward ([`stitch`]).
 ///
-/// - **Channels**: `start` = the frontier root before the block's incoming messages, `end` = the
-///   frontier after. `start == previous end` holds by construction, so the chain check is free.
-/// - **Register / event reads**: `end` = the context the reads were verified against, `start` = its
-///   root (nothing advances). Contexts *can* jump between blocks (a fresher read mid-bundle is the
-///   point), so a fabricated context breaks the chain instead of hiding behind a later genuine one.
+/// - Channels: `start` is the frontier root before the block's incoming messages, `end` the
+/// frontier after. `start == previous end` holds by construction, so the chain check is free.
+/// - Register and event reads: `end` is the context the reads were verified against, `start` its
+/// root; nothing advances. Contexts can jump between blocks, so a fabricated context breaks the
+/// chain instead of hiding behind a later genuine one.
 ///
 /// `end` is a full frontier because the next gap check, or the lift, extends from it.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
@@ -333,42 +302,39 @@ pub struct Interval {
 	pub end: MmrFrontier,
 }
 
-/// Written per block: the streams this block touched and the interval it consumed on each, grouped
-/// by source. One interval per stream (the messaging inherent carries at most one item per
-/// stream), keyed so that is structural and the per-source order is the canonical `StreamId`
-/// order the lifts match against. This is the API view of a flat, host-append-only outbox vec,
-/// grouped and sorted at read time; it encodes exactly as the sorted vec of pairs would.
+/// Written per block: the streams this block touched and the interval consumed on each, grouped by
+/// source. One interval per stream, keyed so the type enforces it; per-source order is the
+/// canonical `StreamId` order the lifts match against. The API view of a flat, host-append-only
+/// outbox vec. Encodes as the sorted vec of pairs would.
 #[derive(Clone, Encode, Decode, PartialEq, Eq, Debug, TypeInfo, Default)]
 pub struct ConsumptionRecord {
 	/// `source -> stream -> interval`.
 	pub entries: BTreeMap<ParaId, BTreeMap<StreamId, Interval>>,
 }
 
-/// One source's streams with their intervals across a bundle, in block order — what
-/// [`build_requires`] merges the per-block records into and [`build_requires_entry`] lifts.
+/// One source's streams with their intervals across a bundle, in block order. [`build_requires`]
+/// merges the per-block records into this and [`build_requires_entry`] lifts it.
 pub type SourceStreams = BTreeMap<StreamId, Vec<Interval>>;
 
-/// One lift, carried in the POV (never in the block or commitments). Matched positionally to a
-/// source's consumption-record streams (`StreamId`-sorted); a mispaired lift cannot verify because
-/// `tree_proof` binds the record's key.
+/// One lift, carried in the PoV. Matched by position to a source's `StreamId`-sorted record
+/// streams; a mispaired lift cannot verify because `tree_proof` binds the record's key.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub struct RequiresLift {
-	/// One extension per gap in the stream's interval chain, in gap order; empty for a caught-up
-	/// single-context stream.
+	/// One extension per gap in the stream's interval chain, in gap order. Empty when there are no
+	/// gaps.
 	pub advances: Vec<MMRExtensionProof>,
-	/// Extends the chain's endpoint to the stream's current root; verification yields that root
-	/// (the identity extension when the endpoint already is the current root).
+	/// Extends the chain's endpoint to the stream's current root. The identity extension when the
+	/// endpoint already is that root.
 	pub extension: MMRExtensionProof,
 	/// Keyed walk from the current stream root to the `StreamsRoot` the requires entry becomes.
 	pub tree_proof: TreeInclusionProof,
 }
 
-/// The candidate's lifts, grouped per source — the PoV transport form (encoding spec §8). `Decode`
-/// enforces the canonical form, strictly increasing `ParaId`s, and bounds the source count at
-/// [`MAX_COMMITMENT_ENTRIES`] (more sources than a `RequiresSet` can hold cannot be a valid
-/// candidate, so they are rejected before any lift is verified). The only other way in,
-/// [`TryFrom<BTreeMap>`](Self::try_from), is canonical by construction. So wherever the lifts come
-/// from, [`build_requires`] zips them against the record's sources by position.
+/// The candidate's lifts, grouped per source: the PoV transport form (encoding spec §8). `Decode`
+/// enforces strictly increasing `ParaId`s and bounds the source count at
+/// [`MAX_COMMITMENT_ENTRIES`], so more sources than a `RequiresSet` can hold are rejected before
+/// any lift is verified. [`TryFrom<BTreeMap>`](Self::try_from) is canonical by construction.
+/// [`build_requires`] zips these against the record's sources by position.
 #[derive(Clone, Encode, PartialEq, Eq, Debug, TypeInfo, Default)]
 pub struct LiftsBySource(BoundedVec<(ParaId, Vec<RequiresLift>), ConstU32<MAX_COMMITMENT_ENTRIES>>);
 
@@ -405,8 +371,7 @@ impl TryFrom<BTreeMap<ParaId, Vec<RequiresLift>>> for LiftsBySource {
 	}
 }
 
-/// Field-for-field the derived `Encode`; the decoded sequence must be strictly increasing by
-/// `ParaId`, so a PoV holds the same invariant a map built here does.
+/// Matches the derived `Encode`. The sequence must be strictly increasing by `ParaId`.
 impl Decode for LiftsBySource {
 	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 		let inner =
@@ -422,8 +387,8 @@ impl Decode for LiftsBySource {
 
 impl DecodeWithMemTracking for LiftsBySource {}
 
-/// Everything that can invalidate requires synthesis. All are deterministic functions of the
-/// records and POV, so every validator reaches the same verdict.
+/// Why requires synthesis failed. All are deterministic in the records and PoV, so every validator
+/// reaches the same verdict.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum LiftError {
 	/// A stream's interval list was empty.
@@ -448,20 +413,20 @@ pub enum LiftError {
 	TooManySources,
 }
 
-/// Stitch one stream's intervals (bundle order) into its endpoint frontier. `advances` must supply
-/// exactly one extension per gap — a `start` that is not the previous `end`'s bagged root — in gap
-/// order. Gaps are proven *forward* (extension proofs only exist forward), so within a candidate
-/// verified states can never regress. Across candidates that is the STF's to hold (see below).
+/// Stitch one stream's intervals, in bundle order, into its endpoint frontier. `advances` must hold
+/// exactly one extension per gap (a `start` that is not the previous `end`'s root), in gap order.
+/// Gaps are proven forward, so within a candidate verified states cannot regress; across candidates
+/// that is the STF's to hold.
 pub fn stitch(
 	intervals: &[Interval],
 	advances: &[MMRExtensionProof],
 ) -> Result<MmrFrontier, LiftError> {
 	let (first, rest) = intervals.split_first().ok_or(LiftError::EmptyRecord)?;
 	let mut gaps = advances.iter();
-	// `first.start` is the boundary with the previous candidate, so nothing in this one can check
-	// it — and nothing needs to: every message consumed is bound through the chain from
-	// `first.end`. Cross-candidate continuity is the STF's (the stored frontier for channels;
-	// value monotonicity for register reads).
+	// `first.start` is the boundary with the previous candidate; nothing here can check it, and
+	// nothing needs to: everything consumed is bound through the chain from `first.end`.
+	// Cross-candidate continuity is the STF's (the stored frontier for channels, value monotonicity
+	// for register reads).
 	let mut current = first.end.clone();
 	for next in rest {
 		let current_root = current.root();
@@ -481,11 +446,10 @@ pub fn stitch(
 	Ok(current)
 }
 
-/// Lift one source's streams to their single committed `StreamsRoot`: stitch each stream's
-/// intervals into an endpoint, extend it to the stream's current root, walk the tree to the
-/// `StreamsRoot`, and require *all* of the source's streams to lift to the **same** root. Returns
-/// that root; the caller ([`build_requires`]) already holds the source and pairs it. `streams`
-/// iterates in `StreamId` order; `lifts` matches it positionally.
+/// Lift one source's streams to a single committed `StreamsRoot`: stitch each stream's intervals
+/// into an endpoint, extend it to the stream's current root, walk the tree to the `StreamsRoot`,
+/// and require all of the source's streams to reach the same root. `streams` iterates in `StreamId`
+/// order; `lifts` matches it by position.
 pub fn build_requires_entry(
 	streams: &SourceStreams,
 	lifts: &[RequiresLift],
@@ -496,10 +460,10 @@ pub fn build_requires_entry(
 	let mut entry: Option<StreamsRoot> = None;
 	for ((stream, intervals), lift) in streams.iter().zip(lifts) {
 		let endpoint = stitch(intervals, &lift.advances)?;
-		// The endpoint is contained in the stream's current root (computed, not declared)...
+		// The endpoint is contained in the stream's current root, computed rather than declared,
 		let current = lift.extension.verify(&endpoint).map_err(|_| LiftError::BadExtension)?;
-		// ...and the keyed tree walk from it yields the StreamsRoot this stream lifts to. The walk
-		// binds the record's `stream` key, so a mispaired lift cannot verify.
+		// and the keyed walk from it yields the `StreamsRoot`. The walk binds the record's `stream`
+		// key, so a mispaired lift cannot verify.
 		let root = streams_root_from_proof(*stream, current.0, &lift.tree_proof)
 			.ok_or(LiftError::BadTreeProof)?;
 		match entry {
@@ -511,13 +475,12 @@ pub fn build_requires_entry(
 	entry.ok_or(LiftError::EmptyRecord)
 }
 
-/// Synthesize the candidate's [`RequiresSet`] from the per-block consumption records (bundle order)
-/// and the POV lifts (grouped per source). Sources must match exactly — a recorded source without
-/// lifts, or lifts for an unrecorded source, invalidates the candidate.
+/// Synthesize the candidate's [`RequiresSet`] from the per-block records, in bundle order, and the
+/// PoV lifts. Sources must match exactly; a recorded source without lifts, or lifts for an
+/// unrecorded source, invalidates the candidate.
 ///
-/// `None` when the candidate consumed nothing: there is then no entry the relay could match, and
-/// the candidate emits no `Requires` signal. (`RequiresSet` cannot be empty, so this is the only
-/// way to say so.)
+/// `None` when the candidate consumed nothing: there is no entry the relay could match, and the
+/// candidate emits no `Requires` signal. `RequiresSet` cannot be empty.
 pub fn build_requires(
 	records: &[ConsumptionRecord],
 	lifts: &LiftsBySource,
@@ -532,8 +495,7 @@ pub fn build_requires(
 			}
 		}
 	}
-	// Recorded sources and lift sources must be exactly equal (both iterate ParaId-sorted).
-	// Recorded sources and lift sources must be exactly equal (both are ParaId-sorted).
+	// Recorded sources and lift sources must be equal; both are ParaId-sorted.
 	if !merged.keys().eq(lifts.sources()) {
 		return Err(LiftError::LiftSourceMismatch);
 	}
@@ -608,7 +570,7 @@ mod tests {
 	}
 
 	/// A keyed `StreamsRoot`-trie membership proof for one stream out of `n_streams` active
-	/// streams. Recipients are clustered (`2000..2000+n`), so keys diverge only in the low bits —
+	/// streams. Recipients are clustered (`2000..2000+n`), so keys diverge only in the low bits;
 	/// the realistic worst case for Patricia depth.
 	fn tree_proof(n_streams: u32) -> StreamProof {
 		let entries: BTreeMap<StreamId, Hash> =
@@ -647,11 +609,11 @@ mod tests {
 	}
 
 	/// The derived connecting-node positions must equal what `gen_ancestry_proof` actually emits,
-	/// for every `(k, n)` shape — the consensus-critical invariant that lets `connecting_nodes`
-	/// store bare hashes. Exhaustive over every `(old, new)` pair up to 256 leaves — through the
-	/// all-ones sizes 127 and 255 (seven and eight peaks, the most bagging the range allows) and
-	/// the single-peak powers of two either side of them. If `mmr_lib`'s node set/order ever
-	/// drifts, this trips.
+	/// for every `(k, n)` shape: the invariant that lets `connecting_nodes`
+	/// store bare hashes. Exhaustive over every `(old, new)` pair up to 256 leaves, which covers
+	/// the all-ones sizes 127 and 255 (seven and eight peaks) and the single-peak powers of two
+	/// beside them. If `mmr_lib`'s node set or order drifts, this trips; `Cargo.lock` makes a drift
+	/// a deliberate bump.
 	#[test]
 	fn ancestry_positions_matches_mmr_lib() {
 		for n in 2..=256usize {
@@ -673,10 +635,10 @@ mod tests {
 
 	#[test]
 	fn extension_leaf_count_disambiguates_equal_node_counts() {
-		// Encoding spec §12.4 / design: extending one leaf to three and to four both take two
-		// connecting nodes, placed differently — which is why `leaf_count` is carried (the
-		// verifier cannot derive it from the node count) and why the nodes carry no positions
-		// (the count fixes them).
+		// Encoding spec §12.4: extending one leaf to three and to four both take two connecting
+		// nodes, placed differently. That is why `leaf_count` is carried (the verifier cannot
+		// derive it from the node count) and why the nodes carry no positions (the count fixes
+		// them).
 		let all = leaves(4);
 		let to3 = extension(&all, 1, 3);
 		let to4 = extension(&all, 1, 4);
@@ -706,23 +668,23 @@ mod tests {
 	#[test]
 	fn extension_verify_bounds_untrusted_leaf_counts() {
 		let all = leaves(5);
-		// The proof's own count: a value whose derived node count would leave `u64` is rejected as
-		// a precondition, before any position is computed from it.
+		// The proof's own count. A value whose derived node count would overflow `u64` is rejected
+		// before any position is computed from it.
 		let mut ext = extension(&all, 2, 5);
 		ext.leaf_count = u64::MAX;
 		assert_eq!(ext.verify(&frontier_at(&all, 2)), Err(ProofError::LeafCountTooLarge));
 		ext.leaf_count = MAX_MMR_LEAF_COUNT + 1;
 		assert_eq!(ext.verify(&frontier_at(&all, 2)), Err(ProofError::LeafCountTooLarge));
-		// The frontier's count is not this function's to check: an out-of-range `MmrFrontier`
-		// cannot be built, on the network path (`from_parts`) or off the wire (`Decode`).
+		// The frontier's count is not this function's to check. An out-of-range `MmrFrontier`
+		// cannot be built, from `from_parts` or from `Decode`.
 		assert!(MmrFrontier::from_parts(vec![all[0]], 1 << 63).is_none());
 	}
 
 	#[test]
 	fn extension_verify_rejects_zero_leaf_count() {
 		let all = leaves(5);
-		// `0` with connecting nodes is not the identity; it must reject rather than reach the
-		// `leaf_count - 1` the node-count derivation needs.
+		// `0` with connecting nodes is not the identity. It must reject before the `leaf_count - 1`
+		// the node-count derivation needs.
 		let mut ext = extension(&all, 2, 5);
 		ext.leaf_count = 0;
 		assert_eq!(ext.verify(&frontier_at(&all, 2)), Err(ProofError::NotForward));
@@ -732,7 +694,7 @@ mod tests {
 	fn extension_identity_on_empty_frontier_yields_empty_root() {
 		// The empty frontier has the defined root H(EMPTY_TAG) (encoding spec §3.4); the
 		// identity extension yields it like any other frontier's own root. Nothing binds
-		// it to a committed entry — an empty stream is never in the StreamsRoot tree, so
+		// it to a committed entry; an empty stream is never in the StreamsRoot tree, so
 		// a downstream tree walk fails naturally.
 		assert_eq!(
 			MMRExtensionProof::identity().verify(&MmrFrontier::default()),
@@ -859,7 +821,7 @@ mod tests {
 		let extra = LiftsBySource::try_from(extra).unwrap();
 		assert_eq!(build_requires(&[record], &extra), Err(LiftError::LiftSourceMismatch));
 
-		// Nothing consumed, nothing lifted: no set at all, rather than an empty one.
+		// Nothing consumed, nothing lifted: no set, not an empty one.
 		assert_eq!(build_requires(&[], &LiftsBySource::default()), Ok(None));
 	}
 
@@ -916,9 +878,9 @@ mod tests {
 	///
 	/// v0.5 replaces the pre-v0.5 point-3 two-level `sp_trie` read (relay `paras::Heads` proof + a
 	/// sender-state proof) with the POV-carried [`RequiresLift`], committing against the sender's
-	/// own keyed binary Patricia trie — no `sp_trie` witnesses. This measures the real
-	/// SCALE-encoded size along its two dimensions — the `tree_proof` ([`StreamProof`], `O(log S)`
-	/// in active streams) and the `extension` ([`MMRExtensionProof`], `O(log n)` in messages) —
+	/// own keyed binary Patricia trie, no `sp_trie` witnesses. This measures the real
+	/// SCALE-encoded size along its two dimensions: the `tree_proof` ([`StreamProof`], `O(log S)`
+	/// in active streams) and the `extension` ([`MMRExtensionProof`], `O(log n)` in messages),
 	/// and asserts both stay logarithmic and the protocol's bounded worst case sits well under
 	/// `MAX_POV_SIZE`.
 	#[test]
@@ -966,7 +928,7 @@ mod tests {
 					.map(|(_, h)| *h)
 					.collect(),
 			};
-			// O(log N) connecting nodes — independent of how far the tail stretches.
+			// O(log N) connecting nodes, independent of how far the tail stretches.
 			assert!(
 				ext.connecting_nodes.len() <= 64,
 				"extension not O(log N): {}",
@@ -1002,9 +964,9 @@ mod tests {
 		let budget = MAX_POV_SIZE as usize;
 
 		// --- Angle 1: empirical PoV share (real proofs, ≤100k messages, no gaps) ---
-		// A full-cap candidate — `MaxTouchedStreams` touched streams, itself capped at
+		// A full-cap candidate (`MaxTouchedStreams` touched streams, itself capped at
 		// MAX_COMMITMENT_ENTRIES (one lift per touched stream, regardless of how they spread
-		// over sources) — with a conservative *measured* lift (deepest 100k-message extension +
+		// over sources) with a conservative measured lift (deepest 100k-message extension +
 		// a 1024-stream tree_proof): what fraction of the budget do real proofs at
 		// representative scale consume? Guards the typical footprint at <10%.
 		let empirical_lift = RequiresLift {
@@ -1043,7 +1005,7 @@ mod tests {
 		);
 		// Regression guard: one worst-case lift stays bounded. The design ceilings a touched stream
 		// at ~4 KB + ~2 KB/gap ≈ 6 KB; guard at 8 KB so an O(n) extension (non-logarithmic) or an
-		// uncompressed tree walk trips this instead of silently eating the PoV.
+		// uncompressed tree walk trips this instead of eating the PoV.
 		assert!(worst_per_lift < 8 * 1024, "worst-case lift {worst_per_lift} B exceeds ~8 KB");
 
 		// Authoring-time budget (design: "the block must guarantee at authoring time that the worst
@@ -1080,7 +1042,7 @@ mod tests {
 	fn inclusion_verify_head_pins_head_and_derives_root() {
 		let all = leaves(6);
 		// 6 leaves → head = index 5 (a lone smallest peak with a 1-step sibling path AND one other
-		// peak — count_ones(6) - 1 = 1), exercising both halves of the item split.
+		// peak: count_ones(6) - 1 = 1), exercising both halves of the item split.
 		let proof = inclusion(&all, 6, 5);
 
 		// Correct head leaf → head position 5 + the frontier of exactly these 6 leaves.
@@ -1089,7 +1051,7 @@ mod tests {
 		assert_eq!(frontier.leaf_count(), 6);
 		assert_eq!(frontier.root(), root_at(&all, 6));
 
-		// A different leaf under the same proof derives a frontier whose root does NOT match — an
+		// A different leaf under the same proof derives a frontier whose root does not match, an
 		// old leaf cannot be forged as the head (the derived-root mismatch is what downstream
 		// `under` comparison rejects).
 		let (_, forged) = proof.verify_head(all[0]).expect("shape still parses");
@@ -1112,7 +1074,7 @@ mod tests {
 		// The `path_len = trailing_zeros` / `other_peaks = count_ones - 1` formulas at their
 		// extremes.
 
-		// n = 1: a single-leaf MMR — the head proof has ZERO items (no sibling path, no other
+		// n = 1: a single-leaf MMR. The head proof has zero items (no sibling path, no other
 		// peak).
 		let all1 = leaves(1);
 		let (pos1, f1) = inclusion(&all1, 1, 0).verify_head(all1[0]).expect("n=1 head");
@@ -1120,7 +1082,7 @@ mod tests {
 		assert_eq!(f1.leaf_count(), 1);
 		assert_eq!(f1.root(), root_at(&all1, 1));
 
-		// n = 8: a perfect single-peak MMR — a full 3-step sibling path with NO other peaks.
+		// n = 8: a perfect single-peak MMR. A full 3-step sibling path with no other peaks.
 		let all8 = leaves(8);
 		let (pos8, f8) = inclusion(&all8, 8, 7).verify_head(all8[7]).expect("n=8 head");
 		assert_eq!(pos8, MessagePosition(7));
@@ -1171,7 +1133,7 @@ mod tests {
 		let all = leaves(6);
 		// A proof generated for a non-head leaf (index 2) has a different item count than the
 		// head's expected shape (3 vs 2 for a 6-leaf MMR), so `verify_head`'s exact item-count
-		// gate rejects it outright — a non-head leaf can't be passed off as the head.
+		// gate rejects it: a non-head leaf cannot be passed off as the head.
 		let non_head = inclusion(&all, 6, 2);
 		assert_eq!(non_head.verify_head(all[2]), Err(ProofError::InvalidProof));
 	}
@@ -1180,7 +1142,7 @@ mod tests {
 	fn inclusion_head_and_leaf_agree_on_root() {
 		// Cross-check the two crypto paths: `verify_head`'s manual peak walk and `verify_leaf`'s
 		// `mmr_lib::calculate_root` must derive the *same* root for the head leaf (and the
-		// committed stream root). Guards against the two implementations silently diverging.
+		// committed stream root). Guards against the two implementations diverging.
 		let all = leaves(6);
 		let proof = inclusion(&all, 6, 5);
 		let (pos, frontier) = proof.verify_head(all[5]).expect("head verifies");

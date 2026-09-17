@@ -14,39 +14,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Primitives for the Speculative Messaging protocol.
+//! Primitives for the Speculative Messaging protocol (v0.5).
 //!
-//! Speculative Messaging lets parachains exchange messages without waiting for
-//! full relay-chain confirmation. Each sender parachain accumulates its outgoing
-//! messages per stream into a Merkle Mountain Range (MMR) and commits every
-//! stream's root into a single `StreamsRoot` — a keyed commitment tree
-//! (`polkadot_primitives::v9::StreamsRoot` — relay-visible, so it lives in
-//! `polkadot-primitives`). The relay chain then matches sender commitments
-//! (`Provides`) against receiver expectations (`Requires`/`RequiresSet`), allowing
-//! both sides to process messages speculatively and confirm them after the fact.
+//! A sender parachain accumulates each outgoing stream into an MMR and commits every stream's root
+//! into one `StreamsRoot`, a keyed commitment tree. The relay chain matches sender commitments
+//! (`Provides`) against receiver expectations (`Requires`), so both sides can process messages
+//! speculatively and confirm them later. `StreamsRoot` and `RequiresSet` are relay-visible and live
+//! in `polkadot-primitives`; this crate holds the parachain-side primitives that build them and the
+//! off-chain wire types.
 //!
-//! This crate holds the **parachain-side** primitives that build those
-//! commitments and the off-chain wire types.
+//! # Modules
 //!
-//! # Key types
-//!
-//! - [`mmr::MmrFrontier`] — the peaks-only per-stream MMR state, and the accumulator that extends
-//!   it; [`mmr::SpecMerge`] is the domain-tagged `mmr_lib::Merge` behind it. Inclusion and ancestry
-//!   proofs come from `mmr_lib` itself.
-//! - [`message`] — the off-chain protocol messages: the fetch protocol
-//!   (`MessagesRequest`/`MessagesResponse` + [`message::verify_messages`]), the lossy
-//!   event/register read (`EventRequest`/`EventResponse` + [`message::verify_event`]), the
-//!   `/spec-msg/exchange` envelope (`ExchangeRequest`/`ExchangeResponse`) multiplexing the two, and
-//!   the protocol's concrete instantiation (`SpecHasher`, [`message::leaf_hash`] for a payload →
-//!   MMR leaf, the payload bound).
-//! - [`lift`] — the requires-lift / consumption-record POV types (`RequiresLift`,
-//!   `ConsumptionRecord`, `MMRExtensionProof`, `MmrInclusionProof`, …) and the `build_requires`
-//!   synthesizer.
-//! - [`inherent`] — the node ↔ runtime consumption interface: what the runtime asks to have fetched
-//!   (`ConsumedStream`) and what the messaging inherent delivers (`MessagingInherentData` /
-//!   `ConsumeItem`) — payloads and placement hints, never proofs.
-//! - [`channel`] — the channel key (`ChannelId`) and per-direction states (`OutChannelState`,
-//!   `InChannelState`) the pallet stores and the runtime API's channel views return.
+//! - [`stream`] — `StreamId` and its canonical 8-byte encoding.
+//! - [`streams_root`] — the keyed commitment tree and its membership proofs.
+//! - [`mmr`] — `MmrFrontier`, the peaks-only per-stream MMR state; `SpecMerge`, the tagged
+//!   `mmr_lib::Merge` behind it.
+//! - [`message`] — the off-chain protocol: fetch (`MessagesRequest`/`MessagesResponse`), event read
+//!   (`EventRequest`/`EventResponse`), the `/spec-msg/exchange` envelope, and their verifiers.
+//! - [`lift`] — the PoV-carried requires lifts, the consumption record, and `build_requires`.
+//! - [`inherent`] — the node/runtime consumption interface: `ConsumedStream` out,
+//!   `MessagingInherentData` in.
+//! - [`channel`] — `ChannelId` and the per-direction channel states.
+//! - [`flow_control`] — the channel-stream leaf payload and the receiver's `Register`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -80,59 +69,40 @@ pub use mmr::{MessagePosition, MmrFrontier, MmrRoot};
 pub use stream::{PrivateKind, StreamId, STREAM_ID_LEN};
 pub use streams_root::{StreamProof, StreamsRoot};
 
-/// The hash function used throughout speculative messaging: leaf hashing, MMR merges, stream and
-/// commitment-tree roots. It is a protocol constant, not a parameter — every root, proof and
-/// frozen test vector in this crate is defined in terms of it, so changing it is a consensus
-/// break, and nothing here is generic over it.
+/// The hash function for all of speculative messaging: leaves, MMR merges, stream and
+/// commitment-tree roots. A protocol constant. Changing it is a consensus break, so nothing here
+/// is generic over it.
 pub type SpecHasher = sp_runtime::traits::BlakeTwo256;
 
-// Domain Tags to ensure that the same message structure used in different contexts (e.g. leaf vs
-// inner node) do not collide on the same hash. Tag values are part of the hash preimages. The MMR
-// tags are `LEAF/INNER/PEAK/EMPTY = 0x1/0x2/0x3/0x4` and the commitment-tree tags `0x5/0x6`,
-// matching the poc-mvp branch (encoding spec §1).
+// Domain tags. Each hash preimage starts with one, so a node in one role can never collide with a
+// node in another (encoding spec §1).
 
-/// Tag for a leaf node.
+/// MMR leaf.
 pub const LEAF_TAG: u8 = 0x1;
 
-/// Tag for an inner node.
+/// MMR inner node.
 pub const INNER_TAG: u8 = 0x2;
 
-/// Tag for a peak.
+/// MMR peak bagging.
 pub const PEAK_TAG: u8 = 0x3;
 
-/// Tag hashed to produce the defined root of an *empty* MMR frontier, `H(EMPTY_TAG)`
-/// (see [`mmr::empty_root`]): `mmr_lib` errors on empty MMRs, but the protocol needs a
-/// comparable value — the `Interval.start` of a stream's first-ever consumption is
-/// exactly this root.
+/// The empty MMR's root is `H(EMPTY_TAG)` ([`mmr::empty_root`]). `mmr_lib` has no root for an
+/// empty MMR; the protocol needs one, since a stream's first consumption starts there.
 pub const EMPTY_TAG: u8 = 0x4;
 
-/// Tag for a `StreamsRoot` commitment-tree leaf: `H(STREAMS_LEAF_TAG ++ key[8] ++
-/// stream_root[32])`. Distinct from [`LEAF_TAG`] so a trie leaf can never collide with an MMR
-/// message leaf.
+/// Commitment-tree leaf: `H(STREAMS_LEAF_TAG ++ key[8] ++ stream_root[32])`.
 pub const STREAMS_LEAF_TAG: u8 = 0x5;
 
-/// Tag for a `StreamsRoot` commitment-tree inner (branch) node:
-/// `H(STREAMS_INNER_TAG ++ split_bit ++ left[32] ++ right[32])`. Distinct from [`INNER_TAG`].
+/// Commitment-tree inner node: `H(STREAMS_INNER_TAG ++ split_bit ++ left[32] ++ right[32])`.
 pub const STREAMS_INNER_TAG: u8 = 0x6;
 
-// Leaf versioning to allow for future changes to the leaf structure without
-// breaking compatibility with old messages.
-
-/// Leaf Version.
+/// Leaf preimage version. Versions are hash-disjoint, so the layout can change without old leaves
+/// colliding with new ones.
 pub const LEAF_VERSION: u8 = 0x0;
 
-/// Consensus-digest engine id carrying the sender's **`StreamsRoot`** (spec-msg v0.5): the root of
-/// a keyed commitment tree over `(StreamId, current stream root)` for every active stream,
-/// committed each block so the head is self-sufficient. A foreign receiver reads this root from the
-/// header (anchored by the relay's `para_heads`/`paras::Heads`) and proves the stream it consumes
-/// against it, obtaining the sender's committed stream root without a sender-state proof (see the
-/// `streams_root` module).
-///
-/// This is the sole spec-msg header digest in v0.5 (it supersedes the pre-v0.5 flat-`provides`
-/// digest); the name matches the design's `SPMS_ENGINE_ID`.
-///
-/// A foreign node verifies against this digest **directly** — a pure function of header, response
-/// and proofs, no chain state — so its format is **protocol-standard, not chain-internal**: the
-/// engine-id value is consensus-visible across chains, frozen once anything cross-chain ships.
-/// `*b"SPMS"` is the encoding spec's proposed-final value (§7.4), pending design sign-off.
+/// Engine id of the consensus digest carrying the sender's `StreamsRoot`, deposited every block.
+/// A receiver reads the root from the sender's header, anchored by the relay's `para_heads`, and
+/// proves its stream against it. Foreign nodes parse this digest directly, so the format is
+/// protocol-standard and frozen once anything cross-chain ships. `*b"SPMS"` is the encoding
+/// spec's proposed value (§7.4).
 pub const SPMS_ENGINE_ID: sp_runtime::ConsensusEngineId = *b"SPMS";

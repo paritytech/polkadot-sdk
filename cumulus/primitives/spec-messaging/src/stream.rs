@@ -1,16 +1,14 @@
-//! `StreamId` — the relay-invisible, parachain-structured stream key (spec-msg v0.5).
+//! `StreamId`: the parachain-structured stream key (spec-msg v0.5).
 //!
-//! Each stream a chain maintains is one MMR keyed by a `StreamId`. The relay chain never sees an id
-//! — only the `StreamsRoot` (the keyed-tree root over stream roots) reaches it; ids live in tree
-//! paths, proofs and networking. The full stream key is `(sender ParaId, StreamId)`, with the
-//! sender implicit in the sender's own candidate.
+//! Each stream a chain maintains is one MMR keyed by a `StreamId`. The relay chain never sees an
+//! id; only the `StreamsRoot` reaches it. Ids live in tree paths, proofs and networking. The full
+//! stream key is `(sender ParaId, StreamId)`, with the sender implicit in its own candidate.
 //!
-//! # Canonical encoding (CONSENSUS-CRITICAL, frozen)
+//! # Canonical encoding (consensus-critical, frozen)
 //!
-//! Manual SCALE, always **exactly 8 bytes**, big-endian — so lexicographic byte order equals
-//! numeric field-tuple order (kinds cluster; sequential ids are neighbours). SCALE-encoding a
-//! `StreamId` *is* the commitment-tree key derivation; there is no second format to confuse it
-//! with, which is why the impl is manual (default SCALE ints are little-endian).
+//! Manual SCALE, exactly 8 bytes, big-endian, so byte order equals field-tuple order: kinds
+//! cluster and sequential ids are neighbours. The encoding is the commitment-tree key, and there
+//! is no second format. That is why the impl is manual: default SCALE integers are little-endian.
 //!
 //! ```text
 //! Channel   → 0x00 ++ recipient(be32) ++ domain(u8) ++ num(be16)
@@ -19,10 +17,8 @@
 //! Private   → kind(0x80..=0xFF) ++ body[7]
 //! ```
 //!
-//! `Decode` enforces canonicality (fixed 8-byte length, no redundant encodings) and REJECTS
-//! reserved kinds `0x03..=0x7F`: a correct consensus path only ever keys streams it knows, so an
-//! unknown kind is a loud boundary error, not a value. `Ord` equals the canonical-encoding order
-//! (verified by test).
+//! `Decode` enforces canonicality and rejects the reserved kinds `0x03..=0x7F`. `Ord` equals the
+//! encoding order (tested).
 
 use codec::{
 	Decode, DecodeWithMemTracking, Encode, EncodeLike, Error as CodecError, Input, MaxEncodedLen,
@@ -33,17 +29,12 @@ use polkadot_parachain_primitives::primitives::Id as ParaId;
 /// Encoded length of every `StreamId`.
 pub const STREAM_ID_LEN: usize = 8;
 
-/// A private-use kind byte, constrained to `0x80..=0xFF`.
+/// A private-use kind byte, `0x80..=0xFF`.
 ///
-/// The range is not cosmetic. `StreamId`'s codec is hand-written and byte 0 is the discriminant for
-/// the standard kinds but the payload for `Private`, so a kind below `0x03` would encode
-/// byte-identically to a `Channel` or `Ack`. It would also invert `Ord`: the derive ranks `Private`
-/// last by variant index, which only matches the encoding while every private kind exceeds every
-/// standard one. Two keys that encode alike then reach `first_diverging_bit`, whose `expect`
-/// assumes distinct bytes.
-///
-/// Keeping the byte behind a validating constructor makes that state unrepresentable, so direct
-/// construction and `Decode` enforce the same rule.
+/// Byte 0 of the encoding is the discriminant for standard kinds and the payload for `Private`, so
+/// a kind below `0x03` would encode identically to a `Channel` or `Ack`, and would also break the
+/// `Ord` = byte-order equivalence (the derive ranks `Private` last). The constructor enforces the
+/// range, so construction and `Decode` follow one rule.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, scale_info::TypeInfo)]
 pub struct PrivateKind(u8);
 
@@ -66,11 +57,10 @@ impl PrivateKind {
 	}
 }
 
-/// A relay-invisible, parachain-structured stream key. See the module docs for the frozen encoding.
+/// A parachain-structured stream key. See the module docs for the encoding.
 ///
-/// The `recipient` / addressee is the party that *reads* the stream: a channel's messages are for
-/// the recipient; an ack register is for the chain it grants credit to; broadcasts have no
-/// addressee.
+/// `recipient` is the party that reads the stream: a channel's messages are for the recipient, an
+/// ack register is for the chain it grants credit to, broadcasts have no addressee.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, scale_info::TypeInfo)]
 pub enum StreamId {
 	/// Ordered, flow-controlled, guaranteed, unidirectional channel to `recipient`.
@@ -85,7 +75,7 @@ pub enum StreamId {
 }
 
 impl StreamId {
-	/// The chain the stream is ADDRESSED TO (its `recipient`), if the kind has one.
+	/// The chain the stream is addressed to, if the kind has one.
 	pub fn recipient(&self) -> Option<ParaId> {
 		match self {
 			StreamId::Channel { recipient, .. } | StreamId::Ack { recipient, .. } => {
@@ -169,12 +159,12 @@ impl Decode for StreamId {
 			0x80..=0xFF => {
 				let mut body = [0u8; 7];
 				input.read(&mut body)?;
-				// The arm guarantees the range; route through `new` so the invariant has a single
-				// enforcement point rather than two that can drift apart.
+				// The arm guarantees the range. Go through `new` so the invariant has one
+				// enforcement point.
 				let kind = PrivateKind::new(kind).ok_or("StreamId: private kind out of range")?;
 				Ok(StreamId::Private { kind, body })
 			},
-			// 0x03..=0x7F are reserved for future standard kinds and REJECTED (canonicality).
+			// 0x03..=0x7F are reserved for future standard kinds.
 			_ => Err(CodecError::from("StreamId: reserved/unknown kind")),
 		}
 	}
@@ -212,7 +202,7 @@ mod tests {
 
 	#[test]
 	fn encoding_layout_is_exact() {
-		// Frozen test vectors — any change here is a consensus break.
+		// Frozen vectors. Any change is a consensus break.
 		assert_eq!(
 			StreamId::Channel { recipient: ParaId::from(2000), domain: 0, num: 0 }.encode(),
 			vec![0x00, 0x00, 0x00, 0x07, 0xD0, 0x00, 0x00, 0x00],

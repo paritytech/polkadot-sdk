@@ -14,30 +14,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Off-chain message + protocol wire types, and the protocol's concrete instantiation.
+//! Off-chain wire types and their verifiers.
 //!
-//! Everything here is **off-chain** (the relay chain decodes none of it — it only matches the
-//! `StreamsRoot` commitments in the `Provides`/`Requires` UMP signals). It is normative for
-//! interoperability: the two ends of each protocol are implemented by *different chains'*
-//! collators, so the encodings (and the frozen envelope variant indices) are part of the wire
-//! format.
+//! The relay chain decodes none of this; it only matches the `StreamsRoot` commitments in the UMP
+//! signals. But the two ends of each protocol are different chains' collators, so the encodings and
+//! the envelope variant indices are part of the wire format.
 //!
-//! - **Concrete instantiation** — [`SpecHasher`] (the hasher), [`MaxSpeculativeMessageLen`] (the
-//!   payload bound), and [`leaf_hash`] (a payload → MMR leaf). A v0.5 message is *just a bounded
-//!   payload keyed by `StreamId`*; there is no message struct — source / stream / position are all
-//!   structural (the sender's outbox, the `StreamId` key, the MMR leaf index), so only the payload
-//!   and its hash are primitives.
-//! - **Fetch protocol** — [`MessagesRequest`] / [`MessagesResponse`]: a collator fetches a range of
-//!   a source stream's messages and authenticates the response ([`verify_messages`]) against a
-//!   `StreamsRoot` it has independently verified, reusing the same `extension` + `tree_proof`
-//!   machinery as the requires-lift (see [`crate::lift`]).
-//! - **Event read** — [`EventRequest`] / [`EventResponse`]: the lossy single-event (register /
-//!   head) read of an `Ack`/`Broadcast`/`Private` stream, authenticated by a single-leaf
-//!   [`MmrInclusionProof`]. Verify request-aware via [`verify_event`] (the safe entry point).
-//! - **Exchange envelope** — [`ExchangeRequest`] / [`ExchangeResponse`]: both root-keyed request
-//!   kinds travel over the one `/spec-msg/exchange` protocol, so the discriminant is part of the
-//!   wire format; variant indices are **frozen**. Verify request-aware via [`verify_exchange`] (the
-//!   top-level entry point — it also binds the response variant to the request's).
+//! - [`leaf_hash`] turns a payload into an MMR leaf. A v0.5 message is a bounded payload keyed by
+//! `StreamId`; source, stream and position are structural, so there is no message struct.
+//! - Fetch: [`MessagesRequest`] / [`MessagesResponse`], verified by [`verify_messages`] against a
+//! `StreamsRoot` the requester has already verified. The `extension` + `tree_proof` check is the
+//! same one the requires-lift performs.
+//! - Event read: [`EventRequest`] / [`EventResponse`], the single-leaf read of an `Ack` /
+//! `Broadcast` / `Private` stream, verified by [`verify_event`].
+//! - Envelope: [`ExchangeRequest`] / [`ExchangeResponse`] multiplex both over `/spec-msg/exchange`,
+//! verified by [`verify_exchange`], which also binds the response variant to the request's. Variant
+//! indices are frozen.
 
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
@@ -54,29 +46,24 @@ use crate::{
 	SpecHasher, LEAF_TAG,
 };
 
-/// Why verifying an off-chain response ([`verify_exchange`], [`verify_messages`], [`verify_event`])
-/// failed. Typed so the fetch subsystem can
-/// react per reason — [`RootMismatch`](VerifyError::RootMismatch) is benign (retry under a fresher
-/// root), whereas the others indicate a peer served a malformed/forged response (down-score / ban).
+/// Why verifying an off-chain response failed. [`RootMismatch`](VerifyError::RootMismatch) is
+/// benign (retry under a fresher root); the rest indicate a malformed or forged response.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum VerifyError {
 	/// An embedded MMR proof (inclusion or extension) did not verify.
 	Proof(ProofError),
 	/// The `StreamsRoot` keyed-tree walk (`tree_proof`) did not resolve.
 	TreeProof,
-	/// Everything verified, but the recomputed `StreamsRoot` is not the requested `under` — the
-	/// peer served under a different root (stale, or the wrong one). Not necessarily malicious.
+	/// Everything verified, but the recomputed `StreamsRoot` is not the requested `under`. The
+	/// peer served under a different root, stale or wrong. Not necessarily malicious.
 	RootMismatch,
-	/// The response's `base` is not the `start` the request asked for — the peer answered a
-	/// different (if internally valid) range. Only surfaced by the request-aware
-	/// [`verify_messages`].
+	/// The response's `base` is not the requested `start`. Only surfaced by [`verify_messages`].
 	UnexpectedBase,
-	/// The response's payloads total more than the request's `max_bytes` budget. With
-	/// `max_bytes == 0` (a payload-free / lift-material request) any payload exceeds it. Only
-	/// surfaced by the request-aware [`verify_messages`].
+	/// The payloads total more than the request's `max_bytes`. With `max_bytes == 0` any payload
+	/// exceeds it. Only surfaced by [`verify_messages`].
 	ExceedsBudget,
-	/// The response envelope variant does not match the request's — e.g. a `Messages` request
-	/// answered with an `Event` response. Only surfaced by [`verify_exchange`].
+	/// The response envelope variant does not match the request's. Only surfaced by
+	/// [`verify_exchange`].
 	VariantMismatch,
 	/// A payload exceeded the protocol's single-message bound ([`MAX_SPECULATIVE_MESSAGE_LEN`]).
 	PayloadTooLarge,
@@ -97,13 +84,9 @@ pub const MAX_SPECULATIVE_MESSAGE_LEN: u32 = 102_400;
 /// Bound for a single speculative message payload.
 pub type MaxSpeculativeMessageLen = ConstU32<MAX_SPECULATIVE_MESSAGE_LEN>;
 
-/// Hash a payload into a stream MMR leaf under `leaf_version`: `H(LEAF_TAG ++ leaf_version ++
-/// payload)`.
-///
-/// A pure function of `(leaf_version, payload)` — the only thing v0.5 needs of a "message". Source,
-/// stream, and position are structural (the sender's outbox, the `StreamId` key, the MMR leaf
-/// index), so none are in the preimage. `leaf_version` domains are hash-disjoint, so only the
-/// correct version reproduces a committed root.
+/// Hash a payload into a stream MMR leaf: `H(LEAF_TAG ++ leaf_version ++ payload)`. Source, stream
+/// and position are structural and not in the preimage. Versions are hash-disjoint, so only the
+/// correct one reproduces a committed root.
 pub fn leaf_hash(leaf_version: u8, payload: &[u8]) -> Hash {
 	let mut preimage = Vec::new();
 	preimage.extend_from_slice(&LEAF_TAG.to_le_bytes());
@@ -112,55 +95,47 @@ pub fn leaf_hash(leaf_version: u8, payload: &[u8]) -> Hash {
 	<SpecHasher as HashT>::hash(&preimage)
 }
 
-/// Off-chain request for a range of a stream's messages, to be verified under a chosen
-/// `StreamsRoot`.
+/// Request for a range of a stream's messages, verified under a chosen `StreamsRoot`.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub struct MessagesRequest {
 	/// The requested stream of the serving chain.
 	pub stream: StreamId,
-	/// Where to start — typically the receiver's frontier leaf count.
+	/// Where to start; typically the receiver's frontier leaf count.
 	pub start: MessagePosition,
-	/// The `StreamsRoot` the response must verify under: the requester's chosen dependency, a root
-	/// it has independently authenticated — never a newer, possibly-unconfirmed one (freshness is
-	/// the requester's own job: re-request under a newer root once verified).
+	/// The `StreamsRoot` the response must verify under: one the requester has already
+	/// authenticated. Freshness is the requester's job; re-request under a newer root once
+	/// verified.
 	pub under: StreamsRoot,
-	/// Response size bound (the server may cap harder); fetching stays chunked and resumable no
-	/// matter how large the backlog. `0` requests a payload-free proof (lift material).
+	/// Response size bound; the server may cap harder. `0` requests a payload-free proof (lift
+	/// material).
 	pub max_bytes: u32,
 }
 
-/// Off-chain response: payloads from `base` on, plus the proofs binding them — and everything
-/// before them — to the requested `StreamsRoot`. Verify request-aware via [`verify_messages`];
-/// nothing is trusted (fabricated peaks/payloads/proofs cannot reproduce a committed root).
+/// Response: payloads from `base` on, plus the proofs binding them and everything before them to
+/// the requested `StreamsRoot`. Nothing is trusted; fabricated peaks, payloads or proofs cannot
+/// reproduce a committed root.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub struct MessagesResponse {
-	/// Position of the first payload (trust-free hint; a lie only fails the proofs).
+	/// Position of the first payload. A hint; a lie fails the proofs.
 	pub base: MessagePosition,
-	/// Leaf-format version for these payloads (trust-free hint: versions are hash-disjoint, so
-	/// only the correct one reproduces a committed root). A response never spans a version
-	/// change.
+	/// Leaf-format version for these payloads. A hint; only the correct version reproduces a
+	/// committed root. A response never spans a version change.
 	pub leaf_version: u8,
 	/// The payloads, in MMR order; payload `i` has position `base + i`.
 	pub payloads: Vec<Vec<u8>>,
-	/// The stream's peak set at `base` (≤ 64 hashes). Lets a consumer holding no frontier
-	/// recompute; fabricated peaks cannot extend to a committed root.
+	/// The stream's peak set at `base`, at most 64 hashes, for a consumer that holds no frontier.
+	/// Fabricated peaks cannot extend to a committed root.
 	pub start_peaks: Vec<Hash>,
-	/// From the frontier recomputed over `payloads` to the stream's entry under `under`; the
-	/// identity extension when the payloads already reach it.
+	/// From the frontier recomputed over `payloads` to the stream's current root; the identity
+	/// extension when the payloads already reach it.
 	pub extension: MMRExtensionProof,
-	/// Walked from the extension's output, yields the `StreamsRoot` the response verifies under.
+	/// From the stream's root to the `StreamsRoot` the response verifies under.
 	pub tree_proof: StreamProof,
 }
 
-/// Request-aware verification of a [`MessagesResponse`] against its [`MessagesRequest`] — the safe
-/// entry point for the fetch protocol.
-///
-/// Binds the response to the request — `resp.base == req.start` (a peer must answer the range that
-/// was asked, not a different internally-valid one) and the payloads' total size ≤ `req.max_bytes`
-/// (`max_bytes == 0` requests a payload-free / lift-material proof) — then authenticates the
-/// payloads via `verify_messages_response` using `req.stream` / `req.under`. That step is
-/// crate-internal: without these checks a caller would have to apply payloads at the *proven*
-/// `resp.base` and enforce the base / budget itself.
+/// Verify a [`MessagesResponse`] against its [`MessagesRequest`]: `resp.base == req.start`, total
+/// payload bytes within `req.max_bytes` (`0` means proofs only), then the payloads under
+/// `req.stream` / `req.under`. The public entry for the fetch protocol.
 pub fn verify_messages(
 	req: &MessagesRequest,
 	resp: &MessagesResponse,
@@ -177,29 +152,25 @@ pub fn verify_messages(
 	verify_messages_response(req.stream, req.under, resp)
 }
 
-/// Verify a [`MessagesResponse`] for `stream` under `under`, returning the authenticated payloads
-/// on success. Crate-internal: it does not bind `resp.base` to a requested `start`, so a caller
-/// would have to apply payloads at the *proven* `resp.base` and reject an unexpected base itself.
-/// [`verify_messages`] does that and is the public entry.
+/// Verify a [`MessagesResponse`] for `stream` under `under` and return the payloads.
+/// Crate-internal: it does not bind `resp.base` to a requested start; [`verify_messages`] does.
 ///
-/// Recomputes the stream frontier from `start_peaks` + the hashed `payloads`, extends it to the
-/// stream's current root (`extension`), and walks the keyed tree (`tree_proof`) to a `StreamsRoot`
-/// — which must equal `under`. This is the same `extension` + `tree_proof` check the requires-lift
-/// performs, so a fetched batch and a consumption lift authenticate identically.
+/// Recomputes the frontier from `start_peaks` and the hashed payloads, extends it to the stream's
+/// current root, and walks the tree to a `StreamsRoot` that must equal `under`. The same check the
+/// requires-lift performs.
 pub(crate) fn verify_messages_response(
 	stream: StreamId,
 	under: StreamsRoot,
 	resp: &MessagesResponse,
 ) -> Result<Vec<Vec<u8>>, VerifyError> {
-	// `start_peaks` and `base` are untrusted; `MmrFrontier::from_parts` rejects an inconsistent
-	// shape (one peak per set bit of `base`, which also caps `start_peaks` at 64) or a `base` past
-	// `MAX_MMR_LEAF_COUNT`, so a crafted response can neither drive `append` into a pop-from-empty
-	// panic nor reach the node-position arithmetic downstream. A rejected response is simply
-	// unverifiable — the correct outcome, reached without panicking.
+	// `start_peaks` and `base` are untrusted. `MmrFrontier::from_parts` rejects an inconsistent
+	// shape (one peak per set bit of `base`, which also caps `start_peaks` at 64) and a `base` past
+	// `MAX_MMR_LEAF_COUNT`, so a crafted response can neither make `append` pop from an empty vec
+	// nor reach the node-position arithmetic. A rejected response is unverifiable, without a panic.
 	let mut frontier = MmrFrontier::from_parts(resp.start_peaks.clone(), resp.base.0)
 		.ok_or(VerifyError::MalformedResponse)?;
-	// `base + len` overflowing the leaf counter is unreachable under the ceiling; kept so the
-	// accumulator arithmetic stays total on its own terms.
+	// `base + len` overflowing the leaf counter is unreachable under the ceiling. Kept so the
+	// accumulator arithmetic is total on its own.
 	resp.base
 		.0
 		.checked_add(resp.payloads.len() as u64)
@@ -226,59 +197,49 @@ pub(crate) fn verify_messages_response(
 	(root == under).then(|| resp.payloads.clone()).ok_or(VerifyError::RootMismatch)
 }
 
-/// Off-chain request for a single event of a lossy stream (`Ack`/`Broadcast`/`Private`), to be
-/// verified under a chosen `StreamsRoot`.
-///
-/// A pure function of `(stream, under, at)`: the server either serves or fails (root unknown, or
-/// outside its serving horizon); nothing is resolved server-side.
+/// Request for a single event of a lossy stream (`Ack` / `Broadcast` / `Private`), verified under a
+/// chosen `StreamsRoot`. The server either serves or fails; nothing is resolved server-side.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub struct EventRequest {
 	/// The requested stream of the serving chain.
 	pub stream: StreamId,
-	/// The `StreamsRoot` the response must verify under — always explicit; the receiver names what
-	/// it is willing to depend on.
+	/// The `StreamsRoot` the response must verify under. Always explicit.
 	pub under: StreamsRoot,
 	/// A specific position, or `None` for the head as of `under`.
 	pub at: Option<MessagePosition>,
 }
 
-/// Off-chain response carrying one event leaf and the proofs placing it under the requested
-/// `StreamsRoot`. Verify request-aware via [`verify_event`]; nothing is trusted (a fabricated
-/// payload or proof cannot reproduce a committed root).
-///
-/// Head-ness comes with the check: `under` fixes the stream's leaf count, so the head is the leaf
-/// at `count - 1` — an old leaf cannot be served as the head under that root.
+/// Response carrying one event leaf and the proofs placing it under the requested `StreamsRoot`.
+/// Nothing is trusted. `under` fixes the stream's leaf count, so the head is the leaf at `count -
+/// 1`; an old leaf cannot be served as the head.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub struct EventResponse {
 	/// The event payload; its position is proven by `inclusion`.
 	pub payload: Vec<u8>,
-	/// Leaf-format version for `payload` (trust-free hint: versions are hash-disjoint, so only the
-	/// correct one reproduces a committed root).
+	/// Leaf-format version for `payload`. A hint; only the correct version reproduces a committed
+	/// root.
 	pub leaf_version: u8,
-	/// Single-leaf MMR inclusion proof: the payload's sibling path plus the other peaks, bagging
-	/// to the stream's root.
+	/// Single-leaf inclusion proof: the sibling path plus the other peaks.
 	pub inclusion: MmrInclusionProof,
-	/// Walks the stream's root (derived from `inclusion`) up to the `StreamsRoot` the response
+	/// From the stream's root (derived from `inclusion`) to the `StreamsRoot` the response
 	/// verifies under.
 	pub tree_proof: StreamProof,
 }
 
-/// The `/spec-msg/exchange` request envelope: both root-keyed request kinds travel over the one
-/// exchange protocol, so the discriminant is part of the wire format. Variant indices are
-/// **frozen** — foreign implementations decode by them.
+/// The `/spec-msg/exchange` request envelope. Variant indices are frozen; foreign implementations
+/// decode by them.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub enum ExchangeRequest {
-	/// Ordered fetching / lift material — answered by [`ExchangeResponse::Messages`].
+	/// Ordered fetching or lift material. Answered by [`ExchangeResponse::Messages`].
 	#[codec(index = 0)]
 	Messages(MessagesRequest),
-	/// Single-event read — answered by [`ExchangeResponse::Event`].
+	/// Single-event read. Answered by [`ExchangeResponse::Event`].
 	#[codec(index = 1)]
 	Event(EventRequest),
 }
 
-/// The `/spec-msg/exchange` response envelope, mirroring [`ExchangeRequest`]. There is no error
-/// variant: a server that cannot serve (root unknown, outside the serving horizon) refuses at the
-/// transport level — nothing is resolved server-side, so there is nothing to say.
+/// The `/spec-msg/exchange` response envelope. No error variant: a server that cannot serve refuses
+/// at the transport level.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub enum ExchangeResponse {
 	/// Response to [`ExchangeRequest::Messages`].
@@ -289,11 +250,9 @@ pub enum ExchangeResponse {
 	Event(EventResponse),
 }
 
-/// Outcome of verifying an [`EventResponse`]. The two read modes have genuinely different results:
-/// a **head** read yields the stream [`MmrFrontier`] — lossy register/event consumption records it
-/// as the interval endpoint the next gap-check / lift extends from — while a **positional** read
-/// yields only the payload at the requested leaf (an inclusion proof reconstructs a root, not a
-/// frontier).
+/// Outcome of verifying an [`EventResponse`]. A head read yields the stream [`MmrFrontier`], which
+/// lossy consumption records as its interval endpoint; a positional read yields only the payload,
+/// since an inclusion proof reconstructs a root, not a frontier.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum VerifiedEvent {
 	/// Head (register / latest-event) read: the head position, the stream frontier at that head,
@@ -303,10 +262,9 @@ pub enum VerifiedEvent {
 	Positional { position: MessagePosition, payload: Vec<u8> },
 }
 
-/// Request-aware verification of an [`EventResponse`] against its [`EventRequest`] — the safe
-/// entry point. Dispatches on `req.at` (`None` → head, `Some(k)` → leaf `k`) using `req.stream` /
-/// `req.under`, so a head response can never be silently accepted for a positional request (or vice
-/// versa). Prefer this over the two low-level verifiers below.
+/// Verify an [`EventResponse`] against its [`EventRequest`]: `req.at` selects head (`None`) or leaf
+/// `k`, so a head response is never accepted for a positional request or vice versa. The public
+/// entry for event reads.
 pub fn verify_event(
 	req: &EventRequest,
 	resp: &EventResponse,
@@ -323,15 +281,13 @@ pub fn verify_event(
 	}
 }
 
-/// Verify an [`EventResponse`] as the **head** of `stream` under `under`, returning the head
-/// position, the stream **frontier** at that head, and the payload on success.
+/// Verify an [`EventResponse`] as the head of `stream` under `under`; returns the position, the
+/// frontier at that head, and the payload. Crate-internal; [`verify_event`] is the public entry.
 ///
-/// Hashes the payload, verifies it as the last leaf of the stream MMR
-/// ([`MmrInclusionProof::verify_head`]), bags that frontier to the stream root, and walks the keyed
-/// tree (`tree_proof`) to a `StreamsRoot` — which must equal `under`. The frontier is returned
-/// because it is *not* reconstructible from the response alone, and lossy consumption needs it as
-/// the interval endpoint. Crate-internal: [`verify_event`] dispatches here for a head request and
-/// to `verify_positional_event_response` for a positional one, and is the public entry.
+/// Hashes the payload, verifies it as the last leaf ([`MmrInclusionProof::verify_head`]), bags the
+/// frontier to the stream root, and walks the tree to a `StreamsRoot` that must equal `under`. The
+/// frontier is returned because lossy consumption needs it as the interval endpoint and it is not
+/// reconstructible from the response alone.
 pub(crate) fn verify_event_response(
 	stream: StreamId,
 	under: StreamsRoot,
@@ -350,14 +306,9 @@ pub(crate) fn verify_event_response(
 		.ok_or(VerifyError::RootMismatch)
 }
 
-/// Verify an [`EventResponse`] as the leaf at `position` of `stream` under `under`, returning the
-/// payload on success. The positional counterpart of `verify_event_response` (which reads the
-/// head). Crate-internal: [`verify_event`] is the public entry.
-///
-/// Same trust chain as the head read — hashes the payload, verifies it at `position`
-/// ([`MmrInclusionProof::verify_leaf`]), and binds the implied stream root through `tree_proof` to
-/// a `StreamsRoot` that must equal `under` — so callers never hand-roll the security-critical
-/// `verify → tree_proof → under` sequence.
+/// Verify an [`EventResponse`] as the leaf at `position` of `stream` under `under`; returns the
+/// payload. Crate-internal; [`verify_event`] is the public entry. Same chain as the head read, with
+/// [`MmrInclusionProof::verify_leaf`].
 pub(crate) fn verify_positional_event_response(
 	stream: StreamId,
 	under: StreamsRoot,
@@ -376,21 +327,18 @@ pub(crate) fn verify_positional_event_response(
 		.ok_or(VerifyError::RootMismatch)
 }
 
-/// Authenticated outcome of an [`ExchangeResponse`] — the payloads of a fetch, or a
-/// [`VerifiedEvent`] of an event read.
+/// Verified outcome of an [`ExchangeResponse`]: the payloads of a fetch, or a [`VerifiedEvent`].
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum ExchangeVerified {
-	/// Answer to an [`ExchangeRequest::Messages`] — the authenticated payloads.
+	/// Answer to an [`ExchangeRequest::Messages`]: the verified payloads.
 	Messages(Vec<Vec<u8>>),
-	/// Answer to an [`ExchangeRequest::Event`] — the verified head/positional event.
+	/// Answer to an [`ExchangeRequest::Event`]: the verified event.
 	Event(VerifiedEvent),
 }
 
-/// Request-aware verification of the `/spec-msg/exchange` envelope — the **top-level** safe entry
-/// point for the wire protocol. Requires the response variant to match the request's (a `Messages`
-/// request must be answered with a `Messages` response, an `Event` with an `Event`; a cross-variant
-/// answer is [`VariantMismatch`](VerifyError::VariantMismatch)), then dispatches to
-/// [`verify_messages`] / [`verify_event`].
+/// Verify a `/spec-msg/exchange` response against its request. The variants must match
+/// ([`VariantMismatch`](VerifyError::VariantMismatch) otherwise); then dispatches to
+/// [`verify_messages`] or [`verify_event`]. The top-level public entry.
 pub fn verify_exchange(
 	req: &ExchangeRequest,
 	resp: &ExchangeResponse,
@@ -473,10 +421,10 @@ mod tests {
 
 	/// End-to-end composition, exercising the non-trivial branches (`base > 0`, a *real* extension
 	/// bridging an unconsumed tail): a sender stream of 6 messages commits a `StreamsRoot`; a
-	/// **partial** fetch (base 2, messages 2..3, extension bridging 4→6) verifies under that root;
+	/// partial fetch (base 2, messages 2..3, extension bridging 4→6) verifies under that root;
 	/// and the receiver's consumption of those messages lifts (the same 4→6 extension +
-	/// `tree_proof`) into the **same** `StreamsRoot` via `build_requires`. Fetch and requires run
-	/// the identical `extension` + `tree_proof` check — so this demonstrates they compose.
+	/// `tree_proof`) into the same `StreamsRoot` via `build_requires`. Fetch and requires run
+	/// the same `extension` + `tree_proof` check, so this shows they compose.
 	#[test]
 	fn composition_fetch_verify_then_build_requires() {
 		let source = ParaId::from(1000);
@@ -611,7 +559,7 @@ mod tests {
 		let under = streams_root(&entries).unwrap();
 		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
 
-		// Full stream from base 0 (identity extension) — verifies under `under`.
+		// Full stream from base 0 (identity extension) verifies under `under`.
 		let resp = MessagesResponse {
 			base: MessagePosition(0),
 			leaf_version: 0,
@@ -630,7 +578,7 @@ mod tests {
 		assert_eq!(verify_messages(&req, &resp), Ok(payloads.clone()));
 
 		// start != base → rejected up front (before any crypto), and distinct from RootMismatch:
-		// the payloads DO verify under `under` — only the answered range is wrong.
+		// the payloads do verify under `under`; only the answered range is wrong.
 		let req_wrong =
 			MessagesRequest { stream, start: MessagePosition(2), under, max_bytes: total_bytes };
 		assert_eq!(verify_messages(&req_wrong, &resp), Err(VerifyError::UnexpectedBase));
@@ -703,9 +651,9 @@ mod tests {
 			Err(VerifyError::MalformedResponse),
 		);
 
-		// A `base` past the leaf-count ceiling must reject cleanly: it becomes the frontier's leaf
+		// A `base` past the leaf-count ceiling must reject cleanly. It becomes the frontier's leaf
 		// count, which the extension derives node positions from. One set bit, so one peak passes
-		// the shape check and `from_parts`'s ceiling is what rejects.
+		// the shape check and the ceiling is what rejects.
 		let too_large = MessagesResponse {
 			base: MessagePosition(1 << 63),
 			leaf_version: 0,
@@ -720,8 +668,7 @@ mod tests {
 		);
 
 		// `base = u64::MAX` (64 set bits, 64 peaks) once reached the `base + payloads` counter
-		// guard; `from_parts`'s ceiling now rejects it first. Kept so both remain covered — the
-		// counter guard is unreachable while the ceiling stands, and should stay that way.
+		// guard; `from_parts`'s ceiling now rejects it first. Kept so both stay covered.
 		let overflow = MessagesResponse {
 			base: MessagePosition(u64::MAX),
 			leaf_version: 0,
@@ -769,7 +716,7 @@ mod tests {
 	}
 
 	/// End-to-end: a sender builds a stream MMR, commits its root into a `StreamsRoot`, and serves
-	/// the **head** event with a single-leaf inclusion proof; the receiver authenticates it under
+	/// the head event with a single-leaf inclusion proof; the receiver authenticates it under
 	/// the committed root, recovering the head position and payload. Wrong root / tampered payload
 	/// must reject.
 	#[test]
@@ -864,7 +811,7 @@ mod tests {
 		let under = streams_root(&entries).unwrap();
 		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
 
-		// Inclusion proof for a NON-head leaf (index 2) — the positional read path.
+		// Inclusion proof for a non-head leaf (index 2): the positional read path.
 		let at = 2usize;
 		let mproof = src.gen_proof(vec![positions[at]]).unwrap();
 		let inclusion = MmrInclusionProof {

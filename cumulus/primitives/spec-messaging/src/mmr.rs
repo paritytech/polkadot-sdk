@@ -16,21 +16,14 @@
 
 //! MMR primitives for the Speculative Messaging protocol.
 //!
-//! The hash function is a type parameter `H` (a `sp_runtime::traits::Hash` with a
-//! 32-byte output), so the protocol can switch hashers (e.g. blake2 ↔ keccak)
-//! without changing this code. Consumers pick a concrete hasher; the POC uses
-//! `polkadot_primitives::v9::SpecHasher` (blake2_256).
+//! Hashing is [`SpecHasher`] with domain tags: leaves by [`crate::message::leaf_hash`]
+//! (`LEAF_TAG`), inner nodes by [`SpecMerge::merge`] (`INNER_TAG`), peak bagging by
+//! [`SpecMerge::merge_peaks`] (`PEAK_TAG`). `mmr_lib` calls `merge` for tree nodes and
+//! `merge_peaks` when bagging, so no two roles collide.
 //!
-//! Domain separation: leaves are hashed by [`crate::message::leaf_hash`] (`LEAF_TAG`), inner
-//! nodes by [`SpecMerge::merge`] (`INNER_TAG`), and peak-bagging by
-//! [`SpecMerge::merge_peaks`] (`PEAK_TAG`). `mmr_lib` calls `merge` for tree nodes
-//! and the overridable `merge_peaks` when bagging peaks, so no two roles collide on
-//! the same hash.
-//!
-//! [`SpecMerge`] is the `mmr_lib::Merge` used for inclusion proofs (`gen_proof`/
-//! `MerkleProof::verify`) and append-only ancestry proofs (`gen_ancestry_proof`/
-//! `verify_incremental`). [`MmrFrontier`] is the peaks-only state — the sender's
-//! on-chain accumulator and the frontier proofs extend from.
+//! [`SpecMerge`] is the `mmr_lib::Merge` for inclusion proofs (`gen_proof` / `MerkleProof::verify`)
+//! and ancestry proofs (`gen_ancestry_proof` / `verify_incremental`). [`MmrFrontier`] is the
+//! peaks-only state: the sender's on-chain accumulator, and what proofs extend from.
 
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, Error as CodecError, Input, MaxEncodedLen};
@@ -42,16 +35,12 @@ use sp_runtime::{traits::Hash as HashT, BoundedVec};
 
 use crate::{SpecHasher, EMPTY_TAG, INNER_TAG, PEAK_TAG};
 
-/// Upper bound on any MMR leaf count this crate derives node positions from. `mmr_lib` derives a
-/// tree's node count as `2 * leaf_count - leaf_count.count_ones()`, which leaves `u64` above
-/// `2^63`; every peer-supplied leaf count is rejected against this ceiling before it reaches that
-/// derivation. `2^48` leaves is orders of magnitude beyond any stream a chain can produce, so no
-/// honest input approaches it.
+/// Upper bound on any leaf count node positions are derived from. `mmr_lib`'s node count, `2 *
+/// leaf_count - leaf_count.count_ones()`, overflows `u64` above `2^63`. Peer-supplied counts are
+/// checked against this first. `2^48` is far beyond any real stream.
 pub const MAX_MMR_LEAF_COUNT: u64 = 1 << 48;
 
-/// A leaf position within a stream's MMR (its leaf count). Newtype, per the design's
-/// `MessagePosition` — a position is not an arbitrary `u64`. Lives here (a leaf module both `lift`
-/// and `message` depend on) so neither has to depend on the other for it.
+/// A leaf position within a stream's MMR. Defined here because both `lift` and `message` use it.
 #[derive(
 	Clone,
 	Copy,
@@ -69,8 +58,7 @@ pub const MAX_MMR_LEAF_COUNT: u64 = 1 << 48;
 )]
 pub struct MessagePosition(pub u64);
 
-/// Domain-tagged merge for the speculative-messaging MMR, generic over the hash
-/// function `H`. Used as the `mmr_lib::Merge` implementation for the subtree.
+/// Domain-tagged `mmr_lib::Merge` for the speculative-messaging MMR.
 pub struct SpecMerge;
 
 impl Merge for SpecMerge {
@@ -81,8 +69,8 @@ impl Merge for SpecMerge {
 		Ok(tagged_node(INNER_TAG, left, right))
 	}
 
-	/// Peak-bagging merge: `H(PEAK_TAG ++ left ++ right)`. Domain-separated from
-	/// `merge` so a bagged value can never be reinterpreted as an inner node.
+	/// Peak-bagging merge: `H(PEAK_TAG ++ left ++ right)`. A bagged value can never be read as an
+	/// inner node.
 	fn merge_peaks(left: &Hash, right: &Hash) -> Result<Hash, MmrError> {
 		Ok(tagged_node(PEAK_TAG, left, right))
 	}
@@ -97,52 +85,43 @@ fn tagged_node(tag: u8, left: &Hash, right: &Hash) -> Hash {
 	<SpecHasher as HashT>::hash(&preimage)
 }
 
-/// The defined root of an *empty* MMR frontier: `H(EMPTY_TAG)`. `mmr_lib` errors on
-/// empty MMRs, but the protocol needs a comparable value — the `Interval.start` of a
-/// stream's first-ever consumption is exactly this root (encoding spec §3.4). Empty
-/// streams are still never committed to a `StreamsRoot` tree entry.
+/// The root of an empty MMR: `H(EMPTY_TAG)` (encoding spec §3.4). `mmr_lib` has none; the protocol
+/// needs a comparable value, since a stream's first consumption starts from the empty frontier.
+/// Empty streams are never committed to the `StreamsRoot` tree.
 pub fn empty_root() -> Hash {
 	<SpecHasher as HashT>::hash(&[EMPTY_TAG])
 }
 
-/// Bag the MMR peaks (highest to lowest) into a root — `mmr_lib`'s own bagging, so this is the
-/// root `MMR::get_root` and `MerkleProof::verify` produce, and the on-chain outbox can keep only
-/// the O(log n) peaks. `None` for no peaks: the empty root is a *distinct constant*
-/// ([`empty_root`]), not a bag of zero peaks, and the public root path (`MmrFrontier::root`)
-/// substitutes it.
+/// Bag the peaks (highest to lowest) into a root with `mmr_lib`'s own bagging, so the result equals
+/// `MMR::get_root`. `None` for no peaks; the empty root is the constant [`empty_root`], which
+/// `MmrFrontier::root` substitutes.
 pub fn root_from_peaks(peaks: &[Hash]) -> Option<Hash> {
-	// The only error on a non-empty input is a merge failure, and `SpecMerge` is infallible, so
-	// `Err` means "no peaks".
+	// `SpecMerge` is infallible, so `Err` means no peaks.
 	bagging_peaks_hashes::<Hash, SpecMerge>(peaks.to_vec()).ok()
 }
 
-/// A bagged MMR root — a stream's committed root at some point in its history. Newtyped so it can
-/// never be confused with a `StreamsRoot` (the commitment-tree root): "confusing roots must not
-/// typecheck".
+/// A bagged MMR root: a stream's committed root at some point in its history. A newtype so it
+/// cannot be confused with a `StreamsRoot`, the commitment-tree root.
 #[derive(Clone, Copy, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub struct MmrRoot(pub Hash);
 
-/// A peaks-only MMR frontier — the O(log n) state a stream continues from, and the accumulator
-/// that continues it. `leaf_count` fixes the placement of an extension proof's connecting nodes
-/// relative to `peaks`.
+/// A peaks-only MMR frontier: the O(log n) state a stream continues from, and the accumulator that
+/// continues it. `leaf_count` fixes where an extension proof's connecting nodes go.
 ///
-/// Peak hashes are identical to `mmr_lib`'s, so [`root`](Self::root) (via [`root_from_peaks`])
-/// equals `mmr_lib::MMR::get_root`, and proofs generated by a full `mmr_lib::MMR` over the same
-/// leaves verify against it. The sender keeps a frontier in storage and appends to it; a verifier
-/// rebuilds one from a response's peaks and appends the payloads it received.
+/// Peak hashes equal `mmr_lib`'s, so [`root`](Self::root) equals `mmr_lib::MMR::get_root` and
+/// proofs from a full `mmr_lib::MMR` over the same leaves verify against it.
 ///
-/// The fields are private and every way in — [`new`](Self::new), [`from_parts`](Self::from_parts),
-/// `Decode` — establishes the two invariants the methods rely on: exactly one peak per set bit of
-/// `leaf_count`, and `leaf_count <= MAX_MMR_LEAF_COUNT`. So a frontier that exists is one
-/// [`append`](Self::append) can pop peaks from and every node-position derivation is total on.
+/// Fields are private. [`new`](Self::new), [`from_parts`](Self::from_parts) and `Decode` are the
+/// only constructors, and each enforces one peak per set bit of `leaf_count` and `leaf_count <=
+/// MAX_MMR_LEAF_COUNT`.
 ///
-/// Encodes as `leaf_count ‖ peaks` (the design's field order): a decoder learns how many peaks to
-/// expect before it reads any, and the `BoundedVec` refuses an over-long length prefix outright.
+/// Encodes as `leaf_count ‖ peaks`. A decoder reads the count first, and the `BoundedVec` rejects
+/// an over-long length prefix before any peak is read.
 #[derive(Clone, Encode, PartialEq, Eq, Debug, TypeInfo, Default)]
 pub struct MmrFrontier {
 	/// Number of leaves these peaks summarize; also the position of the next message to append.
 	leaf_count: u64,
-	/// MMR peaks, highest to lowest — at most 64 for a `u64` leaf count.
+	/// MMR peaks, highest to lowest. At most 64 for a `u64` leaf count.
 	peaks: BoundedVec<Hash, ConstU32<64>>,
 }
 
@@ -152,8 +131,8 @@ impl MmrFrontier {
 		Self::default()
 	}
 
-	/// A frontier from `(peaks, leaf_count)`. `None` unless the pair is consistent — exactly one
-	/// peak per set bit of `leaf_count` — and `leaf_count` is within [`MAX_MMR_LEAF_COUNT`].
+	/// A frontier from `(peaks, leaf_count)`. `None` unless there is one peak per set bit of
+	/// `leaf_count` and `leaf_count <= MAX_MMR_LEAF_COUNT`.
 	pub fn from_parts(peaks: Vec<Hash>, leaf_count: u64) -> Option<Self> {
 		if leaf_count > MAX_MMR_LEAF_COUNT || peaks.len() != leaf_count.count_ones() as usize {
 			return None;
@@ -192,9 +171,9 @@ impl MmrFrontier {
 		self.leaf_count += 1;
 	}
 
-	/// The bagged root; the empty frontier has the *defined* root `H(EMPTY_TAG)` ([`empty_root`],
-	/// encoding spec §3.4) — a comparable value, so a frontier that has consumed nothing yet
-	/// compares and extends like any other.
+	/// The bagged root. The empty frontier has the defined root `H(EMPTY_TAG)` ([`empty_root`],
+	/// encoding spec §3.4), so a frontier that has consumed nothing compares and extends like any
+	/// other.
 	pub fn root(&self) -> MmrRoot {
 		MmrRoot(root_from_peaks(&self.peaks).unwrap_or_else(empty_root))
 	}
@@ -210,9 +189,9 @@ impl MmrFrontier {
 	}
 }
 
-/// Field order matches the derived `Encode`; the decoded pair goes through
-/// [`from_parts`](MmrFrontier::from_parts) so a frontier off the wire holds the same invariants as
-/// one built here. The bound rejects a bad length prefix before a single peak is read.
+/// Field order matches the derived `Encode`. The decoded pair goes through
+/// [`from_parts`](MmrFrontier::from_parts), so a frontier off the wire holds the same invariants as
+/// one built here. The bound rejects a bad length prefix before any peak is read.
 impl Decode for MmrFrontier {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, CodecError> {
 		let leaf_count = u64::decode(input)?;
@@ -263,7 +242,7 @@ mod tests {
 		assert!(MmrFrontier::from_parts(Vec::new(), 0).is_some());
 		assert!(MmrFrontier::from_parts(vec![h(1)], 1).is_some());
 		assert!(MmrFrontier::from_parts(vec![h(1), h(2)], 3).is_some());
-		// One peak per set bit, or `append`'s pops would run dry — the pre-fix panic.
+		// One peak per set bit, or `append` would pop from an empty vec.
 		assert!(MmrFrontier::from_parts(Vec::new(), 1).is_none());
 		assert!(MmrFrontier::from_parts(vec![h(1)], 3).is_none());
 		assert!(MmrFrontier::from_parts(vec![h(1), h(2)], 1).is_none());
@@ -290,8 +269,8 @@ mod tests {
 
 	#[test]
 	fn empty_accumulator_root_is_empty_root() {
-		// A fresh accumulator is a legitimate state, and its root must be the defined constant —
-		// not a panic in `root_from_peaks`, which has no peaks to bag.
+		// A fresh accumulator is valid, and its root is the defined constant, not a panic in
+		// `root_from_peaks`.
 		assert_eq!(root_from_peaks(&[]), None);
 		assert_eq!(MmrFrontier::new().root().0, empty_root());
 		assert_eq!(MmrFrontier::from_parts(Vec::new(), 0).unwrap().root().0, empty_root());
@@ -299,8 +278,8 @@ mod tests {
 
 	#[test]
 	fn decode_enforces_the_same_invariants_as_from_parts() {
-		// A frontier off the wire is built through `from_parts`, so it holds the invariants
-		// `append` and the position arithmetic rely on. Consistent bytes round-trip …
+		// A frontier off the wire goes through `from_parts`, so it holds the invariants `append`
+		// and the position arithmetic rely on. Consistent bytes round-trip;
 		let good = MmrFrontier::from_parts(vec![h(1), h(2)], 3).unwrap();
 		assert_eq!(MmrFrontier::decode(&mut &good.encode()[..]).unwrap(), good);
 		// … inconsistent ones are rejected at decode, not later in a pop or a multiply.
