@@ -580,8 +580,28 @@ pub mod pallet {
 			sender: ParaId,
 			recipient: ParaId,
 		) -> DispatchResult {
-			let _ = (origin, sender, recipient);
-			todo!()
+			ensure_signed(origin)?;
+
+			let channel = ChannelId { sender, recipient };
+			let mut info =
+				Channels::<T>::get(channel).ok_or(Error::<T>::OpenHrmpChannelDoesntExist)?;
+
+			let max_capacity = info.max_capacity;
+			let (was_sender, was_recipient) =
+				(info.sender_deposit.clone(), info.recipient_deposit.clone());
+
+			info.sender_deposit =
+				Self::reprice(info.sender_deposit, channel, sender, max_capacity)?;
+			info.recipient_deposit =
+				Self::reprice(info.recipient_deposit, channel, recipient, max_capacity)?;
+
+			if was_sender != info.sender_deposit || was_recipient != info.recipient_deposit {
+				Channels::<T>::insert(channel, info);
+			}
+
+			Self::deposit_event(Event::OpenChannelDepositsUpdated { channel });
+
+			Ok(())
 		}
 
 		#[pallet::call_index(7)]
@@ -641,6 +661,27 @@ impl<T: Config> Pallet<T> {
 	/// The account a para's deposits are taken from.
 	fn sovereign_account(para_id: ParaId) -> T::AccountId {
 		T::SovereignAccountOf::convert(para_id)
+	}
+
+	/// Bring one side's deposit to the current price.
+	///
+	/// A channel with the system holds nothing rather than holding zero, which is where the relay
+	/// chain's `(0, 0)` target lands here.
+	fn reprice<C: Consideration<T::AccountId, Footprint>>(
+		deposit: Option<C>,
+		channel: ChannelId,
+		para_id: ParaId,
+		max_capacity: u32,
+	) -> Result<Option<C>, DispatchError> {
+		let who = Self::sovereign_account(para_id);
+		let footprint = Self::channel_footprint(max_capacity);
+
+		match (deposit, channel.is_system()) {
+			(Some(deposit), false) => deposit.update(&who, footprint).map(Some),
+			(Some(deposit), true) => deposit.drop(&who).map(|()| None),
+			(None, false) => C::new(&who, footprint).map(Some),
+			(None, true) => Ok(None),
+		}
 	}
 
 	/// Ask the relay chain to tell `para_id` about a channel it is one end of.
