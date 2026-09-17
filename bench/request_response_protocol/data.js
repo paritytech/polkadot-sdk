@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789588347702,
+  "lastUpdate": 1789642694231,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -125387,6 +125387,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2648638116,
             "range": "± 20988418",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dccf478651c2253e490796f86160fedbe55670a9",
+          "message": "pallet-revive: separate slot warmth from storage access pricing (#13013)\n\n### Summary\nThe access list only tracks persistent storage, but\n`touch_storage_access` and `peek_storage_access` took a `transient` flag\nanyway and returned a pricing value rather than slot warmth. The two\nconcerns are now separated: the access list reports slot warmth, and the\npricing value is built by the storage operation itself.\n\n### Changes\n1. The access list reports slot warmth only; it no longer knows about\ntransient storage.\n2. The pricing value lives next to the pricing code and carries both\ninputs it needs: the slot's warmth and the operation being performed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-17T09:38:45Z",
+          "tree_id": "22c4e46b9bdb74ea49b5d74a59012888133ea769",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dccf478651c2253e490796f86160fedbe55670a9"
+        },
+        "date": 1789642654025,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19410517,
+            "range": "± 102536",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19695867,
+            "range": "± 121921",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20958562,
+            "range": "± 89815",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25549995,
+            "range": "± 161151",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57502463,
+            "range": "± 440211",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 331565353,
+            "range": "± 4125615",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2542705421,
+            "range": "± 112928232",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16636475,
+            "range": "± 199553",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16759296,
+            "range": "± 113316",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17389613,
+            "range": "± 233935",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21882471,
+            "range": "± 136088",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59656539,
+            "range": "± 283115",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 351019508,
+            "range": "± 4024967",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2628260911,
+            "range": "± 31202381",
             "unit": "ns/iter"
           }
         ]
