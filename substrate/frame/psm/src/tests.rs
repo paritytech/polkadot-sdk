@@ -3353,6 +3353,10 @@ mod admin {
 		frame_system::RawOrigin::<AccountId>::Signed(who).into()
 	}
 
+	fn none_origin() -> OriginCaller {
+		frame_system::RawOrigin::<AccountId>::None.into()
+	}
+
 	#[test]
 	fn create_psm_works() {
 		new_test_ext().execute_with(|| {
@@ -3834,6 +3838,92 @@ mod admin {
 				crate::PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).unwrap().emergency_admin,
 				signed_origin(EMERGENCY_ACCOUNT)
 			);
+		});
+	}
+	#[test]
+	fn create_psm_rejects_none_admin() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
+			// The `None` origin carries no authority, so it must never become an admin.
+			assert_noop!(
+				Psm::create_psm(
+					RuntimeOrigin::signed(ALICE),
+					NEW_INTERNAL,
+					Box::new(none_origin()),
+					Box::new(signed_origin(ALICE)),
+					INSURANCE_FUND,
+					DEFAULT_MAX_DEBT,
+					DEFAULT_MIN_SWAP,
+				),
+				Error::<Test>::InvalidAdminOrigin
+			);
+			assert_noop!(
+				Psm::create_psm(
+					RuntimeOrigin::signed(ALICE),
+					NEW_INTERNAL,
+					Box::new(signed_origin(ALICE)),
+					Box::new(none_origin()),
+					INSURANCE_FUND,
+					DEFAULT_MAX_DEBT,
+					DEFAULT_MIN_SWAP,
+				),
+				Error::<Test>::InvalidAdminOrigin
+			);
+			assert!(crate::PsmAdmin::<Test>::get(NEW_INTERNAL).is_none());
+		});
+	}
+
+	#[test]
+	fn set_admin_rejects_none_origin() {
+		new_test_ext().execute_with(|| {
+			// The pre-installed test PSM's full_admin is Root.
+			assert_noop!(
+				Psm::set_full_admin(
+					RuntimeOrigin::root(),
+					INTERNAL_ASSET_ID,
+					Box::new(none_origin()),
+				),
+				Error::<Test>::InvalidAdminOrigin
+			);
+			assert_noop!(
+				Psm::set_emergency_admin(
+					RuntimeOrigin::root(),
+					INTERNAL_ASSET_ID,
+					Box::new(none_origin()),
+				),
+				Error::<Test>::InvalidAdminOrigin
+			);
+			let admin = crate::PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).unwrap();
+			assert_eq!(admin.full_admin, root_origin());
+			assert_eq!(admin.emergency_admin, signed_origin(EMERGENCY_ACCOUNT));
+		});
+	}
+
+	#[test]
+	fn none_origin_never_authorises_even_against_a_none_admin() {
+		new_test_ext().execute_with(|| {
+			// Bypass the setters to model a `None` admin stored before they rejected it.
+			crate::PsmAdmin::<Test>::mutate(INTERNAL_ASSET_ID, |maybe| {
+				let admin = maybe.as_mut().expect("PSM installed by the mock");
+				admin.full_admin = none_origin();
+				admin.emergency_admin = none_origin();
+			});
+			let fee_before = MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
+
+			assert_noop!(
+				Psm::set_minting_fee(
+					RuntimeOrigin::none(),
+					INTERNAL_ASSET_ID,
+					USDC_ASSET_ID,
+					Permill::from_percent(5),
+				),
+				DispatchError::BadOrigin
+			);
+			assert_noop!(
+				Psm::remove_psm(RuntimeOrigin::none(), INTERNAL_ASSET_ID),
+				DispatchError::BadOrigin
+			);
+			assert_eq!(MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID), fee_before);
 		});
 	}
 }
