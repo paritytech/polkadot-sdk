@@ -492,12 +492,13 @@ pub(super) async fn spawn_network_with_injected_allowances_v2(
 		.await
 }
 
-/// Probes whether the node behind `rpc` persistently stores `expected` for `topic`.
+/// Probes whether the node behind `rpc` currently stores `expected` for `topic`.
 ///
 /// A fresh subscription first replays every matching statement already in the store, ending the
 /// replay with `remaining == Some(0)` (or a single empty batch when the store holds none). We scan
 /// that replay for `expected`. Subscribing grants explicit affinity for *future* statements only,
-/// so the probe cannot turn an already-dropped statement into a stored one.
+/// so the probe cannot turn an already-removed statement into a stored one, though it can keep a
+/// statement the maintenance sweep would otherwise remove while the probe runs.
 pub(super) async fn stores_locally(
 	rpc: &RpcClient,
 	topic: Topic,
