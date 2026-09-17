@@ -153,7 +153,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-st
     tree_route: &amp;[Block::<a class="associatedtype" href="../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>],
     fallback_parent: Block::<a class="associatedtype" href="../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a>,
 ) -&gt; Block::<a class="associatedtype" href="../sp_runtime/traits/trait.Block.html#associatedtype.Hash" title="type sp_runtime::traits::Block::Hash">Hash</a><div class="where">where
-    C: HeaderBackend&lt;Block&gt;,
+    C: <a class="trait" href="../sp_blockchain/backend/trait.HeaderBackend.html" title="trait sp_blockchain::backend::HeaderBackend">HeaderBackend</a>&lt;Block&gt;,
     Block: <a class="trait" href="../sp_runtime/traits/trait.Block.html" title="trait sp_runtime::traits::Block">BlockT</a>,</div></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Resolve the previously-finalized block hash: the parent of the first block in <code>tree_route</code>,
 or <code>fallback_parent</code> (the just-finalized header’s parent) when the route is empty or that
 header can’t be loaded.</p>

@@ -207,7 +207,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#57 id=57 data-nosnippet>57</a><span class="kw">const </span>LOG_TARGET: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"basic-authorship"</span>;
 <a href=#58 id=58 data-nosnippet>58</a>
 <a href=#59 id=59 data-nosnippet>59</a><span class="doccomment">/// [`Proposer`] factory.
-<a href=#60 id=60 data-nosnippet>60</a></span><span class="kw">pub struct </span>ProposerFactory&lt;A, C&gt; {
+<a href=#60 id=60 data-nosnippet>60</a></span><span class="kw">pub struct </span>ProposerFactory&lt;A: <span class="question-mark">?</span>Sized, C&gt; {
 <a href=#61 id=61 data-nosnippet>61</a>	spawn_handle: Box&lt;<span class="kw">dyn </span>SpawnNamed&gt;,
 <a href=#62 id=62 data-nosnippet>62</a>	<span class="doccomment">/// The client instance.
 <a href=#63 id=63 data-nosnippet>63</a>	</span>client: Arc&lt;C&gt;,
@@ -231,7 +231,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#81 id=81 data-nosnippet>81</a>	telemetry: <span class="prelude-ty">Option</span>&lt;TelemetryHandle&gt;,
 <a href=#82 id=82 data-nosnippet>82</a>}
 <a href=#83 id=83 data-nosnippet>83</a>
-<a href=#84 id=84 data-nosnippet>84</a><span class="kw">impl</span>&lt;A, C&gt; Clone <span class="kw">for </span>ProposerFactory&lt;A, C&gt; {
+<a href=#84 id=84 data-nosnippet>84</a><span class="kw">impl</span>&lt;A: <span class="question-mark">?</span>Sized, C&gt; Clone <span class="kw">for </span>ProposerFactory&lt;A, C&gt; {
 <a href=#85 id=85 data-nosnippet>85</a>	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
 <a href=#86 id=86 data-nosnippet>86</a>		<span class="self">Self </span>{
 <a href=#87 id=87 data-nosnippet>87</a>			spawn_handle: <span class="self">self</span>.spawn_handle.clone(),
@@ -245,7 +245,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#95 id=95 data-nosnippet>95</a>	}
 <a href=#96 id=96 data-nosnippet>96</a>}
 <a href=#97 id=97 data-nosnippet>97</a>
-<a href=#98 id=98 data-nosnippet>98</a><span class="kw">impl</span>&lt;A, C&gt; ProposerFactory&lt;A, C&gt; {
+<a href=#98 id=98 data-nosnippet>98</a><span class="kw">impl</span>&lt;A: <span class="question-mark">?</span>Sized, C&gt; ProposerFactory&lt;A, C&gt; {
 <a href=#99 id=99 data-nosnippet>99</a>	<span class="doccomment">/// Create a new proposer factory.
 <a href=#100 id=100 data-nosnippet>100</a>	</span><span class="kw">pub fn </span>new(
 <a href=#101 id=101 data-nosnippet>101</a>		spawn_handle: <span class="kw">impl </span>SpawnNamed + <span class="lifetime">'static</span>,
@@ -307,7 +307,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#157 id=157 data-nosnippet>157</a>
 <a href=#158 id=158 data-nosnippet>158</a><span class="kw">impl</span>&lt;Block, C, A&gt; ProposerFactory&lt;A, C&gt;
 <a href=#159 id=159 data-nosnippet>159</a><span class="kw">where
-<a href=#160 id=160 data-nosnippet>160</a>	</span>A: TransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static</span>,
+<a href=#160 id=160 data-nosnippet>160</a>	</span>A: TransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static </span>+ <span class="question-mark">?</span>Sized,
 <a href=#161 id=161 data-nosnippet>161</a>	Block: BlockT,
 <a href=#162 id=162 data-nosnippet>162</a>	C: HeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 <a href=#163 id=163 data-nosnippet>163</a>	C::Api: ApiExt&lt;Block&gt; + BlockBuilderApi&lt;Block&gt;,
@@ -344,7 +344,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#194 id=194 data-nosnippet>194</a>
 <a href=#195 id=195 data-nosnippet>195</a><span class="kw">impl</span>&lt;A, Block, C&gt; sp_consensus::Environment&lt;Block&gt; <span class="kw">for </span>ProposerFactory&lt;A, C&gt;
 <a href=#196 id=196 data-nosnippet>196</a><span class="kw">where
-<a href=#197 id=197 data-nosnippet>197</a>	</span>A: TransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static</span>,
+<a href=#197 id=197 data-nosnippet>197</a>	</span>A: TransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static </span>+ <span class="question-mark">?</span>Sized,
 <a href=#198 id=198 data-nosnippet>198</a>	Block: BlockT,
 <a href=#199 id=199 data-nosnippet>199</a>	C: HeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + CallApiAt&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 <a href=#200 id=200 data-nosnippet>200</a>	C::Api: ApiExt&lt;Block&gt; + BlockBuilderApi&lt;Block&gt;,
@@ -359,7 +359,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#209 id=209 data-nosnippet>209</a>}
 <a href=#210 id=210 data-nosnippet>210</a>
 <a href=#211 id=211 data-nosnippet>211</a><span class="doccomment">/// The proposer logic.
-<a href=#212 id=212 data-nosnippet>212</a></span><span class="kw">pub struct </span>Proposer&lt;Block: BlockT, C, A: TransactionPool&gt; {
+<a href=#212 id=212 data-nosnippet>212</a></span><span class="kw">pub struct </span>Proposer&lt;Block: BlockT, C, A: TransactionPool + <span class="question-mark">?</span>Sized&gt; {
 <a href=#213 id=213 data-nosnippet>213</a>	spawn_handle: Box&lt;<span class="kw">dyn </span>SpawnNamed&gt;,
 <a href=#214 id=214 data-nosnippet>214</a>	client: Arc&lt;C&gt;,
 <a href=#215 id=215 data-nosnippet>215</a>	parent_hash: Block::Hash,
@@ -374,7 +374,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#224 id=224 data-nosnippet>224</a>
 <a href=#225 id=225 data-nosnippet>225</a><span class="kw">impl</span>&lt;A, Block, C&gt; sp_consensus::Proposer&lt;Block&gt; <span class="kw">for </span>Proposer&lt;Block, C, A&gt;
 <a href=#226 id=226 data-nosnippet>226</a><span class="kw">where
-<a href=#227 id=227 data-nosnippet>227</a>	</span>A: TransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static</span>,
+<a href=#227 id=227 data-nosnippet>227</a>	</span>A: TransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static </span>+ <span class="question-mark">?</span>Sized,
 <a href=#228 id=228 data-nosnippet>228</a>	Block: BlockT,
 <a href=#229 id=229 data-nosnippet>229</a>	C: HeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + CallApiAt&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 <a href=#230 id=230 data-nosnippet>230</a>	C::Api: ApiExt&lt;Block&gt; + BlockBuilderApi&lt;Block&gt;,
@@ -394,7 +394,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#244 id=244 data-nosnippet>244</a>
 <a href=#245 id=245 data-nosnippet>245</a><span class="kw">impl</span>&lt;A, Block, C&gt; Proposer&lt;Block, C, A&gt;
 <a href=#246 id=246 data-nosnippet>246</a><span class="kw">where
-<a href=#247 id=247 data-nosnippet>247</a>	</span>A: TransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static</span>,
+<a href=#247 id=247 data-nosnippet>247</a>	</span>A: TransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static </span>+ <span class="question-mark">?</span>Sized,
 <a href=#248 id=248 data-nosnippet>248</a>	Block: BlockT,
 <a href=#249 id=249 data-nosnippet>249</a>	C: HeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + CallApiAt&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 <a href=#250 id=250 data-nosnippet>250</a>	C::Api: ApiExt&lt;Block&gt; + BlockBuilderApi&lt;Block&gt;,

@@ -222,7 +222,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#72 id=72 data-nosnippet>72</a>	<span class="kw">type </span>Backend: Backend&lt;<span class="self">Self</span>::Block&gt;;
 <a href=#73 id=73 data-nosnippet>73</a>	<span class="kw">type </span>Executor: CallExecutor&lt;<span class="self">Self</span>::Block&gt; + Send + Sync;
 <a href=#74 id=74 data-nosnippet>74</a>	<span class="kw">type </span>RuntimeApi: Send + Sync;
-<a href=#75 id=75 data-nosnippet>75</a>	<span class="kw">type </span>TransactionPool: TransactionPool&lt;Block = <span class="self">Self</span>::Block&gt;;
+<a href=#75 id=75 data-nosnippet>75</a>	<span class="kw">type </span>TransactionPool: TransactionPool&lt;Block = <span class="self">Self</span>::Block&gt; + <span class="question-mark">?</span>Sized;
 <a href=#76 id=76 data-nosnippet>76</a>
 <a href=#77 id=77 data-nosnippet>77</a>	<span class="kw">fn </span>client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;Client&lt;<span class="self">Self</span>::Backend, <span class="self">Self</span>::Executor, <span class="self">Self</span>::Block, <span class="self">Self</span>::RuntimeApi&gt;&gt;;
 <a href=#78 id=78 data-nosnippet>78</a>	<span class="kw">fn </span>transaction_pool(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="self">Self</span>::TransactionPool&gt;;
@@ -231,7 +231,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#81 id=81 data-nosnippet>81</a>	<span class="kw">fn </span>spawn_handle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SpawnTaskHandle;
 <a href=#82 id=82 data-nosnippet>82</a>}
 <a href=#83 id=83 data-nosnippet>83</a>
-<a href=#84 id=84 data-nosnippet>84</a><span class="kw">pub struct </span>TestNetComponents&lt;TBl: BlockT, TBackend, TExec, TRtApi, TExPool&gt; {
+<a href=#84 id=84 data-nosnippet>84</a><span class="kw">pub struct </span>TestNetComponents&lt;TBl: BlockT, TBackend, TExec, TRtApi, TExPool: <span class="question-mark">?</span>Sized&gt; {
 <a href=#85 id=85 data-nosnippet>85</a>	task_manager: Arc&lt;Mutex&lt;TaskManager&gt;&gt;,
 <a href=#86 id=86 data-nosnippet>86</a>	client: Arc&lt;Client&lt;TBackend, TExec, TBl, TRtApi&gt;&gt;,
 <a href=#87 id=87 data-nosnippet>87</a>	transaction_pool: Arc&lt;TExPool&gt;,
@@ -239,7 +239,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#89 id=89 data-nosnippet>89</a>	sync: Arc&lt;SyncingService&lt;TBl&gt;&gt;,
 <a href=#90 id=90 data-nosnippet>90</a>}
 <a href=#91 id=91 data-nosnippet>91</a>
-<a href=#92 id=92 data-nosnippet>92</a><span class="kw">impl</span>&lt;TBl: BlockT, TBackend, TExec, TRtApi, TExPool&gt;
+<a href=#92 id=92 data-nosnippet>92</a><span class="kw">impl</span>&lt;TBl: BlockT, TBackend, TExec, TRtApi, TExPool: <span class="question-mark">?</span>Sized&gt;
 <a href=#93 id=93 data-nosnippet>93</a>	TestNetComponents&lt;TBl, TBackend, TExec, TRtApi, TExPool&gt;
 <a href=#94 id=94 data-nosnippet>94</a>{
 <a href=#95 id=95 data-nosnippet>95</a>	<span class="kw">pub fn </span>new(
@@ -259,7 +259,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#109 id=109 data-nosnippet>109</a>	}
 <a href=#110 id=110 data-nosnippet>110</a>}
 <a href=#111 id=111 data-nosnippet>111</a>
-<a href=#112 id=112 data-nosnippet>112</a><span class="kw">impl</span>&lt;TBl: BlockT, TBackend, TExec, TRtApi, TExPool&gt; Clone
+<a href=#112 id=112 data-nosnippet>112</a><span class="kw">impl</span>&lt;TBl: BlockT, TBackend, TExec, TRtApi, TExPool: <span class="question-mark">?</span>Sized&gt; Clone
 <a href=#113 id=113 data-nosnippet>113</a>	<span class="kw">for </span>TestNetComponents&lt;TBl, TBackend, TExec, TRtApi, TExPool&gt;
 <a href=#114 id=114 data-nosnippet>114</a>{
 <a href=#115 id=115 data-nosnippet>115</a>	<span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
@@ -273,7 +273,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#123 id=123 data-nosnippet>123</a>	}
 <a href=#124 id=124 data-nosnippet>124</a>}
 <a href=#125 id=125 data-nosnippet>125</a>
-<a href=#126 id=126 data-nosnippet>126</a><span class="kw">impl</span>&lt;TBl: BlockT, TBackend, TExec, TRtApi, TExPool&gt; Future
+<a href=#126 id=126 data-nosnippet>126</a><span class="kw">impl</span>&lt;TBl: BlockT, TBackend, TExec, TRtApi, TExPool: <span class="question-mark">?</span>Sized&gt; Future
 <a href=#127 id=127 data-nosnippet>127</a>	<span class="kw">for </span>TestNetComponents&lt;TBl, TBackend, TExec, TRtApi, TExPool&gt;
 <a href=#128 id=128 data-nosnippet>128</a>{
 <a href=#129 id=129 data-nosnippet>129</a>	<span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;(), Error&gt;;
@@ -290,7 +290,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#140 id=140 data-nosnippet>140</a>	TBackend: sc_client_api::Backend&lt;TBl&gt; + Send + Sync + <span class="lifetime">'static</span>,
 <a href=#141 id=141 data-nosnippet>141</a>	TExec: CallExecutor&lt;TBl&gt; + Send + Sync + <span class="lifetime">'static</span>,
 <a href=#142 id=142 data-nosnippet>142</a>	TRtApi: Send + Sync + <span class="lifetime">'static</span>,
-<a href=#143 id=143 data-nosnippet>143</a>	TExPool: TransactionPool&lt;Block = TBl&gt; + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#143 id=143 data-nosnippet>143</a>	TExPool: TransactionPool&lt;Block = TBl&gt; + Send + Sync + <span class="lifetime">'static </span>+ <span class="question-mark">?</span>Sized,
 <a href=#144 id=144 data-nosnippet>144</a>{
 <a href=#145 id=145 data-nosnippet>145</a>	<span class="kw">type </span>Block = TBl;
 <a href=#146 id=146 data-nosnippet>146</a>	<span class="kw">type </span>Backend = TBackend;

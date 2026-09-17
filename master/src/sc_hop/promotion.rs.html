@@ -217,7 +217,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#67 id=67 data-nosnippet>67</a><span class="doccomment">/// Concrete [`HopPromoter`] that calls the HOP runtime API dynamically (see
 <a href=#68 id=68 data-nosnippet>68</a>/// [`crate::runtime_api`]) to build a promotion extrinsic and submits it to
 <a href=#69 id=69 data-nosnippet>69</a>/// the local transaction pool.
-<a href=#70 id=70 data-nosnippet>70</a></span><span class="kw">pub struct </span>RuntimeApiPromoter&lt;Block: BlockT, C, P&gt; {
+<a href=#70 id=70 data-nosnippet>70</a></span><span class="kw">pub struct </span>RuntimeApiPromoter&lt;Block: BlockT, C, P: <span class="question-mark">?</span>Sized&gt; {
 <a href=#71 id=71 data-nosnippet>71</a>	client: Arc&lt;C&gt;,
 <a href=#72 id=72 data-nosnippet>72</a>	tx_pool: Arc&lt;P&gt;,
 <a href=#73 id=73 data-nosnippet>73</a>	_phantom: PhantomData&lt;Block&gt;,
@@ -227,7 +227,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#77 id=77 data-nosnippet>77</a><span class="kw">where
 <a href=#78 id=78 data-nosnippet>78</a>	</span>Block: BlockT,
 <a href=#79 id=79 data-nosnippet>79</a>	C: HeaderBackend&lt;Block&gt; + CallApiAt&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#80 id=80 data-nosnippet>80</a>	P: sc_transaction_pool_api::LocalTransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static</span>,
+<a href=#80 id=80 data-nosnippet>80</a>	P: sc_transaction_pool_api::LocalTransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static </span>+ <span class="question-mark">?</span>Sized,
 <a href=#81 id=81 data-nosnippet>81</a>{
 <a href=#82 id=82 data-nosnippet>82</a>	<span class="doccomment">/// Create a new promoter.
 <a href=#83 id=83 data-nosnippet>83</a>	</span><span class="kw">pub fn </span>new(client: Arc&lt;C&gt;, tx_pool: Arc&lt;P&gt;) -&gt; <span class="self">Self </span>{
@@ -239,7 +239,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#89 id=89 data-nosnippet>89</a><span class="kw">where
 <a href=#90 id=90 data-nosnippet>90</a>	</span>Block: BlockT,
 <a href=#91 id=91 data-nosnippet>91</a>	C: HeaderBackend&lt;Block&gt; + CallApiAt&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#92 id=92 data-nosnippet>92</a>	P: sc_transaction_pool_api::LocalTransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static</span>,
+<a href=#92 id=92 data-nosnippet>92</a>	P: sc_transaction_pool_api::LocalTransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static </span>+ <span class="question-mark">?</span>Sized,
 <a href=#93 id=93 data-nosnippet>93</a>{
 <a href=#94 id=94 data-nosnippet>94</a>	<span class="kw">fn </span>promote(
 <a href=#95 id=95 data-nosnippet>95</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -284,7 +284,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#134 id=134 data-nosnippet>134</a><span class="kw">where
 <a href=#135 id=135 data-nosnippet>135</a>	</span>Block: BlockT,
 <a href=#136 id=136 data-nosnippet>136</a>	C: HeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + CallApiAt&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#137 id=137 data-nosnippet>137</a>	P: sc_transaction_pool_api::LocalTransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static</span>,
+<a href=#137 id=137 data-nosnippet>137</a>	P: sc_transaction_pool_api::LocalTransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static </span>+ <span class="question-mark">?</span>Sized,
 <a href=#138 id=138 data-nosnippet>138</a>{
 <a href=#139 id=139 data-nosnippet>139</a>	<span class="kw">let </span>best_hash = client.info().best_hash;
 <a href=#140 id=140 data-nosnippet>140</a>	<span class="kw">match </span>client
@@ -328,7 +328,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#178 id=178 data-nosnippet>178</a><span class="kw">where
 <a href=#179 id=179 data-nosnippet>179</a>	</span>Block: BlockT,
 <a href=#180 id=180 data-nosnippet>180</a>	C: HeaderBackend&lt;Block&gt; + ProvideRuntimeApi&lt;Block&gt; + CallApiAt&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#181 id=181 data-nosnippet>181</a>	P: sc_transaction_pool_api::LocalTransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static</span>,
+<a href=#181 id=181 data-nosnippet>181</a>	P: sc_transaction_pool_api::LocalTransactionPool&lt;Block = Block&gt; + <span class="lifetime">'static </span>+ <span class="question-mark">?</span>Sized,
 <a href=#182 id=182 data-nosnippet>182</a>{
 <a href=#183 id=183 data-nosnippet>183</a>	<span class="kw">let </span>promoter = try_build_promoter::&lt;Block, <span class="kw">_</span>, <span class="kw">_</span>&gt;(client, tx_pool);
 <a href=#184 id=184 data-nosnippet>184</a>	<span class="kw">let </span>best_block_client = client.clone();

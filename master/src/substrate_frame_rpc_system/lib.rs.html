@@ -221,13 +221,13 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#71 id=71 data-nosnippet>71</a>}
 <a href=#72 id=72 data-nosnippet>72</a>
 <a href=#73 id=73 data-nosnippet>73</a><span class="doccomment">/// An implementation of System-specific RPC methods on full client.
-<a href=#74 id=74 data-nosnippet>74</a></span><span class="kw">pub struct </span>System&lt;P: TransactionPool, C, B&gt; {
+<a href=#74 id=74 data-nosnippet>74</a></span><span class="kw">pub struct </span>System&lt;P: TransactionPool + <span class="question-mark">?</span>Sized, C, B&gt; {
 <a href=#75 id=75 data-nosnippet>75</a>	client: Arc&lt;C&gt;,
 <a href=#76 id=76 data-nosnippet>76</a>	pool: Arc&lt;P&gt;,
 <a href=#77 id=77 data-nosnippet>77</a>	_marker: std::marker::PhantomData&lt;B&gt;,
 <a href=#78 id=78 data-nosnippet>78</a>}
 <a href=#79 id=79 data-nosnippet>79</a>
-<a href=#80 id=80 data-nosnippet>80</a><span class="kw">impl</span>&lt;P: TransactionPool, C, B&gt; System&lt;P, C, B&gt; {
+<a href=#80 id=80 data-nosnippet>80</a><span class="kw">impl</span>&lt;P: TransactionPool + <span class="question-mark">?</span>Sized, C, B&gt; System&lt;P, C, B&gt; {
 <a href=#81 id=81 data-nosnippet>81</a>	<span class="doccomment">/// Create new `FullSystem` given client and transaction pool.
 <a href=#82 id=82 data-nosnippet>82</a>	</span><span class="kw">pub fn </span>new(client: Arc&lt;C&gt;, pool: Arc&lt;P&gt;) -&gt; <span class="self">Self </span>{
 <a href=#83 id=83 data-nosnippet>83</a>		<span class="self">Self </span>{ client, pool, _marker: Default::default() }
@@ -243,7 +243,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#93 id=93 data-nosnippet>93</a>	C: Send + Sync + <span class="lifetime">'static</span>,
 <a href=#94 id=94 data-nosnippet>94</a>	C::Api: AccountNonceApi&lt;Block, AccountId, Nonce&gt;,
 <a href=#95 id=95 data-nosnippet>95</a>	C::Api: BlockBuilder&lt;Block&gt;,
-<a href=#96 id=96 data-nosnippet>96</a>	P: TransactionPool + <span class="lifetime">'static</span>,
+<a href=#96 id=96 data-nosnippet>96</a>	P: TransactionPool + <span class="lifetime">'static </span>+ <span class="question-mark">?</span>Sized,
 <a href=#97 id=97 data-nosnippet>97</a>	Block: traits::Block,
 <a href=#98 id=98 data-nosnippet>98</a>	AccountId: Clone + Display + Codec + Send + <span class="lifetime">'static</span>,
 <a href=#99 id=99 data-nosnippet>99</a>	Nonce: Clone + Display + Codec + Send + traits::AtLeast32Bit + <span class="lifetime">'static</span>,
@@ -330,7 +330,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#180 id=180 data-nosnippet>180</a>/// placed after all ready txpool transactions.
 <a href=#181 id=181 data-nosnippet>181</a></span><span class="kw">fn </span>adjust_nonce&lt;P, AccountId, Nonce&gt;(pool: <span class="kw-2">&amp;</span>P, account: AccountId, nonce: Nonce) -&gt; Nonce
 <a href=#182 id=182 data-nosnippet>182</a><span class="kw">where
-<a href=#183 id=183 data-nosnippet>183</a>	</span>P: TransactionPool,
+<a href=#183 id=183 data-nosnippet>183</a>	</span>P: TransactionPool + <span class="question-mark">?</span>Sized,
 <a href=#184 id=184 data-nosnippet>184</a>	AccountId: Clone + std::fmt::Display + Encode,
 <a href=#185 id=185 data-nosnippet>185</a>	Nonce: Clone + std::fmt::Display + Encode + traits::AtLeast32Bit + <span class="lifetime">'static</span>,
 <a href=#186 id=186 data-nosnippet>186</a>{

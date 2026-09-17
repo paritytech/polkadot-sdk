@@ -183,7 +183,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#33 id=33 data-nosnippet>33</a><span class="kw">use </span>std::sync::Arc;
 <a href=#34 id=34 data-nosnippet>34</a>
 <a href=#35 id=35 data-nosnippet>35</a><span class="doccomment">/// Full client dependencies.
-<a href=#36 id=36 data-nosnippet>36</a></span><span class="kw">pub struct </span>FullDeps&lt;C, P&gt; {
+<a href=#36 id=36 data-nosnippet>36</a></span><span class="kw">pub struct </span>FullDeps&lt;C, P: <span class="question-mark">?</span>Sized&gt; {
 <a href=#37 id=37 data-nosnippet>37</a>	<span class="doccomment">/// The client instance to use.
 <a href=#38 id=38 data-nosnippet>38</a>	</span><span class="kw">pub </span>client: Arc&lt;C&gt;,
 <a href=#39 id=39 data-nosnippet>39</a>	<span class="doccomment">/// Transaction pool instance.
@@ -237,7 +237,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#87 id=87 data-nosnippet>87</a>		+ <span class="lifetime">'static</span>,
 <a href=#88 id=88 data-nosnippet>88</a>	C::Api: sp_block_builder::BlockBuilder&lt;OpaqueBlock&gt;,
 <a href=#89 id=89 data-nosnippet>89</a>	C::Api: substrate_frame_rpc_system::AccountNonceApi&lt;OpaqueBlock, AccountId, Nonce&gt;,
-<a href=#90 id=90 data-nosnippet>90</a>	P: TransactionPool + <span class="lifetime">'static</span>,
+<a href=#90 id=90 data-nosnippet>90</a>	P: TransactionPool + <span class="lifetime">'static </span>+ <span class="question-mark">?</span>Sized,
 <a href=#91 id=91 data-nosnippet>91</a>{
 <a href=#92 id=92 data-nosnippet>92</a>	<span class="kw">use </span>polkadot_sdk::substrate_frame_rpc_system::{System, SystemApiServer};
 <a href=#93 id=93 data-nosnippet>93</a>	<span class="kw">let </span><span class="kw-2">mut </span>module = RpcModule::new(());

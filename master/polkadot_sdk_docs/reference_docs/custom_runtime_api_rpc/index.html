@@ -238,7 +238,7 @@ RPC-api, then a custom RPC server has to be defined.</p>
 		+ <span class="lifetime">'static</span>,
 	C::Api: sp_block_builder::BlockBuilder&lt;OpaqueBlock&gt;,
 	C::Api: substrate_frame_rpc_system::AccountNonceApi&lt;OpaqueBlock, AccountId, Nonce&gt;,
-	P: TransactionPool + <span class="lifetime">'static</span>,
+	P: TransactionPool + <span class="lifetime">'static </span>+ <span class="question-mark">?</span>Sized,
 {
 	<span class="kw">use </span>polkadot_sdk::substrate_frame_rpc_system::{System, SystemApiServer};
 	<span class="kw">let </span><span class="kw-2">mut </span>module = RpcModule::new(());

@@ -186,7 +186,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#36 id=36 data-nosnippet>36</a></span><span class="kw">pub const </span>MAX_PROPOSAL_DURATION: u64 = <span class="number">10</span>;
 <a href=#37 id=37 data-nosnippet>37</a>
 <a href=#38 id=38 data-nosnippet>38</a><span class="doccomment">/// params for sealing a new block
-<a href=#39 id=39 data-nosnippet>39</a></span><span class="kw">pub struct </span>SealBlockParams&lt;<span class="lifetime">'a</span>, B: BlockT, BI, SC, C: ProvideRuntimeApi&lt;B&gt;, E, TP, CIDP&gt; {
+<a href=#39 id=39 data-nosnippet>39</a></span><span class="kw">pub struct </span>SealBlockParams&lt;<span class="lifetime">'a</span>, B: BlockT, BI, SC, C: ProvideRuntimeApi&lt;B&gt;, E, TP: <span class="question-mark">?</span>Sized, CIDP&gt; {
 <a href=#40 id=40 data-nosnippet>40</a>	<span class="doccomment">/// if true, empty blocks(without extrinsics) will be created.
 <a href=#41 id=41 data-nosnippet>41</a>	/// otherwise, will return Error::EmptyTransactionPool.
 <a href=#42 id=42 data-nosnippet>42</a>	</span><span class="kw">pub </span>create_empty: bool,
@@ -233,7 +233,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#83 id=83 data-nosnippet>83</a>	C: HeaderBackend&lt;B&gt; + ProvideRuntimeApi&lt;B&gt;,
 <a href=#84 id=84 data-nosnippet>84</a>	E: Environment&lt;B&gt;,
 <a href=#85 id=85 data-nosnippet>85</a>	E::Proposer: Proposer&lt;B&gt;,
-<a href=#86 id=86 data-nosnippet>86</a>	TP: TransactionPool&lt;Block = B&gt;,
+<a href=#86 id=86 data-nosnippet>86</a>	TP: TransactionPool&lt;Block = B&gt; + <span class="question-mark">?</span>Sized,
 <a href=#87 id=87 data-nosnippet>87</a>	SC: SelectChain&lt;B&gt;,
 <a href=#88 id=88 data-nosnippet>88</a>	CIDP: CreateInherentDataProviders&lt;B, ()&gt;,
 <a href=#89 id=89 data-nosnippet>89</a>{

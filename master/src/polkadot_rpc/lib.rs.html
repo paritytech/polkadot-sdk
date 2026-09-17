@@ -224,7 +224,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#74 id=74 data-nosnippet>74</a>}
 <a href=#75 id=75 data-nosnippet>75</a>
 <a href=#76 id=76 data-nosnippet>76</a><span class="doccomment">/// Full client dependencies
-<a href=#77 id=77 data-nosnippet>77</a></span><span class="kw">pub struct </span>FullDeps&lt;C, P, SC, B, AuthorityId: AuthorityIdBound&gt; {
+<a href=#77 id=77 data-nosnippet>77</a></span><span class="kw">pub struct </span>FullDeps&lt;C, P: <span class="question-mark">?</span>Sized, SC, B, AuthorityId: AuthorityIdBound&gt; {
 <a href=#78 id=78 data-nosnippet>78</a>	<span class="doccomment">/// The client instance to use.
 <a href=#79 id=79 data-nosnippet>79</a>	</span><span class="kw">pub </span>client: Arc&lt;C&gt;,
 <a href=#80 id=80 data-nosnippet>80</a>	<span class="doccomment">/// Transaction pool instance.
@@ -266,7 +266,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#116 id=116 data-nosnippet>116</a>	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi&lt;Block, Balance&gt;,
 <a href=#117 id=117 data-nosnippet>117</a>	C::Api: BabeApi&lt;Block&gt;,
 <a href=#118 id=118 data-nosnippet>118</a>	C::Api: BlockBuilder&lt;Block&gt;,
-<a href=#119 id=119 data-nosnippet>119</a>	P: TransactionPool + Sync + Send + <span class="lifetime">'static</span>,
+<a href=#119 id=119 data-nosnippet>119</a>	P: TransactionPool + Sync + Send + <span class="lifetime">'static </span>+ <span class="question-mark">?</span>Sized,
 <a href=#120 id=120 data-nosnippet>120</a>	SC: SelectChain&lt;Block&gt; + <span class="lifetime">'static</span>,
 <a href=#121 id=121 data-nosnippet>121</a>	B: sc_client_api::Backend&lt;Block&gt; + Send + Sync + <span class="lifetime">'static</span>,
 <a href=#122 id=122 data-nosnippet>122</a>	B::State: sc_client_api::StateBackend&lt;sp_runtime::traits::HashingFor&lt;Block&gt;&gt;,

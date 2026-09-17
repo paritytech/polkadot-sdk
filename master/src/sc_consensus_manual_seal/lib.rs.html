@@ -237,7 +237,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#87 id=87 data-nosnippet>87</a>}
 <a href=#88 id=88 data-nosnippet>88</a>
 <a href=#89 id=89 data-nosnippet>89</a><span class="doccomment">/// Params required to start the manual sealing authorship task.
-<a href=#90 id=90 data-nosnippet>90</a></span><span class="kw">pub struct </span>ManualSealParams&lt;B: BlockT, BI, E, C: ProvideRuntimeApi&lt;B&gt;, TP, SC, CS, CIDP&gt; {
+<a href=#90 id=90 data-nosnippet>90</a></span><span class="kw">pub struct </span>ManualSealParams&lt;B: BlockT, BI, E, C: ProvideRuntimeApi&lt;B&gt;, TP: <span class="question-mark">?</span>Sized, SC, CS, CIDP&gt; {
 <a href=#91 id=91 data-nosnippet>91</a>	<span class="doccomment">/// Block import instance.
 <a href=#92 id=92 data-nosnippet>92</a>	</span><span class="kw">pub </span>block_import: BI,
 <a href=#93 id=93 data-nosnippet>93</a>
@@ -265,7 +265,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#115 id=115 data-nosnippet>115</a>}
 <a href=#116 id=116 data-nosnippet>116</a>
 <a href=#117 id=117 data-nosnippet>117</a><span class="doccomment">/// Params required to start the instant sealing authorship task.
-<a href=#118 id=118 data-nosnippet>118</a></span><span class="kw">pub struct </span>InstantSealParams&lt;B: BlockT, BI, E, C: ProvideRuntimeApi&lt;B&gt;, TP, SC, CIDP&gt; {
+<a href=#118 id=118 data-nosnippet>118</a></span><span class="kw">pub struct </span>InstantSealParams&lt;B: BlockT, BI, E, C: ProvideRuntimeApi&lt;B&gt;, TP: <span class="question-mark">?</span>Sized, SC, CIDP&gt; {
 <a href=#119 id=119 data-nosnippet>119</a>	<span class="doccomment">/// Block import instance for well. importing blocks.
 <a href=#120 id=120 data-nosnippet>120</a>	</span><span class="kw">pub </span>block_import: BI,
 <a href=#121 id=121 data-nosnippet>121</a>
@@ -321,7 +321,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#171 id=171 data-nosnippet>171</a>	E::Proposer: Proposer&lt;B&gt;,
 <a href=#172 id=172 data-nosnippet>172</a>	CS: Stream&lt;Item = EngineCommand&lt;&lt;B <span class="kw">as </span>BlockT&gt;::Hash&gt;&gt; + Unpin + <span class="lifetime">'static</span>,
 <a href=#173 id=173 data-nosnippet>173</a>	SC: SelectChain&lt;B&gt; + <span class="lifetime">'static</span>,
-<a href=#174 id=174 data-nosnippet>174</a>	TP: TransactionPool&lt;Block = B&gt;,
+<a href=#174 id=174 data-nosnippet>174</a>	TP: TransactionPool&lt;Block = B&gt; + <span class="question-mark">?</span>Sized,
 <a href=#175 id=175 data-nosnippet>175</a>	CIDP: CreateInherentDataProviders&lt;B, ()&gt;,
 <a href=#176 id=176 data-nosnippet>176</a>{
 <a href=#177 id=177 data-nosnippet>177</a>	<span class="kw">while let </span><span class="prelude-val">Some</span>(command) = commands_stream.next().<span class="kw">await </span>{
@@ -378,7 +378,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#228 id=228 data-nosnippet>228</a>	E: Environment&lt;B&gt; + <span class="lifetime">'static</span>,
 <a href=#229 id=229 data-nosnippet>229</a>	E::Proposer: Proposer&lt;B&gt;,
 <a href=#230 id=230 data-nosnippet>230</a>	SC: SelectChain&lt;B&gt; + <span class="lifetime">'static</span>,
-<a href=#231 id=231 data-nosnippet>231</a>	TP: TransactionPool&lt;Block = B&gt;,
+<a href=#231 id=231 data-nosnippet>231</a>	TP: TransactionPool&lt;Block = B&gt; + <span class="question-mark">?</span>Sized,
 <a href=#232 id=232 data-nosnippet>232</a>	CIDP: CreateInherentDataProviders&lt;B, ()&gt;,
 <a href=#233 id=233 data-nosnippet>233</a>{
 <a href=#234 id=234 data-nosnippet>234</a>	<span class="comment">// instant-seal creates blocks as soon as transactions are imported
@@ -427,7 +427,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#277 id=277 data-nosnippet>277</a>	E: Environment&lt;B&gt; + <span class="lifetime">'static</span>,
 <a href=#278 id=278 data-nosnippet>278</a>	E::Proposer: Proposer&lt;B&gt;,
 <a href=#279 id=279 data-nosnippet>279</a>	SC: SelectChain&lt;B&gt; + <span class="lifetime">'static</span>,
-<a href=#280 id=280 data-nosnippet>280</a>	TP: TransactionPool&lt;Block = B&gt;,
+<a href=#280 id=280 data-nosnippet>280</a>	TP: TransactionPool&lt;Block = B&gt; + <span class="question-mark">?</span>Sized,
 <a href=#281 id=281 data-nosnippet>281</a>	CIDP: CreateInherentDataProviders&lt;B, ()&gt;,
 <a href=#282 id=282 data-nosnippet>282</a>{
 <a href=#283 id=283 data-nosnippet>283</a>	<span class="comment">// Creates and finalizes blocks as soon as transactions are imported

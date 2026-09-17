@@ -311,7 +311,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#161 id=161 data-nosnippet>161</a>	C: BlockchainEvents&lt;B&gt; + ProvideRuntimeApi&lt;B&gt; + HeaderBackend&lt;B&gt;,
 <a href=#162 id=162 data-nosnippet>162</a>	C::Api: MixnetApi&lt;B&gt;,
 <a href=#163 id=163 data-nosnippet>163</a>	S: SyncOracle,
-<a href=#164 id=164 data-nosnippet>164</a>	P: TransactionPool&lt;Block = B&gt; + LocalTransactionPool&lt;Block = B&gt; + <span class="lifetime">'static</span>,
+<a href=#164 id=164 data-nosnippet>164</a>	P: TransactionPool&lt;Block = B&gt; + LocalTransactionPool&lt;Block = B&gt; + <span class="lifetime">'static </span>+ <span class="question-mark">?</span>Sized,
 <a href=#165 id=165 data-nosnippet>165</a>{
 <a href=#166 id=166 data-nosnippet>166</a>	<span class="kw">let </span>local_peer_id = network.local_peer_id();
 <a href=#167 id=167 data-nosnippet>167</a>	<span class="kw">let </span><span class="prelude-val">Some</span>(local_peer_id) = to_core_peer_id(<span class="kw-2">&amp;</span>local_peer_id) <span class="kw">else </span>{
