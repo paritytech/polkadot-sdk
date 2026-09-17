@@ -214,8 +214,34 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			block_number_to_hashes: Default::default(),
 		};
 		provider.restore_first_evm_block().await?;
+		provider.log_db_state().await;
 
 		Ok(provider)
+	}
+
+	/// Log the sync checkpoints the database holds at startup and the first EVM block in effect
+	/// after the restore.
+	async fn log_db_state(&self) {
+		let checkpoint = |label: Option<SyncCheckpoint>| match label {
+			Some(c) => format!("#{}", c.block_number),
+			None => "none".to_string(),
+		};
+
+		let head = self.get_sync_label(SyncLabel::Head).await.ok().flatten();
+		let tail = self.get_sync_label(SyncLabel::Tail).await.ok().flatten();
+		let genesis = self.get_sync_label(ChainMetadata::Genesis).await.ok().flatten();
+		let stored_first_evm = self.get_sync_label(ChainMetadata::FirstEvmBlock).await.ok().flatten();
+		let floor = self.receipt_extractor.first_evm_block();
+
+		log::info!(target: LOG_TARGET,
+			"🗄️ DB state: head={}, tail={}, genesis={}, stored first_evm_block={}, \
+			 first_evm_block in effect={}",
+			checkpoint(head),
+			checkpoint(tail),
+			checkpoint(genesis),
+			checkpoint(stored_first_evm),
+			floor.map_or("none (known-networks table or 0)".to_string(), |n| format!("#{n}")),
+		);
 	}
 
 	/// Returns `true` if the block is before the auto-discovered `first_evm_block`.

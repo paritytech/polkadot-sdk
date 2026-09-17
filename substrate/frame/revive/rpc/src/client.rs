@@ -1535,6 +1535,10 @@ impl Client {
 
 				Some(eth_block)
 			},
+			Err(ClientError::BlockNotFound) => {
+				log::debug!(target: LOG_TARGET, "No Ethereum block for hash {:?}", block.block_hash());
+				None
+			},
 			Err(err) => {
 				log::error!(target: LOG_TARGET, "Failed to get Ethereum block for hash {:?}: {err:?}", block.block_hash());
 				None
