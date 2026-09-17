@@ -204,7 +204,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#54 id=54 data-nosnippet>54</a><span class="kw">pub mod </span>weights;
 <a href=#55 id=55 data-nosnippet>55</a>
 <a href=#56 id=56 data-nosnippet>56</a><span class="kw">use crate</span>::{
-<a href=#57 id=57 data-nosnippet>57</a>	access_list::{StorageAccessKind, Warmth},
+<a href=#57 id=57 data-nosnippet>57</a>	access_list::Warmth,
 <a href=#58 id=58 data-nosnippet>58</a>	evm::{
 <a href=#59 id=59 data-nosnippet>59</a>		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
 <a href=#60 id=60 data-nosnippet>60</a>		StateOverrideSet, TYPE_EIP1559, TYPE_EIP7702, Tracer, TracerType,
@@ -215,7 +215,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#65 id=65 data-nosnippet>65</a>	sp_runtime::TransactionOutcome,
 <a href=#66 id=66 data-nosnippet>66</a>	storage::{AccountType, DeletionQueueManager},
 <a href=#67 id=67 data-nosnippet>67</a>	tracing::if_tracing,
-<a href=#68 id=68 data-nosnippet>68</a>	vm::{CodeInfo, RuntimeCosts, pvm::extract_code_and_data},
+<a href=#68 id=68 data-nosnippet>68</a>	vm::{CodeInfo, RuntimeCosts, StorageAccessKind, pvm::extract_code_and_data},
 <a href=#69 id=69 data-nosnippet>69</a>	weightinfo_extension::OnFinalizeBlockParts,
 <a href=#70 id=70 data-nosnippet>70</a>};
 <a href=#71 id=71 data-nosnippet>71</a><span class="kw">use </span>alloc::{boxed::Box, format, vec};
