@@ -16,7 +16,7 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{
-	resubmission::{build_v3_scheduling_proof, resolve_session},
+	resubmission::{resolve_session, sign_v3_scheduling_info},
 	CollatorMessage, CollatorSegmentEntry, CollatorSegmentMessage,
 };
 use crate::{
@@ -43,7 +43,8 @@ use cumulus_client_resubmission_store::prepare_resubmission_aux_data;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	PersistedValidationData, RelayParentOffsetApi, SchedulingV3EnabledApi, TargetBlockRate,
+	PersistedValidationData, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
+	TargetBlockRate,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
@@ -718,86 +719,125 @@ where
 			per_selector_unincluded_headers,
 		}))
 	}
+}
 
-	/// Header chains for the siblings of the chosen scheduling parent, each paired with the
-	/// sibling's hash.
-	///
-	/// [`SchedulingInfo::siblings_at`] returns only siblings that could still win on BABE weight,
-	/// which local fork choice cannot separate until a child arrives. Rather than bet on one, the
-	/// same blocks are advertised under each. A sibling is usable only if its own descendant walk
-	/// lands on the relay parent the blocks were executed against — otherwise it cannot carry
-	/// them, which bounds hedging to forks no deeper than the relay parent offset.
-	async fn sp_hedge_chains(
-		&mut self,
-		cx: &SlotContext<Block, P::Public>,
-	) -> Vec<(RelayHash, Vec<RelayHeader>)> {
-		self.scheduling_info.drain_imports();
+/// The slot-context fields [`sp_hedge_chains`] reads. Split out of [`SlotContext`] so hedging can
+/// be exercised without standing up the whole builder environment.
+pub(crate) struct HedgeContext<'a> {
+	pub v3_enabled: bool,
+	pub relay_parent_offset: u32,
+	pub max_relay_parent_session_age: u32,
+	pub scheduling_parent_header: &'a RelayHeader,
+	pub relay_parent_hash: RelayHash,
+}
 
-		let sp = cx.scheduling_parent_header.hash();
-		let sp_number = cx.scheduling_parent_header.number;
-		let contenders = self.scheduling_info.siblings_at(&cx.scheduling_parent_header);
-		let contender_count = contenders.len();
+/// Derive the hedge inputs from the slot, so a new hedge-relevant [`SlotContext`] field is added
+/// here rather than silently ignored.
+impl<'a, Block: BlockT, Pub> From<&'a SlotContext<Block, Pub>> for HedgeContext<'a> {
+	fn from(cx: &'a SlotContext<Block, Pub>) -> Self {
+		Self {
+			v3_enabled: cx.v3_enabled,
+			relay_parent_offset: cx.relay_parent_offset,
+			max_relay_parent_session_age: cx.max_relay_parent_session_age,
+			scheduling_parent_header: &cx.scheduling_parent_header,
+			relay_parent_hash: cx.relay_parent_hash,
+		}
+	}
+}
 
-		let mut chains = Vec::new();
-		for sibling in contenders {
-			let sp_sibling = sibling.hash();
-			if chains.len() >= MAX_HEDGED_SIBLINGS {
+/// Header chains for the siblings of the chosen scheduling parent, each paired with the
+/// sibling's hash.
+///
+/// [`SchedulingInfo::siblings_at`] returns only siblings that could still win on BABE weight,
+/// which local fork choice cannot separate until a child arrives. Rather than bet on one, the
+/// same blocks are advertised under each. A sibling is usable only if its own descendant walk
+/// lands on the relay parent the blocks were executed against — otherwise it cannot carry
+/// them, which bounds hedging to forks no deeper than the relay parent offset.
+///
+/// Always empty at `relay_parent_offset == 0`: the walk-back then returns the sibling itself
+/// as relay parent, so a sibling implies a different relay parent and cannot share the blocks.
+pub(crate) async fn sp_hedge_chains<RelayClient>(
+	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
+	scheduling_info: &mut SchedulingInfo<RelayClient>,
+	cx: HedgeContext<'_>,
+) -> Vec<(RelayHash, Vec<RelayHeader>)>
+where
+	RelayClient: RelayChainInterface + 'static,
+{
+	if !cx.v3_enabled {
+		return Vec::new();
+	}
+	if cx.relay_parent_offset == 0 {
+		return Vec::new();
+	}
+
+	scheduling_info.drain_imports();
+
+	let sp = cx.scheduling_parent_header.hash();
+	let sp_number = cx.scheduling_parent_header.number;
+	let contenders = scheduling_info.siblings_at(cx.scheduling_parent_header);
+	let contender_count = contenders.len();
+
+	let mut chains = Vec::new();
+	for sibling in contenders {
+		let sp_sibling = sibling.hash();
+		if chains.len() >= MAX_HEDGED_SIBLINGS {
+			tracing::debug!(
+				target: LOG_TARGET,
+				?sp_sibling,
+				reason = "cap",
+				"SP hedge: sibling rejected",
+			);
+			continue;
+		}
+
+		// The blocks were executed against `cx.relay_parent_hash`; a sibling whose walk-back
+		// implies a different relay parent cannot carry them.
+		let descendants = match offset_relay_parent_find_descendants(
+			relay_chain_data_cache,
+			sibling,
+			cx.relay_parent_offset,
+			cx.max_relay_parent_session_age,
+		)
+		.await
+		{
+			Ok(Some(mut data)) if data.relay_parent().hash() == cx.relay_parent_hash => {
+				data.take_descendants()
+			},
+			_ => {
 				tracing::debug!(
 					target: LOG_TARGET,
 					?sp_sibling,
-					reason = "cap",
+					reason = "base",
 					"SP hedge: sibling rejected",
 				);
 				continue;
-			}
+			},
+		};
 
-			// The blocks were executed against `cx.relay_parent_hash`; a sibling whose walk-back
-			// implies a different relay parent cannot carry them.
-			let descendants = match offset_relay_parent_find_descendants(
-				&mut self.relay_chain_data_cache,
-				sibling,
-				cx.relay_parent_offset,
-				cx.max_relay_parent_session_age,
-			)
-			.await
-			{
-				Ok(Some(mut data)) if data.relay_parent().hash() == cx.relay_parent_hash => {
-					data.take_descendants()
-				},
-				_ => {
-					tracing::debug!(
-						target: LOG_TARGET,
-						?sp_sibling,
-						reason = "base",
-						"SP hedge: sibling rejected",
-					);
-					continue;
-				},
-			};
-
-			chains.push((sp_sibling, descendants.into_iter().rev().collect()));
-		}
-
-		if contender_count > 0 {
-			tracing::debug!(
-				target: LOG_TARGET,
-				?sp,
-				sp_number,
-				contenders = contender_count,
-				submitted = chains.len(),
-				"SP hedge: siblings",
-			);
-		}
-
-		chains
+		tracing::debug!(target: LOG_TARGET, ?sp_sibling, "SP hedge: sibling accepted");
+		chains.push((sp_sibling, descendants.into_iter().rev().collect()));
 	}
+
+	if contender_count > 0 {
+		tracing::debug!(
+			target: LOG_TARGET,
+			?sp,
+			sp_number,
+			contenders = contender_count,
+			submitted = chains.len(),
+			"SP hedge: siblings",
+		);
+	}
+
+	chains
 }
 
 /// Sibling scheduling parents hedged against, on top of the chosen one.
 ///
 /// Each sibling costs a whole extra submission: the scheduling proof lives inside the PoV, so the
 /// same blocks are compressed and erasure-coded again per sibling.
-const MAX_HEDGED_SIBLINGS: usize = 3;
+pub(crate) const MAX_HEDGED_SIBLINGS: usize = 3;
 
 /// Run block-builder.
 pub fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>(
@@ -931,6 +971,13 @@ where
 			let mut pov_parent_header = cx.initial_parent_header.clone();
 			let mut pov_parent_hash = cx.initial_parent_hash;
 
+			let hedge_chains = sp_hedge_chains(
+				&mut env.relay_chain_data_cache,
+				&mut env.scheduling_info,
+				(&cx).into(),
+			)
+			.await;
+
 			for blocks_per_core in blocks_per_cores {
 				let core_info = cores.core_info();
 				let this_core_index = cores.core_index();
@@ -993,72 +1040,56 @@ where
 
 				// V3: this core's resubmitted bucket plus the freshly-built bundle (or the bucket
 				// alone); V2: a single collation, only when a fresh block was built.
-				let mut unincluded_headers =
+				let unincluded_headers =
 					per_selector_unincluded_headers.remove(&bucket_idx).unwrap_or_default();
-				let mut bundle = built.map(|BuiltCollation { entry, .. }| entry);
+				let bundle = built.map(|BuiltCollation { entry, .. }| entry);
 
-				// One submission per scheduling parent we hedge across: the chosen one first, then
-				// its siblings. They share the blocks and the storage proof and differ only in the
-				// header chain of the scheduling proof.
-				let mut chains: Vec<(RelayHash, Option<Vec<RelayHeader>>)> =
-					vec![(cx.scheduling_parent_header.hash(), v3_header_chain)];
-				if cx.v3_enabled {
-					chains.extend(
-						env.sp_hedge_chains(&cx)
-							.await
-							.into_iter()
-							.map(|(sibling, chain)| (sibling, Some(chain))),
-					);
-				}
+				// One header chain per scheduling parent hedged across. A single message below
+				// carries one proof per chain, all over the same entries.
+				let v3_header_chains = v3_header_chain.map(|chosen| V3HeaderChains {
+					chosen,
+					hedged: hedge_chains.iter().map(|(_, chain)| chain.clone()).collect(),
+				});
 
-				let last_chain = chains.len() - 1;
-				let mut submitted = 0usize;
-				for (idx, (sp_sibling, v3_header_chain)) in chains.into_iter().enumerate() {
-					// The final submission takes the blocks and proof; earlier ones clone them.
-					let (unincluded_headers, bundle) = if idx == last_chain {
-						(std::mem::take(&mut unincluded_headers), bundle.take())
-					} else {
-						(unincluded_headers.clone(), bundle.clone())
-					};
-
-					let submission = assemble_core_submission::<Block, P>(
-						v3_header_chain,
-						unincluded_headers,
-						bundle,
-						&core_info,
-						this_core_index,
-						&cx.relay_parent_header,
-						cx.slot_claim.author_pub(),
-						collator_peer_id,
-						&env.keystore,
-					);
-
-					let Some(submission) = submission else { continue };
-					if idx > 0 {
-						tracing::debug!(
-							target: LOG_TARGET,
-							?sp_sibling,
-							sp_number = cx.scheduling_parent_header.number,
-							"SP hedge: extra submission",
-						);
-					}
-					if collator_sender.unbounded_send(submission).is_err() {
-						tracing::error!(
-							target: LOG_TARGET,
-							"Unable to send collation to the collation task.",
-						);
-						return;
-					}
-					submitted += 1;
-				}
-
-				if submitted == 0 {
+				if !hedge_chains.is_empty() {
 					tracing::debug!(
 						target: LOG_TARGET,
 						core_index = ?this_core_index,
-						has_fresh,
-						"Nothing to submit for this core.",
+						siblings = ?hedge_chains.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
+						"SP hedge: core hedged across siblings",
 					);
+				}
+
+				let submission = assemble_core_submission::<Block, P>(
+					v3_header_chains,
+					unincluded_headers,
+					bundle,
+					&core_info,
+					this_core_index,
+					&cx.relay_parent_header,
+					cx.slot_claim.author_pub(),
+					collator_peer_id,
+					&env.keystore,
+				);
+
+				match submission {
+					Some(submission) => {
+						if collator_sender.unbounded_send(submission).is_err() {
+							tracing::error!(
+								target: LOG_TARGET,
+								"Unable to send collation to the collation task.",
+							);
+							return;
+						}
+					},
+					None => {
+						tracing::debug!(
+							target: LOG_TARGET,
+							core_index = ?this_core_index,
+							has_fresh,
+							"Nothing to submit for this core.",
+						);
+					},
 				}
 
 				// Pace only when a fresh block was built (nothing to pace on resubmit-only).
@@ -1076,11 +1107,23 @@ where
 	}
 }
 
-/// Assemble one core's submission. V3: the resubmitted unincluded bucket plus the freshly-built
-/// bundle (or the bucket alone), under a scheduling proof signed only when there is something to
-/// submit. V2: a single collation, only when a fresh block was built.
-fn assemble_core_submission<Block, P>(
-	v3_header_chain: Option<Vec<RelayHeader>>,
+/// The V3 header chains covering one core's submission: the chosen scheduling parent's chain plus
+/// one per hedged sibling.
+pub(crate) struct V3HeaderChains {
+	pub chosen: Vec<RelayHeader>,
+	pub hedged: Vec<Vec<RelayHeader>>,
+}
+
+/// Assemble one core's submission. V3: one [`SchedulingProof`] per header chain, all covering the
+/// resubmitted unincluded bucket plus the freshly-built bundle (or the bucket alone). V2: a single
+/// collation, only when a fresh block was built.
+///
+/// The signed payload is independent of the header chain, so it is signed once and cloned into
+/// every proof; a signing failure skips the whole submission.
+///
+/// [`SchedulingProof`]: cumulus_primitives_core::SchedulingProof
+pub(crate) fn assemble_core_submission<Block, P>(
+	v3_header_chains: Option<V3HeaderChains>,
 	unincluded_headers: Vec<Block::Header>,
 	bundle: Option<CollatorSegmentEntry<Block>>,
 	core_info: &CoreInfo,
@@ -1095,38 +1138,42 @@ where
 	P: Pair,
 	P::Public: AppPublic,
 {
-	match v3_header_chain {
-		Some(header_chain) => {
+	match v3_header_chains {
+		Some(V3HeaderChains { chosen, hedged }) => {
 			if unincluded_headers.is_empty() && bundle.is_none() {
 				return None;
 			}
-			let scheduling_proof =
+			let signed =
 				ApprovedPeerId::try_from(collator_peer_id.to_bytes()).ok().and_then(|peer_id| {
-					build_v3_scheduling_proof::<P>(
-						header_chain,
-						relay_parent_header.clone(),
+					sign_v3_scheduling_info::<P>(
+						relay_parent_header.hash(),
 						core_info,
 						peer_id,
 						author_pub,
 						keystore,
 					)
 				});
-			match scheduling_proof {
-				Some(scheduling_proof) => Some(CollatorMessage::Segment(CollatorSegmentMessage {
-					scheduling_proof,
-					core_index,
-					unincluded_headers,
-					bundle,
-				})),
-				None => {
-					tracing::warn!(
-						target: LOG_TARGET,
-						?core_index,
-						"Skipping submission: cannot build signed V3 scheduling proof.",
-					);
-					None
-				},
-			}
+			let Some(signed) = signed else {
+				tracing::warn!(
+					target: LOG_TARGET,
+					?core_index,
+					"Skipping submission: cannot build signed V3 scheduling proof.",
+				);
+				return None;
+			};
+
+			let proof = |header_chain| SchedulingProof {
+				header_chain,
+				internal_scheduling_parent_header: relay_parent_header.clone(),
+				signed_scheduling_info: Some(signed.clone()),
+			};
+			Some(CollatorMessage::Segment(CollatorSegmentMessage {
+				scheduling_proof: proof(chosen),
+				hedged_proofs: hedged.into_iter().map(proof).collect(),
+				core_index,
+				unincluded_headers,
+				bundle,
+			}))
 		},
 		None => bundle.map(|entry| CollatorMessage::Collation { core_index, entry }),
 	}
