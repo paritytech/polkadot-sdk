@@ -5317,6 +5317,7 @@ dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
  "cumulus-primitives-proof-size-hostfunction",
+ "cumulus-primitives-spec-messaging",
  "cumulus-test-client",
  "cumulus-test-relay-sproof-builder",
  "derive-where",
@@ -5502,6 +5503,7 @@ dependencies = [
 name = "cumulus-primitives-core"
 version = "0.7.0"
 dependencies = [
+ "cumulus-primitives-spec-messaging",
  "parity-scale-codec",
  "polkadot-core-primitives",
  "polkadot-parachain-primitives",
