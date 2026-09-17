@@ -3836,4 +3836,67 @@ mod admin {
 			);
 		});
 	}
+
+	fn none_origin() -> OriginCaller {
+		frame_system::RawOrigin::<AccountId>::None.into()
+	}
+
+	fn create_psm_with_none_admin() {
+		assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
+		assert_ok!(Psm::create_psm(
+			RuntimeOrigin::signed(ALICE),
+			NEW_INTERNAL,
+			Box::new(none_origin()),
+			Box::new(none_origin()),
+			INSURANCE_FUND,
+			DEFAULT_MAX_DEBT,
+			DEFAULT_MIN_SWAP,
+		));
+	}
+
+	#[test]
+	fn create_psm_accepts_the_none_origin_as_admin() {
+		new_test_ext().execute_with(|| {
+			create_psm_with_none_admin();
+
+			let admin = crate::PsmAdmin::<Test>::get(NEW_INTERNAL).expect("admin record");
+			assert_eq!(admin.full_admin, none_origin());
+			assert_eq!(admin.emergency_admin, none_origin());
+		});
+	}
+
+	/// The pool rejects unsigned PSM calls, but a block author does not use the pool, and
+	/// `pre_dispatch` admits calls from pallets without a `validate_unsigned` implementation.
+	/// A PSM whose admin is the `None` origin is therefore managed by the block author.
+	#[test]
+	fn unsigned_calls_manage_a_psm_whose_admin_is_the_none_origin() {
+		new_test_ext().execute_with(|| {
+			create_psm_with_none_admin();
+
+			assert_ok!(Psm::set_max_debt(RuntimeOrigin::none(), NEW_INTERNAL, 1));
+			assert_eq!(crate::Psm::<Test>::get(NEW_INTERNAL).unwrap().max_debt, 1);
+
+			assert_ok!(Psm::set_full_admin(
+				RuntimeOrigin::none(),
+				NEW_INTERNAL,
+				Box::new(signed_origin(BOB)),
+			));
+			assert_eq!(
+				crate::PsmAdmin::<Test>::get(NEW_INTERNAL).unwrap().full_admin,
+				signed_origin(BOB)
+			);
+		});
+	}
+
+	#[test]
+	fn a_signed_stranger_cannot_manage_a_psm_whose_admin_is_the_none_origin() {
+		new_test_ext().execute_with(|| {
+			create_psm_with_none_admin();
+
+			assert_noop!(
+				Psm::set_max_debt(RuntimeOrigin::signed(BOB), NEW_INTERNAL, 1),
+				DispatchError::BadOrigin
+			);
+		});
+	}
 }
