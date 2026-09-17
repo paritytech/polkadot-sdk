@@ -198,6 +198,8 @@ pub mod pallet {
 		/// Note: this can be returned even if the funds are sufficient to cover the actual spot
 		/// price.
 		InsufficientFunds,
+		/// The price parameters allow the price to overflow with too many outstanding orders.
+		OrderPriceCanOverflow,
 	}
 
 	#[pallet::hooks]
@@ -230,6 +232,7 @@ pub mod pallet {
 			config: PriceParametersOf<T>,
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			config.validate::<T>()?;
 			PriceConfig::<T>::put(config);
 			Ok(Pays::No.into())
 		}

@@ -18,12 +18,15 @@
 //! Types used by this pallet.
 
 use crate::{
-	Config, RelayBlockNumberOf, DEFAULT_BASE_FEE, DEFAULT_DRAIN_RATE_PER_BLOCK, DEFAULT_ORDER_CAP,
-	DEFAULT_PRICE_STEP,
+	Config, Error, RelayBlockNumberOf, DEFAULT_BASE_FEE, DEFAULT_DRAIN_RATE_PER_BLOCK,
+	DEFAULT_ORDER_CAP, DEFAULT_PRICE_STEP,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use fp_coretime::TaskId;
-use frame_support::traits::{fungible::Inspect, tokens::Balance};
+use frame_support::{
+	pallet_prelude::*,
+	traits::{fungible::Inspect, tokens::Balance},
+};
 use frame_system::Config as SConfig;
 use scale_info::TypeInfo;
 use sp_arithmetic::{
@@ -61,6 +64,21 @@ where
 			price_step: Perbill::from_percent(DEFAULT_PRICE_STEP),
 			base_fee: T::from(DEFAULT_BASE_FEE),
 		}
+	}
+}
+
+impl<Balance> PriceParameters<Balance> {
+	pub(crate) fn validate<T>(&self) -> Result<(), Error<T>>
+	where
+		T: Config,
+		T::Currency: Inspect<<T as SConfig>::AccountId, Balance = Balance>,
+		Balance: frame_support::traits::tokens::Balance,
+	{
+		ensure!(
+			T::PricingProvider::spot_price(self, self.order_cap).is_ok(),
+			Error::<T>::OrderPriceCanOverflow
+		);
+		Ok(())
 	}
 }
 
