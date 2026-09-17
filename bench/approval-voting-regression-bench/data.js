@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789589193950,
+  "lastUpdate": 1789643642197,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bc42349097da2ad8e551e1dde174d3fc79fe8c5b",
-          "message": "frame-omni-bencher: enable  jemalloc-allocator (#11069)\n\nFix huge benchmark regression for storage-heavy extrinsics, enabling\njemalloc-allocator via polkadot-jemalloc-shim for omni-bencher, marked\nas optional in the scope of PR #10590.\n\nThis close https://github.com/paritytech/trie/issues/230.\n\nThanks @alexggh and @cheme for the help :bow: \n\nTested against `runtime / main` and\n[2.1.0](https://github.com/polkadot-fellows/runtimes/pull/1065) as\ndescribed\n[here](https://github.com/paritytech/trie/issues/230#issuecomment-3896270293).\nFor the `usual` exstrinsic `force_apply_min_commission` doing massive\nstorage allocation/deallocation on benchmark setup and then just 1read -\n2 write in the benchmark extrinsic itself, times goes down from ms to\nµs.\n\nThe regression was introduced by #10590 `sc-client-db: Make jemalloc\noptional`\n\n```bash\nruntimes git:(sigurpol-release-2_0_6) /home/paolo/github/polkadot-sdk/target/release/frame-omni-bencher v1 benchmark pallet --runtime ./target/release/wbuild/asset-hub-polkadot-runtime/asset_hub_polkadot_runtime.compact.compressed.wasm --pallet pallet_staking_async --extrinsic \"force_apply_min_commission\" --steps 2 --repeat 1\n2026-02-13T15:06:30.145367Z  INFO frame::benchmark::pallet: Initialized runtime log filter to 'INFO'\n2026-02-13T15:06:31.784936Z  INFO pallet_collator_selection::pallet: assembling new collators for new session 0 at #0\n2026-02-13T15:06:31.784966Z  INFO pallet_collator_selection::pallet: assembling new collators for new session 1 at #0\n2026-02-13T15:08:29.701636Z  INFO frame::benchmark::pallet: [  0 % ] Starting benchmark: pallet_staking_async::force_apply_min_commission\n2026-02-13T15:08:35.130403Z  INFO frame::benchmark::pallet: [  0 % ] Running  benchmark: pallet_staking_async::force_apply_min_commission (overtime)\nPallet: \"pallet_staking_async\", Extrinsic: \"force_apply_min_commission\", Lowest values: [], Highest values: [], Steps: 2, Repeat: 1\nRaw Storage Info\n========\nStorage: `Staking::MinCommission` (r:1 w:0)\nProof: `Staking::MinCommission` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)\nStorage: `Staking::Validators` (r:1 w:1)\nProof: `Staking::Validators` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)\n\nMedian Slopes Analysis\n========\n-- Extrinsic Time --\n\nModel:\nTime ~=    50.31\n              µs\n\nReads = 2\nWrites = 1\nRecorded proof Size = 564\n\nMin Squares Analysis\n========\n-- Extrinsic Time --\n\nModel:\nTime ~=    50.31\n              µs\n\nReads = 2\nWrites = 1\nRecorded proof Size = 564\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-02-15T23:36:37Z",
-          "tree_id": "22330ac510c1ba76b6ba2d7475458b0872eb5dd5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bc42349097da2ad8e551e1dde174d3fc79fe8c5b"
-        },
-        "date": 1771202626880,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63627.81,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52948.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.65084910377,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8254545677300203,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6471572099899983,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002373233,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00003110163,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002373233,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6945428722100013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3274799222999945,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.536203332243067,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.682007424089999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.832630288080015,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005139187990000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00003110163,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution/test-environment",
             "value": 0.000023882399999999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dccf478651c2253e490796f86160fedbe55670a9",
+          "message": "pallet-revive: separate slot warmth from storage access pricing (#13013)\n\n### Summary\nThe access list only tracks persistent storage, but\n`touch_storage_access` and `peek_storage_access` took a `transient` flag\nanyway and returned a pricing value rather than slot warmth. The two\nconcerns are now separated: the access list reports slot warmth, and the\npricing value is built by the storage operation itself.\n\n### Changes\n1. The access list reports slot warmth only; it no longer knows about\ntransient storage.\n2. The pricing value lives next to the pricing code and carries both\ninputs it needs: the slot's warmth and the operation being performed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-17T09:38:45Z",
+          "tree_id": "22c4e46b9bdb74ea49b5d74a59012888133ea769",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dccf478651c2253e490796f86160fedbe55670a9"
+        },
+        "date": 1789643608186,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63566.29,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52938.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018273699999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002432437,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.77983054118,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005314334360000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3154909742499963,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.342002535722617,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7394471486099983,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7467995627200006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002432437,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018273699999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.839135279849962,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.774509783199999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.20052762416996,
             "unit": "seconds"
           }
         ]
