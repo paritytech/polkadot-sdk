@@ -154,8 +154,6 @@ pub mod pallet {
 		RevenueInfoRequested { when: BlockNumberFor<T> },
 		/// A core has received a new assignment from the broker chain.
 		CoreAssigned { core: CoreIndex },
-		/// A batch of on-demand orders from the broker chain has been queued.
-		BatchQueued { batch: Vec<(ParaId, BlockNumberFor<T>)> },
 	}
 
 	#[pallet::error]
@@ -267,7 +265,6 @@ pub mod pallet {
 			Self::ensure_root_or_para(origin, T::BrokerId::get().into())?;
 
 			<on_demand::Pallet<T>>::queue_order_batch(&batch)?;
-			Self::deposit_event(Event::<T>::BatchQueued { batch });
 			Ok(())
 		}
 	}
