@@ -165,6 +165,10 @@ here: write the content by hand. List the affected published crates and assess t
 compatibility impact. A new variant in a public exhaustive enum or a required method on a public
 trait can break downstream code even if the change looks additive locally.
 
+The `R0-silent` label exempts a PR from requiring a prdoc. The
+`R0-no-crate-publish-required` label means no crates need publishing; it does not waive the prdoc
+requirement. Apply both when both conditions hold.
+
 Keep the prdoc up to date as the implementation and scope change. Before requesting review or
 merging, compare it with the final diff: update migration instructions, audiences, crate entries,
 and version bumps, and remove stale claims. Verify examples against the resulting interface. The
