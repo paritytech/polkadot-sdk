@@ -356,7 +356,6 @@ async fn run_wave(
 	// expectation matches, and report whatever still disagrees at the deadline.
 	let deadline = Instant::now() + Duration::from_secs(PLACEMENT_TIMEOUT_SECS);
 	loop {
-
 		let snapshots =
 			futures::future::try_join_all(nodes.iter().map(|handle| store_snapshot(&handle.rpc)))
 				.await?;
