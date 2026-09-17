@@ -223,6 +223,13 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 			match relay_client.import_notification_stream().await {
 				Ok(import_notifications) => {
 					self.import_notifications = import_notifications.fuse();
+					if import_only_reinit {
+						tracing::warn!(
+							target: crate::LOG_TARGET,
+							"Relay chain import notification stream terminated while the \
+							best-block stream stayed alive; SP-fork hedging was blind until now."
+						);
+					}
 				},
 				Err(err) => tracing::error!(
 					target: crate::LOG_TARGET,
@@ -231,14 +238,6 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 					Scheduling parent siblings will not be visible."
 				),
 			}
-		}
-
-		if import_only_reinit {
-			tracing::warn!(
-				target: crate::LOG_TARGET,
-				"Relay chain import notification stream terminated while the best-block stream \
-				stayed alive; SP-fork hedging was blind until now."
-			);
 		}
 
 		let best_relay_block_data =
@@ -253,7 +252,11 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 					return None;
 				},
 			};
-		self.maybe_best_relay_header = Some(best_relay_block_data.relay_header.clone());
+		// Only a fresh best-block stream has lost the leaf `wait_for_scheduling_parent` was
+		// holding; an import-only reinit must not discard it.
+		if !import_only_reinit {
+			self.maybe_best_relay_header = Some(best_relay_block_data.relay_header.clone());
+		}
 
 		Some(best_relay_block_data)
 	}
@@ -508,6 +511,12 @@ mod tests {
 		live_import_tx.close_channel();
 		import_only_info.drain_imports();
 		assert_eq!(import_only_info.should_reinit(), true);
+
+		// ...and the import-only reinit must leave the best leaf carried over by
+		// `wait_for_scheduling_parent` alone, even though the client's best block has moved on.
+		import_only_info.maybe_best_relay_header = Some(best_header.clone());
+		import_only_info.ensure_initialized(&client, &mut cache).await;
+		assert_eq!(import_only_info.maybe_best_relay_header.as_ref(), Some(&best_header));
 	}
 
 	/// Test the original bug scenario: relay block propagation exceeds `slot_offset`,

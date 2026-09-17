@@ -341,7 +341,7 @@ struct CollatorSegmentEntry<Block: BlockT> {
 	/// The built blocks bundled into this entry.
 	pub blocks: Vec<Block>,
 	/// The storage proof collected while building all of `blocks`.
-	pub proof: StorageProof,
+	pub proof: Arc<StorageProof>,
 	/// The validation code hash at the parent block.
 	pub validation_code_hash: ValidationCodeHash,
 	/// The persisted validation data for this entry.
