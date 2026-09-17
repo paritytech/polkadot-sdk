@@ -171,16 +171,14 @@ impl<Block: BlockT> CollatorMessage<Block> {
 			},
 			CollatorMessage::Segment(CollatorSegmentMessage {
 				scheduling_proof,
+				hedged_proofs,
 				core_index,
 				unincluded_headers,
 				bundle,
 			}) => {
-				// Segments are V3-only, so the scheduling parent is always derived from the proof.
-				let scheduling_parent = scheduling_proof.scheduling_parent();
-
 				// Hydrate the resubmitted unincluded segment here (proof/body reads), off the
 				// block-production hot path, then prepend it (oldest first) to the freshly-built
-				// entries.
+				// entries. Done once and reused for every scheduling proof below.
 				let mut all_entries = super::unincluded_segment::hydrate_segment(
 					unincluded_headers,
 					para_backend,
@@ -192,65 +190,90 @@ impl<Block: BlockT> CollatorMessage<Block> {
 				let total_entries = all_entries.len();
 				let fresh = total_entries.saturating_sub(resubmitted);
 
-				// Entries that fail to build or whose session lookup fails are skipped — they do
-				// not abort the whole segment.
-				let mut collations = Vec::with_capacity(all_entries.len());
-				for entry in all_entries {
-					if let Some(collation) = build_collation(
-						entry,
-						Some(scheduling_proof.clone()),
-						collator_service,
-						&relay_client,
-						export_pov.clone(),
-					)
-					.await
-					{
-						collations.push(collation);
-					}
-				}
+				// The chosen scheduling parent's proof comes first, so its segment is dispatched
+				// before any hedge work starts — hedging must never delay the primary submission.
+				let mut proofs =
+					std::iter::once(scheduling_proof).chain(hedged_proofs).enumerate().peekable();
+				while let Some((index, scheduling_proof)) = proofs.next() {
+					// Logged on every dispatch: `scheduling_parent` names the sibling a rejected
+					// submission belongs to, `hedged` separates it from the primary one.
+					let scheduling_parent = scheduling_proof.scheduling_parent();
+					let hedged = index > 0;
 
-				if collations.is_empty() {
+					// Only the last submission can consume the entries; earlier ones still need
+					// them, so the common (unhedged) single-proof case pays no clone at all.
+					let entries = if proofs.peek().is_some() {
+						all_entries.clone()
+					} else {
+						std::mem::take(&mut all_entries)
+					};
+
+					// Entries that fail to build or whose session lookup fails are skipped — they
+					// do not abort the whole segment.
+					let mut collations = Vec::with_capacity(entries.len());
+					for entry in entries {
+						if let Some(collation) = build_collation(
+							entry,
+							Some(scheduling_proof.clone()),
+							collator_service,
+							&relay_client,
+							export_pov.clone(),
+						)
+						.await
+						{
+							collations.push(collation);
+						}
+					}
+
+					if collations.is_empty() {
+						tracing::debug!(
+							target: LOG_TARGET,
+							?core_index,
+							?scheduling_parent,
+							hedged,
+							resubmitted,
+							fresh,
+							"No collations built for segment; nothing submitted for core.",
+						);
+						continue;
+					}
+
+					if collations.len() > MAX_SEGMENT_LEN as usize {
+						tracing::warn!(
+							target: LOG_TARGET,
+							?core_index,
+							?scheduling_parent,
+							hedged,
+							segment_len = collations.len(),
+							max = MAX_SEGMENT_LEN,
+							"Segment exceeds MAX_SEGMENT_LEN; truncating.",
+						);
+					}
+
 					tracing::debug!(
 						target: LOG_TARGET,
 						?core_index,
+						?scheduling_parent,
+						hedged,
+						segment_len = collations.len(),
 						resubmitted,
 						fresh,
-						"No collations built for segment; nothing submitted for core.",
+						dropped = total_entries.saturating_sub(collations.len()),
+						"Submitting segment for core.",
 					);
-					return;
+
+					overseer_handle
+						.send_msg(
+							CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
+								scheduling_parent,
+								core_index,
+								candidates_descriptor_version: CandidateDescriptorVersion::V3,
+								collations: sp_runtime::BoundedVec::truncate_from(collations),
+							}),
+							"SubmitSegment",
+						)
+						.await;
 				}
-
-				if collations.len() > MAX_SEGMENT_LEN as usize {
-					tracing::warn!(
-						target: LOG_TARGET,
-						?core_index,
-						segment_len = collations.len(),
-						max = MAX_SEGMENT_LEN,
-						"Segment exceeds MAX_SEGMENT_LEN; truncating.",
-					);
-				}
-
-				tracing::debug!(
-					target: LOG_TARGET,
-					?core_index,
-					segment_len = collations.len(),
-					resubmitted,
-					fresh,
-					dropped = total_entries.saturating_sub(collations.len()),
-					"Submitting segment for core.",
-				);
-
-				overseer_handle
-					.send_msg(
-						CollationGenerationMessage::SubmitSegment(SubmitSegmentParams {
-							scheduling_parent,
-							core_index,
-							candidates_descriptor_version: CandidateDescriptorVersion::V3,
-							collations: sp_runtime::BoundedVec::truncate_from(collations),
-						}),
-						"SubmitSegment",
-					)
-					.await;
 			},
 		}
 	}
