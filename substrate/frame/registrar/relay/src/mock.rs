@@ -95,11 +95,6 @@ impl ParachainRegistrar for MockRegistrar {
 		Ok(())
 	}
 
-	fn is_deregistering(_para_id: ParaId) -> bool {
-		// TODO(ahm-v2): track deregistering paras in the mock.
-		false
-	}
-
 	fn is_registered(para_id: ParaId) -> bool {
 		AlreadyKnown::get().contains(&para_id) ||
 			Onboarded::get().iter().any(|(id, ..)| *id == para_id)

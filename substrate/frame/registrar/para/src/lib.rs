@@ -152,8 +152,9 @@ pub enum RegistrationState<Ticket, BlockNumber> {
 	Deregistering {
 		/// The registration's [`Consideration`] ticket, released once the relay chain confirms.
 		ticket: Ticket,
-		/// The block from which the manager may ask again, if the answer never arrived.
-		cancellable_at: BlockNumber,
+		/// The block from which the manager may send the [`Deregister`] again, if the answer
+		/// never arrived.
+		can_retry_after: BlockNumber,
 	},
 }
 
@@ -428,11 +429,6 @@ pub mod pallet {
 				MessageToPara::V1(MessageToParaV1::HeadNoted { para_id }) => {
 					Self::on_head_noted(para_id)
 				},
-				MessageToPara::V1(MessageToParaV1::CancelDeregistrationResponse {
-					para_id,
-					message_id,
-					outcome,
-				}) => Self::on_cancel_deregistration_response(para_id, message_id, outcome),
 			}
 		}
 
@@ -619,14 +615,6 @@ pub mod pallet {
 
 		#[pallet::call_index(7)]
 		#[pallet::weight(Weight::MAX)]
-		pub fn cancel_deregistration(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
-			let _ = (origin, para_id);
-			// TODO(ahm-v2): ask the relay chain to cancel a pending deregistration.
-			Err(Error::<T>::Unimplemented.into())
-		}
-
-		#[pallet::call_index(8)]
-		#[pallet::weight(Weight::MAX)]
 		pub fn schedule_code_upgrade(
 			origin: OriginFor<T>,
 			para_id: ParaId,
@@ -638,7 +626,7 @@ pub mod pallet {
 			Err(Error::<T>::Unimplemented.into())
 		}
 
-		#[pallet::call_index(9)]
+		#[pallet::call_index(8)]
 		#[pallet::weight(Weight::MAX)]
 		pub fn set_current_head(
 			origin: OriginFor<T>,
@@ -650,7 +638,7 @@ pub mod pallet {
 			Err(Error::<T>::Unimplemented.into())
 		}
 
-		#[pallet::call_index(10)]
+		#[pallet::call_index(9)]
 		#[pallet::weight(Weight::MAX)]
 		pub fn force_register(
 			origin: OriginFor<T>,
@@ -868,16 +856,6 @@ impl<T: Config> Pallet<T> {
 	fn on_set_head_response(para_id: ParaId, message_id: u64, outcome: Outcome) -> DispatchResult {
 		let _ = (para_id, message_id, outcome);
 		// TODO(ahm-v2): settle the pending head update from the relay chain's answer.
-		Err(Error::<T>::Unimplemented.into())
-	}
-
-	fn on_cancel_deregistration_response(
-		para_id: ParaId,
-		message_id: u64,
-		outcome: Outcome,
-	) -> DispatchResult {
-		let _ = (para_id, message_id, outcome);
-		// TODO(ahm-v2): settle the pending cancellation from the relay chain's answer.
 		Err(Error::<T>::Unimplemented.into())
 	}
 }

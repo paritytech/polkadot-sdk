@@ -596,11 +596,6 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		Paras::<T>::contains_key(id) || paras::Pallet::<T>::lifecycle(id).is_some()
 	}
 
-	fn is_deregistering(_para_id: u32) -> bool {
-		// TODO(ahm-v2): report whether a deregistration is already pending for this para.
-		false
-	}
-
 	fn register(
 		manager: T::AccountId,
 		para_id: u32,

@@ -2695,10 +2695,6 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 		false
 	}
 
-	fn is_deregistering(_para_id: registrar_primitives::ParaId) -> bool {
-		false
-	}
-
 	fn register(
 		_manager: AccountId,
 		_para_id: registrar_primitives::ParaId,
