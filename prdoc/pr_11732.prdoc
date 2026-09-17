@@ -71,3 +71,5 @@ crates:
   bump: patch
 - name: pallet-staking-async-rc-runtime-constants
   bump: patch
+- name: testnet-parachains-constants
+  bump: patch

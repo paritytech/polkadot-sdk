@@ -195,7 +195,7 @@ mod tests {
 		fee::WeightToFee,
 	};
 	use crate::weights::ExtrinsicBaseWeight;
-	use frame_support::weights::WeightToFee as WeightToFeeT;
+	use frame_support::weights::{Weight, WeightToFee as WeightToFeeT};
 	use polkadot_runtime_common::MAXIMUM_BLOCK_WEIGHT;
 
 	#[test]
@@ -210,9 +210,12 @@ mod tests {
 	#[test]
 	// This function tests that the fee for `ExtrinsicBaseWeight` of weight is correct
 	fn extrinsic_base_fee_is_correct() {
-		// `ExtrinsicBaseWeight` should cost 1/10 of a CENT
-		println!("Base: {}", ExtrinsicBaseWeight::get());
-		let x = WeightToFee::weight_to_fee(&ExtrinsicBaseWeight::get());
+		// The smallest non-zero weight of a dispatched extrinsic - `ExtrinsicBaseWeight` plus the
+		// signature weight it no longer includes - should cost 1/10 of a CENT.
+		let smallest_weight =
+			ExtrinsicBaseWeight::get().saturating_add(Weight::from_parts(42_814_000, 0));
+		println!("Base: {}", smallest_weight);
+		let x = WeightToFee::weight_to_fee(&smallest_weight);
 		let y = CENTS / 10;
 		assert!(x.max(y) - x.min(y) < MILLICENTS);
 	}
