@@ -300,6 +300,7 @@ members = [
 	"substrate/client/network/transactions",
 	"substrate/client/network/types",
 	"substrate/client/offchain",
+	"substrate/client/price-oracle",
 	"substrate/client/proposer-metrics",
 	"substrate/client/rpc",
 	"substrate/client/rpc-api",
@@ -1291,6 +1292,7 @@ sc-network-test = { path = "substrate/client/network/test" }
 sc-network-transactions = { path = "substrate/client/network/transactions", default-features = false }
 sc-network-types = { path = "substrate/client/network/types", default-features = false }
 sc-offchain = { path = "substrate/client/offchain", default-features = false }
+sc-price-oracle = { path = "substrate/client/price-oracle", default-features = false }
 sc-proposer-metrics = { path = "substrate/client/proposer-metrics", default-features = false }
 sc-rpc = { path = "substrate/client/rpc", default-features = false }
 sc-rpc-api = { path = "substrate/client/rpc-api", default-features = false }

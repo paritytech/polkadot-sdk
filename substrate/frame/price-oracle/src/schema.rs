@@ -148,8 +148,8 @@ impl ResponseSchema {
 			ResponseSchema::OrderBook { bids, asks, layout } => {
 				let mut bids = read_levels(follow(&doc, bids)?, layout)?;
 				let mut asks = read_levels(follow(&doc, asks)?, layout)?;
-				bids.sort_unstable_by(|a, b| b.price.cmp(&a.price));
-				asks.sort_unstable_by(|a, b| a.price.cmp(&b.price));
+				bids.sort_unstable_by_key(|level| core::cmp::Reverse(level.price));
+				asks.sort_unstable_by_key(|level| level.price);
 				Ok(Parsed::OrderBook(OrderBook { bids, asks }))
 			},
 			ResponseSchema::Trades { trades, time, format } => {

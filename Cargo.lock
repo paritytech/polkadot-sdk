@@ -22398,6 +22398,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "sc-price-oracle"
+version = "0.1.0"
+dependencies = [
+ "array-bytes 6.2.2",
+ "bytes",
+ "futures",
+ "http-body-util",
+ "hyper 1.6.0",
+ "hyper-rustls 0.27.3",
+ "hyper-util",
+ "log",
+ "parity-scale-codec",
+ "parking_lot 0.12.3",
+ "rustls 0.23.31",
+ "sc-keystore",
+ "sc-network 0.34.0",
+ "sc-network-gossip",
+ "sc-network-types 0.10.0",
+ "sp-api 26.0.0",
+ "sp-application-crypto 30.0.0",
+ "sp-blockchain 28.0.0",
+ "sp-consensus 0.32.0",
+ "sp-consensus-aura",
+ "sp-core 28.0.0",
+ "sp-keystore 0.34.0",
+ "sp-price-oracle",
+ "sp-runtime 31.0.1",
+ "substrate-prometheus-endpoint 0.17.0",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "sc-proposer-metrics"
 version = "0.17.0"
 dependencies = [
