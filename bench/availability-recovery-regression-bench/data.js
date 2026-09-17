@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789589109156,
+  "lastUpdate": 1789643555413,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "adrian@parity.io",
-            "name": "Adrian Catangiu",
-            "username": "acatangiu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "13236110860ec5003dfe8844ff27a4a7eda7cf62",
-          "message": "XCM executor keeps track and resolves all imbalances created by XCM operations (#10384)\n\nIntroduce \"ImbalanceAccounting\" traits for dynamic dispatch management\nof imbalances. These are helper traits to be used for generic Imbalance,\nhelpful for tracking multiple concrete types of `Imbalance` using\ndynamic dispatch of these traits.\n\n`xcm-executor` now tracks imbalances in holding.\n\nChange the xcm executor implementation and inner types and adapters so\nthat it keeps track of imbalances across the stack.\n\nPreviously, XCM operations on fungible assets would break the respective\nfungibles' total issuance invariants by burning and minting them in\ndifferent stages of XCM processing pipeline.\n\nThis commit fixes that by keeping track of the \"withdrawn\" or\n\"deposited\" fungible assets in holding and other XCM registers as\nimbalances. The imbalances are tied to the underlying pallet managing\nthe asset so that they keep the assets' total issuance correctness\nthroughout the execution of the XCM program.\n\nImbalances in XCM registers are resolved by the underlying pallets\nmanaging them whenever they move from XCM registers to other parts of\nthe stack (e.g. deposited to accounts, burned, etc).\n\nXCM emulated tests now also verify total issuance before/after\ntransfers, swaps, traps, claims, etc to guarantee implementation\ncorrectness.\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Daniel Shiposha <dev@shiposha.com>\nCo-authored-by: Francisco Aguirre <franciscoaguirreperez@gmail.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: 0xRVE <robertvaneerdewijk@gmail.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>\nCo-authored-by: Manuel Mauro <manuel.mauro@protonmail.com>\nCo-authored-by: Alexandre R. Baldé <alexandre.balde@parity.io>\nCo-authored-by: Omar <OmarAbdulla7@hotmail.com>\nCo-authored-by: BDevParity <bruno.devic@parity.io>\nCo-authored-by: Egor_P <egor@parity.io>\nCo-authored-by: Andrei Eres <eresav@me.com>\nCo-authored-by: Klapeyron <11329616+Klapeyron@users.noreply.github.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>\nCo-authored-by: Xavier Lau <x@acg.box>\nCo-authored-by: Dónal Murray <donal.murray@parity.io>",
-          "timestamp": "2026-02-16T10:47:52Z",
-          "tree_id": "2b4879ee2258b11f546c8c21980a9a85ba19830b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/13236110860ec5003dfe8844ff27a4a7eda7cf62"
-        },
-        "date": 1771243606377,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12108634073333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.0694237594,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13526691086666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dccf478651c2253e490796f86160fedbe55670a9",
+          "message": "pallet-revive: separate slot warmth from storage access pricing (#13013)\n\n### Summary\nThe access list only tracks persistent storage, but\n`touch_storage_access` and `peek_storage_access` took a `transient` flag\nanyway and returned a pricing value rather than slot warmth. The two\nconcerns are now separated: the access list reports slot warmth, and the\npricing value is built by the storage operation itself.\n\n### Changes\n1. The access list reports slot warmth only; it no longer knows about\ntransient storage.\n2. The pricing value lives next to the pricing code and carries both\ninputs it needs: the slot's warmth and the operation being performed.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-17T09:38:45Z",
+          "tree_id": "22c4e46b9bdb74ea49b5d74a59012888133ea769",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/dccf478651c2253e490796f86160fedbe55670a9"
+        },
+        "date": 1789643520995,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.434669363466668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14657388703333335,
             "unit": "seconds"
           }
         ]
