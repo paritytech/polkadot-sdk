@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789670403751,
+  "lastUpdate": 1789679679063,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -224447,6 +224447,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2491853965,
             "range": "± 83723283",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dharjeezy@gmail.com",
+            "name": "dharjeezy",
+            "username": "dharjeezy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4bf6d91ddb771991001e628477900e129e3cb2c3",
+          "message": "fatxpool: hold the transaction pool as a trait object instead of a wrapper (#12845)\n\n`TransactionPoolWrapper` was a struct wrapping a boxed transaction pool,\nexisting only to give it a sized type, at the cost of ~190 lines\nforwarding every trait method to the inner box. `TransactionPoolHandle`\nis now a type alias for the trait object itself rather than for that\nwrapper, so the forwarding layer is gone and `Builder::build` hands back\nan `Arc<TransactionPoolHandle<Block>>` instead of a wrapper by value.\n\nThis also folds in #12942. `FullClientTransactionPool` no longer carries\na `Client` type parameter: all three of its associated types are\nprojections that discard the client, so `Hash`, `InPoolTransaction` and\n`Error` are spelled out in terms of `Block` alone. Naming them that way\nrequired exporting `sc_transaction_pool::error` and\n`sc_transaction_pool::Transaction`.\n\n`BuildNetworkParams`, `BuildNetworkAdvancedParams`, `SpawnTasksParams`\nand `GenRpcModuleParams` keep a generic transaction pool parameter,\nrelaxed to `?Sized` so the trait object can be passed in. The service\ntherefore does not pin the pool's error or in-pool transaction type, and\nan alternative pool implementation is free to define its own. What those\nentry points no longer do is constrain the client on the transaction\npool's behalf: the `BlockIdTo` and `TaggedTransactionQueue` bounds that\nonly existed to build a pool are gone from `build_network`,\n`build_network_advanced`, `spawn_tasks`, `gen_rpc_module` and the\ncumulus `build_network`.\n\nThe client capabilities each side genuinely needs are each spelled out\nonce:\n\n- `sc_transaction_pool::ClientForTransactionPool`, for building a pool.\nUsed by the `Builder` and internally by `FullChainApi`,\n`BasicPool::new_full` and `ForkAwareTxPool::new_full`. It does not pin\nthe `BlockIdTo` error, so a hand written client is free to choose its\nown.\n- `sc_service::ClientForService`, for the service entry points, in the\nsame shape as the existing `ClientForGrandpa` and with each entry point\nadding only the few capabilities it genuinely uses on top.\n\nComponents holding the pool behind an `Arc` stay generic over the pool\ntype and accept unsized pools now, which is a relaxation requiring no\nchanges on their side.\n\ncloses #5489\ncloses #12942\n\n---------\n\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
+          "timestamp": "2026-09-17T19:58:26Z",
+          "tree_id": "d2777dd8a34588efbedd923f7519a3ab5bbeff2b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4bf6d91ddb771991001e628477900e129e3cb2c3"
+        },
+        "date": 1789679639383,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4471017,
+            "range": "± 101735",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 291385,
+            "range": "± 4673",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4574933,
+            "range": "± 76734",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 367221,
+            "range": "± 16909",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5059972,
+            "range": "± 151479",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 927080,
+            "range": "± 29074",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11073485,
+            "range": "± 324317",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5062725,
+            "range": "± 100711",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 46993039,
+            "range": "± 2774663",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 39060474,
+            "range": "± 983709",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 375162871,
+            "range": "± 8558189",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 320965329,
+            "range": "± 7151289",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2825428062,
+            "range": "± 53417556",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2515755712,
+            "range": "± 58242419",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3430685,
+            "range": "± 62082",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1868543,
+            "range": "± 17593",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3489082,
+            "range": "± 151864",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1906191,
+            "range": "± 5446",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3973497,
+            "range": "± 54352",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2261141,
+            "range": "± 67568",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8068604,
+            "range": "± 186529",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5319040,
+            "range": "± 271482",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 39742241,
+            "range": "± 1668754",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37027622,
+            "range": "± 1055296",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 330620656,
+            "range": "± 38277588",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 289496001,
+            "range": "± 13684838",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2651244306,
+            "range": "± 49515525",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2757393533,
+            "range": "± 113895687",
             "unit": "ns/iter"
           }
         ]
