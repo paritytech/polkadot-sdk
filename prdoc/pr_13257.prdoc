@@ -21,4 +21,4 @@ doc:
     - New test `unwhitelisting_pauses_but_does_not_cancel_deferral` pinning the behaviour.
 crates:
 - name: pallet-whitelist
-  bump: patch
+  bump: none
