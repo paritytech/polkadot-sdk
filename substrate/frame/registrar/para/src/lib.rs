@@ -139,6 +139,8 @@ pub enum RegistrationState<Ticket, BlockNumber> {
 		/// really has gone quiet. Pushed out again by every [`Pallet::cancel_registration`], so a
 		/// cancellation that gets lost can be retried but not spammed.
 		cancellable_at: BlockNumber,
+		/// The request this state is waiting on; a response carrying any other id is stale.
+		message_id: u64,
 	},
 	/// The relay chain has onboarded this para.
 	Registered {
@@ -155,6 +157,8 @@ pub enum RegistrationState<Ticket, BlockNumber> {
 		/// The block from which the manager may send the [`Deregister`] again, if the answer
 		/// never arrived.
 		can_retry_after: BlockNumber,
+		/// The request this state is waiting on; a response carrying any other id is stale.
+		message_id: u64,
 	},
 }
 
@@ -337,6 +341,8 @@ pub mod pallet {
 		CancelRefused { para_id: ParaId, message_id: u64, reason: FailureReason },
 		/// A head was noted for a para that is not registered.
 		HeadNotedForUnregisteredPara { para_id: ParaId },
+		/// A response answering a request this pallet is no longer waiting on.
+		StaleResponse { para_id: ParaId, message_id: u64, expected: u64 },
 	}
 
 	#[pallet::error]
@@ -503,11 +509,11 @@ pub mod pallet {
 
 			let cancellable_at = T::BlockNumberProvider::current_block_number()
 				.saturating_add(T::PendingDeadline::get());
-			info.state = RegistrationState::Pending { ticket, cancellable_at };
+			let message_id = Self::next_message_id();
+			info.state = RegistrationState::Pending { ticket, cancellable_at, message_id };
 			Paras::<T>::insert(para_id, info);
 
 			// A transport failure returns `Err` and unwinds everything above, ticket included.
-			let message_id = Self::next_message_id();
 			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::Register {
 				para_id,
 				message_id,
@@ -543,7 +549,7 @@ pub mod pallet {
 
 			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
 			ensure!(info.manager == who, Error::<T>::NotOwner);
-			let RegistrationState::Pending { ticket, cancellable_at } = info.state else {
+			let RegistrationState::Pending { ticket, cancellable_at, .. } = info.state else {
 				return Err(Error::<T>::NotPending.into());
 			};
 			let now = T::BlockNumberProvider::current_block_number();
@@ -551,14 +557,15 @@ pub mod pallet {
 
 			// Another deadline's grace before the manager may ask again, so a request that goes
 			// missing can be retried without the relay chain being asked once per block.
+			let message_id = Self::next_message_id();
 			info.state = RegistrationState::Pending {
 				ticket,
 				cancellable_at: now.saturating_add(T::PendingDeadline::get()),
+				message_id,
 			};
 			Paras::<T>::insert(para_id, info);
 
 			// A transport failure returns `Err` and unwinds the new deadline with it.
-			let message_id = Self::next_message_id();
 			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::CancelRegistration {
 				para_id,
 				message_id,
@@ -721,13 +728,21 @@ impl<T: Config> Pallet<T> {
 			});
 			return Ok(());
 		};
-		let RegistrationState::Pending { ticket, .. } = info.state else {
+		let RegistrationState::Pending { ticket, message_id: expected, .. } = info.state else {
 			Self::report_unexpected(UnexpectedKind::RegisterResponseNotPending {
 				para_id,
 				message_id,
 			});
 			return Ok(());
 		};
+		if message_id != expected {
+			Self::report_unexpected(UnexpectedKind::StaleResponse {
+				para_id,
+				message_id,
+				expected,
+			});
+			return Ok(());
+		}
 
 		let manager = info.manager.clone();
 		match outcome {
@@ -792,13 +807,21 @@ impl<T: Config> Pallet<T> {
 			});
 			return Ok(());
 		};
-		let RegistrationState::Pending { ticket, .. } = info.state else {
+		let RegistrationState::Pending { ticket, message_id: expected, .. } = info.state else {
 			log::debug!(
 				target: "runtime::registrar-para",
 				"cancel response for para {para_id} which is no longer pending, dropping",
 			);
 			return Ok(());
 		};
+		if message_id != expected {
+			Self::report_unexpected(UnexpectedKind::StaleResponse {
+				para_id,
+				message_id,
+				expected,
+			});
+			return Ok(());
+		}
 
 		let manager = info.manager.clone();
 		match outcome {
