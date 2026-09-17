@@ -1,0 +1,14 @@
+title: 'pallet-psm: reject the `None` origin as a PSM admin'
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    A PSM admin could be set to the system `None` origin. The pool rejects unsigned PSM
+    calls, but a block author bypasses the pool, so such a PSM would be managed by whoever
+    authors the block.
+
+    The `None` origin is now rejected both when storing an admin, via the new
+    `Error::InvalidAdminOrigin`, and when checking one in `ensure_psm_admin`. The latter
+    also covers admin records already in storage.
+crates:
+- name: pallet-psm
+  bump: major
