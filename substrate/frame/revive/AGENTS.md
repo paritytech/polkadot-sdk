@@ -184,7 +184,7 @@ Check the change against these rules and record the relevant results:
   blocked checks are identified, and performance claims have measurements.
 - Documentation and affected weights are current. The PR has the required component label and a
   handwritten prdoc with accurate porting instructions matching the final diff, or qualifies for
-  the documented `R0-no-crate-publish-required` exemption.
+  the `R0-silent` prdoc exemption.
 
 Use the SDK's [validation and formatting guidance](../../../docs/contributor/CONTRIBUTING.md) and
 [Markdown checks](../../../docs/contributor/markdown_linting.md). Choose checks appropriate to the
