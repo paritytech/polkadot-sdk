@@ -356,10 +356,10 @@ async fn run_wave(
 	// expectation matches, and report whatever still disagrees at the deadline.
 	let deadline = Instant::now() + Duration::from_secs(PLACEMENT_TIMEOUT_SECS);
 	loop {
-		let mut snapshots = Vec::with_capacity(nodes.len());
-		for handle in nodes {
-			snapshots.push(store_snapshot(&handle.rpc).await?);
-		}
+
+		let snapshots =
+			futures::future::try_join_all(nodes.iter().map(|handle| store_snapshot(&handle.rpc)))
+				.await?;
 		let disagreement = expectations.iter().find_map(|(context, blob, holders)| {
 			if let Some(&idx) = holders.iter().find(|&&holder| !snapshots[holder].contains(blob)) {
 				return Some(format!(

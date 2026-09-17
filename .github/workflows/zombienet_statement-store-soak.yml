@@ -17,13 +17,13 @@ on:
         required: false
       soak_secs:
         type: string
-        description: "Soak window in seconds (STATEMENT_V2_SOAK_SECS)"
-        default: "900"
+        description: "Soak window in seconds; overrides the matrix entry"
+        default: ""
         required: false
       soak_nodes:
         type: string
-        description: "Statement node count (STATEMENT_V2_SOAK_NODES); above 51 the topology goes sparse"
-        default: "12"
+        description: "Statement node count; overrides the matrix entry. Above 51 the topology goes sparse"
+        default: ""
         required: false
       build_run_id:
         type: string
@@ -53,6 +53,8 @@ jobs:
     outputs:
       build_run_id: ${{ steps.pick.outputs.build_run_id }}
       images_version: ${{ steps.pick.outputs.images_version }}
+      soak_nodes: ${{ steps.pick.outputs.soak_nodes }}
+      soak_secs: ${{ steps.pick.outputs.soak_secs }}
     steps:
       - name: Pick the build run carrying this commit's images and test archive
         id: pick
@@ -73,6 +75,18 @@ jobs:
             echo "images_version=${PR_NUMBER}-${HEAD_SHA:0:8}" >> "$GITHUB_OUTPUT"
           else
             echo "images_version=master-${HEAD_SHA:0:8}" >> "$GITHUB_OUTPUT"
+          fi
+          # A label run carries no inputs, so let the pull request body resize it: a line like
+          # "soak: nodes=250 secs=1800" in the description wins over the matrix entry. Only the
+          # digits are taken, whatever else that line holds.
+          if [[ -n "${PR_NUMBER}" ]]; then
+            body=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json body --jq .body)
+            directive=$(grep -oiE '^[[:space:]]*soak:.*' <<< "$body" | tail -1 || true)
+            nodes=$(grep -oiE 'nodes=[0-9]+' <<< "$directive" | grep -oE '[0-9]+' || true)
+            secs=$(grep -oiE 'secs=[0-9]+' <<< "$directive" | grep -oE '[0-9]+' || true)
+            [[ -n "$nodes" ]] && echo "soak_nodes=$nodes" >> "$GITHUB_OUTPUT"
+            [[ -n "$secs" ]] && echo "soak_secs=$secs" >> "$GITHUB_OUTPUT"
+            [[ -n "$directive" ]] && echo "Sizing from the pull request body: ${directive}"
           fi
           if [[ -n "${OVERRIDE}" ]]; then
             echo "build_run_id=${OVERRIDE}" >> "$GITHUB_OUTPUT"
@@ -122,7 +136,8 @@ jobs:
     # current zombienet release rather than the v1.3.133 that file still names; ci-unified does
     # not fit — it is twice the size and the runner ran out of disk pulling it.
     runs-on: parity-zombienet
-    timeout-minutes: 90
+    # Spawning a hundred pods and then soaking them takes a while.
+    timeout-minutes: 150
     needs: [resolve-build, preflight]
     container:
       image: docker.io/paritytech/zombienet:v1.3.140
@@ -131,8 +146,10 @@ jobs:
       CUMULUS_IMAGE: "docker.io/paritypr/${{ matrix.test.cumulus-image }}:${{ needs.resolve-build.outputs.images_version }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: "k8s"
-      STATEMENT_V2_SOAK_SECS: ${{ inputs.soak_secs || '900' }}
-      STATEMENT_V2_SOAK_NODES: ${{ inputs.soak_nodes || '12' }}
+      # The matrix entry sizes the run; a "soak:" line in the pull request body or a dispatch
+      # input overrides it, in that order.
+      STATEMENT_V2_SOAK_SECS: ${{ inputs.soak_secs || needs.resolve-build.outputs.soak_secs || matrix.test.soak-secs }}
+      STATEMENT_V2_SOAK_NODES: ${{ inputs.soak_nodes || needs.resolve-build.outputs.soak_nodes || matrix.test.soak-nodes }}
 
     strategy:
       fail-fast: false
@@ -153,7 +170,7 @@ jobs:
           echo "ZOMBIE_K8S_CI_NAMESPACE=$(cat /data/namespace)" >> "$GITHUB_ENV"
 
       - name: zombienet_test
-        timeout-minutes: 80
+        timeout-minutes: 140
         uses: ./.github/actions/zombienet-sdk
         with:
           test-filter: ${{ matrix.test.test-filter }}
