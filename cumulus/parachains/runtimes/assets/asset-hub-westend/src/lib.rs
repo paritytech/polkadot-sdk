@@ -1463,8 +1463,6 @@ impl pallet_vesting_precompiles::pallet::Config for Runtime {
 
 parameter_types! {
 	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
-	pub PsmName: &'static str = "Psm";
-	pub ParametersName: &'static str = "Parameters";
 }
 
 impl pallet_migrations::Config for Runtime {
@@ -1860,21 +1858,9 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
-	cumulus_pallet_parachain_system::migration::Migration<Runtime>,
+	cumulus_pallet_parachain_system::migration::v3::Migration<Runtime>,
+	cumulus_pallet_parachain_system::migration::MigrateV3ToV4<Runtime>,
 	// unreleased
-
-	// start: PSM reset
-
-	// `RemovePallet` wipes the old PSM deployment, including the storage version key.
-	frame_support::migrations::RemovePallet<PsmName, <Runtime as frame_system::Config>::DbWeight>,
-	// end: PSM reset
-
-	// `pallet_parameters` only hosted the system-wide PSM issuance cap, now replaced
-	// by per-PSM `max_debt`. Wipe its storage now the pallet is gone from the runtime.
-	frame_support::migrations::RemovePallet<
-		ParametersName,
-		<Runtime as frame_system::Config>::DbWeight,
-	>,
 	// Only needed on WAH.
 	// Relocates funded era pots from per-era to slot-based pot addresses.
 	pallet_staking_async::migrations::MigrateEraPotsToPool<
