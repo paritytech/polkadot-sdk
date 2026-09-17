@@ -597,21 +597,26 @@ struct QueryIndex {
 	topic_counts: HashMap<Topic, usize>,
 	dec_key_counts: HashMap<Option<DecryptionKey>, usize>,
 	recent: HashMap<Hash, u64>,
-	/// Statements held only until the next propagation.
-	// TODO: temporary PoC solution for the DHT-affinity work (#11932).
-	transient: HashMap<Hash, Statement>,
-	/// Statements persisted only for explicit affinity, dropped once no affinity covers them.
-	explicit_only: HashSet<Hash>,
+	/// The track of every statement the maintenance sweep re-checks once it is propagated.
+	/// Persistent statements are not recorded.
+	retention_tracks: HashMap<Hash, RetentionTrack>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum RetentionTrack {
+	/// No affinity covers the statement, it only passes through on its way to the replicas: kept
+	/// until propagated.
+	Transient,
+	/// Only explicit affinity covers the statement: it is dropped once that affinity lapses.
 	ExplicitOnly,
 	Persistent,
 }
 
 impl From<RetentionReasonMask> for RetentionTrack {
 	fn from(mask: RetentionReasonMask) -> Self {
-		if mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY) &&
+		if !mask.is_persistent() {
+			RetentionTrack::Transient
+		} else if mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY) &&
 			!mask.contains(RetentionReasonMask::DHT_AFFINITY)
 		{
 			RetentionTrack::ExplicitOnly
@@ -622,8 +627,8 @@ impl From<RetentionReasonMask> for RetentionTrack {
 }
 
 impl RetentionTrack {
-	fn is_explicit_only(&self) -> bool {
-		matches!(self, RetentionTrack::ExplicitOnly)
+	fn is_persistent(&self) -> bool {
+		matches!(self, RetentionTrack::Persistent)
 	}
 }
 
@@ -633,8 +638,7 @@ impl QueryIndex {
 			topic_counts: HashMap::new(),
 			dec_key_counts: HashMap::new(),
 			recent: HashMap::new(),
-			transient: HashMap::new(),
-			explicit_only: HashSet::new(),
+			retention_tracks: HashMap::new(),
 		}
 	}
 
@@ -649,8 +653,8 @@ impl QueryIndex {
 		let dec_key = statement.decryption_key();
 		*self.dec_key_counts.entry(dec_key).or_insert(0) += 1;
 		self.recent.insert(hash, seq);
-		if track.is_explicit_only() {
-			self.explicit_only.insert(hash);
+		if !track.is_persistent() {
+			self.retention_tracks.insert(hash, track);
 		}
 	}
 
@@ -674,13 +678,15 @@ impl QueryIndex {
 			}
 		}
 		self.recent.remove(hash);
-		self.explicit_only.remove(hash);
+		self.retention_tracks.remove(hash);
 	}
 
-	/// Whether the statement is persisted only for explicit affinity and already propagated,
-	/// which makes it a candidate for the affinity sweep.
-	fn is_explicit_only_propagated(&self, hash: &Hash) -> bool {
-		self.explicit_only.contains(hash) && !self.recent.contains_key(hash)
+	/// The track of an already propagated statement, which the retention sweep re-checks.
+	fn propagated_track(&self, hash: &Hash) -> Option<RetentionTrack> {
+		if self.recent.contains_key(hash) {
+			return None;
+		}
+		self.retention_tracks.get(hash).copied()
 	}
 
 	/// Copies the set of recently added hashes with their admission sequence numbers.
@@ -694,9 +700,9 @@ impl QueryIndex {
 		self.recent.retain(|hash, seq| propagated.get(hash) != Some(seq));
 	}
 
-	fn forget_explicit_tracking<'a>(&mut self, keys: impl IntoIterator<Item = &'a PriorityKey>) {
+	fn forget_retention_tracking<'a>(&mut self, keys: impl IntoIterator<Item = &'a PriorityKey>) {
 		for key in keys {
-			self.explicit_only.remove(&key.hash);
+			self.retention_tracks.remove(&key.hash);
 		}
 	}
 }
@@ -2174,20 +2180,20 @@ impl Store {
 		Ok(drained)
 	}
 
-	/// Drop statements persisted only for explicit topic affinity once no affinity covers them,
-	/// skipping the re-acceptance ban so peers may redeliver them should affinity return.
-	fn sweep_explicit_affinity(&self) {
+	/// Re-check the retention of the tracked statements once they are propagated: the
+	/// resolver's verdict becomes their track, and a statement no affinity covers is removed.
+	fn sweep_retention(&self) {
 		let Some(resolver) = self.retention_fn.get() else { return };
-		let tracked: Vec<Hash> = {
+		let candidates: Vec<(Hash, RetentionTrack)> = {
 			let query_index = self.query_index.read();
 			query_index
-				.explicit_only
+				.retention_tracks
 				.iter()
-				.filter(|hash| query_index.is_explicit_only_propagated(hash))
-				.copied()
+				.filter(|(hash, _)| !query_index.recent.contains_key(*hash))
+				.map(|(hash, track)| (*hash, *track))
 				.collect()
 		};
-		for hash in tracked {
+		for (hash, track) in candidates {
 			let encoded = match self.db.get(col::STATEMENTS, &hash) {
 				Ok(Some(encoded)) => encoded,
 				Ok(None) => continue,
@@ -2205,31 +2211,55 @@ impl Store {
 				log::error!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(&hash));
 				continue;
 			};
-			if resolver(&statement).is_persistent() {
+			let verdict = RetentionTrack::from(resolver(&statement));
+			if (track, verdict) == (RetentionTrack::ExplicitOnly, RetentionTrack::ExplicitOnly) {
 				continue;
 			}
 			let mut submit_index = self.submit_index.write();
 			// Admission updates the query index under the submit lock, so this re-check rules
-			// out a copy re-admitted since the candidates were collected: with DHT affinity it
-			// left `explicit_only`, as explicit-only it awaits propagation in `recent`.
-			if !self.query_index.read().is_explicit_only_propagated(&hash) {
+			// out a copy re-admitted since the candidates were collected: under another track
+			// its entry changed, under the same track it awaits propagation in `recent`.
+			if self.query_index.read().propagated_track(&hash) != Some(track) {
 				continue;
 			}
-			if let Err(e) =
-				self.remove_statement_locked(&mut submit_index, &hash, Resubmission::Allowed)
-			{
-				log::warn!(
-					target: LOG_TARGET,
-					"Error removing statement {:?}: {:?}",
-					HexDisplay::from(&hash),
-					e
-				);
+			match verdict {
+				RetentionTrack::Persistent => {
+					self.query_index.write().retention_tracks.remove(&hash);
+				},
+				RetentionTrack::ExplicitOnly => {
+					self.query_index.write().retention_tracks.insert(hash, verdict);
+				},
+				RetentionTrack::Transient => {
+					// A lapsed explicit-only statement may return with its affinity, a forwarded
+					// transient one must not be forwarded again.
+					let resubmission = if track == RetentionTrack::ExplicitOnly {
+						Resubmission::Allowed
+					} else {
+						Resubmission::Banned
+					};
+					match self.remove_statement_locked(&mut submit_index, &hash, resubmission) {
+						Ok(true) => {},
+						// The re-check above saw the entry under the submit lock, so a missing
+						// body is an index inconsistency, left in place for investigation.
+						Ok(false) => log::error!(
+							target: LOG_TARGET,
+							"Missing body for tracked statement {:?}",
+							HexDisplay::from(&hash)
+						),
+						Err(e) => log::warn!(
+							target: LOG_TARGET,
+							"Error removing statement {:?}: {:?}",
+							HexDisplay::from(&hash),
+							e
+						),
+					}
+				},
 			}
 		}
 	}
 
-	/// Perform periodic store maintenance: drop explicit-affine statements no affinity covers,
-	/// permanently delete statements whose purge period has elapsed, and refresh store metrics.
+	/// Perform periodic store maintenance: re-check the tracked statements, permanently
+	/// delete statements whose purge period has elapsed, and refresh store metrics.
 	///
 	/// Expired and evicted statements are not removed from the database immediately; they are kept
 	/// in the `EXPIRED` column for [`DEFAULT_PURGE_AFTER_SEC`] (default 48h) to prevent
@@ -2242,7 +2272,7 @@ impl Store {
 	/// holding the index lock for too long during maintenance.
 	pub fn maintain(&self) {
 		log::trace!(target: LOG_TARGET, "Started store maintenance");
-		self.sweep_explicit_affinity();
+		self.sweep_retention();
 		let current_time = self.timestamp();
 		let deleted_count = match self.drain_due_evicted(current_time) {
 			Ok(count) => count as u64,
@@ -2390,7 +2420,7 @@ impl StatementStore for Store {
 	}
 
 	fn take_recent_statements(&self) -> Result<Vec<(u64, Hash, Statement)>> {
-		// `recent` is cleared only once the bodies are in hand: membership in it is the affinity
+		// `recent` is cleared only once the bodies are in hand: membership in it is the retention
 		// sweep's only signal that a statement still awaits propagation.
 		let recent = self.query_index.read().recent_snapshot();
 		let mut result = Vec::with_capacity(recent.len());
@@ -2409,16 +2439,7 @@ impl StatementStore for Store {
 				),
 			}
 		}
-		{
-			let mut query_index = self.query_index.write();
-			// Transient bodies never reach the database; they are handed out here and dropped.
-			for (&hash, &seq) in &recent {
-				if let Some(statement) = query_index.transient.remove(&hash) {
-					result.push((seq, hash, statement));
-				}
-			}
-			query_index.clear_propagated(&recent);
-		}
+		self.query_index.write().clear_propagated(&recent);
 		result.sort_unstable_by_key(|(seq, ..)| *seq);
 		Ok(result)
 	}
@@ -2852,29 +2873,6 @@ impl StatementStore for Store {
 			},
 		};
 
-		// A transient statement passes the same validation as a persistent one, including the
-		// allowance check above, but skips the quota accounting and is never written to the DB.
-		if !mask.is_persistent() {
-			let mut query_index = self.query_index.write();
-			if query_index.transient.contains_key(&hash) {
-				self.metrics.report(|metrics| {
-					metrics.known_statements.with_label_values(&["known"]).inc();
-				});
-				return SubmitResult::Known;
-			}
-			query_index.transient.insert(hash, statement);
-			// Transient statements bypass the admission journal, so no initial sync covers
-			// them: the max sequence number keeps them above every peer's sync watermark.
-			query_index.recent.insert(hash, u64::MAX);
-			self.metrics.report(|metrics| metrics.submitted_statements.inc());
-			log::trace!(
-				target: LOG_TARGET,
-				"Transient statement stored: {:?}",
-				HexDisplay::from(&hash)
-			);
-			return SubmitResult::New;
-		}
-
 		let current_time = self.timestamp();
 		let seq = {
 			let mut submit_index = self.submit_index.write();
@@ -3098,7 +3096,7 @@ impl StatementStore for Store {
 				for evicted_statement in &evicted_statements {
 					query_index.note_remove(&evicted_statement.hash(), evicted_statement);
 				}
-				query_index.forget_explicit_tracking(plan.evicted.iter().map(|(key, _)| key));
+				query_index.forget_retention_tracking(plan.evicted.iter().map(|(key, _)| key));
 				query_index.note_insert(hash, &statement, plan.seq, RetentionTrack::from(mask));
 			}
 			seq
@@ -3213,7 +3211,7 @@ impl StatementStore for Store {
 			for (hash, statement) in &removed_statements {
 				query_index.note_remove(hash, statement);
 			}
-			query_index.forget_explicit_tracking(entries.iter().map(|(key, _)| key));
+			query_index.forget_retention_tracking(entries.iter().map(|(key, _)| key));
 		}
 		Ok(())
 	}
@@ -4692,7 +4690,7 @@ mod tests {
 	}
 
 	#[test]
-	fn transient_statement_is_served_once_then_dropped() {
+	fn transient_statement_is_stored_and_tracked() {
 		let (store, _temp) = test_store();
 		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::TRANSIENT));
 		let statement = signed_statement(0);
@@ -4700,20 +4698,23 @@ mod tests {
 
 		assert_eq!(store.submit(statement.clone(), StatementSource::Network), SubmitResult::New,);
 
-		// Invisible to the query API: the store behaves as if it holds no transient statement.
-		assert!(!store.has_statement(&hash));
-		assert_eq!(store.statement(&hash).unwrap(), None);
-		assert!(store.statements().unwrap().is_empty());
+		// Stored like any other statement, and tracked for the sweep.
+		assert!(store.has_statement(&hash));
+		assert_eq!(store.statement(&hash).unwrap(), Some(statement.clone()));
+		assert_eq!(
+			store.query_index.read().retention_tracks.get(&hash),
+			Some(&RetentionTrack::Transient)
+		);
 
-		// Yet the first propagation pull forwards it once.
+		// Pulled once under its admission sequence, then it stays fetchable by hash.
 		let recent = store.take_recent_statements().unwrap();
-		assert_eq!(recent, vec![(u64::MAX, hash, statement)]);
-
-		// And after that it is gone: not pulled again, never persisted.
-		assert!(!store.has_statement(&hash));
-		assert_eq!(store.statement(&hash).unwrap(), None);
+		assert_eq!(recent, vec![(0, hash, statement)]);
 		assert!(store.take_recent_statements().unwrap().is_empty());
-		assert!(store.statements().unwrap().is_empty());
+		assert!(store.has_statement(&hash));
+		assert_eq!(
+			store.query_index.read().retention_tracks.get(&hash),
+			Some(&RetentionTrack::Transient)
+		);
 	}
 
 	#[test]
@@ -4724,6 +4725,59 @@ mod tests {
 
 		assert_eq!(store.submit(statement.clone(), StatementSource::Network), SubmitResult::New,);
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::Known);
+	}
+
+	#[test]
+	fn sweep_removes_propagated_transient_statements_with_a_ban() {
+		let (store, _temp) = test_store();
+		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::TRANSIENT));
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+		assert_eq!(store.submit(statement.clone(), StatementSource::Network), SubmitResult::New);
+
+		// Not propagated yet, so the sweep leaves it alone.
+		store.maintain();
+		assert!(store.has_statement(&hash));
+
+		store.take_recent_statements().unwrap();
+		store.maintain();
+		assert!(!store.has_statement(&hash));
+		assert!(store.query_index.read().retention_tracks.is_empty());
+		// Forwarded once: a redelivery from another peer must not start another round.
+		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::KnownExpired);
+	}
+
+	#[test]
+	fn sweep_moves_a_transient_statement_to_the_track_affinity_now_gives_it() {
+		let (store, _temp) = test_store();
+		let phase = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
+		store.set_retention_resolver(Box::new({
+			let phase = phase.clone();
+			move |_| match phase.load(Ordering::Relaxed) {
+				0 => RetentionReasonMask::TRANSIENT,
+				1 => RetentionReasonMask::EXPLICIT_AFFINITY,
+				_ => RetentionReasonMask::DHT_AFFINITY,
+			}
+		}));
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+		assert_eq!(store.submit(statement.clone(), StatementSource::Network), SubmitResult::New);
+		store.take_recent_statements().unwrap();
+
+		// Explicit affinity arrived before the sweep: kept, tracked as explicit-only.
+		phase.store(1, Ordering::Relaxed);
+		store.maintain();
+		assert!(store.has_statement(&hash));
+		assert_eq!(
+			store.query_index.read().retention_tracks.get(&hash),
+			Some(&RetentionTrack::ExplicitOnly)
+		);
+
+		// DHT affinity makes it a plain persistent statement, so tracking ends.
+		phase.store(2, Ordering::Relaxed);
+		store.maintain();
+		assert!(store.has_statement(&hash));
+		assert!(store.query_index.read().retention_tracks.is_empty());
 	}
 
 	#[test]
@@ -4746,7 +4800,11 @@ mod tests {
 		let hash = statement.hash();
 
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
-		assert!(!store.has_statement(&hash), "the first, transient resolver still applies");
+		assert_eq!(
+			store.query_index.read().retention_tracks.get(&hash),
+			Some(&RetentionTrack::Transient),
+			"the first, transient resolver still applies"
+		);
 	}
 
 	/// A resolver that reports `affine` while the returned flag holds `true`, and `lapsed`
@@ -4918,7 +4976,7 @@ mod tests {
 		phase.store(1, Ordering::Relaxed);
 		store.maintain();
 		assert!(store.has_statement(&hash));
-		assert!(!store.query_index.read().explicit_only.contains(&hash));
+		assert!(!store.query_index.read().retention_tracks.contains_key(&hash));
 	}
 
 	#[test]
@@ -4978,13 +5036,13 @@ mod tests {
 		let account = statement0.account_id().unwrap();
 		assert_eq!(store.submit(statement0, StatementSource::Network), SubmitResult::New);
 		assert_eq!(store.submit(statement1, StatementSource::Network), SubmitResult::New);
-		assert_eq!(store.query_index.read().explicit_only.len(), 2);
+		assert_eq!(store.query_index.read().retention_tracks.len(), 2);
 
 		store.remove(&hash0).unwrap();
-		assert_eq!(store.query_index.read().explicit_only.len(), 1);
+		assert_eq!(store.query_index.read().retention_tracks.len(), 1);
 
 		store.remove_by(account).unwrap();
-		assert!(store.query_index.read().explicit_only.is_empty());
+		assert!(store.query_index.read().retention_tracks.is_empty());
 	}
 
 	#[test]
