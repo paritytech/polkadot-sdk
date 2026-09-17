@@ -728,6 +728,15 @@ mod tests {
 	}
 
 	#[test]
+	fn oversized_response_is_rejected() {
+		let mut market = binance_spot(VENUE, PAIR, "DOTUSDT").unwrap();
+		market.queries[0].request.max_response_bytes = 16;
+		let responses = responses(fixture!("binance_spot_book"), fixture!("binance_spot_trades"));
+		let rejected = price_market(&market, &settings(), responses, NOW_MS);
+		assert_eq!(rejected, Err(ParseError(b"response too large".to_vec())));
+	}
+
+	#[test]
 	fn contract_size_scales_the_book() {
 		// At a thousandth of a unit per contract the recorded book holds a few hundred USDT, too
 		// thin for 5000 USDT of impact size.
