@@ -39,7 +39,7 @@ use crate::{
 	storage::WriteOutcome,
 	vm::{
 		evm,
-		evm::{Interpreter, instructions, instructions::utility::IntoAddress},
+		evm::{ExtBytecode, Halt, Interpreter, instructions, instructions::utility::IntoAddress},
 		pvm,
 	},
 	*,
@@ -47,6 +47,7 @@ use crate::{
 use alloc::{vec, vec::Vec};
 use alloy_core::sol_types::{SolInterface, SolValue};
 use codec::{Encode, MaxEncodedLen};
+use core::ops::ControlFlow;
 use frame_benchmarking::v2::*;
 use frame_support::{
 	self, assert_ok,
@@ -3220,6 +3221,47 @@ mod benchmarks {
 		}
 
 		assert!(result.is_ok());
+		Ok(())
+	}
+
+	/// Benchmark `r` taken `JUMPI` instructions. The operands of every jump are placed on the stack
+	/// ahead of time, so the code is nothing but `JUMPI; JUMPDEST` pairs and the slope is one taken
+	/// `JUMPI` plus one `JUMPDEST`. Each jump consumes two stack items.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_jumpi_opcode(
+		r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>,
+	) -> Result<(), BenchmarkError> {
+		use revm::bytecode::opcode::{JUMPDEST, JUMPI};
+
+		let mut code = Vec::new();
+		let mut stack = Vec::new();
+		for _ in 0..r {
+			code.push(JUMPI);
+			let destination = U256::from(code.len());
+			code.push(JUMPDEST);
+			stack.push(destination);
+			stack.push(U256::one());
+		}
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+		for operand in stack.into_iter().rev() {
+			if interpreter.stack.push(operand).is_break() {
+				return Err(BenchmarkError::Stop("Operands exceed the stack limit"));
+			}
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
 		Ok(())
 	}
 

@@ -230,6 +230,8 @@ macro_rules! cost_args {
 	(@replace_token $_in:tt) => { 0 };
 }
 
+pub(super) use cost_args;
+
 impl RuntimeCosts {
 	/// Extra ref_time a hot storage access pays to look up the block's overlay.
 	fn hot_storage_overlay_overhead<T: Config>() -> Weight {

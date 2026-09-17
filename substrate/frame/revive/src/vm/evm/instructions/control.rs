@@ -20,7 +20,7 @@ use crate::{
 	vm::{
 		Ext,
 		evm::{
-			EVMGas, Interpreter,
+			EVMGas, EvmOpcodeCosts, Interpreter,
 			interpreter::Halt,
 			util::{as_usize_or_halt, as_usize_or_halt_with},
 		},
@@ -28,13 +28,13 @@ use crate::{
 };
 use alloc::vec::Vec;
 use core::ops::ControlFlow;
-use revm::interpreter::gas::{BASE, HIGH, JUMPDEST, MID};
+use revm::interpreter::gas::BASE;
 
 /// Implements the JUMP instruction.
 ///
 /// Unconditional jump to a valid destination.
 pub fn jump<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(MID))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::JUMP)?;
 	let [target] = interpreter.stack.popn()?;
 	jump_inner(interpreter, target)?;
 	ControlFlow::Continue(())
@@ -44,7 +44,7 @@ pub fn jump<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Conditional jump to a valid destination if condition is true.
 pub fn jumpi<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(HIGH))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::JUMPI)?;
 	let [target, cond] = interpreter.stack.popn()?;
 
 	if !cond.is_zero() {
@@ -72,7 +72,7 @@ fn jump_inner<E: Ext>(interpreter: &mut Interpreter<E>, target: U256) -> Control
 ///
 /// Marks a valid destination for jump operations.
 pub fn jumpdest<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(JUMPDEST))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::JUMPDEST)?;
 	ControlFlow::Continue(())
 }
 
