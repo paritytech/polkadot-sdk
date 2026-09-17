@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789671383634,
+  "lastUpdate": 1789680684014,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f1b3e87606d56ecf469adcde334c6b3f9fed1f87",
-          "message": "bump zombienet version and change deprecated methods (#11061)\n\nbump zombienet to latest `v0.4.5` (and subxt to `0.44.`)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-16T17:33:48Z",
-          "tree_id": "0fbbd9dc2698dc8c86d6c2c0e9825db3bda315b5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f1b3e87606d56ecf469adcde334c6b3f9fed1f87"
-        },
-        "date": 1771267836118,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52943.59999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63634.20000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002320661,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000025889340000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.685555850639999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000025889340000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.990519904630037,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3315976859200087,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6552986300600008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8979495987500317,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.7156720636199987,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.642993310002939,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002320661,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005183450700000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6992626249399994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
             "value": 0.7943800895899832,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dharjeezy@gmail.com",
+            "name": "dharjeezy",
+            "username": "dharjeezy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4bf6d91ddb771991001e628477900e129e3cb2c3",
+          "message": "fatxpool: hold the transaction pool as a trait object instead of a wrapper (#12845)\n\n`TransactionPoolWrapper` was a struct wrapping a boxed transaction pool,\nexisting only to give it a sized type, at the cost of ~190 lines\nforwarding every trait method to the inner box. `TransactionPoolHandle`\nis now a type alias for the trait object itself rather than for that\nwrapper, so the forwarding layer is gone and `Builder::build` hands back\nan `Arc<TransactionPoolHandle<Block>>` instead of a wrapper by value.\n\nThis also folds in #12942. `FullClientTransactionPool` no longer carries\na `Client` type parameter: all three of its associated types are\nprojections that discard the client, so `Hash`, `InPoolTransaction` and\n`Error` are spelled out in terms of `Block` alone. Naming them that way\nrequired exporting `sc_transaction_pool::error` and\n`sc_transaction_pool::Transaction`.\n\n`BuildNetworkParams`, `BuildNetworkAdvancedParams`, `SpawnTasksParams`\nand `GenRpcModuleParams` keep a generic transaction pool parameter,\nrelaxed to `?Sized` so the trait object can be passed in. The service\ntherefore does not pin the pool's error or in-pool transaction type, and\nan alternative pool implementation is free to define its own. What those\nentry points no longer do is constrain the client on the transaction\npool's behalf: the `BlockIdTo` and `TaggedTransactionQueue` bounds that\nonly existed to build a pool are gone from `build_network`,\n`build_network_advanced`, `spawn_tasks`, `gen_rpc_module` and the\ncumulus `build_network`.\n\nThe client capabilities each side genuinely needs are each spelled out\nonce:\n\n- `sc_transaction_pool::ClientForTransactionPool`, for building a pool.\nUsed by the `Builder` and internally by `FullChainApi`,\n`BasicPool::new_full` and `ForkAwareTxPool::new_full`. It does not pin\nthe `BlockIdTo` error, so a hand written client is free to choose its\nown.\n- `sc_service::ClientForService`, for the service entry points, in the\nsame shape as the existing `ClientForGrandpa` and with each entry point\nadding only the few capabilities it genuinely uses on top.\n\nComponents holding the pool behind an `Arc` stay generic over the pool\ntype and accept unsized pools now, which is a relaxation requiring no\nchanges on their side.\n\ncloses #5489\ncloses #12942\n\n---------\n\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
+          "timestamp": "2026-09-17T19:58:26Z",
+          "tree_id": "d2777dd8a34588efbedd923f7519a3ab5bbeff2b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4bf6d91ddb771991001e628477900e129e3cb2c3"
+        },
+        "date": 1789680639957,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63559.29,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001971551,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005332148499999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7828799214799975,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.749424045070002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.22560608793997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.755816295340001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.468539002652786,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8042704690800004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020918440000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020918440000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3420261501599953,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7858570583099744,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001971551,
             "unit": "seconds"
           }
         ]
