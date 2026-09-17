@@ -342,16 +342,18 @@ A conforming implementation must reproduce every family:
 
 1. **StreamId**: encode/decode round-trips per kind, reserved-kind
    rejection, ordering (exists).
-2. **MMR**: leaf known-answer (§3.1 — pinned in the PoC; port to this
-   crate), empty root (§3.3 ✓ exists), append/bagging sequences to ≥ 64
-   leaves (5-leaf pin exists), frontier round-trips.
+2. **MMR**: leaf known-answer (§3.1 ✓ pinned), empty root (§3.3 ✓),
+   append/bagging sequences to ≥ 64 leaves (✓ 5-, 64- and 65-leaf pins, the
+   latter two from an independent implementation of §3.2), frontier
+   round-trips (✓).
 3. **Tree**: `tree_hash` known-answers (1, 2, 4, adversarially-close
    keys), proof verification incl. **negative vectors** (non-decreasing
    step order, wrong split bit, key-aliasing attempts per §4.1
    constraint 4).
 4. **Extension/advance**: known-answer proofs across leaf-count pairs
-   (incl. the 3-vs-4-leaf same-node-count ambiguity case), identity,
-   regression rejection, wrong-node-count rejection.
+   (positions cross-checked against `mmr_lib` exhaustively to 256 leaves;
+   the 3-vs-4-leaf same-node-count ambiguity case ✓ pinned), identity,
+   regression rejection, wrong-node-count rejection (✓).
 5. **Relay objects**: `RequiresSet`/lift-transport canonical-decode
    acceptance + rejection vectors; UMP signal indices.
 6. **End-to-end synthesis**: consumption records + lifts → `RequiresSet`,

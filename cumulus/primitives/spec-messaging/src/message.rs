@@ -547,6 +547,18 @@ mod tests {
 		assert_ne!(leaf_hash(0, payload), leaf_hash(1, payload));
 	}
 
+	#[test]
+	fn leaf_hash_frozen_vector() {
+		// FROZEN consensus vector (encoding spec §3.1): `H(0x01 ‖ 0x00 ‖ "hello")`. Any change to
+		// `LEAF_TAG`, `LEAF_VERSION`, the preimage layout or the hasher breaks this.
+		assert_eq!(
+			leaf_hash(crate::LEAF_VERSION, b"hello"),
+			Hash::from(hex_literal::hex!(
+				"cd31917fb8992dae762dbaaf276d8eb65aa89cdfb87daf69e05f8c08b490e78b"
+			))
+		);
+	}
+
 	/// End-to-end: a sender builds a stream MMR, commits its root into a `StreamsRoot`, and serves
 	/// a response covering the whole stream from `base = 0`; the receiver authenticates it under
 	/// the committed root and recovers the payloads.

@@ -672,6 +672,28 @@ mod tests {
 	}
 
 	#[test]
+	fn extension_leaf_count_disambiguates_equal_node_counts() {
+		// Encoding spec §12.4 / design: extending one leaf to three and to four both take two
+		// connecting nodes, placed differently — which is why `leaf_count` is carried (the
+		// verifier cannot derive it from the node count) and why the nodes carry no positions
+		// (the count fixes them).
+		let all = leaves(4);
+		let to3 = extension(&all, 1, 3);
+		let to4 = extension(&all, 1, 4);
+		assert_eq!(to3.connecting_nodes.len(), 2);
+		assert_eq!(to4.connecting_nodes.len(), 2);
+		let from1 = frontier_at(&all, 1);
+		assert_eq!(to3.verify(&from1), Ok(root_at(&all, 3)));
+		assert_eq!(to4.verify(&from1), Ok(root_at(&all, 4)));
+		// The same two nodes under the other count place differently and reach neither root.
+		let relabelled =
+			MMRExtensionProof { leaf_count: 4, connecting_nodes: to3.connecting_nodes };
+		let got = relabelled.verify(&from1);
+		assert_ne!(got, Ok(root_at(&all, 3)));
+		assert_ne!(got, Ok(root_at(&all, 4)));
+	}
+
+	#[test]
 	fn extension_verify_rejects_non_forward() {
 		let all = leaves(5);
 		// A real (non-identity) extension pointed *back* to the frontier's own size is not strictly

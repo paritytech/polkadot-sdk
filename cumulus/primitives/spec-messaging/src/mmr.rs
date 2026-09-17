@@ -346,6 +346,32 @@ mod tests {
 	}
 
 	#[test]
+	fn mmr_root_frozen_vectors_at_64_and_65_leaves() {
+		// FROZEN consensus vectors (encoding spec §12.2): 64 leaves collapse to a single peak
+		// through the full six-level merge chain; 65 adds a second peak and exercises bagging over
+		// it. Values computed independently of this crate (a Python model of §3.2's tag layout).
+		let mut acc = MmrFrontier::new();
+		for i in 1..=64u8 {
+			acc.append(h(i));
+		}
+		assert_eq!(acc.peaks().len(), 1);
+		assert_eq!(
+			acc.root().0,
+			Hash::from(hex_literal::hex!(
+				"6dc59753f520a0cd93409dd10b81e73601bb54524366c616ef386ddc18e2e951"
+			))
+		);
+		acc.append(h(65));
+		assert_eq!(acc.peaks().len(), 2);
+		assert_eq!(
+			acc.root().0,
+			Hash::from(hex_literal::hex!(
+				"9f4bf61fd4315662e635c43f237c2f6e74badbd28124d8117e4a5567aaf14edc"
+			))
+		);
+	}
+
+	#[test]
 	fn inclusion_proof_round_trips() {
 		let store = MemStore::<Hash>::default();
 		let mut mmr = MemMMR::<Hash, SpecMerge>::new(0, &store);
