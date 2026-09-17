@@ -42,6 +42,7 @@ use cumulus_primitives_core::{
 use cumulus_primitives_parachain_inherent::{
 	v0, HashedMessage, MessageQueueChain, ParachainInherentData,
 };
+use cumulus_primitives_spec_messaging::{ProvideUmpSignals, StreamsRoot};
 use frame_support::{
 	dispatch::{DispatchClass, DispatchResult},
 	ensure,
@@ -329,6 +330,13 @@ pub mod pallet {
 		///
 		/// The `RelayParentOffset` config continues to define the header chain length.
 		type SchedulingSignatureVerifier: cumulus_primitives_core::VerifySchedulingSignature;
+
+		/// Source of the speculative-messaging parts of the UMP signal tail. `on_finalize` buffers
+		/// the block's root and emits it as one `Provides` on the last block of the PoV; the
+		/// `validate_block` wrapper reads each block's consumption record through this hook to
+		/// synthesize `Requires` from the PoV-carried lifts. Wire to the messaging pallet; `()`
+		/// while the chain does not participate.
+		type UmpSignalSource: ProvideUmpSignals;
 	}
 
 	#[pallet::hooks]
@@ -463,6 +471,12 @@ pub mod pallet {
 				PreviousCoreCount::<T>::put(
 					core_info.as_ref().map_or(Compact(1u16), |ci| ci.number_of_cores),
 				);
+
+				// The block's speculative-messaging root, if it touched a stream. Buffered like
+				// the other signals: a bundle emits one `Provides`, its last produced root.
+				if let Some(root) = T::UmpSignalSource::provides_root() {
+					PendingProvidesRoot::<T>::put(root);
+				}
 
 				// Only send UMP signals on the last block of a PoV.
 				// For single-block PoVs (no BlockBundleInfo), always send signals.
@@ -1080,6 +1094,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PendingApprovedPeer<T: Config> =
 		StorageValue<_, relay_chain::ApprovedPeerId, OptionQuery>;
+
+	/// The speculative-messaging `StreamsRoot` to be sent as the `Provides` UMP signal on the last
+	/// block of the PoV. Each block that touched a stream overwrites it, so a bundle reports the
+	/// last root it produced, once.
+	#[pallet::storage]
+	pub type PendingProvidesRoot<T: Config> = StorageValue<_, StreamsRoot, OptionQuery>;
 
 	/// The factor to multiply the base delivery fee by for UMP.
 	#[pallet::storage]
@@ -1759,7 +1779,11 @@ impl<T: Config> Pallet<T> {
 		CustomValidationHeadData::<T>::put(head_data);
 	}
 
-	/// Send the pending ump signals
+	/// Send the pending ump signals.
+	///
+	/// Signal order (`SelectCore`, `ApprovedPeer`, `Provides`) must match the `validate_block`
+	/// wrapper's re-assembly (`SchedulingSignals::into_ump_messages`, then `Provides`): the
+	/// node-side commitments and the wrapper's output must be byte-identical.
 	fn send_ump_signals(core_info: Option<CoreInfo>) {
 		let mut ump_signals = PendingUpwardSignals::<T>::take();
 
@@ -1771,6 +1795,10 @@ impl<T: Config> Pallet<T> {
 
 		if let Some(approved_peer) = PendingApprovedPeer::<T>::take() {
 			ump_signals.push(UMPSignal::ApprovedPeer(approved_peer).encode());
+		}
+
+		if let Some(root) = PendingProvidesRoot::<T>::take() {
+			ump_signals.push(UMPSignal::Provides(root).encode());
 		}
 
 		if !ump_signals.is_empty() {
