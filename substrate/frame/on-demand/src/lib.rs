@@ -253,6 +253,7 @@ pub mod pallet {
 			max_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			// TODO(ahm-v2): add a check that the para_id is valid
 			Self::do_place_order(who, para_id, max_amount)
 		}
 	}
