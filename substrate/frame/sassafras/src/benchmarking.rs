@@ -21,8 +21,9 @@ use crate::*;
 use sp_consensus_sassafras::{vrf::VrfSignature, EphemeralPublic, EpochConfiguration};
 
 use frame_benchmarking::v2::*;
-use frame_support::traits::Hooks;
+use frame_support::traits::{Authorize, Hooks};
 use frame_system::RawOrigin;
+use sp_runtime::transaction_validity::TransactionSource;
 
 const LOG_TARGET: &str = "sassafras::benchmark";
 
@@ -186,7 +187,29 @@ mod benchmarks {
 		log::debug!(target: LOG_TARGET, "Submitting {} tickets", tickets_count);
 
 		#[extrinsic_call]
-		submit_tickets(RawOrigin::None, tickets);
+		submit_tickets(RawOrigin::Authorized, tickets);
+	}
+
+	#[benchmark]
+	fn authorize_submit_tickets(x: Linear<1, 25>) {
+		let tickets_count = x as usize;
+
+		let mut raw_data = TICKETS_DATA;
+		let (_, tickets): (Vec<AuthorityId>, Vec<TicketEnvelope>) =
+			Decode::decode(&mut raw_data).expect("Failed to decode tickets buffer");
+
+		let tickets = tickets[..tickets_count].to_vec();
+		let tickets = BoundedVec::truncate_from(tickets);
+
+		let call = Call::<T>::submit_tickets { tickets };
+
+		#[block]
+		{
+			// `External` is rejected before any work happens, so it would measure nothing.
+			call.authorize(TransactionSource::InBlock)
+				.expect("submit_tickets declares an authorize callback; qed")
+				.expect("authorization succeeds in the benchmark state; qed");
+		}
 	}
 
 	#[benchmark]
