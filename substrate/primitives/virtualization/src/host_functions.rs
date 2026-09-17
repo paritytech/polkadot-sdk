@@ -23,8 +23,8 @@ use core::mem;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use sp_runtime_interface::{
 	pass_by::{
-		ConvertAndReturnAs, PassAs, PassFatPointerAndRead, PassFatPointerAndReadOption,
-		PassFatPointerAndWrite, PassPointerAndWrite,
+		ConvertAndReturnAs, PassAs, PassFatPointerAndRead, PassFatPointerAndWrite,
+		PassOptionalFatPointerAndRead, PassPointerAndWrite,
 	},
 	runtime_interface,
 };
@@ -246,17 +246,19 @@ impl IntoI64 for u32 {
 	const MAX: i64 = u32::MAX as i64;
 }
 
-impl<R: Into<i64> + IntoI64, E: Into<i64> + strum::EnumCount> From<RIIntResult<R, E>> for i64 {
-	fn from(result: RIIntResult<R, E>) -> Self {
+impl<R: Into<i64> + IntoI64, E: Into<i64> + strum::EnumCount> TryFrom<RIIntResult<R, E>> for i64 {
+	type Error = ();
+
+	fn try_from(result: RIIntResult<R, E>) -> Result<Self, ()> {
 		match result {
-			RIIntResult::Ok(value) => value.into(),
+			RIIntResult::Ok(value) => Ok(value.into()),
 			RIIntResult::Err(e) => {
 				let error_code: i64 = e.into();
-				assert!(
-					error_code < 0 && error_code >= -(E::COUNT as i64),
-					"Error variant index out of bounds"
-				);
-				error_code
+				if error_code < 0 && error_code >= -(E::COUNT as i64) {
+					Ok(error_code)
+				} else {
+					Err(())
+				}
 			},
 		}
 	}
@@ -346,7 +348,7 @@ pub trait Virtualization {
 	fn compile_from_bytes(
 		&mut self,
 		program: PassFatPointerAndRead<&[u8]>,
-		identifier: PassFatPointerAndReadOption<&[u8]>,
+		identifier: PassOptionalFatPointerAndRead<Option<&[u8]>>,
 	) -> ConvertAndReturnAs<
 		Result<CompiledModule, ModuleError>,
 		RIIntResult<CompiledModule, ModuleError>,

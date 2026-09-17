@@ -34,7 +34,11 @@ use frame_support::{
 use polkadot_parachain_primitives::primitives::{HeadData, ValidationResult};
 use sp_core::storage::{well_known_keys, ChildInfo, StateVersion};
 use sp_externalities::{set_and_run_with_externalities, Externalities};
-use sp_io::{hashing::blake2_128, KillStorageResult};
+use sp_io::hashing::blake2_128;
+#[cfg(not(jam))]
+use sp_io::KillStorageResult;
+#[cfg(jam)]
+use sp_io::StorageIterations;
 use sp_runtime::traits::{
 	Block as BlockT, ExtrinsicCall, Hash as HashT, HashingFor, Header as HeaderT, LazyBlock,
 };
@@ -92,8 +96,53 @@ where
 	let block_data = codec::decode_from_bytes::<ParachainBlockData<B::LazyBlock>>(block_data)
 		.expect("Invalid parachain block data");
 
+	#[cfg(jam)]
 	let _guard = (
 		// Replace storage calls with our own implementations
+		sp_io::storage::host_read.replace_implementation(host_storage_read),
+		sp_io::storage::host_set.replace_implementation(host_storage_set),
+		sp_io::storage::host_exists.replace_implementation(host_storage_exists),
+		sp_io::storage::host_clear.replace_implementation(host_storage_clear),
+		sp_io::storage::host_root.replace_implementation(host_storage_root),
+		sp_io::storage::host_clear_prefix.replace_implementation(host_storage_clear_prefix),
+		sp_io::storage::host_append.replace_implementation(host_storage_append),
+		sp_io::storage::host_next_key.replace_implementation(host_storage_next_key),
+		sp_io::storage::host_start_transaction
+			.replace_implementation(host_storage_start_transaction),
+		sp_io::storage::host_rollback_transaction
+			.replace_implementation(host_storage_rollback_transaction),
+		sp_io::storage::host_commit_transaction
+			.replace_implementation(host_storage_commit_transaction),
+		sp_io::default_child_storage::host_read
+			.replace_implementation(host_default_child_storage_read),
+		sp_io::default_child_storage::host_set
+			.replace_implementation(host_default_child_storage_set),
+		sp_io::default_child_storage::host_clear
+			.replace_implementation(host_default_child_storage_clear),
+		sp_io::default_child_storage::host_storage_kill
+			.replace_implementation(host_default_child_storage_storage_kill),
+		sp_io::default_child_storage::host_exists
+			.replace_implementation(host_default_child_storage_exists),
+		sp_io::default_child_storage::host_clear_prefix
+			.replace_implementation(host_default_child_storage_clear_prefix),
+		sp_io::default_child_storage::host_root
+			.replace_implementation(host_default_child_storage_root),
+		sp_io::default_child_storage::host_next_key
+			.replace_implementation(host_default_child_storage_next_key),
+		sp_io::misc::host_last_cursor.replace_implementation(host_misc_last_cursor),
+		sp_io::offchain_index::host_set.replace_implementation(host_offchain_index_set),
+		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
+		cumulus_primitives_proof_size_hostfunction::storage_proof_size::host_storage_proof_size
+			.replace_implementation(host_storage_proof_size),
+		#[cfg(feature = "transaction-index")]
+		sp_io::transaction_index::host_index.replace_implementation(host_transaction_index_index),
+		#[cfg(feature = "transaction-index")]
+		sp_io::transaction_index::host_renew.replace_implementation(host_transaction_index_renew),
+	);
+	#[cfg(not(jam))]
+	let _guard = (
+		// Replace storage calls with our own implementations, targeting the legacy
+		// (pre-RFC-145, host-allocating) host function versions
 		sp_io::storage::host_read.replace_implementation(host_storage_read),
 		sp_io::storage::host_set.replace_implementation(host_storage_set),
 		sp_io::storage::host_get.replace_implementation(host_storage_get),
@@ -179,6 +228,7 @@ where
 	let mut head_data = None;
 	let mut new_validation_code = None;
 	let num_blocks = blocks.len();
+	let state_version = <PSC as frame_system::Config>::Version::get().state_version();
 
 	// Create the db
 	let mut db = match proof.to_memory_db(parent_header.state_root()) {
@@ -214,6 +264,7 @@ where
 			&parent_backend,
 			&mut Default::default(),
 			&mut Default::default(),
+			state_version,
 			|| {
 				if !PSC::SchedulingSignatureVerifier::verify(signed_info, relay_slot) {
 					panic!(
@@ -253,6 +304,7 @@ where
 			&backend,
 			&mut Default::default(),
 			&mut Default::default(),
+			state_version,
 			|| {
 				E::verify_and_remove_seal(&mut block);
 			},
@@ -266,6 +318,7 @@ where
 			// mismatches in later blocks.
 			&mut execute_recorder,
 			&mut overlay,
+			state_version,
 			|| {
 				E::execute_verified_block(block);
 			},
@@ -288,6 +341,7 @@ where
 			// We are only reading here, but need to know what the old block has written. Thus, we
 			// are passing here the overlay.
 			&mut overlay,
+			state_version,
 			|| {
 				// Ensure the validation data is correct.
 				validate_validation_data(
@@ -342,10 +396,7 @@ where
 
 		if block_index + 1 != num_blocks {
 			let mut changes = overlay
-				.drain_storage_changes(
-					&backend,
-					<PSC as frame_system::Config>::Version::get().state_version(),
-				)
+				.drain_storage_changes(&backend, state_version)
 				.expect("Failed to get drain storage changes from the overlay.");
 
 			drop(backend);
@@ -507,13 +558,36 @@ fn run_with_externalities_and_recorder<Block: BlockT, R, F: FnOnce() -> R>(
 	backend: &impl sp_state_machine::Backend<HashingFor<Block>>,
 	recorder: &mut SizeOnlyRecorderProvider<HashingFor<Block>>,
 	overlay: &mut OverlayedChanges<HashingFor<Block>>,
+	state_version: StateVersion,
 	execute: F,
 ) -> R {
-	let mut ext = Ext::<Block, _>::new(overlay, backend);
+	let mut ext = Ext::<Block, _>::new(overlay, backend).with_state_version(state_version);
 
 	recorder::using(recorder, || set_and_run_with_externalities(&mut ext, || execute()))
 }
 
+#[cfg(jam)]
+fn host_storage_read(
+	key: &[u8],
+	value_out: &mut [u8],
+	value_offset: u32,
+	allow_partial: u32,
+) -> Option<u32> {
+	match with_externalities(|ext| ext.storage(key)) {
+		Some(value) => {
+			let value_offset = value_offset as usize;
+			let data = &value[value_offset.min(value.len())..];
+			let out_len = core::cmp::min(data.len(), value_out.len());
+			if value_out.len() >= data.len() || allow_partial != 0 {
+				value_out[..out_len].copy_from_slice(&data[..out_len]);
+			}
+			Some(data.len() as u32)
+		},
+		None => None,
+	}
+}
+
+#[cfg(not(jam))]
 fn host_storage_read(key: &[u8], value_out: &mut [u8], value_offset: u32) -> Option<u32> {
 	match with_externalities(|ext| ext.storage(key)) {
 		Some(value) => {
@@ -527,12 +601,13 @@ fn host_storage_read(key: &[u8], value_out: &mut [u8], value_offset: u32) -> Opt
 	}
 }
 
-fn host_storage_set(key: &[u8], value: &[u8]) {
-	with_externalities(|ext| ext.place_storage(key.to_vec(), Some(value.to_vec())))
-}
-
+#[cfg(not(jam))]
 fn host_storage_get(key: &[u8]) -> Option<bytes::Bytes> {
 	with_externalities(|ext| ext.storage(key).map(|value| value.into()))
+}
+
+fn host_storage_set(key: &[u8], value: &[u8]) {
+	with_externalities(|ext| ext.place_storage(key.to_vec(), Some(value.to_vec())))
 }
 
 fn host_storage_exists(key: &[u8]) -> bool {
@@ -547,10 +622,49 @@ fn host_storage_proof_size() -> u64 {
 	recorder::with(|rec| rec.estimate_encoded_size()).expect("Recorder is always set; qed") as _
 }
 
+#[cfg(jam)]
+fn host_storage_root(out: &mut [u8]) {
+	with_externalities(|ext| {
+		let root = ext.storage_root(ext.runtime_state_version());
+		assert!(
+			out.len() >= root.len(),
+			"Output buffer provided to store the storage root hash must be large enough"
+		);
+		out[..root.len()].copy_from_slice(&root[..]);
+	})
+}
+
+#[cfg(not(jam))]
 fn host_storage_root(version: StateVersion) -> Vec<u8> {
 	with_externalities(|ext| ext.storage_root(version))
 }
 
+#[cfg(jam)]
+fn host_storage_clear_prefix(
+	prefix: &[u8],
+	maybe_limit: Option<u32>,
+	maybe_cursor_in: Option<&[u8]>,
+	maybe_cursor_out: &mut [u8],
+	counters: &mut StorageIterations,
+) -> u32 {
+	with_externalities(|ext| {
+		let removal_results =
+			ext.clear_prefix(prefix, maybe_limit, maybe_cursor_in.as_ref().map(|c| &c[..]));
+		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
+		if let Some(cursor_out) = removal_results.maybe_cursor {
+			ext.store_last_cursor(&cursor_out[..]);
+			if maybe_cursor_out.len() >= cursor_out_len {
+				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
+			}
+		}
+		counters.backend = removal_results.backend;
+		counters.unique = removal_results.unique;
+		counters.loops = removal_results.loops;
+		cursor_out_len as u32
+	})
+}
+
+#[cfg(not(jam))]
 fn host_storage_clear_prefix(prefix: &[u8], limit: Option<u32>) -> KillStorageResult {
 	with_externalities(|ext| ext.clear_prefix(prefix, limit, None).into())
 }
@@ -559,6 +673,21 @@ fn host_storage_append(key: &[u8], value: Vec<u8>) {
 	with_externalities(|ext| ext.storage_append(key.to_vec(), value))
 }
 
+#[cfg(jam)]
+fn host_storage_next_key(key_in: &[u8], key_out: &mut [u8]) -> u32 {
+	with_externalities(|ext| {
+		let next_key = ext.next_storage_key(key_in);
+		let next_key_len = next_key.as_ref().map(|k| k.len()).unwrap_or(0);
+		if let Some(next_key) = next_key {
+			if key_out.len() >= next_key_len {
+				key_out[..next_key_len].copy_from_slice(&next_key[..]);
+			}
+		}
+		next_key_len as u32
+	})
+}
+
+#[cfg(not(jam))]
 fn host_storage_next_key(key: &[u8]) -> Option<Vec<u8>> {
 	with_externalities(|ext| ext.next_storage_key(key))
 }
@@ -577,11 +706,30 @@ fn host_storage_commit_transaction() {
 		.expect("No open transaction that can be committed.");
 }
 
-fn host_default_child_storage_get(storage_key: &[u8], key: &[u8]) -> Option<Vec<u8>> {
+#[cfg(jam)]
+fn host_default_child_storage_read(
+	storage_key: &[u8],
+	key: &[u8],
+	value_out: &mut [u8],
+	value_offset: u32,
+	allow_partial: u32,
+) -> Option<u32> {
 	let child_info = ChildInfo::new_default(storage_key);
-	with_externalities(|ext| ext.child_storage(&child_info, key))
+	match with_externalities(|ext| ext.child_storage(&child_info, key)) {
+		Some(value) => {
+			let value_offset = value_offset as usize;
+			let data = &value[value_offset.min(value.len())..];
+			let out_len = core::cmp::min(data.len(), value_out.len());
+			if value_out.len() >= data.len() || allow_partial != 0 {
+				value_out[..out_len].copy_from_slice(&data[..out_len]);
+			}
+			Some(data.len() as u32)
+		},
+		None => None,
+	}
 }
 
+#[cfg(not(jam))]
 fn host_default_child_storage_read(
 	storage_key: &[u8],
 	key: &[u8],
@@ -601,6 +749,12 @@ fn host_default_child_storage_read(
 	}
 }
 
+#[cfg(not(jam))]
+fn host_default_child_storage_get(storage_key: &[u8], key: &[u8]) -> Option<Vec<u8>> {
+	let child_info = ChildInfo::new_default(storage_key);
+	with_externalities(|ext| ext.child_storage(&child_info, key))
+}
+
 fn host_default_child_storage_set(storage_key: &[u8], key: &[u8], value: &[u8]) {
 	let child_info = ChildInfo::new_default(storage_key);
 	with_externalities(|ext| {
@@ -613,6 +767,32 @@ fn host_default_child_storage_clear(storage_key: &[u8], key: &[u8]) {
 	with_externalities(|ext| ext.place_child_storage(&child_info, key.to_vec(), None))
 }
 
+#[cfg(jam)]
+fn host_default_child_storage_storage_kill(
+	storage_key: &[u8],
+	maybe_limit: Option<u32>,
+	maybe_cursor_in: Option<&[u8]>,
+	maybe_cursor_out: &mut [u8],
+	counters: &mut StorageIterations,
+) -> u32 {
+	let child_info = ChildInfo::new_default(storage_key);
+	with_externalities(|ext| {
+		let removal_results = ext.kill_child_storage(&child_info, maybe_limit, maybe_cursor_in);
+		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
+		if let Some(cursor_out) = removal_results.maybe_cursor {
+			ext.store_last_cursor(&cursor_out[..]);
+			if maybe_cursor_out.len() >= cursor_out_len {
+				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
+			}
+		}
+		counters.backend = removal_results.backend;
+		counters.unique = removal_results.unique;
+		counters.loops = removal_results.loops;
+		cursor_out_len as u32
+	})
+}
+
+#[cfg(not(jam))]
 fn host_default_child_storage_storage_kill(
 	storage_key: &[u8],
 	limit: Option<u32>,
@@ -626,6 +806,34 @@ fn host_default_child_storage_exists(storage_key: &[u8], key: &[u8]) -> bool {
 	with_externalities(|ext| ext.exists_child_storage(&child_info, key))
 }
 
+#[cfg(jam)]
+fn host_default_child_storage_clear_prefix(
+	storage_key: &[u8],
+	prefix: &[u8],
+	maybe_limit: Option<u32>,
+	maybe_cursor_in: Option<&[u8]>,
+	maybe_cursor_out: &mut [u8],
+	counters: &mut StorageIterations,
+) -> u32 {
+	let child_info = ChildInfo::new_default(storage_key);
+	with_externalities(|ext| {
+		let removal_results =
+			ext.clear_child_prefix(&child_info, prefix, maybe_limit, maybe_cursor_in);
+		let cursor_out_len = removal_results.maybe_cursor.as_ref().map(|c| c.len()).unwrap_or(0);
+		if let Some(cursor_out) = removal_results.maybe_cursor {
+			ext.store_last_cursor(&cursor_out[..]);
+			if maybe_cursor_out.len() >= cursor_out_len {
+				maybe_cursor_out[..cursor_out_len].copy_from_slice(&cursor_out[..]);
+			}
+		}
+		counters.backend = removal_results.backend;
+		counters.unique = removal_results.unique;
+		counters.loops = removal_results.loops;
+		cursor_out_len as u32
+	})
+}
+
+#[cfg(not(jam))]
 fn host_default_child_storage_clear_prefix(
 	storage_key: &[u8],
 	prefix: &[u8],
@@ -635,14 +843,61 @@ fn host_default_child_storage_clear_prefix(
 	with_externalities(|ext| ext.clear_child_prefix(&child_info, prefix, limit, None).into())
 }
 
+#[cfg(jam)]
+fn host_default_child_storage_root(storage_key: &[u8], out: &mut [u8]) {
+	let child_info = ChildInfo::new_default(storage_key);
+	with_externalities(|ext| {
+		let root = ext.child_storage_root(&child_info, ext.runtime_state_version());
+		assert!(
+			out.len() >= root.len(),
+			"Output buffer provided to store the child storage root hash must be large enough"
+		);
+		out[..root.len()].copy_from_slice(&root[..]);
+	})
+}
+
+#[cfg(not(jam))]
 fn host_default_child_storage_root(storage_key: &[u8], version: StateVersion) -> Vec<u8> {
 	let child_info = ChildInfo::new_default(storage_key);
 	with_externalities(|ext| ext.child_storage_root(&child_info, version))
 }
 
+#[cfg(jam)]
+fn host_default_child_storage_next_key(
+	storage_key: &[u8],
+	key_in: &[u8],
+	key_out: &mut [u8],
+) -> u32 {
+	let child_info = ChildInfo::new_default(storage_key);
+	with_externalities(|ext| {
+		let next_key = ext.next_child_storage_key(&child_info, key_in);
+		let next_key_len = next_key.as_ref().map(|k| k.len()).unwrap_or(0);
+		if let Some(next_key) = next_key {
+			if key_out.len() >= next_key_len {
+				key_out[..next_key_len].copy_from_slice(&next_key[..]);
+			}
+		}
+		next_key_len as u32
+	})
+}
+
+#[cfg(not(jam))]
 fn host_default_child_storage_next_key(storage_key: &[u8], key: &[u8]) -> Option<Vec<u8>> {
 	let child_info = ChildInfo::new_default(storage_key);
 	with_externalities(|ext| ext.next_child_storage_key(&child_info, key))
+}
+
+#[cfg(jam)]
+fn host_misc_last_cursor(out: &mut [u8]) -> Option<u32> {
+	with_externalities(|ext| {
+		let cursor = ext.take_last_cursor()?;
+		if out.len() >= cursor.len() {
+			out[..cursor.len()].copy_from_slice(&cursor[..]);
+		} else {
+			ext.store_last_cursor(&cursor[..]);
+		}
+		Some(cursor.len() as u32)
+	})
 }
 
 fn host_offchain_index_set(_key: &[u8], _value: &[u8]) {}

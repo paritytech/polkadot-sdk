@@ -81,11 +81,19 @@ fn build_wasm(chain: &str) -> PathBuf {
 	PathBuf::from(wasm_path)
 }
 
+#[cfg(not(jam))]
 type HostFunctions = (
 	sp_io::allocator::HostFunctions,
 	sp_io::logging::HostFunctions,
 	sp_io::storage::HostFunctions,
 	sp_io::hashing::HostFunctions,
+);
+#[cfg(jam)]
+type HostFunctions = (
+	sp_io::logging::HostFunctions,
+	sp_io::storage::HostFunctions,
+	sp_io::hashing::HostFunctions,
+	sp_io::input::HostFunctions,
 );
 
 fn generate_metadata_file(wasm_path: &Path, output_path: &Path) {

@@ -99,6 +99,7 @@ pub mod __private {
 	pub use sp_core::offchain;
 	#[cfg(not(feature = "std"))]
 	pub use sp_core::to_substrate_wasm_fn_return_value;
+	pub use sp_io;
 	#[cfg(feature = "frame-metadata")]
 	pub use sp_metadata_ir::{self as metadata_ir, frame_metadata as metadata};
 	pub use sp_runtime::{

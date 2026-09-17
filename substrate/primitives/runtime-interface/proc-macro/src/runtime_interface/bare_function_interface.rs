@@ -69,7 +69,26 @@ pub fn generate(trait_def: &ItemTrait, is_wasm_only: bool, tracing: bool) -> Res
 				Ok(t)
 			});
 
-	result
+	// wrappers (both variants)
+	let result = runtime_interface.wrappers().fold(result?, |mut t, (name, wrapper)| {
+		t.extend(function_wrapper_impl(name, wrapper));
+		t
+	});
+
+	Ok(result)
+}
+
+/// Returns the name of the bare function generated for the given method together with the
+/// attributes the function needs: the method name, or `<name>__raw` for `#[raw_api]` methods.
+fn bare_function_name(method: &RuntimeInterfaceFunction) -> (Ident, TokenStream) {
+	if method.is_raw_api() {
+		(
+			Ident::new(&format!("{}__raw", method.sig.ident), method.sig.ident.span()),
+			quote! { #[allow(non_snake_case)] },
+		)
+	} else {
+		(method.sig.ident.clone(), quote! {})
+	}
 }
 
 /// Generates the bare function implementation for the given method for the host and wasm side.
@@ -96,10 +115,10 @@ fn function_no_std_impl(
 	is_wasm_only: bool,
 ) -> Result<TokenStream> {
 	let should_trap_on_return = method.should_trap_on_return();
+	let (function_name, maybe_allow_non_snake) = bare_function_name(method);
 	let mut method = (*method).clone();
 	crate::utils::unpack_inner_types_in_signature(&mut method.sig);
 
-	let function_name = &method.sig.ident;
 	let host_function_name = create_exchangeable_host_function_ident(&method.sig.ident);
 	let args = get_function_arguments(&method.sig);
 	let arg_names = get_function_argument_names(&method.sig);
@@ -136,6 +155,7 @@ fn function_no_std_impl(
 		#cfg_wasm_only
 		#[cfg(substrate_runtime)]
 		#( #attrs )*
+		#maybe_allow_non_snake
 		pub fn #function_name( #( #args, )* ) #return_value {
 			// Call the host function
 			#host_function_name.get()( #( #arg_names, )* )
@@ -147,8 +167,11 @@ fn function_no_std_impl(
 /// Generate call to latest function version for `cfg(not(substrate_runtime))`
 ///
 /// This should generate simple `fn func(..) { func_version_<latest_version>(..) }`.
-fn function_std_latest_impl(method: &TraitItemFn, latest_version: u32) -> Result<TokenStream> {
-	let function_name = &method.sig.ident;
+fn function_std_latest_impl(
+	method: &RuntimeInterfaceFunction,
+	latest_version: u32,
+) -> Result<TokenStream> {
+	let (function_name, maybe_allow_non_snake) = bare_function_name(method);
 	let args = get_function_arguments(&method.sig).map(pat_ty_to_host_inner).map(FnArg::Typed);
 	let arg_names = get_function_argument_names(&method.sig).collect::<Vec<_>>();
 	let return_value = host_inner_return_ty(&method.sig.output);
@@ -159,12 +182,32 @@ fn function_std_latest_impl(method: &TraitItemFn, latest_version: u32) -> Result
 	Ok(quote_spanned! { method.span() =>
 		#[cfg(not(substrate_runtime))]
 		#( #attrs )*
+		#maybe_allow_non_snake
 		pub fn #function_name( #( #args, )* ) #return_value {
 			#latest_function_name(
 				#( #arg_names, )*
 			)
 		}
 	})
+}
+
+/// Generates a `#[wrapper]` function: a plain function that is put into the interface module next
+/// to the bare functions, for both the host and the runtime side.
+fn function_wrapper_impl(name: &Ident, wrapper: &TraitItemFn) -> TokenStream {
+	let attrs = wrapper.attrs.iter().filter(|a| !a.path().is_ident("wrapper"));
+	let args = get_function_arguments(&wrapper.sig);
+	let return_value = &wrapper.sig.output;
+	let generics = &wrapper.sig.generics;
+	let where_clause = &wrapper.sig.generics.where_clause;
+	let body = wrapper
+		.default
+		.as_ref()
+		.expect("Wrapper bodies are checked in `get_runtime_interface`; qed");
+
+	quote_spanned! { wrapper.span() =>
+		#( #attrs )*
+		pub fn #name #generics ( #( #args, )* ) #return_value #where_clause #body
+	}
 }
 
 /// Generates the bare function implementation for `cfg(not(substrate_runtime))`.

@@ -190,6 +190,21 @@ pub trait Externalities: ExtensionStore {
 	/// Set or clear a child storage entry.
 	fn place_child_storage(&mut self, child_info: &ChildInfo, key: Vec<u8>, value: Option<Vec<u8>>);
 
+	/// Set the state version declared by the runtime, see [`Self::runtime_state_version`].
+	///
+	/// The default implementation is a no-op for externalities that don't track it.
+	fn set_runtime_state_version(&mut self, _state_version: StateVersion) {}
+
+	/// The state version declared by the runtime through its `RuntimeVersion`, as set by the
+	/// executor with [`Self::set_runtime_state_version`] before calling into the runtime.
+	///
+	/// Host functions that compute storage roots without being passed the state version by the
+	/// runtime use this one. Defaults to [`StateVersion::default`] for externalities that don't
+	/// track it.
+	fn runtime_state_version(&self) -> StateVersion {
+		StateVersion::default()
+	}
+
 	/// Get the trie root of the current storage map.
 	///
 	/// This will also update all child storage keys in the top-level storage map.
@@ -246,6 +261,20 @@ pub trait Externalities: ExtensionStore {
 	/// Renew existing piece of transaction storage.
 	fn storage_renew_transaction_index(&mut self, _index: u32, _hash: &[u8]) {
 		unimplemented!("storage_renew_transaction_index");
+	}
+
+	/// Store the last cursor of a storage operation.
+	///
+	/// The stored cursor is transactional: [`Self::storage_start_transaction`] snapshots it, and
+	/// [`Self::storage_rollback_transaction`] restores the snapshot, so a rollback discards any
+	/// cursor stored within the rolled back transaction.
+	fn store_last_cursor(&mut self, _cursor: &[u8]) {
+		unimplemented!("store_last_cursor");
+	}
+
+	/// Take the last cursor of a storage operation.
+	fn take_last_cursor(&mut self) -> Option<Vec<u8>> {
+		unimplemented!("take_last_cursor");
 	}
 
 	/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

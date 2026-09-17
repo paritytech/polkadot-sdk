@@ -32,6 +32,9 @@ sp-trie = { optional = true, workspace = true }
 tracing = { workspace = true }
 tracing-core = { workspace = true }
 
+[target.'cfg(all(substrate_runtime, jam))'.dependencies]
+picoalloc = { workspace = true }
+
 [target.'cfg(not(substrate_runtime))'.dependencies]
 sp-keystore = { workspace = true, default-features = false }
 sp-trie = { workspace = true, default-features = false }

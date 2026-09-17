@@ -41,12 +41,21 @@ use sp_trie::{empty_child_trie_root, LayoutV0, LayoutV1, TrieConfiguration};
 pub struct BasicExternalities {
 	overlay: OverlayedChanges<Blake2Hasher>,
 	extensions: Extensions,
+	state_version: StateVersion,
+	last_cursor: Option<Vec<u8>>,
+	last_cursor_snapshots: Vec<Option<Vec<u8>>>,
 }
 
 impl BasicExternalities {
 	/// Create a new instance of `BasicExternalities`
 	pub fn new(inner: Storage) -> Self {
-		BasicExternalities { overlay: inner.into(), extensions: Default::default() }
+		BasicExternalities {
+			overlay: inner.into(),
+			extensions: Default::default(),
+			state_version: StateVersion::default(),
+			last_cursor: None,
+			last_cursor_snapshots: Vec::new(),
+		}
 	}
 
 	/// New basic externalities with empty storage.
@@ -268,6 +277,14 @@ impl Externalities for BasicExternalities {
 		self.overlay.append_storage(key, element, Default::default);
 	}
 
+	fn set_runtime_state_version(&mut self, state_version: StateVersion) {
+		self.state_version = state_version;
+	}
+
+	fn runtime_state_version(&self) -> StateVersion {
+		self.state_version
+	}
+
 	fn storage_root(&mut self, state_version: StateVersion) -> Vec<u8> {
 		let mut top = self
 			.overlay
@@ -311,15 +328,22 @@ impl Externalities for BasicExternalities {
 	}
 
 	fn storage_start_transaction(&mut self) {
+		self.last_cursor_snapshots.push(self.last_cursor.clone());
 		self.overlay.start_transaction()
 	}
 
 	fn storage_rollback_transaction(&mut self) -> Result<(), ()> {
-		self.overlay.rollback_transaction().map_err(drop)
+		self.overlay.rollback_transaction().map_err(drop)?;
+		if let Some(snapshot) = self.last_cursor_snapshots.pop() {
+			self.last_cursor = snapshot;
+		}
+		Ok(())
 	}
 
 	fn storage_commit_transaction(&mut self) -> Result<(), ()> {
-		self.overlay.commit_transaction().map_err(drop)
+		self.overlay.commit_transaction().map_err(drop)?;
+		self.last_cursor_snapshots.pop();
+		Ok(())
 	}
 
 	fn wipe(&mut self) {}
@@ -344,6 +368,14 @@ impl Externalities for BasicExternalities {
 
 	fn get_read_and_written_keys(&self) -> Vec<(Vec<u8>, u32, u32, bool)> {
 		unimplemented!("get_read_and_written_keys is not supported in Basic")
+	}
+
+	fn store_last_cursor(&mut self, cursor: &[u8]) {
+		self.last_cursor = Some(cursor.to_vec());
+	}
+
+	fn take_last_cursor(&mut self) -> Option<Vec<u8>> {
+		self.last_cursor.take()
 	}
 }
 

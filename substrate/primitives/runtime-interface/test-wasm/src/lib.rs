@@ -16,15 +16,22 @@
 // limitations under the License.
 
 //! Tests for the runtime interface traits and proc macros.
+//!
+//! The test interface comes in two flavours matching the two host function sets of `sp-io`
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
 
+#[cfg(not(jam))]
+use sp_runtime_interface::pass_by::{
+	AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer,
+};
+#[cfg(jam)]
+use sp_runtime_interface::pass_by::{ConvertAndReturnAs, PassFatPointerAndWrite};
 use sp_runtime_interface::{
 	pass_by::{
-		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer, PassAs,
-		PassFatPointerAndDecode, PassFatPointerAndDecodeSlice, PassFatPointerAndRead,
+		PassAs, PassFatPointerAndDecode, PassFatPointerAndDecodeSlice, PassFatPointerAndRead,
 		PassFatPointerAndReadWrite, PassPointerAndRead, PassPointerAndReadCopy,
 		PassPointerAndWrite, ReturnAs,
 	},
@@ -35,7 +42,12 @@ use sp_runtime_interface::{
 use core::mem;
 
 use alloc::{vec, vec::Vec};
-use sp_core::{sr25519::Public, wasm_export_functions};
+#[cfg(not(jam))]
+use sp_core::sr25519::Public;
+use sp_core::wasm_export_functions;
+// `RIIntOption` is a marshalling helper of the JAM host function set.
+#[cfg(jam)]
+use sp_io::RIIntOption;
 
 // Include the WASM binary
 #[cfg(feature = "std")]
@@ -53,6 +65,8 @@ pub fn wasm_binary_unwrap() -> &'static [u8] {
 /// Used in the `test_array_as_mutable_reference` test.
 const TEST_ARRAY: [u8; 16] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
 
+/// The test interface of the Polkadot host function set.
+#[cfg(not(jam))]
 #[runtime_interface]
 pub trait TestApi {
 	/// Returns the input data as result.
@@ -218,6 +232,144 @@ pub trait TestApi {
 	}
 }
 
+/// The test interface of the JAM host function set, whose host functions never make the host
+/// allocate runtime memory.
+#[cfg(jam)]
+#[runtime_interface]
+pub trait TestApi {
+	/// Set the storage at key with value.
+	fn set_storage(
+		&mut self,
+		key: PassFatPointerAndRead<&[u8]>,
+		data: PassFatPointerAndRead<&[u8]>,
+	) {
+		self.place_storage(key.to_vec(), Some(data.to_vec()));
+	}
+
+	/// Copy `hello` into the given mutable reference
+	fn return_value_into_mutable_reference(&self, data: PassFatPointerAndReadWrite<&mut [u8]>) {
+		let res = "hello";
+		data[..res.len()].copy_from_slice(res.as_bytes());
+	}
+
+	/// Take and fill mutable array.
+	fn array_as_mutable_reference(data: PassPointerAndWrite<&mut [u8; 16], 16>) {
+		data.copy_from_slice(&TEST_ARRAY);
+	}
+
+	/// A function that is called with invalid utf8 data from the runtime.
+	///
+	/// This also checks that we accept `_` (wild card) argument names.
+	fn invalid_utf8_data(_: PassFatPointerAndRead<&str>) {}
+
+	/// Overwrite the native implementation in wasm. The native implementation always returns
+	/// `false` and the replacement function will return always `true`.
+	fn overwrite_native_function_implementation() -> bool {
+		false
+	}
+
+	fn test_versioning(&self, data: u32) -> bool {
+		data == 42 || data == 50
+	}
+
+	#[version(2)]
+	fn test_versioning(&self, data: u32) -> bool {
+		data == 42
+	}
+
+	fn test_versioning_register_only(&self, data: u32) -> bool {
+		data == 80
+	}
+
+	#[version(2, register_only)]
+	fn test_versioning_register_only(&self, data: u32) -> bool {
+		data == 42
+	}
+
+	fn pass_pointer_and_read_copy(value: PassPointerAndReadCopy<[u8; 3], 3>) {
+		assert_eq!(value, [1, 2, 3]);
+	}
+
+	fn pass_pointer_and_read(value: PassPointerAndRead<&[u8; 3], 3>) {
+		assert_eq!(value, &[1, 2, 3]);
+	}
+
+	fn pass_fat_pointer_and_read(value: PassFatPointerAndRead<&[u8]>) {
+		assert_eq!(value, [1, 2, 3]);
+	}
+
+	fn pass_fat_pointer_and_read_write(value: PassFatPointerAndReadWrite<&mut [u8]>) {
+		assert_eq!(value, [1, 2, 3]);
+		value.copy_from_slice(&[4, 5, 6]);
+	}
+
+	fn pass_pointer_and_write(value: PassPointerAndWrite<&mut [u8; 3], 3>) {
+		assert_eq!(*value, [0, 0, 0]);
+		*value = [1, 2, 3];
+	}
+
+	fn pass_by_codec(value: PassFatPointerAndDecode<Vec<u16>>) {
+		assert_eq!(value, [1, 2, 3]);
+	}
+
+	fn pass_slice_ref_by_codec(value: PassFatPointerAndDecodeSlice<&[u16]>) {
+		assert_eq!(value, [1, 2, 3]);
+	}
+
+	fn pass_as(value: PassAs<Opaque, u32>) {
+		assert_eq!(value.0, 123);
+	}
+
+	fn return_as() -> ReturnAs<Opaque, u32> {
+		Opaque(123)
+	}
+
+	/// Writes the input data into `out` and returns its length.
+	#[raw_api]
+	fn return_input(
+		data: PassFatPointerAndRead<&[u8]>,
+		out: PassFatPointerAndWrite<&mut [u8]>,
+	) -> u32 {
+		let copy_len = data.len().min(out.len());
+		out[..copy_len].copy_from_slice(&data[..copy_len]);
+		data.len() as u32
+	}
+
+	#[wrapper]
+	fn return_input(data: Vec<u8>) -> Vec<u8> {
+		let mut out = vec![0u8; data.len()];
+		let len = return_input__raw(&data, &mut out) as usize;
+		out.truncate(len);
+		out
+	}
+
+	#[raw_api]
+	fn get_and_return_array(
+		data: PassPointerAndReadCopy<[u8; 34], 34>,
+		out: PassPointerAndWrite<&mut [u8; 16], 16>,
+	) {
+		out.copy_from_slice(&data[..16]);
+	}
+
+	#[wrapper]
+	fn get_and_return_array(data: [u8; 34]) -> [u8; 16] {
+		let mut out = [0u8; 16];
+		get_and_return_array__raw(data, &mut out);
+		out
+	}
+
+	fn return_option_value(
+		&self,
+		data: u32,
+	) -> ConvertAndReturnAs<Option<u32>, RIIntOption<u32>, i64> {
+		if data == 0 {
+			None
+		} else {
+			Some(data * 2)
+		}
+	}
+}
+
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Opaque(u32);
 
@@ -247,13 +399,6 @@ wasm_export_functions! {
 		let res = test_api::return_input(input.clone());
 
 		assert_eq!(input, res);
-	}
-
-	fn test_return_option_data() {
-		let input = vec![1, 2, 3, 4, 5, 6];
-		let res = test_api::return_option_input(input.clone());
-
-		assert_eq!(Some(input), res);
 	}
 
 	fn test_set_storage() {
@@ -291,20 +436,6 @@ wasm_export_functions! {
 		assert_eq!(array, TEST_ARRAY);
 	}
 
-	fn test_return_input_public_key() {
-		let key = Public::try_from(
-			&[
-				1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-				25, 26, 27, 28, 29, 30, 31, 32,
-			][..],
-		).unwrap();
-		let ret_key = test_api::return_input_public_key(key.clone());
-
-		let key_data: &[u8] = key.as_ref();
-		let ret_key_data: &[u8] = ret_key.as_ref();
-		assert_eq!(key_data, ret_key_data);
-	}
-
 	fn test_invalid_utf8_data_should_return_an_error() {
 		let data = vec![0, 159, 146, 150];
 		// I'm an evil hacker, trying to hack!
@@ -325,6 +456,47 @@ wasm_export_functions! {
 			.replace_implementation(new_implementation);
 
 		assert!(test_api::overwrite_native_function_implementation());
+	}
+
+	fn test_versioning_works() {
+		// we fix new api to accept only 42 as a proper input
+		// as opposed to sp-runtime-interface-test-wasm-deprecated::test_api::verify_input
+		// which accepted 42 and 50.
+		assert!(test_api::test_versioning(42));
+
+		assert!(!test_api::test_versioning(50));
+		assert!(!test_api::test_versioning(102));
+	}
+
+	fn test_versioning_register_only_works() {
+		// Ensure that we will import the version of the runtime interface function that
+		// isn't tagged with `register_only`.
+		assert!(!test_api::test_versioning_register_only(42));
+		assert!(test_api::test_versioning_register_only(80));
+	}
+}
+
+#[cfg(not(jam))]
+wasm_export_functions! {
+	fn test_return_option_data() {
+		let input = vec![1, 2, 3, 4, 5, 6];
+		let res = test_api::return_option_input(input.clone());
+
+		assert_eq!(Some(input), res);
+	}
+
+	fn test_return_input_public_key() {
+		let key = Public::try_from(
+			&[
+				1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+				25, 26, 27, 28, 29, 30, 31, 32,
+			][..],
+		).unwrap();
+		let ret_key = test_api::return_input_public_key(key.clone());
+
+		let key_data: &[u8] = key.as_ref();
+		let ret_key_data: &[u8] = ret_key.as_ref();
+		assert_eq!(key_data, ret_key_data);
 	}
 
 	fn test_vec_return_value_memory_is_freed() {
@@ -349,23 +521,6 @@ wasm_export_functions! {
 			len += test_api::get_and_return_array([0; 34])[1];
 		}
 		assert_eq!(0, len);
-	}
-
-	fn test_versioning_works() {
-		// we fix new api to accept only 42 as a proper input
-		// as opposed to sp-runtime-interface-test-wasm-deprecated::test_api::verify_input
-		// which accepted 42 and 50.
-		assert!(test_api::test_versioning(42));
-
-		assert!(!test_api::test_versioning(50));
-		assert!(!test_api::test_versioning(102));
-	}
-
-	fn test_versioning_register_only_works() {
-		// Ensure that we will import the version of the runtime interface function that
-		// isn't tagged with `register_only`.
-		assert!(!test_api::test_versioning_register_only(42));
-		assert!(test_api::test_versioning_register_only(80));
 	}
 
 	fn test_return_input_as_tuple() {
@@ -411,5 +566,32 @@ wasm_export_functions! {
 		assert_eq!(test_api::allocate_and_return_pointer(), [1_u8, 2, 3]);
 		assert_eq!(test_api::allocate_and_return_fat_pointer(), vec![1_u8, 2, 3]);
 		assert_eq!(test_api::allocate_and_return_by_codec(), vec![1_u16, 2, 3]);
+	}
+}
+
+#[cfg(jam)]
+wasm_export_functions! {
+	fn test_marshalling_strategies() {
+		test_api::pass_pointer_and_read_copy([1_u8, 2, 3]);
+		test_api::pass_pointer_and_read(&[1_u8, 2, 3]);
+		test_api::pass_fat_pointer_and_read(&[1_u8, 2, 3][..]);
+		{
+			let mut slice = [1_u8, 2, 3];
+			test_api::pass_fat_pointer_and_read_write(&mut slice);
+			assert_eq!(slice, [4_u8, 5, 6]);
+		}
+		{
+			let mut slice = [9_u8, 9, 9];
+			test_api::pass_pointer_and_write(&mut slice);
+			assert_eq!(slice, [1_u8, 2, 3]);
+		}
+		test_api::pass_by_codec(vec![1_u16, 2, 3]);
+		test_api::pass_slice_ref_by_codec(&[1_u16, 2, 3][..]);
+		test_api::pass_as(Opaque(123));
+		assert_eq!(test_api::return_as(), Opaque(123));
+		assert_eq!(test_api::return_option_value(5), Some(10));
+		assert_eq!(test_api::return_option_value(0), None);
+		let input = vec![10_u8, 20, 30, 40, 50];
+		assert_eq!(test_api::return_input(input.clone()), input);
 	}
 }

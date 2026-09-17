@@ -219,6 +219,7 @@ pub fn prepare(
 /// 3. off chain workers (PVFs do not have such a notion)
 /// 4. runtime tasks
 /// 5. sandbox
+#[cfg(not(jam))]
 type HostFunctions = (
 	sp_io::misc::HostFunctions,
 	sp_io::crypto::HostFunctions,
@@ -226,6 +227,16 @@ type HostFunctions = (
 	sp_io::allocator::HostFunctions,
 	sp_io::logging::HostFunctions,
 	sp_io::trie::HostFunctions,
+);
+
+#[cfg(jam)]
+type HostFunctions = (
+	sp_io::misc::HostFunctions,
+	sp_io::crypto::HostFunctions,
+	sp_io::hashing::HostFunctions,
+	sp_io::logging::HostFunctions,
+	sp_io::trie::HostFunctions,
+	sp_io::input::HostFunctions,
 );
 
 /// Host functions with ECC (elliptic curve cryptography) support.

@@ -430,6 +430,17 @@ fn should_trap_when_heap_exhausted(wasm_method: WasmExecutionMethod) {
 		.unwrap_err();
 
 	match err {
+		// The runtime-side allocator aborts through the Rust allocation error handler.
+		#[cfg(jam)]
+		Error::AbortedDueToPanic(error) => {
+			assert!(
+				error.message.contains("memory allocation of"),
+				"unexpected panic message: {}",
+				error.message,
+			);
+		},
+		// The host-side allocator makes the `malloc` host function panic.
+		#[cfg(not(jam))]
 		Error::AbortedDueToTrap(error)
 			if matches!(wasm_method, WasmExecutionMethod::Compiled { .. }) =>
 		{
@@ -636,11 +647,15 @@ fn memory_is_cleared_between_invocations(wasm_method: WasmExecutionMethod) {
 	// This results in the BSS section to *not* be emitted, hence the executor has no way
 	// of knowing about the `static` variable's existence, so this test will fail if the linear
 	// memory is not properly cleared between invocations.
-	let binary = wat::parse_str(r#"
+	//
+	// The only deviation from the generated code is that the return value is written to a fixed
+	// location between `__data_end` and `__heap_base` instead of memory allocated through the
+	// `ext_allocator_malloc` host function, which keeps the module independent of the host
+	// function set the executor provides.
+	let binary = wat::parse_str(
+		r#"
 	(module
-	 (type $i32_=>_i32 (func (param i32) (result i32)))
 	 (type $i32_i32_=>_i64 (func (param i32 i32) (result i64)))
-	 (import "env" "ext_allocator_malloc_version_1" (func $ext_allocator_malloc_version_1 (param i32) (result i32)))
 	 (global $__stack_pointer (mut i32) (i32.const 1048576))
 	 (global $global$1 i32 (i32.const 1048580))
 	 (global $global$2 i32 (i32.const 1048592))
@@ -651,7 +666,6 @@ fn memory_is_cleared_between_invocations(wasm_method: WasmExecutionMethod) {
 	 (export "__heap_base" (global $global$2))
 	 (func $returns_no_bss_mutable_static (param $0 i32) (param $1 i32) (result i64)
 	  (local $2 i32)
-	  (local $3 i32)
 	  (i32.store offset=1048576
 	   (i32.const 0)
 	   (local.tee $2
@@ -661,18 +675,18 @@ fn memory_is_cleared_between_invocations(wasm_method: WasmExecutionMethod) {
 	    )
 	   )
 	  )
-	  (i64.store
-	   (local.tee $3
-	    (call $ext_allocator_malloc_version_1 (i32.const 8))
-	   )
+	  (i64.store offset=1048584
+	   (i32.const 0)
 	   (i64.extend_i32_u (local.get $2))
 	  )
 	  (i64.or
-	   (i64.extend_i32_u (local.get $3))
+	   (i64.const 1048584)
 	   (i64.const 34359738368)
 	  )
 	 )
-	)"#).unwrap();
+	)"#,
+	)
+	.unwrap();
 
 	let runtime = crate::wasm_runtime::create_wasm_runtime_with_code::<HostFunctions>(
 		wasm_method,

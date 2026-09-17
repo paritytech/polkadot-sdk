@@ -186,6 +186,75 @@ jobs:
           app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
           app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
 
+  # JAM host function set (`--cfg jam`) coverage, part 1: host function marshalling, the executor
+  # and the parachain block validation.
+  test-jam:
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    timeout-minutes: 90
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    env:
+      RUST_TOOLCHAIN: stable
+      RUSTFLAGS: "--cfg jam -Cdebug-assertions=y -Dwarnings"
+      RUST_BACKTRACE: 1
+      WASM_BUILD_NO_COLOR: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: script
+        id: required
+        run: forklift cargo test --locked --release -p sp-io -p sp-runtime-interface-test -p sc-executor -p cumulus-pallet-parachain-system
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+
+  # JAM host function set (`--cfg jam`) coverage, part 2: builds the substrate test runtime and
+  # the kitchensink runtime with the cfg and runs them through a node built with the same cfg, so
+  # the JAM host functions, the JAM entry point and the runtime-side allocator are exercised on a
+  # full FRAME runtime and not only in the tests above.
+  test-jam-node:
+    needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
+    # The forklift cache for the cfg build is separate from the default one, so a cold build of
+    # the node has to fit in here.
+    timeout-minutes: 120
+    container:
+      image: ${{ needs.preflight.outputs.IMAGE }}
+    env:
+      RUST_TOOLCHAIN: stable
+      RUSTFLAGS: "--cfg jam -Cdebug-assertions=y -Dwarnings"
+      RUST_BACKTRACE: 1
+      WASM_BUILD_NO_COLOR: 1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: script
+        id: required
+        run: |
+          # Fixes "detected dubious ownership" error in the ci
+          git config --global --add safe.directory '*'
+          forklift cargo nextest run \
+            --locked \
+            --release \
+            --no-fail-fast \
+            --cargo-quiet \
+            -p substrate-test-runtime \
+            -p sc-service-test \
+            -p kitchensink-runtime \
+            -p staging-node-cli
+      - name: Stop all workflows if failed
+        if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
+        uses: ./.github/actions/workflow-stopper
+        with:
+          app-id: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_ID }}
+          app-key: ${{ secrets.WORKFLOW_STOPPER_RUNNER_APP_KEY }}
+
   confirm-required-jobs-passed:
     runs-on: ubuntu-latest
     name: All tests passed
@@ -196,6 +265,8 @@ jobs:
         test-linux-stable-runtime-benchmarks,
         test-linux-stable,
         test-linux-stable-no-try-runtime,
+        test-jam,
+        test-jam-node,
       ]
     if: always() && !cancelled()
     steps:
