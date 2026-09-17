@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789671284795,
+  "lastUpdate": 1789680576788,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1897ae0d78945a7134df3386d53420939804d2ab",
-          "message": "Add revive substrate runtime-api integration tests for call & instantiate (#10919)\n\n## Summary\n- Add integration tests for revive runtime API\n- Test Fibonacci contract deployment and execution via substrate APIs\n\n## Changes\n- Add test for Fibonacci contract call via runtime API\n- Add test to verify large Fibonacci values run out of gas as expected\n- Update dev-node runtime configuration for testing\n\n## Test plan\n- Run new integration tests\n- Verify runtime API correctly handles contract deployment\n- Verify gas limits are enforced correctly\n\n---------\n\nCo-authored-by: Mónica Jin <monica@parity.io>",
-          "timestamp": "2026-02-16T18:18:05Z",
-          "tree_id": "8a480f343129688df685797b99c893755e99dfc5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1897ae0d78945a7134df3386d53420939804d2ab"
-        },
-        "date": 1771270201220,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.146814642400003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12571723070000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13541484109999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dharjeezy@gmail.com",
+            "name": "dharjeezy",
+            "username": "dharjeezy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4bf6d91ddb771991001e628477900e129e3cb2c3",
+          "message": "fatxpool: hold the transaction pool as a trait object instead of a wrapper (#12845)\n\n`TransactionPoolWrapper` was a struct wrapping a boxed transaction pool,\nexisting only to give it a sized type, at the cost of ~190 lines\nforwarding every trait method to the inner box. `TransactionPoolHandle`\nis now a type alias for the trait object itself rather than for that\nwrapper, so the forwarding layer is gone and `Builder::build` hands back\nan `Arc<TransactionPoolHandle<Block>>` instead of a wrapper by value.\n\nThis also folds in #12942. `FullClientTransactionPool` no longer carries\na `Client` type parameter: all three of its associated types are\nprojections that discard the client, so `Hash`, `InPoolTransaction` and\n`Error` are spelled out in terms of `Block` alone. Naming them that way\nrequired exporting `sc_transaction_pool::error` and\n`sc_transaction_pool::Transaction`.\n\n`BuildNetworkParams`, `BuildNetworkAdvancedParams`, `SpawnTasksParams`\nand `GenRpcModuleParams` keep a generic transaction pool parameter,\nrelaxed to `?Sized` so the trait object can be passed in. The service\ntherefore does not pin the pool's error or in-pool transaction type, and\nan alternative pool implementation is free to define its own. What those\nentry points no longer do is constrain the client on the transaction\npool's behalf: the `BlockIdTo` and `TaggedTransactionQueue` bounds that\nonly existed to build a pool are gone from `build_network`,\n`build_network_advanced`, `spawn_tasks`, `gen_rpc_module` and the\ncumulus `build_network`.\n\nThe client capabilities each side genuinely needs are each spelled out\nonce:\n\n- `sc_transaction_pool::ClientForTransactionPool`, for building a pool.\nUsed by the `Builder` and internally by `FullChainApi`,\n`BasicPool::new_full` and `ForkAwareTxPool::new_full`. It does not pin\nthe `BlockIdTo` error, so a hand written client is free to choose its\nown.\n- `sc_service::ClientForService`, for the service entry points, in the\nsame shape as the existing `ClientForGrandpa` and with each entry point\nadding only the few capabilities it genuinely uses on top.\n\nComponents holding the pool behind an `Arc` stay generic over the pool\ntype and accept unsized pools now, which is a relaxation requiring no\nchanges on their side.\n\ncloses #5489\ncloses #12942\n\n---------\n\nCo-authored-by: Iulian Barbu <14218860+iulianbarbu@users.noreply.github.com>",
+          "timestamp": "2026-09-17T19:58:26Z",
+          "tree_id": "d2777dd8a34588efbedd923f7519a3ab5bbeff2b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4bf6d91ddb771991001e628477900e129e3cb2c3"
+        },
+        "date": 1789680532855,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.277913383699998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14406598220000003,
             "unit": "seconds"
           }
         ]
