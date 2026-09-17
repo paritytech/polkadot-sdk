@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789643555413,
+  "lastUpdate": 1789671284795,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f1b3e87606d56ecf469adcde334c6b3f9fed1f87",
-          "message": "bump zombienet version and change deprecated methods (#11061)\n\nbump zombienet to latest `v0.4.5` (and subxt to `0.44.`)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-16T17:33:48Z",
-          "tree_id": "0fbbd9dc2698dc8c86d6c2c0e9825db3bda315b5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f1b3e87606d56ecf469adcde334c6b3f9fed1f87"
-        },
-        "date": 1771267771822,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.146399546166666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12514214823333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14657388703333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e7c242653aba8f3dae834c71546aa0d6f731e0d5",
+          "message": "pallet-psm: reject the `None` origin as a PSM admin (#13256)\n\nA PSM admin could be set to the `None` origin. The pool rejects unsigned\nPSM calls, but a block author bypasses the pool, so such a PSM would be\nmanaged by whoever authors the block.\n\nThis PR rejects the `None` origin both when storing an admin and when\nchecking one.\n\n---------\n\nCo-authored-by: Dónal Murray <donal.murray@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-17T17:25:23Z",
+          "tree_id": "fe506f2eac8f15fae1abeccde9294ef56416ea21",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e7c242653aba8f3dae834c71546aa0d6f731e0d5"
+        },
+        "date": 1789671244623,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.2122077689,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13541484109999996,
             "unit": "seconds"
           }
         ]
