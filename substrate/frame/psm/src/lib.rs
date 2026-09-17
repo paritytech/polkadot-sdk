@@ -1657,8 +1657,8 @@ pub mod pallet {
 		/// (yielding `Emergency`). The resolved level is then checked against `required`. No
 		/// other authority can manage a PSM.
 		///
-		/// We reject the `None` origin to prevent the block author from controlling PSMs with an admin
-		/// set to `None`.
+		/// We reject the `None` origin to prevent the block author from controlling PSMs with an
+		/// admin set to `None`.
 		pub(crate) fn ensure_psm_admin(
 			origin: OriginFor<T>,
 			internal_asset: &T::AssetId,
