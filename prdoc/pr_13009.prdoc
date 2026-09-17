@@ -27,6 +27,10 @@ doc:
     On the Relay Chain side, the existing on-demand pallet gains the receiving end:
     a new `queue_on_demand_batch` call, callable only by the Coretime chain or root,
     which pushes the whole batch into the on-demand order queue.
+
+    Note that in order for the batch to reach the Relay Chain without additional
+    latency, the new pallet has to be ordered before cumulus_pallet_parachain_system
+    in runtimes using both.
 crates:
 - name: pallet-on-demand
   bump: major
