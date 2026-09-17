@@ -161,14 +161,14 @@ mod reputation_priority {
 	/// delay is being removed (#12004 / the bounded-parallel-fetch design #11023), so we
 	/// deliberately do not rely on it. The mechanism this test uses instead is the
 	/// one-fetch-in-flight slot: while a fetch occupies the single claim-queue slot, further
-	/// advertisements queue, and when the slot frees the validator picks the best remaining
+	/// advertisements are kept, and when the slot frees the validator picks the best remaining
 	/// carrier by reputation. Every peer here has reputation ≥ 1, so the delay path is never taken
 	/// — the prioritisation comes purely from the busy pipeline and the re-fetch-on-failure path,
 	/// which keeps the test valid before and after #12004.
 	///
 	/// Layout: a length-1 claim queue (one fetchable slot). All three peers advertise the *same*
 	/// candidate. A throwaway "first carrier" advertises first and is fetched immediately,
-	/// occupying the slot; meanwhile A and B queue as co-carriers of that same candidate. The
+	/// occupying the slot; meanwhile A and B are kept as co-carriers of that same candidate. The
 	/// first carrier's fetch then fails with undecodable bytes (`FAILED_FETCH_SLASH` — it is a
 	/// throwaway whose reputation we don't care about), which frees the slot *and* leaves the
 	/// candidate un-fetched, so the validator re-fetches it from the best remaining carrier by
@@ -325,10 +325,100 @@ mod reputation_priority {
 		let _ = contended_round(&mut w, fetch_leaf, 2, &carrier, &offender, &honest);
 	}
 
+	/// The slash for an invalid collation lands on the peer whose copy we proposed for
+	/// backing, even when the same candidate was concurrently fetched from a second carrier.
+	///
+	/// Two carriers of one candidate over different protocol versions (a V2 peer, and a V3 peer
+	/// carrying a V2 descriptor) form distinct in-flight dedup keys, so with two free claim-queue
+	/// slots both get fetched. Only the first verified copy may be recorded and sent to backing;
+	/// the later copy must be dropped without overwriting the record. Otherwise a collator could
+	/// serve an invalid candidate from its high-rep peer and let a throwaway second peer absorb
+	/// the slash.
+	///
+	/// Observed by consequence (as in `invalid_collation_slashes_fetcher_even_after_disconnect`):
+	/// after `Invalid`, offender (was 2) loses a contended pick to honest (1), while decoy (2)
+	/// still beats honest (1).
+	///
+	/// `only = "experimental"`: legacy dedups on candidate hash and never fetches the second copy.
+	#[crate::sim_test(only = "experimental")]
+	fn invalid_collation_slashes_first_fetcher_not_concurrent_duplicate_carrier<S: CollatorSut>() {
+		use crate::common::{
+			builders::{Candidate, ProtocolVersion::V3},
+			contract::Effect,
+		};
+		use polkadot_node_subsystem::messages::CollatorProtocolMessage;
+
+		let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
+
+		let offender = w.declared_peer(PARA, V2);
+		let decoy = w.declared_peer(PARA, V3);
+		let honest = w.declared_peer(PARA, V2);
+		let carrier = w.declared_peer(PARA, V2);
+
+		let leaf = w.seed_scores(PARA, &[(&offender, 2), (&decoy, 2), (&honest, 1), (&carrier, 1)]);
+
+		// Two free slots for PARA so both carriers' fetches run concurrently.
+		let fetch_leaf = w
+			.new_block()
+			.from_parent(leaf)
+			.with_claim_queue_at(CoreIndex(0), [PARA, PARA])
+			.activate()
+			.hash;
+		// `approved_peer` gives the receipt a V2-shaped descriptor, which is what the V3
+		// carrier's advertisement claims (`advertise` defaults V3 ads to descriptor V2).
+		let candidate = w
+			.candidate_at(fetch_leaf)
+			.para(PARA)
+			.parent_head(HeadData(Vec::new()))
+			.head_data(HeadData(vec![7, 1]))
+			.approved_peer(offender.peer_id)
+			.build();
+		w.outputs
+			.insert(candidate.hash(), candidate.commitments.clone(), candidate.pvd.clone());
+
+		w.advertise_with_parent_head(
+			&offender,
+			fetch_leaf,
+			candidate.hash(),
+			candidate.parent_head_hash(),
+		);
+		w.advertise_with_parent_head(
+			&decoy,
+			fetch_leaf,
+			candidate.hash(),
+			candidate.parent_head_hash(),
+		);
+		let offender_fetch = w.expect_fetch_from(offender.peer_id);
+		let decoy_fetch = w.expect_fetch_from(decoy.peer_id);
+
+		// Offender's copy lands first: verified, recorded, proposed for backing.
+		w.respond_fetch_v2(offender_fetch, candidate.receipt.clone(), Candidate::empty_pov());
+		w.expect_second(&candidate);
+		// Decoy's copy lands second: same candidate, must be dropped, not proposed again.
+		w.respond_fetch_v2(decoy_fetch, candidate.receipt.clone(), Candidate::empty_pov());
+		w.base.sim.advance(Duration::from_millis(200));
+		w.base.sim.assert_count(
+			|e| matches!(e, Effect::SecondCandidate { .. }),
+			1,
+			"SecondCandidate: the duplicate copy must not be proposed for backing again",
+		);
+
+		// Backing finds the candidate invalid.
+		w.base
+			.sim
+			.send(CollatorProtocolMessage::Invalid(fetch_leaf, candidate.receipt.clone().into()));
+		w.base.sim.advance(Duration::from_millis(100));
+
+		// Offender (now 0) loses to honest (1): the slash landed on the recorded fetcher.
+		let _ = contended_round(&mut w, fetch_leaf, 2, &carrier, &offender, &honest);
+		// Decoy (still 2) beats honest (1): the slash did not shift to the later carrier.
+		let _ = contended_round(&mut w, fetch_leaf, 3, &carrier, &honest, &decoy);
+	}
+
 	/// One contention round on a fresh, single-slot leaf forked off `parent`. All three peers
 	/// carry the *same* candidate:
 	///   1. `first_carrier` advertises first → fetched immediately, occupying the only slot;
-	///   2. `held` (lower rep) and `winner` (higher rep) advertise the same candidate and queue;
+	///   2. `held` (lower rep) and `winner` (higher rep) advertise the same candidate and are kept;
 	///   3. fail the first carrier's fetch (undecodable bytes) → the slot frees and the candidate
 	///      is re-fetched from the best remaining carrier by reputation → `winner`.
 	///
@@ -370,7 +460,7 @@ mod reputation_priority {
 		w.advertise_with_parent_head(first_carrier, leaf, cand.hash(), cand.parent_head_hash());
 		let first_id = w.expect_fetch_from_after(round_barrier, first_carrier.peer_id);
 
-		// With the slot busy, the other two carriers of the same candidate advertise and queue.
+		// With the slot busy, the other two carriers of the same candidate advertise and are kept.
 		w.advertise_with_parent_head(held, leaf, cand.hash(), cand.parent_head_hash());
 		w.advertise_with_parent_head(winner, leaf, cand.hash(), cand.parent_head_hash());
 

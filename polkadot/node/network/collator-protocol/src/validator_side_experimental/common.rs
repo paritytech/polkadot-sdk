@@ -285,7 +285,6 @@ pub struct SecondingRejectionInfo {
 	pub scheduling_parent: Hash,
 	pub peer_id: PeerId,
 	pub para_id: ParaId,
-	pub maybe_output_head_hash: Option<Hash>,
 	pub maybe_candidate_hash: Option<CandidateHash>,
 }
 
@@ -295,7 +294,6 @@ impl From<&PeerAdvertisement> for SecondingRejectionInfo {
 			scheduling_parent: peer_adv.scheduling_parent(),
 			peer_id: peer_adv.peer_id,
 			para_id: peer_adv.para_id(),
-			maybe_output_head_hash: None,
 			maybe_candidate_hash: peer_adv.candidate_hash(),
 		}
 	}

@@ -137,6 +137,7 @@ mod second_multiple_candidates_per_relay_parent {
 mod child_blocked_from_seconding_by_parent {
 	use crate::common::{
 		builders::{Candidate, ProtocolVersion::V2},
+		contract::Effect,
 		harness::CollatorSut,
 		world::{activated_world, WorldExt as _},
 	};
@@ -177,6 +178,81 @@ mod child_blocked_from_seconding_by_parent {
 
 		// Child unblocks.
 		w.expect_second(&child);
+	}
+
+	/// At most one blocked collation is kept, and the slot is freed when the kept one falls out
+	/// of view. Both halves observed through behaviour, not state:
+	///
+	/// 1. A blocks at leaf L0. B blocks while A is held → B is dropped, so seconding B's parent
+	///    unblocks nothing.
+	/// 2. Three leaves later L0 leaves the implicit view (`allowed_ancestry_len = 2`) and A is
+	///    pruned. C blocks at the new leaf → kept, so seconding C's parent unblocks C.
+	///
+	/// If pruning failed, C would be dropped in step 2 like B in step 1. If the bound failed, B
+	/// would second in step 1.
+	///
+	/// `only = "experimental"`: legacy keeps an unbounded number of blocked collations.
+	#[crate::sim_test(only = "experimental")]
+	fn one_blocked_collation_kept_and_freed_when_out_of_view<S: CollatorSut>() {
+		let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
+		let leaf0 = w.leaf();
+
+		// Parent/child pairs; each child's parent head is its parent's output head.
+		let mk = |w: &mut crate::common::world::World<S>, leaf, tag: u8| {
+			let parent = w
+				.candidate_at(leaf)
+				.para(PARA)
+				.parent_head(HeadData(Vec::new()))
+				.head_data(HeadData(vec![tag, 1]))
+				.build();
+			let child = w
+				.candidate_at(leaf)
+				.para(PARA)
+				.parent_head(HeadData(vec![tag, 1]))
+				.head_data(HeadData(vec![tag, 2]))
+				.build();
+			w.outputs.insert(child.hash(), child.commitments.clone(), child.pvd.clone());
+			(parent, child)
+		};
+
+		// Step 1: A blocks and is kept; B blocks and is dropped.
+		let (_parent_a, child_a) = mk(&mut w, leaf0, 0xa);
+		let (parent_b, child_b) = mk(&mut w, leaf0, 0xb);
+		let peer_a = w.declared_peer(PARA, V2);
+		let peer_b = w.declared_peer(PARA, V2);
+
+		w.advertise_with_parent_head(&peer_a, leaf0, child_a.hash(), child_a.parent_head_hash());
+		let req = w.fetch_request(&child_a);
+		w.respond_fetch_v2(req, child_a.receipt.clone(), Candidate::empty_pov());
+
+		w.advertise_with_parent_head(&peer_b, leaf0, child_b.hash(), child_b.parent_head_hash());
+		let req = w.fetch_request(&child_b);
+		w.respond_fetch_v2(req, child_b.receipt.clone(), Candidate::empty_pov());
+
+		// Seconding B's parent must unblock nothing: B was never kept. Whole-log count, not a
+		// windowed `expect_no`: `full_second` already flushed the pipeline, so a wrongly kept B
+		// would have seconded *before* a window opened here.
+		w.full_second(&peer_b, &parent_b);
+		w.base.sim.assert_count(
+			|e| matches!(e, Effect::SecondCandidate { candidate_hash, .. } if *candidate_hash == child_b.hash()),
+			0,
+			"SecondCandidate for B (B must have been dropped, not kept)",
+		);
+
+		// Step 2: age L0 out of view, then C blocks at the new leaf and is kept.
+		let mut leaf = leaf0;
+		for _ in 0..3 {
+			leaf = w.new_block().from_parent(leaf).activate().hash;
+		}
+		let (parent_c, child_c) = mk(&mut w, leaf, 0xc);
+		let peer_c = w.declared_peer(PARA, V2);
+
+		w.advertise_with_parent_head(&peer_c, leaf, child_c.hash(), child_c.parent_head_hash());
+		let req = w.fetch_request(&child_c);
+		w.respond_fetch_v2(req, child_c.receipt.clone(), Candidate::empty_pov());
+
+		w.full_second(&peer_c, &parent_c);
+		w.expect_second(&child_c);
 	}
 
 	/// Property: blocked collations must not starve good ones.

@@ -74,8 +74,7 @@ use polkadot_primitives::{
 	UMP_SEPARATOR,
 };
 use polkadot_primitives_test_helpers::{
-	dummy_candidate_commitments, dummy_committed_candidate_receipt,
-	dummy_committed_candidate_receipt_v2, make_valid_candidate_descriptor_v2,
+	dummy_committed_candidate_receipt, dummy_committed_candidate_receipt_v2,
 };
 use sc_network::{OutboundFailure, RequestFailure};
 use sc_network_types::multihash::Multihash;
@@ -2564,129 +2563,6 @@ async fn test_invalid_collation() {
 	test_state.assert_no_messages().await;
 }
 
-// A blocked-from-seconding collation gets pruned once its scheduling parent goes out of view.
-//
-// We park a fetched collation in `blocked_from_seconding` (by withholding its PVD), then activate
-// new leaves until the SP falls out of the implicit view. Asserting "the parked entry is gone"
-// requires an *observable* signal: a parked entry would re-attempt seconding when its parent
-// gets seconded (`note_seconded` walks `blocked_from_seconding[(para, parent_head)]` and re-runs
-// `can_begin_seconding`, sending a fresh PVD request). So after the SP exits view we send a
-// seconded statement matching the parked candidate's parent and assert no PVD request is sent —
-// the entry must already be gone.
-#[tokio::test]
-async fn test_outdated_blocked_collations_are_pruned() {
-	let mut test_state = TestState::default();
-	let active_leaf = get_hash(10);
-	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
-	let para_id = ParaId::from(100);
-
-	let db = MockDb::default();
-	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
-	let mut sender = test_state.sender.clone();
-
-	test_state.rp_info.insert(
-		get_hash(11),
-		RelayParentInfo {
-			number: 11,
-			parent: get_parent_hash(11),
-			session_index: leaf_info.session_index,
-			claim_queue: [(leaf_info.assigned_core, vec![200.into(), 100.into(), 200.into()])]
-				.into_iter()
-				.collect(),
-			assigned_core: leaf_info.assigned_core,
-		},
-	);
-	test_state.rp_info.insert(
-		get_hash(12),
-		RelayParentInfo {
-			number: 12,
-			parent: get_parent_hash(12),
-			session_index: leaf_info.session_index,
-			claim_queue: [(leaf_info.assigned_core, vec![100.into(), 200.into(), 100.into()])]
-				.into_iter()
-				.collect(),
-			assigned_core: leaf_info.assigned_core,
-		},
-	);
-	test_state.rp_info.insert(
-		get_hash(13),
-		RelayParentInfo {
-			number: 13,
-			parent: get_parent_hash(13),
-			session_index: leaf_info.session_index,
-			claim_queue: [(leaf_info.assigned_core, vec![200.into(), 100.into(), 200.into()])]
-				.into_iter()
-				.collect(),
-			assigned_core: leaf_info.assigned_core,
-		},
-	);
-
-	let peer = peer_id(1);
-
-	let pvd = PersistedValidationData {
-		parent_head: HeadData(vec![0]),
-		relay_parent_number: 10,
-		..dummy_pvd()
-	};
-	let ccr = CommittedCandidateReceipt {
-		descriptor: make_valid_candidate_descriptor_v2(
-			para_id,
-			active_leaf,
-			leaf_info.assigned_core,
-			leaf_info.session_index,
-			pvd.hash(),
-			dummy_pov().hash(),
-			Hash::zero(),
-			HeadData(vec![1]).hash(),
-			Hash::zero(),
-		),
-		commitments: dummy_candidate_commitments(HeadData(vec![1])),
-	};
-	let prospective_candidate = Some(ProspectiveCandidate {
-		candidate_hash: ccr.to_plain().hash(),
-		parent_head_data_hash: pvd.parent_head.hash(),
-	});
-	let adv = PeerAdvertisement {
-		advertisement: Advertisement {
-			para_id,
-			scheduling_parent: active_leaf,
-			prospective_candidate,
-			advertised_descriptor_version: None,
-		},
-		peer_id: peer,
-	};
-
-	state.handle_peer_connected(&mut sender, peer, CollationVersion::V2).await;
-	state.handle_declare(&mut sender, peer, para_id).await;
-
-	test_state.handle_advertisement(&mut state, adv).await;
-	state.try_launch_new_fetch_requests(&mut sender).await;
-	test_state.assert_collation_request(adv).await;
-	test_state.assert_no_messages().await;
-
-	// Fetch the candidate; PVD lookup is left unanswered so seconding gets blocked-on-parent.
-	let res = Ok(CollationFetchingResponse::Collation(ccr.to_plain(), dummy_pov()));
-	futures::join!(
-		state.handle_fetched_collation(&mut sender, (adv, res)),
-		test_state.assert_pvd_request(adv, None, adv.scheduling_parent()),
-	);
-	test_state.assert_no_messages().await;
-
-	// Advance the leaves so sp=10 falls out of view; the parked entry must be pruned along the
-	// way.
-	test_state.activate_leaf(&mut state, 11).await;
-	test_state.activate_leaf(&mut state, 12).await;
-	test_state.activate_leaf(&mut state, 13).await;
-
-	// If the parked entry were still there, this seconded statement (whose `output_head`
-	// matches the candidate's parent head) would unblock it and trigger a new PVD request.
-	let parent = ccr.descriptor.relay_parent();
-	let statement = make_seconded_statement(&test_state.keystore, ccr);
-	state.handle_seconded_collation(&mut sender, statement, parent).await;
-
-	test_state.assert_no_messages().await;
-}
-
 // Test that collation request is cancelled once the relay parent goes out of scope and the claim is
 // freed.
 #[tokio::test]
@@ -3933,7 +3809,7 @@ async fn linear_multi_sp_same_para_capacity_not_double_counted() {
 // from a narrower-window SP. With leaf 10's CQ for our core = [100, 200, 100], SP=8 (window
 // [100], offset 2) can only fill position 0; SP=10 (window [100, 200, 100], offset 0) can
 // fill positions 0 or 2. If consumption from a fetch at SP=10 is greedily charged to
-// position 0, SP=8's only reachable slot is gone and its ad gets wrongly parked.
+// position 0, SP=8's only reachable slot is gone and its ad is wrongly left unfetched.
 //
 // Both ads must be fetched regardless of which SP `try_launch_new_fetch_requests` visits
 // first.

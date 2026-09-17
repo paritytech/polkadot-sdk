@@ -16,14 +16,16 @@ doc:
       validation data. Previously it was recorded optimistically and undone on failure, which let
       one peer's failing delivery release a *different* peer's valid delivery of the same
       candidate, depending on response ordering — mis-attributing a slot or letting a candidate
-      escape its slash.
+      escape its slash. When the same candidate is nevertheless fetched from two carriers (their
+      advertisements differ in protocol-derived fields), the first verified copy wins: the later
+      copy is dropped without overwriting the recorded fetcher.
 
-    * **Parked ("blocked") collations no longer count towards capacity.** A collation whose parent
-      isn't seconded yet (so its PVD can't be reconstructed and the collator didn't inline the
-      parent head data) is parked for retry but holds no slot, and parking is bounded to one at a
-      time. Otherwise a peer could occupy capacity it never fills by withholding the parent head
-      data. This is a legacy path; collators that inline the parent head data (required for
-      elastic scaling) never block.
+    * **Blocked collations no longer count towards capacity.** A collation whose parent isn't
+      seconded yet (so its PVD can't be reconstructed and the collator didn't inline the parent
+      head data) is kept for a retry but holds no slot, and at most one is kept at a time.
+      Otherwise a peer could occupy capacity it never fills by withholding the parent head data.
+      This is a legacy path; collators that inline the parent head data (required for elastic
+      scaling) never block.
 
     * **Drop the 300ms initial fetch delay (`MAX_FETCH_DELAY`).** It rarely applied in practice and
       could penalise slower honest builds; the protection it approximated is delivered by parallel
