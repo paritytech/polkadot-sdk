@@ -147,6 +147,10 @@ pub struct NodeExtraArgs {
 	/// HOP (Hand-Off Protocol) configuration parameters.
 	/// `None` disables HOP.
 	pub hop: Option<sc_hop::HopParams>,
+
+	/// Whether to run the price oracle service. Always `false` when the node is built without
+	/// the `price-oracle` feature.
+	pub price_oracle: bool,
 }
 
 /// Maximum safety margin, in blocks, subtracted from the runtime's transaction-storage

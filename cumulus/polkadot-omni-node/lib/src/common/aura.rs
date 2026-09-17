@@ -55,6 +55,8 @@ pub trait AuraRuntimeApi<Block: BlockT, AuraId: AuraIdT>:
 	+ AuraApi<Block, <AuraId::BoundedPair as Pair>::Public>
 	+ AuraUnincludedSegmentApi<Block>
 	+ KeyToIncludeInRelayProof<Block>
+	+ sp_price_oracle::runtime_api::PriceOracleApi<Block, <AuraId::BoundedPair as Pair>::Public>
+	+ sp_price_oracle::runtime_api::PriceOracleMarketApi<Block>
 	+ Sized
 where
 	<AuraId::BoundedPair as Pair>::Public: std::fmt::Debug,
@@ -71,7 +73,9 @@ where
 	T: sp_api::ApiExt<Block>
 		+ AuraApi<Block, <AuraId::BoundedPair as Pair>::Public>
 		+ AuraUnincludedSegmentApi<Block>
-		+ KeyToIncludeInRelayProof<Block>,
+		+ KeyToIncludeInRelayProof<Block>
+		+ sp_price_oracle::runtime_api::PriceOracleApi<Block, <AuraId::BoundedPair as Pair>::Public>
+		+ sp_price_oracle::runtime_api::PriceOracleMarketApi<Block>,
 	<AuraId::BoundedPair as Pair>::Public: std::fmt::Debug,
 {
 }

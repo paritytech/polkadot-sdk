@@ -226,6 +226,7 @@ where
 			ref storage_monitor,
 			ref hop,
 			collator_reserved_slots: _,
+			price_oracle,
 		} = node_extra_args;
 
 		// Warn about args that have no effect in dev mode (collation-specific).
@@ -240,6 +241,9 @@ where
 		}
 		if max_pov_percentage.is_some() {
 			log::warn!("`--max-pov-percentage` has no effect in dev mode (no PoVs are produced).");
+		}
+		if price_oracle {
+			log::warn!("`--enable-price-oracle` has no effect in dev mode.");
 		}
 
 		let PartialComponents {
