@@ -1644,6 +1644,41 @@ pub mod pallet {
 		/// [`PsmAdminInfo::full_admin`] (yielding `Full`) or [`PsmAdminInfo::emergency_admin`]
 		/// (yielding `Emergency`). The resolved level is then checked against `required`. No
 		/// other authority can manage a PSM.
+		/// Move each admin role that equals `Signed(old)` to `Signed(new)`.
+		///
+		/// Wire this into `pallet_assets::AssetsCallback::owner_changed` for the internal
+		/// asset. It keeps an admin role that was held through asset ownership attached to
+		/// that ownership when the asset moves. An admin that is any other origin, such as
+		/// a governance track, does not change.
+		pub fn handle_internal_asset_owner_change(
+			internal_asset: &T::AssetId,
+			old: &T::AccountId,
+			new: &T::AccountId,
+		) {
+			let old_origin: T::PalletsOrigin = frame_system::RawOrigin::Signed(old.clone()).into();
+			let new_origin: T::PalletsOrigin = frame_system::RawOrigin::Signed(new.clone()).into();
+
+			PsmAdmin::<T>::mutate(internal_asset, |maybe| {
+				let Some(admin) = maybe else { return };
+				if admin.full_admin == old_origin {
+					admin.full_admin = new_origin.clone();
+					Self::deposit_event(Event::FullAdminChanged {
+						internal_asset: internal_asset.clone(),
+						old_admin: Box::new(old_origin.clone()),
+						new_admin: Box::new(new_origin.clone()),
+					});
+				}
+				if admin.emergency_admin == old_origin {
+					admin.emergency_admin = new_origin.clone();
+					Self::deposit_event(Event::EmergencyAdminChanged {
+						internal_asset: internal_asset.clone(),
+						old_admin: Box::new(old_origin.clone()),
+						new_admin: Box::new(new_origin),
+					});
+				}
+			});
+		}
+
 		pub(crate) fn ensure_psm_admin(
 			origin: OriginFor<T>,
 			internal_asset: &T::AssetId,

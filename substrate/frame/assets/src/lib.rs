@@ -213,6 +213,11 @@ pub trait AssetsCallback<AssetId, AccountId> {
 	fn destroyed(_id: &AssetId) -> Result<(), ()> {
 		Ok(())
 	}
+
+	/// Indicates that the owner of the asset with `id` changed from `old` to `new`.
+	fn owner_changed(_id: &AssetId, _old: &AccountId, _new: &AccountId) -> Result<(), ()> {
+		Ok(())
+	}
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(10)]
@@ -224,6 +229,11 @@ impl<AssetId, AccountId> AssetsCallback<AssetId, AccountId> for Tuple {
 
 	fn destroyed(id: &AssetId) -> Result<(), ()> {
 		for_tuples!( #( Tuple::destroyed(id)?; )* );
+		Ok(())
+	}
+
+	fn owner_changed(id: &AssetId, old: &AccountId, new: &AccountId) -> Result<(), ()> {
+		for_tuples!( #( Tuple::owner_changed(id, old, new)?; )* );
 		Ok(())
 	}
 }
@@ -1346,7 +1356,7 @@ pub mod pallet {
 					T::Currency::repatriate_reserved(&details.owner, &owner, deposit, Reserved)?;
 				ensure!(remaining.is_zero(), Error::<T, I>::IncompleteDepositTransfer);
 
-				details.owner = owner.clone();
+				Self::do_update_owner(&id, &mut details.owner, owner.clone())?;
 
 				Self::deposit_event(Event::OwnerChanged { asset_id: id, owner });
 				Ok(())
@@ -1574,7 +1584,8 @@ pub mod pallet {
 			Asset::<T, I>::try_mutate(id.clone(), |maybe_asset| {
 				let mut asset = maybe_asset.take().ok_or(Error::<T, I>::Unknown)?;
 				ensure!(asset.status != AssetStatus::Destroying, Error::<T, I>::AssetNotLive);
-				asset.owner = T::Lookup::lookup(owner)?;
+				let new_owner = T::Lookup::lookup(owner)?;
+				Self::do_update_owner(&id, &mut asset.owner, new_owner)?;
 				asset.issuer = T::Lookup::lookup(issuer)?;
 				asset.admin = T::Lookup::lookup(admin)?;
 				asset.freezer = T::Lookup::lookup(freezer)?;
