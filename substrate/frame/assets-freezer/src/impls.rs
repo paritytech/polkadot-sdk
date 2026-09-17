@@ -107,6 +107,10 @@ impl<T: Config<I>, I: 'static> Inspect<T::AccountId> for Pallet<T, I> {
 	fn asset_exists(asset: Self::AssetId) -> bool {
 		pallet_assets::Pallet::<T, I>::asset_exists(asset)
 	}
+
+	fn is_sufficient(asset: Self::AssetId) -> bool {
+		pallet_assets::Pallet::<T, I>::is_sufficient(asset)
+	}
 }
 
 impl<T: Config<I>, I: 'static> InspectFreeze<T::AccountId> for Pallet<T, I> {

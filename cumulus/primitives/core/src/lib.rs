@@ -650,6 +650,10 @@ sp_api::decl_runtime_apis! {
 	/// preventing collators from skipping slots.
 	/// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
 	///
+	/// WARNING: collators call these methods in the on-chain context, which resolves
+	/// `:pending_code`: while an upgrade is pending the answer comes from the new blob, before its
+	/// migrations have run. Implementations must NOT read state that a migration changes.
+	///
 	/// Version history:
 	/// - Version 1: Initial version with `relay_parent_offset` only
 	/// - Version 2: Added `max_claim_queue_offset` method
@@ -707,6 +711,10 @@ sp_api::decl_runtime_apis! {
 	/// This is mutually exclusive with relay parent offset (building on older
 	/// relay parents). A parachain enables V3 when it wants low-latency block
 	/// production with the dual-parent model.
+	///
+	/// WARNING: collators call this in the on-chain context, which resolves `:pending_code`: while
+	/// an upgrade is pending the answer comes from the new blob, before its migrations have run.
+	/// Implementations must NOT read state that a migration changes.
 	pub trait SchedulingV3EnabledApi {
 		/// Returns true if V3 scheduling is enabled for this parachain.
 		fn scheduling_v3_enabled() -> bool;

@@ -533,7 +533,8 @@ where
 			pallet_asset_conversion::Error::InvalidPath |
 			pallet_asset_conversion::Error::NonUniquePath |
 			pallet_asset_conversion::Error::IncorrectPoolAssetId |
-			pallet_asset_conversion::Error::BelowMinimum => {
+			pallet_asset_conversion::Error::BelowMinimum |
+			pallet_asset_conversion::Error::FeeTooHigh => {
 				frame_support::defensive!("get_reserves returned unexpected error");
 				Error::Revert(Revert { reason: ERR_UNEXPECTED.into() })
 			},

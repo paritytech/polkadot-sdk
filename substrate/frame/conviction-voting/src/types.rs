@@ -124,68 +124,76 @@ impl<
 	}
 
 	/// Add an account's vote into the tally.
+	///
+	/// Returns `None` and leaves `self` unchanged if any field overflows.
 	pub fn add(&mut self, vote: AccountVote<Votes>) -> Option<()> {
+		let (mut ayes, mut nays, mut support) = (self.ayes, self.nays, self.support);
 		match vote {
 			AccountVote::Standard { vote, balance } => {
 				let Delegations { votes, capital } = vote.conviction.votes(balance);
 				match vote.aye {
 					true => {
-						self.support = self.support.checked_add(&capital)?;
-						self.ayes = self.ayes.checked_add(&votes)?
+						support = support.checked_add(&capital)?;
+						ayes = ayes.checked_add(&votes)?
 					},
-					false => self.nays = self.nays.checked_add(&votes)?,
+					false => nays = nays.checked_add(&votes)?,
 				}
 			},
 			AccountVote::Split { aye, nay } => {
 				let aye = Conviction::None.votes(aye);
 				let nay = Conviction::None.votes(nay);
-				self.support = self.support.checked_add(&aye.capital)?;
-				self.ayes = self.ayes.checked_add(&aye.votes)?;
-				self.nays = self.nays.checked_add(&nay.votes)?;
+				support = support.checked_add(&aye.capital)?;
+				ayes = ayes.checked_add(&aye.votes)?;
+				nays = nays.checked_add(&nay.votes)?;
 			},
 			AccountVote::SplitAbstain { aye, nay, abstain } => {
 				let aye = Conviction::None.votes(aye);
 				let nay = Conviction::None.votes(nay);
 				let abstain = Conviction::None.votes(abstain);
-				self.support =
-					self.support.checked_add(&aye.capital)?.checked_add(&abstain.capital)?;
-				self.ayes = self.ayes.checked_add(&aye.votes)?;
-				self.nays = self.nays.checked_add(&nay.votes)?;
+				support = support.checked_add(&aye.capital)?.checked_add(&abstain.capital)?;
+				ayes = ayes.checked_add(&aye.votes)?;
+				nays = nays.checked_add(&nay.votes)?;
 			},
 		}
+		// Apply changes only after all calculations succeed.
+		*self = Self::from_parts(ayes, nays, support);
 		Some(())
 	}
 
 	/// Remove an account's vote from the tally.
+	///
+	/// Returns `None` and leaves `self` unchanged if any field underflows.
 	pub fn remove(&mut self, vote: AccountVote<Votes>) -> Option<()> {
+		let (mut ayes, mut nays, mut support) = (self.ayes, self.nays, self.support);
 		match vote {
 			AccountVote::Standard { vote, balance } => {
 				let Delegations { votes, capital } = vote.conviction.votes(balance);
 				match vote.aye {
 					true => {
-						self.support = self.support.checked_sub(&capital)?;
-						self.ayes = self.ayes.checked_sub(&votes)?
+						support = support.checked_sub(&capital)?;
+						ayes = ayes.checked_sub(&votes)?
 					},
-					false => self.nays = self.nays.checked_sub(&votes)?,
+					false => nays = nays.checked_sub(&votes)?,
 				}
 			},
 			AccountVote::Split { aye, nay } => {
 				let aye = Conviction::None.votes(aye);
 				let nay = Conviction::None.votes(nay);
-				self.support = self.support.checked_sub(&aye.capital)?;
-				self.ayes = self.ayes.checked_sub(&aye.votes)?;
-				self.nays = self.nays.checked_sub(&nay.votes)?;
+				support = support.checked_sub(&aye.capital)?;
+				ayes = ayes.checked_sub(&aye.votes)?;
+				nays = nays.checked_sub(&nay.votes)?;
 			},
 			AccountVote::SplitAbstain { aye, nay, abstain } => {
 				let aye = Conviction::None.votes(aye);
 				let nay = Conviction::None.votes(nay);
 				let abstain = Conviction::None.votes(abstain);
-				self.support =
-					self.support.checked_sub(&aye.capital)?.checked_sub(&abstain.capital)?;
-				self.ayes = self.ayes.checked_sub(&aye.votes)?;
-				self.nays = self.nays.checked_sub(&nay.votes)?;
+				support = support.checked_sub(&aye.capital)?.checked_sub(&abstain.capital)?;
+				ayes = ayes.checked_sub(&aye.votes)?;
+				nays = nays.checked_sub(&nay.votes)?;
 			},
 		}
+		// Apply changes only after all calculations succeed.
+		*self = Self::from_parts(ayes, nays, support);
 		Some(())
 	}
 

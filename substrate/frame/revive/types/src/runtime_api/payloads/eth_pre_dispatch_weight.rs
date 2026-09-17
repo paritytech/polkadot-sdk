@@ -26,8 +26,15 @@ pub struct PreDispatchWeightInputPayloadV1 {
 	pub tx: Vec<u8>,
 }
 
+/// The input type used when calling the `eth_pre_dispatch_weight_versioned` runtime API function.
+/// This function replaces the unversioned `eth_pre_dispatch_weight` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum PreDispatchWeightVersionedInputPayload {
+	/// The arguments provided when calling the `eth_pre_dispatch_weight_versioned` runtime API
+	/// function.
+	///
+	/// When this version is provided, the function behaves identically to and returns the same
+	/// output as the unversioned `eth_pre_dispatch_weight` runtime API function.
 	V1(PreDispatchWeightInputPayloadV1),
 }
 
@@ -36,7 +43,14 @@ pub struct PreDispatchWeightOutputPayloadV1 {
 	pub weight: Weight,
 }
 
+/// The output type returned when calling the `eth_pre_dispatch_weight_versioned` runtime API
+/// function. This function replaces the unversioned `eth_pre_dispatch_weight` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum PreDispatchWeightVersionedOutputPayload {
+	/// The output returned when calling the `eth_pre_dispatch_weight_versioned` runtime API
+	/// function with `V1` arguments.
+	///
+	/// This output is identical to the output returned by the unversioned `eth_pre_dispatch_weight`
+	/// runtime API function.
 	V1(PreDispatchWeightOutputPayloadV1),
 }

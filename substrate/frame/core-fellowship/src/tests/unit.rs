@@ -120,6 +120,7 @@ impl Config for Test {
 	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = ConstU32<1024>;
 	type MaxRank = ConstU16<9>;
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
@@ -543,5 +544,52 @@ fn active_changing_get_salary_works() {
 			assert_ok!(CoreFellowship::set_active(signed(10 + i), true));
 			assert_eq!(CoreFellowship::get_salary(i as u16, &(10 + i)), i * 10);
 		}
+	});
+}
+
+#[test]
+fn get_salary_undersized_vec_works() {
+	new_test_ext().execute_with(|| {
+		set_rank(14, 5);
+		assert_ok!(CoreFellowship::import(signed(14)));
+
+		// Shorter than `MaxRank`, but still legal, since only the maximum length is bounded.
+		let mut params = Params::<Test>::get();
+		params.active_salary = bounded_vec![10, 20, 30, 40];
+		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));
+
+		assert_eq!(CoreFellowship::get_salary(4, &14), 40);
+		// Rank 5 is past the end of the stored vector; it must pay zero, not panic.
+		assert_eq!(CoreFellowship::get_salary(5, &14), 0);
+	});
+}
+
+#[test]
+fn bump_undersized_demotion_period_vec_works() {
+	new_test_ext().execute_with(|| {
+		set_rank(14, 5);
+		assert_ok!(CoreFellowship::import(signed(14)));
+
+		let mut params = Params::<Test>::get();
+		params.demotion_period = bounded_vec![2, 4, 6, 8];
+		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));
+
+		// Rank 5 has no `demotion_period` entry; that's rejected, not a panic.
+		assert_noop!(CoreFellowship::bump(signed(0), 14), Error::<Test>::InvalidRank);
+	});
+}
+
+#[test]
+fn promote_undersized_min_promotion_period_vec_works() {
+	new_test_ext().execute_with(|| {
+		set_rank(14, 4);
+		assert_ok!(CoreFellowship::import(signed(14)));
+
+		let mut params = Params::<Test>::get();
+		params.min_promotion_period = bounded_vec![2, 4, 6, 8];
+		assert_ok!(CoreFellowship::set_params(signed(1), Box::new(params)));
+
+		// Rank 5 has no `min_promotion_period` entry; that's rejected, not a panic.
+		assert_noop!(CoreFellowship::promote(signed(5), 14, 5), Error::<Test>::InvalidRank);
 	});
 }

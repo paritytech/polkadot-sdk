@@ -37,10 +37,18 @@ struct Cli {
 }
 
 fn asset_hub_westend_config(asset_id: u32) -> PsmTestConfigOf<asset_hub_westend_runtime::Runtime> {
+	use frame_support::PalletId;
+	use sp_runtime::{traits::AccountIdConversion, Permill};
 	use xcm::latest::prelude::*;
 	PsmTestConfigOf::<asset_hub_westend_runtime::Runtime> {
+		internal_asset_id: Location::new(0, [PalletInstance(50), GeneralIndex(50_000_342)]),
 		external_asset_id: Location::new(0, [PalletInstance(50), GeneralIndex(asset_id.into())]),
 		internal_asset_decimals: 6,
+		fee_destination: PalletId(*b"psm/test").into_account_truncating(),
+		max_debt: 5_000_000 * 1_000_000, // 5M units (6 decimals)
+		minting_fee: Permill::zero(),
+		redemption_fee: Permill::from_rational(1u32, 10_000u32),
+		ceiling_weight: Permill::from_percent(100),
 		assets_pallet_name: "Assets".to_string(),
 		pre_create_hook: None,
 	}
@@ -73,10 +81,7 @@ async fn main() {
 			)
 			.await;
 
-			use asset_hub_westend_runtime::PsmInitialConfig;
-			pallet_psm_remote_tests::mint_and_redeem::<Runtime, Block, PsmInitialConfig>(
-				&mut ext, &config,
-			);
+			pallet_psm_remote_tests::mint_and_redeem::<Runtime, Block>(&mut ext, &config);
 
 			// Build a fresh externalities for the circuit breaker test so it
 			// starts from clean state (loads from the snapshot, no RPC needed).
@@ -86,9 +91,7 @@ async fn main() {
 			)
 			.await;
 
-			pallet_psm_remote_tests::circuit_breaker::<Runtime, Block, PsmInitialConfig>(
-				&mut ext, &config,
-			);
+			pallet_psm_remote_tests::circuit_breaker::<Runtime, Block>(&mut ext, &config);
 		},
 	}
 }

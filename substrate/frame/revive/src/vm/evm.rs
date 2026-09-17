@@ -70,11 +70,6 @@ impl<T: Config> ContractBlob<T> {
 			return Err(<Error<T>>::BlobTooLarge.into());
 		}
 
-		// EIP-3541: Reject new contract code starting with the 0xEF byte
-		if code.first() == Some(&0xEF) {
-			return Err(<Error<T>>::CodeRejected.into());
-		}
-
 		let code_len = code.len() as u32;
 		let code_info = CodeInfo {
 			owner,
@@ -122,6 +117,14 @@ impl<T: Config> ContractBlob<T> {
 			!DebugSettings::is_unlimited_contract_size_allowed::<T>()
 		{
 			return Err(<Error<T>>::BlobTooLarge.into());
+		}
+
+		// EIP-3541: reject new contract code (runtime code) starting with the 0xEF byte.
+		// Reserved for EIP-7702 delegation indicators; clashing here would let a
+		// constructor return bytes that subsequent calls would misinterpret as a
+		// delegation pointer.
+		if code.first() == Some(&0xEF) {
+			return Err(<Error<T>>::CodeRejected.into());
 		}
 
 		let code_len = code.len() as u32;

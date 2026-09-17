@@ -548,7 +548,10 @@ impl TestState {
 									}
 								};
 
-								req.pending_response.send(
+								// Recovery cancels the requests it no longer needs as soon as it has
+								// enough chunks to reconstruct, dropping the receiver. Answering a
+								// request that has already been cancelled is not a failure.
+								let _ = req.pending_response.send(
 									available_data.map(|r|
 										(
 											match protocol {
@@ -570,7 +573,7 @@ impl TestState {
 											req_protocol_names.get_name(protocol)
 										)
 									)
-								).unwrap();
+								);
 							}
 						)
 					}
