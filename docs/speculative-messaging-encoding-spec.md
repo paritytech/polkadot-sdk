@@ -87,7 +87,7 @@ preimage order is the reverse of the visual left-to-right).
 ### 3.3 Frontier and position
 
 ```rust
-struct MmrFrontier { peaks: Vec<Hash>, leaf_count: u64 }  // peaks high→low
+struct MmrFrontier { leaf_count: u64, peaks: Vec<Hash> }  // peaks high→low, ≤ 64
 struct MessagePosition(u64);                              // leaf index, 0-based
 ```
 

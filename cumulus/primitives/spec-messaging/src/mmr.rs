@@ -37,7 +37,8 @@ use codec::{Decode, DecodeWithMemTracking, Encode, Error as CodecError, Input, M
 use mmr_lib::{ancestry_proof::bagging_peaks_hashes, Error as MmrError, Merge};
 use polkadot_core_primitives::Hash;
 use scale_info::TypeInfo;
-use sp_runtime::traits::Hash as HashT;
+use sp_core::ConstU32;
+use sp_runtime::{traits::Hash as HashT, BoundedVec};
 
 use crate::{SpecHasher, EMPTY_TAG, INNER_TAG, PEAK_TAG};
 
@@ -134,12 +135,15 @@ pub struct MmrRoot(pub Hash);
 /// `Decode` — establishes the two invariants the methods rely on: exactly one peak per set bit of
 /// `leaf_count`, and `leaf_count <= MAX_MMR_LEAF_COUNT`. So a frontier that exists is one
 /// [`append`](Self::append) can pop peaks from and every node-position derivation is total on.
+///
+/// Encodes as `leaf_count ‖ peaks` (the design's field order): a decoder learns how many peaks to
+/// expect before it reads any, and the `BoundedVec` refuses an over-long length prefix outright.
 #[derive(Clone, Encode, PartialEq, Eq, Debug, TypeInfo, Default)]
 pub struct MmrFrontier {
-	/// MMR peaks, highest to lowest.
-	peaks: Vec<Hash>,
-	/// Number of leaves these peaks summarize.
+	/// Number of leaves these peaks summarize; also the position of the next message to append.
 	leaf_count: u64,
+	/// MMR peaks, highest to lowest — at most 64 for a `u64` leaf count.
+	peaks: BoundedVec<Hash, ConstU32<64>>,
 }
 
 impl MmrFrontier {
@@ -151,8 +155,11 @@ impl MmrFrontier {
 	/// A frontier from `(peaks, leaf_count)`. `None` unless the pair is consistent — exactly one
 	/// peak per set bit of `leaf_count` — and `leaf_count` is within [`MAX_MMR_LEAF_COUNT`].
 	pub fn from_parts(peaks: Vec<Hash>, leaf_count: u64) -> Option<Self> {
-		(leaf_count <= MAX_MMR_LEAF_COUNT && peaks.len() == leaf_count.count_ones() as usize)
-			.then_some(Self { peaks, leaf_count })
+		if leaf_count > MAX_MMR_LEAF_COUNT || peaks.len() != leaf_count.count_ones() as usize {
+			return None;
+		}
+		// ≤ 64 is implied by the set-bit count of a `u64`, so this cannot fail.
+		BoundedVec::try_from(peaks).ok().map(|peaks| Self { leaf_count, peaks })
 	}
 
 	/// The peaks, highest to lowest.
@@ -179,7 +186,9 @@ impl MmrFrontier {
 				.expect("the constructors enforce one peak per set bit of `leaf_count`; qed");
 			node = <SpecMerge as Merge>::merge(&left, &node).expect("SpecMerge is infallible; qed");
 		}
-		self.peaks.push(node);
+		self.peaks
+			.try_push(node)
+			.expect("a `u64` leaf count never has more than 64 set bits; qed");
 		self.leaf_count += 1;
 	}
 
@@ -203,12 +212,12 @@ impl MmrFrontier {
 
 /// Field order matches the derived `Encode`; the decoded pair goes through
 /// [`from_parts`](MmrFrontier::from_parts) so a frontier off the wire holds the same invariants as
-/// one built here.
+/// one built here. The bound rejects a bad length prefix before a single peak is read.
 impl Decode for MmrFrontier {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, CodecError> {
-		let peaks = Vec::<Hash>::decode(input)?;
 		let leaf_count = u64::decode(input)?;
-		Self::from_parts(peaks, leaf_count)
+		let peaks = BoundedVec::<Hash, ConstU32<64>>::decode(input)?;
+		Self::from_parts(peaks.into_inner(), leaf_count)
 			.ok_or_else(|| "MmrFrontier: inconsistent peaks / leaf count".into())
 	}
 }
@@ -295,10 +304,15 @@ mod tests {
 		let good = MmrFrontier::from_parts(vec![h(1), h(2)], 3).unwrap();
 		assert_eq!(MmrFrontier::decode(&mut &good.encode()[..]).unwrap(), good);
 		// … inconsistent ones are rejected at decode, not later in a pop or a multiply.
-		let bad_shape = (vec![h(1)], 3u64).encode();
+		let bad_shape = (3u64, vec![h(1)]).encode();
 		assert!(MmrFrontier::decode(&mut &bad_shape[..]).is_err());
-		let too_large = (vec![h(1)], 1u64 << 63).encode();
+		let too_large = (1u64 << 63, vec![h(1)]).encode();
 		assert!(MmrFrontier::decode(&mut &too_large[..]).is_err());
+		// The bound is checked at the length prefix: 65 peaks are refused before being read.
+		let too_many = (u64::MAX, vec![h(1); 65]).encode();
+		assert!(MmrFrontier::decode(&mut &too_many[..]).is_err());
+		// And the wire order is the design's: `leaf_count` first.
+		assert_eq!(good.encode(), (3u64, vec![h(1), h(2)]).encode());
 	}
 
 	#[test]
