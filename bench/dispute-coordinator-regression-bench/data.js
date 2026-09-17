@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789643728611,
+  "lastUpdate": 1789671482575,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "e9b9f740fab72060252628ebce5a5e30c1c5da2a",
-          "message": "Fix delegatecall callTracer addresses (#10918)\n\n## Summary\n- Fix address tracking in delegatecall operations for callTracer\n\n## Changes\n- Update callTracer to correctly track addresses during delegatecall\noperations\n\n## Test plan\n- Existing tests should pass\n- Verify callTracer correctly reports addresses for delegatecall\noperations\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Robert van Eerdewijk <robertvaneerdewijk@gmail.com>",
-          "timestamp": "2026-02-13T17:05:07Z",
-          "tree_id": "66e1df46dd29065e796d19322c083a20cd5ac214",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e9b9f740fab72060252628ebce5a5e30c1c5da2a"
-        },
-        "date": 1771006956293,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009221885509999982,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002712210109999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006487216749999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.00254175539,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e7c242653aba8f3dae834c71546aa0d6f731e0d5",
+          "message": "pallet-psm: reject the `None` origin as a PSM admin (#13256)\n\nA PSM admin could be set to the `None` origin. The pool rejects unsigned\nPSM calls, but a block author bypasses the pool, so such a PSM would be\nmanaged by whoever authors the block.\n\nThis PR rejects the `None` origin both when storing an admin and when\nchecking one.\n\n---------\n\nCo-authored-by: Dónal Murray <donal.murray@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-17T17:25:23Z",
+          "tree_id": "fe506f2eac8f15fae1abeccde9294ef56416ea21",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e7c242653aba8f3dae834c71546aa0d6f731e0d5"
+        },
+        "date": 1789671442111,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009246035619999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025888595700000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00911379213999999,
             "unit": "seconds"
           }
         ]
