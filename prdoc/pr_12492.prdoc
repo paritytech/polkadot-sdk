@@ -16,6 +16,9 @@ doc:
     3. Tune the health check:
        - Bound the node query with a 3s timeout: if the node does not answer in time, log a warning instead of letting the probe silently time out.
        - Report unhealthy only when eth-rpc is more than 128 blocks behind the node, to account for node block import burstiness.
+    4. Bump subxt to 0.51, which decodes v4 extrinsics with transaction extension version 0.
 crates:
 - name: pallet-revive-eth-rpc
   bump: major
+- name: sc-statement-store
+  bump: patch
