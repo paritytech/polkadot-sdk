@@ -105,8 +105,11 @@ decl_test_network! {
 }
 
 pub fn para_ext() -> sp_io::TestExternalities {
-	use para::{MsgQueue, Runtime, SovereignAccountOf, System};
+	use para::{DepositPerMessage, MsgQueue, Runtime, SovereignAccountOf, System, PER_MESSAGE};
 	use sp_runtime::traits::Convert;
+
+	// `MockNet::reset()` rebuilds the storage but not the statics behind it.
+	DepositPerMessage::set(PER_MESSAGE);
 
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 	// The two ends of the flow tests put up their deposits out of these.
