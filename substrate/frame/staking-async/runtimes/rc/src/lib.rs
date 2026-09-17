@@ -520,6 +520,7 @@ impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = FungibleAdapter<Balances, ToAuthor<Runtime>>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
+	type OperationalFeeSurcharge = ();
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;

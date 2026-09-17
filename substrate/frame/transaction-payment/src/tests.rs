@@ -36,6 +36,7 @@ use frame_support::{
 use frame_system as system;
 use mock::*;
 use pallet_balances::Call as BalancesCall;
+use sp_runtime::{DispatchError, DispatchErrorWithPostInfo};
 
 pub struct ExtBuilder {
 	balance_factor: u64,
@@ -877,6 +878,176 @@ fn no_fee_and_no_weight_for_other_origins() {
 
 		assert_eq!(post_info.actual_weight, Some(info.call_weight));
 	})
+}
+
+/// Build an `Operational` dispatch info that pays a fee, from a call weight.
+fn op_info_from_weight(w: Weight) -> DispatchInfo {
+	DispatchInfo {
+		call_weight: w,
+		extension_weight: Weight::zero(),
+		class: DispatchClass::Operational,
+		pays_fee: Pays::Yes,
+	}
+}
+
+/// A dispatch failure with a full-weight post info, used to simulate a failing call.
+fn failed_dispatch() -> DispatchErrorWithPostInfo<PostDispatchInfo> {
+	DispatchErrorWithPostInfo {
+		post_info: default_post_info(),
+		error: DispatchError::Other("operation failed"),
+	}
+}
+
+#[test]
+fn operational_surcharge_refunded_on_success() {
+	ExtBuilder::default()
+		.balance_factor(100)
+		.base_weight(Weight::from_parts(5, 0))
+		.build()
+		.execute_with(|| {
+			// Charge 10x the inclusion fee as a refundable surcharge on operational txs.
+			OperationalFeeSurcharge::set(10);
+
+			let len = 10;
+			let info = op_info_from_weight(Weight::from_parts(100, 0));
+			// fee (no tip) = 5 base + 10 len + 100 weight = 115, surcharge = 10 * 115 = 1150.
+			let fee = 115;
+			let surcharge = 10 * fee;
+			let prev_balance = Balances::free_balance(2);
+
+			Ext::from(0)
+				.test_run(Some(2).into(), CALL, &info, len, 0, |_| {
+					// Before dispatch both the fee and the surcharge are withdrawn.
+					assert_eq!(Balances::free_balance(2), prev_balance - fee - surcharge);
+					Ok(default_post_info())
+				})
+				.unwrap()
+				.unwrap();
+
+			// On success the surcharge is refunded: only the regular fee is paid.
+			assert_eq!(Balances::free_balance(2), prev_balance - fee);
+		});
+}
+
+#[test]
+fn operational_surcharge_kept_on_failure() {
+	ExtBuilder::default()
+		.balance_factor(100)
+		.base_weight(Weight::from_parts(5, 0))
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+			OperationalFeeSurcharge::set(10);
+
+			let len = 10;
+			let info = op_info_from_weight(Weight::from_parts(100, 0));
+			let fee = 115;
+			let surcharge = 10 * fee;
+			let prev_balance = Balances::free_balance(2);
+
+			let result = Ext::from(0)
+				.test_run(Some(2).into(), CALL, &info, len, 0, |_| {
+					assert_eq!(Balances::free_balance(2), prev_balance - fee - surcharge);
+					Err(failed_dispatch())
+				})
+				.unwrap();
+			// The dispatch itself failed.
+			assert!(result.is_err());
+
+			// On failure the surcharge is kept on top of the regular fee.
+			assert_eq!(Balances::free_balance(2), prev_balance - fee - surcharge);
+
+			// The emitted event reflects the full amount actually paid (fee + surcharge).
+			System::assert_has_event(RuntimeEvent::TransactionPayment(
+				pallet_transaction_payment::Event::TransactionFeePaid {
+					who: 2,
+					actual_fee: fee + surcharge,
+					tip: 0,
+				},
+			));
+		});
+}
+
+#[test]
+fn normal_transaction_is_never_surcharged() {
+	ExtBuilder::default()
+		.balance_factor(100)
+		.base_weight(Weight::from_parts(5, 0))
+		.build()
+		.execute_with(|| {
+			OperationalFeeSurcharge::set(10);
+
+			let len = 10;
+			// Same parameters as the operational tests, but a `Normal` transaction.
+			let info = info_from_weight(Weight::from_parts(100, 0));
+			let fee = 115;
+			let prev_balance = Balances::free_balance(2);
+
+			let result = Ext::from(0)
+				.test_run(Some(2).into(), CALL, &info, len, 0, |_| {
+					// Normal transactions never pay a surcharge, not even before dispatch.
+					assert_eq!(Balances::free_balance(2), prev_balance - fee);
+					Err(failed_dispatch())
+				})
+				.unwrap();
+			assert!(result.is_err());
+
+			// Still only the regular fee, even though the dispatch failed.
+			assert_eq!(Balances::free_balance(2), prev_balance - fee);
+		});
+}
+
+#[test]
+fn operational_surcharge_requires_sufficient_balance() {
+	ExtBuilder::default()
+		.balance_factor(10)
+		.base_weight(Weight::from_parts(5, 0))
+		.build()
+		.execute_with(|| {
+			let len = 10;
+			// fee (no tip) = 5 base + 10 len + 10 weight = 25. Account 1 has 100.
+			let info = op_info_from_weight(Weight::from_parts(10, 0));
+
+			// Without a surcharge the operational tx is affordable.
+			OperationalFeeSurcharge::set(0);
+			assert_ok!(Ext::from(0).validate_only(Some(1).into(), CALL, &info, len, External, 0,));
+
+			// With a large surcharge (25 * 10 = 250 > 100 balance) it can no longer be afforded.
+			OperationalFeeSurcharge::set(10);
+			assert_eq!(
+				Ext::from(0)
+					.validate_only(Some(1).into(), CALL, &info, len, External, 0)
+					.unwrap_err(),
+				TransactionValidityError::Invalid(InvalidTransaction::Payment),
+			);
+
+			// A `Normal` tx with the same parameters is unaffected by the surcharge.
+			let normal = info_from_weight(Weight::from_parts(10, 0));
+			assert_ok!(Ext::from(0).validate_only(Some(1).into(), CALL, &normal, len, External, 0,));
+		});
+}
+
+#[test]
+fn operational_surcharge_does_not_affect_priority() {
+	let tip = 5;
+	let len = 10;
+
+	let priority_with_surcharge = |surcharge: u32| {
+		let mut priority = 0;
+		ExtBuilder::default().balance_factor(100).build().execute_with(|| {
+			OperationalFeeSurcharge::set(surcharge);
+			let op = op_info_from_weight(Weight::from_parts(100, 0));
+			priority = Ext::from(tip)
+				.validate_only(Some(2).into(), CALL, &op, len, External, 0)
+				.unwrap()
+				.0
+				.priority;
+		});
+		priority
+	};
+
+	// The surcharge must not grant operational transactions any additional priority.
+	assert_eq!(priority_with_surcharge(0), priority_with_surcharge(10));
 }
 
 #[test]
