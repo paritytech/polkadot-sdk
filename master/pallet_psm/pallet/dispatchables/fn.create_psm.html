@@ -178,6 +178,7 @@ Must be non-zero.</li>
 <h3 id="errors"><a class="doc-anchor" href="#errors">§</a>Errors</h3>
 <ul>
 <li>[<code>DispatchError::BadOrigin</code>]: The origin is not permitted by <a href="../trait.Config.html#associatedtype.CreateOrigin" title="associated type pallet_psm::pallet::Config::CreateOrigin"><code>Config::CreateOrigin</code></a>.</li>
+<li><a href="../enum.Error.html#variant.InvalidAdminOrigin" title="variant pallet_psm::pallet::Error::InvalidAdminOrigin"><code>Error::InvalidAdminOrigin</code></a>: Either admin is the system <code>None</code> origin.</li>
 <li><a href="../enum.Error.html#variant.PsmAlreadyExists" title="variant pallet_psm::pallet::Error::PsmAlreadyExists"><code>Error::PsmAlreadyExists</code></a>: A PSM is already registered for <code>internal_asset</code>.</li>
 <li><a href="../enum.Error.html#variant.ZeroMinSwapAmount" title="variant pallet_psm::pallet::Error::ZeroMinSwapAmount"><code>Error::ZeroMinSwapAmount</code></a>: <code>min_swap_amount</code> is zero.</li>
 <li><a href="../enum.Error.html#variant.AssetDoesNotExist" title="variant pallet_psm::pallet::Error::AssetDoesNotExist"><code>Error::AssetDoesNotExist</code></a>: The internal asset does not exist.</li>
