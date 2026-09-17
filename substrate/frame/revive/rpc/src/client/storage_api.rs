@@ -110,7 +110,8 @@ impl StorageApi {
 		let hash = entry.try_fetch((number,)).await.inspect_err(|err| {
 			log::debug!(target: LOG_TARGET, "Ethereum block hash storage read failed for #{number}, err: {err:?}");
 		})?;
-		Ok(hash.map(|value| value.decode()).transpose()?)
+		let hash = hash.map(|value| value.decode()).transpose()?;
+		Ok(hash.filter(|hash| *hash != H256::zero()))
 	}
 
 	/// Receipt data for the current block, read directly from the `ReceiptInfoData` storage value
