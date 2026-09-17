@@ -1,0 +1,37 @@
+title: '`pallet-whitelist`: document that unwhitelisting pauses a live deferral not
+  remove it, pin it with a test.'
+doc:
+- audience: Runtime Dev
+  description: "# PR description\n\n## Summary\n\nDocs and test only. No behaviour\
+    \ change, no bench needed.\n\nSince #11336, `pallet-whitelist` keeps two independent\
+    \ storage maps: `WhitelistedCall`, owned by\n`WhitelistOrigin`, and `DeferredDispatch`,\
+    \ owned by `DispatchWhitelistedOrigin`. A relayed\nroot dispatch needs both plus\
+    \ an unexpired deferral. `remove_whitelisted_call` clears only the\nwhitelist\
+    \ entry, so a live deferral survives revocation and re-whitelisting the same hash\
+    \ before\nexpiry re-enables relayed execution without a fresh act from `DispatchWhitelistedOrigin`.\n\
+    \nThat behaviour is intentional but was undocumented, and it has already been\
+    \ reported once as an\nauthorization finding. This PR records the semantics where\
+    \ the next reader will look and pins\nthem with a test so a future refactor cannot\
+    \ flip them silently.\n\n## Why this is the intended design, not a bug\n\n- Neither\
+    \ origin can erase the other's record. Letting a whitelist revoke drop the deferral\
+    \ would\n  allow `WhitelistOrigin` to unilaterally void an enacted referendum,\
+    \ which is a larger authority\n  than it holds today.\n- Revocation still blocks\
+    \ relayers for as long as the hash is off the whitelist, which the existing\n\
+    \  `relayer_cannot_bypass_unwhitelisting` test asserts.\n- Re-arming requires\
+    \ `WhitelistOrigin` again, and that origin already has the power to permit root\n\
+    \  execution of a hash the moment it whitelists it. No origin gains authority\
+    \ it did not have.\n- This matches pre-#11336 behaviour, where a scheduled enactment\
+    \ also ran if the whitelist was\n  toggled off and on before the enactment block.\
+    \ Deferral only widens that window to\n  `DeferredDispatchExpiration`.\n- Symmetry\
+    \ with the existing `remove_deferred_dispatch_does_not_unwhitelist` test, which\
+    \ pins the\n  other direction of the same independence.\n\n## Changes\n\n- Pallet-level\
+    \ rustdoc: new \"Deferred dispatch\" section describing the two maps, their owners,\
+    \ and\n  the pause-not-cancel semantics of unwhitelisting.\n- `remove_whitelisted_call`\
+    \ rustdoc: two-line note that the deferred entry is left in place.\n- New test\
+    \ `unwhitelisting_pauses_but_does_not_cancel_deferral`: defer \u2192 whitelist\
+    \ \u2192 revoke,\n  assert deferral survives and relayers are blocked, re-whitelist,\
+    \ assert a signed relay executes\n  as root fee-free and clears both maps.\n\n\
+    ## Checklist\n\n- [x] prdoc\n- [x] label `T1-FRAME`"
+crates:
+- name: pallet-whitelist
+  bump: patch
