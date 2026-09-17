@@ -28,7 +28,7 @@ pub(crate) use metrics::V2DhtMetrics;
 
 use crate::{affinity::AffinityFilter, LOG_TARGET};
 use explicit_affinity::{AffinitySource, ExplicitAffinity, TopicAffinity};
-use peer_steering::PeerSteering;
+use peer_steering::{score, PeerSteering};
 use peers_topology::{DhtAffinity, PeersTopology, PeersTopologyConfig};
 use sc_network::{types::ProtocolName, NetworkPeers};
 use sc_network_types::PeerId;
@@ -44,13 +44,14 @@ use std::{
 ///
 /// Each set bit records one reason the local node keeps the statement (DHT affinity, explicit
 /// affinity). A non-empty mask persists the statement under the normal retention rules. An empty
-/// mask marks it transient: held in memory until the next propagation, forwarded once, then dropped
-/// without ever reaching the database.
+/// mask marks it transient: admitted like any other statement and removed by the maintenance sweep
+/// once propagated, with the usual re-acceptance ban, unless affinity has arrived by then.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct RetentionReasonMask(u8);
 
 impl RetentionReasonMask {
-	/// No reason to persist: the store keeps the statement only until the next propagation.
+	/// No reason to persist: the store keeps the statement only until the first maintenance sweep
+	/// after its propagation.
 	pub const TRANSIENT: RetentionReasonMask = RetentionReasonMask(0b00);
 	/// The local node is one of the closest DHT replicas for one of the statement's topics.
 	pub const DHT_AFFINITY: RetentionReasonMask = RetentionReasonMask(0b01);
@@ -287,11 +288,31 @@ impl V2DhtOrchestrator {
 
 	// === Forward decision ===
 
+	/// Whether the peer is a DHT routing target for the topic.
+	pub(crate) fn peer_is_dht_target_for_topic(&self, peer: PeerId, topic: Topic) -> bool {
+		self.peers_topology.routing_targets(topic).contains(&peer)
+	}
+
 	// === Post-submit hook ===
 
-	pub(crate) fn on_statement_imported(&mut self, peer: PeerId, _result: &SubmitResult) {
-		// TODO: We may need to reflect the import result in the peer's score, remove if not
-		log::trace!(target: LOG_TARGET, "v2dht: on_statement_imported {peer} (stub)");
+	/// Score peer on the outcome of importing a statement it sent: a valid statement rewards it, an
+	/// invalid one punishes it, and our-side outcomes (`KnownExpired`, `Rejected`, `InternalError`)
+	/// leave it untouched.
+	pub(crate) fn on_statement_imported(&mut self, peer: PeerId, result: &SubmitResult) {
+		let change = match result {
+			SubmitResult::New | SubmitResult::Known => score::GOOD_ACTION,
+			SubmitResult::Invalid(_) => score::BAD_ACTION,
+			SubmitResult::KnownExpired |
+			SubmitResult::Rejected(_) |
+			SubmitResult::InternalError(_) => return,
+		};
+		self.peer_steering.update_score(peer, change);
+	}
+
+	/// Punish peer for a protocol-level fault detected before import: a duplicate statement or an
+	/// undecodable message.
+	pub(crate) fn on_peer_misbehaved(&mut self, peer: PeerId) {
+		self.peer_steering.update_score(peer, score::BAD_ACTION);
 	}
 
 	// === Periodic ticks & post-iteration hooks ===
@@ -362,6 +383,7 @@ mod tests {
 		config::DEFAULT_BLOOM_FALSE_POS_RATE,
 		test_helpers::{filter_over, nz, peer, statement_on, topic, topology_config},
 	};
+	use sp_statement_store::{InvalidReason, RejectionReason};
 
 	fn orchestrator() -> V2DhtOrchestrator {
 		V2DhtOrchestrator::new(
@@ -676,6 +698,46 @@ mod tests {
 		// Every coverage peer is queued for a connection, since none are connected yet.
 		let connect = orchestrator.peer_steering.peers_to_connect();
 		assert!(desired.iter().all(|peer| connect.contains(peer)));
+	}
+
+	#[test]
+	fn valid_statements_reward_the_sender() {
+		let mut orchestrator = orchestrator_with(1, topology_config(20, 3));
+		let peer = peer(2);
+		orchestrator.on_substream_opened(peer);
+
+		// A new statement and one we already hold are both honest relays, each rewarded.
+		orchestrator.on_statement_imported(peer, &SubmitResult::New);
+		orchestrator.on_statement_imported(peer, &SubmitResult::Known);
+
+		assert_eq!(orchestrator.peer_steering.score_of(&peer), Some(2 * score::GOOD_ACTION));
+	}
+
+	#[test]
+	fn faults_punish_the_peer() {
+		let mut orchestrator = orchestrator_with(1, topology_config(20, 3));
+		let peer = peer(2);
+		orchestrator.on_substream_opened(peer);
+
+		// An invalid statement and a pre-import fault (duplicate or bad message) both punish.
+		orchestrator.on_statement_imported(peer, &SubmitResult::Invalid(InvalidReason::BadProof));
+		orchestrator.on_peer_misbehaved(peer);
+
+		assert_eq!(orchestrator.peer_steering.score_of(&peer), Some(2 * score::BAD_ACTION));
+	}
+
+	#[test]
+	fn our_side_outcomes_leave_the_score_unchanged() {
+		let mut orchestrator = orchestrator_with(1, topology_config(20, 3));
+		let peer = peer(2);
+		orchestrator.on_substream_opened(peer);
+
+		// Store-full and expiry are our conditions, not the peer's fault, so no score moves.
+		orchestrator.on_statement_imported(peer, &SubmitResult::KnownExpired);
+		orchestrator
+			.on_statement_imported(peer, &SubmitResult::Rejected(RejectionReason::StoreFull));
+
+		assert_eq!(orchestrator.peer_steering.score_of(&peer), Some(0));
 	}
 
 	#[test]
