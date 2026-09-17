@@ -3902,10 +3902,7 @@ mod admin {
 	#[test]
 	fn none_origin_never_authorises_even_against_a_none_admin() {
 		new_test_ext().execute_with(|| {
-			// Write a `None` admin straight to storage, bypassing the setters. This models a
-			// record stored before the setters rejected it. A bare extrinsic reaches dispatch
-			// with the `None` origin, so without the guard in `ensure_psm_admin` whoever authors
-			// the block would administer this PSM.
+			// Bypass the setters to model a `None` admin stored before they rejected it.
 			crate::PsmAdmin::<Test>::mutate(INTERNAL_ASSET_ID, |maybe| {
 				let admin = maybe.as_mut().expect("PSM installed by the mock");
 				admin.full_admin = none_origin();
