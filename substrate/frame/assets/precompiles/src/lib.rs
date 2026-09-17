@@ -365,16 +365,10 @@ fn emit_transfer_log<Runtime: pallet_revive::Config>(
 		.into_log_data()
 		.split();
 	let topics = topics.into_iter().map(|t| H256(t.0)).collect::<Vec<_>>();
-	let (Ok(topics), Ok(data)) = (
-		pallet_revive::ContractLogTopics::try_from(topics),
-		pallet_revive::ContractLogData::try_from(data.to_vec()),
-	) else {
-		frame_support::defensive!(
-			"Transfer log exceeds the contract-log topic or data bound; log dropped (unreachable: 3 topics, 32 bytes)",
-			(token, from, to, value)
-		);
-		return;
-	};
+	let topics = pallet_revive::ContractLogTopics::try_from(topics)
+		.expect("Transfer has 3 topics, within NUM_EVENT_TOPICS of 4; qed");
+	let data = pallet_revive::ContractLogData::try_from(data.to_vec())
+		.expect("Transfer data is a single 32 byte word, within EVENT_BYTES of 64 KiB; qed");
 	pallet_revive::Pallet::<Runtime>::emit_contract_log_outside_frame(token, topics, data);
 }
 
