@@ -368,6 +368,8 @@ pub mod pallet {
 		NotLocked,
 		/// The para is not registered on the relay chain.
 		NotRegistered,
+		/// The call is scaffolded but not implemented yet.
+		Unimplemented,
 	}
 
 	#[pallet::hooks]
@@ -431,11 +433,6 @@ pub mod pallet {
 					message_id,
 					outcome,
 				}) => Self::on_cancel_deregistration_response(para_id, message_id, outcome),
-				MessageToPara::V1(MessageToParaV1::ForceRegisterResponse {
-					para_id,
-					message_id,
-					outcome,
-				}) => Self::on_force_register_response(para_id, message_id, outcome),
 			}
 		}
 
@@ -617,7 +614,7 @@ pub mod pallet {
 		pub fn deregister(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let _ = (origin, para_id);
 			// TODO(ahm-v2): request deregistration on the relay chain.
-			Ok(())
+			Err(Error::<T>::Unimplemented.into())
 		}
 
 		#[pallet::call_index(7)]
@@ -625,7 +622,7 @@ pub mod pallet {
 		pub fn cancel_deregistration(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let _ = (origin, para_id);
 			// TODO(ahm-v2): ask the relay chain to cancel a pending deregistration.
-			Ok(())
+			Err(Error::<T>::Unimplemented.into())
 		}
 
 		#[pallet::call_index(8)]
@@ -638,7 +635,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let _ = (origin, para_id, code_hash, code_len);
 			// TODO(ahm-v2): send the code upgrade authorization to the relay chain.
-			Ok(())
+			Err(Error::<T>::Unimplemented.into())
 		}
 
 		#[pallet::call_index(9)]
@@ -650,7 +647,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let _ = (origin, para_id, head);
 			// TODO(ahm-v2): send the new head to the relay chain.
-			Ok(())
+			Err(Error::<T>::Unimplemented.into())
 		}
 
 		#[pallet::call_index(10)]
@@ -665,7 +662,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let _ = (origin, para_id, manager, genesis_head, code_len, code_hash);
 			// TODO(ahm-v2): send a root-authorized registration to the relay chain.
-			Ok(())
+			Err(Error::<T>::Unimplemented.into())
 		}
 	}
 }
@@ -849,7 +846,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		let _ = (para_id, message_id, outcome);
 		// TODO(ahm-v2): settle the pending deregistration from the relay chain's answer.
-		Ok(())
+		Err(Error::<T>::Unimplemented.into())
 	}
 
 	fn on_code_upgrade_response(
@@ -859,19 +856,19 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		let _ = (para_id, message_id, outcome);
 		// TODO(ahm-v2): settle the pending code upgrade from the relay chain's answer.
-		Ok(())
+		Err(Error::<T>::Unimplemented.into())
 	}
 
 	fn on_code_upgrade_scheduled(para_id: ParaId, message_id: u64) -> DispatchResult {
 		let _ = (para_id, message_id);
 		// TODO(ahm-v2): finish the code upgrade once the relay chain has scheduled it.
-		Ok(())
+		Err(Error::<T>::Unimplemented.into())
 	}
 
 	fn on_set_head_response(para_id: ParaId, message_id: u64, outcome: Outcome) -> DispatchResult {
 		let _ = (para_id, message_id, outcome);
 		// TODO(ahm-v2): settle the pending head update from the relay chain's answer.
-		Ok(())
+		Err(Error::<T>::Unimplemented.into())
 	}
 
 	fn on_cancel_deregistration_response(
@@ -881,16 +878,6 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		let _ = (para_id, message_id, outcome);
 		// TODO(ahm-v2): settle the pending cancellation from the relay chain's answer.
-		Ok(())
-	}
-
-	fn on_force_register_response(
-		para_id: ParaId,
-		message_id: u64,
-		outcome: Outcome,
-	) -> DispatchResult {
-		let _ = (para_id, message_id, outcome);
-		// TODO(ahm-v2): settle the pending forced registration from the relay chain's answer.
-		Ok(())
+		Err(Error::<T>::Unimplemented.into())
 	}
 }
