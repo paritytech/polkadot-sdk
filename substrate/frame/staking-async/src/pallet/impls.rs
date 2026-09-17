@@ -375,9 +375,16 @@ impl<T: Config> Pallet<T> {
 		})?;
 
 		// No-op write that re-syncs the stash lock. An inconsistent ledger is rejected with
-		// `BadState`, but it must not block the payout of this page, so tolerate it here.
+		// `BadState`, but it must not block the payout of this page (and of every nominator on
+		// it), so we only report it here.
 		match ledger.clone().update() {
-			Ok(()) | Err(Error::<T>::BadState) => {},
+			Ok(()) => {},
+			Err(Error::<T>::BadState) => {
+				Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::BadLedgerState {
+					era,
+					stash: validator_stash.clone(),
+				}));
+			},
 			Err(e) => return Err(e.into()),
 		}
 
@@ -628,13 +635,7 @@ impl<T: Config> Pallet<T> {
 				ledger.active += amount;
 				ledger.total += amount;
 				if let Err(e) = ledger.update() {
-					log!(
-						error,
-						"Failed to restake reward for era {:?}, stash {:?}: {:?}",
-						era,
-						stash,
-						e
-					);
+					Self::on_restake_failed(era, stash, e);
 				}
 			}
 		}
@@ -671,13 +672,7 @@ impl<T: Config> Pallet<T> {
 					let imbalance = asset::mint_into_existing::<T>(stash, amount);
 					// Best-effort, as above: the mint stands even if the ledger is rejected.
 					if let Err(e) = ledger.update() {
-						log!(
-							error,
-							"Failed to restake reward for era {:?}, stash {:?}: {:?}",
-							era,
-							stash,
-							e
-						);
+						Self::on_restake_failed(era, stash, e);
 					}
 					imbalance
 				})
@@ -693,6 +688,17 @@ impl<T: Config> Pallet<T> {
 			}),
 		};
 		maybe_imbalance.map(|imbalance| (imbalance, dest))
+	}
+
+	/// Reports a restake that could not be applied to the ledger of `stash`.
+	fn on_restake_failed(era: EraIndex, stash: &T::AccountId, e: Error<T>) {
+		log!(error, "Failed to restake reward for era {:?}, stash {:?}: {:?}", era, stash, e);
+		if e == Error::<T>::BadState {
+			Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::BadLedgerState {
+				era,
+				stash: stash.clone(),
+			}));
+		}
 	}
 
 	/// Calculate the validator incentive amount for a single page.

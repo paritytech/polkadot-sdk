@@ -17,6 +17,12 @@ doc:
     controller of the stash bonds a ledger belonging to another stash, is now rejected with
     `Error::BadState` rather than wiping the other stash's ledger.
 
+    Payouts are not blocked by a ledger in bad state: the reward is still paid, the ledger is
+    left untouched and a new `Event::Unexpected(UnexpectedKind::BadLedgerState { era, stash })`
+    is emitted instead.
+
 crates:
 - name: pallet-staking-async
+  bump: major
+- name: asset-hub-westend-runtime
   bump: patch

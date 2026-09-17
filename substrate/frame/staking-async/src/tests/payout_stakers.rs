@@ -1822,6 +1822,7 @@ fn payout_is_not_blocked_by_inconsistent_ledger() {
 
 		let balance_11 = asset::total_balance::<T>(&11);
 		let balance_101 = asset::total_balance::<T>(&101);
+		let _ = staking_events_since_last_call();
 
 		// the payout still goes through for both the validator and its nominator.
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 2, 0));
@@ -1831,5 +1832,12 @@ fn payout_is_not_blocked_by_inconsistent_ledger() {
 		// the rewards are paid out, only the restake of 101 is skipped.
 		assert_eq!(Ledger::<T>::get(11).unwrap(), corrupt_11);
 		assert_eq!(Ledger::<T>::get(101).unwrap(), corrupt_101);
+
+		// both inconsistent ledgers are reported.
+		let events = staking_events_since_last_call();
+		assert!(events
+			.contains(&Event::Unexpected(UnexpectedKind::BadLedgerState { era: 2, stash: 11 })));
+		assert!(events
+			.contains(&Event::Unexpected(UnexpectedKind::BadLedgerState { era: 2, stash: 101 })));
 	})
 }

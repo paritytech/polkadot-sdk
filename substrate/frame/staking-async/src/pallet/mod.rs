@@ -1486,6 +1486,9 @@ pub mod pallet {
 		ValidatorIncentiveWeightMismatch { era: EraIndex },
 		/// Validator incentive transfer from era pot failed.
 		ValidatorIncentiveTransferFailed { era: EraIndex },
+		/// A ledger failed its consistency check while paying rewards. The payout went through,
+		/// but the ledger was left untouched.
+		BadLedgerState { era: EraIndex, stash: T::AccountId },
 	}
 
 	#[pallet::error]
