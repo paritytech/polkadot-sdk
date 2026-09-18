@@ -226,7 +226,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#76 id=76 data-nosnippet>76</a>		<span class="doccomment">/// Native asset type.
 <a href=#77 id=77 data-nosnippet>77</a>		</span><span class="kw">type </span>Currency: Mutate&lt;<span class="self">Self</span>::AccountId, Balance = u128&gt;
 <a href=#78 id=78 data-nosnippet>78</a>			+ MutateHold&lt;<span class="self">Self</span>::AccountId, Reason = <span class="self">Self</span>::RuntimeHoldReason&gt;
-<a href=#79 id=79 data-nosnippet>79</a>			+ InspectFreeze&lt;<span class="self">Self</span>::AccountId, Id = <span class="self">Self</span>::FreezeIdentifier&gt;
+<a href=#79 id=79 data-nosnippet>79</a>			+ InspectFreeze&lt;<span class="self">Self</span>::AccountId, Id = <span class="self">Self</span>::RuntimeFreezeReason&gt;
 <a href=#80 id=80 data-nosnippet>80</a>			+ MutateFreeze&lt;<span class="self">Self</span>::AccountId&gt;
 <a href=#81 id=81 data-nosnippet>81</a>			+ Unbalanced&lt;<span class="self">Self</span>::AccountId&gt;
 <a href=#82 id=82 data-nosnippet>82</a>			+ ReservableCurrency&lt;<span class="self">Self</span>::AccountId, Balance = u128&gt;
@@ -635,7 +635,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#485 id=485 data-nosnippet>485</a>			}
 <a href=#486 id=486 data-nosnippet>486</a>
 <a href=#487 id=487 data-nosnippet>487</a>			<span class="comment">// Thaw all the freezes
-<a href=#488 id=488 data-nosnippet>488</a>			</span><span class="kw">let </span>freezes: Vec&lt;IdAmount&lt;T::FreezeIdentifier, T::Balance&gt;&gt; =
+<a href=#488 id=488 data-nosnippet>488</a>			</span><span class="kw">let </span>freezes: Vec&lt;IdAmount&lt;T::RuntimeFreezeReason, T::Balance&gt;&gt; =
 <a href=#489 id=489 data-nosnippet>489</a>				pallet_balances::Freezes::&lt;T&gt;::get(from).into();
 <a href=#490 id=490 data-nosnippet>490</a>
 <a href=#491 id=491 data-nosnippet>491</a>			<span class="kw">for </span>freeze <span class="kw">in </span><span class="kw-2">&amp;</span>freezes {

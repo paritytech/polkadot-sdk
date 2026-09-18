@@ -210,16 +210,14 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#60 id=60 data-nosnippet>60</a></span><span class="kw">impl </span>pallet_balances::Config <span class="kw">for </span>Runtime {
 <a href=#61 id=61 data-nosnippet>61</a>	<span class="kw">type </span>AccountStore = System;
 <a href=#62 id=62 data-nosnippet>62</a>	<span class="kw">type </span>RuntimeFreezeReason = RuntimeFreezeReason;
-<a href=#63 id=63 data-nosnippet>63</a>	<span class="kw">type </span>FreezeIdentifier = RuntimeFreezeReason;
-<a href=#64 id=64 data-nosnippet>64</a>	<span class="kw">type </span>MaxFreezes = frame_support::traits::VariantCountOf&lt;RuntimeFreezeReason&gt;;
-<a href=#65 id=65 data-nosnippet>65</a>}
-<a href=#66 id=66 data-nosnippet>66</a>
-<a href=#67 id=67 data-nosnippet>67</a><span class="attr">#[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
-<a href=#68 id=68 data-nosnippet>68</a></span><span class="kw">impl </span>pallet_revive::Config <span class="kw">for </span>Runtime {
-<a href=#69 id=69 data-nosnippet>69</a>	<span class="kw">type </span>AddressMapper = pallet_revive::TestAccountMapper&lt;<span class="self">Self</span>&gt;;
-<a href=#70 id=70 data-nosnippet>70</a>	<span class="kw">type </span>Balance = u64;
-<a href=#71 id=71 data-nosnippet>71</a>	<span class="kw">type </span>Currency = Balances;
-<a href=#72 id=72 data-nosnippet>72</a>}
+<a href=#63 id=63 data-nosnippet>63</a>}
+<a href=#64 id=64 data-nosnippet>64</a>
+<a href=#65 id=65 data-nosnippet>65</a><span class="attr">#[derive_impl(pallet_revive::config_preludes::TestDefaultConfig)]
+<a href=#66 id=66 data-nosnippet>66</a></span><span class="kw">impl </span>pallet_revive::Config <span class="kw">for </span>Runtime {
+<a href=#67 id=67 data-nosnippet>67</a>	<span class="kw">type </span>AddressMapper = pallet_revive::TestAccountMapper&lt;<span class="self">Self</span>&gt;;
+<a href=#68 id=68 data-nosnippet>68</a>	<span class="kw">type </span>Balance = u64;
+<a href=#69 id=69 data-nosnippet>69</a>	<span class="kw">type </span>Currency = Balances;
+<a href=#70 id=70 data-nosnippet>70</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
