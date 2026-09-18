@@ -206,7 +206,12 @@ where
 	RelayClient: RelayChainInterface + 'static,
 {
 	let Some((scheduling_parent_header, v3_enabled)) = scheduling_info
-		.wait_for_scheduling_parent(relay_chain_data_cache, params.v3_enabled, *slot)
+		.wait_for_scheduling_parent(
+			relay_chain_data_cache,
+			params.v3_enabled,
+			*slot,
+			params.relay_parent_offset,
+		)
 		.await
 	else {
 		tracing::warn!(target: LOG_TARGET, "Unable to fetch the scheduling parent hash.");
@@ -718,53 +723,56 @@ where
 	}
 }
 
-/// The slot-context fields [`sp_hedge_chains`] reads. Split out of [`SlotContext`] so hedging can
-/// be exercised without standing up the whole builder environment.
+/// The slot inputs [`sp_hedge_chains`] reads, split out so hedging can be tested on its own.
 pub(crate) struct HedgeContext<'a> {
 	pub v3_enabled: bool,
 	pub relay_parent_offset: u32,
 	pub max_relay_parent_session_age: u32,
 	pub scheduling_parent_header: &'a RelayHeader,
 	pub relay_parent_hash: RelayHash,
+	pub para_id: ParaId,
+	/// Cores the slot was planned on; a sibling that disagrees cannot carry the submission.
+	pub claim_queue_offset: u32,
+	pub core_indices: &'a [CoreIndex],
 }
 
-/// Derive the hedge inputs from the slot, so a new hedge-relevant [`SlotContext`] field is added
-/// here rather than silently ignored.
-impl<'a, Block: BlockT, Pub> From<&'a SlotContext<Block, Pub>> for HedgeContext<'a> {
-	fn from(cx: &'a SlotContext<Block, Pub>) -> Self {
+impl<'a> HedgeContext<'a> {
+	/// Derived exhaustively, so a new hedge-relevant field cannot be silently ignored.
+	fn new<Block: BlockT, Pub>(
+		cx: &'a SlotContext<Block, Pub>,
+		cores: &'a Cores,
+		para_id: ParaId,
+	) -> Self {
 		Self {
 			v3_enabled: cx.v3_enabled,
 			relay_parent_offset: cx.relay_parent_offset,
 			max_relay_parent_session_age: cx.max_relay_parent_session_age,
 			scheduling_parent_header: &cx.scheduling_parent_header,
 			relay_parent_hash: cx.relay_parent_hash,
+			para_id,
+			claim_queue_offset: cores.claim_queue_offset.0 as u32,
+			core_indices: cores.core_indices(),
 		}
 	}
 }
 
-/// Header chains for the siblings of the chosen scheduling parent, each paired with the
-/// sibling's hash.
-///
-/// [`SchedulingInfo::siblings_at`] returns only siblings that could still win on BABE weight,
-/// which local fork choice cannot separate until a child arrives. Rather than bet on one, the
-/// same blocks are advertised under each. A sibling is usable only if its own descendant walk
-/// lands on the relay parent the blocks were executed against — otherwise it cannot carry
-/// them, which bounds hedging to forks no deeper than the relay parent offset.
-///
-/// Always empty at `relay_parent_offset == 0`: the walk-back then returns the sibling itself
-/// as relay parent, so a sibling implies a different relay parent and cannot share the blocks.
+/// Per-slot memo of resolved siblings (`None` = rejected), so the round trips are spent once.
+pub(crate) type HedgeMemo = HashMap<RelayHash, Option<Vec<RelayHeader>>>;
+
+/// Header chains for the siblings the same blocks can also be advertised under, best first, up to
+/// `max_siblings`. Called per core so a sibling landing mid-slot is still hedged, which `resolved`
+/// keeps cheap. Always empty at `relay_parent_offset == 0`: a sibling is a different relay parent.
 pub(crate) async fn sp_hedge_chains<RelayClient>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 	scheduling_info: &mut SchedulingInfo<RelayClient>,
+	resolved: &mut HedgeMemo,
+	max_siblings: usize,
 	cx: HedgeContext<'_>,
 ) -> Vec<(RelayHash, Vec<RelayHeader>)>
 where
 	RelayClient: RelayChainInterface + 'static,
 {
-	if !cx.v3_enabled {
-		return Vec::new();
-	}
-	if cx.relay_parent_offset == 0 {
+	if !cx.v3_enabled || cx.relay_parent_offset == 0 || max_siblings == 0 {
 		return Vec::new();
 	}
 
@@ -778,42 +786,23 @@ where
 	let mut chains = Vec::new();
 	for sibling in contenders {
 		let sp_sibling = sibling.hash();
-		if chains.len() >= MAX_HEDGED_SIBLINGS {
-			tracing::debug!(
-				target: LOG_TARGET,
-				?sp_sibling,
-				reason = "cap",
-				"SP hedge: sibling rejected",
-			);
+		if chains.len() >= max_siblings {
 			break;
 		}
 
-		// The blocks were executed against `cx.relay_parent_hash`; a sibling whose walk-back
-		// implies a different relay parent cannot carry them.
-		let descendants = match offset_relay_parent_find_descendants(
-			relay_chain_data_cache,
-			sibling,
-			cx.relay_parent_offset,
-			cx.max_relay_parent_session_age,
-		)
-		.await
-		{
-			Ok(Some(mut data)) if data.relay_parent().hash() == cx.relay_parent_hash => {
-				data.take_descendants()
-			},
-			_ => {
-				tracing::debug!(
-					target: LOG_TARGET,
-					?sp_sibling,
-					reason = "base",
-					"SP hedge: sibling rejected",
-				);
+		// Rejected contenders cost round trips too, so the budget covers the whole slot.
+		if !resolved.contains_key(&sp_sibling) {
+			if resolved.len() >= MAX_HEDGE_CONTENDERS {
 				continue;
-			},
-		};
+			}
+			let chain =
+				resolve_hedge_sibling(relay_chain_data_cache, sibling, &cx, sp_sibling).await;
+			resolved.insert(sp_sibling, chain);
+		}
 
-		tracing::debug!(target: LOG_TARGET, ?sp_sibling, "SP hedge: sibling accepted");
-		chains.push((sp_sibling, descendants.into_iter().rev().collect()));
+		if let Some(Some(chain)) = resolved.get(&sp_sibling) {
+			chains.push((sp_sibling, chain.clone()));
+		}
 	}
 
 	if contender_count > 0 {
@@ -830,11 +819,61 @@ where
 	chains
 }
 
-/// Sibling scheduling parents hedged against, on top of the chosen one.
-///
-/// Each sibling costs a whole extra submission: the scheduling proof lives inside the PoV, so the
-/// same blocks are compressed and erasure-coded again per sibling.
-pub(crate) const MAX_HEDGED_SIBLINGS: usize = 3;
+/// Resolve one contender: `Some(header_chain)` if it can carry the slot's blocks.
+async fn resolve_hedge_sibling<RelayClient>(
+	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
+	sibling: RelayHeader,
+	cx: &HedgeContext<'_>,
+	sp_sibling: RelayHash,
+) -> Option<Vec<RelayHeader>>
+where
+	RelayClient: RelayChainInterface + 'static,
+{
+	// The collator protocol drops a submission for a core the sibling does not assign us.
+	let same_cores =
+		determine_cores(relay_chain_data_cache, &sibling, cx.para_id, cx.claim_queue_offset)
+			.await
+			.ok()
+			.flatten()
+			.is_some_and(|cores| cores.core_indices().starts_with(cx.core_indices));
+	if !same_cores {
+		tracing::debug!(target: LOG_TARGET, ?sp_sibling, reason = "cores", "SP hedge: rejected");
+		return None;
+	}
+
+	// A sibling whose walk-back implies another relay parent cannot carry the executed blocks.
+	let descendants = match offset_relay_parent_find_descendants(
+		relay_chain_data_cache,
+		sibling,
+		cx.relay_parent_offset,
+		cx.max_relay_parent_session_age,
+	)
+	.await
+	{
+		Ok(Some(mut data)) if data.relay_parent().hash() == cx.relay_parent_hash => {
+			data.take_descendants()
+		},
+		_ => {
+			tracing::debug!(target: LOG_TARGET, ?sp_sibling, reason = "base", "SP hedge: rejected");
+			return None;
+		},
+	};
+
+	tracing::debug!(target: LOG_TARGET, ?sp_sibling, "SP hedge: sibling accepted");
+	Some(descendants.into_iter().rev().collect())
+}
+
+/// Ceiling on hedged sibling scheduling parents, lowered further per core by the caller. Each one
+/// costs a whole extra submission per scheduled core, and the chosen parent plus its siblings must
+/// stay inside the network bridge's `MAX_VIEW_HEADS` or `distribute_segment` drops them.
+pub(crate) const MAX_HEDGED_SIBLINGS: usize = 2;
+
+/// Contenders resolved per slot, bounding the round trips a forked relay height can force.
+const MAX_HEDGE_CONTENDERS: usize = MAX_HEDGED_SIBLINGS + 2;
+
+/// Extra PoV builds one core may spend on hedging: a sibling rebuilds the whole segment, so a
+/// long backlog buys fewer siblings, and past this length none at all.
+pub(crate) const MAX_HEDGED_REBUILDS_PER_CORE: usize = 6;
 
 /// Run block-builder.
 pub fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>(
@@ -968,12 +1007,8 @@ where
 			let mut pov_parent_header = cx.initial_parent_header.clone();
 			let mut pov_parent_hash = cx.initial_parent_hash;
 
-			let hedge_chains = sp_hedge_chains(
-				&mut env.relay_chain_data_cache,
-				&mut env.scheduling_info,
-				(&cx).into(),
-			)
-			.await;
+			// Shared across the slot's cores, so a mid-slot arrival is picked up but only once.
+			let mut hedge_memo = HedgeMemo::default();
 
 			for blocks_per_core in blocks_per_cores {
 				let core_info = cores.core_info();
@@ -994,7 +1029,7 @@ where
 
 				// Time the core build so we can pace after submitting (send early, then sleep).
 				let core_start = Instant::now();
-				let built = match build_collation_for_core(BuildCollationParams {
+				let build = build_collation_for_core(BuildCollationParams {
 					pov_parent_header: pov_parent_header.clone(),
 					pov_parent_hash,
 					relay_parent_header: &cx.relay_parent_header,
@@ -1020,9 +1055,9 @@ where
 					relay_slot: cx.relay_slot,
 					para_slot: cx.para_slot.slot,
 					para_client: &*env.para_client,
-				})
-				.await
-				{
+				});
+
+				let built = match build.await {
 					Ok(built) => built,
 					Err(()) => return,
 				};
@@ -1041,8 +1076,20 @@ where
 					per_selector_unincluded_headers.remove(&bucket_idx).unwrap_or_default();
 				let bundle = built.map(|BuiltCollation { entry, .. }| entry);
 
-				// One header chain per scheduling parent hedged across. A single message below
-				// carries one proof per chain, all over the same entries.
+				let entries = unincluded_headers.len() + usize::from(bundle.is_some());
+				let max_siblings = MAX_HEDGED_REBUILDS_PER_CORE
+					.checked_div(entries)
+					.unwrap_or_default()
+					.min(MAX_HEDGED_SIBLINGS);
+				let hedge_chains = sp_hedge_chains(
+					&mut env.relay_chain_data_cache,
+					&mut env.scheduling_info,
+					&mut hedge_memo,
+					max_siblings,
+					HedgeContext::new(&cx, &cores, para_id),
+				)
+				.await;
+
 				let v3_header_chains = v3_header_chain.map(|chosen| V3HeaderChains {
 					chosen,
 					hedged: hedge_chains.iter().map(|(_, chain)| chain.clone()).collect(),
@@ -1052,6 +1099,7 @@ where
 					tracing::debug!(
 						target: LOG_TARGET,
 						core_index = ?this_core_index,
+						entries,
 						siblings = ?hedge_chains.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
 						"SP hedge: core hedged across siblings",
 					);
@@ -1104,19 +1152,16 @@ where
 	}
 }
 
-/// The V3 header chains covering one core's submission: the chosen scheduling parent's chain plus
-/// one per hedged sibling.
+/// One core's V3 header chains: the chosen scheduling parent's, plus one per hedged sibling.
 pub(crate) struct V3HeaderChains {
 	pub chosen: Vec<RelayHeader>,
 	pub hedged: Vec<Vec<RelayHeader>>,
 }
 
-/// Assemble one core's submission. V3: one [`SchedulingProof`] per header chain, all covering the
-/// resubmitted unincluded bucket plus the freshly-built bundle (or the bucket alone). V2: a single
-/// collation, only when a fresh block was built.
+/// Assemble one core's submission. V3: one [`SchedulingProof`] per header chain over the
+/// resubmitted bucket plus the fresh bundle. V2: a single collation, only if a block was built.
 ///
-/// The signed payload is independent of the header chain, so it is signed once and cloned into
-/// every proof; a signing failure skips the whole submission.
+/// The signed payload does not depend on the header chain, so it is signed once for every proof.
 ///
 /// [`SchedulingProof`]: cumulus_primitives_core::SchedulingProof
 pub(crate) fn assemble_core_submission<Block, P>(
