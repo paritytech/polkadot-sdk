@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789679728688,
+  "lastUpdate": 1789707164730,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -125711,6 +125711,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2768719699,
             "range": "± 60042906",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7d4be3ec428c1b0aacd718bf6c12ebbfd7cea1b4",
+          "message": "docs: share repository guidance across coding harnesses (#13251)\n\n# Description\n\nMake the repository guidance available to harnesses beyond Claude Code.\nCurrently it lives only in `CLAUDE.md`, which Codex does not read by\ndefault. Moving it to `AGENTS.md` lets Codex and other harnesses that\nsupport that file discover the same instructions. `CLAUDE.md` becomes a\nsingle `@AGENTS.md` import so Claude Code continues using the shared\nguidance without duplicating it.\n\nRequire reading every applicable `AGENTS.md` along a file's directory\npath before editing or creating it, including when work starts at the\nrepository root. This explicitly directs harnesses to load scoped\ninstructions that were not included at startup. The rule only names\n`AGENTS.md`: Claude Code already loads nested `CLAUDE.md` files\nautomatically when it reads files in those directories, including their\nimports, so a separate instruction to discover `CLAUDE.md` is\nunnecessary. More specific instructions apply within their own subtree.\n\nAlso correct the existing prdoc exemption to `R0-silent` and distinguish\nit from `R0-no-crate-publish-required`, which only exempts crate\npublication. Existing commands and technical guidance are preserved.\n\n## Validation\n\nMarkdown lint and `git diff --check` passed. Verified the exact import,\npreservation of every command block, and that only the two root guidance\nfiles changed. No Rust build or runtime tests were needed for this\ndocumentation-only change.",
+          "timestamp": "2026-09-18T03:30:41Z",
+          "tree_id": "ef38891bbff066c158c880f04f0c11ade91ceeb0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d4be3ec428c1b0aacd718bf6c12ebbfd7cea1b4"
+        },
+        "date": 1789707128784,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19474938,
+            "range": "± 263512",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19428544,
+            "range": "± 242253",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21057568,
+            "range": "± 166296",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25571950,
+            "range": "± 138865",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56143170,
+            "range": "± 500205",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 310145094,
+            "range": "± 1871338",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2406406791,
+            "range": "± 107534834",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16313164,
+            "range": "± 158291",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16502302,
+            "range": "± 214951",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 16741523,
+            "range": "± 120152",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21557727,
+            "range": "± 121287",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58061661,
+            "range": "± 539259",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 334751269,
+            "range": "± 2022295",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2561624756,
+            "range": "± 11847433",
             "unit": "ns/iter"
           }
         ]
