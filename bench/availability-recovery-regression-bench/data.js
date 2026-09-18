@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789760251253,
+  "lastUpdate": 1789772439872,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "00fb736fb7aedce81d74d85113791a7968e20f35",
-          "message": "`prefix_logs_with`: Ensure the macro works correctly for futures (#11095)\n\nWhen setting up a tracing span in an async future, it may gets\ninvalidated by any `await` point. The problem is that after continuing a\nfuture, it may runs on a different thread where the `span` isn't active\nanymore. The solution for this is to `instrument` the future properly.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-18T21:04:19Z",
-          "tree_id": "0a7e2fc4cb39cffcbe9d70ac2dfd1c157cbb96eb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/00fb736fb7aedce81d74d85113791a7968e20f35"
-        },
-        "date": 1771452956395,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.383325205233334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1278406173,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1355764958666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b09232fe9d2ec8964a8069e1f5799962fe8b1e63",
+          "message": "frame: re-export hashing free functions via sp_io (#12753)\n\n## Summary\n\nIn #12158 we removed the deprecated `sp_core` hashing re-exports and\npointed `frame::hashing` at `sp_crypto_hashing` instead. That works, but\nthose helpers run as pure wasm, which is slower than going through the\nhost.\n\nThis PR switches the free functions in `polkadot-sdk-frame::hashing`\n(`blake2_256`, `twox_128`, and friends) over to `sp_io::hashing`, so\nruntime code that uses FRAME’s hashing module gets the host-function\npath. The trait helpers (`BlakeTwo256` / `Keccak256`) were already doing\nthat; this just brings the free functions in line. Also drops the\nnow-unused `sp-crypto-hashing` dependency from `polkadot-sdk-frame`.\n\nFixes #12727\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-09-18T21:30:48Z",
+          "tree_id": "75935ddd12b4aa1d51169c536986e208efe602c3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b09232fe9d2ec8964a8069e1f5799962fe8b1e63"
+        },
+        "date": 1789772400735,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1350872476333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.30848217296667,
             "unit": "seconds"
           }
         ]
