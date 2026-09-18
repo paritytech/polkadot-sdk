@@ -35,7 +35,7 @@ use cumulus_primitives_core::{
 	relay_chain::{
 		async_backing::{AsyncBackingParams, BackingState, Constraints},
 		slashing,
-		vstaging::RelayParentInfo,
+		vstaging::{RelayParentInfo, SessionExecutionConfig},
 		ApprovalVotingParams, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
 		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState,
 		DisputeState, ExecutorParams, GroupRotationInfo, Hash as RelayHash, Header as RelayHeader,
@@ -805,6 +805,19 @@ impl RelayChainRpcClient {
 			"ParachainHost_ancestor_relay_parent_info",
 			at,
 			Some((session_index, relay_parent)),
+		)
+		.await
+	}
+
+	pub async fn parachain_host_session_execution_config(
+		&self,
+		at: RelayHash,
+		session_index: SessionIndex,
+	) -> Result<Option<SessionExecutionConfig>, RelayChainError> {
+		self.call_remote_runtime_function(
+			"ParachainHost_session_execution_config",
+			at,
+			Some(session_index),
 		)
 		.await
 	}
