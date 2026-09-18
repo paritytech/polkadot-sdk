@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789740462307,
+  "lastUpdate": 1789760251253,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "37c9bed5901d4b3a021f5c9dfd567fbfd7e81772",
-          "message": "Cumulus: Simplify parent search for block-building (#10998)\n\nWhile reviewing #10973 I found once more that our parent search is\ntotally overengineered:\n- It offers the option to search branches that do not contain the\npending block -> These branches can never be taken\n- It returns a list of potential parents -> Nobody uses the list, we\nonly care about the latest block that we should build on\n\nBy eliminating these two annoyances, the code is a lot more simple and\neasier to follow. There are still some defensive checks that are not\nstrictly necessary, but does not hurt to keep them.\n\nIn summary, the mental model is: Build on the latest descendant of the\npending block that is still inside the relay parent ancestry. If no\npending block is available, use the included block in its place.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-18T17:58:52Z",
-          "tree_id": "c441657ee4e90dac570e53cb1a8fb5c112bfcbad",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/37c9bed5901d4b3a021f5c9dfd567fbfd7e81772"
-        },
-        "date": 1771442750959,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12120798219999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.290387854233332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14556834186666665,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "141152972+Stephenlawrence00@users.noreply.github.com",
+            "name": "html//stephlou",
+            "username": "Stephenlawrence00"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6719be2fe39c7cb6bf423b9c8e5724867b14ed93",
+          "message": "[frame-benchmarking] Refactor pallet benchmarking backend (#11758)\n\ncloses https://github.com/paritytech/polkadot-sdk/issues/194\n\nThis PR refactors the benchmarking infrastructure in FRAME by\ndeduplicating analysis logic, improving API ergonomics, formalizing\n`BenchmarkBatch::split()`, enhancing documentation and error handling,\nand deprecating the v1 macro system in favor of v2.",
+          "timestamp": "2026-09-18T16:50:01Z",
+          "tree_id": "90cd9e2073710c7a6673a5278be012f896bffb41",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6719be2fe39c7cb6bf423b9c8e5724867b14ed93"
+        },
+        "date": 1789760210345,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.193103900266665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1355764958666667,
             "unit": "seconds"
           }
         ]
