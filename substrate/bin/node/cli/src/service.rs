@@ -127,7 +127,10 @@ pub fn create_extrinsic(
 	let tip = 0;
 	let tx_ext: kitchensink_runtime::TxExtension =
 		(
-			frame_system::AuthorizeCall::<kitchensink_runtime::Runtime>::new(),
+			(
+				frame_system::AuthorizeCall::<kitchensink_runtime::Runtime>::new(),
+				pallet_utility_ext::MultiOriginBatch::<kitchensink_runtime::Runtime>::new(),
+			),
 			frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
@@ -1121,6 +1124,7 @@ mod tests {
 				});
 
 				let authorize_call = frame_system::AuthorizeCall::new();
+				let multi_origin_batch = pallet_utility_ext::MultiOriginBatch::new();
 				let check_non_zero_sender = frame_system::CheckNonZeroSender::new();
 				let check_spec_version = frame_system::CheckSpecVersion::new();
 				let check_tx_version = frame_system::CheckTxVersion::new();
@@ -1135,7 +1139,7 @@ mod tests {
 				let weight_reclaim = frame_system::WeightReclaim::new();
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
 				let tx_ext: TxExtension = (
-					authorize_call,
+					(authorize_call, multi_origin_batch),
 					check_non_zero_sender,
 					check_spec_version,
 					check_tx_version,

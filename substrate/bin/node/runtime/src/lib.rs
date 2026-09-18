@@ -381,6 +381,84 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_utility_ext::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type InnerExtension = MultiOriginItemExtension;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = MultiOriginBenchmarkItems;
+	type MaxMultiOriginBatch = ConstU32<8>;
+	type MultiOriginCallFilter = MultiOriginCallFilter;
+	type WeightInfo = pallet_utility_ext::weights::SubstrateWeight<Runtime>;
+}
+
+/// The calls an item of `UtilityExt::batch_multi_origin` may dispatch.
+///
+/// The Ethereum transaction calls of `pallet_revive` draw storage deposits from the fee pot
+/// `pallet_transaction_payment` holds for the transaction, which in a batch is the last item's, so
+/// they are kept out. Technically they require the `EthTransaction` origin, which cannot be
+/// produced without `SetOrigin` which is not in the item pipeline, so this is a safeguard and just
+/// an example. Every other revive call takes deposits from its signer.
+pub struct MultiOriginCallFilter;
+impl Contains<RuntimeCall> for MultiOriginCallFilter {
+	fn contains(call: &RuntimeCall) -> bool {
+		!matches!(
+			call,
+			RuntimeCall::Revive(
+				pallet_revive::Call::eth_transact { .. } |
+					pallet_revive::Call::eth_call { .. } |
+					pallet_revive::Call::eth_instantiate_with_code { .. } |
+					pallet_revive::Call::eth_substrate_call { .. }
+			)
+		)
+	}
+}
+
+/// Builds `batch_multi_origin` items for the benchmarks.
+#[cfg(feature = "runtime-benchmarks")]
+pub struct MultiOriginBenchmarkItems;
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_utility_ext::BenchmarkHelper<Runtime> for MultiOriginBenchmarkItems {
+	fn item(call: RuntimeCall) -> pallet_utility_ext::MultiOriginItemOf<Runtime> {
+		pallet_utility_ext::MultiOriginItem::new(
+			call,
+			(
+				frame_system::AuthorizeCall::new(),
+				pallet_verify_signature::VerifySignature::new_disabled(),
+				pallet_utility_ext::MultiOriginBatchMarker::new(),
+				frame_system::CheckNonZeroSender::new(),
+				frame_system::CheckSpecVersion::new(),
+				frame_system::CheckTxVersion::new(),
+				frame_system::CheckGenesis::new(),
+				frame_system::CheckEra::from(Era::Immortal),
+				frame_system::CheckNonce::from(0),
+				pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
+					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
+				),
+				frame_metadata_hash_extension::CheckMetadataHash::new(false),
+			),
+			OriginCaller::system(frame_system::RawOrigin::None),
+		)
+	}
+}
+
+/// The transaction extension pipeline of the items of a `UtilityExt::batch_multi_origin` call.
+pub type MultiOriginItemExtension = (
+	frame_system::AuthorizeCall<Runtime>,
+	pallet_verify_signature::VerifySignature<Runtime>,
+	pallet_utility_ext::MultiOriginBatchMarker<Runtime>,
+	frame_system::CheckNonZeroSender<Runtime>,
+	frame_system::CheckSpecVersion<Runtime>,
+	frame_system::CheckTxVersion<Runtime>,
+	frame_system::CheckGenesis<Runtime>,
+	frame_system::CheckEra<Runtime>,
+	frame_system::CheckNonce<Runtime>,
+	pallet_skip_feeless_payment::SkipCheckIfFeeless<
+		Runtime,
+		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+	>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+);
+
 parameter_types! {
 	// One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
 	pub const DepositBase: Balance = deposit(1, 88);
@@ -1640,7 +1718,10 @@ where
 			.saturating_sub(1);
 		let era = Era::mortal(period, current_block);
 		let tx_ext: TxExtension = (
-			frame_system::AuthorizeCall::<Runtime>::new(),
+			(
+				frame_system::AuthorizeCall::<Runtime>::new(),
+				pallet_utility_ext::MultiOriginBatch::<Runtime>::new(),
+			),
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
@@ -1700,7 +1781,10 @@ where
 {
 	fn create_extension() -> Self::Extension {
 		(
-			frame_system::AuthorizeCall::<Runtime>::new(),
+			(
+				frame_system::AuthorizeCall::<Runtime>::new(),
+				pallet_utility_ext::MultiOriginBatch::<Runtime>::new(),
+			),
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
@@ -3043,6 +3127,9 @@ mod runtime {
 
 	#[runtime::pallet_index(96)]
 	pub type RegistrarRelay = pallet_registrar_relay::Pallet<Runtime>;
+
+	#[runtime::pallet_index(97)]
+	pub type UtilityExt = pallet_utility_ext::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3061,7 +3148,7 @@ pub type BlockId = generic::BlockId<Block>;
 ///
 /// [`sign`]: <../../testing/src/keyring.rs.html>
 pub type TxExtension = (
-	frame_system::AuthorizeCall<Runtime>,
+	(frame_system::AuthorizeCall<Runtime>, pallet_utility_ext::MultiOriginBatch<Runtime>),
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
 	frame_system::CheckTxVersion<Runtime>,
@@ -3088,7 +3175,10 @@ impl EthExtra for EthExtraImpl {
 
 	fn get_eth_extension(nonce: u32, tip: Balance) -> Self::ExtensionV0 {
 		(
-			frame_system::AuthorizeCall::<Runtime>::new(),
+			(
+				frame_system::AuthorizeCall::<Runtime>::new(),
+				pallet_utility_ext::MultiOriginBatch::<Runtime>::new(),
+			),
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
 			frame_system::CheckTxVersion::<Runtime>::new(),
@@ -3412,6 +3502,7 @@ mod benches {
 		[pallet_nfts, Nfts]
 		[pallet_nft_fractionalization, NftFractionalization]
 		[pallet_utility, Utility]
+		[pallet_utility_ext, UtilityExt]
 		[pallet_vesting, Vesting]
 		[pallet_whitelist, Whitelist]
 		[pallet_tx_pause, TxPause]
@@ -4152,5 +4243,496 @@ mod tests {
 			 If the limit is too strong, maybe consider increase the limit.",
 			size,
 		);
+	}
+
+	/// End to end tests for `UtilityExt::batch_multi_origin`.
+	mod batch_multi_origin {
+		use super::*;
+		use frame_support::{assert_ok, dispatch::GetDispatchInfo};
+		use pallet_utility_ext::{
+			ItemImplication, MultiOriginBatch, MultiOriginBatchMarker, MultiOriginItem,
+		};
+		use sp_core::{sr25519, Pair as _};
+		use sp_io::hashing::blake2_256;
+		use sp_runtime::{
+			traits::{Applyable, Checkable, TransactionExtension as _},
+			transaction_validity::{InvalidTransaction, TransactionValidityError},
+			BuildStorage, MultiSignature,
+		};
+
+		fn account(seed: &str) -> (sr25519::Pair, AccountId) {
+			let pair = sr25519::Pair::from_string(seed, None).expect("static seed; qed");
+			let account: AccountId = pair.public().into();
+			(pair, account)
+		}
+
+		fn new_test_ext(funded: &[AccountId]) -> sp_io::TestExternalities {
+			let mut storage = frame_system::GenesisConfig::<Runtime>::default()
+				.build_storage()
+				.expect("default system genesis builds; qed");
+			pallet_balances::GenesisConfig::<Runtime> {
+				balances: funded.iter().map(|who| (who.clone(), 100 * DOLLARS)).collect(),
+				..Default::default()
+			}
+			.assimilate_storage(&mut storage)
+			.expect("balances genesis builds; qed");
+			let mut ext = sp_io::TestExternalities::new(storage);
+			ext.execute_with(|| System::set_block_number(1));
+			ext
+		}
+
+		/// The call of an item and the origin authorizing it.
+		type ItemSpec = (RuntimeCall, OriginCaller);
+
+		fn signed_by(who: &AccountId) -> OriginCaller {
+			OriginCaller::system(frame_system::RawOrigin::Signed(who.clone()))
+		}
+
+		fn authorized() -> OriginCaller {
+			OriginCaller::system(frame_system::RawOrigin::Authorized)
+		}
+
+		/// The bare item pipeline, so everything after origin modifiers.
+		fn bare_extension(
+			nonce: Nonce,
+		) -> (
+			MultiOriginBatchMarker<Runtime>,
+			frame_system::CheckNonZeroSender<Runtime>,
+			frame_system::CheckSpecVersion<Runtime>,
+			frame_system::CheckTxVersion<Runtime>,
+			frame_system::CheckGenesis<Runtime>,
+			frame_system::CheckEra<Runtime>,
+			frame_system::CheckNonce<Runtime>,
+			pallet_skip_feeless_payment::SkipCheckIfFeeless<
+				Runtime,
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+			>,
+			frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+		) {
+			(
+				MultiOriginBatchMarker::<Runtime>::new(),
+				frame_system::CheckNonZeroSender::<Runtime>::new(),
+				frame_system::CheckSpecVersion::<Runtime>::new(),
+				frame_system::CheckTxVersion::<Runtime>::new(),
+				frame_system::CheckGenesis::<Runtime>::new(),
+				frame_system::CheckEra::<Runtime>::from(Era::Immortal),
+				frame_system::CheckNonce::<Runtime>::from(nonce),
+				pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
+					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
+						0, None,
+					),
+				),
+				frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
+			)
+		}
+
+		/// The item at `index` of a batch of `items`, an authorized call signed by nobody.
+		fn authorized_item(
+			index: usize,
+			items: &[ItemSpec],
+		) -> MultiOriginItem<RuntimeCall, MultiOriginItemExtension, OriginCaller> {
+			let (marker, non_zero, spec, tx, genesis, era, nonce, payment, metadata) =
+				bare_extension(0);
+			let extension = (
+				frame_system::AuthorizeCall::new(),
+				pallet_verify_signature::VerifySignature::new_disabled(),
+				marker,
+				non_zero,
+				spec,
+				tx,
+				genesis,
+				era,
+				nonce,
+				payment,
+				metadata,
+			);
+			MultiOriginItem::new(items[index].0.clone(), extension, items[index].1.clone())
+		}
+
+		/// The item at `index` of a batch of `items`, signed by `signer` and paying its own fee.
+		fn item(
+			signer: &sr25519::Pair,
+			account: AccountId,
+			index: usize,
+			items: &[ItemSpec],
+		) -> MultiOriginItem<RuntimeCall, MultiOriginItemExtension, OriginCaller> {
+			let nonce = System::account_nonce(&account);
+			item_with_nonce(signer, account, nonce, index, items)
+		}
+
+		fn item_with_nonce(
+			signer: &sr25519::Pair,
+			account: AccountId,
+			nonce: Nonce,
+			index: usize,
+			items: &[ItemSpec],
+		) -> MultiOriginItem<RuntimeCall, MultiOriginItemExtension, OriginCaller> {
+			let bare = bare_extension(nonce);
+			let implicit = bare.implicit().expect("implicit data is available; qed");
+			let commitments: Vec<(&RuntimeCall, &OriginCaller)> =
+				items.iter().map(|(call, origin)| (call, origin)).collect();
+			let implication = ItemImplication {
+				extension_version: pallet_utility_ext::ITEM_EXTENSION_VERSION,
+				index: index as u32,
+				items: &commitments,
+			};
+			let payload = (&implication, &bare, implicit).using_encoded(blake2_256);
+			let signature = MultiSignature::Sr25519(signer.sign(&payload));
+			let (marker, non_zero, spec, tx, genesis, era, nonce, payment, metadata) = bare;
+			let extension = (
+				frame_system::AuthorizeCall::new(),
+				pallet_verify_signature::VerifySignature::new_with_signature(signature, account),
+				marker,
+				non_zero,
+				spec,
+				tx,
+				genesis,
+				era,
+				nonce,
+				payment,
+				metadata,
+			);
+			MultiOriginItem::new(items[index].0.clone(), extension, items[index].1.clone())
+		}
+
+		fn general_tx(
+			items: Vec<MultiOriginItem<RuntimeCall, MultiOriginItemExtension, OriginCaller>>,
+		) -> UncheckedExtrinsic {
+			let call = RuntimeCall::UtilityExt(pallet_utility_ext::Call::batch_multi_origin {
+				items: items.try_into().expect("at most `MaxMultiOriginBatch` items; qed"),
+			});
+			let tx_ext: TxExtension = (
+				(frame_system::AuthorizeCall::new(), MultiOriginBatch::new()),
+				frame_system::CheckNonZeroSender::new(),
+				frame_system::CheckSpecVersion::new(),
+				frame_system::CheckTxVersion::new(),
+				frame_system::CheckGenesis::new(),
+				frame_system::CheckEra::from(Era::Immortal),
+				frame_system::CheckNonce::from(0),
+				frame_system::CheckWeight::new(),
+				pallet_skip_feeless_payment::SkipCheckIfFeeless::from(
+					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
+				),
+				frame_metadata_hash_extension::CheckMetadataHash::new(false),
+				pallet_revive::evm::tx_extension::SetOrigin::default(),
+				frame_system::WeightReclaim::new(),
+			);
+			generic::UncheckedExtrinsic::new_transaction(call, tx_ext).into()
+		}
+
+		fn apply(uxt: UncheckedExtrinsic) -> ApplyExtrinsicResult {
+			let info = uxt.get_dispatch_info();
+			let len = uxt.encoded_size();
+			let xt = <UncheckedExtrinsic as Checkable<frame_system::ChainContext<Runtime>>>::check(
+				uxt,
+				&Default::default(),
+			)
+			.expect("general transactions always check; qed");
+			xt.apply::<Runtime>(&info, len).map(|res| res.map(|_| ()).map_err(|e| e.error))
+		}
+
+		#[test]
+		fn signed_items_dispatch_with_their_own_origins_and_pay_their_own_fees() {
+			let (alice, alice_account) = account("//Alice");
+			let (bob, bob_account) = account("//Bob");
+			let (_, charlie_account) = account("//Charlie");
+			new_test_ext(&[alice_account.clone(), bob_account.clone()]).execute_with(|| {
+				let transfer = |dest: &AccountId| {
+					RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+						dest: dest.clone().into(),
+						value: 10 * DOLLARS,
+					})
+				};
+				let specs = vec![
+					(transfer(&charlie_account), signed_by(&alice_account)),
+					(transfer(&charlie_account), signed_by(&bob_account)),
+				];
+				let uxt = general_tx(vec![
+					item(&alice, alice_account.clone(), 0, &specs),
+					item(&bob, bob_account.clone(), 1, &specs),
+				]);
+
+				assert_eq!(apply(uxt), Ok(Ok(())));
+
+				assert_eq!(Balances::free_balance(&charlie_account), 20 * DOLLARS);
+				// Each signer paid the transfer and a fee.
+				assert!(Balances::free_balance(&alice_account) < 90 * DOLLARS);
+				assert!(Balances::free_balance(&bob_account) < 90 * DOLLARS);
+				assert_eq!(System::account_nonce(&alice_account), 1);
+				assert_eq!(System::account_nonce(&bob_account), 1);
+				assert!(pallet_utility_ext::MultiOrigins::<Runtime>::get().is_none());
+				assert_eq!(TransactionPayment::remaining_txfee::<Balance>(), 0);
+			});
+		}
+
+		#[test]
+		fn items_of_one_signer_pay_in_sequence() {
+			let (alice, alice_account) = account("//Alice");
+			let (_, charlie_account) = account("//Charlie");
+			new_test_ext(&[alice_account.clone()]).execute_with(|| {
+				let transfer = RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+					dest: charlie_account.clone().into(),
+					value: 10 * DOLLARS,
+				});
+				let specs = vec![
+					(transfer.clone(), signed_by(&alice_account)),
+					(transfer, signed_by(&alice_account)),
+				];
+				let uxt = general_tx(vec![
+					item_with_nonce(&alice, alice_account.clone(), 0, 0, &specs),
+					item_with_nonce(&alice, alice_account.clone(), 1, 1, &specs),
+				]);
+
+				assert_eq!(apply(uxt), Ok(Ok(())));
+
+				assert_eq!(Balances::free_balance(&charlie_account), 20 * DOLLARS);
+				let alice_balance = Balances::free_balance(&alice_account);
+				assert!(alice_balance < 80 * DOLLARS && alice_balance > 79 * DOLLARS);
+				assert_eq!(System::account_nonce(&alice_account), 2);
+				assert_eq!(TransactionPayment::remaining_txfee::<Balance>(), 0);
+			});
+		}
+
+		#[test]
+		fn revive_ethereum_calls_are_kept_out_of_multi_origin_batches() {
+			let (alice, alice_account) = account("//Alice");
+			new_test_ext(&[alice_account.clone()]).execute_with(|| {
+				// A regular revive call is fine.
+				let map_account = RuntimeCall::Revive(pallet_revive::Call::map_account {});
+				let uxt = general_tx(vec![item(
+					&alice,
+					alice_account.clone(),
+					0,
+					&[(map_account, signed_by(&alice_account))],
+				)]);
+				assert_eq!(apply(uxt), Ok(Ok(())));
+				assert_eq!(System::account_nonce(&alice_account), 1);
+
+				let eth_call = RuntimeCall::Revive(pallet_revive::Call::eth_call {
+					dest: Default::default(),
+					value: Default::default(),
+					weight_limit: Weight::zero(),
+					eth_gas_limit: Default::default(),
+					data: vec![],
+					transaction_encoded: vec![],
+					effective_gas_price: Default::default(),
+					encoded_len: 0,
+					authorization_list: vec![],
+				});
+				let uxt = general_tx(vec![item(
+					&alice,
+					alice_account.clone(),
+					0,
+					&[(eth_call, signed_by(&alice_account))],
+				)]);
+				assert_eq!(apply(uxt), Err(InvalidTransaction::Call.into()));
+				assert_eq!(System::account_nonce(&alice_account), 1);
+			});
+		}
+
+		#[test]
+		fn item_with_bad_signature_is_rejected() {
+			let (alice, alice_account) = account("//Alice");
+			let (_, bob_account) = account("//Bob");
+			let (_, charlie_account) = account("//Charlie");
+			new_test_ext(&[alice_account.clone(), bob_account.clone()]).execute_with(|| {
+				let transfer = RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+					dest: charlie_account.clone().into(),
+					value: 10 * DOLLARS,
+				});
+				// Bob's item signed by Alice.
+				let specs = vec![
+					(transfer.clone(), signed_by(&alice_account)),
+					(transfer, signed_by(&bob_account)),
+				];
+				let uxt = general_tx(vec![
+					item(&alice, alice_account.clone(), 0, &specs),
+					item(&alice, bob_account.clone(), 1, &specs),
+				]);
+
+				assert_eq!(apply(uxt), Err(InvalidTransaction::BadProof.into()));
+
+				assert_eq!(Balances::free_balance(&charlie_account), 0);
+				assert_eq!(Balances::free_balance(&alice_account), 100 * DOLLARS);
+				assert_eq!(System::account_nonce(&alice_account), 0);
+			});
+		}
+
+		#[test]
+		fn item_cannot_be_lifted_out_of_its_batch() {
+			let (alice, alice_account) = account("//Alice");
+			let (bob, bob_account) = account("//Bob");
+			let (_, charlie_account) = account("//Charlie");
+			new_test_ext(&[alice_account.clone(), bob_account.clone()]).execute_with(|| {
+				let transfer = |dest: &AccountId| {
+					RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+						dest: dest.clone().into(),
+						value: 10 * DOLLARS,
+					})
+				};
+				let specs = vec![
+					(transfer(&bob_account), signed_by(&alice_account)),
+					(transfer(&charlie_account), signed_by(&bob_account)),
+				];
+				let alice_item = item(&alice, alice_account.clone(), 0, &specs);
+
+				// Alone.
+				let uxt = general_tx(vec![alice_item.clone()]);
+				assert_eq!(apply(uxt), Err(InvalidTransaction::BadProof.into()));
+
+				// Next to a different item.
+				let other = vec![
+					(transfer(&bob_account), signed_by(&alice_account)),
+					(transfer(&bob_account), signed_by(&bob_account)),
+				];
+				let uxt = general_tx(vec![
+					alice_item.clone(),
+					item(&bob, bob_account.clone(), 1, &other),
+				]);
+				assert_eq!(apply(uxt), Err(InvalidTransaction::BadProof.into()));
+
+				assert_eq!(Balances::free_balance(&bob_account), 100 * DOLLARS);
+				assert_eq!(System::account_nonce(&alice_account), 0);
+
+				// In its own batch.
+				let uxt = general_tx(vec![alice_item, item(&bob, bob_account.clone(), 1, &specs)]);
+				assert_eq!(apply(uxt), Ok(Ok(())));
+				assert_eq!(Balances::free_balance(&charlie_account), 10 * DOLLARS);
+				assert_eq!(System::account_nonce(&alice_account), 1);
+			});
+		}
+
+		#[test]
+		fn counterparty_cannot_be_substituted() {
+			let (alice, alice_account) = account("//Alice");
+			let (bob, bob_account) = account("//Bob");
+			let (dave, dave_account) = account("//Dave");
+			let funded = [alice_account.clone(), bob_account.clone(), dave_account.clone()];
+			new_test_ext(&funded).execute_with(|| {
+				let pay_bob = RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+					dest: bob_account.clone().into(),
+					value: 10 * DOLLARS,
+				});
+				let make_alice_proxy = RuntimeCall::Proxy(pallet_proxy::Call::add_proxy {
+					delegate: alice_account.clone().into(),
+					proxy_type: ProxyType::Any,
+					delay: 0,
+				});
+				// Alice pays Bob for making her his proxy.
+				let specs = vec![
+					(pay_bob, signed_by(&alice_account)),
+					(make_alice_proxy, signed_by(&bob_account)),
+				];
+				let alice_item = item(&alice, alice_account.clone(), 0, &specs);
+
+				// Dave fills Bob's slot.
+				let uxt = general_tx(vec![
+					alice_item.clone(),
+					item(&dave, dave_account.clone(), 1, &specs),
+				]);
+				assert_eq!(apply(uxt), Err(InvalidTransaction::BadSigner.into()));
+
+				// Dave declares himself expected instead: Alice did not sign that.
+				let mut dave_specs = specs.clone();
+				dave_specs[1].1 = signed_by(&dave_account);
+				let uxt = general_tx(vec![
+					alice_item.clone(),
+					item(&dave, dave_account.clone(), 1, &dave_specs),
+				]);
+				assert_eq!(apply(uxt), Err(InvalidTransaction::BadProof.into()));
+
+				assert_eq!(Balances::free_balance(&bob_account), 100 * DOLLARS);
+				assert_eq!(System::account_nonce(&alice_account), 0);
+				assert!(pallet_proxy::Proxies::<Runtime>::get(&dave_account).0.is_empty());
+
+				// Bob signs it himself.
+				let uxt = general_tx(vec![alice_item, item(&bob, bob_account.clone(), 1, &specs)]);
+				assert_eq!(apply(uxt), Ok(Ok(())));
+				assert_eq!(pallet_proxy::Proxies::<Runtime>::get(&bob_account).0.len(), 1);
+			});
+		}
+
+		#[test]
+		fn signed_and_authorized_items_mix() {
+			use sp_runtime::traits::Hash as _;
+			let (alice, alice_account) = account("//Alice");
+			let (bob, bob_account) = account("//Bob");
+			new_test_ext(&[alice_account.clone()]).execute_with(|| {
+				let para_id = 2000;
+				let code = vec![1, 2, 3];
+				pallet_registrar_relay::PendingRegistrations::<Runtime>::insert(
+					para_id,
+					pallet_registrar_relay::PendingRegistration {
+						message_id: 7,
+						manager: bob_account.clone(),
+						genesis_head: Default::default(),
+						code_hash: BlakeTwo256::hash(&code),
+						code_len: code.len() as u32,
+					},
+				);
+				let transfer = |dest: &AccountId, value| {
+					RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+						dest: dest.clone().into(),
+						value,
+					})
+				};
+				// Alice pays Bob, the authorized registration applies, Bob pays Alice back part
+				// of it out of what he just received, Alice pays Bob again with her next nonce.
+				let batch = |validation_code| {
+					let specs = vec![
+						(transfer(&bob_account, 10 * DOLLARS), signed_by(&alice_account)),
+						(
+							RuntimeCall::RegistrarRelay(
+								pallet_registrar_relay::Call::apply_authorized_code {
+									para_id,
+									validation_code,
+								},
+							),
+							authorized(),
+						),
+						(transfer(&alice_account, 5 * DOLLARS), signed_by(&bob_account)),
+						(transfer(&bob_account, 10 * DOLLARS), signed_by(&alice_account)),
+					];
+					general_tx(vec![
+						item_with_nonce(&alice, alice_account.clone(), 0, 0, &specs),
+						authorized_item(1, &specs),
+						item(&bob, bob_account.clone(), 2, &specs),
+						item_with_nonce(&alice, alice_account.clone(), 1, 3, &specs),
+					])
+				};
+
+				// Fees are paid before any call runs: Bob cannot pay his from Alice's transfer.
+				assert_eq!(apply(batch(code.clone())), Err(InvalidTransaction::Payment.into()));
+				assert_eq!(System::account_nonce(&alice_account), 0);
+
+				// Enough for Bob's fee on top of the existential deposit.
+				assert_ok!(Balances::force_set_balance(
+					RuntimeOrigin::root(),
+					bob_account.clone().into(),
+					2 * DOLLARS
+				));
+
+				// A failed authorization invalidates the batch.
+				assert!(matches!(
+					apply(batch(vec![9])),
+					Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(_)))
+				));
+				assert_eq!(Balances::free_balance(&bob_account), 2 * DOLLARS);
+				assert_eq!(System::account_nonce(&alice_account), 0);
+				assert_eq!(System::account_nonce(&bob_account), 0);
+
+				assert_eq!(apply(batch(code)), Ok(Ok(())));
+				let bob_balance = Balances::free_balance(&bob_account);
+				assert!(bob_balance < 17 * DOLLARS && bob_balance > 16 * DOLLARS);
+				let alice_balance = Balances::free_balance(&alice_account);
+				assert!(alice_balance < 85 * DOLLARS && alice_balance > 84 * DOLLARS);
+				assert_eq!(System::account_nonce(&alice_account), 2);
+				assert_eq!(System::account_nonce(&bob_account), 1);
+				assert!(
+					pallet_registrar_relay::PendingRegistrations::<Runtime>::get(para_id).is_none()
+				);
+				assert_eq!(TransactionPayment::remaining_txfee::<Balance>(), 0);
+			});
+		}
 	}
 }
