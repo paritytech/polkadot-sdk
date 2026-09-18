@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789736782605,
+  "lastUpdate": 1789739535018,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -125927,6 +125927,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2658837194,
             "range": "± 42744483",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "141152972+Stephenlawrence00@users.noreply.github.com",
+            "name": "html//stephlou",
+            "username": "Stephenlawrence00"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "595c3d87910d1c04d740054ff295f1bfe2f61928",
+          "message": "[pallet_balances] Remove `FreezeIdentifier` and `MaxFreezes` in favour of `RuntimeFreezeReason` (#12900)\n\nCloses #2997 \n\n`RuntimeFreezeReason` becomes the freeze identifier and bounds `Freezes`\nwith its variant count, retiring the redundant `FreezeIdentifier` and\n`MaxFreezes` config items along with the integrity test that policed\nthem.",
+          "timestamp": "2026-09-18T12:34:55Z",
+          "tree_id": "631ca3115078c6ecbe3c7ce4efeccf22278f9d2d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/595c3d87910d1c04d740054ff295f1bfe2f61928"
+        },
+        "date": 1789739500208,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19979590,
+            "range": "± 143287",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20482448,
+            "range": "± 191176",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21920839,
+            "range": "± 255700",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26958765,
+            "range": "± 380210",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61097544,
+            "range": "± 604286",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 372311780,
+            "range": "± 4190341",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2710566019,
+            "range": "± 155807271",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16994375,
+            "range": "± 105370",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17565747,
+            "range": "± 167215",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17496546,
+            "range": "± 239140",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22324058,
+            "range": "± 146909",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62187018,
+            "range": "± 1019244",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 361293123,
+            "range": "± 5842631",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2694913143,
+            "range": "± 19939501",
             "unit": "ns/iter"
           }
         ]
