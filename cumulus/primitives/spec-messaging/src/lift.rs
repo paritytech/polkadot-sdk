@@ -517,7 +517,7 @@ pub fn build_requires(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::streams_root::{gen_stream_proof, streams_root};
+	use crate::streams_root::{gen_stream_proof, streams_root, TreeStep};
 	use mmr_lib::util::{MemMMR, MemStore};
 	use polkadot_primitives::{v9::MAX_COMMITMENT_ENTRIES, MAX_POV_SIZE};
 	use sp_core::H256;
@@ -847,6 +847,227 @@ mod tests {
 		// A map is canonical by construction; only the bound can fail it.
 		let map: BTreeMap<_, _> = (0..=MAX_COMMITMENT_ENTRIES).map(pair).collect();
 		assert_eq!(LiftsBySource::try_from(map).err(), Some(LiftError::TooManySources));
+	}
+
+	#[test]
+	fn late_block_non_identity_extension_end_to_end() {
+		// The core of the unified lift: the block ended at frontier@2, but the stream's current
+		// committed root is @5. A non-identity `extension` proves @2 forward to @5, and the tree
+		// walk from @5 yields the committed StreamsRoot. Every other build_requires test uses the
+		// identity extension; this drives a real forward proof through the whole path.
+		let all = leaves(5);
+		let stream = ch(2000);
+		let committed = root_at(&all, 5);
+		let entries = BTreeMap::from([(stream, committed.0)]);
+		let expected = streams_root(&entries).unwrap();
+		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
+
+		let interval = Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 2) };
+		let lift =
+			RequiresLift { advances: Vec::new(), extension: extension(&all, 2, 5), tree_proof };
+		let streams = SourceStreams::from([(stream, vec![interval])]);
+		assert_eq!(build_requires_entry(&streams, &[lift]).unwrap(), expected);
+	}
+
+	#[test]
+	fn multi_stream_source_converges_on_one_root() {
+		// A source commits ONE StreamsRoot over ALL its streams. Two streams at different frontiers
+		// must both lift to that same root — the happy path the divergent-roots test only shows
+		// failing.
+		let all = leaves(5);
+		let (a, b) = (ch(2000), ch(3000));
+		let (ra, rb) = (root_at(&all, 3), root_at(&all, 5));
+		let entries = BTreeMap::from([(a, ra.0), (b, rb.0)]);
+		let expected = streams_root(&entries).unwrap();
+		let (_pa, proof_a) = gen_stream_proof(&entries, a).unwrap();
+		let (_pb, proof_b) = gen_stream_proof(&entries, b).unwrap();
+
+		let lift = |tree_proof| RequiresLift {
+			advances: Vec::new(),
+			extension: MMRExtensionProof::identity(),
+			tree_proof,
+		};
+		// SourceStreams is keyed, so it iterates a, b — the order the lifts must match.
+		let streams = SourceStreams::from([
+			(a, vec![Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 3) }]),
+			(b, vec![Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 5) }]),
+		]);
+		assert_eq!(
+			build_requires_entry(&streams, &[lift(proof_a), lift(proof_b)]).unwrap(),
+			expected
+		);
+	}
+
+	#[test]
+	fn build_requires_covers_multiple_sources() {
+		// Two sources, each one stream → a two-entry RequiresSet, each entry the source's own root.
+		let all = leaves(3);
+		let committed = root_at(&all, 3);
+		let (src_a, src_b) = (ParaId::from(1000), ParaId::from(2000));
+		let stream = ch(4000);
+		let entries = BTreeMap::from([(stream, committed.0)]);
+		let expected = streams_root(&entries).unwrap();
+
+		let record_for = |source| {
+			let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
+			let record = ConsumptionRecord {
+				entries: BTreeMap::from([(
+					source,
+					BTreeMap::from([(
+						stream,
+						Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 3) },
+					)]),
+				)]),
+			};
+			let lift = RequiresLift {
+				advances: Vec::new(),
+				extension: MMRExtensionProof::identity(),
+				tree_proof,
+			};
+			(record, lift)
+		};
+		let (ra, la) = record_for(src_a);
+		let (rb, lb) = record_for(src_b);
+		let lifts = LiftsBySource::try_from(BTreeMap::from([(src_a, vec![la]), (src_b, vec![lb])]))
+			.unwrap();
+
+		let requires = build_requires(&[ra, rb], &lifts).unwrap().unwrap();
+		assert_eq!(requires.len(), 2);
+		assert_eq!(requires.get(src_a), Some(&expected));
+		assert_eq!(requires.get(src_b), Some(&expected));
+	}
+
+	#[test]
+	fn build_requires_entry_stitches_a_bundle_gap() {
+		// Two intervals in one stream (a bundle where block 2 jumped context @2 → @4), bridged by
+		// an advance, then extended @5 → committed root. stitch is unit-tested alone; this composes
+		// it into the full entry path.
+		let all = leaves(5);
+		let stream = ch(2000);
+		let committed = root_at(&all, 5);
+		let entries = BTreeMap::from([(stream, committed.0)]);
+		let expected = streams_root(&entries).unwrap();
+		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
+
+		let intervals = vec![
+			Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 2) },
+			Interval { start: root_at(&all, 4), end: frontier_at(&all, 5) }, // gap @2 → @4
+		];
+		let lift = RequiresLift {
+			advances: vec![extension(&all, 2, 4)],    // bridges the gap
+			extension: MMRExtensionProof::identity(), // endpoint @5 already the committed root
+			tree_proof,
+		};
+		let streams = SourceStreams::from([(stream, intervals)]);
+		assert_eq!(build_requires_entry(&streams, &[lift]).unwrap(), expected);
+	}
+
+	#[test]
+	fn lift_count_must_match_stream_count() {
+		let all = leaves(3);
+		let stream = ch(2000);
+		let streams = SourceStreams::from([(
+			stream,
+			vec![Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 3) }],
+		)]);
+		let lift = || RequiresLift {
+			advances: Vec::new(),
+			extension: MMRExtensionProof::identity(),
+			tree_proof: StreamProof { steps: Default::default() },
+		};
+		// One stream, no lifts, and one stream, two lifts — both mismatch.
+		assert_eq!(build_requires_entry(&streams, &[]), Err(LiftError::LiftCountMismatch));
+		assert_eq!(
+			build_requires_entry(&streams, &[lift(), lift()]),
+			Err(LiftError::LiftCountMismatch)
+		);
+	}
+
+	#[test]
+	fn build_requires_entry_rejects_a_backward_extension() {
+		// A forged extension that does not go strictly forward fails verification → BadExtension,
+		// before any root is synthesized.
+		let all = leaves(5);
+		let stream = ch(2000);
+		let (_r, tree_proof) =
+			gen_stream_proof(&BTreeMap::from([(stream, root_at(&all, 5).0)]), stream).unwrap();
+		let streams = SourceStreams::from([(
+			stream,
+			vec![Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 3) }],
+		)]);
+		// leaf_count 1 <= the endpoint's 3 leaves → NotForward inside verify → BadExtension.
+		let lift = RequiresLift {
+			advances: Vec::new(),
+			extension: MMRExtensionProof { leaf_count: 1, connecting_nodes: Vec::new() },
+			tree_proof,
+		};
+		assert_eq!(build_requires_entry(&streams, &[lift]), Err(LiftError::BadExtension));
+	}
+
+	#[test]
+	fn stitch_ignores_the_first_interval_start() {
+		// `first.start` is the boundary with the previous candidate and is deliberately unchecked;
+		// garbage there does not affect the stitched endpoint.
+		let all = leaves(5);
+		let garbage =
+			Interval { start: MmrRoot(H256::repeat_byte(0xEE)), end: frontier_at(&all, 2) };
+		let cont = Interval { start: root_at(&all, 2), end: frontier_at(&all, 5) };
+		assert_eq!(stitch(&[garbage, cont], &[]).unwrap(), frontier_at(&all, 5));
+	}
+
+	#[test]
+	fn build_requires_entry_rejects_a_malformed_tree_proof() {
+		// stitch and extension succeed, but a tree_proof with an out-of-range split bit cannot
+		// fold to any StreamsRoot → BadTreeProof. (A single-stream tree's real proof is empty, so
+		// the malformed step has to be hand-built.)
+		let all = leaves(3);
+		let stream = ch(2000);
+		let streams = SourceStreams::from([(
+			stream,
+			vec![Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 3) }],
+		)]);
+		// `split_bit == KEY_BITS` (64) is past the key; the fold rejects it.
+		let bad = StreamProof {
+			steps: BoundedVec::try_from(vec![TreeStep { split_bit: 64, sibling: H256::zero() }])
+				.unwrap(),
+		};
+		let lift = RequiresLift {
+			advances: Vec::new(),
+			extension: MMRExtensionProof::identity(),
+			tree_proof: bad,
+		};
+		assert_eq!(build_requires_entry(&streams, &[lift]), Err(LiftError::BadTreeProof));
+	}
+
+	#[test]
+	fn build_requires_entry_flags_missing_and_stray_advances() {
+		// stitch's advance-count errors, reached through the entry path rather than in isolation.
+		let all = leaves(5);
+		let stream = ch(2000);
+		let (_r, tree_proof) =
+			gen_stream_proof(&BTreeMap::from([(stream, root_at(&all, 5).0)]), stream).unwrap();
+		let mk = |intervals, advances| {
+			let lift = RequiresLift {
+				advances,
+				extension: MMRExtensionProof::identity(),
+				tree_proof: tree_proof.clone(),
+			};
+			build_requires_entry(&SourceStreams::from([(stream, intervals)]), &[lift])
+		};
+
+		// Gap @2 → @4 with no advance to bridge it.
+		let gapped = vec![
+			Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 2) },
+			Interval { start: root_at(&all, 4), end: frontier_at(&all, 5) },
+		];
+		assert_eq!(mk(gapped, Vec::new()), Err(LiftError::MissingAdvance));
+
+		// Continuous @2 → @2 but an advance supplied anyway.
+		let continuous = vec![
+			Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 2) },
+			Interval { start: root_at(&all, 2), end: frontier_at(&all, 5) },
+		];
+		assert_eq!(mk(continuous, vec![extension(&all, 2, 4)]), Err(LiftError::StrayAdvance));
 	}
 
 	#[test]
