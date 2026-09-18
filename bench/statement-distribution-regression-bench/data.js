@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789737944344,
+  "lastUpdate": 1789740640849,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f1b3e87606d56ecf469adcde334c6b3f9fed1f87",
-          "message": "bump zombienet version and change deprecated methods (#11061)\n\nbump zombienet to latest `v0.4.5` (and subxt to `0.44.`)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-16T17:33:48Z",
-          "tree_id": "0fbbd9dc2698dc8c86d6c2c0e9825db3bda315b5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f1b3e87606d56ecf469adcde334c6b3f9fed1f87"
-        },
-        "date": 1771267869997,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.054,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.037888290341999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06826584154399992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08935161093799993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "141152972+Stephenlawrence00@users.noreply.github.com",
+            "name": "html//stephlou",
+            "username": "Stephenlawrence00"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "595c3d87910d1c04d740054ff295f1bfe2f61928",
+          "message": "[pallet_balances] Remove `FreezeIdentifier` and `MaxFreezes` in favour of `RuntimeFreezeReason` (#12900)\n\nCloses #2997 \n\n`RuntimeFreezeReason` becomes the freeze identifier and bounds `Freezes`\nwith its variant count, retiring the redundant `FreezeIdentifier` and\n`MaxFreezes` config items along with the integrity test that policed\nthem.",
+          "timestamp": "2026-09-18T12:34:55Z",
+          "tree_id": "631ca3115078c6ecbe3c7ce4efeccf22278f9d2d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/595c3d87910d1c04d740054ff295f1bfe2f61928"
+        },
+        "date": 1789740590730,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.13199999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038078178745999974,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08882948895399999,
             "unit": "seconds"
           }
         ]
