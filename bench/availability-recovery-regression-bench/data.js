@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789737776240,
+  "lastUpdate": 1789740462307,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "8c106ffcc5174b9920a842415f84024bcb558724",
-          "message": "Improve crates publishing flow (#11056)\n\nCo-authored-by: Egor_P <egor@parity.io>\nCo-authored-by: ParityReleases <release-team@parity.io>",
-          "timestamp": "2026-02-18T12:38:39Z",
-          "tree_id": "03f0f5617e40bab3041642f513f2476040fbbafa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8c106ffcc5174b9920a842415f84024bcb558724"
-        },
-        "date": 1771423822222,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12908291806666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.422083955600002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13240003520000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "141152972+Stephenlawrence00@users.noreply.github.com",
+            "name": "html//stephlou",
+            "username": "Stephenlawrence00"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "595c3d87910d1c04d740054ff295f1bfe2f61928",
+          "message": "[pallet_balances] Remove `FreezeIdentifier` and `MaxFreezes` in favour of `RuntimeFreezeReason` (#12900)\n\nCloses #2997 \n\n`RuntimeFreezeReason` becomes the freeze identifier and bounds `Freezes`\nwith its variant count, retiring the redundant `FreezeIdentifier` and\n`MaxFreezes` config items along with the integrity test that policed\nthem.",
+          "timestamp": "2026-09-18T12:34:55Z",
+          "tree_id": "631ca3115078c6ecbe3c7ce4efeccf22278f9d2d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/595c3d87910d1c04d740054ff295f1bfe2f61928"
+        },
+        "date": 1789740415765,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.428581903633336,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14556834186666665,
             "unit": "seconds"
           }
         ]
