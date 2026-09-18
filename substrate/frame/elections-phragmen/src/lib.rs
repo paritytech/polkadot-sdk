@@ -1053,6 +1053,8 @@ impl<T: Config> Pallet<T> {
 					// that new member by a multiplier based on the order of the votes. i.e. the
 					// first person a voter votes for gets a 16x multiplier, the next person gets a
 					// 15x multiplier, an so on... (assuming `T::MaxVotesPerVoter` = 16)
+					// Ballots stored before a reduction of `T::MaxVotesPerVoter` can be longer
+					// than the current bound, so positions past it get a zero multiplier.
 					let mut prime_votes = new_members_sorted_by_id
 						.iter()
 						.map(|c| (&c.0, BalanceOf::<T>::zero()))
@@ -1060,7 +1062,11 @@ impl<T: Config> Pallet<T> {
 					for (_, stake, votes) in voters_and_stakes.into_iter() {
 						for (vote_multiplier, who) in
 							votes.iter().enumerate().map(|(vote_position, who)| {
-								((T::MaxVotesPerVoter::get() as usize - vote_position) as u32, who)
+								(
+									(T::MaxVotesPerVoter::get() as usize)
+										.saturating_sub(vote_position) as u32,
+									who,
+								)
 							}) {
 							if let Ok(i) = prime_votes.binary_search_by_key(&who, |k| k.0) {
 								prime_votes[i].1 = prime_votes[i]
@@ -1306,10 +1312,8 @@ mod tests {
 	use super::*;
 	use crate as elections_phragmen;
 	use frame_support::{
-		assert_noop, assert_ok, derive_impl,
-		dispatch::DispatchResultWithPostInfo,
-		parameter_types,
-		traits::{ConstU32, OnInitialize},
+		assert_noop, assert_ok, derive_impl, dispatch::DispatchResultWithPostInfo, parameter_types,
+		traits::OnInitialize,
 	};
 	use frame_system::ensure_signed;
 	use sp_runtime::{testing::Header, BuildStorage};
@@ -1334,6 +1338,7 @@ mod tests {
 		pub static DesiredRunnersUp: u32 = 0;
 		pub static TermDuration: u64 = 5;
 		pub static MaxCandidates: u32 = 100;
+		pub static MaxVotesPerVoter: u32 = 16;
 		pub static Members: Vec<u64> = vec![];
 		pub static Prime: Option<u64> = None;
 	}
@@ -1404,7 +1409,7 @@ mod tests {
 		type KickedMember = ();
 		type WeightInfo = ();
 		type MaxVoters = PhragmenMaxVoters;
-		type MaxVotesPerVoter = ConstU32<16>;
+		type MaxVotesPerVoter = MaxVotesPerVoter;
 		type MaxCandidates = MaxCandidates;
 	}
 
@@ -2059,6 +2064,28 @@ mod tests {
 
 			assert_ok!(vote(RuntimeOrigin::signed(3), vec![4, 5], 10));
 			assert_eq!(PRIME.with(|p| *p.borrow()), Some(4));
+		});
+	}
+
+	#[test]
+	fn ballots_longer_than_a_reduced_max_votes_per_voter_do_not_skew_the_prime() {
+		ExtBuilder::default().desired_members(3).build_and_execute(|| {
+			// GIVEN a ballot ranking three candidates, cast while `MaxVotesPerVoter` allowed it.
+			assert_ok!(submit_candidacy(RuntimeOrigin::signed(3)));
+			assert_ok!(submit_candidacy(RuntimeOrigin::signed(4)));
+			assert_ok!(submit_candidacy(RuntimeOrigin::signed(5)));
+			assert_ok!(vote(RuntimeOrigin::signed(2), vec![3, 4, 5], 20));
+
+			// WHEN the bound drops below the stored ballot length, as a runtime upgrade without a
+			// migration would leave it, and the term ends.
+			MaxVotesPerVoter::set(1);
+			System::set_block_number(5);
+			Elections::on_initialize(System::block_number());
+
+			// THEN the election still runs, and the Borda count credits only the ranks the current
+			// bound covers: rank 0 carries the whole stake, every rank past it weighs nothing.
+			assert_eq!(members_ids(), vec![3, 4, 5]);
+			assert_eq!(PRIME.with(|p| *p.borrow()), Some(3));
 		});
 	}
 
