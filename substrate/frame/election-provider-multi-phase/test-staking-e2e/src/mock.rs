@@ -19,7 +19,7 @@
 
 use frame_support::{
 	assert_ok, parameter_types, traits,
-	traits::{Hooks, UnfilteredDispatchable, VariantCountOf},
+	traits::{Hooks, VariantCountOf},
 	weights::constants,
 	PalletId,
 };
@@ -61,7 +61,8 @@ pub const INIT_TIMESTAMP: BlockNumber = 30_000;
 pub const BLOCK_TIME: BlockNumber = 1000;
 
 type Block = frame_system::mocking::MockBlockU32<Runtime>;
-type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, ()>;
+type TxExtension = frame_system::AuthorizeCall<Runtime>;
+type Extrinsic = sp_runtime::testing::TestXt<RuntimeCall, TxExtension>;
 
 frame_support::construct_runtime!(
 	pub enum Runtime {
@@ -353,12 +354,23 @@ where
 	type Extrinsic = Extrinsic;
 }
 
-impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for Runtime
+impl<LocalCall> frame_system::offchain::CreateTransaction<LocalCall> for Runtime
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
-		Extrinsic::new_bare(call)
+	type Extension = TxExtension;
+
+	fn create_transaction(call: RuntimeCall, extension: Self::Extension) -> Self::Extrinsic {
+		Extrinsic::new_transaction(call, extension)
+	}
+}
+
+impl<LocalCall> frame_system::offchain::CreateAuthorizedTransaction<LocalCall> for Runtime
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_extension() -> Self::Extension {
+		TxExtension::new()
 	}
 }
 
@@ -722,6 +734,8 @@ pub fn roll_to(n: BlockNumber, delay_solution: bool) {
 // Progress to given block, triggering session and era changes as we progress and ensuring that
 // there is a solution queued when expected.
 pub fn roll_to_with_ocw(n: BlockNumber, pool: Arc<RwLock<PoolState>>, delay_solution: bool) {
+	use frame_support::dispatch::GetDispatchInfo;
+	use sp_runtime::{generic::Preamble, traits::Pipeline};
 	for b in (System::block_number()) + 1..=n {
 		System::set_block_number(b);
 		Session::on_initialize(b);
@@ -735,16 +749,25 @@ pub fn roll_to_with_ocw(n: BlockNumber, pool: Arc<RwLock<PoolState>>, delay_solu
 			// other extrinsics in the pool.
 			for encoded in &pool.read().transactions {
 				let extrinsic = Extrinsic::decode(&mut &encoded[..]).unwrap();
-
-				let _ = match extrinsic.function {
-					RuntimeCall::ElectionProviderMultiPhase(
-						call @ Call::submit_unsigned { .. },
-					) => {
-						// call submit_unsigned callable in OCW pool.
-						crate::assert_ok!(call.dispatch_bypass_filter(RuntimeOrigin::none()));
-					},
-					_ => (),
+				if !matches!(
+					extrinsic.function,
+					RuntimeCall::ElectionProviderMultiPhase(Call::submit_unsigned { .. })
+				) {
+					continue;
+				}
+				let Preamble::General(ext) = extrinsic.preamble else {
+					panic!("the miner must submit a general transaction");
 				};
+				let info = extrinsic.function.get_dispatch_info();
+				// Start from no origin: only the extension pipeline may authorize the call.
+				ext.dispatch_transaction(
+					RuntimeOrigin::none(),
+					extrinsic.function,
+					&info,
+					encoded.len(),
+				)
+				.expect("the transaction must be valid")
+				.expect("the dispatch must succeed");
 			}
 
 			pool.try_write().unwrap().transactions.clear();
