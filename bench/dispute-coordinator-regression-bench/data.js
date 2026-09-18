@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789738001501,
+  "lastUpdate": 1789740701016,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f1b3e87606d56ecf469adcde334c6b3f9fed1f87",
-          "message": "bump zombienet version and change deprecated methods (#11061)\n\nbump zombienet to latest `v0.4.5` (and subxt to `0.44.`)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-16T17:33:48Z",
-          "tree_id": "0fbbd9dc2698dc8c86d6c2c0e9825db3bda315b5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f1b3e87606d56ecf469adcde334c6b3f9fed1f87"
-        },
-        "date": 1771267901915,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009563031189999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006896798559999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027133622500000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025369978099999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "141152972+Stephenlawrence00@users.noreply.github.com",
+            "name": "html//stephlou",
+            "username": "Stephenlawrence00"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "595c3d87910d1c04d740054ff295f1bfe2f61928",
+          "message": "[pallet_balances] Remove `FreezeIdentifier` and `MaxFreezes` in favour of `RuntimeFreezeReason` (#12900)\n\nCloses #2997 \n\n`RuntimeFreezeReason` becomes the freeze identifier and bounds `Freezes`\nwith its variant count, retiring the redundant `FreezeIdentifier` and\n`MaxFreezes` config items along with the integrity test that policed\nthem.",
+          "timestamp": "2026-09-18T12:34:55Z",
+          "tree_id": "631ca3115078c6ecbe3c7ce4efeccf22278f9d2d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/595c3d87910d1c04d740054ff295f1bfe2f61928"
+        },
+        "date": 1789740651086,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009034960419999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025154514700000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009904592009999992,
             "unit": "seconds"
           }
         ]
