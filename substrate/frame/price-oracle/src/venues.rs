@@ -44,7 +44,7 @@ const TRADES: QueryTag = QueryTag(1);
 
 /// The time after which a request is abandoned. A venue that does not answer in time is left
 /// out of the tick.
-const TIMEOUT_MS: u32 = 1_000;
+const TIMEOUT_MS: u32 = 2_000;
 /// The maximum size of an order book response. A book of [`DEPTH`] levels is about 6 KiB.
 const MAX_BOOK_BYTES: u32 = 8 * 1024;
 /// The maximum size of a trades response. A single trade with its envelope is about 300 bytes.

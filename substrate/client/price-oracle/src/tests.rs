@@ -17,15 +17,19 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! Fetch and price the markets of [`pallet_price_oracle::venues`] through the node [`Fetcher`].
+//!
+//! ```text
+//! cargo test -p sc-price-oracle --lib venues_are_fetched_and_priced -- --nocapture
+//! ```
 
 use crate::{
 	fetcher::{Fetcher, MarketResponses},
-	now_ms, LOG_TARGET,
+	now_ms,
 };
 use futures::{channel::mpsc, StreamExt};
 use pallet_price_oracle::{
 	price_market,
-	pricing::{self, parse_decimal, PairSettings},
+	pricing::{parse_decimal, PairSettings},
 	registry::StoredMarket,
 	venues,
 };
@@ -78,34 +82,26 @@ fn name_of(stored: &[(&'static str, StoredMarket)], id: MarketId) -> &'static st
 	stored[id.0 as usize].0
 }
 
-/// Price a completed fetch. Logs response sizes and whether the market priced.
-fn price_fetched(
+/// Print elapsed time, response sizes and whether the market priced.
+fn report_fetched(
 	stored: &[(&'static str, StoredMarket)],
 	fetched: MarketResponses,
-) -> Option<(VenueId, PairId, Price)> {
+	elapsed: Duration,
+) {
 	let (name, market) = &stored[fetched.market.0 as usize];
+	println!("{name}  {elapsed:?}");
 	fetched.responses.iter().for_each(|(tag, body)| {
-		log::debug!(target: LOG_TARGET, "{name} query {tag:?}: {} bytes", body.len());
+		println!("  query {tag:?}: {} bytes", body.len());
 	});
 	match price_market(market, &settings(), fetched.responses, now_ms()) {
-		Ok(price) => {
-			log::debug!(target: LOG_TARGET, "{name} priced at {price}");
-			Some((market.venue, market.pair, price))
-		},
-		Err(e) => {
-			log::debug!(
-				target: LOG_TARGET,
-				"{name} not priced: {}",
-				String::from_utf8_lossy(&e.0),
-			);
-			None
-		},
+		Ok(price) => println!("  priced at {price}"),
+		Err(e) => println!("  not priced: {}", String::from_utf8_lossy(&e.0)),
 	}
+	println!();
 }
 
 #[tokio::test]
 async fn venues_are_fetched_and_priced() {
-	sp_tracing::init_for_tests();
 	let fetcher = Fetcher::new().unwrap();
 	let stored = markets();
 	let wire: Vec<_> = stored
@@ -114,23 +110,19 @@ async fn venues_are_fetched_and_priced() {
 		.map(|(i, (_, market))| market.clone().to_wire(MarketId(i as u32)))
 		.collect();
 
-	let deadline = Instant::now() + Duration::from_secs(2);
+	let started = Instant::now();
+	let deadline = started + Duration::from_secs(2);
 	let (tx, rx) = mpsc::unbounded();
 	let fetch = fetcher.fetch_markets(&wire, deadline, tx);
 	let parse = async {
-		let fetched = rx.collect::<Vec<_>>().await;
-		fetched.into_iter().filter_map(|r| price_fetched(&stored, r)).collect::<Vec<_>>()
+		rx.map(|fetched| (started.elapsed(), fetched)).collect::<Vec<_>>().await
 	};
-	let (failures, prices) = futures::join!(fetch, parse);
+	let (failures, fetched) = futures::join!(fetch, parse);
+	assert!(!fetched.is_empty(), "no market could be fetched");
+	fetched.into_iter().for_each(|(elapsed, r)| report_fetched(&stored, r, elapsed));
 	failures.iter().for_each(|(id, failure)| {
-		log::debug!(target: LOG_TARGET, "{} not fetched: {failure:?}", name_of(&stored, *id));
+		println!("{}  {:?}", name_of(&stored, *id), started.elapsed());
+		println!("  not fetched: {failure:?}");
+		println!();
 	});
-	log::debug!(target: LOG_TARGET, "Priced {} of {} markets", prices.len(), wire.len());
-
-	let quotes = pricing::aggregate(prices.clone(), &[PAIR], |_| Vec::new());
-	quotes.iter().for_each(|q| {
-		log::info!(target: LOG_TARGET, "aggregated price {}", q.price);
-	});
-
-	assert!(!prices.is_empty(), "no market could be fetched and priced");
 }
