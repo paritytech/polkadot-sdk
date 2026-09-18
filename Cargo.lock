@@ -22430,6 +22430,7 @@ dependencies = [
  "sp-keystore 0.34.0",
  "sp-price-oracle",
  "sp-runtime 31.0.1",
+ "sp-tracing 16.0.0",
  "substrate-prometheus-endpoint 0.17.0",
  "tokio",
  "url",

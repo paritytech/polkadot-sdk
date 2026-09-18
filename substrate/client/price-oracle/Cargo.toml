@@ -47,4 +47,5 @@ pallet-price-oracle = { workspace = true, default-features = true }
 sc-keystore = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
 tokio = { features = ["macros", "net", "rt-multi-thread"], workspace = true, default-features = true }
