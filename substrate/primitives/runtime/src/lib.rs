@@ -498,6 +498,17 @@ impl Verify for MultiSignature {
 	}
 }
 
+impl traits::SignatureWeight for MultiSignature {
+	fn weight(&self) -> Weight {
+		match self {
+			Self::Ed25519(sig) => traits::SignatureWeight::weight(sig),
+			Self::Sr25519(sig) => traits::SignatureWeight::weight(sig),
+			Self::Ecdsa(sig) => traits::SignatureWeight::weight(sig),
+			Self::Eth(sig) => traits::SignatureWeight::weight(sig),
+		}
+	}
+}
+
 /// Signature verify that can work with any known signature types..
 #[derive(Eq, PartialEq, Clone, Default, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
