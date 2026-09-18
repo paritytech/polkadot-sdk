@@ -1113,14 +1113,15 @@ pub mod pallet {
 			);
 
 			// We can use storage to store items using the available block ref_time with the
-			// `set_storage` host function. A revertible cold access is the worst case.
+			// `set_storage` host function. The cheapest cold write is the worst case here: it is
+			// the one a block fits most of.
 			let max_storage_size = max_block_weight
 				.checked_div_per_component(&<RuntimeCosts as WeightToken<T>>::weight(
 					&RuntimeCosts::SetStorage {
 						new_bytes: limits::STORAGE_BYTES,
 						old_bytes: 0,
 						kind: StorageAccessKind::Persistent(Summarized::new_single(
-							Warmth::cold_revertible(),
+							Warmth::cold_non_revertible(),
 							StorageOp::Write,
 						)),
 					},
