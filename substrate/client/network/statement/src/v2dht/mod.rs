@@ -44,13 +44,14 @@ use std::{
 ///
 /// Each set bit records one reason the local node keeps the statement (DHT affinity, explicit
 /// affinity). A non-empty mask persists the statement under the normal retention rules. An empty
-/// mask marks it transient: held in memory until the next propagation, forwarded once, then dropped
-/// without ever reaching the database.
+/// mask marks it transient: admitted like any other statement and removed by the maintenance sweep
+/// once propagated, with the usual re-acceptance ban, unless affinity has arrived by then.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct RetentionReasonMask(u8);
 
 impl RetentionReasonMask {
-	/// No reason to persist: the store keeps the statement only until the next propagation.
+	/// No reason to persist: the store keeps the statement only until the first maintenance sweep
+	/// after its propagation.
 	pub const TRANSIENT: RetentionReasonMask = RetentionReasonMask(0b00);
 	/// The local node is one of the closest DHT replicas for one of the statement's topics.
 	pub const DHT_AFFINITY: RetentionReasonMask = RetentionReasonMask(0b01);
@@ -286,6 +287,11 @@ impl V2DhtOrchestrator {
 	}
 
 	// === Forward decision ===
+
+	/// Whether the peer is a DHT routing target for the topic.
+	pub(crate) fn peer_is_dht_target_for_topic(&self, peer: PeerId, topic: Topic) -> bool {
+		self.peers_topology.routing_targets(topic).contains(&peer)
+	}
 
 	// === Post-submit hook ===
 
