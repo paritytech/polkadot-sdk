@@ -652,6 +652,9 @@ pub mod pallet {
 		PsmHasApprovedExternals,
 		/// An unexpected invariant violation occurred. This should be reported.
 		Unexpected,
+		/// An admin origin was supplied that cannot be used as an authority, such as the system
+		/// `None` origin.
+		InvalidAdminOrigin,
 	}
 
 	#[pallet::call]
@@ -926,6 +929,7 @@ pub mod pallet {
 		/// ## Errors
 		///
 		/// - [`DispatchError::BadOrigin`]: The origin is not permitted by [`Config::CreateOrigin`].
+		/// - [`Error::InvalidAdminOrigin`]: Either admin is the system `None` origin.
 		/// - [`Error::PsmAlreadyExists`]: A PSM is already registered for `internal_asset`.
 		/// - [`Error::ZeroMinSwapAmount`]: `min_swap_amount` is zero.
 		/// - [`Error::AssetDoesNotExist`]: The internal asset does not exist.
@@ -947,6 +951,10 @@ pub mod pallet {
 			min_swap_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let maybe_depositor = T::CreateOrigin::ensure_origin(origin, &internal_asset)?;
+			ensure!(
+				!full_admin.is_none() && !emergency_admin.is_none(),
+				Error::<T>::InvalidAdminOrigin
+			);
 			ensure!(!Psm::<T>::contains_key(&internal_asset), Error::<T>::PsmAlreadyExists);
 			ensure!(!min_swap_amount.is_zero(), Error::<T>::ZeroMinSwapAmount);
 			ensure!(
@@ -1415,6 +1423,7 @@ pub mod pallet {
 		/// ## Errors
 		///
 		/// - [`Error::PsmNotFound`]: No PSM is registered for `internal_asset`.
+		/// - [`Error::InvalidAdminOrigin`]: `new_admin` is the system `None` origin.
 		///
 		/// ## Events
 		///
@@ -1427,6 +1436,7 @@ pub mod pallet {
 			new_admin: Box<T::PalletsOrigin>,
 		) -> DispatchResult {
 			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_admins())?;
+			ensure!(!new_admin.is_none(), Error::<T>::InvalidAdminOrigin);
 			let new_admin = *new_admin;
 			let old_admin = PsmAdmin::<T>::try_mutate(
 				&internal_asset,
@@ -1458,6 +1468,7 @@ pub mod pallet {
 		/// ## Errors
 		///
 		/// - [`Error::PsmNotFound`]: No PSM is registered for `internal_asset`.
+		/// - [`Error::InvalidAdminOrigin`]: `new_admin` is the system `None` origin.
 		///
 		/// ## Events
 		///
@@ -1470,6 +1481,7 @@ pub mod pallet {
 			new_admin: Box<T::PalletsOrigin>,
 		) -> DispatchResult {
 			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_admins())?;
+			ensure!(!new_admin.is_none(), Error::<T>::InvalidAdminOrigin);
 			let new_admin = *new_admin;
 			let old_admin = PsmAdmin::<T>::try_mutate(
 				&internal_asset,
@@ -1644,6 +1656,9 @@ pub mod pallet {
 		/// [`PsmAdminInfo::full_admin`] (yielding `Full`) or [`PsmAdminInfo::emergency_admin`]
 		/// (yielding `Emergency`). The resolved level is then checked against `required`. No
 		/// other authority can manage a PSM.
+		///
+		/// We reject the `None` origin to prevent the block author from controlling PSMs with an
+		/// admin set to `None`.
 		pub(crate) fn ensure_psm_admin(
 			origin: OriginFor<T>,
 			internal_asset: &T::AssetId,
@@ -1651,6 +1666,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let admin = PsmAdmin::<T>::get(internal_asset).ok_or(Error::<T>::PsmNotFound)?;
 			let caller = <T as Config>::RuntimeOrigin::from(origin).into_caller();
+			ensure!(!caller.is_none(), DispatchError::BadOrigin);
 			let level = if caller == admin.full_admin {
 				PsmManagerLevel::Full
 			} else if caller == admin.emergency_admin {

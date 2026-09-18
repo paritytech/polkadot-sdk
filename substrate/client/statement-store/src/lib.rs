@@ -597,9 +597,9 @@ struct QueryIndex {
 	topic_counts: HashMap<Topic, usize>,
 	dec_key_counts: HashMap<Option<DecryptionKey>, usize>,
 	recent: HashMap<Hash, u64>,
-	/// Statements kept on a condition the maintenance sweep re-checks once they are propagated,
-	/// under their current track.
-	conditional: HashMap<Hash, RetentionTrack>,
+	/// The track of every statement the maintenance sweep re-checks once it is propagated.
+	/// Persistent statements are not recorded.
+	retention_tracks: HashMap<Hash, RetentionTrack>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -627,8 +627,8 @@ impl From<RetentionReasonMask> for RetentionTrack {
 }
 
 impl RetentionTrack {
-	fn is_conditional(&self) -> bool {
-		!matches!(self, RetentionTrack::Persistent)
+	fn is_persistent(&self) -> bool {
+		matches!(self, RetentionTrack::Persistent)
 	}
 }
 
@@ -638,7 +638,7 @@ impl QueryIndex {
 			topic_counts: HashMap::new(),
 			dec_key_counts: HashMap::new(),
 			recent: HashMap::new(),
-			conditional: HashMap::new(),
+			retention_tracks: HashMap::new(),
 		}
 	}
 
@@ -653,8 +653,8 @@ impl QueryIndex {
 		let dec_key = statement.decryption_key();
 		*self.dec_key_counts.entry(dec_key).or_insert(0) += 1;
 		self.recent.insert(hash, seq);
-		if track.is_conditional() {
-			self.conditional.insert(hash, track);
+		if !track.is_persistent() {
+			self.retention_tracks.insert(hash, track);
 		}
 	}
 
@@ -678,16 +678,15 @@ impl QueryIndex {
 			}
 		}
 		self.recent.remove(hash);
-		self.conditional.remove(hash);
+		self.retention_tracks.remove(hash);
 	}
 
-	/// The conditional track of an already propagated statement, which makes it a candidate
-	/// for the retention sweep.
+	/// The track of an already propagated statement, which the retention sweep re-checks.
 	fn propagated_track(&self, hash: &Hash) -> Option<RetentionTrack> {
 		if self.recent.contains_key(hash) {
 			return None;
 		}
-		self.conditional.get(hash).copied()
+		self.retention_tracks.get(hash).copied()
 	}
 
 	/// Copies the set of recently added hashes with their admission sequence numbers.
@@ -703,7 +702,7 @@ impl QueryIndex {
 
 	fn forget_retention_tracking<'a>(&mut self, keys: impl IntoIterator<Item = &'a PriorityKey>) {
 		for key in keys {
-			self.conditional.remove(&key.hash);
+			self.retention_tracks.remove(&key.hash);
 		}
 	}
 }
@@ -2181,14 +2180,14 @@ impl Store {
 		Ok(drained)
 	}
 
-	/// Re-check the retention of conditionally kept statements once they are propagated: the
+	/// Re-check the retention of the tracked statements once they are propagated: the
 	/// resolver's verdict becomes their track, and a statement no affinity covers is removed.
-	fn sweep_conditional_retention(&self) {
+	fn sweep_retention(&self) {
 		let Some(resolver) = self.retention_fn.get() else { return };
 		let candidates: Vec<(Hash, RetentionTrack)> = {
 			let query_index = self.query_index.read();
 			query_index
-				.conditional
+				.retention_tracks
 				.iter()
 				.filter(|(hash, _)| !query_index.recent.contains_key(*hash))
 				.map(|(hash, track)| (*hash, *track))
@@ -2225,10 +2224,10 @@ impl Store {
 			}
 			match verdict {
 				RetentionTrack::Persistent => {
-					self.query_index.write().conditional.remove(&hash);
+					self.query_index.write().retention_tracks.remove(&hash);
 				},
 				RetentionTrack::ExplicitOnly => {
-					self.query_index.write().conditional.insert(hash, verdict);
+					self.query_index.write().retention_tracks.insert(hash, verdict);
 				},
 				RetentionTrack::Transient => {
 					// A lapsed explicit-only statement may return with its affinity, a forwarded
@@ -2259,7 +2258,7 @@ impl Store {
 		}
 	}
 
-	/// Perform periodic store maintenance: re-check conditionally kept statements, permanently
+	/// Perform periodic store maintenance: re-check the tracked statements, permanently
 	/// delete statements whose purge period has elapsed, and refresh store metrics.
 	///
 	/// Expired and evicted statements are not removed from the database immediately; they are kept
@@ -2273,7 +2272,7 @@ impl Store {
 	/// holding the index lock for too long during maintenance.
 	pub fn maintain(&self) {
 		log::trace!(target: LOG_TARGET, "Started store maintenance");
-		self.sweep_conditional_retention();
+		self.sweep_retention();
 		let current_time = self.timestamp();
 		let deleted_count = match self.drain_due_evicted(current_time) {
 			Ok(count) => count as u64,
@@ -4703,7 +4702,7 @@ mod tests {
 		assert!(store.has_statement(&hash));
 		assert_eq!(store.statement(&hash).unwrap(), Some(statement.clone()));
 		assert_eq!(
-			store.query_index.read().conditional.get(&hash),
+			store.query_index.read().retention_tracks.get(&hash),
 			Some(&RetentionTrack::Transient)
 		);
 
@@ -4713,7 +4712,7 @@ mod tests {
 		assert!(store.take_recent_statements().unwrap().is_empty());
 		assert!(store.has_statement(&hash));
 		assert_eq!(
-			store.query_index.read().conditional.get(&hash),
+			store.query_index.read().retention_tracks.get(&hash),
 			Some(&RetentionTrack::Transient)
 		);
 	}
@@ -4743,7 +4742,7 @@ mod tests {
 		store.take_recent_statements().unwrap();
 		store.maintain();
 		assert!(!store.has_statement(&hash));
-		assert!(store.query_index.read().conditional.is_empty());
+		assert!(store.query_index.read().retention_tracks.is_empty());
 		// Forwarded once: a redelivery from another peer must not start another round.
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::KnownExpired);
 	}
@@ -4770,7 +4769,7 @@ mod tests {
 		store.maintain();
 		assert!(store.has_statement(&hash));
 		assert_eq!(
-			store.query_index.read().conditional.get(&hash),
+			store.query_index.read().retention_tracks.get(&hash),
 			Some(&RetentionTrack::ExplicitOnly)
 		);
 
@@ -4778,7 +4777,7 @@ mod tests {
 		phase.store(2, Ordering::Relaxed);
 		store.maintain();
 		assert!(store.has_statement(&hash));
-		assert!(store.query_index.read().conditional.is_empty());
+		assert!(store.query_index.read().retention_tracks.is_empty());
 	}
 
 	#[test]
@@ -4802,7 +4801,7 @@ mod tests {
 
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
 		assert_eq!(
-			store.query_index.read().conditional.get(&hash),
+			store.query_index.read().retention_tracks.get(&hash),
 			Some(&RetentionTrack::Transient),
 			"the first, transient resolver still applies"
 		);
@@ -4977,7 +4976,7 @@ mod tests {
 		phase.store(1, Ordering::Relaxed);
 		store.maintain();
 		assert!(store.has_statement(&hash));
-		assert!(!store.query_index.read().conditional.contains_key(&hash));
+		assert!(!store.query_index.read().retention_tracks.contains_key(&hash));
 	}
 
 	#[test]
@@ -5037,13 +5036,13 @@ mod tests {
 		let account = statement0.account_id().unwrap();
 		assert_eq!(store.submit(statement0, StatementSource::Network), SubmitResult::New);
 		assert_eq!(store.submit(statement1, StatementSource::Network), SubmitResult::New);
-		assert_eq!(store.query_index.read().conditional.len(), 2);
+		assert_eq!(store.query_index.read().retention_tracks.len(), 2);
 
 		store.remove(&hash0).unwrap();
-		assert_eq!(store.query_index.read().conditional.len(), 1);
+		assert_eq!(store.query_index.read().retention_tracks.len(), 1);
 
 		store.remove_by(account).unwrap();
-		assert!(store.query_index.read().conditional.is_empty());
+		assert!(store.query_index.read().retention_tracks.is_empty());
 	}
 
 	#[test]
