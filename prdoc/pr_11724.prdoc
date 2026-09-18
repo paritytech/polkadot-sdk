@@ -8,6 +8,8 @@ doc:
 
     This PR implements refined, descriptive module-specific invalidity support for transactions. It introduces a dedicated `ModuleInvalidity` struct to separate transaction validation reasons from execution-time dispatch errors. The `InvalidTransaction` enum is extended with a new `Module(ModuleInvalidity)` variant, enabling pallets to return per-module error numbers when a transaction is rejected during the validation phase.
 
+    `Module` is appended at the end of `InvalidTransaction` (index 13), so every SCALE encoding that existed before this change still decodes the same way. This is still a breaking change at the runtime-node boundary in one direction: a node built before this PR cannot decode a `Module` value produced by a runtime built with it, since that variant doesn't exist in the node's copy of the enum. Nodes must be upgraded to a version including this change before any runtime starts emitting `InvalidTransaction::Module`, the same ordering requirement as any other new enum variant introduced by the runtime and consumed by the node.
+
 crates:
 - name: sc-rpc-api
   bump: minor

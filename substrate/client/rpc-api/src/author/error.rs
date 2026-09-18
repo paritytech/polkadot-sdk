@@ -216,8 +216,13 @@ mod tests {
 		let err = Error::Pool(PoolError::InvalidTransaction(InvalidTransaction::Module(on_node)));
 		let rpc_error: ErrorObjectOwned = err.into();
 
-		let details: ModuleInvalidityDetails =
-			serde_json::from_str(rpc_error.data().unwrap().get()).unwrap();
+		let raw_data = rpc_error.data().unwrap().get();
+		// Pin the actual field names on the wire, since round-tripping through
+		// `ModuleInvalidityDetails` alone wouldn't notice `rename_all = "camelCase"` being
+		// removed from the type.
+		assert_eq!(raw_data, r#"{"palletIndex":42,"error":1}"#);
+
+		let details: ModuleInvalidityDetails = serde_json::from_str(raw_data).unwrap();
 		assert_eq!(details.pallet_index, 42);
 		assert_eq!(details.error, 1);
 	}

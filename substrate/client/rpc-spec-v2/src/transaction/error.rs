@@ -141,3 +141,24 @@ impl From<ErrorBroadcast> for ErrorObject<'static> {
 		}
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sp_runtime::ModuleInvalidity;
+
+	#[test]
+	fn module_invalidity_becomes_invalid_transaction_event() {
+		let on_node = ModuleInvalidity { index: 42, error: 1 };
+		let err = Error::Pool(PoolError::InvalidTransaction(InvalidTransaction::Module(on_node)));
+
+		let event: TransactionEvent<u64> = err.into();
+
+		assert_eq!(
+			event,
+			TransactionEvent::Invalid(TransactionError {
+				error: "Invalid transaction: module invalidity (pallet: 42, error: 1)".into(),
+			})
+		);
+	}
+}

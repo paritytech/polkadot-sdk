@@ -517,6 +517,10 @@ mod tests {
 		let v: TransactionValidity = InvalidTransaction::Module(invalidity).into();
 
 		let encoded = v.encode();
+		// Pin the actual encoding: `Module` must stay at index 13 so an old node can still
+		// decode every variant that existed before it, even though it won't recognise `Module`
+		// itself.
+		assert_eq!(encoded, vec![1, 0, 13, 1, 2, 0]);
 		let decoded = TransactionValidity::decode(&mut &*encoded).unwrap();
 		let Err(TransactionValidityError::Invalid(InvalidTransaction::Module(on_node))) = decoded
 		else {
