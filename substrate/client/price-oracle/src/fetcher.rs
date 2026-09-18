@@ -33,6 +33,8 @@ use tokio::time::Instant;
 /// Upper bound on the combined length of the host and the path of a request, in bytes.
 pub const MAX_HOST_AND_PATH: usize = 2 * 1024;
 /// Upper bound on `max_response_bytes` of a request.
+// TODO: assess this cap. The runtime parses a body into a `serde_json::Value` tree that takes
+// several times the body size on the runtime heap. Real order book responses are a few kilobytes.
 pub const MAX_RESPONSE_BYTES: u32 = 4 * 1024 * 1024;
 /// Upper bound on `timeout_ms` of a request.
 pub const MAX_TIMEOUT_MS: u32 = 12_000;

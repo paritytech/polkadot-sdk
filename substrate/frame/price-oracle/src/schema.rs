@@ -215,7 +215,7 @@ fn read_levels(side: &Value, layout: &LevelLayout) -> Result<Vec<Level>, Respons
 /// A non-negative decimal given as a JSON number or as a string.
 fn read_number(value: &Value) -> Result<Price, ResponseSchemaError> {
 	let text = match value {
-		Value::Number(n) => n.as_str(),
+		Value::Number(n) => n.as_str(), // TODO: should never be parsed as a number
 		Value::String(s) => s.as_str(),
 		_ => return Err(ResponseSchemaError::MalformedLevel),
 	};
