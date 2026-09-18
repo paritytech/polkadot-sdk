@@ -148,7 +148,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 	}
 </style>
 
-<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">polkadot_runtime_parachains/</div>builder.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">polkadot_runtime_parachains/</div>builder.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 <a href=#2 id=2 data-nosnippet>2</a>// This file is part of Polkadot.
 <a href=#3 id=3 data-nosnippet>3</a>
 <a href=#4 id=4 data-nosnippet>4</a>// Polkadot is free software: you can redistribute it and/or modify
@@ -1031,122 +1031,126 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#881 id=881 data-nosnippet>881</a>		</span><span class="attr">#[allow(deprecated)]
 <a href=#882 id=882 data-nosnippet>882</a>		</span>inclusion::PendingAvailability::&lt;T&gt;::remove_all(<span class="prelude-val">None</span>);
 <a href=#883 id=883 data-nosnippet>883</a>
-<a href=#884 id=884 data-nosnippet>884</a>		<span class="comment">// We don't allow a core to have both disputes and be marked fully available at this block.
-<a href=#885 id=885 data-nosnippet>885</a>		</span><span class="kw">let </span>max_cores = <span class="self">self</span>.max_cores() <span class="kw">as </span>usize;
-<a href=#886 id=886 data-nosnippet>886</a>
-<a href=#887 id=887 data-nosnippet>887</a>		<span class="kw">let </span>extra_cores = <span class="self">self
-<a href=#888 id=888 data-nosnippet>888</a>			</span>.elastic_paras
-<a href=#889 id=889 data-nosnippet>889</a>			.values()
-<a href=#890 id=890 data-nosnippet>890</a>			.map(|count| <span class="kw-2">*</span>count <span class="kw">as </span>usize)
-<a href=#891 id=891 data-nosnippet>891</a>			.sum::&lt;usize&gt;()
-<a href=#892 id=892 data-nosnippet>892</a>			.saturating_sub(<span class="self">self</span>.elastic_paras.len() <span class="kw">as </span>usize);
-<a href=#893 id=893 data-nosnippet>893</a>
-<a href=#894 id=894 data-nosnippet>894</a>		<span class="kw">let </span>used_cores = <span class="self">self</span>.dispute_sessions.len() +
-<a href=#895 id=895 data-nosnippet>895</a>			<span class="self">self</span>.backed_and_concluding_paras.len() +
-<a href=#896 id=896 data-nosnippet>896</a>			<span class="self">self</span>.backed_in_inherent_paras.len() +
-<a href=#897 id=897 data-nosnippet>897</a>			extra_cores;
-<a href=#898 id=898 data-nosnippet>898</a>
-<a href=#899 id=899 data-nosnippet>899</a>		<span class="macro">assert!</span>(used_cores &lt;= max_cores);
-<a href=#900 id=900 data-nosnippet>900</a>
-<a href=#901 id=901 data-nosnippet>901</a>		<span class="comment">// NOTE: there is an n+2 session delay for these actions to take effect.
-<a href=#902 id=902 data-nosnippet>902</a>		// We are currently in Session 0, so these changes will take effect in Session 2.
-<a href=#903 id=903 data-nosnippet>903</a>		</span><span class="self">Self</span>::setup_para_ids(used_cores - extra_cores);
-<a href=#904 id=904 data-nosnippet>904</a>		configuration::Pallet::&lt;T&gt;::set_coretime_cores_unchecked(used_cores <span class="kw">as </span>u32).unwrap();
-<a href=#905 id=905 data-nosnippet>905</a>
-<a href=#906 id=906 data-nosnippet>906</a>		<span class="kw">let </span>validator_ids = generate_validator_pairs::&lt;T&gt;(<span class="self">self</span>.max_validators());
-<a href=#907 id=907 data-nosnippet>907</a>		<span class="kw">let </span>target_session = SessionIndex::from(<span class="self">self</span>.target_session);
-<a href=#908 id=908 data-nosnippet>908</a>		<span class="kw">let </span>builder = <span class="self">self</span>.setup_session(target_session, validator_ids, used_cores, extra_cores);
+<a href=#884 id=884 data-nosnippet>884</a>		<span class="comment">// Ensure broker parachain is reachable for XCM delivery
+<a href=#885 id=885 data-nosnippet>885</a>		</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#886 id=886 data-nosnippet>886</a>		</span><span class="kw">crate</span>::coretime::Pallet::&lt;T&gt;::ensure_broker_parachain_reachable();
+<a href=#887 id=887 data-nosnippet>887</a>
+<a href=#888 id=888 data-nosnippet>888</a>		<span class="comment">// We don't allow a core to have both disputes and be marked fully available at this block.
+<a href=#889 id=889 data-nosnippet>889</a>		</span><span class="kw">let </span>max_cores = <span class="self">self</span>.max_cores() <span class="kw">as </span>usize;
+<a href=#890 id=890 data-nosnippet>890</a>
+<a href=#891 id=891 data-nosnippet>891</a>		<span class="kw">let </span>extra_cores = <span class="self">self
+<a href=#892 id=892 data-nosnippet>892</a>			</span>.elastic_paras
+<a href=#893 id=893 data-nosnippet>893</a>			.values()
+<a href=#894 id=894 data-nosnippet>894</a>			.map(|count| <span class="kw-2">*</span>count <span class="kw">as </span>usize)
+<a href=#895 id=895 data-nosnippet>895</a>			.sum::&lt;usize&gt;()
+<a href=#896 id=896 data-nosnippet>896</a>			.saturating_sub(<span class="self">self</span>.elastic_paras.len() <span class="kw">as </span>usize);
+<a href=#897 id=897 data-nosnippet>897</a>
+<a href=#898 id=898 data-nosnippet>898</a>		<span class="kw">let </span>used_cores = <span class="self">self</span>.dispute_sessions.len() +
+<a href=#899 id=899 data-nosnippet>899</a>			<span class="self">self</span>.backed_and_concluding_paras.len() +
+<a href=#900 id=900 data-nosnippet>900</a>			<span class="self">self</span>.backed_in_inherent_paras.len() +
+<a href=#901 id=901 data-nosnippet>901</a>			extra_cores;
+<a href=#902 id=902 data-nosnippet>902</a>
+<a href=#903 id=903 data-nosnippet>903</a>		<span class="macro">assert!</span>(used_cores &lt;= max_cores);
+<a href=#904 id=904 data-nosnippet>904</a>
+<a href=#905 id=905 data-nosnippet>905</a>		<span class="comment">// NOTE: there is an n+2 session delay for these actions to take effect.
+<a href=#906 id=906 data-nosnippet>906</a>		// We are currently in Session 0, so these changes will take effect in Session 2.
+<a href=#907 id=907 data-nosnippet>907</a>		</span><span class="self">Self</span>::setup_para_ids(used_cores - extra_cores);
+<a href=#908 id=908 data-nosnippet>908</a>		configuration::Pallet::&lt;T&gt;::set_coretime_cores_unchecked(used_cores <span class="kw">as </span>u32).unwrap();
 <a href=#909 id=909 data-nosnippet>909</a>
-<a href=#910 id=910 data-nosnippet>910</a>		<span class="kw">let </span>bitfields = builder.create_availability_bitfields(
-<a href=#911 id=911 data-nosnippet>911</a>			<span class="kw-2">&amp;</span>builder.backed_and_concluding_paras,
-<a href=#912 id=912 data-nosnippet>912</a>			<span class="kw-2">&amp;</span>builder.elastic_paras,
-<a href=#913 id=913 data-nosnippet>913</a>			scheduler::Pallet::&lt;T&gt;::num_availability_cores(),
-<a href=#914 id=914 data-nosnippet>914</a>		);
-<a href=#915 id=915 data-nosnippet>915</a>
-<a href=#916 id=916 data-nosnippet>916</a>		<span class="kw">let </span><span class="kw-2">mut </span>backed_in_inherent = BTreeMap::new();
-<a href=#917 id=917 data-nosnippet>917</a>		backed_in_inherent.append(<span class="kw-2">&amp;mut </span>builder.backed_and_concluding_paras.clone());
-<a href=#918 id=918 data-nosnippet>918</a>		backed_in_inherent.append(<span class="kw-2">&amp;mut </span>builder.backed_in_inherent_paras.clone());
-<a href=#919 id=919 data-nosnippet>919</a>		<span class="kw">let </span>backed_candidates = builder.create_backed_candidates(
-<a href=#920 id=920 data-nosnippet>920</a>			<span class="kw-2">&amp;</span>backed_in_inherent,
-<a href=#921 id=921 data-nosnippet>921</a>			<span class="kw-2">&amp;</span>builder.elastic_paras,
-<a href=#922 id=922 data-nosnippet>922</a>			builder.code_upgrade,
-<a href=#923 id=923 data-nosnippet>923</a>		);
-<a href=#924 id=924 data-nosnippet>924</a>
-<a href=#925 id=925 data-nosnippet>925</a>		<span class="kw">let </span>disputes = builder.create_disputes(
-<a href=#926 id=926 data-nosnippet>926</a>			builder.backed_and_concluding_paras.len() <span class="kw">as </span>u32,
-<a href=#927 id=927 data-nosnippet>927</a>			(used_cores - extra_cores) <span class="kw">as </span>u32,
-<a href=#928 id=928 data-nosnippet>928</a>			builder.dispute_sessions.as_slice(),
-<a href=#929 id=929 data-nosnippet>929</a>		);
-<a href=#930 id=930 data-nosnippet>930</a>		<span class="kw">let </span><span class="kw-2">mut </span>disputed_cores = (builder.backed_and_concluding_paras.len() <span class="kw">as </span>u32..
-<a href=#931 id=931 data-nosnippet>931</a>			((used_cores - extra_cores) <span class="kw">as </span>u32))
-<a href=#932 id=932 data-nosnippet>932</a>			.into_iter()
-<a href=#933 id=933 data-nosnippet>933</a>			.map(|idx| (idx, <span class="number">0</span>))
-<a href=#934 id=934 data-nosnippet>934</a>			.collect::&lt;BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;();
-<a href=#935 id=935 data-nosnippet>935</a>
-<a href=#936 id=936 data-nosnippet>936</a>		<span class="kw">let </span><span class="kw-2">mut </span>all_paras = builder.backed_and_concluding_paras.clone();
-<a href=#937 id=937 data-nosnippet>937</a>		all_paras.append(<span class="kw-2">&amp;mut </span>disputed_cores);
-<a href=#938 id=938 data-nosnippet>938</a>
-<a href=#939 id=939 data-nosnippet>939</a>		<span class="macro">assert_eq!</span>(inclusion::PendingAvailability::&lt;T&gt;::iter().count(), used_cores - extra_cores);
-<a href=#940 id=940 data-nosnippet>940</a>
-<a href=#941 id=941 data-nosnippet>941</a>		<span class="comment">// Sanity check that the occupied cores reported by the inclusion module are what we expect
-<a href=#942 id=942 data-nosnippet>942</a>		// to be.
-<a href=#943 id=943 data-nosnippet>943</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>core_idx = <span class="number">0u32</span>;
-<a href=#944 id=944 data-nosnippet>944</a>		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
-<a href=#945 id=945 data-nosnippet>945</a>		<span class="kw">let </span>elastic_paras = <span class="kw-2">&amp;</span>builder.elastic_paras;
-<a href=#946 id=946 data-nosnippet>946</a>
-<a href=#947 id=947 data-nosnippet>947</a>		<span class="kw">let </span><span class="kw-2">mut </span>occupied_cores = inclusion::Pallet::&lt;T&gt;::get_occupied_cores()
-<a href=#948 id=948 data-nosnippet>948</a>			.map(|(core, candidate)| (core, candidate.candidate_descriptor().para_id()))
-<a href=#949 id=949 data-nosnippet>949</a>			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-<a href=#950 id=950 data-nosnippet>950</a>		occupied_cores.sort_by(|(core_a, <span class="kw">_</span>), (core_b, <span class="kw">_</span>)| core_a.<span class="number">0</span>.cmp(<span class="kw-2">&amp;</span>core_b.<span class="number">0</span>));
-<a href=#951 id=951 data-nosnippet>951</a>
-<a href=#952 id=952 data-nosnippet>952</a>		<span class="kw">let </span><span class="kw-2">mut </span>expected_cores = all_paras
-<a href=#953 id=953 data-nosnippet>953</a>			.iter()
-<a href=#954 id=954 data-nosnippet>954</a>			.flat_map(|(para_id, <span class="kw">_</span>)| {
-<a href=#955 id=955 data-nosnippet>955</a>				(<span class="number">0</span>..elastic_paras.get(<span class="kw-2">&amp;</span>para_id).cloned().unwrap_or(<span class="number">1</span>))
-<a href=#956 id=956 data-nosnippet>956</a>					.map(|_para_local_core_idx| {
-<a href=#957 id=957 data-nosnippet>957</a>						<span class="kw">let </span>old_core_idx = core_idx;
-<a href=#958 id=958 data-nosnippet>958</a>						core_idx += <span class="number">1</span>;
-<a href=#959 id=959 data-nosnippet>959</a>						(CoreIndex(old_core_idx), ParaId::from(<span class="kw-2">*</span>para_id))
-<a href=#960 id=960 data-nosnippet>960</a>					})
-<a href=#961 id=961 data-nosnippet>961</a>					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-<a href=#962 id=962 data-nosnippet>962</a>			})
-<a href=#963 id=963 data-nosnippet>963</a>			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-<a href=#964 id=964 data-nosnippet>964</a>
-<a href=#965 id=965 data-nosnippet>965</a>		expected_cores.sort_by(|(core_a, <span class="kw">_</span>), (core_b, <span class="kw">_</span>)| core_a.<span class="number">0</span>.cmp(<span class="kw-2">&amp;</span>core_b.<span class="number">0</span>));
-<a href=#966 id=966 data-nosnippet>966</a>
-<a href=#967 id=967 data-nosnippet>967</a>		<span class="macro">assert_eq!</span>(expected_cores, occupied_cores);
+<a href=#910 id=910 data-nosnippet>910</a>		<span class="kw">let </span>validator_ids = generate_validator_pairs::&lt;T&gt;(<span class="self">self</span>.max_validators());
+<a href=#911 id=911 data-nosnippet>911</a>		<span class="kw">let </span>target_session = SessionIndex::from(<span class="self">self</span>.target_session);
+<a href=#912 id=912 data-nosnippet>912</a>		<span class="kw">let </span>builder = <span class="self">self</span>.setup_session(target_session, validator_ids, used_cores, extra_cores);
+<a href=#913 id=913 data-nosnippet>913</a>
+<a href=#914 id=914 data-nosnippet>914</a>		<span class="kw">let </span>bitfields = builder.create_availability_bitfields(
+<a href=#915 id=915 data-nosnippet>915</a>			<span class="kw-2">&amp;</span>builder.backed_and_concluding_paras,
+<a href=#916 id=916 data-nosnippet>916</a>			<span class="kw-2">&amp;</span>builder.elastic_paras,
+<a href=#917 id=917 data-nosnippet>917</a>			scheduler::Pallet::&lt;T&gt;::num_availability_cores(),
+<a href=#918 id=918 data-nosnippet>918</a>		);
+<a href=#919 id=919 data-nosnippet>919</a>
+<a href=#920 id=920 data-nosnippet>920</a>		<span class="kw">let </span><span class="kw-2">mut </span>backed_in_inherent = BTreeMap::new();
+<a href=#921 id=921 data-nosnippet>921</a>		backed_in_inherent.append(<span class="kw-2">&amp;mut </span>builder.backed_and_concluding_paras.clone());
+<a href=#922 id=922 data-nosnippet>922</a>		backed_in_inherent.append(<span class="kw-2">&amp;mut </span>builder.backed_in_inherent_paras.clone());
+<a href=#923 id=923 data-nosnippet>923</a>		<span class="kw">let </span>backed_candidates = builder.create_backed_candidates(
+<a href=#924 id=924 data-nosnippet>924</a>			<span class="kw-2">&amp;</span>backed_in_inherent,
+<a href=#925 id=925 data-nosnippet>925</a>			<span class="kw-2">&amp;</span>builder.elastic_paras,
+<a href=#926 id=926 data-nosnippet>926</a>			builder.code_upgrade,
+<a href=#927 id=927 data-nosnippet>927</a>		);
+<a href=#928 id=928 data-nosnippet>928</a>
+<a href=#929 id=929 data-nosnippet>929</a>		<span class="kw">let </span>disputes = builder.create_disputes(
+<a href=#930 id=930 data-nosnippet>930</a>			builder.backed_and_concluding_paras.len() <span class="kw">as </span>u32,
+<a href=#931 id=931 data-nosnippet>931</a>			(used_cores - extra_cores) <span class="kw">as </span>u32,
+<a href=#932 id=932 data-nosnippet>932</a>			builder.dispute_sessions.as_slice(),
+<a href=#933 id=933 data-nosnippet>933</a>		);
+<a href=#934 id=934 data-nosnippet>934</a>		<span class="kw">let </span><span class="kw-2">mut </span>disputed_cores = (builder.backed_and_concluding_paras.len() <span class="kw">as </span>u32..
+<a href=#935 id=935 data-nosnippet>935</a>			((used_cores - extra_cores) <span class="kw">as </span>u32))
+<a href=#936 id=936 data-nosnippet>936</a>			.into_iter()
+<a href=#937 id=937 data-nosnippet>937</a>			.map(|idx| (idx, <span class="number">0</span>))
+<a href=#938 id=938 data-nosnippet>938</a>			.collect::&lt;BTreeMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;();
+<a href=#939 id=939 data-nosnippet>939</a>
+<a href=#940 id=940 data-nosnippet>940</a>		<span class="kw">let </span><span class="kw-2">mut </span>all_paras = builder.backed_and_concluding_paras.clone();
+<a href=#941 id=941 data-nosnippet>941</a>		all_paras.append(<span class="kw-2">&amp;mut </span>disputed_cores);
+<a href=#942 id=942 data-nosnippet>942</a>
+<a href=#943 id=943 data-nosnippet>943</a>		<span class="macro">assert_eq!</span>(inclusion::PendingAvailability::&lt;T&gt;::iter().count(), used_cores - extra_cores);
+<a href=#944 id=944 data-nosnippet>944</a>
+<a href=#945 id=945 data-nosnippet>945</a>		<span class="comment">// Sanity check that the occupied cores reported by the inclusion module are what we expect
+<a href=#946 id=946 data-nosnippet>946</a>		// to be.
+<a href=#947 id=947 data-nosnippet>947</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>core_idx = <span class="number">0u32</span>;
+<a href=#948 id=948 data-nosnippet>948</a>		<span class="kw">let </span>now = frame_system::Pallet::&lt;T&gt;::block_number();
+<a href=#949 id=949 data-nosnippet>949</a>		<span class="kw">let </span>elastic_paras = <span class="kw-2">&amp;</span>builder.elastic_paras;
+<a href=#950 id=950 data-nosnippet>950</a>
+<a href=#951 id=951 data-nosnippet>951</a>		<span class="kw">let </span><span class="kw-2">mut </span>occupied_cores = inclusion::Pallet::&lt;T&gt;::get_occupied_cores()
+<a href=#952 id=952 data-nosnippet>952</a>			.map(|(core, candidate)| (core, candidate.candidate_descriptor().para_id()))
+<a href=#953 id=953 data-nosnippet>953</a>			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+<a href=#954 id=954 data-nosnippet>954</a>		occupied_cores.sort_by(|(core_a, <span class="kw">_</span>), (core_b, <span class="kw">_</span>)| core_a.<span class="number">0</span>.cmp(<span class="kw-2">&amp;</span>core_b.<span class="number">0</span>));
+<a href=#955 id=955 data-nosnippet>955</a>
+<a href=#956 id=956 data-nosnippet>956</a>		<span class="kw">let </span><span class="kw-2">mut </span>expected_cores = all_paras
+<a href=#957 id=957 data-nosnippet>957</a>			.iter()
+<a href=#958 id=958 data-nosnippet>958</a>			.flat_map(|(para_id, <span class="kw">_</span>)| {
+<a href=#959 id=959 data-nosnippet>959</a>				(<span class="number">0</span>..elastic_paras.get(<span class="kw-2">&amp;</span>para_id).cloned().unwrap_or(<span class="number">1</span>))
+<a href=#960 id=960 data-nosnippet>960</a>					.map(|_para_local_core_idx| {
+<a href=#961 id=961 data-nosnippet>961</a>						<span class="kw">let </span>old_core_idx = core_idx;
+<a href=#962 id=962 data-nosnippet>962</a>						core_idx += <span class="number">1</span>;
+<a href=#963 id=963 data-nosnippet>963</a>						(CoreIndex(old_core_idx), ParaId::from(<span class="kw-2">*</span>para_id))
+<a href=#964 id=964 data-nosnippet>964</a>					})
+<a href=#965 id=965 data-nosnippet>965</a>					.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+<a href=#966 id=966 data-nosnippet>966</a>			})
+<a href=#967 id=967 data-nosnippet>967</a>			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 <a href=#968 id=968 data-nosnippet>968</a>
-<a href=#969 id=969 data-nosnippet>969</a>		<span class="comment">// We need entries in the claim queue for those:
-<a href=#970 id=970 data-nosnippet>970</a>		</span>all_paras.append(<span class="kw-2">&amp;mut </span>builder.backed_in_inherent_paras.clone());
-<a href=#971 id=971 data-nosnippet>971</a>
-<a href=#972 id=972 data-nosnippet>972</a>		<span class="kw">let </span>core_paras = all_paras.keys().flat_map(|para_id| {
-<a href=#973 id=973 data-nosnippet>973</a>			repeat(ParaId::from(<span class="kw-2">*</span>para_id))
-<a href=#974 id=974 data-nosnippet>974</a>				.take(elastic_paras.get(<span class="kw-2">&amp;</span>para_id).cloned().unwrap_or(<span class="number">1</span>).into())
-<a href=#975 id=975 data-nosnippet>975</a>		});
-<a href=#976 id=976 data-nosnippet>976</a>		<span class="kw">let </span>cores = (<span class="number">0</span>..).map(CoreIndex).zip(core_paras).collect::&lt;BTreeMap&lt;CoreIndex, ParaId&gt;&gt;();
-<a href=#977 id=977 data-nosnippet>977</a>
-<a href=#978 id=978 data-nosnippet>978</a>		<span class="kw">for </span>(core_idx, para) <span class="kw">in </span>cores {
-<a href=#979 id=979 data-nosnippet>979</a>			scheduler::Pallet::&lt;T&gt;::assign_core(
-<a href=#980 id=980 data-nosnippet>980</a>				core_idx,
-<a href=#981 id=981 data-nosnippet>981</a>				now,
-<a href=#982 id=982 data-nosnippet>982</a>				<span class="macro">vec!</span>[(CoreAssignment::Task(para.into()), PartsOf57600::FULL)],
-<a href=#983 id=983 data-nosnippet>983</a>				<span class="prelude-val">None</span>,
-<a href=#984 id=984 data-nosnippet>984</a>			)
-<a href=#985 id=985 data-nosnippet>985</a>			.unwrap();
-<a href=#986 id=986 data-nosnippet>986</a>		}
-<a href=#987 id=987 data-nosnippet>987</a>
-<a href=#988 id=988 data-nosnippet>988</a>		Bench::&lt;T&gt; {
-<a href=#989 id=989 data-nosnippet>989</a>			data: ParachainsInherentData {
-<a href=#990 id=990 data-nosnippet>990</a>				bitfields,
-<a href=#991 id=991 data-nosnippet>991</a>				backed_candidates,
-<a href=#992 id=992 data-nosnippet>992</a>				disputes,
-<a href=#993 id=993 data-nosnippet>993</a>				parent_header: <span class="self">Self</span>::header(builder.block_number),
-<a href=#994 id=994 data-nosnippet>994</a>			},
-<a href=#995 id=995 data-nosnippet>995</a>			_session: target_session,
-<a href=#996 id=996 data-nosnippet>996</a>			_block_number: builder.block_number,
-<a href=#997 id=997 data-nosnippet>997</a>		}
-<a href=#998 id=998 data-nosnippet>998</a>	}
-<a href=#999 id=999 data-nosnippet>999</a>}
+<a href=#969 id=969 data-nosnippet>969</a>		expected_cores.sort_by(|(core_a, <span class="kw">_</span>), (core_b, <span class="kw">_</span>)| core_a.<span class="number">0</span>.cmp(<span class="kw-2">&amp;</span>core_b.<span class="number">0</span>));
+<a href=#970 id=970 data-nosnippet>970</a>
+<a href=#971 id=971 data-nosnippet>971</a>		<span class="macro">assert_eq!</span>(expected_cores, occupied_cores);
+<a href=#972 id=972 data-nosnippet>972</a>
+<a href=#973 id=973 data-nosnippet>973</a>		<span class="comment">// We need entries in the claim queue for those:
+<a href=#974 id=974 data-nosnippet>974</a>		</span>all_paras.append(<span class="kw-2">&amp;mut </span>builder.backed_in_inherent_paras.clone());
+<a href=#975 id=975 data-nosnippet>975</a>
+<a href=#976 id=976 data-nosnippet>976</a>		<span class="kw">let </span>core_paras = all_paras.keys().flat_map(|para_id| {
+<a href=#977 id=977 data-nosnippet>977</a>			repeat(ParaId::from(<span class="kw-2">*</span>para_id))
+<a href=#978 id=978 data-nosnippet>978</a>				.take(elastic_paras.get(<span class="kw-2">&amp;</span>para_id).cloned().unwrap_or(<span class="number">1</span>).into())
+<a href=#979 id=979 data-nosnippet>979</a>		});
+<a href=#980 id=980 data-nosnippet>980</a>		<span class="kw">let </span>cores = (<span class="number">0</span>..).map(CoreIndex).zip(core_paras).collect::&lt;BTreeMap&lt;CoreIndex, ParaId&gt;&gt;();
+<a href=#981 id=981 data-nosnippet>981</a>
+<a href=#982 id=982 data-nosnippet>982</a>		<span class="kw">for </span>(core_idx, para) <span class="kw">in </span>cores {
+<a href=#983 id=983 data-nosnippet>983</a>			scheduler::Pallet::&lt;T&gt;::assign_core(
+<a href=#984 id=984 data-nosnippet>984</a>				core_idx,
+<a href=#985 id=985 data-nosnippet>985</a>				now,
+<a href=#986 id=986 data-nosnippet>986</a>				<span class="macro">vec!</span>[(CoreAssignment::Task(para.into()), PartsOf57600::FULL)],
+<a href=#987 id=987 data-nosnippet>987</a>				<span class="prelude-val">None</span>,
+<a href=#988 id=988 data-nosnippet>988</a>			)
+<a href=#989 id=989 data-nosnippet>989</a>			.unwrap();
+<a href=#990 id=990 data-nosnippet>990</a>		}
+<a href=#991 id=991 data-nosnippet>991</a>
+<a href=#992 id=992 data-nosnippet>992</a>		Bench::&lt;T&gt; {
+<a href=#993 id=993 data-nosnippet>993</a>			data: ParachainsInherentData {
+<a href=#994 id=994 data-nosnippet>994</a>				bitfields,
+<a href=#995 id=995 data-nosnippet>995</a>				backed_candidates,
+<a href=#996 id=996 data-nosnippet>996</a>				disputes,
+<a href=#997 id=997 data-nosnippet>997</a>				parent_header: <span class="self">Self</span>::header(builder.block_number),
+<a href=#998 id=998 data-nosnippet>998</a>			},
+<a href=#999 id=999 data-nosnippet>999</a>			_session: target_session,
+<a href=#1000 id=1000 data-nosnippet>1000</a>			_block_number: builder.block_number,
+<a href=#1001 id=1001 data-nosnippet>1001</a>		}
+<a href=#1002 id=1002 data-nosnippet>1002</a>	}
+<a href=#1003 id=1003 data-nosnippet>1003</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
