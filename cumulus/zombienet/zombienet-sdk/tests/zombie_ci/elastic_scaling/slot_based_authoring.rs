@@ -6,12 +6,15 @@ use std::time::Duration;
 
 use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 
-use cumulus_zombienet_sdk_helpers::assign_cores;
+use cumulus_zombienet_sdk_helpers::network::{assign_cores, wait_relay_up};
+#[cfg(not(feature = "jam"))]
 use serde_json::json;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
+use zombienet_sdk::NetworkConfig;
+#[cfg(not(feature = "jam"))]
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
-	NetworkConfig, NetworkConfigBuilder,
+	NetworkConfigBuilder,
 };
 
 const PARA_ID_1: u32 = 2100;
@@ -27,12 +30,11 @@ async fn elastic_scaling_slot_based_authoring() -> Result<(), anyhow::Error> {
 	let config = build_network_config().await?;
 	let network = initialize_network(config).await?;
 
-	let alice = network.get_node("alice")?;
 	let collator_elastic = network.get_node("collator-elastic")?;
 	let collator_single_core = network.get_node("collator-single-core")?;
 
 	log::info!("Checking if alice is up");
-	assert!(alice.wait_until_is_up(60u64).await.is_ok());
+	wait_relay_up(&network, "alice", 60).await?;
 
 	log::info!("Checking if collator-elastic is up");
 	assert!(collator_elastic.wait_until_is_up(60u64).await.is_ok());
@@ -40,8 +42,7 @@ async fn elastic_scaling_slot_based_authoring() -> Result<(), anyhow::Error> {
 	log::info!("Checking if collator-single-core is up");
 	assert!(collator_single_core.wait_until_is_up(60u64).await.is_ok());
 
-	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
-	assign_cores(&alice_client, PARA_ID_1, vec![0, 1]).await?;
+	assign_cores(&network, "alice", PARA_ID_1, vec![0, 1]).await?;
 
 	for (node, block_cnt) in [(collator_single_core, 20.0), (collator_elastic, 40.0)] {
 		log::info!("Checking block production for {}", node.name());
@@ -70,6 +71,7 @@ async fn elastic_scaling_slot_based_authoring() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
+#[cfg(not(feature = "jam"))]
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	// images are not relevant for `native`, but we leave it here in case we use `k8s` some day
 	let images = zombienet_sdk::environment::get_images_from_env();
@@ -148,6 +150,27 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			Ok(val) => global_settings.with_base_dir(val),
 			_ => global_settings,
 		})
+		.build()
+		.map_err(|e| {
+			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
+			anyhow!("config errs: {errs}")
+		})
+}
+
+#[cfg(feature = "jam")]
+async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
+	let jam = crate::jam::setup_with_cores(
+		"elastic_scaling_slot_based_authoring",
+		&[
+			crate::jam::para_on_cores(PARA_ID_1, 0, &[1], &["collator-elastic"]),
+			crate::jam::para(PARA_ID_2, 2, &["collator-single-core"]),
+		],
+		3,
+	)?;
+	jam.jamchain()
+		.with_parachain(|p| jam.parachain(p, 0))
+		.with_parachain(|p| jam.parachain(p, 1))
+		.with_global_settings(|g| g.with_base_dir(jam.base_dir()))
 		.build()
 		.map_err(|e| {
 			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");

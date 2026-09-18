@@ -12,8 +12,8 @@
 //! module walks the same steps through the same crate the collator and the guest use, and the
 //! harness checks the result against what the collators log at startup.
 
-use super::{
-	chain_spec::{self, DEV_ACCOUNTS},
+use crate::{
+	chain_spec,
 	collators::Para,
 	network::PARACHAIN_SERVICE_ID,
 };
@@ -31,15 +31,15 @@ const SLOT_DURATION: u32 = 1;
 /// The authorizer config `para`'s core is queued with, built the way the collator builds it:
 /// the para id and host service, the collator-set root in the runtime's own order, the set size
 /// and the slot duration — everything `blake2b-256(code_hash ‖ SCALE(config))` commits to.
-pub fn aura_config(para: &Para) -> AuthConfig {
-	let (collator_set_root, _proofs) = build_collator_tree(&collator_set(para));
-	AuthConfig {
+pub fn aura_config(para: &Para) -> anyhow::Result<AuthConfig> {
+	let (collator_set_root, _proofs) = build_collator_tree(&collator_set(para)?);
+	Ok(AuthConfig {
 		para_ids: vec![para.id.into()],
 		parachain_service: PARACHAIN_SERVICE_ID,
 		collator_set_root,
 		collator_set_size: para.collators.len() as u32,
 		slot_duration: SLOT_DURATION,
-	}
+	})
 }
 
 /// The authorizer hash `para`'s core has to hold for its collators' work packages to run.
@@ -47,7 +47,7 @@ pub fn authorizer_hash(para: &Para, authorizer_blob: &Path) -> anyhow::Result<Au
 	let blob = std::fs::read(authorizer_blob)
 		.with_context(|| format!("reading {}", authorizer_blob.display()))?;
 	let code_hash = CodeHash::from(jam_std_common::hash_raw(&blob));
-	let authorizer = Authorizer { code_hash, config: AuthConfigBlob(aura_config(para).encode()) };
+	let authorizer = Authorizer { code_hash, config: AuthConfigBlob(aura_config(para)?.encode()) };
 	Ok(parachain_service_core::authorizer::authorizer_hash(&authorizer))
 }
 
@@ -61,15 +61,14 @@ pub fn hex(hash: &AuthorizerHash) -> String {
 /// [`chain_spec::in_authority_order`] is not a detail that can be skipped: the round-robin index
 /// the guest computes is a leaf index, and the runtime hands its authorities back sorted by
 /// account id whatever order genesis named them in.
-fn collator_set(para: &Para) -> Vec<CollatorKey> {
-	chain_spec::in_authority_order(&para.collators)
+fn collator_set(para: &Para) -> anyhow::Result<Vec<CollatorKey>> {
+	chain_spec::in_authority_order(&para.collators)?
 		.into_iter()
-		.map(|index| {
-			DEV_ACCOUNTS[index]
-				.public()
+		.map(|name| {
+			Ok(chain_spec::account_of(&name)?
 				.as_slice()
 				.try_into()
-				.expect("an sr25519 public key is 32 bytes; qed")
+				.expect("an sr25519 public key is 32 bytes; qed"))
 		})
 		.collect()
 }
@@ -90,12 +89,18 @@ pub fn logged_authorizer_hash(line: &str) -> Option<&str> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::chain_spec::DEV_ACCOUNTS;
 
 	/// Any file will do: only its hash reaches the config, and nothing here asserts what that is.
 	const SOME_BLOB: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml");
 
-	fn para(id: u32, collators: Vec<usize>) -> Para {
-		Para { id, core: 0, collators }
+	fn para(id: u32, collators: &[&str]) -> Para {
+		Para {
+			id,
+			core: 0,
+			also_cores: Vec::new(),
+			collators: collators.iter().map(|name| name.to_string()).collect(),
+		}
 	}
 
 	/// The hash, built the long way round: the layout spelled out here rather than delegated to
@@ -126,7 +131,7 @@ mod tests {
 
 	#[test]
 	fn the_hash_is_the_one_the_collator_and_the_guest_derive() {
-		let alice = para(0, vec![0]);
+		let alice = para(0, &["alice"]);
 		assert_eq!(
 			authorizer_hash(&alice, Path::new(SOME_BLOB)).unwrap(),
 			expected(0, &[dev_key(0)]),
@@ -138,7 +143,7 @@ mod tests {
 	/// harness that hashed its own order would install a hash no collator ever matches.
 	#[test]
 	fn the_set_is_hashed_in_authority_order() {
-		let two = para(0, vec![0, 1]);
+		let two = para(0, &["alice", "bob"]);
 		let (bob, alice) = (dev_key(1), dev_key(0));
 
 		let hash = authorizer_hash(&two, Path::new(SOME_BLOB)).unwrap();
@@ -146,7 +151,10 @@ mod tests {
 		assert_ne!(hash, expected(0, &[alice, bob]), "the naive order is a different core");
 		// ...and how the caller happened to list them makes no difference, because the runtime
 		// sorts either way.
-		assert_eq!(hash, authorizer_hash(&para(0, vec![1, 0]), Path::new(SOME_BLOB)).unwrap());
+		assert_eq!(
+			hash,
+			authorizer_hash(&para(0, &["bob", "alice"]), Path::new(SOME_BLOB)).unwrap()
+		);
 	}
 
 	/// Two paras on the same collator set must land on different cores, which is only true
@@ -155,8 +163,8 @@ mod tests {
 	fn each_para_gets_its_own_hash() {
 		let blob = Path::new(SOME_BLOB);
 		assert_ne!(
-			authorizer_hash(&para(0, vec![0]), blob).unwrap(),
-			authorizer_hash(&para(1, vec![0]), blob).unwrap(),
+			authorizer_hash(&para(0, &["alice"]), blob).unwrap(),
+			authorizer_hash(&para(1, &["alice"]), blob).unwrap(),
 		);
 	}
 

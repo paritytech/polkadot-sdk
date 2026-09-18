@@ -17,13 +17,15 @@
 
 use anyhow::anyhow;
 
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
-use polkadot_primitives::Id as ParaId;
-use serde_json::json;
-use zombienet_sdk::{
-	subxt::{OnlineClient, PolkadotConfig},
-	NetworkConfig, NetworkConfigBuilder,
+use cumulus_zombienet_sdk_helpers::network::{
+	assert_finality_lag, assert_para_throughput, assign_cores,
 };
+use polkadot_primitives::Id as ParaId;
+#[cfg(not(feature = "jam"))]
+use serde_json::json;
+use zombienet_sdk::NetworkConfig;
+#[cfg(not(feature = "jam"))]
+use zombienet_sdk::NetworkConfigBuilder;
 
 const PARA_ID: u32 = 2400;
 
@@ -42,31 +44,31 @@ async fn block_bundling_three_cores_glutton() -> Result<(), anyhow::Error> {
 	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
 	let network = spawn_fn(config).await?;
 
-	let relay_node = network.get_node("validator-0")?;
 	let para_node = network.get_node("collator-1")?;
 
 	let para_client = para_node.wait_client().await?;
-	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
 	// Assign cores 0 and 1 to start with 3 cores total (core 2 is assigned by Zombienet)
-	assign_cores(&relay_client, PARA_ID, vec![0, 1]).await?;
+	assign_cores(&network, "validator-0", PARA_ID, vec![0, 1]).await?;
 
 	// Wait for the parachain to produce 72 blocks with 3 cores and glutton active
 	// With 3 cores, we expect roughly 3x throughput compared to single core
 	// Adjusting expectations based on glutton consuming 80% of ref time
 	assert_para_throughput(
-		&relay_client,
+		&network,
+		"validator-0",
 		6,
 		[(ParaId::from(PARA_ID), 12..19)],
 		[(ParaId::from(PARA_ID), (para_client.clone(), 44..73))],
 	)
 	.await?;
 
-	assert_finality_lag(&para_client, 72).await?;
+	assert_finality_lag(&network, "collator-1", 72).await?;
 	log::info!("Test finished successfully - 72 blocks produced with 3 cores and glutton");
 	Ok(())
 }
 
+#[cfg(not(feature = "jam"))]
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
@@ -121,6 +123,22 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			Ok(val) => global_settings.with_base_dir(val),
 			_ => global_settings,
 		})
+		.build()
+		.map_err(|e| {
+			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
+			anyhow!("config errs: {errs}")
+		})
+}
+
+#[cfg(feature = "jam")]
+async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
+	let jam = crate::jam::setup(
+		"block_bundling_three_cores_glutton",
+		&[crate::jam::para(PARA_ID, 0, &["collator-0", "collator-1", "collator-2"])],
+	)?;
+	jam.jamchain()
+		.with_parachain(|p| jam.parachain(p, 0))
+		.with_global_settings(|g| g.with_base_dir(jam.base_dir()))
 		.build()
 		.map_err(|e| {
 			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");

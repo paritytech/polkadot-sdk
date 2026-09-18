@@ -23,11 +23,14 @@
 //!
 //! Per tick: read the para head JAM has accumulated, pick the parent to author on out of the
 //! blocks the local database holds below that head ([`choose_parent`] over [`select_parent`]),
-//! ask the runtime whether one more block fits on top (`can_build_upon` — capacity and velocity
+//! ask the runtime whether another block fits on top (`can_build_upon` — capacity and velocity
 //! are runtime-owned), author, import, and hand `(block, proof, context)` to the collation task.
-//! Authoring never waits for inclusion and, since phase 5a, never waits on JAM state for its
-//! parent either: work packages carry no links to each other, so the only thing the builder needs
-//! from JAM is the accumulated head it prunes and anchors against.
+//! A tick does that once per core holding the para's authorizer: the turn's packages go to
+//! different cores, and every package after the first is built on the previous one's block —
+//! which is what the collation task turns into a `prerequisites` link between their work
+//! packages. Authoring never waits for inclusion and never waits on JAM state for its parent
+//! either: the only things the builder needs from JAM are the accumulated head it prunes and
+//! anchors against, and the cores its packages may go to.
 //!
 //! The one thing that head is still needed for is liveness. A work package the collation manager
 //! gives up on leaves a block that will never accumulate, and the deepest-block rule would keep
@@ -125,7 +128,8 @@ const STALL_REROOT_SLOTS: u64 = 8;
 /// Sanity bound on the number of in-flight blocks.
 ///
 /// The runtime's consensus hook owns capacity for real (`can_build_upon`); this only stops a
-/// runaway should that ever answer wrongly, and tripping it is a bug worth a loud log.
+/// runaway should that ever answer wrongly, and tripping it is a bug worth a loud log. A turn
+/// adds at most one block per core — two on the JAM tiny preset — so this stays well clear.
 const MAX_UNINCLUDED: usize = 8;
 /// Soft bound on the state proof the node returns. One key's proof is bounded by the trie depth,
 /// so this only has to be comfortably large.
@@ -557,7 +561,7 @@ impl<Header: HeaderT> BuilderState<Header> {
 		(*para_slot).saturating_sub(*since)
 	}
 
-	/// Log this tick's pool scan and say where the package may go.
+	/// Log this tick's pool scan.
 	///
 	/// No core holding the para's authorizer is warned about on every single tick: the parachain
 	/// keeps producing blocks, so the only visible symptom is an accumulated head that stops
@@ -568,7 +572,7 @@ impl<Header: HeaderT> BuilderState<Header> {
 		scan: &PoolScan,
 		anchor: &BlockDesc,
 		authorizer: &AuraAuthorizer,
-	) -> Option<CoreIndex> {
+	) {
 		let previous = self.last_pool_scan.replace(scan.clone());
 		match scan.target {
 			None => tracing::warn!(
@@ -589,12 +593,11 @@ impl<Header: HeaderT> BuilderState<Header> {
 				core,
 				also_on = ?scan.also_on,
 				previously = ?previous,
-				"The cores holding this para's authorizer changed; submitting to the \
-				 lowest-indexed one.",
+				"The cores holding this para's authorizer changed; a turn puts one package on \
+				 each of them, lowest index first.",
 			),
 			Some(_) => {},
 		}
-		scan.target
 	}
 
 	/// Record where an authored block leaves the branch commitment: a block authored on a stuck
@@ -624,7 +627,7 @@ struct AnchorReads {
 	context: RefineContext,
 	/// The para's entry in the service's state, exactly as stored; `None` = no head yet.
 	included: Option<Vec<u8>>,
-	/// Which cores hold the para's authorizer at this anchor, and therefore where the package
+	/// Which cores hold the para's authorizer at this anchor, and therefore where the packages
 	/// built on it may be submitted.
 	pool_scan: PoolScan,
 }
@@ -640,10 +643,46 @@ fn time_until_next_para_slot(now: Duration, slot_duration: Duration) -> Duration
 	Duration::from_millis((next_slot_start - now) as u64)
 }
 
-/// One block per para slot, the Aura guard carried over from phase 1 — now on the wall-clock
-/// para slot rather than the anchor's timeslot.
+/// One turn per para slot: the Aura guard, on the wall-clock para slot rather than the anchor's
+/// timeslot.
+///
+/// The turn is what claims the slot; the blocks inside it are the turn's packages, one per core,
+/// and they deliberately claim the same Aura slot. Only a second *turn* in the same slot would
+/// be equivocation, and that is what the guard refuses.
 fn para_slot_claimed(last_claimed: Option<Slot>, para_slot: Slot) -> bool {
 	last_claimed.is_some_and(|last| para_slot <= last)
+}
+
+/// How many packages one turn may author, before the runtime's gate is consulted.
+///
+/// One per core holding the para's authorizer, and never zero: with no core at all the turn
+/// still authors its first package — the para keeps producing locally — it simply has nowhere
+/// to submit it, and the collation task keeps it in flight and re-anchors it, which re-scans
+/// the pools, until a core is assigned again.
+fn turn_package_budget(cores: usize) -> usize {
+	cores.max(1)
+}
+
+/// Whether the turn may author the `package`-th package.
+///
+/// The builder's half: a package after the first needs a core of its own, because a turn puts
+/// one package per core so they land on different cores of the same JAM block. The runtime's
+/// half is velocity and capacity — runtime-owned, unreadable here, and reached only through
+/// `can_build_upon`, which is what ends the burst when they are spent.
+fn package_fits_turn(package: usize, core: Option<CoreIndex>, runtime_admits: bool) -> bool {
+	(package == 0 || core.is_some()) && runtime_admits
+}
+
+/// The source for a turn's package once the first one is authored.
+///
+/// A turn's packages chain, so every package after the first extends the branch the first one
+/// started — whether that is the ordinary deepest branch or one a re-root opened. Both mappings
+/// are idempotent, so this can be applied once per package.
+fn next_parent_source(source: ParentSource) -> ParentSource {
+	match source {
+		ParentSource::Reroot | ParentSource::Rerooted => ParentSource::Rerooted,
+		ParentSource::AccumulatedHead | ParentSource::Deepest => ParentSource::Deepest,
+	}
 }
 
 /// Whether the cached JAM tip is recent enough to anchor against.
@@ -767,7 +806,7 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 		slot_duration = slot_duration.as_millis(),
 		anchor_offset = ANCHOR_OFFSET,
 		max_tip_lag_slots = MAX_TIP_LAG_SLOTS,
-		"JAM builder task started; building one block per parachain slot.",
+		"JAM builder task started; building up to one block per core per parachain slot.",
 	);
 
 	// Nothing here survives a restart, and nothing needs to: every tick reads the accumulated
@@ -834,24 +873,28 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 		)
 		.await
 		{
-			Ok(Some(message)) => {
-				let block_hash = message.block.hash();
-				if let Err(error) = message_sender.try_send(message) {
-					if error.is_disconnected() {
-						tracing::error!(
+			Ok(messages) => {
+				// A turn's packages leave in order, so the collation task sees the first one's
+				// hash recorded in the ledger before it assembles the second one's package and
+				// names it as the second one's prerequisite.
+				for message in messages {
+					let block_hash = message.block.hash();
+					if let Err(error) = message_sender.try_send(message) {
+						if error.is_disconnected() {
+							tracing::error!(
+								target: LOG_TARGET,
+								"Collation task is gone; stopping the builder task."
+							);
+							return;
+						}
+						tracing::warn!(
 							target: LOG_TARGET,
-							"Collation task is gone; stopping the builder task."
+							?block_hash,
+							"Collation task is backlogged; dropping this block's collation.",
 						);
-						return;
 					}
-					tracing::warn!(
-						target: LOG_TARGET,
-						?block_hash,
-						"Collation task is backlogged; dropping this block's collation.",
-					);
 				}
 			},
-			Ok(None) => {},
 			Err(error) => {
 				tracing::warn!(
 					target: LOG_TARGET,
@@ -866,7 +909,9 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 
 /// One para-slot tick: guards, JAM reads, segment maintenance, capacity gate, authoring.
 ///
-/// `Ok(None)` means the tick was skipped; the reason is always logged where it was decided.
+/// The tick's turn authors one package per core holding the para's authorizer, each package on
+/// its own core and chained on the previous package's block. An empty vector means the tick was
+/// skipped; the reason is always logged where it was decided.
 async fn run_tick<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 	para_client: &Arc<ParachainClient<Block, RuntimeApi>>,
 	para_backend: &ParachainBackend<Block>,
@@ -881,7 +926,7 @@ async fn run_tick<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 	tip: BlockDesc,
 	now: Timestamp,
 	state: &mut BuilderState<Block::Header>,
-) -> Result<Option<JamCollatorMessage<Block>>, String>
+) -> Result<Vec<JamCollatorMessage<Block>>, String>
 where
 	Block: NodeBlock,
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
@@ -914,7 +959,7 @@ where
 			last_claimed_slot = ?state.last_claimed_slot,
 			"Parachain slot already claimed; skipping this tick.",
 		);
-		return Ok(None);
+		return Ok(Vec::new());
 	}
 
 	if !tip_is_fresh(wall_jam_slot, tip.slot) {
@@ -926,7 +971,7 @@ where
 			max_tip_lag_slots = MAX_TIP_LAG_SLOTS,
 			"The cached JAM tip lags the wall clock; skipping this tick.",
 		);
-		return Ok(None);
+		return Ok(Vec::new());
 	}
 
 	let para_id_u32: u32 = para_id.into();
@@ -951,13 +996,13 @@ where
 				budget_ms = slot_duration.as_millis(),
 				"JAM reads did not finish within the parachain slot; skipping this tick.",
 			);
-			return Ok(None);
+			return Ok(Vec::new());
 		},
 	};
 	let Some(AnchorReads { anchor, context, included, pool_scan }) = reads else {
-		return Ok(None);
+		return Ok(Vec::new());
 	};
-	let submit_target = state.note_pool_scan(&pool_scan, &anchor, authorizer);
+	state.note_pool_scan(&pool_scan, &anchor, authorizer);
 
 	let included_head = match &included {
 		Some(bytes) => {
@@ -1071,7 +1116,7 @@ where
 			parent_number = %parent_header.number(),
 			"The accumulated head is not known locally; waiting for import/sync.",
 		);
-		return Ok(None);
+		return Ok(Vec::new());
 	}
 
 	// The monitor's derived events. Nothing branches on them; they are the pre-accumulation view
@@ -1112,48 +1157,6 @@ where
 		}
 	}
 
-	if depth >= MAX_UNINCLUDED {
-		tracing::error!(
-			target: LOG_TARGET,
-			depth,
-			max_unincluded = MAX_UNINCLUDED,
-			parent = ?parent_hash,
-			"The chain of unaccumulated blocks hit the local sanity bound; the runtime's capacity \
-			 gate should have stopped us long before. Skipping this tick.",
-		);
-		return Ok(None);
-	}
-
-	let started = Instant::now();
-	let can_build = can_build_upon::<Block, RuntimeApi, AuraId>(
-		para_client,
-		parent_hash,
-		included_hash,
-		para_slot,
-	)?;
-	tracing::debug!(
-		target: LOG_TARGET,
-		parent = ?parent_hash,
-		?included_hash,
-		?para_slot,
-		depth,
-		can_build,
-		elapsed_ms = started.elapsed().as_millis(),
-		"Asked the runtime whether the unincluded segment has room.",
-	);
-	if !can_build {
-		tracing::info!(
-			target: LOG_TARGET,
-			parent = ?parent_hash,
-			?included_hash,
-			?para_slot,
-			depth,
-			"The runtime refuses another block on this parent (capacity or velocity); \
-			 skipping this tick.",
-		);
-		return Ok(None);
-	}
-
 	let authorities = para_client
 		.runtime_api()
 		.authorities(parent_hash)
@@ -1174,48 +1177,16 @@ where
 			authorities = authorities.len(),
 			"Slot not ours; skipping.",
 		);
-		return Ok(None);
+		return Ok(Vec::new());
 	};
 	let slot_claim =
 		SlotClaim::unchecked::<<AuraId as AuraIdT>::BoundedPair>(author_pub, para_slot, now);
 
-	tracing::info!(
-		target: LOG_TARGET,
-		?tip,
-		?anchor,
-		?para_slot,
-		wall_jam_slot,
-		timestamp = now.as_millis(),
-		parent = ?parent_hash,
-		parent_number = %parent_header.number(),
-		?parent_source,
-		depth,
-		"Building a parachain block against the JAM anchor.",
-	);
-
-	let inherent_data = create_inherent_data::<Block, RuntimeApi>(
-		para_client,
-		para_id,
-		&parent_header,
-		&included_header,
-		wall_jam_slot,
-		now,
-		slot_duration,
-	)
-	.await?;
-
-	let proposer = proposer_factory
-		.init(&parent_header)
-		.await
-		.map_err(|e| format!("proposer init: {e}"))?;
-	let storage_proof_recorder = ProofRecorder::<Block>::default();
-	let mut extra_extensions = Extensions::new();
-	extra_extensions.register(ProofSizeExt::new(storage_proof_recorder.clone()));
-
 	// The para-head state proof is prefetched here — the JAM RPC is async, host calls are sync —
 	// and verified against the anchor's own state root with the very code the service runs, so a
 	// proof refine would reject never leaves the node: an unverifiable proof fails this tick
-	// loudly (`?`) instead of shipping a block JAM would refuse.
+	// loudly (`?`) instead of shipping a block JAM would refuse. It describes the anchor, not
+	// the parent, so every package of the turn carries a copy of the same proof.
 	let (anchor_state_proof, proved_head) = fetch_anchor_state_proof(
 		jam,
 		anchor.header_hash,
@@ -1236,96 +1207,230 @@ where
 			"The anchor state proof disagrees with the para head read at the same anchor; \
 			 skipping this JAM block.",
 		);
-		return Ok(None);
+		return Ok(Vec::new());
 	}
-	let additional_data = register_jam_state_reader(
-		&mut extra_extensions,
-		service_id,
-		*context.state_root,
-		anchor_state_proof,
-	);
 
-	let proposal = proposer
-		.propose(ProposeArgs {
-			inherent_data,
-			inherent_digests: sp_runtime::generic::Digest {
-				logs: vec![
-					slot_claim.pre_digest().clone(),
-					cumulus_primitives_core::CumulusDigestItem::JamParent {
-						anchor: context.anchor.0.into(),
-						lookup_anchor: context.lookup_anchor.0.into(),
-					}
-					.to_digest_item(),
-				],
+	// The turn: one package per core holding the para's authorizer, each built on the previous
+	// one's block and submitted to its own core. The runtime's gate is asked per package — the
+	// second package is decided against the first package's block — so velocity and capacity end
+	// the burst exactly where the runtime says they are spent.
+	let mut messages = Vec::new();
+	let mut parent_header = parent_header;
+	let mut parent_hash = parent_hash;
+	let mut depth = depth;
+	let mut parent_source = parent_source;
+	for package in 0..turn_package_budget(pool_scan.core_count()) {
+		let core = pool_scan.core_for_package(package);
+		if depth >= MAX_UNINCLUDED {
+			tracing::error!(
+				target: LOG_TARGET,
+				depth,
+				max_unincluded = MAX_UNINCLUDED,
+				parent = ?parent_hash,
+				"The chain of unaccumulated blocks hit the local sanity bound; the runtime's \
+				 capacity gate should have stopped us long before. Skipping the rest of this \
+				 tick.",
+			);
+			break;
+		}
+		let started = Instant::now();
+		let can_build = can_build_upon::<Block, RuntimeApi, AuraId>(
+			para_client,
+			parent_hash,
+			included_hash,
+			para_slot,
+		)?;
+		tracing::debug!(
+			target: LOG_TARGET,
+			parent = ?parent_hash,
+			?included_hash,
+			?para_slot,
+			depth,
+			package,
+			can_build,
+			elapsed_ms = started.elapsed().as_millis(),
+			"Asked the runtime whether the unincluded segment has room.",
+		);
+		if !package_fits_turn(package, core, can_build) {
+			// `package_fits_turn` is false for one of two reasons, and they are worth telling
+			// apart: the runtime said no, or the turn has no core left for another package.
+			let stopped = if can_build {
+				"the turn has no core left for another package"
+			} else {
+				"the runtime refuses another block on this parent (capacity or velocity)"
+			};
+			tracing::info!(
+				target: LOG_TARGET,
+				parent = ?parent_hash,
+				?included_hash,
+				?para_slot,
+				depth,
+				package,
+				submit_target = ?core,
+				can_build,
+				"The turn stops here: {}.",
+				stopped,
+			);
+			break;
+		}
+
+		tracing::info!(
+			target: LOG_TARGET,
+			?tip,
+			?anchor,
+			?para_slot,
+			wall_jam_slot,
+			timestamp = now.as_millis(),
+			parent = ?parent_hash,
+			parent_number = %parent_header.number(),
+			?parent_source,
+			depth,
+			package,
+			submit_target = ?core,
+			"Building a parachain block against the JAM anchor.",
+		);
+
+		// A later package's failure must not drop the packages already authored: their blocks
+		// are imported and their messages are ready, and nothing else would ever submit them.
+		let built = async {
+			let inherent_data = create_inherent_data::<Block, RuntimeApi>(
+				para_client,
+				para_id,
+				&parent_header,
+				&included_header,
+				wall_jam_slot,
+				now,
+				slot_duration,
+			)
+			.await?;
+
+			let proposer = proposer_factory
+				.init(&parent_header)
+				.await
+				.map_err(|e| format!("proposer init: {e}"))?;
+			let storage_proof_recorder = ProofRecorder::<Block>::default();
+			let mut extra_extensions = Extensions::new();
+			extra_extensions.register(ProofSizeExt::new(storage_proof_recorder.clone()));
+			let additional_data = register_jam_state_reader(
+				&mut extra_extensions,
+				service_id,
+				*context.state_root,
+				anchor_state_proof.clone(),
+			);
+
+			let proposal = proposer
+				.propose(ProposeArgs {
+					inherent_data,
+					inherent_digests: sp_runtime::generic::Digest {
+						logs: vec![
+							slot_claim.pre_digest().clone(),
+							cumulus_primitives_core::CumulusDigestItem::JamParent {
+								anchor: context.anchor.0.into(),
+								lookup_anchor: context.lookup_anchor.0.into(),
+							}
+							.to_digest_item(),
+						],
+					},
+					max_duration: PROPOSAL_DURATION,
+					block_size_limit: Some(MAX_POV_SIZE),
+					extra_extensions,
+					storage_proof_recorder: Some(storage_proof_recorder.clone()),
+				})
+				.await
+				.map_err(|e| format!("propose: {e}"))?;
+
+			tracing::info!(
+				target: LOG_TARGET,
+				digest = ?proposal.block.header().digest().logs,
+				"JAM-PARENT-DIAG: digest of the freshly proposed block",
+			);
+
+			let mut sealed_importable =
+				cumulus_client_consensus_aura::collator::seal::<_, <AuraId as AuraIdT>::BoundedPair>(
+					proposal.block,
+					proposal.storage_changes,
+					slot_claim.author_pub(),
+					keystore,
+				)
+				.map_err(|e| format!("seal: {e}"))?;
+
+			// Mirror the relay collator's `build_block_and_import` (`collator.rs`): carry the
+			// built additional-data blob (the `JAM_PROOF_KEY` entry for this block's reads) on
+			// the sealed import, so the importing path and peer sync serve `jam_state_read`
+			// instead of trapping.
+			sealed_importable.additional_data = Some(additional_data.clone());
+
+			let block = Block::new(
+				sealed_importable.post_header(),
+				sealed_importable
+					.body
+					.clone()
+					.ok_or_else(|| "sealed block has no body".to_string())?,
+			);
+			if !matches!(sealed_importable.state_action, StateAction::ApplyChanges(_)) {
+				return Err("Building a block should return storage changes".into());
+			}
+			let proof = storage_proof_recorder.drain_storage_proof();
+
+			block_import
+				.import_block(sealed_importable)
+				.await
+				.map_err(|e| format!("import: {e}"))?;
+
+			Ok::<_, String>((block, proof, additional_data))
+		}
+		.await;
+		let (block, proof, additional_data) = match built {
+			Ok(built) => built,
+			Err(error) if messages.is_empty() => return Err(error),
+			Err(error) => {
+				tracing::warn!(
+					target: LOG_TARGET,
+					error,
+					package,
+					parent = ?parent_hash,
+					"The turn's next package failed to build; keeping the packages already \
+					 authored and ending the turn here.",
+				);
+				break;
 			},
-			max_duration: PROPOSAL_DURATION,
-			block_size_limit: Some(MAX_POV_SIZE),
-			extra_extensions,
-			storage_proof_recorder: Some(storage_proof_recorder.clone()),
-		})
-		.await
-		.map_err(|e| format!("propose: {e}"))?;
+		};
 
-	tracing::info!(
-		target: LOG_TARGET,
-		digest = ?proposal.block.header().digest().logs,
-		"JAM-PARENT-DIAG: digest of the freshly proposed block",
-	);
-
-	let mut sealed_importable =
-		cumulus_client_consensus_aura::collator::seal::<_, <AuraId as AuraIdT>::BoundedPair>(
-			proposal.block,
-			proposal.storage_changes,
-			slot_claim.author_pub(),
-			keystore,
-		)
-		.map_err(|e| format!("seal: {e}"))?;
-
-	// Mirror the relay collator's `build_block_and_import` (`collator.rs`): carry the built
-	// additional-data blob (the `JAM_PROOF_KEY` entry for this block's reads) on the sealed
-	// import, so the importing path and peer sync serve `jam_state_read` instead of trapping.
-	sealed_importable.additional_data = Some(additional_data.clone());
-
-	let block = Block::new(
-		sealed_importable.post_header(),
-		sealed_importable
-			.body
-			.clone()
-			.ok_or_else(|| "sealed block has no body".to_string())?,
-	);
-	if !matches!(sealed_importable.state_action, StateAction::ApplyChanges(_)) {
-		return Err("Building a block should return storage changes".into());
+		let block_hash = block.hash();
+		let block_header = block.header().clone();
+		state.note_authored(parent_source, block_hash, para_slot);
+		tracing::info!(
+			target: LOG_TARGET,
+			?block_hash,
+			block_number = %block_header.number(),
+			extrinsics = block.extrinsics().len(),
+			proof_nodes = proof.iter_nodes().count(),
+			depth = depth + 1,
+			package,
+			submit_target = ?core,
+			?parent_source,
+			"Built and imported a parachain block.",
+		);
+		messages.push(JamCollatorMessage {
+			parent_header,
+			block,
+			proof,
+			context: context.clone(),
+			anchor_slot: anchor.slot,
+			submit_target: core,
+			additional_data,
+			triggered_by: tip,
+		});
+		parent_header = block_header;
+		parent_hash = block_hash;
+		depth += 1;
+		parent_source = next_parent_source(parent_source);
 	}
-	let proof = storage_proof_recorder.drain_storage_proof();
 
-	block_import
-		.import_block(sealed_importable)
-		.await
-		.map_err(|e| format!("import: {e}"))?;
-
-	state.last_claimed_slot = Some(para_slot);
-	state.note_authored(parent_source, block.hash(), para_slot);
-	tracing::info!(
-		target: LOG_TARGET,
-		block_hash = ?block.hash(),
-		block_number = %block.header().number(),
-		extrinsics = block.extrinsics().len(),
-		proof_nodes = proof.iter_nodes().count(),
-		depth = depth + 1,
-		?parent_source,
-		"Built and imported a parachain block.",
-	);
-
-	Ok(Some(JamCollatorMessage {
-		parent_header,
-		block,
-		proof,
-		context,
-		anchor_slot: anchor.slot,
-		submit_target,
-		additional_data,
-		triggered_by: tip,
-	}))
+	if !messages.is_empty() {
+		state.last_claimed_slot = Some(para_slot);
+	}
+	Ok(messages)
 }
 
 /// The JAM reads one tick makes at its anchor, plus the refine context built around it.
@@ -1935,14 +2040,49 @@ mod tests {
 		assert!(state.own_recent.contains(&chain[chain.len() - 1].hash()));
 	}
 
-	/// Authoring twice in one parachain slot is equivocation, so the guard must reject a slot it
-	/// has already claimed while letting the next one through.
+	/// The turn claims a para slot once and may author several packages under that claim, so the
+	/// guard is per *turn*, not per block: only a second turn in the same slot is equivocation,
+	/// and the next slot always starts fresh.
 	#[test]
-	fn one_block_per_parachain_slot() {
+	fn one_turn_per_parachain_slot() {
 		assert!(!para_slot_claimed(None, Slot::from(7)));
 		assert!(para_slot_claimed(Some(Slot::from(7)), Slot::from(7)));
 		assert!(para_slot_claimed(Some(Slot::from(7)), Slot::from(6)));
 		assert!(!para_slot_claimed(Some(Slot::from(7)), Slot::from(8)));
+	}
+
+	/// The budget is one package per core, and never zero: with no core at all the turn still
+	/// authors its first package, which the collation task keeps in flight and re-anchors until
+	/// a core is assigned.
+	#[test]
+	fn the_turn_budget_is_one_package_per_core() {
+		assert_eq!(turn_package_budget(0), 1, "the no-core turn still authors one package");
+		assert_eq!(turn_package_budget(1), 1);
+		assert_eq!(turn_package_budget(2), 2);
+	}
+
+	/// The first package of a turn is authored even with no core to send it to; every later one
+	/// needs a core of its own. The runtime's refusal ends the burst regardless, however many
+	/// cores are left.
+	#[test]
+	fn a_turn_needs_a_core_for_every_package_after_the_first() {
+		assert!(package_fits_turn(0, None, true), "the first package goes out with no core");
+		assert!(package_fits_turn(0, Some(0), true));
+		assert!(!package_fits_turn(1, None, true), "the cores are used up");
+		assert!(package_fits_turn(1, Some(2), true));
+		assert!(!package_fits_turn(0, Some(0), false), "velocity or capacity refused");
+		assert!(!package_fits_turn(1, Some(2), false));
+	}
+
+	/// Once the first package of a turn is authored, every later one extends the branch it
+	/// started — the ordinary one or a re-root's — so the re-root state keeps tracking the
+	/// turn's tip instead of snapping back to the first block.
+	#[test]
+	fn a_turns_later_packages_extend_its_branch() {
+		assert_eq!(next_parent_source(ParentSource::Reroot), ParentSource::Rerooted);
+		assert_eq!(next_parent_source(ParentSource::Rerooted), ParentSource::Rerooted);
+		assert_eq!(next_parent_source(ParentSource::Deepest), ParentSource::Deepest);
+		assert_eq!(next_parent_source(ParentSource::AccumulatedHead), ParentSource::Deepest);
 	}
 
 	/// The guard exists to catch a JAM chain that stalled, so the boundary matters: a tip that is
@@ -1955,7 +2095,7 @@ mod tests {
 	}
 
 	/// The timer has to land on the next slot boundary; being early would make the tick derive
-	/// the previous slot's number and skip itself on the one-block-per-slot guard.
+	/// the previous slot's number and skip itself on the one-turn-per-slot guard.
 	#[test]
 	fn the_timer_waits_for_the_next_slot_boundary() {
 		let slot = Duration::from_millis(6000);

@@ -4,7 +4,7 @@
 //! One run of the whole thing: a JAM network carrying parasim from genesis, and one collator
 //! set per para.
 
-use super::{
+use crate::{
 	collators::{Collators, JamTarget, Para, POLL_INTERVAL},
 	env::Binaries,
 	genesis,
@@ -22,6 +22,9 @@ use std::{
 	time::Duration,
 };
 use tokio::time::{sleep, Instant};
+
+/// The JAM network the tiny tests run on: two cores, six validators.
+pub const TINY_CORES: u16 = 2;
 
 /// The whole run — network spin-up and block production — has to fit in this.
 ///
@@ -130,13 +133,19 @@ impl Run {
 	/// genesis about their authorizer.
 	///
 	/// The cores are already pointed at the paras when the network comes up, so a collator has
-	/// somewhere to submit to from its first block.
-	pub async fn start(test: &str, binaries: &Binaries, paras: Vec<Para>) -> anyhow::Result<Self> {
+	/// somewhere to submit to from its first block. The network has `cores` cores and
+	/// `cores * 3` validators.
+	pub async fn start(
+		test: &str,
+		binaries: &Binaries,
+		paras: Vec<Para>,
+		cores: u16,
+	) -> anyhow::Result<Self> {
 		let deadline = Instant::now() + DEADLINE;
 		let work_dir = WorkDir::create(test)?;
 		log::info!("work dir: {}", work_dir.path().display());
 
-		let network = JamNetwork::spawn(binaries, work_dir.path(), deadline, &paras).await?;
+		let network = JamNetwork::spawn(binaries, work_dir.path(), deadline, &paras, cores).await?;
 
 		// Verify every para's registration before touching a collator: all three
 		// silent-drop paths in `accumulate/package.rs` are detectable from the config
@@ -561,7 +570,8 @@ pub async fn assert_collators_build_blocks(
 	blocks: u64,
 	finalized: u64,
 ) -> anyhow::Result<()> {
-	assert_paras_build_blocks(test, vec![Para::single(collators)], blocks, finalized).await
+	assert_paras_build_blocks(test, vec![Para::single(collators)], TINY_CORES, blocks, finalized)
+		.await
 }
 
 /// Start logging and resolve the artifacts, or explain what is missing and skip the test.
@@ -569,7 +579,7 @@ pub fn setup(test: &str) -> Option<Binaries> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
-	super::env::binaries_or_skip(test)
+	crate::env::binaries_or_skip(test)
 }
 
 /// Tear a run down, attaching the logs to whatever it failed on.
@@ -590,16 +600,18 @@ pub async fn finish(run: Run, result: anyhow::Result<()>) -> anyhow::Result<()> 
 	}
 }
 
-/// Run one collator set per para and assert every parachain keeps moving.
+/// Run one collator set per para on a network with `cores` cores and assert every parachain
+/// keeps moving.
 pub async fn assert_paras_build_blocks(
 	test: &str,
 	paras: Vec<Para>,
+	cores: u16,
 	blocks: u64,
 	finalized: u64,
 ) -> anyhow::Result<()> {
 	let Some(binaries) = setup(test) else { return Ok(()) };
 
-	let mut run = Run::start(test, &binaries, paras).await?;
+	let mut run = Run::start(test, &binaries, paras, cores).await?;
 	let result = async {
 		let heights = run.wait_for_blocks(blocks, finalized).await?;
 		log::info!("{test}: {}", run.describe(&heights));
@@ -625,7 +637,7 @@ async fn assert_jam_heads_advance(run: &mut Run) -> anyhow::Result<()> {
 	Ok(())
 }
 
-async fn assert_jam_parent_in_blocks(run: &mut Run) -> anyhow::Result<()> {
+pub async fn assert_jam_parent_in_blocks(run: &mut Run) -> anyhow::Result<()> {
 	let rpcs = run.rpcs().await?;
 	let rpc = rpcs.first().context("no collator RPC available")?;
 
@@ -684,7 +696,7 @@ mod tests {
 	const TEST_BLOB: &[u8] = b"test-validation-code-for-t8-harness-unit-tests";
 
 	fn test_para() -> Para {
-		Para { id: 0, core: 0, collators: vec![0] }
+		Para { id: 0, core: 0, also_cores: Vec::new(), collators: vec!["alice".to_string()] }
 	}
 
 	/// Build a minimal genesis with one para registered under `blob` as its validation code.
@@ -699,7 +711,11 @@ mod tests {
 					.head_data(b"genesis-head".to_vec())
 					.validation_code(blob)
 					.state_balance(u64::MAX)
-					.authorizer(b"auth-blob", &genesis::aura_config(&para)),
+					.authorizer(
+						b"auth-blob",
+						&genesis::aura_config(&para)
+							.expect("the test para's collator derives to a key; qed"),
+					),
 			)
 			.build()
 			.expect("minimal genesis must build; qed");

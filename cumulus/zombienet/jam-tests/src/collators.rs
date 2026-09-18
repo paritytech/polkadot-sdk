@@ -7,7 +7,7 @@
 //! harness owns. [`Collators`] kills them all on drop, which covers a panicking or timing-out test
 //! as well as a clean one.
 
-use super::{chain_spec, env::Binaries, network::polkavm_env, rpc::CollatorRpc};
+use crate::{chain_spec, env::Binaries, network::polkavm_env, rpc::CollatorRpc};
 use anyhow::Context;
 use std::{
 	fs::File,
@@ -48,20 +48,44 @@ pub struct JamTarget {
 }
 
 /// One parachain of a run: the id it collates under, the core its work packages are authorized
-/// on, and the dev accounts that collate for it.
+/// on, and the node names that collate for it.
 #[derive(Clone, Debug)]
 pub struct Para {
 	pub id: u32,
 	pub core: u32,
-	/// Indices into [`chain_spec::DEV_ACCOUNTS`], in the order the AURA round-robin walks them.
-	pub collators: Vec<usize>,
+	/// Every further core this para's authorizer is queued on, beyond [`Self::core`]. Empty for
+	/// every one-core para, which is all of them but the elastic-scaling burst test.
+	///
+	/// An authorizer hash commits to the para id and collator set, not to a core, so the same
+	/// hash can fill more than one core's queue — which is what makes a collator's turn burst
+	/// one package per core. Genesis rejects two paras naming the same core, so the extra cores
+	/// must be free.
+	pub also_cores: Vec<u32>,
+	/// Node names, in the order the AURA round-robin walks them. A collator's key is derived from
+	/// its name by zombienet — see [`chain_spec::account_of`] — so a name is all the harness
+	/// needs to know which key a running collator will hold.
+	pub collators: Vec<String>,
 }
 
 impl Para {
 	/// The single para the collator-progress tests run: para 0 on core 0, collated by the first
 	/// `count` dev accounts.
 	pub fn single(count: usize) -> Self {
-		Para { id: 0, core: 0, collators: (0..count).collect() }
+		Para {
+			id: 0,
+			core: 0,
+			also_cores: Vec::new(),
+			collators: (0..count).map(chain_spec::dev_name).collect(),
+		}
+	}
+
+	/// Queue this para's authorizer on `cores` in addition to [`Self::core`].
+	///
+	/// One collator's authorizer on two cores is the elastic-scaling burst: one turn then
+	/// authors one package per core, chained, in the same JAM block.
+	pub fn also_on(mut self, cores: impl IntoIterator<Item = u32>) -> Self {
+		self.also_cores.extend(cores);
+		self
 	}
 
 	/// The collator set as `parasim-tool --collators` spells it: the names in the order the
@@ -71,17 +95,13 @@ impl Para {
 	/// index the authorizer hash commits to — so it has to be the runtime's order, not the order
 	/// this harness happens to list its collators in. See [`chain_spec::in_authority_order`]:
 	/// those two differ as soon as a para has more than one collator.
-	pub fn collator_names(&self) -> String {
-		let names: Vec<String> = chain_spec::in_authority_order(&self.collators)
-			.into_iter()
-			.map(chain_spec::dev_name)
-			.collect();
-		names.join(",")
+	pub fn collator_names(&self) -> anyhow::Result<String> {
+		Ok(chain_spec::in_authority_order(&self.collators)?.join(","))
 	}
 }
 
 impl Collators {
-	/// Start one collator per dev account in `para`'s set, against the chain spec `spec` —
+	/// Start one collator per node name in `para`'s set, against the chain spec `spec` —
 	/// the file [`JamNetwork::spawn`] already built and derived the para's genesis head from.
 	pub fn spawn(
 		binaries: &Binaries,
@@ -95,9 +115,8 @@ impl Collators {
 		let mut collators = Vec::with_capacity(count);
 		let mut bootnode: Option<String> = None;
 
-		for (index, account) in para.collators.iter().copied().enumerate() {
-			let name = chain_spec::dev_name(account);
-			let base_path = work_dir.join(&name);
+		for (index, name) in para.collators.iter().enumerate() {
+			let base_path = work_dir.join(name);
 			let p2p_port = first_port + index as u16 * PORTS_PER_COLLATOR;
 			let rpc_port = p2p_port + 1;
 			let prometheus_port = p2p_port + 2;
@@ -115,7 +134,7 @@ impl Collators {
 				.arg(spec)
 				.arg("--base-path")
 				.arg(&base_path)
-				.args(["--collator", &chain_spec::dev_account_flag(account), "--force-authoring"])
+				.args(["--collator", &chain_spec::dev_account_flag(name), "--force-authoring"])
 				.args(["--port", &p2p_port.to_string()])
 				.args(["--rpc-port", &rpc_port.to_string()])
 				// Every collator needs its own metrics port; they would otherwise all try to bind
@@ -148,7 +167,7 @@ impl Collators {
 
 			bootnode.get_or_insert(format!("/ip4/127.0.0.1/tcp/{p2p_port}/p2p/{peer_id}"));
 			collators.push(Collator {
-				name,
+				name: name.clone(),
 				process,
 				rpc_url: format!("ws://127.0.0.1:{rpc_port}"),
 				log_path,
@@ -171,7 +190,7 @@ impl Collators {
 			.filter_map(|collator| {
 				let log = std::fs::read_to_string(&collator.log_path).unwrap_or_default();
 				log.lines()
-					.find_map(super::genesis::logged_authorizer_hash)
+					.find_map(crate::genesis::logged_authorizer_hash)
 					.map(|hash| (collator.name.clone(), hash.to_string()))
 			})
 			.collect()

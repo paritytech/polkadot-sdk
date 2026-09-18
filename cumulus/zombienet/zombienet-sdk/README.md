@@ -20,3 +20,18 @@ You can also just use `run.sh` that setups everything for you and runs the tests
 
 In addition, you can specify a base directory with `ZOMBIENET_SDK_BASE_DIR=/my/dir/of/choice`. All chain files and logs
 will be placed in that directory.
+
+## JAM network tests
+
+The test suites can run against a JAM network instead of a relay chain by enabling the `jam` feature:
+
+```
+ZOMBIE_PROVIDER=native cargo test --release -p cumulus-zombienet-sdk-tests --features jam,zombie-ci
+```
+
+The `jam` feature gates the `elastic_scaling` and `block_bundling` test suites to run on a JAM network. Tests requiring
+more than two cores are excluded: `elastic_scaling::asset_hub_westend`, `elastic_scaling::slot_based_authoring`,
+`elastic_scaling::upgrade_to_3_cores`, and `block_bundling::basic`. A tiny JAM network has exactly two cores (six
+validators, three per core), so these tests have no JAM counterpart.
+
+JAM networks are supported on the native provider only.

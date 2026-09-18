@@ -22,13 +22,15 @@
 //! para-head stream, the status subscriptions of every submitted package, and a
 //! once-per-JAM-slot timer.
 //!
-//! Each block the builder hands over becomes **one independent work package**: no prerequisite,
-//! no imported segment, `export_count = 0`, submitted with a plain `submitWorkPackage`. Phase 5a
-//! removed the in-core link between a block's package and its parent's, because an import
-//! authenticates bytes to a *package*, not to a service, and so never carried the security it
-//! appeared to; lineage is declared in the work output (the parent head hash refine derives from
-//! the block) and settled by the parachain service at accumulate, which applies a head only if
-//! it chains onto the stored one and buffers the rest.
+//! Each block the builder hands over becomes **one work package**: no imported segment,
+//! `export_count = 0`, submitted with a plain `submitWorkPackage`. A package names the work
+//! package of the block it builds on as its single prerequisite, when this node still remembers
+//! that package's hash; a miss starts a new chain. Phase 5a removed the in-core *import* link
+//! between a block's package and its parent's, because an import authenticates bytes to a
+//! *package*, not to a service, and so never carried the security it appeared to; lineage is
+//! declared in the work output (the parent head hash refine derives from the block) and settled
+//! by the parachain service at accumulate, which applies a head only if it chains onto the
+//! stored one and buffers the rest.
 //!
 //! What a package still carries is the anchor state proof of the para head, inside the PoV.
 //! Each block also carries a `JamParent` digest that names the anchor it was built against;
@@ -38,12 +40,12 @@
 //! **Re-anchoring policy**: when the anchor *hash* changes, `reanchor()` drops the package and
 //! lets the builder re-author a fresh block with the correct digest on the next tick. When only
 //! the lookup anchor changes (same anchor hash), the digest is still valid and re-signing is
-//! safe and cheap. Nothing names a package's hash any more, so a hash change cannot orphan
-//! anything regardless.
+//! safe and cheap. Dropping a package forgets its ledger entry and, with it, every package that
+//! named it: a prerequisite nothing will ever report would block its child for good.
 //!
-//! Failure handling is per package and has no tail: a package that can no longer be reported is
-//! forgotten. Nothing else has to be undone, because no other package depended on it; the block
-//! itself stays in the local database, and the next parachain slot authors on whatever is
+//! Failure handling is per package and cascades: a package that can no longer be reported is
+//! forgotten together with its descendants, so no child outlives the prerequisite it named. The
+//! block itself stays in the local database, and the next parachain slot authors on whatever is
 //! deepest there.
 //!
 //! Every package runs under the para's own [AURA authorizer](super::authorizer) and carries a
@@ -54,8 +56,9 @@
 //! compressed PoVs; JIP-2 is silent on compression).
 
 use super::{
-	authorizer::AuraAuthorizer, choose_lookup_anchor, jam_read, jam_slot_at, para_head_stream,
-	resubmission::*, scan_pools_at, JamCollatorMessage, JAM_SLOT_DURATION_MS, LOG_TARGET,
+	authorizer::AuraAuthorizer, choose_lookup_anchor, hash_ledger::WpHashLedger, jam_read,
+	jam_slot_at, para_head_stream, resubmission::*, scan_pools_at, JamCollatorMessage,
+	JAM_SLOT_DURATION_MS, LOG_TARGET,
 };
 use crate::common::{types::ParachainClient, ConstructNodeRuntimeApi, NodeBlock};
 use codec::{Decode, Encode};
@@ -71,9 +74,13 @@ use jam_interface::{
 	ServiceId, Slot as JamSlot, VersionedParameters, WorkPackage, WorkPackageHash,
 	WorkPackageStatus,
 };
-use jam_types::{Authorization, CodeHash, RefineContext, UnsignedGas, WorkItem, WorkPayload};
+use jam_types::{
+	Authorization, CodeHash, RefineContext, UnsignedGas, VecSet, WorkItem, WorkPayload,
+};
 use parachain_service_core::{authorizer::Authorizer, candidate::ParachainCandidate};
 use polkadot_primitives::Id as ParaId;
+use sc_client_api::backend::AuxStore;
+use sc_client_db::DbHash;
 use sp_additional_data::AdditionalData;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
 use sp_timestamp::Timestamp;
@@ -197,10 +204,10 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 	// Nothing is tracked after a restart and nothing needs to be: the packages this task lost
 	// track of are either already accumulated or lost, and the builder authors from the local
 	// database and the accumulated head either way.
+	let hash_ledger = WpHashLedger::new(Arc::clone(&para_client));
 	let mut manager = Manager {
 		para_client,
 		jam,
-		para_id: para_id.into(),
 		service_id,
 		authorizer,
 		service_code_hash,
@@ -208,6 +215,7 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		accumulate_gas_limit,
 		policy: ReanchorThenForget::new(max_resubmits),
 		announce_block,
+		hash_ledger,
 		packages: InFlightPackages::new(),
 		included_head: None,
 		statuses: SelectAll::new(),
@@ -269,8 +277,8 @@ struct InFlight<Block: BlockT> {
 
 /// The work packages this collator has in flight, in the order they were submitted.
 ///
-/// A plain list, not a chain: phase 5a packages depend on nothing, so one leaving — accumulated,
-/// forgotten, superseded — says nothing about any other.
+/// A plain list, not a chain: a package's prerequisite link lives in its own context, and
+/// nothing here walks it.
 struct InFlightPackages<Block: BlockT> {
 	entries: VecDeque<InFlight<Block>>,
 }
@@ -370,10 +378,117 @@ fn work_package_hash(package: &WorkPackage) -> WorkPackageHash {
 	WorkPackageHash::from(sp_crypto_hashing::blake2_256(&jam_codec::Encode::encode(package)))
 }
 
+/// The prerequisite a package for a block must name: the work package this node submitted for
+/// the block's parent, when the ledger still remembers it.
+///
+/// A miss starts a new chain, and so does a ledger read failure — a broken link only costs the
+/// link, while dropping the block over it would lose the block for good. One prerequisite is all
+/// a linear chain ever needs, well under the protocol's cap of eight.
+fn prerequisites_for_parent<C: AuxStore>(
+	ledger: &WpHashLedger<C>,
+	parent_hash: [u8; 32],
+) -> VecSet<WorkPackageHash> {
+	match ledger.get(&parent_hash) {
+		Ok(Some(parent_wp_hash)) => vec![parent_wp_hash].into(),
+		Ok(None) => Default::default(),
+		Err(error) => {
+			tracing::warn!(
+				target: LOG_TARGET,
+				?error,
+				?parent_hash,
+				"Unable to read the parent's work-package hash; starting a new chain.",
+			);
+			Default::default()
+		},
+	}
+}
+
+/// Record the hash of the package submitted for `block_hash` in the ledger and return it, so the
+/// block's child can name it as its prerequisite.
+///
+/// A write failure must not drop the block: the only consequence is that the child starts a new
+/// chain, so it is logged and swallowed.
+fn record_submitted_hash<C: AuxStore>(
+	ledger: &WpHashLedger<C>,
+	block_hash: [u8; 32],
+	package: &WorkPackage,
+) -> WorkPackageHash {
+	let wp_hash = work_package_hash(package);
+	if let Err(error) = ledger.insert(&block_hash, wp_hash) {
+		tracing::warn!(
+			target: LOG_TARGET,
+			?error,
+			?block_hash,
+			?wp_hash,
+			"Unable to record the work-package hash; this block's child starts a new chain.",
+		);
+	}
+	wp_hash
+}
+
+/// Forget the package at `index` and, with it, every package whose prerequisite chain leads back
+/// to it, handing back every entry that was forgotten so the caller can close one subscription
+/// per package and log it.
+///
+/// Forgetting a package has to take its ledger entry with it: that entry is what the block's
+/// child names as its prerequisite, and a child chained to a package nothing will ever report
+/// can never accumulate. The child itself has to go too, for the same reason — transitively,
+/// because a grandchild names the child. `Block::Hash` is the node's `DbHash` because that is
+/// what the ledger is keyed by.
+fn forget_package<Block: BlockT<Hash = DbHash>, C: AuxStore>(
+	packages: &mut InFlightPackages<Block>,
+	ledger: &WpHashLedger<C>,
+	index: usize,
+) -> Vec<InFlight<Block>> {
+	let primary = packages.remove(index);
+	let mut dead = vec![primary.wp_hash];
+	let mut forgotten = vec![primary];
+
+	// An explicit worklist, not recursion: the chain is linear, so the depth is bounded by the
+	// number of in-flight packages, but a malformed store could in principle describe a cycle
+	// and this must not hang on one. Removing each entry as it is found is what terminates a
+	// cycle: a package that is already gone cannot name a dead one again.
+	while let Some(dead_hash) = dead.pop() {
+		// Collect first, then remove from the highest index down: every removal shifts the
+		// indices after it.
+		let children: Vec<usize> = packages
+			.entries
+			.iter()
+			.enumerate()
+			.filter(|(_, entry)| entry.package.context.prerequisites.contains(&dead_hash))
+			.map(|(index, _)| index)
+			.collect();
+		for index in children.into_iter().rev() {
+			let entry = packages.remove(index);
+			dead.push(entry.wp_hash);
+			forgotten.push(entry);
+		}
+	}
+
+	// Every forgotten package's ledger entry goes with it, cascaded ones included: the entry is
+	// what a later child would name, and naming a forgotten package is exactly the dangling
+	// prerequisite this cascade exists to prevent. A failed removal must not be fatal — the
+	// package is already out of flight either way — so it is logged and swallowed, like the
+	// write in `record_submitted_hash`.
+	for entry in &forgotten {
+		if let Err(error) = ledger.remove(&entry.block_hash.into()) {
+			tracing::warn!(
+				target: LOG_TARGET,
+				block_hash = ?entry.block_hash,
+				wp_hash = ?entry.wp_hash,
+				?error,
+				"Unable to remove the work-package hash ledger entry; a later child of this block \
+				 may name a package nothing will report.",
+			);
+		}
+	}
+
+	forgotten
+}
+
 struct Manager<Block: NodeBlock, RuntimeApi, Jam> {
 	para_client: Arc<ParachainClient<Block, RuntimeApi>>,
 	jam: Arc<Jam>,
-	para_id: u32,
 	service_id: ServiceId,
 	/// The para's AURA authorizer: what every package here runs under, and what signs it.
 	authorizer: Arc<AuraAuthorizer>,
@@ -382,6 +497,9 @@ struct Manager<Block: NodeBlock, RuntimeApi, Jam> {
 	accumulate_gas_limit: UnsignedGas,
 	policy: ReanchorThenForget,
 	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
+	/// Which work package this node submitted for which block. Signing is non-deterministic, so
+	/// a package's hash can only be remembered, never recomputed — not even by its author.
+	hash_ledger: WpHashLedger<ParachainClient<Block, RuntimeApi>>,
 	packages: InFlightPackages<Block>,
 	/// The para head last seen in JAM state, for the log alone; `None` until the stream reports
 	/// one. No decision reads it: it is a strictly later observation than the anchor a package
@@ -401,9 +519,10 @@ where
 {
 	/// A block from the builder: assemble its package, submit it, track it.
 	///
-	/// There is no linking step left. The package stands on its own: the parent it declares
-	/// travels inside the PoV, and the parachain service decides at accumulate whether that
-	/// parent is the stored head, a head still to come (buffered) or a fork loser (dropped).
+	/// The package names the work package this node submitted for the parent block as its one
+	/// prerequisite, when the ledger still remembers it. The parent it declares also travels
+	/// inside the PoV, and the parachain service decides at accumulate whether that parent is
+	/// the stored head, a head still to come (buffered) or a fork loser (dropped).
 	async fn on_new_block(&mut self, message: JamCollatorMessage<Block>) {
 		let JamCollatorMessage {
 			parent_header,
@@ -461,7 +580,17 @@ where
 			authorizer: self.authorizer.authorizer(),
 			parent_header,
 		};
-		let anchored = Anchored { context, anchor_slot, submit_target };
+		// The prerequisite goes in before the package is signed: the token covers the context,
+		// so a prerequisite set afterwards would leave the signature over the wrong bytes and
+		// every guarantor would reject the package.
+		let anchored = Anchored {
+			context: RefineContext {
+				prerequisites: prerequisites_for_parent(&self.hash_ledger, parent_hash.into()),
+				..context
+			},
+			anchor_slot,
+			submit_target,
+		};
 		let package = match self.authorized_package(&source, &anchored) {
 			Ok(package) => package,
 			Err(error) => {
@@ -477,7 +606,7 @@ where
 				return;
 			},
 		};
-		let wp_hash = work_package_hash(&package);
+		let wp_hash = record_submitted_hash(&self.hash_ledger, block_hash.into(), &package);
 
 		tracing::info!(
 			target: LOG_TARGET,
@@ -485,6 +614,7 @@ where
 			%block_number,
 			?parent_hash,
 			?wp_hash,
+			prerequisite = ?anchored.context.prerequisites.as_ref().first(),
 			core = ?anchored.submit_target,
 			anchor = ?anchored.context.anchor,
 			anchor_slot,
@@ -766,6 +896,11 @@ where
 			self.forget(index, "the re-anchored package could not be submitted");
 			return;
 		}
+		// The block's ledger entry has to name the package now in flight, not the one the fresh
+		// signature replaced: a child built on this block names whatever the ledger holds, and
+		// the old hash is a package nothing will ever report. `forget`'s cascade matches on the
+		// entry's live hash, so a stale one would also hide the child from it.
+		record_submitted_hash(&self.hash_ledger, block_hash.into(), &package);
 		// The old package hash is gone, so its subscription has to go with it.
 		self.stop_following(old_wp_hash, "re-anchored");
 		let submitted_at = jam_slot_at(Timestamp::current());
@@ -778,29 +913,33 @@ where
 		entry.reported = false;
 	}
 
-	/// Give up on a package.
+	/// Give up on a package and, transitively, on every package that named it.
 	///
-	/// Nothing else has to be undone — no other package named this one — and the block itself
-	/// stays in the local database, so the next parachain slot simply authors on whatever is
-	/// deepest there. What this does cost is the parachain's progress until somebody resubmits
-	/// the missing package: descendants of the lost block sit in the service's reorder buffer
-	/// until the buffer evicts them. Resubmission by another collator is phase-7 work, so this
-	/// logs loudly enough to be the thing a stalled parachain is diagnosed from.
+	/// The block itself stays in the local database, so the next parachain slot simply authors
+	/// on whatever is deepest there. What this does cost is the parachain's progress until
+	/// somebody resubmits the missing package: descendants of the lost block sit in the
+	/// service's reorder buffer until the buffer evicts them. Resubmission by another collator
+	/// is phase-7 work, so this logs loudly enough to be the thing a stalled parachain is
+	/// diagnosed from.
 	fn forget(&mut self, index: usize, reason: &str) {
-		let entry = self.packages.remove(index);
-		self.stop_following(entry.wp_hash, "forgotten");
-		tracing::warn!(
-			target: LOG_TARGET,
-			block_hash = ?entry.block_hash,
-			block_number = %entry.block_number,
-			parent_hash = ?entry.parent_hash,
-			wp_hash = ?entry.wp_hash,
-			reason,
-			resubmits = entry.resubmits,
-			in_flight = self.packages.len(),
-			"Giving up on a work package. Its block stays in the local database, so authoring \
-			 continues, but nothing this collator does will make that block accumulate.",
-		);
+		let forgotten = forget_package(&mut self.packages, &self.hash_ledger, index);
+		let cascade_len = forgotten.len();
+		for entry in &forgotten {
+			self.stop_following(entry.wp_hash, "forgotten");
+			tracing::warn!(
+				target: LOG_TARGET,
+				block_hash = ?entry.block_hash,
+				block_number = %entry.block_number,
+				parent_hash = ?entry.parent_hash,
+				wp_hash = ?entry.wp_hash,
+				reason,
+				resubmits = entry.resubmits,
+				cascade_len,
+				in_flight = self.packages.len(),
+				"Giving up on a work package. Its block stays in the local database, so authoring \
+				 continues, but nothing this collator does will make that block accumulate.",
+			);
+		}
 		self.log_state("a package was forgotten");
 	}
 
@@ -1063,7 +1202,11 @@ where
 		new_core = ?submit_target,
 		"Re-anchored the work package around a fresh anchor and re-scanned the authorizer pools.",
 	);
-	Ok(Anchored { context, anchor_slot, submit_target })
+	Ok(Anchored {
+		context: RefineContext { prerequisites: previous.context.prerequisites.clone(), ..context },
+		anchor_slot,
+		submit_target,
+	})
 }
 
 /// The refine context around the current best JAM block (anchor = parent of best), as in
@@ -1112,10 +1255,16 @@ where
 
 #[cfg(test)]
 mod tests {
-	use super::{super::authorizer::tests::authorizer_of, *};
+	use super::{
+		super::{authorizer::tests::authorizer_of, hash_ledger::test_support::ledger},
+		*,
+	};
+	use codec::DecodeAll;
 	use cumulus_jam_state_reader::JAM_PROOF_KEY;
 	use cumulus_test_runtime::{Block as TestBlock, Header as TestHeader};
 	use jam_std_common::build_encoded_bundle;
+	use parachain_authorizer::aura::{signable_work_package_hash, AuthToken as GuestToken};
+	use parachain_authorizer_sr25519::Sr25519;
 	use parachain_service_core::StateProof;
 	use sp_core::H256;
 
@@ -1155,6 +1304,15 @@ mod tests {
 			},
 			anchor_slot,
 			submit_target: Some(0),
+		}
+	}
+
+	/// `anchored(11)` carrying `prerequisites`, the way `on_new_block` hands them to the
+	/// assembler.
+	fn anchored_naming(prerequisites: VecSet<WorkPackageHash>) -> Anchored {
+		Anchored {
+			context: RefineContext { prerequisites, ..anchored(11).context },
+			..anchored(11)
 		}
 	}
 
@@ -1199,17 +1357,109 @@ mod tests {
 		packages
 	}
 
-	/// A package stands alone: nothing orders it behind another package, nothing is imported
-	/// into it, and nothing is exported out of it for a child to import. This is the whole of
-	/// what phase 5a changed on the wire.
+	/// With no entry for the parent block in the ledger the chain restarts here: the assembled
+	/// package names nothing. Nothing is imported into it and nothing is exported out of it for
+	/// a child to import — the whole of what phase 5a changed on the wire.
 	#[test]
-	fn a_package_names_no_other_package() {
-		let package = package_source().package(&anchored(11));
+	fn a_package_with_no_known_parent_has_empty_prerequisites() {
+		let ledger = ledger();
+		let prerequisites = prerequisites_for_parent(&ledger, H256::repeat_byte(0x22).into());
+		let package = package_source().package(&anchored_naming(prerequisites));
 
 		assert!(package.context.prerequisites.as_ref().is_empty());
 		assert!(package.items[0].import_segments.is_empty());
 		assert_eq!(package.items[0].export_count, 0);
 		assert!(package.items[0].extrinsics.is_empty());
+	}
+
+	/// When the ledger remembers the parent block's package, the assembled package names exactly
+	/// that one package as its prerequisite — the linear chain.
+	#[test]
+	fn a_package_with_known_parent_names_it_as_prerequisite() {
+		let parent_hash = H256::repeat_byte(0x11);
+		let parent_wp_hash = wp_hash(0xAB);
+		let ledger = ledger();
+		ledger.insert(&parent_hash.into(), parent_wp_hash).expect("insert ok; qed");
+
+		let prerequisites = prerequisites_for_parent(&ledger, parent_hash.into());
+		let package = package_source().package(&anchored_naming(prerequisites));
+
+		assert_eq!(
+			package.context.prerequisites.as_ref(),
+			&[parent_wp_hash],
+			"exactly the parent's package",
+		);
+	}
+
+	/// A package chains behind its parent's package when the ledger remembers that package's
+	/// hash: exactly one prerequisite, the parent — the linear chain.
+	#[test]
+	fn package_names_parent_as_prerequisite() {
+		let parent_hash = H256::repeat_byte(0x11);
+		let parent_wp_hash = wp_hash(0xAB);
+		let ledger = ledger();
+		ledger.insert(&parent_hash.into(), parent_wp_hash).expect("insert ok; qed");
+
+		let prerequisites = prerequisites_for_parent(&ledger, parent_hash.into());
+		assert_eq!(prerequisites.as_ref(), &[parent_wp_hash], "exactly the parent's package");
+
+		let package = signed(&package_source(), &anchored_naming(prerequisites));
+		assert_eq!(
+			package.context.prerequisites.as_ref(),
+			&[parent_wp_hash],
+			"the assembled package carries the parent's hash",
+		);
+	}
+
+	/// With no entry for the parent block the chain restarts here: the package names nothing.
+	#[test]
+	fn package_without_known_parent_has_no_prerequisite() {
+		let ledger = ledger();
+
+		let prerequisites = prerequisites_for_parent(&ledger, H256::repeat_byte(0x22).into());
+		assert!(prerequisites.is_empty(), "a parent hash the ledger does not hold is no link");
+
+		let package = signed(&package_source(), &anchored_naming(prerequisites));
+		assert!(package.context.prerequisites.as_ref().is_empty());
+	}
+
+	/// The recording step of `on_new_block`: the hash JAM keys the submitted package by is the
+	/// hash the ledger remembers for its block, ready for the block's child to name.
+	#[test]
+	fn submitted_hash_is_recorded_in_the_ledger() {
+		let ledger = ledger();
+		let block_hash = H256::repeat_byte(0x33);
+		let package = signed(&package_source(), &anchored(11));
+
+		let recorded = record_submitted_hash(&ledger, block_hash.into(), &package);
+
+		assert_eq!(recorded, work_package_hash(&package));
+		assert_eq!(
+			ledger.get(&block_hash.into()).expect("read ok; qed"),
+			Some(work_package_hash(&package)),
+		);
+	}
+
+	/// The prerequisite is part of the bytes the token signs: the token verifies against the
+	/// package that names the parent and fails against the same package without the link. A
+	/// prerequisite set after signing would invert both.
+	#[test]
+	fn prerequisite_is_covered_by_the_signature() {
+		let parent_wp_hash = wp_hash(0xAB);
+		let package = signed(&package_source(), &anchored_naming(vec![parent_wp_hash].into()));
+		assert_eq!(package.context.prerequisites.as_ref(), &[parent_wp_hash]);
+
+		let token = GuestToken::decode_all(&mut &package.authorization[..])
+			.expect("the guest decodes the token this node encoded");
+		token
+			.check_signature::<Sr25519>(signable_work_package_hash(&package))
+			.expect("the signature covers the prerequisite");
+
+		let without = signed(&package_source(), &anchored(11));
+		assert!(
+			token.check_signature::<Sr25519>(signable_work_package_hash(&without)).is_err(),
+			"the same token does not authorize the package without the prerequisite",
+		);
 	}
 
 	/// The hash is the key everything else uses — the status subscription, the manager's own
@@ -1283,6 +1533,149 @@ mod tests {
 		assert_eq!(first.items[0].payload.0, second.items[0].payload.0, "the PoV is untouched");
 	}
 
+	/// Minimal JAM-source stub for `recontext` tests. Returns a fixed anchor ([99;32], slot 87)
+	/// that is distinct from the one `anchored()` uses ([9;32]), proving the anchor changed.
+	/// With `aura()` = one-collator alice, `choose_lookup_anchor` stops at the first block
+	/// (she names every slot), so no recursive `parent` calls are made.
+	struct MockJam;
+
+	#[async_trait::async_trait]
+	impl JamChainSource for MockJam {
+		async fn best_block(&self) -> jam_interface::Result<jam_interface::BlockDesc> {
+			Ok(jam_interface::BlockDesc { header_hash: HeaderHash::from([88u8; 32]), slot: 88 })
+		}
+		async fn finalized_block(&self) -> jam_interface::Result<jam_interface::BlockDesc> {
+			Ok(jam_interface::BlockDesc { header_hash: HeaderHash::from([77u8; 32]), slot: 77 })
+		}
+		async fn best_block_stream(
+			&self,
+		) -> jam_interface::Result<BoxStream<'static, jam_interface::BlockDesc>> {
+			Ok(futures::stream::pending().boxed())
+		}
+		async fn finalized_block_stream(
+			&self,
+		) -> jam_interface::Result<BoxStream<'static, jam_interface::BlockDesc>> {
+			Ok(futures::stream::pending().boxed())
+		}
+		async fn parent(
+			&self,
+			hash: HeaderHash,
+		) -> jam_interface::Result<jam_interface::BlockDesc> {
+			Ok(match hash.0[0] {
+				88 => {
+					jam_interface::BlockDesc { header_hash: HeaderHash::from([99u8; 32]), slot: 87 }
+				},
+				77 => {
+					jam_interface::BlockDesc { header_hash: HeaderHash::from([66u8; 32]), slot: 76 }
+				},
+				_ => {
+					return Err(jam_interface::Error::Other(format!("unexpected parent({hash:?})")))
+				},
+			})
+		}
+		async fn state_root(
+			&self,
+			hash: HeaderHash,
+		) -> jam_interface::Result<jam_interface::StateRootHash> {
+			Ok(match hash.0[0] {
+				99 => [1u8; 32].into(),
+				66 => [3u8; 32].into(),
+				_ => {
+					return Err(jam_interface::Error::Other(format!(
+						"unexpected state_root({hash:?})"
+					)))
+				},
+			})
+		}
+		async fn beefy_root(
+			&self,
+			_hash: HeaderHash,
+		) -> jam_interface::Result<jam_interface::MmrPeakHash> {
+			Ok([2u8; 32].into())
+		}
+		async fn parameters(&self) -> jam_interface::Result<VersionedParameters> {
+			Err(jam_interface::Error::Other("not needed in test".to_string()))
+		}
+	}
+
+	#[async_trait::async_trait]
+	impl JamStateSource for MockJam {
+		async fn state_value(
+			&self,
+			_at: HeaderHash,
+			_key: jam_interface::StorageKey,
+		) -> jam_interface::Result<Option<Vec<u8>>> {
+			Ok(None)
+		}
+		async fn state_value_stream(
+			&self,
+			_key: jam_interface::StorageKey,
+			_finalized: bool,
+		) -> jam_interface::Result<BoxStream<'static, jam_interface::ChainSubUpdate<Option<Vec<u8>>>>>
+		{
+			Ok(futures::stream::pending().boxed())
+		}
+		async fn state_proof(
+			&self,
+			_at: HeaderHash,
+			_start: jam_interface::StorageKey,
+			_end: jam_interface::StorageKey,
+			_size: u32,
+		) -> jam_interface::Result<jam_interface::RangeProof> {
+			Err(jam_interface::Error::Other("not needed in test".to_string()))
+		}
+		async fn service_value(
+			&self,
+			_at: HeaderHash,
+			_service: ServiceId,
+			_key: &[u8],
+		) -> jam_interface::Result<Option<Vec<u8>>> {
+			Ok(None)
+		}
+		async fn service_value_stream(
+			&self,
+			_service: ServiceId,
+			_key: &[u8],
+			_finalized: bool,
+		) -> jam_interface::Result<BoxStream<'static, jam_interface::ChainSubUpdate<Option<Vec<u8>>>>>
+		{
+			Ok(futures::stream::pending().boxed())
+		}
+		async fn auth_pools(
+			&self,
+			_at: HeaderHash,
+		) -> jam_interface::Result<jam_interface::AuthPools> {
+			Ok(jam_types::FixedVec::from_fn(|_| Default::default()))
+		}
+	}
+
+	/// `recontext()` rebuilds the refine context from the chain but must carry through any
+	/// prerequisites already set on the package — they reflect its position in the block chain,
+	/// not the anchor it happens to be submitted against.
+	#[test]
+	fn recontext_preserves_prerequisites() {
+		let prereq = wp_hash(0xAB);
+		let old = Anchored {
+			context: RefineContext { prerequisites: vec![prereq].into(), ..anchored(10).context },
+			..anchored(10)
+		};
+		assert!(
+			!old.context.prerequisites.is_empty(),
+			"precondition: prerequisites must be non-empty",
+		);
+		let new_anchored =
+			futures::executor::block_on(recontext(&MockJam, &aura(), &old, "test-block"))
+				.expect("mock always returns Ok; qed");
+		assert_ne!(
+			new_anchored.context.anchor, old.context.anchor,
+			"anchor must change so the test exercises a real re-anchor",
+		);
+		assert_eq!(
+			new_anchored.context.prerequisites, old.context.prerequisites,
+			"prerequisites survive re-anchoring unchanged",
+		);
+	}
+
 	/// A soft resubmission has to be the *same bytes*: a package rebuilt instead of replayed
 	/// would hash differently, and JAM would see a second package where the collator meant to
 	/// repeat one — a second refine, a second report, and a status subscription following a hash
@@ -1354,6 +1747,47 @@ mod tests {
 		assert_eq!(
 			packages.entries.iter().map(|entry| entry.wp_hash).collect::<Vec<_>>(),
 			vec![wp_hash(0), wp_hash(2), wp_hash(3)],
+		);
+	}
+
+	/// A forgotten package's child goes with it: the child names the parent's package as its
+	/// prerequisite, and a prerequisite nothing will ever report blocks the child for good. Both
+	/// entries come back so `forget` closes both subscriptions.
+	#[test]
+	fn cascade_forget_drops_child_package() {
+		let mut packages = in_flight(2);
+		let parent_block_hash = packages.entries[0].block_hash;
+		let parent = packages.entries[0].wp_hash;
+		let child = packages.entries[1].wp_hash;
+		packages.entries[1].anchored.context.prerequisites = vec![parent].into();
+		packages.entries[1].package.context.prerequisites = vec![parent].into();
+		let ledger = ledger();
+		ledger.insert(&parent_block_hash.into(), parent).expect("insert ok; qed");
+
+		let forgotten = forget_package(&mut packages, &ledger, 0);
+
+		assert_eq!(forgotten.len(), 2, "the child is forgotten with the parent it named");
+		assert!(packages.position_of_package(parent).is_none());
+		assert!(packages.position_of_package(child).is_none(), "no child outlives its parent");
+	}
+
+	/// A forgotten package leaves no ledger entry behind: that entry is what a later child would
+	/// name as its prerequisite, and keeping it would chain the child to a package nothing will
+	/// ever report.
+	#[test]
+	fn forget_removes_the_ledger_entry() {
+		let mut packages = in_flight(1);
+		let block_hash = packages.entries[0].block_hash;
+		let submitted = packages.entries[0].wp_hash;
+		let ledger = ledger();
+		ledger.insert(&block_hash.into(), submitted).expect("insert ok; qed");
+
+		forget_package(&mut packages, &ledger, 0);
+
+		assert_eq!(
+			ledger.get(&block_hash.into()).expect("read ok; qed"),
+			None,
+			"a forgotten package leaves no entry for a child to name",
 		);
 	}
 

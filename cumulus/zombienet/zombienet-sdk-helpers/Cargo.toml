@@ -20,4 +20,8 @@ zombienet-sdk = { workspace = true }
 futures = { workspace = true }
 zombienet-configuration = { workspace = true }
 
+[features]
+# Selects the JAM implementations of the helpers that abstract over the backing chain.
+jam = []
+
 

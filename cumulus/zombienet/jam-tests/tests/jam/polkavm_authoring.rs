@@ -19,8 +19,8 @@
 //! development`, exactly the way `chain_spec.rs` builds specs for the collator tests, so the
 //! `:code` the node boots from is the same PolkaVM blob every other test only validates with.
 
-use super::network::polkavm_env;
 use anyhow::Context;
+use cumulus_jam_zombienet_tests::network::polkavm_env;
 use jsonrpsee::{
 	core::client::ClientT,
 	rpc_params,

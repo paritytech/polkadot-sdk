@@ -781,9 +781,17 @@ where
 					RecoveryDelayRange { min: para_slot_ms / 2, max: para_slot_ms };
 				let (work_report_tx, work_report_rx) =
 					futures::channel::mpsc::channel::<WorkReportNotification<Block>>(64);
+				// The same ledger the collation task writes: the recovered bundle holds the
+				// author's own signed package, so its hash is authentic and can be recorded.
+				let wp_hash_ledger = jam::hash_ledger::WpHashLedger::new(client.clone());
 				let recovery = JamWorkPackageRecovery::new(
 					recovery_delay_range,
 					Box::new(JamImportSink { service: import_queue_service }),
+					Box::new(move |block_hash, wp_hash| {
+						wp_hash_ledger.insert(&block_hash.into(), wp_hash).map_err(|error| {
+							format!("recording the recovered work-package hash: {error}")
+						})
+					}),
 					work_report_rx,
 				);
 				let block_status_fn = {

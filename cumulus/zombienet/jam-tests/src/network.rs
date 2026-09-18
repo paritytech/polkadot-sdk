@@ -4,17 +4,18 @@
 //! The JAM network the collators collate for: spawned by zombienet-sdk from a genesis that
 //! already carries the real parachain service, the paras' AURA authorizers and their cores.
 
-use super::{chain_spec, collators::Para, env::Binaries, genesis, rpc::JamRpc};
+pub use crate::genesis_build::polkavm_env;
+use crate::{
+	collators::Para,
+	env::Binaries,
+	genesis_build::{build_jam_genesis, path_str, service_record_key, JamGenesis},
+	rpc::JamRpc,
+};
 use anyhow::Context;
 use codec::DecodeAll;
-use parachain_chain_spec::{ParachainServiceSpec, ParachainSpec};
-use parachain_service_core::{
-	authorizer::AuthorizerHash, para_info_key, storage_key, types::ParaId, ParaInfo, Tag,
-};
-use serde_json::json;
+use parachain_service_core::{para_info_key, ParaInfo};
 use sp_runtime::traits::BlakeTwo256;
 use std::{
-	collections::BTreeMap,
 	path::{Path, PathBuf},
 	process::Command,
 	sync::atomic::{AtomicU16, Ordering},
@@ -22,8 +23,8 @@ use std::{
 use tokio::time::Instant;
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder, NetworkConfigExt};
 
-/// The tiny JAM protocol shape: six validators, and one ordinary node to serve RPC.
-const VALIDATORS: usize = 6;
+/// The validators each JAM core carries; a network with `cores` cores has `cores * 3`.
+const VALIDATORS_PER_CORE: usize = 3;
 const ORDINARY_NODE: &str = "jam-or";
 
 /// The service id the genesis creates the parachain service under. The network is freshly
@@ -32,27 +33,9 @@ const ORDINARY_NODE: &str = "jam-or";
 /// to.
 pub use parachain_service_core::PARACHAIN_SERVICE_ID;
 
-/// The balance the service is created with.
-const PARACHAIN_SERVICE_ENDOWMENT: u64 = 1_000_000_000_000_000;
-
 /// JAM RPC ports sit above the collator range and well away from the 19800 default, so a testnet
 /// the user is running themselves is never disturbed.
 static NEXT_JAM_RPC_PORT: AtomicU16 = AtomicU16::new(42000);
-
-/// PolkaVM cannot use its recompiler in this sandbox (no userfaultfd), and the native provider
-/// clears the environment before spawning, so every JAM node needs these explicitly. The last
-/// one turns on the PolkaVM executor everywhere, which both a JAM chain spec built from a
-/// PolkaVM runtime blob and the collators — whose `:code` is that same blob — need to
-/// construct the runtime at all. The collators get the same environment here, from `spawn` in
-/// `collators.rs`.
-pub fn polkavm_env() -> Vec<(&'static str, &'static str)> {
-	vec![
-		("POLKAVM_BACKEND", "interpreter"),
-		("POLKAVM_ALLOW_INSECURE", "1"),
-		("SUBSTRATE_ENABLE_POLKAVM", "1"),
-		("RUST_LOG", "debug"),
-	]
-}
 
 /// `--telemetry <HOST:PORT>` for every JAM node when `JAM_TELEMETRY` names an endpoint, so a run
 /// can be watched in TART (`https://github.com/paritytech/jamtart`, JIP-3 over TCP, default port
@@ -90,6 +73,8 @@ pub struct JamNetwork {
 impl JamNetwork {
 	/// Spawn the network and wait for it to finalize a block.
 	///
+	/// The chain is generated for `cores` cores, so it carries `cores * 3` validators.
+	///
 	/// Everything the collators need is in the chain spec: the real parachain service at
 	/// [`PARACHAIN_SERVICE_ID`] hosting the AURA authorizer blob, and every para's core queued for
 	/// that para's authorizer hash with the service as its assigner. So there is no bootstrap
@@ -99,6 +84,7 @@ impl JamNetwork {
 		work_dir: &Path,
 		deadline: Instant,
 		paras: &[Para],
+		cores: u16,
 	) -> anyhow::Result<Self> {
 		let rpc_port = NEXT_JAM_RPC_PORT.fetch_add(1, Ordering::Relaxed);
 		let base_dir = work_dir.join("zombienet");
@@ -106,72 +92,15 @@ impl JamNetwork {
 
 		let jam_node = path_str(&binaries.jam_node)?;
 
-		// The genesis is built by `parachain-chain-spec`, not spelled by hand: one AURA
-		// authorizer per para (its hash filling the core's queue and its blob hosted as a
-		// preimage) and the paras' records as storage. `gen-spec` reads `code` and `preimages`
-		// off disk, so the built bytes are written into the work dir — the same freeze that kept
-		// the source blobs from being rebuilt mid-run (see `copy_aside`).
-		let service_blob = copy_aside(&binaries.parachain_service_blob, work_dir)?;
-		let authorizer_blob = copy_aside(&binaries.authorizer_blob, work_dir)?;
-		let runtime_blob = copy_aside(&binaries.runtime_wasm, work_dir)?;
-
-		// Each para's chain spec is built here, before the genesis: the para's genesis head is
-		// derived from it, and the collators run the very same file (`para_specs`).
-		let para_specs = paras
-			.iter()
-			.map(|para| {
-				let spec = work_dir.join(format!("jam-parachain-{}-spec.json", para.id));
-				chain_spec::build(
-					&binaries.omni_node,
-					&runtime_blob,
-					&spec,
-					para.id,
-					&para.collators,
-				)?;
-				Ok(spec)
-			})
-			.collect::<anyhow::Result<Vec<_>>>()?;
-		let heads = para_specs
-			.iter()
-			.map(|spec| export_genesis_head(&binaries.omni_node, spec))
-			.collect::<anyhow::Result<Vec<_>>>()?;
-		let spec = parachain_service_spec(
-			paras,
-			std::fs::read(&service_blob)
-				.with_context(|| format!("reading {}", service_blob.display()))?,
-			std::fs::read(&authorizer_blob)
-				.with_context(|| format!("reading {}", authorizer_blob.display()))?,
-			std::fs::read(&runtime_blob)
-				.with_context(|| format!("reading {}", runtime_blob.display()))?,
-			&heads,
-		)?;
-		let queues = auth_queues(paras, &spec.authorizer_hashes())?;
-		let genesis = spec.build()?;
-		// `genesis.code` is exactly the frozen copy's bytes, so the copy `copy_aside` wrote is
-		// the file `gen-spec` reads `code` from — no second sidecar to write or drift.
-		let service_blob = path_str(&service_blob)?;
-		let preimage_paths = genesis
-			.preimages
-			.iter()
-			.enumerate()
-			.map(|(index, blob)| write_sidecar(blob, work_dir, &format!("preimage-{index}.jam")))
-			.collect::<anyhow::Result<Vec<_>>>()?;
-		let mut overrides = built_genesis_overrides(
-			&queues,
-			genesis.id,
-			&service_blob,
-			genesis.balance,
-			&preimage_paths
-				.iter()
-				.map(|path| path_str(path))
-				.collect::<anyhow::Result<Vec<_>>>()?,
-			&genesis.storage,
-		);
-		overrides["privileges"] = service_privileges(&queues, PARACHAIN_SERVICE_ID);
+		// The genesis is built by `genesis_build`, in the one load-bearing order that owns: the
+		// real parachain service, the paras' AURA authorizers and the cores that carry them.
+		let JamGenesis { overrides, para_specs, authorizer_blob } =
+			build_jam_genesis(binaries, work_dir, paras, cores)?;
 		let genspec_node = binaries.genspec_node.as_deref().map(path_str).transpose()?;
 
 		// No relaychain: the orchestrator takes its JAM spawn path only for a network without
 		// one, so a filler validator here would shadow the jamchain entirely.
+		let validators = cores as usize * VALIDATORS_PER_CORE;
 		let config = NetworkConfigBuilder::new()
 			.with_jamchain(|jam| {
 				let jam = jam.with_id("dev").with_default_command(jam_node.as_str());
@@ -185,7 +114,7 @@ impl JamNetwork {
 				let jam = jam.with_validator(|node| {
 					node.with_name("jam0").with_env(polkavm_env()).with_args(telemetry_args())
 				});
-				let jam = (1..VALIDATORS).fold(jam, |jam, index| {
+				let jam = (1..validators).fold(jam, |jam, index| {
 					jam.with_validator(|node| {
 						node.with_name(&format!("jam{index}"))
 							.with_env(polkavm_env())
@@ -287,7 +216,7 @@ impl JamNetwork {
 		core: u32,
 		via: Option<&Para>,
 	) -> anyhow::Result<()> {
-		let names = para.collator_names();
+		let names = para.collator_names()?;
 		// With no carrier, `--via-core` is left off rather than filled in: the tool defaults it to
 		// the core being assigned, which is exactly what is wanted, and that is not this para's
 		// own core — the reassignment test assigns core 1 to a para sitting on core 0.
@@ -297,7 +226,7 @@ impl JamNetwork {
 			.args(["--collators", &names])
 			.args(["assign-core", &para.id.to_string(), &core.to_string()])
 			.args(["--via-para", &carrier.id.to_string()])
-			.args(["--via-collators", &carrier.collator_names()]);
+			.args(["--via-collators", &carrier.collator_names()?]);
 		if let Some(via) = via {
 			command.args(["--via-core", &via.core.to_string()]);
 		}
@@ -323,7 +252,7 @@ impl JamNetwork {
 	/// control packages — which is what leaves [`Self::assign_core`] able to put a para back on it
 	/// without a second core to carry the command.
 	pub fn free_core(&self, tool: &Path, para: &Para, core: u32) -> anyhow::Result<()> {
-		let names = para.collator_names();
+		let names = para.collator_names()?;
 		run_step(
 			&format!("free-core: core {core}, carried under para {}'s authorizer", para.id),
 			self.parasim_tool(tool)
@@ -413,7 +342,7 @@ fn log_tail(network: &Network<LocalFileSystem>, lines: usize) -> String {
 	format!(
 		"----- JAM node {ORDINARY_NODE} ({}) -----\n{}",
 		path.display(),
-		super::collators::tail(&path, lines)
+		crate::collators::tail(&path, lines)
 	)
 }
 
@@ -437,231 +366,6 @@ fn ensure_spec_holds_service(spec_path: &Path, service_id: u32) -> anyhow::Resul
 	);
 	log::info!("{} holds the parachain service as service {service_id}", spec_path.display());
 	Ok(())
-}
-
-/// The service this suite bootstraps, as `parachain-chain-spec` describes it: the service code
-/// under [`PARACHAIN_SERVICE_ID`] and one AURA authorizer per para, built from the very blob and
-/// config the collators derive their hash from. The hash each core's queue must hold comes back
-/// from [`ParachainServiceSpec::authorizer_hashes`], so genesis cannot disagree with the service
-/// or the collators.
-///
-/// Every para also registers `validation_code` — the copied runtime blob, i.e. the very bytes
-/// its chain spec was built from — and the genesis head derived from that chain spec, so the
-/// service's `parent_head_hash` check accepts the collators' first block.
-fn parachain_service_spec(
-	paras: &[Para],
-	service_code: Vec<u8>,
-	authorizer_code: Vec<u8>,
-	validation_code: Vec<u8>,
-	heads: &[Vec<u8>],
-) -> anyhow::Result<ParachainServiceSpec> {
-	anyhow::ensure!(
-		paras.len() == heads.len(),
-		"{} paras but {} genesis heads: every para needs the head of its own chain spec",
-		paras.len(),
-		heads.len(),
-	);
-	let mut spec = ParachainServiceSpec::new(PARACHAIN_SERVICE_ID, service_code)
-		.balance(PARACHAIN_SERVICE_ENDOWMENT);
-	for (para, head) in paras.iter().zip(heads) {
-		spec = spec.parachain(
-			ParachainSpec::new(para.id.into())
-				.head_data(head.clone())
-				.validation_code(validation_code.clone())
-				// The builder's own default is unlimited, stated here so a change to that
-				// default cannot silently starve the para (§6.1 headroom check).
-				.state_balance(u64::MAX)
-				.authorizer(authorizer_code.clone(), &genesis::aura_config(para)),
-		);
-	}
-	Ok(spec)
-}
-
-/// The SCALE-encoded genesis header of the parachain `spec` describes, exported by the very
-/// binary the collators run (`export-genesis-head --chain <spec> -r`): the header the chain
-/// initializes from is the one its first block is built on, so this is the `head_data` JAM must
-/// hold for the service's `parent_head_hash == blake2_256(head_data)` check to pass.
-fn export_genesis_head(omni_node: &Path, spec: &Path) -> anyhow::Result<Vec<u8>> {
-	let output = Command::new(omni_node)
-		.envs(polkavm_env())
-		.args(["export-genesis-head", "--chain"])
-		.arg(spec)
-		.arg("-r")
-		.output()
-		.with_context(|| {
-			format!(
-				"running {} export-genesis-head --chain {}",
-				omni_node.display(),
-				spec.display()
-			)
-		})?;
-	anyhow::ensure!(
-		output.status.success(),
-		"export-genesis-head failed ({}): {}",
-		output.status,
-		String::from_utf8_lossy(&output.stderr),
-	);
-	Ok(output.stdout)
-}
-
-/// Every para's core, paired with the authorizer hash its queue is filled with at genesis — read
-/// out of the built spec's [`ParachainServiceSpec::authorizer_hashes`], so the queues can never
-/// disagree with the service records or the collators.
-///
-/// One core each, and a real one: two paras sharing a core would leave the first one's authorizer
-/// overwritten, with a para that authors and never accumulates as the only sign of it.
-fn auth_queues(
-	paras: &[Para],
-	hashes: &BTreeMap<ParaId, AuthorizerHash>,
-) -> anyhow::Result<Vec<(u16, String)>> {
-	let mut queues = Vec::with_capacity(paras.len());
-	for para in paras {
-		let hash = hashes
-			.get(&para.id.into())
-			.with_context(|| format!("the built spec has no authorizer for para {}", para.id))?;
-		let core = u16::try_from(para.core)
-			.with_context(|| format!("para {} names core {}", para.id, para.core))?;
-		anyhow::ensure!(
-			queues.iter().all(|(taken, _)| *taken != core),
-			"two paras want core {core}: {:?}",
-			paras.iter().map(|para| (para.id, para.core)).collect::<Vec<_>>(),
-		);
-		log::info!("para {} on core {core}, authorizer {}", para.id, genesis::hex(hash));
-		queues.push((core, genesis::hex(hash)));
-	}
-	Ok(queues)
-}
-
-/// The genesis beyond the validator set, spelled as `gen-spec` reads it, from the built service:
-/// its record counts `code` and `preimages` by file path — written from the built bytes by
-/// [`write_sidecar`], since `gen-spec` reads them off disk — and `storage` as hex entries, which
-/// have no file-path analogue. zombienet merges the object into the `jam_config.json` it
-/// generates, knowing nothing about these keys.
-fn built_genesis_overrides(
-	queues: &[(u16, String)],
-	service_id: u32,
-	code_path: &str,
-	balance: u64,
-	preimage_paths: &[String],
-	storage: &BTreeMap<Vec<u8>, Vec<u8>>,
-) -> serde_json::Value {
-	let mut service = json!({
-		"code": code_path,
-		"balance": json_balance(balance),
-		"preimages": preimage_paths,
-	});
-	if !storage.is_empty() {
-		service["storage"] = json_storage(storage);
-	}
-	let auth_queues: serde_json::Map<String, serde_json::Value> =
-		queues.iter().map(|(core, hash)| (core.to_string(), json!(hash))).collect();
-	let assigners: serde_json::Map<String, serde_json::Value> =
-		queues.iter().map(|(core, _)| (core.to_string(), json!(service_id))).collect();
-	let services: serde_json::Map<String, serde_json::Value> =
-		[service_id.to_string()].into_iter().map(|id| (id, service.clone())).collect();
-	json!({ "services": services, "auth_queues": auth_queues, "assigners": assigners })
-}
-
-/// The one-service, one-preimage shape the unit test pins as the schema `gen-spec` reads; the
-/// run's genesis goes through [`built_genesis_overrides`] instead.
-#[cfg(test)]
-fn genesis_overrides(
-	queues: &[(u16, String)],
-	parasim_blob: &str,
-	authorizer_blob: &str,
-) -> serde_json::Value {
-	built_genesis_overrides(
-		queues,
-		PARACHAIN_SERVICE_ID,
-		parasim_blob,
-		PARACHAIN_SERVICE_ENDOWMENT,
-		&[authorizer_blob.to_string()],
-		&BTreeMap::new(),
-	)
-}
-
-/// Grants the service its five JAM privileges and the always-accumulate gas the housekeeping
-/// phase needs. These are `ChainSpecConfig`-level, not `GenesisService`-level, so they go into
-/// the overrides directly, not through the `parachain-chain-spec` builder.
-///
-/// `assign` covers every core in `queues`; `always_acc` is set to 10M to handle the worst-case
-/// due-assign flush (341 cores × 80-hash queues, measured at ~9.94M gas — see PS `GENESIS.md`).
-fn service_privileges(queues: &[(u16, String)], service_id: u32) -> serde_json::Value {
-	let assign: serde_json::Map<String, serde_json::Value> =
-		queues.iter().map(|(core, _)| (core.to_string(), json!(service_id))).collect();
-	let mut always_acc = serde_json::Map::new();
-	always_acc.insert(service_id.to_string(), json!(10_000_000u64));
-	json!({
-		"bless": service_id,
-		"designate": service_id,
-		"register": service_id,
-		"assign": assign,
-		"always_acc": always_acc,
-	})
-}
-
-/// The built service's storage, spelled as `gen-spec` reads it: hex key, hex value.
-fn json_storage(storage: &BTreeMap<Vec<u8>, Vec<u8>>) -> serde_json::Value {
-	serde_json::Value::Object(
-		storage
-			.iter()
-			.map(|(key, value)| {
-				(
-					array_bytes::bytes2hex("", &key[..]),
-					json!(array_bytes::bytes2hex("", &value[..])),
-				)
-			})
-			.collect(),
-	)
-}
-
-/// A balance as the config takes it: a bare number while JSON carries it exactly, a decimal
-/// string above 2^53 — `gen-spec` refuses a lossy number rather than rounding it.
-fn json_balance(balance: u64) -> serde_json::Value {
-	if balance <= 1 << 53 {
-		json!(balance)
-	} else {
-		json!(balance.to_string())
-	}
-}
-
-/// The `genesis_state` key of service `id`'s record, as `gen-spec` spells it: JAM's
-/// `ServiceKey::Info` — `ff`, then the id's four little-endian bytes each followed by a zero —
-/// padded to the 31-byte state key.
-fn service_record_key(id: u32) -> String {
-	let mut key = [0u8; 31];
-	key[0] = 0xff;
-	for (index, byte) in id.to_le_bytes().into_iter().enumerate() {
-		key[1 + 2 * index] = byte;
-	}
-	array_bytes::bytes2hex("", key)
-}
-
-fn path_str(path: &Path) -> anyhow::Result<String> {
-	path.to_str()
-		.map(str::to_string)
-		.with_context(|| format!("{} is not utf-8", path.display()))
-}
-
-/// Copy a blob into the run's work dir and return the copy, which is what everything else names.
-///
-/// PVM builds are not byte-deterministic, so a rebuild in the source tree while a run is going
-/// would leave an on-chain hash — a service's code, an authorizer's code — without a resolvable
-/// preimage. The copy is also the run's record of what was actually put on the chain.
-fn copy_aside(blob: &Path, work_dir: &Path) -> anyhow::Result<PathBuf> {
-	let name = blob.file_name().with_context(|| format!("{} is not a file", blob.display()))?;
-	let copy = work_dir.join(name);
-	std::fs::copy(blob, &copy)
-		.with_context(|| format!("copying {} to {}", blob.display(), copy.display()))?;
-	Ok(copy)
-}
-
-/// Write bytes a service's genesis record names — `gen-spec` reads `code` and `preimages` off
-/// disk — and return the file, which is the copy everything else refers to, like [`copy_aside`].
-fn write_sidecar(bytes: &[u8], work_dir: &Path, name: &str) -> anyhow::Result<PathBuf> {
-	let path = work_dir.join(name);
-	std::fs::write(&path, bytes).with_context(|| format!("writing {}", path.display()))?;
-	Ok(path)
 }
 
 /// Run one setup step, saying what it is about to submit and what came back.
@@ -739,7 +443,36 @@ fn decode_para_head(stored: &[u8]) -> anyhow::Result<ParaHead> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::{
+		chain_spec, genesis,
+		genesis_build::{
+			auth_queues, built_genesis_overrides, copy_aside, export_genesis_head, json_balance,
+			parachain_service_spec, path_str, service_privileges, service_record_key,
+			PARACHAIN_SERVICE_ENDOWMENT,
+		},
+	};
 	use codec::Encode;
+	use parachain_chain_spec::{ParachainServiceSpec, ParachainSpec};
+	use parachain_service_core::{storage_key, types::ParaId, Tag};
+	use serde_json::json;
+	use std::collections::BTreeMap;
+
+	/// The one-service, one-preimage shape the unit test pins as the schema `gen-spec` reads; the
+	/// run's genesis goes through [`built_genesis_overrides`] instead.
+	fn genesis_overrides(
+		queues: &[(u16, String)],
+		parasim_blob: &str,
+		authorizer_blob: &str,
+	) -> serde_json::Value {
+		built_genesis_overrides(
+			queues,
+			PARACHAIN_SERVICE_ID,
+			parasim_blob,
+			PARACHAIN_SERVICE_ENDOWMENT,
+			&[authorizer_blob.to_string()],
+			&BTreeMap::new(),
+		)
+	}
 
 	/// The whole of what this harness knows about `gen-spec`'s config is these keys and shapes.
 	/// Anything more belongs to polkajam's `jam-chainspec`, which owns the schema.
@@ -761,7 +494,7 @@ mod tests {
 					"balance": 1_000_000_000_000_000u64,
 					"preimages": ["/run/parachain-authorizer-sr25519.jam"],
 				}},
-				"auth_queues": { "0": "aa".repeat(32), "1": "bb".repeat(32) },
+				"auth_queues": { "0": ["aa".repeat(32)], "1": ["bb".repeat(32)] },
 				"assigners": { "0": 1337, "1": 1337 },
 			})
 		);
@@ -790,7 +523,8 @@ mod tests {
 	/// reads.
 	#[test]
 	fn the_built_genesis_storage_carries_the_para_record() {
-		let paras = vec![Para { id: 0, core: 0, collators: vec![0] }];
+		let paras =
+			vec![Para { id: 0, core: 0, also_cores: Vec::new(), collators: vec!["alice".to_string()] }];
 		let spec = parachain_service_spec(
 			&paras,
 			b"service code".to_vec(),
@@ -888,7 +622,8 @@ mod tests {
 			.expect("a temp dir; qed");
 		let frozen = copy_aside(Path::new(SERVICE_BLOB), work.path())
 			.expect("freezing the blob, as spawn does; qed");
-		let paras = vec![Para { id: 0, core: 0, collators: vec![0] }];
+		let paras =
+			vec![Para { id: 0, core: 0, also_cores: Vec::new(), collators: vec!["alice".to_string()] }];
 		let spec = parachain_service_spec(
 			&paras,
 			std::fs::read(&frozen).expect("reading the frozen copy; qed"),
@@ -987,10 +722,11 @@ mod tests {
 		let blob_path = work.join("runtime.polkavm");
 		let spec_path = work.join("jam-parachain-0-spec.json");
 		std::fs::write(&blob_path, blob)?;
-		chain_spec::build(&omni_node(), &blob_path, &spec_path, 0, &[0])?;
+		chain_spec::build(&omni_node(), &blob_path, &spec_path, 0, &["alice".to_string()])?;
 		let head = export_genesis_head(&omni_node(), &spec_path)?;
 
-		let para = Para { id: 0, core: 0, collators: vec![0] };
+		let para =
+			Para { id: 0, core: 0, also_cores: Vec::new(), collators: vec!["alice".to_string()] };
 		let genesis = ParachainServiceSpec::new(PARACHAIN_SERVICE_ID, b"service code")
 			.balance(PARACHAIN_SERVICE_ENDOWMENT)
 			.parachain(
@@ -998,7 +734,7 @@ mod tests {
 					.head_data(head.clone())
 					.validation_code(blob)
 					.state_balance(total)
-					.authorizer(b"authorizer", &genesis::aura_config(&para)),
+					.authorizer(b"authorizer", &genesis::aura_config(&para)?),
 			)
 			.build()?;
 		Ok((genesis.storage, genesis.preimages, head))

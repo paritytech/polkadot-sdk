@@ -21,8 +21,11 @@
 //! a relay-chain candidate hash, driven by a work-report notification channel.  The node wiring
 //! (todo 9) connects the notification streams from `sc-client-api`; this module is standalone.
 
-use crate::{bundle_decode::decode_bundle, JamBundleRecovery, RecoveryDelayRange, RecoveryQueue};
-use cumulus_jam_interface::{EpochIndex, WorkReportHash};
+use crate::{
+	bundle_decode::{bundle_work_package_hash, decode_bundle},
+	JamBundleRecovery, RecoveryDelayRange, RecoveryQueue,
+};
+use cumulus_jam_interface::{EpochIndex, WorkPackageHash, WorkReportHash};
 use futures::{channel::mpsc::Receiver, FutureExt, Stream, StreamExt};
 use sp_additional_data::AdditionalData;
 use sp_consensus::BlockStatus;
@@ -49,6 +52,15 @@ pub struct RecoveredBlock<Block: BlockT> {
 pub trait ImportBlocksSink<Block: BlockT>: Send {
 	fn import_blocks(&mut self, blocks: Vec<RecoveredBlock<Block>>);
 }
+
+/// Reports the authentic hash of a recovered bundle, keyed by each block it carries.
+///
+/// The node wires this to its durable hash ledger. Recovery is the only legitimate source of
+/// another collator's hash: the bundle holds the author's own signed bytes, so the hash over
+/// them is the one JAM recognises. `Err` means the ledger write failed; the engine logs it and
+/// carries on, because losing one entry only restarts a chain while aborting loses a block.
+pub type RecoveredHashFn<Block> =
+	Box<dyn Fn(<Block as BlockT>::Hash, WorkPackageHash) -> Result<(), String> + Send + Sync>;
 
 /// A work-report seen on the JAM chain that this node does not yet have locally.
 pub struct WorkReportNotification<Block: BlockT> {
@@ -79,6 +91,7 @@ pub struct JamWorkPackageRecovery<Block: BlockT> {
 	pub(crate) waiting_for_parent: HashMap<Block::Hash, Vec<(Block, Option<AdditionalData>)>>,
 	pub(crate) reports_in_retry: HashSet<WorkReportHash>,
 	import_sink: Box<dyn ImportBlocksSink<Block>>,
+	on_recovered: RecoveredHashFn<Block>,
 	work_report_rx: Receiver<WorkReportNotification<Block>>,
 }
 
@@ -87,6 +100,7 @@ impl<Block: BlockT> JamWorkPackageRecovery<Block> {
 	pub fn new(
 		recovery_delay_range: RecoveryDelayRange,
 		import_sink: Box<dyn ImportBlocksSink<Block>>,
+		on_recovered: RecoveredHashFn<Block>,
 		work_report_rx: Receiver<WorkReportNotification<Block>>,
 	) -> Self {
 		Self {
@@ -95,6 +109,7 @@ impl<Block: BlockT> JamWorkPackageRecovery<Block> {
 			waiting_for_parent: HashMap::new(),
 			reports_in_retry: HashSet::new(),
 			import_sink,
+			on_recovered,
 			work_report_rx,
 		}
 	}
@@ -162,6 +177,32 @@ impl<Block: BlockT> JamWorkPackageRecovery<Block> {
 				return;
 			},
 		};
+
+		// The bundle bytes are the author's own signed package, so the hash over them is
+		// authentic; recovery is the only way another collator's hash can enter the ledger.
+		// One call per carried block keeps the tip — the block a child is built on — recorded.
+		match bundle_work_package_hash(&bytes) {
+			Ok(wp_hash) => {
+				for (block, _) in &blocks_and_data {
+					let block_hash = block.hash();
+					if let Err(error) = (self.on_recovered)(block_hash, wp_hash) {
+						tracing::warn!(
+							target: LOG_TARGET,
+							?report_hash,
+							?block_hash,
+							"Recording the recovered work-package hash failed: {error}; continuing",
+						);
+					}
+				}
+			},
+			Err(error) => {
+				tracing::warn!(
+					target: LOG_TARGET,
+					?report_hash,
+					"Recovered bundle hash failed: {error}; continuing without recording",
+				);
+			},
+		}
 
 		let parent_hash = match blocks_and_data.first().map(|(b, _)| *b.header().parent_hash()) {
 			Some(h) => h,

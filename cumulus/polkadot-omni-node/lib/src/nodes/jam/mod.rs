@@ -23,11 +23,12 @@
 //!   the JAM tip it caches, building on the deepest block the local database holds below the head
 //!   JAM has accumulated rather than waiting for inclusion — or on a sibling of that head once it
 //!   has stood still long enough to say the branch above it is lost — with the shared authoring
-//!   primitives and a *mocked* parachain inherent, and feeds the channel;
-//! - the [collation task](collation_task) turns each block into one independent work package —
-//!   phase 5a links nothing to anything, so there is no prerequisite, no import and no export —
-//!   submits it, follows `workPackageStatus` for every package in flight, and drives resubmission
-//!   and re-anchoring behind a pluggable [policy](resubmission).
+//!   primitives and a *mocked* parachain inherent, one block per core that holds the para's
+//!   authorizer, and feeds the channel;
+//! - the [collation task](collation_task) turns each block into a work package — naming the work
+//!   package this node submitted for the parent block as its one prerequisite when the ledger
+//!   still remembers it — submits it, follows `workPackageStatus` for every package in flight,
+//!   and drives resubmission and re-anchoring behind a pluggable [policy](resubmission).
 //!
 //! Heads following reuses `cumulus_client_consensus_common::run_parachain_consensus` with
 //! streams built from the parachain service's per-para state entry (`ParaInfo.head_data`).
@@ -36,6 +37,7 @@ pub(crate) mod authorizer;
 pub(crate) mod block_import;
 pub(crate) mod builder_task;
 pub(crate) mod collation_task;
+pub(crate) mod hash_ledger;
 pub(crate) mod resubmission;
 
 use authorizer::AuraAuthorizer;
@@ -257,13 +259,34 @@ fn lookup_anchor_survives_reporting(anchor_slot: JamSlot, lookup_anchor_slot: Ja
 /// Which cores currently hold this para's authorizer, and therefore where its packages may go.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct PoolScan {
-	/// The core to submit to. `None` means no core holds the para's authorizer at all — the
-	/// builder keeps authoring, but nothing may be submitted.
+	/// The core the first package of a turn goes to. `None` means no core holds the para's
+	/// authorizer at all — the builder keeps authoring, but nothing may be submitted.
 	pub target: Option<CoreIndex>,
-	/// The other cores holding it. Spreading packages over several is elastic scaling, not this
-	/// phase, so they are logged rather than used — but a reassignment in progress is exactly the
-	/// state that shows up here, and it has to be visible.
+	/// The cores the following packages of the same turn go to, in the order the scan found
+	/// them. A turn puts one package per core, so its packages land on different cores of the
+	/// same JAM block — and a core that silently held our packages would otherwise be invisible.
 	pub also_on: Vec<CoreIndex>,
+}
+
+impl PoolScan {
+	/// The core the `package`-th package of a turn goes to: the lowest-indexed core first, then
+	/// the others in the order the scan found them. `None` means the turn has no core left.
+	///
+	/// One package per core is what makes a turn elastic: each package lands on a core of its
+	/// own, all in the same JAM block, and every package after the first chains on the previous
+	/// one's block.
+	pub(crate) fn core_for_package(&self, package: usize) -> Option<CoreIndex> {
+		match package {
+			0 => self.target,
+			_ => self.also_on.get(package - 1).copied(),
+		}
+	}
+
+	/// How many cores hold this para's authorizer, and therefore how many packages one turn may
+	/// put on different cores.
+	pub(crate) fn core_count(&self) -> usize {
+		self.target.map_or(0, |_| 1 + self.also_on.len())
+	}
 }
 
 /// Find the cores whose authorizer pool holds `wanted`, lowest index first.
@@ -615,9 +638,8 @@ mod tests {
 	}
 
 	/// Mid-reassignment both the old and the new core hold our hash while the old one's pool
-	/// drains. Taking the lowest index keeps consecutive packages on one core (bursting across
-	/// cores is elastic scaling, not this phase) and the rest are reported, because a core that
-	/// silently held our packages would be invisible in the log.
+	/// drains. The scan keeps them in index order, which is the order a turn's packages take
+	/// them: one package per core, lowest index first.
 	#[test]
 	fn several_cores_holding_it_go_to_the_lowest_index() {
 		let ours = authorizer_of("alice", "Alice", 1).hash();
@@ -627,6 +649,32 @@ mod tests {
 
 		assert_eq!(scan.target, Some(0));
 		assert_eq!(scan.also_on, vec![2, 3]);
+	}
+
+	/// A turn puts one package on each core that holds the para's authorizer, so the i-th
+	/// package needs the i-th core — and the turn has no more packages once they run out.
+	#[test]
+	fn a_turn_puts_its_packages_on_different_cores() {
+		let ours = authorizer_of("alice", "Alice", 1).hash();
+		let pools = vec![pool(&[ours]), pool(&[other_hash()]), pool(&[ours]), pool(&[ours])];
+
+		let scan = scan_pools(&pools, ours);
+
+		assert_eq!(scan.core_count(), 3);
+		assert_eq!(scan.core_for_package(0), Some(0));
+		assert_eq!(scan.core_for_package(1), Some(2));
+		assert_eq!(scan.core_for_package(2), Some(3));
+		assert_eq!(scan.core_for_package(3), None, "the turn has no core left");
+	}
+
+	/// With no core holding it there is no package to place and no core to place it on: the
+	/// builder keeps authoring, but the turn produces nothing to submit.
+	#[test]
+	fn a_para_with_no_core_has_no_packages_to_place() {
+		let scan = PoolScan::default();
+
+		assert_eq!(scan.core_count(), 0);
+		assert_eq!(scan.core_for_package(0), None);
 	}
 
 	/// Two paras on one collator set differ only in their config, so their hashes differ and one
@@ -686,5 +734,4 @@ mod tests {
 	fn jam_slot_at_clamps_before_the_common_era() {
 		assert_eq!(jam_slot_at(Timestamp::new(0)), 0);
 	}
-
 }

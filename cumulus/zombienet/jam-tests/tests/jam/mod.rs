@@ -8,14 +8,7 @@
 //! `polkadot-omni-node` collators against it, so nothing outside the test's own work dir is
 //! needed or touched.
 
-mod chain_spec;
 mod collator_progress;
-mod collators;
 mod core_assignment;
 mod demo;
-mod env;
-mod genesis;
-mod harness;
-mod network;
 mod polkavm_authoring;
-mod rpc;

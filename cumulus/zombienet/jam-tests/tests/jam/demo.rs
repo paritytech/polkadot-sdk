@@ -5,7 +5,12 @@
 //!
 //! `cumulus/zombienet/jam-tests/demo.sh` is a thin wrapper around this.
 
-use super::{collators::Para, env, harness::Run, rpc::Height};
+use cumulus_jam_zombienet_tests::{
+	collators::Para,
+	env,
+	harness::{Run, TINY_CORES},
+	rpc::Height,
+};
 use std::time::Duration;
 use tokio::time::{timeout, Instant};
 
@@ -26,7 +31,7 @@ async fn demo() -> Result<(), anyhow::Error> {
 	let Some(binaries) = env::binaries_or_skip("demo") else { return Ok(()) };
 
 	let collators = collator_count();
-	let mut run = Run::start("demo", &binaries, vec![Para::single(collators)]).await?;
+	let mut run = Run::start("demo", &binaries, vec![Para::single(collators)], TINY_CORES).await?;
 	// The demo has no deadline; the one the harness set only covered the start-up it just did.
 	run.deadline = Instant::now() + Duration::from_secs(365 * 24 * 60 * 60);
 

@@ -9,7 +9,7 @@ use crate::{
 };
 use codec::Encode;
 use jam_types::Encode as _;
-use cumulus_jam_interface::WorkReportHash;
+use cumulus_jam_interface::{WorkPackageHash, WorkReportHash};
 use cumulus_primitives_core::{ParachainBlockData, SchedulingProof};
 use jam_types::{Authorization, Authorizer, CodeHash, RefineContext, WorkItem, WorkPackage, WorkPayload};
 use parachain_service_core::{candidate::ParachainCandidate, types::ValidationCodeHash};
@@ -73,13 +73,33 @@ impl ImportBlocksSink<TestBlock> for MockImportSink {
 	}
 }
 
-fn make_test_sm(imported: Arc<std::sync::Mutex<Vec<TestHash>>>) -> JamWorkPackageRecovery<TestBlock> {
+fn make_test_sm(
+	imported: Arc<std::sync::Mutex<Vec<TestHash>>>,
+) -> JamWorkPackageRecovery<TestBlock> {
+	make_test_sm_with_recorder(imported, Box::new(|_, _| Ok(())))
+}
+
+fn make_test_sm_with_recorder(
+	imported: Arc<std::sync::Mutex<Vec<TestHash>>>,
+	on_recovered: Box<dyn Fn(TestHash, WorkPackageHash) -> Result<(), String> + Send + Sync>,
+) -> JamWorkPackageRecovery<TestBlock> {
 	let (_, rx) = futures::channel::mpsc::channel(10);
 	JamWorkPackageRecovery::new(
 		RecoveryDelayRange { min: Duration::ZERO, max: Duration::ZERO },
 		Box::new(MockImportSink { imported }),
+		on_recovered,
 		rx,
 	)
+}
+
+/// Collect the `(block_hash, work_package_hash)` pairs the recovery engine reports.
+fn hash_recorder(
+	recorded: Arc<std::sync::Mutex<Vec<(TestHash, WorkPackageHash)>>>,
+) -> Box<dyn Fn(TestHash, WorkPackageHash) -> Result<(), String> + Send + Sync> {
+	Box::new(move |block_hash, wp_hash| {
+		recorded.lock().expect("mutex not poisoned; qed").push((block_hash, wp_hash));
+		Ok(())
+	})
 }
 
 fn make_refine_context() -> RefineContext {
@@ -102,11 +122,14 @@ fn make_refine_context() -> RefineContext {
 /// The JAM node stores the package as `ImmutableBundle`. Since `Immutable<T>::Encode` writes
 /// its inner bytes directly, and `Bundle::Decode` reads `ImmutableWorkPackage` first,
 /// `WorkPackage::encode()` produces the prefix that `decode_bundle` expects.
-fn make_bundle_bytes(
+///
+/// Returns the package alongside its encoding so a test can derive the expected hash from the
+/// same bytes the recovery engine sees.
+fn make_bundle_and_package(
 	blocks: Vec<TestBlock>,
 	additional_data: Vec<Option<sp_additional_data::AdditionalData>>,
 	parent_header: TestHeader,
-) -> Vec<u8> {
+) -> (Vec<u8>, WorkPackage) {
 	let pov = ParachainBlockData::new_with_parent_header(
 		blocks,
 		CompactProof { encoded_nodes: vec![] },
@@ -130,14 +153,23 @@ fn make_bundle_bytes(
 		extrinsics: Default::default(),
 	};
 
-	WorkPackage {
+	let package = WorkPackage {
 		authorization: Authorization::default(),
 		auth_code_host: 0,
 		authorizer: Authorizer::any(),
 		context: make_refine_context(),
 		items: vec![work_item].try_into().expect("one item always fits"),
-	}
-	.encode()
+	};
+	(package.encode(), package)
+}
+
+/// Bundle bytes only; [`make_bundle_and_package`] also hands back the package for hashing.
+fn make_bundle_bytes(
+	blocks: Vec<TestBlock>,
+	additional_data: Vec<Option<sp_additional_data::AdditionalData>>,
+	parent_header: TestHeader,
+) -> Vec<u8> {
+	make_bundle_and_package(blocks, additional_data, parent_header).0
 }
 
 // ── decode-chain tests (1-4) ───────────────────────────────────────────────────
@@ -308,4 +340,102 @@ fn finalization_discards_candidates_at_or_below_height() {
 		sm.outstanding.contains_key(&hash_high),
 		"height-10 candidate must survive finalization 7"
 	);
+}
+
+// ── recovered-hash recording tests (9-10) ──────────────────────────────────────
+
+/// A recovered bundle holds the author's own signed package, so its hash is recorded under the
+/// hash of the block it carries. The expected hash is recomputed here from the same package
+/// bytes with blake2-256 — the function the author used — not read back from the engine.
+#[test]
+fn recovery_records_hash_in_ledger() {
+	let parent_header = TestHeader::new_from_number(0);
+	let block = TestBlock { header: TestHeader::new_from_number(1), extrinsics: vec![] };
+	let (bundle, package) = make_bundle_and_package(vec![block.clone()], vec![None], parent_header);
+	let expected_wp_hash = WorkPackageHash::from(sp_crypto_hashing::blake2_256(&package.encode()));
+
+	let imported = Arc::new(std::sync::Mutex::new(vec![]));
+	let recorded = Arc::new(std::sync::Mutex::new(vec![]));
+	let mut sm = make_test_sm_with_recorder(imported, hash_recorder(recorded.clone()));
+	let hash = WorkReportHash::from([6u8; 32]);
+
+	sm.handle_work_report(WorkReportNotification {
+		report_hash: hash,
+		assurance_epoch: 0,
+		block_number: 1u64,
+	});
+	sm.handle_recovered_inner(hash, Ok(Some(bundle)), |_| BlockStatus::InChainWithState);
+
+	let guard = recorded.lock().expect("mutex not poisoned; qed");
+	assert_eq!(guard.len(), 1, "one recovered block must yield exactly one ledger entry");
+	assert_eq!(guard[0], (block.hash(), expected_wp_hash));
+}
+
+/// No package bytes means no ledger entry: neither a bundle the DA layer has not produced yet
+/// nor an undecodable one may leave a phantom hash behind.
+#[test]
+fn recovery_without_package_bytes_records_nothing() {
+	let imported = Arc::new(std::sync::Mutex::new(vec![]));
+	let recorded = Arc::new(std::sync::Mutex::new(vec![]));
+	let mut sm = make_test_sm_with_recorder(imported, hash_recorder(recorded.clone()));
+
+	let missing = WorkReportHash::from([7u8; 32]);
+	sm.handle_work_report(WorkReportNotification {
+		report_hash: missing,
+		assurance_epoch: 0,
+		block_number: 1u64,
+	});
+	// Not in the DA layer yet: one retry, then dropped.
+	sm.handle_recovered_inner(missing, Ok(None), |_| BlockStatus::Unknown);
+	sm.handle_recovered_inner(missing, Ok(None), |_| BlockStatus::Unknown);
+
+	let garbage = WorkReportHash::from([8u8; 32]);
+	sm.handle_work_report(WorkReportNotification {
+		report_hash: garbage,
+		assurance_epoch: 0,
+		block_number: 1u64,
+	});
+	sm.handle_recovered_inner(garbage, Ok(Some(vec![0xffu8; 10])), |_| BlockStatus::Unknown);
+
+	assert!(
+		recorded.lock().expect("mutex not poisoned; qed").is_empty(),
+		"a recovery without package bytes must not record anything"
+	);
+}
+
+/// A failed ledger write must not abort recovery: the engine reports the failure, still imports
+/// the recovered block, and keeps running.
+#[test]
+fn recovery_continues_when_recording_fails() {
+	let parent_header = TestHeader::new_from_number(0);
+	let block = TestBlock { header: TestHeader::new_from_number(1), extrinsics: vec![] };
+	let bundle = make_bundle_bytes(vec![block.clone()], vec![None], parent_header);
+
+	let imported = Arc::new(std::sync::Mutex::new(vec![]));
+	let attempts = Arc::new(std::sync::Mutex::new(0usize));
+	let attempts_for_recorder = attempts.clone();
+	let mut sm = make_test_sm_with_recorder(
+		imported.clone(),
+		Box::new(move |_, _| {
+			*attempts_for_recorder.lock().expect("mutex not poisoned; qed") += 1;
+			Err("ledger unavailable".to_string())
+		}),
+	);
+	let hash = WorkReportHash::from([9u8; 32]);
+
+	sm.handle_work_report(WorkReportNotification {
+		report_hash: hash,
+		assurance_epoch: 0,
+		block_number: 1u64,
+	});
+	sm.handle_recovered_inner(hash, Ok(Some(bundle)), |_| BlockStatus::InChainWithState);
+
+	assert_eq!(
+		*attempts.lock().expect("mutex not poisoned; qed"),
+		1,
+		"the engine must attempt the ledger write"
+	);
+	let guard = imported.lock().expect("mutex not poisoned; qed");
+	assert_eq!(guard.len(), 1, "the block must be imported despite the failed write");
+	assert_eq!(guard[0], block.hash());
 }

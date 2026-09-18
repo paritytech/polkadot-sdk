@@ -20,3 +20,6 @@ mod zombie_ci;
 
 #[cfg(feature = "zombie-ci")]
 mod utils;
+
+#[cfg(feature = "jam")]
+mod jam;

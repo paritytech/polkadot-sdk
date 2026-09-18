@@ -99,6 +99,36 @@ cargo test -p cumulus-jam-zombienet-tests --features jam-ci --test tests \
 	-- --test-threads 1 --nocapture jam::collator_progress
 ```
 
+`run.sh` wraps that same command — it builds the PolkaVM blob with `--cfg jam` first — and it also
+runs the two `cumulus-zombienet-sdk-tests` suites:
+
+```sh
+cumulus/zombienet/jam-tests/run.sh                       # the command above
+cumulus/zombienet/jam-tests/run.sh jam::core_assignment  # any other test filter
+cumulus/zombienet/jam-tests/run.sh --suite elastic-scaling
+cumulus/zombienet/jam-tests/run.sh --suite block-bundling
+```
+
+### The JAM test-crate path
+
+Thirteen `cumulus-zombienet-sdk-tests` tests — the five in `zombie_ci::elastic_scaling` and the
+eight in `zombie_ci::block_bundling` — are gated by the `jam` feature. When the feature is enabled,
+the crate depends on the JAM `zombienet-sdk` and on `cumulus-jam-zombienet-tests` (the harness
+library in `src/`). Without it the crate compiles the relay table and runs the relay tests instead.
+
+`run.sh --suite …` scopes the feature to the one cargo invocation that needs it. The same runs
+without the script:
+
+```sh
+SKIP_WASM_BUILD=1 cargo test -p cumulus-zombienet-sdk-tests \
+	--features jam,zombie-ci --test tests -- --test-threads 1 --nocapture zombie_ci::elastic_scaling
+SKIP_WASM_BUILD=1 cargo test -p cumulus-zombienet-sdk-tests \
+	--features jam,zombie-ci --test tests -- --test-threads 1 --nocapture zombie_ci::block_bundling
+```
+
+`--test-threads 1` is required here too, for the same reason as the tests below: each JAM test
+spawns the same six-validator network plus collators.
+
 ### Environment
 
 | variable | what it points at |
@@ -107,7 +137,7 @@ cargo test -p cumulus-jam-zombienet-tests --features jam-ci --test tests \
 | `JAM_GENSPEC_BIN` | the polkajam build that runs `gen-spec`, when it is not `JAM_NODE_BIN` |
 | `PARACHAIN_SERVICE_BLOB` | the real parachain-service `.jam` blob, which genesis creates the service from |
 | `AUTHORIZER_BLOB` | `parachain-authorizer-sr25519.jam`, the AURA authorizer the cores run |
-| `RUNTIME_WASM` | the PolkaVM build of the parachain runtime (`PVM\0` magic), the para's JAM validation code *and* the runtime the collators execute. The name is misleading (it is not WASM); a future rename to `RUNTIME_PVF` is deferred. **Must be built with `--cfg jam`** (e.g. `RUSTFLAGS="--cfg jam" SUBSTRATE_RUNTIME_TARGET=riscv cargo build …`) for the `JamParent` digest assertion to pass; without it the runtime never deposits the digest and the assertion fails for a configuration reason rather than a code reason. |
+| `RUNTIME_WASM` | the PolkaVM build of the parachain runtime (`PVM\0` magic), the para's JAM validation code *and* the runtime the collators execute. The name is misleading (it is not WASM); a future rename to `RUNTIME_PVF` is deferred. **Must be built with `--cfg jam`** for the `JamParent` digest assertion to pass — `run.sh` builds it through the wasm-builder's channel (`SUBSTRATE_RUNTIME_TARGET=riscv WASM_BUILD_RUSTFLAGS="--cfg jam" cargo build -p parachain-template-runtime`). Without the cfg the runtime never deposits the digest and the assertion fails for a configuration reason rather than a code reason. |
 | `PARASIM_BLOB` | optional: `parasim-service.jam`, only needed for the dynamic-core tests and toy runs |
 | `PARASIM_TOOL_BIN` | optional: the `parasim-tool` CLI, required only by the dynamic-core tests, which move cores mid-run |
 | `OMNI_NODE_BIN`, `RELAY_NODE_BIN` | override the `target/release` defaults |
@@ -129,9 +159,12 @@ runtime is built once".
 `--test-threads 1` is required: each test spawns seven JAM nodes plus its collators, and running
 them concurrently would fight over CPU and make the six-second slot budget unrealistic.
 
-If any artifact is missing the tests print what they need and pass without running — they never
-fail for a reason unrelated to the collator. `PARASIM_TOOL_BIN` skips only the two dynamic-core
-tests; every other variable skips the whole suite.
+If any artifact is missing the standalone `jam-tests` suite prints what it needs and passes
+without running — it never fails for a reason unrelated to the collator. `PARASIM_TOOL_BIN` skips
+only the two dynamic-core tests; every other variable skips the whole suite. The `cumulus-zombienet-sdk-tests`
+suites under the `jam` feature treat missing artifacts as a hard error: the harness's `setup`
+returns an error instead of `Ok(())`. A run that appears to pass instantly — with no
+`work dir: ...` line in its output — did not execute anything.
 
 ### Keeping the logs
 
@@ -202,16 +235,17 @@ use `cumulus/scripts/jam-collator-demo.sh` instead.
 
 | file | what it does |
 | --- | --- |
-| `tests/jam/env.rs` | resolves the binaries, or explains what is missing |
-| `tests/jam/network.rs` | builds the genesis override — the real parachain service, the authorizers, the cores, and the validation code — and spawns the JAM network from it |
-| `tests/jam/genesis.rs` | derives a para's authorizer hash, the way the collator derives it |
-| `tests/jam/chain_spec.rs` | builds and patches one para's chain spec |
-| `tests/jam/collators.rs` | starts, supervises and tears down one para's collator processes |
-| `tests/jam/rpc.rs` | the JAM node and collator RPC clients |
-| `tests/jam/harness.rs` | one run: network, collators, the authorizer-agreement check, assertions |
+| `src/env.rs` | resolves the binaries, or explains what is missing |
+| `src/network.rs` | builds the genesis override — the real parachain service, the authorizers, the cores, and the validation code — and spawns the JAM network from it |
+| `src/genesis.rs` | derives a para's authorizer hash, the way the collator derives it |
+| `src/chain_spec.rs` | builds and patches one para's chain spec |
+| `src/collators.rs` | starts, supervises and tears down one para's collator processes |
+| `src/rpc.rs` | the JAM node and collator RPC clients |
+| `src/harness.rs` | one run: network, collators, the authorizer-agreement check, assertions |
 | `tests/jam/collator_progress.rs` | the 1, 2, 3 and 6 collator tests |
 | `tests/jam/core_assignment.rs` | two paras at once, and cores taken away or moved mid-run |
 | `tests/jam/demo.rs` | the same run with no assertion and no end |
+| `tests/jam/polkavm_authoring.rs` | dev-node authoring gate: a real node executes the PolkaVM runtime blob and authors blocks |
 | `demo.sh` | shell entry point for that demo |
 
 ## Three things worth knowing about the collators
@@ -410,38 +444,11 @@ carrier is a loud failure, not a core that quietly authorizes nothing.
 
 ## The zombienet-sdk dependency
 
-This crate depends on the unmerged `jam-integration` branch
-([PR #573](https://github.com/paritytech/zombienet-sdk/pull/573)), which is what adds JAM networks
-to the SDK. It deliberately does not share the `zombienet-sdk` version the rest of the workspace
-uses, so `cumulus-zombienet-sdk-tests` and every existing zombienet test keep their released pin.
-
-**The dependency currently points at a local checkout, not at a git revision.** The pinned rev
-`74a1d56` carries the genesis address bug described below; the fix for it is not upstream yet, so
-`Cargo.toml` uses a `path` dependency on a sibling `zombienet-sdk` working copy that has it
-applied. The git line it replaces is kept, commented out, right above it. Restore that line — and
-bump the rev — once the fix lands in #573, and drop the dependency entirely when #573 merges.
-
-### Why a relay chain
-
-At the pinned revision a JAM-only network is not yet possible: the orchestrator unwraps the relay
-chain config unconditionally, so building a network without one panics at spawn time. The harness
-therefore starts a single idle relay validator that nothing in the test uses, which is the only
-reason a `polkadot` binary is needed.
-
-### The SDK bug that made these tests slow (fixed in the local checkout)
-
-`jam_config.rs` recorded each validator's address in JAM genesis as `127.0.0.1:{rpc_port}`, but
-starts the node with `--port={p2p_port}` — a different, randomly chosen port. In polkajam the
-genesis validator metadata *is* the address book and it overrides `--bootnode` addresses, so the
-network forms (the bootnode dials happen before a node learns it is a validator) but cannot
-recover: every validator observed here drops from five validator peers to three within a few
-minutes and never reconnects. Work packages whose guarantor set has just rotated then miss their
-report deadline, and each miss costs three rebuilt parachain blocks. The measured block rate was
-~22s instead of the 6s a healthy JAM network gives, which is why the deadline is 25 minutes — it
-is now far larger than any run needs, and is left as headroom rather than tuned to these numbers.
-There was no workaround from the test side: `JamNodeConfigBuilder` has `with_rpc_port` but no
-`with_p2p_port`. The fix is one line — write `n.port` into `net_addr` instead of `n.rpc_port` —
-and it is in the local checkout this crate now builds against.
+This crate depends on `zombienet-sdk` 0.5.0 or later, which ships native JAM network support
+upstream ([PR #573](https://github.com/paritytech/zombienet-sdk/pull/573), released 2026-09-14).
+The workspace pin moved from 0.4.13 to 0.5.0. The `jam-tests` crate uses the same `zombienet-sdk`
+as the rest of the workspace, so `cumulus-zombienet-sdk-tests` and every existing zombienet test
+share the same version.
 
 ### Current status of the collator-progress tests
 
@@ -488,7 +495,6 @@ network that lost its only core could not be recovered at all.
 
 ### What upstream support should replace
 
-* The relay chain filler node, once a jamchain can be spawned on its own.
 * `network.rs`'s hand-rolled six-validator topology, once `with_tiny_jamchain()` accepts per-node
   environment variables. It is hand-rolled only because the JAM nodes need
   `POLKAVM_BACKEND=interpreter` and `POLKAVM_ALLOW_INSECURE=1` in sandboxes without userfaultfd,

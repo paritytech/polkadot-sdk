@@ -19,13 +19,13 @@
 //! between the two single-para tests here — one puts the para back where it was, the other moves
 //! it somewhere else.
 
-use super::{
+use anyhow::Context;
+use cumulus_jam_zombienet_tests::{
 	collators::Para,
 	env::parasim_tool_or_skip,
-	harness::{finish, setup, Run},
+	harness::{finish, setup, Run, TINY_CORES},
 	rpc::CollatorRpc,
 };
-use anyhow::Context;
 use std::{path::Path, time::Duration};
 
 /// The para the single-para tests run, and the core it starts on.
@@ -49,7 +49,7 @@ const WARM_UP: Duration = Duration::from_secs(8 * 60);
 const HEAL_BUDGET: Duration = Duration::from_secs(8 * 60);
 
 /// Everything after the warm-up phase is wall-clock bound, so these runs need more than the single
-/// phase [`super::harness::DEADLINE`] allows.
+/// phase [`cumulus_jam_zombienet_tests::harness::DEADLINE`] allows.
 const EXTRA_TIME: Duration = Duration::from_secs(20 * 60);
 
 /// Two paras, one core each, disjoint collator sets: the full width of a tiny JAM network.
@@ -69,11 +69,21 @@ async fn two_paras_on_two_cores_build_blocks() -> Result<(), anyhow::Error> {
 
 	let Some(binaries) = setup(TEST) else { return Ok(()) };
 	let paras = vec![
-		Para { id: 0, core: 0, collators: vec![0, 1] },
-		Para { id: 1, core: 1, collators: vec![2, 3] },
+		Para {
+			id: 0,
+			core: 0,
+			also_cores: Vec::new(),
+			collators: vec!["alice".to_string(), "bob".to_string()],
+		},
+		Para {
+			id: 1,
+			core: 1,
+			also_cores: Vec::new(),
+			collators: vec!["charlie".to_string(), "dave".to_string()],
+		},
 	];
 
-	let mut run = Run::start(TEST, &binaries, paras).await?;
+	let mut run = Run::start(TEST, &binaries, paras, TINY_CORES).await?;
 	let result = async {
 		let heights = run.wait_for_blocks(BLOCKS, FINALIZED).await?;
 		log::info!("both paras are at full cadence: {}", run.describe(&heights));
@@ -152,7 +162,7 @@ async fn freeing_the_core_freezes_the_para_head_until_it_is_assigned_again(
 	// at all, and eight minutes of warm-up is a long way to go to find that out.
 	let Some(tool) = parasim_tool_or_skip(TEST, &binaries) else { return Ok(()) };
 
-	let mut run = Run::start(TEST, &binaries, vec![Para::single(1)]).await?;
+	let mut run = Run::start(TEST, &binaries, vec![Para::single(1)], TINY_CORES).await?;
 	run.extend_deadline(EXTRA_TIME);
 
 	let result = stall_then_heal(&mut run, &tool).await;
@@ -238,7 +248,7 @@ async fn moving_the_para_to_the_other_core_keeps_its_head_moving() -> Result<(),
 	let Some(binaries) = setup(TEST) else { return Ok(()) };
 	let Some(tool) = parasim_tool_or_skip(TEST, &binaries) else { return Ok(()) };
 
-	let mut run = Run::start(TEST, &binaries, vec![Para::single(1)]).await?;
+	let mut run = Run::start(TEST, &binaries, vec![Para::single(1)], TINY_CORES).await?;
 	run.extend_deadline(EXTRA_TIME);
 
 	let result = move_to_the_other_core(&mut run, &tool).await;
@@ -328,7 +338,7 @@ async fn walk_heads(
 	rpc: &CollatorRpc,
 	count: u64,
 	tolerance: Duration,
-) -> anyhow::Result<super::harness::ParaProgress> {
+) -> anyhow::Result<cumulus_jam_zombienet_tests::harness::ParaProgress> {
 	let mut progress = run.sample(0, rpc).await?;
 	for step in 1..=count {
 		let next = progress.jam_head.as_ref().map_or(1, |head| head.number + 1);

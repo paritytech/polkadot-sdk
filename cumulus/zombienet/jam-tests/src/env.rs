@@ -202,6 +202,14 @@ pub fn binaries_or_skip(test: &str) -> Option<Binaries> {
 	}
 }
 
+/// Resolve the artifacts or fail, for callers that must NOT silently skip.
+///
+/// The error is [`Binaries::from_env`]'s own reason string, so it names exactly which env var or
+/// path is missing.
+pub fn binaries_or_err() -> anyhow::Result<Binaries> {
+	Binaries::from_env().map_err(|reason| anyhow::anyhow!("{reason}"))
+}
+
 /// The `parasim-tool` CLI, or `None` after saying that this test is being skipped without it.
 ///
 /// For the two dynamic-core tests, which are the only ones that move a core mid-run and so the
@@ -289,6 +297,27 @@ mod tests {
 			missing(&wanted).is_some(),
 			"missing() must fire when PARACHAIN_SERVICE_BLOB is absent — \
 			 the no-skip assertion is load-bearing, not vacuous",
+		);
+	}
+
+	/// The strict resolver must fail loudly, naming the missing variable, where
+	/// [`binaries_or_skip`] would return `None`.
+	#[test]
+	fn binaries_or_err_names_the_missing_service_blob() {
+		let saved = std::env::var_os("PARACHAIN_SERVICE_BLOB");
+		std::env::remove_var("PARACHAIN_SERVICE_BLOB");
+
+		let error =
+			binaries_or_err().expect_err("an absent PARACHAIN_SERVICE_BLOB must be an error");
+		let message = format!("{error}");
+
+		if let Some(value) = saved {
+			std::env::set_var("PARACHAIN_SERVICE_BLOB", value);
+		}
+
+		assert!(
+			message.contains("PARACHAIN_SERVICE_BLOB"),
+			"the error must name the missing variable: {message}",
 		);
 	}
 }

@@ -158,6 +158,7 @@ where
 /// deliberately do not read a baseline from the metric and add a delta, because validators
 /// may already have started or finished preparing a new PVF before the baseline read, which
 /// makes the delta racy.
+#[cfg(not(feature = "jam"))]
 pub async fn wait_for_pvf_prepare(
 	network: &Network<LocalFileSystem>,
 	min_total_prepares: u32,
@@ -186,6 +187,195 @@ pub async fn wait_for_pvf_prepare(
 		target,
 	);
 	Ok(())
+}
+
+/// No-op on JAM: there is no relay PVF pre-checking to wait for.
+#[cfg(feature = "jam")]
+pub async fn wait_for_pvf_prepare(
+	_network: &Network<LocalFileSystem>,
+	_min_total_prepares: u32,
+) -> Result<(), anyhow::Error> {
+	Ok(())
+}
+
+/// Relay-facing helpers that take the network and the relay node name, so a test body does not
+/// have to build a relay client itself. The JAM implementations turn the relay-only steps into
+/// no-ops, which is what lets one body run against either backing chain.
+pub mod network {
+	use super::*;
+	#[cfg(feature = "jam")]
+	use anyhow::anyhow;
+
+	/// How long the JAM path waits for a parachain to reach its expected block floor.
+	#[cfg(feature = "jam")]
+	const PARA_BLOCK_TIMEOUT_SECS: u64 = 400;
+
+	/// The best-block metric every zombienet node reports. The JAM path polls it because subxt
+	/// cannot decode a JAM parachain header.
+	#[cfg(feature = "jam")]
+	const PARA_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
+
+	#[cfg(feature = "jam")]
+	const PARA_FINALIZED_METRIC: &str = "block_height{status=\"finalized\"}";
+
+	/// Assigns the given `cores` to the given `para_id`.
+	///
+	/// On a relay chain this waits for the relay node `relay_node` and submits the assignment.
+	/// On JAM a core is bound to the para's authorizer hash at genesis, so there is nothing to
+	/// assign.
+	#[cfg(not(feature = "jam"))]
+	pub async fn assign_cores(
+		network: &Network<LocalFileSystem>,
+		relay_node: &str,
+		para_id: u32,
+		cores: Vec<u32>,
+	) -> Result<(), anyhow::Error> {
+		let client = network.get_node(relay_node)?.wait_client().await?;
+		super::assign_cores(&client, para_id, cores).await
+	}
+
+	/// No-op on JAM: a core is bound to the para's authorizer hash at genesis.
+	#[cfg(feature = "jam")]
+	pub async fn assign_cores(
+		_network: &Network<LocalFileSystem>,
+		_relay_node: &str,
+		_para_id: u32,
+		_cores: Vec<u32>,
+	) -> Result<(), anyhow::Error> {
+		Ok(())
+	}
+
+	/// Waits for the relay node `relay_node` to accept clients.
+	#[cfg(not(feature = "jam"))]
+	pub async fn wait_relay_up(
+		network: &Network<LocalFileSystem>,
+		relay_node: &str,
+		timeout_secs: u64,
+	) -> Result<(), anyhow::Error> {
+		let node = network.get_node(relay_node)?;
+		node.wait_until_is_up(timeout_secs).await
+	}
+
+	/// No-op on JAM, which has no relay chain: what the caller actually depends on there is the
+	/// collators coming up, which the body already waits for separately.
+	#[cfg(feature = "jam")]
+	pub async fn wait_relay_up(
+		_network: &Network<LocalFileSystem>,
+		_relay_node: &str,
+		_timeout_secs: u64,
+	) -> Result<(), anyhow::Error> {
+		Ok(())
+	}
+
+	/// Asserts the parachain's finality lag stays within `maximum_lag`.
+	#[cfg(not(feature = "jam"))]
+	pub async fn assert_finality_lag(
+		network: &Network<LocalFileSystem>,
+		para_node: &str,
+		maximum_lag: u32,
+	) -> Result<(), anyhow::Error> {
+		let client = network.get_node(para_node)?.wait_client().await?;
+		super::assert_finality_lag(&client, maximum_lag).await
+	}
+
+	/// The same best-minus-finalized property, read from the collator's metrics because subxt
+	/// cannot decode a JAM parachain header.
+	#[cfg(feature = "jam")]
+	pub async fn assert_finality_lag(
+		network: &Network<LocalFileSystem>,
+		para_node: &str,
+		maximum_lag: u32,
+	) -> Result<(), anyhow::Error> {
+		let node = network.get_node(para_node)?;
+		let best = node.reports(PARA_BLOCK_METRIC).await? as u32;
+		let finalized = node.reports(PARA_FINALIZED_METRIC).await? as u32;
+		let finality_lag = best.saturating_sub(finalized);
+
+		log::info!(
+			"Finality lagged by {finality_lag} blocks, maximum expected was {maximum_lag} blocks"
+		);
+		if finality_lag > maximum_lag {
+			return Err(anyhow!(
+				"Finality lag {finality_lag} is greater than the maximum expected {maximum_lag}"
+			));
+		}
+		Ok(())
+	}
+
+	/// Asserts the parachain throughput.
+	///
+	/// On a relay chain this waits for the relay node `relay_node` and counts
+	/// `ParaInclusion::CandidateBacked` events. On JAM those events do not exist, so only the
+	/// para-side half of the contract is kept: every para must reach the lower bound of its
+	/// expected block range.
+	#[cfg(not(feature = "jam"))]
+	pub async fn assert_para_throughput(
+		network: &Network<LocalFileSystem>,
+		relay_node: &str,
+		stop_after: u32,
+		expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
+		expected_number_of_blocks: impl Into<
+			HashMap<ParaId, (OnlineClient<PolkadotConfig>, Range<u32>)>,
+		>,
+	) -> Result<(), anyhow::Error> {
+		let client = network.get_node(relay_node)?.wait_client().await?;
+		super::assert_para_throughput(
+			&client,
+			stop_after,
+			expected_candidate_ranges,
+			expected_number_of_blocks,
+		)
+		.await
+	}
+
+	/// On JAM the relay `CandidateBacked` events do not exist. The explicit block ranges are
+	/// asserted instead; if there are none, the candidate range's lower bound is used as the
+	/// floor, so the check is never vacuous.
+	#[cfg(feature = "jam")]
+	pub async fn assert_para_throughput(
+		network: &Network<LocalFileSystem>,
+		_relay_node: &str,
+		_stop_after: u32,
+		expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
+		expected_number_of_blocks: impl Into<
+			HashMap<ParaId, (OnlineClient<PolkadotConfig>, Range<u32>)>,
+		>,
+	) -> Result<(), anyhow::Error> {
+		let candidate_ranges = expected_candidate_ranges.into();
+		let block_ranges = expected_number_of_blocks.into();
+
+		let expected: Vec<(ParaId, Range<u32>)> = if block_ranges.is_empty() {
+			candidate_ranges.into_iter().collect()
+		} else {
+			block_ranges
+				.into_iter()
+				.map(|(para_id, (_client, range))| (para_id, range))
+				.collect()
+		};
+
+		for (para_id, range) in expected {
+			let floor = range.start;
+			let para = network
+				.parachain(para_id.into())
+				.ok_or_else(|| anyhow!("ParaId {para_id} is not part of the network"))?;
+			let node = para
+				.collators()
+				.into_iter()
+				.next()
+				.ok_or_else(|| anyhow!("ParaId {para_id} has no collator to poll"))?;
+
+			log::info!("Waiting for para {para_id} to reach block #{floor} on {}", node.name());
+			node.wait_metric_with_timeout(
+				PARA_BLOCK_METRIC,
+				|best| best >= floor as f64,
+				PARA_BLOCK_TIMEOUT_SECS,
+			)
+			.await
+			.map_err(|e| anyhow!("ParaId {para_id} did not reach block #{floor}: {e}"))?;
+		}
+
+		Ok(())
+	}
 }
 
 async fn collect_para_throughput<F>(

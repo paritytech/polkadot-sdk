@@ -14,7 +14,10 @@
 
 use anyhow::{anyhow, Context};
 use serde_json::{json, Value};
-use sp_core::crypto::Ss58Codec;
+use sp_core::{
+	crypto::{AccountId32, Ss58Codec},
+	sr25519, Pair,
+};
 use sp_keyring::Sr25519Keyring;
 use std::{path::Path, process::Command};
 
@@ -36,9 +39,22 @@ pub fn dev_name(index: usize) -> String {
 	DEV_ACCOUNTS[index].to_string().to_lowercase()
 }
 
-/// The `--alice` .. `--ferdie` flag that makes a collator author as [`DEV_ACCOUNTS`]`[index]`.
-pub fn dev_account_flag(index: usize) -> String {
-	format!("--{}", dev_name(index))
+/// The sr25519 key zombienet gives a node called `name`, derived from the node name exactly
+/// as zombienet does. This is the only way to know a collator's key before it is spawned.
+pub fn account_of(name: &str) -> anyhow::Result<sr25519::Public> {
+	anyhow::ensure!(!name.is_empty(), "cannot derive an account from an empty node name");
+	// zombienet's rule, at `orchestrator/src/network_spec/node.rs`: `format!("//{}{name}",
+	// name.remove(0).to_uppercase())` — a `//` hard-derivation of the name with its first
+	// character uppercased.
+	let mut rest = name.to_string();
+	let first = rest.remove(0).to_uppercase();
+	let seed = format!("//{first}{rest}");
+	Ok(sr25519::Pair::from_string(&seed, None)?.public())
+}
+
+/// The `--<name>` flag that makes a collator author as the key zombienet derives from its name.
+pub fn dev_account_flag(name: &str) -> String {
+	format!("--{name}")
 }
 
 /// `collators` reordered the way the runtime hands the set back, which is *not* the order genesis
@@ -54,10 +70,17 @@ pub fn dev_account_flag(index: usize) -> String {
 /// `parasim-tool --collators`, which builds the collator trie the authorizer hash commits to. Get
 /// it wrong and the hash is one no collator will ever match, with a core that authorizes nothing
 /// as the only symptom.
-pub fn in_authority_order(collators: &[usize]) -> Vec<usize> {
-	let mut ordered = collators.to_vec();
-	ordered.sort_by_key(|index| DEV_ACCOUNTS[*index].to_account_id());
-	ordered
+pub fn in_authority_order(collators: &[String]) -> anyhow::Result<Vec<String>> {
+	let mut ordered: Vec<(sr25519::Public, String)> = collators
+		.iter()
+		.map(|name| {
+			let public = account_of(name)
+				.with_context(|| format!("deriving the key for collator {name}"))?;
+			Ok((public, name.clone()))
+		})
+		.collect::<anyhow::Result<Vec<_>>>()?;
+	ordered.sort_by_key(|(public, _)| *public);
+	Ok(ordered.into_iter().map(|(_, name)| name).collect())
 }
 
 #[cfg(test)]
@@ -70,30 +93,48 @@ mod tests {
 	/// this function exists to avoid — and it is invisible to a single-collator run.
 	#[test]
 	fn the_authority_order_is_by_account_id_not_by_name() {
-		let names = |collators: &[usize]| -> Vec<String> {
-			in_authority_order(collators).into_iter().map(dev_name).collect()
+		let names = |collators: &[&str]| -> Vec<String> {
+			let collators: Vec<String> = collators.iter().map(|name| name.to_string()).collect();
+			in_authority_order(&collators).expect("the dev names derive")
 		};
-		assert_eq!(names(&[0, 1]), ["bob", "alice"]);
-		assert_eq!(names(&[2, 3]), ["dave", "charlie"]);
-		assert_eq!(names(&[0, 1, 2]), ["bob", "charlie", "alice"]);
+		assert_eq!(names(&["alice", "bob"]), ["bob", "alice"]);
+		assert_eq!(names(&["charlie", "dave"]), ["dave", "charlie"]);
+		assert_eq!(names(&["alice", "bob", "charlie"]), ["bob", "charlie", "alice"]);
 		assert_eq!(
-			names(&[0, 1, 2, 3, 4, 5]),
+			names(&["alice", "bob", "charlie", "dave", "eve", "ferdie"]),
 			["ferdie", "dave", "bob", "charlie", "alice", "eve"]
 		);
 		// A single collator is the case that hides the bug: any order is the right one.
-		assert_eq!(names(&[0]), ["alice"]);
+		assert_eq!(names(&["alice"]), ["alice"]);
+	}
+
+	/// The derivation the whole approach rests on: zombienet derives a node's key from its name,
+	/// so a collator's aura key is knowable before it is spawned only if this matches exactly.
+	/// Pinned against the keyring's own keys, not against a second call to `account_of`, so a
+	/// drift in the derivation rule fails here instead of as a core no collator ever matches.
+	#[test]
+	fn account_of_is_the_key_zombienet_gives_the_name() {
+		assert_eq!(
+			account_of("alice").expect("//Alice is a valid hard derivation"),
+			Sr25519Keyring::Alice.public()
+		);
+		assert_eq!(
+			account_of("bob").expect("//Bob is a valid hard derivation"),
+			Sr25519Keyring::Bob.public()
+		);
 	}
 
 	/// A preset with `collators` invulnerables, shaped the way both runtimes' `development`
 	/// presets come out of `chain-spec-builder`.
 	fn preset(collators: usize) -> Value {
-		let accounts: Vec<String> = DEV_ACCOUNTS[..collators].iter().map(|k| ss58(*k)).collect();
+		let accounts: Vec<String> =
+			DEV_ACCOUNTS[..collators].iter().map(|k| ss58(k.public())).collect();
 		json!({
 			"balances": { "balances": accounts.iter().map(|a| json!([a, 1_000u64])).collect::<Vec<_>>() },
 			"collatorSelection": { "invulnerables": accounts },
 			"parachainInfo": { "parachainId": 1000 },
 			"session": { "keys": (0..collators).map(|i| {
-				let account = ss58(DEV_ACCOUNTS[i]);
+				let account = ss58(DEV_ACCOUNTS[i].public());
 				json!([account, account, { "aura": account }])
 			}).collect::<Vec<_>>() },
 		})
@@ -123,7 +164,7 @@ mod tests {
 	#[test]
 	fn a_validator_id_that_is_not_the_account_is_refused() {
 		let mut spec = preset(2);
-		spec["session"]["keys"][0][1] = json!(ss58(Sr25519Keyring::Charlie));
+		spec["session"]["keys"][0][1] = json!(ss58(Sr25519Keyring::Charlie.public()));
 		assert!(ensure_patchable(&spec).is_err());
 
 		let mut missing = preset(1);
@@ -137,35 +178,38 @@ mod tests {
 	#[test]
 	fn only_the_unfunded_collators_are_endowed() {
 		let mut spec = preset(2);
-		endow(&mut spec, &[ss58(Sr25519Keyring::Bob), ss58(Sr25519Keyring::Charlie)]).unwrap();
+		endow(
+			&mut spec,
+			&[ss58(Sr25519Keyring::Bob.public()), ss58(Sr25519Keyring::Charlie.public())],
+		)
+		.unwrap();
 
 		let funded = spec["balances"]["balances"].as_array().unwrap();
 		let accounts: Vec<&Value> = funded.iter().map(|entry| &entry[0]).collect();
 		let expected = [Sr25519Keyring::Alice, Sr25519Keyring::Bob, Sr25519Keyring::Charlie]
-			.map(|keyring| json!(ss58(keyring)));
+			.map(|keyring| json!(ss58(keyring.public())));
 		assert_eq!(accounts, expected.iter().collect::<Vec<_>>());
 		// Charlie is endowed the same amount the preset chose for its own accounts.
 		assert_eq!(funded[2][1], funded[0][1]);
 	}
 }
 
-fn ss58(keyring: Sr25519Keyring) -> String {
-	keyring.to_account_id().to_ss58check()
+fn ss58(public: sr25519::Public) -> String {
+	AccountId32::from(public.0).to_ss58check()
 }
 
 /// Generate the chain spec of para `para_id` at `path`, with one authority per entry of
-/// `collators` — indices into [`DEV_ACCOUNTS`], in the order the AURA round-robin walks them.
+/// `collators` — node names, in the order the AURA round-robin walks them.
 pub fn build(
 	omni_node: &Path,
 	runtime_wasm: &Path,
 	path: &Path,
 	para_id: u32,
-	collators: &[usize],
+	collators: &[String],
 ) -> anyhow::Result<()> {
 	anyhow::ensure!(
-		!collators.is_empty() && collators.iter().all(|index| *index < DEV_ACCOUNTS.len()),
-		"a para's collators must be a non-empty pick of the {} dev accounts, got {collators:?}",
-		DEV_ACCOUNTS.len()
+		!collators.is_empty(),
+		"a para's collators must be a non-empty list of node names, got {collators:?}"
 	);
 
 	let status = Command::new(omni_node)
@@ -191,7 +235,7 @@ pub fn build(
 /// `aura.authorities`: the preset never sets the latter, and pallet-session would overwrite it at
 /// the genesis session anyway. The authority count must equal the number of running collators or
 /// the unfilled slots stall block production for a full slot each.
-fn patch(path: &Path, para_id: u32, collators: &[usize]) -> anyhow::Result<()> {
+fn patch(path: &Path, para_id: u32, collators: &[String]) -> anyhow::Result<()> {
 	let mut spec: Value = serde_json::from_slice(&std::fs::read(path)?)
 		.with_context(|| format!("parsing {}", path.display()))?;
 
@@ -201,7 +245,14 @@ fn patch(path: &Path, para_id: u32, collators: &[usize]) -> anyhow::Result<()> {
 
 	ensure_patchable(patch)?;
 
-	let accounts: Vec<String> = collators.iter().map(|index| ss58(DEV_ACCOUNTS[*index])).collect();
+	let accounts: Vec<String> = collators
+		.iter()
+		.map(|name| {
+			let public = account_of(name)
+				.with_context(|| format!("deriving the key for collator {name}"))?;
+			Ok(ss58(public))
+		})
+		.collect::<anyhow::Result<Vec<_>>>()?;
 	patch["session"]["keys"] = accounts
 		.iter()
 		.map(|account| json!([account, account, { "aura": account }]))

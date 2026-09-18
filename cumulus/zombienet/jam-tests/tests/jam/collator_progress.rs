@@ -8,7 +8,7 @@
 //! count in every case, so an unfilled aura slot — which costs a whole slot of block production —
 //! shows up as a timeout rather than passing unnoticed.
 
-use super::harness::assert_collators_build_blocks;
+use cumulus_jam_zombienet_tests::harness::assert_collators_build_blocks;
 
 /// Long enough that a stall lasting a few slots cannot be mistaken for progress.
 const BLOCKS: u64 = 30;

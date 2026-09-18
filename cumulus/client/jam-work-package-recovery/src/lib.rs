@@ -26,8 +26,11 @@
 pub mod bundle_decode;
 pub mod state_machine;
 
-pub use bundle_decode::decode_bundle;
-pub use state_machine::{ImportBlocksSink, JamWorkPackageRecovery, RecoveredBlock, WorkReportNotification};
+pub use bundle_decode::{bundle_work_package_hash, decode_bundle};
+pub use state_machine::{
+	ImportBlocksSink, JamWorkPackageRecovery, RecoveredBlock, RecoveredHashFn,
+	WorkReportNotification,
+};
 
 use cumulus_jam_interface::{EpochIndex, JamWorkPackageSubmission, WorkReportHash};
 use futures::{stream::FuturesUnordered, Future, FutureExt, StreamExt};

@@ -32,5 +32,6 @@ features = ["std"]
 
 [dev-dependencies]
 jam-types = { workspace = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
 sp-trie = { workspace = true }
 tokio = { features = ["macros", "rt"], workspace = true, default-features = true }

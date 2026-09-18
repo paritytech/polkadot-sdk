@@ -23,8 +23,9 @@
 //! SCALE-encoded `ParachainCandidate`; its `pov` field is a SCALE-encoded `ParachainBlockData`.
 
 use codec::DecodeAll;
-use jam_codec::Decode;
+use cumulus_jam_interface::WorkPackageHash;
 use cumulus_primitives_core::ParachainBlockData;
+use jam_codec::Decode;
 use jam_std_common::ImmutableWorkPackage;
 use parachain_service_core::candidate::ParachainCandidate;
 use sp_additional_data::AdditionalData;
@@ -76,4 +77,17 @@ pub fn decode_bundle<Block: BlockT>(
 		.map_err(|e| format!("bundle: ParachainBlockData decode: {e}"))?;
 
 	Ok(block_data.into_blocks_and_additional_data())
+}
+
+/// The authentic work-package hash of a recovered bundle.
+///
+/// A bundle opens with the SCALE-encoded work package, and `ImmutableWorkPackage` records
+/// exactly those bytes; its hash is blake2b-256 over them — the same function the author used
+/// (`collation_task::work_package_hash`). Signing is non-deterministic, so this hash cannot be
+/// recomputed from a digest; a recovered bundle carries the author's own bytes and therefore
+/// the author's own hash.
+pub fn bundle_work_package_hash(bytes: &[u8]) -> Result<WorkPackageHash, String> {
+	let package = ImmutableWorkPackage::decode(&mut &bytes[..])
+		.map_err(|e| format!("bundle: ImmutableWorkPackage decode: {e}"))?;
+	Ok(package.hash())
 }
