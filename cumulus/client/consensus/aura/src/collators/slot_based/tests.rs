@@ -18,7 +18,7 @@
 use super::{
 	block_builder_task::{
 		assemble_core_submission, determine_cores, offset_relay_parent_find_descendants,
-		sp_hedge_chains, HedgeContext, V3HeaderChains, MAX_HEDGED_SIBLINGS,
+		sp_hedge_chains, HedgeContext, HedgeMemo, V3HeaderChains, MAX_HEDGED_SIBLINGS,
 	},
 	relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
 	scheduling::SchedulingInfo,
@@ -668,8 +668,8 @@ impl RelayChainDataCache<TestRelayClient> {
 }
 
 /// Create a relay header with a BABE pre-digest containing the given slot.
-/// Like [`relay_header_with_slot`] but claiming a BABE *primary* slot, which outweighs a
-/// secondary claim at the same height. The VRF data is dummy: only the digest variant matters.
+/// Like [`relay_header_with_slot`] but claiming a BABE *primary* slot. The VRF data is dummy:
+/// only the digest variant matters.
 pub fn relay_header_primary_with_slot(
 	number: u32,
 	parent_hash: RelayHash,
@@ -717,29 +717,42 @@ pub fn relay_header_with_slot(number: u32, parent_hash: RelayHash, slot: u64) ->
 	}
 }
 
-/// Relay height of the shared relay parent the hedging tests build their fork on; the scheduling
-/// parent and its siblings sit one block above it, i.e. at `relay_parent_offset == 1`.
+/// Relay height of the shared relay parent the hedging tests fork on, one below the siblings.
 const HEDGE_BASE_NUMBER: u32 = 10;
 
-/// Wire a [`SchedulingInfo`] to an import-notification stream carrying `imports`, the way the
-/// block builder does. `cached` seeds the relay data cache with the headers the sibling walk-back
-/// resolves; `best` is additionally cached so `ensure_initialized` succeeds.
+/// The single core the hedging tests plan their slot on; a sibling must agree on it.
+const HEDGE_CORES: [CoreIndex; 1] = [CoreIndex(0)];
+
+pub fn v3_node_features() -> NodeFeatures {
+	let mut node_features = NodeFeatures::from_vec(vec![0; 5]);
+	node_features.set(FeatureIndex::CandidateReceiptV3 as usize, true);
+	node_features
+}
+
+/// Wire a [`SchedulingInfo`] to an import stream carrying `imports`, the way the block builder
+/// does. `cached` and `best` seed the relay data cache; imports are cached on [`HEDGE_CORES`],
+/// which a test can override. The returned sender keeps the stream open for a later arrival.
 async fn hedge_setup(
 	imports: &[RelayHeader],
 	cached: &[RelayHeader],
 	best: &RelayHeader,
-) -> (RelayChainDataCache<TestRelayClient>, SchedulingInfo<TestRelayClient>) {
+) -> (
+	RelayChainDataCache<TestRelayClient>,
+	SchedulingInfo<TestRelayClient>,
+	futures::channel::mpsc::UnboundedSender<RelayHeader>,
+) {
 	let mut client = TestRelayClient::new(Default::default());
 	client.set_best_hash(Some(best.hash()));
 	client.set_best_notifications(Box::pin(futures::stream::empty()));
 	let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
 	client.set_import_notifications(Box::pin(rx));
 
-	let mut node_features = NodeFeatures::from_vec(vec![0; 5]);
-	node_features.set(FeatureIndex::CandidateReceiptV3 as usize, true);
 	let mut cache = RelayChainDataCache::new(client.clone(), 1.into());
 	for header in cached.iter().chain(std::iter::once(best)) {
-		cache.set_test_data(header.clone(), vec![], node_features.clone());
+		cache.set_test_data(header.clone(), vec![], v3_node_features());
+	}
+	for header in imports {
+		cache.set_test_data(header.clone(), HEDGE_CORES.to_vec(), v3_node_features());
 	}
 
 	let mut scheduling_info = SchedulingInfo::new(Duration::from_secs(6), Duration::ZERO);
@@ -749,7 +762,7 @@ async fn hedge_setup(
 		tx.unbounded_send(header.clone()).expect("receiver is alive; qed");
 	}
 
-	(cache, scheduling_info)
+	(cache, scheduling_info, tx)
 }
 
 fn hedge_context<'a>(
@@ -764,6 +777,9 @@ fn hedge_context<'a>(
 		max_relay_parent_session_age: 0,
 		scheduling_parent_header,
 		relay_parent_hash,
+		para_id: ParaId::from(1),
+		claim_queue_offset: 0,
+		core_indices: &HEDGE_CORES,
 	}
 }
 
@@ -788,16 +804,14 @@ fn hedge_core_info() -> CoreInfo {
 	}
 }
 
-/// A bare parachain header; only its presence in the unincluded bucket matters here, since it is
-/// what makes the submission non-empty.
+/// A bare parachain header; its presence in the unincluded bucket makes the submission non-empty.
 fn unincluded_para_header() -> <Block as BlockT>::Header {
 	Header::new(1, Default::default(), Default::default(), Default::default(), Default::default())
 }
 
-/// The end-to-end hedge path: a sibling of the chosen scheduling parent that only ever appears on
-/// the import stream (a loser never becomes new-best) is buffered, survives the walk-back, and
-/// becomes one extra scheduling proof behind the chosen parent's own. A same-height header built
-/// on a different base is dropped: it cannot carry blocks executed against `base`.
+/// The end-to-end hedge path: a sibling seen only on the import stream (a loser never becomes
+/// new-best) becomes one extra scheduling proof. Two same-height headers are dropped instead: one
+/// on a different base, one whose claim queue assigns the para to another core.
 #[tokio::test]
 async fn import_stream_sibling_becomes_extra_scheduling_proof() {
 	let base = relay_header_with_slot(HEDGE_BASE_NUMBER, Default::default(), 100);
@@ -806,13 +820,22 @@ async fn import_stream_sibling_becomes_extra_scheduling_proof() {
 	let mut sibling = chosen.clone();
 	sibling.state_root = [7u8; 32].into();
 	let forked = relay_header_with_slot(HEDGE_BASE_NUMBER + 1, other_base.hash(), 101);
+	let mut reassigned = chosen.clone();
+	reassigned.state_root = [8u8; 32].into();
 
-	let (mut cache, mut scheduling_info) =
-		hedge_setup(&[sibling.clone(), forked], &[base.clone(), other_base], &base).await;
+	let (mut cache, mut scheduling_info, _tx) = hedge_setup(
+		&[sibling.clone(), forked, reassigned.clone()],
+		&[base.clone(), other_base],
+		&base,
+	)
+	.await;
+	cache.set_test_data(reassigned, vec![CoreIndex(1)], v3_node_features());
 
 	let hedged = sp_hedge_chains(
 		&mut cache,
 		&mut scheduling_info,
+		&mut HedgeMemo::default(),
+		MAX_HEDGED_SIBLINGS,
 		hedge_context(&chosen, base.hash(), true, 1),
 	)
 	.await;
@@ -856,9 +879,8 @@ async fn import_stream_sibling_becomes_extra_scheduling_proof() {
 	);
 }
 
-/// Hedging is off outside V3, and structurally impossible at `relay_parent_offset == 0`: there the
-/// scheduling parent *is* the relay parent, so a sibling implies different blocks. The last case
-/// pins the fixture down — without it the first two could pass vacuously.
+/// Hedging is off outside V3 and at `relay_parent_offset == 0`, where the scheduling parent *is*
+/// the relay parent. The last case pins the fixture down, so the first two cannot pass vacuously.
 #[tokio::test]
 async fn sp_hedge_chains_empty_without_v3_or_relay_parent_offset() {
 	let base = relay_header_with_slot(HEDGE_BASE_NUMBER, Default::default(), 100);
@@ -867,11 +889,13 @@ async fn sp_hedge_chains_empty_without_v3_or_relay_parent_offset() {
 	sibling.state_root = [7u8; 32].into();
 
 	for (v3_enabled, relay_parent_offset, expected) in [(false, 1, 0), (true, 0, 0), (true, 1, 1)] {
-		let (mut cache, mut scheduling_info) =
+		let (mut cache, mut scheduling_info, _tx) =
 			hedge_setup(&[sibling.clone()], &[base.clone()], &base).await;
 		let hedged = sp_hedge_chains(
 			&mut cache,
 			&mut scheduling_info,
+			&mut HedgeMemo::default(),
+			MAX_HEDGED_SIBLINGS,
 			hedge_context(&chosen, base.hash(), v3_enabled, relay_parent_offset),
 		)
 		.await;
@@ -880,8 +904,56 @@ async fn sp_hedge_chains_empty_without_v3_or_relay_parent_offset() {
 	}
 }
 
-/// Hedging is capped, and the cap must drop the siblings least likely to win: `siblings_at` orders
-/// primaries ahead of secondaries, so truncation keeps the primaries.
+/// The hedge set is re-evaluated per core, so a sibling landing mid-slot is still hedged, and the
+/// shared memo keeps that re-evaluation free for siblings already resolved.
+#[tokio::test]
+async fn sp_hedge_chains_picks_up_a_sibling_arriving_mid_slot() {
+	let base = relay_header_with_slot(HEDGE_BASE_NUMBER, Default::default(), 100);
+	let chosen = relay_header_with_slot(HEDGE_BASE_NUMBER + 1, base.hash(), 101);
+	let mut late = chosen.clone();
+	late.state_root = [7u8; 32].into();
+
+	let (mut cache, mut scheduling_info, tx) = hedge_setup(&[], &[base.clone()], &base).await;
+	cache.set_test_data(late.clone(), HEDGE_CORES.to_vec(), v3_node_features());
+	let mut memo = HedgeMemo::default();
+
+	let first = sp_hedge_chains(
+		&mut cache,
+		&mut scheduling_info,
+		&mut memo,
+		MAX_HEDGED_SIBLINGS,
+		hedge_context(&chosen, base.hash(), true, 1),
+	)
+	.await;
+	assert!(first.is_empty());
+	assert!(memo.is_empty(), "nothing to resolve yet, so no budget spent");
+
+	tx.unbounded_send(late.clone()).expect("receiver is alive; qed");
+	let second = sp_hedge_chains(
+		&mut cache,
+		&mut scheduling_info,
+		&mut memo,
+		MAX_HEDGED_SIBLINGS,
+		hedge_context(&chosen, base.hash(), true, 1),
+	)
+	.await;
+	assert_eq!(second.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(), vec![late.hash()]);
+	assert_eq!(memo.len(), 1);
+
+	// A further core re-evaluates against the memo and resolves nothing new.
+	let third = sp_hedge_chains(
+		&mut cache,
+		&mut scheduling_info,
+		&mut memo,
+		MAX_HEDGED_SIBLINGS,
+		hedge_context(&chosen, base.hash(), true, 1),
+	)
+	.await;
+	assert_eq!(third, second);
+	assert_eq!(memo.len(), 1);
+}
+
+/// The cap must drop the siblings least likely to win, so truncation keeps the primaries.
 #[tokio::test]
 async fn sp_hedge_chains_cap_keeps_primaries() {
 	let base = relay_header_with_slot(HEDGE_BASE_NUMBER, Default::default(), 100);
@@ -899,11 +971,13 @@ async fn sp_hedge_chains_cap_keeps_primaries() {
 
 	let mut imports = primaries.clone();
 	imports.push(secondary);
-	let (mut cache, mut scheduling_info) = hedge_setup(&imports, &[base.clone()], &base).await;
+	let (mut cache, mut scheduling_info, _tx) = hedge_setup(&imports, &[base.clone()], &base).await;
 
 	let hedged = sp_hedge_chains(
 		&mut cache,
 		&mut scheduling_info,
+		&mut HedgeMemo::default(),
+		MAX_HEDGED_SIBLINGS,
 		hedge_context(&chosen, base.hash(), true, 1),
 	)
 	.await;

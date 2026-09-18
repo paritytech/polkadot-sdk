@@ -313,7 +313,7 @@ enum CollatorMessage<Block: BlockT> {
 /// scheduling proof, all over that same entry list.
 struct CollatorSegmentMessage<Block: BlockT> {
 	/// Proof for the chosen scheduling parent. Split from `hedged_proofs` so that "at least one
-	/// proof" and "the chosen one dispatches first" hold by construction.
+	/// proof" and "the chosen one is submitted first" hold by construction.
 	pub scheduling_proof: SchedulingProof,
 	/// One proof per hedged sibling scheduling parent, submitted over the same entries after the
 	/// chosen one.

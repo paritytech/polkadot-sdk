@@ -67,14 +67,13 @@ pub trait ServiceInterface<Block: BlockT> {
 	/// `scheduling_proof` is `Some` for V3 candidates (produces [`ParachainBlockData::V2`])
 	/// and `None` for legacy candidates (produces [`ParachainBlockData::V1`]).
 	///
-	/// Takes `proof` by reference: building the compact proof copies the trie nodes into a
-	/// `MemoryDB` either way, so a caller submitting the same blocks several times (SP-fork
-	/// hedging) does not have to clone the witness per submission.
+	/// Takes `proof` by value: the compact proof is built by moving the trie nodes into a
+	/// `MemoryDB`, so the common single-submission case copies the witness zero times.
 	fn build_multi_block_collation(
 		&self,
 		parent_header: &Block::Header,
 		blocks: Vec<Block>,
-		proof: &StorageProof,
+		proof: StorageProof,
 		scheduling_proof: Option<SchedulingProof>,
 	) -> Option<(Collation, ParachainBlockData<Block>)>;
 
@@ -227,11 +226,11 @@ where
 		&self,
 		parent_header: &Block::Header,
 		blocks: Vec<Block>,
-		proof: &StorageProof,
+		proof: StorageProof,
 		scheduling_proof: Option<SchedulingProof>,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
 		let compact_proof =
-			match proof.to_compact_proof::<HashingFor<Block>>(*parent_header.state_root()) {
+			match proof.into_compact_proof::<HashingFor<Block>>(*parent_header.state_root()) {
 				Ok(proof) => proof,
 				Err(e) => {
 					tracing::error!(target: "cumulus-collator", "Failed to compact proof: {:?}", e);
@@ -378,7 +377,7 @@ where
 			self,
 			parent_header,
 			vec![candidate.block],
-			&candidate.proof,
+			candidate.proof,
 			scheduling_proof,
 		)
 	}
@@ -391,7 +390,7 @@ where
 		&self,
 		parent_header: &<Block as BlockT>::Header,
 		blocks: Vec<Block>,
-		proof: &StorageProof,
+		proof: StorageProof,
 		scheduling_proof: Option<SchedulingProof>,
 	) -> Option<(Collation, ParachainBlockData<Block>)> {
 		CollatorService::build_multi_block_collation(
