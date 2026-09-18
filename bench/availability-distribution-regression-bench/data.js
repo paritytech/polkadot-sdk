@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789740521531,
+  "lastUpdate": 1789760302916,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "8c106ffcc5174b9920a842415f84024bcb558724",
-          "message": "Improve crates publishing flow (#11056)\n\nCo-authored-by: Egor_P <egor@parity.io>\nCo-authored-by: ParityReleases <release-team@parity.io>",
-          "timestamp": "2026-02-18T12:38:39Z",
-          "tree_id": "03f0f5617e40bab3041642f513f2476040fbbafa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8c106ffcc5174b9920a842415f84024bcb558724"
-        },
-        "date": 1771423849476,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024705589513333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007024419113333331,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009695113899999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14384199972666672,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010084976366666644,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "141152972+Stephenlawrence00@users.noreply.github.com",
+            "name": "html//stephlou",
+            "username": "Stephenlawrence00"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6719be2fe39c7cb6bf423b9c8e5724867b14ed93",
+          "message": "[frame-benchmarking] Refactor pallet benchmarking backend (#11758)\n\ncloses https://github.com/paritytech/polkadot-sdk/issues/194\n\nThis PR refactors the benchmarking infrastructure in FRAME by\ndeduplicating analysis logic, improving API ergonomics, formalizing\n`BenchmarkBatch::split()`, enhancing documentation and error handling,\nand deprecating the v1 macro system in favor of v2.",
+          "timestamp": "2026-09-18T16:50:01Z",
+          "tree_id": "90cd9e2073710c7a6673a5278be012f896bffb41",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6719be2fe39c7cb6bf423b9c8e5724867b14ed93"
+        },
+        "date": 1789760262077,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009865228919999974,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14346328276666678,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007945158273333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02519806199333333,
             "unit": "seconds"
           }
         ]
