@@ -169,7 +169,7 @@ mod execution {
 	use sp_core::{
 		hexdisplay::HexDisplay,
 		storage::{ChildInfo, ChildType, PrefixedStorageKey},
-		traits::{CallContext, CodeExecutor, Externalities, RuntimeCode, TimedCodeExecutor},
+		traits::{CallContext, CodeExecutor, Externalities, RuntimeCode},
 	};
 	use sp_externalities::Extensions;
 	use sp_trie::PrefixedMemoryDB;
@@ -332,15 +332,7 @@ mod execution {
 
 			result.map_err(|e| Box::new(e) as Box<_>)
 		}
-	}
 
-	impl<'a, B, H, Exec> StateMachine<'a, B, H, Exec>
-	where
-		H: Hasher,
-		H::Out: Ord + 'static + codec::Codec,
-		Exec: TimedCodeExecutor + Clone + 'static,
-		B: Backend<H>,
-	{
 		/// Same as [`Self::execute`], but interrupting execution once `timeout` has elapsed.
 		pub fn execute_with_timeout(
 			&mut self,
@@ -375,7 +367,7 @@ mod execution {
 		B: AsTrieBackend<H>,
 		H: Hasher,
 		H::Out: Ord + 'static + codec::Codec,
-		Exec: TimedCodeExecutor + Clone + 'static,
+		Exec: CodeExecutor + Clone + 'static,
 	{
 		let trie_backend = backend.as_trie_backend();
 		prove_execution_on_trie_backend::<_, _, _>(
@@ -415,7 +407,7 @@ mod execution {
 		S: trie_backend_essence::TrieBackendStorage<H>,
 		H: Hasher,
 		H::Out: Ord + 'static + codec::Codec,
-		Exec: TimedCodeExecutor + 'static + Clone,
+		Exec: CodeExecutor + 'static + Clone,
 	{
 		let proving_backend =
 			TrieBackendBuilder::wrap(trie_backend).with_recorder(Default::default()).build();
@@ -1159,7 +1151,7 @@ mod tests {
 	use sp_core::{
 		map,
 		storage::{ChildInfo, StateVersion},
-		traits::{CallContext, CodeExecutor, Externalities, RuntimeCode, TimedCodeExecutor},
+		traits::{CallContext, CodeExecutor, Externalities, RuntimeCode},
 		H256,
 	};
 	use sp_runtime::traits::BlakeTwo256;
@@ -1198,9 +1190,7 @@ mod tests {
 				_ => (Err(0), using_native),
 			}
 		}
-	}
 
-	impl TimedCodeExecutor for DummyCodeExecutor {
 		fn call_with_execution_timeout(
 			&self,
 			ext: &mut dyn Externalities,

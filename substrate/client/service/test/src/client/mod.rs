@@ -2361,8 +2361,8 @@ fn execution_proof_works() {
 
 #[test]
 fn execution_proof_with_generous_timeout_works() {
-	// A generous timeout must not interfere: the call is routed through the timed path
-	// (including waiting for the background compilation of the timed runtime) and succeeds.
+	// A generous timeout must not interfere: the call is routed through the interruptible
+	// runtime (including waiting for its background compilation) and succeeds.
 	let client = substrate_test_runtime_client::new();
 
 	// The method must read storage for the recorded proof to be non-empty.

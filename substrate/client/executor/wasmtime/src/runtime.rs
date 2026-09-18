@@ -31,9 +31,7 @@ use sc_executor_common::{
 	error::{Error, Result, WasmError},
 	runtime_blob::RuntimeBlob,
 	util::checked_range,
-	wasm_runtime::{
-		HeapAllocStrategy, TimedWasmInstance, TimedWasmModule, WasmInstance, WasmModule,
-	},
+	wasm_runtime::{HeapAllocStrategy, WasmInstance, WasmModule},
 };
 use sp_runtime_interface::unpack_ptr_and_len;
 use sp_wasm_interface::{HostFunctions, Pointer, WordSize};
@@ -144,56 +142,32 @@ impl InstanceCounter {
 	}
 }
 
-/// Shared internals of [`WasmtimeRuntime`] and [`WasmtimeTimedRuntime`].
-struct RuntimeCore {
+/// A `WasmModule` implementation using wasmtime to compile the runtime module to machine code
+/// and execute the compiled code.
+pub struct WasmtimeRuntime {
 	engine: Engine,
 	instance_pre: Arc<wasmtime::InstancePre<StoreData>>,
 	instantiation_strategy: InternalInstantiationStrategy,
 	instance_counter: Arc<InstanceCounter>,
+	/// Present iff the module was compiled with [`Semantics::epoch_interruption`].
+	epoch_ticker: Option<Arc<EpochTicker>>,
 }
-
-impl RuntimeCore {
-	fn instance_strategy(&self, heap_alloc_strategy: HeapAllocStrategy) -> Strategy {
-		match self.instantiation_strategy {
-			InternalInstantiationStrategy::Builtin => Strategy::RecreateInstance(InstanceCreator {
-				engine: self.engine.clone(),
-				instance_pre: self.instance_pre.clone(),
-				instance_counter: self.instance_counter.clone(),
-				heap_alloc_strategy,
-			}),
-		}
-	}
-}
-
-/// A `WasmModule` implementation using wasmtime to compile the runtime module to machine code
-/// and execute the compiled code.
-pub struct WasmtimeRuntime(RuntimeCore);
 
 impl WasmModule for WasmtimeRuntime {
 	fn new_instance(
 		&self,
 		heap_alloc_strategy: HeapAllocStrategy,
 	) -> Result<Box<dyn WasmInstance>> {
-		Ok(Box::new(WasmtimeInstance { strategy: self.0.instance_strategy(heap_alloc_strategy) }))
-	}
-}
+		let strategy = match self.instantiation_strategy {
+			InternalInstantiationStrategy::Builtin => Strategy::RecreateInstance(InstanceCreator {
+				engine: self.engine.clone(),
+				instance_pre: self.instance_pre.clone(),
+				instance_counter: self.instance_counter.clone(),
+				heap_alloc_strategy,
+			}),
+		};
 
-/// A `TimedWasmModule` implementation whose module is compiled with wasmtime epoch interruption,
-/// making instances only callable with an execution timeout.
-pub struct WasmtimeTimedRuntime {
-	core: RuntimeCore,
-	epoch_ticker: Arc<EpochTicker>,
-}
-
-impl TimedWasmModule for WasmtimeTimedRuntime {
-	fn new_instance(
-		&self,
-		heap_alloc_strategy: HeapAllocStrategy,
-	) -> Result<Box<dyn TimedWasmInstance>> {
-		Ok(Box::new(WasmtimeTimedInstance {
-			strategy: self.core.instance_strategy(heap_alloc_strategy),
-			_epoch_ticker: self.epoch_ticker.clone(),
-		}))
+		Ok(Box::new(WasmtimeInstance { strategy, epoch_ticker: self.epoch_ticker.clone() }))
 	}
 }
 
@@ -201,6 +175,9 @@ impl TimedWasmModule for WasmtimeTimedRuntime {
 /// to execute the compiled code.
 pub struct WasmtimeInstance {
 	strategy: Strategy,
+	/// Keeps the epoch advancing for as long as this instance lives. `None` if the module was
+	/// compiled without epoch interruption.
+	epoch_ticker: Option<Arc<EpochTicker>>,
 }
 
 impl WasmtimeInstance {
@@ -208,11 +185,23 @@ impl WasmtimeInstance {
 		&mut self,
 		method: &str,
 		data: &[u8],
+		timeout: Option<Duration>,
 		allocation_stats: &mut Option<AllocationStats>,
 	) -> Result<Vec<u8>> {
+		let epoch_deadline = match (&self.epoch_ticker, timeout) {
+			(Some(_), Some(timeout)) => Some(epoch::deadline_ticks(timeout)),
+			// An epoch-interruptible store traps immediately unless a deadline is set.
+			(Some(_), None) => Some(epoch::MAX_DEADLINE_TICKS),
+			(None, Some(_)) => return Err(Error::ExecutionTimeoutUnsupported),
+			(None, None) => None,
+		};
+
 		match &mut self.strategy {
 			Strategy::RecreateInstance(ref mut instance_creator) => {
 				let mut instance_wrapper = instance_creator.instantiate()?;
+				if let Some(ticks) = epoch_deadline {
+					instance_wrapper.store_mut().set_epoch_deadline(ticks);
+				}
 				let heap_base = instance_wrapper.extract_heap_base()?;
 				let entrypoint = instance_wrapper.resolve_entrypoint(method)?;
 				let allocator = FreeingBumpHeapAllocator::new(heap_base);
@@ -230,43 +219,23 @@ impl WasmInstance for WasmtimeInstance {
 		data: &[u8],
 	) -> (Result<Vec<u8>>, Option<AllocationStats>) {
 		let mut allocation_stats = None;
-		let result = self.call_impl(method, data, &mut allocation_stats);
+		let result = self.call_impl(method, data, None, &mut allocation_stats);
 		(result, allocation_stats)
 	}
 
-	fn set_heap_alloc_strategy(&mut self, heap_alloc_strategy: HeapAllocStrategy) {
-		match &mut self.strategy {
-			Strategy::RecreateInstance(ref mut creator) => {
-				creator.heap_alloc_strategy = heap_alloc_strategy;
-			},
-		}
-	}
-}
-
-/// A `TimedWasmInstance` implementation over a module compiled with epoch interruption.
-pub struct WasmtimeTimedInstance {
-	strategy: Strategy,
-	/// Keeps the epoch advancing while this instance outlives its [`WasmtimeTimedRuntime`];
-	/// otherwise a deadline could never fire.
-	_epoch_ticker: Arc<EpochTicker>,
-}
-
-impl TimedWasmInstance for WasmtimeTimedInstance {
 	fn call_with_timeout(
 		&mut self,
 		method: &str,
 		data: &[u8],
 		timeout: Duration,
 	) -> Result<Vec<u8>> {
-		match &mut self.strategy {
-			Strategy::RecreateInstance(ref mut instance_creator) => {
-				let mut instance_wrapper = instance_creator.instantiate()?;
-				instance_wrapper.store_mut().set_epoch_deadline(epoch::deadline_ticks(timeout));
-				let heap_base = instance_wrapper.extract_heap_base()?;
-				let entrypoint = instance_wrapper.resolve_entrypoint(method)?;
-				let allocator = FreeingBumpHeapAllocator::new(heap_base);
+		self.call_impl(method, data, Some(timeout), &mut None)
+	}
 
-				perform_call(data, &mut instance_wrapper, entrypoint, allocator, &mut None)
+	fn set_heap_alloc_strategy(&mut self, heap_alloc_strategy: HeapAllocStrategy) {
+		match &mut self.strategy {
+			Strategy::RecreateInstance(ref mut creator) => {
+				creator.heap_alloc_strategy = heap_alloc_strategy;
 			},
 		}
 	}
@@ -330,6 +299,7 @@ fn common_config(semantics: &Semantics) -> std::result::Result<wasmtime::Config,
 	config.max_wasm_stack(native_stack_max as usize);
 
 	config.parallel_compilation(semantics.parallel_compilation);
+	config.epoch_interruption(semantics.epoch_interruption);
 
 	// Be clear and specific about the extensions we support. If an update brings new features
 	// they should be introduced here as well.
@@ -519,6 +489,12 @@ pub struct Semantics {
 
 	/// Enables WASM Fixed-Width SIMD proposal
 	pub wasm_simd: bool,
+
+	/// Compiles the module with wasmtime epoch interruption, enabling
+	/// [`WasmInstance::call_with_timeout`] on its instances.
+	///
+	/// Adds roughly 10% execution overhead. Calls without a timeout are unaffected otherwise.
+	pub epoch_interruption: bool,
 }
 
 #[derive(Clone)]
@@ -569,29 +545,7 @@ where
 	H: HostFunctions,
 {
 	// SAFETY: this is safe because it doesn't use `CodeSupplyMode::Precompiled`.
-	unsafe {
-		do_create_runtime::<H>(CodeSupplyMode::Fresh(blob), config, EpochInterruptions::Disabled)
-	}
-	.map(WasmtimeRuntime)
-}
-
-/// The same as [`create_runtime`], but the module is compiled with wasmtime epoch interruption
-/// (adding roughly 10% execution overhead), making its instances only callable with an execution
-/// timeout via [`TimedWasmInstance::call_with_timeout`].
-pub fn create_timed_runtime<H>(
-	blob: RuntimeBlob,
-	config: Config,
-) -> std::result::Result<WasmtimeTimedRuntime, WasmError>
-where
-	H: HostFunctions,
-{
-	// SAFETY: this is safe because it doesn't use `CodeSupplyMode::Precompiled`.
-	let core = unsafe {
-		do_create_runtime::<H>(CodeSupplyMode::Fresh(blob), config, EpochInterruptions::Enabled)
-	}?;
-	let epoch_ticker = Arc::new(EpochTicker::new(core.engine.clone())?);
-
-	Ok(WasmtimeTimedRuntime { core, epoch_ticker })
+	unsafe { do_create_runtime::<H>(CodeSupplyMode::Fresh(blob), config) }
 }
 
 /// The same as [`create_runtime`] but takes a path to a precompiled artifact,
@@ -617,12 +571,7 @@ pub unsafe fn create_runtime_from_artifact<H>(
 where
 	H: HostFunctions,
 {
-	do_create_runtime::<H>(
-		CodeSupplyMode::Precompiled(compiled_artifact_path),
-		config,
-		EpochInterruptions::Disabled,
-	)
-	.map(WasmtimeRuntime)
+	do_create_runtime::<H>(CodeSupplyMode::Precompiled(compiled_artifact_path), config)
 }
 
 /// The same as [`create_runtime`] but takes the bytes of a precompiled artifact,
@@ -647,19 +596,7 @@ pub unsafe fn create_runtime_from_artifact_bytes<H>(
 where
 	H: HostFunctions,
 {
-	do_create_runtime::<H>(
-		CodeSupplyMode::PrecompiledBytes(compiled_artifact_bytes),
-		config,
-		EpochInterruptions::Disabled,
-	)
-	.map(WasmtimeRuntime)
-}
-
-/// Whether we enable epoch interuptions on the compiled WASM.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum EpochInterruptions {
-	Disabled,
-	Enabled,
+	do_create_runtime::<H>(CodeSupplyMode::PrecompiledBytes(compiled_artifact_bytes), config)
 }
 
 /// # Safety
@@ -669,19 +606,13 @@ enum EpochInterruptions {
 unsafe fn do_create_runtime<H>(
 	code_supply_mode: CodeSupplyMode<'_>,
 	mut config: Config,
-	epoch_interruption: EpochInterruptions,
-) -> std::result::Result<RuntimeCore, WasmError>
+) -> std::result::Result<WasmtimeRuntime, WasmError>
 where
 	H: HostFunctions,
 {
 	replace_strategy_if_broken(&mut config.semantics.instantiation_strategy);
 
 	let mut wasmtime_config = common_config(&config.semantics)?;
-
-	if epoch_interruption == EpochInterruptions::Enabled {
-		wasmtime_config.epoch_interruption(true);
-	}
-
 	if let Some(ref cache_path) = config.cache_path {
 		if let Err(reason) = setup_wasmtime_caching(cache_path, &mut wasmtime_config) {
 			log::warn!(
@@ -740,11 +671,18 @@ where
 		.instantiate_pre(&module)
 		.map_err(|e| WasmError::Other(format!("cannot preinstantiate module: {:#}", e)))?;
 
-	Ok(RuntimeCore {
+	let epoch_ticker = config
+		.semantics
+		.epoch_interruption
+		.then(|| EpochTicker::new(engine.clone()).map(Arc::new))
+		.transpose()?;
+
+	Ok(WasmtimeRuntime {
 		engine,
 		instance_pre: Arc::new(instance_pre),
 		instantiation_strategy,
 		instance_counter: Default::default(),
+		epoch_ticker,
 	})
 }
 

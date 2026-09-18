@@ -102,6 +102,9 @@ pub enum Error {
 
 	#[error("Execution timed out")]
 	ExecutionTimeout,
+
+	#[error("Execution timeouts are not supported by this runtime instance")]
+	ExecutionTimeoutUnsupported,
 }
 
 impl From<&'static str> for Error {

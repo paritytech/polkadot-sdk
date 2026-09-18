@@ -936,7 +936,7 @@ fn timed_call_completes_and_cache_stays_usable(wasm_method: WasmExecutionMethod)
 
 	let generous_timeout = Duration::from_secs(1000);
 
-	// Blocks until the background compile of the timed module finishes, then completes.
+	// Blocks until the background compile of the interruptible module finishes, then completes.
 	let result = executor
 		.call_with_execution_timeout(
 			&mut ext.ext(),
@@ -970,7 +970,7 @@ fn timed_call_completes_and_cache_stays_usable(wasm_method: WasmExecutionMethod)
 	);
 	assert_eq!(result.unwrap(), vec![0u8; 0]);
 
-	// ...nor subsequent timed calls (fresh instance per call, cache-hit path).
+	// ...nor subsequent calls with a timeout (fresh instance per call, cache-hit path).
 	let result = executor
 		.call_with_execution_timeout(
 			&mut ext.ext(),

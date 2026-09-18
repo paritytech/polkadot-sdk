@@ -89,7 +89,7 @@ use std::{
 };
 
 use super::call_executor::LocalCallExecutor;
-use sp_core::traits::TimedCodeExecutor;
+use sp_core::traits::CodeExecutor;
 
 type NotificationSinks<T> = Mutex<Vec<TracingUnboundedSender<T>>>;
 
@@ -196,7 +196,7 @@ pub fn new_with_backend<B, E, Block, G, RA>(
 	config: ClientConfig<Block>,
 ) -> sp_blockchain::Result<Client<B, LocalCallExecutor<Block, B, E>, Block, RA>>
 where
-	E: TimedCodeExecutor + sc_executor::RuntimeVersionOf,
+	E: CodeExecutor + sc_executor::RuntimeVersionOf,
 	G: BuildGenesisBlock<
 		Block,
 		BlockImportOperation = <B as backend::Backend<Block>>::BlockImportOperation,

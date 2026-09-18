@@ -20,7 +20,7 @@ use codec::{Decode as _, Encode as _};
 use sc_executor_common::{
 	error::Error,
 	runtime_blob::RuntimeBlob,
-	wasm_runtime::{HeapAllocStrategy, TimedWasmModule, WasmModule, DEFAULT_HEAP_ALLOC_STRATEGY},
+	wasm_runtime::{HeapAllocStrategy, WasmModule, DEFAULT_HEAP_ALLOC_STRATEGY},
 };
 use sc_runtime_test::wasm_binary_unwrap;
 use std::time::{Duration, Instant};
@@ -71,6 +71,7 @@ struct RuntimeBuilder {
 	deterministic_stack: bool,
 	heap_pages: HeapAllocStrategy,
 	precompile_runtime: bool,
+	epoch_interruption: bool,
 	tmpdir: Option<tempfile::TempDir>,
 }
 
@@ -83,6 +84,7 @@ impl RuntimeBuilder {
 			deterministic_stack: false,
 			heap_pages: DEFAULT_HEAP_ALLOC_STRATEGY,
 			precompile_runtime: false,
+			epoch_interruption: false,
 			tmpdir: None,
 		}
 	}
@@ -109,6 +111,11 @@ impl RuntimeBuilder {
 
 	fn heap_alloc_strategy(mut self, heap_pages: HeapAllocStrategy) -> Self {
 		self.heap_pages = heap_pages;
+		self
+	}
+
+	fn epoch_interruption(mut self, epoch_interruption: bool) -> Self {
+		self.epoch_interruption = epoch_interruption;
 		self
 	}
 
@@ -147,6 +154,7 @@ impl RuntimeBuilder {
 				wasm_bulk_memory: false,
 				wasm_reference_types: false,
 				wasm_simd: false,
+				epoch_interruption: self.epoch_interruption,
 			},
 		}
 	}
@@ -169,13 +177,6 @@ impl RuntimeBuilder {
 			crate::create_runtime::<HostFunctions>(blob, config)
 		}
 		.expect("cannot create runtime")
-	}
-
-	fn build_timed(&mut self) -> impl TimedWasmModule + '_ {
-		assert!(!self.precompile_runtime, "timed runtimes do not support precompilation");
-
-		crate::create_timed_runtime::<HostFunctions>(self.blob(), self.config())
-			.expect("cannot create runtime")
 	}
 }
 
@@ -339,8 +340,10 @@ fn test_timed_call_interrupts_infinite_loop(instantiation_strategy: Instantiatio
 		)
 	"#;
 
-	let mut builder = RuntimeBuilder::new(instantiation_strategy).use_wat(wat.to_string());
-	let runtime = builder.build_timed();
+	let mut builder = RuntimeBuilder::new(instantiation_strategy)
+		.use_wat(wat.to_string())
+		.epoch_interruption(true);
+	let runtime = builder.build();
 	let mut instance = runtime
 		.new_instance(DEFAULT_HEAP_ALLOC_STRATEGY)
 		.expect("failed to instantiate a runtime");
@@ -372,8 +375,10 @@ fn test_timed_call_completes_when_fast_enough(instantiation_strategy: Instantiat
 		)
 	"#;
 
-	let mut builder = RuntimeBuilder::new(instantiation_strategy).use_wat(wat.to_string());
-	let runtime = builder.build_timed();
+	let mut builder = RuntimeBuilder::new(instantiation_strategy)
+		.use_wat(wat.to_string())
+		.epoch_interruption(true);
+	let runtime = builder.build();
 	let mut instance = runtime
 		.new_instance(DEFAULT_HEAP_ALLOC_STRATEGY)
 		.expect("failed to instantiate a runtime");
@@ -398,8 +403,10 @@ fn test_timed_call_distinguishes_traps_from_timeouts(
 		)
 	"#;
 
-	let mut builder = RuntimeBuilder::new(instantiation_strategy).use_wat(wat.to_string());
-	let runtime = builder.build_timed();
+	let mut builder = RuntimeBuilder::new(instantiation_strategy)
+		.use_wat(wat.to_string())
+		.epoch_interruption(true);
+	let runtime = builder.build();
 	let mut instance = runtime
 		.new_instance(DEFAULT_HEAP_ALLOC_STRATEGY)
 		.expect("failed to instantiate a runtime");
@@ -411,6 +418,34 @@ fn test_timed_call_distinguishes_traps_from_timeouts(
 		},
 		error => panic!("unexpected error: {:?}", error),
 	}
+}
+
+test_wasm_execution!(test_call_with_timeout_requires_epoch_interruption);
+fn test_call_with_timeout_requires_epoch_interruption(
+	instantiation_strategy: InstantiationStrategy,
+) {
+	let mut builder = RuntimeBuilder::new(instantiation_strategy);
+	let runtime = builder.build();
+	let mut instance = runtime
+		.new_instance(DEFAULT_HEAP_ALLOC_STRATEGY)
+		.expect("failed to instantiate a runtime");
+
+	let result = instance.call_with_timeout("test_empty_return", &[], Duration::from_secs(1));
+	match result.unwrap_err() {
+		Error::ExecutionTimeoutUnsupported => {},
+		error => panic!("unexpected error: {:?}", error),
+	}
+}
+
+test_wasm_execution!(test_untimed_call_works_with_epoch_interruption);
+fn test_untimed_call_works_with_epoch_interruption(instantiation_strategy: InstantiationStrategy) {
+	let mut builder = RuntimeBuilder::new(instantiation_strategy).epoch_interruption(true);
+	let runtime = builder.build();
+	let mut instance = runtime
+		.new_instance(DEFAULT_HEAP_ALLOC_STRATEGY)
+		.expect("failed to instantiate a runtime");
+
+	assert_eq!(instance.call("test_empty_return", &[]).unwrap(), Vec::<u8>::new());
 }
 
 test_wasm_execution!(test_max_memory_pages_imported_memory_without_precompilation);
@@ -583,6 +618,7 @@ fn test_instances_without_reuse_are_not_leaked() {
 				wasm_bulk_memory: false,
 				wasm_reference_types: false,
 				wasm_simd: false,
+				epoch_interruption: false,
 			},
 		},
 	)

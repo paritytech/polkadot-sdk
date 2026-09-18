@@ -94,8 +94,8 @@ where
 			let IncomingRequest { peer, payload, pending_response } = request;
 
 			// TODO: `handle_request` runs the runtime call (up to `execution_timeout`, plus a
-			// possible wait for the timed module compilation) synchronously on this async task,
-			// blocking a tokio worker thread. Move it to `spawn_blocking`.
+			// possible wait for the interruptible module compilation) synchronously on this async
+			// task, blocking a tokio worker thread. Move it to `spawn_blocking`.
 			match self.handle_request(peer, payload) {
 				Ok(response_data) => {
 					let response = OutgoingResponse {
@@ -380,8 +380,8 @@ mod tests {
 
 	#[test]
 	fn remote_call_with_generous_timeout_succeeds() {
-		// A generous timeout must not interfere: the call is routed through the timed path
-		// (including waiting for the background compilation of the timed runtime) and succeeds.
+		// A generous timeout must not interfere: the call is routed through the interruptible
+		// runtime (including waiting for its background compilation) and succeeds.
 		let mut handler = make_handler(Some(Duration::from_secs(60)));
 
 		let response = remote_call(&mut handler, "TestAPI_get_block_number");

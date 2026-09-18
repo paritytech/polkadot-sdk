@@ -57,11 +57,11 @@ pub trait CodeExecutor: Sized + Send + Sync + ReadRuntimeVersion + Clone + 'stat
 		data: &[u8],
 		context: CallContext,
 	) -> (Result<Vec<u8>, Self::Error>, bool);
-}
 
-/// An executor that can additionally bound runtime calls in wall-clock execution time.
-pub trait TimedCodeExecutor: CodeExecutor {
 	/// Call a given method in the runtime, interrupting execution once `timeout` has elapsed.
+	///
+	/// Returns the result: either the output data or an execution error, including one
+	/// indicating that the timeout has been reached.
 	///
 	/// NOTE: engines without an execution-interruption mechanism (PolkaVM) ignore the timeout
 	/// and run uncapped.

@@ -19,10 +19,7 @@
 use polkavm::{CallError, Caller, Reg};
 use sc_executor_common::{
 	error::{Error, WasmError},
-	wasm_runtime::{
-		AllocationStats, HeapAllocStrategy, TimedWasmInstance, TimedWasmModule, WasmInstance,
-		WasmModule,
-	},
+	wasm_runtime::{AllocationStats, HeapAllocStrategy, WasmInstance, WasmModule},
 };
 use sp_runtime_interface::unpack_ptr_and_len;
 use sp_wasm_interface::{
@@ -48,16 +45,7 @@ impl WasmModule for InstancePre {
 	}
 }
 
-impl TimedWasmModule for InstancePre {
-	fn new_instance(
-		&self,
-		_heap_alloc_strategy: HeapAllocStrategy,
-	) -> Result<Box<dyn TimedWasmInstance>, Error> {
-		Ok(Box::new(Instance(self.0.instantiate()?)))
-	}
-}
-
-impl TimedWasmInstance for Instance {
+impl WasmInstance for Instance {
 	/// WARNING: PolkaVM has no execution-interruption mechanism, so the timeout is IGNORED
 	/// and the call runs unbounded.
 	fn call_with_timeout(
@@ -66,11 +54,9 @@ impl TimedWasmInstance for Instance {
 		data: &[u8],
 		_timeout: Duration,
 	) -> Result<Vec<u8>, Error> {
-		WasmInstance::call_export(self, method, data)
+		self.call_export(method, data)
 	}
-}
 
-impl WasmInstance for Instance {
 	fn call_with_allocation_stats(
 		&mut self,
 		name: &str,

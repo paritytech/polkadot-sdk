@@ -60,7 +60,7 @@ impl EntryPoint {
 				Error::AbortedDueToPanic(MessageWithBacktrace { message, backtrace })
 			} else if trap.downcast_ref::<Trap>() == Some(&Trap::Interrupt) {
 				// `Trap::Interrupt` only arises from an expired epoch deadline, i.e. the
-				// execution timeout of a timed instance elapsed.
+				// execution timeout of the call elapsed.
 				Error::ExecutionTimeout
 			} else {
 				let message = trap.root_cause().to_string();

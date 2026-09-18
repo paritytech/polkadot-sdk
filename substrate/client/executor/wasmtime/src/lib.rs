@@ -40,10 +40,10 @@ mod tests;
 
 pub use runtime::{
 	create_runtime, create_runtime_from_artifact, create_runtime_from_artifact_bytes,
-	create_timed_runtime, prepare_runtime_artifact, Config, DeterministicStackLimit,
-	InstantiationStrategy, Semantics, WasmtimeRuntime, WasmtimeTimedRuntime,
+	prepare_runtime_artifact, Config, DeterministicStackLimit, InstantiationStrategy, Semantics,
+	WasmtimeRuntime,
 };
 pub use sc_executor_common::{
 	runtime_blob::RuntimeBlob,
-	wasm_runtime::{HeapAllocStrategy, TimedWasmInstance, TimedWasmModule, WasmModule},
+	wasm_runtime::{HeapAllocStrategy, WasmModule},
 };

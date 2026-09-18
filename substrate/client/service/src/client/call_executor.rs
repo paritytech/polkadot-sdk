@@ -23,7 +23,7 @@ use sc_client_api::{
 };
 use sc_executor::{RuntimeVersion, RuntimeVersionOf};
 use sp_api::ProofRecorder;
-use sp_core::traits::{CallContext, CodeExecutor, TimedCodeExecutor};
+use sp_core::traits::{CallContext, CodeExecutor};
 use sp_externalities::Extensions;
 use sp_runtime::{
 	generic::BlockId,
@@ -84,7 +84,7 @@ where
 impl<B, E, Block> CallExecutor<Block> for LocalCallExecutor<Block, B, E>
 where
 	B: backend::Backend<Block>,
-	E: TimedCodeExecutor + RuntimeVersionOf + Clone + 'static,
+	E: CodeExecutor + RuntimeVersionOf + Clone + 'static,
 	Block: BlockT,
 {
 	type Error = E::Error;
@@ -261,7 +261,7 @@ where
 impl<Block, B, E> sp_version::GetRuntimeVersionAt<Block> for LocalCallExecutor<Block, B, E>
 where
 	B: backend::Backend<Block>,
-	E: TimedCodeExecutor + RuntimeVersionOf + Clone + 'static,
+	E: CodeExecutor + RuntimeVersionOf + Clone + 'static,
 	Block: BlockT,
 {
 	fn runtime_version(

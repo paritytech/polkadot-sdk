@@ -55,15 +55,19 @@ impl EpochTicker {
 	}
 }
 
+/// Largest usable epoch deadline, effectively unbounded. `Store::set_epoch_deadline` adds the
+/// deadline to the current epoch unchecked, hence not `u64::MAX`.
+pub(crate) const MAX_DEADLINE_TICKS: u64 = u64::MAX / 2;
+
 /// Number of epoch ticks after which a call started now is guaranteed to have run for at least
 /// `timeout`.
 ///
 /// Rounded up, plus one tick because the call may start just before a tick fires. Capped at
-/// `u64::MAX / 2` because `Store::set_epoch_deadline` adds this to the current epoch unchecked.
+/// [`MAX_DEADLINE_TICKS`].
 pub(crate) fn deadline_ticks(timeout: Duration) -> u64 {
 	u64::try_from(timeout.as_millis().div_ceil(EPOCH_TICK.as_millis()) + 1)
 		.unwrap_or(u64::MAX)
-		.min(u64::MAX / 2)
+		.min(MAX_DEADLINE_TICKS)
 }
 
 #[cfg(test)]
@@ -76,6 +80,6 @@ mod tests {
 		assert_eq!(deadline_ticks(Duration::from_millis(50)), 2);
 		assert_eq!(deadline_ticks(Duration::from_millis(100)), 2);
 		assert_eq!(deadline_ticks(Duration::from_secs(1)), 11);
-		assert_eq!(deadline_ticks(Duration::MAX), u64::MAX / 2);
+		assert_eq!(deadline_ticks(Duration::MAX), MAX_DEADLINE_TICKS);
 	}
 }
