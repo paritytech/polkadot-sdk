@@ -27,12 +27,33 @@ use futures::{
 	stream::{Fuse, FusedStream},
 };
 use polkadot_node_subsystem::gen::{stream::Stream, FutureExt};
-use polkadot_primitives::Block as RelayBlock;
+use polkadot_primitives::{
+	Block as RelayBlock, BlockNumber as RelayBlockNumber, Hash as RelayHash,
+};
 use sc_consensus_aura::SlotDuration;
 use sp_runtime::traits::Header as HeaderT;
 use sp_timestamp::Timestamp;
-use std::{marker::PhantomData, pin::Pin, time::Duration};
+use std::{
+	collections::{BTreeMap, HashSet},
+	marker::PhantomData,
+	pin::Pin,
+	time::Duration,
+};
 
+/// Relay heights kept in the imported-header buffer; the surplus is slack for late arrivals.
+const RECENT_IMPORT_HEIGHTS: usize = 10;
+
+/// Headers buffered per relay height, so a fork-spammed height cannot grow the dedup scan.
+const MAX_IMPORTS_PER_HEIGHT: usize = 8;
+
+/// A buffered imported relay head. Hash and BABE claim are decoded once on arrival (`hash()`
+/// re-hashes on every call); an undecodable pre-digest leaves `slot` unset, excluding the header.
+struct ImportedHeader {
+	hash: RelayHash,
+	header: RelayHeader,
+	slot: Option<Slot>,
+	is_primary: bool,
+}
 
 fn get_current_relay_slot_at(
 	now: Duration,
@@ -76,6 +97,11 @@ fn get_current_relay_slot(slot_offset: Duration, relay_chain_slot_duration: Dura
 /// in order to make sure that the stream is installed/re-installed if needed.
 pub(crate) struct SchedulingInfo<RelayClient> {
 	best_notifications: Fuse<Pin<Box<dyn Stream<Item = RelayHeader> + Send>>>,
+	/// All imported heads: a sibling that loses never sets `is_new_best`, so it is invisible on
+	/// `best_notifications`.
+	import_notifications: Fuse<Pin<Box<dyn Stream<Item = RelayHeader> + Send>>>,
+	/// Imported headers by relay height, pruned to [`RECENT_IMPORT_HEIGHTS`] heights.
+	recent_imports: BTreeMap<RelayBlockNumber, Vec<ImportedHeader>>,
 	relay_slot_duration: Duration,
 	slot_offset: Duration,
 	maybe_best_relay_header: Option<RelayHeader>,
@@ -89,20 +115,98 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 	/// The caller must call [`Self::ensure_initialized`] before the first
 	/// `wait_for_scheduling_parent` invocation.
 	pub fn new(relay_chain_slot_duration: Duration, slot_offset: Duration) -> Self {
-		let stream: Pin<Box<dyn Stream<Item = RelayHeader> + Send>> =
-			Box::pin(futures::stream::empty());
-		let mut stream = stream.fuse();
-		// Force the fused stream into the terminated state so the first
-		// `should_reinit` call returns `true`.
-		stream.next().now_or_never();
+		// Terminated from the start, so the first `should_reinit` call returns `true`.
+		let terminated_stream = || {
+			let stream: Pin<Box<dyn Stream<Item = RelayHeader> + Send>> =
+				Box::pin(futures::stream::empty());
+			let mut stream = stream.fuse();
+			stream.next().now_or_never();
+			stream
+		};
 
 		Self {
-			best_notifications: stream,
+			best_notifications: terminated_stream(),
+			import_notifications: terminated_stream(),
+			recent_imports: Default::default(),
 			relay_slot_duration: relay_chain_slot_duration,
 			slot_offset,
 			maybe_best_relay_header: None,
 			_phantom: Default::default(),
 		}
+	}
+
+	/// Absorb the import stream's backlog into [`Self::recent_imports`], then prune. Never blocks.
+	pub(crate) fn drain_imports(&mut self) {
+		while let Some(Some(header)) = self.import_notifications.next().now_or_never() {
+			let hash = header.hash();
+			let at_height = self.recent_imports.entry(header.number).or_default();
+			if at_height.len() >= MAX_IMPORTS_PER_HEIGHT {
+				continue;
+			}
+			if !at_height.iter().any(|known| known.hash == hash) {
+				let (slot, is_primary) = match Self::babe_claim(&header) {
+					Some((slot, is_primary)) => (Some(slot), is_primary),
+					None => (None, false),
+				};
+				at_height.push(ImportedHeader { hash, header, slot, is_primary });
+			}
+		}
+
+		while self.recent_imports.len() > RECENT_IMPORT_HEIGHTS {
+			let Some(oldest) = self.recent_imports.keys().next().copied() else { break };
+			self.recent_imports.remove(&oldest);
+		}
+	}
+
+	/// Imported twins of `chosen` that could still displace it as scheduling parent, best first.
+	///
+	/// Mirrors `is_scheduling_parent_valid`: `chosen`'s BABE slot, or off-slot with an imported
+	/// child. Within a parent a secondary loses to a primary `chosen` unless already extended.
+	pub(crate) fn siblings_at(&self, chosen: &RelayHeader) -> Vec<RelayHeader> {
+		let chosen_hash = chosen.hash();
+		let chosen_parent = chosen.parent_hash();
+		// An undecodable pre-digest leaves the twin class undefined.
+		let Some((chosen_slot, chosen_is_primary)) = Self::babe_claim(chosen) else {
+			return Vec::new();
+		};
+		let extended = self.extended_heads_at(chosen.number);
+		let outweighed = |entry: &ImportedHeader| {
+			entry.header.parent_hash() == chosen_parent &&
+				chosen_is_primary &&
+				!entry.is_primary &&
+				!extended.contains(&entry.hash)
+		};
+		let mut siblings: Vec<&ImportedHeader> = self
+			.recent_imports
+			.get(&chosen.number)
+			.map(|headers| {
+				headers
+					.iter()
+					.filter(|entry| entry.hash != chosen_hash)
+					.filter(|entry| {
+						entry.slot == Some(chosen_slot) || extended.contains(&entry.hash)
+					})
+					.filter(|entry| !outweighed(entry))
+					.collect()
+			})
+			.unwrap_or_default();
+		siblings
+			.sort_by_key(|entry| (!extended.contains(&entry.hash), !entry.is_primary, entry.hash));
+		siblings.into_iter().map(|entry| entry.header.clone()).collect()
+	}
+
+	/// Heads at `number` already seen extended, from the parent hashes buffered one height up.
+	fn extended_heads_at(&self, number: RelayBlockNumber) -> HashSet<RelayHash> {
+		self.recent_imports
+			.get(&number.saturating_add(1))
+			.map(|headers| headers.iter().map(|entry| *entry.header.parent_hash()).collect())
+			.unwrap_or_default()
+	}
+
+	/// The header's BABE slot and primary claim, which outweighs a secondary one in that slot.
+	fn babe_claim(header: &RelayHeader) -> Option<(Slot, bool)> {
+		let pre_digest = sc_consensus_babe::find_pre_digest::<RelayBlock>(header).ok()?;
+		Some((pre_digest.slot(), matches!(pre_digest, sc_consensus_babe::PreDigest::Primary(_))))
 	}
 
 	async fn get_best_relay_block_data<'a>(
@@ -113,13 +217,10 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		relay_chain_data_cache.get_by_hash(best_relay_hash).await.map_err(|_| ())
 	}
 
-	/// `true` if the best-block notification stream is terminated and must be replaced
-	/// before the next `wait_for_scheduling_parent` call.
-	///
-	/// Returns `true` both at startup (the initial stream is a terminated empty stream)
-	/// and after the underlying subscription has ended.
+	/// `true` if either notification stream is terminated; [`Self::ensure_initialized`] then
+	/// replaces only the terminated one.
 	fn should_reinit(&self) -> bool {
-		self.best_notifications.is_terminated()
+		self.best_notifications.is_terminated() || self.import_notifications.is_terminated()
 	}
 
 	pub async fn ensure_initialized<'a>(
@@ -131,19 +232,45 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 			return None;
 		}
 
-		match relay_client.new_best_notification_stream().await {
-			Ok(best_notifications) => {
-				self.best_notifications = best_notifications.fuse();
-			},
-			Err(err) => {
-				tracing::error!(
+		let import_only_reinit = !self.best_notifications.is_terminated();
+
+		// Only replace the stream(s) that actually terminated, never the other one.
+		if self.best_notifications.is_terminated() {
+			match relay_client.new_best_notification_stream().await {
+				Ok(best_notifications) => {
+					self.best_notifications = best_notifications.fuse();
+				},
+				Err(err) => {
+					tracing::error!(
+						target: crate::LOG_TARGET,
+						?err,
+						"Failed to reset the relay chain best block notification stream. \
+						The next call to `wait_for_scheduling_parent` might fail."
+					);
+				},
+			};
+		}
+
+		if self.import_notifications.is_terminated() {
+			match relay_client.import_notification_stream().await {
+				Ok(import_notifications) => {
+					self.import_notifications = import_notifications.fuse();
+					if import_only_reinit {
+						tracing::warn!(
+							target: crate::LOG_TARGET,
+							"Relay chain import notification stream terminated while the \
+							best-block stream stayed alive; SP-fork hedging was blind until now."
+						);
+					}
+				},
+				Err(err) => tracing::error!(
 					target: crate::LOG_TARGET,
 					?err,
-					"Failed to reset the relay chain best block notification stream. \
-					The next call to `wait_for_scheduling_parent` might fail."
-				);
-			},
-		};
+					"Failed to reset the relay chain import notification stream. \
+					Scheduling parent siblings will not be visible."
+				),
+			}
+		}
 
 		let best_relay_block_data =
 			match Self::get_best_relay_block_data(relay_client, relay_chain_data_cache).await {
@@ -157,7 +284,10 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 					return None;
 				},
 			};
-		self.maybe_best_relay_header = Some(best_relay_block_data.relay_header.clone());
+		// Only a fresh best-block stream lost the carried-over leaf; an import-only reinit kept it.
+		if !import_only_reinit {
+			self.maybe_best_relay_header = Some(best_relay_block_data.relay_header.clone());
+		}
 
 		Some(best_relay_block_data)
 	}
@@ -185,6 +315,7 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 		v3_enabled_on_para: bool,
 		production_slot: Slot,
+		relay_parent_offset: u32,
 	) -> Option<(RelayHeader, bool)> {
 		let mut maybe_best_relay_header = self.maybe_best_relay_header.take();
 		let (best_relay_slot, best_relay_header_data) = loop {
@@ -192,6 +323,7 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 			while let Some(Some(header)) = self.best_notifications.next().now_or_never() {
 				maybe_best_relay_header = Some(header);
 			}
+			self.drain_imports();
 
 			let best_relay_header = match maybe_best_relay_header.take() {
 				Some(header) => header,
@@ -204,15 +336,13 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 
 			let v3_enabled = Self::is_v3_enabled(v3_enabled_on_para, Some(&best_relay_header_data));
 			if v3_enabled {
-				// A finished-height best may have same-height siblings, and picking among
-				// them from the local view is arrival-order luck. Like the V2 path, wait
-				// for a current-slot block: its parent hash names the canonical
-				// finished-height block for the walk below. This trades a little slot
-				// time (normally milliseconds) for fork-safe scheduling parents and ties
-				// parachain production to the relay chain cadence. A resolver on a branch
-				// that later loses re-opens the race one height up; resubmission recovers
-				// those.
-				if best_relay_slot < production_slot {
+				// Hedging only covers a losing same-height pick at `relay_parent_offset >= 1`;
+				// without it wait for a resolver, as V2 does. Never build a whole slot behind.
+				let required_slot = match relay_parent_offset {
+					0 => production_slot,
+					_ => Slot::from((*production_slot).saturating_sub(1)),
+				};
+				if best_relay_slot < required_slot {
 					continue;
 				}
 				break (best_relay_slot, best_relay_header_data);
@@ -368,8 +498,10 @@ mod tests {
 		(client, cache, headers)
 	}
 
+	/// `should_reinit`/`ensure_initialized` treat the best and import streams as one unit: reinit
+	/// is due if either terminates, and an import-only reinit must keep the carried-over leaf.
 	#[tokio::test]
-	async fn reset_best_notifications_works() {
+	async fn reset_notification_streams_works() {
 		let best_header = tests::relay_header_with_slot(10, Default::default(), 0);
 		let mut client = TestRelayClient::new(Default::default());
 		let mut cache = RelayChainDataCache::new(client.clone(), 1.into());
@@ -397,9 +529,29 @@ mod tests {
 
 		tx.close_channel();
 		scheduling_info
-			.wait_for_scheduling_parent(&mut cache, false, Slot::from(PRODUCTION_SLOT))
+			.wait_for_scheduling_parent(&mut cache, false, Slot::from(PRODUCTION_SLOT), 0)
 			.await;
 		assert_eq!(scheduling_info.should_reinit(), true);
+
+		// The import stream terminating alone must also trigger reinit.
+		let mut import_only_info =
+			SchedulingInfo::<TestRelayClient>::new(Duration::from_secs(6), Duration::from_secs(1));
+		let (_live_best_tx, live_best_rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+		let (live_import_tx, live_import_rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+		let live_best: Pin<Box<dyn Stream<Item = RelayHeader> + Send>> = Box::pin(live_best_rx);
+		let live_import: Pin<Box<dyn Stream<Item = RelayHeader> + Send>> = Box::pin(live_import_rx);
+		import_only_info.best_notifications = live_best.fuse();
+		import_only_info.import_notifications = live_import.fuse();
+		assert_eq!(import_only_info.should_reinit(), false);
+
+		live_import_tx.close_channel();
+		import_only_info.drain_imports();
+		assert_eq!(import_only_info.should_reinit(), true);
+
+		// ...and must leave the carried-over leaf alone, though the client's best has moved on.
+		import_only_info.maybe_best_relay_header = Some(best_header.clone());
+		import_only_info.ensure_initialized(&client, &mut cache).await;
+		assert_eq!(import_only_info.maybe_best_relay_header.as_ref(), Some(&best_header));
 	}
 
 	/// Test the original bug scenario: relay block propagation exceeds `slot_offset`,
@@ -425,7 +577,7 @@ mod tests {
 
 		let mut handle = tokio::spawn(async move {
 			scheduling_info
-				.wait_for_scheduling_parent(&mut cache, false, Slot::from(current_slot))
+				.wait_for_scheduling_parent(&mut cache, false, Slot::from(current_slot), 0)
 				.await
 		});
 
@@ -472,7 +624,12 @@ mod tests {
 		scheduling_info.ensure_initialized(&client, &mut cache).await;
 		let result = tokio::time::timeout(
 			Duration::from_millis(300),
-			scheduling_info.wait_for_scheduling_parent(&mut cache, false, Slot::from(current_slot)),
+			scheduling_info.wait_for_scheduling_parent(
+				&mut cache,
+				false,
+				Slot::from(current_slot),
+				0,
+			),
 		)
 		.await
 		.expect("Should return immediately, not timeout");
@@ -480,123 +637,50 @@ mod tests {
 		assert_eq!(result, Some((headers[4].clone(), false)));
 	}
 
-	/// A finished-height best may be one of several same-height siblings. When a
-	/// current-slot block arrives during the wait, its parent hash names the canonical
-	/// sibling — the scheduling parent must follow it, not the first-seen one.
+	/// The V3 selection blocks until the scheduling parent is settled, on the production slot alone
+	/// and never a wall-clock read. At `relay_parent_offset >= 1` hedging covers a losing pick, so
+	/// a finished-height best settles it and only a view a whole slot behind blocks; at `0` it
+	/// waits for a current-slot block to name the canonical sibling. Either way the answer is the
+	/// same.
 	#[tokio::test]
-	async fn v3_finished_height_sp_follows_current_slot_endorsement() {
-		let (mut client, mut cache, headers) = build_mock_chain(true, PRODUCTION_SLOT);
-		let sibling_a = headers[2].clone();
-		// Same height, same parent, different hash: the locally-first but losing twin.
-		let mut sibling_b = sibling_a.clone();
-		sibling_b.state_root = [1u8; 32].into();
-		let resolver = tests::relay_header_with_slot(
-			*sibling_a.number() + 1,
-			sibling_b.hash(),
-			PRODUCTION_SLOT,
-		);
-		let node_features = {
-			let mut nf = NodeFeatures::from_vec(vec![0; 5]);
-			nf.set(FeatureIndex::CandidateReceiptV3 as usize, true);
-			nf
-		};
-		cache.set_test_data(sibling_b.clone(), vec![], node_features.clone());
-		cache.set_test_data(resolver.clone(), vec![], node_features);
+	async fn v3_blocks_until_the_scheduling_parent_is_settled() {
+		// (offset, header that must not settle the claim, header that must)
+		for (relay_parent_offset, blocks, settles) in [(1u32, 0usize, 1usize), (0, 1, 2)] {
+			let (mut client, mut cache, headers) = build_v3_chain_with_slots(&[
+				PRODUCTION_SLOT - 2,
+				PRODUCTION_SLOT - 1,
+				PRODUCTION_SLOT,
+			]);
+			let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+			client.set_best_hash(None);
+			client.set_best_notifications(Box::pin(rx));
+			let mut scheduling_info = SchedulingInfo::new(RELAY_SLOT_DURATION, Duration::ZERO);
+			scheduling_info.ensure_initialized(&client, &mut cache).await;
 
-		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
-		client.set_best_hash(None);
-		client.set_best_notifications(Box::pin(rx));
-		let mut scheduling_info = SchedulingInfo::new(RELAY_SLOT_DURATION, Duration::ZERO);
-		scheduling_info.ensure_initialized(&client, &mut cache).await;
+			let mut handle = tokio::spawn(async move {
+				scheduling_info
+					.wait_for_scheduling_parent(
+						&mut cache,
+						true,
+						Slot::from(PRODUCTION_SLOT),
+						relay_parent_offset,
+					)
+					.await
+			});
 
-		let mut handle = tokio::spawn(async move {
-			scheduling_info
-				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
+			tx.unbounded_send(headers[blocks].clone()).unwrap();
+			assert!(
+				tokio::time::timeout(Duration::from_millis(300), &mut handle).await.is_err(),
+				"offset {relay_parent_offset}: the claim must not settle yet"
+			);
+
+			tx.unbounded_send(headers[settles].clone()).unwrap();
+			let result = tokio::time::timeout(Duration::from_secs(2), handle)
 				.await
-		});
-		// Locally-best finished-height block arrives first.
-		tx.unbounded_send(sibling_a.clone()).unwrap();
-		// The claim must hold for a current-slot block rather than settle on `sibling_a`.
-		assert!(
-			tokio::time::timeout(Duration::from_millis(100), &mut handle).await.is_err(),
-			"must wait for a current-slot block before settling"
-		);
-		tx.unbounded_send(resolver).unwrap();
-		let result = tokio::time::timeout(Duration::from_secs(2), handle)
-			.await
-			.expect("must complete")
-			.expect("must not panic");
-		assert_eq!(result, Some((sibling_b, true)));
-	}
-
-	/// A finished-slot best alone must not settle the claim: like the V2 path, the
-	/// V3 selection waits for a block of the current production slot, however long
-	/// that takes.
-	#[tokio::test]
-	async fn v3_waits_for_current_slot_block_when_best_is_finished() {
-		let (mut client, mut cache, headers) = build_mock_chain(true, PRODUCTION_SLOT);
-		let finished_best = headers[2].clone();
-		let resolver = headers[3].clone(); // future-slot child of headers[2]
-
-		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
-		client.set_best_hash(None);
-		client.set_best_notifications(Box::pin(rx));
-		let mut scheduling_info = SchedulingInfo::new(RELAY_SLOT_DURATION, Duration::ZERO);
-		scheduling_info.ensure_initialized(&client, &mut cache).await;
-
-		let mut handle = tokio::spawn(async move {
-			scheduling_info
-				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
-				.await
-		});
-		tx.unbounded_send(finished_best.clone()).unwrap();
-		assert!(
-			tokio::time::timeout(Duration::from_millis(500), &mut handle).await.is_err(),
-			"must keep waiting on a finished-slot best"
-		);
-		tx.unbounded_send(resolver).unwrap();
-		let result = tokio::time::timeout(Duration::from_secs(2), handle)
-			.await
-			.expect("must complete once a current-slot block arrives")
-			.expect("must not panic");
-		assert_eq!(result, Some((finished_best, true)));
-	}
-
-	#[tokio::test]
-	async fn v3_wait_for_scheduling_parent_returns_finished_slot() {
-		let relay_slot_duration = Duration::from_secs(6);
-		let slot_offset = Duration::from_secs(1);
-
-		let (mut client, mut cache, headers) = build_mock_chain(true, PRODUCTION_SLOT);
-
-		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
-		client.set_best_hash(None);
-		client.set_best_notifications(Box::pin(rx));
-
-		let mut scheduling_info = SchedulingInfo::new(relay_slot_duration, slot_offset);
-		scheduling_info.ensure_initialized(&client, &mut cache).await;
-
-		let mut handle = tokio::spawn(async move {
-			scheduling_info
-				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
-				.await
-		});
-
-		// The function should not return before receiving a notification.
-		assert!(
-			tokio::time::timeout(Duration::from_millis(300), &mut handle).await.is_err(),
-			"Should be waiting for fresh relay block, not returning immediately"
-		);
-
-		// Simulate: a finished-slot block arrives, followed by a current-slot child —
-		// the V3 selection settles only on the latter, deriving the former from it.
-		tx.unbounded_send(headers[2].clone()).unwrap();
-		tx.unbounded_send(headers[3].clone()).unwrap();
-		let result = tokio::time::timeout(Duration::from_secs(2), handle)
-			.await
-			.expect("Task should complete within timeout")
-			.expect("Task should not panic");
-		assert_eq!(result, Some((headers[2].clone(), true)));
+				.expect("must settle, not hang")
+				.expect("must not panic");
+			assert_eq!(result, Some((headers[1].clone(), true)), "offset {relay_parent_offset}");
+		}
 	}
 
 	#[tokio::test]
@@ -615,7 +699,7 @@ mod tests {
 
 		let mut handle = tokio::spawn(async move {
 			scheduling_info
-				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
+				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT), 1)
 				.await
 		});
 
@@ -652,7 +736,7 @@ mod tests {
 		tx.unbounded_send(headers[3].clone()).unwrap();
 		let result = tokio::time::timeout(Duration::from_millis(300), async {
 			scheduling_info
-				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
+				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT), 1)
 				.await
 		})
 		.await
@@ -671,7 +755,7 @@ mod tests {
 		tx.unbounded_send(headers[3].clone()).unwrap();
 		let result = tokio::time::timeout(Duration::from_millis(300), async {
 			scheduling_info
-				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
+				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT), 1)
 				.await
 		})
 		.await
@@ -683,7 +767,7 @@ mod tests {
 		tx.unbounded_send(headers[4].clone()).unwrap();
 		let result = tokio::time::timeout(Duration::from_millis(300), async {
 			scheduling_info
-				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
+				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT), 1)
 				.await
 		})
 		.await
@@ -716,49 +800,119 @@ mod tests {
 		(client, cache, headers)
 	}
 
-	/// Regression for the stale scheduling parent: the V3 selection must depend only on the
-	/// production slot handed over by the slot timer, never on a second wall-clock read. With the
-	/// best block from the slot right before the production slot, that block is the scheduling
-	/// parent, whatever the wall clock says.
-	#[tokio::test]
-	async fn v3_uses_previous_slot_block_without_consulting_clock() {
-		let (mut client, mut cache, headers) =
-			build_v3_chain_with_slots(&[PRODUCTION_SLOT - 2, PRODUCTION_SLOT - 1]);
-		// A current-slot child of the previous slot's block: the walk derives the
-		// scheduling parent from it, so the wall clock never has to be consulted.
-		let resolver =
-			tests::relay_header_with_slot(52, headers[1].hash(), PRODUCTION_SLOT);
-		let node_features = {
-			let mut nf = NodeFeatures::from_vec(vec![0; 5]);
-			nf.set(FeatureIndex::CandidateReceiptV3 as usize, true);
-			nf
-		};
-		cache.set_test_data(resolver.clone(), vec![], node_features);
-
+	/// A [`SchedulingInfo`] wired to an import stream, with the sender that feeds it.
+	fn with_import_stream(
+	) -> (SchedulingInfo<TestRelayClient>, futures::channel::mpsc::UnboundedSender<RelayHeader>) {
+		let mut scheduling_info =
+			SchedulingInfo::<TestRelayClient>::new(RELAY_SLOT_DURATION, Duration::ZERO);
 		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
-		client.set_best_hash(None);
-		client.set_best_notifications(Box::pin(rx));
+		let stream: Pin<Box<dyn Stream<Item = RelayHeader> + Send>> = Box::pin(rx);
+		scheduling_info.import_notifications = stream.fuse();
+		(scheduling_info, tx)
+	}
 
-		let mut scheduling_info = SchedulingInfo::new(RELAY_SLOT_DURATION, Duration::from_secs(1));
-		scheduling_info.ensure_initialized(&client, &mut cache).await;
+	/// The import buffer records every imported head, deduplicates by hash, excludes the chosen
+	/// parent, and stays bounded in both heights and headers per height.
+	#[tokio::test]
+	async fn import_buffer_records_siblings_and_stays_bounded() {
+		let (mut scheduling_info, tx) = with_import_stream();
 
-		// Best block: the previous slot's block, i.e. a finished slot relative to the production
-		// slot. Finished-slot blocks alone no longer settle the claim; the current-slot
-		// descendant does.
-		tx.unbounded_send(headers[1].clone()).unwrap();
-		tx.unbounded_send(resolver).unwrap();
-		let result = tokio::time::timeout(
-			Duration::from_secs(2),
-			scheduling_info.wait_for_scheduling_parent(
-				&mut cache,
-				true,
-				Slot::from(PRODUCTION_SLOT),
-			),
-		)
-		.await
-		.expect("Should settle once a current-slot block arrives, not hang");
+		// One header per height, then a same-height sibling of the last one and a duplicate.
+		let heights = 1..=(RECENT_IMPORT_HEIGHTS as u32 + 1);
+		let top = *heights.end();
+		for number in heights {
+			tx.unbounded_send(tests::relay_header_with_slot(number, Default::default(), 0))
+				.expect("receiver is alive; qed");
+		}
+		let chosen = tests::relay_header_with_slot(top, Default::default(), 0);
+		let mut sibling = chosen.clone();
+		sibling.state_root = [7u8; 32].into();
+		tx.unbounded_send(sibling.clone()).expect("receiver is alive; qed");
+		tx.unbounded_send(sibling.clone()).expect("receiver is alive; qed");
 
-		assert_eq!(result, Some((headers[1].clone(), true)));
+		scheduling_info.drain_imports();
+
+		assert_eq!(scheduling_info.siblings_at(&chosen), vec![sibling.clone()]);
+		assert_eq!(scheduling_info.siblings_at(&sibling), vec![chosen]);
+		assert_eq!(scheduling_info.recent_imports.len(), RECENT_IMPORT_HEIGHTS);
+		// The oldest height fell out of the buffer.
+		let pruned = tests::relay_header_with_slot(1, Default::default(), 0);
+		assert!(scheduling_info.siblings_at(&pruned).is_empty());
+
+		// A height flooded with forks stops accumulating at the per-height cap.
+		for i in 0..(MAX_IMPORTS_PER_HEIGHT as u8 + 5) {
+			let mut fork = tests::relay_header_with_slot(top, Default::default(), 0);
+			fork.state_root = [i; 32].into();
+			tx.unbounded_send(fork).expect("receiver is alive; qed");
+		}
+		scheduling_info.drain_imports();
+		assert_eq!(scheduling_info.recent_imports[&top].len(), MAX_IMPORTS_PER_HEIGHT);
+	}
+
+	/// The twin class worth hedging: `chosen`'s BABE slot (or off-slot with a child), weight-
+	/// filtered only within a parent, ordered extended first, then primaries, then by hash.
+	#[tokio::test]
+	async fn siblings_are_filtered_by_weight_and_imported_children() {
+		let (mut scheduling_info, tx) = with_import_stream();
+
+		let primary = tests::relay_header_primary_with_slot(7, Default::default(), 0);
+		let secondary = tests::relay_header_with_slot(7, Default::default(), 0);
+		let mut other_primary = primary.clone();
+		other_primary.state_root = [9u8; 32].into();
+		let mut other_secondary = secondary.clone();
+		other_secondary.state_root = [11u8; 32].into();
+		for header in [&primary, &secondary, &other_primary, &other_secondary] {
+			tx.unbounded_send(header.clone()).expect("receiver is alive; qed");
+		}
+		scheduling_info.drain_imports();
+
+		// Primary pick: both secondaries lose on weight and are dropped, the rival primary is kept.
+		assert_eq!(scheduling_info.siblings_at(&primary), vec![other_primary.clone()]);
+
+		// Secondary pick: everything can still beat it, primaries first.
+		let mut expected = vec![primary.clone(), other_primary.clone()];
+		expected.sort_by_key(|h| h.hash());
+		expected.push(other_secondary.clone());
+		assert_eq!(scheduling_info.siblings_at(&secondary), expected);
+
+		// A bare header from another BABE slot is not hedged: validators would reject it.
+		tx.unbounded_send(tests::relay_header_with_slot(7, Default::default(), 1))
+			.expect("receiver is alive; qed");
+		scheduling_info.drain_imports();
+		assert_eq!(scheduling_info.siblings_at(&primary), vec![other_primary.clone()]);
+
+		// A child of the losing secondary lifts it over the primary filter, and sorts it first.
+		tx.unbounded_send(tests::relay_header_with_slot(8, secondary.hash(), 1))
+			.expect("receiver is alive; qed");
+		scheduling_info.drain_imports();
+		let expected = vec![secondary.clone(), other_primary.clone()];
+		assert_eq!(scheduling_info.siblings_at(&primary), expected);
+
+		// A child of the pick itself must not switch hedging off.
+		tx.unbounded_send(tests::relay_header_with_slot(8, primary.hash(), 1))
+			.expect("receiver is alive; qed");
+		scheduling_info.drain_imports();
+		assert_eq!(scheduling_info.siblings_at(&primary), expected);
+
+		// Not a twin, so the single-block weight filter may not drop it; it sorts last.
+		let cross_fork = tests::relay_header_with_slot(7, [3u8; 32].into(), 0);
+		tx.unbounded_send(cross_fork.clone()).expect("receiver is alive; qed");
+		scheduling_info.drain_imports();
+		assert_eq!(
+			scheduling_info.siblings_at(&primary),
+			vec![secondary.clone(), other_primary.clone(), cross_fork.clone()],
+		);
+
+		// An off-slot header becomes hedgeable once a child of it is imported.
+		let off_slot = tests::relay_header_primary_with_slot(7, Default::default(), 1);
+		tx.unbounded_send(off_slot.clone()).expect("receiver is alive; qed");
+		tx.unbounded_send(tests::relay_header_with_slot(8, off_slot.hash(), 2))
+			.expect("receiver is alive; qed");
+		scheduling_info.drain_imports();
+		assert_eq!(
+			scheduling_info.siblings_at(&primary),
+			vec![off_slot, secondary, other_primary, cross_fork],
+		);
 	}
 
 	/// The best block is from the production slot itself, so it has not had a full slot to
@@ -783,6 +937,7 @@ mod tests {
 				&mut cache,
 				true,
 				Slot::from(PRODUCTION_SLOT),
+				1,
 			),
 		)
 		.await
