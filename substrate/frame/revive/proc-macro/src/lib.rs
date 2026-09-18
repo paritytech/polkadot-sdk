@@ -328,19 +328,27 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 	let impls = expand_functions(def);
 	let bench_impls = expand_bench_functions(def);
 	let docs = expand_func_doc(def);
+	let func_name_consts = expand_func_name_consts(def);
 	let all_syscalls = expand_func_list(def);
 	let lookup_syscall = expand_func_lookup(def);
 	let all_trace_ops = expand_trace_op_list(def);
 	let lookup_trace_op = expand_trace_op_lookup(def);
 
 	quote! {
+		// Per-syscall name constants used by `list_syscalls()`. Each entry is
+		// either the byte literal of the syscall's name (when cfg-enabled) or
+		// a `&[0u8]` sentinel (when cfg-disabled). A single null byte cannot
+		// match any real polkavm import name, so cfg-disabled syscalls are
+		// inert to the upload validator's `contains` check.
+		#func_name_consts
+
 		/// Returns the list of all syscalls that contracts can import.
 		pub fn list_syscalls() -> &'static [&'static [u8]] {
 			#all_syscalls
 		}
 
 		/// Return the index of a syscall in the `list_syscalls()` list.
-		pub fn lookup_syscall_index(name: &'static str) -> Option<u8> {
+		pub fn lookup_syscall_index(name: &[u8]) -> Option<u32> {
 			#lookup_syscall
 		}
 
@@ -358,7 +366,7 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 			fn handle_ecall(
 				&mut self,
 				memory: &mut M,
-				__syscall_symbol__: &[u8],
+				__syscall_id__: u32,
 			) -> Result<Option<u64>, TrapReason>
 			{
 				#impls
@@ -366,7 +374,7 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 		}
 
 		#[cfg(feature = "runtime-benchmarks")]
-		impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
+		impl<'a, E: Ext, M: ?Sized + Memory<E::T> + MeterBackend<E::T>> Runtime<'a, E, M> {
 			#bench_impls
 		}
 
@@ -387,7 +395,7 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 }
 
 fn expand_functions(def: &EnvDef) -> TokenStream2 {
-	let impls = def.host_funcs.iter().map(|f| {
+	let impls = def.host_funcs.iter().enumerate().map(|(idx, f)| {
 		// skip the self and memory argument
 		let params = f.item.sig.inputs.iter().skip(2);
 		let param_names = params.clone().filter_map(|arg| {
@@ -405,7 +413,7 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 		let arg_decoder = arg_decoder(param_names, param_types);
 		let cfg = &f.cfg;
 		let name = &f.name;
-		let syscall_symbol = Literal::byte_string(name.as_bytes());
+		let syscall_id = Literal::usize_unsuffixed(idx);
 		let body = &f.item.block;
 		let map_output = f.returns.map_output();
 		let trace_return = f.returns.trace_return_value();
@@ -445,7 +453,7 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 
 		quote! {
 			#cfg
-			#syscall_symbol => {
+			#syscall_id => {
 				// closure is needed so that "?" can infere the correct type
 				(|| #output {
 					#arg_decoder
@@ -462,7 +470,7 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 
 		let __sync_result__ = self.ext
 			.frame_meter_mut()
-			.sync_from_executor(memory.gas())
+			.sync_from_executor::<<M as MeterBackend<E::T>>::Backend>(memory.gas())
 			.map_err(TrapReason::from);
 
 		crate::tracing::if_tracing(|tracer| tracer.exit_step(self, None));
@@ -470,19 +478,23 @@ fn expand_functions(def: &EnvDef) -> TokenStream2 {
 		__sync_result__?;
 
 		// This is the overhead to call an empty syscall that always needs to be charged.
-		self.charge_gas(crate::vm::RuntimeCosts::HostFn).map_err(TrapReason::from)?;
+		self.charge_gas(
+			crate::vm::BackendCosts::<<M as MeterBackend<E::T>>::Backend>::HostFn
+		).map_err(TrapReason::from)?;
 
 		// They will be mapped to variable names by the syscall specific code.
 		let (__a0__, __a1__, __a2__, __a3__, __a4__, __a5__) = memory.read_input_regs();
 
 		// Execute the syscall specific logic in a closure so that the gas metering code is always executed.
-		let result = (|| match __syscall_symbol__ {
+		let result = (|| match __syscall_id__ {
 			#( #impls )*
 			_ => Err(TrapReason::SupervisorError(Error::<E::T>::InvalidSyscall.into()))
 		})();
 
 		// Write gas from pallet-revive into polkavm after leaving the host function.
-		let gas = self.ext.frame_meter_mut().sync_to_executor();
+		let gas = self.ext
+			.frame_meter_mut()
+			.sync_to_executor::<<M as MeterBackend<E::T>>::Backend>();
 		memory.set_gas(gas.into());
 		result
 	}
@@ -548,18 +560,55 @@ fn expand_func_doc(def: &EnvDef) -> TokenStream2 {
 	}
 }
 
-fn expand_func_list(def: &EnvDef) -> TokenStream2 {
-	let docs = def.host_funcs.iter().map(|f| {
-		let name = Literal::byte_string(f.name.as_bytes());
-		quote! {
-			#name.as_slice()
+/// Build the inverse of a `#[cfg(...)]` attribute, i.e. `#[cfg(not(...))]`.
+///
+/// Used so the proc macro can emit the "cfg-disabled" branch of a pair of
+/// mutually exclusive const definitions without knowing the concrete cfg
+/// predicate (which the user wrote at the host-fn declaration site).
+fn negate_cfg(cfg: &syn::Attribute) -> TokenStream2 {
+	if let syn::Meta::List(meta_list) = &cfg.meta {
+		let inner = &meta_list.tokens;
+		quote! { #[cfg(not(#inner))] }
+	} else {
+		quote! {}
+	}
+}
+
+/// Emit one `const __SYSCALL_NAME_<idx>__: &[u8]` per host function.
+///
+/// `#[cfg]` attrs are honoured: cfg-enabled positions hold the syscall name,
+/// cfg-disabled positions hold a single-null-byte sentinel that can never
+/// match a real polkavm import name. This lets [`list_syscalls()`] return a
+/// fixed-size array whose entries are still individually cfg-aware.
+fn expand_func_name_consts(def: &EnvDef) -> TokenStream2 {
+	let consts = def.host_funcs.iter().enumerate().map(|(idx, f)| {
+		let const_name = quote::format_ident!("__SYSCALL_NAME_{}__", idx);
+		let name_lit = Literal::byte_string(f.name.as_bytes());
+		if let Some(cfg) = &f.cfg {
+			let neg_cfg = negate_cfg(cfg);
+			quote! {
+				#cfg
+				const #const_name: &[u8] = #name_lit;
+				#neg_cfg
+				const #const_name: &[u8] = &[0u8];
+			}
+		} else {
+			quote! {
+				const #const_name: &[u8] = #name_lit;
+			}
 		}
 	});
-	let len = docs.clone().count();
+	quote! { #( #consts )* }
+}
+
+fn expand_func_list(def: &EnvDef) -> TokenStream2 {
+	let names =
+		(0..def.host_funcs.len()).map(|idx| quote::format_ident!("__SYSCALL_NAME_{}__", idx));
+	let len = def.host_funcs.len();
 
 	quote! {
 		{
-			static FUNCS: [&[u8]; #len] = [#(#docs),*];
+			static FUNCS: [&[u8]; #len] = [#( #names ),*];
 			FUNCS.as_slice()
 		}
 	}
@@ -567,9 +616,12 @@ fn expand_func_list(def: &EnvDef) -> TokenStream2 {
 
 fn expand_func_lookup(def: &EnvDef) -> TokenStream2 {
 	let arms = def.host_funcs.iter().enumerate().map(|(idx, f)| {
-		let name_str = &f.name;
+		let cfg = &f.cfg;
+		let name_lit = Literal::byte_string(f.name.as_bytes());
+		let id = Literal::usize_unsuffixed(idx);
 		quote! {
-			#name_str => Some(#idx as u8)
+			#cfg
+			#name_lit => Some(#id)
 		}
 	});
 	quote! {
@@ -581,18 +633,14 @@ fn expand_func_lookup(def: &EnvDef) -> TokenStream2 {
 }
 
 fn expand_trace_op_list(def: &EnvDef) -> TokenStream2 {
-	let syscalls = def.host_funcs.iter().map(|f| {
-		let name = Literal::byte_string(f.name.as_bytes());
-		quote! {
-			#name.as_slice()
-		}
-	});
-	let len = syscalls.clone().count() + 1;
+	let names =
+		(0..def.host_funcs.len()).map(|idx| quote::format_ident!("__SYSCALL_NAME_{}__", idx));
+	let len = def.host_funcs.len() + 1;
 
 	quote! {
 		{
 			static OPS: [&[u8]; #len] = [
-				#(#syscalls,)*
+				#( #names, )*
 				crate::tracing::PVM_FUEL_NAME.as_bytes(),
 			];
 			OPS.as_slice()
@@ -602,17 +650,20 @@ fn expand_trace_op_list(def: &EnvDef) -> TokenStream2 {
 
 fn expand_trace_op_lookup(def: &EnvDef) -> TokenStream2 {
 	let arms = def.host_funcs.iter().enumerate().map(|(idx, f)| {
+		let cfg = &f.cfg;
 		let name_str = &f.name;
+		let id = Literal::usize_unsuffixed(idx);
 		quote! {
-			#name_str => Some(#idx as u8)
+			#cfg
+			#name_str => Some(#id)
 		}
 	});
-	let pvm_fuel_idx = def.host_funcs.len();
+	let pvm_fuel_idx = Literal::usize_unsuffixed(def.host_funcs.len());
 
 	quote! {
 		match name {
 			#( #arms, )*
-			crate::tracing::PVM_FUEL_NAME => Some(#pvm_fuel_idx as u8),
+			crate::tracing::PVM_FUEL_NAME => Some(#pvm_fuel_idx),
 			_ => None,
 		}
 	}

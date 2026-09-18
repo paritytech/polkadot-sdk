@@ -19,7 +19,7 @@ use crate::{
 	Pallet, RuntimeCosts,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	vm::{
-		Ext,
+		BackendCosts, EvmBackend, Ext,
 		evm::{Interpreter, interpreter::Halt, util::as_usize_or_halt},
 	},
 };
@@ -84,11 +84,11 @@ pub fn charge_call_gas<'a, E: Ext>(
 		},
 		None => {
 			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported
-			interpreter.ext.charge_or_halt(if scheme.is_delegate_call() {
-				RuntimeCosts::DelegateCallBase
+			if scheme.is_delegate_call() {
+				interpreter.ext.charge_or_halt(BackendCosts::<EvmBackend>::DelegateCallBase)?;
 			} else {
-				RuntimeCosts::CallBase
-			})?;
+				interpreter.ext.charge_or_halt(BackendCosts::<EvmBackend>::CallBase)?;
+			}
 
 			interpreter
 				.ext

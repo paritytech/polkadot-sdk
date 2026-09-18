@@ -18,7 +18,10 @@
 #[cfg(test)]
 mod tests;
 
-use crate::{Config, Error, vm::evm::Halt, weights::WeightInfo};
+use crate::{
+	Config, Error,
+	vm::{PolkaVmWeightBackend, evm::Halt},
+};
 use core::{marker::PhantomData, ops::ControlFlow};
 use frame_support::{DefaultNoBound, weights::Weight};
 use sp_runtime::DispatchError;
@@ -50,27 +53,20 @@ impl<T: Config> EngineMeter<T> {
 
 	/// Set the fuel left to the given value.
 	/// Returns the amount of Weight consumed since the last update.
-	fn set_fuel(&mut self, fuel: u64) -> Weight {
-		let consumed = self.fuel.saturating_sub(fuel).saturating_mul(Self::ref_time_per_fuel());
+	fn set_fuel<B: PolkaVmWeightBackend<T>>(&mut self, fuel: u64) -> Weight {
+		let consumed = self.fuel.saturating_sub(fuel).saturating_mul(B::ref_time_per_fuel());
 		self.fuel = fuel;
 		Weight::from_parts(consumed, 0)
 	}
 
 	/// Charge the given amount of ref time.
 	/// Returns the amount of fuel left.
-	fn sync_remaining_ref_time(&mut self, remaining_ref_time: u64) -> polkavm::Gas {
-		self.fuel = remaining_ref_time.saturating_div(Self::ref_time_per_fuel());
+	fn sync_remaining_ref_time<B: PolkaVmWeightBackend<T>>(
+		&mut self,
+		remaining_ref_time: u64,
+	) -> polkavm::Gas {
+		self.fuel = remaining_ref_time.saturating_div(B::ref_time_per_fuel());
 		self.fuel.try_into().unwrap_or(polkavm::Gas::MAX)
-	}
-
-	/// How much ref time does each PolkaVM gas correspond to.
-	fn ref_time_per_fuel() -> u64 {
-		let loop_iteration =
-			T::WeightInfo::instr(1).saturating_sub(T::WeightInfo::instr(0)).ref_time();
-		let empty_loop_iteration = T::WeightInfo::instr_empty_loop(1)
-			.saturating_sub(T::WeightInfo::instr_empty_loop(0))
-			.ref_time();
-		loop_iteration.saturating_sub(empty_loop_iteration)
 	}
 }
 
@@ -99,10 +95,9 @@ impl<T: Any + Debug + PartialEq + Eq> TestAuxiliaries for T {}
 /// This trait represents a token that can be used for charging `WeightMeter`.
 /// There is no other way of charging it.
 ///
-/// Implementing type is expected to be super lightweight hence `Copy` (`Clone` is added
-/// for consistency). If inlined there should be no observable difference compared
-/// to a hand-written code.
-pub trait Token<T: Config>: Copy + Clone + TestAuxiliaries {
+/// Implementing type is expected to be super lightweight. If inlined there should be no
+/// observable difference compared to hand-written code.
+pub trait Token<T: Config>: TestAuxiliaries {
 	/// Return the amount of weight that should be taken by this token.
 	///
 	/// This function should be really lightweight and must not fail. It is not
@@ -186,6 +181,8 @@ impl<T: Config> WeightMeter<T> {
 	/// safe because we always charge weight before performing any resource-spending action.
 	#[inline]
 	pub fn charge<Tok: Token<T>>(&mut self, token: Tok) -> Result<ChargedAmount, DispatchError> {
+		let amount = token.weight();
+
 		#[cfg(test)]
 		{
 			// Unconditionally add the token to the storage.
@@ -194,7 +191,6 @@ impl<T: Config> WeightMeter<T> {
 			self.tokens.push(erased_tok);
 		}
 
-		let amount = token.weight();
 		// It is OK to not charge anything on failure because we always charge _before_ we perform
 		// any action
 		let new_consumed = self.weight_consumed.saturating_add(amount);
@@ -233,10 +229,13 @@ impl<T: Config> WeightMeter<T> {
 	/// Needs to be called when entering a host function to update this meter with the
 	/// gas that was tracked by the executor. It tracks the latest seen total value
 	/// in order to compute the delta that needs to be charged.
-	pub fn sync_from_executor(&mut self, engine_fuel: polkavm::Gas) -> Result<(), DispatchError> {
+	pub fn sync_from_executor<B: PolkaVmWeightBackend<T>>(
+		&mut self,
+		engine_fuel: polkavm::Gas,
+	) -> Result<(), DispatchError> {
 		let weight_consumed = self
 			.engine_meter
-			.set_fuel(engine_fuel.try_into().map_err(|_| Error::<T>::OutOfGas)?);
+			.set_fuel::<B>(engine_fuel.try_into().map_err(|_| Error::<T>::OutOfGas)?);
 
 		self.weight_consumed.saturating_accrue(weight_consumed);
 		if self.weight_consumed.any_gt(self.effective_weight_limit) {
@@ -255,8 +254,8 @@ impl<T: Config> WeightMeter<T> {
 	///
 	/// It is important that this does **not** actually sync with the executor. That has
 	/// to be done by the caller.
-	pub fn sync_to_executor(&mut self) -> polkavm::Gas {
-		self.engine_meter.sync_remaining_ref_time(self.weight_left().ref_time())
+	pub fn sync_to_executor<B: PolkaVmWeightBackend<T>>(&mut self) -> polkavm::Gas {
+		self.engine_meter.sync_remaining_ref_time::<B>(self.weight_left().ref_time())
 	}
 
 	/// Returns the amount of weight that is required to run the same call.
