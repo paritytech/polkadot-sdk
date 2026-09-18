@@ -637,38 +637,50 @@ mod tests {
 		assert_eq!(result, Some((headers[4].clone(), false)));
 	}
 
-	/// At `relay_parent_offset >= 1` a finished-height best settles the claim without a resolver,
-	/// but a view trailing the production slot by a whole slot still blocks.
+	/// The V3 selection blocks until the scheduling parent is settled, on the production slot alone
+	/// and never a wall-clock read. At `relay_parent_offset >= 1` hedging covers a losing pick, so
+	/// a finished-height best settles it and only a view a whole slot behind blocks; at `0` it
+	/// waits for a current-slot block to name the canonical sibling. Either way the answer is the
+	/// same.
 	#[tokio::test]
-	async fn v3_settles_on_finished_height_but_blocks_on_a_stale_view() {
-		let (mut client, mut cache, headers) = build_mock_chain(true, PRODUCTION_SLOT);
+	async fn v3_blocks_until_the_scheduling_parent_is_settled() {
+		// (offset, header that must not settle the claim, header that must)
+		for (relay_parent_offset, blocks, settles) in [(1u32, 0usize, 1usize), (0, 1, 2)] {
+			let (mut client, mut cache, headers) = build_v3_chain_with_slots(&[
+				PRODUCTION_SLOT - 2,
+				PRODUCTION_SLOT - 1,
+				PRODUCTION_SLOT,
+			]);
+			let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+			client.set_best_hash(None);
+			client.set_best_notifications(Box::pin(rx));
+			let mut scheduling_info = SchedulingInfo::new(RELAY_SLOT_DURATION, Duration::ZERO);
+			scheduling_info.ensure_initialized(&client, &mut cache).await;
 
-		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
-		client.set_best_hash(None);
-		client.set_best_notifications(Box::pin(rx));
-		let mut scheduling_info = SchedulingInfo::new(RELAY_SLOT_DURATION, Duration::ZERO);
-		scheduling_info.ensure_initialized(&client, &mut cache).await;
+			let mut handle = tokio::spawn(async move {
+				scheduling_info
+					.wait_for_scheduling_parent(
+						&mut cache,
+						true,
+						Slot::from(PRODUCTION_SLOT),
+						relay_parent_offset,
+					)
+					.await
+			});
 
-		let mut handle = tokio::spawn(async move {
-			scheduling_info
-				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT), 1)
+			tx.unbounded_send(headers[blocks].clone()).unwrap();
+			assert!(
+				tokio::time::timeout(Duration::from_millis(300), &mut handle).await.is_err(),
+				"offset {relay_parent_offset}: the claim must not settle yet"
+			);
+
+			tx.unbounded_send(headers[settles].clone()).unwrap();
+			let result = tokio::time::timeout(Duration::from_secs(2), handle)
 				.await
-		});
-
-		// `PRODUCTION_SLOT - 2`: our view of the relay chain has stalled, so keep waiting.
-		tx.unbounded_send(headers[1].clone()).unwrap();
-		assert!(
-			tokio::time::timeout(Duration::from_millis(300), &mut handle).await.is_err(),
-			"A view a whole slot behind the production slot must not settle the claim"
-		);
-
-		// `PRODUCTION_SLOT - 1`: settles at once, without a current-slot resolver.
-		tx.unbounded_send(headers[2].clone()).unwrap();
-		let result = tokio::time::timeout(Duration::from_secs(2), handle)
-			.await
-			.expect("must settle without waiting for a current-slot block")
-			.expect("must not panic");
-		assert_eq!(result, Some((headers[2].clone(), true)));
+				.expect("must settle, not hang")
+				.expect("must not panic");
+			assert_eq!(result, Some((headers[1].clone(), true)), "offset {relay_parent_offset}");
+		}
 	}
 
 	#[tokio::test]
@@ -788,58 +800,22 @@ mod tests {
 		(client, cache, headers)
 	}
 
-	/// At `relay_parent_offset == 0` the V3 selection waits for a current-slot block to name the
-	/// canonical sibling, driven only by the production slot and never by a wall-clock read.
-	#[tokio::test]
-	async fn v3_waits_for_a_resolver_without_hedging() {
-		let (mut client, mut cache, headers) =
-			build_v3_chain_with_slots(&[PRODUCTION_SLOT - 2, PRODUCTION_SLOT - 1]);
-		let resolver = tests::relay_header_with_slot(52, headers[1].hash(), PRODUCTION_SLOT);
-		let node_features = {
-			let mut nf = NodeFeatures::from_vec(vec![0; 5]);
-			nf.set(FeatureIndex::CandidateReceiptV3 as usize, true);
-			nf
-		};
-		cache.set_test_data(resolver.clone(), vec![], node_features);
-
+	/// A [`SchedulingInfo`] wired to an import stream, with the sender that feeds it.
+	fn with_import_stream(
+	) -> (SchedulingInfo<TestRelayClient>, futures::channel::mpsc::UnboundedSender<RelayHeader>) {
+		let mut scheduling_info =
+			SchedulingInfo::<TestRelayClient>::new(RELAY_SLOT_DURATION, Duration::ZERO);
 		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
-		client.set_best_hash(None);
-		client.set_best_notifications(Box::pin(rx));
-
-		let mut scheduling_info = SchedulingInfo::new(RELAY_SLOT_DURATION, Duration::from_secs(1));
-		scheduling_info.ensure_initialized(&client, &mut cache).await;
-
-		let mut handle = tokio::spawn(async move {
-			scheduling_info
-				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT), 0)
-				.await
-		});
-
-		// The expected scheduling parent, but on its own it leaves siblings unresolved.
-		tx.unbounded_send(headers[1].clone()).unwrap();
-		assert!(
-			tokio::time::timeout(Duration::from_millis(300), &mut handle).await.is_err(),
-			"Without hedging a finished-height best must not settle the claim"
-		);
-
-		tx.unbounded_send(resolver).unwrap();
-		let result = tokio::time::timeout(Duration::from_secs(2), handle)
-			.await
-			.expect("Should settle once a current-slot block arrives, not hang")
-			.expect("must not panic");
-
-		assert_eq!(result, Some((headers[1].clone(), true)));
+		let stream: Pin<Box<dyn Stream<Item = RelayHeader> + Send>> = Box::pin(rx);
+		scheduling_info.import_notifications = stream.fuse();
+		(scheduling_info, tx)
 	}
 
 	/// The import buffer records every imported head, deduplicates by hash, excludes the chosen
 	/// parent, and stays bounded in both heights and headers per height.
 	#[tokio::test]
 	async fn import_buffer_records_siblings_and_stays_bounded() {
-		let mut scheduling_info =
-			SchedulingInfo::<TestRelayClient>::new(RELAY_SLOT_DURATION, Duration::ZERO);
-		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
-		let stream: Pin<Box<dyn Stream<Item = RelayHeader> + Send>> = Box::pin(rx);
-		scheduling_info.import_notifications = stream.fuse();
+		let (mut scheduling_info, tx) = with_import_stream();
 
 		// One header per height, then a same-height sibling of the last one and a duplicate.
 		let heights = 1..=(RECENT_IMPORT_HEIGHTS as u32 + 1);
@@ -877,11 +853,7 @@ mod tests {
 	/// filtered only within a parent, ordered extended first, then primaries, then by hash.
 	#[tokio::test]
 	async fn siblings_are_filtered_by_weight_and_imported_children() {
-		let mut scheduling_info =
-			SchedulingInfo::<TestRelayClient>::new(RELAY_SLOT_DURATION, Duration::ZERO);
-		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
-		let stream: Pin<Box<dyn Stream<Item = RelayHeader> + Send>> = Box::pin(rx);
-		scheduling_info.import_notifications = stream.fuse();
+		let (mut scheduling_info, tx) = with_import_stream();
 
 		let primary = tests::relay_header_primary_with_slot(7, Default::default(), 0);
 		let secondary = tests::relay_header_with_slot(7, Default::default(), 0);

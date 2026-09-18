@@ -45,10 +45,7 @@ use sp_consensus_aura::sr25519::{
 };
 use sp_core::sr25519;
 use sp_keystore::{Keystore, KeystorePtr};
-use sp_runtime::{
-	generic::BlockId,
-	traits::{Block as BlockT, Header},
-};
+use sp_runtime::{generic::BlockId, traits::Header};
 use sp_version::RuntimeVersion;
 use std::{
 	collections::{BTreeMap, HashMap, VecDeque},
@@ -729,26 +726,34 @@ pub fn v3_node_features() -> NodeFeatures {
 	node_features
 }
 
+/// The relay parent the hedging tests execute against, and the scheduling parent one block above
+/// it. Siblings of the latter are same-slot twins, the only class worth hedging.
+fn hedge_base_and_chosen() -> (RelayHeader, RelayHeader) {
+	let base = relay_header_with_slot(HEDGE_BASE_NUMBER, Default::default(), 100);
+	let chosen = relay_header_with_slot(HEDGE_BASE_NUMBER + 1, base.hash(), 101);
+	(base, chosen)
+}
+
 /// Wire a [`SchedulingInfo`] to an import stream carrying `imports`, the way the block builder
-/// does. `cached` and `best` seed the relay data cache; imports are cached on [`HEDGE_CORES`],
-/// which a test can override. The returned sender keeps the stream open for a later arrival.
+/// does. `base` and `extra_cached` seed the relay data cache; imports are cached on
+/// [`HEDGE_CORES`]. The returned sender keeps the stream open for a later arrival.
 async fn hedge_setup(
+	base: &RelayHeader,
+	extra_cached: &[RelayHeader],
 	imports: &[RelayHeader],
-	cached: &[RelayHeader],
-	best: &RelayHeader,
 ) -> (
 	RelayChainDataCache<TestRelayClient>,
 	SchedulingInfo<TestRelayClient>,
 	futures::channel::mpsc::UnboundedSender<RelayHeader>,
 ) {
 	let mut client = TestRelayClient::new(Default::default());
-	client.set_best_hash(Some(best.hash()));
+	client.set_best_hash(Some(base.hash()));
 	client.set_best_notifications(Box::pin(futures::stream::empty()));
 	let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
 	client.set_import_notifications(Box::pin(rx));
 
 	let mut cache = RelayChainDataCache::new(client.clone(), 1.into());
-	for header in cached.iter().chain(std::iter::once(best)) {
+	for header in extra_cached.iter().chain(std::iter::once(base)) {
 		cache.set_test_data(header.clone(), vec![], v3_node_features());
 	}
 	for header in imports {
@@ -783,52 +788,111 @@ fn hedge_context<'a>(
 	}
 }
 
-/// A keystore holding Alice's AURA key, plus the public key the slot claim would carry.
-fn aura_keystore() -> (KeystorePtr, AuraAuthorityId) {
-	let keystore: KeystorePtr = Arc::new(sp_keystore::testing::MemoryKeystore::new());
-	let public = Keystore::sr25519_generate_new(
-		&*keystore,
-		sp_application_crypto::key_types::AURA,
-		Some(&sp_keyring::Sr25519Keyring::Alice.to_seed()),
-	)
-	.expect("can insert key into MemoryKeystore; qed");
+/// Hedging is off outside V3, at `relay_parent_offset == 0` (where the scheduling parent *is* the
+/// relay parent), and on a segment long enough to leave the per-core rebuild budget at zero. The
+/// last case pins the fixture down, so the others cannot pass vacuously.
+#[tokio::test]
+async fn sp_hedge_chains_respects_its_gates() {
+	let (base, chosen) = hedge_base_and_chosen();
+	let mut sibling = chosen.clone();
+	sibling.state_root = [7u8; 32].into();
 
-	(keystore, AuraAuthorityId::from(public))
-}
+	for (v3_enabled, offset, max_siblings, expected) in [
+		(false, 1, MAX_HEDGED_SIBLINGS, 0),
+		(true, 0, MAX_HEDGED_SIBLINGS, 0),
+		(true, 1, 0, 0),
+		(true, 1, MAX_HEDGED_SIBLINGS, 1),
+	] {
+		let (mut cache, mut scheduling_info, _tx) =
+			hedge_setup(&base, &[], &[sibling.clone()]).await;
+		let hedged = sp_hedge_chains(
+			&mut cache,
+			&mut scheduling_info,
+			&mut HedgeMemo::default(),
+			max_siblings,
+			hedge_context(&chosen, base.hash(), v3_enabled, offset),
+		)
+		.await;
 
-fn hedge_core_info() -> CoreInfo {
-	CoreInfo {
-		selector: CoreSelector(0),
-		claim_queue_offset: ClaimQueueOffset(0),
-		number_of_cores: 1.into(),
+		assert_eq!(hedged.len(), expected, "v3={v3_enabled} offset={offset} budget={max_siblings}");
 	}
 }
 
-/// A bare parachain header; its presence in the unincluded bucket makes the submission non-empty.
-fn unincluded_para_header() -> <Block as BlockT>::Header {
-	Header::new(1, Default::default(), Default::default(), Default::default(), Default::default())
+/// One slot's worth of hedge evaluation on a shared memo: a sibling that only lands mid-slot is
+/// picked up by the next core, an already-resolved one costs nothing to re-evaluate, and once
+/// contenders outnumber the budget the cap keeps the primaries, which sort first.
+#[tokio::test]
+async fn sp_hedge_chains_tracks_arrivals_and_caps_contenders() {
+	let (base, chosen) = hedge_base_and_chosen();
+	let mut late = chosen.clone();
+	late.state_root = [7u8; 32].into();
+	let mut primaries: Vec<RelayHeader> = (0..=MAX_HEDGED_SIBLINGS as u8)
+		.map(|i| {
+			let mut header =
+				relay_header_primary_with_slot(HEDGE_BASE_NUMBER + 1, base.hash(), 101);
+			header.state_root = [i; 32].into();
+			header
+		})
+		.collect();
+
+	let (mut cache, mut scheduling_info, tx) = hedge_setup(&base, &[], &[]).await;
+	for header in std::iter::once(&late).chain(primaries.iter()) {
+		cache.set_test_data(header.clone(), HEDGE_CORES.to_vec(), v3_node_features());
+	}
+	let mut memo = HedgeMemo::default();
+	let resolve = async |cache: &mut RelayChainDataCache<TestRelayClient>,
+	                     info: &mut SchedulingInfo<TestRelayClient>,
+	                     memo: &mut HedgeMemo| {
+		sp_hedge_chains(
+			cache,
+			info,
+			memo,
+			MAX_HEDGED_SIBLINGS,
+			hedge_context(&chosen, base.hash(), true, 1),
+		)
+		.await
+	};
+
+	// Nothing imported yet: no siblings, and no resolution budget spent.
+	assert!(resolve(&mut cache, &mut scheduling_info, &mut memo).await.is_empty());
+	assert!(memo.is_empty());
+
+	// A sibling landing mid-slot is hedged by the next core, and stays memoised for the one after.
+	tx.unbounded_send(late.clone()).expect("receiver is alive; qed");
+	let second = resolve(&mut cache, &mut scheduling_info, &mut memo).await;
+	assert_eq!(second.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(), vec![late.hash()]);
+	assert_eq!(memo.len(), 1);
+	assert_eq!(resolve(&mut cache, &mut scheduling_info, &mut memo).await, second);
+	assert_eq!(memo.len(), 1);
+
+	// More contenders than the budget: the cap keeps the primaries, in hash order.
+	for header in &primaries {
+		tx.unbounded_send(header.clone()).expect("receiver is alive; qed");
+	}
+	let capped = resolve(&mut cache, &mut scheduling_info, &mut memo).await;
+	primaries.sort_by_key(|header| header.hash());
+	assert_eq!(
+		capped.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
+		primaries.iter().take(MAX_HEDGED_SIBLINGS).map(|h| h.hash()).collect::<Vec<_>>(),
+	);
 }
 
 /// The end-to-end hedge path: a sibling seen only on the import stream (a loser never becomes
-/// new-best) becomes one extra scheduling proof. Two same-height headers are dropped instead: one
-/// on a different base, one whose claim queue assigns the para to another core.
+/// new-best) becomes one extra scheduling proof over the same entries, sharing the chosen parent's
+/// signature. Two same-height headers are dropped instead: one on a different base, one whose
+/// claim queue assigns the para to another core.
 #[tokio::test]
 async fn import_stream_sibling_becomes_extra_scheduling_proof() {
-	let base = relay_header_with_slot(HEDGE_BASE_NUMBER, Default::default(), 100);
+	let (base, chosen) = hedge_base_and_chosen();
 	let other_base = relay_header_with_slot(HEDGE_BASE_NUMBER, [1u8; 32].into(), 100);
-	let chosen = relay_header_with_slot(HEDGE_BASE_NUMBER + 1, base.hash(), 101);
 	let mut sibling = chosen.clone();
 	sibling.state_root = [7u8; 32].into();
 	let forked = relay_header_with_slot(HEDGE_BASE_NUMBER + 1, other_base.hash(), 101);
 	let mut reassigned = chosen.clone();
 	reassigned.state_root = [8u8; 32].into();
 
-	let (mut cache, mut scheduling_info, _tx) = hedge_setup(
-		&[sibling.clone(), forked, reassigned.clone()],
-		&[base.clone(), other_base],
-		&base,
-	)
-	.await;
+	let (mut cache, mut scheduling_info, _tx) =
+		hedge_setup(&base, &[other_base], &[sibling.clone(), forked, reassigned.clone()]).await;
 	cache.set_test_data(reassigned, vec![CoreIndex(1)], v3_node_features());
 
 	let hedged = sp_hedge_chains(
@@ -841,16 +905,37 @@ async fn import_stream_sibling_becomes_extra_scheduling_proof() {
 	.await;
 	assert_eq!(hedged.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(), vec![sibling.hash()]);
 
-	let (keystore, author_pub) = aura_keystore();
+	let keystore: KeystorePtr = Arc::new(sp_keystore::testing::MemoryKeystore::new());
+	let author_pub = AuraAuthorityId::from(
+		Keystore::sr25519_generate_new(
+			&*keystore,
+			sp_application_crypto::key_types::AURA,
+			Some(&sp_keyring::Sr25519Keyring::Alice.to_seed()),
+		)
+		.expect("can insert key into MemoryKeystore; qed"),
+	);
+	let core_info = CoreInfo {
+		selector: CoreSelector(0),
+		claim_queue_offset: ClaimQueueOffset(0),
+		number_of_cores: 1.into(),
+	};
+	// A bare para header in the unincluded bucket is what makes the submission non-empty.
+	let unincluded = Header::new(
+		1,
+		Default::default(),
+		Default::default(),
+		Default::default(),
+		Default::default(),
+	);
 	let message = assemble_core_submission::<Block, AuraAuthorityPair>(
 		// At `relay_parent_offset == 1` a header chain is just the scheduling parent itself.
 		Some(V3HeaderChains {
 			chosen: vec![chosen.clone()],
 			hedged: hedged.into_iter().map(|(_, chain)| chain).collect(),
 		}),
-		vec![unincluded_para_header()],
+		vec![unincluded],
 		None,
-		&hedge_core_info(),
+		&core_info,
 		CoreIndex(0),
 		&base,
 		&author_pub,
@@ -864,11 +949,7 @@ async fn import_stream_sibling_becomes_extra_scheduling_proof() {
 	};
 	assert_eq!(segment.scheduling_proof.scheduling_parent(), chosen.hash());
 	assert_eq!(
-		segment
-			.hedged_proofs
-			.iter()
-			.map(|proof| proof.scheduling_parent())
-			.collect::<Vec<_>>(),
+		segment.hedged_proofs.iter().map(|p| p.scheduling_parent()).collect::<Vec<_>>(),
 		vec![sibling.hash()],
 	);
 	assert_eq!(segment.scheduling_proof.internal_scheduling_parent_header.hash(), base.hash());
@@ -876,119 +957,5 @@ async fn import_stream_sibling_becomes_extra_scheduling_proof() {
 	assert_eq!(
 		segment.scheduling_proof.signed_scheduling_info,
 		segment.hedged_proofs[0].signed_scheduling_info,
-	);
-}
-
-/// Hedging is off outside V3 and at `relay_parent_offset == 0`, where the scheduling parent *is*
-/// the relay parent. The last case pins the fixture down, so the first two cannot pass vacuously.
-#[tokio::test]
-async fn sp_hedge_chains_empty_without_v3_or_relay_parent_offset() {
-	let base = relay_header_with_slot(HEDGE_BASE_NUMBER, Default::default(), 100);
-	let chosen = relay_header_with_slot(HEDGE_BASE_NUMBER + 1, base.hash(), 101);
-	let mut sibling = chosen.clone();
-	sibling.state_root = [7u8; 32].into();
-
-	for (v3_enabled, relay_parent_offset, expected) in [(false, 1, 0), (true, 0, 0), (true, 1, 1)] {
-		let (mut cache, mut scheduling_info, _tx) =
-			hedge_setup(&[sibling.clone()], &[base.clone()], &base).await;
-		let hedged = sp_hedge_chains(
-			&mut cache,
-			&mut scheduling_info,
-			&mut HedgeMemo::default(),
-			MAX_HEDGED_SIBLINGS,
-			hedge_context(&chosen, base.hash(), v3_enabled, relay_parent_offset),
-		)
-		.await;
-
-		assert_eq!(hedged.len(), expected, "v3={v3_enabled} offset={relay_parent_offset}");
-	}
-}
-
-/// The hedge set is re-evaluated per core, so a sibling landing mid-slot is still hedged, and the
-/// shared memo keeps that re-evaluation free for siblings already resolved.
-#[tokio::test]
-async fn sp_hedge_chains_picks_up_a_sibling_arriving_mid_slot() {
-	let base = relay_header_with_slot(HEDGE_BASE_NUMBER, Default::default(), 100);
-	let chosen = relay_header_with_slot(HEDGE_BASE_NUMBER + 1, base.hash(), 101);
-	let mut late = chosen.clone();
-	late.state_root = [7u8; 32].into();
-
-	let (mut cache, mut scheduling_info, tx) = hedge_setup(&[], &[base.clone()], &base).await;
-	cache.set_test_data(late.clone(), HEDGE_CORES.to_vec(), v3_node_features());
-	let mut memo = HedgeMemo::default();
-
-	let first = sp_hedge_chains(
-		&mut cache,
-		&mut scheduling_info,
-		&mut memo,
-		MAX_HEDGED_SIBLINGS,
-		hedge_context(&chosen, base.hash(), true, 1),
-	)
-	.await;
-	assert!(first.is_empty());
-	assert!(memo.is_empty(), "nothing to resolve yet, so no budget spent");
-
-	tx.unbounded_send(late.clone()).expect("receiver is alive; qed");
-	let second = sp_hedge_chains(
-		&mut cache,
-		&mut scheduling_info,
-		&mut memo,
-		MAX_HEDGED_SIBLINGS,
-		hedge_context(&chosen, base.hash(), true, 1),
-	)
-	.await;
-	assert_eq!(second.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(), vec![late.hash()]);
-	assert_eq!(memo.len(), 1);
-
-	// A further core re-evaluates against the memo and resolves nothing new.
-	let third = sp_hedge_chains(
-		&mut cache,
-		&mut scheduling_info,
-		&mut memo,
-		MAX_HEDGED_SIBLINGS,
-		hedge_context(&chosen, base.hash(), true, 1),
-	)
-	.await;
-	assert_eq!(third, second);
-	assert_eq!(memo.len(), 1);
-}
-
-/// The cap must drop the siblings least likely to win, so truncation keeps the primaries.
-#[tokio::test]
-async fn sp_hedge_chains_cap_keeps_primaries() {
-	let base = relay_header_with_slot(HEDGE_BASE_NUMBER, Default::default(), 100);
-	let chosen = relay_header_with_slot(HEDGE_BASE_NUMBER + 1, base.hash(), 101);
-	let mut primaries: Vec<RelayHeader> = (0..=MAX_HEDGED_SIBLINGS as u8)
-		.map(|i| {
-			let mut header =
-				relay_header_primary_with_slot(HEDGE_BASE_NUMBER + 1, base.hash(), 101);
-			header.state_root = [i; 32].into();
-			header
-		})
-		.collect();
-	let mut secondary = chosen.clone();
-	secondary.state_root = [200u8; 32].into();
-
-	let mut imports = primaries.clone();
-	imports.push(secondary);
-	let (mut cache, mut scheduling_info, _tx) = hedge_setup(&imports, &[base.clone()], &base).await;
-
-	let hedged = sp_hedge_chains(
-		&mut cache,
-		&mut scheduling_info,
-		&mut HedgeMemo::default(),
-		MAX_HEDGED_SIBLINGS,
-		hedge_context(&chosen, base.hash(), true, 1),
-	)
-	.await;
-
-	primaries.sort_by_key(|header| header.hash());
-	assert_eq!(
-		hedged.iter().map(|(hash, _)| *hash).collect::<Vec<_>>(),
-		primaries
-			.iter()
-			.take(MAX_HEDGED_SIBLINGS)
-			.map(|header| header.hash())
-			.collect::<Vec<_>>(),
 	);
 }

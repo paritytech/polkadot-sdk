@@ -66,9 +66,6 @@ pub trait ServiceInterface<Block: BlockT> {
 	///
 	/// `scheduling_proof` is `Some` for V3 candidates (produces [`ParachainBlockData::V2`])
 	/// and `None` for legacy candidates (produces [`ParachainBlockData::V1`]).
-	///
-	/// Takes `proof` by value: the compact proof is built by moving the trie nodes into a
-	/// `MemoryDB`, so the common single-submission case copies the witness zero times.
 	fn build_multi_block_collation(
 		&self,
 		parent_header: &Block::Header,

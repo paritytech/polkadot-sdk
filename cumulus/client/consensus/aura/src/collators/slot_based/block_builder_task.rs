@@ -80,6 +80,18 @@ use std::{
 	time::{Duration, Instant},
 };
 
+/// Ceiling on hedged sibling scheduling parents, lowered further per core by the caller. Each one
+/// costs a whole extra submission per scheduled core, and the chosen parent plus its siblings must
+/// stay inside the network bridge's `MAX_VIEW_HEADS` or `distribute_segment` drops them.
+pub(crate) const MAX_HEDGED_SIBLINGS: usize = 2;
+
+/// Contenders resolved per slot, bounding the round trips a forked relay height can force.
+const MAX_HEDGE_CONTENDERS: usize = MAX_HEDGED_SIBLINGS + 2;
+
+/// Extra PoV builds one core may spend on hedging: a sibling rebuilds the whole segment, so a
+/// long backlog buys fewer siblings, and past this length none at all.
+pub(crate) const MAX_HEDGED_REBUILDS_PER_CORE: usize = 6;
+
 /// Parameters for [`run_block_builder`].
 pub struct BuilderTaskParams<
 	Block: BlockT,
@@ -862,18 +874,6 @@ where
 	tracing::debug!(target: LOG_TARGET, ?sp_sibling, "SP hedge: sibling accepted");
 	Some(descendants.into_iter().rev().collect())
 }
-
-/// Ceiling on hedged sibling scheduling parents, lowered further per core by the caller. Each one
-/// costs a whole extra submission per scheduled core, and the chosen parent plus its siblings must
-/// stay inside the network bridge's `MAX_VIEW_HEADS` or `distribute_segment` drops them.
-pub(crate) const MAX_HEDGED_SIBLINGS: usize = 2;
-
-/// Contenders resolved per slot, bounding the round trips a forked relay height can force.
-const MAX_HEDGE_CONTENDERS: usize = MAX_HEDGED_SIBLINGS + 2;
-
-/// Extra PoV builds one core may spend on hedging: a sibling rebuilds the whole segment, so a
-/// long backlog buys fewer siblings, and past this length none at all.
-pub(crate) const MAX_HEDGED_REBUILDS_PER_CORE: usize = 6;
 
 /// Run block-builder.
 pub fn run_block_builder<Block, P, BI, CIDP, Client, Backend, RelayClient, CHP, Proposer, CS>(
