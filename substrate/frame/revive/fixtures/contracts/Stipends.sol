@@ -232,3 +232,57 @@ contract StipendTest {
 
     receive() external payable {}
 }
+
+/**
+ * @title ReentrancyProbe
+ * @dev Checks whether reentry is admitted. The reentrant call is cheap enough to fit the stipend,
+ *      and reverts when denied, which makes the outer call fail.
+ */
+contract ReentrancyProbe {
+    receive() external payable {
+        (bool reentered, ) = msg.sender.call("");
+        require(reentered, "reentry denied");
+    }
+}
+
+/**
+ * @title StipendSender
+ * @dev Small enough that its code loads within the stipend when it is reentered.
+ */
+contract StipendSender {
+    address payable immutable probe;
+
+    constructor() {
+        probe = payable(address(new ReentrancyProbe()));
+    }
+
+    function attemptTransfer(address payable to, uint256 amount) external {
+        to.transfer(amount);
+    }
+
+    function isTransferDenied() public payable returns (bool) {
+        try this.attemptTransfer(probe, msg.value) {
+            return false;
+        } catch {
+            return true;
+        }
+    }
+
+    function isSendDenied() public payable returns (bool) {
+        return !probe.send(msg.value);
+    }
+
+    /// @dev Passing one gas explicitly keeps the probe on the stipend but lets it reenter, since
+    ///      only transfer and send are guarded. Proves the stipend is enough for the reentry.
+    function isCallWithOneGasDenied() public payable returns (bool) {
+        (bool ok, ) = probe.call{value: msg.value, gas: 1}("");
+        return !ok;
+    }
+
+    /// @dev The guard must stop the callee reaching back, not the sender reaching its own address.
+    function isSelfSendAllowed() public payable returns (bool) {
+        return payable(address(this)).send(msg.value);
+    }
+
+    receive() external payable {}
+}

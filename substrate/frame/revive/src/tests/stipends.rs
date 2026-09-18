@@ -20,9 +20,9 @@ use crate::{
 	test_utils::builder::Contract,
 	tests::{ExtBuilder, Test, builder},
 };
-use alloy_core::sol_types::SolCall;
+use alloy_core::sol_types::{SolCall, SolValue};
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures::{FixtureType, StipendTest, compile_module_with_type};
+use pallet_revive_fixtures::{FixtureType, StipendSender, StipendTest, compile_module_with_type};
 
 #[test]
 fn evm_call_stipends_work_for_transfers() {
@@ -159,5 +159,41 @@ fn evm_call_stipend_prevents_send_reentrancy() {
 			.build();
 
 		assert!(!result.result.unwrap().did_revert());
+	});
+}
+
+#[test]
+fn evm_call_stipend_denies_reentrancy_for_transfer_and_send_only() {
+	let (code, _) = compile_module_with_type("StipendSender", FixtureType::Solc).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ =
+			<Test as Config>::Currency::set_balance(&crate::test_utils::ALICE, 10_000_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let run = |call: Vec<u8>| {
+			let result = builder::bare_call(addr)
+				.data(call)
+				.evm_value(1_000_000_u128.into())
+				.build_and_unwrap_result();
+			assert!(!result.did_revert(), "the call into StipendSender should not revert");
+			bool::abi_decode(&result.data).unwrap()
+		};
+
+		assert!(
+			run(StipendSender::isTransferDeniedCall {}.abi_encode()),
+			"transfer forwards only the stipend, so its callee must not reenter"
+		);
+		assert!(
+			run(StipendSender::isSendDeniedCall {}.abi_encode()),
+			"send forwards only the stipend, so its callee must not reenter"
+		);
+		assert!(
+			!run(StipendSender::isCallWithOneGasDeniedCall {}.abi_encode()),
+			"a caller that sets its own gas limit does not get the reentrancy protection"
+		);
+		assert!(
+			run(StipendSender::isSelfSendAllowedCall {}.abi_encode()),
+			"the guard stops the callee reentering, not a sender sending to itself"
+		);
 	});
 }
