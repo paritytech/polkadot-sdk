@@ -89,13 +89,14 @@ where
 	}
 
 	/// Run [`LightClientRequestHandler`].
+	///
+	/// Handling a remote call request executes runtime code synchronously (for up to the
+	/// execution timeout, if one is set), so spawn the returned future where blocking is
+	/// acceptable, e.g. via `spawn_blocking`.
 	pub async fn run(mut self) {
 		while let Some(request) = self.request_receiver.next().await {
 			let IncomingRequest { peer, payload, pending_response } = request;
 
-			// TODO: `handle_request` runs the runtime call (up to `execution_timeout`, plus a
-			// possible wait for the interruptible module compilation) synchronously on this async
-			// task, blocking a tokio worker thread. Move it to `spawn_blocking`.
 			match self.handle_request(peer, payload) {
 				Ok(response_data) => {
 					let response = OutgoingResponse {
