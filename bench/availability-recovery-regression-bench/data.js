@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789708029347,
+  "lastUpdate": 1789737776240,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3ee8c826e2e59a21b1a77429ad9112e36ce7d1f7",
-          "message": "Do not prune blocks with Grandpa justifications (#10893)\n\nWarp sync requires GRANDPA justifications at authority set change\nboundaries to construct proofs. When block pruning is enabled, all block\nbodies are removed regardless of whether they contain important\njustifications. The pruned nodes can then not be used to fetch warp\nproofs.\n\nIn this PR I add the capability to filter which blocks can be safely\npruned. For parachain nodes, everything can be pruned, solochain nodes\nusing grandpa keep blocks with justifications.\n\n## Overview:\n ### sc-client-db\n  - Add BlockPruningFilter trait with blanket impl for closures\n  - Add block_pruning_filters field to DatabaseSettings and Backend\n  - Check filters in prune_blocks() before removing block bodies\n\n ### sc-consensus-grandpa\n- Add GrandpaBlockPruningFilter that preserves blocks with GRANDPA\njustifications\n\n ### sc-service\n- Add block_pruning_filters parameter to new_full_parts and\nnew_full_parts_record_import\n\n ### Nodes updated\n  - polkadot-service: uses GrandpaBlockPruningFilter\n  - staging-node-cli (kitchensink): uses GrandpaBlockPruningFilter\n  - solochain-template: uses GrandpaBlockPruningFilter\n  - parachain-template / omni-node / polkadot-parachain: empty filters \n\n\n\nfixes #2733\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-18T10:18:21Z",
-          "tree_id": "11e683326f177c0e21407dcc11f81f38550963d5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3ee8c826e2e59a21b1a77429ad9112e36ce7d1f7"
-        },
-        "date": 1771413773615,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.468774830300001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12490022269999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14671568166666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fd67bf19cbe55bd8c290d7e09ccca69ada3b68e3",
+          "message": "`pallet-whitelist`: document that unwhitelisting pauses a live deferral not remove it, pin it with a test. (#13257)\n\n## Summary\n\nDocs and test only. No behaviour change, no bench needed.\n\nSince #11336, `pallet-whitelist` keeps two independent storage maps:\n`WhitelistedCall`, owned by\n`WhitelistOrigin`, and `DeferredDispatch`, owned by\n`DispatchWhitelistedOrigin`. A relayed\nroot dispatch needs both plus an unexpired deferral.\n`remove_whitelisted_call` clears only the\nwhitelist entry, so a live deferral survives revocation and\nre-whitelisting the same hash before\nexpiry re-enables relayed execution without a fresh act from\n`DispatchWhitelistedOrigin`.\n\nThat behaviour is intentional but was undocumented, and it has already\nbeen reported once as an\nauthorization finding. This PR records the semantics where the next\nreader will look and pins\nthem with a test so a future refactor cannot flip them silently.\n\n## Why this is the intended design, not a bug\n\n- Neither origin can erase the other's record. Letting a whitelist\nrevoke drop the deferral would\nallow `WhitelistOrigin` to unilaterally void an enacted referendum,\nwhich is a larger authority\n  than it holds today.\n- Revocation still blocks relayers for as long as the hash is off the\nwhitelist, which the existing\n  `relayer_cannot_bypass_unwhitelisting` test asserts.\n- Re-arming requires `WhitelistOrigin` again, and that origin already\nhas the power to permit root\nexecution of a hash the moment it whitelists it. No origin gains\nauthority it did not have.\n- This matches pre-#11336 behaviour, where a scheduled enactment also\nran if the whitelist was\ntoggled off and on before the enactment block. Deferral only widens that\nwindow to\n  `DeferredDispatchExpiration`.\n- Symmetry with the existing\n`remove_deferred_dispatch_does_not_unwhitelist` test, which pins the\n  other direction of the same independence.\n\n## Changes\n\n- Pallet-level rustdoc: new \"Deferred dispatch\" section describing the\ntwo maps, their owners, and\n  the pause-not-cancel semantics of unwhitelisting.\n- `remove_whitelisted_call` rustdoc: two-line note that the deferred\nentry is left in place.\n- New test `unwhitelisting_pauses_but_does_not_cancel_deferral`: defer →\nwhitelist → revoke,\nassert deferral survives and relayers are blocked, re-whitelist, assert\na signed relay executes\n  as root fee-free and clears both maps.\n\n## Checklist\n\n- [x] prdoc\n- [x] label `T1-FRAME`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-18T11:47:10Z",
+          "tree_id": "89bb052c9f7b3373827310a7f14fff92f2f991bb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fd67bf19cbe55bd8c290d7e09ccca69ada3b68e3"
+        },
+        "date": 1789737726557,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.232910207899996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13240003520000002,
             "unit": "seconds"
           }
         ]
