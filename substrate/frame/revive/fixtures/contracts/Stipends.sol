@@ -37,8 +37,7 @@ contract ComplexReceiver {
 
 /**
  * @title ReentrancyAttacker
- * @dev Checks nothing gets drained: its callback attempts a second transfer, which the stipend
- *      cannot afford.
+ * @dev On receiving ETH, attempts to call back into the sender
  */
 contract ReentrancyAttacker {
     receive() external payable {
@@ -278,6 +277,11 @@ contract StipendSender {
     function isCallWithOneGasDenied() public payable returns (bool) {
         (bool ok, ) = probe.call{value: msg.value, gas: 1}("");
         return !ok;
+    }
+
+    /// @dev The guard must stop the callee reaching back, not the sender reaching its own address.
+    function isSelfSendAllowed() public payable returns (bool) {
+        return payable(address(this)).send(msg.value);
     }
 
     receive() external payable {}

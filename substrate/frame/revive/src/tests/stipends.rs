@@ -191,5 +191,9 @@ fn evm_call_stipend_denies_reentrancy_for_transfer_and_send_only() {
 			!run(StipendSender::isCallWithOneGasDeniedCall {}.abi_encode()),
 			"a caller that sets its own gas limit does not get the reentrancy protection"
 		);
+		assert!(
+			run(StipendSender::isSelfSendAllowedCall {}.abi_encode()),
+			"the guard stops the callee reentering, not a sender sending to itself"
+		);
 	});
 }
