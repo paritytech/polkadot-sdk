@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789760302916,
+  "lastUpdate": 1789772484995,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "37c9bed5901d4b3a021f5c9dfd567fbfd7e81772",
-          "message": "Cumulus: Simplify parent search for block-building (#10998)\n\nWhile reviewing #10973 I found once more that our parent search is\ntotally overengineered:\n- It offers the option to search branches that do not contain the\npending block -> These branches can never be taken\n- It returns a list of potential parents -> Nobody uses the list, we\nonly care about the latest block that we should build on\n\nBy eliminating these two annoyances, the code is a lot more simple and\neasier to follow. There are still some defensive checks that are not\nstrictly necessary, but does not hurt to keep them.\n\nIn summary, the mental model is: Build on the latest descendant of the\npending block that is still inside the relay parent ancestry. If no\npending block is available, use the included block in its place.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-18T17:58:52Z",
-          "tree_id": "c441657ee4e90dac570e53cb1a8fb5c112bfcbad",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/37c9bed5901d4b3a021f5c9dfd567fbfd7e81772"
-        },
-        "date": 1771442785271,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010047279980000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14593068583333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025102505480000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0070926051333333314,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02519806199333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b09232fe9d2ec8964a8069e1f5799962fe8b1e63",
+          "message": "frame: re-export hashing free functions via sp_io (#12753)\n\n## Summary\n\nIn #12158 we removed the deprecated `sp_core` hashing re-exports and\npointed `frame::hashing` at `sp_crypto_hashing` instead. That works, but\nthose helpers run as pure wasm, which is slower than going through the\nhost.\n\nThis PR switches the free functions in `polkadot-sdk-frame::hashing`\n(`blake2_256`, `twox_128`, and friends) over to `sp_io::hashing`, so\nruntime code that uses FRAME’s hashing module gets the host-function\npath. The trait helpers (`BlakeTwo256` / `Keccak256`) were already doing\nthat; this just brings the free functions in line. Also drops the\nnow-unused `sp-crypto-hashing` dependency from `polkadot-sdk-frame`.\n\nFixes #12727\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-09-18T21:30:48Z",
+          "tree_id": "75935ddd12b4aa1d51169c536986e208efe602c3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b09232fe9d2ec8964a8069e1f5799962fe8b1e63"
+        },
+        "date": 1789772445898,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009924174746666639,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14389244434666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007773197780000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02519747252,
             "unit": "seconds"
           }
         ]
