@@ -751,6 +751,6 @@ fn queue_order_batch_beyond_capacity_fails() {
 			OnDemand::queue_order_batch(&[(ParaId::from(111), block_num)]),
 			Error::<Test>::QueueFull
 		);
-		assert_last_event(RuntimeEvent::OnDemand(Event::UnexpectedQueueFull));
+		assert_last_event(RuntimeEvent::OnDemand(Event::UnexpectedQueueFull { queued: 0 }));
 	});
 }
