@@ -235,7 +235,7 @@ contract StipendTest {
 
 /**
  * @title ReentrancyProbe
- * @dev Checks whether reentry is admitted. The callback is cheap enough to fit the stipend,
+ * @dev Checks whether reentry is admitted. The reentrant call is cheap enough to fit the stipend,
  *      and reverts when denied, which makes the outer call fail.
  */
 contract ReentrancyProbe {
