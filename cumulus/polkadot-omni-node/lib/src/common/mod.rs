@@ -147,6 +147,27 @@ pub struct NodeExtraArgs {
 	/// HOP (Hand-Off Protocol) configuration parameters.
 	/// `None` disables HOP.
 	pub hop: Option<sc_hop::HopParams>,
+
+	/// Whether to run the price oracle service. Always `false` when the node is built without
+	/// the `price-oracle` feature.
+	pub price_oracle: bool,
+}
+
+/// Network handles of the price oracle gossip protocol.
+///
+/// Created by `start_node` when the protocol is registered with the network, and consumed by
+/// `StartConsensus::start_consensus` to spawn the price oracle service.
+pub struct PriceOracleNetwork<Block: BlockT> {
+	/// Notification service of the protocol.
+	pub notification_service: Box<dyn sc_network::service::traits::NotificationService>,
+	/// Name of the protocol.
+	pub protocol_name: sc_network::ProtocolName,
+	/// The network service.
+	pub network: Arc<dyn sc_network::service::traits::NetworkService>,
+	/// The sync service.
+	pub sync_service: Arc<sc_network_sync::SyncingService<Block>>,
+	/// Prometheus registry of the node.
+	pub prometheus_registry: Option<prometheus_endpoint::Registry>,
 }
 
 /// Maximum safety margin, in blocks, subtracted from the runtime's transaction-storage

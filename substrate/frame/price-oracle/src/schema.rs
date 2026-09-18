@@ -155,8 +155,8 @@ impl ResponseSchema {
 			ResponseSchema::OrderBook { bids, asks, layout } => {
 				let mut bids = read_levels(follow(&doc, bids)?, layout)?;
 				let mut asks = read_levels(follow(&doc, asks)?, layout)?;
-				bids.sort_unstable_by(|a, b| b.price.cmp(&a.price));
-				asks.sort_unstable_by(|a, b| a.price.cmp(&b.price));
+				bids.sort_unstable_by_key(|level| core::cmp::Reverse(level.price));
+				asks.sort_unstable_by_key(|level| level.price);
 				Ok(Parsed::OrderBook(OrderBook { bids, asks }))
 			},
 			ResponseSchema::Trades { trades, time, format } => {
@@ -226,7 +226,7 @@ fn read_levels(side: &Value, layout: &LevelLayout) -> Result<Vec<Level>, Respons
 /// A non-negative decimal given as a JSON number or as a string.
 fn read_number(value: &Value) -> Result<Price, ResponseSchemaError> {
 	let text = match value {
-		Value::Number(n) => n.as_str(),
+		Value::Number(n) => n.as_str(), // TODO: should never be parsed as a number
 		Value::String(s) => s.as_str(),
 		_ => return Err(ResponseSchemaError::MalformedLevel),
 	};

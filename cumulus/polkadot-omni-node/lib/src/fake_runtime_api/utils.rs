@@ -274,6 +274,44 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 			}
+
+			impl sp_price_oracle::runtime_api::PriceOracleApi<$block, $aura_id> for $runtime {
+				fn signers() -> Vec<$aura_id> {
+					unimplemented!()
+				}
+
+				fn report_window() -> u32 {
+					unimplemented!()
+				}
+
+				fn latest_anchors() -> Vec<($aura_id, sp_price_oracle::Anchor)> {
+					unimplemented!()
+				}
+			}
+
+			impl sp_price_oracle::runtime_api::PriceOracleMarketApi<$block> for $runtime {
+				fn tick_interval_ms() -> u32 {
+					unimplemented!()
+				}
+
+				fn markets() -> Vec<sp_price_oracle::market::Market> {
+					unimplemented!()
+				}
+
+				fn parse(
+					_market: sp_price_oracle::market::MarketId,
+					_responses: Vec<(sp_price_oracle::market::QueryTag, Vec<u8>)>,
+					_now_ms: u64,
+				) -> Result<sp_price_oracle::Price, sp_price_oracle::runtime_api::ParseError> {
+					unimplemented!()
+				}
+
+				fn aggregate(
+					_prices: Vec<(sp_price_oracle::market::MarketId, sp_price_oracle::Price)>,
+				) -> Vec<sp_price_oracle::Quote> {
+					unimplemented!()
+				}
+			}
 		}
 	};
 }

@@ -284,9 +284,9 @@ pub mod pallet {
 		/// Process the price reports collected by the block author.
 		///
 		/// Reports that are stale, from an unknown signer, or carry an invalid signature are
-		/// ignored. The votes of the remaining reports replace older votes of the same signers,
-		/// expired votes are dropped, and the price of every pair with enough votes is
-		/// recomputed.
+		/// ignored. The votes of the remaining reports replace the votes of the same signers
+		/// anchored at the same or an earlier block, expired votes are dropped, and the price of
+		/// every pair with enough votes is recomputed.
 		#[pallet::call_index(0)]
 		#[pallet::weight((
 			T::WeightInfo::process_reports(reports.len() as u32),
@@ -563,7 +563,7 @@ fn is_live(anchor: Anchor, current: Anchor, window: u32) -> bool {
 
 impl<T: Config> Pallet<T> {
 	/// Drop reports that are stale, from an unknown signer, wrongly signed, or superseded by a
-	/// newer report of the same signer in the same batch.
+	/// later report of the same signer in the same batch. At equal anchors the later one wins.
 	fn filter_reports(
 		reports: Vec<SignedPriceReportOf<T>>,
 		current: Anchor,
@@ -586,7 +586,7 @@ impl<T: Config> Pallet<T> {
 				continue;
 			}
 			match latest.get(&report.signer) {
-				Some(existing) if existing.report.anchor >= report.report.anchor => continue,
+				Some(existing) if existing.report.anchor > report.report.anchor => continue,
 				_ => {
 					latest.insert(report.signer.clone(), report);
 				},
@@ -610,7 +610,7 @@ impl<T: Config> Pallet<T> {
 				let pair_votes = votes.entry(quote.pair).or_default();
 				let vote = Vote { signer: report.signer.clone(), anchor, price: quote.price };
 				match pair_votes.binary_search_by(|v| v.signer.cmp(&vote.signer)) {
-					Ok(i) if pair_votes[i].anchor < anchor => pair_votes[i] = vote,
+					Ok(i) if pair_votes[i].anchor <= anchor => pair_votes[i] = vote,
 					Ok(_) => {},
 					Err(i) => {
 						if pair_votes.try_insert(i, vote).is_err() {
