@@ -38,6 +38,18 @@ pub use scope_limited::{set_and_run_with_externalities, with_externalities};
 mod extensions;
 mod scope_limited;
 
+/// Result of a storage load operation, carrying the loaded data along with an
+/// `is_cold` flag indicating whether the read may add new bytes to the storage
+/// proof.
+#[derive(Debug, Clone, PartialEq, Eq, codec::Encode, codec::Decode)]
+pub struct StateLoad<T> {
+	/// The returned data.
+	pub data: T,
+	/// `false` only when the read is guaranteed not to grow the storage proof
+	/// (overlay hit, or the bytes are already recorded). `true` otherwise.
+	pub is_cold: bool,
+}
+
 /// Externalities error.
 #[derive(Debug)]
 pub enum Error {
@@ -85,6 +97,14 @@ pub trait Externalities: ExtensionStore {
 	/// Read runtime storage.
 	fn storage(&mut self, key: &[u8]) -> Option<Vec<u8>>;
 
+	/// Similar to [`Self::storage`], but returns a [`StateLoad`] carrying a cold/hot flag.
+	///
+	/// The default impl conservatively reports `is_cold: true`. Implementations that track
+	/// recorder/overlay state should override to return accurate cold/hot.
+	fn storage_with_status(&mut self, key: &[u8]) -> StateLoad<Option<Vec<u8>>> {
+		StateLoad { data: self.storage(key), is_cold: true }
+	}
+
 	/// Get storage value hash.
 	///
 	/// This may be optimized for large values.
@@ -101,6 +121,18 @@ pub trait Externalities: ExtensionStore {
 	///
 	/// Returns an `Option` that holds the SCALE encoded hash.
 	fn child_storage(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<Vec<u8>>;
+
+	/// Similar to [`Self::child_storage`], but returns a [`StateLoad`] carrying a cold/hot flag.
+	///
+	/// The default impl conservatively reports `is_cold: true`. Implementations that track
+	/// recorder/overlay state should override to return accurate cold/hot.
+	fn child_storage_with_status(
+		&mut self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> StateLoad<Option<Vec<u8>>> {
+		StateLoad { data: self.child_storage(child_info, key), is_cold: true }
+	}
 
 	/// Set storage entry `key` of current contract being called (effective immediately).
 	fn set_storage(&mut self, key: Vec<u8>, value: Vec<u8>) {
