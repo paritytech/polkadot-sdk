@@ -14359,6 +14359,8 @@ dependencies = [
  "frame-system",
  "log",
  "parity-scale-codec",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
  "registrar-primitives",
  "scale-info",
  "sp-core 28.0.0",
