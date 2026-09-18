@@ -2,29 +2,19 @@ title: Check configured address identity against the node key
 doc:
 - audience: Node Operator
   description: |-
-    `--listen-addr` and `--public-addr` now accept the identity components an operator is likely
-    to paste back from an advertised or published address: a trailing `/p2p/<peer id>` on any
-    address, and a `/certhash/<hash>` before it on a `webrtc-direct` address.
-
-    Both are checked against the node key and stripped before use. The node refuses to start if
-    either disagrees with the key, and the error names the address, the component given, the one
-    the node key yields, and where that key comes from (`--node-key` or the node key file).
-    It also refuses to start if an identity is given while the node key does not exist yet.
-    An identity component anywhere else in the address, or a repeated one, is rejected as malformed.
-
-    Previously a `/certhash` in these flags was always rejected, and a `/p2p` was handed to the
-    network backend unchecked.
+    `--listen-addr` and `--public-addr` accept a trailing `/p2p/<peer id>`, and a
+    `/certhash/<hash>` before it on a `webrtc-direct` address. Both are checked against the node
+    key and stripped. The node refuses to start if either does not match, or if the node key does
+    not exist yet.
 - audience: Node Dev
   description: |-
     `NetworkConfiguration::validate_and_complete_webrtc_addresses` is renamed to
-    `validate_and_complete_addresses`. Besides completing the public `webrtc-direct` addresses
-    with the node's `/certhash`, it now checks the `/p2p` and `/certhash` components of every
-    listen and public address against the node key and strips them, on both network backends.
-    Running it twice is idempotent. When an address carries an identity, the node key is resolved
-    and pinned into `NetworkConfiguration::node_key` even without a WebRTC listener.
+    `validate_and_complete_addresses`. It now also checks the `/p2p` and `/certhash` components of
+    listen and public addresses against the node key and strips them, on both network backends,
+    pinning the resolved key into `NetworkConfiguration::node_key`.
 
-    `sc_network::error::Error` gains three variants: `MismatchedAddressIdentity`,
-    `MalformedAddressIdentity` and `AddressIdentityWithoutNodeKey`.
+    `sc_network::error::Error` gains `MismatchedAddressIdentity`, `MalformedAddressIdentity` and
+    `AddressIdentityWithoutNodeKey`.
 crates:
 - name: sc-cli
   bump: minor
