@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789755316541,
+  "lastUpdate": 1789771603019,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -126143,6 +126143,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2648972797,
             "range": "± 29624676",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b09232fe9d2ec8964a8069e1f5799962fe8b1e63",
+          "message": "frame: re-export hashing free functions via sp_io (#12753)\n\n## Summary\n\nIn #12158 we removed the deprecated `sp_core` hashing re-exports and\npointed `frame::hashing` at `sp_crypto_hashing` instead. That works, but\nthose helpers run as pure wasm, which is slower than going through the\nhost.\n\nThis PR switches the free functions in `polkadot-sdk-frame::hashing`\n(`blake2_256`, `twox_128`, and friends) over to `sp_io::hashing`, so\nruntime code that uses FRAME’s hashing module gets the host-function\npath. The trait helpers (`BlakeTwo256` / `Keccak256`) were already doing\nthat; this just brings the free functions in line. Also drops the\nnow-unused `sp-crypto-hashing` dependency from `polkadot-sdk-frame`.\n\nFixes #12727\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
+          "timestamp": "2026-09-18T21:30:48Z",
+          "tree_id": "75935ddd12b4aa1d51169c536986e208efe602c3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b09232fe9d2ec8964a8069e1f5799962fe8b1e63"
+        },
+        "date": 1789771563435,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19373725,
+            "range": "± 172786",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19628965,
+            "range": "± 181387",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21251080,
+            "range": "± 161170",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25909924,
+            "range": "± 221294",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58465402,
+            "range": "± 1032645",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 334371455,
+            "range": "± 4778019",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2383196486,
+            "range": "± 41049940",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16344279,
+            "range": "± 201533",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16378296,
+            "range": "± 150570",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 16829366,
+            "range": "± 202578",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21439264,
+            "range": "± 286876",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61141536,
+            "range": "± 586434",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 361567777,
+            "range": "± 4088502",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2678831693,
+            "range": "± 43499479",
             "unit": "ns/iter"
           }
         ]
