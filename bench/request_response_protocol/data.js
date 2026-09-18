@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789739535018,
+  "lastUpdate": 1789755316541,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -126035,6 +126035,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2694913143,
             "range": "± 19939501",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "141152972+Stephenlawrence00@users.noreply.github.com",
+            "name": "html//stephlou",
+            "username": "Stephenlawrence00"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6719be2fe39c7cb6bf423b9c8e5724867b14ed93",
+          "message": "[frame-benchmarking] Refactor pallet benchmarking backend (#11758)\n\ncloses https://github.com/paritytech/polkadot-sdk/issues/194\n\nThis PR refactors the benchmarking infrastructure in FRAME by\ndeduplicating analysis logic, improving API ergonomics, formalizing\n`BenchmarkBatch::split()`, enhancing documentation and error handling,\nand deprecating the v1 macro system in favor of v2.",
+          "timestamp": "2026-09-18T16:50:01Z",
+          "tree_id": "90cd9e2073710c7a6673a5278be012f896bffb41",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6719be2fe39c7cb6bf423b9c8e5724867b14ed93"
+        },
+        "date": 1789755275740,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19497804,
+            "range": "± 171323",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19726329,
+            "range": "± 298633",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21060609,
+            "range": "± 89344",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25526116,
+            "range": "± 115606",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56419160,
+            "range": "± 480348",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 335207439,
+            "range": "± 2232499",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2521820746,
+            "range": "± 147545464",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16461086,
+            "range": "± 221455",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16661709,
+            "range": "± 117238",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17190146,
+            "range": "± 181196",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21509997,
+            "range": "± 181906",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58002396,
+            "range": "± 533598",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 337598812,
+            "range": "± 4448012",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2648972797,
+            "range": "± 29624676",
             "unit": "ns/iter"
           }
         ]
