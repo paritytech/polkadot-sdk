@@ -169,7 +169,7 @@ mod execution {
 	use sp_core::{
 		hexdisplay::HexDisplay,
 		storage::{ChildInfo, ChildType, PrefixedStorageKey},
-		traits::{CallContext, CodeExecutor, Externalities, RuntimeCode},
+		traits::{CallContext, CodeExecutor, RuntimeCode},
 	};
 	use sp_externalities::Extensions;
 	use sp_trie::PrefixedMemoryDB;
@@ -216,6 +216,8 @@ mod execution {
 		/// Used for logging.
 		parent_hash: Option<H::Out>,
 		context: CallContext,
+		/// Wall-clock limit for the runtime call, see [`Self::with_timeout`].
+		timeout: Option<Duration>,
 	}
 
 	impl<'a, B, H, Exec> Drop for StateMachine<'a, B, H, Exec>
@@ -257,6 +259,7 @@ mod execution {
 				stats: StateMachineStats::default(),
 				parent_hash: None,
 				context,
+				timeout: None,
 			}
 		}
 
@@ -268,31 +271,24 @@ mod execution {
 			self
 		}
 
+		/// Interrupt the runtime call once `timeout` has elapsed, if `Some`.
+		///
+		/// See [`CodeExecutor::call_with_execution_timeout`].
+		pub fn with_timeout(mut self, timeout: Option<Duration>) -> Self {
+			self.timeout = timeout;
+			self
+		}
+
 		/// Execute a call using the given state backend, overlayed changes, and call executor.
 		///
-		/// On an error, no prospective changes are written to the overlay.
+		/// On an error, no prospective changes are written to the overlay. If a timeout was set
+		/// via [`Self::with_timeout`], the call is interrupted once it elapses.
 		///
 		/// Note: changes to code will be in place if this call is made again. For running partial
 		/// blocks (e.g. a transaction at a time), ensure a different method is used.
 		///
 		/// Returns the SCALE encoded result of the executed function.
 		pub fn execute(&mut self) -> Result<Vec<u8>, Box<dyn Error>> {
-			self.execute_inner(|exec, ext, runtime_code, method, call_data, context| {
-				exec.call(ext, runtime_code, method, call_data, context).0
-			})
-		}
-
-		fn execute_inner(
-			&mut self,
-			call: impl FnOnce(
-				&Exec,
-				&mut dyn Externalities,
-				&RuntimeCode,
-				&str,
-				&[u8],
-				CallContext,
-			) -> Result<Vec<u8>, Exec::Error>,
-		) -> Result<Vec<u8>, Box<dyn Error>> {
 			self.overlay
 				.enter_runtime()
 				.expect("StateMachine is never called from the runtime; qed");
@@ -307,17 +303,31 @@ mod execution {
 				method = %self.method,
 				parent_hash = %self.parent_hash.map(|h| format!("{:?}", h)).unwrap_or_else(|| String::from("None")),
 				input = ?HexDisplay::from(&self.call_data),
+				timeout = ?self.timeout,
 				"Call",
 			);
 
-			let result = call(
-				self.exec,
-				&mut ext,
-				self.runtime_code,
-				self.method,
-				self.call_data,
-				self.context,
-			);
+			let result = match self.timeout {
+				Some(timeout) => self.exec.call_with_execution_timeout(
+					&mut ext,
+					self.runtime_code,
+					self.method,
+					self.call_data,
+					self.context,
+					timeout,
+				),
+				None => {
+					self.exec
+						.call(
+							&mut ext,
+							self.runtime_code,
+							self.method,
+							self.call_data,
+							self.context,
+						)
+						.0
+				},
+			};
 
 			self.overlay
 				.exit_runtime()
@@ -331,23 +341,6 @@ mod execution {
 			);
 
 			result.map_err(|e| Box::new(e) as Box<_>)
-		}
-
-		/// Same as [`Self::execute`], but interrupting execution once `timeout` has elapsed.
-		pub fn execute_with_timeout(
-			&mut self,
-			timeout: Duration,
-		) -> Result<Vec<u8>, Box<dyn Error>> {
-			self.execute_inner(|exec, ext, runtime_code, method, call_data, context| {
-				exec.call_with_execution_timeout(
-					ext,
-					runtime_code,
-					method,
-					call_data,
-					context,
-					timeout,
-				)
-			})
 		}
 	}
 
@@ -412,7 +405,7 @@ mod execution {
 		let proving_backend =
 			TrieBackendBuilder::wrap(trie_backend).with_recorder(Default::default()).build();
 
-		let mut state_machine = StateMachine::<_, H, Exec>::new(
+		let result = StateMachine::<_, H, Exec>::new(
 			&proving_backend,
 			overlay,
 			exec,
@@ -421,12 +414,9 @@ mod execution {
 			extensions,
 			runtime_code,
 			CallContext::Offchain,
-		);
-		let result = match timeout {
-			Some(timeout) => state_machine.execute_with_timeout(timeout),
-			None => state_machine.execute(),
-		}?;
-		drop(state_machine);
+		)
+		.with_timeout(timeout)
+		.execute()?;
 
 		let proof = proving_backend
 			.extract_proof()
