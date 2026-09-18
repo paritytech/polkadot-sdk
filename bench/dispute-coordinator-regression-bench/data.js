@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789740701016,
+  "lastUpdate": 1789760454976,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1897ae0d78945a7134df3386d53420939804d2ab",
-          "message": "Add revive substrate runtime-api integration tests for call & instantiate (#10919)\n\n## Summary\n- Add integration tests for revive runtime API\n- Test Fibonacci contract deployment and execution via substrate APIs\n\n## Changes\n- Add test for Fibonacci contract call via runtime API\n- Add test to verify large Fibonacci values run out of gas as expected\n- Update dev-node runtime configuration for testing\n\n## Test plan\n- Run new integration tests\n- Verify runtime API correctly handles contract deployment\n- Verify gas limits are enforced correctly\n\n---------\n\nCo-authored-by: Mónica Jin <monica@parity.io>",
-          "timestamp": "2026-02-16T18:18:05Z",
-          "tree_id": "8a480f343129688df685797b99c893755e99dfc5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1897ae0d78945a7134df3386d53420939804d2ab"
-        },
-        "date": 1771270330335,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026754621300000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00911262793999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0065041802500000025,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009904592009999992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "141152972+Stephenlawrence00@users.noreply.github.com",
+            "name": "html//stephlou",
+            "username": "Stephenlawrence00"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6719be2fe39c7cb6bf423b9c8e5724867b14ed93",
+          "message": "[frame-benchmarking] Refactor pallet benchmarking backend (#11758)\n\ncloses https://github.com/paritytech/polkadot-sdk/issues/194\n\nThis PR refactors the benchmarking infrastructure in FRAME by\ndeduplicating analysis logic, improving API ergonomics, formalizing\n`BenchmarkBatch::split()`, enhancing documentation and error handling,\nand deprecating the v1 macro system in favor of v2.",
+          "timestamp": "2026-09-18T16:50:01Z",
+          "tree_id": "90cd9e2073710c7a6673a5278be012f896bffb41",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6719be2fe39c7cb6bf423b9c8e5724867b14ed93"
+        },
+        "date": 1789760413725,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025187597200000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009257585159999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010507670089999992,
             "unit": "seconds"
           }
         ]
