@@ -247,6 +247,12 @@ pub mod pallet {
 		SpotPriceSet { spot_price: BalanceOf<T> },
 		/// An account was given credits.
 		AccountCredited { who: T::AccountId, amount: BalanceOf<T> },
+		/// The order queue was unexpectedly full - this indicates a problem with the configuration
+		/// of the on-demand pallet on the Coretime chain. `queued` indicates how many orders were
+		/// successfully queued.
+		UnexpectedQueueFull { queued: u32 },
+		/// A batch of on-demand orders from the broker chain has been queued.
+		BatchQueued { batch: Vec<(ParaId, BlockNumberFor<T>)> },
 	}
 
 	#[pallet::error]
@@ -553,6 +559,24 @@ where
 				ordered_by: sender,
 			});
 
+			Ok(())
+		})
+	}
+
+	/// Adds a batch of coretime orders to the queue.
+	pub fn queue_order_batch(batch: &[(ParaId, BlockNumberFor<T>)]) -> DispatchResult {
+		pallet::OrderStatus::<T>::mutate(|order_status| {
+			// The number of successfully queued orders happens to be the same as the index of the
+			// order being currently processed.
+			for (queued, (para_id, ordered_at)) in batch.iter().enumerate() {
+				order_status.queue.try_push(*ordered_at, *para_id).defensive_map_err(|_| {
+					Pallet::<T>::deposit_event(Event::<T>::UnexpectedQueueFull {
+						queued: queued as u32,
+					});
+					Error::<T>::QueueFull
+				})?;
+			}
+			Pallet::<T>::deposit_event(Event::<T>::BatchQueued { batch: batch.to_vec() });
 			Ok(())
 		})
 	}
