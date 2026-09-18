@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789679679063,
+  "lastUpdate": 1789707119090,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -224639,6 +224639,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2757393533,
             "range": "± 113895687",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7d4be3ec428c1b0aacd718bf6c12ebbfd7cea1b4",
+          "message": "docs: share repository guidance across coding harnesses (#13251)\n\n# Description\n\nMake the repository guidance available to harnesses beyond Claude Code.\nCurrently it lives only in `CLAUDE.md`, which Codex does not read by\ndefault. Moving it to `AGENTS.md` lets Codex and other harnesses that\nsupport that file discover the same instructions. `CLAUDE.md` becomes a\nsingle `@AGENTS.md` import so Claude Code continues using the shared\nguidance without duplicating it.\n\nRequire reading every applicable `AGENTS.md` along a file's directory\npath before editing or creating it, including when work starts at the\nrepository root. This explicitly directs harnesses to load scoped\ninstructions that were not included at startup. The rule only names\n`AGENTS.md`: Claude Code already loads nested `CLAUDE.md` files\nautomatically when it reads files in those directories, including their\nimports, so a separate instruction to discover `CLAUDE.md` is\nunnecessary. More specific instructions apply within their own subtree.\n\nAlso correct the existing prdoc exemption to `R0-silent` and distinguish\nit from `R0-no-crate-publish-required`, which only exempts crate\npublication. Existing commands and technical guidance are preserved.\n\n## Validation\n\nMarkdown lint and `git diff --check` passed. Verified the exact import,\npreservation of every command block, and that only the two root guidance\nfiles changed. No Rust build or runtime tests were needed for this\ndocumentation-only change.",
+          "timestamp": "2026-09-18T03:30:41Z",
+          "tree_id": "ef38891bbff066c158c880f04f0c11ade91ceeb0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d4be3ec428c1b0aacd718bf6c12ebbfd7cea1b4"
+        },
+        "date": 1789707082742,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4323599,
+            "range": "± 36491",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 291037,
+            "range": "± 3786",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4255819,
+            "range": "± 32509",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 353056,
+            "range": "± 3134",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5205458,
+            "range": "± 17634",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 880092,
+            "range": "± 8399",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10659675,
+            "range": "± 27984",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4683318,
+            "range": "± 35445",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 41162783,
+            "range": "± 346039",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 36424646,
+            "range": "± 174895",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 333871497,
+            "range": "± 1829021",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 291636205,
+            "range": "± 1572497",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2559687998,
+            "range": "± 6884073",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2331272707,
+            "range": "± 25111165",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3341740,
+            "range": "± 24363",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1835884,
+            "range": "± 8658",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3423696,
+            "range": "± 18420",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1898322,
+            "range": "± 4068",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3878619,
+            "range": "± 27826",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2204175,
+            "range": "± 8115",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7896849,
+            "range": "± 34832",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5089265,
+            "range": "± 34877",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 36971446,
+            "range": "± 81367",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 34693161,
+            "range": "± 169969",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 305006756,
+            "range": "± 1862592",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 271326281,
+            "range": "± 1408846",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2440919162,
+            "range": "± 41008756",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2471464100,
+            "range": "± 38271124",
             "unit": "ns/iter"
           }
         ]
