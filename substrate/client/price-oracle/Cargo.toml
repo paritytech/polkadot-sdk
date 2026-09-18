@@ -43,6 +43,7 @@ url = { workspace = true }
 
 [dev-dependencies]
 hyper = { features = ["server"], workspace = true, default-features = true }
+pallet-price-oracle = { workspace = true, default-features = true }
 sc-keystore = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
