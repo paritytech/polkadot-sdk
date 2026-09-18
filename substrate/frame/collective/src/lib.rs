@@ -670,7 +670,9 @@ pub mod pallet {
 		/// or put up for voting.
 		///
 		/// The proposal is identified by [`Pallet::proposal_hash`], which covers both the call
-		/// and the `threshold`.
+		/// and the `threshold`. The threshold is fixed at submission time and is therefore part
+		/// of the proposal's identity: the same call may be under consideration with different
+		/// thresholds without colliding.
 		///
 		/// ## Complexity
 		/// - `O(B + M + P1)` or `O(B + M + P2)` where:
@@ -934,7 +936,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		);
 
 		let proposal_hash = Self::proposal_hash(&proposal, threshold);
-		ensure!(!<ProposalOf<T, I>>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
 
 		let seats = Members::<T, I>::get().len() as MemberCount;
 		let result = proposal.dispatch(RawOrigin::Members(1, seats).into());
