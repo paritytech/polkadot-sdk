@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789680737340,
+  "lastUpdate": 1789708176482,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bc42349097da2ad8e551e1dde174d3fc79fe8c5b",
-          "message": "frame-omni-bencher: enable  jemalloc-allocator (#11069)\n\nFix huge benchmark regression for storage-heavy extrinsics, enabling\njemalloc-allocator via polkadot-jemalloc-shim for omni-bencher, marked\nas optional in the scope of PR #10590.\n\nThis close https://github.com/paritytech/trie/issues/230.\n\nThanks @alexggh and @cheme for the help :bow: \n\nTested against `runtime / main` and\n[2.1.0](https://github.com/polkadot-fellows/runtimes/pull/1065) as\ndescribed\n[here](https://github.com/paritytech/trie/issues/230#issuecomment-3896270293).\nFor the `usual` exstrinsic `force_apply_min_commission` doing massive\nstorage allocation/deallocation on benchmark setup and then just 1read -\n2 write in the benchmark extrinsic itself, times goes down from ms to\nµs.\n\nThe regression was introduced by #10590 `sc-client-db: Make jemalloc\noptional`\n\n```bash\nruntimes git:(sigurpol-release-2_0_6) /home/paolo/github/polkadot-sdk/target/release/frame-omni-bencher v1 benchmark pallet --runtime ./target/release/wbuild/asset-hub-polkadot-runtime/asset_hub_polkadot_runtime.compact.compressed.wasm --pallet pallet_staking_async --extrinsic \"force_apply_min_commission\" --steps 2 --repeat 1\n2026-02-13T15:06:30.145367Z  INFO frame::benchmark::pallet: Initialized runtime log filter to 'INFO'\n2026-02-13T15:06:31.784936Z  INFO pallet_collator_selection::pallet: assembling new collators for new session 0 at #0\n2026-02-13T15:06:31.784966Z  INFO pallet_collator_selection::pallet: assembling new collators for new session 1 at #0\n2026-02-13T15:08:29.701636Z  INFO frame::benchmark::pallet: [  0 % ] Starting benchmark: pallet_staking_async::force_apply_min_commission\n2026-02-13T15:08:35.130403Z  INFO frame::benchmark::pallet: [  0 % ] Running  benchmark: pallet_staking_async::force_apply_min_commission (overtime)\nPallet: \"pallet_staking_async\", Extrinsic: \"force_apply_min_commission\", Lowest values: [], Highest values: [], Steps: 2, Repeat: 1\nRaw Storage Info\n========\nStorage: `Staking::MinCommission` (r:1 w:0)\nProof: `Staking::MinCommission` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)\nStorage: `Staking::Validators` (r:1 w:1)\nProof: `Staking::Validators` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)\n\nMedian Slopes Analysis\n========\n-- Extrinsic Time --\n\nModel:\nTime ~=    50.31\n              µs\n\nReads = 2\nWrites = 1\nRecorded proof Size = 564\n\nMin Squares Analysis\n========\n-- Extrinsic Time --\n\nModel:\nTime ~=    50.31\n              µs\n\nReads = 2\nWrites = 1\nRecorded proof Size = 564\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-02-15T23:36:37Z",
-          "tree_id": "22330ac510c1ba76b6ba2d7475458b0872eb5dd5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bc42349097da2ad8e551e1dde174d3fc79fe8c5b"
-        },
-        "date": 1771202653514,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.06400000000002,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06497059514199993,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03772408678600001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038712952094000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7d4be3ec428c1b0aacd718bf6c12ebbfd7cea1b4",
+          "message": "docs: share repository guidance across coding harnesses (#13251)\n\n# Description\n\nMake the repository guidance available to harnesses beyond Claude Code.\nCurrently it lives only in `CLAUDE.md`, which Codex does not read by\ndefault. Moving it to `AGENTS.md` lets Codex and other harnesses that\nsupport that file discover the same instructions. `CLAUDE.md` becomes a\nsingle `@AGENTS.md` import so Claude Code continues using the shared\nguidance without duplicating it.\n\nRequire reading every applicable `AGENTS.md` along a file's directory\npath before editing or creating it, including when work starts at the\nrepository root. This explicitly directs harnesses to load scoped\ninstructions that were not included at startup. The rule only names\n`AGENTS.md`: Claude Code already loads nested `CLAUDE.md` files\nautomatically when it reads files in those directories, including their\nimports, so a separate instruction to discover `CLAUDE.md` is\nunnecessary. More specific instructions apply within their own subtree.\n\nAlso correct the existing prdoc exemption to `R0-silent` and distinguish\nit from `R0-no-crate-publish-required`, which only exempts crate\npublication. Existing commands and technical guidance are preserved.\n\n## Validation\n\nMarkdown lint and `git diff --check` passed. Verified the exact import,\npreservation of every command block, and that only the two root guidance\nfiles changed. No Rust build or runtime tests were needed for this\ndocumentation-only change.",
+          "timestamp": "2026-09-18T03:30:41Z",
+          "tree_id": "ef38891bbff066c158c880f04f0c11ade91ceeb0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d4be3ec428c1b0aacd718bf6c12ebbfd7cea1b4"
+        },
+        "date": 1789708136658,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.11199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038471007354000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.07895953836999993,
             "unit": "seconds"
           }
         ]
