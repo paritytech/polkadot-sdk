@@ -1590,4 +1590,4 @@ zeroize = { opt-level = 3 }
 [patch.crates-io]
 # `ancestry_proof_positions` — https://github.com/paritytech/merkle-mountain-range/pull/11.
 # Drop once 0.8.3 is on crates.io.
-polkadot-ckb-merkle-mountain-range = { git = "https://github.com/yrong/merkle-mountain-range", rev = "9827c341abd6ae1bb688f5d6b0bd91a13c5fdaa1" }
+polkadot-ckb-merkle-mountain-range = { git = "https://github.com/yrong/merkle-mountain-range", rev = "f3eac7c5a09daa19c6238051e8ba567b820cc3d2" }
