@@ -1,0 +1,13 @@
+title: 'election-provider-support: fix MaxEncodedLen undercount in generated solution
+  types'
+doc:
+- audience: Runtime Dev
+  description: "The prefix budget assumed a one-byte length prefix per vote field,\
+    \ but a field holding `MaxVoters` elements uses a multi-byte `compact. Budget\
+    \ Compact(MaxVoters).encoded_size()` for the full field, and cover it with a test\
+    \ using `MaxVoters = 64`.\r\n"
+crates:
+- name: frame-election-provider-solution-type
+  bump: patch
+- name: frame-election-provider-support
+  bump: patch
