@@ -2394,3 +2394,103 @@ fn fungibles_inspect_is_sufficient_works() {
 		assert!(!<Assets as Inspect<u64>>::is_sufficient(0));
 	});
 }
+
+/// `Mutate::transfer` must not destroy the remainder it sweeps.
+///
+/// For an asset whose `min_balance` is above one, `decrease_balance` takes the source's
+/// sub-`min_balance` remainder along with `amount`. Crediting the destination with `amount`
+/// leaves that difference debited from the source, credited to nobody, and still counted in
+/// `total_supply`, since neither `Unbalanced` method touches the supply.
+#[test]
+fn fungibles_transfer_should_never_burn_above_unit_min_balance() {
+	use frame_support::traits::tokens::Preservation::Expendable;
+
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+
+		// Leaves the source with 5, below the asset's `min_balance` of 10, so the remainder is
+		// swept and the destination is credited with the whole 100.
+		assert_eq!(<Assets as fungibles::Mutate<_>>::transfer(0, &1, &2, 95, Expendable), Ok(100));
+
+		assert_eq!(Assets::balance(0, 1), 0);
+		assert_eq!(Assets::balance(0, 2), 100);
+		assert_eq!(
+			Assets::balance(0, 1) + Assets::balance(0, 2),
+			Assets::total_supply(0),
+			"balances must sum to the reported supply",
+		);
+		// Indexers read this, so it must report what moved rather than what was asked for.
+		System::assert_has_event(RuntimeEvent::Assets(crate::Event::Transferred {
+			asset_id: 0,
+			from: 1,
+			to: 2,
+			amount: 100,
+		}));
+	});
+}
+
+/// The same invariant through the single-asset adapter, which is how a runtime exposes one
+/// pallet-assets asset as a `fungible`. pallet-balances is unaffected by the change — its
+/// `decrease_balance` returns exactly `amount` and disposes of dust separately — so this
+/// adapter is the only place the `fungible::Mutate::transfer` half is reachable.
+#[test]
+fn fungible_item_of_transfer_should_never_burn_above_unit_min_balance() {
+	use frame_support::traits::tokens::{
+		fungible::{ItemOf, Mutate as FungibleMutate},
+		Preservation::Expendable,
+	};
+
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		Balances::make_free_balance_be(&1, 100);
+		Balances::make_free_balance_be(&2, 100);
+
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+
+		type Item = ItemOf<Assets, ConstU32<0>, u64>;
+		assert_eq!(<Item as FungibleMutate<u64>>::transfer(&1, &2, 95, Expendable), Ok(100));
+
+		assert_eq!(Assets::balance(0, 1), 0);
+		assert_eq!(Assets::balance(0, 2), 100);
+		assert_eq!(
+			Assets::balance(0, 1) + Assets::balance(0, 2),
+			Assets::total_supply(0),
+			"balances must sum to the reported supply",
+		);
+	});
+}
+
+/// A delegate approved for `N` must never move more than `N`.
+///
+/// `do_transfer_approved` moves whatever the debit resolves to, which exceeds the requested
+/// `amount` once the owner's remainder falls below `min_balance`. Measuring the approval
+/// against the requested amount would let the delegate overspend it.
+#[test]
+fn transfer_approved_cannot_sweep_past_the_approval() {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 95));
+
+		// Moving 91 would sweep the owner's remaining 9, spending 100 of a 95 approval.
+		assert_noop!(
+			Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 91),
+			Error::<Test>::Unapproved
+		);
+		assert_eq!(Assets::balance(0, 1), 100);
+		assert_eq!(Assets::allowance(0, &1, &2), 95);
+
+		// Leaving the owner at exactly `min_balance` stays within the approval.
+		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 90));
+		assert_eq!(Assets::balance(0, 1), 10);
+		assert_eq!(Assets::balance(0, 3), 90);
+		assert_eq!(Assets::allowance(0, &1, &2), 5);
+	});
+}
