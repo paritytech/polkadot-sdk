@@ -146,8 +146,22 @@ where
 			Preservation::Preserve,
 			Fortitude::Polite,
 		),
+		Err(TokenError::BelowMinimum.into()),
+	);
+
+	// Decreasing the balance below current balance when Precision::Exact should fail.
+	let amount = 11.into();
+	assert_eq!(
+		T::decrease_balance(
+			&account_0,
+			amount,
+			Precision::Exact,
+			Preservation::Expendable,
+			Fortitude::Polite,
+		),
 		Err(TokenError::FundsUnavailable.into()),
 	);
+
 	// Balance should not have changed.
 	assert_eq!(T::balance(&account_0), account_0_initial_balance);
 
