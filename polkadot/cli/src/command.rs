@@ -367,11 +367,6 @@ pub fn run() -> Result<()> {
 			None,
 			polkadot_node_metrics::logger_hook(),
 		),
-		#[allow(deprecated)]
-		Some(Subcommand::BuildSpec(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			Ok(runner.sync_run(|config| cmd.run(config.chain_spec, config.network))?)
-		},
 		Some(Subcommand::ExportChainSpec(cmd)) => {
 			// Directly load the embedded chain spec using the CLI’s load_spec method.
 			let spec = cli.load_spec(&cmd.chain)?;

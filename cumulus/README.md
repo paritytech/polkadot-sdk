@@ -123,7 +123,7 @@ git clone https://github.com/paritytech/polkadot-sdk
 cargo build --release -p polkadot
 
 # Generate a raw chain spec
-./target/release/polkadot build-spec --chain rococo-local --disable-default-bootnode --raw > rococo-local-cfde.json
+./target/release/polkadot export-chain-spec --chain rococo-local --raw > rococo-local-cfde.json
 
 # Alice
 ./target/release/polkadot --chain rococo-local-cfde.json --alice --tmp
