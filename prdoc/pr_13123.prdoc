@@ -1,0 +1,29 @@
+title: 'fix(litep2p): stop tracking disconnected non-reserved peers in the peerset'
+
+doc:
+- audience:
+  - Node Dev
+  - Node Operator
+  description: |-
+    The `Peerset` of each litep2p notification protocol kept a `PeerState::Disconnected` entry for
+    every peer it had ever seen, so the set of tracked peers grew for the lifetime of the node. The
+    dominant source was inbound validation: a peer whose inbound substream was rejected — because
+    there was no free inbound slot or because the protocol runs in reserved-only mode — left a
+    permanent entry behind, one per peer per notification protocol.
+
+    `PeerState::Disconnected` carries no information for a non-reserved peer: it is not counted
+    towards the inbound/outbound slots and it is not part of the `ignore` set used to pick outbound
+    candidates from the `Peerstore`, which makes it indistinguishable from the peer being absent.
+    Those entries are now dropped on each slot allocation, so the tracked peers are bounded by the
+    reserved set plus the peers that actually have an open, opening or closing substream. Reserved
+    peers keep their entry, as that is what the `Peerset` uses to decide which reserved peers to
+    dial.
+
+    Connectivity, slot accounting and reputation reporting are unchanged. The
+    `substrate_sub_libp2p_peerset_num_state{state="disconnected"}` gauge changes meaning as a
+    result: instead of counting every peer ever seen, it now reports the reserved peers the
+    protocol is currently not connected to.
+
+crates:
+- name: sc-network
+  bump: patch
