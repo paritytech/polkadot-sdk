@@ -307,6 +307,35 @@ impl<H> WasmExecutor<H>
 where
 	H: HostFunctions,
 {
+	/// Heap allocation strategy for on-chain calls into `runtime_code`.
+	fn on_chain_heap_alloc_strategy(&self, runtime_code: &RuntimeCode) -> HeapAllocStrategy {
+		if self.ignore_onchain_heap_pages {
+			return self.default_onchain_heap_alloc_strategy;
+		}
+
+		runtime_code
+			.heap_pages
+			.map(|h| HeapAllocStrategy::Static { extra_pages: h as _ })
+			.unwrap_or(self.default_onchain_heap_alloc_strategy)
+	}
+
+	/// Heap allocation strategy for calling into `runtime_code` in the given `context`.
+	fn heap_alloc_strategy(
+		&self,
+		runtime_code: &RuntimeCode,
+		context: CallContext,
+	) -> HeapAllocStrategy {
+		match context {
+			CallContext::Offchain => self.default_offchain_heap_alloc_strategy,
+			CallContext::Onchain { import: false } => {
+				self.on_chain_heap_alloc_strategy(runtime_code)
+			},
+			CallContext::Onchain { import: true } => {
+				self.on_chain_heap_alloc_strategy(runtime_code).double()
+			},
+		}
+	}
+
 	/// Execute the given closure `f` with the latest runtime (based on `runtime_code`).
 	///
 	/// The closure `f` is expected to return `Err(_)` when there happened a `panic!` in native code
@@ -541,20 +570,7 @@ where
 			"Executing function",
 		);
 
-		let on_chain_heap_alloc_strategy = if self.ignore_onchain_heap_pages {
-			self.default_onchain_heap_alloc_strategy
-		} else {
-			runtime_code
-				.heap_pages
-				.map(|h| HeapAllocStrategy::Static { extra_pages: h as _ })
-				.unwrap_or_else(|| self.default_onchain_heap_alloc_strategy)
-		};
-
-		let heap_alloc_strategy = match context {
-			CallContext::Offchain => self.default_offchain_heap_alloc_strategy,
-			CallContext::Onchain { import: false } => on_chain_heap_alloc_strategy,
-			CallContext::Onchain { import: true } => on_chain_heap_alloc_strategy.double(),
-		};
+		let heap_alloc_strategy = self.heap_alloc_strategy(runtime_code, context);
 
 		let result = self.with_instance(
 			runtime_code,
@@ -587,20 +603,7 @@ where
 			"Executing function with timeout",
 		);
 
-		let on_chain_heap_alloc_strategy = if self.ignore_onchain_heap_pages {
-			self.default_onchain_heap_alloc_strategy
-		} else {
-			runtime_code
-				.heap_pages
-				.map(|h| HeapAllocStrategy::Static { extra_pages: h as _ })
-				.unwrap_or_else(|| self.default_onchain_heap_alloc_strategy)
-		};
-
-		let heap_alloc_strategy = match context {
-			CallContext::Offchain => self.default_offchain_heap_alloc_strategy,
-			CallContext::Onchain { import: false } => on_chain_heap_alloc_strategy,
-			CallContext::Onchain { import: true } => on_chain_heap_alloc_strategy.double(),
-		};
+		let heap_alloc_strategy = self.heap_alloc_strategy(runtime_code, context);
 
 		self.with_interruptible_instance(
 			runtime_code,
@@ -624,19 +627,10 @@ where
 		ext: &mut dyn Externalities,
 		runtime_code: &RuntimeCode,
 	) -> Result<RuntimeVersion> {
-		let on_chain_heap_pages = if self.ignore_onchain_heap_pages {
-			self.default_onchain_heap_alloc_strategy
-		} else {
-			runtime_code
-				.heap_pages
-				.map(|h| HeapAllocStrategy::Static { extra_pages: h as _ })
-				.unwrap_or_else(|| self.default_onchain_heap_alloc_strategy)
-		};
-
 		self.with_instance(
 			runtime_code,
 			ext,
-			on_chain_heap_pages,
+			self.on_chain_heap_alloc_strategy(runtime_code),
 			|_module, _instance, version, _ext| {
 				Ok(version.cloned().ok_or_else(|| Error::ApiError("Unknown version".into())))
 			},
