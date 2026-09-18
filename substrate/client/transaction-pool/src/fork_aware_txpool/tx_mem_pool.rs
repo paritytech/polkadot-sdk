@@ -63,7 +63,8 @@ use crate::{
 };
 
 use super::{
-	metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener,
+	metrics::{MetricsLink as PrometheusMetrics, RemovalReason},
+	multi_view_listener::MultiViewListener,
 	view_store::ViewStore,
 };
 
@@ -223,6 +224,14 @@ where
 	/// Returns the source of the transaction.
 	pub(crate) fn source(&self) -> TimedTransactionSource {
 		self.source.clone()
+	}
+
+	/// Returns a reference to the source of the transaction.
+	///
+	/// Cheaper than [`Self::source`] when the caller only needs to read the
+	/// source (e.g. metric labels) without taking ownership.
+	pub(super) fn source_ref(&self) -> &TimedTransactionSource {
+		&self.source
 	}
 
 	/// Returns the priority of the transaction.
@@ -630,12 +639,22 @@ where
 	}
 
 	/// Removes transactions with given hashes from the memory pool.
-	pub(super) async fn remove_transactions(&self, tx_hashes: &[ExtrinsicHash<ChainApi>]) {
+	///
+	/// Returns the list of transactions that were actually removed (a hash that was not present
+	/// in the pool yields no entry in the returned vector).
+	pub(super) async fn remove_transactions(
+		&self,
+		tx_hashes: &[ExtrinsicHash<ChainApi>],
+	) -> Vec<Arc<TxInMemPool<ChainApi, Block>>> {
 		log_xt_trace!(target: LOG_TARGET, tx_hashes, "mempool::remove_transaction");
 		let mut transactions = self.transactions.write().await;
+		let mut removed = Vec::new();
 		for tx_hash in tx_hashes {
-			transactions.remove(tx_hash);
+			if let Some(tx) = transactions.remove(tx_hash) {
+				removed.push(tx);
+			}
 		}
+		removed
 	}
 
 	/// Revalidates a batch of transactions against the provided finalized block.
@@ -687,6 +706,7 @@ where
 			to_be_validated.iter().map(|(k, v)| (*k, v.clone())).collect();
 
 		let validations_futures = to_be_validated.into_iter().map(|(xt_hash, xt)| {
+			let xt_source = xt.source.clone();
 			self.api
 				.validate_transaction(
 					finalized_block.hash,
@@ -697,7 +717,7 @@ where
 				.map(move |validation_result| {
 					xt.validated_at
 						.store(finalized_block.number.into().as_u64(), atomic::Ordering::Relaxed);
-					(xt_hash, validation_result)
+					(xt_hash, xt_source, validation_result)
 				})
 		});
 		let validation_results = futures::future::join_all(validations_futures).await;
@@ -707,7 +727,7 @@ where
 
 		let invalid_hashes = validation_results
 			.into_iter()
-			.filter_map(|(tx_hash, validation_result)| match validation_result {
+			.filter_map(|(tx_hash, tx_source, validation_result)| match validation_result {
 				Ok(Ok(_) | Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => {
 					// Transaction is valid at finalized block. If it was marked for unbanning,
 					// clear the ban in all active views so it can be picked up by
@@ -732,7 +752,7 @@ where
 						?validation_result,
 						"mempool::revalidate_inner error during revalidation"
 					);
-					Some((tx_hash, InvalidTxReason::ValidationFailed(error.label())))
+					Some((tx_hash, tx_source, InvalidTxReason::ValidationFailed(error.label())))
 				},
 				Ok(Err(TransactionValidityError::Unknown(error))) => {
 					trace!(
@@ -741,7 +761,7 @@ where
 						?validation_result,
 						"mempool::revalidate_inner cannot determine transaction validity"
 					);
-					Some((tx_hash, InvalidTxReason::Unknown(error.as_ref().to_string())))
+					Some((tx_hash, tx_source, InvalidTxReason::Unknown(error.as_ref().to_string())))
 				},
 				Ok(Err(TransactionValidityError::Invalid(error))) => {
 					trace!(
@@ -750,28 +770,41 @@ where
 						?validation_result,
 						"mempool::revalidate_inner transaction is invalid"
 					);
-					Some((tx_hash, InvalidTxReason::Invalid(error.as_ref().to_string())))
+					Some((tx_hash, tx_source, InvalidTxReason::Invalid(error.as_ref().to_string())))
 				},
 			})
 			.collect::<Vec<_>>();
 
 		let mut invalid_hashes_subtrees = Vec::new();
 		// Include also subtree txs.
-		for (tx, reason) in &invalid_hashes {
-			let txs_in_subtree = view_store
-				.remove_transaction_subtree(*tx, |_, _| {})
-				.into_iter()
-				.map(|tx| (tx.hash, InvalidTxReason::Subtree(reason.to_string())));
+		for (tx, _, invalid_reason) in &invalid_hashes {
+			let txs_in_subtree =
+				view_store.remove_transaction_subtree(*tx, |_, _| {}).into_iter().map(|tx| {
+					let subtree_source = tx.source.clone();
+					(tx.hash, subtree_source, InvalidTxReason::Subtree(invalid_reason.to_string()))
+				});
 			invalid_hashes_subtrees.extend(txs_in_subtree);
 		}
 
 		let revalidated_invalid_hashes_len = invalid_hashes.len();
+		let removed_at = Instant::now();
+		// `observe_batch` doesn't fit here: each element carries a distinct
+		// `InvalidTxReason` that feeds a second metric
+		// (`mempool_revalidation_invalid_txs`), so the per-element observation
+		// can't be hoisted out of this fused iterator without a second pass.
 		let invalid_hashes = invalid_hashes
 			.into_iter()
 			.chain(invalid_hashes_subtrees)
-			.map(|(tx, reason)| {
-				self.metrics
-					.report(|metrics| metrics.mempool_revalidation_invalid_txs.observe(&reason, 1));
+			.map(|(tx, tx_source, invalid_reason)| {
+				let age = tx_source.timestamp.map(|t| removed_at.saturating_duration_since(t));
+				self.metrics.report(|metrics| {
+					metrics.mempool_revalidation_invalid_txs.observe(&invalid_reason, 1);
+					metrics.tx_age_at_removal.observe(
+						RemovalReason::InvalidRevalidationMempool,
+						tx_source.source,
+						age,
+					);
+				});
 				tx
 			})
 			.collect::<HashSet<_>>();
@@ -802,8 +835,15 @@ where
 		);
 		log_xt_trace!(target: LOG_TARGET, finalized_xts, "purged finalized transactions");
 		let mut transactions = self.transactions.write().await;
-		finalized_xts.iter().for_each(|t| {
-			transactions.remove(t);
+		let removed: Vec<_> = finalized_xts
+			.iter()
+			.filter_map(|tx_hash| transactions.remove(tx_hash))
+			.collect();
+		let removed_at = Instant::now();
+		self.metrics.report(|metrics| {
+			metrics
+				.tx_age_at_removal
+				.observe_batch(RemovalReason::Finalized, removed_at, &removed);
 		});
 	}
 
