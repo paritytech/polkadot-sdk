@@ -498,6 +498,16 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 			.parachain_host_ancestor_relay_parent_info(at, session_index, relay_parent)
 			.await?)
 	}
+
+	async fn session_executor_params_for_next_session(
+		&self,
+		at: Hash,
+	) -> Result<Option<polkadot_primitives::ExecutorParams>, sp_api::ApiError> {
+		Ok(self
+			.rpc_client
+			.parachain_host_session_executor_params_for_next_session(at)
+			.await?)
+	}
 }
 
 #[async_trait::async_trait]
