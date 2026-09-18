@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789680684014,
+  "lastUpdate": 1789708127401,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1897ae0d78945a7134df3386d53420939804d2ab",
-          "message": "Add revive substrate runtime-api integration tests for call & instantiate (#10919)\n\n## Summary\n- Add integration tests for revive runtime API\n- Test Fibonacci contract deployment and execution via substrate APIs\n\n## Changes\n- Add test for Fibonacci contract call via runtime API\n- Add test to verify large Fibonacci values run out of gas as expected\n- Update dev-node runtime configuration for testing\n\n## Test plan\n- Run new integration tests\n- Verify runtime API correctly handles contract deployment\n- Verify gas limits are enforced correctly\n\n---------\n\nCo-authored-by: Mónica Jin <monica@parity.io>",
-          "timestamp": "2026-02-16T18:18:05Z",
-          "tree_id": "8a480f343129688df685797b99c893755e99dfc5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1897ae0d78945a7134df3386d53420939804d2ab"
-        },
-        "date": 1771270265531,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63622.30999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52945.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000025079590000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6656999078600014,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005449021810000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.6118163085330535,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000025079590000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002000807,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.84340007736001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.6974399122799992,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6477819605600006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.6651002014200005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.2898401662399985,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8720889071900112,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002000807,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-distribution/test-environment",
             "value": 0.00001971551,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7d4be3ec428c1b0aacd718bf6c12ebbfd7cea1b4",
+          "message": "docs: share repository guidance across coding harnesses (#13251)\n\n# Description\n\nMake the repository guidance available to harnesses beyond Claude Code.\nCurrently it lives only in `CLAUDE.md`, which Codex does not read by\ndefault. Moving it to `AGENTS.md` lets Codex and other harnesses that\nsupport that file discover the same instructions. `CLAUDE.md` becomes a\nsingle `@AGENTS.md` import so Claude Code continues using the shared\nguidance without duplicating it.\n\nRequire reading every applicable `AGENTS.md` along a file's directory\npath before editing or creating it, including when work starts at the\nrepository root. This explicitly directs harnesses to load scoped\ninstructions that were not included at startup. The rule only names\n`AGENTS.md`: Claude Code already loads nested `CLAUDE.md` files\nautomatically when it reads files in those directories, including their\nimports, so a separate instruction to discover `CLAUDE.md` is\nunnecessary. More specific instructions apply within their own subtree.\n\nAlso correct the existing prdoc exemption to `R0-silent` and distinguish\nit from `R0-no-crate-publish-required`, which only exempts crate\npublication. Existing commands and technical guidance are preserved.\n\n## Validation\n\nMarkdown lint and `git diff --check` passed. Verified the exact import,\npreservation of every command block, and that only the two root guidance\nfiles changed. No Rust build or runtime tests were needed for this\ndocumentation-only change.",
+          "timestamp": "2026-09-18T03:30:41Z",
+          "tree_id": "ef38891bbff066c158c880f04f0c11ade91ceeb0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d4be3ec428c1b0aacd718bf6c12ebbfd7cea1b4"
+        },
+        "date": 1789708087500,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52943.59999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63567.540000000015,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8539451722599838,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7934751751,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7503535078700008,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000022811750000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.542614915032917,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00511551819,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.257793062179985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7806337660000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000022811750000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.0000202851,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3325438115800017,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7417261111799984,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.0000202851,
             "unit": "seconds"
           }
         ]
