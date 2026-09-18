@@ -93,6 +93,9 @@ where
 		while let Some(request) = self.request_receiver.next().await {
 			let IncomingRequest { peer, payload, pending_response } = request;
 
+			// TODO: `handle_request` runs the runtime call (up to `execution_timeout`, plus a
+			// possible wait for the timed module compilation) synchronously on this async task,
+			// blocking a tokio worker thread. Move it to `spawn_blocking`.
 			match self.handle_request(peer, payload) {
 				Ok(response_data) => {
 					let response = OutgoingResponse {

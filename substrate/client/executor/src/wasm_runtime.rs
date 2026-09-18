@@ -512,8 +512,9 @@ fn spawn_timed_compilation<H>(
 	let thread = std::thread::Builder::new().name("wasm-timed-compile".into()).spawn({
 		let slot = slot.clone();
 		move || {
-			// Substrate's panic hook aborts the process; force unwinding to contain a compile
-			// panic to this thread.
+			// Substrate's panic hook aborts the process; force unwinding so a compile panic on
+			// this thread becomes an error instead. Panics on wasmtime's parallel-compilation
+			// worker threads (rayon) are not covered by this thread-local guard and still abort.
 			let _guard = sp_panic_handler::AbortGuard::force_unwind();
 			let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
 				sc_executor_wasmtime::create_timed_runtime::<H>(blob, config)

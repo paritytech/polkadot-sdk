@@ -182,7 +182,7 @@ impl WasmModule for WasmtimeRuntime {
 /// making instances only callable with an execution timeout.
 pub struct WasmtimeTimedRuntime {
 	core: RuntimeCore,
-	_epoch_ticker: EpochTicker,
+	epoch_ticker: Arc<EpochTicker>,
 }
 
 impl TimedWasmModule for WasmtimeTimedRuntime {
@@ -192,6 +192,7 @@ impl TimedWasmModule for WasmtimeTimedRuntime {
 	) -> Result<Box<dyn TimedWasmInstance>> {
 		Ok(Box::new(WasmtimeTimedInstance {
 			strategy: self.core.instance_strategy(heap_alloc_strategy),
+			_epoch_ticker: self.epoch_ticker.clone(),
 		}))
 	}
 }
@@ -245,6 +246,9 @@ impl WasmInstance for WasmtimeInstance {
 /// A `TimedWasmInstance` implementation over a module compiled with epoch interruption.
 pub struct WasmtimeTimedInstance {
 	strategy: Strategy,
+	/// Keeps the epoch advancing while this instance outlives its [`WasmtimeTimedRuntime`];
+	/// otherwise a deadline could never fire.
+	_epoch_ticker: Arc<EpochTicker>,
 }
 
 impl TimedWasmInstance for WasmtimeTimedInstance {
@@ -585,9 +589,9 @@ where
 	let core = unsafe {
 		do_create_runtime::<H>(CodeSupplyMode::Fresh(blob), config, EpochInterruptions::Enabled)
 	}?;
-	let epoch_ticker = EpochTicker::new(core.engine.clone())?;
+	let epoch_ticker = Arc::new(EpochTicker::new(core.engine.clone())?);
 
-	Ok(WasmtimeTimedRuntime { core, _epoch_ticker: epoch_ticker })
+	Ok(WasmtimeTimedRuntime { core, epoch_ticker })
 }
 
 /// The same as [`create_runtime`] but takes a path to a precompiled artifact,
