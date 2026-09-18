@@ -19,7 +19,10 @@
 //! Configuration of the statement protocol
 
 use sp_statement_store::Topic;
-use std::{num::NonZeroUsize, time};
+use std::{
+	num::{NonZeroU32, NonZeroUsize},
+	time,
+};
 
 /// Interval at which we propagate statements;
 pub(crate) const PROPAGATE_TIMEOUT: time::Duration = time::Duration::from_millis(1000);
@@ -59,6 +62,14 @@ pub const DEFAULT_STATEMENTS_PER_SECOND: u32 = 50_000;
 /// Burst capacity coefficient for the rate limiter.
 pub const STATEMENTS_BURST_COEFFICIENT: u32 = 5;
 
+/// Maximum topic affinity updates per second from one peer before rate limiting kicks in.
+pub const AFFINITY_UPDATES_PER_SECOND: NonZeroU32 = NonZeroU32::new(100).expect("100 is non-zero");
+
+/// Burst capacity for the affinity update rate limiter.
+pub const AFFINITY_UPDATES_BURST: NonZeroU32 =
+	NonZeroU32::new(AFFINITY_UPDATES_PER_SECOND.get() * STATEMENTS_BURST_COEFFICIENT)
+		.expect("non-zero rate times non-zero coefficient; qed");
+
 /// Default and lowest accepted false-positive rate for an affinity bloom filter built from a
 /// local topic list. Lower rates inflate the filter's size and hash count toward the wire limits
 /// peers enforce at decode, with no practical gain in routing precision.
@@ -68,8 +79,8 @@ pub const DEFAULT_BLOOM_FALSE_POS_RATE: f64 = 0.001;
 /// responsible for storing a given topic.
 pub const DEFAULT_REPLICATION_FACTOR: NonZeroUsize = NonZeroUsize::new(20).expect("20 is non-zero");
 
-/// Default gossip target for v2 DHT-affinity routing: maximum number of connected peers we forward
-/// a statement to for a given topic.
+/// Default gossip target for v2 DHT-affinity routing: maximum number of connected non-replica
+/// peers a statement is routed to for a given topic, on top of the topic's connected replicas.
 pub const DEFAULT_GOSSIP_TARGET: NonZeroUsize = NonZeroUsize::new(3).expect("3 is non-zero");
 
 /// Parameters of the v2 DHT statement path.
