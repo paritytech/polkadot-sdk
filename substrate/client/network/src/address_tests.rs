@@ -623,18 +623,12 @@ fn node_key_origin_names_where_the_key_came_from() {
 	let directory = tempfile::Builder::new().prefix("webrtc").tempdir().unwrap();
 	let key_path = directory.path().join("secret_ed25519");
 
-	assert!(origin_of(NodeKeyConfig::Ed25519(Secret::New)).contains("generated anew on each start"));
 	assert!(origin_of(webrtc_config("/ip4/1.2.3.4/tcp/1").node_key).contains("--node-key"));
 
-	// Written by the resolution that this very error compared against: naming it without
-	// saying so would send the operator after a key that is already gone by the next start.
-	let generated = origin_of(NodeKeyConfig::Ed25519(Secret::File(key_path.clone())));
-	assert!(generated.contains(&key_path.display().to_string()), "{generated}");
-	assert!(generated.contains("generated on this start"), "{generated}");
-
+	// Resolving the key writes the file; a missing one is refused before it gets that far.
+	NodeKeyConfig::Ed25519(Secret::File(key_path.clone())).into_keypair().unwrap();
 	let existing = origin_of(NodeKeyConfig::Ed25519(Secret::File(key_path.clone())));
 	assert!(existing.contains(&key_path.display().to_string()), "{existing}");
-	assert!(!existing.contains("generated on this start"), "{existing}");
 }
 
 #[test]
@@ -743,5 +737,35 @@ fn webrtc_rejected_on_libp2p_before_node_key_is_resolved() {
 		config.validate_and_complete_addresses(),
 		Err(Error::WebRtcNotSupportedByBackend),
 	));
+	assert!(!key_path.exists(), "the node key file must not be created for a rejected config");
+}
+
+#[test]
+fn identity_without_a_node_key_rejected() {
+	// A key generated now could not have yielded the identity, so it is refused before any key
+	// is generated: a file-backed one would otherwise be left on disk looking like the real key.
+	use crate::config::Secret;
+
+	let directory = tempfile::Builder::new().prefix("webrtc").tempdir().unwrap();
+	let key_path = directory.path().join("node_key");
+	let address = "/ip4/0.0.0.0/tcp/30333"
+		.parse::<Multiaddr>()
+		.unwrap()
+		.with(Protocol::P2p(PeerId::random().into()));
+
+	for node_key in [
+		NodeKeyConfig::Ed25519(Secret::File(key_path.clone())),
+		NodeKeyConfig::Ed25519(Secret::New),
+	] {
+		let mut config = webrtc_config("/ip4/203.0.113.9/tcp/31234");
+		config.node_key = node_key;
+		config.listen_addresses = vec![address.clone()];
+
+		assert!(matches!(
+			config.validate_and_complete_addresses(),
+			Err(Error::AddressIdentityWithoutNodeKey),
+		));
+	}
+
 	assert!(!key_path.exists(), "the node key file must not be created for a rejected config");
 }

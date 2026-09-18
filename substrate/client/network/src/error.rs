@@ -84,6 +84,13 @@ pub enum Error {
 		/// The component that doesn't belong, rendered as `/p2p/…` or `/certhash/…`.
 		component: String,
 	},
+	/// A configured address carries an identity component, but there is no node key to check it
+	/// against: one generated now could not yield it.
+	#[error(
+		"An address carries `/p2p` or `/certhash`, but there is no node key to check it \
+		 against: a key generated now would not yield it."
+	)]
+	AddressIdentityWithoutNodeKey,
 	/// An invalid `webrtc-direct` address.
 	#[error(
 		"Invalid WebRTC address `{address}`: expected `/<host>/udp/<port>/webrtc-direct`, followed \

@@ -456,11 +456,17 @@ impl NodeKeyConfig {
 	fn source(&self) -> String {
 		match self {
 			Self::Ed25519(Secret::Input(_)) => "the node key given with `--node-key`".into(),
-			Self::Ed25519(Secret::File(path)) if !path.exists() => {
-				format!("the node key file `{}`, generated on this start", path.display())
-			},
 			Self::Ed25519(Secret::File(path)) => format!("the node key file `{}`", path.display()),
 			Self::Ed25519(Secret::New) => "the node key generated anew on each start".into(),
+		}
+	}
+
+	/// Whether resolving this key generates a new one instead of loading a configured one.
+	fn missing(&self) -> bool {
+		match self {
+			Self::Ed25519(Secret::Input(_)) => false,
+			Self::Ed25519(Secret::File(path)) => !path.exists(),
+			Self::Ed25519(Secret::New) => true,
 		}
 	}
 
@@ -899,12 +905,17 @@ impl NetworkConfiguration {
 			return Err(crate::error::Error::WebRtcTransportNotConfigured);
 		}
 
+		let has_identity = addresses().any(|address| configured_identity(address).is_some());
+
 		// Resolving the node key can write its file, so only do it for a configuration that names
 		// an identity to check or needs a certificate to present.
-		if !listen_webrtc &&
-			!addresses().any(|address: &Multiaddr| configured_identity(address).is_some())
-		{
+		if !listen_webrtc && !has_identity {
 			return Ok(());
+		}
+
+		// A key that does not exist yet cannot have a configured identity.
+		if has_identity && self.node_key.missing() {
+			return Err(crate::error::Error::AddressIdentityWithoutNodeKey);
 		}
 
 		// Take the source before resolving, otherwise every key would look like a `--node-key`.

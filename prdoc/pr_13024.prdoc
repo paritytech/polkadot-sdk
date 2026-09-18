@@ -8,9 +8,9 @@ doc:
 
     Both are checked against the node key and stripped before use. The node refuses to start if
     either disagrees with the key, and the error names the address, the component given, the one
-    the node key yields, and where that key comes from (`--node-key`, the node key file, or a key
-    generated on this start). An identity component anywhere else in the address, or a repeated
-    one, is rejected as malformed.
+    the node key yields, and where that key comes from (`--node-key` or the node key file).
+    It also refuses to start if an identity is given while the node key does not exist yet.
+    An identity component anywhere else in the address, or a repeated one, is rejected as malformed.
 
     Previously a `/certhash` in these flags was always rejected, and a `/p2p` was handed to the
     network backend unchecked.
@@ -23,8 +23,8 @@ doc:
     Running it twice is idempotent. When an address carries an identity, the node key is resolved
     and pinned into `NetworkConfiguration::node_key` even without a WebRTC listener.
 
-    `sc_network::error::Error` gains two variants: `MismatchedAddressIdentity` and
-    `MalformedAddressIdentity`.
+    `sc_network::error::Error` gains three variants: `MismatchedAddressIdentity`,
+    `MalformedAddressIdentity` and `AddressIdentityWithoutNodeKey`.
 crates:
 - name: sc-cli
   bump: minor
