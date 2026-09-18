@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789707164730,
+  "lastUpdate": 1789736782605,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -125819,6 +125819,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2561624756,
             "range": "± 11847433",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "dhiraj@parity.io",
+            "name": "Dhiraj Sah",
+            "username": "dhirajs0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fd67bf19cbe55bd8c290d7e09ccca69ada3b68e3",
+          "message": "`pallet-whitelist`: document that unwhitelisting pauses a live deferral not remove it, pin it with a test. (#13257)\n\n## Summary\n\nDocs and test only. No behaviour change, no bench needed.\n\nSince #11336, `pallet-whitelist` keeps two independent storage maps:\n`WhitelistedCall`, owned by\n`WhitelistOrigin`, and `DeferredDispatch`, owned by\n`DispatchWhitelistedOrigin`. A relayed\nroot dispatch needs both plus an unexpired deferral.\n`remove_whitelisted_call` clears only the\nwhitelist entry, so a live deferral survives revocation and\nre-whitelisting the same hash before\nexpiry re-enables relayed execution without a fresh act from\n`DispatchWhitelistedOrigin`.\n\nThat behaviour is intentional but was undocumented, and it has already\nbeen reported once as an\nauthorization finding. This PR records the semantics where the next\nreader will look and pins\nthem with a test so a future refactor cannot flip them silently.\n\n## Why this is the intended design, not a bug\n\n- Neither origin can erase the other's record. Letting a whitelist\nrevoke drop the deferral would\nallow `WhitelistOrigin` to unilaterally void an enacted referendum,\nwhich is a larger authority\n  than it holds today.\n- Revocation still blocks relayers for as long as the hash is off the\nwhitelist, which the existing\n  `relayer_cannot_bypass_unwhitelisting` test asserts.\n- Re-arming requires `WhitelistOrigin` again, and that origin already\nhas the power to permit root\nexecution of a hash the moment it whitelists it. No origin gains\nauthority it did not have.\n- This matches pre-#11336 behaviour, where a scheduled enactment also\nran if the whitelist was\ntoggled off and on before the enactment block. Deferral only widens that\nwindow to\n  `DeferredDispatchExpiration`.\n- Symmetry with the existing\n`remove_deferred_dispatch_does_not_unwhitelist` test, which pins the\n  other direction of the same independence.\n\n## Changes\n\n- Pallet-level rustdoc: new \"Deferred dispatch\" section describing the\ntwo maps, their owners, and\n  the pause-not-cancel semantics of unwhitelisting.\n- `remove_whitelisted_call` rustdoc: two-line note that the deferred\nentry is left in place.\n- New test `unwhitelisting_pauses_but_does_not_cancel_deferral`: defer →\nwhitelist → revoke,\nassert deferral survives and relayers are blocked, re-whitelist, assert\na signed relay executes\n  as root fee-free and clears both maps.\n\n## Checklist\n\n- [x] prdoc\n- [x] label `T1-FRAME`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-18T11:47:10Z",
+          "tree_id": "89bb052c9f7b3373827310a7f14fff92f2f991bb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fd67bf19cbe55bd8c290d7e09ccca69ada3b68e3"
+        },
+        "date": 1789736740935,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19831995,
+            "range": "± 383141",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19695436,
+            "range": "± 218677",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21439787,
+            "range": "± 365729",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26461418,
+            "range": "± 412851",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58703356,
+            "range": "± 1846444",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 376283448,
+            "range": "± 19952714",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2615763230,
+            "range": "± 107230721",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16744247,
+            "range": "± 386911",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17355640,
+            "range": "± 256951",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17786148,
+            "range": "± 709639",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23217992,
+            "range": "± 639621",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61683028,
+            "range": "± 1294302",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 338036293,
+            "range": "± 13894103",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2658837194,
+            "range": "± 42744483",
             "unit": "ns/iter"
           }
         ]
