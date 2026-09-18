@@ -76,7 +76,7 @@ pub mod pallet {
 		/// Native asset type.
 		type Currency: Mutate<Self::AccountId, Balance = u128>
 			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
-			+ InspectFreeze<Self::AccountId, Id = Self::FreezeIdentifier>
+			+ InspectFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>
 			+ MutateFreeze<Self::AccountId>
 			+ Unbalanced<Self::AccountId>
 			+ ReservableCurrency<Self::AccountId, Balance = u128>
@@ -485,7 +485,7 @@ pub mod pallet {
 			}
 
 			// Thaw all the freezes
-			let freezes: Vec<IdAmount<T::FreezeIdentifier, T::Balance>> =
+			let freezes: Vec<IdAmount<T::RuntimeFreezeReason, T::Balance>> =
 				pallet_balances::Freezes::<T>::get(from).into();
 
 			for freeze in &freezes {
