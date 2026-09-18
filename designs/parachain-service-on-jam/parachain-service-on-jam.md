@@ -805,7 +805,7 @@ On JAM, PVFs execute inside a child PVM instance spawned by the Parachain Servic
 function. The child PVM's heap is capped at **1 GiB**, the upper bound `grow_heap` can reach.
 **Hashing** and **signature verification** run as PVM guest code, not as host calls. Their
 performance impact is small, and future PVM improvements should shrink it further
-([parachain-service#13](https://github.com/paritytech/parachain-service/issues/13)).
+(see the [benchmarking findings](https://github.com/paritytech/parachain-service/issues/13)).
 
 Every host function is imported at a **fixed index**. Those forwarding a JAM host call keep
 its Gray Paper index. Those native to the Parachain Service are numbered from 200 up.
@@ -871,6 +871,11 @@ a later block's always-accumulate once its `jam_slot` arrives. The exception is 
 whose `jam_slot` is already due (`jam_slot <= now`) when the scheduling message is
 processed; since always-accumulate has already run, it is applied inline right away.
 
+The always-accumulate phases go first and must stay within the always-accumulate
+allowance, since every report's gas is budgeted for that report alone (the gas gate under
+*Per-work-package work* below). Their cost must therefore be bounded and **benchmarked**,
+so a block heavy in due assigns or incoming transfers cannot eat into report gas.
+
 #### Apply due assigns (before work packages)
 
 Iterate `pending_assign_cores` and, for each `(core, due_at)` pair, check whether
@@ -921,6 +926,25 @@ Performed once for each work package that is being accumulated in this block, in
 A work result of gray-paper `WorkExecResult::Error`, either a bug in the parachain
 service's `refine` or a PVF that failed without reporting an actual error (§4.2), is skipped entirely
 here: no `parachain_log` entry, no state change, and it never reaches the steps below.
+
+**Gas gate.** JAM funds the invocation from the gas limits the reports passed to it
+declared, plus the always-accumulate allowance on the first accumulation round (§3), but
+the service budgets **per report**: a report is checked against the limit it declared
+itself, not against what the pool happens to have left, so no parachain can spend gas
+another registered. Exhausting the budget mid-invocation discards everything not yet
+checkpointed, and JAM does not retry the reports that were lost, so no report is started
+that cannot be paid for in full. Before any of the steps below run for a report:
+
+- **Base cost**: the fixed cost of applying a work report at all, independent of its
+  contents. This must be **benchmarked**.
+- **Report cost**: derived from the report's contents before any of it is applied. It
+  covers the upward messages to be replayed (§4.3) and the state writes each implies.
+  These costs must be **benchmarked**.
+- **Fit check**: if base plus report cost exceeds the report's own gas limit, the report
+  is skipped and the next one is checked.
+
+A report that clears the gate runs the steps below, and the invocation `checkpoint`s once
+they are done, so a later report running the budget dry cannot undo it.
 
 A candidate **rejected** at any step below changes nothing at all: no later step runs
 for it, it writes no state, records no log entry, and prunes nothing. Otherwise:
@@ -1029,11 +1053,9 @@ selects between the two modes that host-call offers (Gray Paper, `transfer`):
 | Balance credited | immediately | when the destination accumulates |
 | Requires supervision of `dest` | **yes** | no |
 
-`gas` is charged to the **Parachain Service's own Accumulate gas**, which JAM pools
-from the gas limits the block's work items registered for the service. A transfer's
-`gas` must therefore be accounted against the limit registered by the candidate that
-requested it, so that one parachain cannot spend gas another registered. `TransferOut`
-is Asset Hub only, so keeping its demands within that allowance is Asset Hub's responsibility.
+`gas` comes out of the Parachain Service's shared Accumulate pool (the gas gate under
+*Per-work-package work* above), so it is charged against the limit the requesting
+candidate registered.
 
 `source` names the debited account, `None` meaning the Parachain Service itself.
 `source_supervisor_balance` and `dest_supervisor_balance` pick which balance is used
@@ -1042,9 +1064,6 @@ on each side: the supervisor balance when true, the regular balance when false.
 The core Accumulate logic is primarily **parachain bookkeeping**: updating head data,
 tracking code upgrades, applying queued authorizer updates, and managing incoming
 transfers.
-Because selected work-reports are not replayed automatically, the service should checkpoint
-after finishing each work-report so that progress survives any later out-of-gas or panic during
-the same accumulation invocation.
 
 ### 5.2 Code Upgrade Lifecycle
 
