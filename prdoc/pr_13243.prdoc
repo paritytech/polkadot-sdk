@@ -1,0 +1,25 @@
+title: 'Migrate `claims` to `#[pallet::authorize]`, keeping bare claims during the transition'
+
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    The `claim` and `claim_attest` calls of `polkadot_runtime_common::claims` carry
+    `#[pallet::authorize]` and accept a general transaction, in addition to the bare (unsigned)
+    transaction they accepted before. The deprecated `ValidateUnsigned` impl stays until claim
+    tooling can submit general transactions (polkadot-js/api#6276, polkadot-js/apps#12446,
+    polkadot-api/polkadot-api#760). A follow-up removes it before the SDK removes
+    `#[pallet::validate_unsigned]` after April 2027.
+
+    The validation semantics do not change. A bare and a general transaction run the same checks
+    and produce the same transaction validity. The two calls accept a `None` or an `Authorized`
+    origin.
+
+    `weight_of_authorize` is zero, because the `claim` and `claim_attest` weights already include
+    their validation. The `WeightInfo` trait is unchanged.
+
+    To accept general `claim` transactions, a runtime must include `frame_system::AuthorizeCall` in
+    its transaction extension pipeline. No change is needed to keep bare claims working.
+
+crates:
+- name: polkadot-runtime-common
+  bump: minor
