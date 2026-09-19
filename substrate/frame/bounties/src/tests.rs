@@ -2296,3 +2296,46 @@ fn reclaim_bounty_funds_respects_native_locks() {
 		assert_eq!(res.unwrap().pays_fee, Pays::No);
 	});
 }
+
+#[test]
+fn award_bounty_unlock_at_saturates_on_overflow() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_ok!(Balances::transfer_allow_death(
+			RuntimeOrigin::signed(0),
+			Bounties::account_id(),
+			101
+		));
+
+		assert_ok!(Bounties::propose_bounty(RuntimeOrigin::signed(0), 50, b"12345".to_vec()));
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
+
+		go_to_block(1);
+
+		let fee = 4;
+		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, 4, fee));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(4), 0));
+
+		let expected_deposit = Bounties::calculate_curator_deposit(&fee);
+
+		// Advance to near max block number so standard addition would overflow
+		go_to_block(u64::MAX - 1);
+
+		assert_ok!(Bounties::award_bounty(RuntimeOrigin::signed(4), 0, 3));
+
+		assert_eq!(
+			pallet_bounties::Bounties::<Test>::get(0).unwrap(),
+			Bounty {
+				proposer: 0,
+				fee,
+				curator_deposit: expected_deposit,
+				value: 50,
+				bond: 85,
+				status: BountyStatus::PendingPayout {
+					curator: 4,
+					beneficiary: 3,
+					unlock_at: u64::MAX
+				},
+			}
+		);
+	});
+}
