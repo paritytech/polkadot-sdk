@@ -5,6 +5,8 @@ on:
     branches:
       - master
       - stable*
+      # TEMPORARY: publish a diagnostic image from this branch. Revert before merging.
+      - mr/eth-rpc-avoid-state-call
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
@@ -59,7 +61,9 @@ jobs:
   build_push_docker:
     name: Build and push docker images
     runs-on: parity-large
-    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/stable')
+    # TEMPORARY: 'mr/eth-rpc-avoid-state-call' added to publish a diagnostic image.
+    # Revert before merging.
+    if: github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/stable') || github.ref == 'refs/heads/mr/eth-rpc-avoid-state-call'
     needs: [set-variables]
     env:
       VERSION: ${{ needs.set-variables.outputs.VERSION }}

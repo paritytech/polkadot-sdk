@@ -1311,6 +1311,7 @@ sc-transaction-pool-api = { path = "substrate/client/transaction-pool/api", defa
 sc-utils = { path = "substrate/client/utils", default-features = false }
 sc-virtualization = { path = "substrate/client/virtualization", default-features = false }
 scale-info = { version = "2.11.6", default-features = false }
+scale-info-legacy = { version = "0.4.2", default-features = false }
 schemars = { version = "1.2.1", default-features = false }
 schnellru = { version = "0.2.3" }
 schnorrkel = { version = "0.11.4", default-features = false }
@@ -1440,10 +1441,10 @@ substrate-test-runtime-client = { path = "substrate/test-utils/runtime/client" }
 substrate-test-runtime-transaction-pool = { path = "substrate/test-utils/runtime/transaction-pool" }
 substrate-test-utils = { path = "substrate/test-utils" }
 substrate-wasm-builder = { path = "substrate/utils/wasm-builder", default-features = false }
-subxt = { version = "0.50", default-features = false }
-subxt-metadata = { version = "0.50", default-features = false }
-subxt-rpcs = { version = "0.50", default-features = false }
-subxt-signer = { version = "0.50" }
+subxt = { version = "0.51", default-features = false }
+subxt-metadata = { version = "0.51", default-features = false }
+subxt-rpcs = { version = "0.51", default-features = false }
+subxt-signer = { version = "0.51" }
 syn = { version = "2.0.87" }
 sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
