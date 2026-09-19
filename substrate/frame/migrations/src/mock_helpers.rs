@@ -120,7 +120,8 @@ impl SteppedMigrations for MockedMigrations {
 	}
 
 	fn nth_max_steps(n: u32) -> Option<Option<u32>> {
-		MIGRATIONS::get().get(n as usize).map(|(_, s)| Some(*s))
+		// A migration configured with `u32::MAX` steps mocks one that does not declare a limit.
+		MIGRATIONS::get().get(n as usize).map(|(_, s)| (*s != u32::MAX).then_some(*s))
 	}
 
 	fn nth_migrating_prefixes(n: u32) -> Option<Option<Vec<Vec<u8>>>> {
