@@ -25,7 +25,11 @@ use sp_runtime_interface::unpack_ptr_and_len;
 use sp_wasm_interface::{
 	Function, FunctionContext, HostFunctions, Pointer, Value, ValueType, WordSize,
 };
+use std::time::Duration;
 
+// Cloning is cheap: `polkavm::InstancePre` is an `Arc` sharing the compiled module and linked
+// host functions.
+#[derive(Clone)]
 #[repr(transparent)]
 pub struct InstancePre(polkavm::InstancePre<(), String>);
 
@@ -42,6 +46,17 @@ impl WasmModule for InstancePre {
 }
 
 impl WasmInstance for Instance {
+	/// WARNING: PolkaVM has no execution-interruption mechanism, so the timeout is IGNORED
+	/// and the call runs unbounded.
+	fn call_with_timeout(
+		&mut self,
+		method: &str,
+		data: &[u8],
+		_timeout: Duration,
+	) -> Result<Vec<u8>, Error> {
+		self.call_export(method, data)
+	}
+
 	fn call_with_allocation_stats(
 		&mut self,
 		name: &str,
@@ -272,7 +287,7 @@ fn call_host_function(caller: &mut Caller<()>, function: &dyn Function) -> Resul
 	Ok(())
 }
 
-pub fn create_runtime<H>(blob: &polkavm::ProgramBlob) -> Result<Box<dyn WasmModule>, WasmError>
+pub fn create_runtime<H>(blob: &polkavm::ProgramBlob) -> Result<InstancePre, WasmError>
 where
 	H: HostFunctions,
 {
@@ -302,5 +317,5 @@ where
 		})?;
 	}
 	let instance_pre = linker.instantiate_pre(&module)?;
-	Ok(Box::new(InstancePre(instance_pre)))
+	Ok(InstancePre(instance_pre))
 }

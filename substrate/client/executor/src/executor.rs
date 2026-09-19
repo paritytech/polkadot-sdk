@@ -27,6 +27,7 @@ use std::{
 	panic::{AssertUnwindSafe, UnwindSafe},
 	path::PathBuf,
 	sync::Arc,
+	time::Duration,
 };
 
 use codec::Encode;
@@ -306,6 +307,35 @@ impl<H> WasmExecutor<H>
 where
 	H: HostFunctions,
 {
+	/// Heap allocation strategy for on-chain calls into `runtime_code`.
+	fn on_chain_heap_alloc_strategy(&self, runtime_code: &RuntimeCode) -> HeapAllocStrategy {
+		if self.ignore_onchain_heap_pages {
+			return self.default_onchain_heap_alloc_strategy;
+		}
+
+		runtime_code
+			.heap_pages
+			.map(|h| HeapAllocStrategy::Static { extra_pages: h as _ })
+			.unwrap_or(self.default_onchain_heap_alloc_strategy)
+	}
+
+	/// Heap allocation strategy for calling into `runtime_code` in the given `context`.
+	fn heap_alloc_strategy(
+		&self,
+		runtime_code: &RuntimeCode,
+		context: CallContext,
+	) -> HeapAllocStrategy {
+		match context {
+			CallContext::Offchain => self.default_offchain_heap_alloc_strategy,
+			CallContext::Onchain { import: false } => {
+				self.on_chain_heap_alloc_strategy(runtime_code)
+			},
+			CallContext::Onchain { import: true } => {
+				self.on_chain_heap_alloc_strategy(runtime_code).double()
+			},
+		}
+	}
+
 	/// Execute the given closure `f` with the latest runtime (based on `runtime_code`).
 	///
 	/// The closure `f` is expected to return `Err(_)` when there happened a `panic!` in native code
@@ -345,6 +375,52 @@ where
 				let instance = AssertUnwindSafe(instance);
 				let ext = AssertUnwindSafe(ext);
 				f(module, instance, version, ext)
+			},
+		)? {
+			Ok(r) => r,
+			Err(e) => Err(e),
+		}
+	}
+
+	/// Execute the given closure `f` with a fresh instance of the latest runtime (based on
+	/// `runtime_code`) supporting execution timeouts, see [`WasmInstance::call_with_timeout`].
+	///
+	/// May block until the interruptible module is available — it may still be compiling in the
+	/// background.
+	///
+	/// The closure `f` is expected to catch any `panic!` during the call and return it as
+	/// `Err(_)` (see [`with_externalities_safe`]).
+	///
+	/// # Safety
+	///
+	/// `instance` and `ext` are given as `AssertUnwindSafe` to the closure. The instance is fresh
+	/// and dropped after the call, so a `panic!` cannot poison any state. `ext` is already
+	/// implicitly handled as unwind safe, as we store it in a global variable while executing the
+	/// native runtime.
+	fn with_interruptible_instance<R, F>(
+		&self,
+		runtime_code: &RuntimeCode,
+		ext: &mut dyn Externalities,
+		heap_alloc_strategy: HeapAllocStrategy,
+		f: F,
+	) -> Result<R>
+	where
+		F: FnOnce(
+			AssertUnwindSafe<&mut dyn WasmInstance>,
+			Option<&RuntimeVersion>,
+			AssertUnwindSafe<&mut dyn Externalities>,
+		) -> Result<Result<R>>,
+	{
+		match self.cache.with_interruptible_instance::<H, _, _>(
+			runtime_code,
+			ext,
+			self.method,
+			heap_alloc_strategy,
+			self.allow_missing_host_functions,
+			|instance, version, ext| {
+				let instance = AssertUnwindSafe(instance);
+				let ext = AssertUnwindSafe(ext);
+				f(instance, version, ext)
 			},
 		)? {
 			Ok(r) => r,
@@ -494,20 +570,7 @@ where
 			"Executing function",
 		);
 
-		let on_chain_heap_alloc_strategy = if self.ignore_onchain_heap_pages {
-			self.default_onchain_heap_alloc_strategy
-		} else {
-			runtime_code
-				.heap_pages
-				.map(|h| HeapAllocStrategy::Static { extra_pages: h as _ })
-				.unwrap_or_else(|| self.default_onchain_heap_alloc_strategy)
-		};
-
-		let heap_alloc_strategy = match context {
-			CallContext::Offchain => self.default_offchain_heap_alloc_strategy,
-			CallContext::Onchain { import: false } => on_chain_heap_alloc_strategy,
-			CallContext::Onchain { import: true } => on_chain_heap_alloc_strategy.double(),
-		};
+		let heap_alloc_strategy = self.heap_alloc_strategy(runtime_code, context);
 
 		let result = self.with_instance(
 			runtime_code,
@@ -520,6 +583,39 @@ where
 
 		(result, false)
 	}
+
+	/// The error result of [`Error::ExecutionTimeout`] indicates the timeout has been reached.
+	///
+	/// Runs on a fresh, non-pooled instance of the runtime compiled with support for execution
+	/// timeouts. May block until that runtime finishes compiling in the background.
+	fn call_with_execution_timeout(
+		&self,
+		ext: &mut dyn Externalities,
+		runtime_code: &RuntimeCode,
+		method: &str,
+		data: &[u8],
+		context: CallContext,
+		timeout: Duration,
+	) -> Result<Vec<u8>> {
+		tracing::trace!(
+			target: "executor",
+			%method,
+			"Executing function with timeout",
+		);
+
+		let heap_alloc_strategy = self.heap_alloc_strategy(runtime_code, context);
+
+		self.with_interruptible_instance(
+			runtime_code,
+			ext,
+			heap_alloc_strategy,
+			|mut instance, _on_chain_version, mut ext| {
+				with_externalities_safe(&mut **ext, move || {
+					instance.call_with_timeout(method, data, timeout)
+				})
+			},
+		)
+	}
 }
 
 impl<H> RuntimeVersionOf for WasmExecutor<H>
@@ -531,19 +627,10 @@ where
 		ext: &mut dyn Externalities,
 		runtime_code: &RuntimeCode,
 	) -> Result<RuntimeVersion> {
-		let on_chain_heap_pages = if self.ignore_onchain_heap_pages {
-			self.default_onchain_heap_alloc_strategy
-		} else {
-			runtime_code
-				.heap_pages
-				.map(|h| HeapAllocStrategy::Static { extra_pages: h as _ })
-				.unwrap_or_else(|| self.default_onchain_heap_alloc_strategy)
-		};
-
 		self.with_instance(
 			runtime_code,
 			ext,
-			on_chain_heap_pages,
+			self.on_chain_heap_alloc_strategy(runtime_code),
 			|_module, _instance, version, _ext| {
 				Ok(version.cloned().ok_or_else(|| Error::ApiError("Unknown version".into())))
 			},

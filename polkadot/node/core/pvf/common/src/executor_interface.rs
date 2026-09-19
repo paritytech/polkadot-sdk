@@ -93,6 +93,7 @@ pub const DEFAULT_CONFIG: Config = Config {
 		wasm_simd: false,
 		wasm_bulk_memory: false,
 		wasm_multi_value: false,
+		epoch_interruption: false,
 	},
 };
 

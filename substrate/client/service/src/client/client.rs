@@ -85,6 +85,7 @@ use std::{
 	marker::PhantomData,
 	path::PathBuf,
 	sync::Arc,
+	time::Duration,
 };
 
 use super::call_executor::LocalCallExecutor;
@@ -1243,8 +1244,9 @@ where
 		hash: Block::Hash,
 		method: &str,
 		call_data: &[u8],
+		timeout: Option<Duration>,
 	) -> sp_blockchain::Result<(Vec<u8>, StorageProof)> {
-		self.executor.prove_execution(hash, method, call_data)
+		self.executor.prove_execution(hash, method, call_data, timeout)
 	}
 
 	fn read_proof_collection(
