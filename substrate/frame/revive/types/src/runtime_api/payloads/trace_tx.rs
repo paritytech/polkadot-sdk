@@ -35,6 +35,13 @@ pub struct TraceTxInputPayloadV2<Block> {
 	pub config: TracerTypeV1,
 }
 
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+pub struct TraceTxInputPayloadV3<Block> {
+	pub block: Block,
+	pub tx_index: u32,
+	pub config: TracerTypeV2,
+}
+
 /// The input type used when calling the `trace_tx_versioned` runtime API function. This function
 /// replaces the unversioned `trace_tx` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
@@ -47,6 +54,9 @@ pub enum TraceTxVersionedInputPayload<Block> {
 	/// This version accepts the same arguments as `V1` and selects `TraceV2` rather than `TraceV1`
 	/// for the returned trace data.
 	V2(TraceTxInputPayloadV2<Block>),
+	/// This version takes `TracerTypeV2`, whose execution tracer adds `step_offset`: paired with
+	/// `limit` it captures one window of an execution's steps at a time.
+	V3(TraceTxInputPayloadV3<Block>),
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
@@ -56,6 +66,11 @@ pub struct TraceTxOutputPayloadV1 {
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct TraceTxOutputPayloadV2 {
+	pub entry: Option<TraceEntryV1>,
+}
+
+#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
+pub struct TraceTxOutputPayloadV3 {
 	pub entry: Option<TraceEntryV1>,
 }
 
@@ -77,4 +92,7 @@ pub enum TraceTxVersionedOutputPayload {
 	/// frame. `CallTraceV2` also removes `child_call_count`, which was only used to calculate
 	/// `position`. Prestate and execution traces are unchanged.
 	V2(TraceTxOutputPayloadV2),
+	/// Unchanged from `V2`: `entry` remains `Option<TraceEntryV1>`. It exists so that a `V3` input
+	/// returns a `V3` output.
+	V3(TraceTxOutputPayloadV3),
 }
