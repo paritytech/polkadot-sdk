@@ -194,7 +194,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 
 		// Validated and completed here, before any consumer clones it.
 		network_config
-			.validate_and_complete_webrtc_addresses()
+			.validate_and_complete_addresses()
 			.map_err(sc_service::Error::from)?;
 
 		Ok(network_config)
