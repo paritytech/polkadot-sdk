@@ -591,6 +591,7 @@ pub mod pallet {
 		pub fn cancel(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
 			T::CancelOrigin::ensure_origin(origin)?;
 			let status = Self::ensure_ongoing(index)?;
+			Self::note_removed_from_queue(index, &status);
 			if let Some((_, last_alarm)) = status.alarm {
 				let _ = T::Scheduler::cancel(last_alarm);
 			}
@@ -618,6 +619,7 @@ pub mod pallet {
 		pub fn kill(origin: OriginFor<T>, index: ReferendumIndex) -> DispatchResult {
 			T::KillOrigin::ensure_origin(origin)?;
 			let status = Self::ensure_ongoing(index)?;
+			Self::note_removed_from_queue(index, &status);
 			if let Some((_, last_alarm)) = status.alarm {
 				let _ = T::Scheduler::cancel(last_alarm);
 			}
@@ -685,6 +687,9 @@ pub mod pallet {
 					TrackQueue::<T, I>::insert(track, track_queue);
 					branch.into()
 				} else {
+					// `next_for_deciding` popped every stale entry from the local copy.
+					// Persist the drained queue, or the pops are lost.
+					TrackQueue::<T, I>::insert(track, track_queue);
 					DecidingCount::<T, I>::mutate(track, |x| x.saturating_dec());
 					OneFewerDecidingBranch::QueueEmpty
 				};
@@ -1038,6 +1043,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// Schedule a call to `one_fewer_deciding` function via the dispatchable
 	/// `defer_one_fewer_deciding`. We could theoretically call it immediately (and it would be
 	/// overall more efficient), however the weights become rather less easy to measure.
+	/// Remove a queued referendum from its track's queue. Terminal transitions of a
+	/// queued referendum must call this, or the entry outlives the referendum: the
+	/// timeout path skips queued referenda, so nothing else removes it.
+	fn note_removed_from_queue(index: ReferendumIndex, status: &ReferendumStatusOf<T, I>) {
+		if status.in_queue {
+			TrackQueue::<T, I>::mutate(status.track, |q| q.retain(|(i, _)| *i != index));
+		}
+	}
+
 	fn note_one_fewer_deciding(track: TrackIdOf<T, I>) {
 		// Set an alarm call for the next block to nudge the track along.
 		let now = T::BlockNumberProvider::current_block_number();
@@ -1407,15 +1421,27 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	#[cfg(any(feature = "try-runtime", test))]
 	fn try_state_tracks() -> Result<(), sp_runtime::TryRuntimeError> {
 		T::Tracks::tracks().try_for_each(|track| {
-			TrackQueue::<T, I>::get(track.id).iter().try_for_each(
+			let queue = TrackQueue::<T, I>::get(track.id);
+			queue.iter().try_for_each(
 				|(referendum_index, _)| -> Result<(), sp_runtime::TryRuntimeError> {
+					let status = match ReferendumInfoFor::<T, I>::get(referendum_index) {
+						Some(ReferendumInfo::Ongoing(status)) => status,
+						_ => {
+							return Err("A `TrackQueue` entry must be an ongoing referendum".into())
+						},
+					};
 					ensure!(
-					ReferendumInfoFor::<T, I>::contains_key(referendum_index),
-					"`ReferendumIndex` inside the `TrackQueue` should be a key in `ReferendumInfoFor`"
-				);
+						status.track == track.id,
+						"A queued referendum must be on the queue of its own track"
+					);
+					ensure!(status.in_queue, "A queued referendum must have `in_queue` set");
 					Ok(())
 				},
 			)?;
+			ensure!(
+				queue.windows(2).all(|w| w[0].0 != w[1].0),
+				"A `TrackQueue` must not hold the same referendum twice"
+			);
 			Ok(())
 		})
 	}
