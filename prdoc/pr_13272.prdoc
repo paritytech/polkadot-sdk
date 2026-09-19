@@ -1,0 +1,9 @@
+title: 'statement-store: recover V2 gossip after major sync'
+doc:
+- audience: Node Dev
+  description: |-
+    Fix V2 statement gossip recovery after major sync: resume deferred connections,
+    refresh affinity, and request statement history even when no data was dropped.
+crates:
+- name: sc-network-statement
+  bump: patch
