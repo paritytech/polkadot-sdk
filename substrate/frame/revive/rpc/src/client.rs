@@ -165,8 +165,8 @@ pub enum ClientError {
 	#[error("failed to recover eth address")]
 	RecoverEthAddressFailed,
 	/// Failed to filter logs.
-	#[error("Failed to filter logs")]
-	LogFilterFailed(#[from] anyhow::Error),
+	#[error("Failed to filter logs: {0}")]
+	LogFilterFailed(#[source] anyhow::Error),
 	/// Receipt storage was not found.
 	#[error("Receipt storage not found")]
 	ReceiptDataNotFound,
