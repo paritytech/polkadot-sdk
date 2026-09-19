@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789772574438,
+  "lastUpdate": 1789787867627,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "skunert49@gmail.com",
-            "name": "Sebastian Kunert",
-            "username": "skunert"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3ee8c826e2e59a21b1a77429ad9112e36ce7d1f7",
-          "message": "Do not prune blocks with Grandpa justifications (#10893)\n\nWarp sync requires GRANDPA justifications at authority set change\nboundaries to construct proofs. When block pruning is enabled, all block\nbodies are removed regardless of whether they contain important\njustifications. The pruned nodes can then not be used to fetch warp\nproofs.\n\nIn this PR I add the capability to filter which blocks can be safely\npruned. For parachain nodes, everything can be pruned, solochain nodes\nusing grandpa keep blocks with justifications.\n\n## Overview:\n ### sc-client-db\n  - Add BlockPruningFilter trait with blanket impl for closures\n  - Add block_pruning_filters field to DatabaseSettings and Backend\n  - Check filters in prune_blocks() before removing block bodies\n\n ### sc-consensus-grandpa\n- Add GrandpaBlockPruningFilter that preserves blocks with GRANDPA\njustifications\n\n ### sc-service\n- Add block_pruning_filters parameter to new_full_parts and\nnew_full_parts_record_import\n\n ### Nodes updated\n  - polkadot-service: uses GrandpaBlockPruningFilter\n  - staging-node-cli (kitchensink): uses GrandpaBlockPruningFilter\n  - solochain-template: uses GrandpaBlockPruningFilter\n  - parachain-template / omni-node / polkadot-parachain: empty filters \n\n\n\nfixes #2733\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-18T10:18:21Z",
-          "tree_id": "11e683326f177c0e21407dcc11f81f38550963d5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3ee8c826e2e59a21b1a77429ad9112e36ce7d1f7"
-        },
-        "date": 1771413852218,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.06999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03758086177399999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06660383348399992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08406198912199989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1cc9ce56bc20e686b6a4383228d3c70d16a710e0",
+          "message": "Bump PolkaVM from 0.35 to 0.36 (#13261)\n\nUpdates the four workspace PolkaVM pins (`polkavm`, `polkavm-common`,\n`polkavm-derive`, `polkavm-linker`) from 0.35.0 to 0.36.0. The\n`pallet-revive` fixtures build template follows the workspace pin.\n\nAlso removes the orphaned `try_compile_invalid_fixture` helper from\n`pallet-revive-fixtures`. Its only caller was the\n`sbrk_cannot_be_linked` test that #12523 deleted together with the sbrk\nfixture.\n\nSplit out of #12142, which needs this version but where the bump does\nnot belong.",
+          "timestamp": "2026-09-19T01:34:04Z",
+          "tree_id": "49f41fe15b3fcc0a5094fa25a1b9649fcd53339f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1cc9ce56bc20e686b6a4383228d3c70d16a710e0"
+        },
+        "date": 1789787827688,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.12,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08327510068799994,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038483263434000006,
             "unit": "seconds"
           }
         ]
