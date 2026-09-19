@@ -239,6 +239,13 @@ impl<P: SubstrateFinalitySyncPipeline, SourceClnt: Client<P::SourceChain>>
 	> {
 		header_and_finality_proof::<P>(&self.client, number).await
 	}
+
+	async fn header(
+		&self,
+		number: BlockNumberOf<P::SourceChain>,
+	) -> Result<relay_substrate_client::SyncHeader<HeaderOf<P::SourceChain>>, Error> {
+		Ok(self.client.header_by_number(number).await?.into())
+	}
 }
 
 async fn header_and_finality_proof<P: SubstrateFinalitySyncPipeline>(
