@@ -1,0 +1,85 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Automatic weight sanity checker for the benchmarking CLI"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds an automatic sanity check that runs after `frame-omni-bencher v1 benchmark pallet`
+      (or `polkadot benchmark pallet`). For every benchmarked extrinsic the check evaluates
+      the worst-case weight (every complexity component at its maximum value) and compares it
+      against the runtime's max extrinsic weight for `DispatchClass::Normal`. Misconfigured
+      runtimes whose extrinsics cannot fit in a single block are caught immediately instead
+      of silently producing unusable weight files (see incident #1589).
+
+      Behaviour is controlled by the new `--sanity-weight-check <error|warning|ignore>` flag
+      on `benchmark pallet`. Default is `warning` for the first release shipping the check —
+      teams see the diagnostic without breaking existing pipelines; tightening to `error` is
+      planned as a follow-up once everyone has had a cycle to react.
+
+      The check always runs after weight files are written, so failing weights are still
+      persisted on disk for inspection (per @ggwpez's guidance on the predecessor PR).
+
+      The check is silently skipped (with a distinct log warning per case) when:
+      - the runtime exposes only Benchmark runtime API v2 (no `runtime_block_limits`),
+      - the runtime returns `None` for `max_extrinsic_weight` (no per-extrinsic cap), or
+      - the CLI is re-analysing a JSON input (no live runtime metadata).
+
+      Closes #152. Continues #1493 by @Daanvdplas (closed due to inactivity after being
+      formally approved by @kianenigma in October 2023). Co-authored with @Daanvdplas on
+      the relevant commits.
+
+  - audience: Node Dev
+    description: |
+      The `Benchmark` runtime API is bumped from v2 to v3 and gains a new method
+      `runtime_block_limits()` returning a `RuntimeBlockLimits { max_extrinsic_weight:
+      Option<Weight>, db_weight: RuntimeDbWeight }` struct. Existing methods
+      (`benchmark_metadata`, `dispatch_benchmark`) are unchanged, so v2 runtimes continue
+      to work — the CLI gates the v3 call on `benchmark_api_version >= 3` and skips the
+      sanity check rather than silently swallowing real runtime errors.
+
+      The flag lives on `PalletCmd`, not `SharedParams`, so it only appears in `--help` for
+      the `benchmark pallet` subcommand where it has effect.
+
+crates:
+  - name: frame-benchmarking
+    bump: major
+  - name: frame-benchmarking-cli
+    bump: minor
+  - name: sc-cli
+    bump: minor
+  - name: kitchensink-runtime
+    bump: minor
+  - name: rococo-runtime
+    bump: minor
+  - name: westend-runtime
+    bump: minor
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: bridge-hub-rococo-runtime
+    bump: minor
+  - name: bridge-hub-westend-runtime
+    bump: minor
+  - name: collectives-westend-runtime
+    bump: minor
+  - name: coretime-westend-runtime
+    bump: minor
+  - name: glutton-westend-runtime
+    bump: minor
+  - name: people-westend-runtime
+    bump: minor
+  - name: penpal-runtime
+    bump: minor
+  - name: pallet-staking-async-rc-runtime
+    bump: minor
+  - name: pallet-staking-async-parachain-runtime
+    bump: minor
+  - name: parachain-template-runtime
+    bump: minor
+  - name: solochain-template-runtime
+    bump: minor
+  - name: polkadot-omni-node-lib
+    bump: minor
