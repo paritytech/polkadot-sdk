@@ -20,7 +20,7 @@ mod deposit_payment;
 mod eip7702;
 mod eth_estimate_gas;
 mod pallet_dummy;
-mod precompiles;
+pub(crate) mod precompiles;
 mod pvm;
 mod sol;
 mod stipends;
@@ -31,6 +31,7 @@ use crate::{
 	self as pallet_revive, AccountId32Mapper, AddressMapper, BalanceOf, BalanceWithDust, Call,
 	CodeInfoOf, Config, DelegateInfo, ExecOrigin as Origin, ExecReturnValue, GenesisConfig,
 	OriginFor, Pallet, PristineCode,
+	access_list::AccessListMetrics,
 	deposit_payment::PGasDeposit,
 	evm::{
 		fees::{BlockRatioFee, Info as FeeInfo},
@@ -59,6 +60,19 @@ use sp_runtime::{
 	generic::Header,
 	traits::{BlakeTwo256, Convert, IdentityLookup, One},
 };
+
+parameter_types! {
+	/// Access-list metrics of the last call.
+	pub static LastAccessListMetrics: Option<AccessListMetrics> = None;
+}
+
+/// The access-list metrics `operation` recorded.
+pub(crate) fn access_list_metrics_of(operation: impl FnOnce()) -> AccessListMetrics {
+	LastAccessListMetrics::take();
+	operation();
+	LastAccessListMetrics::take()
+		.expect("the operation under test ran a first frame and recorded metrics")
+}
 
 pub type Address = MultiAddress<AccountId32, u32>;
 pub type Block = sp_runtime::generic::Block<Header<u64, BlakeTwo256>, UncheckedExtrinsic>;

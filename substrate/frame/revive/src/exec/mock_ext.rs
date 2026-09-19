@@ -19,6 +19,7 @@
 use crate::{
 	BalanceOf, Code, CodeRemoved, Config, DispatchResult, ExecReturnValue, ImmutableData,
 	ReentrancyProtection,
+	access_list::{Access, Summarized},
 	exec::{
 		AccountIdOf, CallResources, ExecError, Ext, Key, Origin, PrecompileExt,
 		PrecompileWithInfoExt,
@@ -260,16 +261,12 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::set_storage")
 	}
 
-	fn touch_storage_access(
-		&mut self,
-		_key: &Key,
-		_op: crate::access_list::StorageOp,
-	) -> crate::access_list::Warmth {
-		panic!("MockExt::touch_storage_access")
+	fn warmth_of_summarized<A: Access>(&self, _access: A) -> Summarized<A::Warmth> {
+		panic!("MockExt::warmth_of_summarized")
 	}
 
-	fn peek_storage_access(&self, _key: &Key) -> crate::access_list::Warmth {
-		panic!("MockExt::peek_storage_access")
+	fn warm_summarized<A: Access>(&mut self, _access: A) -> Summarized<A::Warmth> {
+		panic!("MockExt::warm_summarized")
 	}
 
 	fn charge_storage(&mut self, _diff: &Diff) -> DispatchResult {

@@ -1,0 +1,36 @@
+title: 'pallet-revive: cold/hot pricing for call opcodes, value transfers and code loads'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ### Summary
+    This PR extends the cold/hot pricing introduced in #12104 to the state items touched by the call opcodes (EVM `CALL`, `STATICCALL`, `DELEGATECALL` and the PVM call and delegate-call host functions), a call's value transfer and the callee's code load.
+
+    Each of these operations now declares, in one place, the state items it reads and writes, and the access list tracks their warmth. The operation is charged the cold benchmark when any item is cold and the hot benchmark when all are hot.
+
+    ### Changes
+    1. Access list:
+       - `AccessEntry` is now an enum with one variant per kind of state item: storage slot, account state, address mapping, account info, code info and code blob.
+       - `Access` trait: a group of entries that warm and price together. Each implementation names the entries it touches and whether it reads or writes them.
+       - `Ext` API: `touch_storage_access` and `peek_storage_access` were changed to `warm_summarized` and `warmth_of_summarized` and take an `Access` instead of one storage key.
+       - `Summarized` and `WarmthSummary`: new structs used for pricing. They hold the warmth of each entry and the count of cold and hot ones.
+       - `KeyFamily`: new enum with two kinds, `Slot` and `Address`. The access-list overhead of a touch is benchmarked per kind, since an address or code hash is shorter than a storage-slot key and costs less to touch.
+    2. Call opcodes: each call kind names the entries it touches, is priced cold or hot from their warmth, and has its own hot benchmark.
+    3. Value transfers: priced separately from the call, with their own hot benchmark.
+       - A transfer to a precompile always pays the cold price, since precompile accounts are not tracked.
+    4. Code loads: the two map reads a load makes, code info and code blob, are priced together by their own benchmark (`code_load`). The per-byte cost of the blob is priced separately, cold or hot by the blob's own warmth.
+       - The call benchmarks now whitelist the callee's `CodeInfoOf` and `PristineCode` keys, so those reads are paid once, by `code_load`.
+    5. Frame entry: the call entries of the first frame's target, plus the transfer entries when the call moves value from a signed origin, are marked hot when the transaction starts, since the extrinsic weights already pay for those reads.
+    6. Benchmarks: new `_hot` twins for `seal_call`, `seal_delegate_call` and the two `call_with_*_code_per_byte` benchmarks, plus `seal_call_transfer_hot`, all run with the callee already hot. Four new `access_list_touch_*_address_*` benchmarks measure the touch overhead for the `Address` key kind.
+    7. Runtime costs: the `RuntimeCosts` variants for calls, transfers and storage now hold the warmth of the entries they price.
+       - `weight_from_warmth_summary`: one pricing function for every access.
+       - `CodeLoadToken` splits into `Flat` for the two reads and `Blob` for the bytes.
+
+    ### Behavior change
+    A call to a contract that is already hot is now cheap enough to fit under the 2300 gas stipend that `transfer()` and `send()` forward. A `receive()` that attempts an external call used to run out of gas and revert the whole transfer. Now the transfer succeeds and the inner call is the one that runs out of gas. No value can be drained. Only the outcome of the outer transfer changes. This matches Ethereum behavior since EIP-2929, where a warm `CALL` costs 100 gas.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch

@@ -19,7 +19,7 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
-	access_list::{AccessEntry, AccessList, StorageOp, Warmth},
+	access_list::{self, Access, AccessList, CallItems, CodeLoadWarmth, Summarized},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -40,6 +40,7 @@ use core::{cmp, fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
 use frame_support::{
 	Blake2_128Concat, BoundedVec, DebugNoBound, StorageHasher,
 	crypto::ecdsa::ECDSAExt,
+	defensive_assert,
 	dispatch::DispatchResult,
 	ensure,
 	storage::{TransactionOutcome, with_transaction},
@@ -549,15 +550,12 @@ pub trait PrecompileExt: sealing::Sealed {
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError>;
 
-	/// Checks if the persistent storage slot `key` was already accessed in this transaction
-	/// and inserts it otherwise, so subsequent accesses to the same slot bill as hot. Returns
-	/// the slot's [`Warmth`]. `op` is the operation being performed: a write upgrades a slot
-	/// that had only paid for a read.
-	fn touch_storage_access(&mut self, key: &Key, op: StorageOp) -> Warmth;
+	/// Warms the state items the access touches, returning the warmth each had
+	/// **before** this call, with its entries counted.
+	fn warm_summarized<A: Access>(&mut self, access: A) -> Summarized<A::Warmth>;
 
-	/// Non-mutating sibling of `touch_storage_access`: reports the persistent storage
-	/// slot's warmth without warming it.
-	fn peek_storage_access(&self, key: &Key) -> Warmth;
+	/// Reports the warmth of the state items the access touches, without recording anything.
+	fn warmth_of_summarized<A: Access>(&self, access: A) -> Summarized<A::Warmth>;
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
@@ -590,10 +588,11 @@ pub trait Executable<T: Config>: Sized {
 	/// Load the executable from storage.
 	///
 	/// # Note
-	/// Charges size base load weight from the weight meter.
+	/// Charges the code load from the weight meter.
 	fn from_storage<S: State>(
 		code_hash: H256,
 		meter: &mut ResourceMeter<T, S>,
+		warmth: Summarized<CodeLoadWarmth>,
 	) -> Result<Self, DispatchError>;
 
 	/// Load the executable from EVM bytecode
@@ -1025,6 +1024,11 @@ where
 		input_data: &Vec<u8>,
 	) -> Result<Option<(Self, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		origin.ensure_mapped()?;
+		// Create before the first frame is built, to capture its state accesses.
+		let mut access_list = AccessList::new();
+		// The `call` and `eth_call` extrinsic weights already pay for these reads.
+		// TODO: move the charge up to those extrinsics, so a bench edit cannot drop it silently.
+		Self::warm_first_frame_access(&mut access_list, &args, &origin, value);
 		let Some((first_frame, executable)) = Self::new_frame(
 			args,
 			value,
@@ -1034,6 +1038,7 @@ where
 			true,
 			input_data,
 			exec_config,
+			&mut access_list,
 		)?
 		else {
 			return Ok(None);
@@ -1059,11 +1064,53 @@ where
 			first_frame,
 			frames: Default::default(),
 			transient_storage: TransientStorage::new(limits::TRANSIENT_STORAGE_BYTES),
-			access_list: AccessList::new(),
+			access_list,
 			exec_config,
 			_phantom: Default::default(),
 		};
 		Ok(Some((stack, executable)))
+	}
+
+	/// Warms the target's entries, plus the transfer's when the call moves value.
+	fn warm_first_frame_access(
+		access_list: &mut AccessList,
+		args: &FrameArgs<T, E>,
+		origin: &Origin<T>,
+		value: U256,
+	) {
+		defensive_assert!(
+			access_list.frame_depth() == 0,
+			"the first frame's target is warmed before any frame opens",
+		);
+		let FrameArgs::Call { dest, delegated_call: None, .. } = args else { return };
+		let address = T::AddressMapper::to_address(dest);
+		if <AllPrecompiles<T>>::get::<Self>(address.as_fixed_bytes()).is_some() {
+			return;
+		}
+		access_list.warm(CallItems::new(address, false));
+		// Only a signed origin has a sender account, and a Root origin cannot move value.
+		if !value.is_zero() &&
+			let Origin::Signed(account) = origin
+		{
+			access_list.warm(access_list::TransferItems {
+				from: T::AddressMapper::to_address(account),
+				to: address,
+				dust: Contracts::<T>::has_dust(value),
+			});
+		}
+	}
+
+	/// Loads code, warming the code info and blob on success.
+	fn load_code<S: State>(
+		access_list: &mut AccessList,
+		meter: &mut ResourceMeter<T, S>,
+		code_hash: H256,
+	) -> Result<E, DispatchError> {
+		let code_load = access_list::CodeLoadItems { hash: code_hash };
+		let executable =
+			E::from_storage(code_hash, meter, access_list.warmth_of_summarized(code_load))?;
+		access_list.warm(code_load);
+		Ok(executable)
 	}
 
 	/// EIP-7702 chained delegation check for an account with no loadable code.
@@ -1100,6 +1147,7 @@ where
 		origin_is_caller: bool,
 		input_data: &[u8],
 		exec_config: &ExecConfig<T>,
+		access_list: &mut AccessList,
 	) -> Result<Option<(Frame<T>, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		// `Some` once the account entry has been read: the delegation target it carried, so
 		// `code_address` below does not decode the same entry a second time.
@@ -1157,7 +1205,7 @@ where
 				// in case of delegate the executable is not the one at `address`
 				let executable = if let Some(delegated_call) = &delegated_call {
 					if let Some(precompile) =
-						<AllPrecompiles<T>>::get(delegated_call.callee.as_fixed_bytes())
+						<AllPrecompiles<T>>::get::<Self>(delegated_call.callee.as_fixed_bytes())
 					{
 						ExecutableOrPrecompile::Precompile {
 							instance: precompile,
@@ -1171,25 +1219,21 @@ where
 							return Ok(None);
 						};
 						delegate_code_target = target;
-						let executable = E::from_storage(info.code_hash, meter)?;
+						let executable = Self::load_code(access_list, meter, info.code_hash)?;
 						ExecutableOrPrecompile::Executable(executable)
+					}
+				} else if let Some(precompile) = precompile {
+					ExecutableOrPrecompile::Precompile {
+						instance: precompile,
+						_phantom: Default::default(),
 					}
 				} else {
-					if let Some(precompile) = precompile {
-						ExecutableOrPrecompile::Precompile {
-							instance: precompile,
-							_phantom: Default::default(),
-						}
-					} else {
-						let executable = E::from_storage(
-							contract
-								.as_contract()
-								.expect("When not a precompile the contract was loaded above; qed")
-								.code_hash,
-							meter,
-						)?;
-						ExecutableOrPrecompile::Executable(executable)
-					}
+					let code_hash = contract
+						.as_contract()
+						.expect("When not a precompile the contract was loaded above; qed")
+						.code_hash;
+					let executable = Self::load_code(access_list, meter, code_hash)?;
+					ExecutableOrPrecompile::Executable(executable)
 				};
 
 				(dest, contract, executable, delegated_call, ExportedFunction::Call)
@@ -1308,6 +1352,7 @@ where
 			false,
 			input_data,
 			self.exec_config,
+			&mut self.access_list,
 		)? {
 			// EIP-684: an in-construction address is not in `AccountInfoOf` yet, so the
 			// `is_contract` guard in `ContractInfo::new` misses this re-entrant collision.
@@ -1657,6 +1702,8 @@ where
 		// checkpoint. Nested frames commit or roll back the checkpoint they opened.
 		if is_first_frame {
 			let m = self.access_list.metrics();
+			#[cfg(test)]
+			crate::tests::LastAccessListMetrics::set(Some(m));
 			log::trace!(
 				target: LOG_TARGET,
 				"access list metrics: size={size} cold={cold} hot={hot}",
@@ -1667,9 +1714,8 @@ where
 		} else {
 			self.access_list.rollback_frame();
 		}
-		debug_assert_eq!(
-			self.access_list.frame_depth(),
-			access_list_checkpoints_len,
+		defensive_assert!(
+			self.access_list.frame_depth() == access_list_checkpoints_len,
 			"this frame closed exactly the checkpoint it opened",
 		);
 		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");
@@ -1991,6 +2037,11 @@ where
 		self.block_number = block_number;
 	}
 
+	#[cfg(test)]
+	pub(crate) fn access_list_metrics(&self) -> crate::access_list::AccessListMetrics {
+		self.access_list.metrics()
+	}
+
 	fn block_hash(&self, block_number: U256) -> Option<H256> {
 		let Ok(block_number) = BlockNumberFor::<T>::try_from(block_number) else {
 			return None;
@@ -2196,7 +2247,11 @@ where
 					E::from_evm_init_code(initcode, sender.clone())?
 				},
 				Code::Existing(hash) => {
-					let executable = E::from_storage(*hash, self.frame_meter_mut())?;
+					let executable = Self::load_code(
+						&mut self.access_list,
+						&mut top_frame_mut!(self).frame_meter,
+						*hash,
+					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable
 				},
@@ -2750,14 +2805,12 @@ where
 		)
 	}
 
-	fn touch_storage_access(&mut self, key: &Key, op: StorageOp) -> Warmth {
-		let address = self.address();
-		self.access_list.touch(AccessEntry { address, slot: key.into() }, op)
+	fn warmth_of_summarized<A: Access>(&self, access: A) -> Summarized<A::Warmth> {
+		self.access_list.warmth_of_summarized(access)
 	}
 
-	fn peek_storage_access(&self, key: &Key) -> Warmth {
-		let address = self.address();
-		self.access_list.peek(&AccessEntry { address, slot: key.into() })
+	fn warm_summarized<A: Access>(&mut self, access: A) -> Summarized<A::Warmth> {
+		self.access_list.warm_summarized(access)
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {
