@@ -16,20 +16,20 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Fetch and price the markets of [`pallet_price_oracle::venues`] through the node [`Fetcher`].
+//! Live check that venue constructors still fetch and price against public APIs.
 //!
 //! ```text
-//! cargo test -p sc-price-oracle --lib venues_are_fetched_and_priced -- --nocapture
+//! cargo test -p sc-price-oracle --lib venues_are_fetched_and_priced -- --ignored --nocapture
 //! ```
 
 use crate::{
-	fetcher::{Fetcher, MarketResponses},
+	fetcher::{Fetcher, MarketFailure},
 	now_ms,
 };
 use futures::{channel::mpsc, StreamExt};
 use pallet_price_oracle::{
 	price_market,
-	pricing::{parse_decimal, PairSettings},
+	pricing::{self, parse_decimal, PairSettings},
 	registry::StoredMarket,
 	venues,
 };
@@ -54,7 +54,7 @@ fn settings() -> PairSettings {
 	}
 }
 
-/// One market per constructor in [`venues`], tagged with the constructor name.
+/// One market per constructor in [`venues`].
 fn markets() -> Vec<(&'static str, StoredMarket)> {
 	[
 		("binance_spot", venues::binance_spot(VenueId(0), PAIR, "DOTUSDT")),
@@ -78,29 +78,15 @@ fn markets() -> Vec<(&'static str, StoredMarket)> {
 	.collect()
 }
 
-fn name_of(stored: &[(&'static str, StoredMarket)], id: MarketId) -> &'static str {
-	stored[id.0 as usize].0
-}
-
-/// Print elapsed time, response sizes and whether the market priced.
-fn report_fetched(
-	stored: &[(&'static str, StoredMarket)],
-	fetched: MarketResponses,
-	elapsed: Duration,
-) {
-	let (name, market) = &stored[fetched.market.0 as usize];
-	println!("{name}  {elapsed:?}");
-	fetched.responses.iter().for_each(|(tag, body)| {
-		println!("  query {tag:?}: {} bytes", body.len());
-	});
-	match price_market(market, &settings(), fetched.responses, now_ms()) {
-		Ok(price) => println!("  priced at {price}"),
-		Err(e) => println!("  not priced: {}", String::from_utf8_lossy(&e.0)),
+fn fetch_reason(failure: &MarketFailure) -> String {
+	match failure {
+		MarketFailure::Deadline => "deadline".into(),
+		MarketFailure::Query(_, e) => e.to_string(),
 	}
-	println!();
 }
 
 #[tokio::test]
+#[ignore] // Requires network access to public exchanges; run with `--ignored`.
 async fn venues_are_fetched_and_priced() {
 	let fetcher = Fetcher::new().unwrap();
 	let stored = markets();
@@ -109,20 +95,35 @@ async fn venues_are_fetched_and_priced() {
 		.enumerate()
 		.map(|(i, (_, market))| market.clone().to_wire(MarketId(i as u32)))
 		.collect();
-
 	let started = Instant::now();
 	let deadline = started + Duration::from_secs(2);
 	let (tx, rx) = mpsc::unbounded();
 	let fetch = fetcher.fetch_markets(&wire, deadline, tx);
-	let parse = async {
-		rx.map(|fetched| (started.elapsed(), fetched)).collect::<Vec<_>>().await
-	};
-	let (failures, fetched) = futures::join!(fetch, parse);
-	assert!(!fetched.is_empty(), "no market could be fetched");
-	fetched.into_iter().for_each(|(elapsed, r)| report_fetched(&stored, r, elapsed));
-	failures.iter().for_each(|(id, failure)| {
-		println!("{}  {:?}", name_of(&stored, *id), started.elapsed());
-		println!("  not fetched: {failure:?}");
-		println!();
+	let wait = async { rx.collect::<Vec<_>>().await };
+	let (failures, fetched) = futures::join!(fetch, wait);
+
+	let now = now_ms();
+	let mut prices = Vec::new();
+	let mut missing = Vec::new();
+	fetched.into_iter().for_each(|r| {
+		let (name, market) = &stored[r.market.0 as usize];
+		match price_market(market, &settings(), r.responses, now) {
+			Ok(price) => prices.push((market.venue, market.pair, price)),
+			Err(e) => missing.push((*name, String::from_utf8_lossy(&e.0).into_owned())),
+		}
 	});
+	failures.iter().for_each(|(id, failure)| {
+		missing.push((stored[id.0 as usize].0, fetch_reason(failure)));
+	});
+
+	let n = prices.len();
+	let m = stored.len();
+	let quotes = pricing::aggregate(prices, &[PAIR], |_| Vec::new());
+	match quotes.first() {
+		Some(q) => println!("{n}/{m} priced  {price}", price = q.price),
+		None => println!("{n}/{m} priced"),
+	}
+	missing.iter().for_each(|(name, reason)| println!("  {name}: {reason}"));
+
+	assert!(n > 0, "no market could be fetched and priced");
 }
