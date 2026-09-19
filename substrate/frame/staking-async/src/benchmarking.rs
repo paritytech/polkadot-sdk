@@ -164,6 +164,8 @@ struct ListScenario<T: Config> {
 	origin_stash1: T::AccountId,
 	/// Controller of the Stash that is expected to be moved.
 	origin_controller1: T::AccountId,
+	/// Stash in the destination bag of the voter list.
+	dest_stash1: T::AccountId,
 	dest_weight: BalanceOf<T>,
 }
 
@@ -235,7 +237,7 @@ impl<T: Config> ListScenario<T> {
 			T::CurrencyToVote::to_currency(dest_weight_as_vote as u128, total_issuance);
 
 		// create an account with the worst case destination weight
-		let (_dest_stash1, dest_controller1) = create_stash_controller_with_balance::<T>(
+		let (dest_stash1, dest_controller1) = create_stash_controller_with_balance::<T>(
 			USER_SEED + 1,
 			dest_weight,
 			RewardDestination::Staked,
@@ -245,7 +247,7 @@ impl<T: Config> ListScenario<T> {
 			vec![T::Lookup::unlookup(validator_account)],
 		)?;
 
-		Ok(ListScenario { origin_stash1, origin_controller1, dest_weight })
+		Ok(ListScenario { origin_stash1, origin_controller1, dest_stash1, dest_weight })
 	}
 }
 
@@ -1634,6 +1636,52 @@ mod benchmarks {
 		_(RawOrigin::Signed(caller), stash.clone(), proof);
 
 		assert!(!Validators::<T>::contains_key(&stash));
+
+		Ok(())
+	}
+
+	#[benchmark]
+	// Worst case: full merge killing the source nominator while both stashes are in the voter list.
+	fn merge_staked() -> Result<(), BenchmarkError> {
+		clear_validators_and_nominators::<T>();
+		AreNominatorsSlashable::<T>::put(false);
+		let active_era = Rotator::<T>::active_era();
+		let oldest_slashable_era = active_era
+			.saturating_sub(T::BondingDuration::get().saturating_sub(One::one()))
+			.max(One::one());
+		for era in oldest_slashable_era..=active_era {
+			ErasNominatorsSlashable::<T>::insert(era, false);
+		}
+
+		let origin_weight = Staking::<T>::min_nominator_bond();
+		let scenario = ListScenario::<T>::new(origin_weight, true)?;
+		let source_stash = scenario.origin_stash1;
+		let target_stash = scenario.dest_stash1;
+		let target_active_before = Ledger::<T>::get(&target_stash)
+			.ok_or("target ledger missing before merge")?
+			.active;
+
+		assert!(T::VoterList::contains(&source_stash));
+		assert!(T::VoterList::contains(&target_stash));
+		assert!(Nominators::<T>::contains_key(&source_stash));
+		assert!(Nominators::<T>::contains_key(&target_stash));
+
+		let amount = Ledger::<T>::get(&source_stash)
+			.ok_or("source ledger missing before merge")?
+			.active;
+		whitelist_account!(source_stash);
+
+		#[extrinsic_call]
+		merge_staked(RawOrigin::Signed(source_stash.clone()), target_stash.clone(), amount);
+
+		assert!(!Ledger::<T>::contains_key(&source_stash));
+		assert!(!Bonded::<T>::contains_key(&source_stash));
+		assert!(!Nominators::<T>::contains_key(&source_stash));
+		assert!(!T::VoterList::contains(&source_stash));
+
+		let target_ledger =
+			Ledger::<T>::get(&target_stash).ok_or("target ledger missing after merge")?;
+		assert_eq!(target_ledger.active, target_active_before + amount);
 
 		Ok(())
 	}
