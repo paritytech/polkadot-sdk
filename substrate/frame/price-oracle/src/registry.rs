@@ -27,7 +27,7 @@ use frame_support::{traits::ConstU32, BoundedVec};
 use scale_info::TypeInfo;
 use sp_price_oracle::{
 	market::{Header, Market, MarketId, Method, Query, QueryTag, Request, VenueId},
-	PairId,
+	PairId, Price,
 };
 
 pub type MaxVenueName = ConstU32<32>;
@@ -95,6 +95,9 @@ pub struct StoredMarket {
 	pub venue: VenueId,
 	pub pair: PairId,
 	pub queries: BoundedVec<StoredQuery, MaxQueries>,
+	/// The amount of the base asset that one contract represents. For spot markets this is one,
+	/// and so it is for derivatives that are sized in the base asset.
+	pub contract_size: Price,
 	/// Inactive markets are kept in storage but not served to the nodes.
 	pub active: bool,
 }
