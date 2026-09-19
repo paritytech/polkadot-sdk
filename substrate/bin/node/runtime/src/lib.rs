@@ -1584,6 +1584,10 @@ impl pallet_revive::Config for Runtime {
 	type AutoMap = ConstBool<false>;
 	type GasScale = ConstU32<1000>;
 	type OnBurn = ();
+	// A backstop on the buffer's size only: each log's weight is charged where it is emitted, so
+	// the block fills before the cap is reached. Kept equal to Asset Hub Westend's, there being no
+	// per-block ceiling either runtime can honestly size it against.
+	type MaxOutsideFrameLogs = ConstU32<2048>;
 	type Deposit = ();
 }
 

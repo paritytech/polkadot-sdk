@@ -23,7 +23,7 @@ use frame_support::traits::{
 		DepositConsequence, Fortitude, Precision, Preservation, Provenance, WithdrawConsequence,
 	},
 };
-use pallet_assets::BalanceOnHold;
+use pallet_assets::{AssetsCallback, BalanceOnHold};
 use sp_runtime::{
 	traits::{CheckedAdd, CheckedSub, Zero},
 	ArithmeticError,
@@ -285,10 +285,26 @@ impl<T: Config<I>, I: 'static> MutateHold<T::AccountId> for Pallet<T, I> {
 		amount: Self::Balance,
 	) {
 		Self::deposit_event(Event::<T, I>::Burned {
-			asset_id,
+			asset_id: asset_id.clone(),
 			who: who.clone(),
 			reason: *reason,
 			amount,
 		});
+		<T as pallet_assets::Config<I>>::CallbackHandle::burned(&asset_id, who, amount);
+	}
+
+	// Reaches pallet-assets through `Unbalanced`, below the `Mutate` impl the balance-change
+	// callbacks hang off, so it reports here instead. Also covers `transfer_and_hold`, which calls
+	// this hook rather than `done_transfer_and_hold`.
+	fn done_transfer_on_hold(
+		asset_id: Self::AssetId,
+		_reason: &Self::Reason,
+		source: &T::AccountId,
+		dest: &T::AccountId,
+		amount: Self::Balance,
+	) {
+		<T as pallet_assets::Config<I>>::CallbackHandle::transferred(
+			&asset_id, source, dest, amount,
+		);
 	}
 }
