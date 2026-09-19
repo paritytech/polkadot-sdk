@@ -55,7 +55,6 @@ zeroize = { workspace = true }
 array-bytes = { workspace = true, default-features = true }
 blake2 = { optional = true, workspace = true }
 ed25519-zebra = { workspace = true }
-libsecp256k1 = { features = ["static-context"], workspace = true }
 merlin = { workspace = true }
 schnorrkel = { features = ["preaudit_deprecated"], workspace = true }
 sp-crypto-hashing = { workspace = true }
@@ -76,6 +75,9 @@ dyn-clone = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = true }
+# Only used to check that the k256-based `Pair::verify_deprecated` behaves exactly like
+# the historical `libsecp256k1`-based implementation.
+libsecp256k1 = { workspace = true, features = ["static-context", "std"] }
 regex = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 
