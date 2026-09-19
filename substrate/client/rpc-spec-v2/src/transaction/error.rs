@@ -47,6 +47,14 @@ impl<Hash> From<Error> for TransactionEvent<Hash> {
 					error: format!("Invalid transaction with custom error: {}", e),
 				})
 			},
+			Error::Pool(PoolError::InvalidTransaction(InvalidTransaction::Module(e))) => {
+				TransactionEvent::Invalid(TransactionError {
+					error: format!(
+						"Invalid transaction: module invalidity (pallet: {}, error: {})",
+						e.index, e.error
+					),
+				})
+			},
 			Error::Pool(PoolError::InvalidTransaction(e)) => {
 				let msg: &str = e.into();
 				TransactionEvent::Invalid(TransactionError {
@@ -131,5 +139,26 @@ impl From<ErrorBroadcast> for ErrorObject<'static> {
 				ErrorObject::owned(json_rpc_spec::INVALID_PARAM_ERROR, msg, None::<()>)
 			},
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sp_runtime::ModuleInvalidity;
+
+	#[test]
+	fn module_invalidity_becomes_invalid_transaction_event() {
+		let on_node = ModuleInvalidity { index: 42, error: 1 };
+		let err = Error::Pool(PoolError::InvalidTransaction(InvalidTransaction::Module(on_node)));
+
+		let event: TransactionEvent<u64> = err.into();
+
+		assert_eq!(
+			event,
+			TransactionEvent::Invalid(TransactionError {
+				error: "Invalid transaction: module invalidity (pallet: 42, error: 1)".into(),
+			})
+		);
 	}
 }
