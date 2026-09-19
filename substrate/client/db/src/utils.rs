@@ -202,8 +202,14 @@ fn open_database_at<Block: BlockT>(
 	let db: Arc<dyn Database<DbHash>> = match &db_source {
 		DatabaseSource::ParityDb { path } => open_parity_db::<Block>(path, db_type, create)?,
 		#[cfg(feature = "rocksdb")]
-		DatabaseSource::RocksDb { path, cache_size } => {
-			open_kvdb_rocksdb::<Block>(path, db_type, create, *cache_size)?
+		DatabaseSource::RocksDb { path, cache_size, transaction_column_path } => {
+			open_kvdb_rocksdb::<Block>(
+				path,
+				db_type,
+				create,
+				*cache_size,
+				transaction_column_path.as_deref(),
+			)?
 		},
 		DatabaseSource::Custom { db, require_create_flag } => {
 			if *require_create_flag && !create {
@@ -213,7 +219,7 @@ fn open_database_at<Block: BlockT>(
 		},
 		DatabaseSource::Auto { paritydb_path, rocksdb_path, cache_size } => {
 			// check if rocksdb exists first, if not, open paritydb
-			match open_kvdb_rocksdb::<Block>(rocksdb_path, db_type, false, *cache_size) {
+			match open_kvdb_rocksdb::<Block>(rocksdb_path, db_type, false, *cache_size, None) {
 				Ok(db) => db,
 				Err(OpenDbError::NotEnabled(_)) | Err(OpenDbError::DoesNotExist) => {
 					open_parity_db::<Block>(paritydb_path, db_type, create)?
@@ -310,6 +316,7 @@ fn open_kvdb_rocksdb<Block: BlockT>(
 	db_type: DatabaseType,
 	create: bool,
 	cache_size: usize,
+	transaction_column_path: Option<&Path>,
 ) -> OpenDbResult {
 	// first upgrade database to required version
 	match crate::upgrade::upgrade_db::<Block>(path, db_type) {
@@ -322,6 +329,10 @@ fn open_kvdb_rocksdb<Block: BlockT>(
 	// and now open database assuming that it has the latest version
 	let mut db_config = kvdb_rocksdb::DatabaseConfig::with_columns(NUM_COLUMNS);
 	db_config.create_if_missing = create;
+
+	if let Some(cold) = transaction_column_path {
+		db_config.columns[crate::columns::TRANSACTION as usize].path = Some(cold.to_path_buf());
+	}
 
 	let mut memory_budget = std::collections::HashMap::new();
 	match db_type {
@@ -346,9 +357,25 @@ fn open_kvdb_rocksdb<Block: BlockT>(
 			);
 		},
 	}
-	db_config.memory_budget = memory_budget;
+	// kvdb-rocksdb master moved the memory budget into per-column `ColumnConfig`.
+	for (col, budget) in memory_budget {
+		db_config.columns[col as usize].memory_budget = Some(budget);
+	}
 
-	let db = kvdb_rocksdb::Database::open(&db_config, path)?;
+	let db = kvdb_rocksdb::Database::open(&db_config, path).map_err(|err| {
+		if transaction_column_path.is_some() {
+			io::Error::new(
+				err.kind(),
+				format!(
+					"error opening database with a transaction column path override; the \
+					 override must match the path used when the database was last opened: {}",
+					err
+				),
+			)
+		} else {
+			err
+		}
+	})?;
 	// write database version only after the database is successfully opened
 	crate::upgrade::update_version(path)?;
 	Ok(sp_database::as_rocksdb_database(db))
@@ -360,6 +387,7 @@ fn open_kvdb_rocksdb<Block: BlockT>(
 	_db_type: DatabaseType,
 	_create: bool,
 	_cache_size: usize,
+	_transaction_column_path: Option<&Path>,
 ) -> OpenDbResult {
 	Err(OpenDbError::NotEnabled("with-kvdb-rocksdb"))
 }
@@ -658,7 +686,7 @@ mod tests {
 
 		check_dir_for_db_type(
 			DatabaseType::Full,
-			DatabaseSource::RocksDb { path: PathBuf::new(), cache_size: 128 },
+			DatabaseSource::RocksDb { path: PathBuf::new(), cache_size: 128, transaction_column_path: None },
 			"db_version",
 		);
 
@@ -673,7 +701,7 @@ mod tests {
 			let base_path = tempfile::TempDir::new().unwrap();
 			let old_db_path = base_path.path().join("chains/dev/db");
 
-			let source = DatabaseSource::RocksDb { path: old_db_path.clone(), cache_size: 128 };
+			let source = DatabaseSource::RocksDb { path: old_db_path.clone(), cache_size: 128, transaction_column_path: None };
 			{
 				let db_res = open_database::<Block>(&source, DatabaseType::Full, true);
 				assert!(db_res.is_ok(), "New database should be created.");
@@ -752,7 +780,7 @@ mod tests {
 		// it should fail to open existing auto (pairtydb) database
 		{
 			let db_res = open_database::<Block>(
-				&DatabaseSource::RocksDb { path: rocksdb_path, cache_size: 128 },
+				&DatabaseSource::RocksDb { path: rocksdb_path, cache_size: 128, transaction_column_path: None },
 				DatabaseType::Full,
 				true,
 			);
@@ -778,7 +806,7 @@ mod tests {
 		let paritydb_path = db_path.join("paritydb");
 		let rocksdb_path = db_path.join("rocksdb_path");
 
-		let source = DatabaseSource::RocksDb { path: rocksdb_path.clone(), cache_size: 128 };
+		let source = DatabaseSource::RocksDb { path: rocksdb_path.clone(), cache_size: 128, transaction_column_path: None };
 
 		// it should create new rocksdb database
 		{
@@ -813,7 +841,7 @@ mod tests {
 		// it should reopen existing auto (pairtydb) database
 		{
 			let db_res = open_database::<Block>(
-				&DatabaseSource::RocksDb { path: rocksdb_path, cache_size: 128 },
+				&DatabaseSource::RocksDb { path: rocksdb_path, cache_size: 128, transaction_column_path: None },
 				DatabaseType::Full,
 				true,
 			);
@@ -846,7 +874,7 @@ mod tests {
 		// it should fail to open existing pairtydb database
 		{
 			let db_res = open_database::<Block>(
-				&DatabaseSource::RocksDb { path: rocksdb_path.clone(), cache_size: 128 },
+				&DatabaseSource::RocksDb { path: rocksdb_path.clone(), cache_size: 128, transaction_column_path: None },
 				DatabaseType::Full,
 				true,
 			);
