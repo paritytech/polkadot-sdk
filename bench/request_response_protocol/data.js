@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789771603019,
+  "lastUpdate": 1789786731644,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -126251,6 +126251,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2678831693,
             "range": "± 43499479",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1cc9ce56bc20e686b6a4383228d3c70d16a710e0",
+          "message": "Bump PolkaVM from 0.35 to 0.36 (#13261)\n\nUpdates the four workspace PolkaVM pins (`polkavm`, `polkavm-common`,\n`polkavm-derive`, `polkavm-linker`) from 0.35.0 to 0.36.0. The\n`pallet-revive` fixtures build template follows the workspace pin.\n\nAlso removes the orphaned `try_compile_invalid_fixture` helper from\n`pallet-revive-fixtures`. Its only caller was the\n`sbrk_cannot_be_linked` test that #12523 deleted together with the sbrk\nfixture.\n\nSplit out of #12142, which needs this version but where the bump does\nnot belong.",
+          "timestamp": "2026-09-19T01:34:04Z",
+          "tree_id": "49f41fe15b3fcc0a5094fa25a1b9649fcd53339f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1cc9ce56bc20e686b6a4383228d3c70d16a710e0"
+        },
+        "date": 1789786691059,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19454603,
+            "range": "± 286077",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19520222,
+            "range": "± 150934",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21022791,
+            "range": "± 182731",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25289277,
+            "range": "± 70504",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56989395,
+            "range": "± 624156",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 325355858,
+            "range": "± 4810224",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2437173707,
+            "range": "± 66425913",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16839378,
+            "range": "± 206610",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16831467,
+            "range": "± 179156",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17340859,
+            "range": "± 179983",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21766571,
+            "range": "± 109539",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59121133,
+            "range": "± 554121",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 351696137,
+            "range": "± 4148473",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2679268522,
+            "range": "± 27537913",
             "unit": "ns/iter"
           }
         ]
