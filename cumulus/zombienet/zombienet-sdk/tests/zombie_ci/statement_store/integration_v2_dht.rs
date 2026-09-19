@@ -8,14 +8,17 @@
 //! by default); the replication factor `K` and gossip target are set via CLI flags.
 
 use super::common::{
-	expect_statement_delivered, spawn_network_with_injected_allowances_v2, stores_locally,
-	submit_statement, subscribe_topic,
+	assert_statements_match, collator_args_v2, expect_statement_delivered,
+	spawn_network_with_injected_allowances_v2, stores_locally, submit_statement, subscribe_topic,
+	COLLATOR_TRACE_LOG_FILTER,
 };
 use codec::Encode;
 use sc_statement_store::test_utils::{create_test_statement, get_keypair};
 use sp_core::{sr25519, Bytes};
 use sp_statement_store::{SubmitResult, Topic};
 use std::time::Duration;
+use zombienet_orchestrator::network::node::LogLineCountOptions;
+use zombienet_sdk::AddCollatorOptions;
 
 const TEST_GOSSIP_TARGET: u32 = 3;
 // Statement peers with an open notification substream, exported per node by the v2 DHT path.
@@ -374,6 +377,120 @@ async fn explicit_affinity_works() -> Result<(), anyhow::Error> {
 	// Subscribing grants the non-replica explicit affinity; it should now receive the statement.
 	let mut subscription = subscribe_topic(non_replica_rpc, topic).await?;
 	expect_statement_delivered(&mut subscription, &expected, 20).await?;
+
+	Ok(())
+}
+
+// Whether the node is major-syncing, exported by the sync engine as a 0/1 gauge.
+const IS_MAJOR_SYNCING_METRIC: &str = "substrate_sub_libp2p_is_major_syncing";
+
+#[tokio::test(flavor = "multi_thread")]
+async fn sync_recovery_late_joiner() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	const PRE_JOIN_COUNT: usize = 3;
+	const DURING_SYNC_COUNT: usize = 2;
+
+	let names = ["charlie", "alice"];
+	let replication_factor: u32 = 1;
+	let mut network = spawn_network_with_injected_allowances_v2(
+		&names,
+		names.len() as u32,
+		replication_factor,
+		TEST_GOSSIP_TARGET,
+	)
+	.await?;
+
+	let charlie = network.get_node(names[0])?;
+	let charlie_rpc = charlie.rpc().await?;
+
+	// Leave the joiner behind the major-sync threshold (`MAJOR_SYNC_BLOCKS` is 5).
+	let charlie_height = {
+		let height = std::cell::Cell::new(0.0f64);
+		charlie
+			.wait_metric_with_timeout(
+				crate::utils::BEST_BLOCK_METRIC,
+				|best| {
+					height.set(best);
+					best >= 10.0
+				},
+				360u64,
+			)
+			.await?;
+		height.get()
+	};
+	log::info!("charlie at block {charlie_height:.0} before dave joins");
+
+	let topic: Topic = [0x51; 32].into();
+	let keypair = get_keypair(0);
+	let pre_join: Vec<_> = (0..PRE_JOIN_COUNT as u32)
+		.map(|seq| {
+			create_test_statement(&keypair, &[topic], None, vec![0x51, seq as u8], u32::MAX, seq)
+		})
+		.collect();
+	for statement in &pre_join {
+		assert_eq!(submit_statement(&charlie_rpc, statement).await?, SubmitResult::New);
+	}
+
+	// The added collator does not inherit the network defaults, so the v2 gate and the statement
+	// flags are passed explicitly.
+	let options = AddCollatorOptions {
+		env: vec![("STATEMENT_STORE_V2_DHT_ENABLED", "1").into()],
+		args: collator_args_v2(
+			names.len() as u32,
+			COLLATOR_TRACE_LOG_FILTER,
+			replication_factor,
+			TEST_GOSSIP_TARGET,
+		),
+		..Default::default()
+	};
+	network.add_collator("dave", options, 1004).await?;
+	let dave = network.get_node("dave")?;
+	let dave_rpc = dave.rpc().await?;
+	let mut subscription = subscribe_topic(&dave_rpc, topic).await?;
+
+	// Admission around catch-up does not establish when the propagation tick sends the batch.
+	let during_sync: Vec<_> = (0..DURING_SYNC_COUNT as u32)
+		.map(|seq| {
+			let seq = PRE_JOIN_COUNT as u32 + seq;
+			create_test_statement(&keypair, &[topic], None, vec![0x51, seq as u8], u32::MAX, seq)
+		})
+		.collect();
+	for statement in &during_sync {
+		assert_eq!(submit_statement(&charlie_rpc, statement).await?, SubmitResult::New);
+	}
+	let dave_height = dave.reports(crate::utils::BEST_BLOCK_METRIC).await.unwrap_or(0.0);
+	log::info!("dave at block {dave_height:.0} of {charlie_height:.0} when the batch landed");
+
+	// The replay of the pre-join statements and the batch above reach dave while it is still
+	// catching up; the recovery path is exercised only if dave actually dropped a batch.
+	let drop_lines = dave
+		.wait_log_line_count_with_timeout(
+			"Ignoring statements while major syncing",
+			false,
+			LogLineCountOptions::new(|n| n >= 1, Duration::from_secs(120), false),
+		)
+		.await?;
+	assert!(drop_lines.success());
+
+	dave.wait_metric_with_timeout(
+		crate::utils::BEST_BLOCK_METRIC,
+		|best| best >= charlie_height,
+		240u64,
+	)
+	.await
+	.map_err(|_| anyhow::anyhow!("dave did not reach block {charlie_height:.0}"))?;
+	dave.wait_metric_with_timeout(IS_MAJOR_SYNCING_METRIC, |v| v == 0.0, 120u64)
+		.await?;
+
+	let expected: Vec<Vec<u8>> = pre_join
+		.iter()
+		.chain(during_sync.iter())
+		.map(|statement| statement.encode())
+		.collect();
+	assert_statements_match(&mut subscription, &expected, 120, "dave").await?;
 
 	Ok(())
 }

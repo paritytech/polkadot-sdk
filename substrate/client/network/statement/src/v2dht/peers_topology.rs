@@ -54,7 +54,7 @@ struct PeerInfo {
 }
 
 /// Evict a disconnected peer unseen by any event for this long.
-const PEER_STALENESS_TTL: Duration = Duration::from_secs(2 * 60 * 60);
+pub(crate) const PEER_STALENESS_TTL: Duration = Duration::from_secs(2 * 60 * 60);
 
 /// Hard cap on `discovered`; bounds memory when discovery outruns staleness eviction.
 const MAX_KNOWN_PEERS: usize = 8192;

@@ -37,8 +37,12 @@ use std::{
 	collections::{HashMap, HashSet},
 	num::NonZeroUsize,
 	sync::{Arc, RwLock},
-	time::Instant,
+	time::{Duration, Instant},
 };
+
+/// How long the node must stay out of major sync before it re-advertises its filter, so a sync
+/// that flaps around its threshold asks peers for one replay, not one per flap.
+const MAJOR_SYNC_SETTLE_PERIOD: Duration = Duration::from_secs(5);
 
 /// The reasons a received statement is retained, as a bitmask of independent flags.
 ///
@@ -147,6 +151,10 @@ pub(crate) struct V2DhtOrchestrator {
 	retention: Option<RetentionHandle>,
 	/// Prometheus metrics.
 	metrics: Option<V2DhtMetrics>,
+	/// When a sync guard last saw the node major-syncing, cleared once the settle period passed.
+	major_sync_seen_at: Option<Instant>,
+	/// Quiet time after the last observed major sync before the local filter is re-advertised.
+	pub(crate) settle_period: Duration,
 }
 
 impl V2DhtOrchestrator {
@@ -169,6 +177,8 @@ impl V2DhtOrchestrator {
 			peer_steering: PeerSteering::new(protocol),
 			retention: None,
 			metrics,
+			major_sync_seen_at: None,
+			settle_period: MAJOR_SYNC_SETTLE_PERIOD,
 		}
 	}
 
@@ -368,12 +378,26 @@ impl V2DhtOrchestrator {
 
 	pub(crate) fn evict_stale_peers(&mut self) {
 		self.peers_topology.evict(Instant::now());
+		self.publish_dht_affinity();
 		self.report_topology_size();
 	}
 
-	pub(crate) fn on_major_sync_end(&mut self) {
-		// TODO: The major sync processing may be different
-		log::trace!(target: LOG_TARGET, "v2dht: on_major_sync_end (stub)");
+	pub(crate) fn on_major_sync(&mut self) {
+		self.major_sync_seen_at = Some(Instant::now());
+		self.explicit_affinity.mark_local_filter_stale();
+	}
+
+	/// The local filter to advertise, withheld until the node has stayed out of major sync for
+	/// `settle_period`, so a sync that flaps around its threshold asks peers for one replay.
+	pub(crate) fn take_filter_to_advertise(&mut self) -> Option<AffinityFilter> {
+		if self
+			.major_sync_seen_at
+			.is_some_and(|seen_at| seen_at.elapsed() < self.settle_period)
+		{
+			return None;
+		}
+		self.major_sync_seen_at = None;
+		self.take_local_filter_if_changed()
 	}
 }
 #[cfg(test)]
@@ -796,5 +820,37 @@ mod tests {
 		assert!(mask.is_persistent());
 		assert!(mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
 		assert!(!mask.contains(RetentionReasonMask::DHT_AFFINITY));
+	}
+
+	#[test]
+	fn evict_stale_peers_republishes_dht_affinity() {
+		let mut orchestrator = orchestrator_with(1, topology_config(1, 1));
+		let handle = RetentionHandle::new(peer(1), nz(1));
+		orchestrator.set_retention_handle(handle.clone());
+
+		let peers: Vec<_> = (2u8..=200).map(peer).collect();
+		orchestrator.on_peers_discovered(peers.clone());
+		for peer in &peers {
+			orchestrator.on_peer_identified(*peer, /* supports_statement_protocol */ true);
+		}
+		let current = orchestrator.peers_topology.dht_affinity();
+		let lost_topic = (0u8..=255)
+			.map(topic)
+			.find(|topic| !current.is_affine(&statement_on(*topic)))
+			.expect("199 closer peers leave non-affine topics");
+		let dht_affine = || {
+			handle.resolver()(&statement_on(lost_topic)).contains(RetentionReasonMask::DHT_AFFINITY)
+		};
+		assert!(!dht_affine());
+
+		// Age every peer past the TTL behind the sweep's back: the local node is the only replica
+		// left, yet the oracle published before the eviction still denies the topic.
+		orchestrator
+			.peers_topology
+			.evict(Instant::now() + peers_topology::PEER_STALENESS_TTL);
+		assert!(!dht_affine());
+
+		orchestrator.evict_stale_peers();
+		assert!(dht_affine());
 	}
 }
