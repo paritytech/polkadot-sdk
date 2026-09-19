@@ -26,6 +26,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 mod bridge_to_ethereum_config;
 mod genesis_config_presets;
+mod price_oracle;
 mod weights;
 pub mod xcm_config;
 
@@ -1705,6 +1706,7 @@ construct_runtime!(
 		AssetsPrecompilesPermit: pallet_assets_precompiles::permit::pallet = 63,
 		VestingPrecompiles: pallet_vesting_precompiles::pallet = 64,
 		Psm: pallet_psm = 65,
+		PriceOracle: pallet_price_oracle = 67,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
@@ -3033,6 +3035,44 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			genesis_config_presets::preset_names()
+		}
+	}
+
+	impl sp_price_oracle::runtime_api::PriceOracleApi<Block, AuraId> for Runtime {
+		fn signers() -> Vec<AuraId> {
+			<price_oracle::Collators as pallet_price_oracle::Signers<AuraId>>::signers()
+		}
+
+		fn report_window() -> u32 {
+			pallet_price_oracle::Params::<Runtime>::get().map_or(0, |p| p.report_window)
+		}
+
+		fn latest_anchors() -> Vec<(AuraId, sp_price_oracle::Anchor)> {
+			PriceOracle::latest_anchors()
+		}
+	}
+
+	impl sp_price_oracle::runtime_api::PriceOracleMarketApi<Block> for Runtime {
+		fn tick_interval_ms() -> u32 {
+			pallet_price_oracle::Params::<Runtime>::get().map_or(0, |p| p.tick_interval_ms)
+		}
+
+		fn markets() -> Vec<sp_price_oracle::market::Market> {
+			PriceOracle::active_markets()
+		}
+
+		fn parse(
+			market: sp_price_oracle::market::MarketId,
+			responses: Vec<(sp_price_oracle::market::QueryTag, Vec<u8>)>,
+			now_ms: u64,
+		) -> Result<sp_price_oracle::Price, sp_price_oracle::runtime_api::ParseError> {
+			PriceOracle::parse_market(market, responses, now_ms)
+		}
+
+		fn aggregate(
+			prices: Vec<(sp_price_oracle::market::MarketId, sp_price_oracle::Price)>,
+		) -> Vec<sp_price_oracle::Quote> {
+			PriceOracle::aggregate_markets(prices)
 		}
 	}
 );
