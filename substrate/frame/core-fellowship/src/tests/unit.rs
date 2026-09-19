@@ -142,6 +142,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
+pub fn build_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		CoreFellowship::do_try_state().expect("All invariants must hold after a test");
+	});
+}
+
 fn next_block() {
 	System::set_block_number(System::block_number() + 1);
 }
@@ -164,7 +171,7 @@ fn next_demotion(who: u64) -> u64 {
 
 #[test]
 fn basic_stuff() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_eq!(CoreFellowship::rank_to_index(0), None);
 		assert_eq!(CoreFellowship::rank_to_index(1), Some(0));
 		assert_eq!(CoreFellowship::rank_to_index(9), Some(8));
@@ -175,7 +182,7 @@ fn basic_stuff() {
 
 #[test]
 fn set_params_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let params = ParamsType {
 			active_salary: bounded_vec![10, 20, 30, 40, 50, 60, 70, 80, 90],
 			passive_salary: bounded_vec![1, 2, 3, 4, 5, 6, 7, 8, 9],
@@ -193,7 +200,7 @@ fn set_params_works() {
 
 #[test]
 fn set_partial_params_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let params = ParamsType {
 			active_salary: bounded_vec![None; 9],
 			passive_salary: bounded_vec![None; 9],
@@ -227,7 +234,7 @@ fn set_partial_params_works() {
 
 #[test]
 fn import_member_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(CoreFellowship::import_member(signed(0), 0), Error::<Test>::Unranked);
 		assert_noop!(CoreFellowship::import(signed(0)), Error::<Test>::Unranked);
 
@@ -265,7 +272,7 @@ fn import_member_works() {
 
 #[test]
 fn import_member_same_as_import() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		for rank in 0..=9 {
 			set_rank(0, rank);
 
@@ -287,7 +294,7 @@ fn import_member_same_as_import() {
 
 #[test]
 fn induct_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		set_rank(0, 0);
 		assert_ok!(CoreFellowship::import(signed(0)));
 		set_rank(1, 1);
@@ -302,7 +309,7 @@ fn induct_works() {
 
 #[test]
 fn promote_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		set_rank(1, 1);
 		assert_ok!(CoreFellowship::import(signed(1)));
 		assert_noop!(CoreFellowship::promote(signed(1), 10, 1), Error::<Test>::Unranked);
@@ -324,7 +331,7 @@ fn promote_works() {
 fn promote_fast_works() {
 	let alice = 1;
 
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			CoreFellowship::promote_fast(signed(alice), alice, 1),
 			Error::<Test>::Unranked
@@ -380,7 +387,7 @@ fn promote_fast_works() {
 fn promote_fast_identical_to_promote() {
 	let alice = 1;
 
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		set_rank(alice, 0);
 		assert_eq!(TestClub::rank_of(&alice), Some(0));
 		assert_ok!(CoreFellowship::import(signed(alice)));
@@ -415,7 +422,7 @@ fn promote_fast_identical_to_promote() {
 
 #[test]
 fn sync_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		set_rank(10, 5);
 		assert_noop!(CoreFellowship::approve(signed(4), 10, 5), Error::<Test>::NoPermission);
 		assert_noop!(CoreFellowship::approve(signed(6), 10, 6), Error::<Test>::UnexpectedRank);
@@ -427,7 +434,7 @@ fn sync_works() {
 
 #[test]
 fn auto_demote_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		set_rank(10, 5);
 		assert_ok!(CoreFellowship::import(signed(10)));
 
@@ -443,7 +450,7 @@ fn auto_demote_works() {
 
 #[test]
 fn auto_demote_offboard_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		set_rank(10, 1);
 		assert_ok!(CoreFellowship::import(signed(10)));
 
@@ -459,7 +466,7 @@ fn auto_demote_offboard_works() {
 
 #[test]
 fn offboard_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(CoreFellowship::offboard(signed(0), 10), Error::<Test>::NotTracked);
 		set_rank(10, 0);
 		assert_noop!(CoreFellowship::offboard(signed(0), 10), Error::<Test>::Ranked);
@@ -476,7 +483,7 @@ fn offboard_works() {
 
 #[test]
 fn infinite_demotion_period_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let params = ParamsType {
 			active_salary: bounded_vec![10, 10, 10, 10, 10, 10, 10, 10, 10],
 			passive_salary: bounded_vec![10, 10, 10, 10, 10, 10, 10, 10, 10],
@@ -498,7 +505,7 @@ fn infinite_demotion_period_works() {
 
 #[test]
 fn proof_postpones_auto_demote() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		set_rank(10, 5);
 		assert_ok!(CoreFellowship::import(signed(10)));
 
@@ -511,7 +518,7 @@ fn proof_postpones_auto_demote() {
 
 #[test]
 fn promote_postpones_auto_demote() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		set_rank(10, 5);
 		assert_ok!(CoreFellowship::import(signed(10)));
 
@@ -524,7 +531,7 @@ fn promote_postpones_auto_demote() {
 
 #[test]
 fn get_salary_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		for i in 1..=9u64 {
 			set_rank(10 + i, i as u16);
 			assert_ok!(CoreFellowship::import(signed(10 + i)));
@@ -535,7 +542,7 @@ fn get_salary_works() {
 
 #[test]
 fn active_changing_get_salary_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		for i in 1..=9u64 {
 			set_rank(10 + i, i as u16);
 			assert_ok!(CoreFellowship::import(signed(10 + i)));
