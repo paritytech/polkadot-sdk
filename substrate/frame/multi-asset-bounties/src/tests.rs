@@ -2457,6 +2457,53 @@ fn close_parent_with_child_bounty() {
 }
 
 #[test]
+fn close_parent_bounty_after_child_payout_refunds_remaining_value() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Given: parent bounty (50) whose only child-bounty (10) has been paid out
+		let s = create_awarded_child_bounty();
+		approve_payment(
+			s.child_beneficiary,
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+			s.asset_kind,
+			s.child_value,
+		);
+		assert_eq!(pallet_bounties::ChildBountiesPerParent::<Test>::get(s.parent_bounty_id), 0);
+		assert_eq!(
+			pallet_bounties::ChildBountiesValuePerParent::<Test>::get(s.parent_bounty_id),
+			s.child_value
+		);
+		let remaining = s.value - s.child_value;
+
+		// Parent account holds only the remaining 40; a larger transfer must fail
+		let parent_bounty_account =
+			Bounties::bounty_account(s.parent_bounty_id, s.asset_kind).expect("conversion failed");
+		let funding_source_account =
+			Bounties::funding_source_account(s.asset_kind).expect("conversion failed");
+		unpay(parent_bounty_account, s.asset_kind, s.child_value);
+		assert_eq!(paid(parent_bounty_account, s.asset_kind), remaining);
+		set_strict_balances(true);
+
+		// When
+		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), s.parent_bounty_id, None));
+
+		// Then: only the remaining value is refunded
+		assert_eq!(paid(funding_source_account, s.asset_kind), remaining);
+		assert_eq!(paid(parent_bounty_account, s.asset_kind), 0);
+		approve_payment(funding_source_account, s.parent_bounty_id, None, s.asset_kind, remaining);
+		assert_eq!(pallet_bounties::Bounties::<Test>::get(s.parent_bounty_id), None);
+		assert_eq!(
+			pallet_bounties::ChildBountiesValuePerParent::<Test>::get(s.parent_bounty_id),
+			0
+		);
+		expect_events(vec![
+			BountiesEvent::BountyCanceled { index: s.parent_bounty_id, child_index: None },
+			BountiesEvent::BountyRefundProcessed { index: s.parent_bounty_id, child_index: None },
+		]);
+	});
+}
+
+#[test]
 fn fund_and_award_child_bounty_without_curator_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Given

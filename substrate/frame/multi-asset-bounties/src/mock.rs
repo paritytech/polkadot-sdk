@@ -45,6 +45,8 @@ thread_local! {
 	pub static PAID: RefCell<BTreeMap<(u128, u32), u64>> = RefCell::new(BTreeMap::new());
 	pub static STATUS: RefCell<BTreeMap<u64, PaymentStatus>> = RefCell::new(BTreeMap::new());
 	pub static LAST_ID: RefCell<u64> = RefCell::new(0u64);
+	/// If `true`, `pay` debits the source and fails when it holds too little (like `LocalPay`).
+	pub static STRICT_BALANCES: RefCell<bool> = RefCell::new(false);
 }
 
 pub struct TestBountiesPay;
@@ -57,11 +59,19 @@ impl PayWithSource for TestBountiesPay {
 	type Error = ();
 
 	fn pay(
-		_: &Self::Source,
+		from: &Self::Source,
 		to: &Self::Beneficiary,
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
+		if STRICT_BALANCES.with(|s| *s.borrow()) {
+			PAID.with(|paid| -> Result<(), ()> {
+				let mut paid = paid.borrow_mut();
+				let source = paid.entry((*from, asset_kind)).or_default();
+				*source = source.checked_sub(amount).ok_or(())?;
+				Ok(())
+			})?;
+		}
 		PAID.with(|paid| *paid.borrow_mut().entry((*to, asset_kind)).or_default() += amount);
 		Ok(LAST_ID.with(|lid| {
 			let x = *lid.borrow();
@@ -285,6 +295,11 @@ pub fn paid(who: u128, asset_id: u32) -> u64 {
 /// reduce paid balance for a given account and asset ids
 pub fn unpay(who: u128, asset_id: u32, amount: u64) {
 	PAID.with(|p| p.borrow_mut().entry((who, asset_id)).or_default().saturating_reduce(amount))
+}
+
+/// toggle strict balance checking in `TestBountiesPay`
+pub fn set_strict_balances(strict: bool) {
+	STRICT_BALANCES.with(|s| *s.borrow_mut() = strict);
 }
 
 /// set status for a given payment id
