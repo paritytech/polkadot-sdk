@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789772484995,
+  "lastUpdate": 1789787774424,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "00fb736fb7aedce81d74d85113791a7968e20f35",
-          "message": "`prefix_logs_with`: Ensure the macro works correctly for futures (#11095)\n\nWhen setting up a tracing span in an async future, it may gets\ninvalidated by any `await` point. The problem is that after continuing a\nfuture, it may runs on a different thread where the `span` isn't active\nanymore. The solution for this is to `instrument` the future properly.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-18T21:04:19Z",
-          "tree_id": "0a7e2fc4cb39cffcbe9d70ac2dfd1c157cbb96eb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/00fb736fb7aedce81d74d85113791a7968e20f35"
-        },
-        "date": 1771452989208,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14478560031333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009798344393333314,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024962276720000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007068171339999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02519747252,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1cc9ce56bc20e686b6a4383228d3c70d16a710e0",
+          "message": "Bump PolkaVM from 0.35 to 0.36 (#13261)\n\nUpdates the four workspace PolkaVM pins (`polkavm`, `polkavm-common`,\n`polkavm-derive`, `polkavm-linker`) from 0.35.0 to 0.36.0. The\n`pallet-revive` fixtures build template follows the workspace pin.\n\nAlso removes the orphaned `try_compile_invalid_fixture` helper from\n`pallet-revive-fixtures`. Its only caller was the\n`sbrk_cannot_be_linked` test that #12523 deleted together with the sbrk\nfixture.\n\nSplit out of #12142, which needs this version but where the bump does\nnot belong.",
+          "timestamp": "2026-09-19T01:34:04Z",
+          "tree_id": "49f41fe15b3fcc0a5094fa25a1b9649fcd53339f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1cc9ce56bc20e686b6a4383228d3c70d16a710e0"
+        },
+        "date": 1789787734711,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010097151919999976,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025119173513333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007972491413333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1439845652733333,
             "unit": "seconds"
           }
         ]
