@@ -33,6 +33,7 @@ use crate::{
 	transient_storage::TransientStorage,
 };
 use alloc::{
+	borrow::Cow,
 	collections::{BTreeMap, BTreeSet},
 	vec::Vec,
 };
@@ -2043,6 +2044,33 @@ where
 			f(&self.transient_storage)
 		}
 	}
+
+	/// Code served for `address` from a source other than [`crate::PristineCode`]: a
+	/// precompile's code stub, mocked code, or the EIP-7702 delegation indicator.
+	///
+	/// Single source of truth for `code_hash`, `code_size` and `copy_code_slice`, which
+	/// must all resolve code from the same sources in the same priority order.
+	fn virtual_code(&self, address: &H160) -> Option<Cow<'_, [u8]>> {
+		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
+			self.exec_config
+				.mock_handler
+				.as_ref()
+				.and_then(|handler| handler.mocked_code(*address))
+		}) {
+			return Some(Cow::Borrowed(code));
+		}
+
+		// EIP-7702: delegated EOAs return `0xef0100 || target` as their code.
+		//
+		// PVM caveat: on PolkaVM, CODESIZE/CODECOPY lower to the same host functions
+		// as EXTCODESIZE/EXTCODECOPY, so this branch is reached for both. It is
+		// spec-correct for the EXT* opcodes but wrong for CODESIZE/CODECOPY inside a
+		// delegated EOA's execution — the executing code there is the target's PVM
+		// blob, not the 23-byte indicator. Spec-correct CODESIZE/CODECOPY require a
+		// separate host function and a matching resolc change; tracked as a follow-up.
+		<AccountInfo<T>>::get_delegation_target(address)
+			.map(|target| Cow::Owned(<AccountInfo<T>>::delegation_indicator(&target).to_vec()))
+	}
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>
@@ -2447,21 +2475,10 @@ where
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {
-		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
-			self.exec_config
-				.mock_handler
-				.as_ref()
-				.and_then(|handler| handler.mocked_code(*address))
-		}) {
-			return sp_io::hashing::keccak_256(code).into();
-		}
-
-		// EIP-7702: delegated EOAs return keccak256(0xef0100 || target). This is the
 		// EXTCODEHASH path; CODEHASH (self) uses the separate `own_code_hash` host
-		// function and is therefore unaffected.
-		if let Some(target) = <AccountInfo<T>>::get_delegation_target(address) {
-			let indicator = <AccountInfo<T>>::delegation_indicator(&target);
-			return sp_io::hashing::keccak_256(&indicator).into();
+		// function and is therefore unaffected by the virtual code sources.
+		if let Some(code) = self.virtual_code(address) {
+			return sp_io::hashing::keccak_256(&code).into();
 		}
 
 		<AccountInfo<T>>::load_contract(&address)
@@ -2475,25 +2492,8 @@ where
 	}
 
 	fn code_size(&self, address: &H160) -> u64 {
-		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
-			self.exec_config
-				.mock_handler
-				.as_ref()
-				.and_then(|handler| handler.mocked_code(*address))
-		}) {
+		if let Some(code) = self.virtual_code(address) {
 			return code.len() as u64;
-		}
-
-		// EIP-7702: delegated EOAs return the delegation indicator size (23 bytes).
-		//
-		// PVM caveat: on PolkaVM, EXTCODESIZE and CODESIZE both lower to this
-		// host function, so this branch is reached for both. It is spec-correct
-		// for EXTCODESIZE but wrong for CODESIZE inside a delegated EOA's
-		// execution — the executing code there is the target's PVM blob, whose
-		// size is not 23. Spec-correct CODESIZE requires a separate host
-		// function and a matching resolc change; tracked as a follow-up.
-		if <AccountInfo<T>>::is_delegated(address) {
-			return 23;
 		}
 
 		<AccountInfo<T>>::load_contract(&address)
@@ -2638,39 +2638,25 @@ where
 	}
 
 	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize) {
-		let len = buf.len();
-		if len == 0 {
+		fn copy_padded(buf: &mut [u8], mut code: &[u8], code_offset: usize) {
+			code = code.split_off(code_offset..).unwrap_or(&[]);
+			let len = buf.len().min(code.len());
+			buf[..len].copy_from_slice(&code[..len]);
+			buf[len..].fill(0);
+		}
+
+		if buf.is_empty() {
 			return;
 		}
 
-		let code = if let Some(code) =
-			<AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
-				self.exec_config
-					.mock_handler
-					.as_ref()
-					.and_then(|handler| handler.mocked_code(*address))
-			}) {
-			code.to_vec()
-		} else if let Some(target) = <AccountInfo<T>>::get_delegation_target(address) {
-			// EIP-7702: delegated EOAs return 0xef0100 || target as their code.
-			//
-			// PVM caveat: on PolkaVM, EXTCODECOPY and CODECOPY both lower to this
-			// host function, so this branch is reached for both. It is spec-correct
-			// for EXTCODECOPY but wrong for CODECOPY inside a delegated EOA's
-			// execution — the executing code there is the target's PVM blob, not
-			// the 23-byte indicator. Spec-correct CODECOPY requires a separate
-			// host function and a matching resolc change; tracked as a follow-up.
-			<AccountInfo<T>>::delegation_indicator(&target).to_vec()
-		} else {
-			let code_hash = self.code_hash(address);
-			crate::PristineCode::<T>::get(&code_hash).unwrap_or_default()
-		};
-
-		let copy_len = len.min(code.len().saturating_sub(code_offset));
-		if copy_len > 0 {
-			buf[..copy_len].copy_from_slice(&code[code_offset..code_offset + copy_len]);
+		if let Some(code) = self.virtual_code(address) {
+			return copy_padded(buf, &code, code_offset);
 		}
-		buf[copy_len..].fill(0);
+
+		let code = <AccountInfo<T>>::load_contract(address)
+			.and_then(|contract| crate::PristineCode::<T>::get(&contract.code_hash))
+			.unwrap_or_default();
+		copy_padded(buf, &code, code_offset);
 	}
 
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {
