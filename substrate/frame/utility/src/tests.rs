@@ -32,7 +32,7 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use pallet_collective::{EnsureProportionAtLeast, Instance1};
 use sp_runtime::{
-	traits::{BadOrigin, BlakeTwo256, Dispatchable, Hash},
+	traits::{BadOrigin, Dispatchable},
 	BuildStorage, DispatchError, TokenError,
 };
 
@@ -841,7 +841,7 @@ fn batch_works_with_council_origin() {
 		});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
-		let hash = BlakeTwo256::hash_of(&proposal);
+		let hash = Council::proposal_hash(&proposal, 3);
 
 		assert_ok!(Council::propose(
 			RuntimeOrigin::signed(1),
@@ -878,7 +878,7 @@ fn force_batch_works_with_council_origin() {
 		});
 		let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
 		let proposal_weight = proposal.get_dispatch_info().call_weight;
-		let hash = BlakeTwo256::hash_of(&proposal);
+		let hash = Council::proposal_hash(&proposal, 3);
 
 		assert_ok!(Council::propose(
 			RuntimeOrigin::signed(1),
