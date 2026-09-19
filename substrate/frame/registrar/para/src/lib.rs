@@ -139,11 +139,26 @@ pub enum RegistrationState<Ticket, BlockNumber> {
 		/// really has gone quiet. Pushed out again by every [`Pallet::cancel_registration`], so a
 		/// cancellation that gets lost can be retried but not spammed.
 		cancellable_at: BlockNumber,
+		/// The request this state is waiting on; a response carrying any other id is stale.
+		message_id: u64,
 	},
 	/// The relay chain has onboarded this para.
 	Registered {
 		/// The registration's [`Consideration`] ticket, kept while the para is registered.
 		ticket: Ticket,
+	},
+	/// The relay chain has been asked to drop this para and has not reported back.
+	///
+	/// Both deposits stay held: only the relay chain knows whether the para really went away, and
+	/// a refusal puts it straight back to [`RegistrationState::Registered`].
+	Deregistering {
+		/// The registration's [`Consideration`] ticket, released once the relay chain confirms.
+		ticket: Ticket,
+		/// The block from which the manager may send the [`Deregister`] again, if the answer
+		/// never arrived.
+		can_retry_after: BlockNumber,
+		/// The request this state is waiting on; a response carrying any other id is stale.
+		message_id: u64,
 	},
 }
 
@@ -326,6 +341,8 @@ pub mod pallet {
 		CancelRefused { para_id: ParaId, message_id: u64, reason: FailureReason },
 		/// A head was noted for a para that is not registered.
 		HeadNotedForUnregisteredPara { para_id: ParaId },
+		/// A response answering a request this pallet is no longer waiting on.
+		StaleResponse { para_id: ParaId, message_id: u64, expected: u64 },
 	}
 
 	#[pallet::error]
@@ -358,6 +375,8 @@ pub mod pallet {
 		NotLocked,
 		/// The para is not registered on the relay chain.
 		NotRegistered,
+		/// The call is scaffolded but not implemented yet.
+		Unimplemented,
 	}
 
 	#[pallet::hooks]
@@ -394,6 +413,25 @@ pub mod pallet {
 					message_id,
 					outcome,
 				}) => Self::on_cancel_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::DeregisterResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_deregister_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::CodeUpgradeResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_code_upgrade_response(para_id, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::CodeUpgradeScheduled {
+					para_id,
+					message_id,
+				}) => Self::on_code_upgrade_scheduled(para_id, message_id),
+				MessageToPara::V1(MessageToParaV1::SetHeadResponse {
+					para_id,
+					message_id,
+					outcome,
+				}) => Self::on_set_head_response(para_id, message_id, outcome),
 				MessageToPara::V1(MessageToParaV1::HeadNoted { para_id }) => {
 					Self::on_head_noted(para_id)
 				},
@@ -471,11 +509,11 @@ pub mod pallet {
 
 			let cancellable_at = T::BlockNumberProvider::current_block_number()
 				.saturating_add(T::PendingDeadline::get());
-			info.state = RegistrationState::Pending { ticket, cancellable_at };
+			let message_id = Self::next_message_id();
+			info.state = RegistrationState::Pending { ticket, cancellable_at, message_id };
 			Paras::<T>::insert(para_id, info);
 
 			// A transport failure returns `Err` and unwinds everything above, ticket included.
-			let message_id = Self::next_message_id();
 			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::Register {
 				para_id,
 				message_id,
@@ -511,7 +549,7 @@ pub mod pallet {
 
 			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
 			ensure!(info.manager == who, Error::<T>::NotOwner);
-			let RegistrationState::Pending { ticket, cancellable_at } = info.state else {
+			let RegistrationState::Pending { ticket, cancellable_at, .. } = info.state else {
 				return Err(Error::<T>::NotPending.into());
 			};
 			let now = T::BlockNumberProvider::current_block_number();
@@ -519,14 +557,15 @@ pub mod pallet {
 
 			// Another deadline's grace before the manager may ask again, so a request that goes
 			// missing can be retried without the relay chain being asked once per block.
+			let message_id = Self::next_message_id();
 			info.state = RegistrationState::Pending {
 				ticket,
 				cancellable_at: now.saturating_add(T::PendingDeadline::get()),
+				message_id,
 			};
 			Paras::<T>::insert(para_id, info);
 
 			// A transport failure returns `Err` and unwinds the new deadline with it.
-			let message_id = Self::next_message_id();
 			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::CancelRegistration {
 				para_id,
 				message_id,
@@ -571,6 +610,54 @@ pub mod pallet {
 
 			Self::deposit_event(Event::ParaUnlocked { para_id });
 			Ok(())
+		}
+
+		#[pallet::call_index(6)]
+		#[pallet::weight(Weight::MAX)]
+		pub fn deregister(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
+			let _ = (origin, para_id);
+			// TODO(ahm-v2): request deregistration on the relay chain.
+			Err(Error::<T>::Unimplemented.into())
+		}
+
+		#[pallet::call_index(7)]
+		#[pallet::weight(Weight::MAX)]
+		pub fn schedule_code_upgrade(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+			code_hash: H256,
+			code_len: u32,
+		) -> DispatchResult {
+			let _ = (origin, para_id, code_hash, code_len);
+			// TODO(ahm-v2): send the code upgrade authorization to the relay chain.
+			Err(Error::<T>::Unimplemented.into())
+		}
+
+		#[pallet::call_index(8)]
+		#[pallet::weight(Weight::MAX)]
+		pub fn set_current_head(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+			head: Vec<u8>,
+		) -> DispatchResult {
+			let _ = (origin, para_id, head);
+			// TODO(ahm-v2): send the new head to the relay chain.
+			Err(Error::<T>::Unimplemented.into())
+		}
+
+		#[pallet::call_index(9)]
+		#[pallet::weight(Weight::MAX)]
+		pub fn force_register(
+			origin: OriginFor<T>,
+			para_id: ParaId,
+			manager: T::AccountId,
+			genesis_head: Vec<u8>,
+			code_len: u32,
+			code_hash: H256,
+		) -> DispatchResult {
+			let _ = (origin, para_id, manager, genesis_head, code_len, code_hash);
+			// TODO(ahm-v2): send a root-authorized registration to the relay chain.
+			Err(Error::<T>::Unimplemented.into())
 		}
 	}
 }
@@ -641,13 +728,21 @@ impl<T: Config> Pallet<T> {
 			});
 			return Ok(());
 		};
-		let RegistrationState::Pending { ticket, .. } = info.state else {
+		let RegistrationState::Pending { ticket, message_id: expected, .. } = info.state else {
 			Self::report_unexpected(UnexpectedKind::RegisterResponseNotPending {
 				para_id,
 				message_id,
 			});
 			return Ok(());
 		};
+		if message_id != expected {
+			Self::report_unexpected(UnexpectedKind::StaleResponse {
+				para_id,
+				message_id,
+				expected,
+			});
+			return Ok(());
+		}
 
 		let manager = info.manager.clone();
 		match outcome {
@@ -712,13 +807,21 @@ impl<T: Config> Pallet<T> {
 			});
 			return Ok(());
 		};
-		let RegistrationState::Pending { ticket, .. } = info.state else {
+		let RegistrationState::Pending { ticket, message_id: expected, .. } = info.state else {
 			log::debug!(
 				target: "runtime::registrar-para",
 				"cancel response for para {para_id} which is no longer pending, dropping",
 			);
 			return Ok(());
 		};
+		if message_id != expected {
+			Self::report_unexpected(UnexpectedKind::StaleResponse {
+				para_id,
+				message_id,
+				expected,
+			});
+			return Ok(());
+		}
 
 		let manager = info.manager.clone();
 		match outcome {
@@ -745,5 +848,37 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Ok(())
+	}
+
+	fn on_deregister_response(
+		para_id: ParaId,
+		message_id: u64,
+		outcome: Outcome,
+	) -> DispatchResult {
+		let _ = (para_id, message_id, outcome);
+		// TODO(ahm-v2): settle the pending deregistration from the relay chain's answer.
+		Err(Error::<T>::Unimplemented.into())
+	}
+
+	fn on_code_upgrade_response(
+		para_id: ParaId,
+		message_id: u64,
+		outcome: Result<u32, FailureReason>,
+	) -> DispatchResult {
+		let _ = (para_id, message_id, outcome);
+		// TODO(ahm-v2): settle the pending code upgrade from the relay chain's answer.
+		Err(Error::<T>::Unimplemented.into())
+	}
+
+	fn on_code_upgrade_scheduled(para_id: ParaId, message_id: u64) -> DispatchResult {
+		let _ = (para_id, message_id);
+		// TODO(ahm-v2): finish the code upgrade once the relay chain has scheduled it.
+		Err(Error::<T>::Unimplemented.into())
+	}
+
+	fn on_set_head_response(para_id: ParaId, message_id: u64, outcome: Outcome) -> DispatchResult {
+		let _ = (para_id, message_id, outcome);
+		// TODO(ahm-v2): settle the pending head update from the relay chain's answer.
+		Err(Error::<T>::Unimplemented.into())
 	}
 }

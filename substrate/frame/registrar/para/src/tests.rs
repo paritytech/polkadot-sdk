@@ -46,6 +46,11 @@ fn held(who: AccountId) -> Balance {
 }
 
 /// Reserve a para id for `who` and return it.
+/// The id the most recent message to the relay chain went out with.
+fn last_message_id() -> u64 {
+	crate::NextMessageId::<Test>::get() - 1
+}
+
 fn reserve_for(who: AccountId) -> u32 {
 	assert_ok!(Registrar::reserve(RuntimeOrigin::signed(who)));
 	let para_id = crate::NextFreeParaId::<Test>::get() - 1;
@@ -66,7 +71,7 @@ fn request_registration(who: AccountId, para_id: u32, head_len: usize, code_len:
 	blob
 }
 
-/// Reserve, register and confirm a para for `who` (message id 0), leaving the logs clean.
+/// Reserve, register and confirm a para for `who`, leaving the logs clean.
 ///
 /// Head and code sizes are 20 and 300, so the registration deposit is `PER_BYTE * 320`.
 fn registered_para(who: AccountId) -> u32 {
@@ -76,7 +81,7 @@ fn registered_para(who: AccountId) -> u32 {
 		RuntimeOrigin::root(),
 		MessageToPara::V1(MessageToParaV1::RegisterResponse {
 			para_id,
-			message_id: 0,
+			message_id: last_message_id(),
 			outcome: Ok(()),
 		}),
 	));
@@ -418,6 +423,8 @@ mod receive {
 		new_test_ext().execute_with(|| {
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
 			let _ = registrar_events();
 			let deposit = PER_BYTE * (20 + 300);
 
@@ -491,11 +498,13 @@ mod receive {
 		new_test_ext().execute_with(|| {
 			let para_id = reserve_for(ALICE);
 			request_registration(ALICE, para_id, 20, 300);
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
 			let _ = registrar_events();
 
 			assert_ok!(Registrar::receive(
 				RuntimeOrigin::root(),
-				cancel_message(para_id, 7, Err(FailureReason::TooManyPending))
+				cancel_message(para_id, 1, Err(FailureReason::TooManyPending))
 			));
 
 			assert!(matches!(
@@ -506,8 +515,132 @@ mod receive {
 				registrar_events(),
 				vec![Event::Unexpected(UnexpectedKind::CancelRefused {
 					para_id,
-					message_id: 7,
+					message_id: 1,
 					reason: FailureReason::TooManyPending,
+				})]
+			);
+		});
+	}
+
+	#[test]
+	fn a_register_response_for_another_request_leaves_it_pending() {
+		new_test_ext().execute_with(|| {
+			let para_id = reserve_for(ALICE);
+			request_registration(ALICE, para_id, 20, 300);
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				result_message(para_id, 9, Ok(())),
+			));
+
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Pending { .. }
+			));
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Unexpected(UnexpectedKind::StaleResponse {
+					para_id,
+					message_id: 9,
+					expected: 0,
+				})]
+			);
+		});
+	}
+
+	#[test]
+	fn a_cancellation_makes_the_registrations_verdict_stale() {
+		new_test_ext().execute_with(|| {
+			let para_id = reserve_for(ALICE);
+			request_registration(ALICE, para_id, 20, 300);
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				result_message(para_id, 0, Ok(())),
+			));
+
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Pending { .. }
+			));
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Unexpected(UnexpectedKind::StaleResponse {
+					para_id,
+					message_id: 0,
+					expected: 1,
+				})]
+			);
+		});
+	}
+
+	#[test]
+	fn a_cancel_response_for_another_request_leaves_it_pending() {
+		new_test_ext().execute_with(|| {
+			let para_id = reserve_for(ALICE);
+			request_registration(ALICE, para_id, 20, 300);
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				cancel_message(para_id, 0, Ok(())),
+			));
+
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Pending { .. }
+			));
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Unexpected(UnexpectedKind::StaleResponse {
+					para_id,
+					message_id: 0,
+					expected: 1,
+				})]
+			);
+		});
+	}
+
+	#[test]
+	fn a_stale_verdict_cannot_settle_a_later_attempt() {
+		new_test_ext().execute_with(|| {
+			let deposit = PER_BYTE * (20 + 300);
+			let para_id = reserve_for(ALICE);
+			request_registration(ALICE, para_id, 20, 300);
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				cancel_message(para_id, 1, Ok(())),
+			));
+			assert_eq!(Paras::<Test>::get(para_id).unwrap().state, RegistrationState::Reserved);
+
+			request_registration(ALICE, para_id, 20, 300);
+			let _ = registrar_events();
+
+			// The first attempt's verdict turns up late and must not drop the second's ticket.
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				result_message(para_id, 0, Err(FailureReason::TooManyPending)),
+			));
+
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Pending { .. }
+			));
+			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Unexpected(UnexpectedKind::StaleResponse {
+					para_id,
+					message_id: 0,
+					expected: 2,
 				})]
 			);
 		});
