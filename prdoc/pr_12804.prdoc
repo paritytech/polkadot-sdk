@@ -1,0 +1,27 @@
+title: '[pallet-revive] Improve precompile address matching'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Two related changes to `pallet-revive`'s pre-compile address handling.
+
+    **Block contract deployment at pre-compile addresses.** Nothing prevented a `CREATE`/`CREATE2`
+    from landing on an address served by a pre-compile. The resulting contract was permanently
+    shadowed: the storage deposit was taken and the code stored, but call dispatch, `code_hash`,
+    `code_size` and `Pallet::code` all consult pre-compiles first, so it could never be called,
+    terminated or refunded. `Stack::new_frame` now rejects such a deployment with the existing
+    `Error::DuplicateContract`, before any state is written.
+
+    **Add `AddressMatcher::VarPrefix { id, data_bytes }`.** `Prefix` hard-codes a 4-byte data
+    window, which is too narrow for pre-compiles that encode a wider identifier in the address,
+    such as a 16-byte asset id. `VarPrefix` makes the window width a parameter, capped at 16 bytes
+    and checked at compile time. `Prefix(x)` is exactly `VarPrefix { id: x, data_bytes: 4 }`, so
+    existing matchers are unaffected. Declare only as many data bytes as the encoded value
+    occupies: a narrower id inside a wider window would leave working duplicate addresses for the
+    same entity.
+
+    `AddressMatcher` is public and not `#[non_exhaustive]`, so downstream `match` expressions over
+    it become non-exhaustive. An instantiation that previously succeeded at a pre-compile address
+    now fails with `DuplicateContract`; no state migration is required.
+crates:
+- name: pallet-revive
+  bump: minor
