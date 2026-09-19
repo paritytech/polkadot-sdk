@@ -113,7 +113,7 @@ impl crate::signed::Config for Runtime {
 	type BailoutGraceRatio = BailoutGraceRatio;
 	type EjectGraceRatio = EjectGraceRatio;
 	type Slash = MockSlash;
-	type RewardSource = ActivePot<SignedRewardSource>;
+	type RewardSource = ActivePot<SignedRewardSource, Balances>;
 	type WeightInfo = ();
 }
 

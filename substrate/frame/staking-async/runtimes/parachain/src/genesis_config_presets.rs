@@ -26,7 +26,7 @@ use alloc::{
 use cumulus_primitives_core::ParaId;
 use frame_support::build_struct_json_patch;
 use parachains_common::{AccountId, AuraId};
-use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
+use sp_core::{crypto::get_public_from_string_or_panic, sr25519, Get};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::AccountIdConversion;
@@ -68,6 +68,8 @@ fn staking_async_parachain_genesis(params: GenesisParams, preset: String) -> ser
 
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig { balances },
+		// Authorise the signed phase to be paid out of the DAP buffer.
+		dap: DapConfig { buffer_draws: crate::staking::InitialBufferDraws::get() },
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {
 			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
