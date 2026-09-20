@@ -351,7 +351,12 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<{ relay_parent_offset() }>;
 	type SchedulingSignatureVerifier = NoVerification;
-	type ConsumptionRecordSource = ();
+	type ConsumptionRecordSource = SpecMessaging;
+}
+
+impl cumulus_pallet_spec_messaging::Config for Runtime {
+	type MaxMsgLen = ConstU32<{ 100 * 1024 }>;
+	type MaxMessagesPerBlock = ConstU32<256>;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -396,6 +401,7 @@ construct_runtime! {
 	{
 		System: frame_system,
 		ParachainSystem: cumulus_pallet_parachain_system,
+		SpecMessaging: cumulus_pallet_spec_messaging,
 		Timestamp: pallet_timestamp,
 		ParachainInfo: parachain_info,
 		Balances: pallet_balances,
