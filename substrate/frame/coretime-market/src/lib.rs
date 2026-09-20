@@ -27,8 +27,7 @@
 //!
 //! 2. **Renewal Phase**: Existing tenants with renewal rights can exercise them. If all cores are
 //!    allocated from the auction, renewers may displace the lowest non-renewer auction winner. A
-//!    penalty applies to renewers who did not participate in the auction when the market was
-//!    oversubscribed.
+//!    penalty applies to all renewals when the market was oversubscribed.
 //!
 //! 3. **Settlement Phase**: No primary sales occur. The pallet waits until the next sale's region
 //!    begins before rotating into a new market cycle. Regions are issued at the transition from
@@ -70,6 +69,7 @@ mod tests;
 extern crate alloc;
 
 use alloc::{vec, vec::Vec};
+use codec::Decode;
 use fp_coretime::{
 	market::{
 		AdjustBidResult, CoreRangeProvider, Market, OrderResult, RenewalOrderResult, SalesStarted,
@@ -83,9 +83,13 @@ use frame_support::{
 	weights::WeightMeter,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+use rand_chacha::{
+	rand_core::{RngCore, SeedableRng},
+	ChaChaRng,
+};
 use sp_arithmetic::{FixedPointNumber, Perbill};
 use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, SaturatedConversion, Saturating, Zero},
+	traits::{AtLeast32BitUnsigned, SaturatedConversion, Saturating, TrailingZeroInput, Zero},
 	BoundedVec, FixedPointOperand, FixedU64,
 };
 
@@ -133,7 +137,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxBids: Get<BidId>;
 
-		/// Source of randomness for shuffling marginal bids at settlement.
+		/// Source of randomness for shuffling equal-price bids at settlement.
+		///
+		/// Must not be predictable or influenceable by bidders, otherwise they can bias
+		/// selection among bids that tie at the clearing price.
 		type Randomness: Randomness<Self::Hash, BlockNumberFor<Self>>;
 	}
 
@@ -715,20 +722,12 @@ fn shuffle_marginal_bids<T: Config>(
 	let n = slice.len();
 
 	let (seed, _) = T::Randomness::random(b"coretime-market/shuffle");
-	let seed_bytes: &[u8] = seed.as_ref();
+	let seed = <[u8; 32]>::decode(&mut TrailingZeroInput::new(seed.as_ref()))
+		.expect("input is padded with zeroes; qed");
+	let mut rng = ChaChaRng::from_seed(seed);
 
-	let hash_len = seed_bytes.len().saturating_sub(3);
-	if hash_len == 0 {
-		return;
-	}
 	for i in (1..n).rev() {
-		let offset = ((i - 1) * 4) % hash_len;
-		let rand_val = u32::from_le_bytes(
-			seed_bytes[offset..offset + 4]
-				.try_into()
-				.expect("offset + 4 is within bounds; qed"),
-		);
-		let j = (rand_val as usize) % (i + 1);
+		let j = (rng.next_u32() as usize) % (i + 1);
 		slice.swap(i, j);
 	}
 }

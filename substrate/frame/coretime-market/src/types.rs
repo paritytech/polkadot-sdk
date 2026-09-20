@@ -117,7 +117,7 @@ pub struct ConfigRecord<BlockNumber, Balance> {
 	/// An artificial limit to the number of cores which are allowed to be sold. If `Some` then
 	/// no more cores will be sold than this.
 	pub limit_cores_offered: Option<CoreIndex>,
-	/// Penalty applied to renewers who didn't win in the auction (when market is oversubscribed).
+	/// Penalty applied to every renewal when the market is oversubscribed.
 	pub penalty: Perbill,
 	/// The duration by which rewards for contributions to the InstaPool must be collected.
 	pub contribution_timeout: Timeslice,

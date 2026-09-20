@@ -20,6 +20,7 @@ fp-coretime = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+rand_chacha = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-api = { workspace = true }
 sp-arithmetic = { workspace = true }
@@ -37,6 +38,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"rand_chacha/std",
 	"scale-info/std",
 	"sp-api/std",
 	"sp-arithmetic/std",
