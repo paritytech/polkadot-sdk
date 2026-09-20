@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789787727859,
+  "lastUpdate": 1789899334610,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "cf88f8c344c1f6abdd52693e0718ffa48ea382c8",
-          "message": "[Release|CI/CD] Replace direct use of inputs with ENVs (#11116)\n\nReplace direct use of inputs with ENVs in release pieplines\n\ncc: https://github.com/paritytech/release-engineering/issues/284",
-          "timestamp": "2026-02-19T15:31:08Z",
-          "tree_id": "9709563132726125cf0ff1caf55eb6504ed6cb3a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cf88f8c344c1f6abdd52693e0718ffa48ea382c8"
-        },
-        "date": 1771520123280,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.11997380540000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.285051383966664,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13811456403333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c2e1de81c62ceeb3397bc04548d16f336d4f28b5",
+          "message": "statement-store: refresh DHT affinity after peer eviction (#13248)\n\n## Description\n\nPart of #13038.\n\nPeer eviction updated the topology but left the store's DHT-affinity\nsnapshot unchanged. Removed peers could keep affecting retention until a\nlater Identify or substream-open event refreshed it.\n\nRepublish the snapshot when eviction removes a DHT-eligible peer. No-op\nsweeps and removal of unconfirmed peers skip the copy. Discovery and\neviction policies are unchanged.",
+          "timestamp": "2026-09-20T08:44:24Z",
+          "tree_id": "1fab2c85d4dd5f2943b72666432236a878b92072",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c2e1de81c62ceeb3397bc04548d16f336d4f28b5"
+        },
+        "date": 1789899295126,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14019951116666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.625975847500001,
             "unit": "seconds"
           }
         ]
