@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789787914212,
+  "lastUpdate": 1789899526611,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "8c106ffcc5174b9920a842415f84024bcb558724",
-          "message": "Improve crates publishing flow (#11056)\n\nCo-authored-by: Egor_P <egor@parity.io>\nCo-authored-by: ParityReleases <release-team@parity.io>",
-          "timestamp": "2026-02-18T12:38:39Z",
-          "tree_id": "03f0f5617e40bab3041642f513f2476040fbbafa",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8c106ffcc5174b9920a842415f84024bcb558724"
-        },
-        "date": 1771423931496,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00650119042,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009163775669999978,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026655524699999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.00918636812999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c2e1de81c62ceeb3397bc04548d16f336d4f28b5",
+          "message": "statement-store: refresh DHT affinity after peer eviction (#13248)\n\n## Description\n\nPart of #13038.\n\nPeer eviction updated the topology but left the store's DHT-affinity\nsnapshot unchanged. Removed peers could keep affecting retention until a\nlater Identify or substream-open event refreshed it.\n\nRepublish the snapshot when eviction removes a DHT-eligible peer. No-op\nsweeps and removal of unconfirmed peers skip the copy. Discovery and\neviction policies are unchanged.",
+          "timestamp": "2026-09-20T08:44:24Z",
+          "tree_id": "1fab2c85d4dd5f2943b72666432236a878b92072",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c2e1de81c62ceeb3397bc04548d16f336d4f28b5"
+        },
+        "date": 1789899487099,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00936373099999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009946751769999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00252192982,
             "unit": "seconds"
           }
         ]
