@@ -39,8 +39,7 @@ fn last_market_event() -> Event<Test> {
 	market_events().pop().expect("Expected at least one market event")
 }
 
-/// The region_begin of the first sale with default config.
-/// Computed as: old_region_end = commit_ts + region_length = (0+2)/2 + 3 = 4, new_begin = 4.
+/// First sale `region_begin`: commit_ts 1 + `region_length` 3.
 const FIRST_REGION_BEGIN: Timeslice = 4;
 
 fn start_sales(reserve_price: u64) {
@@ -113,12 +112,25 @@ fn configure_works() {
 #[test]
 fn configure_rejects_invalid() {
 	TestExt::new().execute_with(|| {
+		let configure = |config| {
+			<CoretimeMarket as Market<u64, u64, u64>>::configure(config)
+		};
+
 		let mut config = new_config();
-		config.market_period = 0; // Invalid.
-		assert_noop!(
-			<CoretimeMarket as Market<u64, u64, u64>>::configure(config),
-			Error::InvalidConfig
-		);
+		config.market_period = 0;
+		assert_noop!(configure(config), Error::InvalidConfig);
+
+		let mut config = new_config();
+		config.region_length = 0;
+		assert_noop!(configure(config), Error::InvalidConfig);
+
+		let mut config = new_config();
+		config.price_multiplier = 0;
+		assert_noop!(configure(config), Error::InvalidConfig);
+
+		let mut config = new_config();
+		config.sensitivity_millis = 0;
+		assert_noop!(configure(config), Error::InvalidConfig);
 	});
 }
 

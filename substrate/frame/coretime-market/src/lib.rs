@@ -908,7 +908,7 @@ fn rotate_sale<T: Config>(
 	let ideal_cores_sold = (config.ideal_bulk_proportion * cores_offered as u32) as u16;
 
 	let region_begin = old_sale.region_end;
-	let region_end = region_begin + config.region_length;
+	let region_end = region_begin.saturating_add(config.region_length);
 
 	let opening_price = new_reserve
 		.saturating_mul(config.price_multiplier.into())

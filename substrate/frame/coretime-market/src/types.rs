@@ -144,6 +144,15 @@ where
 		if self.market_period.is_zero() {
 			return Err(());
 		}
+		if self.region_length == 0 {
+			return Err(());
+		}
+		if self.price_multiplier == 0 {
+			return Err(());
+		}
+		if self.sensitivity_millis == 0 {
+			return Err(());
+		}
 		Ok(())
 	}
 }
