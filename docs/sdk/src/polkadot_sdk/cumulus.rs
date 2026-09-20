@@ -94,6 +94,7 @@ mod tests {
 				type DmpQueue = frame::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
 				type RelayParentOffset = ConstU32<0>;
 				type SchedulingSignatureVerifier = ();
+				type UmpSignalSource = ();
 			}
 
 			impl parachain_info::Config for Runtime {}
