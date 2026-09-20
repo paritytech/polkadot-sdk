@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789786731644,
+  "lastUpdate": 1789898509419,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -126359,6 +126359,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2679268522,
             "range": "± 27537913",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c2e1de81c62ceeb3397bc04548d16f336d4f28b5",
+          "message": "statement-store: refresh DHT affinity after peer eviction (#13248)\n\n## Description\n\nPart of #13038.\n\nPeer eviction updated the topology but left the store's DHT-affinity\nsnapshot unchanged. Removed peers could keep affecting retention until a\nlater Identify or substream-open event refreshed it.\n\nRepublish the snapshot when eviction removes a DHT-eligible peer. No-op\nsweeps and removal of unconfirmed peers skip the copy. Discovery and\neviction policies are unchanged.",
+          "timestamp": "2026-09-20T08:44:24Z",
+          "tree_id": "1fab2c85d4dd5f2943b72666432236a878b92072",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c2e1de81c62ceeb3397bc04548d16f336d4f28b5"
+        },
+        "date": 1789898470263,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20361057,
+            "range": "± 211337",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20431660,
+            "range": "± 170409",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21991241,
+            "range": "± 77732",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26757614,
+            "range": "± 196846",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61528572,
+            "range": "± 938501",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 366282077,
+            "range": "± 9867238",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2567771408,
+            "range": "± 80638423",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17382423,
+            "range": "± 223845",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17422104,
+            "range": "± 162595",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17472069,
+            "range": "± 105290",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22225336,
+            "range": "± 159394",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 60348793,
+            "range": "± 601391",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 361092080,
+            "range": "± 3680151",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2693038782,
+            "range": "± 31974965",
             "unit": "ns/iter"
           }
         ]
