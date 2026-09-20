@@ -138,6 +138,12 @@ fn keyed(entries: &BTreeMap<StreamId, Hash>) -> Vec<([u8; STREAM_ID_LEN], Hash)>
 /// The `StreamsRoot` over `(stream, stream_root)` entries; `None` with no active streams. Sender
 /// side. Takes a `BTreeMap` so keys are unique; duplicates would reach `first_diverging_bit` with
 /// identical keys.
+///
+/// TODO(spec-msg): add an incremental updater here — apply one changed `(stream, stream_root)` to a
+/// cached root in O(log S) instead of rebuilding the whole trie in O(S). The sender pallet
+/// (`cumulus-pallet-spec-messaging`) currently recomputes this every touched block over all
+/// (eternal) streams, which grows without bound; a canonical incremental updater in this primitive
+/// would fix both the root and the `gen_stream_proof` paths without a second trie in the pallet.
 pub fn streams_root(entries: &BTreeMap<StreamId, Hash>) -> Option<StreamsRoot> {
 	let entries = keyed(entries);
 	if entries.is_empty() {
