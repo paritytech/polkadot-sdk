@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789787820993,
+  "lastUpdate": 1789899430521,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "jesuswrites20043@gmail.com",
-            "name": "dotdev.",
-            "username": "dotandev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "045528198e3189eef3824fa088a1ab77692b7edb",
-          "message": "polkadot-omni-node-lib: emit warnings for aura authority id type assumptions (#11102)\n\ncloses https://github.com/paritytech/polkadot-sdk/issues/11026\n\nThis PR adds explicit warnings at node startup to surface these\nassumptions:\n\n- When the chain spec id starts with `asset-hub-polkadot` or\n`statemint`,\nthe node assumes `ed25519` as the Aura authority id type and now emits a\n  warning documenting this specific assumption.\n- For all other chains, the node assumes `sr25519` by default and now\nemits\n  a warning noting that `ed25519` runtimes  are not yet\n  supported.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-19T10:57:16Z",
-          "tree_id": "46e4d2e109e610fa7db2880d85b8e851dc0c1029",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/045528198e3189eef3824fa088a1ab77692b7edb"
-        },
-        "date": 1771502545632,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63625.83,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52938.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002350608,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.7608962755900013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3901979127799917,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002350608,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000026170779999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000026170779999999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005195941920000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.068121950120025,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.621688798012844,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.69360265627,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.840130854320034,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.68363799946,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.6944603097799984,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting/test-environment",
             "value": 0.00001846113,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c2e1de81c62ceeb3397bc04548d16f336d4f28b5",
+          "message": "statement-store: refresh DHT affinity after peer eviction (#13248)\n\n## Description\n\nPart of #13038.\n\nPeer eviction updated the topology but left the store's DHT-affinity\nsnapshot unchanged. Removed peers could keep affecting retention until a\nlater Identify or substream-open event refreshed it.\n\nRepublish the snapshot when eviction removes a DHT-eligible peer. No-op\nsweeps and removal of unconfirmed peers skip the copy. Discovery and\neviction policies are unchanged.",
+          "timestamp": "2026-09-20T08:44:24Z",
+          "tree_id": "1fab2c85d4dd5f2943b72666432236a878b92072",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c2e1de81c62ceeb3397bc04548d16f336d4f28b5"
+        },
+        "date": 1789899391007,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63559.530000000006,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8398389010700278,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.710771111959998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.120207795950032,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3348319978200043,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005852587030000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.363890976842707,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018595779999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.0000200939,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018595779999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.0000200939,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.740374305310001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.72984381738,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7586950753800012,
             "unit": "seconds"
           }
         ]
