@@ -187,8 +187,9 @@ pub mod pallet {
 			who: T::AccountId,
 			/// Id of the bid that was displaced.
 			bid_id: BidId,
-			/// Amount that will be returned to the bidder whose bid was displaced(the full amount
-			/// of the bid).
+			/// Remaining locked amount returned to the displaced bidder (the clearing
+			/// price). Excess above the clearing price was already refunded at auction
+			/// settlement.
 			refund: BalanceOf<T>,
 		},
 		/// The sale phase has changed.
@@ -225,6 +226,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// No active sales.
 		NoSales,
+		/// Sales have already been started.
+		AlreadyStarted,
 		/// Bid price exceeds current price.
 		Overpriced,
 		/// Bid does not exist or does not belong to caller.
@@ -318,6 +321,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		block_number: RelayBlockNumberOf<T>,
 		init_data: Self::InitData,
 	) -> Result<SalesStarted<RelayBlockNumberOf<T>>, Self::Error> {
+		ensure!(!SaleInfo::<T>::exists(), Error::<T>::AlreadyStarted);
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let core_range = Self::CoreRangeProvider::core_range().ok_or(Error::<T>::Uninitialized)?;
 

@@ -225,6 +225,7 @@ pub struct AccountQuota {
 pub struct BidDisplacement<AccountId, Balance> {
 	/// The bidder account.
 	pub who: AccountId,
-	/// Amount to be refunded to the bidder.
+	/// Remaining locked amount (the clearing price). Excess was already refunded at
+	/// auction settlement.
 	pub refund: Balance,
 }

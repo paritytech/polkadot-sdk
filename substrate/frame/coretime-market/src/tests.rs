@@ -134,6 +134,18 @@ fn start_sales_works() {
 }
 
 #[test]
+fn start_sales_fails_if_already_started() {
+	TestExt::new().execute_with(|| {
+		start_sales(100);
+		let init = InitData { reserve_price: 100 };
+		assert_noop!(
+			<CoretimeMarket as Market<u64, u64, u64>>::start_sales(0, init),
+			Error::AlreadyStarted
+		);
+	});
+}
+
+#[test]
 fn start_sales_fails_without_config() {
 	new_test_ext().execute_with(|| {
 		// No configure() called — should fail.
