@@ -116,14 +116,13 @@ mod benches {
 	#[benchmark]
 	fn place_order() -> Result<(), BenchmarkError> {
 		setup_sale::<T>()?;
-		let max = T::MaxBids::get();
-		fill_bids::<T>(max - 1)?;
+		fill_bids::<T>(T::MaxBids::get())?;
 
 		let caller: T::AccountId = account("caller", 0, SEED);
 
 		#[block]
 		{
-			Pallet::<T>::place_order(0u32.into(), &caller, 150u32.into())
+			Pallet::<T>::place_order(0u32.into(), &caller, 200u32.into())
 				.map_err(|_| BenchmarkError::Weightless)?;
 		}
 

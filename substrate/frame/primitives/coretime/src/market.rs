@@ -84,6 +84,9 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 	/// Depending on the implementation, this either: places a bid, or immediately executes the
 	/// purchase.
 	///
+	/// A bounded bid book may replace the lowest bid with a strictly higher one. The replaced
+	/// bidder is returned in [`OrderResult::BidPlaced`] `evicted` so the caller can refund them.
+	///
 	/// ### Parameters
 	/// - `block_number`: Current relay chain block number.
 	/// - `who`: Account placing the order.
@@ -92,7 +95,7 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 		block_number: RelayBlockNumber,
 		who: &AccountId,
 		price_limit: Balance,
-	) -> Result<OrderResult<Balance, Self::BidId>, Self::Error>;
+	) -> Result<OrderResult<AccountId, Balance, Self::BidId>, Self::Error>;
 
 	/// Place an order to renew a coretime region.
 	///
@@ -198,13 +201,15 @@ pub struct SalesStarted<RelayBlockNumber> {
 
 /// Possible outcomes of [`Market::place_order`].
 #[derive(Debug, PartialEq)]
-pub enum OrderResult<Balance, BidId> {
+pub enum OrderResult<AccountId, Balance, BidId> {
 	/// A bid was placed.
 	BidPlaced {
 		/// Identifier of the bid.
 		id: BidId,
 		/// Amount to lock when placing the bid.
 		bid_price: Balance,
+		/// If the book was full, the replaced bidder and the locked amount to refund.
+		evicted: Option<(AccountId, Balance)>,
 	},
 	/// The region was purchased immediately.
 	Sold {

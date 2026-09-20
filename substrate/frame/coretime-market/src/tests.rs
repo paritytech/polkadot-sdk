@@ -19,7 +19,7 @@
 
 use crate::{
 	mock::*,
-	pallet::{Configuration, SaleInfo},
+	pallet::{Bids, Configuration, SaleInfo},
 	BidDisplacement, Event, InitData, SalePhase,
 };
 use fp_coretime::{
@@ -63,7 +63,7 @@ fn place_bid(
 	block_number: u64,
 	who: u64,
 	price_limit: u64,
-) -> Result<OrderResult<u64, u32>, Error> {
+) -> Result<OrderResult<u64, u64, u32>, Error> {
 	<CoretimeMarket as Market<u64, u64, u64>>::place_order(block_number, &who, price_limit)
 }
 
@@ -179,9 +179,10 @@ fn place_bid_works() {
 		start_sales(100);
 		let result = place_bid(0, 1, 500).expect("bid should succeed");
 		match result {
-			OrderResult::BidPlaced { id, bid_price } => {
+			OrderResult::BidPlaced { id, bid_price, evicted } => {
 				assert_eq!(id, 0);
 				assert_eq!(bid_price, 200);
+				assert!(evicted.is_none());
 			},
 			_ => panic!("Expected BidPlaced"),
 		}
@@ -236,11 +237,11 @@ fn bid_below_reserve_fails_without_filling_bid_slot() {
 		start_sales(100);
 
 		assert_noop!(place_bid(0, 1, 99), Error::BidTooLow);
-		assert!(crate::pallet::Bids::<Test>::get().is_empty());
+		assert!(Bids::<Test>::get().is_empty());
 
 		// A bid at the reserve is still valid.
 		assert_ok!(place_bid(20, 1, 100));
-		assert_eq!(crate::pallet::Bids::<Test>::get().len(), 1);
+		assert_eq!(Bids::<Test>::get().len(), 1);
 	});
 }
 
@@ -253,8 +254,49 @@ fn max_bids_limit_enforced() {
 			place_bid(0, i + 1, 200).unwrap();
 		}
 
-		// 101st bid should fail.
-		assert_noop!(place_bid(0, 101, 200), Error::TooManyBids);
+		// Equal-price 101st bid cannot enter a full book.
+		assert_noop!(place_bid(0, 101, 200), Error::BidTooLow);
+	});
+}
+
+#[test]
+fn higher_bid_evicts_lowest_when_full() {
+	TestExt::new().execute_with(|| {
+		start_sales(100);
+		for i in 0..100u64 {
+			place_bid(0, i + 1, 100).unwrap();
+		}
+
+		let result = place_bid(0, 101, 200).unwrap();
+		match result {
+			OrderResult::BidPlaced { id, bid_price, evicted } => {
+				assert_eq!(id, 100);
+				assert_eq!(bid_price, 200);
+				assert_eq!(evicted, Some((1, 100)));
+			},
+			_ => panic!("Expected BidPlaced"),
+		}
+
+		let bids = Bids::<Test>::get();
+		assert_eq!(bids.len(), 100);
+		assert!(bids.iter().any(|b| b.who == 101 && b.price == 200));
+		assert!(!bids.iter().any(|b| b.who == 1));
+		assert!(market_events()
+			.iter()
+			.any(|e| matches!(e, Event::BidEvicted { who: 1, bid_id: 0, refund: 100 })));
+	});
+}
+
+#[test]
+fn lower_bid_rejected_when_full() {
+	TestExt::new().execute_with(|| {
+		start_sales(100);
+		for i in 0..100u64 {
+			place_bid(0, i + 1, 200).unwrap();
+		}
+
+		assert_noop!(place_bid(0, 101, 150), Error::BidTooLow);
+		assert_eq!(Bids::<Test>::get().len(), 100);
 	});
 }
 
@@ -262,7 +304,7 @@ fn max_bids_limit_enforced() {
 fn adjust_bid_raise_works() {
 	TestExt::new().execute_with(|| {
 		start_sales(100);
-		let OrderResult::BidPlaced { id, bid_price: _ } = place_bid(0, 1, 150).unwrap() else {
+		let OrderResult::BidPlaced { id, .. } = place_bid(0, 1, 150).unwrap() else {
 			panic!()
 		};
 

@@ -149,6 +149,15 @@ pub mod pallet {
 			/// Amount of the bid.
 			amount: BalanceOf<T>,
 		},
+		/// A bid was evicted from a full book by a strictly higher bid.
+		BidEvicted {
+			/// Whose bid was evicted.
+			who: T::AccountId,
+			/// Id of the bid that was evicted.
+			bid_id: BidId,
+			/// Full locked amount to refund.
+			refund: BalanceOf<T>,
+		},
 		/// An existing bid was raised to a higher price.
 		BidRaised {
 			/// A bidder who raised the bid.
@@ -238,13 +247,13 @@ pub mod pallet {
 		TooEarly,
 		/// No cores available for renewal.
 		Unavailable,
-		/// Maximum number of bids exceeded.
+		/// A bounded collection is full.
 		TooManyBids,
 		/// Operation not allowed in the current sale phase.
 		WrongPhase,
 		/// Bid price is above the current descending price.
 		BidTooHigh,
-		/// Bid price is below the reserve price.
+		/// Bid price is below the reserve, or not strictly above the lowest bid on a full book.
 		BidTooLow,
 		/// Invalid configuration.
 		InvalidConfig,
@@ -261,9 +270,15 @@ pub mod pallet {
 	pub type SaleInfo<T> = StorageValue<_, SaleInfoRecordOf<T>, OptionQuery>;
 
 	/// Active bids during the Market phase, sorted by price descending.
+	///
+	/// If the book is full, a strictly higher bid replaces the lowest bid.
 	#[pallet::storage]
 	pub type Bids<T: Config> =
 		StorageValue<_, BoundedVec<BidRecord<T::AccountId, BalanceOf<T>>, T::MaxBids>, ValueQuery>;
+
+	/// Next bid identifier. Incremented for each accepted bid.
+	#[pallet::storage]
+	pub type NextBidId<T: Config> = StorageValue<_, BidId, ValueQuery>;
 
 	/// Auction winners after settlement. May be displaced by renewers during the Renewal phase.
 	#[pallet::storage]
@@ -300,6 +315,30 @@ impl<T: Config> Pallet<T> {
 			SalePhase::Market => descending_price::<T>(block_number, &sale).ok(),
 			SalePhase::Renewal | SalePhase::Settlement => sale.clearing_price,
 		}
+	}
+
+	/// Insert `price` into the price-descending bid book.
+	///
+	/// If the book is full, the lowest bid is dropped only when `price` is strictly higher.
+	fn insert_bid(
+		who: &T::AccountId,
+		price: BalanceOf<T>,
+	) -> Result<(BidId, Option<BidRecord<T::AccountId, BalanceOf<T>>>), Error<T>> {
+		let mut bids = Bids::<T>::get();
+		if bids.is_full() {
+			let lowest = bids.last().ok_or(Error::<T>::TooManyBids)?;
+			ensure!(price > lowest.price, Error::<T>::BidTooLow);
+		}
+
+		let bid_id = NextBidId::<T>::get();
+		let pos = bids.partition_point(|b| b.price > price);
+		let replaced = bids
+			.force_insert_keep_left(pos, BidRecord { bid_id, who: who.clone(), price })
+			.map_err(|_| Error::<T>::TooManyBids)?;
+		NextBidId::<T>::put(bid_id.saturating_add(1));
+		Bids::<T>::put(bids);
+
+		Ok((bid_id, replaced))
 	}
 }
 
@@ -367,7 +406,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		block_number: RelayBlockNumberOf<T>,
 		who: &T::AccountId,
 		price_limit: BalanceOf<T>,
-	) -> Result<OrderResult<BalanceOf<T>, Self::BidId>, Self::Error> {
+	) -> Result<OrderResult<T::AccountId, BalanceOf<T>, Self::BidId>, Self::Error> {
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 		ensure!(sale.phase == SalePhase::Market, Error::<T>::WrongPhase);
 		ensure!(block_number >= sale.sale_start, Error::<T>::TooEarly);
@@ -376,17 +415,22 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		let current_price = descending_price::<T>(block_number, &sale)?;
 		let bid_price = price_limit.min(current_price);
 
-		let bid_id = Bids::<T>::try_mutate(|bids| {
-			let bid_id = bids.len() as BidId;
-			let record = BidRecord { bid_id, who: who.clone(), price: bid_price };
-			let pos = bids.partition_point(|b| b.price > bid_price);
-			bids.try_insert(pos, record).map_err(|_| Error::<T>::TooManyBids)?;
-			Ok::<_, Error<T>>(bid_id)
-		})?;
+		let (bid_id, replaced) = Self::insert_bid(who, bid_price)?;
 
+		if let Some(ref bid) = replaced {
+			Self::deposit_event(Event::BidEvicted {
+				who: bid.who.clone(),
+				bid_id: bid.bid_id,
+				refund: bid.price,
+			});
+		}
 		Self::deposit_event(Event::BidPlaced { who: who.clone(), bid_id, amount: bid_price });
 
-		Ok(OrderResult::BidPlaced { id: bid_id, bid_price })
+		Ok(OrderResult::BidPlaced {
+			id: bid_id,
+			bid_price,
+			evicted: replaced.map(|b| (b.who, b.price)),
+		})
 	}
 
 	fn place_renewal_order(
@@ -695,6 +739,7 @@ fn shuffle_marginal_bids<T: Config>(
 /// shuffles marginal bids for fair selection, then splits into winners and losers.
 fn settle_auction<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> {
 	let mut bids: Vec<_> = Bids::<T>::take().into_inner();
+	NextBidId::<T>::kill();
 	let k = sale.cores_offered as usize;
 	let reserve = sale.reserve_price;
 
