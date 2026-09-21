@@ -21,8 +21,8 @@
 use std::sync::Arc;
 
 use prometheus_endpoint::{
-	prometheus::HistogramTimer, register, Counter, CounterVec, Gauge, Histogram, HistogramOpts,
-	Opts, PrometheusError, Registry, U64,
+	prometheus::HistogramTimer, register, Counter, CounterVec, Gauge, GaugeVec, Histogram,
+	HistogramOpts, Opts, PrometheusError, Registry, U64,
 };
 
 #[derive(Clone, Default)]
@@ -68,6 +68,10 @@ pub struct Metrics {
 	pub expired_total: Gauge<U64>,
 	pub capacity_statements: Gauge<U64>,
 	pub capacity_bytes: Gauge<U64>,
+	pub track_statements: GaugeVec<U64>,
+	pub track_bytes: GaugeVec<U64>,
+	pub track_capacity_statements: GaugeVec<U64>,
+	pub track_capacity_bytes: GaugeVec<U64>,
 	pub rejections: CounterVec<U64>,
 	pub internal_errors: CounterVec<U64>,
 	pub known_statements: CounterVec<U64>,
@@ -200,6 +204,46 @@ impl Metrics {
 				Counter::new(
 					"substrate_sub_statement_store_statements_expired_total",
 					"Total number of statements that expired and were removed; the hash is retained to be pruned after the grace period",
+				)?,
+				registry,
+			)?,
+			track_statements: register(
+				GaugeVec::new(
+					Opts::new(
+						"substrate_sub_statement_store_track_statements",
+						"Current number of statements in the store, by the reason they are kept",
+					),
+					&["track"],
+				)?,
+				registry,
+			)?,
+			track_bytes: register(
+				GaugeVec::new(
+					Opts::new(
+						"substrate_sub_statement_store_track_bytes",
+						"Current total size of statement data in bytes, by the reason the statements are kept",
+					),
+					&["track"],
+				)?,
+				registry,
+			)?,
+			track_capacity_statements: register(
+				GaugeVec::new(
+					Opts::new(
+						"substrate_sub_statement_store_track_capacity_statements",
+						"Maximum number of statements the store holds for one reason of keeping them",
+					),
+					&["track"],
+				)?,
+				registry,
+			)?,
+			track_capacity_bytes: register(
+				GaugeVec::new(
+					Opts::new(
+						"substrate_sub_statement_store_track_capacity_bytes",
+						"Maximum total size of statement data in bytes the store holds for one reason of keeping them",
+					),
+					&["track"],
 				)?,
 				registry,
 			)?,

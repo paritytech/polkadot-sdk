@@ -83,6 +83,15 @@ pub const DEFAULT_REPLICATION_FACTOR: NonZeroUsize = NonZeroUsize::new(20).expec
 /// peers a statement is routed to for a given topic, on top of the topic's connected replicas.
 pub const DEFAULT_GOSSIP_TARGET: NonZeroUsize = NonZeroUsize::new(3).expect("3 is non-zero");
 
+/// Statement count and data size the store may hold for one reason of keeping statements.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TrackLimits {
+	/// Maximum number of statements.
+	pub max_statements: usize,
+	/// Maximum total data size in bytes.
+	pub max_size: usize,
+}
+
 /// Parameters of the v2 DHT statement path.
 #[derive(Clone, Debug)]
 pub struct V2DhtConfig {
@@ -97,6 +106,14 @@ pub struct V2DhtConfig {
 	pub replication_factor: NonZeroUsize,
 	/// Number of peers to gossip a statement to in addition to DHT-affinity routing targets.
 	pub gossip_target: NonZeroUsize,
+	/// Limits of the statements kept for DHT affinity, the store's global limits when `None`.
+	pub dht_affinity_limits: Option<TrackLimits>,
+	/// Limits of the statements kept for explicit affinity alone, the store's global limits when
+	/// `None`.
+	pub explicit_affinity_limits: Option<TrackLimits>,
+	/// Limits of the transient statements, kept until propagated, the store's global limits when
+	/// `None`.
+	pub transient_limits: Option<TrackLimits>,
 }
 
 impl Default for V2DhtConfig {
@@ -107,6 +124,9 @@ impl Default for V2DhtConfig {
 			bloom_seed: None,
 			replication_factor: DEFAULT_REPLICATION_FACTOR,
 			gossip_target: DEFAULT_GOSSIP_TARGET,
+			dht_affinity_limits: None,
+			explicit_affinity_limits: None,
+			transient_limits: None,
 		}
 	}
 }

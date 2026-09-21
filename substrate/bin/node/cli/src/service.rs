@@ -868,6 +868,9 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 			bloom_seed: cli.statement_bloom_seed,
 			replication_factor: cli.statement_replication_factor,
 			gossip_target: cli.statement_gossip_target,
+			dht_affinity_limits: None,
+			explicit_affinity_limits: None,
+			transient_limits: None,
 		}),
 	};
 

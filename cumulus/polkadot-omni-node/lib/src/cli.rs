@@ -388,6 +388,9 @@ impl<Config: CliConfig> Cli<Config> {
 							bloom_seed: self.statement_bloom_seed,
 							replication_factor: self.statement_replication_factor,
 							gossip_target: self.statement_gossip_target,
+							dht_affinity_limits: None,
+							explicit_affinity_limits: None,
+							transient_limits: None,
 						}
 					}),
 				},
