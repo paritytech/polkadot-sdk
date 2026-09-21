@@ -34,8 +34,8 @@
 //!   To satisfy this, statements are removed from the store starting with the lowest
 //!   `global_priority` until a constraint is satisfied.
 //! * On the v2 DHT path, the statements kept for DHT affinity, for explicit affinity alone and the
-//!   transient ones each have their own count and size limits, counted by the reason a statement
-//!   was admitted under.
+//!   transient ones each have their own count and size limits, counted by the reason a statement is
+//!   kept under.
 //!
 //! When a new statement is inserted that would not satisfy constraints in the first place, no
 //! statements are deleted and a `Rejected` result is returned.
@@ -355,7 +355,8 @@ struct EntryDetails {
 	channel: Option<Channel>,
 	data_len: usize,
 	admission_seq: u64,
-	/// Track at admission, fixed for the statement's lifetime: the totals it is counted in.
+	/// The track whose totals count the statement: its track at admission until the retention
+	/// sweep moves it.
 	track: RetentionTrack,
 }
 
@@ -364,22 +365,21 @@ impl Encode for EntryDetails {
 		self.channel.size_hint() +
 			(self.data_len as u32).size_hint() +
 			self.admission_seq.size_hint() +
-			(self.track as u8).size_hint()
+			self.track.size_hint()
 	}
 
 	fn encode_to<T: codec::Output + ?Sized>(&self, dest: &mut T) {
 		self.channel.encode_to(dest);
 		(self.data_len as u32).encode_to(dest);
 		self.admission_seq.encode_to(dest);
-		(self.track as u8).encode_to(dest);
+		self.track.encode_to(dest);
 	}
 }
 
 impl Decode for EntryDetails {
 	fn decode<I: codec::Input>(input: &mut I) -> std::result::Result<Self, codec::Error> {
 		let (channel, data_len, admission_seq, track) =
-			<(Option<Channel>, u32, u64, u8)>::decode(input)?;
-		let track = RetentionTrack::try_from(track)?;
+			<(Option<Channel>, u32, u64, RetentionTrack)>::decode(input)?;
 		Ok(EntryDetails { channel, data_len: data_len as usize, admission_seq, track })
 	}
 }
@@ -634,14 +634,14 @@ impl Config {
 			max_statements: self.max_total_statements,
 			max_size: self.max_total_size,
 		};
-		let configured = |limits: fn(&V2DhtConfig) -> Option<TrackLimits>| {
-			self.v2dht.as_ref().and_then(limits).unwrap_or(global)
-		};
+		let v2dht = self.v2dht.as_ref();
 		let mut limits = [global; RetentionTrack::COUNT];
-		limits[RetentionTrack::Transient as usize] = configured(|cfg| cfg.transient_limits);
+		limits[RetentionTrack::Transient as usize] =
+			v2dht.and_then(|cfg| cfg.transient_limits).unwrap_or(global);
 		limits[RetentionTrack::ExplicitOnly as usize] =
-			configured(|cfg| cfg.explicit_affinity_limits);
-		limits[RetentionTrack::Persistent as usize] = configured(|cfg| cfg.dht_affinity_limits);
+			v2dht.and_then(|cfg| cfg.explicit_affinity_limits).unwrap_or(global);
+		limits[RetentionTrack::Persistent as usize] =
+			v2dht.and_then(|cfg| cfg.dht_affinity_limits).unwrap_or(global);
 		limits
 	}
 }
@@ -670,28 +670,14 @@ struct QueryIndex {
 	retention_tracks: HashMap<Hash, RetentionTrack>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Encode, Decode)]
 enum RetentionTrack {
 	/// No affinity covers the statement, it only passes through on its way to the replicas: kept
 	/// until propagated.
-	Transient = 0,
+	Transient,
 	/// Only explicit affinity covers the statement: it is dropped once that affinity lapses.
-	ExplicitOnly = 1,
-	Persistent = 2,
-}
-
-impl TryFrom<u8> for RetentionTrack {
-	type Error = codec::Error;
-
-	fn try_from(code: u8) -> std::result::Result<Self, codec::Error> {
-		match code {
-			0 => Ok(RetentionTrack::Transient),
-			1 => Ok(RetentionTrack::ExplicitOnly),
-			2 => Ok(RetentionTrack::Persistent),
-			_ => Err("Unknown retention track".into()),
-		}
-	}
+	ExplicitOnly,
+	Persistent,
 }
 
 impl From<RetentionReasonMask> for RetentionTrack {
@@ -1338,10 +1324,11 @@ impl SubmitIndex {
 		&mut self,
 		account: &AccountId,
 		key: &PriorityKey,
-		details: &EntryDetails,
+		track: RetentionTrack,
+		data_len: usize,
 		banned: bool,
 	) {
-		self.totals = self.totals_after_removal([details]);
+		self.totals.sub(track, data_len);
 		if banned {
 			self.evicted_count += 1;
 		}
@@ -1355,10 +1342,30 @@ impl SubmitIndex {
 		}
 		if let Some(summary) = self.summaries.peek_mut(account) {
 			summary.count = summary.count.saturating_sub(1);
-			summary.data_size = summary.data_size.saturating_sub(details.data_len);
+			summary.data_size = summary.data_size.saturating_sub(data_len);
 			if summary.count == 0 {
 				self.summaries.remove(account);
 			}
+		}
+	}
+
+	/// Applies a committed track change to the counters and the cached record.
+	fn apply_retrack(
+		&mut self,
+		account: &AccountId,
+		key: &PriorityKey,
+		from: RetentionTrack,
+		to: RetentionTrack,
+		data_len: usize,
+	) {
+		self.totals.sub(from, data_len);
+		self.totals.add(to, data_len);
+		if let Some(cached) = self
+			.account_statements
+			.peek_mut(account)
+			.and_then(|record| record.by_priority.get_mut(key))
+		{
+			cached.track = to;
 		}
 	}
 
@@ -2357,11 +2364,29 @@ impl Store {
 				continue;
 			}
 			match verdict {
-				RetentionTrack::Persistent => {
-					self.query_index.write().retention_tracks.remove(&hash);
-				},
-				RetentionTrack::ExplicitOnly => {
-					self.query_index.write().retention_tracks.insert(hash, verdict);
+				RetentionTrack::Persistent | RetentionTrack::ExplicitOnly => {
+					match self.retrack_statement_locked(&mut submit_index, &hash, verdict) {
+						Ok(true) => {
+							let mut query_index = self.query_index.write();
+							if verdict.is_persistent() {
+								query_index.retention_tracks.remove(&hash);
+							} else {
+								query_index.retention_tracks.insert(hash, verdict);
+							}
+						},
+						Ok(false) => log::error!(
+							target: LOG_TARGET,
+							"Missing body or index entry for tracked statement {:?}",
+							HexDisplay::from(&hash)
+						),
+						Err(e) => log::warn!(
+							target: LOG_TARGET,
+							"Error moving statement {:?} to {:?}: {:?}",
+							HexDisplay::from(&hash),
+							verdict,
+							e
+						),
+					}
 				},
 				RetentionTrack::Transient => {
 					// A lapsed explicit-only statement may return with its affinity, a forwarded
@@ -3457,28 +3482,10 @@ impl Store {
 	) -> Result<bool> {
 		let current_time = self.timestamp();
 		{
-			// The body is read under the submit-index lock, so it cannot change under our feet
-			let Some(encoded) =
-				self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))?
-			else {
-				return Ok(false);
-			};
-			let Some((statement, account)) = Statement::decode(&mut encoded.as_slice())
-				.ok()
-				.and_then(|statement| statement.account_id().map(|account| (statement, account)))
-			else {
-				// A corrupt body cannot be tied back to its index rows
-				log::error!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(hash));
+			let Some((statement, account, details)) = self.indexed_statement_locked(hash)? else {
 				return Ok(false);
 			};
 			let expiry = Expiry(statement.expiry());
-			let account_key = account_index_key(&account, expiry, hash);
-			let details = self
-				.db
-				.get(col::INDEX_BY_ACCOUNT, &account_key)
-				.map_err(|e| Error::Db(e.to_string()))?
-				.as_deref()
-				.and_then(|mut value| EntryDetails::decode(&mut value).ok());
 
 			let mut commit = vec![(col::STATEMENTS, hash.to_vec(), None)];
 			commit.extend(statement_index_ops(hash, &statement, false));
@@ -3510,15 +3517,15 @@ impl Store {
 					Some(INDEX_EMPTY_VALUE.to_vec()),
 				));
 			}
-			// Without an index row the statement comes off the persistent totals, like migrated
-			// ones.
-			let details = details.unwrap_or(EntryDetails {
-				channel: statement.channel(),
-				data_len: statement.data_len(),
-				admission_seq: 0,
-				track: RetentionTrack::Persistent,
-			});
-			let totals = submit_index.totals_after_removal([&details]);
+			// Without an index row the track is unknown, so the statement comes off the persistent
+			// totals.
+			let (track, data_len) = details
+				.as_ref()
+				.map_or((RetentionTrack::Persistent, statement.data_len()), |details| {
+					(details.track, details.data_len)
+				});
+			let mut totals = submit_index.totals;
+			totals.sub(track, data_len);
 			commit.push(SubmitIndex::counters_op(&totals, submit_index.next_seq));
 			if let Err(e) = self.db.commit(commit) {
 				log::debug!(
@@ -3532,13 +3539,91 @@ impl Store {
 			submit_index.apply_removal(
 				&account,
 				&PriorityKey { hash: *hash, expiry },
-				&details,
+				track,
+				data_len,
 				banned,
 			);
 			self.query_index.write().note_remove(hash, &statement);
 			log::trace!(target: LOG_TARGET, "Expired statement {:?}", HexDisplay::from(hash));
 		}
 		Ok(true)
+	}
+
+	/// Moves a stored statement onto `track`: rewrites its account index row and the totals, so
+	/// the track's limits count it from now on. Returns `false` when the statement or its index
+	/// row is gone. Must run under the submit-index write lock.
+	fn retrack_statement_locked(
+		&self,
+		submit_index: &mut SubmitIndex,
+		hash: &Hash,
+		track: RetentionTrack,
+	) -> Result<bool> {
+		let Some((statement, account, details)) = self.indexed_statement_locked(hash)? else {
+			return Ok(false);
+		};
+		let Some(details) = details else {
+			log::error!(
+				target: LOG_TARGET,
+				"Missing or corrupt account index entry for statement {:?}",
+				HexDisplay::from(hash)
+			);
+			return Ok(false);
+		};
+		if details.track == track {
+			return Ok(true);
+		}
+		let expiry = Expiry(statement.expiry());
+		let mut totals = submit_index.totals;
+		totals.sub(details.track, details.data_len);
+		totals.add(track, details.data_len);
+		self.db
+			.commit([
+				(
+					col::INDEX_BY_ACCOUNT,
+					account_index_key(&account, expiry, hash),
+					Some(EntryDetails { track, ..details }.encode()),
+				),
+				SubmitIndex::counters_op(&totals, submit_index.next_seq),
+			])
+			.map_err(|e| Error::Db(e.to_string()))?;
+		submit_index.apply_retrack(
+			&account,
+			&PriorityKey { hash: *hash, expiry },
+			details.track,
+			track,
+			details.data_len,
+		);
+		Ok(true)
+	}
+
+	/// A statement's body, its account and its account index row, read under the submit-index
+	/// write lock. `None` when the body is gone.
+	fn indexed_statement_locked(
+		&self,
+		hash: &Hash,
+	) -> Result<Option<(Statement, AccountId, Option<EntryDetails>)>> {
+		// The body is read under the submit-index lock, so it cannot change under our feet
+		let Some(encoded) =
+			self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))?
+		else {
+			return Ok(None);
+		};
+		let Some((statement, account)) = Statement::decode(&mut encoded.as_slice())
+			.ok()
+			.and_then(|statement| statement.account_id().map(|account| (statement, account)))
+		else {
+			// A corrupt body cannot be tied back to its index rows
+			log::error!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(hash));
+			return Ok(None);
+		};
+		let account_key = account_index_key(&account, Expiry(statement.expiry()), hash);
+		let details = self
+			.db
+			.get(col::INDEX_BY_ACCOUNT, &account_key)
+			.map_err(|e| Error::Db(e.to_string()))?
+			.as_deref()
+			.and_then(|mut value| EntryDetails::decode(&mut value).ok());
+		Ok(Some((statement, account, details)))
 	}
 
 	/// Reports an [`col::INDEX_BY_EXPIRY`] row that survived its statement,
@@ -4907,8 +4992,10 @@ mod tests {
 		}));
 		let statement = signed_statement(0);
 		let hash = statement.hash();
+		let data_len = statement.data_len() as u64;
 		assert_eq!(store.submit(statement.clone(), StatementSource::Network), SubmitResult::New);
 		store.take_recent_statements().unwrap();
+		assert_eq!(track_totals(&store, RetentionTrack::Transient), (1, data_len));
 
 		// Explicit affinity arrived before the sweep: kept, tracked as explicit-only.
 		phase.store(1, Ordering::Relaxed);
@@ -4918,12 +5005,20 @@ mod tests {
 			store.query_index.read().retention_tracks.get(&hash),
 			Some(&RetentionTrack::ExplicitOnly)
 		);
+		assert_eq!(track_totals(&store, RetentionTrack::Transient), (0, 0));
+		assert_eq!(track_totals(&store, RetentionTrack::ExplicitOnly), (1, data_len));
 
 		// DHT affinity makes it a plain persistent statement, so tracking ends.
 		phase.store(2, Ordering::Relaxed);
 		store.maintain();
 		assert!(store.has_statement(&hash));
 		assert!(store.query_index.read().retention_tracks.is_empty());
+		assert_eq!(track_totals(&store, RetentionTrack::ExplicitOnly), (0, 0));
+		assert_eq!(track_totals(&store, RetentionTrack::Persistent), (1, data_len));
+
+		// The index row carries the new track, so the removal comes off it.
+		store.remove(&hash).unwrap();
+		assert_eq!(store.submit_index.read().totals, StoreTotals::default());
 	}
 
 	fn submit_one_statement_per_track(store: &Store) -> Vec<Statement> {

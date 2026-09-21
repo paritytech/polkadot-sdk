@@ -70,8 +70,8 @@ does not fit, it is rejected too. Global limits apply on top of per-account limi
 at most `DEFAULT_MAX_TOTAL_STATEMENTS` statements and `DEFAULT_MAX_TOTAL_SIZE` of data. On the v2
 DHT path the store also limits, separately and configurably, the statements it keeps for DHT
 affinity, for explicit affinity alone, and the transient ones it keeps only until propagated. A
-statement counts toward the reason it was admitted under, and a full reason rejects new statements
-of that reason while the others still admit theirs.
+statement counts toward the reason it is kept for, moving with the retention sweep, and a full
+reason rejects new statements of that reason while the others still admit theirs.
 
 Allowances are not fixed in code: they are held in chain state (keyed under
 `STATEMENT_ALLOWANCE_PREFIX`) and granted or revoked by the runtime; an account with no allowance —
