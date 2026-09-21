@@ -20,7 +20,12 @@ doc:
     The window is reached through `ExecutionTracerConfigV2`, selected by a new `TracerTypeV2` and
     carried by new `V3` input payloads of `trace_block`, `trace_tx` and `trace_call`, whose
     `version_declarations` are bumped to `3`. The `V1` and `V2` payloads and the output types are
-    unchanged.
+    unchanged. `trace_block` gets a `V3` payload because `TracerType` is in its containment chain,
+    as the versioning guide requires, though nothing sends it yet.
+
+    Nothing to configure, but two source breaks: a `match` on a versioned `trace_block`,
+    `trace_tx` or `trace_call` input payload must handle `V3`, and an `ExecutionTracerConfig`
+    struct literal must set `step_offset` or add `..Default::default()`.
 - audience: Node Dev
   description: |-
     `eth-rpc` pages internally. `debug_traceTransaction` and `debug_traceCall` call the runtime
@@ -32,8 +37,11 @@ doc:
     A trace is still bounded by what one response can carry. Where the steps do not fit within
     `--rpc-max-response-size` the request fails rather than return a prefix indistinguishable
     from a whole trace, and the error names the largest `limit` that would succeed; a `limit` the
-    response can hold is returned as asked for.
-    `debug_traceBlockByNumber` is unchanged.
+    response can hold is returned as asked for. `limit` counts from the start and there is no
+    `stepOffset` over JSON, so a later part of a trace cannot be asked for.
+
+    Nothing to configure: `debug_traceBlockByNumber` is unchanged, and raising
+    `--rpc-max-response-size` raises the longest trace a request can return.
 crates:
 - name: pallet-revive
   bump: major
