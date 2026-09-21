@@ -24,7 +24,8 @@ use sc_statement_store::{
 use sp_core::{sr25519, Bytes, Pair};
 use sp_runtime::BoundedVec;
 use sp_statement_store::{
-	RejectionReason, Statement, StatementAllowance, SubmitOutcome, SubmitResult, Topic, TopicFilter,
+	hash_encoded, RejectionReason, Statement, StatementAllowance, SubmitOutcome, SubmitResult,
+	Topic, TopicFilter,
 };
 use std::{
 	cell::Cell,
@@ -611,10 +612,12 @@ async fn statement_store_burst_flooding() -> Result<(), anyhow::Error> {
 ///
 /// Scenario:
 /// 1. Submit statements to alice and bob concurrently
-/// 2. Wait for bob to receive at least one alice statement (proving mid-sync)
+/// 2. Wait for bob to receive at least one alice statement; a dedicated subscription keeps counting
+///    until the kill, proving the crash caught the sync incomplete
 /// 3. Restart bob (simulating crash mid-sync)
 /// 4. While bob is restarting, submit statements to charlie
-/// 5. After bob recovers, verify all statements converge on every node
+/// 5. After bob recovers, verify all recoverable statements converge on every node, and that bob
+///    served most of them from its recovered database rather than re-sync
 ///
 /// Each node's statements use a distinct topic so we can track provenance.
 /// Statements are ~0.6 MiB each so only one fits per gossip notification,
@@ -653,13 +656,12 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 			.collect()
 	};
 
-	let hash_to_hex = |h: &[u8; 32]| format!("{:?}", sp_core::hexdisplay::HexDisplay::from(h));
-
 	let alice_stmts = make_statements(topic_alice, alice_count);
 	let bob_stmts = make_statements(topic_bob, bob_count);
 	let charlie_stmts = make_statements(topic_charlie, charlie_count);
-	let bob_stmt_hashes: HashSet<String> =
-		bob_stmts.iter().map(|s| hash_to_hex(&s.hash())).collect();
+	let hashes = |stmts: &[Statement]| stmts.iter().map(|s| s.hash()).collect::<HashSet<_>>();
+	let (alice_hashes, bob_hashes, charlie_hashes) =
+		(hashes(&alice_stmts), hashes(&bob_stmts), hashes(&charlie_stmts));
 
 	let network =
 		spawn_network_with_injected_allowances(&["alice", "bob", "charlie"], total_stmts as u32)
@@ -695,6 +697,20 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 		expect_statements_unordered(&mut bob_alice_sub, 1, 30).await
 	});
 
+	// Track bob's alice-sync progress on a dedicated subscription. It counts until the
+	// stream dies together with bob's RPC server, so the total is exactly the set of alice
+	// statements bob had been handed when it was killed: the proof that the crash was
+	// mid-sync, and the lower bound for the recovery check after the restart.
+	let bob_rpc = bob.rpc().await?;
+	let sync_progress_handle = tokio::spawn(async move {
+		let mut bob_alice_sub = subscribe_topic(&bob_rpc, topic_alice).await?;
+		let mut received = 0usize;
+		while let Ok(batch) = expect_statements_unordered(&mut bob_alice_sub, 1, 60).await {
+			received += batch.len();
+		}
+		Ok::<_, anyhow::Error>(received)
+	});
+
 	// Restart is chained via map to ensure it fires immediately after try_join
 	// completes, with no log output or other work in between that could give
 	// bob extra time to sync. Do not decouple these operations.
@@ -724,59 +740,88 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 	// so it's fine if alice finishes submitting after bob's restart.
 	alice_handle.await?.expect("alice submissions failed");
 
-	// Wait for bob's store to finish populating from disk before reading logs
-	tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-
-	// Count how many of bob's own statements survived the crash.
-	// ParityDB fsyncs asynchronously, so SIGKILL can lose the last write
-	// even though SubmitResult::New was returned. Statements that were never
-	// propagated to another node before the kill are unrecoverable.
-	let bob_logs = bob.logs().await?;
-	let loaded_hashes: HashSet<String> = bob_logs
-		.lines()
-		.filter_map(|l| l.split("Statement loaded ").nth(1).map(|h| h.trim().to_string()))
-		.collect();
-
+	// The sync-progress subscription died with bob's RPC server, so its count is bob's
+	// alice-sync state at the moment of the kill.
+	let alice_at_kill = sync_progress_handle.await??;
+	info!("Bob had received {}/{} alice statements when it was killed", alice_at_kill, alice_count);
 	assert!(
-		!loaded_hashes.is_empty(),
-		"No 'Statement loaded' entries found in bob's logs. \
-		 The log format may have changed or statement-store=trace is not configured.",
+		alice_at_kill < alice_count,
+		"Bob had the complete alice set before the kill; the crash was not mid-sync",
 	);
 
-	let bob_loaded = bob_stmt_hashes.intersection(&loaded_hashes).count();
-	let bob_lost = bob_count - bob_loaded;
-	let alice_loaded = loaded_hashes.len().saturating_sub(bob_loaded);
-	let expected_count = total_stmts - bob_lost;
-
-	info!(
-		"Bob loaded {} statements from disk ({} bob, {} alice)",
-		loaded_hashes.len(),
-		bob_loaded,
-		alice_loaded,
-	);
-	if bob_lost == 1 {
-		log::warn!("Bob lost 1 statement due to crash (unflushed ParityDB write)");
-	}
-	assert!(bob_lost <= 1, "Bob lost {} statements, expected at most 1", bob_lost);
-	assert!(
-		alice_loaded > 0 && alice_loaded < alice_count,
-		"Expected partial alice sync (mid-sync crash), got {}/{} alice statements",
-		alice_loaded,
-		alice_count,
-	);
-
-	info!("Verifying all {} recoverable statements converge on every node", expected_count);
+	// Everything recoverable must converge on every node. Alice's and charlie's statements
+	// were submitted to nodes that never crashed, so none of them may be lost. Of bob's own,
+	// SIGKILL may cost the last write (ParityDB fsyncs asynchronously, so SubmitResult::New
+	// does not imply durability) — and that statement is only truly lost if it also never
+	// propagated before the kill.
+	let filter =
+		TopicFilter::MatchAny(vec![topic_alice, topic_bob, topic_charlie].try_into().unwrap());
 	let alice_rpc = alice.rpc().await?;
 	let bob_rpc = bob.rpc().await?;
 	let charlie_rpc = charlie.rpc().await?;
-	let filter =
-		TopicFilter::MatchAny(vec![topic_alice, topic_bob, topic_charlie].try_into().unwrap());
+	let mut node_sets = Vec::new();
 	for (name, rpc) in [("alice", &alice_rpc), ("bob", &bob_rpc), ("charlie", &charlie_rpc)] {
 		let mut sub = subscribe_topic_filter(rpc, filter.clone()).await?;
-		let received = expect_statements_unordered(&mut sub, expected_count, 120).await?;
-		assert_eq!(received.len(), expected_count, "Statement count mismatch on {}", name,);
-		debug!("{}: all {} statements verified", name, expected_count);
+		let mut received = expect_statements_unordered(&mut sub, total_stmts - 1, 120).await?;
+		// Whether the potentially-lost statement survived is only known once it shows up;
+		// give it a short grace period before concluding it is gone.
+		if let Ok(extra) = expect_statements_unordered(&mut sub, 1, 15).await {
+			received.extend(extra);
+		}
+		let set: HashSet<[u8; 32]> = received.iter().map(|encoded| hash_encoded(encoded)).collect();
+		assert!(alice_hashes.is_subset(&set), "{} lost alice statements", name);
+		assert!(charlie_hashes.is_subset(&set), "{} lost charlie statements", name);
+		let bob_missing = bob_hashes.difference(&set).count();
+		assert!(
+			bob_missing <= 1,
+			"{} lost {} bob statements, expected at most 1",
+			name,
+			bob_missing,
+		);
+		if bob_missing == 1 {
+			log::warn!("Bob lost 1 statement due to crash (unflushed ParityDB write)");
+		}
+		debug!("{}: {} statements verified", name, set.len());
+		node_sets.push(set);
 	}
+	assert!(
+		node_sets.iter().all(|set| set == &node_sets[0]),
+		"Nodes did not converge to the same statement set",
+	);
+	let converged_count = node_sets[0].len();
+	info!("All nodes converged to the same {} statements", converged_count);
+
+	// Distinguish recovery from re-sync: bob's post-restart metrics start at zero, so
+	// `submitted_statements` counts only what gossip refilled after the crash, and the rest
+	// of what bob serves now must have been recovered from its database. Bob had two write
+	// streams going when it was killed — its own submissions and the incoming alice
+	// statements — so allow for one unflushed tail write in each.
+	let bob_resubmitted = Cell::new(0.0f64);
+	bob.wait_metric_with_timeout(
+		"substrate_sub_statement_store_submitted_statements",
+		|v| {
+			bob_resubmitted.set(v);
+			true
+		},
+		10u64,
+	)
+	.await?;
+	let bob_resubmitted = bob_resubmitted.get() as usize;
+	assert!(
+		bob_resubmitted <= converged_count,
+		"Bob accepted {} statements after the restart but serves only {}",
+		bob_resubmitted,
+		converged_count,
+	);
+	let recovered = converged_count - bob_resubmitted;
+	info!("Bob recovered {} statements from disk and re-synced {}", recovered, bob_resubmitted);
+	assert!(
+		recovered + 2 >= bob_count + alice_at_kill,
+		"Bob recovered {} statements from its database, but at least {} were persisted \
+		 before the crash",
+		recovered,
+		bob_count + alice_at_kill - 2,
+	);
 
 	info!("Node crash recovery test passed");
 	Ok(())

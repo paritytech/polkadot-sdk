@@ -62,7 +62,7 @@ use frame_support::{
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU16, ConstU32, ConstU64,
 		ConstantStoragePrice, Contains, Currency, EitherOfDiverse, EnsureOriginWithArg,
 		EqualPrivilegeOnly, InsideBoth, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice,
-		LockIdentifier, Nothing, OnUnbalanced, VariantCountOf, WithdrawReasons,
+		LockIdentifier, Nothing, OnUnbalanced, WithdrawReasons,
 	},
 	weights::{
 		constants::{
@@ -115,8 +115,6 @@ use sp_runtime::{
 	Percent, Permill, Perquintill,
 };
 use sp_std::{borrow::Cow, prelude::*};
-#[cfg(any(feature = "std", test))]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use static_assertions::const_assert;
 
@@ -180,7 +178,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	// and set impl_version to 0. If only runtime
 	// implementation changes and behavior does not, then leave spec_version as
 	// is and increment impl_version.
-	spec_version: 268,
+	spec_version: 271,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -193,12 +191,6 @@ pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
 		c: PRIMARY_PROBABILITY,
 		allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryPlainSlots,
 	};
-
-/// Native version.
-#[cfg(any(feature = "std", test))]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
 
@@ -600,8 +592,6 @@ impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = frame_system::Pallet<Runtime>;
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type DoneSlashHandler = ();
 }
 
@@ -2638,6 +2628,93 @@ impl pallet_meta_tx::Config for Runtime {
 	type Extension = pallet_meta_tx::WeightlessExtension<Runtime>;
 }
 
+/// Discards registrar messages; the counterpart chain is not modelled here.
+pub struct DiscardRegistrarMessages;
+
+impl pallet_registrar_para::SendToRelay for DiscardRegistrarMessages {
+	type AccountId = AccountId;
+
+	fn send(_message: registrar_primitives::MessageToRelay<AccountId>) -> Result<(), ()> {
+		Ok(())
+	}
+}
+
+impl pallet_registrar_relay::SendToPara for DiscardRegistrarMessages {
+	fn send(_message: registrar_primitives::MessageToPara) -> Result<(), ()> {
+		Ok(())
+	}
+}
+
+parameter_types! {
+	pub const ParaIdReservationDeposit: Balance = 100 * DOLLARS;
+	pub const RegistrationDepositPerByte: Balance = 10 * MILLICENTS;
+	pub const ParaIdReservationHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::RegistrarPara(pallet_registrar_para::HoldReason::ParaIdReservation);
+	pub const RegistrationHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::RegistrarPara(pallet_registrar_para::HoldReason::Registration);
+}
+
+impl pallet_registrar_para::Config for Runtime {
+	type ReservationConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		ParaIdReservationHoldReason,
+		ConstantStoragePrice<ParaIdReservationDeposit, Balance>,
+	>;
+	type RegistrationConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		RegistrationHoldReason,
+		LinearStoragePrice<ConstU128<0>, RegistrationDepositPerByte, Balance>,
+	>;
+	type SendToRelay = DiscardRegistrarMessages;
+	type RelayOrigin = EnsureRoot<AccountId>;
+	type ParachainOrigin = frame_system::EnsureNever<registrar_primitives::ParaId>;
+	type FirstPublicParaId = ConstU32<2000>;
+	type MinCodeSize = ConstU32<9>;
+	type MaxCodeSize = ConstU32<{ 3 * 1024 * 1024 }>;
+	type MaxHeadDataSize = ConstU32<{ 1024 * 1024 }>;
+	type PendingDeadline = ConstU32<600>;
+	type BlockNumberProvider = System;
+	type WeightInfo = pallet_registrar_para::weights::SubstrateWeight<Runtime>;
+}
+
+/// A registrar that accepts everything; the relay chain's paras stack is not modelled here.
+pub struct AcceptingRegistrar;
+
+impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
+	type AccountId = AccountId;
+
+	fn check_onboarding(_head_len: u32, _code_len: u32) -> Result<(), ()> {
+		Ok(())
+	}
+
+	fn is_registered(_para_id: registrar_primitives::ParaId) -> bool {
+		false
+	}
+
+	fn register(
+		_manager: AccountId,
+		_para_id: registrar_primitives::ParaId,
+		_genesis_head: Vec<u8>,
+		_validation_code: Vec<u8>,
+	) -> sp_runtime::DispatchResult {
+		Ok(())
+	}
+}
+
+impl pallet_registrar_relay::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ParaOrigin = EnsureRoot<AccountId>;
+	type SendToPara = DiscardRegistrarMessages;
+	type Registrar = AcceptingRegistrar;
+	type MaxHeadDataSize = ConstU32<{ 1024 * 1024 }>;
+	type MaxCodeSize = ConstU32<{ 3 * 1024 * 1024 }>;
+	type MaxPendingRegistrations = ConstU32<128>;
+	type UnsignedPriority = ConstU64<100>;
+	type WeightInfo = pallet_registrar_relay::weights::SubstrateWeight<Runtime>;
+}
+
 #[frame_support::runtime]
 mod runtime {
 	use super::*;
@@ -2936,6 +3013,12 @@ mod runtime {
 
 	#[runtime::pallet_index(94)]
 	pub type Dap = pallet_dap::Pallet<Runtime>;
+
+	#[runtime::pallet_index(95)]
+	pub type RegistrarPara = pallet_registrar_para::Pallet<Runtime>;
+
+	#[runtime::pallet_index(96)]
+	pub type RegistrarRelay = pallet_registrar_relay::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3282,6 +3365,8 @@ mod benches {
 		[pallet_ranked_collective, RankedCollective]
 		[pallet_referenda, Referenda]
 		[pallet_recovery, Recovery]
+		[pallet_registrar_para, RegistrarPara]
+		[pallet_registrar_relay, RegistrarRelay]
 		[pallet_remark, Remark]
 		[pallet_salary, Salary]
 		[pallet_scheduler, Scheduler]

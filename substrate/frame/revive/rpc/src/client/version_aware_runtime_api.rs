@@ -20,13 +20,13 @@
 
 use crate::{
 	BlockId,
-	client::{Balance, ClientError, SubstrateBlockNumber},
+	client::{Balance, ClientError, RecordedUnavailable, SubstrateBlockNumber},
 	subxt_client::{self, SrcChainConfig},
 };
 use futures::{FutureExt, TryFutureExt, future::BoxFuture};
 use pallet_revive::evm::{H160, U256};
 use pallet_revive_types::runtime_api::*;
-use sp_core::H256;
+use sp_core::{Bytes, H256};
 use sp_timestamp::Timestamp;
 use std::{
 	collections::HashMap,
@@ -37,6 +37,8 @@ use subxt::{
 	Metadata, OnlineClient,
 	client::OnlineClientAtBlock,
 	error::RuntimeApiError,
+	ext::{frame_decode, scale_decode::IntoVisitor},
+	rpcs::{RpcClient, rpc_params},
 	runtime_apis::{Payload, StaticPayload},
 };
 
@@ -67,6 +69,75 @@ const LOG_TARGET: &str = "eth-rpc::version-aware-runtime-api";
 pub struct VersionAwareRuntimeApi {
 	at_block: OnlineClientAtBlock<SrcChainConfig>,
 	capabilities: ReviveRuntimeApiCapabilities,
+	rpc_client: RpcClient,
+}
+
+/// The decoded runtime API value, plus whether it came from a recorder-less fallback replay that
+/// may have dropped traces.
+pub struct CallRecordedOutput<T> {
+	pub value: T,
+	pub degraded: bool,
+}
+
+impl<T> CallRecordedOutput<T> {
+	/// Transform the decoded value, preserving the `degraded` flag.
+	fn map<U>(self, f: impl FnOnce(T) -> U) -> CallRecordedOutput<U> {
+		CallRecordedOutput { value: f(self.value), degraded: self.degraded }
+	}
+}
+
+/// A transaction's trace in the `TraceV1` shape eth-rpc serves, or the runtime's report that it
+/// could not produce one. Only V2 runtimes report `NotTraced`.
+pub enum TraceEntry {
+	Traced(TraceV1),
+	NotTraced,
+}
+
+impl From<TraceEntryV1> for TraceEntry {
+	fn from(entry: TraceEntryV1) -> Self {
+		match entry {
+			TraceEntryV1::Traced(trace) => Self::Traced(trace_v2_as_v1(trace)),
+			TraceEntryV1::NotTraced => Self::NotTraced,
+		}
+	}
+}
+
+/// Renders a `TraceV2` in the V1 shape eth-rpc serves, dropping `CallLogV2::index`. Remove once
+/// eth-rpc serves V2.
+fn trace_v2_as_v1(trace: TraceV2) -> TraceV1 {
+	match trace {
+		TraceV2::Call(trace) => TraceV1::Call(call_trace_v2_as_v1(trace)),
+		TraceV2::Prestate(trace) => TraceV1::Prestate(trace),
+		TraceV2::Execution(trace) => TraceV1::Execution(trace),
+	}
+}
+
+fn call_trace_v2_as_v1(trace: CallTraceV2) -> CallTraceV1 {
+	CallTraceV1 {
+		from: trace.from,
+		gas: trace.gas,
+		gas_used: trace.gas_used,
+		to: trace.to,
+		input: trace.input,
+		output: trace.output,
+		error: trace.error,
+		revert_reason: trace.revert_reason,
+		calls: trace.calls.into_iter().map(call_trace_v2_as_v1).collect(),
+		logs: trace
+			.logs
+			.into_iter()
+			.map(|log| CallLogV1 {
+				address: log.address,
+				topics: log.topics,
+				data: log.data,
+				position: log.position,
+			})
+			.collect(),
+		value: trace.value,
+		call_type: trace.call_type,
+		// Tracer-internal, never serialized.
+		child_call_count: 0,
+	}
 }
 
 impl VersionAwareRuntimeApi {
@@ -74,8 +145,9 @@ impl VersionAwareRuntimeApi {
 	pub fn new(
 		at_block: OnlineClientAtBlock<SrcChainConfig>,
 		capabilities: ReviveRuntimeApiCapabilities,
+		rpc_client: RpcClient,
 	) -> Self {
-		Self { at_block, capabilities }
+		Self { at_block, capabilities, rpc_client }
 	}
 
 	/// Get the balance of the given address.
@@ -380,7 +452,8 @@ impl VersionAwareRuntimeApi {
 		)
 	}
 
-	/// Get the trace for the given transaction index in the given block.
+	/// Get the trace for the given transaction index in the given block. `block_hash` is the traced
+	/// block's on-chain hash (locates its proof-size recording).
 	pub fn trace_tx(
 		&self,
 		block: sp_runtime::generic::Block<
@@ -389,7 +462,8 @@ impl VersionAwareRuntimeApi {
 		>,
 		transaction_index: u32,
 		tracer_type: TracerTypeV1,
-	) -> Option<BoxFuture<'_, Result<TraceV1, ClientError>>> {
+		block_hash: H256,
+	) -> Option<BoxFuture<'_, Result<CallRecordedOutput<Option<TraceEntry>>, ClientError>>> {
 		match self.capabilities.trace_tx {
 			Unavailable => None,
 			Available(Unversioned) => {
@@ -399,14 +473,12 @@ impl VersionAwareRuntimeApi {
 						transaction_index,
 						tracer_type.into(),
 					);
-					self.call(payload)
-						.await?
-						.map(|trace| trace.0)
-						.ok_or(ClientError::EthExtrinsicNotFound)
+					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
+					Ok(output.map(|value| value.map(|trace| TraceEntry::Traced(trace.0))))
 				});
 				Some(future)
 			},
-			Available(Versioned(_)) => {
+			Available(Versioned(0..2)) => {
 				let future = Box::pin(async move {
 					let input = TraceTxInputPayloadV1 {
 						block: block.into(),
@@ -416,22 +488,40 @@ impl VersionAwareRuntimeApi {
 					let payload = subxt_client::runtime_apis()
 						.revive_api()
 						.trace_tx_versioned(TraceTxVersionedInputPayload::from(input).into());
-					self.call(payload)
-						.await
-						.map(|output| {
-							TraceTxOutputPayloadV1::try_from(output.0)
-								.expect("v1 input must produce v1 output; qed")
-								.trace
-						})
-						.map_err(ClientError::from)
-						.and_then(|trace| trace.ok_or(ClientError::EthExtrinsicNotFound))
+					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
+					Ok(output.map(|value| {
+						TraceTxOutputPayloadV1::try_from(value.0)
+							.expect("v1 input must produce v1 output; qed")
+							.trace
+							.map(TraceEntry::Traced)
+					}))
+				});
+				Some(future)
+			},
+			Available(Versioned(2..)) => {
+				let future = Box::pin(async move {
+					let input = TraceTxInputPayloadV2 {
+						block: block.into(),
+						tx_index: transaction_index,
+						config: tracer_type,
+					};
+					let payload = subxt_client::runtime_apis()
+						.revive_api()
+						.trace_tx_versioned(TraceTxVersionedInputPayload::from(input).into());
+					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
+					let entry = TraceTxOutputPayloadV2::try_from(output.value.0)
+						.expect("v2 input must produce v2 output; qed")
+						.entry
+						.map(TraceEntry::from);
+					Ok(CallRecordedOutput { value: entry, degraded: false })
 				});
 				Some(future)
 			},
 		}
 	}
 
-	/// Get the trace for the given block.
+	/// Get the trace for the given block. `block_hash` is the traced block's on-chain hash (locates
+	/// its proof-size recording).
 	pub fn trace_block(
 		&self,
 		block: sp_runtime::generic::Block<
@@ -439,7 +529,8 @@ impl VersionAwareRuntimeApi {
 			sp_runtime::OpaqueExtrinsic,
 		>,
 		tracer_type: TracerTypeV1,
-	) -> Option<BoxFuture<'_, Result<Vec<(u32, TraceV1)>, ClientError>>> {
+		block_hash: H256,
+	) -> Option<BoxFuture<'_, Result<CallRecordedOutput<Vec<(u32, TraceEntry)>>, ClientError>>> {
 		match self.capabilities.trace_block {
 			Unavailable => None,
 			Available(Unversioned) => {
@@ -447,30 +538,50 @@ impl VersionAwareRuntimeApi {
 					let payload = subxt_client::runtime_apis()
 						.revive_api()
 						.trace_block(block.into(), tracer_type.into());
-					self.call(payload)
-						.await
-						.map(|traces| {
-							traces.into_iter().map(|(idx, trace)| (idx, trace.0)).collect()
-						})
-						.map_err(Into::into)
+					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
+					Ok(output.map(|traces| {
+						traces
+							.into_iter()
+							.map(|(idx, trace)| (idx, TraceEntry::Traced(trace.0)))
+							.collect()
+					}))
 				});
 				Some(future)
 			},
-			Available(Versioned(_)) => {
+			Available(Versioned(0..2)) => {
 				let future = Box::pin(async move {
 					let input =
 						TraceBlockInputPayloadV1 { block: block.into(), config: tracer_type };
 					let payload = subxt_client::runtime_apis()
 						.revive_api()
 						.trace_block_versioned(TraceBlockVersionedInputPayload::from(input).into());
-					self.call(payload)
-						.await
-						.map(|output| {
-							TraceBlockOutputPayloadV1::try_from(output.0)
-								.expect("v1 input must produce v1 output; qed")
-								.traces
-						})
-						.map_err(Into::into)
+					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
+					Ok(output.map(|value| {
+						TraceBlockOutputPayloadV1::try_from(value.0)
+							.expect("v1 input must produce v1 output; qed")
+							.traces
+							.into_iter()
+							.map(|(idx, trace)| (idx, TraceEntry::Traced(trace)))
+							.collect()
+					}))
+				});
+				Some(future)
+			},
+			Available(Versioned(2..)) => {
+				let future = Box::pin(async move {
+					let input =
+						TraceBlockInputPayloadV2 { block: block.into(), config: tracer_type };
+					let payload = subxt_client::runtime_apis()
+						.revive_api()
+						.trace_block_versioned(TraceBlockVersionedInputPayload::from(input).into());
+					let output = self.call_recorded_with_fallback(payload, block_hash).await?;
+					let entries = TraceBlockOutputPayloadV2::try_from(output.value.0)
+						.expect("v2 input must produce v2 output; qed")
+						.entries
+						.into_iter()
+						.map(|(idx, entry)| (idx, entry.into()))
+						.collect();
+					Ok(CallRecordedOutput { value: entries, degraded: false })
 				});
 				Some(future)
 			},
@@ -679,6 +790,72 @@ impl VersionAwareRuntimeApi {
 		let payload = payload.unvalidated();
 		self.at_block.runtime_apis().call(payload).await
 	}
+
+	/// Run `payload` via the node's `state_callRecorded` RPC, re-enacting `block` with a proof-size
+	/// recorder. If the node cannot service it (method absent/denied, or no recorder), retry the
+	/// same payload through [`call`](Self::call), setting [`CallRecordedOutput::degraded`] when
+	/// that fallback may have dropped traces. Other errors propagate.
+	async fn call_recorded_with_fallback<ArgsType, ReturnType>(
+		&self,
+		payload: StaticPayload<ArgsType, ReturnType>,
+		block: H256,
+	) -> Result<CallRecordedOutput<ReturnType>, ClientError>
+	where
+		StaticPayload<ArgsType, ReturnType>: Payload<ArgsType = ArgsType, ReturnType = ReturnType>,
+		ReturnType: IntoVisitor,
+	{
+		let runtime_apis = self.at_block.runtime_apis();
+		let name = runtime_apis.encode_name(&payload);
+		let args = runtime_apis.encode_args(&payload).map_err(ClientError::from)?;
+
+		let recorded = match self
+			.rpc_client
+			.request::<Bytes>("state_callRecorded", rpc_params![name, Bytes(args), block])
+			.await
+		{
+			Ok(bytes) => {
+				let metadata = self.at_block.metadata_ref();
+				let cursor = &mut &bytes.0[..];
+				frame_decode::runtime_apis::decode_runtime_api_response(
+					payload.trait_name(),
+					payload.method_name(),
+					cursor,
+					metadata,
+					metadata.types(),
+					ReturnType::into_visitor(),
+				)
+				.map_err(RuntimeApiError::CouldNotDecodeResponse)
+				.map_err(ClientError::from)
+			},
+			Err(err) => Err(ClientError::from(err)),
+		};
+
+		let err = match recorded {
+			Ok(value) => return Ok(CallRecordedOutput { value, degraded: false }),
+			Err(err) => err,
+		};
+		let Some(reason) = err.recorded_unavailable_reason() else { return Err(err) };
+		match reason {
+			RecordedUnavailable::MethodMissing => log::warn!(
+				target: LOG_TARGET,
+				"node does not expose `state_callRecorded` (predates it — upgrade the node); \
+				 falling back to recorder-less replay — traces may be INCOMPLETE on PoV/parachain \
+				 chains",
+			),
+			RecordedUnavailable::Denied => log::warn!(
+				target: LOG_TARGET,
+				"`state_callRecorded` denied (unsafe RPC methods disabled — enable them); falling \
+				 back to recorder-less replay — traces may be INCOMPLETE on PoV/parachain chains",
+			),
+			RecordedUnavailable::NoRecorder => log::debug!(
+				target: LOG_TARGET,
+				"node registers no proof-size recorder; using plain replay (correct, no reclaim \
+				 to honour)",
+			),
+		}
+		let value = self.call(payload).await.map_err(ClientError::from)?;
+		Ok(CallRecordedOutput { value, degraded: reason.is_degraded() })
+	}
 }
 
 /// Hands out [`VersionAwareRuntimeApi`] instances for specific blocks, caching the
@@ -695,6 +872,7 @@ impl VersionAwareRuntimeApi {
 pub struct VersionAwareRuntimeApiProvider {
 	/// The subxt client through which the capabilities of blocks are computed.
 	api: OnlineClient<SrcChainConfig>,
+	rpc_client: RpcClient,
 	/// The capabilities of each encountered runtime spec version.
 	cache: Arc<Mutex<HashMap<u32, ReviveRuntimeApiCapabilities>>>,
 }
@@ -702,8 +880,8 @@ pub struct VersionAwareRuntimeApiProvider {
 impl VersionAwareRuntimeApiProvider {
 	/// Creates a provider with an empty cache which computes capabilities through the given
 	/// client.
-	pub fn new(api: OnlineClient<SrcChainConfig>) -> Self {
-		Self { api, cache: Arc::new(Mutex::new(HashMap::new())) }
+	pub fn new(api: OnlineClient<SrcChainConfig>, rpc_client: RpcClient) -> Self {
+		Self { api, rpc_client, cache: Arc::new(Mutex::new(HashMap::new())) }
 	}
 
 	/// Returns the version-aware runtime API of the given block, computing and caching the
@@ -711,7 +889,7 @@ impl VersionAwareRuntimeApiProvider {
 	pub async fn at(&self, block_hash: H256) -> Result<VersionAwareRuntimeApi, ClientError> {
 		let at_block = self.api.at_block(block_hash).await?;
 		let capabilities = self.capabilities(&at_block).await?;
-		Ok(VersionAwareRuntimeApi::new(at_block, capabilities))
+		Ok(VersionAwareRuntimeApi::new(at_block, capabilities, self.rpc_client.clone()))
 	}
 
 	/// Returns the version-aware runtime API for a block when both its Substrate hash and number
@@ -732,7 +910,16 @@ impl VersionAwareRuntimeApiProvider {
 	) -> Result<VersionAwareRuntimeApi, ClientError> {
 		let at_block = self.api.at_block_hash_and_number(block_hash, block_number).await?;
 		let capabilities = self.capabilities(&at_block).await?;
-		Ok(VersionAwareRuntimeApi::new(at_block, capabilities))
+		Ok(VersionAwareRuntimeApi::new(at_block, capabilities, self.rpc_client.clone()))
+	}
+
+	/// Returns the version-aware runtime API of the given block handle.
+	pub async fn at_resolved_block(
+		&self,
+		at_block: OnlineClientAtBlock<SrcChainConfig>,
+	) -> Result<VersionAwareRuntimeApi, ClientError> {
+		let capabilities = self.capabilities(&at_block).await?;
+		Ok(VersionAwareRuntimeApi::new(at_block, capabilities, self.rpc_client.clone()))
 	}
 
 	/// Returns the capabilities of the handle's runtime spec version, computing and caching them

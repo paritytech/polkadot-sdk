@@ -636,7 +636,7 @@ pub mod pallet {
 		InsufficientPrivilege,
 		/// Maximum number of approved external assets reached.
 		TooManyAssets,
-		/// Live decimals diverged from the snapshot taken at registration or genesis.
+		/// Reserved legacy error; retained to preserve error variant indices.
 		DecimalsMismatch,
 		/// The asset's decimal precision is outside the supported range.
 		DecimalsRangeExceeded,
@@ -652,6 +652,9 @@ pub mod pallet {
 		PsmHasApprovedExternals,
 		/// An unexpected invariant violation occurred. This should be reported.
 		Unexpected,
+		/// An admin origin was supplied that cannot be used as an authority, such as the system
+		/// `None` origin.
+		InvalidAdminOrigin,
 	}
 
 	#[pallet::call]
@@ -689,8 +692,6 @@ pub mod pallet {
 		/// - [`Error::FeeTooHigh`]: If the configured minting fee exceeds `max_fee`.
 		/// - [`Error::ExceedsMaxPsmDebt`]: If minting would exceed this PSM's debt ceiling
 		///   (aggregate or per-asset).
-		/// - [`Error::DecimalsMismatch`]: If live decimals diverged from the snapshot taken at
-		///   registration.
 		/// - [`Error::AmountTooSmallAfterConversion`]: If the conversion to the counter-asset
 		///   rounds to zero; swap would transfer nothing.
 		///
@@ -713,8 +714,8 @@ pub mod pallet {
 				.ok_or(Error::<T>::UnsupportedAsset)?;
 			ensure!(external.status.allows_minting(), Error::<T>::MintingStopped);
 
-			let (ext_decimals, internal_decimals) =
-				Self::ensure_decimals_match(&info, &internal_asset, &external_asset, &external)?;
+			let ext_decimals = external.decimals;
+			let internal_decimals = info.internal_decimals;
 
 			let internal_equivalent =
 				Self::external_to_internal(external_amount, ext_decimals, internal_decimals)?;
@@ -928,6 +929,7 @@ pub mod pallet {
 		/// ## Errors
 		///
 		/// - [`DispatchError::BadOrigin`]: The origin is not permitted by [`Config::CreateOrigin`].
+		/// - [`Error::InvalidAdminOrigin`]: Either admin is the system `None` origin.
 		/// - [`Error::PsmAlreadyExists`]: A PSM is already registered for `internal_asset`.
 		/// - [`Error::ZeroMinSwapAmount`]: `min_swap_amount` is zero.
 		/// - [`Error::AssetDoesNotExist`]: The internal asset does not exist.
@@ -949,6 +951,10 @@ pub mod pallet {
 			min_swap_amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let maybe_depositor = T::CreateOrigin::ensure_origin(origin, &internal_asset)?;
+			ensure!(
+				!full_admin.is_none() && !emergency_admin.is_none(),
+				Error::<T>::InvalidAdminOrigin
+			);
 			ensure!(!Psm::<T>::contains_key(&internal_asset), Error::<T>::PsmAlreadyExists);
 			ensure!(!min_swap_amount.is_zero(), Error::<T>::ZeroMinSwapAmount);
 			ensure!(
@@ -958,7 +964,7 @@ pub mod pallet {
 
 			let deposit = maybe_depositor
 				.map(|depositor| {
-					T::Consideration::new(&depositor, Footprint::from_parts(1, 0))
+					T::Consideration::new(&depositor, Self::psm_creation_footprint())
 						.map(|ticket| (depositor, ticket))
 				})
 				.transpose()?;
@@ -1303,8 +1309,6 @@ pub mod pallet {
 		/// - [`Error::AssetAlreadyApproved`]: If `external_asset` is already approved on this PSM.
 		/// - [`Error::AssetDoesNotExist`]: If `external_asset` does not exist in the underlying
 		///   fungibles backend.
-		/// - [`Error::DecimalsMismatch`]: If the internal asset's live decimals diverged from the
-		///   snapshot in [`PsmInfo`].
 		/// - [`Error::DecimalsRangeExceeded`]: If `|asset_decimals − internal_decimals|` exceeds
 		///   [`MAX_DECIMALS_DIFF`].
 		///
@@ -1331,10 +1335,6 @@ pub mod pallet {
 			);
 
 			let asset_decimals = T::Fungibles::decimals(external_asset.clone());
-			ensure!(
-				T::Fungibles::decimals(internal_asset.clone()) == info.internal_decimals,
-				Error::<T>::DecimalsMismatch
-			);
 			ensure!(
 				(asset_decimals.abs_diff(info.internal_decimals) as u32) <= MAX_DECIMALS_DIFF,
 				Error::<T>::DecimalsRangeExceeded
@@ -1423,6 +1423,7 @@ pub mod pallet {
 		/// ## Errors
 		///
 		/// - [`Error::PsmNotFound`]: No PSM is registered for `internal_asset`.
+		/// - [`Error::InvalidAdminOrigin`]: `new_admin` is the system `None` origin.
 		///
 		/// ## Events
 		///
@@ -1435,6 +1436,7 @@ pub mod pallet {
 			new_admin: Box<T::PalletsOrigin>,
 		) -> DispatchResult {
 			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_admins())?;
+			ensure!(!new_admin.is_none(), Error::<T>::InvalidAdminOrigin);
 			let new_admin = *new_admin;
 			let old_admin = PsmAdmin::<T>::try_mutate(
 				&internal_asset,
@@ -1466,6 +1468,7 @@ pub mod pallet {
 		/// ## Errors
 		///
 		/// - [`Error::PsmNotFound`]: No PSM is registered for `internal_asset`.
+		/// - [`Error::InvalidAdminOrigin`]: `new_admin` is the system `None` origin.
 		///
 		/// ## Events
 		///
@@ -1478,6 +1481,7 @@ pub mod pallet {
 			new_admin: Box<T::PalletsOrigin>,
 		) -> DispatchResult {
 			Self::ensure_psm_admin(origin, &internal_asset, |l| l.can_manage_admins())?;
+			ensure!(!new_admin.is_none(), Error::<T>::InvalidAdminOrigin);
 			let new_admin = *new_admin;
 			let old_admin = PsmAdmin::<T>::try_mutate(
 				&internal_asset,
@@ -1504,6 +1508,22 @@ pub mod pallet {
 				.using_encoded(sp_io::hashing::blake2_256);
 			T::AccountId::decode(&mut TrailingZeroInput::new(entropy.as_ref()))
 				.expect("All byte sequences are valid `AccountId`s; qed")
+		}
+
+		/// The footprint of a PSM instance as written by [`Pallet::create_psm`]: the [`Psm`]
+		/// and [`PsmAdmin`] entries, both keyed by the internal asset id.
+		///
+		/// Excludes per-external storage added later via [`Pallet::add_external_asset`];
+		/// externals are bounded by [`Config::MaxExternals`] and admin-gated rather than
+		/// deposit-backed.
+		pub fn psm_creation_footprint() -> Footprint {
+			Footprint::from_parts(
+				2,
+				T::AssetId::max_encoded_len()
+					.saturating_mul(2)
+					.saturating_add(PsmInfo::<T>::max_encoded_len())
+					.saturating_add(PsmAdminInfo::<T>::max_encoded_len()),
+			)
 		}
 
 		/// PSM debt ceiling for an instance, read from the stored [`PsmInfo`]. Returns
@@ -1630,32 +1650,15 @@ pub mod pallet {
 			factor_u128.try_into().map_err(|_| Error::<T>::ConversionOverflow)
 		}
 
-		/// Verify the live decimals for an external still match the snapshot taken at
-		/// registration on this PSM, and that the internal asset's live decimals still
-		/// match the snapshot stored in [`PsmInfo`].
-		pub(crate) fn ensure_decimals_match(
-			info: &PsmInfo<T>,
-			internal_asset: &T::AssetId,
-			external_asset: &T::AssetId,
-			external: &ExternalAssetInfo,
-		) -> Result<(u8, u8), DispatchError> {
-			ensure!(
-				T::Fungibles::decimals(external_asset.clone()) == external.decimals,
-				Error::<T>::DecimalsMismatch
-			);
-			ensure!(
-				T::Fungibles::decimals(internal_asset.clone()) == info.internal_decimals,
-				Error::<T>::DecimalsMismatch
-			);
-			Ok((external.decimals, info.internal_decimals))
-		}
-
 		/// Authorise an operation on the PSM keyed by `internal_asset`.
 		///
 		/// Matches the incoming origin's caller against the PSM's stored
 		/// [`PsmAdminInfo::full_admin`] (yielding `Full`) or [`PsmAdminInfo::emergency_admin`]
 		/// (yielding `Emergency`). The resolved level is then checked against `required`. No
 		/// other authority can manage a PSM.
+		///
+		/// We reject the `None` origin to prevent the block author from controlling PSMs with an
+		/// admin set to `None`.
 		pub(crate) fn ensure_psm_admin(
 			origin: OriginFor<T>,
 			internal_asset: &T::AssetId,
@@ -1663,6 +1666,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let admin = PsmAdmin::<T>::get(internal_asset).ok_or(Error::<T>::PsmNotFound)?;
 			let caller = <T as Config>::RuntimeOrigin::from(origin).into_caller();
+			ensure!(!caller.is_none(), DispatchError::BadOrigin);
 			let level = if caller == admin.full_admin {
 				PsmManagerLevel::Full
 			} else if caller == admin.emergency_admin {

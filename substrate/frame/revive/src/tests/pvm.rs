@@ -75,7 +75,11 @@ fn eth_call_transfer_with_dust_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
 
-		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(10_000_000_000));
+		// Pot must also cover the worst-case EIP-7702 authorization weight that eth_call
+		// reserves pre-dispatch even for an empty authorization list.
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(
+			100_000_000_000,
+		));
 
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
@@ -4192,6 +4196,43 @@ fn execution_tracing_records_consumption_for_plain_transfer() {
 			 existential-deposit transfer — see issue #278",
 		);
 	});
+}
+
+/// `failed` and `returnValue` are the header fields clients read to tell whether a traced
+/// transaction succeeded and why.
+#[test]
+fn execution_tracing_reports_the_outcome_of_a_failing_transaction() {
+	use crate::evm::{ExecutionTracer, ExecutionTracerConfig};
+
+	// Input 2 reverts with an ABI-encoded reason; input 1 panics, which surfaces as a trap.
+	let (code, _) = compile_module("tracing_callee").unwrap();
+
+	for input in [2u32, 1] {
+		ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+
+			let mut tracer = ExecutionTracer::new(ExecutionTracerConfig::default());
+			let result =
+				trace(&mut tracer, || builder::bare_call(addr).data(input.encode()).build());
+
+			let trace = tracer.collect_trace();
+			assert!(trace.failed, "input {input}: a failed transaction is reported as failed");
+
+			match result.result {
+				Ok(returned) => {
+					assert!(returned.did_revert(), "input {input}: expected a revert");
+					assert_eq!(
+						trace.return_value.0, returned.data,
+						"the revert data is the output"
+					);
+				},
+				Err(_) => assert!(trace.return_value.0.is_empty(), "a trap produces no output"),
+			}
+		});
+	}
 }
 
 fn replace_actual_gas(expected: &mut CallTrace, actual: &CallTrace) {
