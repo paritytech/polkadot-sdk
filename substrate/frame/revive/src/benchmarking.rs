@@ -3576,6 +3576,56 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Benchmark `r` `CHAINID` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_chainid_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) -> Result<(), BenchmarkError> {
+		use revm::bytecode::opcode::CHAINID;
+
+		let code = Bytecode::new_raw(vec![CHAINID; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+		let expected = U256::from(interpreter.ext.chain_id());
+		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
+		Ok(())
+	}
+
+	/// Benchmark `r` `DIFFICULTY` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_prevrandao_opcode(
+		r: Linear<0, { limits::EVM_STACK_LIMIT }>,
+	) -> Result<(), BenchmarkError> {
+		use revm::bytecode::opcode::DIFFICULTY;
+
+		let code = Bytecode::new_raw(vec![DIFFICULTY; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+		let expected = U256::from(evm::DIFFICULTY);
+		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
+		Ok(())
+	}
+
 	// Benchmark the execution of instructions.
 	//
 	// It benchmarks the absolute worst case by allocating a lot of memory

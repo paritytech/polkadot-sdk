@@ -76,6 +76,8 @@ pub(crate) enum EvmOpcodeCosts {
 	DUP,
 	SWAP,
 	PC,
+	CHAINID,
+	PREVRANDAO,
 }
 
 impl<T: Config> Token<T> for EvmOpcodeCosts {
@@ -93,6 +95,8 @@ impl<T: Config> Token<T> for EvmOpcodeCosts {
 			DUP => cost_args!(evm_dup_opcode, 1),
 			SWAP => cost_args!(evm_swap_opcode, 1),
 			PC => cost_args!(evm_pc_opcode, 1),
+			CHAINID => cost_args!(evm_chainid_opcode, 1),
+			PREVRANDAO => cost_args!(evm_prevrandao_opcode, 1),
 		}
 	}
 }
