@@ -20,7 +20,7 @@ use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU64, Currency, VariantCountOf},
+	traits::{ConstU64, Currency},
 	PalletId,
 };
 
@@ -70,8 +70,6 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 

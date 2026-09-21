@@ -1,0 +1,14 @@
+title: 'bridge-grandpa: detect forced changes after other consensus logs'
+
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |-
+      GRANDPA bridge header validation now detects forced authority changes even when they follow
+      other GRANDPA consensus logs. These headers are rejected with the existing
+      UnsupportedScheduledChange error. No API changes or storage migration are required.
+
+crates:
+  - name: bp-header-chain
+    bump: patch
+  - name: pallet-bridge-grandpa
+    bump: none
