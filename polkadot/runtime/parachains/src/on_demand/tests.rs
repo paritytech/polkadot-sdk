@@ -19,10 +19,11 @@ use super::*;
 use crate::{
 	initializer::SessionChangeNotification,
 	mock::{
-		assert_last_event, new_test_ext, Balances, OnDemand, Paras, ParasShared, RuntimeEvent,
-		RuntimeOrigin, Scheduler, System, Test,
+		assert_last_event, new_test_ext, Balances, BrokerId, Coretime, OnDemand, Paras,
+		ParasShared, RuntimeEvent, RuntimeOrigin, Scheduler, System, Test,
 	},
 	on_demand::{self, mock_helpers::GenesisConfigBuilder, Error},
+	origin::Origin as ParachainOrigin,
 	paras::{ParaGenesisArgs, ParaKind},
 };
 use frame_support::{assert_err, assert_noop, assert_ok};
@@ -96,6 +97,11 @@ fn place_order_run_to_blocknumber(para_id: ParaId, blocknumber: Option<BlockNumb
 
 fn place_order(para_id: ParaId) {
 	place_order_run_to_blocknumber(para_id, None);
+}
+
+/// The origin of the coretime chain, which is the only para allowed to send us order batches.
+fn broker_origin() -> RuntimeOrigin {
+	RuntimeOrigin::from(ParachainOrigin::Parachain(BrokerId::get().into()))
 }
 
 #[test]
@@ -630,7 +636,7 @@ fn pot_account_is_immortal() {
 }
 
 #[test]
-fn queue_order_batch_works() {
+fn queue_on_demand_batch_works() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		let para_a = ParaId::from(110);
 		let para_b = ParaId::from(111);
@@ -640,7 +646,10 @@ fn queue_order_batch_works() {
 		let block_num = 11;
 		run_to_block(block_num, |n| if n == 11 { Some(Default::default()) } else { None });
 
-		assert_ok!(OnDemand::queue_order_batch(&[(para_a, block_num), (para_b, block_num)]));
+		assert_ok!(Coretime::queue_on_demand_batch(
+			broker_origin(),
+			vec![(para_a, block_num), (para_b, block_num)]
+		));
 
 		// Async backing: orders only become ready two blocks after they were placed.
 		assert_eq!(OnDemand::pop_assignment_for_cores(block_num + 1, 2).next(), None);
@@ -653,7 +662,7 @@ fn queue_order_batch_works() {
 }
 
 #[test]
-fn queue_order_batch_is_free() {
+fn queue_on_demand_batch_is_free() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		let para_a = ParaId::from(111);
 		schedule_blank_para(para_a, ParaKind::Parathread);
@@ -663,7 +672,7 @@ fn queue_order_batch_is_free() {
 
 		// Batched orders have already been paid for on the coretime chain, so nothing is
 		// collected for them here.
-		assert_ok!(OnDemand::queue_order_batch(&[(para_a, block_num)]));
+		assert_ok!(Coretime::queue_on_demand_batch(broker_origin(), vec![(para_a, block_num)]));
 		assert_eq!(OnDemand::pop_assignment_for_cores(block_num + 2, 1).next(), Some(para_a));
 
 		assert_eq!(Balances::free_balance(&OnDemand::account_id()), 0);
@@ -672,18 +681,18 @@ fn queue_order_batch_is_free() {
 }
 
 #[test]
-fn queue_order_batch_with_empty_batch_is_a_noop() {
+fn queue_on_demand_batch_with_empty_batch_is_a_noop() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		let block_num = 11;
 		run_to_block(block_num, |n| if n == 11 { Some(Default::default()) } else { None });
 
-		assert_ok!(OnDemand::queue_order_batch(&[]));
+		assert_ok!(Coretime::queue_on_demand_batch(broker_origin(), vec![]));
 		assert_eq!(OnDemand::pop_assignment_for_cores(block_num + 2, 2).next(), None);
 	});
 }
 
 #[test]
-fn queue_order_batch_respects_ordered_at() {
+fn queue_on_demand_batch_respects_ordered_at() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		let para_a = ParaId::from(110);
 		let para_b = ParaId::from(111);
@@ -695,7 +704,10 @@ fn queue_order_batch_respects_ordered_at() {
 
 		// The coretime chain tells us when an order was placed, which is not necessarily the
 		// current block and the batch does not have to be sorted.
-		assert_ok!(OnDemand::queue_order_batch(&[(para_b, block_num + 1), (para_a, block_num)]));
+		assert_ok!(Coretime::queue_on_demand_batch(
+			broker_origin(),
+			vec![(para_b, block_num + 1), (para_a, block_num)]
+		));
 
 		// Only the earlier order is ready here ...
 		let mut assignments = OnDemand::pop_assignment_for_cores(block_num + 2, 2);
@@ -710,7 +722,7 @@ fn queue_order_batch_respects_ordered_at() {
 }
 
 #[test]
-fn queue_order_batch_keeps_duplicate_orders() {
+fn queue_on_demand_batch_keeps_duplicate_orders() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		let para_a = ParaId::from(111);
 		schedule_blank_para(para_a, ParaKind::Parathread);
@@ -718,7 +730,10 @@ fn queue_order_batch_keeps_duplicate_orders() {
 		let block_num = 11;
 		run_to_block(block_num, |n| if n == 11 { Some(Default::default()) } else { None });
 
-		assert_ok!(OnDemand::queue_order_batch(&[(para_a, block_num), (para_a, block_num)]));
+		assert_ok!(Coretime::queue_on_demand_batch(
+			broker_origin(),
+			vec![(para_a, block_num), (para_a, block_num)]
+		));
 
 		// Affinity prohibits serving both orders in the same block ...
 		let mut assignments = OnDemand::pop_assignment_for_cores(block_num + 2, 2);
@@ -734,7 +749,7 @@ fn queue_order_batch_keeps_duplicate_orders() {
 
 #[test]
 #[cfg_attr(debug_assertions, should_panic = "Defensive failure has been triggered")]
-fn queue_order_batch_beyond_capacity_fails() {
+fn queue_on_demand_batch_beyond_capacity_fails() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		let block_num = 11;
 		run_to_block(block_num, |n| if n == 11 { Some(Default::default()) } else { None });
@@ -743,12 +758,12 @@ fn queue_order_batch_beyond_capacity_fails() {
 		let batch: Vec<_> = (0..ON_DEMAND_MAX_QUEUE_MAX_SIZE)
 			.map(|i| (ParaId::from(i), block_num))
 			.collect();
-		assert_ok!(OnDemand::queue_order_batch(&batch));
+		assert_ok!(Coretime::queue_on_demand_batch(broker_origin(), batch));
 
 		// Any further order does not fit anymore. The coretime chain is not supposed to send more
 		// orders than the relay chain can hold, hence this is a defensive failure.
 		assert_err!(
-			OnDemand::queue_order_batch(&[(ParaId::from(111), block_num)]),
+			Coretime::queue_on_demand_batch(broker_origin(), vec![(ParaId::from(111), block_num)]),
 			Error::<Test>::QueueFull
 		);
 		assert_last_event(RuntimeEvent::OnDemand(Event::UnexpectedQueueFull { queued: 0 }));
