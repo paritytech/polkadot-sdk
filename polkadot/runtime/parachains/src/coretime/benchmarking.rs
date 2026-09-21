@@ -31,6 +31,9 @@ mod benchmarks {
 
 	#[benchmark]
 	fn request_revenue_at() {
+		// Ensure broker parachain is reachable for XCM delivery
+		Pallet::<T>::ensure_broker_parachain_reachable();
+
 		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
 		let mhr = <T as on_demand::Config>::MaxHistoricalRevenue::get();
 		frame_system::Pallet::<T>::set_block_number((mhr + 2).into());
@@ -57,6 +60,9 @@ mod benchmarks {
 
 	#[benchmark]
 	fn request_core_count() {
+		// Ensure broker parachain is reachable for XCM delivery
+		Pallet::<T>::ensure_broker_parachain_reachable();
+
 		// Setup
 		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
 
@@ -70,6 +76,9 @@ mod benchmarks {
 
 	#[benchmark]
 	fn assign_core(s: Linear<1, 100>) {
+		// Ensure broker parachain is reachable for XCM delivery
+		Pallet::<T>::ensure_broker_parachain_reachable();
+
 		// Setup
 		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
 
@@ -123,6 +132,9 @@ mod benchmarks {
 
 	#[benchmark]
 	fn credit_account() {
+		// Ensure broker parachain is reachable for XCM delivery
+		Pallet::<T>::ensure_broker_parachain_reachable();
+
 		// Setup
 		let root_origin = <T as frame_system::Config>::RuntimeOrigin::root();
 		let who: T::AccountId = whitelisted_caller();
