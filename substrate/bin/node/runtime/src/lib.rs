@@ -2485,14 +2485,15 @@ impl pallet_broker::Config for Runtime {
 	type MinimumCreditPurchase = MinimumCreditPurchase;
 }
 
-/// Stub providers for pallet-coretime-market.
-pub struct CoretimeMarketProviders;
-impl fp_coretime::market::CoreRangeProvider for CoretimeMarketProviders {
+pub struct MarketCoreRange;
+impl fp_coretime::market::CoreRangeProvider for MarketCoreRange {
 	fn core_range() -> Option<fp_coretime::market::SoldCoresRange> {
 		Some(fp_coretime::market::SoldCoresRange { from: 0, to: 10 })
 	}
 }
-impl fp_coretime::market::TimesliceProvider for CoretimeMarketProviders {
+
+pub struct MarketTimeslices;
+impl fp_coretime::market::TimesliceProvider for MarketTimeslices {
 	fn next_timeslice_to_commit() -> Option<fp_coretime::Timeslice> {
 		None
 	}
@@ -2500,15 +2501,17 @@ impl fp_coretime::market::TimesliceProvider for CoretimeMarketProviders {
 		cfg!(feature = "runtime-benchmarks").then_some(0)
 	}
 }
-impl pallet_coretime_market::RenewalRightsProvider<AccountId> for CoretimeMarketProviders {
+
+pub struct MarketRenewalRights;
+impl pallet_coretime_market::RenewalRightsProvider<AccountId> for MarketRenewalRights {
 	fn renewal_rights_count(who: &AccountId, when: fp_coretime::Timeslice) -> u32 {
 		#[cfg(feature = "runtime-benchmarks")]
 		{
 			use codec::Encode;
 			let key = (b"coretime-market/bench-rights", who, when).encode();
-			return sp_io::storage::get(&key)
+			sp_io::storage::get(&key)
 				.and_then(|v| u32::decode(&mut &v[..]).ok())
-				.unwrap_or(0);
+				.unwrap_or(0)
 		}
 		#[cfg(not(feature = "runtime-benchmarks"))]
 		{
@@ -2528,9 +2531,9 @@ impl pallet_coretime_market::Config for Runtime {
 	type Balance = Balance;
 	type RelayBlockNumber = BlockNumber;
 	type WeightInfo = ();
-	type CoreRangeProvider = CoretimeMarketProviders;
-	type TimesliceProvider = CoretimeMarketProviders;
-	type RenewalRights = CoretimeMarketProviders;
+	type CoreRangeProvider = MarketCoreRange;
+	type TimesliceProvider = MarketTimeslices;
+	type RenewalRights = MarketRenewalRights;
 	type MaxBids = ConstU32<100>;
 	type Randomness = RandomnessCollectiveFlip;
 }
