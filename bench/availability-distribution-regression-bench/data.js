@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789995513156,
+  "lastUpdate": 1789998104946,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "dc18933ad1040534648a191bbfdc698a4de36ab3",
-          "message": "statement-store: fix benchmark EMFILE by pooling RPC connections (#11070)\n\n# Description\n\n- Fix \"Too many open files\" (EMFILE) error in all statement-store\nbenchmarks\n- Replace per-participant RPC connections with a shared connection pool\n(100 per node)\n- Participants share connections via RpcClient::clone() which\nmultiplexes over the same transport\n\n## Root Cause\nEach of ~50,000 benchmark participants called `node.rpc().await?` to\ncreate its own\nTCP/WebSocket connection, exhausting the OS per-process file descriptor\nlimit (EMFILE error 24)\n\n## Fix\nIntroduce `RPC_POOL_SIZE = 100` constant. Create a pool of conn per\nnode, then\ndistribute them round-robin to participants reduces tot file descriptors\nfrom ~50,000 to at most 600 (6 nodes x 100)\n\n## Test plan\n- [x] Run `statement_store_many_nodes_bench` with zombienet to verify no\nEMFILE error\n- [x] Verify benchmarks complete successfully with pooled connections",
-          "timestamp": "2026-02-20T09:00:19Z",
-          "tree_id": "7c45276c612ff0f3506c4268f2e8dc9b00d0ec7c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/dc18933ad1040534648a191bbfdc698a4de36ab3"
-        },
-        "date": 1771583107882,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14400836933333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006828321073333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02473397336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00987226360000001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010170954706666645,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c7bc926f89162cb8dd8681af112fcd1cb9677227",
+          "message": "statement-store: read affinity topics from a file (#13240)\n\n# Description\n\nAdds a hidden `--statement-affinity-topics-file <PATH>` flag to the\nsubstrate node and the omni-node. The file holds one 32-byte hex topic\nper line, blank lines and `#` comments skipped, and adds to the\nrepeatable `--statement-affinity-topic` flag. A line holds the topic\nitself, not a name to hash, since applications derive topics in their\nown ways.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12557.\n\n## Integration\n\nOptional flag, takes effect only on the experimental v2 DHT statement\npath. `V2DhtConfig` gains the field `affinity_topics_file:\nOption<AffinityTopicsFile>`.",
+          "timestamp": "2026-09-21T11:19:08Z",
+          "tree_id": "88e1eb03cedf1d2435c9f258efc9acc72573276b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c7bc926f89162cb8dd8681af112fcd1cb9677227"
+        },
+        "date": 1789998063842,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00773981566666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14437723192000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010051089679999974,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025527096826666665,
             "unit": "seconds"
           }
         ]
