@@ -78,7 +78,7 @@ pub struct VersionAwareRuntimeApi {
 }
 
 /// The execution trace a windowed request is answered with.
-pub(super) fn execution_trace(trace: TraceV1) -> Result<ExecutionTraceV1, ClientError> {
+fn execution_trace(trace: TraceV1) -> Result<ExecutionTraceV1, ClientError> {
 	match trace {
 		TraceV1::Execution(trace) => Ok(trace),
 		_ => Err(ClientError::TraceUnavailable),

@@ -107,7 +107,7 @@ fn measured_step_bytes(steps: &[ExecutionStepV1]) -> Option<u64> {
 /// `collected` is the first window, already fetched, because `trace_tx` and `trace_call` answer
 /// it with different types and only they can say whether an absent trace is an answer or a
 /// failure.
-pub(super) async fn extend_with_remaining_windows<'a, F>(
+pub async fn extend_with_remaining_windows<'a, F>(
 	collected: &mut ExecutionTraceV1,
 	walk: TraceWalk,
 	max_response_size: u32,
@@ -175,7 +175,7 @@ where
 
 /// What failed windows have taught a walk, carried from the first window onward.
 #[derive(Clone, Copy, Debug)]
-pub(super) struct Narrowing {
+pub struct Narrowing {
 	/// The most a later window may ask for. Halved by each failure.
 	ceiling: u64,
 }
@@ -187,7 +187,7 @@ impl Default for Narrowing {
 }
 
 /// Fetch one window, halving it and asking again while the node refuses it as too large.
-pub(super) async fn fetch_narrowing<'a, T, F>(
+pub async fn fetch_narrowing<'a, T, F>(
 	window: &mut TraceWindow,
 	narrowing: &mut Narrowing,
 	fetch: &mut F,
@@ -247,13 +247,13 @@ fn is_retryable(err: &ClientError) -> bool {
 
 /// The caller's own bound on the walk, if they set one.
 #[derive(Clone, Copy, Debug)]
-pub(super) struct TraceWalk {
+pub struct TraceWalk {
 	caller_limit: Option<u64>,
 }
 
 impl TraceWalk {
 	/// The first window, which exists even for a limit of zero so the runtime answers it.
-	pub(super) fn first_window(&self, max_response_size: u32) -> TraceWindow {
+	pub fn first_window(&self, max_response_size: u32) -> TraceWindow {
 		let steps = window_steps(PRIOR_STEP_BYTES, max_response_size);
 
 		TraceWindow {
@@ -271,7 +271,7 @@ impl TraceWalk {
 }
 
 /// Apply a window to an execution tracer selection. The other tracers have no steps to window.
-pub(super) fn windowed(tracer_type: TracerTypeV1, window: Option<TraceWindow>) -> TracerTypeV2 {
+pub fn windowed(tracer_type: TracerTypeV1, window: Option<TraceWindow>) -> TracerTypeV2 {
 	let Some(window) = window else { return tracer_type.into() };
 
 	match tracer_type.into() {
@@ -285,7 +285,7 @@ pub(super) fn windowed(tracer_type: TracerTypeV1, window: Option<TraceWindow>) -
 	}
 }
 
-pub(super) fn execution_tracer_walk(tracer_type: &TracerTypeV1) -> Option<TraceWalk> {
+pub fn execution_tracer_walk(tracer_type: &TracerTypeV1) -> Option<TraceWalk> {
 	let TracerTypeV1::ExecutionTracer(config) = tracer_type else { return None };
 
 	Some(TraceWalk { caller_limit: config.as_ref().and_then(|config| config.limit) })
@@ -293,7 +293,7 @@ pub(super) fn execution_tracer_walk(tracer_type: &TracerTypeV1) -> Option<TraceW
 
 /// One window of an execution's steps.
 #[derive(Clone, Copy, Debug)]
-pub(super) struct TraceWindow {
+pub struct TraceWindow {
 	step_offset: u64,
 	limit: u64,
 }

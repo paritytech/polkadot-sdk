@@ -18,7 +18,7 @@
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 
 pub(crate) mod storage_api;
-pub(crate) mod trace_windowing;
+mod trace_windowing;
 pub(crate) mod version_aware_runtime_api;
 
 use crate::{
