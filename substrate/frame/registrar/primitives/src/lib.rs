@@ -226,7 +226,7 @@ pub enum MigratedParaState {
 /// and for a registered para the registration deposit, from `manager` at the destination's own
 /// prices.
 ///
-/// Note: We recreate even if there is not enough fund to pay for the deposit so no RC channel
+/// Note: We recreate even if there is not enough fund to pay for the deposit so no RC para
 /// is dropped.
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
 pub struct MigratedPara<AccountId> {
@@ -245,8 +245,8 @@ pub struct MigratedPara<AccountId> {
 pub trait ReceiveMigratedParas<AccountId> {
 	/// Take one para, charging its deposits at this chain's prices.
 	///
-	/// Note: We recreate even if there is not enough fund to pay for the deposit so no RC channel
-	/// is dropped.
+	/// Note: We recreate even if there is not enough fund to pay for the deposit so no RC para
+	/// gets dropped.
 	fn receive_para(para: MigratedPara<AccountId>) -> sp_runtime::DispatchResult;
 
 	/// Adopt the next free para id from the source chain.
