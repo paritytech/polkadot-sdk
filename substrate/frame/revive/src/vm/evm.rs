@@ -71,6 +71,7 @@ pub(crate) enum EvmOpcodeCosts {
 	JUMP,
 	JUMPI,
 	JUMPDEST,
+	PUSH,
 }
 
 impl<T: Config> Token<T> for EvmOpcodeCosts {
@@ -83,6 +84,7 @@ impl<T: Config> Token<T> for EvmOpcodeCosts {
 			JUMP => cost_args!(evm_jump_opcode, 1).saturating_sub(weight_of(JUMPDEST)),
 			JUMPI => cost_args!(evm_jumpi_opcode, 1).saturating_sub(weight_of(JUMPDEST)),
 			JUMPDEST => cost_args!(evm_jumpdest_opcode, 1),
+			PUSH => cost_args!(evm_push_opcode, 1),
 		}
 	}
 }

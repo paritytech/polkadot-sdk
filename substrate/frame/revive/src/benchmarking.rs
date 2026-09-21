@@ -3425,6 +3425,35 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Benchmark `r` `PUSH32` instructions.
+	///
+	/// This is used for `PUSH0`..`PUSH32` since the word size of the stack is 32 bytes. The only
+	/// difference between something like `PUSH5` and `PUSH32` is that `PUSH5` copies less bytes
+	/// from the code and therefore a `PUSH32` is the worst case scenario as it involves more data
+	/// being copied from the code.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) -> Result<(), BenchmarkError> {
+		use revm::bytecode::opcode::PUSH32;
+
+		let code = core::iter::once(PUSH32)
+			.chain([u8::MAX; 32])
+			.collect::<Vec<u8>>()
+			.repeat(r as usize);
+		let code = Bytecode::new_raw(code.into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let inputs = Vec::new();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, inputs);
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+		Ok(())
+	}
+
 	// Benchmark the execution of instructions.
 	//
 	// It benchmarks the absolute worst case by allocating a lot of memory

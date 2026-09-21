@@ -19,7 +19,7 @@ use crate::{
 	U256,
 	vm::{
 		Ext,
-		evm::{EVMGas, Interpreter, interpreter::Halt},
+		evm::{EVMGas, EvmOpcodeCosts, Interpreter, interpreter::Halt},
 	},
 };
 use core::ops::ControlFlow;
@@ -38,7 +38,7 @@ pub fn pop<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Introduce a new instruction which pushes the constant value 0 onto the stack.
 pub fn push0<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(BASE))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::PUSH)?;
 	interpreter.stack.push(U256::zero())
 }
 
@@ -48,7 +48,7 @@ pub fn push0<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 pub fn push<'ext, const N: usize, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 ) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::PUSH)?;
 
 	let slice = interpreter.bytecode.read_slice(N);
 	interpreter.stack.push_slice(slice)?;

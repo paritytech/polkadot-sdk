@@ -56,7 +56,10 @@ impl ToU256 for H160 {
 impl<T: Config> Stack<T> {
 	/// Create a new empty stack
 	pub fn new() -> Self {
-		Self { stack: Vec::with_capacity(32), _phantom: core::marker::PhantomData }
+		Self {
+			stack: Vec::with_capacity(EVM_STACK_LIMIT as _),
+			_phantom: core::marker::PhantomData,
+		}
 	}
 
 	/// Push a value onto the stack
