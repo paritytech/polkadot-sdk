@@ -59,7 +59,8 @@ pub struct EVMGas(pub u64);
 
 impl<T: Config> Token<T> for EVMGas {
 	fn weight(&self) -> Weight {
-		let base_cost = T::WeightInfo::evm_opcode(1).saturating_sub(T::WeightInfo::evm_opcode(0));
+		let base_cost = T::WeightInfo::evm_jumpdest_opcode(1)
+			.saturating_sub(T::WeightInfo::evm_jumpdest_opcode(0));
 		base_cost.saturating_mul(self.0)
 	}
 }
@@ -79,11 +80,9 @@ impl<T: Config> Token<T> for EvmOpcodeCosts {
 		let weight_of = |token: EvmOpcodeCosts| Token::<T>::weight(&token);
 
 		match self {
-			// Both have roughly the same cost. We're slightly over charging for `JUMP` since it
-			// doesn't actually do the "check condition then jump" but it's a very slight over
-			// charge that doesn't warrant it having its own benchmark.
-			JUMP | JUMPI => cost_args!(evm_jumpi_opcode, 1).saturating_sub(weight_of(JUMPDEST)),
-			JUMPDEST => cost_args!(evm_opcode, 1),
+			JUMP => cost_args!(evm_jump_opcode, 1).saturating_sub(weight_of(JUMPDEST)),
+			JUMPI => cost_args!(evm_jumpi_opcode, 1).saturating_sub(weight_of(JUMPDEST)),
+			JUMPDEST => cost_args!(evm_jumpdest_opcode, 1),
 		}
 	}
 }

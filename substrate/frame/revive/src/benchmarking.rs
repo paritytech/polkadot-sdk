@@ -120,6 +120,54 @@ fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId,
 	Ok(account_id)
 }
 
+/// Code and stack contents for benchmarking one of the EVM jump opcodes.
+///
+/// The code is always the maximum init code size, independent of how many jumps execute, since
+/// that is larger than the L1 cache on reference hardware. It is nothing but `jump; JUMPDEST`
+/// pairs, so every destination except the last is followed by another jump, and the last is
+/// followed by the `STOP` revm pads the code with.
+struct EvmJumpFixture {
+	code: Vec<u8>,
+	targets: Vec<usize>,
+}
+
+impl EvmJumpFixture {
+	fn new(jump: u8, jumps: u32) -> Self {
+		use rand::{SeedableRng, seq::SliceRandom};
+		use rand_pcg::Pcg64;
+		use revm::bytecode::opcode::JUMPDEST;
+
+		const MAX_CODE_SIZE: usize = revm::primitives::eip3860::MAX_INITCODE_SIZE;
+		let mut code = Vec::<u8>::with_capacity(MAX_CODE_SIZE);
+		let mut index_of_jumpdest = Vec::new();
+		loop {
+			let remaining_capacity =
+				MAX_CODE_SIZE.checked_sub(code.len()).expect("Checked in the loop; qed");
+			let 2.. = remaining_capacity else { break };
+			index_of_jumpdest.push(code.len() + 1);
+			code.extend([jump, JUMPDEST]);
+		}
+
+		let (last_jumpdest, other_jumpdests) =
+			index_of_jumpdest.split_last().expect("The code holds at least one pair; qed");
+		let spread = jumps.saturating_sub(1) as usize;
+		let mut targets = other_jumpdests
+			.iter()
+			.step_by(other_jumpdests.len() / spread.max(1))
+			.take(spread)
+			.copied()
+			.collect::<Vec<_>>();
+		targets.shuffle(&mut Pcg64::seed_from_u64(1337));
+		targets.push(*last_jumpdest);
+
+		Self { code, targets }
+	}
+
+	fn last_target(&self) -> usize {
+		*self.targets.last().expect("The code holds at least one pair; qed")
+	}
+}
+
 #[benchmarks(
 	where
 		T: Config,
@@ -3206,7 +3254,7 @@ mod benchmarks {
 
 	/// Benchmark the cost of executing `r` noop (JUMPDEST) instructions.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_opcode(r: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
+	fn evm_jumpdest_opcode(r: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
 		let module = VmBinaryModule::evm_noop(r);
 		let inputs = vec![];
 
@@ -3224,30 +3272,59 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Benchmark `r` taken `JUMPI` instructions. The operands of every jump are placed on the stack
-	/// ahead of time, so the code is nothing but `JUMPI; JUMPDEST` pairs and the slope is one taken
-	/// `JUMPI` plus one `JUMPDEST`. Each jump consumes two stack items.
+	/// Benchmark `r` `JUMP` instructions over a full-size code with shuffled targets. The targets
+	/// are placed on the stack ahead of time, so nothing but `JUMP` and `JUMPDEST` executes and
+	/// the slope is one `JUMP` plus one `JUMPDEST`. Each jump consumes one stack item.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_jumpi_opcode(
-		r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>,
-	) -> Result<(), BenchmarkError> {
-		use revm::bytecode::opcode::{JUMPDEST, JUMPI};
+	fn evm_jump_opcode(r: Linear<1, { limits::EVM_STACK_LIMIT }>) -> Result<(), BenchmarkError> {
+		use revm::bytecode::opcode::JUMP;
 
-		let mut code = Vec::new();
-		let mut stack = Vec::new();
-		for _ in 0..r {
-			code.push(JUMPI);
-			let destination = U256::from(code.len());
-			code.push(JUMPDEST);
-			stack.push(destination);
-			stack.push(U256::one());
-		}
+		let fixture = EvmJumpFixture::new(JUMP, r);
+		let last_target = fixture.last_target();
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
-		let bytecode = ExtBytecode::new(Bytecode::new_raw(code.into()));
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(fixture.code.into()));
 		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
-		for operand in stack.into_iter().rev() {
+		for target in fixture.targets.into_iter().rev() {
+			if interpreter.stack.push(U256::from(target)).is_break() {
+				return Err(BenchmarkError::Stop("Targets exceed the stack limit"));
+			}
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), last_target + 2);
+		Ok(())
+	}
+
+	/// Benchmark `r` taken `JUMPI` instructions over a full-size code with shuffled targets. The
+	/// operands of every jump are placed on the stack ahead of time, so nothing but `JUMPI` and
+	/// `JUMPDEST` executes and the slope is one taken `JUMPI` plus one `JUMPDEST`. Each jump
+	/// consumes two stack items.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_jumpi_opcode(
+		r: Linear<1, { limits::EVM_STACK_LIMIT / 2 }>,
+	) -> Result<(), BenchmarkError> {
+		use revm::bytecode::opcode::JUMPI;
+
+		let fixture = EvmJumpFixture::new(JUMPI, r);
+		let last_target = fixture.last_target();
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(fixture.code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+		let operands =
+			fixture.targets.into_iter().flat_map(|target| [U256::from(target), U256::one()]);
+		for operand in operands.rev() {
 			if interpreter.stack.push(operand).is_break() {
 				return Err(BenchmarkError::Stop("Operands exceed the stack limit"));
 			}
@@ -3262,6 +3339,7 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), last_target + 2);
 		Ok(())
 	}
 
