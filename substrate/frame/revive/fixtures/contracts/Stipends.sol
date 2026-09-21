@@ -236,7 +236,7 @@ contract StipendTest {
 /**
  * @title ReentrancyProbe
  * @dev Checks whether reentry is admitted. The reentrant call is cheap enough to fit the stipend,
- *      and reverts when denied, which makes the outer call fail.
+ * and reverts when denied, which makes the outer call fail.
  */
 contract ReentrancyProbe {
     receive() external payable {
@@ -273,7 +273,7 @@ contract StipendSender {
     }
 
     /// @dev Passing one gas explicitly keeps the probe on the stipend but lets it reenter, since
-    ///      only transfer and send are guarded. Proves the stipend is enough for the reentry.
+    /// only transfer and send are guarded. Proves the stipend is enough for the reentry.
     function isCallWithOneGasDenied() public payable returns (bool) {
         (bool ok, ) = probe.call{value: msg.value, gas: 1}("");
         return !ok;
