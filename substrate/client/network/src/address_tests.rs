@@ -694,9 +694,7 @@ fn webrtc_public_address_rejected_on_libp2p() {
 }
 
 #[test]
-fn certhash_rejected_on_libp2p() {
-	// No `webrtc-direct` component, so nothing here says WebRTC except the certificate hash
-	// itself — and pointing this backend at the `webrtc-direct` shape would be a dead end.
+fn certhash_outside_webrtc_rejected_on_libp2p() {
 	let mut config = webrtc_config("/ip4/203.0.113.9/tcp/31234");
 	config.network_backend = NetworkBackendType::Libp2p;
 	config.listen_addresses =
@@ -704,7 +702,7 @@ fn certhash_rejected_on_libp2p() {
 
 	assert!(matches!(
 		config.validate_and_complete_addresses(),
-		Err(Error::WebRtcNotSupportedByBackend),
+		Err(Error::InvalidWebRtcAddress { .. }),
 	));
 }
 
