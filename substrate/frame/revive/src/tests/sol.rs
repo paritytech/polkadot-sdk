@@ -1620,65 +1620,69 @@ fn windows_of_a_real_execution_rebuild_the_whole_trace() {
 	use crate::evm::{ExecutionTracer, ExecutionTracerConfig};
 	use pallet_revive_fixtures::{Callee, Caller};
 
-	let traced = |step_offset: u64, limit: Option<u64>| {
-		ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
-			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		let traced = |step_offset: u64, limit: Option<u64>| {
+			ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+				let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-			let (callee_code, _) = compile_module_with_type("Callee", FixtureType::Solc).unwrap();
-			let Contract { addr: callee, .. } =
-				builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
-			let (caller_code, _) = compile_module_with_type("Caller", FixtureType::Solc).unwrap();
-			let Contract { addr: caller, .. } =
-				builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+				let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
+				let Contract { addr: callee, .. } =
+					builder::bare_instantiate(Code::Upload(callee_code))
+						.build_and_unwrap_contract();
+				let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+				let Contract { addr: caller, .. } =
+					builder::bare_instantiate(Code::Upload(caller_code))
+						.build_and_unwrap_contract();
 
-			let mut tracer = ExecutionTracer::new(ExecutionTracerConfig {
-				step_offset,
-				limit,
-				..Default::default()
-			});
-			trace(&mut tracer, || {
-				builder::bare_call(caller)
-					.data(
-						Caller::normalCall {
-							_callee: callee.0.into(),
-							_value: 0,
-							_data: Callee::echoCall { _data: 42u64 }.abi_encode().into(),
-							_gas: u64::MAX,
-						}
-						.abi_encode(),
-					)
-					.build_and_unwrap_result()
-			});
-			tracer.collect_trace()
-		})
-	};
+				let mut tracer = ExecutionTracer::new(ExecutionTracerConfig {
+					step_offset,
+					limit,
+					..Default::default()
+				});
+				trace(&mut tracer, || {
+					builder::bare_call(caller)
+						.data(
+							Caller::normalCall {
+								_callee: callee.0.into(),
+								_value: 0,
+								_data: Callee::echoCall { _data: 42u64 }.abi_encode().into(),
+								_gas: u64::MAX,
+							}
+							.abi_encode(),
+						)
+						.build_and_unwrap_result()
+				});
+				tracer.collect_trace()
+			})
+		};
 
-	let full = traced(0, None);
-	let steps = full.struct_logs.len() as u64;
-	assert!(steps > 8, "expected a multi-step trace, got {steps}");
-	assert!(
-		full.struct_logs.iter().any(|step| step.depth > 0),
-		"the fixture must make a nested call for this to be a real test",
-	);
-
-	// Sweep the window relative to the trace, so the cut lands inside the nested call as well as
-	// on its boundaries.
-	for window in [1, steps / 4, steps / 3, steps - 1, steps] {
-		let mut walked = Vec::new();
-		for offset in (0..).step_by(window as usize).take(steps as usize + 1) {
-			let captured = traced(offset, Some(window)).struct_logs;
-			let is_last = (captured.len() as u64) < window;
-
-			walked.extend(captured);
-
-			if is_last {
-				break;
-			}
-		}
-
-		assert_eq!(
-			walked, full.struct_logs,
-			"windows of {window} step(s) rebuild the trace a single call returns",
+		let full = traced(0, None);
+		let steps = full.struct_logs.len() as u64;
+		assert!(steps > 8, "expected a multi-step trace, got {steps}");
+		assert!(
+			full.struct_logs.iter().any(|step| step.depth > 0),
+			"the fixture must make a nested call for this to be a real test",
 		);
+
+		// Sweep the window relative to the trace, so the cut lands inside the nested call as well
+		// as on its boundaries.
+		for window in [1, steps / 4, steps / 3, steps - 1, steps] {
+			let mut walked = Vec::new();
+			for offset in (0..).step_by(window as usize).take(steps as usize + 1) {
+				let captured = traced(offset, Some(window)).struct_logs;
+				let is_last = (captured.len() as u64) < window;
+
+				walked.extend(captured);
+
+				if is_last {
+					break;
+				}
+			}
+
+			assert_eq!(
+				walked, full.struct_logs,
+				"windows of {window} step(s) rebuild the trace a single call returns",
+			);
+		}
 	}
 }
