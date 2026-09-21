@@ -26,7 +26,9 @@ use ethereum_standards::{
 	IERC20,
 	IERC20::{IERC20Calls, IERC20Events},
 };
-use frame_support::traits::fungibles::metadata::Inspect as MetadataInspect;
+use frame_support::traits::{
+	fungibles::metadata::Inspect as MetadataInspect, tokens::Preservation,
+};
 use pallet_assets::{weights::WeightInfo as _, Call, Config, TransferFlags};
 use pallet_revive::precompiles::{
 	alloy::{
@@ -271,7 +273,11 @@ where
 			&call.to.into_array().into(),
 		);
 
-		let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
+		let f = TransferFlags {
+			preservation: Preservation::Expendable,
+			best_effort: false,
+			burn_dust: false,
+		};
 		pallet_assets::Pallet::<Runtime, Instance>::do_transfer(
 			asset_id,
 			&<Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from),

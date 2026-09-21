@@ -57,8 +57,7 @@ impl<T: Config<I>, I: 'static> fungibles::Inspect<<T as SystemConfig>::AccountId
 		preservation: Preservation,
 		_: Fortitude,
 	) -> Self::Balance {
-		Pallet::<T, I>::reducible_balance(asset, who, !matches!(preservation, Expendable))
-			.unwrap_or(Zero::zero())
+		Pallet::<T, I>::reducible_balance(asset, who, preservation).unwrap_or(Zero::zero())
 	}
 
 	fn can_deposit(
@@ -75,7 +74,7 @@ impl<T: Config<I>, I: 'static> fungibles::Inspect<<T as SystemConfig>::AccountId
 		who: &<T as SystemConfig>::AccountId,
 		amount: Self::Balance,
 	) -> WithdrawConsequence<Self::Balance> {
-		Pallet::<T, I>::can_decrease(asset, who, amount, false)
+		Pallet::<T, I>::can_decrease(asset, who, amount, Expendable)
 	}
 
 	fn asset_exists(asset: Self::AssetId) -> bool {
@@ -204,10 +203,7 @@ impl<T: Config<I>, I: 'static> fungibles::Unbalanced<T::AccountId> for Pallet<T,
 		preservation: Preservation,
 		_: Fortitude,
 	) -> Result<Self::Balance, DispatchError> {
-		let f = DebitFlags {
-			keep_alive: preservation != Expendable,
-			best_effort: precision == BestEffort,
-		};
+		let f = DebitFlags { preservation, best_effort: precision == BestEffort };
 		Self::decrease_balance(asset, who, amount, f, |_, _| Ok(()))
 	}
 	fn increase_balance(

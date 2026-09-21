@@ -20,7 +20,10 @@
 use super::*;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{fungible, tokens::ConversionToAssetBalance},
+	traits::{
+		fungible,
+		tokens::{ConversionToAssetBalance, Preservation},
+	},
 };
 use sp_runtime::{traits::Convert, FixedPointNumber, FixedU128};
 
@@ -276,9 +279,8 @@ impl<AssetId, AccountId, Balance> BalanceOnHold<AssetId, AccountId, Balance> for
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct TransferFlags {
-	/// The debited account must stay alive at the end of the operation; an error is returned if
-	/// this cannot be achieved legally.
-	pub keep_alive: bool,
+	/// What the debit must leave intact; an error is returned if this cannot be achieved legally.
+	pub preservation: Preservation,
 	/// Less than the amount specified needs be debited by the operation for it to be considered
 	/// successful. If `false`, then the amount debited will always be at least the amount
 	/// specified.
@@ -290,9 +292,8 @@ pub struct TransferFlags {
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct DebitFlags {
-	/// The debited account must stay alive at the end of the operation; an error is returned if
-	/// this cannot be achieved legally.
-	pub keep_alive: bool,
+	/// What the debit must leave intact; an error is returned if this cannot be achieved legally.
+	pub preservation: Preservation,
 	/// Less than the amount specified needs be debited by the operation for it to be considered
 	/// successful. If `false`, then the amount debited will always be at least the amount
 	/// specified.
@@ -301,7 +302,7 @@ pub struct DebitFlags {
 
 impl From<TransferFlags> for DebitFlags {
 	fn from(f: TransferFlags) -> Self {
-		Self { keep_alive: f.keep_alive, best_effort: f.best_effort }
+		Self { preservation: f.preservation, best_effort: f.best_effort }
 	}
 }
 
