@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789998256198,
+  "lastUpdate": 1790001323099,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "cf88f8c344c1f6abdd52693e0718ffa48ea382c8",
-          "message": "[Release|CI/CD] Replace direct use of inputs with ENVs (#11116)\n\nReplace direct use of inputs with ENVs in release pieplines\n\ncc: https://github.com/paritytech/release-engineering/issues/284",
-          "timestamp": "2026-02-19T15:31:08Z",
-          "tree_id": "9709563132726125cf0ff1caf55eb6504ed6cb3a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cf88f8c344c1f6abdd52693e0718ffa48ea382c8"
-        },
-        "date": 1771520258820,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00262946164,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009013828599999983,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0063159517300000025,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010547979769999983,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c46fa16033309fc9262f6866fa1a5b5e49acf198",
+          "message": "[CI/CD] Adjust time to fix cron job (#13275)\n\nThis PR fixes a cron job that runs in the paritytech-release org to sync\nforks",
+          "timestamp": "2026-09-21T13:01:19Z",
+          "tree_id": "8837004e80fd58c0bc458761e6e1a54c3f9be8a4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c46fa16033309fc9262f6866fa1a5b5e49acf198"
+        },
+        "date": 1790001281357,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009843352079999982,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011286715459999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00291470409,
             "unit": "seconds"
           }
         ]
