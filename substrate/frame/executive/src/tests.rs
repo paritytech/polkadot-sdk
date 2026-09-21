@@ -24,7 +24,7 @@ use frame_support::{
 	migrations::MultiStepMigrator,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{fungible, ConstU8, Currency, IsInherent, VariantCount, VariantCountOf},
+	traits::{fungible, ConstU8, Currency, IsInherent, VariantCount},
 	weights::{ConstantMultiplier, IdentityFee, RuntimeDbWeight, Weight, WeightMeter, WeightToFee},
 };
 use frame_system::{pallet_prelude::*, ChainContext, LastRuntimeUpgrade, LastRuntimeUpgradeInfo};
@@ -431,8 +431,6 @@ impl pallet_balances::Config for Runtime {
 	type AccountStore = System;
 	type WeightInfo = BalancesWeights;
 	type RuntimeFreezeReason = FreezeReasonId;
-	type FreezeIdentifier = FreezeReasonId;
-	type MaxFreezes = VariantCountOf<FreezeReasonId>;
 }
 
 pub struct MockTxPaymentWeights;
