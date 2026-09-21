@@ -834,6 +834,37 @@ fn protect_dusts_only_accounts_that_outlive_their_balance() {
 	});
 }
 
+/// The same distinction, seen through the trait methods that downstream code actually calls.
+#[test]
+fn protect_through_the_fungibles_trait_boundary() {
+	build_and_execute(|| {
+		Balances::make_free_balance_be(&2, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(2), 0));
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 50));
+
+		use frame_support::traits::tokens::{Fortitude::Polite, Precision::Exact};
+
+		let reducible = |who, preservation| {
+			<Assets as fungibles::Inspect<_>>::reducible_balance(0, who, preservation, Polite)
+		};
+		assert_eq!(reducible(&2, Protect), 50);
+		assert_eq!(reducible(&2, Preserve), 40);
+		// `1` exists by sufficiency, so its entry dies with its balance.
+		assert_eq!(reducible(&1, Protect), 40);
+
+		assert_eq!(
+			<Assets as fungibles::Unbalanced<_>>::decrease_balance(
+				0, &2, 45, Exact, Protect, Polite
+			),
+			Ok(50)
+		);
+		assert_eq!(Assets::balance(0, 2), 0);
+		assert!(Account::<Test>::contains_key(0, &2));
+	});
+}
+
 #[test]
 fn transferring_frozen_user_should_not_work() {
 	build_and_execute(|| {

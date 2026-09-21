@@ -275,9 +275,13 @@ pub trait Mutate<AccountId>:
 
 		Self::ensure_can_hold(asset.clone(), reason, who, amount)?;
 		// Should be infallible now, but we proceed softly anyway.
-		Self::decrease_balance(asset.clone(), who, amount, Exact, Protect, Force)?;
-		Self::increase_balance_on_hold(asset.clone(), reason, who, amount, BestEffort)?;
-		Self::done_hold(asset, reason, who, amount);
+		// `decrease_balance` may take more than `amount` when the reduction would strand a
+		// sub-minimum remainder, so the hold records what was actually taken. Recording `amount`
+		// would leave the difference debited from the account, held for nobody, and still counted
+		// in total issuance.
+		let actual = Self::decrease_balance(asset.clone(), who, amount, Exact, Protect, Force)?;
+		Self::increase_balance_on_hold(asset.clone(), reason, who, actual, BestEffort)?;
+		Self::done_hold(asset, reason, who, actual);
 		Ok(())
 	}
 

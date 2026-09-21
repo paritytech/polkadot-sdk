@@ -373,6 +373,11 @@ where
 
 	/// Transfer funds from one account into another.
 	///
+	/// Returns the amount actually debited from `source` and credited to `dest`. It may exceed
+	/// `amount` by up to `minimum_balance() - 1`: when debiting exactly `amount` would leave
+	/// `source` holding a non-zero balance below the minimum, [`Unbalanced::decrease_balance`]
+	/// takes the remainder as well, and it is credited to `dest` along with the rest.
+	///
 	/// A transfer where the source and destination account are identical is treated as No-OP after
 	/// checking the preconditions.
 	fn transfer(

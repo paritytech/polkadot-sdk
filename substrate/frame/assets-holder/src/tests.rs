@@ -285,8 +285,37 @@ mod impl_hold_unbalanced {
 
 mod impl_hold_mutate {
 	use super::*;
-	use frame_support::traits::tokens::{Fortitude, Precision, Preservation};
+	use frame_support::traits::{
+		tokens::{Fortitude, Precision, Preservation},
+		Currency,
+	};
 	use sp_runtime::TokenError;
+
+	/// A hold that strands a sub-minimum remainder takes the whole balance, so all of it must end
+	/// up on hold: the swept part may not vanish from the account without leaving the supply.
+	#[test]
+	fn hold_sweeping_the_account_holds_what_it_took() {
+		super::new_test_ext(|| {
+			const SWEPT: AssetId = 2;
+			const MIN_BALANCE: Balance = 10;
+
+			// An account kept alive by its own deposit, so the entry outlives a dusted balance and
+			// `Protect` lets the debit take the whole of it.
+			Balances::make_free_balance_be(&WHO, 100);
+			assert_ok!(Assets::force_create(RuntimeOrigin::root(), SWEPT, WHO, false, MIN_BALANCE));
+			assert_ok!(Assets::touch(RuntimeOrigin::signed(WHO), SWEPT));
+			assert_ok!(Assets::mint(RuntimeOrigin::signed(WHO), SWEPT, WHO, 50));
+			assert_eq!(Assets::total_issuance(SWEPT), 50);
+
+			// Requesting 45 strands 5, below the minimum, so the debit resolves to the full 50.
+			assert_ok!(AssetsHolder::hold(SWEPT, &DummyHoldReason::Governance, &WHO, 45));
+
+			assert_eq!(Assets::balance(SWEPT, &WHO), 0);
+			assert_eq!(AssetsHolder::total_balance_on_hold(SWEPT, &WHO), 50);
+			assert_eq!(Assets::total_balance(SWEPT, &WHO), 50);
+			assert_eq!(Assets::total_issuance(SWEPT), 50);
+		});
+	}
 
 	#[test]
 	fn hold_works() {

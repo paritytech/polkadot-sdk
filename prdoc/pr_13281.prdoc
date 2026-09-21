@@ -1,0 +1,49 @@
+title: Protect and Preserve as distinct preservation semantics in pallet-assets
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-assets` collapsed `Preservation` into a single `keep_alive` boolean
+    (`preservation != Expendable`), so `Protect` and `Preserve` were indistinguishable and
+    `Protect`'s documented meaning — the account may not be killed, but its balance may be
+    dusted — had no effect.
+
+    `TransferFlags` and `DebitFlags` now carry a `Preservation` in place of `keep_alive`, and
+    `Pallet::reducible_balance` and `Pallet::can_decrease` take one too. `Protect` permits the
+    sweep exactly where the asset-account entry outlives its balance, which is where
+    `dead_account` returns `Keep`: accounts existing by a deposit (`DepositHeld` or
+    `DepositFrom`). Accounts existing by a consumer reference or by asset sufficiency still hold
+    back `min_balance` under `Protect`, as they do under `Preserve`. `Expendable` and `Preserve`
+    are unchanged, so every `TransferFlags`/`DebitFlags` construction site in the pallet — all of
+    which pass one of those two — keeps its current behaviour.
+
+    Note that the default `Mutate::transfer` vetoes a dusting withdrawal for any
+    `preservation != Expendable` before reaching the pallet, so, as in `pallet-balances`, the
+    distinction surfaces through `reducible_balance`, `decrease_balance` and `burn_from` rather
+    than through `transfer`.
+
+    The default `fungible::MutateHold::hold` and `fungibles::hold::Mutate::hold` pass `Protect` to
+    `decrease_balance` and then recorded the requested `amount` on hold, discarding the figure
+    actually debited. That was inert while no implementor could promote a debit under `Protect`;
+    with the above it is reachable, and the difference would leave the account without going on
+    hold or coming off the supply. Both now record what `decrease_balance` returned, matching
+    `transfer_and_hold` in the same files. This is inert for implementors whose `decrease_balance`
+    returns exactly `amount`, which includes `pallet-balances`.
+
+    `fungible::Mutate::transfer` and `fungibles::Mutate::transfer` now document that their return
+    may exceed `amount` by up to `minimum_balance() - 1`, matching the range already documented on
+    `burn_from` and `Unbalanced::decrease_balance`.
+
+- audience: Runtime User
+  description: |-
+    Placing a hold on an asset account whose remaining balance would fall below the asset's
+    minimum now holds the whole balance rather than failing. The extra is held for the same
+    reason as the requested amount and is released with it; no funds leave the account.
+
+crates:
+- name: frame-support
+  bump: minor
+- name: pallet-assets
+  bump: major
+- name: pallet-assets-precompiles
+  bump: patch
