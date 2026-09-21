@@ -1,0 +1,10 @@
+title: 'sc-network: register `out_events` metrics on the litep2p backend'
+doc:
+- audience: Node Operator
+  description: |-
+    The litep2p backend now registers the `substrate_sub_libp2p_out_events_events_total`
+    and `substrate_sub_libp2p_out_events_num_channels` metrics, as the libp2p backend
+    already did, so the backlog of every `event_stream` consumer is visible in Prometheus.
+crates:
+- name: sc-network
+  bump: patch
