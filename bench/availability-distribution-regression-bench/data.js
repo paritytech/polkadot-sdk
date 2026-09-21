@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789899382410,
+  "lastUpdate": 1789986495108,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "cf88f8c344c1f6abdd52693e0718ffa48ea382c8",
-          "message": "[Release|CI/CD] Replace direct use of inputs with ENVs (#11116)\n\nReplace direct use of inputs with ENVs in release pieplines\n\ncc: https://github.com/paritytech/release-engineering/issues/284",
-          "timestamp": "2026-02-19T15:31:08Z",
-          "tree_id": "9709563132726125cf0ff1caf55eb6504ed6cb3a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cf88f8c344c1f6abdd52693e0718ffa48ea382c8"
-        },
-        "date": 1771520156635,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007011803293333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00992262012,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02476325189333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1444806098133334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02531623913333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e9f9b636cbe173a334d9212e2352e28f8182fbd4",
+          "message": "election-provider-support: fix MaxEncodedLen undercount in generated solution types (#13265)\n\nThe prefix budget assumed a one-byte length prefix per vote field, but a\nfield holding `MaxVoters` elements uses a multi-byte compact.\n`max_encoded_len()` of `generate_solution_type!` types now includes the\nfull compact length prefix of a field holding `MaxVoters` elements.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-21T08:53:10Z",
+          "tree_id": "377addbb5ea7f47f43d2fcae95ce260b1cf1957d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e9f9b636cbe173a334d9212e2352e28f8182fbd4"
+        },
+        "date": 1789986451968,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1427811654666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007726235733333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025202671899999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00992281474666664,
             "unit": "seconds"
           }
         ]
