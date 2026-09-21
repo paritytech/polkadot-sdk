@@ -862,15 +862,30 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 		purge_after_sec: cli.statement_store_purge_after_sec,
 		network_workers: cli.statement_network_workers,
 		rate_limit: cli.statement_rate_limit,
-		v2dht: sc_network_statement::v2dht_enabled().then(|| sc_statement_store::V2DhtConfig {
-			affinity_topics: cli.statement_affinity_topics.clone(),
-			bloom_false_pos_rate: cli.statement_bloom_false_positive_rate,
-			bloom_seed: cli.statement_bloom_seed,
-			replication_factor: cli.statement_replication_factor,
-			gossip_target: cli.statement_gossip_target,
-			dht_affinity_limits: None,
-			explicit_affinity_limits: None,
-			transient_limits: None,
+		v2dht: sc_network_statement::v2dht_enabled().then(|| {
+			let global = sc_statement_store::TrackLimits {
+				max_statements: cli.statement_store_max_total_statements,
+				max_size: cli.statement_store_max_total_size,
+			};
+			sc_statement_store::V2DhtConfig {
+				affinity_topics: cli.statement_affinity_topics.clone(),
+				bloom_false_pos_rate: cli.statement_bloom_false_positive_rate,
+				bloom_seed: cli.statement_bloom_seed,
+				replication_factor: cli.statement_replication_factor,
+				gossip_target: cli.statement_gossip_target,
+				dht_affinity_limits: Some(global.overriding(
+					cli.statement_store_max_dht_affinity_statements,
+					cli.statement_store_max_dht_affinity_size,
+				)),
+				explicit_affinity_limits: Some(global.overriding(
+					cli.statement_store_max_explicit_affinity_statements,
+					cli.statement_store_max_explicit_affinity_size,
+				)),
+				transient_limits: Some(global.overriding(
+					cli.statement_store_max_transient_statements,
+					cli.statement_store_max_transient_size,
+				)),
+			}
 		}),
 	};
 

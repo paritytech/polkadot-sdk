@@ -92,6 +92,16 @@ pub struct TrackLimits {
 	pub max_size: usize,
 }
 
+impl TrackLimits {
+	/// These limits with the given ones in place of the unset.
+	pub fn overriding(self, max_statements: Option<usize>, max_size: Option<usize>) -> Self {
+		Self {
+			max_statements: max_statements.unwrap_or(self.max_statements),
+			max_size: max_size.unwrap_or(self.max_size),
+		}
+	}
+}
+
 /// Parameters of the v2 DHT statement path.
 #[derive(Clone, Debug)]
 pub struct V2DhtConfig {

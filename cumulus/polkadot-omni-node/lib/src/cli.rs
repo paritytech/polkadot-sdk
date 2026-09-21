@@ -322,6 +322,60 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, value_name = "SEED", hide = true)]
 	pub statement_bloom_seed: Option<u128>,
 
+	/// Maximum number of statements the store keeps for DHT affinity. Defaults to
+	/// `--statement-store-max-total-statements`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "COUNT", hide = true)]
+	pub statement_store_max_dht_affinity_statements: Option<usize>,
+
+	/// Maximum total data size (in bytes) of the statements the store keeps for DHT affinity.
+	/// Defaults to `--statement-store-max-total-size`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "BYTES", hide = true)]
+	pub statement_store_max_dht_affinity_size: Option<usize>,
+
+	/// Maximum number of statements the store keeps for explicit affinity alone. Defaults to
+	/// `--statement-store-max-total-statements`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "COUNT", hide = true)]
+	pub statement_store_max_explicit_affinity_statements: Option<usize>,
+
+	/// Maximum total data size (in bytes) of the statements the store keeps for explicit affinity
+	/// alone. Defaults to `--statement-store-max-total-size`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "BYTES", hide = true)]
+	pub statement_store_max_explicit_affinity_size: Option<usize>,
+
+	/// Maximum number of transient statements, kept only until propagated. Defaults to
+	/// `--statement-store-max-total-statements`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "COUNT", hide = true)]
+	pub statement_store_max_transient_statements: Option<usize>,
+
+	/// Maximum total data size (in bytes) of the transient statements, kept only until
+	/// propagated. Defaults to `--statement-store-max-total-size`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "BYTES", hide = true)]
+	pub statement_store_max_transient_size: Option<usize>,
+
 	/// Upper bound on collator reserved-peer slots.
 	#[arg(long, value_name = "N", default_value_t = 32)]
 	pub collator_reserved_slots: usize,
@@ -382,15 +436,28 @@ impl<Config: CliConfig> Cli<Config> {
 					network_workers: self.statement_network_workers,
 					rate_limit: self.statement_rate_limit,
 					v2dht: sc_network_statement::v2dht_enabled().then(|| {
+						let global = sc_statement_store::TrackLimits {
+							max_statements: self.statement_store_max_total_statements,
+							max_size: self.statement_store_max_total_size,
+						};
 						sc_statement_store::V2DhtConfig {
 							affinity_topics: self.statement_affinity_topics.clone(),
 							bloom_false_pos_rate: self.statement_bloom_false_positive_rate,
 							bloom_seed: self.statement_bloom_seed,
 							replication_factor: self.statement_replication_factor,
 							gossip_target: self.statement_gossip_target,
-							dht_affinity_limits: None,
-							explicit_affinity_limits: None,
-							transient_limits: None,
+							dht_affinity_limits: Some(global.overriding(
+								self.statement_store_max_dht_affinity_statements,
+								self.statement_store_max_dht_affinity_size,
+							)),
+							explicit_affinity_limits: Some(global.overriding(
+								self.statement_store_max_explicit_affinity_statements,
+								self.statement_store_max_explicit_affinity_size,
+							)),
+							transient_limits: Some(global.overriding(
+								self.statement_store_max_transient_statements,
+								self.statement_store_max_transient_size,
+							)),
 						}
 					}),
 				},

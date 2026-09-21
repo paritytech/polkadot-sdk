@@ -139,6 +139,60 @@ pub struct Cli {
 	#[arg(long, value_name = "SEED", hide = true)]
 	pub statement_bloom_seed: Option<u128>,
 
+	/// Maximum number of statements the store keeps for DHT affinity. Defaults to
+	/// `--statement-store-max-total-statements`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "COUNT", hide = true)]
+	pub statement_store_max_dht_affinity_statements: Option<usize>,
+
+	/// Maximum total data size (in bytes) of the statements the store keeps for DHT affinity.
+	/// Defaults to `--statement-store-max-total-size`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "BYTES", hide = true)]
+	pub statement_store_max_dht_affinity_size: Option<usize>,
+
+	/// Maximum number of statements the store keeps for explicit affinity alone. Defaults to
+	/// `--statement-store-max-total-statements`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "COUNT", hide = true)]
+	pub statement_store_max_explicit_affinity_statements: Option<usize>,
+
+	/// Maximum total data size (in bytes) of the statements the store keeps for explicit affinity
+	/// alone. Defaults to `--statement-store-max-total-size`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "BYTES", hide = true)]
+	pub statement_store_max_explicit_affinity_size: Option<usize>,
+
+	/// Maximum number of transient statements, kept only until propagated. Defaults to
+	/// `--statement-store-max-total-statements`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "COUNT", hide = true)]
+	pub statement_store_max_transient_statements: Option<usize>,
+
+	/// Maximum total data size (in bytes) of the transient statements, kept only until
+	/// propagated. Defaults to `--statement-store-max-total-size`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "BYTES", hide = true)]
+	pub statement_store_max_transient_size: Option<usize>,
+
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
@@ -247,5 +301,23 @@ mod tests {
 			sc_statement_store::DEFAULT_BLOOM_FALSE_POS_RATE
 		);
 		assert_eq!(cli.statement_bloom_seed, None);
+	}
+
+	#[test]
+	fn statement_track_limit_flags_parse() {
+		use clap::Parser;
+		let cli = Cli::parse_from([
+			"substrate-node",
+			"--statement-store-max-transient-statements",
+			"1000",
+			"--statement-store-max-explicit-affinity-size",
+			"4096",
+		]);
+		assert_eq!(cli.statement_store_max_transient_statements, Some(1000));
+		assert_eq!(cli.statement_store_max_transient_size, None);
+		assert_eq!(cli.statement_store_max_explicit_affinity_statements, None);
+		assert_eq!(cli.statement_store_max_explicit_affinity_size, Some(4096));
+		assert_eq!(cli.statement_store_max_dht_affinity_statements, None);
+		assert_eq!(cli.statement_store_max_dht_affinity_size, None);
 	}
 }

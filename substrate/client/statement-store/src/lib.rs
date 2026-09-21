@@ -33,6 +33,9 @@
 //! * There may not be more than `MAX_TOTAL_STATEMENTS` total statements with `MAX_TOTAL_SIZE` size.
 //!   To satisfy this, statements are removed from the store starting with the lowest
 //!   `global_priority` until a constraint is satisfied.
+//! * On the v2 DHT path, the statements kept for DHT affinity, for explicit affinity alone and the
+//!   transient ones each have their own count and size limits, counted by the reason a statement
+//!   was admitted under.
 //!
 //! When a new statement is inserted that would not satisfy constraints in the first place, no
 //! statements are deleted and a `Rejected` result is returned.
