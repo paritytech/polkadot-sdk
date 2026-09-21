@@ -436,28 +436,25 @@ impl<Config: CliConfig> Cli<Config> {
 					network_workers: self.statement_network_workers,
 					rate_limit: self.statement_rate_limit,
 					v2dht: sc_network_statement::v2dht_enabled().then(|| {
-						let global = sc_statement_store::TrackLimits {
-							max_statements: self.statement_store_max_total_statements,
-							max_size: self.statement_store_max_total_size,
-						};
 						sc_statement_store::V2DhtConfig {
 							affinity_topics: self.statement_affinity_topics.clone(),
 							bloom_false_pos_rate: self.statement_bloom_false_positive_rate,
 							bloom_seed: self.statement_bloom_seed,
 							replication_factor: self.statement_replication_factor,
 							gossip_target: self.statement_gossip_target,
-							dht_affinity_limits: Some(global.overriding(
-								self.statement_store_max_dht_affinity_statements,
-								self.statement_store_max_dht_affinity_size,
-							)),
-							explicit_affinity_limits: Some(global.overriding(
-								self.statement_store_max_explicit_affinity_statements,
-								self.statement_store_max_explicit_affinity_size,
-							)),
-							transient_limits: Some(global.overriding(
-								self.statement_store_max_transient_statements,
-								self.statement_store_max_transient_size,
-							)),
+							dht_affinity_limits: sc_statement_store::TrackLimits {
+								max_statements: self.statement_store_max_dht_affinity_statements,
+								max_size: self.statement_store_max_dht_affinity_size,
+							},
+							explicit_affinity_limits: sc_statement_store::TrackLimits {
+								max_statements: self
+									.statement_store_max_explicit_affinity_statements,
+								max_size: self.statement_store_max_explicit_affinity_size,
+							},
+							transient_limits: sc_statement_store::TrackLimits {
+								max_statements: self.statement_store_max_transient_statements,
+								max_size: self.statement_store_max_transient_size,
+							},
 						}
 					}),
 				},

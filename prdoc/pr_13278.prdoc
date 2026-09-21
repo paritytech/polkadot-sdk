@@ -9,7 +9,7 @@ doc:
     to the global one and is set with the hidden flags
     `--statement-store-max-{dht-affinity,explicit-affinity,transient}-{statements,size}`. The
     statement database migrates to version 3 on the first start, existing statements count as kept
-    for DHT affinity. Four gauges with a `track` label report the per-track totals and capacities.
+    for DHT affinity.
 
 crates:
 - name: sc-statement-store

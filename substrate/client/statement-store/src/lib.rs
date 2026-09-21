@@ -570,7 +570,8 @@ pub use sc_network_statement::config::DEFAULT_GOSSIP_TARGET;
 /// Parameters of the v2 DHT statement path.
 pub use sc_network_statement::V2DhtConfig;
 
-/// Statement count and data size the store may hold for one reason of keeping statements.
+/// Statement count and data size the store may hold for one reason of keeping statements, the
+/// global limits where unset.
 pub use sc_network_statement::TrackLimits;
 
 /// Default and lowest accepted false-positive rate of the advertised topic-affinity bloom
@@ -621,27 +622,21 @@ impl Config {
 		if self
 			.track_limits()
 			.iter()
-			.any(|limits| limits.max_statements == 0 || limits.max_size == 0)
+			.any(|limits| limits.max_statements == Some(0) || limits.max_size == Some(0))
 		{
 			return Err(Error::InvalidConfig("per-track limits must be greater than zero".into()));
 		}
 		Ok(())
 	}
 
-	/// The limits of every retention track, the global limits where none is configured.
+	/// The limits of every retention track, indexed by the track's discriminant.
 	fn track_limits(&self) -> [TrackLimits; RetentionTrack::COUNT] {
-		let global = TrackLimits {
-			max_statements: self.max_total_statements,
-			max_size: self.max_total_size,
-		};
-		let v2dht = self.v2dht.as_ref();
-		let mut limits = [global; RetentionTrack::COUNT];
-		limits[RetentionTrack::Transient as usize] =
-			v2dht.and_then(|cfg| cfg.transient_limits).unwrap_or(global);
-		limits[RetentionTrack::ExplicitOnly as usize] =
-			v2dht.and_then(|cfg| cfg.explicit_affinity_limits).unwrap_or(global);
-		limits[RetentionTrack::Persistent as usize] =
-			v2dht.and_then(|cfg| cfg.dht_affinity_limits).unwrap_or(global);
+		let mut limits = [TrackLimits::default(); RetentionTrack::COUNT];
+		if let Some(cfg) = &self.v2dht {
+			limits[RetentionTrack::Transient as usize] = cfg.transient_limits;
+			limits[RetentionTrack::ExplicitOnly as usize] = cfg.explicit_affinity_limits;
+			limits[RetentionTrack::Persistent as usize] = cfg.dht_affinity_limits;
+		}
 		limits
 	}
 }
@@ -698,20 +693,9 @@ impl RetentionTrack {
 	/// Number of variants, the length of the per-track arrays. The persisted counters row encodes
 	/// one such array, so a change needs a database version bump.
 	const COUNT: usize = 3;
-	const ALL: [RetentionTrack; Self::COUNT] =
-		[RetentionTrack::Transient, RetentionTrack::ExplicitOnly, RetentionTrack::Persistent];
 
 	fn is_persistent(&self) -> bool {
 		matches!(self, RetentionTrack::Persistent)
-	}
-
-	/// The track's name in metric labels, by the reason the statements are kept.
-	fn label(&self) -> &'static str {
-		match self {
-			RetentionTrack::Transient => "transient",
-			RetentionTrack::ExplicitOnly => "explicit_affinity",
-			RetentionTrack::Persistent => "dht_affinity",
-		}
 	}
 }
 
@@ -922,6 +906,8 @@ struct InsertPlan {
 	/// The subset of `evicted` that is banned from re-acceptance, with its purge deadline. These
 	/// must be recorded in the on-disk evicted journal.
 	banned: Vec<(Hash, u64)>,
+	/// The store totals once the statement is in and `evicted` is out.
+	totals: StoreTotals,
 }
 
 enum Resubmission {
@@ -1015,12 +1001,14 @@ impl SubmitIndex {
 	/// Whether the totals after an admission under `track` stay within the global and the track's
 	/// limits.
 	fn within_limits(&self, totals: &StoreTotals, track: RetentionTrack) -> bool {
-		let limits = &self.track_limits[track as usize];
+		let limits = self.track_limits[track as usize];
 		let track_totals = &totals.0[track as usize];
+		let max_statements = limits.max_statements.unwrap_or(self.config.max_total_statements);
+		let max_size = limits.max_size.unwrap_or(self.config.max_total_size);
 		totals.count() <= self.config.max_total_statements &&
 			totals.size() <= self.config.max_total_size &&
-			track_totals.count as usize <= limits.max_statements &&
-			track_totals.size as usize <= limits.max_size
+			track_totals.count as usize <= max_statements &&
+			track_totals.size as usize <= max_size
 	}
 
 	/// Removes the account's record from the details cache, keeping the cost accounting exact.
@@ -1245,7 +1233,7 @@ impl SubmitIndex {
 				})
 			})
 			.collect();
-		Ok(InsertPlan { seq: self.next_seq, evicted, banned })
+		Ok(InsertPlan { seq: self.next_seq, evicted, banned, totals })
 	}
 
 	fn totals_after_insert<'a>(
@@ -1284,11 +1272,7 @@ impl SubmitIndex {
 		plan: &InsertPlan,
 	) {
 		let statement_len = statement.data_len();
-		self.totals = self.totals_after_insert(
-			track,
-			statement_len,
-			plan.evicted.iter().map(|(_, details)| details),
-		);
+		self.totals = plan.totals;
 		self.evicted_count += plan.banned.len();
 		self.next_seq = plan.seq.saturating_add(1);
 		self.note_seq(hash, plan.seq);
@@ -2366,7 +2350,7 @@ impl Store {
 			}
 			match verdict {
 				RetentionTrack::Persistent | RetentionTrack::ExplicitOnly => {
-					match self.retrack_statement_locked(&mut submit_index, &hash, verdict) {
+					match self.retrack_statement_locked(&mut submit_index, &statement, verdict) {
 						Ok(true) => {
 							let mut query_index = self.query_index.write();
 							if verdict.is_persistent() {
@@ -2375,11 +2359,8 @@ impl Store {
 								query_index.retention_tracks.insert(hash, verdict);
 							}
 						},
-						Ok(false) => log::error!(
-							target: LOG_TARGET,
-							"Missing body or index entry for tracked statement {:?}",
-							HexDisplay::from(&hash)
-						),
+						// Logged where found, left tracked so the next sweep reports it again.
+						Ok(false) => {},
 						Err(e) => log::warn!(
 							target: LOG_TARGET,
 							"Error moving statement {:?} to {:?}: {:?}",
@@ -2442,19 +2423,18 @@ impl Store {
 			},
 		};
 
-		let (totals, expired_count, capacity_statements, capacity_bytes, track_limits) = {
+		let (active_count, expired_count, total_size, capacity_statements, capacity_bytes) = {
 			let mut submit_index = self.submit_index.write();
 			submit_index.evicted_count =
 				submit_index.evicted_count.saturating_sub(deleted_count as usize);
 			(
-				submit_index.totals,
+				submit_index.statement_count(),
 				submit_index.evicted_count,
+				submit_index.total_size(),
 				submit_index.config.max_total_statements,
 				submit_index.config.max_total_size,
-				submit_index.track_limits,
 			)
 		};
-		let (active_count, total_size) = (totals.count(), totals.size());
 		let accounts_count = self.known_accounts_count.load(AtomicOrdering::Relaxed);
 
 		if deleted_count > 0 {
@@ -2468,21 +2448,6 @@ impl Store {
 			metrics.expired_total.set(expired_count as u64);
 			metrics.capacity_statements.set(capacity_statements as u64);
 			metrics.capacity_bytes.set(capacity_bytes as u64);
-			for track in RetentionTrack::ALL {
-				let label = &[track.label()];
-				let track_totals = totals.0[track as usize];
-				let limits = track_limits[track as usize];
-				metrics.track_statements.with_label_values(label).set(track_totals.count);
-				metrics.track_bytes.with_label_values(label).set(track_totals.size);
-				metrics
-					.track_capacity_statements
-					.with_label_values(label)
-					.set(limits.max_statements as u64);
-				metrics
-					.track_capacity_bytes
-					.with_label_values(label)
-					.set(limits.max_size as u64);
-			}
 		});
 
 		log::trace!(
@@ -3241,12 +3206,7 @@ impl StatementStore for Store {
 					Some(INDEX_EMPTY_VALUE.to_vec()),
 				));
 			}
-			let totals = submit_index.totals_after_insert(
-				track,
-				statement_len,
-				plan.evicted.iter().map(|(_, details)| details),
-			);
-			commit.push(SubmitIndex::counters_op(&totals, plan.seq.saturating_add(1)));
+			commit.push(SubmitIndex::counters_op(&plan.totals, plan.seq.saturating_add(1)));
 
 			if let Err(e) = self.db.commit(commit) {
 				log::debug!(
@@ -3483,10 +3443,28 @@ impl Store {
 	) -> Result<bool> {
 		let current_time = self.timestamp();
 		{
-			let Some((statement, account, details)) = self.indexed_statement_locked(hash)? else {
+			// The body is read under the submit-index lock, so it cannot change under our feet
+			let Some(encoded) =
+				self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))?
+			else {
+				return Ok(false);
+			};
+			let Some((statement, account)) = Statement::decode(&mut encoded.as_slice())
+				.ok()
+				.and_then(|statement| statement.account_id().map(|account| (statement, account)))
+			else {
+				// A corrupt body cannot be tied back to its index rows
+				log::error!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(hash));
 				return Ok(false);
 			};
 			let expiry = Expiry(statement.expiry());
+			let account_key = account_index_key(&account, expiry, hash);
+			let details = self
+				.db
+				.get(col::INDEX_BY_ACCOUNT, &account_key)
+				.map_err(|e| Error::Db(e.to_string()))?
+				.as_deref()
+				.and_then(|mut value| EntryDetails::decode(&mut value).ok());
 
 			let mut commit = vec![(col::STATEMENTS, hash.to_vec(), None)];
 			commit.extend(statement_index_ops(hash, &statement, false));
@@ -3551,29 +3529,38 @@ impl Store {
 	}
 
 	/// Moves a stored statement onto `track`: rewrites its account index row and the totals, so
-	/// the track's limits count it from now on. Returns `false` when the statement or its index
-	/// row is gone. Must run under the submit-index write lock.
+	/// the track's limits count it from now on. Returns `false` when the index row is gone. Must
+	/// run under the submit-index write lock.
 	fn retrack_statement_locked(
 		&self,
 		submit_index: &mut SubmitIndex,
-		hash: &Hash,
+		statement: &Statement,
 		track: RetentionTrack,
 	) -> Result<bool> {
-		let Some((statement, account, details)) = self.indexed_statement_locked(hash)? else {
+		let hash = statement.hash();
+		let Some(account) = statement.account_id() else {
+			log::error!(target: LOG_TARGET, "Unsigned statement {:?}", HexDisplay::from(&hash));
 			return Ok(false);
 		};
-		let Some(details) = details else {
+		let expiry = Expiry(statement.expiry());
+		let account_key = account_index_key(&account, expiry, &hash);
+		let Some(details) = self
+			.db
+			.get(col::INDEX_BY_ACCOUNT, &account_key)
+			.map_err(|e| Error::Db(e.to_string()))?
+			.as_deref()
+			.and_then(|mut value| EntryDetails::decode(&mut value).ok())
+		else {
 			log::error!(
 				target: LOG_TARGET,
 				"Missing or corrupt account index entry for statement {:?}",
-				HexDisplay::from(hash)
+				HexDisplay::from(&hash)
 			);
 			return Ok(false);
 		};
 		if details.track == track {
 			return Ok(true);
 		}
-		let expiry = Expiry(statement.expiry());
 		let mut totals = submit_index.totals;
 		totals.sub(details.track, details.data_len);
 		totals.add(track, details.data_len);
@@ -3581,7 +3568,7 @@ impl Store {
 			.commit([
 				(
 					col::INDEX_BY_ACCOUNT,
-					account_index_key(&account, expiry, hash),
+					account_key,
 					Some(EntryDetails { track, ..details }.encode()),
 				),
 				SubmitIndex::counters_op(&totals, submit_index.next_seq),
@@ -3589,42 +3576,12 @@ impl Store {
 			.map_err(|e| Error::Db(e.to_string()))?;
 		submit_index.apply_retrack(
 			&account,
-			&PriorityKey { hash: *hash, expiry },
+			&PriorityKey { hash, expiry },
 			details.track,
 			track,
 			details.data_len,
 		);
 		Ok(true)
-	}
-
-	/// A statement's body, its account and its account index row, read under the submit-index
-	/// write lock. `None` when the body is gone.
-	fn indexed_statement_locked(
-		&self,
-		hash: &Hash,
-	) -> Result<Option<(Statement, AccountId, Option<EntryDetails>)>> {
-		// The body is read under the submit-index lock, so it cannot change under our feet
-		let Some(encoded) =
-			self.db.get(col::STATEMENTS, hash).map_err(|e| Error::Db(e.to_string()))?
-		else {
-			return Ok(None);
-		};
-		let Some((statement, account)) = Statement::decode(&mut encoded.as_slice())
-			.ok()
-			.and_then(|statement| statement.account_id().map(|account| (statement, account)))
-		else {
-			// A corrupt body cannot be tied back to its index rows
-			log::error!(target: LOG_TARGET, "Corrupt statement {:?}", HexDisplay::from(hash));
-			return Ok(None);
-		};
-		let account_key = account_index_key(&account, Expiry(statement.expiry()), hash);
-		let details = self
-			.db
-			.get(col::INDEX_BY_ACCOUNT, &account_key)
-			.map_err(|e| Error::Db(e.to_string()))?
-			.as_deref()
-			.and_then(|mut value| EntryDetails::decode(&mut value).ok());
-		Ok(Some((statement, account, details)))
 	}
 
 	/// Reports an [`col::INDEX_BY_EXPIRY`] row that survived its statement,
@@ -3788,7 +3745,7 @@ impl Store {
 		let totals = submit_index.totals_after_insert(track, statement.data_len(), []);
 		commit.push(SubmitIndex::counters_op(&totals, seq.saturating_add(1)));
 		self.db.commit(commit).expect("failed to commit the statement");
-		let plan = InsertPlan { seq, evicted: Vec::new(), banned: Vec::new() };
+		let plan = InsertPlan { seq, evicted: Vec::new(), banned: Vec::new(), totals };
 		submit_index.apply_insert(&account, None, hash, statement, track, &plan);
 		self.query_index
 			.write()
@@ -3992,6 +3949,10 @@ mod tests {
 	}
 
 	fn test_store() -> (Store, tempfile::TempDir) {
+		test_store_with_config(Default::default())
+	}
+
+	fn test_store_with_config(config: Config) -> (Store, tempfile::TempDir) {
 		sp_tracing::init_for_tests();
 		let temp_dir = tempfile::Builder::new().tempdir().expect("Error creating test dir");
 
@@ -4001,7 +3962,7 @@ mod tests {
 		let keystore = std::sync::Arc::new(sc_keystore::LocalKeystore::in_memory());
 		let store = Store::new::<Block, TestClient, TestBackend>(
 			&path,
-			Default::default(),
+			config,
 			client,
 			keystore,
 			None,
@@ -5120,42 +5081,22 @@ mod tests {
 		assert_eq!(track_totals(&store, RetentionTrack::Persistent), (2, 50));
 	}
 
-	#[test]
-	fn track_limits_default_to_the_global_limits() {
-		let config = Config::default();
-		let global = TrackLimits {
-			max_statements: config.max_total_statements,
-			max_size: config.max_total_size,
-		};
-		assert_eq!(config.track_limits(), [global; RetentionTrack::COUNT]);
-
-		let transient = TrackLimits { max_statements: 1, max_size: 2 };
-		let config = Config {
-			v2dht: Some(V2DhtConfig { transient_limits: Some(transient), ..Default::default() }),
-			..Default::default()
-		};
-		let mut expected = [global; RetentionTrack::COUNT];
-		expected[RetentionTrack::Transient as usize] = transient;
-		assert_eq!(config.track_limits(), expected);
-	}
-
-	#[test]
-	fn zero_track_limit_is_an_invalid_config() {
-		let config = Config {
+	fn transient_limits(max_statements: usize, max_size: usize) -> Config {
+		Config {
 			v2dht: Some(V2DhtConfig {
-				dht_affinity_limits: Some(TrackLimits { max_statements: 0, max_size: 1 }),
+				transient_limits: TrackLimits {
+					max_statements: Some(max_statements),
+					max_size: Some(max_size),
+				},
 				..Default::default()
 			}),
 			..Default::default()
-		};
-		assert!(matches!(config.validate(), Err(Error::InvalidConfig(_))));
+		}
 	}
 
-	#[test]
-	fn a_full_track_rejects_its_own_statements_only() {
-		let (store, _temp) = test_store();
-		store.submit_index.write().track_limits[RetentionTrack::Transient as usize] =
-			TrackLimits { max_statements: 1, max_size: 15 };
+	/// Installs a resolver answering transient while the returned flag is set, DHT affinity
+	/// otherwise.
+	fn transient_switch(store: &Store) -> std::sync::Arc<std::sync::atomic::AtomicBool> {
 		let transient = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
 		store.set_retention_resolver(Box::new({
 			let transient = transient.clone();
@@ -5167,8 +5108,21 @@ mod tests {
 				}
 			}
 		}));
+		transient
+	}
+
+	#[test]
+	fn zero_track_limit_is_an_invalid_config() {
+		assert!(matches!(transient_limits(0, 1).validate(), Err(Error::InvalidConfig(_))));
+	}
+
+	#[test]
+	fn a_full_track_rejects_its_own_statements_only() {
+		let (store, _temp) = test_store_with_config(transient_limits(2, 15));
+		let transient = transient_switch(&store);
 		let source = StatementSource::Network;
 
+		// The size limit binds: a second statement of 10 bytes exceeds 15.
 		assert_eq!(store.submit(statement(5, 1, None, 10), source), SubmitResult::New);
 		assert_eq!(
 			store.submit(statement(5, 2, None, 10), source),
@@ -5176,38 +5130,25 @@ mod tests {
 		);
 		assert_eq!(track_totals(&store, RetentionTrack::Transient), (1, 10));
 
-		// The same statement fits another track, the global limits are far.
+		// The same statement fits another track, whose limits are the global ones.
 		transient.store(false, Ordering::Relaxed);
 		assert_eq!(store.submit(statement(5, 2, None, 10), source), SubmitResult::New);
 		assert_eq!(track_totals(&store, RetentionTrack::Persistent), (1, 10));
 
-		// The size limit binds like the count.
-		store.submit_index.write().track_limits[RetentionTrack::Transient as usize] =
-			TrackLimits { max_statements: 10, max_size: 15 };
+		// The count limit binds like the size.
 		transient.store(true, Ordering::Relaxed);
+		assert_eq!(store.submit(statement(5, 3, None, 5), source), SubmitResult::New);
 		assert_eq!(
-			store.submit(statement(5, 3, None, 10), source),
+			store.submit(statement(6, 1, None, 1), source),
 			SubmitResult::Rejected(RejectionReason::StoreFull)
 		);
-		assert_eq!(store.submit(statement(5, 3, None, 5), source), SubmitResult::New);
+		assert_eq!(track_totals(&store, RetentionTrack::Transient), (2, 15));
 	}
 
 	#[test]
 	fn evicting_own_statements_frees_no_room_on_another_track() {
-		let (store, _temp) = test_store();
-		store.submit_index.write().track_limits[RetentionTrack::Transient as usize] =
-			TrackLimits { max_statements: 1, max_size: 1000 };
-		let transient = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
-		store.set_retention_resolver(Box::new({
-			let transient = transient.clone();
-			move |_| {
-				if transient.load(Ordering::Relaxed) {
-					RetentionReasonMask::TRANSIENT
-				} else {
-					RetentionReasonMask::DHT_AFFINITY
-				}
-			}
-		}));
+		let (store, _temp) = test_store_with_config(transient_limits(1, 1000));
+		let transient = transient_switch(&store);
 		let source = StatementSource::Network;
 
 		// The transient track is full, account 3 is at its three-statement allowance.

@@ -83,23 +83,14 @@ pub const DEFAULT_REPLICATION_FACTOR: NonZeroUsize = NonZeroUsize::new(20).expec
 /// peers a statement is routed to for a given topic, on top of the topic's connected replicas.
 pub const DEFAULT_GOSSIP_TARGET: NonZeroUsize = NonZeroUsize::new(3).expect("3 is non-zero");
 
-/// Statement count and data size the store may hold for one reason of keeping statements.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Statement count and data size the store may hold for one reason of keeping statements, the
+/// store's global limits where unset.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct TrackLimits {
 	/// Maximum number of statements.
-	pub max_statements: usize,
+	pub max_statements: Option<usize>,
 	/// Maximum total data size in bytes.
-	pub max_size: usize,
-}
-
-impl TrackLimits {
-	/// These limits with the given ones in place of the unset.
-	pub fn overriding(self, max_statements: Option<usize>, max_size: Option<usize>) -> Self {
-		Self {
-			max_statements: max_statements.unwrap_or(self.max_statements),
-			max_size: max_size.unwrap_or(self.max_size),
-		}
-	}
+	pub max_size: Option<usize>,
 }
 
 /// Parameters of the v2 DHT statement path.
@@ -116,14 +107,12 @@ pub struct V2DhtConfig {
 	pub replication_factor: NonZeroUsize,
 	/// Number of peers to gossip a statement to in addition to DHT-affinity routing targets.
 	pub gossip_target: NonZeroUsize,
-	/// Limits of the statements kept for DHT affinity, the store's global limits when `None`.
-	pub dht_affinity_limits: Option<TrackLimits>,
-	/// Limits of the statements kept for explicit affinity alone, the store's global limits when
-	/// `None`.
-	pub explicit_affinity_limits: Option<TrackLimits>,
-	/// Limits of the transient statements, kept until propagated, the store's global limits when
-	/// `None`.
-	pub transient_limits: Option<TrackLimits>,
+	/// Limits of the statements kept for DHT affinity.
+	pub dht_affinity_limits: TrackLimits,
+	/// Limits of the statements kept for explicit affinity alone.
+	pub explicit_affinity_limits: TrackLimits,
+	/// Limits of the transient statements, kept until propagated.
+	pub transient_limits: TrackLimits,
 }
 
 impl Default for V2DhtConfig {
@@ -134,9 +123,9 @@ impl Default for V2DhtConfig {
 			bloom_seed: None,
 			replication_factor: DEFAULT_REPLICATION_FACTOR,
 			gossip_target: DEFAULT_GOSSIP_TARGET,
-			dht_affinity_limits: None,
-			explicit_affinity_limits: None,
-			transient_limits: None,
+			dht_affinity_limits: TrackLimits::default(),
+			explicit_affinity_limits: TrackLimits::default(),
+			transient_limits: TrackLimits::default(),
 		}
 	}
 }
