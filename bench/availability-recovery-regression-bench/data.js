@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789899334610,
+  "lastUpdate": 1789986442771,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "luka.ciric2106@gmail.com",
-            "name": "Luka Ciric",
-            "username": "cirko33"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5049801bd6c2030260ba9a1eea5ade6f81016076",
-          "message": "Remove MaxSessionKeysLength and MaxSessionKeysProofLength (#11115)\n\nfixes the issue #11083 where MaxSessionKeysLength and\nMaxSessionKeysProofLength were unnecessary because there are not stored,\njust validated.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-19T21:54:31Z",
-          "tree_id": "c3feb5acaf3532afcd3c159253ce760a85ce27a6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5049801bd6c2030260ba9a1eea5ade6f81016076"
-        },
-        "date": 1771542773934,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.513773679066666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.11874574876666666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.625975847500001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e9f9b636cbe173a334d9212e2352e28f8182fbd4",
+          "message": "election-provider-support: fix MaxEncodedLen undercount in generated solution types (#13265)\n\nThe prefix budget assumed a one-byte length prefix per vote field, but a\nfield holding `MaxVoters` elements uses a multi-byte compact.\n`max_encoded_len()` of `generate_solution_type!` types now includes the\nfull compact length prefix of a field holding `MaxVoters` elements.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-21T08:53:10Z",
+          "tree_id": "377addbb5ea7f47f43d2fcae95ce260b1cf1957d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e9f9b636cbe173a334d9212e2352e28f8182fbd4"
+        },
+        "date": 1789986400346,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.88544154536667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1274007048,
             "unit": "seconds"
           }
         ]
