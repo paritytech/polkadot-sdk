@@ -695,7 +695,8 @@ impl From<RetentionReasonMask> for RetentionTrack {
 }
 
 impl RetentionTrack {
-	/// Number of variants, the length of the per-track arrays.
+	/// Number of variants, the length of the per-track arrays. The persisted counters row encodes
+	/// one such array, so a change needs a database version bump.
 	const COUNT: usize = 3;
 	const ALL: [RetentionTrack; Self::COUNT] =
 		[RetentionTrack::Transient, RetentionTrack::ExplicitOnly, RetentionTrack::Persistent];
@@ -5189,6 +5190,50 @@ mod tests {
 			SubmitResult::Rejected(RejectionReason::StoreFull)
 		);
 		assert_eq!(store.submit(statement(5, 3, None, 5), source), SubmitResult::New);
+	}
+
+	#[test]
+	fn evicting_own_statements_frees_no_room_on_another_track() {
+		let (store, _temp) = test_store();
+		store.submit_index.write().track_limits[RetentionTrack::Transient as usize] =
+			TrackLimits { max_statements: 1, max_size: 1000 };
+		let transient = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+		store.set_retention_resolver(Box::new({
+			let transient = transient.clone();
+			move |_| {
+				if transient.load(Ordering::Relaxed) {
+					RetentionReasonMask::TRANSIENT
+				} else {
+					RetentionReasonMask::DHT_AFFINITY
+				}
+			}
+		}));
+		let source = StatementSource::Network;
+
+		// The transient track is full, account 3 is at its three-statement allowance.
+		assert_eq!(store.submit(statement(5, 1, None, 100), source), SubmitResult::New);
+		transient.store(false, Ordering::Relaxed);
+		let persistent: Vec<Statement> = (1..=3).map(|p| statement(3, p, None, 100)).collect();
+		for statement in &persistent {
+			assert_eq!(store.submit(statement.clone(), source), SubmitResult::New);
+		}
+
+		// The account could evict its lowest priority statement, but the freed room is on the
+		// persistent track, so the transient one is still rejected and nothing is evicted.
+		transient.store(true, Ordering::Relaxed);
+		assert_eq!(
+			store.submit(statement(3, 10, None, 100), source),
+			SubmitResult::Rejected(RejectionReason::StoreFull)
+		);
+		assert!(persistent.iter().all(|statement| store.has_statement(&statement.hash())));
+		assert_eq!(track_totals(&store, RetentionTrack::Persistent), (3, 300));
+		assert_eq!(track_totals(&store, RetentionTrack::Transient), (1, 100));
+
+		// On its own track the same statement evicts the lowest priority one and fits.
+		transient.store(false, Ordering::Relaxed);
+		assert_eq!(store.submit(statement(3, 10, None, 100), source), SubmitResult::New);
+		assert!(!store.has_statement(&persistent[0].hash()));
+		assert_eq!(track_totals(&store, RetentionTrack::Persistent), (3, 300));
 	}
 
 	#[test]

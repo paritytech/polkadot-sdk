@@ -71,7 +71,8 @@ at most `DEFAULT_MAX_TOTAL_STATEMENTS` statements and `DEFAULT_MAX_TOTAL_SIZE` o
 DHT path the store also limits, separately and configurably, the statements it keeps for DHT
 affinity, for explicit affinity alone, and the transient ones it keeps only until propagated. A
 statement counts toward the reason it is kept for, moving with the retention sweep, and a full
-reason rejects new statements of that reason while the others still admit theirs.
+reason rejects new statements of that reason while the others still admit theirs. Like the global
+limits, a lowered limit trims nothing on its own: the track admits again as its statements leave.
 
 Allowances are not fixed in code: they are held in chain state (keyed under
 `STATEMENT_ALLOWANCE_PREFIX`) and granted or revoked by the runtime; an account with no allowance —
