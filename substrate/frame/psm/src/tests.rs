@@ -1106,6 +1106,31 @@ mod governance {
 	}
 
 	#[test]
+	fn add_external_asset_uses_recorded_internal_decimals_after_metadata_changes() {
+		new_test_ext().execute_with(|| {
+			let new_asset = 99u32;
+			create_asset_with_metadata(new_asset);
+
+			assert_ok!(Assets::set_metadata(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				b"Internal Asset".to_vec(),
+				b"INTERNAL".to_vec(),
+				31
+			));
+
+			assert_ok!(Psm::add_external_asset(
+				RuntimeOrigin::root(),
+				INTERNAL_ASSET_ID,
+				new_asset
+			));
+			let stored = crate::ExternalAssets::<Test>::get(INTERNAL_ASSET_ID, new_asset)
+				.expect("external present");
+			assert_eq!(stored.decimals, 6);
+		});
+	}
+
+	#[test]
 	fn add_external_asset_fails_decimals_out_of_range() {
 		new_test_ext().execute_with(|| {
 			let new_asset = 99u32;
@@ -2949,12 +2974,13 @@ mod decimal_scaling {
 		});
 	}
 
-	// Runtime decimals guard
+	// Metadata changes after registration
 
 	#[test]
-	fn mint_halts_when_asset_decimals_drift() {
+	fn mint_uses_snapshot_when_asset_decimals_drift() {
 		new_test_ext().execute_with(|| {
 			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(100));
+			set_zero_fees(USDX_ASSET_ID);
 
 			// Owner (ALICE) unilaterally changes USDX decimals from 2 -> 4.
 			assert_ok!(Assets::set_metadata(
@@ -2965,15 +2991,16 @@ mod decimal_scaling {
 				4
 			));
 
-			assert_noop!(
-				Psm::mint(
-					RuntimeOrigin::signed(BOB),
-					INTERNAL_ASSET_ID,
-					USDX_ASSET_ID,
-					10_000 * USDX_UNIT,
-					Permill::zero()
-				),
-				Error::<Test>::DecimalsMismatch
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(BOB),
+				INTERNAL_ASSET_ID,
+				USDX_ASSET_ID,
+				10_000 * USDX_UNIT,
+				Permill::zero()
+			));
+			assert_eq!(
+				PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDX_ASSET_ID),
+				10_000 * INTERNAL_UNIT
 			);
 		});
 	}
@@ -3028,8 +3055,9 @@ mod decimal_scaling {
 	}
 
 	#[test]
-	fn mint_halts_when_internal_decimals_drift() {
+	fn mint_uses_snapshot_when_internal_decimals_drift() {
 		new_test_ext().execute_with(|| {
+			set_zero_fees(USDC_ASSET_ID);
 			// internal starts at 6 decimals; InternalDecimals snapshot matches. The owner
 			// (ALICE) changes the internal asset's live metadata to simulate drift.
 			assert_ok!(Assets::set_metadata(
@@ -3040,15 +3068,16 @@ mod decimal_scaling {
 				8
 			));
 
-			assert_noop!(
-				Psm::mint(
-					RuntimeOrigin::signed(ALICE),
-					INTERNAL_ASSET_ID,
-					USDC_ASSET_ID,
-					1000 * INTERNAL_UNIT,
-					Permill::from_percent(1)
-				),
-				Error::<Test>::DecimalsMismatch
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1000 * INTERNAL_UNIT,
+				Permill::zero()
+			));
+			assert_eq!(
+				PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID),
+				1000 * INTERNAL_UNIT
 			);
 		});
 	}
@@ -3322,6 +3351,10 @@ mod admin {
 
 	fn signed_origin(who: AccountId) -> OriginCaller {
 		frame_system::RawOrigin::<AccountId>::Signed(who).into()
+	}
+
+	fn none_origin() -> OriginCaller {
+		frame_system::RawOrigin::<AccountId>::None.into()
 	}
 
 	#[test]
@@ -3805,6 +3838,92 @@ mod admin {
 				crate::PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).unwrap().emergency_admin,
 				signed_origin(EMERGENCY_ACCOUNT)
 			);
+		});
+	}
+	#[test]
+	fn create_psm_rejects_none_admin() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), NEW_INTERNAL, ALICE, 1));
+			// The `None` origin carries no authority, so it must never become an admin.
+			assert_noop!(
+				Psm::create_psm(
+					RuntimeOrigin::signed(ALICE),
+					NEW_INTERNAL,
+					Box::new(none_origin()),
+					Box::new(signed_origin(ALICE)),
+					INSURANCE_FUND,
+					DEFAULT_MAX_DEBT,
+					DEFAULT_MIN_SWAP,
+				),
+				Error::<Test>::InvalidAdminOrigin
+			);
+			assert_noop!(
+				Psm::create_psm(
+					RuntimeOrigin::signed(ALICE),
+					NEW_INTERNAL,
+					Box::new(signed_origin(ALICE)),
+					Box::new(none_origin()),
+					INSURANCE_FUND,
+					DEFAULT_MAX_DEBT,
+					DEFAULT_MIN_SWAP,
+				),
+				Error::<Test>::InvalidAdminOrigin
+			);
+			assert!(crate::PsmAdmin::<Test>::get(NEW_INTERNAL).is_none());
+		});
+	}
+
+	#[test]
+	fn set_admin_rejects_none_origin() {
+		new_test_ext().execute_with(|| {
+			// The pre-installed test PSM's full_admin is Root.
+			assert_noop!(
+				Psm::set_full_admin(
+					RuntimeOrigin::root(),
+					INTERNAL_ASSET_ID,
+					Box::new(none_origin()),
+				),
+				Error::<Test>::InvalidAdminOrigin
+			);
+			assert_noop!(
+				Psm::set_emergency_admin(
+					RuntimeOrigin::root(),
+					INTERNAL_ASSET_ID,
+					Box::new(none_origin()),
+				),
+				Error::<Test>::InvalidAdminOrigin
+			);
+			let admin = crate::PsmAdmin::<Test>::get(INTERNAL_ASSET_ID).unwrap();
+			assert_eq!(admin.full_admin, root_origin());
+			assert_eq!(admin.emergency_admin, signed_origin(EMERGENCY_ACCOUNT));
+		});
+	}
+
+	#[test]
+	fn none_origin_never_authorises_even_against_a_none_admin() {
+		new_test_ext().execute_with(|| {
+			// Bypass the setters to model a `None` admin stored before they rejected it.
+			crate::PsmAdmin::<Test>::mutate(INTERNAL_ASSET_ID, |maybe| {
+				let admin = maybe.as_mut().expect("PSM installed by the mock");
+				admin.full_admin = none_origin();
+				admin.emergency_admin = none_origin();
+			});
+			let fee_before = MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
+
+			assert_noop!(
+				Psm::set_minting_fee(
+					RuntimeOrigin::none(),
+					INTERNAL_ASSET_ID,
+					USDC_ASSET_ID,
+					Permill::from_percent(5),
+				),
+				DispatchError::BadOrigin
+			);
+			assert_noop!(
+				Psm::remove_psm(RuntimeOrigin::none(), INTERNAL_ASSET_ID),
+				DispatchError::BadOrigin
+			);
+			assert_eq!(MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID), fee_before);
 		});
 	}
 }

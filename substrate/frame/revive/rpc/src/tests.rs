@@ -390,6 +390,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_multiple_transactions_in_block,
 		test_mixed_evm_substrate_transactions,
 		test_runtime_pallets_address_upload_code,
+		test_eip7702_delegation_flow,
 		test_subscribe_new_heads,
 		test_subscribe_new_heads_multiple_blocks,
 		test_subscribe_logs,
@@ -415,6 +416,8 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_state_override_code_evm_to_evm,
 		test_state_override_code_evm_to_pvm,
 		test_state_override_code_pvm_to_evm,
+		test_state_override_delegation_indicator_to_evm,
+		test_state_override_delegation_indicator_to_pvm,
 		test_state_override_storage_state_diff,
 		test_state_override_storage_full_replacement,
 		test_state_override_storage_full_clears_unspecified,
@@ -1275,6 +1278,208 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 	assert_eq!(stored_code.unwrap(), bytecode, "Stored code should match the uploaded bytecode");
 
 	Ok(())
+}
+
+/// Full EIP-7702 integration test:
+/// 1. Deploy Counter contract
+/// 2. Delegate Alice → Counter via 7702 tx with authorization list
+/// 3. Call setNumber(42) on Alice (writes to Alice's storage via Counter code)
+/// 4. Read number() from Alice → returns 42
+/// 5. Clear delegation (authorization with zero address)
+/// 6. Read from Alice → returns empty (no code)
+///
+/// 7702 transactions are constructed via alloy's `Authorization`/`SignedAuthorization` +
+/// `TransactionRequest::with_authorization_list` and submitted through the alloy provider on
+/// `SharedResources`, exercising the same RPC entry point external tooling uses.
+async fn test_eip7702_delegation_flow() -> anyhow::Result<()> {
+	use alloy_network::{TransactionBuilder as _, TransactionBuilder7702 as _};
+	use alloy_primitives::U256 as AU256;
+	use alloy_rpc_types::{Authorization, SignedAuthorization};
+	use k256::ecdsa::signature::hazmat::PrehashSigner as _;
+	use pallet_revive::{evm::Account, precompiles::alloy::sol_types::SolCall};
+	use pallet_revive_fixtures::Counter;
+
+	let client = Arc::new(SharedResources::client().await);
+	let provider = SharedResources::provider();
+	let alith = Account::default();
+
+	// Deploy Counter contract
+	let (counter_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Counter",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let nonce = client
+		.get_transaction_count(alith.address(), BlockNumberOrTag::Latest.into())
+		.await?;
+	let tx = TransactionBuilder::new(client.clone())
+		.input(counter_code.to_vec())
+		.send()
+		.await?;
+	tx.wait_for_receipt().await?;
+	let counter_addr = create1(&alith.address(), nonce.try_into().unwrap());
+
+	// Create authority account with known seed
+	let seed = [0xAA; 32];
+	let authority = Account::from_secret_key(seed);
+	let authority_key = k256::ecdsa::SigningKey::from_bytes(&seed.into()).unwrap();
+
+	// Fund the authority
+	let tx = TransactionBuilder::new(client.clone())
+		.value(U256::from(10_000_000_000_000_000_000u128))
+		.to(authority.address())
+		.send()
+		.await?;
+	tx.wait_for_receipt().await?;
+
+	let chain_id = client.chain_id().await?;
+	let chain_id_alloy = AU256::from_be_bytes::<32>(chain_id.to_big_endian());
+	let alith_alloy = AlloyAddress::from_slice(alith.address().as_bytes());
+	let counter_alloy = AlloyAddress::from_slice(counter_addr.as_bytes());
+
+	// Build a signed EIP-7702 authorization tuple using alloy types. Signing goes through k256
+	// directly (already a dep) so we don't have to pull in `alloy-signer` just for the trait.
+	let sign_auth = |target_alloy: AlloyAddress, auth_nonce: u64| -> SignedAuthorization {
+		let auth =
+			Authorization { chain_id: chain_id_alloy, address: target_alloy, nonce: auth_nonce };
+		let hash = auth.signature_hash();
+		let (sig, recid): (k256::ecdsa::Signature, k256::ecdsa::RecoveryId) =
+			authority_key.sign_prehash(hash.as_ref()).expect("k256 signing succeeds");
+		let bytes = sig.to_bytes();
+		let r = AU256::from_be_slice(&bytes[..32]);
+		let s = AU256::from_be_slice(&bytes[32..]);
+		SignedAuthorization::new_unchecked(auth, recid.to_byte(), r, s)
+	};
+
+	// --- Step 1: Delegate authority → Counter via 7702 tx ---
+	let auth_nonce: u64 = client
+		.get_transaction_count(authority.address(), BlockNumberOrTag::Latest.into())
+		.await?
+		.try_into()
+		.expect("nonce fits u64");
+	let signed = sign_auth(counter_alloy, auth_nonce);
+	let req = TransactionRequest::default()
+		.with_to(alith_alloy)
+		.with_authorization_list(vec![signed]);
+	provider.send_transaction(req).await?.get_receipt().await?;
+
+	// Verify delegation is active: eth_getCode should return the delegation indicator
+	let code = client.get_code(authority.address(), BlockNumberOrTag::Latest.into()).await?;
+	let mut expected_prefix = vec![0xef, 0x01, 0x00];
+	expected_prefix.extend_from_slice(counter_addr.as_bytes());
+	assert_eq!(code.0, expected_prefix, "authority should have delegation indicator code");
+
+	// --- Step 2: Call setNumber(42) on the authority address ---
+	let tx = TransactionBuilder::new(client.clone())
+		.to(authority.address())
+		.input(Counter::setNumberCall { newNumber: 42u64 }.abi_encode())
+		.send()
+		.await?;
+	tx.wait_for_receipt().await?;
+
+	// --- Step 3: Read number() from authority → should return 42 ---
+	let result = TransactionBuilder::new(client.clone())
+		.to(authority.address())
+		.input(Counter::numberCall {}.abi_encode())
+		.eth_call()
+		.await?;
+	let number = Counter::numberCall::abi_decode_returns(&result).unwrap();
+	assert_eq!(number, 42u64, "number() should return 42 after setNumber");
+
+	// --- Step 4: Clear delegation via 7702 tx with zero address ---
+	let auth_nonce: u64 = client
+		.get_transaction_count(authority.address(), BlockNumberOrTag::Latest.into())
+		.await?
+		.try_into()
+		.expect("nonce fits u64");
+	let signed = sign_auth(AlloyAddress::ZERO, auth_nonce);
+	let alith_nonce: u64 = client
+		.get_transaction_count(alith.address(), BlockNumberOrTag::Latest.into())
+		.await?
+		.try_into()
+		.expect("alith nonce fits u64");
+	let req = TransactionRequest::default()
+		.with_to(alith_alloy)
+		.with_nonce(alith_nonce)
+		.with_authorization_list(vec![signed]);
+	provider.send_transaction(req).await?.get_receipt().await?;
+
+	// --- Step 5: Verify delegation is cleared ---
+	let code = client.get_code(authority.address(), BlockNumberOrTag::Latest.into()).await?;
+	assert!(code.0.is_empty(), "authority should have no code after clearing delegation");
+
+	// Calling number() should return empty (no contract code)
+	let result = TransactionBuilder::new(client.clone())
+		.to(authority.address())
+		.input(Counter::numberCall {}.abi_encode())
+		.eth_call()
+		.await?;
+	assert!(result.is_empty(), "call to cleared delegation should return empty data");
+
+	Ok(())
+}
+
+/// Shared body for `test_state_override_delegation_indicator_to_evm` and `_to_pvm`.
+///
+/// Overrides `eve` with code = `0xef0100 || target` (a delegation indicator) and a storage
+/// diff that sets the target's slot-0 to 42. A spec-correct read of `Counter::number()`
+/// against `eve` returns 42 only if the indicator was honored (Counter's code runs in eve's
+/// storage namespace); otherwise the call reverts on the invalid `0xef` opcode and decoding
+/// empty returndata fails.
+async fn state_override_delegation_indicator_routes(
+	fixture_type: pallet_revive_fixtures::FixtureType,
+	eve: AlloyAddress,
+	context: &str,
+) -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::Counter;
+
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+
+	let counter_addr = deploy_contract(&provider, "Counter", fixture_type, &[]).await?;
+
+	let mut indicator = vec![0xefu8, 0x01, 0x00];
+	indicator.extend_from_slice(counter_addr.as_slice());
+
+	let storage_diff = [(B256::ZERO, B256::from(AlloyU256::from(42u64)))];
+	let overrides = StateOverride::from_iter([(
+		eve,
+		AccountOverride::default()
+			.with_code(AlloyBytes::from(indicator))
+			.with_state_diff(storage_diff),
+	)]);
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(eve)
+		.input(AlloyBytes::from(Counter::numberCall {}.abi_encode()).into());
+
+	let result = provider.call(tx).overrides(overrides).await?;
+	let number = Counter::numberCall::abi_decode_returns(&result)?;
+	assert_eq!(
+		number, 42u64,
+		"{context}: code override of 0xef0100||target must route to target's code in target's storage",
+	);
+
+	Ok(())
+}
+
+async fn test_state_override_delegation_indicator_to_evm() -> anyhow::Result<()> {
+	state_override_delegation_indicator_routes(
+		pallet_revive_fixtures::FixtureType::Solc,
+		AlloyAddress::from([0xEE; 20]),
+		"EVM",
+	)
+	.await
+}
+
+async fn test_state_override_delegation_indicator_to_pvm() -> anyhow::Result<()> {
+	state_override_delegation_indicator_routes(
+		pallet_revive_fixtures::FixtureType::Resolc,
+		AlloyAddress::from([0xEF; 20]),
+		"PVM",
+	)
+	.await
 }
 
 /// Verify that subscribing to `newHeads` delivers a block header matching the

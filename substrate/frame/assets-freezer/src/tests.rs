@@ -137,7 +137,7 @@ mod impl_inspect_freeze {
 	}
 
 	/// This tests it's not possible to freeze once the freezes [`BoundedVec`] is full. This is,
-	/// the lenght of the vec is equal to [`Config::MaxFreezes`].
+	/// the lenght of the vec is equal to the variant count of `Config::RuntimeFreezeReason`.
 	/// This test assumes a mock configuration where this parameter is set to `2`.
 	#[test]
 	fn can_freeze_works() {
@@ -307,6 +307,26 @@ mod with_pallet_assets {
 				pallet_assets::Error::<Test>::BalanceLow,
 			);
 			assert_ok!(Assets::transfer(RuntimeOrigin::signed(WHO), Compact(ASSET_ID), 2, 80));
+		});
+	}
+}
+
+mod impl_inspect {
+	use super::*;
+	use frame::traits::fungibles::Inspect;
+
+	#[test]
+	fn is_sufficient_delegates_to_pallet_assets() {
+		new_test_ext(|| {
+			// The genesis asset is sufficient; the wrapper must report the same answer as
+			// the wrapped pallet rather than the trait's `false` default.
+			assert!(AssetsFreezer::is_sufficient(ASSET_ID));
+			assert_eq!(
+				AssetsFreezer::is_sufficient(ASSET_ID),
+				<Assets as Inspect<AccountId>>::is_sufficient(ASSET_ID),
+			);
+			// An unknown asset is not sufficient.
+			assert!(!AssetsFreezer::is_sufficient(ASSET_ID + 1));
 		});
 	}
 }
