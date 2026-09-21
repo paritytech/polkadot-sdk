@@ -3343,6 +3343,88 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// TODO: Experimenting with what the worst case for the conditional jump is.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_jumpi_untaken_opcode(
+		r: Linear<1, { limits::EVM_STACK_LIMIT / 2 }>,
+	) -> Result<(), BenchmarkError> {
+		use revm::bytecode::opcode::JUMPI;
+
+		let fixture = EvmJumpFixture::new(JUMPI, r);
+		let last_target = fixture.last_target();
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(fixture.code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+		let operands = fixture.targets.into_iter().flat_map(|target| {
+			let condition = if target == last_target { U256::one() } else { U256::zero() };
+			[U256::from(target), condition]
+		});
+		for operand in operands.rev() {
+			if interpreter.stack.push(operand).is_break() {
+				return Err(BenchmarkError::Stop("Operands exceed the stack limit"));
+			}
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), last_target + 2);
+		Ok(())
+	}
+
+	// TODO: Experimenting with what the worst case for the conditional jump is.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_jumpi_random_opcode(
+		r: Linear<1, { limits::EVM_STACK_LIMIT / 2 }>,
+	) -> Result<(), BenchmarkError> {
+		use rand::{Rng, SeedableRng};
+		use rand_pcg::Pcg64;
+		use revm::bytecode::opcode::JUMPI;
+
+		let fixture = EvmJumpFixture::new(JUMPI, r);
+		let last_target = fixture.last_target();
+		let mut rng = Pcg64::seed_from_u64(42);
+		let conditions = core::iter::repeat_with(|| U256::from(rng.gen_range(0..=1u8)))
+			.take(fixture.targets.len() - 1)
+			.chain(core::iter::once(U256::one()))
+			.collect::<Vec<_>>();
+
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let bytecode = ExtBytecode::new(Bytecode::new_raw(fixture.code.into()));
+		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
+		let operands = fixture
+			.targets
+			.into_iter()
+			.zip(conditions)
+			.flat_map(|(target, condition)| [U256::from(target), condition]);
+		for operand in operands.rev() {
+			if interpreter.stack.push(operand).is_break() {
+				return Err(BenchmarkError::Stop("Operands exceed the stack limit"));
+			}
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), last_target + 2);
+		Ok(())
+	}
+
 	// Benchmark the execution of instructions.
 	//
 	// It benchmarks the absolute worst case by allocating a lot of memory
