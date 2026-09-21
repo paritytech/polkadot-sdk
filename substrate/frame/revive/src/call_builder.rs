@@ -25,20 +25,19 @@
 // benchmarks.
 #![cfg_attr(test, allow(dead_code))]
 
+#[cfg(feature = "runtime-benchmarks")]
+use crate::access_list::{Access, CodeLoadItems, Warmth};
 use crate::{
-	AccountInfo, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob, ContractInfo,
-	Error, ExecConfig, ExecOrigin as Origin, OriginFor, Pallet as Contracts, PristineCode, Weight,
+	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, ContractBlob,
+	ContractInfo, Error, ExecConfig, ExecOrigin as Origin, OriginFor, Pallet as Contracts,
+	PristineCode, Weight,
+	access_list::AccessEntry,
 	address::AddressMapper,
 	exec::{ExportedFunction, Key, PrecompileExt, Stack},
 	limits,
 	metering::{TransactionLimits, TransactionMeter},
 	transient_storage::MeterEntry,
 	vm::pvm::{PreparedCall, Runtime},
-};
-#[cfg(feature = "runtime-benchmarks")]
-use crate::{
-	AccountInfoOf,
-	access_list::{Access, AccessEntry, CodeLoadItems, Warmth},
 };
 use alloc::{vec, vec::Vec};
 use frame_support::{storage::child, traits::fungible::Mutate};
@@ -233,29 +232,59 @@ pub fn caller_funding<T: Config>() -> BalanceOf<T> {
 	BalanceOf::<T>::max_value() / 10_000u32.into()
 }
 
+/// Returns the storage key one access-list entry stands for, or `None` for a child-trie slot.
+pub fn storage_key_of<T: Config>(entry: &AccessEntry) -> Option<Vec<u8>> {
+	Some(match entry {
+		AccessEntry::Account { address } => {
+			frame_system::Account::<T>::hashed_key_for(&T::AddressMapper::to_account_id(address))
+		},
+		AccessEntry::OriginalAccount { address } => {
+			crate::OriginalAccount::<T>::hashed_key_for(address)
+		},
+		AccessEntry::AccountInfo { address } => AccountInfoOf::<T>::hashed_key_for(address),
+		AccessEntry::CodeInfo { hash } => CodeInfoOf::<T>::hashed_key_for(hash),
+		AccessEntry::CodeBlob { hash } => PristineCode::<T>::hashed_key_for(hash),
+		// A slot lives in the contract's child trie, keyed by a trie id the entry does not carry.
+		AccessEntry::Storage(_) => return None,
+	})
+}
+
+/// Rebuilds the entry a main-trie key stands for, the inverse of [`storage_key_of`]. Returns
+/// `None` for a key of a different map, or a malformed one.
+#[cfg(test)]
+pub fn entry_of_key<T: Config>(key: &[u8]) -> Option<AccessEntry> {
+	use frame_support::storage::StoragePrefixedMap;
+
+	let tail_of = |map_prefix: &[u8]| key.strip_prefix(map_prefix);
+	let address = |tail: &[u8]| (tail.len() == H160::len_bytes()).then(|| H160::from_slice(tail));
+	let hash = |tail: &[u8]| (tail.len() == H256::len_bytes()).then(|| H256::from_slice(tail));
+
+	if let Some(tail) = tail_of(&frame_system::Account::<T>::final_prefix()) {
+		use frame_support::{Blake2_128Concat, ReversibleStorageHasher};
+		let mut encoded = Blake2_128Concat::reverse(tail);
+		let account_id = <T::AccountId as codec::Decode>::decode(&mut encoded).ok()?;
+		return Some(AccessEntry::Account { address: T::AddressMapper::to_address(&account_id) });
+	}
+	if let Some(tail) = tail_of(&crate::OriginalAccount::<T>::final_prefix()) {
+		return Some(AccessEntry::OriginalAccount { address: address(tail)? });
+	}
+	if let Some(tail) = tail_of(&AccountInfoOf::<T>::final_prefix()) {
+		return Some(AccessEntry::AccountInfo { address: address(tail)? });
+	}
+	if let Some(tail) = tail_of(&CodeInfoOf::<T>::final_prefix()) {
+		return Some(AccessEntry::CodeInfo { hash: hash(tail)? });
+	}
+	if let Some(tail) = tail_of(&PristineCode::<T>::final_prefix()) {
+		return Some(AccessEntry::CodeBlob { hash: hash(tail)? });
+	}
+	None
+}
+
 /// Whitelists the storage key behind one access-list entry.
 #[cfg(feature = "runtime-benchmarks")]
 fn whitelist_entry<T: Config>(entry: &AccessEntry) {
-	use frame_benchmarking::benchmarking::add_to_whitelist;
-	match entry {
-		AccessEntry::Account { address } => add_to_whitelist(
-			frame_system::Account::<T>::hashed_key_for(&T::AddressMapper::to_account_id(address))
-				.into(),
-		),
-		AccessEntry::OriginalAccount { address } => {
-			add_to_whitelist(crate::OriginalAccount::<T>::hashed_key_for(address).into())
-		},
-		AccessEntry::AccountInfo { address } => {
-			add_to_whitelist(AccountInfoOf::<T>::hashed_key_for(address).into())
-		},
-		AccessEntry::CodeInfo { hash } => {
-			add_to_whitelist(CodeInfoOf::<T>::hashed_key_for(hash).into())
-		},
-		AccessEntry::CodeBlob { hash } => {
-			add_to_whitelist(PristineCode::<T>::hashed_key_for(hash).into())
-		},
-		// Child-trie slots have no fixed key here; benches whitelist them ad hoc.
-		AccessEntry::Storage(_) => {},
+	if let Some(key) = storage_key_of::<T>(entry) {
+		frame_benchmarking::benchmarking::add_to_whitelist(key.into());
 	}
 }
 

@@ -375,6 +375,40 @@ pub trait Access {
 		});
 		entries
 	}
+
+	/// Returns the entries this access touches with the operation on each. A repeated entry ends
+	/// up written if either visit writes.
+	#[cfg(test)]
+	fn entries(self) -> BTreeMap<AccessEntry, StorageOp>
+	where
+		Self: Sized,
+	{
+		let mut entries = BTreeMap::new();
+		self.expand(|entry, op| {
+			let charged = entries.entry(entry).or_insert(op);
+			if !charged.covers(op) {
+				*charged = op;
+			}
+			Warmth::cold_non_revertible()
+		});
+		entries
+	}
+}
+
+/// Merges the entries of several accesses. When more than one names an entry, a write wins over
+/// a read.
+#[cfg(test)]
+pub fn merged_entries(
+	entries: impl IntoIterator<Item = BTreeMap<AccessEntry, StorageOp>>,
+) -> BTreeMap<AccessEntry, StorageOp> {
+	let mut merged = BTreeMap::new();
+	for (entry, op) in entries.into_iter().flatten() {
+		let charged = merged.entry(entry).or_insert(op);
+		if !charged.covers(op) {
+			*charged = op;
+		}
+	}
+	merged
 }
 
 /// Warmth of the entries [`CallItems`] covers, one variant per call kind.

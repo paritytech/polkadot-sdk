@@ -95,6 +95,7 @@ proptest = { workspace = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true }
 sp-tracing = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
