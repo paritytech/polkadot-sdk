@@ -2224,7 +2224,7 @@ mod receiving_a_migration {
 		build_and_execute(|| {
 			// GIVEN the id counter adopted from the chain the registry came from, above every id
 			// that chain ever allocated.
-			<Registrar as ReceiveMigratedParas>::receive_next_free_para_id(5_000);
+			<Registrar as ReceiveMigratedParas<AccountId>>::receive_next_free_para_id(5_000);
 
 			// WHEN ids are handed out. THEN never below the migrated counter, so an id that is
 			// live over there but never arrived here is unreachable.
@@ -2233,12 +2233,12 @@ mod receiving_a_migration {
 			}
 
 			// A counter that arrives below the floor cannot reach a system chain's id either.
-			<Registrar as ReceiveMigratedParas>::receive_next_free_para_id(0);
+			<Registrar as ReceiveMigratedParas<AccountId>>::receive_next_free_para_id(0);
 			assert_eq!(reserve_for(ALICE), FIRST_PARA_ID);
 
 			// And an id this chain already holds is stepped over rather than reissued.
 			let taken = reserve_for(BOB);
-			<Registrar as ReceiveMigratedParas>::receive_next_free_para_id(taken);
+			<Registrar as ReceiveMigratedParas<AccountId>>::receive_next_free_para_id(taken);
 			assert!(reserve_for(ALICE) > taken);
 		});
 	}

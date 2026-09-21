@@ -17,7 +17,7 @@
 
 //! Tests for `pallet-hrmp-para`.
 
-use crate::{mock::*, ChannelState, Channels, Error, Event};
+use crate::{mock::*, ChannelState, Channels, UnpaidMigratedDeposits, Error, Event};
 use frame_support::{assert_noop, assert_ok};
 use hrmp_primitives::{
 	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
@@ -1548,23 +1548,37 @@ mod receiving_a_migration {
 	}
 
 	#[test]
-	fn a_sovereign_account_that_cannot_pay_leaves_nothing_half_taken() {
+	fn a_sovereign_account_that_cannot_pay_still_gets_the_channel() {
 		build_and_execute(|| {
 			// GIVEN a recipient whose migrated balance does not cover this chain's price.
 			let recipient = SovereignOf::convert(PARA_C);
 			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), recipient, 1));
+			let _ = hrmp_events();
+			let channel = chan(PARA_A, PARA_C);
 
-			assert_noop!(
-				Hrmp::receive_channel(MigratedChannel {
-					channel: chan(PARA_A, PARA_C),
-					confirmed: true,
-				}),
-				sp_runtime::DispatchError::Token(sp_runtime::TokenError::FundsUnavailable)
+			// WHEN the channel arrives confirmed.
+			assert_ok!(Hrmp::receive_channel(MigratedChannel { channel, confirmed: true }));
+
+			// THEN it stands open with only the sender's end paid, and the unpaid end is on record.
+			let info = Channels::<Test>::get(channel).unwrap();
+			assert_eq!(info.state, ChannelState::Open);
+			assert!(info.sender_ticket.is_some());
+			assert!(info.recipient_ticket.is_none());
+			assert_eq!(held(PARA_A), CHANNEL_DEPOSIT);
+			assert_eq!(held(PARA_C), 0);
+			assert_eq!(UnpaidMigratedDeposits::<Test>::get(channel), (false, true));
+			assert_eq!(
+				hrmp_events(),
+				vec![Event::MigratedWithUnpaidDeposit { channel, para_id: PARA_C }]
 			);
 
-			// The sender's half was taken before the recipient's failed, and must not survive it.
+			// AND closing it later releases only what was taken, and clears the record.
+			assert_ok!(Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_C, PARA_A));
+			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), close_response(channel, Ok(()))));
 			assert_eq!(held(PARA_A), 0);
-			assert!(state_of(chan(PARA_A, PARA_C)).is_none());
+			assert_eq!(held(PARA_C), 0);
+			assert!(state_of(channel).is_none());
+			assert!(!UnpaidMigratedDeposits::<Test>::contains_key(channel));
 		});
 	}
 }

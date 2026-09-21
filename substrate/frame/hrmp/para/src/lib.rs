@@ -293,6 +293,12 @@ pub mod pallet {
 	pub type Channels<T: Config> =
 		StorageMap<_, Blake2_128Concat, ChannelId, ChannelInfoOf<T>>;
 
+	/// Ends of migrated channels whose sovereign account could not pay the deposit here, as
+	/// `(sender, recipient)`. Such an end holds no ticket; the entry goes with the channel.
+	#[pallet::storage]
+	pub type UnpaidMigratedDeposits<T: Config> =
+		StorageMap<_, Blake2_128Concat, ChannelId, (bool, bool), ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -339,6 +345,9 @@ pub mod pallet {
 		/// the migrated record was dropped rather than duplicated. Nothing is lost: a system
 		/// channel carries no deposit at either end, so the two records describe the same thing.
 		MigratedSystemChannelAlreadyOpen { channel: ChannelId },
+		/// A migrated channel arrived, but `para_id`'s sovereign account could not pay its end of
+		/// the deposit here. The channel stands with that end unpaid until it is closed.
+		MigratedWithUnpaidDeposit { channel: ChannelId, para_id: ParaId },
 	}
 
 	#[pallet::error]
@@ -647,6 +656,7 @@ pub mod pallet {
 			Self::release(info.sender_ticket, sender)?;
 			Self::release(info.recipient_ticket, recipient)?;
 			Channels::<T>::remove(channel);
+			UnpaidMigratedDeposits::<T>::remove(channel);
 
 			Self::deposit_event(Event::ChannelForceRemoved { channel });
 			Ok(())
@@ -672,6 +682,9 @@ impl<T: Config> Pallet<T> {
 			);
 
 			let (sender, recipient) = (info.sender_ticket.is_some(), info.recipient_ticket.is_some());
+			// A migrated end that could not pay legitimately holds nothing.
+			let (sender_unpaid, recipient_unpaid) = UnpaidMigratedDeposits::<T>::get(channel);
+			let (sender_due, recipient_due) = (!sender_unpaid, !recipient_unpaid);
 
 			if Self::is_system(channel) {
 				// System channels are free at both ends, in every state.
@@ -688,14 +701,14 @@ impl<T: Config> Pallet<T> {
 				ChannelState::Opening { .. } |
 				ChannelState::Pending |
 				ChannelState::Cancelling { .. } => frame_support::ensure!(
-					sender && !recipient,
+					sender == sender_due && !recipient,
 					"hrmp-para: a channel before acceptance must hold exactly the sender's deposit"
 				),
 				// Both ends have committed and neither has been released.
 				ChannelState::Accepting { .. } |
 				ChannelState::Open |
 				ChannelState::Closing { .. } => frame_support::ensure!(
-					sender && recipient,
+					sender == sender_due && recipient == recipient_due,
 					"hrmp-para: a channel from acceptance onwards must hold both deposits"
 				),
 			}
@@ -899,6 +912,7 @@ impl<T: Config> Pallet<T> {
 			Err(reason) => {
 				Self::release(info.sender_ticket, channel.sender)?;
 				Channels::<T>::remove(channel);
+				UnpaidMigratedDeposits::<T>::remove(channel);
 				Self::deposit_event(Event::OpenFailed { channel, message_id, reason });
 			},
 		}
@@ -946,6 +960,7 @@ impl<T: Config> Pallet<T> {
 				Self::release(info.sender_ticket, channel.sender)?;
 				Self::release(info.recipient_ticket, channel.recipient)?;
 				Channels::<T>::remove(channel);
+				UnpaidMigratedDeposits::<T>::remove(channel);
 				Self::deposit_event(Event::Closed { channel, message_id });
 			},
 			Err(reason) => {
@@ -970,6 +985,7 @@ impl<T: Config> Pallet<T> {
 			Ok(()) | Err(FailureReason::NotFound) => {
 				Self::release(info.sender_ticket, channel.sender)?;
 				Channels::<T>::remove(channel);
+				UnpaidMigratedDeposits::<T>::remove(channel);
 				Self::deposit_event(Event::Cancelled { channel, message_id });
 			},
 			Err(reason) => {
@@ -1027,6 +1043,11 @@ impl<T: Config> Pallet<T> {
 /// A channel the relay chain has not confirmed arrives as `Pending`, holding the sender's deposit
 /// alone. That is not a detail: it is the pallet's invariant about which deposits a state holds,
 /// and putting the mapping here rather than in the migrator is what keeps the two from drifting.
+///
+/// Taking the deposits is best effort. Every channel the relay chain had is recreated; an end
+/// whose sovereign account cannot pay is recorded without a ticket, noted in
+/// [`UnpaidMigratedDeposits`] and reported as [`Event::MigratedWithUnpaidDeposit`]. Closing the
+/// channel later releases only what was taken.
 impl<T: Config> ReceiveMigratedChannels for Pallet<T> {
 	fn receive_channel(migrated: MigratedChannel) -> DispatchResult {
 		// A migrator calls this as a plain function, so unlike an extrinsic it gets no storage
@@ -1053,14 +1074,36 @@ impl<T: Config> Pallet<T> {
 			return Ok(());
 		}
 
-		let sender_ticket = Self::take_deposit(channel, channel.sender)?;
+		let sender_ticket = Self::take_migrated_deposit(channel, channel.sender);
 		let (recipient_ticket, state) = if confirmed {
-			(Self::take_deposit(channel, channel.recipient)?, ChannelState::Open)
+			(Self::take_migrated_deposit(channel, channel.recipient), ChannelState::Open)
 		} else {
 			(None, ChannelState::Pending)
 		};
 
 		Channels::<T>::insert(channel, ChannelInfo { sender_ticket, recipient_ticket, state });
 		Ok(())
+	}
+
+	/// [`Self::take_deposit`] for a migrated end: an account that cannot pay yields no ticket,
+	/// never an error.
+	fn take_migrated_deposit(
+		channel: ChannelId,
+		para_id: ParaId,
+	) -> Option<T::ChannelConsideration> {
+		match Self::take_deposit(channel, para_id) {
+			Ok(ticket) => ticket,
+			Err(_) => {
+				UnpaidMigratedDeposits::<T>::mutate(channel, |(sender, recipient)| {
+					if para_id == channel.sender {
+						*sender = true;
+					} else {
+						*recipient = true;
+					}
+				});
+				Self::deposit_event(Event::MigratedWithUnpaidDeposit { channel, para_id });
+				None
+			},
+		}
 	}
 }

@@ -52,8 +52,18 @@ pub type ParaId = u32;
 
 /// One end of a channel, in the order the relay chain names them.
 #[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, Copy, Eq, PartialEq, Debug, TypeInfo,
-	MaxEncodedLen, Ord, PartialOrd,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+	Ord,
+	PartialOrd,
 )]
 pub struct ChannelId {
 	/// The para that sends on this channel.
@@ -142,8 +152,8 @@ pub enum MessageToRelayV1 {
 	/// No deposit is staked on the outcome, so the round trip is not about money — it is about the
 	/// parachain not being able to tell "opened" from "refused" otherwise. It cannot see the relay
 	/// chain's state, and the most common refusal is routine rather than exceptional: the chain
-	/// that owns the registry asks for this channel the moment a registration is applied, while the
-	/// new para is still onboarding and the relay chain will not yet open a channel to it.
+	/// that owns the registry asks for this channel the moment a registration is applied, while
+	/// the new para is still onboarding and the relay chain will not yet open a channel to it.
 	#[codec(index = 4)]
 	EstablishSystemChannel {
 		/// One end of the pair. Both directions are opened.
@@ -334,32 +344,35 @@ pub trait HrmpRegistry {
 // also could not scale: the relay chain caps how many channels one para may hold, and the control
 // plane's need grew with the network while the cap is a constant.
 
-/// One channel, as it arrives from the chain that used to hold its deposits.
+/// One channel, as it arrives at the destination from the chain that used to hold its deposits.
 ///
-/// Carries no deposit, for the same reason [`MigratedPara`]-style records do not: the deposits are
-/// re-taken here at this chain's prices, from the sovereign accounts the money already arrived on.
+/// Carries no deposit. [`ReceiveMigratedChannels::receive_channel`] takes the sender's, and for a
+/// confirmed channel the recipient's, deposit at the destination's own prices from the sovereign
+/// accounts the funds already arrived on.
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
 pub struct MigratedChannel {
 	/// Which channel.
 	pub channel: ChannelId,
-	/// Whether the relay chain has the channel itself, or only an unconfirmed request for it.
-	///
-	/// The difference decides how many deposits are owed: a request that the recipient has not
-	/// accepted is the sender's alone.
+	/// Whether the source chain has the channel itself, or only an open request the recipient
+	/// has not accepted.
 	pub confirmed: bool,
 }
 
-/// Takes migrated channels into the pallet that will own them.
+/// Takes migrated channels into the pallet that owns HRMP on the destination.
 ///
-/// Same reasoning as `registrar-primitives`' equivalent: which deposits a channel holds is a
-/// function of its state, that rule is enforced inside the pallet, and a migrator rebuilding it
-/// from outside is how it gets broken.
+/// `()` refuses every channel, so a migrator running ahead of the pallet parks each record
+/// instead of losing it.
 pub trait ReceiveMigratedChannels {
 	/// Take one channel, charging its deposits at this chain's prices.
 	///
-	/// Fails if the channel is already known here, or if a sovereign account cannot pay. Either
-	/// way the caller is expected to park the record rather than lose it.
+	/// Fails if the channel is already known here, or if a sovereign account cannot pay.
 	fn receive_channel(channel: MigratedChannel) -> sp_runtime::DispatchResult;
+}
+
+impl ReceiveMigratedChannels for () {
+	fn receive_channel(_: MigratedChannel) -> sp_runtime::DispatchResult {
+		Err(sp_runtime::DispatchError::Unavailable)
+	}
 }
 
 /// Where a relay chain sends a parachain's *own* HRMP requests once the control plane has moved off
@@ -370,10 +383,10 @@ pub trait ReceiveMigratedChannels {
 ///
 /// ## Why the relay chain keeps the calls at all
 ///
-/// A parachain asks for a channel by `Transact`ing `hrmp_init_open_channel` and friends on the relay
-/// chain. Those calls could simply be filtered off, and the parachain told to send to the control
-/// plane instead — but that means every parachain on the network changes the call it encodes, and
-/// acquires a channel with the control plane first in order to reach it at all.
+/// A parachain asks for a channel by `Transact`ing `hrmp_init_open_channel` and friends on the
+/// relay chain. Those calls could simply be filtered off, and the parachain told to send to the
+/// control plane instead — but that means every parachain on the network changes the call it
+/// encodes, and acquires a channel with the control plane first in order to reach it at all.
 ///
 /// So the relay chain keeps its five para-facing calls and, in remote mode, forwards them. The
 /// parachain's encoded call is byte-identical to today: same pallet index, same call index, same

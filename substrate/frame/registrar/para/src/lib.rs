@@ -1436,9 +1436,7 @@ impl<T: Config> Pallet<T> {
 /// as [`Event::MigratedWithUnpaidDeposit`]. Such a para holds its storage without paying for it
 /// until governance either settles or removes it; the set is small, one-off, and enumerable from
 /// the event.
-impl<T: Config> ReceiveMigratedParas for Pallet<T> {
-	type AccountId = T::AccountId;
-
+impl<T: Config> ReceiveMigratedParas<T::AccountId> for Pallet<T> {
 	fn receive_para(para: MigratedPara<T::AccountId>) -> DispatchResult {
 		// A migrator calls this as a plain function, so unlike an extrinsic it gets no storage
 		// layer of its own. Without one, a reservation taken before a failing registration would

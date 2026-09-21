@@ -366,62 +366,57 @@ pub trait ParachainRegistrar {
 	fn ensure_deregisterable(manager: Self::AccountId, para_id: ParaId);
 }
 
-/// Where a migrated para sits, as the chain it is arriving from saw it.
+/// Where a migrated para id sits in the registration flow, as the source chain recorded it.
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
 pub enum MigratedParaState {
-	/// The id is held by its manager and nothing is onboarded against it.
+	/// The para id is held by its manager, but nothing is registered on the relay chain.
 	Reserved,
-	/// The para is onboarded.
+	/// The relay chain has onboarded this para.
 	Registered {
-		/// Length of the para's current head data.
-		///
-		/// Carried so the arriving registration can be priced exactly the way a fresh one is,
-		/// rather than at some worst case. The chain sending it can read this; the chain
-		/// receiving it cannot.
+		/// Length of the para's current head data, so the destination prices the registration
+		/// the way it prices a fresh one.
 		head_len: u32,
 	},
 }
 
-/// One para, as it arrives from the chain that used to own the registry.
+/// One para id, as it arrives at the destination from the chain that used to own the registry.
 ///
-/// Deliberately carries no deposit. The deposits are re-taken at the receiving chain's own prices
-/// from funds that arrived earlier, so a recorded amount from the old chain would only be
-/// something to get wrong.
+/// Carries no deposit. [`ReceiveMigratedParas::receive_para`] takes the reservation deposit,
+/// and for a registered para the registration deposit, from `manager` at the destination's own
+/// prices.
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
 pub struct MigratedPara<AccountId> {
 	/// The para id.
 	pub para_id: ParaId,
-	/// Who manages it, and who the deposits are taken from.
+	/// The account that reserved the para id and controls it.
 	pub manager: AccountId,
-	/// Reserved, or registered and how big its head is.
+	/// Where this para id sits in the registration flow.
 	pub state: MigratedParaState,
-	/// Whether the manager is locked out, as the sending chain recorded it.
-	///
-	/// Three-valued for the same reason it is on the receiving side: `None` means never locked
-	/// and still eligible for the automatic lock, `Some(false)` means deliberately unlocked and
-	/// must not be re-locked. Collapsing the two on the wire would silently opt every
-	/// never-locked para out of ever locking again.
+	/// Whether the manager is locked out of controlling this para. `None` until the lock is set
+	/// for the first time, and read as unlocked.
 	pub locked: Option<bool>,
 }
 
-/// Takes migrated registrations into the pallet that will own them.
+/// Takes migrated para ids into the pallet that owns registration on the destination.
 ///
-/// A migrator *could* write the storage itself — the maps and `Consideration::new` are both
-/// public. It should not: the state machine and the rule about which deposit is held in which
-/// state live in the pallet, and rebuilding them outside it is how they drift. This is the seam
-/// that keeps them in one place.
-pub trait ReceiveMigratedParas {
-	/// The account a manager is identified by.
-	type AccountId;
-
+/// `()` refuses every para, so a migrator running ahead of the pallet parks each record instead
+/// of losing it.
+pub trait ReceiveMigratedParas<AccountId> {
 	/// Take one para, charging its deposits at this chain's prices.
 	///
-	/// Fails if the id is already known here, or if the manager cannot pay. Either way the caller
-	/// is expected to park the record rather than lose it.
-	fn receive_para(para: MigratedPara<Self::AccountId>) -> sp_runtime::DispatchResult;
+	/// Fails if the para id is already known here, or if the manager cannot pay.
+	fn receive_para(para: MigratedPara<AccountId>) -> sp_runtime::DispatchResult;
 
-	/// Adopt the id counter from the chain the paras came from.
+	/// Adopt the next free para id from the source chain.
 	fn receive_next_free_para_id(para_id: ParaId);
+}
+
+impl<AccountId> ReceiveMigratedParas<AccountId> for () {
+	fn receive_para(_: MigratedPara<AccountId>) -> sp_runtime::DispatchResult {
+		Err(sp_runtime::DispatchError::Unavailable)
+	}
+
+	fn receive_next_free_para_id(_: ParaId) {}
 }
 
 /// Where a relay chain sends a parachain's *own* registrar requests once the control plane has
@@ -450,15 +445,16 @@ pub trait ReceiveMigratedParas {
 /// the two shapes cannot be reconciled by forwarding, and pushing megabytes through the messaging
 /// layer is the thing that protocol exists to avoid. That call is filtered instead, which costs
 /// little: a parachain's ordinary upgrade path is `parachain_system`'s
-/// `authorize_upgrade`/`enact_authorized_upgrade`, which never touches the registrar. The registrar's
-/// version is the manager and recovery path, and managers are moving regardless.
+/// `authorize_upgrade`/`enact_authorized_upgrade`, which never touches the registrar. The
+/// registrar's version is the manager and recovery path, and managers are moving regardless.
 ///
 /// `swap` is absent for a different reason: it is being retired, not ported.
 ///
 /// ## The mode is a runtime condition
 ///
 /// Not a compile-time one — the same runtime owns its own registry before the control plane moves
-/// and forwards afterwards. `()` never goes remote, so a chain that owns its registry is unaffected.
+/// and forwards afterwards. `()` never goes remote, so a chain that owns its registry is
+/// unaffected.
 pub trait ParaRequestRouter {
 	/// Whether a parachain's requests are forwarded rather than applied on this chain.
 	fn is_remote() -> bool {
