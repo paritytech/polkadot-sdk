@@ -592,3 +592,109 @@ impl<AccountId> Unbalanced<AccountId> for () {
 /// Dummy implementation of [`Mutate`]
 #[cfg(feature = "std")]
 impl<AccountId: Eq> Mutate<AccountId> for () {}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use core::cell::RefCell;
+	use sp_runtime::traits::Zero;
+
+	thread_local! {
+		static BALANCES: RefCell<[u64; 2]> = const { RefCell::new([0, 0]) };
+	}
+
+	const MIN_BALANCE: u64 = 10;
+
+	/// A fungible whose `decrease_balance` sweeps a sub-`minimum_balance` remainder into the
+	/// figure it returns, as `Unbalanced::decrease_balance` permits and `pallet-assets` does.
+	/// The excess stays in the system rather than going to `handle_dust`, so a caller that
+	/// credits the return value moves it rather than issuing it afresh.
+	struct SweepingFungible;
+
+	impl Inspect<usize> for SweepingFungible {
+		type Balance = u64;
+		fn total_issuance() -> u64 {
+			BALANCES.with(|b| b.borrow().iter().sum())
+		}
+		fn minimum_balance() -> u64 {
+			MIN_BALANCE
+		}
+		fn total_balance(who: &usize) -> u64 {
+			Self::balance(who)
+		}
+		fn balance(who: &usize) -> u64 {
+			BALANCES.with(|b| b.borrow()[*who])
+		}
+		fn reducible_balance(who: &usize, _: Preservation, _: Fortitude) -> u64 {
+			Self::balance(who)
+		}
+		fn can_deposit(_: &usize, _: u64, _: Provenance) -> DepositConsequence {
+			DepositConsequence::Success
+		}
+		fn can_withdraw(_: &usize, _: u64) -> WithdrawConsequence<u64> {
+			WithdrawConsequence::Success
+		}
+	}
+
+	impl Unbalanced<usize> for SweepingFungible {
+		fn handle_dust(_: Dust<usize, Self>) {
+			unreachable!("the sweep is reported through `decrease_balance`, not trapped");
+		}
+		fn write_balance(_: &usize, _: u64) -> Result<Option<u64>, DispatchError> {
+			unimplemented!("`decrease_balance` and `increase_balance` are provided");
+		}
+		fn set_total_issuance(_: u64) {}
+		fn decrease_balance(
+			who: &usize,
+			amount: u64,
+			_: Precision,
+			_: Preservation,
+			_: Fortitude,
+		) -> Result<u64, DispatchError> {
+			BALANCES.with(|b| {
+				let mut b = b.borrow_mut();
+				let remainder = b[*who].checked_sub(amount).ok_or(TokenError::FundsUnavailable)?;
+				let actual =
+					if !remainder.is_zero() && remainder < MIN_BALANCE { b[*who] } else { amount };
+				b[*who] -= actual;
+				Ok(actual)
+			})
+		}
+		fn increase_balance(who: &usize, amount: u64, _: Precision) -> Result<u64, DispatchError> {
+			BALANCES.with(|b| b.borrow_mut()[*who] += amount);
+			Ok(amount)
+		}
+	}
+
+	impl Mutate<usize> for SweepingFungible {}
+
+	/// `transfer` must credit the destination with what `decrease_balance` actually took, not
+	/// with what it was asked for. Crediting `amount` would debit the source 100 while
+	/// crediting 95, destroying the difference.
+	#[test]
+	fn transfer_credits_the_amount_actually_debited() {
+		BALANCES.with(|b| *b.borrow_mut() = [100, 0]);
+
+		assert_eq!(
+			<SweepingFungible as Mutate<usize>>::transfer(&0, &1, 95, Preservation::Expendable),
+			Ok(100),
+		);
+
+		assert_eq!(<SweepingFungible as Inspect<usize>>::balance(&0), 0);
+		assert_eq!(<SweepingFungible as Inspect<usize>>::balance(&1), 100);
+	}
+
+	/// A transfer that leaves a legal remainder is untouched by the above.
+	#[test]
+	fn transfer_without_a_sweep_moves_exactly_the_amount() {
+		BALANCES.with(|b| *b.borrow_mut() = [100, 0]);
+
+		assert_eq!(
+			<SweepingFungible as Mutate<usize>>::transfer(&0, &1, 90, Preservation::Expendable),
+			Ok(90),
+		);
+
+		assert_eq!(<SweepingFungible as Inspect<usize>>::balance(&0), 10);
+		assert_eq!(<SweepingFungible as Inspect<usize>>::balance(&1), 90);
+	}
+}

@@ -2433,10 +2433,12 @@ fn fungibles_transfer_should_never_burn_above_unit_min_balance() {
 	});
 }
 
-/// The same invariant through the single-asset adapter, which is how a runtime exposes one
-/// pallet-assets asset as a `fungible`. pallet-balances is unaffected by the change — its
-/// `decrease_balance` returns exactly `amount` and disposes of dust separately — so this
-/// adapter is the only place the `fungible::Mutate::transfer` half is reachable.
+/// The same invariant through `ItemOf`, the adapter a runtime uses to expose one pallet-assets
+/// asset as a `fungible`.
+///
+/// `ItemOf::transfer` delegates to `fungibles::Mutate::transfer`, so this runs the same default
+/// as the test above, not the `fungible` one. What it adds is that the adapter returns the inner
+/// call's value unchanged rather than substituting `amount`.
 #[test]
 fn fungible_item_of_transfer_should_never_burn_above_unit_min_balance() {
 	use frame_support::traits::tokens::{
@@ -2492,5 +2494,44 @@ fn transfer_approved_cannot_sweep_past_the_approval() {
 		assert_eq!(Assets::balance(0, 1), 10);
 		assert_eq!(Assets::balance(0, 3), 90);
 		assert_eq!(Assets::allowance(0, &1, &2), 5);
+	});
+}
+
+/// The approval is charged the debit, not the request, so a sweep spends the difference too.
+///
+/// Gating on the debit while still booking `amount` against the approval passes every other
+/// test here, since they all leave the approval either untouched or exhausted.
+#[test]
+fn transfer_approved_charges_the_debit_not_the_request() {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 110));
+
+		// Requesting 91 would strand 9, so the whole 100 moves and the whole 100 is charged.
+		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 91));
+		assert_eq!(Assets::balance(0, 1), 0);
+		assert_eq!(Assets::balance(0, 3), 100);
+		assert_eq!(Assets::allowance(0, &1, &2), 10);
+	});
+}
+
+/// A request larger than both the approval and the balance reports the approval failure, which
+/// is the order callers saw before the debit was resolved up front.
+#[test]
+fn transfer_approved_checks_the_approval_before_the_balance() {
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 50));
+
+		assert_noop!(
+			Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 150),
+			Error::<Test>::Unapproved
+		);
 	});
 }

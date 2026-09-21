@@ -1006,9 +1006,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// `dest` by (similar) amount, checking that 'delegate' has an existing approval from `owner`
 	/// to spend`amount`.
 	///
-	/// Will fail if `amount` is greater than the approval from `owner` to 'delegate'
-	/// Will unreserve the deposit from `owner` if the entire approved `amount` is spent by
-	/// 'delegate'
+	/// Will fail if the debit is greater than the approval from `owner` to 'delegate'. The debit
+	/// exceeds `amount` where transferring `amount` would leave `owner` holding a non-zero
+	/// remainder below the asset's minimum balance.
+	/// Will unreserve the deposit from `owner` if the debit spends the approval in full
 	pub fn do_transfer_approved(
 		id: T::AssetId,
 		owner: &T::AccountId,
@@ -1025,11 +1026,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			(id.clone(), &owner, delegate),
 			|maybe_approved| -> DispatchResult {
 				let mut approved = maybe_approved.take().ok_or(Error::<T, I>::Unapproved)?;
+				// Subsumed by the debit check below, since the debit is never less than
+				// `amount`. Kept so an over-large request still reports `Unapproved` rather
+				// than the balance error `prep_debit` would raise first.
+				ensure!(approved.amount >= amount, Error::<T, I>::Unapproved);
 
 				let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
-				// The approval is a ceiling on what the delegate may move. A debit that sweeps
-				// the owner's sub-`min_balance` remainder exceeds `amount`, so the approval has
-				// to be measured against the debit rather than against what was asked for.
+				// The approval bounds what actually moves, and `prep_debit` can resolve above
+				// `amount`.
 				let debit = Self::prep_debit(id.clone(), owner, amount, f.into())?;
 				let remaining =
 					approved.amount.checked_sub(&debit).ok_or(Error::<T, I>::Unapproved)?;
