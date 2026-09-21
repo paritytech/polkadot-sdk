@@ -568,7 +568,7 @@ pub use sc_network_statement::config::DEFAULT_REPLICATION_FACTOR;
 pub use sc_network_statement::config::DEFAULT_GOSSIP_TARGET;
 
 /// Parameters of the v2 DHT statement path.
-pub use sc_network_statement::V2DhtConfig;
+pub use sc_network_statement::{AffinityTopicsFile, V2DhtConfig};
 
 /// Statement count and data size the store may hold for one reason of keeping statements, the
 /// global limits where unset.

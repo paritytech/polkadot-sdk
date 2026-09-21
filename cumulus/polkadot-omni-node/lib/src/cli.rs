@@ -274,6 +274,15 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long = "statement-affinity-topic", value_name = "TOPIC", hide = true)]
 	pub statement_affinity_topics: Vec<sc_statement_store::Topic>,
 
+	/// File with affinity topics advertised by this node, one 32-byte hex topic per line.
+	/// Blank lines and lines starting with `#` are skipped. Adds to `--statement-affinity-topic`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long = "statement-affinity-topics-file", value_name = "PATH", hide = true)]
+	pub statement_affinity_topics_file: Option<sc_statement_store::AffinityTopicsFile>,
+
 	/// Number of K-closest peers (replication factor) used for DHT-affinity statement routing.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
@@ -438,6 +447,7 @@ impl<Config: CliConfig> Cli<Config> {
 					v2dht: sc_network_statement::v2dht_enabled().then(|| {
 						sc_statement_store::V2DhtConfig {
 							affinity_topics: self.statement_affinity_topics.clone(),
+							affinity_topics_file: self.statement_affinity_topics_file.clone(),
 							bloom_false_pos_rate: self.statement_bloom_false_positive_rate,
 							bloom_seed: self.statement_bloom_seed,
 							replication_factor: self.statement_replication_factor,

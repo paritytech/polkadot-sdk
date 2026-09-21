@@ -163,7 +163,7 @@ use std::{
 use tokio::time::timeout;
 use v2dht::{RetentionHandle, V2DhtMetrics, V2DhtOrchestrator};
 pub mod config;
-pub use config::{TrackLimits, V2DhtConfig};
+pub use config::{AffinityTopicsFile, TrackLimits, V2DhtConfig};
 pub use v2dht::RetentionReasonMask;
 #[cfg(test)]
 mod test_helpers;
@@ -656,13 +656,15 @@ impl StatementHandlerPrototype {
 			.as_ref()
 			.map(|cfg| RetentionHandle::new(network.local_peer_id(), cfg.replication_factor));
 		let V2DhtConfig {
-			affinity_topics,
+			mut affinity_topics,
+			affinity_topics_file,
 			bloom_false_pos_rate,
 			bloom_seed,
 			replication_factor,
 			gossip_target,
 			..
 		} = v2dht_config.unwrap_or_default();
+		affinity_topics.extend(affinity_topics_file.into_iter().flat_map(|file| file.0));
 		let mut v2dht = V2DhtOrchestrator::new(
 			&affinity_topics,
 			bloom_seed,
