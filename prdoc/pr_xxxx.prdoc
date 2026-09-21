@@ -1,0 +1,31 @@
+title: Keep chain-selection notified when a coalesced approval is only partly valid
+
+doc:
+  - audience: Node Dev
+    description: |
+      `import_approval` processes every candidate named in a coalesced
+      `ImportApproval` in one loop, writing overlay state and accumulating
+      actions as it goes. A later per-candidate failure (typically
+      `NoAssignment`) used to `respond_early!` with an empty action list,
+      discarding `Action::NoteApprovedInChainSelection` even though the
+      overlay already marked the block fully approved.
+
+      There is no retry: a later remote approval or wakeup for an already
+      approved candidate returns without re-emitting the notification, so
+      chain-selection can treat a valid fork as unapproved until it goes
+      stagnant.
+
+      Per-candidate errors now skip that candidate and continue. Accumulated
+      actions are always returned. The overall result remains `Bad` if any
+      named candidate failed.
+
+  - audience: Node Operator
+    description: |
+      Fixes a rare approval-voting liveness bug where a coalesced approval
+      vote that mixed assigned and unassigned candidates could approve a
+      block on disk without telling chain-selection. No CLI, config, or
+      migration changes. Restart onto this binary to pick up the fix.
+
+crates:
+  - name: polkadot-node-core-approval-voting
+    bump: patch

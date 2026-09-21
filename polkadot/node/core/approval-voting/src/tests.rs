@@ -1356,6 +1356,236 @@ fn subsystem_rejects_approval_before_assignment() {
 	});
 }
 
+// Regression tests: a coalesced `ImportApproval` that names both an assigned candidate
+// and an unassigned one must still emit `ChainSelectionMessage::Approved` when the
+// assigned half completes the block. Per-candidate `NoAssignment` is reported, but must
+// not discard actions already produced for valid candidates in the same vote.
+//
+// Run (from the repo root):
+//   SKIP_WASM_BUILD=1 cargo test -p polkadot-node-core-approval-voting \
+//     coalesced_approval_liveness_bug -- --nocapture
+//
+// With the fix, all three tests pass: the mixed vote still returns
+// `ApprovalCheckResult::Bad(NoAssignment)`, and chain-selection is notified.
+//
+// To reproduce the original bug (tests fail): restore the in-loop `respond_early!`
+// in `import_approval` (`src/lib.rs`) so a later `NoAssignment` returns
+// `Ok((Vec::new(), Bad(...)))`. The two `coalesced_vote_notifies_*` tests then
+// time out in `overseer_recv` waiting for `ChainSelectionMessage::Approved`.
+// The control test (`honest_single_candidate_vote_notifies_chain_selection`) still
+// passes, because it never hits that early return.
+mod coalesced_approval_liveness_bug {
+	use super::*;
+
+	// A block with two candidates and `needed_approvals: 1`. `preapproved_index` is
+	// approved up front by validator 2; validator 0 is assigned only to
+	// `assigned_index`, so its later vote is the one that completes the block.
+	async fn setup(
+		virtual_overseer: &mut VirtualOverseer,
+		assigned_index: CandidateIndex,
+		preapproved_index: CandidateIndex,
+	) -> (Hash, CandidateHash, CandidateHash, SessionIndex) {
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::ChainApi(ChainApiMessage::FinalizedBlockNumber(rx)) => {
+				rx.send(Ok(0)).unwrap();
+			}
+		);
+
+		let block_hash = Hash::repeat_byte(0x01);
+		let session_index = 1;
+
+		let candidate_receipt0 = make_candidate(ParaId::from(1_u32), &block_hash);
+		let candidate_receipt1 = make_candidate(ParaId::from(2_u32), &block_hash);
+		let candidate_hash0 = candidate_receipt0.hash();
+		let candidate_hash1 = candidate_receipt1.hash();
+		let candidate_hashes = [candidate_hash0, candidate_hash1];
+
+		let validators = vec![
+			Sr25519Keyring::Alice,
+			Sr25519Keyring::Bob,
+			Sr25519Keyring::Charlie,
+			Sr25519Keyring::Dave,
+			Sr25519Keyring::Eve,
+		];
+		let session_info = SessionInfo {
+			validator_groups: IndexedVec::<GroupIndex, Vec<ValidatorIndex>>::from(vec![
+				vec![ValidatorIndex(0), ValidatorIndex(1)],
+				vec![ValidatorIndex(2)],
+				vec![ValidatorIndex(3), ValidatorIndex(4)],
+			]),
+			needed_approvals: 1,
+			..session_info(&validators)
+		};
+
+		ChainBuilder::new()
+			.add_block(
+				block_hash,
+				ChainBuilder::GENESIS_HASH,
+				1,
+				BlockConfig {
+					slot: Slot::from(1),
+					candidates: Some(vec![
+						(candidate_receipt0, CoreIndex(0), GroupIndex(0)),
+						(candidate_receipt1, CoreIndex(1), GroupIndex(1)),
+					]),
+					session_info: Some(session_info),
+					end_syncing: false,
+					approval_voting_params: ApprovalVotingParams::default(),
+				},
+			)
+			.build(virtual_overseer)
+			.await;
+
+		let rx = import_assignment(
+			virtual_overseer,
+			block_hash,
+			preapproved_index,
+			ValidatorIndex(2),
+			0,
+		)
+		.await;
+		assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted));
+
+		let rx = import_approval(
+			virtual_overseer,
+			block_hash,
+			preapproved_index,
+			ValidatorIndex(2),
+			candidate_hashes[preapproved_index as usize],
+			session_index,
+			// The other candidate isn't approved yet, so the block isn't fully approved.
+			false,
+			None,
+		)
+		.await;
+		assert_eq!(rx.await, Ok(ApprovalCheckResult::Accepted));
+
+		let rx =
+			import_assignment(virtual_overseer, block_hash, assigned_index, ValidatorIndex(0), 0)
+				.await;
+		assert_eq!(rx.await, Ok(AssignmentCheckResult::Accepted));
+
+		(block_hash, candidate_hash0, candidate_hash1, session_index)
+	}
+
+	async fn import_mixed_coalesced_approval(
+		virtual_overseer: &mut VirtualOverseer,
+		block_hash: Hash,
+		candidate_hash0: CandidateHash,
+		candidate_hash1: CandidateHash,
+		session_index: SessionIndex,
+	) {
+		let candidate_indices: CandidateBitfield =
+			vec![0u32, 1u32].try_into().expect("within the coalesce bound");
+		let signature = sign_approval_multiple_candidates(
+			Sr25519Keyring::Alice,
+			vec![candidate_hash0, candidate_hash1],
+			session_index,
+		);
+
+		let (tx, rx) = oneshot::channel();
+		overseer_send(
+			virtual_overseer,
+			FromOrchestra::Communication {
+				msg: ApprovalVotingMessage::ImportApproval(
+					CheckedIndirectSignedApprovalVote::from_checked(IndirectSignedApprovalVoteV2 {
+						block_hash,
+						candidate_indices,
+						validator: ValidatorIndex(0),
+						signature,
+					}),
+					Some(tx),
+				),
+			},
+		)
+		.await;
+
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::ChainSelection(ChainSelectionMessage::Approved(b_hash)) => {
+				assert_eq!(b_hash, block_hash);
+			}
+		);
+		assert_eq!(
+			rx.await,
+			Ok(ApprovalCheckResult::Bad(ApprovalCheckError::NoAssignment(ValidatorIndex(0))))
+		);
+	}
+
+	// Control case: validator 0 sends a normal, single-candidate approval for candidate 0
+	// only. This is the last vote needed for the block, so the notification fires.
+	#[test]
+	fn honest_single_candidate_vote_notifies_chain_selection() {
+		test_harness(HarnessConfig::default(), |test_harness| async move {
+			let TestHarness { mut virtual_overseer, .. } = test_harness;
+			let (block_hash, candidate_hash0, _candidate_hash1, session_index) =
+				setup(&mut virtual_overseer, 0, 1).await;
+
+			let rx = import_approval(
+				&mut virtual_overseer,
+				block_hash,
+				0,
+				ValidatorIndex(0),
+				candidate_hash0,
+				session_index,
+				true,
+				None,
+			)
+			.await;
+			assert_eq!(rx.await, Ok(ApprovalCheckResult::Accepted));
+
+			virtual_overseer
+		});
+	}
+
+	// Validator 0 sends one coalesced vote naming both candidate 0 (assigned; completes
+	// the block) and candidate 1 (never assigned). `iter_ones()` yields 0 then 1, so the
+	// valid half is processed first. Chain-selection must still be notified.
+	#[test]
+	fn coalesced_vote_notifies_chain_selection_when_unassigned_candidate_is_later() {
+		test_harness(HarnessConfig::default(), |test_harness| async move {
+			let TestHarness { mut virtual_overseer, .. } = test_harness;
+			let (block_hash, candidate_hash0, candidate_hash1, session_index) =
+				setup(&mut virtual_overseer, 0, 1).await;
+
+			import_mixed_coalesced_approval(
+				&mut virtual_overseer,
+				block_hash,
+				candidate_hash0,
+				candidate_hash1,
+				session_index,
+			)
+			.await;
+
+			virtual_overseer
+		});
+	}
+
+	// Same mixed vote, but validator 0 is assigned only to candidate 1 and candidate 0 is
+	// already approved. `iter_ones()` still yields 0 then 1, so the unassigned candidate
+	// is skipped first and the assigned half must still complete the block and notify.
+	#[test]
+	fn coalesced_vote_notifies_chain_selection_when_unassigned_candidate_is_first() {
+		test_harness(HarnessConfig::default(), |test_harness| async move {
+			let TestHarness { mut virtual_overseer, .. } = test_harness;
+			let (block_hash, candidate_hash0, candidate_hash1, session_index) =
+				setup(&mut virtual_overseer, 1, 0).await;
+
+			import_mixed_coalesced_approval(
+				&mut virtual_overseer,
+				block_hash,
+				candidate_hash0,
+				candidate_hash1,
+				session_index,
+			)
+			.await;
+
+			virtual_overseer
+		});
+	}
+}
+
 #[test]
 fn subsystem_accepts_duplicate_assignment() {
 	test_harness(HarnessConfig::default(), |test_harness| async move {
