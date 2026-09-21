@@ -91,10 +91,10 @@ pub use subscription::{
 use subscription::{ReplayBatch, ReplaySnapshotProvider, REPLAY_CHUNK_RAW_BYTES};
 
 const KEY_VERSION: &[u8] = b"version".as_slice();
-const CURRENT_VERSION: u32 = 2;
+const CURRENT_VERSION: u32 = 3;
 
 /// Meta column key of the persisted global counters, SCALE-encoded as
-/// `(statement_count: u64, total_size: u64, next_seq: u64)`. The row is rewritten as part of
+/// `(totals: StoreTotals, next_seq: u64)`. The row is rewritten as part of
 /// every mutating commit (all of which happen under the submit-index write lock), so it is always
 /// consistent with the statement data and makes startup independent of the store size.
 const KEY_COUNTERS: &[u8] = b"counters".as_slice();
@@ -352,26 +352,64 @@ struct EntryDetails {
 	channel: Option<Channel>,
 	data_len: usize,
 	admission_seq: u64,
+	/// Track at admission, fixed for the statement's lifetime: the totals it is counted in.
+	track: RetentionTrack,
 }
 
 impl Encode for EntryDetails {
 	fn size_hint(&self) -> usize {
 		self.channel.size_hint() +
 			(self.data_len as u32).size_hint() +
-			self.admission_seq.size_hint()
+			self.admission_seq.size_hint() +
+			(self.track as u8).size_hint()
 	}
 
 	fn encode_to<T: codec::Output + ?Sized>(&self, dest: &mut T) {
 		self.channel.encode_to(dest);
 		(self.data_len as u32).encode_to(dest);
 		self.admission_seq.encode_to(dest);
+		(self.track as u8).encode_to(dest);
 	}
 }
 
 impl Decode for EntryDetails {
 	fn decode<I: codec::Input>(input: &mut I) -> std::result::Result<Self, codec::Error> {
-		let (channel, data_len, admission_seq) = <(Option<Channel>, u32, u64)>::decode(input)?;
-		Ok(EntryDetails { channel, data_len: data_len as usize, admission_seq })
+		let (channel, data_len, admission_seq, track) =
+			<(Option<Channel>, u32, u64, u8)>::decode(input)?;
+		let track = RetentionTrack::try_from(track)?;
+		Ok(EntryDetails { channel, data_len: data_len as usize, admission_seq, track })
+	}
+}
+
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug, Encode, Decode)]
+struct TrackTotals {
+	count: u64,
+	size: u64,
+}
+
+/// Per-track statement counts and data sizes, indexed by the track's discriminant.
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug, Encode, Decode)]
+struct StoreTotals([TrackTotals; RetentionTrack::COUNT]);
+
+impl StoreTotals {
+	fn add(&mut self, track: RetentionTrack, data_len: usize) {
+		let totals = &mut self.0[track as usize];
+		totals.count += 1;
+		totals.size += data_len as u64;
+	}
+
+	fn sub(&mut self, track: RetentionTrack, data_len: usize) {
+		let totals = &mut self.0[track as usize];
+		totals.count = totals.count.saturating_sub(1);
+		totals.size = totals.size.saturating_sub(data_len as u64);
+	}
+
+	fn count(&self) -> usize {
+		self.0.iter().map(|totals| totals.count as usize).sum()
+	}
+
+	fn size(&self) -> usize {
+		self.0.iter().map(|totals| totals.size as usize).sum()
 	}
 }
 
@@ -603,13 +641,27 @@ struct QueryIndex {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
 enum RetentionTrack {
 	/// No affinity covers the statement, it only passes through on its way to the replicas: kept
 	/// until propagated.
-	Transient,
+	Transient = 0,
 	/// Only explicit affinity covers the statement: it is dropped once that affinity lapses.
-	ExplicitOnly,
-	Persistent,
+	ExplicitOnly = 1,
+	Persistent = 2,
+}
+
+impl TryFrom<u8> for RetentionTrack {
+	type Error = codec::Error;
+
+	fn try_from(code: u8) -> std::result::Result<Self, codec::Error> {
+		match code {
+			0 => Ok(RetentionTrack::Transient),
+			1 => Ok(RetentionTrack::ExplicitOnly),
+			2 => Ok(RetentionTrack::Persistent),
+			_ => Err("Unknown retention track".into()),
+		}
+	}
 }
 
 impl From<RetentionReasonMask> for RetentionTrack {
@@ -627,6 +679,9 @@ impl From<RetentionReasonMask> for RetentionTrack {
 }
 
 impl RetentionTrack {
+	/// Number of variants, the length of the per-track arrays.
+	const COUNT: usize = 3;
+
 	fn is_persistent(&self) -> bool {
 		matches!(self, RetentionTrack::Persistent)
 	}
@@ -736,10 +791,8 @@ struct SubmitIndex {
 	allowance_cycle_seen: usize,
 	/// Store configuration (global limits, purge period).
 	config: Config,
-	/// Number of stored statements.
-	statement_count: usize,
-	/// Running total of data size across all stored statements.
-	total_size: usize,
+	/// Stored statements and their data size, per retention track.
+	totals: StoreTotals,
 	evicted_count: usize,
 	// Monotonic sequence number assigned to each statement as it is inserted.
 	next_seq: u64,
@@ -903,8 +956,7 @@ impl SubmitIndex {
 			account_statements: LruMap::new(ByLength::new(u32::MAX)),
 			summaries: LruMap::new(ByLength::new(SUMMARY_CACHE_ACCOUNTS)),
 			config,
-			statement_count: 0,
-			total_size: 0,
+			totals: StoreTotals::default(),
 			next_seq: 0,
 			cached_statement_count: 0,
 			allowance_cursor: None,
@@ -917,16 +969,16 @@ impl SubmitIndex {
 
 	/// The [`KEY_COUNTERS`] row reflecting the given post-commit totals. Folded into every
 	/// mutating commit.
-	fn counters_op(
-		statement_count: usize,
-		total_size: usize,
-		next_seq: u64,
-	) -> (u8, Vec<u8>, Option<Vec<u8>>) {
-		(
-			col::META,
-			KEY_COUNTERS.to_vec(),
-			Some((statement_count as u64, total_size as u64, next_seq).encode()),
-		)
+	fn counters_op(totals: &StoreTotals, next_seq: u64) -> (u8, Vec<u8>, Option<Vec<u8>>) {
+		(col::META, KEY_COUNTERS.to_vec(), Some((totals, next_seq).encode()))
+	}
+
+	fn statement_count(&self) -> usize {
+		self.totals.count()
+	}
+
+	fn total_size(&self) -> usize {
+		self.totals.size()
 	}
 
 	/// Removes the account's record from the details cache, keeping the cost accounting exact.
@@ -1119,16 +1171,16 @@ impl SubmitIndex {
 			evicted.push((*entry, *details));
 		}
 		// Now check global constraints as well.
-		if !((self.total_size - would_free_size + statement_len <= self.config.max_total_size) &&
-			self.statement_count + 1 - evicted.len() <= self.config.max_total_statements)
+		if !((self.total_size() - would_free_size + statement_len <= self.config.max_total_size) &&
+			self.statement_count() + 1 - evicted.len() <= self.config.max_total_statements)
 		{
 			log::debug!(
 				target: LOG_TARGET,
 				"Ignored statement {} from account {} because the store is full (size={}, count={})",
 				HexDisplay::from(&hash),
 				HexDisplay::from(account),
-				self.total_size,
-				self.statement_count,
+				self.total_size(),
+				self.statement_count(),
 			);
 			return Err(RejectionReason::StoreFull);
 		}
@@ -1148,6 +1200,28 @@ impl SubmitIndex {
 		Ok(InsertPlan { seq: self.next_seq, evicted, banned })
 	}
 
+	fn totals_after_insert<'a>(
+		&self,
+		track: RetentionTrack,
+		data_len: usize,
+		evicted: impl IntoIterator<Item = &'a EntryDetails>,
+	) -> StoreTotals {
+		let mut totals = self.totals_after_removal(evicted);
+		totals.add(track, data_len);
+		totals
+	}
+
+	fn totals_after_removal<'a>(
+		&self,
+		removed: impl IntoIterator<Item = &'a EntryDetails>,
+	) -> StoreTotals {
+		let mut totals = self.totals;
+		for details in removed {
+			totals.sub(details.track, details.data_len);
+		}
+		totals
+	}
+
 	/// Applies a committed insertion to the caches and counters. `loaded_record` carries the
 	/// account's record when planning had to load it from disk; with `None` the cached copy (if
 	/// any) is updated in place, which also covers the summary fast path where no record was
@@ -1158,12 +1232,15 @@ impl SubmitIndex {
 		loaded_record: Option<StatementsForAccount>,
 		hash: Hash,
 		statement: &Statement,
+		track: RetentionTrack,
 		plan: &InsertPlan,
 	) {
 		let statement_len = statement.data_len();
-		let freed: usize = plan.evicted.iter().map(|(_, details)| details.data_len).sum();
-		self.statement_count = self.statement_count + 1 - plan.evicted.len();
-		self.total_size = self.total_size + statement_len - freed;
+		self.totals = self.totals_after_insert(
+			track,
+			statement_len,
+			plan.evicted.iter().map(|(_, details)| details),
+		);
 		self.evicted_count += plan.banned.len();
 		self.next_seq = plan.seq.saturating_add(1);
 		self.note_seq(hash, plan.seq);
@@ -1174,6 +1251,7 @@ impl SubmitIndex {
 			channel: statement.channel(),
 			data_len: statement_len,
 			admission_seq: plan.seq,
+			track,
 		};
 		match loaded_record.or_else(|| self.uncache_record(account)) {
 			Some(mut record) => {
@@ -1199,11 +1277,10 @@ impl SubmitIndex {
 		&mut self,
 		account: &AccountId,
 		key: &PriorityKey,
-		data_len: usize,
+		details: &EntryDetails,
 		banned: bool,
 	) {
-		self.statement_count = self.statement_count.saturating_sub(1);
-		self.total_size = self.total_size.saturating_sub(data_len);
+		self.totals = self.totals_after_removal([details]);
 		if banned {
 			self.evicted_count += 1;
 		}
@@ -1217,7 +1294,7 @@ impl SubmitIndex {
 		}
 		if let Some(summary) = self.summaries.peek_mut(account) {
 			summary.count = summary.count.saturating_sub(1);
-			summary.data_size = summary.data_size.saturating_sub(data_len);
+			summary.data_size = summary.data_size.saturating_sub(details.data_len);
 			if summary.count == 0 {
 				self.summaries.remove(account);
 			}
@@ -1228,12 +1305,10 @@ impl SubmitIndex {
 	fn apply_account_removal(
 		&mut self,
 		account: &AccountId,
-		removed_count: usize,
-		freed_size: usize,
+		entries: &[(PriorityKey, EntryDetails)],
 		banned_count: usize,
 	) {
-		self.statement_count = self.statement_count.saturating_sub(removed_count);
-		self.total_size = self.total_size.saturating_sub(freed_size);
+		self.totals = self.totals_after_removal(entries.iter().map(|(_, details)| details));
 		self.evicted_count += banned_count;
 		if let Some(record) = self.account_statements.remove(account) {
 			self.cached_statement_count -= record.by_priority.len();
@@ -1436,11 +1511,9 @@ impl Store {
 			if let Some(counters) =
 				self.db.get(col::META, KEY_COUNTERS).map_err(|e| Error::Db(e.to_string()))?
 			{
-				let (statement_count, total_size, next_seq) =
-					<(u64, u64, u64)>::decode(&mut counters.as_slice())
-						.map_err(|_| Error::Db("Error reading the store counters".into()))?;
-				submit_index.statement_count = statement_count as usize;
-				submit_index.total_size = total_size as usize;
+				let (totals, next_seq) = <(StoreTotals, u64)>::decode(&mut counters.as_slice())
+					.map_err(|_| Error::Db("Error reading the store counters".into()))?;
+				submit_index.totals = totals;
 				submit_index.next_seq = next_seq;
 			}
 			// While `next_seq` already holds the correct admission sequence number, it costs close
@@ -1528,8 +1601,8 @@ impl Store {
 
 		let mut migration = MigrationBatch::new(&self.db);
 		let mut migration_error = None;
-		let mut statement_count = 0usize;
-		let mut total_size = 0usize;
+		// The resolver is not installed at startup, so migrated statements count as persistent.
+		let mut totals = StoreTotals::default();
 		self.db
 			.iter_column_while(col::STATEMENTS, |item| {
 				let Ok(statement) = Statement::decode(&mut item.value.as_slice()) else {
@@ -1556,12 +1629,12 @@ impl Store {
 					next_seq = seq.saturating_add(1);
 					seq
 				});
-				statement_count += 1;
-				total_size += statement.data_len();
+				totals.add(RetentionTrack::Persistent, statement.data_len());
 				let details = EntryDetails {
 					channel: statement.channel(),
 					data_len: statement.data_len(),
 					admission_seq: seq,
+					track: RetentionTrack::Persistent,
 				};
 				let admission_op = persisted_seq.is_none().then(|| DbOperation {
 					column: col::ADMISSION_SEQ,
@@ -1615,7 +1688,7 @@ impl Store {
 			return Err(error);
 		}
 
-		migration.push(SubmitIndex::counters_op(statement_count, total_size, next_seq).into())?;
+		migration.push(SubmitIndex::counters_op(&totals, next_seq).into())?;
 		let migrated_entries = migration.finish()?;
 		self.db
 			.commit([(
@@ -2287,9 +2360,9 @@ impl Store {
 			submit_index.evicted_count =
 				submit_index.evicted_count.saturating_sub(deleted_count as usize);
 			(
-				submit_index.statement_count,
+				submit_index.statement_count(),
 				submit_index.evicted_count,
-				submit_index.total_size,
+				submit_index.total_size(),
 				submit_index.config.max_total_statements,
 				submit_index.config.max_total_size,
 			)
@@ -2745,6 +2818,7 @@ impl StatementStore for Store {
 			.retention_fn
 			.get()
 			.map_or_else(RetentionReasonMask::persistent, |resolver| resolver(&statement));
+		let track = RetentionTrack::from(mask);
 
 		let _histogram_submit_start_timer = self.metrics.start_submit_timer();
 		let hash = statement.hash();
@@ -2908,9 +2982,9 @@ impl StatementStore for Store {
 				submit_index.summaries.peek(&account_id).is_some_and(|summary| {
 					summary.count < validation.max_count as usize &&
 						summary.data_size + statement_len <= validation.max_size as usize
-				}) && submit_index.statement_count <
+				}) && submit_index.statement_count() <
 				submit_index.config.max_total_statements &&
-				submit_index.total_size + statement_len <= submit_index.config.max_total_size;
+				submit_index.total_size() + statement_len <= submit_index.config.max_total_size;
 			let loaded_record = if cached || summary_admits || oversize {
 				None
 			} else {
@@ -3009,6 +3083,7 @@ impl StatementStore for Store {
 				channel: statement.channel(),
 				data_len: statement_len,
 				admission_seq: plan.seq,
+				track,
 			};
 			commit.extend(account_index_ops(
 				&account_id,
@@ -3063,12 +3138,12 @@ impl StatementStore for Store {
 					Some(INDEX_EMPTY_VALUE.to_vec()),
 				));
 			}
-			let freed: usize = plan.evicted.iter().map(|(_, details)| details.data_len).sum();
-			commit.push(SubmitIndex::counters_op(
-				submit_index.statement_count + 1 - plan.evicted.len(),
-				submit_index.total_size + statement_len - freed,
-				plan.seq.saturating_add(1),
-			));
+			let totals = submit_index.totals_after_insert(
+				track,
+				statement_len,
+				plan.evicted.iter().map(|(_, details)| details),
+			);
+			commit.push(SubmitIndex::counters_op(&totals, plan.seq.saturating_add(1)));
 
 			if let Err(e) = self.db.commit(commit) {
 				log::debug!(
@@ -3083,7 +3158,7 @@ impl StatementStore for Store {
 				return SubmitResult::InternalError(Error::Db(e.to_string()));
 			}
 			let seq = plan.seq;
-			submit_index.apply_insert(&account_id, loaded_record, hash, &statement, &plan);
+			submit_index.apply_insert(&account_id, loaded_record, hash, &statement, track, &plan);
 			if stale_banned_at.is_some() {
 				submit_index.evicted_count = submit_index.evicted_count.saturating_sub(1);
 			}
@@ -3097,7 +3172,7 @@ impl StatementStore for Store {
 					query_index.note_remove(&evicted_statement.hash(), evicted_statement);
 				}
 				query_index.forget_retention_tracking(plan.evicted.iter().map(|(key, _)| key));
-				query_index.note_insert(hash, &statement, plan.seq, RetentionTrack::from(mask));
+				query_index.note_insert(hash, &statement, plan.seq, track);
 			}
 			seq
 		}; // Release submit index lock
@@ -3136,7 +3211,6 @@ impl StatementStore for Store {
 			let mut commit = Vec::new();
 			let mut removed_statements = Vec::new();
 			let mut banned_count = 0usize;
-			let mut freed_size = 0usize;
 			for (key, details) in &entries {
 				commit.push((col::STATEMENTS, key.hash.to_vec(), None));
 				commit.push((
@@ -3162,7 +3236,6 @@ impl StatementStore for Store {
 					));
 					banned_count += 1;
 				}
-				freed_size += details.data_len;
 				match self.db.get(col::STATEMENTS, &key.hash) {
 					Ok(Some(encoded)) => match Statement::decode(&mut encoded.as_slice()) {
 						Ok(statement) => {
@@ -3190,11 +3263,9 @@ impl StatementStore for Store {
 					},
 				}
 			}
-			commit.push(SubmitIndex::counters_op(
-				submit_index.statement_count.saturating_sub(entries.len()),
-				submit_index.total_size.saturating_sub(freed_size),
-				submit_index.next_seq,
-			));
+			let totals =
+				submit_index.totals_after_removal(entries.iter().map(|(_, details)| details));
+			commit.push(SubmitIndex::counters_op(&totals, submit_index.next_seq));
 			self.db.commit(commit).map_err(|e| {
 				log::debug!(
 					target: LOG_TARGET,
@@ -3205,7 +3276,7 @@ impl StatementStore for Store {
 
 				Error::Db(e.to_string())
 			})?;
-			submit_index.apply_account_removal(&who, entries.len(), freed_size, banned_count);
+			submit_index.apply_account_removal(&who, &entries, banned_count);
 			// Applied under the same lock that ordered the commit (#12624).
 			let mut query_index = self.query_index.write();
 			for (hash, statement) in &removed_statements {
@@ -3362,14 +3433,16 @@ impl Store {
 					Some(INDEX_EMPTY_VALUE.to_vec()),
 				));
 			}
-			let data_len = details
-				.as_ref()
-				.map_or_else(|| statement.data_len(), |details| details.data_len);
-			commit.push(SubmitIndex::counters_op(
-				submit_index.statement_count.saturating_sub(1),
-				submit_index.total_size.saturating_sub(data_len),
-				submit_index.next_seq,
-			));
+			// Without an index row the statement comes off the persistent totals, like migrated
+			// ones.
+			let details = details.unwrap_or(EntryDetails {
+				channel: statement.channel(),
+				data_len: statement.data_len(),
+				admission_seq: 0,
+				track: RetentionTrack::Persistent,
+			});
+			let totals = submit_index.totals_after_removal([&details]);
+			commit.push(SubmitIndex::counters_op(&totals, submit_index.next_seq));
 			if let Err(e) = self.db.commit(commit) {
 				log::debug!(
 					target: LOG_TARGET,
@@ -3382,7 +3455,7 @@ impl Store {
 			submit_index.apply_removal(
 				&account,
 				&PriorityKey { hash: *hash, expiry },
-				data_len,
+				&details,
 				banned,
 			);
 			self.query_index.write().note_remove(hash, &statement);
@@ -3496,7 +3569,7 @@ impl Store {
 
 	/// Number of stored statements, per the in-memory counter.
 	fn statement_count(&self) -> usize {
-		self.submit_index.read().statement_count
+		self.submit_index.read().statement_count()
 	}
 
 	/// Whether the details cache currently holds `who`'s record.
@@ -3511,7 +3584,7 @@ impl Store {
 
 	/// Total stored data size, per the in-memory counter.
 	fn total_size(&self) -> usize {
-		self.submit_index.read().total_size
+		self.submit_index.read().total_size()
 	}
 
 	/// Whether `who` has at least one statement in the on-disk account index.
@@ -3531,10 +3604,12 @@ impl Store {
 		let account = statement.account_id().expect("test statements are signed; qed");
 		let mut submit_index = self.submit_index.write();
 		let seq = submit_index.next_seq;
+		let track = RetentionTrack::Persistent;
 		let details = EntryDetails {
 			channel: statement.channel(),
 			data_len: statement.data_len(),
 			admission_seq: seq,
+			track,
 		};
 		let mut commit = vec![
 			(col::STATEMENTS, hash.to_vec(), Some(statement.encode())),
@@ -3547,14 +3622,11 @@ impl Store {
 			&hash,
 			Some(&details),
 		));
-		commit.push(SubmitIndex::counters_op(
-			submit_index.statement_count + 1,
-			submit_index.total_size + statement.data_len(),
-			seq.saturating_add(1),
-		));
+		let totals = submit_index.totals_after_insert(track, statement.data_len(), []);
+		commit.push(SubmitIndex::counters_op(&totals, seq.saturating_add(1)));
 		self.db.commit(commit).expect("failed to commit the statement");
 		let plan = InsertPlan { seq, evicted: Vec::new(), banned: Vec::new() };
-		submit_index.apply_insert(&account, None, hash, statement, &plan);
+		submit_index.apply_insert(&account, None, hash, statement, track, &plan);
 		self.query_index
 			.write()
 			.note_insert(hash, statement, seq, RetentionTrack::Persistent);
@@ -3565,7 +3637,8 @@ impl Store {
 mod tests {
 
 	use crate::{
-		col, QueryIndex, Resubmission, RetentionReasonMask, RetentionTrack, Store, KEY_VERSION,
+		col, QueryIndex, Resubmission, RetentionReasonMask, RetentionTrack, Store, StoreTotals,
+		KEY_VERSION,
 	};
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
@@ -3997,17 +4070,13 @@ mod tests {
 		assert_eq!(store.submit(first.clone(), StatementSource::Network), SubmitResult::New);
 		assert_eq!(store.submit(second.clone(), StatementSource::Network), SubmitResult::New);
 		// Corrupt the counters row: keep the totals, rewind the sequence counter.
-		let (statement_count, total_size, _) = <(u64, u64, u64)>::decode(
+		let (totals, _) = <(StoreTotals, u64)>::decode(
 			&mut store.db.get(col::META, crate::KEY_COUNTERS).unwrap().unwrap().as_slice(),
 		)
 		.unwrap();
 		store
 			.db
-			.commit([(
-				col::META,
-				crate::KEY_COUNTERS.to_vec(),
-				Some((statement_count, total_size, 0u64).encode()),
-			)])
+			.commit([(col::META, crate::KEY_COUNTERS.to_vec(), Some((totals, 0u64).encode()))])
 			.unwrap();
 		let keystore = store.keystore.clone();
 		drop(store);
@@ -4778,6 +4847,104 @@ mod tests {
 		store.maintain();
 		assert!(store.has_statement(&hash));
 		assert!(store.query_index.read().retention_tracks.is_empty());
+	}
+
+	fn submit_one_statement_per_track(store: &Store) -> Vec<Statement> {
+		let phase = std::sync::Arc::new(std::sync::atomic::AtomicU8::new(0));
+		store.set_retention_resolver(Box::new({
+			let phase = phase.clone();
+			move |_| match phase.fetch_add(1, Ordering::Relaxed) {
+				0 => RetentionReasonMask::TRANSIENT,
+				1 => RetentionReasonMask::EXPLICIT_AFFINITY,
+				_ => RetentionReasonMask::DHT_AFFINITY,
+			}
+		}));
+		(0..3u32)
+			.map(|i| {
+				let statement = statement(3, i, None, 10 * (i as usize + 1));
+				assert_eq!(
+					store.submit(statement.clone(), StatementSource::Network),
+					SubmitResult::New
+				);
+				statement
+			})
+			.collect()
+	}
+
+	fn track_totals(store: &Store, track: RetentionTrack) -> (u64, u64) {
+		let totals = store.submit_index.read().totals.0[track as usize];
+		(totals.count, totals.size)
+	}
+
+	#[test]
+	fn totals_are_kept_per_admission_track() {
+		let (store, _temp) = test_store();
+		let statements = submit_one_statement_per_track(&store);
+		assert_eq!(track_totals(&store, RetentionTrack::Transient), (1, 10));
+		assert_eq!(track_totals(&store, RetentionTrack::ExplicitOnly), (1, 20));
+		assert_eq!(track_totals(&store, RetentionTrack::Persistent), (1, 30));
+		assert_eq!(store.statement_count(), 3);
+		assert_eq!(store.total_size(), 60);
+
+		store.remove(&statements[1].hash()).unwrap();
+		assert_eq!(track_totals(&store, RetentionTrack::ExplicitOnly), (0, 0));
+		assert_eq!(store.statement_count(), 2);
+
+		store.remove_by(statements[0].account_id().unwrap()).unwrap();
+		assert_eq!(store.submit_index.read().totals, StoreTotals::default());
+	}
+
+	#[test]
+	fn totals_per_track_survive_restart() {
+		let (store, temp) = test_store();
+		submit_one_statement_per_track(&store);
+		let keystore = store.keystore.clone();
+		drop(store);
+
+		let mut path: std::path::PathBuf = temp.path().into();
+		path.push("db");
+		let store = Store::new::<Block, TestClient, TestBackend>(
+			&path,
+			Default::default(),
+			std::sync::Arc::new(TestClient),
+			keystore,
+			None,
+			Box::new(sp_core::testing::TaskExecutor::new()),
+		)
+		.unwrap();
+		assert_eq!(track_totals(&store, RetentionTrack::Transient), (1, 10));
+		assert_eq!(track_totals(&store, RetentionTrack::ExplicitOnly), (1, 20));
+		assert_eq!(track_totals(&store, RetentionTrack::Persistent), (1, 30));
+	}
+
+	#[test]
+	fn migration_counts_every_statement_as_persistent() {
+		let (store, temp) = test_store();
+		let statements = submit_one_statement_per_track(&store);
+		store
+			.db
+			.commit([(col::META, KEY_VERSION.to_vec(), Some(2u32.to_le_bytes().to_vec()))])
+			.unwrap();
+		let keystore = store.keystore.clone();
+		drop(store);
+
+		let mut path: std::path::PathBuf = temp.path().into();
+		path.push("db");
+		let store = Store::new::<Block, TestClient, TestBackend>(
+			&path,
+			Default::default(),
+			std::sync::Arc::new(TestClient),
+			keystore,
+			None,
+			Box::new(sp_core::testing::TaskExecutor::new()),
+		)
+		.unwrap();
+		assert_eq!(track_totals(&store, RetentionTrack::Transient), (0, 0));
+		assert_eq!(track_totals(&store, RetentionTrack::ExplicitOnly), (0, 0));
+		assert_eq!(track_totals(&store, RetentionTrack::Persistent), (3, 60));
+		// Migrated rows carry the persistent track, so the removal comes off it.
+		store.remove(&statements[0].hash()).unwrap();
+		assert_eq!(track_totals(&store, RetentionTrack::Persistent), (2, 50));
 	}
 
 	#[test]
