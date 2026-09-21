@@ -355,8 +355,12 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 }
 
 impl cumulus_pallet_spec_messaging::Config for Runtime {
+	type SelfParaId = ParachainInfo;
 	type MaxMsgLen = ConstU32<{ 100 * 1024 }>;
 	type MaxMessagesPerBlock = ConstU32<256>;
+	type MaxTouchedStreams = ConstU32<128>;
+	type MaxContextGaps = ConstU32<64>;
+	type DataHandler = ();
 }
 
 impl parachain_info::Config for Runtime {}

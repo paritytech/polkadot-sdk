@@ -15,6 +15,7 @@
 
 use crate as cumulus_pallet_spec_messaging;
 use frame_support::{derive_impl, parameter_types};
+use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -31,14 +32,24 @@ impl frame_system::Config for Test {
 	type Block = Block;
 }
 
+/// This chain's own id — consumed streams are addressed to it.
+pub const SELF_PARA: u32 = 2000;
+
 parameter_types! {
 	pub const MaxMsgLen: u32 = 1024;
 	pub const MaxMessagesPerBlock: u32 = 16;
+	pub const MaxTouchedStreams: u32 = 8;
+	pub const MaxContextGaps: u32 = 4;
+	pub SelfParaId: ParaId = ParaId::from(SELF_PARA);
 }
 
 impl cumulus_pallet_spec_messaging::Config for Test {
+	type SelfParaId = SelfParaId;
 	type MaxMsgLen = MaxMsgLen;
 	type MaxMessagesPerBlock = MaxMessagesPerBlock;
+	type MaxTouchedStreams = MaxTouchedStreams;
+	type MaxContextGaps = MaxContextGaps;
+	type DataHandler = ();
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

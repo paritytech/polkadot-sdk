@@ -14,22 +14,39 @@
 // limitations under the License.
 
 use crate::{mock::*, *};
+use codec::Encode;
 use cumulus_primitives_core::ParaId;
 use cumulus_primitives_spec_messaging::{
 	leaf_hash,
 	streams_root::{read_streams_root, streams_root},
-	ConsumptionRecord, MessagePosition, MmrFrontier, ProvideConsumptionRecord, StreamId, StreamsRoot,
-	LEAF_VERSION,
+	ConsumeItem, ConsumptionRecord, MessagePosition, MessagingInherentData, MmrFrontier,
+	ProvideConsumptionRecord, SpecMsgKind, StreamId, StreamsRoot, LEAF_VERSION,
 };
-use frame_support::traits::{OnFinalize, OnInitialize};
+use frame_support::{
+	assert_err, assert_ok,
+	traits::{OnFinalize, OnInitialize},
+};
 use std::collections::BTreeMap;
 
 fn stream(num: u16) -> StreamId {
-	StreamId::Channel { recipient: ParaId::from(2000u32), domain: 0, num }
+	StreamId::Channel { recipient: ParaId::from(SELF_PARA), domain: 0, num }
 }
 
-/// Advance from the current block to the next: fold + memo (`on_finalize`), then drain into
-/// frontiers (`on_initialize`), exactly as the block lifecycle runs them.
+/// A source parachain (not us).
+fn src() -> ParaId {
+	ParaId::from(1000u32)
+}
+
+/// A `Data` payload as it sits on the wire.
+fn data_payload(bytes: &[u8]) -> Vec<u8> {
+	SpecMsgKind::Data(bytes.to_vec()).encode()
+}
+
+fn inherent(items: Vec<(ParaId, StreamId, ConsumeItem)>) -> MessagingInherentData {
+	MessagingInherentData { items }
+}
+
+/// Advance one block: `on_finalize` (fold) then `on_initialize` (drain).
 fn roll_one_block() {
 	let n = System::block_number();
 	SpecMessaging::on_finalize(n);
@@ -37,8 +54,7 @@ fn roll_one_block() {
 	SpecMessaging::on_initialize(n + 1);
 }
 
-/// The canonical root the pallet must produce for a single stream carrying `payloads`, built
-/// straight from the primitives so the test shares nothing with the pallet's own fold path.
+/// The canonical root for `payloads`, built from the primitives (not the pallet's fold path).
 fn expected_root(entries: &[(StreamId, &[&[u8]])]) -> StreamsRoot {
 	let map: BTreeMap<StreamId, polkadot_core_primitives::Hash> = entries
 		.iter()
@@ -171,5 +187,164 @@ fn outbound_messages_lists_this_blocks_sends_sorted() {
 		// After the drain they belong to the frontiers, not the per-block view.
 		roll_one_block();
 		assert!(SpecMessaging::outbound_messages().is_empty());
+	});
+}
+
+// ---------------------------------------------------------------------------
+// Receiver half
+// ---------------------------------------------------------------------------
+
+#[test]
+fn enact_channel_item_advances_inbound_frontier_and_records() {
+	new_test_ext().execute_with(|| {
+		let (a, s) = (src(), stream(0));
+		let (p0, p1) = (data_payload(b"hello"), data_payload(b"world"));
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			inherent(vec![(a, s, ConsumeItem::Channel { payloads: vec![p0.clone(), p1.clone()] })]),
+		));
+
+		// The inbound frontier advanced by exactly the two leaves, in order.
+		let mut expected = MmrFrontier::new();
+		let start = expected.root();
+		expected.append(leaf_hash(LEAF_VERSION, &p0));
+		expected.append(leaf_hash(LEAF_VERSION, &p1));
+		assert_eq!(InboundFrontier::<Test>::get((a, s)), expected);
+
+		// The consumption record carries the interval start..end for (a, s).
+		let rec = SpecMessaging::consumption_record();
+		let iv = rec.entries.get(&a).and_then(|m| m.get(&s)).expect("recorded");
+		assert_eq!(iv.start, start);
+		assert_eq!(iv.end, expected);
+	});
+}
+
+#[test]
+fn consumption_across_blocks_resumes_from_the_stored_frontier() {
+	new_test_ext().execute_with(|| {
+		let (a, s) = (src(), stream(0));
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			inherent(vec![(a, s, ConsumeItem::Channel { payloads: vec![data_payload(b"a")] })]),
+		));
+		roll_one_block();
+		// The outbox cleared, but the frontier persisted.
+		assert!(SpecMessaging::consumption_record().entries.is_empty());
+		assert_eq!(InboundFrontier::<Test>::get((a, s)).leaf_count(), 1);
+
+		// A second block resumes from leaf 1.
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			inherent(vec![(a, s, ConsumeItem::Channel { payloads: vec![data_payload(b"b")] })]),
+		));
+		assert_eq!(InboundFrontier::<Test>::get((a, s)).leaf_count(), 2);
+	});
+}
+
+#[test]
+fn strict_on_import_rejects_bad_items() {
+	new_test_ext().execute_with(|| {
+		let a = src();
+		// Addressed to another chain.
+		let elsewhere = StreamId::Channel { recipient: ParaId::from(9999u32), domain: 0, num: 0 };
+		assert_err!(
+			SpecMessaging::enact_messages(
+				RuntimeOrigin::none(),
+				inherent(vec![(
+					a,
+					elsewhere,
+					ConsumeItem::Channel { payloads: vec![data_payload(b"x")] }
+				)]),
+			),
+			Error::<Test>::UnknownStream
+		);
+		// Empty item.
+		assert_err!(
+			SpecMessaging::enact_messages(
+				RuntimeOrigin::none(),
+				inherent(vec![(a, stream(0), ConsumeItem::Channel { payloads: vec![] })]),
+			),
+			Error::<Test>::EmptyItem
+		);
+		// Oversized payload.
+		let big = vec![0u8; (MaxMsgLen::get() + 1) as usize];
+		assert_err!(
+			SpecMessaging::enact_messages(
+				RuntimeOrigin::none(),
+				inherent(vec![(a, stream(0), ConsumeItem::Channel { payloads: vec![big] })]),
+			),
+			Error::<Test>::MessageTooBig
+		);
+		// Duplicate stream in one inherent.
+		assert_err!(
+			SpecMessaging::enact_messages(
+				RuntimeOrigin::none(),
+				inherent(vec![
+					(a, stream(0), ConsumeItem::Channel { payloads: vec![data_payload(b"x")] }),
+					(a, stream(0), ConsumeItem::Channel { payloads: vec![data_payload(b"y")] }),
+				]),
+			),
+			Error::<Test>::DuplicateStream
+		);
+	});
+}
+
+#[test]
+fn too_many_touched_streams_is_rejected() {
+	new_test_ext().execute_with(|| {
+		let a = src();
+		let items: Vec<_> = (0..=MaxTouchedStreams::get() as u16)
+			.map(|n| (a, stream(n), ConsumeItem::Channel { payloads: vec![data_payload(b"x")] }))
+			.collect();
+		assert_err!(
+			SpecMessaging::enact_messages(RuntimeOrigin::none(), inherent(items)),
+			Error::<Test>::TooManyStreams
+		);
+	});
+}
+
+#[test]
+fn events_item_rebuilds_frontier_and_guards_replay() {
+	new_test_ext().execute_with(|| {
+		let (a, s) = (src(), stream(0));
+		// First inclusion read at base 0: empty start_peaks, one payload.
+		let reg = data_payload(b"reg");
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			inherent(vec![(
+				a,
+				s,
+				ConsumeItem::Events {
+					base: MessagePosition(0),
+					start_peaks: vec![],
+					payloads: vec![reg.clone()],
+				},
+			)]),
+		));
+		// Highwater set; a replay at the same base is rejected.
+		assert_eq!(InboundHighwater::<Test>::get((a, s)), Some(0));
+		assert_err!(
+			SpecMessaging::enact_messages(
+				RuntimeOrigin::none(),
+				inherent(vec![(
+					a,
+					s,
+					ConsumeItem::Events {
+						base: MessagePosition(0),
+						start_peaks: vec![],
+						payloads: vec![reg],
+					},
+				)]),
+			),
+			Error::<Test>::Replay
+		);
+	});
+}
+
+#[test]
+fn empty_inherent_consumes_nothing() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), inherent(vec![])));
+		assert_eq!(SpecMessaging::consumption_record(), ConsumptionRecord::default());
 	});
 }

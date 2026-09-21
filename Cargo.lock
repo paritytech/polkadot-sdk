@@ -5408,6 +5408,8 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "polkadot-core-primitives",
+ "polkadot-parachain-primitives",
+ "polkadot-primitives",
  "scale-info",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
