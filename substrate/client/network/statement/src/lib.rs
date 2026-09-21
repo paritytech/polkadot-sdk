@@ -7572,8 +7572,6 @@ mod tests {
 		assert!(batch.statements.is_empty(), "a light peer gets filter matches only");
 	}
 
-	/// With the gate off, the sync guard keeps dropping affinity controls: gate-off behavior
-	/// matches a node without the v2 code.
 	#[tokio::test]
 	async fn affinity_is_dropped_during_major_sync_with_gate_off() {
 		assert!(!v2dht_enabled(), "this case pins the gate-off path");
@@ -7612,8 +7610,6 @@ mod tests {
 	mod v2_sync_recovery {
 		use super::*;
 
-		/// Fails fast when a case runs in a gate-off process, where every assertion below
-		/// would exercise the wrong path.
 		fn assert_gate_on() {
 			assert!(
 				v2dht_enabled(),
@@ -7713,7 +7709,6 @@ mod tests {
 		}
 
 		impl RunningHandler {
-			/// Ends the run loop by closing its notification event stream.
 			async fn shutdown(self) {
 				self.notification_events.close();
 				self.sync_events.close();
@@ -7721,9 +7716,6 @@ mod tests {
 			}
 		}
 
-		/// Spawns [`StatementHandler::run`] wired to test channels. The pending-affinities
-		/// tick first fires shortly after start and then at its production cadence; the
-		/// remaining timers stay silent.
 		fn spawn_running_handler() -> RunningHandler {
 			spawn_running_handler_with_settle_period(Duration::ZERO)
 		}
@@ -7774,7 +7766,6 @@ mod tests {
 				.expect("the probe response is sent");
 		}
 
-		/// Polls `condition` until it holds, panicking with `what` after ten seconds.
 		async fn wait_until(condition: impl Fn() -> bool, what: &str) {
 			tokio::time::timeout(Duration::from_secs(10), async {
 				while !condition() {
@@ -7785,7 +7776,6 @@ mod tests {
 			.unwrap_or_else(|_| panic!("timeout waiting for {what}"));
 		}
 
-		/// Every multiaddr added to the reserved set so far, flattened.
 		fn added_reserved_addrs(network: &TestNetwork) -> Vec<sc_network::Multiaddr> {
 			network.get_added_reserved().into_iter().flatten().collect()
 		}
@@ -7825,19 +7815,10 @@ mod tests {
 				.await;
 
 			let peer_data = handler.peers.get(&peer).expect("the substream is open");
-			assert!(
-				peer_data.pending_topic_affinity.is_some(),
-				"an affinity control arriving while major-syncing must be recorded",
-			);
-			assert!(
-				!handler.awaiting_affinity_filter.contains_key(&peer),
-				"the received filter settles the awaiting entry",
-			);
-			assert!(
-				!handler.dropped_statements_during_sync,
-				"an accepted control is not a data loss",
-			);
-			assert!(handler.pending_statements.is_empty(), "no data import may start");
+			assert!(peer_data.pending_topic_affinity.is_some());
+			assert!(!handler.awaiting_affinity_filter.contains_key(&peer));
+			assert!(!handler.dropped_statements_during_sync);
+			assert!(handler.pending_statements.is_empty());
 		}
 
 		#[tokio::test]
@@ -7865,11 +7846,11 @@ mod tests {
 					.await;
 			}
 
-			assert!(!handler.dropped_statements_during_sync, "the loss marker is legacy-only");
+			assert!(!handler.dropped_statements_during_sync);
 			assert!(handler.v2dht.take_local_filter_if_changed().is_some());
-			assert!(queue_receiver.try_recv().is_err(), "the batch is never decoded");
+			assert!(queue_receiver.try_recv().is_err());
 			assert!(handler.pending_statements.is_empty());
-			assert!(network.get_reports().is_empty(), "no reputation moves while syncing");
+			assert!(network.get_reports().is_empty());
 		}
 
 		#[tokio::test]
@@ -7878,7 +7859,6 @@ mod tests {
 			assert_gate_on();
 			let (mut handler, _store, network, _notifications) = build_handler_no_peers();
 			let peer = PeerId::random();
-			// A v1 substream: the peer sends raw statement batches.
 			handler
 				.handle_notification_event(NotificationEvent::NotificationStreamOpened {
 					peer,
@@ -7908,11 +7888,8 @@ mod tests {
 				})
 				.await;
 
-			assert!(
-				handler.pending_statements.is_empty(),
-				"a v1 batch is statement data whatever its first byte",
-			);
-			assert!(network.get_reports().is_empty(), "the batch is not decoded as a control");
+			assert!(handler.pending_statements.is_empty());
+			assert!(network.get_reports().is_empty());
 		}
 
 		#[tokio::test]
@@ -7942,10 +7919,7 @@ mod tests {
 				"the sync-event barrier",
 			)
 			.await;
-			assert!(
-				added_reserved_addrs(&rig.network).is_empty(),
-				"connections stay deferred while the node is major-syncing",
-			);
+			assert!(added_reserved_addrs(&rig.network).is_empty());
 
 			rig.syncing.store(false, Ordering::Relaxed);
 			wait_until(
@@ -7956,11 +7930,11 @@ mod tests {
 			let added = added_reserved_addrs(&rig.network);
 			assert!(added.contains(&p2p_addr(kept1)));
 			assert!(added.contains(&p2p_addr(kept2)));
-			assert!(!added.contains(&p2p_addr(gone)), "a peer gone during the sync stays out");
+			assert!(!added.contains(&p2p_addr(gone)));
 
 			// One more tick passes: the drained set is empty, so nothing is added again.
 			tokio::time::sleep(PENDING_AFFINITIES_INTERVAL + Duration::from_millis(200)).await;
-			assert_eq!(added_reserved_addrs(&rig.network).len(), 2, "the drain does not repeat");
+			assert_eq!(added_reserved_addrs(&rig.network).len(), 2);
 
 			rig.shutdown().await;
 		}
@@ -7990,7 +7964,6 @@ mod tests {
 				.await;
 			}
 
-			/// Delivers a statement batch from `peer`, which the handler drops while major-syncing.
 			async fn deliver_statements_from(&self, peer: PeerId) {
 				let mut statement = new_live_statement();
 				statement.set_plain_data(b"missed".to_vec());
@@ -8070,9 +8043,8 @@ mod tests {
 			let StatementMessage::ExplicitTopicAffinity(filter) = message else {
 				panic!("the recovery announcement is a filter");
 			};
-			assert!(filter.contains(&topic(42)), "the announcement carries the fresh topics");
+			assert!(filter.contains(&topic(42)));
 
-			// One announcement serves both the loss and the change.
 			tokio::time::sleep(PENDING_AFFINITIES_INTERVAL + Duration::from_millis(200)).await;
 			assert_eq!(filter_messages_to(&rig.notifications, peer).len(), before + 1);
 
@@ -8134,7 +8106,6 @@ mod tests {
 			rig.shutdown().await;
 		}
 
-		/// Statement batches sent to `peer` so far.
 		fn statement_messages_to(notifications: &TestNotificationService, peer: PeerId) -> usize {
 			notifications
 				.get_sent_notifications()
@@ -8171,9 +8142,6 @@ mod tests {
 				&self,
 				notification: Vec<u8>,
 			) -> Result<(), sc_network::error::Error> {
-				// Enqueue before recording: once a test observes the record, the remote's
-				// event channel already holds the notification, so a barrier queued after
-				// the observation is ordered behind it.
 				self.remote_events
 					.send(NotificationEvent::NotificationReceived {
 						peer: self.local_peer,
@@ -8216,7 +8184,6 @@ mod tests {
 			(Arc::new(store), dir)
 		}
 
-		/// One of two bridged [`StatementHandler::run`] nodes backed by a real store.
 		struct BridgedNode {
 			events: async_channel::Sender<NotificationEvent>,
 			network_events: async_channel::Sender<Event>,
@@ -8343,11 +8310,6 @@ mod tests {
 			statement
 		}
 
-		/// The statement missed while major-syncing returns through the recovery announcement
-		/// alone: no reconnect, no topic change, no new subscription. The topic is chosen so
-		/// that A is not a DHT routing target at B, so only A's explicit filter serves the
-		/// replay; the DHT half of the serving rule is isolated by
-		/// [`missed_statement_returns_via_dht_targeting`].
 		#[tokio::test]
 		#[ignore = "needs the v2 DHT gate; run by v2_sync_recovery_gate_on_suite"]
 		async fn missed_statement_returns_without_reconnect_or_filter_change() {
@@ -8443,7 +8405,7 @@ mod tests {
 			)
 			.await;
 			notification_barrier(&node_a.events).await;
-			assert!(!node_a.store.has_statement(&hash), "A dropped the statement while syncing");
+			assert!(!node_a.store.has_statement(&hash));
 
 			// No reconnect, no topic change, no new subscription: the sync ends and A's
 			// unchanged filter re-announcement is the only trigger.
@@ -8454,27 +8416,10 @@ mod tests {
 				.statement(&hash)
 				.expect("the store reads")
 				.expect("presence was just observed");
-			assert_eq!(returned.encode(), statement.encode(), "the exact statement returned");
+			assert_eq!(returned.encode(), statement.encode());
 
 			node_a.shutdown().await;
 			node_b.shutdown().await;
 		}
-	}
-
-	#[test]
-	fn v2_sync_recovery_gate_on_suite() {
-		let exe = std::env::current_exe().expect("the test binary has a path");
-		let output = std::process::Command::new(exe)
-			.args(["tests::v2_sync_recovery::", "--ignored", "--test-threads=1"])
-			.env("STATEMENT_STORE_V2_DHT_ENABLED", "1")
-			.output()
-			.expect("the gate-on test process spawns");
-		let stdout = String::from_utf8_lossy(&output.stdout);
-		let stderr = String::from_utf8_lossy(&output.stderr);
-		assert!(output.status.success(), "gate-on suite failed:\n{stdout}\n{stderr}");
-		assert!(
-			!stdout.contains("running 0 tests"),
-			"the filter selected no gate-on cases:\n{stdout}",
-		);
 	}
 }

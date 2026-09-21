@@ -170,3 +170,8 @@
 - job-name: "zombienet-cumulus-0037-storage_chain_tip_sync_with_renewals"
   test-filter: "zombie_ci::storage_chain::parachain_tip_sync_with_renewals::parachain_tip_sync_with_renewals_test"
   cumulus-image: "polkadot-parachain-debug"
+
+- job-name: "zombienet-cumulus-0038-statement_store_late_joiner_receives_backlog"
+  test-filter: "zombie_ci::statement_store::integration_v2_dht::late_joiner_receives_backlog"
+  runner-type: "default"
+  cumulus-image: "test-parachain"

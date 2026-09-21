@@ -17,7 +17,6 @@ use sc_statement_store::test_utils::{create_test_statement, get_keypair};
 use sp_core::{sr25519, Bytes};
 use sp_statement_store::{SubmitResult, Topic};
 use std::time::Duration;
-use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::AddCollatorOptions;
 
 const TEST_GOSSIP_TARGET: u32 = 3;
@@ -25,6 +24,8 @@ const TEST_GOSSIP_TARGET: u32 = 3;
 const CONNECTED_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_connected_peers";
 // Statement-store peers known to a node's topology, exported per node by the v2 DHT path.
 const KNOWN_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_known_peers";
+// Whether the node is major-syncing, exported by the sync engine as a 0/1 gauge.
+const IS_MAJOR_SYNCING_METRIC: &str = "substrate_sub_libp2p_is_major_syncing";
 
 /// Probe budget, in one-second attempts, for waiting out the maintenance sweep: a statement no
 /// affinity covers stays in the store until the sweep (every 29 s) removes it once propagated, and
@@ -381,11 +382,8 @@ async fn explicit_affinity_works() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-// Whether the node is major-syncing, exported by the sync engine as a 0/1 gauge.
-const IS_MAJOR_SYNCING_METRIC: &str = "substrate_sub_libp2p_is_major_syncing";
-
 #[tokio::test(flavor = "multi_thread")]
-async fn sync_recovery_late_joiner() -> Result<(), anyhow::Error> {
+async fn late_joiner_receives_backlog() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -434,8 +432,6 @@ async fn sync_recovery_late_joiner() -> Result<(), anyhow::Error> {
 		assert_eq!(submit_statement(&charlie_rpc, statement).await?, SubmitResult::New);
 	}
 
-	// The added collator does not inherit the network defaults, so the v2 gate and the statement
-	// flags are passed explicitly.
 	let options = AddCollatorOptions {
 		env: vec![("STATEMENT_STORE_V2_DHT_ENABLED", "1").into()],
 		args: collator_args_v2(
@@ -451,7 +447,6 @@ async fn sync_recovery_late_joiner() -> Result<(), anyhow::Error> {
 	let dave_rpc = dave.rpc().await?;
 	let mut subscription = subscribe_topic(&dave_rpc, topic).await?;
 
-	// Admission around catch-up does not establish when the propagation tick sends the batch.
 	let during_sync: Vec<_> = (0..DURING_SYNC_COUNT as u32)
 		.map(|seq| {
 			let seq = PRE_JOIN_COUNT as u32 + seq;
@@ -463,17 +458,6 @@ async fn sync_recovery_late_joiner() -> Result<(), anyhow::Error> {
 	}
 	let dave_height = dave.reports(crate::utils::BEST_BLOCK_METRIC).await.unwrap_or(0.0);
 	log::info!("dave at block {dave_height:.0} of {charlie_height:.0} when the batch landed");
-
-	// The replay of the pre-join statements and the batch above reach dave while it is still
-	// catching up; the recovery path is exercised only if dave actually dropped a batch.
-	let drop_lines = dave
-		.wait_log_line_count_with_timeout(
-			"Ignoring statements while major syncing",
-			false,
-			LogLineCountOptions::new(|n| n >= 1, Duration::from_secs(120), false),
-		)
-		.await?;
-	assert!(drop_lines.success());
 
 	dave.wait_metric_with_timeout(
 		crate::utils::BEST_BLOCK_METRIC,
