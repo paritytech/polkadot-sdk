@@ -12,11 +12,11 @@
    - 3.3 [Work Digest](#33-work-digest)
 4. [Refine: In-Core Execution](#4-refine-in-core-execution)
    - 4.1 [What Refine Does](#41-what-refine-does)
-   - 4.2 [PVF Entry Point](#42-pvf-entry-point)
+   - 4.2 [Validation Code Entry Point](#42-validation-code-entry-point)
    - 4.3 [Host Functions & PVM Imports](#43-host-functions-pvm-imports)
 5. [Accumulate: On-Chain Integration](#5-accumulate-on-chain-integration)
    - 5.1 [What Accumulate Does](#51-what-accumulate-does)
-   - 5.2 [Code Upgrade Lifecycle](#52-code-upgrade-lifecycle)
+   - 5.2 [Parachain Code Upgrade Lifecycle](#52-parachain-code-upgrade-lifecycle)
    - 5.3 [Validator-Key Updates](#53-validator-key-updates)
    - 5.4 [Service Self-Upgrade](#54-service-self-upgrade)
    - 5.5 [Parachain Head Commitment](#55-parachain-head-commitment)
@@ -75,8 +75,8 @@ head-commitment tree elements in §5.5.
 The Parachain Service maps the current relay chain's parachain host logic onto JAM's
 two execution domains:
 
-- **Refine (in-core)**: Executes `jam_validate_block`, the PVF validation that backing
-  validators currently perform. Guarantors run the PVF against the PoV to verify the
+- **Refine (in-core)**: Executes `jam_validate_block`, the validation-code execution that backing
+  validators currently perform. Guarantors run the validation code against the PoV to verify the
   parachain block candidate. This replaces the current backing subsystem.
 - **Accumulate (on-chain)**: Performs candidate enactment: updating head data, processing
   signals, managing channels and code upgrades. This replaces the current inclusion pallet
@@ -128,7 +128,7 @@ The CRJA pipeline for a parachain block:
 [Collect]     Collator gathers transactions, builds a parachain block candidate and puts it into a work package.
     │
     ▼
-[Refine]      IN-CORE: Guarantors execute the parachain service refine functionality. Internally this calls the PVF code to verify the work package.
+[Refine]      IN-CORE: Guarantors execute the parachain service refine functionality. Internally this calls the validation code to verify the work package.
               Stateless, off-chain, metered via PVM gas.
               Output: per-item work-digests plus authorization/export metadata, assembled into a Work Report.
     │
@@ -138,7 +138,7 @@ The CRJA pipeline for a parachain block:
     │
     ▼
 [Accumulate]  ON-CHAIN: The Parachain Service's Accumulate function runs on-chain.
-              It records the new parachain head, applies the PVF's upward host-function
+              It records the new parachain head, applies the validation code's upward host-function
               effects (code upgrades, outbound transfers, authorizer updates, etc.), and queues
               incoming transfers from other services.
 
@@ -199,7 +199,7 @@ struct ParachainServiceState {
 
     /// Cross-parachain preimage registry. Holds every preimage the service
     /// has solicited from JAM (each parachain's active validation code, any
-    /// pending-upgrade code, and PVF-initiated `Solicit` requests) under the
+    /// pending-upgrade code, and parachain-initiated `Solicit` requests) under the
     /// same referencer-sharing scheme. In the key, `Hash` is
     /// the preimage's hash and `u32` its byte length. See §6.1.
     preimage_registry: Map<(Hash, u32), PreimageEntry>,
@@ -250,7 +250,7 @@ enum RefineLog {
     /// validation code preimage is not available in the service's store
     /// at the lookup-anchor. See §4.1 step 4.
     InvalidCodeHash,
-    /// Opaque payload with which the PVF aborted itself via `report_error(data)`
+    /// Opaque payload with which the validation code aborted itself via `report_error(data)`
     /// (max 1024 bytes). See §4.2.
     Opaque(BoundedVec<u8, 1024>),
     /// `SetValidatorKeys` was called more than once in a single Refine
@@ -258,12 +258,12 @@ enum RefineLog {
     SetValidatorKeysRepeated,
     /// A `SetValidatorKeys` chunk carried more than 30 keys. See §4.3, §5.3.
     TooManyValidatorKeys,
-    /// The PVF emitted more than `MAX_UPWARD_MESSAGES` upward messages in a
+    /// The validation code emitted more than `MAX_UPWARD_MESSAGES` upward messages in a
     /// single Refine invocation. See §4.3.
     TooManyUpwardMessages,
     /// The parachain's 40 KiB upward-message budget was exceeded. See §4.3.
     UpwardMessagesTooLarge,
-    /// The PVF invoked a host function restricted to another parachain (Asset
+    /// The validation code invoked a host function restricted to another parachain (Asset
     /// Hub or the Coretime chain), or named a `para_id` it may not act for.
     /// See §4.3.
     RestrictedHostFunction,
@@ -277,7 +277,7 @@ enum RefineLog {
     /// The encoded `ParachainWorkDigest` and auth trace would exceed the Gray
     /// Paper's 48 KiB. See §4.1.
     RefineOutputTooLarge,
-    /// The PVF exited without calling `set_parent_head_hash` and/or `set_head`
+    /// The validation code exited without calling `set_parent_head_hash` and/or `set_head`
     /// exactly once. Both head declarations are mandatory. See §4.2.
     MissingHeadDeclaration,
     /// `set_head` was called with head data beyond the 4 KiB `HeadData` bound.
@@ -285,9 +285,17 @@ enum RefineLog {
     HeadDataTooLarge,
 }
 
+/// The two phases of a `RequestCodeUpgrade` (see §5.2).
+enum CodeUpgradePhase {
+    /// Name the code a later `Apply` may switch to.
+    Announcement,
+    /// Switch `validation_code` to the announced code.
+    Apply,
+}
+
 /// Why a state-balance reservation failed (see §6.1).
 enum InsufficientBalanceReason {
-    /// A `Solicit` (or `RequestCodeUpgrade`) of the preimage with `hash` and `len`.
+    /// A `Solicit` of the preimage with `hash` and `len`.
     Solicit { hash: Hash, len: Compact<u32> },
     /// A `SetKV { key, value }` write to `key_value_storage`. Only the
     /// hash of `key` is recorded so an arbitrarily large
@@ -323,9 +331,16 @@ enum AccumulateLog {
     StagedValidatorKeysOverflow,
     /// The new code's preimage is not available for lookup. See §5.4.
     ServiceUpgradePreimageMissing { code_hash: Hash },
+    /// An `Announcement` whose code is not available. See §5.2.
+    CodeUpgradeNotAvailable { hash: Hash, len: Compact<u32> },
+    /// An `Apply` that does not match the standing announcement. See §5.2.
+    CodeUpgradeNotAnnounced { hash: Hash, len: Compact<u32> },
+    /// A `Forget` naming the parachain's `validation_code` or
+    /// `announced_upgrade`. See §5.2.
+    CanNotForgetValidationCode { hash: Hash, len: Compact<u32> },
     /// The JAM `transfer` call replaying a `TransferOut` failed. `id` is the
     /// caller-supplied identifier from the `TransferOut`, echoed back so Asset
-    /// Hub can match the failure to its request. See §5.1 step 7.
+    /// Hub can match the failure to its request. See §5.1 step 6.
     TransferFailed { id: Compact<u64>, error: TransferError },
     /// A `forget` left the preimage in place. It must be forgotten again at
     /// `due`. See §6.1.
@@ -413,7 +428,7 @@ enum ServiceCreationResult {
     IdTaken,
 }
 
-/// Why a JAM `transfer` replaying a `TransferOut` failed. See §5.1 step 7.
+/// Why a JAM `transfer` replaying a `TransferOut` failed. See §5.1 step 6.
 enum TransferError {
     /// `source` is not a known service.
     UnknownSource,
@@ -487,28 +502,19 @@ struct ValidationCodeRef {
     len: u32,
 }
 
-/// A validation code with its reference and `pinned` flag, recording whether the
-/// parachain has *also* solicited it itself, on top of the service's own
-/// code-upgrade solicit. See §5.2.
-struct ValidationCode {
-    ref: ValidationCodeRef,
-    pinned: bool,
-}
-
 struct ParaInfo {
     /// Current head data (output of last included block).
     head_data: HeadData,
     /// Currently active validation code, or `None` for a freshly-registered
     /// parachain. See §6.
-    validation_code: Option<ValidationCode>,
-    /// Pending code upgrade, if any: the new validation code and the
-    /// deadline timeslot after which the upgrade is rejected. See §5.2.
-    pending_upgrade: Option<(ValidationCode, Timeslot)>,
+    validation_code: Option<ValidationCodeRef>,
+    /// Announced code upgrade. See §5.2.
+    announced_upgrade: Option<ValidationCodeRef>,
     /// Total state balance allocated to this parachain. Set exclusively by
     /// the Coretime chain via `ParachainSetStateBalance`. See §6.1.
     total_state_balance: Compact<Balance>,
-    /// State balance currently consumed by this parachain's solicited PVF
-    /// preimages (active validation code + pending upgrade, if any).
+    /// State balance currently consumed by this parachain's solicited validation code
+    /// preimages (active validation code + announced upgrade, if any).
     /// Increased on `Solicit`, decreased on `Forget`. See §6.1.
     used_state_balance: Compact<Balance>,
     /// Set once `ParachainCleanUp` has begun deregistering this parachain
@@ -548,7 +554,7 @@ The shape of that payload is:
 ```rust
 struct ParachainCandidate {
     /// The hash of the currently active validation code. Used by Refine to
-    /// look up the PVF bytecode from the preimage store.
+    /// look up the validation code from the preimage store.
     validation_code_hash: ValidationCodeHash,
 
     /// The Proof-of-Validity (PoV): the actual block data + witness.
@@ -592,9 +598,9 @@ enum ParachainWorkDigest {
         /// The work package's lookup-anchor timeslot.
         lookup_anchor: Timeslot,
     },
-    /// PVF execution failed (e.g. invalid PoV, bad state proof, panic).
+    /// Validation code execution failed (e.g. invalid PoV, bad state proof, panic).
     ///
-    /// Carries a structured `RefineLog`. A PVF reaches this by aborting itself
+    /// Carries a structured `RefineLog`. Validation code reaches this by aborting itself
     /// with `report_error(data)` (§4.2).
     Err {
         /// The parachain this failure belongs to.
@@ -604,8 +610,12 @@ enum ParachainWorkDigest {
 }
 
 enum UpwardMessage {
-    /// Start a PVF code upgrade (see §5.2).
-    RequestCodeUpgrade { hash: ValidationCodeHash, len: Compact<u32> },
+    /// Drive a parachain code upgrade. See §5.2.
+    RequestCodeUpgrade {
+        hash: ValidationCodeHash,
+        len: Compact<u32>,
+        phase: CodeUpgradePhase,
+    },
     /// Request a preimage, charged to the target's state balance. See §6.1 for a
     /// `Parachain` target. A `Service` target requests into that service's own
     /// store and is **Asset Hub only**. No-op if the `Parachain` target has
@@ -637,8 +647,9 @@ enum UpwardMessage {
     /// Release a previously solicited preimage. The target names whose reference
     /// is released and whose `used_state_balance` is refunded, since only that
     /// parachain was ever charged for it. Removing the last referencer may need
-    /// a follow-up `Forget` (two-step expunge, see §6.1). For that parachain's
-    /// active or pending validation code it only clears `pinned` (§5.2). A
+    /// a follow-up `Forget` (two-step expunge, see §6.1). Rejected with
+    /// `AccumulateLog::CanNotForgetValidationCode` if `hash` is the target's
+    /// `validation_code` or `announced_upgrade` (§5.2). A
     /// `Service` target is **Asset Hub only**. For an Asset Hub target,
     /// Accumulate must check that the preimage is not the Parachain Service's
     /// own current code (§5.4).
@@ -661,7 +672,7 @@ enum UpwardMessage {
     /// debited, and which of `dest`'s receives the funds. True means the
     /// supervisor balance. `id` is a caller-supplied identifier, echoed back in
     /// the `TransferFailed` log entry so Asset Hub can match a failure to its
-    /// request. See §5.1 step 7. **Asset Hub only.**
+    /// request. See §5.1 step 6. **Asset Hub only.**
     TransferOut {
         source: Option<ServiceId>,
         dest: ServiceId,
@@ -677,7 +688,7 @@ enum UpwardMessage {
     /// **Coretime chain only.**
     AssignCore {
         core: CoreIndex,
-        /// As emitted by the PVF, so any length is representable. Refine holds
+        /// As emitted by the validation code, so any length is representable. Refine holds
         /// it to 1 to `AUTH_QUEUE_SIZE` hashes and rejects any other length,
         /// empty included. See §4.3.
         queue: Vec<AuthorizerHash>,
@@ -727,7 +738,7 @@ enum UpwardMessage {
 The combined size of all result blobs plus the authorizer trace in a work-report is limited
 to **48 KiB** by the Gray Paper.
 
-- **`Ok`** is returned when PVF validation succeeds. The upward host-function calls made
+- **`Ok`** is returned when validation succeeds. The upward host-function calls made
   during Refine (code upgrades, transfers, authorizer updates, etc.) are carried alongside
   this digest and applied by Accumulate.
 
@@ -758,12 +769,12 @@ index `item_index` the Parachain Service performs:
 3. Decodes the `ParachainCandidate` (validation code hash + PoV) from the work item
    payload passed to Refine. If the payload fails to decode, aborts with
    `Err(RefineLog::MalformedPayload)`.
-4. Fetches the PVF bytecode via `historical_lookup` (using `validation_code_hash`).
+4. Fetches the validation code via `historical_lookup` (using `validation_code_hash`).
    If the lookup returns `None` (the preimage isn't available in the service's
    store at the lookup-anchor), aborts with `Err(RefineLog::InvalidCodeHash)`.
-5. Instantiates a child PVM with the PVF.
-6. Executes the PVF against the PoV (the `jam_validate_block` call).
-7. Assembles a `ParachainWorkDigest` from the PVF's host-function side effects and the
+5. Instantiates a child PVM with the validation code.
+6. Executes the validation code against the PoV (the `jam_validate_block` call).
+7. Assembles a `ParachainWorkDigest` from the validation code's host-function side effects and the
    authoritative `para_id` (see §4.2).
 8. Checks that the encoded digest (head data + upward messages) plus the
    work-report's authorizer trace fits in the Gray Paper's 48 KiB
@@ -774,34 +785,34 @@ index `item_index` the Parachain Service performs:
 
 Because Refine is stateless, it cannot write to service storage.
 
-### 4.2 PVF Entry Point
+### 4.2 Validation Code Entry Point
 
-The Parachain Service's Refine spawns a child PVM and calls the PVF's single entry point:
+The Parachain Service's Refine spawns a child PVM and calls the validation code's single entry point:
 
 ```rust
 fn jam_validate_block() -> ()
 ```
 
-The PVF reads its inputs (PoV, context, downward transfers) through host functions and
+The validation code reads its inputs (PoV, context, downward transfers) through host functions and
 writes its outputs (head data, code upgrades, transfers) through host functions. It does
 not return a value directly. The `ParachainWorkDigest` is assembled by the Parachain
 Service's Refine wrapper from the accumulated host-function side effects.
 
-A PVF has two ways to fail, and they differ in what is recorded. Calling
+Validation code has two ways to fail, and they differ in what is recorded. Calling
 `report_error(data)` aborts it immediately and fails Refine with `RefineLog::Opaque(data)`.
 Any other abnormal exit (panic, trap, failed execution) is deliberately not caught: the
 service's entire `refine` fails with it, so the work-digest's result is a gray-paper work
 error (`WorkExecResult::Error`) and §3.3 applies.
-Recording a failure is therefore opt-in: a PVF that wants one to leave no trace simply
+Recording a failure is therefore opt-in: validation code that wants one to leave no trace simply
 panics.
 
-The Refine wrapper also fails the invocation as `Err` if the PVF exits without calling
+The Refine wrapper also fails the invocation as `Err` if the validation code exits without calling
 `set_parent_head_hash` exactly once or without calling `set_head` exactly once. Both the
 parent-head and the new-head declarations are mandatory.
 
 ### 4.3 Host Functions & PVM Imports
 
-On JAM, PVFs execute inside a child PVM instance spawned by the Parachain Service's Refine
+On JAM, validation code executes inside a child PVM instance spawned by the Parachain Service's Refine
 function. The child PVM's heap is capped at **1 GiB**, the upper bound `grow_heap` can reach.
 **Hashing** and **signature verification** run as PVM guest code, not as host calls. Their
 performance impact is small, and future PVM improvements should shrink it further
@@ -831,12 +842,12 @@ Accumulate:
 | Index | Host function | Returns | Purpose |
 |---|---|---|---|
 | 200 | `set_parent_head_hash(hash: Hash)` | `()` | Declare the parent head hash this candidate was built on, as the hash of the parent `head_data`. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The hash is forwarded to Accumulate, which checks it against the para's current head (§5.1 step 3). |
-| 201 | `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). Aborts Refine with `Err(RefineLog::HeadDataTooLarge)` if `new_head` exceeds the 4 KiB `HeadData` bound. The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 6). Distinct from the Coretime-only `ParachainSetHead`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
+| 201 | `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). Aborts Refine with `Err(RefineLog::HeadDataTooLarge)` if `new_head` exceeds the 4 KiB `HeadData` bound. The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 5). Distinct from the Coretime-only `ParachainSetHead`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
 | 202 | `send_upward_message(msg: UpwardMessage)` | `()` | Append one upward message to `ParachainWorkDigest.upward_messages`. Aborts Refine with `Err(RefineLog::UpwardMessagesTooLarge)` if the message would carry the encoded upward messages past the parachain's fixed **40 KiB** budget. Individual variants carry further requirements, documented on the variant. Panics if `msg` fails to decode. |
-| 203 | `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the PVF, failing Refine with `RefineLog::Opaque(data)`. Any bytes beyond 1024 are truncated. Never returns. This is the only way a PVF records a reason for its failure. See §4.2. |
+| 203 | `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the validation code, failing Refine with `RefineLog::Opaque(data)`. Any bytes beyond 1024 are truncated. Never returns. This is the only way validation code records a reason for its failure. See §4.2. |
 
 `UpwardMessage` is part of the parachain-visible ABI. Its SCALE encoding is
-stable, so a message's `encoded_size()` is computable inside the PVF. The 40 KiB
+stable, so a message's `encoded_size()` is computable inside the validation code. The 40 KiB
 budget counts the encoded messages alone.
 
 Variants marked **Asset Hub only** or **Coretime chain only** are accepted from
@@ -846,7 +857,7 @@ calling parachain, except from the Coretime chain, which may name any parachain
 `Err(RefineLog::RestrictedHostFunction)`.
 
 A single Refine invocation may emit at most `MAX_UPWARD_MESSAGES = 1024` upward
-messages. If the PVF exceeds this, the invocation fails with
+messages. If the validation code exceeds this, the invocation fails with
 `Err(RefineLog::TooManyUpwardMessages)`.
 This bounds the number of side effects Accumulate must replay per work item,
 independently of the 48 KiB combined-result-blob budget.
@@ -924,7 +935,7 @@ and `MAX_INCOMING_TRANSFERS` derived from it.
 
 Performed once for each work package that is being accumulated in this block, in order.
 A work result of gray-paper `WorkExecResult::Error`, either a bug in the parachain
-service's `refine` or a PVF that failed without reporting an actual error (§4.2), is skipped entirely
+service's `refine` or validation code that failed without reporting an actual error (§4.2), is skipped entirely
 here: no `parachain_log` entry, no state change, and it never reaches the steps below.
 
 **Gas gate.** JAM funds the invocation from the gas limits the reports passed to it
@@ -964,28 +975,21 @@ for it, it writes no state, records no log entry, and prunes nothing. Otherwise:
    `hash(ParaInfo[para_id].head_data)`. If not, the candidate is rejected. This prevents
    a collator from including a candidate that was built on top of a stale, skipped, or
    non-canonical parent head.
-4. **Reap timed-out pending upgrade**: If `ParaInfo.pending_upgrade` is set
-   and its deadline timeslot is `<=` the current timeslot, the upgrade is expired
-   before this candidate is considered: release the new code (see §6.1) and clear
-   `pending_upgrade`.
- 5. **Validation code check**: This is the authoritative check. Verify the work
-   result's `(validation_code_hash, len)` pair matches either the active
-   `ParaInfo.validation_code` or the pending upgrade's code. If it matches neither,
-   the candidate is rejected.
-6. **Head data update + code upgrade check**: Writes the new `head_data` from the
-   work digest into `ParaInfo` for the parachain and immediately checks whether the
-   candidate was validated with the pending new PVF code. If so, activate the new
-   code, release the old code (see §6.1), and clear `pending_upgrade`. This must
-   happen here because later candidates from the same parachain in the same block
-   may already use the new code.
-7. **Process host-function calls from Refine**: Replay the `UpwardMessage`s carried in
-   the work digest, applying the effects each one the PVF emitted during Refine carries
-   (code upgrades, transfers, authorizer queue updates, validator key updates, etc.).
-   See the `UpwardMessage` variants in §4.3 for the full list.
-   This replay may itself emit further `AccumulateLog` events for the work package.
+4. **Validation code check**: This is the authoritative check. Verify the work
+   result's `(validation_code_hash, len)` pair matches `ParaInfo.validation_code`.
+   If not, the candidate is rejected.
+5. **Head data update**: Write the new `head_data` from the work digest into
+   `ParaInfo` for the parachain.
+6. **Process host-function calls from Refine**: Replay the `UpwardMessage`s carried in
+   the work digest, applying the effect each one carries (code upgrades, transfers,
+   authorizer queue updates, validator key updates, etc.). See the `UpwardMessage`
+   variants in §3.3 for the full list. Refine already rejects a message the parachain
+   was not entitled to emit, so one arriving here is dropped silently rather than
+   logged. This replay may itself emit further `AccumulateLog` events for the work
+   package.
 
 All `AccumulateLog` events emitted while processing a work package (necessarily from
-the step 7 replay, since no earlier step emits any) are collected and appended to
+the step 6 replay, since no earlier step emits any) are collected and appended to
 `parachain_log[para_id]` as a single `LogEntry::Accumulate`, where `para_id` is the
 parachain that submitted the work package. Every append to
 `parachain_log[para_id]`, whether the `RefineLogEntry` from step 2 or this
@@ -1025,7 +1029,7 @@ is dropped instead.
 by anyone, and a work package submitted that way still reaches Refine, so its
 failures are recorded against the parachain even though the parachain did not cause
 them. Every such failure lands in rank 0: producing an `Opaque` requires the
-parachain's own PVF to call `report_error` (§4.2), and only Accumulate produces
+parachain's own validation code to call `report_error` (§4.2), and only Accumulate produces
 rank 2. A buyer can therefore churn rank 0 against itself, but can never evict the
 parachain's own reports or its on-chain state changes, which bounds the damage to
 losing diagnostics that were, by construction, the attacker's own noise.
@@ -1038,12 +1042,12 @@ inputs (§5.4 phase 2 shows the pattern) and never treated as a durable record.
 Rank-0 entries in particular are both evictable and producible by anyone holding
 coretime, so parachain logic must not depend on one being present, nor on one being
 absent. Anything a parachain needs to act on reliably belongs either in an `Opaque`
-payload its own PVF emitted, or in an accumulate event, which records a state change
+payload its own validation code emitted, or in an accumulate event, which records a state change
 that has already happened.
 
 #### Outgoing transfers
 
-Replaying a `TransferOut` (step 7) forwards it to JAM `transfer`. `deferred`
+Replaying a `TransferOut` (step 6) forwards it to JAM `transfer`. `deferred`
 selects between the two modes that host-call offers (Gray Paper, `transfer`):
 
 | | `deferred = None` (plain move) | `deferred = Some((memo, gas))` |
@@ -1065,99 +1069,54 @@ The core Accumulate logic is primarily **parachain bookkeeping**: updating head 
 tracking code upgrades, applying queued authorizer updates, and managing incoming
 transfers.
 
-### 5.2 Code Upgrade Lifecycle
+### 5.2 Parachain Code Upgrade Lifecycle
 
-Runtime (PVF) code upgrades follow a well-defined lifecycle using JAM's preimage
-store (`solicit`/`provide`/`forget`) and the `xtpreimages` block extrinsic.
+A parachain switches to new validation code in two explicit steps, both carried by
+`RequestCodeUpgrade` (§3.3): an **`Announcement`** naming the code, and a later
+**`Apply`** that makes it active. Getting the code into the preimage store is not part of
+either: the parachain solicits it beforehand with `Solicit` (§3.3).
 
-Validation code, both the active code and any pending upgrade code, lives in
-`preimage_registry` (§3.1) like any other PVF-solicited preimage; two codes with the
-same hash but different lengths are distinct entries. The service solicits a code
-only when it isn't already solicited, so a code's referencer slot is held for
-up to two independent reasons: it is the parachain's active/pending code (the
-service's own reason), and/or the parachain solicited it itself. The latter is
-recorded per-code by the `pinned` bit in `ParaInfo` (§3.1):
-
-- **Parachain `Solicit` of its active/pending code** sets the corresponding
-  `pinned` bit. No extra state balance is charged, since the code is already
-  referenced.
-- **Parachain `Forget` of its active/pending code** clears that bit but does
-  **not** release the referencer or forward a JAM `forget`: the service still
-  needs the code available, so it stays solicited (§4.3).
-- When a code **ceases to be active/pending** (activation, timeout reap, or a
-  superseding request), this parachain's referencer is released unless its
-  `pinned` bit is set (in which case the slot survives as an ordinary
-  solicited preimage). The JAM `forget` itself is governed by the
-  referencer sharing of §6.1, not by one parachain's state: it is
-  forwarded only when the *last* referencer across all parachains is
-  removed, so a code shared by several parachains is never dropped from JAM
-  while any of them still references it.
-- On **activation**, the pending code's `pinned` bit carries over to the
-  now-active code.
+The split exists to settle availability before the switch: the code must be available to
+be announced, so an `Apply` can never leave the parachain pointing at validation code JAM
+cannot serve.
 
 ```
-Phase 1: Request
-    Parachain emits RequestCodeUpgrade { hash: new_code_hash, len } during Refine.
+Step 1: Solicit the code
+    Parachain emits Solicit { target: Parachain(self), hash, len }, charged to its
+    state balance (§6.1). Anyone (collator, block author, third party) then submits
+    the PVM blob to JAM, which validates it against the solicitation.
     │
     ▼
-Phase 2: Request Preimage
-    Accumulate solicits the new code (see §6.1) and sets pending_upgrade
-    with a deadline (current timeslot + UPGRADE_TIMEOUT). If the new code's
-    footprint doesn't fit in the available state balance, the upgrade is
-    rejected with AccumulateLog::InsufficientStateBalance.
+Step 2: Announcement
+    Parachain emits RequestCodeUpgrade { hash, len, phase: Announcement }.
 
-    Overwriting an in-flight upgrade is allowed: if a different code is
-    already pending, it is superseded: the old pending code's preimage is
-    released (see §6.1) and replaced by the new request. Requesting the
-    already-active code is a no-op.
+    Both must hold:
+      - the parachain references (hash, len)
+      - query(hash, len) reports it available at the work report's lookup
+        anchor
 
-    A candidate may both adopt its pending upgrade and request a new,
-    different upgrade in the same block: Accumulate processes the upgrade
-    activation (Phase 5a) first, then replays the upward messages, so the
-    new request is armed against the just-activated code.
-    │
-    ▼
-Phase 3: Preimage Submission
-    Anyone (collator, block author, third party) can submit the PVM code directly to JAM.
-    │
-    ▼
-Phase 4: Transition Period
-    Once the preimage is available, collators MAY build blocks using either
-    the old or the new PVF code. Refine accepts both validation_code_hash
-    and pending_upgrade.new_code_hash during this window.
-    The parachain runtime itself can check preimage availability (via the
-    Parachain Service state exposed through the validation inputs) and
-    trigger the switch from within its own block execution, so no
-    service-side polling is needed.
-    │
-    ▼
-Phase 5: Activation or Rejection
-    (a) First block using new code: Accumulate detects the candidate was
-        validated with new_code_hash, sets validation_code_hash =
-        new_code_hash, releases the old code (§6.1), and clears
-        pending_upgrade.
+    either fails    -> rejected with CodeUpgradeNotAvailable, nothing changes
+    already active  -> no-op
+    otherwise       -> announced_upgrade = (hash, len), replacing any
+                       standing announcement
 
-    (b) Deadline exceeded: If the deadline (set in Phase 2) passes without
-        the preimage becoming available or without any block using the new
-        code, the upgrade is rejected on the next per-work-package
-        accumulate for this parachain (see §5.1, step 4): the new code is
-        released (§6.1) and pending_upgrade is cleared. The parachain
-        continues with the old code.
+    The active validation_code is untouched: candidates must still be validated
+    with it (§5.1 step 4) until the Apply lands.
+    │
+    ▼
+Step 3: Apply
+    Parachain emits RequestCodeUpgrade { hash, len, phase: Apply } at a point
+    of its choosing.
+
+    not the standing announcement, or nothing announced
+                    -> rejected with CodeUpgradeNotAnnounced, nothing changes
+    otherwise       -> validation_code = announced code, and
+                       announced_upgrade is cleared
+
+    The switch is immediate: the candidate carrying the Apply was itself
+    validated with the old code, and every candidate after it must use the new
+    one.
 ```
-
-**Key properties:**
-
-- **No pre-checking needed**: PVM has no compilation bomb risk (unlike WASM), so there is
-  no pre-checking vote. The code is accepted as soon as the preimage is available.
-- **Dual-code cost**: During the transition period, both the old and new PVF code
-   are counted against `ParaInfo.used_state_balance`. This incentivizes timely adoption.
-   See the accounting model below.
-- **Permissionless submission**: The preimage can be submitted by anyone: the collator,
-  block author, or any third party. The JAM protocol validates the hash against the
-  solicitation.
-- **Timeout protection**: The deadline prevents parachains from indefinitely occupying
-  preimage store space with unused code. `UPGRADE_TIMEOUT` is set to **24 hours**, which
-  should be sufficient for the preimage to be submitted to JAM after solicitation.
 
 ### 5.3 Validator-Key Updates
 
@@ -1417,15 +1376,15 @@ JAM per-entry octet overhead                                       =      34
 map tag                                                            =       1
 ParaId (key)                                                       =       4
 head_data: BoundedVec<u8, 4096> = 2 (compact len) + 4096           =   4 098
-validation_code: Option<ValidationCode> = 1 + 32 + 4 + 1           =      38
-pending_upgrade: Option<(ValidationCode, Timeslot)> = 1 + 37 + 4    =      42
+validation_code: Option<ValidationCodeRef> = 1 + 32 + 4            =      37
+announced_upgrade: Option<ValidationCodeRef> = 1 + 32 + 4          =      37
 total_state_balance: Compact<Balance>                              =       9
 used_state_balance: Compact<Balance>                               =       9
 is_deregistering: bool                                             =       1
-                                                          octets       4 236
+                                                          octets       4 230
                                                           1 item          10
                                                                      -------
-                                                                       4 246
+                                                                       4 240
 ```
 
 `(ParaId, parachain_log[para_id])` entry, value + key bounded by a flat 64 KiB cap,
@@ -1447,7 +1406,7 @@ parachain_log value (flat cap): 64 KiB                             =  65 536
                                                                       65 585
 ```
 
-**`baseline_footprint = 4 246 + 65 585 = 69 831`** balance units per parachain.
+**`baseline_footprint = 4 240 + 65 585 = 69 825`** balance units per parachain.
 
 #### Asset Hub baseline footprint
 
@@ -1566,21 +1525,21 @@ Registration does **not** wait for the preimage.
 ### 6.3 Forced Updates (Recovery)
 
 The same two messages also handle exceptional recovery, e.g. unsticking a chain
-whose last included block cannot be built on, or swapping in a new PVF outside the normal
+whose last included block cannot be built on, or swapping in new validation code outside the normal
 upgrade lifecycle:
 
 - `ParachainSetHead { para_id, new_head }` overwrites `ParaInfo.head_data`.
 - `ParachainSetValidationCode { para_id, new_hash, new_len }` sets
   `ParaInfo.validation_code` to `Some(new_hash)`, solicits `new_hash`, and clears any
-  `pending_upgrade`. Unless the parachain already references `new_hash`, in which case
+  `announced_upgrade`. Unless the parachain already references `new_hash`, in which case
   the solicit is a no-op and nothing is charged, `used_state_balance` grows by
   `preimage_footprint(new_len)`
   to hold the new validation code. The displaced validation codes (the old active
-  code and any pending code) are released via the normal `forget` step (§6.1).
+  code and any announced code) are released via the normal `forget` step (§6.1).
   Each keeps its footprint charged until the parachain emits `Forget` again to
   complete the two-step release. So while those releases are in flight the
   parachain holds the new validation code plus every not-yet-forgotten displaced
-  validation code. That is two validation codes when there was no pending
+  validation code. That is two validation codes when there was no announced
   upgrade, three when there was. `total_state_balance` must cover whatever is
   concurrently held. The call is rejected with
   `AccumulateLog::InsufficientStateBalance` if the new footprint wouldn't fit, so
@@ -1608,7 +1567,7 @@ Coretime chain
 Parachain Service (Accumulate)
 	│  Rejects with `AccumulateLog::TooMuchStateHeld` unless used_state_balance
 	│  is at most BASELINE_FOOTPRINT + preimage_footprint(validation_code)
-	│  + preimage_footprint(pending_upgrade code, if any), i.e. the parachain
+	│  + preimage_footprint(announced_upgrade code, if any), i.e. the parachain
 	│  has already released all other solicited preimages and key_value_storage.
 	│  Otherwise forgets the validation code(s). If any cannot be expunged yet
 	│  (JAM's two-step forget; see §6.1), sets ParaInfo.is_deregistering = true
@@ -1622,7 +1581,7 @@ set of solicited preimages or KV entries. A parachain that can no longer produce
 blocks cannot drain itself, so `Forget` and `RemoveKV` take a `para_id` (§3.3),
 letting the Coretime chain free any parachain's state on its behalf.
 
-A clean-up that stops for a retry leaves `validation_code` and `pending_upgrade` in
+A clean-up that stops for a retry leaves `validation_code` and `announced_upgrade` in
 place. Their footprints remain charged until the expunging `forget` succeeds, so the
 allowance the check compares against must keep counting them.
 
@@ -1651,7 +1610,7 @@ For the Parachain Service, the ownership boundary is:
 - The **Coretime chain** decides which parachain owns each core and computes the desired
   authorizer queue for that core.
 - The **Parachain Service** applies those decisions to JAM via the JAM `assign` host call,
-  emitted as an `UpwardMessage::AssignCore` from the PVF or from the
+  emitted as an `UpwardMessage::AssignCore` from the validation code or from the
   always-accumulate control path.
 - JAM's `is_authorized` invocation then checks a work-package token against one of the
   authorizers currently in the core's authorizer pool.
@@ -1745,7 +1704,7 @@ both map to their index (e.g. with `collator_set_size = 4` and `slot_duration = 
 anchor timeslots T and T+4 both yield the same collator index).
 
 Preventing this is the responsibility of the **parachain's validation code**, not the
-authorizer. If the PVF detects that the claimed anchor timeslot is inconsistent with the
+authorizer. If the validation code detects that the claimed anchor timeslot is inconsistent with the
 parachain's own slot progression (e.g. the same collator claiming back-to-back slots they
 are not entitled to), it can call `report_error(data)` to record a structured complaint
 against the offending collator in the parachain log, which can then be read by the
@@ -1755,7 +1714,7 @@ The mirror case is an author the parachain does not recognise at all: anyone can
 coretime on a core assigned to the parachain and submit whatever they like for it. Here
 `report_error` is the wrong tool. There is no known account to slash, so the complaint has
 no reader, and writing one would hand the buyer a free way to evict genuine entries from
-the capacity-bounded `parachain_log` (§3.1). The PVF should simply panic (§4.2).
+the capacity-bounded `parachain_log` (§3.1). The validation code should simply panic (§4.2).
 
 #### Filling the 80-slot queue
 
@@ -1838,7 +1797,7 @@ UMP (Upward Message Passing) is similarly bounded: `maxUpwardMessageSize` ≈ 64
 
 On JAM, the buffer between Refine and Accumulate is even tighter: the work-report's
 combined successful result blobs plus authorizer trace are bounded by **48 KiB**. All
-upward messages the PVF emits through host functions have to fit inside that
+upward messages the validation code emits through host functions have to fit inside that
 budget alongside the new head data. Carrying HRMP-style message payloads through the
 work-report is therefore not an option. They must go through a different channel, which
 is what §8.2 proposes.
