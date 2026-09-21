@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789995463838,
+  "lastUpdate": 1789998054763,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3f9ad6a571035b4b9a5263d79a5abb3aa1d5eaa1",
-          "message": "Sync: Gracefully handle blocks from an unknown fork (#11085)\n\nThere is the possibility that node A connects to node B. Both are at the\nsame best block (20). Shortly after this, node B announces a block 21\nthat is from a completely different fork (started at e.g. block 15).\nRight now this leads to node A downloading this block 21 and then\nfailing to import it because it doesn't have the parent block.\n\nThis pull request solves this situation by putting the peer into\nancestry search when it detects a fork that is \"unknown\".\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-20T22:57:04Z",
-          "tree_id": "c119e3e7313808e195194f08e0ba4a454b798a95",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3f9ad6a571035b4b9a5263d79a5abb3aa1d5eaa1"
-        },
-        "date": 1771632196770,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.353942675433332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12563060646666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13412988076666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c7bc926f89162cb8dd8681af112fcd1cb9677227",
+          "message": "statement-store: read affinity topics from a file (#13240)\n\n# Description\n\nAdds a hidden `--statement-affinity-topics-file <PATH>` flag to the\nsubstrate node and the omni-node. The file holds one 32-byte hex topic\nper line, blank lines and `#` comments skipped, and adds to the\nrepeatable `--statement-affinity-topic` flag. A line holds the topic\nitself, not a name to hash, since applications derive topics in their\nown ways.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12557.\n\n## Integration\n\nOptional flag, takes effect only on the experimental v2 DHT statement\npath. `V2DhtConfig` gains the field `affinity_topics_file:\nOption<AffinityTopicsFile>`.",
+          "timestamp": "2026-09-21T11:19:08Z",
+          "tree_id": "88e1eb03cedf1d2435c9f258efc9acc72573276b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c7bc926f89162cb8dd8681af112fcd1cb9677227"
+        },
+        "date": 1789998013828,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.177249193833333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13668875443333336,
             "unit": "seconds"
           }
         ]
