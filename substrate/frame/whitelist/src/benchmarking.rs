@@ -201,9 +201,10 @@ mod benchmarks {
 
 		#[block]
 		{
-			call.authorize(TransactionSource::InBlock)
-				.expect("call has authorize logic")
-				.map_err(|_| "authorize failed")?;
+			let result = call
+				.authorize(TransactionSource::InBlock)
+				.expect("dispatch_whitelisted_call declares an authorize callback; qed");
+			assert!(result.is_ok());
 		}
 
 		Ok(())
@@ -235,9 +236,10 @@ mod benchmarks {
 
 		#[block]
 		{
-			call.authorize(TransactionSource::InBlock)
-				.expect("call has authorize logic")
-				.map_err(|_| "authorize failed")?;
+			let result = call.authorize(TransactionSource::InBlock).expect(
+				"dispatch_whitelisted_call_with_preimage declares an authorize callback; qed",
+			);
+			assert!(result.is_ok());
 		}
 
 		Ok(())
