@@ -116,6 +116,9 @@ pub struct StakingLedger<T: Config> {
 enum BondExpectation {
 	/// `stash` should remain bonded with a consistent ledger.
 	Bonded,
+	/// `stash` should remain bonded with a coherent `(stash, controller, ledger)` triple, but the
+	/// stake bookkeeping (`total == active + sum(unlocking)`) is not enforced.
+	BondedWithoutStakeCheck,
 	/// `stash`'s bond should be fully removed from storage.
 	Killed,
 }
@@ -149,17 +152,19 @@ impl<T: Config> StakingLedger<T> {
 		expectation: BondExpectation,
 	) -> Result<(), Error<T>> {
 		match expectation {
-			BondExpectation::Bonded => {
+			BondExpectation::Bonded | BondExpectation::BondedWithoutStakeCheck => {
 				let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::BadState)?;
 				let ledger = <Ledger<T>>::get(&controller).ok_or(Error::<T>::BadState)?;
 				ensure!(ledger.stash == *stash, Error::<T>::BadState);
 
-				let real_total = ledger
-					.unlocking
-					.iter()
-					.try_fold(ledger.active, |acc, chunk| acc.checked_add(&chunk.value))
-					.ok_or(Error::<T>::BadState)?;
-				ensure!(real_total == ledger.total, Error::<T>::BadState);
+				if expectation == BondExpectation::Bonded {
+					let real_total = ledger
+						.unlocking
+						.iter()
+						.try_fold(ledger.active, |acc, chunk| acc.checked_add(&chunk.value))
+						.ok_or(Error::<T>::BadState)?;
+					ensure!(real_total == ledger.total, Error::<T>::BadState);
+				}
 			},
 			BondExpectation::Killed => {
 				ensure!(!<Bonded<T>>::contains_key(stash), Error::<T>::BadState);
@@ -309,12 +314,24 @@ impl<T: Config> StakingLedger<T> {
 	/// Note: To ensure lock consistency, all the [`Ledger`] storage updates should be made through
 	/// this helper function.
 	pub(crate) fn update(self) -> Result<(), Error<T>> {
+		self.update_with(BondExpectation::Bonded)
+	}
+
+	/// Same as [`Self::update`], but does not enforce the stake bookkeeping of the resulting
+	/// ledger, so that a stash whose ledger is already inconsistent can still be slashed.
+	///
+	/// See [`BondExpectation::BondedWithoutStakeCheck`].
+	pub(crate) fn update_slashed(self) -> Result<(), Error<T>> {
+		self.update_with(BondExpectation::BondedWithoutStakeCheck)
+	}
+
+	fn update_with(self, expectation: BondExpectation) -> Result<(), Error<T>> {
 		if !<Bonded<T>>::contains_key(&self.stash) {
 			return Err(Error::<T>::NotStash);
 		}
 
 		let stash = self.stash.clone();
-		Self::checked_mutate_ledger(&stash, BondExpectation::Bonded, move || {
+		Self::checked_mutate_ledger(&stash, expectation, move || {
 			// We skip locking virtual stakers.
 			if !Pallet::<T>::is_virtual_staker(&self.stash) {
 				// for direct stakers, update lock on stash based on ledger.
@@ -397,6 +414,10 @@ impl<T: Config> StakingLedger<T> {
 	/// The ledger is fetched through [`Self::get`] so that a bond in bad state is rejected with
 	/// [`Error::BadState`] instead of wiping the ledger of another stash. See
 	/// <https://github.com/paritytech/polkadot-sdk/issues/3245> for more details.
+	///
+	/// As a consequence, `Pallet::force_unstake` and `Pallet::reap_stash` can no longer clear a
+	/// corrupted bond in one go: such a bond is first repaired with `Pallet::restore_ledger` and
+	/// only then killed.
 	pub(crate) fn kill(stash: &T::AccountId) -> DispatchResult {
 		let ledger = Self::get(StakingAccount::Stash(stash.clone()))?;
 		let controller = ledger.controller().ok_or(Error::<T>::NotController)?;

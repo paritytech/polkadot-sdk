@@ -177,6 +177,78 @@ fn checked_mutate_rolls_back_corrupted_bond() {
 }
 
 #[test]
+fn checked_mutate_rolls_back_bond() {
+	ExtBuilder::default().build_and_execute(|| {
+		let stash = 300;
+		let _ = asset::set_stakeable_balance::<Test>(&stash, 1000);
+
+		// a new ledger whose bookkeeping does not add up.
+		let mut ledger = StakingLedger::<Test>::new(stash, 500);
+		ledger.active -= 100;
+
+		assert_storage_noop!(assert_eq!(
+			ledger.bond(RewardDestination::Staked),
+			Err(Error::<Test>::BadState)
+		));
+
+		// neither the bond, the payee nor the stake survived the rollback.
+		assert_eq!(Bonded::<Test>::get(stash), None);
+		assert_eq!(Payee::<Test>::get(stash), None);
+		assert_eq!(asset::staked::<Test>(&stash), 0);
+	})
+}
+
+#[test]
+fn checked_mutate_rolls_back_set_payee() {
+	ExtBuilder::default().try_state(false).build_and_execute(|| {
+		let payee_before = Payee::<Test>::get(11).unwrap();
+
+		// break the bookkeeping of the stored ledger of 11.
+		let mut corrupt = Ledger::<Test>::get(11).unwrap();
+		corrupt.active -= 100;
+		Ledger::<Test>::insert(11, corrupt);
+
+		let ledger = Staking::ledger(StakingAccount::Stash(11)).unwrap();
+		assert_storage_noop!(assert_eq!(
+			ledger.set_payee(RewardDestination::Account(11)),
+			Err(Error::<Test>::BadState)
+		));
+		assert_eq!(Payee::<Test>::get(11).unwrap(), payee_before);
+
+		// the extrinsics on top of it report the same error instead of tripping a defensive.
+		assert_noop!(
+			Staking::set_payee(RuntimeOrigin::signed(11), RewardDestination::Account(11)),
+			Error::<Test>::BadState
+		);
+		assert_noop!(<Staking as StakingInterface>::set_payee(&11, &12), Error::<Test>::BadState);
+	})
+}
+
+#[test]
+fn checked_mutate_rolls_back_set_controller_to_stash() {
+	ExtBuilder::default().try_state(false).build_and_execute(|| {
+		// (controller 100, stash 200), as bonded before controllers were deprecated.
+		assert_ok!(bond_controller_stash(100, 200));
+
+		// break the bookkeeping of the stored ledger.
+		let mut corrupt = Ledger::<Test>::get(100).unwrap();
+		corrupt.total += 100;
+		Ledger::<Test>::insert(100, corrupt);
+
+		let ledger = StakingLedger::<Test>::get(StakingAccount::Stash(200)).unwrap();
+		assert_storage_noop!(assert_eq!(
+			ledger.set_controller_to_stash(),
+			Err(Error::<Test>::BadState)
+		));
+
+		// the ledger is still bonded by its original controller.
+		assert_eq!(Bonded::<Test>::get(200), Some(100));
+		assert!(Ledger::<Test>::get(100).is_some());
+		assert!(Ledger::<Test>::get(200).is_none());
+	})
+}
+
+#[test]
 fn bond_controller_cannot_be_stash_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		// `create_unique_stash_controller` bonds `ED * (balance_factor / 10).max(1)`. Pass a
@@ -571,6 +643,39 @@ mod ledger_recovery {
 			assert!(Bonded::<Test>::get(&444).is_some());
 			assert!(Payee::<Test>::get(&444).is_some());
 			assert_eq!(Ledger::<Test>::get(&444).unwrap().stash, 444);
+		})
+	}
+
+	#[test]
+	fn force_unstake_and_reap_stash_reject_corrupted_bond() {
+		// `force_unstake` and `reap_stash` kill the bond through `StakingLedger::kill`, which no
+		// longer wipes the ledger of another stash. The way out of a corrupted bond is to repair
+		// it with `restore_ledger` first.
+		ExtBuilder::default().has_stakers(true).try_state(false).build_and_execute(|| {
+			setup_double_bonded_ledgers();
+
+			// (333, 444) becomes corrupted: the controller of 333 bonds the ledger of 444.
+			set_controller_no_checks(&444);
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Corrupted);
+
+			// neither of the two ways to kill a bond touches storage.
+			assert_storage_noop!(assert_noop!(
+				Staking::force_unstake(RuntimeOrigin::root(), 333, 0),
+				Error::<Test>::BadState
+			));
+			assert_storage_noop!(assert_noop!(
+				Staking::reap_stash(RuntimeOrigin::signed(999), 333, 0),
+				Error::<Test>::BadState
+			));
+
+			// the way out: repair the bond of 333, then kill it.
+			assert_ok!(Staking::restore_ledger(RuntimeOrigin::root(), 333, None, None, None));
+			assert_eq!(Staking::inspect_bond_state(&333).unwrap(), LedgerIntegrityState::Ok);
+			assert_ok!(Staking::force_unstake(RuntimeOrigin::root(), 333, 0));
+
+			assert_eq!(Bonded::<Test>::get(&333), None);
+			assert_eq!(Payee::<Test>::get(&333), None);
+			assert_eq!(asset::staked::<Test>(&333), 0);
 		})
 	}
 

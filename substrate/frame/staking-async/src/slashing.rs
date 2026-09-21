@@ -43,12 +43,12 @@
 use crate::{
 	asset, log, session_rotation::Eras, BalanceOf, Config, ErasStakersOverview,
 	NegativeImbalanceOf, OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill,
-	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashes, WeightInfo,
+	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashes, UnexpectedKind,
+	WeightInfo,
 };
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-	defensive,
 	storage::{with_transaction, TransactionOutcome},
 	traits::{Defensive, DefensiveSaturating, Get, Imbalance, OnUnbalanced},
 };
@@ -615,7 +615,9 @@ pub fn do_slash<T: Config>(
 			asset::slash::<T>(stash, value)
 		};
 
-		match ledger.update() {
+		// `update_slashed` does not enforce the stake bookkeeping of the ledger, so that a stash
+		// whose ledger is already inconsistent does not become unslashable.
+		match ledger.update_slashed() {
 			Ok(()) => TransactionOutcome::Commit(Ok(Some((value, imbalance, missing)))),
 			Err(e) => TransactionOutcome::Rollback(Err(DispatchError::from(e))),
 		}
@@ -625,19 +627,18 @@ pub fn do_slash<T: Config>(
 		Ok(Some(slashed)) => slashed,
 		// nothing to do.
 		Ok(None) => return,
-		Err(_) => {
-			// bond in bad state: slash, ledger update and notifications were all rolled back.
-			if Pallet::<T>::is_virtual_staker(stash) {
-				log!(
-					warn,
-					"do_slash: failed to update ledger of virtual staker {:?}; slash rolled back.",
-					stash
-				);
-			} else {
-				defensive!(
-					"do_slash: inconsistent ledger; slash and ledger update both rolled back."
-				);
-			}
+		Err(e) => {
+			// the bond is in a bad state: slash, ledger update and listener notifications were all
+			// rolled back. Report it so that the ledger can be repaired via `restore_ledger`.
+			log!(
+				warn,
+				"do_slash: failed to update ledger of {:?}: {:?}; slash rolled back.",
+				stash,
+				e
+			);
+			<Pallet<T>>::deposit_event(super::Event::<T>::Unexpected(
+				UnexpectedKind::BadLedgerState { era: offence_era, stash: stash.clone() },
+			));
 			return;
 		},
 	};

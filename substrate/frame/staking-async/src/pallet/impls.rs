@@ -1959,9 +1959,8 @@ impl<T: Config> StakingInterface for Pallet<T> {
 		);
 
 		let ledger = Self::ledger(Stash(stash.clone()))?;
-		let _ = ledger
-			.set_payee(RewardDestination::Account(reward_acc.clone()))
-			.defensive_proof("ledger was retrieved from storage, thus its bonded; qed.")?;
+		// NOTE: not defensive, `set_payee` rejects a bond in bad state with `Error::BadState`.
+		ledger.set_payee(RewardDestination::Account(reward_acc.clone()))?;
 
 		Ok(())
 	}

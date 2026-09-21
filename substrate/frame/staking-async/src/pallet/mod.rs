@@ -2235,9 +2235,9 @@ pub mod pallet {
 				Error::<T>::ControllerDeprecated
 			);
 
-			let _ = ledger
-				.set_payee(payee)
-				.defensive_proof("ledger was retrieved from storage, thus it's bonded; qed.")?;
+			// NOTE: not defensive, `set_payee` rejects a bond in bad state with
+			// `Error::BadState`, which any signed origin can hit with a broken ledger.
+			ledger.set_payee(payee)?;
 
 			Ok(())
 		}
@@ -2862,9 +2862,8 @@ pub mod pallet {
 				Error::<T>::NotController
 			);
 
-			let _ = ledger
-				.set_payee(RewardDestination::Account(controller))
-				.defensive_proof("ledger should have been previously retrieved from storage.")?;
+			// NOTE: not defensive, see `set_payee`.
+			ledger.set_payee(RewardDestination::Account(controller))?;
 
 			Ok(Pays::No.into())
 		}
