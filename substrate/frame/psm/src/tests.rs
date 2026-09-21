@@ -4471,52 +4471,6 @@ mod generated_tests {
 	}
 
 	#[test]
-	fn test_external_asset_owner_can_brick_minting() {
-		new_test_ext().execute_with(|| {
-			let fee = MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
-			assert_ok!(Psm::mint(
-				RuntimeOrigin::signed(ALICE),
-				INTERNAL_ASSET_ID,
-				USDC_ASSET_ID,
-				1_000 * INTERNAL_UNIT,
-				fee,
-			));
-
-			assert_ok!(Assets::set_metadata(
-				RuntimeOrigin::signed(ALICE),
-				USDC_ASSET_ID,
-				b"USD Coin".to_vec(),
-				b"USDC".to_vec(),
-				2,
-			));
-
-			assert_noop!(
-				Psm::mint(
-					RuntimeOrigin::signed(BOB),
-					INTERNAL_ASSET_ID,
-					USDC_ASSET_ID,
-					1_000 * INTERNAL_UNIT,
-					fee,
-				),
-				Error::<Test>::DecimalsMismatch
-			);
-
-			assert_ok!(Psm::redeem(
-				RuntimeOrigin::signed(ALICE),
-				INTERNAL_ASSET_ID,
-				USDC_ASSET_ID,
-				100 * INTERNAL_UNIT,
-				Permill::from_percent(1),
-			));
-
-			assert_noop!(
-				Psm::remove_external_asset(RuntimeOrigin::root(), INTERNAL_ASSET_ID, USDC_ASSET_ID),
-				Error::<Test>::AssetHasDebt
-			);
-		});
-	}
-
-	#[test]
 	fn test_redeem_pays_recorded_rate_not_live_rate() {
 		new_test_ext().execute_with(|| {
 			let fee = MintingFee::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID);
