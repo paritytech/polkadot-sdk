@@ -394,6 +394,14 @@ pub struct ExecutionStep {
 	pub kind: ExecutionStepKind,
 }
 
+/// What one [`ExecutionStep`] occupies in the runtime, where the `Vec` they are collected into
+/// must stay under `MAX_POSSIBLE_ALLOCATION`. Clients size their trace windows from it, so
+/// growing the struct only means updating this, on the one target that can check it.
+pub const RUNTIME_STEP_BYTES: usize = 112;
+
+#[cfg(target_arch = "wasm32")]
+const _: () = assert!(core::mem::size_of::<ExecutionStep>() == RUNTIME_STEP_BYTES);
+
 impl From<ExecutionStep> for ExecutionStepV1 {
 	fn from(value: ExecutionStep) -> Self {
 		Self {

@@ -697,7 +697,8 @@ mod tests {
 
 	#[test]
 	fn caller_can_walk_a_trace_without_knowing_its_length() {
-		let full = traced_window(0, None).struct_logs;
+		let whole = traced_window(0, None);
+		let full = whole.struct_logs.clone();
 		assert_eq!(full.len(), 6, "the script enters six steps");
 
 		// Sweep the size so nothing can hold only for the boundaries one size falls on.
@@ -725,5 +726,15 @@ mod tests {
 			traced_window(full.len() as u64, Some(2)).struct_logs.is_empty(),
 			"a window starting past the last step captures nothing, so overshooting is harmless",
 		);
+
+		for offset in 0..full.len() as u64 {
+			let window = traced_window(offset, Some(2));
+
+			assert_eq!(
+				(window.gas, window.failed, window.return_value, window.weight_consumed),
+				(whole.gas, whole.failed, whole.return_value.clone(), whole.weight_consumed),
+				"the window at {offset} reports the same transaction as the whole trace",
+			);
+		}
 	}
 }

@@ -18,6 +18,9 @@
 //! A version-aware access layer for pallet-revive's runtime API together with the provider that
 //! tracks which runtime API methods are available in each runtime spec version.
 
+use super::trace_windowing::{
+	Narrowing, execution_tracer_walk, extend_with_remaining_windows, fetch_narrowing, windowed,
+};
 use crate::{
 	BlockId,
 	client::{Balance, ClientError, RecordedUnavailable, SubstrateBlockNumber},
@@ -70,6 +73,16 @@ pub struct VersionAwareRuntimeApi {
 	at_block: OnlineClientAtBlock<SrcChainConfig>,
 	capabilities: ReviveRuntimeApiCapabilities,
 	rpc_client: RpcClient,
+	/// This server's `--rpc-max-response-size`, in bytes
+	max_response_size: u32,
+}
+
+/// The execution trace a windowed request is answered with.
+pub(super) fn execution_trace(trace: TraceV1) -> Result<ExecutionTraceV1, ClientError> {
+	match trace {
+		TraceV1::Execution(trace) => Ok(trace),
+		_ => Err(ClientError::TraceUnavailable),
+	}
 }
 
 /// The decoded runtime API value, plus whether it came from a recorder-less fallback replay that
@@ -146,8 +159,9 @@ impl VersionAwareRuntimeApi {
 		at_block: OnlineClientAtBlock<SrcChainConfig>,
 		capabilities: ReviveRuntimeApiCapabilities,
 		rpc_client: RpcClient,
+		max_response_size: u32,
 	) -> Self {
-		Self { at_block, capabilities, rpc_client }
+		Self { at_block, capabilities, rpc_client, max_response_size }
 	}
 
 	/// Get the balance of the given address.
@@ -498,7 +512,7 @@ impl VersionAwareRuntimeApi {
 				});
 				Some(future)
 			},
-			Available(Versioned(2..)) => {
+			Available(Versioned(2..3)) => {
 				let future = Box::pin(async move {
 					let input = TraceTxInputPayloadV2 {
 						block: block.into(),
@@ -514,6 +528,71 @@ impl VersionAwareRuntimeApi {
 						.entry
 						.map(TraceEntry::from);
 					Ok(CallRecordedOutput { value: entry, degraded: false })
+				});
+				Some(future)
+			},
+			Available(Versioned(3..)) => {
+				let future = Box::pin(async move {
+					let one_window = |window| {
+						let input = TraceTxInputPayloadV3 {
+							block: block.clone().into(),
+							tx_index: transaction_index,
+							config: windowed(tracer_type.clone(), window),
+						};
+						let payload = subxt_client::runtime_apis()
+							.revive_api()
+							.trace_tx_versioned(TraceTxVersionedInputPayload::from(input).into());
+
+						async move {
+							let output =
+								self.call_recorded_with_fallback(payload, block_hash).await?;
+							Ok::<_, ClientError>(output.map(|value| {
+								TraceTxOutputPayloadV3::try_from(value.0)
+									.expect("v3 input must produce v3 output; qed")
+									.entry
+									.map(TraceEntry::from)
+							}))
+						}
+					};
+
+					let Some(walk) = execution_tracer_walk(&tracer_type) else {
+						return one_window(None).await;
+					};
+
+					// Sized from a guess, so it narrows on failure like any other window.
+					let mut narrowing = Narrowing::default();
+					let mut first = walk.first_window(self.max_response_size);
+					let CallRecordedOutput { value: entry, degraded } =
+						fetch_narrowing(&mut first, &mut narrowing, &mut |window| {
+							one_window(Some(window)).boxed()
+						})
+						.await?;
+					let Some(TraceEntry::Traced(trace)) = entry else {
+						return Ok(CallRecordedOutput { value: entry, degraded });
+					};
+
+					let mut collected = execution_trace(trace)?;
+					extend_with_remaining_windows(
+						&mut collected,
+						walk,
+						self.max_response_size,
+						first,
+						narrowing,
+						|window| {
+							one_window(Some(window))
+								.map(|output| match output?.value {
+									Some(TraceEntry::Traced(trace)) => execution_trace(trace),
+									_ => Err(ClientError::TraceUnavailable),
+								})
+								.boxed()
+						},
+					)
+					.await?;
+
+					Ok(CallRecordedOutput {
+						value: Some(TraceEntry::Traced(TraceV1::Execution(collected))),
+						degraded,
+					})
 				});
 				Some(future)
 			},
@@ -614,28 +693,85 @@ impl VersionAwareRuntimeApi {
 							.map_err(|err| ClientError::TransactError(err.0))
 					}))
 				},
-				|_| {
+				|version| {
 					let transaction = transaction.clone();
 					let tracer_type = tracer_type.clone();
 					let state_overrides = state_overrides.clone();
 					async move {
-						let input = TraceCallInputPayloadV1 {
-							tx: transaction,
-							config: tracer_type,
-							state_overrides,
+						if version < 3 {
+							let input = TraceCallInputPayloadV1 {
+								tx: transaction,
+								config: tracer_type,
+								state_overrides,
+							};
+							let payload =
+								subxt_client::runtime_apis().revive_api().trace_call_versioned(
+									TraceCallVersionedInputPayload::from(input).into(),
+								);
+							return self
+								.call(payload)
+								.await?
+								.map(|output| {
+									TraceCallOutputPayloadV1::try_from(output.0)
+										.expect("v1 input must produce v1 output; qed")
+										.trace
+								})
+								.map_err(|err| ClientError::TransactError(err.0));
+						}
+
+						let one_window = |window| {
+							let input = TraceCallInputPayloadV3 {
+								tx: transaction.clone(),
+								config: windowed(tracer_type.clone(), window),
+								state_overrides: state_overrides.clone(),
+							};
+							let payload =
+								subxt_client::runtime_apis().revive_api().trace_call_versioned(
+									TraceCallVersionedInputPayload::from(input).into(),
+								);
+
+							async move {
+								self.call(payload)
+									.await?
+									.map(|output| {
+										TraceCallOutputPayloadV3::try_from(output.0)
+											.expect("v3 input must produce v3 output; qed")
+											.trace
+									})
+									.map(trace_v2_as_v1)
+									.map_err(|err| ClientError::TransactError(err.0))
+							}
 						};
-						let payload =
-							subxt_client::runtime_apis().revive_api().trace_call_versioned(
-								TraceCallVersionedInputPayload::from(input).into(),
-							);
-						self.call(payload)
-							.await?
-							.map(|output| {
-								TraceCallOutputPayloadV1::try_from(output.0)
-									.expect("v1 input must produce v1 output; qed")
-									.trace
-							})
-							.map_err(|err| ClientError::TransactError(err.0))
+
+						// Every tracer but the execution one produces no steps to walk.
+						let Some(walk) = execution_tracer_walk(&tracer_type) else {
+							return one_window(None).await;
+						};
+
+						// Sized from a guess, so it narrows on failure like any other window.
+						let mut narrowing = Narrowing::default();
+						let mut first = walk.first_window(self.max_response_size);
+						let trace = fetch_narrowing(&mut first, &mut narrowing, &mut |window| {
+							one_window(Some(window)).boxed()
+						})
+						.await?;
+
+						let mut collected = execution_trace(trace)?;
+						extend_with_remaining_windows(
+							&mut collected,
+							walk,
+							self.max_response_size,
+							first,
+							narrowing,
+							|window| {
+								one_window(Some(window))
+									.map(|trace| execution_trace(trace?))
+									.boxed()
+							},
+						)
+						.await?;
+
+						Ok(TraceV1::Execution(collected))
 					}
 				},
 			);
@@ -835,22 +971,28 @@ impl VersionAwareRuntimeApi {
 			Err(err) => err,
 		};
 		let Some(reason) = err.recorded_unavailable_reason() else { return Err(err) };
+		use std::sync::Once;
+		static METHOD_MISSING_WARNED: Once = Once::new();
+		static DENIED_WARNED: Once = Once::new();
+
 		match reason {
-			RecordedUnavailable::MethodMissing => log::warn!(
-				target: LOG_TARGET,
-				"node does not expose `state_callRecorded` (predates it — upgrade the node); \
-				 falling back to recorder-less replay — traces may be INCOMPLETE on PoV/parachain \
-				 chains",
-			),
-			RecordedUnavailable::Denied => log::warn!(
-				target: LOG_TARGET,
-				"`state_callRecorded` denied (unsafe RPC methods disabled — enable them); falling \
-				 back to recorder-less replay — traces may be INCOMPLETE on PoV/parachain chains",
-			),
+			RecordedUnavailable::MethodMissing => METHOD_MISSING_WARNED.call_once(|| {
+				log::warn!(
+					target: LOG_TARGET,
+					"node does not expose `state_callRecorded`; \
+					 falling back to recorder-less replay",
+				)
+			}),
+			RecordedUnavailable::Denied => DENIED_WARNED.call_once(|| {
+				log::warn!(
+					target: LOG_TARGET,
+					"`state_callRecorded` denied (unsafe RPC methods disabled); \
+					 falling back to recorder-less replay",
+				)
+			}),
 			RecordedUnavailable::NoRecorder => log::debug!(
 				target: LOG_TARGET,
-				"node registers no proof-size recorder; using plain replay (correct, no reclaim \
-				 to honour)",
+				"node registers no proof-size recorder; using plain replay",
 			),
 		}
 		let value = self.call(payload).await.map_err(ClientError::from)?;
@@ -875,13 +1017,19 @@ pub struct VersionAwareRuntimeApiProvider {
 	rpc_client: RpcClient,
 	/// The capabilities of each encountered runtime spec version.
 	cache: Arc<Mutex<HashMap<u32, ReviveRuntimeApiCapabilities>>>,
+	/// This server's `--rpc-max-response-size`, in bytes.
+	max_response_size: u32,
 }
 
 impl VersionAwareRuntimeApiProvider {
 	/// Creates a provider with an empty cache which computes capabilities through the given
 	/// client.
-	pub fn new(api: OnlineClient<SrcChainConfig>, rpc_client: RpcClient) -> Self {
-		Self { api, rpc_client, cache: Arc::new(Mutex::new(HashMap::new())) }
+	pub fn new(
+		api: OnlineClient<SrcChainConfig>,
+		rpc_client: RpcClient,
+		max_response_size: u32,
+	) -> Self {
+		Self { api, rpc_client, cache: Arc::new(Mutex::new(HashMap::new())), max_response_size }
 	}
 
 	/// Returns the version-aware runtime API of the given block, computing and caching the
@@ -889,7 +1037,12 @@ impl VersionAwareRuntimeApiProvider {
 	pub async fn at(&self, block_hash: H256) -> Result<VersionAwareRuntimeApi, ClientError> {
 		let at_block = self.api.at_block(block_hash).await?;
 		let capabilities = self.capabilities(&at_block).await?;
-		Ok(VersionAwareRuntimeApi::new(at_block, capabilities, self.rpc_client.clone()))
+		Ok(VersionAwareRuntimeApi::new(
+			at_block,
+			capabilities,
+			self.rpc_client.clone(),
+			self.max_response_size,
+		))
 	}
 
 	/// Returns the version-aware runtime API for a block when both its Substrate hash and number
@@ -910,7 +1063,12 @@ impl VersionAwareRuntimeApiProvider {
 	) -> Result<VersionAwareRuntimeApi, ClientError> {
 		let at_block = self.api.at_block_hash_and_number(block_hash, block_number).await?;
 		let capabilities = self.capabilities(&at_block).await?;
-		Ok(VersionAwareRuntimeApi::new(at_block, capabilities, self.rpc_client.clone()))
+		Ok(VersionAwareRuntimeApi::new(
+			at_block,
+			capabilities,
+			self.rpc_client.clone(),
+			self.max_response_size,
+		))
 	}
 
 	/// Returns the version-aware runtime API of the given block handle.
@@ -919,7 +1077,12 @@ impl VersionAwareRuntimeApiProvider {
 		at_block: OnlineClientAtBlock<SrcChainConfig>,
 	) -> Result<VersionAwareRuntimeApi, ClientError> {
 		let capabilities = self.capabilities(&at_block).await?;
-		Ok(VersionAwareRuntimeApi::new(at_block, capabilities, self.rpc_client.clone()))
+		Ok(VersionAwareRuntimeApi::new(
+			at_block,
+			capabilities,
+			self.rpc_client.clone(),
+			self.max_response_size,
+		))
 	}
 
 	/// Returns the capabilities of the handle's runtime spec version, computing and caching them

@@ -18,6 +18,7 @@
 //! and is used by the rpc server to query and send transactions to the substrate chain.
 
 pub(crate) mod storage_api;
+pub(crate) mod trace_windowing;
 pub(crate) mod version_aware_runtime_api;
 
 use crate::{
@@ -155,6 +156,18 @@ pub enum ClientError {
 	/// The transaction exists but the node could not produce its trace.
 	#[error("trace unavailable: the node could not produce a trace for this transaction")]
 	TraceUnavailable,
+	/// The trace is longer than one response can return.
+	#[error(
+		"trace is longer than one response can return, which holds {fits} of its steps; raise \
+		 --rpc-max-response-size, or ask for the first {fits} steps with `limit`"
+	)]
+	TraceTooLarge {
+		/// Steps the response can carry, which is the largest `limit` that will succeed.
+		fits: u64,
+	},
+	/// The trace could not be rendered as JSON, so what it would occupy cannot be measured.
+	#[error("failed to render the trace steps as JSON")]
+	TraceRenderFailed,
 	/// The transaction fee could not be found
 	#[error("transactionFeePaid event not found")]
 	TxFeeNotFound,
