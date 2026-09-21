@@ -21,7 +21,7 @@ use crate::{
 	address::AddressMapper,
 	vm::{
 		Ext, RuntimeCosts,
-		evm::{EVMGas, Interpreter, interpreter::Halt, util::as_usize_or_halt},
+		evm::{EVMGas, EvmOpcodeCosts, Interpreter, interpreter::Halt, util::as_usize_or_halt},
 	},
 };
 use core::ops::ControlFlow;
@@ -82,7 +82,7 @@ pub fn caller<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Pushes the size of running contract's bytecode onto the stack.
 pub fn codesize<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(BASE))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::CODESIZE)?;
 	interpreter.stack.push(U256::from(interpreter.bytecode.len()))
 }
 

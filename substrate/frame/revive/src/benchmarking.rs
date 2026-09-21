@@ -3626,6 +3626,34 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Benchmark `r` `CODESIZE` instructions.
+	///
+	/// The code is nothing but `r` `CODESIZE` bytes, so every one of them pushes `r`, which checks
+	/// that the reported size is the original code length rather than the padded one.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_codesize_opcode(
+		r: Linear<0, { limits::EVM_STACK_LIMIT }>,
+	) -> Result<(), BenchmarkError> {
+		use revm::bytecode::opcode::CODESIZE;
+
+		let code = Bytecode::new_raw(vec![CODESIZE; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+		assert_eq!(interpreter.stack.top(), (r > 0).then_some(U256::from(r)).as_ref());
+		Ok(())
+	}
+
 	// Benchmark the execution of instructions.
 	//
 	// It benchmarks the absolute worst case by allocating a lot of memory
