@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789985521842,
+  "lastUpdate": 1789994559632,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -126575,6 +126575,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2782987313,
             "range": "± 23202045",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "843cadf2f65aa35495ee65dca49e8113d2b81dc9",
+          "message": "staking-async runtimes: fix treasury payout XCM location and waive its delivery fees (#13268)\n\nThe parachain runtime hardcoded the treasury's interior location to\npallet index 37, copied from the relay runtime, while its Treasury\npallet sits at index 96. Derive the index from `PalletInfoAccess` in\nboth staking-async runtimes.\n\n`PayOverXcm` charges delivery fees from that location before sending the\npayout XCM. No location converter maps a local pallet location to an\naccount, so the withdrawal failed and every payout errored before\nleaving the chain. Add the location to `WaivedLocations` in both\nruntimes, as #10831 did for the relay and collectives runtimes, and pin\nit with a test.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-21T10:08:29Z",
+          "tree_id": "99cb617ab93c3fbf76ac6be82782e13443c02987",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/843cadf2f65aa35495ee65dca49e8113d2b81dc9"
+        },
+        "date": 1789994516540,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20150233,
+            "range": "± 147767",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20336153,
+            "range": "± 255621",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22009079,
+            "range": "± 248486",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27238464,
+            "range": "± 240331",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 63996461,
+            "range": "± 914714",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 391952643,
+            "range": "± 8733838",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2834832921,
+            "range": "± 71044562",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17816475,
+            "range": "± 167513",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18179697,
+            "range": "± 346303",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18412155,
+            "range": "± 212028",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23012093,
+            "range": "± 251679",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 66705993,
+            "range": "± 865727",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 388852442,
+            "range": "± 6452100",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2806991264,
+            "range": "± 33441138",
             "unit": "ns/iter"
           }
         ]
