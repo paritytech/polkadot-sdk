@@ -44,13 +44,14 @@ use std::{
 ///
 /// Each set bit records one reason the local node keeps the statement (DHT affinity, explicit
 /// affinity). A non-empty mask persists the statement under the normal retention rules. An empty
-/// mask marks it transient: held in memory until the next propagation, forwarded once, then dropped
-/// without ever reaching the database.
+/// mask marks it transient: admitted like any other statement and removed by the maintenance sweep
+/// once propagated, with the usual re-acceptance ban, unless affinity has arrived by then.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct RetentionReasonMask(u8);
 
 impl RetentionReasonMask {
-	/// No reason to persist: the store keeps the statement only until the next propagation.
+	/// No reason to persist: the store keeps the statement only until the first maintenance sweep
+	/// after its propagation.
 	pub const TRANSIENT: RetentionReasonMask = RetentionReasonMask(0b00);
 	/// The local node is one of the closest DHT replicas for one of the statement's topics.
 	pub const DHT_AFFINITY: RetentionReasonMask = RetentionReasonMask(0b01);
@@ -366,7 +367,9 @@ impl V2DhtOrchestrator {
 	}
 
 	pub(crate) fn evict_stale_peers(&mut self) {
-		self.peers_topology.evict(Instant::now());
+		if self.peers_topology.evict(Instant::now()) {
+			self.publish_dht_affinity();
+		}
 		self.report_topology_size();
 	}
 
@@ -568,6 +571,37 @@ mod tests {
 			.find(|topic| !dht.is_affine(&statement_on(*topic)))
 			.expect("199 peers leave some topic without local DHT affinity");
 		assert_eq!(handle.resolver()(&statement_on(non_affine)), RetentionReasonMask::TRANSIENT);
+	}
+
+	#[test]
+	fn evicting_peers_refreshes_published_dht_affinity() {
+		let mut orchestrator = orchestrator_with(1, topology_config(1, 1));
+		let handle = RetentionHandle::new(peer(1), nz(1));
+		orchestrator.set_retention_handle(handle.clone());
+
+		let remote = peer(2);
+		let statement = statement_on(Topic(sp_crypto_hashing::blake2_256(&remote.to_bytes())));
+		orchestrator.on_peer_identified(remote, true);
+		orchestrator.on_substream_opened(remote);
+		orchestrator.on_substream_closed(remote);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::TRANSIENT);
+
+		// Exceed the 8192-peer cap using discovery alone
+		orchestrator.on_peers_discovered((0u64..8192).map(|seed| {
+			let mut bytes = [0u8; 34];
+			bytes[1] = 32;
+			bytes[2..10].copy_from_slice(&seed.to_le_bytes());
+			PeerId::from_bytes(&bytes).expect("identity multihash peer id; qed")
+		}));
+		assert_eq!(orchestrator.peers_topology.known_peers_count(), 8193);
+		assert_eq!(orchestrator.peers_topology.dht_eligible_peers_count(), 1);
+
+		orchestrator.evict_stale_peers();
+
+		assert_eq!(orchestrator.peers_topology.known_peers_count(), 8192);
+		assert_eq!(orchestrator.peers_topology.dht_eligible_peers_count(), 0);
+		assert!(orchestrator.peers_topology.dht_affinity().is_affine(&statement));
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::DHT_AFFINITY);
 	}
 
 	#[test]
