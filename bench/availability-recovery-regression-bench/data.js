@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789998054763,
+  "lastUpdate": 1790001119726,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e30a412c6cd957afedbb3157dac9cf4b424b0fa6",
-          "message": "net: Strip previous p2p prefix before concatenating addresses (#11078)\n\nThis PR ensures that a `MultiaddrWithPeerId` will always remain valid\nafter a concatenating process.\n\nThe litep2p code will concatanate the provided multiaddr-with-peerID\nregardless if the address already contains a `p2p/..` prefix:\n\n\nhttps://github.com/paritytech/polkadot-sdk/blob/e85be1c07adedcc86554affa4f6af536c4a2efc1/substrate/client/network/src/litep2p/service.rs#L427-L434\n\n\nThis then can lead to addresses for reserved peers to never be dialed by\nthe network backend as they are considered invalid.\n\nThis has been discovered by running the networking benchmarks:\n\nhttps://github.com/paritytech/polkadot-sdk/blob/e85be1c07adedcc86554affa4f6af536c4a2efc1/substrate/client/network/benches/notifications_protocol.rs#L143-L148\n\nPart of the cleanups for:\n- https://github.com/paritytech/polkadot-sdk/issues/10425\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-22T19:52:39Z",
-          "tree_id": "e0b7771005d72b671ade97ec038e2f28910c9b82",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e30a412c6cd957afedbb3157dac9cf4b424b0fa6"
-        },
-        "date": 1771794623431,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.254665329900003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12116811543333336,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13668875443333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c46fa16033309fc9262f6866fa1a5b5e49acf198",
+          "message": "[CI/CD] Adjust time to fix cron job (#13275)\n\nThis PR fixes a cron job that runs in the paritytech-release org to sync\nforks",
+          "timestamp": "2026-09-21T13:01:19Z",
+          "tree_id": "8837004e80fd58c0bc458761e6e1a54c3f9be8a4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c46fa16033309fc9262f6866fa1a5b5e49acf198"
+        },
+        "date": 1790001078169,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.9474640203,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13725423556666666,
             "unit": "seconds"
           }
         ]
