@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["v2dht_enabled"],"mod":["config"],"struct":["Peer","RetentionReasonMask","StatementHandler","StatementHandlerPrototype","V2DhtConfig"],"type":["StatementImportFuture","Statements"]};
+window.SIDEBAR_ITEMS = {"fn":["v2dht_enabled"],"mod":["config"],"struct":["AffinityTopicsFile","Peer","RetentionReasonMask","StatementHandler","StatementHandlerPrototype","V2DhtConfig"],"type":["StatementImportFuture","Statements"]};
