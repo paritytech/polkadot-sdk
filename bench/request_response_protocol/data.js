@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789997257514,
+  "lastUpdate": 1790000308143,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -126791,6 +126791,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2685985833,
             "range": "± 20738040",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c46fa16033309fc9262f6866fa1a5b5e49acf198",
+          "message": "[CI/CD] Adjust time to fix cron job (#13275)\n\nThis PR fixes a cron job that runs in the paritytech-release org to sync\nforks",
+          "timestamp": "2026-09-21T13:01:19Z",
+          "tree_id": "8837004e80fd58c0bc458761e6e1a54c3f9be8a4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c46fa16033309fc9262f6866fa1a5b5e49acf198"
+        },
+        "date": 1790000265023,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19433380,
+            "range": "± 310039",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19419169,
+            "range": "± 153286",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20869792,
+            "range": "± 163723",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25974214,
+            "range": "± 153825",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60661726,
+            "range": "± 562043",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 353513783,
+            "range": "± 3251264",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2670931499,
+            "range": "± 159085733",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16791916,
+            "range": "± 229448",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16876253,
+            "range": "± 207320",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17465997,
+            "range": "± 216530",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21975475,
+            "range": "± 149572",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62160081,
+            "range": "± 818276",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 367428213,
+            "range": "± 3004055",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2675861213,
+            "range": "± 29213297",
             "unit": "ns/iter"
           }
         ]
