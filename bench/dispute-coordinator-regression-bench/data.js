@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789995661261,
+  "lastUpdate": 1789998256198,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "jesuswrites20043@gmail.com",
-            "name": "dotdev.",
-            "username": "dotandev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "045528198e3189eef3824fa088a1ab77692b7edb",
-          "message": "polkadot-omni-node-lib: emit warnings for aura authority id type assumptions (#11102)\n\ncloses https://github.com/paritytech/polkadot-sdk/issues/11026\n\nThis PR adds explicit warnings at node startup to surface these\nassumptions:\n\n- When the chain spec id starts with `asset-hub-polkadot` or\n`statemint`,\nthe node assumes `ed25519` as the Aura authority id type and now emits a\n  warning documenting this specific assumption.\n- For all other chains, the node assumes `sr25519` by default and now\nemits\n  a warning noting that `ed25519` runtimes  are not yet\n  supported.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-19T10:57:16Z",
-          "tree_id": "46e4d2e109e610fa7db2880d85b8e851dc0c1029",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/045528198e3189eef3824fa088a1ab77692b7edb"
-        },
-        "date": 1771502598639,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00916049914999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006647172929999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026775644799999993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009347457109999993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c7bc926f89162cb8dd8681af112fcd1cb9677227",
+          "message": "statement-store: read affinity topics from a file (#13240)\n\n# Description\n\nAdds a hidden `--statement-affinity-topics-file <PATH>` flag to the\nsubstrate node and the omni-node. The file holds one 32-byte hex topic\nper line, blank lines and `#` comments skipped, and adds to the\nrepeatable `--statement-affinity-topic` flag. A line holds the topic\nitself, not a name to hash, since applications derive topics in their\nown ways.\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12557.\n\n## Integration\n\nOptional flag, takes effect only on the experimental v2 DHT statement\npath. `V2DhtConfig` gains the field `affinity_topics_file:\nOption<AffinityTopicsFile>`.",
+          "timestamp": "2026-09-21T11:19:08Z",
+          "tree_id": "88e1eb03cedf1d2435c9f258efc9acc72573276b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c7bc926f89162cb8dd8681af112fcd1cb9677227"
+        },
+        "date": 1789998214703,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009388092409999988,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025195450299999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010547979769999983,
             "unit": "seconds"
           }
         ]
