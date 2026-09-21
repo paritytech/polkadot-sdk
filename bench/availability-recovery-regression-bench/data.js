@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789986442771,
+  "lastUpdate": 1789995463838,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "dc18933ad1040534648a191bbfdc698a4de36ab3",
-          "message": "statement-store: fix benchmark EMFILE by pooling RPC connections (#11070)\n\n# Description\n\n- Fix \"Too many open files\" (EMFILE) error in all statement-store\nbenchmarks\n- Replace per-participant RPC connections with a shared connection pool\n(100 per node)\n- Participants share connections via RpcClient::clone() which\nmultiplexes over the same transport\n\n## Root Cause\nEach of ~50,000 benchmark participants called `node.rpc().await?` to\ncreate its own\nTCP/WebSocket connection, exhausting the OS per-process file descriptor\nlimit (EMFILE error 24)\n\n## Fix\nIntroduce `RPC_POOL_SIZE = 100` constant. Create a pool of conn per\nnode, then\ndistribute them round-robin to participants reduces tot file descriptors\nfrom ~50,000 to at most 600 (6 nodes x 100)\n\n## Test plan\n- [x] Run `statement_store_many_nodes_bench` with zombienet to verify no\nEMFILE error\n- [x] Verify benchmarks complete successfully with pooled connections",
-          "timestamp": "2026-02-20T09:00:19Z",
-          "tree_id": "7c45276c612ff0f3506c4268f2e8dc9b00d0ec7c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/dc18933ad1040534648a191bbfdc698a4de36ab3"
-        },
-        "date": 1771583079473,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12597946796666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.190330704933336,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1274007048,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "843cadf2f65aa35495ee65dca49e8113d2b81dc9",
+          "message": "staking-async runtimes: fix treasury payout XCM location and waive its delivery fees (#13268)\n\nThe parachain runtime hardcoded the treasury's interior location to\npallet index 37, copied from the relay runtime, while its Treasury\npallet sits at index 96. Derive the index from `PalletInfoAccess` in\nboth staking-async runtimes.\n\n`PayOverXcm` charges delivery fees from that location before sending the\npayout XCM. No location converter maps a local pallet location to an\naccount, so the withdrawal failed and every payout errored before\nleaving the chain. Add the location to `WaivedLocations` in both\nruntimes, as #10831 did for the relay and collectives runtimes, and pin\nit with a test.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-21T10:08:29Z",
+          "tree_id": "99cb617ab93c3fbf76ac6be82782e13443c02987",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/843cadf2f65aa35495ee65dca49e8113d2b81dc9"
+        },
+        "date": 1789995423458,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 12.004036433766663,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13412988076666668,
             "unit": "seconds"
           }
         ]
