@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789986547693,
+  "lastUpdate": 1789995562483,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "luka.ciric2106@gmail.com",
-            "name": "Luka Ciric",
-            "username": "cirko33"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5049801bd6c2030260ba9a1eea5ade6f81016076",
-          "message": "Remove MaxSessionKeysLength and MaxSessionKeysProofLength (#11115)\n\nfixes the issue #11083 where MaxSessionKeysLength and\nMaxSessionKeysProofLength were unnecessary because there are not stored,\njust validated.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-19T21:54:31Z",
-          "tree_id": "c3feb5acaf3532afcd3c159253ce760a85ce27a6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5049801bd6c2030260ba9a1eea5ade6f81016076"
-        },
-        "date": 1771542841214,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52940,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63629.37000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.6652699438599994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000021358260000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3436467193099952,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00587426782,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000021358260000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021477829999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021477829999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.71505527561,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.66419745473,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.709482011349999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.847444360829986,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.581835774692926,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.95097003350998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-0",
             "value": 2.772787588479999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "843cadf2f65aa35495ee65dca49e8113d2b81dc9",
+          "message": "staking-async runtimes: fix treasury payout XCM location and waive its delivery fees (#13268)\n\nThe parachain runtime hardcoded the treasury's interior location to\npallet index 37, copied from the relay runtime, while its Treasury\npallet sits at index 96. Derive the index from `PalletInfoAccess` in\nboth staking-async runtimes.\n\n`PayOverXcm` charges delivery fees from that location before sending the\npayout XCM. No location converter maps a local pallet location to an\naccount, so the withdrawal failed and every payout errored before\nleaving the chain. Add the location to `WaivedLocations` in both\nruntimes, as #10831 did for the relay and collectives runtimes, and pin\nit with a test.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-21T10:08:29Z",
+          "tree_id": "99cb617ab93c3fbf76ac6be82782e13443c02987",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/843cadf2f65aa35495ee65dca49e8113d2b81dc9"
+        },
+        "date": 1789995522194,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63566.969999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005346396060000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001972072,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.034714988419964,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.75032572514,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.720781187299999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7888360231499628,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.338252171840005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.6998217692599984,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7313517156699993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001943458,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.374716755392708,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001972072,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001943458,
             "unit": "seconds"
           }
         ]
