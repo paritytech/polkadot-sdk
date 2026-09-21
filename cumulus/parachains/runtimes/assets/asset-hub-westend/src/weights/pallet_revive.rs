@@ -1074,7 +1074,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Skipped::Metadata` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// The range of component `n` is `[0, 416]`.
 	/// The range of component `o` is `[0, 416]`.
-	fn seal_set_storage_hot(n: u32, _o: u32, ) -> Weight {
+	fn seal_set_storage_hot(n: u32, o: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1326,13 +1326,15 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(190, 0).saturating_mul(n.into()))
 	}
 	/// The range of component `n` is `[0, 416]`.
-	fn seal_take_transient_storage(_n: u32, ) -> Weight {
+	fn seal_take_transient_storage(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 5_302_000 picoseconds.
 		Weight::from_parts(5_897_132, 0)
 			.saturating_add(Weight::from_parts(0, 0))
+			// Standard Error: 9
+			.saturating_add(Weight::from_parts(70, 0).saturating_mul(n.into()))
 	}
 	/// Storage: `Revive::OriginalAccount` (r:1 w:0)
 	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
@@ -1347,7 +1349,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// The range of component `t` is `[0, 1]`.
 	/// The range of component `d` is `[0, 1]`.
 	/// The range of component `i` is `[0, 1048576]`.
-	fn seal_call(t: u32, d: u32, _i: u32, ) -> Weight {
+	fn seal_call(t: u32, d: u32, i: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `3821`
 		//  Estimated: `7286`
@@ -1890,13 +1892,15 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Storage: `Revive::ReceiptInfoData` (r:0 w:1)
 	/// Proof: `Revive::ReceiptInfoData` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// The range of component `e` is `[0, 100]`.
-	fn on_finalize_per_event(_e: u32, ) -> Weight {
+	fn on_finalize_per_event(e: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `2215`
 		//  Estimated: `5680`
 		// Minimum execution time: 50_024_000 picoseconds.
 		Weight::from_parts(53_288_222, 0)
 			.saturating_add(Weight::from_parts(0, 5680))
+			// Standard Error: 329
+			.saturating_add(Weight::from_parts(561, 0).saturating_mul(e.into()))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(5))
 	}

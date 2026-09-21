@@ -1,0 +1,81 @@
+title: 'txpool: hold the transaction pool as a trait object instead of a wrapper'
+
+doc:
+  - audience: Node Dev
+    description: |-
+      `TransactionPoolWrapper` was a struct wrapping a boxed transaction pool, existing only to give
+      it a sized type. Everything it did was forward a method to the pool inside it.
+      `TransactionPoolHandle` is now a type alias for the trait object itself rather than for that
+      wrapper, so the forwarding layer is gone and `Builder::build` hands back an
+      `Arc<TransactionPoolHandle<Block>>` instead of a wrapper by value.
+
+      `FullClientTransactionPool` no longer carries a `Client` type parameter. All three of its
+      associated types are projections that discard the client, so `Hash`, `InPoolTransaction` and
+      `Error` are spelled out in terms of `Block` alone. Naming them that way required widening the
+      public API of `sc-transaction-pool`: `sc_transaction_pool::error` and
+      `sc_transaction_pool::Transaction` are now exported.
+
+      `BuildNetworkParams`, `BuildNetworkAdvancedParams`, `SpawnTasksParams` and
+      `GenRpcModuleParams` keep a generic transaction pool parameter, relaxed to `?Sized` so a trait
+      object can be passed in. The service therefore does not pin the pool's error or in-pool
+      transaction type, and an alternative pool implementation is free to define its own. What those
+      entry points no longer do is constrain the client on the transaction pool's behalf: the
+      `BlockIdTo` and `TaggedTransactionQueue` bounds that only existed to build a pool are gone
+      from `build_network`, `build_network_advanced`, `spawn_tasks`, `gen_rpc_module` and from the
+      cumulus `build_network`.
+
+      What those entry points do need from the client is spelled out once as the new
+      `sc_service::ClientForService`, in the same shape as the existing `ClientForGrandpa` and
+      `ClientForTransactionPool`, with each one adding only the few capabilities it genuinely uses
+      on top.
+
+      The client capabilities needed to actually construct a pool are spelled out once as
+      `sc_transaction_pool::ClientForTransactionPool`, which is used by the transaction pool
+      `Builder` and internally by `FullChainApi`, `BasicPool::new_full` and
+      `ForkAwareTxPool::new_full`. It does not pin the `BlockIdTo` error, so a hand written client
+      is free to choose its own.
+
+      Components that keep the pool behind an `Arc` stay generic over the pool type and accept
+      unsized pools now, which is a relaxation and needs no changes on their side.
+
+      Migration for nodes outside this repository
+
+      - `sc_transaction_pool::Builder::build` hands back an `Arc` now, so drop the surrounding
+        `Arc::from(..)` at the construction site.
+      - `TransactionPoolHandle<Block, Client>` is `TransactionPoolHandle<Block>` now.
+      - Add `?Sized` to any generic parameter of your own that holds the pool behind an `Arc`,
+        because `TransactionPoolHandle` is a trait object and no longer has a statically known
+        size. The parameters listed above already carry it, so passing the handle into them needs
+        no change.
+
+crates:
+  - name: sc-transaction-pool
+    bump: major
+  - name: sc-transaction-pool-api
+    bump: minor
+  - name: sc-service
+    bump: major
+  - name: sc-rpc
+    bump: minor
+  - name: sc-rpc-spec-v2
+    bump: minor
+  - name: sc-basic-authorship
+    bump: minor
+  - name: sc-consensus-manual-seal
+    bump: minor
+  - name: sc-mixnet
+    bump: minor
+  - name: sc-hop
+    bump: minor
+  - name: substrate-frame-rpc-system
+    bump: minor
+  - name: node-rpc
+    bump: patch
+  - name: polkadot-rpc
+    bump: minor
+  - name: cumulus-client-service
+    bump: major
+  - name: polkadot-omni-node-lib
+    bump: patch
+  - name: polkadot-service
+    bump: patch
