@@ -377,8 +377,9 @@ impl V2DhtOrchestrator {
 	}
 
 	pub(crate) fn evict_stale_peers(&mut self) {
-		self.peers_topology.evict(Instant::now());
-		self.publish_dht_affinity();
+		if self.peers_topology.evict(Instant::now()) {
+			self.publish_dht_affinity();
+		}
 		self.report_topology_size();
 	}
 
@@ -593,6 +594,37 @@ mod tests {
 			.find(|topic| !dht.is_affine(&statement_on(*topic)))
 			.expect("199 peers leave some topic without local DHT affinity");
 		assert_eq!(handle.resolver()(&statement_on(non_affine)), RetentionReasonMask::TRANSIENT);
+	}
+
+	#[test]
+	fn evicting_peers_refreshes_published_dht_affinity() {
+		let mut orchestrator = orchestrator_with(1, topology_config(1, 1));
+		let handle = RetentionHandle::new(peer(1), nz(1));
+		orchestrator.set_retention_handle(handle.clone());
+
+		let remote = peer(2);
+		let statement = statement_on(Topic(sp_crypto_hashing::blake2_256(&remote.to_bytes())));
+		orchestrator.on_peer_identified(remote, true);
+		orchestrator.on_substream_opened(remote);
+		orchestrator.on_substream_closed(remote);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::TRANSIENT);
+
+		// Exceed the 8192-peer cap using discovery alone
+		orchestrator.on_peers_discovered((0u64..8192).map(|seed| {
+			let mut bytes = [0u8; 34];
+			bytes[1] = 32;
+			bytes[2..10].copy_from_slice(&seed.to_le_bytes());
+			PeerId::from_bytes(&bytes).expect("identity multihash peer id; qed")
+		}));
+		assert_eq!(orchestrator.peers_topology.known_peers_count(), 8193);
+		assert_eq!(orchestrator.peers_topology.dht_eligible_peers_count(), 1);
+
+		orchestrator.evict_stale_peers();
+
+		assert_eq!(orchestrator.peers_topology.known_peers_count(), 8192);
+		assert_eq!(orchestrator.peers_topology.dht_eligible_peers_count(), 0);
+		assert!(orchestrator.peers_topology.dht_affinity().is_affine(&statement));
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::DHT_AFFINITY);
 	}
 
 	#[test]
@@ -820,37 +852,5 @@ mod tests {
 		assert!(mask.is_persistent());
 		assert!(mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
 		assert!(!mask.contains(RetentionReasonMask::DHT_AFFINITY));
-	}
-
-	#[test]
-	fn evict_stale_peers_republishes_dht_affinity() {
-		let mut orchestrator = orchestrator_with(1, topology_config(1, 1));
-		let handle = RetentionHandle::new(peer(1), nz(1));
-		orchestrator.set_retention_handle(handle.clone());
-
-		let peers: Vec<_> = (2u8..=200).map(peer).collect();
-		orchestrator.on_peers_discovered(peers.clone());
-		for peer in &peers {
-			orchestrator.on_peer_identified(*peer, /* supports_statement_protocol */ true);
-		}
-		let current = orchestrator.peers_topology.dht_affinity();
-		let lost_topic = (0u8..=255)
-			.map(topic)
-			.find(|topic| !current.is_affine(&statement_on(*topic)))
-			.expect("199 closer peers leave non-affine topics");
-		let dht_affine = || {
-			handle.resolver()(&statement_on(lost_topic)).contains(RetentionReasonMask::DHT_AFFINITY)
-		};
-		assert!(!dht_affine());
-
-		// Age every peer past the TTL behind the sweep's back: the local node is the only replica
-		// left, yet the oracle published before the eviction still denies the topic.
-		orchestrator
-			.peers_topology
-			.evict(Instant::now() + peers_topology::PEER_STALENESS_TTL);
-		assert!(!dht_affine());
-
-		orchestrator.evict_stale_peers();
-		assert!(dht_affine());
 	}
 }
