@@ -20,7 +20,7 @@ use crate::{
 	vm::{
 		Ext,
 		evm::{
-			EVMGas, EvmOpcodeCosts, Interpreter,
+			EvmOpcodeCosts, Interpreter,
 			interpreter::Halt,
 			util::{as_usize_or_halt, as_usize_or_halt_with},
 		},
@@ -28,7 +28,6 @@ use crate::{
 };
 use alloc::vec::Vec;
 use core::ops::ControlFlow;
-use revm::interpreter::gas::BASE;
 
 /// Implements the JUMP instruction.
 ///
@@ -80,7 +79,7 @@ pub fn jumpdest<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Pushes the current program counter onto the stack.
 pub fn pc<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(BASE))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::PC)?;
 	// - 1 because we have already advanced the instruction pointer in `Interpreter::step`
 	interpreter.stack.push(U256::from(interpreter.bytecode.pc() - 1))?;
 	ControlFlow::Continue(())

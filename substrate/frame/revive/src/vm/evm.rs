@@ -75,6 +75,7 @@ pub(crate) enum EvmOpcodeCosts {
 	POP,
 	DUP,
 	SWAP,
+	PC,
 }
 
 impl<T: Config> Token<T> for EvmOpcodeCosts {
@@ -91,6 +92,7 @@ impl<T: Config> Token<T> for EvmOpcodeCosts {
 			POP => cost_args!(evm_pop_opcode, 1),
 			DUP => cost_args!(evm_dup_opcode, 1),
 			SWAP => cost_args!(evm_swap_opcode, 1),
+			PC => cost_args!(evm_pc_opcode, 1),
 		}
 	}
 }

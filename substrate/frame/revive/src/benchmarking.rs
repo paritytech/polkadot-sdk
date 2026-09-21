@@ -3548,6 +3548,32 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Benchmark `r` `PC` instructions.
+	///
+	/// Each `PC` pushes its own offset, so the top of the stack afterwards is the offset of the
+	/// last one, which checks that every instruction ran and that the program counter is right.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_pc_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) -> Result<(), BenchmarkError> {
+		use revm::bytecode::opcode::PC;
+
+		let code = Bytecode::new_raw(vec![PC; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+		assert_eq!(interpreter.stack.top(), r.checked_sub(1).map(U256::from).as_ref());
+		Ok(())
+	}
+
 	// Benchmark the execution of instructions.
 	//
 	// It benchmarks the absolute worst case by allocating a lot of memory
