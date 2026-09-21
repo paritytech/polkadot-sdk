@@ -23,13 +23,13 @@ use crate::{
 	},
 };
 use core::ops::ControlFlow;
-use revm::interpreter::gas::{BASE, VERYLOW};
+use revm::interpreter::gas::VERYLOW;
 
 /// Implements the POP instruction.
 ///
 /// Removes the top item from the stack.
 pub fn pop<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(BASE))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::POP)?;
 	let [_] = interpreter.stack.popn()?;
 	ControlFlow::Continue(())
 }

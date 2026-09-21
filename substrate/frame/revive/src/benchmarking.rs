@@ -3454,6 +3454,36 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Benchmark `r` `POP` instructions.
+	///
+	/// All items are placed on the stack before the code executes therefore the benchmark gives the
+	/// cost of just `POP` without any overhead.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_pop_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) -> Result<(), BenchmarkError> {
+		use revm::bytecode::opcode::POP;
+
+		let code = Bytecode::new_raw(vec![POP; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..r {
+			if interpreter.stack.push(U256::MAX).is_break() {
+				return Err(BenchmarkError::Stop("Items exceed the stack limit"));
+			}
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		Ok(())
+	}
+
 	// Benchmark the execution of instructions.
 	//
 	// It benchmarks the absolute worst case by allocating a lot of memory
