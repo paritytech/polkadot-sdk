@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789986652647,
+  "lastUpdate": 1789995661261,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "00fb736fb7aedce81d74d85113791a7968e20f35",
-          "message": "`prefix_logs_with`: Ensure the macro works correctly for futures (#11095)\n\nWhen setting up a tracing span in an async future, it may gets\ninvalidated by any `await` point. The problem is that after continuing a\nfuture, it may runs on a different thread where the `span` isn't active\nanymore. The solution for this is to `instrument` the future properly.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-18T21:04:19Z",
-          "tree_id": "0a7e2fc4cb39cffcbe9d70ac2dfd1c157cbb96eb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/00fb736fb7aedce81d74d85113791a7968e20f35"
-        },
-        "date": 1771453087138,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026636429099999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006548468029999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00921850146999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010265911209999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "843cadf2f65aa35495ee65dca49e8113d2b81dc9",
+          "message": "staking-async runtimes: fix treasury payout XCM location and waive its delivery fees (#13268)\n\nThe parachain runtime hardcoded the treasury's interior location to\npallet index 37, copied from the relay runtime, while its Treasury\npallet sits at index 96. Derive the index from `PalletInfoAccess` in\nboth staking-async runtimes.\n\n`PayOverXcm` charges delivery fees from that location before sending the\npayout XCM. No location converter maps a local pallet location to an\naccount, so the withdrawal failed and every payout errored before\nleaving the chain. Add the location to `WaivedLocations` in both\nruntimes, as #10831 did for the relay and collectives runtimes, and pin\nit with a test.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-21T10:08:29Z",
+          "tree_id": "99cb617ab93c3fbf76ac6be82782e13443c02987",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/843cadf2f65aa35495ee65dca49e8113d2b81dc9"
+        },
+        "date": 1789995620611,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0024772353299999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009103453629999975,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009347457109999993,
             "unit": "seconds"
           }
         ]
