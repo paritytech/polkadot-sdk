@@ -3484,6 +3484,70 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Benchmark `r` `DUP16` instructions.
+	///
+	/// This is used for `DUP1`..`DUP16` since all of them read one item at a fixed offset from the
+	/// top and push a copy of it, so `N` doesn't change the amount of work. The sixteen items are
+	/// placed on the stack before the code executes.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_dup_opcode(
+		r: Linear<0, { limits::EVM_STACK_LIMIT - 16 }>,
+	) -> Result<(), BenchmarkError> {
+		use revm::bytecode::opcode::DUP16;
+
+		let code = Bytecode::new_raw(vec![DUP16; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..16 {
+			if interpreter.stack.push(U256::MAX).is_break() {
+				return Err(BenchmarkError::Stop("Items exceed the stack limit"));
+			}
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 16 + r as usize);
+		Ok(())
+	}
+
+	/// Benchmark `r` `SWAP16` instructions.
+	///
+	/// This is used for `SWAP1`..`SWAP16` since all of them exchange the top item with one at a
+	/// fixed offset below it, so `N` doesn't change the amount of work. The seventeen items are
+	/// placed on the stack before the code executes.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) -> Result<(), BenchmarkError> {
+		use revm::bytecode::opcode::SWAP16;
+
+		let code = Bytecode::new_raw(vec![SWAP16; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..17 {
+			if interpreter.stack.push(U256::MAX).is_break() {
+				return Err(BenchmarkError::Stop("Items exceed the stack limit"));
+			}
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 17);
+		Ok(())
+	}
+
 	// Benchmark the execution of instructions.
 	//
 	// It benchmarks the absolute worst case by allocating a lot of memory

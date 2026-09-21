@@ -19,11 +19,10 @@ use crate::{
 	U256,
 	vm::{
 		Ext,
-		evm::{EVMGas, EvmOpcodeCosts, Interpreter, interpreter::Halt},
+		evm::{EvmOpcodeCosts, Interpreter, interpreter::Halt},
 	},
 };
 use core::ops::ControlFlow;
-use revm::interpreter::gas::VERYLOW;
 
 /// Implements the POP instruction.
 ///
@@ -64,7 +63,7 @@ pub fn push<'ext, const N: usize, E: Ext>(
 pub fn dup<'ext, const N: usize, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 ) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::DUP)?;
 	interpreter.stack.dup(N)
 }
 
@@ -74,7 +73,7 @@ pub fn dup<'ext, const N: usize, E: Ext>(
 pub fn swap<'ext, const N: usize, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 ) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SWAP)?;
 	assert!(N != 0);
 	interpreter.stack.exchange(0, N)
 }
