@@ -70,8 +70,8 @@ balance.
 ━━ Asset Hub block B — execution ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Governance (Root)
-   │  approve_allocation(mode: Permanent, target, amount)
-   │  execute_allocation(id)
+   │  approve_release(target, amount)
+   │  execute_release(id)
    ▼
 pallet-jamkb
    │  holds the units (§3.1), records the operation, and appends a
@@ -183,6 +183,9 @@ type ServiceAccounts = Map<ServiceId, AccountId>;
 
 /// The frozen lease targets (§4.3).
 type FrozenTargets = Set<ServiceId>;
+
+/// The account a lease is assigned to (`assign_lease`).
+type LeaseAssignments = Map<AllocationId, AccountId>;
 
 /// One approved allocation.
 struct Allocation {
@@ -355,12 +358,18 @@ fn initialize(released: Balance);
 /// state; enables operations (§3.1).
 fn attest(anchor: Anchor);
 
-/// Origin: token holder or governance. Records `Allocation{state: Approved}`.
-/// The approval places the hold (§3.3): on the approver's account, or on the
-/// pallet's custody for governance. A lease is an offer until the target
-/// accepts it (§4.1).
-fn approve_allocation(mode: AllocationMode, target: ServiceId, amount: Balance,
-                      valid_from: Option<BlockNumber>, valid_for: BlockNumber);
+/// Origin: governance (Root). Records `Allocation{mode: Permanent, state:
+/// Approved}` and holds `amount` under `Released` in the pallet's custody
+/// (§3.3).
+fn approve_release(target: ServiceId, amount: Balance,
+                   valid_from: Option<BlockNumber>, valid_for: BlockNumber);
+
+/// Origin: a token holder or governance. Records `Allocation{mode: Lease,
+/// state: Approved}` and holds `amount` on the approver's account (§3.3).
+/// Rejected if the target is recorded frozen, has no registered service
+/// account, or already has an accepted lease that is not `Closed`.
+fn offer_lease(target: ServiceId, amount: Balance, duration: BlockNumber,
+               valid_from: Option<BlockNumber>, valid_for: BlockNumber);
 
 /// Origin: the allocation's approver. Cancels an allocation in `Approved`: the
 /// hold is released and the allocation state moves to `Closed`. The call stays
@@ -373,24 +382,29 @@ fn cancel_allocation(id: AllocationId);
 fn pause();
 fn resume();
 
-/// Origin: for a lease, the target's service account (`ServiceAccounts`); for
-/// a permanent release, any signed account. Legal only while the allocation is
-/// `Approved`, at or after `valid_from` and before `expires_at`. Each
-/// execution creates a new delivery operation; a failed one is terminal
-/// (§6.1). Moves the allocation to `Delivering` and records the delivery
-/// operation.
-fn execute_allocation(id: AllocationId);
+/// Origin: any signed account. Legal while the allocation is `Approved`, at
+/// or after `valid_from` and before `expires_at`. Each execution creates a
+/// new delivery operation; a failed one is terminal. Moves the
+/// allocation to `Delivering` and records the delivery operation.
+fn execute_release(id: AllocationId);
+
+/// Origin: the target's service account (`ServiceAccounts`). Legal while the
+/// allocation is `Approved`, at or after `valid_from` and before
+/// `expires_at`. Each execution creates a new delivery operation; a failed
+/// one is terminal. Moves the allocation to `Delivering` and records
+/// the delivery operation.
+fn accept_lease(id: AllocationId);
 
 /// Origin: any signed account. Legal while the lease is `Reclaiming`. Stops
 /// the target from taking more state footprint and records it in
-/// `FrozenTargets`;
-/// a Failed settle clears the record. The Parachain Service has no support for
-/// this.
+/// `FrozenTargets`; a Failed settle clears the record. The Parachain Service
+/// has no support for this.
 fn freeze_target(target: ServiceId);
 
-/// Origin: while the lease is `Reclaiming`, its approver or governance; once
-/// it is `Closed`, any signed account with the recovery deposit. Reverses the
-/// freeze; a Confirmed settle clears the `FrozenTargets` record.
+/// Origin: the lease's approver or governance while the lease is
+/// `Reclaiming`; any signed account with the recovery deposit once it is
+/// `Closed` and fully returned. Reverses the freeze; a Confirmed settle
+/// clears the `FrozenTargets` record.
 fn unfreeze_target(target: ServiceId);
 
 /// Origin: any signed account, with the recovery deposit, refunded in
@@ -399,10 +413,10 @@ fn unfreeze_target(target: ServiceId);
 /// each sent as `RemoveServiceStorage { service, key }`.
 fn cleanup_storage(target: ServiceId, keys: BoundedVec<Key, MAX_KEYS_PER_PAGE>);
 
-/// Origin: any signed account, with the recovery deposit; the target's code
-/// preimage takes the lease's approver or governance. Legal while the lease
-/// is `Reclaiming`. Releases a solicited preimage: a `Forget` upward message
-/// (Parachain Service design §6.1).
+/// Origin: any signed account, with the recovery deposit. Legal while the
+/// lease is `Reclaiming`. Releases a solicited preimage: a `Forget` upward
+/// message. Forgetting the target's code preimage is restricted: governance
+/// at any time, the approver only after a notice period since the freeze.
 fn forget_preimage(target: ServiceId, hash: Hash, len: u32);
 
 /// Origin: any signed account, with the recovery deposit. Legal while the
@@ -415,14 +429,39 @@ fn forget_preimage(target: ServiceId, hash: Hash, len: u32);
 fn eject_target(target: ServiceId);
 
 /// Origin: any signed account. Releases the supervised target to itself
-/// (`SetServiceSupervisor`). Rejected while the target is recorded frozen or
-/// has a lease that is not `Closed`.
+/// (`SetServiceSupervisor`). Rejected while the target is recorded frozen,
+/// or has a lease that is not `Closed` and fully returned.
 fn unsupervise(target: ServiceId);
 
-/// Origin: the lease's approver. Legal past `delivered_at + duration + grace`,
-/// from `Delivered` and from `Reclaiming`. Creates `Operation{Reclaim}` for
-/// `amount`, capped at the allocation's remaining amount.
+/// Origin: the lease's approver past `delivered_at + duration + grace`, or
+/// the target's service account at any time. Legal from `Delivered` and from
+/// `Reclaiming`. Creates `Operation{Reclaim}` for `amount`, capped at the
+/// allocation's remaining amount.
 fn reclaim(id: AllocationId, amount: Balance);
+
+/// Origin: the lease's approver or governance. Legal while the lease is
+/// `Reclaiming`. The `Leased` hold moves into the pallet's custody under
+/// `Released` and the lease moves to `Closed`.
+fn close_lease(id: AllocationId);
+
+/// Origin: the lease's approver. Legal while the lease is `Delivered`. Raises
+/// `amount` by `additional`, holds that much more under `Leased` on the
+/// approver's account and records a delivery operation crediting the target's
+/// supervisor balance. The lease end does not change.
+fn increase_lease(id: AllocationId, additional: Balance);
+
+/// Origin: the lease's approver. Legal while the lease is `Delivered`. Sets
+/// the lease's `duration`. Sends no message.
+fn extend_lease(id: AllocationId, duration: BlockNumber);
+
+/// Origin: the lease's approver. Legal while the lease is `Delivered`.
+/// Records `to` in `LeaseAssignments`; a later call replaces the entry.
+fn assign_lease(id: AllocationId, to: AccountId);
+
+/// Origin: the account recorded in `LeaseAssignments`. `amount` is held under
+/// `Leased` on the caller, the previous approver's hold is released,
+/// `approver` becomes the caller and the entry is cleared. Sends no message.
+fn take_over_lease(id: AllocationId);
 
 /// Origin: governance (Root). Transfers `amount` of undistributed units from
 /// the pallet's custody to `beneficiary` on Asset Hub: a budget for a policy
@@ -439,9 +478,9 @@ fn redeem(amount: Balance, dest: ServiceId);
 fn claim(beneficiary: AccountId);
 
 /// Origin: governance (Root). Disposes an excess amount per service (§5).
-/// With `refund = true` it creates a `Refund` operation sending the
-/// tokens back to the `source` service's regular balance; with
-/// `refund = false` it accounts the amount as undistributed custody.
+/// With `refund = true` it creates a `Refund` operation sending the tokens
+/// back to the `source` service's regular balance; with `refund = false` it
+/// accounts the amount as undistributed custody.
 fn dispose_excess(source: ServiceId, amount: Balance, refund: bool);
 
 /// Origin: any signed account. Updates the operation state to Confirmed or
@@ -533,11 +572,11 @@ A lease is a token transfer to the target service's supervisor balance.
 Precondition: the Parachain Service is the target's effective supervisor.
 
 ```
-Phase 1: Offer        Any token holder or governance approves
-                      Allocation{mode: Lease{duration}, target, amount}.
+Phase 1: Offer        Any token holder or governance calls
+                      `offer_lease(target, amount, duration, ..)`.
                       `amount` is held on the approver's account.
 Phase 2: Accept       The target's service account (§3.2) calls
-                      `execute_allocation(id)`. `pallet-jamkb` moves the
+                      `accept_lease(id)`. `pallet-jamkb` moves the
                       allocation to Delivering and queues a TransferOut
                       crediting the target's supervisor balance (§3.4).
 Phase 3: Submit       pallet-parachain-system sends the TransferOut via
@@ -559,18 +598,18 @@ A permanent release is a token transfer to the target service's regular balance.
 
 Units reach a regular balance by two routes: the DAO releases them to a named
 service (§4.2.1), or a holder releases their own units (§4.2.2). A market sale
-uses the second route: the DAO grants an adapter a budget (`grant`,
-§3.2), the adapter sells the units on the Hub, and the buyer releases them.
+uses the second route: the DAO grants an adapter a budget (`grant`, §3.2), the
+adapter sells the units on the Hub, and the buyer releases them.
 
 #### 4.2.1 Governance-initiated Release
 
 Governance releases units from DAO custody.
 
 ```
-Phase 1: Approve      Governance approves Allocation{mode: Permanent, target,
-                      amount}; `amount` is held under `Released` in pallet
-                      custody (§3.3).
-Phase 2: Execute      Any signed account calls `execute_allocation(id)` (§3.2).
+Phase 1: Approve      Governance calls `approve_release(target, amount, ..)`;
+                      `amount` is held under `Released` in pallet custody
+                      (§3.3).
+Phase 2: Execute      Any signed account calls `execute_release(id)` (§3.2).
                       The pallet moves the allocation to Delivering and queues
                       a TransferOut crediting the target's regular balance
                       (§3.4).
@@ -592,8 +631,9 @@ bypassing governance:
 
 ```
 Phase 1: Redeem       Holder calls `redeem(amount, dest)` (§3.2). The pallet
-                      places a hold on the holder's units (§3.1) and queues a
-                      TransferOut crediting the target's regular balance (§3.4).
+                      places a hold on the holder's units (§3.3) and queues a
+                      TransferOut crediting the target's regular balance
+                      (§3.4).
 Phase 2: Submit       pallet-parachain-system sends the TransferOut via
                       `send_upward_message` (§3.4).
 Phase 3: Confirm      Any party can call `settle(op_id)` on the pallet (§2).
@@ -612,9 +652,10 @@ Full return, cooperative (the standard end of a lease).
 ```
 Phase 1: Shrink       Target deletes its own state until its residual footprint
                       is covered by its own balance.
-Phase 2: Reclaim      The approver calls `reclaim`; the pallet queues a
-                      TransferOut debiting the target's supervisor balance by
-                      the requested amount (§3.4). A partial amount is legal.
+Phase 2: Reclaim      The approver or the target's service account calls
+                      `reclaim`; the pallet queues a TransferOut debiting the
+                      target's supervisor balance by the requested amount
+                      (§3.4). A partial amount is legal.
 Phase 3: Submit       pallet-parachain-system sends the TransferOut via
                       `send_upward_message` (§3.4). It fails if, after the
                       debit, balance + supervisor_balance < the threshold
@@ -628,13 +669,14 @@ Phase 4: Confirm      Any party can call `settle(op_id)` on the pallet (§2).
                       Reclaiming.
 ```
 
-Full return, non-cooperative. Entered past the lease end plus the grace
-period, when the target has not freed the footprint.
+Full return, non-cooperative. Entered when a reclaim has failed, leaving the
+lease `Reclaiming`.
 
 Supervision gives the pallet full power over the target, including cleaning
-its state and ejecting it. Any signed account runs the recovery, each call
-bonded with a deposit (§3.2); for a governance-approved lease, governance may
-fund the work as a treasury bounty:
+its state and ejecting it. Any signed account runs the recovery;
+`cleanup_storage`, `forget_preimage` and `eject_target` are bonded with a
+deposit (§3.2). For a governance-approved lease, governance may fund the work
+as a treasury bounty:
 
 ```
 Phase 1: Freeze       Anyone submits `freeze_target` (§3.2) while the lease is
@@ -709,7 +751,8 @@ teleported     =  the XCM checking account's balance: units teleported to the
 where
   in_flight_out  =  deferred transfers whose source has been charged and whose
                     target is not yet credited
-  released       =  permanently released units
+  released       =  permanently released units; `excess` and `custodial` are
+                    the parts of it booked from returns (§4.4)
   excess         =  the unattributed part of the Parachain Service balance
                     (bad-memo returns, donations, eject surplus above
                     `leased`)
