@@ -43,9 +43,11 @@ doc:
 
     Contract logs emitted outside an ethereum transaction (`Revive::call`, an XCM `Transact` into
     a contract) do not use the buffer and stay substrate-only, as before. Only pallet mirrors do,
-    so every buffered log is priced at the weight of the balance change that produced it, a full
-    `pallet_assets::transfer()` or `mint()` even when a contract drives the ERC-20 precompile in a
-    loop. The cheap route into the buffer, a raw `LOG` at a few hundred gas, is closed.
+    so every buffered log is priced at the weight of the balance change that produced it: a
+    pallet-assets `transfer()` or `mint()`, a precompile transfer driven from a contract, or the
+    hold operation that settles a contract frame's storage deposit, which on Asset Hub Westend is
+    mirrored per frame that changed storage and is the highest-volume producer. The cheap route
+    into the buffer, a raw `LOG` at a few hundred gas, is closed.
 
     Follow-up: the cap is a stopgap. A buffered log's share of the `on_finalize` drain is
     registered on the block rather than charged to the emitter, which is why contract frames are
