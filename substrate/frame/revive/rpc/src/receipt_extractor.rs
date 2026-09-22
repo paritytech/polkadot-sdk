@@ -218,6 +218,19 @@ fn extract_eth_transacts<C: OfflineClientAtBlockT<SrcChainConfig>>(
 	Ok(extrinsics)
 }
 
+/// The transaction index the block's synthetic transaction is served at.
+///
+/// An ethereum transaction is served at its extrinsic index, and every consumer of a transaction
+/// index treats it as one: `trace_tx` replays the extrinsic at that index, `post_dispatch_weight`
+/// reads that extrinsic's events. So the synthetic transaction takes the one index no extrinsic
+/// occupies, one past the last. The next slot after the last ethereum transaction would do only
+/// while no other extrinsic follows it.
+fn synthetic_tx_index<C: OfflineClientAtBlockT<SrcChainConfig>>(
+	block_extrinsics: &Extrinsics<'_, SrcChainConfig, C>,
+) -> usize {
+	block_extrinsics.len()
+}
+
 /// Reconcile the runtime's per-transaction gas entries against the ethereum transactions decoded
 /// from the block body.
 ///
@@ -609,7 +622,7 @@ impl ReceiptExtractor {
 			return Ok(vec![]);
 		}
 
-		let (extrinsics, synthetic) = self.get_block_extrinsics(block).await?;
+		let (extrinsics, synthetic, synthetic_tx_index) = self.get_block_extrinsics(block).await?;
 		let eth_tx_by_index: BTreeMap<usize, (EthTransact, H256, ReceiptGasInfoV1)> = extrinsics
 			.into_iter()
 			.map(|(call, receipt_gas_info, extrinsic_index)| {
@@ -623,9 +636,6 @@ impl ReceiptExtractor {
 		if eth_tx_by_index.is_empty() && synthetic.is_none() {
 			return Ok(vec![]);
 		}
-
-		// The synthetic transaction is appended after every ethereum transaction.
-		let synthetic_tx_index = eth_tx_by_index.keys().max().map_or(0, |max| max + 1);
 
 		let substrate_block_number = block.block_number();
 		let eth_block_number: U256 = substrate_block_number.into();
@@ -689,14 +699,15 @@ impl ReceiptExtractor {
 	}
 
 	/// Return the ETH extrinsics of the block grouped with reconstruction receipt info and
-	/// extrinsic index, plus the block's synthetic transaction when it has one.
+	/// extrinsic index, plus the block's synthetic transaction when it has one and the index it
+	/// is served at.
 	///
 	/// See [`check_receipt_data_len`] for how the gas entries are reconciled.
 	async fn get_block_extrinsics(
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<
-		(Vec<(EthTransact, ReceiptGasInfoV1, usize)>, Option<SyntheticTransactionV1>),
+		(Vec<(EthTransact, ReceiptGasInfoV1, usize)>, Option<SyntheticTransactionV1>, usize),
 		ClientError,
 	> {
 		let block_extrinsics = block.extrinsics().fetch().await.inspect_err(|err| {
@@ -705,6 +716,7 @@ impl ReceiptExtractor {
 
 		let block_number = block.block_number();
 		let extrinsics = extract_eth_transacts(&block_extrinsics, block_number)?;
+		let synthetic_tx_index = synthetic_tx_index(&block_extrinsics);
 
 		// Queried unconditionally: a block with no ethereum transactions can still carry a
 		// synthetic transaction for its outside-of-frame logs.
@@ -730,6 +742,7 @@ impl ReceiptExtractor {
 				.map(|((call, ext_idx), rec)| (call, rec, ext_idx))
 				.collect(),
 			synthetic,
+			synthetic_tx_index,
 		))
 	}
 
@@ -740,7 +753,7 @@ impl ReceiptExtractor {
 		block: &SubstrateBlock,
 		transaction_index: usize,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
-		let (extrinsics, synthetic) = self.get_block_extrinsics(block).await?;
+		let (extrinsics, synthetic, synthetic_tx_index) = self.get_block_extrinsics(block).await?;
 		let mut eth_tx_by_index: BTreeMap<usize, (EthTransact, H256, ReceiptGasInfoV1)> =
 			extrinsics
 				.into_iter()
@@ -750,7 +763,6 @@ impl ReceiptExtractor {
 				})
 				.collect();
 
-		let synthetic_tx_index = eth_tx_by_index.keys().max().map_or(0, |max| max + 1);
 		let is_synthetic = transaction_index == synthetic_tx_index && synthetic.is_some();
 
 		if !eth_tx_by_index.contains_key(&transaction_index) && !is_synthetic {
@@ -1255,6 +1267,23 @@ mod tests {
 			.expect("spec version range covers every block number; qed");
 		let extrinsics = at_block.extrinsics().from_bytes(blobs).await;
 		extract_eth_transacts(&extrinsics, BLOCK_NUMBER)
+	}
+
+	#[tokio::test]
+	async fn synthetic_tx_index_is_one_past_the_last_extrinsic() {
+		// A native extrinsic after the last ethereum transaction sits at `max eth index + 1`.
+		// Served there, the synthetic transaction's hash would trace and weigh that extrinsic.
+		let blobs = vec![eth_transact_extrinsic(), non_revive_extrinsic(), vec![0xff; 4]];
+
+		let client = offline_client();
+		let at_block = client
+			.at_block(42u64)
+			.expect("spec version range covers every block number; qed");
+		let extrinsics = at_block.extrinsics().from_bytes(blobs).await;
+
+		let eth = extract_eth_transacts(&extrinsics, 42).unwrap();
+		assert_eq!(eth.iter().map(|(_, idx)| *idx).max(), Some(0));
+		assert_eq!(synthetic_tx_index(&extrinsics), 3, "past the undecodable extrinsic too");
 	}
 
 	#[tokio::test]
