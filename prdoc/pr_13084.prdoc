@@ -16,4 +16,4 @@ crates:
   - name: pallet-registrar-relay
     bump: major
   - name: polkadot-runtime-common
-    bump: minor
+    bump: major
