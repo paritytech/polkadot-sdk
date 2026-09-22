@@ -64,6 +64,19 @@ pub struct PruningParams {
 		default_value = "archive-canonical"
 	)]
 	pub blocks_pruning: DatabasePruningMode,
+
+	/// Also prune block headers together with block bodies.
+	///
+	/// Only has an effect together with a numeric `--blocks-pruning NUMBER`. When
+	/// enabled, the headers of pruned finalized blocks are removed from the database
+	/// as well, bounding the otherwise unbounded growth of the header chain. Headers
+	/// needed for warp sync (GRANDPA authority set changes) are always kept.
+	///
+	/// WARNING: a node started with this flag can no longer serve pruned historical
+	/// headers and must not be used as an archive or full-sync source. Intended for
+	/// unattended validator/authoring nodes with limited disk space.
+	#[arg(long)]
+	pub enable_header_pruning: bool,
 }
 
 impl PruningParams {
@@ -75,6 +88,11 @@ impl PruningParams {
 	/// Get the block pruning value from the parameters
 	pub fn blocks_pruning(&self) -> error::Result<BlocksPruning> {
 		Ok(self.blocks_pruning.into())
+	}
+
+	/// Whether block headers should be pruned together with block bodies.
+	pub fn header_pruning(&self) -> bool {
+		self.enable_header_pruning
 	}
 }
 

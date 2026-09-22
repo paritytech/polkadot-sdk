@@ -101,15 +101,42 @@ pub use sp_database::Database;
 
 pub use bench::BenchmarkingState;
 
-/// Filter to determine if a block should be excluded from pruning.
+/// Result of evaluating pruning filters for one block.
 ///
-/// Note: This filter only affects **block body** (and future header) pruning.
-/// It does **not** affect state pruning, which is configured separately.
+/// This is not the node pruning policy. The pruning policy decides when a block becomes eligible
+/// for pruning; this value is computed afterwards for that specific block to decide which database
+/// entries may actually be removed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PruningOutcome {
+	/// No filter requires retaining extra data for this block.
+	NoRetention,
+	/// Keep the block header and justifications, but allow pruning the body.
+	HeaderAndJustifications,
+	/// Keep the full block.
+	WholeBlock,
+}
+
+/// Filter to determine if block data should be excluded from pruning.
+///
+/// Note: This filter only affects block body, justification and header pruning. It does not
+/// affect state pruning, which is configured separately.
 pub trait PruningFilter: Send + Sync {
-	/// Check if a block with the given justifications should be preserved.
+	/// Check if a block with the given justifications should be fully preserved.
 	///
-	/// Returns `true` to preserve the block, `false` to allow pruning.
+	/// Returns `true` to preserve the full block, `false` to allow pruning.
 	fn should_retain(&self, justifications: &Justifications) -> bool;
+
+	/// Compute what must be retained for a specific pruning-eligible block.
+	///
+	/// This is an algorithm output, not a pruning policy. It tells the backend how far it may
+	/// prune this block after the configured pruning policy has selected it as a candidate.
+	fn pruning_outcome(&self, justifications: &Justifications) -> PruningOutcome {
+		if self.should_retain(justifications) {
+			PruningOutcome::WholeBlock
+		} else {
+			PruningOutcome::NoRetention
+		}
+	}
 }
 
 impl<F> PruningFilter for F
@@ -122,6 +149,7 @@ where
 }
 
 const CACHE_HEADERS: usize = 8;
+const HEADER_PRUNING_BATCH: u64 = 256;
 
 /// DB-backed patricia trie state, transaction type is an overlay of changes to commit.
 pub type DbState<H> = sp_state_machine::TrieBackend<Arc<dyn sp_state_machine::Storage<H>>, H>;
@@ -346,10 +374,25 @@ pub struct DatabaseSettings {
 	pub blocks_pruning: BlocksPruning,
 	/// Filters to exclude blocks from pruning.
 	///
-	/// If any filter returns `true` for a block's justifications, the block body
-	/// (and in the future, the header) will be preserved even when it falls
-	/// outside the pruning window. Does not affect state pruning.
+	/// By default, if any filter returns `true` for a block's justifications, the
+	/// full block will be preserved even when it falls outside the pruning window.
+	/// Filters can override [`PruningFilter::pruning_outcome`] to return a
+	/// per-block pruning outcome and retain only the data they need. Does not
+	/// affect state pruning.
 	pub pruning_filters: Vec<Arc<dyn PruningFilter>>,
+	/// Also prune block headers (and their key lookup entries) together with the
+	/// block bodies.
+	///
+	/// Only has an effect when `blocks_pruning` is [`BlocksPruning::Some`]. When
+	/// enabled, the headers of pruned finalized blocks are removed from the database,
+	/// bounding the otherwise unbounded growth of the header chain. Headers retained
+	/// by a [`PruningFilter`] (e.g. GRANDPA authority set changes needed for warp
+	/// sync) and pinned blocks are never pruned.
+	///
+	/// NOTE: a node with header pruning enabled can no longer answer queries for
+	/// pruned historical headers and must not be used as an archive or full-sync
+	/// source.
+	pub header_pruning: bool,
 	/// Prometheus metrics registry.
 	pub metrics_registry: Option<Registry>,
 }
@@ -1210,6 +1253,7 @@ pub struct Backend<Block: BlockT> {
 	import_lock: Arc<RwLock<()>>,
 	is_archive: bool,
 	blocks_pruning: BlocksPruning,
+	header_pruning: bool,
 	io_stats: FrozenForDuration<(kvdb::IoStats, StateUsageInfo)>,
 	state_usage: Arc<StateUsageStats>,
 	genesis_state: RwLock<Option<Arc<DbGenesisStorage<Block>>>>,
@@ -1287,6 +1331,23 @@ impl<Block: BlockT> Backend<Block> {
 		canonicalization_delay: u64,
 		pruning_filters: Vec<Arc<dyn PruningFilter>>,
 	) -> Self {
+		Self::new_test_with_tx_storage_filters_and_header_pruning(
+			blocks_pruning,
+			canonicalization_delay,
+			pruning_filters,
+			false,
+		)
+	}
+
+	/// Create new memory-backed client backend for tests, additionally selecting
+	/// whether block headers should be pruned.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn new_test_with_tx_storage_filters_and_header_pruning(
+		blocks_pruning: BlocksPruning,
+		canonicalization_delay: u64,
+		pruning_filters: Vec<Arc<dyn PruningFilter>>,
+		header_pruning: bool,
+	) -> Self {
 		let db = kvdb_memorydb::create(crate::utils::NUM_COLUMNS);
 		let db = sp_database::as_database(db);
 		Self::new_test_with_tx_storage_source(
@@ -1294,6 +1355,7 @@ impl<Block: BlockT> Backend<Block> {
 			canonicalization_delay,
 			DatabaseSource::Custom { db, require_create_flag: true },
 			pruning_filters,
+			header_pruning,
 		)
 	}
 
@@ -1304,6 +1366,7 @@ impl<Block: BlockT> Backend<Block> {
 		canonicalization_delay: u64,
 		source: DatabaseSource,
 		pruning_filters: Vec<Arc<dyn PruningFilter>>,
+		header_pruning: bool,
 	) -> Self {
 		let state_pruning = match blocks_pruning {
 			BlocksPruning::KeepAll => PruningMode::ArchiveAll,
@@ -1316,6 +1379,7 @@ impl<Block: BlockT> Backend<Block> {
 			source,
 			blocks_pruning,
 			pruning_filters,
+			header_pruning,
 			metrics_registry: None,
 		};
 
@@ -1406,6 +1470,7 @@ impl<Block: BlockT> Backend<Block> {
 			io_stats: FrozenForDuration::new(std::time::Duration::from_secs(1)),
 			state_usage: Arc::new(StateUsageStats::new()),
 			blocks_pruning: config.blocks_pruning,
+			header_pruning: config.header_pruning,
 			genesis_state: RwLock::new(None),
 			shared_trie_cache,
 			pruning_filters: config.pruning_filters.clone(),
@@ -2123,47 +2188,133 @@ impl<Block: BlockT> Backend<Block> {
 			let keep = std::cmp::max(blocks_pruning, 1);
 			if finalized_number >= keep.into() {
 				let number = finalized_number.saturating_sub(keep.into());
+				let mut pruning_outcome = PruningOutcome::NoRetention;
 
 				// Before we prune a block, check if it is pinned
 				if let Some(hash) = self.blockchain.hash(number)? {
 					// Check if any pruning filter wants to preserve this block.
 					// We need to check both the current transaction justifications (not yet in DB)
 					// and the DB itself (for justifications from previous transactions).
-					if !self.pruning_filters.is_empty() {
-						let justifications = match current_transaction_justifications.get(&hash) {
-							Some(j) => Some(Justifications::from(j.clone())),
-							None => self.blockchain.justifications(hash)?,
-						};
+					pruning_outcome =
+						self.pruning_outcome(hash, current_transaction_justifications)?;
 
-						let should_retain = justifications
-							.map(|j| self.pruning_filters.iter().any(|f| f.should_retain(&j)))
-							.unwrap_or(false);
-
+					if pruning_outcome == PruningOutcome::WholeBlock {
 						// We can just return here, pinning can be ignored since the block will
 						// remain in the DB.
-						if should_retain {
-							debug!(
-								target: "db",
-								"Preserving block #{number} ({hash}) due to keep predicate match"
-							);
-							return Ok(());
+						debug!(
+							target: "db",
+							"Preserving block #{number} ({hash}) due to keep predicate match"
+						);
+						if self.header_pruning {
+							self.prune_old_headers(
+								transaction,
+								number,
+								current_transaction_justifications,
+							)?;
 						}
+						return Ok(());
 					}
 
 					self.blockchain.insert_persisted_body_if_pinned(hash)?;
 
-					// If the block was finalized in this transaction, it will not be in the db
-					// yet.
-					if let Some(justification) = current_transaction_justifications.remove(&hash) {
-						self.blockchain.insert_justifications_if_pinned(hash, justification);
-					} else {
-						self.blockchain.insert_persisted_justifications_if_pinned(hash)?;
+					if pruning_outcome == PruningOutcome::NoRetention {
+						// If the block was finalized in this transaction, it will not be in the db
+						// yet.
+						if let Some(justification) =
+							current_transaction_justifications.remove(&hash)
+						{
+							self.blockchain.insert_justifications_if_pinned(hash, justification);
+						} else {
+							self.blockchain.insert_persisted_justifications_if_pinned(hash)?;
+						}
 					}
 				};
 
-				self.prune_block(transaction, BlockId::<Block>::number(number))?;
+				if pruning_outcome == PruningOutcome::HeaderAndJustifications {
+					self.prune_body(transaction, BlockId::<Block>::number(number))?;
+				} else {
+					self.prune_block(transaction, BlockId::<Block>::number(number))?;
+				}
+
+				if self.header_pruning {
+					self.prune_old_headers(
+						transaction,
+						number,
+						current_transaction_justifications,
+					)?;
+				}
 			}
 		}
+		Ok(())
+	}
+
+	fn pruning_outcome(
+		&self,
+		hash: Block::Hash,
+		current_transaction_justifications: &HashMap<Block::Hash, Justification>,
+	) -> ClientResult<PruningOutcome> {
+		if self.pruning_filters.is_empty() {
+			return Ok(PruningOutcome::NoRetention);
+		}
+
+		let justifications = match current_transaction_justifications.get(&hash) {
+			Some(j) => Some(Justifications::from(j.clone())),
+			None => self.blockchain.justifications(hash)?,
+		};
+
+		Ok(justifications
+			.map(|j| {
+				self.pruning_filters
+					.iter()
+					.map(|f| f.pruning_outcome(&j))
+					.max()
+					.unwrap_or(PruningOutcome::NoRetention)
+			})
+			.unwrap_or(PruningOutcome::NoRetention))
+	}
+
+	fn prune_old_headers(
+		&self,
+		transaction: &mut Transaction<DbHash>,
+		prune_to: NumberFor<Block>,
+		current_transaction_justifications: &HashMap<Block::Hash, Justification>,
+	) -> ClientResult<()> {
+		let mut next_to_prune = self
+			.storage
+			.db
+			.get(columns::META, meta_keys::HEADER_PRUNING_CURSOR)
+			.and_then(|raw| Decode::decode(&mut &raw[..]).ok())
+			.unwrap_or(1u64);
+
+		let prune_to = prune_to.saturated_into::<u64>();
+		let end = next_to_prune
+			.saturating_add(HEADER_PRUNING_BATCH)
+			.min(prune_to.saturating_add(1));
+
+		while next_to_prune < end {
+			let number = next_to_prune.saturated_into::<NumberFor<Block>>();
+			if let Some(hash) = self.blockchain.hash(number)? {
+				match self.pruning_outcome(hash, current_transaction_justifications)? {
+					PruningOutcome::NoRetention => {
+						self.prune_header(transaction, BlockId::<Block>::number(number))?;
+					},
+					PruningOutcome::HeaderAndJustifications => {
+						self.blockchain.insert_persisted_body_if_pinned(hash)?;
+						self.prune_body(transaction, BlockId::<Block>::number(number))?;
+					},
+					PruningOutcome::WholeBlock => {},
+				}
+			}
+
+			next_to_prune = next_to_prune.saturating_add(1);
+		}
+
+		transaction.set_from_vec(
+			columns::META,
+			meta_keys::HEADER_PRUNING_CURSOR,
+			next_to_prune.encode(),
+		);
+
 		Ok(())
 	}
 
@@ -2186,18 +2337,26 @@ impl<Block: BlockT> Backend<Block> {
 		id: BlockId<Block>,
 	) -> ClientResult<()> {
 		debug!(target: "db", "Removing block #{id}");
+		self.prune_body(transaction, id)?;
+		self.prune_justifications(transaction, id)?;
+		// Header pruning happens last so that all body/justification lookups above
+		// can still resolve this block's lookup key from the database.
+		if self.header_pruning {
+			self.prune_header(transaction, id)?;
+		}
+		Ok(())
+	}
+
+	fn prune_body(
+		&self,
+		transaction: &mut Transaction<DbHash>,
+		id: BlockId<Block>,
+	) -> ClientResult<()> {
 		utils::remove_from_db(
 			transaction,
 			&*self.storage.db,
 			columns::KEY_LOOKUP,
 			columns::BODY,
-			id,
-		)?;
-		utils::remove_from_db(
-			transaction,
-			&*self.storage.db,
-			columns::KEY_LOOKUP,
-			columns::JUSTIFICATIONS,
 			id,
 		)?;
 		if let Some(index) =
@@ -2234,6 +2393,83 @@ impl<Block: BlockT> Backend<Block> {
 			}
 		}
 		Ok(())
+	}
+
+	fn prune_justifications(
+		&self,
+		transaction: &mut Transaction<DbHash>,
+		id: BlockId<Block>,
+	) -> ClientResult<()> {
+		utils::remove_from_db(
+			transaction,
+			&*self.storage.db,
+			columns::KEY_LOOKUP,
+			columns::JUSTIFICATIONS,
+			id,
+		)?;
+		Ok(())
+	}
+
+	/// Remove a block header and its key lookup entries from the database.
+	///
+	/// Called from [`Self::prune_block`] when header pruning is enabled. The header
+	/// of a pinned block is kept so that pinned blocks remain fully retrievable; in
+	/// practice the pruning window is far below the tip so pinned blocks are never
+	/// reached, but we guard against it for safety.
+	fn prune_header(
+		&self,
+		transaction: &mut Transaction<DbHash>,
+		id: BlockId<Block>,
+	) -> ClientResult<bool> {
+		let Some(header) = utils::read_header::<Block>(
+			&*self.storage.db,
+			columns::KEY_LOOKUP,
+			columns::HEADER,
+			id,
+		)?
+		else {
+			// Already pruned (or never existed): nothing to do.
+			return Ok(false);
+		};
+
+		let hash = header.hash();
+		if self.blockchain.pinned_blocks_cache.read().contains(hash) {
+			return Ok(false);
+		}
+		let number = *header.number();
+		if number.is_zero() {
+			return Ok(false);
+		}
+
+		// Remove the header itself.
+		utils::remove_from_db(
+			transaction,
+			&*self.storage.db,
+			columns::KEY_LOOKUP,
+			columns::HEADER,
+			id,
+		)?;
+
+		// Remove the hash -> lookup key mapping (unique to this block).
+		transaction.remove(columns::KEY_LOOKUP, hash.as_ref());
+
+		// Remove the number -> lookup key mapping only if it still points to this
+		// block, so that pruning a stale fork does not drop the canonical mapping.
+		let this_lookup_key = utils::number_and_hash_to_lookup_key(number, hash)?;
+		let canonical_lookup_key = utils::block_id_to_lookup_key::<Block>(
+			&*self.storage.db,
+			columns::KEY_LOOKUP,
+			BlockId::Number(number),
+		)?;
+		if canonical_lookup_key.as_deref() == Some(this_lookup_key.as_slice()) {
+			utils::remove_number_to_key_mapping(transaction, columns::KEY_LOOKUP, number)?;
+		}
+
+		// Invalidate the in-memory caches for this block.
+		self.blockchain.header_cache.lock().remove(&hash);
+		self.blockchain.remove_header_metadata(hash);
+
+		Ok(true)
 	}
 
 	fn empty_state(&self) -> RecordStatsState<RefTrackingState<Block>, Block> {
@@ -2954,6 +3190,22 @@ pub(crate) mod tests {
 	type UncheckedXt = TestXt<MockCallU64, ()>;
 	pub(crate) type Block = RawBlock<UncheckedXt>;
 
+	struct HeaderAndJustificationsFilter(ConsensusEngineId);
+
+	impl PruningFilter for HeaderAndJustificationsFilter {
+		fn should_retain(&self, justifications: &Justifications) -> bool {
+			justifications.get(self.0).is_some()
+		}
+
+		fn pruning_outcome(&self, justifications: &Justifications) -> PruningOutcome {
+			if self.should_retain(justifications) {
+				PruningOutcome::HeaderAndJustifications
+			} else {
+				PruningOutcome::NoRetention
+			}
+		}
+	}
+
 	pub fn insert_header(
 		backend: &Backend<Block>,
 		number: u64,
@@ -3173,6 +3425,7 @@ pub(crate) mod tests {
 				source: DatabaseSource::Custom { db: backing, require_create_flag: false },
 				blocks_pruning: BlocksPruning::KeepFinalized,
 				pruning_filters: Default::default(),
+				header_pruning: false,
 				metrics_registry: None,
 			},
 			0,
@@ -6425,6 +6678,439 @@ pub(crate) mod tests {
 		assert!(bc.body(blocks[4]).unwrap().is_some());
 	}
 
+	#[test]
+	fn header_pruning_on_finalize() {
+		// With header pruning enabled, headers of pruned finalized blocks are removed
+		// from the database, except for blocks retained by a pruning filter (needed for
+		// warp sync) and blocks still inside the pruning window.
+		let backend = Backend::<Block>::new_test_with_tx_storage_filters_and_header_pruning(
+			BlocksPruning::Some(2),
+			0,
+			vec![Arc::new(|j: &Justifications| j.get(CONS0_ENGINE_ID).is_some())],
+			true,
+		);
+
+		let mut blocks = Vec::new();
+		let mut prev_hash = Default::default();
+		for i in 0..6 {
+			let hash = insert_block(
+				&backend,
+				i,
+				prev_hash,
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(i.into(), ())],
+				None,
+			)
+			.unwrap();
+			blocks.push(hash);
+			prev_hash = hash;
+		}
+
+		// Block 1 carries a justification matching the filter and must be retained.
+		let justification = (CONS0_ENGINE_ID, vec![1, 2, 3]);
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[5]).unwrap();
+			op.mark_finalized(blocks[1], Some(justification.clone())).unwrap();
+			op.mark_finalized(blocks[2], None).unwrap();
+			op.mark_finalized(blocks[3], None).unwrap();
+			op.mark_finalized(blocks[4], None).unwrap();
+			op.mark_finalized(blocks[5], None).unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+
+		let bc = backend.blockchain();
+
+		// Block 0: outside the window, no justification -> body pruned, but genesis
+		// header/lookups are kept so warp sync can start from the genesis hash.
+		assert!(bc.header(blocks[0]).unwrap().is_some());
+		assert_eq!(None, bc.body(blocks[0]).unwrap());
+		assert_eq!(Some(blocks[0]), bc.hash(0).unwrap());
+		assert_eq!(Some(0), bc.number(blocks[0]).unwrap());
+
+		// Block 1: retained by the filter -> header and body kept, lookups intact.
+		assert!(bc.header(blocks[1]).unwrap().is_some());
+		assert!(bc.body(blocks[1]).unwrap().is_some());
+		assert_eq!(
+			Some(Justifications::from(justification)),
+			bc.justifications(blocks[1]).unwrap()
+		);
+		assert_eq!(Some(blocks[1]), bc.hash(1).unwrap());
+		assert_eq!(Some(1), bc.number(blocks[1]).unwrap());
+
+		// Blocks 2 and 3: outside the window, no justification -> header pruned.
+		assert_eq!(None, bc.header(blocks[2]).unwrap());
+		assert_eq!(None, bc.hash(2).unwrap());
+		assert_eq!(None, bc.header(blocks[3]).unwrap());
+		assert_eq!(None, bc.hash(3).unwrap());
+
+		// Blocks 4 and 5: inside the pruning window -> header kept.
+		assert!(bc.header(blocks[4]).unwrap().is_some());
+		assert!(bc.header(blocks[5]).unwrap().is_some());
+	}
+
+	#[test]
+	fn pruning_filter_can_keep_headers_and_justifications_without_body() {
+		let backend = Backend::<Block>::new_test_with_tx_storage_filters_and_header_pruning(
+			BlocksPruning::Some(2),
+			0,
+			vec![Arc::new(HeaderAndJustificationsFilter(CONS0_ENGINE_ID))],
+			true,
+		);
+
+		let mut blocks = Vec::new();
+		let mut prev_hash = Default::default();
+		for i in 0..6 {
+			let hash = insert_block(
+				&backend,
+				i,
+				prev_hash,
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(i.into(), ())],
+				None,
+			)
+			.unwrap();
+			blocks.push(hash);
+			prev_hash = hash;
+		}
+
+		let justification = (CONS0_ENGINE_ID, vec![1, 2, 3]);
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[5]).unwrap();
+			op.mark_finalized(blocks[1], Some(justification.clone())).unwrap();
+			op.mark_finalized(blocks[2], None).unwrap();
+			op.mark_finalized(blocks[3], None).unwrap();
+			op.mark_finalized(blocks[4], None).unwrap();
+			op.mark_finalized(blocks[5], None).unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+
+		let bc = backend.blockchain();
+
+		assert!(bc.header(blocks[1]).unwrap().is_some());
+		assert_eq!(None, bc.body(blocks[1]).unwrap());
+		assert_eq!(
+			Some(Justifications::from(justification)),
+			bc.justifications(blocks[1]).unwrap()
+		);
+		assert_eq!(Some(blocks[1]), bc.hash(1).unwrap());
+		assert_eq!(Some(1), bc.number(blocks[1]).unwrap());
+
+		assert_eq!(None, bc.header(blocks[2]).unwrap());
+		assert_eq!(None, bc.justifications(blocks[2]).unwrap());
+		assert_eq!(None, bc.hash(2).unwrap());
+	}
+
+	#[test]
+	fn header_pruning_catch_up_prunes_body_for_justification_only_retention() {
+		let justification = (CONS0_ENGINE_ID, vec![1, 2, 3]);
+		let (backing, mut blocks) = {
+			let backend = Backend::<Block>::new_test_with_tx_storage_filters_and_header_pruning(
+				BlocksPruning::Some(2),
+				0,
+				vec![Arc::new(|j: &Justifications| j.get(CONS0_ENGINE_ID).is_some())],
+				false,
+			);
+
+			let mut blocks = Vec::new();
+			let mut prev_hash = Default::default();
+			for i in 0..6 {
+				let hash = insert_block(
+					&backend,
+					i,
+					prev_hash,
+					None,
+					Default::default(),
+					vec![UncheckedXt::new_transaction(i.into(), ())],
+					None,
+				)
+				.unwrap();
+				blocks.push(hash);
+				prev_hash = hash;
+			}
+
+			{
+				let mut op = backend.begin_operation().unwrap();
+				backend.begin_state_operation(&mut op, blocks[5]).unwrap();
+				op.mark_finalized(blocks[1], Some(justification.clone())).unwrap();
+				for i in 2..=5 {
+					op.mark_finalized(blocks[i], None).unwrap();
+				}
+				backend.commit_operation(op).unwrap();
+			}
+
+			let bc = backend.blockchain();
+			assert!(bc.header(blocks[1]).unwrap().is_some());
+			assert!(bc.body(blocks[1]).unwrap().is_some());
+			assert_eq!(
+				Some(Justifications::from(justification.clone())),
+				bc.justifications(blocks[1]).unwrap()
+			);
+
+			(backend.storage.db.clone(), blocks)
+		};
+
+		let backend = Backend::<Block>::new(
+			DatabaseSettings {
+				trie_cache_maximum_size: Some(16 * 1024 * 1024),
+				state_pruning: Some(PruningMode::blocks_pruning(1)),
+				source: DatabaseSource::Custom { db: backing, require_create_flag: false },
+				blocks_pruning: BlocksPruning::Some(2),
+				pruning_filters: vec![Arc::new(HeaderAndJustificationsFilter(CONS0_ENGINE_ID))],
+				header_pruning: true,
+				metrics_registry: None,
+			},
+			0,
+		)
+		.unwrap();
+
+		let hash = insert_block(
+			&backend,
+			6,
+			blocks[5],
+			None,
+			Default::default(),
+			vec![UncheckedXt::new_transaction(6.into(), ())],
+			None,
+		)
+		.unwrap();
+		blocks.push(hash);
+
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[6]).unwrap();
+			op.mark_finalized(blocks[6], None).unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+
+		let bc = backend.blockchain();
+		assert!(bc.header(blocks[1]).unwrap().is_some());
+		assert_eq!(None, bc.body(blocks[1]).unwrap());
+		assert_eq!(
+			Some(Justifications::from(justification)),
+			bc.justifications(blocks[1]).unwrap()
+		);
+		assert_eq!(Some(blocks[1]), bc.hash(1).unwrap());
+	}
+
+	#[test]
+	fn header_pruning_catch_up_keeps_pinned_body_until_unpinned() {
+		let justification = (CONS0_ENGINE_ID, vec![1, 2, 3]);
+		let (backing, mut blocks) = {
+			let backend = Backend::<Block>::new_test_with_tx_storage_filters_and_header_pruning(
+				BlocksPruning::Some(2),
+				0,
+				vec![Arc::new(|j: &Justifications| j.get(CONS0_ENGINE_ID).is_some())],
+				false,
+			);
+
+			let mut blocks = Vec::new();
+			let mut prev_hash = Default::default();
+			for i in 0..6 {
+				let hash = insert_block(
+					&backend,
+					i,
+					prev_hash,
+					None,
+					Default::default(),
+					vec![UncheckedXt::new_transaction(i.into(), ())],
+					None,
+				)
+				.unwrap();
+				blocks.push(hash);
+				prev_hash = hash;
+			}
+
+			{
+				let mut op = backend.begin_operation().unwrap();
+				backend.begin_state_operation(&mut op, blocks[5]).unwrap();
+				op.mark_finalized(blocks[1], Some(justification.clone())).unwrap();
+				for i in 2..=5 {
+					op.mark_finalized(blocks[i], None).unwrap();
+				}
+				backend.commit_operation(op).unwrap();
+			}
+
+			(backend.storage.db.clone(), blocks)
+		};
+
+		let backend = Backend::<Block>::new(
+			DatabaseSettings {
+				trie_cache_maximum_size: Some(16 * 1024 * 1024),
+				state_pruning: Some(PruningMode::blocks_pruning(1)),
+				source: DatabaseSource::Custom { db: backing, require_create_flag: false },
+				blocks_pruning: BlocksPruning::Some(2),
+				pruning_filters: vec![Arc::new(HeaderAndJustificationsFilter(CONS0_ENGINE_ID))],
+				header_pruning: true,
+				metrics_registry: None,
+			},
+			0,
+		)
+		.unwrap();
+
+		backend.pin_block(blocks[1]).unwrap();
+
+		let hash = insert_block(
+			&backend,
+			6,
+			blocks[5],
+			None,
+			Default::default(),
+			vec![UncheckedXt::new_transaction(6.into(), ())],
+			None,
+		)
+		.unwrap();
+		blocks.push(hash);
+
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[6]).unwrap();
+			op.mark_finalized(blocks[6], None).unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+
+		let bc = backend.blockchain();
+		assert!(bc.header(blocks[1]).unwrap().is_some());
+		assert_eq!(
+			Some(vec![UncheckedXt::new_transaction(1.into(), ())]),
+			bc.body(blocks[1]).unwrap()
+		);
+		assert_eq!(
+			Some(Justifications::from(justification)),
+			bc.justifications(blocks[1]).unwrap()
+		);
+
+		backend.unpin_block(blocks[1]);
+		assert_eq!(None, bc.body(blocks[1]).unwrap());
+		assert!(bc.header(blocks[1]).unwrap().is_some());
+		assert!(bc.justifications(blocks[1]).unwrap().is_some());
+	}
+
+	#[test]
+	fn enabling_header_pruning_catches_up_old_headers() {
+		let (backing, mut blocks) = {
+			let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(2), 0);
+
+			let mut blocks = Vec::new();
+			let mut prev_hash = Default::default();
+			for i in 0..6 {
+				let hash = insert_block(
+					&backend,
+					i,
+					prev_hash,
+					None,
+					Default::default(),
+					vec![UncheckedXt::new_transaction(i.into(), ())],
+					None,
+				)
+				.unwrap();
+				blocks.push(hash);
+				prev_hash = hash;
+			}
+
+			{
+				let mut op = backend.begin_operation().unwrap();
+				backend.begin_state_operation(&mut op, blocks[5]).unwrap();
+				for i in 1..=5 {
+					op.mark_finalized(blocks[i], None).unwrap();
+				}
+				backend.commit_operation(op).unwrap();
+			}
+
+			let bc = backend.blockchain();
+			assert!(bc.header(blocks[1]).unwrap().is_some());
+			assert!(bc.header(blocks[2]).unwrap().is_some());
+			assert!(bc.header(blocks[3]).unwrap().is_some());
+
+			(backend.storage.db.clone(), blocks)
+		};
+
+		let backend = Backend::<Block>::new(
+			DatabaseSettings {
+				trie_cache_maximum_size: Some(16 * 1024 * 1024),
+				state_pruning: Some(PruningMode::blocks_pruning(1)),
+				source: DatabaseSource::Custom { db: backing, require_create_flag: false },
+				blocks_pruning: BlocksPruning::Some(2),
+				pruning_filters: Default::default(),
+				header_pruning: true,
+				metrics_registry: None,
+			},
+			0,
+		)
+		.unwrap();
+
+		let hash = insert_block(
+			&backend,
+			6,
+			blocks[5],
+			None,
+			Default::default(),
+			vec![UncheckedXt::new_transaction(6.into(), ())],
+			None,
+		)
+		.unwrap();
+		blocks.push(hash);
+
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[6]).unwrap();
+			op.mark_finalized(blocks[6], None).unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+
+		let bc = backend.blockchain();
+		assert!(bc.header(blocks[0]).unwrap().is_some());
+		assert_eq!(Some(blocks[0]), bc.hash(0).unwrap());
+		for i in 1..=4 {
+			assert_eq!(None, bc.header(blocks[i]).unwrap());
+			assert_eq!(None, bc.hash(i as u64).unwrap());
+		}
+		assert!(bc.header(blocks[5]).unwrap().is_some());
+		assert!(bc.header(blocks[6]).unwrap().is_some());
+	}
+
+	#[test]
+	fn header_pruning_disabled_keeps_headers() {
+		// Without header pruning, bodies are pruned but headers are kept (default behavior).
+		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(2), 0);
+
+		let mut blocks = Vec::new();
+		let mut prev_hash = Default::default();
+		for i in 0..5 {
+			let hash = insert_block(
+				&backend,
+				i,
+				prev_hash,
+				None,
+				Default::default(),
+				vec![UncheckedXt::new_transaction(i.into(), ())],
+				None,
+			)
+			.unwrap();
+			blocks.push(hash);
+			prev_hash = hash;
+		}
+
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, blocks[4]).unwrap();
+			for i in 1..5 {
+				op.mark_finalized(blocks[i], None).unwrap();
+			}
+			backend.commit_operation(op).unwrap();
+		}
+
+		let bc = backend.blockchain();
+
+		// Body of block 0 is pruned, but its header and lookups remain available.
+		assert_eq!(None, bc.body(blocks[0]).unwrap());
+		assert!(bc.header(blocks[0]).unwrap().is_some());
+		assert_eq!(Some(blocks[0]), bc.hash(0).unwrap());
+	}
+
 	/// Insert a header without body as best block. This triggers `MissingBody` gap creation
 	/// when the parent header exists and `create_gap` is true.
 	fn insert_header_no_body_as_best(
@@ -6469,6 +7155,7 @@ pub(crate) mod tests {
 				source: DatabaseSource::Custom { db, require_create_flag: false },
 				blocks_pruning,
 				pruning_filters: Default::default(),
+				header_pruning: false,
 				metrics_registry: None,
 			},
 			0,
@@ -6939,6 +7626,7 @@ pub(crate) mod tests {
 							10,
 							DatabaseSource::ParityDb { path: tmp_path.clone() },
 							Default::default(),
+							false,
 						);
 						Self {
 							backend: Some(backend),
@@ -6961,6 +7649,7 @@ pub(crate) mod tests {
 							10,
 							DatabaseSource::Custom { db, require_create_flag: true },
 							Default::default(),
+							false,
 						);
 						Self {
 							backend: Some(backend),
@@ -6990,6 +7679,7 @@ pub(crate) mod tests {
 					10,
 					DatabaseSource::ParityDb { path },
 					Default::default(),
+					false,
 				));
 			}
 		}

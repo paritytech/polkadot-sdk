@@ -287,6 +287,14 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			.unwrap_or_else(|| Ok(BlocksPruning::KeepFinalized))
 	}
 
+	/// Whether to also prune block headers together with block bodies.
+	///
+	/// By default this is retrieved from the pruning params if available, otherwise
+	/// `false`.
+	fn header_pruning(&self) -> Result<bool> {
+		Ok(self.pruning_params().map(|x| x.header_pruning()).unwrap_or(false))
+	}
+
 	/// Get the chain ID (string).
 	///
 	/// By default this is retrieved from `SharedParams`.
@@ -546,6 +554,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 			warm_up_trie_cache: self.warm_up_trie_cache()?,
 			state_pruning: self.state_pruning()?,
 			blocks_pruning: self.blocks_pruning()?,
+			header_pruning: self.header_pruning()?,
 			executor: ExecutorConfiguration {
 				wasm_method: self.wasm_method()?,
 				default_heap_pages: self.default_heap_pages()?,
