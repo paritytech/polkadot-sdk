@@ -1034,7 +1034,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
 				// The approval bounds what actually moves, and `prep_debit` can resolve above
 				// `amount`.
-				let debit = Self::prep_debit(id.clone(), owner, amount, f.into())?;
+				// `transfer_and_die` skips zero; `prep_debit` would still need an owner account.
+				let debit = if amount.is_zero() {
+					amount
+				} else {
+					Self::prep_debit(id.clone(), owner, amount, f.into())?
+				};
 				let remaining =
 					approved.amount.checked_sub(&debit).ok_or(Error::<T, I>::Unapproved)?;
 

@@ -45,4 +45,4 @@ crates:
 - name: frame-support
   bump: minor
 - name: pallet-assets
-  bump: minor
+  bump: patch

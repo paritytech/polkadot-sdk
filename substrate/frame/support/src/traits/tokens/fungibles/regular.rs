@@ -373,6 +373,11 @@ where
 
 	/// Transfer funds from one account into another.
 	///
+	/// Returns the amount debited from `source` and credited to `dest`. This is `amount` unless
+	/// [`Unbalanced::decrease_balance`] folded a sub-minimum remainder of `source` into its
+	/// return, in which case it exceeds `amount` by up to `minimum_balance() - 1` and that
+	/// remainder is credited to `dest` as well.
+	///
 	/// A transfer where the source and destination account are identical is treated as No-OP after
 	/// checking the preconditions.
 	fn transfer(
@@ -389,10 +394,6 @@ where
 			return Ok(amount);
 		}
 
-		// `decrease_balance` may take up to `minimum_balance() - 1` more than `amount` when the
-		// reduction empties the source, so the destination is credited with what was actually
-		// taken. Crediting `amount` would leave the difference debited from the source, credited
-		// to nobody, and still counted in total issuance.
 		let actual = Self::decrease_balance(
 			asset.clone(),
 			source,

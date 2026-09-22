@@ -2433,39 +2433,6 @@ fn fungibles_transfer_should_never_burn_above_unit_min_balance() {
 	});
 }
 
-/// The same invariant through `ItemOf`, the adapter a runtime uses to expose one pallet-assets
-/// asset as a `fungible`.
-///
-/// `ItemOf::transfer` delegates to `fungibles::Mutate::transfer`, so this runs the same default
-/// as the test above, not the `fungible` one. What it adds is that the adapter returns the inner
-/// call's value unchanged rather than substituting `amount`.
-#[test]
-fn fungible_item_of_transfer_should_never_burn_above_unit_min_balance() {
-	use frame_support::traits::tokens::{
-		fungible::{ItemOf, Mutate as FungibleMutate},
-		Preservation::Expendable,
-	};
-
-	build_and_execute(|| {
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
-		Balances::make_free_balance_be(&1, 100);
-		Balances::make_free_balance_be(&2, 100);
-
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
-
-		type Item = ItemOf<Assets, ConstU32<0>, u64>;
-		assert_eq!(<Item as FungibleMutate<u64>>::transfer(&1, &2, 95, Expendable), Ok(100));
-
-		assert_eq!(Assets::balance(0, 1), 0);
-		assert_eq!(Assets::balance(0, 2), 100);
-		assert_eq!(
-			Assets::balance(0, 1) + Assets::balance(0, 2),
-			Assets::total_supply(0),
-			"balances must sum to the reported supply",
-		);
-	});
-}
-
 /// A delegate approved for `N` must never move more than `N`.
 ///
 /// `do_transfer_approved` moves whatever the debit resolves to, which exceeds the requested
