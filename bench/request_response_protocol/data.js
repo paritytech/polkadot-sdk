@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790000308143,
+  "lastUpdate": 1790069451451,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -126899,6 +126899,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2675861213,
             "range": "± 29213297",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7e68ad23409d5891ccdb37ac253d18bf8fc23c0c",
+          "message": "statement gossip: score a resent banned statement against the sender (#13274)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12517.\n\nOn the v2 DHT path a peer that resends a statement the store has removed\nand banned, such as a forwarded transient one, now loses one point of\nits per-peer score. The store already refuses the resend since\nhttps://github.com/paritytech/polkadot-sdk/pull/13216, which left the\nsender unpunished. The penalty is small because an honest replica can\nresend such a statement once during an initial sync.\n\n# Integration\n\nNo changes needed. Nodes without the v2 DHT path enabled are unaffected.",
+          "timestamp": "2026-09-22T08:10:43Z",
+          "tree_id": "be5497e4399f525d35edca455c96e5b794d59fb1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7e68ad23409d5891ccdb37ac253d18bf8fc23c0c"
+        },
+        "date": 1790069420986,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20224453,
+            "range": "± 626128",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21426656,
+            "range": "± 297723",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22515962,
+            "range": "± 301788",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28347742,
+            "range": "± 327235",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 68140458,
+            "range": "± 1568178",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 444975043,
+            "range": "± 4885300",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 3228395982,
+            "range": "± 209207504",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 19517160,
+            "range": "± 227523",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 19288443,
+            "range": "± 167079",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 20042392,
+            "range": "± 202605",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24637924,
+            "range": "± 200342",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 70868488,
+            "range": "± 1258453",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 424509319,
+            "range": "± 5288889",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2959719265,
+            "range": "± 34524233",
             "unit": "ns/iter"
           }
         ]
