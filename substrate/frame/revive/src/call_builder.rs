@@ -263,7 +263,9 @@ pub fn entry_of_key<T: Config>(key: &[u8]) -> Option<AccessEntry> {
 		use frame_support::{Blake2_128Concat, ReversibleStorageHasher};
 		let mut encoded = Blake2_128Concat::reverse(tail);
 		let account_id = <T::AccountId as codec::Decode>::decode(&mut encoded).ok()?;
-		return Some(AccessEntry::Account { address: T::AddressMapper::to_address(&account_id) });
+		let entry = AccessEntry::Account { address: T::AddressMapper::to_address(&account_id) };
+		// Only claim the entry when it maps back to this key; other accounts have no address.
+		return (storage_key_of::<T>(&entry).as_deref() == Some(key)).then_some(entry);
 	}
 	if let Some(tail) = tail_of(&crate::OriginalAccount::<T>::final_prefix()) {
 		return Some(AccessEntry::OriginalAccount { address: address(tail)? });
