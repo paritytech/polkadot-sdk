@@ -132,11 +132,17 @@ fn capture_into_receipt(contract: &H160, data: &[u8], topics: &[H256]) -> bool {
 /// Capture a log emitted by a contract frame: into the open ethereum transaction's receipt, or
 /// nowhere.
 ///
-/// A frame outside an ethereum transaction (`Revive::call`, an XCM `Transact`) does not use the
-/// block's outside-of-frame buffer. The drain of a buffered log is charged to the block, not to
-/// the frame, so one frame could fill the buffer for a few milliseconds of weight and drop every
-/// mirrored balance change behind it. Such a log stays a substrate-only event, as before the
-/// buffer existed.
+/// A frame outside an ethereum transaction does not use the block's outside-of-frame buffer. The
+/// drain of a buffered log is charged to the block, not to the frame, so one frame could fill the
+/// buffer for a few milliseconds of weight and drop every mirrored balance change behind it. Such
+/// a log stays a substrate-only event, as before the buffer existed. This keeps the `LOG` opcode's
+/// guarantee intact: a log takes effect or its frame reverts, and here it does take effect as a
+/// `ContractEmitted` event; there is no ethereum observer outside an ethereum transaction for it
+/// to be missing from.
+///
+/// So where a contract's log ends up depends on the entry point: `eth_transact` and
+/// `eth_substrate_call`, whose inner dispatch runs inside `with_ethereum_context`, put it on the
+/// receipt; `Revive::call` and an XCM `Transact` leave it substrate-only.
 pub fn capture_frame_log(contract: &H160, data: &[u8], topics: &[H256]) {
 	capture_into_receipt(contract, data, topics);
 }
