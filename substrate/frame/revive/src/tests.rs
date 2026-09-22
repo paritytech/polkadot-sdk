@@ -992,6 +992,71 @@ fn outside_of_frame_logs_past_the_cap_stay_substrate_only() {
 	});
 }
 
+// The buffer has to hold every log the block's native transfers produce, so its practical ceiling
+// is the cap, not the storage layout.
+#[test]
+fn the_buffer_holds_as_many_outside_of_frame_logs_as_the_cap_allows() {
+	use crate::{OutsideFrameLogs, SyntheticReceiptInfo, evm::block_storage};
+	use sp_core::H256;
+
+	const LOGS: u32 = 10_000;
+
+	ExtBuilder::default().build().execute_with(|| {
+		MaxOutsideFrameLogsFlag::set(LOGS);
+
+		for i in 0..LOGS {
+			Pallet::<Test>::emit_contract_log_outside_frame(
+				H160::from_low_u64_be(i.into()),
+				vec![H256::from_low_u64_be(i.into())].try_into().unwrap(),
+				i.to_be_bytes().to_vec().try_into().unwrap(),
+			);
+		}
+		assert_eq!(OutsideFrameLogs::<Test>::get().len(), LOGS as usize);
+
+		block_storage::on_finalize_build_eth_block::<Test>(1);
+
+		assert!(OutsideFrameLogs::<Test>::get().is_empty(), "every log is drained");
+		let synthetic = SyntheticReceiptInfo::<Test>::get().expect("one synthetic transaction");
+		assert_eq!(synthetic.log_count, LOGS, "and every log is in it");
+	});
+}
+
+// The drain reads the buffer back as one value, so the trie nodes it touches do not depend on how
+// many logs were buffered. That is what the `outside_frame_log` benchmark prices: one key per log
+// would add a leaf per log, and the per-key proof overhead the benchmark adds for each would price
+// the drain out of the block long before the logs' own bytes do.
+#[test]
+fn draining_outside_of_frame_logs_reads_a_fixed_number_of_trie_nodes() {
+	use crate::evm::block_storage;
+	use sp_core::H256;
+
+	let trie_nodes_read = |logs: u32| {
+		let mut ext = ExtBuilder::default().build();
+		ext.execute_with(|| {
+			MaxOutsideFrameLogsFlag::set(logs);
+			for i in 0..logs {
+				Pallet::<Test>::emit_contract_log_outside_frame(
+					H160::from_low_u64_be(i.into()),
+					vec![H256::from_low_u64_be(i.into())].try_into().unwrap(),
+					vec![1, 2, 3].try_into().unwrap(),
+				);
+			}
+		});
+		// As in the benchmark, the buffered logs are committed state by the time the drain runs,
+		// so whatever it reads is in the proof.
+		ext.commit_all().expect("no open transactions");
+		let (_, proof) =
+			ext.execute_and_prove(|| block_storage::on_finalize_build_eth_block::<Test>(1));
+		proof.len()
+	};
+
+	assert_eq!(
+		trie_nodes_read(1),
+		trie_nodes_read(1_000),
+		"the drain's storage proof must not grow with the number of buffered logs"
+	);
+}
+
 #[test]
 fn tracing_a_log_emitted_inside_a_call_frame_attaches_to_it() {
 	use crate::{evm::CallTracer, tracing::Tracing};
