@@ -1,0 +1,12 @@
+title: 'statement gossip: score a resent banned statement against the sender'
+
+doc:
+- audience: Node Dev
+  description: |-
+    On nodes running the v2 DHT statement path, a peer that resends a statement the store has
+    removed and banned, such as a forwarded transient statement, now loses a small amount of its
+    per-peer score. Nodes without the v2 DHT path enabled are unaffected.
+
+crates:
+- name: sc-network-statement
+  bump: patch
