@@ -3654,6 +3654,117 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Benchmark `r` CALLDATALOAD instructions.
+	///
+	/// Calldata contains a chain of offsets:
+	///
+	///     first offset -> second offset -> ... -> END_OF_WALK
+	///
+	/// Each CALLDATALOAD replaces the offset on the stack with the value stored at that offset.
+	/// That value becomes the next offset to load.
+	///
+	/// We use maximum-size calldata, shuffle the offsets, and make every read cross a cache-line
+	/// boundary. All reads stay within calldata, and the stack contains exactly one item throughout
+	/// execution.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_calldataload_opcode(
+		r: Linear<0, { limits::CALLDATA_BYTES / 64 - 1 }>,
+	) -> Result<(), BenchmarkError> {
+		use rand::{SeedableRng, seq::SliceRandom};
+		use rand_pcg::Pcg64;
+		use revm::bytecode::opcode::CALLDATALOAD;
+
+		const CALLDATA_SIZE: usize = limits::CALLDATA_BYTES as usize;
+		const CACHE_LINE_SIZE: usize = 64;
+		const WORD_SIZE: usize = 32;
+		const OFFSET_IN_LINE: usize = 48;
+		const END_OF_WALK: U256 = U256::MAX;
+
+		let load_count = r as usize;
+
+		// Find all valid offsets where a word crosses a cache-line boundary.
+		//
+		// Starting a 32-byte word at byte 48 of a cache line puts:
+		// - 16 bytes in the current 64-byte cache line.
+		// - 16 bytes in the next cache line.
+		//
+		// The allocator only aligns to 8 bytes, so the buffer can start anywhere within a cache
+		// line and the offsets are shifted to compensate for where it starts.
+		let mut calldata = vec![0u8; CALLDATA_SIZE];
+		let misalignment = calldata.as_ptr() as usize % CACHE_LINE_SIZE;
+		let mut possible_offsets = Vec::new();
+		let mut offset = (OFFSET_IN_LINE + CACHE_LINE_SIZE - misalignment) % CACHE_LINE_SIZE;
+		assert_eq!(
+			(calldata.as_ptr() as usize + offset) % CACHE_LINE_SIZE,
+			OFFSET_IN_LINE,
+			"the loaded words must straddle two cache lines"
+		);
+
+		while offset + WORD_SIZE <= CALLDATA_SIZE {
+			possible_offsets.push(offset);
+			offset += CACHE_LINE_SIZE;
+		}
+
+		// Shuffle reproducibly, then select one offset per requested load.
+		let mut rng = Pcg64::seed_from_u64(1337);
+		possible_offsets.shuffle(&mut rng);
+
+		if load_count > possible_offsets.len() {
+			return Err(BenchmarkError::Stop("Not enough calldata slots for the requested loads"));
+		}
+
+		let walk_offsets = &possible_offsets[..load_count];
+
+		// Build the chain in calldata.
+		//
+		// Each selected location stores the offset of the next location. The final location stores
+		// END_OF_WALK instead.
+		for position in 0..load_count {
+			let current_offset = walk_offsets[position];
+
+			let value_to_store = if position + 1 < load_count {
+				let next_offset = walk_offsets[position + 1];
+				U256::from(next_offset)
+			} else {
+				END_OF_WALK
+			};
+
+			let word_end = current_offset + WORD_SIZE;
+			let encoded_value = value_to_store.to_big_endian();
+
+			calldata[current_offset..word_end].copy_from_slice(&encoded_value);
+		}
+
+		// Start at the first offset. With zero loads, start with the expected final value already
+		// on the stack.
+		let initial_stack_value =
+			if load_count == 0 { END_OF_WALK } else { U256::from(walk_offsets[0]) };
+
+		// The program contains exactly `load_count` CALLDATALOAD instructions.
+		let instructions = vec![CALLDATALOAD; load_count];
+		let bytecode = Bytecode::new_raw(instructions.into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut external_context, _) = setup.ext();
+		let mut interpreter =
+			Interpreter::new(ExtBytecode::new(bytecode), calldata, &mut external_context);
+		if interpreter.stack.push(initial_stack_value).is_break() {
+			return Err(BenchmarkError::Stop("The start offset exceeds the stack limit"));
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&END_OF_WALK));
+
+		Ok(())
+	}
+
 	// Benchmark the execution of instructions.
 	//
 	// It benchmarks the absolute worst case by allocating a lot of memory

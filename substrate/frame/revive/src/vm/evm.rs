@@ -79,6 +79,7 @@ pub(crate) enum EvmOpcodeCosts {
 	CHAINID,
 	PREVRANDAO,
 	CODESIZE,
+	CALLDATALOAD,
 }
 
 impl<T: Config> Token<T> for EvmOpcodeCosts {
@@ -99,6 +100,7 @@ impl<T: Config> Token<T> for EvmOpcodeCosts {
 			CHAINID => cost_args!(evm_chainid_opcode, 1),
 			PREVRANDAO => cost_args!(evm_prevrandao_opcode, 1),
 			CODESIZE => cost_args!(evm_codesize_opcode, 1),
+			CALLDATALOAD => cost_args!(evm_calldataload_opcode, 1),
 		}
 	}
 }

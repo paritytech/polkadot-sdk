@@ -25,7 +25,7 @@ use crate::{
 	},
 };
 use core::ops::ControlFlow;
-use revm::interpreter::gas::{BASE, VERYLOW};
+use revm::interpreter::gas::BASE;
 use sp_core::H256;
 use sp_io::hashing::keccak_256;
 
@@ -111,7 +111,7 @@ pub fn codecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Loads 32 bytes of input data from the specified offset.
 pub fn calldataload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::CALLDATALOAD)?;
 	let ([], offset_ptr) = interpreter.stack.popn_top()?;
 	let mut word = [0u8; 32];
 	let offset = as_usize_saturated(*offset_ptr);
