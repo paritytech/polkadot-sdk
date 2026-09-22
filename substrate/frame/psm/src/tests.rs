@@ -4071,7 +4071,7 @@ mod try_state {
 
 	// Check 2
 	#[test]
-	fn detects_internal_decimal_mismatch() {
+	fn warns_on_internal_decimal_mismatch() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(Assets::set_metadata(
 				RuntimeOrigin::signed(ALICE),
@@ -4080,12 +4080,7 @@ mod try_state {
 				b"INTERNAL".to_vec(),
 				8
 			));
-			assert_eq!(
-				dts().unwrap_err(),
-				DispatchError::Other(
-					"Internal asset live decimals differ from the PsmInfo snapshot"
-				)
-			);
+			assert_ok!(dts());
 		});
 	}
 
@@ -4173,16 +4168,16 @@ mod try_state {
 
 	// Check 7
 	#[test]
-	fn detects_external_decimal_mismatch() {
+	fn warns_on_external_decimal_mismatch() {
 		new_test_ext().execute_with(|| {
-			create_asset_with_metadata(UNSUPPORTED_ASSET_ID);
-			approve_raw(UNSUPPORTED_ASSET_ID, 18);
-			assert_eq!(
-				dts().unwrap_err(),
-				DispatchError::Other(
-					"External asset live decimals differ from the registration snapshot"
-				)
-			);
+			assert_ok!(Assets::set_metadata(
+				RuntimeOrigin::signed(ALICE),
+				USDC_ASSET_ID,
+				b"USD Coin".to_vec(),
+				b"USDC".to_vec(),
+				9
+			));
+			assert_ok!(dts());
 		});
 	}
 
@@ -4448,11 +4443,10 @@ mod generated_tests {
 			));
 
 			assert_eq!(
-				crate::Pallet::<Test>::do_try_state().unwrap_err(),
-				DispatchError::Other(
-					"Internal asset live decimals differ from the PsmInfo snapshot"
-				)
+				crate::Psm::<Test>::get(INTERNAL_ASSET_ID).unwrap().internal_decimals,
+				snapshot
 			);
+			assert_ok!(crate::Pallet::<Test>::do_try_state());
 		});
 	}
 
@@ -4462,11 +4456,12 @@ mod generated_tests {
 			assert_ok!(Assets::clear_metadata(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID));
 
 			assert_eq!(
-				crate::Pallet::<Test>::do_try_state().unwrap_err(),
-				DispatchError::Other(
-					"External asset live decimals differ from the registration snapshot"
-				)
+				crate::ExternalAssets::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID)
+					.expect("external stays approved")
+					.decimals,
+				6
 			);
+			assert_ok!(crate::Pallet::<Test>::do_try_state());
 		});
 	}
 

@@ -8,17 +8,19 @@ doc:
     description: |
       `pallet-psm` has a `do_try_state` function with five checks. This PR
       increases that number to seventeen. The `try_state` hook calls the function
-      with the `try-runtime` feature. The checks confirm that each decimals
-      snapshot agrees with
-      the live asset metadata, that each reserve covers the debt against it, that
-      the issuance of the internal asset covers the debt of the instance, that no
-      row stays after the removal of its PSM, and that no debt exists for a pair
-      that the PSM does not approve.
+      with the `try-runtime` feature. The checks confirm that each reserve covers
+      the debt against it, that the issuance of the internal asset covers the debt
+      of the instance, that no row stays after the removal of its PSM, and that no
+      debt exists for a pair that the PSM does not approve.
 
-      Three checks are advisory. An advisory check writes a warning to the log,
-      and it does not return an error. Governance can create these three states
-      correctly: debt above a per-asset ceiling, debt above the ceiling of an
-      instance, and a reserve with a balance but with zero weight and zero debt.
+      Five checks are advisory. An advisory check writes a warning to the log,
+      and it does not return an error. A permitted action can create each of
+      these states. Governance can set debt above a per-asset ceiling, debt
+      above the ceiling of an instance, and a reserve with a balance but with
+      zero weight and zero debt. An asset owner can change asset metadata, so
+      live decimals that differ from the values recorded at registration are
+      warnings: swaps use the recorded values, and the arithmetic of the pallet
+      does not depend on live metadata.
       Fee and weight rows for a pair that the PSM does not approve are hard
       errors, because no extrinsic can create them and a stray weight row
       shrinks the ceilings of the approved assets.

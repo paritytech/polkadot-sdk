@@ -72,13 +72,19 @@
 //! * no storage row stays after the removal of its PSM;
 //! * no debt exists for a pair that the PSM does not approve.
 //!
-//! Three of the seventeen checks are advisory. An advisory check writes a warning to
-//! the log. It does not return an error. Governance can create these three states
-//! correctly, so an error would stop the chain after a correct parameter change:
+//! Five of the seventeen checks are advisory. An advisory check writes a warning to
+//! the log. It does not return an error. A permitted action can create these five
+//! states, so an error would stop the chain after a correct call:
 //!
 //! * debt above a per-asset ceiling;
 //! * debt above the ceiling of an instance;
-//! * a reserve with a balance, but with zero weight and zero debt.
+//! * a reserve with a balance, but with zero weight and zero debt;
+//! * live decimals of the internal asset that differ from the recorded value;
+//! * live decimals of an external asset that differ from the recorded value.
+//!
+//! The two decimal checks are advisory because an asset owner can change asset
+//! metadata at any time, and swaps use the recorded values. Drift does not change
+//! the arithmetic of the pallet. It changes what a reader of live metadata sees.
 //!
 //! ### Fee Structure
 //!
@@ -1690,9 +1696,10 @@ pub mod pallet {
 		/// * Checks 7 to 11 run for each approved external asset of an instance.
 		/// * Checks 14 to 17 run once, across all of the storage.
 		///
-		/// Checks 10, 11 and 17 are advisory. They write a warning to the log,
-		/// and they do not return an error. Governance can create these states
-		/// correctly.
+		/// Checks 2, 7, 10, 11 and 17 are advisory. They write a warning to the
+		/// log, and they do not return an error. A permitted action can create
+		/// each of these states: a metadata change by an asset owner for checks
+		/// 2 and 7, a parameter change by governance for checks 10, 11 and 17.
 		#[cfg(any(feature = "try-runtime", test))]
 		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 			use sp_runtime::traits::CheckedAdd;
@@ -1704,11 +1711,18 @@ pub mod pallet {
 					"PSM instance without a paired PsmAdmin record"
 				);
 
-				// Check 2: live internal decimals match the PsmInfo snapshot.
-				ensure!(
-					T::Fungibles::decimals(internal_asset.clone()) == info.internal_decimals,
-					"Internal asset live decimals differ from the PsmInfo snapshot"
-				);
+				// Check 2 (advisory): live internal decimals match the PsmInfo snapshot.
+				// Swaps use the recorded value, so drift does not change the pallet's
+				// arithmetic; it changes what off-chain readers of live metadata see.
+				let live_internal_decimals = T::Fungibles::decimals(internal_asset.clone());
+				if live_internal_decimals != info.internal_decimals {
+					log::warn!(
+						target: "runtime::psm",
+						"PSM {:?}: internal asset live decimals ({}) differ from the PsmInfo \
+						snapshot ({}); swaps keep using the snapshot",
+						internal_asset, live_internal_decimals, info.internal_decimals,
+					);
+				}
 
 				// Check 3: the reserve account exists.
 				ensure!(
@@ -1746,11 +1760,19 @@ pub mod pallet {
 					let debt = PsmDebt::<T>::get(&internal_asset, &external_asset);
 					let reserve = Self::get_reserve(&internal_asset, &external_asset);
 
-					// Check 7: live external decimals match the registration snapshot.
-					ensure!(
-						T::Fungibles::decimals(external_asset.clone()) == external.decimals,
-						"External asset live decimals differ from the registration snapshot"
-					);
+					// Check 7 (advisory): live external decimals match the registration
+					// snapshot. Same rationale as check 2: the asset owner can change
+					// metadata at any time, and swaps keep using the snapshot.
+					let live_external_decimals = T::Fungibles::decimals(external_asset.clone());
+					if live_external_decimals != external.decimals {
+						log::warn!(
+							target: "runtime::psm",
+							"Asset {:?}/{:?}: live decimals ({}) differ from the registration \
+							snapshot ({}); swaps keep using the snapshot",
+							internal_asset, external_asset,
+							live_external_decimals, external.decimals,
+						);
+					}
 
 					// Check 8: the reserve covers tracked debt, compared in external units.
 					let debt_as_external =
