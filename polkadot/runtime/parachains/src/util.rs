@@ -19,43 +19,60 @@
 
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use frame_system::pallet_prelude::BlockNumberFor;
-use polkadot_primitives::{HeadData, Id as ParaId, PersistedValidationData, ValidatorIndex};
+use polkadot_primitives::{
+	HeadData, Id as ParaId, PersistedValidationData, SessionIndex, ValidatorIndex,
+};
 
-use crate::{configuration, hrmp, paras};
+use crate::{configuration, hrmp, paras, session_info};
+
+/// Resolve the `max_pov_size` for the given session from the per-session snapshot.
+///
+/// See [`session_info::Pallet::session_execution_config`] for the snapshot lookup and
+/// fallback semantics.
+pub(crate) fn session_max_pov_size<T: configuration::Config + session_info::Config>(
+	session_index: SessionIndex,
+) -> u32 {
+	session_info::Pallet::<T>::session_execution_config(session_index).max_pov_size
+}
 
 /// Make the persisted validation data for a particular parachain, a specified relay-parent and it's
 /// storage root.
 ///
+/// `session_index` is the session of the candidate's relay parent. `max_pov_size`
+/// is read from the per-session `SessionExecutionConfig` snapshot so that the
+/// hash matches the descriptor the candidate's collator produced.
+///
 /// This ties together the storage of several modules.
-pub fn make_persisted_validation_data<T: paras::Config + hrmp::Config>(
+pub fn make_persisted_validation_data<T: paras::Config + hrmp::Config + session_info::Config>(
 	para_id: ParaId,
 	relay_parent_number: BlockNumberFor<T>,
 	relay_parent_storage_root: T::Hash,
+	session_index: SessionIndex,
 ) -> Option<PersistedValidationData<T::Hash, BlockNumberFor<T>>> {
-	let config = configuration::ActiveConfig::<T>::get();
-
 	Some(PersistedValidationData {
 		parent_head: paras::Heads::<T>::get(&para_id)?,
 		relay_parent_number,
 		relay_parent_storage_root,
-		max_pov_size: config.max_pov_size,
+		max_pov_size: session_max_pov_size::<T>(session_index),
 	})
 }
 
 /// Make the persisted validation data for a particular parachain, a specified relay-parent, its
 /// storage root and parent head data.
-pub fn make_persisted_validation_data_with_parent<T: configuration::Config>(
+///
+/// `max_pov_size` is supplied by the caller rather than re-read here, so a caller that already
+/// resolved the relay-parent session's snapshot does not pay for a second lookup.
+pub fn make_persisted_validation_data_with_parent<T: frame_system::Config>(
 	relay_parent_number: BlockNumberFor<T>,
 	relay_parent_storage_root: T::Hash,
 	parent_head: HeadData,
+	max_pov_size: u32,
 ) -> PersistedValidationData<T::Hash, BlockNumberFor<T>> {
-	let config = configuration::ActiveConfig::<T>::get();
-
 	PersistedValidationData {
 		parent_head,
 		relay_parent_number,
 		relay_parent_storage_root,
-		max_pov_size: config.max_pov_size,
+		max_pov_size,
 	}
 }
 

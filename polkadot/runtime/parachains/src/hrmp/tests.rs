@@ -517,7 +517,12 @@ fn send_recv_messages() {
 				.try_into()
 				.unwrap();
 		let config = configuration::ActiveConfig::<Test>::get();
-		assert!(Hrmp::check_outbound_hrmp(&config, para_a, &msgs).is_ok());
+		assert!(Hrmp::check_outbound_hrmp(
+			config.hrmp_max_message_num_per_candidate,
+			para_a,
+			&msgs
+		)
+		.is_ok());
 		let _ = Hrmp::queue_outbound_hrmp(para_a, msgs);
 		Hrmp::assert_storage_consistency_exhaustive();
 
@@ -626,7 +631,12 @@ fn check_sent_messages() {
 				.try_into()
 				.unwrap();
 		let config = configuration::ActiveConfig::<Test>::get();
-		assert!(Hrmp::check_outbound_hrmp(&config, para_a, &msgs).is_ok());
+		assert!(Hrmp::check_outbound_hrmp(
+			config.hrmp_max_message_num_per_candidate,
+			para_a,
+			&msgs
+		)
+		.is_ok());
 		let _ = Hrmp::queue_outbound_hrmp(para_a, msgs.clone());
 
 		// Verify that the sent messages are there and that also the empty channels are present.
@@ -925,7 +935,12 @@ fn watermark_can_remain_the_same() {
 				.try_into()
 				.unwrap();
 		let config = configuration::ActiveConfig::<Test>::get();
-		assert!(Hrmp::check_outbound_hrmp(&config, para_a, &msgs).is_ok());
+		assert!(Hrmp::check_outbound_hrmp(
+			config.hrmp_max_message_num_per_candidate,
+			para_a,
+			&msgs
+		)
+		.is_ok());
 		let _ = Hrmp::queue_outbound_hrmp(para_a, msgs);
 		Hrmp::assert_storage_consistency_exhaustive();
 		// C sends 1 message to B
@@ -935,7 +950,12 @@ fn watermark_can_remain_the_same() {
 				.try_into()
 				.unwrap();
 		let config = configuration::ActiveConfig::<Test>::get();
-		assert!(Hrmp::check_outbound_hrmp(&config, para_c, &msgs).is_ok());
+		assert!(Hrmp::check_outbound_hrmp(
+			config.hrmp_max_message_num_per_candidate,
+			para_c,
+			&msgs
+		)
+		.is_ok());
 		let _ = Hrmp::queue_outbound_hrmp(para_c, msgs);
 		Hrmp::assert_storage_consistency_exhaustive();
 
@@ -997,7 +1017,12 @@ fn watermark_maxed_out_at_relay_parent() {
 				.try_into()
 				.unwrap();
 		let config = configuration::ActiveConfig::<Test>::get();
-		assert!(Hrmp::check_outbound_hrmp(&config, para_a, &msgs).is_ok());
+		assert!(Hrmp::check_outbound_hrmp(
+			config.hrmp_max_message_num_per_candidate,
+			para_a,
+			&msgs
+		)
+		.is_ok());
 		let _ = Hrmp::queue_outbound_hrmp(para_a, msgs);
 		Hrmp::assert_storage_consistency_exhaustive();
 

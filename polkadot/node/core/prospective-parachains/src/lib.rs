@@ -58,9 +58,10 @@ use polkadot_node_subsystem_util::{
 	runtime::{fetch_claim_queue, fetch_scheduling_lookahead},
 };
 use polkadot_primitives::{
-	transpose_claim_queue, vstaging::RelayParentInfo as RuntimeRelayParentInfo, BlockNumber,
-	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash, Id as ParaId,
-	PersistedValidationData, SessionIndex,
+	transpose_claim_queue,
+	vstaging::{RelayParentInfo as RuntimeRelayParentInfo, SessionExecutionConfig},
+	BlockNumber, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash,
+	Id as ParaId, PersistedValidationData, SessionIndex,
 };
 use schnellru::{ByLength, LruMap};
 
@@ -89,12 +90,35 @@ const LOG_TARGET: &str = "parachain::prospective-parachains";
 /// full.
 const RELAY_PARENT_INFO_CACHE_CAPACITY: u32 = 2400;
 
-/// LRU cache mapping `(leaf_session, relay_parent)` to runtime-reported relay parent info.
-type RelayParentInfoCache = LruMap<(SessionIndex, Hash), RuntimeRelayParentInfo<Hash, BlockNumber>>;
+/// LRU cache mapping `(leaf_session, fetch_session, relay_parent)` to runtime-reported relay parent
+/// info. `fetch_session` belongs in the key because the lookup asserts the relay parent lives in
+/// that session: without it a hit would answer for a session the runtime was never asked about.
+type RelayParentInfoCache =
+	LruMap<(SessionIndex, SessionIndex, Hash), RuntimeRelayParentInfo<Hash, BlockNumber>>;
 
-/// Per-session cache for `SessionExecutionConfig.max_pov_size`.
-type SessionMaxPovSizeCache = LruMap<SessionIndex, Option<u32>>;
-const SESSION_MAX_POV_SIZE_CACHE_CAPACITY: u32 = 4;
+/// Per-session cache for the `SessionExecutionConfig` snapshot. `None` records a definitive
+/// "the runtime has no snapshot for this session"; transient failures are never cached.
+type SessionExecutionConfigCache = LruMap<SessionIndex, Option<SessionExecutionConfig>>;
+const SESSION_EXECUTION_CONFIG_CACHE_CAPACITY: u32 = 4;
+
+/// Outcome of a per-session `SessionExecutionConfig` lookup.
+enum SessionExecutionConfigLookup {
+	/// The runtime returned the snapshot for the requested session.
+	Found(SessionExecutionConfig),
+	/// Pre-v17 runtime, or no snapshot stored for this session.
+	Unavailable,
+	/// Transient runtime or channel failure.
+	Failed,
+}
+
+impl SessionExecutionConfigLookup {
+	fn found(&self) -> Option<SessionExecutionConfig> {
+		match self {
+			Self::Found(cfg) => Some(*cfg),
+			Self::Unavailable | Self::Failed => None,
+		}
+	}
+}
 
 struct PerSchedulingParent {
 	// The fragment chains for current and upcoming scheduled paras.
@@ -123,16 +147,17 @@ struct View {
 	/// The hashes of the currently active leaves. Always a subset of the keys in
 	/// `per_scheduling_parent`.
 	active_leaves: HashSet<Hash>,
-	/// LRU cache of relay-parent-info answers keyed by `(leaf_session, relay_parent)`.
+	/// LRU cache of relay-parent-info answers keyed by `(leaf_session, fetch_session,
+	/// relay_parent)`.
 	///
-	/// Semantically this caches "under a leaf in this session, the runtime returned this info
-	/// for this relay parent hash". Session-keying means entries from older sessions are
-	/// naturally invalidated (miss + repopulate) when we move forward, matching the runtime's
-	/// `max_relay_parent_session_age` pruning behavior. Only positive results are cached;
-	/// `None`/`Err` results force a fresh query on the next call.
+	/// Semantically this caches "under a leaf in this session, the runtime confirmed this relay
+	/// parent belongs to `fetch_session` and returned this info". Session-keying means entries
+	/// from older sessions are naturally invalidated (miss + repopulate) when we move forward,
+	/// matching the runtime's `max_relay_parent_session_age` pruning behavior. Only positive
+	/// results are cached; `None`/`Err` results force a fresh query on the next call.
 	relay_parent_info_cache: RelayParentInfoCache,
-	/// LRU cache of `SessionExecutionConfig.max_pov_size` per session.
-	session_max_pov_size_cache: SessionMaxPovSizeCache,
+	/// LRU cache of the `SessionExecutionConfig` snapshot per session.
+	session_execution_config_cache: SessionExecutionConfigCache,
 }
 
 impl View {
@@ -142,8 +167,8 @@ impl View {
 			per_scheduling_parent: HashMap::new(),
 			active_leaves: HashSet::new(),
 			relay_parent_info_cache: LruMap::new(ByLength::new(RELAY_PARENT_INFO_CACHE_CAPACITY)),
-			session_max_pov_size_cache: LruMap::new(ByLength::new(
-				SESSION_MAX_POV_SIZE_CACHE_CAPACITY,
+			session_execution_config_cache: LruMap::new(ByLength::new(
+				SESSION_EXECUTION_CONFIG_CACHE_CAPACITY,
 			)),
 		}
 	}
@@ -324,6 +349,7 @@ async fn handle_active_leaves_update<Context>(
 			let pending_availability = preprocess_candidates_pending_availability(
 				ctx,
 				&mut view.relay_parent_info_cache,
+				&mut view.session_execution_config_cache,
 				hash,
 				session_index,
 				&constraints,
@@ -340,6 +366,7 @@ async fn handle_active_leaves_update<Context>(
 					candidate_hash,
 					c.candidate,
 					c.persisted_validation_data,
+					c.session_limits,
 				);
 
 				match res {
@@ -487,6 +514,7 @@ struct ImportablePendingAvailability {
 	candidate: CommittedCandidateReceipt,
 	persisted_validation_data: PersistedValidationData,
 	compact: fragment_chain::PendingAvailability,
+	session_limits: Option<SessionExecutionConfig>,
 }
 
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
@@ -515,6 +543,7 @@ struct ImportablePendingAvailability {
 async fn preprocess_candidates_pending_availability<Context>(
 	ctx: &mut Context,
 	rp_info_cache: &mut RelayParentInfoCache,
+	session_config_cache: &mut SessionExecutionConfigCache,
 	leaf: Hash,
 	leaf_session_index: SessionIndex,
 	constraints: &Constraints,
@@ -554,6 +583,34 @@ async fn preprocess_candidates_pending_availability<Context>(
 			break;
 		};
 
+		// The candidate may have been built in an older session than the leaf, so its limits come
+		// from its own relay-parent session where the runtime exposes them.
+		let session_limits =
+			match fetch_session_execution_config(ctx, session_config_cache, leaf, fetch_session)
+				.await
+			{
+				SessionExecutionConfigLookup::Found(cfg) => Some(cfg),
+				SessionExecutionConfigLookup::Unavailable => None,
+				// Falling back to the leaf session's `max_pov_size` would build a PVD that doesn't
+				// hash to the descriptor, so stop here instead of recording a bogus candidate.
+				SessionExecutionConfigLookup::Failed => {
+					let para_id = pending.descriptor.para_id();
+					gum::debug!(
+						target: LOG_TARGET,
+						?candidate_hash,
+						?para_id,
+						index = ?i,
+						?expected_count,
+						?fetch_session,
+						"Had to stop processing pending candidates early: session execution config query failed.",
+					);
+
+					break;
+				},
+			};
+		let max_pov_size =
+			session_limits.map_or(constraints.max_pov_size as _, |cfg| cfg.max_pov_size);
+
 		let next_required_parent = pending.commitments.head_data.clone();
 		importable.push(ImportablePendingAvailability {
 			candidate: CommittedCandidateReceipt {
@@ -562,10 +619,11 @@ async fn preprocess_candidates_pending_availability<Context>(
 			},
 			persisted_validation_data: PersistedValidationData {
 				parent_head: required_parent,
-				max_pov_size: constraints.max_pov_size as _,
+				max_pov_size,
 				relay_parent_number: relay_parent_info.number,
 				relay_parent_storage_root: relay_parent_info.state_root,
 			},
+			session_limits,
 			compact: fragment_chain::PendingAvailability {
 				candidate_hash,
 				relay_parent: RelayParentInfo {
@@ -582,19 +640,20 @@ async fn preprocess_candidates_pending_availability<Context>(
 	Ok(importable)
 }
 
-/// Verifies that the candidate's relay parent is within the leaf's
-/// scope and that the PVD's `max_pov_size` matches the runtime value
-/// for the candidate's relay-parent session.
+/// Verifies the candidate's relay parent is within the leaf's scope and that its PVD
+/// `max_pov_size` matches the runtime value for the candidate's relay-parent session. Returns that
+/// session's `SessionExecutionConfig`, or `None` when the runtime cannot supply it.
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
 async fn verify_relay_parent_within_scope<Context>(
 	ctx: &mut Context,
 	rp_info_cache: &mut RelayParentInfoCache,
-	max_pov_size_cache: &mut SessionMaxPovSizeCache,
+	session_config_cache: &mut SessionExecutionConfigCache,
 	query_at: Hash,
 	leaf_session_index: SessionIndex,
 	candidate: &CommittedCandidateReceipt,
 	pvd: &PersistedValidationData,
-) -> JfyiErrorResult<()> {
+	scheduling_session_max_pov_size: u32,
+) -> JfyiErrorResult<Option<SessionExecutionConfig>> {
 	// For V1 descriptors `session_index()` is None; relay_parent == scheduling_parent for V1, so
 	// the leaf's session applies. For V2/V3 the descriptor carries the session of its relay parent.
 	let fetch_session = candidate.descriptor.session_index().unwrap_or(leaf_session_index);
@@ -616,20 +675,24 @@ async fn verify_relay_parent_within_scope<Context>(
 		_ => return Err(JfyiError::RelayParentOutOfScope),
 	}
 
-	if let Some(rt_max) = fetch_session_execution_config_max_pov_size(
-		ctx,
-		max_pov_size_cache,
-		query_at,
-		fetch_session,
-	)
-	.await
-	{
-		if rt_max != pvd.max_pov_size {
-			return Err(JfyiError::MaxPovSizeMismatch { expected: rt_max, got: pvd.max_pov_size });
+	let session_config =
+		fetch_session_execution_config(ctx, session_config_cache, query_at, fetch_session).await;
+
+	// A failed lookup must not reject the candidate: we cannot distinguish a tampered PVD from an
+	// unanswered query, and rejecting here drops the candidate permanently.
+	let expected_max_pov_size = match &session_config {
+		SessionExecutionConfigLookup::Found(cfg) => Some(cfg.max_pov_size),
+		SessionExecutionConfigLookup::Unavailable => Some(scheduling_session_max_pov_size),
+		SessionExecutionConfigLookup::Failed => None,
+	};
+
+	if let Some(expected) = expected_max_pov_size {
+		if expected != pvd.max_pov_size {
+			return Err(JfyiError::MaxPovSizeMismatch { expected, got: pvd.max_pov_size });
 		}
 	}
 
-	Ok(())
+	Ok(session_config.found())
 }
 
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
@@ -651,8 +714,10 @@ async fn handle_introduce_seconded_candidate<Context>(
 	let candidate_hash = candidate.hash();
 	let relay_parent = candidate.descriptor.relay_parent();
 
-	let candidate_entry =
-		match CandidateEntry::new_seconded(candidate_hash, candidate.clone(), pvd.clone()) {
+	// Session limits are filled in per scheduling parent below, once the relay-parent session is
+	// resolved.
+	let mut candidate_entry =
+		match CandidateEntry::new_seconded(candidate_hash, candidate.clone(), pvd.clone(), None) {
 			Ok(candidate) => candidate,
 			Err(err) => {
 				gum::warn!(
@@ -677,27 +742,31 @@ async fn handle_introduce_seconded_candidate<Context>(
 
 		para_scheduled = true;
 
-		if let Err(err) = verify_relay_parent_within_scope(
+		match verify_relay_parent_within_scope(
 			ctx,
 			&mut view.relay_parent_info_cache,
-			&mut view.session_max_pov_size_cache,
+			&mut view.session_execution_config_cache,
 			*scheduling_parent,
 			sp_data.session_index,
 			&candidate,
 			&pvd,
+			chain.scope().base_constraints().max_pov_size as u32,
 		)
 		.await
 		{
-			gum::trace!(
-				target: LOG_TARGET,
-				?para,
-				?candidate_hash,
-				?scheduling_parent,
-				?relay_parent,
-				"Cannot introduce seconded candidate: {}",
-				err
-			);
-			continue;
+			Ok(session_limits) => candidate_entry.set_session_limits(session_limits),
+			Err(err) => {
+				gum::trace!(
+					target: LOG_TARGET,
+					?para,
+					?candidate_hash,
+					?scheduling_parent,
+					?relay_parent,
+					"Cannot introduce seconded candidate: {}",
+					err
+				);
+				continue;
+			},
 		}
 
 		match chain.try_adding_seconded_candidate(&sp_data.scheduling_scope, &candidate_entry) {
@@ -951,28 +1020,32 @@ async fn answer_hypothetical_membership_request<Context>(
 					// For Complete candidates, verify the relay parent against this leaf before
 					// running the membership check. Incomplete candidates carry no PVD —
 					// nothing to verify.
-					if let Err(err) = verify_relay_parent_within_scope(
+					let session_limits = match verify_relay_parent_within_scope(
 						ctx,
 						&mut view.relay_parent_info_cache,
-						&mut view.session_max_pov_size_cache,
+						&mut view.session_execution_config_cache,
 						*active_leaf,
 						leaf_view.session_index,
 						receipt.as_ref(),
 						persisted_validation_data,
+						fragment_chain.scope().base_constraints().max_pov_size as u32,
 					)
 					.await
 					{
-						gum::trace!(
-							target: LOG_TARGET,
-							para_id = ?para_id,
-							candidate = ?candidate.candidate_hash(),
-							relay_parent = ?receipt.descriptor.relay_parent(),
-							"Candidate is not a hypothetical member on {:?}: {}",
-							active_leaf,
-							err,
-						);
-						continue;
-					}
+						Ok(limits) => limits,
+						Err(err) => {
+							gum::trace!(
+								target: LOG_TARGET,
+								para_id = ?para_id,
+								candidate = ?candidate.candidate_hash(),
+								relay_parent = ?receipt.descriptor.relay_parent(),
+								"Candidate is not a hypothetical member on {:?}: {}",
+								active_leaf,
+								err,
+							);
+							continue;
+						},
+					};
 
 					// For complete candidates, build a CandidateEntry and run the full
 					// potential check including constraint validation.
@@ -980,6 +1053,7 @@ async fn answer_hypothetical_membership_request<Context>(
 						*candidate_hash,
 						(**receipt).clone(),
 						persisted_validation_data.clone(),
+						session_limits,
 					);
 					match entry {
 						Ok(entry) => fragment_chain
@@ -1071,8 +1145,10 @@ async fn answer_prospective_validation_data_request<Context>(
 			break;
 		}
 
-		if relay_parent_info.is_none() {
-			relay_parent_info = if let Some(info) = fetch_relay_parent_info_cached(
+		// A failed config query leaves `max_pov_size` unset, so keep trying at the remaining
+		// leaves even once the relay parent is known.
+		if relay_parent_info.is_none() || max_pov_size.is_none() {
+			if let Some(info) = fetch_relay_parent_info_cached(
 				ctx.sender(),
 				&mut view.relay_parent_info_cache,
 				leaf_session_index,
@@ -1085,22 +1161,26 @@ async fn answer_prospective_validation_data_request<Context>(
 			.flatten()
 			{
 				if max_pov_size.is_none() {
-					max_pov_size = fetch_session_execution_config_max_pov_size(
+					max_pov_size = match fetch_session_execution_config(
 						ctx,
-						&mut view.session_max_pov_size_cache,
+						&mut view.session_execution_config_cache,
 						leaf,
 						request.session_index,
 					)
 					.await
-					.or_else(|| {
+					{
+						SessionExecutionConfigLookup::Found(cfg) => Some(cfg.max_pov_size),
 						// Pre-v17 fallback: scheduling session's `max_pov_size`.
-						Some(fragment_chain.scope().base_constraints().max_pov_size as u32)
-					});
+						SessionExecutionConfigLookup::Unavailable => {
+							Some(fragment_chain.scope().base_constraints().max_pov_size as u32)
+						},
+						// Another session's value would make the collator hash a PVD the runtime
+						// rejects. Answering `None` lets it ask again.
+						SessionExecutionConfigLookup::Failed => None,
+					};
 				}
 
-				Some(info)
-			} else {
-				None
+				relay_parent_info = Some(info);
 			}
 		}
 
@@ -1120,28 +1200,22 @@ async fn answer_prospective_validation_data_request<Context>(
 	});
 }
 
-/// Fetch the `max_pov_size` from `SessionExecutionConfig` for the given
-/// session, queried at `query_at`. Returns `None` on older runtimes that
-/// don't expose the runtime API (or when the session's config isn't stored),
-/// so callers can fall back to the scheduling-session value from backing
-/// constraints.
+/// Fetch the `SessionExecutionConfig` snapshot for `session_index`, queried at `query_at`.
 ///
-/// Cached per-session in `SessionMaxPovSizeCache`; errors are NOT cached so
-/// a transient failure can recover on the next call.
-///
-/// Unexpected runtime or channel errors are logged and treated as "no
-/// override"; the worst-case consequence is that the collator builds with the
-/// scheduling-session `max_pov_size` and has to rebuild but we don't want to mask the underlying
-/// failure silently.
+/// Distinguishes "the runtime has no snapshot" from "the query failed": callers may only tighten a
+/// check on the former. Definitive answers are cached, transient failures are not.
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
-async fn fetch_session_execution_config_max_pov_size<Context>(
+async fn fetch_session_execution_config<Context>(
 	ctx: &mut Context,
-	cache: &mut SessionMaxPovSizeCache,
+	cache: &mut SessionExecutionConfigCache,
 	query_at: Hash,
 	session_index: SessionIndex,
-) -> Option<u32> {
+) -> SessionExecutionConfigLookup {
 	if let Some(cached) = cache.get(&session_index) {
-		return *cached;
+		return match cached {
+			Some(cfg) => SessionExecutionConfigLookup::Found(*cfg),
+			None => SessionExecutionConfigLookup::Unavailable,
+		};
 	}
 
 	match request_session_execution_config(query_at, session_index, ctx.sender())
@@ -1149,14 +1223,14 @@ async fn fetch_session_execution_config_max_pov_size<Context>(
 		.await
 	{
 		Ok(Ok(Some(cfg))) => {
-			cache.insert(session_index, Some(cfg.max_pov_size));
-			Some(cfg.max_pov_size)
+			cache.insert(session_index, Some(cfg));
+			SessionExecutionConfigLookup::Found(cfg)
 		},
 		// Expected fallback paths: pre-v17 runtime, or session's config not stored.
 		// Cache the negative so we don't re-query every call.
 		Ok(Ok(None)) | Ok(Err(RuntimeApiError::NotSupported { .. })) => {
 			cache.insert(session_index, None);
-			None
+			SessionExecutionConfigLookup::Unavailable
 		},
 		Ok(Err(e)) => {
 			gum::warn!(
@@ -1164,9 +1238,9 @@ async fn fetch_session_execution_config_max_pov_size<Context>(
 				?query_at,
 				?session_index,
 				error = ?e,
-				"Unexpected runtime error fetching SessionExecutionConfig; falling back to scheduling-session max_pov_size",
+				"Unexpected runtime error fetching SessionExecutionConfig",
 			);
-			None
+			SessionExecutionConfigLookup::Failed
 		},
 		Err(e) => {
 			gum::warn!(
@@ -1174,9 +1248,9 @@ async fn fetch_session_execution_config_max_pov_size<Context>(
 				?query_at,
 				?session_index,
 				error = ?e,
-				"Channel error fetching SessionExecutionConfig; falling back to scheduling-session max_pov_size",
+				"Channel error fetching SessionExecutionConfig",
 			);
-			None
+			SessionExecutionConfigLookup::Failed
 		},
 	}
 }
@@ -1276,12 +1350,12 @@ where
 	Sender: polkadot_node_subsystem::SubsystemSender<RuntimeApiMessage>
 		+ polkadot_node_subsystem::SubsystemSender<ChainApiMessage>,
 {
-	if let Some(info) = cache.get(&(leaf_session, relay_parent)) {
+	if let Some(info) = cache.get(&(leaf_session, fetch_session, relay_parent)) {
 		return Ok(Some(info.clone()));
 	}
 	match fetch_relay_parent_info(sender, query_at, fetch_session, relay_parent).await? {
 		Some(info) => {
-			cache.insert((leaf_session, relay_parent), info.clone());
+			cache.insert((leaf_session, fetch_session, relay_parent), info.clone());
 			Ok(Some(info))
 		},
 		None => Ok(None),

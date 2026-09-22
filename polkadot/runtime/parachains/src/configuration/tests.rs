@@ -257,6 +257,20 @@ fn invariants() {
 			Configuration::set_validation_upgrade_delay(RuntimeOrigin::root(), 0),
 			Error::<Test>::InvalidNewValue
 		);
+		// Relay parents must not outlive the `SessionExecutionConfig` snapshot they were built
+		// under: `max_relay_parent_session_age` may not exceed `dispute_period`.
+		let dispute_period = ActiveConfig::<Test>::get().dispute_period;
+		assert_err!(
+			Configuration::set_max_relay_parent_session_age(
+				RuntimeOrigin::root(),
+				dispute_period + 1
+			),
+			Error::<Test>::InvalidNewValue
+		);
+		assert_ok!(Configuration::set_max_relay_parent_session_age(
+			RuntimeOrigin::root(),
+			dispute_period
+		));
 	});
 }
 

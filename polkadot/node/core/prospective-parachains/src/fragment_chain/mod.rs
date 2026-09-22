@@ -136,8 +136,9 @@ use polkadot_node_subsystem_util::inclusion_emulator::{
 	ProspectiveCandidate, RelayChainBlockInfo as RelayParentInfo,
 };
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash,
-	HeadData, Id as ParaId, PersistedValidationData,
+	vstaging::SessionExecutionConfig, BlockNumber, CandidateHash,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash, HeadData, Id as ParaId,
+	PersistedValidationData,
 };
 use thiserror::Error;
 
@@ -214,12 +215,14 @@ impl CandidateStorage {
 		candidate_hash: CandidateHash,
 		candidate: CommittedCandidateReceipt,
 		persisted_validation_data: PersistedValidationData,
+		session_limits: Option<SessionExecutionConfig>,
 	) -> Result<(), Error> {
 		let entry = CandidateEntry::new(
 			candidate_hash,
 			candidate,
 			persisted_validation_data,
 			CandidateState::Backed,
+			session_limits,
 		)?;
 
 		self.add_candidate_entry(entry)
@@ -369,6 +372,9 @@ pub(crate) struct CandidateEntry {
 	para_id: ParaId,
 	candidate: Arc<ProspectiveCandidate>,
 	state: CandidateState,
+	/// Per-candidate limits snapshotted at the candidate's relay-parent session. `None` on
+	/// pre-v17 runtimes, in which case the scope's base constraints apply unchanged.
+	session_limits: Option<SessionExecutionConfig>,
 }
 
 impl CandidateEntry {
@@ -377,8 +383,15 @@ impl CandidateEntry {
 		candidate_hash: CandidateHash,
 		candidate: CommittedCandidateReceipt,
 		persisted_validation_data: PersistedValidationData,
+		session_limits: Option<SessionExecutionConfig>,
 	) -> Result<Self, CandidateEntryError> {
-		Self::new(candidate_hash, candidate, persisted_validation_data, CandidateState::Seconded)
+		Self::new(
+			candidate_hash,
+			candidate,
+			persisted_validation_data,
+			CandidateState::Seconded,
+			session_limits,
+		)
 	}
 
 	pub fn hash(&self) -> CandidateHash {
@@ -390,6 +403,7 @@ impl CandidateEntry {
 		candidate: CommittedCandidateReceipt,
 		persisted_validation_data: PersistedValidationData,
 		state: CandidateState,
+		session_limits: Option<SessionExecutionConfig>,
 	) -> Result<Self, CandidateEntryError> {
 		let para_id = candidate.descriptor.para_id();
 		if persisted_validation_data.hash() != candidate.descriptor.persisted_validation_data_hash()
@@ -421,7 +435,22 @@ impl CandidateEntry {
 				validation_code_hash: candidate.descriptor.validation_code_hash(),
 			}),
 			para_id,
+			session_limits,
 		})
+	}
+
+	/// Record the limits of the candidate's relay-parent session. They depend only on the
+	/// candidate, so they are the same for every fragment chain it is offered to.
+	pub fn set_session_limits(&mut self, session_limits: Option<SessionExecutionConfig>) {
+		self.session_limits = session_limits;
+	}
+
+	/// Narrow or widen `constraints` to the limits of the candidate's relay-parent session, which
+	/// is what the runtime's acceptance check uses. A no-op on pre-v17 runtimes.
+	fn apply_session_limits(&self, constraints: &mut Constraints) {
+		if let Some(cfg) = self.session_limits.as_ref() {
+			constraints.apply_session_execution_config(cfg);
+		}
 	}
 
 	fn relay_parent_info(&self) -> RelayParentInfo {
@@ -575,6 +604,7 @@ struct FragmentNode {
 	output_head_data_hash: Hash,
 	scheduling_parent: Hash,
 	para_id: ParaId,
+	session_limits: Option<SessionExecutionConfig>,
 }
 
 impl FragmentNode {
@@ -601,6 +631,7 @@ impl From<&FragmentNode> for CandidateEntry {
 			// A fragment node is always backed.
 			state: CandidateState::Backed,
 			para_id: node.para_id,
+			session_limits: node.session_limits,
 		}
 	}
 }
@@ -1176,7 +1207,7 @@ impl FragmentChain {
 		let relay_parent = candidate.relay_parent_info();
 
 		// Run the lightweight checks first.
-		let (is_unconnected, constraints) = self
+		let (is_unconnected, mut constraints) = self
 			.check_potential_lightweight(
 				scheduling_scope,
 				candidate.scheduling_parent,
@@ -1193,7 +1224,9 @@ impl FragmentChain {
 				Error::RelayParentNotInScope(relay_parent.hash)
 			})?;
 
-		// Check against constraints.
+		// Check against the limits of the candidate's own relay-parent session.
+		candidate.apply_session_limits(&mut constraints);
+
 		let commitments = &candidate.candidate.commitments;
 		let pvd = &candidate.candidate.persisted_validation_data;
 		let validation_code_hash = candidate.candidate.validation_code_hash;
@@ -1316,6 +1349,7 @@ impl FragmentChain {
 			output_head_data_hash: Hash,
 			parent_head_data_hash: Hash,
 			scheduling_parent: Hash,
+			session_limits: Option<SessionExecutionConfig>,
 		}
 
 		let mut cumulative_modifications = if let Some(last_candidate) = self.chain.chain.last() {
@@ -1419,6 +1453,7 @@ impl FragmentChain {
 							// overwrite for candidates pending availability as a special-case.
 							constraints.min_relay_parent_number = p.relay_parent.number;
 						}
+						candidate.apply_session_limits(&mut constraints);
 
 						let f = Fragment::new(
 							relay_parent.clone(),
@@ -1454,6 +1489,7 @@ impl FragmentChain {
 						output_head_data_hash: candidate.output_head_data_hash,
 						parent_head_data_hash: candidate.parent_head_data_hash,
 						scheduling_parent,
+						session_limits: candidate.session_limits,
 					})
 				});
 
@@ -1479,6 +1515,7 @@ impl FragmentChain {
 				output_head_data_hash,
 				parent_head_data_hash,
 				scheduling_parent,
+				session_limits,
 			}) = best_candidate
 			{
 				// Remove the candidate from storage.
@@ -1497,6 +1534,7 @@ impl FragmentChain {
 					cumulative_modifications: cumulative_modifications.clone(),
 					scheduling_parent,
 					para_id,
+					session_limits,
 				};
 
 				// Add the candidate to the chain now.

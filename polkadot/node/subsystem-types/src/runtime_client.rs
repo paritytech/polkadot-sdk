@@ -685,6 +685,7 @@ where
 	}
 
 	async fn validation_code_bomb_limit(&self, at: Hash) -> Result<u32, ApiError> {
+		#[allow(deprecated)]
 		self.client.runtime_api().validation_code_bomb_limit(at)
 	}
 

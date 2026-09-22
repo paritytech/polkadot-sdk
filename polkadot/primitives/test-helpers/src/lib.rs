@@ -585,6 +585,32 @@ pub fn make_candidate_v3(
 	head_data: HeadData,
 	validation_code_hash: ValidationCodeHash,
 ) -> (CommittedCandidateReceiptV2, PersistedValidationData) {
+	make_candidate_v3_with_sessions(
+		relay_parent_hash,
+		relay_parent_number,
+		scheduling_parent,
+		para_id,
+		parent_head,
+		head_data,
+		validation_code_hash,
+		1,
+		1,
+	)
+}
+
+/// Like [`make_candidate_v3`], but with explicit relay-parent and scheduling session indices, for
+/// candidates whose relay parent lies in an older session than their scheduling parent.
+pub fn make_candidate_v3_with_sessions(
+	relay_parent_hash: Hash,
+	relay_parent_number: u32,
+	scheduling_parent: Hash,
+	para_id: ParaId,
+	parent_head: HeadData,
+	head_data: HeadData,
+	validation_code_hash: ValidationCodeHash,
+	session_index: SessionIndex,
+	scheduling_session_index: SessionIndex,
+) -> (CommittedCandidateReceiptV2, PersistedValidationData) {
 	let pvd = dummy_pvd(parent_head, relay_parent_number);
 	let commitments = CandidateCommitments {
 		head_data: head_data.clone(),
@@ -599,8 +625,8 @@ pub fn make_candidate_v3(
 		para_id,
 		relay_parent_hash,
 		CoreIndex(0),
-		1, // session_index
-		1, // scheduling_session_index (offset = 0)
+		session_index,
+		scheduling_session_index,
 		pvd.hash(),
 		Hash::repeat_byte(1), // pov_hash
 		Hash::repeat_byte(1), // erasure_root

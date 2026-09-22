@@ -28,6 +28,7 @@ mod v1_descriptor_version_detection_with_v3_enabled {
 		CandidateCommitments, CollatorId, CollatorSignature, CoreIndex, HeadData, Id as ParaId,
 	};
 	use polkadot_primitives_test_helpers::CandidateDescriptor;
+	use polkadot_subsystem_test_sim::chain::model::sim_session_execution_config;
 
 	const PARA: ParaId = ParaId::new(2000);
 
@@ -52,7 +53,7 @@ mod v1_descriptor_version_detection_with_v3_enabled {
 			parent_head: HeadData(Vec::new()),
 			relay_parent_number: leaf_n,
 			relay_parent_storage_root: polkadot_primitives::Hash::zero(),
-			max_pov_size: 5 * 1024 * 1024,
+			max_pov_size: sim_session_execution_config().max_pov_size,
 		};
 
 		let commitments = CandidateCommitments {
@@ -104,6 +105,7 @@ mod v3_session_index_checks {
 		PersistedValidationData,
 	};
 	use polkadot_primitives_test_helpers::dummy_committed_candidate_receipt_v2;
+	use polkadot_subsystem_test_sim::chain::model::sim_session_execution_config;
 	use std::time::Duration;
 
 	const PARA: ParaId = ParaId::new(2000);
@@ -118,7 +120,7 @@ mod v3_session_index_checks {
 			parent_head: HeadData(Vec::new()),
 			relay_parent_number: w.leaf_number(),
 			relay_parent_storage_root: polkadot_primitives::Hash::zero(),
-			max_pov_size: 5 * 1024 * 1024,
+			max_pov_size: sim_session_execution_config().max_pov_size,
 		};
 		let mut committed = dummy_committed_candidate_receipt_v2(w.leaf());
 		committed.descriptor.set_para_id(PARA);

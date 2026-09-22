@@ -215,7 +215,7 @@ fn session_execution_config_is_stored_per_session() {
 	new_test_ext(genesis_config()).execute_with(|| {
 		run_to_block(1, new_session_every_block);
 
-		// Session 1 should have execution config stored
+		// Session 1 should snapshot every field from the active config.
 		let exec_config = SessionExecutionConfigs::<Test>::get(1).unwrap();
 		let active_config = configuration::ActiveConfig::<Test>::get();
 		assert_eq!(exec_config.max_pov_size, active_config.max_pov_size);
@@ -223,20 +223,81 @@ fn session_execution_config_is_stored_per_session() {
 			exec_config.validation_code_bomb_limit,
 			active_config.validation_code_bomb_limit()
 		);
+		assert_eq!(exec_config.max_code_size, active_config.max_code_size);
+		assert_eq!(exec_config.max_head_data_size, active_config.max_head_data_size);
+		assert_eq!(
+			exec_config.max_upward_message_num_per_candidate,
+			active_config.max_upward_message_num_per_candidate
+		);
+		assert_eq!(exec_config.max_upward_message_size, active_config.max_upward_message_size);
+		assert_eq!(
+			exec_config.hrmp_max_message_num_per_candidate,
+			active_config.hrmp_max_message_num_per_candidate
+		);
 
-		// Change max_pov_size
+		// Snapshot the old (session 1) values for later divergence checks.
+		let old_max_pov_size = exec_config.max_pov_size;
+		let old_max_code_size = exec_config.max_code_size;
+		let old_validation_code_bomb_limit = exec_config.validation_code_bomb_limit;
+		let old_max_head_data_size = exec_config.max_head_data_size;
+		let old_max_upward_message_num = exec_config.max_upward_message_num_per_candidate;
+		let old_max_upward_message_size = exec_config.max_upward_message_size;
+		let old_hrmp_max_message_num = exec_config.hrmp_max_message_num_per_candidate;
+
+		// Change all fields that are snapshotted into SessionExecutionConfig.
+		// Each change takes 2 sessions to activate.
 		Configuration::set_max_pov_size(RuntimeOrigin::root(), 1024).unwrap();
-		// Takes 2 sessions to activate
+		// max_code_size must be > 0 and <= MAX_CODE_SIZE; use a smaller value than default.
+		Configuration::set_max_code_size(RuntimeOrigin::root(), 512 * 1024).unwrap();
+		Configuration::set_max_head_data_size(RuntimeOrigin::root(), 32 * 1024).unwrap();
+		Configuration::set_max_upward_message_num_per_candidate(RuntimeOrigin::root(), 7).unwrap();
+		Configuration::set_max_upward_message_size(RuntimeOrigin::root(), 48 * 1024).unwrap();
+		Configuration::set_hrmp_max_message_num_per_candidate(RuntimeOrigin::root(), 11).unwrap();
+
+		// Takes 2 sessions to activate — run to session 3.
 		run_to_block(3, new_session_every_block);
 		let active_config = configuration::ActiveConfig::<Test>::get();
 		assert_eq!(active_config.max_pov_size, 1024);
+		assert_eq!(active_config.max_code_size, 512 * 1024);
+		assert_eq!(active_config.max_head_data_size, 32 * 1024);
+		assert_eq!(active_config.max_upward_message_num_per_candidate, 7);
+		assert_eq!(active_config.max_upward_message_size, 48 * 1024);
+		assert_eq!(active_config.hrmp_max_message_num_per_candidate, 11);
 
+		// Session 3's snapshot should reflect the new values.
 		let exec_config_3 = SessionExecutionConfigs::<Test>::get(3).unwrap();
 		assert_eq!(exec_config_3.max_pov_size, 1024);
+		assert_eq!(exec_config_3.max_code_size, 512 * 1024);
+		// validation_code_bomb_limit is derived from max_code_size.
+		assert_eq!(
+			exec_config_3.validation_code_bomb_limit,
+			active_config.validation_code_bomb_limit()
+		);
+		assert_eq!(exec_config_3.max_head_data_size, 32 * 1024);
+		assert_eq!(exec_config_3.max_upward_message_num_per_candidate, 7);
+		assert_eq!(exec_config_3.max_upward_message_size, 48 * 1024);
+		assert_eq!(exec_config_3.hrmp_max_message_num_per_candidate, 11);
 
-		// Session 1's config should still have the old value
+		// Session 1's snapshot must still hold the *old* values — proving the snapshot is
+		// genuinely per-session and not re-read from live config.
 		let exec_config_1 = SessionExecutionConfigs::<Test>::get(1).unwrap();
+		assert_eq!(exec_config_1.max_pov_size, old_max_pov_size);
 		assert_ne!(exec_config_1.max_pov_size, 1024);
+		assert_eq!(exec_config_1.max_code_size, old_max_code_size);
+		assert_ne!(exec_config_1.max_code_size, 512 * 1024);
+		assert_eq!(exec_config_1.validation_code_bomb_limit, old_validation_code_bomb_limit);
+		assert_ne!(
+			exec_config_1.validation_code_bomb_limit,
+			exec_config_3.validation_code_bomb_limit
+		);
+		assert_eq!(exec_config_1.max_head_data_size, old_max_head_data_size);
+		assert_ne!(exec_config_1.max_head_data_size, 32 * 1024);
+		assert_eq!(exec_config_1.max_upward_message_num_per_candidate, old_max_upward_message_num);
+		assert_ne!(exec_config_1.max_upward_message_num_per_candidate, 7);
+		assert_eq!(exec_config_1.max_upward_message_size, old_max_upward_message_size);
+		assert_ne!(exec_config_1.max_upward_message_size, 48 * 1024);
+		assert_eq!(exec_config_1.hrmp_max_message_num_per_candidate, old_hrmp_max_message_num);
+		assert_ne!(exec_config_1.hrmp_max_message_num_per_candidate, 11);
 	})
 }
 

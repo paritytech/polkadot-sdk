@@ -2804,8 +2804,11 @@ fn fetch_params_v3_cross_session_uses_execution_session_for_bomb_limit() {
 
 	// Distinct from `VALIDATION_CODE_BOMB_LIMIT` so the assertion can prove the
 	// value came from the execution-session config rather than a stray fallback.
-	let exec_cfg =
-		SessionExecutionConfig { max_pov_size: 4096, validation_code_bomb_limit: 123_456 };
+	let exec_cfg = SessionExecutionConfig {
+		max_pov_size: 4096,
+		validation_code_bomb_limit: 123_456,
+		..Default::default()
+	};
 	assert_ne!(
 		exec_cfg.validation_code_bomb_limit, VALIDATION_CODE_BOMB_LIMIT,
 		"test sentinel collision: cfg value must differ from the legacy-path value",

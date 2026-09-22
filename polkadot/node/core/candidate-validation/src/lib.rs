@@ -195,7 +195,8 @@ struct SessionParams {
 /// For V2+ descriptors the session comes from the descriptor itself. For V1
 /// descriptors `scheduling_session_index` is used as fallback (V1 has
 /// `relay_parent == scheduling_parent`, so execution and scheduling session are
-/// identical). Results are cached centrally by the `runtime-api` subsystem.
+/// identical). Every request here is already cached per session by the runtime-api subsystem, so
+/// no local cache is kept.
 async fn fetch_params<Sender>(
 	recent_leaf: Hash,
 	scheduling_session_index: SessionIndex,
