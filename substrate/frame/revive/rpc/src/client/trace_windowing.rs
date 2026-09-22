@@ -96,6 +96,23 @@ fn json_bytes(steps: &[ExecutionStepV1]) -> Result<u64, ClientError> {
 		.map_err(|_| ClientError::TraceRenderFailed)
 }
 
+/// How many of `steps` fit in `room` bytes, by rendering prefixes until the largest one that
+/// does.
+fn steps_fitting_in(steps: &[ExecutionStepV1], room: u64) -> Result<u64, ClientError> {
+	let (mut fits, mut past) = (0usize, steps.len() + 1);
+
+	while past - fits > 1 {
+		let mid = fits + (past - fits) / 2;
+		if json_bytes(&steps[..mid])? <= room {
+			fits = mid;
+		} else {
+			past = mid;
+		}
+	}
+
+	Ok(fits as u64)
+}
+
 fn measured_step_bytes(steps: &[ExecutionStepV1]) -> Option<u64> {
 	let count = steps.len() as u64;
 
@@ -159,10 +176,8 @@ where
 		let room = budget.saturating_sub(collected_json_bytes);
 		collected_json_bytes = collected_json_bytes.saturating_add(window_json_bytes);
 		if collected_json_bytes > budget {
-			// What the caller can have, since the message offers it as a `limit`, priced by what
-			// these steps measured rather than by what the window before them did.
 			return Err(ClientError::TraceTooLarge {
-				fits: steps.saturating_add(room / json_step_bytes.max(1)),
+				fits: steps.saturating_add(steps_fitting_in(&trace.struct_logs, room)?),
 			});
 		}
 
@@ -222,11 +237,19 @@ where
 }
 
 fn node_error(err: &ClientError) -> Option<&subxt::rpcs::Error> {
-	match err {
-		ClientError::RpcError(err) => Some(err),
-		ClientError::SubxtError(subxt::Error::BackendError(subxt::error::BackendError::Rpc(
-			subxt::error::RpcError::ClientError(err),
-		))) => Some(err),
+	use subxt::error::{BackendError, RpcError, RuntimeApiError};
+
+	let backend = match err {
+		ClientError::RpcError(err) => return Some(err),
+		ClientError::SubxtError(subxt::Error::BackendError(backend)) => backend,
+		ClientError::SubxtError(subxt::Error::RuntimeApiError(RuntimeApiError::CannotCallApi(
+			backend,
+		))) => backend,
+		_ => return None,
+	};
+
+	match backend {
+		BackendError::Rpc(RpcError::ClientError(err)) => Some(err),
 		_ => None,
 	}
 }
@@ -415,7 +438,7 @@ mod tests {
 		let walk = TraceWalk { caller_limit: None };
 		let first = walk.first_window(max_response_size);
 		let asked = std::cell::RefCell::new(Vec::new());
-		let mut collected = canned_trace(first.limit as usize);
+		let mut collected = answer(first).unwrap_or_else(|_| canned_trace(first.limit as usize));
 		let result = extend_with_remaining_windows(
 			&mut collected,
 			walk,
@@ -621,20 +644,19 @@ mod tests {
 	#[tokio::test]
 	async fn the_limit_the_refusal_names_is_one_that_succeeds() {
 		let max = sc_cli::RPC_DEFAULT_MAX_RESPONSE_SIZE_MB * 1024 * 1024;
-		// Cheap for the first stretch, then twelve stack words a step for the rest.
+		// Steps grow as the trace goes on, as they do in a real one where call frames
+		// deepen: sampled traces run about 1.8x the cost of their first window by the
+		// end. Pricing the tail at any average seen so far names a `limit` that then fails.
 		let heterogeneous = |window: TraceWindow| {
-			let expensive = ExecutionStepV1 {
+			let step = |i: u64| ExecutionStepV1 {
 				kind: ExecutionStepKindV1::EVMOpcode {
 					pc: 1,
 					op: EvmOpcodeV1(0x55),
-					stack: vec![vec![0xab; 32].into(); 12],
+					stack: vec![vec![0xab; 32].into(); (i / 4_000) as usize],
 					memory: vec![],
 					storage: None,
 				},
 				..ExecutionStepV1::default()
-			};
-			let step = |i: u64| {
-				if i < 40_000 { ExecutionStepV1::default() } else { expensive.clone() }
 			};
 
 			Ok(ExecutionTraceV1 {
