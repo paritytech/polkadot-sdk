@@ -113,6 +113,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	result
 }
 
+pub fn build_and_execute(test: impl FnOnce() -> ()) {
+	new_test_ext().execute_with(|| {
+		test();
+		ImOnline::do_try_state().expect("All invariants must hold after a test");
+	})
+}
+
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type AccountData = pallet_balances::AccountData<u64>;
