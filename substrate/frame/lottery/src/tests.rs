@@ -26,7 +26,7 @@ use sp_runtime::{traits::BadOrigin, TokenError};
 
 #[test]
 fn initial_state() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_eq!(Balances::free_balance(Lottery::account_id()), 0);
 		assert!(crate::Lottery::<Test>::get().is_none());
 		assert_eq!(Participants::<Test>::get(&1), (0, Default::default()));
@@ -37,7 +37,7 @@ fn initial_state() {
 
 #[test]
 fn basic_end_to_end_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let price = 10;
 		let length = 20;
 		let delay = 5;
@@ -95,7 +95,7 @@ fn basic_end_to_end_works() {
 /// Only the manager can stop the Lottery from repeating via `stop_repeat`.
 #[test]
 fn stop_repeat_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let price = 10;
 		let length = 20;
 		let delay = 5;
@@ -125,7 +125,7 @@ fn stop_repeat_works() {
 
 #[test]
 fn set_calls_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert!(!CallIndices::<Test>::exists());
 
 		let calls = vec![
@@ -155,7 +155,7 @@ fn set_calls_works() {
 
 #[test]
 fn call_to_indices_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let calls = vec![
 			RuntimeCall::Balances(BalancesCall::force_transfer { source: 0, dest: 0, value: 0 }),
 			RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 0, value: 0 }),
@@ -176,7 +176,7 @@ fn call_to_indices_works() {
 
 #[test]
 fn start_lottery_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let price = 10;
 		let length = 20;
 		let delay = 5;
@@ -202,7 +202,7 @@ fn start_lottery_works() {
 fn buy_ticket_works_as_simple_passthrough() {
 	// This test checks that even if the user could not buy a ticket, that `buy_ticket` acts
 	// as a simple passthrough to the real call.
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// No lottery set up
 		let call = Box::new(RuntimeCall::Balances(BalancesCall::transfer_allow_death {
 			dest: 2,
@@ -260,7 +260,7 @@ fn buy_ticket_works_as_simple_passthrough() {
 
 #[test]
 fn buy_ticket_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Set calls for the lottery.
 		let calls = vec![
 			RuntimeCall::System(SystemCall::remark { remark: vec![] }),
@@ -315,7 +315,7 @@ fn buy_ticket_works() {
 /// Errors of `do_buy_ticket` are ignored by `buy_ticket`, therefore this white-box test.
 #[test]
 fn do_buy_ticket_already_participating() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let calls =
 			vec![RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 0, value: 0 })];
 		assert_ok!(Lottery::set_calls(RuntimeOrigin::root(), calls.clone()));
@@ -331,7 +331,7 @@ fn do_buy_ticket_already_participating() {
 /// `buy_ticket` is a storage noop when called with the same ticket again.
 #[test]
 fn buy_ticket_already_participating() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let calls =
 			vec![RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 0, value: 0 })];
 		assert_ok!(Lottery::set_calls(RuntimeOrigin::root(), calls.clone()));
@@ -352,7 +352,7 @@ fn buy_ticket_already_participating() {
 /// `buy_ticket` is a storage noop when called with insufficient balance.
 #[test]
 fn buy_ticket_insufficient_balance() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let calls =
 			vec![RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 0, value: 0 })];
 		assert_ok!(Lottery::set_calls(RuntimeOrigin::root(), calls.clone()));
@@ -368,7 +368,7 @@ fn buy_ticket_insufficient_balance() {
 
 #[test]
 fn do_buy_ticket_insufficient_balance() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let calls =
 			vec![RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 0, value: 0 })];
 		assert_ok!(Lottery::set_calls(RuntimeOrigin::root(), calls.clone()));
@@ -383,7 +383,7 @@ fn do_buy_ticket_insufficient_balance() {
 
 #[test]
 fn do_buy_ticket_keep_alive() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let calls =
 			vec![RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 0, value: 0 })];
 		assert_ok!(Lottery::set_calls(RuntimeOrigin::root(), calls.clone()));
@@ -398,7 +398,7 @@ fn do_buy_ticket_keep_alive() {
 /// The lottery handles the case that no one participated.
 #[test]
 fn no_participants_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let length = 20;
 		let delay = 5;
 
@@ -414,7 +414,7 @@ fn no_participants_works() {
 
 #[test]
 fn start_lottery_will_create_account() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let price = 10;
 		let length = 20;
 		let delay = 5;
@@ -427,7 +427,7 @@ fn start_lottery_will_create_account() {
 
 #[test]
 fn choose_ticket_trivial_cases() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert!(Lottery::choose_ticket(0).is_none());
 		assert_eq!(Lottery::choose_ticket(1).unwrap(), 0);
 	});
@@ -435,7 +435,7 @@ fn choose_ticket_trivial_cases() {
 
 #[test]
 fn choose_account_one_participant() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let calls =
 			vec![RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: 0, value: 0 })];
 		assert_ok!(Lottery::set_calls(RuntimeOrigin::root(), calls.clone()));
