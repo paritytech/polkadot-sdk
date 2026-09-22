@@ -14,7 +14,7 @@ module messages {
   /// `(hash, len)`, so the same hash at a different length is a distinct
   /// preimage (§6.1).
   pure def refIs(ref: ValidationCodeRef, h: Hash, len: int): bool =
-  h == vchAsHash(ref.hash) and len == ref.len
+  h == ref.hash.asPreimage() and len == ref.len
 
   // --- Refine-side log payloads -------------------------------------------
 

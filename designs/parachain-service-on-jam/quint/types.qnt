@@ -83,7 +83,7 @@ module types {
   // validation-code hash needs an explicit conversion to the registry's key
   // type whenever it's stored or looked up.
 
-  pure def vchAsHash(vch: ValidationCodeHash): Hash = { hashBytes: vch.vchBytes }
+  pure def asPreimage(vch: ValidationCodeHash): Hash = { hashBytes: vch.vchBytes }
 
   /// The wrapped integer, for the places the spec orders by `para_id`, the
   /// head-commitment leaves (§5.5). The sentinel is never constructed.

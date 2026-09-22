@@ -91,7 +91,7 @@ module invariants {
       val pi = svc.paraInfo(para_id)
       match pi.validationCode {
         | None => true
-        | Some(vc) => svc.hasReferencer(vchAsHash(vc.hash), vc.len, para_id)
+        | Some(vc) => svc.hasReferencer(vc.hash.asPreimage(), vc.len, para_id)
       }
   })
 
@@ -105,7 +105,7 @@ module invariants {
         | None => true
         | Some(announced) =>
           svc.hasReferencer(
-            vchAsHash(announced.hash),
+            announced.hash.asPreimage(),
             announced.len,
             para_id)
       }

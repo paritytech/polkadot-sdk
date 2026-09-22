@@ -119,7 +119,7 @@ module management {
       val pi = s.paraInfo(para_id)
       // Acquire the new referencer (no charge if already solicited); reject
       // if no headroom.
-      val acquired = s.addReferencer(para_id, vchAsHash(newHash), codeLen)
+      val acquired = s.addReferencer(para_id, newHash.asPreimage(), codeLen)
       match acquired.log {
         | Some(_) =>
         { state: s, jamSolicit: Set(), jamForget: Set(), logs: List().appendOption(acquired.log) }
@@ -185,14 +185,14 @@ module management {
         val afterActive =
           match pi.validationCode {
             | None => { state: s, jamSolicit: None, jamForget: None, retained: false, log: None }
-            | Some(vc) => s.removeReferencer(para_id, vchAsHash(vc.hash), vc.len, now)
+            | Some(vc) => s.removeReferencer(para_id, vc.hash.asPreimage(), vc.len, now)
           }
         val afterAnnounced = match pi.announcedUpgrade {
           | None =>
             { state: afterActive.state, jamSolicit: None, jamForget: None, retained: false, log: None }
           | Some(vc) =>
             afterActive.state.removeReferencer(
-              para_id, vchAsHash(vc.hash), vc.len, now)
+              para_id, vc.hash.asPreimage(), vc.len, now)
         }
         val s1 = afterAnnounced.state
         val jamForgets =

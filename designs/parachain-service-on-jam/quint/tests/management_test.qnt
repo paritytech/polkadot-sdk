@@ -50,7 +50,7 @@ module management_test {
     val s0 = parachainSetStateBalance(initialState, para, bal).state
     val s1raw = parachainSetValidationCode(s0, para, code, FixedCodeLen, 0).state
     // The code is available, so cleanup's forget takes the two-step path.
-    val s1 = markProvided(s1raw, vchAsHash(code), FixedCodeLen)
+    val s1 = markProvided(s1raw, code.asPreimage(), FixedCodeLen)
     // First clean-up at now = 0: code is the sole referencer, first forget only
     // unrequests it, so the para is left deregistering.
     val c1 = parachainCleanUp(s1, para, 0)
@@ -59,13 +59,13 @@ module management_test {
     all {
       assert(c1.state.isLive(para)),
       assert(c1.state.paraInfo(para).isDeregistering),
-      assert(isUnrequested(c1.state.preimageStatus.get((vchAsHash(code), FixedCodeLen)))),
-      assert(c1.jamForget == Set(vchAsHash(code))),
+      assert(isUnrequested(c1.state.preimageStatus.get((code.asPreimage(), FixedCodeLen)))),
+      assert(c1.jamForget == Set(code.asPreimage())),
       assert(c1.logs != List()),
       // Retry: para fully removed, code expunged.
       assert(not(c2.state.isLive(para))),
-      assert(not(c2.state.preimageStatus.keys().contains((vchAsHash(code), FixedCodeLen)))),
-      assert(c2.jamForget == Set(vchAsHash(code))),
+      assert(not(c2.state.preimageStatus.keys().contains((code.asPreimage(), FixedCodeLen)))),
+      assert(c2.jamForget == Set(code.asPreimage())),
       init
     }
   }
@@ -139,7 +139,7 @@ module management_test {
   run coretimeForgetActiveCodeIsRefusedTest = {
     val target = AssetHubParaId
     val activeRef: ValidationCodeRef = { hash: { vchBytes: 2 }, len: FixedCodeLen }
-    val h = vchAsHash(activeRef.hash)
+    val h = activeRef.hash.asPreimage()
     val activeCodeState = {
       ...initialState,
       parachains: initialState.parachains.put(
@@ -238,7 +238,7 @@ module management_test {
     val s0 = parachainSetStateBalance(initialState, para, bal).state
     val s1 = markProvided(
       parachainSetValidationCode(s0, para, code, FixedCodeLen, 0).state,
-      vchAsHash(code), FixedCodeLen)
+      code.asPreimage(), FixedCodeLen)
     val frozen = parachainCleanUp(s1, para, 0).state
     val setBal = parachainSetStateBalance(frozen, para, bal * 2)
     val setHead = parachainSetHead(frozen, para, 42)
@@ -283,7 +283,7 @@ module management_test {
     val s1 = parachainSetValidationCode(s0, para, hA, lenA, 0).state
     val s1b = solicitedAndProvided(s1, para, hB, lenB)
     val s2 = announceCodeUpgrade(s1b, para, hB, lenB, 0).state
-    val s2p = markProvided(s2, vchAsHash(hA), lenA)
+    val s2p = markProvided(s2, hA.asPreimage(), lenA)
     // Force-replace with hC.
     val out = parachainSetValidationCode(s2p, para, hC, lenC, 0)
     val s3 = out.state
@@ -291,16 +291,16 @@ module management_test {
       assert(s3.paraInfo(para).validationCode == Some({ hash: hC, len: lenC })),
       assert(s3.paraInfo(para).announcedUpgrade == None),
       // Both displaced codes are untouched: still referenced, still available.
-      assert(s3.hasReferencer(vchAsHash(hA), lenA, para)),
-      assert(s3.hasReferencer(vchAsHash(hB), lenB, para)),
-      assert(s3.preimageStatus.get((vchAsHash(hA), lenA)) == Provided),
-      assert(s3.preimageStatus.get((vchAsHash(hB), lenB)) == Provided),
+      assert(s3.hasReferencer(hA.asPreimage(), lenA, para)),
+      assert(s3.hasReferencer(hB.asPreimage(), lenB, para)),
+      assert(s3.preimageStatus.get((hA.asPreimage(), lenA)) == Provided),
+      assert(s3.preimageStatus.get((hB.asPreimage(), lenB)) == Provided),
       assert(out.jamForget == Set()),
       // (hC, lenC) now has para as referencer.
-      assert(s3.hasReferencer(vchAsHash(hC), lenC, para)),
+      assert(s3.hasReferencer(hC.asPreimage(), lenC, para)),
       // Wrong-len entries were never created (proves no cross-contamination).
-      assert(not(s3.preimageStatus.keys().contains((vchAsHash(hA), lenC)))),
-      assert(not(s3.preimageStatus.keys().contains((vchAsHash(hB), lenC)))),
+      assert(not(s3.preimageStatus.keys().contains((hA.asPreimage(), lenC)))),
+      assert(not(s3.preimageStatus.keys().contains((hB.asPreimage(), lenC)))),
       init
     }
   }
@@ -322,16 +322,16 @@ module management_test {
     val s2 = announceCodeUpgrade(s1b, para, hB, lenB, 0).state
     // Both codes are available, so each forget takes the two-step path and
     // defers to the same `now + ExpungePeriod`.
-    val s3 = markProvided(s2, vchAsHash(hA), lenA)
+    val s3 = markProvided(s2, hA.asPreimage(), lenA)
     val nowT = 10
     val c = parachainCleanUp(s3, para, nowT)
     all {
       // One ForgetAgainAt per code: the pick-one bug would have kept only one.
       assert(c.logs.length() == 2),
       assert(c.logs.select(e =>
-        e == ForgetAgainAt({ hash: vchAsHash(hA), len: lenA, due: nowT + ExpungePeriod })).length() == 1),
+        e == ForgetAgainAt({ hash: hA.asPreimage(), len: lenA, due: nowT + ExpungePeriod })).length() == 1),
       assert(c.logs.select(e =>
-        e == ForgetAgainAt({ hash: vchAsHash(hB), len: lenB, due: nowT + ExpungePeriod })).length() == 1),
+        e == ForgetAgainAt({ hash: hB.asPreimage(), len: lenB, due: nowT + ExpungePeriod })).length() == 1),
       init
     }
   }

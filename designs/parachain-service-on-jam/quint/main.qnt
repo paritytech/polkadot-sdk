@@ -370,13 +370,13 @@ module main {
       // Lets the announce -> apply path actually complete in simulation: without
       // its own solicit, codeHashA is never available and every announcement of
       // it is rejected (§5.2).
-      Solicit({ target: Parachain(para_id), hash: vchAsHash(codeHashA), len: FixedCodeLen }),
+      Solicit({ target: Parachain(para_id), hash: codeHashA.asPreimage(), len: FixedCodeLen }),
       Solicit({ target: Parachain(para_id), hash: anyHash, len: 1024 }),
       Forget({ target: Parachain(para_id), hash: anyHash, len: 1024 }),
       // Solicit/forget of the para's OWN active code, exercising the
       // validation-code path (§5.2).
-      Solicit({ target: Parachain(para_id), hash: vchAsHash(activeCode), len: FixedCodeLen }),
-      Forget({ target: Parachain(para_id), hash: vchAsHash(activeCode), len: FixedCodeLen }),
+      Solicit({ target: Parachain(para_id), hash: activeCode.asPreimage(), len: FixedCodeLen }),
+      Forget({ target: Parachain(para_id), hash: activeCode.asPreimage(), len: FixedCodeLen }),
       // AH-only operations on a supervised service.
       Forget({ target: Service(MkServiceId(4)), hash: anyHash, len: 1024 }),
       Solicit({ target: Service(MkServiceId(4)), hash: anyHash, len: 1024 }),
@@ -422,7 +422,7 @@ module main {
       // or, on a shorter queue, to empty it and restart the ids at 0 (§5.1).
       CleanUpBucketsUpTo(0),
       CleanUpBucketsUpTo(2),
-      UpgradeService({ codeHash: vchAsHash(activeCode), len: FixedCodeLen, minAccGas: 0, minMemoGas: 0 }),
+      UpgradeService({ codeHash: activeCode.asPreimage(), len: FixedCodeLen, minAccGas: 0, minMemoGas: 0 }),
       UpgradeService({ codeHash: unsolicitedHash, len: 4096, minAccGas: 0, minMemoGas: 0 }),
       // Assignments of every kind: tiles directly (1), kept and rotated (3),
       // an empty one Refine rejects, and a hand-off, which requires an exact
@@ -457,7 +457,7 @@ module main {
       // state, and rejected as `RestrictedHostFunction` from every other caller.
       // Both outcomes are reachable since the emitting para is sampled.
       Forget({ target: Parachain(MkParaId(3)), hash: anyHash, len: 1024 }),
-      Forget({ target: Parachain(MkParaId(3)), hash: vchAsHash(codeHashB), len: FixedCodeLen }),
+      Forget({ target: Parachain(MkParaId(3)), hash: codeHashB.asPreimage(), len: FixedCodeLen }),
       RemoveKV({ paraId: MkParaId(3), key: List(0) }),
       // KV store operations: exercises SetKV/RemoveKV paths (§6.1).
       // Small keys/values (lengths 0..2, bytes 0..1) keep state-space bounded.

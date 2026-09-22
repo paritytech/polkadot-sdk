@@ -28,7 +28,7 @@ module support {
   pure def solicitedAndProvided(
     s: ParachainServiceState, para: ParaId, h: ValidationCodeHash, len: int
   ): ParachainServiceState =
-    markProvided(s.addReferencer(para, vchAsHash(h), len).state, vchAsHash(h), len)
+    markProvided(s.addReferencer(para, h.asPreimage(), len).state, h.asPreimage(), len)
 
   pure def isUnrequested(st: RequestStatus): bool =
     match st { | Unrequested(_) => true | _ => false }

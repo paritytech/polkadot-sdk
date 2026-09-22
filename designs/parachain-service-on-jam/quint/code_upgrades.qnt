@@ -23,7 +23,7 @@ module code_upgrades {
     codeLen: int,
     lookupAnchor: Timeslot
   ): PreimageDelta = {
-    val h = vchAsHash(newHash)
+    val h = newHash.asPreimage()
     val pi = s.paraInfo(para_id)
     val newRef = { hash: newHash, len: codeLen }
     val isActive =
@@ -57,7 +57,7 @@ module code_upgrades {
     val newRef = { hash: newHash, len: codeLen }
     val notAnnounced =
       { state: s, jamSolicit: None, jamForget: None, retained: false,
-        log: Some(CodeUpgradeNotAnnounced({ hash: vchAsHash(newHash), len: codeLen })) }
+        log: Some(CodeUpgradeNotAnnounced({ hash: newHash.asPreimage(), len: codeLen })) }
     match pi.announcedUpgrade {
       | None => notAnnounced
       | Some(vc) =>

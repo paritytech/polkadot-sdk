@@ -76,7 +76,7 @@ module refine_test {
   /// refunds, while the same hash at the code's OWN len is validation code and refused.
   run solicitForgetMatchesHashAndLenTest = {
     val para = CoretimeParaId
-    val h = vchAsHash({ vchBytes: 1 })   // coretime's ACTIVE code hash
+    val h = { vchBytes: 1 }.asPreimage()   // coretime's ACTIVE code hash
     val otherLen = 999                    // != FixedCodeLen
     val baseAcc: AccumulateOutcome = {
       state: initialState, jamDesignate: None, jamSolicit: Set(),

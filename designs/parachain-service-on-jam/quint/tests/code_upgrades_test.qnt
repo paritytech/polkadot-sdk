@@ -41,9 +41,9 @@ module code_upgrades_test {
       }))
       // Step 1: the para solicits the new code itself and the blob is supplied.
       .then(applyHappyPath(para, codeA, List(
-        Solicit({ target: Parachain(para), hash: vchAsHash(codeB), len: FixedCodeLen })
+        Solicit({ target: Parachain(para), hash: codeB.asPreimage(), len: FixedCodeLen })
       )))
-      .then(provide(vchAsHash(codeB), FixedCodeLen))
+      .then(provide(codeB.asPreimage(), FixedCodeLen))
       // Step 2: announce. The active code is untouched.
       .then(applyHappyPath(para, codeA, List(
         RequestCodeUpgrade({ hash: codeB, len: FixedCodeLen, phase: Announcement })
@@ -56,7 +56,7 @@ module code_upgrades_test {
       .then(applyHappyPath(para, codeA, List()))
       .then(applyHappyPath(para, codeA, List()))
       .then(expectThat(announcedHashOf(svc.paraInfo(para)) == Some(codeB)))
-      .then(provide(vchAsHash(codeA), FixedCodeLen))
+      .then(provide(codeA.asPreimage(), FixedCodeLen))
       // Step 3: apply. The candidate carrying it is still validated with codeA.
       .then(applyHappyPath(para, codeA, List(
         RequestCodeUpgrade({ hash: codeB, len: FixedCodeLen, phase: Apply })
@@ -64,19 +64,19 @@ module code_upgrades_test {
       .then(expectThat(all {
         activeCodeHashOr(svc.paraInfo(para), NoCodeHash) == codeB,
         svc.paraInfo(para).announcedUpgrade == None,
-        svc.hasReferencer(vchAsHash(codeB), FixedCodeLen, para),
+        svc.hasReferencer(codeB.asPreimage(), FixedCodeLen, para),
         // codeA merely UNPINS: it reverts to an ordinary solicited preimage of
         // the para, still referenced and still charged, until the para forgets it.
-        not(isValidationCodeOf(svc.paraInfo(para), vchAsHash(codeA), FixedCodeLen)),
-        svc.hasReferencer(vchAsHash(codeA), FixedCodeLen, para)
+        not(isValidationCodeOf(svc.paraInfo(para), codeA.asPreimage(), FixedCodeLen)),
+        svc.hasReferencer(codeA.asPreimage(), FixedCodeLen, para)
       }))
       // Only now can the para reclaim codeA: it is no longer validation code,
       // so the forget goes through (two-step, since codeA is available).
       .then(applyHappyPath(para, codeB, List(
-        Forget({ target: Parachain(para), hash: vchAsHash(codeA), len: FixedCodeLen })
+        Forget({ target: Parachain(para), hash: codeA.asPreimage(), len: FixedCodeLen })
       )))
       .then(expectThat(
-        isUnrequested(svc.preimageStatus.get((vchAsHash(codeA), FixedCodeLen)))
+        isUnrequested(svc.preimageStatus.get((codeA.asPreimage(), FixedCodeLen)))
       ))
   }
 
@@ -107,11 +107,11 @@ module code_upgrades_test {
     val para = CoretimeParaId
     val h: ValidationCodeHash = { vchBytes: 0x6161 }
     // Solicited (so the para references it) but NOT provided.
-    val s0 = initialState.addReferencer(para, vchAsHash(h), FixedCodeLen).state
+    val s0 = initialState.addReferencer(para, h.asPreimage(), FixedCodeLen).state
     val d = announceCodeUpgrade(s0, para, h, FixedCodeLen, 0)
     all {
       assert(d.state.paraInfo(para).announcedUpgrade == None),
-      assert(d.log == Some(CodeUpgradeNotAvailable({ hash: vchAsHash(h), len: FixedCodeLen }))),
+      assert(d.log == Some(CodeUpgradeNotAvailable({ hash: h.asPreimage(), len: FixedCodeLen }))),
       assert(d.state == s0),
       init
     }
@@ -128,10 +128,10 @@ module code_upgrades_test {
     val s0 = solicitedAndProvided(initialState, other, h, FixedCodeLen)
     val d = announceCodeUpgrade(s0, para, h, FixedCodeLen, 0)
     all {
-      assert(s0.preimageAvailable(vchAsHash(h), FixedCodeLen)),
-      assert(not(s0.hasReferencer(vchAsHash(h), FixedCodeLen, para))),
+      assert(s0.preimageAvailable(h.asPreimage(), FixedCodeLen)),
+      assert(not(s0.hasReferencer(h.asPreimage(), FixedCodeLen, para))),
       assert(d.state.paraInfo(para).announcedUpgrade == None),
-      assert(d.log == Some(CodeUpgradeNotAvailable({ hash: vchAsHash(h), len: FixedCodeLen }))),
+      assert(d.log == Some(CodeUpgradeNotAvailable({ hash: h.asPreimage(), len: FixedCodeLen }))),
       init
     }
   }
@@ -151,9 +151,9 @@ module code_upgrades_test {
     val d1 = applyCodeUpgrade(s2, para, hC, FixedCodeLen)
     all {
       assert(d0.state == initialState),
-      assert(d0.log == Some(CodeUpgradeNotAnnounced({ hash: vchAsHash(hB), len: FixedCodeLen }))),
+      assert(d0.log == Some(CodeUpgradeNotAnnounced({ hash: hB.asPreimage(), len: FixedCodeLen }))),
       assert(d1.state == s2),
-      assert(d1.log == Some(CodeUpgradeNotAnnounced({ hash: vchAsHash(hC), len: FixedCodeLen }))),
+      assert(d1.log == Some(CodeUpgradeNotAnnounced({ hash: hC.asPreimage(), len: FixedCodeLen }))),
       assert(activeCodeHashOr(d1.state.paraInfo(para), NoCodeHash) == activeBefore),
       assert(announcedHashOf(d1.state.paraInfo(para)) == Some(hB)),
       init
@@ -175,7 +175,7 @@ module code_upgrades_test {
       assert(announcedHashOf(s2.paraInfo(para)) == Some(hB)),
       assert(announcedHashOf(d3.state.paraInfo(para)) == Some(hC)),
       // The superseded code is still the para's own solicited preimage.
-      assert(d3.state.hasReferencer(vchAsHash(hB), FixedCodeLen, para)),
+      assert(d3.state.hasReferencer(hB.asPreimage(), FixedCodeLen, para)),
       assert(d3.jamForget == None),
       init
     }
@@ -192,21 +192,21 @@ module code_upgrades_test {
     val s2 = announceCodeUpgrade(s1, para, hB, FixedCodeLen, 0).state
     // Refused while announced: nothing changes, and the refusal is logged.
     val refused = replay(s2, para, 0,
-      Forget({ target: Parachain(para), hash: vchAsHash(hB), len: FixedCodeLen }))
+      Forget({ target: Parachain(para), hash: hB.asPreimage(), len: FixedCodeLen }))
     val s3 = refused.state
     // Supersede, which displaces hB, and only then does the forget take effect.
     val s4 = announceCodeUpgrade(s3, para, hC, FixedCodeLen, 0).state
     val s5 = replay(s4, para, 0,
-      Forget({ target: Parachain(para), hash: vchAsHash(hB), len: FixedCodeLen })).state
+      Forget({ target: Parachain(para), hash: hB.asPreimage(), len: FixedCodeLen })).state
     all {
       assert(s3 == s2),
       assert(refused.logs == List(
-        CanNotForgetValidationCode({ hash: vchAsHash(hB), len: FixedCodeLen }))),
-      assert(isValidationCodeOf(s3.paraInfo(para), vchAsHash(hB), FixedCodeLen)),
+        CanNotForgetValidationCode({ hash: hB.asPreimage(), len: FixedCodeLen }))),
+      assert(isValidationCodeOf(s3.paraInfo(para), hB.asPreimage(), FixedCodeLen)),
       assert(announcedHashOf(s4.paraInfo(para)) == Some(hC)),
-      assert(not(isValidationCodeOf(s4.paraInfo(para), vchAsHash(hB), FixedCodeLen))),
-      assert(s4.hasReferencer(vchAsHash(hB), FixedCodeLen, para)),
-      assert(isUnrequested(s5.preimageStatus.get((vchAsHash(hB), FixedCodeLen)))),
+      assert(not(isValidationCodeOf(s4.paraInfo(para), hB.asPreimage(), FixedCodeLen))),
+      assert(s4.hasReferencer(hB.asPreimage(), FixedCodeLen, para)),
+      assert(isUnrequested(s5.preimageStatus.get((hB.asPreimage(), FixedCodeLen)))),
       init
     }
   }
@@ -217,7 +217,7 @@ module code_upgrades_test {
   run applyOnlySwapsCodeSlotsTest = {
     val para = CoretimeParaId
     val oldRef: ValidationCodeRef = { hash: { vchBytes: 1 }, len: FixedCodeLen }
-    val oldHash = vchAsHash(oldRef.hash)
+    val oldHash = oldRef.hash.asPreimage()
     val newHash: ValidationCodeHash = { vchBytes: 101 }
     // The old (active) code has been supplied to JAM.
     val provided = markProvided(initialState, oldHash, FixedCodeLen)

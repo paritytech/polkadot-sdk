@@ -182,7 +182,7 @@ module refine {
   /// `true` iff the code identified by `ref` has a non-empty referencer set
   /// in the preimage registry, i.e. the `(hash, len)` tuple key exists.
   pure def codeAvailable(s: ParachainServiceState, ref: ValidationCodeRef): bool = {
-    val key = (vchAsHash(ref.hash), ref.len)
+    val key = (ref.hash.asPreimage(), ref.len)
     s.preimageRegistry.keys().contains(key) and
     s.preimageRegistry.get(key).referencers != Set()
   }
