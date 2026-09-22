@@ -10,6 +10,7 @@ module support {
   import types.* from "../types"
   import messages.* from "../messages"
   import state.* from "../state"
+  import state_balance.* from "../state_balance"
   import foreign_services.* from "../foreign_services"
   import refine.* from "../refine"
   import accumulate.* from "../accumulate"
@@ -22,6 +23,13 @@ module support {
   ): ParachainServiceState =
     { ...s, preimageStatus: s.preimageStatus.put((h, len), Provided) }
 
+  /// Solicit `(h, len)` for `para` and mark it available, i.e. the state left
+  /// by step 1 of §5.2 once someone has supplied the blob.
+  pure def solicitedAndProvided(
+    s: ParachainServiceState, para: ParaId, h: ValidationCodeHash, len: int
+  ): ParachainServiceState =
+    markProvided(s.addReferencer(para, vchAsHash(h), len).state, vchAsHash(h), len)
+
   pure def isUnrequested(st: RequestStatus): bool =
     match st { | Unrequested(_) => true | _ => false }
 
@@ -31,8 +39,8 @@ module support {
   /// rather than a parallel copy. Each package is refined (at guarantee time,
   /// against the pre-block state) and paired with lookup-anchor 0 (prune
   /// nothing). Each element is `(para, codeHash, msgs)`; `codeHash` is what the
-  /// collator says it validated against (active *or* pending, both accepted by
-  /// `accumulateOkPrefix` step 3).
+  /// collator says it validated against; only the ACTIVE code is accepted by
+  /// `accumulateOkPrefix` (§5.1 step 4).
   action applyHappyPaths(
     pkgs: List[(ParaId, ValidationCodeHash, List[UpwardMessage])]
   ): bool = {
@@ -48,7 +56,7 @@ module support {
       }
       val wr: WorkResult = {
         result: refine(
-          svc, pkg, false, PvfOk,
+          svc, pkg, false, CodeOk,
           Some(headHash(pi.headData)), HeadDeclared(pi.headData + 1), p._3, 0
         )[0],
         authTrace: 0
@@ -153,7 +161,7 @@ module support {
   /// head the para never has (`StaleParentHead`), as both parent and new head,
   /// carrying `msgs` as its upward messages. Accumulate's parent-head check (§5.1
   /// step 3) must reject it, so neither its head write nor its replayed messages
-  /// (§5.1 step 7) take effect. The new head is deliberately NOT `current + 1`:
+  /// (§5.1 step 6) take effect. The new head is deliberately NOT `current + 1`:
   /// if the check were broken and the candidate applied, the head would jump to
   /// an obviously-invalid sentinel value, so the "head unchanged" assertion can
   /// never pass by coincidence.
@@ -167,7 +175,7 @@ module support {
     }
     val wr: WorkResult = {
       result: refine(
-        svc, pkg, false, PvfOk,
+        svc, pkg, false, CodeOk,
         Some(headHash(StaleParentHead)), HeadDeclared(StaleParentHead), msgs, 0
       )[0],
       authTrace: 0
@@ -228,15 +236,22 @@ module support {
         pov: 0
       })
     }
-    refine(s, pkg, false, PvfOk,
+    refine(s, pkg, false, CodeOk,
       Some(headHash(pi.headData)), HeadDeclared(pi.headData + 1), msgs, 0)[0]
   }
 
   pure def isOkDigest(r: WorkExecResult): bool =
     match r { | WorkOk(d) => match d { | Ok(_) => true | Err(_) => false } | WorkErr => false }
 
-  pure def activeCodePinned(pi: ParaInfo): bool =
-    match pi.validationCode { | Some(vc) => vc.pinned | None => false }
+  /// Whether `(h, len)` is `pi`'s validation code, i.e. its active or
+  /// announced code, which is what makes a `Forget` of it refused (§5.2).
+  pure def isValidationCodeOf(pi: ParaInfo, h: Hash, len: int): bool = {
+    val isActive =
+      match pi.validationCode { | Some(ref) => refIs(ref, h, len) | None => false }
+    val isAnnounced =
+      match pi.announcedUpgrade { | Some(ref) => refIs(ref, h, len) | None => false }
+    isActive or isAnnounced
+  }
 
   /// The endpoint invariant itself must reject a hole in the bucket ids. Asset
   /// Hub reads the queue by walking `firstBucket ..= lastBucket`, so a missing id

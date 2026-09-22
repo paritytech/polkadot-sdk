@@ -17,7 +17,7 @@ module state_balance {
    /// + 65 585 (log reserve). Each is one storage item, so each carries
    /// `C_itemdeposit = 10` on top of its octets (4 236 / 65 575). Derivation in
    /// §6.1. Balances are `Compact<u64>` sized at their 9 B worst case here.
-   pure val BaselineFootprint: int = 69831
+   pure val BaselineFootprint: int = 69825
 
   /// Octet overhead of one `BoundedVec` general-storage entry: JAM's 34 B, a
   /// 1 B map-tag key, and a 2 B compact length prefix (§6.1).
@@ -120,7 +120,7 @@ module state_balance {
       Some({
         headData: 0,
         validationCode: None,
-        pendingUpgrade: None,
+        announcedUpgrade: None,
         totalStateBalance: newTotal,
         usedStateBalance: baseline,
         isDeregistering: false

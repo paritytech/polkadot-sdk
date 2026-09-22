@@ -26,7 +26,7 @@ module main {
 
   /// Initial state with the two privileged chains pre-registered, so that
   /// every state mutation in the model flows through `stepRefineAccumulate`
-  /// Coretime and Asset Hub act as ordinary parachains whose PVFs emit
+  /// Coretime and Asset Hub act as ordinary parachains whose validation code emits
   /// privileged upward messages (Coretime: `ParachainSet*`, Asset Hub:
   /// `SetValidatorKeys` / `UpgradeService` / `TransferOut` / `CleanUpBucketsUpTo`).
   /// Per-para balance budget at init: baseline + headroom for the active
@@ -88,7 +88,7 @@ module main {
   /// package for the same para chains off the first's new head. The result is
   /// parent `headHash(curHead)`, new head `curHead + 1`, which chains correctly
   /// and passes Accumulate's parent-head check (§5.1 step 3).
-  /// `declParent` models whether the PVF called `set_parent_head_hash`; when
+  /// `declParent` models whether the validation code called `set_parent_head_hash`; when
   /// false the declaration is `None`, which Refine rejects with
   /// `MissingHeadDeclaration` (§4.2). `headDecl` selects the `set_head` case the
   /// same way: `HeadUndeclared` (never called) and `HeadOversized` (past the
@@ -164,7 +164,7 @@ module main {
     nondet wp1Candidate = oneOf(arbitraryCandidates(svc, wp1Para))
     // §4.2: `report_error` aborts and is logged; a bare panic is not caught and
     // yields a work error with no digest at all.
-    nondet wp1Pvf = oneOf(Set(PvfOk, PvfReportError(0), PvfPanic))
+    nondet wp1Code = oneOf(Set(CodeOk, CodeReportError(0), CodePanic))
     nondet wp1NoParasPrefix = oneOf(Set(false, true))
     val wp1Pool = arbitraryMessages(
       wp1Para, activeCodeHashOr(svc.paraInfo(wp1Para), NoCodeHash))
@@ -177,7 +177,7 @@ module main {
     // work-item before the service's refine ran. Accumulate sees the no-op
     // case (§3.3).
     nondet wp1IsJamSkip = oneOf(Set(false, true))
-    // Whether the PVF declared its parent head (§4.2). When false, Refine
+    // Whether the validation code declared its parent head (§4.2). When false, Refine
     // rejects with `MissingHeadDeclaration`; an oversized `set_head` is
     // rejected with `HeadDataTooLarge`. The `HeadDeclared` payload is a
     // placeholder: `buildPackage` substitutes the para's chained head.
@@ -199,7 +199,7 @@ module main {
       result:
         if (wp1IsJamSkip) WorkErr
         else refine(
-          svc, wp1.pkg, wp1NoParasPrefix, wp1Pvf,
+          svc, wp1.pkg, wp1NoParasPrefix, wp1Code,
           wp1.parentHead, wp1.newHead, wp1.msgs, lookupAnchor1
         )[0],
       authTrace: wp1AuthTrace
@@ -208,7 +208,7 @@ module main {
     // Second work package. 
     nondet wp2Para = oneOf(svc.parachains.keys())
     nondet wp2Candidate = oneOf(arbitraryCandidates(svc, wp2Para))
-    nondet wp2Pvf = oneOf(Set(PvfOk, PvfReportError(0), PvfPanic))
+    nondet wp2Code = oneOf(Set(CodeOk, CodeReportError(0), CodePanic))
     nondet wp2NoParasPrefix = oneOf(Set(false, true))
     val wp2Pool = arbitraryMessages(
       wp2Para, activeCodeHashOr(svc.paraInfo(wp2Para), NoCodeHash))
@@ -233,7 +233,7 @@ module main {
       result:
         if (wp2IsJamSkip) WorkErr
         else refine(
-          svc, wp2.pkg, wp2NoParasPrefix, wp2Pvf,
+          svc, wp2.pkg, wp2NoParasPrefix, wp2Code,
           wp2.parentHead, wp2.newHead, wp2.msgs, lookupAnchor2
         )[0],
       authTrace: wp2AuthTrace
@@ -330,26 +330,26 @@ module main {
   // --- Auxiliary: nondeterministic refine-input generators --------------
 
   /// A small menu of candidates a collator might produce: one carrying the
-  /// active validation code (the happy path), one carrying the pending
-  /// upgrade code (the dual-code window of §5.2), and one carrying an
-  /// unsolicited hash (which Refine must reject as `InvalidCodeHash`).
+  /// active validation code (the happy path), one carrying the announced
+  /// upgrade code when there is one (which §5.1 step 4 must reject until an
+  /// `Apply` lands), and one carrying an unsolicited hash (which Refine must
+  /// reject as `InvalidCodeHash`).
   pure def arbitraryCandidates(
     s: ParachainServiceState, para_id: ParaId
   ): Set[ParachainCandidate] = {
     val pi = s.paraInfo(para_id)
-    val active = activeCodeHashOr(pi, NoCodeHash)
-    val pending = match pi.pendingUpgrade {
-      | None => active
-      | Some(pair) => pair._1.ref.hash
-    }
-    Set(
-      { validationCode: { hash: active, len: FixedCodeLen }, pov: 0 },
-      { validationCode: { hash: pending, len: FixedCodeLen }, pov: 0 },
+    val base = Set(
+      { validationCode:
+          { hash: activeCodeHashOr(pi, NoCodeHash), len: FixedCodeLen }, pov: 0 },
       { validationCode: { hash: { vchBytes: 99999 }, len: 999 }, pov: 0 }
     )
+    match pi.announcedUpgrade {
+      | None => base
+      | Some(ref) => base.union(Set({ validationCode: ref, pov: 0 }))
+    }
   }
 
-  /// Menu of individual upward messages a PVF might emit during Refine.
+  /// Menu of individual upward messages validation code might emit during Refine.
   /// Every parachain draws from the SAME menu: restricted host calls
   /// (AH-only, Coretime-only) are included for all paras so the Refine
   /// wrapper's `RestrictedHostFunction` rejection (§4.3) is exercised
@@ -364,12 +364,17 @@ module main {
     val codeHashB: ValidationCodeHash = { vchBytes: 102 }
     val anyAuthHash: AuthorizerHash = { authBytes: 0 }
     Set(
-      RequestCodeUpgrade({ hash: codeHashA, len: FixedCodeLen }),
-      RequestCodeUpgrade({ hash: codeHashB, len: FixedCodeLen }),
+      RequestCodeUpgrade({ hash: codeHashA, len: FixedCodeLen, phase: Announcement }),
+      RequestCodeUpgrade({ hash: codeHashA, len: FixedCodeLen, phase: Apply }),
+      RequestCodeUpgrade({ hash: codeHashB, len: FixedCodeLen, phase: Announcement }),
+      // Lets the announce -> apply path actually complete in simulation: without
+      // its own solicit, codeHashA is never available and every announcement of
+      // it is rejected (§5.2).
+      Solicit({ target: Parachain(para_id), hash: vchAsHash(codeHashA), len: FixedCodeLen }),
       Solicit({ target: Parachain(para_id), hash: anyHash, len: 1024 }),
       Forget({ target: Parachain(para_id), hash: anyHash, len: 1024 }),
       // Solicit/forget of the para's OWN active code, exercising the
-      // `pinned` path (§5.2).
+      // validation-code path (§5.2).
       Solicit({ target: Parachain(para_id), hash: vchAsHash(activeCode), len: FixedCodeLen }),
       Forget({ target: Parachain(para_id), hash: vchAsHash(activeCode), len: FixedCodeLen }),
       // AH-only operations on a supervised service.

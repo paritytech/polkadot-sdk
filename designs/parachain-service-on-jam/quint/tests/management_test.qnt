@@ -6,6 +6,7 @@ module management_test {
   import state.* from "../state"
   import state_balance.* from "../state_balance"
   import management.* from "../management"
+  import code_upgrades.* from "../code_upgrades"
   import state_vars.* from "../state_vars"
   import main.* from "../main"
   import support.* from "./support"
@@ -133,30 +134,28 @@ module management_test {
     }
   }
 
-  /// A delegated forget naming the target's ACTIVE validation code only clears its
-  /// `pinned` bit: Coretime can never strip a running PVF, nor refund the code.
-  run coretimeForgetActiveCodeOnlyUnpinsTest = {
+  /// A delegated forget naming the target's ACTIVE validation code is refused
+  /// outright: Coretime can never strip running validation code, nor refund the code.
+  run coretimeForgetActiveCodeIsRefusedTest = {
     val target = AssetHubParaId
     val activeRef: ValidationCodeRef = { hash: { vchBytes: 2 }, len: FixedCodeLen }
     val h = vchAsHash(activeRef.hash)
-    val pinnedState = {
+    val activeCodeState = {
       ...initialState,
       parachains: initialState.parachains.put(
         target,
-        { ...initialState.paraInfo(target),
-          validationCode: Some({ ref: activeRef, pinned: true }) })
+        { ...initialState.paraInfo(target), validationCode: Some(activeRef) })
     }
-    val before = pinnedState.paraInfo(target).usedStateBalance
-    val forced = replay(pinnedState, CoretimeParaId, 0,
+    val forced = replay(activeCodeState, CoretimeParaId, 0,
       Forget({ target: Parachain(target), hash: h, len: FixedCodeLen }))
-    val pi = forced.state.paraInfo(target)
     all {
-      assert(activeCodePinned(pinnedState.paraInfo(target))),
-      assert(not(activeCodePinned(pi))),
-      assert(pi.validationCode == Some({ ref: activeRef, pinned: false })),
-      assert(pi.usedStateBalance == before),
+      assert(isValidationCodeOf(activeCodeState.paraInfo(target), h, FixedCodeLen)),
+      // Nothing at all changed: code, balance and registry slot all stand.
+      assert(forced.state == activeCodeState),
       assert(forced.state.preimageRegistry.keys().contains((h, FixedCodeLen))),
       assert(forced.jamForget == Set()),
+      assert(forced.logs == List(
+        CanNotForgetValidationCode({ hash: h, len: FixedCodeLen }))),
       init
     }
   }
@@ -263,6 +262,76 @@ module management_test {
       assert(removeKv.state == frozen and removeKv.logs == List()),
       // Clean-up itself still completes.
       assert(not(retried.state.isLive(para))),
+      init
+    }
+  }
+
+  /// A forced `parachain_set_validation_code` touches neither displaced code:
+  /// the old active (hA, 100) and the old announced (hB, 200) stay referenced
+  /// and available under their OWN lens, exactly as an `Apply` leaves them. Only
+  /// the new code is solicited, at its own len.
+  run forcedSetCodeLeavesDisplacedCodesTest = {
+    val para = CoretimeParaId
+    val hA: ValidationCodeHash = { vchBytes: 0xA1 }
+    val hB: ValidationCodeHash = { vchBytes: 0xB2 }
+    val hC: ValidationCodeHash = { vchBytes: 0xC3 }
+    val lenA = 100
+    val lenB = 200
+    val lenC = 300
+    // Build a state where para has active (hA, lenA) and announced (hB, lenB).
+    val s0 = initialState
+    val s1 = parachainSetValidationCode(s0, para, hA, lenA, 0).state
+    val s1b = solicitedAndProvided(s1, para, hB, lenB)
+    val s2 = announceCodeUpgrade(s1b, para, hB, lenB, 0).state
+    val s2p = markProvided(s2, vchAsHash(hA), lenA)
+    // Force-replace with hC.
+    val out = parachainSetValidationCode(s2p, para, hC, lenC, 0)
+    val s3 = out.state
+    all {
+      assert(s3.paraInfo(para).validationCode == Some({ hash: hC, len: lenC })),
+      assert(s3.paraInfo(para).announcedUpgrade == None),
+      // Both displaced codes are untouched: still referenced, still available.
+      assert(s3.hasReferencer(vchAsHash(hA), lenA, para)),
+      assert(s3.hasReferencer(vchAsHash(hB), lenB, para)),
+      assert(s3.preimageStatus.get((vchAsHash(hA), lenA)) == Provided),
+      assert(s3.preimageStatus.get((vchAsHash(hB), lenB)) == Provided),
+      assert(out.jamForget == Set()),
+      // (hC, lenC) now has para as referencer.
+      assert(s3.hasReferencer(vchAsHash(hC), lenC, para)),
+      // Wrong-len entries were never created (proves no cross-contamination).
+      assert(not(s3.preimageStatus.keys().contains((vchAsHash(hA), lenC)))),
+      assert(not(s3.preimageStatus.keys().contains((vchAsHash(hB), lenC)))),
+      init
+    }
+  }
+
+  /// Cleaning up a para holding BOTH an active and an announced code emits a
+  /// SEPARATE `ForgetAgainAt` for each, naming that code's own `(hash, len)`.
+  /// Regression for the bug where only one log entry was kept, dropping the
+  /// other code's retry deadline.
+  run cleanUpEmitsBothForgetAgainAtTest = {
+    val para = MkParaId(9)
+    val hA: ValidationCodeHash = { vchBytes: 0xA9 }
+    val hB: ValidationCodeHash = { vchBytes: 0xB9 }
+    val lenA = 100
+    val lenB = 200
+    val bal = BaselineFootprint + preimageFootprint(lenA) + preimageFootprint(lenB)
+    val s0 = parachainSetStateBalance(initialState, para, bal).state
+    val s1 = parachainSetValidationCode(s0, para, hA, lenA, 0).state
+    val s1b = solicitedAndProvided(s1, para, hB, lenB)
+    val s2 = announceCodeUpgrade(s1b, para, hB, lenB, 0).state
+    // Both codes are available, so each forget takes the two-step path and
+    // defers to the same `now + ExpungePeriod`.
+    val s3 = markProvided(s2, vchAsHash(hA), lenA)
+    val nowT = 10
+    val c = parachainCleanUp(s3, para, nowT)
+    all {
+      // One ForgetAgainAt per code: the pick-one bug would have kept only one.
+      assert(c.logs.length() == 2),
+      assert(c.logs.select(e =>
+        e == ForgetAgainAt({ hash: vchAsHash(hA), len: lenA, due: nowT + ExpungePeriod })).length() == 1),
+      assert(c.logs.select(e =>
+        e == ForgetAgainAt({ hash: vchAsHash(hB), len: lenB, due: nowT + ExpungePeriod })).length() == 1),
       init
     }
   }

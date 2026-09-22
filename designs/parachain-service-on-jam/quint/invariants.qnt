@@ -57,16 +57,18 @@ module invariants {
   val designate_only_valid_lengths: bool =
   jamStagingSet == List() or ValCount.contains(jamStagingSet.length())
 
-  /// No pending upgrade points at the currently active code.
-  val no_pending_when_code_matches: bool =
+  /// An announced upgrade requires an active validation code to upgrade FROM,
+  /// and must differ from it. A para with no validation code has every candidate
+  /// rejected (§5.1 step 4), so it never reaches the replay that could announce.
+  val announcement_requires_different_active_code: bool =
   svc.parachains.keys().forall(para_id => {
       val pi = svc.paraInfo(para_id)
-      match pi.pendingUpgrade {
+      match pi.announcedUpgrade {
         | None => true
-        | Some(pair) =>
+        | Some(announced) =>
           match pi.validationCode {
-            | None => true
-            | Some(vc) => pair._1.ref != vc.ref
+            | None => false
+            | Some(vc) => announced != vc
           }
       }
   })
@@ -89,22 +91,22 @@ module invariants {
       val pi = svc.paraInfo(para_id)
       match pi.validationCode {
         | None => true
-        | Some(vc) => svc.hasReferencer(vchAsHash(vc.ref.hash), vc.ref.len, para_id)
+        | Some(vc) => svc.hasReferencer(vchAsHash(vc.hash), vc.len, para_id)
       }
   })
 
-  /// Every live parachain's pending-upgrade code (when present) is also
+  /// Every live parachain's announced-upgrade code (when present) is also
   /// a referencer in `preimage_registry`, same lifecycle as any other
   /// solicited preimage (§5.2).
-  val pending_code_in_registry: bool =
+  val announced_code_in_registry: bool =
   svc.parachains.keys().forall(para_id => {
       val pi = svc.paraInfo(para_id)
-      match pi.pendingUpgrade {
+      match pi.announcedUpgrade {
         | None => true
-        | Some(pair) =>
+        | Some(announced) =>
           svc.hasReferencer(
-            vchAsHash(pair._1.ref.hash),
-            pair._1.ref.len,
+            vchAsHash(announced.hash),
+            announced.len,
             para_id)
       }
   })
@@ -166,71 +168,6 @@ module invariants {
   /// anywhere in service storage for an unregistered para.
   val parachain_log_only_for_live: bool =
   svc.parachainLog.keys().forall(para_id => svc.isLive(para_id))
-
-  /// Transition invariant (§5.2 Phase 5a). When a code upgrade is
-  /// *activated*: para `para_id`'s validation code changes to what was its
-  /// pending-upgrade ref; the old code's referencer slot for that para is
-  /// released, UNLESS one of:
-  ///   - the parachain was independently soliciting the old code
-  ///     (its `validationCode.pinned` bit), so the slot survives;
-  ///   - the same block re-requested an upgrade back to the old code (it is
-  ///     re-referenced as the new pending; §5.2 allows activation + a
-  ///     different request, processed in that order); or
-  ///   - a `Solicit` upward message for the old code's hash was processed
-  ///     (now in `solicitedSet`), re-referencing it as a plain data preimage
-  ///     independent of the code slot.
-  /// `prevSvc` holds the pre-step state. Exact balance accounting is pinned
-  /// separately by `used_balance_consistency`.
-  val code_activation_releases_old: bool =
-    svc.parachains.keys().forall(para_id => {
-      if (not(prevSvc.isLive(para_id))) true
-      else {
-        val before = prevSvc.paraInfo(para_id)
-        val after = svc.paraInfo(para_id)
-        // A para with no old active code has nothing to release, so the
-        // invariant holds vacuously there.
-        match before.validationCode {
-          | None => true
-          | Some(beforeVc) => {
-            val activated =
-              match before.pendingUpgrade {
-                | None => false
-                | Some(pair) =>
-                  match after.validationCode {
-                    | None => false
-                    | Some(afterVc) =>
-                      afterVc.ref == pair._1.ref and afterVc.ref != beforeVc.ref
-                  }
-              }
-            val oldHash = vchAsHash(beforeVc.ref.hash)
-            val oldLen = beforeVc.ref.len
-            val reRequested =
-              match after.pendingUpgrade {
-                | None => false
-                | Some(pair) => pair._1.ref == beforeVc.ref
-              }
-            // The two-step forget (§6.1) deliberately RETAINS the last
-            // referencer when the code was still `Provided`: that first forget
-            // only unrequests it, and the slot is freed by a second forget past
-            // the logged `ForgetAgainAt` deadline. A referencer surviving in
-            // that limbo is correct, not a leaked slot.
-            val inForgetLimbo =
-              svc.preimageStatus.keys().contains((oldHash, oldLen)) and
-              (match svc.preimageStatus.get((oldHash, oldLen)) {
-                | Unrequested(_) => true
-                | Rerequested(_) => true
-                | _ => false
-              })
-            not(activated) or
-              not(svc.hasReferencer(oldHash, oldLen, para_id)) or
-              beforeVc.pinned or
-              reRequested or
-              inForgetLimbo or
-              solicitedSet.contains((para_id, oldHash, oldLen))
-          }
-        }
-      }
-    })
 
   /// Every `headData` change between `prevSvc` and `svc` must be backed
   /// by an `Ok` work result that claims that new head, either directly
@@ -436,16 +373,15 @@ module invariants {
     preimage_status_domain,
     unrequested_is_singleton_retention,
     designate_only_valid_lengths,
-    no_pending_when_code_matches,
+    announcement_requires_different_active_code,
     staged_keys_owned_by_asset_hub,
     validation_code_in_registry,
-    pending_code_in_registry,
+    announced_code_in_registry,
     solicit_implies_registry,
     used_above_baseline,
     used_balance_consistency,
     referencers_are_live,
     parachain_log_only_for_live,
-    code_activation_releases_old,
     head_state_matches_outcomes,
     head_commitment_matches_changed_heads,
     foreign_supervisor_is_us_or_self,

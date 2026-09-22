@@ -1,4 +1,4 @@
-// Refine-side enforcement: PVF outcomes and refine error paths (design 4).
+// Refine-side enforcement: validation-code outcomes and refine error paths (design 4).
 module refine_test {
   import types.* from "../types"
   import messages.* from "../messages"
@@ -9,7 +9,7 @@ module refine_test {
   import main.* from "../main"
   import support.* from "./support"
 
-  /// An otherwise-valid candidate whose PVF skipped `set_parent_head_hash`
+  /// An otherwise-valid candidate whose validation code skipped `set_parent_head_hash`
   /// and/or `set_head` is rejected by Refine with `MissingHeadDeclaration`.
   /// Coretime's active code (`{ vchBytes: 1 }`) is solicited in
   /// `initialState`, so the candidate passes `codeAvailable` and reaches the
@@ -20,13 +20,13 @@ module refine_test {
       items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 })
     }
     val parentOnly =
-      refine(initialState, pkg, false, PvfOk, Some(headHash(0)), HeadUndeclared, List(), 0)[0]
+      refine(initialState, pkg, false, CodeOk, Some(headHash(0)), HeadUndeclared, List(), 0)[0]
     val headOnly =
-      refine(initialState, pkg, false, PvfOk, None, HeadDeclared(1), List(), 0)[0]
+      refine(initialState, pkg, false, CodeOk, None, HeadDeclared(1), List(), 0)[0]
     val neither =
-      refine(initialState, pkg, false, PvfOk, None, HeadUndeclared, List(), 0)[0]
+      refine(initialState, pkg, false, CodeOk, None, HeadUndeclared, List(), 0)[0]
     val both =
-      refine(initialState, pkg, false, PvfOk, Some(headHash(0)), HeadDeclared(1), List(), 0)[0]
+      refine(initialState, pkg, false, CodeOk, Some(headHash(0)), HeadDeclared(1), List(), 0)[0]
     all {
       // Missing new head, missing parent head, or both → rejected.
       assert(parentOnly == WorkOk(Err({ paraId: CoretimeParaId, error: MissingHeadDeclaration }))),
@@ -58,9 +58,9 @@ module refine_test {
     val over = range(0, MaxUpwardMessages + 1).foldl(List(), (acc, _) => acc.append(msg))
     val atCap = range(0, MaxUpwardMessages).foldl(List(), (acc, _) => acc.append(msg))
     val overOut =
-      refine(initialState, pkg, false, PvfOk, Some(headHash(0)), HeadDeclared(1), over, 0)[0]
+      refine(initialState, pkg, false, CodeOk, Some(headHash(0)), HeadDeclared(1), over, 0)[0]
     val atCapOut =
-      refine(initialState, pkg, false, PvfOk, Some(headHash(0)), HeadDeclared(1), atCap, 0)[0]
+      refine(initialState, pkg, false, CodeOk, Some(headHash(0)), HeadDeclared(1), atCap, 0)[0]
     all {
       assert(over.length() == 1025),
       assert(overOut == WorkOk(Err({ paraId: CoretimeParaId, error: TooManyUpwardMessages }))),
@@ -72,9 +72,8 @@ module refine_test {
   /// Regression: `solicit`/`forget` match a validation code on the FULL
   /// `(hash, len)` pair, not the hash alone. The registry is keyed by
   /// `(hash, len)`, so the active code's hash at a different length is a
-  /// distinct preimage. Exercises both directions of the `pinned` bit so a
-  /// hash-only match cannot pass: the correct len pins/unpins the active code,
-  /// the wrong len must leave that bit alone.
+  /// distinct, ordinary preimage: soliciting it charges and forgetting it
+  /// refunds, while the same hash at the code's OWN len is validation code and refused.
   run solicitForgetMatchesHashAndLenTest = {
     val para = CoretimeParaId
     val h = vchAsHash({ vchBytes: 1 })   // coretime's ACTIVE code hash
@@ -84,64 +83,65 @@ module refine_test {
       jamForget: Set(), jamAssigns: List(), logs: List(), foreign: Map()
     }
     val pi0 = initialState.paraInfo(para)
-    // 1. Solicit at the code's OWN len: matches the active code, so it only
-    //    sets `pinned`: no new entry, no charge.
-    val pinned = applyUpwardMessage(baseAcc, para, FixedCodeLen, 0, 0,
+    // 1. Solicit at the code's OWN len: already the active code, so this
+    //    changes nothing: no new entry, no charge.
+    val resolicit = applyUpwardMessage(baseAcc, para, FixedCodeLen, 0, 0,
       Solicit({ target: Parachain(para), hash: h, len: FixedCodeLen }))
-    val piP = pinned.state.paraInfo(para)
     // 2. Solicit the SAME hash at a different len: a genuinely distinct entry,
-    //    charged, and it must NOT disturb the active code's `pinned` bit.
-    val sol = applyUpwardMessage({ ...baseAcc, state: pinned.state }, para, FixedCodeLen, 0, 0,
+    //    charged, and it must NOT disturb the active code.
+    val sol = applyUpwardMessage({ ...baseAcc, state: resolicit.state }, para, FixedCodeLen, 0, 0,
       Solicit({ target: Parachain(para), hash: h, len: otherLen }))
     val pi1 = sol.state.paraInfo(para)
     // 3. Forget that distinct entry: released (never provided -> one-step drop),
-    //    and the active code stays pinned.
+    //    and the active code is untouched.
     val fgt = applyUpwardMessage({ ...baseAcc, state: sol.state }, para, FixedCodeLen, 0, 0,
       Forget({ target: Parachain(para), hash: h, len: otherLen }))
     val pi2 = fgt.state.paraInfo(para)
-    // 4. Forget at the code's OWN len: matches the active code, so it unpins it.
-    val unpinned = applyUpwardMessage({ ...baseAcc, state: fgt.state }, para, FixedCodeLen, 0, 0,
+    // 4. Forget at the code's OWN len: it is the active code, so refused.
+    val refused = applyUpwardMessage({ ...baseAcc, state: fgt.state }, para, FixedCodeLen, 0, 0,
       Forget({ target: Parachain(para), hash: h, len: FixedCodeLen }))
     all {
-      assert(not(activeCodePinned(pi0))),
-      // (1) correct len pins the active code, creating no entry and no charge.
-      assert(activeCodePinned(piP)),
-      assert(piP.usedStateBalance == pi0.usedStateBalance),
-      // (2) wrong len is a distinct, charged entry; the pin is untouched.
+      assert(isValidationCodeOf(pi0, h, FixedCodeLen)),
+      // (1) re-soliciting the active code is a no-op: no entry, no charge.
+      assert(resolicit.state == initialState),
+      // (2) wrong len is a distinct, charged entry; the active code is untouched.
       assert(sol.state.preimageRegistry.keys().contains((h, otherLen))),
       assert(pi1.usedStateBalance == pi0.usedStateBalance + preimageFootprint(otherLen)),
-      assert(activeCodePinned(pi1)),
+      assert(not(isValidationCodeOf(pi1, h, otherLen))),
       assert(sol.state.preimageRegistry.keys().contains((h, FixedCodeLen))),
-      // (3) forgetting the wrong-len entry releases it and refunds; still pinned.
+      // (3) forgetting the wrong-len entry releases it and refunds.
       assert(not(fgt.state.preimageRegistry.keys().contains((h, otherLen)))),
       assert(pi2.usedStateBalance == pi0.usedStateBalance),
-      assert(activeCodePinned(pi2)),
-      // (4) correct len unpins the active code.
-      assert(not(activeCodePinned(unpinned.state.paraInfo(para)))),
+      assert(isValidationCodeOf(pi2, h, FixedCodeLen)),
+      // (4) correct len is refused: nothing changes, and it is logged.
+      assert(refused.state == fgt.state),
+      assert(refused.logs == List(
+        CanNotForgetValidationCode({ hash: h, len: FixedCodeLen }))),
+      assert(refused.state.preimageRegistry.keys().contains((h, FixedCodeLen))),
       init
     }
   }
 
-  /// §4.2: a PVF has exactly two ways to fail, and they differ in what is
+  /// §4.2: validation code has exactly two ways to fail, and they differ in what is
   /// recorded. `report_error(data)` aborts it and is logged as
   /// `RefineLog::Opaque(data)`; any other abnormal exit is not caught, so the
   /// whole `refine` fails and yields a work error with NO digest, which
   /// Accumulate then skips entirely, leaving the para's log untouched.
-  run pvfFailureModesTest = {
+  run codeFailureModesTest = {
     val para = CoretimeParaId
     val pkg: WorkPackage = {
       authorizedParas: List(para),
       items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 })
     }
-    val reported = refine(initialState, pkg, false, PvfReportError(42),
+    val reported = refine(initialState, pkg, false, CodeReportError(42),
       Some(headHash(0)), HeadDeclared(1), List(), 0)[0]
-    val panicked = refine(initialState, pkg, false, PvfPanic,
+    val panicked = refine(initialState, pkg, false, CodePanic,
       Some(headHash(0)), HeadDeclared(1), List(), 0)[0]
     // Accumulating the panicking result must touch nothing at all.
     val accPanic = accumulateOnePackage(
       initialState, { result: panicked, authTrace: 7 }, Set(), None, FixedCodeLen, 5, Map())
     all {
-      // Reporting is the only way a PVF records a reason.
+      // Reporting is the only way a validation code records a reason.
       assert(reported == WorkOk(Err({ paraId: para, error: Opaque(42) }))),
       // A bare panic produces no digest whatsoever.
       assert(panicked == WorkErr),
@@ -164,9 +164,9 @@ module refine_test {
       items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 })
     }
     val withParent =
-      refine(initialState, pkg, false, PvfOk, Some(headHash(0)), HeadOversized, List(), 0)[0]
+      refine(initialState, pkg, false, CodeOk, Some(headHash(0)), HeadOversized, List(), 0)[0]
     val withoutParent =
-      refine(initialState, pkg, false, PvfOk, None, HeadOversized, List(), 0)[0]
+      refine(initialState, pkg, false, CodeOk, None, HeadOversized, List(), 0)[0]
     all {
       assert(withParent == WorkOk(Err({ paraId: CoretimeParaId, error: HeadDataTooLarge }))),
       assert(withoutParent == WorkOk(Err({ paraId: CoretimeParaId, error: HeadDataTooLarge }))),

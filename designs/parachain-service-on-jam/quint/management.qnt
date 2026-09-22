@@ -100,12 +100,11 @@ module management {
     }
   }
 
-  /// §6.2 / §6.3: upsert validation code (forced replacement; bypasses the
-  /// normal upgrade lifecycle). Solicits the new code if not already
-  /// solicited, releases the old active code and any pending-upgrade code,
-  /// each only when the parachain isn't independently soliciting it
-  /// (`pinned`; §5.2) and it differs from the new code, and clears
-  /// the pending upgrade.
+  /// §6.2 / §6.3: upsert validation code (forced replacement, bypassing the
+  /// normal upgrade lifecycle). Solicits the new code if not already solicited
+  /// and clears the announcement. The displaced codes are left alone, exactly as
+  /// an `Apply` leaves them: they revert to ordinary solicited preimages of the
+  /// parachain, which it (or Coretime, via a delegated `Forget`) releases.
   pure def parachainSetValidationCode(
     s: ParachainServiceState,
     para_id: ParaId,
@@ -118,18 +117,6 @@ module management {
       { state: s, jamSolicit: Set(), jamForget: Set(), logs: List() }
     } else {
       val pi = s.paraInfo(para_id)
-      val newEqualsPending =
-        match pi.pendingUpgrade {
-          | None => false
-          | Some(pair) => pair._1.ref.hash == newHash
-        }
-      // The parachain independently solicited newHash iff it references it
-      // for a reason other than being the current active or pending code.
-      val activeEqualsNew =
-        match pi.validationCode { | Some(vc) => vc.ref.hash == newHash | None => false }
-      val parachainHadIt =
-        s.hasReferencer(vchAsHash(newHash), codeLen, para_id) and
-        not(activeEqualsNew) and not(newEqualsPending)
       // Acquire the new referencer (no charge if already solicited); reject
       // if no headroom.
       val acquired = s.addReferencer(para_id, vchAsHash(newHash), codeLen)
@@ -137,77 +124,41 @@ module management {
         | Some(_) =>
         { state: s, jamSolicit: Set(), jamForget: Set(), logs: List().appendOption(acquired.log) }
         | None =>
-        // Release the old active code, if any - unless it equals the new code
-        // or is independently solicited (a para with no active code yet has
-        // nothing to release).
-        val afterOld =
-          match pi.validationCode {
-            | None =>
-              { state: acquired.state, jamSolicit: None, jamForget: None, retained: false, log: None }
-            | Some(vc) =>
-              if (vc.ref.hash == newHash or vc.pinned)
-                { state: acquired.state, jamSolicit: None, jamForget: None, retained: false, log: None }
-              else
-                acquired.state.removeReferencer(para_id, vchAsHash(vc.ref.hash), vc.ref.len, now)
-          }
-        // Clear any pending upgrade, releasing its code unless it equals the
-        // new code or is independently solicited.
-        val afterPending =
-          match pi.pendingUpgrade {
-            | None =>
-              { state: afterOld.state, jamSolicit: None, jamForget: None, retained: false, log: None }
-            | Some(pair) =>
-              if (pair._1.ref.hash == newHash or pair._1.pinned)
-                { state: afterOld.state, jamSolicit: None, jamForget: None, retained: false, log: None }
-              else
-                afterOld.state.removeReferencer(para_id, vchAsHash(pair._1.ref.hash), pair._1.ref.len, now)
-          }
-        val pi2 = afterPending.state.paraInfo(para_id)
+        val pi2 = acquired.state.paraInfo(para_id)
         {
           state: {
-            ...afterPending.state,
-            parachains: afterPending.state.parachains.put(
+            ...acquired.state,
+            parachains: acquired.state.parachains.put(
               para_id,
               { ...pi2,
-                // If the new hash equals the existing active code, preserve its
-                // `pinned` bit; otherwise the new code's bit is `parachainHadIt`.
-                validationCode: Some({
-                  ref: { hash: newHash, len: codeLen },
-                  pinned:
-                    match pi.validationCode {
-                      | Some(vc) => if (vc.ref.hash == newHash) vc.pinned else parachainHadIt
-                      | None => parachainHadIt
-                    }
-                }),
-                pendingUpgrade: None
+                validationCode: Some({ hash: newHash, len: codeLen }),
+                announcedUpgrade: None
               }
             )
           },
           jamSolicit: optionToSet(acquired.jamSolicit),
-          jamForget: optionToSet(afterOld.jamForget).union(optionToSet(afterPending.jamForget)),
-          // Both the old active and the pending code can enter limbo with
-          // distinct deadlines.
-          logs: List().appendOption(afterOld.log).appendOption(afterPending.log)
+          jamForget: Set(),
+          logs: List()
         }
       }
     }
   }
 
    /// The exact `usedStateBalance` a para may hold at clean-up: its baseline
-   /// plus the footprints of its active validation code and (if any) pending
+   /// plus the footprints of its active validation code and (if any) announced
    /// upgrade code: nothing else. Any excess means it still holds other
    /// solicited preimages or `keyValueStorage`, which it must release first.
   pure def cleanUpAllowedBalance(pi: ParaInfo, para_id: ParaId): int = {
     val activeFp =
       match pi.validationCode {
         | None => 0
-        | Some(vc) => preimageFootprint(vc.ref.len)
+        | Some(vc) => preimageFootprint(vc.len)
       }
-    val pendingFp = match pi.pendingUpgrade {
+    val announcedFp = match pi.announcedUpgrade {
       | None => 0
-      | Some(pair) => preimageFootprint(pair._1.ref.len)
+      | Some(vc) => preimageFootprint(vc.len)
     }
-    baselineFor(para_id) + activeFp + pendingFp
+    baselineFor(para_id) + activeFp + announcedFp
   }
 
    /// §6.4: deregister a parachain. Rejects with `TooMuchStateHeld` unless the
@@ -230,24 +181,24 @@ module management {
         // Still holds extra state: reject, no change.
         { state: s, jamSolicit: Set(), jamForget: Set(), logs: List(TooMuchStateHeld) }
       } else {
-        // Forget the active code (if any), then the pending code, via two-step forget.
+        // Forget the active code (if any), then the announced code, via two-step forget.
         val afterActive =
           match pi.validationCode {
             | None => { state: s, jamSolicit: None, jamForget: None, retained: false, log: None }
-            | Some(vc) => s.removeReferencer(para_id, vchAsHash(vc.ref.hash), vc.ref.len, now)
+            | Some(vc) => s.removeReferencer(para_id, vchAsHash(vc.hash), vc.len, now)
           }
-        val afterPending = match pi.pendingUpgrade {
+        val afterAnnounced = match pi.announcedUpgrade {
           | None =>
             { state: afterActive.state, jamSolicit: None, jamForget: None, retained: false, log: None }
-          | Some(pair) =>
+          | Some(vc) =>
             afterActive.state.removeReferencer(
-              para_id, vchAsHash(pair._1.ref.hash), pair._1.ref.len, now)
+              para_id, vchAsHash(vc.hash), vc.len, now)
         }
-        val s1 = afterPending.state
+        val s1 = afterAnnounced.state
         val jamForgets =
-          optionToSet(afterActive.jamForget).union(optionToSet(afterPending.jamForget))
+          optionToSet(afterActive.jamForget).union(optionToSet(afterAnnounced.jamForget))
 
-        val stillHeld = afterActive.retained or afterPending.retained
+        val stillHeld = afterActive.retained or afterAnnounced.retained
         if (stillHeld) {
           // Mark deregistering and keep the entry; retry completes it later.
           {
@@ -257,7 +208,7 @@ module management {
             jamForget: jamForgets,
             // Both the active and the pending code can enter limbo with distinct
             // deadlines.
-            logs: List().appendOption(afterActive.log).appendOption(afterPending.log)
+            logs: List().appendOption(afterActive.log).appendOption(afterAnnounced.log)
           }
         } else {
           // Fully expunged: drop all per-para state.

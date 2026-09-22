@@ -2,7 +2,7 @@
 //
 // `designate` is atomic and requires a complete validator-key vector of
 // length ∈ ValCount. A full set is up to 1023 × 336 B ≈ 336 KiB, which
-// cannot fit in a single 48 KiB work-report. The PVF therefore emits
+// cannot fit in a single 48 KiB work-report. The validation code therefore emits
 // `SetValidatorKeys { keys, isLast }` upward messages across multiple
 // Asset Hub blocks; Accumulate appends each chunk and finalizes on
 // `isLast`.

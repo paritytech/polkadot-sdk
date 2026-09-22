@@ -1533,17 +1533,10 @@ upgrade lifecycle:
   `ParaInfo.validation_code` to `Some(new_hash)`, solicits `new_hash`, and clears any
   `announced_upgrade`. Unless the parachain already references `new_hash`, in which case
   the solicit is a no-op and nothing is charged, `used_state_balance` grows by
-  `preimage_footprint(new_len)`
-  to hold the new validation code. The displaced validation codes (the old active
-  code and any announced code) are released via the normal `forget` step (§6.1).
-  Each keeps its footprint charged until the parachain emits `Forget` again to
-  complete the two-step release. So while those releases are in flight the
-  parachain holds the new validation code plus every not-yet-forgotten displaced
-  validation code. That is two validation codes when there was no announced
-  upgrade, three when there was. `total_state_balance` must cover whatever is
-  concurrently held. The call is rejected with
-  `AccumulateLog::InsufficientStateBalance` if the new footprint wouldn't fit, so
-  Coretime must raise `total_state_balance` first (in the same batch) when needed.
+  `preimage_footprint(new_len)` to hold the new validation code. The displaced validation
+  codes are left untouched (as for the normal code upgrade path, §5.2). The call is rejected
+  with `AccumulateLog::InsufficientStateBalance` if the new footprint wouldn't fit, so Coretime
+  must raise `total_state_balance` first when needed.
 
 ```
 Coretime chain

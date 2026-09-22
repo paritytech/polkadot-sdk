@@ -9,23 +9,13 @@ module state {
 
   // --- Per-parachain record (design §3.1) --------------------------------
 
-  /// A validation code reference plus the per-para `pinned` bookkeeping bit.
-  /// `ref` carries the code's hash and SCALE-encoded byte length; `pinned`
-  /// records whether the parachain has also solicited it independently.
-  type ValidationCode = {
-    ref: ValidationCodeRef,
-    pinned: bool
-  }
-
   type ParaInfo = {
     headData: HeadData,
     // `None` for a freshly-registered para that has no validation code yet
     // (before the first `parachain_set_validation_code`); `Some` once set.
-    validationCode: Option[ValidationCode],
-    // Some((newCode, deadlineTimeslot)) when a code upgrade is in flight.
-    // The pending code's `pinned` bit carries into `validationCode`
-    // on activation.
-    pendingUpgrade: Option[(ValidationCode, Timeslot)],
+    validationCode: Option[ValidationCodeRef],
+    // Announced code upgrade (§5.2).
+    announcedUpgrade: Option[ValidationCodeRef],
     totalStateBalance: Balance,
     usedStateBalance: Balance,
     // Set once `parachain_clean_up` has begun deregistering this parachain
@@ -152,7 +142,7 @@ module state {
   pure def activeCodeHashOr(
     pi: ParaInfo, fallback: ValidationCodeHash
   ): ValidationCodeHash =
-  pi.validationCode.optionMap(vc => vc.ref.hash).optionGetOr(fallback)
+  pi.validationCode.optionMap(vc => vc.hash).optionGetOr(fallback)
 
   /// Total transfers held across every bucket (§5.1 admission counts transfers,
   /// not buckets).
@@ -215,6 +205,22 @@ module state {
     | Rerequested(_) => true
     | Unprovided => false
     | Unrequested(_) => false
+  })
+
+  /// Whether `query(hash, len)` reports the preimage as available for lookup AT
+  /// timeslot `t`.
+  /// `Provided` and `Rerequested` carry no start slot in this model (only
+  /// `unrequested_since` is tracked), so both count as available at any `t`;
+  /// `Unrequested(y)` was available until it was unrequested at `y`.
+  pure def preimageAvailableAt(
+    s: ParachainServiceState, h: Hash, len: int, t: Timeslot
+  ): bool =
+  s.preimageStatus.keys().contains((h, len)) and
+  (match s.preimageStatus.get((h, len)) {
+    | Provided => true
+    | Rerequested(_) => true
+    | Unprovided => false
+    | Unrequested(y) => t < y
   })
 
   // --- Log-append helpers (design §3.1, §3.3, §5.1) ----------------------
@@ -299,6 +305,10 @@ module state {
     | DesignateRejected(p) => compactLen(p.len)
     | StagedValidatorKeysOverflow => 0
     | ServiceUpgradePreimageMissing(_) => 32
+    // hash 32 + Compact<u32> len.
+    | CodeUpgradeNotAvailable(p) => 32 + compactLen(p.len)
+    | CodeUpgradeNotAnnounced(p) => 32 + compactLen(p.len)
+    | CanNotForgetValidationCode(p) => 32 + compactLen(p.len)
     // id Compact<u64> + TransferError tag 1.
     | TransferFailed(p) => compactLen(p.id) + 1
     // hash 32 + Compact<u32> len + due (Timeslot, fixed u32).
@@ -346,7 +356,7 @@ module state {
   ///       structural failure carrying no parachain-supplied detail, and the rank
   ///       into which every failure a coretime buyer can provoke falls. The most
   ///       disposable of the three.
-  ///   1 - `Opaque`: the payload the parachain's own PVF chose to report (§4.2),
+  ///   1 - `Opaque`: the payload the parachain's own validation code chose to report (§4.2),
   ///       the only refine entry carrying context the parachain can act on.
   ///   2 - an accumulate event: an actual on-chain state change.
   pure def entryRank(e: (Timeslot, LogEntry)): int =

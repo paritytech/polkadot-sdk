@@ -315,4 +315,42 @@ module state_balance_test {
       init
     }
   }
+
+  /// (h, 100) and (h, 200) are distinct registry entries:
+  /// soliciting one does not affect the other, and forgetting one
+  /// leaves the other intact.
+  run differentLensAreDistinctEntriesTest = {
+    val h: Hash = { hashBytes: 42 }
+    val p1 = CoretimeParaId
+    val p2 = AssetHubParaId
+    // Seed state: p1 registered with enough headroom.
+    val s0 = initialState
+    // Solicit (h, 100) for p1.
+    val d1 = s0.addReferencer(p1, h, 100)
+    // Solicit (h, 200) for p2.
+    val d2 = d1.state.addReferencer(p2, h, 200)
+    // (h, 100) becomes available, so its forget takes the two-step path.
+    val provided = markProvided(d2.state, h, 100)
+    // First forget of (h, 100) for p1 (its sole referencer) at now = 0:
+    // unrequests it, the entry survives awaiting expunge.
+    val d3 = provided.removeReferencer(p1, h, 100, 0)
+    // Second forget once strictly past the deadline: the entry is expunged.
+    val d4 = d3.state.removeReferencer(p1, h, 100, ExpungePeriod + 1)
+    all {
+      // After soliciting (h,100) and (h,200): two distinct entries.
+      assert(d2.state.preimageRegistry.keys().contains((h, 100))),
+      assert(d2.state.preimageRegistry.keys().contains((h, 200))),
+      // (h,100) has p1 as referencer; (h,200) has p2.
+      assert(d2.state.preimageRegistry.get((h, 100)).referencers == Set(p1)),
+      assert(d2.state.preimageRegistry.get((h, 200)).referencers == Set(p2)),
+      // First forget: (h,100) still present (awaiting expunge), (h,200) untouched.
+      assert(d3.state.preimageRegistry.keys().contains((h, 100))),
+      assert(isUnrequested(d3.state.preimageStatus.get((h, 100)))),
+      // Second forget once due: (h,100) entry is gone; (h,200) untouched.
+      assert(not(d4.state.preimageRegistry.keys().contains((h, 100)))),
+      assert(d4.state.preimageRegistry.keys().contains((h, 200))),
+      assert(d4.state.preimageRegistry.get((h, 200)).referencers == Set(p2)),
+      init
+    }
+  }
 }

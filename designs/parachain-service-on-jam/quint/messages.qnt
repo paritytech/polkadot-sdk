@@ -1,4 +1,4 @@
-// Refine output types and the upward-message vocabulary the PVF can emit
+// Refine output types and the upward-message vocabulary the validation code can emit
 // during a Refine invocation (design §3.3, §4.3).
 //
 // Each variant of `UpwardMessage` corresponds 1:1 to a side-effect host
@@ -28,18 +28,18 @@ module messages {
   type RefineLog =
   // historical_lookup(validation_code_hash) returned None.
   | InvalidCodeHash
-  // PVF aborted itself via report_error(data). Payload ≤ 1024 B.
+  // Validation code aborted itself via report_error(data). Payload ≤ 1024 B.
   | Opaque(int)
   // set_validator_keys was called more than once in a single Refine invocation.
   | SetValidatorKeysRepeated
   // A SetValidatorKeys chunk carried more than `SetValidatorKeysMaxKeys` keys.
   | TooManyValidatorKeys
-  // The PVF emitted more than `MaxUpwardMessages` upward messages
+  // The validation code emitted more than `MaxUpwardMessages` upward messages
   // in a single Refine invocation (§4.3).
   | TooManyUpwardMessages
   // The parachain's 40 KiB upward-message budget was exceeded.
   | UpwardMessagesTooLarge
-  // The PVF invoked a host function restricted to another parachain (Asset Hub
+  // The validation code invoked a host function restricted to another parachain (Asset Hub
   // or the Coretime chain), or named a `para_id` it may not act for (§4.3).
   | RestrictedHostFunction
   // An `assign_core` queue outside 1..`AuthorizerQueueLength` hashes, and any
@@ -49,7 +49,7 @@ module messages {
   // The encoded digest plus the work-report's authorizer trace exceeds
   // the Gray Paper's 48 KiB combined-result-blob budget (§4.1 step 7).
   | RefineOutputTooLarge
-  // The PVF exited without calling `set_parent_head_hash` and/or `set_head`
+  // The validation code exited without calling `set_parent_head_hash` and/or `set_head`
   // exactly once: both head declarations are mandatory (§4.2).
   | MissingHeadDeclaration
   // `set_head` was called with head data beyond the 4 KiB `HeadData` bound
@@ -160,6 +160,12 @@ module messages {
   // new code's preimage is not in the Parachain Service's preimage store
   // (§5.4).
   | ServiceUpgradePreimageMissing({ codeHash: Hash })
+  // An `Announcement` whose code is not usable (§5.2).
+  | CodeUpgradeNotAvailable({ hash: Hash, len: int })
+  // An `Apply` that does not match the standing announcement (§5.2).
+  | CodeUpgradeNotAnnounced({ hash: Hash, len: int })
+  // A `Forget` naming the para's active or announced validation code (§5.2).
+  | CanNotForgetValidationCode({ hash: Hash, len: int })
   // The JAM `transfer` call replaying a `TransferOut` upward message
   // returned an error. `id` is the caller-supplied identifier from the
   // `TransferOut`, echoed back so Asset Hub can match the failure to its
@@ -190,11 +196,18 @@ module messages {
     queue: List[AuthorizerHash]
   }
 
-  // --- Upward messages emitted by the PVF, replayed by Accumulate ---------
+  // --- Upward messages emitted by the validation code, replayed by Accumulate ---------
+
+  /// The two phases of a code upgrade (§5.2).
+  type CodeUpgradePhase =
+    | Announcement
+    | Apply
 
   type UpwardMessage =
-    // request_code_upgrade(hash, len): start a PVF code upgrade (§5.2).
-    | RequestCodeUpgrade({ hash: ValidationCodeHash, len: int })
+    // request_code_upgrade(hash, len, phase): drive a code upgrade (§5.2).
+    | RequestCodeUpgrade({
+        hash: ValidationCodeHash, len: int, phase: CodeUpgradePhase
+      })
   // solicit(hash, len)
   // solicit(target, hash, len): §6.1 for a Parachain target.
   | Solicit({ target: Target, hash: Hash, len: int })
@@ -389,7 +402,7 @@ module messages {
   /// Per §4.3: host functions restricted to a specific parachain (Asset Hub
   /// or the Coretime chain) abort when invoked from any other parachain, as does
   /// naming a foreign `para_id` without the right to.
-  /// Refine enforces this as a PVF-level panic; Accumulate independently
+  /// Refine enforces this as a validation-code-level panic; Accumulate independently
   /// verifies and rejects the work-package as defense-in-depth.
   pure def violatesParachainRestrictions(
     msgs: List[UpwardMessage],

@@ -116,11 +116,8 @@ module types {
   /// Per-call cap on `set_validator_keys` chunks (design §4.3).
   pure val SetValidatorKeysMaxKeys: int = 30
 
-  /// Max upward messages a PVF may emit in one Refine invocation (design §4.3).
+  /// Max upward messages validation code may emit in one Refine invocation (design §4.3).
   pure val MaxUpwardMessages: int = 1024
-
-  /// §5.2: pending-upgrade deadline relative to current timeslot (24 h at 6 s).
-  pure val UpgradeTimeoutTimeslots: int = 24 * 3600 / 6
 
   /// Per-para log byte budget (exact encoded size of all entries must stay ≤ this).
   pure val ParachainLogByteCap: int = 64 * 1024

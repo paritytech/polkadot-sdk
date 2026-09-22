@@ -1,15 +1,7 @@
 // Accumulate: on-chain integration (design §5.1).
 //
-// All always-accumulate work runs first (before work packages): apply due
-// authorizer queues, then incoming-transfer processing. Then per accumulated
-// work-package, in order (§5.1):
-// 1. Registration check.
-// 2. Refine-result dispatch (log a failed digest; else continue).
-// 3. Parent-head check.
-// 4. Reap timed-out pending upgrade.
-// 5. Authoritative validation-code check.
-// 6. Head-data update + code-upgrade activation.
-// 7. Replay upward messages.
+// All always-accumulate work runs first (apply due authorizer queues, then
+// incoming transfers), then the block's work packages in order.
 module accumulate {
   import types.* from "./types"
   import messages.* from "./messages"
@@ -96,12 +88,19 @@ module accumulate {
   ): AccumulateOutcome = {
     match m {
       | RequestCodeUpgrade(payload) =>
-        val d = requestCodeUpgrade(acc.state, now, para_id, payload.hash, payload.len)
+        val d =
+          match payload.phase {
+            | Announcement =>
+              announceCodeUpgrade(
+                acc.state, para_id, payload.hash, payload.len, lookupAnchor)
+            | Apply =>
+              applyCodeUpgrade(acc.state, para_id, payload.hash, payload.len)
+          }
         {
           state: d.state,
           jamDesignate: acc.jamDesignate,
           jamSolicit: acc.jamSolicit.union(optionToSet(d.jamSolicit)),
-          jamForget: acc.jamForget,
+          jamForget: acc.jamForget.union(optionToSet(d.jamForget)),
           jamAssigns: acc.jamAssigns,
           logs: acc.logs.appendOption(d.log),
           foreign: acc.foreign
@@ -117,37 +116,6 @@ module accumulate {
       // half-removed para.
       if (not(acc.state.isLive(target)) or acc.state.paraInfo(target).isDeregistering) acc
       else {
-      val pi = acc.state.paraInfo(target)
-      val activeVc = pi.validationCode
-      val isActive =
-        match activeVc { | Some(vc) => refIs(vc.ref, payload.hash, payload.len) | None => false }
-      val isPending =
-        match pi.pendingUpgrade {
-          | None => false
-          | Some(pair) => refIs(pair._1.ref, payload.hash, payload.len)
-        }
-      if (isActive) {
-        // The active code is already solicited by the service, so soliciting
-        // it costs no extra state balance; just record the parachain's own
-        // solicit so the referencer survives the code ceasing to be active
-        // (§5.2 `pinned`).
-        { ...acc,
-          state: { ...acc.state,
-            parachains: acc.state.parachains.put(
-              target,
-              { ...pi, validationCode:
-                match activeVc { | Some(vc) => Some({ ...vc, pinned: true }) | None => activeVc } }) } }
-      } else if (isPending) {
-        { ...acc,
-          state: { ...acc.state,
-            parachains: acc.state.parachains.put(
-              target,
-              { ...pi, pendingUpgrade:
-                match pi.pendingUpgrade {
-                  | None => None
-                  | Some(pair) => Some(({ ...pair._1, pinned: true }, pair._2))
-                } }) } }
-      } else {
         val d = acc.state.addReferencer(target, payload.hash, payload.len)
         {
           state: d.state,
@@ -158,7 +126,6 @@ module accumulate {
           logs: acc.logs.appendOption(d.log),
           foreign: acc.foreign
         }
-      }
       }
       }
       | EjectService(payload) =>
@@ -188,34 +155,18 @@ module accumulate {
         val pi = acc.state.paraInfo(target)
         val activeVc = pi.validationCode
         val isActive =
-          match activeVc { | Some(vc) => refIs(vc.ref, payload.hash, payload.len) | None => false }
-        val isPending =
-          match pi.pendingUpgrade {
+          match activeVc { | Some(vc) => refIs(vc, payload.hash, payload.len) | None => false }
+        val isAnnounced =
+          match pi.announcedUpgrade {
             | None => false
-            | Some(pair) => refIs(pair._1.ref, payload.hash, payload.len)
+            | Some(vc) => refIs(vc, payload.hash, payload.len)
           }
-        if (isActive) {
-          // Forgetting the target's own solicit of its active code: clear the
-          // `pinned` bit, but the service still references the code (it
-          // is active), so the referencer and balance stay and the JAM forget
-          // is NOT forwarded (§5.2). This is what stops a forced call from
-          // stripping a running PVF.
-          { ...acc,
-            state: { ...acc.state,
-              parachains: acc.state.parachains.put(
-                target,
-                { ...pi, validationCode:
-                  match activeVc { | Some(vc) => Some({ ...vc, pinned: false }) | None => activeVc } }) } }
-        } else if (isPending) {
-          { ...acc,
-            state: { ...acc.state,
-              parachains: acc.state.parachains.put(
-                target,
-                { ...pi, pendingUpgrade:
-                  match pi.pendingUpgrade {
-                    | None => None
-                    | Some(pair) => Some(({ ...pair._1, pinned: false }, pair._2))
-                  } }) } }
+        if (isActive or isAnnounced) {
+          // The target's active or announced code: refused, so the referencer
+          // and the balance both stay (§5.2). This is what stops a forced call
+          // from stripping running validation code.
+          { ...acc, logs: acc.logs.append(
+            CanNotForgetValidationCode({ hash: payload.hash, len: payload.len })) }
         } else {
           val d = acc.state.removeReferencer(target, payload.hash, payload.len, now)
           {
@@ -396,8 +347,8 @@ module accumulate {
 
   // ---- Per-work-package accumulation (§5.1) -----------------------------
 
-  /// Implements §5.1 steps 3–7 for a single `ParachainWorkDigest::Ok`.
-  /// Step 7 (replay upward messages) is iterated by the caller.
+  /// Implements §5.1 steps 1–5 for a single `ParachainWorkDigest::Ok`.
+  /// Step 6 (replay upward messages) is iterated by the caller.
   pure def accumulateOkPrefix(
     s: ParachainServiceState,
     r: ParachainWorkDigestOk,
@@ -406,7 +357,6 @@ module accumulate {
   ): {
     state: ParachainServiceState,
     rejected: bool,
-    // Hashes for solicit/forget collected by the code-upgrade reap
     jamSolicit: Set[Hash],
     jamForget: Set[Hash],
     logs: List[AccumulateLog]
@@ -420,22 +370,11 @@ module accumulate {
       if (r.parentHeadHash != headHash(pi0.headData)) {
         { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
       } else {
-        // Step 2: lazy reap of timed-out pending upgrade.
-        val reaped = reapTimedOutUpgrade(s, now, r.paraId, codeLen)
-        val pi1 = reaped.state.paraInfo(r.paraId)
-        // Step 3: authoritative validation-code check.
-        val matchesActive =
-          match pi1.validationCode { | Some(vc) => r.validationCode == vc.ref | None => false }
+        // Step 4: authoritative validation-code check. Only the ACTIVE code is
+        // accepted; an announced upgrade becomes a validation option only once
+        // an `Apply` has made it active (§5.2).
         val codeOk =
-        matchesActive or
-        (match pi1.pendingUpgrade {
-            | None => false
-            | Some(pair) => r.validationCode == pair._1.ref
-        })
-        // A rejected candidate changes NOTHING: `reaped` is computed only so the
-        // code check sees the post-reap view (a candidate carrying a timed-out
-        // pending code must fail), but its state is discarded on rejection along
-        // with any forget it would have forwarded.
+          match pi0.validationCode { | Some(vc) => r.validationCode == vc | None => false }
         if (not(codeOk)) {
           { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
         } else if (violatesParachainRestrictions(r.upwardMessages, r.paraId)) {
@@ -448,21 +387,17 @@ module accumulate {
           // §5.1: the candidate is accepted, so its lookup-anchor prune runs before
           // any of its own effects are applied. Doing it first also frees space that
           // would otherwise be reclaimed by evicting entries this prune removes anyway.
-          val pruned = pruneLogBelow(reaped.state, r.paraId, r.lookupAnchor)
-          // Step 4a: head update.
+          val pruned = pruneLogBelow(s, r.paraId, r.lookupAnchor)
+          // Step 5: head update.
           val pi2 = pruned.paraInfo(r.paraId)
-          val sAfterHead = {
-            ...pruned,
-            parachains: pruned.parachains.put(r.paraId, { ...pi2, headData: r.headData })
-          }
-          // Step 4b: activate code upgrade if this candidate used the pending hash.
-          val activated = activateUpgradeIfMatch(sAfterHead, r.paraId, r.validationCode.hash, codeLen, now)
-           
           {
-            state: activated.state,
+            state: {
+              ...pruned,
+              parachains: pruned.parachains.put(r.paraId, { ...pi2, headData: r.headData })
+            },
             rejected: false,
-            jamSolicit: optionToSet(reaped.jamSolicit),
-            jamForget: optionToSet(reaped.jamForget).union(optionToSet(activated.jamForget)),
+            jamSolicit: Set(),
+            jamForget: Set(),
             logs: List()
           }
         }

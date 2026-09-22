@@ -1,12 +1,12 @@
-// Refine: in-core, stateless PVF execution (design §4).
+// Refine: in-core, stateless validation-code execution (design §4).
 //
-// We do NOT model PVF semantics; instead we model Refine as a non-
+// We do NOT model validation-code semantics; instead we model Refine as a non-
 // deterministic producer of `ParachainWorkDigest`s subject to the
 // structural rules from §4.1–§4.3:
 //
 // - The `paraId` of each work-item is sourced from the authorizer config's
 // `authorized_paras` prefix, not from the extrinsic.
-// - The PVF must call `set_parent_head_hash` exactly once (modeled as a
+// - The validation code must call `set_parent_head_hash` exactly once (modeled as a
 // well-formedness check on `Ok` results).
 // - Refine returns `Err(InvalidCodeHash)` iff `historical_lookup` for the
 // candidate's `validation_code_hash` returns None.
@@ -74,8 +74,8 @@ module refine {
   // 1 B enum discriminant (the message tag) + the variant's payload size.
   pure def upwardMessageSize(m: UpwardMessage): int =
   1 + match m {
-    // hash 32 + Compact<u32> len.
-    | RequestCodeUpgrade(p) => 32 + compactLen(p.len)
+    // hash 32 + Compact<u32> len + 1 B phase tag.
+    | RequestCodeUpgrade(p) => 32 + compactLen(p.len) + 1
     // Target (1 tag + 4 id) + hash 32 + Compact<u32> len.
     | Solicit(p) => 37 + compactLen(p.len)
     // service 4.
@@ -153,7 +153,7 @@ module refine {
   // `refineItem` models §4.1 abstractly: given a candidate and the service's
   // view of the active+pending validation code for that para, produce
   // either an `Ok` with a list of upward messages (any from §4.3 that the
-  // PVF chose to emit, subject to the well-formedness rules above) or an
+  // the validation code chose to emit, subject to the well-formedness rules above) or an
   // `Err(InvalidCodeHash)` when the lookup fails.
   //
   // For the model, we nondeterministically pick the upward messages in
@@ -187,21 +187,21 @@ module refine {
     s.preimageRegistry.get(key).referencers != Set()
   }
 
-  /// How the PVF terminated (design §4.2). The service treats these differently:
-  ///   - `PvfOk`: ran to completion; the wrapper's own checks decide the outcome.
-  ///   - `PvfReportError(payload)`: the PVF aborted itself with
+  /// How the validation code terminated (design §4.2). The service treats these differently:
+  ///   - `CodeOk`: ran to completion; the wrapper's own checks decide the outcome.
+  ///   - `CodeReportError(payload)`: the Validation code aborted itself with
   ///     `report_error(data)`. That call IS the abort, and it is the only way a
-  ///     PVF records a reason for its failure (`RefineLog::Opaque`).
-  ///   - `PvfPanic`: any other abnormal exit. Deliberately NOT caught, so the
+  ///     validation code records a reason for its failure (`RefineLog::Opaque`).
+  ///   - `CodePanic`: any other abnormal exit. Deliberately NOT caught, so the
   ///     service's whole `refine` fails with it and there is no
   ///     `ParachainWorkDigest` at all; the work-digest result is a gray-paper
   ///     work error, which Accumulate skips entirely (§3.3).
-  type PvfOutcome =
-    | PvfOk
-    | PvfReportError(int)
-    | PvfPanic
+  type CodeOutcome =
+    | CodeOk
+    | CodeReportError(int)
+    | CodePanic
 
-  /// What the PVF's mandatory `set_head` call amounts to (§4.2):
+  /// What the validation code's mandatory `set_head` call amounts to (§4.2):
   ///   - `HeadUndeclared`: never called, rejected with `MissingHeadDeclaration`.
   ///   - `HeadOversized`: called with head data past the 4 KiB `HeadData` cap,
   ///     rejected with `HeadDataTooLarge` (§4.3). `HeadData` is opaque in the
@@ -213,15 +213,15 @@ module refine {
     | HeadOversized
     | HeadDeclared(HeadData)
 
-  /// Per-item Refine semantics (§4.1). The PVF is modeled as an oracle whose
-  /// visible effects are how it terminated (`pvf`), the `set_parent_head_hash`
+  /// Per-item Refine semantics (§4.1). The validation code is modeled as an oracle whose
+  /// visible effects are how it terminated (`codeOutcome`), the `set_parent_head_hash`
   /// and `set_head` declarations (`parentHead` `None` / `newHead`
-  /// `HeadUndeclared` if the PVF never called them, §4.2), and the emitted
+  /// `HeadUndeclared` if the validation code never called them, §4.2), and the emitted
   /// upward `msgs`. The wrapper applies the §4.1/§4.3 checks in order and
   /// otherwise forwards the declarations verbatim; the authoritative
   /// parent-head match and the head write happen in Accumulate (§5.1).
   ///
-  /// `None` means the invocation produced no digest at all (`PvfPanic`).
+  /// `None` means the invocation produced no digest at all (`CodePanic`).
   ///
   /// Refine is stateless: it reads no `ParaInfo` (registration is checked in
   /// Accumulate, §5.1 step 1); the only state it touches is the preimage
@@ -230,7 +230,7 @@ module refine {
     s: ParachainServiceState,
     para_id: ParaId,
     candidate: ParachainCandidate,
-    pvf: PvfOutcome,
+    codeOutcome: CodeOutcome,
     parentHead: Option[HeadHash],
     newHead: HeadDeclaration,
     msgs: List[UpwardMessage],
@@ -239,10 +239,10 @@ module refine {
     if (not(codeAvailable(s, candidate.validationCode)))
     Some(refineErr(para_id, InvalidCodeHash))
     else
-    match pvf {
-      | PvfPanic => None
-      | PvfReportError(payload) => Some(refineErr(para_id, Opaque(payload)))
-      | PvfOk =>
+    match codeOutcome {
+      | CodePanic => None
+      | CodeReportError(payload) => Some(refineErr(para_id, Opaque(payload)))
+      | CodeOk =>
         if (msgs.length() > MaxUpwardMessages)
         Some(refineErr(para_id, TooManyUpwardMessages))
         else if (setValidatorKeysCount(msgs) > 1)
@@ -261,7 +261,7 @@ module refine {
         // `set_parent_head_hash` / `set_head` are both mandatory (§4.2): a
         // missing declaration is rejected with `MissingHeadDeclaration`. An
         // oversized head is checked first because `set_head` aborts in the call
-        // itself, before the wrapper can observe what else the PVF skipped.
+        // itself, before the wrapper can observe what else the validation code skipped.
         match newHead {
           | HeadOversized => Some(refineErr(para_id, HeadDataTooLarge))
           | HeadUndeclared => Some(refineErr(para_id, MissingHeadDeclaration))
@@ -282,9 +282,9 @@ module refine {
   /// useless. Otherwise each item is refined via `refineItem`, with its
   /// `para_id` sourced from `authorized_paras`.
   ///
-  /// Single-item packages only (per §3.2): `pvf`, `parentHead`, `newHead`, and
-  /// `msgs` are per-item scalars declared by the PVF. `parentHead` is `None` and
-  /// `newHead` is `HeadUndeclared` when the PVF skipped the corresponding
+  /// Single-item packages only (per §3.2): `codeOutcome`, `parentHead`, `newHead`, and
+  /// `msgs` are per-item scalars declared by the validation code. `parentHead` is `None` and
+  /// `newHead` is `HeadUndeclared` when the validation code skipped the corresponding
   /// mandatory host call (§4.2).
   pure def refine(
     s: ParachainServiceState,
@@ -292,7 +292,7 @@ module refine {
     // The config parsed for the authorizer but carries no `Vec<ParaId>` prefix,
     // so the service cannot source a `para_id` from it (§4.1 step 1).
     authParasPrefixMissing: bool,
-    pvf: PvfOutcome,
+    codeOutcome: CodeOutcome,
     parentHead: Option[HeadHash],
     newHead: HeadDeclaration,
     msgs: List[UpwardMessage],
@@ -311,7 +311,7 @@ module refine {
     else
     match refineItem(
       s, pkg.authorizedParas[0], pkg.items[0],
-      pvf, parentHead, newHead, msgs, lookupAnchor
+      codeOutcome, parentHead, newHead, msgs, lookupAnchor
     ) {
       | Some(d) => List(WorkOk(d))
       | None => List(WorkErr)
