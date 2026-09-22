@@ -25,21 +25,29 @@ use alloc::{boxed::Box, vec::Vec};
 /// balance. Since locks are only designed to operate on free balance, this put those affected in a
 /// situation where they could increase their free balance but still not be able to use their funds
 /// because they were less than the lock.
-pub fn migrate<T: Config>(to_migrate: Vec<T::AccountId>) -> Weight {
+pub fn migrate<T: Config>(to_migrate: Vec<T::AccountId>) -> Weight
+where
+	<<T as pallet::Config>::Currency as frame_support::traits::fungible::InspectFreeze<
+		<T as frame_system::Config>::AccountId,
+	>>::Id: From<pallet::FreezeReason>,
+{
 	let mut weight = Weight::zero();
 
 	for who in to_migrate.iter() {
 		if let Ok(mut voter) = Voting::<T>::try_get(who) {
-			let free_balance = T::Currency::free_balance(who);
+			let balance = T::Currency::balance(who);
 
 			weight = weight.saturating_add(T::DbWeight::get().reads(2));
 
-			if voter.stake > free_balance {
-				voter.stake = free_balance;
+			if voter.stake > balance {
+				voter.stake = balance;
 				Voting::<T>::insert(&who, voter);
 
-				let pallet_id = T::PalletId::get();
-				T::Currency::set_lock(pallet_id, who, free_balance, WithdrawReasons::all());
+				let _ = T::Currency::set_freeze(
+					&FreezeReason::PhragmenLockedBond.into(),
+					who,
+					balance,
+				);
 
 				weight = weight.saturating_add(T::DbWeight::get().writes(2));
 			}
@@ -56,7 +64,7 @@ pub fn pre_migrate_fn<T: Config>(to_migrate: Vec<T::AccountId>) -> Box<dyn Fn() 
 	Box::new(move || {
 		for who in to_migrate.iter() {
 			if let Ok(voter) = Voting::<T>::try_get(who) {
-				let free_balance = T::Currency::free_balance(who);
+				let free_balance = T::Currency::balance(who);
 
 				if voter.stake > free_balance {
 					// all good
@@ -77,9 +85,9 @@ pub fn pre_migrate_fn<T: Config>(to_migrate: Vec<T::AccountId>) -> Box<dyn Fn() 
 /// Panics if anything goes wrong.
 pub fn post_migrate<T: crate::Config>() {
 	for (who, voter) in Voting::<T>::iter() {
-		let free_balance = T::Currency::free_balance(&who);
+		let balance = T::Currency::balance(&who);
 
-		assert!(voter.stake <= free_balance, "migration should have made locked <= free_balance");
+		assert!(voter.stake <= balance, "migration should have made locked <= balance");
 		// Ideally we would also check that the locks and AccountData.misc_frozen where correctly
 		// updated, but since both of those are generic we can't do that without further bounding T.
 	}
