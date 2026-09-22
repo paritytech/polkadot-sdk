@@ -302,6 +302,24 @@ where
 		}
 	}
 
+	/// Returns `true` if this entry has no effect: it carries no voting power and locks nothing.
+	/// That is, no delegations, no prior lock, and every vote (if any) has a zero balance.
+	///
+	/// Unlike [`Self::is_empty`], which requires the entry to hold no votes at all, zero-balance
+	/// votes are tolerated here. They contribute nothing to any tally, so an entry for which this
+	/// returns `true` can be removed without adjusting poll state. New zero-balance votes are only
+	/// accepted when backed by delegations, so this mostly matches legacy entries created before
+	/// that restriction.
+	pub fn has_no_effect(&self) -> bool {
+		let delegations = match self {
+			Voting::Casting(Casting { delegations, .. }) => delegations,
+			Voting::Delegating(Delegating { delegations, .. }) => delegations,
+		};
+		self.locked_balance().is_zero() &&
+			delegations.votes.is_zero() &&
+			delegations.capital.is_zero()
+	}
+
 	/// The amount of this account's balance that must currently be locked due to voting.
 	pub fn locked_balance(&self) -> Balance {
 		match self {

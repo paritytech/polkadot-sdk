@@ -15,11 +15,16 @@ doc:
 
     2. **Permissionless `cleanup_empty_storage` extrinsic**: a new call that anyone
        can use to remove a stale VotingFor entry and/or zero-balance ClassLocksFor
-       entries for any account. The transaction fee is refunded on success to incentivise
-       third-party cleanup of legacy entries.
+       entries for any account. A VotingFor entry is stale when it has no delegations, no
+       prior lock, and only zero-balance votes (or none). Removing such an entry does not
+       change any tally; `VotingHooks::on_remove_vote` is not invoked and a zero-balance
+       delegation is dropped without an `Undelegated` event. The transaction fee is
+       refunded on success to incentivise third-party cleanup of legacy entries.
 
     Additionally, zero-balance votes and zero-balance delegations are now explicitly
     rejected with a `ZeroVote` error to prevent new empty entries from being created.
+    A zero-balance vote remains possible for an account that holds delegations, and no
+    longer records a zero-balance ClassLocksFor entry.
 crates:
 - name: pallet-conviction-voting
   bump: major

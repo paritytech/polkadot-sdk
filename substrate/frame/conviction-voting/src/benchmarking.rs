@@ -258,22 +258,32 @@ benchmarks_instance_pallet! {
 		let target_lookup = T::Lookup::unlookup(target.clone());
 		whitelist_account!(caller);
 
-		let (class, _) = fill_voting::<T, I>();
+		let (class, all_polls) = fill_voting::<T, I>();
+		let polls = &all_polls[&class];
 
-		// Insert an empty VotingFor entry directly to simulate legacy state.
-		// After the PR's automatic cleanup, operations no longer leave empty entries;
-		// benchmarking requires direct storage injection to set up worst-case state.
-		VotingFor::<T, I>::insert(&target, &class, VotingOf::<T, I>::default());
+		// Insert a stale VotingFor entry directly to simulate legacy state: the worst case is
+		// an entry holding `MaxVotes` zero-balance votes, which is no longer creatable through
+		// extrinsics since zero-balance votes are rejected unless backed by delegations.
+		let mut voting = VotingOf::<T, I>::default();
+		if let Voting::Casting(Casting { ref mut votes, .. }) = voting {
+			for &index in polls.iter().take(T::MaxVotes::get() as usize) {
+				votes.try_push((index, account_vote::<T, I>(Zero::zero()))).unwrap();
+			}
+		}
+		VotingFor::<T, I>::insert(&target, &class, voting);
 
-		// Also inject a zero-balance ClassLocksFor entry to benchmark the full cleanup path.
+		// Also inject a zero-balance ClassLocksFor entry for every class to benchmark the full
+		// cleanup path over the largest possible lock vector.
 		ClassLocksFor::<T, I>::mutate(&target, |locks| {
-			let _ = locks.try_push((class.clone(), Zero::zero()));
+			for c in T::Polls::classes() {
+				locks.try_push((c, Zero::zero())).unwrap();
+			}
 		});
 	}: _(RawOrigin::Signed(caller), target_lookup, class.clone())
 	verify {
 		assert!(!VotingFor::<T, I>::contains_key(&target, &class));
-		// The zero-balance lock entry must have been pruned by the cleanup as well.
-		assert!(!ClassLocksFor::<T, I>::get(&target).iter().any(|(c, _)| c == &class));
+		// All zero-balance lock entries must have been pruned, removing the whole entry.
+		assert!(!ClassLocksFor::<T, I>::contains_key(&target));
 	}
 
 	unlock {

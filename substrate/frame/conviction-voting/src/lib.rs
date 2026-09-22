@@ -427,9 +427,16 @@ pub mod pallet {
 		/// Remove an empty/stale `VotingFor` entry for the given account and class, and prune
 		/// any zero-balance `ClassLocksFor` entries for that account (across all classes).
 		///
-		/// A `VotingFor` entry is considered empty when it contains no active votes, no
-		/// delegations, and no prior lock balance. Such entries can accumulate over time and
-		/// unnecessarily bloat chain storage.
+		/// A `VotingFor` entry is considered stale when it carries no voting power and locks
+		/// nothing: no delegations, no prior lock balance, and either no votes at all or only
+		/// zero-balance votes. Zero-balance votes without delegations contribute nothing to any
+		/// tally, so removing them does not touch poll state; `VotingHooks::on_remove_vote` is
+		/// not invoked for them. A zero-balance `Delegating` entry is removed as well, without
+		/// emitting `Undelegated`. Such entries accumulated before zero-balance votes and
+		/// delegations were rejected and unnecessarily bloat chain storage.
+		///
+		/// An entry whose prior lock has merely expired is not removed by this call; use `unlock`
+		/// for that, which also performs the same cleanup.
 		///
 		/// Any signed account may call this on behalf of any other account, since the operation
 		/// is always in the interest of the chain. On success, the transaction fee is refunded to
@@ -451,10 +458,10 @@ pub mod pallet {
 			ensure_signed(origin)?;
 			let who = T::Lookup::lookup(who)?;
 
-			// Remove the VotingFor entry only if it is truly empty.
+			// Remove the VotingFor entry only if it has no effect: no voting power, nothing locked.
 			let voting_cleaned = VotingFor::<T, I>::mutate_exists(&who, &class, |voting_opt| {
 				if let Some(voting) = voting_opt {
-					if voting.is_empty() {
+					if voting.has_no_effect() {
 						*voting_opt = None;
 						return true;
 					}
@@ -794,6 +801,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	fn extend_lock(who: &T::AccountId, class: &ClassOf<T, I>, amount: BalanceOf<T, I>) {
+		// A zero amount (a vote backed only by delegations) locks nothing; do not record a
+		// zero-balance class lock. `Currency::extend_lock` ignores zero amounts as well.
+		if amount.is_zero() {
+			return;
+		}
 		ClassLocksFor::<T, I>::mutate(who, |locks| {
 			match locks.iter().position(|x| &x.0 == class) {
 				Some(i) => locks[i].1 = locks[i].1.max(amount),

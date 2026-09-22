@@ -1249,6 +1249,123 @@ fn cleanup_empty_storage_cleans_voting_only() {
 }
 
 #[test]
+fn zero_balance_vote_by_delegate_does_not_record_class_lock() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Voting::delegate(
+			RuntimeOrigin::signed(1),
+			class(3),
+			2,
+			Conviction::Locked1x,
+			5
+		));
+		assert!(!ClassLocksFor::<Test>::contains_key(&2));
+
+		// Voting with delegated power only locks nothing, so no zero-balance lock is recorded.
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 3, aye(0, 0)));
+		assert!(!ClassLocksFor::<Test>::contains_key(&2));
+		assert_eq!(Balances::usable_balance(2), 20);
+
+		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(2), Some(class(3)), 3));
+		assert!(!ClassLocksFor::<Test>::contains_key(&2));
+	});
+}
+
+#[test]
+fn cleanup_empty_storage_removes_legacy_zero_balance_votes() {
+	new_test_ext().execute_with(|| {
+		// Account 1 votes with real balance so the tally is non-trivial.
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(1), 3, aye(10, 1)));
+		assert_eq!(tally(3), Tally::from_parts(10, 0, 10));
+
+		// Simulate a legacy entry: a zero-balance vote on the ongoing poll without delegations.
+		// Such a vote can no longer be cast, but many exist on chain.
+		let mut legacy = VotingOf::<Test>::default();
+		if let crate::vote::Voting::Casting(Casting { ref mut votes, .. }) = legacy {
+			votes.try_push((3, aye(0, 0))).unwrap();
+		}
+		VotingFor::<Test>::insert(&2u64, &class(3), legacy);
+
+		assert_ok!(Voting::cleanup_empty_storage(RuntimeOrigin::signed(9), 2, class(3)));
+		assert!(!VotingFor::<Test>::contains_key(&2, &class(3)));
+		// Removing a zero-balance vote leaves the tally untouched.
+		assert_eq!(tally(3), Tally::from_parts(10, 0, 10));
+		assert_noop!(
+			Voting::remove_vote(RuntimeOrigin::signed(2), Some(class(3)), 3),
+			Error::<Test>::NotVoter
+		);
+	});
+}
+
+#[test]
+fn cleanup_empty_storage_keeps_zero_balance_vote_backed_by_delegations() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Voting::delegate(
+			RuntimeOrigin::signed(1),
+			class(3),
+			2,
+			Conviction::Locked1x,
+			5
+		));
+		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 3, aye(0, 0)));
+		assert_eq!(tally(3), Tally::from_parts(5, 0, 5));
+
+		// The zero-balance vote directs delegated power, so it must not be removed.
+		assert_noop!(
+			Voting::cleanup_empty_storage(RuntimeOrigin::signed(9), 2, class(3)),
+			Error::<Test>::NothingToClean
+		);
+		assert_eq!(tally(3), Tally::from_parts(5, 0, 5));
+
+		// Once the delegation is withdrawn, the vote directs nothing and becomes removable.
+		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), class(3)));
+		assert_eq!(tally(3), Tally::from_parts(0, 0, 0));
+		assert_ok!(Voting::cleanup_empty_storage(RuntimeOrigin::signed(9), 2, class(3)));
+		assert!(!VotingFor::<Test>::contains_key(&2, &class(3)));
+	});
+}
+
+#[test]
+fn cleanup_empty_storage_keeps_prior_locked_entry() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Voting::delegate(
+			RuntimeOrigin::signed(1),
+			class(3),
+			2,
+			Conviction::Locked1x,
+			5
+		));
+		assert_ok!(Voting::undelegate(RuntimeOrigin::signed(1), class(3)));
+
+		// The delegator still has a prior lock; the entry is not stale even after expiry.
+		System::set_block_number(100);
+		assert_noop!(
+			Voting::cleanup_empty_storage(RuntimeOrigin::signed(9), 1, class(3)),
+			Error::<Test>::NothingToClean
+		);
+		// `unlock` is the right tool for expired locks and performs the same cleanup.
+		assert_ok!(Voting::unlock(RuntimeOrigin::signed(9), class(3), 1));
+		assert!(!VotingFor::<Test>::contains_key(&1, &class(3)));
+	});
+}
+
+#[test]
+fn cleanup_empty_storage_removes_legacy_zero_balance_delegation() {
+	new_test_ext().execute_with(|| {
+		let legacy = crate::vote::Voting::Delegating(Delegating {
+			balance: 0,
+			target: 2,
+			conviction: Conviction::None,
+			delegations: Default::default(),
+			prior: Default::default(),
+		});
+		VotingFor::<Test>::insert(&1u64, &class(3), legacy);
+
+		assert_ok!(Voting::cleanup_empty_storage(RuntimeOrigin::signed(9), 1, class(3)));
+		assert!(!VotingFor::<Test>::contains_key(&1, &class(3)));
+	});
+}
+
+#[test]
 fn failed_tally_remove_leaves_tally_unchanged() {
 	// Underflow in `ayes` after subtracting `support`.
 	let initial = TallyOf::<Test>::from_parts(0, 0, 10);
