@@ -767,8 +767,9 @@ mod tests {
 		// A forwarded transient statement comes back after the store swept and banned it.
 		orchestrator.on_statement_imported(peer, &SubmitResult::KnownExpired);
 
-		assert_eq!(orchestrator.peer_steering.score_of(&peer), Some(score::WASTEFUL_ACTION));
-		assert!(score::WASTEFUL_ACTION > score::BAD_ACTION);
+		let peer_score = orchestrator.peer_steering.score_of(&peer);
+		assert_eq!(peer_score, Some(score::WASTEFUL_ACTION));
+		assert!(peer_score.is_some_and(|value| score::BAD_ACTION < value && value < 0));
 	}
 
 	#[test]
