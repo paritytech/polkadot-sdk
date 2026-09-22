@@ -286,7 +286,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextMessageId<T: Config> = StorageValue<_, u64, ValueQuery>;
 
-	// Every emitter is still a `todo!()`.
+	// Every emitter lands with the flow it belongs to.
 	#[allow(dead_code)]
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -452,6 +452,8 @@ pub mod pallet {
 		UnexpectedResponse,
 		/// The message could not be handed to the transport.
 		SendFailed,
+		/// The call is scaffolded but not implemented yet.
+		Unimplemented,
 	}
 
 	#[pallet::call]
@@ -539,7 +541,9 @@ pub mod pallet {
 			num_outbound: u32,
 		) -> DispatchResult {
 			let _ = (origin, para, num_inbound, num_outbound);
-			todo!()
+			// TODO(ahm-v2): drop every channel and request `para` is an end of, witnessed by the
+			// two counts, and release the deposits they hold.
+			Err(Error::<T>::Unimplemented.into())
 		}
 
 		/// Open every confirmed request now, rather than at the next session boundary.
@@ -547,7 +551,8 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::force_process_hrmp_open(*channels))]
 		pub fn force_process_hrmp_open(origin: OriginFor<T>, channels: u32) -> DispatchResult {
 			let _ = (origin, channels);
-			todo!()
+			// TODO(ahm-v2): open every confirmed request now instead of at the session boundary.
+			Err(Error::<T>::Unimplemented.into())
 		}
 
 		/// Enact every close request now, rather than at the next session boundary.
@@ -555,7 +560,8 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::force_process_hrmp_close(*channels))]
 		pub fn force_process_hrmp_close(origin: OriginFor<T>, channels: u32) -> DispatchResult {
 			let _ = (origin, channels);
-			todo!()
+			// TODO(ahm-v2): enact every close request now instead of at the session boundary.
+			Err(Error::<T>::Unimplemented.into())
 		}
 
 		/// Open a channel without the recipient's consent.
@@ -569,7 +575,9 @@ pub mod pallet {
 			max_message_size: u32,
 		) -> DispatchResultWithPostInfo {
 			let _ = (origin, sender, recipient, max_capacity, max_message_size);
-			todo!()
+			// TODO(ahm-v2): open the channel without the recipient's consent, taking both deposits
+			// from the sender.
+			Err(Error::<T>::Unimplemented.into())
 		}
 
 		/// Bring a channel's deposits in line with the current prices.
@@ -581,7 +589,8 @@ pub mod pallet {
 			recipient: ParaId,
 		) -> DispatchResult {
 			let _ = (origin, sender, recipient);
-			todo!()
+			// TODO(ahm-v2): reprice both sides of the channel against the current deposit prices.
+			Err(Error::<T>::Unimplemented.into())
 		}
 
 		#[pallet::call_index(7)]
@@ -592,7 +601,8 @@ pub mod pallet {
 			recipient: ParaId,
 		) -> DispatchResult {
 			let _ = (origin, sender, recipient);
-			todo!()
+			// TODO(ahm-v2): open a deposit-free channel between the two system chains.
+			Err(Error::<T>::Unimplemented.into())
 		}
 	}
 }
@@ -633,19 +643,22 @@ impl<T: Config> Pallet<T> {
 		proposed_max_message_size: u32,
 	) -> DispatchResult {
 		let _ = (sender, recipient, proposed_max_capacity, proposed_max_message_size);
-		todo!()
+		// TODO(ahm-v2): record the request, take the sender's deposit and ask the relay chain.
+		Err(Error::<T>::Unimplemented.into())
 	}
 
 	/// `hrmp_accept_open_channel`, asked for by `recipient` through the relay chain.
 	fn on_accept_open_channel(recipient: ParaId, sender: ParaId) -> DispatchResult {
 		let _ = (recipient, sender);
-		todo!()
+		// TODO(ahm-v2): confirm the request and take the recipient's deposit.
+		Err(Error::<T>::Unimplemented.into())
 	}
 
 	/// `hrmp_close_channel`, asked for by `initiator` through the relay chain.
 	fn on_close_channel(initiator: ParaId, channel: ChannelId) -> DispatchResult {
 		let _ = (initiator, channel);
-		todo!()
+		// TODO(ahm-v2): ask the relay chain to close the channel on `initiator`'s behalf.
+		Err(Error::<T>::Unimplemented.into())
 	}
 
 	/// `hrmp_cancel_open_request`, asked for by `initiator` through the relay chain.
@@ -655,7 +668,8 @@ impl<T: Config> Pallet<T> {
 		open_requests: u32,
 	) -> DispatchResult {
 		let _ = (initiator, channel, open_requests);
-		todo!()
+		// TODO(ahm-v2): drop the request and release the deposit it holds.
+		Err(Error::<T>::Unimplemented.into())
 	}
 
 	/// `establish_channel_with_system`, asked for by `sender` through the relay chain.
@@ -664,7 +678,8 @@ impl<T: Config> Pallet<T> {
 		target_system_chain: ParaId,
 	) -> DispatchResult {
 		let _ = (sender, target_system_chain);
-		todo!()
+		// TODO(ahm-v2): ask the relay chain to open both directions with the system chain.
+		Err(Error::<T>::Unimplemented.into())
 	}
 
 	fn on_open_channel_response(
@@ -673,11 +688,13 @@ impl<T: Config> Pallet<T> {
 		outcome: Result<(u32, u32), FailureReason>,
 	) -> DispatchResult {
 		let _ = (channel, message_id, outcome);
-		todo!()
+		// TODO(ahm-v2): settle the pending request against the relay chain's verdict.
+		Err(Error::<T>::Unimplemented.into())
 	}
 
 	fn on_close_response(channel: ChannelId, message_id: u64, outcome: Outcome) -> DispatchResult {
 		let _ = (channel, message_id, outcome);
-		todo!()
+		// TODO(ahm-v2): release both deposits once the relay chain confirms the close.
+		Err(Error::<T>::Unimplemented.into())
 	}
 }

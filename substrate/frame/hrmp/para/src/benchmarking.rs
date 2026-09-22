@@ -17,9 +17,9 @@
 
 //! Benchmarks for `pallet-hrmp-para`.
 //!
-//! One benchmark per [`WeightInfo`] method, named to match. Every path they drive is still a
-//! `todo!()`, so they compile but panic when run. What each one has to arrange first lands with
-//! the extrinsic body it covers, and so does `impl_benchmark_test_suite!`.
+//! One benchmark per [`WeightInfo`] method, named to match. Every path they drive is still
+//! stubbed, so they compile but fail when run. What each one has to arrange first lands with the
+//! extrinsic body it covers, and so does `impl_benchmark_test_suite!`.
 
 use super::*;
 use frame_benchmarking::v2::*;

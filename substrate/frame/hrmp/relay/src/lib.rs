@@ -137,7 +137,7 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	// Every emitter but `RequestForwarded` is still a `todo!()`.
+	// Every emitter but `RequestForwarded` lands with the handler it belongs to.
 	#[allow(dead_code)]
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -311,7 +311,7 @@ pub mod pallet {
 			max_message_size: u32,
 		) {
 			let _ = (channel, message_id, max_capacity, max_message_size);
-			todo!()
+			// TODO(ahm-v2): open the channel through the registry and report the outcome back.
 		}
 
 		fn on_force_open_channel(
@@ -321,12 +321,13 @@ pub mod pallet {
 			max_message_size: u32,
 		) {
 			let _ = (channel, message_id, max_capacity, max_message_size);
-			todo!()
+			// TODO(ahm-v2): open the channel through the registry without the recipient's consent
+			// and report the outcome back.
 		}
 
 		fn on_open_system_channel(channel: ChannelId, message_id: u64) {
 			let _ = (channel, message_id);
-			todo!()
+			// TODO(ahm-v2): open the system channel and report back the sizes it used.
 		}
 
 		fn on_open_system_pair(
@@ -336,17 +337,18 @@ pub mod pallet {
 			max_message_size: u32,
 		) {
 			let _ = (channel, message_id, max_capacity, max_message_size);
-			todo!()
+			// TODO(ahm-v2): open both directions, rolling back if either is refused, and report
+			// the outcome back.
 		}
 
 		fn on_close_channel(channel: ChannelId, message_id: u64, initiator: ParaId) {
 			let _ = (channel, message_id, initiator);
-			todo!()
+			// TODO(ahm-v2): close the channel through the registry and report the outcome back.
 		}
 
 		fn on_force_clean(para_id: ParaId, message_id: u64) {
 			let _ = (para_id, message_id);
-			todo!()
+			// TODO(ahm-v2): drop every channel of `para_id` and report the outcome back.
 		}
 
 		/// Hand a notification to the transport that reaches any para.

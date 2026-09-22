@@ -18,7 +18,7 @@
 //! Tests for `pallet-hrmp-para`.
 //!
 //! One test per flow lands with the extrinsic it covers. What is here is what can be asserted
-//! while the bodies are `todo!()`.
+//! while the bodies are stubbed.
 
 use crate::{mock::*, Channels, Requests};
 use frame_support::assert_noop;

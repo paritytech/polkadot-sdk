@@ -18,7 +18,7 @@
 //! End-to-end tests for HRMP channel management.
 //!
 //! One test per flow lands with the flow it covers. What is here is what can be asserted while
-//! the pallets' bodies are `todo!()`.
+//! the pallets' bodies are stubbed.
 
 use crate::{relay, senders, MockNet, Relay, PARA_ID};
 use frame_support::traits::EnsureOrigin;
@@ -53,7 +53,7 @@ fn only_the_channel_managing_parachain_may_drive_hrmp() {
 		assert!(relay::Hrmp::receive(relay::RuntimeOrigin::signed(crate::BOB), message).is_err());
 
 		// The configured parachain is. Dispatching it is left to the flow tests, since the
-		// handlers are still `todo!()`.
+		// handlers are still stubs.
 		let ours: relay::RuntimeOrigin = ParachainsOrigin::Parachain(PARA_ID.into()).into();
 		assert!(senders::EnsureHrmpPara::try_origin(ours).is_ok());
 	});

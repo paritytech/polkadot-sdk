@@ -17,8 +17,9 @@
 
 //! Weights for `pallet-hrmp-relay`.
 //!
-//! Placeholders. Regenerate with `/cmd bench` once the handlers have bodies. Split per message
-//! variant, since `receive` is weighed by the variant it carries.
+//! Placeholders, `Weight::MAX` until benchmarked so nothing scaffolded is ever cheap.
+//! Regenerate with `/cmd bench` once the handlers have bodies. Split per message variant, since
+//! `receive` is weighed by the variant it carries.
 
 #![allow(missing_docs)]
 
@@ -40,55 +41,55 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn receive_open_channel() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn receive_force_open_channel() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn receive_open_system_channel() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn receive_open_system_pair() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn receive_close_channel() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn receive_force_clean() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn receive_notify_para() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn relay_request() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 }
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
 	fn receive_open_channel() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn receive_force_open_channel() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn receive_open_system_channel() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn receive_open_system_pair() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn receive_close_channel() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn receive_force_clean() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn receive_notify_para() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn relay_request() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 }

@@ -334,45 +334,39 @@ pub enum FailureReason {
 	Refused,
 }
 
-/// Any dispatch error becomes [`FailureReason::Refused`], so registry calls can run inside a
-/// storage layer.
-impl From<sp_runtime::DispatchError> for FailureReason {
-	fn from(_: sp_runtime::DispatchError) -> Self {
-		FailureReason::Refused
-	}
-}
-
 /// The relay chain's HRMP channel registry, as `pallet-hrmp-relay` needs to see it.
 ///
 /// Implemented by whichever pallet owns HRMP, which on a relay chain is
 /// `polkadot-runtime-parachains`' `hrmp`. Lives here so neither side of the protocol depends on
 /// the other.
-
+///
 /// Implementations are not required to be atomic on failure, so the caller runs every method
 /// inside its own storage layer.
 pub trait HrmpRegistry {
 	/// Open a channel, forced or agreed. Both cases are the same here.
-	fn open_channel(
-		channel: ChannelId,
-		max_capacity: u32,
-		max_message_size: u32,
-	) -> Result<(), FailureReason>;
+	#[allow(clippy::result_unit_err)]
+	fn open_channel(channel: ChannelId, max_capacity: u32, max_message_size: u32)
+		-> Result<(), ()>;
 
 	/// Open one direction between two system chains, returning the sizes it used.
-	fn open_system_channel(channel: ChannelId) -> Result<(u32, u32), FailureReason>;
+	#[allow(clippy::result_unit_err)]
+	fn open_system_channel(channel: ChannelId) -> Result<(u32, u32), ()>;
 
 	/// Open both `channel` and its reverse, rolling both back if either is refused.
+	#[allow(clippy::result_unit_err)]
 	fn open_system_pair(
 		channel: ChannelId,
 		max_capacity: u32,
 		max_message_size: u32,
-	) -> Result<(), FailureReason>;
+	) -> Result<(), ()>;
 
 	/// Close an open channel. `initiator` must be one of its two ends.
-	fn close_channel(channel: ChannelId, initiator: ParaId) -> Result<(), FailureReason>;
+	#[allow(clippy::result_unit_err)]
+	fn close_channel(channel: ChannelId, initiator: ParaId) -> Result<(), ()>;
 
 	/// Drop every channel belonging to `para_id`.
-	fn force_clean(para_id: ParaId) -> Result<(), FailureReason>;
+	#[allow(clippy::result_unit_err)]
+	fn force_clean(para_id: ParaId) -> Result<(), ()>;
 
 	/// Whether there is a channel or a pending request for `channel`.
 	fn exists(channel: ChannelId) -> bool;

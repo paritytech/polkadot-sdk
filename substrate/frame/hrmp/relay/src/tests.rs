@@ -18,7 +18,7 @@
 //! Tests for `pallet-hrmp-relay`.
 //!
 //! One test per handler lands with the handler it covers. What is here is what can be asserted
-//! while the bodies are `todo!()`.
+//! while the bodies are stubbed.
 
 use crate::{mock::*, Error, Event};
 use frame_support::{assert_noop, assert_ok};

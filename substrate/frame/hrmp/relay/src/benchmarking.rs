@@ -19,8 +19,8 @@
 //!
 //! One benchmark per [`WeightInfo`] method, named to match, so each `receive` variant is weighed
 //! by its own. Only `relay_request` and `receive_notify_para` have bodies to measure; the rest
-//! compile but panic until their handler and the registry behind it land, and so does
-//! `impl_benchmark_test_suite!`.
+//! compile but do not measure anything until their handler and the registry behind it land, and
+//! neither does `impl_benchmark_test_suite!`.
 
 use super::*;
 use frame_benchmarking::v2::*;
