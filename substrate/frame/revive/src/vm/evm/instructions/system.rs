@@ -129,7 +129,7 @@ pub fn calldataload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Hal
 ///
 /// Pushes the size of input data onto the stack.
 pub fn calldatasize<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(BASE))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::CALLDATASIZE)?;
 	interpreter.stack.push(U256::from(interpreter.input.len()))
 }
 

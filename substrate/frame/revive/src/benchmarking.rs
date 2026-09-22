@@ -3765,6 +3765,37 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Benchmark `r` `CALLDATASIZE` instructions.
+	///
+	/// The opcode reads the stored input length and pushes one fixed-size word, so calldata length
+	/// and contents do not add work. Use maximum-size calldata and fill the stack with successful
+	/// pushes, keeping input allocation and interpreter setup outside the measured block.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_calldatasize_opcode(
+		r: Linear<0, { limits::EVM_STACK_LIMIT }>,
+	) -> Result<(), BenchmarkError> {
+		use revm::bytecode::opcode::CALLDATASIZE;
+
+		let code = Bytecode::new_raw(vec![CALLDATASIZE; r as usize].into());
+		let input = vec![0u8; limits::CALLDATA_BYTES as usize];
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), input, &mut ext);
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+		let expected = U256::from(limits::CALLDATA_BYTES);
+		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
+		Ok(())
+	}
+
 	// Benchmark the execution of instructions.
 	//
 	// It benchmarks the absolute worst case by allocating a lot of memory
