@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790070653523,
+  "lastUpdate": 1790095819207,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e3a9fcd296ef596cf697c578a2a7b76e974e5ce2",
-          "message": "statement-store: do not populate recent on restart (#11117)\n\nOn restart populate rebuilds the entire index and it uses the\n`insert_new` which ended up populating recent with all the statements in\nthe statement store.\n\nThat is bad, because then take_recent_statements would read all\nstatements in DB and have to hold them in memory.\n\nThe statement in the DB are not recent, so it does not make sense for\nthem to be marked as recent, fix that by making insert_new conditional.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
-          "timestamp": "2026-02-23T08:40:23Z",
-          "tree_id": "3c02d56eca1dd83f6741e136dad78ab4d2f14043",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e3a9fcd296ef596cf697c578a2a7b76e974e5ce2"
-        },
-        "date": 1771840411574,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024754728373333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14374487514666673,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009481029673333368,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007056914193333332,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02524541396,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "16ae0b3dbbfe688d1045d8832f9679c59b3d8393",
+          "message": "cumulus: add support for signed scheduling info (#13234)\n\n# Description\n\nFixes #12311 \n\nAdded the support to sign the scheduling proof's payload, relevant for\nresubmitting a block. The added support is exercised just in tests, and\nthe plan is to use it once the logic moves onto segment submission - the\nV4 collator-protocol alternative to a collation submission, just that it\nenables the submission of >=1 collations, and a scheduling proof with a\nsigned payload, to prove the eligibility of the current author to\nresubmit not just the freshly built blocks of the current para slot.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-09-22T14:54:09Z",
+          "tree_id": "1357af30c4b341e89287306d2612465328b5b13e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/16ae0b3dbbfe688d1045d8832f9679c59b3d8393"
+        },
+        "date": 1790095776832,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01003492691999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007803564140000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02510001884666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14220192329333345,
             "unit": "seconds"
           }
         ]
