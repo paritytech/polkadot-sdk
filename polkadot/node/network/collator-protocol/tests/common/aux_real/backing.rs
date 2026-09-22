@@ -28,7 +28,7 @@ use polkadot_node_subsystem::{
 	overseer::Subsystem,
 };
 use polkadot_subsystem_test_sim::{
-	aux::{spawn_aux, AuxSlot},
+	auxiliary::{spawn_aux, AuxSlot},
 	harness::{Sim, SubsystemUnderTest},
 };
 use sp_keystore::{Keystore, KeystorePtr};

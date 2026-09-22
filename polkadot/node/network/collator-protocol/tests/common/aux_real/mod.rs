@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Real-subsystem spawners (prospective-parachains, candidate-backing) implemented via
-//! [`polkadot_subsystem_test_sim::aux::spawn_aux`]. Lives here, not in the test-sim
+//! [`polkadot_subsystem_test_sim::auxiliary::spawn_aux`]. Lives here, not in the test-sim
 //! core, because pulling these production crates into the core would form a Cargo dep
 //! cycle when other subsystems' production crates dev-dep the test-sim core.
 
