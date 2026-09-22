@@ -32,6 +32,7 @@ use crate::cli::AuthoringPolicy;
 use cumulus_primitives_core::{
 	CollectCollationInfo, GetParachainInfo, RelayParentOffsetApi, SchedulingV3EnabledApi,
 };
+use cumulus_primitives_source_discovery::SourceDiscoveryApi;
 use sc_client_db::DbHash;
 use sc_network_sync::strategy::chain_sync::{GapSyncBodyPolicy, GapSyncBodyPolicyProvider};
 use sc_offchain::OffchainWorkerApi;
@@ -83,6 +84,7 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ RelayParentOffsetApi<Block>
 	+ sp_authority_discovery::AuthorityDiscoveryApi<Block>
 	+ SchedulingV3EnabledApi<Block>
+	+ SourceDiscoveryApi<Block>
 	+ Sized
 {
 }
@@ -100,6 +102,7 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ TransactionStorageApi<Block>
 		+ sp_authority_discovery::AuthorityDiscoveryApi<Block>
 		+ SchedulingV3EnabledApi<Block>
+		+ SourceDiscoveryApi<Block>
 {
 }
 

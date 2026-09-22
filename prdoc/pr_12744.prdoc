@@ -1,0 +1,34 @@
+title: Cross-parachain source discovery (governance-gated, version-gated)
+
+doc:
+  - audience: [Runtime Dev, Node Dev]
+    description: |
+      Adds cross-parachain source discovery as a standalone, governance-gated, version-gated layer.
+      A parachain can be told on-chain, via governance
+      (`cumulus-pallet-source-discovery::set_source_genesis`, bounded by `MaxSources`), how to reach
+      another parachain's collators; its node then resolves that source's peers over the relay-chain
+      DHT (RFC-0008 `/paranode`) using `cumulus-client-source-discovery`, keeping a shared
+      `PeerRegistry` that a higher layer (e.g. speculative messaging) can consume. No messaging or
+      fetch is involved — this is only the discovery substrate.
+
+      Version-gated and opt-in: a runtime without `SourceDiscoveryApi`, or with no configured
+      source, behaves exactly as before. Serving collators additionally advertise under a
+      capability-scoped DHT provider key (opt-in via the `--spec-msg-serve` collator flag) so
+      discovery resolves only serving collators, sidestepping the closest-K dilution of the plain
+      RFC-0008 key.
+
+crates:
+  - name: cumulus-primitives-source-discovery
+    bump: major
+  - name: cumulus-pallet-source-discovery
+    bump: major
+  - name: cumulus-client-source-discovery
+    bump: major
+  - name: cumulus-client-bootnodes
+    bump: major
+  - name: cumulus-client-cli
+    bump: major
+  - name: polkadot-omni-node-lib
+    bump: patch
+  - name: penpal-runtime
+    bump: minor
