@@ -110,7 +110,15 @@ module state {
     // reads request status from JAM's `query` (§6.1); the model stands that in
     // with this map, mirroring JAM's `query(hash, len)` for every solicited
     // preimage. Its domain always equals `preimageRegistry`'s.
-    preimageStatus: (Hash, int) -> RequestStatus
+    preimageStatus: (Hash, int) -> RequestStatus,
+    // MODEL-ONLY ghost state, NOT part of the service's real storage or
+    // footprint. JAM holds each core's assigner (gray paper `Omega_A` writes it
+    // alongside the queue) and rejects an `assign` from anyone else, so the
+    // model needs it to tell an attempted assign from a successful one (§7.1).
+    // A core absent from the map is still assigned to this service. Handing a
+    // core away is one-way here: only the new assigner could give it back, and
+    // nothing this service does can cause that.
+    jamCoreAssigners: CoreIndex -> ServiceId
   }
 
   // --- Constructors ------------------------------------------------------
@@ -126,7 +134,8 @@ module state {
     stagedValidatorKeys: List(),
     serviceCodeHash: { hashBytes: 0 },
     keyValueStorage: Map(),
-    preimageStatus: Map()
+    preimageStatus: Map(),
+    jamCoreAssigners: Map()
   }
 
   // --- Read helpers ------------------------------------------------------
@@ -223,6 +232,19 @@ module state {
     | Unrequested(y) => t < y
   })
 
+  /// Whether this service is still `core`'s assigner, i.e. whether JAM accepts
+  /// an `assign` for it (§7.1). Cores it never handed away are absent from the
+  /// ghost map and still belong to it.
+  pure def isAssignerOf(s: ParachainServiceState, core: CoreIndex): bool =
+  not(s.jamCoreAssigners.keys().contains(core)) or
+  s.jamCoreAssigners.get(core) == ParachainServiceId
+
+  /// Record the assigner JAM wrote for `core` while applying an `assign`.
+  pure def recordAssigner(
+    s: ParachainServiceState, core: CoreIndex, assigner: ServiceId
+  ): ParachainServiceState =
+  { ...s, jamCoreAssigners: s.jamCoreAssigners.put(core, assigner) }
+
   // --- Log-append helpers (design §3.1, §3.3, §5.1) ----------------------
 
   // --- Authorizer-queue fill (§7.1) -------------------------------------
@@ -309,6 +331,8 @@ module state {
     | CodeUpgradeNotAvailable(p) => 32 + compactLen(p.len)
     | CodeUpgradeNotAnnounced(p) => 32 + compactLen(p.len)
     | CanNotForgetValidationCode(p) => 32 + compactLen(p.len)
+    // core index, a fixed u16.
+    | CoreNotAssignable(_) => 2
     // id Compact<u64> + TransferError tag 1.
     | TransferFailed(p) => compactLen(p.id) + 1
     // hash 32 + Compact<u32> len + due (Timeslot, fixed u32).

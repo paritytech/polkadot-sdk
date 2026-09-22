@@ -338,6 +338,9 @@ enum AccumulateLog {
     /// A `Forget` naming the parachain's `validation_code` or
     /// `announced_upgrade`. See §5.2.
     CanNotForgetValidationCode { hash: Hash, len: Compact<u32> },
+    /// JAM rejected an `assign` because this service is no longer the core's
+    /// assigner. See §7.1.
+    CoreNotAssignable { core: CoreIndex },
     /// The JAM `transfer` call replaying a `TransferOut` failed. `id` is the
     /// caller-supplied identifier from the `TransferOut`, echoed back so Asset
     /// Hub can match the failure to its request. See §5.1 step 6.
@@ -684,8 +687,9 @@ enum UpwardMessage {
     },
     /// Schedule a core's JAM `assign` (queue + assigner). A queue violating
     /// either length rule below aborts Refine with
-    /// `Err(RefineLog::InvalidAuthorizerQueue)`. See §7.1.
-    /// **Coretime chain only.**
+    /// `Err(RefineLog::InvalidAuthorizerQueue)`. Rejected with
+    /// `AccumulateLog::CoreNotAssignable` if this service is no longer `core`'s
+    /// assigner. See §7.1. **Coretime chain only.**
     AssignCore {
         core: CoreIndex,
         /// As emitted by the validation code, so any length is representable. Refine holds

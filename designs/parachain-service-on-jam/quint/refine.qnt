@@ -43,16 +43,10 @@ module refine {
       | _ => acc
   })
 
-  /// Per §4.3: an `assign_core` queue holds 1 to `AuthorizerQueueLength` hashes.
-  /// A queue that hands the core to another service must be exactly
-  /// `AuthorizerQueueLength`: the service can no longer re-present a short one
-  /// after the handoff, so the installed queue has to cycle on its own.
+  /// Every `assign_core` in `msgs` carries a well-formed queue (§4.3).
   pure def wellFormedAssignQueues(msgs: List[UpwardMessage]): bool =
   msgs.foldl(true, (acc, m) => match m {
-    | AssignCore(p) => acc and (match p.newAssigner {
-        | None => p.queue.length() > 0 and p.queue.length() <= AuthorizerQueueLength
-        | Some(_) => p.queue.length() == AuthorizerQueueLength
-      })
+    | AssignCore(p) => acc and wellFormedAssignQueue(p.queue, p.newAssigner)
     | _ => acc
   })
 

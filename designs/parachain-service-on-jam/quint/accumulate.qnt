@@ -257,9 +257,14 @@ module accumulate {
       // `jamSlot` already due would otherwise wait a block; it fires here
       // instead, then settles into the same post-fire state as the flush.
       val queueLen = payload.queue.length()
-      // Refine already rejected an empty queue, so this is defensive only.
-      if (queueLen == 0)
+      // Refine already rejected a malformed queue (§4.3), so this is defensive
+      // only: it re-checks both length rules rather than trusting the digest.
+      if (not(wellFormedAssignQueue(payload.queue, payload.newAssigner)))
         acc
+      else if (not(acc.state.isAssignerOf(payload.core)))
+        // The core was handed away, so JAM rejects the `assign`: no queue is
+        // written, so nothing is scheduled either (§7.1).
+        { ...acc, logs: acc.logs.append(CoreNotAssignable({ core: payload.core })) }
       else if (payload.jamSlot <= now)
         { ...acc,
           jamAssigns: acc.jamAssigns.append({
@@ -267,7 +272,8 @@ module accumulate {
             assigner: payload.newAssigner.optionGetOr(ParachainServiceId),
             queue: assignQueueFor(payload.queue)
           }),
-          state: { ...acc.state,
+          state: { ...acc.state.recordAssigner(
+              payload.core, payload.newAssigner.optionGetOr(ParachainServiceId)),
             pendingAssigns:
               if (fillsDirectly(queueLen)) acc.state.pendingAssigns.mapRemove(payload.core)
               else acc.state.pendingAssigns.put(payload.core, {
@@ -553,12 +559,13 @@ module accumulate {
       { state: s, assigns: List() },
       (acc, c) => {
         val dueAt = s.pendingAssignCores.get(c)
-        if (now < dueAt)
+        if (now < dueAt or not(acc.state.isAssignerOf(c)))
           acc
         else {
           val pending = s.pendingAssigns.get(c)
           val queueLen = pending.queue.length()
-          { state: { ...acc.state,
+          { state: { ...acc.state.recordAssigner(
+                c, pending.assigner.optionGetOr(ParachainServiceId)),
               pendingAssigns:
                 if (fillsDirectly(queueLen)) acc.state.pendingAssigns.mapRemove(c)
                 else acc.state.pendingAssigns.put(c, {

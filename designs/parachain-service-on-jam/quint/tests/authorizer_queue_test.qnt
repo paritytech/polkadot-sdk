@@ -70,10 +70,11 @@ module authorizer_queue_test {
     }
   }
 
-  /// Accumulate ignores an empty `assign_core` queue: no JAM call, nothing
-  /// cached, any entry already stored left alone. Refine rejects it first
-  /// (§4.3), so this only pins the defensive branch.
-  run emptyAssignQueueIsNoOpTest = {
+  /// Accumulate ignores a malformed `assign_core` queue: no JAM call, nothing
+  /// cached, any entry already stored left alone. Refine rejects all three
+  /// shapes first (§4.3), so this only pins the defensive branch: an empty
+  /// queue, an over-long one, and a handoff carrying fewer than 80 hashes.
+  run malformedAssignQueueIsNoOpTest = {
     val core = 5
     val storedHash: AuthorizerHash = { authBytes: 5 }
     val seeded = { ...initialState,
@@ -83,13 +84,24 @@ module authorizer_queue_test {
       state: seeded, jamDesignate: None, jamSolicit: Set(),
       jamForget: Set(), jamAssigns: List(), logs: List(), foreign: Map()
     }
-    val out = applyUpwardMessage(
+    val empty = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 1, 1,
       AssignCore({ core: core, queue: List(), newAssigner: None, jamSlot: 0 }))
+    val tooLong = applyUpwardMessage(
+      baseAcc, CoretimeParaId, FixedCodeLen, 1, 1,
+      AssignCore({ core: core, queue: fullQ({ authBytes: 1 }).append({ authBytes: 2 }),
+                  newAssigner: None, jamSlot: 0 }))
+    // A handoff must carry exactly 80 hashes, so a short one is malformed.
+    val shortHandoff = applyUpwardMessage(
+      baseAcc, CoretimeParaId, FixedCodeLen, 1, 1,
+      AssignCore({ core: core, queue: List(storedHash),
+                  newAssigner: Some(MkServiceId(7)), jamSlot: 0 }))
     all {
-      assert(out.jamAssigns == List()),
-      assert(out.state.pendingAssigns == seeded.pendingAssigns),
-      assert(out.state.pendingAssignCores == seeded.pendingAssignCores),
+      Set(empty, tooLong, shortHandoff).forall(out => and {
+        out.jamAssigns == List(),
+        out.logs == List(),
+        out.state == seeded
+      }),
       init
     }
   }
@@ -211,7 +223,13 @@ module authorizer_queue_test {
     val out = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
       AssignCore({ core: core, queue: h80, newAssigner: Some(assigner), jamSlot: 0 }))
-    // Keep-assigner short queue is stored and rotated as usual.
+    // A later assign for the SAME core, which `assigner` now controls. JAM
+    // would reject it, so nothing is emitted or scheduled and it is logged.
+    val after = applyUpwardMessage(
+      { ...out, jamAssigns: List(), logs: List() }, CoretimeParaId, FixedCodeLen, 0, 0,
+      AssignCore({ core: core, queue: three, newAssigner: None, jamSlot: 0 }))
+    // Keep-assigner short queue is stored and rotated as usual, from a state
+    // where the core was never handed away.
     val stored = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
       AssignCore({ core: core, queue: three, newAssigner: None, jamSlot: 0 }))
@@ -221,6 +239,10 @@ module authorizer_queue_test {
       // The handoff is one-shot: nothing left to re-present.
       assert(not(out.state.pendingAssigns.keys().contains(core))),
       assert(not(out.state.pendingAssignCores.keys().contains(core))),
+      // ...and one-way: naming no new assigner does NOT win the core back.
+      assert(after.jamAssigns == List()),
+      assert(after.logs == List(CoreNotAssignable({ core: core }))),
+      assert(after.state == out.state),
       // A short keep-assigner queue still rotates, `None` resolving to this service.
       assert(stored.jamAssigns ==
         List({ core: core, assigner: ParachainServiceId, queue: assignQueueFor(three) })),
@@ -251,6 +273,37 @@ module authorizer_queue_test {
         == WorkOk(refineErr(ct, InvalidAuthorizerQueue))),
       // ...and 80 passes.
       assert(isOkDigest(refineWithMsgs(initialState, ct, List(msg(fullQ(h), Some(MkServiceId(7))))))),
+      init
+    }
+  }
+
+  /// The always-accumulate flush is gated on ownership too: a rotation left
+  /// armed on a core that has since been handed away does not fire, so the
+  /// model never expects an `assign` JAM rejects (§7.1).
+  run dueFlushSkipsHandedAwayCoreTest = {
+    val core = 3
+    val other = MkServiceId(7)
+    val three = List({ authBytes: 1 }, { authBytes: 2 }, { authBytes: 3 })
+    // A rotation armed for `core`, due now, but `other` owns the core.
+    val armed = {
+      ...initialState,
+      pendingAssigns: initialState.pendingAssigns.put(
+        core, { queue: three, assigner: None }),
+      pendingAssignCores: initialState.pendingAssignCores.put(core, 5),
+      jamCoreAssigners: initialState.jamCoreAssigners.put(core, other)
+    }
+    val flushed = applyAlwaysAccumulate(armed, 10)
+    // Same rotation on a core still owned by the service does fire.
+    val owned = { ...armed, jamCoreAssigners: initialState.jamCoreAssigners }
+    val flushedOwned = applyAlwaysAccumulate(owned, 10)
+    all {
+      assert(not(armed.isAssignerOf(core))),
+      assert(flushed.assigns == List()),
+      // The entry is left exactly as it was, not consumed or re-armed.
+      assert(flushed.state == armed),
+      assert(owned.isAssignerOf(core)),
+      assert(flushedOwned.assigns ==
+        List({ core: core, assigner: ParachainServiceId, queue: assignQueueFor(three) })),
       init
     }
   }

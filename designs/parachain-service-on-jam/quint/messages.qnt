@@ -166,6 +166,9 @@ module messages {
   | CodeUpgradeNotAnnounced({ hash: Hash, len: int })
   // A `Forget` naming the para's active or announced validation code (§5.2).
   | CanNotForgetValidationCode({ hash: Hash, len: int })
+  // JAM rejected an `assign` because this service is no longer the core's
+  // assigner (§7.1).
+  | CoreNotAssignable({ core: CoreIndex })
   // The JAM `transfer` call replaying a `TransferOut` upward message
   // returned an error. `id` is the caller-supplied identifier from the
   // `TransferOut`, echoed back so Asset Hub can match the failure to its
@@ -335,6 +338,18 @@ module messages {
 
   /// Service-chosen cap on the auth-trace bytes stored in `parachain_log`.
   pure val StoredAuthTraceCap: int = 256
+
+  /// Per §4.3: an `assign_core` queue holds 1 to `AuthorizerQueueLength` hashes.
+  /// A queue that hands the core to another service must be exactly
+  /// `AuthorizerQueueLength`: the service can no longer re-present a short one
+  /// after the handoff, so the installed queue has to cycle on its own.
+  pure def wellFormedAssignQueue(
+    queue: List[AuthorizerHash], newAssigner: Option[ServiceId]
+  ): bool =
+  match newAssigner {
+    | None => queue.length() > 0 and queue.length() <= AuthorizerQueueLength
+    | Some(_) => queue.length() == AuthorizerQueueLength
+  }
 
   /// Truncate an auth trace to `StoredAuthTraceCap` before the service stores
   /// it in a `RefineLogEntry` (design §3.3).
