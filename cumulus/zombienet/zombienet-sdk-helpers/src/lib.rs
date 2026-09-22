@@ -13,21 +13,118 @@ use tokio::{
 	join,
 	time::{sleep, Duration},
 };
+#[cfg(not(feature = "jam"))]
+use zombienet_sdk::subxt::PolkadotConfig;
 use zombienet_sdk::{
 	subxt::{
 		self,
 		blocks::Block,
-		config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem},
+		config::{
+			polkadot::{PolkadotExtrinsicParams, PolkadotExtrinsicParamsBuilder},
+			substrate::{DynamicHasher256, SubstrateHeader},
+			Config,
+		},
 		dynamic::Value,
 		events::Events,
 		ext::scale_value::value,
 		metadata::Metadata,
 		tx::{signer::Signer, DynamicPayload, SubmittableTransaction, TxStatus},
-		utils::H256,
-		Config, OnlineClient, PolkadotConfig,
+		utils::{AccountId32, MultiAddress, MultiSignature, H256},
+		OnlineClient,
 	},
 	LocalFileSystem, Network,
 };
+
+#[cfg(feature = "jam")]
+pub mod jam;
+
+mod runtime_blob;
+pub use runtime_blob::inflate_runtime_wasm;
+
+/// Access to the substrate-compatible parts of a subxt block header.
+///
+/// Relay chain headers are `SubstrateHeader`s and JAM parachain headers are `jam::JamHeader`s.
+/// Both encode their digest exactly like `sp_runtime::generic::Digest`, which is what the
+/// digest-reading helpers rely on.
+pub trait ParaHeader: subxt::config::Header<Hasher = DynamicHasher256, Number = u32> {
+	/// The SCALE-encoded digest, byte-identical to `sp_runtime::generic::Digest`.
+	fn encode_digest(&self) -> Vec<u8>;
+
+	/// The state trie root.
+	fn state_root(&self) -> H256;
+
+	/// The parent block hash.
+	fn parent_hash(&self) -> H256;
+}
+
+impl ParaHeader for SubstrateHeader<u32, DynamicHasher256> {
+	fn encode_digest(&self) -> Vec<u8> {
+		self.digest.encode()
+	}
+
+	fn state_root(&self) -> H256 {
+		self.state_root
+	}
+
+	fn parent_hash(&self) -> H256 {
+		self.parent_hash
+	}
+}
+
+#[cfg(feature = "jam")]
+impl ParaHeader for jam::JamHeader {
+	fn encode_digest(&self) -> Vec<u8> {
+		self.digest.encode()
+	}
+
+	fn state_root(&self) -> H256 {
+		self.state_root
+	}
+
+	fn parent_hash(&self) -> H256 {
+		self.parent_hash
+	}
+}
+
+/// A subxt config whose hasher is [`DynamicHasher256`], making its block hash [`H256`].
+pub trait H256Config: Config<Hasher = DynamicHasher256> {}
+
+impl<C: Config<Hasher = DynamicHasher256>> H256Config for C {}
+
+/// A subxt config with Polkadot's hasher, account types and default extrinsic params.
+///
+/// Both [`PolkadotConfig`](zombienet_sdk::subxt::PolkadotConfig) and the JAM config implement
+/// this.
+pub trait PolkadotLikeConfig:
+	H256Config
+	+ Config<
+		AccountId = AccountId32,
+		Address = MultiAddress<AccountId32, ()>,
+		Signature = MultiSignature,
+		ExtrinsicParams = PolkadotExtrinsicParams<Self>,
+	>
+{
+}
+
+impl<C> PolkadotLikeConfig for C where
+	C: H256Config
+		+ Config<
+			AccountId = AccountId32,
+			Address = MultiAddress<AccountId32, ()>,
+			Signature = MultiSignature,
+			ExtrinsicParams = PolkadotExtrinsicParams<C>,
+		>
+{
+}
+
+/// The subxt config used by the parachain under test: [`jam::JamConfig`] when the `jam`
+/// feature is enabled, [`PolkadotConfig`] otherwise.
+#[cfg(feature = "jam")]
+pub use jam::JamConfig;
+#[cfg(feature = "jam")]
+pub type ParaConfig = JamConfig;
+#[cfg(not(feature = "jam"))]
+pub type ParaConfig = PolkadotConfig;
 
 /// Specifies which block should occupy a full core.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,6 +144,7 @@ const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
 // compile per validator that contends for CPU. The clock starts at the session
 // change, but the first parachain candidate (which triggers PVF preparation)
 // can be delayed by several minutes of collator warm-up, which we must account for.
+#[cfg(not(feature = "jam"))]
 const PVF_PREPARE_TIMEOUT_SECS: u64 = 300;
 
 /// Format a `sp_runtime::DispatchError` using runtime metadata for human-readable output.
@@ -69,8 +167,8 @@ fn format_dispatch_error(err: &sp_runtime::DispatchError, metadata: &Metadata) -
 }
 
 /// Find an event in subxt `Events` and attempt to decode the fields of the event.
-fn find_event_and_decode_fields<T: Decode>(
-	events: &Events<PolkadotConfig>,
+pub fn find_event_and_decode_fields<T: Decode, C: Config>(
+	events: &Events<C>,
 	pallet: &str,
 	variant: &str,
 ) -> Result<Vec<T>, anyhow::Error> {
@@ -84,8 +182,8 @@ fn find_event_and_decode_fields<T: Decode>(
 	Ok(result)
 }
 /// Returns `true` if the `block` is a session change.
-async fn is_session_change(
-	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+async fn is_session_change<C: Config>(
+	block: &Block<C, OnlineClient<C>>,
 ) -> Result<bool, anyhow::Error> {
 	let events = block.events().await?;
 	Ok(events.iter().any(|event| {
@@ -105,12 +203,16 @@ async fn is_session_change(
 // For tests where PVF preparation timing affects throughput (e.g. elastic scaling, runtime
 // upgrades), call [`wait_for_pvf_prepare`] before this helper to ensure all validators have
 // finished preparing the relevant PVFs.
-pub async fn assert_para_throughput(
-	relay_client: &OnlineClient<PolkadotConfig>,
+pub async fn assert_para_throughput<C: Config>(
+	relay_client: &OnlineClient<C>,
 	stop_after: u32,
 	expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
-	expected_number_of_blocks: impl Into<HashMap<ParaId, (OnlineClient<PolkadotConfig>, Range<u32>)>>,
-) -> Result<(), anyhow::Error> {
+	expected_number_of_blocks: impl Into<HashMap<ParaId, (OnlineClient<C>, Range<u32>)>>,
+) -> Result<(), anyhow::Error>
+where
+	C: H256Config,
+	C::Header: ParaHeader,
+{
 	let ranges = expected_candidate_ranges.into();
 	let expected_number_of_blocks = expected_number_of_blocks.into();
 
@@ -129,14 +231,15 @@ pub async fn assert_para_throughput(
 /// - `Err(e)` to fail immediately.
 ///
 /// Only receipts for para IDs present in `expected_candidate_ranges` are passed to the closure.
-pub async fn assert_para_throughput_with<F>(
-	relay_client: &OnlineClient<PolkadotConfig>,
+pub async fn assert_para_throughput_with<F, C: Config>(
+	relay_client: &OnlineClient<C>,
 	stop_after: u32,
 	expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
 	validate: F,
 ) -> Result<(), anyhow::Error>
 where
 	F: Fn(&CandidateReceiptV2<H256>) -> Result<bool, anyhow::Error>,
+	C::Header: ParaHeader,
 {
 	collect_para_throughput(relay_client, stop_after, expected_candidate_ranges, validate)
 		.await
@@ -230,7 +333,8 @@ pub mod network {
 		para_id: u32,
 		cores: Vec<u32>,
 	) -> Result<(), anyhow::Error> {
-		let client = network.get_node(relay_node)?.wait_client().await?;
+		let client: OnlineClient<PolkadotConfig> =
+			network.get_node(relay_node)?.wait_client().await?;
 		super::assign_cores(&client, para_id, cores).await
 	}
 
@@ -274,7 +378,8 @@ pub mod network {
 		para_node: &str,
 		maximum_lag: u32,
 	) -> Result<(), anyhow::Error> {
-		let client = network.get_node(para_node)?.wait_client().await?;
+		let client: OnlineClient<PolkadotConfig> =
+			network.get_node(para_node)?.wait_client().await?;
 		super::assert_finality_lag(&client, maximum_lag).await
 	}
 
@@ -337,9 +442,7 @@ pub mod network {
 		_relay_node: &str,
 		_stop_after: u32,
 		expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
-		expected_number_of_blocks: impl Into<
-			HashMap<ParaId, (OnlineClient<PolkadotConfig>, Range<u32>)>,
-		>,
+		expected_number_of_blocks: impl Into<HashMap<ParaId, (OnlineClient<ParaConfig>, Range<u32>)>>,
 	) -> Result<(), anyhow::Error> {
 		let candidate_ranges = expected_candidate_ranges.into();
 		let block_ranges = expected_number_of_blocks.into();
@@ -378,14 +481,15 @@ pub mod network {
 	}
 }
 
-async fn collect_para_throughput<F>(
-	relay_client: &OnlineClient<PolkadotConfig>,
+async fn collect_para_throughput<F, C: Config>(
+	relay_client: &OnlineClient<C>,
 	stop_after: u32,
 	expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
 	validate: F,
 ) -> Result<HashMap<ParaId, Vec<CandidateReceiptV2<H256>>>, anyhow::Error>
 where
 	F: Fn(&CandidateReceiptV2<H256>) -> Result<bool, anyhow::Error>,
+	C::Header: ParaHeader,
 {
 	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
 	let mut candidate_count: HashMap<ParaId, Vec<CandidateReceiptV2<H256>>> = HashMap::new();
@@ -415,11 +519,8 @@ where
 		}
 
 		let events = block.events().await?;
-		let receipts = find_event_and_decode_fields::<CandidateReceiptV2<H256>>(
-			&events,
-			"ParaInclusion",
-			"CandidateBacked",
-		)?;
+		let receipts: Vec<CandidateReceiptV2<H256>> =
+			find_event_and_decode_fields(&events, "ParaInclusion", "CandidateBacked")?;
 
 		// Skip relay chain blocks until every tracked para has had at least one backed candidate.
 		// This avoids counting the initial warm-up period where the backing pipeline (PVF
@@ -482,10 +583,14 @@ where
 	Ok(candidate_count)
 }
 
-async fn assert_expected_number_of_blocks(
+async fn assert_expected_number_of_blocks<C: Config>(
 	candidate_count: HashMap<ParaId, Vec<CandidateReceiptV2<H256>>>,
-	expected_number_of_blocks: HashMap<ParaId, (OnlineClient<PolkadotConfig>, Range<u32>)>,
-) -> Result<(), anyhow::Error> {
+	expected_number_of_blocks: HashMap<ParaId, (OnlineClient<C>, Range<u32>)>,
+) -> Result<(), anyhow::Error>
+where
+	C: H256Config,
+	C::Header: ParaHeader,
+{
 	for (para_id, (para_client, expected_number_of_blocks)) in expected_number_of_blocks {
 		let receipts = candidate_count
 			.get(&para_id)
@@ -502,7 +607,7 @@ async fn assert_expected_number_of_blocks(
 			let mut core_info = None;
 
 			loop {
-				let block: Block<PolkadotConfig, OnlineClient<PolkadotConfig>> =
+				let block: Block<C, OnlineClient<C>> =
 					para_client.blocks().at(next_para_block_hash).await?;
 
 				// Genesis block is not part of a candidate :)
@@ -522,7 +627,7 @@ async fn assert_expected_number_of_blocks(
 				}
 
 				num_blocks += 1;
-				next_para_block_hash = block.header().parent_hash;
+				next_para_block_hash = block.header().parent_hash();
 			}
 		}
 
@@ -537,11 +642,14 @@ async fn assert_expected_number_of_blocks(
 }
 
 /// Returns [`CoreInfo`] for the given parachain block.
-pub fn find_core_info(
-	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
-) -> Result<CoreInfo, anyhow::Error> {
+pub fn find_core_info<C: Config>(
+	block: &Block<C, OnlineClient<C>>,
+) -> Result<CoreInfo, anyhow::Error>
+where
+	C::Header: ParaHeader,
+{
 	let substrate_digest =
-		sp_runtime::generic::Digest::decode(&mut &block.header().digest.encode()[..])
+		sp_runtime::generic::Digest::decode(&mut &block.header().encode_digest()[..])
 			.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
 
 	CumulusDigestItem::find_core_info(&substrate_digest)
@@ -549,11 +657,14 @@ pub fn find_core_info(
 }
 
 /// Returns [`RelayBlockIdentifier`] for the given parachain block.
-fn find_relay_block_identifier(
-	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
-) -> Result<RelayBlockIdentifier, anyhow::Error> {
+fn find_relay_block_identifier<C: Config>(
+	block: &Block<C, OnlineClient<C>>,
+) -> Result<RelayBlockIdentifier, anyhow::Error>
+where
+	C::Header: ParaHeader,
+{
 	let substrate_digest =
-		sp_runtime::generic::Digest::decode(&mut &block.header().digest.encode()[..])
+		sp_runtime::generic::Digest::decode(&mut &block.header().encode_digest()[..])
 			.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
 
 	CumulusDigestItem::find_relay_block_identifier(&substrate_digest)
@@ -565,11 +676,14 @@ fn find_relay_block_identifier(
 ///
 /// Returns `Option` rather than `Result` so callers can skip blocks at low heights — where no
 /// prior anchor exists — without treating the absence of the digest as an error.
-pub fn find_jam_parent(
-	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
-) -> Option<(RelayHash, RelayHash)> {
+pub fn find_jam_parent<C: Config>(
+	block: &Block<C, OnlineClient<C>>,
+) -> Option<(RelayHash, RelayHash)>
+where
+	C::Header: ParaHeader,
+{
 	let substrate_digest =
-		sp_runtime::generic::Digest::decode(&mut &block.header().digest.encode()[..])
+		sp_runtime::generic::Digest::decode(&mut &block.header().encode_digest()[..])
 			.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
 
 	CumulusDigestItem::find_jam_parent(&substrate_digest)
@@ -578,23 +692,25 @@ pub fn find_jam_parent(
 /// Wait for the first block with a session change.
 ///
 /// The session change is detected by inspecting the events in the block.
-pub async fn wait_for_first_session_change(
-	blocks_sub: &mut zombienet_sdk::subxt::backend::StreamOfResults<
-		Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
-	>,
-) -> Result<(), anyhow::Error> {
+pub async fn wait_for_first_session_change<C: Config>(
+	blocks_sub: &mut zombienet_sdk::subxt::backend::StreamOfResults<Block<C, OnlineClient<C>>>,
+) -> Result<(), anyhow::Error>
+where
+	C::Header: ParaHeader,
+{
 	wait_for_nth_session_change(blocks_sub, 1).await
 }
 
 /// Wait for the first block with the Nth session change.
 ///
 /// The session change is detected by inspecting the events in the block.
-pub async fn wait_for_nth_session_change(
-	blocks_sub: &mut zombienet_sdk::subxt::backend::StreamOfResults<
-		Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
-	>,
+pub async fn wait_for_nth_session_change<C: Config>(
+	blocks_sub: &mut zombienet_sdk::subxt::backend::StreamOfResults<Block<C, OnlineClient<C>>>,
 	mut sessions_to_wait: u32,
-) -> Result<(), anyhow::Error> {
+) -> Result<(), anyhow::Error>
+where
+	C::Header: ParaHeader,
+{
 	let mut waited_block_num = 0;
 	while let Some(block) = blocks_sub.next().await {
 		let block = block?;
@@ -619,10 +735,13 @@ pub async fn wait_for_nth_session_change(
 }
 
 // Helper function that asserts the maximum finality lag.
-pub async fn assert_finality_lag(
-	client: &OnlineClient<PolkadotConfig>,
+pub async fn assert_finality_lag<C: Config>(
+	client: &OnlineClient<C>,
 	maximum_lag: u32,
-) -> Result<(), anyhow::Error> {
+) -> Result<(), anyhow::Error>
+where
+	C::Header: ParaHeader,
+{
 	let mut best_stream = client.blocks().subscribe_best().await?;
 	let mut fut_stream = client.blocks().subscribe_finalized().await?;
 	let (Some(Ok(best)), Some(Ok(finalized))) = join!(best_stream.next(), fut_stream.next()) else {
@@ -639,9 +758,12 @@ pub async fn assert_finality_lag(
 }
 
 /// Assert that finality has not stalled.
-pub async fn assert_blocks_are_being_finalized(
-	client: &OnlineClient<PolkadotConfig>,
-) -> Result<(), anyhow::Error> {
+pub async fn assert_blocks_are_being_finalized<C: Config>(
+	client: &OnlineClient<C>,
+) -> Result<(), anyhow::Error>
+where
+	C::Header: ParaHeader,
+{
 	let sleep_duration = Duration::from_secs(12);
 	let mut finalized_blocks = client.blocks().subscribe_finalized().await?;
 	let first_measurement = finalized_blocks
@@ -666,17 +788,20 @@ pub async fn assert_blocks_are_being_finalized(
 }
 
 /// Checks if the given `RelayBlockIdentifier` matches a relay chain header.
-fn identifier_matches_header(
+fn identifier_matches_header<C: Config>(
 	identifier: &RelayBlockIdentifier,
-	header: &<PolkadotConfig as Config>::Header,
-) -> bool {
+	header: &C::Header,
+) -> bool
+where
+	C::Header: ParaHeader,
+{
 	match identifier {
 		RelayBlockIdentifier::ByHash(hash) => {
 			let header_hash = BlakeTwo256::hash(&header.encode());
 			header_hash == *hash
 		},
 		RelayBlockIdentifier::ByStorageRoot { storage_root, .. } => {
-			header.state_root == *storage_root
+			header.state_root() == *storage_root
 		},
 	}
 }
@@ -690,12 +815,16 @@ fn identifier_matches_header(
 /// * `para_client` - Client connected to a parachain node
 /// * `offset` - Expected minimum offset between relay parent and highest seen relay block
 /// * `block_limit` - Number of parachain blocks to verify before completing
-pub async fn assert_relay_parent_offset(
-	relay_client: &OnlineClient<PolkadotConfig>,
-	para_client: &OnlineClient<PolkadotConfig>,
+pub async fn assert_relay_parent_offset<C: Config>(
+	relay_client: &OnlineClient<C>,
+	para_client: &OnlineClient<C>,
 	offset: u32,
 	block_limit: u32,
-) -> Result<(), anyhow::Error> {
+) -> Result<(), anyhow::Error>
+where
+	C: H256Config,
+	C::Header: ParaHeader,
+{
 	let mut relay_block_stream = relay_client.blocks().subscribe_all().await?;
 
 	// First parachain header #0 does not contain relay block identifier digest item.
@@ -721,11 +850,11 @@ pub async fn assert_relay_parent_offset(
 				// descendants, and we know that the candidate would span a session boundary.
 				if is_session_change(&relay_block).await? {
 					log::debug!("RC block #{} contains session change, adding {offset} parents to forbidden list.", relay_block.number());
-					let mut current_hash = relay_block.header().parent_hash;
+					let mut current_hash = relay_block.header().parent_hash();
 					for _ in 0..offset {
 						let block = relay_client.blocks().at(current_hash).await.map_err(|_| anyhow!("Unable to fetch RC header."))?;
 						forbidden_parents.push(block.header().clone());
-						current_hash = block.header().parent_hash;
+						current_hash = block.header().parent_hash();
 					}
 				}
 			},
@@ -749,7 +878,7 @@ pub async fn assert_relay_parent_offset(
 				// on the forbidden parents.
 				for forbidden in &forbidden_parents {
 					for (identifier, para_block) in &seen_relay_parents {
-						if identifier_matches_header(identifier, forbidden) {
+						if identifier_matches_header::<C>(identifier, forbidden) {
 							panic!(
 								"Parachain block {} was built on forbidden relay parent with session change descendants ({:?})",
 								para_block.hash(),
@@ -773,12 +902,15 @@ pub async fn assert_relay_parent_offset(
 /// Submits the given `call` as signed transaction and waits for its successful finalization.
 ///
 /// The transaction is sent as immortal transaction.
-pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<PolkadotConfig>>(
-	client: &OnlineClient<PolkadotConfig>,
+pub async fn submit_extrinsic_and_wait_for_finalization_success<
+	C: PolkadotLikeConfig,
+	S: Signer<C>,
+>(
+	client: &OnlineClient<C>,
 	call: &DynamicPayload,
 	signer: &S,
 ) -> Result<H256, anyhow::Error> {
-	let extensions = PolkadotExtrinsicParamsBuilder::new().immortal().build();
+	let extensions = PolkadotExtrinsicParamsBuilder::<C>::new().immortal().build();
 
 	log::info!("Submitting transaction...");
 
@@ -788,8 +920,8 @@ pub async fn submit_extrinsic_and_wait_for_finalization_success<S: Signer<Polkad
 }
 
 /// Submits the given `call` as unsigned transaction and waits for it successful finalization.
-pub async fn submit_unsigned_extrinsic_and_wait_for_finalization_success(
-	client: &OnlineClient<PolkadotConfig>,
+pub async fn submit_unsigned_extrinsic_and_wait_for_finalization_success<C: PolkadotLikeConfig>(
+	client: &OnlineClient<C>,
 	call: &DynamicPayload,
 ) -> Result<H256, anyhow::Error> {
 	let tx = client.tx().create_unsigned(call)?;
@@ -798,8 +930,8 @@ pub async fn submit_unsigned_extrinsic_and_wait_for_finalization_success(
 }
 
 /// Submit the given transaction and wait for its finalization.
-async fn submit_tx_and_wait_for_finalization(
-	tx: SubmittableTransaction<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+async fn submit_tx_and_wait_for_finalization<C: PolkadotLikeConfig>(
+	tx: SubmittableTransaction<C, OnlineClient<C>>,
 ) -> Result<H256, anyhow::Error> {
 	log::info!("Submitting transaction: {:?}", tx.hash());
 
@@ -828,14 +960,71 @@ async fn submit_tx_and_wait_for_finalization(
 	Err(anyhow!("Transaction event stream ended without reaching the finalized state"))
 }
 
+/// Submits the given `call` as a signed transaction and waits until it is included in a **best**
+/// block whose dispatch succeeded.
+///
+/// The JAM twin of [`submit_extrinsic_and_wait_for_finalization_success`]. A JAM collator's
+/// finality is a projection of JAM's accumulated parachain head and does not advance while the
+/// service's head is unchanged, so inclusion in a best block is the strongest signal a JAM para
+/// gives. Use the finalized variant on a chain with real finality.
+pub async fn submit_extrinsic_and_wait_for_best_block_success<
+	C: PolkadotLikeConfig,
+	S: Signer<C>,
+>(
+	client: &OnlineClient<C>,
+	call: &DynamicPayload,
+	signer: &S,
+) -> Result<H256, anyhow::Error> {
+	let extensions = PolkadotExtrinsicParamsBuilder::<C>::new().immortal().build();
+
+	log::info!("Submitting transaction...");
+
+	let tx = client.tx().create_signed(call, signer, extensions).await?;
+
+	submit_tx_and_wait_for_best_block(tx).await
+}
+
+/// Submit `tx` and return the hash of the best block that included it successfully.
+async fn submit_tx_and_wait_for_best_block<C: PolkadotLikeConfig>(
+	tx: SubmittableTransaction<C, OnlineClient<C>>,
+) -> Result<H256, anyhow::Error> {
+	log::info!("Submitting transaction: {:?}", tx.hash());
+
+	let mut tx = tx.submit_and_watch().await?;
+
+	while let Some(status) = tx.next().await.transpose()? {
+		match status {
+			TxStatus::InBestBlock(tx_in_block) => {
+				tx_in_block.wait_for_success().await?;
+				log::info!("[Best] In block: {:#?}", tx_in_block.block_hash());
+				return Ok(tx_in_block.block_hash());
+			},
+			TxStatus::InFinalizedBlock(tx_in_block) => {
+				tx_in_block.wait_for_success().await?;
+				log::info!("[Finalized] In block: {:#?}", tx_in_block.block_hash());
+				return Ok(tx_in_block.block_hash());
+			},
+			TxStatus::Error { message } |
+			TxStatus::Invalid { message } |
+			TxStatus::Dropped { message } => {
+				return Err(anyhow!("Error submitting tx: {message}"));
+			},
+			_ => continue,
+		}
+	}
+
+	Err(anyhow!("Transaction event stream ended without being included in a best block"))
+}
+
 /// Submits the given `call` as transaction and waits `timeout_secs` for it successful finalization.
 ///
 /// If the transaction does not reach the finalized state in `timeout_secs` an error is returned.
 /// The transaction is send as immortal transaction.
 pub async fn submit_extrinsic_and_wait_for_finalization_success_with_timeout<
-	S: Signer<PolkadotConfig>,
+	C: PolkadotLikeConfig,
+	S: Signer<C>,
 >(
-	client: &OnlineClient<PolkadotConfig>,
+	client: &OnlineClient<C>,
 	call: &DynamicPayload,
 	signer: &S,
 	timeout_secs: impl Into<u64>,
@@ -856,11 +1045,14 @@ pub async fn submit_extrinsic_and_wait_for_finalization_success_with_timeout<
 }
 
 /// Asserts that the given `para_id` is registered at the relay chain.
-pub async fn assert_para_is_registered(
-	relay_client: &OnlineClient<PolkadotConfig>,
+pub async fn assert_para_is_registered<C: Config>(
+	relay_client: &OnlineClient<C>,
 	para_id: ParaId,
 	blocks_to_wait: u32,
-) -> Result<(), anyhow::Error> {
+) -> Result<(), anyhow::Error>
+where
+	C::Header: ParaHeader,
+{
 	let mut blocks_sub = relay_client.blocks().subscribe_all().await?;
 	let para_id: u32 = para_id.into();
 
@@ -896,11 +1088,14 @@ pub async fn assert_para_is_registered(
 }
 
 /// Returns [`BlockBundleInfo`] for the given parachain block.
-fn find_block_bundle_info(
-	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
-) -> Result<BlockBundleInfo, anyhow::Error> {
+fn find_block_bundle_info<C: Config>(
+	block: &Block<C, OnlineClient<C>>,
+) -> Result<BlockBundleInfo, anyhow::Error>
+where
+	C::Header: ParaHeader,
+{
 	let substrate_digest =
-		sp_runtime::generic::Digest::decode(&mut &block.header().digest.encode()[..])
+		sp_runtime::generic::Digest::decode(&mut &block.header().encode_digest()[..])
 			.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
 
 	CumulusDigestItem::find_block_bundle_info(&substrate_digest)
@@ -911,11 +1106,15 @@ fn find_block_bundle_info(
 ///
 /// If `is_only_block_in_core` is true, it checks if the given block is the first block in the core
 /// and the only one. If this is `false`, it only checks if the block is the last block in the core.
-async fn ensure_is_block_in_core_impl(
-	para_client: &OnlineClient<PolkadotConfig>,
+async fn ensure_is_block_in_core_impl<C: Config>(
+	para_client: &OnlineClient<C>,
 	block_hash: H256,
 	is_only_block_in_core: bool,
-) -> Result<(), anyhow::Error> {
+) -> Result<(), anyhow::Error>
+where
+	C: H256Config,
+	C::Header: ParaHeader,
+{
 	let blocks = para_client.blocks();
 	let block = blocks.at(block_hash).await?;
 
@@ -928,7 +1127,7 @@ async fn ensure_is_block_in_core_impl(
 		if find_block_bundle_info(&block)?.index != 0 {
 			return Err(anyhow::anyhow!(
 				"Not first block ({}) in core, the block continues the bundle of its parent.",
-				block.header().number
+				block.number()
 			));
 		}
 	}
@@ -941,7 +1140,7 @@ async fn ensure_is_block_in_core_impl(
 
 		while current_block.hash() != block_hash {
 			next_block = Some(current_block.clone());
-			current_block = Arc::new(blocks.at(current_block.header().parent_hash).await?);
+			current_block = Arc::new(blocks.at(current_block.header().parent_hash()).await?);
 
 			if current_block.number() == 0 {
 				return Err(anyhow::anyhow!(
@@ -963,7 +1162,7 @@ async fn ensure_is_block_in_core_impl(
 		return Err(anyhow::anyhow!(
 			"Not {} block ({}) in core, at least the following block is on the same core.",
 			if is_only_block_in_core { "first" } else { "last" },
-			block.header().number
+			block.number()
 		));
 	}
 
@@ -971,10 +1170,14 @@ async fn ensure_is_block_in_core_impl(
 }
 
 /// Checks if the specified block occupies a full core.
-pub async fn ensure_is_only_block_in_core(
-	para_client: &OnlineClient<PolkadotConfig>,
+pub async fn ensure_is_only_block_in_core<C: Config>(
+	para_client: &OnlineClient<C>,
 	block_to_check: BlockToCheck,
-) -> Result<(), anyhow::Error> {
+) -> Result<(), anyhow::Error>
+where
+	C: H256Config,
+	C::Header: ParaHeader,
+{
 	let blocks = para_client.blocks();
 
 	match block_to_check {
@@ -993,7 +1196,7 @@ pub async fn ensure_is_only_block_in_core(
 						next_first_bundle_block = Some(block.hash());
 					}
 
-					block = blocks.at(block.header().parent_hash).await?;
+					block = blocks.at(block.header().parent_hash()).await?;
 				}
 
 				if next_first_bundle_block.is_some() {
@@ -1013,10 +1216,14 @@ pub async fn ensure_is_only_block_in_core(
 /// Checks if the specified block is the last block in a core.
 ///
 /// Also ensures that the last block is NOT the first block.
-pub async fn ensure_is_last_block_in_core(
-	para_client: &OnlineClient<PolkadotConfig>,
+pub async fn ensure_is_last_block_in_core<C: Config>(
+	para_client: &OnlineClient<C>,
 	block_to_check: H256,
-) -> Result<(), anyhow::Error> {
+) -> Result<(), anyhow::Error>
+where
+	C: H256Config,
+	C::Header: ParaHeader,
+{
 	ensure_is_block_in_core_impl(para_client, block_to_check, false).await?;
 
 	let blocks = para_client.blocks();
@@ -1059,8 +1266,8 @@ pub async fn ensure_is_last_block_in_core(
 /// ```
 ///
 /// The cores `2` and `3` are assigned to the parachains by Zombienet.
-pub async fn assign_cores(
-	client: &OnlineClient<PolkadotConfig>,
+pub async fn assign_cores<C: PolkadotLikeConfig>(
+	client: &OnlineClient<C>,
 	para_id: u32,
 	cores: Vec<u32>,
 ) -> Result<(), anyhow::Error> {
@@ -1125,8 +1332,8 @@ pub fn create_runtime_upgrade_call(wasm: &[u8]) -> DynamicPayload {
 /// This submits a `Sudo::sudo_unchecked_weight(System::set_code(wasm))` extrinsic,
 /// waits for finalization, then checks the `Sudid` event to verify the inner dispatch
 /// succeeded. Returns the hash of the finalized block containing the upgrade extrinsic.
-pub async fn submit_sudo_runtime_upgrade<S: Signer<PolkadotConfig>>(
-	client: &OnlineClient<PolkadotConfig>,
+pub async fn submit_sudo_runtime_upgrade<C: PolkadotLikeConfig, S: Signer<C>>(
+	client: &OnlineClient<C>,
 	wasm: &[u8],
 	signer: &S,
 ) -> Result<H256, anyhow::Error> {
@@ -1165,18 +1372,23 @@ pub async fn submit_sudo_runtime_upgrade<S: Signer<PolkadotConfig>>(
 /// `RuntimeEnvironmentUpdated` digest.
 ///
 /// Returns the hash of the block at which the runtime upgrade was applied.
-pub async fn wait_for_runtime_upgrade(
-	client: &OnlineClient<PolkadotConfig>,
-) -> Result<H256, anyhow::Error> {
+pub async fn wait_for_runtime_upgrade<C: Config>(
+	client: &OnlineClient<C>,
+) -> Result<H256, anyhow::Error>
+where
+	C: H256Config,
+	C::Header: ParaHeader,
+{
 	let mut finalized_blocks = client.blocks().subscribe_finalized().await?;
 
 	while let Some(Ok(block)) = finalized_blocks.next().await {
-		if block
-			.header()
-			.digest
-			.logs
+		let substrate_digest =
+			sp_runtime::generic::Digest::decode(&mut &block.header().encode_digest()[..])
+				.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
+		if substrate_digest
+			.logs()
 			.iter()
-			.any(|d| matches!(d, DigestItem::RuntimeEnvironmentUpdated))
+			.any(|d| matches!(d, sp_runtime::generic::DigestItem::RuntimeEnvironmentUpdated))
 		{
 			log::info!("Runtime upgraded in block {:?}", block.hash());
 
@@ -1187,18 +1399,75 @@ pub async fn wait_for_runtime_upgrade(
 	Err(anyhow!("Did not find a runtime upgrade"))
 }
 
+/// How long the JAM path waits for the upgraded code to appear in a best block header.
+#[cfg(feature = "jam")]
+const RUNTIME_UPGRADE_TIMEOUT: Duration = Duration::from_secs(300);
+
+/// Wait until a runtime upgrade has happened, scanning **best** blocks.
+///
+/// The JAM twin of [`wait_for_runtime_upgrade`]. A JAM collator's finality is a projection of
+/// JAM's accumulated parachain head and does not advance while the service's head is unchanged,
+/// so the `RuntimeEnvironmentUpdated` digest has to be read from best blocks. The runtime
+/// deposits that digest into the block header, so it is observable there without any finality.
+#[cfg(feature = "jam")]
+pub async fn wait_for_runtime_upgrade_on_best<C: Config>(
+	client: &OnlineClient<C>,
+) -> Result<H256, anyhow::Error>
+where
+	C: H256Config,
+	C::Header: ParaHeader,
+{
+	tokio::time::timeout(RUNTIME_UPGRADE_TIMEOUT, scan_for_runtime_upgrade_on_best(client))
+		.await
+		.map_err(|_| {
+			anyhow!(
+				"runtime upgrade did not appear in a best block within \
+				 {RUNTIME_UPGRADE_TIMEOUT:?}"
+			)
+		})?
+}
+
+#[cfg(feature = "jam")]
+async fn scan_for_runtime_upgrade_on_best<C: Config>(
+	client: &OnlineClient<C>,
+) -> Result<H256, anyhow::Error>
+where
+	C: H256Config,
+	C::Header: ParaHeader,
+{
+	let mut best_blocks = client.blocks().subscribe_best().await?;
+
+	while let Some(block) = best_blocks.next().await {
+		let block = block?;
+		let substrate_digest =
+			sp_runtime::generic::Digest::decode(&mut &block.header().encode_digest()[..])
+				.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
+		if substrate_digest
+			.logs()
+			.iter()
+			.any(|d| matches!(d, sp_runtime::generic::DigestItem::RuntimeEnvironmentUpdated))
+		{
+			log::info!("Runtime upgraded in best block {:?}", block.hash());
+
+			return Ok(block.hash());
+		}
+	}
+
+	Err(anyhow!("Best block stream ended before a runtime upgrade"))
+}
+
 /// Poll a node's WebSocket endpoint until its subxt metadata reports the given pallet,
 /// returning a fresh `OnlineClient` against that metadata, or fail on timeout.
 ///
 /// After a runtime upgrade that introduces a new pallet, subxt's cached metadata can lag
 /// the on-chain state until a new client is constructed against a block executed under the
 /// upgraded runtime.
-pub async fn wait_for_pallet_in_metadata(
+pub async fn wait_for_pallet_in_metadata<C: Config>(
 	ws_url: &str,
 	pallet_name: &str,
 	timeout: Duration,
 	poll_interval: Duration,
-) -> Result<OnlineClient<PolkadotConfig>, anyhow::Error> {
+) -> Result<OnlineClient<C>, anyhow::Error> {
 	let deadline = std::time::Instant::now() + timeout;
 	loop {
 		if std::time::Instant::now() >= deadline {
@@ -1207,7 +1476,7 @@ pub async fn wait_for_pallet_in_metadata(
 			));
 		}
 		sleep(poll_interval).await;
-		let candidate = OnlineClient::<PolkadotConfig>::from_url(ws_url).await?;
+		let candidate = OnlineClient::<C>::from_url(ws_url).await?;
 		if candidate.metadata().pallet_by_name(pallet_name).is_some() {
 			return Ok(candidate);
 		}

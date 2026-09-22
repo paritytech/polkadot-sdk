@@ -24,14 +24,19 @@ use cumulus_jam_zombienet_tests::{
 	genesis_build::{build_jam_genesis, polkavm_env, JamGenesis},
 	harness::TINY_CORES,
 	network::PARACHAIN_SERVICE_ID,
+	rpc::JamRpc,
 };
+use sp_crypto_hashing::blake2_256;
 use std::{
 	path::{Path, PathBuf},
 	sync::atomic::{AtomicU64, Ordering},
-	time::{SystemTime, UNIX_EPOCH},
+	time::{Duration, SystemTime, UNIX_EPOCH},
 };
+use tokio::time::{sleep, Instant};
 use zombienet_configuration::{para_states, ParachainConfigBuilder};
-use zombienet_sdk::{Arg, Buildable, NetworkConfigBuilder, RegistrationStrategy};
+use zombienet_sdk::{
+	Arg, Buildable, LocalFileSystem, Network, NetworkConfigBuilder, RegistrationStrategy,
+};
 
 /// The validators each JAM core carries; a network with `cores` cores has `cores * 3`.
 const VALIDATORS_PER_CORE: usize = 3;
@@ -113,17 +118,117 @@ pub fn setup_with_cores(test_name: &str, paras: &[Para], cores: u16) -> anyhow::
 
 /// One para of a run: the id it collates under, the core its work packages are authorized on, and
 /// the node names that collate for it.
+///
+/// The returned [`Para`] starts on the run's default runtime (`RUNTIME_WASM`) with no extra full
+/// nodes; [`Para::with_runtime`] and [`Para::with_full_nodes`] choose otherwise.
 pub fn para(id: u32, core: u32, collator_names: &[&str]) -> Para {
 	para_on_cores(id, core, &[], collator_names)
 }
 
 /// One para of a run whose authorizer is queued on `core` and every core in `also_cores` besides.
+///
+/// The runtime and full-node defaults are as for [`para`].
 pub fn para_on_cores(id: u32, core: u32, also_cores: &[u32], collator_names: &[&str]) -> Para {
 	Para {
 		id,
 		core,
 		also_cores: also_cores.to_vec(),
 		collators: collator_names.iter().map(|name| name.to_string()).collect(),
+		runtime: None,
+		full_nodes: Vec::new(),
+	}
+}
+
+/// The RPC URL of the spawned JAM network's ordinary node, `jam-or`.
+///
+/// Read back from the network handle, not pinned: zombienet-sdk 0.5.0 registers the JAM nodes
+/// alongside the substrate ones, but they are a different node kind, so `Network::get_node`
+/// does not find them — `Network::get_jam_node` does.
+pub fn jam_rpc_url(network: &Network<LocalFileSystem>) -> anyhow::Result<String> {
+	Ok(network.get_jam_node(ORDINARY_NODE)?.ws_uri())
+}
+
+/// How long the whole preimage step may take, covering both waits below. The request only
+/// appears once the upgrade block accumulates and the provision only lands at a later finalized
+/// block, so this is a few slots on a healthy network; the bound is loose enough for a loaded CI
+/// machine and only exists so a stuck helper fails the test instead of hanging it.
+const PROVIDE_VALIDATION_CODE_TIMEOUT: Duration = Duration::from_secs(240);
+
+/// Gap between polls. Neither wait can advance more than once per block.
+const PROVIDE_VALIDATION_CODE_POLL: Duration = Duration::from_secs(3);
+
+/// The manual preimage step of a JAM runtime upgrade: wait for the parachain service to request
+/// the new validation code, provide it with `submitPreimage`, and wait until JAM holds it at a
+/// finalized block.
+///
+/// This is the out-of-band "manual intervention" of the JAM code-upgrade lifecycle (service
+/// design §5.2 phase 3): refine emits `RequestCodeUpgrade`, accumulate arms
+/// `ParaInfo.announced_upgrade`, and *someone outside the node* has to hand JAM the code. No node
+/// or collator code may call [`JamRpc::submit_preimage`] — tests call this helper instead, the
+/// way an operator would.
+///
+/// Both waits read the same request back, because `serviceRequest` is the only place the
+/// lifecycle is visible:
+///
+/// * `None` — no request: the block that emitted `RequestCodeUpgrade` has not accumulated yet.
+/// * `Some([])` — requested but not provided: the expected state before the submission.
+/// * `Some([slot])` — provided at `slot`.
+/// * `Some([a, b])` — forgotten.
+/// * `Some([a, b, c])` — requested again and re-provided.
+///
+/// The request wait reads the **best** block: the soliciting block need not be finalized yet.
+/// The provision wait fetches a fresh **finalized** anchor every poll and accepts only
+/// `Some([slot])`, because a finalized block is what a work package may name as its lookup
+/// anchor and therefore what a validator resolves the code from.
+pub async fn provide_validation_code(
+	jam: &JamRpc,
+	service: u32,
+	code: &[u8],
+) -> anyhow::Result<()> {
+	// The same hash the runtime derives when it calls `host::request_code_upgrade` in
+	// `jam_validate_block`: blake2b-256 of the code, with its length.
+	let hash = blake2_256(code);
+	let len = code.len() as u32;
+	let request = format!("(0x{}, {len})", hex::encode(hash));
+	let deadline = Instant::now() + PROVIDE_VALIDATION_CODE_TIMEOUT;
+
+	// The service has to ask before anyone may provide: wait for the `RequestCodeUpgrade` block
+	// to accumulate and arm the request.
+	let mut last;
+	loop {
+		let best = jam.best_block_hash().await.context("bestBlock")?;
+		last = jam.service_request(&best, service, &hash, len).await?;
+		if last.is_some() {
+			break;
+		}
+		anyhow::ensure!(
+			Instant::now() < deadline,
+			"service {service} never requested validation code {request}; the last \
+			 serviceRequest answer was {last:?}"
+		);
+		sleep(PROVIDE_VALIDATION_CODE_POLL).await;
+	}
+	log::info!("service {service} requests validation code {request} ({last:?}); providing it");
+
+	jam.submit_preimage(service, code).await?;
+
+	// Only `[slot]` means provided; `[]` is still unprovided, `[a, b]` forgotten and `[a, b, c]`
+	// a re-provision, none of which a fresh upgrade should ever see.
+	let mut last;
+	loop {
+		let finalized = jam.finalized_header_hash().await.context("finalizedBlock")?;
+		last = jam.service_request(&finalized, service, &hash, len).await?;
+		if last.as_deref().map(<[u64]>::len) == Some(1) {
+			log::info!("validation code {request} is provided at a finalized anchor");
+			return Ok(());
+		}
+		anyhow::ensure!(
+			Instant::now() < deadline,
+			"validation code {request} was submitted but is not provided at a finalized anchor; \
+			 the last serviceRequest answer was {last:?} ([] = requested, [a, b] = forgotten, \
+			 [a, b, c] = re-provided)"
+		);
+		sleep(PROVIDE_VALIDATION_CODE_POLL).await;
 	}
 }
 
@@ -178,14 +283,26 @@ impl JamSetup {
 		let builder = builder.with_collator(|node| {
 			node.with_name(para.collators[0].as_str())
 				.with_env(polkavm_env())
-				.with_args(self.collator_args())
+				.with_args(self.collator_args(true))
 		});
 
-		para.collators[1..].iter().fold(builder, |builder, name| {
+		let builder = para.collators[1..].iter().fold(builder, |builder, name| {
 			builder.with_collator(|node| {
 				node.with_name(name.as_str())
 					.with_env(polkavm_env())
-					.with_args(self.collator_args())
+					.with_args(self.collator_args(true))
+			})
+		});
+
+		// Full nodes are non-authoring: they are not in `para.collators`, so the authority set and
+		// the authorizer hash are unchanged, and they get no `--force-authoring`. zombienet 0.5.0
+		// has no `with_full_node`, so a full node is spawned as a collator whose node is not an
+		// authority — it still gets `--collator` but never authors.
+		para.full_nodes.iter().fold(builder, |builder, name| {
+			builder.with_collator(|node| {
+				node.with_name(name.as_str())
+					.with_env(polkavm_env())
+					.with_args(self.collator_args(false))
 			})
 		})
 	}
@@ -195,17 +312,27 @@ impl JamSetup {
 		self.base_dir.to_string_lossy().into_owned()
 	}
 
-	/// The arguments every collator is started with: where the JAM node's RPC is, which service
+	/// The arguments every para node is started with: where the JAM node's RPC is, which service
 	/// hosts the authorizer, and the blob whose hash the para's core was assigned from.
-	fn collator_args(&self) -> Vec<Arg> {
-		vec![
-			"--force-authoring".into(),
+	///
+	/// `authoring` is the one difference between a collator and a full node: only a collator gets
+	/// `--force-authoring`. A full node is not in the authority set, so it only syncs.
+	fn collator_args(&self, authoring: bool) -> Vec<Arg> {
+		let mut args: Vec<Arg> = Vec::new();
+		if authoring {
+			args.push("--force-authoring".into());
+		}
+		args.extend([
 			Arg::Option("--jam-rpc-urls".into(), "ws://{{ZOMBIE:jam-or:rpc_uri}}".into()),
 			Arg::Option("--jam-service-id".into(), PARACHAIN_SERVICE_ID.to_string()),
 			Arg::Option("--jam-authorizer-blob".into(), self.authorizer_blob.clone()),
 			"--no-mdns".into(),
+			// A 7 MB code upgrade hex-encodes to ~14 MB, against the 15 MiB default.
+			Arg::Option("--rpc-max-request-size".into(), "32".into()),
+			Arg::Option("--rpc-max-response-size".into(), "32".into()),
 			"-ljam-collator=debug,jam-rpc-interface=debug".into(),
-		]
+		]);
+		args
 	}
 }
 

@@ -702,6 +702,20 @@ pub trait Backend<Block: BlockT>: AuxStore + Send + Sync {
 		AuxStore::get_aux(self, key)
 	}
 
+	/// The runtime code blob with this hash, if this backend stores code out of state.
+	///
+	/// Backends that keep the code in `:code` return `None`.
+	fn code_blob(&self, _code_hash: &[u8; 32]) -> sp_blockchain::Result<Option<Vec<u8>>> {
+		Ok(None)
+	}
+
+	/// Store a runtime code blob fetched out of state, keyed by its code hash.
+	///
+	/// Backends that keep the code in `:code` ignore this.
+	fn store_code_blob(&self, _code_hash: &[u8; 32], _code: &[u8]) -> sp_blockchain::Result<()> {
+		Ok(())
+	}
+
 	/// Gain access to the import lock around this backend.
 	///
 	/// _Note_ Backend isn't expected to acquire the lock by itself ever. Rather

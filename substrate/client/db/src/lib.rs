@@ -78,6 +78,7 @@ use sp_core::{
 	offchain::OffchainOverlayedChange,
 	storage::{well_known_keys, ChildInfo},
 };
+use sp_crypto_hashing::blake2_256;
 use sp_database::Transaction;
 use sp_runtime::{
 	generic::BlockId,
@@ -480,6 +481,29 @@ pub(crate) mod columns {
 	pub const TRANSACTION: u32 = 11;
 	pub const BODY_INDEX: u32 = 12;
 	pub const ADDITIONAL_DATA: u32 = 13;
+	/// Runtime code blobs stored in `columns::CODE`.
+	///
+	/// Key layout (lengths differ so there is no collision):
+	///   blob:           `hash`               (32 bytes) – existing, unchanged
+	///   refcount:       `b"rc" ++ hash`       (34 bytes) – little-endian u64
+	///   back-reference: `b"bk" ++ lookup_key` (38 bytes) – 32-byte code hash this block uses
+	pub const CODE: u32 = 14;
+}
+
+/// Build a refcount key for a code hash: `b"rc" ++ hash` (34 bytes total).
+fn code_refcount_key(hash: &[u8; 32]) -> [u8; 34] {
+	let mut key = [0u8; 34];
+	key[..2].copy_from_slice(b"rc");
+	key[2..].copy_from_slice(hash);
+	key
+}
+
+/// Build a back-reference key for a block's lookup key: `b"bk" ++ lookup_key` (38 bytes total).
+fn code_back_ref_key(lookup_key: &[u8]) -> Vec<u8> {
+	let mut key = Vec::with_capacity(2 + lookup_key.len());
+	key.extend_from_slice(b"bk");
+	key.extend_from_slice(lookup_key);
+	key
 }
 
 struct PendingBlock<Block: BlockT> {
@@ -938,6 +962,11 @@ pub struct BlockImportOperation<Block: BlockT> {
 	index_ops: Vec<IndexOperation>,
 	prefetched_indexed_transactions: HashMap<DbHash, Vec<u8>>,
 	additional_data: Option<Option<AdditionalData>>,
+	pending_code_blob: Option<Vec<u8>>,
+	/// Code hash from a genesis marker (`:code` = marker in `reset_storage`).
+	/// Set alongside `pending_code_blob = None` so the refcount path can see
+	/// that genesis references a code hash even though no blob was written here.
+	pending_code_marker_hash: Option<[u8; 32]>,
 }
 
 impl<Block: BlockT> BlockImportOperation<Block> {
@@ -975,6 +1004,18 @@ impl<Block: BlockT> BlockImportOperation<Block> {
 	) -> ClientResult<Block::Hash> {
 		if storage.top.keys().any(|k| well_known_keys::is_child_storage_key(k)) {
 			return Err(sp_blockchain::Error::InvalidState);
+		}
+
+		// Genesis is where the initial runtime blob first enters storage; capture it here so
+		// that markers written by later blocks can be resolved against the CODE column.
+		if let Some(code) = storage.top.get(well_known_keys::CODE) {
+			if let Some(h) = sp_code_marker::decode_marker(code) {
+				// Marker: no blob to write, but record the hash so the refcount path
+				// can issue a back-reference even though nothing goes into CODE here.
+				self.pending_code_marker_hash = Some(h);
+			} else {
+				self.pending_code_blob = Some(code.clone());
+			}
 		}
 
 		let child_delta = storage.children_default.values().map(|child_content| {
@@ -1343,6 +1384,14 @@ impl<Block: BlockT> Backend<Block> {
 		};
 
 		Self::new(db_setting, canonicalization_delay).expect("failed to create test-db")
+	}
+
+	/// Write a code blob directly to the CODE column.  Only for tests.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn insert_code_blob_for_test(&self, hash: &[u8; 32], blob: &[u8]) {
+		let mut tx = Transaction::new();
+		tx.set(columns::CODE, hash, blob);
+		self.storage.db.commit(tx).expect("insert_code_blob_for_test: commit failed");
 	}
 
 	/// Expose the Database that is used by this backend.
@@ -1755,7 +1804,11 @@ impl<Block: BlockT> Backend<Block> {
 				transaction.set(columns::META, meta_keys::GENESIS_HASH, hash.as_ref());
 
 				if operation.commit_state {
-					transaction.set_from_vec(columns::META, meta_keys::FINALIZED_STATE, lookup_key);
+					transaction.set_from_vec(
+						columns::META,
+						meta_keys::FINALIZED_STATE,
+						lookup_key.clone(),
+					);
 				} else {
 					// When we don't want to commit the genesis state, we still preserve it in
 					// memory to bootstrap consensus. It is queried for an initial list of
@@ -1840,6 +1893,78 @@ impl<Block: BlockT> Backend<Block> {
 						is_finalized: true,
 						with_state: true,
 					});
+				}
+
+				// Genesis blob comes via pending_code_blob (set in apply_new_state before trie
+				// encoding); runtime upgrades come via storage_updates. Markers are skipped —
+				// they name existing code, they are not code.
+				if let Some(code) = &operation.pending_code_blob {
+					let hash = blake2_256(code);
+					transaction.set(columns::CODE, &hash, code);
+				}
+				for (key, value) in &operation.storage_updates {
+					if key.as_slice() == well_known_keys::CODE {
+						if let Some(code) = value {
+							if !sp_code_marker::is_marker(code) {
+								let hash = blake2_256(code);
+								transaction.set(columns::CODE, &hash, code);
+							}
+						}
+					}
+				}
+
+				// Determine the code hash this block executes under, then record a
+				// back-reference and bump the refcount.  Every state-committed block
+				// must hold its own reference so that pruning the introducing block
+				// does not delete the blob while later blocks still use it.
+				let current_code_hash: Option<[u8; 32]> = if let Some(code) =
+					&operation.pending_code_blob
+				{
+					Some(blake2_256(code))
+				} else if let Some(h) = operation.pending_code_marker_hash {
+					Some(h)
+				} else {
+					// Check if :code was touched in this block's storage overlay.
+					// Both real blobs and markers count — a marker names a code hash.
+					let from_storage = operation.storage_updates.iter().find_map(|(k, v)| {
+						if k.as_slice() == well_known_keys::CODE {
+							v.as_ref().map(|code| {
+								sp_code_marker::decode_marker(code)
+									.unwrap_or_else(|| blake2_256(code))
+							})
+						} else {
+							None
+						}
+					});
+					if from_storage.is_some() {
+						from_storage
+					} else if number.is_zero() {
+						// Genesis always writes :code explicitly; reaching here means
+						// genesis had no code at all, which is unusual but not illegal.
+						None
+					} else {
+						// :code unchanged — carry the parent's back-reference forward.
+						// Pruning the introducing block must not delete the blob while
+						// every subsequent block still runs under it.
+						let parent_lookup =
+							utils::number_and_hash_to_lookup_key(number - One::one(), parent_hash)?;
+						self.storage
+							.db
+							.get(columns::CODE, &code_back_ref_key(&parent_lookup))
+							.and_then(|bytes| <[u8; 32]>::try_from(bytes).ok())
+					}
+				};
+
+				if let Some(code_hash) = current_code_hash {
+					transaction.set(columns::CODE, &code_back_ref_key(&lookup_key), &code_hash);
+					let rc_key = code_refcount_key(&code_hash);
+					let count = self
+						.storage
+						.db
+						.get(columns::CODE, &rc_key)
+						.and_then(|b| <[u8; 8]>::try_from(b).ok().map(u64::from_le_bytes))
+						.unwrap_or(0u64);
+					transaction.set(columns::CODE, &rc_key, &(count + 1).to_le_bytes());
 				}
 
 				// Check if need to finalize. Genesis is always finalized instantly.
@@ -2267,6 +2392,37 @@ impl<Block: BlockT> Backend<Block> {
 				},
 			}
 		}
+
+		// Decrement the refcount for the code blob this block references.
+		// If this was the last reference the blob is deleted; the back-reference
+		// entry is always removed.
+		if let Some(lookup_key) =
+			utils::block_id_to_lookup_key::<Block>(&*self.storage.db, columns::KEY_LOOKUP, id)?
+		{
+			let bk_key = code_back_ref_key(&lookup_key);
+			if let Some(code_hash) = self
+				.storage
+				.db
+				.get(columns::CODE, &bk_key)
+				.and_then(|bytes| <[u8; 32]>::try_from(bytes).ok())
+			{
+				let rc_key = code_refcount_key(&code_hash);
+				let count = self
+					.storage
+					.db
+					.get(columns::CODE, &rc_key)
+					.and_then(|b| <[u8; 8]>::try_from(b).ok().map(u64::from_le_bytes))
+					.unwrap_or(0u64);
+				if count <= 1 {
+					transaction.remove(columns::CODE, &code_hash[..]);
+					transaction.remove(columns::CODE, &rc_key[..]);
+				} else {
+					transaction.set(columns::CODE, &rc_key[..], &(count - 1).to_le_bytes());
+				}
+			}
+			transaction.remove(columns::CODE, &bk_key);
+		}
+
 		Ok(())
 	}
 
@@ -2452,6 +2608,8 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			index_ops: Default::default(),
 			prefetched_indexed_transactions: Default::default(),
 			additional_data: None,
+			pending_code_blob: None,
+			pending_code_marker_hash: None,
 		})
 	}
 
@@ -2961,6 +3119,21 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 		if self.blocks_pruning != BlocksPruning::KeepAll {
 			self.blockchain.unpin(hash);
 		}
+	}
+
+	fn code_blob(&self, code_hash: &[u8; 32]) -> sp_blockchain::Result<Option<Vec<u8>>> {
+		Ok(self.storage.db.get(columns::CODE, code_hash))
+	}
+
+	fn store_code_blob(&self, code_hash: &[u8; 32], code: &[u8]) -> sp_blockchain::Result<()> {
+		// A plain blob write is invisible to the prune path: `prune_block` only deletes a blob
+		// found through a block's `bk` back-reference, and this writes neither `bk` nor `rc`.
+		// Adding a refcount here would be wrong — it would clobber the count of blocks that
+		// already reference the same hash.
+		let mut transaction = Transaction::new();
+		transaction.set(columns::CODE, code_hash, code);
+		self.storage.db.commit(transaction)?;
+		Ok(())
 	}
 }
 
@@ -7707,5 +7880,300 @@ pub(crate) mod tests {
 		}
 
 		assert_eq!(backend.blockchain().block_additional_data(hash0).unwrap(), None);
+	}
+
+	#[test]
+	fn code_column_populated_on_commit() {
+		use sp_crypto_hashing::blake2_256;
+
+		// positive: genesis block with real code is written to the CODE column.
+		let real_blob: Vec<u8> = b"pretend wasm runtime bytes genesis".to_vec();
+		let real_hash = blake2_256(&real_blob);
+
+		let db = Backend::<Block>::new_test(1, 0);
+		{
+			let mut op = db.begin_operation().unwrap();
+			let mut top = std::collections::BTreeMap::new();
+			top.insert(well_known_keys::CODE.to_vec(), real_blob.clone());
+			let root = op
+				.reset_storage(
+					Storage { top, children_default: Default::default() },
+					StateVersion::V1,
+				)
+				.unwrap();
+			let header = Header {
+				number: 0,
+				parent_hash: Default::default(),
+				state_root: root.into(),
+				digest: Default::default(),
+				extrinsics_root: Default::default(),
+			};
+			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best, true)
+				.unwrap();
+			db.commit_operation(op).unwrap();
+		}
+		assert_eq!(db.code_blob(&real_hash).unwrap(), Some(real_blob.clone()));
+
+		// positive: non-genesis runtime upgrade via update_storage.
+		let upgrade_blob: Vec<u8> = b"pretend wasm runtime bytes upgrade".to_vec();
+		let upgrade_hash = blake2_256(&upgrade_blob);
+
+		let genesis_hash = db.blockchain().hash(0).unwrap().unwrap();
+		{
+			let mut op = db.begin_operation().unwrap();
+			db.begin_state_operation(&mut op, genesis_hash).unwrap();
+			let (root, overlay) = op.old_state.storage_root(
+				vec![(well_known_keys::CODE, Some(upgrade_blob.as_slice()))].into_iter(),
+				StateVersion::V1,
+			);
+			op.update_db_storage(overlay).unwrap();
+			op.update_storage(
+				vec![(well_known_keys::CODE.to_vec(), Some(upgrade_blob.clone()))],
+				vec![],
+			)
+			.unwrap();
+			let header = Header {
+				number: 1,
+				parent_hash: genesis_hash,
+				state_root: root.into(),
+				digest: Default::default(),
+				extrinsics_root: Default::default(),
+			};
+			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best, true)
+				.unwrap();
+			db.commit_operation(op).unwrap();
+		}
+		assert_eq!(db.code_blob(&upgrade_hash).unwrap(), Some(upgrade_blob));
+
+		// negative: genesis whose :code is a marker — no blob must be stored.
+		let phantom_hash = [0xabu8; 32];
+		let marker = sp_code_marker::encode_marker(&phantom_hash);
+
+		let db2 = Backend::<Block>::new_test(1, 0);
+		{
+			let mut op = db2.begin_operation().unwrap();
+			let mut top = std::collections::BTreeMap::new();
+			top.insert(well_known_keys::CODE.to_vec(), marker.to_vec());
+			let root = op
+				.reset_storage(
+					Storage { top, children_default: Default::default() },
+					StateVersion::V1,
+				)
+				.unwrap();
+			let header = Header {
+				number: 0,
+				parent_hash: Default::default(),
+				state_root: root.into(),
+				digest: Default::default(),
+				extrinsics_root: Default::default(),
+			};
+			op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Best, true)
+				.unwrap();
+			db2.commit_operation(op).unwrap();
+		}
+		assert_eq!(db2.code_blob(&phantom_hash).unwrap(), None);
+	}
+
+	#[test]
+	fn code_refcount_pruning() {
+		// Given: two distinct runtime blobs with independent lifecycles.
+		//
+		// BlocksPruning::Some(2), keep=2:
+		//   finalize block 2 → prune block 0 (2-2=0)
+		//   finalize block 3 → prune block 1 (3-2=1)
+		let code_v1: Vec<u8> = b"runtime v1 genesis blob".to_vec();
+		let code_v2: Vec<u8> = b"runtime v2 upgrade blob".to_vec();
+		let hash_v1 = blake2_256(&code_v1);
+		let hash_v2 = blake2_256(&code_v2);
+
+		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(2), 0);
+
+		// Block 0 (genesis) with code_v1.
+		let hash0 = {
+			let mut op = backend.begin_operation().unwrap();
+			let mut top = std::collections::BTreeMap::new();
+			top.insert(well_known_keys::CODE.to_vec(), code_v1.clone());
+			let root = op
+				.reset_storage(
+					Storage { top, children_default: Default::default() },
+					StateVersion::V1,
+				)
+				.unwrap();
+			let header = Header {
+				number: 0,
+				parent_hash: Default::default(),
+				state_root: root.into(),
+				digest: Default::default(),
+				extrinsics_root: Default::default(),
+			};
+			op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best, true)
+				.unwrap();
+			backend.commit_operation(op).unwrap();
+			header.hash()
+		};
+
+		// Block 1: runtime upgrade to code_v2.
+		let hash1 = {
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, hash0).unwrap();
+			let (root, overlay) = op.old_state.storage_root(
+				vec![(well_known_keys::CODE, Some(code_v2.as_slice()))].into_iter(),
+				StateVersion::V1,
+			);
+			op.update_db_storage(overlay).unwrap();
+			op.update_storage(
+				vec![(well_known_keys::CODE.to_vec(), Some(code_v2.clone()))],
+				vec![],
+			)
+			.unwrap();
+			let header = Header {
+				number: 1,
+				parent_hash: hash0,
+				state_root: root.into(),
+				digest: Default::default(),
+				extrinsics_root: Default::default(),
+			};
+			op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best, true)
+				.unwrap();
+			backend.commit_operation(op).unwrap();
+			header.hash()
+		};
+
+		// Blocks 2 and 3: no :code change; both inherit code_v2 via back-reference.
+		let hash2 = insert_header(&backend, 2, hash1, None, Default::default());
+		let hash3 = insert_header(&backend, 3, hash2, None, Default::default());
+
+		// When: finalise blocks 1, 2, 3 in one operation.
+		//   finalise 1 → prune_blocks(1): 1 < 2, no pruning
+		//   finalise 2 → prune_blocks(2): prune block 0 → code_v1 rc 1→0 → blob deleted
+		//   finalise 3 → prune_blocks(3): prune block 1 → code_v2 rc 3→2 → blob survives
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, hash3).unwrap();
+			op.mark_finalized(hash1, None).unwrap();
+			op.mark_finalized(hash2, None).unwrap();
+			op.mark_finalized(hash3, None).unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+
+		// Then: code_v1 only referenced by genesis (now pruned) → must be deleted.
+		assert_eq!(
+			backend.code_blob(&hash_v1).unwrap(),
+			None,
+			"code_v1 must be deleted once genesis is pruned"
+		);
+
+		// Then: code_v2 still referenced by blocks 2 and 3 (retained) → must survive.
+		assert_eq!(
+			backend.code_blob(&hash_v2).unwrap(),
+			Some(code_v2),
+			"code_v2 must survive while blocks 2 and 3 are retained"
+		);
+	}
+
+	#[test]
+	fn store_code_blob_round_trips_through_code_blob() {
+		use sp_crypto_hashing::blake2_256;
+
+		// Given: a backend that holds no blob for this hash.
+		let blob: Vec<u8> = b"runtime bytes fetched from JAM".to_vec();
+		let hash = blake2_256(&blob);
+		let backend = Backend::<Block>::new_test(1, 0);
+		assert_eq!(backend.code_blob(&hash).unwrap(), None);
+
+		// When: the fetched blob is stored.
+		backend.store_code_blob(&hash, &blob).unwrap();
+
+		// Then: it resolves through code_blob.
+		assert_eq!(backend.code_blob(&hash).unwrap(), Some(blob));
+	}
+
+	#[test]
+	fn stored_code_blob_survives_pruning_while_referenced() {
+		use sp_crypto_hashing::blake2_256;
+
+		// Given: a genesis blob, then a block whose `:code` is a marker for a blob the local
+		// column never received (the JAM upgrade hole).
+		let genesis_blob: Vec<u8> = b"genesis runtime bytes".to_vec();
+		let genesis_hash = blake2_256(&genesis_blob);
+		let fetched_blob: Vec<u8> = b"runtime bytes fetched from JAM".to_vec();
+		let fetched_hash = blake2_256(&fetched_blob);
+		let marker = sp_code_marker::encode_marker(&fetched_hash);
+
+		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(2), 0);
+
+		let hash0 = {
+			let mut op = backend.begin_operation().unwrap();
+			let mut top = std::collections::BTreeMap::new();
+			top.insert(well_known_keys::CODE.to_vec(), genesis_blob.clone());
+			let root = op
+				.reset_storage(
+					Storage { top, children_default: Default::default() },
+					StateVersion::V1,
+				)
+				.unwrap();
+			let header = Header {
+				number: 0,
+				parent_hash: Default::default(),
+				state_root: root.into(),
+				digest: Default::default(),
+				extrinsics_root: Default::default(),
+			};
+			op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best, true)
+				.unwrap();
+			backend.commit_operation(op).unwrap();
+			header.hash()
+		};
+
+		let hash1 = {
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, hash0).unwrap();
+			let (root, overlay) = op.old_state.storage_root(
+				vec![(well_known_keys::CODE, Some(marker.as_slice()))].into_iter(),
+				StateVersion::V1,
+			);
+			op.update_db_storage(overlay).unwrap();
+			op.update_storage(
+				vec![(well_known_keys::CODE.to_vec(), Some(marker.to_vec()))],
+				vec![],
+			)
+			.unwrap();
+			let header = Header {
+				number: 1,
+				parent_hash: hash0,
+				state_root: root.into(),
+				digest: Default::default(),
+				extrinsics_root: Default::default(),
+			};
+			op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best, true)
+				.unwrap();
+			backend.commit_operation(op).unwrap();
+			header.hash()
+		};
+
+		// The marker names a blob the local column never got.
+		assert_eq!(backend.code_blob(&fetched_hash).unwrap(), None);
+
+		// When: the collator stores the blob it fetched from JAM.
+		backend.store_code_blob(&fetched_hash, &fetched_blob).unwrap();
+		assert_eq!(backend.code_blob(&fetched_hash).unwrap(), Some(fetched_blob.clone()));
+
+		// And: blocks 2 and 3 inherit the marker, so the blob is referenced three times.
+		let hash2 = insert_header(&backend, 2, hash1, None, Default::default());
+		let hash3 = insert_header(&backend, 3, hash2, None, Default::default());
+
+		{
+			let mut op = backend.begin_operation().unwrap();
+			backend.begin_state_operation(&mut op, hash3).unwrap();
+			op.mark_finalized(hash1, None).unwrap();
+			op.mark_finalized(hash2, None).unwrap();
+			op.mark_finalized(hash3, None).unwrap();
+			backend.commit_operation(op).unwrap();
+		}
+
+		// Then: genesis's blob is pruned, while the fetched blob survives because blocks 2 and
+		// 3 still reference it.
+		assert_eq!(backend.code_blob(&genesis_hash).unwrap(), None);
+		assert_eq!(backend.code_blob(&fetched_hash).unwrap(), Some(fetched_blob));
 	}
 }

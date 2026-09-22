@@ -65,6 +65,17 @@ pub struct Para {
 	/// its name by zombienet — see [`chain_spec::account_of`] — so a name is all the harness
 	/// needs to know which key a running collator will hold.
 	pub collators: Vec<String>,
+	/// The PolkaVM runtime blob this para validates with *and* its collators execute. `None`
+	/// means the run's default, [`Binaries::runtime_wasm`](crate::env::Binaries::runtime_wasm)
+	/// from `RUNTIME_WASM` — the one blob every para shared before a para could choose its own.
+	///
+	/// It is threaded through both the chain spec the collators run and the service's
+	/// `validation_code`, so the bytes JAM validates and the bytes the collators execute cannot
+	/// disagree.
+	pub runtime: Option<PathBuf>,
+	/// Node names of additional non-authoring full nodes to run for this para. They sync the para
+	/// but are not in its authority set: the authorizer hash commits to [`Self::collators`] only.
+	pub full_nodes: Vec<String>,
 }
 
 impl Para {
@@ -76,7 +87,30 @@ impl Para {
 			core: 0,
 			also_cores: Vec::new(),
 			collators: (0..count).map(chain_spec::dev_name).collect(),
+			runtime: None,
+			full_nodes: Vec::new(),
 		}
+	}
+
+	/// Validate this para with `runtime` — its JAM validation code and the blob its collators
+	/// execute — instead of the run's default. `runtime` is the PolkaVM build; the chain spec and
+	/// the service's `validation_code` are both built from it.
+	pub fn with_runtime(mut self, runtime: impl Into<PathBuf>) -> Self {
+		self.runtime = Some(runtime.into());
+		self
+	}
+
+	/// Run `nodes` as additional non-authoring full nodes of this para. They are not added to
+	/// [`Self::collators`], so the authorizer hash — and the core it is queued on — is unchanged.
+	pub fn with_full_nodes(mut self, nodes: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
+		self.full_nodes.extend(nodes.into_iter().map(|name| name.as_ref().to_string()));
+		self
+	}
+
+	/// The blob this para validates with: its own [`Self::runtime`] when it chose one, `default`
+	/// (the run's `RUNTIME_WASM`) otherwise.
+	pub fn runtime_blob<'a>(&'a self, default: &'a Path) -> &'a Path {
+		self.runtime.as_deref().unwrap_or(default)
 	}
 
 	/// Queue this para's authorizer on `cores` in addition to [`Self::core`].
@@ -154,6 +188,8 @@ impl Collators {
 				// Discovery is explicit: without this the collators would find, and try to sync
 				// with, any other parachain node running on this machine.
 				.arg("--no-mdns")
+				// A 7 MB code upgrade hex-encodes to ~14 MB, against the 15 MiB default.
+				.args(["--rpc-max-request-size", "32", "--rpc-max-response-size", "32"])
 				.args(["-l", "jam-collator=debug,jam-rpc-interface=debug"])
 				.stdout(Stdio::from(log.try_clone()?))
 				.stderr(Stdio::from(log));

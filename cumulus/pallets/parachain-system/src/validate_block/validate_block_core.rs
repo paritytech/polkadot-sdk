@@ -32,7 +32,9 @@
 //!   scheduling-signature verification structurally unreachable.
 //! - `on_block_validated` fires inside the `run_with_externalities_and_recorder` scope after each
 //!   block's seal check, where the relay layer re-verifies the block's `set_validation_data`
-//!   against the relay-parent context (JAM passes `|_| {}`).
+//!   against the relay-parent context. JAM uses it to read the scheduled-upgrade storage item while
+//!   the storage host-function overrides are still installed, since a read after `execute_blocks`
+//!   returns would be an unserved raw host call.
 //! - `on_execute` runs a block against the just-built backend with the caller's readers/finalizers
 //!   armed: it receives the block's additional-data entry and the base execute closure. JAM arms
 //!   its proof reader + finalizer from the carried `JAM_PROOF_KEY` entry; the relay chain arms

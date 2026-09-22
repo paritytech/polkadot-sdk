@@ -323,18 +323,37 @@ pub enum CumulusDigestItem {
 	#[codec(index = 3)]
 	UseFullCore,
 
-	/// The JAM anchor and lookup anchor this parachain block was built against.
+	/// The JAM anchor and lookup anchor this parachain block was built against, with their slots.
 	///
-	/// Deposited by `parachain-system` under `cfg(jam)`. The anchor is the JAM block whose state
-	/// root the block's reads are verified against; the lookup anchor is the finalized JAM block
-	/// whose slot determines the AURA collator.
+	/// Deposited by the collator into the proposal's inherent digests. The anchor is the JAM block
+	/// whose state root the block's reads are verified against; the lookup anchor is the finalized
+	/// JAM block whose slot determines the AURA collator. The slots travel alongside the hashes
+	/// because a runtime cannot resolve a hash back to a slot without the JAM `fetch` host call.
+	/// `validate_block` checks the whole item against the refine context.
 	#[codec(index = 4)]
 	JamParent {
 		/// The JAM block hash serving as the work-package anchor.
 		anchor: relay_chain::Hash,
+		/// The slot of the anchor block.
+		anchor_slot: u32,
 		/// The JAM block hash whose slot names the collator round-robin position.
 		lookup_anchor: relay_chain::Hash,
+		/// The slot of the lookup-anchor block.
+		lookup_anchor_slot: u32,
 	},
+}
+
+/// The JAM anchors and their slots carried by a [`CumulusDigestItem::JamParent`] digest.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct JamParent {
+	/// The JAM block hash serving as the work-package anchor.
+	pub anchor: relay_chain::Hash,
+	/// The slot of the anchor block.
+	pub anchor_slot: u32,
+	/// The JAM block hash whose slot names the collator round-robin position.
+	pub lookup_anchor: relay_chain::Hash,
+	/// The slot of the lookup-anchor block.
+	pub lookup_anchor_slot: u32,
 }
 
 impl CumulusDigestItem {
@@ -428,15 +447,24 @@ impl CumulusDigestItem {
 
 	/// Returns the JAM anchor and lookup anchor from the given `digest`, when present.
 	pub fn find_jam_parent(digest: &Digest) -> Option<(relay_chain::Hash, relay_chain::Hash)> {
+		Self::find_jam_parent_info(digest).map(|parent| (parent.anchor, parent.lookup_anchor))
+	}
+
+	/// Returns the JAM anchors and their slots from the given `digest`, when present.
+	pub fn find_jam_parent_info(digest: &Digest) -> Option<JamParent> {
 		digest.convert_first(|d| match d {
 			DigestItem::PreRuntime(id, val) if id == &CUMULUS_CONSENSUS_ID => {
-				let Ok(CumulusDigestItem::JamParent { anchor, lookup_anchor }) =
-					CumulusDigestItem::decode_all(&mut &val[..])
+				let Ok(CumulusDigestItem::JamParent {
+					anchor,
+					anchor_slot,
+					lookup_anchor,
+					lookup_anchor_slot,
+				}) = CumulusDigestItem::decode_all(&mut &val[..])
 				else {
 					return None;
 				};
 
-				Some((anchor, lookup_anchor))
+				Some(JamParent { anchor, anchor_slot, lookup_anchor, lookup_anchor_slot })
 			},
 			_ => None,
 		})
@@ -777,7 +805,9 @@ mod tests {
 	fn jam_parent_codec_round_trip() {
 		let jam_parent = CumulusDigestItem::JamParent {
 			anchor: [1u8; 32].into(),
+			anchor_slot: 11,
 			lookup_anchor: [2u8; 32].into(),
+			lookup_anchor_slot: 22,
 		};
 
 		let encoded = jam_parent.encode();
@@ -789,7 +819,9 @@ mod tests {
 	fn jam_parent_to_digest_item_is_pre_runtime() {
 		let item = CumulusDigestItem::JamParent {
 			anchor: [1u8; 32].into(),
+			anchor_slot: 11,
 			lookup_anchor: [2u8; 32].into(),
+			lookup_anchor_slot: 22,
 		};
 
 		// The item travels in the block header, and `frame_executive::extract_pre_digest` seeds
@@ -807,7 +839,9 @@ mod tests {
 		digest.push(
 			CumulusDigestItem::JamParent {
 				anchor: [1u8; 32].into(),
+				anchor_slot: 11,
 				lookup_anchor: [2u8; 32].into(),
+				lookup_anchor_slot: 22,
 			}
 			.to_digest_item(),
 		);
@@ -815,6 +849,15 @@ mod tests {
 		assert_eq!(
 			CumulusDigestItem::find_jam_parent(&digest),
 			Some(([1u8; 32].into(), [2u8; 32].into()))
+		);
+		assert_eq!(
+			CumulusDigestItem::find_jam_parent_info(&digest),
+			Some(JamParent {
+				anchor: [1u8; 32].into(),
+				anchor_slot: 11,
+				lookup_anchor: [2u8; 32].into(),
+				lookup_anchor_slot: 22,
+			})
 		);
 	}
 

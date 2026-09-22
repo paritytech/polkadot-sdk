@@ -523,13 +523,19 @@ mod tests {
 	/// reads.
 	#[test]
 	fn the_built_genesis_storage_carries_the_para_record() {
-		let paras =
-			vec![Para { id: 0, core: 0, also_cores: Vec::new(), collators: vec!["alice".to_string()] }];
+		let paras = vec![Para {
+			id: 0,
+			core: 0,
+			also_cores: Vec::new(),
+			collators: vec!["alice".to_string()],
+			runtime: None,
+			full_nodes: Vec::new(),
+		}];
 		let spec = parachain_service_spec(
 			&paras,
 			b"service code".to_vec(),
 			b"authorizer".to_vec(),
-			b"validation code".to_vec(),
+			&[b"validation code".to_vec()],
 			&[b"the head".to_vec()],
 		)
 		.expect("a tiny spec builds; qed");
@@ -622,13 +628,19 @@ mod tests {
 			.expect("a temp dir; qed");
 		let frozen = copy_aside(Path::new(SERVICE_BLOB), work.path())
 			.expect("freezing the blob, as spawn does; qed");
-		let paras =
-			vec![Para { id: 0, core: 0, also_cores: Vec::new(), collators: vec!["alice".to_string()] }];
+		let paras = vec![Para {
+			id: 0,
+			core: 0,
+			also_cores: Vec::new(),
+			collators: vec!["alice".to_string()],
+			runtime: None,
+			full_nodes: Vec::new(),
+		}];
 		let spec = parachain_service_spec(
 			&paras,
 			std::fs::read(&frozen).expect("reading the frozen copy; qed"),
 			b"authorizer".to_vec(),
-			b"validation code".to_vec(),
+			&[b"validation code".to_vec()],
 			&[b"the head".to_vec()],
 		)
 		.expect("a tiny spec builds; qed");
@@ -725,8 +737,14 @@ mod tests {
 		chain_spec::build(&omni_node(), &blob_path, &spec_path, 0, &["alice".to_string()])?;
 		let head = export_genesis_head(&omni_node(), &spec_path)?;
 
-		let para =
-			Para { id: 0, core: 0, also_cores: Vec::new(), collators: vec!["alice".to_string()] };
+		let para = Para {
+			id: 0,
+			core: 0,
+			also_cores: Vec::new(),
+			collators: vec!["alice".to_string()],
+			runtime: None,
+			full_nodes: Vec::new(),
+		};
 		let genesis = ParachainServiceSpec::new(PARACHAIN_SERVICE_ID, b"service code")
 			.balance(PARACHAIN_SERVICE_ENDOWMENT)
 			.parachain(
@@ -768,15 +786,15 @@ mod tests {
 			return Err(anyhow::anyhow!("para 0 is registered without validation code"));
 		};
 		anyhow::ensure!(
-			code.code_ref.hash.0 == *code_hash,
+			code.hash.0 == *code_hash,
 			"registered code hash {} != the blob's {}",
-			array_bytes::bytes2hex("", code.code_ref.hash.0),
+			array_bytes::bytes2hex("", code.hash.0),
 			array_bytes::bytes2hex("", code_hash),
 		);
 		anyhow::ensure!(
-			code.code_ref.len == code_len,
+			code.len == code_len,
 			"registered code length {} != the blob's {code_len}",
-			code.code_ref.len,
+			code.len,
 		);
 
 		anyhow::ensure!(
@@ -920,7 +938,7 @@ mod tests {
 		ParaInfo {
 			head_data: head_data.try_into().expect("the head fits in HeadData; qed"),
 			validation_code: None,
-			pending_upgrade: None,
+			announced_upgrade: None,
 			total_state_balance: 0,
 			used_state_balance: 0,
 			is_deregistering: false,

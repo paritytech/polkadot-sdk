@@ -32,9 +32,6 @@ mod pov_recovery;
 // `assert_relay_parent_offset` reads relay parent digests, which a JAM para header does not carry.
 #[cfg(not(feature = "jam"))]
 mod relay_parent_offset;
-// Upgrades to a WASM blob; the JAM runtime is PolkaVM, so there is nothing to upgrade to:
-// "WASM runtime binary not available".
-#[cfg(not(feature = "jam"))]
 mod runtime_upgrade;
 mod three_cores_glutton;
 // subxt cannot decode the JAM `JamParent` digest item the runtime deposits:

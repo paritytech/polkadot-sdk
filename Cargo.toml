@@ -519,6 +519,7 @@ members = [
 	"substrate/primitives/authority-discovery",
 	"substrate/primitives/block-builder",
 	"substrate/primitives/blockchain",
+	"substrate/primitives/code-marker",
 	"substrate/primitives/consensus/aura",
 	"substrate/primitives/consensus/babe",
 	"substrate/primitives/consensus/beefy",
@@ -551,6 +552,7 @@ members = [
 	"substrate/primitives/npos-elections/fuzzer",
 	"substrate/primitives/offchain",
 	"substrate/primitives/panic-handler",
+	"substrate/primitives/polkavm-blob",
 	"substrate/primitives/rpc",
 	"substrate/primitives/runtime",
 	"substrate/primitives/runtime-interface",
@@ -1388,6 +1390,7 @@ sp-arithmetic = { path = "substrate/primitives/arithmetic", default-features = f
 sp-authority-discovery = { path = "substrate/primitives/authority-discovery", default-features = false }
 sp-block-builder = { path = "substrate/primitives/block-builder", default-features = false }
 sp-blockchain = { path = "substrate/primitives/blockchain", default-features = false }
+sp-code-marker = { path = "substrate/primitives/code-marker", default-features = false }
 sp-consensus = { path = "substrate/primitives/consensus/common", default-features = false }
 sp-consensus-aura = { path = "substrate/primitives/consensus/aura", default-features = false }
 sp-consensus-babe = { path = "substrate/primitives/consensus/babe", default-features = false }
@@ -1417,6 +1420,7 @@ sp-mmr-primitives = { path = "substrate/primitives/merkle-mountain-range", defau
 sp-npos-elections = { path = "substrate/primitives/npos-elections", default-features = false }
 sp-offchain = { path = "substrate/primitives/offchain", default-features = false }
 sp-panic-handler = { path = "substrate/primitives/panic-handler", default-features = false }
+sp-polkavm-blob = { path = "substrate/primitives/polkavm-blob", default-features = false }
 sp-rpc = { path = "substrate/primitives/rpc", default-features = false }
 sp-runtime = { path = "substrate/primitives/runtime", default-features = false }
 sp-runtime-interface = { path = "substrate/primitives/runtime-interface", default-features = false }

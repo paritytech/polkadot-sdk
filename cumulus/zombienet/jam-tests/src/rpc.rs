@@ -4,7 +4,7 @@
 //! The two JSON-RPC clients the harness needs: one for a JAM node, one for a collator.
 
 use anyhow::Context;
-use jam_types::{AnyBytes, AnyVec};
+use jam_types::{AnyBytes, AnyHash, AnyVec};
 use jsonrpsee::{
 	core::client::ClientT,
 	rpc_params,
@@ -68,6 +68,21 @@ impl JamRpc {
 		Ok(block["slot"].as_u64().unwrap_or(0))
 	}
 
+	/// The header hash of the latest finalized block.
+	///
+	/// This is the lookup anchor a preimage read has to name: only a finalized block may be a
+	/// work package's anchor, so it is also the block a validator resolves the preimage from.
+	/// polkajam spells the call `finalizedBlock`; a JAM node has no substrate
+	/// `chain_getFinalizedHead`.
+	pub async fn finalized_header_hash(&self) -> anyhow::Result<Value> {
+		let block: Value = self
+			.client
+			.request("finalizedBlock", rpc_params![])
+			.await
+			.context("finalizedBlock")?;
+		Ok(block["header_hash"].clone())
+	}
+
 	/// The header hash of the best block, which is the block every state read is taken at.
 	pub async fn best_block_hash(&self) -> anyhow::Result<Value> {
 		let best: Value =
@@ -103,6 +118,59 @@ impl JamRpc {
 			.await
 			.context("serviceValue")?;
 		Ok(value.map(|bytes| bytes.0.to_vec()))
+	}
+
+	/// Submit `blob` as the preimage service `service` is requesting.
+	///
+	/// The blob travels as [`AnyBytes`], so polkajam's own serde is what spells it as the base64
+	/// the JAM RPC speaks. The call returns as soon as the node accepts the blob; it does not
+	/// wait for the preimage to be integrated, so the caller has to read
+	/// [`Self::service_request`] back at a finalized block to see the provision land.
+	///
+	/// A blob above `jam_types::MAX_PREIMAGE_BLOB_LEN` is refused with polkajam's `BlobTooLarge`
+	/// error.
+	pub async fn submit_preimage(&self, service: u32, blob: &[u8]) -> anyhow::Result<()> {
+		self.client
+			.request("submitPreimage", rpc_params![service, AnyBytes(blob.to_vec().into())])
+			.await
+			.context("submitPreimage")
+	}
+
+	/// The preimage request `(hash, len)` of service `service` in the posterior state of `at`.
+	///
+	/// `None` means the service has neither requested nor been provided the preimage;
+	/// `Some([])` means it has been requested and not yet provided; a non-empty list is the
+	/// slots the request went through — provided, forgotten, requested again.
+	pub async fn service_request(
+		&self,
+		at: &Value,
+		service: u32,
+		hash: &[u8; 32],
+		len: u32,
+	) -> anyhow::Result<Option<Vec<u64>>> {
+		let slots: Option<Vec<u64>> = self
+			.client
+			.request("serviceRequest", rpc_params![at, service, AnyHash(*hash), len])
+			.await
+			.context("serviceRequest")?;
+		Ok(slots)
+	}
+
+	/// The length of preimage `hash` of service `service` in the posterior state of `at`.
+	///
+	/// `None` is an answer and not a failure: the service does not hold that preimage.
+	pub async fn service_preimage_len(
+		&self,
+		at: &Value,
+		service: u32,
+		hash: &[u8; 32],
+	) -> anyhow::Result<Option<u32>> {
+		let len: Option<u32> = self
+			.client
+			.request("servicePreimageLen", rpc_params![at, service, AnyHash(*hash)])
+			.await
+			.context("servicePreimageLen")?;
+		Ok(len)
 	}
 }
 

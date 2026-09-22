@@ -45,6 +45,7 @@ sp-offchain = { workspace = true }
 sp-runtime = { workspace = true }
 sp-session = { workspace = true }
 sp-transaction-pool = { workspace = true }
+sp-transaction-storage-proof = { workspace = true }
 sp-version = { workspace = true }
 
 # Polkadot
@@ -105,6 +106,7 @@ std = [
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-transaction-pool/std",
+	"sp-transaction-storage-proof/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
 	"tracing/std",

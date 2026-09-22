@@ -94,7 +94,13 @@ elastic-scaling | block-bundling)
 	# The sdk test crate's JAM paths are selected by the `jam` feature, which type-checks them
 	# without a whole-workspace rebuild. The feature is scoped to the one cargo invocation that
 	# needs it.
-	export SKIP_WASM_BUILD=1
+	#
+	# These suites upgrade to `cumulus-test-runtime` feature flavors. Under the riscv target the
+	# wasm-builder emits each flavor's PolkaVM blob under the same `WASM_BINARY` const, so the
+	# build must run (no `SKIP_WASM_BUILD`) with `--cfg jam` injected through its RUSTFLAGS
+	# channel. This is a heavy build: every flavor is compiled for riscv.
+	export SUBSTRATE_RUNTIME_TARGET=riscv
+	export WASM_BUILD_RUSTFLAGS="${WASM_BUILD_RUSTFLAGS:-} --cfg jam"
 	# zombienet-sdk supports JAM on the native provider only; the default would be docker.
 	export ZOMBIE_PROVIDER="${ZOMBIE_PROVIDER:-native}"
 	# zombienet converts each para's chain spec to raw by invoking the parachain command itself,

@@ -26,7 +26,7 @@
 
 use codec::Decode;
 use cumulus_jam_state_reader::{JamProofReader, JamStateExt, JAM_PROOF_KEY};
-use parachain_service_core::{StateProof, PARACHAIN_SERVICE_ID};
+use parachain_service_core::StateProof;
 use sc_client_api::backend::AuxStore;
 use sc_consensus::{BlockImport, BlockImportParams, ImportResult, StateAction};
 use sp_additional_data::{AdditionalData, AdditionalDataExt, AdditionalDataFinalizer};
@@ -39,15 +39,15 @@ use cumulus_jam_state_reader::JamProofFinalizer;
 
 /// Turn the carried additional-data map into the JAM reader and finalizer re-execution needs.
 ///
-/// Decodes the `JAM_PROOF_KEY` entry — the SCALE-encoding of `(state_root, StateProof)` — and, as
-/// the relay import path does, trusts the root carried inside it: JAM finality, and the PVF is
-/// the authoritative validator. `None` when the entry is missing or malformed; the relay path
-/// fails the import the same way, because a block that reads JAM state but carries no usable
-/// proof is invalid.
+/// Decodes the `JAM_PROOF_KEY` entry — the SCALE-encoding of
+/// `(anchor_state_root, StateProof)` — and, as the relay import path does, trusts the root carried
+/// inside it: JAM finality, and the PVF is the authoritative validator. `None` when the entry is
+/// missing or malformed; the relay path fails the import the same way, because a block that reads
+/// JAM state but carries no usable proof is invalid.
 fn jam_import_reader(map: &AdditionalData) -> Option<(JamProofReader, JamProofFinalizer)> {
 	let entry = map.get(JAM_PROOF_KEY)?;
-	let (state_root, proof) = <([u8; 32], StateProof)>::decode(&mut &entry[..]).ok()?;
-	let reader = JamProofReader::new(PARACHAIN_SERVICE_ID, state_root, proof);
+	let (anchor_state_root, proof) = <([u8; 32], StateProof)>::decode(&mut &entry[..]).ok()?;
+	let reader = JamProofReader::new(anchor_state_root, proof);
 	let finalizer = JamProofFinalizer { commitment: sp_additional_data::hash_value(entry) };
 	Some((reader, finalizer))
 }
@@ -195,7 +195,9 @@ mod tests {
 	use super::*;
 	use codec::Encode;
 	use cumulus_jam_state_reader::JamStateReader;
-	use parachain_service_core::{blake2_256, service_value_state_key, Hash, ProofNode};
+	use parachain_service_core::{
+		blake2_256, service_value_state_key, Hash, ProofNode, PARACHAIN_SERVICE_ID,
+	};
 	use sp_additional_data::{hash_commitments, hash_value, AdditionalData};
 
 	/// A fixed service-local key standing in for `para_info_key(para_id)`; the reader derives the
@@ -213,9 +215,13 @@ mod tests {
 		value
 	}
 
+	fn head_state_key() -> cumulus_jam_state_reader::StateKey {
+		service_value_state_key(PARACHAIN_SERVICE_ID, HEAD_KEY)
+	}
+
 	/// A single-key large-leaf proof of `value` under the derived `HEAD_KEY` state key, the shape
-	/// task 9's authoring carries. Returns the `(state_root, proof)` pair the `JAM_PROOF_KEY`
-	/// entry is the SCALE-encoding of.
+	/// task 9's authoring carries. Returns the `(state_root, proof)` pair the anchor root of the
+	/// `JAM_PROOF_KEY` entry comes from.
 	fn head_proof() -> (Hash, StateProof) {
 		let value = para_info_value(&[7u8; 32]);
 		let state_key = service_value_state_key(PARACHAIN_SERVICE_ID, HEAD_KEY);
@@ -231,9 +237,9 @@ mod tests {
 		(state_root, proof)
 	}
 
-	/// The `JAM_PROOF_KEY` entry an authored block carries: SCALE `(state_root, proof)`.
-	fn jam_map(proof: &StateProof, state_root: Hash) -> AdditionalData {
-		[(JAM_PROOF_KEY.to_string(), (state_root, proof).encode())].into()
+	/// The `JAM_PROOF_KEY` entry an authored block carries: SCALE `(anchor_state_root, proof)`.
+	fn jam_map(proof: &StateProof, anchor_state_root: Hash) -> AdditionalData {
+		[(JAM_PROOF_KEY.to_string(), (anchor_state_root, proof).encode())].into()
 	}
 
 	/// A round-tripped authored block: the carried `JAM_PROOF_KEY` entry builds the reader the
@@ -249,7 +255,7 @@ mod tests {
 		let (reader, finalizer) = jam_import_reader(&map).expect("a well-formed entry builds");
 
 		// The read the runtime makes during re-execution resolves through the reader (no trap).
-		let read = reader.read(HEAD_KEY).expect("the reader serves the read");
+		let read = reader.read(&head_state_key()).expect("the reader serves the read");
 		assert_eq!(read, para_info_value(&[7u8; 32]));
 
 		// The individual finalizer commits hash_value of the carried entry — and the
@@ -281,7 +287,7 @@ mod tests {
 		let (reader, _) = jam_import_reader(&map).expect("a tampered proof still decodes");
 
 		let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-			let _ = reader.read(HEAD_KEY);
+			let _ = reader.read(&head_state_key());
 		}));
 		assert!(result.is_err(), "a removed proof node must panic the read, never read as absent");
 	}
@@ -296,6 +302,9 @@ mod tests {
 		assert!(jam_import_reader(&garbage).is_none(), "no JAM_PROOF_KEY key");
 
 		let malformed = [(JAM_PROOF_KEY.to_string(), vec![0xABu8; 7])].into();
-		assert!(jam_import_reader(&malformed).is_none(), "entry does not decode as (root, proof)",);
+		assert!(
+			jam_import_reader(&malformed).is_none(),
+			"entry does not decode as (anchor_state_root, proof)",
+		);
 	}
 }

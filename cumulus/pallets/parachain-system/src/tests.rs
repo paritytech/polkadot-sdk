@@ -1852,16 +1852,13 @@ fn read_included_para_head_reads_from_jam_state() {
 		head_data: parachain_service_core::types::HeadData::try_from(head.0.clone())
 			.expect("4 bytes < 4 KiB; qed"),
 		validation_code: None,
-		pending_upgrade: None,
+		announced_upgrade: None,
 		total_state_balance: 0,
 		used_state_balance: 0,
 		is_deregistering: false,
 	};
 	let mut jam_reads = BTreeMap::new();
-	jam_reads.insert(
-		parachain_service_core::para_info_key(parachain_service_core::types::ParaId::from(200)),
-		para_info.encode(),
-	);
+	jam_reads.insert(jam_para_info_state_key(200).to_vec(), para_info.encode());
 
 	// `new_test_ext` clears the mock stores, so seed them after building the externality.
 	let mut ext = new_test_ext();
@@ -1918,7 +1915,7 @@ fn read_included_para_head_jam_absent_key_falls_back_to_relay() {
 fn read_included_para_head_jam_malformed_value_errors() {
 	let mut jam_reads = BTreeMap::new();
 	jam_reads.insert(
-		parachain_service_core::para_info_key(parachain_service_core::types::ParaId::from(200)),
+		jam_para_info_state_key(200).to_vec(),
 		vec![0xff, 0x00, 0x01], // not a valid `ParaInfo` SCALE encoding
 	);
 
@@ -2019,7 +2016,7 @@ fn jam_para_info(head: &[u8]) -> Vec<u8> {
 		head_data: parachain_service_core::types::HeadData::try_from(head.to_vec())
 			.expect("head is shorter than 4 KiB; qed"),
 		validation_code: None,
-		pending_upgrade: None,
+		announced_upgrade: None,
 		total_state_balance: 0,
 		used_state_balance: 0,
 		is_deregistering: false,
@@ -2045,12 +2042,12 @@ fn read_included_para_head_reads_from_carried_jam_proof() {
 	let encoded = jam_para_info(&head.0);
 	let trie = JamTrie::new(vec![(jam_para_info_state_key(200), encoded)]);
 
-	// The PoV carries the `(state_root, proof)` entry; build the reader the way `validate_block`
-	// does, from the decoded entry, against the trusted anchor state root.
+	// The PoV carries the `(anchor_state_root, proof)` entry; build the reader the way
+	// `validate_block` does, from the decoded entry, against the trusted anchor state root.
 	let entry = (trie.root, &trie.proof()).encode();
-	let (root, proof) = <([u8; 32], jam_helpers::StateProof)>::decode(&mut &entry[..])
-		.expect("entry decodes as (state_root, proof)");
-	let reader = JamProofReader::new(JAM_SERVICE_ID, root, proof);
+	let (anchor_root, proof) = <([u8; 32], jam_helpers::StateProof)>::decode(&mut &entry[..])
+		.expect("entry decodes as (anchor_state_root, proof)");
+	let reader = JamProofReader::new(anchor_root, proof);
 
 	let mut ext = new_test_ext();
 	ext.register_extension(JamStateExt(Box::new(reader)));
@@ -2077,7 +2074,7 @@ fn read_included_para_head_jam_absent_in_carried_proof_falls_back_to_relay() {
 	// absent.
 	let other_encoded = jam_para_info(&[0x00, 0x00]);
 	let trie = JamTrie::new(vec![(jam_para_info_state_key(201), other_encoded)]);
-	let reader = JamProofReader::new(JAM_SERVICE_ID, trie.root, trie.proof());
+	let reader = JamProofReader::new(trie.root, trie.proof());
 
 	// `new_test_ext` clears the mock stores, so seed them after building the externality.
 	let mut ext = new_test_ext();
@@ -2101,7 +2098,7 @@ fn read_included_para_head_jam_tampered_proof_panics() {
 	let trie = JamTrie::new(vec![(state_key, encoded.clone())]);
 	let mut proof = trie.proof();
 	proof.nodes.retain(|node| node != &jam_leaf_node(&state_key, &encoded));
-	let reader = JamProofReader::new(JAM_SERVICE_ID, trie.root, proof);
+	let reader = JamProofReader::new(trie.root, proof);
 
 	let mut ext = new_test_ext();
 	ext.register_extension(JamStateExt(Box::new(reader)));
@@ -2141,9 +2138,9 @@ fn carried_jam_proof_finalizes_to_authored_digest() {
 
 	// Build the reader + finalizer pair the way `validate_block_core` does, from the carried
 	// `JAM_PROOF_KEY` entry.
-	let (root, proof) = <([u8; 32], jam_helpers::StateProof)>::decode(&mut &entry[..])
-		.expect("entry decodes as (state_root, proof)");
-	let reader = JamProofReader::new(JAM_SERVICE_ID, root, proof);
+	let (anchor_root, proof) = <([u8; 32], jam_helpers::StateProof)>::decode(&mut &entry[..])
+		.expect("entry decodes as (anchor_state_root, proof)");
+	let reader = JamProofReader::new(anchor_root, proof);
 	let finalizer = JamProofFinalizer { commitment: hash_value(&entry) };
 
 	let mut ext = new_test_ext();
@@ -2166,5 +2163,168 @@ fn carried_jam_proof_finalizes_to_authored_digest() {
 			sp_additional_data::additional_data::finalize(),
 			hash_commitments(core::iter::once(hash_value(&entry)))
 		);
+	});
+}
+
+/// A `ParaInfo` with the given active and announced code refs, SCALE-encoded as stored in the
+/// parachain service.
+fn build_para_info(active: Option<([u8; 32], u32)>, announced: Option<([u8; 32], u32)>) -> Vec<u8> {
+	use jam_helpers::types::{HeadData, ValidationCodeHash, ValidationCodeRef};
+	let to_ref =
+		|(hash, len): ([u8; 32], u32)| ValidationCodeRef { hash: ValidationCodeHash(hash), len };
+	jam_helpers::ParaInfo {
+		head_data: HeadData::try_from(vec![0xca, 0xfe]).expect("2 bytes < 4 KiB; qed"),
+		validation_code: active.map(to_ref),
+		announced_upgrade: announced.map(to_ref),
+		total_state_balance: 0,
+		used_state_balance: 0,
+		is_deregistering: false,
+	}
+	.encode()
+}
+
+/// The service does not know the code yet: announce it, leave `:code` untouched, and keep the
+/// local pending state armed.
+#[test]
+fn jam_upgrade_unseen_request_emits_announcement() {
+	let hash = [0xabu8; 32];
+	let len = 42u32;
+
+	let mut ext = new_test_ext();
+	set_mock_jam_reads({
+		let mut m = BTreeMap::new();
+		m.insert(jam_para_info_state_key(200).to_vec(), build_para_info(None, None));
+		m
+	});
+
+	ext.execute_with(|| {
+		let code_before = sp_io::storage::get(sp_core::storage::well_known_keys::CODE);
+		PendingCodeHash::<Test>::put((hash, len));
+
+		let result = crate::jam::upgrade::apply_if_ready_now::<Test>();
+
+		assert_eq!(
+			result,
+			crate::jam::upgrade::UpgradeApplyResult::Emit(
+				hash,
+				len,
+				parachain_service_core::CodeUpgradePhase::Announcement
+			)
+		);
+		assert_eq!(
+			sp_io::storage::get(sp_core::storage::well_known_keys::CODE),
+			code_before,
+			":code must be unchanged"
+		);
+		assert!(!System::digest()
+			.logs()
+			.iter()
+			.any(|d| *d == DigestItem::RuntimeEnvironmentUpdated));
+		assert!(PendingCodeHash::<Test>::exists(), "pending must remain armed");
+
+		// `set_validation_data` records the returned emit for the PVF to send after execution.
+		if let crate::jam::upgrade::UpgradeApplyResult::Emit(hash, len, phase) = result {
+			PendingUpgradeEmit::<Test>::put((
+				hash,
+				len,
+				crate::jam::upgrade::EmitPhase::from(phase),
+			));
+		}
+		assert_eq!(
+			PendingUpgradeEmit::<Test>::get(),
+			Some((hash, len, crate::jam::upgrade::EmitPhase::Announcement))
+		);
+	});
+}
+
+/// The service announced the code: the switch is immediate, so write the marker and emit an
+/// `Apply` for the service.
+#[test]
+fn jam_upgrade_announced_request_writes_marker_and_emits_apply() {
+	let hash = [0xabu8; 32];
+	let len = 42u32;
+
+	let mut ext = new_test_ext();
+	set_mock_jam_reads({
+		let mut m = BTreeMap::new();
+		m.insert(jam_para_info_state_key(200).to_vec(), build_para_info(None, Some((hash, len))));
+		m
+	});
+
+	ext.execute_with(|| {
+		PendingCodeHash::<Test>::put((hash, len));
+
+		let result = crate::jam::upgrade::apply_if_ready_now::<Test>();
+
+		assert_eq!(
+			result,
+			crate::jam::upgrade::UpgradeApplyResult::Emit(
+				hash,
+				len,
+				parachain_service_core::CodeUpgradePhase::Apply
+			)
+		);
+
+		let code = sp_io::storage::get(sp_core::storage::well_known_keys::CODE)
+			.expect(":code must be set after apply");
+		assert_eq!(code, sp_code_marker::encode_marker(&hash).to_vec());
+
+		assert!(
+			System::digest()
+				.logs()
+				.iter()
+				.any(|d| *d == DigestItem::RuntimeEnvironmentUpdated),
+			"RuntimeEnvironmentUpdated digest must be deposited"
+		);
+		assert!(!PendingCodeHash::<Test>::exists(), "PendingCodeHash must be cleared");
+
+		if let crate::jam::upgrade::UpgradeApplyResult::Emit(hash, len, phase) = result {
+			PendingUpgradeEmit::<Test>::put((
+				hash,
+				len,
+				crate::jam::upgrade::EmitPhase::from(phase),
+			));
+		}
+		assert_eq!(
+			PendingUpgradeEmit::<Test>::get(),
+			Some((hash, len, crate::jam::upgrade::EmitPhase::Apply))
+		);
+	});
+}
+
+/// The service already runs the code: write the marker, clear the pending state, and emit
+/// nothing.
+#[test]
+fn jam_upgrade_active_code_writes_marker_and_applies() {
+	let hash = [0xabu8; 32];
+	let len = 42u32;
+
+	let mut ext = new_test_ext();
+	set_mock_jam_reads({
+		let mut m = BTreeMap::new();
+		m.insert(jam_para_info_state_key(200).to_vec(), build_para_info(Some((hash, len)), None));
+		m
+	});
+
+	ext.execute_with(|| {
+		PendingCodeHash::<Test>::put((hash, len));
+
+		let result = crate::jam::upgrade::apply_if_ready_now::<Test>();
+
+		assert_eq!(result, crate::jam::upgrade::UpgradeApplyResult::Applied);
+
+		let code = sp_io::storage::get(sp_core::storage::well_known_keys::CODE)
+			.expect(":code must be set after apply");
+		assert_eq!(code, sp_code_marker::encode_marker(&hash).to_vec());
+
+		assert!(
+			System::digest()
+				.logs()
+				.iter()
+				.any(|d| *d == DigestItem::RuntimeEnvironmentUpdated),
+			"RuntimeEnvironmentUpdated digest must be deposited"
+		);
+		assert!(!PendingCodeHash::<Test>::exists(), "PendingCodeHash must be cleared");
+		assert!(!PendingUpgradeEmit::<Test>::exists(), "an already-applied code emits nothing");
 	});
 }

@@ -17,9 +17,9 @@
 //! [`JamStateReader`] implementation over a verified, carried JAM [`StateProof`].
 //!
 //! The build side records the proof live (task 9); this reader is the other half: it holds a
-//! fixed [`StateProof`] that has already been verified against the trusted `state_root` once,
-//! node-side, before construction, and serves reads through it. Authoring, refine and import all
-//! read through the same reader over the same carried proof, so a collator cannot diverge from
+//! fixed [`StateProof`] that has already been verified against the trusted `anchor_state_root`
+//! once, node-side, before construction, and serves reads through it. Authoring, refine and import
+//! all read through the same reader over the same carried proof, so a collator cannot diverge from
 //! what the proof commits to.
 
 extern crate alloc;
@@ -27,39 +27,40 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use codec::Encode;
-use parachain_service_core::{service_value_state_key, verify, Hash, StateProof};
+use parachain_service_core::{verify, Hash, StateProof};
+
+use crate::StateKey;
 
 use crate::JamStateReader;
 
 /// Reads JAM chain-state values through a verified, carried [`StateProof`].
 ///
-/// The proof is FIXED and already authenticated: it was verified against `state_root` once before
-/// the reader was built, and every read re-verifies the same proof against the same root for the
-/// derived state key.
+/// The proof is FIXED and already authenticated: it was verified against `anchor_state_root` once
+/// before the reader was built, and every read re-verifies the same proof against that root.
 ///
 /// # Panics
 ///
-/// [`read`](JamStateReader::read) panics when [`verify`](parachain_service_core::verify) returns an
-/// error: an incomplete or malformed proof cannot authenticate the key, which makes the candidate
-/// block invalid. It must fail loudly, never read as `None` — collapsing a verify error to `None`
-/// would let a collator suppress a present value by omitting proof nodes.
+/// [`read`](JamStateReader::read) panics when
+/// [`verify`](parachain_service_core::verify) returns an error: an incomplete or malformed proof
+/// cannot authenticate the key, which makes the candidate block invalid. It must fail loudly,
+/// never read as `None` — collapsing a verify error to `None` would let a collator suppress a
+/// present value by omitting proof nodes.
 pub struct JamProofReader {
-	service_id: u32,
-	state_root: Hash,
+	anchor_state_root: Hash,
 	proof: StateProof,
 }
 
 impl JamProofReader {
-	/// Build a reader over a `proof` that the caller has already verified against `state_root`.
-	pub fn new(service_id: u32, state_root: Hash, proof: StateProof) -> Self {
-		Self { service_id, state_root, proof }
+	/// Build a reader over a `proof` that the caller has already verified against
+	/// `anchor_state_root`.
+	pub fn new(anchor_state_root: Hash, proof: StateProof) -> Self {
+		Self { anchor_state_root, proof }
 	}
 }
 
 impl JamStateReader for JamProofReader {
-	fn read(&self, key: &[u8]) -> Option<Vec<u8>> {
-		let state_key = service_value_state_key(self.service_id, key);
-		verify(&self.proof, &self.state_root, &state_key).expect(
+	fn read(&self, state_key: &StateKey) -> Option<Vec<u8>> {
+		verify(&self.proof, &self.anchor_state_root, state_key).expect(
 			"the carried JAM state proof cannot authenticate the requested key; \
 			 an incomplete or invalid proof is an invalid candidate block and must fail loudly, \
 			 never read as proven absence (collapsing the error to `None` would let a collator \
@@ -75,17 +76,45 @@ impl JamStateReader for JamProofReader {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use parachain_service_core::{blake2_256, ProofNode, StateKey};
+	use parachain_service_core::{
+		blake2_256, service_request_state_key, service_value_state_key, types::ParaId, ProofNode,
+	};
 
 	const SERVICE_ID: u32 = 9;
 	const EMPTY_HASH: Hash = [0u8; 32];
+	/// The preimage `(hash, len)` the request-key tests derive a request state key from.
+	const REQUEST_HASH: [u8; 32] = [0x42; 32];
+	const REQUEST_LEN: u32 = 4096;
 
 	/// Builds a reader over a real trie-produced proof for `entries` keyed by state key.
 	fn reader_for(entries: Vec<(StateKey, Vec<u8>)>) -> (JamProofReader, StateProof) {
 		let trie = Trie::new(entries);
 		let proof = trie.proof();
-		let reader = JamProofReader::new(SERVICE_ID, trie.root, proof.clone());
+		let reader = JamProofReader::new(trie.root, proof.clone());
 		(reader, proof)
+	}
+
+	/// A SCALE-encoded [`ParaInfo`](parachain_service_core::ParaInfo) with an active code and no
+	/// announced upgrade — a realistic value for the anchor read, large enough to take the
+	/// hashed-leaf path.
+	fn para_info_value() -> Vec<u8> {
+		use parachain_service_core::{
+			types::{HeadData, ValidationCodeHash, ValidationCodeRef},
+			ParaInfo,
+		};
+
+		ParaInfo {
+			head_data: HeadData::try_from(vec![0xca, 0xfe]).expect("2 bytes < 4 KiB; qed"),
+			validation_code: Some(ValidationCodeRef {
+				hash: ValidationCodeHash([0x11; 32]),
+				len: 1,
+			}),
+			announced_upgrade: None,
+			total_state_balance: 0,
+			used_state_balance: 0,
+			is_deregistering: false,
+		}
+		.encode()
 	}
 
 	/// A trie built from a full key/value set, able to emit a proof for any key. Independent
@@ -169,7 +198,7 @@ mod tests {
 		let state_key = service_value_state_key(SERVICE_ID, b"present");
 		let (reader, _) = reader_for(vec![(state_key, value.clone())]);
 
-		assert_eq!(reader.read(b"present"), Some(value));
+		assert_eq!(reader.read(&state_key), Some(value));
 	}
 
 	#[test]
@@ -177,7 +206,36 @@ mod tests {
 		let stored = service_value_state_key(SERVICE_ID, b"present");
 		let (reader, _) = reader_for(vec![(stored, b"head of present".to_vec())]);
 
-		assert_eq!(reader.read(b"missing"), None);
+		assert_eq!(reader.read(&service_value_state_key(SERVICE_ID, b"missing")), None);
+	}
+
+	/// The read is generic over the JAM state: a service-value key and a preimage-request key are
+	/// both addressed directly, out of one proof over one root.
+	#[test]
+	fn generic_read_addresses_any_state_key() {
+		let value_key = service_value_state_key(SERVICE_ID, b"present");
+		let request_key = service_request_state_key(SERVICE_ID, &REQUEST_HASH, REQUEST_LEN);
+		let (reader, _) = reader_for(vec![
+			(value_key, b"the para head".to_vec()),
+			(request_key, vec![7u32].encode()),
+		]);
+
+		assert_ne!(value_key, request_key);
+		assert_eq!(reader.read(&value_key), Some(b"the para head".to_vec()));
+		assert_eq!(reader.read(&request_key), Some(vec![7u32].encode()));
+	}
+
+	/// A request the proof shows absent reads `None` — the requested-only case, which the runtime
+	/// reads as "not yet provided".
+	#[test]
+	fn absent_request_key_reads_none() {
+		let stored = service_request_state_key(SERVICE_ID, &REQUEST_HASH, REQUEST_LEN);
+		let (reader, _) = reader_for(vec![(stored, vec![0u32].encode())]);
+
+		assert_eq!(
+			reader.read(&service_request_state_key(SERVICE_ID, &[0xAB; 32], REQUEST_LEN)),
+			None
+		);
 	}
 
 	#[test]
@@ -185,7 +243,7 @@ mod tests {
 		let (reader, proof) = reader_for(Vec::new());
 		assert!(proof.nodes.is_empty());
 
-		assert_eq!(reader.read(b"anything"), None);
+		assert_eq!(reader.read(&service_value_state_key(SERVICE_ID, b"anything")), None);
 	}
 
 	/// The removed-node adversarial case: a collator omitting a proof node must panic, never read
@@ -202,11 +260,11 @@ mod tests {
 		let mut proof = trie.proof();
 		proof.nodes.retain(|node| node != &leaf_node(&state_key, &value));
 
-		let reader = JamProofReader::new(SERVICE_ID, trie.root, proof);
-		let _ = reader.read(b"present");
+		let reader = JamProofReader::new(trie.root, proof);
+		let _ = reader.read(&state_key);
 	}
 
-	/// A proof that does not belong to the trusted root must panic, not read as absence.
+	/// A proof that does not belong to the trusted anchor root must panic, not read as absence.
 	#[test]
 	#[should_panic(expected = "cannot authenticate the requested key")]
 	fn wrong_root_panics() {
@@ -214,8 +272,8 @@ mod tests {
 		let trie = Trie::new(vec![(state_key, b"real head".to_vec())]);
 		let forged = Trie::new(vec![(state_key, b"forged head".to_vec())]);
 
-		let reader = JamProofReader::new(SERVICE_ID, forged.root, trie.proof());
-		let _ = reader.read(b"present");
+		let reader = JamProofReader::new(forged.root, trie.proof());
+		let _ = reader.read(&state_key);
 	}
 
 	/// A value too large to sit inside its leaf travels as a hashed commitment plus preimage;
@@ -226,7 +284,24 @@ mod tests {
 		let state_key = service_value_state_key(SERVICE_ID, b"big");
 		let (reader, _) = reader_for(vec![(state_key, value.clone())]);
 
-		assert_eq!(reader.read(b"big"), Some(value));
+		assert_eq!(reader.read(&state_key), Some(value));
+	}
+
+	/// The canonical production shape: one proof over the anchor root serves the para-info read,
+	/// and any other state key in the same trie is addressable through the same generic read.
+	#[test]
+	fn para_info_and_a_request_key_share_one_proof() {
+		let para_info = para_info_value();
+		let para_key = parachain_service_core::para_info_key(ParaId::from(0));
+		let value_key = service_value_state_key(SERVICE_ID, &para_key);
+		let request_key = service_request_state_key(SERVICE_ID, &REQUEST_HASH, REQUEST_LEN);
+		let request_value = vec![7u32].encode();
+
+		let (reader, _) =
+			reader_for(vec![(value_key, para_info.clone()), (request_key, request_value.clone())]);
+
+		assert_eq!(reader.read(&value_key), Some(para_info));
+		assert_eq!(reader.read(&request_key), Some(request_value));
 	}
 
 	/// `proof_size` is the SCALE-encoded size of the carried proof — the additional-data

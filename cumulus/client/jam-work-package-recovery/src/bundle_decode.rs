@@ -66,9 +66,8 @@ pub fn decode_bundle<Block: BlockT>(
 	let payload_bytes: &[u8] = &first_item.payload.0;
 
 	// Step 4: decode the candidate.
-	let candidate =
-		<ParachainCandidate as codec::Decode>::decode(&mut &payload_bytes[..])
-			.map_err(|e| format!("bundle: ParachainCandidate decode: {e}"))?;
+	let candidate = <ParachainCandidate as codec::Decode>::decode(&mut &payload_bytes[..])
+		.map_err(|e| format!("bundle: ParachainCandidate decode: {e}"))?;
 
 	// Step 5: decode ParachainBlockData from the PoV.
 	// `decode_all` rejects trailing bytes so a partial-write from a buggy collator surfaces

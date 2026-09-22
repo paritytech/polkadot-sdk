@@ -17,7 +17,15 @@
 //! JAM-side pieces of the parachain runtime.
 //!
 //! The counterpart of [`crate::relay_chain`]: everything a runtime needs on JAM
-//! (parachain service) that does not exist on the relay chain. JAM-only, like the
-//! `cfg(jam)` gate the whole module carries.
+//! (parachain service) that does not exist on the relay chain.
+//!
+//! The module is compiled on the riscv runtime (`cfg(jam)`) and, so the host tests can exercise
+//! the pure upgrade decision, on host test builds (`cfg(test)`). The submodules that need the JAM
+//! host calls stay `cfg(jam)`.
 
+// `slot` reads the block's own `JamParent` digest and no JAM host call, so it compiles on host
+// test builds too.
+#[cfg(any(test, jam))]
 pub mod slot;
+#[cfg(any(test, jam))]
+pub mod upgrade;

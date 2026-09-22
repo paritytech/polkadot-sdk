@@ -38,6 +38,7 @@ sp-externalities = { workspace = true }
 sp-inherents = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
+sp-code-marker = { workspace = true }
 sp-state-machine = { workspace = true }
 sp-std = { workspace = true }
 sp-trie = { workspace = true }
@@ -86,6 +87,9 @@ trie-standardmap = { workspace = true }
 # Host tests compile the riscv-gated JAM branch (`read_included_para_head_jam`) via `cfg(test)`,
 # so `parachain-service-core` must be a direct dev-dep there.
 parachain-service-core = { path = "../../../../parachain-service/core", features = ["std"] }
+# The JAM branch decodes JAM's own `jam-codec`-encoded preimage-request value, and `cfg(test)`
+# compiles that branch, so the codec has to be a direct dev-dep too.
+jam-codec = { version = "0.1.1", features = ["derive"] }
 
 # Substrate
 frame-executive = { workspace = true }
@@ -130,6 +134,7 @@ std = [
 	"sp-externalities/std",
 	"sp-inherents/std",
 	"sp-io/std",
+	"sp-code-marker/std",
 	"sp-runtime/std",
 	"sp-state-machine/std",
 	"sp-std/std",

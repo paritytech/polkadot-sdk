@@ -67,6 +67,18 @@ use super::{
 };
 use xcm_config::{RelayLocation, XcmOriginToTransactDispatchOrigin};
 
+/// Maximum encoded block length, in bytes.
+///
+/// The relay-chain path keeps 5 MiB. Under `cfg(jam)` the `apply_upgrade` extrinsic carries the
+/// whole runtime code blob, so the bound is raised to 12 MiB: JAM's `max_input` is 13,791,360
+/// bytes and the work-package encoding plus proof overhead must fit in the remainder. It must
+/// stay below the PoV budget, which also has to cover the proof.
+#[cfg(jam)]
+const MAX_BLOCK_LENGTH: u32 = 12 * 1024 * 1024;
+/// Maximum encoded block length on the relay-chain (non-JAM) path.
+#[cfg(not(jam))]
+const MAX_BLOCK_LENGTH: u32 = 5 * 1024 * 1024;
+
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 
@@ -75,7 +87,7 @@ parameter_types! {
 	// `DeletionWeightLimit` and `DeletionQueueDepth` depend on those to parameterize
 	// the lazy contract deletion.
 	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
-		.max_length(5 * 1024 * 1024)
+		.max_length(MAX_BLOCK_LENGTH)
 		.modify_max_length_for_class(DispatchClass::Normal, |m| {
 			*m = NORMAL_DISPATCH_RATIO * *m
 		})

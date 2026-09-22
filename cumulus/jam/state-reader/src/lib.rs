@@ -36,6 +36,11 @@
 extern crate alloc;
 
 pub mod jam;
+
+/// A 31-octet JAM state key. A `[u8; 31]` newtype-free alias, identical to
+/// `parachain_service_core::StateKey` (which is gated off the wasm family, where this crate is
+/// still compiled for the relay runtimes).
+pub type StateKey = [u8; 31];
 // The reader's `jam-state-helpers` dependency cannot compile for `wasm32v1-none` (its transitive
 // `parachain-service-interface` hard-codes riscv-only `no_std`), and non-riscv WASM runtimes read
 // relay state, never JAM state, so the reader is only needed on riscv and the host node. Mirrors

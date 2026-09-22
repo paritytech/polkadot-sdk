@@ -146,7 +146,9 @@ impl Binaries {
 /// A WASM blob at `RUNTIME_WASM` records a WASM hash in genesis; the real service refuses every
 /// candidate and the run stalls for 8 minutes with no log. The WASM default path is on disk and
 /// passes the missing-artifact check — this guard makes the failure immediate and named.
-fn check_polkavm_format(path: &Path) -> Result<(), String> {
+///
+/// Also applied to every per-para runtime override, when a para chooses its own blob.
+pub(crate) fn check_polkavm_format(path: &Path) -> Result<(), String> {
 	use std::io::Read;
 	let mut header = [0u8; 4];
 	let n = std::fs::File::open(path)

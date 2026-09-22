@@ -49,6 +49,7 @@ use std::cell::RefCell;
 use crate as parachain_system;
 use crate::consensus_hook::UnincludedSegmentCapacity;
 use cumulus_jam_state_reader::{JamStateExt, JamStateReader};
+use parachain_service_core::StateKey;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -229,7 +230,7 @@ impl XcmpMessageHandler for SaveIntoThreadLocal {
 
 thread_local! {
 	/// Serves the JAM-state reads made by the riscv `read_included_para_head_jam` branch during
-	/// the mock tests, keyed by the service-local storage key.
+	/// the mock tests, keyed by the 31-byte JAM state key.
 	static MOCK_JAM_READS: RefCell<Option<BTreeMap<Vec<u8>, Vec<u8>>>> =
 		const { RefCell::new(None) };
 }
@@ -244,12 +245,12 @@ pub(crate) fn set_mock_jam_reads(map: BTreeMap<Vec<u8>, Vec<u8>>) {
 struct MockJamReads;
 
 impl JamStateReader for MockJamReads {
-	fn read(&self, key: &[u8]) -> Option<Vec<u8>> {
+	fn read(&self, key: &StateKey) -> Option<Vec<u8>> {
 		MOCK_JAM_READS.with(|c| {
 			c.borrow()
 				.as_ref()
 				.expect("jam reads configured for the current test")
-				.get(key)
+				.get(&key[..])
 				.cloned()
 		})
 	}

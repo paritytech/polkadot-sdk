@@ -21,6 +21,7 @@ use sc_executor_common::{
 	error::{Error, WasmError},
 	wasm_runtime::{AllocationStats, HeapAllocStrategy, WasmInstance, WasmModule},
 };
+use sp_externalities::ExternalitiesExt as _;
 use sp_runtime_interface::unpack_ptr_and_len;
 use sp_wasm_interface::{
 	Function, FunctionContext, HostFunctions, Pointer, Value, ValueType, WordSize,
@@ -276,6 +277,63 @@ fn call_host_function(
 	Ok(())
 }
 
+sp_externalities::decl_extension! {
+	/// Externalities extension backing the JAM `fetch` host call during local block authoring.
+	///
+	/// The collator registers this per authoring round with the SCALE-encoded `RefineContext` of
+	/// the work package being executed, so a runtime calling
+	/// `parachain_service_core::refine::refine_context()` resolves it here instead of trapping on
+	/// the missing `fetch` host call. The service serves the same data on the PVF path.
+	pub struct JamRefineContextExt(Vec<u8>);
+}
+
+/// `jam_types::FetchKind::RefineContext`.
+const FETCH_KIND_REFINE_CONTEXT: u64 = 10;
+
+/// `jam_types::SimpleResultCode::Nothing`, the JAM `NONE` host-call result.
+const SIMPLE_RESULT_NOTHING: u64 = u64::MAX;
+
+fn registered_refine_context() -> Option<Vec<u8>> {
+	sp_externalities::with_externalities(|mut ext| {
+		ext.extension::<JamRefineContextExt>().map(|ext| ext.0.clone())
+	})
+	.flatten()
+}
+
+/// Clamp a fetched item to the caller's window, mirroring the service's `get_slice`.
+///
+/// The full length is returned even for an empty window: the guest's `fetch()` sizes its buffer
+/// with an empty first pass and fetches again with the real one.
+fn fetch_window(data: &[u8], offset: u64, len: u64) -> (u64, &[u8]) {
+	let data_len = data.len() as u64;
+	let offset = offset.min(data_len);
+	let len = len.min(data_len - offset);
+	(data_len, &data[offset as usize..(offset + len) as usize])
+}
+
+/// Serve one JAM `fetch` host call, returning the `SimpleResult` for `A0`.
+///
+/// Only `FetchKind::RefineContext` is served locally; every other kind is the PVF's to answer.
+/// `write` is skipped for an empty window, so the guest's sizing pass touches no memory.
+fn serve_fetch(
+	kind: u64,
+	offset: u64,
+	len: u64,
+	mut write: impl FnMut(&[u8]) -> Result<(), String>,
+) -> Result<u64, String> {
+	if kind != FETCH_KIND_REFINE_CONTEXT {
+		return Ok(SIMPLE_RESULT_NOTHING);
+	}
+	let Some(data) = registered_refine_context() else {
+		return Ok(SIMPLE_RESULT_NOTHING);
+	};
+	let (data_len, window) = fetch_window(&data, offset, len);
+	if !window.is_empty() {
+		write(window)?;
+	}
+	Ok(data_len)
+}
+
 pub fn create_runtime<H>(blob: &polkavm::ProgramBlob) -> Result<Box<dyn WasmModule>, WasmError>
 where
 	H: HostFunctions,
@@ -319,6 +377,83 @@ where
 		Ok(())
 	})?;
 
+	// JAM `fetch` host call (Gray Paper index 2). The runtime imports it directly through
+	// `jam_pvm_common::imports::fetch`, so like `grow_heap` it needs a raw linker definition; the
+	// collator registers the per-block refine context as a [`JamRefineContextExt`].
+	linker.define_untyped("fetch", |caller: Caller<HostState>| {
+		let buffer = caller.instance.reg(Reg::A0) as u32;
+		let offset = caller.instance.reg(Reg::A1);
+		let len = caller.instance.reg(Reg::A2);
+		let kind = caller.instance.reg(Reg::A3);
+		let result = serve_fetch(kind, offset, len, |window| {
+			caller.instance.write_memory(buffer, window).map_err(|error| error.to_string())
+		})?;
+		caller.instance.set_reg(Reg::A0, result);
+		Ok(())
+	})?;
+
 	let instance_pre = linker.instantiate_pre(&module)?;
 	Ok(Box::new(InstancePre(instance_pre)))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sp_state_machine::BasicExternalities;
+
+	fn sink(written: &mut Vec<u8>) -> impl FnMut(&[u8]) -> Result<(), String> + '_ {
+		move |window| {
+			written.extend_from_slice(window);
+			Ok(())
+		}
+	}
+
+	#[test]
+	fn fetch_refine_context_serves_the_registered_context() {
+		let context = (0u8..169).collect::<Vec<u8>>();
+		let mut ext = BasicExternalities::default();
+		ext.register_extension(JamRefineContextExt(context.clone()));
+
+		ext.execute_with(|| {
+			// The guest's `fetch()` sizes with an empty window first, then fetches again.
+			let mut written = Vec::new();
+			let len = serve_fetch(FETCH_KIND_REFINE_CONTEXT, 0, 0, sink(&mut written)).unwrap();
+			assert_eq!(len, context.len() as u64);
+			assert!(written.is_empty(), "the sizing pass must not write");
+
+			let mut written = Vec::new();
+			let len = serve_fetch(FETCH_KIND_REFINE_CONTEXT, 0, 4, sink(&mut written)).unwrap();
+			assert_eq!(len, context.len() as u64);
+			assert_eq!(written, context[..4]);
+
+			let mut written = Vec::new();
+			let len = serve_fetch(FETCH_KIND_REFINE_CONTEXT, 2, 3, sink(&mut written)).unwrap();
+			assert_eq!(len, context.len() as u64);
+			assert_eq!(written, context[2..5]);
+		});
+	}
+
+	#[test]
+	fn fetch_refine_context_is_nothing_when_not_registered() {
+		BasicExternalities::default().execute_with(|| {
+			let mut written = Vec::new();
+			let result = serve_fetch(FETCH_KIND_REFINE_CONTEXT, 0, 0, sink(&mut written)).unwrap();
+			assert_eq!(result, SIMPLE_RESULT_NOTHING);
+			assert!(written.is_empty());
+		});
+	}
+
+	#[test]
+	fn fetch_other_kinds_are_not_served_locally() {
+		let mut ext = BasicExternalities::default();
+		ext.register_extension(JamRefineContextExt(vec![1, 2, 3]));
+
+		ext.execute_with(|| {
+			let mut written = Vec::new();
+			// Kind 0 is `ProtocolParameters`, which only the PVF serves.
+			let result = serve_fetch(0, 0, 0, sink(&mut written)).unwrap();
+			assert_eq!(result, SIMPLE_RESULT_NOTHING);
+			assert!(written.is_empty());
+		});
+	}
 }

@@ -26,9 +26,9 @@
 //!   primitives and a *mocked* parachain inherent, one block per core that holds the para's
 //!   authorizer, and feeds the channel;
 //! - the [collation task](collation_task) turns each block into a work package — naming the work
-//!   package this node submitted for the parent block as its one prerequisite when the ledger
-//!   still remembers it — submits it, follows `workPackageStatus` for every package in flight,
-//!   and drives resubmission and re-anchoring behind a pluggable [policy](resubmission).
+//!   package this node submitted for the parent block as its one prerequisite when the ledger still
+//!   remembers it — submits it, follows `workPackageStatus` for every package in flight, and drives
+//!   resubmission and re-anchoring behind a pluggable [policy](resubmission).
 //!
 //! Heads following reuses `cumulus_client_consensus_common::run_parachain_consensus` with
 //! streams built from the parachain service's per-para state entry (`ParaInfo.head_data`).
@@ -40,6 +40,10 @@ pub(crate) mod collation_task;
 pub(crate) mod hash_ledger;
 pub(crate) mod resubmission;
 
+use crate::common::{
+	types::{ParachainBackend, ParachainClient},
+	ConstructNodeRuntimeApi, NodeBlock,
+};
 use authorizer::AuraAuthorizer;
 use codec::Decode;
 use cumulus_jam_state_reader::{JamStateExt, JamStateReader};
@@ -50,15 +54,94 @@ use jam_interface::{
 };
 use jam_types::RefineContext;
 use parachain_service_core::{para_info_key, ParaInfo};
+use sc_client_api::{Backend as _, StorageProvider};
 use sp_additional_data::AdditionalData;
 use sp_consensus::ProposeArgs;
 use sp_runtime::traits::Block as BlockT;
 use sp_timestamp::Timestamp;
-use std::{future::Future, pin::Pin, time::Instant};
+use std::{future::Future, pin::Pin, sync::Arc, time::Instant};
 
 pub(crate) const LOG_TARGET: &str = "jam-collator";
 
 pub(crate) const JAM_SLOT_DURATION_MS: u64 = 6000;
+
+/// Cache the runtime code a block's `:code` marker names, fetching the preimage from JAM when it
+/// is not already in the `CODE` column.
+///
+/// The runtime writes the marker during block execution, so the block that executes the upgrade
+/// holds it and every later read of that block's runtime (`code_at`, `slot_duration_at`, a runtime
+/// API) needs the bytes before the node can resolve the marker. A no-op for a block whose `:code`
+/// is real code, and for a marker whose blob is already cached.
+pub(crate) async fn ensure_code_blob_at<Block, RuntimeApi, Jam>(
+	para_client: &Arc<ParachainClient<Block, RuntimeApi>>,
+	para_backend: &ParachainBackend<Block>,
+	jam: &Jam,
+	service_id: ServiceId,
+	block: Block::Hash,
+	anchor: HeaderHash,
+) where
+	Block: NodeBlock,
+	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+	Jam: JamStateSource,
+{
+	let key = sp_core::storage::StorageKey(sp_core::storage::well_known_keys::CODE.to_vec());
+	let code = match para_client.storage(block, &key) {
+		Ok(Some(code)) => code.0,
+		Ok(None) => return,
+		Err(error) => {
+			tracing::warn!(target: LOG_TARGET, ?block, ?error, "Unable to read `:code`.");
+			return;
+		},
+	};
+	let Some(code_hash) = sp_code_marker::decode_marker(&code) else {
+		return;
+	};
+	match para_backend.code_blob(&code_hash) {
+		Ok(Some(_)) => return,
+		Ok(None) => {},
+		Err(error) => {
+			tracing::warn!(
+				target: LOG_TARGET,
+				?code_hash,
+				?error,
+				"Unable to read the local runtime code blob.",
+			);
+			return;
+		},
+	}
+	match jam.service_preimage(anchor, service_id, code_hash).await {
+		Ok(Some(preimage)) => {
+			tracing::info!(
+				target: LOG_TARGET,
+				?code_hash,
+				"Fetched the offchain runtime code from JAM.",
+			);
+			if let Err(error) = para_backend.store_code_blob(&code_hash, &preimage) {
+				tracing::error!(
+					target: LOG_TARGET,
+					?code_hash,
+					?error,
+					"Unable to cache the fetched runtime code; the block will be dropped.",
+				);
+			}
+		},
+		Ok(None) => {
+			tracing::error!(
+				target: LOG_TARGET,
+				?code_hash,
+				"JAM holds no preimage for the runtime code marker; the block will be dropped.",
+			);
+		},
+		Err(error) => {
+			tracing::error!(
+				target: LOG_TARGET,
+				?code_hash,
+				?error,
+				"Failed to fetch the runtime code preimage from JAM; the block will be dropped.",
+			);
+		},
+	}
+}
 
 /// Message from the builder task to the collation task: one built parachain block plus the JAM
 /// context it was built against.
@@ -77,7 +160,8 @@ pub(crate) struct JamCollatorMessage<Block: BlockT> {
 	/// means the package must not be submitted anywhere — no guarantor would authorize it.
 	pub submit_target: Option<CoreIndex>,
 	/// The additional-data map to carry in the PoV: the `JAM_PROOF_KEY` entry holding the
-	/// SCALE-encoding of `(state_root, proof)` for the para head at the anchor.
+	/// SCALE-encoding of `(anchor_state_root, lookup_state_root, proof)` for the para head at
+	/// the anchor.
 	pub additional_data: AdditionalData,
 	/// The JAM best block that triggered this build (for logging).
 	pub triggered_by: BlockDesc,
@@ -90,7 +174,7 @@ pub(crate) struct JamCollatorMessage<Block: BlockT> {
 pub(crate) struct NoJamStateReader;
 
 impl JamStateReader for NoJamStateReader {
-	fn read(&self, _key: &[u8]) -> Option<Vec<u8>> {
+	fn read(&self, _key: &cumulus_jam_state_reader::StateKey) -> Option<Vec<u8>> {
 		None
 	}
 
@@ -733,5 +817,12 @@ mod tests {
 	#[test]
 	fn jam_slot_at_clamps_before_the_common_era() {
 		assert_eq!(jam_slot_at(Timestamp::new(0)), 0);
+	}
+
+	/// A node with no JAM state behind it proves every key absent, so the runtime falls back
+	/// instead of trapping on a read the node cannot answer.
+	#[test]
+	fn no_jam_state_reader_proves_every_key_absent() {
+		assert_eq!(NoJamStateReader.read(&[0xAB; 31]), None);
 	}
 }

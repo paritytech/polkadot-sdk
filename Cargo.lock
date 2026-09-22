@@ -5358,6 +5358,7 @@ dependencies = [
  "scale-info",
  "sp-additional-data",
  "sp-api 26.0.0",
+ "sp-code-marker",
  "sp-consensus-babe",
  "sp-consensus-slots",
  "sp-core 28.0.0",
@@ -5839,6 +5840,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-session",
  "sp-transaction-pool",
+ "sp-transaction-storage-proof",
  "sp-version 29.0.0",
  "staging-parachain-info",
  "substrate-wasm-builder",
@@ -5932,9 +5934,16 @@ dependencies = [
  "futures",
  "log",
  "parity-scale-codec",
+ "parity-wasm",
  "polkadot-primitives",
+ "polkavm 0.35.0",
+ "serde",
+ "serde_json",
  "sp-crypto-hashing 0.1.0",
+ "sp-maybe-compressed-blob 11.0.0",
+ "sp-polkavm-blob",
  "sp-runtime 31.0.1",
+ "sp-version 29.0.0",
  "tokio",
  "zombienet-configuration",
  "zombienet-sdk",
@@ -17634,6 +17643,8 @@ dependencies = [
  "sc-consensus-aura",
  "sc-consensus-manual-seal",
  "sc-executor 0.32.0",
+ "sc-executor-common 0.29.0",
+ "sc-executor-polkavm 0.29.0",
  "sc-hop",
  "sc-keystore",
  "sc-network 0.34.0",
@@ -17662,6 +17673,7 @@ dependencies = [
  "sp-authority-discovery",
  "sp-block-builder",
  "sp-blockchain 28.0.0",
+ "sp-code-marker",
  "sp-consensus 0.32.0",
  "sp-consensus-aura",
  "sp-core 28.0.0",
@@ -21689,7 +21701,9 @@ dependencies = [
  "sp-additional-data",
  "sp-arithmetic 23.0.0",
  "sp-blockchain 28.0.0",
+ "sp-code-marker",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-database 10.0.0",
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
@@ -22164,7 +22178,9 @@ dependencies = [
  "log",
  "polkavm 0.35.0",
  "sc-executor-common 0.29.0",
+ "sp-externalities 0.25.0",
  "sp-runtime-interface 24.0.0",
+ "sp-state-machine 0.35.0",
  "sp-wasm-interface 20.0.0",
 ]
 
@@ -22949,6 +22965,7 @@ dependencies = [
  "sp-additional-data",
  "sp-api 26.0.0",
  "sp-blockchain 28.0.0",
+ "sp-code-marker",
  "sp-consensus 0.32.0",
  "sp-core 28.0.0",
  "sp-externalities 0.25.0",
@@ -25467,6 +25484,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-code-marker"
+version = "0.1.0"
+
+[[package]]
 name = "sp-consensus"
 version = "0.32.0"
 dependencies = [
@@ -26193,6 +26214,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-polkavm-blob"
+version = "0.1.0"
+dependencies = [
+ "polkavm 0.35.0",
+ "polkavm-common 0.35.0",
+]
+
+[[package]]
 name = "sp-rpc"
 version = "26.0.0"
 dependencies = [
@@ -26415,6 +26444,7 @@ dependencies = [
  "pretty_assertions",
  "rand 0.8.5",
  "smallvec",
+ "sp-code-marker",
  "sp-core 28.0.0",
  "sp-externalities 0.25.0",
  "sp-panic-handler 13.0.0",

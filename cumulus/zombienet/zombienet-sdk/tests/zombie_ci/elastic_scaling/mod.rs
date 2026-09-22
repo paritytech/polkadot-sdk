@@ -15,9 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// A tiny JAM network has exactly two cores, and its runtime is the parachain template, so the
-// tests below have no JAM counterpart: `asset_hub_westend` runs the Asset Hub runtime over three
-// cores, and `upgrade_to_3_cores` is about the third core itself.
+// `asset_hub_westend` runs the Asset Hub runtime, which is out of scope here: the JAM path runs
+// the parachain template.
 #[cfg(not(feature = "jam"))]
 mod asset_hub_westend;
 // Its PoV-recovery full node and log assertion have no JAM counterpart.
@@ -27,7 +26,7 @@ mod slot_based_authoring;
 // `assert_relay_parent_offset` reads relay parent digests, which a JAM para header does not carry.
 #[cfg(not(feature = "jam"))]
 mod slot_based_rp_offset;
+// The test upgrades the para's runtime to a WASM blob mid-run; the JAM runtime is PolkaVM, so
+// there is nothing to upgrade to.
 #[cfg(not(feature = "jam"))]
 mod upgrade_to_3_cores;
-
-

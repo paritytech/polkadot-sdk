@@ -82,6 +82,8 @@ std = [
 	"serde_json/std",
 	"substrate-wasm-builder",
 ]
+# Builds a second, upgrade-target runtime blob with `spec_version` bumped to 2.
+spec-version-2 = []
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"hex-literal",

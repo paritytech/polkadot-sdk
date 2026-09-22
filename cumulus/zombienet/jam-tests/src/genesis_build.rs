@@ -4,9 +4,14 @@
 //! The pure genesis computation: the real parachain service, the paras' AURA authorizers, and
 //! the cores that carry them, built into the JSON object `gen-spec` reads.
 
-use crate::{chain_spec, collators::Para, env::Binaries, genesis};
-use anyhow::Context;
-use jam_types::{ProtocolParameters, VALS_PER_CORE};
+use crate::{
+	chain_spec,
+	collators::Para,
+	env::{check_polkavm_format, Binaries},
+	genesis,
+};
+use anyhow::{anyhow, Context};
+use jam_types::ProtocolParameters;
 use parachain_chain_spec::{ParachainServiceSpec, ParachainSpec};
 use parachain_service_core::{authorizer::AuthorizerHash, types::ParaId, PARACHAIN_SERVICE_ID};
 use serde_json::json;
@@ -45,15 +50,18 @@ pub fn build_jam_genesis(
 	// source tree mid-run would strand an on-chain hash with no resolvable preimage.
 	let service_blob = copy_aside(&binaries.parachain_service_blob, work_dir)?;
 	let authorizer_blob = copy_aside(&binaries.authorizer_blob, work_dir)?;
-	let runtime_blob = copy_aside(&binaries.runtime_wasm, work_dir)?;
+	// Each para's chosen validation code, frozen before anything reads it: the chain spec embeds
+	// these very bytes as `:code` and the service registers them as `validation_code`.
+	let validation_code_paths = freeze_validation_codes(paras, &binaries.runtime_wasm, work_dir)?;
 
 	// Each para's chain spec is built and patched before its genesis head is exported: the head
 	// is the header the patched spec initializes from.
 	let para_specs = paras
 		.iter()
-		.map(|para| {
+		.zip(&validation_code_paths)
+		.map(|(para, runtime_blob)| {
 			let spec = work_dir.join(format!("jam-parachain-{}-spec.json", para.id));
-			chain_spec::build(&binaries.omni_node, &runtime_blob, &spec, para.id, &para.collators)?;
+			chain_spec::build(&binaries.omni_node, runtime_blob, &spec, para.id, &para.collators)?;
 			Ok(spec)
 		})
 		.collect::<anyhow::Result<Vec<_>>>()?;
@@ -61,14 +69,17 @@ pub fn build_jam_genesis(
 		.iter()
 		.map(|spec| export_genesis_head(&binaries.omni_node, spec))
 		.collect::<anyhow::Result<Vec<_>>>()?;
+	let validation_codes = validation_code_paths
+		.iter()
+		.map(|blob| std::fs::read(blob).with_context(|| format!("reading {}", blob.display())))
+		.collect::<anyhow::Result<Vec<_>>>()?;
 	let spec = parachain_service_spec(
 		paras,
 		std::fs::read(&service_blob)
 			.with_context(|| format!("reading {}", service_blob.display()))?,
 		std::fs::read(&authorizer_blob)
 			.with_context(|| format!("reading {}", authorizer_blob.display()))?,
-		std::fs::read(&runtime_blob)
-			.with_context(|| format!("reading {}", runtime_blob.display()))?,
+		&validation_codes,
 		&heads,
 	)?;
 	let queues = auth_queues(paras, &spec.authorizer_hashes())?;
@@ -99,15 +110,49 @@ pub fn build_jam_genesis(
 	Ok(JamGenesis { overrides, para_specs, authorizer_blob })
 }
 
-/// The protocol parameters for a JAM network with `cores` cores: the tiny preset with the
-/// core count widened. `max_val_count` must stay `core_count * 3`, which is what fixes the
-/// validator count.
+/// Freeze each para's chosen validation code into the run's work dir, in para order.
+///
+/// A para's blob is its own [`Para::runtime`] when it chose one, `default` (the run's
+/// `RUNTIME_WASM`) otherwise. The returned path is what its chain spec is built from and what its
+/// service `validation_code` is read from, so the two can never disagree. Every blob is checked
+/// as a PolkaVM program, because a WASM blob here records a hash the real service refuses.
+///
+/// PVM builds are not byte-deterministic, so a rebuild in the source tree mid-run would strand an
+/// on-chain hash with no resolvable preimage; the frozen copy is that preimage's source.
+pub fn freeze_validation_codes(
+	paras: &[Para],
+	default: &Path,
+	work_dir: &Path,
+) -> anyhow::Result<Vec<PathBuf>> {
+	paras
+		.iter()
+		.map(|para| {
+			let blob = para.runtime_blob(default);
+			check_polkavm_format(blob).map_err(|reason| anyhow!("para {}: {reason}", para.id))?;
+			if blob == default {
+				copy_aside(blob, work_dir)
+			} else {
+				// A per-para name: two paras may choose different blobs that share a file name.
+				let name = blob
+					.file_name()
+					.with_context(|| format!("{} is not a file", blob.display()))?;
+				let copy =
+					work_dir.join(format!("runtime-para-{}-{}", para.id, name.to_string_lossy()));
+				std::fs::copy(blob, &copy)
+					.with_context(|| format!("copying {} to {}", blob.display(), copy.display()))?;
+				Ok(copy)
+			}
+		})
+		.collect()
+}
+
+/// The protocol parameters for a JAM network with `cores` cores: the tiny preset with the core
+/// count widened. The validator count follows from it, because `max_val_count` is derived as
+/// `core_count * VALS_PER_CORE`.
 pub fn parameters_for_cores(cores: u16) -> anyhow::Result<serde_json::Value> {
 	anyhow::ensure!(cores > 0, "a JAM network needs at least one core");
 	let mut params = ProtocolParameters::tiny();
 	params.core_count = cores;
-	params.max_val_count = u16::try_from(cores as usize * VALS_PER_CORE)
-		.context("the core count needs more validators than a ValIndex can hold")?;
 	serde_json::to_value(&params).context("serializing the JAM protocol parameters")
 }
 
@@ -132,16 +177,22 @@ pub fn polkavm_env() -> Vec<(&'static str, &'static str)> {
 /// from [`ParachainServiceSpec::authorizer_hashes`], so genesis cannot disagree with the service
 /// or the collators.
 ///
-/// Every para also registers `validation_code` — the copied runtime blob, i.e. the very bytes
-/// its chain spec was built from — and the genesis head derived from that chain spec, so the
-/// service's `parent_head_hash` check accepts the collators' first block.
+/// Every para also registers its own `validation_code` — `validation_codes[i]`, the frozen copy
+/// of the blob its chain spec was built from — and the genesis head derived from that chain
+/// spec, so the service's `parent_head_hash` check accepts the collators' first block.
 pub fn parachain_service_spec(
 	paras: &[Para],
 	service_code: Vec<u8>,
 	authorizer_code: Vec<u8>,
-	validation_code: Vec<u8>,
+	validation_codes: &[Vec<u8>],
 	heads: &[Vec<u8>],
 ) -> anyhow::Result<ParachainServiceSpec> {
+	anyhow::ensure!(
+		paras.len() == validation_codes.len(),
+		"{} paras but {} validation codes: every para needs its own",
+		paras.len(),
+		validation_codes.len(),
+	);
 	anyhow::ensure!(
 		paras.len() == heads.len(),
 		"{} paras but {} genesis heads: every para needs the head of its own chain spec",
@@ -150,7 +201,7 @@ pub fn parachain_service_spec(
 	);
 	let mut spec = ParachainServiceSpec::new(PARACHAIN_SERVICE_ID, service_code)
 		.balance(PARACHAIN_SERVICE_ENDOWMENT);
-	for (para, head) in paras.iter().zip(heads) {
+	for ((para, head), validation_code) in paras.iter().zip(heads).zip(validation_codes) {
 		spec = spec.parachain(
 			ParachainSpec::new(para.id.into())
 				.head_data(head.clone())
@@ -348,7 +399,78 @@ pub(crate) fn write_sidecar(bytes: &[u8], work_dir: &Path, name: &str) -> anyhow
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use codec::DecodeAll;
+	use parachain_service_core::{para_info_key, types::ParaId, ParaInfo};
 	use serde_json::json;
+
+	/// A para's chosen runtime is the blob its chain spec is built from *and* the bytes the
+	/// service registers as its `validation_code`; a para that chose none keeps the run's default.
+	/// Both seams are exercised together so the override cannot reach one and not the other.
+	#[test]
+	fn a_per_para_runtime_reaches_the_chain_spec_and_the_service_validation_code() {
+		let root = tempfile::tempdir().expect("a temp dir; qed");
+		let source = root.path().join("source");
+		let work = root.path().join("work");
+		std::fs::create_dir_all(&source).expect("create source; qed");
+		std::fs::create_dir_all(&work).expect("create work; qed");
+
+		let default_blob = source.join("default.polkavm");
+		let override_blob = source.join("override.polkavm");
+		std::fs::write(&default_blob, b"PVM\0default-runtime").expect("write; qed");
+		std::fs::write(&override_blob, b"PVM\0override-runtime").expect("write; qed");
+
+		let paras = vec![
+			Para::single(1),
+			Para {
+				id: 1,
+				core: 1,
+				also_cores: Vec::new(),
+				collators: vec!["bob".to_string()],
+				runtime: Some(override_blob.clone()),
+				full_nodes: Vec::new(),
+			},
+		];
+
+		let frozen = freeze_validation_codes(&paras, &default_blob, &work)
+			.expect("both blobs are PolkaVM programs; qed");
+		assert_eq!(frozen[0], work.join("default.polkavm"));
+		assert_eq!(
+			std::fs::read(&frozen[1]).expect("read; qed"),
+			b"PVM\0override-runtime",
+			"para 1's chain spec must be built from its own blob, not the run's default",
+		);
+
+		let codes = frozen
+			.iter()
+			.map(|blob| std::fs::read(blob).expect("read; qed"))
+			.collect::<Vec<_>>();
+		let spec = parachain_service_spec(
+			&paras,
+			b"service".to_vec(),
+			b"authorizer".to_vec(),
+			&codes,
+			&[b"head 0".to_vec(), b"head 1".to_vec()],
+		)
+		.expect("a two-para spec builds; qed");
+		let built = spec.build().expect("a two-para spec builds; qed");
+
+		for (para, expected) in
+			[(0u32, &b"PVM\0default-runtime"[..]), (1, b"PVM\0override-runtime")]
+		{
+			let stored = built
+				.storage
+				.get(&para_info_key(ParaId(para)))
+				.expect("every para is registered; qed");
+			let info = ParaInfo::decode_all(&mut &stored[..]).expect("decode ParaInfo; qed");
+			let code = info.validation_code.expect("the para has a validation code; qed");
+			assert_eq!(code.len, expected.len() as u32, "para {para} code length");
+			assert_eq!(
+				code.hash.0,
+				jam_std_common::hash_raw(expected),
+				"para {para} validation code",
+			);
+		}
+	}
 
 	/// The whole of what this harness knows about `gen-spec`'s config is these keys and shapes,
 	/// asserted without any real blob. Anything more belongs to polkajam's `jam-chainspec`,
@@ -377,14 +499,17 @@ mod tests {
 		assert_eq!(overrides["assigners"]["7"], json!(PARACHAIN_SERVICE_ID));
 	}
 
-	/// A custom core count has no named set upstream, so the override has to be the object form
-	/// with the validator count kept in step: `max_val_count == core_count * VALS_PER_CORE`.
+	/// A custom core count has no named set upstream, so the override has to be the object form,
+	/// and the validator count has to follow from the core count: `max_val_count()` keeps deriving
+	/// `core_count * VALS_PER_CORE`.
 	#[test]
 	fn parameters_for_cores_widen_tiny_and_keep_the_validator_count_in_step() {
 		let params = parameters_for_cores(3).expect("three cores must serialize; qed");
 		assert!(params.is_object(), "a custom core count cannot be a named set");
 		assert_eq!(params["core_count"], json!(3));
-		assert_eq!(params["max_val_count"], json!(9));
+		let parsed: ProtocolParameters =
+			serde_json::from_value(params).expect("the override round-trips; qed");
+		assert_eq!(parsed.max_val_count(), 9);
 		assert!(parameters_for_cores(0).is_err(), "a network with no cores is an error");
 	}
 }

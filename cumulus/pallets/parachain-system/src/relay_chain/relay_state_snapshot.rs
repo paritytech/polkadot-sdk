@@ -302,9 +302,11 @@ impl RelayChainStateProof {
 	#[cfg(any(test, jam))]
 	pub(crate) fn read_included_para_head_jam(&self) -> Result<relay_chain::HeadData, Error> {
 		let para_id = parachain_service_core::types::ParaId::from(u32::from(self.para_id));
-		if let Some(raw) = cumulus_jam_state_reader::jam_state::jam_state_read(
+		let state_key = parachain_service_core::service_value_state_key(
+			parachain_service_core::PARACHAIN_SERVICE_ID,
 			&parachain_service_core::para_info_key(para_id),
-		) {
+		);
+		if let Some(raw) = cumulus_jam_state_reader::jam_state::jam_state_read(state_key) {
 			let info = parachain_service_core::ParaInfo::decode(&mut &raw[..])
 				.map_err(|_| Error::ParaHead(ReadEntryErr::Decode))?;
 			Ok(relay_chain::HeadData(info.head_data.into()))

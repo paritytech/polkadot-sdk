@@ -74,12 +74,16 @@ async fn two_paras_on_two_cores_build_blocks() -> Result<(), anyhow::Error> {
 			core: 0,
 			also_cores: Vec::new(),
 			collators: vec!["alice".to_string(), "bob".to_string()],
+			runtime: None,
+			full_nodes: Vec::new(),
 		},
 		Para {
 			id: 1,
 			core: 1,
 			also_cores: Vec::new(),
 			collators: vec!["charlie".to_string(), "dave".to_string()],
+			runtime: None,
+			full_nodes: Vec::new(),
 		},
 	];
 

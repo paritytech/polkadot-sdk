@@ -1437,7 +1437,10 @@ fn gap_sync_body_request_depends_on_pruning_mode() {
 
 		// Verify the exact expected field combination
 		let expected_fields = if should_request_bodies {
-			BlockAttributes::HEADER | BlockAttributes::BODY | BlockAttributes::JUSTIFICATION
+			BlockAttributes::HEADER |
+				BlockAttributes::BODY |
+				BlockAttributes::JUSTIFICATION |
+				BlockAttributes::ADDITIONAL_DATA
 		} else {
 			BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION
 		};

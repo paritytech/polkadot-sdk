@@ -17,9 +17,12 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{client::ClientConfig, wasm_override::WasmOverride, wasm_substitutes::WasmSubstitutes};
-use sc_client_api::{backend, TrieCacheContext};
+use sc_client_api::{backend, backend::StateBackend as _, TrieCacheContext};
 use sc_executor::{RuntimeVersion, RuntimeVersionOf};
-use sp_core::traits::{FetchRuntimeCode, RuntimeCode};
+use sp_core::{
+	storage::well_known_keys,
+	traits::{FetchRuntimeCode, RuntimeCode},
+};
 use sp_runtime::traits::Block as BlockT;
 use sp_state_machine::{backend::TryPendingCode, Ext, OverlayedChanges};
 use std::sync::Arc;
@@ -88,8 +91,28 @@ where
 
 		self.maybe_override_code_internal(runtime_code, &state, block, true)
 			.and_then(|r| {
-				r.0.fetch_runtime_code().map(Into::into).ok_or_else(|| {
-					sp_blockchain::Error::Backend("Could not find `:code` in backend.".into())
+				if let Some(code) = r.0.fetch_runtime_code() {
+					return Ok(code.into_owned());
+				}
+				// :code (or :pending_code) holds an offchain-code marker; resolve via CODE column.
+				let raw = state
+					.storage(well_known_keys::PENDING_CODE)
+					.ok()
+					.flatten()
+					.or_else(|| state.storage(well_known_keys::CODE).ok().flatten());
+				let bytes = raw.ok_or_else(|| {
+					sp_blockchain::Error::Backend(":code absent from state".into())
+				})?;
+				let code_hash = sp_code_marker::decode_marker(&bytes).ok_or_else(|| {
+					sp_blockchain::Error::Backend(
+						"fetch_runtime_code returned None for non-marker :code".into(),
+					)
+				})?;
+				self.backend.code_blob(&code_hash)?.ok_or_else(|| {
+					sp_blockchain::Error::Backend(format!(
+						"Code blob not found for marker hash {:?}",
+						code_hash,
+					))
 				})
 			})
 	}
@@ -176,6 +199,191 @@ mod tests {
 	};
 	use std::collections::HashMap;
 	use substrate_test_runtime_client::{runtime, GenesisInit};
+
+	#[test]
+	fn marker_in_code_resolves_from_code_column() {
+		use sc_client_api::backend::{BlockImportOperation as _, StateBackend as _};
+		use sp_core::storage::well_known_keys;
+		use sp_runtime::{
+			traits::{BlakeTwo256, Hash as HashT},
+			StateVersion,
+		};
+
+		let executor = WasmExecutor::default();
+		let backend =
+			Arc::new(substrate_test_runtime_client::Backend::new_test(u32::MAX, u64::MAX));
+		let client_config = ClientConfig::default();
+
+		let genesis_block_builder = crate::GenesisBlockBuilder::new(
+			&substrate_test_runtime_client::GenesisParameters::default().genesis_storage(),
+			!client_config.no_genesis,
+			backend.clone(),
+			executor.clone(),
+		)
+		.expect("genesis block builder");
+
+		// Warm the executor's WASM module cache so on_chain_runtime_version succeeds via cache.
+		let _client =
+			crate::client::new_with_backend::<_, _, runtime::Block, _, runtime::RuntimeApi>(
+				backend.clone(),
+				executor.clone(),
+				genesis_block_builder,
+				Box::new(TaskExecutor::new()),
+				None,
+				None,
+				client_config.clone(),
+			)
+			.expect("client");
+
+		let real_code: Vec<u8> = substrate_test_runtime::wasm_binary_unwrap().to_vec();
+		let code_hash: [u8; 32] = <BlakeTwo256 as HashT>::hash(&real_code).0;
+		let marker = sp_code_marker::encode_marker(&code_hash);
+
+		backend.insert_code_blob_for_test(&code_hash, &real_code);
+
+		// Build block 1 with :code replaced by the marker, inheriting all other genesis state.
+		let genesis_hash = backend.blockchain().info().genesis_hash;
+		let mut op = backend.begin_operation().unwrap();
+		backend.begin_state_operation(&mut op, genesis_hash).unwrap();
+
+		let state_root = {
+			let parent = op.state().unwrap().expect("parent state");
+			let (root, overlay) = parent.storage_root(
+				std::iter::once((well_known_keys::CODE, Some(marker.as_ref()))),
+				StateVersion::V1,
+			);
+			op.update_db_storage(overlay).unwrap();
+			root
+		};
+
+		let header = runtime::Header {
+			parent_hash: genesis_hash,
+			number: 1u64,
+			state_root,
+			extrinsics_root: Default::default(),
+			digest: Default::default(),
+		};
+		op.set_block_data(
+			header.clone(),
+			Some(vec![]),
+			None,
+			None,
+			sc_client_api::backend::NewBlockState::Best,
+			false,
+		)
+		.unwrap();
+		backend.commit_operation(op).unwrap();
+
+		let block1_hash = header.hash();
+		let executor = Arc::new(executor);
+		let code_provider = CodeProvider {
+			backend: backend.clone(),
+			executor: executor.clone(),
+			wasm_override: Arc::new(None),
+			wasm_substitutes: WasmSubstitutes::new(Default::default(), executor, backend.clone())
+				.unwrap(),
+		};
+
+		let code = code_provider.code_at_ignoring_overrides(block1_hash).unwrap();
+		assert_eq!(code, real_code);
+	}
+
+	#[test]
+	fn marker_in_code_resolves_during_execution() {
+		use crate::client::LocalCallExecutor;
+		use sc_client_api::{
+			backend::{BlockImportOperation as _, StateBackend as _},
+			call_executor::CallExecutor,
+			execution_extensions::ExecutionExtensions,
+		};
+		use sp_core::traits::CallContext;
+		use sp_runtime::{
+			traits::{BlakeTwo256, Hash as HashT},
+			StateVersion,
+		};
+
+		let executor = WasmExecutor::default();
+		let backend =
+			Arc::new(substrate_test_runtime_client::Backend::new_test(u32::MAX, u64::MAX));
+		let client_config = ClientConfig::default();
+
+		let genesis_block_builder = crate::GenesisBlockBuilder::new(
+			&substrate_test_runtime_client::GenesisParameters::default().genesis_storage(),
+			!client_config.no_genesis,
+			backend.clone(),
+			executor.clone(),
+		)
+		.expect("genesis block builder");
+
+		let _client =
+			crate::client::new_with_backend::<_, _, runtime::Block, _, runtime::RuntimeApi>(
+				backend.clone(),
+				executor.clone(),
+				genesis_block_builder,
+				Box::new(TaskExecutor::new()),
+				None,
+				None,
+				client_config.clone(),
+			)
+			.expect("client");
+
+		let real_code: Vec<u8> = substrate_test_runtime::wasm_binary_unwrap().to_vec();
+		let code_hash: [u8; 32] = <BlakeTwo256 as HashT>::hash(&real_code).0;
+		let marker = sp_code_marker::encode_marker(&code_hash);
+
+		backend.insert_code_blob_for_test(&code_hash, &real_code);
+
+		let genesis_hash = backend.blockchain().info().genesis_hash;
+		let mut op = backend.begin_operation().unwrap();
+		backend.begin_state_operation(&mut op, genesis_hash).unwrap();
+
+		let state_root = {
+			let parent = op.state().unwrap().expect("parent state");
+			let (root, overlay) = parent.storage_root(
+				std::iter::once((well_known_keys::CODE, Some(marker.as_ref()))),
+				StateVersion::V1,
+			);
+			op.update_db_storage(overlay).unwrap();
+			root
+		};
+
+		let header = runtime::Header {
+			parent_hash: genesis_hash,
+			number: 1u64,
+			state_root,
+			extrinsics_root: Default::default(),
+			digest: Default::default(),
+		};
+		op.set_block_data(
+			header.clone(),
+			Some(vec![]),
+			None,
+			None,
+			sc_client_api::backend::NewBlockState::Best,
+			false,
+		)
+		.unwrap();
+		backend.commit_operation(op).unwrap();
+		let block1_hash = header.hash();
+
+		// Use a fresh executor (empty cache) to force code resolution from the CODE column.
+		// Before the marker-resolution fix this call fails because fetch_runtime_code() = None.
+		let exec = WasmExecutor::default();
+		let call_executor = LocalCallExecutor::<runtime::Block, _, _>::new(
+			backend.clone(),
+			exec.clone(),
+			client_config,
+			ExecutionExtensions::new(None, Arc::new(exec)),
+		)
+		.unwrap();
+
+		let version =
+			CallExecutor::runtime_version(&call_executor, block1_hash, CallContext::Offchain)
+				.expect(
+					"runtime_version must succeed when :code is a marker with a CODE column entry",
+				);
+		assert!(!version.spec_name.is_empty(), "expected a real spec_name from the test runtime");
+	}
 
 	#[test]
 	fn no_override_no_substitutes_work() {

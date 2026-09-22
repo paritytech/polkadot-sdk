@@ -30,8 +30,8 @@ pub use futures::stream::BoxStream;
 pub use jam_std_common::{
 	AuthPool, AuthPools, AuthQueues, AvailabilityAssignment, AvailabilityAssignments, BlockDesc,
 	ChainSubUpdate, EpochIndex, NodeError as Error, NodeResult as Result, RangeProof, ReadyQueue,
-	ReadyRecord, Service, ServiceKey, StorageKey, SystemKey, VersionedParameters, WorkPackageStatus,
-	WorkReport,
+	ReadyRecord, Service, ServiceKey, StorageKey, SystemKey, VersionedParameters,
+	WorkPackageStatus, WorkReport,
 };
 pub use jam_types::{
 	AuthorizerHash, CoreIndex, Hash, HeaderHash, MmrPeakHash, ServiceId, Slot, StateRootHash,
@@ -108,6 +108,19 @@ pub trait JamStateSource: Send + Sync {
 		service: ServiceId,
 		key: &[u8],
 	) -> Result<Option<Vec<u8>>>;
+
+	/// The preimage of `hash` provided to service `service`, in the posterior state of `at`.
+	///
+	/// `None` means the service does not hold that preimage. Sources that do not serve
+	/// preimages return `None` rather than failing.
+	async fn service_preimage(
+		&self,
+		_at: HeaderHash,
+		_service: ServiceId,
+		_hash: Hash,
+	) -> Result<Option<Vec<u8>>> {
+		Ok(None)
+	}
 
 	/// Subscribe to changes of a service-storage value. This is what "done" detection watches:
 	/// the para head under key `[0x00] ‖ SCALE(ParaId)` in the parachain service.

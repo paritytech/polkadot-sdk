@@ -34,4 +34,11 @@ more than two cores are excluded: `elastic_scaling::asset_hub_westend`, `elastic
 `elastic_scaling::upgrade_to_3_cores`, and `block_bundling::basic`. A tiny JAM network has exactly two cores (six
 validators, three per core), so these tests have no JAM counterpart.
 
+Some of these suites upgrade a para to a `cumulus-test-runtime` feature flavor. Those flavors are
+built as PolkaVM blobs by building the test crate **without** `SKIP_WASM_BUILD` and with
+`SUBSTRATE_RUNTIME_TARGET=riscv WASM_BUILD_RUSTFLAGS="--cfg jam"`: under the riscv target the
+wasm-builder emits each flavor's PVM blob under the same `WASM_BINARY` const the test reads, so no
+separate `.polkavm` path is needed. This is a heavy build — every flavor is compiled for riscv — and
+it dominates the test run.
+
 JAM networks are supported on the native provider only.

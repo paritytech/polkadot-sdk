@@ -26,8 +26,9 @@
 //! - [`jam_state::jam_state_read`] — the host function a parachain runtime calls to read JAM
 //!   storage dynamically during block execution.
 //!
-//! The `key` argument is the service-local key (e.g. `para_info_key(id)`); the reader derives the
-//! 31-byte state key via `service_value_state_key`, so the service id never enters the runtime.
+//! The `key` argument is the 31-byte JAM state key itself, so a read can address any state item —
+//! a service's own storage (derived by the caller via `service_value_state_key`), another
+//! service's, or a system entry. The service id therefore lives with the caller, not the reader.
 //!
 //! A read [`JAM_PROOF_KEY`] entry pairs with an `sp-additional-data` finalizer registered under
 //! the same key, so the JAM read-proof is both served (here) and committed to (in the generic
@@ -41,12 +42,15 @@ use sp_runtime_interface::{
 	runtime_interface,
 };
 
+use crate::StateKey;
+
 #[cfg(feature = "std")]
 use sp_externalities::ExternalitiesExt;
 
 /// Key under which the JAM state read-proof lives in the additional-data map.
 ///
-/// The value is the SCALE-encoding of `(state_root, parachain_service_core::StateProof)`.
+/// The value is the SCALE-encoding of `(anchor_state_root, parachain_service_core::StateProof)`:
+/// every read verifies against the package anchor's state root.
 pub const JAM_PROOF_KEY: &str = "jam/state_proof";
 
 /// Serves JAM chain-state reads for [`jam_state::jam_state_read`], recording the proof it
@@ -58,10 +62,9 @@ pub const JAM_PROOF_KEY: &str = "jam/state_proof";
 ///
 /// [`jam_state::jam_state_read`]: jam_state::jam_state_read
 pub trait JamStateReader: Send {
-	/// Read a JAM storage `key` (service-local), returning its value or `None` when (provably)
-	/// absent. The reader derives the 31-byte service state key from `key` via
-	/// `service_value_state_key`.
-	fn read(&self, key: &[u8]) -> Option<Vec<u8>>;
+	/// Read the JAM state item at the 31-byte `key`, returning its value or `None` when
+	/// (provably) absent. The caller owns the key derivation, so any state item is addressable.
+	fn read(&self, key: &StateKey) -> Option<Vec<u8>>;
 
 	/// Estimated encoded size of the proof recorded so far — the additional-data contribution to
 	/// the PoV, so the runtime's proof-size accounting budgets for it. `0` when nothing was
@@ -73,7 +76,7 @@ pub trait JamStateReader: Send {
 /// provider in an `Arc` (of a `Sync` cell) and registers a clone under [`JamStateExt`] while the
 /// same object serves the additional-data digest under `AdditionalDataExt`.
 impl<T: JamStateReader + Sync + ?Sized> JamStateReader for alloc::sync::Arc<T> {
-	fn read(&self, key: &[u8]) -> Option<Vec<u8>> {
+	fn read(&self, key: &StateKey) -> Option<Vec<u8>> {
 		(**self).read(key)
 	}
 
@@ -99,8 +102,8 @@ sp_externalities::decl_extension! {
 /// fail loudly rather than silently diverge.
 #[runtime_interface]
 pub trait JamState {
-	/// Read `key` from the JAM chain state, writing the value into `value_out` and returning
-	/// its full length, or `-1` when the key is (provably) absent.
+	/// Read the JAM state item at the 31-byte `key`, writing the value into `value_out` and
+	/// returning its full length, or `-1` when the key is (provably) absent.
 	///
 	/// Runtime-side-allocation compatible: the runtime owns `value_out`; this host function never
 	/// allocates guest memory. Prefer the [`jam_state::jam_state_read`] wrapper, which
@@ -118,6 +121,7 @@ pub trait JamState {
 		key: PassFatPointerAndRead<&[u8]>,
 		value_out: PassFatPointerAndWrite<&mut [u8]>,
 	) -> i64 {
+		let key: &StateKey = key.try_into().expect("a JAM state key is 31 bytes; qed");
 		let value = self
 			.extension::<JamStateExt>()
 			.expect(
@@ -160,17 +164,27 @@ pub trait JamState {
 
 #[cfg(test)]
 mod tests {
+	use alloc::{sync::Arc, vec, vec::Vec};
+	use parachain_service_core::service_value_state_key;
 	use sp_state_machine::BasicExternalities;
 
-	use super::{jam_state, JamStateExt, JamStateReader};
+	use super::{jam_state, JamStateExt, JamStateReader, StateKey};
+
+	const SERVICE_ID: u32 = 9;
+
+	/// A service-local key and the 31-byte JAM state key it addresses. The caller owns this
+	/// derivation now, so the reader is generic over any state key.
+	fn key(tag: &[u8]) -> StateKey {
+		service_value_state_key(SERVICE_ID, tag)
+	}
 
 	struct StubReader;
 
 	impl JamStateReader for StubReader {
-		fn read(&self, key: &[u8]) -> Option<alloc::vec::Vec<u8>> {
-			if key == b"present" {
+		fn read(&self, state_key: &StateKey) -> Option<Vec<u8>> {
+			if state_key == &key(b"present") {
 				Some(vec![1u8, 2, 3, 4])
-			} else if key == b"large" {
+			} else if state_key == &key(b"large") {
 				Some(vec![0xABu8; 300])
 			} else {
 				None
@@ -182,16 +196,27 @@ mod tests {
 		}
 	}
 
+	/// The `Arc<T>` impl forwards reads to the shared provider, so the same object serves the
+	/// extension and the additional-data digest.
+	#[test]
+	fn arc_forwards_reads() {
+		let reader: Arc<StubReader> = Arc::new(StubReader);
+
+		assert_eq!(JamStateReader::read(&reader, &key(b"present")), Some(vec![1u8, 2, 3, 4]));
+		assert_eq!(JamStateReader::read(&reader, &key(b"missing")), None);
+		assert_eq!(reader.proof_size(), 0);
+	}
+
 	#[test]
 	fn reads_value_through_stub_reader() {
 		let mut ext = BasicExternalities::default();
 		ext.register_extension(JamStateExt(Box::new(StubReader)));
 
 		ext.execute_with(|| {
-			let value = jam_state::jam_state_read(b"present");
+			let value = jam_state::jam_state_read(key(b"present"));
 			assert_eq!(value, Some(vec![1u8, 2, 3, 4]));
 
-			let absent = jam_state::jam_state_read(b"missing");
+			let absent = jam_state::jam_state_read(key(b"missing"));
 			assert_eq!(absent, None);
 		});
 	}
@@ -202,7 +227,7 @@ mod tests {
 		ext.register_extension(JamStateExt(Box::new(StubReader)));
 
 		ext.execute_with(|| {
-			let value = jam_state::jam_state_read(b"large");
+			let value = jam_state::jam_state_read(key(b"large"));
 			assert_eq!(value, Some(vec![0xABu8; 300]));
 		});
 	}
@@ -211,7 +236,21 @@ mod tests {
 	#[should_panic(expected = "JamStateExt extension not registered")]
 	fn missing_extension_panics() {
 		BasicExternalities::default().execute_with(|| {
-			let _ = jam_state::jam_state_read(b"present");
+			let _ = jam_state::jam_state_read(key(b"present"));
+		});
+	}
+
+	/// The generic read addresses any state key: two different service-local keys map to two
+	/// different state keys and are read independently.
+	#[test]
+	fn generic_read_addresses_distinct_state_keys() {
+		let mut ext = BasicExternalities::default();
+		ext.register_extension(JamStateExt(Box::new(StubReader)));
+
+		ext.execute_with(|| {
+			assert_ne!(key(b"present"), key(b"large"));
+			assert_eq!(jam_state::jam_state_read(key(b"present")), Some(vec![1u8, 2, 3, 4]));
+			assert_eq!(jam_state::jam_state_read(key(b"large")), Some(vec![0xABu8; 300]));
 		});
 	}
 }

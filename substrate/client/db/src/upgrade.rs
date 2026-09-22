@@ -33,13 +33,14 @@ use sp_runtime::traits::Block as BlockT;
 const VERSION_FILE_NAME: &str = "db_version";
 
 /// Current db version.
-const CURRENT_VERSION: u32 = 5;
+const CURRENT_VERSION: u32 = 6;
 
 /// Number of columns in v1.
 const V1_NUM_COLUMNS: u32 = 11;
 const V2_NUM_COLUMNS: u32 = 12;
 const V3_NUM_COLUMNS: u32 = 12;
 const V4_NUM_COLUMNS: u32 = 13;
+const V5_NUM_COLUMNS: u32 = 14;
 
 /// Database upgrade errors.
 #[derive(Debug)]
@@ -97,18 +98,25 @@ pub fn upgrade_db<Block: BlockT>(db_path: &Path, db_type: DatabaseType) -> Upgra
 			migrate_2_to_3::<Block>(db_path, db_type)?;
 			migrate_3_to_4::<Block>(db_path, db_type)?;
 			migrate_4_to_5::<Block>(db_path, db_type)?;
+			migrate_5_to_6::<Block>(db_path, db_type)?;
 		},
 		2 => {
 			migrate_2_to_3::<Block>(db_path, db_type)?;
 			migrate_3_to_4::<Block>(db_path, db_type)?;
 			migrate_4_to_5::<Block>(db_path, db_type)?;
+			migrate_5_to_6::<Block>(db_path, db_type)?;
 		},
 		3 => {
 			migrate_3_to_4::<Block>(db_path, db_type)?;
 			migrate_4_to_5::<Block>(db_path, db_type)?;
+			migrate_5_to_6::<Block>(db_path, db_type)?;
 		},
 		4 => {
 			migrate_4_to_5::<Block>(db_path, db_type)?;
+			migrate_5_to_6::<Block>(db_path, db_type)?;
+		},
+		5 => {
+			migrate_5_to_6::<Block>(db_path, db_type)?;
 		},
 		CURRENT_VERSION => (),
 		_ => return Err(UpgradeError::FutureDatabaseVersion(db_version)),
@@ -171,6 +179,15 @@ fn migrate_3_to_4<Block: BlockT>(db_path: &Path, _db_type: DatabaseType) -> Upgr
 /// 2) ADDITIONAL_DATA column is added;
 fn migrate_4_to_5<Block: BlockT>(db_path: &Path, _db_type: DatabaseType) -> UpgradeResult<()> {
 	let db_cfg = DatabaseConfig::with_columns(V4_NUM_COLUMNS);
+	let mut db = Database::open(&db_cfg, db_path)?;
+	db.add_column().map_err(Into::into)
+}
+
+/// Migration from version5 to version6:
+/// 1) the number of columns has changed from 14 to 15;
+/// 2) CODE column is added;
+fn migrate_5_to_6<Block: BlockT>(db_path: &Path, _db_type: DatabaseType) -> UpgradeResult<()> {
+	let db_cfg = DatabaseConfig::with_columns(V5_NUM_COLUMNS);
 	let mut db = Database::open(&db_cfg, db_path)?;
 	db.add_column().map_err(Into::into)
 }
@@ -317,22 +334,74 @@ mod tests {
 	}
 
 	#[test]
-	fn upgrade_v5_noop_and_v6_future_error() {
+	fn migrate_5_to_6_preserves_data() {
+		let db_type = DatabaseType::Full;
+		let db_dir = tempfile::TempDir::new().unwrap();
+		let db_path = db_dir.path().join(db_type.as_str());
+		create_db(&db_path, Some(5));
+
+		let header_key = b"hdr";
+		let aux_key = b"aux";
+		let additional_key = b"add";
+		let header_val = b"header_bytes";
+		let aux_val = b"aux_bytes";
+		let additional_val = b"additional_bytes";
+
+		{
+			let db_cfg = DatabaseConfig::with_columns(V5_NUM_COLUMNS);
+			let db = Database::open(&db_cfg, &db_path).unwrap();
+			let mut tx = db.transaction();
+			tx.put(columns::HEADER, header_key, header_val);
+			tx.put(columns::AUX, aux_key, aux_val);
+			tx.put(columns::ADDITIONAL_DATA, additional_key, additional_val);
+			db.write(tx).unwrap();
+		}
+
+		migrate_5_to_6::<Block>(&db_path, db_type).unwrap();
+
+		let db_cfg = DatabaseConfig::with_columns(15);
+		let db = Database::open(&db_cfg, &db_path).unwrap();
+		assert_eq!(db.get(columns::HEADER, header_key).unwrap(), Some(header_val.to_vec()));
+		assert_eq!(db.get(columns::AUX, aux_key).unwrap(), Some(aux_val.to_vec()));
+		assert_eq!(
+			db.get(columns::ADDITIONAL_DATA, additional_key).unwrap(),
+			Some(additional_val.to_vec())
+		);
+		let mut tx = db.transaction();
+		tx.put(columns::CODE, b"codehash", b"code_blob");
+		db.write(tx).unwrap();
+		assert_eq!(db.get(columns::CODE, b"codehash").unwrap(), Some(b"code_blob".to_vec()));
+	}
+
+	#[test]
+	fn upgrade_to_6_works() {
+		let db_type = DatabaseType::Full;
+		for version_from_file in &[None, Some(1), Some(2), Some(3), Some(4), Some(5)] {
+			let db_dir = tempfile::TempDir::new().unwrap();
+			let db_path = db_dir.path().join(db_type.as_str());
+			create_db(&db_path, *version_from_file);
+			open_database(&db_path, db_type).unwrap();
+			assert_eq!(current_version(&db_path).unwrap(), CURRENT_VERSION);
+		}
+	}
+
+	#[test]
+	fn upgrade_v6_noop_and_v7_future_error() {
 		let db_type = DatabaseType::Full;
 
 		{
 			let db_dir = tempfile::TempDir::new().unwrap();
 			let db_path = db_dir.path().join(db_type.as_str());
-			create_db(&db_path, Some(5));
+			create_db(&db_path, Some(6));
 			open_database(&db_path, db_type).unwrap();
 			assert_eq!(current_version(&db_path).unwrap(), CURRENT_VERSION);
 		}
 
 		{
 			let db_dir = tempfile::TempDir::new().unwrap();
-			create_db(db_dir.path(), Some(6));
+			create_db(db_dir.path(), Some(7));
 			let result = upgrade_db::<Block>(db_dir.path(), db_type);
-			assert!(matches!(result, Err(UpgradeError::FutureDatabaseVersion(6))));
+			assert!(matches!(result, Err(UpgradeError::FutureDatabaseVersion(7))));
 		}
 	}
 }

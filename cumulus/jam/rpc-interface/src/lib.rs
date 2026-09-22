@@ -29,9 +29,10 @@ pub use worker::JamRpcWorker;
 
 use async_trait::async_trait;
 use cumulus_jam_interface::{
-	BlockDesc, BoxStream, ChainSubUpdate, CoreIndex, EpochIndex, Error, HeaderHash, JamChainSource,
-	JamStateSource, JamWorkPackageSubmission, MmrPeakHash, RangeProof, Result, ServiceId,
-	StateRootHash, StorageKey, WorkPackage, WorkPackageHash, WorkPackageStatus, WorkReportHash,
+	BlockDesc, BoxStream, ChainSubUpdate, CoreIndex, EpochIndex, Error, Hash, HeaderHash,
+	JamChainSource, JamStateSource, JamWorkPackageSubmission, MmrPeakHash, RangeProof, Result,
+	ServiceId, StateRootHash, StorageKey, WorkPackage, WorkPackageHash, WorkPackageStatus,
+	WorkReportHash,
 };
 use futures::{channel::mpsc, future::Future, StreamExt};
 use jam_std_common::{Node, NodeExt};
@@ -167,6 +168,15 @@ impl JamStateSource for JamRpcInterface {
 		key: &[u8],
 	) -> Result<Option<Vec<u8>>> {
 		Ok(self.client.service_value(at, service, key).await?.map(Into::into))
+	}
+
+	async fn service_preimage(
+		&self,
+		at: HeaderHash,
+		service: ServiceId,
+		hash: Hash,
+	) -> Result<Option<Vec<u8>>> {
+		Ok(self.client.service_preimage(at, service, hash).await?.map(Into::into))
 	}
 
 	async fn service_value_stream(

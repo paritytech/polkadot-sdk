@@ -70,6 +70,8 @@ sc-client-db = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
 sc-consensus-manual-seal = { workspace = true, default-features = true }
 sc-executor = { workspace = true, default-features = true }
+sc-executor-common = { workspace = true, default-features = true }
+sc-executor-polkavm = { workspace = true, default-features = false }
 sc-hop = { workspace = true, default-features = true }
 sc-keystore = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
@@ -93,6 +95,7 @@ sp-application-crypto = { workspace = true, default-features = true }
 sp-authority-discovery = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-block-builder = { workspace = true, default-features = true }
+sp-code-marker = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }

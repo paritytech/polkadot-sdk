@@ -324,6 +324,7 @@ where
 		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
 		+ BlockIdTo<Block, Error = sp_blockchain::Error>
 		+ ProofProvider<Block>
+		+ sc_network_sync::code_request_handler::CodeBlobProvider
 		+ 'static,
 	Client::Api: CollectCollationInfo<Block>
 		+ sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>,

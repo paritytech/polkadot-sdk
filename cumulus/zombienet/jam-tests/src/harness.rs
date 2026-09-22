@@ -454,8 +454,8 @@ fn check_para_code_resolvable(
 			);
 		};
 
-		let hash = code.code_ref.hash.0;
-		let len = code.code_ref.len;
+		let hash = code.hash.0;
+		let len = code.len;
 		let hash_hex = array_bytes::bytes2hex("", hash);
 
 		// The registry entry is what `historical_lookup` uses to resolve the code: absent →
@@ -696,7 +696,14 @@ mod tests {
 	const TEST_BLOB: &[u8] = b"test-validation-code-for-t8-harness-unit-tests";
 
 	fn test_para() -> Para {
-		Para { id: 0, core: 0, also_cores: Vec::new(), collators: vec!["alice".to_string()] }
+		Para {
+			id: 0,
+			core: 0,
+			also_cores: Vec::new(),
+			collators: vec!["alice".to_string()],
+			runtime: None,
+			full_nodes: Vec::new(),
+		}
 	}
 
 	/// Build a minimal genesis with one para registered under `blob` as its validation code.

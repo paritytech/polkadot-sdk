@@ -1544,7 +1544,10 @@ mod test {
 		assert_eq!(request.from, FromBlock::Hash(target_block.header().hash()));
 		assert_eq!(
 			request.fields,
-			BlockAttributes::HEADER | BlockAttributes::BODY | BlockAttributes::JUSTIFICATION
+			BlockAttributes::HEADER |
+				BlockAttributes::BODY |
+				BlockAttributes::JUSTIFICATION |
+				BlockAttributes::ADDITIONAL_DATA
 		);
 		assert_eq!(request.max, Some(1));
 	}
@@ -1576,7 +1579,10 @@ mod test {
 		assert_eq!(request.from, FromBlock::Hash(target_block.header().hash()));
 		assert_eq!(
 			request.fields,
-			BlockAttributes::HEADER | BlockAttributes::BODY | BlockAttributes::JUSTIFICATION
+			BlockAttributes::HEADER |
+				BlockAttributes::BODY |
+				BlockAttributes::JUSTIFICATION |
+				BlockAttributes::ADDITIONAL_DATA
 		);
 		assert_eq!(request.max, Some(1));
 	}

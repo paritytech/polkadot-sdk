@@ -45,7 +45,7 @@ use sp_core::{ConstBool, ConstU32, ConstU64, Get, OpaqueMetadata};
 
 use sp_runtime::{
 	generic, impl_opaque_keys,
-	traits::{BlakeTwo256, Block as BlockT, IdentifyAccount, Verify},
+	traits::{BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiAddress, MultiSignature,
 };
@@ -819,6 +819,19 @@ impl_runtime_apis! {
 			block_hash: <Block as BlockT>::Hash,
 		) -> TransactionValidity {
 			Executive::validate_transaction(source, tx, block_hash)
+		}
+	}
+
+	impl sp_transaction_storage_proof::runtime_api::TransactionStorageApi<Block> for Runtime {
+		fn retention_period() -> NumberFor<Block> {
+			// No `pallet_transaction_storage` in this runtime, so nothing is ever indexed.
+			0
+		}
+
+		fn indexed_transactions(
+			_block: NumberFor<Block>,
+		) -> Vec<sp_transaction_storage_proof::IndexedTransactionInfo> {
+			Vec::new()
 		}
 	}
 

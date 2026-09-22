@@ -52,8 +52,8 @@ use alloc::vec::Vec;
 use codec::Decode;
 use cumulus_jam_state_reader::{JamProofReader, JAM_PROOF_KEY};
 use cumulus_primitives_core::{CumulusDigestItem, ParachainBlockData};
-use frame_support::traits::ExecuteBlock;
-use parachain_service_core::{candidate::ParachainCandidate, StateProof, PARACHAIN_SERVICE_ID};
+use frame_support::traits::{ExecuteBlock, Get};
+use parachain_service_core::{candidate::ParachainCandidate, StateProof};
 use sp_additional_data::{hash_value, AdditionalData, AdditionalDataFinalizer};
 use sp_crypto_hashing::{blake2_128, blake2_256};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, LazyBlock};
@@ -139,26 +139,33 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 	// 6. Seed the trie-hashmap randomness. The relay path seeds from
 	// `relay_parent_storage_root` + block hashes; JAM has no relay state, so the refine
 	// context's `lookup_anchor` (which the collator cannot find out ahead of time) plays the
-	// relay root's role. The same context carries the trusted `state_root` of the anchor block —
+	// relay root's role. The same context carries the trusted state root of the anchor block —
 	// checked on-chain when the package is reported — which the core verifies the carried JAM
-	// state proof against. The shared `refine_context` wrapper aborts if the host does not
-	// serve the context: a work package always carries one.
+	// state proof against. The shared `refine_context` wrapper aborts if the host does not serve
+	// the context: a work package always carries one.
 	let context = host::refine_context();
 	let randomness_seed = build_jam_seed::<B>(*context.lookup_anchor, blocks);
 	let jam_anchor_state_root = *context.state_root;
 
 	// The collator asserts which JAM block this candidate is anchored to by carrying a
 	// `JamParent` digest in the header; this is where that assertion is checked against the real
-	// refine context. A collator naming an anchor other than the one this work package was
-	// actually refined against cannot produce a matching digest, so the claim is only ever as
-	// good as the context the JAM host serves here.
+	// refine context. A collator naming an anchor, or a slot, other than the one this work package
+	// was actually refined against cannot produce a matching digest, so the claim is only ever as
+	// good as the context the JAM host serves here. The slots are checked too: the runtime reads
+	// them out of this digest instead of the collator-supplied refine context, so the refine check
+	// is what makes that source trustworthy.
 	let expected = (
 		cumulus_primitives_core::relay_chain::Hash::from(*context.anchor),
+		context.anchor_slot,
 		cumulus_primitives_core::relay_chain::Hash::from(*context.lookup_anchor),
+		context.lookup_anchor_slot,
 	);
 	let claimed = blocks
 		.iter()
-		.find_map(|block| CumulusDigestItem::find_jam_parent(block.header().digest()));
+		.find_map(|block| CumulusDigestItem::find_jam_parent_info(block.header().digest()))
+		.map(|parent| {
+			(parent.anchor, parent.anchor_slot, parent.lookup_anchor, parent.lookup_anchor_slot)
+		});
 	if claimed.is_none() {
 		if blocks.iter().all(|block| block.header().digest().logs.is_empty()) {
 			host::report_error(ERR_NO_DIGEST_AT_ALL)
@@ -173,9 +180,19 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 	// (`None` skips the signature-override hook) and no relay proof/validation-data re-check
 	// (`|_| {}`; `validate_validation_data` is relay-only). The trusted JAM anchor state root is
 	// sourced from the refine context, so the `on_execute` hook below can verify the carried
-	// `JAM_PROOF_KEY` proof. `BlockNumberProvider` reads (`JamSlotNumber`) and
-	// `deposit_jam_parent` both call `refine_context()` — the same `Fetch::RefineContext` host
-	// call made above — so nothing is threaded through this core.
+	// `JAM_PROOF_KEY` proof. `BlockNumberProvider` reads (`JamSlotNumber`) take their slot from
+	// the block's own `JamParent` digest, checked above, so nothing is threaded through this core.
+
+	// Everything the emission below needs must be read while the block-execution storage
+	// host-function overrides are still installed. `execute_blocks` restores them on return, so a
+	// storage read after it is a raw host call the refine host does not serve — and an unserved
+	// host call traps the guest, failing the whole refine with no diagnostic. That is why the
+	// para id travels with the emit slot: `SelfParaId` is `parachain_info`'s `ParachainId`, a
+	// storage item, not a constant. `on_block_validated` runs inside that scope, once per block,
+	// so the final block's values are captured here.
+	let upgrade_emit: core::cell::Cell<
+		Option<([u8; 32], u32, crate::jam::upgrade::EmitPhase, u32)>,
+	> = core::cell::Cell::new(None);
 	let result = execute_blocks::<B, E, PSC>(
 		SharedValidationInputs::<B> {
 			block_data,
@@ -183,28 +200,30 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 			randomness_seed,
 		},
 		None,
-		&|_| {},
+		&|_| {
+			upgrade_emit.set(crate::PendingUpgradeEmit::<PSC>::get().map(|(hash, len, phase)| {
+				(hash, len, phase, u32::from(PSC::SelfParaId::get()))
+			}))
+		},
 		// Arm the JAM proof reader + finalizer from the carried `JAM_PROOF_KEY` entry for
 		// the duration of each block's execution, so `jam_state_read` and `finalize` are
-		// served from the proof that travels with the block. The carried state root is
-		// *ignored* — reads verify against the trusted anchor root from the refine context,
-		// so a candidate that recorded its JAM reads against a different root fails at the
-		// first read. A malformed blob, or a proof that cannot authenticate a key, panics
-		// rather than serving `None`.
+		// served from the proof that travels with the block. The carried root is *ignored* —
+		// reads verify against the trusted anchor root from the refine context, so a candidate
+		// that recorded its JAM reads against a different root fails at the first read. A
+		// malformed blob, or a proof that cannot authenticate a key, panics rather than serving
+		// `None`.
 		&|additional_data: &Option<AdditionalData>, execute: &mut dyn FnMut()| {
-			let Some((mut jam_reader, mut jam_finalizer)) =
-				additional_data.as_ref().map(|map| {
-					let proof_bytes = map.get(JAM_PROOF_KEY).expect(
-						"additional data map (present) must contain the jam-proof entry",
-					);
-					let (_, proof) = <([u8; 32], StateProof)>::decode(&mut &proof_bytes[..])
-						.expect("jam-proof entry must decode as (state_root, proof)");
-					(
-						JamProofReader::new(PARACHAIN_SERVICE_ID, jam_anchor_state_root, proof),
-						JamProofFinalizer { commitment: hash_value(proof_bytes) },
-					)
-				})
-			else {
+			let Some((mut jam_reader, mut jam_finalizer)) = additional_data.as_ref().map(|map| {
+				let proof_bytes = map
+					.get(JAM_PROOF_KEY)
+					.expect("additional data map (present) must contain the jam-proof entry");
+				let (_, proof) = <([u8; 32], StateProof)>::decode(&mut &proof_bytes[..])
+					.expect("jam-proof entry must decode as (anchor_state_root, proof)");
+				(
+					JamProofReader::new(jam_anchor_state_root, proof),
+					JamProofFinalizer { commitment: hash_value(proof_bytes) },
+				)
+			}) else {
 				return execute();
 			};
 			// The same entry arms both the digest finalizer (so `host_finalize_into` folds
@@ -223,8 +242,21 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 	// broke, not a malformed candidate — abort loudly instead of declaring no head.
 	let Some(head) = result.head_data else { host::report_error(ERR_HEAD_DATA_MISSING) };
 	host::set_head(&head.0);
-	if let Some(code) = &result.new_validation_code {
-		host::request_code_upgrade(blake2_256(&code), code.len() as u32);
+	// Hash-only upgrade path: the runtime decides during execution and stashes the upward
+	// message in `PendingUpgradeEmit`; the service host calls only exist here, after execution.
+	if let Some((hash, len, phase, para_id)) = upgrade_emit.get() {
+		// §5.2 step 1: a parachain must reference a code before it can announce it, so the
+		// solicitation goes first. The service treats a repeat solicit as a no-op.
+		if matches!(phase, crate::jam::upgrade::EmitPhase::Announcement) {
+			host::solicit(
+				parachain_service_core::upward_message::Target::Parachain(
+					parachain_service_core::types::ParaId::from(para_id),
+				),
+				hash,
+				len,
+			);
+		}
+		host::request_code_upgrade(hash, len, phase.into());
 	}
 }
 
@@ -257,7 +289,7 @@ pub mod host {
 	// The parachain-service host functions (indices 200-203) are defined once, in
 	// `parachain_service_core::host`, so the two guests cannot drift apart on the ABI.
 	pub use parachain_service_core::host::{
-		report_error, request_code_upgrade, set_head, set_parent_head_hash,
+		report_error, request_code_upgrade, set_head, set_parent_head_hash, solicit,
 	};
 	// The fetch-based JAM helpers (`Fetch::RefineContext`, `workitems[a].payload`, …) are the
 	// same ones the service's own refine entry point drives from; re-exported through

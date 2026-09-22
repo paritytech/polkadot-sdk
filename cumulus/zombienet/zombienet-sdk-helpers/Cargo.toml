@@ -13,12 +13,21 @@ codec = { workspace = true, features = ["derive"] }
 log = { workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
+serde = { workspace = true, features = ["derive"] }
 sp-crypto-hashing = { workspace = true }
+sp-maybe-compressed-blob = { workspace = true, default-features = true }
+sp-polkavm-blob = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-version = { workspace = true, default-features = true }
+parity-wasm = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 zombienet-sdk = { workspace = true }
 futures = { workspace = true }
 zombienet-configuration = { workspace = true }
+
+[dev-dependencies]
+polkavm = { workspace = true }
+serde_json = { workspace = true, default-features = true }
 
 [features]
 # Selects the JAM implementations of the helpers that abstract over the backing chain.

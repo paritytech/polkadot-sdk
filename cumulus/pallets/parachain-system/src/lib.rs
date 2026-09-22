@@ -68,7 +68,9 @@ mod unincluded_segment;
 pub mod weights;
 #[macro_use]
 pub mod validate_block;
-#[cfg(jam)]
+// Compiled on the riscv runtime and, so the host tests can exercise the pure upgrade decision,
+// on host test builds (`cfg(any(test, jam))`), mirroring `read_included_para_head_jam`.
+#[cfg(any(test, jam))]
 mod jam;
 pub mod parachain_inherent;
 mod relay_chain;
@@ -565,6 +567,35 @@ pub mod pallet {
 			<UpgradeRestrictionSignal<T>>::put(upgrade_restriction_signal);
 			<UpgradeGoAhead<T>>::put(upgrade_go_ahead_signal);
 
+			// On JAM: the relay-path match above is a no-op (the mocked relay state never carries a
+			// real signal). Decide the JAM code upgrade from the service's `ParaInfo` in the
+			// carried state proof and, when the code is active or announced, write the 40-byte
+			// marker to :code (see jam/upgrade.rs for why the digest is manual). The decision has
+			// to happen during block execution because the authoring and PVF paths both compute
+			// the block's state root. The upward message the decision implies cannot be emitted
+			// here — the service host calls only exist in the PVF — so it is stashed in the
+			// transient `PendingUpgradeEmit` for `validate_block` to read after execution.
+			#[cfg(jam)]
+			{
+				// The emit slot belongs to the block that produced it, never a previous one.
+				PendingUpgradeEmit::<T>::kill();
+				if <PendingCodeHash<T>>::exists() {
+					total_weight.saturating_accrue(T::DbWeight::get().reads(2));
+					match crate::jam::upgrade::apply_if_ready_now::<T>() {
+						crate::jam::upgrade::UpgradeApplyResult::Applied => {
+							<T::OnSystemEvent as OnSystemEvent>::on_validation_code_applied();
+						},
+						crate::jam::upgrade::UpgradeApplyResult::Emit(hash, len, phase) => {
+							PendingUpgradeEmit::<T>::put((
+								hash,
+								len,
+								crate::jam::upgrade::EmitPhase::from(phase),
+							))
+						},
+					}
+				}
+			}
+
 			<ValidationData<T>>::put(&vfp);
 			<RelevantMessagingState<T>>::put(relevant_messaging_state.clone());
 			<HostConfiguration<T>>::put(host_config);
@@ -611,6 +642,28 @@ pub mod pallet {
 
 		// WARNING: call indices 2 and 3 were used in a former version of this pallet. Using them
 		// again will require to bump the transaction version of runtimes using this pallet.
+
+		/// Schedule a code upgrade by hash and byte length (JAM path only).
+		///
+		/// Records the pending `(code_hash, code_len)`; the runtime announces the upgrade to
+		/// the JAM service, applies it once the service reflects the code, and writes the
+		/// 40-byte marker to `:code`. Never accepts code bytes — that is the entire point of
+		/// this call; a multi-MB extrinsic traps the PolkaVM runtime.
+		#[cfg(jam)]
+		#[pallet::call_index(4)]
+		#[pallet::weight((1_000, DispatchClass::Operational))]
+		pub fn schedule_code_upgrade_hash(
+			origin: OriginFor<T>,
+			code_hash: [u8; 32],
+			code_len: u32,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			ensure!(!<PendingCodeHash<T>>::exists(), Error::<T>::OverlappingUpgrades);
+			ensure!(crate::jam::upgrade::code_size_fits(code_len as usize), Error::<T>::TooBig);
+			<PendingCodeHash<T>>::put((code_hash, code_len));
+			Self::deposit_event(Event::ValidationFunctionStored);
+			Ok(())
+		}
 	}
 
 	#[pallet::event]
@@ -689,6 +742,24 @@ pub mod pallet {
 	/// next block to be processed with the new validation code. This concludes the upgrade process.
 	#[pallet::storage]
 	pub type PendingValidationCode<T: Config> = StorageValue<_, Vec<u8>, ValueQuery>;
+
+	/// JAM-path pending code upgrade: blake2b-256 hash and byte length of the new code.
+	///
+	/// Set by [`Pallet::schedule_code_upgrade_hash`]. Cleared when the code is applied (the
+	/// 40-byte marker is written to `:code`) or when the service drops the announced upgrade.
+	/// Always `None` on the relay path.
+	#[pallet::storage]
+	pub type PendingCodeHash<T: Config> = StorageValue<_, ([u8; 32], u32), OptionQuery>;
+
+	/// The code-upgrade upward message (if any) this block must emit, as `(hash, len, phase)`.
+	///
+	/// Written during block execution by `jam::upgrade::apply_if_ready_now` and read after
+	/// execution by the PVF, which is the only place the service host calls exist. Cleared at
+	/// the start of the next block's `set_validation_data`.
+	#[cfg(any(test, jam))]
+	#[pallet::storage]
+	pub type PendingUpgradeEmit<T: Config> =
+		StorageValue<_, ([u8; 32], u32, crate::jam::upgrade::EmitPhase), OptionQuery>;
 
 	/// Validation code that is set by the parachain and is to be communicated to collator and
 	/// consequently the relay-chain.
@@ -1331,15 +1402,31 @@ impl<T: Config> Pallet<T> {
 
 	/// The implementation of the runtime upgrade functionality for parachains.
 	pub fn schedule_code_upgrade(validation_function: Vec<u8>) -> DispatchResult {
+		// On JAM a multi-MB extrinsic payload traps the PolkaVM runtime; use
+		// `schedule_code_upgrade_hash` instead.
+		#[cfg(jam)]
+		return Err(Error::<T>::TooBig.into());
+
 		// Ensure that `ValidationData` exists. We do not care about the validation data per se,
 		// but we do care about the [`UpgradeRestrictionSignal`] which arrives with the same
 		// inherent.
 		ensure!(<ValidationData<T>>::exists(), Error::<T>::ValidationDataNotAvailable);
+
+		// On JAM there is no relay chain to signal a restriction, and the host configuration is a
+		// mock: the code is bounded by the JAM preimage limit below instead.
+		#[cfg(not(jam))]
 		ensure!(<UpgradeRestrictionSignal<T>>::get().is_none(), Error::<T>::ProhibitedByPolkadot);
 
 		ensure!(!<PendingValidationCode<T>>::exists(), Error::<T>::OverlappingUpgrades);
+
+		#[cfg(not(jam))]
 		let cfg = HostConfiguration::<T>::get().ok_or(Error::<T>::HostConfigurationNotAvailable)?;
+		#[cfg(not(jam))]
 		ensure!(validation_function.len() <= cfg.max_code_size as usize, Error::<T>::TooBig);
+
+		// On JAM the bound is the largest preimage the network will ever carry.
+		#[cfg(jam)]
+		ensure!(crate::jam::upgrade::code_size_fits(validation_function.len()), Error::<T>::TooBig);
 
 		// When a code upgrade is scheduled, it has to be applied in two
 		// places, synchronized: both polkadot and the individual parachain

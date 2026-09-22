@@ -835,7 +835,7 @@ where
 						_,
 					>(jam::builder_task::BuilderTaskParams {
 						para_client: client.clone(),
-						para_backend,
+						para_backend: para_backend.clone(),
 						block_import,
 						proposer_factory,
 						keystore,
@@ -852,6 +852,7 @@ where
 					Box::pin(jam::collation_task::run_collation_task(
 						jam::collation_task::CollationTaskParams {
 							para_client: client,
+							para_backend,
 							jam,
 							para_id,
 							service_id: jam_params.service_id,

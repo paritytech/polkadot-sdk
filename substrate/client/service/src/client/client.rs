@@ -48,6 +48,7 @@ use sc_consensus::{
 	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
 };
 use sc_executor::RuntimeVersion;
+use sc_network_sync::code_request_handler::CodeBlobProvider;
 use sc_telemetry::{telemetry, TelemetryHandle, SUBSTRATE_INFO};
 use sp_api::{
 	ApiExt, ApiRef, CallApiAt, CallApiAtParams, ConstructRuntimeApi, Core as CoreApi,
@@ -2085,6 +2086,17 @@ where
 
 	fn requires_full_sync(&self) -> bool {
 		self.backend.requires_full_sync()
+	}
+}
+
+impl<B, E, Block, RA> CodeBlobProvider for Client<B, E, Block, RA>
+where
+	B: backend::Backend<Block>,
+	E: CallExecutor<Block>,
+	Block: BlockT,
+{
+	fn code_blob(&self, hash: &[u8; 32]) -> sp_blockchain::Result<Option<Vec<u8>>> {
+		<B as backend::Backend<Block>>::code_blob(&*self.backend, hash)
 	}
 }
 

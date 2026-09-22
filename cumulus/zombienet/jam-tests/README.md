@@ -120,11 +120,20 @@ library in `src/`). Without it the crate compiles the relay table and runs the r
 without the script:
 
 ```sh
-SKIP_WASM_BUILD=1 cargo test -p cumulus-zombienet-sdk-tests \
+SUBSTRATE_RUNTIME_TARGET=riscv WASM_BUILD_RUSTFLAGS="--cfg jam" \
+	cargo test -p cumulus-zombienet-sdk-tests \
 	--features jam,zombie-ci --test tests -- --test-threads 1 --nocapture zombie_ci::elastic_scaling
-SKIP_WASM_BUILD=1 cargo test -p cumulus-zombienet-sdk-tests \
+SUBSTRATE_RUNTIME_TARGET=riscv WASM_BUILD_RUSTFLAGS="--cfg jam" \
+	cargo test -p cumulus-zombienet-sdk-tests \
 	--features jam,zombie-ci --test tests -- --test-threads 1 --nocapture zombie_ci::block_bundling
 ```
+
+These suites upgrade a para to a `cumulus-test-runtime` feature flavor, so the test crate has to
+be built **without** `SKIP_WASM_BUILD` and with
+`SUBSTRATE_RUNTIME_TARGET=riscv WASM_BUILD_RUSTFLAGS="--cfg jam"`. Under the riscv target the
+wasm-builder emits each flavor's PolkaVM blob under the same `WASM_BINARY` const the tests hand to
+the para, so no separate `.polkavm` path is needed. This is a heavy build — every flavor is
+compiled for riscv — and it dominates the run.
 
 `--test-threads 1` is required here too, for the same reason as the tests below: each JAM test
 spawns the same six-validator network plus collators.

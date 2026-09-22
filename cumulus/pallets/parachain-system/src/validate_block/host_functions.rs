@@ -79,9 +79,8 @@ pub(super) fn install_overrides() -> impl Sized {
 		sp_io::offchain_index::host_clear.replace_implementation(host_offchain_index_clear),
 		cumulus_primitives_proof_size_hostfunction::storage_proof_size::host_storage_proof_size
 			.replace_implementation(host_storage_proof_size),
-		// The riscv runtime reads its included head via `jam_state_read`, served from the JAM
-		// state proof carried in the PoV under `JAM_PROOF_KEY`, verified against the trusted
-		// anchor root.
+		// The riscv runtime reads JAM state via `jam_state_read`, served from the JAM state proof
+		// carried in the PoV under `JAM_PROOF_KEY`, verified against the trusted anchor root.
 		#[cfg(jam)]
 		cumulus_jam_state_reader::jam_state::host_jam_state_read_into
 			.replace_implementation(host_jam_state_read_into),
@@ -148,7 +147,6 @@ pub(super) mod jam_data {
 		env::with(f)
 	}
 }
-
 
 /// Run the given closure with the externalities and recorder set.
 pub(crate) fn run_with_externalities_and_recorder<Block: BlockT, R, F: FnOnce() -> R>(
@@ -292,6 +290,8 @@ pub(super) fn host_jam_state_read_into(key: &[u8], value_out: &mut [u8]) -> i64 
 	// Served by the verifying proof-backed reader set up around block execution; if none is set (a
 	// block with no JAM reads), reports the key as absent. A reader whose proof cannot
 	// authenticate the key panics inside `read` (task 7's semantic), never reports absence.
+	let key: &parachain_service_core::StateKey =
+		key.try_into().expect("a JAM state key is 31 bytes; qed");
 	match jam_data::with(|p| p.read(key)).flatten() {
 		Some(v) => {
 			let n = core::cmp::min(v.len(), value_out.len());

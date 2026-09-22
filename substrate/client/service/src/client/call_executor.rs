@@ -17,13 +17,14 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{code_provider::CodeProvider, ClientConfig};
+use codec::Decode;
 use sc_client_api::{
 	backend, call_executor::CallExecutor, execution_extensions::ExecutionExtensions, HeaderBackend,
 	TrieCacheContext,
 };
 use sc_executor::{RuntimeVersion, RuntimeVersionOf};
 use sp_api::ProofRecorder;
-use sp_core::traits::{CallContext, CodeExecutor};
+use sp_core::traits::{CallContext, CodeExecutor, FetchRuntimeCode, RuntimeCode};
 use sp_externalities::Extensions;
 use sp_runtime::{
 	generic::BlockId,
@@ -33,7 +34,29 @@ use sp_state_machine::{
 	backend::{AsTrieBackend, TryPendingCode},
 	OverlayedChanges, StateMachine, StorageProof,
 };
-use std::{cell::RefCell, sync::Arc};
+use std::{borrow::Cow, cell::RefCell, sync::Arc};
+
+/// Resolves the real runtime bytes for a `:code` marker from the node DB's CODE column.
+///
+/// `:code` holds a 40-byte marker when the parachain runtime is stored offchain; this type
+/// bridges the execution path to the database where the actual bytes live.
+struct MarkerCodeFetcher<'a, Block, B> {
+	backend: &'a B,
+	code_hash: [u8; 32],
+	cached: std::cell::OnceCell<Option<Vec<u8>>>,
+	_phantom: std::marker::PhantomData<Block>,
+}
+
+impl<'a, Block: BlockT, B: backend::Backend<Block>> FetchRuntimeCode
+	for MarkerCodeFetcher<'a, Block, B>
+{
+	fn fetch_runtime_code(&self) -> Option<Cow<'_, [u8]>> {
+		self.cached
+			.get_or_init(|| self.backend.code_blob(&self.code_hash).ok().flatten())
+			.clone()
+			.map(Cow::Owned)
+	}
+}
 
 /// Call executor that executes methods locally, querying all required
 /// data from local backend.
@@ -64,6 +87,35 @@ where
 			code_provider,
 			execution_extensions: Arc::new(execution_extensions),
 		})
+	}
+
+	/// When `:code` holds a 40-byte offchain marker, `BackendRuntimeCode::fetch_runtime_code`
+	/// returns `None` (it cannot resolve the code itself). This helper detects that case and
+	/// rewires the `RuntimeCode`'s fetcher to a `MarkerCodeFetcher` stored in `slot`, which
+	/// reads the real bytes from the backend's CODE column.  The slot must outlive the returned
+	/// `RuntimeCode` because `code_fetcher` borrows from it.
+	fn maybe_resolve_marker<'a>(
+		&'a self,
+		state_runtime_code: &'a impl FetchRuntimeCode,
+		runtime_code: RuntimeCode<'a>,
+		slot: &'a mut Option<MarkerCodeFetcher<'a, Block, B>>,
+	) -> RuntimeCode<'a> {
+		if state_runtime_code.fetch_runtime_code().is_some() {
+			return runtime_code;
+		}
+		let code_hash = <[u8; 32]>::decode(&mut &runtime_code.hash[..])
+			.expect("BackendRuntimeCode SCALE-encodes [u8;32] when :code is a marker; qed");
+		let fetcher: &'a mut MarkerCodeFetcher<'a, Block, B> = slot.insert(MarkerCodeFetcher {
+			backend: &self.backend,
+			code_hash,
+			cached: std::cell::OnceCell::new(),
+			_phantom: std::marker::PhantomData,
+		});
+		RuntimeCode {
+			code_fetcher: fetcher,
+			hash: runtime_code.hash,
+			heap_pages: runtime_code.heap_pages,
+		}
 	}
 }
 
@@ -112,6 +164,9 @@ where
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
 
+		let mut marker_fetcher = None;
+		let runtime_code =
+			self.maybe_resolve_marker(&state_runtime_code, runtime_code, &mut marker_fetcher);
 		let runtime_code = self.code_provider.maybe_override_code(runtime_code, &state, at_hash)?.0;
 
 		let mut extensions = self.execution_extensions.extensions(at_hash, at_number);
@@ -153,6 +208,9 @@ where
 
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
+		let mut marker_fetcher = None;
+		let runtime_code =
+			self.maybe_resolve_marker(&state_runtime_code, runtime_code, &mut marker_fetcher);
 		let runtime_code = self.code_provider.maybe_override_code(runtime_code, &state, at_hash)?.0;
 		let mut extensions = extensions.borrow_mut();
 
@@ -206,6 +264,9 @@ where
 
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
+		let mut marker_fetcher = None;
+		let runtime_code =
+			self.maybe_resolve_marker(&state_runtime_code, runtime_code, &mut marker_fetcher);
 		self.code_provider
 			.maybe_override_code(runtime_code, &state, at_hash)
 			.map(|(_, v)| v)
@@ -227,6 +288,9 @@ where
 			sp_state_machine::backend::BackendRuntimeCode::new(trie_backend, TryPendingCode::No);
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
+		let mut marker_fetcher = None;
+		let runtime_code =
+			self.maybe_resolve_marker(&state_runtime_code, runtime_code, &mut marker_fetcher);
 		let runtime_code = self.code_provider.maybe_override_code(runtime_code, &state, at_hash)?.0;
 
 		sp_state_machine::prove_execution_on_trie_backend(

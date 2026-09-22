@@ -162,12 +162,39 @@ impl_opaque_keys! {
 	}
 }
 
+// The only difference between the two declarations below is the `spec_version`.
+// The behavior is:
+// - by default `spec_version` should be 1
+// - with `spec-version-2` feature enabled `spec_version` should be 2
+//
+// The duplication here is unfortunate necessity.
+//
+// runtime_version macro is dumb. It accepts a const item declaration, passes it through and
+// also emits runtime version custom section. It parses the expressions to extract the version
+// details. Since macro kicks in early, it operates on AST. Thus, you cannot use constants.
+// Macros are expanded top to bottom, meaning we also cannot use `cfg` here.
+#[cfg(not(feature = "spec-version-2"))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("parachain-template-runtime"),
 	impl_name: alloc::borrow::Cow::Borrowed("parachain-template-runtime"),
 	authoring_version: 1,
+	// Read the note above.
 	spec_version: 1,
+	impl_version: 0,
+	apis: apis::RUNTIME_API_VERSIONS,
+	transaction_version: 1,
+	system_version: 1,
+};
+
+#[cfg(feature = "spec-version-2")]
+#[sp_version::runtime_version]
+pub const VERSION: RuntimeVersion = RuntimeVersion {
+	spec_name: alloc::borrow::Cow::Borrowed("parachain-template-runtime"),
+	impl_name: alloc::borrow::Cow::Borrowed("parachain-template-runtime"),
+	authoring_version: 1,
+	// Read the note above.
+	spec_version: 2,
 	impl_version: 0,
 	apis: apis::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -223,10 +250,17 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
 mod async_backing_params {
 	/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
 	/// into the relay chain.
-	pub(crate) const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
+	///
+	/// The Asset Hub shape with this runtime's relay-parent offset of zero
+	/// (`RelayParentOffsetApi::relay_parent_offset`): three slots' worth of velocity.
+	pub(crate) const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3 * BLOCK_PROCESSING_VELOCITY;
 	/// How many parachain blocks are processed by the relay chain per parent. Limits the
 	/// number of blocks authored per slot.
-	pub(crate) const BLOCK_PROCESSING_VELOCITY: u32 = 1;
+	///
+	/// Two, because a JAM collator turn places one work package on each core that holds the
+	/// para's authorizer, and the JAM tiny preset has two cores: the runtime has to admit two
+	/// blocks per slot for a turn to reach both.
+	pub(crate) const BLOCK_PROCESSING_VELOCITY: u32 = 2;
 	/// Relay chain slot duration, in milliseconds.
 	pub(crate) const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 }

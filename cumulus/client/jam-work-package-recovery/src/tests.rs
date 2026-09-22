@@ -4,14 +4,18 @@
 
 use crate::{
 	bundle_decode::decode_bundle,
-	state_machine::{ImportBlocksSink, JamWorkPackageRecovery, RecoveredBlock, WorkReportNotification},
+	state_machine::{
+		ImportBlocksSink, JamWorkPackageRecovery, RecoveredBlock, WorkReportNotification,
+	},
 	RecoveryDelayRange, RecoveryQueue,
 };
 use codec::Encode;
-use jam_types::Encode as _;
 use cumulus_jam_interface::{WorkPackageHash, WorkReportHash};
 use cumulus_primitives_core::{ParachainBlockData, SchedulingProof};
-use jam_types::{Authorization, Authorizer, CodeHash, RefineContext, WorkItem, WorkPackage, WorkPayload};
+use jam_types::{
+	Authorization, Authorizer, CodeHash, Encode as _, RefineContext, WorkItem, WorkPackage,
+	WorkPayload,
+};
 use parachain_service_core::{candidate::ParachainCandidate, types::ValidationCodeHash};
 use sp_consensus::BlockStatus;
 use sp_runtime::{
@@ -139,8 +143,8 @@ fn make_bundle_and_package(
 	)
 	.encode();
 
-	let payload = ParachainCandidate { validation_code_hash: ValidationCodeHash([0u8; 32]), pov }
-		.encode();
+	let payload =
+		ParachainCandidate { validation_code_hash: ValidationCodeHash([0u8; 32]), pov }.encode();
 
 	let work_item = WorkItem {
 		service: 0,
@@ -214,11 +218,8 @@ fn multi_block_pov_recovers_all_in_order() {
 	let parent_header = TestHeader::new_from_number(0);
 	let block_a = TestBlock { header: TestHeader::new_from_number(1), extrinsics: vec![] };
 	let block_b = TestBlock { header: TestHeader::new_from_number(2), extrinsics: vec![] };
-	let bundle = make_bundle_bytes(
-		vec![block_a.clone(), block_b.clone()],
-		vec![None, None],
-		parent_header,
-	);
+	let bundle =
+		make_bundle_bytes(vec![block_a.clone(), block_b.clone()], vec![None, None], parent_header);
 	let decoded = decode_bundle::<TestBlock>(&bundle).expect("multi-block decode");
 	assert_eq!(decoded.len(), 2);
 	assert_eq!(decoded[0].0, block_a);

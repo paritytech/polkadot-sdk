@@ -425,28 +425,33 @@ pub struct BackendRuntimeCode<'a, B, H> {
 	_marker: PhantomData<H>,
 }
 
+/// The stored value as runtime code, or `None` when it is only a marker.
+///
+/// A marker names the code by hash; resolving it needs a database, an RPC or the network, none of
+/// which this crate has. `None` makes a caller that bypassed the node's `CodeProvider` fail
+/// instead of executing 40 bytes as a runtime.
+#[cfg(feature = "std")]
+fn not_a_marker<'a>(code: Vec<u8>) -> Option<std::borrow::Cow<'a, [u8]>> {
+	(!sp_code_marker::is_marker(&code)).then(|| code.into())
+}
+
 #[cfg(feature = "std")]
 impl<'a, B: Backend<H>, H: Hasher> sp_core::traits::FetchRuntimeCode
 	for BackendRuntimeCode<'a, B, H>
 {
 	fn fetch_runtime_code(&self) -> Option<std::borrow::Cow<'_, [u8]>> {
 		if matches!(self.try_pending_code, TryPendingCode::Yes) {
-			let pending_code = self
+			if let Some(pending_code) = self
 				.backend
 				.storage(sp_core::storage::well_known_keys::PENDING_CODE)
 				.ok()
 				.flatten()
-				.map(Into::into);
-
-			if pending_code.is_some() {
-				return pending_code;
+			{
+				return not_a_marker(pending_code);
 			}
 		}
-		self.backend
-			.storage(sp_core::storage::well_known_keys::CODE)
-			.ok()
-			.flatten()
-			.map(Into::into)
+		let code = self.backend.storage(sp_core::storage::well_known_keys::CODE).ok().flatten()?;
+		not_a_marker(code)
 	}
 }
 
@@ -464,23 +469,29 @@ where
 	///
 	/// This method takes `:pending_code` into account.
 	pub fn runtime_code(&self) -> Result<RuntimeCode<'_>, &'static str> {
-		let maybe_pending_code_hash = match self.try_pending_code {
+		let pending_key = sp_core::storage::well_known_keys::PENDING_CODE;
+		let code_key = sp_core::storage::well_known_keys::CODE;
+
+		let pending_code = match self.try_pending_code {
 			TryPendingCode::No => None,
-			TryPendingCode::Yes => self
-				.backend
-				.storage_hash(sp_core::storage::well_known_keys::PENDING_CODE)
-				.ok()
-				.flatten(),
+			TryPendingCode::Yes => self.backend.storage(pending_key).ok().flatten(),
 		};
-		let hash = if let Some(pending_code_hash) = maybe_pending_code_hash {
-			pending_code_hash.encode()
-		} else {
-			self.backend
-				.storage_hash(sp_core::storage::well_known_keys::CODE)
+		let (key, value) = match pending_code {
+			Some(pending_code) => (pending_key, Some(pending_code)),
+			None => (code_key, self.backend.storage(code_key).ok().flatten()),
+		};
+
+		// The executor caches instances by this hash, so it has to identify the CODE. A marker
+		// names that code; hashing the marker itself would key the cache on the storage value.
+		let hash = match value.as_deref().and_then(sp_code_marker::decode_marker) {
+			Some(code_hash) => code_hash.encode(),
+			None => self
+				.backend
+				.storage_hash(key)
 				.ok()
 				.flatten()
 				.ok_or("`:code` hash not found")?
-				.encode()
+				.encode(),
 		};
 		let heap_pages = self
 			.backend
@@ -490,5 +501,69 @@ where
 			.and_then(|d| codec::Decode::decode(&mut &d[..]).ok());
 
 		Ok(RuntimeCode { code_fetcher: self, hash, heap_pages })
+	}
+}
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+	use super::*;
+	use sp_core::{
+		storage::{well_known_keys, StateVersion},
+		traits::FetchRuntimeCode,
+	};
+	use sp_runtime::traits::BlakeTwo256;
+
+	fn backend_with_code(code: Vec<u8>) -> impl Backend<BlakeTwo256> {
+		crate::new_in_mem::<BlakeTwo256>().update(
+			vec![(None, vec![(well_known_keys::CODE.to_vec(), Some(code))])],
+			StateVersion::default(),
+		)
+	}
+
+	#[test]
+	fn runtime_code_reports_the_real_hash_for_a_marker() {
+		let code_hash = [0xab; 32];
+		let backend = backend_with_code(sp_code_marker::encode_marker(&code_hash).to_vec());
+
+		let code_provider = BackendRuntimeCode::new(&backend, TryPendingCode::No);
+		let runtime_code = code_provider.runtime_code().expect("`:code` is present");
+
+		assert_eq!(
+			runtime_code.hash,
+			code_hash.encode(),
+			"a marker must report the code hash it names, not the trie hash of the marker"
+		);
+	}
+
+	#[test]
+	fn fetch_runtime_code_is_none_for_a_marker() {
+		let backend = backend_with_code(sp_code_marker::encode_marker(&[0xab; 32]).to_vec());
+
+		assert!(
+			BackendRuntimeCode::new(&backend, TryPendingCode::No)
+				.fetch_runtime_code()
+				.is_none(),
+			"a marker names code this crate cannot resolve, so it must not be returned as code"
+		);
+	}
+
+	#[test]
+	fn non_marker_code_is_unchanged() {
+		let code = b"\0asm not really wasm but long enough to not be a marker".to_vec();
+		let backend = backend_with_code(code.clone());
+		let expected_hash = backend
+			.storage_hash(well_known_keys::CODE)
+			.expect("backend read succeeds")
+			.expect("`:code` is present");
+
+		let code_provider = BackendRuntimeCode::new(&backend, TryPendingCode::No);
+		let runtime_code = code_provider.runtime_code().expect("`:code` is present");
+
+		assert_eq!(runtime_code.hash, expected_hash.encode(), "hash must be the storage hash");
+		assert_eq!(
+			code_provider.fetch_runtime_code().map(|c| c.to_vec()),
+			Some(code),
+			"a real blob must still be returned verbatim"
+		);
 	}
 }

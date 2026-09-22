@@ -12,11 +12,7 @@
 //! module walks the same steps through the same crate the collator and the guest use, and the
 //! harness checks the result against what the collators log at startup.
 
-use crate::{
-	chain_spec,
-	collators::Para,
-	network::PARACHAIN_SERVICE_ID,
-};
+use crate::{chain_spec, collators::Para, network::PARACHAIN_SERVICE_ID};
 use anyhow::Context;
 use codec::Encode;
 use parachain_authorizer::aura::{build_collator_tree, AuthConfig, CollatorKey};
@@ -100,6 +96,8 @@ mod tests {
 			core: 0,
 			also_cores: Vec::new(),
 			collators: collators.iter().map(|name| name.to_string()).collect(),
+			runtime: None,
+			full_nodes: Vec::new(),
 		}
 	}
 

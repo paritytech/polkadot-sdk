@@ -60,7 +60,10 @@ use super::{
 	jam_slot_at, para_head_stream, resubmission::*, scan_pools_at, JamCollatorMessage,
 	JAM_SLOT_DURATION_MS, LOG_TARGET,
 };
-use crate::common::{types::ParachainClient, ConstructNodeRuntimeApi, NodeBlock};
+use crate::common::{
+	types::{ParachainBackend, ParachainClient},
+	ConstructNodeRuntimeApi, NodeBlock,
+};
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{ParachainBlockData, SchedulingProof};
 use futures::{
@@ -100,6 +103,7 @@ const REPORT_DEADLINE_SLOTS: JamSlot = 8;
 
 pub(crate) struct CollationTaskParams<Block: NodeBlock, RuntimeApi, Jam> {
 	pub para_client: Arc<ParachainClient<Block, RuntimeApi>>,
+	pub para_backend: Arc<ParachainBackend<Block>>,
 	pub jam: Arc<Jam>,
 	pub para_id: ParaId,
 	pub service_id: ServiceId,
@@ -118,6 +122,7 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 {
 	let CollationTaskParams {
 		para_client,
+		para_backend,
 		jam,
 		para_id,
 		service_id,
@@ -207,6 +212,7 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 	let hash_ledger = WpHashLedger::new(Arc::clone(&para_client));
 	let mut manager = Manager {
 		para_client,
+		para_backend,
 		jam,
 		service_id,
 		authorizer,
@@ -488,6 +494,7 @@ fn forget_package<Block: BlockT<Hash = DbHash>, C: AuxStore>(
 
 struct Manager<Block: NodeBlock, RuntimeApi, Jam> {
 	para_client: Arc<ParachainClient<Block, RuntimeApi>>,
+	para_backend: Arc<ParachainBackend<Block>>,
 	jam: Arc<Jam>,
 	service_id: ServiceId,
 	/// The para's AURA authorizer: what every package here runs under, and what signs it.
@@ -517,6 +524,19 @@ where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	Jam: JamChainSource + JamStateSource + JamWorkPackageSubmission + 'static,
 {
+	/// Resolve an offchain-code marker at `block`; see [`super::ensure_code_blob_at`].
+	async fn ensure_code_blob_at(&mut self, block: Block::Hash, anchor: HeaderHash) {
+		super::ensure_code_blob_at(
+			&self.para_client,
+			&self.para_backend,
+			&*self.jam,
+			self.service_id,
+			block,
+			anchor,
+		)
+		.await;
+	}
+
 	/// A block from the builder: assemble its package, submit it, track it.
 	///
 	/// The package names the work package this node submitted for the parent block as its one
@@ -552,6 +572,8 @@ where
 			},
 		};
 
+		self.ensure_code_blob_at(parent_hash, context.anchor).await;
+
 		let validation_code = match self.para_client.code_at(parent_hash) {
 			Ok(code) => code,
 			Err(error) => {
@@ -565,6 +587,20 @@ where
 			},
 		};
 
+		// The parent's `:code`, not this block's own. A `:code` write in block N+1 only takes
+		// effect for validation at N+2, so N+1 is still validated with the old code; the
+		// service's dual-code window accepts both while the upgrade is in flight (spec §5.2
+		// phase 4/5). Hashing the parent's code is therefore the code this package must commit
+		// to. Caveat: `system_version: 3` runtimes defer the swap by two blocks (N+2 still runs
+		// the old code, N+3 the new one), which the same parent-code hash covers.
+		let validation_code_hash = sp_crypto_hashing::blake2_256(&validation_code);
+		tracing::debug!(
+			target: LOG_TARGET,
+			?block_hash,
+			?parent_hash,
+			?validation_code_hash,
+			"Hashed the parent's validation code for the work package.",
+		);
 		let source = PackageSource {
 			blocks: vec![block],
 			proof: compact_proof,
@@ -572,7 +608,7 @@ where
 			// part of what makes this block's package what it is, and survives a re-anchor like
 			// the block it proves.
 			additional_data,
-			validation_code_hash: sp_crypto_hashing::blake2_256(&validation_code),
+			validation_code_hash,
 			service_id: self.service_id,
 			service_code_hash: self.service_code_hash,
 			refine_gas_limit: self.refine_gas_limit,
@@ -1854,7 +1890,7 @@ mod tests {
 		let parent_header = header(4, H256::repeat_byte(6));
 		let block_header = header(5, parent_header.hash());
 		// Shaped like the production entry `register_jam_state_reader` stores.
-		let entry = ([7u8; 32], StateProof { nodes: vec![], values: vec![] }).encode();
+		let entry = ([7u8; 32], [8u8; 32], StateProof { nodes: vec![], values: vec![] }).encode();
 		let additional_data = [(JAM_PROOF_KEY.to_string(), entry.clone())].into();
 
 		let pov = build_pov(

@@ -34,6 +34,7 @@ pub mod types;
 pub mod block_relay_protocol;
 pub mod block_request_handler;
 pub mod blocks;
+pub mod code_request_handler;
 pub mod engine;
 pub mod mock;
 pub mod service;

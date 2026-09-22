@@ -63,7 +63,7 @@ use cumulus_client_consensus_aura::collator::SlotClaim;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_jam_state_reader::{JamProofFinalizer, JamProofReader, JamStateExt, JAM_PROOF_KEY};
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{CollectCollationInfo, RelayParentOffsetApi};
+use cumulus_primitives_core::RelayParentOffsetApi;
 use futures::{channel::mpsc, FutureExt, StreamExt};
 use jam_interface::{
 	BlockDesc, CoreIndex, HeaderHash, JamChainSource, JamStateSource, ServiceId, Slot as JamSlot,
@@ -74,10 +74,11 @@ use parachain_service_core::{
 	para_info_key, service_value_state_key, verify as verify_state_proof, ParaInfo, StateKey,
 	StateProof,
 };
-use polkadot_primitives::{HeadData, Id as ParaId, UpgradeGoAhead};
+use polkadot_primitives::{HeadData, Id as ParaId};
 use sc_client_api::Backend as _;
 use sc_consensus::{BlockImport, StateAction};
 use sc_consensus_aura::standalone as aura_internal;
+use sc_executor_polkavm::JamRefineContextExt;
 use sp_additional_data::{hash_value, AdditionalData, AdditionalDataExt, AdditionalDataFinalizer};
 use sp_api::{ProofRecorder, ProvideRuntimeApi};
 use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
@@ -96,9 +97,12 @@ use std::{
 };
 
 const PROPOSAL_DURATION: Duration = Duration::from_millis(2000);
-/// Phase-1 PoV budget; generous for a mostly-empty test chain, small enough for any JAM
-/// work-package size limit.
-const MAX_POV_SIZE: usize = 3 * 1024 * 1024;
+/// JAM work-package PoV budget for a parachain collation.
+///
+/// `jam_types::max_input()` (the Gray Paper's Wb) is 13,791,360 bytes. 12 MiB (12,582,912 bytes)
+/// leaves 1,208,448 bytes — ~1.15 MiB — for the work-package header, authorizer config,
+/// extrinsics index and other per-package fields.
+const MAX_POV_SIZE: usize = 12 * 1024 * 1024;
 /// How many JAM blocks back from the cached tip the anchor is taken.
 ///
 /// Zero anchors at the tip itself, which buys a slot of proof freshness; the knob mirrors the
@@ -567,12 +571,7 @@ impl<Header: HeaderT> BuilderState<Header> {
 	/// keeps producing blocks, so the only visible symptom is an accumulated head that stops
 	/// moving, and this line is what tells the two apart. Every other scan is logged when it
 	/// *changes*, which is what makes an assignment, a reassignment and a recovery each one line.
-	fn note_pool_scan(
-		&mut self,
-		scan: &PoolScan,
-		anchor: &BlockDesc,
-		authorizer: &AuraAuthorizer,
-	) {
+	fn note_pool_scan(&mut self, scan: &PoolScan, anchor: &BlockDesc, authorizer: &AuraAuthorizer) {
 		let previous = self.last_pool_scan.replace(scan.clone());
 		match scan.target {
 			None => tracing::warn!(
@@ -724,6 +723,7 @@ async fn fetch_anchor_state_proof<Jam: JamStateSource + ?Sized>(
 	};
 	let proved = verify_state_proof(&proof, state_root, &key)
 		.map_err(|error| format!("the node's own state proof does not verify: {error:?}"))?;
+
 	Ok((proof, proved))
 }
 
@@ -732,16 +732,15 @@ async fn fetch_anchor_state_proof<Jam: JamStateSource + ?Sized>(
 /// One [`StateProof`] backs both the read side — [`JamStateExt`], so the runtime's
 /// `jam_state_read` serves reads during block execution — and the digest side — `AdditionalDataExt`
 /// under [`JAM_PROOF_KEY`], so `frame_executive` deposits the `DigestItem::AdditionalData`
-/// committing `hash_value((state_root, proof).encode())`. Returns the additional-data map to
-/// carry in the PoV: the `JAM_PROOF_KEY` entry holding the encoded `(state_root, proof)`.
+/// committing `hash_value((anchor_state_root, proof).encode())`. Returns the additional-data map
+/// to carry in the PoV: the `JAM_PROOF_KEY` entry holding the encoded tuple.
 fn register_jam_state_reader(
 	extra_extensions: &mut Extensions,
-	service_id: ServiceId,
-	state_root: [u8; 32],
+	anchor_state_root: [u8; 32],
 	proof: StateProof,
 ) -> AdditionalData {
-	let encoded = (state_root, &proof).encode();
-	let reader = Arc::new(JamProofReader::new(service_id, state_root, proof));
+	let encoded = (anchor_state_root, &proof).encode();
+	let reader = Arc::new(JamProofReader::new(anchor_state_root, proof));
 	extra_extensions.register(JamStateExt(Box::new(reader)));
 	extra_extensions.register(AdditionalDataExt(
 		[(
@@ -765,7 +764,7 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 	AuraId: AuraIdT + Sync,
 	BI: BlockImport<Block> + Send + Sync,
 	PF: Environment<Block>,
-	Jam: JamChainSource + JamStateSource,
+	Jam: JamChainSource + JamStateSource + 'static,
 {
 	let BuilderTaskParams {
 		para_client,
@@ -779,14 +778,6 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 		jam,
 		mut message_sender,
 	} = params;
-
-	let slot_duration = match sc_consensus_aura::slot_duration(&*para_client) {
-		Ok(slot_duration) => slot_duration,
-		Err(error) => {
-			tracing::error!(target: LOG_TARGET, ?error, "Failed to read the Aura slot duration.");
-			return;
-		},
-	};
 
 	let mut best_blocks = match jam.best_block_stream().await {
 		Ok(stream) => stream.fuse(),
@@ -803,7 +794,6 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 	tracing::info!(
 		target: LOG_TARGET,
 		?para_id,
-		slot_duration = slot_duration.as_millis(),
 		anchor_offset = ANCHOR_OFFSET,
 		max_tip_lag_slots = MAX_TIP_LAG_SLOTS,
 		"JAM builder task started; building up to one block per core per parachain slot.",
@@ -822,6 +812,37 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 	};
 	let mut cached_tip: Option<BlockDesc> = None;
 	loop {
+		// The Aura slot duration lives in the runtime and can change under an upgrade (the
+		// 18s-slot test), so the tick cadence is re-read every round rather than captured once
+		// at task start. The authoritative per-parent value for the block itself is read in
+		// `run_tick`, once the parent is chosen. A test that changes the slot must run a single
+		// collator: the authorizer round-robin divisor (`--jam-slot-duration`) is separate,
+		// immutable config, and with one collator the Aura author index is always 0.
+		// A block this collator just produced can carry the offchain-code marker the runtime
+		// writes once the preimage is available; resolve it before reading that block's runtime.
+		if let Some(tip) = &cached_tip {
+			super::ensure_code_blob_at(
+				&para_client,
+				&para_backend,
+				&*jam,
+				service_id,
+				para_client.info().best_hash,
+				tip.header_hash,
+			)
+			.await;
+		}
+		let slot_duration =
+			match aura_internal::slot_duration_at(&*para_client, para_client.info().best_hash) {
+				Ok(slot_duration) => slot_duration,
+				Err(error) => {
+					tracing::error!(
+						target: LOG_TARGET,
+						?error,
+						"Failed to read the Aura slot duration."
+					);
+					return;
+				},
+			};
 		let mut next_tick = futures_timer::Delay::new(time_until_next_para_slot(
 			Timestamp::current().as_duration(),
 			slot_duration.as_duration(),
@@ -865,7 +886,7 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 			para_id,
 			service_id,
 			&authorizer,
-			&*jam,
+			&jam,
 			slot_duration,
 			tip,
 			now,
@@ -921,8 +942,8 @@ async fn run_tick<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 	para_id: ParaId,
 	service_id: ServiceId,
 	authorizer: &AuraAuthorizer,
-	jam: &Jam,
-	slot_duration: SlotDuration,
+	jam: &Arc<Jam>,
+	tick_slot_duration: SlotDuration,
 	tip: BlockDesc,
 	now: Timestamp,
 	state: &mut BuilderState<Block::Header>,
@@ -934,11 +955,12 @@ where
 	AuraId: AuraIdT + Sync,
 	BI: BlockImport<Block> + Send + Sync,
 	PF: Environment<Block>,
-	Jam: JamChainSource + JamStateSource,
+	Jam: JamChainSource + JamStateSource + 'static,
 {
-	// Everything time-derived comes from this one instant: the block's Aura slot and the mocked
-	// inherent's fake relay slot have to agree, and the consensus hook panics if they do not.
-	let para_slot = Slot::from_timestamp(now, slot_duration);
+	// The tick's budget and early stall clock come from the runtime at the best block. The block's
+	// own Aura slot and the mocked inherent's fake relay slot are re-derived below from the
+	// parent's runtime, so an upgrade that changes the slot keeps them in step.
+	let para_slot = Slot::from_timestamp(now, tick_slot_duration);
 	let wall_jam_slot = jam_slot_at(now);
 	tracing::debug!(
 		target: LOG_TARGET,
@@ -980,10 +1002,10 @@ where
 	// alongside the anchor reads rather than after them, so watching the pipeline costs the tick
 	// no latency of its own, and it carries its own bound: nothing here may skip a tick.
 	let (reads, reports) = match tokio::time::timeout(
-		slot_duration.as_duration(),
+		tick_slot_duration.as_duration(),
 		futures::future::join(
-			read_anchor(jam, tip, service_id, para_id_u32, authorizer),
-			monitor_in_flight::<Block::Header, _>(jam, tip.header_hash, service_id),
+			read_anchor(&**jam, tip, service_id, para_id_u32, authorizer),
+			monitor_in_flight::<Block::Header, _>(&**jam, tip.header_hash, service_id),
 		),
 	)
 	.await
@@ -993,7 +1015,7 @@ where
 			tracing::warn!(
 				target: LOG_TARGET,
 				?tip,
-				budget_ms = slot_duration.as_millis(),
+				budget_ms = tick_slot_duration.as_millis(),
 				"JAM reads did not finish within the parachain slot; skipping this tick.",
 			);
 			return Ok(Vec::new());
@@ -1119,6 +1141,34 @@ where
 		return Ok(Vec::new());
 	}
 
+	// The parent's runtime owns the slot duration: the block's Aura slot, the mocked relay slot
+	// and the runtime's own `FixedVelocityConsensusHook` all have to agree on it, and an upgrade
+	// can change it between rounds (the 18s-slot test). Reading it at the block's actual parent
+	// keeps all three in step; `--jam-slot-duration` — the authorizer round-robin divisor — is a
+	// separate, immutable config and is never read from the runtime.
+	super::ensure_code_blob_at(
+		para_client,
+		para_backend,
+		&**jam,
+		service_id,
+		parent_hash,
+		tip.header_hash,
+	)
+	.await;
+	let slot_duration = match aura_internal::slot_duration_at(&**para_client, parent_hash) {
+		Ok(slot_duration) => slot_duration,
+		Err(error) => {
+			tracing::error!(
+				target: LOG_TARGET,
+				?error,
+				?parent_hash,
+				"Failed to read the Aura slot duration."
+			);
+			return Ok(Vec::new());
+		},
+	};
+	let para_slot = Slot::from_timestamp(now, slot_duration);
+
 	// The monitor's derived events. Nothing branches on them; they are the pre-accumulation view
 	// of the pipeline, which with no links left is the only one there is.
 	for report in &reports {
@@ -1188,13 +1238,14 @@ where
 	// loudly (`?`) instead of shipping a block JAM would refuse. It describes the anchor, not
 	// the parent, so every package of the turn carries a copy of the same proof.
 	let (anchor_state_proof, proved_head) = fetch_anchor_state_proof(
-		jam,
+		&**jam,
 		anchor.header_hash,
 		&context.state_root,
 		service_id,
 		para_id_u32,
 	)
 	.await?;
+
 	// The proof and the head read above describe the same key at the same anchor, so anything
 	// but equality means one of the two reads is stale — shipping it would only earn a refine
 	// rejection.
@@ -1221,6 +1272,18 @@ where
 	let mut parent_source = parent_source;
 	for package in 0..turn_package_budget(pool_scan.core_count()) {
 		let core = pool_scan.core_for_package(package);
+		// Every package after the first builds on the previous package's block, which can carry
+		// the offchain-code marker the runtime just wrote; resolve it before this package reads
+		// that block's runtime.
+		super::ensure_code_blob_at(
+			para_client,
+			para_backend,
+			&**jam,
+			service_id,
+			parent_hash,
+			tip.header_hash,
+		)
+		.await;
 		if depth >= MAX_UNINCLUDED {
 			tracing::error!(
 				target: LOG_TARGET,
@@ -1292,94 +1355,100 @@ where
 
 		// A later package's failure must not drop the packages already authored: their blocks
 		// are imported and their messages are ready, and nothing else would ever submit them.
-		let built = async {
-			let inherent_data = create_inherent_data::<Block, RuntimeApi>(
-				para_client,
-				para_id,
-				&parent_header,
-				&included_header,
-				wall_jam_slot,
-				now,
-				slot_duration,
-			)
-			.await?;
-
-			let proposer = proposer_factory
-				.init(&parent_header)
-				.await
-				.map_err(|e| format!("proposer init: {e}"))?;
-			let storage_proof_recorder = ProofRecorder::<Block>::default();
-			let mut extra_extensions = Extensions::new();
-			extra_extensions.register(ProofSizeExt::new(storage_proof_recorder.clone()));
-			let additional_data = register_jam_state_reader(
-				&mut extra_extensions,
-				service_id,
-				*context.state_root,
-				anchor_state_proof.clone(),
-			);
-
-			let proposal = proposer
-				.propose(ProposeArgs {
-					inherent_data,
-					inherent_digests: sp_runtime::generic::Digest {
-						logs: vec![
-							slot_claim.pre_digest().clone(),
-							cumulus_primitives_core::CumulusDigestItem::JamParent {
-								anchor: context.anchor.0.into(),
-								lookup_anchor: context.lookup_anchor.0.into(),
-							}
-							.to_digest_item(),
-						],
-					},
-					max_duration: PROPOSAL_DURATION,
-					block_size_limit: Some(MAX_POV_SIZE),
-					extra_extensions,
-					storage_proof_recorder: Some(storage_proof_recorder.clone()),
-				})
-				.await
-				.map_err(|e| format!("propose: {e}"))?;
-
-			tracing::info!(
-				target: LOG_TARGET,
-				digest = ?proposal.block.header().digest().logs,
-				"JAM-PARENT-DIAG: digest of the freshly proposed block",
-			);
-
-			let mut sealed_importable =
-				cumulus_client_consensus_aura::collator::seal::<_, <AuraId as AuraIdT>::BoundedPair>(
-					proposal.block,
-					proposal.storage_changes,
-					slot_claim.author_pub(),
-					keystore,
+		let built =
+			async {
+				let inherent_data = create_inherent_data::<Block, RuntimeApi>(
+					para_client,
+					para_id,
+					&parent_header,
+					&included_header,
+					wall_jam_slot,
+					now,
+					slot_duration,
 				)
-				.map_err(|e| format!("seal: {e}"))?;
+				.await?;
 
-			// Mirror the relay collator's `build_block_and_import` (`collator.rs`): carry the
-			// built additional-data blob (the `JAM_PROOF_KEY` entry for this block's reads) on
-			// the sealed import, so the importing path and peer sync serve `jam_state_read`
-			// instead of trapping.
-			sealed_importable.additional_data = Some(additional_data.clone());
+				let proposer = proposer_factory
+					.init(&parent_header)
+					.await
+					.map_err(|e| format!("proposer init: {e}"))?;
+				let storage_proof_recorder = ProofRecorder::<Block>::default();
+				let mut extra_extensions = Extensions::new();
+				extra_extensions.register(ProofSizeExt::new(storage_proof_recorder.clone()));
+				// The runtime reads the refine context (`refine_anchor_slot`, `JamSlotNumber`)
+				// while authoring; the PVF serves it through the JAM `fetch` host call, and the
+				// collator's local execution of the same runtime must serve it too.
+				extra_extensions.register(JamRefineContextExt(jam_codec::Encode::encode(&context)));
+				let additional_data = register_jam_state_reader(
+					&mut extra_extensions,
+					*context.state_root,
+					anchor_state_proof.clone(),
+				);
 
-			let block = Block::new(
-				sealed_importable.post_header(),
-				sealed_importable
-					.body
-					.clone()
-					.ok_or_else(|| "sealed block has no body".to_string())?,
-			);
-			if !matches!(sealed_importable.state_action, StateAction::ApplyChanges(_)) {
-				return Err("Building a block should return storage changes".into());
+				let proposal = proposer
+					.propose(ProposeArgs {
+						inherent_data,
+						inherent_digests: sp_runtime::generic::Digest {
+							logs: vec![
+								slot_claim.pre_digest().clone(),
+								cumulus_primitives_core::CumulusDigestItem::JamParent {
+									anchor: context.anchor.0.into(),
+									anchor_slot: context.anchor_slot,
+									lookup_anchor: context.lookup_anchor.0.into(),
+									lookup_anchor_slot: context.lookup_anchor_slot,
+								}
+								.to_digest_item(),
+							],
+						},
+						max_duration: PROPOSAL_DURATION,
+						block_size_limit: Some(MAX_POV_SIZE),
+						extra_extensions,
+						storage_proof_recorder: Some(storage_proof_recorder.clone()),
+					})
+					.await
+					.map_err(|e| format!("propose: {e}"))?;
+
+				tracing::info!(
+					target: LOG_TARGET,
+					digest = ?proposal.block.header().digest().logs,
+					"JAM-PARENT-DIAG: digest of the freshly proposed block",
+				);
+
+				let mut sealed_importable =
+					cumulus_client_consensus_aura::collator::seal::<
+						_,
+						<AuraId as AuraIdT>::BoundedPair,
+					>(
+						proposal.block, proposal.storage_changes, slot_claim.author_pub(), keystore
+					)
+					.map_err(|e| format!("seal: {e}"))?;
+
+				// Mirror the relay collator's `build_block_and_import` (`collator.rs`): carry the
+				// built additional-data blob (the `JAM_PROOF_KEY` entry for this block's reads) on
+				// the sealed import, so the importing path and peer sync serve `jam_state_read`
+				// instead of trapping.
+				sealed_importable.additional_data = Some(additional_data.clone());
+
+				let block = Block::new(
+					sealed_importable.post_header(),
+					sealed_importable
+						.body
+						.clone()
+						.ok_or_else(|| "sealed block has no body".to_string())?,
+				);
+				if !matches!(sealed_importable.state_action, StateAction::ApplyChanges(_)) {
+					return Err("Building a block should return storage changes".into());
+				}
+				let proof = storage_proof_recorder.drain_storage_proof();
+
+				block_import
+					.import_block(sealed_importable)
+					.await
+					.map_err(|e| format!("import: {e}"))?;
+
+				Ok::<_, String>((block, proof, additional_data))
 			}
-			let proof = storage_proof_recorder.drain_storage_proof();
-
-			block_import
-				.import_block(sealed_importable)
-				.await
-				.map_err(|e| format!("import: {e}"))?;
-
-			Ok::<_, String>((block, proof, additional_data))
-		}
-		.await;
+			.await;
 		let (block, proof, additional_data) = match built {
 			Ok(built) => built,
 			Err(error) if messages.is_empty() => return Err(error),
@@ -1537,7 +1606,6 @@ fn mocked_relay_state<Header: HeaderT>(
 	wall_jam_slot: JamSlot,
 	slot_duration: SlotDuration,
 	relay_parent_offset: u32,
-	upgrade_go_ahead: Option<UpgradeGoAhead>,
 ) -> MockValidationDataInherentDataProvider<()> {
 	const RELAY_CHAIN_SLOT_DURATION_MILLIS: u64 = 6000;
 
@@ -1557,7 +1625,7 @@ fn mocked_relay_state<Header: HeaderT>(
 		relay_offset,
 		relay_parent_offset,
 		para_blocks_per_relay_epoch: 10,
-		upgrade_go_ahead,
+		upgrade_go_ahead: None,
 		..Default::default()
 	}
 }
@@ -1580,14 +1648,9 @@ async fn create_inherent_data<Block, RuntimeApi>(
 where
 	Block: NodeBlock,
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: CollectCollationInfo<Block> + RelayParentOffsetApi<Block>,
+	RuntimeApi::RuntimeApi: RelayParentOffsetApi<Block>,
 {
 	let parent_hash = parent_header.hash();
-	let should_send_go_ahead = para_client
-		.runtime_api()
-		.collect_collation_info(parent_hash, parent_header)
-		.map(|info| info.new_validation_code.is_some())
-		.unwrap_or_default();
 	let relay_parent_offset =
 		para_client.runtime_api().relay_parent_offset(parent_hash).unwrap_or_default();
 
@@ -1598,13 +1661,6 @@ where
 		wall_jam_slot,
 		slot_duration,
 		relay_parent_offset,
-		should_send_go_ahead.then(|| {
-			tracing::info!(
-				target: LOG_TARGET,
-				"Detected pending validation code, sending go-ahead signal."
-			);
-			UpgradeGoAhead::GoAhead
-		}),
 	);
 
 	tracing::debug!(
@@ -1678,7 +1734,6 @@ mod tests {
 			jam_slot_at(now),
 			SlotDuration::from_millis(6000),
 			0,
-			None,
 		)
 	}
 
@@ -1745,6 +1800,7 @@ mod tests {
 				hash: WorkPackageHash::from([byte; 32]),
 				len: 0,
 				erasure_root: Default::default(),
+				erasure_shards: Default::default(),
 				exports_root: Default::default(),
 				exports_count: 0,
 			},
@@ -2183,6 +2239,31 @@ mod tests {
 		}
 	}
 
+	/// An upgrade can change the Aura slot to a multiple of the relay slot (the 18s-slot test),
+	/// and the mocked relay state has to follow: `FixedVelocityConsensusHook::on_state_proof`
+	/// derives the block's Aura slot from the relay slot the mock advertises, so
+	/// `relay_blocks_per_para_block` must track the runtime's slot duration.
+	#[test]
+	fn the_mocked_relay_state_tracks_the_slot_duration() {
+		let blocks = chain(2);
+		let now = Timestamp::new(jam_types::JAM_COMMON_ERA * 1000);
+
+		for (slot_millis, relay_blocks) in [(6000u64, 1u32), (12_000, 2), (18_000, 3)] {
+			let provider = mocked_relay_state(
+				ParaId::from(TEST_PARA_ID),
+				&blocks[1],
+				&blocks[0],
+				jam_slot_at(now),
+				SlotDuration::from_millis(slot_millis),
+				0,
+			);
+			assert_eq!(
+				provider.relay_blocks_per_para_block, relay_blocks,
+				"a {slot_millis} ms Aura slot spans {relay_blocks} relay slots",
+			);
+		}
+	}
+
 	/// The monitor reads which block a package carries out of the work digest, and the shape of
 	/// that output belongs to the service: 5a.1 appends the block number to it. Both shapes have
 	/// to read the same, or the collator would go blind against one version of the service.
@@ -2346,8 +2427,9 @@ mod tests {
 	}
 
 	/// Every authored block carries exactly one `JAM_PROOF_KEY` entry — the encoded
-	/// `(state_root, proof)` of the para head at the anchor — and its digest commits exactly that
-	/// one entry. The entry decodes, verifies against the anchor root, and reads back the head.
+	/// `(anchor_state_root, proof)` of the para head at the anchor — and its digest commits exactly
+	/// that one entry. The entry decodes, verifies against the anchor root, and reads back the
+	/// head.
 	#[tokio::test]
 	async fn the_state_proof_is_verified_and_carried_as_one_entry() {
 		let service_id = 9;
@@ -2372,18 +2454,18 @@ mod tests {
 
 		let mut extra_extensions = Extensions::new();
 		let additional_data =
-			register_jam_state_reader(&mut extra_extensions, service_id, state_root, proof.clone());
+			register_jam_state_reader(&mut extra_extensions, state_root, proof.clone());
 
 		assert_eq!(additional_data.len(), 1, "exactly one JAM_PROOF_KEY entry per block");
 		let entry = additional_data.get(JAM_PROOF_KEY).expect("the entry is present");
 
-		let (decoded_root, decoded_proof) =
+		let (decoded_anchor, decoded_proof) =
 			<(parachain_service_core::Hash, StateProof)>::decode(&mut &entry[..])
-				.expect("the entry decodes as (state_root, StateProof)");
-		assert_eq!(decoded_root, state_root);
+				.expect("the entry decodes as (anchor_state_root, StateProof)");
+		assert_eq!(decoded_anchor, state_root);
 		assert_eq!(decoded_proof, proof);
 		assert_eq!(
-			verify_state_proof(&decoded_proof, &decoded_root, &state_key),
+			verify_state_proof(&decoded_proof, &decoded_anchor, &state_key),
 			Ok(Some(value.clone())),
 			"the carried proof verifies against the anchor root",
 		);
@@ -2403,7 +2485,7 @@ mod tests {
 			.downcast_mut::<JamStateExt>()
 			.expect("the reader extension is a JamStateExt")
 			.0
-			.read(&para_info_key(para_id));
+			.read(&state_key);
 		assert_eq!(reader, Some(value.clone()));
 
 		let digest = extra_extensions
@@ -2460,5 +2542,4 @@ mod tests {
 			"a proof for another state root must fail the tick",
 		);
 	}
-
 }

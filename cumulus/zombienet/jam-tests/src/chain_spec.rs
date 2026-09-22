@@ -149,14 +149,64 @@ mod tests {
 		assert!(ensure_patchable(&preset(2)).is_ok());
 	}
 
-	/// The reason the check exists at all: `patch` replaces `session.keys` wholesale with
-	/// aura-only triples, so a runtime whose `SessionKeys` has a second field would have it
-	/// dropped and produce a genesis the runtime cannot decode. That has to fail here, loudly.
+	/// A preset with no `pallet_collator_selection` — both of `cumulus-test-runtime`'s flavors
+	/// come out that way — has nothing to patch there, and the absence must neither be an error
+	/// nor lead the rewrite to invent the key.
 	#[test]
-	fn a_session_key_beside_aura_is_refused() {
+	fn a_preset_without_collator_selection_is_patchable() {
 		let mut spec = preset(1);
-		spec["session"]["keys"][0][2]["beefy"] = json!("0x00");
-		assert!(ensure_patchable(&spec).is_err());
+		spec.as_object_mut().unwrap().remove("collatorSelection");
+		assert!(ensure_patchable(&spec).is_ok(), "no collatorSelection is not an error");
+
+		rewrite_preset(&mut spec, 0, &["alice".to_string()]).unwrap();
+		assert!(spec.get("collatorSelection").is_none(), "the rewrite must not add one");
+		assert_eq!(spec["parachainInfo"]["parachainId"], json!(0));
+	}
+
+	/// `cumulus-test-runtime`'s default flavor has no `pallet_session`: it seeds `pallet_aura`
+	/// directly, so its preset names the set under `aura.authorities` — which is what the
+	/// rewrite has to replace, with no `session.keys` to write.
+	#[test]
+	fn a_preset_with_aura_authorities_instead_of_session_keys_is_patchable() {
+		let mut spec = preset(2);
+		spec.as_object_mut().unwrap().remove("session");
+		spec["aura"] = json!({
+			"authorities": [ss58(DEV_ACCOUNTS[0].public()), ss58(DEV_ACCOUNTS[1].public())],
+		});
+		assert!(ensure_patchable(&spec).is_ok());
+
+		rewrite_preset(&mut spec, 0, &["alice".to_string()]).unwrap();
+		assert_eq!(
+			spec["aura"]["authorities"],
+			json!([ss58(Sr25519Keyring::Alice.public())]),
+			"the set is exactly the running collators",
+		);
+		assert!(spec.get("session").is_none(), "there is no session palette to write");
+	}
+
+	/// The `with-authority-discovery` flavor's session key map carries
+	/// `{aura, authority_discovery}`. The rewrite replaces the account, the validator id and the
+	/// aura key, but must leave the second field — and any other the runtime names — exactly as
+	/// the preset wrote it, rather than dropping it and producing an undecodable genesis.
+	#[test]
+	fn a_second_session_key_beside_aura_is_preserved() {
+		let discovery = ss58(Sr25519Keyring::Charlie.public());
+		let mut spec = preset(2);
+		spec["session"]["keys"][0][2]["authority_discovery"] = json!(discovery);
+		assert!(ensure_patchable(&spec).is_ok(), "a second session key is not a reason to refuse");
+
+		rewrite_preset(&mut spec, 0, &["alice".to_string()]).unwrap();
+		let entry = &spec["session"]["keys"][0];
+		let alice = json!(ss58(Sr25519Keyring::Alice.public()));
+		assert_eq!(entry[0], alice);
+		assert_eq!(entry[1], alice);
+		assert_eq!(entry[2]["aura"], alice);
+		assert_eq!(
+			entry[2]["authority_discovery"],
+			json!(discovery),
+			"the other field is untouched",
+		);
+		assert_eq!(spec["session"]["keys"].as_array().unwrap().len(), 1, "sized to the collators");
 	}
 
 	/// The other half of the assumption: the rewrite writes the account into both the account and
@@ -231,10 +281,10 @@ pub fn build(
 
 /// Point the spec at `para_id` and give every running collator an aura slot.
 ///
-/// The authority set comes from `session.keys` (plus `collatorSelection.invulnerables`), NOT from
-/// `aura.authorities`: the preset never sets the latter, and pallet-session would overwrite it at
-/// the genesis session anyway. The authority count must equal the number of running collators or
-/// the unfilled slots stall block production for a full slot each.
+/// The authority count must equal the number of running collators or the unfilled slots stall
+/// block production for a full slot each. Where the set lives is the preset's shape — see
+/// [`rewrite_preset`] — and `collators` must be in the order the AURA round-robin walks them,
+/// because the authorizer hash commits to that order ([`in_authority_order`]).
 fn patch(path: &Path, para_id: u32, collators: &[String]) -> anyhow::Result<()> {
 	let mut spec: Value = serde_json::from_slice(&std::fs::read(path)?)
 		.with_context(|| format!("parsing {}", path.display()))?;
@@ -243,23 +293,7 @@ fn patch(path: &Path, para_id: u32, collators: &[String]) -> anyhow::Result<()> 
 		.pointer_mut("/genesis/runtimeGenesis/patch")
 		.ok_or_else(|| anyhow!("chain spec has no genesis.runtimeGenesis.patch"))?;
 
-	ensure_patchable(patch)?;
-
-	let accounts: Vec<String> = collators
-		.iter()
-		.map(|name| {
-			let public = account_of(name)
-				.with_context(|| format!("deriving the key for collator {name}"))?;
-			Ok(ss58(public))
-		})
-		.collect::<anyhow::Result<Vec<_>>>()?;
-	patch["session"]["keys"] = accounts
-		.iter()
-		.map(|account| json!([account, account, { "aura": account }]))
-		.collect();
-	patch["collatorSelection"]["invulnerables"] = accounts.clone().into();
-	endow(patch, &accounts)?;
-	patch["parachainInfo"]["parachainId"] = para_id.into();
+	rewrite_preset(patch, para_id, collators)?;
 
 	// `--para-id` / `--relay-chain jam` already set these; assert rather than re-set them, so a
 	// chain-spec-builder change cannot silently leave the collators on the wrong chain.
@@ -278,31 +312,122 @@ fn patch(path: &Path, para_id: u32, collators: &[String]) -> anyhow::Result<()> 
 	Ok(())
 }
 
+/// The rewrite [`patch`] applies to a parsed preset: one authority per running collator, and
+/// `para_id` in the genesis config.
+///
+/// Which storage holds the authority set is the runtime's choice and both shapes occur:
+/// `session.keys` when the preset has `pallet_session` (the parachain template, Asset Hub
+/// Rococo, `cumulus-test-runtime`'s `with-authority-discovery` flavor), and `aura.authorities`
+/// when it seeds `pallet_aura` directly (`cumulus-test-runtime`'s default flavor, which has no
+/// `pallet_session`). `collatorSelection.invulnerables` is written when that pallet is there and
+/// skipped when it is not.
+fn rewrite_preset(patch: &mut Value, para_id: u32, collators: &[String]) -> anyhow::Result<()> {
+	ensure_patchable(patch)?;
+
+	let accounts: Vec<String> = collators
+		.iter()
+		.map(|name| {
+			let public = account_of(name)
+				.with_context(|| format!("deriving the key for collator {name}"))?;
+			Ok(ss58(public))
+		})
+		.collect::<anyhow::Result<Vec<_>>>()?;
+
+	set_authorities(patch, &accounts)?;
+	if let Some(invulnerables) = patch
+		.get_mut("collatorSelection")
+		.and_then(|selection| selection.get_mut("invulnerables"))
+	{
+		*invulnerables = accounts.clone().into();
+	}
+	endow(patch, &accounts)?;
+	patch["parachainInfo"]["parachainId"] = para_id.into();
+	Ok(())
+}
+
+/// One authority per running collator, in whichever storage the preset seeds.
+///
+/// With `session.keys` the list is rewritten in place: the account, the validator id and the
+/// `aura` key become the running collator's, while every other field of the session key map —
+/// `with-authority-discovery`'s `authority_discovery` — is left as the preset wrote it. The list
+/// is then sized to the running collators, dropping trailing preset entries and appending
+/// aura-only ones for collators the preset does not name.
+///
+/// A preset with no `session.keys` seeds `pallet_aura` directly, and there the authorities are
+/// simply the running collators.
+fn set_authorities(patch: &mut Value, accounts: &[String]) -> anyhow::Result<()> {
+	if let Some(entries) = patch
+		.get_mut("session")
+		.and_then(|session| session.get_mut("keys"))
+		.and_then(Value::as_array_mut)
+	{
+		for (index, account) in accounts.iter().enumerate() {
+			if let Some(entry) = entries.get_mut(index) {
+				if let Some(triple) = entry.as_array_mut() {
+					triple[0] = json!(account);
+					triple[1] = json!(account);
+					if let Some(keys) = triple.get_mut(2).and_then(Value::as_object_mut) {
+						keys.insert("aura".to_string(), json!(account));
+					}
+				}
+			} else {
+				entries.push(json!([account, account, { "aura": account }]));
+			}
+		}
+		entries.truncate(accounts.len());
+		return Ok(());
+	}
+
+	let authorities = patch
+		.get_mut("aura")
+		.and_then(|aura| aura.get_mut("authorities"))
+		.ok_or_else(|| anyhow!("preset has neither session.keys nor aura.authorities"))?;
+	*authorities = json!(accounts);
+	Ok(())
+}
+
 /// A self-check on the preset before the rewrite above replaces parts of it wholesale.
 ///
 /// It is structural rather than a comparison against one runtime's accounts, because the runtime
 /// is the caller's (`RUNTIME_WASM`) and every preset names its own collators. What it insists on
-/// is what the rewrite assumes: an aura-only [`account, account, keys`] triple per collator, and
-/// somewhere to read an endowment from. A runtime with a second session key would have it dropped
-/// silently, so that is a loud failure here instead of an undecodable genesis later.
+/// is what the rewrite assumes: an authority set — [`account, account, keys`] triples with an
+/// `aura` field, or `aura.authorities` when there is no `pallet_session` — somewhere to read an
+/// endowment from, and `collatorSelection.invulnerables` only if that pallet is present. A
+/// second session key is fine, because the rewrite keeps it; the account and validator id still
+/// have to agree, because the rewrite writes both.
 fn ensure_patchable(patch: &Value) -> anyhow::Result<()> {
-	let entries = patch["session"]["keys"]
-		.as_array()
-		.ok_or_else(|| anyhow!("preset has no session.keys array"))?;
-	anyhow::ensure!(!entries.is_empty(), "preset's session.keys is empty");
-	for entry in entries {
-		let triple = entry.as_array().filter(|triple| triple.len() == 3);
-		let session_keys = triple.and_then(|triple| triple[2].as_object());
+	if let Some(entries) = patch.get("session").and_then(|session| session.get("keys")) {
+		let entries =
+			entries.as_array().ok_or_else(|| anyhow!("preset has no session.keys array"))?;
+		anyhow::ensure!(!entries.is_empty(), "preset's session.keys is empty");
+		for entry in entries {
+			let triple = entry.as_array().filter(|triple| triple.len() == 3);
+			let session_keys = triple.and_then(|triple| triple[2].as_object());
+			anyhow::ensure!(
+				triple.is_some_and(|triple| triple[0].is_string() && triple[0] == triple[1]) &&
+					session_keys.is_some_and(|keys| keys.contains_key("aura")),
+				"preset's session.keys is not [account, account, {{aura, ..}}] triples: {entry}"
+			);
+		}
+	} else {
+		let authorities = patch["aura"]["authorities"]
+			.as_array()
+			.ok_or_else(|| anyhow!("preset has neither session.keys nor aura.authorities"))?;
+		anyhow::ensure!(!authorities.is_empty(), "preset's aura.authorities is empty");
 		anyhow::ensure!(
-			triple.is_some_and(|triple| triple[0].is_string() && triple[0] == triple[1]) &&
-				session_keys.is_some_and(|keys| keys.len() == 1 && keys.contains_key("aura")),
-			"preset's session.keys is not [account, account, {{aura}}] triples: {entry}"
+			authorities.iter().all(Value::is_string),
+			"preset's aura.authorities is not a list of keys: {authorities:?}"
 		);
 	}
-	anyhow::ensure!(
-		patch["collatorSelection"]["invulnerables"].is_array(),
-		"preset has no collatorSelection.invulnerables array"
-	);
+	if let Some(invulnerables) = patch
+		.get("collatorSelection")
+		.and_then(|selection| selection.get("invulnerables"))
+	{
+		anyhow::ensure!(
+			invulnerables.is_array(),
+			"preset's collatorSelection.invulnerables is not an array"
+		);
+	}
 	anyhow::ensure!(
 		patch["parachainInfo"]["parachainId"].is_u64(),
 		"preset has no parachainInfo.parachainId"

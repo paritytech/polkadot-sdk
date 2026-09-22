@@ -1,0 +1,21 @@
+[package]
+name = "sp-code-marker"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "40-byte `:code` marker encoding for offchain parachain code (CODEHASH prefix + blake2b-256 hash)"
+documentation = "https://docs.rs/sp-code-marker"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[features]
+default = ["std"]
+std = []

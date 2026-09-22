@@ -106,3 +106,15 @@ message StateEntry {
 	bytes value = 2;
 }
 
+// Request a runtime code blob from a peer.
+message CodeRequest {
+	// Hash of the runtime code blob.
+	bytes hash = 1;
+}
+
+// Response to `CodeRequest`.
+message CodeResponse {
+	// The runtime code blob. Empty if the peer does not have it.
+	bytes code = 1;
+}
+
