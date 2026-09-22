@@ -51,6 +51,9 @@ const MAX_HEAD_DATA_SIZE: u32 = 20480;
 const MAX_CODE_SIZE: u32 = 1_000_000;
 const MAX_UMP_NUM_PER_CANDIDATE: u32 = 10;
 const MAX_HRMP_NUM_PER_CANDIDATE: u32 = 0;
+/// The session the harness reports for every leaf; also the fallback for V1/V2 descriptors, which
+/// carry no session of their own.
+const LEAF_SESSION_INDEX: SessionIndex = 1;
 
 /// The `SessionExecutionConfig` the harness reports for sessions without an override. Mirrors
 /// `dummy_constraints` so that applying it to the base constraints is a no-op.
@@ -104,10 +107,10 @@ struct TestState {
 	min_relay_parent_number_override: Option<BlockNumber>,
 	/// Mirrors the production LRU cache populated by `fetch_relay_parent_info_cached`. When a
 	/// relay parent is already cached, the subsystem won't send a runtime API request for it, so
-	/// the test harness must not block on `recv`. Tests use a single session (1), so we key by
-	/// relay parent only. `RefCell` allows interior mutability while helpers still take
+	/// the test harness must not block on `recv`. Keyed like production minus the leaf session,
+	/// which is always 1 here. `RefCell` allows interior mutability while helpers still take
 	/// `&TestState`.
-	cached_relay_parents: RefCell<HashSet<Hash>>,
+	cached_relay_parents: RefCell<HashSet<(SessionIndex, Hash)>>,
 	/// Per-session override for the `SessionExecutionConfig` returned by the runtime API in the
 	/// test harness. Sessions not present here get `default_session_execution_config()`.
 	session_execution_config_overrides: BTreeMap<SessionIndex, SessionExecutionConfig>,
@@ -265,6 +268,7 @@ impl TestLeaf {
 async fn handle_fetch_relay_parent_info(
 	virtual_overseer: &mut VirtualOverseer,
 	test_state: &TestState,
+	fetch_session: SessionIndex,
 	relay_parent: Hash,
 	relay_parent_number: BlockNumber,
 ) {
@@ -273,6 +277,7 @@ async fn handle_fetch_relay_parent_info(
 		virtual_overseer,
 		msg,
 		test_state,
+		fetch_session,
 		relay_parent,
 		relay_parent_number,
 	)
@@ -283,6 +288,7 @@ async fn handle_fetch_relay_parent_info_message(
 	virtual_overseer: &mut VirtualOverseer,
 	msg: AllMessages,
 	test_state: &TestState,
+	fetch_session: SessionIndex,
 	relay_parent: Hash,
 	relay_parent_number: BlockNumber,
 ) {
@@ -329,7 +335,10 @@ async fn handle_fetch_relay_parent_info_message(
 
 	// Production just populated its LRU cache for this relay parent; mirror that here so the
 	// harness can skip subsequent expected messages that won't arrive.
-	test_state.cached_relay_parents.borrow_mut().insert(relay_parent);
+	test_state
+		.cached_relay_parents
+		.borrow_mut()
+		.insert((fetch_session, relay_parent));
 }
 
 async fn send_block_header(virtual_overseer: &mut VirtualOverseer, hash: Hash, number: u32) {
@@ -513,16 +522,19 @@ async fn handle_leaf_activation(
 				// request is sent, so we must not call `recv`. The tracker mirrors which relay
 				// parents have already been cached by earlier operations (including prior pending
 				// availability candidates within this same activation).
+				let fetch_session =
+					pending.descriptor.session_index().unwrap_or(LEAF_SESSION_INDEX);
 				if test_state
 					.cached_relay_parents
 					.borrow()
-					.contains(&pending.descriptor.relay_parent())
+					.contains(&(fetch_session, pending.descriptor.relay_parent()))
 				{
 					continue;
 				}
 				handle_fetch_relay_parent_info(
 					virtual_overseer,
 					test_state,
+					fetch_session,
 					pending.descriptor.relay_parent(),
 					pending.relay_parent_number,
 				)
@@ -549,6 +561,7 @@ async fn handle_potential_relay_parent_info_calls<T>(
 	virtual_overseer: &mut VirtualOverseer,
 	rx: oneshot::Receiver<T>,
 	test_state: &TestState,
+	fetch_session: SessionIndex,
 	relay_parent: Hash,
 	relay_parent_number: BlockNumber,
 ) -> T {
@@ -596,6 +609,7 @@ async fn handle_potential_relay_parent_info_calls<T>(
 					virtual_overseer,
 					msg,
 					test_state,
+					fetch_session,
 					relay_parent,
 					relay_parent_number,
 				)
@@ -613,6 +627,7 @@ async fn introduce_seconded_candidate(
 ) {
 	let relay_parent = candidate.descriptor.relay_parent();
 	let relay_parent_number = pvd.relay_parent_number;
+	let fetch_session = candidate.descriptor.session_index().unwrap_or(LEAF_SESSION_INDEX);
 	let req = IntroduceSecondedCandidateRequest {
 		candidate_para: candidate.descriptor.para_id(),
 		candidate_receipt: candidate,
@@ -628,6 +643,7 @@ async fn introduce_seconded_candidate(
 		virtual_overseer,
 		rx,
 		test_state,
+		fetch_session,
 		relay_parent,
 		relay_parent_number,
 	)
@@ -643,6 +659,7 @@ async fn introduce_seconded_candidate_failed(
 ) {
 	let relay_parent = candidate.descriptor.relay_parent();
 	let relay_parent_number = pvd.relay_parent_number;
+	let fetch_session = candidate.descriptor.session_index().unwrap_or(LEAF_SESSION_INDEX);
 	let req = IntroduceSecondedCandidateRequest {
 		candidate_para: candidate.descriptor.para_id(),
 		candidate_receipt: candidate,
@@ -658,6 +675,7 @@ async fn introduce_seconded_candidate_failed(
 		virtual_overseer,
 		rx,
 		test_state,
+		fetch_session,
 		relay_parent,
 		relay_parent_number,
 	)
@@ -714,6 +732,7 @@ async fn get_hypothetical_membership(
 ) {
 	let relay_parent = receipt.descriptor.relay_parent();
 	let relay_parent_number = persisted_validation_data.relay_parent_number;
+	let fetch_session = receipt.descriptor.session_index().unwrap_or(LEAF_SESSION_INDEX);
 	let hypothetical_candidate = HypotheticalCandidate::Complete {
 		candidate_hash,
 		receipt: Arc::new(receipt),
@@ -733,6 +752,7 @@ async fn get_hypothetical_membership(
 		virtual_overseer,
 		rx,
 		test_state,
+		fetch_session,
 		relay_parent,
 		relay_parent_number,
 	)
@@ -776,6 +796,7 @@ async fn get_pvd(
 		virtual_overseer,
 		rx,
 		test_state,
+		session_index,
 		candidate_relay_parent,
 		expected_pvd.as_ref().map_or(0, |p| p.relay_parent_number),
 	)

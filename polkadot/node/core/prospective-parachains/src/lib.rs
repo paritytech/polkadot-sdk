@@ -90,8 +90,11 @@ const LOG_TARGET: &str = "parachain::prospective-parachains";
 /// full.
 const RELAY_PARENT_INFO_CACHE_CAPACITY: u32 = 2400;
 
-/// LRU cache mapping `(leaf_session, relay_parent)` to runtime-reported relay parent info.
-type RelayParentInfoCache = LruMap<(SessionIndex, Hash), RuntimeRelayParentInfo<Hash, BlockNumber>>;
+/// LRU cache mapping `(leaf_session, fetch_session, relay_parent)` to runtime-reported relay parent
+/// info. `fetch_session` belongs in the key because the lookup asserts the relay parent lives in
+/// that session: without it a hit would answer for a session the runtime was never asked about.
+type RelayParentInfoCache =
+	LruMap<(SessionIndex, SessionIndex, Hash), RuntimeRelayParentInfo<Hash, BlockNumber>>;
 
 /// Per-session cache for the `SessionExecutionConfig` snapshot. `None` records a definitive
 /// "the runtime has no snapshot for this session"; transient failures are never cached.
@@ -144,13 +147,14 @@ struct View {
 	/// The hashes of the currently active leaves. Always a subset of the keys in
 	/// `per_scheduling_parent`.
 	active_leaves: HashSet<Hash>,
-	/// LRU cache of relay-parent-info answers keyed by `(leaf_session, relay_parent)`.
+	/// LRU cache of relay-parent-info answers keyed by `(leaf_session, fetch_session,
+	/// relay_parent)`.
 	///
-	/// Semantically this caches "under a leaf in this session, the runtime returned this info
-	/// for this relay parent hash". Session-keying means entries from older sessions are
-	/// naturally invalidated (miss + repopulate) when we move forward, matching the runtime's
-	/// `max_relay_parent_session_age` pruning behavior. Only positive results are cached;
-	/// `None`/`Err` results force a fresh query on the next call.
+	/// Semantically this caches "under a leaf in this session, the runtime confirmed this relay
+	/// parent belongs to `fetch_session` and returned this info". Session-keying means entries
+	/// from older sessions are naturally invalidated (miss + repopulate) when we move forward,
+	/// matching the runtime's `max_relay_parent_session_age` pruning behavior. Only positive
+	/// results are cached; `None`/`Err` results force a fresh query on the next call.
 	relay_parent_info_cache: RelayParentInfoCache,
 	/// LRU cache of the `SessionExecutionConfig` snapshot per session.
 	session_execution_config_cache: SessionExecutionConfigCache,
@@ -582,9 +586,28 @@ async fn preprocess_candidates_pending_availability<Context>(
 		// The candidate may have been built in an older session than the leaf, so its limits come
 		// from its own relay-parent session where the runtime exposes them.
 		let session_limits =
-			fetch_session_execution_config(ctx, session_config_cache, leaf, fetch_session)
+			match fetch_session_execution_config(ctx, session_config_cache, leaf, fetch_session)
 				.await
-				.found();
+			{
+				SessionExecutionConfigLookup::Found(cfg) => Some(cfg),
+				SessionExecutionConfigLookup::Unavailable => None,
+				// Falling back to the leaf session's `max_pov_size` would build a PVD that doesn't
+				// hash to the descriptor, so stop here instead of recording a bogus candidate.
+				SessionExecutionConfigLookup::Failed => {
+					let para_id = pending.descriptor.para_id();
+					gum::debug!(
+						target: LOG_TARGET,
+						?candidate_hash,
+						?para_id,
+						index = ?i,
+						?expected_count,
+						?fetch_session,
+						"Had to stop processing pending candidates early: session execution config query failed.",
+					);
+
+					break;
+				},
+			};
 		let max_pov_size =
 			session_limits.map_or(constraints.max_pov_size as _, |cfg| cfg.max_pov_size);
 
@@ -1122,8 +1145,10 @@ async fn answer_prospective_validation_data_request<Context>(
 			break;
 		}
 
-		if relay_parent_info.is_none() {
-			relay_parent_info = if let Some(info) = fetch_relay_parent_info_cached(
+		// A failed config query leaves `max_pov_size` unset, so keep trying at the remaining
+		// leaves even once the relay parent is known.
+		if relay_parent_info.is_none() || max_pov_size.is_none() {
+			if let Some(info) = fetch_relay_parent_info_cached(
 				ctx.sender(),
 				&mut view.relay_parent_info_cache,
 				leaf_session_index,
@@ -1136,24 +1161,26 @@ async fn answer_prospective_validation_data_request<Context>(
 			.flatten()
 			{
 				if max_pov_size.is_none() {
-					max_pov_size = fetch_session_execution_config(
+					max_pov_size = match fetch_session_execution_config(
 						ctx,
 						&mut view.session_execution_config_cache,
 						leaf,
 						request.session_index,
 					)
 					.await
-					.found()
-					.map(|cfg| cfg.max_pov_size)
-					.or_else(|| {
+					{
+						SessionExecutionConfigLookup::Found(cfg) => Some(cfg.max_pov_size),
 						// Pre-v17 fallback: scheduling session's `max_pov_size`.
-						Some(fragment_chain.scope().base_constraints().max_pov_size as u32)
-					});
+						SessionExecutionConfigLookup::Unavailable => {
+							Some(fragment_chain.scope().base_constraints().max_pov_size as u32)
+						},
+						// Another session's value would make the collator hash a PVD the runtime
+						// rejects. Answering `None` lets it ask again.
+						SessionExecutionConfigLookup::Failed => None,
+					};
 				}
 
-				Some(info)
-			} else {
-				None
+				relay_parent_info = Some(info);
 			}
 		}
 
@@ -1323,12 +1350,12 @@ where
 	Sender: polkadot_node_subsystem::SubsystemSender<RuntimeApiMessage>
 		+ polkadot_node_subsystem::SubsystemSender<ChainApiMessage>,
 {
-	if let Some(info) = cache.get(&(leaf_session, relay_parent)) {
+	if let Some(info) = cache.get(&(leaf_session, fetch_session, relay_parent)) {
 		return Ok(Some(info.clone()));
 	}
 	match fetch_relay_parent_info(sender, query_at, fetch_session, relay_parent).await? {
 		Some(info) => {
-			cache.insert((leaf_session, relay_parent), info.clone());
+			cache.insert((leaf_session, fetch_session, relay_parent), info.clone());
 			Ok(Some(info))
 		},
 		None => Ok(None),
