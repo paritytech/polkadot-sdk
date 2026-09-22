@@ -1,0 +1,14 @@
+title: 'pallet-revive: extend the stipend reentrancy guard to value transfers'
+doc:
+- audience: Runtime User
+  description: |-
+    A contract receiving value through Solidity's `transfer()` or `send()` is no longer permitted to call the sender back. Before PR #12673 that call ran out of gas, so only the failure reason changed. The pallet already refused this reentry when the transfer carried no value; it now refuses it when value moves as well.
+- audience: Runtime Dev
+  description: |-
+    `integrity_test` checks that a block cannot write more contract storage than a validator has memory for. It scaled a write's weight by the memory that write uses before dividing the block weight by it, so the storage term came out near zero and the check could not fail on it. It now computes how many writes fit the block weight before multiplying by the memory each one uses.
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: patch
+
