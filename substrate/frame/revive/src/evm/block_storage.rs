@@ -163,7 +163,7 @@ pub fn capture_ethereum_log<T: Config>(contract: &H160, data: &[u8], topics: &[H
 	// here — one captured into a receipt returned above — and the insert itself is measured by the
 	// emitting pallet's own benchmark.
 	frame_system::Pallet::<T>::register_extra_weight_unchecked(
-		<T as Config>::WeightInfo::per_outside_frame_log(),
+		<T as Config>::WeightInfo::per_outside_frame_log(data.len() as u32),
 		DispatchClass::Normal,
 	);
 

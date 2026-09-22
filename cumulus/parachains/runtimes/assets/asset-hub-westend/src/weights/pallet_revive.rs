@@ -1913,4 +1913,15 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 2523).saturating_mul(n.into()))
 	}
+	/// The range of component `d` is `[0, 65536]`.
+	// Stand-in until `/cmd bench` regenerates this file: the per-byte term borrows
+	// `on_finalize_per_event_data`'s RLP/bloom coefficient, plus one proof byte per data byte the
+	// `Measured` take reads back.
+	fn outside_frame_log_data(d: u32, ) -> Weight {
+		Weight::from_parts(59_019_413, 0)
+			.saturating_add(Weight::from_parts(0, 6601))
+			.saturating_add(Weight::from_parts(7, 1).saturating_mul(d.into()))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(8))
+	}
 }

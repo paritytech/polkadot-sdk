@@ -67,7 +67,13 @@ pub trait OnFinalizeBlockParts {
 	/// benchmark, and the drain runs after every extrinsic is done, so it belongs to none. Also
 	/// disjoint from [`Self::on_finalize_block_per_event`], which folds a log into the receipt of
 	/// the transaction that emitted it and never touches this buffer.
-	fn per_outside_frame_log() -> Weight;
+	///
+	/// Uses differential cost calculation: `per_log_base + (data_len * per_byte_cost)`.
+	///
+	/// # Parameters
+	/// - `data_len`: Bytes in the log's data field; the take reads them back and the receipt
+	///   encoding and bloom accrual scale with them.
+	fn per_outside_frame_log(data_len: u32) -> Weight;
 }
 
 /// Implementation of `OnFinalizeBlockParts` that derives high-level weights from `WeightInfo`
@@ -137,9 +143,17 @@ impl<W: WeightInfo> OnFinalizeBlockParts for W {
 		per_event_cost.saturating_add(data_cost)
 	}
 
-	fn per_outside_frame_log() -> Weight {
-		// The dedicated benchmark is `pov_mode = Measured`, so this marginal carries the per-log
-		// proof size of the buffer take.
-		W::outside_frame_log(1).saturating_sub(W::outside_frame_log(0))
+	fn per_outside_frame_log(data_len: u32) -> Weight {
+		// Both benchmarks are `pov_mode = Measured`, so the marginals carry the proof size of the
+		// buffer take: per log, and per byte of the value it reads back.
+		let per_log_cost = W::outside_frame_log(1).saturating_sub(W::outside_frame_log(0));
+
+		let data_cost = if data_len > 0 {
+			W::outside_frame_log_data(data_len).saturating_sub(W::outside_frame_log_data(0))
+		} else {
+			Weight::zero()
+		};
+
+		per_log_cost.saturating_add(data_cost)
 	}
 }

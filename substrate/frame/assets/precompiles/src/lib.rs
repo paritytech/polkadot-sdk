@@ -372,6 +372,11 @@ fn emit_transfer_log<Runtime: pallet_revive::Config>(
 	pallet_revive::Pallet::<Runtime>::emit_contract_log_outside_frame(token, topics, data);
 }
 
+/// Shape of the mirrored ERC-20 `Transfer` log: the event signature plus the two indexed
+/// addresses, and the value word.
+const TRANSFER_LOG_TOPICS: u32 = 3;
+const TRANSFER_LOG_DATA_LEN: u32 = 32;
+
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
 
@@ -434,9 +439,14 @@ where
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
 		// `transfer()` is benchmarked with the mirror-log callback wired, so the mirrored log's
-		// cost is part of this charge — except the ethereum-context receipt capture, which a
-		// pallet benchmark never executes and which stays unmetered.
+		// buffer insert is part of that charge. The `DepositEvent` charge covers the log's other
+		// destination: inside an ethereum transaction the mirror lands on this call's receipt,
+		// which no pallet benchmark executes.
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::transfer())?;
+		env.frame_meter_mut().charge_weight_token(RuntimeCosts::DepositEvent {
+			num_topic: TRANSFER_LOG_TOPICS,
+			len: TRANSFER_LOG_DATA_LEN,
+		})?;
 
 		let from = Self::caller(env)?;
 		let from_account = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&from);
@@ -621,9 +631,13 @@ where
 		call: &IERC20::transferFromCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		// `transfer_approved()` accounts for the mirror-log callback; see `transfer` for the
-		// receipt-capture slice that stays unmetered.
+		// `transfer_approved()` accounts for the mirror-log callback's buffer insert; the
+		// `DepositEvent` charge covers its receipt capture, as in `transfer`.
 		env.charge(<Runtime as Config<Instance>>::WeightInfo::transfer_approved())?;
+		env.frame_meter_mut().charge_weight_token(RuntimeCosts::DepositEvent {
+			num_topic: TRANSFER_LOG_TOPICS,
+			len: TRANSFER_LOG_DATA_LEN,
+		})?;
 		let spender = Self::caller(env)?;
 		let spender = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&spender);
 

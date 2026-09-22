@@ -3998,6 +3998,37 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Benchmark the `on_finalize` drain of one buffered outside-of-frame log carrying `d` bytes
+	/// of data: the `OutsideFrameLogs::take` scales with the value it reads back, and so do the
+	/// RLP encoding and bloom accrual that fold it into the synthetic transaction's receipt.
+	///
+	/// Pairs with `outside_frame_log`, which fixes the payload and varies the count; together they
+	/// give `OnFinalizeBlockParts::per_outside_frame_log` its per-log and per-byte marginals. A
+	/// contract `LOG` emitted off the ethereum path can carry up to `EVENT_BYTES`, so the count
+	/// benchmark's 32-byte word alone would under-charge it.
+	#[benchmark(pov_mode = Measured)]
+	fn outside_frame_log_data(d: Linear<0, { limits::EVENT_BYTES }>) -> Result<(), BenchmarkError> {
+		let (instance, _storage_deposit, _evm_value, _signer_key, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		let _ = Pallet::<T>::on_initialize(current_block);
+
+		let topics =
+			vec![H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
+		let data = vec![0x44u8; d as usize];
+
+		block_storage::capture_ethereum_log::<T>(&instance.address, &data, &topics);
+
+		#[block]
+		{
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
+
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(
 		Contracts,
 		crate::tests::ExtBuilder::default().build(),

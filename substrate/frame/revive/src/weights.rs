@@ -195,6 +195,7 @@ pub trait WeightInfo {
 	fn on_finalize_per_event(e: u32, ) -> Weight;
 	fn on_finalize_per_event_data(d: u32, ) -> Weight;
 	fn outside_frame_log(n: u32, ) -> Weight;
+	fn outside_frame_log_data(d: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_revive` using the Substrate node and recommended hardware.
@@ -1851,6 +1852,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 2523).saturating_mul(n.into()))
 	}
+	/// The range of component `d` is `[0, 65536]`.
+	// Stand-in until `/cmd bench` regenerates this file: the per-byte term borrows
+	// `on_finalize_per_event_data`'s RLP/bloom coefficient, plus one proof byte per data byte the
+	// `Measured` take reads back.
+	fn outside_frame_log_data(d: u32, ) -> Weight {
+		Weight::from_parts(53_990_676, 6601)
+			.saturating_add(Weight::from_parts(11, 1).saturating_mul(d.into()))
+			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().writes(8_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -3505,5 +3516,15 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(7_u64))
 			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 2523).saturating_mul(n.into()))
+	}
+	/// The range of component `d` is `[0, 65536]`.
+	// Stand-in until `/cmd bench` regenerates this file: the per-byte term borrows
+	// `on_finalize_per_event_data`'s RLP/bloom coefficient, plus one proof byte per data byte the
+	// `Measured` take reads back.
+	fn outside_frame_log_data(d: u32, ) -> Weight {
+		Weight::from_parts(53_990_676, 6601)
+			.saturating_add(Weight::from_parts(11, 1).saturating_mul(d.into()))
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
+			.saturating_add(RocksDbWeight::get().writes(8_u64))
 	}
 }
