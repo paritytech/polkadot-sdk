@@ -19,11 +19,7 @@
 
 use super::*;
 use alloc::vec;
-use frame_support::{
-	defensive,
-	traits::{tokens::Preservation, Get},
-	BoundedVec,
-};
+use frame_support::{defensive, traits::Get, BoundedVec};
 use sp_runtime::traits::ConstU32;
 
 #[must_use]
@@ -176,27 +172,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		DepositConsequence::Success
 	}
 
-	/// Whether a debit may take the remaining balance of an account whose `reason` it exists for,
-	/// leaving it below the minimum balance.
-	///
-	/// `Protect` permits the balance to be dusted but not the account to be removed, so it allows
-	/// the sweep only where [`Self::dead_account`] would keep the entry, which is when a deposit
-	/// backs it.
-	pub(super) fn may_sweep(reason: &ExistenceReasonOf<T, I>, preservation: Preservation) -> bool {
-		use ExistenceReason::*;
-		match preservation {
-			Preservation::Expendable => true,
-			Preservation::Protect => matches!(reason, DepositHeld(_) | DepositFrom(..)),
-			Preservation::Preserve => false,
-		}
-	}
-
 	/// Return the consequence of a withdraw.
 	pub(super) fn can_decrease(
 		id: T::AssetId,
 		who: &T::AccountId,
 		amount: T::Balance,
-		preservation: Preservation,
+		keep_alive: bool,
 	) -> WithdrawConsequence<T::Balance> {
 		use WithdrawConsequence::*;
 		let details = match Asset::<T, I>::get(&id) {
@@ -229,10 +210,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			) {
 				(None, None) => {
 					if rest < details.min_balance {
-						if Self::may_sweep(&account.reason, preservation) {
-							ReducedToZero(rest)
-						} else {
+						if keep_alive {
 							WouldDie
+						} else {
+							ReducedToZero(rest)
 						}
 					} else {
 						Success
@@ -266,7 +247,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	pub(super) fn reducible_balance(
 		id: T::AssetId,
 		who: &T::AccountId,
-		preservation: Preservation,
+		keep_alive: bool,
 	) -> Result<T::Balance, DispatchError> {
 		let details = Asset::<T, I>::get(&id).ok_or(Error::<T, I>::Unknown)?;
 		ensure!(details.status == AssetStatus::Live, Error::<T, I>::AssetNotLive);
@@ -277,15 +258,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		let untouchable = match (
 			T::Holder::balance_on_hold(id.clone(), who),
 			T::Freezer::frozen_balance(id.clone(), who),
+			keep_alive,
 		) {
-			(None, None) => {
-				if Self::may_sweep(&account.reason, preservation) {
-					Zero::zero()
-				} else {
-					details.min_balance
-				}
-			},
-			(maybe_held, maybe_frozen) => {
+			(None, None, true) => details.min_balance,
+			(None, None, false) => Zero::zero(),
+			(maybe_held, maybe_frozen, _) => {
 				let held = maybe_held.unwrap_or_default();
 				let frozen = maybe_frozen.unwrap_or_default();
 				frozen.saturating_sub(held).max(details.min_balance)
@@ -302,7 +279,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// - `amount`: The amount desired to be debited. The actual amount returned for debit may be
 	///   less (in the case of `best_effort` being `true`) or greater by up to the minimum balance
 	///   less one.
-	/// - `preservation`: What the debit must leave intact of `target`.
+	/// - `keep_alive`: Require that `target` must stay alive.
 	/// - `respect_freezer`: Respect any freezes on the account or token (or not).
 	/// - `best_effort`: The debit amount may be less than `amount`.
 	///
@@ -317,13 +294,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		amount: T::Balance,
 		f: DebitFlags,
 	) -> Result<T::Balance, DispatchError> {
-		let actual = Self::reducible_balance(id.clone(), target, f.preservation)?.min(amount);
+		let actual = Self::reducible_balance(id.clone(), target, f.keep_alive)?.min(amount);
 		ensure!(f.best_effort || actual >= amount, Error::<T, I>::BalanceLow);
 
-		let conseq = Self::can_decrease(id, target, actual, f.preservation);
-		// `can_decrease` has already refused the sweep where `f.preservation` forbids it, so a
-		// `ReducedToZero` here is one the caller asked to allow.
-		let actual = match conseq.into_result(false) {
+		let conseq = Self::can_decrease(id, target, actual, f.keep_alive);
+		let actual = match conseq.into_result(f.keep_alive) {
 			Ok(dust) => actual.saturating_add(dust), //< guaranteed by reducible_balance
 			Err(e) => {
 				debug_assert!(false, "passed from reducible_balance; qed");
@@ -550,7 +525,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Reduces asset `id` balance of `target` by `amount`. Flags `f` can be given to alter whether
-	/// it attempts a `best_effort` or what it must leave intact of the account.
+	/// it attempts a `best_effort` or makes sure to `keep_alive` the account.
 	///
 	/// This alters the registered supply of the asset and emits an event.
 	///
@@ -585,7 +560,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	}
 
 	/// Reduces asset `id` balance of `target` by `amount`. Flags `f` can be given to alter whether
-	/// it attempts a `best_effort` or what it must leave intact of the account.
+	/// it attempts a `best_effort` or makes sure to `keep_alive` the account.
 	///
 	/// LOW-LEVEL: Does not alter the supply of asset or emit an event. Use `do_burn` if you need
 	/// that. This is not intended to be used alone.
@@ -1056,11 +1031,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				// than the balance error `prep_debit` would raise first.
 				ensure!(approved.amount >= amount, Error::<T, I>::Unapproved);
 
-				let f = TransferFlags {
-					preservation: Preservation::Expendable,
-					best_effort: false,
-					burn_dust: false,
-				};
+				let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
 				// The approval bounds what actually moves, and `prep_debit` can resolve above
 				// `amount`.
 				let debit = Self::prep_debit(id.clone(), owner, amount, f.into())?;

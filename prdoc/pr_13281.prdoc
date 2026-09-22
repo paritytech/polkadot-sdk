@@ -1,49 +1,49 @@
-title: Protect and Preserve as distinct preservation semantics in pallet-assets
+title: Dust accounting in fungibles transfers and approvals
 
 doc:
 - audience: Runtime Dev
   description: |-
-    `pallet-assets` collapsed `Preservation` into a single `keep_alive` boolean
-    (`preservation != Expendable`), so `Protect` and `Preserve` were indistinguishable and
-    `Protect`'s documented meaning — the account may not be killed, but its balance may be
-    dusted — had no effect.
+    `pallet_assets::prep_debit` promotes a debit to the account's whole balance when debiting the
+    requested amount exactly would strand a remainder below the asset's `min_balance`. Two
+    consumers assumed the debit equalled the amount they asked for, and each lost track of the
+    difference.
 
-    `TransferFlags` and `DebitFlags` now carry a `Preservation` in place of `keep_alive`, and
-    `Pallet::reducible_balance` and `Pallet::can_decrease` take one too. `Protect` permits the
-    sweep exactly where the asset-account entry outlives its balance, which is where
-    `dead_account` returns `Keep`: accounts existing by a deposit (`DepositHeld` or
-    `DepositFrom`). Accounts existing by a consumer reference or by asset sufficiency still hold
-    back `min_balance` under `Protect`, as they do under `Preserve`. `Expendable` and `Preserve`
-    are unchanged, so every `TransferFlags`/`DebitFlags` construction site in the pallet — all of
-    which pass one of those two — keeps its current behaviour.
+    The default `fungible::Mutate::transfer` and `fungibles::Mutate::transfer` pair a `BestEffort`
+    `decrease_balance` with an `increase_balance` of `amount`, discarding the figure actually
+    debited. Where the two differ the remainder left the source without being credited to anyone
+    or deducted from the supply, since neither `Unbalanced` method adjusts it — leaving total
+    issuance permanently above the sum of all balances. Both defaults now take the figure
+    `decrease_balance` returned for the credit, the return value and the `Transferred` event,
+    the last of which is what indexers read. This is inert for implementors whose
+    `decrease_balance` returns exactly `amount` and disposes of dust separately, which includes
+    `pallet-balances`; it reaches those that fold the promotion into the return value, which
+    in-tree means `pallet-assets` and the `ItemOf` and `UnionOf` adapters over it.
 
-    Note that the default `Mutate::transfer` vetoes a dusting withdrawal for any
-    `preservation != Expendable` before reaching the pallet, so, as in `pallet-balances`, the
-    distinction surfaces through `reducible_balance`, `decrease_balance` and `burn_from` rather
-    than through `transfer`.
+    `Unbalanced::decrease_balance` already documented that its return may exceed `amount` by up to
+    `minimum_balance() - 1`. It now also states that the excess must still be in the system and
+    must not have been passed to `handle_dust`, since a caller crediting the return value would
+    otherwise issue it a second time. `fungible::Mutate::transfer` and `fungibles::Mutate::transfer`
+    now document that their return may exceed `amount` by the same range.
 
-    The default `fungible::MutateHold::hold` and `fungibles::hold::Mutate::hold` pass `Protect` to
-    `decrease_balance` and then recorded the requested `amount` on hold, discarding the figure
-    actually debited. That was inert while no implementor could promote a debit under `Protect`;
-    with the above it is reachable, and the difference would leave the account without going on
-    hold or coming off the supply. Both now record what `decrease_balance` returned, matching
-    `transfer_and_hold` in the same files. This is inert for implementors whose `decrease_balance`
-    returns exactly `amount`, which includes `pallet-balances`.
-
-    `fungible::Mutate::transfer` and `fungibles::Mutate::transfer` now document that their return
-    may exceed `amount` by up to `minimum_balance() - 1`, matching the range already documented on
-    `burn_from` and `Unbalanced::decrease_balance`.
+    `do_transfer_approved` measured the approval against the requested amount and then moved the
+    promoted debit, so a delegate could move up to `min_balance - 1` more than it was approved
+    for, to a destination of its own choosing, while only the requested amount was charged
+    against the allowance. It now resolves the debit first and measures the approval against
+    that, leaving the approval untouched when it does not fit. Where the approval does cover the
+    promoted debit the transfer still goes through, but it is now the debit that is charged, so
+    an approval can be exhausted — and its entry removed and its deposit returned — by a request
+    smaller than the approval.
 
 - audience: Runtime User
   description: |-
-    Placing a hold on an asset account whose remaining balance would fall below the asset's
-    minimum now holds the whole balance rather than failing. The extra is held for the same
-    reason as the requested amount and is released with it; no funds leave the account.
+    An approved transfer that would leave the owner holding a non-zero balance below the asset's
+    minimum now fails with `Unapproved` unless the approval covers the owner's whole balance,
+    rather than moving more than was approved. A delegate can request up to the owner's balance
+    less the minimum; a larger request moves the owner's whole balance and needs an approval
+    covering it, and spends that whole balance out of the approval.
 
 crates:
 - name: frame-support
   bump: minor
 - name: pallet-assets
-  bump: major
-- name: pallet-assets-precompiles
-  bump: patch
+  bump: minor

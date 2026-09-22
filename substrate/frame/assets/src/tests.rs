@@ -24,10 +24,7 @@ use frame_support::{
 	dispatch::GetDispatchInfo,
 	traits::{
 		fungibles::InspectEnumerable,
-		tokens::{
-			Preservation::{Expendable, Preserve, Protect},
-			Provenance,
-		},
+		tokens::{Preservation::Protect, Provenance},
 		Currency, LockableCurrency, WithdrawReasons,
 	},
 	BoundedVec,
@@ -802,66 +799,6 @@ fn transferring_enough_to_kill_source_when_keep_alive_should_fail() {
 		assert_eq!(Assets::balance(0, 2), 90);
 		assert!(hooks().is_empty());
 		assert_eq!(asset_ids(), vec![0, 999]);
-	});
-}
-
-#[test]
-fn protect_dusts_only_accounts_that_outlive_their_balance() {
-	build_and_execute(|| {
-		Balances::make_free_balance_be(&2, 100);
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
-
-		// `1` exists because the asset is sufficient, so dusting it would remove the entry and
-		// `Protect` has to hold back the minimum balance exactly as `Preserve` does.
-		assert_eq!(Assets::reducible_balance(0, &1, Expendable), Ok(100));
-		assert_eq!(Assets::reducible_balance(0, &1, Protect), Ok(90));
-		assert_eq!(Assets::reducible_balance(0, &1, Preserve), Ok(90));
-
-		// `2` exists because of its own deposit, so the entry outlives its balance and `Protect`
-		// lets the whole balance go.
-		assert_ok!(Assets::touch(RuntimeOrigin::signed(2), 0));
-		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 50));
-		assert_eq!(Assets::reducible_balance(0, &2, Expendable), Ok(50));
-		assert_eq!(Assets::reducible_balance(0, &2, Protect), Ok(50));
-		assert_eq!(Assets::reducible_balance(0, &2, Preserve), Ok(40));
-
-		// The debit that `Protect` now permits sweeps the account and leaves the entry standing.
-		assert_eq!(Assets::can_decrease(0, &2, 45, Protect), WithdrawConsequence::ReducedToZero(5));
-		assert_eq!(Assets::can_decrease(0, &1, 45, Protect), WithdrawConsequence::WouldDie);
-		let f = DebitFlags { preservation: Protect, best_effort: false };
-		assert_eq!(Assets::prep_debit(0, &2, 45, f), Ok(50));
-	});
-}
-
-/// The same distinction, seen through the trait methods that downstream code actually calls.
-#[test]
-fn protect_through_the_fungibles_trait_boundary() {
-	build_and_execute(|| {
-		Balances::make_free_balance_be(&2, 100);
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
-		assert_ok!(Assets::touch(RuntimeOrigin::signed(2), 0));
-		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 50));
-
-		use frame_support::traits::tokens::{Fortitude::Polite, Precision::Exact};
-
-		let reducible = |who, preservation| {
-			<Assets as fungibles::Inspect<_>>::reducible_balance(0, who, preservation, Polite)
-		};
-		assert_eq!(reducible(&2, Protect), 50);
-		assert_eq!(reducible(&2, Preserve), 40);
-		// `1` exists by sufficiency, so its entry dies with its balance.
-		assert_eq!(reducible(&1, Protect), 40);
-
-		assert_eq!(
-			<Assets as fungibles::Unbalanced<_>>::decrease_balance(
-				0, &2, 45, Exact, Protect, Polite
-			),
-			Ok(50)
-		);
-		assert_eq!(Assets::balance(0, 2), 0);
-		assert!(Account::<Test>::contains_key(0, &2));
 	});
 }
 
@@ -1737,13 +1674,13 @@ fn freezing_and_holds_work() {
 
 		// Can freeze up to held + min_balance without affecting reducible
 		set_frozen_balance(0, 1, 59);
-		assert_eq!(Assets::reducible_balance(0, &1, Preserve), Ok(40));
+		assert_eq!(Assets::reducible_balance(0, &1, true), Ok(40));
 		set_frozen_balance(0, 1, 61);
-		assert_eq!(Assets::reducible_balance(0, &1, Preserve), Ok(39));
+		assert_eq!(Assets::reducible_balance(0, &1, true), Ok(39));
 
 		// Increasing hold is not necessarily restricted by the frozen balance
 		set_balance_on_hold(0, 1, 62);
-		assert_eq!(Assets::reducible_balance(0, &1, Preserve), Ok(28));
+		assert_eq!(Assets::reducible_balance(0, &1, true), Ok(28));
 
 		// Transfers are bound to the spendable amount
 		assert_noop!(
@@ -2257,7 +2194,7 @@ fn increasing_or_decreasing_destroying_asset_should_not_work() {
 		assert_eq!(Assets::can_deposit(0, &1, 10, Provenance::Extant), DepositConsequence::Success);
 		assert_eq!(Assets::can_withdraw(0, &1, 10), WithdrawConsequence::<_>::Success);
 		assert_eq!(Assets::can_increase(0, &1, 10, false), DepositConsequence::Success);
-		assert_eq!(Assets::can_decrease(0, &1, 10, Expendable), WithdrawConsequence::<_>::Success);
+		assert_eq!(Assets::can_decrease(0, &1, 10, false), WithdrawConsequence::<_>::Success);
 
 		assert_ok!(Assets::start_destroy(admin_origin, 0));
 
@@ -2267,10 +2204,7 @@ fn increasing_or_decreasing_destroying_asset_should_not_work() {
 		);
 		assert_eq!(Assets::can_withdraw(0, &1, 10), WithdrawConsequence::<_>::UnknownAsset);
 		assert_eq!(Assets::can_increase(0, &1, 10, false), DepositConsequence::UnknownAsset);
-		assert_eq!(
-			Assets::can_decrease(0, &1, 10, Expendable),
-			WithdrawConsequence::<_>::UnknownAsset
-		);
+		assert_eq!(Assets::can_decrease(0, &1, 10, false), WithdrawConsequence::<_>::UnknownAsset);
 	});
 }
 

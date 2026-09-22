@@ -1070,7 +1070,7 @@ pub mod pallet {
 			let who = T::Lookup::lookup(who)?;
 			let id: T::AssetId = id.into();
 
-			let f = DebitFlags { preservation: Expendable, best_effort: true };
+			let f = DebitFlags { keep_alive: false, best_effort: true };
 			Self::do_burn(id, &who, amount, Some(origin), f)?;
 			Ok(())
 		}
@@ -1104,8 +1104,7 @@ pub mod pallet {
 			let dest = T::Lookup::lookup(target)?;
 			let id: T::AssetId = id.into();
 
-			let f =
-				TransferFlags { preservation: Expendable, best_effort: false, burn_dust: false };
+			let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
 			Self::do_transfer(id, &origin, &dest, amount, None, f).map(|_| ())
 		}
 
@@ -1138,7 +1137,7 @@ pub mod pallet {
 			let dest = T::Lookup::lookup(target)?;
 			let id: T::AssetId = id.into();
 
-			let f = TransferFlags { preservation: Preserve, best_effort: false, burn_dust: false };
+			let f = TransferFlags { keep_alive: true, best_effort: false, burn_dust: false };
 			Self::do_transfer(id, &source, &dest, amount, None, f).map(|_| ())
 		}
 
@@ -1174,8 +1173,7 @@ pub mod pallet {
 			let dest = T::Lookup::lookup(dest)?;
 			let id: T::AssetId = id.into();
 
-			let f =
-				TransferFlags { preservation: Expendable, best_effort: false, burn_dust: false };
+			let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
 			Self::do_transfer(id, &source, &dest, amount, Some(origin), f).map(|_| ())
 		}
 

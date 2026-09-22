@@ -23,7 +23,7 @@ use crate as pallet_assets;
 use codec::Encode;
 use frame_support::{
 	assert_ok, construct_runtime, derive_impl, parameter_types,
-	traits::{tokens::Preservation::Preserve, AsEnsureOriginWithArg, ConstU32},
+	traits::{AsEnsureOriginWithArg, ConstU32},
 };
 use sp_io::storage;
 use sp_runtime::BuildStorage;
@@ -159,7 +159,7 @@ pub(crate) fn set_balance_on_hold(asset: u32, who: u64, amount: u64) {
 		if &amount > amount_on_hold {
 			// Hold more funds
 			let amount = amount - amount_on_hold;
-			let f = DebitFlags { preservation: Preserve, best_effort: false };
+			let f = DebitFlags { keep_alive: true, best_effort: false };
 			assert_ok!(Assets::decrease_balance(asset, &who, amount, f, |_, _| Ok(())));
 		} else {
 			// Release funds on hold
