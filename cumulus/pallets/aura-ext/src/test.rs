@@ -524,6 +524,29 @@ fn block_executor_does_not_influence_proof_size_recordings() {
 }
 
 // =============================================================================
+// integrity_test: Aura slot duration vs relay chain slot duration
+// =============================================================================
+
+#[rstest]
+#[case::equal_to_relay(6_000)]
+#[case::multiple_of_relay(12_000)]
+#[case::large_multiple_of_relay(24_000)]
+fn integrity_test_accepts_valid_slot_durations(#[case] para_slot_duration: u64) {
+	TestSlotDuration::set_slot_duration(para_slot_duration);
+	Pallet::<Test>::integrity_test();
+}
+
+#[rstest]
+#[case::zero(0)]
+#[case::below_relay_slot_duration(2_000)]
+#[case::not_a_multiple_of_relay(8_000)]
+#[should_panic(expected = "must be a positive multiple of the relay chain's slot duration")]
+fn integrity_test_rejects_invalid_slot_durations(#[case] para_slot_duration: u64) {
+	TestSlotDuration::set_slot_duration(para_slot_duration);
+	Pallet::<Test>::integrity_test();
+}
+
+// =============================================================================
 // AuraSchedulingVerifier tests
 // =============================================================================
 

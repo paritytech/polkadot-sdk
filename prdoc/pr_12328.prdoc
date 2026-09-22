@@ -1,0 +1,12 @@
+title: 'cumulus: add slot duration integrity check'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Closes #12307
+
+    This PR adds an integrity check in pallet `aura-ext`'s integrity_test hook.
+
+    The check asserts that the parachain slot duration is a positive multiple of the relay chain's slot duration.
+crates:
+- name: cumulus-pallet-aura-ext
+  bump: minor
