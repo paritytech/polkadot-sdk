@@ -1,0 +1,42 @@
+title: 'sp-arithmetic: add checked functions, fix saturating division-by-zero, and extend fuzzer coverage'
+doc:
+- audience: Runtime Dev
+  description: |-
+    **BREAKING**: `PerThing::saturating_reciprocal_mul`, `saturating_reciprocal_mul_floor`,
+    and `saturating_reciprocal_mul_ceil` now require `N: Bounded` and return
+    `Bounded::max_value()` when `self` is zero, instead of panicking. The removed
+    `checked_saturating_reciprocal_mul*` methods are no longer needed; callers should use
+    the saturating versions directly.
+
+    Changes to `sp-arithmetic`:
+    - `helpers_128bit.rs`: Added `checked_multiply_by_rational_with_rounding` with proper
+      `ArithmeticError` return type. The existing `multiply_by_rational_with_rounding` now
+      delegates to the checked version.
+    - `per_things.rs`: Added `checked_*` versions of `square`, `mul_floor`, `mul_ceil`,
+      and `from_rational_with_rounding` to the `PerThing` trait. Added `checked_int_div`
+      and `checked_div_with_rounding`. Fixed `saturating_reciprocal_mul*` to return
+      `Bounded::max_value()` on zero instead of panicking (previously UB/panic). Removed
+      `checked_saturating_reciprocal_mul*` methods (saturating operations are infallible
+      by definition). Fixed `checked_rational_mul_correction` error semantics and `PerU16`
+      debug display.
+    - `fixed_point.rs`: Added `try_into_perbill` and checked `from_rational_with_rounding`.
+      Updated to use `multiply_by_rational_with_rounding` in `FromStr`.
+    - `traits.rs`: `EnsureFixedPointNumber` wrappers (`ensure_from_rational`,
+      `ensure_mul_int`, `ensure_div_int`) convert `Option` to `Result<T, ArithmeticError>`
+      with `DivisionByZero` for zero divisors and `Overflow` for all other failures.
+    - `rational.rs`: Added `checked_to_den` and `checked_lcm`. The existing `to_den` and
+      `lcm` now delegate to the checked versions. Updated `checked_add` and `checked_sub`
+      to use `ArithmeticError`.
+
+    Changes to downstream callers:
+    - `pallet-nomination-pools`: Callers adapted for `Option`-returning checked methods.
+
+    Fuzzer coverage:
+    - 8 new fuzzer modules covering checked arithmetic, rounding, conversions, and utility
+      functions across `PerThing` and `FixedPointNumber` types, using BigInt/BigUint oracles
+      for value verification.
+crates:
+- name: sp-arithmetic
+  bump: major
+- name: pallet-nomination-pools
+  bump: patch
