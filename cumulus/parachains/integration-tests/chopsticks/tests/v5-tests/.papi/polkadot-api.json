@@ -1,0 +1,18 @@
+{
+  "version": 0,
+  "descriptorPath": ".papi/descriptors",
+  "entries": {
+    "wnd_ah": {
+      "wsUrl": "ws://localhost:8008",
+      "metadata": ".papi/metadata/wnd_ah.scale"
+    },
+    "wnd_penpal": {
+      "wsUrl": "ws://localhost:8006",
+      "metadata": ".papi/metadata/wnd_penpal.scale"
+    },
+    "wnd_rc": {
+      "wsUrl": "ws://localhost:8007",
+      "metadata": ".papi/metadata/wnd_rc.scale"
+    }
+  }
+}
