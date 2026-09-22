@@ -110,11 +110,6 @@ pub struct Constraints<N = BlockNumber> {
 	pub future_validation_code: Option<(N, ValidationCodeHash)>,
 }
 
-impl<N> Constraints<N> {
-	/// Equal to Polkadot/Kusama config.
-	pub const DEFAULT_MAX_HEAD_DATA_SIZE: u32 = 20480;
-}
-
 /// A candidate pending availability.
 #[derive(Debug, Clone, PartialEq, Encode, Decode, TypeInfo)]
 pub struct CandidatePendingAvailability<H = Hash, N = BlockNumber> {

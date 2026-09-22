@@ -930,6 +930,9 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Check that all the upward messages sent by a candidate pass the acceptance criteria.
+	///
+	/// Per-candidate limits come from `session_config` (what the collator built against); queue
+	/// capacity comes from `host_config`, being live state the collator cannot plan against.
 	pub(crate) fn check_upward_messages(
 		host_config: &HostConfiguration<BlockNumberFor<T>>,
 		session_config: &SessionExecutionConfig,
@@ -1286,7 +1289,7 @@ impl<T: Config> CandidateCheckContext<T> {
 				relay_parent_number,
 				state_root,
 				parent_head_data,
-				session_index,
+				session_config.max_pov_size,
 			);
 
 			let expected = persisted_validation_data.hash();

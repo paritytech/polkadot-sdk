@@ -348,6 +348,11 @@ pub enum InconsistentError<BlockNumber> {
 	OnDemandQueueSizeTooLarge,
 	/// Number of delay tranches cannot be 0.
 	ZeroDelayTranches,
+	/// `max_relay_parent_session_age` exceeds `dispute_period`.
+	MaxRelayParentSessionAgeExceedsDisputePeriod {
+		max_relay_parent_session_age: u32,
+		dispute_period: SessionIndex,
+	},
 }
 
 impl<BlockNumber> HostConfiguration<BlockNumber>
@@ -475,6 +480,16 @@ where
 
 		if self.n_delay_tranches.is_zero() {
 			return Err(ZeroDelayTranches);
+		}
+
+		// `SessionExecutionConfigs` is pruned at `dispute_period`, but relay parents stay allowed
+		// for `max_relay_parent_session_age` sessions. Letting the latter outrun the former would
+		// build a candidate's PVD from the live config instead of its own session's snapshot.
+		if self.max_relay_parent_session_age > self.dispute_period {
+			return Err(MaxRelayParentSessionAgeExceedsDisputePeriod {
+				max_relay_parent_session_age: self.max_relay_parent_session_age,
+				dispute_period: self.dispute_period,
+			});
 		}
 
 		Ok(())

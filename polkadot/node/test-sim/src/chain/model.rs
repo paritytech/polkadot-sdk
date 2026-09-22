@@ -578,13 +578,13 @@ impl ChainModel {
 			RuntimeApiRequest::PersistedValidationData(_para, _assumption, tx) => {
 				// Synthesise a PVD whose shape matches the seconding sanity check: parent
 				// head = empty, relay parent number = block's number, storage root =
-				// Hash::zero(), max_pov_size = 5 MB. Tests that need different shapes should
-				// pre-set the candidate's persisted_validation_data_hash to match.
+				// Hash::zero(). Tests that need different shapes should pre-set the
+				// candidate's persisted_validation_data_hash to match.
 				let pvd = PersistedValidationData {
 					parent_head: HeadData(Vec::new()),
 					relay_parent_number: info.number,
 					relay_parent_storage_root: Hash::zero(),
-					max_pov_size: 5 * 1024 * 1024,
+					max_pov_size: sim_session_execution_config().max_pov_size,
 				};
 				let _ = tx.send(Ok(Some(pvd)));
 			},
@@ -618,25 +618,11 @@ impl ChainModel {
 				let _ = tx.send(Ok(paras.into_iter().collect()));
 			},
 			RuntimeApiRequest::ValidationCodeBombLimit(_session, tx) => {
-				let _ = tx.send(Ok(60 * 1024 * 1024));
+				let _ = tx.send(Ok(sim_session_execution_config().validation_code_bomb_limit));
 			},
 			RuntimeApiRequest::SessionExecutionConfig(_session, tx) => {
-				let constraints = self
-					.backing_constraints_at
-					.values()
-					.chain(self.backing_constraints.values())
-					.next()
-					.cloned()
-					.unwrap_or_else(default_constraints);
-				let _ = tx.send(Ok(Some(SessionExecutionConfig {
-					max_pov_size: constraints.max_pov_size,
-					validation_code_bomb_limit: 60 * 1024 * 1024,
-					max_code_size: constraints.max_code_size,
-					max_head_data_size: constraints.max_head_data_size,
-					max_upward_message_num_per_candidate: constraints.max_ump_num_per_candidate,
-					max_upward_message_size: 1_000,
-					hrmp_max_message_num_per_candidate: constraints.max_hrmp_num_per_candidate,
-				})));
+				// Session-scoped, so it must not be derived from any one para's constraints.
+				let _ = tx.send(Ok(Some(sim_session_execution_config())));
 			},
 			RuntimeApiRequest::MaxRelayParentSessionAge(_session, tx) => {
 				let _ = tx.send(Ok(8));
@@ -783,17 +769,37 @@ impl AnswerQuery for SharedChain {
 	}
 }
 
+/// The session-scoped execution limits the sim reports.
+///
+/// Single source for `PersistedValidationData`, `SessionExecutionConfig`, `ValidationCodeBombLimit`
+/// and every synthesised `Constraints`: if these disagree, real prospective-parachains rejects
+/// every seconded candidate with `MaxPovSizeMismatch`.
+pub fn sim_session_execution_config() -> SessionExecutionConfig {
+	SessionExecutionConfig {
+		// Must equal `polkadot_primitives_test_helpers::dummy_pvd`'s value: every scenario
+		// candidate carries it, and prospective-parachains cross-checks the two.
+		max_pov_size: 1_000_000,
+		validation_code_bomb_limit: 60 * 1024 * 1024,
+		max_code_size: 3 * 1024 * 1024,
+		max_head_data_size: 20 * 1024,
+		max_upward_message_num_per_candidate: 16,
+		max_upward_message_size: 1_000,
+		hrmp_max_message_num_per_candidate: 16,
+	}
+}
+
 /// Permissive default backing constraints. Tests that need stricter shapes pass their own
 /// via [`ChainModel::set_backing_constraints`].
 fn default_constraints() -> Constraints {
+	let session_cfg = sim_session_execution_config();
 	Constraints {
 		min_relay_parent_number: 0,
-		max_pov_size: 5 * 1024 * 1024,
-		max_code_size: 3 * 1024 * 1024,
-		max_head_data_size: 20 * 1024,
+		max_pov_size: session_cfg.max_pov_size,
+		max_code_size: session_cfg.max_code_size,
+		max_head_data_size: session_cfg.max_head_data_size,
 		ump_remaining: 32,
 		ump_remaining_bytes: 64 * 1024,
-		max_ump_num_per_candidate: 16,
+		max_ump_num_per_candidate: session_cfg.max_upward_message_num_per_candidate,
 		dmp_remaining_messages: Vec::new(),
 		// Real constraints reject candidates whose `hrmp_watermark` isn't in
 		// `valid_watermarks` (and isn't strictly greater than the relay parent number).
@@ -801,7 +807,7 @@ fn default_constraints() -> Constraints {
 		// real prospective accepts plain candidates as fragment-chain members.
 		hrmp_inbound: InboundHrmpLimitations { valid_watermarks: vec![0] },
 		hrmp_channels_out: Vec::new(),
-		max_hrmp_num_per_candidate: 16,
+		max_hrmp_num_per_candidate: session_cfg.hrmp_max_message_num_per_candidate,
 		required_parent: HeadData(Vec::new()),
 		// Match the validation code hash that `dummy_candidate_receipt_v2_bad_sig`
 		// (used by `Candidate::for_para_at` / `Candidate::builder`) bakes into

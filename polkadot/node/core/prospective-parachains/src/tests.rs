@@ -27,12 +27,14 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
 	async_backing::{CandidatePendingAvailability, Constraints, InboundHrmpLimitations},
-	vstaging::RelayParentInfo,
+	vstaging::{RelayParentInfo, SessionExecutionConfig},
 	BlockNumber, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, HeadData,
 	Header, MutateDescriptorV2, PersistedValidationData, ValidationCodeHash,
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
-use polkadot_primitives_test_helpers::{make_candidate, make_candidate_v3};
+use polkadot_primitives_test_helpers::{
+	make_candidate, make_candidate_v3, make_candidate_v3_with_sessions,
+};
 use rstest::rstest;
 use std::{
 	cell::RefCell,
@@ -45,6 +47,24 @@ const RUNTIME_API_NOT_SUPPORTED: RuntimeApiError =
 	RuntimeApiError::NotSupported { runtime_api_name: "test-runtime" };
 
 const MAX_POV_SIZE: u32 = 1_000_000;
+const MAX_HEAD_DATA_SIZE: u32 = 20480;
+const MAX_CODE_SIZE: u32 = 1_000_000;
+const MAX_UMP_NUM_PER_CANDIDATE: u32 = 10;
+const MAX_HRMP_NUM_PER_CANDIDATE: u32 = 0;
+
+/// The `SessionExecutionConfig` the harness reports for sessions without an override. Mirrors
+/// `dummy_constraints` so that applying it to the base constraints is a no-op.
+fn default_session_execution_config() -> SessionExecutionConfig {
+	SessionExecutionConfig {
+		max_pov_size: MAX_POV_SIZE,
+		validation_code_bomb_limit: 0,
+		max_code_size: MAX_CODE_SIZE,
+		max_head_data_size: MAX_HEAD_DATA_SIZE,
+		max_upward_message_num_per_candidate: MAX_UMP_NUM_PER_CANDIDATE,
+		max_upward_message_size: 1_000,
+		hrmp_max_message_num_per_candidate: MAX_HRMP_NUM_PER_CANDIDATE,
+	}
+}
 
 type VirtualOverseer =
 	polkadot_node_subsystem_test_helpers::TestSubsystemContextHandle<ProspectiveParachainsMessage>;
@@ -54,19 +74,20 @@ fn dummy_constraints(
 	valid_watermarks: Vec<BlockNumber>,
 	required_parent: HeadData,
 	validation_code_hash: ValidationCodeHash,
+	max_head_data_size: u32,
 ) -> Constraints {
 	Constraints {
 		min_relay_parent_number,
 		max_pov_size: MAX_POV_SIZE,
-		max_head_data_size: 20480,
-		max_code_size: 1_000_000,
+		max_head_data_size,
+		max_code_size: MAX_CODE_SIZE,
 		ump_remaining: 10,
 		ump_remaining_bytes: 1_000,
-		max_ump_num_per_candidate: 10,
+		max_ump_num_per_candidate: MAX_UMP_NUM_PER_CANDIDATE,
 		dmp_remaining_messages: vec![],
 		hrmp_inbound: InboundHrmpLimitations { valid_watermarks },
 		hrmp_channels_out: vec![],
-		max_hrmp_num_per_candidate: 0,
+		max_hrmp_num_per_candidate: MAX_HRMP_NUM_PER_CANDIDATE,
 		required_parent,
 		validation_code_hash,
 		upgrade_restriction: None,
@@ -87,9 +108,15 @@ struct TestState {
 	/// relay parent only. `RefCell` allows interior mutability while helpers still take
 	/// `&TestState`.
 	cached_relay_parents: RefCell<HashSet<Hash>>,
-	/// Per-session override for the `max_pov_size` returned by the `SessionExecutionConfig`
-	/// runtime API in the test harness. Sessions not present here get `MAX_POV_SIZE`.
-	session_max_pov_size_overrides: BTreeMap<SessionIndex, u32>,
+	/// Per-session override for the `SessionExecutionConfig` returned by the runtime API in the
+	/// test harness. Sessions not present here get `default_session_execution_config()`.
+	session_execution_config_overrides: BTreeMap<SessionIndex, SessionExecutionConfig>,
+	/// If set, overrides `max_head_data_size` in the backing constraints returned for a leaf,
+	/// i.e. the limit of the leaf's session.
+	max_head_data_size_override: Option<u32>,
+	/// If set, the `SessionExecutionConfig` runtime API answers with a transient runtime error
+	/// rather than a config or `NotSupported`.
+	session_execution_config_fails: bool,
 }
 
 impl Default for TestState {
@@ -115,7 +142,9 @@ impl Default for TestState {
 			runtime_api_version: RuntimeApiRequest::ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT,
 			min_relay_parent_number_override: None,
 			cached_relay_parents: RefCell::new(HashSet::new()),
-			session_max_pov_size_overrides: BTreeMap::new(),
+			session_execution_config_overrides: BTreeMap::new(),
+			max_head_data_size_override: None,
+			session_execution_config_fails: false,
 		}
 	}
 }
@@ -130,7 +159,26 @@ impl TestState {
 	}
 
 	fn set_session_max_pov_size(&mut self, session_index: SessionIndex, max_pov_size: u32) {
-		self.session_max_pov_size_overrides.insert(session_index, max_pov_size);
+		self.session_execution_config_overrides.insert(
+			session_index,
+			SessionExecutionConfig { max_pov_size, ..default_session_execution_config() },
+		);
+	}
+
+	fn set_session_execution_config(
+		&mut self,
+		session_index: SessionIndex,
+		config: SessionExecutionConfig,
+	) {
+		self.session_execution_config_overrides.insert(session_index, config);
+	}
+
+	fn set_max_head_data_size(&mut self, max_head_data_size: u32) {
+		self.max_head_data_size_override = Some(max_head_data_size);
+	}
+
+	fn fail_session_execution_config(&mut self) {
+		self.session_execution_config_fails = true;
 	}
 }
 
@@ -433,6 +481,7 @@ async fn handle_leaf_activation(
 					vec![*number],
 					head_data.clone(),
 					test_state.validation_code_hash,
+					test_state.max_head_data_size_override.unwrap_or(MAX_HEAD_DATA_SIZE),
 				);
 
 				tx.send(Ok(Some(constraints))).unwrap();
@@ -518,27 +567,28 @@ async fn handle_potential_relay_parent_info_calls<T>(
 					RuntimeApiRequest::SessionExecutionConfig(session_index, tx),
 				)) = msg
 				{
-					if test_state.runtime_api_version <
+					if test_state.session_execution_config_fails {
+						// Transient runtime failure, distinct from `NotSupported`.
+						tx.send(Err(RuntimeApiError::Execution {
+							runtime_api_name: "SessionExecutionConfig",
+							source: Arc::new(std::io::Error::other("mocked runtime failure")),
+						}))
+						.unwrap();
+					} else if test_state.runtime_api_version <
 						RuntimeApiRequest::SESSION_EXECUTION_CONFIG_RUNTIME_REQUIREMENT
 					{
 						// Pre-v17 fallback path — respond with `NotSupported` so the subsystem
 						// falls back to the scheduling session's `base_constraints.max_pov_size`.
 						tx.send(Err(RUNTIME_API_NOT_SUPPORTED)).unwrap();
 					} else {
-						// v17+ path — respond with the per-session override if set, otherwise
-						// the default `MAX_POV_SIZE`. `validation_code_bomb_limit` is not used by
-						// the prospective-parachains code paths under test.
-						let max_pov_size = test_state
-							.session_max_pov_size_overrides
+						// v17+ path — respond with the per-session override if set, otherwise a
+						// config mirroring the base constraints.
+						let cfg = test_state
+							.session_execution_config_overrides
 							.get(&session_index)
 							.copied()
-							.unwrap_or(MAX_POV_SIZE);
-						tx.send(Ok(Some(polkadot_primitives::vstaging::SessionExecutionConfig {
-							max_pov_size,
-							validation_code_bomb_limit: 0,
-							..Default::default()
-						})))
-						.unwrap();
+							.unwrap_or_else(default_session_execution_config);
+						tx.send(Ok(Some(cfg))).unwrap();
 					}
 					continue;
 				}
@@ -3639,6 +3689,154 @@ fn get_pvd_uses_relay_parent_session_max_pov_size_on_v17() {
 			}),
 		)
 		.await;
+
+		virtual_overseer
+	});
+}
+
+// A V3 candidate whose relay parent sits in an older, looser session must be accepted even though
+// it violates the leaf session's limits: the runtime checks it against its relay-parent session
+// snapshot, and a node that disagrees would never back it.
+#[test]
+fn candidate_validated_against_relay_parent_session_limits() {
+	const LEAF_NUMBER: BlockNumber = 100;
+	const OLDER_RELAY_PARENT_NUMBER: BlockNumber = LEAF_NUMBER - 4 * DEFAULT_SCHEDULING_LOOKAHEAD;
+	const OLDER_SESSION: SessionIndex = 0;
+	const LEAF_SESSION: SessionIndex = 1;
+	// The leaf's session tightened `max_head_data_size`; the older session is still loose.
+	const TIGHT_MAX_HEAD_DATA_SIZE: u32 = 4;
+	const LOOSE_MAX_HEAD_DATA_SIZE: u32 = 32;
+	const HEAD_DATA_LEN: usize = 8;
+
+	let para_id = ParaId::from(1);
+	let mut test_state = TestState::default();
+	test_state
+		.set_runtime_api_version(RuntimeApiRequest::SESSION_EXECUTION_CONFIG_RUNTIME_REQUIREMENT);
+	test_state.set_min_relay_parent_number(OLDER_RELAY_PARENT_NUMBER);
+	test_state.set_max_head_data_size(TIGHT_MAX_HEAD_DATA_SIZE);
+	test_state.set_session_execution_config(
+		OLDER_SESSION,
+		SessionExecutionConfig {
+			max_head_data_size: LOOSE_MAX_HEAD_DATA_SIZE,
+			..default_session_execution_config()
+		},
+	);
+
+	let view = test_harness(|mut virtual_overseer| async move {
+		let leaf_a = TestLeaf {
+			number: LEAF_NUMBER,
+			hash: Hash::from_low_u64_be(130),
+			para_data: vec![
+				(para_id, PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
+			],
+		};
+		activate_leaf(&mut virtual_overseer, &leaf_a, &test_state).await;
+
+		let older_relay_parent = Hash::from_low_u64_be(9999);
+
+		// Over the leaf session's limit, within the relay-parent session's.
+		let (candidate_a, pvd_a) = make_candidate_v3_with_sessions(
+			older_relay_parent,
+			OLDER_RELAY_PARENT_NUMBER,
+			leaf_a.hash,
+			para_id,
+			HeadData(vec![1, 2, 3]),
+			HeadData(vec![1; HEAD_DATA_LEN]),
+			test_state.validation_code_hash,
+			OLDER_SESSION,
+			LEAF_SESSION,
+		);
+		let candidate_hash_a = candidate_a.hash();
+
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_a.clone(),
+			pvd_a.clone(),
+		)
+		.await;
+		back_candidate(&mut virtual_overseer, &candidate_a, candidate_hash_a).await;
+
+		// It must also survive `populate_chain`, not just the potential check.
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_a,
+			para_id,
+			Ancestors::default(),
+			1,
+			vec![BackableCandidateRef {
+				candidate_hash: candidate_hash_a,
+				scheduling_parent: leaf_a.hash,
+			}],
+		)
+		.await;
+
+		// Beyond the relay-parent session's limit as well: still rejected.
+		let (candidate_b, pvd_b) = make_candidate_v3_with_sessions(
+			older_relay_parent,
+			OLDER_RELAY_PARENT_NUMBER,
+			leaf_a.hash,
+			ParaId::from(2),
+			HeadData(vec![2, 3, 4]),
+			HeadData(vec![2; LOOSE_MAX_HEAD_DATA_SIZE as usize + 1]),
+			test_state.validation_code_hash,
+			OLDER_SESSION,
+			LEAF_SESSION,
+		);
+		introduce_seconded_candidate_failed(&mut virtual_overseer, &test_state, candidate_b, pvd_b)
+			.await;
+
+		virtual_overseer
+	});
+
+	assert_eq!(view.active_leaves.len(), 1);
+}
+
+// A transient `SessionExecutionConfig` failure must not reject the candidate. The strict
+// `max_pov_size` cross-check only applies when the runtime gave a definitive answer; failing
+// closed here would permanently drop a candidate over a momentarily busy runtime-api subsystem.
+#[test]
+fn transient_session_execution_config_failure_does_not_reject_candidate() {
+	const LEAF_NUMBER: BlockNumber = 100;
+	const OLDER_RELAY_PARENT_NUMBER: BlockNumber = LEAF_NUMBER - 4 * DEFAULT_SCHEDULING_LOOKAHEAD;
+	// Differs from the scheduling session's `base_constraints.max_pov_size`, so the strict
+	// fallback would reject this candidate if a failed lookup were treated as "not stored".
+	const RELAY_PARENT_SESSION_MAX_POV_SIZE: u32 = 123_456;
+
+	let para_id = ParaId::from(1);
+	let mut test_state = TestState::default();
+	test_state
+		.set_runtime_api_version(RuntimeApiRequest::SESSION_EXECUTION_CONFIG_RUNTIME_REQUIREMENT);
+	test_state.set_min_relay_parent_number(OLDER_RELAY_PARENT_NUMBER);
+	test_state.fail_session_execution_config();
+
+	test_harness(|mut virtual_overseer| async move {
+		let leaf_a = TestLeaf {
+			number: LEAF_NUMBER,
+			hash: Hash::from_low_u64_be(130),
+			para_data: vec![
+				(para_id, PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
+			],
+		};
+		activate_leaf(&mut virtual_overseer, &leaf_a, &test_state).await;
+
+		let older_relay_parent = Hash::from_low_u64_be(9999);
+		let (mut candidate_a, mut pvd_a) = make_candidate_v3(
+			older_relay_parent,
+			OLDER_RELAY_PARENT_NUMBER,
+			leaf_a.hash,
+			para_id,
+			HeadData(vec![1, 2, 3]),
+			HeadData(vec![1]),
+			test_state.validation_code_hash,
+		);
+		assert_ne!(RELAY_PARENT_SESSION_MAX_POV_SIZE, MAX_POV_SIZE, "test sentinel collision");
+		pvd_a.max_pov_size = RELAY_PARENT_SESSION_MAX_POV_SIZE;
+		candidate_a.descriptor.set_persisted_validation_data_hash(pvd_a.hash());
+
+		introduce_seconded_candidate(&mut virtual_overseer, &test_state, candidate_a, pvd_a).await;
 
 		virtual_overseer
 	});

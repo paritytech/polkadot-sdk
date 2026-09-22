@@ -23,13 +23,11 @@ use sp_arithmetic::Perbill;
 
 use crate::v9::ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE;
 
-/// Execution-relevant subset of `HostConfiguration` stored per session.
+/// The limits a candidate was built under, snapshotted per session so both node and runtime check
+/// it against its relay-parent session rather than the live config.
 ///
-/// This captures the host configuration parameters that are relevant for
-/// candidate validation and PVF execution. Stored per session in the
-/// `session_info` pallet so that validators can look up the configuration
-/// that was active when a candidate was produced, rather than using the
-/// current configuration.
+/// Excludes `max_downward_message_size`: that only bounds relay-chain-side DMQ enqueueing, never
+/// candidate acceptance.
 #[derive(Copy, Clone, Encode, Decode, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Default, PartialEq))]
 pub struct SessionExecutionConfig {

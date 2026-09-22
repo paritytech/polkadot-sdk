@@ -29,7 +29,7 @@ use crate::{configuration, hrmp, paras, session_info};
 ///
 /// See [`session_info::Pallet::session_execution_config`] for the snapshot lookup and
 /// fallback semantics.
-fn session_max_pov_size<T: configuration::Config + session_info::Config>(
+pub(crate) fn session_max_pov_size<T: configuration::Config + session_info::Config>(
 	session_index: SessionIndex,
 ) -> u32 {
 	session_info::Pallet::<T>::session_execution_config(session_index).max_pov_size
@@ -60,21 +60,19 @@ pub fn make_persisted_validation_data<T: paras::Config + hrmp::Config + session_
 /// Make the persisted validation data for a particular parachain, a specified relay-parent, its
 /// storage root and parent head data.
 ///
-/// `session_index` is the session of the candidate's relay parent. See
-/// [`make_persisted_validation_data`] for the rationale.
-pub fn make_persisted_validation_data_with_parent<
-	T: configuration::Config + session_info::Config,
->(
+/// `max_pov_size` is supplied by the caller rather than re-read here, so a caller that already
+/// resolved the relay-parent session's snapshot does not pay for a second lookup.
+pub fn make_persisted_validation_data_with_parent<T: frame_system::Config>(
 	relay_parent_number: BlockNumberFor<T>,
 	relay_parent_storage_root: T::Hash,
 	parent_head: HeadData,
-	session_index: SessionIndex,
+	max_pov_size: u32,
 ) -> PersistedValidationData<T::Hash, BlockNumberFor<T>> {
 	PersistedValidationData {
 		parent_head,
 		relay_parent_number,
 		relay_parent_storage_root,
-		max_pov_size: session_max_pov_size::<T>(session_index),
+		max_pov_size,
 	}
 }
 

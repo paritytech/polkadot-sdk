@@ -3478,7 +3478,9 @@ mod sanitizers {
 						RELAY_PARENT_NUM,
 						Default::default(),
 						prev_candidate.commitments.head_data,
-						shared::CurrentSessionIndex::<Test>::get(),
+						crate::util::session_max_pov_size::<Test>(shared::CurrentSessionIndex::<
+							Test,
+						>::get()),
 					)
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
@@ -3626,7 +3628,9 @@ mod sanitizers {
 						RELAY_PARENT_NUM,
 						Default::default(),
 						prev_candidate.commitments.head_data,
-						shared::CurrentSessionIndex::<Test>::get(),
+						crate::util::session_max_pov_size::<Test>(shared::CurrentSessionIndex::<
+							Test,
+						>::get()),
 					)
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
@@ -3921,7 +3925,9 @@ mod sanitizers {
 						RELAY_PARENT_NUM,
 						Default::default(),
 						prev_candidate.commitments.head_data,
-						shared::CurrentSessionIndex::<Test>::get(),
+						crate::util::session_max_pov_size::<Test>(shared::CurrentSessionIndex::<
+							Test,
+						>::get()),
 					)
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
@@ -4020,7 +4026,9 @@ mod sanitizers {
 						RELAY_PARENT_NUM,
 						Default::default(),
 						candidate_2.commitments.head_data,
-						shared::CurrentSessionIndex::<Test>::get(),
+						crate::util::session_max_pov_size::<Test>(shared::CurrentSessionIndex::<
+							Test,
+						>::get()),
 					)
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
@@ -4088,7 +4096,9 @@ mod sanitizers {
 						RELAY_PARENT_NUM,
 						Default::default(),
 						prev_candidate.commitments.head_data,
-						shared::CurrentSessionIndex::<Test>::get(),
+						crate::util::session_max_pov_size::<Test>(shared::CurrentSessionIndex::<
+							Test,
+						>::get()),
 					)
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
@@ -4363,7 +4373,9 @@ mod sanitizers {
 						RELAY_PARENT_NUM - 1,
 						Default::default(),
 						prev_candidate.commitments.head_data,
-						shared::CurrentSessionIndex::<Test>::get(),
+						crate::util::session_max_pov_size::<Test>(shared::CurrentSessionIndex::<
+							Test,
+						>::get()),
 					)
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM - 1,
@@ -4395,7 +4407,9 @@ mod sanitizers {
 						RELAY_PARENT_NUM,
 						Default::default(),
 						prev_candidate.commitments.head_data,
-						shared::CurrentSessionIndex::<Test>::get(),
+						crate::util::session_max_pov_size::<Test>(shared::CurrentSessionIndex::<
+							Test,
+						>::get()),
 					)
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
@@ -4464,7 +4478,9 @@ mod sanitizers {
 						RELAY_PARENT_NUM,
 						Default::default(),
 						prev_candidate.commitments.head_data,
-						shared::CurrentSessionIndex::<Test>::get(),
+						crate::util::session_max_pov_size::<Test>(shared::CurrentSessionIndex::<
+							Test,
+						>::get()),
 					)
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
@@ -4500,7 +4516,9 @@ mod sanitizers {
 						RELAY_PARENT_NUM,
 						Default::default(),
 						prev_candidate.commitments.head_data,
-						shared::CurrentSessionIndex::<Test>::get(),
+						crate::util::session_max_pov_size::<Test>(shared::CurrentSessionIndex::<
+							Test,
+						>::get()),
 					)
 					.hash(),
 					hrmp_watermark: RELAY_PARENT_NUM,
