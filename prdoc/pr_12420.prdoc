@@ -1,0 +1,15 @@
+title: 'pallet-uniques: migrate deposits from Currency reserves to fungible holds'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Migrates `pallet-uniques` off the deprecated `ReservableCurrency` trait. Collection, item, metadata and attribute deposits are now taken as `fungible` holds under `HoldReason::Deposit`, and item-price payments use `fungible::Mutate::transfer`.
+    Part of #12399 / #226.
+crates:
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: xcm-simulator-example
+  bump: major
+- name: pallet-uniques
+  bump: major
