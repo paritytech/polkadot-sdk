@@ -1,0 +1,14 @@
+title: Fix Candidate Block Session Boundary
+doc:
+- audience: Node Dev
+  description: |-
+    Advances #11301
+
+    ## Problem
+    `get_block_ancestors` returns all blocks irrespective of whether the block belongs to the same session or not. This may lead to wasted efforts since blocks that do not belong to the same session will not be accepted.
+
+    ## Solution
+    Filters the ancestor list inside `get_block_ancestors` so that only same-session ancestors are returned, which are pruned inside the PVF execute queue - `Queue::prune_old_jobs`.
+crates:
+- name: polkadot-node-core-candidate-validation
+  bump: patch

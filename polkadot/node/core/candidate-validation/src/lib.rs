@@ -1008,8 +1008,8 @@ async fn update_active_leaves_validation_backend<Sender>(
 
 /// Get list of still valid scheduling parents for the given leaf.
 ///
-/// TODO: This function does not take into account session boundaries, which leads to wasted effort:
-/// https://github.com/paritytech/polkadot-sdk/issues/11301
+/// Stops at the first ancestor that belongs to a different session than `leaf`.
+/// https://github.com/paritytech/polkadot-sdk/issues/11301.
 async fn get_block_ancestors<Sender>(sender: &mut Sender, leaf: Hash) -> Vec<Hash>
 where
 	Sender: SubsystemSender<ChainApiMessage> + SubsystemSender<RuntimeApiMessage>,
@@ -1035,13 +1035,26 @@ where
 			response_channel: tx,
 		})
 		.await;
-	match rx.await {
+	let ancestors = match rx.await {
 		Ok(Ok(x)) => x,
 		res => {
 			gum::warn!(target: LOG_TARGET, ?res, "cannot request ancestors");
-			vec![]
+			return vec![];
 		},
+	};
+
+	let mut same_session_ancestors = Vec::with_capacity(ancestors.len());
+	for ancestor in ancestors {
+		let Some(ancestor_session_index) = get_session_index(sender, ancestor).await else {
+			break;
+		};
+		if ancestor_session_index != session_index {
+			break;
+		}
+		same_session_ancestors.push(ancestor);
 	}
+
+	same_session_ancestors
 }
 
 struct RuntimeRequestFailed;
