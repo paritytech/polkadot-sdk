@@ -81,6 +81,7 @@ pub(crate) enum EvmOpcodeCosts {
 	CODESIZE,
 	CALLDATALOAD,
 	CALLDATASIZE,
+	RETURNDATASIZE,
 }
 
 impl<T: Config> Token<T> for EvmOpcodeCosts {
@@ -103,6 +104,7 @@ impl<T: Config> Token<T> for EvmOpcodeCosts {
 			CODESIZE => cost_args!(evm_codesize_opcode, 1),
 			CALLDATALOAD => cost_args!(evm_calldataload_opcode, 1),
 			CALLDATASIZE => cost_args!(evm_calldatasize_opcode, 1),
+			RETURNDATASIZE => cost_args!(evm_returndatasize_opcode, 1),
 		}
 	}
 }

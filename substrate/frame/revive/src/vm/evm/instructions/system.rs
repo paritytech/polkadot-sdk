@@ -21,11 +21,10 @@ use crate::{
 	address::AddressMapper,
 	vm::{
 		Ext, RuntimeCosts,
-		evm::{EVMGas, EvmOpcodeCosts, Interpreter, interpreter::Halt, util::as_usize_or_halt},
+		evm::{EvmOpcodeCosts, Interpreter, interpreter::Halt, util::as_usize_or_halt},
 	},
 };
 use core::ops::ControlFlow;
-use revm::interpreter::gas::BASE;
 use sp_core::H256;
 use sp_io::hashing::keccak_256;
 
@@ -162,7 +161,7 @@ pub fn calldatacopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Hal
 
 /// EIP-211: New opcodes: RETURNDATASIZE and RETURNDATACOPY
 pub fn returndatasize<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(BASE))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::RETURNDATASIZE)?;
 	let return_data_len = interpreter.ext.last_frame_output().data.len();
 	interpreter.stack.push(U256::from(return_data_len))
 }

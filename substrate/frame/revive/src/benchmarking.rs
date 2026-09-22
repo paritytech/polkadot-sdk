@@ -3796,6 +3796,40 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Benchmark `r` `RETURNDATASIZE` instructions.
+	///
+	/// The opcode reads the stored return-data length and pushes one fixed-size word. It neither
+	/// reads the returned bytes nor branches on return flags. Use maximum-size return data and fill
+	/// the stack with successful pushes, keeping allocation and setup outside the measured block.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_returndatasize_opcode(
+		r: Linear<0, { limits::EVM_STACK_LIMIT }>,
+	) -> Result<(), BenchmarkError> {
+		use revm::bytecode::opcode::RETURNDATASIZE;
+
+		let code = Bytecode::new_raw(vec![RETURNDATASIZE; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		*ext.last_frame_output_mut() = ExecReturnValue {
+			data: vec![42; limits::CALLDATA_BYTES as usize],
+			..Default::default()
+		};
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), vec![], &mut ext);
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), r as usize);
+		let expected = U256::from(limits::CALLDATA_BYTES);
+		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
+		Ok(())
+	}
+
 	// Benchmark the execution of instructions.
 	//
 	// It benchmarks the absolute worst case by allocating a lot of memory
