@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790001272163,
+  "lastUpdate": 1790070753427,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "luka.ciric2106@gmail.com",
-            "name": "Luka Ciric",
-            "username": "cirko33"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5049801bd6c2030260ba9a1eea5ade6f81016076",
-          "message": "Remove MaxSessionKeysLength and MaxSessionKeysProofLength (#11115)\n\nfixes the issue #11083 where MaxSessionKeysLength and\nMaxSessionKeysProofLength were unnecessary because there are not stored,\njust validated.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-19T21:54:31Z",
-          "tree_id": "c3feb5acaf3532afcd3c159253ce760a85ce27a6",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5049801bd6c2030260ba9a1eea5ade6f81016076"
-        },
-        "date": 1771542874563,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.04799999999994,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.037680736208000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06590948784599997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038845308057999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7e68ad23409d5891ccdb37ac253d18bf8fc23c0c",
+          "message": "statement gossip: score a resent banned statement against the sender (#13274)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12517.\n\nOn the v2 DHT path a peer that resends a statement the store has removed\nand banned, such as a forwarded transient one, now loses one point of\nits per-peer score. The store already refuses the resend since\nhttps://github.com/paritytech/polkadot-sdk/pull/13216, which left the\nsender unpunished. The penalty is small because an honest replica can\nresend such a statement once during an initial sync.\n\n# Integration\n\nNo changes needed. Nodes without the v2 DHT path enabled are unaffected.",
+          "timestamp": "2026-09-22T08:10:43Z",
+          "tree_id": "be5497e4399f525d35edca455c96e5b794d59fb1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7e68ad23409d5891ccdb37ac253d18bf8fc23c0c"
+        },
+        "date": 1790070712405,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.108,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08381270290399995,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038819388374000015,
             "unit": "seconds"
           }
         ]
