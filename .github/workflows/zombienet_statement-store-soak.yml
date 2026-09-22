@@ -3,8 +3,7 @@ name: Zombienet Statement Store Soak
 # On-demand statement-store on the zombienet k8s cluster: runs when a PR carries the
 # `A6-statement-store` label (and again on every push while it does), or via manual dispatch.
 # Not part of the default per-PR zombienet matrix. Needs a completed "Build and push images"
-# run for the commit — if the label lands before that build finishes, re-run this workflow.
-
+# run for the commit – if the label lands before that build finishes, re-run this workflow.
 on:
   pull_request:
     types: [labeled, opened, synchronize, reopened]
@@ -32,24 +31,20 @@ on:
         required: false
 
 concurrency:
-  group: statement-store-soak-${{ github.event.pull_request.number || github.ref }}
+  group: statement-store-soak-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions: read-all
 
 env:
-  FF_DISABLE_UMASK_FOR_DOCKER_EXECUTOR: 1
   GHA_CLUSTER_SERVER_ADDR: "https://kubernetes.default:443"
-  NEXTEST_RETRIES: 0
   KUBECONFIG: "/data/config"
   ZOMBIE_CLEANER_DISABLED: 1
 
 jobs:
   resolve-build:
-    # The label is the opt-in – no draft gate.
     if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.label.name, 'A6-statement-store') || contains(github.event.pull_request.labels.*.name, 'A6-statement-store') }}
     runs-on: ubuntu-latest
-    # Long enough to outlast the build this waits on; see the wait loop below.
     timeout-minutes: 40
     outputs:
       build_run_id: ${{ steps.pick.outputs.build_run_id }}
@@ -66,22 +61,28 @@ jobs:
           BRANCH: ${{ github.head_ref || github.ref_name }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
           OVERRIDE: ${{ inputs.build_run_id }}
         run: |
           set -euo pipefail
-          # Nodes are spawned from the Docker Hub images, tagged <pr>-<short sha>. The temp-images
-          # registry cannot be used: the build stamps those tags with its own timestamp, which
-          # nothing downstream knows.
-          if [[ -n "${PR_NUMBER}" ]]; then
-            echo "images_version=${PR_NUMBER}-${HEAD_SHA:0:8}" >> "$GITHUB_OUTPUT"
+          if [[ "${IS_FORK}" == "true" ]]; then
+            echo "::error::A fork's build pushes no Docker Hub image (no paritypr credentials), and the soak spawns its nodes from there."
+            exit 1
+          fi
+          # A dispatch carries no pull request, so take its number from the branch: the Docker
+          # Hub tag is <pr>-<short sha>, and master- is only right off a pull request.
+          images_pr="${PR_NUMBER}"
+          if [[ -z "${images_pr}" ]]; then
+            images_pr=$(gh pr list --repo "$REPO" --head "$BRANCH" --state open \
+              --json number --jq '.[0].number // empty' || true)
+          fi
+          if [[ -n "${images_pr}" ]]; then
+            echo "images_version=${images_pr}-${HEAD_SHA:0:8}" >> "$GITHUB_OUTPUT"
           else
             echo "images_version=master-${HEAD_SHA:0:8}" >> "$GITHUB_OUTPUT"
           fi
-          # A label run carries no inputs, so let the pull request body resize it: a line like
-          # "soak: nodes=250 secs=1800" in the description wins over the matrix entry. Only the
-          # digits are taken, whatever else that line holds.
           if [[ -n "${PR_NUMBER}" ]]; then
-            body=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json body --jq .body)
+            body=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json body --jq .body || true)
             directive=$(grep -oiE '^[[:space:]]*soak:.*' <<< "$body" | tail -1 || true)
             nodes=$(grep -oiE 'nodes=[0-9]+' <<< "$directive" | grep -oE '[0-9]+' || true)
             secs=$(grep -oiE 'secs=[0-9]+' <<< "$directive" | grep -oE '[0-9]+' || true)
@@ -93,28 +94,20 @@ jobs:
             echo "build_run_id=${OVERRIDE}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # The preflight's own auto-detection waits for a fully successful build run. A build
-          # run also builds images this soak never uses and then waits on the test suites it
-          # triggers, so it blocks on both unrelated failures and unrelated runtime; take any
-          # run of this commit whose jobs below are green instead.
           required=(
             prepare-cumulus-zombienet-artifacts
             build-push-image-polkadot-parachain-debug
             build-push-image-polkadot-debug
           )
-          # A push fires this workflow and the build at the same moment, so on a label or
-          # synchronize event the artifacts are minutes away, not ready. Wait for them instead
-          # of failing: exiting here costs a manual re-run of the whole soak once the build
-          # lands. Only a required job that has finished unsuccessfully ends the wait early.
           deadline=$(( SECONDS + 35 * 60 ))
           while :; do
             runs=$(gh run list --repo "$REPO" --workflow build-publish-images.yml \
               --branch "$BRANCH" --limit 20 --json databaseId,headSha \
-              --jq ".[] | select(.headSha == \"$HEAD_SHA\") | .databaseId")
+              --jq ".[] | select(.headSha == \"$HEAD_SHA\") | .databaseId" || true)
             pending=false
             blocked=""
             for id in $runs; do
-              jobs=$(gh run view "$id" --repo "$REPO" --json jobs)
+              jobs=$(gh run view "$id" --repo "$REPO" --json jobs || true)
               green=true
               for job in "${required[@]}"; do
                 state=$(jq -r --arg job "$job" \
@@ -132,8 +125,6 @@ jobs:
                 exit 0
               fi
             done
-            # Nothing green, nothing still running: every build of this commit has a required
-            # job that failed, and waiting cannot change that.
             if [[ -n "$runs" && "$pending" == "false" ]]; then
               echo "::error::No build-publish-images run for ${HEAD_SHA} can serve this soak:"
               echo "$blocked"
@@ -157,12 +148,8 @@ jobs:
 
   zombienet-statement-store-soak:
     name: ${{ matrix.test.job-name }}
-    # The in-cluster runner (ZOMBIENET_SDK_RUNNER_FOR_K8S in .github/zombienet-env), pinned here
-    # because the preflight outputs carry the flavour selected there (native). The image is the
-    # current zombienet release rather than the v1.3.133 that file still names; ci-unified does
-    # not fit — it is twice the size and the runner ran out of disk pulling it.
     runs-on: parity-zombienet
-    # Spawning a hundred pods and then soaking them takes a while.
+    # Spawning the pods and then soaking them takes a while.
     timeout-minutes: 150
     needs: [resolve-build, preflight]
     container:
@@ -172,8 +159,6 @@ jobs:
       CUMULUS_IMAGE: "docker.io/paritypr/${{ matrix.test.cumulus-image }}:${{ needs.resolve-build.outputs.images_version }}"
       RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
       ZOMBIE_PROVIDER: "k8s"
-      # The matrix entry sizes the run; a "soak:" line in the pull request body or a dispatch
-      # input overrides it, in that order.
       STATEMENT_V2_SOAK_SECS: ${{ inputs.soak_secs || needs.resolve-build.outputs.soak_secs || matrix.test.soak-secs }}
       STATEMENT_V2_SOAK_NODES: ${{ inputs.soak_nodes || needs.resolve-build.outputs.soak_nodes || matrix.test.soak-nodes }}
 
@@ -189,10 +174,6 @@ jobs:
       - name: Reuse the namespace the runner was given
         shell: bash
         run: |
-          # The runner's kubernetes mode pre-creates a namespace for the job and scopes its
-          # service account to it, so the provider has to spawn there instead of creating its
-          # own namespace. The action only exports this when ZOMBIENET_SDK_DEFAULT_RUNNER is in
-          # the job environment, which no workflow sets.
           echo "ZOMBIE_K8S_CI_NAMESPACE=$(cat /data/namespace)" >> "$GITHUB_ENV"
 
       - name: zombienet_test
@@ -214,7 +195,6 @@ jobs:
         run: |
           echo "Processing log files"
           echo "::group::Logs"
-          # do not fail the whole run if this step fails
           if ! ./.github/scripts/process-logs-zombienet.sh ; then
             echo "::endgroup::"
             echo "::warning ::WARNING: Failed to process logs"

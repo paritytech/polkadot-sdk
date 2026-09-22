@@ -58,15 +58,11 @@ const DEFAULT_NODES: usize = 12;
 /// Statement peer-set slots hardcoded in `sc-network-statement`; `nodes - 1` at or below it
 /// guarantees the full mesh.
 const STATEMENT_SET_PEER_LIMIT: usize = 50;
-
-/// Genesis Aura authorities of the People chain spec; they author the parachain blocks.
 const AUTHORING_COLLATORS: [&str; 4] = ["alice", "bob", "charlie", "dave"];
-
 const REPLICATION_FACTOR: usize = 8;
 const GOSSIP_TARGET: u32 = 3;
 const PARTICIPANTS: u32 = 2_000;
 const LOG_FILTER: &str = "info,statement-store=info,statement-gossip=debug";
-
 const RING_RATE_PER_SECOND: usize = 20;
 const RING_SECS: u64 = 45;
 const SUBMIT_TICK: Duration = Duration::from_millis(100);
@@ -74,7 +70,6 @@ const PROBES_PER_WAVE: usize = 8;
 const PAYLOAD_SIZE: usize = 128;
 const DELIVERY_TIMEOUT_SECS: u64 = 120;
 const PLACEMENT_TIMEOUT_SECS: u64 = 90;
-
 const CONNECTED_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_connected_peers";
 const KNOWN_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_known_peers";
 
@@ -89,7 +84,6 @@ where
 		.transpose()
 }
 
-/// The position a statement node occupies in the XOR topic space; indexed like `nodes`.
 struct StatementPeer {
 	/// `blake2_256` of the peer id bytes.
 	key: [u8; 32],
@@ -221,9 +215,6 @@ async fn launch_soak_network(
 		.build()
 		.map_err(format_build_errors)?;
 
-	// No `wait_until_is_up` here: it polls every node in parallel and overwhelms the
-	// workstation-side port-forwards on large networks. The sequential per-node metric waits
-	// that follow the spawn cover readiness with scaled timeouts and name the failing node.
 	crate::utils::initialize_network(config).await
 }
 
@@ -242,9 +233,7 @@ async fn collect_statement_peers(
 	Ok(peers)
 }
 
-/// Reads a node's persistent store from a fresh subscription's replay. The topicless filter
-/// grants no affinity and prompts no serving; only replay frames count (`remaining: Some(_)`,
-/// ending with `Some(0)` even on an empty store) — live frames (`None`) are ignored.
+/// Reads a node's persistent store from a fresh subscription's replay.
 async fn store_snapshot(rpc: &RpcClient) -> Result<HashSet<Vec<u8>>, anyhow::Error> {
 	let mut subscription = subscribe_topic_filter(rpc, TopicFilter::Any).await?;
 	let mut snapshot = HashSet::new();
@@ -387,6 +376,11 @@ async fn run_wave(
 	Ok(WaveReport { ring_statements: expected.len(), submit_time, verify_time })
 }
 
+// Runs on demand: the `A6-statement-store` label on a PR, or a dispatch of
+// .github/workflows/zombienet_statement-store-soak.yml. The size comes from `soak-nodes` in
+// .github/zombienet-tests/zombienet_statement_store_soak_tests.yml, or from
+// STATEMENT_V2_SOAK_NODES when run by hand. It is capped at 40 for now because of the open bug
+// paritytech/litep2p#665; raise it once that is fixed.
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
