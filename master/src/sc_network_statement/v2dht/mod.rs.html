@@ -446,541 +446,553 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#296 id=296 data-nosnippet>296</a>	<span class="comment">// === Post-submit hook ===
 <a href=#297 id=297 data-nosnippet>297</a>
 <a href=#298 id=298 data-nosnippet>298</a>	</span><span class="doccomment">/// Score peer on the outcome of importing a statement it sent: a valid statement rewards it, an
-<a href=#299 id=299 data-nosnippet>299</a>	/// invalid one punishes it, and our-side outcomes (`KnownExpired`, `Rejected`, `InternalError`)
-<a href=#300 id=300 data-nosnippet>300</a>	/// leave it untouched.
+<a href=#299 id=299 data-nosnippet>299</a>	/// invalid one punishes it, a resend of a removed and banned statement (`KnownExpired`) costs
+<a href=#300 id=300 data-nosnippet>300</a>	/// it a little, and our-side outcomes (`Rejected`, `InternalError`) leave it untouched.
 <a href=#301 id=301 data-nosnippet>301</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_statement_imported(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer: PeerId, result: <span class="kw-2">&amp;</span>SubmitResult) {
 <a href=#302 id=302 data-nosnippet>302</a>		<span class="kw">let </span>change = <span class="kw">match </span>result {
 <a href=#303 id=303 data-nosnippet>303</a>			SubmitResult::New | SubmitResult::Known =&gt; score::GOOD_ACTION,
 <a href=#304 id=304 data-nosnippet>304</a>			SubmitResult::Invalid(<span class="kw">_</span>) =&gt; score::BAD_ACTION,
-<a href=#305 id=305 data-nosnippet>305</a>			SubmitResult::KnownExpired |
-<a href=#306 id=306 data-nosnippet>306</a>			SubmitResult::Rejected(<span class="kw">_</span>) |
-<a href=#307 id=307 data-nosnippet>307</a>			SubmitResult::InternalError(<span class="kw">_</span>) =&gt; <span class="kw">return</span>,
-<a href=#308 id=308 data-nosnippet>308</a>		};
-<a href=#309 id=309 data-nosnippet>309</a>		<span class="self">self</span>.peer_steering.update_score(peer, change);
-<a href=#310 id=310 data-nosnippet>310</a>	}
-<a href=#311 id=311 data-nosnippet>311</a>
-<a href=#312 id=312 data-nosnippet>312</a>	<span class="doccomment">/// Punish peer for a protocol-level fault detected before import: a duplicate statement or an
-<a href=#313 id=313 data-nosnippet>313</a>	/// undecodable message.
-<a href=#314 id=314 data-nosnippet>314</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_peer_misbehaved(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer: PeerId) {
-<a href=#315 id=315 data-nosnippet>315</a>		<span class="self">self</span>.peer_steering.update_score(peer, score::BAD_ACTION);
-<a href=#316 id=316 data-nosnippet>316</a>	}
-<a href=#317 id=317 data-nosnippet>317</a>
-<a href=#318 id=318 data-nosnippet>318</a>	<span class="comment">// === Periodic ticks &amp; post-iteration hooks ===
-<a href=#319 id=319 data-nosnippet>319</a>
-<a href=#320 id=320 data-nosnippet>320</a>	</span><span class="doccomment">/// For each connected peer, the indices of `statements` it should receive.
-<a href=#321 id=321 data-nosnippet>321</a>	///
-<a href=#322 id=322 data-nosnippet>322</a>	/// A peer is a target for a statement when it is a DHT routing target for one of the
-<a href=#323 id=323 data-nosnippet>323</a>	/// statement's topics ([`PeersTopology::routing_targets`]) or its advertised filter matches the
-<a href=#324 id=324 data-nosnippet>324</a>	/// statement ([`ExplicitAffinity::peer_has_explicit_affinity`]).
-<a href=#325 id=325 data-nosnippet>325</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>propagation_plan(
-<a href=#326 id=326 data-nosnippet>326</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#327 id=327 data-nosnippet>327</a>		statements: <span class="kw-2">&amp;</span>[(u64, Hash, Statement)],
-<a href=#328 id=328 data-nosnippet>328</a>	) -&gt; Vec&lt;(PeerId, Vec&lt;usize&gt;)&gt; {
-<a href=#329 id=329 data-nosnippet>329</a>		<span class="kw">let </span><span class="kw-2">mut </span>statements_by_peer: HashMap&lt;PeerId, Vec&lt;usize&gt;&gt; = HashMap::new();
-<a href=#330 id=330 data-nosnippet>330</a>
-<a href=#331 id=331 data-nosnippet>331</a>		<span class="kw">for </span>(index, (_seq, _hash, statement)) <span class="kw">in </span>statements.iter().enumerate() {
-<a href=#332 id=332 data-nosnippet>332</a>			<span class="kw">let </span><span class="kw-2">mut </span>targets: HashSet&lt;PeerId&gt; = HashSet::new();
-<a href=#333 id=333 data-nosnippet>333</a>
-<a href=#334 id=334 data-nosnippet>334</a>			<span class="kw">for </span>topic <span class="kw">in </span>statement.topics() {
-<a href=#335 id=335 data-nosnippet>335</a>				targets.extend(<span class="self">self</span>.peers_topology.routing_targets(<span class="kw-2">*</span>topic));
-<a href=#336 id=336 data-nosnippet>336</a>			}
-<a href=#337 id=337 data-nosnippet>337</a>			<span class="kw">for </span>peer <span class="kw">in </span><span class="self">self</span>.peers_topology.connected_peers() {
-<a href=#338 id=338 data-nosnippet>338</a>				<span class="kw">if </span><span class="self">self</span>.explicit_affinity.peer_has_explicit_affinity(peer, statement) {
-<a href=#339 id=339 data-nosnippet>339</a>					targets.insert(peer);
-<a href=#340 id=340 data-nosnippet>340</a>				}
-<a href=#341 id=341 data-nosnippet>341</a>			}
-<a href=#342 id=342 data-nosnippet>342</a>
-<a href=#343 id=343 data-nosnippet>343</a>			<span class="kw">for </span>peer_id <span class="kw">in </span>targets {
-<a href=#344 id=344 data-nosnippet>344</a>				statements_by_peer.entry(peer_id).or_default().push(index);
-<a href=#345 id=345 data-nosnippet>345</a>			}
-<a href=#346 id=346 data-nosnippet>346</a>		}
-<a href=#347 id=347 data-nosnippet>347</a>
-<a href=#348 id=348 data-nosnippet>348</a>		statements_by_peer.into_iter().collect()
-<a href=#349 id=349 data-nosnippet>349</a>	}
-<a href=#350 id=350 data-nosnippet>350</a>
-<a href=#351 id=351 data-nosnippet>351</a>	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>on_initial_sync(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#352 id=352 data-nosnippet>352</a>		<span class="comment">// TODO: We need to know what to propagate
-<a href=#353 id=353 data-nosnippet>353</a>		</span><span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"v2dht: on_initial_sync (stub)"</span>);
-<a href=#354 id=354 data-nosnippet>354</a>	}
-<a href=#355 id=355 data-nosnippet>355</a>
-<a href=#356 id=356 data-nosnippet>356</a>	<span class="doccomment">/// Recompute the peers needed to cover the node's topics and hand them to peer steering.
-<a href=#357 id=357 data-nosnippet>357</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_pending_affinities(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#358 id=358 data-nosnippet>358</a>		<span class="kw">let </span>topics = <span class="self">self</span>.explicit_affinity.topics();
-<a href=#359 id=359 data-nosnippet>359</a>		<span class="kw">let </span>desired = <span class="self">self</span>.peers_topology.peers_for_topics(<span class="kw-2">&amp;</span>topics);
-<a href=#360 id=360 data-nosnippet>360</a>		<span class="self">self</span>.peer_steering.update_peers_needing_connections(desired);
-<a href=#361 id=361 data-nosnippet>361</a>	}
-<a href=#362 id=362 data-nosnippet>362</a>
-<a href=#363 id=363 data-nosnippet>363</a>	<span class="doccomment">/// Align the connected peers with the peers needed to cover the node's subscriptions, opening
-<a href=#364 id=364 data-nosnippet>364</a>	/// and closing connections through the statement protocol's reserved set on `network`.
-<a href=#365 id=365 data-nosnippet>365</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>refresh_connections&lt;N: NetworkPeers&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, network: <span class="kw-2">&amp;</span>N) {
-<a href=#366 id=366 data-nosnippet>366</a>		<span class="self">self</span>.peer_steering.refresh_connections(network);
-<a href=#367 id=367 data-nosnippet>367</a>	}
-<a href=#368 id=368 data-nosnippet>368</a>
-<a href=#369 id=369 data-nosnippet>369</a>	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>evict_stale_peers(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#370 id=370 data-nosnippet>370</a>		<span class="kw">if </span><span class="self">self</span>.peers_topology.evict(Instant::now()) {
-<a href=#371 id=371 data-nosnippet>371</a>			<span class="self">self</span>.publish_dht_affinity();
-<a href=#372 id=372 data-nosnippet>372</a>		}
-<a href=#373 id=373 data-nosnippet>373</a>		<span class="self">self</span>.report_topology_size();
-<a href=#374 id=374 data-nosnippet>374</a>	}
-<a href=#375 id=375 data-nosnippet>375</a>
-<a href=#376 id=376 data-nosnippet>376</a>	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_major_sync_end(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#377 id=377 data-nosnippet>377</a>		<span class="comment">// TODO: The major sync processing may be different
-<a href=#378 id=378 data-nosnippet>378</a>		</span><span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"v2dht: on_major_sync_end (stub)"</span>);
-<a href=#379 id=379 data-nosnippet>379</a>	}
-<a href=#380 id=380 data-nosnippet>380</a>}
-<a href=#381 id=381 data-nosnippet>381</a><span class="attr">#[cfg(test)]
-<a href=#382 id=382 data-nosnippet>382</a></span><span class="kw">mod </span>tests {
-<a href=#383 id=383 data-nosnippet>383</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#384 id=384 data-nosnippet>384</a>	<span class="kw">use crate</span>::{
-<a href=#385 id=385 data-nosnippet>385</a>		config::DEFAULT_BLOOM_FALSE_POS_RATE,
-<a href=#386 id=386 data-nosnippet>386</a>		test_helpers::{filter_over, nz, peer, statement_on, topic, topology_config},
-<a href=#387 id=387 data-nosnippet>387</a>	};
-<a href=#388 id=388 data-nosnippet>388</a>	<span class="kw">use </span>sp_statement_store::{InvalidReason, RejectionReason};
-<a href=#389 id=389 data-nosnippet>389</a>
-<a href=#390 id=390 data-nosnippet>390</a>	<span class="kw">fn </span>orchestrator() -&gt; V2DhtOrchestrator {
-<a href=#391 id=391 data-nosnippet>391</a>		V2DhtOrchestrator::new(
-<a href=#392 id=392 data-nosnippet>392</a>			<span class="kw-2">&amp;</span>[],
-<a href=#393 id=393 data-nosnippet>393</a>			<span class="prelude-val">None</span>,
-<a href=#394 id=394 data-nosnippet>394</a>			DEFAULT_BLOOM_FALSE_POS_RATE,
-<a href=#395 id=395 data-nosnippet>395</a>			PeerId::random(),
-<a href=#396 id=396 data-nosnippet>396</a>			topology_config(<span class="number">20</span>, <span class="number">3</span>),
-<a href=#397 id=397 data-nosnippet>397</a>			<span class="string">"/statement/test"</span>.into(),
-<a href=#398 id=398 data-nosnippet>398</a>			<span class="prelude-val">None</span>,
-<a href=#399 id=399 data-nosnippet>399</a>		)
-<a href=#400 id=400 data-nosnippet>400</a>	}
-<a href=#401 id=401 data-nosnippet>401</a>
-<a href=#402 id=402 data-nosnippet>402</a>	<span class="doccomment">/// Like [`orchestrator`] but with a deterministic local identity, so the XOR routing
-<a href=#403 id=403 data-nosnippet>403</a>	/// distances the propagation tests assert on stay reproducible across runs.
-<a href=#404 id=404 data-nosnippet>404</a>	</span><span class="kw">fn </span>orchestrator_with(local_seed: u8, config: PeersTopologyConfig) -&gt; V2DhtOrchestrator {
-<a href=#405 id=405 data-nosnippet>405</a>		V2DhtOrchestrator::new(
-<a href=#406 id=406 data-nosnippet>406</a>			<span class="kw-2">&amp;</span>[],
-<a href=#407 id=407 data-nosnippet>407</a>			<span class="prelude-val">None</span>,
-<a href=#408 id=408 data-nosnippet>408</a>			DEFAULT_BLOOM_FALSE_POS_RATE,
-<a href=#409 id=409 data-nosnippet>409</a>			peer(local_seed),
-<a href=#410 id=410 data-nosnippet>410</a>			config,
-<a href=#411 id=411 data-nosnippet>411</a>			<span class="string">"/statement/test"</span>.into(),
-<a href=#412 id=412 data-nosnippet>412</a>			<span class="prelude-val">None</span>,
-<a href=#413 id=413 data-nosnippet>413</a>		)
-<a href=#414 id=414 data-nosnippet>414</a>	}
-<a href=#415 id=415 data-nosnippet>415</a>
-<a href=#416 id=416 data-nosnippet>416</a>	<span class="kw">fn </span>statement(seed: u8, topics: <span class="kw-2">&amp;</span>[Topic]) -&gt; (u64, Hash, Statement) {
-<a href=#417 id=417 data-nosnippet>417</a>		<span class="kw">let </span><span class="kw-2">mut </span>statement = Statement::new();
-<a href=#418 id=418 data-nosnippet>418</a>		statement.set_plain_data(<span class="macro">vec!</span>[seed]);
-<a href=#419 id=419 data-nosnippet>419</a>		<span class="kw">for </span>(index, topic) <span class="kw">in </span>topics.iter().enumerate() {
-<a href=#420 id=420 data-nosnippet>420</a>			statement.set_topic(index, <span class="kw-2">*</span>topic);
-<a href=#421 id=421 data-nosnippet>421</a>		}
-<a href=#422 id=422 data-nosnippet>422</a>		(seed <span class="kw">as </span>u64, statement.hash(), statement)
-<a href=#423 id=423 data-nosnippet>423</a>	}
-<a href=#424 id=424 data-nosnippet>424</a>
-<a href=#425 id=425 data-nosnippet>425</a>	<span class="doccomment">/// Routing targets `propagation_plan` is expected to reach for `topics`, taken from the
-<a href=#426 id=426 data-nosnippet>426</a>	/// already-tested [`PeersTopology::routing_targets`] rather than recomputed from XOR distances.
-<a href=#427 id=427 data-nosnippet>427</a>	</span><span class="kw">fn </span>routing_targets(orchestrator: <span class="kw-2">&amp;</span>V2DhtOrchestrator, topics: <span class="kw-2">&amp;</span>[Topic]) -&gt; Vec&lt;PeerId&gt; {
-<a href=#428 id=428 data-nosnippet>428</a>		<span class="kw">let </span><span class="kw-2">mut </span>targets: Vec&lt;PeerId&gt; = topics
-<a href=#429 id=429 data-nosnippet>429</a>			.iter()
-<a href=#430 id=430 data-nosnippet>430</a>			.flat_map(|topic| orchestrator.peers_topology.routing_targets(<span class="kw-2">*</span>topic))
-<a href=#431 id=431 data-nosnippet>431</a>			.collect();
-<a href=#432 id=432 data-nosnippet>432</a>		targets.sort();
-<a href=#433 id=433 data-nosnippet>433</a>		targets.dedup();
-<a href=#434 id=434 data-nosnippet>434</a>		targets
-<a href=#435 id=435 data-nosnippet>435</a>	}
-<a href=#436 id=436 data-nosnippet>436</a>
-<a href=#437 id=437 data-nosnippet>437</a>	<span class="attr">#[test]
-<a href=#438 id=438 data-nosnippet>438</a>	</span><span class="kw">fn </span>routes_a_statement_to_the_union_of_its_topics_routing_targets_once() {
-<a href=#439 id=439 data-nosnippet>439</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = orchestrator_with(<span class="number">1</span>, topology_config(<span class="number">20</span>, <span class="number">3</span>));
-<a href=#440 id=440 data-nosnippet>440</a>		<span class="kw">for </span>seed <span class="kw">in </span><span class="number">2u8</span>..=<span class="number">60 </span>{
-<a href=#441 id=441 data-nosnippet>441</a>			<span class="kw">let </span>peer = peer(seed);
-<a href=#442 id=442 data-nosnippet>442</a>			orchestrator.on_peers_discovered([peer]);
-<a href=#443 id=443 data-nosnippet>443</a>			orchestrator.on_peer_identified(peer, <span class="comment">/* supports_statement_protocol */ </span><span class="bool-val">true</span>);
-<a href=#444 id=444 data-nosnippet>444</a>			orchestrator.on_substream_opened(peer);
-<a href=#445 id=445 data-nosnippet>445</a>		}
-<a href=#446 id=446 data-nosnippet>446</a>		<span class="kw">let </span>topics = [Topic([<span class="number">7</span>; <span class="number">32</span>]), Topic([<span class="number">42</span>; <span class="number">32</span>])];
-<a href=#447 id=447 data-nosnippet>447</a>		<span class="kw">let </span>expected = routing_targets(<span class="kw-2">&amp;</span>orchestrator, <span class="kw-2">&amp;</span>topics);
-<a href=#448 id=448 data-nosnippet>448</a>		<span class="macro">assert!</span>(!expected.is_empty(), <span class="string">"fixture must yield routing targets"</span>);
-<a href=#449 id=449 data-nosnippet>449</a>
-<a href=#450 id=450 data-nosnippet>450</a>		<span class="kw">let </span>plan = orchestrator.propagation_plan(<span class="kw-2">&amp;</span>[statement(<span class="number">1</span>, <span class="kw-2">&amp;</span>topics)]);
-<a href=#451 id=451 data-nosnippet>451</a>
-<a href=#452 id=452 data-nosnippet>452</a>		<span class="kw">let </span><span class="kw-2">mut </span>planned: Vec&lt;PeerId&gt; = plan.iter().map(|(peer, <span class="kw">_</span>)| <span class="kw-2">*</span>peer).collect();
-<a href=#453 id=453 data-nosnippet>453</a>		planned.sort();
-<a href=#454 id=454 data-nosnippet>454</a>		<span class="macro">assert_eq!</span>(planned, expected);
-<a href=#455 id=455 data-nosnippet>455</a>		<span class="macro">assert!</span>(
-<a href=#456 id=456 data-nosnippet>456</a>			plan.iter().all(|(<span class="kw">_</span>, indices)| indices == <span class="kw-2">&amp;</span>[<span class="number">0</span>]),
-<a href=#457 id=457 data-nosnippet>457</a>			<span class="string">"a target receives the statement once however many of its topics route there"
-<a href=#458 id=458 data-nosnippet>458</a>		</span>);
-<a href=#459 id=459 data-nosnippet>459</a>	}
-<a href=#460 id=460 data-nosnippet>460</a>
-<a href=#461 id=461 data-nosnippet>461</a>	<span class="attr">#[test]
-<a href=#462 id=462 data-nosnippet>462</a>	</span><span class="kw">fn </span>batches_statements_bound_for_the_same_peer() {
-<a href=#463 id=463 data-nosnippet>463</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = orchestrator_with(<span class="number">1</span>, topology_config(<span class="number">20</span>, <span class="number">3</span>));
-<a href=#464 id=464 data-nosnippet>464</a>		<span class="kw">for </span>seed <span class="kw">in </span><span class="number">2u8</span>..=<span class="number">60 </span>{
-<a href=#465 id=465 data-nosnippet>465</a>			<span class="kw">let </span>peer = peer(seed);
-<a href=#466 id=466 data-nosnippet>466</a>			orchestrator.on_peers_discovered([peer]);
-<a href=#467 id=467 data-nosnippet>467</a>			orchestrator.on_peer_identified(peer, <span class="comment">/* supports_statement_protocol */ </span><span class="bool-val">true</span>);
-<a href=#468 id=468 data-nosnippet>468</a>			orchestrator.on_substream_opened(peer);
-<a href=#469 id=469 data-nosnippet>469</a>		}
-<a href=#470 id=470 data-nosnippet>470</a>		<span class="kw">let </span>topic = Topic([<span class="number">7</span>; <span class="number">32</span>]);
-<a href=#471 id=471 data-nosnippet>471</a>		<span class="kw">let </span>target = <span class="kw-2">*</span>routing_targets(<span class="kw-2">&amp;</span>orchestrator, <span class="kw-2">&amp;</span>[topic])
-<a href=#472 id=472 data-nosnippet>472</a>			.first()
-<a href=#473 id=473 data-nosnippet>473</a>			.expect(<span class="string">"fixture must yield a routing target"</span>);
-<a href=#474 id=474 data-nosnippet>474</a>
-<a href=#475 id=475 data-nosnippet>475</a>		<span class="kw">let </span>plan = orchestrator.propagation_plan(<span class="kw-2">&amp;</span>[statement(<span class="number">1</span>, <span class="kw-2">&amp;</span>[topic]), statement(<span class="number">2</span>, <span class="kw-2">&amp;</span>[topic])]);
-<a href=#476 id=476 data-nosnippet>476</a>
-<a href=#477 id=477 data-nosnippet>477</a>		<span class="kw">let </span>batch = plan
-<a href=#478 id=478 data-nosnippet>478</a>			.iter()
-<a href=#479 id=479 data-nosnippet>479</a>			.find(|(peer, <span class="kw">_</span>)| <span class="kw-2">*</span>peer == target)
-<a href=#480 id=480 data-nosnippet>480</a>			.map(|(<span class="kw">_</span>, indices)| indices.clone())
-<a href=#481 id=481 data-nosnippet>481</a>			.expect(<span class="string">"the shared target must be planned"</span>);
-<a href=#482 id=482 data-nosnippet>482</a>		<span class="macro">assert_eq!</span>(batch, <span class="macro">vec!</span>[<span class="number">0</span>, <span class="number">1</span>]);
-<a href=#483 id=483 data-nosnippet>483</a>	}
-<a href=#484 id=484 data-nosnippet>484</a>
-<a href=#485 id=485 data-nosnippet>485</a>	<span class="doccomment">/// A DHT-affinity oracle from many peers with one replica per topic, leaving the local node
-<a href=#486 id=486 data-nosnippet>486</a>	/// non-affine for most topics, paired with one such non-affine topic.
-<a href=#487 id=487 data-nosnippet>487</a>	</span><span class="kw">fn </span>dht_without_local_affinity() -&gt; (DhtAffinity, Topic) {
-<a href=#488 id=488 data-nosnippet>488</a>		<span class="kw">let </span><span class="kw-2">mut </span>topology = PeersTopology::new(peer(<span class="number">1</span>), topology_config(<span class="number">1</span>, <span class="number">1</span>));
-<a href=#489 id=489 data-nosnippet>489</a>		<span class="kw">let </span>peers: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">2u8</span>..=<span class="number">200</span>).map(peer).collect();
-<a href=#490 id=490 data-nosnippet>490</a>		topology.on_peers_discovered(peers.clone());
-<a href=#491 id=491 data-nosnippet>491</a>		<span class="kw">for </span>peer <span class="kw">in </span><span class="kw-2">&amp;</span>peers {
-<a href=#492 id=492 data-nosnippet>492</a>			topology.on_peer_identified(<span class="kw-2">*</span>peer, <span class="comment">/* supports_statement_protocol */ </span><span class="bool-val">true</span>);
-<a href=#493 id=493 data-nosnippet>493</a>		}
-<a href=#494 id=494 data-nosnippet>494</a>		<span class="kw">let </span>dht = topology.dht_affinity();
-<a href=#495 id=495 data-nosnippet>495</a>		<span class="kw">let </span>topic = (<span class="number">0u8</span>..=<span class="number">255</span>)
-<a href=#496 id=496 data-nosnippet>496</a>			.map(topic)
-<a href=#497 id=497 data-nosnippet>497</a>			.find(|topic| !dht.is_affine(<span class="kw-2">&amp;</span>statement_on(<span class="kw-2">*</span>topic)))
-<a href=#498 id=498 data-nosnippet>498</a>			.expect(<span class="string">"199 peers leave some topic without local DHT affinity"</span>);
-<a href=#499 id=499 data-nosnippet>499</a>		(dht, topic)
-<a href=#500 id=500 data-nosnippet>500</a>	}
-<a href=#501 id=501 data-nosnippet>501</a>
-<a href=#502 id=502 data-nosnippet>502</a>	<span class="attr">#[test]
-<a href=#503 id=503 data-nosnippet>503</a>	</span><span class="kw">fn </span>resolver_persists_with_an_empty_seeded_topology() {
-<a href=#504 id=504 data-nosnippet>504</a>		<span class="comment">// Knowing no peers, the local node is the sole replica for every topic, so it persists.
-<a href=#505 id=505 data-nosnippet>505</a>		</span><span class="macro">assert!</span>(RetentionHandle::new(peer(<span class="number">1</span>), nz(<span class="number">1</span>)).resolver()(<span class="kw-2">&amp;</span>statement_on(topic(<span class="number">1</span>)))
-<a href=#506 id=506 data-nosnippet>506</a>			.is_persistent());
-<a href=#507 id=507 data-nosnippet>507</a>	}
-<a href=#508 id=508 data-nosnippet>508</a>
-<a href=#509 id=509 data-nosnippet>509</a>	<span class="attr">#[test]
-<a href=#510 id=510 data-nosnippet>510</a>	</span><span class="kw">fn </span>resolver_marks_explicit_affinity() {
-<a href=#511 id=511 data-nosnippet>511</a>		<span class="kw">let </span>(dht, topic) = dht_without_local_affinity();
-<a href=#512 id=512 data-nosnippet>512</a>		<span class="kw">let </span>handle = RetentionHandle::new(peer(<span class="number">1</span>), nz(<span class="number">1</span>));
-<a href=#513 id=513 data-nosnippet>513</a>		handle.set_dht_affinity(dht);
-<a href=#514 id=514 data-nosnippet>514</a>		handle.set_topic_affinity(
-<a href=#515 id=515 data-nosnippet>515</a>			ExplicitAffinity::new(<span class="kw-2">&amp;</span>[topic], <span class="prelude-val">None</span>, DEFAULT_BLOOM_FALSE_POS_RATE).topic_affinity(),
-<a href=#516 id=516 data-nosnippet>516</a>		);
-<a href=#517 id=517 data-nosnippet>517</a>
-<a href=#518 id=518 data-nosnippet>518</a>		<span class="kw">let </span>mask = handle.resolver()(<span class="kw-2">&amp;</span>statement_on(topic));
-<a href=#519 id=519 data-nosnippet>519</a>
-<a href=#520 id=520 data-nosnippet>520</a>		<span class="macro">assert!</span>(mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
-<a href=#521 id=521 data-nosnippet>521</a>		<span class="macro">assert!</span>(!mask.contains(RetentionReasonMask::DHT_AFFINITY));
-<a href=#522 id=522 data-nosnippet>522</a>		<span class="macro">assert!</span>(mask.is_persistent());
-<a href=#523 id=523 data-nosnippet>523</a>	}
-<a href=#524 id=524 data-nosnippet>524</a>
-<a href=#525 id=525 data-nosnippet>525</a>	<span class="attr">#[test]
-<a href=#526 id=526 data-nosnippet>526</a>	</span><span class="kw">fn </span>resolver_marks_dht_affinity_when_local_is_a_replica() {
-<a href=#527 id=527 data-nosnippet>527</a>		<span class="comment">// An empty topology makes the local node a replica for every topic.
-<a href=#528 id=528 data-nosnippet>528</a>		</span><span class="kw">let </span>handle = RetentionHandle::new(peer(<span class="number">1</span>), nz(<span class="number">1</span>));
-<a href=#529 id=529 data-nosnippet>529</a>		handle.set_dht_affinity(PeersTopology::new(peer(<span class="number">1</span>), topology_config(<span class="number">20</span>, <span class="number">1</span>)).dht_affinity());
-<a href=#530 id=530 data-nosnippet>530</a>
-<a href=#531 id=531 data-nosnippet>531</a>		<span class="kw">let </span>mask = handle.resolver()(<span class="kw-2">&amp;</span>statement_on(topic(<span class="number">9</span>)));
-<a href=#532 id=532 data-nosnippet>532</a>
-<a href=#533 id=533 data-nosnippet>533</a>		<span class="macro">assert!</span>(mask.contains(RetentionReasonMask::DHT_AFFINITY));
-<a href=#534 id=534 data-nosnippet>534</a>		<span class="macro">assert!</span>(!mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
-<a href=#535 id=535 data-nosnippet>535</a>	}
-<a href=#536 id=536 data-nosnippet>536</a>
-<a href=#537 id=537 data-nosnippet>537</a>	<span class="attr">#[test]
-<a href=#538 id=538 data-nosnippet>538</a>	</span><span class="kw">fn </span>resolver_is_transient_without_any_affinity() {
-<a href=#539 id=539 data-nosnippet>539</a>		<span class="kw">let </span>(dht, topic) = dht_without_local_affinity();
-<a href=#540 id=540 data-nosnippet>540</a>		<span class="kw">let </span>handle = RetentionHandle::new(peer(<span class="number">1</span>), nz(<span class="number">1</span>));
-<a href=#541 id=541 data-nosnippet>541</a>		handle.set_dht_affinity(dht);
-<a href=#542 id=542 data-nosnippet>542</a>
-<a href=#543 id=543 data-nosnippet>543</a>		<span class="macro">assert_eq!</span>(handle.resolver()(<span class="kw-2">&amp;</span>statement_on(topic)), RetentionReasonMask::TRANSIENT);
-<a href=#544 id=544 data-nosnippet>544</a>	}
-<a href=#545 id=545 data-nosnippet>545</a>
-<a href=#546 id=546 data-nosnippet>546</a>	<span class="attr">#[test]
-<a href=#547 id=547 data-nosnippet>547</a>	</span><span class="kw">fn </span>publish_dht_affinity_reflects_the_orchestrator_topology() {
-<a href=#548 id=548 data-nosnippet>548</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = V2DhtOrchestrator::new(
-<a href=#549 id=549 data-nosnippet>549</a>			<span class="kw-2">&amp;</span>[],
-<a href=#550 id=550 data-nosnippet>550</a>			<span class="prelude-val">None</span>,
-<a href=#551 id=551 data-nosnippet>551</a>			DEFAULT_BLOOM_FALSE_POS_RATE,
-<a href=#552 id=552 data-nosnippet>552</a>			peer(<span class="number">1</span>),
-<a href=#553 id=553 data-nosnippet>553</a>			topology_config(<span class="number">1</span>, <span class="number">1</span>),
-<a href=#554 id=554 data-nosnippet>554</a>			<span class="string">"/statement/test"</span>.into(),
-<a href=#555 id=555 data-nosnippet>555</a>			<span class="prelude-val">None</span>,
-<a href=#556 id=556 data-nosnippet>556</a>		);
-<a href=#557 id=557 data-nosnippet>557</a>		<span class="kw">let </span>handle = RetentionHandle::new(peer(<span class="number">1</span>), nz(<span class="number">1</span>));
-<a href=#558 id=558 data-nosnippet>558</a>		orchestrator.set_retention_handle(handle.clone());
-<a href=#559 id=559 data-nosnippet>559</a>
-<a href=#560 id=560 data-nosnippet>560</a>		<span class="comment">// Identify enough peers that the local node loses DHT affinity for some topic; each
-<a href=#561 id=561 data-nosnippet>561</a>		// `on_peer_identified` refreshes the published oracle.
-<a href=#562 id=562 data-nosnippet>562</a>		</span><span class="kw">let </span>peers: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">2u8</span>..=<span class="number">200</span>).map(peer).collect();
-<a href=#563 id=563 data-nosnippet>563</a>		orchestrator.on_peers_discovered(peers.clone());
-<a href=#564 id=564 data-nosnippet>564</a>		<span class="kw">for </span>peer <span class="kw">in </span><span class="kw-2">&amp;</span>peers {
-<a href=#565 id=565 data-nosnippet>565</a>			orchestrator.on_peer_identified(<span class="kw-2">*</span>peer, <span class="comment">/* supports_statement_protocol */ </span><span class="bool-val">true</span>);
-<a href=#566 id=566 data-nosnippet>566</a>		}
-<a href=#567 id=567 data-nosnippet>567</a>
-<a href=#568 id=568 data-nosnippet>568</a>		<span class="kw">let </span>dht = orchestrator.peers_topology.dht_affinity();
-<a href=#569 id=569 data-nosnippet>569</a>		<span class="kw">let </span>non_affine = (<span class="number">0u8</span>..=<span class="number">255</span>)
-<a href=#570 id=570 data-nosnippet>570</a>			.map(topic)
-<a href=#571 id=571 data-nosnippet>571</a>			.find(|topic| !dht.is_affine(<span class="kw-2">&amp;</span>statement_on(<span class="kw-2">*</span>topic)))
-<a href=#572 id=572 data-nosnippet>572</a>			.expect(<span class="string">"199 peers leave some topic without local DHT affinity"</span>);
-<a href=#573 id=573 data-nosnippet>573</a>		<span class="macro">assert_eq!</span>(handle.resolver()(<span class="kw-2">&amp;</span>statement_on(non_affine)), RetentionReasonMask::TRANSIENT);
-<a href=#574 id=574 data-nosnippet>574</a>	}
-<a href=#575 id=575 data-nosnippet>575</a>
-<a href=#576 id=576 data-nosnippet>576</a>	<span class="attr">#[test]
-<a href=#577 id=577 data-nosnippet>577</a>	</span><span class="kw">fn </span>evicting_peers_refreshes_published_dht_affinity() {
-<a href=#578 id=578 data-nosnippet>578</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = orchestrator_with(<span class="number">1</span>, topology_config(<span class="number">1</span>, <span class="number">1</span>));
-<a href=#579 id=579 data-nosnippet>579</a>		<span class="kw">let </span>handle = RetentionHandle::new(peer(<span class="number">1</span>), nz(<span class="number">1</span>));
-<a href=#580 id=580 data-nosnippet>580</a>		orchestrator.set_retention_handle(handle.clone());
-<a href=#581 id=581 data-nosnippet>581</a>
-<a href=#582 id=582 data-nosnippet>582</a>		<span class="kw">let </span>remote = peer(<span class="number">2</span>);
-<a href=#583 id=583 data-nosnippet>583</a>		<span class="kw">let </span>statement = statement_on(Topic(sp_crypto_hashing::blake2_256(<span class="kw-2">&amp;</span>remote.to_bytes())));
-<a href=#584 id=584 data-nosnippet>584</a>		orchestrator.on_peer_identified(remote, <span class="bool-val">true</span>);
-<a href=#585 id=585 data-nosnippet>585</a>		orchestrator.on_substream_opened(remote);
-<a href=#586 id=586 data-nosnippet>586</a>		orchestrator.on_substream_closed(remote);
-<a href=#587 id=587 data-nosnippet>587</a>		<span class="macro">assert_eq!</span>(handle.resolver()(<span class="kw-2">&amp;</span>statement), RetentionReasonMask::TRANSIENT);
-<a href=#588 id=588 data-nosnippet>588</a>
-<a href=#589 id=589 data-nosnippet>589</a>		<span class="comment">// Exceed the 8192-peer cap using discovery alone
-<a href=#590 id=590 data-nosnippet>590</a>		</span>orchestrator.on_peers_discovered((<span class="number">0u64</span>..<span class="number">8192</span>).map(|seed| {
-<a href=#591 id=591 data-nosnippet>591</a>			<span class="kw">let </span><span class="kw-2">mut </span>bytes = [<span class="number">0u8</span>; <span class="number">34</span>];
-<a href=#592 id=592 data-nosnippet>592</a>			bytes[<span class="number">1</span>] = <span class="number">32</span>;
-<a href=#593 id=593 data-nosnippet>593</a>			bytes[<span class="number">2</span>..<span class="number">10</span>].copy_from_slice(<span class="kw-2">&amp;</span>seed.to_le_bytes());
-<a href=#594 id=594 data-nosnippet>594</a>			PeerId::from_bytes(<span class="kw-2">&amp;</span>bytes).expect(<span class="string">"identity multihash peer id; qed"</span>)
-<a href=#595 id=595 data-nosnippet>595</a>		}));
-<a href=#596 id=596 data-nosnippet>596</a>		<span class="macro">assert_eq!</span>(orchestrator.peers_topology.known_peers_count(), <span class="number">8193</span>);
-<a href=#597 id=597 data-nosnippet>597</a>		<span class="macro">assert_eq!</span>(orchestrator.peers_topology.dht_eligible_peers_count(), <span class="number">1</span>);
-<a href=#598 id=598 data-nosnippet>598</a>
-<a href=#599 id=599 data-nosnippet>599</a>		orchestrator.evict_stale_peers();
-<a href=#600 id=600 data-nosnippet>600</a>
-<a href=#601 id=601 data-nosnippet>601</a>		<span class="macro">assert_eq!</span>(orchestrator.peers_topology.known_peers_count(), <span class="number">8192</span>);
-<a href=#602 id=602 data-nosnippet>602</a>		<span class="macro">assert_eq!</span>(orchestrator.peers_topology.dht_eligible_peers_count(), <span class="number">0</span>);
-<a href=#603 id=603 data-nosnippet>603</a>		<span class="macro">assert!</span>(orchestrator.peers_topology.dht_affinity().is_affine(<span class="kw-2">&amp;</span>statement));
-<a href=#604 id=604 data-nosnippet>604</a>		<span class="macro">assert_eq!</span>(handle.resolver()(<span class="kw-2">&amp;</span>statement), RetentionReasonMask::DHT_AFFINITY);
-<a href=#605 id=605 data-nosnippet>605</a>	}
-<a href=#606 id=606 data-nosnippet>606</a>
-<a href=#607 id=607 data-nosnippet>607</a>	<span class="attr">#[test]
-<a href=#608 id=608 data-nosnippet>608</a>	</span><span class="kw">fn </span>set_retention_handle_publishes_configured_topics() {
-<a href=#609 id=609 data-nosnippet>609</a>		<span class="comment">// Configured topics must drive retention from the moment the handle is installed, before
-<a href=#610 id=610 data-nosnippet>610</a>		// any peer or subscription event.
-<a href=#611 id=611 data-nosnippet>611</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>orchestrator = V2DhtOrchestrator::new(
-<a href=#612 id=612 data-nosnippet>612</a>			<span class="kw-2">&amp;</span>[topic(<span class="number">1</span>)],
-<a href=#613 id=613 data-nosnippet>613</a>			<span class="prelude-val">None</span>,
-<a href=#614 id=614 data-nosnippet>614</a>			DEFAULT_BLOOM_FALSE_POS_RATE,
-<a href=#615 id=615 data-nosnippet>615</a>			peer(<span class="number">1</span>),
-<a href=#616 id=616 data-nosnippet>616</a>			topology_config(<span class="number">1</span>, <span class="number">1</span>),
-<a href=#617 id=617 data-nosnippet>617</a>			<span class="string">"/statement/test"</span>.into(),
-<a href=#618 id=618 data-nosnippet>618</a>			<span class="prelude-val">None</span>,
-<a href=#619 id=619 data-nosnippet>619</a>		);
-<a href=#620 id=620 data-nosnippet>620</a>		<span class="kw">let </span>handle = RetentionHandle::new(peer(<span class="number">1</span>), nz(<span class="number">1</span>));
-<a href=#621 id=621 data-nosnippet>621</a>		orchestrator.set_retention_handle(handle.clone());
-<a href=#622 id=622 data-nosnippet>622</a>
-<a href=#623 id=623 data-nosnippet>623</a>		<span class="macro">assert!</span>(handle.resolver()(<span class="kw-2">&amp;</span>statement_on(topic(<span class="number">1</span>)))
-<a href=#624 id=624 data-nosnippet>624</a>			.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
-<a href=#625 id=625 data-nosnippet>625</a>	}
-<a href=#626 id=626 data-nosnippet>626</a>
-<a href=#627 id=627 data-nosnippet>627</a>	<span class="attr">#[test]
-<a href=#628 id=628 data-nosnippet>628</a>	</span><span class="kw">fn </span>set_rpc_subscription_topics_publishes_topic_affinity() {
-<a href=#629 id=629 data-nosnippet>629</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = V2DhtOrchestrator::new(
-<a href=#630 id=630 data-nosnippet>630</a>			<span class="kw-2">&amp;</span>[],
-<a href=#631 id=631 data-nosnippet>631</a>			<span class="prelude-val">None</span>,
-<a href=#632 id=632 data-nosnippet>632</a>			DEFAULT_BLOOM_FALSE_POS_RATE,
-<a href=#633 id=633 data-nosnippet>633</a>			peer(<span class="number">1</span>),
-<a href=#634 id=634 data-nosnippet>634</a>			topology_config(<span class="number">1</span>, <span class="number">1</span>),
-<a href=#635 id=635 data-nosnippet>635</a>			<span class="string">"/statement/test"</span>.into(),
-<a href=#636 id=636 data-nosnippet>636</a>			<span class="prelude-val">None</span>,
-<a href=#637 id=637 data-nosnippet>637</a>		);
-<a href=#638 id=638 data-nosnippet>638</a>		<span class="kw">let </span>handle = RetentionHandle::new(peer(<span class="number">1</span>), nz(<span class="number">1</span>));
-<a href=#639 id=639 data-nosnippet>639</a>		orchestrator.set_retention_handle(handle.clone());
-<a href=#640 id=640 data-nosnippet>640</a>		<span class="macro">assert!</span>(!handle.resolver()(<span class="kw-2">&amp;</span>statement_on(topic(<span class="number">1</span>)))
-<a href=#641 id=641 data-nosnippet>641</a>			.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
-<a href=#642 id=642 data-nosnippet>642</a>
-<a href=#643 id=643 data-nosnippet>643</a>		<span class="comment">// A subscription change reaches the store's oracle.
-<a href=#644 id=644 data-nosnippet>644</a>		</span>orchestrator.set_rpc_subscription_topics(<span class="kw-2">&amp;</span>HashSet::from([topic(<span class="number">1</span>)]));
-<a href=#645 id=645 data-nosnippet>645</a>
-<a href=#646 id=646 data-nosnippet>646</a>		<span class="macro">assert!</span>(handle.resolver()(<span class="kw-2">&amp;</span>statement_on(topic(<span class="number">1</span>)))
-<a href=#647 id=647 data-nosnippet>647</a>			.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
-<a href=#648 id=648 data-nosnippet>648</a>	}
-<a href=#649 id=649 data-nosnippet>649</a>
-<a href=#650 id=650 data-nosnippet>650</a>	<span class="attr">#[test]
-<a href=#651 id=651 data-nosnippet>651</a>	</span><span class="kw">fn </span>resolver_marks_both_affinities() {
-<a href=#652 id=652 data-nosnippet>652</a>		<span class="comment">// An empty topology makes the local node a DHT replica for every topic; configure the same
-<a href=#653 id=653 data-nosnippet>653</a>		// topic so both retention reasons hold at once.
-<a href=#654 id=654 data-nosnippet>654</a>		</span><span class="kw">let </span>handle = RetentionHandle::new(peer(<span class="number">1</span>), nz(<span class="number">1</span>));
-<a href=#655 id=655 data-nosnippet>655</a>		handle.set_dht_affinity(PeersTopology::new(peer(<span class="number">1</span>), topology_config(<span class="number">20</span>, <span class="number">1</span>)).dht_affinity());
-<a href=#656 id=656 data-nosnippet>656</a>		handle.set_topic_affinity(
-<a href=#657 id=657 data-nosnippet>657</a>			ExplicitAffinity::new(<span class="kw-2">&amp;</span>[topic(<span class="number">9</span>)], <span class="prelude-val">None</span>, DEFAULT_BLOOM_FALSE_POS_RATE).topic_affinity(),
-<a href=#658 id=658 data-nosnippet>658</a>		);
-<a href=#659 id=659 data-nosnippet>659</a>
-<a href=#660 id=660 data-nosnippet>660</a>		<span class="kw">let </span>mask = handle.resolver()(<span class="kw-2">&amp;</span>statement_on(topic(<span class="number">9</span>)));
-<a href=#661 id=661 data-nosnippet>661</a>
-<a href=#662 id=662 data-nosnippet>662</a>		<span class="macro">assert!</span>(mask.contains(RetentionReasonMask::DHT_AFFINITY));
-<a href=#663 id=663 data-nosnippet>663</a>		<span class="macro">assert!</span>(mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
-<a href=#664 id=664 data-nosnippet>664</a>		<span class="macro">assert!</span>(mask.is_persistent());
-<a href=#665 id=665 data-nosnippet>665</a>	}
-<a href=#666 id=666 data-nosnippet>666</a>
-<a href=#667 id=667 data-nosnippet>667</a>	<span class="attr">#[test]
-<a href=#668 id=668 data-nosnippet>668</a>	</span><span class="kw">fn </span>on_peer_filter_update_stores_the_filter() {
-<a href=#669 id=669 data-nosnippet>669</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = orchestrator();
-<a href=#670 id=670 data-nosnippet>670</a>		<span class="kw">let </span>peer = PeerId::random();
-<a href=#671 id=671 data-nosnippet>671</a>
-<a href=#672 id=672 data-nosnippet>672</a>		orchestrator.on_peer_filter_update(peer, filter_over(<span class="kw-2">&amp;</span>[topic(<span class="number">1</span>)]));
-<a href=#673 id=673 data-nosnippet>673</a>
-<a href=#674 id=674 data-nosnippet>674</a>		<span class="macro">assert!</span>(orchestrator
-<a href=#675 id=675 data-nosnippet>675</a>			.explicit_affinity
-<a href=#676 id=676 data-nosnippet>676</a>			.peer_has_explicit_affinity(peer, <span class="kw-2">&amp;</span>statement_on(topic(<span class="number">1</span>))));
-<a href=#677 id=677 data-nosnippet>677</a>		<span class="macro">assert!</span>(!orchestrator
-<a href=#678 id=678 data-nosnippet>678</a>			.explicit_affinity
-<a href=#679 id=679 data-nosnippet>679</a>			.peer_has_explicit_affinity(peer, <span class="kw-2">&amp;</span>statement_on(topic(<span class="number">2</span>))));
-<a href=#680 id=680 data-nosnippet>680</a>	}
-<a href=#681 id=681 data-nosnippet>681</a>
-<a href=#682 id=682 data-nosnippet>682</a>	<span class="attr">#[test]
-<a href=#683 id=683 data-nosnippet>683</a>	</span><span class="kw">fn </span>on_peer_disconnected_drops_the_filter() {
-<a href=#684 id=684 data-nosnippet>684</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = orchestrator();
-<a href=#685 id=685 data-nosnippet>685</a>		<span class="kw">let </span>peer = PeerId::random();
-<a href=#686 id=686 data-nosnippet>686</a>		orchestrator.on_peer_filter_update(peer, filter_over(<span class="kw-2">&amp;</span>[topic(<span class="number">1</span>)]));
-<a href=#687 id=687 data-nosnippet>687</a>
-<a href=#688 id=688 data-nosnippet>688</a>		orchestrator.on_peer_disconnected(peer);
-<a href=#689 id=689 data-nosnippet>689</a>
-<a href=#690 id=690 data-nosnippet>690</a>		<span class="macro">assert!</span>(!orchestrator
-<a href=#691 id=691 data-nosnippet>691</a>			.explicit_affinity
-<a href=#692 id=692 data-nosnippet>692</a>			.peer_has_explicit_affinity(peer, <span class="kw-2">&amp;</span>statement_on(topic(<span class="number">1</span>))));
-<a href=#693 id=693 data-nosnippet>693</a>	}
-<a href=#694 id=694 data-nosnippet>694</a>
-<a href=#695 id=695 data-nosnippet>695</a>	<span class="attr">#[test]
-<a href=#696 id=696 data-nosnippet>696</a>	</span><span class="kw">fn </span>take_local_filter_if_changed_reflects_subscription_topics() {
-<a href=#697 id=697 data-nosnippet>697</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = orchestrator();
-<a href=#698 id=698 data-nosnippet>698</a>		<span class="macro">assert!</span>(orchestrator.take_local_filter_if_changed().is_none());
-<a href=#699 id=699 data-nosnippet>699</a>
-<a href=#700 id=700 data-nosnippet>700</a>		orchestrator.set_rpc_subscription_topics(<span class="kw-2">&amp;</span>HashSet::from([topic(<span class="number">1</span>)]));
-<a href=#701 id=701 data-nosnippet>701</a>		<span class="kw">let </span>filter = orchestrator
-<a href=#702 id=702 data-nosnippet>702</a>			.take_local_filter_if_changed()
-<a href=#703 id=703 data-nosnippet>703</a>			.expect(<span class="string">"a subscription topic marks the filter changed"</span>);
-<a href=#704 id=704 data-nosnippet>704</a>		<span class="macro">assert!</span>(filter.contains(<span class="kw-2">&amp;</span>topic(<span class="number">1</span>)));
-<a href=#705 id=705 data-nosnippet>705</a>		<span class="macro">assert!</span>(orchestrator.take_local_filter_if_changed().is_none());
-<a href=#706 id=706 data-nosnippet>706</a>	}
-<a href=#707 id=707 data-nosnippet>707</a>
-<a href=#708 id=708 data-nosnippet>708</a>	<span class="attr">#[test]
-<a href=#709 id=709 data-nosnippet>709</a>	</span><span class="kw">fn </span>affinity_tick_marks_coverage_peers_for_connection() {
-<a href=#710 id=710 data-nosnippet>710</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = V2DhtOrchestrator::new(
-<a href=#711 id=711 data-nosnippet>711</a>			<span class="kw-2">&amp;</span>[topic(<span class="number">1</span>)],
-<a href=#712 id=712 data-nosnippet>712</a>			<span class="prelude-val">None</span>,
-<a href=#713 id=713 data-nosnippet>713</a>			DEFAULT_BLOOM_FALSE_POS_RATE,
-<a href=#714 id=714 data-nosnippet>714</a>			PeerId::random(),
-<a href=#715 id=715 data-nosnippet>715</a>			topology_config(<span class="number">20</span>, <span class="number">3</span>),
-<a href=#716 id=716 data-nosnippet>716</a>			<span class="string">"/statement/test"</span>.into(),
-<a href=#717 id=717 data-nosnippet>717</a>			<span class="prelude-val">None</span>,
-<a href=#718 id=718 data-nosnippet>718</a>		);
-<a href=#719 id=719 data-nosnippet>719</a>
-<a href=#720 id=720 data-nosnippet>720</a>		<span class="kw">let </span>peers: Vec&lt;PeerId&gt; = (<span class="number">0</span>..<span class="number">5</span>).map(|<span class="kw">_</span>| PeerId::random()).collect();
-<a href=#721 id=721 data-nosnippet>721</a>		orchestrator.on_peers_discovered(peers.clone());
-<a href=#722 id=722 data-nosnippet>722</a>		<span class="kw">for </span>peer <span class="kw">in </span><span class="kw-2">&amp;</span>peers {
-<a href=#723 id=723 data-nosnippet>723</a>			orchestrator.on_peer_identified(<span class="kw-2">*</span>peer, <span class="bool-val">true</span>);
-<a href=#724 id=724 data-nosnippet>724</a>		}
-<a href=#725 id=725 data-nosnippet>725</a>
-<a href=#726 id=726 data-nosnippet>726</a>		<span class="comment">// The tick turns the configured topic into a coverage target.
-<a href=#727 id=727 data-nosnippet>727</a>		</span>orchestrator.on_pending_affinities();
-<a href=#728 id=728 data-nosnippet>728</a>		<span class="kw">let </span>desired = orchestrator.peers_topology.peers_for_topics(<span class="kw-2">&amp;</span>[topic(<span class="number">1</span>)]);
-<a href=#729 id=729 data-nosnippet>729</a>		<span class="macro">assert!</span>(!desired.is_empty());
-<a href=#730 id=730 data-nosnippet>730</a>
-<a href=#731 id=731 data-nosnippet>731</a>		<span class="comment">// Every coverage peer is queued for a connection, since none are connected yet.
-<a href=#732 id=732 data-nosnippet>732</a>		</span><span class="kw">let </span>connect = orchestrator.peer_steering.peers_to_connect();
-<a href=#733 id=733 data-nosnippet>733</a>		<span class="macro">assert!</span>(desired.iter().all(|peer| connect.contains(peer)));
-<a href=#734 id=734 data-nosnippet>734</a>	}
-<a href=#735 id=735 data-nosnippet>735</a>
-<a href=#736 id=736 data-nosnippet>736</a>	<span class="attr">#[test]
-<a href=#737 id=737 data-nosnippet>737</a>	</span><span class="kw">fn </span>valid_statements_reward_the_sender() {
-<a href=#738 id=738 data-nosnippet>738</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = orchestrator_with(<span class="number">1</span>, topology_config(<span class="number">20</span>, <span class="number">3</span>));
-<a href=#739 id=739 data-nosnippet>739</a>		<span class="kw">let </span>peer = peer(<span class="number">2</span>);
-<a href=#740 id=740 data-nosnippet>740</a>		orchestrator.on_substream_opened(peer);
-<a href=#741 id=741 data-nosnippet>741</a>
-<a href=#742 id=742 data-nosnippet>742</a>		<span class="comment">// A new statement and one we already hold are both honest relays, each rewarded.
-<a href=#743 id=743 data-nosnippet>743</a>		</span>orchestrator.on_statement_imported(peer, <span class="kw-2">&amp;</span>SubmitResult::New);
-<a href=#744 id=744 data-nosnippet>744</a>		orchestrator.on_statement_imported(peer, <span class="kw-2">&amp;</span>SubmitResult::Known);
-<a href=#745 id=745 data-nosnippet>745</a>
-<a href=#746 id=746 data-nosnippet>746</a>		<span class="macro">assert_eq!</span>(orchestrator.peer_steering.score_of(<span class="kw-2">&amp;</span>peer), <span class="prelude-val">Some</span>(<span class="number">2 </span>* score::GOOD_ACTION));
-<a href=#747 id=747 data-nosnippet>747</a>	}
-<a href=#748 id=748 data-nosnippet>748</a>
-<a href=#749 id=749 data-nosnippet>749</a>	<span class="attr">#[test]
-<a href=#750 id=750 data-nosnippet>750</a>	</span><span class="kw">fn </span>faults_punish_the_peer() {
-<a href=#751 id=751 data-nosnippet>751</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = orchestrator_with(<span class="number">1</span>, topology_config(<span class="number">20</span>, <span class="number">3</span>));
-<a href=#752 id=752 data-nosnippet>752</a>		<span class="kw">let </span>peer = peer(<span class="number">2</span>);
-<a href=#753 id=753 data-nosnippet>753</a>		orchestrator.on_substream_opened(peer);
-<a href=#754 id=754 data-nosnippet>754</a>
-<a href=#755 id=755 data-nosnippet>755</a>		<span class="comment">// An invalid statement and a pre-import fault (duplicate or bad message) both punish.
-<a href=#756 id=756 data-nosnippet>756</a>		</span>orchestrator.on_statement_imported(peer, <span class="kw-2">&amp;</span>SubmitResult::Invalid(InvalidReason::BadProof));
-<a href=#757 id=757 data-nosnippet>757</a>		orchestrator.on_peer_misbehaved(peer);
-<a href=#758 id=758 data-nosnippet>758</a>
-<a href=#759 id=759 data-nosnippet>759</a>		<span class="macro">assert_eq!</span>(orchestrator.peer_steering.score_of(<span class="kw-2">&amp;</span>peer), <span class="prelude-val">Some</span>(<span class="number">2 </span>* score::BAD_ACTION));
-<a href=#760 id=760 data-nosnippet>760</a>	}
-<a href=#761 id=761 data-nosnippet>761</a>
-<a href=#762 id=762 data-nosnippet>762</a>	<span class="attr">#[test]
-<a href=#763 id=763 data-nosnippet>763</a>	</span><span class="kw">fn </span>our_side_outcomes_leave_the_score_unchanged() {
-<a href=#764 id=764 data-nosnippet>764</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = orchestrator_with(<span class="number">1</span>, topology_config(<span class="number">20</span>, <span class="number">3</span>));
-<a href=#765 id=765 data-nosnippet>765</a>		<span class="kw">let </span>peer = peer(<span class="number">2</span>);
-<a href=#766 id=766 data-nosnippet>766</a>		orchestrator.on_substream_opened(peer);
-<a href=#767 id=767 data-nosnippet>767</a>
-<a href=#768 id=768 data-nosnippet>768</a>		<span class="comment">// Store-full and expiry are our conditions, not the peer's fault, so no score moves.
-<a href=#769 id=769 data-nosnippet>769</a>		</span>orchestrator.on_statement_imported(peer, <span class="kw-2">&amp;</span>SubmitResult::KnownExpired);
-<a href=#770 id=770 data-nosnippet>770</a>		orchestrator
-<a href=#771 id=771 data-nosnippet>771</a>			.on_statement_imported(peer, <span class="kw-2">&amp;</span>SubmitResult::Rejected(RejectionReason::StoreFull));
-<a href=#772 id=772 data-nosnippet>772</a>
-<a href=#773 id=773 data-nosnippet>773</a>		<span class="macro">assert_eq!</span>(orchestrator.peer_steering.score_of(<span class="kw-2">&amp;</span>peer), <span class="prelude-val">Some</span>(<span class="number">0</span>));
-<a href=#774 id=774 data-nosnippet>774</a>	}
-<a href=#775 id=775 data-nosnippet>775</a>
-<a href=#776 id=776 data-nosnippet>776</a>	<span class="attr">#[test]
-<a href=#777 id=777 data-nosnippet>777</a>	</span><span class="kw">fn </span>connected_coverage_peer_is_never_disconnected() {
-<a href=#778 id=778 data-nosnippet>778</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = V2DhtOrchestrator::new(
-<a href=#779 id=779 data-nosnippet>779</a>			<span class="kw-2">&amp;</span>[topic(<span class="number">1</span>)],
-<a href=#780 id=780 data-nosnippet>780</a>			<span class="prelude-val">None</span>,
-<a href=#781 id=781 data-nosnippet>781</a>			DEFAULT_BLOOM_FALSE_POS_RATE,
-<a href=#782 id=782 data-nosnippet>782</a>			peer(<span class="number">1</span>),
-<a href=#783 id=783 data-nosnippet>783</a>			topology_config(<span class="number">20</span>, <span class="number">3</span>),
-<a href=#784 id=784 data-nosnippet>784</a>			<span class="string">"/statement/test"</span>.into(),
-<a href=#785 id=785 data-nosnippet>785</a>			<span class="prelude-val">None</span>,
-<a href=#786 id=786 data-nosnippet>786</a>		);
+<a href=#305 id=305 data-nosnippet>305</a>			SubmitResult::KnownExpired =&gt; score::WASTEFUL_ACTION,
+<a href=#306 id=306 data-nosnippet>306</a>			SubmitResult::Rejected(<span class="kw">_</span>) | SubmitResult::InternalError(<span class="kw">_</span>) =&gt; <span class="kw">return</span>,
+<a href=#307 id=307 data-nosnippet>307</a>		};
+<a href=#308 id=308 data-nosnippet>308</a>		<span class="self">self</span>.peer_steering.update_score(peer, change);
+<a href=#309 id=309 data-nosnippet>309</a>	}
+<a href=#310 id=310 data-nosnippet>310</a>
+<a href=#311 id=311 data-nosnippet>311</a>	<span class="doccomment">/// Punish peer for a protocol-level fault detected before import: a duplicate statement or an
+<a href=#312 id=312 data-nosnippet>312</a>	/// undecodable message.
+<a href=#313 id=313 data-nosnippet>313</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_peer_misbehaved(<span class="kw-2">&amp;mut </span><span class="self">self</span>, peer: PeerId) {
+<a href=#314 id=314 data-nosnippet>314</a>		<span class="self">self</span>.peer_steering.update_score(peer, score::BAD_ACTION);
+<a href=#315 id=315 data-nosnippet>315</a>	}
+<a href=#316 id=316 data-nosnippet>316</a>
+<a href=#317 id=317 data-nosnippet>317</a>	<span class="comment">// === Periodic ticks &amp; post-iteration hooks ===
+<a href=#318 id=318 data-nosnippet>318</a>
+<a href=#319 id=319 data-nosnippet>319</a>	</span><span class="doccomment">/// For each connected peer, the indices of `statements` it should receive.
+<a href=#320 id=320 data-nosnippet>320</a>	///
+<a href=#321 id=321 data-nosnippet>321</a>	/// A peer is a target for a statement when it is a DHT routing target for one of the
+<a href=#322 id=322 data-nosnippet>322</a>	/// statement's topics ([`PeersTopology::routing_targets`]) or its advertised filter matches the
+<a href=#323 id=323 data-nosnippet>323</a>	/// statement ([`ExplicitAffinity::peer_has_explicit_affinity`]).
+<a href=#324 id=324 data-nosnippet>324</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>propagation_plan(
+<a href=#325 id=325 data-nosnippet>325</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#326 id=326 data-nosnippet>326</a>		statements: <span class="kw-2">&amp;</span>[(u64, Hash, Statement)],
+<a href=#327 id=327 data-nosnippet>327</a>	) -&gt; Vec&lt;(PeerId, Vec&lt;usize&gt;)&gt; {
+<a href=#328 id=328 data-nosnippet>328</a>		<span class="kw">let </span><span class="kw-2">mut </span>statements_by_peer: HashMap&lt;PeerId, Vec&lt;usize&gt;&gt; = HashMap::new();
+<a href=#329 id=329 data-nosnippet>329</a>
+<a href=#330 id=330 data-nosnippet>330</a>		<span class="kw">for </span>(index, (_seq, _hash, statement)) <span class="kw">in </span>statements.iter().enumerate() {
+<a href=#331 id=331 data-nosnippet>331</a>			<span class="kw">let </span><span class="kw-2">mut </span>targets: HashSet&lt;PeerId&gt; = HashSet::new();
+<a href=#332 id=332 data-nosnippet>332</a>
+<a href=#333 id=333 data-nosnippet>333</a>			<span class="kw">for </span>topic <span class="kw">in </span>statement.topics() {
+<a href=#334 id=334 data-nosnippet>334</a>				targets.extend(<span class="self">self</span>.peers_topology.routing_targets(<span class="kw-2">*</span>topic));
+<a href=#335 id=335 data-nosnippet>335</a>			}
+<a href=#336 id=336 data-nosnippet>336</a>			<span class="kw">for </span>peer <span class="kw">in </span><span class="self">self</span>.peers_topology.connected_peers() {
+<a href=#337 id=337 data-nosnippet>337</a>				<span class="kw">if </span><span class="self">self</span>.explicit_affinity.peer_has_explicit_affinity(peer, statement) {
+<a href=#338 id=338 data-nosnippet>338</a>					targets.insert(peer);
+<a href=#339 id=339 data-nosnippet>339</a>				}
+<a href=#340 id=340 data-nosnippet>340</a>			}
+<a href=#341 id=341 data-nosnippet>341</a>
+<a href=#342 id=342 data-nosnippet>342</a>			<span class="kw">for </span>peer_id <span class="kw">in </span>targets {
+<a href=#343 id=343 data-nosnippet>343</a>				statements_by_peer.entry(peer_id).or_default().push(index);
+<a href=#344 id=344 data-nosnippet>344</a>			}
+<a href=#345 id=345 data-nosnippet>345</a>		}
+<a href=#346 id=346 data-nosnippet>346</a>
+<a href=#347 id=347 data-nosnippet>347</a>		statements_by_peer.into_iter().collect()
+<a href=#348 id=348 data-nosnippet>348</a>	}
+<a href=#349 id=349 data-nosnippet>349</a>
+<a href=#350 id=350 data-nosnippet>350</a>	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>on_initial_sync(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#351 id=351 data-nosnippet>351</a>		<span class="comment">// TODO: We need to know what to propagate
+<a href=#352 id=352 data-nosnippet>352</a>		</span><span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"v2dht: on_initial_sync (stub)"</span>);
+<a href=#353 id=353 data-nosnippet>353</a>	}
+<a href=#354 id=354 data-nosnippet>354</a>
+<a href=#355 id=355 data-nosnippet>355</a>	<span class="doccomment">/// Recompute the peers needed to cover the node's topics and hand them to peer steering.
+<a href=#356 id=356 data-nosnippet>356</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_pending_affinities(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#357 id=357 data-nosnippet>357</a>		<span class="kw">let </span>topics = <span class="self">self</span>.explicit_affinity.topics();
+<a href=#358 id=358 data-nosnippet>358</a>		<span class="kw">let </span>desired = <span class="self">self</span>.peers_topology.peers_for_topics(<span class="kw-2">&amp;</span>topics);
+<a href=#359 id=359 data-nosnippet>359</a>		<span class="self">self</span>.peer_steering.update_peers_needing_connections(desired);
+<a href=#360 id=360 data-nosnippet>360</a>	}
+<a href=#361 id=361 data-nosnippet>361</a>
+<a href=#362 id=362 data-nosnippet>362</a>	<span class="doccomment">/// Align the connected peers with the peers needed to cover the node's subscriptions, opening
+<a href=#363 id=363 data-nosnippet>363</a>	/// and closing connections through the statement protocol's reserved set on `network`.
+<a href=#364 id=364 data-nosnippet>364</a>	</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>refresh_connections&lt;N: NetworkPeers&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, network: <span class="kw-2">&amp;</span>N) {
+<a href=#365 id=365 data-nosnippet>365</a>		<span class="self">self</span>.peer_steering.refresh_connections(network);
+<a href=#366 id=366 data-nosnippet>366</a>	}
+<a href=#367 id=367 data-nosnippet>367</a>
+<a href=#368 id=368 data-nosnippet>368</a>	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>evict_stale_peers(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#369 id=369 data-nosnippet>369</a>		<span class="kw">if </span><span class="self">self</span>.peers_topology.evict(Instant::now()) {
+<a href=#370 id=370 data-nosnippet>370</a>			<span class="self">self</span>.publish_dht_affinity();
+<a href=#371 id=371 data-nosnippet>371</a>		}
+<a href=#372 id=372 data-nosnippet>372</a>		<span class="self">self</span>.report_topology_size();
+<a href=#373 id=373 data-nosnippet>373</a>	}
+<a href=#374 id=374 data-nosnippet>374</a>
+<a href=#375 id=375 data-nosnippet>375</a>	<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>on_major_sync_end(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#376 id=376 data-nosnippet>376</a>		<span class="comment">// TODO: The major sync processing may be different
+<a href=#377 id=377 data-nosnippet>377</a>		</span><span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"v2dht: on_major_sync_end (stub)"</span>);
+<a href=#378 id=378 data-nosnippet>378</a>	}
+<a href=#379 id=379 data-nosnippet>379</a>}
+<a href=#380 id=380 data-nosnippet>380</a><span class="attr">#[cfg(test)]
+<a href=#381 id=381 data-nosnippet>381</a></span><span class="kw">mod </span>tests {
+<a href=#382 id=382 data-nosnippet>382</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#383 id=383 data-nosnippet>383</a>	<span class="kw">use crate</span>::{
+<a href=#384 id=384 data-nosnippet>384</a>		config::DEFAULT_BLOOM_FALSE_POS_RATE,
+<a href=#385 id=385 data-nosnippet>385</a>		test_helpers::{filter_over, nz, peer, statement_on, topic, topology_config},
+<a href=#386 id=386 data-nosnippet>386</a>	};
+<a href=#387 id=387 data-nosnippet>387</a>	<span class="kw">use </span>sp_statement_store::{InvalidReason, RejectionReason};
+<a href=#388 id=388 data-nosnippet>388</a>
+<a href=#389 id=389 data-nosnippet>389</a>	<span class="kw">fn </span>orchestrator() -&gt; V2DhtOrchestrator {
+<a href=#390 id=390 data-nosnippet>390</a>		V2DhtOrchestrator::new(
+<a href=#391 id=391 data-nosnippet>391</a>			<span class="kw-2">&amp;</span>[],
+<a href=#392 id=392 data-nosnippet>392</a>			<span class="prelude-val">None</span>,
+<a href=#393 id=393 data-nosnippet>393</a>			DEFAULT_BLOOM_FALSE_POS_RATE,
+<a href=#394 id=394 data-nosnippet>394</a>			PeerId::random(),
+<a href=#395 id=395 data-nosnippet>395</a>			topology_config(<span class="number">20</span>, <span class="number">3</span>),
+<a href=#396 id=396 data-nosnippet>396</a>			<span class="string">"/statement/test"</span>.into(),
+<a href=#397 id=397 data-nosnippet>397</a>			<span class="prelude-val">None</span>,
+<a href=#398 id=398 data-nosnippet>398</a>		)
+<a href=#399 id=399 data-nosnippet>399</a>	}
+<a href=#400 id=400 data-nosnippet>400</a>
+<a href=#401 id=401 data-nosnippet>401</a>	<span class="doccomment">/// Like [`orchestrator`] but with a deterministic local identity, so the XOR routing
+<a href=#402 id=402 data-nosnippet>402</a>	/// distances the propagation tests assert on stay reproducible across runs.
+<a href=#403 id=403 data-nosnippet>403</a>	</span><span class="kw">fn </span>orchestrator_with(local_seed: u8, config: PeersTopologyConfig) -&gt; V2DhtOrchestrator {
+<a href=#404 id=404 data-nosnippet>404</a>		V2DhtOrchestrator::new(
+<a href=#405 id=405 data-nosnippet>405</a>			<span class="kw-2">&amp;</span>[],
+<a href=#406 id=406 data-nosnippet>406</a>			<span class="prelude-val">None</span>,
+<a href=#407 id=407 data-nosnippet>407</a>			DEFAULT_BLOOM_FALSE_POS_RATE,
+<a href=#408 id=408 data-nosnippet>408</a>			peer(local_seed),
+<a href=#409 id=409 data-nosnippet>409</a>			config,
+<a href=#410 id=410 data-nosnippet>410</a>			<span class="string">"/statement/test"</span>.into(),
+<a href=#411 id=411 data-nosnippet>411</a>			<span class="prelude-val">None</span>,
+<a href=#412 id=412 data-nosnippet>412</a>		)
+<a href=#413 id=413 data-nosnippet>413</a>	}
+<a href=#414 id=414 data-nosnippet>414</a>
+<a href=#415 id=415 data-nosnippet>415</a>	<span class="kw">fn </span>statement(seed: u8, topics: <span class="kw-2">&amp;</span>[Topic]) -&gt; (u64, Hash, Statement) {
+<a href=#416 id=416 data-nosnippet>416</a>		<span class="kw">let </span><span class="kw-2">mut </span>statement = Statement::new();
+<a href=#417 id=417 data-nosnippet>417</a>		statement.set_plain_data(<span class="macro">vec!</span>[seed]);
+<a href=#418 id=418 data-nosnippet>418</a>		<span class="kw">for </span>(index, topic) <span class="kw">in </span>topics.iter().enumerate() {
+<a href=#419 id=419 data-nosnippet>419</a>			statement.set_topic(index, <span class="kw-2">*</span>topic);
+<a href=#420 id=420 data-nosnippet>420</a>		}
+<a href=#421 id=421 data-nosnippet>421</a>		(seed <span class="kw">as </span>u64, statement.hash(), statement)
+<a href=#422 id=422 data-nosnippet>422</a>	}
+<a href=#423 id=423 data-nosnippet>423</a>
+<a href=#424 id=424 data-nosnippet>424</a>	<span class="doccomment">/// Routing targets `propagation_plan` is expected to reach for `topics`, taken from the
+<a href=#425 id=425 data-nosnippet>425</a>	/// already-tested [`PeersTopology::routing_targets`] rather than recomputed from XOR distances.
+<a href=#426 id=426 data-nosnippet>426</a>	</span><span class="kw">fn </span>routing_targets(orchestrator: <span class="kw-2">&amp;</span>V2DhtOrchestrator, topics: <span class="kw-2">&amp;</span>[Topic]) -&gt; Vec&lt;PeerId&gt; {
+<a href=#427 id=427 data-nosnippet>427</a>		<span class="kw">let </span><span class="kw-2">mut </span>targets: Vec&lt;PeerId&gt; = topics
+<a href=#428 id=428 data-nosnippet>428</a>			.iter()
+<a href=#429 id=429 data-nosnippet>429</a>			.flat_map(|topic| orchestrator.peers_topology.routing_targets(<span class="kw-2">*</span>topic))
+<a href=#430 id=430 data-nosnippet>430</a>			.collect();
+<a href=#431 id=431 data-nosnippet>431</a>		targets.sort();
+<a href=#432 id=432 data-nosnippet>432</a>		targets.dedup();
+<a href=#433 id=433 data-nosnippet>433</a>		targets
+<a href=#434 id=434 data-nosnippet>434</a>	}
+<a href=#435 id=435 data-nosnippet>435</a>
+<a href=#436 id=436 data-nosnippet>436</a>	<span class="attr">#[test]
+<a href=#437 id=437 data-nosnippet>437</a>	</span><span class="kw">fn </span>routes_a_statement_to_the_union_of_its_topics_routing_targets_once() {
+<a href=#438 id=438 data-nosnippet>438</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = orchestrator_with(<span class="number">1</span>, topology_config(<span class="number">20</span>, <span class="number">3</span>));
+<a href=#439 id=439 data-nosnippet>439</a>		<span class="kw">for </span>seed <span class="kw">in </span><span class="number">2u8</span>..=<span class="number">60 </span>{
+<a href=#440 id=440 data-nosnippet>440</a>			<span class="kw">let </span>peer = peer(seed);
+<a href=#441 id=441 data-nosnippet>441</a>			orchestrator.on_peers_discovered([peer]);
+<a href=#442 id=442 data-nosnippet>442</a>			orchestrator.on_peer_identified(peer, <span class="comment">/* supports_statement_protocol */ </span><span class="bool-val">true</span>);
+<a href=#443 id=443 data-nosnippet>443</a>			orchestrator.on_substream_opened(peer);
+<a href=#444 id=444 data-nosnippet>444</a>		}
+<a href=#445 id=445 data-nosnippet>445</a>		<span class="kw">let </span>topics = [Topic([<span class="number">7</span>; <span class="number">32</span>]), Topic([<span class="number">42</span>; <span class="number">32</span>])];
+<a href=#446 id=446 data-nosnippet>446</a>		<span class="kw">let </span>expected = routing_targets(<span class="kw-2">&amp;</span>orchestrator, <span class="kw-2">&amp;</span>topics);
+<a href=#447 id=447 data-nosnippet>447</a>		<span class="macro">assert!</span>(!expected.is_empty(), <span class="string">"fixture must yield routing targets"</span>);
+<a href=#448 id=448 data-nosnippet>448</a>
+<a href=#449 id=449 data-nosnippet>449</a>		<span class="kw">let </span>plan = orchestrator.propagation_plan(<span class="kw-2">&amp;</span>[statement(<span class="number">1</span>, <span class="kw-2">&amp;</span>topics)]);
+<a href=#450 id=450 data-nosnippet>450</a>
+<a href=#451 id=451 data-nosnippet>451</a>		<span class="kw">let </span><span class="kw-2">mut </span>planned: Vec&lt;PeerId&gt; = plan.iter().map(|(peer, <span class="kw">_</span>)| <span class="kw-2">*</span>peer).collect();
+<a href=#452 id=452 data-nosnippet>452</a>		planned.sort();
+<a href=#453 id=453 data-nosnippet>453</a>		<span class="macro">assert_eq!</span>(planned, expected);
+<a href=#454 id=454 data-nosnippet>454</a>		<span class="macro">assert!</span>(
+<a href=#455 id=455 data-nosnippet>455</a>			plan.iter().all(|(<span class="kw">_</span>, indices)| indices == <span class="kw-2">&amp;</span>[<span class="number">0</span>]),
+<a href=#456 id=456 data-nosnippet>456</a>			<span class="string">"a target receives the statement once however many of its topics route there"
+<a href=#457 id=457 data-nosnippet>457</a>		</span>);
+<a href=#458 id=458 data-nosnippet>458</a>	}
+<a href=#459 id=459 data-nosnippet>459</a>
+<a href=#460 id=460 data-nosnippet>460</a>	<span class="attr">#[test]
+<a href=#461 id=461 data-nosnippet>461</a>	</span><span class="kw">fn </span>batches_statements_bound_for_the_same_peer() {
+<a href=#462 id=462 data-nosnippet>462</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = orchestrator_with(<span class="number">1</span>, topology_config(<span class="number">20</span>, <span class="number">3</span>));
+<a href=#463 id=463 data-nosnippet>463</a>		<span class="kw">for </span>seed <span class="kw">in </span><span class="number">2u8</span>..=<span class="number">60 </span>{
+<a href=#464 id=464 data-nosnippet>464</a>			<span class="kw">let </span>peer = peer(seed);
+<a href=#465 id=465 data-nosnippet>465</a>			orchestrator.on_peers_discovered([peer]);
+<a href=#466 id=466 data-nosnippet>466</a>			orchestrator.on_peer_identified(peer, <span class="comment">/* supports_statement_protocol */ </span><span class="bool-val">true</span>);
+<a href=#467 id=467 data-nosnippet>467</a>			orchestrator.on_substream_opened(peer);
+<a href=#468 id=468 data-nosnippet>468</a>		}
+<a href=#469 id=469 data-nosnippet>469</a>		<span class="kw">let </span>topic = Topic([<span class="number">7</span>; <span class="number">32</span>]);
+<a href=#470 id=470 data-nosnippet>470</a>		<span class="kw">let </span>target = <span class="kw-2">*</span>routing_targets(<span class="kw-2">&amp;</span>orchestrator, <span class="kw-2">&amp;</span>[topic])
+<a href=#471 id=471 data-nosnippet>471</a>			.first()
+<a href=#472 id=472 data-nosnippet>472</a>			.expect(<span class="string">"fixture must yield a routing target"</span>);
+<a href=#473 id=473 data-nosnippet>473</a>
+<a href=#474 id=474 data-nosnippet>474</a>		<span class="kw">let </span>plan = orchestrator.propagation_plan(<span class="kw-2">&amp;</span>[statement(<span class="number">1</span>, <span class="kw-2">&amp;</span>[topic]), statement(<span class="number">2</span>, <span class="kw-2">&amp;</span>[topic])]);
+<a href=#475 id=475 data-nosnippet>475</a>
+<a href=#476 id=476 data-nosnippet>476</a>		<span class="kw">let </span>batch = plan
+<a href=#477 id=477 data-nosnippet>477</a>			.iter()
+<a href=#478 id=478 data-nosnippet>478</a>			.find(|(peer, <span class="kw">_</span>)| <span class="kw-2">*</span>peer == target)
+<a href=#479 id=479 data-nosnippet>479</a>			.map(|(<span class="kw">_</span>, indices)| indices.clone())
+<a href=#480 id=480 data-nosnippet>480</a>			.expect(<span class="string">"the shared target must be planned"</span>);
+<a href=#481 id=481 data-nosnippet>481</a>		<span class="macro">assert_eq!</span>(batch, <span class="macro">vec!</span>[<span class="number">0</span>, <span class="number">1</span>]);
+<a href=#482 id=482 data-nosnippet>482</a>	}
+<a href=#483 id=483 data-nosnippet>483</a>
+<a href=#484 id=484 data-nosnippet>484</a>	<span class="doccomment">/// A DHT-affinity oracle from many peers with one replica per topic, leaving the local node
+<a href=#485 id=485 data-nosnippet>485</a>	/// non-affine for most topics, paired with one such non-affine topic.
+<a href=#486 id=486 data-nosnippet>486</a>	</span><span class="kw">fn </span>dht_without_local_affinity() -&gt; (DhtAffinity, Topic) {
+<a href=#487 id=487 data-nosnippet>487</a>		<span class="kw">let </span><span class="kw-2">mut </span>topology = PeersTopology::new(peer(<span class="number">1</span>), topology_config(<span class="number">1</span>, <span class="number">1</span>));
+<a href=#488 id=488 data-nosnippet>488</a>		<span class="kw">let </span>peers: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">2u8</span>..=<span class="number">200</span>).map(peer).collect();
+<a href=#489 id=489 data-nosnippet>489</a>		topology.on_peers_discovered(peers.clone());
+<a href=#490 id=490 data-nosnippet>490</a>		<span class="kw">for </span>peer <span class="kw">in </span><span class="kw-2">&amp;</span>peers {
+<a href=#491 id=491 data-nosnippet>491</a>			topology.on_peer_identified(<span class="kw-2">*</span>peer, <span class="comment">/* supports_statement_protocol */ </span><span class="bool-val">true</span>);
+<a href=#492 id=492 data-nosnippet>492</a>		}
+<a href=#493 id=493 data-nosnippet>493</a>		<span class="kw">let </span>dht = topology.dht_affinity();
+<a href=#494 id=494 data-nosnippet>494</a>		<span class="kw">let </span>topic = (<span class="number">0u8</span>..=<span class="number">255</span>)
+<a href=#495 id=495 data-nosnippet>495</a>			.map(topic)
+<a href=#496 id=496 data-nosnippet>496</a>			.find(|topic| !dht.is_affine(<span class="kw-2">&amp;</span>statement_on(<span class="kw-2">*</span>topic)))
+<a href=#497 id=497 data-nosnippet>497</a>			.expect(<span class="string">"199 peers leave some topic without local DHT affinity"</span>);
+<a href=#498 id=498 data-nosnippet>498</a>		(dht, topic)
+<a href=#499 id=499 data-nosnippet>499</a>	}
+<a href=#500 id=500 data-nosnippet>500</a>
+<a href=#501 id=501 data-nosnippet>501</a>	<span class="attr">#[test]
+<a href=#502 id=502 data-nosnippet>502</a>	</span><span class="kw">fn </span>resolver_persists_with_an_empty_seeded_topology() {
+<a href=#503 id=503 data-nosnippet>503</a>		<span class="comment">// Knowing no peers, the local node is the sole replica for every topic, so it persists.
+<a href=#504 id=504 data-nosnippet>504</a>		</span><span class="macro">assert!</span>(RetentionHandle::new(peer(<span class="number">1</span>), nz(<span class="number">1</span>)).resolver()(<span class="kw-2">&amp;</span>statement_on(topic(<span class="number">1</span>)))
+<a href=#505 id=505 data-nosnippet>505</a>			.is_persistent());
+<a href=#506 id=506 data-nosnippet>506</a>	}
+<a href=#507 id=507 data-nosnippet>507</a>
+<a href=#508 id=508 data-nosnippet>508</a>	<span class="attr">#[test]
+<a href=#509 id=509 data-nosnippet>509</a>	</span><span class="kw">fn </span>resolver_marks_explicit_affinity() {
+<a href=#510 id=510 data-nosnippet>510</a>		<span class="kw">let </span>(dht, topic) = dht_without_local_affinity();
+<a href=#511 id=511 data-nosnippet>511</a>		<span class="kw">let </span>handle = RetentionHandle::new(peer(<span class="number">1</span>), nz(<span class="number">1</span>));
+<a href=#512 id=512 data-nosnippet>512</a>		handle.set_dht_affinity(dht);
+<a href=#513 id=513 data-nosnippet>513</a>		handle.set_topic_affinity(
+<a href=#514 id=514 data-nosnippet>514</a>			ExplicitAffinity::new(<span class="kw-2">&amp;</span>[topic], <span class="prelude-val">None</span>, DEFAULT_BLOOM_FALSE_POS_RATE).topic_affinity(),
+<a href=#515 id=515 data-nosnippet>515</a>		);
+<a href=#516 id=516 data-nosnippet>516</a>
+<a href=#517 id=517 data-nosnippet>517</a>		<span class="kw">let </span>mask = handle.resolver()(<span class="kw-2">&amp;</span>statement_on(topic));
+<a href=#518 id=518 data-nosnippet>518</a>
+<a href=#519 id=519 data-nosnippet>519</a>		<span class="macro">assert!</span>(mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
+<a href=#520 id=520 data-nosnippet>520</a>		<span class="macro">assert!</span>(!mask.contains(RetentionReasonMask::DHT_AFFINITY));
+<a href=#521 id=521 data-nosnippet>521</a>		<span class="macro">assert!</span>(mask.is_persistent());
+<a href=#522 id=522 data-nosnippet>522</a>	}
+<a href=#523 id=523 data-nosnippet>523</a>
+<a href=#524 id=524 data-nosnippet>524</a>	<span class="attr">#[test]
+<a href=#525 id=525 data-nosnippet>525</a>	</span><span class="kw">fn </span>resolver_marks_dht_affinity_when_local_is_a_replica() {
+<a href=#526 id=526 data-nosnippet>526</a>		<span class="comment">// An empty topology makes the local node a replica for every topic.
+<a href=#527 id=527 data-nosnippet>527</a>		</span><span class="kw">let </span>handle = RetentionHandle::new(peer(<span class="number">1</span>), nz(<span class="number">1</span>));
+<a href=#528 id=528 data-nosnippet>528</a>		handle.set_dht_affinity(PeersTopology::new(peer(<span class="number">1</span>), topology_config(<span class="number">20</span>, <span class="number">1</span>)).dht_affinity());
+<a href=#529 id=529 data-nosnippet>529</a>
+<a href=#530 id=530 data-nosnippet>530</a>		<span class="kw">let </span>mask = handle.resolver()(<span class="kw-2">&amp;</span>statement_on(topic(<span class="number">9</span>)));
+<a href=#531 id=531 data-nosnippet>531</a>
+<a href=#532 id=532 data-nosnippet>532</a>		<span class="macro">assert!</span>(mask.contains(RetentionReasonMask::DHT_AFFINITY));
+<a href=#533 id=533 data-nosnippet>533</a>		<span class="macro">assert!</span>(!mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
+<a href=#534 id=534 data-nosnippet>534</a>	}
+<a href=#535 id=535 data-nosnippet>535</a>
+<a href=#536 id=536 data-nosnippet>536</a>	<span class="attr">#[test]
+<a href=#537 id=537 data-nosnippet>537</a>	</span><span class="kw">fn </span>resolver_is_transient_without_any_affinity() {
+<a href=#538 id=538 data-nosnippet>538</a>		<span class="kw">let </span>(dht, topic) = dht_without_local_affinity();
+<a href=#539 id=539 data-nosnippet>539</a>		<span class="kw">let </span>handle = RetentionHandle::new(peer(<span class="number">1</span>), nz(<span class="number">1</span>));
+<a href=#540 id=540 data-nosnippet>540</a>		handle.set_dht_affinity(dht);
+<a href=#541 id=541 data-nosnippet>541</a>
+<a href=#542 id=542 data-nosnippet>542</a>		<span class="macro">assert_eq!</span>(handle.resolver()(<span class="kw-2">&amp;</span>statement_on(topic)), RetentionReasonMask::TRANSIENT);
+<a href=#543 id=543 data-nosnippet>543</a>	}
+<a href=#544 id=544 data-nosnippet>544</a>
+<a href=#545 id=545 data-nosnippet>545</a>	<span class="attr">#[test]
+<a href=#546 id=546 data-nosnippet>546</a>	</span><span class="kw">fn </span>publish_dht_affinity_reflects_the_orchestrator_topology() {
+<a href=#547 id=547 data-nosnippet>547</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = V2DhtOrchestrator::new(
+<a href=#548 id=548 data-nosnippet>548</a>			<span class="kw-2">&amp;</span>[],
+<a href=#549 id=549 data-nosnippet>549</a>			<span class="prelude-val">None</span>,
+<a href=#550 id=550 data-nosnippet>550</a>			DEFAULT_BLOOM_FALSE_POS_RATE,
+<a href=#551 id=551 data-nosnippet>551</a>			peer(<span class="number">1</span>),
+<a href=#552 id=552 data-nosnippet>552</a>			topology_config(<span class="number">1</span>, <span class="number">1</span>),
+<a href=#553 id=553 data-nosnippet>553</a>			<span class="string">"/statement/test"</span>.into(),
+<a href=#554 id=554 data-nosnippet>554</a>			<span class="prelude-val">None</span>,
+<a href=#555 id=555 data-nosnippet>555</a>		);
+<a href=#556 id=556 data-nosnippet>556</a>		<span class="kw">let </span>handle = RetentionHandle::new(peer(<span class="number">1</span>), nz(<span class="number">1</span>));
+<a href=#557 id=557 data-nosnippet>557</a>		orchestrator.set_retention_handle(handle.clone());
+<a href=#558 id=558 data-nosnippet>558</a>
+<a href=#559 id=559 data-nosnippet>559</a>		<span class="comment">// Identify enough peers that the local node loses DHT affinity for some topic; each
+<a href=#560 id=560 data-nosnippet>560</a>		// `on_peer_identified` refreshes the published oracle.
+<a href=#561 id=561 data-nosnippet>561</a>		</span><span class="kw">let </span>peers: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">2u8</span>..=<span class="number">200</span>).map(peer).collect();
+<a href=#562 id=562 data-nosnippet>562</a>		orchestrator.on_peers_discovered(peers.clone());
+<a href=#563 id=563 data-nosnippet>563</a>		<span class="kw">for </span>peer <span class="kw">in </span><span class="kw-2">&amp;</span>peers {
+<a href=#564 id=564 data-nosnippet>564</a>			orchestrator.on_peer_identified(<span class="kw-2">*</span>peer, <span class="comment">/* supports_statement_protocol */ </span><span class="bool-val">true</span>);
+<a href=#565 id=565 data-nosnippet>565</a>		}
+<a href=#566 id=566 data-nosnippet>566</a>
+<a href=#567 id=567 data-nosnippet>567</a>		<span class="kw">let </span>dht = orchestrator.peers_topology.dht_affinity();
+<a href=#568 id=568 data-nosnippet>568</a>		<span class="kw">let </span>non_affine = (<span class="number">0u8</span>..=<span class="number">255</span>)
+<a href=#569 id=569 data-nosnippet>569</a>			.map(topic)
+<a href=#570 id=570 data-nosnippet>570</a>			.find(|topic| !dht.is_affine(<span class="kw-2">&amp;</span>statement_on(<span class="kw-2">*</span>topic)))
+<a href=#571 id=571 data-nosnippet>571</a>			.expect(<span class="string">"199 peers leave some topic without local DHT affinity"</span>);
+<a href=#572 id=572 data-nosnippet>572</a>		<span class="macro">assert_eq!</span>(handle.resolver()(<span class="kw-2">&amp;</span>statement_on(non_affine)), RetentionReasonMask::TRANSIENT);
+<a href=#573 id=573 data-nosnippet>573</a>	}
+<a href=#574 id=574 data-nosnippet>574</a>
+<a href=#575 id=575 data-nosnippet>575</a>	<span class="attr">#[test]
+<a href=#576 id=576 data-nosnippet>576</a>	</span><span class="kw">fn </span>evicting_peers_refreshes_published_dht_affinity() {
+<a href=#577 id=577 data-nosnippet>577</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = orchestrator_with(<span class="number">1</span>, topology_config(<span class="number">1</span>, <span class="number">1</span>));
+<a href=#578 id=578 data-nosnippet>578</a>		<span class="kw">let </span>handle = RetentionHandle::new(peer(<span class="number">1</span>), nz(<span class="number">1</span>));
+<a href=#579 id=579 data-nosnippet>579</a>		orchestrator.set_retention_handle(handle.clone());
+<a href=#580 id=580 data-nosnippet>580</a>
+<a href=#581 id=581 data-nosnippet>581</a>		<span class="kw">let </span>remote = peer(<span class="number">2</span>);
+<a href=#582 id=582 data-nosnippet>582</a>		<span class="kw">let </span>statement = statement_on(Topic(sp_crypto_hashing::blake2_256(<span class="kw-2">&amp;</span>remote.to_bytes())));
+<a href=#583 id=583 data-nosnippet>583</a>		orchestrator.on_peer_identified(remote, <span class="bool-val">true</span>);
+<a href=#584 id=584 data-nosnippet>584</a>		orchestrator.on_substream_opened(remote);
+<a href=#585 id=585 data-nosnippet>585</a>		orchestrator.on_substream_closed(remote);
+<a href=#586 id=586 data-nosnippet>586</a>		<span class="macro">assert_eq!</span>(handle.resolver()(<span class="kw-2">&amp;</span>statement), RetentionReasonMask::TRANSIENT);
+<a href=#587 id=587 data-nosnippet>587</a>
+<a href=#588 id=588 data-nosnippet>588</a>		<span class="comment">// Exceed the 8192-peer cap using discovery alone
+<a href=#589 id=589 data-nosnippet>589</a>		</span>orchestrator.on_peers_discovered((<span class="number">0u64</span>..<span class="number">8192</span>).map(|seed| {
+<a href=#590 id=590 data-nosnippet>590</a>			<span class="kw">let </span><span class="kw-2">mut </span>bytes = [<span class="number">0u8</span>; <span class="number">34</span>];
+<a href=#591 id=591 data-nosnippet>591</a>			bytes[<span class="number">1</span>] = <span class="number">32</span>;
+<a href=#592 id=592 data-nosnippet>592</a>			bytes[<span class="number">2</span>..<span class="number">10</span>].copy_from_slice(<span class="kw-2">&amp;</span>seed.to_le_bytes());
+<a href=#593 id=593 data-nosnippet>593</a>			PeerId::from_bytes(<span class="kw-2">&amp;</span>bytes).expect(<span class="string">"identity multihash peer id; qed"</span>)
+<a href=#594 id=594 data-nosnippet>594</a>		}));
+<a href=#595 id=595 data-nosnippet>595</a>		<span class="macro">assert_eq!</span>(orchestrator.peers_topology.known_peers_count(), <span class="number">8193</span>);
+<a href=#596 id=596 data-nosnippet>596</a>		<span class="macro">assert_eq!</span>(orchestrator.peers_topology.dht_eligible_peers_count(), <span class="number">1</span>);
+<a href=#597 id=597 data-nosnippet>597</a>
+<a href=#598 id=598 data-nosnippet>598</a>		orchestrator.evict_stale_peers();
+<a href=#599 id=599 data-nosnippet>599</a>
+<a href=#600 id=600 data-nosnippet>600</a>		<span class="macro">assert_eq!</span>(orchestrator.peers_topology.known_peers_count(), <span class="number">8192</span>);
+<a href=#601 id=601 data-nosnippet>601</a>		<span class="macro">assert_eq!</span>(orchestrator.peers_topology.dht_eligible_peers_count(), <span class="number">0</span>);
+<a href=#602 id=602 data-nosnippet>602</a>		<span class="macro">assert!</span>(orchestrator.peers_topology.dht_affinity().is_affine(<span class="kw-2">&amp;</span>statement));
+<a href=#603 id=603 data-nosnippet>603</a>		<span class="macro">assert_eq!</span>(handle.resolver()(<span class="kw-2">&amp;</span>statement), RetentionReasonMask::DHT_AFFINITY);
+<a href=#604 id=604 data-nosnippet>604</a>	}
+<a href=#605 id=605 data-nosnippet>605</a>
+<a href=#606 id=606 data-nosnippet>606</a>	<span class="attr">#[test]
+<a href=#607 id=607 data-nosnippet>607</a>	</span><span class="kw">fn </span>set_retention_handle_publishes_configured_topics() {
+<a href=#608 id=608 data-nosnippet>608</a>		<span class="comment">// Configured topics must drive retention from the moment the handle is installed, before
+<a href=#609 id=609 data-nosnippet>609</a>		// any peer or subscription event.
+<a href=#610 id=610 data-nosnippet>610</a>		</span><span class="kw">let </span><span class="kw-2">mut </span>orchestrator = V2DhtOrchestrator::new(
+<a href=#611 id=611 data-nosnippet>611</a>			<span class="kw-2">&amp;</span>[topic(<span class="number">1</span>)],
+<a href=#612 id=612 data-nosnippet>612</a>			<span class="prelude-val">None</span>,
+<a href=#613 id=613 data-nosnippet>613</a>			DEFAULT_BLOOM_FALSE_POS_RATE,
+<a href=#614 id=614 data-nosnippet>614</a>			peer(<span class="number">1</span>),
+<a href=#615 id=615 data-nosnippet>615</a>			topology_config(<span class="number">1</span>, <span class="number">1</span>),
+<a href=#616 id=616 data-nosnippet>616</a>			<span class="string">"/statement/test"</span>.into(),
+<a href=#617 id=617 data-nosnippet>617</a>			<span class="prelude-val">None</span>,
+<a href=#618 id=618 data-nosnippet>618</a>		);
+<a href=#619 id=619 data-nosnippet>619</a>		<span class="kw">let </span>handle = RetentionHandle::new(peer(<span class="number">1</span>), nz(<span class="number">1</span>));
+<a href=#620 id=620 data-nosnippet>620</a>		orchestrator.set_retention_handle(handle.clone());
+<a href=#621 id=621 data-nosnippet>621</a>
+<a href=#622 id=622 data-nosnippet>622</a>		<span class="macro">assert!</span>(handle.resolver()(<span class="kw-2">&amp;</span>statement_on(topic(<span class="number">1</span>)))
+<a href=#623 id=623 data-nosnippet>623</a>			.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
+<a href=#624 id=624 data-nosnippet>624</a>	}
+<a href=#625 id=625 data-nosnippet>625</a>
+<a href=#626 id=626 data-nosnippet>626</a>	<span class="attr">#[test]
+<a href=#627 id=627 data-nosnippet>627</a>	</span><span class="kw">fn </span>set_rpc_subscription_topics_publishes_topic_affinity() {
+<a href=#628 id=628 data-nosnippet>628</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = V2DhtOrchestrator::new(
+<a href=#629 id=629 data-nosnippet>629</a>			<span class="kw-2">&amp;</span>[],
+<a href=#630 id=630 data-nosnippet>630</a>			<span class="prelude-val">None</span>,
+<a href=#631 id=631 data-nosnippet>631</a>			DEFAULT_BLOOM_FALSE_POS_RATE,
+<a href=#632 id=632 data-nosnippet>632</a>			peer(<span class="number">1</span>),
+<a href=#633 id=633 data-nosnippet>633</a>			topology_config(<span class="number">1</span>, <span class="number">1</span>),
+<a href=#634 id=634 data-nosnippet>634</a>			<span class="string">"/statement/test"</span>.into(),
+<a href=#635 id=635 data-nosnippet>635</a>			<span class="prelude-val">None</span>,
+<a href=#636 id=636 data-nosnippet>636</a>		);
+<a href=#637 id=637 data-nosnippet>637</a>		<span class="kw">let </span>handle = RetentionHandle::new(peer(<span class="number">1</span>), nz(<span class="number">1</span>));
+<a href=#638 id=638 data-nosnippet>638</a>		orchestrator.set_retention_handle(handle.clone());
+<a href=#639 id=639 data-nosnippet>639</a>		<span class="macro">assert!</span>(!handle.resolver()(<span class="kw-2">&amp;</span>statement_on(topic(<span class="number">1</span>)))
+<a href=#640 id=640 data-nosnippet>640</a>			.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
+<a href=#641 id=641 data-nosnippet>641</a>
+<a href=#642 id=642 data-nosnippet>642</a>		<span class="comment">// A subscription change reaches the store's oracle.
+<a href=#643 id=643 data-nosnippet>643</a>		</span>orchestrator.set_rpc_subscription_topics(<span class="kw-2">&amp;</span>HashSet::from([topic(<span class="number">1</span>)]));
+<a href=#644 id=644 data-nosnippet>644</a>
+<a href=#645 id=645 data-nosnippet>645</a>		<span class="macro">assert!</span>(handle.resolver()(<span class="kw-2">&amp;</span>statement_on(topic(<span class="number">1</span>)))
+<a href=#646 id=646 data-nosnippet>646</a>			.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
+<a href=#647 id=647 data-nosnippet>647</a>	}
+<a href=#648 id=648 data-nosnippet>648</a>
+<a href=#649 id=649 data-nosnippet>649</a>	<span class="attr">#[test]
+<a href=#650 id=650 data-nosnippet>650</a>	</span><span class="kw">fn </span>resolver_marks_both_affinities() {
+<a href=#651 id=651 data-nosnippet>651</a>		<span class="comment">// An empty topology makes the local node a DHT replica for every topic; configure the same
+<a href=#652 id=652 data-nosnippet>652</a>		// topic so both retention reasons hold at once.
+<a href=#653 id=653 data-nosnippet>653</a>		</span><span class="kw">let </span>handle = RetentionHandle::new(peer(<span class="number">1</span>), nz(<span class="number">1</span>));
+<a href=#654 id=654 data-nosnippet>654</a>		handle.set_dht_affinity(PeersTopology::new(peer(<span class="number">1</span>), topology_config(<span class="number">20</span>, <span class="number">1</span>)).dht_affinity());
+<a href=#655 id=655 data-nosnippet>655</a>		handle.set_topic_affinity(
+<a href=#656 id=656 data-nosnippet>656</a>			ExplicitAffinity::new(<span class="kw-2">&amp;</span>[topic(<span class="number">9</span>)], <span class="prelude-val">None</span>, DEFAULT_BLOOM_FALSE_POS_RATE).topic_affinity(),
+<a href=#657 id=657 data-nosnippet>657</a>		);
+<a href=#658 id=658 data-nosnippet>658</a>
+<a href=#659 id=659 data-nosnippet>659</a>		<span class="kw">let </span>mask = handle.resolver()(<span class="kw-2">&amp;</span>statement_on(topic(<span class="number">9</span>)));
+<a href=#660 id=660 data-nosnippet>660</a>
+<a href=#661 id=661 data-nosnippet>661</a>		<span class="macro">assert!</span>(mask.contains(RetentionReasonMask::DHT_AFFINITY));
+<a href=#662 id=662 data-nosnippet>662</a>		<span class="macro">assert!</span>(mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
+<a href=#663 id=663 data-nosnippet>663</a>		<span class="macro">assert!</span>(mask.is_persistent());
+<a href=#664 id=664 data-nosnippet>664</a>	}
+<a href=#665 id=665 data-nosnippet>665</a>
+<a href=#666 id=666 data-nosnippet>666</a>	<span class="attr">#[test]
+<a href=#667 id=667 data-nosnippet>667</a>	</span><span class="kw">fn </span>on_peer_filter_update_stores_the_filter() {
+<a href=#668 id=668 data-nosnippet>668</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = orchestrator();
+<a href=#669 id=669 data-nosnippet>669</a>		<span class="kw">let </span>peer = PeerId::random();
+<a href=#670 id=670 data-nosnippet>670</a>
+<a href=#671 id=671 data-nosnippet>671</a>		orchestrator.on_peer_filter_update(peer, filter_over(<span class="kw-2">&amp;</span>[topic(<span class="number">1</span>)]));
+<a href=#672 id=672 data-nosnippet>672</a>
+<a href=#673 id=673 data-nosnippet>673</a>		<span class="macro">assert!</span>(orchestrator
+<a href=#674 id=674 data-nosnippet>674</a>			.explicit_affinity
+<a href=#675 id=675 data-nosnippet>675</a>			.peer_has_explicit_affinity(peer, <span class="kw-2">&amp;</span>statement_on(topic(<span class="number">1</span>))));
+<a href=#676 id=676 data-nosnippet>676</a>		<span class="macro">assert!</span>(!orchestrator
+<a href=#677 id=677 data-nosnippet>677</a>			.explicit_affinity
+<a href=#678 id=678 data-nosnippet>678</a>			.peer_has_explicit_affinity(peer, <span class="kw-2">&amp;</span>statement_on(topic(<span class="number">2</span>))));
+<a href=#679 id=679 data-nosnippet>679</a>	}
+<a href=#680 id=680 data-nosnippet>680</a>
+<a href=#681 id=681 data-nosnippet>681</a>	<span class="attr">#[test]
+<a href=#682 id=682 data-nosnippet>682</a>	</span><span class="kw">fn </span>on_peer_disconnected_drops_the_filter() {
+<a href=#683 id=683 data-nosnippet>683</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = orchestrator();
+<a href=#684 id=684 data-nosnippet>684</a>		<span class="kw">let </span>peer = PeerId::random();
+<a href=#685 id=685 data-nosnippet>685</a>		orchestrator.on_peer_filter_update(peer, filter_over(<span class="kw-2">&amp;</span>[topic(<span class="number">1</span>)]));
+<a href=#686 id=686 data-nosnippet>686</a>
+<a href=#687 id=687 data-nosnippet>687</a>		orchestrator.on_peer_disconnected(peer);
+<a href=#688 id=688 data-nosnippet>688</a>
+<a href=#689 id=689 data-nosnippet>689</a>		<span class="macro">assert!</span>(!orchestrator
+<a href=#690 id=690 data-nosnippet>690</a>			.explicit_affinity
+<a href=#691 id=691 data-nosnippet>691</a>			.peer_has_explicit_affinity(peer, <span class="kw-2">&amp;</span>statement_on(topic(<span class="number">1</span>))));
+<a href=#692 id=692 data-nosnippet>692</a>	}
+<a href=#693 id=693 data-nosnippet>693</a>
+<a href=#694 id=694 data-nosnippet>694</a>	<span class="attr">#[test]
+<a href=#695 id=695 data-nosnippet>695</a>	</span><span class="kw">fn </span>take_local_filter_if_changed_reflects_subscription_topics() {
+<a href=#696 id=696 data-nosnippet>696</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = orchestrator();
+<a href=#697 id=697 data-nosnippet>697</a>		<span class="macro">assert!</span>(orchestrator.take_local_filter_if_changed().is_none());
+<a href=#698 id=698 data-nosnippet>698</a>
+<a href=#699 id=699 data-nosnippet>699</a>		orchestrator.set_rpc_subscription_topics(<span class="kw-2">&amp;</span>HashSet::from([topic(<span class="number">1</span>)]));
+<a href=#700 id=700 data-nosnippet>700</a>		<span class="kw">let </span>filter = orchestrator
+<a href=#701 id=701 data-nosnippet>701</a>			.take_local_filter_if_changed()
+<a href=#702 id=702 data-nosnippet>702</a>			.expect(<span class="string">"a subscription topic marks the filter changed"</span>);
+<a href=#703 id=703 data-nosnippet>703</a>		<span class="macro">assert!</span>(filter.contains(<span class="kw-2">&amp;</span>topic(<span class="number">1</span>)));
+<a href=#704 id=704 data-nosnippet>704</a>		<span class="macro">assert!</span>(orchestrator.take_local_filter_if_changed().is_none());
+<a href=#705 id=705 data-nosnippet>705</a>	}
+<a href=#706 id=706 data-nosnippet>706</a>
+<a href=#707 id=707 data-nosnippet>707</a>	<span class="attr">#[test]
+<a href=#708 id=708 data-nosnippet>708</a>	</span><span class="kw">fn </span>affinity_tick_marks_coverage_peers_for_connection() {
+<a href=#709 id=709 data-nosnippet>709</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = V2DhtOrchestrator::new(
+<a href=#710 id=710 data-nosnippet>710</a>			<span class="kw-2">&amp;</span>[topic(<span class="number">1</span>)],
+<a href=#711 id=711 data-nosnippet>711</a>			<span class="prelude-val">None</span>,
+<a href=#712 id=712 data-nosnippet>712</a>			DEFAULT_BLOOM_FALSE_POS_RATE,
+<a href=#713 id=713 data-nosnippet>713</a>			PeerId::random(),
+<a href=#714 id=714 data-nosnippet>714</a>			topology_config(<span class="number">20</span>, <span class="number">3</span>),
+<a href=#715 id=715 data-nosnippet>715</a>			<span class="string">"/statement/test"</span>.into(),
+<a href=#716 id=716 data-nosnippet>716</a>			<span class="prelude-val">None</span>,
+<a href=#717 id=717 data-nosnippet>717</a>		);
+<a href=#718 id=718 data-nosnippet>718</a>
+<a href=#719 id=719 data-nosnippet>719</a>		<span class="kw">let </span>peers: Vec&lt;PeerId&gt; = (<span class="number">0</span>..<span class="number">5</span>).map(|<span class="kw">_</span>| PeerId::random()).collect();
+<a href=#720 id=720 data-nosnippet>720</a>		orchestrator.on_peers_discovered(peers.clone());
+<a href=#721 id=721 data-nosnippet>721</a>		<span class="kw">for </span>peer <span class="kw">in </span><span class="kw-2">&amp;</span>peers {
+<a href=#722 id=722 data-nosnippet>722</a>			orchestrator.on_peer_identified(<span class="kw-2">*</span>peer, <span class="bool-val">true</span>);
+<a href=#723 id=723 data-nosnippet>723</a>		}
+<a href=#724 id=724 data-nosnippet>724</a>
+<a href=#725 id=725 data-nosnippet>725</a>		<span class="comment">// The tick turns the configured topic into a coverage target.
+<a href=#726 id=726 data-nosnippet>726</a>		</span>orchestrator.on_pending_affinities();
+<a href=#727 id=727 data-nosnippet>727</a>		<span class="kw">let </span>desired = orchestrator.peers_topology.peers_for_topics(<span class="kw-2">&amp;</span>[topic(<span class="number">1</span>)]);
+<a href=#728 id=728 data-nosnippet>728</a>		<span class="macro">assert!</span>(!desired.is_empty());
+<a href=#729 id=729 data-nosnippet>729</a>
+<a href=#730 id=730 data-nosnippet>730</a>		<span class="comment">// Every coverage peer is queued for a connection, since none are connected yet.
+<a href=#731 id=731 data-nosnippet>731</a>		</span><span class="kw">let </span>connect = orchestrator.peer_steering.peers_to_connect();
+<a href=#732 id=732 data-nosnippet>732</a>		<span class="macro">assert!</span>(desired.iter().all(|peer| connect.contains(peer)));
+<a href=#733 id=733 data-nosnippet>733</a>	}
+<a href=#734 id=734 data-nosnippet>734</a>
+<a href=#735 id=735 data-nosnippet>735</a>	<span class="attr">#[test]
+<a href=#736 id=736 data-nosnippet>736</a>	</span><span class="kw">fn </span>valid_statements_reward_the_sender() {
+<a href=#737 id=737 data-nosnippet>737</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = orchestrator_with(<span class="number">1</span>, topology_config(<span class="number">20</span>, <span class="number">3</span>));
+<a href=#738 id=738 data-nosnippet>738</a>		<span class="kw">let </span>peer = peer(<span class="number">2</span>);
+<a href=#739 id=739 data-nosnippet>739</a>		orchestrator.on_substream_opened(peer);
+<a href=#740 id=740 data-nosnippet>740</a>
+<a href=#741 id=741 data-nosnippet>741</a>		<span class="comment">// A new statement and one we already hold are both honest relays, each rewarded.
+<a href=#742 id=742 data-nosnippet>742</a>		</span>orchestrator.on_statement_imported(peer, <span class="kw-2">&amp;</span>SubmitResult::New);
+<a href=#743 id=743 data-nosnippet>743</a>		orchestrator.on_statement_imported(peer, <span class="kw-2">&amp;</span>SubmitResult::Known);
+<a href=#744 id=744 data-nosnippet>744</a>
+<a href=#745 id=745 data-nosnippet>745</a>		<span class="macro">assert_eq!</span>(orchestrator.peer_steering.score_of(<span class="kw-2">&amp;</span>peer), <span class="prelude-val">Some</span>(<span class="number">2 </span>* score::GOOD_ACTION));
+<a href=#746 id=746 data-nosnippet>746</a>	}
+<a href=#747 id=747 data-nosnippet>747</a>
+<a href=#748 id=748 data-nosnippet>748</a>	<span class="attr">#[test]
+<a href=#749 id=749 data-nosnippet>749</a>	</span><span class="kw">fn </span>faults_punish_the_peer() {
+<a href=#750 id=750 data-nosnippet>750</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = orchestrator_with(<span class="number">1</span>, topology_config(<span class="number">20</span>, <span class="number">3</span>));
+<a href=#751 id=751 data-nosnippet>751</a>		<span class="kw">let </span>peer = peer(<span class="number">2</span>);
+<a href=#752 id=752 data-nosnippet>752</a>		orchestrator.on_substream_opened(peer);
+<a href=#753 id=753 data-nosnippet>753</a>
+<a href=#754 id=754 data-nosnippet>754</a>		<span class="comment">// An invalid statement and a pre-import fault (duplicate or bad message) both punish.
+<a href=#755 id=755 data-nosnippet>755</a>		</span>orchestrator.on_statement_imported(peer, <span class="kw-2">&amp;</span>SubmitResult::Invalid(InvalidReason::BadProof));
+<a href=#756 id=756 data-nosnippet>756</a>		orchestrator.on_peer_misbehaved(peer);
+<a href=#757 id=757 data-nosnippet>757</a>
+<a href=#758 id=758 data-nosnippet>758</a>		<span class="macro">assert_eq!</span>(orchestrator.peer_steering.score_of(<span class="kw-2">&amp;</span>peer), <span class="prelude-val">Some</span>(<span class="number">2 </span>* score::BAD_ACTION));
+<a href=#759 id=759 data-nosnippet>759</a>	}
+<a href=#760 id=760 data-nosnippet>760</a>
+<a href=#761 id=761 data-nosnippet>761</a>	<span class="attr">#[test]
+<a href=#762 id=762 data-nosnippet>762</a>	</span><span class="kw">fn </span>resent_banned_statement_costs_the_sender_a_little() {
+<a href=#763 id=763 data-nosnippet>763</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = orchestrator_with(<span class="number">1</span>, topology_config(<span class="number">20</span>, <span class="number">3</span>));
+<a href=#764 id=764 data-nosnippet>764</a>		<span class="kw">let </span>peer = peer(<span class="number">2</span>);
+<a href=#765 id=765 data-nosnippet>765</a>		orchestrator.on_substream_opened(peer);
+<a href=#766 id=766 data-nosnippet>766</a>
+<a href=#767 id=767 data-nosnippet>767</a>		<span class="comment">// A forwarded transient statement comes back after the store swept and banned it.
+<a href=#768 id=768 data-nosnippet>768</a>		</span>orchestrator.on_statement_imported(peer, <span class="kw-2">&amp;</span>SubmitResult::KnownExpired);
+<a href=#769 id=769 data-nosnippet>769</a>
+<a href=#770 id=770 data-nosnippet>770</a>		<span class="kw">let </span>peer_score = orchestrator.peer_steering.score_of(<span class="kw-2">&amp;</span>peer);
+<a href=#771 id=771 data-nosnippet>771</a>		<span class="macro">assert_eq!</span>(peer_score, <span class="prelude-val">Some</span>(score::WASTEFUL_ACTION));
+<a href=#772 id=772 data-nosnippet>772</a>		<span class="macro">assert!</span>(peer_score.is_some_and(|value| score::BAD_ACTION &lt; value &amp;&amp; value &lt; <span class="number">0</span>));
+<a href=#773 id=773 data-nosnippet>773</a>	}
+<a href=#774 id=774 data-nosnippet>774</a>
+<a href=#775 id=775 data-nosnippet>775</a>	<span class="attr">#[test]
+<a href=#776 id=776 data-nosnippet>776</a>	</span><span class="kw">fn </span>our_side_outcomes_leave_the_score_unchanged() {
+<a href=#777 id=777 data-nosnippet>777</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = orchestrator_with(<span class="number">1</span>, topology_config(<span class="number">20</span>, <span class="number">3</span>));
+<a href=#778 id=778 data-nosnippet>778</a>		<span class="kw">let </span>peer = peer(<span class="number">2</span>);
+<a href=#779 id=779 data-nosnippet>779</a>		orchestrator.on_substream_opened(peer);
+<a href=#780 id=780 data-nosnippet>780</a>
+<a href=#781 id=781 data-nosnippet>781</a>		<span class="comment">// A full store is our condition, not the peer's fault, so no score moves.
+<a href=#782 id=782 data-nosnippet>782</a>		</span>orchestrator
+<a href=#783 id=783 data-nosnippet>783</a>			.on_statement_imported(peer, <span class="kw-2">&amp;</span>SubmitResult::Rejected(RejectionReason::StoreFull));
+<a href=#784 id=784 data-nosnippet>784</a>
+<a href=#785 id=785 data-nosnippet>785</a>		<span class="macro">assert_eq!</span>(orchestrator.peer_steering.score_of(<span class="kw-2">&amp;</span>peer), <span class="prelude-val">Some</span>(<span class="number">0</span>));
+<a href=#786 id=786 data-nosnippet>786</a>	}
 <a href=#787 id=787 data-nosnippet>787</a>
-<a href=#788 id=788 data-nosnippet>788</a>		<span class="kw">for </span>seed <span class="kw">in </span><span class="number">2</span>..=<span class="number">10 </span>{
-<a href=#789 id=789 data-nosnippet>789</a>			orchestrator.on_peers_discovered([peer(seed)]);
-<a href=#790 id=790 data-nosnippet>790</a>			orchestrator.on_peer_identified(peer(seed), <span class="bool-val">true</span>);
-<a href=#791 id=791 data-nosnippet>791</a>		}
-<a href=#792 id=792 data-nosnippet>792</a>
-<a href=#793 id=793 data-nosnippet>793</a>		<span class="comment">// The first tick selects the coverage peers and queues them for connection.
-<a href=#794 id=794 data-nosnippet>794</a>		</span>orchestrator.on_pending_affinities();
-<a href=#795 id=795 data-nosnippet>795</a>		<span class="kw">let </span>desired = orchestrator.peers_topology.peers_for_topics(<span class="kw-2">&amp;</span>[topic(<span class="number">1</span>)]);
-<a href=#796 id=796 data-nosnippet>796</a>		<span class="macro">assert!</span>(!desired.is_empty());
-<a href=#797 id=797 data-nosnippet>797</a>
-<a href=#798 id=798 data-nosnippet>798</a>		<span class="comment">// The coverage peers connect, then the next tick recomputes the target.
-<a href=#799 id=799 data-nosnippet>799</a>		</span><span class="kw">for </span>peer <span class="kw">in </span><span class="kw-2">&amp;</span>desired {
-<a href=#800 id=800 data-nosnippet>800</a>			orchestrator.on_substream_opened(<span class="kw-2">*</span>peer);
-<a href=#801 id=801 data-nosnippet>801</a>		}
-<a href=#802 id=802 data-nosnippet>802</a>		orchestrator.on_pending_affinities();
-<a href=#803 id=803 data-nosnippet>803</a>
-<a href=#804 id=804 data-nosnippet>804</a>		<span class="comment">// The connected coverage peers stay desired, so peer steering keeps them: nothing left to
-<a href=#805 id=805 data-nosnippet>805</a>		// connect, nothing to disconnect.
-<a href=#806 id=806 data-nosnippet>806</a>		</span><span class="macro">assert!</span>(orchestrator.peer_steering.peers_to_connect().is_empty());
-<a href=#807 id=807 data-nosnippet>807</a>		<span class="macro">assert!</span>(orchestrator.peer_steering.peers_to_disconnect().is_empty());
-<a href=#808 id=808 data-nosnippet>808</a>	}
+<a href=#788 id=788 data-nosnippet>788</a>	<span class="attr">#[test]
+<a href=#789 id=789 data-nosnippet>789</a>	</span><span class="kw">fn </span>connected_coverage_peer_is_never_disconnected() {
+<a href=#790 id=790 data-nosnippet>790</a>		<span class="kw">let </span><span class="kw-2">mut </span>orchestrator = V2DhtOrchestrator::new(
+<a href=#791 id=791 data-nosnippet>791</a>			<span class="kw-2">&amp;</span>[topic(<span class="number">1</span>)],
+<a href=#792 id=792 data-nosnippet>792</a>			<span class="prelude-val">None</span>,
+<a href=#793 id=793 data-nosnippet>793</a>			DEFAULT_BLOOM_FALSE_POS_RATE,
+<a href=#794 id=794 data-nosnippet>794</a>			peer(<span class="number">1</span>),
+<a href=#795 id=795 data-nosnippet>795</a>			topology_config(<span class="number">20</span>, <span class="number">3</span>),
+<a href=#796 id=796 data-nosnippet>796</a>			<span class="string">"/statement/test"</span>.into(),
+<a href=#797 id=797 data-nosnippet>797</a>			<span class="prelude-val">None</span>,
+<a href=#798 id=798 data-nosnippet>798</a>		);
+<a href=#799 id=799 data-nosnippet>799</a>
+<a href=#800 id=800 data-nosnippet>800</a>		<span class="kw">for </span>seed <span class="kw">in </span><span class="number">2</span>..=<span class="number">10 </span>{
+<a href=#801 id=801 data-nosnippet>801</a>			orchestrator.on_peers_discovered([peer(seed)]);
+<a href=#802 id=802 data-nosnippet>802</a>			orchestrator.on_peer_identified(peer(seed), <span class="bool-val">true</span>);
+<a href=#803 id=803 data-nosnippet>803</a>		}
+<a href=#804 id=804 data-nosnippet>804</a>
+<a href=#805 id=805 data-nosnippet>805</a>		<span class="comment">// The first tick selects the coverage peers and queues them for connection.
+<a href=#806 id=806 data-nosnippet>806</a>		</span>orchestrator.on_pending_affinities();
+<a href=#807 id=807 data-nosnippet>807</a>		<span class="kw">let </span>desired = orchestrator.peers_topology.peers_for_topics(<span class="kw-2">&amp;</span>[topic(<span class="number">1</span>)]);
+<a href=#808 id=808 data-nosnippet>808</a>		<span class="macro">assert!</span>(!desired.is_empty());
 <a href=#809 id=809 data-nosnippet>809</a>
-<a href=#810 id=810 data-nosnippet>810</a>	<span class="attr">#[test]
-<a href=#811 id=811 data-nosnippet>811</a>	</span><span class="kw">fn </span>default_mask_is_transient() {
-<a href=#812 id=812 data-nosnippet>812</a>		<span class="macro">assert_eq!</span>(RetentionReasonMask::default(), RetentionReasonMask::TRANSIENT);
-<a href=#813 id=813 data-nosnippet>813</a>		<span class="macro">assert!</span>(!RetentionReasonMask::TRANSIENT.is_persistent());
-<a href=#814 id=814 data-nosnippet>814</a>		<span class="macro">assert!</span>(!RetentionReasonMask::TRANSIENT.contains(RetentionReasonMask::DHT_AFFINITY));
-<a href=#815 id=815 data-nosnippet>815</a>	}
-<a href=#816 id=816 data-nosnippet>816</a>
-<a href=#817 id=817 data-nosnippet>817</a>	<span class="attr">#[test]
-<a href=#818 id=818 data-nosnippet>818</a>	</span><span class="kw">fn </span>persistent_mask_holds_every_reason() {
-<a href=#819 id=819 data-nosnippet>819</a>		<span class="kw">let </span>mask = RetentionReasonMask::persistent();
-<a href=#820 id=820 data-nosnippet>820</a>		<span class="macro">assert!</span>(mask.is_persistent());
-<a href=#821 id=821 data-nosnippet>821</a>		<span class="macro">assert!</span>(mask.contains(RetentionReasonMask::DHT_AFFINITY));
-<a href=#822 id=822 data-nosnippet>822</a>		<span class="macro">assert!</span>(mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
-<a href=#823 id=823 data-nosnippet>823</a>	}
-<a href=#824 id=824 data-nosnippet>824</a>
-<a href=#825 id=825 data-nosnippet>825</a>	<span class="attr">#[test]
-<a href=#826 id=826 data-nosnippet>826</a>	</span><span class="kw">fn </span>insert_sets_one_reason_at_a_time() {
-<a href=#827 id=827 data-nosnippet>827</a>		<span class="kw">let </span><span class="kw-2">mut </span>mask = RetentionReasonMask::default();
-<a href=#828 id=828 data-nosnippet>828</a>		mask.insert(RetentionReasonMask::EXPLICIT_AFFINITY);
-<a href=#829 id=829 data-nosnippet>829</a>		<span class="macro">assert!</span>(mask.is_persistent());
-<a href=#830 id=830 data-nosnippet>830</a>		<span class="macro">assert!</span>(mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
-<a href=#831 id=831 data-nosnippet>831</a>		<span class="macro">assert!</span>(!mask.contains(RetentionReasonMask::DHT_AFFINITY));
-<a href=#832 id=832 data-nosnippet>832</a>	}
-<a href=#833 id=833 data-nosnippet>833</a>}
+<a href=#810 id=810 data-nosnippet>810</a>		<span class="comment">// The coverage peers connect, then the next tick recomputes the target.
+<a href=#811 id=811 data-nosnippet>811</a>		</span><span class="kw">for </span>peer <span class="kw">in </span><span class="kw-2">&amp;</span>desired {
+<a href=#812 id=812 data-nosnippet>812</a>			orchestrator.on_substream_opened(<span class="kw-2">*</span>peer);
+<a href=#813 id=813 data-nosnippet>813</a>		}
+<a href=#814 id=814 data-nosnippet>814</a>		orchestrator.on_pending_affinities();
+<a href=#815 id=815 data-nosnippet>815</a>
+<a href=#816 id=816 data-nosnippet>816</a>		<span class="comment">// The connected coverage peers stay desired, so peer steering keeps them: nothing left to
+<a href=#817 id=817 data-nosnippet>817</a>		// connect, nothing to disconnect.
+<a href=#818 id=818 data-nosnippet>818</a>		</span><span class="macro">assert!</span>(orchestrator.peer_steering.peers_to_connect().is_empty());
+<a href=#819 id=819 data-nosnippet>819</a>		<span class="macro">assert!</span>(orchestrator.peer_steering.peers_to_disconnect().is_empty());
+<a href=#820 id=820 data-nosnippet>820</a>	}
+<a href=#821 id=821 data-nosnippet>821</a>
+<a href=#822 id=822 data-nosnippet>822</a>	<span class="attr">#[test]
+<a href=#823 id=823 data-nosnippet>823</a>	</span><span class="kw">fn </span>default_mask_is_transient() {
+<a href=#824 id=824 data-nosnippet>824</a>		<span class="macro">assert_eq!</span>(RetentionReasonMask::default(), RetentionReasonMask::TRANSIENT);
+<a href=#825 id=825 data-nosnippet>825</a>		<span class="macro">assert!</span>(!RetentionReasonMask::TRANSIENT.is_persistent());
+<a href=#826 id=826 data-nosnippet>826</a>		<span class="macro">assert!</span>(!RetentionReasonMask::TRANSIENT.contains(RetentionReasonMask::DHT_AFFINITY));
+<a href=#827 id=827 data-nosnippet>827</a>	}
+<a href=#828 id=828 data-nosnippet>828</a>
+<a href=#829 id=829 data-nosnippet>829</a>	<span class="attr">#[test]
+<a href=#830 id=830 data-nosnippet>830</a>	</span><span class="kw">fn </span>persistent_mask_holds_every_reason() {
+<a href=#831 id=831 data-nosnippet>831</a>		<span class="kw">let </span>mask = RetentionReasonMask::persistent();
+<a href=#832 id=832 data-nosnippet>832</a>		<span class="macro">assert!</span>(mask.is_persistent());
+<a href=#833 id=833 data-nosnippet>833</a>		<span class="macro">assert!</span>(mask.contains(RetentionReasonMask::DHT_AFFINITY));
+<a href=#834 id=834 data-nosnippet>834</a>		<span class="macro">assert!</span>(mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
+<a href=#835 id=835 data-nosnippet>835</a>	}
+<a href=#836 id=836 data-nosnippet>836</a>
+<a href=#837 id=837 data-nosnippet>837</a>	<span class="attr">#[test]
+<a href=#838 id=838 data-nosnippet>838</a>	</span><span class="kw">fn </span>insert_sets_one_reason_at_a_time() {
+<a href=#839 id=839 data-nosnippet>839</a>		<span class="kw">let </span><span class="kw-2">mut </span>mask = RetentionReasonMask::default();
+<a href=#840 id=840 data-nosnippet>840</a>		mask.insert(RetentionReasonMask::EXPLICIT_AFFINITY);
+<a href=#841 id=841 data-nosnippet>841</a>		<span class="macro">assert!</span>(mask.is_persistent());
+<a href=#842 id=842 data-nosnippet>842</a>		<span class="macro">assert!</span>(mask.contains(RetentionReasonMask::EXPLICIT_AFFINITY));
+<a href=#843 id=843 data-nosnippet>843</a>		<span class="macro">assert!</span>(!mask.contains(RetentionReasonMask::DHT_AFFINITY));
+<a href=#844 id=844 data-nosnippet>844</a>	}
+<a href=#845 id=845 data-nosnippet>845</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
