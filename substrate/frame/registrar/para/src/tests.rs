@@ -694,9 +694,17 @@ mod cancel_registration {
 			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
 			// The registration took message id 0, so the cancellation is message 1.
 			assert_eq!(take_sent(), vec![cancel_request(para_id, 1)]);
+			// Giving up means the verdict on message 0 never turned up, which is worth saying out
+			// loud.
 			assert_eq!(
 				registrar_events(),
-				vec![Event::CancelRequested { para_id, message_id: 1, manager: ALICE }]
+				vec![
+					Event::Unexpected(UnexpectedKind::ResponseNeverArrived {
+						para_id,
+						message_id: 0
+					}),
+					Event::CancelRequested { para_id, message_id: 1, manager: ALICE },
+				]
 			);
 
 			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_confirmation(para_id, 1)));
@@ -731,9 +739,21 @@ mod cancel_registration {
 			);
 
 			run_to_block(System::block_number() + 1);
+			let _ = registrar_events();
 			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
 			// Register was 0, the first cancellation 1, so the retry carries 2.
 			assert_eq!(take_sent(), vec![cancel_request(para_id, 2)]);
+			// And the retry says that the answer to the first cancellation never came.
+			assert_eq!(
+				registrar_events(),
+				vec![
+					Event::Unexpected(UnexpectedKind::ResponseNeverArrived {
+						para_id,
+						message_id: 1
+					}),
+					Event::CancelRequested { para_id, message_id: 2, manager: ALICE },
+				]
+			);
 		});
 	}
 

@@ -307,10 +307,10 @@ pub trait ParachainRegistrar {
 	/// Drop `para_id` from the registry.
 	///
 	/// Idempotent: a para already gone, or still being cleaned up, answers `Ok(())` rather than
-	/// refusing, so a [`Deregister`] resent after a lost answer settles instead of telling the
-	/// parachain the para is still there.
-	///
-	/// [`Deregister`]: MessageToRelayV1::Deregister
+	/// refusing, so a second [`MessageToRelayV1::Deregister`] settles instead of telling the
+	/// parachain the para is still there. Nothing here retries on its own: the parachain waits,
+	/// and if no answer turns up the manager sends the request again. That second request is how
+	/// the parachain learns the first answer never came, and it reports it as an unexpected event.
 	fn deregister(para_id: ParaId) -> sp_runtime::DispatchResult;
 
 	/// Whether head data of this size is acceptable right now.

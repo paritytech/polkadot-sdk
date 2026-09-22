@@ -151,11 +151,15 @@ pub enum RegistrationState<Ticket, BlockNumber> {
 	///
 	/// Both deposits stay held: only the relay chain knows whether the para really went away, and
 	/// a refusal puts it straight back to [`RegistrationState::Registered`].
+	///
+	/// There is nothing to cancel from here: if no answer turns up, the manager calls
+	/// [`Pallet::deregister`] again once `can_retry_after` has passed.
 	Deregistering {
 		/// The registration's [`Consideration`] ticket, released once the relay chain confirms.
 		ticket: Ticket,
-		/// The block from which the manager may send the [`Deregister`] again, if the answer
-		/// never arrived.
+		/// The block from which the manager may send the [`MessageToRelayV1::Deregister`] again,
+		/// if the answer never arrived. Retrying reports the missing answer as
+		/// [`UnexpectedKind::ResponseNeverArrived`].
 		can_retry_after: BlockNumber,
 		/// The request this state is waiting on; a response carrying any other id is stale.
 		message_id: u64,
@@ -343,6 +347,8 @@ pub mod pallet {
 		HeadNotedForUnregisteredPara { para_id: ParaId },
 		/// A response answering a request this pallet is no longer waiting on.
 		StaleResponse { para_id: ParaId, message_id: u64, expected: u64 },
+		/// The relay chain never answered this request and the manager gave up waiting.
+		ResponseNeverArrived { para_id: ParaId, message_id: u64 },
 	}
 
 	#[pallet::error]
@@ -549,11 +555,20 @@ pub mod pallet {
 
 			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
 			ensure!(info.manager == who, Error::<T>::NotOwner);
-			let RegistrationState::Pending { ticket, cancellable_at, .. } = info.state else {
+			let RegistrationState::Pending { ticket, cancellable_at, message_id: awaited } =
+				info.state
+			else {
 				return Err(Error::<T>::NotPending.into());
 			};
 			let now = T::BlockNumberProvider::current_block_number();
 			ensure!(now >= cancellable_at, Error::<T>::CannotCancelYet);
+
+			// Getting here means the relay chain's answer to `awaited` never turned up. That should
+			// not happen, so say so on chain instead of quietly retrying.
+			Self::report_unexpected(UnexpectedKind::ResponseNeverArrived {
+				para_id,
+				message_id: awaited,
+			});
 
 			// Another deadline's grace before the manager may ask again, so a request that goes
 			// missing can be retried without the relay chain being asked once per block.
@@ -616,7 +631,8 @@ pub mod pallet {
 		#[pallet::weight(Weight::MAX)]
 		pub fn deregister(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let _ = (origin, para_id);
-			// TODO(ahm-v2): request deregistration on the relay chain.
+			// TODO(ahm-v2): request deregistration on the relay chain, reporting a retry from
+			// `Deregistering` as `UnexpectedKind::ResponseNeverArrived`.
 			Err(Error::<T>::Unimplemented.into())
 		}
 
