@@ -317,7 +317,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -1218,6 +1218,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// `ProposalCount` can be more is because when a proposal is removed the
 	/// count is not deducted.
 	/// * Count of `ProposalOf` should match the count of `Proposals`
+	/// * Every proposal hash must equal `proposal_hash(call, threshold)` of its stored entries.
 	///
 	/// Looking at votes:
 	/// * The sum of aye and nay votes for a proposal can never exceed
@@ -1235,10 +1236,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn do_try_state() -> Result<(), TryRuntimeError> {
 		Proposals::<T, I>::get().into_iter().try_for_each(
 			|proposal| -> Result<(), TryRuntimeError> {
-				ensure!(
-					ProposalOf::<T, I>::get(proposal).is_some(),
-					"Proposal hash from `Proposals` is not found inside the `ProposalOf` mapping."
-				);
+				let call = ProposalOf::<T, I>::get(proposal).ok_or(
+					"Proposal hash from `Proposals` is not found inside the `ProposalOf` mapping.",
+				)?;
+				if let Some(votes) = Voting::<T, I>::get(proposal) {
+					ensure!(
+						proposal == Self::proposal_hash(&call, votes.threshold),
+						"Proposal hash is not derived from the proposal's call and threshold."
+					);
+				}
 				Ok(())
 			},
 		)?;
