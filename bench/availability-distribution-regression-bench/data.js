@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790001170144,
+  "lastUpdate": 1790070653523,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e30a412c6cd957afedbb3157dac9cf4b424b0fa6",
-          "message": "net: Strip previous p2p prefix before concatenating addresses (#11078)\n\nThis PR ensures that a `MultiaddrWithPeerId` will always remain valid\nafter a concatenating process.\n\nThe litep2p code will concatanate the provided multiaddr-with-peerID\nregardless if the address already contains a `p2p/..` prefix:\n\n\nhttps://github.com/paritytech/polkadot-sdk/blob/e85be1c07adedcc86554affa4f6af536c4a2efc1/substrate/client/network/src/litep2p/service.rs#L427-L434\n\n\nThis then can lead to addresses for reserved peers to never be dialed by\nthe network backend as they are considered invalid.\n\nThis has been discovered by running the networking benchmarks:\n\nhttps://github.com/paritytech/polkadot-sdk/blob/e85be1c07adedcc86554affa4f6af536c4a2efc1/substrate/client/network/benches/notifications_protocol.rs#L143-L148\n\nPart of the cleanups for:\n- https://github.com/paritytech/polkadot-sdk/issues/10425\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-22T19:52:39Z",
-          "tree_id": "e0b7771005d72b671ade97ec038e2f28910c9b82",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e30a412c6cd957afedbb3157dac9cf4b424b0fa6"
-        },
-        "date": 1771794656063,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009796110099999988,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007199239713333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02508854517333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14451086630000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14389415975999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7e68ad23409d5891ccdb37ac253d18bf8fc23c0c",
+          "message": "statement gossip: score a resent banned statement against the sender (#13274)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/12517.\n\nOn the v2 DHT path a peer that resends a statement the store has removed\nand banned, such as a forwarded transient one, now loses one point of\nits per-peer score. The store already refuses the resend since\nhttps://github.com/paritytech/polkadot-sdk/pull/13216, which left the\nsender unpunished. The penalty is small because an honest replica can\nresend such a statement once during an initial sync.\n\n# Integration\n\nNo changes needed. Nodes without the v2 DHT path enabled are unaffected.",
+          "timestamp": "2026-09-22T08:10:43Z",
+          "tree_id": "be5497e4399f525d35edca455c96e5b794d59fb1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7e68ad23409d5891ccdb37ac253d18bf8fc23c0c"
+        },
+        "date": 1790070612542,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14265124380000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009906023866666643,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007513147913333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02524541396,
             "unit": "seconds"
           }
         ]
