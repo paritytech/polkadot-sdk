@@ -37,9 +37,13 @@ doc:
     version 2, reporting that transaction separately: its gas entry plus the number of logs the
     block committed to it. A consumer rebuilding those logs from block events must reconcile
     against that count, since the events are a superset, in emission order, of what the header
-    commits to. The new `Config` item `MaxOutsideFrameLogs` bounds the buffer as a backstop; a log
-    arriving past the cap is not buffered, so the bloom omits it while its `ContractEmitted` still
-    stands. Zero turns the buffer off, leaving such logs substrate-only as they were before.
+    commits to. `eth_block_versioned` is bumped to version 2 as well: version 1 and the unversioned
+    `eth_block` leave the synthetic transaction's hash out of `transactions`, so a consumer on the
+    older versions sees one hash per receipt entry, as before, with the mirrored logs invisible to
+    it until it moves to version 2. The new `Config` item `MaxOutsideFrameLogs` bounds the buffer
+    as a backstop; a log arriving past the cap is not buffered, so the bloom omits it while its
+    `ContractEmitted` still stands. Zero turns the buffer off, leaving such logs substrate-only as
+    they were before.
 
     Contract logs emitted outside an ethereum transaction (`Revive::call`, an XCM `Transact` into
     a contract) do not use the buffer and stay substrate-only, as before. Only pallet mirrors do,
@@ -57,9 +61,11 @@ doc:
     Rollout to a live Asset Hub (e.g. Polkadot) needs care beyond wiring the callback:
       - Atomic cutover: removing the precompile self-emit and wiring the callback must ship in the
         same runtime upgrade, else a block range emits zero or duplicate `Transfer` logs.
-      - eth-rpc must be upgraded before or with the runtime. An older one stores no receipt for
-        the synthetic transaction while still listing its hash in the block's `transactions`, so
-        an indexer walking that array and fetching each receipt breaks on it.
+      - Runtime and eth-rpc upgrade independently. An older eth-rpc keeps serving the block's
+        ethereum transactions consistently, block and receipts alike, and starts serving the
+        mirrored logs once upgraded; until then they are absent from its `eth_getLogs`. The
+        header it serves still commits to the synthetic transaction (`transactions_root`,
+        `receipts_root`, `logs_bloom`), which no eth-rpc checks against the listed transactions.
       - Weights: the mirror's cost lands in the weights of every pallet that moves assets, so a
         runtime wiring it must re-run `/cmd bench` for those pallets, not only for pallet-assets.
       - Foreign asset-index mappings must exist before a mirror can resolve a token address. The

@@ -692,25 +692,44 @@ impl VersionAwareRuntimeApi {
 	}
 
 	/// Get the current Ethereum block.
+	///
+	/// Only version 2 lists the block's synthetic transaction in `transactions`, matching what
+	/// version 2 of [`Self::eth_receipt_data`] reports. Against anything older the block has one
+	/// hash per ethereum transaction, one per receipt entry, and the mirrored logs stay invisible.
 	pub fn eth_block(&self) -> Option<BoxFuture<'_, Result<BlockV1, ClientError>>> {
 		self.capabilities.eth_block.handle(
 			|| async move {
 				let payload = subxt_client::runtime_apis().revive_api().eth_block();
 				self.call(payload).await.map(|block| block.0).map_err(Into::into)
 			},
-			|_| async move {
-				let input = BlockInputPayloadV1;
-				let payload = subxt_client::runtime_apis()
-					.revive_api()
-					.eth_block_versioned(BlockVersionedInputPayload::from(input).into());
-				self.call(payload)
-					.await
-					.map(|output| {
-						BlockOutputPayloadV1::try_from(output.0)
-							.expect("v1 input must produce v1 output; qed")
-							.block
-					})
-					.map_err(Into::into)
+			|version| async move {
+				if version < 2 {
+					let input = BlockInputPayloadV1;
+					let payload = subxt_client::runtime_apis()
+						.revive_api()
+						.eth_block_versioned(BlockVersionedInputPayload::from(input).into());
+					self.call(payload)
+						.await
+						.map(|output| {
+							BlockOutputPayloadV1::try_from(output.0)
+								.expect("v1 input must produce v1 output; qed")
+								.block
+						})
+						.map_err(Into::into)
+				} else {
+					let input = BlockInputPayloadV2;
+					let payload = subxt_client::runtime_apis()
+						.revive_api()
+						.eth_block_versioned(BlockVersionedInputPayload::from(input).into());
+					self.call(payload)
+						.await
+						.map(|output| {
+							BlockOutputPayloadV2::try_from(output.0)
+								.expect("v2 input must produce v2 output; qed")
+								.block
+						})
+						.map_err(Into::into)
+				}
 			},
 		)
 	}

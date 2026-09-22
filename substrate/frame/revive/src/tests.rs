@@ -946,6 +946,71 @@ fn logs_emitted_outside_a_call_frame_drain_in_emission_order() {
 }
 
 #[test]
+fn eth_block_and_receipt_data_pair_up_in_every_version() {
+	use crate::{
+		ReceiptGasInfo,
+		evm::block_storage,
+		runtime_api::{BlockOutputPayload, ReceiptDataOutputPayload},
+	};
+	use pallet_revive_types::runtime_api::{
+		BlockOutputPayloadV1, BlockOutputPayloadV2, BlockV1, HashesOrTransactionInfosV1,
+		ReceiptDataOutputPayloadV1, ReceiptDataOutputPayloadV2,
+	};
+	use sp_core::H256;
+	use sp_crypto_hashing::keccak_256;
+
+	ExtBuilder::default().build().execute_with(|| {
+		// One ethereum transaction, then one log mirrored outside any ethereum transaction.
+		block_storage::process_transaction::<Test>(
+			vec![0xde, 0xad, 0xbe, 0xef],
+			true,
+			ReceiptGasInfo { gas_used: U256::from(21_000), effective_gas_price: U256::one() },
+		);
+		Pallet::<Test>::emit_contract_log_outside_frame(
+			H160::from_low_u64_be(0xA1),
+			vec![H256::repeat_byte(0x11)].try_into().unwrap(),
+			vec![1u8].try_into().unwrap(),
+		);
+		block_storage::on_finalize_build_eth_block::<Test>(1);
+
+		// Assembled from storage the way `eth_block_versioned` and `eth_receipt_data_versioned` do.
+		let block = || BlockOutputPayload {
+			block: Pallet::<Test>::eth_block(),
+			has_synthetic_transaction: Pallet::<Test>::eth_synthetic_transaction().is_some(),
+		};
+		let receipt_data = || ReceiptDataOutputPayload {
+			receipt_data: Pallet::<Test>::eth_receipt_data(),
+			synthetic: Pallet::<Test>::eth_synthetic_transaction(),
+		};
+		let hashes = |block: BlockV1| match block.transactions {
+			HashesOrTransactionInfosV1::Hashes(hashes) => hashes,
+			_ => panic!("the runtime commits transaction hashes"),
+		};
+
+		// A V1 consumer fetches a receipt per listed hash, so both sides leave the synthetic
+		// transaction out.
+		let v1_hashes = hashes(BlockOutputPayloadV1::from(block()).block);
+		let v1_receipts = ReceiptDataOutputPayloadV1::from(receipt_data()).receipt_data;
+		assert_eq!(v1_hashes.len(), 1);
+		assert_eq!(v1_hashes.len(), v1_receipts.len());
+
+		// V2 lists it as the trailing hash and reports its receipt entry apart.
+		let v2_hashes = hashes(BlockOutputPayloadV2::from(block()).block);
+		let v2_receipts = ReceiptDataOutputPayloadV2::from(receipt_data());
+		assert_eq!(v2_hashes.len(), 2);
+		assert_eq!(v2_hashes.len(), v2_receipts.receipt_data.len() + 1);
+		assert!(v2_receipts.synthetic.is_some());
+
+		let synthetic_hash = H256(keccak_256(&crate::evm::synthetic_log_transaction(
+			U256::from(1),
+			U256::from(<Test as crate::Config>::ChainId::get()),
+		)));
+		assert_eq!(v2_hashes[1], synthetic_hash, "the trailing hash is the synthetic transaction");
+		assert_eq!(v1_hashes[0], v2_hashes[0], "V1 dropped nothing but the synthetic transaction");
+	});
+}
+
+#[test]
 fn outside_of_frame_logs_past_the_cap_stay_substrate_only() {
 	use crate::OutsideFrameLogs;
 	use sp_core::H256;
