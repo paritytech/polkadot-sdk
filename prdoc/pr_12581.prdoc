@@ -24,8 +24,9 @@ doc:
     canonical ERC-20 `Transfer` logs at the asset's precompile address. The `ERC20` precompile no
     longer emits its own `Transfer` log, so wire this callback as the instance's `CallbackHandle`
     to keep precompile transfers logged. Asset Hub Westend wires it for the trust-backed and pool
-    instances (inline-id) and for foreign assets (via `ForeignIdConfig` and the asset-index map);
-    the kitchensink runtime wires it for both of its inline-id instances.
+    instances (inline-id) and for foreign assets (via `ForeignIdConfig` and the asset-index map).
+    The kitchensink runtime wires only the foreign-asset index-map callback and no mirror, so its
+    precompile transfers emit no `Transfer` log.
 
     A log emitted with no ethereum transaction open — a mirror from a plain extrinsic or an XCM
     balance change — has no receipt to attach to, so it is buffered per block and flushed in
