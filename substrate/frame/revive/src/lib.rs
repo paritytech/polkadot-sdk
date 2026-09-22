@@ -837,22 +837,19 @@ pub mod pallet {
 		StorageValue<_, Option<(Vec<u8>, Vec<u8>)>, ValueQuery>;
 
 	/// Logs emitted during the block outside of any ethereum transaction (e.g. by pallet-assets
-	/// balance-change callbacks on non-`eth_transact` paths), keyed by emission order.
+	/// balance-change callbacks on non-`eth_transact` paths), in emission order.
 	///
-	/// Each log is written as its own entry so buffering a log is a single bounded write rather
-	/// than a read-modify-write of a growing accumulator. Drained in emission order in
-	/// `on_finalize` and flushed as a single synthetic transaction receipt, so the logs enter the
-	/// block's `logs_bloom`, `receipts_root` and transaction trie.
+	/// One value grown with `append`, like `frame_system::Events`: buffering a log extends the
+	/// encoding in place at the cost of that log's bytes, and the whole buffer is one storage key,
+	/// so its proof carries no per-entry trie overhead. Drained in `on_finalize` and flushed as a
+	/// single synthetic transaction receipt, so the logs enter the block's `logs_bloom`,
+	/// `receipts_root` and transaction trie.
 	///
 	/// NOTE: unbounded; accumulated across the block and consumed in `on_finalize`.
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub(crate) type OutsideFrameLogs<T: Config> =
-		StorageMap<_, Twox64Concat, u32, (H160, Vec<H256>, Vec<u8>), OptionQuery>;
-
-	/// Number of logs buffered in [`OutsideFrameLogs`] this block; also the next emission index.
-	#[pallet::storage]
-	pub(crate) type OutsideFrameLogCount<T: Config> = StorageValue<_, u32, ValueQuery>;
+		StorageValue<_, Vec<(H160, Vec<H256>, Vec<u8>)>, ValueQuery>;
 
 	/// Debugging settings that can be configured when DebugEnabled config is true.
 	#[pallet::storage]

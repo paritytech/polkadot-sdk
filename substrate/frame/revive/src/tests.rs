@@ -803,7 +803,7 @@ fn tracing_a_log_emitted_outside_a_call_frame_does_not_panic() {
 #[test]
 fn logs_emitted_outside_a_call_frame_land_in_the_block_bloom() {
 	use crate::{
-		EthereumBlock, OutsideFrameLogCount,
+		EthereumBlock, OutsideFrameLogs,
 		evm::{HashesOrTransactionInfos, block_hash::LogsBloom, block_storage},
 	};
 	use sp_core::H256;
@@ -822,12 +822,12 @@ fn logs_emitted_outside_a_call_frame_land_in_the_block_bloom() {
 		);
 
 		// The log is parked in the block-level buffer until finalization.
-		assert_eq!(OutsideFrameLogCount::<Test>::get(), 1);
+		assert_eq!(OutsideFrameLogs::<Test>::get().len(), 1);
 
 		block_storage::on_finalize_build_eth_block::<Test>(1);
 
 		// The buffer is consumed by the synthetic transaction.
-		assert_eq!(OutsideFrameLogCount::<Test>::get(), 0);
+		assert!(OutsideFrameLogs::<Test>::get().is_empty());
 
 		let block = EthereumBlock::<Test>::get();
 
@@ -860,7 +860,7 @@ fn logs_emitted_outside_a_call_frame_land_in_the_block_bloom() {
 #[test]
 fn logs_emitted_outside_a_call_frame_drain_in_emission_order() {
 	use crate::{
-		EthBlockBuilderIR, EthereumBlock, OutsideFrameLogCount, OutsideFrameLogs, ReceiptGasInfo,
+		EthBlockBuilderIR, EthereumBlock, OutsideFrameLogs, ReceiptGasInfo,
 		evm::{
 			HashesOrTransactionInfos,
 			block_hash::{AccumulateReceipt, EthereumBlockBuilder},
@@ -913,18 +913,18 @@ fn logs_emitted_outside_a_call_frame_drain_in_emission_order() {
 				);
 			}
 
-			assert_eq!(OutsideFrameLogCount::<Test>::get(), 3);
+			let buffered = OutsideFrameLogs::<Test>::get();
+			assert_eq!(buffered.len(), 3);
 
-			// The buffer indexes the logs as they arrive, and the drain walks `0..count`.
+			// The buffer keeps the logs as they arrive, and the drain walks it front to back.
 			for (index, i) in order.iter().enumerate() {
-				let (contract, _, _) = OutsideFrameLogs::<Test>::get(index as u32)
-					.expect("every emitted log is buffered; qed");
-				assert_eq!(contract, contracts[*i], "log {index} is the {i}th emitted");
+				let (contract, _, _) = &buffered[index];
+				assert_eq!(*contract, contracts[*i], "log {index} is the {i}th emitted");
 			}
 
 			block_storage::on_finalize_build_eth_block::<Test>(1);
 
-			assert_eq!(OutsideFrameLogCount::<Test>::get(), 0, "every log is drained");
+			assert!(OutsideFrameLogs::<Test>::get().is_empty(), "every log is drained");
 
 			let block = EthereumBlock::<Test>::get();
 			let hashes = match block.transactions {
@@ -947,7 +947,7 @@ fn logs_emitted_outside_a_call_frame_drain_in_emission_order() {
 
 #[test]
 fn outside_of_frame_logs_past_the_cap_stay_substrate_only() {
-	use crate::{OutsideFrameLogCount, OutsideFrameLogs};
+	use crate::OutsideFrameLogs;
 	use sp_core::H256;
 
 	let emit = |byte: u8| {
@@ -963,20 +963,20 @@ fn outside_of_frame_logs_past_the_cap_stay_substrate_only() {
 
 		emit(1);
 		emit(2);
-		assert_eq!(OutsideFrameLogCount::<Test>::get(), 2, "the buffer fills to the cap");
+		assert_eq!(OutsideFrameLogs::<Test>::get().len(), 2, "the buffer fills to the cap");
 
 		// Past the cap the log misses the block's bloom, but it is still an event: dropping it
 		// outright would lose a `LOG` whose frame reported success.
 		let events_before = System::events().len();
 		emit(3);
 
-		assert_eq!(OutsideFrameLogCount::<Test>::get(), 2, "the count does not grow past the cap");
-		assert!(OutsideFrameLogs::<Test>::get(2).is_none(), "the third log is not buffered");
+		let buffered = OutsideFrameLogs::<Test>::get();
+		assert_eq!(buffered.len(), 2, "the buffer does not grow past the cap");
 		assert_eq!(System::events().len(), events_before + 1, "but it is still deposited");
 
 		// The logs that did fit are untouched.
-		assert!(OutsideFrameLogs::<Test>::get(0).is_some());
-		assert!(OutsideFrameLogs::<Test>::get(1).is_some());
+		assert_eq!(buffered[0].0, H160::from_low_u64_be(1));
+		assert_eq!(buffered[1].0, H160::from_low_u64_be(2));
 	});
 
 	// A zero cap turns the buffer off, which is how a runtime opts out: logs emitted outside an
@@ -987,7 +987,7 @@ fn outside_of_frame_logs_past_the_cap_stay_substrate_only() {
 		let events_before = System::events().len();
 		emit(1);
 
-		assert_eq!(OutsideFrameLogCount::<Test>::get(), 0, "nothing is buffered");
+		assert!(OutsideFrameLogs::<Test>::get().is_empty(), "nothing is buffered");
 		assert_eq!(System::events().len(), events_before + 1, "the event still fires");
 	});
 }

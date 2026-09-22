@@ -17,8 +17,8 @@
 use crate::{
 	AccountIdOf, BalanceOf, BalanceWithDust, BlockHash, BlockNumberFor, Config, ContractResult,
 	Error, EthBlockBuilderIR, EthereumBlock, Event, ExecReturnValue, H160, H256, LOG_TARGET,
-	OutsideFrameLogCount, OutsideFrameLogs, Pallet, ReceiptGasInfo, ReceiptInfoData,
-	StorageDeposit, SyntheticReceiptInfo, Weight, dispatch_result,
+	OutsideFrameLogs, Pallet, ReceiptGasInfo, ReceiptInfoData, StorageDeposit,
+	SyntheticReceiptInfo, Weight, dispatch_result,
 	evm::{
 		block_hash::{
 			AccumulateReceipt, EthereumBlockBuilder, LogsBloom, SyntheticTransactionInfo,
@@ -141,7 +141,7 @@ pub fn capture_ethereum_log<T: Config>(contract: &H160, data: &[u8], topics: &[H
 		return;
 	}
 
-	let index = OutsideFrameLogCount::<T>::get();
+	let index = OutsideFrameLogs::<T>::decode_len().unwrap_or(0) as u32;
 	let cap = <T as Config>::MaxOutsideFrameLogs::get();
 	if index >= cap {
 		// Zero turns the buffer off, so only an exhausted non-zero cap is worth reporting: the
@@ -155,12 +155,11 @@ pub fn capture_ethereum_log<T: Config>(contract: &H160, data: &[u8], topics: &[H
 		return;
 	}
 
-	OutsideFrameLogs::<T>::insert(index, (*contract, topics.to_vec(), data.to_vec()));
-	OutsideFrameLogCount::<T>::put(index.saturating_add(1));
+	OutsideFrameLogs::<T>::append((*contract, topics.to_vec(), data.to_vec()));
 
 	// This log's share of the `on_finalize` drain, charged to the block that emitted it, since
 	// `on_initialize` reserves only the fixed part of `on_finalize`. Only a buffered log reaches
-	// here — one captured into a receipt returned above — and the insert itself is measured by the
+	// here — one captured into a receipt returned above — and the append itself is measured by the
 	// emitting pallet's own benchmark.
 	frame_system::Pallet::<T>::register_extra_weight_unchecked(
 		<T as Config>::WeightInfo::per_outside_frame_log(data.len() as u32),
@@ -286,15 +285,12 @@ pub fn on_finalize_build_eth_block<T: Config>(block_number: BlockNumberFor<T>) {
 	// Flush logs emitted outside any ethereum transaction as a single synthetic transaction, so
 	// they enter the block bloom / receipts_root / transaction trie. Must run after all real
 	// transactions have been processed, since the trie builders are order-sensitive.
-	let outside_frame_log_count = OutsideFrameLogCount::<T>::take();
-	let mut committed_log_count = 0u32;
+	let outside_frame_logs = OutsideFrameLogs::<T>::take();
+	let outside_frame_log_count = outside_frame_logs.len() as u32;
 	if outside_frame_log_count > 0 {
 		let mut receipt = AccumulateReceipt::new();
-		for index in 0..outside_frame_log_count {
-			if let Some((contract, topics, data)) = OutsideFrameLogs::<T>::take(index) {
-				receipt.add_log(&contract, &data, &topics);
-				committed_log_count.saturating_inc();
-			}
+		for (contract, topics, data) in &outside_frame_logs {
+			receipt.add_log(contract, data, topics);
 		}
 		block_builder.process_transaction(
 			synthetic_transaction::<T>(block_number),
@@ -310,9 +306,10 @@ pub fn on_finalize_build_eth_block<T: Config>(block_number: BlockNumberFor<T>) {
 	// The synthetic transaction is processed after every real one, so its entry is the trailing
 	// one.
 	let synthetic = if outside_frame_log_count > 0 {
-		receipt_data
-			.pop()
-			.map(|gas_info| SyntheticTransactionInfo { gas_info, log_count: committed_log_count })
+		receipt_data.pop().map(|gas_info| SyntheticTransactionInfo {
+			gas_info,
+			log_count: outside_frame_log_count,
+		})
 	} else {
 		None
 	};

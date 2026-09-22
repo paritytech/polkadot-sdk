@@ -3631,8 +3631,7 @@ mod benchmarks {
 		// Where `Deposit` mints through `fungibles` and the runtime mirrors balance changes as
 		// logs, creating the contract above buffers one. Drop it, so these benchmarks measure the
 		// transactions and logs they set up themselves and no synthetic transaction on top.
-		let _ = OutsideFrameLogs::<T>::clear(u32::MAX, None);
-		OutsideFrameLogCount::<T>::kill();
+		OutsideFrameLogs::<T>::kill();
 
 		Ok((instance, storage_deposit, evm_value, signer_key, current_block))
 	}
@@ -3958,9 +3957,8 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Benchmark the `on_finalize` drain of `n` buffered outside-of-frame logs: the
-	/// `OutsideFrameLogs::take` each one costs, and folding it into the synthetic transaction's
-	/// receipt (RLP + bloom).
+	/// Benchmark the `on_finalize` drain of `n` buffered outside-of-frame logs: taking the buffer
+	/// and folding each log into the synthetic transaction's receipt (RLP + bloom).
 	///
 	/// `pov_mode = Measured` so the marginal carries the per-log proof size, which a constant
 	/// estimate cannot infer. See `OnFinalizeBlockParts::per_outside_frame_log` for why the insert
