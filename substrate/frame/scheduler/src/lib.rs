@@ -448,6 +448,32 @@ pub mod pallet {
 			let large_lookup = lookup_weight::<T>(1024 * 1024);
 			assert!(large_lookup.all_lte(limit), "Must be possible to submit a large lookup");
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: SystemBlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
+	#[cfg(any(feature = "try-runtime", test))]
+	impl<T: Config> Pallet<T> {
+		/// Invariant: every [`Lookup`] entry resolves to a matching named task in [`Agenda`].
+		///
+		/// The reverse does not hold: a task may sit in the agenda without a lookup entry.
+		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+			for (name, (when, index)) in Lookup::<T>::iter() {
+				let agenda = Agenda::<T>::get(when);
+				let task = agenda
+					.get(index as usize)
+					.and_then(Option::as_ref)
+					.ok_or("`Lookup` entry points to a missing or empty `Agenda` slot.")?;
+				ensure!(
+					task.maybe_id == Some(name),
+					"`Lookup` entry points to a task whose id does not match."
+				);
+			}
+			Ok(())
+		}
 	}
 
 	#[pallet::call]
