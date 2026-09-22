@@ -1,4 +1,4 @@
-title: 'statement-store: limit each retention track on its own'
+title: 'statement-store: size limits for the DHT-affinity and transient statements'
 
 doc:
 - audience: Node Operator

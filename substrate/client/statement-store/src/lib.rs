@@ -1039,13 +1039,14 @@ impl SubmitIndex {
 		self.track_max_sizes[track as usize].unwrap_or(self.config.max_total_size)
 	}
 
-	/// Warns, once per maintenance period, when the store rejects a statement of a limited track
-	/// that has room under its own limit: the other tracks hold the space.
+	/// Warns, once per maintenance period, when the store size rejects a statement of a limited
+	/// track that has room under its own limit: the other tracks hold the space.
 	fn warn_if_track_squeezed(&mut self, track: RetentionTrack, data_len: usize) {
 		let track_size = self.totals.track_size(track);
 		if self.squeeze_warned ||
 			self.track_max_sizes[track as usize].is_none() ||
-			track_size + data_len > self.track_max_size(track)
+			track_size + data_len > self.track_max_size(track) ||
+			self.totals.size() + data_len <= self.config.max_total_size
 		{
 			return;
 		}
@@ -1408,10 +1409,10 @@ impl SubmitIndex {
 	fn apply_account_removal(
 		&mut self,
 		account: &AccountId,
-		entries: &[(PriorityKey, EntryDetails)],
+		totals: StoreTotals,
 		banned_count: usize,
 	) {
-		self.totals = self.totals_after_removal(entries.iter().map(|(_, details)| details));
+		self.totals = totals;
 		self.evicted_count += banned_count;
 		if let Some(record) = self.account_statements.remove(account) {
 			self.cached_statement_count -= record.by_priority.len();
@@ -3394,7 +3395,7 @@ impl StatementStore for Store {
 
 				Error::Db(e.to_string())
 			})?;
-			submit_index.apply_account_removal(&who, &entries, banned_count);
+			submit_index.apply_account_removal(&who, totals, banned_count);
 			// Applied under the same lock that ordered the commit (#12624).
 			let mut query_index = self.query_index.write();
 			for (hash, statement) in &removed_statements {
