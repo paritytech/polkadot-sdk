@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790069451451,
+  "lastUpdate": 1790093518144,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -127007,6 +127007,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2959719265,
             "range": "± 34524233",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "16ae0b3dbbfe688d1045d8832f9679c59b3d8393",
+          "message": "cumulus: add support for signed scheduling info (#13234)\n\n# Description\n\nFixes #12311 \n\nAdded the support to sign the scheduling proof's payload, relevant for\nresubmitting a block. The added support is exercised just in tests, and\nthe plan is to use it once the logic moves onto segment submission - the\nV4 collator-protocol alternative to a collation submission, just that it\nenables the submission of >=1 collations, and a scheduling proof with a\nsigned payload, to prove the eligibility of the current author to\nresubmit not just the freshly built blocks of the current para slot.\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-09-22T14:54:09Z",
+          "tree_id": "1357af30c4b341e89287306d2612465328b5b13e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/16ae0b3dbbfe688d1045d8832f9679c59b3d8393"
+        },
+        "date": 1790093477732,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20346962,
+            "range": "± 230037",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20531588,
+            "range": "± 149842",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22363523,
+            "range": "± 111328",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27077472,
+            "range": "± 207874",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 63075612,
+            "range": "± 1049959",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 370141453,
+            "range": "± 6871958",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2865349313,
+            "range": "± 182383973",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18036429,
+            "range": "± 218590",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17938947,
+            "range": "± 175281",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18527799,
+            "range": "± 297425",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23116433,
+            "range": "± 183014",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 64253261,
+            "range": "± 808960",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 379830188,
+            "range": "± 8286575",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2773217669,
+            "range": "± 21649153",
             "unit": "ns/iter"
           }
         ]
