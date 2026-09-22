@@ -833,8 +833,8 @@ struct SubmitIndex {
 	track_max_sizes: [Option<usize>; RetentionTrack::COUNT],
 	/// Number of stored statements and their data size per retention track.
 	totals: StoreTotals,
-	/// Whether a limited track was reported squeezed by the others since the last maintenance.
-	squeeze_warned: bool,
+	/// Whether the starved-track warning went out since the last maintenance, which resets it.
+	starved_track_warning_sent: bool,
 	evicted_count: usize,
 	// Monotonic sequence number assigned to each statement as it is inserted.
 	next_seq: u64,
@@ -1002,7 +1002,7 @@ impl SubmitIndex {
 			track_max_sizes: config.track_max_sizes(),
 			config,
 			totals: StoreTotals::default(),
-			squeeze_warned: false,
+			starved_track_warning_sent: false,
 			next_seq: 0,
 			cached_statement_count: 0,
 			allowance_cursor: None,
@@ -1041,16 +1041,16 @@ impl SubmitIndex {
 
 	/// Warns, once per maintenance period, when the store size rejects a statement of a limited
 	/// track that has room under its own limit: the other tracks hold the space.
-	fn warn_if_track_squeezed(&mut self, track: RetentionTrack, data_len: usize) {
+	fn warn_if_track_starved(&mut self, track: RetentionTrack, data_len: usize) {
 		let track_size = self.totals.track_size(track);
-		if self.squeeze_warned ||
+		if self.starved_track_warning_sent ||
 			self.track_max_sizes[track as usize].is_none() ||
 			track_size + data_len > self.track_max_size(track) ||
 			self.totals.size() + data_len <= self.config.max_total_size
 		{
 			return;
 		}
-		self.squeeze_warned = true;
+		self.starved_track_warning_sent = true;
 		log::warn!(
 			target: LOG_TARGET,
 			"Statement kept for {} rejected: the store holds {} of {} bytes while its track holds {} of its {} bytes, the other tracks take the rest",
@@ -2479,7 +2479,7 @@ impl Store {
 			let mut submit_index = self.submit_index.write();
 			submit_index.evicted_count =
 				submit_index.evicted_count.saturating_sub(deleted_count as usize);
-			submit_index.squeeze_warned = false;
+			submit_index.starved_track_warning_sent = false;
 			(
 				submit_index.statement_count(),
 				submit_index.evicted_count,
@@ -3139,7 +3139,7 @@ impl StatementStore for Store {
 						metrics.rejections.with_label_values(&[reason.label()]).inc();
 					});
 					if matches!(reason, RejectionReason::StoreFull) {
-						submit_index.warn_if_track_squeezed(track, statement_len);
+						submit_index.warn_if_track_starved(track, statement_len);
 					}
 					// The rejection left the store untouched, so a record loaded for planning
 					// still mirrors the disk. Cache it: rejections cost the sender nothing, and
