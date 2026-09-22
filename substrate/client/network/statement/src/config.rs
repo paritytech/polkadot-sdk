@@ -100,10 +100,10 @@ pub struct V2DhtConfig {
 	pub replication_factor: NonZeroUsize,
 	/// Number of peers to gossip a statement to in addition to DHT-affinity routing targets.
 	pub gossip_target: NonZeroUsize,
-	/// Maximum total data size in bytes of the statements kept for DHT affinity, the store's
+	/// Maximum total data size in bytes of the statements kept for DHT affinity, or the store's
 	/// size limit when `None`.
 	pub dht_affinity_max_size: Option<usize>,
-	/// Maximum total data size in bytes of the transient statements, kept until propagated, the
+	/// Maximum total data size in bytes of the transient statements, kept until propagated, or the
 	/// store's size limit when `None`.
 	pub transient_max_size: Option<usize>,
 }

@@ -73,7 +73,7 @@ keeps for DHT affinity and of the transient ones it keeps only until propagated.
 toward the reason it is kept for, moving with the retention sweep, and a full reason rejects new
 statements of that reason while the others still admit theirs. Statements kept for explicit
 affinity alone are bound by the store size only, so they take the room the two limited reasons
-leave free. Like the global limits, a lowered limit trims nothing on its own: the track admits
+leave free. Like the global limits, a lowered limit trims nothing on its own: the limit admits
 again as its statements leave.
 
 Allowances are not fixed in code: they are held in chain state (keyed under

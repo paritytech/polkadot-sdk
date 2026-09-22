@@ -404,6 +404,21 @@ impl StoreTotals {
 		*size = size.saturating_sub(data_len as u64);
 	}
 
+	/// Removes a statement whose track is unknown: the bytes come off the unlimited track first
+	/// and off the others only for what it holds less, so the store size stays exact.
+	fn sub_unattributed(&mut self, data_len: usize) {
+		self.count = self.count.saturating_sub(1);
+		let mut left = data_len as u64;
+		for track in
+			[RetentionTrack::ExplicitOnly, RetentionTrack::Transient, RetentionTrack::Persistent]
+		{
+			let size = &mut self.sizes[track as usize];
+			let taken = left.min(*size);
+			*size -= taken;
+			left -= taken;
+		}
+	}
+
 	fn count(&self) -> usize {
 		self.count as usize
 	}
@@ -629,8 +644,8 @@ impl Config {
 		Ok(())
 	}
 
-	/// The size limit of every retention track, indexed by the track's discriminant. `None`
-	/// leaves the store size as the limit.
+	/// The size limit of every retention track by discriminant, `None` where the store size is
+	/// the limit.
 	fn track_max_sizes(&self) -> [Option<usize>; RetentionTrack::COUNT] {
 		let mut max_sizes = [None; RetentionTrack::COUNT];
 		if let Some(cfg) = &self.v2dht {
@@ -686,9 +701,13 @@ struct QueryIndex {
 enum RetentionTrack {
 	/// No affinity covers the statement, it only passes through on its way to the replicas: kept
 	/// until propagated.
+	#[codec(index = 0)]
 	Transient,
 	/// Only explicit affinity covers the statement: it is dropped once that affinity lapses.
+	#[codec(index = 1)]
 	ExplicitOnly,
+	/// DHT affinity covers the statement, or nothing limits its retention.
+	#[codec(index = 2)]
 	Persistent,
 }
 
@@ -707,8 +726,8 @@ impl From<RetentionReasonMask> for RetentionTrack {
 }
 
 impl RetentionTrack {
-	/// Number of variants, the length of the per-track arrays. The persisted counters row encodes
-	/// one such array, so a change needs a database version bump.
+	/// Number of variants, persisted in the counters row and the account index along with the
+	/// discriminants, so a change of count or order needs a database version bump.
 	const COUNT: usize = 3;
 
 	fn is_persistent(&self) -> bool {
@@ -829,8 +848,6 @@ struct SubmitIndex {
 	allowance_cycle_seen: usize,
 	/// Store configuration (global limits, purge period).
 	config: Config,
-	/// Size limit of every retention track, from `config`.
-	track_max_sizes: [Option<usize>; RetentionTrack::COUNT],
 	/// Number of stored statements and their data size per retention track.
 	totals: StoreTotals,
 	/// Whether the starved-track warning went out since the last maintenance, which resets it.
@@ -999,7 +1016,6 @@ impl SubmitIndex {
 			// length at or below the budget.
 			account_statements: LruMap::new(ByLength::new(u32::MAX)),
 			summaries: LruMap::new(ByLength::new(SUMMARY_CACHE_ACCOUNTS)),
-			track_max_sizes: config.track_max_sizes(),
 			config,
 			totals: StoreTotals::default(),
 			starved_track_warning_sent: false,
@@ -1036,7 +1052,7 @@ impl SubmitIndex {
 	}
 
 	fn track_max_size(&self, track: RetentionTrack) -> usize {
-		self.track_max_sizes[track as usize].unwrap_or(self.config.max_total_size)
+		self.config.track_max_sizes()[track as usize].unwrap_or(self.config.max_total_size)
 	}
 
 	/// Warns, once per maintenance period, when the store size rejects a statement of a limited
@@ -1044,7 +1060,7 @@ impl SubmitIndex {
 	fn warn_if_track_starved(&mut self, track: RetentionTrack, data_len: usize) {
 		let track_size = self.totals.track_size(track);
 		if self.starved_track_warning_sent ||
-			self.track_max_sizes[track as usize].is_none() ||
+			self.config.track_max_sizes()[track as usize].is_none() ||
 			track_size + data_len > self.track_max_size(track) ||
 			self.totals.size() + data_len <= self.config.max_total_size
 		{
@@ -1262,7 +1278,7 @@ impl SubmitIndex {
 		if !self.within_limits(&totals, track) {
 			log::debug!(
 				target: LOG_TARGET,
-				"Ignored statement {} from account {} because the store is full (size={}, count={}, track={:?})",
+				"Ignored statement {} from account {} because the store or the track is full (size={}, count={}, track={:?})",
 				HexDisplay::from(&hash),
 				HexDisplay::from(account),
 				self.total_size(),
@@ -1360,11 +1376,11 @@ impl SubmitIndex {
 		&mut self,
 		account: &AccountId,
 		key: &PriorityKey,
-		track: RetentionTrack,
+		totals: StoreTotals,
 		data_len: usize,
 		banned: bool,
 	) {
-		self.totals.sub(track, data_len);
+		self.totals = totals;
 		if banned {
 			self.evicted_count += 1;
 		}
@@ -1706,7 +1722,8 @@ impl Store {
 
 		let mut migration = MigrationBatch::new(&self.db);
 		let mut migration_error = None;
-		// The resolver is not installed at startup, so migrated statements count as persistent.
+		// Nothing records what a statement migrated from an older version is kept for, so it counts
+		// toward the track without a limit of its own.
 		let mut totals = StoreTotals::default();
 		self.db
 			.iter_column_while(col::STATEMENTS, |item| {
@@ -1734,12 +1751,12 @@ impl Store {
 					next_seq = seq.saturating_add(1);
 					seq
 				});
-				totals.add(RetentionTrack::Persistent, statement.data_len());
+				totals.add(RetentionTrack::ExplicitOnly, statement.data_len());
 				let details = EntryDetails {
 					channel: statement.channel(),
 					data_len: statement.data_len(),
 					admission_seq: seq,
-					track: RetentionTrack::Persistent,
+					track: RetentionTrack::ExplicitOnly,
 				};
 				let admission_op = persisted_seq.is_none().then(|| DbOperation {
 					column: col::ADMISSION_SEQ,
@@ -3552,15 +3569,17 @@ impl Store {
 					Some(INDEX_EMPTY_VALUE.to_vec()),
 				));
 			}
-			// Without an index row the track is unknown, so the statement comes off the track
-			// without a limit of its own.
-			let (track, data_len) = details
-				.as_ref()
-				.map_or((RetentionTrack::ExplicitOnly, statement.data_len()), |details| {
-					(details.track, details.data_len)
-				});
 			let mut totals = submit_index.totals;
-			totals.sub(track, data_len);
+			let data_len = match &details {
+				Some(details) => {
+					totals.sub(details.track, details.data_len);
+					details.data_len
+				},
+				None => {
+					totals.sub_unattributed(statement.data_len());
+					statement.data_len()
+				},
+			};
 			commit.push(SubmitIndex::counters_op(&totals, submit_index.next_seq));
 			if let Err(e) = self.db.commit(commit) {
 				log::debug!(
@@ -3574,7 +3593,7 @@ impl Store {
 			submit_index.apply_removal(
 				&account,
 				&PriorityKey { hash: *hash, expiry },
-				track,
+				totals,
 				data_len,
 				banned,
 			);
@@ -3584,9 +3603,8 @@ impl Store {
 		Ok(true)
 	}
 
-	/// Moves a stored statement onto `track`: rewrites its account index row and the totals, so
-	/// the track's limits count it from now on. Returns `false` when the index row is gone. Must
-	/// run under the submit-index write lock.
+	/// Moves a stored statement onto `track` by rewriting its account index row and the totals
+	/// under the submit-index write lock, `false` when the statement cannot be tied to its row.
 	fn retrack_statement_locked(
 		&self,
 		submit_index: &mut SubmitIndex,
@@ -5034,7 +5052,7 @@ mod tests {
 		assert_eq!(track_size(&store, RetentionTrack::ExplicitOnly), 0);
 		assert_eq!(track_size(&store, RetentionTrack::Persistent), data_len);
 
-		// The index row carries the new track, so the removal comes off it.
+		// The index row carries the track the sweep set, so the removal comes off it.
 		store.remove(&hash).unwrap();
 		assert_eq!(store.submit_index.read().totals, StoreTotals::default());
 	}
@@ -5107,7 +5125,7 @@ mod tests {
 	}
 
 	#[test]
-	fn migration_counts_every_statement_as_persistent() {
+	fn migration_counts_every_statement_as_explicit_only() {
 		let (store, temp) = test_store();
 		let statements = submit_one_statement_per_track(&store);
 		store
@@ -5129,11 +5147,11 @@ mod tests {
 		)
 		.unwrap();
 		assert_eq!(track_size(&store, RetentionTrack::Transient), 0);
-		assert_eq!(track_size(&store, RetentionTrack::ExplicitOnly), 0);
-		assert_eq!(track_size(&store, RetentionTrack::Persistent), 60);
-		// Migrated rows carry the persistent track, so the removal comes off it.
+		assert_eq!(track_size(&store, RetentionTrack::ExplicitOnly), 60);
+		assert_eq!(track_size(&store, RetentionTrack::Persistent), 0);
+		// Migrated rows carry the explicit-only track, so the removal comes off it.
 		store.remove(&statements[0].hash()).unwrap();
-		assert_eq!(track_size(&store, RetentionTrack::Persistent), 50);
+		assert_eq!(track_size(&store, RetentionTrack::ExplicitOnly), 50);
 	}
 
 	fn transient_max_size(max_size: usize) -> Config {

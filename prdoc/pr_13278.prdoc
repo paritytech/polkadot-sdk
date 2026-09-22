@@ -9,8 +9,9 @@ doc:
     size only. Each limit defaults to the store size and is set with the hidden flags
     `--statement-store-max-dht-affinity-size` and `--statement-store-max-transient-size`. The node
     warns at startup about a limit above half of the store size, and once per maintenance period
-    when a limited track is rejected while the others hold the space. The statement database
-    migrates to version 3 on the first start, existing statements count as kept for DHT affinity.
+    when the store size rejects a statement whose own limit still has room. The statement database
+    migrates to version 3 on the first start, existing statements count as kept for explicit
+    affinity.
 
 crates:
 - name: sc-statement-store
@@ -18,6 +19,6 @@ crates:
 - name: sc-network-statement
   bump: major
 - name: staging-node-cli
-  bump: patch
+  bump: minor
 - name: polkadot-omni-node-lib
   bump: major

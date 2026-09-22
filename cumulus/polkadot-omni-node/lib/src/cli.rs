@@ -332,8 +332,7 @@ pub struct Cli<Config: CliConfig> {
 	pub statement_bloom_seed: Option<u128>,
 
 	/// Maximum total data size (in bytes) of the statements the store keeps for DHT affinity.
-	/// Defaults to `--statement-store-max-total-size`. Statements kept for explicit affinity
-	/// alone are bound by the store size only.
+	/// Defaults to `--statement-store-max-total-size`.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
