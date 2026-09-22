@@ -2038,7 +2038,7 @@ where
 	}
 
 	#[cfg(test)]
-	pub(crate) fn access_list_metrics(&self) -> crate::access_list::AccessListMetrics {
+	pub fn access_list_metrics(&self) -> crate::access_list::AccessListMetrics {
 		self.access_list.metrics()
 	}
 

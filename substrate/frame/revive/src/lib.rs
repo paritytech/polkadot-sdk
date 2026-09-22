@@ -54,7 +54,7 @@ pub mod tracing;
 pub mod weights;
 
 use crate::{
-	access_list::{CodeLoadItems, StorageOp, Summarized, Warmth},
+	access_list::CodeLoadItems,
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
 		StateOverrideSet, TYPE_EIP1559, TYPE_EIP7702, Tracer, TracerType,
@@ -103,6 +103,10 @@ use sp_runtime::{
 };
 
 pub use crate::{
+	access_list::{
+		Access, AccessEntry, CodeLoadWarmth, KeyFamily, StorageItems, StorageOp, Summarized,
+		Warmth, WarmthSummary,
+	},
 	address::{AccountId32Mapper, AddressMapper, AutoMapper, TestAccountMapper, create1, create2},
 	debug::DebugSettings,
 	deposit_payment::{Deposit, PGasDeposit},

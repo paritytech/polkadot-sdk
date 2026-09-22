@@ -20,7 +20,8 @@ mod deposit_payment;
 mod eip7702;
 mod eth_estimate_gas;
 mod pallet_dummy;
-pub(crate) mod precompiles;
+mod precompiles;
+pub use precompiles::{INoInfo, NoInfo, WithInfo};
 mod pvm;
 mod sol;
 mod stipends;
@@ -67,7 +68,7 @@ parameter_types! {
 }
 
 /// The access-list metrics `operation` recorded.
-pub(crate) fn access_list_metrics_of(operation: impl FnOnce()) -> AccessListMetrics {
+pub fn access_list_metrics_of(operation: impl FnOnce()) -> AccessListMetrics {
 	LastAccessListMetrics::take();
 	operation();
 	LastAccessListMetrics::take()

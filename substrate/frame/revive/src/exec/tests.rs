@@ -3894,10 +3894,7 @@ fn cold_hot_a_load_warms_both_code_entries() {
 fn cold_hot_a_precompile_call_warms_nothing() {
 	use crate::{
 		precompiles::Precompile,
-		tests::{
-			access_list_metrics_of,
-			precompiles::{INoInfo, NoInfo, WithInfo},
-		},
+		tests::{INoInfo, NoInfo, WithInfo, access_list_metrics_of},
 	};
 	use alloy_core::sol_types::SolInterface;
 

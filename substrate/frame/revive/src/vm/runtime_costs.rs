@@ -242,10 +242,7 @@ impl RuntimeCosts {
 	}
 
 	/// Computes the overhead the access list adds to one touch.
-	pub(crate) fn access_list_overhead<T: Config>(
-		summary: WarmthSummary,
-		key: KeyFamily,
-	) -> Weight {
+	pub fn access_list_overhead<T: Config>(summary: WarmthSummary, key: KeyFamily) -> Weight {
 		let [cold_full, cold_base, hot_full, hot_base]: [fn() -> Weight; 4] = match key {
 			KeyFamily::Slot => [
 				T::WeightInfo::access_list_touch_cold_full,
@@ -272,7 +269,7 @@ impl RuntimeCosts {
 	}
 
 	/// Computes the cost of journaling a `Read` to `Write` upgrade, on top of the touch itself.
-	pub(crate) fn access_list_upgrade_overhead<T: Config>() -> Weight {
+	pub fn access_list_upgrade_overhead<T: Config>() -> Weight {
 		T::WeightInfo::access_list_touch_hot_upgrade()
 			.saturating_sub(T::WeightInfo::access_list_touch_hot_full())
 	}
@@ -294,7 +291,7 @@ impl RuntimeCosts {
 
 impl Summarized<CallWarmth> {
 	/// Computes the call cost from the warmth of the entries it reads.
-	pub(crate) fn weight<T: Config>(self) -> Weight {
+	pub fn weight<T: Config>(self) -> Weight {
 		match self.entries {
 			CallWarmth::Plain { .. } => weight_from_warmth_summary::<T>(
 				self.summary,
@@ -316,7 +313,7 @@ impl Summarized<CallWarmth> {
 ///
 /// Each bench measures the whole access, so the hot one applies only when every entry is hot. The
 /// access list's own costs come on top, entry by entry.
-pub(crate) fn weight_from_warmth_summary<T: Config>(
+pub fn weight_from_warmth_summary<T: Config>(
 	summary: WarmthSummary,
 	key: KeyFamily,
 	cold: impl FnOnce() -> Weight,

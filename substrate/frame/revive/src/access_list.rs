@@ -404,18 +404,18 @@ impl CallItems {
 #[cfg(test)]
 impl CallItems {
 	/// Returns how many entries a plain call to a contract touches, its own plus the callee's code.
-	pub(crate) fn plain_entries() -> u32 {
+	pub fn plain_entries() -> u32 {
 		Self::Plain { target: H160::zero() }.entry_count() +
 			CodeLoadItems { hash: H256::zero() }.entry_count()
 	}
 
 	/// Returns how many entries a transfer touches.
-	pub(crate) fn transfer_entries() -> u32 {
+	pub fn transfer_entries() -> u32 {
 		TransferItems { from: H160::repeat_byte(1), to: H160::zero(), dust: false }.entry_count()
 	}
 
 	/// Returns how many entries a delegate call touches, the target's account info plus its code.
-	pub(crate) fn delegate_entries() -> u32 {
+	pub fn delegate_entries() -> u32 {
 		Self::Delegate { target: H160::zero() }.entry_count() +
 			CodeLoadItems { hash: H256::zero() }.entry_count()
 	}
