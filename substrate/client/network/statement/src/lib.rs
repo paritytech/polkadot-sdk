@@ -493,7 +493,7 @@ impl Metrics {
 				CounterVec::new(
 					Opts::new(
 						"substrate_sync_statement_undelivered_total",
-						"Total statements whose delivery was abandoned, so the peer never received them, by reason",
+						"Statement-recipient delivery attempts skipped or abandoned by reason; later sync may still deliver the statements",
 					),
 					&["reason"],
 				)?,
@@ -2171,30 +2171,35 @@ where
 			return;
 		};
 
+		let to_send = indices.iter().filter_map(|&index| {
+			let (_, hash, stmt) = &statements[index];
+			if has_received_from(
+				&self.recently_received_statements,
+				&self.pending_statements_peers,
+				hash,
+				who,
+			) {
+				return None;
+			}
+			Some(stmt)
+		});
+
 		// TODO(#11288): light peers may need different gating on the v2 DHT path. The
 		// orchestrator already chose this peer, so blocking it until it advertises a filter
 		// may be redundant here.
 		if !peer.can_receive() {
+			if let Some(metrics) = &self.metrics {
+				let skipped = to_send.count();
+				metrics
+					.undelivered_statements
+					.with_label_values(&["awaiting_filter"])
+					.inc_by(skipped as u64);
+			}
 			return;
 		}
 
 		let protocol_version = peer.protocol_version;
-		let to_send: Vec<_> = indices
-			.iter()
-			.filter_map(|&index| {
-				let (_, hash, stmt) = &statements[index];
-				// The peer supplied this statement, do not send it back.
-				if has_received_from(
-					&self.recently_received_statements,
-					&self.pending_statements_peers,
-					hash,
-					who,
-				) {
-					return None;
-				}
-				Some(stmt)
-			})
-			.collect();
+		let to_send: Vec<_> = to_send.collect();
 
 		if to_send.is_empty() {
 			return;
