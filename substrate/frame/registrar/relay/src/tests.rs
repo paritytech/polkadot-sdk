@@ -304,7 +304,7 @@ mod apply_authorized_code {
 	fn a_blob_of_the_wrong_length_is_refused_by_both() {
 		new_test_ext().execute_with(|| {
 			request(PARA_A, 20, 300);
-			// Shorter than declared, so the manager underpaid on the parachain.
+			// Shorter than declared, which the length check catches before the hash.
 			let short = code(200);
 
 			let (authorized, dispatched) = authorize_and_dispatch(PARA_A, short);
