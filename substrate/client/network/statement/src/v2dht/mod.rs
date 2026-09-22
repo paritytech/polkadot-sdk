@@ -296,15 +296,14 @@ impl V2DhtOrchestrator {
 	// === Post-submit hook ===
 
 	/// Score peer on the outcome of importing a statement it sent: a valid statement rewards it, an
-	/// invalid one punishes it, and our-side outcomes (`KnownExpired`, `Rejected`, `InternalError`)
-	/// leave it untouched.
+	/// invalid one punishes it, a resend of a removed and banned statement (`KnownExpired`) costs
+	/// it a little, and our-side outcomes (`Rejected`, `InternalError`) leave it untouched.
 	pub(crate) fn on_statement_imported(&mut self, peer: PeerId, result: &SubmitResult) {
 		let change = match result {
 			SubmitResult::New | SubmitResult::Known => score::GOOD_ACTION,
 			SubmitResult::Invalid(_) => score::BAD_ACTION,
-			SubmitResult::KnownExpired |
-			SubmitResult::Rejected(_) |
-			SubmitResult::InternalError(_) => return,
+			SubmitResult::KnownExpired => score::WASTEFUL_ACTION,
+			SubmitResult::Rejected(_) | SubmitResult::InternalError(_) => return,
 		};
 		self.peer_steering.update_score(peer, change);
 	}
@@ -367,7 +366,9 @@ impl V2DhtOrchestrator {
 	}
 
 	pub(crate) fn evict_stale_peers(&mut self) {
-		self.peers_topology.evict(Instant::now());
+		if self.peers_topology.evict(Instant::now()) {
+			self.publish_dht_affinity();
+		}
 		self.report_topology_size();
 	}
 
@@ -572,6 +573,37 @@ mod tests {
 	}
 
 	#[test]
+	fn evicting_peers_refreshes_published_dht_affinity() {
+		let mut orchestrator = orchestrator_with(1, topology_config(1, 1));
+		let handle = RetentionHandle::new(peer(1), nz(1));
+		orchestrator.set_retention_handle(handle.clone());
+
+		let remote = peer(2);
+		let statement = statement_on(Topic(sp_crypto_hashing::blake2_256(&remote.to_bytes())));
+		orchestrator.on_peer_identified(remote, true);
+		orchestrator.on_substream_opened(remote);
+		orchestrator.on_substream_closed(remote);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::TRANSIENT);
+
+		// Exceed the 8192-peer cap using discovery alone
+		orchestrator.on_peers_discovered((0u64..8192).map(|seed| {
+			let mut bytes = [0u8; 34];
+			bytes[1] = 32;
+			bytes[2..10].copy_from_slice(&seed.to_le_bytes());
+			PeerId::from_bytes(&bytes).expect("identity multihash peer id; qed")
+		}));
+		assert_eq!(orchestrator.peers_topology.known_peers_count(), 8193);
+		assert_eq!(orchestrator.peers_topology.dht_eligible_peers_count(), 1);
+
+		orchestrator.evict_stale_peers();
+
+		assert_eq!(orchestrator.peers_topology.known_peers_count(), 8192);
+		assert_eq!(orchestrator.peers_topology.dht_eligible_peers_count(), 0);
+		assert!(orchestrator.peers_topology.dht_affinity().is_affine(&statement));
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::DHT_AFFINITY);
+	}
+
+	#[test]
 	fn set_retention_handle_publishes_configured_topics() {
 		// Configured topics must drive retention from the moment the handle is installed, before
 		// any peer or subscription event.
@@ -727,13 +759,26 @@ mod tests {
 	}
 
 	#[test]
+	fn resent_banned_statement_costs_the_sender_a_little() {
+		let mut orchestrator = orchestrator_with(1, topology_config(20, 3));
+		let peer = peer(2);
+		orchestrator.on_substream_opened(peer);
+
+		// A forwarded transient statement comes back after the store swept and banned it.
+		orchestrator.on_statement_imported(peer, &SubmitResult::KnownExpired);
+
+		let peer_score = orchestrator.peer_steering.score_of(&peer);
+		assert_eq!(peer_score, Some(score::WASTEFUL_ACTION));
+		assert!(peer_score.is_some_and(|value| score::BAD_ACTION < value && value < 0));
+	}
+
+	#[test]
 	fn our_side_outcomes_leave_the_score_unchanged() {
 		let mut orchestrator = orchestrator_with(1, topology_config(20, 3));
 		let peer = peer(2);
 		orchestrator.on_substream_opened(peer);
 
-		// Store-full and expiry are our conditions, not the peer's fault, so no score moves.
-		orchestrator.on_statement_imported(peer, &SubmitResult::KnownExpired);
+		// A full store is our condition, not the peer's fault, so no score moves.
 		orchestrator
 			.on_statement_imported(peer, &SubmitResult::Rejected(RejectionReason::StoreFull));
 

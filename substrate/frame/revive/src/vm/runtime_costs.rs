@@ -17,7 +17,7 @@
 
 use crate::{
 	Config,
-	access_list::{StorageAccessKind, StorageOp, Warmth},
+	access_list::{StorageOp, Warmth},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -184,6 +184,22 @@ pub enum RuntimeCosts {
 	/// for the chain-id failures, which bail before recovery — and incur no
 	/// account creation/update work.
 	Delegations { new_accounts: u32, existing_accounts: u32, invalid_accounts: u32 },
+}
+
+/// How a storage access is priced.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StorageAccessKind {
+	/// Persistent storage, priced by its access-list warmth.
+	Persistent(Warmth),
+	/// Transient storage, every access costs the same.
+	Transient,
+}
+
+impl StorageAccessKind {
+	/// Builds the storage access kind. `warmth` is called only for persistent storage.
+	pub fn new(transient: bool, warmth: impl FnOnce() -> Warmth) -> Self {
+		if transient { Self::Transient } else { Self::Persistent(warmth()) }
+	}
 }
 
 /// For functions that modify storage, benchmarks are performed with one item in the
@@ -430,7 +446,7 @@ mod tests {
 	use crate::tests::Test;
 
 	#[test]
-	fn cold_hot_pricing_cold_is_strictly_more_expensive_than_hot() {
+	fn storage_pricing_by_access_kind() {
 		let len = 64u32;
 		let cold = StorageAccessKind::Persistent(Warmth::Cold { revertible: false });
 		let cold_revertible = StorageAccessKind::Persistent(Warmth::Cold { revertible: true });
@@ -485,6 +501,19 @@ mod tests {
 				"proof_size differs {rev_cost:?}: rev={rev_weight:?} non={non_rev_weight:?}",
 			);
 		}
+
+		for transient_cost in with_kind(StorageAccessKind::Transient) {
+			let weight = <RuntimeCosts as Token<Test>>::weight(&transient_cost);
+			assert_eq!(
+				weight.proof_size(),
+				0,
+				"transient storage is priced without proof: {transient_cost:?}: {weight:?}"
+			);
+			assert!(
+				weight.ref_time() > 0,
+				"transient storage ref_time must be above zero: {transient_cost:?}: {weight:?}"
+			);
+		}
 	}
 
 	#[test]
@@ -536,6 +565,14 @@ mod tests {
 				"a read is covered at either paid level: {read_of_read_paid_slot:?}",
 			);
 		}
+	}
+
+	#[test]
+	fn a_transient_access_never_consults_the_access_list() {
+		assert_eq!(
+			StorageAccessKind::new(true, || unreachable!("transient storage has no warmth")),
+			StorageAccessKind::Transient,
+		);
 	}
 
 	#[test]
