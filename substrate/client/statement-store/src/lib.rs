@@ -33,9 +33,9 @@
 //! * There may not be more than `MAX_TOTAL_STATEMENTS` total statements with `MAX_TOTAL_SIZE` size.
 //!   To satisfy this, statements are removed from the store starting with the lowest
 //!   `global_priority` until a constraint is satisfied.
-//! * On the v2 DHT path, the statements kept for DHT affinity, for explicit affinity alone and the
-//!   transient ones each have their own count and size limits, counted by the reason a statement is
-//!   kept under.
+//! * On the v2 DHT path, the statements kept for DHT affinity and the transient ones each have
+//!   their own size limit. Statements kept for explicit affinity alone are bound by the store size
+//!   only, so they take the room the other two leave free.
 //!
 //! When a new statement is inserted that would not satisfy constraints in the first place, no
 //! statements are deleted and a `Rejected` result is returned.
@@ -384,35 +384,36 @@ impl Decode for EntryDetails {
 	}
 }
 
+/// Number of stored statements and their data size per retention track, indexed by the track's
+/// discriminant.
 #[derive(Clone, Copy, Default, PartialEq, Eq, Debug, Encode, Decode)]
-struct TrackTotals {
+struct StoreTotals {
 	count: u64,
-	size: u64,
+	sizes: [u64; RetentionTrack::COUNT],
 }
-
-/// Per-track statement counts and data sizes, indexed by the track's discriminant.
-#[derive(Clone, Copy, Default, PartialEq, Eq, Debug, Encode, Decode)]
-struct StoreTotals([TrackTotals; RetentionTrack::COUNT]);
 
 impl StoreTotals {
 	fn add(&mut self, track: RetentionTrack, data_len: usize) {
-		let totals = &mut self.0[track as usize];
-		totals.count += 1;
-		totals.size += data_len as u64;
+		self.count += 1;
+		self.sizes[track as usize] += data_len as u64;
 	}
 
 	fn sub(&mut self, track: RetentionTrack, data_len: usize) {
-		let totals = &mut self.0[track as usize];
-		totals.count = totals.count.saturating_sub(1);
-		totals.size = totals.size.saturating_sub(data_len as u64);
+		self.count = self.count.saturating_sub(1);
+		let size = &mut self.sizes[track as usize];
+		*size = size.saturating_sub(data_len as u64);
 	}
 
 	fn count(&self) -> usize {
-		self.0.iter().map(|totals| totals.count as usize).sum()
+		self.count as usize
 	}
 
 	fn size(&self) -> usize {
-		self.0.iter().map(|totals| totals.size as usize).sum()
+		self.sizes.iter().sum::<u64>() as usize
+	}
+
+	fn track_size(&self, track: RetentionTrack) -> usize {
+		self.sizes[track as usize] as usize
 	}
 }
 
@@ -570,10 +571,6 @@ pub use sc_network_statement::config::DEFAULT_GOSSIP_TARGET;
 /// Parameters of the v2 DHT statement path.
 pub use sc_network_statement::{AffinityTopicsFile, V2DhtConfig};
 
-/// Statement count and data size the store may hold for one reason of keeping statements, the
-/// global limits where unset.
-pub use sc_network_statement::TrackLimits;
-
 /// Default and lowest accepted false-positive rate of the advertised topic-affinity bloom
 /// filter.
 pub use sc_network_statement::config::DEFAULT_BLOOM_FALSE_POS_RATE;
@@ -620,24 +617,44 @@ impl Config {
 			)));
 		}
 		if self
-			.track_limits()
+			.track_max_sizes()
 			.iter()
-			.any(|limits| limits.max_statements == Some(0) || limits.max_size == Some(0))
+			.flatten()
+			.any(|max_size| !(1..=self.max_total_size).contains(max_size))
 		{
-			return Err(Error::InvalidConfig("per-track limits must be greater than zero".into()));
+			return Err(Error::InvalidConfig(
+				"track size limits must be between one and max_total_size".into(),
+			));
 		}
 		Ok(())
 	}
 
-	/// The limits of every retention track, indexed by the track's discriminant.
-	fn track_limits(&self) -> [TrackLimits; RetentionTrack::COUNT] {
-		let mut limits = [TrackLimits::default(); RetentionTrack::COUNT];
+	/// The size limit of every retention track, indexed by the track's discriminant. `None`
+	/// leaves the store size as the limit.
+	fn track_max_sizes(&self) -> [Option<usize>; RetentionTrack::COUNT] {
+		let mut max_sizes = [None; RetentionTrack::COUNT];
 		if let Some(cfg) = &self.v2dht {
-			limits[RetentionTrack::Transient as usize] = cfg.transient_limits;
-			limits[RetentionTrack::ExplicitOnly as usize] = cfg.explicit_affinity_limits;
-			limits[RetentionTrack::Persistent as usize] = cfg.dht_affinity_limits;
+			max_sizes[RetentionTrack::Transient as usize] = cfg.transient_max_size;
+			max_sizes[RetentionTrack::Persistent as usize] = cfg.dht_affinity_max_size;
 		}
-		limits
+		max_sizes
+	}
+
+	/// Warns about a track size limit above half of the store size: the other tracks may then
+	/// get less than their own limits promise.
+	fn warn_on_large_track_limits(&self) {
+		for track in [RetentionTrack::Persistent, RetentionTrack::Transient] {
+			let Some(max_size) = self.track_max_sizes()[track as usize] else { continue };
+			if max_size > self.max_total_size / 2 {
+				log::warn!(
+					target: LOG_TARGET,
+					"Size limit of the statements kept for {} ({} bytes) is above half of the store size ({} bytes)",
+					track.reason(),
+					max_size,
+					self.max_total_size,
+				);
+			}
+		}
 	}
 }
 
@@ -696,6 +713,15 @@ impl RetentionTrack {
 
 	fn is_persistent(&self) -> bool {
 		matches!(self, RetentionTrack::Persistent)
+	}
+
+	/// The reason the track's statements are kept for, as named in logs.
+	fn reason(&self) -> &'static str {
+		match self {
+			RetentionTrack::Transient => "propagation",
+			RetentionTrack::ExplicitOnly => "explicit affinity",
+			RetentionTrack::Persistent => "DHT affinity",
+		}
 	}
 }
 
@@ -803,10 +829,12 @@ struct SubmitIndex {
 	allowance_cycle_seen: usize,
 	/// Store configuration (global limits, purge period).
 	config: Config,
-	/// Limits of every retention track, resolved from `config`.
-	track_limits: [TrackLimits; RetentionTrack::COUNT],
-	/// Stored statements and their data size, per retention track.
+	/// Size limit of every retention track, from `config`.
+	track_max_sizes: [Option<usize>; RetentionTrack::COUNT],
+	/// Number of stored statements and their data size per retention track.
 	totals: StoreTotals,
+	/// Whether a limited track was reported squeezed by the others since the last maintenance.
+	squeeze_warned: bool,
 	evicted_count: usize,
 	// Monotonic sequence number assigned to each statement as it is inserted.
 	next_seq: u64,
@@ -971,9 +999,10 @@ impl SubmitIndex {
 			// length at or below the budget.
 			account_statements: LruMap::new(ByLength::new(u32::MAX)),
 			summaries: LruMap::new(ByLength::new(SUMMARY_CACHE_ACCOUNTS)),
-			track_limits: config.track_limits(),
+			track_max_sizes: config.track_max_sizes(),
 			config,
 			totals: StoreTotals::default(),
+			squeeze_warned: false,
 			next_seq: 0,
 			cached_statement_count: 0,
 			allowance_cursor: None,
@@ -998,17 +1027,38 @@ impl SubmitIndex {
 		self.totals.size()
 	}
 
-	/// Whether the totals after an admission under `track` stay within the global and the track's
-	/// limits.
+	/// Whether the totals after an admission under `track` stay within the store's limits and
+	/// the track's size limit.
 	fn within_limits(&self, totals: &StoreTotals, track: RetentionTrack) -> bool {
-		let limits = self.track_limits[track as usize];
-		let track_totals = &totals.0[track as usize];
-		let max_statements = limits.max_statements.unwrap_or(self.config.max_total_statements);
-		let max_size = limits.max_size.unwrap_or(self.config.max_total_size);
 		totals.count() <= self.config.max_total_statements &&
 			totals.size() <= self.config.max_total_size &&
-			track_totals.count as usize <= max_statements &&
-			track_totals.size as usize <= max_size
+			totals.track_size(track) <= self.track_max_size(track)
+	}
+
+	fn track_max_size(&self, track: RetentionTrack) -> usize {
+		self.track_max_sizes[track as usize].unwrap_or(self.config.max_total_size)
+	}
+
+	/// Warns, once per maintenance period, when the store rejects a statement of a limited track
+	/// that has room under its own limit: the other tracks hold the space.
+	fn warn_if_track_squeezed(&mut self, track: RetentionTrack, data_len: usize) {
+		let track_size = self.totals.track_size(track);
+		if self.squeeze_warned ||
+			self.track_max_sizes[track as usize].is_none() ||
+			track_size + data_len > self.track_max_size(track)
+		{
+			return;
+		}
+		self.squeeze_warned = true;
+		log::warn!(
+			target: LOG_TARGET,
+			"Statement kept for {} rejected: the store holds {} of {} bytes while its track holds {} of its {} bytes, the other tracks take the rest",
+			track.reason(),
+			self.totals.size(),
+			self.config.max_total_size,
+			track_size,
+			self.track_max_size(track),
+		);
 	}
 
 	/// Removes the account's record from the details cache, keeping the cost accounting exact.
@@ -1428,6 +1478,7 @@ impl Store {
 		Client: HeaderBackend<Block> + StorageProvider<Block, BE> + Send + Sync + 'static,
 	{
 		config.validate()?;
+		config.warn_on_large_track_limits();
 
 		let mut path: std::path::PathBuf = path.into();
 		path.push("statements");
@@ -2427,6 +2478,7 @@ impl Store {
 			let mut submit_index = self.submit_index.write();
 			submit_index.evicted_count =
 				submit_index.evicted_count.saturating_sub(deleted_count as usize);
+			submit_index.squeeze_warned = false;
 			(
 				submit_index.statement_count(),
 				submit_index.evicted_count,
@@ -3085,6 +3137,9 @@ impl StatementStore for Store {
 					self.metrics.report(|metrics| {
 						metrics.rejections.with_label_values(&[reason.label()]).inc();
 					});
+					if matches!(reason, RejectionReason::StoreFull) {
+						submit_index.warn_if_track_squeezed(track, statement_len);
+					}
 					// The rejection left the store untouched, so a record loaded for planning
 					// still mirrors the disk. Cache it: rejections cost the sender nothing, and
 					// dropping the record here would let rejected submissions against a large
@@ -3496,11 +3551,11 @@ impl Store {
 					Some(INDEX_EMPTY_VALUE.to_vec()),
 				));
 			}
-			// Without an index row the track is unknown, so the statement comes off the persistent
-			// totals.
+			// Without an index row the track is unknown, so the statement comes off the track
+			// without a limit of its own.
 			let (track, data_len) = details
 				.as_ref()
-				.map_or((RetentionTrack::Persistent, statement.data_len()), |details| {
+				.map_or((RetentionTrack::ExplicitOnly, statement.data_len()), |details| {
 					(details.track, details.data_len)
 				});
 			let mut totals = submit_index.totals;
@@ -3758,7 +3813,7 @@ mod tests {
 
 	use crate::{
 		col, Config, Error, QueryIndex, Resubmission, RetentionReasonMask, RetentionTrack, Store,
-		StoreTotals, TrackLimits, V2DhtConfig, KEY_VERSION,
+		StoreTotals, V2DhtConfig, KEY_VERSION,
 	};
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
@@ -4954,10 +5009,10 @@ mod tests {
 		}));
 		let statement = signed_statement(0);
 		let hash = statement.hash();
-		let data_len = statement.data_len() as u64;
+		let data_len = statement.data_len();
 		assert_eq!(store.submit(statement.clone(), StatementSource::Network), SubmitResult::New);
 		store.take_recent_statements().unwrap();
-		assert_eq!(track_totals(&store, RetentionTrack::Transient), (1, data_len));
+		assert_eq!(track_size(&store, RetentionTrack::Transient), data_len);
 
 		// Explicit affinity arrived before the sweep: kept, tracked as explicit-only.
 		phase.store(1, Ordering::Relaxed);
@@ -4967,16 +5022,16 @@ mod tests {
 			store.query_index.read().retention_tracks.get(&hash),
 			Some(&RetentionTrack::ExplicitOnly)
 		);
-		assert_eq!(track_totals(&store, RetentionTrack::Transient), (0, 0));
-		assert_eq!(track_totals(&store, RetentionTrack::ExplicitOnly), (1, data_len));
+		assert_eq!(track_size(&store, RetentionTrack::Transient), 0);
+		assert_eq!(track_size(&store, RetentionTrack::ExplicitOnly), data_len);
 
 		// DHT affinity makes it a plain persistent statement, so tracking ends.
 		phase.store(2, Ordering::Relaxed);
 		store.maintain();
 		assert!(store.has_statement(&hash));
 		assert!(store.query_index.read().retention_tracks.is_empty());
-		assert_eq!(track_totals(&store, RetentionTrack::ExplicitOnly), (0, 0));
-		assert_eq!(track_totals(&store, RetentionTrack::Persistent), (1, data_len));
+		assert_eq!(track_size(&store, RetentionTrack::ExplicitOnly), 0);
+		assert_eq!(track_size(&store, RetentionTrack::Persistent), data_len);
 
 		// The index row carries the new track, so the removal comes off it.
 		store.remove(&hash).unwrap();
@@ -5005,23 +5060,22 @@ mod tests {
 			.collect()
 	}
 
-	fn track_totals(store: &Store, track: RetentionTrack) -> (u64, u64) {
-		let totals = store.submit_index.read().totals.0[track as usize];
-		(totals.count, totals.size)
+	fn track_size(store: &Store, track: RetentionTrack) -> usize {
+		store.submit_index.read().totals.track_size(track)
 	}
 
 	#[test]
 	fn totals_are_kept_per_admission_track() {
 		let (store, _temp) = test_store();
 		let statements = submit_one_statement_per_track(&store);
-		assert_eq!(track_totals(&store, RetentionTrack::Transient), (1, 10));
-		assert_eq!(track_totals(&store, RetentionTrack::ExplicitOnly), (1, 20));
-		assert_eq!(track_totals(&store, RetentionTrack::Persistent), (1, 30));
+		assert_eq!(track_size(&store, RetentionTrack::Transient), 10);
+		assert_eq!(track_size(&store, RetentionTrack::ExplicitOnly), 20);
+		assert_eq!(track_size(&store, RetentionTrack::Persistent), 30);
 		assert_eq!(store.statement_count(), 3);
 		assert_eq!(store.total_size(), 60);
 
 		store.remove(&statements[1].hash()).unwrap();
-		assert_eq!(track_totals(&store, RetentionTrack::ExplicitOnly), (0, 0));
+		assert_eq!(track_size(&store, RetentionTrack::ExplicitOnly), 0);
 		assert_eq!(store.statement_count(), 2);
 
 		store.remove_by(statements[0].account_id().unwrap()).unwrap();
@@ -5046,9 +5100,9 @@ mod tests {
 			Box::new(sp_core::testing::TaskExecutor::new()),
 		)
 		.unwrap();
-		assert_eq!(track_totals(&store, RetentionTrack::Transient), (1, 10));
-		assert_eq!(track_totals(&store, RetentionTrack::ExplicitOnly), (1, 20));
-		assert_eq!(track_totals(&store, RetentionTrack::Persistent), (1, 30));
+		assert_eq!(track_size(&store, RetentionTrack::Transient), 10);
+		assert_eq!(track_size(&store, RetentionTrack::ExplicitOnly), 20);
+		assert_eq!(track_size(&store, RetentionTrack::Persistent), 30);
 	}
 
 	#[test]
@@ -5073,23 +5127,17 @@ mod tests {
 			Box::new(sp_core::testing::TaskExecutor::new()),
 		)
 		.unwrap();
-		assert_eq!(track_totals(&store, RetentionTrack::Transient), (0, 0));
-		assert_eq!(track_totals(&store, RetentionTrack::ExplicitOnly), (0, 0));
-		assert_eq!(track_totals(&store, RetentionTrack::Persistent), (3, 60));
+		assert_eq!(track_size(&store, RetentionTrack::Transient), 0);
+		assert_eq!(track_size(&store, RetentionTrack::ExplicitOnly), 0);
+		assert_eq!(track_size(&store, RetentionTrack::Persistent), 60);
 		// Migrated rows carry the persistent track, so the removal comes off it.
 		store.remove(&statements[0].hash()).unwrap();
-		assert_eq!(track_totals(&store, RetentionTrack::Persistent), (2, 50));
+		assert_eq!(track_size(&store, RetentionTrack::Persistent), 50);
 	}
 
-	fn transient_limits(max_statements: usize, max_size: usize) -> Config {
+	fn transient_max_size(max_size: usize) -> Config {
 		Config {
-			v2dht: Some(V2DhtConfig {
-				transient_limits: TrackLimits {
-					max_statements: Some(max_statements),
-					max_size: Some(max_size),
-				},
-				..Default::default()
-			}),
+			v2dht: Some(V2DhtConfig { transient_max_size: Some(max_size), ..Default::default() }),
 			..Default::default()
 		}
 	}
@@ -5112,42 +5160,48 @@ mod tests {
 	}
 
 	#[test]
-	fn zero_track_limit_is_an_invalid_config() {
-		assert!(matches!(transient_limits(0, 1).validate(), Err(Error::InvalidConfig(_))));
+	fn track_size_limit_outside_the_store_size_is_an_invalid_config() {
+		assert!(matches!(transient_max_size(0).validate(), Err(Error::InvalidConfig(_))));
+		let max_total_size = Config::default().max_total_size;
+		assert!(transient_max_size(max_total_size).validate().is_ok());
+		assert!(matches!(
+			transient_max_size(max_total_size + 1).validate(),
+			Err(Error::InvalidConfig(_))
+		));
 	}
 
 	#[test]
 	fn a_full_track_rejects_its_own_statements_only() {
-		let (store, _temp) = test_store_with_config(transient_limits(2, 15));
+		let (store, _temp) = test_store_with_config(transient_max_size(15));
 		let transient = transient_switch(&store);
 		let source = StatementSource::Network;
 
-		// The size limit binds: a second statement of 10 bytes exceeds 15.
+		// A second statement of 10 bytes exceeds the 15 of the track.
 		assert_eq!(store.submit(statement(5, 1, None, 10), source), SubmitResult::New);
 		assert_eq!(
 			store.submit(statement(5, 2, None, 10), source),
 			SubmitResult::Rejected(RejectionReason::StoreFull)
 		);
-		assert_eq!(track_totals(&store, RetentionTrack::Transient), (1, 10));
+		assert_eq!(track_size(&store, RetentionTrack::Transient), 10);
 
-		// The same statement fits another track, whose limits are the global ones.
+		// The same statement fits another track, whose limit is the store size.
 		transient.store(false, Ordering::Relaxed);
 		assert_eq!(store.submit(statement(5, 2, None, 10), source), SubmitResult::New);
-		assert_eq!(track_totals(&store, RetentionTrack::Persistent), (1, 10));
+		assert_eq!(track_size(&store, RetentionTrack::Persistent), 10);
 
-		// The count limit binds like the size.
+		// The track fills up to its limit exactly.
 		transient.store(true, Ordering::Relaxed);
 		assert_eq!(store.submit(statement(5, 3, None, 5), source), SubmitResult::New);
 		assert_eq!(
 			store.submit(statement(6, 1, None, 1), source),
 			SubmitResult::Rejected(RejectionReason::StoreFull)
 		);
-		assert_eq!(track_totals(&store, RetentionTrack::Transient), (2, 15));
+		assert_eq!(track_size(&store, RetentionTrack::Transient), 15);
 	}
 
 	#[test]
 	fn evicting_own_statements_frees_no_room_on_another_track() {
-		let (store, _temp) = test_store_with_config(transient_limits(1, 1000));
+		let (store, _temp) = test_store_with_config(transient_max_size(100));
 		let transient = transient_switch(&store);
 		let source = StatementSource::Network;
 
@@ -5167,14 +5221,14 @@ mod tests {
 			SubmitResult::Rejected(RejectionReason::StoreFull)
 		);
 		assert!(persistent.iter().all(|statement| store.has_statement(&statement.hash())));
-		assert_eq!(track_totals(&store, RetentionTrack::Persistent), (3, 300));
-		assert_eq!(track_totals(&store, RetentionTrack::Transient), (1, 100));
+		assert_eq!(track_size(&store, RetentionTrack::Persistent), 300);
+		assert_eq!(track_size(&store, RetentionTrack::Transient), 100);
 
 		// On its own track the same statement evicts the lowest priority one and fits.
 		transient.store(false, Ordering::Relaxed);
 		assert_eq!(store.submit(statement(3, 10, None, 100), source), SubmitResult::New);
 		assert!(!store.has_statement(&persistent[0].hash()));
-		assert_eq!(track_totals(&store, RetentionTrack::Persistent), (3, 300));
+		assert_eq!(track_size(&store, RetentionTrack::Persistent), 300);
 	}
 
 	#[test]

@@ -163,7 +163,7 @@ use std::{
 use tokio::time::timeout;
 use v2dht::{RetentionHandle, V2DhtMetrics, V2DhtOrchestrator};
 pub mod config;
-pub use config::{AffinityTopicsFile, TrackLimits, V2DhtConfig};
+pub use config::{AffinityTopicsFile, V2DhtConfig};
 pub use v2dht::RetentionReasonMask;
 #[cfg(test)]
 mod test_helpers;

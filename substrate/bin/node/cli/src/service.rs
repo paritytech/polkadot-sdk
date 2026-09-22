@@ -869,18 +869,8 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 			bloom_seed: cli.statement_bloom_seed,
 			replication_factor: cli.statement_replication_factor,
 			gossip_target: cli.statement_gossip_target,
-			dht_affinity_limits: sc_statement_store::TrackLimits {
-				max_statements: cli.statement_store_max_dht_affinity_statements,
-				max_size: cli.statement_store_max_dht_affinity_size,
-			},
-			explicit_affinity_limits: sc_statement_store::TrackLimits {
-				max_statements: cli.statement_store_max_explicit_affinity_statements,
-				max_size: cli.statement_store_max_explicit_affinity_size,
-			},
-			transient_limits: sc_statement_store::TrackLimits {
-				max_statements: cli.statement_store_max_transient_statements,
-				max_size: cli.statement_store_max_transient_size,
-			},
+			dht_affinity_max_size: cli.statement_store_max_dht_affinity_size,
+			transient_max_size: cli.statement_store_max_transient_size,
 		}),
 	};
 

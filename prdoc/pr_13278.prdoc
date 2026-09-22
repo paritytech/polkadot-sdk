@@ -3,13 +3,14 @@ title: 'statement-store: limit each retention track on its own'
 doc:
 - audience: Node Operator
   description: |-
-    On nodes running the v2 DHT statement path, the store now applies a separate count and size
-    limit to the statements it keeps for DHT affinity, for explicit affinity alone, and to the
-    transient ones it keeps only until propagated, on top of the global limits. Each limit defaults
-    to the global one and is set with the hidden flags
-    `--statement-store-max-{dht-affinity,explicit-affinity,transient}-{statements,size}`. The
-    statement database migrates to version 3 on the first start, existing statements count as kept
-    for DHT affinity.
+    On nodes running the v2 DHT statement path, the store now applies a separate size limit to the
+    statements it keeps for DHT affinity and to the transient ones it keeps only until propagated,
+    on top of the global limits. Statements kept for explicit affinity alone are bound by the store
+    size only. Each limit defaults to the store size and is set with the hidden flags
+    `--statement-store-max-dht-affinity-size` and `--statement-store-max-transient-size`. The node
+    warns at startup about a limit above half of the store size, and once per maintenance period
+    when a limited track is rejected while the others hold the space. The statement database
+    migrates to version 3 on the first start, existing statements count as kept for DHT affinity.
 
 crates:
 - name: sc-statement-store

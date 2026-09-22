@@ -331,50 +331,15 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, value_name = "SEED", hide = true)]
 	pub statement_bloom_seed: Option<u128>,
 
-	/// Maximum number of statements the store keeps for DHT affinity. Defaults to
-	/// `--statement-store-max-total-statements`.
-	///
-	/// Only relevant when `--enable-statement-store` is used.
-	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
-	#[arg(long, value_name = "COUNT", hide = true)]
-	pub statement_store_max_dht_affinity_statements: Option<usize>,
-
 	/// Maximum total data size (in bytes) of the statements the store keeps for DHT affinity.
-	/// Defaults to `--statement-store-max-total-size`.
+	/// Defaults to `--statement-store-max-total-size`. Statements kept for explicit affinity
+	/// alone are bound by the store size only.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
 	/// Hidden: takes effect only on the experimental v2 DHT statement path.
 	#[arg(long, value_name = "BYTES", hide = true)]
 	pub statement_store_max_dht_affinity_size: Option<usize>,
-
-	/// Maximum number of statements the store keeps for explicit affinity alone. Defaults to
-	/// `--statement-store-max-total-statements`.
-	///
-	/// Only relevant when `--enable-statement-store` is used.
-	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
-	#[arg(long, value_name = "COUNT", hide = true)]
-	pub statement_store_max_explicit_affinity_statements: Option<usize>,
-
-	/// Maximum total data size (in bytes) of the statements the store keeps for explicit affinity
-	/// alone. Defaults to `--statement-store-max-total-size`.
-	///
-	/// Only relevant when `--enable-statement-store` is used.
-	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
-	#[arg(long, value_name = "BYTES", hide = true)]
-	pub statement_store_max_explicit_affinity_size: Option<usize>,
-
-	/// Maximum number of transient statements, kept only until propagated. Defaults to
-	/// `--statement-store-max-total-statements`.
-	///
-	/// Only relevant when `--enable-statement-store` is used.
-	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
-	#[arg(long, value_name = "COUNT", hide = true)]
-	pub statement_store_max_transient_statements: Option<usize>,
 
 	/// Maximum total data size (in bytes) of the transient statements, kept only until
 	/// propagated. Defaults to `--statement-store-max-total-size`.
@@ -452,19 +417,8 @@ impl<Config: CliConfig> Cli<Config> {
 							bloom_seed: self.statement_bloom_seed,
 							replication_factor: self.statement_replication_factor,
 							gossip_target: self.statement_gossip_target,
-							dht_affinity_limits: sc_statement_store::TrackLimits {
-								max_statements: self.statement_store_max_dht_affinity_statements,
-								max_size: self.statement_store_max_dht_affinity_size,
-							},
-							explicit_affinity_limits: sc_statement_store::TrackLimits {
-								max_statements: self
-									.statement_store_max_explicit_affinity_statements,
-								max_size: self.statement_store_max_explicit_affinity_size,
-							},
-							transient_limits: sc_statement_store::TrackLimits {
-								max_statements: self.statement_store_max_transient_statements,
-								max_size: self.statement_store_max_transient_size,
-							},
+							dht_affinity_max_size: self.statement_store_max_dht_affinity_size,
+							transient_max_size: self.statement_store_max_transient_size,
 						}
 					}),
 				},
