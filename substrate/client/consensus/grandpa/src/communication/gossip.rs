@@ -498,8 +498,6 @@ struct Peers<N> {
 	/// first stage didn't allow us to spread the voting data enough to conclude the round. This
 	/// set should have size `sqrt(connected_peers)`.
 	second_stage_peers: HashSet<PeerId>,
-	/// The randomly picked set of `LUCKY_PEERS` light clients we'll gossip commit messages to.
-	lucky_light_peers: HashSet<PeerId>,
 	/// Neighbor packet rebroadcast period --- we reduce the reputation of peers sending duplicate
 	/// packets too often.
 	neighbor_rebroadcast_period: Duration,
@@ -511,7 +509,6 @@ impl<N: Ord> Peers<N> {
 			inner: Default::default(),
 			first_stage_peers: Default::default(),
 			second_stage_peers: Default::default(),
-			lucky_light_peers: Default::default(),
 			neighbor_rebroadcast_period,
 		}
 	}
@@ -523,9 +520,6 @@ impl<N: Ord> Peers<N> {
 			},
 			ObservedRole::Authority if self.second_stage_peers.len() < LUCKY_PEERS => {
 				self.second_stage_peers.insert(who);
-			},
-			ObservedRole::Light if self.lucky_light_peers.len() < LUCKY_PEERS => {
-				self.lucky_light_peers.insert(who);
 			},
 			_ => {},
 		}
@@ -539,7 +533,6 @@ impl<N: Ord> Peers<N> {
 		// so we don't reshuffle.
 		self.first_stage_peers.remove(who);
 		self.second_stage_peers.remove(who);
-		self.lucky_light_peers.remove(who);
 	}
 
 	// returns a reference to the new view, if the peer is known.
@@ -611,13 +604,14 @@ impl<N: Ord> Peers<N> {
 	}
 
 	fn reshuffle(&mut self) {
-		// we want to randomly select peers into three sets according to the following logic:
+		// we want to randomly select peers into two sets according to the following logic:
 		// - first set: LUCKY_PEERS random peers where at least LUCKY_PEERS/2 are authorities
-		//   (unless
-		// we're not connected to that many authorities)
+		//   (unless we're not connected to that many authorities)
 		// - second set: max(LUCKY_PEERS, sqrt(peers)) peers where at least LUCKY_PEERS are
 		//   authorities.
-		// - third set: LUCKY_PEERS random light client peers
+		//
+		// Light clients are never part of these sets: they don't relay anything, so the staged
+		// fanout doesn't apply to them (see `global_message_allowed`).
 
 		let shuffled_peers = {
 			let mut peers =
@@ -672,16 +666,8 @@ impl<N: Ord> Peers<N> {
 			}
 		}
 
-		// pick `LUCKY_PEERS` random light peers
-		let lucky_light_peers = shuffled_peers
-			.into_iter()
-			.filter_map(|(peer_id, info)| if info.roles.is_light() { Some(peer_id) } else { None })
-			.take(LUCKY_PEERS)
-			.collect();
-
 		self.first_stage_peers = first_stage_peers;
 		self.second_stage_peers = second_stage_peers;
-		self.lucky_light_peers = lucky_light_peers;
 	}
 }
 
@@ -1267,7 +1253,7 @@ impl<Block: BlockT> Inner<Block> {
 	/// transitions:
 	///
 	/// - State 1: allowed to max(LUCKY_PEERS, sqrt(peers)) (where at least LUCKY_PEERS are
-	///   authorities)
+	///   authorities) and to all light clients
 	/// - State 2: allowed to all peers
 	///
 	/// We are more lenient with global messages since there should be a lot
@@ -1275,8 +1261,14 @@ impl<Block: BlockT> Inner<Block> {
 	/// these to propagate to non-authorities fast enough so that they can
 	/// observe finality.
 	///
+	/// Light clients are always allowed. Commits are the only GRANDPA messages they receive and
+	/// their only way of observing finality through gossip. Since they don't relay messages,
+	/// limiting the fanout towards them doesn't reduce network-wide traffic, it only delays
+	/// finality on their side: a light client would only get the commit when randomly picked,
+	/// with the expected delay growing linearly with the number of connected light clients.
+	///
 	/// Transitions will be triggered on repropagation attempts by the
-	/// underlying gossip layer, which should happen every 30 seconds.
+	/// underlying gossip layer.
 	fn global_message_allowed(&self, who: &PeerId) -> bool {
 		let round_duration = self.config.gossip_duration * ROUND_DURATION;
 		let round_elapsed = match self.local_view {
@@ -1287,7 +1279,7 @@ impl<Block: BlockT> Inner<Block> {
 		if round_elapsed < round_duration.mul_f32(PROPAGATION_ALL) {
 			self.peers.first_stage_peers.contains(who) ||
 				self.peers.second_stage_peers.contains(who) ||
-				self.peers.lucky_light_peers.contains(who)
+				self.peers.peer(who).map(|info| info.roles.is_light()).unwrap_or(false)
 		} else {
 			true
 		}
@@ -2466,6 +2458,80 @@ mod tests {
 			&communication::global_topic::<Block>(0),
 			&commit,
 		));
+	}
+
+	#[test]
+	fn gossips_commits_to_all_light_clients_at_round_start() {
+		let mut config = config();
+		config.gossip_duration = Duration::from_secs(300); // Set to high value to prevent test race
+		let (val, _) = GossipValidator::<Block>::new(config, voter_set_state(), None, None);
+
+		// the validator starts at set id 0
+		val.note_set(SetId(0), Vec::new(), |_, _| {});
+
+		// add a few full nodes and many more light clients than `LUCKY_PEERS`
+		let mut full_nodes = Vec::new();
+		full_nodes.resize_with(4, || PeerId::random());
+
+		let mut light_peers = Vec::new();
+		light_peers.resize_with(LUCKY_PEERS * 25, || PeerId::random());
+
+		for peer in &full_nodes {
+			val.inner.write().peers.new_peer(*peer, ObservedRole::Full);
+		}
+
+		for peer in &light_peers {
+			val.inner.write().peers.new_peer(*peer, ObservedRole::Light);
+			// light client knows about the same set and is behind on finality
+			val.inner
+				.write()
+				.peers
+				.update_peer_state(
+					peer,
+					NeighborPacket {
+						round: Round(1),
+						set_id: SetId(0),
+						commit_finalized_height: 1,
+					},
+				)
+				.unwrap();
+		}
+
+		// start a new round: the round timer is fresh, so the staged fanout is in its most
+		// restrictive stage
+		val.note_round(Round(2), |_, _| {});
+
+		val.note_commit_finalized(Round(1), SetId(0), 2, |_, _| {});
+
+		let commit = {
+			let commit = finality_grandpa::CompactCommit {
+				target_hash: H256::random(),
+				target_number: 2,
+				precommits: Vec::new(),
+				auth_data: Vec::new(),
+			};
+
+			communication::gossip::GossipMessage::<Block>::Commit(
+				communication::gossip::FullCommitMessage {
+					round: Round(1),
+					set_id: SetId(0),
+					message: commit,
+				},
+			)
+			.encode()
+		};
+
+		let mut message_allowed = val.message_allowed();
+
+		// every light client gets the commit right away, regardless of how many are connected
+		for peer in &light_peers {
+			assert!(message_allowed(
+				peer,
+				MessageIntent::Broadcast,
+				&communication::global_topic::<Block>(0),
+				&commit,
+			));
+		}
 	}
 
 	#[test]
