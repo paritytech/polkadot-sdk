@@ -1,0 +1,10 @@
+title: 'pallet-multisig: add try_state invariant checks'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds a `try_state` hook to `pallet-multisig` (issue #239), run under the `try-runtime` feature and after every unit test. For each open operation it asserts that the approvals list is non empty, strictly sorted and duplicate free, and contains the depositor, and that every depositor's reserved balance covers the sum of its multisig deposits. The stored per-operation deposit is intentionally not asserted against the current deposit parameters, since it goes stale until poked when those parameters change. The change is additive with no migration or weight changes.
+
+crates:
+- name: pallet-multisig
+  bump: minor
