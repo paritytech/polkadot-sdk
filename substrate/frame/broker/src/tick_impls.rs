@@ -74,8 +74,11 @@ impl<T: Config> Pallet<T> {
 		if status.last_timeslice < current_timeslice {
 			status.last_timeslice.saturating_inc();
 			let rc_block = T::TimeslicePeriod::get() * status.last_timeslice.into();
-			T::Coretime::request_revenue_info_at(rc_block);
-			meter.consume(T::WeightInfo::request_revenue_info_at());
+			// Process the on-demand revenue from this chain.
+			let revenue = T::OnDemandRevenue::claim_revenue_until(rc_block, &Self::account_id());
+			meter.consume(T::OnDemandRevenue::claim_revenue_until_weight());
+			Self::process_revenue_amount(rc_block, revenue);
+			meter.consume(T::WeightInfo::process_revenue());
 			T::Coretime::on_new_timeslice(status.last_timeslice);
 			meter.consume(T::WeightInfo::on_new_timeslice());
 		}
@@ -98,24 +101,34 @@ impl<T: Config> Pallet<T> {
 		let Some(OnDemandRevenueRecord { until, amount }) = RevenueInbox::<T>::take() else {
 			return false;
 		};
-		let when: Timeslice =
-			(until / T::TimeslicePeriod::get()).saturating_sub(One::one()).saturated_into();
-		let mut revenue = T::ConvertBalance::convert_back(amount.clone());
-		if revenue.is_zero() {
-			Self::deposit_event(Event::<T>::HistoryDropped { when, revenue });
-			InstaPoolHistory::<T>::remove(when);
-			return true;
-		}
+		let revenue = T::ConvertBalance::convert_back(amount.clone());
 
 		log::debug!(
 			target: "pallet_broker::process_revenue",
 			"Received {amount:?} from RC, converted into {revenue:?} revenue",
 		);
 
+		Self::process_revenue_amount(until, revenue);
+		true
+	}
+
+	/// Distribute `revenue`, earned from instantaneous Coretime sales made before Relay-chain
+	/// block `until`, among the contributors to the Instantaneous Coretime Pool.
+	///
+	/// The funds backing `revenue` are expected to already be in this pallet's pot.
+	pub(crate) fn process_revenue_amount(until: RelayBlockNumberOf<T>, mut revenue: BalanceOf<T>) {
+		let when: Timeslice =
+			(until / T::TimeslicePeriod::get()).saturating_sub(One::one()).saturated_into();
+		if revenue.is_zero() {
+			Self::deposit_event(Event::<T>::HistoryDropped { when, revenue });
+			InstaPoolHistory::<T>::remove(when);
+			return;
+		}
+
 		let mut r = InstaPoolHistory::<T>::get(when).unwrap_or_default();
 		if r.maybe_payout.is_some() {
 			Self::deposit_event(Event::<T>::HistoryIgnored { when, revenue });
-			return true;
+			return;
 		}
 		// Payout system InstaPool Cores.
 		let total_contrib = r.system_contributions.saturating_add(r.private_contributions);
@@ -147,7 +160,6 @@ impl<T: Config> Pallet<T> {
 			InstaPoolHistory::<T>::remove(when);
 			Self::deposit_event(Event::<T>::HistoryDropped { when, revenue });
 		}
-		true
 	}
 
 	/// Begin selling for the next sale period.

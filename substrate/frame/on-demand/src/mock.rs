@@ -30,7 +30,10 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
-use sp_runtime::{traits::BlockNumberProvider, BuildStorage};
+use sp_runtime::{
+	traits::{AccountIdConversion, BlockNumberProvider},
+	BuildStorage,
+};
 use std::cell::RefCell;
 
 pub type Balance = u64;
@@ -118,6 +121,7 @@ impl Config for Test {
 	type PricingProvider = DefaultPricingProvider;
 	type OrderQueue = RecordingOrderQueue;
 	type MaxBatchSize = ConstU32<1000>;
+	type MaxRevenueHistory = ConstU32<10>;
 	type PalletId = OnDemandPalletId;
 }
 
@@ -142,6 +146,9 @@ pub fn advance_block() {
 /// The default balance for test accounts.
 pub const DEFAULT_ACCOUNT_BALANCE: u64 = DEFAULT_BASE_FEE as u64 * 1000;
 
+/// The existential deposit of the mock runtime's balances pallet.
+pub const EXISTENTIAL_DEPOSIT: u64 = 1;
+
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	set_relay_block_number(0);
 	QUEUED_BATCHES.with(|b| b.borrow_mut().clear());
@@ -152,6 +159,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			(1, DEFAULT_ACCOUNT_BALANCE),
 			(2, DEFAULT_ACCOUNT_BALANCE),
 			(3, DEFAULT_ACCOUNT_BALANCE),
+			// As a runtime would, endow the pot so that sub-existential payments into it work.
+			(OnDemandPalletId::get().into_account_truncating(), EXISTENTIAL_DEPOSIT),
 		],
 		..Default::default()
 	}

@@ -4391,6 +4391,7 @@ dependencies = [
  "pallet-message-queue",
  "pallet-meta-tx",
  "pallet-multisig",
+ "pallet-on-demand-para",
  "pallet-proxy",
  "pallet-session",
  "pallet-sudo",

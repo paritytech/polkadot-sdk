@@ -21,7 +21,9 @@ use cumulus_primitives_core::relay_chain;
 use frame_support::parameter_types;
 use pallet_broker::{
 	CoreAssignment, CoreIndex, CoretimeInterface, PartsOf57600, RCBlockNumberOf, TaskId,
+	CORE_MASK_BITS,
 };
+use pallet_on_demand_para::{PoolCapacityProvider, QueueOnDemandOrders};
 use parachains_common::{AccountId, Balance};
 use sp_runtime::traits::MaybeConvert;
 use westend_runtime_constants::system_parachain::coretime;
@@ -53,10 +55,17 @@ enum CoretimeProviderCalls {
 		Vec<(CoreAssignment, PartsOf57600)>,
 		Option<relay_chain::BlockNumber>,
 	),
+	#[codec(index = 5)]
+	QueueOnDemandBatch(Vec<(ParaId, relay_chain::BlockNumber)>),
 }
+
+/// The maximum number of on-demand orders accepted in one block, and thus put into a single
+/// `QueueOnDemandBatch` message.
+const MAX_ORDERS_PER_MESSAGE: u32 = 100;
 
 parameter_types! {
 	pub const BrokerPalletId: PalletId = PalletId(*b"py/broke");
+	pub const OnDemandPalletId: PalletId = PalletId(*b"py/ondmd");
 	pub const MinimumCreditPurchase: Balance = UNITS / 10;
 	pub const MinimumEndPrice: Balance = UNITS;
 }
@@ -215,6 +224,55 @@ impl CoretimeInterface for CoretimeAllocator {
 	}
 }
 
+impl QueueOnDemandOrders<relay_chain::BlockNumber> for CoretimeAllocator {
+	fn queue_batch(batch: Vec<(TaskId, relay_chain::BlockNumber)>) {
+		use crate::coretime::CoretimeProviderCalls::QueueOnDemandBatch;
+
+		// TODO: figure out the correct weight
+		let call_weight = Weight::from_parts(980_000_000, 3800);
+
+		// `MaxBatchSize` keeps the batch small enough to fit into a single message.
+		let batch = batch
+			.into_iter()
+			.map(|(task, ordered_at)| (ParaId::from(task), ordered_at))
+			.collect::<Vec<_>>();
+		let queue_on_demand_batch_call = RelayRuntimePallets::Coretime(QueueOnDemandBatch(batch));
+
+		let message = Xcm(vec![
+			Instruction::UnpaidExecution {
+				weight_limit: WeightLimit::Unlimited,
+				check_origin: None,
+			},
+			Instruction::Transact {
+				origin_kind: OriginKind::Native,
+				call: queue_on_demand_batch_call.encode().into(),
+				fallback_max_weight: Some(call_weight),
+			},
+		]);
+
+		match PolkadotXcm::send_xcm(Here, Location::parent(), message) {
+			Ok(_) => tracing::debug!(
+				target: "runtime::coretime",
+				"On-demand batch sent successfully."
+			),
+			Err(e) => tracing::error!(
+				target: "runtime::coretime", error=?e,
+				"On-demand batch failed to send"
+			),
+		}
+	}
+}
+
+/// Reports the size of the Instantaneous Coretime Pool as `pallet-broker` currently sees it.
+pub struct BrokerPoolCapacity;
+impl PoolCapacityProvider for BrokerPoolCapacity {
+	fn pool_cores() -> u32 {
+		pallet_broker::Status::<Runtime>::get().map_or(0, |status| {
+			status.private_pool_size.saturating_add(status.system_pool_size) / CORE_MASK_BITS as u32
+		})
+	}
+}
+
 pub struct SovereignAccountOf;
 impl MaybeConvert<TaskId, AccountId> for SovereignAccountOf {
 	fn maybe_convert(id: TaskId) -> Option<AccountId> {
@@ -232,6 +290,7 @@ impl pallet_broker::Config for Runtime {
 	type MaxLeasedCores = ConstU32<50>;
 	type MaxReservedCores = ConstU32<50>;
 	type Coretime = CoretimeAllocator;
+	type OnDemandRevenue = OnDemand;
 	type ConvertBalance = sp_runtime::traits::Identity;
 	type WeightInfo = weights::pallet_broker::WeightInfo<Runtime>;
 	type PalletId = BrokerPalletId;
@@ -240,4 +299,19 @@ impl pallet_broker::Config for Runtime {
 	type MaxAutoRenewals = ConstU32<50>;
 	type PriceAdapter = pallet_broker::MinimumPrice<Balance, MinimumEndPrice>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
+}
+
+impl pallet_on_demand_para::Config for Runtime {
+	type WeightInfo = weights::pallet_on_demand_para::WeightInfo<Runtime>;
+	type Currency = Balances;
+	type AdminOrigin = EnsureRoot<AccountId>;
+	type RelayBlockNumberProvider = RelaychainDataProvider<Runtime>;
+	type PoolCapacityProvider = BrokerPoolCapacity;
+	type PricingProvider = pallet_on_demand_para::DefaultPricingProvider;
+	type OrderQueue = CoretimeAllocator;
+	type MaxBatchSize = ConstU32<MAX_ORDERS_PER_MESSAGE>;
+	// A timeslice is `TIMESLICE_PERIOD` Relay-chain blocks long, and the revenue is claimed once
+	// per timeslice, so this covers an order in every one of them.
+	type MaxRevenueHistory = ConstU32<{ coretime::TIMESLICE_PERIOD }>;
+	type PalletId = OnDemandPalletId;
 }

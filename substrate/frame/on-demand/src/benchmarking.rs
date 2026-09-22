@@ -20,6 +20,7 @@
 use super::*;
 
 use crate::{Pallet as OnDemand, DEFAULT_BASE_FEE, DEFAULT_PRICE_STEP};
+use fp_coretime::revenue::OnDemandRevenue;
 use frame_benchmarking::v2::*;
 use frame_support::{
 	pallet_prelude::*,
@@ -154,6 +155,44 @@ mod benches {
 			// Measure only the finalization cost with n transactions of fixed size
 			let _ = OnDemand::<T>::on_finalize(current_block);
 		}
+
+		Ok(())
+	}
+
+	/// Benchmark claiming the revenue accumulated from on-demand sales.
+	///
+	/// The worst case is a full revenue history, all of which is claimed at once.
+	#[benchmark]
+	fn claim_revenue_until() -> Result<(), BenchmarkError> {
+		let buckets = T::MaxRevenueHistory::get();
+		let per_bucket = BalanceOf::<T>::from(DEFAULT_BASE_FEE);
+		let total = per_bucket.saturating_mul(buckets.into());
+
+		// The pot holds the accumulated revenue on top of its existential deposit.
+		T::Currency::set_balance(
+			&OnDemand::<T>::account_id(),
+			T::Currency::minimum_balance().saturating_add(total),
+		);
+		let beneficiary: T::AccountId = account("beneficiary", 0, 0);
+		T::Currency::set_balance(&beneficiary, T::Currency::minimum_balance());
+
+		let revenue: Vec<RevenueRecordOf<T>> = (0..buckets)
+			.map(|block| RevenueRecord { ordered_at: block.into(), amount: per_bucket })
+			.collect();
+		Revenue::<T>::put(
+			BoundedVec::try_from(revenue).expect("bounded by MaxRevenueHistory; qed"),
+		);
+
+		// Every bucket is in the past, so all of the revenue is claimed.
+		let until = RelayBlockNumberOf::<T>::from(buckets);
+
+		#[block]
+		{
+			<OnDemand<T> as OnDemandRevenue<_, _, _>>::claim_revenue_until(until, &beneficiary);
+		}
+
+		assert!(Revenue::<T>::get().is_empty());
+		assert_eq!(T::Currency::balance(&beneficiary), T::Currency::minimum_balance() + total);
 
 		Ok(())
 	}

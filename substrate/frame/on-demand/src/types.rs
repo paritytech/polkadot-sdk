@@ -95,6 +95,19 @@ pub struct EnqueuedOrder<RelayBlockNumber> {
 	pub ordered_at: RelayBlockNumber,
 }
 
+/// Revenue from the on-demand orders placed at one Relay-chain block.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+)]
+pub struct RevenueRecord<RelayBlockNumber, Balance> {
+	/// The Relay-chain block number the orders were placed at.
+	pub ordered_at: RelayBlockNumber,
+	/// The revenue accumulated from the orders placed at `ordered_at`.
+	pub amount: Balance,
+}
+
+pub type RevenueRecordOf<T> = RevenueRecord<RelayBlockNumberOf<T>, BalanceOf<T>>;
+
 /// The locally tracked, estimated state of the Relay chain's on-demand order queue.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,

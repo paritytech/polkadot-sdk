@@ -74,6 +74,7 @@ pub trait WeightInfo {
 	fn configure() -> Weight;
 	fn place_order() -> Weight;
 	fn on_finalize_with_orders(n: u32, ) -> Weight;
+	fn claim_revenue_until() -> Weight;
 }
 
 /// Weights for `pallet_on_demand_para` using the Substrate node and recommended hardware.
@@ -121,6 +122,19 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 			.saturating_add(Weight::from_parts(0, 8).saturating_mul(n.into()))
 	}
+	/// Storage: `OnDemand::Revenue` (r:1 w:1)
+	/// Proof: `OnDemand::Revenue` (`max_values`: Some(1), `max_size`: Some(1202), added: 1697, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:2 w:2)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	fn claim_revenue_until() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1258`
+		//  Estimated: `6196`
+		// Minimum execution time: 50_000_000 picoseconds.
+		Weight::from_parts(50_000_000, 6196)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -166,5 +180,18 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 			.saturating_add(Weight::from_parts(0, 8).saturating_mul(n.into()))
+	}
+	/// Storage: `OnDemand::Revenue` (r:1 w:1)
+	/// Proof: `OnDemand::Revenue` (`max_values`: Some(1), `max_size`: Some(1202), added: 1697, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:2 w:2)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	fn claim_revenue_until() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1258`
+		//  Estimated: `6196`
+		// Minimum execution time: 50_000_000 picoseconds.
+		Weight::from_parts(50_000_000, 6196)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 }

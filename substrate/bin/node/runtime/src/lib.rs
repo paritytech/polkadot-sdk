@@ -2472,6 +2472,7 @@ impl pallet_broker::Config for Runtime {
 	type MaxLeasedCores = ConstU32<5>;
 	type MaxReservedCores = ConstU32<5>;
 	type Coretime = CoretimeProvider;
+	type OnDemandRevenue = OnDemand;
 	type ConvertBalance = traits::Identity;
 	type WeightInfo = ();
 	type PalletId = BrokerPalletId;
@@ -2507,6 +2508,7 @@ impl pallet_on_demand_para::Config for Runtime {
 	// Orders are dropped instead of being forwarded to a Relay chain.
 	type OrderQueue = ();
 	type MaxBatchSize = ConstU32<1000>;
+	type MaxRevenueHistory = ConstU32<100>;
 	type PalletId = OnDemandPalletId;
 }
 

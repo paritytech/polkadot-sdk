@@ -675,6 +675,9 @@ construct_runtime!(
 	{
 		// System support stuff.
 		System: frame_system = 0,
+		// `OnDemand` sends its orders out in `on_finalize`, so it has to come before
+		// `ParachainSystem` for them to make it into the same block.
+		OnDemand: pallet_on_demand_para = 51,
 		ParachainSystem: cumulus_pallet_parachain_system = 1,
 		Timestamp: pallet_timestamp = 3,
 		ParachainInfo: parachain_info = 4,
@@ -721,6 +724,7 @@ mod benches {
 		[pallet_timestamp, Timestamp]
 		[pallet_balances, Balances]
 		[pallet_broker, Broker]
+		[pallet_on_demand_para, OnDemand]
 		[pallet_collator_selection, CollatorSelection]
 		[pallet_session, SessionBench::<Runtime>]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]

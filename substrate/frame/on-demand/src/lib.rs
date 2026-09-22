@@ -29,6 +29,10 @@
 //!   derived from that estimate using [`PriceParameters`].
 //! - Orders accepted within a block are accumulated in [`PendingBatch`] and forwarded to the Relay
 //!   chain in one go on finalization, via [`QueueOnDemandOrders`].
+//! - The spot prices paid are collected in the pallet's pot and booked as [`Revenue`] against the
+//!   Relay-chain block the order was placed at. `pallet-broker` claims that revenue through
+//!   [`fp_coretime::revenue::OnDemandRevenue`] and pays it out to the contributors to the
+//!   Instantaneous Coretime Pool.
 //!
 //!   NOTE: It is important to make sure that this pallet is ordered before `ParachainSystem` in the
 //!   runtime - otherwise the messages will not be sent in the block in which they are created,
@@ -58,6 +62,9 @@ use sp_runtime::traits::BlockNumberProvider;
 pub use types::*;
 pub use weightinfo_extension::WeightInfoExt;
 pub use weights::WeightInfo;
+
+/// The logging target of this pallet.
+const LOG_TARGET: &str = "runtime::on-demand";
 
 /// The default maximum number of outstanding on-demand orders beyond which new orders will be
 /// rejected.
@@ -98,6 +105,7 @@ impl<RelayBlockNumber> QueueOnDemandOrders<RelayBlockNumber> for () {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use fp_coretime::revenue::OnDemandRevenue;
 	use frame_support::{
 		pallet_prelude::*,
 		traits::{
@@ -107,7 +115,7 @@ pub mod pallet {
 		PalletId,
 	};
 	use frame_system::pallet_prelude::*;
-	use sp_arithmetic::traits::{SaturatedConversion, Saturating};
+	use sp_arithmetic::traits::{SaturatedConversion, Saturating, Zero};
 	use sp_runtime::traits::AccountIdConversion;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -148,6 +156,15 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxBatchSize: Get<u32>;
 
+		/// The maximum number of distinct Relay-chain blocks for which unclaimed revenue is kept
+		/// apart.
+		///
+		/// Revenue is bucketed per Relay-chain block so that whoever claims it can attribute it to
+		/// the right period of time. This bounds the number of such buckets, so it needs to be
+		/// large enough to cover the orders placed between two consecutive claims.
+		#[pallet::constant]
+		type MaxRevenueHistory: Get<u32>;
+
 		/// Identifier from which the internal Pot is generated.
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -169,6 +186,15 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
+	/// Revenue from on-demand sales which has not been claimed yet, bucketed by the Relay-chain
+	/// block the orders were placed at and ordered by ascending block number.
+	///
+	/// The funds themselves sit in the pallet's pot until they are claimed through
+	/// [`OnDemandRevenue::claim_revenue_until`].
+	#[pallet::storage]
+	pub type Revenue<T: Config> =
+		StorageValue<_, BoundedVec<RevenueRecordOf<T>, T::MaxRevenueHistory>, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -180,6 +206,15 @@ pub mod pallet {
 			spot_price: BalanceOf<T>,
 			/// The account that placed and paid for the order.
 			ordered_by: T::AccountId,
+		},
+		/// Revenue from on-demand sales was claimed and paid out to `beneficiary`.
+		RevenueClaimed {
+			/// The orders the revenue came from were all placed before this Relay-chain block.
+			until: RelayBlockNumberOf<T>,
+			/// The amount that was paid out.
+			amount: BalanceOf<T>,
+			/// The account the revenue was paid out to.
+			beneficiary: T::AccountId,
 		},
 	}
 
@@ -307,8 +342,10 @@ pub mod pallet {
 
 			ensure!(spot_price <= max_amount, Error::<T>::SpotPriceHigherThanMaxAmount);
 
-			// Charge the sending account the spot price.
+			// Charge the sending account the spot price. The funds stay in the pot until the
+			// revenue they represent is claimed.
 			T::Currency::transfer(&who, &Self::account_id(), spot_price, Preserve)?;
+			Self::record_revenue(now, spot_price);
 
 			// Add the order to the batch that gets sent to the Relay chain on finalization.
 			PendingBatch::<T>::try_mutate(|batch| {
@@ -326,6 +363,93 @@ pub mod pallet {
 			Self::deposit_event(Event::<T>::OrderPlaced { para_id, spot_price, ordered_by: who });
 
 			Ok(())
+		}
+
+		/// Book `amount` of revenue against the Relay-chain block `ordered_at`.
+		///
+		/// Revenue is bucketed per Relay-chain block so that a claim can cut it off at an exact
+		/// block. If the history is already full, the revenue is merged into the most recent
+		/// bucket instead: nothing is lost, only the attribution of the most recent orders becomes
+		/// coarser.
+		fn record_revenue(ordered_at: RelayBlockNumberOf<T>, amount: BalanceOf<T>) {
+			Revenue::<T>::mutate(|revenue| {
+				if let Some(last) = revenue.last_mut() {
+					if last.ordered_at == ordered_at {
+						last.amount = last.amount.saturating_add(amount);
+						return;
+					}
+				}
+
+				if revenue.try_push(RevenueRecord { ordered_at, amount }).is_err() {
+					log::warn!(
+						target: LOG_TARGET,
+						"Revenue history is full ({} buckets); merging the revenue of Relay-chain \
+						 block {ordered_at:?} into the previous bucket. `MaxRevenueHistory` is too \
+						 small, or the revenue is not being claimed.",
+						T::MaxRevenueHistory::get(),
+					);
+					// Revenue history is full, so `revenue.last_mut()` should always be `Some`.
+					if let Some(last) = revenue.last_mut() {
+						last.amount = last.amount.saturating_add(amount);
+					}
+				}
+			});
+		}
+
+		/// Forget the revenue booked against Relay-chain blocks before `until`.
+		fn drop_revenue_until(until: RelayBlockNumberOf<T>) {
+			Revenue::<T>::mutate(|revenue| revenue.retain(|record| record.ordered_at >= until));
+		}
+	}
+
+	impl<T: Config> OnDemandRevenue<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pallet<T> {
+		fn claim_revenue_until(
+			until: RelayBlockNumberOf<T>,
+			beneficiary: &T::AccountId,
+		) -> BalanceOf<T> {
+			let claimable = Revenue::<T>::get()
+				.iter()
+				.filter(|record| record.ordered_at < until)
+				.fold(BalanceOf::<T>::zero(), |sum, record| sum.saturating_add(record.amount));
+
+			if claimable.is_zero() {
+				// Still drop any zero-amount buckets that are now in the past.
+				Self::drop_revenue_until(until);
+				return Zero::zero();
+			}
+
+			let pot = Self::account_id();
+			// The pot is kept alive so that the (possibly sub-existential) payments for individual
+			// orders keep working. If the pot was never endowed, this holds back one existential
+			// deposit out of the very first claim.
+			let reducible = T::Currency::reducible_balance(&pot, Preserve, Polite);
+			let amount = claimable.min(reducible);
+			if amount < claimable {
+				log::warn!(
+					target: LOG_TARGET,
+					"The pot holds less than the {claimable:?} of revenue booked against it; \
+					 paying out {amount:?} instead.",
+				);
+			}
+
+			if let Err(err) = T::Currency::transfer(&pot, beneficiary, amount, Preserve) {
+				// Leave the revenue booked so that the next claim can retry the payout.
+				log::error!(target: LOG_TARGET, "Paying out {amount:?} of revenue failed: {err:?}");
+				return Zero::zero();
+			}
+
+			Self::drop_revenue_until(until);
+			Self::deposit_event(Event::<T>::RevenueClaimed {
+				until,
+				amount,
+				beneficiary: beneficiary.clone(),
+			});
+
+			amount
+		}
+
+		fn claim_revenue_until_weight() -> Weight {
+			<T as Config>::WeightInfo::claim_revenue_until()
 		}
 	}
 }
