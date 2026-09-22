@@ -1057,6 +1057,35 @@ fn draining_outside_of_frame_logs_reads_a_fixed_number_of_trie_nodes() {
 	);
 }
 
+// A contract frame outside an ethereum transaction does not feed the buffer: a buffered log's drain
+// is charged to the block, not to the frame, so one frame could fill the cap and drop every
+// mirrored balance change behind it. Its log stays a substrate-only event.
+#[test]
+fn contract_logs_outside_an_ethereum_transaction_do_not_reach_the_buffer() {
+	use crate::{Code, OutsideFrameLogs, test_utils::builder::Contract};
+	use codec::Encode;
+	use frame_support::traits::fungible::Mutate;
+
+	let (binary, _code_hash) = compile_module("event_size").unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+
+		builder::bare_call(addr).data(32u32.encode()).build_and_unwrap_result();
+
+		assert!(OutsideFrameLogs::<Test>::get().is_empty(), "the log is not buffered");
+		assert!(
+			System::events().iter().any(|record| matches!(
+				&record.event,
+				RuntimeEvent::Contracts(crate::Event::ContractEmitted { contract, .. })
+					if *contract == addr
+			)),
+			"but it is still deposited"
+		);
+	});
+}
+
 #[test]
 fn tracing_a_log_emitted_inside_a_call_frame_attaches_to_it() {
 	use crate::{evm::CallTracer, tracing::Tracing};

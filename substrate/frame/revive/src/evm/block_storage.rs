@@ -123,21 +123,36 @@ impl EthereumCallResult {
 	}
 }
 
-/// Capture the Ethereum log for the current transaction.
+/// Add the log to the open ethereum transaction's receipt, if there is one, and report whether
+/// there was.
+fn capture_into_receipt(contract: &H160, data: &[u8], topics: &[H256]) -> bool {
+	receipt::with(|receipt| receipt.add_log(contract, data, topics)).is_some()
+}
+
+/// Capture a log emitted by a contract frame: into the open ethereum transaction's receipt, or
+/// nowhere.
+///
+/// A frame outside an ethereum transaction (`Revive::call`, an XCM `Transact`) does not use the
+/// block's outside-of-frame buffer. The drain of a buffered log is charged to the block, not to
+/// the frame, so one frame could fill the buffer for a few milliseconds of weight and drop every
+/// mirrored balance change behind it. Such a log stays a substrate-only event, as before the
+/// buffer existed.
+pub fn capture_frame_log(contract: &H160, data: &[u8], topics: &[H256]) {
+	capture_into_receipt(contract, data, topics);
+}
+
+/// Capture a log emitted outside any contract frame, by a runtime component mirroring a balance
+/// change.
 ///
 /// Inside an ethereum transaction the log is added to that transaction's receipt. Outside of one
-/// (e.g. a log mirrored from a plain extrinsic or XCM balance change) there is no receipt to
-/// attach it to, so it is buffered and flushed in `on_finalize` as a synthetic transaction, which
-/// is how it still enters the block's bloom, receipts_root and tx trie.
+/// (a plain extrinsic, an XCM balance change) there is no receipt to attach it to, so it is
+/// buffered and flushed in `on_finalize` as a synthetic transaction, which is how it still enters
+/// the block's bloom, receipts_root and tx trie.
 ///
 /// A log the buffer cannot take reaches neither and stays a substrate-only event. Callers deposit
-/// their `ContractEmitted` either way: an `Ext::deposit_event` that succeeded while losing the log
-/// outright would break the `LOG` opcode's guarantee that a log takes effect or its frame reverts.
+/// their `ContractEmitted` either way.
 pub fn capture_ethereum_log<T: Config>(contract: &H160, data: &[u8], topics: &[H256]) {
-	let captured = receipt::with(|receipt| {
-		receipt.add_log(contract, data, topics);
-	});
-	if captured.is_some() {
+	if capture_into_receipt(contract, data, topics) {
 		return;
 	}
 

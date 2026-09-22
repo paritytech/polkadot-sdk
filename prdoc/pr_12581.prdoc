@@ -40,10 +40,14 @@ doc:
     arriving past the cap is not buffered, so the bloom omits it while its `ContractEmitted` still
     stands. Zero turns the buffer off, leaving such logs substrate-only as they were before.
 
-    Follow-up: the cap is a stopgap. Each buffered log's share of the `on_finalize` drain is
-    registered on the block rather than charged to the emitter, so for a contract `LOG` emitted
-    with no ethereum transaction open the cap is the only bound. A follow-up PR charges that drain
-    to the emitting frame's weight, at which point block weight is the bound and the cap goes.
+    Contract logs emitted outside an ethereum transaction (`Revive::call`, an XCM `Transact` into
+    a contract) do not use the buffer and stay substrate-only, as before. Only pallet mirrors do,
+    so the buffer fills no faster than the extrinsics that mirror can be included.
+
+    Follow-up: the cap is a stopgap. A buffered log's share of the `on_finalize` drain is
+    registered on the block rather than charged to the emitter, which is why contract frames are
+    kept out of the buffer. A follow-up PR charges the drain to the emitting frame's weight, lets
+    contract logs in, and removes the cap.
 
     Rollout to a live Asset Hub (e.g. Polkadot) needs care beyond wiring the callback:
       - Atomic cutover: removing the precompile self-emit and wiring the callback must ship in the

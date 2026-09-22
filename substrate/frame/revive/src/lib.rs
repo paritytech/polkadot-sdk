@@ -2754,8 +2754,9 @@ impl<T: Config> Pallet<T> {
 	/// via the outside-frame hook, captured into the current ethereum receipt — or the block's
 	/// synthetic receipt when outside an ethereum transaction — and deposited as
 	/// [`Event::ContractEmitted`]. For log-mirroring runtime components. Contract execution keeps
-	/// its own in-frame path (`Ext::deposit_event`), which differs only in the tracer hook it
-	/// calls.
+	/// its own in-frame path (`Ext::deposit_event`), which captures into an open receipt only: a
+	/// contract log emitted outside an ethereum transaction stays a substrate-only event, see
+	/// `block_storage::capture_frame_log`.
 	///
 	/// `topics` and `data` are bounded to the limits the `LOG` opcode enforces, so
 	/// [`Event::ContractEmitted`] keeps its documented topic cap on either path.
