@@ -117,6 +117,14 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
+/// Run `test` in a fresh externality, then assert the pallet invariants hold.
+fn new_test_ext_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		Identity::do_try_state().expect("All invariants must hold after each test");
+	});
+}
+
 fn account(id: u8) -> AccountIdOf<Test> {
 	[id; 32].into()
 }
@@ -226,7 +234,7 @@ fn identity_fields_repr_works() {
 
 #[test]
 fn editing_subaccounts_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let data = |x| Data::Raw(vec![x; 1].try_into().unwrap());
 		let [one, two, three, _, ten, twenty, _, _] = accounts();
 
@@ -289,7 +297,7 @@ fn editing_subaccounts_should_work() {
 
 #[test]
 fn resolving_subaccount_ownership_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let data = |x| Data::Raw(vec![x; 1].try_into().unwrap());
 		let [one, _, _, _, ten, twenty, _, _] = accounts();
 		let sub_deposit: u64 = <<Test as Config>::SubAccountDeposit as Get<u64>>::get();
@@ -339,7 +347,7 @@ fn trailing_zeros_decodes_into_default_data() {
 
 #[test]
 fn adding_registrar_invalid_index() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [_, _, three, _, _, _, _, _] = accounts();
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
 		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three.clone()), 0, 10));
@@ -353,7 +361,7 @@ fn adding_registrar_invalid_index() {
 
 #[test]
 fn adding_registrar_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [_, _, three, _, _, _, _, _] = accounts();
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
 		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three.clone()), 0, 10));
@@ -368,7 +376,7 @@ fn adding_registrar_should_work() {
 
 #[test]
 fn amount_of_registrars_is_limited() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		for ii in 1..MaxRegistrars::get() + 1 {
 			assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), account_from_u32(ii)));
 		}
@@ -382,7 +390,7 @@ fn amount_of_registrars_is_limited() {
 
 #[test]
 fn removing_registrar_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [_, _, three, _, _, _, _, _] = accounts();
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
 		assert_eq!(Registrars::<Test>::get().len(), 1);
@@ -399,7 +407,7 @@ fn removing_registrar_should_work() {
 
 #[test]
 fn removing_registrar_bad_origin() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [one, _, three, _, _, _, _, _] = accounts();
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three));
 		// Only `RegistrarOrigin` (Root in the mock) may remove a registrar.
@@ -410,7 +418,7 @@ fn removing_registrar_bad_origin() {
 
 #[test]
 fn removing_registrar_invalid_index() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [_, _, three, _, _, _, _, _] = accounts();
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three));
 
@@ -432,7 +440,7 @@ fn removing_registrar_invalid_index() {
 
 #[test]
 fn removing_registrar_keeps_indices_stable() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [one, two, three, _, ten, _, _, _] = accounts();
 		// Three registrars at indices 0, 1, 2.
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), one.clone()));
@@ -480,7 +488,7 @@ fn removing_registrar_keeps_indices_stable() {
 
 #[test]
 fn removed_registrar_cannot_act() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [one, _, three, _, ten, _, _, _] = accounts();
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
 		assert_ok!(Identity::set_identity(
@@ -514,7 +522,7 @@ fn removed_registrar_cannot_act() {
 
 #[test]
 fn add_registrar_after_removal_appends_not_reuses() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [one, two, _, _, _, _, _, _] = accounts();
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), one));
 		assert_ok!(Identity::remove_registrar(RuntimeOrigin::root(), 0));
@@ -533,7 +541,7 @@ fn add_registrar_after_removal_appends_not_reuses() {
 
 #[test]
 fn registration_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [_, _, three, _, ten, _, _, _] = accounts();
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
 		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three.clone()), 0, 10));
@@ -560,7 +568,7 @@ fn registration_should_work() {
 
 #[test]
 fn uninvited_judgement_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [_, _, three, _, ten, _, _, _] = accounts();
 		assert_noop!(
 			Identity::provide_judgement(
@@ -639,7 +647,7 @@ fn uninvited_judgement_should_work() {
 
 #[test]
 fn clearing_judgement_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [_, _, three, _, ten, _, _, _] = accounts();
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
 		assert_ok!(Identity::set_identity(
@@ -660,7 +668,7 @@ fn clearing_judgement_should_work() {
 
 #[test]
 fn killing_slashing_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [one, _, _, _, ten, _, _, _] = accounts();
 		let ten_info = infoof_ten();
 		let id_deposit = id_deposit(&ten_info);
@@ -678,7 +686,7 @@ fn killing_slashing_should_work() {
 
 #[test]
 fn setting_subaccounts_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [_, _, _, _, ten, twenty, thirty, forty] = accounts();
 		let ten_info = infoof_ten();
 		let id_deposit = id_deposit(&ten_info);
@@ -762,7 +770,7 @@ fn setting_subaccounts_should_work() {
 
 #[test]
 fn clearing_account_should_remove_subaccounts_and_refund() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [_, _, _, _, ten, twenty, _, _] = accounts();
 		let ten_info = infoof_ten();
 		assert_ok!(Identity::set_identity(
@@ -782,7 +790,7 @@ fn clearing_account_should_remove_subaccounts_and_refund() {
 
 #[test]
 fn killing_account_should_remove_subaccounts_and_not_refund() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [_, _, _, _, ten, twenty, _, _] = accounts();
 		let ten_info = infoof_ten();
 		let id_deposit = id_deposit(&ten_info);
@@ -802,7 +810,7 @@ fn killing_account_should_remove_subaccounts_and_not_refund() {
 
 #[test]
 fn cancelling_requested_judgement_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [_, _, three, _, ten, _, _, _] = accounts();
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
 		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three.clone()), 0, 10));
@@ -840,7 +848,7 @@ fn cancelling_requested_judgement_should_work() {
 
 #[test]
 fn requesting_judgement_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [_, _, three, four, ten, _, _, _] = accounts();
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
 		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three.clone()), 0, 10));
@@ -899,7 +907,7 @@ fn requesting_judgement_should_work() {
 
 #[test]
 fn provide_judgement_should_return_judgement_payment_failed_error() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [_, _, three, _, ten, _, _, _] = accounts();
 		let ten_info = infoof_ten();
 		let id_deposit = id_deposit(&ten_info);
@@ -930,7 +938,7 @@ fn provide_judgement_should_return_judgement_payment_failed_error() {
 
 #[test]
 fn field_deposit_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [_, _, three, _, ten, _, _, _] = accounts();
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
 		assert_ok!(Identity::set_fee(RuntimeOrigin::signed(three), 0, 10));
@@ -957,7 +965,7 @@ fn field_deposit_should_work() {
 
 #[test]
 fn setting_account_id_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [_, _, three, four, _, _, _, _] = accounts();
 		assert_ok!(Identity::add_registrar(RuntimeOrigin::root(), three.clone()));
 		// account 4 cannot change the first registrar's identity since it's owned by 3.
@@ -974,7 +982,7 @@ fn setting_account_id_should_work() {
 
 #[test]
 fn test_has_identity() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [_, _, _, _, ten, _, _, _] = accounts();
 		assert_ok!(Identity::set_identity(
 			RuntimeOrigin::signed(ten.clone()),
@@ -995,7 +1003,7 @@ fn test_has_identity() {
 
 #[test]
 fn reap_identity_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [_, _, _, _, ten, twenty, _, _] = accounts();
 		let ten_info = infoof_ten();
 		assert_ok!(Identity::set_identity(
@@ -1022,7 +1030,7 @@ fn reap_identity_works() {
 
 #[test]
 fn poke_deposit_works() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [_, _, _, _, ten, twenty, _, _] = accounts();
 		let ten_info = infoof_ten();
 		// Set a custom registration with 0 deposit
@@ -1070,7 +1078,7 @@ fn poke_deposit_works() {
 
 #[test]
 fn poke_deposit_does_not_insert_new_subs_storage() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [_, _, _, _, ten, _, _, _] = accounts();
 		let ten_info = infoof_ten();
 		// Set a custom registration with 0 deposit
@@ -1112,7 +1120,7 @@ fn poke_deposit_does_not_insert_new_subs_storage() {
 
 #[test]
 fn adding_and_removing_authorities_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [authority, _] = unfunded_accounts();
 		let suffix: Vec<u8> = b"test".to_vec();
 		let allocation: u32 = 10;
@@ -1160,7 +1168,7 @@ fn adding_and_removing_authorities_should_work() {
 
 #[test]
 fn set_username_with_signature_without_existing_identity_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// set up authority
 		let initial_authority_balance = 1000;
 		let [authority, _] = unfunded_accounts();
@@ -1259,7 +1267,7 @@ fn set_username_with_signature_without_existing_identity_should_work() {
 
 #[test]
 fn set_username_with_signature_with_existing_identity_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// set up authority
 		let [authority, _] = unfunded_accounts();
 		let suffix: Vec<u8> = b"test".to_vec();
@@ -1307,7 +1315,7 @@ fn set_username_with_signature_with_existing_identity_should_work() {
 
 #[test]
 fn set_username_through_deposit_with_existing_identity_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// set up authority
 		let initial_authority_balance = 1000;
 		let [authority, _] = unfunded_accounts();
@@ -1374,7 +1382,7 @@ fn set_username_through_deposit_with_existing_identity_should_work() {
 
 #[test]
 fn set_username_with_bytes_signature_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// set up authority
 		let [authority, _] = unfunded_accounts();
 		let suffix: Vec<u8> = b"test".to_vec();
@@ -1451,7 +1459,7 @@ fn set_username_with_bytes_signature_should_work() {
 
 #[test]
 fn set_username_with_acceptance_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// set up authority
 		let initial_authority_balance = 1000;
 		let [authority, who] = unfunded_accounts();
@@ -1547,7 +1555,7 @@ fn set_username_with_acceptance_should_work() {
 
 #[test]
 fn invalid_usernames_should_be_rejected() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let [authority, who] = unfunded_accounts();
 		let allocation: u32 = 10;
 		let valid_suffix = b"test".to_vec();
@@ -1623,7 +1631,7 @@ fn invalid_usernames_should_be_rejected() {
 
 #[test]
 fn authorities_should_run_out_of_allocation() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// set up authority
 		let [authority, _] = unfunded_accounts();
 		let [pi, e, c, _, _, _, _, _] = accounts();
@@ -1665,7 +1673,7 @@ fn authorities_should_run_out_of_allocation() {
 
 #[test]
 fn setting_primary_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// set up authority
 		let [authority, _] = unfunded_accounts();
 		let suffix: Vec<u8> = b"test".to_vec();
@@ -1747,7 +1755,7 @@ fn setting_primary_should_work() {
 
 #[test]
 fn must_own_primary() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// set up authority
 		let [authority, _] = unfunded_accounts();
 		let suffix: Vec<u8> = b"test".to_vec();
@@ -1818,7 +1826,7 @@ fn must_own_primary() {
 
 #[test]
 fn unaccepted_usernames_through_grant_should_expire() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// set up authority
 		let initial_authority_balance = 1000;
 		let [authority, who] = unfunded_accounts();
@@ -1882,7 +1890,7 @@ fn unaccepted_usernames_through_grant_should_expire() {
 
 #[test]
 fn unaccepted_usernames_through_deposit_should_expire() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		// set up authority
 		let initial_authority_balance = 1000;
 		let [authority, who] = unfunded_accounts();
@@ -1956,7 +1964,7 @@ fn unaccepted_usernames_through_deposit_should_expire() {
 
 #[test]
 fn kill_username_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let initial_authority_balance = 10000;
 		// set up first authority
 		let authority = account(100);
@@ -2126,7 +2134,7 @@ fn kill_username_should_work() {
 
 #[test]
 fn unbind_and_remove_username_should_work() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let initial_authority_balance = 10000;
 		// Set up authority.
 		let authority = account(100);
@@ -2323,7 +2331,7 @@ fn unbind_and_remove_username_should_work() {
 #[test]
 #[should_panic]
 fn unbind_dangling_username_defensive_should_panic() {
-	new_test_ext().execute_with(|| {
+	new_test_ext_and_execute(|| {
 		let initial_authority_balance = 10000;
 		// Set up authority.
 		let authority = account(100);
