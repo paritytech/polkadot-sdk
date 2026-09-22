@@ -1,0 +1,20 @@
+title: '[RWF] `polkadot-node-subsystem-types`: Fix ActiveLeavesUpdate PartialEq asymmetry'
+doc:
+- audience: Node Dev
+  description: "Closes #12605\n\n## Description\n\n`ActiveLeavesUpdate`'s hand-written\
+    \ `PartialEq` implementation was meant to compare `deactivated` as a set, but\
+    \ the actual check \u2014 `self.deactivated.len() == other.deactivated.len() &&\
+    \ self.deactivated.iter().all(|a| other.deactivated.contains(a))` \u2014 is a\
+    \ one-directional subset check. It only behaves correctly when neither side contains\
+    \ duplicate hashes.\n\nWith duplicates, e.g. `dup = [h1, h1]` vs `distinct = [h1,\
+    \ h2]`, both have equal length and every element of `dup` is found in `distinct`,\
+    \ so `dup == distinct` is `true`. But `h2` is not found in `dup`, so `distinct\
+    \ == dup` is `false` \u2014 violating Rust's `PartialEq` symmetry invariant.\n\
+    \n## Fix\n\nReplaced the check with a proper symmetric set comparison, collecting\
+    \ both `deactivated` slices into `HashSet<&Hash>` and comparing the sets directly.\n\
+    \n## Testing\n\nAdded regression tests reproducing the issue's counterexample\
+    \ (asserting `a == b` iff `b == a`) and verifying duplicates/ordering in `deactivated`\
+    \ are correctly ignored, per the type's existing \"considered as sets\" doc comment."
+crates:
+- name: polkadot-node-subsystem-types
+  bump: patch
