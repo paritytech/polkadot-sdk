@@ -40,6 +40,11 @@ doc:
     arriving past the cap is not buffered, so the bloom omits it while its `ContractEmitted` still
     stands. Zero turns the buffer off, leaving such logs substrate-only as they were before.
 
+    Follow-up: the cap is a stopgap. Each buffered log's share of the `on_finalize` drain is
+    registered on the block rather than charged to the emitter, so for a contract `LOG` emitted
+    with no ethereum transaction open the cap is the only bound. A follow-up PR charges that drain
+    to the emitting frame's weight, at which point block weight is the bound and the cap goes.
+
     Rollout to a live Asset Hub (e.g. Polkadot) needs care beyond wiring the callback:
       - Atomic cutover: removing the precompile self-emit and wiring the callback must ship in the
         same runtime upgrade, else a block range emits zero or duplicate `Transfer` logs.
