@@ -259,43 +259,55 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#109 id=109 data-nosnippet>109</a>}
 <a href=#110 id=110 data-nosnippet>110</a>
 <a href=#111 id=111 data-nosnippet>111</a><span class="kw">impl </span>SchedulingProof {
-<a href=#112 id=112 data-nosnippet>112</a>	<span class="doccomment">/// Derive the scheduling parent hash.
+<a href=#112 id=112 data-nosnippet>112</a>	<span class="doccomment">/// Create a new scheduling proof.
 <a href=#113 id=113 data-nosnippet>113</a>	///
-<a href=#114 id=114 data-nosnippet>114</a>	/// Returns the hash of the first/newest header in `header_chain` if non-empty, otherwise
-<a href=#115 id=115 data-nosnippet>115</a>	/// falls back to `internal_scheduling_parent_header.hash()` (the ISP coincides with the
-<a href=#116 id=116 data-nosnippet>116</a>	/// scheduling parent when the parachain runs with `relay_parent_offset = 0`).
-<a href=#117 id=117 data-nosnippet>117</a>	</span><span class="kw">pub fn </span>scheduling_parent(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; polkadot_primitives::Hash {
-<a href=#118 id=118 data-nosnippet>118</a>		<span class="self">self</span>.header_chain
-<a href=#119 id=119 data-nosnippet>119</a>			.first()
-<a href=#120 id=120 data-nosnippet>120</a>			.map(BlakeTwo256::hash_of)
-<a href=#121 id=121 data-nosnippet>121</a>			.unwrap_or_else(|| <span class="self">self</span>.internal_scheduling_parent_header.hash())
+<a href=#114 id=114 data-nosnippet>114</a>	/// `header_chain` runs backwards from the candidate's scheduling parent, and
+<a href=#115 id=115 data-nosnippet>115</a>	/// `internal_scheduling_parent_header` is the header its last parent hash points at.
+<a href=#116 id=116 data-nosnippet>116</a>	</span><span class="kw">pub fn </span>new(
+<a href=#117 id=117 data-nosnippet>117</a>		header_chain: Vec&lt;RelayChainHeader&gt;,
+<a href=#118 id=118 data-nosnippet>118</a>		internal_scheduling_parent_header: RelayChainHeader,
+<a href=#119 id=119 data-nosnippet>119</a>		signed_scheduling_info: <span class="prelude-ty">Option</span>&lt;SignedSchedulingInfo&gt;,
+<a href=#120 id=120 data-nosnippet>120</a>	) -&gt; <span class="self">Self </span>{
+<a href=#121 id=121 data-nosnippet>121</a>		<span class="self">Self </span>{ header_chain, internal_scheduling_parent_header, signed_scheduling_info }
 <a href=#122 id=122 data-nosnippet>122</a>	}
-<a href=#123 id=123 data-nosnippet>123</a>}
-<a href=#124 id=124 data-nosnippet>124</a>
-<a href=#125 id=125 data-nosnippet>125</a><span class="doccomment">/// Verifier for V3 scheduling.
-<a href=#126 id=126 data-nosnippet>126</a>///
-<a href=#127 id=127 data-nosnippet>127</a>/// Reports whether V3 scheduling is enabled for the parachain (via
-<a href=#128 id=128 data-nosnippet>128</a>/// [`Self::V3_SCHEDULING_ENABLED`]) and, when it is, verifies the [`SignedSchedulingInfo`]
-<a href=#129 id=129 data-nosnippet>129</a>/// attached to a candidate (via [`Self::verify`]).
-<a href=#130 id=130 data-nosnippet>130</a></span><span class="kw">pub trait </span>VerifySchedulingSignature {
-<a href=#131 id=131 data-nosnippet>131</a>	<span class="doccomment">/// Whether V3 scheduling validation is enabled.
-<a href=#132 id=132 data-nosnippet>132</a>	</span><span class="kw">const </span>V3_SCHEDULING_ENABLED: bool;
-<a href=#133 id=133 data-nosnippet>133</a>
-<a href=#134 id=134 data-nosnippet>134</a>	<span class="doccomment">/// Verifies `signed_info` against the author eligible at `relay_slot` (the slot of the
-<a href=#135 id=135 data-nosnippet>135</a>	/// internal scheduling parent)
-<a href=#136 id=136 data-nosnippet>136</a>	</span><span class="kw">fn </span>verify(signed_info: <span class="kw-2">&amp;</span>SignedSchedulingInfo, relay_slot: Slot) -&gt; bool;
-<a href=#137 id=137 data-nosnippet>137</a>}
-<a href=#138 id=138 data-nosnippet>138</a>
-<a href=#139 id=139 data-nosnippet>139</a><span class="doccomment">/// Default no-op wiring: V3 scheduling disabled, scheduling info accepted unconditionally.
-<a href=#140 id=140 data-nosnippet>140</a>///
-<a href=#141 id=141 data-nosnippet>141</a>/// Replacing it with a real verifier should also turn V3 on.
-<a href=#142 id=142 data-nosnippet>142</a></span><span class="kw">impl </span>VerifySchedulingSignature <span class="kw">for </span>() {
-<a href=#143 id=143 data-nosnippet>143</a>	<span class="kw">const </span>V3_SCHEDULING_ENABLED: bool = <span class="bool-val">false</span>;
-<a href=#144 id=144 data-nosnippet>144</a>
-<a href=#145 id=145 data-nosnippet>145</a>	<span class="kw">fn </span>verify(_signed_info: <span class="kw-2">&amp;</span>SignedSchedulingInfo, _relay_slot: Slot) -&gt; bool {
-<a href=#146 id=146 data-nosnippet>146</a>		<span class="bool-val">true
-<a href=#147 id=147 data-nosnippet>147</a>	</span>}
-<a href=#148 id=148 data-nosnippet>148</a>}
+<a href=#123 id=123 data-nosnippet>123</a>
+<a href=#124 id=124 data-nosnippet>124</a>	<span class="doccomment">/// Derive the scheduling parent hash.
+<a href=#125 id=125 data-nosnippet>125</a>	///
+<a href=#126 id=126 data-nosnippet>126</a>	/// Returns the hash of the first/newest header in `header_chain` if non-empty, otherwise
+<a href=#127 id=127 data-nosnippet>127</a>	/// falls back to `internal_scheduling_parent_header.hash()` (the ISP coincides with the
+<a href=#128 id=128 data-nosnippet>128</a>	/// scheduling parent when the parachain runs with `relay_parent_offset = 0`).
+<a href=#129 id=129 data-nosnippet>129</a>	</span><span class="kw">pub fn </span>scheduling_parent(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; polkadot_primitives::Hash {
+<a href=#130 id=130 data-nosnippet>130</a>		<span class="self">self</span>.header_chain
+<a href=#131 id=131 data-nosnippet>131</a>			.first()
+<a href=#132 id=132 data-nosnippet>132</a>			.map(BlakeTwo256::hash_of)
+<a href=#133 id=133 data-nosnippet>133</a>			.unwrap_or_else(|| <span class="self">self</span>.internal_scheduling_parent_header.hash())
+<a href=#134 id=134 data-nosnippet>134</a>	}
+<a href=#135 id=135 data-nosnippet>135</a>}
+<a href=#136 id=136 data-nosnippet>136</a>
+<a href=#137 id=137 data-nosnippet>137</a><span class="doccomment">/// Verifier for V3 scheduling.
+<a href=#138 id=138 data-nosnippet>138</a>///
+<a href=#139 id=139 data-nosnippet>139</a>/// Reports whether V3 scheduling is enabled for the parachain (via
+<a href=#140 id=140 data-nosnippet>140</a>/// [`Self::V3_SCHEDULING_ENABLED`]) and, when it is, verifies the [`SignedSchedulingInfo`]
+<a href=#141 id=141 data-nosnippet>141</a>/// attached to a candidate (via [`Self::verify`]).
+<a href=#142 id=142 data-nosnippet>142</a></span><span class="kw">pub trait </span>VerifySchedulingSignature {
+<a href=#143 id=143 data-nosnippet>143</a>	<span class="doccomment">/// Whether V3 scheduling validation is enabled.
+<a href=#144 id=144 data-nosnippet>144</a>	</span><span class="kw">const </span>V3_SCHEDULING_ENABLED: bool;
+<a href=#145 id=145 data-nosnippet>145</a>
+<a href=#146 id=146 data-nosnippet>146</a>	<span class="doccomment">/// Verifies `signed_info` against the author eligible at `relay_slot` (the slot of the
+<a href=#147 id=147 data-nosnippet>147</a>	/// internal scheduling parent)
+<a href=#148 id=148 data-nosnippet>148</a>	</span><span class="kw">fn </span>verify(signed_info: <span class="kw-2">&amp;</span>SignedSchedulingInfo, relay_slot: Slot) -&gt; bool;
+<a href=#149 id=149 data-nosnippet>149</a>}
+<a href=#150 id=150 data-nosnippet>150</a>
+<a href=#151 id=151 data-nosnippet>151</a><span class="doccomment">/// Default no-op wiring: V3 scheduling disabled, scheduling info accepted unconditionally.
+<a href=#152 id=152 data-nosnippet>152</a>///
+<a href=#153 id=153 data-nosnippet>153</a>/// Replacing it with a real verifier should also turn V3 on.
+<a href=#154 id=154 data-nosnippet>154</a></span><span class="kw">impl </span>VerifySchedulingSignature <span class="kw">for </span>() {
+<a href=#155 id=155 data-nosnippet>155</a>	<span class="kw">const </span>V3_SCHEDULING_ENABLED: bool = <span class="bool-val">false</span>;
+<a href=#156 id=156 data-nosnippet>156</a>
+<a href=#157 id=157 data-nosnippet>157</a>	<span class="kw">fn </span>verify(_signed_info: <span class="kw-2">&amp;</span>SignedSchedulingInfo, _relay_slot: Slot) -&gt; bool {
+<a href=#158 id=158 data-nosnippet>158</a>		<span class="bool-val">true
+<a href=#159 id=159 data-nosnippet>159</a>	</span>}
+<a href=#160 id=160 data-nosnippet>160</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
