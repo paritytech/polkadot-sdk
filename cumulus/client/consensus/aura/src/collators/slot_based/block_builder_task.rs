@@ -22,7 +22,7 @@ use crate::{
 		check_validation_code_or_log,
 		slot_based::{
 			relay_chain_data_cache::RelayChainDataCache,
-			scheduling::SchedulingInfo,
+			scheduling::{SchedulingInfo, SchedulingProofBuilder},
 			slot_timer::{SlotInfo, SlotTimer},
 		},
 		BackingGroupConnectionHelper, RelayHash, RelayParentData,
@@ -40,8 +40,8 @@ use cumulus_client_resubmission_store::prepare_resubmission_aux_data;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	PersistedValidationData, RelayBlockIdentifier, RelayParentOffsetApi, SchedulingProof,
-	SchedulingV3EnabledApi, TargetBlockRate,
+	PersistedValidationData, RelayBlockIdentifier, RelayParentOffsetApi, SchedulingV3EnabledApi,
+	TargetBlockRate,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
@@ -1011,29 +1011,21 @@ where
 	// Check if V3 scheduling is enabled and build scheduling proof if so.
 	let mut scheduling_proof = None;
 	if v3_enabled {
-		// The relay parent descendants are only needed for v2.
-		let descendants = relay_parent_data.take_descendants();
-		// The descendants are ordered from oldest to newest, so we need to reverse them.
-		let header_chain: Vec<_> = descendants.into_iter().rev().collect();
-		let scheduling_parent =
-			header_chain.first().map(|header| header.hash()).unwrap_or(relay_parent_hash);
+		// Initial submission: `internal_scheduling_parent == relay_parent`, unsigned. The relay
+		// parent descendants are only needed for v2.
+		let proof = SchedulingProofBuilder::<P>::new(relay_parent_header.clone())
+			.descendants(relay_parent_data.take_descendants())
+			.build();
 
 		tracing::debug!(
 			target: LOG_TARGET,
 			relay_parent = ?relay_parent_hash,
-			?scheduling_parent,
-			header_chain_len = header_chain.len(),
+			scheduling_parent = ?proof.scheduling_parent(),
+			header_chain_len = proof.header_chain.len(),
 			"Building V3 collation with scheduling proof",
 		);
 
-		scheduling_proof = Some(SchedulingProof {
-			header_chain,
-			// Initial submission: internal_scheduling_parent == relay_parent, so the
-			// internal scheduling parent header is the relay parent's header itself.
-			internal_scheduling_parent_header: relay_parent_header.clone(),
-			// Initial submission: no signature needed, core selection from UMP signals
-			signed_scheduling_info: None,
-		});
+		scheduling_proof = Some(proof);
 	}
 
 	let Some(validation_code_hash) = code_hash_provider.code_hash_at(pov_parent_hash) else {
