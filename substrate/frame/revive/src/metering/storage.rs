@@ -252,14 +252,6 @@ where
 		RawMeter { limit, ..Default::default() }
 	}
 
-	/// Reset this meter to its original setting.
-	pub fn reset(&mut self) {
-		self.own_contribution = Default::default();
-		self.total_deposit = Default::default();
-		self.charges = Default::default();
-		self.max_charged = Default::default();
-	}
-
 	/// Absorb a child that was spawned to handle a sub call.
 	///
 	/// This should be called whenever a sub call comes to its end and it is **not** reverted.
