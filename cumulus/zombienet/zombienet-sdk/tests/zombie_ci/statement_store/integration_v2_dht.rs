@@ -8,7 +8,7 @@
 //! by default); the replication factor `K` and gossip target are set via CLI flags.
 
 use super::common::{
-	assert_statements_match, collator_args_v2, expect_statement_delivered,
+	assert_late_joiner_receives_backlog, collator_args_v2, expect_statement_delivered,
 	spawn_network_with_injected_allowances_v2, stores_locally, submit_statement, subscribe_topic,
 	COLLATOR_TRACE_LOG_FILTER,
 };
@@ -24,8 +24,6 @@ const TEST_GOSSIP_TARGET: u32 = 3;
 const CONNECTED_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_connected_peers";
 // Statement-store peers known to a node's topology, exported per node by the v2 DHT path.
 const KNOWN_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_known_peers";
-// Whether the node is major-syncing, exported by the sync engine as a 0/1 gauge.
-const IS_MAJOR_SYNCING_METRIC: &str = "substrate_sub_libp2p_is_major_syncing";
 
 /// Probe budget, in one-second attempts, for waiting out the maintenance sweep: a statement no
 /// affinity covers stays in the store until the sweep (every 29 s) removes it once propagated, and
@@ -388,9 +386,6 @@ async fn late_joiner_receives_backlog() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	const PRE_JOIN_COUNT: usize = 3;
-	const DURING_SYNC_COUNT: usize = 2;
-
 	let names = ["charlie", "alice"];
 	let replication_factor: u32 = 1;
 	let mut network = spawn_network_with_injected_allowances_v2(
@@ -400,37 +395,6 @@ async fn late_joiner_receives_backlog() -> Result<(), anyhow::Error> {
 		TEST_GOSSIP_TARGET,
 	)
 	.await?;
-
-	let charlie = network.get_node(names[0])?;
-	let charlie_rpc = charlie.rpc().await?;
-
-	// Leave the joiner behind the major-sync threshold (`MAJOR_SYNC_BLOCKS` is 5).
-	let charlie_height = {
-		let height = std::cell::Cell::new(0.0f64);
-		charlie
-			.wait_metric_with_timeout(
-				crate::utils::BEST_BLOCK_METRIC,
-				|best| {
-					height.set(best);
-					best >= 10.0
-				},
-				360u64,
-			)
-			.await?;
-		height.get()
-	};
-	log::info!("charlie at block {charlie_height:.0} before dave joins");
-
-	let topic: Topic = [0x51; 32].into();
-	let keypair = get_keypair(0);
-	let pre_join: Vec<_> = (0..PRE_JOIN_COUNT as u32)
-		.map(|seq| {
-			create_test_statement(&keypair, &[topic], None, vec![0x51, seq as u8], u32::MAX, seq)
-		})
-		.collect();
-	for statement in &pre_join {
-		assert_eq!(submit_statement(&charlie_rpc, statement).await?, SubmitResult::New);
-	}
 
 	let options = AddCollatorOptions {
 		env: vec![("STATEMENT_STORE_V2_DHT_ENABLED", "1").into()],
@@ -442,42 +406,5 @@ async fn late_joiner_receives_backlog() -> Result<(), anyhow::Error> {
 		),
 		..Default::default()
 	};
-	network.add_collator("dave", options, 1004).await?;
-	let dave = network.get_node("dave")?;
-	let dave_rpc = dave.rpc().await?;
-	let mut subscription = subscribe_topic(&dave_rpc, topic).await?;
-
-	let during_sync: Vec<_> = (0..DURING_SYNC_COUNT as u32)
-		.map(|seq| {
-			let seq = PRE_JOIN_COUNT as u32 + seq;
-			create_test_statement(&keypair, &[topic], None, vec![0x51, seq as u8], u32::MAX, seq)
-		})
-		.collect();
-	for statement in &during_sync {
-		assert_eq!(submit_statement(&charlie_rpc, statement).await?, SubmitResult::New);
-	}
-	let dave_height = dave.reports(crate::utils::BEST_BLOCK_METRIC).await.unwrap_or(0.0);
-	log::info!("dave at block {dave_height:.0} of {charlie_height:.0} when the batch landed");
-
-	dave.wait_metric_with_timeout(
-		crate::utils::BEST_BLOCK_METRIC,
-		|best| best >= charlie_height,
-		240u64,
-	)
-	.await
-	.map_err(|_| anyhow::anyhow!("dave did not reach block {charlie_height:.0}"))?;
-	dave.wait_metric_with_timeout(IS_MAJOR_SYNCING_METRIC, |v| v == 0.0, 120u64)
-		.await?;
-
-	let expected: Vec<Vec<u8>> = pre_join
-		.iter()
-		.chain(during_sync.iter())
-		.map(|statement| statement.encode())
-		.collect();
-	assert_statements_match(&mut subscription, &expected, 120, "dave").await?;
-
-	let dave_logs = dave.logs().await?;
-	assert!(dave_logs.lines().any(|line| line.contains("Major sync complete, adding")));
-
-	Ok(())
+	assert_late_joiner_receives_backlog(&mut network, options).await
 }
