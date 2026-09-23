@@ -2701,6 +2701,30 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 	) -> sp_runtime::DispatchResult {
 		Ok(())
 	}
+
+	fn deregister(_para_id: registrar_primitives::ParaId) -> sp_runtime::DispatchResult {
+		Ok(())
+	}
+
+	fn check_head_data(_head_len: u32) -> Result<(), ()> {
+		Ok(())
+	}
+
+	fn set_current_head(_para_id: registrar_primitives::ParaId, _head: Vec<u8>) {}
+
+	fn check_code_upgrade(
+		_para_id: registrar_primitives::ParaId,
+		_code_len: u32,
+	) -> Result<(), ()> {
+		Ok(())
+	}
+
+	fn schedule_code_upgrade(
+		_para_id: registrar_primitives::ParaId,
+		_validation_code: Vec<u8>,
+	) -> sp_runtime::DispatchResult {
+		Ok(())
+	}
 }
 
 impl pallet_registrar_relay::Config for Runtime {
