@@ -1360,20 +1360,6 @@ fn subsystem_rejects_approval_before_assignment() {
 // and an unassigned one must still emit `ChainSelectionMessage::Approved` when the
 // assigned half completes the block. Per-candidate `NoAssignment` is reported, but must
 // not discard actions already produced for valid candidates in the same vote.
-//
-// Run (from the repo root):
-//   SKIP_WASM_BUILD=1 cargo test -p polkadot-node-core-approval-voting \
-//     coalesced_approval_liveness_bug -- --nocapture
-//
-// With the fix, all three tests pass: the mixed vote still returns
-// `ApprovalCheckResult::Bad(NoAssignment)`, and chain-selection is notified.
-//
-// To reproduce the original bug (tests fail): restore the in-loop `respond_early!`
-// in `import_approval` (`src/lib.rs`) so a later `NoAssignment` returns
-// `Ok((Vec::new(), Bad(...)))`. The two `coalesced_vote_notifies_*` tests then
-// time out in `overseer_recv` waiting for `ChainSelectionMessage::Approved`.
-// The control test (`honest_single_candidate_vote_notifies_chain_selection`) still
-// passes, because it never hits that early return.
 mod coalesced_approval_liveness_bug {
 	use super::*;
 

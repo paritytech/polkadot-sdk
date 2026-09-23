@@ -2843,9 +2843,7 @@ where
 	);
 
 	// Per-candidate failures must not discard actions already produced for earlier (or
-	// later) valid candidates in the same coalesced vote. Overlay writes are committed
-	// regardless of `ApprovalCheckResult::Bad`, so dropping `NoteApprovedInChainSelection`
-	// here would leave chain-selection unaware of a block that is already fully approved.
+	// later) valid candidates in the same coalesced vote.
 	let mut actions = Vec::new();
 	let mut first_error = None;
 	for (approval_candidate_index, approved_candidate_hash) in approved_candidates_info {
