@@ -85,7 +85,7 @@ type FullBeefyBlockImport<InnerBlockImport> = beefy::import::BeefyBlockImport<
 >;
 
 /// The transaction pool type definition.
-pub type TransactionPool = sc_transaction_pool::TransactionPoolHandle<Block, FullClient>;
+pub type TransactionPool = sc_transaction_pool::TransactionPoolHandle<Block>;
 
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
@@ -127,10 +127,7 @@ pub fn create_extrinsic(
 	let tip = 0;
 	let tx_ext: kitchensink_runtime::TxExtension =
 		(
-			(
-				kitchensink_runtime::ScarcityTxExtension::new(None),
-				frame_system::AuthorizeCall::<kitchensink_runtime::Runtime>::new(),
-			),
+			frame_system::AuthorizeCall::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckNonZeroSender::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckSpecVersion::<kitchensink_runtime::Runtime>::new(),
 			frame_system::CheckTxVersion::<kitchensink_runtime::Runtime>::new(),
@@ -155,7 +152,7 @@ pub fn create_extrinsic(
 		function.clone(),
 		tx_ext.clone(),
 		(
-			((), ()),
+			(),
 			(),
 			kitchensink_runtime::VERSION.spec_version,
 			kitchensink_runtime::VERSION.transaction_version,
@@ -191,7 +188,7 @@ pub fn new_partial(
 		FullBackend,
 		FullSelectChain,
 		sc_consensus::DefaultImportQueue<Block>,
-		sc_transaction_pool::TransactionPoolHandle<Block, FullClient>,
+		sc_transaction_pool::TransactionPoolHandle<Block>,
 		(
 			impl Fn(
 				sc_rpc::SubscriptionTaskExecutor,
@@ -245,16 +242,14 @@ pub fn new_partial(
 
 	let select_chain = sc_consensus::LongestChain::new(backend.clone());
 
-	let transaction_pool = Arc::from(
-		sc_transaction_pool::Builder::new(
-			task_manager.spawn_essential_handle(),
-			client.clone(),
-			config.role.is_authority().into(),
-		)
-		.with_options(config.transaction_pool.clone())
-		.with_prometheus(config.prometheus_registry())
-		.build(),
-	);
+	let transaction_pool = sc_transaction_pool::Builder::new(
+		task_manager.spawn_essential_handle(),
+		client.clone(),
+		config.role.is_authority().into(),
+	)
+	.with_options(config.transaction_pool.clone())
+	.with_prometheus(config.prometheus_registry())
+	.build();
 
 	let (grandpa_block_import, grandpa_link) = grandpa::block_import(
 		client.clone(),
@@ -410,7 +405,7 @@ pub struct NewFullBase {
 	/// The syncing service of the node.
 	pub sync: Arc<SyncingService<Block>>,
 	/// The transaction pool of the node.
-	pub transaction_pool: Arc<TransactionPoolHandle<Block, FullClient>>,
+	pub transaction_pool: Arc<TransactionPoolHandle<Block>>,
 	/// The rpc handlers of the node.
 	pub rpc_handlers: RpcHandlers,
 }
@@ -869,6 +864,9 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 		rate_limit: cli.statement_rate_limit,
 		v2dht: sc_network_statement::v2dht_enabled().then(|| sc_statement_store::V2DhtConfig {
 			affinity_topics: cli.statement_affinity_topics.clone(),
+			affinity_topics_file: cli.statement_affinity_topics_file.clone(),
+			bloom_false_pos_rate: cli.statement_bloom_false_positive_rate,
+			bloom_seed: cli.statement_bloom_seed,
 			replication_factor: cli.statement_replication_factor,
 			gossip_target: cli.statement_gossip_target,
 		}),
@@ -920,7 +918,7 @@ mod tests {
 		Address, BalancesCall, RuntimeCall, TxExtension,
 	};
 	use node_primitives::{Block, DigestItem, Signature};
-	use polkadot_sdk::{sc_transaction_pool_api::MaintainedTransactionPool, *};
+	use polkadot_sdk::*;
 	use sc_client_api::BlockBackend;
 	use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 	use sc_consensus_babe::{BabeIntermediate, CompatibleDigestItem, INTERMEDIATE_KEY};
@@ -1134,11 +1132,10 @@ mod tests {
 					pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::from(0, None),
 				);
 				let set_eth_origin = pallet_revive::evm::tx_extension::SetOrigin::default();
-				let as_scarcity = kitchensink_runtime::ScarcityTxExtension::new(None);
 				let weight_reclaim = frame_system::WeightReclaim::new();
 				let metadata_hash = frame_metadata_hash_extension::CheckMetadataHash::new(false);
 				let tx_ext: TxExtension = (
-					(as_scarcity, authorize_call),
+					authorize_call,
 					check_non_zero_sender,
 					check_spec_version,
 					check_tx_version,
@@ -1155,7 +1152,7 @@ mod tests {
 					function,
 					tx_ext,
 					(
-						((), ()),
+						(),
 						(),
 						spec_version,
 						transaction_version,

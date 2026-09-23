@@ -326,8 +326,6 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
 }
 
 // Implements the types required for the sudo pallet.
