@@ -33,8 +33,10 @@ fn nay(x: u8, balance: u64) -> AccountVote<u64> {
 	}
 }
 
-fn the_lock(amount: u64) -> BalanceLock<u64> {
-	BalanceLock { id: DEMOCRACY_ID, amount, reasons: pallet_balances::Reasons::All }
+/// The amount currently frozen for conviction voting on `who`.
+fn frozen(who: u64) -> u64 {
+	use frame_support::traits::fungible::InspectFreeze;
+	Balances::balance_frozen(&RuntimeFreezeReason::Democracy(crate::FreezeReason::Vote), &who)
 }
 
 #[test]
@@ -56,7 +58,7 @@ fn lock_voting_should_work() {
 
 		// All balances are currently locked.
 		for i in 1..=5 {
-			assert_eq!(pallet_balances::Locks::<Test>::get(&i), vec![the_lock(i * 10)]);
+			assert_eq!(frozen(i), i * 10);
 		}
 
 		fast_forward_to(3);
@@ -77,11 +79,11 @@ fn lock_voting_should_work() {
 		assert_ok!(Democracy::remove_vote(RuntimeOrigin::signed(2), r));
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(2), 2));
 
-		assert_eq!(pallet_balances::Locks::<Test>::get(&1), vec![]);
-		assert_eq!(pallet_balances::Locks::<Test>::get(&2), vec![the_lock(20)]);
-		assert_eq!(pallet_balances::Locks::<Test>::get(&3), vec![the_lock(30)]);
-		assert_eq!(pallet_balances::Locks::<Test>::get(&4), vec![the_lock(40)]);
-		assert_eq!(pallet_balances::Locks::<Test>::get(&5), vec![]);
+		assert_eq!(frozen(1), 0);
+		assert_eq!(frozen(2), 20);
+		assert_eq!(frozen(3), 30);
+		assert_eq!(frozen(4), 40);
+		assert_eq!(frozen(5), 0);
 		assert_eq!(Balances::free_balance(42), 2);
 
 		fast_forward_to(7);
@@ -91,12 +93,12 @@ fn lock_voting_should_work() {
 			Error::<Test>::NoPermission
 		);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(1), 4));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&4), vec![the_lock(40)]);
+		assert_eq!(frozen(4), 40);
 		fast_forward_to(8);
 		// 4 should now be able to reap and unlock
 		assert_ok!(Democracy::remove_other_vote(RuntimeOrigin::signed(1), 4, r));
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(1), 4));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&4), vec![]);
+		assert_eq!(frozen(4), 0);
 
 		fast_forward_to(13);
 		assert_noop!(
@@ -104,19 +106,19 @@ fn lock_voting_should_work() {
 			Error::<Test>::NoPermission
 		);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(1), 3));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&3), vec![the_lock(30)]);
+		assert_eq!(frozen(3), 30);
 		fast_forward_to(14);
 		assert_ok!(Democracy::remove_other_vote(RuntimeOrigin::signed(1), 3, r));
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(1), 3));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&3), vec![]);
+		assert_eq!(frozen(3), 0);
 
 		// 2 doesn't need to reap_vote here because it was already done before.
 		fast_forward_to(25);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(1), 2));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&2), vec![the_lock(20)]);
+		assert_eq!(frozen(2), 20);
 		fast_forward_to(26);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(1), 2));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&2), vec![]);
+		assert_eq!(frozen(2), 0);
 	});
 }
 
@@ -137,7 +139,7 @@ fn no_locks_without_conviction_should_work() {
 		assert_eq!(Balances::free_balance(42), 2);
 		assert_ok!(Democracy::remove_other_vote(RuntimeOrigin::signed(2), 1, r));
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(2), 1));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&1), vec![]);
+		assert_eq!(frozen(1), 0);
 	});
 }
 
@@ -198,33 +200,33 @@ fn prior_lockvotes_should_be_enforced() {
 			Error::<Test>::NoPermission
 		);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&5), vec![the_lock(50)]);
+		assert_eq!(frozen(5), 50);
 		fast_forward_to(8);
 		assert_ok!(Democracy::remove_other_vote(RuntimeOrigin::signed(1), 5, r.2));
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&5), vec![the_lock(20)]);
+		assert_eq!(frozen(5), 20);
 		fast_forward_to(13);
 		assert_noop!(
 			Democracy::remove_other_vote(RuntimeOrigin::signed(1), 5, r.1),
 			Error::<Test>::NoPermission
 		);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&5), vec![the_lock(20)]);
+		assert_eq!(frozen(5), 20);
 		fast_forward_to(14);
 		assert_ok!(Democracy::remove_other_vote(RuntimeOrigin::signed(1), 5, r.1));
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&5), vec![the_lock(10)]);
+		assert_eq!(frozen(5), 10);
 		fast_forward_to(25);
 		assert_noop!(
 			Democracy::remove_other_vote(RuntimeOrigin::signed(1), 5, r.0),
 			Error::<Test>::NoPermission
 		);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&5), vec![the_lock(10)]);
+		assert_eq!(frozen(5), 10);
 		fast_forward_to(26);
 		assert_ok!(Democracy::remove_other_vote(RuntimeOrigin::signed(1), 5, r.0));
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&5), vec![]);
+		assert_eq!(frozen(5), 0);
 	});
 }
 
@@ -239,26 +241,26 @@ fn single_consolidation_of_lockvotes_should_work_as_before() {
 		fast_forward_to(7);
 		assert_ok!(Democracy::remove_vote(RuntimeOrigin::signed(5), r.2));
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&5), vec![the_lock(50)]);
+		assert_eq!(frozen(5), 50);
 		fast_forward_to(8);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&5), vec![the_lock(20)]);
+		assert_eq!(frozen(5), 20);
 
 		fast_forward_to(13);
 		assert_ok!(Democracy::remove_vote(RuntimeOrigin::signed(5), r.1));
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&5), vec![the_lock(20)]);
+		assert_eq!(frozen(5), 20);
 		fast_forward_to(14);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&5), vec![the_lock(10)]);
+		assert_eq!(frozen(5), 10);
 
 		fast_forward_to(25);
 		assert_ok!(Democracy::remove_vote(RuntimeOrigin::signed(5), r.0));
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&5), vec![the_lock(10)]);
+		assert_eq!(frozen(5), 10);
 		fast_forward_to(26);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&5), vec![]);
+		assert_eq!(frozen(5), 0);
 	});
 }
 
@@ -276,15 +278,15 @@ fn multi_consolidation_of_lockvotes_should_be_conservative() {
 
 		fast_forward_to(8);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert!(pallet_balances::Locks::<Test>::get(&5)[0].amount >= 20);
+		assert!(frozen(5) >= 20);
 
 		fast_forward_to(14);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert!(pallet_balances::Locks::<Test>::get(&5)[0].amount >= 10);
+		assert!(frozen(5) >= 10);
 
 		fast_forward_to(26);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&5), vec![]);
+		assert_eq!(frozen(5), 0);
 	});
 }
 
@@ -305,26 +307,26 @@ fn locks_should_persist_from_voting_to_delegation() {
 
 		assert_ok!(Democracy::delegate(RuntimeOrigin::signed(5), 1, Conviction::Locked3x, 20));
 		// locked 20.
-		assert!(pallet_balances::Locks::<Test>::get(&5)[0].amount == 20);
+		assert!(frozen(5) == 20);
 
 		assert_ok!(Democracy::undelegate(RuntimeOrigin::signed(5)));
 		// locked 20 until #14
 
 		fast_forward_to(13);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert!(pallet_balances::Locks::<Test>::get(&5)[0].amount == 20);
+		assert!(frozen(5) == 20);
 
 		fast_forward_to(14);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert!(pallet_balances::Locks::<Test>::get(&5)[0].amount >= 10);
+		assert!(frozen(5) >= 10);
 
 		fast_forward_to(25);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert!(pallet_balances::Locks::<Test>::get(&5)[0].amount >= 10);
+		assert!(frozen(5) >= 10);
 
 		fast_forward_to(26);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&5), vec![]);
+		assert_eq!(frozen(5), 0);
 	});
 }
 
@@ -347,18 +349,18 @@ fn locks_should_persist_from_delegation_to_voting() {
 
 		fast_forward_to(8);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert!(pallet_balances::Locks::<Test>::get(&5)[0].amount >= 20);
+		assert!(frozen(5) >= 20);
 
 		fast_forward_to(14);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert!(pallet_balances::Locks::<Test>::get(&5)[0].amount >= 10);
+		assert!(frozen(5) >= 10);
 
 		fast_forward_to(26);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert!(pallet_balances::Locks::<Test>::get(&5)[0].amount >= 5);
+		assert!(frozen(5) >= 5);
 
 		fast_forward_to(48);
 		assert_ok!(Democracy::unlock(RuntimeOrigin::signed(5), 5));
-		assert_eq!(pallet_balances::Locks::<Test>::get(&5), vec![]);
+		assert_eq!(frozen(5), 0);
 	});
 }

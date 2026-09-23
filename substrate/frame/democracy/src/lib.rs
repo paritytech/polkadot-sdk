@@ -160,9 +160,11 @@ use frame_support::{
 	ensure,
 	traits::{
 		defensive_prelude::*,
+		fungible::{Inspect, InspectFreeze, MutateFreeze, MutateHold},
 		schedule::{v3::Named as ScheduleNamed, DispatchTime},
-		Bounded, Currency, EnsureOrigin, Get, LockIdentifier, LockableCurrency, OnUnbalanced,
-		QueryPreimage, ReservableCurrency, StorePreimage, WithdrawReasons,
+		tokens::{Fortitude, Precision},
+		Bounded, Currency, EnsureOrigin, Get, LockIdentifier, LockableCurrency, QueryPreimage,
+		ReservableCurrency, StorePreimage,
 	},
 	weights::Weight,
 };
@@ -198,10 +200,7 @@ pub mod migrations;
 pub(crate) const DEMOCRACY_ID: LockIdentifier = *b"democrac";
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
-	<T as frame_system::Config>::AccountId,
->>::NegativeImbalance;
+	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 pub type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
 pub type BoundedCallOf<T> = Bounded<CallOf<T>, <T as frame_system::Config>::Hashing>;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
@@ -213,7 +212,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -236,8 +235,24 @@ pub mod pallet {
 		/// The Preimage provider.
 		type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
 
-		/// Currency type for this pallet.
-		type Currency: ReservableCurrency<Self::AccountId>
+		/// Currency type for this pallet: proposal/second deposits are taken as holds and
+		/// conviction vote locks as freezes.
+		type Currency: Inspect<Self::AccountId>
+			+ MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ MutateFreeze<Self::AccountId, Id = Self::RuntimeFreezeReason>
+			+ InspectFreeze<Self::AccountId>;
+
+		/// The overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
+
+		/// The overarching freeze reason.
+		type RuntimeFreezeReason: From<FreezeReason>;
+
+		/// The legacy reservable & lockable currency. Retained only to migrate pre-existing
+		/// reserved deposits to holds and locked conviction votes to freezes; otherwise unused and
+		/// can be removed once all accounts/proposals have migrated.
+		type OldCurrency: Currency<Self::AccountId, Balance = BalanceOf<Self>>
+			+ ReservableCurrency<Self::AccountId>
 			+ LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self>>;
 
 		/// The period between a proposal being approved and enacted.
@@ -341,9 +356,22 @@ pub mod pallet {
 
 		/// Overarching type of all pallets origins.
 		type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
+	}
 
-		/// Handler for the unbalanced reduction when slashing a preimage deposit.
-		type Slash: OnUnbalanced<NegativeImbalanceOf<Self>>;
+	/// A reason for the pallet placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// Funds are held as a deposit for a public proposal (by the proposer or a seconder).
+		#[codec(index = 0)]
+		Proposal,
+	}
+
+	/// A reason for the pallet placing a freeze on funds.
+	#[pallet::composite_enum]
+	pub enum FreezeReason {
+		/// Funds are frozen for an active conviction vote (or delegation).
+		#[codec(index = 0)]
+		Vote,
 	}
 
 	/// The number of (public) proposals that have been made so far.
@@ -604,7 +632,7 @@ pub mod pallet {
 				);
 			}
 
-			T::Currency::reserve(&who, value)?;
+			T::Currency::hold(&Self::hold_reason(), &who, value)?;
 
 			let depositors = BoundedVec::<_, T::MaxDeposits>::truncate_from(vec![who.clone()]);
 			DepositOf::<T>::insert(index, (depositors, value));
@@ -635,7 +663,7 @@ pub mod pallet {
 			let seconds = Self::len_of_deposit_of(proposal).ok_or(Error::<T>::ProposalMissing)?;
 			ensure!(seconds < T::MaxDeposits::get(), Error::<T>::TooMany);
 			let mut deposit = DepositOf::<T>::get(proposal).ok_or(Error::<T>::ProposalMissing)?;
-			T::Currency::reserve(&who, deposit.1)?;
+			T::Currency::hold(&Self::hold_reason(), &who, deposit.1)?;
 			let ok = deposit.0.try_push(who.clone()).is_ok();
 			debug_assert!(ok, "`seconds` is below static limit; `try_insert` should succeed; qed");
 			DepositOf::<T>::insert(proposal, deposit);
@@ -1055,7 +1083,13 @@ pub mod pallet {
 					let (prop_index, ..) = props.remove(index);
 					if let Some((whos, amount)) = DepositOf::<T>::take(prop_index) {
 						for who in whos.into_iter() {
-							T::Slash::on_unbalanced(T::Currency::slash_reserved(&who, amount).0);
+							let _ = T::Currency::burn_held(
+								&Self::hold_reason(),
+								&who,
+								amount,
+								Precision::BestEffort,
+								Fortitude::Force,
+							);
 						}
 					}
 					Self::clear_metadata(MetadataOwner::Proposal(prop_index));
@@ -1099,7 +1133,13 @@ pub mod pallet {
 			PublicProps::<T>::mutate(|props| props.retain(|p| p.0 != prop_index));
 			if let Some((whos, amount)) = DepositOf::<T>::take(prop_index) {
 				for who in whos.into_iter() {
-					T::Slash::on_unbalanced(T::Currency::slash_reserved(&who, amount).0);
+					let _ = T::Currency::burn_held(
+						&Self::hold_reason(),
+						&who,
+						amount,
+						Precision::BestEffort,
+						Fortitude::Force,
+					);
 				}
 			}
 			Self::deposit_event(Event::<T>::ProposalCanceled { prop_index });
@@ -1275,7 +1315,7 @@ impl<T: Config> Pallet<T> {
 		vote: AccountVote<BalanceOf<T>>,
 	) -> DispatchResult {
 		let mut status = Self::referendum_status(ref_index)?;
-		ensure!(vote.balance() <= T::Currency::free_balance(who), Error::<T>::InsufficientFunds);
+		ensure!(vote.balance() <= T::Currency::balance(who), Error::<T>::InsufficientFunds);
 		VotingOf::<T>::try_mutate(who, |voting| -> DispatchResult {
 			if let Voting::Direct { ref mut votes, delegations, .. } = voting {
 				match votes.binary_search_by_key(&ref_index, |i| i.0) {
@@ -1304,14 +1344,9 @@ impl<T: Config> Pallet<T> {
 				Err(Error::<T>::AlreadyDelegating.into())
 			}
 		})?;
-		// Extend the lock to `balance` (rather than setting it) since we don't know what other
+		// Extend the freeze to `balance` (rather than setting it) since we don't know what other
 		// votes are in place.
-		T::Currency::extend_lock(
-			DEMOCRACY_ID,
-			who,
-			vote.balance(),
-			WithdrawReasons::except(WithdrawReasons::RESERVE),
-		);
+		let _ = T::Currency::extend_freeze(&Self::freeze_reason(), who, vote.balance()).defensive();
 		ReferendumInfoOf::<T>::insert(ref_index, ReferendumInfo::Ongoing(status));
 		Ok(())
 	}
@@ -1425,7 +1460,7 @@ impl<T: Config> Pallet<T> {
 		balance: BalanceOf<T>,
 	) -> Result<u32, DispatchError> {
 		ensure!(who != target, Error::<T>::Nonsense);
-		ensure!(balance <= T::Currency::free_balance(&who), Error::<T>::InsufficientFunds);
+		ensure!(balance <= T::Currency::balance(&who), Error::<T>::InsufficientFunds);
 		let votes = VotingOf::<T>::try_mutate(&who, |voting| -> Result<u32, DispatchError> {
 			let mut old = Voting::Delegating {
 				balance,
@@ -1455,14 +1490,9 @@ impl<T: Config> Pallet<T> {
 				},
 			}
 			let votes = Self::increase_upstream_delegation(&target, conviction.votes(balance));
-			// Extend the lock to `balance` (rather than setting it) since we don't know what other
-			// votes are in place.
-			T::Currency::extend_lock(
-				DEMOCRACY_ID,
-				&who,
-				balance,
-				WithdrawReasons::except(WithdrawReasons::RESERVE),
-			);
+			// Extend the freeze to `balance` (rather than setting it) since we don't know what
+			// other votes are in place.
+			let _ = T::Currency::extend_freeze(&Self::freeze_reason(), &who, balance).defensive();
 			Ok(votes)
 		})?;
 		Self::deposit_event(Event::<T>::Delegated { who, target });
@@ -1497,22 +1527,29 @@ impl<T: Config> Pallet<T> {
 		Ok(votes)
 	}
 
-	/// Rejig the lock on an account. It will never get more stringent (since that would indicate
+	/// The hold reason for public-proposal deposits.
+	fn hold_reason() -> T::RuntimeHoldReason {
+		HoldReason::Proposal.into()
+	}
+
+	/// The freeze reason for conviction vote locks.
+	fn freeze_reason() -> T::RuntimeFreezeReason {
+		FreezeReason::Vote.into()
+	}
+
+	/// Rejig the freeze on an account. It will never get more stringent (since that would indicate
 	/// a security hole) but may be reduced from what they are currently.
 	fn update_lock(who: &T::AccountId) {
 		let lock_needed = VotingOf::<T>::mutate(who, |voting| {
 			voting.rejig(frame_system::Pallet::<T>::block_number());
 			voting.locked_balance()
 		});
+		// Lazily migrate any legacy conviction lock to the freeze model. No-op if absent.
+		T::OldCurrency::remove_lock(DEMOCRACY_ID, who);
 		if lock_needed.is_zero() {
-			T::Currency::remove_lock(DEMOCRACY_ID, who);
+			let _ = T::Currency::thaw(&Self::freeze_reason(), who).defensive();
 		} else {
-			T::Currency::set_lock(
-				DEMOCRACY_ID,
-				who,
-				lock_needed,
-				WithdrawReasons::except(WithdrawReasons::RESERVE),
-			);
+			let _ = T::Currency::set_freeze(&Self::freeze_reason(), who, lock_needed).defensive();
 		}
 	}
 
@@ -1574,7 +1611,12 @@ impl<T: Config> Pallet<T> {
 			if let Some((depositors, deposit)) = DepositOf::<T>::take(prop_index) {
 				// refund depositors
 				for d in depositors.iter() {
-					T::Currency::unreserve(d, deposit);
+					let _ = T::Currency::release(
+						&Self::hold_reason(),
+						d,
+						deposit,
+						Precision::BestEffort,
+					);
 				}
 				Self::deposit_event(Event::<T>::Tabled { proposal_index: prop_index, deposit });
 				let ref_index = Self::inject_referendum(
