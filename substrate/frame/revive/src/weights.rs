@@ -194,6 +194,7 @@ pub trait WeightInfo {
 	fn evm_calldataload_opcode(r: u32, ) -> Weight;
 	fn evm_calldatasize_opcode(r: u32, ) -> Weight;
 	fn evm_returndatasize_opcode(r: u32, ) -> Weight;
+	fn evm_byte_opcode(r: u32, ) -> Weight;
 	fn evm_shl_opcode(r: u32, ) -> Weight;
 	fn evm_shr_opcode(r: u32, ) -> Weight;
 	fn evm_sar_opcode(r: u32, ) -> Weight;
@@ -1696,6 +1697,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// The range of component `r` is `[0, 1024]`.
 	fn evm_returndatasize_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_byte_opcode(r: u32, ) -> Weight {
 		// Dummy values. These weights will be generated in CI.
 		Weight::from_parts(1_000_000, 0)
 			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
@@ -3424,6 +3431,12 @@ impl WeightInfo for () {
 	}
 	/// The range of component `r` is `[0, 1024]`.
 	fn evm_returndatasize_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_byte_opcode(r: u32, ) -> Weight {
 		// Dummy values. These weights will be generated in CI.
 		Weight::from_parts(1_000_000, 0)
 			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))

@@ -144,7 +144,7 @@ pub fn not<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Extracts a single byte from a word at a given index.
 pub fn byte<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::BYTE)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
 	let o1 = as_usize_saturated(op1);

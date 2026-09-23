@@ -3752,6 +3752,31 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
 	}
 
+	/// Benchmark `r` `BYTE` instructions with index and value 31, preserving 31 as the next index.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_byte_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+		let code = Bytecode::new_raw(vec![BYTE; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		let operand = U256::from(31);
+		for _ in 0..=r {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&operand));
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+	}
+
 	/// Benchmark `r` `SHL` instructions with full-width operands and small, varying shifts.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_shl_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
