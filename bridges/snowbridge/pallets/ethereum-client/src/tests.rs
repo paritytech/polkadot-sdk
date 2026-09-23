@@ -1191,11 +1191,14 @@ mod gloas_branches {
 		};
 		let slot = |epoch: u64| epoch * SLOTS_PER_EPOCH as u64;
 
-		for (epoch, finalized, current_sc, next_sc, block_roots) in [
-			(0u64, 105, 54, 55, 37),     // altair, and everything up to deneb falls here
-			(100, 169, 86, 87, 69),      // electra
-			(150, 169, 86, 87, 69),      // fulu, which shares electra's indices
-			(200, 735, 2945, 2946, 352), // gloas
+		use CommitmentScheme::{BlockHash, PayloadHeaderRoot};
+		for (epoch, finalized, current_sc, next_sc, block_roots, execution, scheme) in [
+			// altair, and everything up to deneb falls here
+			(0u64, 105, 54, 55, 37, 25, PayloadHeaderRoot),
+			(100, 169, 86, 87, 69, 25, PayloadHeaderRoot),
+			// fulu shares electra's indices
+			(150, 169, 86, 87, 69, 25, PayloadHeaderRoot),
+			(200, 735, 2945, 2946, 352, 2856, BlockHash),
 		] {
 			let s = slot(epoch);
 			assert_eq!(
@@ -1217,6 +1220,16 @@ mod gloas_branches {
 				EthereumBeaconClient::block_roots_gindex_at_slot(s, versions.clone()),
 				block_roots,
 				"block_roots at epoch {epoch}"
+			);
+			assert_eq!(
+				EthereumBeaconClient::execution_commitment_gindex_at_slot(s, versions.clone()),
+				execution,
+				"execution_commitment at epoch {epoch}"
+			);
+			assert_eq!(
+				EthereumBeaconClient::commitment_scheme_at_slot(s, versions.clone()),
+				scheme,
+				"commitment_scheme at epoch {epoch}"
 			);
 		}
 	}
