@@ -27,7 +27,7 @@ use crate::{
 		block_hash::EthereumBlockBuilder, block_storage,
 	},
 	exec::{Key, Origin as ExecOrigin, PrecompileExt},
-	limits,
+	limits::{self, CALLDATA_BYTES, EVM_MEMORY_BYTES, EVM_STACK_LIMIT},
 	precompiles::{
 		self, BenchmarkStorage, BenchmarkSystem, BuiltinPrecompile,
 		alloy::sol_types::{
@@ -62,7 +62,10 @@ use pallet_revive_uapi::{
 	CallFlags, ReturnErrorCode, StorageFlags, pack_hi_lo,
 	precompiles::{storage::IStorage, system::ISystem},
 };
-use revm::bytecode::{Bytecode, opcode::*};
+use revm::{
+	bytecode::{Bytecode, opcode::*},
+	primitives::eip3860::MAX_INITCODE_SIZE,
+};
 use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_consensus_babe::{
 	BABE_ENGINE_ID,
@@ -136,7 +139,7 @@ impl EvmJumpFixture {
 		use rand::{SeedableRng, seq::SliceRandom};
 		use rand_pcg::Pcg64;
 
-		const MAX_CODE_SIZE: usize = revm::primitives::eip3860::MAX_INITCODE_SIZE;
+		const MAX_CODE_SIZE: usize = MAX_INITCODE_SIZE;
 		let mut code = Vec::<u8>::with_capacity(MAX_CODE_SIZE);
 		let mut index_of_jumpdest = Vec::new();
 		loop {
@@ -3255,9 +3258,10 @@ mod benchmarks {
 
 	/// Benchmark the cost of executing `r` noop (JUMPDEST) instructions.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_jumpdest_opcode(r: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
+	fn evm_jumpdest_opcode(
+		r: Linear<0, { MAX_INITCODE_SIZE as u32 }>,
+	) -> Result<(), BenchmarkError> {
 		let module = VmBinaryModule::evm_noop(r);
-		let inputs = vec![];
 
 		let code = Bytecode::new_raw(revm::primitives::Bytes::from(module.code.clone()));
 		let mut setup = CallSetup::<T>::new(module);
@@ -3266,7 +3270,7 @@ mod benchmarks {
 		let result;
 		#[block]
 		{
-			result = evm::call(code, &mut ext, inputs);
+			result = evm::call(code, &mut ext, vec![]);
 		}
 
 		assert!(result.is_ok());
@@ -3277,7 +3281,7 @@ mod benchmarks {
 	/// are placed on the stack ahead of time, so nothing but `JUMP` and `JUMPDEST` executes and
 	/// the slope is one `JUMP` plus one `JUMPDEST`. Each jump consumes one stack item.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_jump_opcode(r: Linear<1, { limits::EVM_STACK_LIMIT }>) {
+	fn evm_jump_opcode(r: Linear<1, EVM_STACK_LIMIT>) {
 		let fixture = EvmJumpFixture::new(JUMP, r);
 		let last_target = fixture.last_target();
 
@@ -3306,7 +3310,7 @@ mod benchmarks {
 	/// `JUMPDEST` executes and the slope is one taken `JUMPI` plus one `JUMPDEST`. Each jump
 	/// consumes two stack items.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_jumpi_opcode(r: Linear<1, { limits::EVM_STACK_LIMIT / 2 }>) {
+	fn evm_jumpi_opcode(r: Linear<1, { EVM_STACK_LIMIT / 2 }>) {
 		let fixture = EvmJumpFixture::new(JUMPI, r);
 		let last_target = fixture.last_target();
 
@@ -3334,7 +3338,7 @@ mod benchmarks {
 
 	// TODO: Experimenting with what the worst case for the conditional jump is.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_jumpi_untaken_opcode(r: Linear<1, { limits::EVM_STACK_LIMIT / 2 }>) {
+	fn evm_jumpi_untaken_opcode(r: Linear<1, { EVM_STACK_LIMIT / 2 }>) {
 		let fixture = EvmJumpFixture::new(JUMPI, r);
 		let last_target = fixture.last_target();
 
@@ -3364,7 +3368,7 @@ mod benchmarks {
 
 	// TODO: Experimenting with what the worst case for the conditional jump is.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_jumpi_random_opcode(r: Linear<1, { limits::EVM_STACK_LIMIT / 2 }>) {
+	fn evm_jumpi_random_opcode(r: Linear<1, { EVM_STACK_LIMIT / 2 }>) {
 		use rand::{Rng, SeedableRng};
 		use rand_pcg::Pcg64;
 
@@ -3408,7 +3412,7 @@ mod benchmarks {
 	/// from the code and therefore a `PUSH32` is the worst case scenario as it involves more data
 	/// being copied from the code.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_push_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
+	fn evm_push_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = core::iter::once(PUSH32)
 			.chain([u8::MAX; 32])
 			.collect::<Vec<u8>>()
@@ -3432,7 +3436,7 @@ mod benchmarks {
 	/// All items are placed on the stack before the code executes therefore the benchmark gives the
 	/// cost of just `POP` without any overhead.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_pop_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
+	fn evm_pop_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![POP; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3458,7 +3462,7 @@ mod benchmarks {
 	/// top and push a copy of it, so `N` doesn't change the amount of work. The sixteen items are
 	/// placed on the stack before the code executes.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_dup_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 16 }>) {
+	fn evm_dup_opcode(r: Linear<0, { EVM_STACK_LIMIT - 16 }>) {
 		let code = Bytecode::new_raw(vec![DUP16; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3484,7 +3488,7 @@ mod benchmarks {
 	/// fixed offset below it, so `N` doesn't change the amount of work. The seventeen items are
 	/// placed on the stack before the code executes.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_swap_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
+	fn evm_swap_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![SWAP16; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3509,7 +3513,7 @@ mod benchmarks {
 	/// Each `PC` pushes its own offset, so the top of the stack afterwards is the offset of the
 	/// last one, which checks that every instruction ran and that the program counter is right.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_pc_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
+	fn evm_pc_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![PC; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3529,7 +3533,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `CHAINID` instructions.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_chainid_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
+	fn evm_chainid_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![CHAINID; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3550,7 +3554,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `DIFFICULTY` instructions.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_prevrandao_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
+	fn evm_prevrandao_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![DIFFICULTY; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3574,7 +3578,7 @@ mod benchmarks {
 	/// The code is nothing but `r` `CODESIZE` bytes, so every one of them pushes `r`, which checks
 	/// that the reported size is the original code length rather than the padded one.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_codesize_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
+	fn evm_codesize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![CODESIZE; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3605,11 +3609,11 @@ mod benchmarks {
 	/// boundary. All reads stay within calldata, and the stack contains exactly one item throughout
 	/// execution.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_calldataload_opcode(r: Linear<0, { limits::CALLDATA_BYTES / 64 - 1 }>) {
+	fn evm_calldataload_opcode(r: Linear<0, { CALLDATA_BYTES / 64 - 1 }>) {
 		use rand::{SeedableRng, seq::SliceRandom};
 		use rand_pcg::Pcg64;
 
-		const CALLDATA_SIZE: usize = limits::CALLDATA_BYTES as usize;
+		const CALLDATA_SIZE: usize = CALLDATA_BYTES as usize;
 		const CACHE_LINE_SIZE: usize = 64;
 		const WORD_SIZE: usize = 32;
 		const OFFSET_IN_LINE: usize = 48;
@@ -3703,9 +3707,9 @@ mod benchmarks {
 	/// and contents do not add work. Use maximum-size calldata and fill the stack with successful
 	/// pushes, keeping input allocation and interpreter setup outside the measured block.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_calldatasize_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
+	fn evm_calldatasize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![CALLDATASIZE; r as usize].into());
-		let input = vec![0u8; limits::CALLDATA_BYTES as usize];
+		let input = vec![0u8; CALLDATA_BYTES as usize];
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), input, &mut ext);
@@ -3719,7 +3723,7 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), r as usize);
-		let expected = U256::from(limits::CALLDATA_BYTES);
+		let expected = U256::from(CALLDATA_BYTES);
 		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
 	}
 
@@ -3729,14 +3733,12 @@ mod benchmarks {
 	/// reads the returned bytes nor branches on return flags. Use maximum-size return data and fill
 	/// the stack with successful pushes, keeping allocation and setup outside the measured block.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_returndatasize_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
+	fn evm_returndatasize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![RETURNDATASIZE; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
-		*ext.last_frame_output_mut() = ExecReturnValue {
-			data: vec![42; limits::CALLDATA_BYTES as usize],
-			..Default::default()
-		};
+		*ext.last_frame_output_mut() =
+			ExecReturnValue { data: vec![42; CALLDATA_BYTES as usize], ..Default::default() };
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), vec![], &mut ext);
 
 		let result;
@@ -3748,13 +3750,13 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), r as usize);
-		let expected = U256::from(limits::CALLDATA_BYTES);
+		let expected = U256::from(CALLDATA_BYTES);
 		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
 	}
 
 	/// Benchmark `r` `ADD` instructions with carry propagation through all four words each time.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_add_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+	fn evm_add_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let code = Bytecode::new_raw(vec![ADD; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3778,7 +3780,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `MUL` instructions with dense operands that retain four nonzero result limbs.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_mul_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+	fn evm_mul_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		const SEED: U256 = U256([0x5555_5555_5555_5555; 4]);
 
 		let code = Bytecode::new_raw(vec![MUL; r as usize].into());
@@ -3806,7 +3808,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `SUB` instructions with a borrow through all four words on each subtraction.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_sub_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+	fn evm_sub_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let code = Bytecode::new_raw(vec![SUB; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3831,7 +3833,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `DIV` instructions with three quotient steps and five estimate corrections.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_div_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
+	fn evm_div_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		const NUMERATOR: U256 = U256([0, 0, 1, 1 << 62]);
 		const DIVISOR: U256 = U256([3, 2, 0, 0]);
 
@@ -3859,7 +3861,7 @@ mod benchmarks {
 	/// 2^128` and negative denominator `-(2^65 + 3)` force sign conversion and five Knuth quotient
 	/// corrections.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_sdiv_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
+	fn evm_sdiv_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		const NUMERATOR: U256 = U256([0, 0, 1, 1 << 62]);
 		const DIVISOR: U256 = U256([u64::MAX - 2, u64::MAX - 2, u64::MAX, u64::MAX]);
 
@@ -3885,7 +3887,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `MOD` instructions with three quotient digits and five estimate corrections.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_mod_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
+	fn evm_mod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		const NUMERATOR: U256 = U256([0, 0, 1, 1 << 62]);
 		const DIVISOR: U256 = U256([3, 2, 0, 0]);
 
@@ -3911,7 +3913,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `SMOD` instructions with negative operands and five quotient corrections.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_smod_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
+	fn evm_smod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		const NUMERATOR: U256 = U256([0, 0, u64::MAX, 0xbfff_ffff_ffff_ffff]);
 		const DIVISOR: U256 =
 			U256([0xffff_ffff_ffff_fffd, 0xffff_ffff_ffff_fffd, u64::MAX, u64::MAX]);
@@ -3938,7 +3940,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `ADDMOD` instructions with two full reductions and a final subtraction.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_addmod_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 3 }>) {
+	fn evm_addmod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
 		const OPERAND: U256 = U256([0, 0, 1, 1 << 62]);
 		const MODULUS: U256 = U256([3, 2, 0, 0]);
 
@@ -3967,7 +3969,7 @@ mod benchmarks {
 	/// two four-word add-back corrections per operation. Fresh operands preserve this path each
 	/// time.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_mulmod_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 3 }>) {
+	fn evm_mulmod_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
 		const MODULUS: U256 = U256([4, 1, 1, 1]);
 
 		let multiplier = U256::MAX - U256::from(6);
@@ -3993,7 +3995,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `EXP` instructions taking the zero-exponent shortcut.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_exp_zero_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+	fn evm_exp_zero_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let code = Bytecode::new_raw(vec![EXP; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4019,7 +4021,7 @@ mod benchmarks {
 
 	/// Benchmark the fixed positive-exponent cost with `r` `EXP` instructions and exponent one.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_exp_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+	fn evm_exp_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let code = Bytecode::new_raw(vec![EXP; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4072,7 +4074,7 @@ mod benchmarks {
 	/// Index three keeps mask construction on the full shift path. Fresh operands and `POP`
 	/// preserve the negative extension path on every repetition.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_signextend_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
+	fn evm_signextend_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		let code = Bytecode::new_raw([SIGNEXTEND, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4096,7 +4098,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `LT` instructions with zero/two operands, comparing all four words each time.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_lt_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+	fn evm_lt_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let code = Bytecode::new_raw(vec![LT; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4121,7 +4123,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `GT` instructions with equal operands, comparing all four words each time.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_gt_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+	fn evm_gt_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let code = Bytecode::new_raw(vec![GT; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4145,7 +4147,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `CLZ` instructions with 248, preserving the full four-limb scan on every call.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_clz_opcode(r: Linear<0, { revm::primitives::eip3860::MAX_INITCODE_SIZE as u32 }>) {
+	fn evm_clz_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
 		let code = Bytecode::new_raw(vec![CLZ; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4168,7 +4170,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `SLT` instructions on zeros, forcing full zero checks and limb comparison.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_slt_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+	fn evm_slt_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let code = Bytecode::new_raw(vec![SLT; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4192,7 +4194,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `SGT` instructions on zeros, forcing full zero checks and limb comparison.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_sgt_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+	fn evm_sgt_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let code = Bytecode::new_raw(vec![SGT; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4216,7 +4218,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `EQ` instructions with equal operands, preserving one as the next operand.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_eq_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+	fn evm_eq_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let code = Bytecode::new_raw(vec![EQ; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4240,7 +4242,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `ISZERO` instructions with zero operands to check all four words each time.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_iszero_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
+	fn evm_iszero_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw([ISZERO, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4263,7 +4265,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `AND` instructions with full-width operands that preserve all bits set.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_and_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+	fn evm_and_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let code = Bytecode::new_raw(vec![AND; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4287,7 +4289,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `OR` instructions with full-width operands that preserve all bits set.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_or_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+	fn evm_or_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let code = Bytecode::new_raw(vec![OR; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4311,7 +4313,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `XOR` instructions with MAX operands and alternating zero/MAX results.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_xor_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+	fn evm_xor_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let code = Bytecode::new_raw(vec![XOR; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4336,7 +4338,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `NOT` instructions, alternating between zero and all bits set.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_not_opcode(r: Linear<0, { revm::primitives::eip3860::MAX_INITCODE_SIZE as u32 }>) {
+	fn evm_not_opcode(r: Linear<0, { MAX_INITCODE_SIZE as u32 }>) {
 		let code = Bytecode::new_raw(vec![NOT; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4359,7 +4361,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `BYTE` instructions with index and value 31, preserving 31 as the next index.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_byte_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+	fn evm_byte_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
 		let code = Bytecode::new_raw(vec![BYTE; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -4384,7 +4386,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `SHL` instructions with full-width operands and small, varying shifts.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_shl_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
+	fn evm_shl_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		const SHIFTS: [u32; 30] = [
 			1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 17, 17, 15, 14, 13, 12, 11, 10, 9, 7,
 			6, 5, 4, 3, 2, 1,
@@ -4417,7 +4419,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `SHR` instructions with full-width operands and small, varying shifts.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_shr_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
+	fn evm_shr_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		const SHIFTS: [u32; 30] = [
 			1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 17, 17, 15, 14, 13, 12, 11, 10, 9, 7,
 			6, 5, 4, 3, 2, 1,
@@ -4450,7 +4452,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `SAR` instructions with negative operands and small, varying shifts.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_sar_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
+	fn evm_sar_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		const SHIFTS: [u32; 30] = [
 			1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 17, 17, 15, 14, 13, 12, 11, 10, 9, 7,
 			6, 5, 4, 3, 2, 1,
@@ -4486,11 +4488,11 @@ mod benchmarks {
 	/// Each loaded word supplies the next offset, and each read crosses a 64-byte cache line. The
 	/// allocation address determines the adjustment needed to start each read at byte 48 of a line.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_mload_opcode(r: Linear<0, { limits::EVM_MEMORY_BYTES / 64 - 1 }>) {
+	fn evm_mload_opcode(r: Linear<0, { EVM_MEMORY_BYTES / 64 - 1 }>) {
 		use rand::{SeedableRng, seq::SliceRandom};
 		use rand_pcg::Pcg64;
 
-		const MEMORY_SIZE: usize = limits::EVM_MEMORY_BYTES as usize;
+		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
 		const CACHE_LINE_SIZE: usize = 64;
 		const WORD_SIZE: usize = 32;
 		const OFFSET_IN_LINE: usize = 48;
@@ -4541,11 +4543,11 @@ mod benchmarks {
 	/// Each stored word crosses a 64-byte cache line. Adjust offsets for the allocation address and
 	/// keep the destinations two cache lines apart so that their cache lines do not overlap.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_mstore_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
+	fn evm_mstore_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		use rand::{SeedableRng, seq::SliceRandom};
 		use rand_pcg::Pcg64;
 
-		const MEMORY_SIZE: usize = limits::EVM_MEMORY_BYTES as usize;
+		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
 		const CACHE_LINE_SIZE: usize = 64;
 		const WORD_SIZE: usize = 32;
 		const OFFSET_IN_LINE: usize = 48;
@@ -4592,8 +4594,8 @@ mod benchmarks {
 
 	/// Benchmark `r` `MSTORE8` instructions at distinct offsets across preallocated memory.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_mstore8_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
-		const STRIDE: u32 = limits::EVM_MEMORY_BYTES / (limits::EVM_STACK_LIMIT / 2);
+	fn evm_mstore8_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		const STRIDE: u32 = EVM_MEMORY_BYTES / (EVM_STACK_LIMIT / 2);
 
 		let code = Bytecode::new_raw(vec![MSTORE8; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
@@ -4601,7 +4603,7 @@ mod benchmarks {
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
 		interpreter
 			.memory
-			.resize(0, limits::EVM_MEMORY_BYTES as usize)
+			.resize(0, EVM_MEMORY_BYTES as usize)
 			.continue_value()
 			.unwrap();
 		for operand in (0..r).flat_map(|i| [U256::MAX, U256::from((i + 1) * STRIDE - 1)]) {
@@ -4618,7 +4620,7 @@ mod benchmarks {
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
 		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
-		let mut expected = vec![0; limits::EVM_MEMORY_BYTES as usize];
+		let mut expected = vec![0; EVM_MEMORY_BYTES as usize];
 		for byte in expected
 			.iter_mut()
 			.skip(STRIDE as usize - 1)
@@ -4637,14 +4639,14 @@ mod benchmarks {
 	/// memory contents. Allocate the memory before measurement and fill the stack with successful
 	/// pushes.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_msize_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
+	fn evm_msize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![MSIZE; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
 		interpreter
 			.memory
-			.resize(0, limits::EVM_MEMORY_BYTES as usize)
+			.resize(0, EVM_MEMORY_BYTES as usize)
 			.continue_value()
 			.unwrap();
 
@@ -4656,9 +4658,9 @@ mod benchmarks {
 
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.memory.size(), limits::EVM_MEMORY_BYTES as usize);
+		assert_eq!(interpreter.memory.size(), EVM_MEMORY_BYTES as usize);
 		assert_eq!(interpreter.stack.len(), r as usize);
-		let expected = U256::from(limits::EVM_MEMORY_BYTES);
+		let expected = U256::from(EVM_MEMORY_BYTES);
 		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
 		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
 	}
@@ -4669,10 +4671,10 @@ mod benchmarks {
 	/// Distinct regions spread the copies across memory; allocation and zero fill are not measured
 	/// here.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_mcopy_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 3 }>) {
+	fn evm_mcopy_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
 		const COPY_BYTES: usize = 64;
 		const STRIDE: usize = 3 * 1024;
-		const MEMORY_SIZE: usize = limits::EVM_MEMORY_BYTES as usize;
+		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
 
 		let code = Bytecode::new_raw(vec![MCOPY; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
@@ -4714,9 +4716,9 @@ mod benchmarks {
 	/// The zero-component case already performs misaligned word copying. The slope measures
 	/// additional bytes, excluding the empty-copy branch and fixed word-copy setup.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_mcopy_per_byte(n: Linear<0, { limits::EVM_MEMORY_BYTES - 65 }>) {
+	fn evm_mcopy_per_byte(n: Linear<0, { EVM_MEMORY_BYTES - 65 }>) {
 		const BASE_COPY_BYTES: usize = 64;
-		const MEMORY_SIZE: usize = limits::EVM_MEMORY_BYTES as usize;
+		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
 
 		let len = n as usize + BASE_COPY_BYTES;
 		let code = Bytecode::new_raw(vec![MCOPY].into());
