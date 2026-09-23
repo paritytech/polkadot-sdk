@@ -209,7 +209,7 @@ struct Allocation {
     approver: PalletsOrigin,          // for a lease, the signed origin
                                       // holding the units (an account or a
                                       // contract); for a release, governance
-    valid_from: BlockNumber,          // execute is rejected before this block
+    valid_from: BlockNumber,          // execute lease and release are rejected before this block
     expires_at: BlockNumber,          // execute is rejected from this block
                                       // on; only cancel_allocation still
                                       // works, and it releases the hold
@@ -238,7 +238,9 @@ struct Operation {
     id: OperationId,                  // unique operation Id (§6.1)
     payload: OperationPayload,
     state: OperationState,
-    submitted_at: BlockNumber,
+    submitted_at: Option<BlockNumber>,
+                                      // the block the messages were sent in;
+                                      // unset until then
 }
 
 /// The operation's data payload.
@@ -318,8 +320,9 @@ struct Totals {
                                // unknown, disposed by governance (§5)
     custodial: Balance,        // available for claim: sourced returns (§4.4);
                                // owner known
-    in_flight_out: Balance,    // outbound deferred transfers sent and not
-                               // yet settled: releases and redemptions (§5)
+    in_flight_out: Balance,    // outbound deferred transfers recorded and
+                               // not yet settled: releases and redemptions
+                               // (§5)
     released: Balance,         // permanent releases to other services
     leased: Balance,           // active supervisor-balance allocations
 }
@@ -363,7 +366,7 @@ The pallet calls. Every call returns `DispatchResult`. New allocation and
 operation ids are reported in the events.
 
 ```rust
-// ── Setup and control ──────────────────────────────────────────────────
+// ── Setup and control ──────────────────────────────────────────────────────
 
 /// Creates the JAMKB asset. Origin: governance (Root). Mints `CAP` into the
 /// pallet's custody and sets `Released` for the JAM services endowed at
@@ -372,23 +375,23 @@ operation ids are reported in the events.
 fn initialize(released: Balance);
 
 /// Records the genesis attestation against JAM state. Origin: governance
-/// (Root). Enables operations (§3.1).
+/// (Root). Enables operations.
 fn attest(anchor: Anchor);
 
-/// Sets and clears the pallet pause flag. Origin: governance (Root). The flag
-/// is checked by every entry point except `settle`. Messages already queued
-/// are still processed.
+/// Sets and clears the pallet pause flag. Origin: governance (Root). While
+/// set, a call that creates an allocation, records an operation or
+/// distributes units from custody is rejected. Messages already queued are still processed.
 fn pause();
 fn resume();
 
-// ── Distribution from custody ──────────────────────────────────────────
+// ── Distribution from custody ──────────────────────────────────────────────
 
 /// Grants a budget to a policy adapter contract (§1). Origin: governance
 /// (Root). Transfers `amount` of undistributed units from the pallet's
 /// custody to `beneficiary` on Asset Hub.
 fn grant(beneficiary: AccountId, amount: Balance);
 
-// ── Permanent release ──────────────────────────────────────────────────
+// ── Permanent release ──────────────────────────────────────────────────────
 
 /// Approves a permanent release to `target`. Origin: governance (Root).
 /// Records `Allocation{mode: Permanent, state: Approved}` and holds `amount`
@@ -407,7 +410,7 @@ fn execute_release(id: AllocationId);
 /// JAMKB holder.
 fn redeem(amount: Balance, dest: ServiceId);
 
-// ── Lease ──────────────────────────────────────────────────────────────
+// ── Lease ──────────────────────────────────────────────────────────────────
 
 /// Offers a lease of `amount` to `target` for `duration`. Origin: a token
 /// holder or governance. Records `Allocation{mode: Lease, state: Approved}`
@@ -452,12 +455,13 @@ fn take_over_lease(id: AllocationId);
 /// allocation's remaining amount.
 fn reclaim(id: AllocationId, amount: Balance);
 
-/// Ends a fully returned lease. Origin: the lease's approver or governance.
-/// Legal while the lease is `Reclaiming`. The `Leased` hold moves into the
-/// pallet's custody under `Released` and the lease moves to `Closed`.
+/// Ends a lease that was not fully returned. Origin: the lease's approver or
+/// governance. Legal while the lease is `Reclaiming`. The `Leased` hold moves
+/// into the pallet's custody under `Released` and the lease moves to
+/// `Closed`.
 fn close_lease(id: AllocationId);
 
-// ── Recovery: a lease target that does not cooperate ───────────────────
+// ── Recovery: a lease target that does not cooperate ───────────────────────
 
 /// Stops the target from taking more state footprint. Origin: any signed
 /// account. Legal while the lease is `Reclaiming`. Records the target in
@@ -498,7 +502,7 @@ fn eject_target(target: ServiceId);
 /// lease that is not `Closed` and fully returned.
 fn unsupervise(target: ServiceId);
 
-// ── Returns and disposal ───────────────────────────────────────────────
+// ── Returns and disposal ───────────────────────────────────────────────────
 
 /// Claims the voluntarily returned balance to `beneficiary`'s account (§4.4).
 /// Origin: any signed account. Moves the units from custody, releasing the
@@ -511,7 +515,7 @@ fn claim(beneficiary: AccountId);
 /// accounts the amount as undistributed custody.
 fn dispose_excess(source: ServiceId, amount: Balance, refund: bool);
 
-// ── Shared by every flow ───────────────────────────────────────────────
+// ── Shared by every flow ───────────────────────────────────────────────────
 
 /// Cancels an allocation in `Approved`. Origin: the allocation's approver.
 /// The hold is released and the allocation state moves to `Closed`. The call
@@ -585,6 +589,9 @@ provider of the message variants it sends. `pallet-jamkb` hands over at most a
 runtime-constant number of operations per block; the rest stay queued. That cap
 and `MAX_KEYS_PER_PAGE` are sized so that Asset Hub's worst-case block fits the
 Parachain Service's accumulate gas allocation.
+
+The queue is bounded. No caller can fill it to delay another's operation. A
+reclaim and a recovery step are not delayed by other work.
 
 The parachain-system pallet checks the inherent `(anchor, proof, para head,
 parachain_log, incoming_transfers)` against the state root after the anchor
@@ -700,7 +707,7 @@ Phase 4: Confirm      Any party can call `settle(op_id)` on the pallet (§2).
                       The output:
                       Confirmed: that much of the `Leased` hold on the
                       approver is released (§5); at zero the lease moves to
-                      Closed and the pallet queues unsupervise(target).
+                      Closed; unsupervise(target) may then be called.
                       Failed: JAM rejected the transfer; the lease moves to
                       Reclaiming.
 ```
@@ -814,7 +821,9 @@ A `Delivery`, `Redemption`, `Reclaim` or `Refund` correlates by id: its
 A recovery operation carries no id on the wire. The Parachain Service keys its
 failure entries by service (`ServiceStoreFailed`, `ServiceEjectFailed`,
 `ServiceSupervisorFailed`), so it correlates by its target and the class of the
-entry. The pallet keeps at most one unsettled operation per target.
+entry. The pallet keeps at most one unsettled operation per target. An
+operation is unsettled from the moment it is recorded until `settle` drops it.
+The checks run at the call, not at the send.
 
 ### 6.2 Memo Requirements
 
