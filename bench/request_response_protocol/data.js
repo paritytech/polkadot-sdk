@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790093518144,
+  "lastUpdate": 1790133261650,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -127115,6 +127115,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2773217669,
             "range": "± 21649153",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexandre.balde@parity.io",
+            "name": "Alexandre R. Baldé",
+            "username": "rockbmb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "acf6e6960d79df7c832121ec96274033c2652e08",
+          "message": "Expand `pallet-psm`'s `do_try_state` with additional invariant checks + unit tests (#12154)\n\n# Description\n\nThis PR supersedes #11805. That PR combined five things in one diff:\n`try_state` checks, unit tests, fuzzer harnesses, fuzzing\ninfrastructure, and coverage tools. A diff of that size is difficult to\nreview. This PR is the first of several smaller PRs.\n\n`pallet-psm` on master has a `do_try_state` function with five checks.\nThis PR increases that number to seventeen, and it adds a unit test for\neach one. A later PR adds the fuzzers and the fuzzing infrastructure.\nThat PR depends on this one.\n\nThe runtime behavior does not change. The checks run only with the\n`try-runtime` feature, or in tests.\n\nThis PR is rebased onto the multi-instance PSM redesign (#12245). PR\n#12245 changed the storage layout. The old layout held one PSM per\npallet. It used `PsmDebt: AssetId -> Balance`, a global\n`MaxPsmDebtOfTotal`, and a pallet-level `FeeDestination`. The new layout\nholds many PSMs. Each PSM has its own storage, keyed by the internal\nasset id.\n\nThe checks follow the new layout. Their numbers are 1 to 17, in the same\norder as the source code. The second table below maps the old numbers to\nthe new numbers.\n\n## Integration\n\n`R0-no-crate-publish-required`: this PR adds only tests and\n`do_try_state` code. Production block execution does not change.\nDownstream users need no integration work.\n\n## Review Notes\n\n### Checks\n\nThere are 17 checks. Master supplies five of them; this PR adds the\nother twelve. The table groups them by their position in the code.\n\nFive checks are advisory. An advisory check writes a warning to the log.\nIt does not return an error. A permitted call can create each of those\nfive states. An error in those cases stops the chain after a correct\ncall: a parameter change by governance for checks 10, 11 and 17, a\nmetadata change by an asset owner for checks 2 and 7.\n\n| # | Check | Kind | Scope |\n|---|---|---|---|\n| 1 | The instance has its paired `PsmAdmin` row | error | per-instance\n|\n| 2 | Live internal decimals equal the `PsmInfo` snapshot | advisory |\nper-instance |\n| 3 | The reserve account exists | error | per-instance |\n| 4 | The fee destination account exists | error | per-instance |\n| 5 | `min_swap_amount` is not zero | error | per-instance |\n| 6 | Internal issuance covers the instance debt | error | per-instance\n|\n| 7 | Live external decimals equal the registration snapshot | advisory\n| per-external |\n| 8 | The reserve covers the tracked debt, in external units | error |\nper-external |\n| 9 | The sum of the approved debts does not overflow | error |\nper-external |\n| 10 | Per-asset debt is within its ceiling | advisory | per-external |\n| 11 | Zero weight and zero debt give a zero reserve | advisory |\nper-external |\n| 12 | The cached `external_count` equals the approved externals | error\n| per-instance |\n| 13 | The approved-external count is within `MaxExternals` | error |\nper-instance |\n| 14 | No `PsmDebt` row with a value exists for a pair that is not\napproved | error | global |\n| 15 | No row stays after the removal of its PSM | error | global |\n| 16 | No fee row or weight row exists for a pair that is not approved |\nerror | global |\n| 17 | The instance debt is within `max_debt` | advisory | global |\n\n### Alignment with #13062\n\nMaster merged #13062 while this PR was under review. Minting now uses\nthe decimals recorded at registration, as redemption always did, and the\npallet never reads live metadata on a swap path. Two changes follow:\n\n* Checks 2 and 7 are now advisory. Live decimals that differ from the\nrecorded values are a state that any asset owner can create with a\nmetadata call, and the pallet's arithmetic does not depend on them. A\nhard error here fails try-runtime on a legal state. The warning\npreserves the signal: a reader of live metadata sees different amounts\nthan the PSM pays.\n* The test `test_external_asset_owner_can_brick_minting` is removed. It\nasserted that a metadata change halts minting, and #13062 removed that\nbehavior on purpose. The tests\n`mint_uses_snapshot_when_asset_decimals_drift` and\n`remove_external_asset_succeeds_after_debt_drained_with_external_decimal_drift`\nfrom #13062 cover the current behavior.\n\n### Map from the old check numbers\n\n| Old | New | Note |\n|---|---|---|\n| 1 decimals | 2, 7 | split into internal and per-external |\n| 2 reserve >= debt | 8 | |\n| 3 sum equals `total_psm_debt()` | removed | see below |\n| 4 issuance >= debt | 6 | |\n| 5 total debt <= ceiling | 17 | |\n| 6 per-asset debt <= ceiling | 10 | |\n| 7 no debt for an asset that is not approved | 14 | |\n| 8 fee rows without an external | 16 | |\n| 9 PSM account exists | 3 | |\n| 10 count <= maximum | 13 | |\n| 11 zero weight with a reserve | 11 | |\n| 12 fee destination exists | 4 | |\n\nThis PR does not keep the old numbers. The old checks were one flat\nsequence. The new checks are at three levels in the code. The old\nnumbers put those checks out of order in the source.\n\nThis PR removes check 3. Before the redesign, `total_psm_debt()` read a\nstored total. Check 3 compared that stored total against a new sum of\nthe per-asset debts. The comparison found real errors.\n\nAfter the redesign, `total_psm_debt()` adds the same `PsmDebt` rows as\nthe sum. The two values are always equal. The check cannot fail.\n\nCheck 9 and check 14 keep the parts of check 3 that still work. Check 9\nfinds an overflow in the sum. Check 14 finds debt for a pair that is not\napproved.\n\nChecks 1, 5, 12 and 15 are new. They cover storage that PR #12245 added:\n\n* Check 1: the `Psm` row and the `PsmAdmin` row exist together.\n* Check 5: the per-instance `min_swap_amount`.\n* Check 12: the `external_count` cache.\n* Check 15: rows that stay after the removal of their instance.\n\nCheck 5 needs attention. `create_psm` refuses a zero `min_swap_amount`.\nNo check confirmed that value in storage. A migration or a manual\ngenesis file can therefore write a zero. A zero value permits swaps of\ndust amounts.\n\nThe checks now cover all seven storage items and all `PsmInfo` fields.\nOne field has no check: `PsmAdminInfo.deposit`. That field holds a\n`T::Consideration`. The type gives no value to test.\n\n### Tests\n\nA new `try_state` module in `tests.rs` holds one test for each check.\nEach test changes one storage item only.\n\n* `detects_*`: the check returns an error.\n* `warns_on_*`: the check writes a warning.\n* `passes_on_valid_state`: all checks pass on correct storage.\n* One more test for check 14: a row with a zero value is correct.\n\nEach advisory test first confirms that the code reaches the warning\nstate. Then it confirms the result is `Ok`. Without the first step, the\ntest passes after the removal of the `log::warn!` block.\n\nCheck 9 has no test. A test must make a `u128` sum of two debts\noverflow. The mock runtime cannot reach that state with realistic\nvalues.\n\nThis PR also moves four groups of tests from #11805:\n\n* the fee destination balance after a redeem\n* a redeem from a sender that holds no internal asset\n* `PsmManagerLevel::can_set_circuit_breaker`\n* three tests for the per-asset ceiling limits\n\nAll 161 tests pass.\n\nThis PR does not move two tests from #11805. The test\n`genesis_panics_when_asset_configs_exceed_max` is obsolete, because the\nnew PSM has no global `asset_configs` list. The test\n`fails_insufficient_reserve` on master already covers\n`redeem_with_drained_reserve_hits_defensive`.\n\n### Docs\n\nThis PR adds a `Storage Invariants` section to the module documentation.\nIt also adds a doc comment on `do_try_state`. That comment gives the\ngroups of checks, and it identifies the advisory checks.\n\n### Earlier discussion\n\nFor decisions that this diff does not show, refer to the commit messages\nand the discussion on #11805.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
+          "timestamp": "2026-09-23T01:57:28Z",
+          "tree_id": "430c68ea96da8ede4a9061a672ca25358c1e09e8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/acf6e6960d79df7c832121ec96274033c2652e08"
+        },
+        "date": 1790133220916,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19271984,
+            "range": "± 79491",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19377555,
+            "range": "± 139216",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20903528,
+            "range": "± 107948",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25360392,
+            "range": "± 96311",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57130884,
+            "range": "± 556907",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 326121837,
+            "range": "± 5229741",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2519468578,
+            "range": "± 119105675",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16479067,
+            "range": "± 201206",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16451910,
+            "range": "± 168657",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17082656,
+            "range": "± 184395",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21483344,
+            "range": "± 171713",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59403310,
+            "range": "± 517058",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 342979896,
+            "range": "± 3028690",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2609845060,
+            "range": "± 36456434",
             "unit": "ns/iter"
           }
         ]
