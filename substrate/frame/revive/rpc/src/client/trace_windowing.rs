@@ -144,6 +144,7 @@ where
 	else {
 		return Ok(());
 	};
+
 	// A window holding fewer steps than it asked for is the end of the execution.
 	while returned >= limit {
 		let steps = collected.struct_logs.len() as u64;
@@ -254,18 +255,21 @@ fn node_error(err: &ClientError) -> Option<&subxt::rpcs::Error> {
 	}
 }
 
-/// Whether a failed window is worth asking for again, smaller.
+/// Whether a failed window is worth asking for again, smaller: the node could not return what it
+/// built, or it trapped allocating it.
 fn is_retryable(err: &ClientError) -> bool {
 	const EXECUTION_FAILED: i32 = 4_003;
+	/// What `sp_io`'s allocator panics with, whether it ran out of space or was asked for more
+	/// than one allocation may hold.
+	const OUT_OF_MEMORY: &str = "Failed to allocate memory";
 
-	matches!(
-		node_error(err),
-		Some(subxt::rpcs::Error::User(user))
-			if matches!(
-				user.code,
-				EXECUTION_FAILED | jsonrpsee::types::error::OVERSIZED_RESPONSE_CODE
-			)
-	)
+	let Some(subxt::rpcs::Error::User(user)) = node_error(err) else { return false };
+
+	match user.code {
+		jsonrpsee::types::error::OVERSIZED_RESPONSE_CODE => true,
+		EXECUTION_FAILED => user.message.contains(OUT_OF_MEMORY),
+		_ => false,
+	}
 }
 
 /// The caller's own bound on the walk, if they set one.
@@ -327,13 +331,20 @@ mod tests {
 	use futures::FutureExt;
 	use subxt::rpcs::UserError;
 
-	/// What a trapped replay answers with: the state call's catch-all execution code.
+	/// What a node answers when the window it was asked for trapped the allocator.
 	fn too_large() -> ClientError {
+		execution_failed(
+			"Execution aborted due to trap: host code panicked while being called by the \
+			 runtime: Failed to allocate memory: \"Allocator ran out of space\"",
+		)
+	}
+
+	fn execution_failed(message: &str) -> ClientError {
 		const EXECUTION_ERROR: i32 = 4003;
 
 		ClientError::RpcError(subxt::rpcs::Error::User(UserError {
 			code: EXECUTION_ERROR,
-			message: "Execution failed: Execution aborted due to trap: host trap".to_string(),
+			message: message.to_string(),
 			data: None,
 		}))
 	}
