@@ -4,10 +4,10 @@ doc:
 - audience: Node Dev
   description: |-
     A node now serves a peer's statement backlog at the rate the peer accepts. Each peer carries
-    a mirror of its statement rate limit on the send side, charged by every chunk sent, and an
-    initial sync waits when the mirror has no room for a chunk. A fast peer no longer receives
-    more than `statements_per_second` and disconnects the node as a flooder, and a peer that keeps
-    asking for its backlog draws it at that rate.
+    a mirror of its statement rate limit on the send side: propagation charges it per chunk, and
+    an initial sync charges it per statement, cutting a chunk where the quota runs out. A fast
+    peer's initial sync no longer pushes it past `statements_per_second`, where it disconnected
+    the node as a flooder, and a peer that keeps asking for its backlog draws it at that rate.
 
 crates:
 - name: sc-network-statement

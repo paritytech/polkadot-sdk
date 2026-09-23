@@ -84,9 +84,9 @@
 //! while the timer-driven sync bursts would otherwise always find the budget full.
 //!
 //! A peer disconnects us once we exceed its statement rate limit. Each peer carries a mirror of
-//! that quota on the send side, charged by every chunk. Propagation sends regardless, but an
-//! initial sync fetches a chunk only when the mirror has room for a full one, so a peer draws
-//! its backlog at the rate it accepts, however often it asks.
+//! that quota on the send side. Propagation charges it per chunk and sends regardless, while an
+//! initial sync charges it per statement as the chunk is fetched and cuts the chunk where the
+//! quota runs out, so a peer draws its backlog at the rate it accepts, however often it asks.
 //!
 //! ## Topic affinity and light nodes
 //!
@@ -839,7 +839,6 @@ where
 #[derive(Debug)]
 struct PeerRateLimiter {
 	bucket: Box<dyn TokenBucket>,
-	burst: NonZeroU32,
 }
 
 impl PeerRateLimiter {
@@ -854,13 +853,7 @@ impl PeerRateLimiter {
 		C::Instant: fmt::Debug + Send + Sync,
 	{
 		let quota = Quota::per_second(statements_per_second).allow_burst(burst);
-		Self { bucket: Box::new(RateLimiter::direct_with_clock(quota, clock)), burst }
-	}
-
-	/// Charge a full initial-sync chunk, or the whole burst when that is smaller. Nothing is
-	/// charged when the quota has no room for it.
-	fn reserve_chunk(&self) -> bool {
-		!self.is_flooding(MAX_STATEMENTS_PER_NOTIFICATION.min(self.burst.get() as usize))
+		Self { bucket: Box::new(RateLimiter::direct_with_clock(quota, clock)) }
 	}
 
 	/// The quota for `ExplicitTopicAffinity` updates from one peer.
@@ -1076,6 +1069,11 @@ fn fetch_admitted_chunk(
 				return FilterDecision::Skip;
 			}
 			if accumulated_size > 0 && accumulated_size + encoded.len() > max_size {
+				return FilterDecision::Abort;
+			}
+			// The cursor stays on the aborted statement, so a later burst resumes here once the
+			// peer's quota has room again.
+			if peer_data.send_rate_limiter.is_flooding(1) {
 				return FilterDecision::Abort;
 			}
 			accumulated_size += encoded.len();
@@ -2625,21 +2623,13 @@ where
 			return;
 		}
 
-		// A peer whose send slot is busy or whose rate limit has no room for a chunk keeps its
-		// turn for a later burst, so one slow peer does not stall every other pending sync. The
-		// chunk is charged here, before the store read, so a throttled peer costs no fetch.
-		let Some(pos) = self.initial_sync_peer_queue.iter().position(|peer| {
-			if self.in_flight_chunks.contains_key(peer) {
-				return false;
-			}
-			// A peer missing from the map falls through to the error path below.
-			let Some(peer_data) = self.peers.get(peer) else { return true };
-			let reserved = peer_data.send_rate_limiter.reserve_chunk();
-			if !reserved {
-				log::trace!(target: LOG_TARGET, "Initial sync to {peer} waits for its rate limit");
-			}
-			reserved
-		}) else {
+		// A peer whose send slot is busy keeps its turn for a later burst, so one slow peer
+		// does not stall every other pending sync.
+		let Some(pos) = self
+			.initial_sync_peer_queue
+			.iter()
+			.position(|peer| !self.in_flight_chunks.contains_key(peer))
+		else {
 			return;
 		};
 		self.initial_sync_peer_queue.rotate_left(pos);
@@ -4088,6 +4078,34 @@ mod tests {
 	}
 
 	#[tokio::test]
+	async fn send_targeted_statements_charges_the_peer_send_budget() {
+		let (mut handler, _store, _network, _notification_service, _, peer_ids) = build_handler(1);
+		let peer_id = peer_ids[0];
+		let clock = FakeRelativeClock::default();
+		handler.peers.get_mut(&peer_id).expect("peer is connected").send_rate_limiter =
+			PeerRateLimiter::with_clock(
+				NonZeroU32::new(1).expect("nonzero"),
+				NonZeroU32::new(10).expect("nonzero"),
+				&clock,
+			);
+		let statements: Vec<_> = (0..10u8)
+			.map(|seed| {
+				let mut statement = Statement::new();
+				statement.set_plain_data(vec![seed]);
+				(seed as u64, statement.hash(), statement)
+			})
+			.collect();
+		let indices: Vec<usize> = (0..statements.len()).collect();
+
+		handler.send_targeted_statements_to_peer(&peer_id, &statements, &indices);
+		handler.flush_pending_sends().await;
+		assert!(
+			handler.peers[&peer_id].send_rate_limiter.is_flooding(1),
+			"the chunk drained the burst"
+		);
+	}
+
+	#[tokio::test]
 	async fn send_targeted_statements_ignores_a_disconnected_peer() {
 		let (mut handler, _store, _network, notification_service, _, _) = build_handler(0);
 
@@ -5131,7 +5149,9 @@ mod tests {
 		handler.flush_pending_sends().await;
 		assert!(handler.peers[&throttled].send_rate_limiter.is_flooding(1), "propagation charged");
 
-		// The throttled peer heads the queue, yet the burst serves its neighbour.
+		// The throttled peer heads the queue: its fetch stops at the first statement and the
+		// following burst serves its neighbour.
+		handler.process_initial_sync_burst();
 		handler.process_initial_sync_burst();
 		handler.flush_pending_sends().await;
 		let sent = notification_service.get_sent_notifications();
@@ -5139,8 +5159,16 @@ mod tests {
 		assert_eq!(get_peer_hashes(&sent, throttled).len(), 10, "the propagation chunk alone");
 		assert!(handler.initial_sync_peer_queue.contains(&throttled), "a skipped turn is kept");
 
-		// Once the quota has room for a chunk again, the peer gets one.
+		// Ten seconds refill ten statements, so the chunk carries half the backlog.
 		clock.advance(Duration::from_secs(10));
+		handler.process_initial_sync_burst();
+		handler.process_initial_sync_burst();
+		handler.flush_pending_sends().await;
+		let sent = notification_service.get_sent_notifications();
+		assert_eq!(get_peer_hashes(&sent, throttled).len(), 20);
+
+		clock.advance(Duration::from_secs(10));
+		handler.process_initial_sync_burst();
 		handler.process_initial_sync_burst();
 		handler.flush_pending_sends().await;
 		let sent = notification_service.get_sent_notifications();
