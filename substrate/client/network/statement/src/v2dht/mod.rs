@@ -85,7 +85,6 @@ pub(crate) struct RetentionHandle {
 	dht_affinity: Arc<RwLock<DhtAffinity>>,
 	/// Topics the node has explicit affinity for.
 	topic_affinity: Arc<RwLock<TopicAffinity>>,
-	metrics: Option<V2DhtMetrics>,
 }
 
 impl RetentionHandle {
@@ -95,7 +94,6 @@ impl RetentionHandle {
 		Self {
 			dht_affinity: Arc::new(RwLock::new(DhtAffinity::empty(local_peer, replication_factor))),
 			topic_affinity: Arc::new(RwLock::new(TopicAffinity::default())),
-			metrics: None,
 		}
 	}
 
@@ -103,18 +101,13 @@ impl RetentionHandle {
 	pub(crate) fn resolver(&self) -> Box<dyn Fn(&Statement) -> RetentionReasonMask + Send + Sync> {
 		let dht_affinity = self.dht_affinity.clone();
 		let topic_affinity = self.topic_affinity.clone();
-		let metrics = self.metrics.clone();
 		Box::new(move |stmt| {
 			let (Ok(dht), Ok(topics)) = (dht_affinity.read(), topic_affinity.read()) else {
 				log::error!(
 					target: LOG_TARGET,
 					"v2dht: retention affinity lock poisoned; persisting statement defensively",
 				);
-				let mask = RetentionReasonMask::persistent();
-				if let Some(metrics) = &metrics {
-					metrics.record_retention_decision(mask);
-				}
-				return mask;
+				return RetentionReasonMask::persistent();
 			};
 			let mut mask = RetentionReasonMask::TRANSIENT;
 			if dht.is_affine(stmt) {
@@ -122,9 +115,6 @@ impl RetentionHandle {
 			}
 			if topics.is_affine(stmt) {
 				mask.insert(RetentionReasonMask::EXPLICIT_AFFINITY);
-			}
-			if let Some(metrics) = &metrics {
-				metrics.record_retention_decision(mask);
 			}
 			mask
 		})
@@ -134,8 +124,11 @@ impl RetentionHandle {
 	fn set_dht_affinity(&self, dht_affinity: DhtAffinity) {
 		if let Ok(mut cell) = self.dht_affinity.write() {
 			*cell = dht_affinity;
-		} else if let Some(metrics) = &self.metrics {
-			metrics.record_publish_failure();
+		} else {
+			log::error!(
+				target: LOG_TARGET,
+				"v2dht: DHT-affinity lock poisoned; retention keeps the stale topology",
+			);
 		}
 	}
 
@@ -143,8 +136,11 @@ impl RetentionHandle {
 	fn set_topic_affinity(&self, topic_affinity: TopicAffinity) {
 		if let Ok(mut cell) = self.topic_affinity.write() {
 			*cell = topic_affinity;
-		} else if let Some(metrics) = &self.metrics {
-			metrics.record_publish_failure();
+		} else {
+			log::error!(
+				target: LOG_TARGET,
+				"v2dht: topic-affinity lock poisoned; retention keeps the stale topics",
+			);
 		}
 	}
 }
@@ -187,8 +183,7 @@ impl V2DhtOrchestrator {
 	}
 
 	/// Install the handle the store reads to decide statement retention.
-	pub(crate) fn set_retention_handle(&mut self, mut handle: RetentionHandle) {
-		handle.metrics = self.metrics.clone();
+	pub(crate) fn set_retention_handle(&mut self, handle: RetentionHandle) {
 		self.retention = Some(handle);
 		// Seed both oracles from the current state so configured topics and the learned topology
 		// drive retention before the first peer or subscription event publishes them.
@@ -374,7 +369,7 @@ impl V2DhtOrchestrator {
 		let desired = self.peers_topology.peers_for_topics(&topics);
 		self.peer_steering.update_peers_needing_connections(desired);
 		if let Some(metrics) = &self.metrics {
-			metrics.set_pending_connections(self.peer_steering.peers_to_connect().len());
+			metrics.set_desired_unconnected_peers(self.peer_steering.peers_to_connect().len());
 		}
 	}
 
@@ -793,6 +788,20 @@ mod tests {
 
 	#[test]
 	fn connected_coverage_peer_is_never_disconnected() {
+		let registry = prometheus_endpoint::Registry::new();
+		let metrics = V2DhtMetrics::register(&registry).unwrap();
+		let desired_unconnected = || {
+			registry
+				.gather()
+				.iter()
+				.find(|family| {
+					family.get_name() == "substrate_sync_statement_v2dht_desired_unconnected_peers"
+				})
+				.unwrap()
+				.get_metric()[0]
+				.get_gauge()
+				.get_value() as usize
+		};
 		let mut orchestrator = V2DhtOrchestrator::new(
 			&[topic(1)],
 			None,
@@ -800,7 +809,7 @@ mod tests {
 			peer(1),
 			topology_config(20, 3),
 			"/statement/test".into(),
-			None,
+			Some(metrics),
 		);
 
 		for seed in 2..=10 {
@@ -812,6 +821,7 @@ mod tests {
 		orchestrator.on_pending_affinities();
 		let desired = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
 		assert!(!desired.is_empty());
+		assert_eq!(desired_unconnected(), desired.len());
 
 		// The coverage peers connect, then the next tick recomputes the target.
 		for peer in &desired {
@@ -823,6 +833,11 @@ mod tests {
 		// connect, nothing to disconnect.
 		assert!(orchestrator.peer_steering.peers_to_connect().is_empty());
 		assert!(orchestrator.peer_steering.peers_to_disconnect().is_empty());
+		assert_eq!(desired_unconnected(), 0);
+
+		orchestrator.on_substream_closed(desired[0]);
+		orchestrator.on_pending_affinities();
+		assert_eq!(desired_unconnected(), 1);
 	}
 
 	#[test]

@@ -18,6 +18,7 @@
 
 //! Statement store Prometheus metrics.
 
+use super::RetentionReasonMask;
 use std::sync::Arc;
 
 use prometheus_endpoint::{
@@ -60,6 +61,8 @@ impl MetricsLink {
 /// Statement store Prometheus metrics.
 pub struct Metrics {
 	pub submitted_statements: Counter<U64>,
+	/// Successful new admissions by the v2 retention reason chosen at submission.
+	retention_admissions: CounterVec<U64>,
 	pub validations_invalid: CounterVec<U64>,
 	pub statements_pruned: Counter<U64>,
 	pub statements_total: Gauge<U64>,
@@ -83,6 +86,16 @@ impl Metrics {
 				Counter::new(
 					"substrate_sub_statement_store_submitted_statements",
 					"Total number of new statements successfully accepted into the store",
+				)?,
+				registry,
+			)?,
+			retention_admissions: register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_sub_statement_store_retention_admissions_total",
+						"New statements successfully admitted with a v2 retention resolver, by retention reason at admission",
+					),
+					&["reason"],
 				)?,
 				registry,
 			)?,
@@ -204,5 +217,18 @@ impl Metrics {
 				registry,
 			)?,
 		})
+	}
+
+	pub fn record_retention_admission(&self, mask: RetentionReasonMask) {
+		if mask == RetentionReasonMask::persistent() {
+			return;
+		}
+		let reason = match mask {
+			RetentionReasonMask::TRANSIENT => "transient",
+			RetentionReasonMask::DHT_AFFINITY => "dht",
+			RetentionReasonMask::EXPLICIT_AFFINITY => "explicit",
+			_ => "both",
+		};
+		self.retention_admissions.with_label_values(&[reason]).inc();
 	}
 }

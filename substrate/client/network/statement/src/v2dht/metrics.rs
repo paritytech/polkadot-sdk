@@ -18,10 +18,7 @@
 
 //! Prometheus metrics for the v2 DHT gossip path.
 
-use super::RetentionReasonMask;
-use prometheus_endpoint::{
-	register, Counter, CounterVec, Gauge, Opts, PrometheusError, Registry, U64,
-};
+use prometheus_endpoint::{register, Gauge, PrometheusError, Registry, U64};
 
 #[derive(Clone)]
 pub(crate) struct V2DhtMetrics {
@@ -33,9 +30,8 @@ pub(crate) struct V2DhtMetrics {
 	/// Known peers with confirmed statement-protocol support: the DHT storage, affinity and
 	/// forwarding candidates.
 	eligible_peers: Gauge<U64>,
+	/// Desired peers without an open statement substream, sampled on the pending-affinity tick.
 	desired_unconnected_peers: Gauge<U64>,
-	retention_decisions: CounterVec<U64>,
-	retention_publish_failures: Counter<U64>,
 }
 
 impl V2DhtMetrics {
@@ -62,19 +58,13 @@ impl V2DhtMetrics {
 				)?,
 				r,
 			)?,
-			desired_unconnected_peers: register(Gauge::new(
-				"substrate_sync_statement_v2dht_desired_unconnected_peers",
-				"Desired peers without an open statement substream, sampled on the affinity tick",
-			)?, r)?,
-			retention_decisions: register(CounterVec::new(
-				Opts::new("substrate_sync_statement_v2dht_retention_decisions_total",
-					"Retention resolver evaluations by track, including re-evaluations and submissions later rejected"),
-				&["track"],
-			)?, r)?,
-			retention_publish_failures: register(Counter::new(
-				"substrate_sync_statement_v2dht_retention_publish_failures_total",
-				"Affinity snapshot publications rejected by a poisoned write lock",
-			)?, r)?,
+			desired_unconnected_peers: register(
+				Gauge::new(
+					"substrate_sync_statement_v2dht_desired_unconnected_peers",
+					"Desired peers without an open statement substream, sampled on the pending-affinity tick",
+				)?,
+				r,
+			)?,
 		})
 	}
 
@@ -89,22 +79,7 @@ impl V2DhtMetrics {
 		self.eligible_peers.set(eligible_peers as u64);
 	}
 
-	pub(crate) fn set_pending_connections(&self, count: usize) {
+	pub(crate) fn set_desired_unconnected_peers(&self, count: usize) {
 		self.desired_unconnected_peers.set(count as u64);
-	}
-
-	pub(crate) fn record_retention_decision(&self, mask: RetentionReasonMask) {
-		let track = match mask {
-			RetentionReasonMask::TRANSIENT => "transient",
-			RetentionReasonMask::DHT_AFFINITY => "dht",
-			RetentionReasonMask::EXPLICIT_AFFINITY => "explicit",
-			mask if mask == RetentionReasonMask::persistent() => "fallback",
-			_ => "both",
-		};
-		self.retention_decisions.with_label_values(&[track]).inc();
-	}
-
-	pub(crate) fn record_publish_failure(&self) {
-		self.retention_publish_failures.inc();
 	}
 }
