@@ -18,13 +18,13 @@
 //! Limits that are observeable by contract code.
 //!
 //! It is important to never change this limits without supporting the old limits
-//! for already deployed contracts. This is what the `behaviour_version` recorded in a contract's
-//! `CodeInfo` is meant for. This is true for either increasing or decreasing the limit.
+//! for already deployed contracts. This is what the [`crate::Contract::behaviour_version`]
+//! is meant for. This is true for either increasing or decreasing the limit.
 //!
-//! Limits in this file are different from the limits configured on the [`crate::Config`] trait
-//! which are generally only affect actions that cannot be performed by a contract: For example
-//! things related to deposits and weights are allowed to be changed as they are paid by root
-//! callers which are not contracts.
+//! Limits in this file are different from the limits configured on the [`Config`] trait which are
+//! generally only affect actions that cannot be performed by a contract: For example things related
+//! to deposits and weights are allowed to be changed as they are paid by root callers which
+//! are not contracts.
 //!
 //! Exceptions to this rule apply: Limits in the [`code`] module can be increased
 //! without emulating the old values for existing contracts. Reason is that those limits are only
