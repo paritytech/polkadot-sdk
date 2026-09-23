@@ -34,8 +34,7 @@
 //!   To satisfy this, statements are removed from the store starting with the lowest
 //!   `global_priority` until a constraint is satisfied.
 //! * On the v2 DHT path, the statements kept for DHT affinity and the transient ones each have
-//!   their own size limit. Statements kept for explicit affinity alone are bound by the store size
-//!   only, so they take the room the other two leave free.
+//!   their own size limit. Statements kept only for explicit affinity have no limit of their own.
 //!
 //! When a new statement is inserted that would not satisfy constraints in the first place, no
 //! statements are deleted and a `Rejected` result is returned.
@@ -355,8 +354,7 @@ struct EntryDetails {
 	channel: Option<Channel>,
 	data_len: usize,
 	admission_seq: u64,
-	/// The track whose totals count the statement: its track at admission until the retention
-	/// sweep moves it.
+	/// The track the statement counts toward, set at admission and moved by the sweep.
 	track: RetentionTrack,
 }
 
@@ -1055,9 +1053,8 @@ impl SubmitIndex {
 		self.config.track_max_sizes()[track as usize].unwrap_or(self.config.max_total_size)
 	}
 
-	/// Warns, once per maintenance period, when the store size rejects a statement of a limited
-	/// track that has room under its own limit: the other tracks hold the space. `totals` are the
-	/// store totals the admission would leave.
+	/// Warns, once per maintenance period, when the store size rejects a statement whose track has
+	/// room. `totals` are what the admission would leave.
 	fn warn_if_track_starved(&mut self, track: RetentionTrack, totals: &StoreTotals) {
 		if self.starved_track_warning_sent ||
 			self.config.track_max_sizes()[track as usize].is_none() ||
@@ -1069,7 +1066,7 @@ impl SubmitIndex {
 		self.starved_track_warning_sent = true;
 		log::warn!(
 			target: LOG_TARGET,
-			"Statement kept for {} rejected: it would take the store to {} of {} bytes and its track to {} of its {} bytes, the other tracks take the rest",
+			"Rejected a statement kept for {}: the store would hold {} of {} bytes, its track only {} of {}",
 			track.reason(),
 			totals.size(),
 			self.config.max_total_size,
@@ -1734,8 +1731,7 @@ impl Store {
 
 		let mut migration = MigrationBatch::new(&self.db);
 		let mut migration_error = None;
-		// Nothing records what a statement migrated from an older version is kept for, so it counts
-		// toward the track without a limit of its own.
+		// Older versions record no track, so migrated statements count as explicit-only.
 		let mut totals = StoreTotals::default();
 		self.db
 			.iter_column_while(col::STATEMENTS, |item| {
