@@ -4139,6 +4139,271 @@ mod benchmarks {
 		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
 	}
 
+	/// Benchmark `r` `MLOAD` instructions following distinct offsets across preallocated memory.
+	///
+	/// Each loaded word supplies the next offset, and each read crosses a 64-byte cache line. The
+	/// allocation address determines the adjustment needed to start each read at byte 48 of a line.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mload_opcode(r: Linear<0, { limits::EVM_MEMORY_BYTES / 64 - 1 }>) {
+		use rand::{SeedableRng, seq::SliceRandom};
+		use rand_pcg::Pcg64;
+
+		const MEMORY_SIZE: usize = limits::EVM_MEMORY_BYTES as usize;
+		const CACHE_LINE_SIZE: usize = 64;
+		const WORD_SIZE: usize = 32;
+		const OFFSET_IN_LINE: usize = 48;
+		const END_OF_WALK: U256 = U256::MAX;
+
+		let code = Bytecode::new_raw(vec![MLOAD; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
+		let memory = interpreter.memory.slice_mut(0, MEMORY_SIZE);
+		let misalignment = memory.as_ptr() as usize % CACHE_LINE_SIZE;
+		let first_offset = (OFFSET_IN_LINE + CACHE_LINE_SIZE - misalignment) % CACHE_LINE_SIZE;
+		assert_eq!((memory.as_ptr() as usize + first_offset) % CACHE_LINE_SIZE, OFFSET_IN_LINE);
+		let mut offsets = (first_offset..=MEMORY_SIZE - WORD_SIZE)
+			.step_by(CACHE_LINE_SIZE)
+			.collect::<Vec<_>>();
+		offsets.shuffle(&mut Pcg64::seed_from_u64(1337));
+		let walk_offsets = &offsets[..r as usize];
+		let next_values = walk_offsets
+			.iter()
+			.skip(1)
+			.copied()
+			.map(U256::from)
+			.chain(core::iter::once(END_OF_WALK));
+		for (offset, next_value) in walk_offsets.iter().copied().zip(next_values) {
+			memory[offset..offset + WORD_SIZE].copy_from_slice(&next_value.to_big_endian());
+		}
+		let initial_value = walk_offsets.first().copied().map_or(END_OF_WALK, U256::from);
+		interpreter.stack.push(initial_value).continue_value().unwrap();
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&END_OF_WALK));
+		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+	}
+
+	/// Benchmark `r` `MSTORE` instructions at distinct offsets across preallocated memory.
+	///
+	/// Each stored word crosses a 64-byte cache line. Adjust offsets for the allocation address and
+	/// keep the destinations two cache lines apart so that their cache lines do not overlap.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mstore_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
+		use rand::{SeedableRng, seq::SliceRandom};
+		use rand_pcg::Pcg64;
+
+		const MEMORY_SIZE: usize = limits::EVM_MEMORY_BYTES as usize;
+		const CACHE_LINE_SIZE: usize = 64;
+		const WORD_SIZE: usize = 32;
+		const OFFSET_IN_LINE: usize = 48;
+
+		let code = Bytecode::new_raw(vec![MSTORE; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
+		let memory = interpreter.memory.slice(0..MEMORY_SIZE);
+		let misalignment = memory.as_ptr() as usize % CACHE_LINE_SIZE;
+		let first_offset = (OFFSET_IN_LINE + CACHE_LINE_SIZE - misalignment) % CACHE_LINE_SIZE;
+		assert_eq!((memory.as_ptr() as usize + first_offset) % CACHE_LINE_SIZE, OFFSET_IN_LINE);
+		let mut offsets = (first_offset..=MEMORY_SIZE - WORD_SIZE)
+			.step_by(2 * CACHE_LINE_SIZE)
+			.collect::<Vec<_>>();
+		offsets.shuffle(&mut Pcg64::seed_from_u64(1337));
+		let store_offsets = &offsets[..r as usize];
+		for operand in store_offsets.iter().flat_map(|offset| [U256::MAX, U256::from(*offset)]) {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+		for offset in store_offsets.iter().copied() {
+			assert_eq!(interpreter.memory.slice_len(offset, WORD_SIZE), &[0xff; WORD_SIZE]);
+			if let Some(previous) = offset.checked_sub(1) {
+				assert_eq!(interpreter.memory.slice_len(previous, 1), &[0]);
+			}
+			if offset + WORD_SIZE < MEMORY_SIZE {
+				assert_eq!(interpreter.memory.slice_len(offset + WORD_SIZE, 1), &[0]);
+			}
+		}
+	}
+
+	/// Benchmark `r` `MSTORE8` instructions at distinct offsets across preallocated memory.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mstore8_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
+		const STRIDE: u32 = limits::EVM_MEMORY_BYTES / (limits::EVM_STACK_LIMIT / 2);
+
+		let code = Bytecode::new_raw(vec![MSTORE8; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter
+			.memory
+			.resize(0, limits::EVM_MEMORY_BYTES as usize)
+			.continue_value()
+			.unwrap();
+		for operand in (0..r).flat_map(|i| [U256::MAX, U256::from((i + 1) * STRIDE - 1)]) {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+		let mut expected = vec![0; limits::EVM_MEMORY_BYTES as usize];
+		for byte in expected
+			.iter_mut()
+			.skip(STRIDE as usize - 1)
+			.step_by(STRIDE as usize)
+			.take(r as usize)
+		{
+			*byte = 0xff;
+		}
+		assert_eq!(interpreter.memory.size(), expected.len());
+		assert_eq!(interpreter.memory.slice_len(0, expected.len()), expected);
+	}
+
+	/// Benchmark `r` `MSIZE` instructions with maximum-size active memory.
+	///
+	/// The opcode reads the stored memory length and pushes one fixed-size word without reading the
+	/// memory contents. Allocate the memory before measurement and fill the stack with successful
+	/// pushes.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_msize_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
+		let code = Bytecode::new_raw(vec![MSIZE; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter
+			.memory
+			.resize(0, limits::EVM_MEMORY_BYTES as usize)
+			.continue_value()
+			.unwrap();
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.memory.size(), limits::EVM_MEMORY_BYTES as usize);
+		assert_eq!(interpreter.stack.len(), r as usize);
+		let expected = U256::from(limits::EVM_MEMORY_BYTES);
+		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+	}
+
+	/// Benchmark `r` overlapping 64-byte `MCOPY` instructions in preallocated memory.
+	///
+	/// A one-byte source/destination displacement exercises misaligned backward word copying.
+	/// Distinct regions spread the copies across memory; allocation and zero fill are not measured
+	/// here.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mcopy_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 3 }>) {
+		const COPY_BYTES: usize = 64;
+		const STRIDE: usize = 3 * 1024;
+		const MEMORY_SIZE: usize = limits::EVM_MEMORY_BYTES as usize;
+
+		let code = Bytecode::new_raw(vec![MCOPY; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
+		let initial = (0u8..=255).cycle().take(MEMORY_SIZE).collect::<Vec<_>>();
+		interpreter.memory.set(0, &initial);
+		let sources = (0..r as usize).map(|i| i * STRIDE);
+		let operands = sources
+			.clone()
+			.rev()
+			.flat_map(|src| [U256::from(COPY_BYTES), U256::from(src), U256::from(src + 1)]);
+		for operand in operands {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+		let mut expected = initial.clone();
+		for src in sources {
+			expected[src + 1..src + 1 + COPY_BYTES]
+				.copy_from_slice(&initial[src..src + COPY_BYTES]);
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
+		assert_eq!(interpreter.memory.slice_len(0, MEMORY_SIZE), expected);
+	}
+
+	/// Benchmark one overlapping `MCOPY` of `n + 64` bytes in preallocated memory.
+	///
+	/// The zero-component case already performs misaligned word copying. The slope measures
+	/// additional bytes, excluding the empty-copy branch and fixed word-copy setup.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mcopy_per_byte(n: Linear<0, { limits::EVM_MEMORY_BYTES - 65 }>) {
+		const BASE_COPY_BYTES: usize = 64;
+		const MEMORY_SIZE: usize = limits::EVM_MEMORY_BYTES as usize;
+
+		let len = n as usize + BASE_COPY_BYTES;
+		let code = Bytecode::new_raw(vec![MCOPY].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
+		let initial = (0u8..=255).cycle().take(MEMORY_SIZE).collect::<Vec<_>>();
+		interpreter.memory.set(0, &initial);
+		for operand in [U256::from(len), U256::zero(), U256::one()] {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), 2);
+		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
+		assert_eq!(interpreter.memory.slice_len(0, 1), &initial[..1]);
+		assert_eq!(interpreter.memory.slice_len(1, len), &initial[..len]);
+		assert_eq!(interpreter.memory.slice(len + 1..MEMORY_SIZE), &initial[len + 1..]);
+	}
+
 	// Benchmark the execution of instructions.
 	//
 	// It benchmarks the absolute worst case by allocating a lot of memory

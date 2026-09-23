@@ -97,6 +97,11 @@ pub(crate) enum EvmOpcodeCosts {
 	SHL,
 	SHR,
 	SAR,
+	MLOAD,
+	MSTORE,
+	MSTORE8,
+	MSIZE,
+	MCOPY { len: u32 },
 }
 
 impl<T: Config> Token<T> for EvmOpcodeCosts {
@@ -135,6 +140,15 @@ impl<T: Config> Token<T> for EvmOpcodeCosts {
 			SHL => cost_args!(evm_shl_opcode, 1).saturating_sub(weight_of(POP)),
 			SHR => cost_args!(evm_shr_opcode, 1).saturating_sub(weight_of(POP)),
 			SAR => cost_args!(evm_sar_opcode, 1).saturating_sub(weight_of(POP)),
+			MLOAD => cost_args!(evm_mload_opcode, 1),
+			MSTORE => cost_args!(evm_mstore_opcode, 1),
+			MSTORE8 => cost_args!(evm_mstore8_opcode, 1),
+			MSIZE => cost_args!(evm_msize_opcode, 1),
+			MCOPY { len } => {
+				// The fixed cost includes copying 64 bytes; shorter copies pay no variable cost.
+				cost_args!(evm_mcopy_opcode, 1)
+					.saturating_add(cost_args!(evm_mcopy_per_byte, len.saturating_sub(64)))
+			},
 		}
 	}
 }
