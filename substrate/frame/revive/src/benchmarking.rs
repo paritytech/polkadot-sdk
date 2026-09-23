@@ -123,6 +123,19 @@ fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId,
 	Ok(account_id)
 }
 
+/// Bytecode of `r` `PUSH` instructions that each push `N` bytes of `0xff`.
+fn evm_push_code<const N: u8>(r: u32) -> Bytecode {
+	let opcode = const {
+		assert!(N <= 32, "PUSH instructions push between 0 and 32 bytes");
+		PUSH0 + N
+	};
+	let code = core::iter::once(opcode)
+		.chain(core::iter::repeat_n(u8::MAX, usize::from(N)))
+		.collect::<Vec<u8>>()
+		.repeat(r as usize);
+	Bytecode::new_raw(code.into())
+}
+
 /// Code and stack contents for benchmarking one of the EVM jump opcodes.
 ///
 /// The code is always the maximum init code size, independent of how many jumps execute. It's just
@@ -3430,27 +3443,529 @@ mod benchmarks {
 		assert_eq!(interpreter.bytecode.pc(), last_target + 2);
 	}
 
-	/// Benchmark `r` `PUSH32` instructions.
-	///
-	/// This is used for `PUSH0`..`PUSH32` since the word size of the stack is 32 bytes. The only
-	/// difference between something like `PUSH5` and `PUSH32` is that `PUSH5` copies less bytes
-	/// from the code and therefore a `PUSH32` is the worst case scenario as it involves more data
-	/// being copied from the code.
+	/// Benchmark `r` `PUSH0` instructions.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_push_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = core::iter::once(PUSH32)
-			.chain([u8::MAX; 32])
-			.collect::<Vec<u8>>()
-			.repeat(r as usize);
-		let code = Bytecode::new_raw(code.into());
+	fn evm_push0_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<0>(r);
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
-		let inputs = Vec::new();
 
 		let result;
 		#[block]
 		{
-			result = evm::call(code, &mut ext, inputs);
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH1` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push1_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<1>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH2` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push2_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<2>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH3` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push3_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<3>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH4` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push4_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<4>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH5` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push5_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<5>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH6` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push6_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<6>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH7` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push7_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<7>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH8` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push8_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<8>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH9` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push9_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<9>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH10` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push10_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<10>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH11` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push11_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<11>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH12` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push12_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<12>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH13` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push13_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<13>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH14` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push14_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<14>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH15` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push15_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<15>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH16` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push16_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<16>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH17` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push17_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<17>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH18` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push18_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<18>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH19` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push19_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<19>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH20` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push20_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<20>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH21` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push21_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<21>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH22` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push22_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<22>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH23` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push23_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<23>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH24` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push24_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<24>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH25` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push25_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<25>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH26` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push26_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<26>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH27` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push27_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<27>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH28` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push28_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<28>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH29` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push29_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<29>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH30` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push30_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<30>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH31` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push31_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<31>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
+		}
+
+		assert_eq!(result, Ok(ExecReturnValue::default()));
+	}
+
+	/// Benchmark `r` `PUSH32` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_push32_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_push_code::<32>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = evm::call(code, &mut ext, Vec::new());
 		}
 
 		assert_eq!(result, Ok(ExecReturnValue::default()));
