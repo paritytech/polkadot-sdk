@@ -16,4 +16,5 @@ module tests {
   import service_ops_test.* from "./tests/service_ops_test"
   import refine_test.* from "./tests/refine_test"
   import authorizer_queue_test.* from "./tests/authorizer_queue_test"
+  import validator_keys_test.* from "./tests/validator_keys_test"
 }

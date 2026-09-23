@@ -322,8 +322,9 @@ enum AccumulateLog {
         attempted: Compact<Balance>,
         reason: StateBalanceRejection,
     },
-    /// JAM `designate` rejected the assembled validator-key set because its
-    /// `len` is not in `valcount`. The staging buffer is cleared regardless. See §5.3.
+    /// JAM `designate` rejected the assembled validator-key set, because its
+    /// `len` is not in `valcount` or this service is not the delegator. The
+    /// staging buffer is cleared regardless. See §5.3.
     DesignateRejected { len: Compact<u32> },
     /// A `SetValidatorKeys` chunk would grow `staged_validator_keys` beyond
     /// its reserved capacity (`MaxStagedValidatorKeys`); the append is rejected
@@ -1140,15 +1141,13 @@ it:
    (§6.1), but an append that would grow the buffer beyond its reserved capacity
    (the `1023`-key bound on `staged_validator_keys`) is rejected as invalid with
    `AccumulateLog::StagedValidatorKeysOverflow`, leaving the buffer unchanged.
-2. If `is_last == true`, assembles the full set (prior buffer + `keys`) and
-   clears the buffer. The service checks the assembled length against `valcount`:
-   if valid it calls JAM `designate` with the set (which goes straight to
-   `designate` and never persists in storage); otherwise `designate` is **not**
-   called. The length check rejects the set and
+2. If `is_last == true`, clears the buffer and calls JAM `designate` with the
+   assembled set (prior buffer + `keys`). `designate` accepts it only if its
+   length is in `valcount`: **a multiple of 3, at least 6 and at most 1023**.
+   Otherwise JAM's `stagingset` is left unchanged and
    `AccumulateLog::DesignateRejected` is recorded against the Asset Hub `ParaId`.
-   This also gives Asset Hub the abort path: `SetValidatorKeys { keys: vec![], is_last: true }`
-   yields a length-zero set, which the length check rejects, clearing the staging
-   area.
+   An **empty** `keys` aborts instead: the buffer is discarded and `designate` is
+   not called.
 
 A worst-case 1023-key rotation takes ~35 Asset Hub work packages (≈ 3.5
 minutes at 6 s timeslots). State-balance accounting for the staging

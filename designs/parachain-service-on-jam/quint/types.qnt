@@ -99,7 +99,8 @@ module types {
   pure val ValidatorKeySize: int = 336
 
   pure val CoreCount: int = 341
-  /// Valid `stagingset` lengths (gray paper Safrole, eq. valcount).
+  /// Valid `stagingset` lengths (gray paper Safrole, eq. valcount): a multiple
+  /// of 3, at least 6 and at most 1023.
   /// Quint's `.to` is inclusive, so the upper bound is `CoreCount` not
   /// `CoreCount + 1`; this `2.to(CoreCount)` matches the gray paper's
   /// half-open `N_{2 .. C_corecount+1}`.

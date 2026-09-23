@@ -1,7 +1,7 @@
 // Chunked `designate` flow (design §5.3).
 //
-// `designate` is atomic and requires a complete validator-key vector of
-// length ∈ ValCount. A full set is up to 1023 × 336 B ≈ 336 KiB, which
+// `designate` is atomic and accepts only a complete validator-key vector whose
+// length is in ValCount. A full set is up to 1023 × 336 B ≈ 336 KiB, which
 // cannot fit in a single 48 KiB work-report. The validation code therefore emits
 // `SetValidatorKeys { keys, isLast }` upward messages across multiple
 // Asset Hub blocks; Accumulate appends each chunk and finalizes on
@@ -16,10 +16,14 @@
 // `336 * len(keys)`, since the chunk persists in the buffer until
 // finalization. If it would exceed `totalStateBalance`, log
 // `InsufficientStateBalance` and leave the buffer unchanged.
-// - On `isLast == true`, assemble the full set, validate `len ∈ ValCount`,
-// call `designate`, and clear the buffer (either way). The final chunk
-// goes straight to `designate` and never persists, so it needs no headroom
-// check or balance charge; clearing releases the prior buffer's footprint.
+// - On `isLast == true` with an EMPTY chunk, discard the buffer and do not call
+// `designate`.
+// - On `isLast == true` with a non-empty chunk, assemble the full set, hand it
+// to `designate`, and clear the buffer (either way). `designate` rejects a
+// length outside ValCount, which the model records as `DesignateRejected`.
+// The final chunk goes straight to `designate` and never persists, so it
+// needs no headroom check or balance charge; clearing releases the prior
+// buffer's footprint.
 module validator_keys {
   import types.* from "./types"
   import messages.* from "./messages"
@@ -43,7 +47,15 @@ module validator_keys {
     chunk: List[ValidatorKey],
     isLast: bool
   ): ChunkOutcome = {
-    if (isLast) {
+    if (isLast and chunk == List()) {
+      // Abort: an empty final chunk discards whatever is staged.
+      {
+        state: { ...s, stagedValidatorKeys: List() },
+        jamDesignate: false,
+        designateVec: List(),
+        log: None
+      }
+    } else if (isLast) {
       // Final chunk: assemble the full set in memory, hand it to `designate`,
       // and clear the staging buffer in the same step.
       val assembled = s.stagedValidatorKeys.concat(chunk)
