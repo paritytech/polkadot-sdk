@@ -59,8 +59,7 @@
 //! [`Pallet::add_lock`] shuts the manager out of a registered para, leaving it to the para's own
 //! governance. Only root or the para itself can lift it again with [`Pallet::remove_lock`].
 //! [`Pallet::lock_para`] is the same lock without the origin check, for a runtime that applies it
-//! on its own trigger: on the Coretime chain `pallet-broker` locks a para as soon as it is given
-//! a core.
+//! on its own trigger.
 //!
 //! Deposits only ever live on this chain; the relay chain takes nothing.
 
@@ -72,7 +71,7 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	defensive, ensure,
-	traits::{Consideration, Contains, EnsureOrigin, Footprint},
+	traits::{Consideration, EnsureOrigin, Footprint},
 };
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
@@ -251,13 +250,6 @@ pub mod pallet {
 		/// [`Config::PendingDeadline`] is in relay-chain blocks.
 		type BlockNumberProvider: BlockNumberProvider;
 
-		/// Whether a para still holds Coretime, so it must not be dropped.
-		///
-		/// `pallet-broker` on the Coretime chain, `()` where nothing here hands out cores. It costs
-		/// a read per core, and `deregister`'s weight covers only what the benchmark saw, so a
-		/// runtime setting this must rerun the benchmarks against real Coretime state.
-		type HeldByCoretime: Contains<ParaId>;
-
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -371,8 +363,6 @@ pub mod pallet {
 		AlreadyDeregistering,
 		/// There is no deregistration in flight for this para.
 		NotDeregistering,
-		/// The para still holds Coretime, so it cannot be dropped.
-		HeldByCoretime,
 	}
 
 	#[pallet::hooks]
@@ -611,7 +601,6 @@ pub mod pallet {
 		pub fn deregister(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
 			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
 			Self::ensure_root_para_or_manager(origin, para_id, &info)?;
-			ensure!(!T::HeldByCoretime::contains(&para_id), Error::<T>::HeldByCoretime);
 
 			let manager = info.manager.clone();
 			match info.state {
@@ -746,8 +735,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Lock `para_id` with no origin check, for a runtime that locks paras on its own trigger:
-	/// the Coretime chain locks a para once it has been given a core.
+	/// Lock `para_id` with no origin check, for a runtime that locks paras on its own trigger.
 	///
 	/// A para with a deregistration in flight is locked too: it is still on the relay chain.
 	///

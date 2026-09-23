@@ -97,13 +97,6 @@ pub mod pallet {
 		/// system.
 		type Coretime: CoretimeInterface;
 
-		/// Locks the para behind a task once the task is given Coretime, so that its manager can
-		/// no longer act on it. `()` where this chain has no registrar to lock it in.
-		///
-		/// Whatever this costs is measured as part of `assign`, which is what calls it, so a
-		/// runtime that sets it to anything but `()` has to rerun this pallet's benchmarks.
-		type ParaLock: ParaLock;
-
 		/// The algorithm to determine the next price on the basis of market performance.
 		type PriceAdapter: AdaptPrice<BalanceOf<Self>>;
 
@@ -1096,24 +1089,5 @@ pub mod pallet {
 			Self::do_swap_leases(id, other)?;
 			Ok(())
 		}
-	}
-}
-
-/// Whether a task currently holds Coretime here, so whoever registered it must not drop it.
-///
-/// Answered from [`pallet::Leases`] and the current [`pallet::Workload`], a read per core. A
-/// region assigned to a future timeslice is in [`pallet::Workplan`] only, which has no task index;
-/// the registrar catches that through the lock [`ParaLock::lock`] sets on assignment.
-impl<T: Config> frame_support::traits::Contains<TaskId> for Pallet<T> {
-	fn contains(task: &TaskId) -> bool {
-		if Leases::<T>::get().iter().any(|lease| lease.task == *task) {
-			return true;
-		}
-
-		Workload::<T>::iter_values().any(|schedule| {
-			schedule
-				.iter()
-				.any(|item| matches!(item.assignment, CoreAssignment::Task(id) if id == *task))
-		})
 	}
 }

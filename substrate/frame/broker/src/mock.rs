@@ -178,16 +178,6 @@ impl TestCoretimeProvider {
 
 parameter_types! {
 	pub const TestBrokerId: PalletId = PalletId(*b"TsBroker");
-	/// Every task the broker asked to lock, in order and with repeats.
-	pub static LockedParas: Vec<TaskId> = Default::default();
-}
-
-/// Records lock requests instead of talking to a registrar.
-pub struct TestParaLock;
-impl ParaLock for TestParaLock {
-	fn lock(task: TaskId) {
-		LockedParas::mutate(|l| l.push(task));
-	}
 }
 
 pub struct IntoZero;
@@ -219,7 +209,6 @@ impl crate::Config for Test {
 	type MaxLeasedCores = ConstU32<5>;
 	type MaxReservedCores = ConstU32<5>;
 	type Coretime = TestCoretimeProvider;
-	type ParaLock = TestParaLock;
 	type ConvertBalance = Identity;
 	type WeightInfo = ();
 	type PalletId = TestBrokerId;

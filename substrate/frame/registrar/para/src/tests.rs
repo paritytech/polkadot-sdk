@@ -826,27 +826,6 @@ mod deregister {
 	}
 
 	#[test]
-	fn a_para_that_still_holds_coretime_is_refused_even_to_root() {
-		new_test_ext().execute_with(|| {
-			let para_id = registered_para(ALICE);
-			CoretimeHolders::set(vec![para_id]);
-
-			assert_noop!(
-				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
-				Error::<Test>::HeldByCoretime
-			);
-			assert_noop!(
-				Registrar::deregister(RuntimeOrigin::root(), para_id),
-				Error::<Test>::HeldByCoretime
-			);
-
-			// Once the core is gone it goes through.
-			CoretimeHolders::set(vec![]);
-			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
-		});
-	}
-
-	#[test]
 	fn a_registration_in_flight_has_to_be_settled_first() {
 		new_test_ext().execute_with(|| {
 			let para_id = reserve_for(ALICE);
