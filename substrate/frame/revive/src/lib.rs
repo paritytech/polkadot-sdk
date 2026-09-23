@@ -31,7 +31,7 @@ mod debug;
 mod deposit_payment;
 mod exec;
 mod impl_fungibles;
-mod limits;
+pub mod limits;
 mod metering;
 mod primitives;
 #[doc(hidden)]
