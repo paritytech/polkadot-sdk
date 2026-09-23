@@ -102,6 +102,7 @@ impl<T: Config> BuiltinPrecompile for System<T> {
 				// no need to adjust gas because this always deletes code
 				env.frame_meter_mut()
 					.charge_weight_token(RuntimeCosts::Terminate { code_removed: true })?;
+				env.frame_meter_mut().charge_weight_token(RuntimeCosts::TerminateDryRun)?;
 				let h160 = H160::from_slice(beneficiary.as_slice());
 				env.terminate_caller(&h160).map_err(Error::try_to_revert::<T>)?;
 				Ok(Vec::new())

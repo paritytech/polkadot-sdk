@@ -16,18 +16,21 @@
 // limitations under the License.
 
 use crate::{
-	BalanceOf, Code, Config, FreezeReason, H160, Pallet,
+	BalanceOf, Code, Config, H160, HoldReason, Pallet,
 	address::AddressMapper,
 	test_utils::{ALICE, DJANGO, DJANGO_ADDR, builder::Contract},
 	tests::{
-		Balances, Contracts, ExtBuilder, RuntimeFreezeReason, RuntimeOrigin, Test, builder,
+		Balances, Contracts, ExtBuilder, RuntimeHoldReason, RuntimeOrigin, Test, builder,
 		test_utils::{get_balance, get_contract_checked},
 	},
 };
 use alloy_core::sol_types::{SolCall, SolConstructor};
 use frame_support::{
 	assert_ok,
-	traits::fungible::{InspectFreeze, Mutate, MutateFreeze},
+	traits::{
+		LockableCurrency, WithdrawReasons,
+		fungible::{Mutate, MutateHold},
+	},
 };
 use pallet_revive_fixtures::{
 	FixtureType, Terminate, TerminateCaller, TerminateDelegator, compile_module_with_type,
@@ -708,49 +711,88 @@ fn call_after_terminate_works(fixture_type: FixtureType, method: u8) {
 	});
 }
 
-/// A native freeze that pins the contract ED must make `System.terminate` revert
-/// instead of reporting success while leaving the contract live.
+/// Revert message of `System.terminate` when the contract's balance cannot be released.
+const BALANCE_LOCKED: &str =
+	"terminate pre-compile cannot release the contract's balance: it has a lock, freeze or hold";
+
+/// Something on the contract account that `System.terminate` has to cope with.
+#[derive(Clone, Copy, Debug)]
+enum Encumbrance {
+	/// Nothing: the control case, terminate goes through.
+	None,
+	/// A lock of the given amount placed by another pallet, as a vested transfer does.
+	Lock(u128),
+	/// A hold of the given amount under a reason other than the storage deposit.
+	Hold(u128),
+}
+
+/// A lock identifier pallet-revive does not own.
+const FOREIGN_LOCK: [u8; 8] = *b"foreign ";
+
+/// Deploy a `Terminate` contract with some balance on top of the ED and apply `encumbrance`.
+fn encumbered_contract(fixture_type: FixtureType, encumbrance: Encumbrance) -> Contract<Test> {
+	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
+	let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+	let contract = builder::bare_instantiate(Code::Upload(code))
+		.constructor_data(
+			Terminate::constructorCall {
+				skip: true,
+				method: METHOD_PRECOMPILE,
+				beneficiary: DJANGO_ADDR.0.into(),
+			}
+			.abi_encode(),
+		)
+		.build_and_unwrap_contract();
+
+	let _ = <Test as Config>::Currency::set_balance(
+		&contract.account_id,
+		Contracts::min_balance() + 1_000,
+	);
+	match encumbrance {
+		Encumbrance::None => {},
+		Encumbrance::Lock(amount) => {
+			Balances::set_lock(FOREIGN_LOCK, &contract.account_id, amount, WithdrawReasons::all())
+		},
+		Encumbrance::Hold(amount) => {
+			assert_ok!(Balances::hold(
+				&RuntimeHoldReason::Contracts(HoldReason::AddressMapping),
+				&contract.account_id,
+				amount,
+			));
+		},
+	}
+	contract
+}
+
+/// `System.terminate` must revert when the contract's balance carries a lock, freeze or hold
+/// that the termination cannot release, instead of reporting success and leaving the contract
+/// alive. The destruction runs at the end of the call stack, where its failure is not visible,
+/// so the precompile dry runs the balance release and reverts where the caller can see it.
 ///
-/// The freeze is `reserved + ED` so `reducible_balance` still reports the extra
-/// as transferable (`Preservation::Preserve`), but the polite ED burn in
-/// `destroy_contract` has nothing left to spend. That burn happens in the
-/// deferred destruction, where the error is swallowed, so `terminate_caller`
-/// rejects the freeze up-front: the precompile reverts and the calling contract
-/// can observe it. Previously the beneficiary kept the transfer and the contract
-/// stayed callable.
+/// A lock of 1 is below the storage deposit on hold and would slip through a check that only
+/// compares the lock against the holds: once the holds are released, any lock still blocks the
+/// ED burn.
 ///
 /// See <https://github.com/paritytech/polkadot-sdk/issues/13017>.
-#[test_case(FixtureType::Solc)]
-#[test_case(FixtureType::Resolc)]
-fn precompile_terminate_reverts_when_ed_is_frozen(fixture_type: FixtureType) {
-	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[
+		Encumbrance::None,
+		Encumbrance::Lock(1),
+		Encumbrance::Lock(1_000_000),
+		Encumbrance::Hold(1),
+	]
+)]
+fn precompile_terminate_with_encumbered_balance(
+	fixture_type: FixtureType,
+	encumbrance: Encumbrance,
+) {
 	ExtBuilder::default().build().execute_with(|| {
-		let min_balance = Contracts::min_balance();
-		let extra = 1_000u128;
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
-
-		let Contract { addr, account_id } = builder::bare_instantiate(Code::Upload(code))
-			.constructor_data(
-				Terminate::constructorCall {
-					skip: true,
-					method: METHOD_PRECOMPILE,
-					beneficiary: DJANGO_ADDR.0.into(),
-				}
-				.abi_encode(),
-			)
-			.build_and_unwrap_contract();
-
-		let _ = <Test as Config>::Currency::set_balance(&account_id, min_balance + extra);
-		// Pin ED *and* current reserved: polite `reducible_balance` subtracts
-		// reserved from frozen, so freezing only the ED is a no-op while holds
-		// remain. `PGasDeposit::destroy_contract` thaws the PGAS freeze itself,
-		// so the pin has to be a native Balances freeze.
-		let pin = Balances::reserved_balance(&account_id).saturating_add(min_balance);
-		let freeze_id = RuntimeFreezeReason::Contracts(FreezeReason::PGasMinBalance);
-		assert_ok!(Balances::set_freeze(&freeze_id, &account_id, pin));
-		assert_eq!(Balances::balance_frozen(&freeze_id, &account_id), pin);
-
+		let Contract { addr, account_id } = encumbered_contract(fixture_type, encumbrance);
+		let contract_before = get_balance(&account_id);
 		let django_before = get_balance(&DJANGO);
+
 		let result = builder::bare_call(addr)
 			.data(
 				Terminate::terminateCall {
@@ -761,15 +803,41 @@ fn precompile_terminate_reverts_when_ed_is_frozen(fixture_type: FixtureType) {
 			)
 			.build_and_unwrap_result();
 
-		assert!(result.did_revert(), "terminate must revert when a freeze pins the ED");
-		assert_eq!(
-			decode_error(result.data.as_ref()),
-			"terminate pre-compile cannot burn the existential deposit: the contract's balance is locked",
-		);
-		assert_eq!(
-			get_balance(&DJANGO),
-			django_before,
-			"beneficiary must not keep the immediate transfer of a reverted terminate",
-		);
+		if let Encumbrance::None = encumbrance {
+			assert!(!result.did_revert(), "terminate must succeed without an encumbrance");
+			assert!(get_contract_checked(&addr).is_none(), "contract must be destroyed");
+			assert!(get_balance(&DJANGO) > django_before, "beneficiary must receive the balance");
+			return;
+		}
+
+		assert!(result.did_revert(), "terminate must revert with {encumbrance:?}");
+		assert_eq!(decode_error(result.data.as_ref()), BALANCE_LOCKED);
+		assert!(get_contract_checked(&addr).is_some(), "contract must stay live");
+		assert_eq!(get_balance(&account_id), contract_before, "contract balance must be unchanged");
+		assert_eq!(get_balance(&DJANGO), django_before, "beneficiary must not keep the transfer");
+	});
+}
+
+/// The revert of `System.terminate` is catchable: the calling contract sees the error, keeps
+/// running and the call as a whole succeeds, with the contract and all balances untouched.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn precompile_terminate_revert_can_be_caught(fixture_type: FixtureType) {
+	ExtBuilder::default().build().execute_with(|| {
+		let Contract { addr, account_id } = encumbered_contract(fixture_type, Encumbrance::Lock(1));
+		let contract_before = get_balance(&account_id);
+		let django_before = get_balance(&DJANGO);
+
+		let result = builder::bare_call(addr)
+			.data(Terminate::tryTerminateCall { beneficiary: DJANGO_ADDR.0.into() }.abi_encode())
+			.build_and_unwrap_result();
+
+		assert!(!result.did_revert(), "the caller must catch the revert and continue");
+		let returned = Terminate::tryTerminateCall::abi_decode_returns(&result.data).unwrap();
+		assert!(!returned._0, "the terminate call must report failure");
+		assert_eq!(decode_error(&returned._1), BALANCE_LOCKED);
+		assert!(get_contract_checked(&addr).is_some(), "contract must stay live");
+		assert_eq!(get_balance(&account_id), contract_before, "contract balance must be unchanged");
+		assert_eq!(get_balance(&DJANGO), django_before, "beneficiary must not keep the transfer");
 	});
 }

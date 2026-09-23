@@ -154,7 +154,7 @@ impl Error {
 				"cannot terminate an EIP-7702 delegated account via the terminate pre-compile"
 			},
 			_ if e == balance_locked => {
-				"terminate pre-compile cannot burn the existential deposit: the contract's balance is locked"
+				"terminate pre-compile cannot release the contract's balance: it has a lock, freeze or hold"
 			},
 			_ => return e.into(),
 		};

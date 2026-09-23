@@ -46,7 +46,7 @@ use frame_support::{
 	traits::{
 		Time,
 		fungible::{Balanced as _, Inspect, Mutate},
-		tokens::{Fortitude, Preservation},
+		tokens::Preservation,
 	},
 	weights::Weight,
 };
@@ -1879,24 +1879,10 @@ where
 		args: &TerminateArgs<T>,
 	) -> Result<(), DispatchError> {
 		let contract_address = T::AddressMapper::to_address(contract_account);
-
-		// If root created this contract we need to use the pallet account_id because root has no
-		// account.
-		let origin: Origin<T> = match origin {
-			Origin::Signed(o) => Origin::Signed(o.clone()),
-			Origin::Root => Origin::from_account_id(crate::Pallet::<T>::account_id()),
-		};
+		let origin = Self::termination_origin(origin);
 
 		let mut delete_contract = |trie_id: &TrieId, code_hash: &H256| {
-			// deposit needs to be removed as it adds a consumer
-			let refund =
-				T::Deposit::refund_all(&contract_account, exec_config.funds(origin.account_id()?))?;
-
-			// we added this consumer manually when instantiating
-			System::<T>::dec_consumers(&contract_account);
-
-			// ED was minted when the account was brought into existence; burn it now.
-			T::Deposit::destroy_contract(contract_account)?;
+			let refund = Self::release_contract_balance(contract_account, &origin, exec_config)?;
 
 			// this is needed to:
 			// 1) Send any balance that was send to the contract after termination.
@@ -1944,6 +1930,40 @@ where
 				},
 			}
 		})
+	}
+
+	/// The origin that receives the refunds of a terminated contract.
+	///
+	/// If root created the contract we need to use the pallet account_id because root has no
+	/// account.
+	fn termination_origin(origin: &Origin<T>) -> Origin<T> {
+		match origin {
+			Origin::Signed(o) => Origin::Signed(o.clone()),
+			Origin::Root => Origin::from_account_id(crate::Pallet::<T>::account_id()),
+		}
+	}
+
+	/// Releases the balance state that keeps a contract account alive: the storage deposit, the
+	/// consumer added at instantiation and the minted ED.
+	///
+	/// Returns the refunded storage deposit. Callers must run this inside a storage transaction
+	/// so that a partial release is rolled back on error.
+	fn release_contract_balance(
+		contract_account: &T::AccountId,
+		origin: &Origin<T>,
+		exec_config: &ExecConfig<T>,
+	) -> Result<BalanceOf<T>, DispatchError> {
+		// deposit needs to be removed as it adds a consumer
+		let refund =
+			T::Deposit::refund_all(contract_account, exec_config.funds(origin.account_id()?))?;
+
+		// we added this consumer manually when instantiating
+		System::<T>::dec_consumers(contract_account);
+
+		// ED was minted when the account was brought into existence; burn it now.
+		T::Deposit::destroy_contract(contract_account)?;
+
+		Ok(refund)
 	}
 
 	/// Reference to the current (top) frame.
@@ -2705,23 +2725,25 @@ where
 			&self.exec_config,
 		)?;
 
-		// The deferred destruction cannot fail: the contract is no longer on the call stack by
-		// then, so its error is swallowed. Reject here instead the one failure we can still see:
-		// a freeze that pins the ED and would make the `Polite` burn in `destroy_contract` fail.
+		// The destruction is deferred to the end of the call stack. By then the contract is no
+		// longer on the stack, so if releasing its balance fails there the termination is skipped
+		// and nobody sees the error. Dry run that release now, while the calling contract can
+		// still catch a revert. It fails if the account carries a freeze or lock, or a hold
+		// other than the storage deposit.
 		//
-		// `refund_all` only lowers `reserved` and never touches `frozen`, so a burn that does not
-		// fit now will not fit later either. Checking after the transfer above is what makes this
-		// exact: `Preservation::Preserve` leaves exactly `max(frozen - reserved, ED)` behind, so
-		// the reducible balance is below the ED precisely when a foreign freeze exceeds our holds.
-		let ed = T::Currency::minimum_balance();
-		ensure!(
-			T::Currency::reducible_balance(
-				&parent_account_id,
-				Preservation::Expendable,
-				Fortitude::Polite,
-			) >= ed,
-			Error::<T>::TerminateBalanceLocked,
-		);
+		// This only reflects the state at this point: a lock added by a later frame of the same
+		// transaction still ends in the silent skip.
+		let origin = Self::termination_origin(&self.origin);
+		with_transaction(|| -> TransactionOutcome<DispatchResult> {
+			TransactionOutcome::Rollback(
+				Self::release_contract_balance(&parent_account_id, &origin, self.exec_config)
+					.map(|_| ()),
+			)
+		})
+		.map_err(|e| {
+			log::debug!(target: LOG_TARGET, "Contract {contract_address:?} cannot be terminated: {e:?}");
+			Error::<T>::TerminateBalanceLocked
+		})?;
 
 		// schedule for delayed deletion
 		let args = TerminateArgs { beneficiary, trie_id, code_hash, only_if_same_tx: false };

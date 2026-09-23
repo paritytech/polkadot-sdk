@@ -106,6 +106,9 @@ pub enum RuntimeCosts {
 	GasLimit,
 	/// Weight of calling `seal_terminate`.
 	Terminate { code_removed: bool },
+	/// Weight of the balance release that `System.terminate` dry runs before scheduling the
+	/// destruction.
+	TerminateDryRun,
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
 	DepositEvent { num_topic: u32, len: u32 },
 	/// Weight of `seal_set_storage` / `seal_set_transient_storage`. `kind` picks
@@ -347,6 +350,8 @@ impl<T: Config> Token<T> for RuntimeCosts {
 					T::WeightInfo::seal_terminate(code_removed.into())
 				}
 			},
+			// The dry run repeats most of the teardown `seal_terminate_logic` measures.
+			TerminateDryRun => T::WeightInfo::seal_terminate_logic(),
 			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len)
 				.saturating_add(T::WeightInfo::on_finalize_block_per_event(len))
 				.saturating_add(Weight::from_parts(
