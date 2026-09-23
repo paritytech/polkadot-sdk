@@ -363,142 +363,164 @@ The pallet calls. Every call returns `DispatchResult`. New allocation and
 operation ids are reported in the events.
 
 ```rust
-/// Origin: governance (Root). Mints `CAP` into the pallet's custody and sets
-/// `Released` for the JAM services endowed at genesis. Rejected unless
-/// `released <= CAP`. The pallet stays inactive until attested.
+// ── Setup and control ──────────────────────────────────────────────────
+
+/// Creates the JAMKB asset. Origin: governance (Root). Mints `CAP` into the
+/// pallet's custody and sets `Released` for the JAM services endowed at
+/// genesis. Rejected unless `released <= CAP`. The pallet stays inactive
+/// until attested.
 fn initialize(released: Balance);
 
-/// Origin: governance (Root). Records the genesis attestation against JAM
-/// state; enables operations (§3.1).
+/// Records the genesis attestation against JAM state. Origin: governance
+/// (Root). Enables operations (§3.1).
 fn attest(anchor: Anchor);
 
-/// Origin: governance (Root). Records `Allocation{mode: Permanent, state:
-/// Approved}` and holds `amount` under `Released` in the pallet's custody
-/// (§3.3).
-fn approve_release(target: ServiceId, amount: Balance,
-                   valid_from: Option<BlockNumber>, valid_for: BlockNumber);
-
-/// Origin: a token holder or governance. Records `Allocation{mode: Lease,
-/// state: Approved}` and holds `amount` on the approver's account (§3.3).
-/// Rejected if the target is recorded frozen, has no registered service
-/// account, or already has an accepted lease that is not `Closed`.
-fn offer_lease(target: ServiceId, amount: Balance, duration: BlockNumber,
-               valid_from: Option<BlockNumber>, valid_for: BlockNumber);
-
-/// Origin: the allocation's approver. Cancels an allocation in `Approved`: the
-/// hold is released and the allocation state moves to `Closed`. The call stays
-/// legal past `expires_at`. A `Delivering` allocation cannot be cancelled.
-fn cancel_allocation(id: AllocationId);
-
-/// Origin: governance (Root). Sets and clears the pallet pause flag, checked
-/// by every entry point except `settle`. Messages already queued are
-/// still processed.
+/// Sets and clears the pallet pause flag. Origin: governance (Root). The flag
+/// is checked by every entry point except `settle`. Messages already queued
+/// are still processed.
 fn pause();
 fn resume();
 
-/// Origin: any signed account. Legal while the allocation is `Approved`, at
-/// or after `valid_from` and before `expires_at`. Each execution creates a
-/// new delivery operation; a failed one is terminal. Moves the
-/// allocation to `Delivering` and records the delivery operation.
+// ── Distribution from custody ──────────────────────────────────────────
+
+/// Grants a budget to a policy adapter contract (§1). Origin: governance
+/// (Root). Transfers `amount` of undistributed units from the pallet's
+/// custody to `beneficiary` on Asset Hub.
+fn grant(beneficiary: AccountId, amount: Balance);
+
+// ── Permanent release ──────────────────────────────────────────────────
+
+/// Approves a permanent release to `target`. Origin: governance (Root).
+/// Records `Allocation{mode: Permanent, state: Approved}` and holds `amount`
+/// under `Released` in the pallet's custody (§3.3).
+fn approve_release(target: ServiceId, amount: Balance,
+                   valid_from: Option<BlockNumber>, valid_for: BlockNumber);
+
+/// Carries out an approved release. Origin: any signed account. Legal while
+/// the allocation is `Approved`, at or after `valid_from` and before
+/// `expires_at`. Each execution creates a new delivery operation; a failed
+/// one is terminal. Moves the allocation to `Delivering` and records the
+/// delivery operation.
 fn execute_release(id: AllocationId);
 
-/// Origin: the target's service account (`ServiceAccounts`). Legal while the
-/// allocation is `Approved`, at or after `valid_from` and before
-/// `expires_at`. Each execution creates a new delivery operation; a failed
-/// one is terminal. Moves the allocation to `Delivering` and records
-/// the delivery operation.
+/// Moves the caller's own units to the destination JAM service. Origin: any
+/// JAMKB holder.
+fn redeem(amount: Balance, dest: ServiceId);
+
+// ── Lease ──────────────────────────────────────────────────────────────
+
+/// Offers a lease of `amount` to `target` for `duration`. Origin: a token
+/// holder or governance. Records `Allocation{mode: Lease, state: Approved}`
+/// and holds `amount` on the approver's account (§3.3). Rejected if the
+/// target is recorded frozen, has no registered service account, or already
+/// has an accepted lease that is not `Closed`.
+fn offer_lease(target: ServiceId, amount: Balance, duration: BlockNumber,
+               valid_from: Option<BlockNumber>, valid_for: BlockNumber);
+
+/// Accepts an offered lease. Origin: the target's service account
+/// (`ServiceAccounts`). Legal while the allocation is `Approved`, at or after
+/// `valid_from` and before `expires_at`. Each execution creates a new
+/// delivery operation; a failed one is terminal. Moves the allocation to
+/// `Delivering` and records the delivery operation.
 fn accept_lease(id: AllocationId);
 
-/// Origin: any signed account. Legal while the lease is `Reclaiming`. Stops
-/// the target from taking more state footprint and records it in
+/// Raises a lease's `amount` by `additional`. Origin: the lease's approver.
+/// Legal while the lease is `Delivered`. Holds that much more under `Leased`
+/// on the approver's account and records a delivery operation crediting the
+/// target's supervisor balance. The lease end does not change.
+fn increase_lease(id: AllocationId, additional: Balance);
+
+/// Sets the lease's `duration`. Origin: the lease's approver. Legal while the
+/// lease is `Delivered`.
+fn extend_lease(id: AllocationId, duration: BlockNumber);
+
+/// Offers the lease to another account. Origin: the lease's approver. Legal
+/// while the lease is `Delivered`. Records `to` in `LeaseAssignments`; a
+/// later call replaces the entry.
+fn assign_lease(id: AllocationId, to: AccountId);
+
+/// Takes over an assigned lease. Origin: the account recorded in
+/// `LeaseAssignments`. `amount` is held under `Leased` on the caller, the
+/// previous approver's hold is released, `approver` becomes the caller's
+/// signed origin and the entry is cleared.
+fn take_over_lease(id: AllocationId);
+
+/// Takes `amount` of the leased units back from the target. Origin: the
+/// lease's approver past `delivered_at + duration + GRACE_PERIOD`, or the
+/// target's service account at any time. Legal from `Delivered` and from
+/// `Reclaiming`. Creates `Operation{Reclaim}` for `amount`, capped at the
+/// allocation's remaining amount.
+fn reclaim(id: AllocationId, amount: Balance);
+
+/// Ends a fully returned lease. Origin: the lease's approver or governance.
+/// Legal while the lease is `Reclaiming`. The `Leased` hold moves into the
+/// pallet's custody under `Released` and the lease moves to `Closed`.
+fn close_lease(id: AllocationId);
+
+// ── Recovery: a lease target that does not cooperate ───────────────────
+
+/// Stops the target from taking more state footprint. Origin: any signed
+/// account. Legal while the lease is `Reclaiming`. Records the target in
 /// `FrozenTargets`; a Failed settle clears the record. The Parachain Service
 /// has no support for this.
 fn freeze_target(target: ServiceId);
 
-/// Origin: the lease's approver or governance while the lease is
-/// `Reclaiming`; any signed account with the recovery deposit once it is
-/// `Closed` and fully returned. Reverses the freeze; a Confirmed settle
-/// clears the `FrozenTargets` record.
+/// Reverses the freeze. Origin: the lease's approver or governance while the
+/// lease is `Reclaiming`; any signed account with the recovery deposit once
+/// it is `Closed` and fully returned. A Confirmed settle clears the
+/// `FrozenTargets` record.
 fn unfreeze_target(target: ServiceId);
 
-/// Origin: any signed account, with the recovery deposit, refunded in
-/// proportion to the keys the page removed. Legal while the lease is
-/// `Reclaiming`. Deletes one bounded page of keys from the target's storage,
-/// each sent as `RemoveServiceStorage { service, key }`.
+/// Deletes one bounded page of keys from the target's storage, each sent as
+/// `RemoveServiceStorage { service, key }`. Origin: any signed account, with
+/// the recovery deposit, refunded in proportion to the keys the page removed.
+/// Legal while the lease is `Reclaiming`.
 fn cleanup_storage(target: ServiceId, keys: BoundedVec<Key, MAX_KEYS_PER_PAGE>);
 
-/// Origin: any signed account, with the recovery deposit. Legal while the
-/// lease is `Reclaiming`. Releases a solicited preimage: a `Forget` upward
-/// message. Forgetting the target's code preimage is restricted: governance
-/// at any time, the approver only after a notice period since the freeze.
+/// Releases a solicited preimage: a `Forget` upward message. Origin: any
+/// signed account, with the recovery deposit. Legal while the lease is
+/// `Reclaiming`. Forgetting the target's code preimage is restricted:
+/// governance at any time, the approver only after a notice period since the
+/// freeze.
 fn forget_preimage(target: ServiceId, hash: Hash, len: u32);
 
-/// Origin: any signed account, with the recovery deposit. Legal while the
-/// lease is `Reclaiming`. Destroys the emptied target (`EjectService`),
-/// crediting its balances to the Parachain Service; a Confirmed settle moves
+/// Destroys the emptied target (`EjectService`), crediting its balances to
+/// the Parachain Service. Origin: any signed account, with the recovery
+/// deposit. Legal while the lease is `Reclaiming`. A Confirmed settle moves
 /// the lease to `Closed` and releases the `Leased` hold. The swept amount
 /// counts as the lease return up to `leased`, any surplus as excess (§5),
 /// which needs the sweep enqueued as an `incoming_transfers` entry; the
 /// Parachain Service does not provide it.
 fn eject_target(target: ServiceId);
 
-/// Origin: any signed account. Releases the supervised target to itself
-/// (`SetServiceSupervisor`). Rejected while the target is recorded frozen,
-/// or has a lease that is not `Closed` and fully returned.
+/// Releases the supervised target to itself (`SetServiceSupervisor`). Origin:
+/// any signed account. Rejected while the target is recorded frozen, or has a
+/// lease that is not `Closed` and fully returned.
 fn unsupervise(target: ServiceId);
 
-/// Origin: the lease's approver past `delivered_at + duration +
-/// GRACE_PERIOD`, or the target's service account at any time. Legal from
-/// `Delivered` and from `Reclaiming`. Creates `Operation{Reclaim}` for
-/// `amount`, capped at the allocation's remaining amount.
-fn reclaim(id: AllocationId, amount: Balance);
+// ── Returns and disposal ───────────────────────────────────────────────
 
-/// Origin: the lease's approver or governance. Legal while the lease is
-/// `Reclaiming`. The `Leased` hold moves into the pallet's custody under
-/// `Released` and the lease moves to `Closed`.
-fn close_lease(id: AllocationId);
-
-/// Origin: the lease's approver. Legal while the lease is `Delivered`. Raises
-/// `amount` by `additional`, holds that much more under `Leased` on the
-/// approver's account and records a delivery operation crediting the target's
-/// supervisor balance. The lease end does not change.
-fn increase_lease(id: AllocationId, additional: Balance);
-
-/// Origin: the lease's approver. Legal while the lease is `Delivered`. Sets
-/// the lease's `duration`.
-fn extend_lease(id: AllocationId, duration: BlockNumber);
-
-/// Origin: the lease's approver. Legal while the lease is `Delivered`.
-/// Records `to` in `LeaseAssignments`; a later call replaces the entry.
-fn assign_lease(id: AllocationId, to: AccountId);
-
-/// Origin: the account recorded in `LeaseAssignments`. `amount` is held under
-/// `Leased` on the caller, the previous approver's hold is released,
-/// `approver` becomes the caller's signed origin and the entry is cleared.
-fn take_over_lease(id: AllocationId);
-
-/// Origin: governance (Root). Transfers `amount` of undistributed units from
-/// the pallet's custody to `beneficiary` on Asset Hub: a budget for a policy
-/// adapter contract (§1).
-fn grant(beneficiary: AccountId, amount: Balance);
-
-/// Origin: any JAMKB holder. Moves the caller's own units to the destination
-/// JAM service.
-fn redeem(amount: Balance, dest: ServiceId);
-
-/// Origin: any signed account. Claims the voluntarily returned balance to
-/// `beneficiary`'s account (§4.4): moves the units from custody, releasing
-/// the amount from the `Released` hold.
+/// Claims the voluntarily returned balance to `beneficiary`'s account (§4.4).
+/// Origin: any signed account. Moves the units from custody, releasing the
+/// amount from the `Released` hold.
 fn claim(beneficiary: AccountId);
 
-/// Origin: governance (Root). Disposes an excess amount per service (§5).
+/// Disposes an excess amount per service (§5). Origin: governance (Root).
 /// With `refund = true` it creates a `Refund` operation sending the tokens
 /// back to the `source` service's regular balance; with `refund = false` it
 /// accounts the amount as undistributed custody.
 fn dispose_excess(source: ServiceId, amount: Balance, refund: bool);
 
-/// Origin: any signed account. Updates the operation state to Confirmed or
-/// Failed. For an operation already marked `Failed` at delivery (§3.4), it
+// ── Shared by every flow ───────────────────────────────────────────────
+
+/// Cancels an allocation in `Approved`. Origin: the allocation's approver.
+/// The hold is released and the allocation state moves to `Closed`. The call
+/// stays legal past `expires_at`. A `Delivering` allocation cannot be
+/// cancelled.
+fn cancel_allocation(id: AllocationId);
+
+/// Updates the operation state to Confirmed or Failed. Origin: any signed
+/// account. For an operation already marked `Failed` at delivery (§3.4), it
 /// releases the hold and updates the allocation.
 fn settle(op_id: OperationId);
 ```
