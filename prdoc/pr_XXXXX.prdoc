@@ -1,0 +1,14 @@
+title: "pallet-revive: Make the `limits` module public"
+doc:
+  - audience: Runtime Dev
+    description: |
+      The `limits` module is now public, so tooling can read the limits the pallet enforces
+      instead of copying them. The motivating user is `resolc`, which checks at link time
+      whether a contract blob would pass `limits::code::enforce` on deployment and currently
+      has to duplicate `BLOB_BYTES`, `BASIC_BLOCK_SIZE`, `INTERPRETER_CACHE_BYTES`,
+      `PURGABLE_MEMORY_LIMIT`, `BASELINE_MEMORY_LIMIT` and `PAGE_SIZE`.
+
+      No limit values change.
+crates:
+  - name: pallet-revive
+    bump: minor
