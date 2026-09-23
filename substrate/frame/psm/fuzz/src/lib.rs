@@ -7,7 +7,7 @@
 
 use arbitrary::{Arbitrary, Unstructured};
 use pallet_psm::mock::{
-	AccountId, Assets, Psm, RuntimeOrigin, Test, ALL_EXTERNAL_ASSETS, DAI_MOCK_ASSET_ID,
+	AccountId, Assets, Psm, RuntimeOrigin, Test, ALICE, ALL_EXTERNAL_ASSETS, DAI_MOCK_ASSET_ID,
 	INSURANCE_FUND, INTERNAL_ASSET_ID, INTERNAL_UNIT, USDC_ASSET_ID, USDT_ASSET_ID,
 	USDX_ASSET_ID,
 };
@@ -81,6 +81,8 @@ pub enum Op {
 	SetAssetStatus { asset_idx: u8, level: u8 },
 	AddExternalAsset { asset_idx: u8 },
 	RemoveExternalAsset { asset_idx: u8 },
+	SetAssetDecimals { asset_idx: u8, decimals: u8 },
+	ClearAssetMetadata { asset_idx: u8 },
 }
 
 // ---------------------------------------------------------------------------
@@ -476,6 +478,26 @@ pub fn dispatch_op(op: &Op) {
 			}
 			let asset_id = candidates[(*asset_idx as usize) % candidates.len()];
 			let _ = Psm::remove_external_asset(RuntimeOrigin::root(), INTERNAL_ASSET_ID, asset_id);
+		},
+		// The asset owner may change decimals through pallet-assets at any time.
+		// The PSM records them once, at registration.
+		Op::SetAssetDecimals { asset_idx, decimals } => {
+			let mut ids = ALL_EXTERNAL_ASSETS.to_vec();
+			ids.push(INTERNAL_ASSET_ID);
+			let asset_id = ids[(*asset_idx as usize) % ids.len()];
+			let _ = Assets::set_metadata(
+				RuntimeOrigin::signed(ALICE),
+				asset_id,
+				b"Fuzz".to_vec(),
+				b"FZZ".to_vec(),
+				*decimals % 19,
+			);
+		},
+		Op::ClearAssetMetadata { asset_idx } => {
+			let mut ids = ALL_EXTERNAL_ASSETS.to_vec();
+			ids.push(INTERNAL_ASSET_ID);
+			let asset_id = ids[(*asset_idx as usize) % ids.len()];
+			let _ = Assets::clear_metadata(RuntimeOrigin::signed(ALICE), asset_id);
 		},
 	}
 }

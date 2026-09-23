@@ -10,7 +10,7 @@
 use frame_support::traits::fungibles::Inspect;
 use pallet_psm::mock::fuzz_helpers;
 use pallet_psm::mock::{
-	Assets, Psm, RuntimeOrigin, System, Test, ALL_EXTERNAL_ASSETS, DAI_MOCK_ASSET_ID,
+	Assets, Psm, RuntimeOrigin, System, Test, ALICE, ALL_EXTERNAL_ASSETS, DAI_MOCK_ASSET_ID,
 	INTERNAL_ASSET_ID, INTERNAL_UNIT, USDC_ASSET_ID, USDT_ASSET_ID, USDX_ASSET_ID,
 };
 use pallet_psm::CircuitBreakerLevel;
@@ -45,6 +45,8 @@ enum Command {
 	SetAssetStatus { asset_id: u32, status: CircuitBreakerLevel },
 	AddExternalAsset { asset_id: u32, weight: Permill },
 	RemoveExternalAsset { asset_id: u32 },
+	SetAssetDecimals { asset_id: u32, decimals: u8 },
+	ClearAssetMetadata { asset_id: u32 },
 }
 
 // ---------------------------------------------------------------------------
@@ -382,6 +384,23 @@ fn gen_add_asset_with_weight(rng: &mut StdRng, state: &FuzzState) -> Command {
 	Command::AddExternalAsset { asset_id, weight }
 }
 
+// The asset owner may change decimals at any time through pallet-assets.
+// The PSM records decimals once, at registration. These two generators drive
+// that divergence.
+fn gen_set_asset_decimals(rng: &mut StdRng, state: &FuzzState) -> Command {
+	let mut ids: Vec<u32> = state.assets.iter().map(|a| a.asset_id).collect();
+	ids.push(INTERNAL_ASSET_ID);
+	let &asset_id = ids.choose(rng).expect("at least one asset");
+	Command::SetAssetDecimals { asset_id, decimals: rng.gen_range(0..=18) }
+}
+
+fn gen_clear_asset_metadata(rng: &mut StdRng, state: &FuzzState) -> Command {
+	let mut ids: Vec<u32> = state.assets.iter().map(|a| a.asset_id).collect();
+	ids.push(INTERNAL_ASSET_ID);
+	let &asset_id = ids.choose(rng).expect("at least one asset");
+	Command::ClearAssetMetadata { asset_id }
+}
+
 fn gen_remove_zero_debt_asset(rng: &mut StdRng, state: &FuzzState) -> Command {
 	let zero_debt: Vec<&AssetState> = state.assets.iter().filter(|a| a.debt == 0).collect();
 	// Non-empty guaranteed by guard condition; qed
@@ -443,6 +462,10 @@ fn gen_command(rng: &mut StdRng, state: &FuzzState) -> Command {
 	if state.assets.iter().any(|a| a.debt == 0) {
 		candidates.push((2, gen_remove_zero_debt_asset));
 	}
+
+	// Asset owner changes decimals after PSM registration
+	candidates.push((3, gen_set_asset_decimals));
+	candidates.push((2, gen_clear_asset_metadata));
 
 	// Always have at least one candidate
 	if candidates.is_empty() {
@@ -555,6 +578,24 @@ fn execute_command(cmd: &Command) -> &'static str {
 			let _ = Psm::remove_external_asset(RuntimeOrigin::root(), INTERNAL_ASSET_ID, *asset_id);
 			"OK"
 		},
+		Command::SetAssetDecimals { asset_id, decimals } => {
+			match Assets::set_metadata(
+				RuntimeOrigin::signed(ALICE),
+				*asset_id,
+				b"Fuzz".to_vec(),
+				b"FZZ".to_vec(),
+				*decimals,
+			) {
+				Ok(()) => "OK",
+				Err(_) => "ERR",
+			}
+		},
+		Command::ClearAssetMetadata { asset_id } => {
+			match Assets::clear_metadata(RuntimeOrigin::signed(ALICE), *asset_id) {
+				Ok(()) => "OK",
+				Err(_) => "ERR",
+			}
+		},
 	}
 }
 
@@ -619,6 +660,12 @@ fn format_command(cmd: &Command) -> String {
 		),
 		Command::RemoveExternalAsset { asset_id } => {
 			format!("RemoveAsset({})", asset_name(*asset_id))
+		},
+		Command::SetAssetDecimals { asset_id, decimals } => {
+			format!("SetDecimals({}, {})", asset_name(*asset_id), decimals)
+		},
+		Command::ClearAssetMetadata { asset_id } => {
+			format!("ClearMetadata({})", asset_name(*asset_id))
 		},
 	}
 }
