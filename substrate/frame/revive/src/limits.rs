@@ -18,7 +18,7 @@
 //! Limits that are observeable by contract code.
 //!
 //! It is important to never change this limits without supporting the old limits
-//! for already deployed contracts. This is what the [`crate::Contract::behaviour_version`]
+//! for already deployed contracts. This is what the `crate::Contract::behaviour_version`
 //! is meant for. This is true for either increasing or decreasing the limit.
 //!
 //! Limits in this file are different from the limits configured on the [`Config`] trait which are
@@ -31,6 +31,8 @@
 //! applied **once** at code upload time. Since this action cannot be performed by contracts we
 //! can change those limits without breaking existing contracts. Please keep in mind that we should
 //! only ever **increase** those values but never decrease.
+//!
+//! [`Config`]: crate::Config
 
 /// The amount of total memory we require to safely operate.
 ///
