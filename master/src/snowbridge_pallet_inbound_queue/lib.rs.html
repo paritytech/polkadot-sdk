@@ -245,7 +245,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#95 id=95 data-nosnippet>95</a>	}
 <a href=#96 id=96 data-nosnippet>96</a>
 <a href=#97 id=97 data-nosnippet>97</a>	<span class="attr">#[pallet::config]
-<a href=#98 id=98 data-nosnippet>98</a>	</span><span class="kw">pub trait </span>Config: frame_system::Config {
+<a href=#98 id=98 data-nosnippet>98</a>	</span><span class="kw">pub trait </span>Config: frame_system::Config&lt;AccountId: Into&lt;[u8; <span class="number">32</span>]&gt;&gt; {
 <a href=#99 id=99 data-nosnippet>99</a>		<span class="attr">#[allow(deprecated)]
 <a href=#100 id=100 data-nosnippet>100</a>		</span><span class="kw">type </span>RuntimeEvent: From&lt;Event&lt;<span class="self">Self</span>&gt;&gt; + IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt;;
 <a href=#101 id=101 data-nosnippet>101</a>
@@ -416,123 +416,132 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#266 id=266 data-nosnippet>266</a>				}
 <a href=#267 id=267 data-nosnippet>267</a>			})<span class="question-mark">?</span>;
 <a href=#268 id=268 data-nosnippet>268</a>
-<a href=#269 id=269 data-nosnippet>269</a>			<span class="comment">// Reward relayer from the sovereign account of the destination parachain, only if funds
-<a href=#270 id=270 data-nosnippet>270</a>			// are available
-<a href=#271 id=271 data-nosnippet>271</a>			</span><span class="kw">let </span>sovereign_account = sibling_sovereign_account::&lt;T&gt;(channel.para_id);
-<a href=#272 id=272 data-nosnippet>272</a>			<span class="kw">let </span>delivery_cost = <span class="self">Self</span>::calculate_delivery_cost(event.encode().len() <span class="kw">as </span>u32);
-<a href=#273 id=273 data-nosnippet>273</a>			<span class="kw">let </span>amount = T::Token::reducible_balance(
-<a href=#274 id=274 data-nosnippet>274</a>				<span class="kw-2">&amp;</span>sovereign_account,
-<a href=#275 id=275 data-nosnippet>275</a>				Preservation::Preserve,
-<a href=#276 id=276 data-nosnippet>276</a>				Fortitude::Polite,
-<a href=#277 id=277 data-nosnippet>277</a>			)
-<a href=#278 id=278 data-nosnippet>278</a>			.min(delivery_cost);
-<a href=#279 id=279 data-nosnippet>279</a>			<span class="kw">if </span>!amount.is_zero() {
-<a href=#280 id=280 data-nosnippet>280</a>				T::Token::transfer(<span class="kw-2">&amp;</span>sovereign_account, <span class="kw-2">&amp;</span>who, amount, Preservation::Preserve)<span class="question-mark">?</span>;
-<a href=#281 id=281 data-nosnippet>281</a>			}
+<a href=#269 id=269 data-nosnippet>269</a>			<span class="comment">// Decode payload into `VersionedMessage`
+<a href=#270 id=270 data-nosnippet>270</a>			</span><span class="kw">let </span>message = VersionedMessage::decode_all(<span class="kw-2">&amp;mut </span>envelope.payload.as_ref())
+<a href=#271 id=271 data-nosnippet>271</a>				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InvalidPayload)<span class="question-mark">?</span>;
+<a href=#272 id=272 data-nosnippet>272</a>
+<a href=#273 id=273 data-nosnippet>273</a>			<span class="comment">// Decode message into XCM
+<a href=#274 id=274 data-nosnippet>274</a>			</span><span class="kw">let </span>(xcm, fee) = <span class="self">Self</span>::do_convert(envelope.message_id, message.clone())<span class="question-mark">?</span>;
+<a href=#275 id=275 data-nosnippet>275</a>
+<a href=#276 id=276 data-nosnippet>276</a>			<span class="macro">tracing::info!</span>(
+<a href=#277 id=277 data-nosnippet>277</a>				target: LOG_TARGET,
+<a href=#278 id=278 data-nosnippet>278</a>				<span class="question-mark">?</span>xcm,
+<a href=#279 id=279 data-nosnippet>279</a>				<span class="question-mark">?</span>fee,
+<a href=#280 id=280 data-nosnippet>280</a>				<span class="string">"💫 xcm decoded"
+<a href=#281 id=281 data-nosnippet>281</a>			</span>);
 <a href=#282 id=282 data-nosnippet>282</a>
-<a href=#283 id=283 data-nosnippet>283</a>			<span class="comment">// Decode payload into `VersionedMessage`
-<a href=#284 id=284 data-nosnippet>284</a>			</span><span class="kw">let </span>message = VersionedMessage::decode_all(<span class="kw-2">&amp;mut </span>envelope.payload.as_ref())
-<a href=#285 id=285 data-nosnippet>285</a>				.map_err(|<span class="kw">_</span>| Error::&lt;T&gt;::InvalidPayload)<span class="question-mark">?</span>;
-<a href=#286 id=286 data-nosnippet>286</a>
-<a href=#287 id=287 data-nosnippet>287</a>			<span class="comment">// Decode message into XCM
-<a href=#288 id=288 data-nosnippet>288</a>			</span><span class="kw">let </span>(xcm, fee) = <span class="self">Self</span>::do_convert(envelope.message_id, message.clone())<span class="question-mark">?</span>;
-<a href=#289 id=289 data-nosnippet>289</a>
-<a href=#290 id=290 data-nosnippet>290</a>			<span class="macro">tracing::info!</span>(
-<a href=#291 id=291 data-nosnippet>291</a>				target: LOG_TARGET,
-<a href=#292 id=292 data-nosnippet>292</a>				<span class="question-mark">?</span>xcm,
-<a href=#293 id=293 data-nosnippet>293</a>				<span class="question-mark">?</span>fee,
-<a href=#294 id=294 data-nosnippet>294</a>				<span class="string">"💫 xcm decoded"
-<a href=#295 id=295 data-nosnippet>295</a>			</span>);
-<a href=#296 id=296 data-nosnippet>296</a>
-<a href=#297 id=297 data-nosnippet>297</a>			<span class="comment">// Burning fees for teleport
-<a href=#298 id=298 data-nosnippet>298</a>			</span><span class="self">Self</span>::burn_fees(channel.para_id, fee)<span class="question-mark">?</span>;
-<a href=#299 id=299 data-nosnippet>299</a>
-<a href=#300 id=300 data-nosnippet>300</a>			<span class="comment">// Attempt to send XCM to a dest parachain
-<a href=#301 id=301 data-nosnippet>301</a>			</span><span class="kw">let </span>message_id = <span class="self">Self</span>::send_xcm(xcm, channel.para_id)<span class="question-mark">?</span>;
+<a href=#283 id=283 data-nosnippet>283</a>			<span class="comment">// Burning fees for teleport
+<a href=#284 id=284 data-nosnippet>284</a>			</span><span class="self">Self</span>::burn_for_teleport(channel.para_id, <span class="kw-2">&amp;</span>who, fee)<span class="question-mark">?</span>;
+<a href=#285 id=285 data-nosnippet>285</a>
+<a href=#286 id=286 data-nosnippet>286</a>			<span class="comment">// Reimburse the relayer from the sovereign account of the destination parachain, only
+<a href=#287 id=287 data-nosnippet>287</a>			// if funds are available. The relayer has already fronted the teleported fee.
+<a href=#288 id=288 data-nosnippet>288</a>			</span><span class="kw">let </span>sovereign_account = sibling_sovereign_account::&lt;T&gt;(channel.para_id);
+<a href=#289 id=289 data-nosnippet>289</a>			<span class="kw">let </span>delivery_cost = <span class="self">Self</span>::calculate_delivery_cost(event.encode().len() <span class="kw">as </span>u32);
+<a href=#290 id=290 data-nosnippet>290</a>			<span class="kw">let </span>owed = fee.saturating_add(delivery_cost);
+<a href=#291 id=291 data-nosnippet>291</a>			<span class="kw">let </span>amount = T::Token::reducible_balance(
+<a href=#292 id=292 data-nosnippet>292</a>				<span class="kw-2">&amp;</span>sovereign_account,
+<a href=#293 id=293 data-nosnippet>293</a>				Preservation::Preserve,
+<a href=#294 id=294 data-nosnippet>294</a>				Fortitude::Polite,
+<a href=#295 id=295 data-nosnippet>295</a>			)
+<a href=#296 id=296 data-nosnippet>296</a>			.min(owed);
+<a href=#297 id=297 data-nosnippet>297</a>			<span class="kw">if </span>!amount.is_zero() {
+<a href=#298 id=298 data-nosnippet>298</a>				<span class="comment">// Best effort attempt to reward relayer if there are funds available.
+<a href=#299 id=299 data-nosnippet>299</a>				</span><span class="kw">let _ </span>=
+<a href=#300 id=300 data-nosnippet>300</a>					T::Token::transfer(<span class="kw-2">&amp;</span>sovereign_account, <span class="kw-2">&amp;</span>who, amount, Preservation::Preserve);
+<a href=#301 id=301 data-nosnippet>301</a>			}
 <a href=#302 id=302 data-nosnippet>302</a>
-<a href=#303 id=303 data-nosnippet>303</a>			<span class="self">Self</span>::deposit_event(Event::MessageReceived {
-<a href=#304 id=304 data-nosnippet>304</a>				channel_id: envelope.channel_id,
-<a href=#305 id=305 data-nosnippet>305</a>				nonce: envelope.nonce,
-<a href=#306 id=306 data-nosnippet>306</a>				message_id,
-<a href=#307 id=307 data-nosnippet>307</a>				fee_burned: fee,
-<a href=#308 id=308 data-nosnippet>308</a>			});
-<a href=#309 id=309 data-nosnippet>309</a>
-<a href=#310 id=310 data-nosnippet>310</a>			<span class="prelude-val">Ok</span>(())
-<a href=#311 id=311 data-nosnippet>311</a>		}
+<a href=#303 id=303 data-nosnippet>303</a>			<span class="comment">// Attempt to send XCM to a dest parachain
+<a href=#304 id=304 data-nosnippet>304</a>			</span><span class="kw">let </span>message_id = <span class="self">Self</span>::send_xcm(xcm, channel.para_id)<span class="question-mark">?</span>;
+<a href=#305 id=305 data-nosnippet>305</a>
+<a href=#306 id=306 data-nosnippet>306</a>			<span class="self">Self</span>::deposit_event(Event::MessageReceived {
+<a href=#307 id=307 data-nosnippet>307</a>				channel_id: envelope.channel_id,
+<a href=#308 id=308 data-nosnippet>308</a>				nonce: envelope.nonce,
+<a href=#309 id=309 data-nosnippet>309</a>				message_id,
+<a href=#310 id=310 data-nosnippet>310</a>				fee_burned: fee,
+<a href=#311 id=311 data-nosnippet>311</a>			});
 <a href=#312 id=312 data-nosnippet>312</a>
-<a href=#313 id=313 data-nosnippet>313</a>		<span class="doccomment">/// Halt or resume all pallet operations. May only be called by root.
-<a href=#314 id=314 data-nosnippet>314</a>		</span><span class="attr">#[pallet::call_index(<span class="number">1</span>)]
-<a href=#315 id=315 data-nosnippet>315</a>		#[pallet::weight((T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>), DispatchClass::Operational))]
-<a href=#316 id=316 data-nosnippet>316</a>		</span><span class="kw">pub fn </span>set_operating_mode(
-<a href=#317 id=317 data-nosnippet>317</a>			origin: OriginFor&lt;T&gt;,
-<a href=#318 id=318 data-nosnippet>318</a>			mode: BasicOperatingMode,
-<a href=#319 id=319 data-nosnippet>319</a>		) -&gt; DispatchResult {
-<a href=#320 id=320 data-nosnippet>320</a>			ensure_root(origin)<span class="question-mark">?</span>;
-<a href=#321 id=321 data-nosnippet>321</a>			OperatingMode::&lt;T&gt;::set(mode);
-<a href=#322 id=322 data-nosnippet>322</a>			<span class="self">Self</span>::deposit_event(Event::OperatingModeChanged { mode });
-<a href=#323 id=323 data-nosnippet>323</a>			<span class="prelude-val">Ok</span>(())
-<a href=#324 id=324 data-nosnippet>324</a>		}
-<a href=#325 id=325 data-nosnippet>325</a>	}
-<a href=#326 id=326 data-nosnippet>326</a>
-<a href=#327 id=327 data-nosnippet>327</a>	<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
-<a href=#328 id=328 data-nosnippet>328</a>		<span class="kw">pub fn </span>do_convert(
-<a href=#329 id=329 data-nosnippet>329</a>			message_id: H256,
-<a href=#330 id=330 data-nosnippet>330</a>			message: VersionedMessage,
-<a href=#331 id=331 data-nosnippet>331</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;(Xcm&lt;()&gt;, BalanceOf&lt;T&gt;), Error&lt;T&gt;&gt; {
-<a href=#332 id=332 data-nosnippet>332</a>			<span class="kw">let </span>(xcm, fee) = T::MessageConverter::convert(message_id, message)
-<a href=#333 id=333 data-nosnippet>333</a>				.map_err(|e| Error::&lt;T&gt;::ConvertMessage(e))<span class="question-mark">?</span>;
-<a href=#334 id=334 data-nosnippet>334</a>			<span class="prelude-val">Ok</span>((xcm, fee))
-<a href=#335 id=335 data-nosnippet>335</a>		}
-<a href=#336 id=336 data-nosnippet>336</a>
-<a href=#337 id=337 data-nosnippet>337</a>		<span class="kw">pub fn </span>send_xcm(xcm: Xcm&lt;()&gt;, dest: ParaId) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, Error&lt;T&gt;&gt; {
-<a href=#338 id=338 data-nosnippet>338</a>			<span class="kw">let </span>dest = Location::new(<span class="number">1</span>, [Parachain(dest.into())]);
-<a href=#339 id=339 data-nosnippet>339</a>			<span class="kw">let </span>(xcm_hash, <span class="kw">_</span>) = send_xcm::&lt;T::XcmSender&gt;(dest, xcm).map_err(Error::&lt;T&gt;::from)<span class="question-mark">?</span>;
-<a href=#340 id=340 data-nosnippet>340</a>			<span class="prelude-val">Ok</span>(xcm_hash)
-<a href=#341 id=341 data-nosnippet>341</a>		}
-<a href=#342 id=342 data-nosnippet>342</a>
-<a href=#343 id=343 data-nosnippet>343</a>		<span class="kw">pub fn </span>calculate_delivery_cost(length: u32) -&gt; BalanceOf&lt;T&gt; {
-<a href=#344 id=344 data-nosnippet>344</a>			<span class="kw">let </span>weight_fee = T::WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>T::WeightInfo::submit());
-<a href=#345 id=345 data-nosnippet>345</a>			<span class="kw">let </span>len_fee = T::LengthToFee::weight_to_fee(<span class="kw-2">&amp;</span>Weight::from_parts(length <span class="kw">as </span>u64, <span class="number">0</span>));
-<a href=#346 id=346 data-nosnippet>346</a>			weight_fee
-<a href=#347 id=347 data-nosnippet>347</a>				.saturating_add(len_fee)
-<a href=#348 id=348 data-nosnippet>348</a>				.saturating_add(T::PricingParameters::get().rewards.local)
-<a href=#349 id=349 data-nosnippet>349</a>		}
-<a href=#350 id=350 data-nosnippet>350</a>
-<a href=#351 id=351 data-nosnippet>351</a>		<span class="doccomment">/// Burn the amount of the fee embedded into the XCM for teleports
-<a href=#352 id=352 data-nosnippet>352</a>		</span><span class="kw">pub fn </span>burn_fees(para_id: ParaId, fee: BalanceOf&lt;T&gt;) -&gt; DispatchResult {
-<a href=#353 id=353 data-nosnippet>353</a>			<span class="kw">let </span>dummy_context =
-<a href=#354 id=354 data-nosnippet>354</a>				XcmContext { origin: <span class="prelude-val">None</span>, message_id: Default::default(), topic: <span class="prelude-val">None </span>};
-<a href=#355 id=355 data-nosnippet>355</a>			<span class="kw">let </span>dest = Location::new(<span class="number">1</span>, [Parachain(para_id.into())]);
-<a href=#356 id=356 data-nosnippet>356</a>			<span class="kw">let </span>fees = (Location::parent(), fee.saturated_into::&lt;u128&gt;()).into();
-<a href=#357 id=357 data-nosnippet>357</a>			T::AssetTransactor::can_check_out(<span class="kw-2">&amp;</span>dest, <span class="kw-2">&amp;</span>fees, <span class="kw-2">&amp;</span>dummy_context).map_err(|error| {
-<a href=#358 id=358 data-nosnippet>358</a>				<span class="macro">tracing::error!</span>(
-<a href=#359 id=359 data-nosnippet>359</a>					target: LOG_TARGET,
-<a href=#360 id=360 data-nosnippet>360</a>					<span class="question-mark">?</span>error,
-<a href=#361 id=361 data-nosnippet>361</a>					<span class="string">"XCM asset check out failed with error"
-<a href=#362 id=362 data-nosnippet>362</a>				</span>);
-<a href=#363 id=363 data-nosnippet>363</a>				TokenError::FundsUnavailable
-<a href=#364 id=364 data-nosnippet>364</a>			})<span class="question-mark">?</span>;
-<a href=#365 id=365 data-nosnippet>365</a>			T::AssetTransactor::check_out(<span class="kw-2">&amp;</span>dest, <span class="kw-2">&amp;</span>fees, <span class="kw-2">&amp;</span>dummy_context);
-<a href=#366 id=366 data-nosnippet>366</a>			T::AssetTransactor::withdraw_asset(<span class="kw-2">&amp;</span>fees, <span class="kw-2">&amp;</span>dest, <span class="prelude-val">None</span>).map_err(|error| {
+<a href=#313 id=313 data-nosnippet>313</a>			<span class="prelude-val">Ok</span>(())
+<a href=#314 id=314 data-nosnippet>314</a>		}
+<a href=#315 id=315 data-nosnippet>315</a>
+<a href=#316 id=316 data-nosnippet>316</a>		<span class="doccomment">/// Halt or resume all pallet operations. May only be called by root.
+<a href=#317 id=317 data-nosnippet>317</a>		</span><span class="attr">#[pallet::call_index(<span class="number">1</span>)]
+<a href=#318 id=318 data-nosnippet>318</a>		#[pallet::weight((T::DbWeight::get().reads_writes(<span class="number">1</span>, <span class="number">1</span>), DispatchClass::Operational))]
+<a href=#319 id=319 data-nosnippet>319</a>		</span><span class="kw">pub fn </span>set_operating_mode(
+<a href=#320 id=320 data-nosnippet>320</a>			origin: OriginFor&lt;T&gt;,
+<a href=#321 id=321 data-nosnippet>321</a>			mode: BasicOperatingMode,
+<a href=#322 id=322 data-nosnippet>322</a>		) -&gt; DispatchResult {
+<a href=#323 id=323 data-nosnippet>323</a>			ensure_root(origin)<span class="question-mark">?</span>;
+<a href=#324 id=324 data-nosnippet>324</a>			OperatingMode::&lt;T&gt;::set(mode);
+<a href=#325 id=325 data-nosnippet>325</a>			<span class="self">Self</span>::deposit_event(Event::OperatingModeChanged { mode });
+<a href=#326 id=326 data-nosnippet>326</a>			<span class="prelude-val">Ok</span>(())
+<a href=#327 id=327 data-nosnippet>327</a>		}
+<a href=#328 id=328 data-nosnippet>328</a>	}
+<a href=#329 id=329 data-nosnippet>329</a>
+<a href=#330 id=330 data-nosnippet>330</a>	<span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+<a href=#331 id=331 data-nosnippet>331</a>		<span class="kw">pub fn </span>do_convert(
+<a href=#332 id=332 data-nosnippet>332</a>			message_id: H256,
+<a href=#333 id=333 data-nosnippet>333</a>			message: VersionedMessage,
+<a href=#334 id=334 data-nosnippet>334</a>		) -&gt; <span class="prelude-ty">Result</span>&lt;(Xcm&lt;()&gt;, BalanceOf&lt;T&gt;), Error&lt;T&gt;&gt; {
+<a href=#335 id=335 data-nosnippet>335</a>			<span class="kw">let </span>(xcm, fee) = T::MessageConverter::convert(message_id, message)
+<a href=#336 id=336 data-nosnippet>336</a>				.map_err(|e| Error::&lt;T&gt;::ConvertMessage(e))<span class="question-mark">?</span>;
+<a href=#337 id=337 data-nosnippet>337</a>			<span class="prelude-val">Ok</span>((xcm, fee))
+<a href=#338 id=338 data-nosnippet>338</a>		}
+<a href=#339 id=339 data-nosnippet>339</a>
+<a href=#340 id=340 data-nosnippet>340</a>		<span class="kw">pub fn </span>send_xcm(xcm: Xcm&lt;()&gt;, dest: ParaId) -&gt; <span class="prelude-ty">Result</span>&lt;XcmHash, Error&lt;T&gt;&gt; {
+<a href=#341 id=341 data-nosnippet>341</a>			<span class="kw">let </span>dest = Location::new(<span class="number">1</span>, [Parachain(dest.into())]);
+<a href=#342 id=342 data-nosnippet>342</a>			<span class="kw">let </span>(xcm_hash, <span class="kw">_</span>) = send_xcm::&lt;T::XcmSender&gt;(dest, xcm).map_err(Error::&lt;T&gt;::from)<span class="question-mark">?</span>;
+<a href=#343 id=343 data-nosnippet>343</a>			<span class="prelude-val">Ok</span>(xcm_hash)
+<a href=#344 id=344 data-nosnippet>344</a>		}
+<a href=#345 id=345 data-nosnippet>345</a>
+<a href=#346 id=346 data-nosnippet>346</a>		<span class="kw">pub fn </span>calculate_delivery_cost(length: u32) -&gt; BalanceOf&lt;T&gt; {
+<a href=#347 id=347 data-nosnippet>347</a>			<span class="kw">let </span>weight_fee = T::WeightToFee::weight_to_fee(<span class="kw-2">&amp;</span>T::WeightInfo::submit());
+<a href=#348 id=348 data-nosnippet>348</a>			<span class="kw">let </span>len_fee = T::LengthToFee::weight_to_fee(<span class="kw-2">&amp;</span>Weight::from_parts(length <span class="kw">as </span>u64, <span class="number">0</span>));
+<a href=#349 id=349 data-nosnippet>349</a>			weight_fee
+<a href=#350 id=350 data-nosnippet>350</a>				.saturating_add(len_fee)
+<a href=#351 id=351 data-nosnippet>351</a>				.saturating_add(T::PricingParameters::get().rewards.local)
+<a href=#352 id=352 data-nosnippet>352</a>		}
+<a href=#353 id=353 data-nosnippet>353</a>
+<a href=#354 id=354 data-nosnippet>354</a>		<span class="doccomment">/// Teleport the fee, fronted by the relayer, to the destination parachain.
+<a href=#355 id=355 data-nosnippet>355</a>		</span><span class="kw">fn </span>burn_for_teleport(
+<a href=#356 id=356 data-nosnippet>356</a>			dest: ParaId,
+<a href=#357 id=357 data-nosnippet>357</a>			who: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#358 id=358 data-nosnippet>358</a>			amount: BalanceOf&lt;T&gt;,
+<a href=#359 id=359 data-nosnippet>359</a>		) -&gt; DispatchResult {
+<a href=#360 id=360 data-nosnippet>360</a>			<span class="kw">let </span>dummy_context =
+<a href=#361 id=361 data-nosnippet>361</a>				XcmContext { origin: <span class="prelude-val">None</span>, message_id: Default::default(), topic: <span class="prelude-val">None </span>};
+<a href=#362 id=362 data-nosnippet>362</a>			<span class="kw">let </span>dest = Location::new(<span class="number">1</span>, [Parachain(dest.into())]);
+<a href=#363 id=363 data-nosnippet>363</a>			<span class="kw">let </span>who = who.clone().into();
+<a href=#364 id=364 data-nosnippet>364</a>			<span class="kw">let </span>who = Location::new(<span class="number">0</span>, [AccountId32 { network: <span class="prelude-val">None</span>, id: who }]);
+<a href=#365 id=365 data-nosnippet>365</a>			<span class="kw">let </span>fees = (Location::parent(), amount.saturated_into::&lt;u128&gt;()).into();
+<a href=#366 id=366 data-nosnippet>366</a>			T::AssetTransactor::can_check_out(<span class="kw-2">&amp;</span>dest, <span class="kw-2">&amp;</span>fees, <span class="kw-2">&amp;</span>dummy_context).map_err(|error| {
 <a href=#367 id=367 data-nosnippet>367</a>				<span class="macro">tracing::error!</span>(
 <a href=#368 id=368 data-nosnippet>368</a>					target: LOG_TARGET,
 <a href=#369 id=369 data-nosnippet>369</a>					<span class="question-mark">?</span>error,
-<a href=#370 id=370 data-nosnippet>370</a>					<span class="string">"XCM asset withdraw failed with error"
+<a href=#370 id=370 data-nosnippet>370</a>					<span class="string">"XCM asset check out failed with error"
 <a href=#371 id=371 data-nosnippet>371</a>				</span>);
 <a href=#372 id=372 data-nosnippet>372</a>				TokenError::FundsUnavailable
 <a href=#373 id=373 data-nosnippet>373</a>			})<span class="question-mark">?</span>;
-<a href=#374 id=374 data-nosnippet>374</a>			<span class="prelude-val">Ok</span>(())
-<a href=#375 id=375 data-nosnippet>375</a>		}
-<a href=#376 id=376 data-nosnippet>376</a>	}
-<a href=#377 id=377 data-nosnippet>377</a>
-<a href=#378 id=378 data-nosnippet>378</a>	<span class="doccomment">/// API for accessing the delivery cost of a message
-<a href=#379 id=379 data-nosnippet>379</a>	</span><span class="kw">impl</span>&lt;T: Config&gt; Get&lt;BalanceOf&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
-<a href=#380 id=380 data-nosnippet>380</a>		<span class="kw">fn </span>get() -&gt; BalanceOf&lt;T&gt; {
-<a href=#381 id=381 data-nosnippet>381</a>			<span class="comment">// Cost here based on MaxMessagePayloadSize(the worst case)
-<a href=#382 id=382 data-nosnippet>382</a>			</span><span class="self">Self</span>::calculate_delivery_cost(T::MaxMessageSize::get())
-<a href=#383 id=383 data-nosnippet>383</a>		}
-<a href=#384 id=384 data-nosnippet>384</a>	}
-<a href=#385 id=385 data-nosnippet>385</a>}
+<a href=#374 id=374 data-nosnippet>374</a>			T::AssetTransactor::check_out(<span class="kw-2">&amp;</span>dest, <span class="kw-2">&amp;</span>fees, <span class="kw-2">&amp;</span>dummy_context);
+<a href=#375 id=375 data-nosnippet>375</a>			T::AssetTransactor::withdraw_asset(<span class="kw-2">&amp;</span>fees, <span class="kw-2">&amp;</span>who, <span class="prelude-val">None</span>).map_err(|error| {
+<a href=#376 id=376 data-nosnippet>376</a>				<span class="macro">tracing::error!</span>(
+<a href=#377 id=377 data-nosnippet>377</a>					target: LOG_TARGET,
+<a href=#378 id=378 data-nosnippet>378</a>					<span class="question-mark">?</span>error,
+<a href=#379 id=379 data-nosnippet>379</a>					<span class="string">"XCM asset withdraw failed with error"
+<a href=#380 id=380 data-nosnippet>380</a>				</span>);
+<a href=#381 id=381 data-nosnippet>381</a>				TokenError::FundsUnavailable
+<a href=#382 id=382 data-nosnippet>382</a>			})<span class="question-mark">?</span>;
+<a href=#383 id=383 data-nosnippet>383</a>			<span class="prelude-val">Ok</span>(())
+<a href=#384 id=384 data-nosnippet>384</a>		}
+<a href=#385 id=385 data-nosnippet>385</a>	}
+<a href=#386 id=386 data-nosnippet>386</a>
+<a href=#387 id=387 data-nosnippet>387</a>	<span class="doccomment">/// API for accessing the delivery cost of a message
+<a href=#388 id=388 data-nosnippet>388</a>	</span><span class="kw">impl</span>&lt;T: Config&gt; Get&lt;BalanceOf&lt;T&gt;&gt; <span class="kw">for </span>Pallet&lt;T&gt; {
+<a href=#389 id=389 data-nosnippet>389</a>		<span class="kw">fn </span>get() -&gt; BalanceOf&lt;T&gt; {
+<a href=#390 id=390 data-nosnippet>390</a>			<span class="comment">// Cost here based on MaxMessagePayloadSize(the worst case)
+<a href=#391 id=391 data-nosnippet>391</a>			</span><span class="self">Self</span>::calculate_delivery_cost(T::MaxMessageSize::get())
+<a href=#392 id=392 data-nosnippet>392</a>		}
+<a href=#393 id=393 data-nosnippet>393</a>	}
+<a href=#394 id=394 data-nosnippet>394</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

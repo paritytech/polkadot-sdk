@@ -169,32 +169,28 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#19 id=19 data-nosnippet>19</a>
 <a href=#20 id=20 data-nosnippet>20</a>		<span class="kw">let </span>sovereign_account = sibling_sovereign_account::&lt;T&gt;(<span class="number">1000u32</span>.into());
 <a href=#21 id=21 data-nosnippet>21</a>
-<a href=#22 id=22 data-nosnippet>22</a>		<span class="kw">let </span>minimum_balance = T::Token::minimum_balance();
-<a href=#23 id=23 data-nosnippet>23</a>
-<a href=#24 id=24 data-nosnippet>24</a>		<span class="comment">// So that the receiving account exists
-<a href=#25 id=25 data-nosnippet>25</a>		</span><span class="macro">assert_ok!</span>(T::Token::mint_into(<span class="kw-2">&amp;</span>caller, minimum_balance));
-<a href=#26 id=26 data-nosnippet>26</a>		<span class="comment">// Fund the sovereign account (parachain sovereign account) so it can transfer a reward
-<a href=#27 id=27 data-nosnippet>27</a>		// fee to the caller account
-<a href=#28 id=28 data-nosnippet>28</a>		</span><span class="macro">assert_ok!</span>(T::Token::mint_into(
-<a href=#29 id=29 data-nosnippet>29</a>			<span class="kw-2">&amp;</span>sovereign_account,
-<a href=#30 id=30 data-nosnippet>30</a>			<span class="number">3_000_000_000_000u128
-<a href=#31 id=31 data-nosnippet>31</a>				</span>.try_into()
-<a href=#32 id=32 data-nosnippet>32</a>				.unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">"unable to cast sovereign account balance"</span>)),
-<a href=#33 id=33 data-nosnippet>33</a>		));
-<a href=#34 id=34 data-nosnippet>34</a>
-<a href=#35 id=35 data-nosnippet>35</a>		<span class="attr">#[block]
-<a href=#36 id=36 data-nosnippet>36</a>		</span>{
-<a href=#37 id=37 data-nosnippet>37</a>			<span class="macro">assert_ok!</span>(InboundQueue::&lt;T&gt;::submit(
-<a href=#38 id=38 data-nosnippet>38</a>				RawOrigin::Signed(caller.clone()).into(),
-<a href=#39 id=39 data-nosnippet>39</a>				create_message.event,
-<a href=#40 id=40 data-nosnippet>40</a>			));
-<a href=#41 id=41 data-nosnippet>41</a>		}
-<a href=#42 id=42 data-nosnippet>42</a>
-<a href=#43 id=43 data-nosnippet>43</a>		<span class="prelude-val">Ok</span>(())
-<a href=#44 id=44 data-nosnippet>44</a>	}
-<a href=#45 id=45 data-nosnippet>45</a>
-<a href=#46 id=46 data-nosnippet>46</a>	<span class="macro">impl_benchmark_test_suite!</span>(InboundQueue, <span class="kw">crate</span>::mock::new_tester(), <span class="kw">crate</span>::mock::Test);
-<a href=#47 id=47 data-nosnippet>47</a>}
+<a href=#22 id=22 data-nosnippet>22</a>		<span class="kw">let </span>working_capital = <span class="number">3_000_000_000_000u128
+<a href=#23 id=23 data-nosnippet>23</a>			</span>.try_into()
+<a href=#24 id=24 data-nosnippet>24</a>			.unwrap_or_else(|<span class="kw">_</span>| <span class="macro">panic!</span>(<span class="string">"unable to cast benchmark working capital"</span>));
+<a href=#25 id=25 data-nosnippet>25</a>
+<a href=#26 id=26 data-nosnippet>26</a>		<span class="comment">// Fund the relayer so it can front the AssetHub execution fee.
+<a href=#27 id=27 data-nosnippet>27</a>		</span><span class="macro">assert_ok!</span>(T::Token::mint_into(<span class="kw-2">&amp;</span>caller, working_capital));
+<a href=#28 id=28 data-nosnippet>28</a>		<span class="comment">// Fund the sovereign account so it can reimburse the caller.
+<a href=#29 id=29 data-nosnippet>29</a>		</span><span class="macro">assert_ok!</span>(T::Token::mint_into(<span class="kw-2">&amp;</span>sovereign_account, working_capital));
+<a href=#30 id=30 data-nosnippet>30</a>
+<a href=#31 id=31 data-nosnippet>31</a>		<span class="attr">#[block]
+<a href=#32 id=32 data-nosnippet>32</a>		</span>{
+<a href=#33 id=33 data-nosnippet>33</a>			<span class="macro">assert_ok!</span>(InboundQueue::&lt;T&gt;::submit(
+<a href=#34 id=34 data-nosnippet>34</a>				RawOrigin::Signed(caller.clone()).into(),
+<a href=#35 id=35 data-nosnippet>35</a>				create_message.event,
+<a href=#36 id=36 data-nosnippet>36</a>			));
+<a href=#37 id=37 data-nosnippet>37</a>		}
+<a href=#38 id=38 data-nosnippet>38</a>
+<a href=#39 id=39 data-nosnippet>39</a>		<span class="prelude-val">Ok</span>(())
+<a href=#40 id=40 data-nosnippet>40</a>	}
+<a href=#41 id=41 data-nosnippet>41</a>
+<a href=#42 id=42 data-nosnippet>42</a>	<span class="macro">impl_benchmark_test_suite!</span>(InboundQueue, <span class="kw">crate</span>::mock::new_tester(), <span class="kw">crate</span>::mock::Test);
+<a href=#43 id=43 data-nosnippet>43</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
