@@ -1315,6 +1315,32 @@ mod benches {
 	}
 
 	#[benchmark]
+	fn reset_base_price() -> Result<(), BenchmarkError> {
+		setup_and_start_sale::<T>()?;
+
+		let admin_origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		let new_base_price = 50_000u32.into();
+
+		#[extrinsic_call]
+		_(admin_origin as T::RuntimeOrigin, new_base_price);
+
+		// Advance to the next sale boundary to apply the new base price
+		let config = Configuration::<T>::get().ok_or(BenchmarkError::Weightless)?;
+		let timeslice_period: u32 =
+			T::TimeslicePeriod::get().try_into().map_err(|_| BenchmarkError::Weightless)?;
+		advance_to::<T>(config.region_length * timeslice_period);
+
+		let sale = SaleInfo::<T>::get().ok_or(BenchmarkError::Weightless)?;
+		assert_eq!(sale.end_price, new_base_price);
+
+		assert_has_event::<T>(Event::BasePriceReset { new_base_price }.into());
+
+		Ok(())
+	}
+
+	#[benchmark]
 	fn remove_potential_renewal() -> Result<(), BenchmarkError> {
 		let sale_data = setup_and_start_sale::<T>()?;
 		advance_to::<T>(2);
