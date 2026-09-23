@@ -161,7 +161,7 @@ on a Confirmed settle and burned on a Failed one.
 
 The pallet starts inactive. Governance verifies, against public JAM state at a
 defined block, that the JAM balances match the pallet's configuration: the
-Parachain Service holds `Cap − released`, and the other JAM services hold the
+Parachain Service holds `CAP − released`, and the other JAM services hold the
 rest. It records the result with `attest(anchor)`; the pallet stores the anchor.
 Until attested, every call except `initialize` and `attest` is rejected.
 
@@ -174,8 +174,16 @@ struct Anchor {
     header_hash: Hash,
 }
 
+/// The fixed JAMKB supply, minted at `initialize`.
+const CAP: Balance;
+
+/// Added to the lease end before `reclaim` opens (§4.3).
+const GRACE_PERIOD: BlockNumber;
+
 /// A raw storage key of a supervised service (required for `cleanup_storage`,
-/// §4.3).
+/// §4.3), and the keys in one page.
+const MAX_KEY_LEN: u32;
+const MAX_KEYS_PER_PAGE: u32;
 type Key = BoundedVec<u8, MAX_KEY_LEN>;
 
 /// The Asset Hub account associated with a JAM service.
@@ -198,9 +206,9 @@ struct Allocation {
                                       // the block the delivery was sent in.
                                       // A lease ends at
                                       // `delivered_at + duration` (§4.3)
-    approver: PalletsOrigin,          // who approved it: a signed origin
+    approver: PalletsOrigin,          // for a lease, the signed origin
                                       // holding the units (an account or a
-                                      // contract), or governance
+                                      // contract); for a release, governance
     valid_from: BlockNumber,          // execute is rejected before this block
     expires_at: BlockNumber,          // execute is rejected from this block
                                       // on; only cancel_allocation still
@@ -323,9 +331,15 @@ Typed events:
 enum Event {
     /// The genesis attestation is recorded (§3.1).
     Attested { anchor: Anchor },
-    AllocationApproved { id: AllocationId, mode: AllocationMode,
-                         target: ServiceId, amount: Balance },
+    ReleaseApproved { id: AllocationId, target: ServiceId, amount: Balance },
+    LeaseOffered { id: AllocationId, target: ServiceId, amount: Balance,
+                   duration: BlockNumber },
     AllocationCancelled { id: AllocationId },
+    LeaseClosed { id: AllocationId, amount: Balance },
+    LeaseIncreased { id: AllocationId, additional: Balance },
+    LeaseExtended { id: AllocationId, duration: BlockNumber },
+    LeaseAssigned { id: AllocationId, to: AccountId },
+    LeaseTakenOver { id: AllocationId, approver: AccountId },
     /// `allocation` is `None` for a redemption or a refund.
     OperationSubmitted { id: OperationId, allocation: Option<AllocationId> },
     OperationConfirmed { id: OperationId },
@@ -349,9 +363,9 @@ The pallet calls. Every call returns `DispatchResult`. New allocation and
 operation ids are reported in the events.
 
 ```rust
-/// Origin: governance (Root). Mints `Cap` into the pallet's custody and sets
+/// Origin: governance (Root). Mints `CAP` into the pallet's custody and sets
 /// `Released` for the JAM services endowed at genesis. Rejected unless
-/// `released <= Cap`. The pallet stays inactive until attested.
+/// `released <= CAP`. The pallet stays inactive until attested.
 fn initialize(released: Balance);
 
 /// Origin: governance (Root). Records the genesis attestation against JAM
@@ -433,10 +447,10 @@ fn eject_target(target: ServiceId);
 /// or has a lease that is not `Closed` and fully returned.
 fn unsupervise(target: ServiceId);
 
-/// Origin: the lease's approver past `delivered_at + duration + grace`, or
-/// the target's service account at any time. Legal from `Delivered` and from
-/// `Reclaiming`. Creates `Operation{Reclaim}` for `amount`, capped at the
-/// allocation's remaining amount.
+/// Origin: the lease's approver past `delivered_at + duration +
+/// GRACE_PERIOD`, or the target's service account at any time. Legal from
+/// `Delivered` and from `Reclaiming`. Creates `Operation{Reclaim}` for
+/// `amount`, capped at the allocation's remaining amount.
 fn reclaim(id: AllocationId, amount: Balance);
 
 /// Origin: the lease's approver or governance. Legal while the lease is
@@ -451,7 +465,7 @@ fn close_lease(id: AllocationId);
 fn increase_lease(id: AllocationId, additional: Balance);
 
 /// Origin: the lease's approver. Legal while the lease is `Delivered`. Sets
-/// the lease's `duration`. Sends no message.
+/// the lease's `duration`.
 fn extend_lease(id: AllocationId, duration: BlockNumber);
 
 /// Origin: the lease's approver. Legal while the lease is `Delivered`.
@@ -460,7 +474,7 @@ fn assign_lease(id: AllocationId, to: AccountId);
 
 /// Origin: the account recorded in `LeaseAssignments`. `amount` is held under
 /// `Leased` on the caller, the previous approver's hold is released,
-/// `approver` becomes the caller and the entry is cleared. Sends no message.
+/// `approver` becomes the caller's signed origin and the entry is cleared.
 fn take_over_lease(id: AllocationId);
 
 /// Origin: governance (Root). Transfers `amount` of undistributed units from
@@ -740,7 +754,7 @@ Phase 2: Claim        The pallet processes the entry in the queue (§3.4). The
 Conservation:
 
 ```
-cap  =  reserve + locked + teleported
+CAP  =  reserve + locked + teleported
 
 reserve        =  spendable balances and undistributed custody on Asset Hub
 locked         =  in_flight_out + leased + released; every locked unit is
@@ -751,8 +765,10 @@ teleported     =  the XCM checking account's balance: units teleported to the
 where
   in_flight_out  =  deferred transfers whose source has been charged and whose
                     target is not yet credited
-  released       =  permanently released units; `excess` and `custodial` are
-                    the parts of it booked from returns (§4.4)
+  leased         =  units backing active leases, held on approvers' accounts
+  released       =  permanently released units, including leases closed
+                    without being fully returned (`close_lease`); `excess` and
+                    `custodial` are the parts booked from returns (§4.4)
   excess         =  the unattributed part of the Parachain Service balance
                     (bad-memo returns, donations, eject surplus above
                     `leased`)
