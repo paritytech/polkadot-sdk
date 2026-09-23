@@ -1,9 +1,16 @@
-title: 'statement-store: v2 DHT soak zombienet test behind a PR label'
+title: 'statement-store: on-demand v2 DHT soak zombienet test'
+
 doc:
 - audience: Node Dev
-  description: 'Adds an on-demand zombienet soak of the statement store v2 DHT path:
-    a network sized nodes > replication_factor > gossip_target + 1 under continuous
-    load, asserting subscriber delivery, placement on exactly the K XOR-closest nodes,
-    and clean logs. Triggered by the GHA-statement-store PR label or a manual workflow
-    dispatch onto the zombienet k8s cluster; not part of the default per-PR matrix.'
+  description: |-
+    Adds a zombienet soak of the statement store v2 DHT path under continuous load, on a network
+    sized `nodes > replication_factor > gossip_target + 1`: the smallest one where a replica set
+    capped at `gossip_target + 1` copies shows at all. Every wave asserts that a subscriber
+    received each ring statement and that probes and ring samples are stored on their
+    `replication_factor` XOR-closest nodes, the ring ones also on the subscriber, and nowhere else;
+    the soak ends with a scan of every node's log for statement errors. It runs only by a manual
+    dispatch of `.github/workflows/zombienet_statement-store-soak.yml` onto the zombienet k8s
+    cluster, sized by `.github/zombienet-tests/zombienet_statement_store_soak_tests.yml` with
+    per-run overrides for the node count, the soak window and the build run, or locally as the
+    test's module docs describe. It is not part of the default per-PR zombienet matrix.
 crates: []

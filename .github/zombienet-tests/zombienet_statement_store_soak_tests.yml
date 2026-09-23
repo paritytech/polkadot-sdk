@@ -1,7 +1,7 @@
 # Statement-store tests. Not part of the default per-PR zombienet matrix: they run on the
-# zombienet k8s cluster on demand, via the `A6-statement-store` PR label or a manual
-# dispatch of .github/workflows/zombienet_statement-store-soak.yml. Each entry sizes its own
-# network; a dispatch can override the size and the soak window for a one-off run.
+# zombienet k8s cluster on demand, by a manual dispatch of
+# .github/workflows/zombienet_statement-store-soak.yml. Each entry sizes its own network; a
+# dispatch can override the size and the soak window for a one-off run.
 
 # Sized down for paritytech/litep2p#665, which takes nodes down above 20 providers per key;
 # raise it again once the fix (paritytech/litep2p#666) ships.

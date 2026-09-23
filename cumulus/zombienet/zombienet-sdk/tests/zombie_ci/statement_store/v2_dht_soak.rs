@@ -6,13 +6,14 @@
 //! Sizing is the point: `nodes > replication_factor > gossip_target + 1` (12 > 8 > 4) —
 //! defects capping the replica set at `gossip_target + 1` copies are invisible below that.
 //!
-//! Every wave of load asserts: the subscriber received every statement; each statement is
-//! stored on all `replication_factor` XOR-closest nodes and on no other; no statement errors
-//! in the logs. `STATEMENT_V2_SOAK_NODES` (default 12; above 51 the statement graph goes
-//! sparse) and `STATEMENT_V2_SOAK_SECS` (default 900) size the run.
+//! Every wave of load asserts that the subscriber received every ring statement, and that each
+//! probe and three ring samples are stored on their `replication_factor` XOR-closest nodes (ring
+//! ones also on the subscriber, whose subscription grants affinity) and nowhere else. The soak
+//! ends with a scan of every node's log for statement errors. `STATEMENT_V2_SOAK_NODES` (default
+//! 12) and `STATEMENT_V2_SOAK_SECS` (default 900) size the run.
 //!
-//! Runs on demand only: the `A6-statement-store` PR label, a workflow dispatch, or locally —
-//! against the cluster given a kubeconfig:
+//! Runs on demand only: a dispatch of .github/workflows/zombienet_statement-store-soak.yml, or
+//! locally — against the cluster given a kubeconfig:
 //!
 //! ```text
 //! ZOMBIE_PROVIDER=k8s \
@@ -55,8 +56,7 @@ const DEFAULT_SOAK_SECS: u64 = 900;
 /// the rest.
 const NODES_ENV: &str = "STATEMENT_V2_SOAK_NODES";
 const DEFAULT_NODES: usize = 12;
-/// Statement peer-set slots hardcoded in `sc-network-statement`; `nodes - 1` at or below it
-/// guarantees the full mesh.
+/// Outbound statement peer-set slots in `sc-network-statement`.
 const STATEMENT_SET_PEER_LIMIT: usize = 50;
 const AUTHORING_COLLATORS: [&str; 4] = ["alice", "bob", "charlie", "dave"];
 const REPLICATION_FACTOR: usize = 8;
@@ -283,10 +283,8 @@ async fn run_wave(
 		probes.push((statement.encode(), order));
 	}
 
-	// Ring load: 20/s (2 per 100 ms tick) for 45 s → 900 statements per wave, all on the wave
-	// topic, submitted round-robin over every node (~75 per node). Any node accepts a
-	// submission; a non-replica only holds it transiently and forwards, the topic's
-	// `REPLICATION_FACTOR` replicas persist it — so both entry paths are exercised
+	// Ring load: 900 statements on the wave topic at 20/s, round-robin over every node so both
+	// entry paths are exercised: a replica persists, a non-replica forwards and holds transiently.
 	let total = RING_RATE_PER_SECOND * RING_SECS as usize;
 	let per_tick = RING_RATE_PER_SECOND * SUBMIT_TICK.as_millis() as usize / 1000;
 	let mut expected = Vec::with_capacity(total);
@@ -376,11 +374,8 @@ async fn run_wave(
 	Ok(WaveReport { ring_statements: expected.len(), submit_time, verify_time })
 }
 
-// Runs on demand: the `A6-statement-store` label on a PR, or a dispatch of
-// .github/workflows/zombienet_statement-store-soak.yml. The size comes from `soak-nodes` in
-// .github/zombienet-tests/zombienet_statement_store_soak_tests.yml, or from
-// STATEMENT_V2_SOAK_NODES when run by hand. It is capped at 40 for now because of the open bug
-// paritytech/litep2p#665; raise it once that is fixed.
+// .github/zombienet-tests/zombienet_statement_store_soak_tests.yml holds the size at 40 until
+// paritytech/litep2p#665 is fixed.
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -407,10 +402,11 @@ async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
 	info!("Waiting for the parachain to produce blocks...");
 	wait_for_first_block(&[nodes[0].node], 300).await?;
 
-	// The replica oracle is only valid once discovery is complete on every node.
+	// The replica oracle is only valid once discovery is complete on every node, and the load
+	// needs the connections that follow from it.
 	let topology_timeout = 300 + 5 * statement_node_count as u64;
-	info!("Waiting for every node to discover the other {}", statement_node_count - 1);
 	let known_floor = (statement_node_count - 1) as f64;
+	let connected_floor = (statement_node_count - 1).min(STATEMENT_SET_PEER_LIMIT) as f64;
 	for handle in &nodes {
 		handle
 			.node
@@ -420,18 +416,6 @@ async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
 				topology_timeout,
 			)
 			.await?;
-	}
-
-	// Within the slot limit the full mesh is guaranteed and asserted; above it the graph is
-	// sparse by construction and the floor only guarantees a live, routable graph.
-	let full_mesh = statement_node_count - 1 <= STATEMENT_SET_PEER_LIMIT;
-	let connected_floor =
-		if full_mesh { statement_node_count - 1 } else { STATEMENT_SET_PEER_LIMIT } as f64;
-	info!(
-		"Topology regime: {}, waiting for >= {connected_floor} substreams per node",
-		if full_mesh { "full mesh" } else { "sparse (peer-limited)" },
-	);
-	for handle in &nodes {
 		handle
 			.node
 			.wait_metric_with_timeout(
