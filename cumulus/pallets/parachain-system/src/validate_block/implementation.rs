@@ -33,7 +33,7 @@ use frame_support::{
 };
 use polkadot_parachain_primitives::primitives::{HeadData, ValidationResult};
 use sp_core::storage::{well_known_keys, ChildInfo, StateVersion};
-use sp_externalities::{set_and_run_with_externalities, Externalities};
+use sp_externalities::{set_and_run_with_externalities, Externalities, StateLoad};
 use sp_io::{hashing::blake2_128, KillStorageResult};
 use sp_runtime::traits::{
 	Block as BlockT, ExtrinsicCall, Hash as HashT, HashingFor, Header as HeaderT, LazyBlock,
@@ -97,6 +97,7 @@ where
 		sp_io::storage::host_read.replace_implementation(host_storage_read),
 		sp_io::storage::host_set.replace_implementation(host_storage_set),
 		sp_io::storage::host_get.replace_implementation(host_storage_get),
+		sp_io::storage::host_get_with_status.replace_implementation(host_storage_get_with_status),
 		sp_io::storage::host_exists.replace_implementation(host_storage_exists),
 		sp_io::storage::host_clear.replace_implementation(host_storage_clear),
 		sp_io::storage::host_root.replace_implementation(host_storage_root),
@@ -111,6 +112,8 @@ where
 			.replace_implementation(host_storage_commit_transaction),
 		sp_io::default_child_storage::host_get
 			.replace_implementation(host_default_child_storage_get),
+		sp_io::default_child_storage::host_get_with_status
+			.replace_implementation(host_default_child_storage_get_with_status),
 		sp_io::default_child_storage::host_read
 			.replace_implementation(host_default_child_storage_read),
 		sp_io::default_child_storage::host_set
@@ -535,6 +538,13 @@ fn host_storage_get(key: &[u8]) -> Option<bytes::Bytes> {
 	with_externalities(|ext| ext.storage(key).map(|value| value.into()))
 }
 
+fn host_storage_get_with_status(key: &[u8]) -> StateLoad<Option<bytes::Bytes>> {
+	with_externalities(|ext| {
+		let result = ext.storage_with_status(key);
+		StateLoad { data: result.data.map(Into::into), is_cold: result.is_cold }
+	})
+}
+
 fn host_storage_exists(key: &[u8]) -> bool {
 	with_externalities(|ext| ext.exists_storage(key))
 }
@@ -580,6 +590,17 @@ fn host_storage_commit_transaction() {
 fn host_default_child_storage_get(storage_key: &[u8], key: &[u8]) -> Option<Vec<u8>> {
 	let child_info = ChildInfo::new_default(storage_key);
 	with_externalities(|ext| ext.child_storage(&child_info, key))
+}
+
+fn host_default_child_storage_get_with_status(
+	storage_key: &[u8],
+	key: &[u8],
+) -> StateLoad<Option<bytes::Bytes>> {
+	let child_info = ChildInfo::new_default(storage_key);
+	with_externalities(|ext| {
+		let result = ext.child_storage_with_status(&child_info, key);
+		StateLoad { data: result.data.map(Into::into), is_cold: result.is_cold }
+	})
 }
 
 fn host_default_child_storage_read(
