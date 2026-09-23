@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["add_lock","cancel_registration","receive","register","remove_lock","reserve"]};
+window.SIDEBAR_ITEMS = {"fn":["add_lock","cancel_registration","deregister","force_register","receive","register","remove_lock","reserve","schedule_code_upgrade","set_current_head"]};
