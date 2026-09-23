@@ -3312,12 +3312,14 @@ mod benchmarks {
 		assert_eq!(interpreter.bytecode.pc(), last_target + 2);
 	}
 
-	/// Benchmark `r` taken `JUMPI` instructions over a full-size code with shuffled targets. The
-	/// operands of every jump are placed on the stack ahead of time, so nothing but `JUMPI` and
-	/// `JUMPDEST` executes and the slope is one taken `JUMPI` plus one `JUMPDEST`. Each jump
-	/// consumes two stack items.
+	/// Benchmark `r` taken `JUMPI` instructions.
+	///
+	/// The condition for the jump is always set to true so the jump is always taken.
+	///
+	/// Same even distribution and pseudo-random jumping targets from [`evm_jump_opcode`] is used in
+	/// this benchmark as well.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_jumpi_opcode(r: Linear<1, { EVM_STACK_LIMIT / 2 }>) {
+	fn evm_jumpi_opcode_always_taken_variant(r: Linear<1, { EVM_STACK_LIMIT / 2 }>) {
 		let fixture = EvmJumpFixture::new(JUMPI, r);
 		let last_target = fixture.last_target();
 
@@ -3325,10 +3327,15 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		let bytecode = ExtBytecode::new(Bytecode::new_raw(fixture.code.into()));
 		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
-		let operands =
-			fixture.targets.into_iter().flat_map(|target| [U256::from(target), U256::one()]);
-		for operand in operands.rev() {
-			interpreter.stack.push(operand).continue_value().unwrap();
+		for target in fixture.targets.into_iter().rev() {
+			// Push the condition for the jump which evaluates to `true` (i.e., take the jump). In
+			// the current implementation of `U256::is_zero` (which is used in the code for `JUMPI`)
+			// we check the limbs one by one and break as soon as one of them is not zero. The value
+			// `U256::one() << 192` makes it so that the check makes it to the last limb before it
+			// evaluates to not-zero.
+			interpreter.stack.push(U256::one() << 192).continue_value().unwrap();
+			// Push the destination of the jump
+			interpreter.stack.push(U256::from(target)).continue_value().unwrap();
 		}
 
 		let result;
@@ -3343,9 +3350,13 @@ mod benchmarks {
 		assert_eq!(interpreter.bytecode.pc(), last_target + 2);
 	}
 
-	// TODO: Experimenting with what the worst case for the conditional jump is.
+	/// Benchmark `r` untaken `JUMPI` instructions.
+	///
+	/// A different variant of [`evm_jumpi_opcode_always_taken_variant`] where all `JUMPI`
+	/// conditions always evaluate to `false` and therefore no jump is ever taken (except the last
+	/// one).
 	#[benchmark(pov_mode = Measured)]
-	fn evm_jumpi_untaken_opcode(r: Linear<1, { EVM_STACK_LIMIT / 2 }>) {
+	fn evm_jumpi_opcode_always_untaken_variant(r: Linear<1, { EVM_STACK_LIMIT / 2 }>) {
 		let fixture = EvmJumpFixture::new(JUMPI, r);
 		let last_target = fixture.last_target();
 
@@ -3353,12 +3364,12 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		let bytecode = ExtBytecode::new(Bytecode::new_raw(fixture.code.into()));
 		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
-		let operands = fixture.targets.into_iter().flat_map(|target| {
-			let condition = if target == last_target { U256::one() } else { U256::zero() };
-			[U256::from(target), condition]
-		});
-		for operand in operands.rev() {
-			interpreter.stack.push(operand).continue_value().unwrap();
+		for target in fixture.targets.into_iter().rev() {
+			// Push the condition: always zero unless this is the last target then it's `true`.
+			let condition = if target == last_target { U256::one() << 192 } else { U256::zero() };
+			interpreter.stack.push(condition).continue_value().unwrap();
+			// Push the destination of the jump
+			interpreter.stack.push(U256::from(target)).continue_value().unwrap();
 		}
 
 		let result;
@@ -3373,31 +3384,38 @@ mod benchmarks {
 		assert_eq!(interpreter.bytecode.pc(), last_target + 2);
 	}
 
-	// TODO: Experimenting with what the worst case for the conditional jump is.
+	/// Benchmark `r` pseudo-random `JUMPI` instructions.
+	///
+	/// A different variant of [`evm_jumpi_opcode_always_taken_variant`] where a pseudo-random
+	/// generator decides whether each `JUMPI` is taken, with a 50% chance either way.
+	///
+	/// The mix makes the branch on the condition unpredictable to the CPU. Every mispredicted
+	/// branch adds its penalty, so this can cost more than always taking the jump even though an
+	/// untaken jump is cheaper.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_jumpi_random_opcode(r: Linear<1, { EVM_STACK_LIMIT / 2 }>) {
+	fn evm_jumpi_opcode_pseudo_random_taken_variant(r: Linear<1, { EVM_STACK_LIMIT / 2 }>) {
 		use rand::{Rng, SeedableRng};
 		use rand_pcg::Pcg64;
 
 		let fixture = EvmJumpFixture::new(JUMPI, r);
 		let last_target = fixture.last_target();
 		let mut rng = Pcg64::seed_from_u64(42);
-		let conditions = core::iter::repeat_with(|| U256::from(rng.gen_range(0..=1u8)))
-			.take(fixture.targets.len() - 1)
-			.chain(core::iter::once(U256::one()))
-			.collect::<Vec<_>>();
 
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let bytecode = ExtBytecode::new(Bytecode::new_raw(fixture.code.into()));
 		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
-		let operands = fixture
-			.targets
-			.into_iter()
-			.zip(conditions)
-			.flat_map(|(target, condition)| [U256::from(target), condition]);
-		for operand in operands.rev() {
-			interpreter.stack.push(operand).continue_value().unwrap();
+		for target in fixture.targets.into_iter().rev() {
+			// Push the condition: we take the jump if the target is the last target or if the
+			// pseudo-random function generates a `true` boolean.
+			let condition = if target == last_target || rng.gen_bool(0.5) {
+				U256::one() << 192
+			} else {
+				U256::zero()
+			};
+			interpreter.stack.push(condition).continue_value().unwrap();
+			// Push the destination of the jump
+			interpreter.stack.push(U256::from(target)).continue_value().unwrap();
 		}
 
 		let result;

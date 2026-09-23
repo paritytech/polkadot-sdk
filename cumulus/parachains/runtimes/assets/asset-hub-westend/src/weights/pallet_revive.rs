@@ -1642,7 +1642,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(19_757, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[1, 512]`.
-	fn evm_jumpi_opcode(r: u32, ) -> Weight {
+	fn evm_jumpi_opcode_always_taken_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1653,7 +1653,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(25_455, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[1, 512]`.
-	fn evm_jumpi_untaken_opcode(r: u32, ) -> Weight {
+	fn evm_jumpi_opcode_always_untaken_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1664,7 +1664,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(23_155, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[1, 512]`.
-	fn evm_jumpi_random_opcode(r: u32, ) -> Weight {
+	fn evm_jumpi_opcode_pseudo_random_taken_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

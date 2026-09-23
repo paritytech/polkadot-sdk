@@ -123,7 +123,10 @@ impl<T: Config> Token<T> for EvmOpcodeCosts {
 
 		match self {
 			JUMP => cost_args!(evm_jump_opcode, 1).saturating_sub(weight_of(JUMPDEST)),
-			JUMPI => cost_args!(evm_jumpi_opcode, 1).saturating_sub(weight_of(JUMPDEST)),
+			JUMPI => cost_args!(evm_jumpi_opcode_always_taken_variant, 1)
+				.max(cost_args!(evm_jumpi_opcode_always_untaken_variant, 1))
+				.max(cost_args!(evm_jumpi_opcode_pseudo_random_taken_variant, 1))
+				.saturating_sub(weight_of(JUMPDEST)),
 			JUMPDEST => cost_args!(evm_jumpdest_opcode, 1),
 			PUSH => cost_args!(evm_push_opcode, 1),
 			POP => cost_args!(evm_pop_opcode, 1),

@@ -182,9 +182,9 @@ pub trait WeightInfo {
 	fn seal_ecdsa_to_eth_address() -> Weight;
 	fn evm_jumpdest_opcode(r: u32, ) -> Weight;
 	fn evm_jump_opcode(r: u32, ) -> Weight;
-	fn evm_jumpi_opcode(r: u32, ) -> Weight;
-	fn evm_jumpi_untaken_opcode(r: u32, ) -> Weight;
-	fn evm_jumpi_random_opcode(r: u32, ) -> Weight;
+	fn evm_jumpi_opcode_always_taken_variant(r: u32, ) -> Weight;
+	fn evm_jumpi_opcode_always_untaken_variant(r: u32, ) -> Weight;
+	fn evm_jumpi_opcode_pseudo_random_taken_variant(r: u32, ) -> Weight;
 	fn evm_push_opcode(r: u32, ) -> Weight;
 	fn evm_pop_opcode(r: u32, ) -> Weight;
 	fn evm_dup_opcode(r: u32, ) -> Weight;
@@ -1656,7 +1656,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(18_385, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[1, 512]`.
-	fn evm_jumpi_opcode(r: u32, ) -> Weight {
+	fn evm_jumpi_opcode_always_taken_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1666,7 +1666,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(23_642, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[1, 512]`.
-	fn evm_jumpi_untaken_opcode(r: u32, ) -> Weight {
+	fn evm_jumpi_opcode_always_untaken_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -1676,7 +1676,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(23_654, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[1, 512]`.
-	fn evm_jumpi_random_opcode(r: u32, ) -> Weight {
+	fn evm_jumpi_opcode_pseudo_random_taken_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -3766,7 +3766,7 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(18_385, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[1, 512]`.
-	fn evm_jumpi_opcode(r: u32, ) -> Weight {
+	fn evm_jumpi_opcode_always_taken_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -3776,7 +3776,7 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(23_642, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[1, 512]`.
-	fn evm_jumpi_untaken_opcode(r: u32, ) -> Weight {
+	fn evm_jumpi_opcode_always_untaken_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -3786,7 +3786,7 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(23_654, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[1, 512]`.
-	fn evm_jumpi_random_opcode(r: u32, ) -> Weight {
+	fn evm_jumpi_opcode_pseudo_random_taken_variant(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
