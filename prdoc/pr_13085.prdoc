@@ -1,29 +1,38 @@
-title: '[pallet-revive] revert `System.terminate` when a freeze pins the contract ED'
+title: '[pallet-revive] `System.terminate` reverts when the contract balance cannot be released'
 
 doc:
+- audience: Runtime User
+  description: |-
+    `System.terminate` now reverts when the contract's balance has a lock, a freeze, or a hold
+    under a reason other than the storage deposit, for example after a vested transfer to the
+    contract. The revert message is "terminate pre-compile cannot release the contract's balance:
+    it has a lock, freeze or hold", and the calling contract can catch it.
+
+    Before, the call returned success and the beneficiary received the transferable balance, but
+    the destruction at the end of the call stack could not burn the existential deposit and was
+    skipped without an error. The contract stayed alive and callable.
+
+    A lock placed on the contract later in the same transaction, after `System.terminate`
+    returned, still makes the termination be skipped without an error. The `SELFDESTRUCT` opcode
+    is unchanged.
+
 - audience: Runtime Dev
   description: |-
-    `System.terminate` could report success while leaving the contract alive. `terminate_caller`
-    moved the reducible balance to the beneficiary and scheduled the destruction, but the deferred
-    destruction runs at the end of the call stack, where the contract is no longer on the stack and
-    its error is discarded. If the polite existential-deposit burn then failed — for example because
-    a native freeze made the remaining balance non-reducible — the beneficiary kept the transfer,
-    the contract stayed live and callable, and nothing was left to retry.
+    `pallet_revive::Error` gains the variant `TerminateBalanceLocked` (index `0x45`). `Error` is
+    an exhaustive public enum, so code that matches on it exhaustively needs a new arm. No storage
+    migration or configuration change is needed.
 
-    `terminate_caller` now rejects that case up-front: after the immediate transfer it checks that
-    the contract's reducible balance still covers the existential deposit, and otherwise fails with
-    the new `Error::TerminateBalanceLocked`. Refunding the storage deposit only lowers `reserved` and
-    never touches `frozen`, so a burn that does not fit at terminate time will not fit later either.
-    The check runs synchronously inside the precompile, so it surfaces as a revert that the calling
-    contract can catch, and a third party freezing a contract becomes a visible error instead of a
-    silent no-op.
+    The terminate precompile now charges `WeightInfo::seal_terminate_logic` a second time to pay
+    for the dry run of the balance release, so a `System.terminate` call costs more weight. No
+    benchmark changed.
 
-    This makes good on what `ISystem.sol` already documented for `terminate`. The deferred
-    destruction loop keeps its existing non-failing behaviour, and the `SELFDESTRUCT` opcode is
-    unchanged.
+    The `Terminate` fixture gains a `tryTerminate` function, which adds a variant to the
+    generated `Terminate::TerminateCalls` enum in `pallet-revive-fixtures`.
 
 crates:
 - name: pallet-revive
   bump: major
 - name: pallet-revive-uapi
   bump: patch
+- name: pallet-revive-fixtures
+  bump: major
