@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790167127268,
+  "lastUpdate": 1790177798731,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "109252977+YichiZhang0613@users.noreply.github.com",
-            "name": "Yichi Zhang",
-            "username": "YichiZhang0613"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e164dd120a27a4e30f7a3d9b887af5c52d160221",
-          "message": "[pallet-revive] Fix assertion message (#10923)\n\n# Description\nFor below assertion, it looks like the message is inaccurate. the\nmessage always says \"deposit mismatch\" even when other fields fail\n(owner, refcount, code_len, etc.). This could be misleading.\n```rust\nassert_eq!(\n\t\t\tmigrated,\n\t\t\tnew::CodeInfo {\n\t\t\t\towner: old_code_info.owner.clone(),\n\t\t\t\tdeposit: old_code_info.deposit,\n\t\t\t\trefcount: old_code_info.refcount,\n\t\t\t\tcode_len: old_code_info.code_len,\n\t\t\t\tbehaviour_version: old_code_info.behaviour_version,\n\t\t\t\tcode_type: BytecodeType::Pvm,\n\t\t\t},\n\t\t\t\"Migration failed: deposit mismatch for key {code_hash:?}\",\n\t\t);\n```",
-          "timestamp": "2026-02-24T09:48:36Z",
-          "tree_id": "3cb60ddf8da6402a21e856ef6c32210e2f0faf29",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e164dd120a27a4e30f7a3d9b887af5c52d160221"
-        },
-        "date": 1771931298380,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12724901823333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.257740661133331,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.08291610826667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "83b147a9b29aa5bdf40ddd105d308740a1647892",
+          "message": "elections-phragmen: saturate the prime-vote multiplier (#13269)\n\nThe Borda count that picks the prime member weighs each ballot position\nby `MaxVotesPerVoter - vote_position`. Stored ballots are a plain `Vec`\nand are only length-checked when `vote` is called, so a reduction of\n`MaxVotesPerVoter` leaves entries whose positions run past the current\nbound and underflow the subtraction.\n\nUse a saturating subtraction so those positions weigh nothing.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Luka Ciric <luka.ciric2106@gmail.com>",
+          "timestamp": "2026-09-23T14:03:13Z",
+          "tree_id": "18ac315df19732b2e21638fecc7dd559a398e1a6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/83b147a9b29aa5bdf40ddd105d308740a1647892"
+        },
+        "date": 1790177762438,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.140428452,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.120942257933333,
             "unit": "seconds"
           }
         ]
