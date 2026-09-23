@@ -90,10 +90,27 @@ fn measured_json_bytes(steps: &[ExecutionStepV1]) -> Result<Option<(u64, u64)>, 
 	Ok(Some((total, total / count)))
 }
 
+/// Counts what is written to it and keeps none of it.
+#[derive(Default)]
+struct ByteCount(u64);
+
+impl std::io::Write for ByteCount {
+	fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+		self.0 += buf.len() as u64;
+		Ok(buf.len())
+	}
+
+	fn flush(&mut self) -> std::io::Result<()> {
+		Ok(())
+	}
+}
+
 fn json_bytes(steps: &[ExecutionStepV1]) -> Result<u64, ClientError> {
-	serde_json::to_vec(steps)
-		.map(|json| json.len() as u64)
-		.map_err(|_| ClientError::TraceRenderFailed)
+	let mut count = ByteCount::default();
+
+	serde_json::to_writer(&mut count, steps).map_err(|_| ClientError::TraceRenderFailed)?;
+
+	Ok(count.0)
 }
 
 /// How many of `steps` fit in `room` bytes, by rendering prefixes until the largest one that
@@ -145,6 +162,15 @@ where
 		return Ok(());
 	};
 
+	// The first window is sized from a prior, not from measurement, so it can overrun the
+	// response on its own.
+	let budget = response_budget_bytes(max_response_size);
+	if collected_json_bytes > budget {
+		return Err(ClientError::TraceTooLarge {
+			fits: steps_fitting_in(&collected.struct_logs, budget)?,
+		});
+	}
+
 	// A window holding fewer steps than it asked for is the end of the execution.
 	while returned >= limit {
 		let steps = collected.struct_logs.len() as u64;
@@ -173,7 +199,6 @@ where
 			None => 0,
 		};
 
-		let budget = response_budget_bytes(max_response_size);
 		let room = budget.saturating_sub(collected_json_bytes);
 		collected_json_bytes = collected_json_bytes.saturating_add(window_json_bytes);
 		if collected_json_bytes > budget {
