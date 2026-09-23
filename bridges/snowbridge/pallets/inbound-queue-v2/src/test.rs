@@ -5,6 +5,7 @@ use super::*;
 use crate::{mock::*, Error};
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok};
+use snowbridge_beacon_primitives::CommitmentScheme;
 use snowbridge_inbound_queue_primitives::{v2::Payload, EventProof, Proof};
 use snowbridge_test_utils::{
 	mock_rewards::{RegisteredRewardAmount, RegisteredRewardsCount},
@@ -624,7 +625,7 @@ fn poc_permissionless_forged_receipt_bypasses_verifier_and_injects_xcm() {
 			.proof
 			.execution_proof
 			.execution_header
-			.commitment()
+			.commitment(CommitmentScheme::PayloadHeaderRoot)
 			.expect("deneb fixture merkleizes; qed")
 			.receipts_root();
 		let root_node = fixture.event.proof.receipt_proof[0].clone();
