@@ -476,5 +476,8 @@ async fn late_joiner_receives_backlog() -> Result<(), anyhow::Error> {
 		.collect();
 	assert_statements_match(&mut subscription, &expected, 120, "dave").await?;
 
+	let dave_logs = dave.logs().await?;
+	assert!(dave_logs.lines().any(|line| line.contains("Major sync complete, adding")));
+
 	Ok(())
 }
