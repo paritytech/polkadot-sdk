@@ -266,6 +266,15 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Helper function for benchmarks to ensure the broker parachain is reachable.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn ensure_broker_parachain_reachable() {
+		<T as Config>::SendXcm::ensure_successful_delivery(Some(Location::new(
+			0,
+			[Junction::Parachain(T::BrokerId::get())],
+		)));
+	}
+
 	pub fn initializer_on_new_session(notification: &SessionChangeNotification<BlockNumberFor<T>>) {
 		let old_core_count = notification.prev_config.scheduler_params.num_cores;
 		let new_core_count = notification.new_config.scheduler_params.num_cores;
