@@ -3332,6 +3332,7 @@ dependencies = [
  "parity-scale-codec",
  "rococo-westend-system-emulated-network",
  "scale-info",
+ "snowbridge-beacon-primitives",
  "snowbridge-core",
  "snowbridge-inbound-queue-primitives",
  "snowbridge-outbound-queue-primitives",

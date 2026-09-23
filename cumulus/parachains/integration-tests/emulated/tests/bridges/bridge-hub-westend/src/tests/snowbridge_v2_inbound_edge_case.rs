@@ -5,6 +5,7 @@ use alloy_consensus::{Eip658Value, Receipt, ReceiptEnvelope};
 use alloy_primitives::{Address, Bytes, Log as AlloyLog, B256};
 use alloy_sol_types::{SolEvent, SolValue};
 use emulated_integration_tests_common::snowbridge::WETH;
+use snowbridge_beacon_primitives::CommitmentScheme;
 use snowbridge_inbound_queue_primitives::v2::IGatewayV2;
 
 #[test]
@@ -59,7 +60,7 @@ fn forged_receipt_proof_is_rejected_after_path_check_fix() {
 		.proof
 		.execution_proof
 		.execution_header
-		.commitment()
+		.commitment(CommitmentScheme::PayloadHeaderRoot)
 		.expect("deneb fixture merkleizes; qed")
 		.receipts_root();
 	let root_node = fixture.event.proof.receipt_proof[0].clone();
