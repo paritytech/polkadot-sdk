@@ -277,10 +277,12 @@ Reference algorithms: design §Requires Lifting (`stitch`, `build_requires_entry
 | `MAX_COMMITMENT_ENTRIES` | 256 | frozen, §7.3 |
 | `MAX_UMP_SIGNALS` | 4 | = variant count |
 | `MAX_SPECULATIVE_MESSAGE_LEN` | 102 400 B | frozen; wire-enforced payload bound (`PayloadTooLarge`) |
-| `MAX_EXTENSION_CONNECTING_NODES` / `MAX_INCLUSION_PROOF_ITEMS` | 256 / 128 | decode ceilings; must exceed the valid maxima, exact values not consensus |
+| `MAX_EXTENSION_CONNECTING_NODES` | 256 | decode ceiling; must exceed the valid maxima, not consensus |
+| `MAX_INCLUSION_PROOF_ITEMS` | 128 | decode ceiling; must exceed the valid maxima, not consensus |
 | `SPMS_ENGINE_ID` | `*b"SPMS"` | implemented; freeze before cross-chain ships |
 | `W` (RecentProvides ring) | 128 | relay-side, governance-adjustable |
-| `MaxTouchedStreams` / `MaxContextGaps` | per-chain receiver constants | bound the receiver's inherent; `MaxTouchedStreams ≤ MAX_COMMITMENT_ENTRIES`, integrity-checked |
+| `MaxTouchedStreams` | per-chain receiver | inherent bound; `≤ MAX_COMMITMENT_ENTRIES`; integrity-checked |
+| `MaxContextGaps` | per-chain receiver | bound the receiver's inherent; integrity-checked |
 | `MaxMessagesPerBlock` / `MaxMsgLen` (≤ the wire bound) | per-chain sender constants | STF-enforced sender-side |
 | Lift / advance PoV reservation | pallet weight constants | ⚠ OPEN, §13 #5 |
 
@@ -316,6 +318,6 @@ bytes; a vector change is a spec change.
 | 2 | ~~`StreamProof` decode bound~~ | settled: 64 (§4.3) |
 | 3 | `SPMS_ENGINE_ID` freeze | implemented as `*b"SPMS"`; freeze before cross-chain ships (§7.4) |
 | 4 | ~~`leaf_count` encoding~~ | settled: plain `u64` (§5.3) |
-| 5 | Lift / advance PoV reservation constants | pallet weight constants; set with benchmarks, must sit above the design ceilings (~4.2 KB/stream, ~2.1 KB/gap) |
-| 6 | ~~Event wire path~~ | settled: one envelope protocol (§9); the versioned protocol string is pinned by the node crate |
+| 5 | Lift / advance PoV reservation | pallet weights; set with benchmarks, above ~4.2 KB/stream, ~2.1 KB/gap |
+| 6 | ~~Event wire path~~ | settled: one envelope protocol (§9); protocol string pinned by the node crate |
 | 7 | Conformance vectors | extract language-neutral vector files; pin the tree adversarial negatives (§12) |
