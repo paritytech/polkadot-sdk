@@ -83,6 +83,11 @@
 //! `config::INITIAL_SYNC_RESERVED_BYTES` early: refills reclaim freed bytes synchronously,
 //! while the timer-driven sync bursts would otherwise always find the budget full.
 //!
+//! A peer disconnects us once we exceed its statement rate limit. Each peer carries a mirror of
+//! that quota on the send side, charged by every chunk. Propagation sends regardless, but an
+//! initial sync fetches a chunk only when the mirror has room for a full one, so a peer draws
+//! its backlog at the rate it accepts, however often it asks.
+//!
 //! ## Topic affinity and light nodes
 //!
 //! The `statement/2` protocol lets a peer advertise which topics it cares about as a bloom filter
@@ -834,6 +839,7 @@ where
 #[derive(Debug)]
 struct PeerRateLimiter {
 	bucket: Box<dyn TokenBucket>,
+	burst: NonZeroU32,
 }
 
 impl PeerRateLimiter {
@@ -848,7 +854,13 @@ impl PeerRateLimiter {
 		C::Instant: fmt::Debug + Send + Sync,
 	{
 		let quota = Quota::per_second(statements_per_second).allow_burst(burst);
-		Self { bucket: Box::new(RateLimiter::direct_with_clock(quota, clock)) }
+		Self { bucket: Box::new(RateLimiter::direct_with_clock(quota, clock)), burst }
+	}
+
+	/// Charge a full initial-sync chunk, or the whole burst when that is smaller. Nothing is
+	/// charged when the quota has no room for it.
+	fn reserve_chunk(&self) -> bool {
+		!self.is_flooding(MAX_STATEMENTS_PER_NOTIFICATION.min(self.burst.get() as usize))
 	}
 
 	/// The quota for `ExplicitTopicAffinity` updates from one peer.
@@ -878,6 +890,9 @@ pub struct Peer {
 	/// Rate limiter for `ExplicitTopicAffinity` updates, kept apart from the statement bucket
 	/// so a statement burst cannot reject a filter change.
 	affinity_rate_limiter: PeerRateLimiter,
+	/// Mirror of the peer's statement rate limit, charged by our sends to it. The limit is not
+	/// negotiated, so the mirror assumes the peer runs our quota.
+	send_rate_limiter: PeerRateLimiter,
 	/// Protocol version negotiated with this peer.
 	protocol_version: PeerProtocolVersion,
 	/// Topic affinity filter received from a v2 peer.
@@ -1136,6 +1151,7 @@ impl Peer {
 		Self {
 			rate_limiter: PeerRateLimiter::new(statements_per_second, burst),
 			affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+			send_rate_limiter: PeerRateLimiter::new(statements_per_second, burst),
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
@@ -1611,18 +1627,16 @@ where
 					target: LOG_TARGET,
 					"Peer {peer} connected with statement protocol {protocol_version:?}, role={peer_role:?}"
 				);
+				let burst = NonZeroU32::new(
+					self.statements_per_second.get() * config::STATEMENTS_BURST_COEFFICIENT,
+				)
+				.expect("burst capacity is nonzero");
 				let _was_in = self.peers.insert(
 					peer,
 					Peer {
-						rate_limiter: PeerRateLimiter::new(
-							self.statements_per_second,
-							NonZeroU32::new(
-								self.statements_per_second.get() *
-									config::STATEMENTS_BURST_COEFFICIENT,
-							)
-							.expect("burst capacity is nonzero"),
-						),
+						rate_limiter: PeerRateLimiter::new(self.statements_per_second, burst),
 						affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+						send_rate_limiter: PeerRateLimiter::new(self.statements_per_second, burst),
 						protocol_version,
 						topic_affinity: None,
 						is_light,
@@ -2133,6 +2147,7 @@ where
 			let chunk_id = self.occupy_send_slot(who);
 			let in_flight = self.propagation_in_flight_bytes.saturating_add(bytes_sent);
 			self.set_propagation_in_flight_bytes(in_flight);
+			self.charge_send_budget(&who, statement_count);
 			let sent_latency =
 				self.metrics.as_ref().map(|metrics| metrics.sent_latency_seconds.clone());
 			self.pending_sends.push(Box::pin(async move {
@@ -2238,6 +2253,7 @@ where
 					let chunk_id = self.occupy_send_slot(peer);
 					let in_flight = self.propagation_in_flight_bytes.saturating_add(bytes_sent);
 					self.set_propagation_in_flight_bytes(in_flight);
+					self.charge_send_budget(who, chunk_end);
 					let sent_latency =
 						self.metrics.as_ref().map(|metrics| metrics.sent_latency_seconds.clone());
 					self.pending_sends.push(Box::pin(async move {
@@ -2566,6 +2582,15 @@ where
 		}
 	}
 
+	/// Charge a propagation chunk to the mirror of the peer's rate limit. Propagation never
+	/// waits, and a chunk past the quota is sent uncharged: the peer then already sees more than
+	/// it accepts.
+	fn charge_send_budget(&self, peer: &PeerId, statements: usize) {
+		if let Some(peer_data) = self.peers.get(peer) {
+			peer_data.send_rate_limiter.is_flooding(statements);
+		}
+	}
+
 	/// Occupy the peer's send slot with a fresh chunk id and return the id.
 	fn occupy_send_slot(&mut self, peer: PeerId) -> u64 {
 		let chunk_id = self.next_chunk_id;
@@ -2600,13 +2625,21 @@ where
 			return;
 		}
 
-		// A peer whose send slot is busy keeps its turn for a later burst, so one slow peer
-		// does not stall every other pending sync.
-		let Some(pos) = self
-			.initial_sync_peer_queue
-			.iter()
-			.position(|peer| !self.in_flight_chunks.contains_key(peer))
-		else {
+		// A peer whose send slot is busy or whose rate limit has no room for a chunk keeps its
+		// turn for a later burst, so one slow peer does not stall every other pending sync. The
+		// chunk is charged here, before the store read, so a throttled peer costs no fetch.
+		let Some(pos) = self.initial_sync_peer_queue.iter().position(|peer| {
+			if self.in_flight_chunks.contains_key(peer) {
+				return false;
+			}
+			// A peer missing from the map falls through to the error path below.
+			let Some(peer_data) = self.peers.get(peer) else { return true };
+			let reserved = peer_data.send_rate_limiter.reserve_chunk();
+			if !reserved {
+				log::trace!(target: LOG_TARGET, "Initial sync to {peer} waits for its rate limit");
+			}
+			reserved
+		}) else {
 			return;
 		};
 		self.initial_sync_peer_queue.rotate_left(pos);
@@ -2754,6 +2787,15 @@ mod tests {
 
 	/// Default seed used for bloom filters in tests.
 	const BLOOM_SEED: u128 = 0x5EED_5EED_5EED_5EED;
+
+	fn default_send_rate_limiter() -> PeerRateLimiter {
+		PeerRateLimiter::new(
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT)
+				.expect("burst capacity is nonzero"),
+		)
+	}
 
 	fn new_live_statement() -> Statement {
 		let mut statement = sp_statement_store::Statement::new();
@@ -3367,6 +3409,7 @@ mod tests {
 						.expect("burst capacity is nonzero"),
 					),
 					affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+					send_rate_limiter: default_send_rate_limiter(),
 					protocol_version: PeerProtocolVersion::V1,
 					topic_affinity: None,
 					is_light: false,
@@ -4013,6 +4056,7 @@ mod tests {
 					.expect("nonzero"),
 				),
 				affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+				send_rate_limiter: default_send_rate_limiter(),
 				protocol_version: PeerProtocolVersion::V1,
 				topic_affinity: Some(AffinityFilter::new(BLOOM_SEED, 0.01, 10)),
 				is_light: false,
@@ -5052,6 +5096,55 @@ mod tests {
 			handler.initial_sync_peer_queue, queued,
 			"a throttled burst must not burn the peer's turn"
 		);
+	}
+
+	#[tokio::test]
+	async fn initial_sync_waits_for_the_peer_rate_limit() {
+		let (mut handler, statement_store, _network, notification_service, _, peer_ids) =
+			build_handler(2);
+		let throttled = peer_ids[0];
+		let served = peer_ids[1];
+		let hashes: Vec<_> = (0..20u8)
+			.map(|i| {
+				let mut statement = new_live_statement();
+				statement.set_plain_data(vec![i]);
+				let hash = statement.hash();
+				statement_store.insert(statement);
+				hash
+			})
+			.collect();
+		handler.schedule_initial_sync_for_peer(throttled);
+		handler.schedule_initial_sync_for_peer(served);
+
+		// One statement per second with a burst of ten, drained by a propagation chunk.
+		let clock = FakeRelativeClock::default();
+		handler.peers.get_mut(&throttled).expect("peer is connected").send_rate_limiter =
+			PeerRateLimiter::with_clock(
+				NonZeroU32::new(1).expect("nonzero"),
+				NonZeroU32::new(10).expect("nonzero"),
+				&clock,
+			);
+		handler
+			.propagation_outboxes
+			.insert(throttled, VecDeque::from(hashes[..10].to_vec()));
+		handler.try_send_next_chunk(throttled);
+		handler.flush_pending_sends().await;
+		assert!(handler.peers[&throttled].send_rate_limiter.is_flooding(1), "propagation charged");
+
+		// The throttled peer heads the queue, yet the burst serves its neighbour.
+		handler.process_initial_sync_burst();
+		handler.flush_pending_sends().await;
+		let sent = notification_service.get_sent_notifications();
+		assert_eq!(get_peer_hashes(&sent, served).len(), 20);
+		assert_eq!(get_peer_hashes(&sent, throttled).len(), 10, "the propagation chunk alone");
+		assert!(handler.initial_sync_peer_queue.contains(&throttled), "a skipped turn is kept");
+
+		// Once the quota has room for a chunk again, the peer gets one.
+		clock.advance(Duration::from_secs(10));
+		handler.process_initial_sync_burst();
+		handler.flush_pending_sends().await;
+		let sent = notification_service.get_sent_notifications();
+		assert_eq!(get_peer_hashes(&sent, throttled).len(), 30);
 	}
 
 	#[tokio::test]
@@ -6361,6 +6454,7 @@ mod tests {
 					.expect("nonzero"),
 				),
 				affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+				send_rate_limiter: default_send_rate_limiter(),
 				protocol_version: version,
 				topic_affinity,
 				is_light,
@@ -6637,6 +6731,7 @@ mod tests {
 					.unwrap(),
 				),
 				affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+				send_rate_limiter: default_send_rate_limiter(),
 				protocol_version: PeerProtocolVersion::V1,
 				topic_affinity: None,
 				is_light: false,
@@ -7209,6 +7304,7 @@ mod tests {
 					.expect("burst capacity is nonzero"),
 				),
 				affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+				send_rate_limiter: default_send_rate_limiter(),
 				protocol_version: PeerProtocolVersion::V1,
 				topic_affinity: None,
 				is_light: false,
@@ -7328,6 +7424,7 @@ mod tests {
 				.expect("burst capacity is nonzero"),
 			),
 			affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+			send_rate_limiter: default_send_rate_limiter(),
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
@@ -7435,6 +7532,7 @@ mod tests {
 				.expect("burst capacity is nonzero"),
 			),
 			affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+			send_rate_limiter: default_send_rate_limiter(),
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
@@ -7497,6 +7595,7 @@ mod tests {
 				.expect("burst capacity is nonzero"),
 			),
 			affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
+			send_rate_limiter: default_send_rate_limiter(),
 			protocol_version: PeerProtocolVersion::V2,
 			topic_affinity: Some(filter_over(&[topic(9)])),
 			is_light: false,
