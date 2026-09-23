@@ -3752,6 +3752,269 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
 	}
 
+	/// Benchmark `r` `LT` instructions with zero/two operands, comparing all four words each time.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_lt_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+		let code = Bytecode::new_raw(vec![LT; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		let operands = [U256::zero(), U256::from(2)].into_iter().cycle().take(r as usize + 1);
+		for operand in operands {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&U256::zero()));
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+	}
+
+	/// Benchmark `r` `GT` instructions with equal operands, comparing all four words each time.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_gt_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+		let code = Bytecode::new_raw(vec![GT; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..=r {
+			interpreter.stack.push(U256::zero()).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&U256::zero()));
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+	}
+
+	/// Benchmark `r` `CLZ` instructions with 248, preserving the full four-limb scan on every call.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_clz_opcode(r: Linear<0, { revm::primitives::eip3860::MAX_INITCODE_SIZE as u32 }>) {
+		let code = Bytecode::new_raw(vec![CLZ; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		let operand = U256::from(248);
+		interpreter.stack.push(operand).continue_value().unwrap();
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&operand));
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+	}
+
+	/// Benchmark `r` `SLT` instructions on zeros, forcing full zero checks and limb comparison.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_slt_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+		let code = Bytecode::new_raw(vec![SLT; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..=r {
+			interpreter.stack.push(U256::zero()).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&U256::zero()));
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+	}
+
+	/// Benchmark `r` `SGT` instructions on zeros, forcing full zero checks and limb comparison.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sgt_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+		let code = Bytecode::new_raw(vec![SGT; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..=r {
+			interpreter.stack.push(U256::zero()).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&U256::zero()));
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+	}
+
+	/// Benchmark `r` `EQ` instructions with equal operands, preserving one as the next operand.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_eq_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+		let code = Bytecode::new_raw(vec![EQ; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..=r {
+			interpreter.stack.push(U256::one()).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&U256::one()));
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+	}
+
+	/// Benchmark `r` `ISZERO` instructions with zero operands to check all four words each time.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_iszero_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
+		let code = Bytecode::new_raw([ISZERO, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..r {
+			interpreter.stack.push(U256::zero()).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
+	}
+
+	/// Benchmark `r` `AND` instructions with full-width operands that preserve all bits set.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_and_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+		let code = Bytecode::new_raw(vec![AND; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..=r {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&U256::MAX));
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+	}
+
+	/// Benchmark `r` `OR` instructions with full-width operands that preserve all bits set.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_or_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+		let code = Bytecode::new_raw(vec![OR; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..=r {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&U256::MAX));
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+	}
+
+	/// Benchmark `r` `XOR` instructions with MAX operands and alternating zero/MAX results.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_xor_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+		let code = Bytecode::new_raw(vec![XOR; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..=r {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		let expected = if r.is_multiple_of(2) { U256::MAX } else { U256::zero() };
+		assert_eq!(interpreter.stack.top(), Some(&expected));
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+	}
+
+	/// Benchmark `r` `NOT` instructions, alternating between zero and all bits set.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_not_opcode(r: Linear<0, { revm::primitives::eip3860::MAX_INITCODE_SIZE as u32 }>) {
+		let code = Bytecode::new_raw(vec![NOT; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		interpreter.stack.push(U256::zero()).continue_value().unwrap();
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		let expected = if r.is_multiple_of(2) { U256::zero() } else { U256::MAX };
+		assert_eq!(interpreter.stack.top(), Some(&expected));
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+	}
+
 	/// Benchmark `r` `BYTE` instructions with index and value 31, preserving 31 as the next index.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_byte_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {

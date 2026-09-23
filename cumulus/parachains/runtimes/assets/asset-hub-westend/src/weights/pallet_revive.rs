@@ -1719,6 +1719,72 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 1023]`.
+	fn evm_lt_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_gt_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_clz_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_slt_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_sgt_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_eq_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1024]`.
+	fn evm_iszero_opcode(r: u32, ) -> Weight {
+		// Dummy values include one ISZERO and one POP per repetition.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_and_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_or_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_xor_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 49152]`.
+	fn evm_not_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
 	fn evm_byte_opcode(r: u32, ) -> Weight {
 		// Dummy values. These weights will be generated in CI.
 		Weight::from_parts(1_000_000, 0)
