@@ -197,7 +197,8 @@ impl Convert<HrmpParaId, AccountId> for SovereignAccountOf {
 }
 
 parameter_types! {
-	pub const DepositPerMessage: Balance = PER_MESSAGE;
+	/// Mutable, so a test can move the price under an open channel and poke it.
+	pub static DepositPerMessage: Balance = PER_MESSAGE;
 	pub const SenderHoldReason: RuntimeHoldReason =
 		RuntimeHoldReason::Hrmp(pallet_hrmp_para::HoldReason::SenderDeposit);
 	pub const RecipientHoldReason: RuntimeHoldReason =
@@ -229,7 +230,7 @@ impl pallet_hrmp_para::Config for Runtime {
 	type MaxInboundChannels = ConstU32<MAX_INBOUND_CHANNELS>;
 	type MaxOutboundChannels = ConstU32<MAX_OUTBOUND_CHANNELS>;
 	type DefaultChannelSizeAndCapacityWithSystem = SystemChannelSizes;
-	type WeightInfo = ();
+	type WeightInfo = crate::weights::ZeroWeights;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;

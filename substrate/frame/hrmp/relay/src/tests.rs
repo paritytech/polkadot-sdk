@@ -18,7 +18,7 @@
 //! Tests for `pallet-hrmp-relay`.
 //!
 //! One test per handler lands with the handler it covers. What is here is what can be asserted
-//! while the bodies are `todo!()`.
+//! while the bodies are stubbed.
 
 use crate::{mock::*, Error, Event};
 use frame_support::{assert_noop, assert_ok};
@@ -182,15 +182,15 @@ fn open_channel_writes_the_registry_and_answers() {
 #[test]
 fn a_refused_open_channel_is_reported_back() {
 	new_test_ext().execute_with(|| {
-		RegistryRefuses::set(Some(FailureReason::LimitExceeded));
+		RegistryRefuses::set(true);
 
 		assert_ok!(open_channel());
 
 		assert!(!MockRegistry::exists(CHANNEL));
-		assert_eq!(take_sent(), vec![response(Err(FailureReason::LimitExceeded))]);
+		assert_eq!(take_sent(), vec![response(Err(FailureReason::Refused))]);
 		let failure = ParaNotification::ChannelOpenFailure {
 			channel: CHANNEL,
-			reason: FailureReason::LimitExceeded,
+			reason: FailureReason::Refused,
 		};
 		assert_eq!(
 			take_notified(),
@@ -201,7 +201,7 @@ fn a_refused_open_channel_is_reported_back() {
 			vec![Event::OpenChannelRejected {
 				channel: CHANNEL,
 				message_id: MESSAGE_ID,
-				reason: FailureReason::LimitExceeded,
+				reason: FailureReason::Refused,
 			}]
 		);
 	});

@@ -33,6 +33,7 @@ pub mod para;
 #[allow(unexpected_cfgs)]
 pub mod relay;
 pub mod senders;
+pub mod weights;
 
 #[cfg(test)]
 mod tests;
@@ -49,6 +50,8 @@ pub const SENDER: u32 = 2000;
 pub const RECIPIENT: u32 = 2001;
 /// A system chain, which an id at or below 1999 makes it. Channels with it are deposit-free.
 pub const SYSTEM_PARA: u32 = 1001;
+/// A para the relay chain has never onboarded, so every channel with it is refused there.
+pub const UNKNOWN: u32 = 2002;
 
 pub const ALICE: AccountId32 = AccountId32::new([1u8; 32]);
 pub const BOB: AccountId32 = AccountId32::new([2u8; 32]);
@@ -105,8 +108,11 @@ decl_test_network! {
 }
 
 pub fn para_ext() -> sp_io::TestExternalities {
-	use para::{MsgQueue, Runtime, SovereignAccountOf, System};
+	use para::{DepositPerMessage, MsgQueue, Runtime, SovereignAccountOf, System, PER_MESSAGE};
 	use sp_runtime::traits::Convert;
+
+	// `MockNet::reset()` rebuilds the storage but not the statics behind it.
+	DepositPerMessage::set(PER_MESSAGE);
 
 	let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 	// The two ends of the flow tests put up their deposits out of these.
@@ -120,6 +126,7 @@ pub fn para_ext() -> sp_io::TestExternalities {
 			(BOB, INITIAL_BALANCE),
 			sovereign(SENDER),
 			sovereign(RECIPIENT),
+			sovereign(UNKNOWN),
 		],
 		..Default::default()
 	}

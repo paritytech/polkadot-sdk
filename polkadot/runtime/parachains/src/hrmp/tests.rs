@@ -1234,7 +1234,7 @@ fn hrmp_notifications_works() {
 
 mod registry {
 	use super::*;
-	use hrmp_primitives::{ChannelId, FailureReason, HrmpRegistry};
+	use hrmp_primitives::{ChannelId, HrmpRegistry};
 
 	const CAPACITY: u32 = 2;
 	const MESSAGE_SIZE: u32 = 8;
@@ -1243,7 +1243,7 @@ mod registry {
 		ChannelId { sender, recipient }
 	}
 
-	fn open(channel: ChannelId) -> Result<(), FailureReason> {
+	fn open(channel: ChannelId) -> Result<(), ()> {
 		Hrmp::open_channel(channel, CAPACITY, MESSAGE_SIZE)
 	}
 
@@ -1290,9 +1290,9 @@ mod registry {
 			register_parachain(para_a.into());
 			run_to_block(4, Some(vec![3, 4]));
 
-			assert_eq!(open(channel(para_a, para_a)), Err(FailureReason::InvalidPara));
-			assert_eq!(open(channel(para_a, para_b)), Err(FailureReason::InvalidPara));
-			assert_eq!(open(channel(para_b, para_a)), Err(FailureReason::InvalidPara));
+			assert_eq!(open(channel(para_a, para_a)), Err(()));
+			assert_eq!(open(channel(para_a, para_b)), Err(()));
+			assert_eq!(open(channel(para_b, para_a)), Err(()));
 		});
 	}
 
@@ -1306,19 +1306,10 @@ mod registry {
 			run_to_block(4, Some(vec![3, 4]));
 
 			let ch = channel(para_a, para_b);
-			assert_eq!(
-				Hrmp::open_channel(ch, 0, MESSAGE_SIZE),
-				Err(FailureReason::InvalidParameters)
-			);
-			assert_eq!(
-				Hrmp::open_channel(ch, CAPACITY + 1, MESSAGE_SIZE),
-				Err(FailureReason::InvalidParameters)
-			);
-			assert_eq!(Hrmp::open_channel(ch, CAPACITY, 0), Err(FailureReason::InvalidParameters));
-			assert_eq!(
-				Hrmp::open_channel(ch, CAPACITY, MESSAGE_SIZE + 1),
-				Err(FailureReason::InvalidParameters)
-			);
+			assert_eq!(Hrmp::open_channel(ch, 0, MESSAGE_SIZE), Err(()));
+			assert_eq!(Hrmp::open_channel(ch, CAPACITY + 1, MESSAGE_SIZE), Err(()));
+			assert_eq!(Hrmp::open_channel(ch, CAPACITY, 0), Err(()));
+			assert_eq!(Hrmp::open_channel(ch, CAPACITY, MESSAGE_SIZE + 1), Err(()));
 		});
 	}
 
@@ -1332,7 +1323,7 @@ mod registry {
 			run_to_block(4, Some(vec![3, 4]));
 
 			assert_eq!(open(channel(para_a, para_b)), Ok(()));
-			assert_eq!(open(channel(para_a, para_b)), Err(FailureReason::AlreadyExists));
+			assert_eq!(open(channel(para_a, para_b)), Err(()));
 
 			// A request the legacy path left pending counts too.
 			assert_ok!(Hrmp::init_open_channel(
@@ -1341,7 +1332,7 @@ mod registry {
 				CAPACITY,
 				MESSAGE_SIZE
 			));
-			assert_eq!(open(channel(para_b, para_a)), Err(FailureReason::AlreadyExists));
+			assert_eq!(open(channel(para_b, para_a)), Err(()));
 		});
 	}
 
@@ -1358,11 +1349,11 @@ mod registry {
 			// Two outbound channels is the configured maximum for the sender.
 			assert_eq!(open(channel(paras[0], paras[1])), Ok(()));
 			assert_eq!(open(channel(paras[0], paras[2])), Ok(()));
-			assert_eq!(open(channel(paras[0], paras[3])), Err(FailureReason::LimitExceeded));
+			assert_eq!(open(channel(paras[0], paras[3])), Err(()));
 
 			// And two inbound for the recipient.
 			assert_eq!(open(channel(paras[2], paras[1])), Ok(()));
-			assert_eq!(open(channel(paras[3], paras[1])), Err(FailureReason::LimitExceeded));
+			assert_eq!(open(channel(paras[3], paras[1])), Err(()));
 		});
 	}
 

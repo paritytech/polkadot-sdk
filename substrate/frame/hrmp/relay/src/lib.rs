@@ -137,7 +137,7 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	// Every emitter but `RequestForwarded` is still a `todo!()`.
+	// Every emitter but `RequestForwarded` lands with the handler it belongs to.
 	#[allow(dead_code)]
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -165,12 +165,30 @@ pub mod pallet {
 			/// The id of the message that asked for it.
 			message_id: u64,
 		},
+		/// A request to close a channel was refused.
+		CloseChannelRejected {
+			/// The channel.
+			channel: ChannelId,
+			/// The id of the message that asked for it.
+			message_id: u64,
+			/// Why it was refused.
+			reason: FailureReason,
+		},
 		/// Every channel of a para was dropped.
 		ChannelsCleaned {
 			/// The para.
 			para_id: ParaId,
 			/// The id of the message that asked for it.
 			message_id: u64,
+		},
+		/// A para's channels were left alone, because the witness did not cover them.
+		ForceCleanRejected {
+			/// The para.
+			para_id: ParaId,
+			/// The id of the message that asked for it.
+			message_id: u64,
+			/// Why it was refused.
+			reason: FailureReason,
 		},
 		/// A channel notification could not be delivered to a para.
 		NotifyFailed {
@@ -214,8 +232,8 @@ pub mod pallet {
 				T::WeightInfo::receive_open_system_pair(),
 			MessageToRelay::V1(MessageToRelayV1::CloseChannel { .. }) =>
 				T::WeightInfo::receive_close_channel(),
-			MessageToRelay::V1(MessageToRelayV1::ForceClean { .. }) =>
-				T::WeightInfo::receive_force_clean(),
+			MessageToRelay::V1(MessageToRelayV1::ForceClean { num_inbound, num_outbound, .. }) =>
+				T::WeightInfo::receive_force_clean(*num_inbound, *num_outbound),
 			MessageToRelay::V1(MessageToRelayV1::NotifyPara { .. }) =>
 				T::WeightInfo::receive_notify_para(),
 		})]
@@ -251,9 +269,12 @@ pub mod pallet {
 					message_id,
 					initiator,
 				}) => Self::on_close_channel(channel, message_id, initiator),
-				MessageToRelay::V1(MessageToRelayV1::ForceClean { para_id, message_id }) => {
-					Self::on_force_clean(para_id, message_id)
-				},
+				MessageToRelay::V1(MessageToRelayV1::ForceClean {
+					para_id,
+					message_id,
+					num_inbound,
+					num_outbound,
+				}) => Self::on_force_clean(para_id, message_id, num_inbound, num_outbound),
 				MessageToRelay::V1(MessageToRelayV1::NotifyPara { para_id, notification }) => {
 					Self::on_notify_para(para_id, notification)
 				},
@@ -314,8 +335,10 @@ pub mod pallet {
 			// failure, so it gets one of its own.
 			let outcome = with_storage_layer(|| {
 				T::Registry::open_channel(channel, max_capacity, max_message_size)
-					.map(|()| (max_capacity, max_message_size))
-			});
+					.map_err(|()| DispatchError::Other("refused"))
+			})
+			.map(|()| (max_capacity, max_message_size))
+			.map_err(|_| FailureReason::Refused);
 
 			let notification = match &outcome {
 				Ok(_) => {
@@ -350,12 +373,13 @@ pub mod pallet {
 			max_message_size: u32,
 		) {
 			let _ = (channel, message_id, max_capacity, max_message_size);
-			todo!()
+			// TODO(ahm-v2): open the channel through the registry without the recipient's consent
+			// and report the outcome back.
 		}
 
 		fn on_open_system_channel(channel: ChannelId, message_id: u64) {
 			let _ = (channel, message_id);
-			todo!()
+			// TODO(ahm-v2): open the system channel and report back the sizes it used.
 		}
 
 		fn on_open_system_pair(
@@ -365,17 +389,18 @@ pub mod pallet {
 			max_message_size: u32,
 		) {
 			let _ = (channel, message_id, max_capacity, max_message_size);
-			todo!()
+			// TODO(ahm-v2): open both directions, rolling back if either is refused, and report
+			// the outcome back.
 		}
 
 		fn on_close_channel(channel: ChannelId, message_id: u64, initiator: ParaId) {
 			let _ = (channel, message_id, initiator);
-			todo!()
+			// TODO(ahm-v2): close the channel through the registry and report the outcome back.
 		}
 
-		fn on_force_clean(para_id: ParaId, message_id: u64) {
-			let _ = (para_id, message_id);
-			todo!()
+		fn on_force_clean(para_id: ParaId, message_id: u64, num_inbound: u32, num_outbound: u32) {
+			let _ = (para_id, message_id, num_inbound, num_outbound);
+			// TODO(ahm-v2): drop every channel of `para_id` and report the outcome back.
 		}
 
 		/// Hand a notification to the transport that reaches any para.

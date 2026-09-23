@@ -25,9 +25,9 @@
 #![allow(dead_code)]
 
 use crate::{self as pallet_hrmp_relay, ForwardToPara, NotifyParachain, SendToPara};
-use frame_support::{derive_impl, parameter_types, traits::EnsureOrigin};
+use frame_support::{derive_impl, ensure, parameter_types, traits::EnsureOrigin};
 use hrmp_primitives::{
-	ChannelId, FailureReason, HrmpRegistry, MessageToPara, ParaId, ParaNotification, ParaRequest,
+	ChannelId, HrmpRegistry, MessageToPara, ParaId, ParaNotification, ParaRequest,
 };
 use sp_runtime::BuildStorage;
 
@@ -72,8 +72,8 @@ impl frame_system::Config for Test {
 parameter_types! {
 	/// Channels the registry holds.
 	pub static RegistryChannels: Vec<ChannelId> = Vec::new();
-	/// When set, the registry refuses everything with this reason.
-	pub static RegistryRefuses: Option<FailureReason> = None;
+	/// When true, the registry refuses everything.
+	pub static RegistryRefuses: bool = false;
 	/// Reports the pallet handed to the transport, oldest first.
 	pub static SentMessages: Vec<MessageToPara> = Vec::new();
 	/// When true, the transport refuses everything.
@@ -94,8 +94,12 @@ parameter_types! {
 pub struct MockRegistry;
 
 impl MockRegistry {
-	fn guard() -> Result<(), FailureReason> {
-		RegistryRefuses::get().map_or(Ok(()), Err)
+	fn guard() -> Result<(), ()> {
+		if RegistryRefuses::get() {
+			Err(())
+		} else {
+			Ok(())
+		}
 	}
 
 	fn insert(channel: ChannelId) {
@@ -115,13 +119,13 @@ impl HrmpRegistry for MockRegistry {
 		channel: ChannelId,
 		_max_capacity: u32,
 		_max_message_size: u32,
-	) -> Result<(), FailureReason> {
+	) -> Result<(), ()> {
 		Self::guard()?;
 		Self::insert(channel);
 		Ok(())
 	}
 
-	fn open_system_channel(channel: ChannelId) -> Result<(u32, u32), FailureReason> {
+	fn open_system_channel(channel: ChannelId) -> Result<(u32, u32), ()> {
 		Self::guard()?;
 		Self::insert(channel);
 		Ok(SYSTEM_CHANNEL_SIZES)
@@ -131,21 +135,27 @@ impl HrmpRegistry for MockRegistry {
 		channel: ChannelId,
 		_max_capacity: u32,
 		_max_message_size: u32,
-	) -> Result<(), FailureReason> {
+	) -> Result<(), ()> {
 		Self::guard()?;
 		Self::insert(channel);
 		Self::insert(channel.reversed());
 		Ok(())
 	}
 
-	fn close_channel(channel: ChannelId, _initiator: ParaId) -> Result<(), FailureReason> {
+	fn close_channel(channel: ChannelId, _initiator: ParaId) -> Result<(), ()> {
 		Self::guard()?;
 		Self::remove(channel);
 		Ok(())
 	}
 
-	fn force_clean(para_id: ParaId) -> Result<(), FailureReason> {
+	fn force_clean(para_id: ParaId, num_inbound: u32, num_outbound: u32) -> Result<(), ()> {
 		Self::guard()?;
+		let channels = RegistryChannels::get();
+		let inbound = channels.iter().filter(|c| c.recipient == para_id).count();
+		let outbound = channels.iter().filter(|c| c.sender == para_id).count();
+		ensure!(inbound <= num_inbound as usize, ());
+		ensure!(outbound <= num_outbound as usize, ());
+
 		RegistryChannels::mutate(|channels| {
 			channels.retain(|channel| !channel.is_participant(para_id))
 		});
@@ -265,7 +275,7 @@ impl pallet_hrmp_relay::Config for Test {
 /// Externalities with the registry and message log cleared.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	RegistryChannels::set(Vec::new());
-	RegistryRefuses::set(None);
+	RegistryRefuses::set(false);
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
 	ForwardedRequests::set(Vec::new());

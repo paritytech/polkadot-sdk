@@ -444,5 +444,8 @@ impl xcm_executor::Config for XcmConfig {
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	sp_io::TestExternalities::new(t)
+	let mut ext = sp_io::TestExternalities::new(t);
+	// Events aren't recorded at the genesis block.
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }

@@ -134,7 +134,7 @@ pub enum ParaRequestV1 {
 	CancelOpenRequest {
 		/// The channel the request is for.
 		channel: ChannelId,
-		/// The asking para's count of open requests, checked against storage.
+		/// The sender's count of open requests, checked against storage.
 		open_requests: u32,
 	},
 	/// Open both deposit-free directions between the asking para and a system chain.
@@ -148,8 +148,8 @@ pub enum ParaRequestV1 {
 /// What a parachain is told about a channel it is one end of.
 ///
 /// The first three are delivered as the XCM `HrmpNewChannelOpenRequest`, `HrmpChannelAccepted`
-/// and `HrmpChannelClosing` instructions, whose fields they mirror. The last two conclude a
-/// request and have no instruction of their own, so how they reach a para is up to the transport.
+/// and `HrmpChannelClosing` instructions, whose fields they mirror. The rest conclude a request
+/// and have no instruction of their own, so how they reach a para is up to the transport.
 /// Versioned by the message carrying it, as [`ChannelId`] and [`FailureReason`] are.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
@@ -194,6 +194,14 @@ pub enum ParaNotification {
 		channel: ChannelId,
 		/// Why the relay chain refused.
 		reason: FailureReason,
+	},
+	/// An open request the para being told is one end of was withdrawn.
+	#[codec(index = 5)]
+	OpenRequestCanceled {
+		/// The channel the request was for.
+		channel: ChannelId,
+		/// Which end withdrew it.
+		by_parachain: ParaId,
 	},
 }
 
@@ -278,6 +286,10 @@ pub enum MessageToRelayV1 {
 		para_id: ParaId,
 		/// The parachain's id for this message.
 		message_id: u64,
+		/// Upper bound on the para's inbound channels, checked against the relay chain's own.
+		num_inbound: u32,
+		/// Upper bound on the para's outbound channels, checked against the relay chain's own.
+		num_outbound: u32,
 	},
 	/// Deliver a channel notification to a para. Nothing is answered.
 	///
@@ -365,14 +377,6 @@ pub enum FailureReason {
 	Refused,
 }
 
-/// Any dispatch error becomes [`FailureReason::Refused`], so registry calls can run inside a
-/// storage layer.
-impl From<sp_runtime::DispatchError> for FailureReason {
-	fn from(_: sp_runtime::DispatchError) -> Self {
-		FailureReason::Refused
-	}
-}
-
 /// The relay chain's HRMP channel registry, as `pallet-hrmp-relay` needs to see it.
 ///
 /// Implemented by whichever pallet owns HRMP, which on a relay chain is
@@ -383,27 +387,29 @@ impl From<sp_runtime::DispatchError> for FailureReason {
 /// inside its own storage layer.
 pub trait HrmpRegistry {
 	/// Open a channel, forced or agreed. Both cases are the same here.
-	fn open_channel(
-		channel: ChannelId,
-		max_capacity: u32,
-		max_message_size: u32,
-	) -> Result<(), FailureReason>;
+	#[allow(clippy::result_unit_err)]
+	fn open_channel(channel: ChannelId, max_capacity: u32, max_message_size: u32)
+		-> Result<(), ()>;
 
 	/// Open one direction between two system chains, returning the sizes it used.
-	fn open_system_channel(channel: ChannelId) -> Result<(u32, u32), FailureReason>;
+	#[allow(clippy::result_unit_err)]
+	fn open_system_channel(channel: ChannelId) -> Result<(u32, u32), ()>;
 
 	/// Open both `channel` and its reverse, rolling both back if either is refused.
+	#[allow(clippy::result_unit_err)]
 	fn open_system_pair(
 		channel: ChannelId,
 		max_capacity: u32,
 		max_message_size: u32,
-	) -> Result<(), FailureReason>;
+	) -> Result<(), ()>;
 
 	/// Close an open channel. `initiator` must be one of its two ends.
-	fn close_channel(channel: ChannelId, initiator: ParaId) -> Result<(), FailureReason>;
+	#[allow(clippy::result_unit_err)]
+	fn close_channel(channel: ChannelId, initiator: ParaId) -> Result<(), ()>;
 
-	/// Drop every channel belonging to `para_id`.
-	fn force_clean(para_id: ParaId) -> Result<(), FailureReason>;
+	/// Drop every channel belonging to `para_id`, refusing a witness that does not cover them.
+	#[allow(clippy::result_unit_err)]
+	fn force_clean(para_id: ParaId, num_inbound: u32, num_outbound: u32) -> Result<(), ()>;
 
 	/// Whether there is a channel or a pending request for `channel`.
 	fn exists(channel: ChannelId) -> bool;

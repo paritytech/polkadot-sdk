@@ -17,8 +17,9 @@
 
 //! Weights for `pallet-hrmp-para`.
 //!
-//! Placeholders. Regenerate with `/cmd bench` once the extrinsics have bodies. `receive` is
-//! split per message variant, since it is weighed by the variant it carries.
+//! Placeholders, `Weight::MAX` until benchmarked so nothing scaffolded is ever cheap.
+//! Regenerate with `/cmd bench` once the extrinsics have bodies. `receive` is split per message
+//! variant, since it is weighed by the variant it carries.
 
 #![allow(missing_docs)]
 
@@ -45,85 +46,85 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn hrmp_init_open_channel() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn hrmp_accept_open_channel() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn hrmp_close_channel() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn force_clean_hrmp(_i: u32, _e: u32) -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn force_process_hrmp_open(_c: u32) -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn force_process_hrmp_close(_c: u32) -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn hrmp_cancel_open_request(_c: u32) -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn force_open_hrmp_channel(_c: u32) -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn establish_system_channel() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn poke_channel_deposits() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn establish_channel_with_system() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn receive_open_channel_response() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn receive_close_response() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 }
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
 	fn hrmp_init_open_channel() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn hrmp_accept_open_channel() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn hrmp_close_channel() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn force_clean_hrmp(_i: u32, _e: u32) -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn force_process_hrmp_open(_c: u32) -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn force_process_hrmp_close(_c: u32) -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn hrmp_cancel_open_request(_c: u32) -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn force_open_hrmp_channel(_c: u32) -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn establish_system_channel() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn poke_channel_deposits() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn establish_channel_with_system() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn receive_open_channel_response() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 	fn receive_close_response() -> Weight {
-		Weight::zero()
+		Weight::MAX
 	}
 }

@@ -31,12 +31,12 @@ mod tests;
 
 pub use crate::{
 	AddressMapper, TransactionLimits,
-	access_list::StorageOp,
+	access_list::{StorageOp, Warmth},
 	exec::{
 		ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo, ReentrancyProtection,
 	},
 	metering::{Diff, Token},
-	vm::RuntimeCosts,
+	vm::{RuntimeCosts, StorageAccessKind},
 };
 pub use alloy_core as alloy;
 pub use sp_core::{H160, H256, U256};
@@ -145,9 +145,13 @@ impl Error {
 	pub fn try_to_revert<T: Config>(e: DispatchError) -> Self {
 		let delegate_denied = CrateError::<T>::PrecompileDelegateDenied.into();
 		let construct = CrateError::<T>::TerminatedInConstructor.into();
+		let cannot_terminate_delegated = CrateError::<T>::CannotTerminateDelegatedAccount.into();
 		let message = match () {
 			_ if e == delegate_denied => "illegal to call this pre-compile via delegate call",
 			_ if e == construct => "terminate pre-compile cannot be called from the constructor",
+			_ if e == cannot_terminate_delegated => {
+				"cannot terminate an EIP-7702 delegated account via the terminate pre-compile"
+			},
 			_ => return e.into(),
 		};
 		Self::Revert(message.into())

@@ -27,7 +27,7 @@ use codec::{Decode, Encode};
 use core::{fmt, mem};
 use frame_support::{pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound};
 use frame_system::pallet_prelude::*;
-use hrmp_primitives::{ChannelId, FailureReason, HrmpRegistry, ParaId as HrmpParaId};
+use hrmp_primitives::{ChannelId, HrmpRegistry, ParaId as HrmpParaId};
 use polkadot_parachain_primitives::primitives::{HorizontalMessages, IsSystem};
 use polkadot_primitives::{
 	Balance, Hash, HrmpChannelId, Id as ParaId, InboundHrmpMessage, OutboundHrmpMessage,
@@ -1929,29 +1929,26 @@ impl<T: Config> HrmpRegistry for Pallet<T> {
 		channel: ChannelId,
 		max_capacity: u32,
 		max_message_size: u32,
-	) -> Result<(), FailureReason> {
+	) -> Result<(), ()> {
 		let channel_id = to_hrmp_channel_id(channel);
-		ensure!(channel_id.sender != channel_id.recipient, FailureReason::InvalidPara);
+		ensure!(channel_id.sender != channel_id.recipient, ());
 		ensure!(
 			paras::Pallet::<T>::is_valid_para(channel_id.sender) &&
 				paras::Pallet::<T>::is_valid_para(channel_id.recipient),
-			FailureReason::InvalidPara,
+			(),
 		);
 
 		let config = configuration::ActiveConfig::<T>::get();
-		ensure!(
-			max_capacity > 0 && max_capacity <= config.hrmp_channel_max_capacity,
-			FailureReason::InvalidParameters,
-		);
+		ensure!(max_capacity > 0 && max_capacity <= config.hrmp_channel_max_capacity, (),);
 		ensure!(
 			max_message_size > 0 && max_message_size <= config.hrmp_channel_max_message_size,
-			FailureReason::InvalidParameters,
+			(),
 		);
 
 		ensure!(
 			!HrmpChannels::<T>::contains_key(&channel_id) &&
 				!HrmpOpenChannelRequests::<T>::contains_key(&channel_id),
-			FailureReason::AlreadyExists,
+			(),
 		);
 
 		// The indexes are unbounded vectors, so the configured per-para limits are what keeps
@@ -1959,17 +1956,11 @@ impl<T: Config> HrmpRegistry for Pallet<T> {
 		let egress_cnt =
 			HrmpEgressChannelsIndex::<T>::decode_len(&channel_id.sender).unwrap_or(0) as u32;
 		let open_req_cnt = HrmpOpenChannelRequestCount::<T>::get(&channel_id.sender);
-		ensure!(
-			egress_cnt + open_req_cnt < config.hrmp_max_parachain_outbound_channels,
-			FailureReason::LimitExceeded,
-		);
+		ensure!(egress_cnt + open_req_cnt < config.hrmp_max_parachain_outbound_channels, (),);
 		let ingress_cnt =
 			HrmpIngressChannelsIndex::<T>::decode_len(&channel_id.recipient).unwrap_or(0) as u32;
 		let accepted_cnt = HrmpAcceptedChannelRequestCount::<T>::get(&channel_id.recipient);
-		ensure!(
-			ingress_cnt + accepted_cnt < config.hrmp_max_parachain_inbound_channels,
-			FailureReason::LimitExceeded,
-		);
+		ensure!(ingress_cnt + accepted_cnt < config.hrmp_max_parachain_inbound_channels, (),);
 
 		// Both ends already agreed on the calling chain, so the channel opens now rather than at
 		// the next session boundary.
@@ -2000,28 +1991,32 @@ impl<T: Config> HrmpRegistry for Pallet<T> {
 		Ok(())
 	}
 
-	fn open_system_channel(channel: ChannelId) -> Result<(u32, u32), FailureReason> {
+	fn open_system_channel(channel: ChannelId) -> Result<(u32, u32), ()> {
 		let _ = channel;
-		todo!()
+		// TODO(ahm-v2): open one direction between the two system chains, returning the sizes used.
+		Err(())
 	}
 
 	fn open_system_pair(
 		channel: ChannelId,
 		max_capacity: u32,
 		max_message_size: u32,
-	) -> Result<(), FailureReason> {
+	) -> Result<(), ()> {
 		let _ = (channel, max_capacity, max_message_size);
-		todo!()
+		// TODO(ahm-v2): open both directions, rolling both back if either is refused.
+		Err(())
 	}
 
-	fn close_channel(channel: ChannelId, initiator: HrmpParaId) -> Result<(), FailureReason> {
+	fn close_channel(channel: ChannelId, initiator: HrmpParaId) -> Result<(), ()> {
 		let _ = (channel, initiator);
-		todo!()
+		// TODO(ahm-v2): close the channel on `initiator`'s behalf.
+		Err(())
 	}
 
-	fn force_clean(para_id: HrmpParaId) -> Result<(), FailureReason> {
-		let _ = para_id;
-		todo!()
+	fn force_clean(para_id: HrmpParaId, num_inbound: u32, num_outbound: u32) -> Result<(), ()> {
+		let _ = (para_id, num_inbound, num_outbound);
+		// TODO(ahm-v2): drop every channel and request belonging to `para_id`.
+		Err(())
 	}
 
 	fn exists(channel: ChannelId) -> bool {
@@ -2033,6 +2028,6 @@ impl<T: Config> HrmpRegistry for Pallet<T> {
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_openable(channel: ChannelId) {
 		let _ = channel;
-		todo!()
+		// TODO(ahm-v2): arrange for `channel` to be openable.
 	}
 }

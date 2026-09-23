@@ -263,7 +263,7 @@ fn a_refused_system_channel_releases_nothing() {
 		assert_ok!(accept(SYSTEM_CHANNEL));
 		let message_id = Requests::<Test>::get(SYSTEM_CHANNEL).unwrap().message_id;
 
-		assert_ok!(respond(SYSTEM_CHANNEL, message_id, Err(FailureReason::InvalidPara)));
+		assert_ok!(respond(SYSTEM_CHANNEL, message_id, Err(FailureReason::Refused)));
 
 		assert!(Requests::<Test>::get(SYSTEM_CHANNEL).is_none());
 		assert!(Channels::<Test>::get(SYSTEM_CHANNEL).is_none());
@@ -374,7 +374,7 @@ fn a_refusing_response_releases_both_deposits() {
 		agreed(CHANNEL);
 		let message_id = Requests::<Test>::get(CHANNEL).unwrap().message_id;
 
-		assert_ok!(respond(CHANNEL, message_id, Err(FailureReason::InvalidPara)));
+		assert_ok!(respond(CHANNEL, message_id, Err(FailureReason::Refused)));
 
 		assert!(Requests::<Test>::get(CHANNEL).is_none());
 		assert!(Channels::<Test>::get(CHANNEL).is_none());
@@ -389,7 +389,7 @@ fn a_refusing_response_releases_both_deposits() {
 			vec![Event::OpenChannelFailed {
 				channel: CHANNEL,
 				message_id,
-				reason: FailureReason::InvalidPara,
+				reason: FailureReason::Refused,
 			}]
 		);
 	});
