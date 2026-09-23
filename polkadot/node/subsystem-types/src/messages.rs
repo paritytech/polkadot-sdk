@@ -1597,9 +1597,11 @@ pub enum ProspectiveParachainsMessage {
 		ProspectiveValidationDataRequest,
 		oneshot::Sender<Option<PersistedValidationData>>,
 	),
-	/// Known output heads per active leaf: for each leaf and requested para, the output heads
-	/// of all candidates held in that leaf's fragment chain  plus the para's latest included
-	/// head. A leaf with nothing to report for any requested para may be absent.
+	/// Known output heads per scheduling parent in view. The keys are every active leaf plus the
+	/// retained ancestors within scheduling lookahead. For each key and requested para: the output
+	/// heads of all candidates held in that scheduling parent's fragment chain plus the para's
+	/// latest included head. A scheduling parent with nothing to report for any requested para
+	/// may be absent.
 	GetKnownOutputHeads(
 		Vec<ParaId>,
 		oneshot::Sender<HashMap<Hash, HashMap<ParaId, HashSet<Hash>>>>,

@@ -41,13 +41,14 @@
 //! `live_segments`.
 //!
 //! Prospective-parachains knowledge is queried live before each planner pass
-//! (`GetKnownOutputHeads`, answered per active leaf) and passed in; staleness is bounded
-//! by PP's own statement-ingestion latency. Knowledge is per leaf: each (leaf, core) view
-//! is filled with PP's answer for that leaf plus our fetched and in-flight heads whose
-//! scheduling parent is on that leaf's path. A head known only under a sibling relay fork
-//! does not block. A segment at a scheduling parent shared by two live leaves that
-//! disagree is resolved by whichever view is filled first; the collator re-advertises next
-//! slot.
+//! (`GetKnownOutputHeads`) and passed in; staleness is bounded by PP's own
+//! statement-ingestion latency. PP answers per scheduling parent it still holds:
+//! every active leaf plus retained ancestors within scheduling lookahead. Knowledge
+//! is per leaf: each (leaf, core) view is filled with PP's answer for that leaf plus
+//! our fetched and in-flight heads whose scheduling parent is on that leaf's path.
+//! A head known only under a sibling relay fork does not block. A segment at a
+//! scheduling parent shared by two live leaves that disagree is resolved by whichever
+//! view is filled first; the collator re-advertises next slot.
 
 use crate::{
 	extract_leaf_scheduling_info, is_scheduling_parent_valid,
