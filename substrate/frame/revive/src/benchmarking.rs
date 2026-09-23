@@ -62,7 +62,7 @@ use pallet_revive_uapi::{
 	CallFlags, ReturnErrorCode, StorageFlags, pack_hi_lo,
 	precompiles::{storage::IStorage, system::ISystem},
 };
-use revm::bytecode::Bytecode;
+use revm::bytecode::{Bytecode, opcode::*};
 use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_consensus_babe::{
 	BABE_ENGINE_ID,
@@ -135,7 +135,6 @@ impl EvmJumpFixture {
 	fn new(jump: u8, jumps: u32) -> Self {
 		use rand::{SeedableRng, seq::SliceRandom};
 		use rand_pcg::Pcg64;
-		use revm::bytecode::opcode::JUMPDEST;
 
 		const MAX_CODE_SIZE: usize = revm::primitives::eip3860::MAX_INITCODE_SIZE;
 		let mut code = Vec::<u8>::with_capacity(MAX_CODE_SIZE);
@@ -3278,9 +3277,7 @@ mod benchmarks {
 	/// are placed on the stack ahead of time, so nothing but `JUMP` and `JUMPDEST` executes and
 	/// the slope is one `JUMP` plus one `JUMPDEST`. Each jump consumes one stack item.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_jump_opcode(r: Linear<1, { limits::EVM_STACK_LIMIT }>) -> Result<(), BenchmarkError> {
-		use revm::bytecode::opcode::JUMP;
-
+	fn evm_jump_opcode(r: Linear<1, { limits::EVM_STACK_LIMIT }>) {
 		let fixture = EvmJumpFixture::new(JUMP, r);
 		let last_target = fixture.last_target();
 
@@ -3289,9 +3286,7 @@ mod benchmarks {
 		let bytecode = ExtBytecode::new(Bytecode::new_raw(fixture.code.into()));
 		let mut interpreter = Interpreter::new(bytecode, Vec::new(), &mut ext);
 		for target in fixture.targets.into_iter().rev() {
-			if interpreter.stack.push(U256::from(target)).is_break() {
-				return Err(BenchmarkError::Stop("Targets exceed the stack limit"));
-			}
+			interpreter.stack.push(U256::from(target)).continue_value().unwrap();
 		}
 
 		let result;
@@ -3304,7 +3299,6 @@ mod benchmarks {
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
 		assert_eq!(interpreter.bytecode.pc(), last_target + 2);
-		Ok(())
 	}
 
 	/// Benchmark `r` taken `JUMPI` instructions over a full-size code with shuffled targets. The
@@ -3312,11 +3306,7 @@ mod benchmarks {
 	/// `JUMPDEST` executes and the slope is one taken `JUMPI` plus one `JUMPDEST`. Each jump
 	/// consumes two stack items.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_jumpi_opcode(
-		r: Linear<1, { limits::EVM_STACK_LIMIT / 2 }>,
-	) -> Result<(), BenchmarkError> {
-		use revm::bytecode::opcode::JUMPI;
-
+	fn evm_jumpi_opcode(r: Linear<1, { limits::EVM_STACK_LIMIT / 2 }>) {
 		let fixture = EvmJumpFixture::new(JUMPI, r);
 		let last_target = fixture.last_target();
 
@@ -3327,9 +3317,7 @@ mod benchmarks {
 		let operands =
 			fixture.targets.into_iter().flat_map(|target| [U256::from(target), U256::one()]);
 		for operand in operands.rev() {
-			if interpreter.stack.push(operand).is_break() {
-				return Err(BenchmarkError::Stop("Operands exceed the stack limit"));
-			}
+			interpreter.stack.push(operand).continue_value().unwrap();
 		}
 
 		let result;
@@ -3342,16 +3330,11 @@ mod benchmarks {
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
 		assert_eq!(interpreter.bytecode.pc(), last_target + 2);
-		Ok(())
 	}
 
 	// TODO: Experimenting with what the worst case for the conditional jump is.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_jumpi_untaken_opcode(
-		r: Linear<1, { limits::EVM_STACK_LIMIT / 2 }>,
-	) -> Result<(), BenchmarkError> {
-		use revm::bytecode::opcode::JUMPI;
-
+	fn evm_jumpi_untaken_opcode(r: Linear<1, { limits::EVM_STACK_LIMIT / 2 }>) {
 		let fixture = EvmJumpFixture::new(JUMPI, r);
 		let last_target = fixture.last_target();
 
@@ -3364,9 +3347,7 @@ mod benchmarks {
 			[U256::from(target), condition]
 		});
 		for operand in operands.rev() {
-			if interpreter.stack.push(operand).is_break() {
-				return Err(BenchmarkError::Stop("Operands exceed the stack limit"));
-			}
+			interpreter.stack.push(operand).continue_value().unwrap();
 		}
 
 		let result;
@@ -3379,17 +3360,13 @@ mod benchmarks {
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
 		assert_eq!(interpreter.bytecode.pc(), last_target + 2);
-		Ok(())
 	}
 
 	// TODO: Experimenting with what the worst case for the conditional jump is.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_jumpi_random_opcode(
-		r: Linear<1, { limits::EVM_STACK_LIMIT / 2 }>,
-	) -> Result<(), BenchmarkError> {
+	fn evm_jumpi_random_opcode(r: Linear<1, { limits::EVM_STACK_LIMIT / 2 }>) {
 		use rand::{Rng, SeedableRng};
 		use rand_pcg::Pcg64;
-		use revm::bytecode::opcode::JUMPI;
 
 		let fixture = EvmJumpFixture::new(JUMPI, r);
 		let last_target = fixture.last_target();
@@ -3409,9 +3386,7 @@ mod benchmarks {
 			.zip(conditions)
 			.flat_map(|(target, condition)| [U256::from(target), condition]);
 		for operand in operands.rev() {
-			if interpreter.stack.push(operand).is_break() {
-				return Err(BenchmarkError::Stop("Operands exceed the stack limit"));
-			}
+			interpreter.stack.push(operand).continue_value().unwrap();
 		}
 
 		let result;
@@ -3424,7 +3399,6 @@ mod benchmarks {
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
 		assert_eq!(interpreter.bytecode.pc(), last_target + 2);
-		Ok(())
 	}
 
 	/// Benchmark `r` `PUSH32` instructions.
@@ -3434,9 +3408,7 @@ mod benchmarks {
 	/// from the code and therefore a `PUSH32` is the worst case scenario as it involves more data
 	/// being copied from the code.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_push_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) -> Result<(), BenchmarkError> {
-		use revm::bytecode::opcode::PUSH32;
-
+	fn evm_push_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
 		let code = core::iter::once(PUSH32)
 			.chain([u8::MAX; 32])
 			.collect::<Vec<u8>>()
@@ -3453,7 +3425,6 @@ mod benchmarks {
 		}
 
 		assert_eq!(result, Ok(ExecReturnValue::default()));
-		Ok(())
 	}
 
 	/// Benchmark `r` `POP` instructions.
@@ -3461,17 +3432,13 @@ mod benchmarks {
 	/// All items are placed on the stack before the code executes therefore the benchmark gives the
 	/// cost of just `POP` without any overhead.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_pop_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) -> Result<(), BenchmarkError> {
-		use revm::bytecode::opcode::POP;
-
+	fn evm_pop_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
 		let code = Bytecode::new_raw(vec![POP; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
 		for _ in 0..r {
-			if interpreter.stack.push(U256::MAX).is_break() {
-				return Err(BenchmarkError::Stop("Items exceed the stack limit"));
-			}
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
 		}
 
 		let result;
@@ -3483,7 +3450,6 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
-		Ok(())
 	}
 
 	/// Benchmark `r` `DUP16` instructions.
@@ -3492,19 +3458,13 @@ mod benchmarks {
 	/// top and push a copy of it, so `N` doesn't change the amount of work. The sixteen items are
 	/// placed on the stack before the code executes.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_dup_opcode(
-		r: Linear<0, { limits::EVM_STACK_LIMIT - 16 }>,
-	) -> Result<(), BenchmarkError> {
-		use revm::bytecode::opcode::DUP16;
-
+	fn evm_dup_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 16 }>) {
 		let code = Bytecode::new_raw(vec![DUP16; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
 		for _ in 0..16 {
-			if interpreter.stack.push(U256::MAX).is_break() {
-				return Err(BenchmarkError::Stop("Items exceed the stack limit"));
-			}
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
 		}
 
 		let result;
@@ -3516,7 +3476,6 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 16 + r as usize);
-		Ok(())
 	}
 
 	/// Benchmark `r` `SWAP16` instructions.
@@ -3525,17 +3484,13 @@ mod benchmarks {
 	/// fixed offset below it, so `N` doesn't change the amount of work. The seventeen items are
 	/// placed on the stack before the code executes.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_swap_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) -> Result<(), BenchmarkError> {
-		use revm::bytecode::opcode::SWAP16;
-
+	fn evm_swap_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
 		let code = Bytecode::new_raw(vec![SWAP16; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
 		for _ in 0..17 {
-			if interpreter.stack.push(U256::MAX).is_break() {
-				return Err(BenchmarkError::Stop("Items exceed the stack limit"));
-			}
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
 		}
 
 		let result;
@@ -3547,7 +3502,6 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 17);
-		Ok(())
 	}
 
 	/// Benchmark `r` `PC` instructions.
@@ -3555,9 +3509,7 @@ mod benchmarks {
 	/// Each `PC` pushes its own offset, so the top of the stack afterwards is the offset of the
 	/// last one, which checks that every instruction ran and that the program counter is right.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_pc_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) -> Result<(), BenchmarkError> {
-		use revm::bytecode::opcode::PC;
-
+	fn evm_pc_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
 		let code = Bytecode::new_raw(vec![PC; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3573,14 +3525,11 @@ mod benchmarks {
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), r as usize);
 		assert_eq!(interpreter.stack.top(), r.checked_sub(1).map(U256::from).as_ref());
-		Ok(())
 	}
 
 	/// Benchmark `r` `CHAINID` instructions.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_chainid_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) -> Result<(), BenchmarkError> {
-		use revm::bytecode::opcode::CHAINID;
-
+	fn evm_chainid_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
 		let code = Bytecode::new_raw(vec![CHAINID; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3597,16 +3546,11 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), r as usize);
 		let expected = U256::from(interpreter.ext.chain_id());
 		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
-		Ok(())
 	}
 
 	/// Benchmark `r` `DIFFICULTY` instructions.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_prevrandao_opcode(
-		r: Linear<0, { limits::EVM_STACK_LIMIT }>,
-	) -> Result<(), BenchmarkError> {
-		use revm::bytecode::opcode::DIFFICULTY;
-
+	fn evm_prevrandao_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
 		let code = Bytecode::new_raw(vec![DIFFICULTY; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3623,7 +3567,6 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), r as usize);
 		let expected = U256::from(evm::DIFFICULTY);
 		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
-		Ok(())
 	}
 
 	/// Benchmark `r` `CODESIZE` instructions.
@@ -3631,11 +3574,7 @@ mod benchmarks {
 	/// The code is nothing but `r` `CODESIZE` bytes, so every one of them pushes `r`, which checks
 	/// that the reported size is the original code length rather than the padded one.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_codesize_opcode(
-		r: Linear<0, { limits::EVM_STACK_LIMIT }>,
-	) -> Result<(), BenchmarkError> {
-		use revm::bytecode::opcode::CODESIZE;
-
+	fn evm_codesize_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
 		let code = Bytecode::new_raw(vec![CODESIZE; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3651,7 +3590,6 @@ mod benchmarks {
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), r as usize);
 		assert_eq!(interpreter.stack.top(), (r > 0).then_some(U256::from(r)).as_ref());
-		Ok(())
 	}
 
 	/// Benchmark `r` CALLDATALOAD instructions.
@@ -3667,12 +3605,9 @@ mod benchmarks {
 	/// boundary. All reads stay within calldata, and the stack contains exactly one item throughout
 	/// execution.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_calldataload_opcode(
-		r: Linear<0, { limits::CALLDATA_BYTES / 64 - 1 }>,
-	) -> Result<(), BenchmarkError> {
+	fn evm_calldataload_opcode(r: Linear<0, { limits::CALLDATA_BYTES / 64 - 1 }>) {
 		use rand::{SeedableRng, seq::SliceRandom};
 		use rand_pcg::Pcg64;
-		use revm::bytecode::opcode::CALLDATALOAD;
 
 		const CALLDATA_SIZE: usize = limits::CALLDATA_BYTES as usize;
 		const CACHE_LINE_SIZE: usize = 64;
@@ -3709,9 +3644,10 @@ mod benchmarks {
 		let mut rng = Pcg64::seed_from_u64(1337);
 		possible_offsets.shuffle(&mut rng);
 
-		if load_count > possible_offsets.len() {
-			return Err(BenchmarkError::Stop("Not enough calldata slots for the requested loads"));
-		}
+		assert!(
+			load_count <= possible_offsets.len(),
+			"Not enough calldata slots for the requested loads"
+		);
 
 		let walk_offsets = &possible_offsets[..load_count];
 
@@ -3747,9 +3683,7 @@ mod benchmarks {
 		let (mut external_context, _) = setup.ext();
 		let mut interpreter =
 			Interpreter::new(ExtBytecode::new(bytecode), calldata, &mut external_context);
-		if interpreter.stack.push(initial_stack_value).is_break() {
-			return Err(BenchmarkError::Stop("The start offset exceeds the stack limit"));
-		}
+		interpreter.stack.push(initial_stack_value).continue_value().unwrap();
 
 		let result;
 		#[block]
@@ -3761,8 +3695,6 @@ mod benchmarks {
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 1);
 		assert_eq!(interpreter.stack.top(), Some(&END_OF_WALK));
-
-		Ok(())
 	}
 
 	/// Benchmark `r` `CALLDATASIZE` instructions.
@@ -3771,11 +3703,7 @@ mod benchmarks {
 	/// and contents do not add work. Use maximum-size calldata and fill the stack with successful
 	/// pushes, keeping input allocation and interpreter setup outside the measured block.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_calldatasize_opcode(
-		r: Linear<0, { limits::EVM_STACK_LIMIT }>,
-	) -> Result<(), BenchmarkError> {
-		use revm::bytecode::opcode::CALLDATASIZE;
-
+	fn evm_calldatasize_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
 		let code = Bytecode::new_raw(vec![CALLDATASIZE; r as usize].into());
 		let input = vec![0u8; limits::CALLDATA_BYTES as usize];
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
@@ -3793,7 +3721,6 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), r as usize);
 		let expected = U256::from(limits::CALLDATA_BYTES);
 		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
-		Ok(())
 	}
 
 	/// Benchmark `r` `RETURNDATASIZE` instructions.
@@ -3802,11 +3729,7 @@ mod benchmarks {
 	/// reads the returned bytes nor branches on return flags. Use maximum-size return data and fill
 	/// the stack with successful pushes, keeping allocation and setup outside the measured block.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_returndatasize_opcode(
-		r: Linear<0, { limits::EVM_STACK_LIMIT }>,
-	) -> Result<(), BenchmarkError> {
-		use revm::bytecode::opcode::RETURNDATASIZE;
-
+	fn evm_returndatasize_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT }>) {
 		let code = Bytecode::new_raw(vec![RETURNDATASIZE; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
@@ -3827,7 +3750,6 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), r as usize);
 		let expected = U256::from(limits::CALLDATA_BYTES);
 		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
-		Ok(())
 	}
 
 	// Benchmark the execution of instructions.
