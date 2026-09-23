@@ -1931,7 +1931,6 @@ mod gloas_fork_isolation {
 		new_tester().execute_with(|| {
 			// The assertion is only meaningful if the fixture really is pre-Gloas.
 			assert!(!is_gloas_era(proof.header.slot));
-			assert!(!is_gloas_era(proof.header.slot));
 
 			assert_ok!(EthereumBeaconClient::store_finalized_header(
 				proof.header,
