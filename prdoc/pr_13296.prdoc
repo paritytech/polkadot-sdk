@@ -1,0 +1,11 @@
+title: 'Add Interweb Polkadot WebRTC, TCP and WSS bootnodes'
+
+doc:
+- audience: Node Operator
+  description: |-
+    Adds four Interweb IT bootnode multiaddrs to the embedded Polkadot relay
+    chainspec (`polkadot/node/service/chain-specs/polkadot.json`): WebRTC and
+    TCP on 195.144.22.130:13012, plus DNS TCP and WSS via boot.interweb-it.com.
+    No crate or runtime code changes.
+
+crates: []
