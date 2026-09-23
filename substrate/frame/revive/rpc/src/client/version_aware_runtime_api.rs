@@ -562,13 +562,13 @@ impl VersionAwareRuntimeApi {
 					// Sized from a guess, so it narrows on failure like any other window.
 					let mut narrowing = Narrowing::default();
 					let mut first = walk.first_window(self.max_response_size);
-					let CallRecordedOutput { value: entry, degraded } =
+					let CallRecordedOutput { value: entry, .. } =
 						fetch_narrowing(&mut first, &mut narrowing, &mut |window| {
 							one_window(Some(window)).boxed()
 						})
 						.await?;
 					let Some(TraceEntry::Traced(trace)) = entry else {
-						return Ok(CallRecordedOutput { value: entry, degraded });
+						return Ok(CallRecordedOutput { value: entry, degraded: false });
 					};
 
 					let mut collected = execution_trace(trace)?;
@@ -591,7 +591,7 @@ impl VersionAwareRuntimeApi {
 
 					Ok(CallRecordedOutput {
 						value: Some(TraceEntry::Traced(TraceV1::Execution(collected))),
-						degraded,
+						degraded: false,
 					})
 				});
 				Some(future)
