@@ -564,21 +564,20 @@ where
 	}
 
 	/// Adds a batch of coretime orders to the queue.
-	pub fn queue_order_batch(batch: &[(ParaId, BlockNumberFor<T>)]) -> DispatchResult {
+	pub fn queue_order_batch(batch: &[(ParaId, BlockNumberFor<T>)]) {
 		pallet::OrderStatus::<T>::mutate(|order_status| {
 			// The number of successfully queued orders happens to be the same as the index of the
 			// order being currently processed.
 			for (queued, (para_id, ordered_at)) in batch.iter().enumerate() {
-				order_status.queue.try_push(*ordered_at, *para_id).defensive_map_err(|_| {
+				if let Err(_) = order_status.queue.try_push(*ordered_at, *para_id) {
 					Pallet::<T>::deposit_event(Event::<T>::UnexpectedQueueFull {
 						queued: queued as u32,
 					});
-					Error::<T>::QueueFull
-				})?;
+					return;
+				}
 			}
 			Pallet::<T>::deposit_event(Event::<T>::BatchQueued { batch: batch.to_vec() });
-			Ok(())
-		})
+		});
 	}
 
 	/// Calculate and update spot traffic.

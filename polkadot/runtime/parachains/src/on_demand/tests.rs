@@ -26,7 +26,7 @@ use crate::{
 	origin::Origin as ParachainOrigin,
 	paras::{ParaGenesisArgs, ParaKind},
 };
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok};
 use pallet_balances::Error as BalancesError;
 use polkadot_primitives::{BlockNumber, SessionIndex, ValidationCode};
 use sp_runtime::traits::BadOrigin;
@@ -748,7 +748,6 @@ fn queue_on_demand_batch_keeps_duplicate_orders() {
 }
 
 #[test]
-#[cfg_attr(debug_assertions, should_panic = "Defensive failure has been triggered")]
 fn queue_on_demand_batch_beyond_capacity_fails() {
 	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
 		let block_num = 11;
@@ -760,12 +759,12 @@ fn queue_on_demand_batch_beyond_capacity_fails() {
 			.collect();
 		assert_ok!(Coretime::queue_on_demand_batch(broker_origin(), batch));
 
-		// Any further order does not fit anymore. The coretime chain is not supposed to send more
-		// orders than the relay chain can hold, hence this is a defensive failure.
-		assert_err!(
-			Coretime::queue_on_demand_batch(broker_origin(), vec![(ParaId::from(111), block_num)]),
-			Error::<Test>::QueueFull
-		);
+		// Any further order does not fit anymore. The call will still succeed, but an event
+		// communicating that the queue was full will be emitted.
+		assert_ok!(Coretime::queue_on_demand_batch(
+			broker_origin(),
+			vec![(ParaId::from(111), block_num)]
+		),);
 		assert_last_event(RuntimeEvent::OnDemand(Event::UnexpectedQueueFull { queued: 0 }));
 	});
 }
