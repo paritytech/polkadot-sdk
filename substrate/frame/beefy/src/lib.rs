@@ -48,7 +48,7 @@ use sp_consensus_beefy::{
 };
 use sp_runtime::{
 	generic::DigestItem,
-	traits::{IsMember, Member, One},
+	traits::{CheckedAdd, IsMember, Member, One},
 	RuntimeAppPublic,
 };
 use sp_session::{GetSessionNumber, GetValidatorCount};
@@ -277,7 +277,8 @@ pub mod pallet {
 		/// Reset BEEFY consensus by setting a new BEEFY genesis at `delay_in_blocks` blocks in the
 		/// future.
 		///
-		/// Note: `delay_in_blocks` has to be at least 1.
+		/// Note: `delay_in_blocks` has to be at least 1, and adding it to the current block
+		/// number must not overflow.
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_new_genesis())]
 		pub fn set_new_genesis(
@@ -286,7 +287,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			ensure!(delay_in_blocks >= One::one(), Error::<T>::InvalidConfiguration);
-			let genesis_block = frame_system::Pallet::<T>::block_number() + delay_in_blocks;
+			let genesis_block = frame_system::Pallet::<T>::block_number()
+				.checked_add(&delay_in_blocks)
+				.ok_or(Error::<T>::InvalidConfiguration)?;
 			GenesisBlock::<T>::put(Some(genesis_block));
 			Ok(())
 		}

@@ -1240,5 +1240,12 @@ fn set_new_genesis_works() {
 			Beefy::set_new_genesis(RuntimeOrigin::root(), 0u64,),
 			Error::<Test>::InvalidConfiguration,
 		);
+
+		// a delay that overflows the block number should fail and leave the genesis unchanged
+		assert_err!(
+			Beefy::set_new_genesis(RuntimeOrigin::root(), u64::MAX),
+			Error::<Test>::InvalidConfiguration,
+		);
+		assert_eq!(beefy::GenesisBlock::<Test>::get(), Some(expected));
 	});
 }
