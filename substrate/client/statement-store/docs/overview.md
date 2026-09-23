@@ -40,8 +40,8 @@ The implementation is split across several crates:
 
 - **`sp-statement-store`** — the [`Statement`] structure, core types, the [`StatementStore`] runtime
   and client interfaces, and cryptographic primitives.
-- **`sc-statement-store`** — the disk-backed (ParityDB) store: constraint management, the in-memory
-  index, and subscription handling.
+- **`sc-statement-store`** — the disk-backed (ParityDB) store: constraint management, the on-disk
+  indexes with their bounded in-memory caches, and subscription handling.
 - **`sc-network-statement`** — gossip-based propagation, per-peer state, and topic affinity.
 - **`pallet-statement`** — the runtime pallet: it turns on-chain statement events into statements
   (via an offchain worker) and defines the bounds used to compute account allowances.

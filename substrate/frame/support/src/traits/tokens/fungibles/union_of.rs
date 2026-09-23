@@ -137,6 +137,12 @@ impl<
 			Right(a) => <Right as fungibles::Inspect<AccountId>>::asset_exists(a),
 		}
 	}
+	fn is_sufficient(asset: Self::AssetId) -> bool {
+		match Criterion::convert(asset) {
+			Left(a) => <Left as fungibles::Inspect<AccountId>>::is_sufficient(a),
+			Right(a) => <Right as fungibles::Inspect<AccountId>>::is_sufficient(a),
+		}
+	}
 }
 
 impl<
@@ -165,6 +171,41 @@ impl<
 		match Criterion::convert(asset) {
 			Left(a) => <Left as fungibles::metadata::Inspect<AccountId>>::decimals(a),
 			Right(a) => <Right as fungibles::metadata::Inspect<AccountId>>::decimals(a),
+		}
+	}
+}
+
+impl<
+		Left: fungibles::Inspect<AccountId> + fungibles::roles::Inspect<AccountId>,
+		Right: fungibles::Inspect<AccountId, Balance = Left::Balance>
+			+ fungibles::roles::Inspect<AccountId>,
+		Criterion: Convert<AssetKind, Either<Left::AssetId, Right::AssetId>>,
+		AssetKind: AssetId,
+		AccountId,
+	> fungibles::roles::Inspect<AccountId> for UnionOf<Left, Right, Criterion, AssetKind, AccountId>
+{
+	fn owner(asset: Self::AssetId) -> Option<AccountId> {
+		match Criterion::convert(asset) {
+			Left(a) => <Left as fungibles::roles::Inspect<AccountId>>::owner(a),
+			Right(a) => <Right as fungibles::roles::Inspect<AccountId>>::owner(a),
+		}
+	}
+	fn issuer(asset: Self::AssetId) -> Option<AccountId> {
+		match Criterion::convert(asset) {
+			Left(a) => <Left as fungibles::roles::Inspect<AccountId>>::issuer(a),
+			Right(a) => <Right as fungibles::roles::Inspect<AccountId>>::issuer(a),
+		}
+	}
+	fn admin(asset: Self::AssetId) -> Option<AccountId> {
+		match Criterion::convert(asset) {
+			Left(a) => <Left as fungibles::roles::Inspect<AccountId>>::admin(a),
+			Right(a) => <Right as fungibles::roles::Inspect<AccountId>>::admin(a),
+		}
+	}
+	fn freezer(asset: Self::AssetId) -> Option<AccountId> {
+		match Criterion::convert(asset) {
+			Left(a) => <Left as fungibles::roles::Inspect<AccountId>>::freezer(a),
+			Right(a) => <Right as fungibles::roles::Inspect<AccountId>>::freezer(a),
 		}
 	}
 }

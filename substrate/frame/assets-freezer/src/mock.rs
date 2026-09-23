@@ -81,8 +81,6 @@ impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
 	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
 	type DoneSlashHandler = ();
@@ -104,6 +102,7 @@ impl pallet_assets::Config for Test {
 	type Extra = ();
 	type RemoveItemsLimit = ConstU32<10>;
 	type CallbackHandle = ();
+	type AssetIdAllocator = ();
 	type Currency = Balances;
 	type Holder = ();
 	type Freezer = AssetsFreezer;
