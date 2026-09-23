@@ -1056,24 +1056,24 @@ impl SubmitIndex {
 	}
 
 	/// Warns, once per maintenance period, when the store size rejects a statement of a limited
-	/// track that has room under its own limit: the other tracks hold the space.
-	fn warn_if_track_starved(&mut self, track: RetentionTrack, data_len: usize) {
-		let track_size = self.totals.track_size(track);
+	/// track that has room under its own limit: the other tracks hold the space. `totals` are the
+	/// store totals the admission would leave.
+	fn warn_if_track_starved(&mut self, track: RetentionTrack, totals: &StoreTotals) {
 		if self.starved_track_warning_sent ||
 			self.config.track_max_sizes()[track as usize].is_none() ||
-			track_size + data_len > self.track_max_size(track) ||
-			self.totals.size() + data_len <= self.config.max_total_size
+			totals.track_size(track) > self.track_max_size(track) ||
+			totals.size() <= self.config.max_total_size
 		{
 			return;
 		}
 		self.starved_track_warning_sent = true;
 		log::warn!(
 			target: LOG_TARGET,
-			"Statement kept for {} rejected: the store holds {} of {} bytes while its track holds {} of its {} bytes, the other tracks take the rest",
+			"Statement kept for {} rejected: it would take the store to {} of {} bytes and its track to {} of its {} bytes, the other tracks take the rest",
 			track.reason(),
-			self.totals.size(),
+			totals.size(),
 			self.config.max_total_size,
-			track_size,
+			totals.track_size(track),
 			self.track_max_size(track),
 		);
 	}
@@ -1160,7 +1160,7 @@ impl SubmitIndex {
 	/// be admitted. `record` is the account's current state; global and per-track limits are
 	/// checked against the in-memory counters. The store never evicts other accounts' statements
 	/// to admit a new one — when the limits cannot be met from this account alone, the statement
-	/// is rejected.
+	/// is rejected, along with the totals the admission would leave.
 	fn plan_insert(
 		&self,
 		record: &StatementsForAccount,
@@ -1170,7 +1170,7 @@ impl SubmitIndex {
 		account: &AccountId,
 		validation: &StatementAllowance,
 		current_time: u64,
-	) -> std::result::Result<InsertPlan, RejectionReason> {
+	) -> std::result::Result<InsertPlan, (RejectionReason, Option<StoreTotals>)> {
 		let statement_len = statement.data_len();
 		if statement_len > validation.max_size as usize {
 			log::debug!(
@@ -1180,10 +1180,13 @@ impl SubmitIndex {
 				HexDisplay::from(&hash),
 				statement_len,
 			);
-			return Err(RejectionReason::DataTooLarge {
-				submitted_size: statement_len,
-				available_size: validation.max_size as usize,
-			});
+			return Err((
+				RejectionReason::DataTooLarge {
+					submitted_size: statement_len,
+					available_size: validation.max_size as usize,
+				},
+				None,
+			));
 		}
 
 		let mut evicted: Vec<(PriorityKey, EntryDetails)> = Vec::new();
@@ -1206,10 +1209,13 @@ impl SubmitIndex {
 						expiry,
 						channel_record.expiry,
 					);
-					return Err(RejectionReason::ChannelPriorityTooLow {
-						submitted_expiry: expiry.0,
-						min_expiry: channel_record.expiry.0,
-					});
+					return Err((
+						RejectionReason::ChannelPriorityTooLow {
+							submitted_expiry: expiry.0,
+							min_expiry: channel_record.expiry.0,
+						},
+						None,
+					));
 				} else {
 					// Would replace channel message. Still need to check for size constraints
 					// below.
@@ -1255,15 +1261,21 @@ impl SubmitIndex {
 				);
 				let retained_size = record.data_size - would_free_size;
 				if retained_size + statement_len > max_size {
-					return Err(RejectionReason::DataTooLarge {
-						submitted_size: statement_len,
-						available_size: max_size.saturating_sub(retained_size),
-					});
+					return Err((
+						RejectionReason::DataTooLarge {
+							submitted_size: statement_len,
+							available_size: max_size.saturating_sub(retained_size),
+						},
+						None,
+					));
 				}
-				return Err(RejectionReason::AccountFull {
-					submitted_expiry: expiry.0,
-					min_expiry: entry.expiry.0,
-				});
+				return Err((
+					RejectionReason::AccountFull {
+						submitted_expiry: expiry.0,
+						min_expiry: entry.expiry.0,
+					},
+					None,
+				));
 			}
 			evicted_hashes.insert(entry.hash);
 			would_free_size += details.data_len;
@@ -1285,7 +1297,7 @@ impl SubmitIndex {
 				self.statement_count(),
 				track,
 			);
-			return Err(RejectionReason::StoreFull);
+			return Err((RejectionReason::StoreFull, Some(totals)));
 		}
 
 		let banned = evicted
@@ -3151,12 +3163,12 @@ impl StatementStore for Store {
 				current_time,
 			) {
 				Ok(plan) => plan,
-				Err(reason) => {
+				Err((reason, totals)) => {
 					self.metrics.report(|metrics| {
 						metrics.rejections.with_label_values(&[reason.label()]).inc();
 					});
-					if matches!(reason, RejectionReason::StoreFull) {
-						submit_index.warn_if_track_starved(track, statement_len);
+					if let Some(totals) = totals {
+						submit_index.warn_if_track_starved(track, &totals);
 					}
 					// The rejection left the store untouched, so a record loaded for planning
 					// still mirrors the disk. Cache it: rejections cost the sender nothing, and
@@ -5216,6 +5228,45 @@ mod tests {
 			SubmitResult::Rejected(RejectionReason::StoreFull)
 		);
 		assert_eq!(track_size(&store, RetentionTrack::Transient), 15);
+	}
+
+	#[test]
+	fn explicit_only_statements_take_the_room_the_limited_tracks_leave() {
+		let (store, _temp) = test_store_with_config(Config {
+			max_total_size: 300,
+			v2dht: Some(V2DhtConfig {
+				dht_affinity_max_size: Some(100),
+				transient_max_size: Some(100),
+				..Default::default()
+			}),
+			..Default::default()
+		});
+		let explicit = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+		store.set_retention_resolver(Box::new({
+			let explicit = explicit.clone();
+			move |_| {
+				if explicit.load(Ordering::Relaxed) {
+					RetentionReasonMask::EXPLICIT_AFFINITY
+				} else {
+					RetentionReasonMask::TRANSIENT
+				}
+			}
+		}));
+		let source = StatementSource::Network;
+
+		// Explicit-only statements fill the whole store, past the limit of any other track.
+		for priority in 1..=3 {
+			assert_eq!(store.submit(statement(5, priority, None, 100), source), SubmitResult::New);
+		}
+		assert_eq!(track_size(&store, RetentionTrack::ExplicitOnly), 300);
+
+		// The transient track is empty, yet the store has no room left for it.
+		explicit.store(false, Ordering::Relaxed);
+		assert_eq!(
+			store.submit(statement(6, 1, None, 1), source),
+			SubmitResult::Rejected(RejectionReason::StoreFull)
+		);
+		assert_eq!(track_size(&store, RetentionTrack::Transient), 0);
 	}
 
 	#[test]
