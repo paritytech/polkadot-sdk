@@ -612,14 +612,18 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		)
 	}
 
-	/// No origin or lock check: those belong to the control plane that took the deposit.
 	fn deregister(para_id: u32) -> DispatchResult {
 		let id = ParaId::from(para_id);
 		match paras::Pallet::<T>::lifecycle(id) {
 			None |
 			Some(ParaLifecycle::OffboardingParathread) |
 			Some(ParaLifecycle::OffboardingParachain) => Ok(()),
-			_ => Self::do_deregister(id),
+			_ => {
+				polkadot_runtime_parachains::schedule_para_cleanup::<T>(id)
+					.map_err(|_| Error::<T>::CannotDeregister)?;
+				Self::deposit_event(Event::<T>::Deregistered { para_id: id });
+				Ok(())
+			},
 		}
 	}
 

@@ -150,6 +150,12 @@ fn relay_has_record(para_id: u32) -> bool {
 	)
 }
 
+/// Whether the relay chain has scheduled `para_id` to be cleaned up.
+fn relay_offboarding(para_id: u32) -> bool {
+	polkadot_runtime_parachains::paras::Pallet::<relay::Runtime>::lifecycle(para_id.into()) ==
+		Some(polkadot_runtime_parachains::ParaLifecycle::OffboardingParathread)
+}
+
 /// Whether the parachain's registrar emitted an event matching `f`.
 fn para_event(f: impl Fn(&pallet_registrar_para::Event<para::Runtime>) -> bool) -> bool {
 	para::System::events().iter().any(|e| match &e.event {
@@ -525,9 +531,9 @@ fn a_deregistration_travels_to_the_relay_chain_and_frees_every_deposit() {
 		assert_ok!(para::Registrar::deregister(para::RuntimeOrigin::signed(ALICE), para_id));
 	});
 
-	// The relay chain dropped its record and scheduled the cleanup.
+	// The relay chain scheduled the cleanup.
 	Relay::execute_with(|| {
-		assert!(!relay_has_record(para_id));
+		assert!(relay_offboarding(para_id));
 		relay::run_to_session(5);
 		assert!(polkadot_runtime_parachains::paras::Pallet::<relay::Runtime>::lifecycle(
 			para_id.into()
@@ -555,7 +561,7 @@ fn a_lost_deregistration_verdict_is_settled_by_asking_again() {
 	RegistrarPara::execute_with(|| {
 		assert_ok!(para::Registrar::deregister(para::RuntimeOrigin::signed(ALICE), para_id));
 	});
-	Relay::execute_with(|| assert!(!relay_has_record(para_id)));
+	Relay::execute_with(|| assert!(relay_offboarding(para_id)));
 
 	// So the parachain is left holding deposits for a para that is already on its way out, and
 	// asks again once the deadline has passed.
