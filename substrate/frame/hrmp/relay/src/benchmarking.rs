@@ -144,13 +144,23 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn receive_force_clean() -> Result<(), BenchmarkError> {
+	fn receive_force_clean(
+		// Inbound channels `SENDER` has, all of which are dropped.
+		i: Linear<0, 1>,
+		// Outbound channels `SENDER` has, all of which are dropped.
+		e: Linear<0, 1>,
+	) -> Result<(), BenchmarkError> {
 		let origin = para_origin::<T>()?;
 		T::Registry::ensure_openable(CHANNEL);
 		T::Registry::open_channel(CHANNEL, MAX_CAPACITY, MAX_MESSAGE_SIZE)
 			.map_err(|_| BenchmarkError::Stop("the registry refused to open the channel"))?;
-		let message =
-			MessageToRelay::V1(MessageToRelayV1::ForceClean { para_id: SENDER, message_id: 0 });
+		// TODO: give `SENDER` `i` inbound and `e` outbound channels.
+		let message = MessageToRelay::V1(MessageToRelayV1::ForceClean {
+			para_id: SENDER,
+			message_id: 0,
+			num_inbound: i.max(1),
+			num_outbound: e.max(1),
+		});
 
 		#[extrinsic_call]
 		receive(origin as T::RuntimeOrigin, message);

@@ -30,7 +30,7 @@ use frame_system::RawOrigin;
 const SENDER: ParaId = 2000;
 /// The para at the other end.
 const RECIPIENT: ParaId = 2001;
-/// A system chain. The runtime's `IsSystemPara` has to contain it, or every system path fails.
+/// A system chain.
 const SYSTEM: ParaId = 1000;
 /// A second system chain, for the channel two system chains share.
 const SYSTEM_PEER: ParaId = 1001;

@@ -1958,8 +1958,8 @@ impl<T: Config> HrmpRegistry for Pallet<T> {
 		Err(())
 	}
 
-	fn force_clean(para_id: HrmpParaId) -> Result<(), ()> {
-		let _ = para_id;
+	fn force_clean(para_id: HrmpParaId, num_inbound: u32, num_outbound: u32) -> Result<(), ()> {
+		let _ = (para_id, num_inbound, num_outbound);
 		// TODO(ahm-v2): drop every channel and request belonging to `para_id`.
 		Err(())
 	}

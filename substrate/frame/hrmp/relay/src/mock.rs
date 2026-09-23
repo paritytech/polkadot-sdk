@@ -25,7 +25,7 @@
 #![allow(dead_code)]
 
 use crate::{self as pallet_hrmp_relay, ForwardToPara, NotifyParachain, SendToPara};
-use frame_support::{derive_impl, parameter_types, traits::EnsureOrigin};
+use frame_support::{derive_impl, ensure, parameter_types, traits::EnsureOrigin};
 use hrmp_primitives::{
 	ChannelId, HrmpRegistry, MessageToPara, ParaId, ParaNotification, ParaRequest,
 };
@@ -148,8 +148,14 @@ impl HrmpRegistry for MockRegistry {
 		Ok(())
 	}
 
-	fn force_clean(para_id: ParaId) -> Result<(), ()> {
+	fn force_clean(para_id: ParaId, num_inbound: u32, num_outbound: u32) -> Result<(), ()> {
 		Self::guard()?;
+		let channels = RegistryChannels::get();
+		let inbound = channels.iter().filter(|c| c.recipient == para_id).count();
+		let outbound = channels.iter().filter(|c| c.sender == para_id).count();
+		ensure!(inbound <= num_inbound as usize, ());
+		ensure!(outbound <= num_outbound as usize, ());
+
 		RegistryChannels::mutate(|channels| {
 			channels.retain(|channel| !channel.is_participant(para_id))
 		});

@@ -33,6 +33,17 @@ use scale_info::TypeInfo;
 /// Byte-compatible with the relay chain's `Id`, which is a transparent `u32` newtype.
 pub type ParaId = u32;
 
+/// The highest id that belongs to the system.
+///
+/// Mirrors `polkadot_parachain_primitives`' `SYSTEM_INDEX_END`, which this crate does not depend
+/// on. Both ends of the protocol must agree on which paras pay no deposit.
+const SYSTEM_INDEX_END: ParaId = 1999;
+
+/// Whether `para_id` belongs to the system, as the relay chain's `IsSystem` decides it.
+pub fn is_system(para_id: ParaId) -> bool {
+	para_id <= SYSTEM_INDEX_END
+}
+
 /// One end of a channel, in the order the relay chain names them.
 #[derive(
 	Encode,
@@ -59,6 +70,11 @@ impl ChannelId {
 	/// Whether `para_id` is one of the two ends.
 	pub fn is_participant(&self, para_id: ParaId) -> bool {
 		self.sender == para_id || self.recipient == para_id
+	}
+
+	/// Whether either end belongs to the system, which is what makes a channel deposit-free.
+	pub fn is_system(&self) -> bool {
+		is_system(self.sender) || is_system(self.recipient)
 	}
 
 	pub fn reversed(&self) -> Self {
@@ -118,7 +134,7 @@ pub enum ParaRequestV1 {
 	CancelOpenRequest {
 		/// The channel the request is for.
 		channel: ChannelId,
-		/// The asking para's count of open requests, checked against storage.
+		/// The sender's count of open requests, checked against storage.
 		open_requests: u32,
 	},
 	/// Open both deposit-free directions between the asking para and a system chain.
@@ -131,9 +147,10 @@ pub enum ParaRequestV1 {
 
 /// What a parachain is told about a channel it is one end of.
 ///
-/// The relay chain delivers these as the XCM `HrmpNewChannelOpenRequest`, `HrmpChannelAccepted`
-/// and `HrmpChannelClosing` instructions, whose fields these mirror. Versioned by the message
-/// carrying it, as [`ChannelId`] and [`FailureReason`] are.
+/// The first three are delivered as the XCM `HrmpNewChannelOpenRequest`, `HrmpChannelAccepted`
+/// and `HrmpChannelClosing` instructions, whose fields they mirror. The rest conclude a request
+/// and have no instruction of their own, so how they reach a para is up to the transport.
+/// Versioned by the message carrying it, as [`ChannelId`] and [`FailureReason`] are.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
@@ -163,6 +180,28 @@ pub enum ParaNotification {
 		sender: ParaId,
 		/// The para that receives on the channel.
 		recipient: ParaId,
+	},
+	/// The channel both ends agreed on is open.
+	#[codec(index = 3)]
+	ChannelOpened {
+		/// The channel.
+		channel: ChannelId,
+	},
+	/// The channel both ends agreed on was refused, and their deposits are being released.
+	#[codec(index = 4)]
+	ChannelOpenFailure {
+		/// The channel.
+		channel: ChannelId,
+		/// Why the relay chain refused.
+		reason: FailureReason,
+	},
+	/// An open request the para being told is one end of was withdrawn.
+	#[codec(index = 5)]
+	OpenRequestCanceled {
+		/// The channel the request was for.
+		channel: ChannelId,
+		/// Which end withdrew it.
+		by_parachain: ParaId,
 	},
 }
 
@@ -247,6 +286,10 @@ pub enum MessageToRelayV1 {
 		para_id: ParaId,
 		/// The parachain's id for this message.
 		message_id: u64,
+		/// Upper bound on the para's inbound channels, checked against the relay chain's own.
+		num_inbound: u32,
+		/// Upper bound on the para's outbound channels, checked against the relay chain's own.
+		num_outbound: u32,
 	},
 	/// Deliver a channel notification to a para. Nothing is answered.
 	///
@@ -364,9 +407,9 @@ pub trait HrmpRegistry {
 	#[allow(clippy::result_unit_err)]
 	fn close_channel(channel: ChannelId, initiator: ParaId) -> Result<(), ()>;
 
-	/// Drop every channel belonging to `para_id`.
+	/// Drop every channel belonging to `para_id`, refusing a witness that does not cover them.
 	#[allow(clippy::result_unit_err)]
-	fn force_clean(para_id: ParaId) -> Result<(), ()>;
+	fn force_clean(para_id: ParaId, num_inbound: u32, num_outbound: u32) -> Result<(), ()>;
 
 	/// Whether there is a channel or a pending request for `channel`.
 	fn exists(channel: ChannelId) -> bool;

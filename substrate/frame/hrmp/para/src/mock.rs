@@ -24,10 +24,11 @@
 // Helpers the per-flow tests will reach for as the extrinsic bodies land.
 #![allow(dead_code)]
 
-use crate::{self as pallet_hrmp_para, HoldReason, SendToRelay};
+use crate::{self as pallet_hrmp_para, HoldReason, SendToRelay, WeightInfo};
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{fungible::HoldConsideration, ConstU128, ConstU32, LinearStoragePrice},
+	weights::Weight,
 };
 use hrmp_primitives::{MessageToRelay, ParaId};
 use sp_runtime::BuildStorage;
@@ -118,17 +119,6 @@ pub fn take_sent() -> Vec<MessageToRelay> {
 parameter_types! {
 	/// Signed accounts allowed to act as a para, as `(account, para id)`.
 	pub static ParaOriginAccounts: Vec<(AccountId, ParaId)> = Vec::new();
-	/// Paras the pallet treats as system chains.
-	pub static SystemParas: Vec<ParaId> = Vec::new();
-}
-
-/// The paras listed in [`SystemParas`].
-pub struct IsSystemPara;
-
-impl frame_support::traits::Contains<ParaId> for IsSystemPara {
-	fn contains(para_id: &ParaId) -> bool {
-		SystemParas::get().contains(para_id)
-	}
 }
 
 /// Lets the accounts listed in [`ParaOriginAccounts`] act as their para, standing in for a real
@@ -173,6 +163,17 @@ pub fn para_account(para_id: ParaId) -> AccountId {
 	1_000_000 + para_id as AccountId
 }
 
+/// Give a para's sovereign account something to put up as a deposit.
+pub fn fund_para(para_id: ParaId) {
+	let _ = Balances::force_set_balance(RuntimeOrigin::root(), para_account(para_id), 1_000_000);
+}
+
+/// What a para currently has held under `reason`.
+pub fn held(para_id: ParaId, reason: HoldReason) -> Balance {
+	use frame_support::traits::fungible::InspectHold;
+	Balances::balance_on_hold(&RuntimeHoldReason::Hrmp(reason), &para_account(para_id))
+}
+
 /// Resolves a para to the account its deposits are taken from.
 pub struct SovereignAccountOf;
 
@@ -183,12 +184,71 @@ impl sp_runtime::traits::Convert<ParaId, AccountId> for SovereignAccountOf {
 }
 
 parameter_types! {
-	pub const DepositPerMessage: Balance = PER_MESSAGE;
+	/// Mutable, so a test can move the price under an open channel and poke it.
+	pub static DepositPerMessage: Balance = PER_MESSAGE;
 	pub const SenderHoldReason: RuntimeHoldReason =
 		RuntimeHoldReason::Hrmp(HoldReason::SenderDeposit);
 	pub const RecipientHoldReason: RuntimeHoldReason =
 		RuntimeHoldReason::Hrmp(HoldReason::RecipientDeposit);
 	pub const SystemChannelSizes: (u32, u32) = SYSTEM_CHANNEL_SIZE_AND_CAPACITY;
+}
+
+/// Zero everywhere, except that `force_open_hrmp_channel` tells its two cases apart so the weight
+/// it refunds can be asserted.
+pub struct TestWeights;
+
+impl WeightInfo for TestWeights {
+	fn force_open_hrmp_channel(c: u32) -> Weight {
+		Weight::from_parts(c as u64, 0)
+	}
+
+	fn hrmp_init_open_channel() -> Weight {
+		Weight::zero()
+	}
+
+	fn hrmp_accept_open_channel() -> Weight {
+		Weight::zero()
+	}
+
+	fn hrmp_close_channel() -> Weight {
+		Weight::zero()
+	}
+
+	fn force_clean_hrmp(_i: u32, _e: u32) -> Weight {
+		Weight::zero()
+	}
+
+	fn force_process_hrmp_open(_c: u32) -> Weight {
+		Weight::zero()
+	}
+
+	fn force_process_hrmp_close(_c: u32) -> Weight {
+		Weight::zero()
+	}
+
+	fn hrmp_cancel_open_request(_c: u32) -> Weight {
+		Weight::zero()
+	}
+
+	fn establish_system_channel() -> Weight {
+		Weight::zero()
+	}
+
+	fn poke_channel_deposits() -> Weight {
+		Weight::zero()
+	}
+
+	fn establish_channel_with_system() -> Weight {
+		Weight::zero()
+	}
+
+	fn receive_open_channel_response() -> Weight {
+		Weight::zero()
+	}
+
+	fn receive_close_response() -> Weight {
+		Weight::zero()
+	}
 }
 
 impl pallet_hrmp_para::Config for Test {
@@ -213,8 +273,7 @@ impl pallet_hrmp_para::Config for Test {
 	type MaxInboundChannels = ConstU32<MAX_INBOUND_CHANNELS>;
 	type MaxOutboundChannels = ConstU32<MAX_OUTBOUND_CHANNELS>;
 	type DefaultChannelSizeAndCapacityWithSystem = SystemChannelSizes;
-	type IsSystemPara = IsSystemPara;
-	type WeightInfo = ();
+	type WeightInfo = TestWeights;
 }
 
 /// Externalities with Alice and Bob funded, and the message log cleared.
@@ -222,6 +281,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
 	ParaOriginAccounts::set(Vec::new());
+	DepositPerMessage::set(PER_MESSAGE);
 
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {

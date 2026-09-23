@@ -31,7 +31,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::traits::{Consideration, Contains, EnsureOrigin, Footprint};
+use core::marker::PhantomData;
+use frame_support::traits::{Consideration, EnsureOrigin, Footprint, Get};
 use hrmp_primitives::{
 	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
 	Outcome, ParaId, ParaNotification, ParaRequest, ParaRequestV1,
@@ -133,6 +134,18 @@ pub struct CloseRequest {
 	pub message_id: u64,
 }
 
+/// Something that breaks an invariant this pallet relies on.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+)]
+pub enum UnexpectedKind {
+	/// A channel notification could not be handed to the transport.
+	NotifyFailed {
+		/// The para that was to be told.
+		para_id: ParaId,
+	},
+}
+
 /// A pending open request, with the sizes it asked for.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
@@ -170,6 +183,15 @@ pub type ChannelRequestOf<T> =
 /// [`ChannelInfo`] as this pallet stores it.
 pub type ChannelInfoOf<T> =
 	ChannelInfo<<T as Config>::SenderConsideration, <T as Config>::RecipientConsideration>;
+
+/// The most pending requests one para can be party to, as both ends put together.
+pub struct MaxRequests<T>(PhantomData<T>);
+
+impl<T: Config> Get<u32> for MaxRequests<T> {
+	fn get() -> u32 {
+		T::MaxInboundChannels::get().saturating_add(T::MaxOutboundChannels::get())
+	}
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -221,9 +243,6 @@ pub mod pallet {
 		/// Size first, as on the relay chain. Everything on the wire goes capacity first.
 		type DefaultChannelSizeAndCapacityWithSystem: Get<(u32, u32)>;
 
-		/// The paras a channel needs no deposit for, and the only ones a system channel may join.
-		type IsSystemPara: Contains<ParaId>;
-
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -273,6 +292,11 @@ pub mod pallet {
 		BoundedVec<ParaId, <T as Config>::MaxOutboundChannels>,
 		ValueQuery,
 	>;
+
+	/// Channels a para has a pending request on, as either end, sorted.
+	#[pallet::storage]
+	pub type RequestIndex<T: Config> =
+		StorageMap<_, Blake2_128Concat, ParaId, BoundedVec<ChannelId, MaxRequests<T>>, ValueQuery>;
 
 	/// How many open requests a para has initiated.
 	#[pallet::storage]
@@ -350,6 +374,15 @@ pub mod pallet {
 			/// The id of the message this concludes.
 			message_id: u64,
 		},
+		/// The relay chain refused to close a channel. The deposits stay held.
+		ChannelCloseFailed {
+			/// The channel.
+			channel: ChannelId,
+			/// The id of the message this concludes.
+			message_id: u64,
+			/// Why the relay chain refused.
+			reason: FailureReason,
+		},
 		/// A deposit-free channel with a system chain was asked for.
 		SystemChannelRequested {
 			/// The channel. Both directions are opened.
@@ -404,6 +437,8 @@ pub mod pallet {
 			/// The channel.
 			channel: ChannelId,
 		},
+		/// Something that should never happen.
+		Unexpected(UnexpectedKind),
 	}
 
 	#[pallet::error]
