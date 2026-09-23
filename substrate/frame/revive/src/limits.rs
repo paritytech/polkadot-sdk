@@ -18,7 +18,7 @@
 //! Limits that are observeable by contract code.
 //!
 //! It is important to never change this limits without supporting the old limits
-//! for already deployed contracts. This is what the `crate::Contract::behaviour_version`
+//! for already deployed contracts. This is what the `CodeInfo::behaviour_version`
 //! is meant for. This is true for either increasing or decreasing the limit.
 //!
 //! Limits in this file are different from the limits configured on the [`Config`] trait which are
