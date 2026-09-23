@@ -18,10 +18,7 @@
 #![allow(dead_code)]
 
 use frame_support::{
-	assert_ok, parameter_types, traits,
-	traits::{Hooks, VariantCountOf},
-	weights::constants,
-	PalletId,
+	assert_ok, parameter_types, traits, traits::Hooks, weights::constants, PalletId,
 };
 use frame_system::EnsureRoot;
 use sp_core::{ConstBool, ConstU32, Get};
@@ -109,10 +106,8 @@ parameter_types! {
 impl pallet_balances::Config for Runtime {
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = RuntimeFreezeReason;
 }
 
 impl pallet_timestamp::Config for Runtime {
