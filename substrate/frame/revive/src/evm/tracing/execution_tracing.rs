@@ -127,6 +127,13 @@ impl ExecutionTracer {
 		self.steps_seen >= start && end.is_none_or(|end| self.steps_seen < end)
 	}
 
+	/// Whether the window is behind us, so nothing more will be captured.
+	fn window_ended(&self) -> bool {
+		self.config
+			.limit
+			.is_some_and(|limit| self.steps_seen > self.config.step_offset.saturating_add(limit))
+	}
+
 	/// Index of the step currently executing, or `None` when it was dropped by the limit.
 	fn current_step_index(&self) -> Option<usize> {
 		self.pending.last()?.step_index
@@ -357,7 +364,7 @@ impl Tracing for ExecutionTracer {
 	}
 
 	fn storage_write(&mut self, key: &Key, _old_value: Option<Vec<u8>>, new_value: Option<&[u8]>) {
-		if self.config.disable_storage {
+		if self.config.disable_storage || self.window_ended() {
 			return;
 		}
 
@@ -373,7 +380,7 @@ impl Tracing for ExecutionTracer {
 	}
 
 	fn storage_read(&mut self, key: &Key, value: Option<&[u8]>) {
-		if self.config.disable_storage {
+		if self.config.disable_storage || self.window_ended() {
 			return;
 		}
 
