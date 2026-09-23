@@ -4000,9 +4000,9 @@ mod benchmarks {
 
 	/// Benchmark `r` `DUP16` instructions.
 	///
-	/// This is used for `DUP1`..`DUP16` since all of them read one item at a fixed offset from the
-	/// top and push a copy of it, so `N` doesn't change the amount of work. The sixteen items are
-	/// placed on the stack before the code executes.
+	/// The `DUP1` to `DUP16` instructions were all benchmarked and the `DUP16` instruction ended
+	/// up being the most expensive but not by a large amount. Thus we use the `DUP16` benchmark
+	/// for all of these instructions which overcharges other instructions by ≈3%.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_dup_opcode(r: Linear<0, { EVM_STACK_LIMIT - 16 }>) {
 		let code = Bytecode::new_raw(vec![DUP16; r as usize].into());
