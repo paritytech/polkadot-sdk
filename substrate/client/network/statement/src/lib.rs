@@ -493,7 +493,7 @@ impl Metrics {
 				CounterVec::new(
 					Opts::new(
 						"substrate_sync_statement_undelivered_total",
-						"Statement-recipient deliveries abandoned by reason; later sync may still deliver the statements",
+						"Total statements whose delivery was abandoned, so the peer never received them, by reason",
 					),
 					&["reason"],
 				)?,
