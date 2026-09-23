@@ -286,3 +286,30 @@ contract StipendSender {
 
     receive() external payable {}
 }
+
+/**
+ * @title CountingReceiver
+ * @dev Increments `counter` on `bump` and on receiving value.
+ */
+contract CountingReceiver {
+    uint256 public counter;
+
+    function bump() external {
+        counter += 1;
+    }
+
+    receive() external payable {
+        counter += 1;
+    }
+}
+
+/**
+ * @title WarmWriteSender
+ * @dev Makes the receiver's slot hot with a normal call, then sends to it on the stipend alone.
+ */
+contract WarmWriteSender {
+    function isWarmWriteDenied(CountingReceiver receiver) public payable returns (bool) {
+        receiver.bump();
+        return !payable(address(receiver)).send(msg.value);
+    }
+}

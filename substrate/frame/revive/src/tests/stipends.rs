@@ -16,13 +16,20 @@
 // limitations under the License.
 
 use crate::{
-	Code, Config,
-	test_utils::{ALICE, builder::Contract},
+	Code, Config, EthTxInfo, TransactionLimits,
+	test_utils::{ALICE, WEIGHT_LIMIT, builder::Contract, deposit_limit},
 	tests::{ExtBuilder, GasScale, Test, builder},
 };
-use alloy_core::sol_types::{SolCall, SolConstructor, SolValue};
+use alloy_core::{
+	primitives::U256,
+	sol_types::{SolCall, SolConstructor, SolValue},
+};
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures::{FixtureType, StipendSender, StipendTest, compile_module_with_type};
+use pallet_revive_fixtures::{
+	CountingReceiver, FixtureType, StipendSender, StipendTest, WarmWriteSender,
+	compile_module_with_type,
+};
+use sp_runtime::Weight;
 use test_case::test_case;
 
 #[test]
@@ -216,6 +223,77 @@ fn evm_call_stipend_denies_reentrancy_for_transfer_and_send_only(fixture_type: F
 		let zero_value_send = run(0, StipendSender::isSendDeniedCall {}.abi_encode());
 		GasScale::set(default_gas_scale);
 		assert!(!value_call, "a value call should allow the probe to reenter");
-		assert!(zero_value_send, "a zero-value send must not let the probe reenter");
+		assert!(
+			zero_value_send,
+			"a zero-value send also forwards 2300 gas, so only the guard can deny it"
+		);
 	});
+}
+
+fn substrate_metering() -> TransactionLimits<Test> {
+	TransactionLimits::WeightAndDeposit {
+		weight_limit: WEIGHT_LIMIT,
+		deposit_limit: deposit_limit::<Test>(),
+	}
+}
+
+fn ethereum_metering() -> TransactionLimits<Test> {
+	TransactionLimits::EthereumGas {
+		eth_gas_limit: u128::MAX,
+		weight_limit: Weight::MAX,
+		eth_tx_info: EthTxInfo::new(0, Default::default()),
+		authorization_deposit: Default::default(),
+	}
+}
+
+#[test_case(FixtureType::Solc,   substrate_metering(); "solc, substrate metering")]
+#[test_case(FixtureType::Resolc, substrate_metering(); "resolc, substrate metering")]
+#[test_case(FixtureType::Solc,   ethereum_metering();  "solc, ethereum metering")]
+#[test_case(FixtureType::Resolc, ethereum_metering();  "resolc, ethereum metering")]
+fn the_stipend_cannot_write_storage_even_when_the_slot_is_hot(
+	fixture_type: FixtureType,
+	limits: TransactionLimits<Test>,
+) {
+	let (receiver_code, _) = compile_module_with_type("CountingReceiver", fixture_type).unwrap();
+	let (sender_code, _) = compile_module_with_type("WarmWriteSender", fixture_type).unwrap();
+	let send_value = |value: u128| {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
+			let Contract { addr: receiver, .. } =
+				builder::bare_instantiate(Code::Upload(receiver_code.clone()))
+					.build_and_unwrap_contract();
+			let Contract { addr: sender, .. } =
+				builder::bare_instantiate(Code::Upload(sender_code.clone()))
+					.build_and_unwrap_contract();
+			let result = builder::bare_call(sender)
+				.data(
+					WarmWriteSender::isWarmWriteDeniedCall { receiver: receiver.0.into() }
+						.abi_encode(),
+				)
+				.evm_value(value.into())
+				.transaction_limits(limits.clone())
+				.build_and_unwrap_result();
+			let counter = builder::bare_call(receiver)
+				.data(CountingReceiver::counterCall {}.abi_encode())
+				.build_and_unwrap_result();
+			(bool::abi_decode(&result.data).unwrap(), U256::abi_decode(&counter.data).unwrap())
+		})
+	};
+
+	assert_eq!(
+		send_value(1_000_000),
+		(true, U256::from(1)),
+		"the slot is hot, so the write should be rejected by the EIP-2200 check"
+	);
+
+	// The raised gas scale makes the 2300 a zero-value `send` forwards enough to write on PVM too.
+	let default_gas_scale = GasScale::get();
+	GasScale::set(200_000);
+	let zero_value = send_value(0);
+	GasScale::set(default_gas_scale);
+	assert_eq!(
+		zero_value,
+		(true, U256::from(1)),
+		"a write from a zero-value `send` should be rejected by the EIP-2200 check"
+	);
 }

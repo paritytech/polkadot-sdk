@@ -38,6 +38,18 @@ fn determine_call_stipend<T: Config>() -> Weight {
 	gas_weight.saturating_add(event_weight)
 }
 
+/// Returns the maximum gas limit granted to the callee of a `transfer` or `send`: the stipend,
+/// plus the 2300 gas solc forwards when the value is zero.
+fn eth_gas_stipend_limit<T: Config>() -> BalanceOf<T> {
+	let eth_stipend = SignedGas::<T>::from_ethereum_gas(CALL_STIPEND.saturated_into());
+	let determined_stipend =
+		SignedGas::<T>::from_weight_fee(T::FeeInfo::weight_to_fee(&determine_call_stipend::<T>()));
+	eth_stipend
+		.saturating_add(&determined_stipend)
+		.to_ethereum_gas()
+		.expect("the sum of two positive gas amounts is positive; qed")
+}
+
 pub mod substrate_execution {
 	use num_traits::One;
 
@@ -62,6 +74,7 @@ pub mod substrate_execution {
 			total_consumed_weight_before: Default::default(),
 			total_consumed_deposit_before: Default::default(),
 			transaction_limits: TransactionLimits::WeightAndDeposit { weight_limit, deposit_limit },
+			eth_gas_stipend_limit: eth_gas_stipend_limit::<T>(),
 			_phantom: PhantomData,
 		})
 	}
@@ -178,6 +191,7 @@ pub mod substrate_execution {
 			total_consumed_weight_before: total_consumed_weight,
 			total_consumed_deposit_before: total_consumed_deposit,
 			transaction_limits: meter.transaction_limits.clone(),
+			eth_gas_stipend_limit: meter.eth_gas_stipend_limit,
 			_phantom: PhantomData,
 		})
 	}
@@ -291,6 +305,7 @@ pub mod ethereum_execution {
 				eth_tx_info,
 				authorization_deposit: Default::default(),
 			},
+			eth_gas_stipend_limit: eth_gas_stipend_limit::<T>(),
 			_phantom: PhantomData,
 		};
 
@@ -430,6 +445,7 @@ pub mod ethereum_execution {
 			total_consumed_weight_before: total_consumed_weight,
 			total_consumed_deposit_before: total_consumed_deposit,
 			transaction_limits: meter.transaction_limits.clone(),
+			eth_gas_stipend_limit: meter.eth_gas_stipend_limit,
 			_phantom: PhantomData,
 		})
 	}

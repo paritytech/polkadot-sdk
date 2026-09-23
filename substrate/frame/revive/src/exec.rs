@@ -2797,6 +2797,10 @@ where
 	) -> Result<WriteOutcome, DispatchError> {
 		assert!(self.has_contract_info());
 		let frame = self.top_frame_mut();
+		// EIP-2200: if the gas left is less than or equal to the stipend, fail with out of gas.
+		if frame.frame_meter.has_stipend_or_less_left() {
+			return Err(Error::<T>::OutOfGas.into());
+		}
 		frame.contract_info.get(&frame.account_id).write(
 			key.into(),
 			value,
