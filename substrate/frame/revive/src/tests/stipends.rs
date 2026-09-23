@@ -17,12 +17,13 @@
 
 use crate::{
 	Code, Config,
-	test_utils::builder::Contract,
+	test_utils::{ALICE, builder::Contract},
 	tests::{ExtBuilder, Test, builder},
 };
-use alloy_core::sol_types::{SolCall, SolValue};
+use alloy_core::sol_types::{SolCall, SolConstructor, SolValue};
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{FixtureType, StipendSender, StipendTest, compile_module_with_type};
+use test_case::test_case;
 
 #[test]
 fn evm_call_stipends_work_for_transfers() {
@@ -162,14 +163,20 @@ fn evm_call_stipend_prevents_send_reentrancy() {
 	});
 }
 
-#[test]
-fn evm_call_stipend_denies_reentrancy_for_transfer_and_send_only() {
-	let (code, _) = compile_module_with_type("StipendSender", FixtureType::Solc).unwrap();
+#[test_case(FixtureType::Solc;   "solc")]
+#[test_case(FixtureType::Resolc; "resolc")]
+fn evm_call_stipend_denies_reentrancy_for_transfer_and_send_only(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("StipendSender", fixture_type).unwrap();
+	let (probe_code, _) = compile_module_with_type("ReentrancyProbe", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
-		let _ =
-			<Test as Config>::Currency::set_balance(&crate::test_utils::ALICE, 10_000_000_000_000);
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
+		let Contract { addr: probe, .. } =
+			builder::bare_instantiate(Code::Upload(probe_code)).build_and_unwrap_contract();
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.constructor_data(
+				StipendSender::constructorCall { _probe: probe.0.into() }.abi_encode(),
+			)
+			.build_and_unwrap_contract();
 		let run = |call: Vec<u8>| {
 			let result = builder::bare_call(addr)
 				.data(call)
@@ -187,9 +194,12 @@ fn evm_call_stipend_denies_reentrancy_for_transfer_and_send_only() {
 			run(StipendSender::isSendDeniedCall {}.abi_encode()),
 			"send forwards only the stipend, so its callee must not reenter"
 		);
-		assert!(
-			!run(StipendSender::isCallWithOneGasDeniedCall {}.abi_encode()),
-			"a caller that sets its own gas limit does not get the reentrancy protection"
+		assert_eq!(
+			run(StipendSender::isCallWithOneGasDeniedCall {}.abi_encode()),
+			fixture_type == FixtureType::Resolc,
+			"a caller that sets its own gas limit is never guarded, so only cost can deny it: \
+			 the stipend reaches a reentry on the EVM but not on PVM, where the hop back pays \
+			 another call base and code load"
 		);
 		assert!(
 			run(StipendSender::isSelfSendAllowedCall {}.abi_encode()),

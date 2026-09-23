@@ -21,10 +21,13 @@ use crate::{
 	AccountIdOf, CodeInfo, Config, ContractBlob, Error, SENTINEL, Weight,
 	address::AddressMapper,
 	debug::DebugSettings,
-	exec::Ext,
+	exec::{Ext, ReentrancyProtection},
 	limits,
 	primitives::ExecReturnValue,
-	vm::{BytecodeType, ExportedFunction, RuntimeCosts, calculate_code_deposit},
+	vm::{
+		BytecodeType, ExportedFunction, RuntimeCosts, calculate_code_deposit,
+		stipend_and_reentrancy_protection,
+	},
 };
 use alloc::vec::Vec;
 use core::mem;
@@ -308,6 +311,7 @@ pub mod env {
 			CallType::Call { value_ptr },
 			callee_ptr,
 			&CallResources::from_weight_and_deposit(weight, deposit_limit),
+			None,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,
@@ -329,14 +333,18 @@ pub mod env {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
-		let resources = if gas == u64::MAX {
-			CallResources::NoLimits
+		let (resources, stipend_protection) = if gas == u64::MAX {
+			(CallResources::NoLimits, None)
 		} else {
 			self.charge_gas(RuntimeCosts::CopyFromContract(32))?;
 			let value = memory.read_u256(value_ptr)?;
-			// We also need to detect the 2300: We need to add something scaled.
-			let add_stipend = !value.is_zero() || gas == revm::interpreter::gas::CALL_STIPEND;
-			CallResources::from_ethereum_gas(gas.into(), add_stipend)
+			let (add_stipend, reentrancy) = stipend_and_reentrancy_protection(value, Some(gas));
+			(
+				CallResources::from_ethereum_gas(gas.into(), add_stipend),
+				// Ensure the callee of a `transfer`/`send` cannot reenter its caller, by enforcing
+				// the `AllowNext` protection.
+				(reentrancy == ReentrancyProtection::AllowNext).then_some(reentrancy),
+			)
 		};
 
 		self.call(
@@ -345,6 +353,7 @@ pub mod env {
 			CallType::Call { value_ptr },
 			callee,
 			&resources,
+			stipend_protection,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,
@@ -378,6 +387,7 @@ pub mod env {
 			CallType::DelegateCall,
 			address_ptr,
 			&CallResources::from_weight_and_deposit(weight, deposit_limit),
+			None,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,
@@ -410,6 +420,7 @@ pub mod env {
 			CallType::DelegateCall,
 			callee,
 			&resources,
+			None,
 			input_data_ptr,
 			input_data_len,
 			output_ptr,

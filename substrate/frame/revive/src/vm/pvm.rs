@@ -629,6 +629,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		call_type: CallType,
 		callee_ptr: u32,
 		resources: &CallResources<E::T>,
+		reentrancy_override: Option<ReentrancyProtection>,
 		input_data_ptr: u32,
 		input_data_len: u32,
 		output_ptr: u32,
@@ -701,11 +702,14 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					self.charge_gas(RuntimeCosts::CallTransferSurcharge { dust_transfer, warmth })?;
 				}
 
-				let reentrancy = if flags.contains(CallFlags::ALLOW_REENTRY) {
-					ReentrancyProtection::AllowReentry
-				} else {
-					ReentrancyProtection::Strict
-				};
+				// An override takes precedence over the caller's flags.
+				let reentrancy = reentrancy_override.unwrap_or_else(|| {
+					if flags.contains(CallFlags::ALLOW_REENTRY) {
+						ReentrancyProtection::AllowReentry
+					} else {
+						ReentrancyProtection::Strict
+					}
+				});
 
 				self.ext.call(resources, &callee, value, input_data, reentrancy, read_only)
 			},

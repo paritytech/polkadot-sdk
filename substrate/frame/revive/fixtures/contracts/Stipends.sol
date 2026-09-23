@@ -252,8 +252,8 @@ contract ReentrancyProbe {
 contract StipendSender {
     address payable immutable probe;
 
-    constructor() {
-        probe = payable(address(new ReentrancyProbe()));
+    constructor(address payable _probe) {
+        probe = _probe;
     }
 
     function attemptTransfer(address payable to, uint256 amount) external {

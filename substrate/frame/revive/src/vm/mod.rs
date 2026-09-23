@@ -26,7 +26,7 @@ pub use runtime_costs::{RuntimeCosts, StorageAccessKind};
 
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
-	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
+	HoldReason, LOG_TARGET, Pallet, PristineCode, ReentrancyProtection, StorageDeposit, Weight,
 	access_list::{Access, CodeLoadItems, CodeLoadWarmth, Summarized},
 	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
@@ -38,7 +38,7 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::dispatch::DispatchResult;
 use pallet_revive_uapi::ReturnErrorCode;
-use sp_core::{Get, H256};
+use sp_core::{Get, H256, U256};
 use sp_runtime::{DispatchError, Saturating, traits::BadOrigin};
 
 /// Validated Vm module ready for execution.
@@ -173,6 +173,27 @@ impl<T: Config> Token<T> for CodeLoadToken {
 				Self::blob::<T>(warmth, code_len, code_type)
 			},
 		}
+	}
+}
+
+/// Returns whether to add the call stipend, and the reentrancy protection to enforce: `AllowNext`
+/// when only the stipend is forwarded, and `AllowReentry` otherwise.
+///
+/// Solidity's `transfer` and `send` cap the callee at the stipend. For a zero value solc passes
+/// `gas_limit = 2300` explicitly; when value moves it passes 0 and relies on the stipend the EVM
+/// grants any call that moves value. We use a heuristic to detect both patterns, applying the
+/// stipend and `AllowNext` reentrancy protection because the fixed 2300 is tailored to Ethereum's
+/// gas scale.
+pub fn stipend_and_reentrancy_protection(
+	value: U256,
+	gas_limit: Option<u64>,
+) -> (bool, ReentrancyProtection) {
+	use revm::interpreter::gas::CALL_STIPEND;
+	match (value.is_zero(), gas_limit) {
+		(true, Some(CALL_STIPEND)) => (true, ReentrancyProtection::AllowNext),
+		(false, Some(0)) => (true, ReentrancyProtection::AllowNext),
+		(false, _) => (true, ReentrancyProtection::AllowReentry),
+		(true, _) => (false, ReentrancyProtection::AllowReentry),
 	}
 }
 
