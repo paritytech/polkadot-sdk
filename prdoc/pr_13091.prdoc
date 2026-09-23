@@ -3,15 +3,49 @@ title: 'Registrar: deregister'
 doc:
   - audience: Runtime Dev
     description: |-
-      Implements `pallet-registrar-para::deregister`. An id the relay chain never onboarded is
-      dropped locally. Otherwise both deposits stay held until the relay chain answers, and if the
-      answer never arrives the manager calls `deregister` again after `PendingDeadline`.
+      Implements deregister flow on the parachain in registrar. New flow covers deregistering through para (CT in Polkadot case) and relay accepting it.
 
-      `pallet-registrar-relay` applies a `Deregister` and reports back. A para that is already
-      gone or offboarding is confirmed, so a retry settles. `paras_registrar` implements
-      `ParachainRegistrar::deregister` for parathreads without origin or lock checks, since those
-      belong to the parachain that took the deposit. A refusal is reported as the new
-      `FailureReason::NotDeregisterable`.
+      ### Deregister flow
+
+      1. The manager (or root, or the para itself) calls `pallet-registrar-para::deregister(para_id)`. A locked para is out of the manager's hands.
+      2. If the id was only reserved, the relay chain never knew it. The reservation is released, the entry is removed and nothing is sent.
+      3. If the para is registered, it moves to `Deregistering { ticket, can_retry_after, message_id }` and `Deregister { para_id, message_id }` goes to the relay chain. Both deposits stay held.
+      4. On the relay chain, `pallet-registrar-relay` calls `ParachainRegistrar::deregister`:
+         - A parathread is dropped through `paras_registrar::do_deregister`. Cleanup is scheduled and `AwaitingFirstHead` is cleared.
+         - A para that is already gone or offboarding answers `Ok`.
+         - Anything else (onboarding, a lease-holding parachain) is refused.
+
+         There are no origin or lock checks here, because those belong to the parachain that took the deposit.
+      5. The relay chain answers with `DeregisterResponse`:
+         - `Ok(())`: the parachain releases both deposits and removes the entry.
+         - `Err(NotDeregisterable)`: the para goes back to `Registered` with its deposits.
+
+         A rejected request still returns `Ok` on the relay chain, so the report isn't rolled back.
+
+      ### Retry flow
+
+      A lost answer leaves the para in `Deregistering` with both deposits held. There is no separate cancel message. The manager just asks again:
+
+      1. From `can_retry_after` (`PendingDeadline` after the last request), the manager calls `deregister` again. Before that it fails with `CannotRetryYet`, so the relay chain isn't asked once per block.
+      2. The retry reports the missing answer as `Unexpected(ResponseNeverArrived)`, takes a new message id, pushes `can_retry_after` out and resends `Deregister`.
+      3. `Deregister` is idempotent on the relay chain:
+         - If the first request went through, the para is already offboarding or gone, so it is confirmed again and the deposits are released.
+         - If it was refused, it is refused again and the para goes back to `Registered`.
+      4. The parachain only accepts the answer to the latest request. An answer to an older one is reported as `StaleResponse` and dropped.
+
+      ### Changes
+
+      - `registrar-primitives`: `FailureReason::NotDeregisterable`.
+      - `pallet-registrar-para`:
+        - `deregister` and `on_deregister_response` are implemented.
+        - New events: `ReservationDropped`, `DeregisterRequested`, `Deregistered`, `DeregistrationFailed`.
+        - New error: `CannotRetryYet`.
+        - New weights: `deregister_reserved`, `deregister_registered`, `deregister_retry`.
+      - `pallet-registrar-relay`:
+        - `Deregister` is handled.
+        - New events: `Deregistered`, `DeregistrationRejected`.
+        - New weight: `receive_deregister`.
+      - `polkadot-runtime-common`: `paras_registrar` implements `ParachainRegistrar::deregister`.
 
 crates:
   - name: registrar-primitives
