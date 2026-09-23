@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790167211790,
+  "lastUpdate": 1790177842358,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "davxy@datawok.net",
-            "name": "Davide Galassi",
-            "username": "davxy"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3f2be402b5079f0b51d90723019e46dcd9e6cac8",
-          "message": "sp-crypto-ec-utils: Fix no_std (#11150)",
-          "timestamp": "2026-02-23T20:05:40Z",
-          "tree_id": "c5b3d69afff26e422675893ad3cbb613a24d89c3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3f2be402b5079f0b51d90723019e46dcd9e6cac8"
-        },
-        "date": 1771882080007,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0068123843066666655,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14097685773333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010037158199999981,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024028597846666663,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.025103251899999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "83b147a9b29aa5bdf40ddd105d308740a1647892",
+          "message": "elections-phragmen: saturate the prime-vote multiplier (#13269)\n\nThe Borda count that picks the prime member weighs each ballot position\nby `MaxVotesPerVoter - vote_position`. Stored ballots are a plain `Vec`\nand are only length-checked when `vote` is called, so a reduction of\n`MaxVotesPerVoter` leaves entries whose positions run past the current\nbound and underflow the subtraction.\n\nUse a saturating subtraction so those positions weigh nothing.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Luka Ciric <luka.ciric2106@gmail.com>",
+          "timestamp": "2026-09-23T14:03:13Z",
+          "tree_id": "18ac315df19732b2e21638fecc7dd559a398e1a6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/83b147a9b29aa5bdf40ddd105d308740a1647892"
+        },
+        "date": 1790177806796,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14286280782,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025201252813333328,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00978449842666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007899975766666668,
             "unit": "seconds"
           }
         ]
