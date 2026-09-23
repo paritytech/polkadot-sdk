@@ -79,7 +79,7 @@ module refine_test {
     val h = { vchBytes: 1 }.asPreimage()   // coretime's ACTIVE code hash
     val otherLen = 999                    // != FixedCodeLen
     val baseAcc: AccumulateOutcome = {
-      state: initialState, jamDesignate: None, jamSolicit: Set(),
+      state: initialState, jamDesignate: List(), jamSolicit: Set(),
       jamForget: Set(), jamAssigns: List(), logs: List(), foreign: Map()
     }
     val pi0 = initialState.paraInfo(para)
@@ -139,7 +139,7 @@ module refine_test {
       Some(headHash(0)), HeadDeclared(1), List(), 0)[0]
     // Accumulating the panicking result must touch nothing at all.
     val accPanic = accumulateOnePackage(
-      initialState, { result: panicked, authTrace: 7 }, Set(), None, FixedCodeLen, 5, Map())
+      initialState, { result: panicked, authTrace: 7 }, Set(), List(), FixedCodeLen, 5, Map())
     all {
       // Reporting is the only way a validation code records a reason.
       assert(reported == WorkOk(Err({ paraId: para, error: Opaque(42) }))),

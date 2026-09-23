@@ -18,7 +18,7 @@ module authorizer_queue_test {
   run tilingQueueForwardsImmediatelyTest = {
     val core = 5
     val baseAcc: AccumulateOutcome = {
-      state: initialState, jamDesignate: None, jamSolicit: Set(),
+      state: initialState, jamDesignate: List(), jamSolicit: Set(),
       jamForget: Set(), jamAssigns: List(), logs: List(), foreign: Map()
     }
     // X = 10 tiles exactly: 8 copies fill 80.
@@ -50,7 +50,7 @@ module authorizer_queue_test {
     val core = 4
     val ten = range(0, 10).foldl(List(), (acc, i) => acc.append({ authBytes: i }))
     val baseAcc: AccumulateOutcome = {
-      state: initialState, jamDesignate: None, jamSolicit: Set(),
+      state: initialState, jamDesignate: List(), jamSolicit: Set(),
       jamForget: Set(), jamAssigns: List(), logs: List(), foreign: Map()
     }
     val cached = applyUpwardMessage(
@@ -81,7 +81,7 @@ module authorizer_queue_test {
       pendingAssigns: Map(core -> { queue: List(storedHash), assigner: None }),
       pendingAssignCores: Map(core -> 100) }
     val baseAcc: AccumulateOutcome = {
-      state: seeded, jamDesignate: None, jamSolicit: Set(),
+      state: seeded, jamDesignate: List(), jamSolicit: Set(),
       jamForget: Set(), jamAssigns: List(), logs: List(), foreign: Map()
     }
     val empty = applyUpwardMessage(
@@ -113,7 +113,7 @@ module authorizer_queue_test {
     val core = 5
     val q = List({ authBytes: 0 }, { authBytes: 1 }, { authBytes: 2 })
     val baseAcc: AccumulateOutcome = {
-      state: initialState, jamDesignate: None, jamSolicit: Set(),
+      state: initialState, jamDesignate: List(), jamSolicit: Set(),
       jamForget: Set(), jamAssigns: List(), logs: List(), foreign: Map()
     }
     // Cached at now = 0 for a future jam_slot of 100.
@@ -187,7 +187,7 @@ module authorizer_queue_test {
     val q1 = List({ authBytes: 0 }, { authBytes: 1 }, { authBytes: 2 })
     val q2 = range(0, 11).foldl(List(), (acc, i) => acc.append({ authBytes: 10 + i }))
     val baseAcc: AccumulateOutcome = {
-      state: initialState, jamDesignate: None, jamSolicit: Set(),
+      state: initialState, jamDesignate: List(), jamSolicit: Set(),
       jamForget: Set(), jamAssigns: List(), logs: List(), foreign: Map()
     }
     val after1 = applyUpwardMessage(
@@ -216,7 +216,7 @@ module authorizer_queue_test {
       acc.append({ authBytes: i }))
     val three = List({ authBytes: 1 }, { authBytes: 2 }, { authBytes: 3 })
     val baseAcc: AccumulateOutcome = {
-      state: initialState, jamDesignate: None, jamSolicit: Set(),
+      state: initialState, jamDesignate: List(), jamSolicit: Set(),
       jamForget: Set(), jamAssigns: List(), logs: List(), foreign: Map()
     }
     // Handoff with the required full queue, due inline.

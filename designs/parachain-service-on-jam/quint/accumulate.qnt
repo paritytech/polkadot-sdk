@@ -16,8 +16,10 @@ module accumulate {
   /// Per-work-package accumulate outcome.
   type AccumulateOutcome = {
     state: ParachainServiceState,
-    // The vector to pass to JAM `designate`, if any.
-    jamDesignate: Option[List[ValidatorKey]],
+    // The vector to pass to JAM `designate`, empty for no call. `designate`
+    // overwrites `stagingset`, so when several work packages in one block
+    // designate, the last one wins rather than the vectors merging.
+    jamDesignate: List[ValidatorKey],
     // Hashes for which JAM `solicit` / `forget` should be invoked.
     jamSolicit: Set[Hash],
     jamForget: Set[Hash],
@@ -35,7 +37,7 @@ module accumulate {
   type PerPackageOutcome = {
     state: ParachainServiceState,
     solicited: Set[(ParaId, Hash, int)],
-    jamDesignate: Option[List[ValidatorKey]],
+    jamDesignate: List[ValidatorKey],
     jamAssigns: List[AssignCall],
     // The `(para, lookup-anchor)` this package pruned its log against, if it
     // processed a candidate (`None` for a JAM-substituted `WorkErr`). The
@@ -48,7 +50,7 @@ module accumulate {
   type MultiPackageOutcome = {
     state: ParachainServiceState,
     solicited: Set[(ParaId, Hash, int)],
-    jamDesignate: Option[List[ValidatorKey]],
+    jamDesignate: List[ValidatorKey],
     // Every package's `assign` calls, concatenated in package order.
     jamAssigns: List[AssignCall],
     // Each candidate-bearing package's `(para, lookup-anchor)` prune record, in
@@ -189,7 +191,7 @@ module accumulate {
       {
         state: o.state,
         jamDesignate:
-        if (o.jamDesignate) Some(o.designateVec) else acc.jamDesignate,
+        if (o.designate == List()) acc.jamDesignate else o.designate,
         jamSolicit: acc.jamSolicit,
         jamForget: acc.jamForget,
         jamAssigns: acc.jamAssigns,
@@ -418,7 +420,7 @@ module accumulate {
     state: ParachainServiceState,
     wr: WorkResult,
     solicited: Set[(ParaId, Hash, int)],
-    prevDesignate: Option[List[ValidatorKey]],
+    prevDesignate: List[ValidatorKey],
     codeLen: int,
     now: Timeslot,
     foreign: ForeignServices
@@ -518,7 +520,7 @@ module accumulate {
   pure def accumulateAll(
     state: ParachainServiceState,
     solicited: Set[(ParaId, Hash, int)],
-    prevDesignate: Option[List[ValidatorKey]],
+    prevDesignate: List[ValidatorKey],
     codeLen: int,
     now: Timeslot,
     packages: List[WorkResult],
@@ -664,13 +666,10 @@ module accumulate {
   ): BlockOutcome = {
     val flushed = applyAlwaysAccumulate(state, now)
     val acc =
-      accumulateAll(flushed.state, solicited, None, codeLen, now, packages, foreign)
+      accumulateAll(flushed.state, solicited, List(), codeLen, now, packages, foreign)
     {
       state: acc.state,
-      staging: match acc.jamDesignate {
-        | Some(v) => v
-        | None => staging
-      },
+      staging: if (acc.jamDesignate == List()) staging else acc.jamDesignate,
       solicited: acc.solicited,
       assigns: flushed.assigns.concat(acc.jamAssigns),
       logPruned: acc.logPruned,

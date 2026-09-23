@@ -178,7 +178,7 @@ module transfers_test {
       lookupAnchor: fresh
     }
     val out = accumulateOnePackage(
-      paid, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), None, FixedCodeLen,
+      paid, { result: WorkOk(Ok(ok)), authTrace: 0 }, Set(), List(), FixedCodeLen,
       fresh + 1, Map())
     all {
       // The reserved portion cost nothing beyond the baseline.

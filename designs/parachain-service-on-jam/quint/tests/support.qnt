@@ -182,16 +182,14 @@ module support {
     }
     val afterAlwaysAccumulate = applyAlwaysAccumulate(svc, blockNow)
     val out = accumulateOnePackage(
-      afterAlwaysAccumulate.state, wr, solicitedSet, None, FixedCodeLen, blockNow,
+      afterAlwaysAccumulate.state, wr, solicitedSet, List(), FixedCodeLen, blockNow,
       foreignServices
     )
     all {
       svc' = out.state,
       now' = blockNow,
-      jamStagingSet' = match out.jamDesignate {
-        | Some(v) => v
-        | None => jamStagingSet
-      },
+      jamStagingSet' =
+        if (out.jamDesignate == List()) jamStagingSet else out.jamDesignate,
       solicitedSet' = out.solicited,
       prevSvc' = svc,
       lastStepWorkResults' = List(wr),
@@ -206,7 +204,7 @@ module support {
   pure def accOverWith(
     s: ParachainServiceState, fs: ForeignServices
   ): AccumulateOutcome = {
-    state: s, jamDesignate: None, jamSolicit: Set(),
+    state: s, jamDesignate: List(), jamSolicit: Set(),
     jamForget: Set(), jamAssigns: List(), logs: List(), foreign: fs
   }
 

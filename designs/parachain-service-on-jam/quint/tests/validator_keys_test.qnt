@@ -17,7 +17,7 @@ module validator_keys_test {
     val o = applySetValidatorKeys(initialState, vkeys(30), false)
     all {
       assert(o.state.stagedValidatorKeys.length() == 30),
-      assert(not(o.jamDesignate)),
+      assert(o.designate == List()),
       init
     }
   }
@@ -31,14 +31,13 @@ module validator_keys_test {
     val staged = applySetValidatorKeys(initialState, vkeys(30), false).state
     val fromStaged = applySetValidatorKeys(staged, List(), true)
     all {
-      assert(not(fromEmpty.jamDesignate)),
+      assert(fromEmpty.designate == List()),
       assert(fromEmpty.state.stagedValidatorKeys == List()),
       // 30 = 3 * 10 is a valid `valcount`, so this is exactly the case that
       // must NOT reach `designate`.
       assert(ValCount.contains(30)),
       assert(staged.stagedValidatorKeys.length() == 30),
-      assert(not(fromStaged.jamDesignate)),
-      assert(fromStaged.designateVec == List()),
+      assert(fromStaged.designate == List()),
       assert(fromStaged.state.stagedValidatorKeys == List()),
       init
     }
@@ -53,10 +52,9 @@ module validator_keys_test {
     // 30 + 1 = 31, not a multiple of 3.
     val bad = applySetValidatorKeys(staged, vkeys(1), true)
     all {
-      assert(ok.jamDesignate),
-      assert(ok.designateVec.length() == 60),
+      assert(ok.designate.length() == 60),
       assert(ok.state.stagedValidatorKeys == List()),
-      assert(not(bad.jamDesignate)),
+      assert(bad.designate == List()),
       assert(bad.log == Some(DesignateRejected({ len: 31 }))),
       assert(bad.state.stagedValidatorKeys == List()),
       init

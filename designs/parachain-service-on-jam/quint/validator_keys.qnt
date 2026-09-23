@@ -32,10 +32,9 @@ module validator_keys {
 
   type ChunkOutcome = {
     state: ParachainServiceState,
-    // Whether to invoke JAM `designate` with the assembled buffer.
-    jamDesignate: bool,
-    // The vector to pass to `designate` (only meaningful if jamDesignate).
-    designateVec: List[ValidatorKey],
+    // The vector to invoke JAM `designate` with. Empty means no call: a valid
+    // `designate` holds at least 6 keys, so an empty vector cannot be one.
+    designate: List[ValidatorKey],
     // Optional accumulate-log entry.
     log: Option[AccumulateLog]
   }
@@ -51,8 +50,7 @@ module validator_keys {
       // Abort: an empty final chunk discards whatever is staged.
       {
         state: { ...s, stagedValidatorKeys: List() },
-        jamDesignate: false,
-        designateVec: List(),
+        designate: List(),
         log: None
       }
     } else if (isLast) {
@@ -63,8 +61,7 @@ module validator_keys {
       val ok = ValCount.contains(assembled.length())
       {
         state: sCleared,
-        jamDesignate: ok,
-        designateVec: if (ok) assembled else List(),
+        designate: if (ok) assembled else List(),
         log:
         if (ok) None
         else Some(DesignateRejected({ len: assembled.length() }))
@@ -74,15 +71,13 @@ module validator_keys {
       if (s.stagedValidatorKeys.length() + chunk.length() > MaxStagedValidatorKeys) {
         {
           state: s,
-          jamDesignate: false,
-          designateVec: List(),
+          designate: List(),
           log: Some(StagedValidatorKeysOverflow)
         }
       } else {
         {
           state: { ...s, stagedValidatorKeys: s.stagedValidatorKeys.concat(chunk) },
-          jamDesignate: false,
-          designateVec: List(),
+          designate: List(),
           log: None
         }
       }
