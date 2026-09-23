@@ -3752,6 +3752,348 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
 	}
 
+	/// Benchmark `r` `ADD` instructions with carry propagation through all four words each time.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_add_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+		let code = Bytecode::new_raw(vec![ADD; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..=r {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&(U256::MAX - U256::from(r))));
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+	}
+
+	/// Benchmark `r` `MUL` instructions with dense operands that retain four nonzero result limbs.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mul_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+		const SEED: U256 = U256([0x5555_5555_5555_5555; 4]);
+
+		let code = Bytecode::new_raw(vec![MUL; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..r {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+		interpreter.stack.push(SEED).continue_value().unwrap();
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		let expected = if r.is_multiple_of(2) { SEED } else { SEED.overflowing_neg().0 };
+		assert_eq!(interpreter.stack.top(), Some(&expected));
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+	}
+
+	/// Benchmark `r` `SUB` instructions with a borrow through all four words on each subtraction.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sub_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+		let code = Bytecode::new_raw(vec![SUB; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..r {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+		interpreter.stack.push(U256::one()).continue_value().unwrap();
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&U256::from(r + 1)));
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+	}
+
+	/// Benchmark `r` `DIV` instructions with three quotient steps and five estimate corrections.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_div_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
+		const NUMERATOR: U256 = U256([0, 0, 1, 1 << 62]);
+		const DIVISOR: U256 = U256([3, 2, 0, 0]);
+
+		let code = Bytecode::new_raw([DIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for operand in [DIVISOR, NUMERATOR].into_iter().cycle().take(2 * r as usize) {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
+	}
+
+	/// Benchmark `r` `SDIV` instructions using fresh operands. The positive numerator `2^254 +
+	/// 2^128` and negative denominator `-(2^65 + 3)` force sign conversion and five Knuth quotient
+	/// corrections.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sdiv_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
+		const NUMERATOR: U256 = U256([0, 0, 1, 1 << 62]);
+		const DIVISOR: U256 = U256([u64::MAX - 2, u64::MAX - 2, u64::MAX, u64::MAX]);
+
+		let code = Bytecode::new_raw([SDIV, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for operand in [DIVISOR, NUMERATOR].into_iter().cycle().take(2 * r as usize) {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
+	}
+
+	/// Benchmark `r` `MOD` instructions with three quotient digits and five estimate corrections.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mod_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
+		const NUMERATOR: U256 = U256([0, 0, 1, 1 << 62]);
+		const DIVISOR: U256 = U256([3, 2, 0, 0]);
+
+		let code = Bytecode::new_raw([MOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for operand in [DIVISOR, NUMERATOR].into_iter().cycle().take(2 * r as usize) {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
+	}
+
+	/// Benchmark `r` `SMOD` instructions with negative operands and five quotient corrections.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_smod_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
+		const NUMERATOR: U256 = U256([0, 0, u64::MAX, 0xbfff_ffff_ffff_ffff]);
+		const DIVISOR: U256 =
+			U256([0xffff_ffff_ffff_fffd, 0xffff_ffff_ffff_fffd, u64::MAX, u64::MAX]);
+
+		let code = Bytecode::new_raw([SMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for operand in [DIVISOR, NUMERATOR].into_iter().cycle().take(2 * r as usize) {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
+	}
+
+	/// Benchmark `r` `ADDMOD` instructions with two full reductions and a final subtraction.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_addmod_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 3 }>) {
+		const OPERAND: U256 = U256([0, 0, 1, 1 << 62]);
+		const MODULUS: U256 = U256([3, 2, 0, 0]);
+
+		let code = Bytecode::new_raw([ADDMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		// Both reductions use three quotient digits with one, two, and two estimate corrections.
+		for value in [MODULUS, OPERAND, OPERAND].into_iter().cycle().take(3 * r as usize) {
+			interpreter.stack.push(value).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
+	}
+
+	/// Benchmark `r` `MULMOD` instructions with full products, five normalized quotient steps and
+	/// two four-word add-back corrections per operation. Fresh operands preserve this path each
+	/// time.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_mulmod_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 3 }>) {
+		const MODULUS: U256 = U256([4, 1, 1, 1]);
+
+		let multiplier = U256::MAX - U256::from(6);
+		let code = Bytecode::new_raw([MULMOD, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for operand in [MODULUS, multiplier, U256::MAX].into_iter().cycle().take(3 * r as usize) {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
+	}
+
+	/// Benchmark `r` `EXP` instructions taking the zero-exponent shortcut.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_exp_zero_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+		let code = Bytecode::new_raw(vec![EXP; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..r {
+			interpreter.stack.push(U256::zero()).continue_value().unwrap();
+		}
+		interpreter.stack.push(U256::MAX).continue_value().unwrap();
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		let expected = if r == 0 { U256::MAX } else { U256::one() };
+		assert_eq!(interpreter.stack.top(), Some(&expected));
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+	}
+
+	/// Benchmark the fixed positive-exponent cost with `r` `EXP` instructions and exponent one.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_exp_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
+		let code = Bytecode::new_raw(vec![EXP; r as usize].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..r {
+			interpreter.stack.push(U256::one()).continue_value().unwrap();
+		}
+		interpreter.stack.push(U256::MAX).continue_value().unwrap();
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&U256::MAX));
+		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+	}
+
+	/// Benchmark `EXP` with all exponent bits set. Each additional bit adds two multiplications.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_exp_per_bit(b: Linear<0, 255>) {
+		let exponent = U256::MAX >> (255 - b);
+		let code = Bytecode::new_raw(vec![EXP].into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for operand in [exponent, U256::MAX] {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 1);
+		assert_eq!(interpreter.stack.top(), Some(&U256::MAX));
+		assert_eq!(interpreter.bytecode.pc(), 2);
+	}
+
+	/// Benchmark `r` `SIGNEXTEND` instructions with a set sign bit in the lowest limb.
+	///
+	/// Index three keeps mask construction on the full shift path. Fresh operands and `POP`
+	/// preserve the negative extension path on every repetition.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_signextend_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
+		let code = Bytecode::new_raw([SIGNEXTEND, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		let operands = (0..r).flat_map(|_| [U256::from(0xffda_dadau32), U256::from(3)]);
+		for operand in operands {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
+	}
+
 	/// Benchmark `r` `LT` instructions with zero/two operands, comparing all four words each time.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_lt_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT - 1 }>) {
@@ -5127,4 +5469,55 @@ mod benchmarks {
 		crate::tests::ExtBuilder::default().build(),
 		crate::tests::Test,
 	);
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::tests::{ExtBuilder, Test};
+
+	#[test]
+	fn exponent_width_selects_the_zero_or_scaled_charge() {
+		// Arrange
+		let zero_cost = <() as WeightInfo>::evm_exp_zero_opcode(1)
+			.saturating_sub(<() as WeightInfo>::evm_exp_zero_opcode(0));
+		let one_cost = <() as WeightInfo>::evm_exp_opcode(1)
+			.saturating_sub(<() as WeightInfo>::evm_exp_opcode(0));
+		let full_width_cost = one_cost.saturating_add(
+			<() as WeightInfo>::evm_exp_per_bit(255)
+				.saturating_sub(<() as WeightInfo>::evm_exp_per_bit(0)),
+		);
+		let cases = [
+			(U256::zero(), U256::one(), zero_cost),
+			(U256::one(), U256::MAX, one_cost),
+			(U256::one() << 255, U256::one(), full_width_cost),
+			(U256::MAX, U256::MAX, full_width_cost),
+		];
+		for (exponent, expected, expected_cost) in cases {
+			ExtBuilder::default().build().execute_with(|| {
+				let code = Bytecode::new_raw(vec![EXP].into());
+				let mut setup = CallSetup::<Test>::new(VmBinaryModule::evm_noop(0));
+				let (mut ext, _) = setup.ext();
+				let mut interpreter =
+					Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+				for operand in [exponent, U256::MAX] {
+					interpreter.stack.push(operand).continue_value().unwrap();
+				}
+				let before = interpreter.ext.frame_meter().weight_consumed();
+
+				// Act
+				let result = evm::run_plain(&mut interpreter);
+
+				// Assert
+				assert_eq!(result, ControlFlow::Break(Halt::Stop));
+				assert_eq!(interpreter.stack.len(), 1);
+				assert_eq!(interpreter.stack.top(), Some(&expected));
+				assert_eq!(interpreter.bytecode.pc(), 2);
+				assert_eq!(
+					interpreter.ext.frame_meter().weight_consumed().saturating_sub(before),
+					expected_cost,
+				);
+			});
+		}
+	}
 }

@@ -194,6 +194,19 @@ pub trait WeightInfo {
 	fn evm_calldataload_opcode(r: u32, ) -> Weight;
 	fn evm_calldatasize_opcode(r: u32, ) -> Weight;
 	fn evm_returndatasize_opcode(r: u32, ) -> Weight;
+	fn evm_add_opcode(r: u32, ) -> Weight;
+	fn evm_mul_opcode(r: u32, ) -> Weight;
+	fn evm_sub_opcode(r: u32, ) -> Weight;
+	fn evm_div_opcode(r: u32, ) -> Weight;
+	fn evm_sdiv_opcode(r: u32, ) -> Weight;
+	fn evm_mod_opcode(r: u32, ) -> Weight;
+	fn evm_smod_opcode(r: u32, ) -> Weight;
+	fn evm_addmod_opcode(r: u32, ) -> Weight;
+	fn evm_mulmod_opcode(r: u32, ) -> Weight;
+	fn evm_exp_zero_opcode(r: u32, ) -> Weight;
+	fn evm_exp_opcode(r: u32, ) -> Weight;
+	fn evm_exp_per_bit(b: u32, ) -> Weight;
+	fn evm_signextend_opcode(r: u32, ) -> Weight;
 	fn evm_lt_opcode(r: u32, ) -> Weight;
 	fn evm_gt_opcode(r: u32, ) -> Weight;
 	fn evm_clz_opcode(r: u32, ) -> Weight;
@@ -1717,6 +1730,84 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Dummy values. These weights will be generated in CI.
 		Weight::from_parts(1_000_000, 0)
 			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_add_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_mul_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_sub_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_div_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sdiv_opcode(r: u32, ) -> Weight {
+		// Dummy values include one SDIV and one POP per repetition.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_mod_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_smod_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_addmod_opcode(r: u32, ) -> Weight {
+		// Dummy values include one ADDMOD and one POP per repetition.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_mulmod_opcode(r: u32, ) -> Weight {
+		// Dummy values include one MULMOD and one POP per repetition.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_exp_zero_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_exp_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `b` is `[0, 255]`.
+	fn evm_exp_per_bit(b: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(b.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_signextend_opcode(r: u32, ) -> Weight {
+		// Dummy values include one SIGNEXTEND and one POP per repetition.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 1023]`.
 	fn evm_lt_opcode(r: u32, ) -> Weight {
@@ -3553,6 +3644,84 @@ impl WeightInfo for () {
 		// Dummy values. These weights will be generated in CI.
 		Weight::from_parts(1_000_000, 0)
 			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_add_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_mul_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_sub_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_div_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sdiv_opcode(r: u32, ) -> Weight {
+		// Dummy values include one SDIV and one POP per repetition.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_mod_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_smod_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_addmod_opcode(r: u32, ) -> Weight {
+		// Dummy values include one ADDMOD and one POP per repetition.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 341]`.
+	fn evm_mulmod_opcode(r: u32, ) -> Weight {
+		// Dummy values include one MULMOD and one POP per repetition.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_exp_zero_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 1023]`.
+	fn evm_exp_opcode(r: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `b` is `[0, 255]`.
+	fn evm_exp_per_bit(b: u32, ) -> Weight {
+		// Dummy values. These weights will be generated in CI.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(b.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_signextend_opcode(r: u32, ) -> Weight {
+		// Dummy values include one SIGNEXTEND and one POP per repetition.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 1023]`.
 	fn evm_lt_opcode(r: u32, ) -> Weight {
