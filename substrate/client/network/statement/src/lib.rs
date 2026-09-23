@@ -163,7 +163,7 @@ use std::{
 use tokio::time::timeout;
 use v2dht::{RetentionHandle, V2DhtMetrics, V2DhtOrchestrator};
 pub mod config;
-pub use config::V2DhtConfig;
+pub use config::{AffinityTopicsFile, V2DhtConfig};
 pub use v2dht::RetentionReasonMask;
 #[cfg(test)]
 mod test_helpers;
@@ -656,12 +656,14 @@ impl StatementHandlerPrototype {
 			.as_ref()
 			.map(|cfg| RetentionHandle::new(network.local_peer_id(), cfg.replication_factor));
 		let V2DhtConfig {
-			affinity_topics,
+			mut affinity_topics,
+			affinity_topics_file,
 			bloom_false_pos_rate,
 			bloom_seed,
 			replication_factor,
 			gossip_target,
 		} = v2dht_config.unwrap_or_default();
+		affinity_topics.extend(affinity_topics_file.into_iter().flat_map(|file| file.0));
 		let mut v2dht = V2DhtOrchestrator::new(
 			&affinity_topics,
 			bloom_seed,
@@ -2156,10 +2158,9 @@ where
 	/// should receive these statements, so this skips the explicit-affinity bloom filter that
 	/// [`Self::queue_statements_for_peer`] applies and only drops statements the peer sent to us.
 	// TODO(#11932): fold this into the per-peer outbox path (`try_send_next_chunk`) and delete
-	// `queue_statements_in_chunks`/`find_sendable_chunk`. Blocked on two gaps in the outbox
-	// machinery: transient statement bodies leave the store on `take_recent_statements`, so the
-	// fetch needs the bodies carried alongside the queued hashes, and the fetch re-applies the
-	// peer's affinity filter, which orchestrator-chosen targets must bypass.
+	// `queue_statements_in_chunks`/`find_sendable_chunk`. Blocked on one gap in the outbox
+	// machinery: the fetch re-applies the peer's affinity filter, which orchestrator-chosen
+	// targets must bypass.
 	fn send_targeted_statements_to_peer(
 		&mut self,
 		who: &PeerId,
