@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790153560150,
+  "lastUpdate": 1790166439627,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -127331,6 +127331,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2832475614,
             "range": "± 31559750",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alistair.singh7@gmail.com",
+            "name": "Alistair Singh",
+            "username": "alistair-singh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "32cc17dbfc6fbd4163744fe1828714a0d9905d7e",
+          "message": "Preserve Snowbridge v1 inbound liveness when the Asset Hub sovereign is empty (#12569)\n\n# Description\n\nSnowbridge v1 inbound messages now burn the teleported Asset Hub\nexecution fee from the relayer's Bridge Hub account instead of requiring\nfunds in the Asset Hub sovereign account on Bridge Hub. The Asset Hub\nsovereign reimburses the relayer best-effort for the burned fee plus\ndelivery reward when it has enough reducible balance.\n\nThis preserves the existing funded-sovereign economics while preventing\nan empty Asset Hub sovereign from stalling the Ethereum-to-Polkadot\ninbound channel. In the empty-sovereign case, the message is still\nprocessed and the nonce advances, but the relayer is not reimbursed.\n\n\n## Review Notes\n\nMotivation: In order to deprecate Snowbridge V1, we can simply allow\nfunds to run out in these sovereigns making it unattractive to relayers.\nIf the community wishes to continue to use V1, we can submit a proposal\nto top up these accounts from treasury so that relayers are rewarded\nagain or they can migrate to V2. In reality we will probably submit at\nleast 1 proposal to top up these accounts one last time to give the\ncommunity time to migrate over.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-23T11:06:59Z",
+          "tree_id": "e12c675cb85f64097b51d0639f25dac676ce3151",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/32cc17dbfc6fbd4163744fe1828714a0d9905d7e"
+        },
+        "date": 1790166392554,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20753904,
+            "range": "± 280593",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20837505,
+            "range": "± 239494",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22585548,
+            "range": "± 244510",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27211541,
+            "range": "± 344585",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61598803,
+            "range": "± 853712",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 376091089,
+            "range": "± 16248099",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2804710802,
+            "range": "± 102350755",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17495895,
+            "range": "± 183706",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17725604,
+            "range": "± 158480",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18474167,
+            "range": "± 106141",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22899242,
+            "range": "± 144865",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62380824,
+            "range": "± 733164",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 356115958,
+            "range": "± 6508208",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2716678933,
+            "range": "± 31067037",
             "unit": "ns/iter"
           }
         ]
