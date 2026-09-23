@@ -3974,7 +3974,9 @@ mod benchmarks {
 	/// Benchmark `r` `POP` instructions.
 	///
 	/// All items are placed on the stack before the code executes therefore the benchmark gives the
-	/// cost of just `POP` without any overhead.
+	/// cost of just `POP` without any other instructions.
+	///
+	/// `POP` is not operand dependent so we fill the stack with `U256::MAX` in the setup phase.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_pop_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![POP; r as usize].into());
