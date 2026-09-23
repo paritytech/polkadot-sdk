@@ -272,10 +272,10 @@ contract StipendSender {
         return !probe.send(msg.value);
     }
 
-    /// @dev Passing one gas explicitly keeps the probe on the stipend but lets it reenter, since
-    /// only transfer and send are guarded. Proves the stipend is enough for the reentry.
-    function isCallWithOneGasDenied() public payable returns (bool) {
-        (bool ok, ) = probe.call{value: msg.value, gas: 1}("");
+    /// @dev Passing a gas limit explicitly keeps the probe on the stipend but lets it reenter,
+    /// since only transfer and send are guarded.
+    function isCallWithGasDenied(uint64 g) public payable returns (bool) {
+        (bool ok, ) = probe.call{value: msg.value, gas: g}("");
         return !ok;
     }
 

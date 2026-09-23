@@ -18,7 +18,7 @@
 use crate::{
 	Code, Config,
 	test_utils::{ALICE, builder::Contract},
-	tests::{ExtBuilder, Test, builder},
+	tests::{ExtBuilder, GasScale, Test, builder},
 };
 use alloy_core::sol_types::{SolCall, SolConstructor, SolValue};
 use frame_support::traits::fungible::Mutate;
@@ -177,33 +177,45 @@ fn evm_call_stipend_denies_reentrancy_for_transfer_and_send_only(fixture_type: F
 				StipendSender::constructorCall { _probe: probe.0.into() }.abi_encode(),
 			)
 			.build_and_unwrap_contract();
-		let run = |call: Vec<u8>| {
+
+		let value = 1_000_000_u128;
+		let run = |evm_value: u128, call: Vec<u8>| {
 			let result = builder::bare_call(addr)
 				.data(call)
-				.evm_value(1_000_000_u128.into())
+				.evm_value(evm_value.into())
 				.build_and_unwrap_result();
 			assert!(!result.did_revert(), "the call into StipendSender should not revert");
 			bool::abi_decode(&result.data).unwrap()
 		};
 
 		assert!(
-			run(StipendSender::isTransferDeniedCall {}.abi_encode()),
+			run(value, StipendSender::isTransferDeniedCall {}.abi_encode()),
 			"transfer forwards only the stipend, so its callee must not reenter"
 		);
 		assert!(
-			run(StipendSender::isSendDeniedCall {}.abi_encode()),
+			run(value, StipendSender::isSendDeniedCall {}.abi_encode()),
 			"send forwards only the stipend, so its callee must not reenter"
 		);
+
 		assert_eq!(
-			run(StipendSender::isCallWithOneGasDeniedCall {}.abi_encode()),
+			run(value, StipendSender::isCallWithGasDeniedCall { g: 1 }.abi_encode()),
 			fixture_type == FixtureType::Resolc,
-			"a caller that sets its own gas limit is never guarded, so only cost can deny it: \
-			 the stipend reaches a reentry on the EVM but not on PVM, where the hop back pays \
-			 another call base and code load"
+			"the stipend alone lets the probe reenter on EVM, but is too small on PVM"
 		);
+
 		assert!(
-			run(StipendSender::isSelfSendAllowedCall {}.abi_encode()),
-			"the guard stops the callee reentering, not a sender sending to itself"
+			run(value, StipendSender::isSelfSendAllowedCall {}.abi_encode()),
+			"self send should be allowed"
 		);
+
+		// The raised gas scale makes 2300 gas enough to reenter on PVM.
+		let default_gas_scale = GasScale::get();
+		GasScale::set(200_000);
+		let value_call =
+			run(value, StipendSender::isCallWithGasDeniedCall { g: 2300 }.abi_encode());
+		let zero_value_send = run(0, StipendSender::isSendDeniedCall {}.abi_encode());
+		GasScale::set(default_gas_scale);
+		assert!(!value_call, "a value call should allow the probe to reenter");
+		assert!(zero_value_send, "a zero-value send must not let the probe reenter");
 	});
 }
