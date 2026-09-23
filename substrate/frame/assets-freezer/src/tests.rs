@@ -137,7 +137,7 @@ mod impl_inspect_freeze {
 	}
 
 	/// This tests it's not possible to freeze once the freezes [`BoundedVec`] is full. This is,
-	/// the lenght of the vec is equal to [`Config::MaxFreezes`].
+	/// the lenght of the vec is equal to the variant count of `Config::RuntimeFreezeReason`.
 	/// This test assumes a mock configuration where this parameter is set to `2`.
 	#[test]
 	fn can_freeze_works() {
