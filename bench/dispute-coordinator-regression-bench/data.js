@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790154567472,
+  "lastUpdate": 1790167459612,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e3a9fcd296ef596cf697c578a2a7b76e974e5ce2",
-          "message": "statement-store: do not populate recent on restart (#11117)\n\nOn restart populate rebuilds the entire index and it uses the\n`insert_new` which ended up populating recent with all the statements in\nthe statement store.\n\nThat is bad, because then take_recent_statements would read all\nstatements in DB and have to hold them in memory.\n\nThe statement in the DB are not recent, so it does not make sense for\nthem to be marked as recent, fix that by making insert_new conditional.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
-          "timestamp": "2026-02-23T08:40:23Z",
-          "tree_id": "3c02d56eca1dd83f6741e136dad78ab4d2f14043",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e3a9fcd296ef596cf697c578a2a7b76e974e5ce2"
-        },
-        "date": 1771840511432,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006438859779999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026373771399999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009073105699999993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010512070150000004,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alistair.singh7@gmail.com",
+            "name": "Alistair Singh",
+            "username": "alistair-singh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "32cc17dbfc6fbd4163744fe1828714a0d9905d7e",
+          "message": "Preserve Snowbridge v1 inbound liveness when the Asset Hub sovereign is empty (#12569)\n\n# Description\n\nSnowbridge v1 inbound messages now burn the teleported Asset Hub\nexecution fee from the relayer's Bridge Hub account instead of requiring\nfunds in the Asset Hub sovereign account on Bridge Hub. The Asset Hub\nsovereign reimburses the relayer best-effort for the burned fee plus\ndelivery reward when it has enough reducible balance.\n\nThis preserves the existing funded-sovereign economics while preventing\nan empty Asset Hub sovereign from stalling the Ethereum-to-Polkadot\ninbound channel. In the empty-sovereign case, the message is still\nprocessed and the nonce advances, but the relayer is not reimbursed.\n\n\n## Review Notes\n\nMotivation: In order to deprecate Snowbridge V1, we can simply allow\nfunds to run out in these sovereigns making it unattractive to relayers.\nIf the community wishes to continue to use V1, we can submit a proposal\nto top up these accounts from treasury so that relayers are rewarded\nagain or they can migrate to V2. In reality we will probably submit at\nleast 1 proposal to top up these accounts one last time to give the\ncommunity time to migrate over.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling requirements](\n\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n) of this project (at minimum one label for `T` required)\n    * External contributors: Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add labels manually\n* [x] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-23T11:06:59Z",
+          "tree_id": "e12c675cb85f64097b51d0639f25dac676ce3151",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/32cc17dbfc6fbd4163744fe1828714a0d9905d7e"
+        },
+        "date": 1790167419067,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009249769149999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010919488960000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002505911490000001,
             "unit": "seconds"
           }
         ]
