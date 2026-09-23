@@ -22,7 +22,7 @@ use crate::{
 	U256,
 	vm::{
 		Ext,
-		evm::{EVMGas, Interpreter, interpreter::Halt},
+		evm::{EVMGas, EvmOpcodeCosts, Interpreter, interpreter::Halt},
 	},
 };
 use bits::Bits;
@@ -159,7 +159,7 @@ pub fn byte<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 /// EIP-145: Bitwise shifting instructions in EVM
 pub fn shl<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SHL)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
 	let shift = as_usize_saturated(op1);
@@ -169,7 +169,7 @@ pub fn shl<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 /// EIP-145: Bitwise shifting instructions in EVM
 pub fn shr<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SHR)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
 	let shift = as_usize_saturated(op1);
@@ -179,7 +179,7 @@ pub fn shr<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 /// EIP-145: Bitwise shifting instructions in EVM
 pub fn sar<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SAR)?;
 	let ([op1], op2) = interpreter.stack.popn_top()?;
 
 	let shift = as_usize_saturated(op1);

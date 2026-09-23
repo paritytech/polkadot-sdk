@@ -1718,6 +1718,24 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(1_000_000, 0)
 			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(r.into()))
 	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_shl_opcode(r: u32, ) -> Weight {
+		// Dummy values include one SHL and one POP per repetition.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_shr_opcode(r: u32, ) -> Weight {
+		// Dummy values include one SHR and one POP per repetition.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(r.into()))
+	}
+	/// The range of component `r` is `[0, 512]`.
+	fn evm_sar_opcode(r: u32, ) -> Weight {
+		// Dummy values include one SAR and one POP per repetition.
+		Weight::from_parts(1_000_000, 0)
+			.saturating_add(Weight::from_parts(200_000, 0).saturating_mul(r.into()))
+	}
 	/// The range of component `r` is `[0, 10000]`.
 	fn instr(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:

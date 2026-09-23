@@ -3752,6 +3752,105 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
 	}
 
+	/// Benchmark `r` `SHL` instructions with full-width operands and small, varying shifts.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_shl_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
+		const SHIFTS: [u32; 30] = [
+			1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 17, 17, 15, 14, 13, 12, 11, 10, 9, 7,
+			6, 5, 4, 3, 2, 1,
+		];
+
+		let code = Bytecode::new_raw([SHL, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		let operands = SHIFTS
+			.into_iter()
+			.cycle()
+			.take(r as usize)
+			.flat_map(|shift| [U256::MAX, U256::from(shift)]);
+		for operand in operands {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
+	}
+
+	/// Benchmark `r` `SHR` instructions with full-width operands and small, varying shifts.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_shr_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
+		const SHIFTS: [u32; 30] = [
+			1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 17, 17, 15, 14, 13, 12, 11, 10, 9, 7,
+			6, 5, 4, 3, 2, 1,
+		];
+
+		let code = Bytecode::new_raw([SHR, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		let operands = SHIFTS
+			.into_iter()
+			.cycle()
+			.take(r as usize)
+			.flat_map(|shift| [U256::MAX, U256::from(shift)]);
+		for operand in operands {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
+	}
+
+	/// Benchmark `r` `SAR` instructions with negative operands and small, varying shifts.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_sar_opcode(r: Linear<0, { limits::EVM_STACK_LIMIT / 2 }>) {
+		const SHIFTS: [u32; 30] = [
+			1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 17, 17, 15, 14, 13, 12, 11, 10, 9, 7,
+			6, 5, 4, 3, 2, 1,
+		];
+
+		let code = Bytecode::new_raw([SAR, POP].repeat(r as usize).into());
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		let operands = SHIFTS
+			.into_iter()
+			.cycle()
+			.take(r as usize)
+			.flat_map(|shift| [U256::MAX << shift, U256::from(shift)]);
+		for operand in operands {
+			interpreter.stack.push(operand).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
+	}
+
 	// Benchmark the execution of instructions.
 	//
 	// It benchmarks the absolute worst case by allocating a lot of memory
