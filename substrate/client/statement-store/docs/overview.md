@@ -68,13 +68,9 @@ the lowest expiry) are evicted to make room. If a single statement's data exceed
 rejected outright; and if, even after evicting every lower-priority statement, the new one still
 does not fit, it is rejected too. Global limits apply on top of per-account limits: the store holds
 at most `DEFAULT_MAX_TOTAL_STATEMENTS` statements and `DEFAULT_MAX_TOTAL_SIZE` of data. On the v2
-DHT path the store also limits, separately and configurably, the data size of the statements it
-keeps for DHT affinity and of the transient ones it keeps only until propagated. A statement counts
-toward the reason it is kept for, moving with the retention sweep, and a full reason rejects new
-statements of that reason while the others still admit theirs. Statements kept for explicit
-affinity alone are bound by the store size only, so they take the room the two limited reasons
-leave free. Like the global limits, a lowered limit trims nothing on its own: the limit admits
-again as its statements leave.
+DHT path the statements kept for DHT affinity and the transient ones also have a size limit each,
+and a full limit rejects only new statements of its own kind. Statements kept only for explicit
+affinity have no limit of their own.
 
 Allowances are not fixed in code: they are held in chain state (keyed under
 `STATEMENT_ALLOWANCE_PREFIX`) and granted or revoked by the runtime; an account with no allowance —
