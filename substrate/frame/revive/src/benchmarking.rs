@@ -125,10 +125,8 @@ fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId,
 
 /// Code and stack contents for benchmarking one of the EVM jump opcodes.
 ///
-/// The code is always the maximum init code size, independent of how many jumps execute, since
-/// that is larger than the L1 cache on reference hardware. It is nothing but `jump; JUMPDEST`
-/// pairs, so every destination except the last is followed by another jump, and the last is
-/// followed by the `STOP` revm pads the code with.
+/// The code is always the maximum init code size, independent of how many jumps execute. It's just
+/// `jump; JUMPDEST` pairs, so every destination except the last is followed by another jump.
 struct EvmJumpFixture {
 	code: Vec<u8>,
 	targets: Vec<usize>,
@@ -3277,9 +3275,18 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Benchmark `r` `JUMP` instructions over a full-size code with shuffled targets. The targets
-	/// are placed on the stack ahead of time, so nothing but `JUMP` and `JUMPDEST` executes and
-	/// the slope is one `JUMP` plus one `JUMPDEST`. Each jump consumes one stack item.
+	/// Benchmark `r` `JUMP` instructions.
+	///
+	/// The code used here is of the size [`MAX_INITCODE_SIZE`] to make it as large as possible
+	/// which means that we have jumps that are further apart.
+	///
+	/// Where the code jumps to is based on an even distribution of jump destinations which is then
+	/// shuffled in a pseudo-random way in order to prevent the CPU's prefetcher from being able to
+	/// fetch the data before the jump.
+	///
+	/// Jump targets are placed in the stack before the code is run in order to not need to subtract
+	/// the weight of pushes after the fact, hence why the benchmark's upper bound on `r` is the
+	/// stack limit.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_jump_opcode(r: Linear<1, EVM_STACK_LIMIT>) {
 		let fixture = EvmJumpFixture::new(JUMP, r);
