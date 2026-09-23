@@ -35,7 +35,7 @@ use polkadot_node_network_protocol::{peer_set::CollationVersion, OurView, PeerId
 use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_node_subsystem::{
 	messages::{
-		CandidateBackingMessage, IfDisconnected, NetworkBridgeTxMessage,
+		CandidateBackingMessage, IfDisconnected, KnownOutputHeads, NetworkBridgeTxMessage,
 		ProspectiveParachainsMessage,
 	},
 	CollatorProtocolSenderTrait,
@@ -45,10 +45,7 @@ use polkadot_primitives::{
 	BlockNumber, CandidateDescriptorVersion, CandidateReceiptV2 as CandidateReceipt, Hash,
 	Id as ParaId,
 };
-use std::{
-	collections::{HashMap, HashSet},
-	time::Duration,
-};
+use std::time::Duration;
 
 /// All state relevant for the validator side of the protocol lives here.
 pub struct State<B> {
@@ -690,7 +687,7 @@ impl<B: Backend> State<B> {
 	pub async fn try_launch_new_fetch_requests<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
-		pp_known: &HashMap<Hash, HashMap<ParaId, HashSet<Hash>>>,
+		pp_known: &KnownOutputHeads,
 	) -> Option<Duration> {
 		let _timer = self.metrics.time_handler(TimedHandler::LaunchFetchRequests);
 

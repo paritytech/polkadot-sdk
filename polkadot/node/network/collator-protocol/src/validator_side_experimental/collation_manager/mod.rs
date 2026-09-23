@@ -76,7 +76,7 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::PoV;
 use polkadot_node_subsystem::{
-	messages::{CanSecondRequest, CandidateBackingMessage},
+	messages::{CanSecondRequest, CandidateBackingMessage, KnownOutputHeads},
 	ActivatedLeaf, CollatorProtocolSenderTrait,
 };
 use polkadot_node_subsystem_util::{
@@ -400,9 +400,9 @@ impl CollationManager {
 		entries: Vec<ProspectiveCandidate>,
 	) -> std::result::Result<(), AdvertisementError> {
 		// Segments are homogeneous by construction: one message, one claim shape.
-		if !(entries.iter().all(|e| matches!(e, ProspectiveCandidate::ByHash { .. })) ||
-			entries.iter().all(|e| matches!(e, ProspectiveCandidate::ByOutputHead { .. })))
-		{
+		let homogeneous = entries.iter().all(|e| matches!(e, ProspectiveCandidate::ByHash { .. })) ||
+			entries.iter().all(|e| matches!(e, ProspectiveCandidate::ByOutputHead { .. }));
+		if !homogeneous {
 			gum::error!(
 				target: LOG_TARGET,
 				?peer_id,
@@ -531,7 +531,7 @@ impl CollationManager {
 		&mut self,
 		connected_rep_query_fn: RepQueryFn,
 		max_scores: HashMap<ParaId, Score>,
-		pp_known: &HashMap<Hash, HashMap<ParaId, HashSet<Hash>>>,
+		pp_known: &KnownOutputHeads,
 		mut create_timer_fn: TimerFn,
 	) -> (Vec<Requests>, Option<Duration>) {
 		let now = self.clock.now();
@@ -554,10 +554,11 @@ impl CollationManager {
 			let cq_len = leaf_core_cqs[lc_idx].cq.len();
 			for idx in (0..cq_len).rev() {
 				let Some(para_id) = leaf_core_cqs[lc_idx].cq[idx] else { continue };
-				let leaf = leaf_core_cqs[lc_idx].leaf;
-				let pending_heads = pending.entry((leaf, para_id)).or_insert_with(|| {
-					self.known_output_heads(para_id, &leaf_core_cqs[lc_idx].path)
-				});
+				let leaf = leaf_core_cqs[lc_idx].leaf();
+				let pending_heads: &HashSet<_> =
+					pending.entry((leaf, para_id)).or_insert_with(|| {
+						self.pending_output_heads(para_id, &leaf_core_cqs[lc_idx].ancestry)
+					});
 
 				let candidate_sps = leaf_core_cqs[lc_idx].sps_reaching(idx);
 				let highest_rep_of_para = max_scores.get(&para_id).copied().unwrap_or_default();
@@ -604,9 +605,9 @@ impl CollationManager {
 				{
 					for lc in leaf_core_cqs
 						.iter()
-						.filter(|lc| lc.path.contains(&advertisement.scheduling_parent))
+						.filter(|lc| lc.ancestry.contains(&advertisement.scheduling_parent))
 					{
-						if let Some(heads) = pending.get_mut(&(lc.leaf, para_id)) {
+						if let Some(heads) = pending.get_mut(&(lc.leaf(), para_id)) {
 							heads.insert(oh);
 						}
 					}
@@ -641,13 +642,14 @@ impl CollationManager {
 		for leaf in leaves {
 			for &core in &cores {
 				let Some(leaf_cqs) = self.leaf_claim_queues.get(&leaf) else { continue };
-				let Some(path) = self.implicit_view.known_allowed_relay_parents_under(&leaf) else {
+				let Some(ancestry) = self.implicit_view.known_allowed_relay_parents_under(&leaf)
+				else {
 					continue;
 				};
 				let Some(mut cq) = leaf_cqs.slots(core) else { continue };
 				// SPs by depth from the leaf (leaf = 0). Cross-core ancestors are masked as
 				// `None` so `sps_reaching` and `reserve_slot` automatically skip them.
-				let sps_by_depth: Vec<Option<Hash>> = path
+				let sps_by_depth: Vec<Option<Hash>> = ancestry
 					.iter()
 					.map(|sp_hash| {
 						self.per_scheduling_parent
@@ -687,7 +689,7 @@ impl CollationManager {
 					}
 				}
 
-				out.push(LeafCoreCq { sps_by_depth, cq, leaf, path: path.to_vec() });
+				out.push(LeafCoreCq { sps_by_depth, cq, ancestry: ancestry.to_vec() });
 			}
 		}
 		out
@@ -933,9 +935,9 @@ impl CollationManager {
 		MAX_FETCH_DELAY
 	}
 
-	/// The known-set for `para_id` on `path`: output heads already fetched or in flight at a
+	/// Soft blockers for `para_id` on `path`: output heads already fetched or in flight at a
 	/// scheduling parent on `path`.
-	fn known_output_heads(&self, para_id: ParaId, path: &[Hash]) -> HashSet<Hash> {
+	fn pending_output_heads(&self, para_id: ParaId, path: &[Hash]) -> HashSet<Hash> {
 		let fetched =
 			self.per_scheduling_parent.iter().filter(|(sp, _)| path.contains(*sp)).flat_map(
 				|(_, per_scheduling_parent)| {
@@ -1072,9 +1074,18 @@ impl CollationManager {
 						segment.entries.first(),
 						Some(ProspectiveCandidate::ByOutputHead { .. })
 					) {
-						let advertisement = segment
-							.as_advertisement(*peer_id, scheduling_parent)
-							.expect("entries are empty or a single ByHash; qed");
+						let Some(advertisement) =
+							segment.as_advertisement(*peer_id, scheduling_parent)
+						else {
+							gum::error!(
+								target: LOG_TARGET,
+								?scheduling_parent,
+								?peer_id,
+								entries = ?segment.entries,
+								"Multi-entry by-hash segment; skipping",
+							);
+							return None;
+						};
 						if fetching.contains(&advertisement) {
 							return None;
 						}
@@ -1531,8 +1542,8 @@ struct FetchedCollationInfo {
 struct LeafCoreCq {
 	sps_by_depth: Vec<Option<Hash>>,
 	cq: Vec<Option<ParaId>>,
-	leaf: Hash,
-	path: Vec<Hash>,
+	/// `ancestry` is the leaf's allowed relay-parent ancestry
+	ancestry: Vec<Hash>,
 }
 
 impl LeafCoreCq {
@@ -1557,6 +1568,14 @@ impl LeafCoreCq {
 		if let Some(latest) = self.cq[..valid_len].iter().rposition(|slot| *slot == Some(para)) {
 			self.cq[latest] = None;
 		}
+	}
+
+	/// The leaf this view is built on.
+	fn leaf(&self) -> Hash {
+		*self
+			.ancestry
+			.first()
+			.expect("the implicit view starts the ancestry with the leaf; qed")
 	}
 }
 
@@ -2580,6 +2599,63 @@ mod tests {
 		assert_eq!(manager.segments(), [(scheduling_parent, peer_id, entries)].into());
 	}
 
+	// Hard and soft blockers in one segment do not stop the walk: it advances past both to
+	// the first free entry, whichever order the blockers come in, and the launch consumes
+	// the segment.
+	#[test]
+	fn walk_skips_hard_and_soft_blocked_entries_to_a_free_one() {
+		let scheduling_parent = Hash::random();
+		let para_id = ParaId::new(1);
+		let peer_id = PeerId::random();
+		let now = Instant::now();
+		let get_rep = |_: &PeerId, _: &ParaId| Some(Score::new(100));
+		let entries = vec![v4_entry(0xe1), v4_entry(0xe2), v4_entry(0xe3)];
+
+		// Hard, soft, free.
+		{
+			let mut manager = test_collation_manager(scheduling_parent);
+			push_segment(&mut manager, scheduling_parent, peer_id, para_id, entries.clone());
+			let pp_known: HashSet<Hash> = [Hash::repeat_byte(0xe1)].into();
+			let known: HashSet<Hash> = [Hash::repeat_byte(0xe2)].into();
+
+			assert_eq!(
+				manager.pick_best_advertisement(
+					now,
+					para_id,
+					std::iter::once(scheduling_parent),
+					&known,
+					Some(&pp_known),
+					Score::new(100),
+					&get_rep,
+				),
+				PickOutcome::Fetch(v4_ticket(scheduling_parent, para_id, peer_id, entries[2]))
+			);
+			assert!(manager.segments().is_empty());
+		}
+
+		// Soft, hard, free.
+		{
+			let mut manager = test_collation_manager(scheduling_parent);
+			push_segment(&mut manager, scheduling_parent, peer_id, para_id, entries.clone());
+			let known: HashSet<Hash> = [Hash::repeat_byte(0xe1)].into();
+			let pp_known: HashSet<Hash> = [Hash::repeat_byte(0xe2)].into();
+
+			assert_eq!(
+				manager.pick_best_advertisement(
+					now,
+					para_id,
+					std::iter::once(scheduling_parent),
+					&known,
+					Some(&pp_known),
+					Score::new(100),
+					&get_rep,
+				),
+				PickOutcome::Fetch(v4_ticket(scheduling_parent, para_id, peer_id, entries[2]))
+			);
+			assert!(manager.segments().is_empty());
+		}
+	}
+
 	// PP-first classification: an entry that is BOTH soft-known (fetched/in-flight)
 	// AND PP-known counts as hard — a segment of such entries is exhausted and
 	// consumed, not held.
@@ -2714,10 +2790,13 @@ mod tests {
 		);
 
 		assert_eq!(
-			manager.known_output_heads(para_id, &[sp_1, sp_2]),
+			manager.pending_output_heads(para_id, &[sp_1, sp_2]),
 			[Hash::repeat_byte(0xd1), Hash::repeat_byte(0xd3)].into()
 		);
-		assert_eq!(manager.known_output_heads(para_id, &[sp_1]), [Hash::repeat_byte(0xd1)].into());
+		assert_eq!(
+			manager.pending_output_heads(para_id, &[sp_1]),
+			[Hash::repeat_byte(0xd1)].into()
+		);
 	}
 
 	#[test]

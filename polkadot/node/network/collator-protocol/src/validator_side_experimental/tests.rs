@@ -42,7 +42,7 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::messages::{
 	AllMessages, CanSecondRequest, CandidateBackingMessage, ChainApiMessage, IfDisconnected,
-	NetworkBridgeTxMessage, ParentHeadData, ProspectiveParachainsMessage,
+	KnownOutputHeads, NetworkBridgeTxMessage, ParentHeadData, ProspectiveParachainsMessage,
 	ProspectiveValidationDataRequest, RuntimeApiMessage, RuntimeApiRequest,
 };
 use polkadot_node_subsystem_test_helpers::{mock::new_leaf, sender_receiver, TestSubsystemSender};
@@ -208,7 +208,7 @@ struct TestState {
 	keystore: KeystorePtr,
 	node_features: NodeFeatures,
 	slot_overrides: HashMap<Hash, sp_consensus_slots::Slot>,
-	pp_known_output_heads: HashMap<Hash, HashMap<ParaId, HashSet<Hash>>>,
+	pp_known_output_heads: KnownOutputHeads,
 	// Shared by the subsystem state and the mock header responder: a single, frozen time
 	// source so V3 scheduling-parent slot validation can't race a wall-clock slot boundary.
 	clock: Arc<MockClock>,

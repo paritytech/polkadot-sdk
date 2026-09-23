@@ -44,8 +44,8 @@ use polkadot_node_subsystem::{
 	messages::{
 		Ancestors, BackableCandidateRef, ChainApiMessage, HypotheticalCandidate,
 		HypotheticalMembership, HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest,
-		ParentHeadData, ProspectiveParachainsMessage, ProspectiveValidationDataRequest,
-		RuntimeApiMessage,
+		KnownOutputHeads, ParentHeadData, ProspectiveParachainsMessage,
+		ProspectiveValidationDataRequest, RuntimeApiMessage,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
@@ -212,7 +212,7 @@ async fn run_iteration<Context>(
 					answer_prospective_validation_data_request(ctx, view, request, tx).await
 				},
 				ProspectiveParachainsMessage::GetKnownOutputHeads(para_ids, tx) => {
-					answer_get_known_output_heads(view, para_ids, tx).await
+					answer_get_known_output_heads(view, para_ids, tx)
 				},
 			},
 		}
@@ -1094,13 +1094,12 @@ async fn answer_prospective_validation_data_request<Context>(
 	});
 }
 
-#[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
-async fn answer_get_known_output_heads(
+fn answer_get_known_output_heads(
 	view: &View,
 	para_ids: Vec<ParaId>,
-	tx: oneshot::Sender<HashMap<Hash, HashMap<ParaId, HashSet<Hash>>>>,
+	tx: oneshot::Sender<KnownOutputHeads>,
 ) {
-	let mut known = HashMap::new();
+	let mut known = KnownOutputHeads::new();
 	for (sp, per_sp) in &view.per_scheduling_parent {
 		for para_id in &para_ids {
 			if let Some(per_para) = per_sp.fragment_chains.get(&para_id) {

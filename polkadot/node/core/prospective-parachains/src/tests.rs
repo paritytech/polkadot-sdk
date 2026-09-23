@@ -3461,7 +3461,7 @@ fn get_pvd_for_candidate_with_older_relay_parent(#[case] runtime_api_version: u3
 async fn get_known_output_heads(
 	virtual_overseer: &mut VirtualOverseer,
 	para_ids: Vec<ParaId>,
-) -> std::collections::HashMap<Hash, std::collections::HashMap<ParaId, HashSet<Hash>>> {
+) -> KnownOutputHeads {
 	let (tx, rx) = oneshot::channel();
 	virtual_overseer
 		.send(overseer::FromOrchestra::Communication {
