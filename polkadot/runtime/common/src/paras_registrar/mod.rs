@@ -45,7 +45,6 @@ use crate::traits::{OnSwap, Registrar};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 pub use pallet::*;
 use polkadot_runtime_parachains::paras::{OnNewHead, ParaKind};
-use registrar_primitives::FailureReason;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{CheckedSub, Saturating, Zero},
@@ -207,6 +206,8 @@ pub mod pallet {
 		/// Cannot perform a parachain slot / lifecycle swap. Check that the state of both paras
 		/// are correct for the swap to work.
 		CannotSwap,
+		/// The operation is scaffolded but not implemented yet.
+		NotImplemented,
 	}
 
 	/// Pending swap operations.
@@ -584,24 +585,15 @@ impl<T: Config> Registrar for Pallet<T> {
 impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 	type AccountId = T::AccountId;
 
-	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), FailureReason> {
+	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()> {
 		let config = configuration::ActiveConfig::<T>::get();
 		Self::validate_onboarding_sizes(&config, head_len as usize, code_len as usize)
-			.map_err(|_| FailureReason::InvalidOnboardingData)
+			.map_err(|_| ())
 	}
 
 	fn is_registered(para_id: u32) -> bool {
 		let id = ParaId::from(para_id);
 		Paras::<T>::contains_key(id) || paras::Pallet::<T>::lifecycle(id).is_some()
-	}
-
-	/// Not the inverse of [`Self::is_registered`]: a para being cleaned up is both.
-	fn is_deregistering(para_id: u32) -> bool {
-		matches!(
-			paras::Pallet::<T>::lifecycle(ParaId::from(para_id)),
-			None | Some(ParaLifecycle::OffboardingParathread) |
-				Some(ParaLifecycle::OffboardingParachain)
-		)
 	}
 
 	fn register(
@@ -621,20 +613,33 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 	}
 
 	/// No origin or lock check: those belong to the control plane that took the deposit.
-	fn deregister(para_id: u32) -> Result<(), FailureReason> {
+	fn deregister(para_id: u32) -> DispatchResult {
 		let id = ParaId::from(para_id);
-		ensure!(
-			matches!(paras::Pallet::<T>::lifecycle(id), Some(ParaLifecycle::Parathread) | None),
-			FailureReason::NotDeregisterable
-		);
+		match paras::Pallet::<T>::lifecycle(id) {
+			None |
+			Some(ParaLifecycle::OffboardingParathread) |
+			Some(ParaLifecycle::OffboardingParachain) => Ok(()),
+			_ => Self::do_deregister(id),
+		}
+	}
 
-		polkadot_runtime_parachains::schedule_para_cleanup::<T>(id)
-			.map_err(|_| FailureReason::NotDeregisterable)?;
+	fn check_head_data(_head_len: u32) -> Result<(), ()> {
+		// TODO(ahm-v2): validate the head data length against the active configuration.
+		Err(())
+	}
 
-		Paras::<T>::remove(id);
-		Self::deposit_event(Event::<T>::Deregistered { para_id: id });
+	fn set_current_head(_para_id: u32, _head: Vec<u8>) {
+		// TODO(ahm-v2): set the para's current head.
+	}
 
-		Ok(())
+	fn check_code_upgrade(_para_id: u32, _code_len: u32) -> Result<(), ()> {
+		// TODO(ahm-v2): validate the code length and that an upgrade may be scheduled now.
+		Err(())
+	}
+
+	fn schedule_code_upgrade(_para_id: u32, _validation_code: Vec<u8>) -> DispatchResult {
+		// TODO(ahm-v2): schedule the validation code upgrade.
+		Err(Error::<T>::NotImplemented.into())
 	}
 }
 

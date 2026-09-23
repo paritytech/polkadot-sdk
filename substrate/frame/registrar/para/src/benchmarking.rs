@@ -67,11 +67,14 @@ fn make_registered<T: Config>(who: &T::AccountId) -> Result<ParaId, BenchmarkErr
 	Ok(para_id)
 }
 
-/// Reserve a para id, register it and ask to deregister it.
-fn make_deregistering<T: Config>(who: &T::AccountId) -> Result<ParaId, BenchmarkError> {
+/// Reserve a para id, register it and ask to deregister it. Returns the id and the awaited message.
+fn make_deregistering<T: Config>(who: &T::AccountId) -> Result<(ParaId, u64), BenchmarkError> {
 	let para_id = make_registered::<T>(who)?;
 	Pallet::<T>::deregister(RawOrigin::Signed(who.clone()).into(), para_id)?;
-	Ok(para_id)
+	match Paras::<T>::get(para_id).map(|i| i.state) {
+		Some(RegistrationState::Deregistering { message_id, .. }) => Ok((para_id, message_id)),
+		_ => Err(BenchmarkError::Stop("not deregistering")),
+	}
 }
 
 /// Reserve a para id, register it and lock it.
@@ -145,10 +148,10 @@ mod benchmarks {
 	#[benchmark]
 	fn receive() -> Result<(), BenchmarkError> {
 		let who = funded_manager::<T>();
-		let para_id = make_deregistering::<T>(&who)?;
+		let (para_id, message_id) = make_deregistering::<T>(&who)?;
 		let message = MessageToPara::V1(MessageToParaV1::DeregisterResponse {
 			para_id,
-			message_id: 0,
+			message_id,
 			outcome: Ok(()),
 		});
 
@@ -188,23 +191,22 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Giving up on a deregistration: the deadline write plus the message.
+	/// Asking again after the answer never came: the same, plus reporting the lost answer.
 	#[benchmark]
-	fn cancel_deregister() -> Result<(), BenchmarkError> {
+	fn deregister_retry() -> Result<(), BenchmarkError> {
 		let who = funded_manager::<T>();
-		let para_id = make_deregistering::<T>(&who)?;
+		let (para_id, awaited) = make_deregistering::<T>(&who)?;
 		T::BlockNumberProvider::set_block_number(
 			T::BlockNumberProvider::current_block_number()
-				.saturating_add(T::PendingDeadline::get())
-				.saturating_add(1u32.into()),
+				.saturating_add(T::PendingDeadline::get()),
 		);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(who), para_id);
+		deregister(RawOrigin::Signed(who), para_id);
 
 		assert!(matches!(
 			Paras::<T>::get(para_id).map(|i| i.state),
-			Some(RegistrationState::Deregistering { .. })
+			Some(RegistrationState::Deregistering { message_id, .. }) if message_id != awaited
 		));
 		Ok(())
 	}
@@ -218,7 +220,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(who), para_id);
 
-		assert!(Paras::<T>::get(para_id).map(|i| i.locked).unwrap_or(false));
+		assert!(Paras::<T>::get(para_id).map(|i| i.is_locked()).unwrap_or(false));
 		Ok(())
 	}
 
@@ -231,7 +233,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Root, para_id);
 
-		assert!(!Paras::<T>::get(para_id).map(|i| i.locked).unwrap_or(true));
+		assert!(!Paras::<T>::get(para_id).map(|i| i.is_locked()).unwrap_or(true));
 		Ok(())
 	}
 

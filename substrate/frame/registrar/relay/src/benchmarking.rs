@@ -129,29 +129,39 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Telling the parachain a para produced its first head.
+	#[benchmark]
+	fn on_new_head() {
+		AwaitingFirstHead::<T>::insert(PARA_ID, ());
+
+		#[block]
+		{
+			<Pallet<T> as OnNewHead>::on_new_head(PARA_ID.into(), &HeadData(alloc::vec![]));
+		}
+
+		assert!(!AwaitingFirstHead::<T>::contains_key(PARA_ID));
+	}
+
+	/// A later head, where the first one has already been reported.
+	#[benchmark]
+	fn on_new_head_already_noted() {
+		#[block]
+		{
+			<Pallet<T> as OnNewHead>::on_new_head(PARA_ID.into(), &HeadData(alloc::vec![]));
+		}
+	}
+
 	/// Dropping a para from the registry, which is where the whole cost of this sits.
 	#[benchmark]
 	fn receive_deregister() -> Result<(), BenchmarkError> {
+		AwaitingFirstHead::<T>::insert(PARA_ID, ());
 		let message =
 			MessageToRelay::V1(MessageToRelayV1::Deregister { para_id: PARA_ID, message_id: 0 });
 
 		#[extrinsic_call]
 		receive(RawOrigin::Root, message);
 
-		Ok(())
-	}
-
-	/// Answering a cancellation, which is one look at the registry and the report.
-	#[benchmark]
-	fn receive_cancel_deregistration() -> Result<(), BenchmarkError> {
-		let message = MessageToRelay::V1(MessageToRelayV1::CancelDeregistration {
-			para_id: PARA_ID,
-			message_id: 0,
-		});
-
-		#[extrinsic_call]
-		receive(RawOrigin::Root, message);
-
+		assert!(!AwaitingFirstHead::<T>::contains_key(PARA_ID));
 		Ok(())
 	}
 

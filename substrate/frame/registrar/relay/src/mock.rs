@@ -25,7 +25,7 @@
 
 use crate::{self as pallet_registrar_relay, SendToPara};
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
-use registrar_primitives::{FailureReason, MessageToPara, ParaId, ParachainRegistrar};
+use registrar_primitives::{MessageToPara, ParaId, ParachainRegistrar};
 use sp_runtime::BuildStorage;
 
 pub type AccountId = u64;
@@ -76,8 +76,8 @@ parameter_types! {
 	pub static AlreadyKnown: Vec<ParaId> = Vec::new();
 	/// When true, `MockRegistrar::register` fails.
 	pub static RegisterFails: bool = false;
-	/// The reason `MockRegistrar::deregister` refuses with, if it refuses at all.
-	pub static DeregisterFailure: Option<FailureReason> = None;
+	/// When true, `MockRegistrar::deregister` fails.
+	pub static DeregisterFails: bool = false;
 	/// Reports handed to the transport, oldest first.
 	pub static SentMessages: Vec<MessageToPara> = Vec::new();
 	/// When true, the transport refuses everything.
@@ -90,9 +90,9 @@ pub struct MockRegistrar;
 impl ParachainRegistrar for MockRegistrar {
 	type AccountId = AccountId;
 
-	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), FailureReason> {
+	fn check_onboarding(head_len: u32, code_len: u32) -> Result<(), ()> {
 		if !(MIN_CODE_SIZE..=MAX_CODE_SIZE).contains(&code_len) || head_len > MAX_HEAD_SIZE {
-			return Err(FailureReason::InvalidOnboardingData);
+			return Err(());
 		}
 		Ok(())
 	}
@@ -100,11 +100,6 @@ impl ParachainRegistrar for MockRegistrar {
 	fn is_registered(para_id: ParaId) -> bool {
 		AlreadyKnown::get().contains(&para_id) ||
 			Onboarded::get().iter().any(|(id, ..)| *id == para_id)
-	}
-
-	/// No offboarding window here: a para is gone as soon as it is dropped.
-	fn is_deregistering(para_id: ParaId) -> bool {
-		!Self::is_registered(para_id)
 	}
 
 	fn register(
@@ -120,12 +115,34 @@ impl ParachainRegistrar for MockRegistrar {
 		Ok(())
 	}
 
-	fn deregister(para_id: ParaId) -> Result<(), FailureReason> {
-		if let Some(reason) = DeregisterFailure::get() {
-			return Err(reason);
+	fn deregister(para_id: ParaId) -> sp_runtime::DispatchResult {
+		if DeregisterFails::get() {
+			return Err(sp_runtime::DispatchError::Other("registrar refused"));
 		}
 		AlreadyKnown::mutate(|v| v.retain(|id| *id != para_id));
 		Onboarded::mutate(|v| v.retain(|(id, ..)| *id != para_id));
+		Ok(())
+	}
+
+	fn check_head_data(_head_len: u32) -> Result<(), ()> {
+		// TODO(ahm-v2): check the head data length in the mock.
+		Ok(())
+	}
+
+	fn set_current_head(_para_id: ParaId, _head: Vec<u8>) {
+		// TODO(ahm-v2): record the head update in the mock.
+	}
+
+	fn check_code_upgrade(_para_id: ParaId, _code_len: u32) -> Result<(), ()> {
+		// TODO(ahm-v2): check the code upgrade in the mock.
+		Ok(())
+	}
+
+	fn schedule_code_upgrade(
+		_para_id: ParaId,
+		_validation_code: Vec<u8>,
+	) -> sp_runtime::DispatchResult {
+		// TODO(ahm-v2): record the scheduled code upgrade in the mock.
 		Ok(())
 	}
 }
@@ -174,7 +191,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	Onboarded::set(Vec::new());
 	AlreadyKnown::set(Vec::new());
 	RegisterFails::set(false);
-	DeregisterFailure::set(None);
+	DeregisterFails::set(false);
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
 

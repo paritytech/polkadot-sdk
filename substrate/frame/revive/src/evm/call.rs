@@ -21,17 +21,18 @@ use crate::{
 	BalanceOf, CallOf, Config, GenericTransaction, LOG_TARGET, Pallet, RUNTIME_PALLETS_ADDR,
 	Weight, Zero,
 	evm::{
-		TYPE_LEGACY,
+		TYPE_EIP7702, TYPE_LEGACY,
 		fees::{InfoT, compute_max_integer_quotient},
 		runtime::SetWeightLimit,
 	},
 	extract_code_and_data,
+	metering::EthTxInfo,
 };
 use alloc::{boxed::Box, vec::Vec};
 use codec::DecodeLimit;
 use frame_support::MAX_EXTRINSIC_DEPTH;
 use sp_core::{Get, U256};
-use sp_runtime::{SaturatedConversion, transaction_validity::InvalidTransaction};
+use sp_runtime::{SaturatedConversion, Saturating, transaction_validity::InvalidTransaction};
 
 /// Result of decoding an eth transaction into a dispatchable call.
 pub struct CallInfo<T: Config> {
@@ -49,6 +50,8 @@ pub struct CallInfo<T: Config> {
 	pub storage_deposit: BalanceOf<T>,
 	/// The ethereum gas limit of the transaction.
 	pub eth_gas_limit: U256,
+	/// EIP-7702: List of authorization tuples to process
+	pub authorization_list: Vec<crate::evm::AuthorizationListEntry>,
 }
 
 /// Mode for creating a call from an ethereum transaction.
@@ -98,6 +101,52 @@ impl GenericTransaction {
 			return Err(InvalidTransaction::Call);
 		};
 
+		// EIP-7702: Validate that type 0x04 transactions have a non-null destination
+		if let Some(super::Byte(TYPE_EIP7702)) = self.r#type.as_ref() {
+			if self.to.is_none() {
+				log::debug!(target: LOG_TARGET, "EIP-7702 transactions require non-null destination");
+				return Err(InvalidTransaction::Call);
+			}
+
+			// EIP-7702: Validate that type 0x04 transactions have non-empty authorization list
+			if self.authorization_list.is_empty() {
+				log::debug!(target: LOG_TARGET, "EIP-7702 transactions require non-empty authorization list");
+				return Err(InvalidTransaction::Call);
+			}
+
+			// EIP-7702 + `RUNTIME_PALLETS_ADDR` is incoherent: that destination
+			// dispatches as `eth_substrate_call`, which has no authorization_list
+			// field, so the auths would be silently dropped.
+			if self.to == Some(RUNTIME_PALLETS_ADDR) {
+				log::debug!(target: LOG_TARGET, "EIP-7702 transactions cannot target RUNTIME_PALLETS_ADDR");
+				return Err(InvalidTransaction::Call);
+			}
+		}
+
+		// EIP-7702: per-tuple field bounds. `chain_id`, `r`, `s` are `U256` (< 2^256 by
+		// construction) and `address` is `H160` (always 20 bytes), so we only need to check
+		// `nonce` and `y_parity` here. Out-of-bounds invalidates the *entire* transaction —
+		// distinct from the per-tuple "nonce fits in u64" (<= 2^64 - 1) check in
+		// `process_authorizations`, which is a processing-step skip.
+		for auth in self.authorization_list.iter() {
+			if auth.nonce.bits() > 64 {
+				log::debug!(
+					target: LOG_TARGET,
+					"EIP-7702 authorization nonce exceeds 2^64: {:?}",
+					auth.nonce,
+				);
+				return Err(InvalidTransaction::Call);
+			}
+			if auth.y_parity.bits() > 8 {
+				log::debug!(
+					target: LOG_TARGET,
+					"EIP-7702 authorization y_parity exceeds 2^8: {:?}",
+					auth.y_parity,
+				);
+				return Err(InvalidTransaction::Call);
+			}
+		}
+
 		// Currently, effective_gas_price will always be the same as base_fee
 		// Because all callers of `into_call` will prepare `tx` that way. Some of the subsequent
 		// logic will not work correctly anymore if we change that assumption.
@@ -124,6 +173,7 @@ impl GenericTransaction {
 				let maximized_base_fee = base_fee.saturating_mul(256.into());
 				maximized_tx.gas = Some(u64::MAX.into());
 				maximized_tx.gas_price = Some(maximized_base_fee);
+				maximized_tx.max_fee_per_gas = Some(maximized_base_fee);
 				maximized_tx.max_priority_fee_per_gas = Some(maximized_base_fee);
 
 				let unsigned_tx = maximized_tx.try_into_unsigned().map_err(|_| {
@@ -157,7 +207,7 @@ impl GenericTransaction {
 				crate::Call::eth_substrate_call::<T> { call: Box::new(call), transaction_encoded }
 					.into()
 			} else {
-				let call = crate::Call::eth_call::<T> {
+				crate::Call::eth_call::<T> {
 					dest,
 					value,
 					weight_limit: Zero::zero(),
@@ -166,9 +216,9 @@ impl GenericTransaction {
 					transaction_encoded,
 					effective_gas_price,
 					encoded_len,
+					authorization_list: self.authorization_list.clone(),
 				}
-				.into();
-				call
+				.into()
 			}
 		} else {
 			let (code, data) = if data.starts_with(&polkavm_common::program::BLOB_MAGIC) {
@@ -247,6 +297,26 @@ impl GenericTransaction {
 			InvalidTransaction::Payment
 		})?.saturated_into();
 
+		// EIP-7702: Ensure enough gas to cover worst-case deposits for authorizations
+		// (ED + contract storage deposit + code lockup per authorization).
+		if !self.authorization_list.is_empty() {
+			let info = <T as Config>::FeeInfo::base_dispatch_info(&mut call);
+			let max_deposit = EthTxInfo::<T>::new(encoded_len, info.total_weight())
+				.max_deposit(gas.saturated_into());
+
+			let auth_cost = <Pallet<T>>::worst_case_delegation_deposit()
+				.saturating_mul(self.authorization_list.len().saturated_into());
+
+			if max_deposit < auth_cost {
+				log::debug!(
+					target: LOG_TARGET,
+					"Not enough gas to cover deposits for authorization accounts. \
+					max_deposit={max_deposit:?} required={auth_cost:?}"
+				);
+				return Err(InvalidTransaction::Payment);
+			}
+		}
+
 		Ok(CallInfo {
 			call,
 			weight_limit,
@@ -254,6 +324,7 @@ impl GenericTransaction {
 			tx_fee,
 			storage_deposit,
 			eth_gas_limit: gas,
+			authorization_list: self.authorization_list,
 		})
 	}
 }

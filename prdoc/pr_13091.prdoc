@@ -1,0 +1,24 @@
+title: 'Registrar: deregister'
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      Implements `pallet-registrar-para::deregister`. An id the relay chain never onboarded is
+      dropped locally. Otherwise both deposits stay held until the relay chain answers, and if the
+      answer never arrives the manager calls `deregister` again after `PendingDeadline`.
+
+      `pallet-registrar-relay` applies a `Deregister` and reports back. A para that is already
+      gone or offboarding is confirmed, so a retry settles. `paras_registrar` implements
+      `ParachainRegistrar::deregister` for parathreads without origin or lock checks, since those
+      belong to the parachain that took the deposit. A refusal is reported as the new
+      `FailureReason::NotDeregisterable`.
+
+crates:
+  - name: registrar-primitives
+    bump: major
+  - name: pallet-registrar-para
+    bump: major
+  - name: pallet-registrar-relay
+    bump: major
+  - name: polkadot-runtime-common
+    bump: patch
