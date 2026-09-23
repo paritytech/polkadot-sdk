@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790134273764,
+  "lastUpdate": 1790154522577,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e30a412c6cd957afedbb3157dac9cf4b424b0fa6",
-          "message": "net: Strip previous p2p prefix before concatenating addresses (#11078)\n\nThis PR ensures that a `MultiaddrWithPeerId` will always remain valid\nafter a concatenating process.\n\nThe litep2p code will concatanate the provided multiaddr-with-peerID\nregardless if the address already contains a `p2p/..` prefix:\n\n\nhttps://github.com/paritytech/polkadot-sdk/blob/e85be1c07adedcc86554affa4f6af536c4a2efc1/substrate/client/network/src/litep2p/service.rs#L427-L434\n\n\nThis then can lead to addresses for reserved peers to never be dialed by\nthe network backend as they are considered invalid.\n\nThis has been discovered by running the networking benchmarks:\n\nhttps://github.com/paritytech/polkadot-sdk/blob/e85be1c07adedcc86554affa4f6af536c4a2efc1/substrate/client/network/benches/notifications_protocol.rs#L143-L148\n\nPart of the cleanups for:\n- https://github.com/paritytech/polkadot-sdk/issues/10425\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-22T19:52:39Z",
-          "tree_id": "e0b7771005d72b671ade97ec038e2f28910c9b82",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e30a412c6cd957afedbb3157dac9cf4b424b0fa6"
-        },
-        "date": 1771794722481,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.074,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03758056553200001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07125905111999993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038351904656,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c4465b07a4eed1733e216bfad354586a51a1796f",
+          "message": "Registrar: Scaffolding (#13084)\n\nScaffolding for registrar.",
+          "timestamp": "2026-09-23T07:33:55Z",
+          "tree_id": "ade7c4b50f0c40d3da8a8d328c7fa5ca0b115624",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c4465b07a4eed1733e216bfad354586a51a1796f"
+        },
+        "date": 1790154486610,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.13799999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038397280456,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08544977380599991,
             "unit": "seconds"
           }
         ]
