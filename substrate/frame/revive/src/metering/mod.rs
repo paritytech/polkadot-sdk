@@ -403,7 +403,15 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// Returns whether the gas left is at most `eth_gas_eip2200_sentry`, in which case EIP-2200
 	/// forbids a storage write.
 	pub fn has_eip2200_sentry_or_less_left(&self) -> bool {
-		self.eth_gas_left().map_or(true, |left| left <= self.eth_gas_eip2200_sentry)
+		let gas_left = match &self.transaction_limits {
+			TransactionLimits::EthereumGas { .. } => self.eth_gas_left(),
+			// Deposit is metered apart and settled when the frame ends, so only execution counts.
+			TransactionLimits::WeightAndDeposit { .. } => {
+				math::substrate_execution::weight_gas_left(self)
+					.and_then(|gas| gas.to_ethereum_gas())
+			},
+		};
+		gas_left.map_or(true, |left| left <= self.eth_gas_eip2200_sentry)
 	}
 
 	/// Get remaining deposit available.

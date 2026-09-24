@@ -202,11 +202,8 @@ pub mod substrate_execution {
 	/// Converts the remaining weight and deposit into their gas-equivalents (via `FeeInfo`) and
 	/// returns the sum. Returns `None` if either component does not have enough left.
 	pub fn gas_left<T: Config, S: State>(meter: &ResourceMeter<T, S>) -> Option<SignedGas<T>> {
-		match (weight_left(meter), deposit_left(meter)) {
-			(Some(weight_left), Some(deposit_left)) => {
-				let weight_gas_left = SignedGas::<T>::from_weight_fee(
-					T::FeeInfo::weight_to_fee_average(&weight_left),
-				);
+		match (weight_gas_left(meter), deposit_left(meter)) {
+			(Some(weight_gas_left), Some(deposit_left)) => {
 				let deposit_gas_left = SignedGas::<T>::from_adjusted_deposit_charge(
 					&StorageDeposit::Charge(deposit_left),
 				);
@@ -222,6 +219,15 @@ pub mod substrate_execution {
 	/// Subtracts the weight already consumed in the current frame from the configured limit.
 	pub fn weight_left<T: Config, S: State>(meter: &ResourceMeter<T, S>) -> Option<Weight> {
 		meter.weight.weight_limit.checked_sub(&meter.weight.weight_consumed())
+	}
+
+	/// Return what [`weight_left`] returns, converted to its gas-equivalent (via `FeeInfo`).
+	pub fn weight_gas_left<T: Config, S: State>(
+		meter: &ResourceMeter<T, S>,
+	) -> Option<SignedGas<T>> {
+		weight_left(meter).map(|weight_left| {
+			SignedGas::from_weight_fee(T::FeeInfo::weight_to_fee_average(&weight_left))
+		})
 	}
 
 	/// Return remaining deposit available to the given meter.

@@ -296,18 +296,25 @@ fn stipend_denies_persistent_storage_writes_even_on_hot_slots(
 		weight_limit: WEIGHT_LIMIT,
 		deposit_limit: deposit_limit::<Test>(),
 	};
+	let substrate_metering_with_no_deposit_limit = TransactionLimits::WeightAndDeposit {
+		weight_limit: WEIGHT_LIMIT,
+		deposit_limit: u128::MAX,
+	};
 	let ethereum_metering = TransactionLimits::EthereumGas {
 		eth_gas_limit: u128::MAX,
 		weight_limit: Weight::MAX,
 		eth_tx_info: EthTxInfo::new(0, Default::default()),
 		authorization_deposit: Default::default(),
 	};
-	for (metering, limits) in [("substrate", substrate_metering), ("ethereum", ethereum_metering)] {
+	for (metering, limits) in [
+		("substrate metering", substrate_metering),
+		("substrate metering with no deposit limit", substrate_metering_with_no_deposit_limit),
+		("ethereum metering", ethereum_metering),
+	] {
 		assert_eq!(
 			send_value(1_000_000, &limits),
 			(true, U256::from(1)),
-			"a write from a value `send` should be rejected by the EIP-2200 check under \
-			 {metering} metering"
+			"a write from a value `send` should be rejected by the EIP-2200 check under {metering}"
 		);
 
 		// The raised gas scale gives a zero-value `send` enough to write on PVM too.
@@ -319,7 +326,7 @@ fn stipend_denies_persistent_storage_writes_even_on_hot_slots(
 			zero_value,
 			(true, U256::from(1)),
 			"a write from a zero-value `send` should be rejected by the EIP-2200 check under \
-			 {metering} metering"
+			 {metering}"
 		);
 	}
 }

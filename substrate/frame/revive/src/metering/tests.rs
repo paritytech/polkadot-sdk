@@ -101,6 +101,37 @@ fn max_consumed_deposit_integration(fixture_type: FixtureType, fixture_name: &st
 	});
 }
 
+/// Deposit limits are enforced when the frame ends, so a write that briefly takes the deposit over
+/// the limit must not stop a later clear from bringing it back under.
+///
+/// No `DepositPrecompile` case: its clear requires a nested call, which fails while over the limit.
+#[test_case(FixtureType::Solc   ; "solc")]
+#[test_case(FixtureType::Resolc ; "resolc")]
+fn a_clear_can_bring_the_deposit_back_under_the_limit(fixture_type: FixtureType) {
+	use crate::test_utils::WEIGHT_LIMIT;
+	let (code, _) = compile_module_with_type("DepositDirect", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr)
+			.data(DepositPrecompile::setAndClearCall {}.abi_encode())
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit: 66,
+			})
+			.build();
+
+		assert_eq!(
+			(result.result.map(|value| value.did_revert()), result.storage_deposit),
+			(Ok(false), StorageDeposit::Charge(66)),
+			"two new slots briefly need 132, but clearing one brings the net back to the 66 limit"
+		);
+	});
+}
+
 /// Test that storage deposit refunds and persisted ContractInfo are correct when
 /// parent allocates storage and a nested call clears it.
 ///
