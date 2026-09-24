@@ -144,6 +144,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type VoteLockingPeriod: Get<BlockNumberFor<Self, I>>;
 		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		#[pallet::constant(::IDENTIFIER)]
 		type BlockNumberProvider: BlockNumberProvider;
 		/// Hooks are called when a new vote is registered or an existing vote is removed.
 		///

@@ -19,7 +19,7 @@ use super::helper;
 use frame_support_procedural_tools::{get_cfg_attributes, get_doc_literals, is_using_frame_crate};
 use proc_macro_warning::Warning;
 use quote::ToTokens;
-use syn::{parse_quote, spanned::Spanned, token, Token, TraitItemType};
+use syn::{parenthesized, parse_quote, spanned::Spanned, token, Path, Token, TraitItemType};
 
 /// List of additional token to be used for parsing.
 mod keyword {
@@ -38,6 +38,51 @@ mod keyword {
 	syn::custom_keyword!(no_default_bounds);
 	syn::custom_keyword!(constant);
 	syn::custom_keyword!(include_metadata);
+}
+
+#[derive(PartialEq, Eq)]
+pub struct ConstantAttr {
+	pub keyword: keyword::constant,
+	pub value_path: Option<Path>,
+	/// Whether the value_path is a function call (i.e., followed by `()`).
+	pub is_fn_call: bool,
+}
+
+impl syn::parse::Parse for ConstantAttr {
+	fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+		let keyword = input.parse::<keyword::constant>()?;
+		let (value_path, is_fn_call) = if input.peek(token::Paren) {
+			let content;
+			parenthesized!(content in input);
+			let path = content.parse::<Path>()?;
+
+			if path.leading_colon.is_none() {
+				let msg = "expected a path starting with `::`, e.g., \
+					`(::IDENTIFIER)` or `(::function_name())`";
+				return Err(syn::Error::new(path.span(), msg));
+			}
+
+			// Support function call syntax: `::function_name()`
+			let is_fn_call = if content.peek(token::Paren) {
+				let args;
+				parenthesized!(args in content);
+				if !args.is_empty() {
+					return Err(syn::Error::new(
+						args.span(),
+						"function call arguments are not supported",
+					));
+				}
+				true
+			} else {
+				false
+			};
+
+			(Some(path), is_fn_call)
+		} else {
+			(None, false)
+		};
+		Ok(Self { keyword, value_path, is_fn_call })
+	}
 }
 
 #[derive(Default)]
@@ -95,51 +140,17 @@ impl From<&syn::TraitItemType> for AssociatedTypeMetadataDef {
 pub struct ConstMetadataDef {
 	/// Name of the associated type.
 	pub ident: syn::Ident,
-	/// The type in Get, e.g. `u32` in `type Foo: Get<u32>;`, but `Self` is replaced by `T`
-	pub type_: syn::Type,
 	/// The doc associated
 	pub doc: Vec<syn::Expr>,
 	/// attributes
 	pub attrs: Vec<syn::Attribute>,
-}
-
-impl TryFrom<&syn::TraitItemType> for ConstMetadataDef {
-	type Error = syn::Error;
-
-	fn try_from(trait_ty: &syn::TraitItemType) -> Result<Self, Self::Error> {
-		let err = |span, msg| {
-			syn::Error::new(span, format!("Invalid usage of `#[pallet::constant]`: {}", msg))
-		};
-		let doc = get_doc_literals(&trait_ty.attrs);
-		let ident = trait_ty.ident.clone();
-		let bound = trait_ty
-			.bounds
-			.iter()
-			.find_map(|param_bound| {
-				let syn::TypeParamBound::Trait(trait_bound) = param_bound else { return None };
-
-				trait_bound.path.segments.last().and_then(|s| (s.ident == "Get").then(|| s))
-			})
-			.ok_or_else(|| err(trait_ty.span(), "`Get<T>` trait bound not found"))?;
-
-		let syn::PathArguments::AngleBracketed(ref ab) = bound.arguments else {
-			return Err(err(bound.span(), "Expected trait generic args"));
-		};
-
-		// Only one type argument is expected.
-		if ab.args.len() != 1 {
-			return Err(err(bound.span(), "Expected a single type argument"));
-		}
-
-		let syn::GenericArgument::Type(ref type_arg) = ab.args[0] else {
-			return Err(err(ab.args[0].span(), "Expected a type argument"));
-		};
-
-		let type_ = syn::parse2::<syn::Type>(replace_self_by_t(type_arg.to_token_stream()))
-			.expect("Internal error: replacing `Self` by `T` should result in valid type");
-
-		Ok(Self { ident, type_, doc, attrs: trait_ty.attrs.clone() })
-	}
+	/// The relevant trait bound from the associated type declaration, with `Self` replaced by
+	/// `T`. For `Get<T>` constants this is the `Get<T>` bound; for `value_path` constants this
+	/// is the first trait bound.
+	pub trait_bound: syn::TypeParamBound,
+	/// The access path to the constant value, e.g. `::IDENTIFIER` or `::function_name()`.
+	/// If `None`, the macro will default to `::get()`.
+	pub value_path: Option<proc_macro2::TokenStream>,
 }
 
 /// Parse for `#[pallet::disable_frame_system_supertrait_check]`
@@ -166,7 +177,7 @@ pub enum PalletAttrType {
 	#[peek(keyword::no_default_bounds, name = "no_default_bounds")]
 	NoBounds(keyword::no_default_bounds),
 	#[peek(keyword::constant, name = "constant")]
-	Constant(keyword::constant),
+	Constant(ConstantAttr),
 	#[peek(keyword::include_metadata, name = "include_metadata")]
 	IncludeMetadata(keyword::include_metadata),
 }
@@ -453,15 +464,81 @@ impl ConfigDef {
 				helper::take_first_item_pallet_attr::<PalletAttr>(trait_item)?
 			{
 				match (pallet_attr.typ, &trait_item) {
-					(PalletAttrType::Constant(_), syn::TraitItem::Type(ref typ)) => {
+					(PalletAttrType::Constant(constant_attr), syn::TraitItem::Type(ref typ)) => {
 						if already_constant {
 							return Err(syn::Error::new(
-								pallet_attr._bracket.span.join(),
+								constant_attr.keyword.span(),
 								"Duplicate #[pallet::constant] attribute not allowed.",
 							));
 						}
 						already_constant = true;
-						consts_metadata.push(ConstMetadataDef::try_from(typ)?);
+
+						// Find the relevant trait bound:
+						// - For value_path: use the first trait bound
+						// - For Get constants: use the Get<T> bound
+						let trait_bound = if constant_attr.value_path.is_some() {
+							typ.bounds
+								.iter()
+								.find(|b| matches!(b, syn::TypeParamBound::Trait(_)))
+								.cloned()
+								.ok_or_else(|| {
+									syn::Error::new(
+										typ.span(),
+										"Invalid usage of `#[pallet::constant]`: \
+										no trait bound found on associated type.",
+									)
+								})?
+						} else {
+							typ.bounds
+								.iter()
+								.find(|b| {
+									let syn::TypeParamBound::Trait(tb) = b else {
+										return false;
+									};
+									tb.path
+										.segments
+										.last()
+										.map_or(false, |s| s.ident == "Get")
+								})
+								.cloned()
+								.ok_or_else(|| {
+									syn::Error::new(
+										typ.span(),
+										"Invalid usage of `#[pallet::constant]`: \
+										`Get<T>` trait bound not found. Either add a \
+										`Get<T>` bound or use \
+										`#[pallet::constant(::path)]` to specify the \
+										value path.",
+									)
+								})?
+						};
+
+						// Replace `Self` with `T` in the trait bound
+						let trait_bound = syn::parse2(replace_self_by_t(
+							trait_bound.to_token_stream(),
+						))
+						.expect(
+							"Internal error: replacing `Self` by `T` should result \
+							in valid trait bound",
+						);
+
+						// Convert Path + is_fn_call into a TokenStream
+						let value_path =
+							constant_attr.value_path.map(|path| {
+								if constant_attr.is_fn_call {
+									quote::quote!(#path())
+								} else {
+									quote::quote!(#path)
+								}
+							});
+
+						consts_metadata.push(ConstMetadataDef {
+							ident: typ.ident.clone(),
+							doc: get_doc_literals(&typ.attrs),
+							attrs: typ.attrs.clone(),
+							trait_bound,
+							value_path,
+						});
 					},
 					(PalletAttrType::Constant(_), _) =>
 						return Err(syn::Error::new(

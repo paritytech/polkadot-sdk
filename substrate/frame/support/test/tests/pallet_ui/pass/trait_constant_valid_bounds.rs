@@ -15,8 +15,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub trait SomeTrait {
+	const IDENTIFIER: &'static str;
+	fn some_function() -> u32;
+}
+
+pub struct SomeImpl;
+impl SomeTrait for SomeImpl {
+	const IDENTIFIER: &'static str = "test";
+	fn some_function() -> u32 {
+		42
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
+	use super::SomeTrait;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::BlockNumberFor;
 
@@ -30,6 +44,14 @@ pub mod pallet {
 
 		#[pallet::constant]
 		type W: From<u16> + Get<u32>;
+
+		/// Test constant access via a const path.
+		#[pallet::constant(::IDENTIFIER)]
+		type X: SomeTrait;
+
+		/// Test constant access via a function call.
+		#[pallet::constant(::some_function())]
+		type Y: SomeTrait;
 	}
 
 	#[pallet::pallet]

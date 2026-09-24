@@ -1735,6 +1735,7 @@ pub mod pallet {
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		#[pallet::constant(::IDENTIFIER)]
 		type BlockNumberProvider: BlockNumberProvider;
 
 		/// Restrict some accounts from participating in a nomination pool.
