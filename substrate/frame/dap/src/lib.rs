@@ -82,23 +82,30 @@ pub const MAX_DISTRIBUTABLE_ASSETS: u32 = 8;
 /// Type alias for balance.
 pub type BalanceOf<T> = <T as Config>::Balance;
 
-pub type DistributableAssetKindOf<T> = <T as Config>::DistributableAssetKind;
+pub type DistributableAssetKindOf<T> = <T as Config>::AssetKind;
 
 /// Type alias for the native token allocation map.
 pub type BudgetAllocationMap = BoundedBTreeMap<BudgetKey, Perbill, ConstU32<MAX_BUDGET_RECIPIENTS>>;
 
-pub type DistributableTokenAllocationMap<AssetKind, Balance> = BoundedBTreeMap<
+pub type AssetAllocationMap<AssetKind, Balance> = BoundedBTreeMap<
 	AssetKind,
 	SingleAssetAllocationMap<Balance>,
 	ConstU32<MAX_DISTRIBUTABLE_ASSETS>,
 >;
 
 pub type SingleAssetAllocationMap<Balance> =
-	BoundedBTreeMap<BudgetKey, Balance, ConstU32<MAX_BUDGET_RECIPIENTS>>;
+	BoundedBTreeMap<BudgetKey, AssetAllocation<Balance>, ConstU32<MAX_BUDGET_RECIPIENTS>>;
+
+#[derive(
+	Clone, Copy, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug, MaxEncodedLen,
+)]
+pub struct AssetAllocation<Balance> {
+	amount_per_ms: Balance,
+}
 
 pub type NativeCurrencyOf<T> = ItemOf<
-	<T as Config>::DistributableAssets,
-	<T as Config>::NativeTokenAssetId,
+	<T as Config>::Assets,
+	<T as Config>::NativeCurrencyAssetId,
 	<T as frame_system::Config>::AccountId,
 >;
 
@@ -123,15 +130,15 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
 		type Balance: Balance;
 
-		type DistributableAssetKind: Parameter + MaxEncodedLen + MaybeSerializeDeserialize + Ord;
+		type AssetKind: Parameter + MaxEncodedLen + MaybeSerializeDeserialize + Ord;
 
-		type DistributableAssets: Inspect<
-				Self::AccountId,
-				AssetId = Self::DistributableAssetKind,
-				Balance = Self::Balance,
-			> + Mutate<Self::AccountId>
+		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetKind, Balance = Self::Balance>
+			+ Mutate<Self::AccountId>
 			+ Balanced<Self::AccountId>
 			+ Unbalanced<Self::AccountId>;
+
+		#[pallet::constant]
+		type NativeCurrencyAssetId: Get<Self::AssetKind>;
 
 		/// The pallet ID used to derive the buffer account.
 		#[pallet::constant]
@@ -152,9 +159,6 @@ pub mod pallet {
 		///
 		/// `Moment` must represent milliseconds.
 		type Time: Time;
-
-		#[pallet::constant]
-		type NativeTokenAssetId: Get<Self::DistributableAssetKind>;
 
 		/// Minimum elapsed time (ms) between issuance drips.
 		///
@@ -226,11 +230,8 @@ pub mod pallet {
 	pub type BudgetAllocation<T> = StorageValue<_, BudgetAllocationMap, ValueQuery>;
 
 	#[pallet::storage]
-	pub type DistributableTokenAllocation<T> = StorageValue<
-		_,
-		DistributableTokenAllocationMap<DistributableAssetKindOf<T>, BalanceOf<T>>,
-		ValueQuery,
-	>;
+	pub type AssetAllocation<T> =
+		StorageValue<_, AssetAllocationMap<DistributableAssetKindOf<T>, BalanceOf<T>>, ValueQuery>;
 
 	/// Timestamp (ms) of the last issuance drip.
 	///
@@ -524,21 +525,22 @@ pub mod pallet {
 			let buffer = Self::buffer_account();
 			let elapsed = SaturatedConversion::saturated_into::<BalanceOf<T>>(elapsed);
 
-			let allocations = DistributableTokenAllocation::<T>::get();
+			let allocations = AssetAllocation::<T>::get();
 			for (asset, allocations) in allocations {
 				let mut total_distributed = BalanceOf::<T>::zero();
 
 				for (key, account) in &*recipients {
-					let allocation =
-						allocations.get(key).copied().unwrap_or(BalanceOf::<T>::zero());
+					let Some(allocation) = allocations.get(key).copied() else {
+						continue;
+					};
 
-					if allocation.is_zero() {
+					if allocation.amount_per_ms.is_zero() {
 						continue;
 					}
 
-					let amount = allocation.saturating_mul(elapsed);
+					let amount = allocation.amount_per_ms.saturating_mul(elapsed);
 
-					let result = T::DistributableAssets::transfer(
+					let result = T::Assets::transfer(
 						asset.clone(),
 						&buffer,
 						account,
@@ -550,7 +552,7 @@ pub mod pallet {
 						// TODO: Emit event, add note about retry logic.
 					} else {
 						total_distributed.saturating_accrue(amount);
-						if asset == T::NativeTokenAssetId::get() && *account != buffer {
+						if asset == T::NativeCurrencyAssetId::get() && *account != buffer {
 							Self::activate_buffer_funds(amount);
 						}
 					}
