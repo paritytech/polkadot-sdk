@@ -74,6 +74,18 @@ pub struct Para {
 }
 
 impl Para {
+	/// One para of a run: `id` collated by `collators`, its authorizer queued on `core`.
+	pub fn new(id: u32, core: u32, collators: &[&str]) -> Self {
+		Para {
+			id,
+			core,
+			also_cores: Vec::new(),
+			collators: collators.iter().map(|name| name.to_string()).collect(),
+			runtime: None,
+			full_nodes: Vec::new(),
+		}
+	}
+
 	/// The single para the collator-progress tests run: para 0 on core 0, collated by the first
 	/// `count` dev accounts.
 	pub fn single(count: usize) -> Self {

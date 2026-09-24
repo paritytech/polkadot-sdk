@@ -28,10 +28,11 @@ use cumulus_zombienet_sdk_helpers::{
 	submit_extrinsic_and_wait_for_finalization_success, wait_for_runtime_upgrade,
 };
 use sp_crypto_hashing::blake2_256;
+#[cfg(not(feature = "jam"))]
+use zombienet_sdk::NetworkConfig;
 use zombienet_sdk::{
 	subxt::{ext::scale_value::value, tx::DynamicPayload, OnlineClient},
 	subxt_signer::sr25519::dev,
-	NetworkConfig,
 };
 
 #[cfg(not(feature = "jam"))]
@@ -46,12 +47,21 @@ use {
 
 #[cfg(feature = "jam")]
 use {
-	cumulus_jam_zombienet_tests::{env::binaries_or_err, para::PARACHAIN_SERVICE_ID, rpc::JamRpc},
+	cumulus_jam_zombienet_tests::{
+		env::binaries_or_err,
+		genesis_build::{build_jam_genesis, polkavm_env},
+		network::{
+			base_dir, collator_args, copy_para_specs, path_str, work_dir, ORDINARY_NODE,
+			VALIDATORS_PER_CORE,
+		},
+		para::{Para, PARACHAIN_SERVICE_ID, TINY_CORES},
+		rpc::JamRpc,
+	},
 	cumulus_zombienet_sdk_helpers::{
 		find_event_and_decode_fields, jam::DigestItem, network::assert_para_throughput, ParaConfig,
 	},
 	polkadot_primitives::Id as ParaId,
-	std::time::Duration,
+	std::{collections::HashMap, time::Duration},
 	tokio::time::Instant,
 	zombienet_sdk::subxt::ext::scale_value::Value,
 };
@@ -128,7 +138,70 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 	#[cfg(not(feature = "jam"))]
 	let code_hash = blake2_256(&runtime_wasm);
 
+	#[cfg(not(feature = "jam"))]
 	let config = build_network_config().await?;
+
+	#[cfg(feature = "jam")]
+	let (work_dir, _temp) = work_dir("block_bundling_runtime_upgrade")?;
+	#[cfg(feature = "jam")]
+	let config = {
+		let binaries = binaries_or_err()?;
+		let paras = vec![Para::new(PARA_ID, 0, &[PARA_NODE])];
+		let genesis = build_jam_genesis(&binaries, &work_dir, &paras, TINY_CORES)?;
+		let para_specs = copy_para_specs(&work_dir, &genesis.para_specs, &paras)?;
+		let base_dir = base_dir(&work_dir)?;
+		let jam_node = path_str(&binaries.jam_node)?;
+		let genspec_node = binaries.genspec_node.as_deref().map(path_str).transpose()?;
+		let omni_node = path_str(&binaries.omni_node)?;
+		let authorizer_blob = path_str(&genesis.authorizer_blob)?;
+		let overrides = genesis.overrides.clone();
+		let no_overrides = HashMap::new();
+		let validators = TINY_CORES as usize * VALIDATORS_PER_CORE;
+
+		zombienet_sdk::NetworkConfigBuilder::new()
+			.with_jamchain(|jam| {
+				let jam = jam.with_id("jam").with_default_command(jam_node.as_str());
+				let jam = match genspec_node.as_deref() {
+					Some(command) if command != jam_node.as_str() => {
+						jam.with_chain_spec_command(command)
+					},
+					_ => jam,
+				};
+				let jam = jam.with_genesis_overrides(overrides);
+				let jam = jam.with_validator(|node| node.with_name("jam0").with_env(polkavm_env()));
+				let jam = (1..validators).fold(jam, |jam, index| {
+					jam.with_validator(|node| {
+						node.with_name(&format!("jam{index}")).with_env(polkavm_env())
+					})
+				});
+				jam.with_ordinary(|node| node.with_name(ORDINARY_NODE).with_env(polkavm_env()))
+			})
+			.with_parachain(|p| {
+				p.with_id(paras[0].id)
+					.with_registration_strategy(zombienet_sdk::RegistrationStrategy::Manual)
+					.with_chain_spec_path(para_specs[0].clone())
+					.with_default_command(omni_node.as_str())
+					.with_collator(|node| {
+						node.with_name(paras[0].collators[0].as_str())
+							.with_env(polkavm_env())
+							.with_args(collator_args(
+								&authorizer_blob,
+								&no_overrides,
+								&paras[0].collators[0],
+								true,
+							))
+					})
+			})
+			.with_global_settings(|g| g.with_base_dir(base_dir))
+			.build()
+			.map_err(|e| {
+				anyhow!(
+					"config errs: {}",
+					e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ")
+				)
+			})?
+	};
+
 	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
 	let network = spawn_fn(config).await?;
 
@@ -390,22 +463,6 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			Ok(val) => global_settings.with_base_dir(val),
 			_ => global_settings,
 		})
-		.build()
-		.map_err(|e| {
-			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
-			anyhow!("config errs: {errs}")
-		})
-}
-
-#[cfg(feature = "jam")]
-async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
-	let jam = crate::jam::setup(
-		"block_bundling_runtime_upgrade",
-		&[crate::jam::para(PARA_ID, 0, &[PARA_NODE])],
-	)?;
-	jam.jamchain()
-		.with_parachain(|p| jam.parachain(p, 0))
-		.with_global_settings(|g| g.with_base_dir(jam.base_dir()))
 		.build()
 		.map_err(|e| {
 			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");

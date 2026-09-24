@@ -13,6 +13,7 @@ pub mod control;
 pub mod env;
 pub mod genesis;
 pub mod genesis_build;
+pub mod network;
 pub mod para;
 pub mod para_head;
 pub mod proxy;

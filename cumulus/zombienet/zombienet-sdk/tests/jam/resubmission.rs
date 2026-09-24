@@ -31,11 +31,17 @@
 
 use anyhow::anyhow;
 use cumulus_jam_zombienet_tests::{
-	para::{JAM_SLOT, PARACHAIN_SERVICE_ID},
+	env::binaries_or_err,
+	genesis_build::{build_jam_genesis, polkavm_env},
+	network::{
+		base_dir, collator_args, copy_para_specs, path_str, work_dir, ORDINARY_NODE,
+		VALIDATORS_PER_CORE,
+	},
+	para::{Para, JAM_SLOT, PARACHAIN_SERVICE_ID, TINY_CORES},
 	proxy::ProxyServer,
 	rpc::JamRpc,
 };
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 use tokio::time::Instant;
 use zombienet_sdk::{LocalFileSystem, Network};
 
@@ -67,13 +73,58 @@ async fn resends_make_the_head_advance() -> Result<(), anyhow::Error> {
 	let jam_or_port = free_port()?;
 	let proxy_port = free_port()?;
 
-	let jam = crate::jam::setup(TEST, &[crate::jam::para(0, 0, &["alice"])])?
-		.with_ordinary_rpc_port(jam_or_port)
-		.with_jam_rpc_url("alice", format!("ws://127.0.0.1:{proxy_port}"));
-	let config = jam
-		.jamchain()
-		.with_parachain(|p| jam.parachain(p, 0))
-		.with_global_settings(|g| g.with_base_dir(jam.base_dir()))
+	let binaries = binaries_or_err()?;
+	let paras = vec![Para::new(0, 0, &["alice"])];
+	let (work_dir, _temp) = work_dir(TEST)?;
+	let genesis = build_jam_genesis(&binaries, &work_dir, &paras, TINY_CORES)?;
+	let para_specs = copy_para_specs(&work_dir, &genesis.para_specs, &paras)?;
+	let base_dir = base_dir(&work_dir)?;
+	let jam_node = path_str(&binaries.jam_node)?;
+	let genspec_node = binaries.genspec_node.as_deref().map(path_str).transpose()?;
+	let omni_node = path_str(&binaries.omni_node)?;
+	let authorizer_blob = path_str(&genesis.authorizer_blob)?;
+	let overrides = genesis.overrides.clone();
+	let jam_rpc_url_overrides =
+		HashMap::from([("alice".to_string(), format!("ws://127.0.0.1:{proxy_port}"))]);
+	let validators = TINY_CORES as usize * VALIDATORS_PER_CORE;
+
+	let config = zombienet_sdk::NetworkConfigBuilder::new()
+		.with_jamchain(|jam| {
+			let jam = jam.with_id("jam").with_default_command(jam_node.as_str());
+			let jam = match genspec_node.as_deref() {
+				Some(command) if command != jam_node.as_str() => {
+					jam.with_chain_spec_command(command)
+				},
+				_ => jam,
+			};
+			let jam = jam.with_genesis_overrides(overrides);
+			let jam = jam.with_validator(|node| node.with_name("jam0").with_env(polkavm_env()));
+			let jam = (1..validators).fold(jam, |jam, index| {
+				jam.with_validator(|node| {
+					node.with_name(&format!("jam{index}")).with_env(polkavm_env())
+				})
+			});
+			jam.with_ordinary(|node| {
+				node.with_name(ORDINARY_NODE).with_env(polkavm_env()).with_rpc_port(jam_or_port)
+			})
+		})
+		.with_parachain(|p| {
+			p.with_id(paras[0].id)
+				.with_registration_strategy(zombienet_sdk::RegistrationStrategy::Manual)
+				.with_chain_spec_path(para_specs[0].clone())
+				.with_default_command(omni_node.as_str())
+				.with_collator(|node| {
+					node.with_name(paras[0].collators[0].as_str())
+						.with_env(polkavm_env())
+						.with_args(collator_args(
+							&authorizer_blob,
+							&jam_rpc_url_overrides,
+							&paras[0].collators[0],
+							true,
+						))
+				})
+		})
+		.with_global_settings(|g| g.with_base_dir(base_dir))
 		.build()
 		.map_err(|e| {
 			anyhow!(

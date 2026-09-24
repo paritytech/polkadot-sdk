@@ -38,16 +38,21 @@
 //! between the two single-para tests here — one puts the para back where it was, the other moves
 //! it somewhere else.
 
-use crate::jam::{jam_rpc_url, para, setup_with_cores, JamSetup, Para};
+use crate::jam::{jam_rpc_url, Para};
 use anyhow::{anyhow, Context};
 use cumulus_jam_zombienet_tests::{
 	control,
 	env::binaries_or_err,
+	genesis_build::{build_jam_genesis, polkavm_env},
+	network::{
+		base_dir, collator_args, copy_para_specs, path_str, work_dir, ORDINARY_NODE,
+		VALIDATORS_PER_CORE,
+	},
 	para::{DEADLINE, PARACHAIN_SERVICE_ID, TINY_CORES},
 	para_head::{read_para_head, ParaHead},
 	rpc::{CollatorRpc, Height, JamRpc},
 };
-use std::{path::Path, time::Duration};
+use std::{collections::HashMap, path::Path, time::Duration};
 use tokio::time::Instant;
 use zombienet_sdk::{LocalFileSystem, Network};
 
@@ -100,9 +105,96 @@ async fn two_paras_on_two_cores_build_blocks() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let paras = vec![para(0, 0, &["alice", "bob"]), para(1, 1, &["charlie", "dave"])];
-	let jam = setup_with_cores(TEST, &paras, TINY_CORES)?;
-	let network = spawn_network(&jam, paras.len()).await?;
+	let paras = vec![Para::new(0, 0, &["alice", "bob"]), Para::new(1, 1, &["charlie", "dave"])];
+	let binaries = binaries_or_err()?;
+	let (work_dir, _temp) = work_dir(TEST)?;
+	let genesis = build_jam_genesis(&binaries, &work_dir, &paras, TINY_CORES)?;
+	let para_specs = copy_para_specs(&work_dir, &genesis.para_specs, &paras)?;
+	let base_dir = base_dir(&work_dir)?;
+	let jam_node = path_str(&binaries.jam_node)?;
+	let genspec_node = binaries.genspec_node.as_deref().map(path_str).transpose()?;
+	let omni_node = path_str(&binaries.omni_node)?;
+	let authorizer_blob = path_str(&genesis.authorizer_blob)?;
+	let overrides = genesis.overrides.clone();
+	let no_overrides = HashMap::new();
+	let validators = TINY_CORES as usize * VALIDATORS_PER_CORE;
+
+	let config =
+		zombienet_sdk::NetworkConfigBuilder::new()
+			.with_jamchain(|jam| {
+				let jam = jam.with_id("jam").with_default_command(jam_node.as_str());
+				let jam = match genspec_node.as_deref() {
+					Some(command) if command != jam_node.as_str() => {
+						jam.with_chain_spec_command(command)
+					},
+					_ => jam,
+				};
+				let jam = jam.with_genesis_overrides(overrides);
+				let jam = jam.with_validator(|node| node.with_name("jam0").with_env(polkavm_env()));
+				let jam = (1..validators).fold(jam, |jam, index| {
+					jam.with_validator(|node| {
+						node.with_name(&format!("jam{index}")).with_env(polkavm_env())
+					})
+				});
+				jam.with_ordinary(|node| node.with_name(ORDINARY_NODE).with_env(polkavm_env()))
+			})
+			.with_parachain(|p| {
+				let p = p
+					.with_id(paras[0].id)
+					.with_registration_strategy(zombienet_sdk::RegistrationStrategy::Manual)
+					.with_chain_spec_path(para_specs[0].clone())
+					.with_default_command(omni_node.as_str());
+				let p = p.with_collator(|node| {
+					node.with_name(paras[0].collators[0].as_str())
+						.with_env(polkavm_env())
+						.with_args(collator_args(
+							&authorizer_blob,
+							&no_overrides,
+							&paras[0].collators[0],
+							true,
+						))
+				});
+				paras[0].collators[1..].iter().fold(p, |p, name| {
+					p.with_collator(|node| {
+						node.with_name(name.as_str())
+							.with_env(polkavm_env())
+							.with_args(collator_args(&authorizer_blob, &no_overrides, name, true))
+					})
+				})
+			})
+			.with_parachain(|p| {
+				let p = p
+					.with_id(paras[1].id)
+					.with_registration_strategy(zombienet_sdk::RegistrationStrategy::Manual)
+					.with_chain_spec_path(para_specs[1].clone())
+					.with_default_command(omni_node.as_str());
+				let p = p.with_collator(|node| {
+					node.with_name(paras[1].collators[0].as_str())
+						.with_env(polkavm_env())
+						.with_args(collator_args(
+							&authorizer_blob,
+							&no_overrides,
+							&paras[1].collators[0],
+							true,
+						))
+				});
+				paras[1].collators[1..].iter().fold(p, |p, name| {
+					p.with_collator(|node| {
+						node.with_name(name.as_str())
+							.with_env(polkavm_env())
+							.with_args(collator_args(&authorizer_blob, &no_overrides, name, true))
+					})
+				})
+			})
+			.with_global_settings(|g| g.with_base_dir(base_dir))
+			.build()
+			.map_err(|errors| {
+				anyhow!(
+					"config errs: {}",
+					errors.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ")
+				)
+			})?;
+	let network = zombienet_sdk::environment::get_spawn_fn()(config).await?;
 
 	let result = async {
 		let jam_url = jam_rpc_url(&network)?;
@@ -200,8 +292,61 @@ async fn freeing_the_core_freezes_the_para_head_until_it_is_assigned_again(
 		.context("PARASIM_TOOL_BIN is required for the dynamic-core tests")?;
 
 	let paras = vec![Para::single(1)];
-	let jam = setup_with_cores(TEST, &paras, TINY_CORES)?;
-	let network = spawn_network(&jam, paras.len()).await?;
+	let (work_dir, _temp) = work_dir(TEST)?;
+	let genesis = build_jam_genesis(&binaries, &work_dir, &paras, TINY_CORES)?;
+	let para_specs = copy_para_specs(&work_dir, &genesis.para_specs, &paras)?;
+	let base_dir = base_dir(&work_dir)?;
+	let jam_node = path_str(&binaries.jam_node)?;
+	let genspec_node = binaries.genspec_node.as_deref().map(path_str).transpose()?;
+	let omni_node = path_str(&binaries.omni_node)?;
+	let authorizer_blob = path_str(&genesis.authorizer_blob)?;
+	let overrides = genesis.overrides.clone();
+	let no_overrides = HashMap::new();
+	let validators = TINY_CORES as usize * VALIDATORS_PER_CORE;
+
+	let config = zombienet_sdk::NetworkConfigBuilder::new()
+		.with_jamchain(|jam| {
+			let jam = jam.with_id("jam").with_default_command(jam_node.as_str());
+			let jam = match genspec_node.as_deref() {
+				Some(command) if command != jam_node.as_str() => {
+					jam.with_chain_spec_command(command)
+				},
+				_ => jam,
+			};
+			let jam = jam.with_genesis_overrides(overrides);
+			let jam = jam.with_validator(|node| node.with_name("jam0").with_env(polkavm_env()));
+			let jam = (1..validators).fold(jam, |jam, index| {
+				jam.with_validator(|node| {
+					node.with_name(&format!("jam{index}")).with_env(polkavm_env())
+				})
+			});
+			jam.with_ordinary(|node| node.with_name(ORDINARY_NODE).with_env(polkavm_env()))
+		})
+		.with_parachain(|p| {
+			p.with_id(paras[0].id)
+				.with_registration_strategy(zombienet_sdk::RegistrationStrategy::Manual)
+				.with_chain_spec_path(para_specs[0].clone())
+				.with_default_command(omni_node.as_str())
+				.with_collator(|node| {
+					node.with_name(paras[0].collators[0].as_str())
+						.with_env(polkavm_env())
+						.with_args(collator_args(
+							&authorizer_blob,
+							&no_overrides,
+							&paras[0].collators[0],
+							true,
+						))
+				})
+		})
+		.with_global_settings(|g| g.with_base_dir(base_dir))
+		.build()
+		.map_err(|errors| {
+			anyhow!(
+				"config errs: {}",
+				errors.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ")
+			)
+		})?;
+	let network = zombienet_sdk::environment::get_spawn_fn()(config).await?;
 
 	let result = async {
 		let jam_url = jam_rpc_url(&network)?;
@@ -313,8 +458,61 @@ async fn moving_the_para_to_the_other_core_keeps_its_head_moving() -> Result<(),
 		.context("PARASIM_TOOL_BIN is required for the dynamic-core tests")?;
 
 	let paras = vec![Para::single(1)];
-	let jam = setup_with_cores(TEST, &paras, TINY_CORES)?;
-	let network = spawn_network(&jam, paras.len()).await?;
+	let (work_dir, _temp) = work_dir(TEST)?;
+	let genesis = build_jam_genesis(&binaries, &work_dir, &paras, TINY_CORES)?;
+	let para_specs = copy_para_specs(&work_dir, &genesis.para_specs, &paras)?;
+	let base_dir = base_dir(&work_dir)?;
+	let jam_node = path_str(&binaries.jam_node)?;
+	let genspec_node = binaries.genspec_node.as_deref().map(path_str).transpose()?;
+	let omni_node = path_str(&binaries.omni_node)?;
+	let authorizer_blob = path_str(&genesis.authorizer_blob)?;
+	let overrides = genesis.overrides.clone();
+	let no_overrides = HashMap::new();
+	let validators = TINY_CORES as usize * VALIDATORS_PER_CORE;
+
+	let config = zombienet_sdk::NetworkConfigBuilder::new()
+		.with_jamchain(|jam| {
+			let jam = jam.with_id("jam").with_default_command(jam_node.as_str());
+			let jam = match genspec_node.as_deref() {
+				Some(command) if command != jam_node.as_str() => {
+					jam.with_chain_spec_command(command)
+				},
+				_ => jam,
+			};
+			let jam = jam.with_genesis_overrides(overrides);
+			let jam = jam.with_validator(|node| node.with_name("jam0").with_env(polkavm_env()));
+			let jam = (1..validators).fold(jam, |jam, index| {
+				jam.with_validator(|node| {
+					node.with_name(&format!("jam{index}")).with_env(polkavm_env())
+				})
+			});
+			jam.with_ordinary(|node| node.with_name(ORDINARY_NODE).with_env(polkavm_env()))
+		})
+		.with_parachain(|p| {
+			p.with_id(paras[0].id)
+				.with_registration_strategy(zombienet_sdk::RegistrationStrategy::Manual)
+				.with_chain_spec_path(para_specs[0].clone())
+				.with_default_command(omni_node.as_str())
+				.with_collator(|node| {
+					node.with_name(paras[0].collators[0].as_str())
+						.with_env(polkavm_env())
+						.with_args(collator_args(
+							&authorizer_blob,
+							&no_overrides,
+							&paras[0].collators[0],
+							true,
+						))
+				})
+		})
+		.with_global_settings(|g| g.with_base_dir(base_dir))
+		.build()
+		.map_err(|errors| {
+			anyhow!(
+				"config errs: {}",
+				errors.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ")
+			)
+		})?;
+	let network = zombienet_sdk::environment::get_spawn_fn()(config).await?;
 
 	let result = async {
 		let jam_url = jam_rpc_url(&network)?;
@@ -605,29 +803,6 @@ async fn wait_for_every_collator(
 		}
 	}
 	Ok(())
-}
-
-/// Build the run's zombienet config — a JAM chain plus the first `parachains` paras — and spawn
-/// it. The JAM genesis itself was already generated by [`setup_with_cores`]; this only turns it
-/// into a running network.
-async fn spawn_network(
-	jam: &JamSetup,
-	parachains: usize,
-) -> anyhow::Result<Network<LocalFileSystem>> {
-	let mut config = jam.jamchain();
-	for index in 0..parachains {
-		config = config.with_parachain(|p| jam.parachain(p, index));
-	}
-	let config = config
-		.with_global_settings(|g| g.with_base_dir(jam.base_dir()))
-		.build()
-		.map_err(|errors| {
-			anyhow!(
-				"config errs: {}",
-				errors.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ")
-			)
-		})?;
-	Ok(zombienet_sdk::environment::get_spawn_fn()(config).await?)
 }
 
 /// Tear the network down, logging rather than propagating a teardown failure: the assertions have

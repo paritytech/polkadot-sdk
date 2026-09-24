@@ -5283,6 +5283,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "tempfile",
  "tokio",
+ "zombienet-sdk",
 ]
 
 [[package]]
