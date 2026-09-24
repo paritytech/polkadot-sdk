@@ -1360,4 +1360,41 @@ mod tests {
 
 		assert_eq!(logs, outside_frame_logs(1));
 	}
+
+	#[test]
+	fn synthetic_receipt_serves_the_log_the_block_committed() {
+		// Extrinsic 0 is a `Revive::call` whose contract emits a log. The runtime leaves a frame
+		// log outside an ethereum transaction substrate-only (`block_storage::capture_frame_log`).
+		// Extrinsic 1 is an assets transfer whose mirrored `Transfer` is buffered, so the block
+		// commits exactly one log: the mirror. Both arrive here as a `ContractEmitted` under a
+		// non-eth extrinsic, and the receipt must carry the committed one.
+		let contract = H160::from([0xc0; 20]);
+		let asset_precompile = H160::from([0xa5; 20]);
+		let emitted_by = |address: H160| pallet_revive::Event::ContractEmitted {
+			contract: address,
+			data: vec![],
+			topics: vec![],
+		};
+		let events = EventsBuilder::new()
+			.push_event(frame_system::Phase::ApplyExtrinsic(0), emitted_by(contract))
+			.push_event(frame_system::Phase::ApplyExtrinsic(1), emitted_by(asset_precompile))
+			.build();
+
+		let (_, _, outside_frame) = extract_revive_events(
+			&events,
+			1,
+			U256::one(),
+			H256::zero(),
+			|_| None,
+			H256::from([0x99; 32]),
+			2,
+		);
+		let logs = reconcile_outside_frame_logs(outside_frame, 1, 1);
+
+		assert_eq!(logs.len(), 1);
+		assert_eq!(
+			logs[0].address, asset_precompile,
+			"the synthetic receipt must carry the committed mirror log, not the contract's"
+		);
+	}
 }
