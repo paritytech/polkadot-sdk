@@ -4602,15 +4602,53 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.top(), (r > 0).then_some(expected).as_ref());
 	}
 
-	/// Benchmark `r` `ADD` instructions with carry propagation through all four words each time.
+	/// Benchmark `r` `ADD` instructions.
+	///
+	/// `U256` addition branches on the carry between limbs. With the same operands every time, such
+	/// as `U256::MAX`, the CPU would predict these branches perfectly. Instead a pseudo-random
+	/// generator decides whether each limb of each `ADD` carries, with a 50% chance either way,
+	/// which makes the CPU mispredict these branches.
+	///
+	/// Each `ADD` adds its operand to the result of the previous one, so each operand is picked
+	/// based on the running sum at that point. Uniformly random operands aren't enough since a limb
+	/// that just carried is left smaller, which makes its next carry less likely and gives the CPU
+	/// a pattern to learn.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_add_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		use rand::{Rng, SeedableRng};
+		use rand_pcg::Pcg64;
+
+		let mut rng = Pcg64::seed_from_u64(42);
+		let start = U256([u64::MAX / 2; 4]);
+		let mut running_sum = start;
+		let operands = (0..r)
+			.map(|_| {
+				// Nothing carries into the lowest limb.
+				let mut carry_in = false;
+				let limbs = running_sum.0.map(|limb| {
+					let should_carry = rng.gen_bool(0.5);
+					// The limb overflows exactly when a value larger than this is added to it.
+					let largest_without_carry = u64::MAX - limb - u64::from(carry_in);
+					let value = if should_carry {
+						rng.gen_range(largest_without_carry + 1..=u64::MAX)
+					} else {
+						rng.gen_range(1..=largest_without_carry)
+					};
+					carry_in = should_carry;
+					value
+				});
+				let operand = U256(limbs);
+				running_sum = running_sum.overflowing_add(operand).0;
+				operand
+			})
+			.collect::<Vec<_>>();
+
 		let code = Bytecode::new_raw(vec![ADD; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for _ in 0..=r {
-			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		for value in operands.into_iter().rev().chain([start]) {
+			interpreter.stack.push(value).continue_value().unwrap();
 		}
 
 		let result;
@@ -4622,7 +4660,7 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 1);
-		assert_eq!(interpreter.stack.top(), Some(&(U256::MAX - U256::from(r))));
+		assert_eq!(interpreter.stack.top(), Some(&running_sum));
 		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
 	}
 
@@ -4654,17 +4692,54 @@ mod benchmarks {
 		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
 	}
 
-	/// Benchmark `r` `SUB` instructions with a borrow through all four words on each subtraction.
+	/// Benchmark `r` `SUB` instructions.
+	///
+	/// `U256` subtraction branches on the borrow between limbs. With the same operands every time,
+	/// such as `U256::MAX`, the CPU would predict these branches perfectly. Instead a pseudo-random
+	/// generator decides whether each limb of each `SUB` borrows, with a 50% chance either way,
+	/// which makes the CPU mispredict these branches.
+	///
+	/// Each `SUB` subtracts its operand from the result of the previous one, so each operand is
+	/// picked based on the running difference at that point. Uniformly random operands aren't
+	/// enough since a limb that just borrowed is left larger, which makes its next borrow less
+	/// likely and gives the CPU a pattern to learn.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_sub_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		use rand::{Rng, SeedableRng};
+		use rand_pcg::Pcg64;
+
+		let mut rng = Pcg64::seed_from_u64(42);
+		let start = U256([u64::MAX / 2; 4]);
+		let mut running_difference = start;
+		let operands = (0..r)
+			.map(|_| {
+				// Nothing borrows from below the lowest limb.
+				let mut borrow_in = false;
+				let limbs = running_difference.0.map(|limb| {
+					let should_borrow = rng.gen_bool(0.5);
+					// The limb borrows exactly when a value larger than this is subtracted.
+					let largest_without_borrow = limb - u64::from(borrow_in);
+					let value = if should_borrow {
+						rng.gen_range(largest_without_borrow + 1..=u64::MAX)
+					} else {
+						rng.gen_range(1..=largest_without_borrow)
+					};
+					borrow_in = should_borrow;
+					value
+				});
+				let operand = U256(limbs);
+				running_difference = running_difference.overflowing_sub(operand).0;
+				operand
+			})
+			.collect::<Vec<_>>();
+
 		let code = Bytecode::new_raw(vec![SUB; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for _ in 0..r {
-			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		for value in operands.into_iter().rev().chain([start]) {
+			interpreter.stack.push(value).continue_value().unwrap();
 		}
-		interpreter.stack.push(U256::one()).continue_value().unwrap();
 
 		let result;
 		#[block]
@@ -4675,7 +4750,7 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 1);
-		assert_eq!(interpreter.stack.top(), Some(&U256::from(r + 1)));
+		assert_eq!(interpreter.stack.top(), Some(&running_difference));
 		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
 	}
 
