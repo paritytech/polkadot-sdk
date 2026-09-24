@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790271779740,
+  "lastUpdate": 1790288017368,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "luka.ciric2106@gmail.com",
-            "name": "Luka Ciric",
-            "username": "cirko33"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f6e430ef28716084bed0b3af47256069c75e79d7",
-          "message": "Meta Transactions - Benchmarking update (#10982)\n\nUpdate of benchmarking logic to remove possibility of `quadratic\ncomplexity` not being weighted when executed. Introducing witness\nparameter that would define length of `meta_tx` encoded size.\n\nUpdate of weight annotation to `saturating add` instead of `add`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-24T13:12:59Z",
-          "tree_id": "207392576e969d65c1be0bee5cd3675684a06673",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6e430ef28716084bed0b3af47256069c75e79d7"
-        },
-        "date": 1771943470967,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023996705100000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00971733378666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14427413442000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006890860873333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010068838659999982,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "10196091+Ank4n@users.noreply.github.com",
+            "name": "Ankan",
+            "username": "Ank4n"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c534ae5fee6bfcc4b00450ad4f27c19346097d5d",
+          "message": "[AHMv2] Migrator dependencies (#13282)\n\nAdds the types the migrator pallets need to move parachain registrations\nand HRMP channels from the relay chain to the pallets that will own them\non a system chain (Coretime).\n\n## How the migration flows\n\n- `rc2-migrator` (runtimes repo) [depends\non](https://github.com/Ank4n/runtimes/blob/ankn-min-relay-int/pallets/rc2-migrator/src/lib.rs#L359)\n`hrmp`, `paras_registrar` etc. directly, iterates their storage and\npacks each record into a `Portable*` entry (eg\n[`PortableHrmpChannel`](https://github.com/Ank4n/runtimes/blob/ankn-min-relay-int/pallets/migrator-types/src/lib.rs#L164)).\nThese are the wire types between the two migrators, rc2 and ct, and\ncarry the RC-recorded deposits.\n- `ct-migrator` receives the wire type, settles the deposits (the\nbalances arrive earlier, in the accounts stage), converts the record to\nthe smaller `Migrated*` type from this PR and hands it to the new pallet\n(`registrar_para` / `hrmp_para`), which recreates the record at its own\nprice.\n\nSo `Portable*` is the wire format and is what gets parked in a `Failed*`\nmap when an entry is refused. `Migrated*` is never stored; it is the\ntranslation from wire to the fields the pallet actually needs. The\nct-migrator could hand the pallets the portable type directly, but this\nkeeps the pallets away from deposit amounts they do not use, and the\nwire format stays in the runtimes repo with no SDK dependency.\n\n## Changes\n\n- `registrar-primitives`\n- `MigratedPara`, `MigratedParaState`: one para as handed to the\nregistrar pallet.\n- `ReceiveMigratedParas`: implemented by `registrar_para`. The `()` impl\nrefuses every record.\n- `hrmp-primitives`\n- `ChannelId`, `MigratedChannel`: one channel as handed to the HRMP\npallet.\n- `ReceiveMigratedChannels`: implemented by `hrmp_para`. The `()` impl\nrefuses every record.\n\nNeither type carries a deposit: the receiving pallet takes its own at\nthe destination's prices. A record is recreated even if its manager\ncannot pay, so no RC para or channel is dropped.\n\n---------\n\nCo-authored-by: Luka Ciric <luka.ciric2106@gmail.com>",
+          "timestamp": "2026-09-24T20:10:44Z",
+          "tree_id": "2d1334ebc5f059cf3861e27111c3f393da1d750f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c534ae5fee6bfcc4b00450ad4f27c19346097d5d"
+        },
+        "date": 1790287987169,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14351879011333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009984389986666654,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025275828180000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007592515839999997,
             "unit": "seconds"
           }
         ]
