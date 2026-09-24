@@ -6,6 +6,8 @@ doc:
 
 crates:
   - name: xcm-procedural
+    bump: patch
+  - name: staging-xcm-builder
     bump: minor
   - name: staging-xcm
     bump: minor
