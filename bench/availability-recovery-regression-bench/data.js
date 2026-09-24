@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790177798731,
+  "lastUpdate": 1790253848746,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "30d11a70e09186ac0917e11a2e9cc743c3a4bb34",
-          "message": "make subscription return statement event  instead of bytes (#11139)\n\n## Problem\n\nIn the current implementation of the subscription, applications have no\nway to tell if there is anything in the store for their subscription,\nbecause we are not sending any information when zero statements match\nthe filter, so they have the problem of not knowing if the subscription\nwill produce any items or if it is just slow.\n\nAnother worthy optimisation is that, when we connect we can send more\nthan one statement in one notification rather than send them one by one,\nwhich creates more churn and is slower.\n\n## Proposal.\n\nModify the API, so instead of returning a stream of bytes that represent\nscale encoded statements, to return\n```\npub enum StatementEvent {\n\t/// A batch of statements matching the subscription filter. Each entry is a SCALE-encoded\n\t/// statement.\n\tNewStatements(Vec<Bytes>),\n}\n```\n\nWhen subscription is initiated if there are no matching statements in\nthe store we send an empty array..\n\nThis changes slightly the json-rpc schema of the message:\n\n## Before this change:\n- Receiving a statement\n```\n{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"statement_statement\",\n  \"params\": {\n    \"subscription\": 2759293729543571,\n    \"result\": \"0x1000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000201000000ffffffff040000000000000000000000000000000000000000000000000000000000000000050101010101010101010101010101010101010101010101010101010101010101\"\n  }\n}\n```\n\n## After this change:\n- When there are no matching statements in the store you first receive\nan empty array and as new matching statements arrive in the node they\nget forwarded to the client.\n```\n{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"statement_statement\",\n    \"params\": {\n        \"subscription\": 4851578855668545,\n        \"result\": {\n            \"event\": \"newStatements\",\n            \"data\": {\n                \"statements\": [],\n                \"remaining\": 0\n            }\n        }\n    }\n}\n```\n\n- If there are matching statements in the store you receive them in\nbatches of newStatements events, with remaining telling you how many\nstatements you have remaining, this guarantees you that the subscription\nwill receive at least this amount of statements.\n```\n{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"statement_statement\",\n    \"params\": {\n        \"subscription\": 1710164133533157,\n        \"result\": {\n            \"event\": \"newStatements\",\n            \"data\": {\n                \"statements\": [\n                    \"0x1000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000201000000ffffffff040000000000000000000000000000000000000000000000000000000000000000050202020202020202020202020202020202020202020202020202020202020202\",\n                    \"0x1000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000201000000ffffffff040000000000000000000000000000000000000000000000000000000000000000050101010101010101010101010101010101010101010101010101010101010101\"\n                ],\n                \"remaining\": 10\n            }\n        }\n    }\n}\n```\n\n- If new statements arrive in the store they get delivered as they are\nwithout any `remaining` information.\n```\n{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"statement_statement\",\n    \"params\": {\n        \"subscription\": 2661920166788434,\n        \"result\": {\n            \"event\": \"newStatements\",\n            \"data\": {\n                \"statements\": [                 \"0x1000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000201000000ffffffff040000000000000000000000000000000000000000000000000000000000000000050101010101010101010101010101010101010101010101010101010101010101\"\n                ]\n            }\n        }\n    }\n}\n```\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
-          "timestamp": "2026-02-24T12:19:17Z",
-          "tree_id": "063b08a2ad2606c50cfd5860bc47d390d0ad93bf",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/30d11a70e09186ac0917e11a2e9cc743c3a4bb34"
-        },
-        "date": 1771940132636,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.693365324299997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.11537270666666666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.120942257933333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "40807189+AlexandruCihodaru@users.noreply.github.com",
+            "name": "Alexandru Cihodaru",
+            "username": "AlexandruCihodaru"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "11569634ea4734d4b55c822a1990d262b64772da",
+          "message": "Collator protocol V4 validator side logic (#12396)\n\nReworks the experimental validator side of the collator protocol\n(validator_side_experimental) to also handle V4 collation segments.\n\nFixes: #13266 \n\nA collator can now advertises a whole segment, and the validator picks\nthe first unknown fingerprint at fetch time rather than collapsing at\nreceipt.\n\n---------\n\nSigned-off-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: eskimor <robert@gonimo.com>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: eskimor <1527017+eskimor@users.noreply.github.com>",
+          "timestamp": "2026-09-24T11:09:41Z",
+          "tree_id": "4ead6824342111b2a3b8282efb511927ed58756d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/11569634ea4734d4b55c822a1990d262b64772da"
+        },
+        "date": 1790253817435,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13512914059999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.78893644666667,
             "unit": "seconds"
           }
         ]
