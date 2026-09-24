@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["FailureReason","MessageToPara","MessageToParaV1","MessageToRelay","MessageToRelayV1"],"trait":["ParachainRegistrar"],"type":["Outcome","ParaId"]};
+window.SIDEBAR_ITEMS = {"enum":["FailureReason","MessageToPara","MessageToParaV1","MessageToRelay","MessageToRelayV1","MigratedParaState"],"struct":["MigratedPara"],"trait":["ParachainRegistrar","ReceiveMigratedParas"],"type":["Outcome","ParaId"]};
