@@ -1,0 +1,11 @@
+title: 'pallet-alliance: reject duplicate members in init_members'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `init_members` now rejects rosters that list the same account more than once within
+    the fellows or allies list, returning `Error::AlreadyMember`. Previously duplicate
+    entries were sorted and stored as-is, inflating membership counts and letting
+    `remove_member` delete only one copy.
+crates:
+- name: pallet-alliance
+  bump: patch

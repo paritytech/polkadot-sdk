@@ -104,6 +104,25 @@ fn init_members_works() {
 }
 
 #[test]
+fn init_members_rejects_duplicates() {
+	build_and_execute(|| {
+		assert_ok!(Alliance::disband(RuntimeOrigin::root(), DisbandWitness::new(3, 0)));
+
+		// Duplicate within fellows.
+		assert_noop!(
+			Alliance::init_members(RuntimeOrigin::root(), vec![8, 8], vec![]),
+			Error::<Test, ()>::AlreadyMember,
+		);
+
+		// Duplicate within allies.
+		assert_noop!(
+			Alliance::init_members(RuntimeOrigin::root(), vec![8], vec![2, 2]),
+			Error::<Test, ()>::AlreadyMember,
+		);
+	})
+}
+
+#[test]
 fn disband_works() {
 	build_and_execute(|| {
 		let id_deposit = test_identity_info_deposit();

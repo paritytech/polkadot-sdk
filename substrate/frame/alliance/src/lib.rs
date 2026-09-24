@@ -568,8 +568,10 @@ pub mod pallet {
 			}
 
 			fellows.sort();
+			ensure!(fellows.windows(2).all(|w| w[0] != w[1]), Error::<T, I>::AlreadyMember);
 			Members::<T, I>::insert(&MemberRole::Fellow, fellows.clone());
 			allies.sort();
+			ensure!(allies.windows(2).all(|w| w[0] != w[1]), Error::<T, I>::AlreadyMember);
 			Members::<T, I>::insert(&MemberRole::Ally, allies.clone());
 
 			let mut voteable_members = fellows.clone();
