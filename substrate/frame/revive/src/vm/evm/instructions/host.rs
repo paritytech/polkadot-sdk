@@ -164,6 +164,10 @@ fn store_helper<'ext, E: Ext>(
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
 
+	if !transient && interpreter.ext.frame_meter().has_eip2200_sentry_or_less_left() {
+		return ControlFlow::Break(Error::<E::T>::OutOfGas.into());
+	}
+
 	let [index, value] = interpreter.stack.popn()?;
 	let key = Key::Fix(index.to_big_endian());
 

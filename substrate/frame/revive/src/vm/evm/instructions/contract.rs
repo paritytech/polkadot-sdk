@@ -19,11 +19,12 @@ mod call_helpers;
 
 use super::utility::IntoAddress;
 use crate::{
-	Code, DebugSettings, Error, H160, LOG_TARGET, Pallet, ReentrancyProtection, U256,
+	Code, DebugSettings, Error, H160, LOG_TARGET, Pallet, U256,
 	exec::CallResources,
 	vm::{
 		Ext, RuntimeCosts,
 		evm::{Interpreter, interpreter::Halt, util::as_usize_or_halt},
+		stipend_and_reentrancy_protection,
 	},
 };
 use alloc::{vec, vec::Vec};
@@ -32,7 +33,7 @@ use core::{
 	cmp::min,
 	ops::{ControlFlow, Range},
 };
-use revm::interpreter::{gas::CALL_STIPEND, interpreter_action::CallScheme};
+use revm::interpreter::interpreter_action::CallScheme;
 
 /// Implements the CREATE/CREATE2 instruction.
 ///
@@ -191,16 +192,7 @@ fn run_call<'a, E: Ext>(
 	return_memory_range: Range<usize>,
 ) -> ControlFlow<Halt> {
 	let (add_stipend, reentracy) =
-		match (value.is_zero(), gas_limit.try_into().is_ok_and(|limit: u64| limit == CALL_STIPEND))
-		{
-			(false, _) => (true, ReentrancyProtection::AllowReentry),
-			// Heuristic: detect when solc passes `gas_limit = 2300` (the call stipend).
-			// For zero-value transfer/send, solc injects `gas_limit = 2300` explicitly.
-			// We apply `AllowNext` reentrancy protection and set `add_stipend = true` since the
-			// raw 2300 gas value is only meaningful at Ethereum's gas scale.
-			(_, true) => (true, ReentrancyProtection::AllowNext),
-			(_, _) => (false, ReentrancyProtection::AllowReentry),
-		};
+		stipend_and_reentrancy_protection(value, gas_limit.try_into().ok());
 
 	let call_result = match scheme {
 		CallScheme::Call | CallScheme::StaticCall => interpreter.ext.call(

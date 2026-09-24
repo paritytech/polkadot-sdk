@@ -476,6 +476,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		value: StorageValue,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
+		if !transient && self.ext.frame_meter().has_eip2200_sentry_or_less_left() {
+			return Err(Error::<E::T>::OutOfGas.into());
+		}
 
 		let value_len = match &value {
 			StorageValue::Memory { ptr: _, len } => *len,
@@ -529,6 +532,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		key_len: u32,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
+		if !transient && self.ext.frame_meter().has_eip2200_sentry_or_less_left() {
+			return Err(Error::<E::T>::OutOfGas.into());
+		}
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let access_kind = StorageAccessKind::new(transient, || {
 			let access = StorageItems::new(self.ext.address(), &key, StorageOp::Write);
@@ -629,6 +635,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		call_type: CallType,
 		callee_ptr: u32,
 		resources: &CallResources<E::T>,
+		reentrancy_override: Option<ReentrancyProtection>,
 		input_data_ptr: u32,
 		input_data_len: u32,
 		output_ptr: u32,
@@ -701,8 +708,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					self.charge_gas(RuntimeCosts::CallTransferSurcharge { dust_transfer, warmth })?;
 				}
 
+				// An override may tighten `AllowReentry`, but never weaken `Strict`.
 				let reentrancy = if flags.contains(CallFlags::ALLOW_REENTRY) {
-					ReentrancyProtection::AllowReentry
+					reentrancy_override.unwrap_or(ReentrancyProtection::AllowReentry)
 				} else {
 					ReentrancyProtection::Strict
 				};

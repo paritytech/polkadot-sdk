@@ -63,6 +63,9 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 
 			IStorageCalls::clearStorage(IStorage::clearStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)?;
+				if !transient && env.frame_meter().has_eip2200_sentry_or_less_left() {
+					return Err(Error::Error(crate::Error::<Self::T>::OutOfGas.into()));
+				}
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
 				let access_kind = StorageAccessKind::new(transient, || {
 					let access = StorageItems::new(env.address(), &key, StorageOp::Write);
@@ -116,6 +119,9 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 			},
 			IStorageCalls::takeStorage(IStorage::takeStorageCall { flags, key, isFixedKey }) => {
 				let transient = is_transient(*flags)?;
+				if !transient && env.frame_meter().has_eip2200_sentry_or_less_left() {
+					return Err(Error::Error(crate::Error::<Self::T>::OutOfGas.into()));
+				}
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
 				let access_kind = StorageAccessKind::new(transient, || {
 					let access = StorageItems::new(env.address(), &key, StorageOp::Write);

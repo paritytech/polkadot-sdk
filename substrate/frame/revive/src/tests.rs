@@ -426,6 +426,7 @@ parameter_types! {
 	pub const DepositPerItem: BalanceOf<Test> = 2;
 	pub const CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
 	pub static ChainId: u64 = 448;
+	pub static GasScale: u32 = crate::config_preludes::GasScale::get();
 }
 
 impl Convert<Weight, BalanceOf<Self>> for Test {
@@ -492,6 +493,7 @@ impl Config for Test {
 	type InstantiateOrigin = EnsureAccount<Self, InstantiateAccount>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type ChainId = ChainId;
+	type GasScale = GasScale;
 	type FindAuthor = Test;
 	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;

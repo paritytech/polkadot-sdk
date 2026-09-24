@@ -111,6 +111,10 @@ pub struct ResourceMeter<T: Config, S: State> {
 	/// Ethereum or Substrate execution mode.
 	transaction_limits: TransactionLimits<T>,
 
+	/// The maximum gas limit granted to the callee of a `transfer` or `send`, kept here so a
+	/// storage write does not recompute it.
+	eth_gas_eip2200_sentry: BalanceOf<T>,
+
 	_phantom: PhantomData<S>,
 }
 
@@ -394,6 +398,20 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 				math::substrate_execution::weight_left(self)
 			},
 		}
+	}
+
+	/// Returns whether the gas left is at most `eth_gas_eip2200_sentry`, in which case EIP-2200
+	/// forbids a storage write.
+	pub fn has_eip2200_sentry_or_less_left(&self) -> bool {
+		let gas_left = match &self.transaction_limits {
+			TransactionLimits::EthereumGas { .. } => self.eth_gas_left(),
+			// Deposit is metered apart and settled when the frame ends, so only execution counts.
+			TransactionLimits::WeightAndDeposit { .. } => {
+				math::substrate_execution::weight_gas_left(self)
+					.and_then(|gas| gas.to_ethereum_gas())
+			},
+		};
+		gas_left.map_or(true, |left| left <= self.eth_gas_eip2200_sentry)
 	}
 
 	/// Get remaining deposit available.

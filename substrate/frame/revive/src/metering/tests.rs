@@ -31,6 +31,7 @@ use frame_system::RawOrigin;
 use pallet_revive_fixtures::{
 	CatchConstructorTest, DepositPrecompile, FixtureType, ReentryStorage, compile_module_with_type,
 };
+use revm::interpreter::gas::CALL_STIPEND;
 use sp_runtime::{FixedU128, Weight};
 use test_case::test_case;
 
@@ -97,6 +98,37 @@ fn max_consumed_deposit_integration(fixture_type: FixtureType, fixture_name: &st
 		// Max deposit: peak allocation was two storage slots (132 units)
 		assert_eq!(direct_result.storage_deposit, StorageDeposit::Charge(66));
 		assert_eq!(direct_result.max_storage_deposit, StorageDeposit::Charge(132));
+	});
+}
+
+/// Deposit limits are enforced when the frame ends, so a write that briefly takes the deposit over
+/// the limit must not stop a later clear from bringing it back under.
+///
+/// No `DepositPrecompile` case: its clear requires a nested call, which fails while over the limit.
+#[test_case(FixtureType::Solc   ; "solc")]
+#[test_case(FixtureType::Resolc ; "resolc")]
+fn a_clear_can_bring_the_deposit_back_under_the_limit(fixture_type: FixtureType) {
+	use crate::test_utils::WEIGHT_LIMIT;
+	let (code, _) = compile_module_with_type("DepositDirect", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr)
+			.data(DepositPrecompile::setAndClearCall {}.abi_encode())
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit: 66,
+			})
+			.build();
+
+		assert_eq!(
+			(result.result.map(|value| value.did_revert()), result.storage_deposit),
+			(Ok(false), StorageDeposit::Charge(66)),
+			"two new slots briefly need 132, but clearing one brings the net back to the 66 limit"
+		);
 	});
 }
 
@@ -1106,4 +1138,45 @@ fn authorization_deposit_refund_increases_budget() {
 		1_000,
 		"refund must increase budget by exactly the amount"
 	);
+}
+
+/// EIP-2200 draws the line at the stipend in both execution modes: a callee granted exactly the
+/// limit cannot write storage, one more gas and it can.
+#[test]
+fn storage_writes_are_denied_at_the_stipend_and_allowed_above() {
+	let ethereum_limits = TransactionLimits::EthereumGas {
+		eth_gas_limit: u64::MAX.into(),
+		weight_limit: Weight::MAX,
+		eth_tx_info: EthTxInfo::new(0, Weight::zero()),
+		authorization_deposit: Default::default(),
+	};
+	// No proof size, no deposit and round numbers, so the callee's share of the parent is exact.
+	let substrate_limits = TransactionLimits::WeightAndDeposit {
+		weight_limit: Weight::from_parts(1_000_000_000_000, 0),
+		deposit_limit: 0,
+	};
+	for (metering, limits) in [("ethereum", ethereum_limits), ("substrate", substrate_limits)] {
+		ExtBuilder::default().build().execute_with(|| {
+			let root = TransactionMeter::<Test>::new(limits).unwrap();
+			let callee = |gas: u64| {
+				root.new_nested(&CallResources::Ethereum { gas: gas.into(), add_stipend: true })
+					.unwrap()
+			};
+
+			assert!(
+				callee(0).has_eip2200_sentry_or_less_left(),
+				"a value `send` grants only the stipend, which is below the limit, under \
+				 {metering} metering"
+			);
+			assert!(
+				callee(CALL_STIPEND).has_eip2200_sentry_or_less_left(),
+				"a zero-value `send` grants the stipend plus 2300, which is exactly the limit, \
+				 under {metering} metering"
+			);
+			assert!(
+				!callee(CALL_STIPEND + 1).has_eip2200_sentry_or_less_left(),
+				"one gas more than the limit must allow a write under {metering} metering"
+			);
+		});
+	}
 }

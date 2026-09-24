@@ -1,0 +1,21 @@
+title: 'pallet-revive: deny reentrancy and storage writes from transfer and send receivers'
+doc:
+- audience: Runtime User
+  description: |-
+    A contract that receives value through Solidity's `transfer()` or `send()` can no longer call back into the sender. This already held for zero-value transfers and now also applies when value moves. What the receiver sees depends on the VM it runs on:
+
+    - EVM: The reentrant call returns 0 to the receiver; before #12673 it ran out of gas, which reverted the transfer.
+    - PolkaVM: The reentrant call aborts the receiver, so the transfer reverts, as before.
+
+    Storage writes now apply the stipend check of EIP-2200: a persistent storage write fails when the gas left is at most what the receiver of a `transfer()` or `send()` gets, so such a receiver cannot write storage, even if the slot is warm. This covers `SSTORE`, the PolkaVM storage host functions, and `clearStorage` and `takeStorage` of the storage precompile. Transient storage is not affected. Revive's stipend is larger than Ethereum's 2300 gas, so the threshold is higher, and a call with a small explicit gas limit may also be unable to write.
+- audience: Runtime Dev
+  description: |-
+    `integrity_test` checks that a block cannot write more contract storage than a validator has memory for. It scaled a write's weight by the memory that write uses before dividing the block weight by it, so the storage term came out near zero and the check could not fail on it. It now computes how many writes fit the block weight before multiplying by the memory each one uses.
+crates:
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive-uapi
+  bump: none
+
