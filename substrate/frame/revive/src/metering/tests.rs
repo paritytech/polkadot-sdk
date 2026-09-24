@@ -1133,17 +1133,17 @@ fn storage_writes_are_denied_at_the_stipend_and_allowed_above() {
 			};
 
 			assert!(
-				callee(0).has_stipend_or_less_left(),
+				callee(0).has_eip2200_sentry_or_less_left(),
 				"a value `send` grants only the stipend, which is below the limit, under \
 				 {metering} metering"
 			);
 			assert!(
-				callee(CALL_STIPEND).has_stipend_or_less_left(),
+				callee(CALL_STIPEND).has_eip2200_sentry_or_less_left(),
 				"a zero-value `send` grants the stipend plus 2300, which is exactly the limit, \
 				 under {metering} metering"
 			);
 			assert!(
-				!callee(CALL_STIPEND + 1).has_stipend_or_less_left(),
+				!callee(CALL_STIPEND + 1).has_eip2200_sentry_or_less_left(),
 				"one gas more than the limit must allow a write under {metering} metering"
 			);
 		});

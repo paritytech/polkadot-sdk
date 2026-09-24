@@ -41,7 +41,7 @@ fn determine_call_stipend<T: Config>() -> Weight {
 /// Returns the maximum gas limit granted to the callee of a `transfer` or `send`: the stipend,
 /// priced with the execution mode's `weight_to_fee`, plus the 2300 gas solc forwards when the
 /// value is zero.
-fn eth_gas_stipend_limit<T: Config>(weight_to_fee: fn(&Weight) -> BalanceOf<T>) -> BalanceOf<T> {
+fn eth_gas_eip2200_sentry<T: Config>(weight_to_fee: fn(&Weight) -> BalanceOf<T>) -> BalanceOf<T> {
 	let eth_stipend = SignedGas::<T>::from_ethereum_gas(CALL_STIPEND.saturated_into());
 	let determined_stipend =
 		SignedGas::<T>::from_weight_fee(weight_to_fee(&determine_call_stipend::<T>()));
@@ -75,7 +75,7 @@ pub mod substrate_execution {
 			total_consumed_weight_before: Default::default(),
 			total_consumed_deposit_before: Default::default(),
 			transaction_limits: TransactionLimits::WeightAndDeposit { weight_limit, deposit_limit },
-			eth_gas_stipend_limit: eth_gas_stipend_limit::<T>(T::FeeInfo::weight_to_fee_average),
+			eth_gas_eip2200_sentry: eth_gas_eip2200_sentry::<T>(T::FeeInfo::weight_to_fee_average),
 			_phantom: PhantomData,
 		})
 	}
@@ -192,7 +192,7 @@ pub mod substrate_execution {
 			total_consumed_weight_before: total_consumed_weight,
 			total_consumed_deposit_before: total_consumed_deposit,
 			transaction_limits: meter.transaction_limits.clone(),
-			eth_gas_stipend_limit: meter.eth_gas_stipend_limit,
+			eth_gas_eip2200_sentry: meter.eth_gas_eip2200_sentry,
 			_phantom: PhantomData,
 		})
 	}
@@ -306,7 +306,7 @@ pub mod ethereum_execution {
 				eth_tx_info,
 				authorization_deposit: Default::default(),
 			},
-			eth_gas_stipend_limit: eth_gas_stipend_limit::<T>(T::FeeInfo::weight_to_fee),
+			eth_gas_eip2200_sentry: eth_gas_eip2200_sentry::<T>(T::FeeInfo::weight_to_fee),
 			_phantom: PhantomData,
 		};
 
@@ -446,7 +446,7 @@ pub mod ethereum_execution {
 			total_consumed_weight_before: total_consumed_weight,
 			total_consumed_deposit_before: total_consumed_deposit,
 			transaction_limits: meter.transaction_limits.clone(),
-			eth_gas_stipend_limit: meter.eth_gas_stipend_limit,
+			eth_gas_eip2200_sentry: meter.eth_gas_eip2200_sentry,
 			_phantom: PhantomData,
 		})
 	}

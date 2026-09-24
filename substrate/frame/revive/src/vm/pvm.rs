@@ -476,7 +476,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		value: StorageValue,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
-		if !transient && self.ext.frame_meter().has_stipend_or_less_left() {
+		if !transient && self.ext.frame_meter().has_eip2200_sentry_or_less_left() {
 			return Err(Error::<E::T>::OutOfGas.into());
 		}
 
@@ -532,7 +532,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		key_len: u32,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
-		if !transient && self.ext.frame_meter().has_stipend_or_less_left() {
+		if !transient && self.ext.frame_meter().has_eip2200_sentry_or_less_left() {
 			return Err(Error::<E::T>::OutOfGas.into());
 		}
 		let key = self.decode_key(memory, key_ptr, key_len)?;

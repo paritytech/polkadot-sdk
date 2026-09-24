@@ -113,7 +113,7 @@ pub struct ResourceMeter<T: Config, S: State> {
 
 	/// The maximum gas limit granted to the callee of a `transfer` or `send`, kept here so a
 	/// storage write does not recompute it.
-	eth_gas_stipend_limit: BalanceOf<T>,
+	eth_gas_eip2200_sentry: BalanceOf<T>,
 
 	_phantom: PhantomData<S>,
 }
@@ -400,10 +400,10 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		}
 	}
 
-	/// Returns whether the gas left is at most `eth_gas_stipend_limit`, in which case EIP-2200
+	/// Returns whether the gas left is at most `eth_gas_eip2200_sentry`, in which case EIP-2200
 	/// forbids a storage write.
-	pub fn has_stipend_or_less_left(&self) -> bool {
-		self.eth_gas_left().map_or(true, |left| left <= self.eth_gas_stipend_limit)
+	pub fn has_eip2200_sentry_or_less_left(&self) -> bool {
+		self.eth_gas_left().map_or(true, |left| left <= self.eth_gas_eip2200_sentry)
 	}
 
 	/// Get remaining deposit available.
