@@ -1,37 +1,49 @@
-title: '[pallet-revive] `System.terminate` reverts when the contract balance cannot be released'
+title: '[pallet-revive] `System.terminate` deletes the contract despite locks, freezes and holds'
 
 doc:
 - audience: Runtime User
   description: |-
-    `System.terminate` now reverts when the contract's balance has a lock, a freeze, or a hold
-    under a reason other than the storage deposit, for example after a vested transfer to the
-    contract. The revert message is "terminate pre-compile cannot release the contract's balance:
-    it has a lock, freeze or hold", and the calling contract can catch it.
+    `System.terminate` now always deletes the calling contract when it returns success. Before,
+    a lock, a freeze or a foreign hold on the contract account, for example from a vested
+    transfer to the contract, made the destruction at the end of the call stack fail without an
+    error: the call returned success and the contract stayed alive.
 
-    Before, the call returned success and the beneficiary received the transferable balance, but
-    the destruction at the end of the call stack could not burn the existential deposit and was
-    skipped without an error. The contract stayed alive and callable.
+    The storage deposit is now refunded to the origin when `System.terminate` is called, before
+    the balance is paid out to the beneficiary, instead of at the end of the call stack. Only the
+    part of the deposit that a freeze on the account needs stays on hold. The payout sends the
+    transferable balance as before.
 
-    A lock placed on the contract later in the same transaction, after `System.terminate`
-    returned, still makes the termination be skipped without an error. The `SELFDESTRUCT` opcode
-    is unchanged.
+    If the account cannot be reaped because something still pins funds on it, the contract is
+    deleted and the account stays behind as a plain account holding those funds. A contract
+    deployed to the same address later takes the account over. Funds sent to the contract after
+    `System.terminate` are still forwarded to the beneficiary at the end of the call stack. If
+    that transfer fails, the funds stay on the account and the contract is deleted anyway.
+
+    `SELFDESTRUCT` keeps its EIP-6780 semantics. A contract created in the same transaction is
+    now deleted even if its account carries a lock, which leaves the locked funds on the account.
+    A pre-existing contract keeps its code and deposits and only has its balance moved.
+
+    `ISystem.sol` no longer lists balance locks as a reason for `terminate` to revert. It never
+    reverted for that reason.
 
 - audience: Runtime Dev
   description: |-
-    `pallet_revive::Error` gains the variant `TerminateBalanceLocked` (index `0x45`). `Error` is
-    an exhaustive public enum, so code that matches on it exhaustively needs a new arm. No storage
-    migration or configuration change is needed.
+    No migration or configuration change is needed.
 
-    The terminate precompile now charges `WeightInfo::seal_terminate_logic` a second time to pay
-    for the dry run of the balance release, so a `System.terminate` call costs more weight. No
-    benchmark changed.
+    `seal_terminate_logic` now also covers the storage deposit refund that `System.terminate`
+    does when it is called. Runtimes should regenerate their `pallet_revive` weights.
 
-    The `Terminate` fixture gains a `tryTerminate` function, which adds a variant to the
-    generated `Terminate::TerminateCalls` enum in `pallet-revive-fixtures`.
+    `Deposit::refund_all` of the native backend now releases the storage deposit only as far as
+    the freezes on the account allow and returns the amount actually released, instead of
+    failing. `Deposit` is sealed, so no downstream implementation is affected.
+
+    The `Terminate` and `TerminateCaller` fixtures gain functions, which adds variants to the
+    generated `Terminate::TerminateCalls` and `TerminateCaller::TerminateCallerCalls` enums in
+    `pallet-revive-fixtures`.
 
 crates:
 - name: pallet-revive
-  bump: major
+  bump: patch
 - name: pallet-revive-uapi
   bump: patch
 - name: pallet-revive-fixtures
