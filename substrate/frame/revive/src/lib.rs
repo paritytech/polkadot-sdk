@@ -57,8 +57,9 @@ use crate::{
 	access_list::{StorageAccessKind, Warmth},
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
-		StateOverrideSet, TYPE_EIP1559, Tracer, TracerType, block_hash::EthereumBlockBuilderIR,
-		block_storage, fees::InfoT as FeeInfo, runtime::SetWeightLimit,
+		StateOverrideSet, TYPE_EIP1559, TYPE_EIP7702, Tracer, TracerType,
+		block_hash::EthereumBlockBuilderIR, block_storage, fees::InfoT as FeeInfo,
+		runtime::SetWeightLimit,
 	},
 	exec::{AccountIdOf, ExecError, Stack as ExecStack},
 	sp_runtime::TransactionOutcome,
@@ -68,7 +69,7 @@ use crate::{
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
-use codec::{Codec, Decode, Encode};
+use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use environmental::*;
 use frame_support::{
 	BoundedVec,
@@ -662,6 +663,9 @@ pub mod pallet {
 		/// [`NativeDepositOf`] entries from a previously terminated contract that the deletion
 		/// queue has not yet drained.
 		PendingDepositCleanup = 0x43,
+		/// `seal_terminate` was invoked on an EIP-7702 delegated EOA. Delegated accounts
+		/// cannot be torn down via the contract-termination path.
+		CannotTerminateDelegatedAccount = 0x44,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -1330,8 +1334,8 @@ pub mod pallet {
 		/// * `transaction_encoded`: The RLP encoding of the signed Ethereum transaction,
 		///   represented as [crate::evm::TransactionSigned], provided by the Ethereum wallet. This
 		///   is used for building the Ethereum transaction root.
-		/// * effective_gas_price: the price of a unit of gas
-		/// * encoded len: the byte code size of the `eth_transact` extrinsic
+		/// * `effective_gas_price`: the price of a unit of gas
+		/// * `encoded_len`: the byte code size of the `eth_transact` extrinsic
 		///
 		/// Calling this dispatchable ensures that the origin's nonce is bumped only once,
 		/// via the `CheckNonce` transaction extension. In contrast, [`Self::instantiate_with_code`]
@@ -1381,6 +1385,7 @@ pub mod pallet {
 						eth_gas_limit: eth_gas_limit.saturated_into(),
 						weight_limit,
 						eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
+						authorization_deposit: Default::default(),
 					},
 					Code::Upload(code),
 					data,
@@ -1413,13 +1418,15 @@ pub mod pallet {
 		/// * `transaction_encoded`: The RLP encoding of the signed Ethereum transaction,
 		///   represented as [crate::evm::TransactionSigned], provided by the Ethereum wallet. This
 		///   is used for building the Ethereum transaction root.
-		/// * effective_gas_price: the price of a unit of gas
-		/// * encoded len: the byte code size of the `eth_transact` extrinsic
+		/// * `effective_gas_price`: the price of a unit of gas
+		/// * `encoded_len`: the byte code size of the `eth_transact` extrinsic
+		/// * `authorization_list`: EIP-7702 authorization tuples to process before execution
 		#[pallet::call_index(11)]
 		#[pallet::weight(
 			T::WeightInfo::eth_call(Pallet::<T>::has_dust(*value).into())
 			.saturating_add(*weight_limit)
 			.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
+			.saturating_add(evm::eip7702::worst_case_authorization_weight::<T>(authorization_list.len() as u32))
 		)]
 		pub fn eth_call(
 			origin: OriginFor<T>,
@@ -1431,6 +1438,7 @@ pub mod pallet {
 			transaction_encoded: Vec<u8>,
 			effective_gas_price: U256,
 			encoded_len: u32,
+			authorization_list: Vec<evm::AuthorizationListEntry>,
 		) -> DispatchResultWithPostInfo {
 			let signer = Self::ensure_eth_signed(origin)?;
 			let origin = OriginFor::<T>::signed(signer.clone());
@@ -1445,14 +1453,24 @@ pub mod pallet {
 				transaction_encoded: transaction_encoded.clone(),
 				effective_gas_price,
 				encoded_len,
+				authorization_list: authorization_list.clone(),
 			}
 			.into();
 			let info = T::FeeInfo::dispatch_info(&call);
 			let base_info = T::FeeInfo::base_dispatch_info(&mut call);
 			drop(call);
 
+			let exec_config =
+				ExecConfig::new_eth_tx(effective_gas_price, encoded_len, base_info.total_weight());
+			let auth_result = evm::eip7702::process_authorizations::<T>(
+				&authorization_list,
+				&signer,
+				&exec_config,
+			);
+			let extra_weight = base_info.total_weight().saturating_sub(auth_result.weight_refund);
+			let base_call_weight = base_info.call_weight.saturating_sub(auth_result.weight_refund);
+
 			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
-				let extra_weight = base_info.total_weight();
 				let output = Self::bare_call(
 					origin,
 					dest,
@@ -1461,6 +1479,7 @@ pub mod pallet {
 						eth_gas_limit: eth_gas_limit.saturated_into(),
 						weight_limit,
 						eth_tx_info: EthTxInfo::new(encoded_len, extra_weight),
+						authorization_deposit: auth_result.deposit,
 					},
 					data,
 					&ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight),
@@ -1469,7 +1488,7 @@ pub mod pallet {
 				block_storage::EthereumCallResult::new::<T>(
 					signer,
 					output,
-					base_info.call_weight,
+					base_call_weight,
 					encoded_len,
 					&info,
 					effective_gas_price,
@@ -2056,6 +2075,10 @@ impl<T: Config> Pallet<T> {
 		low = first_dry_run_result.eth_gas;
 		high = gas_limit;
 
+		// TODO: each iteration re-runs `process_authorizations`, which re-recovers every
+		// authority via `ecdsa_recover`. The recovered addresses are invariant across iterations
+		// (they're a function of the signatures, not gas) — cache them once outside the loop and
+		// thread them into `dry_run_eth_transact` to save N * iterations ECDSA recoveries.
 		while low + U256::one() < high {
 			log::trace!(target: LOG_TARGET, "eth_estimate_gas estimation iteration with low={low} high={high}");
 			let error_ratio = high
@@ -2118,13 +2141,13 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Returns true when a value transfer can target `address` without triggering any code
-	/// execution: it is neither the runtime pallets address, a precompile, nor a contract.
+	/// execution: it is neither the runtime pallets address, a precompile, a contract, nor an
+	/// EIP-7702 delegated EOA (a transfer to one executes the delegate's code).
 	fn address_runs_no_code(address: &H160) -> bool {
-		// TODO(eip-7702): also reject delegated (authorized) destinations once EIP-7702
-		// delegations land, since a transfer to one executes the delegate's code.
 		*address != RUNTIME_PALLETS_ADDR &&
 			!exec::is_precompile::<T, ContractBlob<T>>(address) &&
-			!<AccountInfo<T>>::is_contract(address)
+			!<AccountInfo<T>>::is_contract(address) &&
+			!<AccountInfo<T>>::is_delegated(address)
 	}
 
 	/// Return the pre-dispatch weight booked for the signed Ethereum transaction payload.
@@ -2166,7 +2189,8 @@ impl<T: Config> Pallet<T> {
 	///
 	/// # Parameters
 	///
-	/// - `tx`: The Ethereum transaction to simulate.
+	/// - `tx`: The Ethereum transaction to simulate. Must carry a `from` address when its
+	///   `authorization_list` is non-empty, since the authorization deposits are charged to it.
 	/// - `timestamp_override`: An optional timestamp to report to the contract instead of the
 	///   current one.
 	/// - `perform_balance_checks`: Whether the origin's balance is checked to cover the fees and
@@ -2183,6 +2207,17 @@ impl<T: Config> Pallet<T> {
 		CallOf<T>: SetWeightLimit,
 	{
 		log::debug!(target: LOG_TARGET, "dry_run_eth_transact: {tx:?}");
+
+		// The authorization deposits are charged to `tx.from`. Defaulting a missing `from` to the
+		// zero address would charge an unfunded account, so every authorization would be rolled
+		// back post-validation and silently dropped from the estimate.
+		if !tx.authorization_list.is_empty() && tx.from.is_none() {
+			return Err(EthTransactError::Message(
+				"a transaction with an authorization list requires a `from` address: \
+				 the authorization deposits are charged to it"
+					.into(),
+			));
+		}
 
 		let origin = T::AddressMapper::to_account_id(&tx.from.unwrap_or_default());
 		Self::prepare_dry_run(&origin);
@@ -2221,10 +2256,13 @@ impl<T: Config> Pallet<T> {
 			tx.gas = Some(Self::evm_block_gas_limit());
 		}
 		if tx.r#type.is_none() {
-			tx.r#type = Some(TYPE_EIP1559.into());
+			tx.r#type = Some(
+				if tx.authorization_list.is_empty() { TYPE_EIP1559 } else { TYPE_EIP7702 }.into(),
+			);
 		}
 
 		// Store values before moving the tx
+		let authorization_list = tx.authorization_list.clone();
 		let value = tx.value.unwrap_or_default();
 		let input = tx.input.clone().to_vec();
 		let from = tx.from;
@@ -2240,10 +2278,7 @@ impl<T: Config> Pallet<T> {
 		// in those cases we skip the check that the caller has enough balance
 		// to pay for the fees
 		let base_info = T::FeeInfo::base_dispatch_info(&mut call_info.call);
-		let base_weight = base_info.total_weight();
-		let exec_config =
-			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight)
-				.with_dry_run(timestamp_override);
+		let mut base_weight = base_info.total_weight();
 
 		// emulate transaction behavior
 		let fees = call_info.tx_fee.saturating_add(call_info.storage_deposit);
@@ -2269,10 +2304,24 @@ impl<T: Config> Pallet<T> {
 			}
 		};
 
+		let exec_config =
+			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight);
+		let auth_result =
+			evm::eip7702::process_authorizations::<T>(&authorization_list, &origin, &exec_config);
+		base_weight = base_weight.saturating_sub(auth_result.weight_refund);
+		let actual_auth_deposit = auth_result.deposit;
+		let worst_case_auth_deposit = Self::worst_case_delegation_deposit()
+			.saturating_mul(authorization_list.len().saturated_into());
+
+		let exec_config =
+			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight)
+				.with_dry_run(timestamp_override);
+
 		let transaction_limits = TransactionLimits::EthereumGas {
 			eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
 			weight_limit: Self::evm_max_extrinsic_weight(),
 			eth_tx_info: EthTxInfo::new(call_info.encoded_len, base_weight),
+			authorization_deposit: actual_auth_deposit,
 		};
 
 		// Dry run the call
@@ -2371,6 +2420,11 @@ impl<T: Config> Pallet<T> {
 				}
 			},
 		};
+
+		// Ensure max_storage_deposit covers worst-case authorization cost for pool validation.
+		// The meter already includes the actual auth deposit; this bumps it to worst case
+		// so that the gas estimate produces a transaction that passes pool validation.
+		dry_run.max_storage_deposit = dry_run.max_storage_deposit.max(worst_case_auth_deposit);
 
 		// replace the weight passed in the transaction with the dry_run result
 		call_info.call.set_weight_limit(dry_run.weight_required);
@@ -2626,6 +2680,7 @@ impl<T: Config> Pallet<T> {
 	/// # Warning
 	///
 	/// Does not collect any storage deposit. Not safe to be called by user controlled code.
+	/// Immutables belong to deployed contracts only — do not target delegated EOAs.
 	pub fn set_immutables(address: H160, data: ImmutableData) -> Result<(), ContractAccessError> {
 		AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
 		<ImmutableDataOf<T>>::insert(address, data);
@@ -2724,15 +2779,24 @@ impl<T: Config> Pallet<T> {
 	/// Returns the code at `address`.
 	///
 	/// This takes pre-compiles into account.
+	/// For EIP-7702 delegated accounts, returns the delegation indicator (0xef0100 || target).
 	pub fn code(address: &H160) -> Vec<u8> {
 		use precompiles::{All, Precompiles};
 		if let Some(code) = <All<T>>::code(address.as_fixed_bytes()) {
 			return code.into();
 		}
-		AccountInfo::<T>::load_contract(&address)
-			.and_then(|contract| <PristineCode<T>>::get(contract.code_hash))
-			.map(|code| code.into())
-			.unwrap_or_default()
+
+		let Some(info) = <AccountInfoOf<T>>::get(address) else { return Vec::new() };
+
+		match info.account_type {
+			AccountType::Contract(contract) => <PristineCode<T>>::get(contract.code_hash)
+				.map(|code| code.into())
+				.unwrap_or_default(),
+			AccountType::DelegatedEOA { delegate_target: Some(target), .. } => {
+				AccountInfo::<T>::delegation_indicator(&target).to_vec()
+			},
+			AccountType::EOA | AccountType::DelegatedEOA { .. } => Vec::new(),
+		}
 	}
 
 	/// Uploads new code and returns the Vm binary contract blob and deposit amount collected.
@@ -2794,7 +2858,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// `dst` is usually the transaction origin and `from` a contract or
 	/// the pallets own account.
-	fn refund_deposit(
+	pub(crate) fn refund_deposit(
 		hold_reason: HoldReason,
 		from: &T::AccountId,
 		dst: deposit_payment::Funds<T::AccountId>,
@@ -2847,6 +2911,19 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "runtime-benchmarks", feature = "try-runtime", test))]
 	fn min_balance() -> BalanceOf<T> {
 		<T::Currency as Inspect<AccountIdOf<T>>>::minimum_balance()
+	}
+
+	/// Worst-case storage deposit for a single EIP-7702 authorization.
+	///
+	/// Assumes a new account delegating to a contract with the maximum code size.
+	pub(crate) fn worst_case_delegation_deposit() -> BalanceOf<T> {
+		let ed = <T as Config>::Currency::minimum_balance();
+		let contract_deposit = T::DepositPerByte::get()
+			.saturating_mul((<ContractInfo<T>>::max_encoded_len() as u32).into())
+			.saturating_add(T::DepositPerItem::get());
+		let max_code_deposit = vm::calculate_code_deposit::<T>(limits::code::BLOB_BYTES);
+		let code_lockup = T::CodeHashLockupDepositPercent::get().mul_ceil(max_code_deposit);
+		ed.saturating_add(contract_deposit).saturating_add(code_lockup)
 	}
 
 	/// Deposit a pallet revive event.

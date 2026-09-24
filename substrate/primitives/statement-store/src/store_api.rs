@@ -495,4 +495,11 @@ pub trait StatementStore: Send + Sync {
 
 	/// Remove all statements authored by `who`.
 	fn remove_by(&self, who: [u8; 32]) -> Result<()>;
+
+	/// Topics across all live statement subscriptions, for advertising topic affinity.
+	///
+	/// Defaults to empty for stores without a subscription manager.
+	fn subscription_topics(&self) -> HashSet<Topic> {
+		HashSet::new()
+	}
 }
