@@ -132,6 +132,14 @@ const PROPAGATION_ALL: f32 = 3.0;
 /// of gossip a message has very likely reached all nodes on the network (`log4(3000)`).
 const LUCKY_PEERS: usize = 4;
 
+/// Maximum number of light clients we gossip commit messages to in a round.
+///
+/// Light clients are split into groups of this size, which take turns on every round, so each
+/// light client gets a commit at least every `ceil(light_peers / LIGHT_PEERS_GROUP_SIZE)` rounds.
+/// Since commits grow with the number of voters, this bounds the outbound bandwidth spent on
+/// light clients, while keeping their finality lag bounded.
+const LIGHT_PEERS_GROUP_SIZE: usize = 100;
+
 type Report = (PeerId, ReputationChange);
 
 /// An outcome of examining a message.
@@ -498,6 +506,12 @@ struct Peers<N> {
 	/// first stage didn't allow us to spread the voting data enough to conclude the round. This
 	/// set should have size `sqrt(connected_peers)`.
 	second_stage_peers: HashSet<PeerId>,
+	/// The group of at most `LIGHT_PEERS_GROUP_SIZE` light clients we'll gossip commit messages
+	/// to in the current round.
+	light_peers_in_turn: HashSet<PeerId>,
+	/// Position, among all connected light clients sorted by peer id, where the next group of
+	/// light clients starts.
+	light_peers_cursor: usize,
 	/// Neighbor packet rebroadcast period --- we reduce the reputation of peers sending duplicate
 	/// packets too often.
 	neighbor_rebroadcast_period: Duration,
@@ -509,6 +523,8 @@ impl<N: Ord> Peers<N> {
 			inner: Default::default(),
 			first_stage_peers: Default::default(),
 			second_stage_peers: Default::default(),
+			light_peers_in_turn: Default::default(),
+			light_peers_cursor: 0,
 			neighbor_rebroadcast_period,
 		}
 	}
@@ -520,6 +536,9 @@ impl<N: Ord> Peers<N> {
 			},
 			ObservedRole::Authority if self.second_stage_peers.len() < LUCKY_PEERS => {
 				self.second_stage_peers.insert(who);
+			},
+			ObservedRole::Light if self.light_peers_in_turn.len() < LIGHT_PEERS_GROUP_SIZE => {
+				self.light_peers_in_turn.insert(who);
 			},
 			_ => {},
 		}
@@ -533,6 +552,7 @@ impl<N: Ord> Peers<N> {
 		// so we don't reshuffle.
 		self.first_stage_peers.remove(who);
 		self.second_stage_peers.remove(who);
+		self.light_peers_in_turn.remove(who);
 	}
 
 	// returns a reference to the new view, if the peer is known.
@@ -604,14 +624,12 @@ impl<N: Ord> Peers<N> {
 	}
 
 	fn reshuffle(&mut self) {
-		// we want to randomly select peers into two sets according to the following logic:
+		// we want to randomly select peers into three sets according to the following logic:
 		// - first set: LUCKY_PEERS random peers where at least LUCKY_PEERS/2 are authorities
 		//   (unless we're not connected to that many authorities)
 		// - second set: max(LUCKY_PEERS, sqrt(peers)) peers where at least LUCKY_PEERS are
 		//   authorities.
-		//
-		// Light clients are never part of these sets: they don't relay anything, so the staged
-		// fanout doesn't apply to them (see `global_message_allowed`).
+		// - third set: the next group of LIGHT_PEERS_GROUP_SIZE light client peers.
 
 		let shuffled_peers = {
 			let mut peers =
@@ -668,6 +686,37 @@ impl<N: Ord> Peers<N> {
 
 		self.first_stage_peers = first_stage_peers;
 		self.second_stage_peers = second_stage_peers;
+		self.rotate_light_peers();
+	}
+
+	/// Select the next group of light clients to gossip commit messages to.
+	///
+	/// Light clients don't relay messages, so picking them randomly doesn't help propagation,
+	/// it only makes their finality lag unbounded. Instead we walk through all of them in a
+	/// fixed order, so that every light client gets a commit at least every
+	/// `ceil(light_peers / LIGHT_PEERS_GROUP_SIZE)` rounds.
+	fn rotate_light_peers(&mut self) {
+		let mut light_peers = self
+			.inner
+			.iter()
+			.filter_map(|(peer_id, info)| info.roles.is_light().then_some(*peer_id))
+			.collect::<Vec<_>>();
+
+		if light_peers.is_empty() {
+			self.light_peers_in_turn.clear();
+			self.light_peers_cursor = 0;
+			return;
+		}
+
+		light_peers.sort_unstable();
+
+		let n_light_peers = light_peers.len();
+		let group_size = LIGHT_PEERS_GROUP_SIZE.min(n_light_peers);
+		let start = self.light_peers_cursor % n_light_peers;
+
+		self.light_peers_in_turn =
+			light_peers.iter().cycle().skip(start).take(group_size).copied().collect();
+		self.light_peers_cursor = (start + group_size) % n_light_peers;
 	}
 }
 
@@ -1253,7 +1302,7 @@ impl<Block: BlockT> Inner<Block> {
 	/// transitions:
 	///
 	/// - State 1: allowed to max(LUCKY_PEERS, sqrt(peers)) (where at least LUCKY_PEERS are
-	///   authorities) and to all light clients
+	///   authorities) and to the current group of LIGHT_PEERS_GROUP_SIZE light clients
 	/// - State 2: allowed to all peers
 	///
 	/// We are more lenient with global messages since there should be a lot
@@ -1261,11 +1310,9 @@ impl<Block: BlockT> Inner<Block> {
 	/// these to propagate to non-authorities fast enough so that they can
 	/// observe finality.
 	///
-	/// Light clients are always allowed. Commits are the only GRANDPA messages they receive and
-	/// their only way of observing finality through gossip. Since they don't relay messages,
-	/// limiting the fanout towards them doesn't reduce network-wide traffic, it only delays
-	/// finality on their side: a light client would only get the commit when randomly picked,
-	/// with the expected delay growing linearly with the number of connected light clients.
+	/// Light clients take turns in groups (see `Peers::rotate_light_peers`). A commit also
+	/// finalizes all of its ancestors, so a light client skipping a few commits still observes
+	/// every block being finalized, just with a bounded delay.
 	///
 	/// Transitions will be triggered on repropagation attempts by the
 	/// underlying gossip layer.
@@ -1279,7 +1326,7 @@ impl<Block: BlockT> Inner<Block> {
 		if round_elapsed < round_duration.mul_f32(PROPAGATION_ALL) {
 			self.peers.first_stage_peers.contains(who) ||
 				self.peers.second_stage_peers.contains(who) ||
-				self.peers.peer(who).map(|info| info.roles.is_light()).unwrap_or(false)
+				self.peers.light_peers_in_turn.contains(who)
 		} else {
 			true
 		}
@@ -2461,7 +2508,7 @@ mod tests {
 	}
 
 	#[test]
-	fn gossips_commits_to_all_light_clients_at_round_start() {
+	fn gossips_commits_to_light_clients_in_rotating_groups() {
 		let mut config = config();
 		config.gossip_duration = Duration::from_secs(300); // Set to high value to prevent test race
 		let (val, _) = GossipValidator::<Block>::new(config, voter_set_state(), None, None);
@@ -2469,69 +2516,75 @@ mod tests {
 		// the validator starts at set id 0
 		val.note_set(SetId(0), Vec::new(), |_, _| {});
 
-		// add a few full nodes and many more light clients than `LUCKY_PEERS`
-		let mut full_nodes = Vec::new();
-		full_nodes.resize_with(4, || PeerId::random());
-
-		let mut light_peers = Vec::new();
-		light_peers.resize_with(LUCKY_PEERS * 25, || PeerId::random());
-
-		for peer in &full_nodes {
-			val.inner.write().peers.new_peer(*peer, ObservedRole::Full);
+		// add a few full nodes and 2.5 groups worth of light clients
+		for _ in 0..4 {
+			val.inner.write().peers.new_peer(PeerId::random(), ObservedRole::Full);
 		}
+
+		let n_light_peers = LIGHT_PEERS_GROUP_SIZE * 2 + LIGHT_PEERS_GROUP_SIZE / 2;
+		let mut light_peers = Vec::new();
+		light_peers.resize_with(n_light_peers, || PeerId::random());
 
 		for peer in &light_peers {
 			val.inner.write().peers.new_peer(*peer, ObservedRole::Light);
-			// light client knows about the same set and is behind on finality
-			val.inner
-				.write()
-				.peers
-				.update_peer_state(
-					peer,
-					NeighborPacket {
-						round: Round(1),
-						set_id: SetId(0),
-						commit_finalized_height: 1,
-					},
-				)
-				.unwrap();
 		}
 
-		// start a new round: the round timer is fresh, so the staged fanout is in its most
-		// restrictive stage
-		val.note_round(Round(2), |_, _| {});
+		let n_groups = n_light_peers.div_ceil(LIGHT_PEERS_GROUP_SIZE);
+		let mut served = HashSet::new();
 
-		val.note_commit_finalized(Round(1), SetId(0), 2, |_, _| {});
+		for _ in 0..n_groups {
+			// a new round starts
+			val.inner.write().peers.reshuffle();
 
-		let commit = {
-			let commit = finality_grandpa::CompactCommit {
-				target_hash: H256::random(),
-				target_number: 2,
-				precommits: Vec::new(),
-				auth_data: Vec::new(),
-			};
+			let inner = val.inner.read();
+			let allowed = light_peers
+				.iter()
+				.filter(|peer| inner.global_message_allowed(peer))
+				.copied()
+				.collect::<Vec<_>>();
 
-			communication::gossip::GossipMessage::<Block>::Commit(
-				communication::gossip::FullCommitMessage {
-					round: Round(1),
-					set_id: SetId(0),
-					message: commit,
-				},
-			)
-			.encode()
-		};
+			// every round serves exactly one full group
+			assert_eq!(allowed.len(), LIGHT_PEERS_GROUP_SIZE);
+			served.extend(allowed);
+		}
 
-		let mut message_allowed = val.message_allowed();
+		// after `n_groups` rounds every light client got a commit
+		assert_eq!(served.len(), n_light_peers);
+	}
 
-		// every light client gets the commit right away, regardless of how many are connected
+	#[test]
+	fn gossips_commits_to_all_light_clients_if_less_than_a_group() {
+		let mut config = config();
+		config.gossip_duration = Duration::from_secs(300); // Set to high value to prevent test race
+		let (val, _) = GossipValidator::<Block>::new(config, voter_set_state(), None, None);
+
+		// the validator starts at set id 0
+		val.note_set(SetId(0), Vec::new(), |_, _| {});
+
+		let mut light_peers = Vec::new();
+		light_peers.resize_with(LIGHT_PEERS_GROUP_SIZE / 2, || PeerId::random());
+
 		for peer in &light_peers {
-			assert!(message_allowed(
-				peer,
-				MessageIntent::Broadcast,
-				&communication::global_topic::<Block>(0),
-				&commit,
-			));
+			val.inner.write().peers.new_peer(*peer, ObservedRole::Light);
 		}
+
+		// newly connected light clients are served before the next round starts
+		for peer in &light_peers {
+			assert!(val.inner.read().global_message_allowed(peer));
+		}
+
+		// and all of them keep being served on every round
+		for _ in 0..3 {
+			val.inner.write().peers.reshuffle();
+
+			for peer in &light_peers {
+				assert!(val.inner.read().global_message_allowed(peer));
+			}
+		}
+
+		// a disconnected light client is not served anymore
+		val.inner.write().peers.peer_disconnected(&light_peers[0]);
+		assert!(!val.inner.read().global_message_allowed(&light_peers[0]));
 	}
 
 	#[test]
