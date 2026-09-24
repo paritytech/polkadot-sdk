@@ -1131,7 +1131,6 @@ impl<T: Config> Pallet<T> {
 				return Err("Inheritor entry has inheritor == lost".into());
 			}
 
-
 			// 5d. Inheritor ticket depositor has a non-zero InheritorStorage hold.
 			if ticket.ticket.is_some() &&
 				T::Currency::balance_on_hold(
