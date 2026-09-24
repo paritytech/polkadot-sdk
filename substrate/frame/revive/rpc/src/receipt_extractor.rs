@@ -1369,11 +1369,15 @@ mod tests {
 
 	#[test]
 	fn synthetic_receipt_serves_the_log_the_block_committed() {
-		// Extrinsic 0 is a `Revive::call` whose contract emits a log. The runtime leaves a frame
-		// log outside an ethereum transaction substrate-only (`block_storage::capture_frame_log`).
-		// Extrinsic 1 is an assets transfer whose mirrored `Transfer` is buffered, so the block
-		// commits exactly one log, the mirror's at event 1. Both arrive here as a `ContractEmitted`
-		// under a non-eth extrinsic, and the receipt must carry the committed one.
+		// Extrinsic 0 is a `Revive::call` that instantiates a contract, which emits a log. The
+		// runtime leaves a frame log outside an ethereum transaction substrate-only
+		// (`block_storage::capture_frame_log`). Extrinsic 1 is an assets transfer whose mirrored
+		// `Transfer` is buffered, so the block commits exactly one log, the mirror's at event 2.
+		// Both logs arrive here as a `ContractEmitted` under a non-eth extrinsic, and the receipt
+		// must carry the committed one.
+		//
+		// The `Instantiated` ahead of them keeps event indices apart from log positions: the
+		// runtime reports the former, so a selection that keyed on the latter would find nothing.
 		let contract = H160::from([0xc0; 20]);
 		let asset_precompile = H160::from([0xa5; 20]);
 		let emitted_by = |address: H160| pallet_revive::Event::ContractEmitted {
@@ -1382,6 +1386,10 @@ mod tests {
 			topics: vec![],
 		};
 		let events = EventsBuilder::new()
+			.push_event(
+				frame_system::Phase::ApplyExtrinsic(0),
+				pallet_revive::Event::Instantiated { deployer: H160::zero(), contract },
+			)
 			.push_event(frame_system::Phase::ApplyExtrinsic(0), emitted_by(contract))
 			.push_event(frame_system::Phase::ApplyExtrinsic(1), emitted_by(asset_precompile))
 			.build();
@@ -1395,9 +1403,9 @@ mod tests {
 			H256::from([0x99; 32]),
 			2,
 		);
-		let logs = select_committed_outside_frame_logs(outside_frame, &[1], 1);
+		let logs = select_committed_outside_frame_logs(outside_frame, &[2], 1);
 
-		assert_eq!(logs.len(), 1);
+		assert_eq!(logs.len(), 1, "the one committed log is served");
 		assert_eq!(
 			logs[0].address, asset_precompile,
 			"the synthetic receipt must carry the committed mirror log, not the contract's"
