@@ -67,8 +67,14 @@ pub(super) struct CollatorMessageBuilder<Block: BlockT> {
 }
 
 impl<Block: BlockT> CollatorMessageBuilder<Block> {
-	pub(super) fn new(core_index: CoreIndex, bundle: Option<CollationParts<Block>>) -> Self {
-		Self { core_index, bundle, scheduling_proof: None }
+	pub(super) fn new(core_index: CoreIndex) -> Self {
+		Self { core_index, bundle: None, scheduling_proof: None }
+	}
+
+	/// Attach the freshly-built bundle.
+	pub(super) fn with_bundle(mut self, bundle: CollationParts<Block>) -> Self {
+		self.bundle = Some(bundle);
+		self
 	}
 
 	/// Attach a V3 scheduling proof.

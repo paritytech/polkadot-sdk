@@ -906,7 +906,7 @@ where
 				// Chain the next core's PoV parent onto the freshly-built tip.
 				pov_parent_header = parts.tip_header().clone();
 
-				let mut builder = CollatorMessageBuilder::new(this_core_index, Some(parts));
+				let mut builder = CollatorMessageBuilder::new(this_core_index).with_bundle(parts);
 				if let Some(descendants) = v3_descendants {
 					// Initial submission: `internal_scheduling_parent == relay_parent`, unsigned.
 					let scheduling_proof =
