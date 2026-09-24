@@ -1540,10 +1540,11 @@ mod try_state {
 	fn detects_spurious_approval_bit() {
 		new_test_ext().execute_with(|| {
 			setup_one_group_one_attempt();
-			let (mut attempt, ticket, deposit) = AttemptStorage::<T>::get(&ALICE, 0u32).unwrap();
 			// friends.len() == 3 in setup; bit index 10 is past the end.
-			attempt.approvals = ApprovalBitfield::default().with_bits([0usize, 10]).unwrap();
-			AttemptStorage::<T>::insert(&ALICE, 0u32, (attempt, ticket, deposit));
+			AttemptStorage::<T>::mutate(&ALICE, 0u32, |entry| {
+				entry.as_mut().unwrap().0.approvals =
+					ApprovalBitfield::default().with_bits([0usize, 10]).unwrap();
+			});
 			assert_eq!(
 				Recovery::do_try_state().unwrap_err(),
 				TryRuntimeError::Other("Attempt approvals has a bit set past friends.len()")
@@ -1555,10 +1556,11 @@ mod try_state {
 	fn detects_approvals_exceeding_threshold() {
 		new_test_ext().execute_with(|| {
 			setup_one_group_one_attempt();
-			let (mut attempt, ticket, deposit) = AttemptStorage::<T>::get(&ALICE, 0u32).unwrap();
 			// friends_needed = 2 in setup; three bits exceed the threshold.
-			attempt.approvals = ApprovalBitfield::default().with_bits([0usize, 1, 2]).unwrap();
-			AttemptStorage::<T>::insert(&ALICE, 0u32, (attempt, ticket, deposit));
+			AttemptStorage::<T>::mutate(&ALICE, 0u32, |entry| {
+				entry.as_mut().unwrap().0.approvals =
+					ApprovalBitfield::default().with_bits([0usize, 1, 2]).unwrap();
+			});
 			assert_eq!(
 				Recovery::do_try_state().unwrap_err(),
 				TryRuntimeError::Other("Attempt approvals count exceeds friends_needed")
@@ -1570,10 +1572,11 @@ mod try_state {
 	fn detects_init_block_after_last_approval_block() {
 		new_test_ext().execute_with(|| {
 			setup_one_group_one_attempt();
-			let (mut attempt, ticket, deposit) = AttemptStorage::<T>::get(&ALICE, 0u32).unwrap();
-			attempt.init_block = 100;
-			attempt.last_approval_block = 50;
-			AttemptStorage::<T>::insert(&ALICE, 0u32, (attempt, ticket, deposit));
+			AttemptStorage::<T>::mutate(&ALICE, 0u32, |entry| {
+				let attempt = &mut entry.as_mut().unwrap().0;
+				attempt.init_block = 100;
+				attempt.last_approval_block = 50;
+			});
 			assert_eq!(
 				Recovery::do_try_state().unwrap_err(),
 				TryRuntimeError::Other("Attempt init_block is later than last_approval_block")
