@@ -5559,8 +5559,14 @@ mod benchmarks {
 	}
 
 	/// Benchmark `r` `MSTORE8` instructions at distinct offsets across preallocated memory.
+	///
+	/// The offsets are stored to in a pseudo-random order. Walking them in order lets the CPU
+	/// predict the next address and fetch its cache line early, which made each store much cheaper.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mstore8_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use rand::{SeedableRng, seq::SliceRandom};
+		use rand_pcg::Pcg64;
+
 		const STRIDE: u32 = EVM_MEMORY_BYTES / (EVM_STACK_LIMIT / 2);
 
 		let code = Bytecode::new_raw(vec![MSTORE8; r as usize].into());
@@ -5572,7 +5578,9 @@ mod benchmarks {
 			.resize(0, EVM_MEMORY_BYTES as usize)
 			.continue_value()
 			.unwrap();
-		for operand in (0..r).flat_map(|i| [U256::MAX, U256::from((i + 1) * STRIDE - 1)]) {
+		let mut offsets = (1..=r).map(|i| i * STRIDE - 1).collect::<Vec<_>>();
+		offsets.shuffle(&mut Pcg64::seed_from_u64(1337));
+		for operand in offsets.into_iter().flat_map(|offset| [U256::MAX, U256::from(offset)]) {
 			interpreter.stack.push(operand).continue_value().unwrap();
 		}
 
