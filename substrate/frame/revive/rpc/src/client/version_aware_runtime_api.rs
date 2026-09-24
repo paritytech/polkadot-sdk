@@ -18,9 +18,7 @@
 //! A version-aware access layer for pallet-revive's runtime API together with the provider that
 //! tracks which runtime API methods are available in each runtime spec version.
 
-use super::trace_windowing::{
-	Narrowing, execution_tracer_walk, extend_with_remaining_windows, fetch_narrowing, windowed,
-};
+use super::trace_windowing::{collect_windows, execution_tracer_walk, windowed};
 use crate::{
 	BlockId,
 	client::{Balance, ClientError, RecordedUnavailable, SubstrateBlockNumber},
@@ -75,14 +73,6 @@ pub struct VersionAwareRuntimeApi {
 	rpc_client: RpcClient,
 	/// This server's `--rpc-max-response-size`, in bytes
 	max_response_size: u32,
-}
-
-/// The execution trace a windowed request is answered with.
-fn execution_trace(trace: TraceV1) -> Result<ExecutionTraceV1, ClientError> {
-	match trace {
-		TraceV1::Execution(trace) => Ok(trace),
-		_ => Err(ClientError::TraceUnavailable),
-	}
 }
 
 /// The decoded runtime API value, plus whether it came from a recorder-less fallback replay that
@@ -546,12 +536,15 @@ impl VersionAwareRuntimeApi {
 						async move {
 							let output =
 								self.call_recorded_with_fallback(payload, block_hash).await?;
-							Ok::<_, ClientError>(output.map(|value| {
-								TraceTxOutputPayloadV3::try_from(value.0)
-									.expect("v3 input must produce v3 output; qed")
-									.entry
-									.map(TraceEntry::from)
-							}))
+							let entry = TraceTxOutputPayloadV3::try_from(output.value.0)
+								.expect("v3 input must produce v3 output; qed")
+								.entry
+								.map(TraceEntry::from);
+
+							Ok::<_, ClientError>(CallRecordedOutput {
+								value: entry,
+								degraded: false,
+							})
 						}
 					};
 
@@ -559,40 +552,16 @@ impl VersionAwareRuntimeApi {
 						return one_window(None).await;
 					};
 
-					// Sized from a guess, so it narrows on failure like any other window.
-					let mut narrowing = Narrowing::default();
-					let mut first = walk.first_window(self.max_response_size);
-					let CallRecordedOutput { value: entry, .. } =
-						fetch_narrowing(&mut first, &mut narrowing, &mut |window| {
-							one_window(Some(window)).boxed()
-						})
-						.await?;
-					let Some(TraceEntry::Traced(trace)) = entry else {
-						return Ok(CallRecordedOutput { value: entry, degraded: false });
-					};
-
-					let mut collected = execution_trace(trace)?;
-					extend_with_remaining_windows(
-						&mut collected,
+					collect_windows(
 						walk,
 						self.max_response_size,
-						first,
-						narrowing,
-						|window| {
-							one_window(Some(window))
-								.map(|output| match output?.value {
-									Some(TraceEntry::Traced(trace)) => execution_trace(trace),
-									_ => Err(ClientError::TraceUnavailable),
-								})
-								.boxed()
+						|window| one_window(Some(window)).boxed(),
+						|output| match &mut output.value {
+							Some(TraceEntry::Traced(TraceV1::Execution(trace))) => Some(trace),
+							_ => None,
 						},
 					)
-					.await?;
-
-					Ok(CallRecordedOutput {
-						value: Some(TraceEntry::Traced(TraceV1::Execution(collected))),
-						degraded: false,
-					})
+					.await
 				});
 				Some(future)
 			},
@@ -748,30 +717,16 @@ impl VersionAwareRuntimeApi {
 							return one_window(None).await;
 						};
 
-						// Sized from a guess, so it narrows on failure like any other window.
-						let mut narrowing = Narrowing::default();
-						let mut first = walk.first_window(self.max_response_size);
-						let trace = fetch_narrowing(&mut first, &mut narrowing, &mut |window| {
-							one_window(Some(window)).boxed()
-						})
-						.await?;
-
-						let mut collected = execution_trace(trace)?;
-						extend_with_remaining_windows(
-							&mut collected,
+						collect_windows(
 							walk,
 							self.max_response_size,
-							first,
-							narrowing,
-							|window| {
-								one_window(Some(window))
-									.map(|trace| execution_trace(trace?))
-									.boxed()
+							|window| one_window(Some(window)).boxed(),
+							|trace| match trace {
+								TraceV1::Execution(trace) => Some(trace),
+								_ => None,
 							},
 						)
-						.await?;
-
-						Ok(TraceV1::Execution(collected))
+						.await
 					}
 				},
 			);

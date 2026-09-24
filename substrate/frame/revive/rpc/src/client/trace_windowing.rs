@@ -29,7 +29,7 @@
 
 use crate::client::ClientError;
 use codec::Encode;
-use futures::future::BoxFuture;
+use futures::{FutureExt, future::BoxFuture};
 use pallet_revive::evm::RUNTIME_STEP_BYTES;
 use pallet_revive_types::runtime_api::*;
 use sp_core::MAX_POSSIBLE_ALLOCATION;
@@ -136,12 +136,50 @@ fn measured_step_bytes(steps: &[ExecutionStepV1]) -> Option<u64> {
 	(count > 0).then(|| steps.encoded_size() as u64 / count)
 }
 
+/// Collect an execution trace one window at a time, from the first window to the last.
+///
+/// `fetch` answers a window with the caller's own type, and `trace_of` finds the steps inside it:
+/// `trace_tx` and `trace_call` return different things, and only they can say whether an absent
+/// trace is an answer or a failure. A first answer holding no execution trace is given back
+/// unchanged; a later one means the replay changed underneath the walk.
+pub async fn collect_windows<'a, T, F, G>(
+	walk: TraceWalk,
+	max_response_size: u32,
+	mut fetch: F,
+	trace_of: G,
+) -> Result<T, ClientError>
+where
+	F: FnMut(TraceWindow) -> BoxFuture<'a, Result<T, ClientError>>,
+	G: Fn(&mut T) -> Option<&mut ExecutionTraceV1> + Copy + Send + 'a,
+{
+	let mut narrowing = Narrowing::default();
+	// Sized from a prior rather than from measurement, so it narrows on failure like any other.
+	let mut first = walk.first_window(max_response_size);
+	let mut answer = fetch_narrowing(&mut first, &mut narrowing, &mut fetch).await?;
+
+	let Some(collected) = trace_of(&mut answer) else { return Ok(answer) };
+
+	extend_with_remaining_windows(collected, walk, max_response_size, first, narrowing, |window| {
+		fetch(window)
+			.map(move |answered| {
+				let mut answered = answered?;
+
+				trace_of(&mut answered)
+					.map(core::mem::take)
+					.ok_or(ClientError::TraceUnavailable)
+			})
+			.boxed()
+	})
+	.await?;
+
+	Ok(answer)
+}
+
 /// Walk the windows after the first, extending `collected` with their steps.
 ///
-/// `collected` is the first window, already fetched, because `trace_tx` and `trace_call` answer
-/// it with different types and only they can say whether an absent trace is an answer or a
-/// failure.
-pub async fn extend_with_remaining_windows<'a, F>(
+/// `first` and `narrowing` carry what fetching the first window learned: the size it settled on,
+/// and the ceiling any refusal left behind.
+async fn extend_with_remaining_windows<'a, F>(
 	collected: &mut ExecutionTraceV1,
 	walk: TraceWalk,
 	max_response_size: u32,
@@ -216,7 +254,7 @@ where
 
 /// What failed windows have taught a walk, carried from the first window onward.
 #[derive(Clone, Copy, Debug)]
-pub struct Narrowing {
+struct Narrowing {
 	/// The most a later window may ask for. Halved by each failure.
 	ceiling: u64,
 }
@@ -228,7 +266,7 @@ impl Default for Narrowing {
 }
 
 /// Fetch one window, halving it and asking again while the node refuses it as too large.
-pub async fn fetch_narrowing<'a, T, F>(
+async fn fetch_narrowing<'a, T, F>(
 	window: &mut TraceWindow,
 	narrowing: &mut Narrowing,
 	fetch: &mut F,
@@ -678,17 +716,18 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn the_limit_the_refusal_names_is_one_that_succeeds() {
+	async fn a_refused_trace_names_a_limit_that_works() {
 		let max = sc_cli::RPC_DEFAULT_MAX_RESPONSE_SIZE_MB * 1024 * 1024;
-		// Steps grow as the trace goes on, as they do in a real one where call frames
-		// deepen: sampled traces run about 1.8x the cost of their first window by the
-		// end. Pricing the tail at any average seen so far names a `limit` that then fails.
+		// Steps get smaller here so the window that overflows starts with its biggest ones.
 		let heterogeneous = |window: TraceWindow| {
 			let step = |i: u64| ExecutionStepV1 {
 				kind: ExecutionStepKindV1::EVMOpcode {
 					pc: 1,
 					op: EvmOpcodeV1(0x55),
-					stack: vec![vec![0xab; 32].into(); (i / 4_000) as usize],
+					stack: vec![
+						vec![0xab; 32].into();
+						40usize.saturating_sub((i / 1_000) as usize)
+					],
 					memory: vec![],
 					storage: None,
 				},
@@ -708,21 +747,16 @@ mod tests {
 			panic!("a trace this long cannot be returned whole: {result:?}");
 		};
 
-		// Ask for exactly what the refusal named.
-		let walk = TraceWalk { caller_limit: Some(fits) };
-		let first = walk.first_window(max);
-		let mut collected = heterogeneous(first).unwrap();
-		let capped = extend_with_remaining_windows(
-			&mut collected,
-			walk,
+		// Ask for exactly what the refusal named, the way a caller does.
+		let collected = collect_windows(
+			TraceWalk { caller_limit: Some(fits) },
 			max,
-			first,
-			Narrowing::default(),
 			|window| async move { heterogeneous(window) }.boxed(),
+			|trace: &mut ExecutionTraceV1| Some(trace),
 		)
-		.await;
+		.await
+		.unwrap_or_else(|e| panic!("`limit: {fits}` was named but refused: {e}"));
 
-		capped.unwrap_or_else(|e| panic!("`limit: {fits}` was named but refused: {e}"));
 		assert_eq!(collected.struct_logs.len() as u64, fits);
 	}
 }
