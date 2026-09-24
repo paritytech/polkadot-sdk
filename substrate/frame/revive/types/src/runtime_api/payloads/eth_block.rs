@@ -24,9 +24,6 @@ use crate::runtime_api::*;
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct BlockInputPayloadV1;
 
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct BlockInputPayloadV2;
-
 /// The input type used when calling the `eth_block_versioned` runtime API function. This function
 /// replaces the unversioned `eth_block` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
@@ -36,19 +33,10 @@ pub enum BlockVersionedInputPayload {
 	/// When this version is provided, the function behaves identically to and returns the same
 	/// output as the unversioned `eth_block` runtime API function.
 	V1(BlockInputPayloadV1),
-	/// This version takes the same (empty) arguments as `V1` and additionally lists the block's
-	/// synthetic transaction in `transactions`, which `V1` omits.
-	V2(BlockInputPayloadV2),
 }
 
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct BlockOutputPayloadV1 {
-	pub block: BlockV1,
-}
-
-#[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
-pub struct BlockOutputPayloadV2 {
-	/// The block as committed, its synthetic transaction's hash included in `transactions`.
 	pub block: BlockV1,
 }
 
@@ -60,16 +48,9 @@ pub enum BlockVersionedOutputPayload {
 	/// arguments.
 	///
 	/// This output is identical to the output returned by the unversioned `eth_block` runtime API
-	/// function. `transactions` lists the block's ethereum transactions only: the hash of its
-	/// synthetic transaction, when it has one, is left out so that the list matches the `V1`
-	/// receipt data, which cannot report that transaction. `transactions_root` still commits to
-	/// it.
+	/// function. `transactions` is the list the block's `transactions_root` commits to. On a
+	/// runtime that mirrors substrate-native balance changes as EVM logs, a block carrying such
+	/// logs ends with one synthetic transaction for them; `V1` of `eth_receipt_data_versioned` has
+	/// no entry for it, `V2` reports it apart.
 	V1(BlockOutputPayloadV1),
-	/// This version lists the block's synthetic transaction in `transactions`.
-	///
-	/// A block whose runtime mirrors substrate-native balance changes as EVM logs carries one
-	/// synthetic transaction for the logs emitted outside any ethereum transaction. Its hash is
-	/// the trailing entry of `transactions`, and `V2` of `eth_receipt_data_versioned` reports its
-	/// receipt entry.
-	V2(BlockOutputPayloadV2),
 }

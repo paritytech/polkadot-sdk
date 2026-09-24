@@ -254,20 +254,12 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockInputPayloadV1>"
 	),
 	substitute_type(
-		path = "pallet_revive_types::runtime_api::payloads::eth_block::BlockInputPayloadV2",
-		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockInputPayloadV2>"
-	),
-	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::eth_block::BlockVersionedInputPayload",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockVersionedInputPayload>"
 	),
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::eth_block::BlockOutputPayloadV1",
 		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockOutputPayloadV1>"
-	),
-	substitute_type(
-		path = "pallet_revive_types::runtime_api::payloads::eth_block::BlockOutputPayloadV2",
-		with = "::subxt::utils::Static<::pallet_revive_types::runtime_api::BlockOutputPayloadV2>"
 	),
 	substitute_type(
 		path = "pallet_revive_types::runtime_api::payloads::eth_block::BlockVersionedOutputPayload",

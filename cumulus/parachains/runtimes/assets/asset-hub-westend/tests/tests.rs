@@ -34,7 +34,7 @@ use asset_hub_westend_runtime::{
 	MetadataDepositPerByte, ParachainSystem, PolkadotXcm, PoolAssets, Proxy, Revive, Runtime,
 	RuntimeBlockWeights, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
 	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, TxExtension, UncheckedExtrinsic, Uniques,
-	WeightToFee, XcmpQueue, TRUST_BACKED_ASSETS_PRECOMPILE,
+	WeightToFee, XcmpQueue, OUTSIDE_FRAME_LOGS_CAP_ONCE_ENABLED, TRUST_BACKED_ASSETS_PRECOMPILE,
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
 use asset_test_utils::{
@@ -2398,18 +2398,56 @@ fn mirrored_transfer_log_lands_on_the_ethereum_transaction() {
 // bounds the buffer with no per-producer weight, and the bound is taken at the smallest entry any
 // producer could write rather than at the mirror's `Transfer` log.
 #[test]
-fn a_block_cannot_buffer_enough_logs_to_reach_the_cap() {
+fn a_block_cannot_buffer_enough_logs_to_reach_the_cap_once_enabled() {
 	let smallest_entry_bytes =
 		(H160::zero(), Vec::<H256>::new(), Vec::<u8>::new()).encoded_size() as u64;
 
 	let proof_budget = RuntimeBlockWeights::get().max_block.proof_size();
 	let most_logs_a_block_can_buffer = proof_budget / smallest_entry_bytes;
-	let cap = <<Runtime as pallet_revive::Config>::MaxOutsideFrameLogs as Get<u32>>::get() as u64;
+	let cap = OUTSIDE_FRAME_LOGS_CAP_ONCE_ENABLED as u64;
 	assert!(
 		most_logs_a_block_can_buffer < cap,
 		"a {proof_budget}-byte proof holds up to {most_logs_a_block_can_buffer} logs of \
 		 {smallest_entry_bytes} bytes, so a cap of {cap} is reachable"
 	);
+}
+
+// Until every eth-rpc reads receipt data V2 the buffer stays off: a mirrored balance change is an
+// event and nothing else, so a block's transaction list matches what any eth-rpc can serve.
+#[test]
+fn mirrored_logs_are_not_buffered_until_the_rollout_enables_them() {
+	assert_eq!(<<Runtime as pallet_revive::Config>::MaxOutsideFrameLogs as Get<u32>>::get(), 0);
+
+	erc20_mirror_ext().execute_with(|| {
+		let owner = AccountId::from(ALICE);
+		Balances::mint_into(&owner, 100 * UNITS).unwrap();
+		let asset_id: AssetIdForTrustBackedAssets = 1;
+		assert_ok!(Assets::force_create(
+			RuntimeHelper::root_origin(),
+			asset_id.into(),
+			owner.clone().into(),
+			true,
+			1
+		));
+		assert_ok!(Assets::mint(
+			RuntimeHelper::origin_of(owner.clone()),
+			asset_id.into(),
+			owner.clone().into(),
+			1_000
+		));
+		assert!(
+			System::events().iter().any(|record| matches!(
+				record.event,
+				RuntimeEvent::Revive(pallet_revive::Event::ContractEmitted { .. })
+			)),
+			"the mint is mirrored as an event"
+		);
+
+		Revive::on_finalize(System::block_number());
+
+		assert!(Revive::eth_synthetic_transaction().is_none());
+		assert_eq!(Revive::eth_block().transactions.len(), 0);
+	});
 }
 
 #[test]

@@ -3887,7 +3887,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					use $crate::pallet_revive_types::runtime_api::*;
 
 					ReviveRuntimeApiVersionDeclarations::new()
-						.insert("eth_block_versioned", 2)
+						.insert("eth_block_versioned", 1)
 						.insert("eth_block_hash_versioned", 1)
 						.insert("eth_receipt_data_versioned", 2)
 						.insert("block_gas_limit_versioned", 1)
@@ -3928,17 +3928,9 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 							BlockInputPayload::from(payload),
 							Box::new(|output| BlockVersionedOutputPayload::V1(output.into())),
 						),
-						BlockVersionedInputPayload::V2(payload) => (
-							BlockInputPayload::from(payload),
-							Box::new(|output| BlockVersionedOutputPayload::V2(output.into())),
-						),
 					};
 
-					let output = BlockOutputPayload {
-						block: $crate::Pallet::<Self>::eth_block(),
-						has_synthetic_transaction:
-							$crate::Pallet::<Self>::eth_synthetic_transaction().is_some(),
-					};
+					let output = BlockOutputPayload { block: $crate::Pallet::<Self>::eth_block() };
 					output_wrapper(output)
 				}
 

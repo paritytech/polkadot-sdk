@@ -1401,6 +1401,14 @@ parameter_types! {
 	pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(9, 10);
 }
 
+/// The `MaxOutsideFrameLogs` to wire once every eth-rpc serving this chain reads receipt data V2.
+///
+/// A storage backstop above what any block can buffer. Every buffered log is read back by the
+/// `on_finalize` drain, so its encoded bytes are in the block's proof whatever produced it, and a
+/// 10 MiB proof holds fewer than 480_000 entries even of the smallest shape, an address with no
+/// topics and no data. The runtime tests pin that bound against this value.
+pub const OUTSIDE_FRAME_LOGS_CAP_ONCE_ENABLED: u32 = 524_288;
+
 impl pallet_revive::Config for Runtime {
 	type Time = Timestamp;
 	type Balance = Balance;
@@ -1441,11 +1449,10 @@ impl pallet_revive::Config for Runtime {
 	type AutoMap = ConstBool<true>;
 	type GasScale = ConstU32<1000>;
 	type OnBurn = Dap;
-	// A storage backstop above what any block can buffer. Every buffered log is read back by the
-	// `on_finalize` drain, so its encoded bytes are in the block's proof whatever produced it,
-	// and a 10 MiB proof holds fewer than 480_000 entries even of the smallest shape, an address
-	// with no topics and no data. The runtime tests pin that bound against this cap.
-	type MaxOutsideFrameLogs = ConstU32<524_288>;
+	// Off until every eth-rpc serving this chain reads receipt data V2: an older one lists the
+	// synthetic transaction's hash in a block without a receipt to serve for it. A later runtime
+	// upgrade turns the buffer on with `OUTSIDE_FRAME_LOGS_CAP_ONCE_ENABLED`.
+	type MaxOutsideFrameLogs = ConstU32<0>;
 	type Deposit = pallet_revive::PGasDeposit<
 		Runtime,
 		Assets,

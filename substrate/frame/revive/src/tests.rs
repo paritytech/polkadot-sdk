@@ -932,8 +932,14 @@ fn logs_emitted_outside_a_call_frame_drain_in_emission_order() {
 	assert_eq!(commit_in_order([0, 1, 2]), expected_root([0, 1, 2]));
 }
 
-#[test]
-fn eth_block_and_receipt_data_pair_up_in_every_version() {
+// What each runtime API version hands an eth-rpc for a block with one ethereum transaction and
+// one mirrored log, assembled from storage the way `eth_block_versioned` and
+// `eth_receipt_data_versioned` do.
+fn block_and_receipt_data_as_served() -> (
+	Vec<sp_core::H256>,
+	pallet_revive_types::runtime_api::ReceiptDataOutputPayloadV1,
+	pallet_revive_types::runtime_api::ReceiptDataOutputPayloadV2,
+) {
 	use crate::{
 		ReceiptGasInfo,
 		evm::block_storage,
@@ -941,60 +947,75 @@ fn eth_block_and_receipt_data_pair_up_in_every_version() {
 	};
 	use frame_support::traits::Hooks;
 	use pallet_revive_types::runtime_api::{
-		BlockOutputPayloadV1, BlockOutputPayloadV2, BlockV1, HashesOrTransactionInfosV1,
-		ReceiptDataOutputPayloadV1, ReceiptDataOutputPayloadV2,
+		BlockOutputPayloadV1, HashesOrTransactionInfosV1, ReceiptDataOutputPayloadV1,
 	};
 	use sp_core::H256;
-	use sp_crypto_hashing::keccak_256;
 
+	block_storage::process_transaction::<Test>(
+		vec![0xde, 0xad, 0xbe, 0xef],
+		true,
+		ReceiptGasInfo { gas_used: U256::from(21_000), effective_gas_price: U256::one() },
+	);
+	Pallet::<Test>::emit_contract_log_outside_frame(
+		H160::from_low_u64_be(0xA1),
+		vec![H256::repeat_byte(0x11)].try_into().unwrap(),
+		vec![1u8].try_into().unwrap(),
+	);
+	Pallet::<Test>::on_finalize(1);
+
+	let block =
+		BlockOutputPayloadV1::from(BlockOutputPayload { block: Pallet::<Test>::eth_block() });
+	let hashes = match block.block.transactions {
+		HashesOrTransactionInfosV1::Hashes(hashes) => hashes,
+		_ => panic!("the runtime commits transaction hashes"),
+	};
+	let receipt_data = || ReceiptDataOutputPayload {
+		receipt_data: Pallet::<Test>::eth_receipt_data(),
+		synthetic: Pallet::<Test>::eth_synthetic_transaction(),
+	};
+	(hashes, ReceiptDataOutputPayloadV1::from(receipt_data()), receipt_data().into())
+}
+
+fn synthetic_transaction_hash(block_number: u64) -> sp_core::H256 {
+	sp_core::H256(sp_crypto_hashing::keccak_256(&crate::evm::synthetic_log_transaction(
+		U256::from(block_number),
+		U256::from(<Test as crate::Config>::ChainId::get()),
+	)))
+}
+
+// The transaction list is the one the header commits to in every version. An eth-rpc on receipt
+// data V1 therefore lists the synthetic transaction's hash without a receipt entry for it, which
+// is why the buffer stays off until every eth-rpc reads V2. V2 pairs the list up.
+#[test]
+fn eth_block_lists_the_synthetic_transaction_in_every_version() {
 	ExtBuilder::default().build().execute_with(|| {
-		// One ethereum transaction, then one log mirrored outside any ethereum transaction.
-		block_storage::process_transaction::<Test>(
-			vec![0xde, 0xad, 0xbe, 0xef],
-			true,
-			ReceiptGasInfo { gas_used: U256::from(21_000), effective_gas_price: U256::one() },
-		);
-		Pallet::<Test>::emit_contract_log_outside_frame(
-			H160::from_low_u64_be(0xA1),
-			vec![H256::repeat_byte(0x11)].try_into().unwrap(),
-			vec![1u8].try_into().unwrap(),
-		);
-		Pallet::<Test>::on_finalize(1);
+		let (hashes, v1, v2) = block_and_receipt_data_as_served();
 
-		// Assembled from storage the way `eth_block_versioned` and `eth_receipt_data_versioned` do.
-		let block = || BlockOutputPayload {
-			block: Pallet::<Test>::eth_block(),
-			has_synthetic_transaction: Pallet::<Test>::eth_synthetic_transaction().is_some(),
-		};
-		let receipt_data = || ReceiptDataOutputPayload {
-			receipt_data: Pallet::<Test>::eth_receipt_data(),
-			synthetic: Pallet::<Test>::eth_synthetic_transaction(),
-		};
-		let hashes = |block: BlockV1| match block.transactions {
-			HashesOrTransactionInfosV1::Hashes(hashes) => hashes,
-			_ => panic!("the runtime commits transaction hashes"),
-		};
+		assert_eq!(hashes.len(), 2);
+		assert_eq!(hashes[1], synthetic_transaction_hash(1), "the trailing hash is synthetic");
 
-		// A V1 consumer fetches a receipt per listed hash, so both sides leave the synthetic
-		// transaction out.
-		let v1_hashes = hashes(BlockOutputPayloadV1::from(block()).block);
-		let v1_receipts = ReceiptDataOutputPayloadV1::from(receipt_data()).receipt_data;
-		assert_eq!(v1_hashes.len(), 1);
-		assert_eq!(v1_hashes.len(), v1_receipts.len());
+		assert_eq!(v1.receipt_data.len(), 1, "V1 has a receipt entry per ethereum transaction");
 
-		// V2 lists it as the trailing hash and reports its receipt entry apart.
-		let v2_hashes = hashes(BlockOutputPayloadV2::from(block()).block);
-		let v2_receipts = ReceiptDataOutputPayloadV2::from(receipt_data());
-		assert_eq!(v2_hashes.len(), 2);
-		assert_eq!(v2_hashes.len(), v2_receipts.receipt_data.len() + 1);
-		assert!(v2_receipts.synthetic.is_some());
+		assert_eq!(v2.receipt_data.len(), 1);
+		assert!(v2.synthetic.is_some(), "V2 reports the synthetic transaction's entry apart");
+	});
+}
 
-		let synthetic_hash = H256(keccak_256(&crate::evm::synthetic_log_transaction(
-			U256::from(1),
-			U256::from(<Test as crate::Config>::ChainId::get()),
-		)));
-		assert_eq!(v2_hashes[1], synthetic_hash, "the trailing hash is the synthetic transaction");
-		assert_eq!(v1_hashes[0], v2_hashes[0], "V1 dropped nothing but the synthetic transaction");
+// With the buffer off, the rollout state until every eth-rpc reads receipt data V2, a mirrored
+// log leaves no trace in the block: every version lists one hash per receipt entry, and a V2
+// reader of such a block, or of any block from before the buffer was turned on, finds no
+// synthetic transaction to serve.
+#[test]
+fn eth_block_and_receipt_data_pair_up_in_every_version_while_the_buffer_is_off() {
+	ExtBuilder::default().build().execute_with(|| {
+		MaxOutsideFrameLogsFlag::set(0);
+
+		let (hashes, v1, v2) = block_and_receipt_data_as_served();
+
+		assert_eq!(hashes.len(), 1);
+		assert_eq!(v1.receipt_data.len(), 1);
+		assert_eq!(v2.receipt_data.len(), 1);
+		assert!(v2.synthetic.is_none());
 	});
 }
 

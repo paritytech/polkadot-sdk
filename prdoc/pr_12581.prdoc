@@ -37,13 +37,12 @@ doc:
     version 2, reporting that transaction separately: its gas entry plus the number of logs the
     block committed to it. A consumer rebuilding those logs from block events must reconcile
     against that count, since the events are a superset, in emission order, of what the header
-    commits to. `eth_block_versioned` is bumped to version 2 as well: version 1 and the unversioned
-    `eth_block` leave the synthetic transaction's hash out of `transactions`, so a consumer on the
-    older versions sees one hash per receipt entry, as before, with the mirrored logs invisible to
-    it until it moves to version 2. The new `Config` item `MaxOutsideFrameLogs` bounds the buffer
-    as a backstop; a log arriving past the cap is not buffered, so the bloom omits it while its
-    `ContractEmitted` still stands. Zero turns the buffer off, leaving such logs substrate-only as
-    they were before.
+    commits to. `eth_block` lists the synthetic transaction's hash in every version, since
+    `transactions` is the list the header commits to; an eth-rpc on receipt data version 1 sees
+    that hash with no receipt to serve for it. The new `Config` item `MaxOutsideFrameLogs` bounds
+    the buffer as a backstop; a log arriving past the cap is not buffered, so the bloom omits it
+    while its `ContractEmitted` still stands. Zero turns the buffer off, leaving such logs
+    substrate-only as they were before.
 
     Contract logs emitted outside an ethereum transaction (`Revive::call`, an XCM `Transact` into
     a contract) do not use the buffer and stay substrate-only, as before. Only pallet mirrors do,
@@ -64,9 +63,15 @@ doc:
     extrinsic, a storage deposit settled by a contract frame, an XCM fee swap, a batch — and the
     insert charges at least those bytes of proof. Asset Hub Westend's 10 MiB proof therefore
     holds fewer than 480,000 entries even of the smallest shape, an address with no topics and no
-    data, against a cap of 524,288; its runtime tests pin that bound against the cap. A runtime
-    with an unbounded proof budget has no such bound and should size its cap from ref_time, or
-    leave the buffer off.
+    data, against the 524,288 it wires once enabled; its runtime tests pin that bound against the
+    value. A runtime with an unbounded proof budget has no such bound and should size its cap from
+    ref_time, or leave the buffer off.
+
+    Asset Hub Westend ships with the buffer off (`MaxOutsideFrameLogs = 0`), so this release
+    changes nothing an eth-rpc serves: mirrored balance changes are `ContractEmitted` events and
+    reach a receipt only when an ethereum transaction is open. Turning the buffer on is a separate
+    runtime upgrade, wiring `OUTSIDE_FRAME_LOGS_CAP_ONCE_ENABLED`, after every eth-rpc serving
+    the chain reads receipt data version 2.
 
     Follow-up: a buffered log's share of the `on_finalize` drain is registered on the block rather
     than charged to the emitter, which is why contract frames are kept out of the buffer. A
@@ -75,11 +80,15 @@ doc:
     Rollout to a live Asset Hub (e.g. Polkadot) needs care beyond wiring the callback:
       - Atomic cutover: removing the precompile self-emit and wiring the callback must ship in the
         same runtime upgrade, else a block range emits zero or duplicate `Transfer` logs.
-      - Runtime and eth-rpc upgrade independently. An older eth-rpc keeps serving the block's
-        ethereum transactions consistently, block and receipts alike, and starts serving the
-        mirrored logs once upgraded; until then they are absent from its `eth_getLogs`. The
-        header it serves still commits to the synthetic transaction (`transactions_root`,
-        `receipts_root`, `logs_bloom`), which no eth-rpc checks against the listed transactions.
+      - eth-rpc goes first. Release the eth-rpc that reads receipt data version 2, announce it as
+        the minimum version, allow an upgrade window, then enable the buffer in a runtime upgrade
+        of its own. Runtime and eth-rpc upgrade independently before that point: with the buffer
+        off, both versions list one hash per receipt entry. After the buffer is on, an eth-rpc on
+        version 1 is unsupported: for a block with mirrored logs it lists the synthetic
+        transaction's hash in `eth_getBlockByNumber` but returns null for its receipt and
+        transaction, reports one fewer in `eth_getBlockTransactionCountByNumber`, and serves none
+        of the mirrored logs. Its receipt indexing does not break, since version 1 of the receipt
+        data has one entry per ethereum transaction as before.
       - Weights: the mirror's cost lands in the weights of every pallet that moves assets, so a
         runtime wiring it must re-run `/cmd bench` for those pallets, not only for pallet-assets.
         That includes the XCM fee instructions where a swap trader moves assets: Asset Hub
