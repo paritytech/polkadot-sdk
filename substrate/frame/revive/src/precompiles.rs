@@ -146,15 +146,11 @@ impl Error {
 		let delegate_denied = CrateError::<T>::PrecompileDelegateDenied.into();
 		let construct = CrateError::<T>::TerminatedInConstructor.into();
 		let cannot_terminate_delegated = CrateError::<T>::CannotTerminateDelegatedAccount.into();
-		let balance_locked = CrateError::<T>::TerminateBalanceLocked.into();
 		let message = match () {
 			_ if e == delegate_denied => "illegal to call this pre-compile via delegate call",
 			_ if e == construct => "terminate pre-compile cannot be called from the constructor",
 			_ if e == cannot_terminate_delegated => {
 				"cannot terminate an EIP-7702 delegated account via the terminate pre-compile"
-			},
-			_ if e == balance_locked => {
-				"terminate pre-compile cannot release the contract's balance: it has a lock, freeze or hold"
 			},
 			_ => return e.into(),
 		};

@@ -666,13 +666,6 @@ pub mod pallet {
 		/// `seal_terminate` was invoked on an EIP-7702 delegated EOA. Delegated accounts
 		/// cannot be torn down via the contract-termination path.
 		CannotTerminateDelegatedAccount = 0x44,
-		/// The contract's balance has a freeze, lock or hold that terminating it cannot release.
-		///
-		/// The destruction runs at the end of the call stack, where it can still fail but its
-		/// error is not visible to anyone: the contract is left alive. `System.terminate` dry
-		/// runs the balance release after its immediate transfer and fails with this error, so
-		/// the calling contract sees a revert it can catch.
-		TerminateBalanceLocked = 0x45,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,

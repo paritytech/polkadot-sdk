@@ -61,7 +61,6 @@ interface ISystem {
 	/// - called from constructor
 	/// - called from static context
 	/// - called from delegate context
-	/// - the contract's balance has a lock, freeze or hold that terminate cannot release
 	function terminate(address beneficiary) external;
 
 	/// Verify a sr25519 signature
