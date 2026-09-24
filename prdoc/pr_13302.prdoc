@@ -15,7 +15,9 @@ doc:
     numbered list and reads the numbers to remove. `bootnodes remove --all` removes all of them
     without prompting.
 crates:
+# The `Bootnodes` variant added to the public `ChainSpecBuilderCmd` enum breaks the exhaustive
+# matches of the downstream crates.
 - name: staging-chain-spec-builder
-  bump: minor
+  bump: major
 - name: sc-chain-spec
   bump: minor
