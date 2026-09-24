@@ -4494,6 +4494,10 @@ mod benchmarks {
 	///   4-byte word it copies with shifts.
 	/// * Offset Ordering: The offsets in the calldata are pseudo-randomly shuffled so speculative
 	///   execution can't determine where we will end up before performing the calldata load.
+	///
+	/// Before the benchmark runs, 8 MiB of unrelated memory is written to push the calldata out of
+	/// the L1 and L2 caches. Together with the spacing above, every load then has to fetch two
+	/// cache lines that are in neither.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_calldataload_opcode(r: Linear<0, { CALLDATA_BYTES / 128 - 1 }>) {
 		use core::ops::Range;
@@ -4512,6 +4516,8 @@ mod benchmarks {
 		const SLOT_COUNT: usize = CALLDATA_SIZE / SLOT_SIZE - 1;
 		// A word starting after byte 32 of a line runs into the next line.
 		const POSITIONS_IN_LINE: Range<usize> = CACHE_LINE_SIZE - WORD_SIZE + 1..CACHE_LINE_SIZE;
+		// Larger than the L2 cache of the reference hardware.
+		const EVICTION_SIZE: usize = 8 * 1024 * 1024;
 		const END_OF_WALK: U256 = U256::MAX;
 
 		let load_count = r as usize;
@@ -4544,6 +4550,9 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), calldata, &mut ext);
 		interpreter.stack.push(initial_stack_value).continue_value().unwrap();
+
+		// Writing memory the calldata doesn't live in pushes it out of the L1 and L2 caches.
+		core::hint::black_box(vec![1u8; EVICTION_SIZE]);
 
 		let result;
 		#[block]
@@ -5406,46 +5415,79 @@ mod benchmarks {
 		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
 	}
 
-	/// Benchmark `r` `MLOAD` instructions following distinct offsets across preallocated memory.
+	/// Benchmark `r` `MLOAD` instructions.
 	///
-	/// Each loaded word supplies the next offset, and each read crosses a 64-byte cache line. The
-	/// allocation address determines the adjustment needed to start each read at byte 48 of a line.
+	/// Like `evm_calldataload_opcode`, each loaded word is the offset of the next one, so the loads
+	/// form a chain. Memory is grown to its maximum size before the benchmark runs, so no `MLOAD`
+	/// expands it and only the load itself is measured.
+	///
+	/// The words are laid out the same way as the calldata of `evm_calldataload_opcode`:
+	///
+	/// * Cache Line Size: Every word gets two cache lines to itself, so no two words share a line
+	///   and each load has to fetch lines that no other load touched.
+	/// * Offset in Cache Line: Each word starts at a pseudo-random byte between 33 and 63 of its
+	///   first cache line, so every word straddles both of its cache lines.
+	/// * Offset Ordering: The words are visited in a pseudo-random order so speculative execution
+	///   can't determine where the next load will be.
+	///
+	/// Before the benchmark runs, 8 MiB of unrelated memory is written to push the words out of the
+	/// L1 and L2 caches. Together with the spacing above, every load then has to fetch two cache
+	/// lines that are in neither.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_mload_opcode(r: Linear<0, { EVM_MEMORY_BYTES / 64 - 1 }>) {
-		use rand::{SeedableRng, seq::SliceRandom};
+	fn evm_mload_opcode(r: Linear<0, { EVM_MEMORY_BYTES / 128 - 1 }>) {
+		use core::ops::Range;
+		use rand::{Rng, SeedableRng, seq::SliceRandom};
 		use rand_pcg::Pcg64;
 
 		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
 		const CACHE_LINE_SIZE: usize = 64;
 		const WORD_SIZE: usize = 32;
-		const OFFSET_IN_LINE: usize = 48;
+		// Every word owns two cache lines. A word starting at byte 63 of the first line ends at
+		// byte 94, so it never reaches the next slot.
+		const SLOT_SIZE: usize = 2 * CACHE_LINE_SIZE;
+		// Slots start from the first cache-line boundary inside memory, which can be up to 63 bytes
+		// in. Leaving out the last slot keeps every word inside memory no matter where that
+		// boundary is.
+		const SLOT_COUNT: usize = MEMORY_SIZE / SLOT_SIZE - 1;
+		// A word starting after byte 32 of a line runs into the next line.
+		const POSITIONS_IN_LINE: Range<usize> = CACHE_LINE_SIZE - WORD_SIZE + 1..CACHE_LINE_SIZE;
+		// Larger than the L2 cache of the reference hardware.
+		const EVICTION_SIZE: usize = 8 * 1024 * 1024;
 		const END_OF_WALK: U256 = U256::MAX;
 
-		let code = Bytecode::new_raw(vec![MLOAD; r as usize].into());
+		let load_count = r as usize;
+		let code = Bytecode::new_raw(vec![MLOAD; load_count].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
 		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
 		let memory = interpreter.memory.slice_mut(0, MEMORY_SIZE);
-		let misalignment = memory.as_ptr() as usize % CACHE_LINE_SIZE;
-		let first_offset = (OFFSET_IN_LINE + CACHE_LINE_SIZE - misalignment) % CACHE_LINE_SIZE;
-		assert_eq!((memory.as_ptr() as usize + first_offset) % CACHE_LINE_SIZE, OFFSET_IN_LINE);
-		let mut offsets = (first_offset..=MEMORY_SIZE - WORD_SIZE)
-			.step_by(CACHE_LINE_SIZE)
+
+		// The allocator only aligns to 8 bytes, so memory can start anywhere within a cache line.
+		// Positions are measured from real cache-line boundaries, not from the start of memory.
+		let address = memory.as_ptr() as usize;
+		let first_line_start = address.next_multiple_of(CACHE_LINE_SIZE) - address;
+
+		let mut rng = Pcg64::seed_from_u64(1337);
+		let mut offsets = (0..SLOT_COUNT)
+			.map(|slot| first_line_start + slot * SLOT_SIZE + rng.gen_range(POSITIONS_IN_LINE))
 			.collect::<Vec<_>>();
-		offsets.shuffle(&mut Pcg64::seed_from_u64(1337));
-		let walk_offsets = &offsets[..r as usize];
-		let next_values = walk_offsets
-			.iter()
-			.skip(1)
-			.copied()
-			.map(U256::from)
-			.chain(core::iter::once(END_OF_WALK));
-		for (offset, next_value) in walk_offsets.iter().copied().zip(next_values) {
-			memory[offset..offset + WORD_SIZE].copy_from_slice(&next_value.to_big_endian());
+		offsets.shuffle(&mut rng);
+		let walk = &offsets[..load_count];
+
+		// Each offset in the walk stores the next offset, and the last one stores END_OF_WALK.
+		let next_values = walk.iter().skip(1).map(|&next| U256::from(next)).chain([END_OF_WALK]);
+		for (&offset, value) in walk.iter().zip(next_values) {
+			memory[offset..offset + WORD_SIZE].copy_from_slice(&value.to_big_endian());
 		}
-		let initial_value = walk_offsets.first().copied().map_or(END_OF_WALK, U256::from);
-		interpreter.stack.push(initial_value).continue_value().unwrap();
+
+		// With zero loads nothing replaces the stack item, so it has to start as END_OF_WALK for
+		// the final assertion to hold.
+		let initial_stack_value = walk.first().map_or(END_OF_WALK, |&first| U256::from(first));
+		interpreter.stack.push(initial_stack_value).continue_value().unwrap();
+
+		// Writing memory the words don't live in pushes them out of the L1 and L2 caches.
+		core::hint::black_box(vec![1u8; EVICTION_SIZE]);
 
 		let result;
 		#[block]
@@ -5458,7 +5500,7 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 1);
 		assert_eq!(interpreter.stack.top(), Some(&END_OF_WALK));
 		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+		assert_eq!(interpreter.bytecode.pc(), load_count + 1);
 	}
 
 	/// Benchmark `r` `MSTORE` instructions at distinct offsets across preallocated memory.

@@ -2375,7 +2375,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			// Standard Error: 10
 			.saturating_add(Weight::from_parts(30_622, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 16383]`.
+	/// The range of component `r` is `[0, 8191]`.
 	fn evm_mload_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
