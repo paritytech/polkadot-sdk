@@ -20,6 +20,7 @@
 use crate::{
 	balancing, helpers::*, mock::*, seq_phragmen, seq_phragmen_core, setup_inputs, to_support_map,
 	Assignment, BalancingConfig, ElectionResult, ExtendedBalance, StakedAssignment, Support, Voter,
+	Winner,
 };
 use sp_arithmetic::{PerU16, Perbill, Percent, Permill};
 use substrate_test_utils::assert_eq_uvec;
@@ -239,7 +240,13 @@ fn phragmen_poc_works() {
 	)
 	.unwrap();
 
-	assert_eq_uvec!(winners, vec![(2, 25), (3, 35)]);
+	assert_eq_uvec!(
+		winners,
+		vec![
+			Winner { who: 3, backed_stake: 35, round: 0 },
+			Winner { who: 2, backed_stake: 25, round: 1 },
+		]
+	);
 	assert_eq_uvec!(
 		assignments,
 		vec![
@@ -295,7 +302,13 @@ fn phragmen_poc_works_with_balancing() {
 	)
 	.unwrap();
 
-	assert_eq_uvec!(winners, vec![(2, 30), (3, 30)]);
+	assert_eq_uvec!(
+		winners,
+		vec![
+			Winner { who: 3, backed_stake: 30, round: 0 },
+			Winner { who: 2, backed_stake: 30, round: 1 },
+		]
+	);
 	assert_eq_uvec!(
 		assignments,
 		vec![
@@ -382,7 +395,13 @@ fn phragmen_accuracy_on_large_scale_only_candidates() {
 	)
 	.unwrap();
 
-	assert_eq_uvec!(winners, vec![(1, 18446744073709551614u128), (5, 18446744073709551613u128)]);
+	assert_eq_uvec!(
+		winners,
+		vec![
+			Winner { who: 1, backed_stake: 18446744073709551614u128, round: 0 },
+			Winner { who: 5, backed_stake: 18446744073709551613u128, round: 1 },
+		]
+	);
 	assert_eq!(assignments.len(), 2);
 	check_assignments_sum(&assignments);
 }
@@ -413,7 +432,13 @@ fn phragmen_accuracy_on_large_scale_voters_and_candidates() {
 	)
 	.unwrap();
 
-	assert_eq_uvec!(winners, vec![(2, 36893488147419103226u128), (1, 36893488147419103219u128)]);
+	assert_eq_uvec!(
+		winners,
+		vec![
+			Winner { who: 2, backed_stake: 36893488147419103226u128, round: 0 },
+			Winner { who: 1, backed_stake: 36893488147419103219u128, round: 1 },
+		]
+	);
 
 	assert_eq!(
 		assignments,
@@ -445,7 +470,14 @@ fn phragmen_accuracy_on_small_scale_self_vote() {
 	)
 	.unwrap();
 
-	assert_eq_uvec!(winners, vec![(20, 2), (10, 1), (30, 1)]);
+	assert_eq_uvec!(
+		winners,
+		vec![
+			Winner { who: 20, backed_stake: 2, round: 0 },
+			Winner { who: 10, backed_stake: 1, round: 1 },
+			Winner { who: 30, backed_stake: 1, round: 2 },
+		]
+	);
 	check_assignments_sum(&assignments);
 }
 
@@ -475,7 +507,14 @@ fn phragmen_accuracy_on_small_scale_no_self_vote() {
 	)
 	.unwrap();
 
-	assert_eq_uvec!(winners, vec![(20, 2), (10, 1), (30, 1)]);
+	assert_eq_uvec!(
+		winners,
+		vec![
+			Winner { who: 20, backed_stake: 2, round: 0 },
+			Winner { who: 10, backed_stake: 1, round: 1 },
+			Winner { who: 30, backed_stake: 1, round: 2 },
+		]
+	);
 	check_assignments_sum(&assignments);
 }
 
@@ -511,7 +550,7 @@ fn phragmen_large_scale_test() {
 	)
 	.unwrap();
 
-	assert_eq_uvec!(winners.iter().map(|(x, _)| *x).collect::<Vec<_>>(), vec![24, 22]);
+	assert_eq_uvec!(winners.iter().map(|w| w.who).collect::<Vec<_>>(), vec![24, 22]);
 	check_assignments_sum(&assignments);
 }
 
@@ -538,7 +577,13 @@ fn phragmen_large_scale_test_2() {
 	)
 	.unwrap();
 
-	assert_eq_uvec!(winners, vec![(2, 500000000005000000u128), (4, 500000000003000000)]);
+	assert_eq_uvec!(
+		winners,
+		vec![
+			Winner { who: 2, backed_stake: 500000000005000000u128, round: 0 },
+			Winner { who: 4, backed_stake: 500000000003000000, round: 1 },
+		]
+	);
 
 	assert_eq_uvec!(
 		assignments,
@@ -608,7 +653,14 @@ fn elect_has_no_entry_barrier() {
 	.unwrap();
 
 	// 30 is elected with stake 0. The caller is responsible for stripping this.
-	assert_eq_uvec!(winners, vec![(10, 10), (20, 10), (30, 0),]);
+	assert_eq_uvec!(
+		winners,
+		vec![
+			Winner { who: 10, backed_stake: 10, round: 0 },
+			Winner { who: 20, backed_stake: 10, round: 1 },
+			Winner { who: 30, backed_stake: 0, round: 2 },
+		]
+	);
 }
 
 #[test]
@@ -628,7 +680,13 @@ fn phragmen_self_votes_should_be_kept() {
 	)
 	.unwrap();
 
-	assert_eq!(result.winners, vec![(20, 24), (10, 14)]);
+	assert_eq!(
+		result.winners,
+		vec![
+			Winner { who: 20, backed_stake: 24, round: 0 },
+			Winner { who: 10, backed_stake: 14, round: 1 },
+		]
+	);
 	assert_eq_uvec!(
 		result.assignments,
 		vec![
@@ -666,7 +724,13 @@ fn duplicate_target_is_ignored() {
 	let ElectionResult::<_, Perbill> { winners, assignments } =
 		seq_phragmen(2, candidates, voters, None).unwrap();
 
-	assert_eq!(winners, vec![(2, 140), (3, 110)]);
+	assert_eq!(
+		winners,
+		vec![
+			Winner { who: 2, backed_stake: 140, round: 0 },
+			Winner { who: 3, backed_stake: 110, round: 1 },
+		]
+	);
 	assert_eq!(
 		assignments
 			.into_iter()
@@ -684,7 +748,13 @@ fn duplicate_target_is_ignored_when_winner() {
 	let ElectionResult::<_, Perbill> { winners, assignments } =
 		seq_phragmen(2, candidates, voters, None).unwrap();
 
-	assert_eq!(winners, vec![(1, 100), (2, 100)]);
+	assert_eq!(
+		winners,
+		vec![
+			Winner { who: 1, backed_stake: 100, round: 0 },
+			Winner { who: 2, backed_stake: 100, round: 1 },
+		]
+	);
 	assert_eq!(
 		assignments
 			.into_iter()
@@ -901,5 +971,31 @@ mod score {
 		// second element is less, rest don't matter. Note that this is swapped.
 		assert!(ElectionScore::from([10, 5, 15]) > ElectionScore::from([10, 5, 16]));
 		assert!(ElectionScore::from([10, 5, 15]) > ElectionScore::from([10, 5, 25]));
+	}
+}
+
+#[test]
+fn winners_are_sorted_by_round() {
+	use crate::phragmms::phragmms;
+
+	let candidates = vec![1, 2, 3, 4, 5];
+	let voters = vec![
+		(10, 10, vec![1, 2]),
+		(20, 20, vec![2, 3]),
+		(30, 30, vec![3, 4]),
+		(40, 40, vec![4, 5]),
+	];
+
+	// seq_phragmen: winners sorted by round, round == index.
+	let result: ElectionResult<_, Perbill> =
+		seq_phragmen(3, candidates.clone(), voters.clone(), None).unwrap();
+	for (i, w) in result.winners.iter().enumerate() {
+		assert_eq!(w.round, i as u32, "seq_phragmen: winner at index {i} has wrong round");
+	}
+
+	// phragmms: same invariant.
+	let result: ElectionResult<_, Perbill> = phragmms(3, candidates, voters, None).unwrap();
+	for (i, w) in result.winners.iter().enumerate() {
+		assert_eq!(w.round, i as u32, "phragmms: winner at index {i} has wrong round");
 	}
 }
