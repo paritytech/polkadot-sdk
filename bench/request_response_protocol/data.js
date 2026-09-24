@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790252785218,
+  "lastUpdate": 1790270906808,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -127655,6 +127655,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2810147083,
             "range": "± 61389260",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cccea0c9393792a97a7814b88ca73a7678c43fc7",
+          "message": "statement gossip: route the v2 propagation plan through the per-peer outbox (#13197)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13193.\n\nStacked on https://github.com/paritytech/polkadot-sdk/pull/13216.\n\nThe v2 DHT path sent orchestrator-chosen statements through its own\nchunked send function, bypassing the per-peer outbox the v1 path uses.\nThis PR feeds the orchestrator's targets into the same outbox and\ndeletes the direct path, so v2 gets one chunk in flight per peer, the\nshared byte budget and the bounded queue. The orchestrator's choice of\npeer is final: on the v2 path the drain applies no affinity filter of\nits own and drops only statements the peer sent to us, so a target that\nleaves the routing set while its hash waits in the outbox still receives\nthe statement. Two loss reasons count what the direct path never lost:\n`missing_from_store` for a statement that left the store or expired\nbefore its chunk went out, and `disconnected` for hashes still queued\nwhen the peer left.\n\n# Integration\n\nNode-side only. Nodes without the v2 DHT path gain the two\n`substrate_sync_statement_undelivered_total` reasons and see no other\nchange.",
+          "timestamp": "2026-09-24T16:06:45Z",
+          "tree_id": "08446709dcc897e1f58ecd56ef4667f53b0fc5c7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cccea0c9393792a97a7814b88ca73a7678c43fc7"
+        },
+        "date": 1790270876796,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19691519,
+            "range": "± 317412",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20003578,
+            "range": "± 150785",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21505271,
+            "range": "± 272036",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25897897,
+            "range": "± 258620",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58146961,
+            "range": "± 570155",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 341122063,
+            "range": "± 3661599",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2489788609,
+            "range": "± 221508776",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16904394,
+            "range": "± 160838",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17134078,
+            "range": "± 194784",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17431534,
+            "range": "± 134560",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22079047,
+            "range": "± 182811",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61176397,
+            "range": "± 799577",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 346901641,
+            "range": "± 4818093",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2692498095,
+            "range": "± 19088933",
             "unit": "ns/iter"
           }
         ]
