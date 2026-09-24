@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790270906808,
+  "lastUpdate": 1790286838316,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -127763,6 +127763,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2692498095,
             "range": "± 19088933",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "10196091+Ank4n@users.noreply.github.com",
+            "name": "Ankan",
+            "username": "Ank4n"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c534ae5fee6bfcc4b00450ad4f27c19346097d5d",
+          "message": "[AHMv2] Migrator dependencies (#13282)\n\nAdds the types the migrator pallets need to move parachain registrations\nand HRMP channels from the relay chain to the pallets that will own them\non a system chain (Coretime).\n\n## How the migration flows\n\n- `rc2-migrator` (runtimes repo) [depends\non](https://github.com/Ank4n/runtimes/blob/ankn-min-relay-int/pallets/rc2-migrator/src/lib.rs#L359)\n`hrmp`, `paras_registrar` etc. directly, iterates their storage and\npacks each record into a `Portable*` entry (eg\n[`PortableHrmpChannel`](https://github.com/Ank4n/runtimes/blob/ankn-min-relay-int/pallets/migrator-types/src/lib.rs#L164)).\nThese are the wire types between the two migrators, rc2 and ct, and\ncarry the RC-recorded deposits.\n- `ct-migrator` receives the wire type, settles the deposits (the\nbalances arrive earlier, in the accounts stage), converts the record to\nthe smaller `Migrated*` type from this PR and hands it to the new pallet\n(`registrar_para` / `hrmp_para`), which recreates the record at its own\nprice.\n\nSo `Portable*` is the wire format and is what gets parked in a `Failed*`\nmap when an entry is refused. `Migrated*` is never stored; it is the\ntranslation from wire to the fields the pallet actually needs. The\nct-migrator could hand the pallets the portable type directly, but this\nkeeps the pallets away from deposit amounts they do not use, and the\nwire format stays in the runtimes repo with no SDK dependency.\n\n## Changes\n\n- `registrar-primitives`\n- `MigratedPara`, `MigratedParaState`: one para as handed to the\nregistrar pallet.\n- `ReceiveMigratedParas`: implemented by `registrar_para`. The `()` impl\nrefuses every record.\n- `hrmp-primitives`\n- `ChannelId`, `MigratedChannel`: one channel as handed to the HRMP\npallet.\n- `ReceiveMigratedChannels`: implemented by `hrmp_para`. The `()` impl\nrefuses every record.\n\nNeither type carries a deposit: the receiving pallet takes its own at\nthe destination's prices. A record is recreated even if its manager\ncannot pay, so no RC para or channel is dropped.\n\n---------\n\nCo-authored-by: Luka Ciric <luka.ciric2106@gmail.com>",
+          "timestamp": "2026-09-24T20:10:44Z",
+          "tree_id": "2d1334ebc5f059cf3861e27111c3f393da1d750f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c534ae5fee6bfcc4b00450ad4f27c19346097d5d"
+        },
+        "date": 1790286807088,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19280079,
+            "range": "± 135516",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19635152,
+            "range": "± 480239",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20868996,
+            "range": "± 225712",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25416636,
+            "range": "± 205080",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56550605,
+            "range": "± 611568",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 323912118,
+            "range": "± 7626293",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2419490509,
+            "range": "± 39364341",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16533173,
+            "range": "± 186491",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16809309,
+            "range": "± 225928",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17144837,
+            "range": "± 391387",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21577442,
+            "range": "± 176338",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58696744,
+            "range": "± 1289354",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 340424826,
+            "range": "± 3926384",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2567496371,
+            "range": "± 36708801",
             "unit": "ns/iter"
           }
         ]
