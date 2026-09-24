@@ -27,12 +27,17 @@
 
 use jam_interface::{Slot as JamSlot, WorkPackageStatus};
 
-/// How long a package may go without a `Reported` before it is submitted again.
+/// How long a package has to be reported, counted from its anchor: the anchor must still be in
+/// JAM's recent history when the package is reported. Past this the package is forgotten; the
+/// builder's stall re-root is the recovery.
+pub(crate) const REPORT_DEADLINE_SLOTS: JamSlot = 8;
+
+/// How long a package may go without appearing on chain before it is submitted again.
 ///
-/// A package that never reached its guarantors is not visible any other way: nothing fails, the
-/// status stream simply stays quiet. Since phase 5a this soft resubmission is also the only thing
-/// that heals a lost block — the parachain service buffers the descendants until the missing
-/// package lands, and a package this collator gives up on stalls them all.
+/// A package that never reached its guarantors is not visible any other way: β (the recent-blocks
+/// history) simply does not name it. Since phase 5a this resubmission is also the only thing that
+/// heals a lost block — the parachain service buffers the descendants until the missing package
+/// lands, and a package this collator gives up on stalls them all.
 pub(crate) const RESUBMIT_AFTER_SLOTS: JamSlot = 2;
 
 /// What the collation manager should do with an in-flight work package.
@@ -42,60 +47,65 @@ pub(crate) enum PolicyAction {
 	Wait,
 	/// The package was reported; stop watching the clock on it. It stays tracked until the para
 	/// head shows its height settled.
-	Done,
+	Reported,
 	/// Submit the identical package again — same bytes, same hash, so JAM sees one package
 	/// repeated rather than a second one.
-	Resubmit,
-	/// The package cannot be reported against this anchor any more: rebuild it around a fresh
-	/// one. Legal for any package since phase 5a, because nothing names a package's hash.
-	Reanchor,
+	Resend,
 	/// Give up on the package. Nothing else has to be undone — no other package depends on it.
 	Forget,
+}
+
+/// What the manager saw about one package when a JAM block arrived.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Observed {
+	/// The JAM slot of the block that just arrived.
+	pub tip_slot: JamSlot,
+	/// The JAM slot the package was last sent against.
+	pub submitted_at: JamSlot,
+	/// The JAM slot of the package's anchor, the start of its report window.
+	pub anchor_slot: JamSlot,
+	/// Whether β already names the package's hash.
+	pub on_chain: bool,
 }
 
 pub(crate) trait ResubmissionPolicy: Send {
 	fn on_status(&self, status: &WorkPackageStatus) -> PolicyAction;
 
-	/// No status has said `Reported` yet: `waiting_slots` JAM slots have passed since the
-	/// package was last submitted, and it has been resubmitted `resubmits` times.
-	fn on_silence(&self, waiting_slots: JamSlot, resubmits: u32) -> PolicyAction;
+	/// A new JAM block arrived: the package either appears in β or the clocks decide its fate.
+	fn on_jam_block(&self, observed: Observed) -> PolicyAction;
 }
 
-/// The phase-5a policy: wait for a report, resubmit the identical package when one is late,
-/// re-anchor a package that failed, and give up once the resubmit budget is spent.
+/// The phase-5a policy: wait for a report, resend the identical package when β does not name it
+/// after a couple of JAM slots, and give up once its anchor expires.
 ///
-/// Re-anchoring is a policy action again. It rewrites a package's bytes and therefore its hash,
-/// which under phase 5's links would have orphaned every child that had named the old hash;
-/// nothing names it any more, so the cheapest answer to a failure — usually an expired anchor —
-/// is available for every package.
-pub(crate) struct ReanchorThenForget {
-	max_resubmits: u32,
-}
+/// There is no resubmit budget any more: the anchor deadline bounds the repetition, so a package
+/// is repeated for as long as resending can still help and forgotten exactly when the status
+/// tracker would also fail it (`anchor + REPORT_DEADLINE_SLOTS` blocks).
+pub(crate) struct ResendUntilAnchorExpires;
 
-impl ReanchorThenForget {
-	pub(crate) fn new(max_resubmits: u32) -> Self {
-		Self { max_resubmits }
-	}
-}
-
-impl ResubmissionPolicy for ReanchorThenForget {
+impl ResubmissionPolicy for ResendUntilAnchorExpires {
 	fn on_status(&self, status: &WorkPackageStatus) -> PolicyAction {
 		match status {
 			WorkPackageStatus::Reportable { .. } => PolicyAction::Wait,
 			WorkPackageStatus::Reported { .. } | WorkPackageStatus::Ready { .. } => {
-				PolicyAction::Done
+				PolicyAction::Reported
 			},
-			WorkPackageStatus::Failed(_) => PolicyAction::Reanchor,
+			WorkPackageStatus::Failed(_) => PolicyAction::Forget,
 		}
 	}
 
-	fn on_silence(&self, waiting_slots: JamSlot, resubmits: u32) -> PolicyAction {
-		if waiting_slots < RESUBMIT_AFTER_SLOTS {
-			PolicyAction::Wait
-		} else if resubmits < self.max_resubmits {
-			PolicyAction::Resubmit
-		} else {
+	fn on_jam_block(&self, observed: Observed) -> PolicyAction {
+		if observed.on_chain {
+			return PolicyAction::Reported;
+		}
+		// Expiry before resend: once the anchor is out of β the package can never be reported, so
+		// a resend would be wasted.
+		if observed.tip_slot.saturating_sub(observed.anchor_slot) >= REPORT_DEADLINE_SLOTS {
 			PolicyAction::Forget
+		} else if observed.tip_slot.saturating_sub(observed.submitted_at) >= RESUBMIT_AFTER_SLOTS {
+			PolicyAction::Resend
+		} else {
+			PolicyAction::Wait
 		}
 	}
 }
@@ -118,41 +128,82 @@ mod tests {
 		}
 	}
 
+	fn observed(
+		tip_slot: JamSlot,
+		submitted_at: JamSlot,
+		anchor_slot: JamSlot,
+		on_chain: bool,
+	) -> Observed {
+		Observed { tip_slot, submitted_at, anchor_slot, on_chain }
+	}
+
 	#[test]
 	fn waits_while_reportable_and_finishes_on_reported() {
-		let policy = ReanchorThenForget::new(2);
+		let policy = ResendUntilAnchorExpires;
 		assert_eq!(policy.on_status(&reportable(8)), PolicyAction::Wait);
 		assert_eq!(policy.on_status(&reportable(3)), PolicyAction::Wait);
-		assert_eq!(policy.on_status(&reported()), PolicyAction::Done);
+		assert_eq!(policy.on_status(&reported()), PolicyAction::Reported);
 	}
 
-	/// A failure is almost always a spent anchor, and phase 5a can answer it: nothing names the
-	/// package's hash, so the same block can go out again around a fresh anchor instead of the
-	/// block being abandoned.
+	/// `Ready` is still in flight — queued for accumulation, not accumulated — so it is treated
+	/// exactly like `Reported`: the resend clock is stopped and the para head decides completion.
 	#[test]
-	fn a_failure_is_answered_by_re_anchoring() {
-		let policy = ReanchorThenForget::new(2);
-		let failed = WorkPackageStatus::Failed("anchor expired".into());
-		assert_eq!(policy.on_status(&failed), PolicyAction::Reanchor);
+	fn a_ready_package_is_treated_as_reported() {
+		let policy = ResendUntilAnchorExpires;
+		let ready = WorkPackageStatus::Ready {
+			reported_in: BlockDesc { header_hash: HeaderHash::from([1u8; 32]), slot: 1 },
+			core: CoreIndex::default(),
+			report_hash: WorkReportHash::from([2u8; 32]),
+			ready_in: BlockDesc { header_hash: HeaderHash::from([3u8; 32]), slot: 2 },
+		};
+		assert_eq!(policy.on_status(&ready), PolicyAction::Reported);
 	}
 
-	/// Silence is given a couple of slots' grace — a package normally reports within one — and
-	/// only then repeated.
+	/// A failure — "Not reported in time" or a spent anchor — is terminal now: re-anchoring is
+	/// gone, so the package is forgotten and the builder's stall re-root recovers.
+	#[test]
+	fn a_failure_is_forgotten() {
+		let policy = ResendUntilAnchorExpires;
+		let failed = WorkPackageStatus::Failed("anchor expired".into());
+		assert_eq!(policy.on_status(&failed), PolicyAction::Forget);
+	}
+
+	/// β not naming the package is given a couple of slots' grace — one read per JAM block is
+	/// enough to cover every package, and a normal report lands within one — and only then is it
+	/// repeated.
 	#[test]
 	fn silence_is_tolerated_until_the_resubmit_window_passes() {
-		let policy = ReanchorThenForget::new(2);
-		assert_eq!(policy.on_silence(0, 0), PolicyAction::Wait);
-		assert_eq!(policy.on_silence(RESUBMIT_AFTER_SLOTS - 1, 0), PolicyAction::Wait);
-		assert_eq!(policy.on_silence(RESUBMIT_AFTER_SLOTS, 0), PolicyAction::Resubmit);
+		let policy = ResendUntilAnchorExpires;
+		assert_eq!(policy.on_jam_block(observed(100, 100, 100, false)), PolicyAction::Wait);
+		assert_eq!(
+			policy.on_jam_block(observed(100, 100 - (RESUBMIT_AFTER_SLOTS - 1), 100, false)),
+			PolicyAction::Wait,
+		);
+		assert_eq!(
+			policy.on_jam_block(observed(100, 100 - RESUBMIT_AFTER_SLOTS, 100, false)),
+			PolicyAction::Resend,
+		);
 	}
 
-	/// The budget is spent on resubmissions of the identical package; once it is gone the package
-	/// is treated as lost, because nothing else will ever move it.
+	/// The anchor's expiry wins over the resend clock: at `anchor + REPORT_DEADLINE_SLOTS` the
+	/// package can never be reported, so it is forgotten even though it is also due for a resend.
+	/// One slot earlier it is still repeated.
 	#[test]
-	fn a_silent_package_is_forgotten_once_the_budget_is_spent() {
-		let policy = ReanchorThenForget::new(2);
-		assert_eq!(policy.on_silence(4, 0), PolicyAction::Resubmit);
-		assert_eq!(policy.on_silence(4, 1), PolicyAction::Resubmit);
-		assert_eq!(policy.on_silence(4, 2), PolicyAction::Forget);
+	fn the_anchor_expiry_wins_over_the_resend_clock() {
+		let policy = ResendUntilAnchorExpires;
+		// `submitted_at = 0` so the resend clock has long run out; only the anchor age decides.
+		let at = |tip: JamSlot| observed(tip, 0, 0, false);
+
+		assert_eq!(policy.on_jam_block(at(REPORT_DEADLINE_SLOTS - 1)), PolicyAction::Resend);
+		assert_eq!(policy.on_jam_block(at(REPORT_DEADLINE_SLOTS)), PolicyAction::Forget);
+	}
+
+	/// Appearing in β is the truth, whatever the clocks say: a reported package is reported even
+	/// when the resend window has passed and the anchor has expired.
+	#[test]
+	fn appearing_on_chain_wins_over_every_clock() {
+		let policy = ResendUntilAnchorExpires;
+		let expired_and_due = observed(100, 0, 0, true);
+		assert_eq!(policy.on_jam_block(expired_and_due), PolicyAction::Reported);
 	}
 }

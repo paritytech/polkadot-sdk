@@ -17,7 +17,7 @@ use cumulus_primitives_core::{relay_chain, CumulusDigestItem};
 use parachain_service_core::{para_info_key, storage_key, types::ParaId, ParaInfo, Tag};
 use sp_runtime::generic::Digest as SubstrateDigest;
 use std::{
-	collections::BTreeMap,
+	collections::{BTreeMap, HashMap},
 	path::{Path, PathBuf},
 	time::Duration,
 };
@@ -35,6 +35,13 @@ pub const TINY_CORES: u16 = 2;
 /// rebuilt. Measured average is ~22s per block rather than 6s. This budget is sized for that,
 /// and can come back down to a few minutes once the SDK generates matching addresses.
 pub const DEADLINE: Duration = Duration::from_secs(25 * 60);
+
+/// One JAM slot: how often a healthy network accumulates a parachain head.
+///
+/// A test that needs to wait a fixed number of slots — long enough for a resubmitted work package
+/// to be reported, not so long that a stuck one passes — writes it as `N * JAM_SLOT` rather than
+/// a bare wall-clock constant, so the budget tracks the chain's own cadence.
+pub const JAM_SLOT: Duration = Duration::from_secs(6);
 
 /// The para head number JAM's own storage must reach before a progress test passes.
 ///
@@ -128,6 +135,71 @@ pub struct Run {
 	pub deadline: Instant,
 }
 
+/// A JAM network spun up and genesis-checked, with its collators not yet started.
+///
+/// [`Run::start`] runs both phases and is what every existing test uses. Splitting them lets a
+/// caller put something between — the resubmission test serves an RPC proxy and points one
+/// collator at it — so [`Self::network`] is public: read `network.rpc_url`, then hand
+/// [`Self::start_collators`] the override.
+pub struct Staged {
+	/// The running network. Its `rpc_url` is the default every collator not overridden talks to.
+	pub network: JamNetwork,
+	paras: Vec<Para>,
+	binaries: Binaries,
+	work_dir: WorkDir,
+	deadline: Instant,
+}
+
+impl Staged {
+	/// Start every para's collators and return once they agree with genesis about their authorizer.
+	///
+	/// A collator named in `rpc_url_overrides` is started against that JAM RPC URL instead of
+	/// [`JamNetwork::rpc_url`]; every other collator uses the network's. Each key must name a
+	/// collator of one of this run's paras.
+	pub async fn start_collators(
+		self,
+		rpc_url_overrides: HashMap<String, String>,
+	) -> anyhow::Result<Run> {
+		let Staged { network, paras, binaries, work_dir, deadline } = self;
+
+		let known = paras
+			.iter()
+			.flat_map(|para| para.collators.iter().map(String::as_str))
+			.collect::<Vec<_>>();
+		for name in rpc_url_overrides.keys() {
+			anyhow::ensure!(
+				known.contains(&name.as_str()),
+				"rpc_url_overrides names collator {name}, but this run has no such collator; \
+				 the collators are: {}",
+				known.join(", "),
+			);
+		}
+
+		let target = JamTarget {
+			rpc_url: network.rpc_url.clone(),
+			service_id: network.service_id,
+			authorizer_blob: network.authorizer_blob.clone(),
+			rpc_url_overrides,
+		};
+		let mut started = Vec::with_capacity(paras.len());
+		for (index, para) in paras.iter().enumerate() {
+			// The chain spec `JamNetwork::spawn` built — the file the para's genesis head was
+			// derived from, so the collators and the registration cannot disagree.
+			let spec = network
+				.para_specs
+				.get(index)
+				.context(format!("para {}'s chain spec", para.id))?;
+			let collators = Collators::spawn(&binaries, work_dir.path(), para, &target, spec)
+				.with_context(|| format!("starting para {}'s collators", para.id))?;
+			started.push(ParaRun { para: para.clone(), collators });
+		}
+
+		let mut run = Run { network, paras: started, work_dir, deadline };
+		run.check_authorizers_agree().await?;
+		Ok(run)
+	}
+}
+
 impl Run {
 	/// Spin everything up and return once every para's collators are launched and agree with
 	/// genesis about their authorizer.
@@ -141,6 +213,20 @@ impl Run {
 		paras: Vec<Para>,
 		cores: u16,
 	) -> anyhow::Result<Self> {
+		Self::stage(test, binaries, paras, cores)
+			.await?
+			.start_collators(HashMap::new())
+			.await
+	}
+
+	/// Spawn the JAM network and verify every para's genesis registration, stopping short of the
+	/// collators. [`Self::start`] is this plus [`Staged::start_collators`] with no overrides.
+	pub async fn stage(
+		test: &str,
+		binaries: &Binaries,
+		paras: Vec<Para>,
+		cores: u16,
+	) -> anyhow::Result<Staged> {
 		let deadline = Instant::now() + DEADLINE;
 		let work_dir = WorkDir::create(test)?;
 		log::info!("work dir: {}", work_dir.path().display());
@@ -154,27 +240,7 @@ impl Run {
 		check_genesis_registrations(&zombienet_dir, network.service_id, &paras)
 			.context("genesis registration check failed — the run would stall silently")?;
 
-		let target = JamTarget {
-			rpc_url: network.rpc_url.clone(),
-			service_id: network.service_id,
-			authorizer_blob: network.authorizer_blob.clone(),
-		};
-		let mut started = Vec::with_capacity(paras.len());
-		for (index, para) in paras.iter().enumerate() {
-			// The chain spec `JamNetwork::spawn` built — the file the para's genesis head was
-			// derived from, so the collators and the registration cannot disagree.
-			let spec = network
-				.para_specs
-				.get(index)
-				.context(format!("para {}'s chain spec", para.id))?;
-			let collators = Collators::spawn(binaries, work_dir.path(), para, &target, spec)
-				.with_context(|| format!("starting para {}'s collators", para.id))?;
-			started.push(ParaRun { para: para.clone(), collators });
-		}
-
-		let mut run = Run { network, paras: started, work_dir, deadline };
-		run.check_authorizers_agree().await?;
-		Ok(run)
+		Ok(Staged { network, paras, binaries: binaries.clone(), work_dir, deadline })
 	}
 
 	/// Fail unless every collator derived the authorizer hash genesis put in its core's queue.

@@ -14,9 +14,11 @@ chrono = { workspace = true }
 codec = { workspace = true, default-features = true }
 env_logger = { workspace = true }
 log = { workspace = true }
-serde_json = { workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true, features = ["raw_value"] }
 tokio = { workspace = true, features = ["macros", "process", "rt-multi-thread", "signal", "time"] }
 jsonrpsee = { workspace = true, features = ["ws-client"] }
+# The proxy speaks polkajam's jsonrpsee 0.26 surface; the harness keeps 0.24 for `JamRpc`.
+jsonrpsee-jam = { workspace = true, features = ["server", "ws-client"] }
 cumulus-primitives-core = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }

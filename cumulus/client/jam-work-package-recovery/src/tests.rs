@@ -12,9 +12,10 @@ use crate::{
 use codec::Encode;
 use cumulus_jam_interface::{WorkPackageHash, WorkReportHash};
 use cumulus_primitives_core::{ParachainBlockData, SchedulingProof};
+use jam_std_common::{build_encoded_bundle, hash_raw};
 use jam_types::{
-	Authorization, Authorizer, CodeHash, Encode as _, RefineContext, WorkItem, WorkPackage,
-	WorkPayload,
+	Authorization, Authorizer, CodeHash, Encode as _, ExtrinsicSpec, RefineContext, WorkItem,
+	WorkPackage, WorkPayload,
 };
 use parachain_service_core::{candidate::ParachainCandidate, types::ValidationCodeHash};
 use sp_consensus::BlockStatus;
@@ -119,32 +120,34 @@ fn make_refine_context() -> RefineContext {
 	}
 }
 
-/// Build SCALE-encoded bundle bytes from blocks — mirrors `collation_task.rs:938-958`.
-///
-/// The collator: `ParachainCandidate { pov: ParachainBlockData::encode() }.encode()`
-/// → `WorkPayload(payload)` → `WorkItem { ... }` → `WorkPackage { items }` → submitted.
-/// The JAM node stores the package as `ImmutableBundle`. Since `Immutable<T>::Encode` writes
-/// its inner bytes directly, and `Bundle::Decode` reads `ImmutableWorkPackage` first,
-/// `WorkPackage::encode()` produces the prefix that `decode_bundle` expects.
-///
-/// Returns the package alongside its encoding so a test can derive the expected hash from the
-/// same bytes the recovery engine sees.
-fn make_bundle_and_package(
+/// Build the PoV the collator produces: a SCALE-encoded `ParachainBlockData::V4` carrying the
+/// parent header and the per-block additional data.
+fn make_pov(
 	blocks: Vec<TestBlock>,
 	additional_data: Vec<Option<sp_additional_data::AdditionalData>>,
 	parent_header: TestHeader,
-) -> (Vec<u8>, WorkPackage) {
-	let pov = ParachainBlockData::new_with_parent_header(
+) -> Vec<u8> {
+	ParachainBlockData::new_with_parent_header(
 		blocks,
 		CompactProof { encoded_nodes: vec![] },
 		SchedulingProof::empty(),
 		additional_data,
 		parent_header.encode(),
 	)
-	.encode();
+	.encode()
+}
 
+/// Assemble a work package whose first item carries `extrinsics`, bundle `extrinsic_data` after
+/// it, and hand back both the bundle bytes and the package.
+///
+/// The bundle is `package ‖ extrinsic data ‖ import segments ‖ import proofs`
+/// (`jam_std_common::build_encoded_bundle`). The payload only carries the candidate's
+/// validation-code hash; the PoV travels as work-item extrinsic 0, exactly as the collator sends
+/// it.
+fn build_bundle(extrinsics: Vec<ExtrinsicSpec>, extrinsic_data: &[u8]) -> (Vec<u8>, WorkPackage) {
 	let payload =
-		ParachainCandidate { validation_code_hash: ValidationCodeHash([0u8; 32]), pov }.encode();
+		ParachainCandidate { validation_code_hash: ValidationCodeHash([0u8; 32]), pov: Vec::new() }
+			.encode();
 
 	let work_item = WorkItem {
 		service: 0,
@@ -154,7 +157,7 @@ fn make_bundle_and_package(
 		export_count: 0,
 		payload: WorkPayload(payload),
 		import_segments: Default::default(),
-		extrinsics: Default::default(),
+		extrinsics: extrinsics.try_into().expect("extrinsic specs always fit"),
 	};
 
 	let package = WorkPackage {
@@ -164,7 +167,23 @@ fn make_bundle_and_package(
 		context: make_refine_context(),
 		items: vec![work_item].try_into().expect("one item always fits"),
 	};
-	(package.encode(), package)
+
+	let (_, bundle) = build_encoded_bundle(&package, [extrinsic_data], &[vec![]]);
+	(bundle, package)
+}
+
+/// Build SCALE-encoded bundle bytes from blocks with a spec matching the PoV.
+///
+/// Returns the package alongside its encoding so a test can derive the expected hash from the
+/// same bytes the recovery engine sees.
+fn make_bundle_and_package(
+	blocks: Vec<TestBlock>,
+	additional_data: Vec<Option<sp_additional_data::AdditionalData>>,
+	parent_header: TestHeader,
+) -> (Vec<u8>, WorkPackage) {
+	let pov = make_pov(blocks, additional_data, parent_header);
+	let spec = ExtrinsicSpec { hash: hash_raw(&pov).into(), len: pov.len() as u32 };
+	build_bundle(vec![spec], &pov)
 }
 
 /// Bundle bytes only; [`make_bundle_and_package`] also hands back the package for hashing.
@@ -226,8 +245,37 @@ fn multi_block_pov_recovers_all_in_order() {
 	assert_eq!(decoded[1].0, block_b);
 }
 
-// ── state-machine tests (5-8) ──────────────────────────────────────────────────
+/// A work item with no extrinsic spec yields an error, not a panic.
+#[test]
+fn missing_extrinsic_spec_returns_error() {
+	let (bundle, _) = build_bundle(Vec::new(), &[]);
+	assert!(decode_bundle::<TestBlock>(&bundle).is_err(), "no extrinsic spec must be an error");
+}
 
+/// Extrinsic bytes that do not hash to their spec are rejected.
+#[test]
+fn extrinsic_hash_mismatch_returns_error() {
+	let pov = make_pov(
+		vec![TestBlock { header: TestHeader::new_from_number(1), extrinsics: vec![] }],
+		vec![None],
+		TestHeader::new_from_number(0),
+	);
+	let wrong_spec = ExtrinsicSpec { hash: [0xff; 32].into(), len: pov.len() as u32 };
+	let (bundle, _) = build_bundle(vec![wrong_spec], &pov);
+	assert!(decode_bundle::<TestBlock>(&bundle).is_err(), "hash mismatch must be an error");
+}
+
+/// A bundle that ends before its declared extrinsic length is rejected, not panicked on.
+#[test]
+fn short_bundle_returns_error() {
+	let parent_header = TestHeader::new_from_number(0);
+	let block = TestBlock { header: TestHeader::new_from_number(1), extrinsics: vec![] };
+	let (bundle, _) = make_bundle_and_package(vec![block], vec![None], parent_header);
+	let truncated = &bundle[..bundle.len() - 1];
+	assert!(decode_bundle::<TestBlock>(truncated).is_err(), "short bundle must be an error");
+}
+
+// ── state-machine tests (5-8) ──────────────────────────────────────────────────
 /// Recovery success with known parent → block forwarded to the import sink.
 #[test]
 fn recovery_success_imports_block() {

@@ -19,8 +19,10 @@
 //!
 //! One task owns everything, instead of the phase-1 follower spawned per package. It keeps the
 //! packages *it* submitted — [`InFlightPackages`] — and selects over the builder's channel, the
-//! para-head stream, the status subscriptions of every submitted package, and a
-//! once-per-JAM-slot timer.
+//! para-head stream, the status subscriptions of every submitted package, and the JAM best-block
+//! stream. Every new JAM block is one look at β (the recent-blocks history): a package named
+//! there is reported, and one that has been away too long is resent or forgotten against the
+//! anchor deadline.
 //!
 //! Each block the builder hands over becomes **one work package**: no imported segment,
 //! `export_count = 0`, submitted with a plain `submitWorkPackage`. A package names the work
@@ -37,28 +39,27 @@
 //! that digest is baked in at authoring and verified at refine. A package re-signed against a
 //! *different* anchor hash has a stale digest and can never validate.
 //!
-//! **Re-anchoring policy**: when the anchor *hash* changes, `reanchor()` drops the package and
-//! lets the builder re-author a fresh block with the correct digest on the next tick. When only
-//! the lookup anchor changes (same anchor hash), the digest is still valid and re-signing is
-//! safe and cheap. Dropping a package forgets its ledger entry and, with it, every package that
-//! named it: a prerequisite nothing will ever report would block its child for good.
+//! **Resubmission policy**: at every new JAM block β says whether a package appeared on chain.
+//! If it did, the package is reported; if the anchor has expired (the block is past the package's
+//! report window) it is forgotten; otherwise, once it has been away for
+//! [`RESUBMIT_AFTER_SLOTS`], the byte-identical package is sent again. There is no re-anchoring:
+//! a package re-signed against a fresh anchor is rejected by the PVF's `JamParent` digest check,
+//! so a package that outlives its anchor is dropped and the builder's stall re-root recovers.
 //!
-//! Failure handling is per package and cascades: a package that can no longer be reported is
-//! forgotten together with its descendants, so no child outlives the prerequisite it named. The
-//! block itself stays in the local database, and the next parachain slot authors on whatever is
-//! deepest there.
+//! Failure handling is per package and cascades: a package that is forgotten takes every package
+//! that named it, so no child outlives the prerequisite it named. The block itself stays in the
+//! local database, and the next parachain slot authors on whatever is deepest there.
 //!
 //! Every package runs under the para's own [AURA authorizer](super::authorizer) and carries a
 //! token this collator signs with its aura key, so assembling a package and signing it are one
-//! step here. A lookup-anchor-only change re-signs; an anchor-hash change drops.
+//! step here.
 //!
 //! Phase-1 simplification that still stands: the PoV is NOT zstd-compressed (parasim rejects
 //! compressed PoVs; JIP-2 is silent on compression).
 
 use super::{
-	authorizer::AuraAuthorizer, choose_lookup_anchor, hash_ledger::WpHashLedger, jam_read,
-	jam_slot_at, para_head_stream, resubmission::*, scan_pools_at, JamCollatorMessage,
-	JAM_SLOT_DURATION_MS, LOG_TARGET,
+	authorizer::AuraAuthorizer, hash_ledger::WpHashLedger, para_head_stream, resubmission::*,
+	AuthoringHold, JamCollatorMessage, LOG_TARGET,
 };
 use crate::common::{
 	types::{ParachainBackend, ParachainClient},
@@ -70,15 +71,16 @@ use futures::{
 	channel::mpsc,
 	future::AbortHandle,
 	stream::{abortable, SelectAll},
-	FutureExt, StreamExt,
+	StreamExt,
 };
 use jam_interface::{
-	BoxStream, CoreIndex, HeaderHash, JamChainSource, JamStateSource, JamWorkPackageSubmission,
-	ServiceId, Slot as JamSlot, VersionedParameters, WorkPackage, WorkPackageHash,
-	WorkPackageStatus,
+	BlockDesc, BlockInfo, BoxStream, CoreIndex, HeaderHash, JamChainSource, JamStateSource,
+	JamWorkPackageSubmission, RecentBlocks, ServiceId, Slot as JamSlot, VersionedParameters,
+	WorkPackage, WorkPackageHash, WorkPackageStatus,
 };
 use jam_types::{
-	Authorization, CodeHash, RefineContext, UnsignedGas, VecSet, WorkItem, WorkPayload,
+	Authorization, CodeHash, ExtrinsicSpec, MapLike, RefineContext, UnsignedGas, VecSet, WorkItem,
+	WorkPayload,
 };
 use parachain_service_core::{authorizer::Authorizer, candidate::ParachainCandidate};
 use polkadot_primitives::Id as ParaId;
@@ -86,7 +88,6 @@ use sc_client_api::backend::AuxStore;
 use sc_client_db::DbHash;
 use sp_additional_data::AdditionalData;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
-use sp_timestamp::Timestamp;
 use sp_trie::CompactProof;
 use std::{
 	collections::{HashMap, VecDeque},
@@ -95,11 +96,6 @@ use std::{
 };
 
 const RETRY_DELAY: Duration = Duration::from_secs(6);
-
-/// How long a package has to be reported, counted from its anchor: the anchor must still be in
-/// JAM's recent history when the package is reported. With no links between packages this is the
-/// only such clock left.
-const REPORT_DEADLINE_SLOTS: JamSlot = 8;
 
 pub(crate) struct CollationTaskParams<Block: NodeBlock, RuntimeApi, Jam> {
 	pub para_client: Arc<ParachainClient<Block, RuntimeApi>>,
@@ -110,7 +106,8 @@ pub(crate) struct CollationTaskParams<Block: NodeBlock, RuntimeApi, Jam> {
 	pub authorizer: Arc<AuraAuthorizer>,
 	pub message_receiver: mpsc::Receiver<JamCollatorMessage<Block>>,
 	pub announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
-	pub max_resubmits: u32,
+	/// Shared with the builder: how many overdue packages the collation task is holding.
+	pub hold: AuthoringHold,
 }
 
 pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
@@ -129,7 +126,7 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		authorizer,
 		mut message_receiver,
 		announce_block,
-		max_resubmits,
+		hold,
 	} = params;
 
 	let (refine_gas_limit, accumulate_gas_limit) = loop {
@@ -192,14 +189,22 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		},
 	};
 
+	let mut jam_blocks = match jam.best_block_stream().await {
+		Ok(stream) => stream.fuse(),
+		Err(error) => {
+			tracing::error!(target: LOG_TARGET, ?error, "Unable to watch JAM best blocks.");
+			return;
+		},
+	};
+
 	tracing::info!(
 		target: LOG_TARGET,
 		?para_id,
 		service_id,
 		refine_gas_limit,
 		accumulate_gas_limit,
-		max_resubmits,
 		resubmit_after_slots = RESUBMIT_AFTER_SLOTS,
+		report_deadline_slots = REPORT_DEADLINE_SLOTS,
 		authorizer_hash = ?authorizer.hash(),
 		collator_set_size = authorizer.collator_set_size(),
 		own_index = authorizer.own_index(),
@@ -219,20 +224,16 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 		service_code_hash,
 		refine_gas_limit,
 		accumulate_gas_limit,
-		policy: ReanchorThenForget::new(max_resubmits),
+		policy: ResendUntilAnchorExpires,
 		announce_block,
 		hash_ledger,
+		hold,
 		packages: InFlightPackages::new(),
 		included_head: None,
 		statuses: SelectAll::new(),
 		subscriptions: StatusSubscriptions::new(),
 	};
 
-	// One tick per JAM slot, the granularity every deadline in this task is counted in. It is
-	// rearmed only when it fires: rebuilding it per iteration would reset it on every block and
-	// every status update, and it would never elapse at all.
-	let slot = Duration::from_millis(JAM_SLOT_DURATION_MS);
-	let mut tick = futures_timer::Delay::new(slot).fuse();
 	loop {
 		futures::select! {
 			message = message_receiver.next() => {
@@ -249,15 +250,18 @@ pub(crate) async fn run_collation_task<Block, RuntimeApi, Jam>(
 				};
 				manager.on_para_head(&head);
 			},
+			tip = jam_blocks.next() => {
+				let Some(tip) = tip else {
+					tracing::error!(target: LOG_TARGET, "JAM best-block stream ended; stopping.");
+					return;
+				};
+				manager.on_jam_block(tip).await;
+			},
 			update = manager.statuses.next() => {
 				// `None` only means the last subscription ended while nothing is in flight.
 				if let Some((wp_hash, status)) = update {
 					manager.on_status(wp_hash, status).await;
 				}
-			},
-			_ = tick => {
-				tick = futures_timer::Delay::new(slot).fuse();
-				manager.on_slot_tick().await;
 			},
 		}
 	}
@@ -269,16 +273,20 @@ struct InFlight<Block: BlockT> {
 	block_number: <Block::Header as HeaderT>::Number,
 	parent_hash: Block::Hash,
 	wp_hash: WorkPackageHash,
-	/// The package exactly as submitted. A soft resubmission replays it verbatim, which is what
-	/// keeps the hash JAM knows it by — and therefore the status subscription — unchanged.
+	/// The package exactly as submitted. A resend replays it verbatim, which is what keeps the
+	/// hash JAM knows it by — and therefore the status subscription — unchanged.
 	package: WorkPackage,
-	/// What the package would be rebuilt from around a fresh anchor.
-	source: PackageSource<Block>,
+	/// The PoV, sent as work-item extrinsic 0 and replayed byte-identically with `package` on a
+	/// resend. `Arc` keeps the MBs from being copied per entry.
+	pov: Arc<[u8]>,
 	anchored: Anchored,
-	/// The JAM slot this package was last submitted in: the zero of the soft-resubmit timer.
+	/// The JAM tip slot the package was last sent against: the zero of the resend clock.
 	submitted_at: JamSlot,
 	reported: bool,
-	resubmits: u32,
+	/// `submit()` calls that returned `true`: real hand-offs to a guarantor.
+	sends: u32,
+	/// Times the policy said `Resend`, whether or not the hand-off itself succeeded again.
+	resends: u32,
 }
 
 /// The work packages this collator has in flight, in the order they were submitted.
@@ -324,6 +332,15 @@ impl<Block: BlockT> InFlightPackages<Block> {
 	fn block_hashes(&self) -> Vec<Block::Hash> {
 		self.entries.iter().map(|entry| entry.block_hash).collect()
 	}
+
+	/// Packages that were handed to a guarantor at least once, resent at least once, and not yet
+	/// reported: the ones the builder must not author past.
+	fn overdue(&self) -> usize {
+		self.entries
+			.iter()
+			.filter(|entry| !entry.reported && entry.sends > 0 && entry.resends > 0)
+			.count()
+	}
 }
 
 /// The status subscription following each package in flight, keyed by package hash.
@@ -346,7 +363,7 @@ impl StatusSubscriptions {
 	/// Wrap a package's status stream so it can be ended on demand.
 	///
 	/// A resubmission subscribes again for the same package hash; the earlier subscription is
-	/// closed here, so a package holds exactly one however often it is resubmitted.
+	/// closed here, so a package holds exactly one however often it is resent.
 	fn follow(
 		&mut self,
 		wp_hash: WorkPackageHash,
@@ -382,6 +399,41 @@ impl StatusSubscriptions {
 /// two against each other so the status subscriptions keep naming the package the node sees.
 fn work_package_hash(package: &WorkPackage) -> WorkPackageHash {
 	WorkPackageHash::from(sp_crypto_hashing::blake2_256(&jam_codec::Encode::encode(package)))
+}
+
+/// The JAM block in β whose guarantees name `wp_hash`, if any.
+fn appeared_in(history: &RecentBlocks, wp_hash: WorkPackageHash) -> Option<&BlockInfo> {
+	history
+		.history
+		.iter()
+		.find(|block| MapLike::contains_key(&block.reported, &wp_hash))
+}
+
+/// What to do with each unreported package when a JAM block arrives: the pure heart of
+/// [`Manager::on_jam_block`], so the sorting between reported, resent, expired and waiting
+/// packages is unit-testable without a chain.
+fn plan_on_jam_block<Block: BlockT>(
+	packages: &InFlightPackages<Block>,
+	tip_slot: JamSlot,
+	history: &RecentBlocks,
+	policy: &ResendUntilAnchorExpires,
+) -> Vec<(WorkPackageHash, PolicyAction, Option<BlockDesc>)> {
+	packages
+		.entries
+		.iter()
+		.filter(|entry| !entry.reported)
+		.map(|entry| {
+			let appeared = appeared_in(history, entry.wp_hash);
+			let action = policy.on_jam_block(Observed {
+				tip_slot,
+				submitted_at: entry.submitted_at,
+				anchor_slot: entry.anchored.anchor_slot,
+				on_chain: appeared.is_some(),
+			});
+			let block = appeared.map(|info| BlockDesc { header_hash: info.hash, slot: info.slot });
+			(entry.wp_hash, action, block)
+		})
+		.collect()
 }
 
 /// The prerequisite a package for a block must name: the work package this node submitted for
@@ -502,7 +554,9 @@ struct Manager<Block: NodeBlock, RuntimeApi, Jam> {
 	service_code_hash: CodeHash,
 	refine_gas_limit: UnsignedGas,
 	accumulate_gas_limit: UnsignedGas,
-	policy: ReanchorThenForget,
+	policy: ResendUntilAnchorExpires,
+	/// Shared with the builder; refreshed by [`Manager::log_state`] on every mutation.
+	hold: AuthoringHold,
 	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 	/// Which work package this node submitted for which block. Signing is non-deterministic, so
 	/// a package's hash can only be remembered, never recomputed — not even by its author.
@@ -605,8 +659,7 @@ where
 			blocks: vec![block],
 			proof: compact_proof,
 			// The additional-data map assembled at build time — the `JAM_PROOF_KEY` entry — is
-			// part of what makes this block's package what it is, and survives a re-anchor like
-			// the block it proves.
+			// part of what makes this block's package what it is, like the block it proves.
 			additional_data,
 			validation_code_hash,
 			service_id: self.service_id,
@@ -627,7 +680,7 @@ where
 			anchor_slot,
 			submit_target,
 		};
-		let package = match self.authorized_package(&source, &anchored) {
+		let (package, pov) = match self.authorized_package(&source, &anchored) {
 			Ok(package) => package,
 			Err(error) => {
 				tracing::error!(
@@ -660,7 +713,7 @@ where
 			own_index = self.authorizer.own_index(),
 			authorizer_hash = ?self.authorizer.hash(),
 			token_len = package.authorization.len(),
-			pov_len = package.items[0].payload.0.len(),
+			pov_len = package.items[0].extrinsics[0].len,
 			in_flight = self.packages.len(),
 			?triggered_by,
 			"Assembled and signed the work package for the block.",
@@ -668,21 +721,25 @@ where
 
 		(self.announce_block)(block_hash, None);
 
-		let submitted_at = jam_slot_at(Timestamp::current());
-		// The entry is recorded even if the submission itself failed: the soft-resubmit timer is
-		// what retries it, and it can only retry a package this task still holds.
-		self.submit(wp_hash, &package, &anchored, block_hash).await;
+		// The clock starts at the JAM tip slot the package is sent against, not the wall clock:
+		// the resend decision is made when the next JAM block arrives, and it is that chain's
+		// slots the deadline is counted in.
+		let submitted_at = triggered_by.slot;
+		// The entry is recorded even if the submission itself failed: a resend can only repeat a
+		// package this task still holds, and the next JAM block re-decides it.
+		let sent = self.submit(wp_hash, &package, &pov, &anchored, block_hash).await;
 		self.packages.entries.push_back(InFlight {
 			block_hash,
 			block_number,
 			parent_hash,
 			wp_hash,
 			package,
-			source,
+			pov: pov.into(),
 			anchored,
 			submitted_at,
 			reported: false,
-			resubmits: 0,
+			sends: u32::from(sent),
+			resends: 0,
 		});
 		self.log_state("a package was submitted");
 	}
@@ -695,24 +752,25 @@ where
 		&self,
 		source: &PackageSource<Block>,
 		anchored: &Anchored,
-	) -> Result<WorkPackage, String> {
-		let mut package = source.package(anchored);
+	) -> Result<(WorkPackage, Vec<u8>), String> {
+		let (mut package, pov) = source.package(anchored);
 		self.authorizer.authorize(&mut package)?;
-		Ok(package)
+		Ok((package, pov))
 	}
 
 	/// Submit a package to the core its anchor's pool scan named, and subscribe to its status;
 	/// `false` means it was not submitted.
 	///
-	/// A plain `submitWorkPackage` with no extrinsics: nothing has to be assembled into a bundle
-	/// by hand any more, because the package imports nothing that would have to travel inline.
-	/// With no core holding the para's authorizer there is nowhere to send it — a guarantor on any
-	/// other core would refuse it — so it is kept, and the soft-resubmit timer re-anchors it,
-	/// which re-scans and heals once a core is assigned again.
+	/// The PoV is sent as work-item extrinsic 0, not in the package payload: CE 133 caps the first
+	/// message (core index plus package, payloads included) at 200 KiB, while extrinsics ride the
+	/// bulk channel, bounded only by `max_input`. With no core holding the para's authorizer there
+	/// is nowhere to send it — a guarantor on any other core would refuse it — so it is kept, but
+	/// no resend can reach a guarantor until a core holds the para's authorizer again.
 	async fn submit(
 		&mut self,
 		wp_hash: WorkPackageHash,
 		package: &WorkPackage,
+		pov: &[u8],
 		anchored: &Anchored,
 		block_hash: Block::Hash,
 	) -> bool {
@@ -727,13 +785,14 @@ where
 				authorizer_hash = ?self.authorizer.hash(),
 				in_flight = self.packages.len(),
 				"No core held this para's authorizer at the package's anchor, so it was not \
-				 submitted. It stays in flight and will be re-anchored, which re-scans the pools.",
+				 submitted. It stays in flight, but no resend can reach a guarantor until a core \
+				 holds this para's authorizer again.",
 			);
 			return false;
 		};
 
 		let started = Instant::now();
-		let result = self.jam.submit_work_package(core, package, Vec::new()).await;
+		let result = self.jam.submit_work_package(core, package, vec![pov.to_vec()]).await;
 		let elapsed_ms = started.elapsed().as_millis();
 		if let Err(error) = result {
 			tracing::warn!(
@@ -771,7 +830,7 @@ where
 				?wp_hash,
 				?block_hash,
 				?error,
-				"Unable to follow the work-package status; the soft-resubmit timer is the only \
+				"Unable to follow the work-package status; the recent-blocks history is the only \
 				 thing left watching this package.",
 			),
 		}
@@ -802,151 +861,111 @@ where
 			"Work-package status update.",
 		);
 		match action {
-			PolicyAction::Wait => {},
-			PolicyAction::Done => self.packages.entries[index].reported = true,
-			PolicyAction::Resubmit => self.resubmit(index).await,
-			PolicyAction::Reanchor => self.reanchor(index, &format!("{status:?}")).await,
+			PolicyAction::Wait | PolicyAction::Resend => {},
+			PolicyAction::Reported => {
+				self.packages.entries[index].reported = true;
+				let reported_in = match &status {
+					WorkPackageStatus::Reported { reported_in, .. } => Some(*reported_in),
+					_ => None,
+				};
+				let entry = &self.packages.entries[index];
+				tracing::info!(
+					target: LOG_TARGET,
+					wp_hash = ?entry.wp_hash,
+					block_hash = ?entry.block_hash,
+					jam_block = ?reported_in.map(|block| block.header_hash),
+					jam_slot = reported_in.map(|block| block.slot),
+					via = "status",
+					"The work package appeared on chain in a JAM block.",
+				);
+			},
 			PolicyAction::Forget => self.forget(index, &format!("{status:?}")),
 		}
+		self.log_state("a work-package status update arrived");
 	}
 
-	/// Once per JAM slot: give the policy a look at every package that has not been reported yet.
-	async fn on_slot_tick(&mut self) {
-		let now = jam_slot_at(Timestamp::current());
-		let overdue: Vec<(WorkPackageHash, PolicyAction)> = self
-			.packages
-			.entries
-			.iter()
-			.filter(|entry| !entry.reported)
-			.map(|entry| {
-				let waiting = now.saturating_sub(entry.submitted_at);
-				(entry.wp_hash, self.policy.on_silence(waiting, entry.resubmits))
-			})
-			.filter(|(_, action)| !matches!(action, PolicyAction::Wait))
-			.collect();
-
-		// Keyed by package hash rather than by index: forgetting one shifts every index after it,
-		// and packages are independent now, so several may come due in the same tick.
-		for (wp_hash, action) in overdue {
-			let Some(index) = self.packages.position_of_package(wp_hash) else { continue };
-			match action {
-				PolicyAction::Resubmit => self.resubmit(index).await,
-				PolicyAction::Reanchor => {
-					self.reanchor(index, "no report within the resubmit budget").await
-				},
-				PolicyAction::Forget => self.forget(index, "no report within the resubmit budget"),
-				PolicyAction::Wait | PolicyAction::Done => {},
-			}
-		}
-	}
-
-	/// Send the very same package again.
-	///
-	/// Same bytes means the same work-package hash, so JAM sees one package however often it is
-	/// repeated and the status subscription this task already holds keeps naming it.
-	async fn resubmit(&mut self, index: usize) {
-		let now = jam_slot_at(Timestamp::current());
-		let entry = &mut self.packages.entries[index];
-		entry.resubmits += 1;
-		entry.submitted_at = now;
-		let (wp_hash, package, block_hash, resubmits) =
-			(entry.wp_hash, entry.package.clone(), entry.block_hash, entry.resubmits);
-		let anchored = entry.anchored.clone();
-		tracing::info!(
-			target: LOG_TARGET,
-			?block_hash,
-			?wp_hash,
-			index,
-			resubmits,
-			core = ?anchored.submit_target,
-			in_flight = self.packages.len(),
-			"No report yet; resubmitting the identical package.",
-		);
-		self.submit(wp_hash, &package, &anchored, block_hash).await;
-	}
-
-	/// Obtain a fresh context and, if the anchor hash is unchanged, re-sign and resubmit.
-	///
-	/// When the anchor *hash* changes the block's baked-in `JamParent` digest is stale; the
-	/// package is dropped and the builder re-authors a fresh block on the next tick. When only
-	/// the lookup anchor changes the digest is still valid — re-signing is safe and cheap.
-	async fn reanchor(&mut self, index: usize, reason: &str) {
-		let entry = &self.packages.entries[index];
-		let block_hash = entry.block_hash;
-		self.log_deadline(index, jam_slot_at(Timestamp::current()), reason);
-
-		let Ok(anchored) =
-			recontext(&*self.jam, &self.authorizer, &entry.anchored, block_hash).await
-		else {
-			self.forget(index, "the package failed and could not be re-anchored");
-			return;
-		};
-
-		if needs_drop_on_reanchor(&self.packages.entries[index].anchored, &anchored) {
-			self.forget(
-				index,
-				"anchor changed; the block's JamParent digest names the old anchor and cannot \
-				 be reused — the builder will produce a fresh block with the correct digest",
-			);
+	/// A new JAM block arrived: read β and re-decide every package that has not been reported.
+	async fn on_jam_block(&mut self, tip: BlockDesc) {
+		if self.packages.entries.is_empty() {
 			return;
 		}
-
-		let old_wp_hash = self.packages.entries[index].wp_hash;
-		// A fresh anchor is a fresh lookup anchor, so the old token signs nothing here.
-		let package = match self.authorized_package(&self.packages.entries[index].source, &anchored)
-		{
-			Ok(package) => package,
+		let history = match self.jam.recent_blocks(tip.header_hash).await {
+			Ok(history) => history,
 			Err(error) => {
-				tracing::error!(
+				tracing::warn!(
 					target: LOG_TARGET,
-					?block_hash,
-					?old_wp_hash,
-					lookup_anchor_slot = anchored.context.lookup_anchor_slot,
-					error,
-					"Failed to authorize the re-anchored work package.",
+					?tip,
+					?error,
+					"Unable to read the recent-blocks history; leaving the packages for the next \
+					 JAM block.",
 				);
-				self.forget(index, "the re-anchored package could not be authorized");
 				return;
 			},
 		};
-		let wp_hash = work_package_hash(&package);
-		let anchor = anchored.context.anchor;
+		let plan = plan_on_jam_block(&self.packages, tip.slot, &history, &self.policy);
+		// Keyed by package hash rather than by index: forgetting one shifts every index after it,
+		// and packages are independent, so several may come due with the same block.
+		for (wp_hash, action, appeared) in plan {
+			let Some(index) = self.packages.position_of_package(wp_hash) else { continue };
+			match action {
+				PolicyAction::Reported => {
+					self.packages.entries[index].reported = true;
+					let entry = &self.packages.entries[index];
+					tracing::info!(
+						target: LOG_TARGET,
+						wp_hash = ?entry.wp_hash,
+						block_hash = ?entry.block_hash,
+						jam_block = ?appeared.map(|block| block.header_hash),
+						jam_slot = appeared.map(|block| block.slot),
+						via = "recent_history",
+						"The work package appeared on chain in a JAM block.",
+					);
+				},
+				PolicyAction::Forget => {
+					self.forget(index, "anchor expired before the package appeared on chain")
+				},
+				PolicyAction::Resend => self.resend(index, tip.slot).await,
+				PolicyAction::Wait => {},
+			}
+		}
+		self.log_state("a JAM block arrived");
+	}
+
+	/// Send the very same package again, against the JAM tip slot that triggered it.
+	///
+	/// Same bytes means the same work-package hash, so JAM sees one package however often it is
+	/// repeated and the status subscription this task already holds keeps naming it.
+	async fn resend(&mut self, index: usize, tip_slot: JamSlot) {
+		let entry = &mut self.packages.entries[index];
+		entry.submitted_at = tip_slot;
+		entry.resends += 1;
+		let (wp_hash, package, pov, block_hash, block_number, core, sends, resends, anchor_slot) = (
+			entry.wp_hash,
+			entry.package.clone(),
+			entry.pov.clone(),
+			entry.block_hash,
+			entry.block_number,
+			entry.anchored.submit_target,
+			entry.sends,
+			entry.resends,
+			entry.anchored.anchor_slot,
+		);
+		let anchored = entry.anchored.clone();
 		tracing::info!(
 			target: LOG_TARGET,
-			?block_hash,
-			?old_wp_hash,
-			new_wp_hash = ?wp_hash,
-			?anchor,
-			anchor_slot = anchored.anchor_slot,
-			lookup_anchor = ?anchored.context.lookup_anchor,
-			lookup_anchor_slot = anchored.context.lookup_anchor_slot,
-			expected_collator = self.authorizer.collator_for(anchored.context.lookup_anchor_slot),
-			own_index = self.authorizer.own_index(),
-			token_len = package.authorization.len(),
-			reason,
-			"Re-anchored and re-signed the package; nothing names a package's hash, so this breaks \
-			 no links.",
+			wp_hash = ?wp_hash,
+			block_hash = ?block_hash,
+			block_number = %block_number,
+			core = ?core,
+			tip_slot,
+			anchor_slot,
+			sends,
+			resends,
+			"Resending the identical work package; it has not appeared on chain.",
 		);
-
-		if !self.submit(wp_hash, &package, &anchored, block_hash).await {
-			self.forget(index, "the re-anchored package could not be submitted");
-			return;
+		if self.submit(wp_hash, &package, &pov, &anchored, block_hash).await {
+			self.packages.entries[index].sends += 1;
 		}
-		// The block's ledger entry has to name the package now in flight, not the one the fresh
-		// signature replaced: a child built on this block names whatever the ledger holds, and
-		// the old hash is a package nothing will ever report. `forget`'s cascade matches on the
-		// entry's live hash, so a stale one would also hide the child from it.
-		record_submitted_hash(&self.hash_ledger, block_hash.into(), &package);
-		// The old package hash is gone, so its subscription has to go with it.
-		self.stop_following(old_wp_hash, "re-anchored");
-		let submitted_at = jam_slot_at(Timestamp::current());
-		let entry = &mut self.packages.entries[index];
-		entry.wp_hash = wp_hash;
-		entry.package = package;
-		entry.anchored = anchored;
-		entry.submitted_at = submitted_at;
-		entry.resubmits += 1;
-		entry.reported = false;
 	}
 
 	/// Give up on a package and, transitively, on every package that named it.
@@ -969,7 +988,9 @@ where
 				parent_hash = ?entry.parent_hash,
 				wp_hash = ?entry.wp_hash,
 				reason,
-				resubmits = entry.resubmits,
+				sends = entry.sends,
+				resends = entry.resends,
+				anchor_slot = entry.anchored.anchor_slot,
 				cascade_len,
 				in_flight = self.packages.len(),
 				"Giving up on a work package. Its block stays in the local database, so authoring \
@@ -977,29 +998,6 @@ where
 			);
 		}
 		self.log_state("a package was forgotten");
-	}
-
-	/// How much of the package's one deadline was left when it failed.
-	fn log_deadline(&self, index: usize, now: JamSlot, reason: &str) {
-		let entry = &self.packages.entries[index];
-		let anchor_age = now.saturating_sub(entry.anchored.anchor_slot);
-		tracing::warn!(
-			target: LOG_TARGET,
-			block_hash = ?entry.block_hash,
-			parent_hash = ?entry.parent_hash,
-			wp_hash = ?entry.wp_hash,
-			index,
-			reason,
-			now_jam_slot = now,
-			anchor = ?entry.anchored.context.anchor,
-			anchor_slot = entry.anchored.anchor_slot,
-			anchor_age,
-			anchor_expired = anchor_age > REPORT_DEADLINE_SLOTS,
-			deadline_slots = REPORT_DEADLINE_SLOTS,
-			submitted_at = entry.submitted_at,
-			resubmits = entry.resubmits,
-			"A work package failed; here is what its anchor deadline had left.",
-		);
 	}
 
 	/// The para head advanced in JAM state.
@@ -1066,10 +1064,13 @@ where
 	}
 
 	fn log_state(&self, after: &str) {
+		let overdue = self.packages.overdue();
+		self.hold.set_overdue(overdue);
 		tracing::debug!(
 			target: LOG_TARGET,
 			after,
 			in_flight = self.packages.len(),
+			overdue,
 			blocks = ?self.packages.block_hashes(),
 			included_head = ?self.included_head,
 			live_subscriptions = self.subscriptions.len(),
@@ -1082,9 +1083,8 @@ fn hex_prefix(bytes: &[u8]) -> String {
 	bytes.iter().take(32).map(|byte| format!("{byte:02x}")).collect()
 }
 
-/// The parts of a work package that survive a change of anchor: the built block(s), the
-/// parachain storage proof witnessing them, the parent header (travels in the V4 PoV), and the
-/// work-item settings.
+/// The parts a package is assembled from: the built block(s), the parachain storage proof
+/// witnessing them, the parent header (travels in the V4 PoV), and the work-item settings.
 struct PackageSource<Block: BlockT> {
 	blocks: Vec<Block>,
 	proof: CompactProof,
@@ -1112,21 +1112,28 @@ struct Anchored {
 	/// The anchor's timeslot — the start of the window the package has to be reported in.
 	anchor_slot: JamSlot,
 	/// The core the pool scan at this anchor named, if any. Anchor-derived like everything else
-	/// here: re-anchoring re-scans, which is what heals a package after its core was reassigned.
+	/// here, and fixed for the package's life: a resend replays the same anchor.
 	submit_target: Option<CoreIndex>,
 }
 
 impl<Block: BlockT> PackageSource<Block> {
-	/// Assemble the work package for `anchored`, still unauthorized.
+	/// Assemble the work package for `anchored`, still unauthorized, and hand back the PoV it
+	/// carries.
+	///
+	/// The PoV travels as work-item extrinsic 0, not in the payload: CE 133 caps the first message
+	/// (core index plus package, payloads included) at 200 KiB, while extrinsics ride the bulk
+	/// channel, bounded only by `max_input`. The payload's `ParachainCandidate` keeps its
+	/// `validation_code_hash` — the parachain service still reads that — with an empty `pov`.
 	///
 	/// The token cannot be built here: it signs a hash of the finished package, so authorizing is
 	/// the step after this one ([`AuraAuthorizer::authorize`]).
-	fn package(&self, anchored: &Anchored) -> WorkPackage {
+	fn package(&self, anchored: &Anchored) -> (WorkPackage, Vec<u8>) {
+		let pov = build_pov(&self.blocks, &self.proof, &self.parent_header, &self.additional_data);
 		let payload = ParachainCandidate {
 			validation_code_hash: parachain_service_core::types::ValidationCodeHash(
 				self.validation_code_hash.into(),
 			),
-			pov: build_pov(&self.blocks, &self.proof, &self.parent_header, &self.additional_data),
+			pov: Vec::new(),
 		}
 		.encode();
 
@@ -1141,19 +1148,25 @@ impl<Block: BlockT> PackageSource<Block> {
 			refine_gas_limit: self.refine_gas_limit,
 			accumulate_gas_limit: self.accumulate_gas_limit,
 			import_segments: Default::default(),
-			extrinsics: Default::default(),
+			extrinsics: vec![ExtrinsicSpec {
+				hash: jam_std_common::hash_raw(&pov).into(),
+				len: pov.len() as u32,
+			}]
+			.try_into()
+			.expect("a single extrinsic always fits; qed"),
 			export_count: 0,
 		};
 
 		// The parachain service hosts its own authorizer blob, so it is also the service
 		// guarantors look that blob's preimage up in.
-		WorkPackage {
+		let package = WorkPackage {
 			authorization: Authorization::default(),
 			auth_code_host: self.service_id,
 			authorizer: self.authorizer.clone(),
 			context: anchored.context.clone(),
 			items: vec![work_item].try_into().expect("a single work item always fits; qed"),
-		}
+		};
+		(package, pov)
 	}
 }
 
@@ -1178,117 +1191,6 @@ fn build_pov<Block: BlockT>(
 	.encode()
 }
 
-/// Returns `true` when a re-anchored package must be dropped rather than re-signed.
-///
-/// The block carries a `JamParent` digest naming `old.context.anchor`. If the anchor *hash*
-/// changes that digest is stale and the package can never validate; drop it and let the builder
-/// re-author. A change confined to the lookup anchor leaves the digest intact — re-signing is
-/// safe.
-fn needs_drop_on_reanchor(old: &Anchored, fresh: &Anchored) -> bool {
-	fresh.context.anchor != old.context.anchor
-}
-
-/// Re-anchor a package: fresh context, fresh pool scan, same block and parent header.
-async fn recontext<Jam, BlockHash>(
-	jam: &Jam,
-	authorizer: &AuraAuthorizer,
-	previous: &Anchored,
-	block_hash: BlockHash,
-) -> Result<Anchored, ()>
-where
-	Jam: JamChainSource + JamStateSource + ?Sized,
-	BlockHash: std::fmt::Debug,
-{
-	let (context, anchor_slot) = match fresh_context(jam, authorizer).await {
-		Ok(context) => context,
-		Err(error) => {
-			tracing::error!(
-				target: LOG_TARGET,
-				?block_hash,
-				?error,
-				"Unable to build a fresh refine context; abandoning the work package.",
-			);
-			return Err(());
-		},
-	};
-
-	let submit_target = match scan_pools_at(jam, context.anchor, authorizer).await {
-		Ok(scan) => scan.target,
-		Err(error) => {
-			tracing::error!(
-				target: LOG_TARGET,
-				?block_hash,
-				new_anchor = ?context.anchor,
-				error,
-				"Unable to scan the authorizer pools at the fresh anchor; abandoning the work \
-				 package.",
-			);
-			return Err(());
-		},
-	};
-
-	tracing::info!(
-		target: LOG_TARGET,
-		?block_hash,
-		old_anchor = ?previous.context.anchor,
-		new_anchor = ?context.anchor,
-		anchor_slot,
-		lookup_anchor_slot = context.lookup_anchor_slot,
-		old_core = ?previous.submit_target,
-		new_core = ?submit_target,
-		"Re-anchored the work package around a fresh anchor and re-scanned the authorizer pools.",
-	);
-	Ok(Anchored {
-		context: RefineContext { prerequisites: previous.context.prerequisites.clone(), ..context },
-		anchor_slot,
-		submit_target,
-	})
-}
-
-/// The refine context around the current best JAM block (anchor = parent of best), as in
-/// polkajam's `create_refine_context`, plus the anchor's slot.
-///
-/// The lookup anchor is *not* simply the parent of the finalized block: it is the newest finalized
-/// block the AURA round-robin names this collator for, because that slot is what the guest reads
-/// to decide whose signature the token has to carry. A re-anchored package is re-signed against
-/// this one, so the policy has to be the same as the builder's.
-async fn fresh_context<Jam>(
-	jam: &Jam,
-	authorizer: &AuraAuthorizer,
-) -> Result<(RefineContext, JamSlot), String>
-where
-	Jam: JamChainSource + ?Sized,
-{
-	let best = jam_read("bestBlock", HeaderHash::default(), jam.best_block()).await?;
-	let anchor = jam_read("parent", best.header_hash, jam.parent(best.header_hash)).await?;
-	let state_root =
-		jam_read("stateRoot", anchor.header_hash, jam.state_root(anchor.header_hash)).await?;
-	let beefy_root =
-		jam_read("beefyRoot", anchor.header_hash, jam.beefy_root(anchor.header_hash)).await?;
-	let finalized = jam_read("finalizedBlock", anchor.header_hash, jam.finalized_block()).await?;
-	let newest_lookup_anchor =
-		jam_read("parent", finalized.header_hash, jam.parent(finalized.header_hash)).await?;
-	let lookup_anchor = choose_lookup_anchor(jam, &anchor, newest_lookup_anchor, authorizer)
-		.await
-		.ok_or_else(|| "no finalized block in reach names this collator".to_string())?;
-	let lookup_anchor_state_root =
-		jam_read("stateRoot", lookup_anchor.header_hash, jam.state_root(lookup_anchor.header_hash))
-			.await?;
-	Ok((
-		RefineContext {
-			anchor: anchor.header_hash,
-			anchor_slot: anchor.slot,
-			state_root,
-			beefy_root,
-			lookup_anchor: lookup_anchor.header_hash,
-			lookup_anchor_slot: lookup_anchor.slot,
-			lookup_anchor_state_root,
-			prerequisites: Default::default(),
-		},
-		anchor.slot,
-	))
-}
-
 #[cfg(test)]
 mod tests {
 	use super::{
@@ -1298,7 +1200,8 @@ mod tests {
 	use codec::DecodeAll;
 	use cumulus_jam_state_reader::JAM_PROOF_KEY;
 	use cumulus_test_runtime::{Block as TestBlock, Header as TestHeader};
-	use jam_std_common::build_encoded_bundle;
+	use jam_std_common::{build_encoded_bundle, BlockInfo, Mmr, RecentBlocks};
+	use jam_types::{BoundedVec, RecentBlockCount, SegmentTreeRoot, VecMap};
 	use parachain_authorizer::aura::{signable_work_package_hash, AuthToken as GuestToken};
 	use parachain_authorizer_sr25519::Sr25519;
 	use parachain_service_core::StateProof;
@@ -1311,11 +1214,19 @@ mod tests {
 
 	/// A package as the manager builds one: assembled, then signed.
 	fn signed(source: &PackageSource<TestBlock>, anchored: &Anchored) -> WorkPackage {
-		let mut package = source.package(anchored);
+		signed_with_pov(source, anchored).0
+	}
+
+	/// A signed package together with the PoV it sends as work-item extrinsic 0.
+	fn signed_with_pov(
+		source: &PackageSource<TestBlock>,
+		anchored: &Anchored,
+	) -> (WorkPackage, Vec<u8>) {
+		let (mut package, pov) = source.package(anchored);
 		aura()
 			.authorize(&mut package)
 			.expect("the keystore holds Alice's aura key; qed");
-		package
+		(package, pov)
 	}
 
 	fn wp_hash(byte: u8) -> WorkPackageHash {
@@ -1376,21 +1287,132 @@ mod tests {
 		for index in 0..count {
 			let block_header = header(u32::from(index) + 1, parent_hash);
 			let block_hash = block_header.hash();
+			let (package, pov) =
+				signed_with_pov(&package_source(), &anchored(JamSlot::from(index)));
 			packages.entries.push_back(InFlight {
 				block_hash,
 				block_number: *block_header.number(),
 				parent_hash,
 				wp_hash: wp_hash(index),
-				package: signed(&package_source(), &anchored(JamSlot::from(index))),
-				source: package_source(),
+				package,
+				pov: pov.into(),
 				anchored: anchored(JamSlot::from(index)),
 				submitted_at: JamSlot::from(index),
 				reported: false,
-				resubmits: 0,
+				sends: 1,
+				resends: 0,
 			});
 			parent_hash = block_hash;
 		}
 		packages
+	}
+
+	/// β naming each hash in `reported`, one block per hash, newest last.
+	fn recent_blocks(reported: &[WorkPackageHash]) -> RecentBlocks {
+		let history: BoundedVec<BlockInfo, RecentBlockCount> = reported
+			.iter()
+			.enumerate()
+			.map(|(index, wp_hash)| {
+				let mut named = VecMap::new();
+				named.insert(*wp_hash, SegmentTreeRoot([0u8; 32]));
+				BlockInfo {
+					hash: HeaderHash::from([index as u8; 32]),
+					beefy_root: [0u8; 32].into(),
+					state_root: [0u8; 32].into(),
+					slot: index as JamSlot,
+					reported: named,
+				}
+			})
+			.collect::<Vec<_>>()
+			.try_into()
+			.expect("within recent block count");
+		RecentBlocks { history, mmr: Mmr::default() }
+	}
+
+	/// The β read is what tells "reported" apart from "still missing": a hash named by some block
+	/// in the history comes back with that block, and an unknown hash comes back empty.
+	#[test]
+	fn appeared_in_finds_the_block_that_named_the_package() {
+		let named = wp_hash(0x11);
+		let history = recent_blocks(&[wp_hash(0x22), named]);
+
+		let found = appeared_in(&history, named).expect("the second block named it");
+		assert_eq!(found.slot, 1);
+		assert!(appeared_in(&history, wp_hash(0x33)).is_none());
+	}
+
+	/// One JAM block sorts every unreported package: a package in β is reported, one whose anchor
+	/// is past its deadline is forgotten, one away for the resend window is resent, and the rest
+	/// wait.
+	#[test]
+	fn a_jam_block_sorts_reported_resent_expired_and_waiting() {
+		let tip = 100;
+		let mut packages = in_flight(4);
+		// 0: named in β.
+		packages.entries[0].anchored.anchor_slot = tip;
+		packages.entries[0].submitted_at = tip;
+		// 1: missing, but due for a resend.
+		packages.entries[1].anchored.anchor_slot = tip;
+		packages.entries[1].submitted_at = tip - RESUBMIT_AFTER_SLOTS;
+		// 2: missing and its anchor has expired.
+		packages.entries[2].anchored.anchor_slot = tip - REPORT_DEADLINE_SLOTS;
+		packages.entries[2].submitted_at = tip - REPORT_DEADLINE_SLOTS;
+		// 3: missing, but only just sent.
+		packages.entries[3].anchored.anchor_slot = tip;
+		packages.entries[3].submitted_at = tip;
+
+		let history = recent_blocks(&[wp_hash(0)]);
+		let plan = plan_on_jam_block(&packages, tip, &history, &ResendUntilAnchorExpires);
+		let actions: Vec<_> = plan.iter().map(|(hash, action, _)| (*hash, *action)).collect();
+
+		assert_eq!(
+			actions,
+			vec![
+				(wp_hash(0), PolicyAction::Reported),
+				(wp_hash(1), PolicyAction::Resend),
+				(wp_hash(2), PolicyAction::Forget),
+				(wp_hash(3), PolicyAction::Wait),
+			],
+		);
+		assert_eq!(plan[0].2.map(|block| block.slot), Some(0), "the β block travels with it");
+	}
+
+	/// A package already known to be reported is filtered out before the clocks are even
+	/// consulted: nothing resends or forgets a package JAM has already accepted.
+	#[test]
+	fn a_reported_package_is_left_alone_by_the_clock() {
+		let tip = 100;
+		let mut packages = in_flight(2);
+		packages.entries[0].reported = true;
+		packages.entries[0].anchored.anchor_slot = tip - REPORT_DEADLINE_SLOTS;
+		packages.entries[0].submitted_at = tip - REPORT_DEADLINE_SLOTS;
+		packages.entries[1].anchored.anchor_slot = tip;
+		packages.entries[1].submitted_at = tip;
+
+		let plan =
+			plan_on_jam_block(&packages, tip, &recent_blocks(&[]), &ResendUntilAnchorExpires);
+
+		assert_eq!(plan.len(), 1, "the reported package is not re-decided");
+		assert_eq!(plan[0].0, wp_hash(1));
+		assert_eq!(plan[0].1, PolicyAction::Wait);
+	}
+
+	/// Overdue is narrower than "in flight": it needs a real hand-off (`sends > 0`) and at least
+	/// one resend decision, and it stops as soon as the package is reported.
+	#[test]
+	fn only_resent_sent_unreported_packages_are_overdue() {
+		let mut packages = in_flight(4);
+		packages.entries[0].sends = 1;
+		packages.entries[0].resends = 0;
+		packages.entries[1].sends = 1;
+		packages.entries[1].resends = 1;
+		packages.entries[2].sends = 0;
+		packages.entries[2].resends = 2;
+		packages.entries[3].sends = 1;
+		packages.entries[3].resends = 1;
+		packages.entries[3].reported = true;
+
+		assert_eq!(packages.overdue(), 1, "only package 1 is overdue");
 	}
 
 	/// With no entry for the parent block in the ledger the chain restarts here: the assembled
@@ -1400,12 +1422,12 @@ mod tests {
 	fn a_package_with_no_known_parent_has_empty_prerequisites() {
 		let ledger = ledger();
 		let prerequisites = prerequisites_for_parent(&ledger, H256::repeat_byte(0x22).into());
-		let package = package_source().package(&anchored_naming(prerequisites));
+		let (package, _pov) = package_source().package(&anchored_naming(prerequisites));
 
 		assert!(package.context.prerequisites.as_ref().is_empty());
 		assert!(package.items[0].import_segments.is_empty());
 		assert_eq!(package.items[0].export_count, 0);
-		assert!(package.items[0].extrinsics.is_empty());
+		assert_eq!(package.items[0].extrinsics.len(), 1, "the PoV, and only the PoV, travels");
 	}
 
 	/// When the ledger remembers the parent block's package, the assembled package names exactly
@@ -1418,7 +1440,7 @@ mod tests {
 		ledger.insert(&parent_hash.into(), parent_wp_hash).expect("insert ok; qed");
 
 		let prerequisites = prerequisites_for_parent(&ledger, parent_hash.into());
-		let package = package_source().package(&anchored_naming(prerequisites));
+		let (package, _pov) = package_source().package(&anchored_naming(prerequisites));
 
 		assert_eq!(
 			package.context.prerequisites.as_ref(),
@@ -1500,8 +1522,8 @@ mod tests {
 
 	/// The hash is the key everything else uses — the status subscription, the manager's own
 	/// lookup — so it has to be the hash the node derives. polkajam's bundle builder is the
-	/// reference; with no imports and no extrinsics a bundle is just the encoded package, so the
-	/// two must agree exactly.
+	/// reference; with no imports the bundle opens with the encoded package, so the two must
+	/// agree exactly.
 	/// A package is submitted under the para's own authorizer and carries a token, so a guarantor
 	/// looks the AURA blob up by the hash the core's pool holds instead of waving the package
 	/// through. `auth_code_host` is the parachain service, which is where that blob's preimage is
@@ -1523,208 +1545,72 @@ mod tests {
 
 	#[test]
 	fn the_package_hash_is_the_one_polkajam_derives() {
-		let package = signed(&package_source(), &anchored(11));
+		let (package, pov) = signed_with_pov(&package_source(), &anchored(11));
+		let package_bytes = jam_codec::Encode::encode(&package);
 
-		let (reference, bundle) =
-			build_encoded_bundle(&package, Vec::<Vec<u8>>::new(), &[Vec::new()]);
+		let (reference, bundle) = build_encoded_bundle(&package, [&pov], &[Vec::new()]);
 
-		assert_eq!(work_package_hash(&package), reference);
-		assert_eq!(bundle, jam_codec::Encode::encode(&package), "nothing travels beside it");
-	}
-
-	/// When the anchor *hash* changes, the block's baked-in `JamParent` digest names the old
-	/// anchor and can never validate against the fresh one. `reanchor()` must drop the package
-	/// so the builder re-authors a fresh block with the correct digest on the next tick.
-	#[test]
-	fn re_anchoring_with_new_anchor_drops_the_package() {
-		let old = anchored(11); // anchor = [9u8; 32]
-						  // A fresh context where the anchor hash itself changed.
-		let fresh_new_anchor = Anchored {
-			context: RefineContext { anchor: HeaderHash::from([99u8; 32]), ..old.context.clone() },
-			..old.clone()
-		};
-		// A fresh context where only the slot moved (anchor hash unchanged).
-		let fresh_same_anchor = anchored(12); // anchor still [9u8; 32]
-
-		assert!(
-			needs_drop_on_reanchor(&old, &fresh_new_anchor),
-			"anchor hash changed: must drop so the builder re-authors with a fresh JamParent digest",
-		);
-		assert!(
-			!needs_drop_on_reanchor(&old, &fresh_same_anchor),
-			"only the slot moved, anchor hash is the same: re-sign is safe",
-		);
-	}
-
-	/// Re-anchoring keeps the block and its PoV untouched when the anchor *hash* is unchanged.
-	/// Only the context (and therefore the package hash and token) changes — a cheap re-sign.
-	/// This is the whole reason `PackageSource` is kept alongside the submitted package.
-	#[test]
-	fn re_anchoring_with_same_anchor_resigns_without_rebuild() {
-		let source = package_source();
-		let first = signed(&source, &anchored(11));
-		let second = signed(&source, &anchored(12));
-
-		assert_ne!(work_package_hash(&first), work_package_hash(&second));
-		assert_eq!(first.items[0].payload.0, second.items[0].payload.0, "the PoV is untouched");
-	}
-
-	/// Minimal JAM-source stub for `recontext` tests. Returns a fixed anchor ([99;32], slot 87)
-	/// that is distinct from the one `anchored()` uses ([9;32]), proving the anchor changed.
-	/// With `aura()` = one-collator alice, `choose_lookup_anchor` stops at the first block
-	/// (she names every slot), so no recursive `parent` calls are made.
-	struct MockJam;
-
-	#[async_trait::async_trait]
-	impl JamChainSource for MockJam {
-		async fn best_block(&self) -> jam_interface::Result<jam_interface::BlockDesc> {
-			Ok(jam_interface::BlockDesc { header_hash: HeaderHash::from([88u8; 32]), slot: 88 })
-		}
-		async fn finalized_block(&self) -> jam_interface::Result<jam_interface::BlockDesc> {
-			Ok(jam_interface::BlockDesc { header_hash: HeaderHash::from([77u8; 32]), slot: 77 })
-		}
-		async fn best_block_stream(
-			&self,
-		) -> jam_interface::Result<BoxStream<'static, jam_interface::BlockDesc>> {
-			Ok(futures::stream::pending().boxed())
-		}
-		async fn finalized_block_stream(
-			&self,
-		) -> jam_interface::Result<BoxStream<'static, jam_interface::BlockDesc>> {
-			Ok(futures::stream::pending().boxed())
-		}
-		async fn parent(
-			&self,
-			hash: HeaderHash,
-		) -> jam_interface::Result<jam_interface::BlockDesc> {
-			Ok(match hash.0[0] {
-				88 => {
-					jam_interface::BlockDesc { header_hash: HeaderHash::from([99u8; 32]), slot: 87 }
-				},
-				77 => {
-					jam_interface::BlockDesc { header_hash: HeaderHash::from([66u8; 32]), slot: 76 }
-				},
-				_ => {
-					return Err(jam_interface::Error::Other(format!("unexpected parent({hash:?})")))
-				},
-			})
-		}
-		async fn state_root(
-			&self,
-			hash: HeaderHash,
-		) -> jam_interface::Result<jam_interface::StateRootHash> {
-			Ok(match hash.0[0] {
-				99 => [1u8; 32].into(),
-				66 => [3u8; 32].into(),
-				_ => {
-					return Err(jam_interface::Error::Other(format!(
-						"unexpected state_root({hash:?})"
-					)))
-				},
-			})
-		}
-		async fn beefy_root(
-			&self,
-			_hash: HeaderHash,
-		) -> jam_interface::Result<jam_interface::MmrPeakHash> {
-			Ok([2u8; 32].into())
-		}
-		async fn parameters(&self) -> jam_interface::Result<VersionedParameters> {
-			Err(jam_interface::Error::Other("not needed in test".to_string()))
-		}
-	}
-
-	#[async_trait::async_trait]
-	impl JamStateSource for MockJam {
-		async fn state_value(
-			&self,
-			_at: HeaderHash,
-			_key: jam_interface::StorageKey,
-		) -> jam_interface::Result<Option<Vec<u8>>> {
-			Ok(None)
-		}
-		async fn state_value_stream(
-			&self,
-			_key: jam_interface::StorageKey,
-			_finalized: bool,
-		) -> jam_interface::Result<BoxStream<'static, jam_interface::ChainSubUpdate<Option<Vec<u8>>>>>
-		{
-			Ok(futures::stream::pending().boxed())
-		}
-		async fn state_proof(
-			&self,
-			_at: HeaderHash,
-			_start: jam_interface::StorageKey,
-			_end: jam_interface::StorageKey,
-			_size: u32,
-		) -> jam_interface::Result<jam_interface::RangeProof> {
-			Err(jam_interface::Error::Other("not needed in test".to_string()))
-		}
-		async fn service_value(
-			&self,
-			_at: HeaderHash,
-			_service: ServiceId,
-			_key: &[u8],
-		) -> jam_interface::Result<Option<Vec<u8>>> {
-			Ok(None)
-		}
-		async fn service_value_stream(
-			&self,
-			_service: ServiceId,
-			_key: &[u8],
-			_finalized: bool,
-		) -> jam_interface::Result<BoxStream<'static, jam_interface::ChainSubUpdate<Option<Vec<u8>>>>>
-		{
-			Ok(futures::stream::pending().boxed())
-		}
-		async fn auth_pools(
-			&self,
-			_at: HeaderHash,
-		) -> jam_interface::Result<jam_interface::AuthPools> {
-			Ok(jam_types::FixedVec::from_fn(|_| Default::default()))
-		}
-	}
-
-	/// `recontext()` rebuilds the refine context from the chain but must carry through any
-	/// prerequisites already set on the package — they reflect its position in the block chain,
-	/// not the anchor it happens to be submitted against.
-	#[test]
-	fn recontext_preserves_prerequisites() {
-		let prereq = wp_hash(0xAB);
-		let old = Anchored {
-			context: RefineContext { prerequisites: vec![prereq].into(), ..anchored(10).context },
-			..anchored(10)
-		};
-		assert!(
-			!old.context.prerequisites.is_empty(),
-			"precondition: prerequisites must be non-empty",
-		);
-		let new_anchored =
-			futures::executor::block_on(recontext(&MockJam, &aura(), &old, "test-block"))
-				.expect("mock always returns Ok; qed");
-		assert_ne!(
-			new_anchored.context.anchor, old.context.anchor,
-			"anchor must change so the test exercises a real re-anchor",
-		);
+		assert_eq!(work_package_hash(&package), reference, "the hash covers only the package");
 		assert_eq!(
-			new_anchored.context.prerequisites, old.context.prerequisites,
-			"prerequisites survive re-anchoring unchanged",
+			bundle,
+			[&package_bytes[..], &pov[..]].concat(),
+			"the bundle is the package followed by the PoV extrinsic",
 		);
 	}
 
-	/// A soft resubmission has to be the *same bytes*: a package rebuilt instead of replayed
-	/// would hash differently, and JAM would see a second package where the collator meant to
-	/// repeat one — a second refine, a second report, and a status subscription following a hash
-	/// nothing else knows about. Rebuilding is not even close to equivalent: everything the
-	/// source determines comes back identical, but the token does not, because an sr25519
-	/// signature carries a random nonce. Storing the signed package is the only way to repeat it.
+	/// The PoV no longer rides in the payload: `ParachainCandidate.pov` is empty, and the package's
+	/// one extrinsic spec names the PoV's hash and length.
+	#[test]
+	fn the_pov_travels_as_the_only_extrinsic() {
+		let (package, pov) = signed_with_pov(&package_source(), &anchored(11));
+
+		let candidate =
+			<ParachainCandidate as Decode>::decode(&mut &package.items[0].payload.0[..])
+				.expect("the payload is a ParachainCandidate");
+		assert!(candidate.pov.is_empty(), "the payload no longer carries the PoV");
+
+		assert_eq!(package.items[0].extrinsics.len(), 1, "the PoV is the one extrinsic");
+		let spec = &package.items[0].extrinsics[0];
+		assert_eq!(spec.len, pov.len() as u32);
+		assert_eq!(spec.hash, jam_types::ExtrinsicHash::from(jam_std_common::hash_raw(&pov)));
+	}
+
+	/// The extrinsic bytes a bundle carries decode as the V4 `ParachainBlockData` the runtime and
+	/// the recovery decoder expect.
+	#[test]
+	fn the_pov_extrinsic_decodes_as_parachain_block_data() {
+		let (package, pov) = signed_with_pov(&package_source(), &anchored(11));
+		let package_bytes = jam_codec::Encode::encode(&package);
+		let (_, bundle) = build_encoded_bundle(&package, [&pov], &[Vec::new()]);
+
+		let decoded = ParachainBlockData::<TestBlock>::decode(&mut &bundle[package_bytes.len()..])
+			.expect("the trailing extrinsic bytes decode as the PoV");
+
+		assert_eq!(decoded.blocks().len(), 1, "the one block the package proves");
+	}
+
+	/// A resend has to be the *same bytes*: a package rebuilt instead of replayed would hash
+	/// differently, and JAM would see a second package where the collator meant to repeat one — a
+	/// second refine, a second report, and a status subscription following a hash nothing else
+	/// knows about. Rebuilding is not even close to equivalent: everything the source determines
+	/// comes back identical, but the token does not, because an sr25519 signature carries a
+	/// random nonce. Storing the signed package is the only way to repeat it.
 	#[test]
 	fn a_resubmission_replays_the_stored_package() {
 		let packages = in_flight(1);
 		let entry = &packages.entries[0];
-		let rebuilt = signed(&entry.source, &entry.anchored);
+		let (rebuilt, rebuilt_pov) = signed_with_pov(&package_source(), &entry.anchored);
 
 		assert_eq!(entry.package.items[0].payload.0, rebuilt.items[0].payload.0, "same block");
+		assert_eq!(
+			entry.package.items[0].extrinsics[0].hash, rebuilt.items[0].extrinsics[0].hash,
+			"the same PoV hash",
+		);
+		assert_eq!(
+			entry.package.items[0].extrinsics[0].len, rebuilt.items[0].extrinsics[0].len,
+			"the same PoV length",
+		);
+		assert_eq!(entry.pov.as_ref(), rebuilt_pov.as_slice(), "the stored PoV is replayed");
 		assert_eq!(entry.package.context, rebuilt.context, "same anchor");
 		assert_ne!(entry.package.authorization, rebuilt.authorization, "another signature");
 		assert_ne!(work_package_hash(&entry.package), work_package_hash(&rebuilt));
@@ -1837,8 +1723,8 @@ mod tests {
 	/// connection at 1024 of them. A handle that outlives its entry therefore leaks a
 	/// subscription the node holds open for good: live, after ~1050 packages, every new
 	/// submission failed with "Too many subscriptions on the connection". Whichever way a package
-	/// stops being tracked — accumulated, superseded, forgotten, re-anchored — its subscription
-	/// has to go with it, and a resubmission must not add a second one.
+	/// stops being tracked — accumulated, superseded, forgotten — its subscription has to go
+	/// with it, and a resend must not add a second one.
 	#[test]
 	fn a_status_subscription_never_outlives_the_package_it_follows() {
 		let mut packages = in_flight(4);

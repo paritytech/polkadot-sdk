@@ -823,6 +823,7 @@ where
 
 				wait_for_aura::<Block, RuntimeApi, AuraId>(client.clone()).await;
 				let (message_sender, message_receiver) = futures::channel::mpsc::channel(4);
+				let hold = jam::AuthoringHold::new();
 				spawn_essential.spawn_essential(
 					"jam-block-builder",
 					Some("jam"),
@@ -844,6 +845,7 @@ where
 						authorizer: jam_authorizer.clone(),
 						jam: jam.clone(),
 						message_sender,
+						hold: hold.clone(),
 					})),
 				);
 				spawn_essential.spawn_essential(
@@ -859,7 +861,7 @@ where
 							authorizer: jam_authorizer,
 							message_receiver,
 							announce_block,
-							max_resubmits: 3,
+							hold,
 						},
 					)),
 				);

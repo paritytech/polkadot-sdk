@@ -49,6 +49,13 @@ const CONNECTION_RETRIES_PER_URL_LIST_PASS: usize = 5;
 const SLEEP_TIME_MS_BETWEEN_RETRIES: u64 = 1000;
 const SLEEP_EXP_BACKOFF_BETWEEN_RETRIES: i32 = 2;
 
+/// Maximum RPC request body size accepted by the websocket client.
+///
+/// A full work-package bundle is `package ‖ PoV`, where the PoV alone may reach
+/// [`jam_types::max_input`] (13,791,360 B). Base64 encoding inflates that by 4/3 (≈ 17.5 MiB)
+/// and the JSON-RPC envelope adds more, so jsonrpsee's 10 MiB default is not enough.
+const MAX_RPC_REQUEST_BYTES: u32 = 32 * 1024 * 1024;
+
 /// Pre-serialized JSON-RPC params, so they can cross the worker channel and be replayed.
 #[derive(Clone, Debug)]
 pub struct RawParams(pub Option<Box<RawValue>>);
@@ -123,7 +130,12 @@ async fn connect_next_available_rpc_server(
 			"Trying to connect to next JAM node.",
 		);
 		let started = Instant::now();
-		match WsClientBuilder::default().build(&url).await {
+		match WsClientBuilder::default()
+			.max_request_size(MAX_RPC_REQUEST_BYTES)
+			.max_response_size(MAX_RPC_REQUEST_BYTES)
+			.build(&url)
+			.await
+		{
 			Ok(ws_client) => {
 				tracing::info!(
 					target: LOG_TARGET,
@@ -484,8 +496,16 @@ impl JamRpcWorker {
 
 #[cfg(test)]
 mod tests {
-	use super::url_to_string_with_port;
+	use super::{url_to_string_with_port, MAX_RPC_REQUEST_BYTES};
 	use url::Url;
+
+	#[test]
+	fn max_rpc_request_size_covers_max_input() {
+		assert!(
+			MAX_RPC_REQUEST_BYTES as usize >=
+				jam_types::max_input() as usize * 4 / 3 + 8 * 1024 * 1024
+		);
+	}
 
 	#[test]
 	fn url_to_string_works() {

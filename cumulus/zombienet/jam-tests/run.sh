@@ -8,10 +8,10 @@
 # build's RUSTFLAGS (`--cfg substrate_runtime --cfg jam` for the riscv blob), then runs the
 # selected suite against the blob it just built.
 #
-# The `elastic-scaling` and `block-bundling` suites live in `cumulus-zombienet-sdk-tests` and need
-# the `jam` feature on their own build: the feature selects the JAM `zombienet-sdk` and the
-# `cumulus-jam-zombienet-tests` harness library. It is scoped to the one cargo invocation that
-# needs it, so the blob build above stays as it was.
+# The `elastic-scaling`, `block-bundling` and `resubmission` suites live in
+# `cumulus-zombienet-sdk-tests` and need the `jam` feature on their own build: the feature selects
+# the JAM `zombienet-sdk` and the `cumulus-jam-zombienet-tests` harness library. It is scoped to
+# the one cargo invocation that needs it, so the blob build above stays as it was.
 #
 # Prerequisites (see README.md):
 #   - a polkajam build whose `gen-spec` understands the `services` / `auth_queues` /
@@ -32,7 +32,8 @@
 #
 # Usage:
 #   JAM_NODE_BIN=... PARACHAIN_SERVICE_BLOB=... AUTHORIZER_BLOB=... \
-#     cumulus/zombienet/jam-tests/run.sh [--suite <jam|elastic-scaling|block-bundling>] [test-filter]
+#     cumulus/zombienet/jam-tests/run.sh [--suite <jam|elastic-scaling|block-bundling|resubmission>] \
+#     [test-filter]
 #
 #   --suite jam (the default) runs this crate's own suite. The optional test filter defaults to
 #   `jam::collator_progress`; pass any other filter (e.g. `jam::demo` or `jam::core_assignment`).
@@ -40,6 +41,9 @@
 #   --suite elastic-scaling and --suite block-bundling run the matching suite of
 #   `cumulus-zombienet-sdk-tests` under `--cfg jam`; their filter is fixed and the positional
 #   test filter is not used.
+#
+#   --suite resubmission runs `jam::resubmission` of `cumulus-zombienet-sdk-tests` — the
+#   dropping-proxy resend test that used to live in this crate.
 
 set -euo pipefail
 
@@ -50,7 +54,7 @@ filter=""
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 	--suite)
-		suite="${2:?--suite needs a value: jam, elastic-scaling or block-bundling}"
+		suite="${2:?--suite needs a value: jam, elastic-scaling, block-bundling or resubmission}"
 		shift 2
 		;;
 	--suite=*)
@@ -65,9 +69,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$suite" in
-jam | elastic-scaling | block-bundling) ;;
+jam | elastic-scaling | block-bundling | resubmission) ;;
 *)
-	echo "unknown suite: $suite (expected jam, elastic-scaling or block-bundling)" >&2
+	echo "unknown suite: $suite (expected jam, elastic-scaling, block-bundling or resubmission)" >&2
 	exit 2
 	;;
 esac
@@ -86,16 +90,17 @@ jam)
 	exec cargo test -p cumulus-jam-zombienet-tests --features jam-ci --test tests \
 		-- --test-threads 1 --nocapture "${filter:-jam::collator_progress}"
 	;;
-elastic-scaling | block-bundling)
+elastic-scaling | block-bundling | resubmission)
 	case "$suite" in
 	elastic-scaling) test_filter=zombie_ci::elastic_scaling ;;
 	block-bundling) test_filter=zombie_ci::block_bundling ;;
+	resubmission) test_filter=jam::resubmission ;;
 	esac
 	# The sdk test crate's JAM paths are selected by the `jam` feature, which type-checks them
 	# without a whole-workspace rebuild. The feature is scoped to the one cargo invocation that
 	# needs it.
 	#
-	# These suites upgrade to `cumulus-test-runtime` feature flavors. Under the riscv target the
+	# The crate embeds `cumulus-test-runtime` feature flavors. Under the riscv target the
 	# wasm-builder emits each flavor's PolkaVM blob under the same `WASM_BINARY` const, so the
 	# build must run (no `SKIP_WASM_BUILD`) with `--cfg jam` injected through its RUSTFLAGS
 	# channel. This is a heavy build: every flavor is compiled for riscv.

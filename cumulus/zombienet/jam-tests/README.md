@@ -240,6 +240,47 @@ NUM_COLLATORS=2 cumulus/zombienet/jam-tests/demo.sh
 To run collators against a JAM testnet you already have running, rather than one spawned here,
 use `cumulus/scripts/jam-collator-demo.sh` instead.
 
+## Losing submissions on purpose
+
+The resubmission test lives in `cumulus-zombienet-sdk-tests` (`tests/jam/resubmission.rs`) and
+reuses this crate's `src/proxy.rs`. It proves the collator resends a work package that never
+reached a guarantor. It pins the ordinary JAM node's RPC port and pre-allocates a second port for
+the proxy, starts `ProxyServer::serve_when_ready` before the single-call network spawn, and points
+`alice` at the proxy's URL through `JamSetup::with_jam_rpc_url`.
+
+The proxy drops the **first** `submitWorkPackage` of every distinct work-package hash and forwards
+every later one byte-exact. So the first submission of every package is lost, and the only way a
+package can be reported is a later, identical resend. The test waits for the accumulated head to
+reach five and asserts from three independent witnesses:
+
+* the proxy's ledger: every accumulated package's hash was submitted at least twice, and no
+  forwarded submission was rejected upstream;
+* the collator's log: it resends each forwarded package, holds its parachain slot at least once,
+  and authors at most one block between a package's resend and its appearance;
+* the accumulated head itself, which the other two cannot fake.
+
+Run it with:
+
+```sh
+cumulus/zombienet/jam-tests/run.sh --suite resubmission
+```
+
+The test greps the collator's log for the node's stable resubmission lines, matching a package by
+the 16-hex-character prefix of its work-package hash (`WorkPackageHash`'s `Debug` prints `0x`, the
+first eight bytes, then `...`):
+
+* `Resending the identical work package; it has not appeared on chain.`
+* `The work package appeared on chain in a JAM block.`
+* `Holding this parachain slot: an overdue work package is being resent instead of a new block being built.`
+
+A failure attaches `ProxyServer::describe()` — one line per hash the proxy saw, with its submission
+count and package length — to the assertion message. A hash seen once and never again, older than
+four JAM slots, is the signature of a collator that re-signs instead of resending identical bytes.
+
+The proxy holds one upstream connection and never reconnects. That is deliberate: the test's node
+runs for the whole test and never restarts, so a dropped upstream is a failure to report, not a
+state to recover from.
+
 ## Layout
 
 | file | what it does |
@@ -251,6 +292,7 @@ use `cumulus/scripts/jam-collator-demo.sh` instead.
 | `src/collators.rs` | starts, supervises and tears down one para's collator processes |
 | `src/rpc.rs` | the JAM node and collator RPC clients |
 | `src/harness.rs` | one run: network, collators, the authorizer-agreement check, assertions |
+| `src/proxy.rs` | the dropping JSON-RPC proxy: swallows the first `submitWorkPackage` of every distinct package and forwards the rest byte-exact; also used by `cumulus-zombienet-sdk-tests`'s `tests/jam/resubmission.rs` |
 | `tests/jam/collator_progress.rs` | the 1, 2, 3 and 6 collator tests |
 | `tests/jam/core_assignment.rs` | two paras at once, and cores taken away or moved mid-run |
 | `tests/jam/demo.rs` | the same run with no assertion and no end |

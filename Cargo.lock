@@ -5274,6 +5274,7 @@ dependencies = [
  "jam-std-common 0.1.29",
  "jam-types 0.1.29",
  "jsonrpsee 0.24.11",
+ "jsonrpsee 0.26.0",
  "log",
  "parachain-authorizer",
  "parachain-authorizer-ed25519",
@@ -5965,6 +5966,7 @@ dependencies = [
  "hex",
  "log",
  "multihash",
+ "parachain-service-core",
  "parity-scale-codec",
  "parity-wasm",
  "polkadot-primitives",
@@ -9704,10 +9706,6 @@ dependencies = [
  "quote 1.0.40",
  "syn 2.0.98",
 ]
-
-[[package]]
-name = "jam-null-authorizer-bin"
-version = "0.1.29"
 
 [[package]]
 name = "jam-pvm-common"
@@ -15867,7 +15865,6 @@ version = "0.1.0"
 dependencies = [
  "blake2b_simd",
  "bounded-collections 0.3.2",
- "jam-null-authorizer-bin",
  "jam-pvm-common",
  "jam-types 0.1.29",
  "num_enum",

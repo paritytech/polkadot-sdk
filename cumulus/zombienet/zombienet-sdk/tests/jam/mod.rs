@@ -59,6 +59,13 @@ pub struct JamSetup {
 	genspec_node: Option<String>,
 	omni_node: String,
 	authorizer_blob: String,
+	/// A fixed RPC port for the ordinary JAM node, when a test has to know it before spawning —
+	/// the resubmission test points a proxy at a port it pre-allocated and needs `jam-or` pinned
+	/// to a port the proxy can connect to once the node is up.
+	ordinary_rpc_port: Option<u16>,
+	/// Per-collator `--jam-rpc-urls` overrides, keyed by collator node name. A collator not named
+	/// here keeps the default `ws://{{ZOMBIE:jam-or:rpc_uri}}` template.
+	jam_rpc_url_overrides: std::collections::HashMap<String, String>,
 	/// Holds the work dir alive for the run when `JAM_TEST_BASE_DIR` is not set.
 	_temp: Option<tempfile::TempDir>,
 }
@@ -112,6 +119,8 @@ pub fn setup_with_cores(test_name: &str, paras: &[Para], cores: u16) -> anyhow::
 		genspec_node,
 		omni_node,
 		authorizer_blob,
+		ordinary_rpc_port: None,
+		jam_rpc_url_overrides: std::collections::HashMap::new(),
 		_temp: temp,
 	})
 }
@@ -258,7 +267,13 @@ impl JamSetup {
 					node.with_name(&format!("jam{index}")).with_env(polkavm_env())
 				})
 			});
-			jam.with_ordinary(|node| node.with_name(ORDINARY_NODE).with_env(polkavm_env()))
+			jam.with_ordinary(|node| {
+				let node = node.with_name(ORDINARY_NODE).with_env(polkavm_env());
+				match self.ordinary_rpc_port {
+					Some(port) => node.with_rpc_port(port),
+					None => node,
+				}
+			})
 		})
 	}
 
@@ -283,14 +298,14 @@ impl JamSetup {
 		let builder = builder.with_collator(|node| {
 			node.with_name(para.collators[0].as_str())
 				.with_env(polkavm_env())
-				.with_args(self.collator_args(true))
+				.with_args(self.collator_args(&para.collators[0], true))
 		});
 
 		let builder = para.collators[1..].iter().fold(builder, |builder, name| {
 			builder.with_collator(|node| {
 				node.with_name(name.as_str())
 					.with_env(polkavm_env())
-					.with_args(self.collator_args(true))
+					.with_args(self.collator_args(name, true))
 			})
 		});
 
@@ -302,7 +317,7 @@ impl JamSetup {
 			builder.with_collator(|node| {
 				node.with_name(name.as_str())
 					.with_env(polkavm_env())
-					.with_args(self.collator_args(false))
+					.with_args(self.collator_args(name, false))
 			})
 		})
 	}
@@ -312,18 +327,35 @@ impl JamSetup {
 		self.base_dir.to_string_lossy().into_owned()
 	}
 
+	/// Pin the ordinary JAM node's RPC to `port`, so a test can name it before the network spawns.
+	pub fn with_ordinary_rpc_port(mut self, port: u16) -> Self {
+		self.ordinary_rpc_port = Some(port);
+		self
+	}
+
+	/// Start collator `collator` with `--jam-rpc-urls <url>` instead of the default JAM node URL.
+	pub fn with_jam_rpc_url(mut self, collator: &str, url: String) -> Self {
+		self.jam_rpc_url_overrides.insert(collator.to_string(), url);
+		self
+	}
+
 	/// The arguments every para node is started with: where the JAM node's RPC is, which service
 	/// hosts the authorizer, and the blob whose hash the para's core was assigned from.
 	///
 	/// `authoring` is the one difference between a collator and a full node: only a collator gets
 	/// `--force-authoring`. A full node is not in the authority set, so it only syncs.
-	fn collator_args(&self, authoring: bool) -> Vec<Arg> {
+	fn collator_args(&self, name: &str, authoring: bool) -> Vec<Arg> {
 		let mut args: Vec<Arg> = Vec::new();
 		if authoring {
 			args.push("--force-authoring".into());
 		}
+		let jam_rpc_url = self
+			.jam_rpc_url_overrides
+			.get(name)
+			.cloned()
+			.unwrap_or_else(|| "ws://{{ZOMBIE:jam-or:rpc_uri}}".to_string());
 		args.extend([
-			Arg::Option("--jam-rpc-urls".into(), "ws://{{ZOMBIE:jam-or:rpc_uri}}".into()),
+			Arg::Option("--jam-rpc-urls".into(), jam_rpc_url.into()),
 			Arg::Option("--jam-service-id".into(), PARACHAIN_SERVICE_ID.to_string()),
 			Arg::Option("--jam-authorizer-blob".into(), self.authorizer_blob.clone()),
 			"--no-mdns".into(),
@@ -372,3 +404,5 @@ fn path_str(path: &Path) -> anyhow::Result<String> {
 		.map(str::to_string)
 		.with_context(|| format!("{} is not utf-8", path.display()))
 }
+
+mod resubmission;

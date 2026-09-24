@@ -17,16 +17,24 @@
 
 use anyhow::anyhow;
 use cumulus_primitives_core::relay_chain::MAX_POV_SIZE;
+#[cfg(not(feature = "jam"))]
+use cumulus_zombienet_sdk_helpers::{assign_cores, ensure_is_last_block_in_core};
 use cumulus_zombienet_sdk_helpers::{
-	assign_cores, ensure_is_last_block_in_core, ensure_is_only_block_in_core,
-	submit_extrinsic_and_wait_for_finalization_success, BlockToCheck,
+	ensure_is_only_block_in_core, submit_extrinsic_and_wait_for_finalization_success, BlockToCheck,
 };
+#[cfg(feature = "jam")]
+use cumulus_zombienet_sdk_helpers::{ensure_uses_full_core, ParaConfig};
 use frame_support::weights::constants::WEIGHT_REF_TIME_PER_SECOND;
+#[cfg(not(feature = "jam"))]
 use serde_json::json;
+#[cfg(feature = "jam")]
+use std::path::PathBuf;
+#[cfg(not(feature = "jam"))]
+use zombienet_sdk::{subxt::PolkadotConfig, NetworkConfigBuilder};
 use zombienet_sdk::{
-	subxt::{ext::scale_value::value, tx::DynamicPayload, OnlineClient, PolkadotConfig},
+	subxt::{ext::scale_value::value, tx::DynamicPayload, OnlineClient},
 	subxt_signer::sr25519::dev,
-	NetworkConfig, NetworkConfigBuilder,
+	NetworkConfig,
 };
 
 const PARA_ID: u32 = 2400;
@@ -37,6 +45,9 @@ const PARA_ID: u32 = 2400;
 /// 1. One with 1s ref_time
 /// 2. One with a PoV size bigger than what one block alone is allowed to process.
 /// Each transaction is sent after the other and waits for finalization.
+///
+/// On JAM the same para runs from the `block_bundling` runtime flavor, one collator authors it,
+/// and every block is alone in its core. The checks then also assert the `UseFullCore` digest.
 #[tokio::test(flavor = "multi_thread")]
 async fn block_bundling_full_core_usage_scenarios() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -48,101 +59,214 @@ async fn block_bundling_full_core_usage_scenarios() -> Result<(), anyhow::Error>
 	let spawn_fn = zombienet_sdk::environment::get_spawn_fn();
 	let network = spawn_fn(config).await?;
 
-	let relay_node = network.get_node("validator-0")?;
-	let para_node = network.get_node("collator-1")?;
+	// ── Relay path ─────────────────────────────────────────────────────────────────────────
+	#[cfg(not(feature = "jam"))]
+	{
+		let relay_node = network.get_node("validator-0")?;
+		let para_node = network.get_node("collator-1")?;
 
-	let para_client: OnlineClient<PolkadotConfig> = para_node.wait_client().await?;
-	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
-	let alice = dev::alice();
+		let para_client: OnlineClient<PolkadotConfig> = para_node.wait_client().await?;
+		let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
+		let alice = dev::alice();
 
-	// Assign cores 0 and 1 to start with 3 cores total (core 2 is assigned by Zombienet)
-	assign_cores(&relay_client, PARA_ID, vec![0, 1]).await?;
+		// Assign cores 0 and 1 to start with 3 cores total (core 2 is assigned by Zombienet)
+		assign_cores(&relay_client, PARA_ID, vec![0, 1]).await?;
 
-	// Create and send first transaction: 1s ref_time using utility.with_weight
-	//
-	// While we only should have 500ms available.
-	let ref_time_1s = WEIGHT_REF_TIME_PER_SECOND;
-	let first_call = create_utility_with_weight_call(ref_time_1s, 0);
-	let sudo_first_call = create_sudo_call(first_call);
+		// Create and send first transaction: 1s ref_time using utility.with_weight
+		//
+		// While we only should have 500ms available.
+		let ref_time_1s = WEIGHT_REF_TIME_PER_SECOND;
+		let first_call = create_utility_with_weight_call(ref_time_1s, 0);
+		let sudo_first_call = create_sudo_call(first_call);
 
-	log::info!("Testing scenario 1: Sending a transaction with 1s ref time weight usage");
-	let block_hash =
-		submit_extrinsic_and_wait_for_finalization_success(&para_client, &sudo_first_call, &alice)
-			.await?;
-
-	ensure_is_only_block_in_core(&para_client, BlockToCheck::Exact(block_hash)).await?;
-
-	// Create a transaction that uses more than the allowed POV size per block.
-	let pov_size = MAX_POV_SIZE / 4 + 512 * 1024;
-	let second_call = create_utility_with_weight_call(0, pov_size as u64);
-	let sudo_second_call = create_sudo_call(second_call);
-
-	log::info!("Testing scenario 2: Sending a transaction with ~2.5MiB storage weight usage");
-	let block_hash =
-		submit_extrinsic_and_wait_for_finalization_success(&para_client, &sudo_second_call, &alice)
-			.await?;
-
-	ensure_is_only_block_in_core(&para_client, BlockToCheck::Exact(block_hash)).await?;
-
-	let third_call = create_schedule_weight_registration_call();
-	let sudo_third_call = create_sudo_call(third_call);
-
-	log::info!("Testing scenario 5: Enabling `on_initialize` to use 1s ref time");
-	let block_hash =
-		submit_extrinsic_and_wait_for_finalization_success(&para_client, &sudo_third_call, &alice)
-			.await?;
-
-	ensure_is_only_block_in_core(&para_client, BlockToCheck::NextFirstBundleBlock(block_hash))
+		log::info!("Testing scenario 1: Sending a transaction with 1s ref time weight usage");
+		let block_hash = submit_extrinsic_and_wait_for_finalization_success(
+			&para_client,
+			&sudo_first_call,
+			&alice,
+		)
 		.await?;
 
-	let inherent_weight_call = create_set_inherent_weight_consume_call(ref_time_1s, 0);
-	let sudo_inherent_weight_call = create_sudo_call(inherent_weight_call);
+		ensure_is_only_block_in_core(&para_client, BlockToCheck::Exact(block_hash)).await?;
 
-	log::info!("Testing scenario 4: Enabling an inherent that will use 1s ref time");
-	let block_hash = submit_extrinsic_and_wait_for_finalization_success(
-		&para_client,
-		&sudo_inherent_weight_call,
-		&alice,
-	)
-	.await?;
+		// Create a transaction that uses more than the allowed POV size per block.
+		let pov_size = MAX_POV_SIZE / 4 + 512 * 1024;
+		let second_call = create_utility_with_weight_call(0, pov_size as u64);
+		let sudo_second_call = create_sudo_call(second_call);
 
-	// The next block should contain the consume_weight_inherent and consume the 1s ref_time
-	ensure_is_only_block_in_core(&para_client, BlockToCheck::NextFirstBundleBlock(block_hash))
+		log::info!("Testing scenario 2: Sending a transaction with ~2.5MiB storage weight usage");
+		let block_hash = submit_extrinsic_and_wait_for_finalization_success(
+			&para_client,
+			&sudo_second_call,
+			&alice,
+		)
 		.await?;
 
-	let use_more_weight_than_announced = create_use_more_weight_than_announced_call(true);
+		ensure_is_only_block_in_core(&para_client, BlockToCheck::Exact(block_hash)).await?;
 
-	log::info!(
-		"Testing scenario 5: Sending a transaction which uses more weight than what \
-		it registered and transactions appears in the first block of a core"
-	);
-	let block_hash = submit_extrinsic_and_wait_for_finalization_success(
-		&para_client,
-		&use_more_weight_than_announced,
-		&alice,
-	)
-	.await?;
+		let third_call = create_schedule_weight_registration_call();
+		let sudo_third_call = create_sudo_call(third_call);
 
-	ensure_is_only_block_in_core(&para_client, BlockToCheck::Exact(block_hash)).await?;
+		log::info!("Testing scenario 5: Enabling `on_initialize` to use 1s ref time");
+		let block_hash = submit_extrinsic_and_wait_for_finalization_success(
+			&para_client,
+			&sudo_third_call,
+			&alice,
+		)
+		.await?;
 
-	let use_more_weight_than_announced = create_use_more_weight_than_announced_call(false);
+		ensure_is_only_block_in_core(&para_client, BlockToCheck::NextFirstBundleBlock(block_hash))
+			.await?;
 
-	// Here we are testing that a transaction that uses more weight than registered makes the block
-	// production stop for this core. Even as the block is not the first block in the core.
-	log::info!(
-		"Testing scenario 6: Sending a transaction which uses more weight than what \
-		it registered and transactions appears in the last block of a core"
-	);
-	let block_hash = submit_extrinsic_and_wait_for_finalization_success(
-		&para_client,
-		&use_more_weight_than_announced,
-		&alice,
-	)
-	.await?;
+		let inherent_weight_call = create_set_inherent_weight_consume_call(ref_time_1s, 0);
+		let sudo_inherent_weight_call = create_sudo_call(inherent_weight_call);
 
-	ensure_is_last_block_in_core(&para_client, block_hash).await?;
+		log::info!("Testing scenario 4: Enabling an inherent that will use 1s ref time");
+		let block_hash = submit_extrinsic_and_wait_for_finalization_success(
+			&para_client,
+			&sudo_inherent_weight_call,
+			&alice,
+		)
+		.await?;
+
+		// The next block should contain the consume_weight_inherent and consume the 1s ref_time
+		ensure_is_only_block_in_core(&para_client, BlockToCheck::NextFirstBundleBlock(block_hash))
+			.await?;
+
+		let use_more_weight_than_announced = create_use_more_weight_than_announced_call(true);
+
+		log::info!(
+			"Testing scenario 5: Sending a transaction which uses more weight than what \
+			it registered and transactions appears in the first block of a core"
+		);
+		let block_hash = submit_extrinsic_and_wait_for_finalization_success(
+			&para_client,
+			&use_more_weight_than_announced,
+			&alice,
+		)
+		.await?;
+
+		ensure_is_only_block_in_core(&para_client, BlockToCheck::Exact(block_hash)).await?;
+
+		let use_more_weight_than_announced = create_use_more_weight_than_announced_call(false);
+
+		// Here we are testing that a transaction that uses more weight than registered makes the
+		// block production stop for this core. Even as the block is not the first block in the
+		// core.
+		log::info!(
+			"Testing scenario 6: Sending a transaction which uses more weight than what \
+			it registered and transactions appears in the last block of a core"
+		);
+		let block_hash = submit_extrinsic_and_wait_for_finalization_success(
+			&para_client,
+			&use_more_weight_than_announced,
+			&alice,
+		)
+		.await?;
+
+		ensure_is_last_block_in_core(&para_client, block_hash).await?;
+	}
+
+	// ── JAM path ───────────────────────────────────────────────────────────────────────────
+	#[cfg(feature = "jam")]
+	{
+		let para_node = network.get_node("collator-1")?;
+
+		let para_client: OnlineClient<ParaConfig> = para_node.wait_client().await?;
+		let alice = dev::alice();
+
+		// Create and send first transaction: 1s ref_time using utility.with_weight
+		//
+		// While we only should have 500ms available.
+		let ref_time_1s = WEIGHT_REF_TIME_PER_SECOND;
+		let first_call = create_utility_with_weight_call(ref_time_1s, 0);
+		let sudo_first_call = create_sudo_call(first_call);
+
+		log::info!("Testing scenario 1: Sending a transaction with 1s ref time weight usage");
+		let block_hash = submit_extrinsic_and_wait_for_finalization_success(
+			&para_client,
+			&sudo_first_call,
+			&alice,
+		)
+		.await?;
+
+		ensure_full_core_block(&para_client, BlockToCheck::Exact(block_hash)).await?;
+
+		// Create a transaction that uses more than the allowed POV size per block.
+		let pov_size = MAX_POV_SIZE / 4 + 512 * 1024;
+		let second_call = create_utility_with_weight_call(0, pov_size as u64);
+		let sudo_second_call = create_sudo_call(second_call);
+
+		log::info!("Testing scenario 2: Sending a transaction with ~2.5MiB storage weight usage");
+		let block_hash = submit_extrinsic_and_wait_for_finalization_success(
+			&para_client,
+			&sudo_second_call,
+			&alice,
+		)
+		.await?;
+
+		ensure_full_core_block(&para_client, BlockToCheck::Exact(block_hash)).await?;
+
+		let third_call = create_schedule_weight_registration_call();
+		let sudo_third_call = create_sudo_call(third_call);
+
+		log::info!("Testing scenario 5: Enabling `on_initialize` to use 1s ref time");
+		let block_hash = submit_extrinsic_and_wait_for_finalization_success(
+			&para_client,
+			&sudo_third_call,
+			&alice,
+		)
+		.await?;
+
+		ensure_full_core_block(&para_client, BlockToCheck::NextFirstBundleBlock(block_hash))
+			.await?;
+
+		let inherent_weight_call = create_set_inherent_weight_consume_call(ref_time_1s, 0);
+		let sudo_inherent_weight_call = create_sudo_call(inherent_weight_call);
+
+		log::info!("Testing scenario 4: Enabling an inherent that will use 1s ref time");
+		let block_hash = submit_extrinsic_and_wait_for_finalization_success(
+			&para_client,
+			&sudo_inherent_weight_call,
+			&alice,
+		)
+		.await?;
+
+		// The next block should contain the consume_weight_inherent and consume the 1s ref_time
+		ensure_full_core_block(&para_client, BlockToCheck::NextFirstBundleBlock(block_hash))
+			.await?;
+
+		let use_more_weight_than_announced = create_use_more_weight_than_announced_call(true);
+
+		log::info!(
+			"Testing scenario 5: Sending a transaction which uses more weight than what \
+			it registered and transactions appears in the first block of a core"
+		);
+		let block_hash = submit_extrinsic_and_wait_for_finalization_success(
+			&para_client,
+			&use_more_weight_than_announced,
+			&alice,
+		)
+		.await?;
+
+		ensure_full_core_block(&para_client, BlockToCheck::Exact(block_hash)).await?;
+
+		// Scenario 6 (`use_more_weight_than_announced(false)`) is relay-only: on JAM every block
+		// is the first and only block of its core, so the extension never admits that transaction.
+	}
 
 	Ok(())
+}
+
+/// Checks that `block_to_check` is the only block in its core and, on JAM, that the runtime also
+/// escalated it with the `UseFullCore` digest.
+#[cfg(feature = "jam")]
+async fn ensure_full_core_block(
+	para_client: &OnlineClient<ParaConfig>,
+	block_to_check: BlockToCheck,
+) -> Result<(), anyhow::Error> {
+	let block_hash = ensure_is_only_block_in_core(para_client, block_to_check).await?;
+	ensure_uses_full_core(para_client, block_hash).await
 }
 
 /// Creates a `pallet-utility` `with_weight` call
@@ -200,6 +324,27 @@ fn create_set_inherent_weight_consume_call(ref_time: u64, proof_size: u64) -> Dy
 	zombienet_sdk::subxt::tx::dynamic("TestPallet", "set_inherent_weight_consume", vec![weight])
 }
 
+/// Writes the `block_bundling` runtime flavor to a file the JAM harness freezes into the para's
+/// validation code.
+///
+/// The relay path selects this flavor with `--chain block-bundling`; JAM takes the blob itself.
+/// The harness copies the file into the run's work dir before genesis reads it.
+#[cfg(feature = "jam")]
+fn block_bundling_runtime() -> Result<PathBuf, anyhow::Error> {
+	let bytes = cumulus_test_runtime::block_bundling::WASM_BINARY
+		.ok_or_else(|| anyhow!("the `block_bundling` runtime flavor was not built"))?;
+	// A per-process dir so two checkouts running the suite at once cannot overwrite each other's
+	// blob; the harness only keeps the file name, which is what ends up in the work dir.
+	let dir = std::env::temp_dir().join(format!("cumulus-jam-full-core-{}", std::process::id()));
+	std::fs::create_dir_all(&dir).map_err(|e| anyhow!("creating {}: {e}", dir.display()))?;
+	let path =
+		dir.join(format!("{}.polkavm", cumulus_test_runtime::block_bundling::WASM_FILE_NAME));
+	std::fs::write(&path, bytes)
+		.map_err(|e| anyhow!("writing the `block_bundling` runtime to {}: {e}", path.display()))?;
+	Ok(path)
+}
+
+#[cfg(not(feature = "jam"))]
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
@@ -246,6 +391,22 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			Ok(val) => global_settings.with_base_dir(val),
 			_ => global_settings,
 		})
+		.build()
+		.map_err(|e| {
+			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
+			anyhow!("config errs: {errs}")
+		})
+}
+
+#[cfg(feature = "jam")]
+async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
+	let jam = crate::jam::setup(
+		"block_bundling_full_core_usage_scenarios",
+		&[crate::jam::para(PARA_ID, 0, &["collator-1"]).with_runtime(block_bundling_runtime()?)],
+	)?;
+	jam.jamchain()
+		.with_parachain(|p| jam.parachain(p, 0))
+		.with_global_settings(|g| g.with_base_dir(jam.base_dir()))
 		.build()
 		.map_err(|e| {
 			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");

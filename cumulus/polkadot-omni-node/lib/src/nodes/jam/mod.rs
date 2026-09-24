@@ -27,8 +27,13 @@
 //!   authorizer, and feeds the channel;
 //! - the [collation task](collation_task) turns each block into a work package — naming the work
 //!   package this node submitted for the parent block as its one prerequisite when the ledger still
-//!   remembers it — submits it, follows `workPackageStatus` for every package in flight, and drives
-//!   resubmission and re-anchoring behind a pluggable [policy](resubmission).
+//!   remembers it — submits it, follows `workPackageStatus` for every package in flight, and
+//!   re-decides every package at each JAM block behind a pluggable [policy](resubmission);
+//!
+//! The collation task writes the [authoring hold](AuthoringHold) — how many packages it handed to
+//! a guarantor and then had to resend without seeing them on chain — and the builder reads it each
+//! tick: while it is non-zero the builder stands down, because a new block would only deepen a
+//! branch whose package has not landed yet.
 //!
 //! Heads following reuses `cumulus_client_consensus_common::run_parachain_consensus` with
 //! streams built from the parachain service's per-para state entry (`ParaInfo.head_data`).
@@ -59,11 +64,38 @@ use sp_additional_data::AdditionalData;
 use sp_consensus::ProposeArgs;
 use sp_runtime::traits::Block as BlockT;
 use sp_timestamp::Timestamp;
-use std::{future::Future, pin::Pin, sync::Arc, time::Instant};
+use std::{
+	future::Future,
+	pin::Pin,
+	sync::{
+		atomic::{AtomicUsize, Ordering},
+		Arc,
+	},
+	time::Instant,
+};
 
 pub(crate) const LOG_TARGET: &str = "jam-collator";
 
 pub(crate) const JAM_SLOT_DURATION_MS: u64 = 6000;
+
+/// Count of packages that were handed to a guarantor at least once, resent at least once, and
+/// not yet seen on chain. Written by the collation task, read by the builder at tick time.
+#[derive(Clone)]
+pub(crate) struct AuthoringHold(Arc<AtomicUsize>);
+
+impl AuthoringHold {
+	pub(crate) fn new() -> Self {
+		Self(Arc::new(AtomicUsize::new(0)))
+	}
+
+	pub(crate) fn set_overdue(&self, n: usize) {
+		self.0.store(n, Ordering::Relaxed);
+	}
+
+	pub(crate) fn overdue(&self) -> usize {
+		self.0.load(Ordering::Relaxed)
+	}
+}
 
 /// Cache the runtime code a block's `:code` marker names, fetching the preimage from JAM when it
 /// is not already in the `CODE` column.
@@ -266,7 +298,7 @@ pub(crate) fn jam_slot_as_relay_slot(slot: JamSlot) -> u64 {
 const MAX_LOOKUP_ANCHOR_AGE: JamSlot = 24;
 /// How much of that age is reserved for the package still being in flight.
 ///
-/// A package is submitted at its anchor and has [`REPORT_DEADLINE_SLOTS`](super::collation_task)
+/// A package is submitted at its anchor and has [`REPORT_DEADLINE_SLOTS`](resubmission)
 /// slots to be reported, so a lookup anchor picked this close to the limit would expire in flight
 /// — and a package that dies for that reason looks exactly like one that was never submitted.
 const LOOKUP_ANCHOR_SAFETY_MARGIN: JamSlot = 8;
@@ -793,6 +825,21 @@ mod tests {
 	#[test]
 	fn relay_slot_advances_once_per_jam_slot() {
 		assert_eq!(jam_slot_as_relay_slot(1), jam_slot_as_relay_slot(0) + 1);
+	}
+
+	/// The collation task is the sole writer and the builder reads the latest value at tick time;
+	/// clones must share the one counter.
+	#[test]
+	fn the_authoring_hold_tracks_the_overdue_count() {
+		let hold = AuthoringHold::new();
+		assert_eq!(hold.overdue(), 0);
+
+		hold.set_overdue(3);
+		assert_eq!(hold.overdue(), 3);
+		assert_eq!(hold.clone().overdue(), 3, "clones share the counter");
+
+		hold.set_overdue(0);
+		assert_eq!(hold.overdue(), 0);
 	}
 
 	/// The wall-clock-driven builder derives its JAM slot from the clock and its timestamp from

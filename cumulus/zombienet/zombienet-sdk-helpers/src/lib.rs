@@ -1169,11 +1169,14 @@ where
 	Ok(())
 }
 
-/// Checks if the specified block occupies a full core.
+/// Checks if the specified block occupies a full core and returns its hash.
+///
+/// The returned hash is the block that was checked: for [`BlockToCheck::Exact`] the one handed
+/// in, for [`BlockToCheck::NextFirstBundleBlock`] the first block of the next bundle.
 pub async fn ensure_is_only_block_in_core<C: Config>(
 	para_client: &OnlineClient<C>,
 	block_to_check: BlockToCheck,
-) -> Result<(), anyhow::Error>
+) -> Result<H256, anyhow::Error>
 where
 	C: H256Config,
 	C::Header: ParaHeader,
@@ -1182,7 +1185,8 @@ where
 
 	match block_to_check {
 		BlockToCheck::Exact(block_hash) => {
-			ensure_is_block_in_core_impl(para_client, block_hash, true).await
+			ensure_is_block_in_core_impl(para_client, block_hash, true).await?;
+			Ok(block_hash)
 		},
 		BlockToCheck::NextFirstBundleBlock(start_block_hash) => {
 			let start_block = blocks.at(start_block_hash).await?;
@@ -1205,12 +1209,38 @@ where
 			}
 
 			if let Some(block) = next_first_bundle_block {
-				ensure_is_block_in_core_impl(para_client, block, true).await
+				ensure_is_block_in_core_impl(para_client, block, true).await?;
+				Ok(block)
 			} else {
 				Err(anyhow!("Could not find the next bundle after {}", start_block.number()))
 			}
 		},
 	}
+}
+
+/// Checks that the given block carries the [`CumulusDigestItem::UseFullCore`] digest, i.e. the
+/// runtime escalated the block to occupy its entire core.
+///
+/// On the relay this is the signal for a bundle that consumed more than its share of the core; on
+/// JAM every block is alone in its core, so this complements [`ensure_is_only_block_in_core`].
+pub async fn ensure_uses_full_core<C: Config>(
+	para_client: &OnlineClient<C>,
+	block_hash: H256,
+) -> Result<(), anyhow::Error>
+where
+	C: H256Config,
+	C::Header: ParaHeader,
+{
+	let block = para_client.blocks().at(block_hash).await?;
+	let substrate_digest =
+		sp_runtime::generic::Digest::decode(&mut &block.header().encode_digest()[..])
+			.expect("`subxt::Digest` and `substrate::Digest` should encode and decode; qed");
+
+	if !CumulusDigestItem::contains_use_full_core(&substrate_digest) {
+		return Err(anyhow!("Block {block_hash:?} does not carry the `UseFullCore` digest"));
+	}
+
+	Ok(())
 }
 
 /// Checks if the specified block is the last block in a core.

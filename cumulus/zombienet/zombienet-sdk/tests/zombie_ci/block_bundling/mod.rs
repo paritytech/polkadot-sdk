@@ -19,12 +19,11 @@
 // network has two cores and no HRMP, so there is nothing to run it against.
 #[cfg(not(feature = "jam"))]
 mod basic;
-// The four below run against `cumulus-test-runtime`; the JAM path runs the parachain template,
-// so their subject does not exist there. Each reason is the error the JAM run actually produced.
+// The gated modules below have no JAM counterpart; each carries its reason. Each reason is the
+// error the JAM run actually produced.
 
-// Drives weight/PoV scenarios through `Utility`, which the template runtime does not have:
-// "Variant Utility does not exist on type with identifier 8".
-#[cfg(not(feature = "jam"))]
+// Drives weight/PoV scenarios through `Utility`. On JAM the para runs from the
+// `cumulus-test-runtime` `block_bundling` flavor, which has it.
 mod full_core_usage_scenarios;
 // Its PoV-recovery full node and log assertion have no JAM counterpart.
 #[cfg(not(feature = "jam"))]

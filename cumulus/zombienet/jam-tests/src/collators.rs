@@ -10,6 +10,7 @@
 use crate::{chain_spec, env::Binaries, network::polkavm_env, rpc::CollatorRpc};
 use anyhow::Context;
 use std::{
+	collections::HashMap,
 	fs::File,
 	path::{Path, PathBuf},
 	process::{Child, Command, Stdio},
@@ -45,6 +46,18 @@ pub struct JamTarget {
 	/// collators must hash the very same bytes — PVM builds are not byte-deterministic, so the
 	/// build output is not a safe substitute.
 	pub authorizer_blob: PathBuf,
+	/// Per-collator JAM RPC URL overrides, keyed by collator name. A name absent here uses
+	/// [`Self::rpc_url`]. This is how a test interposes a proxy between one collator and the
+	/// network without moving the URL for the others.
+	pub rpc_url_overrides: HashMap<String, String>,
+}
+
+impl JamTarget {
+	/// The JAM RPC URL collator `name` must be started with: its override when it has one,
+	/// [`Self::rpc_url`] otherwise.
+	pub fn rpc_url_for(&self, name: &str) -> &str {
+		self.rpc_url_overrides.get(name).map(String::as_str).unwrap_or(&self.rpc_url)
+	}
 }
 
 /// One parachain of a run: the id it collates under, the core its work packages are authorized
@@ -158,6 +171,7 @@ impl Collators {
 
 			let log_path = work_dir.join(format!("{name}.log"));
 			let log = File::create(&log_path)?;
+			let jam_rpc_url = jam.rpc_url_for(name);
 
 			let mut command = Command::new(&binaries.omni_node);
 			command
@@ -174,7 +188,7 @@ impl Collators {
 				// Every collator needs its own metrics port; they would otherwise all try to bind
 				// the 9615 default.
 				.args(["--prometheus-port", &prometheus_port.to_string()])
-				.args(["--jam-rpc-urls", &jam.rpc_url])
+				.args(["--jam-rpc-urls", jam_rpc_url])
 				.args(["--jam-service-id", &jam.service_id.to_string()])
 				// Neither the core nor the set is named: the collator reads its set from the
 				// runtime and finds the core by scanning the authorizer pools for the resulting
@@ -199,7 +213,10 @@ impl Collators {
 			}
 
 			let process = command.spawn().with_context(|| format!("spawning collator {name}"))?;
-			log::info!("collator {name}: rpc 127.0.0.1:{rpc_port}, log {}", log_path.display());
+			log::info!(
+				"collator {name}: rpc 127.0.0.1:{rpc_port}, JAM RPC {jam_rpc_url}, log {}",
+				log_path.display()
+			);
 
 			bootnode.get_or_insert(format!("/ip4/127.0.0.1/tcp/{p2p_port}/p2p/{peer_id}"));
 			collators.push(Collator {
@@ -264,6 +281,28 @@ impl Collators {
 					.collect::<Vec<_>>()
 			})
 			.collect()
+	}
+
+	/// Every line of collator `name`'s log, in order.
+	///
+	/// [`Self::log_lines_with`] merges every collator; this is the same read for one of them, so
+	/// a test can scan that collator's log alone — including for lines it printed after a
+	/// restart or a URL override the others did not get.
+	pub fn log_lines(&self, name: &str) -> anyhow::Result<Vec<String>> {
+		let collator =
+			self.collators.iter().find(|collator| collator.name == name).with_context(|| {
+				format!(
+					"no collator named {name}; the collators are: {}",
+					self.collators
+						.iter()
+						.map(|collator| collator.name.as_str())
+						.collect::<Vec<_>>()
+						.join(", ")
+				)
+			})?;
+		let contents = std::fs::read_to_string(&collator.log_path)
+			.with_context(|| format!("reading {}", collator.log_path.display()))?;
+		Ok(contents.lines().map(str::to_string).collect())
 	}
 
 	/// The tail of every collator log, for a failure message.

@@ -24,11 +24,12 @@
 //!
 //! # Where the validation inputs come from on JAM
 //!
-//! The work-item payload is the SCALE-encoded [`ParachainCandidate`] the collator's `build_pov`
-//! produced: a validation-code hash and the PoV, which is itself a SCALE-encoded
-//! `ParachainBlockData::V4`. On the relay chain the validator knows the previous head and the
-//! relay-parent context from its own chain state; on JAM the PVF has no chain state, so the
-//! parent header travels *untrusted* in the V4 `parent_header` field and is bound twice:
+//! The PoV is work-item extrinsic 0: the collator's `build_pov` output, a SCALE-encoded
+//! `ParachainBlockData::V4`. The work-item payload carries only the candidate's validation-code
+//! hash (the `pov` field is empty) and is read by the parachain service, not here. On the relay
+//! chain the validator knows the previous head and the relay-parent context from its own chain
+//! state; on JAM the PVF has no chain state, so the parent header travels *untrusted* in the V4
+//! `parent_header` field and is bound twice:
 //!
 //! - the shared core's `verify_blocks_form_chain` asserts `blocks[0].parent_hash ==
 //!   parent_header.hash()`, so a candidate that declares a parent other than the parent of its own
@@ -53,7 +54,7 @@ use codec::Decode;
 use cumulus_jam_state_reader::{JamProofReader, JAM_PROOF_KEY};
 use cumulus_primitives_core::{CumulusDigestItem, ParachainBlockData};
 use frame_support::traits::{ExecuteBlock, Get};
-use parachain_service_core::{candidate::ParachainCandidate, StateProof};
+use parachain_service_core::StateProof;
 use sp_additional_data::{hash_value, AdditionalData, AdditionalDataFinalizer};
 use sp_crypto_hashing::{blake2_128, blake2_256};
 use sp_runtime::traits::{Block as BlockT, Header as HeaderT, LazyBlock};
@@ -63,8 +64,7 @@ use sp_runtime::traits::{Block as BlockT, Header as HeaderT, LazyBlock};
 /// allocation happens on the abort path; each message has a distinct byte length on purpose —
 /// the `RefineLog::Opaque` digest carries the length, which is how an abort is pinned from the
 /// logs without decoding the payload.
-const ERR_PAYLOAD_NO_WORK_ITEM: &[u8] = b"jam_validate_block:no-work-item-payload@0";
-const ERR_PAYLOAD_DECODE_FAILED: &[u8] = b"jam_validate_block:candidate-decode-failed";
+const ERR_POV_EXTRINSIC_MISSING: &[u8] = b"jam_validate_block:pov-extrinsic-missing";
 const ERR_POV_DECODE_FAILED: &[u8] = b"jam_validate_block:pov-decode-failed";
 const ERR_PARENT_HEADER_MISSING: &[u8] = b"jam_validate_block:v4-parent-header-missing";
 const ERR_HEAD_DATA_MISSING: &[u8] = b"jam_validate_block:no-head-data";
@@ -92,32 +92,24 @@ impl AdditionalDataFinalizer for JamProofFinalizer {
 ///
 /// Same validation as the relay-chain path — [`super::relay_chain_implementation::validate_block`]
 /// — instantiated with the same concrete `B`/`E`/`PSC` by the runtime layer, but with the JAM
-/// setup: the candidate is read from the child-PVM `work_item_payload` host function and the
+/// setup: the PoV is read from the child-PVM work-item `extrinsic(0)` host function and the
 /// `ValidationResult` outputs are written via host side effects instead of returned.
 #[allow(clippy::unused_unit)]
 pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
-	// 1. Read the work-item payload. The Refine invokes the child PVM with a single work item
-	// (index 0); its payload is the SCALE-encoded `ParachainCandidate` the collator assembled.
-	let payload = match host::work_item_payload(0) {
-		Some(payload) => payload,
-		None => host::report_error(ERR_PAYLOAD_NO_WORK_ITEM),
-	};
+	// 1. Read the PoV from work-item extrinsic 0. The Refine invokes the child PVM with a single
+	// work item (index 0), and the collator sends the PoV as that item's first extrinsic; the
+	// payload only carries the validation-code hash the parachain service reads.
+	let Some(pov) = host::extrinsic(0) else { host::report_error(ERR_POV_EXTRINSIC_MISSING) };
 
-	// 2. Decode the candidate with the shared JAM facade type — one definition, owned by the
-	// parachain service, that cannot silently drift from what the collator encodes.
-	let Ok(candidate) = ParachainCandidate::decode(&mut &payload[..]) else {
-		host::report_error(ERR_PAYLOAD_DECODE_FAILED)
-	};
-
-	// 3. The PoV is itself a SCALE-encoded `ParachainBlockData::V4`. Decode it to reach the
+	// 2. The PoV is itself a SCALE-encoded `ParachainBlockData::V4`. Decode it to reach the
 	// parent header and blocks.
 	let Ok(block_data) =
-		codec::decode_from_bytes::<ParachainBlockData<B::LazyBlock>>(Bytes::from(candidate.pov))
+		codec::decode_from_bytes::<ParachainBlockData<B::LazyBlock>>(Bytes::from(pov))
 	else {
 		host::report_error(ERR_POV_DECODE_FAILED)
 	};
 
-	// 4. The parent header is untrusted V4 transport — this module establishes it, the shared
+	// 3. The parent header is untrusted V4 transport — this module establishes it, the shared
 	// core binds it to the candidate (`verify_blocks_form_chain`), the service to the canonical
 	// chain (accumulate) — so a pre-V4 PoV cannot be validated on JAM: abort.
 	let Some(parent_header_bytes) = block_data.parent_header() else {
@@ -130,13 +122,13 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 	// into the core.
 	let blocks = block_data.blocks();
 
-	// 5. Declare the parent head hash this candidate is built on, exactly once (mandatory). The
+	// 4. Declare the parent head hash this candidate is built on, exactly once (mandatory). The
 	// service records it in the work digest and compares it against the head it stored at
 	// accumulate, so it must stay an explicit `blake2_256` over the encoded header (NOT
 	// `B::Hashing`): `accumulate` compares its stored `blake2_256(&head_data)` against this.
 	host::set_parent_head_hash(&blake2_256(&parent_header));
 
-	// 6. Seed the trie-hashmap randomness. The relay path seeds from
+	// 5. Seed the trie-hashmap randomness. The relay path seeds from
 	// `relay_parent_storage_root` + block hashes; JAM has no relay state, so the refine
 	// context's `lookup_anchor` (which the collator cannot find out ahead of time) plays the
 	// relay root's role. The same context carries the trusted state root of the anchor block —
@@ -176,7 +168,7 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 		host::report_error(ERR_JAM_PARENT_MISMATCH)
 	}
 
-	// 7. Run the SAME validation core as the polkadot path. There is no V3 scheduling on JAM
+	// 6. Run the SAME validation core as the polkadot path. There is no V3 scheduling on JAM
 	// (`None` skips the signature-override hook) and no relay proof/validation-data re-check
 	// (`|_| {}`; `validate_validation_data` is relay-only). The trusted JAM anchor state root is
 	// sourced from the refine context, so the `on_execute` hook below can verify the carried
@@ -201,9 +193,11 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 		},
 		None,
 		&|_| {
-			upgrade_emit.set(crate::PendingUpgradeEmit::<PSC>::get().map(|(hash, len, phase)| {
-				(hash, len, phase, u32::from(PSC::SelfParaId::get()))
-			}))
+			upgrade_emit.set(
+				crate::PendingUpgradeEmit::<PSC>::get().map(|(hash, len, phase)| {
+					(hash, len, phase, u32::from(PSC::SelfParaId::get()))
+				}),
+			)
 		},
 		// Arm the JAM proof reader + finalizer from the carried `JAM_PROOF_KEY` entry for
 		// the duration of each block's execution, so `jam_state_read` and `finalize` are
@@ -236,7 +230,7 @@ pub fn jam_validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>() {
 		},
 	);
 
-	// 8. Sink the result through host side effects (spec §4.2). `head_data` is set by the core
+	// 7. Sink the result through host side effects (spec §4.2). `head_data` is set by the core
 	// after the last block executes; a `None` here is impossible if any block ran
 	// (`verify_blocks_form_chain` aborts on an empty PoV first), so it means a core invariant
 	// broke, not a malformed candidate — abort loudly instead of declaring no head.
@@ -280,7 +274,7 @@ fn build_jam_seed<B: BlockT>(lookup_anchor: [u8; 32], blocks: &[B::LazyBlock]) -
 /// Child host calls of the Parachain Service's Refine (spec §4.3).
 ///
 /// None of these are declared here: the parachain-service-native wrappers (indices 200-203) and
-/// the JAM `fetch` surface (work package, refine context, work-item payloads) are re-exported
+/// the JAM `fetch` surface (work package, refine context, work-item extrinsics) are re-exported
 /// from `parachain_service_core::host` / `parachain_service_core::refine`, so this runtime and
 /// the node drive the exact same ABI definitions instead of per-runtime copies of the raw
 /// `fetch` import.
@@ -291,10 +285,10 @@ pub mod host {
 	pub use parachain_service_core::host::{
 		report_error, request_code_upgrade, set_head, set_parent_head_hash, solicit,
 	};
-	// The fetch-based JAM helpers (`Fetch::RefineContext`, `workitems[a].payload`, …) are the
+	// The fetch-based JAM helpers (`Fetch::RefineContext`, `workitems[a].extrinsics[b]`, …) are the
 	// same ones the service's own refine entry point drives from; re-exported through
 	// `parachain_service_core::refine` rather than re-declared. `refine_context` decodes the
 	// real type instead of reading a field at a hardcoded offset, so an upstream field
 	// reordering is a decode failure instead of silently wrong randomness.
-	pub use parachain_service_core::refine::{refine_context, work_item_payload};
+	pub use parachain_service_core::refine::{extrinsic, refine_context};
 }

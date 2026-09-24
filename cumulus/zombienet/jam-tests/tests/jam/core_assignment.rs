@@ -151,11 +151,12 @@ async fn heads_belong_to_their_own_para(run: &mut Run) -> anyhow::Result<()> {
 /// same core back brings the head back.
 ///
 /// This is the failure mode the whole core layer has to survive: nothing tells a collator that its
-/// core is gone. Packages keep being submitted for as long as the old authorizer lasts in the
-/// pool, then they are simply never reported, the soft resubmit spends its attempts on silence,
-/// the manager forgets them, and the only visible consequence is a head that has stopped. What
-/// must *not* happen is the collator stopping too, so the assertion is deliberately two-sided:
-/// the JAM head stands still and the local chain does not.
+/// core is gone. The package sent just before the core was parked is not reported, so the
+/// collator resends it at anchor+2 and holds the parachain slot — authoring nothing — until its
+/// anchor expires at anchor+8, about 48 s later. Only then does authoring resume, on blocks whose
+/// `submit_target` is `None`: never sent, so never held. The only visible consequence of the lost
+/// core is a head that has stopped. What must *not* happen is the collator stopping too, so the
+/// assertion is deliberately two-sided: the JAM head stands still and the local chain does not.
 #[tokio::test(flavor = "multi_thread")]
 async fn freeing_the_core_freezes_the_para_head_until_it_is_assigned_again(
 ) -> Result<(), anyhow::Error> {
@@ -174,16 +175,19 @@ async fn freeing_the_core_freezes_the_para_head_until_it_is_assigned_again(
 }
 
 async fn stall_then_heal(run: &mut Run, tool: &Path) -> anyhow::Result<()> {
-	/// How long the head has to stand still before the stall is called. The builder re-roots after
-	/// eight para slots, so this is comfortably more than that: a run that reaches this point has
-	/// been through the whole soft-resubmit and re-root sequence, not just a slow block.
+	/// How long the head has to stand still before the stall is called. The package the para sent
+	/// just before its core was parked holds authoring for its eight-slot report window (~48 s)
+	/// before the builder gives up and re-roots, so this is comfortably more than that: a run that
+	/// reaches this point has been through the whole hold-and-resend sequence, not just a slow
+	/// block.
 	const STILL_FOR: Duration = Duration::from_secs(90);
 	const STALL_BUDGET: Duration = Duration::from_secs(10 * 60);
-	/// Blocks the collator has to author while the head is frozen. A stalled builder authors more
-	/// slowly than a healthy one — it fills its buffer above the stuck head, then re-roots and
-	/// starts again — and a measured stall of this length produced ten. Five is half of that,
-	/// against a collator that stopped, which would produce none.
-	const LOCAL_BLOCKS_WHILE_STALLED: usize = 5;
+	/// Blocks the collator has to author while the head is frozen. The parked package holds
+	/// authoring for its eight-slot report window (~48 s), and only after that can the builder
+	/// re-root and author again, so a 90 s stall is no longer the ten blocks the old soft-resubmit
+	/// behaviour produced: expect roughly half. Three is below even that, and still fails a
+	/// collator that stopped, which would produce none.
+	const LOCAL_BLOCKS_WHILE_STALLED: usize = 3;
 
 	let para = run.paras[0].para.clone();
 	let rpc = first_rpc(run).await?;

@@ -29,9 +29,9 @@
 pub use futures::stream::BoxStream;
 pub use jam_std_common::{
 	AuthPool, AuthPools, AuthQueues, AvailabilityAssignment, AvailabilityAssignments, BlockDesc,
-	ChainSubUpdate, EpochIndex, NodeError as Error, NodeResult as Result, RangeProof, ReadyQueue,
-	ReadyRecord, Service, ServiceKey, StorageKey, SystemKey, VersionedParameters,
-	WorkPackageStatus, WorkReport,
+	BlockInfo, ChainSubUpdate, EpochIndex, NodeError as Error, NodeResult as Result, RangeProof,
+	ReadyQueue, ReadyRecord, RecentBlocks, Service, ServiceKey, StorageKey, SystemKey,
+	VersionedParameters, WorkPackageStatus, WorkReport,
 };
 pub use jam_types::{
 	AuthorizerHash, CoreIndex, Hash, HeaderHash, MmrPeakHash, ServiceId, Slot, StateRootHash,
@@ -176,6 +176,16 @@ pub trait JamStateSource: Send + Sync {
 		)
 	}
 
+	/// The recent-blocks history beta (state key C(3)): the blocks JAM has imported most recently,
+	/// each naming the work packages reported in it. This is how a collator learns that a package
+	/// it submitted has appeared on chain.
+	async fn recent_blocks(&self, at: HeaderHash) -> Result<RecentBlocks> {
+		decode_system_value(
+			self.state_value(at, SystemKey::RecentBlocks.into()).await?,
+			"RecentBlocks",
+		)
+	}
+
 	/// The accumulation queue (state key C(14)), decoded. Indexed by epoch phase rather than by
 	/// core: each entry holds the reports that became available in that phase and are still
 	/// waiting on their dependencies.
@@ -192,7 +202,9 @@ pub trait JamWorkPackageSubmission: Send + Sync {
 	/// Submit a work package to the guarantors currently assigned to `core`.
 	///
 	/// Submission is one-shot: "submitted to at least one guarantor", no retry, no failure
-	/// feedback. The only feedback is the status stream.
+	/// feedback. The recent-blocks history beta ([`JamStateSource::recent_blocks`]) is the
+	/// source of truth for whether a package was reported; the status stream is only for
+	/// logging and final [`WorkPackageStatus::Failed`].
 	async fn submit_work_package(
 		&self,
 		core: CoreIndex,
@@ -238,7 +250,10 @@ fn decode_system_value<T: DecodeAll>(value: Option<Vec<u8>>, what: &str) -> Resu
 mod tests {
 	use super::*;
 	use jam_codec::Encode;
-	use jam_types::{AuthQueue, FixedVec};
+	use jam_std_common::{BlockInfo, Mmr, RecentBlocks};
+	use jam_types::{
+		AuthQueue, BoundedVec, FixedVec, RecentBlockCount, SegmentTreeRoot, VecMap, WorkPackageHash,
+	};
 
 	struct FixedState(Vec<u8>);
 
@@ -291,6 +306,7 @@ mod tests {
 		let queues_key: StorageKey = SystemKey::AuthQueues.into();
 		assert_eq!(pools_key.0[0], 1);
 		assert_eq!(queues_key.0[0], 2);
+		assert_eq!(StorageKey::from(SystemKey::RecentBlocks).0[0], 3);
 		assert_eq!(StorageKey::from(SystemKey::Availability).0[0], 10);
 		assert_eq!(StorageKey::from(SystemKey::ReadyQueue).0[0], 14);
 		assert_eq!(&pools_key.0[1..], &[0u8; 30]);
@@ -317,6 +333,32 @@ mod tests {
 		let decoded = futures::executor::block_on(source.availability(HeaderHash::from([0u8; 32])))
 			.expect("availability decode");
 		assert!(decoded.iter().all(Option::is_none));
+	}
+
+	#[test]
+	fn recent_blocks_default_impl_decodes_scale() {
+		let hash = HeaderHash([7u8; 32]);
+		let work_package_hash = WorkPackageHash([9u8; 32]);
+		let mut reported = VecMap::new();
+		reported.insert(work_package_hash, SegmentTreeRoot([5u8; 32]));
+		let block = BlockInfo {
+			hash,
+			beefy_root: MmrPeakHash([1u8; 32]),
+			state_root: StateRootHash([2u8; 32]),
+			slot: 12_345,
+			reported,
+		};
+		let history: BoundedVec<BlockInfo, RecentBlockCount> =
+			vec![block].try_into().expect("within recent block count");
+		let recent = RecentBlocks { history, mmr: Mmr::default() };
+		let source = FixedState(recent.encode());
+
+		let decoded =
+			futures::executor::block_on(source.recent_blocks(HeaderHash::from([0u8; 32])))
+				.expect("recent blocks decode");
+		assert_eq!(decoded.history.len(), 1);
+		assert_eq!(decoded.history[0].slot, 12_345);
+		assert!(decoded.history[0].reported.contains_key(&work_package_hash));
 	}
 
 	#[test]

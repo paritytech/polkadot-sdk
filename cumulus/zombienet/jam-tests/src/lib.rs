@@ -15,4 +15,5 @@ pub mod genesis;
 pub mod genesis_build;
 pub mod harness;
 pub mod network;
+pub mod proxy;
 pub mod rpc;

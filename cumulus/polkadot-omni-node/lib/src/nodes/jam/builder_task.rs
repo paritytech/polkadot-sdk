@@ -51,7 +51,7 @@
 
 use super::{
 	authorizer::AuraAuthorizer, choose_lookup_anchor, jam_read, jam_slot_as_relay_slot,
-	jam_slot_at, scan_pools_at, JamCollatorMessage, PoolScan, LOG_TARGET,
+	jam_slot_at, scan_pools_at, AuthoringHold, JamCollatorMessage, PoolScan, LOG_TARGET,
 };
 use crate::common::{
 	aura::{AuraIdT, AuraRuntimeApi},
@@ -63,7 +63,7 @@ use cumulus_client_consensus_aura::collator::SlotClaim;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_jam_state_reader::{JamProofFinalizer, JamProofReader, JamStateExt, JAM_PROOF_KEY};
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::RelayParentOffsetApi;
+use cumulus_primitives_core::{BlockBundleInfo, RelayParentOffsetApi};
 use futures::{channel::mpsc, FutureExt, StreamExt};
 use jam_interface::{
 	BlockDesc, CoreIndex, HeaderHash, JamChainSource, JamStateSource, ServiceId, Slot as JamSlot,
@@ -126,8 +126,8 @@ const MONITOR_BUDGET: Duration = Duration::from_secs(2);
 /// block authored on top of it inherits that: the parachain service buffers the descendants, the
 /// head never moves, and the runtime's capacity gate stops authoring a few blocks later. Losing a
 /// package is benign and regular, so this has to fire; the bound sits comfortably above the
-/// normal inclusion trail (about two slots) plus the collation manager's resubmit budget, so it
-/// only ever fires on a package that is genuinely lost.
+/// normal inclusion trail (about two slots) plus the collation task's resend window and the
+/// authoring hold it can impose, so it only ever fires on a package that is genuinely lost.
 const STALL_REROOT_SLOTS: u64 = 8;
 /// Sanity bound on the number of in-flight blocks.
 ///
@@ -154,6 +154,9 @@ pub(crate) struct BuilderTaskParams<Block: NodeBlock, RuntimeApi, BI, PF, Jam> {
 	pub authorizer: Arc<AuraAuthorizer>,
 	pub jam: Arc<Jam>,
 	pub message_sender: mpsc::Sender<JamCollatorMessage<Block>>,
+	/// How many overdue work packages the collation task is holding; while non-zero the tick
+	/// authors nothing.
+	pub hold: AuthoringHold,
 }
 
 /// What reading the accumulated para head did to the builder's view of it.
@@ -656,8 +659,7 @@ fn para_slot_claimed(last_claimed: Option<Slot>, para_slot: Slot) -> bool {
 ///
 /// One per core holding the para's authorizer, and never zero: with no core at all the turn
 /// still authors its first package — the para keeps producing locally — it simply has nowhere
-/// to submit it, and the collation task keeps it in flight and re-anchors it, which re-scans
-/// the pools, until a core is assigned again.
+/// to submit it, so nothing is ever handed to a guarantor and the package never holds authoring.
 fn turn_package_budget(cores: usize) -> usize {
 	cores.max(1)
 }
@@ -777,6 +779,7 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 		authorizer,
 		jam,
 		mut message_sender,
+		hold,
 	} = params;
 
 	let mut best_blocks = match jam.best_block_stream().await {
@@ -891,6 +894,7 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 			tip,
 			now,
 			&mut state,
+			&hold,
 		)
 		.await
 		{
@@ -947,6 +951,7 @@ async fn run_tick<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 	tip: BlockDesc,
 	now: Timestamp,
 	state: &mut BuilderState<Block::Header>,
+	hold: &AuthoringHold,
 ) -> Result<Vec<JamCollatorMessage<Block>>, String>
 where
 	Block: NodeBlock,
@@ -1069,6 +1074,23 @@ where
 	match moved {
 		HeadMove::Unchanged => log_head_move!(debug),
 		_ => log_head_move!(info),
+	}
+
+	// Authoring past a package that is still being resent would only deepen a branch whose
+	// package has not landed. `note_pool_scan`, `state.included` and `note_head` have already run
+	// and `last_claimed_slot` is untouched, so the stall clock keeps counting through held ticks
+	// and the re-root below fires once the hold lifts if the head is still stuck.
+	let overdue = hold.overdue();
+	if overdue > 0 {
+		tracing::info!(
+			target: LOG_TARGET,
+			overdue,
+			?para_slot,
+			stalled_for,
+			"Holding this parachain slot: an overdue work package is being resent instead of a new \
+			 block being built.",
+		);
+		return Ok(Vec::new());
 	}
 
 	let genesis_hash = para_client.info().genesis_hash;
@@ -1398,6 +1420,9 @@ where
 									lookup_anchor_slot: context.lookup_anchor_slot,
 								}
 								.to_digest_item(),
+								// Every block is alone in its work package, so it is the first and
+								// the last block of its core: the runtime grants it the full core.
+								BlockBundleInfo { index: 0, is_last: true }.to_digest_item(),
 							],
 						},
 						max_duration: PROPOSAL_DURATION,
@@ -2108,8 +2133,8 @@ mod tests {
 	}
 
 	/// The budget is one package per core, and never zero: with no core at all the turn still
-	/// authors its first package, which the collation task keeps in flight and re-anchors until
-	/// a core is assigned.
+	/// authors its first package, which is never handed to a guarantor and so never holds
+	/// authoring.
 	#[test]
 	fn the_turn_budget_is_one_package_per_core() {
 		assert_eq!(turn_package_budget(0), 1, "the no-core turn still authors one package");
