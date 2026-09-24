@@ -82,7 +82,7 @@ pub const MAX_DISTRIBUTABLE_ASSETS: u32 = 8;
 /// Type alias for balance.
 pub type BalanceOf<T> = <T as Config>::Balance;
 
-pub type DistributableAssetKindOf<T> = <T as Config>::AssetKind;
+pub type AssetKindOf<T> = <T as Config>::AssetKind;
 
 /// Type alias for the native token allocation map.
 pub type BudgetAllocationMap = BoundedBTreeMap<BudgetKey, Perbill, ConstU32<MAX_BUDGET_RECIPIENTS>>;
@@ -199,6 +199,11 @@ pub mod pallet {
 			/// The new budget allocation map.
 			allocations: BudgetAllocationMap,
 		},
+		/// Asset allocation was updated via governance.
+		AssetAllocationUpdated {
+			/// The new asset allocation map.
+			allocations: AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>,
+		},
 		/// Funds were drained from the staging account into the DAP buffer.
 		StagingDrained {
 			/// Amount drained.
@@ -231,7 +236,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type AssetAllocation<T> =
-		StorageValue<_, AssetAllocationMap<DistributableAssetKindOf<T>, BalanceOf<T>>, ValueQuery>;
+		StorageValue<_, AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>, ValueQuery>;
 
 	/// Timestamp (ms) of the last issuance drip.
 	///
@@ -330,31 +335,57 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Set the budget allocation map.
+		/// Optionally set the budget and asset allocation maps.
 		///
-		/// Each key must match a registered `BudgetRecipient`. The sum of all percentages
-		/// must be exactly 100%. Recipients not included in the map receive nothing.
+		/// Each key must match a registered `BudgetRecipient`. For budget allocation, the sum of
+		/// all percentages must be exactly 100%. Recipients not included in the map receive
+		/// nothing.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::set_budget_allocation())]
-		pub fn set_budget_allocation(
+		#[pallet::weight(T::WeightInfo::set_allocations())]
+		pub fn set_allocations(
 			origin: OriginFor<T>,
-			new_allocations: BudgetAllocationMap,
+			new_budget_allocations: Option<BudgetAllocationMap>,
+			new_asset_allocations: Option<AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>>,
 		) -> DispatchResult {
 			T::BudgetOrigin::ensure_origin(origin)?;
 
-			// Validate all keys are registered recipients.
 			let registered: Vec<_> =
 				T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
-			for key in new_allocations.keys() {
-				ensure!(registered.contains(key), Error::<T>::UnknownBudgetKey);
+
+			if let Some(budget_allocations) = new_budget_allocations {
+				// Validate all keys are registered recipients.
+				for key in budget_allocations.keys() {
+					ensure!(registered.contains(key), Error::<T>::UnknownBudgetKey);
+				}
+
+				// Validate sum == 100%. Use u64 to avoid overflow when summing deconstructed
+				// Perbills.
+				let total_parts: u64 =
+					budget_allocations.values().map(|p| p.deconstruct() as u64).sum();
+				ensure!(
+					total_parts == Perbill::one().deconstruct() as u64,
+					Error::<T>::BudgetNotExact
+				);
+
+				BudgetAllocation::<T>::put(budget_allocations.clone());
+				Self::deposit_event(Event::BudgetAllocationUpdated {
+					allocations: budget_allocations,
+				});
 			}
 
-			// Validate sum == 100%. Use u64 to avoid overflow when summing deconstructed Perbills.
-			let total_parts: u64 = new_allocations.values().map(|p| p.deconstruct() as u64).sum();
-			ensure!(total_parts == Perbill::one().deconstruct() as u64, Error::<T>::BudgetNotExact);
+			if let Some(asset_allocations) = new_asset_allocations {
+				// Validate all keys are registered recipients.
+				for (_, allocations) in &asset_allocations {
+					for key in allocations.keys() {
+						ensure!(registered.contains(key), Error::<T>::UnknownBudgetKey);
+					}
+				}
 
-			BudgetAllocation::<T>::put(new_allocations.clone());
-			Self::deposit_event(Event::BudgetAllocationUpdated { allocations: new_allocations });
+				AssetAllocation::<T>::put(asset_allocations.clone());
+				Self::deposit_event(Event::AssetAllocationUpdated {
+					allocations: asset_allocations,
+				});
+			}
 
 			Ok(())
 		}
