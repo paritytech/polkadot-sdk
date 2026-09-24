@@ -2457,6 +2457,12 @@ fn close_parent_with_child_bounty() {
 	});
 }
 
+/// Regression test for closing a parent bounty after one of its child-bounties was paid out.
+///
+/// The paid-out child value left the parent account for good, but `close_bounty` used to request
+/// a refund of the full stored `value`. A paymaster that performs a real transfer (`LocalPay`)
+/// rejects that, so the parent bounty could never be closed. Without the `calculate_payout`
+/// adjustment in `do_process_refund_payment` this test fails with `RefundError`.
 #[test]
 fn close_parent_bounty_after_child_payout_refunds_remaining_value() {
 	ExtBuilder::default().build_and_execute(|| {

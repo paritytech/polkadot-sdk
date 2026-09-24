@@ -50,6 +50,12 @@ thread_local! {
 }
 
 /// The funding source (treasury) is modelled as a faucet: it is never debited.
+///
+/// Every other account is debited by [`TestBountiesPay::pay`] and a transfer fails when the source
+/// holds too little, mirroring `LocalPay` on Asset Hub. A mock that silently mints instead hides
+/// exactly the class of bug where the pallet requests more than a bounty account holds (for example
+/// refunding the full parent value after a child-bounty payout). The treasury is exempt because
+/// its funding is out of scope for this pallet and seeding it in every test adds nothing.
 fn is_funding_source(who: &u128, asset_kind: u32) -> bool {
 	Bounties::funding_source_account(asset_kind).ok() == Some(*who) ||
 		Bounties1::funding_source_account(asset_kind).ok() == Some(*who)
