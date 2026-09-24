@@ -1181,10 +1181,11 @@ fn retry_payment_works() {
 			Some(s.child_bounty_id)
 		));
 
-		// Then
+		// Then: the child value is back in the parent account
 		let payment_id = get_payment_id(s.parent_bounty_id, Some(s.child_bounty_id))
 			.expect("no payment attempt");
-		assert_eq!(paid(child_bounty_account, s.asset_kind), s.child_value);
+		assert_eq!(paid(child_bounty_account, s.asset_kind), 0);
+		assert_eq!(paid(parent_bounty_account, s.asset_kind), s.value);
 		assert_eq!(
 			last_event(),
 			BountiesEvent::Paid {
@@ -2434,7 +2435,7 @@ fn close_parent_with_child_bounty() {
 			s.parent_bounty_id,
 			Some(s.child_bounty_id),
 			s.asset_kind,
-			s.value + s.child_value, // parent bounty value + child bounty value
+			s.value, // child value returned to the parent it was funded from
 		);
 		assert_eq!(pallet_bounties::ChildBountiesPerParent::<Test>::get(s.parent_bounty_id), 0);
 		assert_eq!(
@@ -2480,9 +2481,7 @@ fn close_parent_bounty_after_child_payout_refunds_remaining_value() {
 			Bounties::bounty_account(s.parent_bounty_id, s.asset_kind).expect("conversion failed");
 		let funding_source_account =
 			Bounties::funding_source_account(s.asset_kind).expect("conversion failed");
-		unpay(parent_bounty_account, s.asset_kind, s.child_value);
 		assert_eq!(paid(parent_bounty_account, s.asset_kind), remaining);
-		set_strict_balances(true);
 
 		// When
 		assert_ok!(Bounties::close_bounty(RuntimeOrigin::root(), s.parent_bounty_id, None));
@@ -2808,6 +2807,10 @@ fn increase_value_then_award_pays_new_value() {
 		let _ = Balances::mint_into(&s.curator, 100);
 		let increase = 20;
 		let new_value = s.value + increase;
+		// `increase_value` moves no funds; model the external top-up it registers.
+		let parent_bounty_account =
+			Bounties::bounty_account(s.parent_bounty_id, s.asset_kind).expect("conversion failed");
+		top_up(parent_bounty_account, s.asset_kind, increase);
 		assert_ok!(Bounties::increase_value(
 			RuntimeOrigin::signed(s.curator),
 			s.parent_bounty_id,
@@ -2867,6 +2870,10 @@ fn increase_value_creates_child_bounty_headroom() {
 
 		// Given: the parent value is increased, creating new headroom.
 		let increase = 30;
+		// `increase_value` moves no funds; model the external top-up it registers.
+		let parent_bounty_account =
+			Bounties::bounty_account(s.parent_bounty_id, s.asset_kind).expect("conversion failed");
+		top_up(parent_bounty_account, s.asset_kind, increase);
 		assert_ok!(Bounties::increase_value(
 			RuntimeOrigin::signed(s.curator),
 			s.parent_bounty_id,

@@ -45,8 +45,14 @@ thread_local! {
 	pub static PAID: RefCell<BTreeMap<(u128, u32), u64>> = RefCell::new(BTreeMap::new());
 	pub static STATUS: RefCell<BTreeMap<u64, PaymentStatus>> = RefCell::new(BTreeMap::new());
 	pub static LAST_ID: RefCell<u64> = RefCell::new(0u64);
-	/// If `true`, `pay` debits the source and fails when it holds too little (like `LocalPay`).
-	pub static STRICT_BALANCES: RefCell<bool> = RefCell::new(false);
+	/// Source account and amount of every payment, so a rejected payment can be reverted.
+	pub static SOURCES: RefCell<BTreeMap<u64, (u128, u32, u64)>> = RefCell::new(BTreeMap::new());
+}
+
+/// The funding source (treasury) is modelled as a faucet: it is never debited.
+fn is_funding_source(who: &u128, asset_kind: u32) -> bool {
+	Bounties::funding_source_account(asset_kind).ok() == Some(*who) ||
+		Bounties1::funding_source_account(asset_kind).ok() == Some(*who)
 }
 
 pub struct TestBountiesPay;
@@ -64,7 +70,8 @@ impl PayWithSource for TestBountiesPay {
 		asset_kind: Self::AssetKind,
 		amount: Self::Balance,
 	) -> Result<Self::Id, Self::Error> {
-		if STRICT_BALANCES.with(|s| *s.borrow()) {
+		// Like `LocalPay`: debit the source and fail when it holds too little.
+		if !is_funding_source(from, asset_kind) {
 			PAID.with(|paid| -> Result<(), ()> {
 				let mut paid = paid.borrow_mut();
 				let source = paid.entry((*from, asset_kind)).or_default();
@@ -73,22 +80,25 @@ impl PayWithSource for TestBountiesPay {
 			})?;
 		}
 		PAID.with(|paid| *paid.borrow_mut().entry((*to, asset_kind)).or_default() += amount);
-		Ok(LAST_ID.with(|lid| {
+		let id = LAST_ID.with(|lid| {
 			let x = *lid.borrow();
 			lid.replace(x + 1);
 			x
-		}))
+		});
+		SOURCES.with(|s| s.borrow_mut().insert(id, (*from, asset_kind, amount)));
+		Ok(id)
 	}
 	fn check_payment(id: Self::Id) -> PaymentStatus {
 		STATUS.with(|s| s.borrow().get(&id).cloned().unwrap_or(PaymentStatus::InProgress))
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(
-		_: &Self::Source,
+		from: &Self::Source,
 		_: &Self::Beneficiary,
-		_: Self::AssetKind,
-		_: Self::Balance,
+		asset_kind: Self::AssetKind,
+		amount: Self::Balance,
 	) {
+		top_up(*from, asset_kind, amount);
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_concluded(id: Self::Id) {
@@ -297,9 +307,9 @@ pub fn unpay(who: u128, asset_id: u32, amount: u64) {
 	PAID.with(|p| p.borrow_mut().entry((who, asset_id)).or_default().saturating_reduce(amount))
 }
 
-/// toggle strict balance checking in `TestBountiesPay`
-pub fn set_strict_balances(strict: bool) {
-	STRICT_BALANCES.with(|s| *s.borrow_mut() = strict);
+/// credit an account out-of-band, e.g. an external top-up of a bounty account
+pub fn top_up(who: u128, asset_id: u32, amount: u64) {
+	PAID.with(|p| *p.borrow_mut().entry((who, asset_id)).or_default() += amount)
 }
 
 /// set status for a given payment id
@@ -389,6 +399,12 @@ pub fn reject_payment(
 ) {
 	unpay(dest, asset_kind, amount);
 	let payment_id = get_payment_id(parent_bounty_id, child_bounty_id).expect("no payment attempt");
+	// The transfer never happened: return the funds to the source.
+	let (source, source_asset, source_amount) =
+		SOURCES.with(|s| s.borrow().get(&payment_id).cloned()).expect("unknown payment");
+	if !is_funding_source(&source, source_asset) {
+		top_up(source, source_asset, source_amount);
+	}
 	set_status(payment_id, PaymentStatus::Failure);
 	assert_ok!(Bounties::check_status(RuntimeOrigin::signed(0), parent_bounty_id, child_bounty_id));
 }
