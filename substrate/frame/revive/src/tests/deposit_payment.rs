@@ -732,3 +732,28 @@ fn code_upload_and_remove_with_pgas() {
 			);
 		});
 }
+
+/// [`Deposit::refund_all`] only releases as much of the storage deposit as the freezes on the
+/// account allow. Holds count towards a freeze, so the part of the freeze that the free balance
+/// does not cover stays on hold instead of failing the refund.
+#[test]
+fn refund_all_leaves_frozen_part_on_hold() {
+	use frame_support::traits::{LockableCurrency, WithdrawReasons, fungible::MutateHold};
+
+	ExtBuilder::default().build().execute_with(|| {
+		let hold: <Test as Config>::RuntimeHoldReason = HoldReason::StorageDepositReserve.into();
+		Balances::set_balance(&BOB, 1_000);
+		assert_ok!(Balances::hold(&hold, &BOB, 600));
+		// 400 free and 600 held: the free balance covers 400 of the lock, the hold the rest.
+		Balances::set_lock(*b"test/lck", &BOB, 900, WithdrawReasons::all());
+
+		let alice_before = Balances::balance(&ALICE);
+		let refunded =
+			<<Test as Config>::Deposit as Deposit<Test>>::refund_all(&BOB, Funds::Balance(&ALICE))
+				.unwrap();
+
+		assert_eq!(refunded, 100);
+		assert_eq!(Balances::balance_on_hold(&hold, &BOB), 500);
+		assert_eq!(Balances::balance(&ALICE), alice_before + 100);
+	});
+}
