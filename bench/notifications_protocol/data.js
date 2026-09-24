@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790270858934,
+  "lastUpdate": 1790286789641,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -228287,6 +228287,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2521521789,
             "range": "± 55272646",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "10196091+Ank4n@users.noreply.github.com",
+            "name": "Ankan",
+            "username": "Ank4n"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c534ae5fee6bfcc4b00450ad4f27c19346097d5d",
+          "message": "[AHMv2] Migrator dependencies (#13282)\n\nAdds the types the migrator pallets need to move parachain registrations\nand HRMP channels from the relay chain to the pallets that will own them\non a system chain (Coretime).\n\n## How the migration flows\n\n- `rc2-migrator` (runtimes repo) [depends\non](https://github.com/Ank4n/runtimes/blob/ankn-min-relay-int/pallets/rc2-migrator/src/lib.rs#L359)\n`hrmp`, `paras_registrar` etc. directly, iterates their storage and\npacks each record into a `Portable*` entry (eg\n[`PortableHrmpChannel`](https://github.com/Ank4n/runtimes/blob/ankn-min-relay-int/pallets/migrator-types/src/lib.rs#L164)).\nThese are the wire types between the two migrators, rc2 and ct, and\ncarry the RC-recorded deposits.\n- `ct-migrator` receives the wire type, settles the deposits (the\nbalances arrive earlier, in the accounts stage), converts the record to\nthe smaller `Migrated*` type from this PR and hands it to the new pallet\n(`registrar_para` / `hrmp_para`), which recreates the record at its own\nprice.\n\nSo `Portable*` is the wire format and is what gets parked in a `Failed*`\nmap when an entry is refused. `Migrated*` is never stored; it is the\ntranslation from wire to the fields the pallet actually needs. The\nct-migrator could hand the pallets the portable type directly, but this\nkeeps the pallets away from deposit amounts they do not use, and the\nwire format stays in the runtimes repo with no SDK dependency.\n\n## Changes\n\n- `registrar-primitives`\n- `MigratedPara`, `MigratedParaState`: one para as handed to the\nregistrar pallet.\n- `ReceiveMigratedParas`: implemented by `registrar_para`. The `()` impl\nrefuses every record.\n- `hrmp-primitives`\n- `ChannelId`, `MigratedChannel`: one channel as handed to the HRMP\npallet.\n- `ReceiveMigratedChannels`: implemented by `hrmp_para`. The `()` impl\nrefuses every record.\n\nNeither type carries a deposit: the receiving pallet takes its own at\nthe destination's prices. A record is recreated even if its manager\ncannot pay, so no RC para or channel is dropped.\n\n---------\n\nCo-authored-by: Luka Ciric <luka.ciric2106@gmail.com>",
+          "timestamp": "2026-09-24T20:10:44Z",
+          "tree_id": "2d1334ebc5f059cf3861e27111c3f393da1d750f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c534ae5fee6bfcc4b00450ad4f27c19346097d5d"
+        },
+        "date": 1790286757705,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4438394,
+            "range": "± 45527",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 286284,
+            "range": "± 4480",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4319797,
+            "range": "± 41861",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 360297,
+            "range": "± 2767",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5132062,
+            "range": "± 33613",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 888462,
+            "range": "± 12478",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10936339,
+            "range": "± 70801",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4859722,
+            "range": "± 53288",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 45217789,
+            "range": "± 511223",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 39818294,
+            "range": "± 342326",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 389308723,
+            "range": "± 4040546",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 320966580,
+            "range": "± 4460399",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2694198648,
+            "range": "± 11471851",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2432790815,
+            "range": "± 8362545",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3354825,
+            "range": "± 27787",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1841147,
+            "range": "± 8940",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3519509,
+            "range": "± 27123",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1916862,
+            "range": "± 12564",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4047998,
+            "range": "± 32982",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2273288,
+            "range": "± 17035",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8398511,
+            "range": "± 82707",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5368769,
+            "range": "± 49454",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 38133962,
+            "range": "± 332573",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37682245,
+            "range": "± 425731",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 332373664,
+            "range": "± 2636623",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 295994079,
+            "range": "± 1735268",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2662331852,
+            "range": "± 47143175",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2343853449,
+            "range": "± 19626679",
             "unit": "ns/iter"
           }
         ]
