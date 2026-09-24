@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790271706934,
+  "lastUpdate": 1790287970352,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marios@parity.io",
-            "name": "Marios",
-            "username": "mchristou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7beff9b36482109623319d61aca5dedd407888cb",
-          "message": "Collator protocol revamp: Change collation hold-off timing to start at leaf activation (#11046)\n\n#11022 \n \nThe hold-off delay should be measured from when the relay parent (leaf)\nis activated, not when the advertisement message arrives. This prevents\nartificially delaying messages that already arrived late.\n\n\n ## Changes\n- Calculate remaining hold-off time from leaf activation, not message\narrival\n  - Process immediately if hold-off window has already elapsed\n  - Add test to ensure late-arriving collations skip artificial delay\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-24T14:30:24Z",
-          "tree_id": "94c81a5263ab20d4416cafbb2d3afa66e5eded28",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/7beff9b36482109623319d61aca5dedd407888cb"
-        },
-        "date": 1771948458909,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.949472086200002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1340583041,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.71147067433333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "10196091+Ank4n@users.noreply.github.com",
+            "name": "Ankan",
+            "username": "Ank4n"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c534ae5fee6bfcc4b00450ad4f27c19346097d5d",
+          "message": "[AHMv2] Migrator dependencies (#13282)\n\nAdds the types the migrator pallets need to move parachain registrations\nand HRMP channels from the relay chain to the pallets that will own them\non a system chain (Coretime).\n\n## How the migration flows\n\n- `rc2-migrator` (runtimes repo) [depends\non](https://github.com/Ank4n/runtimes/blob/ankn-min-relay-int/pallets/rc2-migrator/src/lib.rs#L359)\n`hrmp`, `paras_registrar` etc. directly, iterates their storage and\npacks each record into a `Portable*` entry (eg\n[`PortableHrmpChannel`](https://github.com/Ank4n/runtimes/blob/ankn-min-relay-int/pallets/migrator-types/src/lib.rs#L164)).\nThese are the wire types between the two migrators, rc2 and ct, and\ncarry the RC-recorded deposits.\n- `ct-migrator` receives the wire type, settles the deposits (the\nbalances arrive earlier, in the accounts stage), converts the record to\nthe smaller `Migrated*` type from this PR and hands it to the new pallet\n(`registrar_para` / `hrmp_para`), which recreates the record at its own\nprice.\n\nSo `Portable*` is the wire format and is what gets parked in a `Failed*`\nmap when an entry is refused. `Migrated*` is never stored; it is the\ntranslation from wire to the fields the pallet actually needs. The\nct-migrator could hand the pallets the portable type directly, but this\nkeeps the pallets away from deposit amounts they do not use, and the\nwire format stays in the runtimes repo with no SDK dependency.\n\n## Changes\n\n- `registrar-primitives`\n- `MigratedPara`, `MigratedParaState`: one para as handed to the\nregistrar pallet.\n- `ReceiveMigratedParas`: implemented by `registrar_para`. The `()` impl\nrefuses every record.\n- `hrmp-primitives`\n- `ChannelId`, `MigratedChannel`: one channel as handed to the HRMP\npallet.\n- `ReceiveMigratedChannels`: implemented by `hrmp_para`. The `()` impl\nrefuses every record.\n\nNeither type carries a deposit: the receiving pallet takes its own at\nthe destination's prices. A record is recreated even if its manager\ncannot pay, so no RC para or channel is dropped.\n\n---------\n\nCo-authored-by: Luka Ciric <luka.ciric2106@gmail.com>",
+          "timestamp": "2026-09-24T20:10:44Z",
+          "tree_id": "2d1334ebc5f059cf3861e27111c3f393da1d750f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c534ae5fee6bfcc4b00450ad4f27c19346097d5d"
+        },
+        "date": 1790287939701,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13794427069999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.781039911933336,
             "unit": "seconds"
           }
         ]
