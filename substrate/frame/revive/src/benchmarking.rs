@@ -4453,8 +4453,7 @@ mod benchmarks {
 
 	/// Benchmark `r` `CODESIZE` instructions.
 	///
-	/// The code is nothing but `r` `CODESIZE` bytes, so every one of them pushes `r`, which checks
-	/// that the reported size is the original code length rather than the padded one.
+	/// The code is nothing but `r` `CODESIZE` bytes, so every one of them pushes `r`.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_codesize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![CODESIZE; r as usize].into());
