@@ -16,7 +16,7 @@
 
 use crate::{ChainId, HeaderIdProvider};
 
-use codec::{Codec, Decode, Encode, MaxEncodedLen};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{weights::Weight, Parameter};
 use num_traits::{AsPrimitive, Bounded, CheckedSub, Saturating, SaturatingAdd, Zero};
 use sp_runtime::{
@@ -193,6 +193,7 @@ pub trait Chain: Send + Sync + 'static {
 		+ MaybeDisplay
 		+ MaybeSerializeDeserialize
 		+ AtLeast32Bit
+		+ HasCompact<Type: DecodeWithMemTracking>
 		+ Copy
 		+ MaxEncodedLen;
 	/// Signature type, used on this chain.

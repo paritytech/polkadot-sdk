@@ -65,7 +65,6 @@ pub trait BaseArithmetic:
 	+ PartialOrd<Self>
 	+ Ord
 	+ Bounded
-	+ HasCompact
 	+ Sized
 	+ Clone
 	+ TryFrom<u8>
@@ -123,7 +122,6 @@ impl<
 			+ PartialOrd<Self>
 			+ Ord
 			+ Bounded
-			+ HasCompact
 			+ Sized
 			+ Clone
 			+ TryFrom<u8>
@@ -162,9 +160,9 @@ pub trait AtLeast8Bit: BaseArithmetic + From<u8> {}
 impl<T: BaseArithmetic + From<u8>> AtLeast8Bit for T {}
 
 /// A meta trait for arithmetic.  Same as [`AtLeast8Bit `], but also bounded to be unsigned.
-pub trait AtLeast8BitUnsigned: AtLeast8Bit + Unsigned {}
+pub trait AtLeast8BitUnsigned: AtLeast8Bit + Unsigned + HasCompact {}
 
-impl<T: AtLeast8Bit + Unsigned> AtLeast8BitUnsigned for T {}
+impl<T: AtLeast8Bit + Unsigned + HasCompact> AtLeast8BitUnsigned for T {}
 
 /// A meta trait for arithmetic.
 ///
@@ -176,9 +174,9 @@ pub trait AtLeast16Bit: BaseArithmetic + From<u16> {}
 impl<T: BaseArithmetic + From<u16>> AtLeast16Bit for T {}
 
 /// A meta trait for arithmetic.  Same as [`AtLeast16Bit `], but also bounded to be unsigned.
-pub trait AtLeast16BitUnsigned: AtLeast16Bit + Unsigned {}
+pub trait AtLeast16BitUnsigned: AtLeast16Bit + Unsigned + HasCompact {}
 
-impl<T: AtLeast16Bit + Unsigned> AtLeast16BitUnsigned for T {}
+impl<T: AtLeast16Bit + Unsigned + HasCompact> AtLeast16BitUnsigned for T {}
 
 /// A meta trait for arithmetic.
 ///
@@ -190,9 +188,9 @@ pub trait AtLeast32Bit: BaseArithmetic + From<u16> + From<u32> {}
 impl<T: BaseArithmetic + From<u16> + From<u32>> AtLeast32Bit for T {}
 
 /// A meta trait for arithmetic.  Same as [`AtLeast32Bit `], but also bounded to be unsigned.
-pub trait AtLeast32BitUnsigned: AtLeast32Bit + Unsigned + MultiplyRational {}
+pub trait AtLeast32BitUnsigned: AtLeast32Bit + Unsigned + MultiplyRational + HasCompact {}
 
-impl<T: AtLeast32Bit + Unsigned + MultiplyRational> AtLeast32BitUnsigned for T {}
+impl<T: AtLeast32Bit + Unsigned + MultiplyRational + HasCompact> AtLeast32BitUnsigned for T {}
 
 /// Just like `From` except that if the source value is too big to fit into the destination type
 /// then it'll saturate the destination.
