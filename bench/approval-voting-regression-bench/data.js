@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790271854005,
+  "lastUpdate": 1790288064290,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "luka.ciric2106@gmail.com",
-            "name": "Luka Ciric",
-            "username": "cirko33"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f6e430ef28716084bed0b3af47256069c75e79d7",
-          "message": "Meta Transactions - Benchmarking update (#10982)\n\nUpdate of benchmarking logic to remove possibility of `quadratic\ncomplexity` not being weighted when executed. Introducing witness\nparameter that would define length of `meta_tx` encoded size.\n\nUpdate of weight annotation to `saturating add` instead of `add`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-24T13:12:59Z",
-          "tree_id": "207392576e969d65c1be0bee5cd3675684a06673",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6e430ef28716084bed0b3af47256069c75e79d7"
-        },
-        "date": 1771943503856,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52948.59999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63639.409999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000020353740000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.7008079367700013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002246997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.75420071413,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.307197510770009,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.754577704509999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000020353740000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.086262191369983,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006149111990000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8294334242199748,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.7338957889799986,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.328683285582924,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002246997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-0",
             "value": 2.820863805099998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "10196091+Ank4n@users.noreply.github.com",
+            "name": "Ankan",
+            "username": "Ank4n"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c534ae5fee6bfcc4b00450ad4f27c19346097d5d",
+          "message": "[AHMv2] Migrator dependencies (#13282)\n\nAdds the types the migrator pallets need to move parachain registrations\nand HRMP channels from the relay chain to the pallets that will own them\non a system chain (Coretime).\n\n## How the migration flows\n\n- `rc2-migrator` (runtimes repo) [depends\non](https://github.com/Ank4n/runtimes/blob/ankn-min-relay-int/pallets/rc2-migrator/src/lib.rs#L359)\n`hrmp`, `paras_registrar` etc. directly, iterates their storage and\npacks each record into a `Portable*` entry (eg\n[`PortableHrmpChannel`](https://github.com/Ank4n/runtimes/blob/ankn-min-relay-int/pallets/migrator-types/src/lib.rs#L164)).\nThese are the wire types between the two migrators, rc2 and ct, and\ncarry the RC-recorded deposits.\n- `ct-migrator` receives the wire type, settles the deposits (the\nbalances arrive earlier, in the accounts stage), converts the record to\nthe smaller `Migrated*` type from this PR and hands it to the new pallet\n(`registrar_para` / `hrmp_para`), which recreates the record at its own\nprice.\n\nSo `Portable*` is the wire format and is what gets parked in a `Failed*`\nmap when an entry is refused. `Migrated*` is never stored; it is the\ntranslation from wire to the fields the pallet actually needs. The\nct-migrator could hand the pallets the portable type directly, but this\nkeeps the pallets away from deposit amounts they do not use, and the\nwire format stays in the runtimes repo with no SDK dependency.\n\n## Changes\n\n- `registrar-primitives`\n- `MigratedPara`, `MigratedParaState`: one para as handed to the\nregistrar pallet.\n- `ReceiveMigratedParas`: implemented by `registrar_para`. The `()` impl\nrefuses every record.\n- `hrmp-primitives`\n- `ChannelId`, `MigratedChannel`: one channel as handed to the HRMP\npallet.\n- `ReceiveMigratedChannels`: implemented by `hrmp_para`. The `()` impl\nrefuses every record.\n\nNeither type carries a deposit: the receiving pallet takes its own at\nthe destination's prices. A record is recreated even if its manager\ncannot pay, so no RC para or channel is dropped.\n\n---------\n\nCo-authored-by: Luka Ciric <luka.ciric2106@gmail.com>",
+          "timestamp": "2026-09-24T20:10:44Z",
+          "tree_id": "2d1334ebc5f059cf3861e27111c3f393da1d750f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c534ae5fee6bfcc4b00450ad4f27c19346097d5d"
+        },
+        "date": 1790288033894,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63559.22000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0053221597500000065,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.0000222062,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.0000222062,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7949791660999561,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002287121,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8039963100899996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.755411467880001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.24435194938996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.321154157730004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002287121,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.789280712000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.308354394012573,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7742079758399987,
             "unit": "seconds"
           }
         ]
