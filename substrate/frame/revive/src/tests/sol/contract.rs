@@ -22,7 +22,7 @@ use core::iter;
 use crate::{
 	BalanceOf, Code, Config, DelegateInfo, DispatchError, Error, ExecConfig, ExecOrigin,
 	ExecReturnValue, Weight,
-	access_list::CallItems,
+	access_list::{Access, AccessListMetrics, CallItems, CodeLoadItems},
 	address::AddressMapper,
 	evm::{decode_revert_reason, fees::InfoT},
 	limits,
@@ -43,7 +43,8 @@ use frame_support::{
 };
 use itertools::Itertools;
 use pallet_revive_fixtures::{
-	Callee, Caller, Counter, FixtureType, Host, Recurse, compile_module_with_type,
+	Callee, Caller, ColdHotCaller, ColdHotTarget, Counter, FixtureType, Host, Recurse,
+	compile_module_with_type,
 };
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;

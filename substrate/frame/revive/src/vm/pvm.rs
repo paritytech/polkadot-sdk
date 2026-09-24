@@ -29,6 +29,7 @@ use crate::{
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
 	tracing::FrameTraceInfo,
+	vm::TransferAccessKind,
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
@@ -688,14 +689,16 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 					// A precompile's account state is untracked, so its transfer has no warmth
 					// and pays cold.
-					let warmth = precompile.is_none().then(|| {
-						self.ext.warm(TransferItems {
+					let transfer = if precompile.is_none() {
+						TransferAccessKind::Tracked(self.ext.warm(TransferItems {
 							from: self.ext.address(),
 							to: callee,
 							dust: dust_transfer,
-						})
-					});
-					self.charge_gas(RuntimeCosts::CallTransferSurcharge { dust_transfer, warmth })?;
+						}))
+					} else {
+						TransferAccessKind::Untracked { dust: dust_transfer }
+					};
+					self.charge_gas(RuntimeCosts::CallTransferSurcharge(transfer))?;
 				}
 
 				let reentrancy = if flags.contains(CallFlags::ALLOW_REENTRY) {

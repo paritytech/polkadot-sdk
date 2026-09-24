@@ -22,7 +22,7 @@ pub mod evm;
 pub mod pvm;
 mod runtime_costs;
 
-pub use runtime_costs::{RuntimeCosts, StorageAccessKind};
+pub use runtime_costs::{RuntimeCosts, StorageAccessKind, TransferAccessKind};
 
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
@@ -131,7 +131,7 @@ impl CodeLoadToken {
 	/// Computes the flat cost of both reads, at the code's own warmth.
 	fn flat<T: Config>(warmth: Summarized<CodeLoadWarmth>) -> Weight {
 		runtime_costs::weight_from_warmth_summary::<T>(
-			warmth.summary,
+			warmth.summary(),
 			CodeLoadItems::KEY_FAMILY,
 			T::WeightInfo::code_load,
 			// Nothing on top of the base hot access.
@@ -145,7 +145,7 @@ impl CodeLoadToken {
 		code_len: u32,
 		code_type: BytecodeType,
 	) -> Weight {
-		let per_byte: fn(u32) -> Weight = match (code_type, warmth.entries.blob.is_hot()) {
+		let per_byte: fn(u32) -> Weight = match (code_type, warmth.entries().blob.is_hot()) {
 			(BytecodeType::Pvm, false) => T::WeightInfo::call_with_pvm_code_per_byte,
 			(BytecodeType::Pvm, true) => T::WeightInfo::call_with_pvm_code_per_byte_hot,
 			(BytecodeType::Evm, false) => T::WeightInfo::call_with_evm_code_per_byte,

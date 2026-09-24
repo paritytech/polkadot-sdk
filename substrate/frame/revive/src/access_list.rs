@@ -216,13 +216,13 @@ impl Warmth {
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct WarmthSummary {
 	/// How many entries in total.
-	pub total: u32,
+	total: u32,
 	/// How many are cold.
-	pub cold: u32,
+	cold: u32,
 	/// How many of the cold ones roll back with the frame.
-	pub cold_revertible: u32,
+	cold_revertible: u32,
 	/// How many are written after paying only for a read.
-	pub upgrades: u32,
+	upgrades: u32,
 }
 
 impl WarmthSummary {
@@ -239,6 +239,26 @@ impl WarmthSummary {
 			},
 		}
 		self
+	}
+
+	/// Returns how many entries the access touches.
+	pub fn total(&self) -> u32 {
+		self.total
+	}
+
+	/// Returns how many entries were cold.
+	pub fn cold(&self) -> u32 {
+		self.cold
+	}
+
+	/// Returns how many of the cold entries roll back with the frame.
+	pub fn cold_revertible(&self) -> u32 {
+		self.cold_revertible
+	}
+
+	/// Returns how many entries are written after paying only for a read.
+	pub fn upgrades(&self) -> u32 {
+		self.upgrades
 	}
 
 	/// Returns whether every entry was already in the access list.
@@ -261,12 +281,25 @@ impl WarmthSummary {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Summarized<W> {
 	/// The warmth of each entry the access touches.
-	pub entries: W,
+	entries: W,
 	/// Those same warmths, counted.
-	pub summary: WarmthSummary,
+	summary: WarmthSummary,
 }
 
 impl<W> Summarized<W> {
+	/// Returns the warmth of each entry the access touches.
+	pub fn entries(&self) -> W
+	where
+		W: Copy,
+	{
+		self.entries
+	}
+
+	/// Returns those same warmths, counted.
+	pub fn summary(&self) -> WarmthSummary {
+		self.summary
+	}
+
 	/// Builds the warmth of an untracked access, with every entry cold.
 	pub fn all_cold<A: Access<Warmth = W>>(access: A) -> Self {
 		Self::from_access(access, |_entry, _op| Warmth::cold_non_revertible())
@@ -448,9 +481,17 @@ impl Access for CallItems {
 pub struct TransferWarmth {
 	pub receiver_account: Warmth,
 	pub sender_account: Warmth,
-	/// The target's account info: the call reads it either way, a dust transfer also writes it.
+	/// The target's account info: the call reads it either way, a dust transfer also writes it
 	pub receiver_account_info: Warmth,
 	pub sender_account_info: Warmth,
+	pub dust: bool,
+}
+
+impl Summarized<TransferWarmth> {
+	/// Returns whether the transfer moves dust.
+	pub fn moves_dust(&self) -> bool {
+		self.entries.dust
+	}
 }
 
 /// The value transfer a call performs.
@@ -468,7 +509,8 @@ impl Access for TransferItems {
 	const KEY_FAMILY: KeyFamily = KeyFamily::Address;
 
 	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) -> TransferWarmth {
-		let account_info_op = Self::account_info_op(self.dust);
+		// Dust balances live in the account infos, so only a dust transfer writes them.
+		let account_info_op = if self.dust { StorageOp::Write } else { StorageOp::Read };
 		TransferWarmth {
 			receiver_account: visit(AccessEntry::Account { address: self.to }, StorageOp::Write),
 			sender_account: visit(AccessEntry::Account { address: self.from }, StorageOp::Write),
@@ -480,14 +522,8 @@ impl Access for TransferItems {
 				AccessEntry::AccountInfo { address: self.from },
 				account_info_op,
 			),
+			dust: self.dust,
 		}
-	}
-}
-
-impl TransferItems {
-	/// Returns `Write` when the transfer carries dust, else `Read`.
-	fn account_info_op(dust: bool) -> StorageOp {
-		if dust { StorageOp::Write } else { StorageOp::Read }
 	}
 }
 
@@ -1027,6 +1063,7 @@ mod tests {
 				sender_account: Warmth::write_paid(), // a transfer always writes the balance
 				receiver_account_info: Warmth::cold_non_revertible(),
 				sender_account_info: Warmth::read_paid(), // no dust, so it was only read
+				dust: false,
 			}
 		);
 	}
@@ -1049,6 +1086,7 @@ mod tests {
 			sender_account: Warmth::cold_non_revertible(),
 			receiver_account_info: Warmth::cold_non_revertible(),
 			sender_account_info: Warmth::cold_non_revertible(),
+			dust: false,
 		};
 		assert_eq!(al.warmth_of_summarized(access).entries, expected);
 		assert_eq!(al.warm(access), expected);
@@ -1110,6 +1148,7 @@ mod tests {
 				sender_account: Warmth::write_paid(),
 				receiver_account_info: Warmth::read_paid(),
 				sender_account_info: Warmth::read_paid(),
+				dust: false,
 			},
 		);
 
@@ -1120,6 +1159,7 @@ mod tests {
 				sender_account: Warmth::write_paid(),
 				receiver_account_info: Warmth::write_paid(),
 				sender_account_info: Warmth::write_paid(),
+				dust: true,
 			},
 		);
 
