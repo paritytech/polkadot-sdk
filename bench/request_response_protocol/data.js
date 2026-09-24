@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790176930960,
+  "lastUpdate": 1790252785218,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -127547,6 +127547,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2973807018,
             "range": "± 50648970",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "40807189+AlexandruCihodaru@users.noreply.github.com",
+            "name": "Alexandru Cihodaru",
+            "username": "AlexandruCihodaru"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "11569634ea4734d4b55c822a1990d262b64772da",
+          "message": "Collator protocol V4 validator side logic (#12396)\n\nReworks the experimental validator side of the collator protocol\n(validator_side_experimental) to also handle V4 collation segments.\n\nFixes: #13266 \n\nA collator can now advertises a whole segment, and the validator picks\nthe first unknown fingerprint at fetch time rather than collapsing at\nreceipt.\n\n---------\n\nSigned-off-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: eskimor <robert@gonimo.com>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: eskimor <1527017+eskimor@users.noreply.github.com>",
+          "timestamp": "2026-09-24T11:09:41Z",
+          "tree_id": "4ead6824342111b2a3b8282efb511927ed58756d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/11569634ea4734d4b55c822a1990d262b64772da"
+        },
+        "date": 1790252756312,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20072381,
+            "range": "± 296234",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20353636,
+            "range": "± 413405",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21268113,
+            "range": "± 283200",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27050842,
+            "range": "± 150198",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 64745246,
+            "range": "± 661406",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 391187683,
+            "range": "± 14555713",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2851975381,
+            "range": "± 110054359",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17511691,
+            "range": "± 278495",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17418518,
+            "range": "± 393779",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18689434,
+            "range": "± 368073",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22663963,
+            "range": "± 197276",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63970203,
+            "range": "± 2035989",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 389185243,
+            "range": "± 4737990",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2810147083,
+            "range": "± 61389260",
             "unit": "ns/iter"
           }
         ]
