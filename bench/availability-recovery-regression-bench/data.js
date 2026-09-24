@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790253848746,
+  "lastUpdate": 1790271706934,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "luka.ciric2106@gmail.com",
-            "name": "Luka Ciric",
-            "username": "cirko33"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f6e430ef28716084bed0b3af47256069c75e79d7",
-          "message": "Meta Transactions - Benchmarking update (#10982)\n\nUpdate of benchmarking logic to remove possibility of `quadratic\ncomplexity` not being weighted when executed. Introducing witness\nparameter that would define length of `meta_tx` encoded size.\n\nUpdate of weight annotation to `saturating add` instead of `add`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-24T13:12:59Z",
-          "tree_id": "207392576e969d65c1be0bee5cd3675684a06673",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6e430ef28716084bed0b3af47256069c75e79d7"
-        },
-        "date": 1771943437761,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.989679358266669,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12489968436666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.78893644666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cccea0c9393792a97a7814b88ca73a7678c43fc7",
+          "message": "statement gossip: route the v2 propagation plan through the per-peer outbox (#13197)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13193.\n\nStacked on https://github.com/paritytech/polkadot-sdk/pull/13216.\n\nThe v2 DHT path sent orchestrator-chosen statements through its own\nchunked send function, bypassing the per-peer outbox the v1 path uses.\nThis PR feeds the orchestrator's targets into the same outbox and\ndeletes the direct path, so v2 gets one chunk in flight per peer, the\nshared byte budget and the bounded queue. The orchestrator's choice of\npeer is final: on the v2 path the drain applies no affinity filter of\nits own and drops only statements the peer sent to us, so a target that\nleaves the routing set while its hash waits in the outbox still receives\nthe statement. Two loss reasons count what the direct path never lost:\n`missing_from_store` for a statement that left the store or expired\nbefore its chunk went out, and `disconnected` for hashes still queued\nwhen the peer left.\n\n# Integration\n\nNode-side only. Nodes without the v2 DHT path gain the two\n`substrate_sync_statement_undelivered_total` reasons and see no other\nchange.",
+          "timestamp": "2026-09-24T16:06:45Z",
+          "tree_id": "08446709dcc897e1f58ecd56ef4667f53b0fc5c7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cccea0c9393792a97a7814b88ca73a7678c43fc7"
+        },
+        "date": 1790271676067,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1373916743,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.71147067433333,
             "unit": "seconds"
           }
         ]
