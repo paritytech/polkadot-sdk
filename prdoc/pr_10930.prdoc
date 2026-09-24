@@ -1,0 +1,23 @@
+title: "Stop guessing source of block: add explicit `BlockOrigin::StateSync`"
+doc:
+- audience: Node Dev
+  description: |-
+    Adds a new `BlockOrigin::StateSync { is_verified: bool }` variant so that blocks
+    imported as part of state sync are tagged explicitly, instead of being labelled
+    with the generic `BlockOrigin::NetworkInitialSync`.
+
+    Both state-import code paths (the dedicated `StateStrategy` used after warp sync,
+    and `ChainSync`'s fast-sync state download) now use `BlockOrigin::StateSync`. The
+    relay-chain parachain import queue and the client's notification-gating logic are
+    updated to treat `StateSync` the same as the other sync-related origins
+    (`WarpSync`, `GapSync`, `NetworkInitialSync`).
+
+crates:
+- name: sp-consensus
+  bump: major
+- name: sc-network-sync
+  bump: patch
+- name: sc-service
+  bump: patch
+- name: cumulus-client-consensus-relay-chain
+  bump: patch
