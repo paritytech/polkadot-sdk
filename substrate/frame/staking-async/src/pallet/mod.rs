@@ -1105,6 +1105,23 @@ pub mod pallet {
 		pub dev_stakers: Option<(u32, u32)>,
 		/// initial active era, corresponding session index and start timestamp.
 		pub active_era: (u32, u32, u64),
+		/// Pre-seed [`DisableMintingGuard`] to skip the legacy-to-DAP transition.
+		///
+		/// If `Some(era)`, the guard is set at genesis so payouts for eras `>= era`
+		/// take the DAP branch immediately instead of waiting for `end_era_dap` to
+		/// fire. Only valid when [`Config::DisableMinting`] is `true`; panics otherwise.
+		///
+		/// Use `Some(0)` on fresh test chains to start in DAP mode from era 0.
+		pub disable_minting_guard: Option<EraIndex>,
+		/// Pre-seed validator self-stake incentive parameters.
+		///
+		/// All three must be `Some` to activate the incentive curve; any `None`
+		/// leaves the corresponding storage at its zero default. When
+		/// `optimum_self_stake == 0 && hard_cap_self_stake == 0`, the incentive
+		/// feature is disabled and validators earn no incentive weight.
+		pub optimum_self_stake: Option<BalanceOf<T>>,
+		pub hard_cap_self_stake: Option<BalanceOf<T>>,
+		pub self_stake_slope_factor: Option<Perbill>,
 	}
 
 	impl<T: Config> GenesisConfig<T> {
@@ -1150,6 +1167,31 @@ pub mod pallet {
 			}
 			if let Some(x) = self.max_nominator_count {
 				MaxNominatorsCount::<T>::put(x);
+			}
+
+			if let Some(guard_era) = self.disable_minting_guard {
+				assert!(
+					T::DisableMinting::get(),
+					"disable_minting_guard is only meaningful when DisableMinting is true; \
+					 setting it on a legacy-minting chain would orphan era pots"
+				);
+				DisableMintingGuard::<T>::put(guard_era);
+			}
+
+			let next_optimum = self.optimum_self_stake.unwrap_or_else(OptimumSelfStake::<T>::get);
+			let next_cap = self.hard_cap_self_stake.unwrap_or_else(HardCapSelfStake::<T>::get);
+			assert!(
+				next_optimum <= next_cap,
+				"genesis incentive config: optimum must be <= cap"
+			);
+			if let Some(optimum) = self.optimum_self_stake {
+				OptimumSelfStake::<T>::put(optimum);
+			}
+			if let Some(cap) = self.hard_cap_self_stake {
+				HardCapSelfStake::<T>::put(cap);
+			}
+			if let Some(slope) = self.self_stake_slope_factor {
+				SelfStakeSlopeFactor::<T>::put(slope);
 			}
 
 			// First pass: set up all validators and idle stakers
