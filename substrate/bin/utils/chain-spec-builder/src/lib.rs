@@ -760,7 +760,7 @@ fn prompt_bootnodes_to_add(
 	}
 
 	if bootnodes.is_empty() {
-		writeln!(output, "\nNo boot node to append.")?;
+		writeln!(output, "\nNo boot nodes added to the chainspec.")?;
 		return Ok(None);
 	}
 
