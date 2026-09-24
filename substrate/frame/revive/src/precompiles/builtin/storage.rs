@@ -17,9 +17,10 @@
 
 use crate::{
 	Config, Key,
-	access_list::{StorageItems, StorageOp},
+	access_list::StorageOp,
+	exec::BuiltinPrecompileExt,
 	limits,
-	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error, Ext},
+	precompiles::{BuiltinAddressMatcher, BuiltinPrecompile, Error},
 	storage::WriteOutcome,
 	vm::{RuntimeCosts, StorageAccessKind},
 };
@@ -41,7 +42,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 	fn call(
 		_address: &[u8; 20],
 		input: &Self::Interface,
-		env: &mut impl Ext<T = Self::T>,
+		env: &mut impl BuiltinPrecompileExt<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		// Benchmarks call the pre-compile functions directly, without the delegate
 		// call overhead. The `delegate_call` overhead is benchmarked individually.
@@ -65,8 +66,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				let transient = is_transient(*flags)?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
 				let access_kind = StorageAccessKind::new(transient, || {
-					let access = StorageItems::new(env.address(), &key, StorageOp::Write);
-					env.warm_summarized(access)
+					env.warm(env.slot_access(&key, StorageOp::Write))
 				});
 				let charged =
 					env.frame_meter_mut().charge_weight_token(RuntimeCosts::ClearStorage {
@@ -94,8 +94,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				let transient = is_transient(*flags)?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
 				let access_kind = StorageAccessKind::new(transient, || {
-					let access = StorageItems::new(env.address(), &key, StorageOp::Read);
-					env.warm_summarized(access)
+					env.warm(env.slot_access(&key, StorageOp::Read))
 				});
 				let charged =
 					env.frame_meter_mut().charge_weight_token(RuntimeCosts::ContainsStorage {
@@ -118,8 +117,7 @@ impl<T: Config> BuiltinPrecompile for Storage<T> {
 				let transient = is_transient(*flags)?;
 				let key = decode_key(key.as_bytes_ref(), *isFixedKey)?;
 				let access_kind = StorageAccessKind::new(transient, || {
-					let access = StorageItems::new(env.address(), &key, StorageOp::Write);
-					env.warm_summarized(access)
+					env.warm(env.slot_access(&key, StorageOp::Write))
 				});
 				let charged =
 					env.frame_meter_mut().charge_weight_token(RuntimeCosts::TakeStorage {

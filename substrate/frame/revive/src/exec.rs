@@ -19,7 +19,9 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
 	Pallet as Contracts, RuntimeCosts, TrieId,
-	access_list::{self, Access, AccessList, CallItems, CodeLoadWarmth, Summarized},
+	access_list::{
+		self, Access, AccessList, CallItems, CodeLoadWarmth, StorageItems, StorageOp, Summarized,
+	},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -262,7 +264,7 @@ struct TerminateArgs<T: Config> {
 }
 
 /// Environment functions only available to host functions.
-pub trait Ext: PrecompileWithInfoExt {
+pub trait Ext: PrecompileWithInfoExt + BuiltinPrecompileExt {
 	/// Execute code in the current frame.
 	///
 	/// Returns the code size of the called contract.
@@ -301,6 +303,22 @@ pub trait Ext: PrecompileWithInfoExt {
 	///
 	/// Note: Requires &mut self to access the contract info.
 	fn set_immutable_data(&mut self, data: ImmutableData) -> Result<(), DispatchError>;
+}
+
+/// Environment functions available to builtin pre-compiles and host functions, but not to
+/// external pre-compiles.
+pub trait BuiltinPrecompileExt: PrecompileExt {
+	/// Warms the state items the access touches, returning the warmth each had
+	/// **before** this call, with its entries counted.
+	fn warm<A: Access>(&mut self, access: A) -> Summarized<A::Warmth>;
+
+	/// Reports the warmth of the state items the access touches, without recording anything.
+	fn warmth_of<A: Access>(&self, access: A) -> Summarized<A::Warmth>;
+
+	/// Builds the access for `op` of the executing contract's storage slot `key`.
+	fn slot_access(&self, key: &Key, op: StorageOp) -> StorageItems {
+		StorageItems::new(self.address(), key, op)
+	}
 }
 
 /// Environment functions which are available to pre-compiles with `HAS_CONTRACT_INFO = true`.
@@ -549,13 +567,6 @@ pub trait PrecompileExt: sealing::Sealed {
 		value: Option<Vec<u8>>,
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError>;
-
-	/// Warms the state items the access touches, returning the warmth each had
-	/// **before** this call, with its entries counted.
-	fn warm_summarized<A: Access>(&mut self, access: A) -> Summarized<A::Warmth>;
-
-	/// Reports the warmth of the state items the access touches, without recording anything.
-	fn warmth_of_summarized<A: Access>(&self, access: A) -> Summarized<A::Warmth>;
 
 	/// Charges `diff` from the meter.
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
@@ -1024,11 +1035,7 @@ where
 		input_data: &Vec<u8>,
 	) -> Result<Option<(Self, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		origin.ensure_mapped()?;
-		// Create before the first frame is built, to capture its state accesses.
-		let mut access_list = AccessList::new();
-		// The `call` and `eth_call` extrinsic weights already pay for these reads.
-		// TODO: move the charge up to those extrinsics, so a bench edit cannot drop it silently.
-		Self::warm_first_frame_access(&mut access_list, &args, &origin, value);
+		let mut access_list = Self::new_access_list_with_warm_target(&args, &origin, value);
 		let Some((first_frame, executable)) = Self::new_frame(
 			args,
 			value,
@@ -1071,21 +1078,19 @@ where
 		Ok(Some((stack, executable)))
 	}
 
-	/// Warms the target's entries, plus the transfer's when the call moves value.
-	fn warm_first_frame_access(
-		access_list: &mut AccessList,
+	/// Creates the access list with the target's entries warm, plus the transfer's when the call
+	/// moves value. The `call` and `eth_call` extrinsic weights already pay for these reads.
+	fn new_access_list_with_warm_target(
 		args: &FrameArgs<T, E>,
 		origin: &Origin<T>,
 		value: U256,
-	) {
-		defensive_assert!(
-			access_list.frame_depth() == 0,
-			"the first frame's target is warmed before any frame opens",
-		);
-		let FrameArgs::Call { dest, delegated_call: None, .. } = args else { return };
+	) -> AccessList {
+		// TODO: fail the `call` and `eth_call` benches if they whitelist these entries.
+		let mut access_list = AccessList::new();
+		let FrameArgs::Call { dest, delegated_call: None, .. } = args else { return access_list };
 		let address = T::AddressMapper::to_address(dest);
 		if <AllPrecompiles<T>>::get::<Self>(address.as_fixed_bytes()).is_some() {
-			return;
+			return access_list;
 		}
 		access_list.warm(CallItems::new(address, false));
 		// Only a signed origin has a sender account, and a Root origin cannot move value.
@@ -1098,6 +1103,7 @@ where
 				dust: Contracts::<T>::has_dust(value),
 			});
 		}
+		access_list
 	}
 
 	/// Loads code, warming the code info and blob on success.
@@ -2217,6 +2223,20 @@ where
 	}
 }
 
+impl<'a, T, E> BuiltinPrecompileExt for Stack<'a, T, E>
+where
+	T: Config,
+	E: Executable<T>,
+{
+	fn warm<A: Access>(&mut self, access: A) -> Summarized<A::Warmth> {
+		self.access_list.warm_summarized(access)
+	}
+
+	fn warmth_of<A: Access>(&self, access: A) -> Summarized<A::Warmth> {
+		self.access_list.warmth_of_summarized(access)
+	}
+}
+
 impl<'a, T, E> PrecompileWithInfoExt for Stack<'a, T, E>
 where
 	T: Config,
@@ -2803,14 +2823,6 @@ where
 			Some(&mut frame.frame_meter),
 			take_old,
 		)
-	}
-
-	fn warmth_of_summarized<A: Access>(&self, access: A) -> Summarized<A::Warmth> {
-		self.access_list.warmth_of_summarized(access)
-	}
-
-	fn warm_summarized<A: Access>(&mut self, access: A) -> Summarized<A::Warmth> {
-		self.access_list.warm_summarized(access)
 	}
 
 	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {

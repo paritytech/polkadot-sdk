@@ -1139,12 +1139,13 @@ fn cold_hot_call_and_delegate_reuse_target_warmth(
 	});
 }
 
-// The two VMs differ once the depth limit denies a call, though both charge the same for it: EVM
-// keeps the frame running, so its touch stays, while PVM traps the frame and its touch is rolled
-// back. Which behavior is right is still undecided, so only EVM is pinned.
-#[test_case(FixtureType::Solc;   "evm")]
-#[test_case(FixtureType::Resolc => ignore; "pvm")]
-fn cold_hot_a_denied_call_leaves_its_target_in_the_list(fixture_type: FixtureType) {
+// Which VM behaves right is still undecided; pinning both makes a change on either one fail.
+#[test_case(FixtureType::Solc, 2; "evm")]
+#[test_case(FixtureType::Resolc, 0; "pvm")]
+fn cold_hot_a_denied_call_keeps_its_target_only_if_the_frame_runs_on(
+	fixture_type: FixtureType,
+	target_entries_kept: usize,
+) {
 	let (code, _) = compile_module_with_type("Recurse", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -1168,8 +1169,9 @@ fn cold_hot_a_denied_call_leaves_its_target_in_the_list(fixture_type: FixtureTyp
 
 		assert_eq!(
 			entries_left_by_denied_call_to(H160::from_low_u64_be(0xdead)),
-			entries_left_by_denied_call_to(H160::zero()) + 2,
-			"the frame runs on after the denial, so the target's entries stay in the list",
+			entries_left_by_denied_call_to(H160::zero()) + target_entries_kept,
+			"EVM runs the frame on after the denial, so the target's entries stay; PVM traps it, \
+			 and the rollback drops them",
 		);
 	});
 }

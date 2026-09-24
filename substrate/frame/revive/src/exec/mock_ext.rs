@@ -21,8 +21,8 @@ use crate::{
 	ReentrancyProtection,
 	access_list::{Access, Summarized},
 	exec::{
-		AccountIdOf, CallResources, ExecError, Ext, Key, Origin, PrecompileExt,
-		PrecompileWithInfoExt,
+		AccountIdOf, BuiltinPrecompileExt, CallResources, ExecError, Ext, Key, Origin,
+		PrecompileExt, PrecompileWithInfoExt,
 	},
 	metering::{FrameMeter, TransactionLimits, TransactionMeter},
 	precompiles::Diff,
@@ -261,14 +261,6 @@ impl<T: Config> PrecompileExt for MockExt<T> {
 		panic!("MockExt::set_storage")
 	}
 
-	fn warmth_of_summarized<A: Access>(&self, _access: A) -> Summarized<A::Warmth> {
-		panic!("MockExt::warmth_of_summarized")
-	}
-
-	fn warm_summarized<A: Access>(&mut self, _access: A) -> Summarized<A::Warmth> {
-		panic!("MockExt::warm_summarized")
-	}
-
 	fn charge_storage(&mut self, _diff: &Diff) -> DispatchResult {
 		Ok(())
 	}
@@ -315,5 +307,15 @@ impl<T: Config> Ext for MockExt<T> {
 
 	fn set_immutable_data(&mut self, _data: ImmutableData) -> Result<(), DispatchError> {
 		panic!("MockExt::set_immutable_data")
+	}
+}
+
+impl<T: Config> BuiltinPrecompileExt for MockExt<T> {
+	fn warm<A: Access>(&mut self, _access: A) -> Summarized<A::Warmth> {
+		panic!("MockExt::warm")
+	}
+
+	fn warmth_of<A: Access>(&self, _access: A) -> Summarized<A::Warmth> {
+		panic!("MockExt::warmth_of")
 	}
 }

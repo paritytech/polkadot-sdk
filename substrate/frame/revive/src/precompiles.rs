@@ -31,18 +31,20 @@ mod tests;
 
 pub use crate::{
 	AddressMapper, TransactionLimits,
-	access_list::{Access, StorageItems, StorageOp, Summarized, Warmth},
+	access_list::StorageOp,
 	exec::{
 		ExecError, PrecompileExt as Ext, PrecompileWithInfoExt as ExtWithInfo, ReentrancyProtection,
 	},
 	metering::{Diff, Token},
-	vm::{RuntimeCosts, StorageAccessKind},
+	vm::RuntimeCosts,
 };
 pub use alloy_core as alloy;
 pub use sp_core::{H160, H256, U256};
 
 use crate::{
-	Config, Error as CrateError, exec::ExecResult, precompiles::builtin::Builtin,
+	Config, Error as CrateError,
+	exec::{BuiltinPrecompileExt, ExecResult},
+	precompiles::builtin::Builtin,
 	primitives::ExecReturnValue,
 };
 use alloc::vec::Vec;
@@ -257,7 +259,7 @@ pub(crate) trait BuiltinPrecompile {
 	fn call(
 		_address: &[u8; 20],
 		_input: &Self::Interface,
-		_env: &mut impl Ext<T = Self::T>,
+		_env: &mut impl BuiltinPrecompileExt<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		unimplemented!("{UNIMPLEMENTED}")
 	}
@@ -265,7 +267,7 @@ pub(crate) trait BuiltinPrecompile {
 	fn call_with_info(
 		_address: &[u8; 20],
 		_input: &Self::Interface,
-		_env: &mut impl ExtWithInfo<T = Self::T>,
+		_env: &mut (impl ExtWithInfo<T = Self::T> + BuiltinPrecompileExt),
 	) -> Result<Vec<u8>, Error> {
 		unimplemented!("{UNIMPLEMENTED}")
 	}
@@ -287,7 +289,7 @@ pub(crate) trait PrimitivePrecompile {
 	fn call(
 		_address: &[u8; 20],
 		_input: Vec<u8>,
-		_env: &mut impl Ext<T = Self::T>,
+		_env: &mut impl BuiltinPrecompileExt<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		unimplemented!("{UNIMPLEMENTED}")
 	}
@@ -295,7 +297,7 @@ pub(crate) trait PrimitivePrecompile {
 	fn call_with_info(
 		_address: &[u8; 20],
 		_input: Vec<u8>,
-		_env: &mut impl ExtWithInfo<T = Self::T>,
+		_env: &mut (impl ExtWithInfo<T = Self::T> + BuiltinPrecompileExt),
 	) -> Result<Vec<u8>, Error> {
 		unimplemented!("{UNIMPLEMENTED}")
 	}
@@ -353,7 +355,8 @@ pub(crate) trait Precompiles<T: Config> {
 	/// Get a reference to a specific pre-compile.
 	///
 	/// Returns `None` if no pre-compile exists at `address`.
-	fn get<E: ExtWithInfo<T = T>>(address: &[u8; 20]) -> Option<Instance<E>>;
+	fn get<E: ExtWithInfo<T = T> + BuiltinPrecompileExt>(address: &[u8; 20])
+	-> Option<Instance<E>>;
 }
 
 impl<P: Precompile> BuiltinPrecompile for P {
@@ -365,7 +368,7 @@ impl<P: Precompile> BuiltinPrecompile for P {
 	fn call(
 		address: &[u8; 20],
 		input: &Self::Interface,
-		env: &mut impl Ext<T = Self::T>,
+		env: &mut impl BuiltinPrecompileExt<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		Self::call(address, input, env)
 	}
@@ -373,7 +376,7 @@ impl<P: Precompile> BuiltinPrecompile for P {
 	fn call_with_info(
 		address: &[u8; 20],
 		input: &Self::Interface,
-		env: &mut impl ExtWithInfo<T = Self::T>,
+		env: &mut (impl ExtWithInfo<T = Self::T> + BuiltinPrecompileExt),
 	) -> Result<Vec<u8>, Error> {
 		Self::call_with_info(address, input, env)
 	}
@@ -388,7 +391,7 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 	fn call(
 		address: &[u8; 20],
 		input: Vec<u8>,
-		env: &mut impl Ext<T = Self::T>,
+		env: &mut impl BuiltinPrecompileExt<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		log::trace!(target: crate::LOG_TARGET, "pre-compile call at {:?} with {:x?}", address, input);
 		let call = <Self as BuiltinPrecompile>::Interface::abi_decode_validate(&input)
@@ -401,7 +404,7 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 	fn call_with_info(
 		address: &[u8; 20],
 		input: Vec<u8>,
-		env: &mut impl ExtWithInfo<T = Self::T>,
+		env: &mut (impl ExtWithInfo<T = Self::T> + BuiltinPrecompileExt),
 	) -> Result<Vec<u8>, Error> {
 		log::trace!(target: crate::LOG_TARGET, "pre-compile call_with_info at {:?} with {:x?}", address, input);
 		let call = <Self as BuiltinPrecompile>::Interface::abi_decode_validate(&input)
@@ -452,7 +455,9 @@ impl<T: Config> Precompiles<T> for Tuple {
 		None
 	}
 
-	fn get<E: ExtWithInfo<T = T>>(address: &[u8; 20]) -> Option<Instance<E>> {
+	fn get<E: ExtWithInfo<T = T> + BuiltinPrecompileExt>(
+		address: &[u8; 20],
+	) -> Option<Instance<E>> {
 		let _ = <Self as Precompiles<T>>::CHECK_COLLISION;
 		let mut instance: Option<Instance<E>> = None;
 		for_tuples!(
@@ -498,7 +503,9 @@ impl<T: Config> Precompiles<T> for (Builtin<T>, <T as Config>::Precompiles) {
 		<Builtin<T>>::code(address).or_else(|| <T as Config>::Precompiles::code(address))
 	}
 
-	fn get<E: ExtWithInfo<T = T>>(address: &[u8; 20]) -> Option<Instance<E>> {
+	fn get<E: ExtWithInfo<T = T> + BuiltinPrecompileExt>(
+		address: &[u8; 20],
+	) -> Option<Instance<E>> {
 		let _ = <Self as Precompiles<T>>::CHECK_COLLISION;
 		<Builtin<T>>::get(address).or_else(|| <T as Config>::Precompiles::get(address))
 	}
@@ -643,7 +650,7 @@ pub mod run {
 	#[cfg(feature = "runtime-benchmarks")]
 	pub(crate) fn builtin<E>(ext: &mut E, address: &[u8; 20], input: Vec<u8>) -> ExecResult
 	where
-		E: ExtWithInfo,
+		E: ExtWithInfo + BuiltinPrecompileExt,
 	{
 		let precompile = <Builtin<E::T>>::get(address)
 			.ok_or(DispatchError::from("No pre-compile at address"))
