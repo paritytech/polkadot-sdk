@@ -1,0 +1,14 @@
+title: 'collectives-westend: deny value-moving calls to the `NonTransfer` proxy'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `NonTransfer` on Collectives Westend denied only `Balances`. It now also denies `PolkadotXcm`,
+    whose transfers move assets to another chain, and salary `payout_other` on the Fellowship,
+    Ambassador and Secretary instances, which pays the member's salary to any account. `payout` to
+    the member's own account stays allowed.
+
+    `NonTransfer` is no longer a superset of `Fellowship`, `Ambassador` or `Secretary`, which admit
+    `payout_other`.
+crates:
+- name: collectives-westend-runtime
+  bump: patch
