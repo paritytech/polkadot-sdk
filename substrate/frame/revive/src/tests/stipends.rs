@@ -26,7 +26,7 @@ use alloy_core::{
 };
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{
-	CountingReceiver, FixtureType, StipendSender, StipendTest, WarmWriteSender,
+	FixtureType, StipendSender, StipendTest, WarmWriteSender, WritingReceiver,
 	compile_module_with_type,
 };
 use sp_runtime::Weight;
@@ -230,33 +230,21 @@ fn evm_call_stipend_denies_reentrancy_for_transfer_and_send_only(fixture_type: F
 	});
 }
 
-fn substrate_metering() -> TransactionLimits<Test> {
-	TransactionLimits::WeightAndDeposit {
-		weight_limit: WEIGHT_LIMIT,
-		deposit_limit: deposit_limit::<Test>(),
-	}
-}
-
-fn ethereum_metering() -> TransactionLimits<Test> {
-	TransactionLimits::EthereumGas {
-		eth_gas_limit: u128::MAX,
-		weight_limit: Weight::MAX,
-		eth_tx_info: EthTxInfo::new(0, Default::default()),
-		authorization_deposit: Default::default(),
-	}
-}
-
-#[test_case(FixtureType::Solc,   substrate_metering(); "solc, substrate metering")]
-#[test_case(FixtureType::Resolc, substrate_metering(); "resolc, substrate metering")]
-#[test_case(FixtureType::Solc,   ethereum_metering();  "solc, ethereum metering")]
-#[test_case(FixtureType::Resolc, ethereum_metering();  "resolc, ethereum metering")]
-fn the_stipend_cannot_write_storage_even_when_the_slot_is_hot(
+#[test_case(FixtureType::Solc,   "WritingReceiver"; "solc, writing")]
+#[test_case(FixtureType::Resolc, "WritingReceiver"; "resolc, writing")]
+#[test_case(FixtureType::Solc,   "ClearingReceiver"; "solc, clearing")]
+#[test_case(FixtureType::Resolc, "ClearingReceiver"; "resolc, clearing")]
+#[test_case(FixtureType::Solc,   "PrecompileClearingReceiver"; "solc, precompile clearing")]
+#[test_case(FixtureType::Resolc, "PrecompileClearingReceiver"; "resolc, precompile clearing")]
+#[test_case(FixtureType::Solc,   "PrecompileTakingReceiver"; "solc, precompile taking")]
+#[test_case(FixtureType::Resolc, "PrecompileTakingReceiver"; "resolc, precompile taking")]
+fn stipend_denies_persistent_storage_writes_even_on_hot_slots(
 	fixture_type: FixtureType,
-	limits: TransactionLimits<Test>,
+	receiver_fixture: &str,
 ) {
-	let (receiver_code, _) = compile_module_with_type("CountingReceiver", fixture_type).unwrap();
+	let (receiver_code, _) = compile_module_with_type(receiver_fixture, fixture_type).unwrap();
 	let (sender_code, _) = compile_module_with_type("WarmWriteSender", fixture_type).unwrap();
-	let send_value = |value: u128| {
+	let send_value = |value: u128, limits: &TransactionLimits<Test>| {
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
 			let Contract { addr: receiver, .. } =
@@ -274,26 +262,76 @@ fn the_stipend_cannot_write_storage_even_when_the_slot_is_hot(
 				.transaction_limits(limits.clone())
 				.build_and_unwrap_result();
 			let counter = builder::bare_call(receiver)
-				.data(CountingReceiver::counterCall {}.abi_encode())
+				.data(WritingReceiver::counterCall {}.abi_encode())
 				.build_and_unwrap_result();
 			(bool::abi_decode(&result.data).unwrap(), U256::abi_decode(&counter.data).unwrap())
 		})
 	};
 
-	assert_eq!(
-		send_value(1_000_000),
-		(true, U256::from(1)),
-		"the slot is hot, so the write should be rejected by the EIP-2200 check"
-	);
+	let substrate_metering = TransactionLimits::WeightAndDeposit {
+		weight_limit: WEIGHT_LIMIT,
+		deposit_limit: deposit_limit::<Test>(),
+	};
+	let ethereum_metering = TransactionLimits::EthereumGas {
+		eth_gas_limit: u128::MAX,
+		weight_limit: Weight::MAX,
+		eth_tx_info: EthTxInfo::new(0, Default::default()),
+		authorization_deposit: Default::default(),
+	};
+	for (metering, limits) in [("substrate", substrate_metering), ("ethereum", ethereum_metering)] {
+		assert_eq!(
+			send_value(1_000_000, &limits),
+			(true, U256::from(1)),
+			"a write from a value `send` should be rejected by the EIP-2200 check under \
+			 {metering} metering"
+		);
 
-	// The raised gas scale makes the 2300 a zero-value `send` forwards enough to write on PVM too.
-	let default_gas_scale = GasScale::get();
-	GasScale::set(200_000);
-	let zero_value = send_value(0);
-	GasScale::set(default_gas_scale);
-	assert_eq!(
-		zero_value,
-		(true, U256::from(1)),
-		"a write from a zero-value `send` should be rejected by the EIP-2200 check"
-	);
+		// The raised gas scale gives a zero-value `send` enough to write on PVM too.
+		let default_gas_scale = GasScale::get();
+		GasScale::set(2_000_000);
+		let zero_value = send_value(0, &limits);
+		GasScale::set(default_gas_scale);
+		assert_eq!(
+			zero_value,
+			(true, U256::from(1)),
+			"a write from a zero-value `send` should be rejected by the EIP-2200 check under \
+			 {metering} metering"
+		);
+	}
+}
+
+#[test_case(FixtureType::Solc,   "TransientWritingReceiver"; "solc, writing")]
+#[test_case(FixtureType::Resolc, "TransientWritingReceiver"; "resolc, writing")]
+#[test_case(FixtureType::Solc,   "TransientClearingReceiver"; "solc, clearing")]
+#[test_case(FixtureType::Resolc, "TransientClearingReceiver"; "resolc, clearing")]
+#[test_case(FixtureType::Solc,   "TransientPrecompileClearingReceiver"; "solc, precompile clearing")]
+#[test_case(FixtureType::Resolc, "TransientPrecompileClearingReceiver"; "resolc, precompile clearing")]
+#[test_case(FixtureType::Solc,   "TransientPrecompileTakingReceiver"; "solc, precompile taking")]
+#[test_case(FixtureType::Resolc, "TransientPrecompileTakingReceiver"; "resolc, precompile taking")]
+fn stipend_allows_transient_storage_writes(fixture_type: FixtureType, receiver_fixture: &str) {
+	let (receiver_code, _) = compile_module_with_type(receiver_fixture, fixture_type).unwrap();
+	let (sender_code, _) = compile_module_with_type("StipendSender", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
+		let Contract { addr: receiver, .. } =
+			builder::bare_instantiate(Code::Upload(receiver_code)).build_and_unwrap_contract();
+		let Contract { addr: sender, .. } = builder::bare_instantiate(Code::Upload(sender_code))
+			.constructor_data(
+				StipendSender::constructorCall { _probe: receiver.0.into() }.abi_encode(),
+			)
+			.build_and_unwrap_contract();
+
+		// The raised gas scale gives a zero-value `send` enough for the precompile calls too.
+		let default_gas_scale = GasScale::get();
+		GasScale::set(2_000_000);
+		let result = builder::bare_call(sender)
+			.data(StipendSender::isSendDeniedCall {}.abi_encode())
+			.build_and_unwrap_result();
+		GasScale::set(default_gas_scale);
+
+		assert!(
+			!bool::abi_decode(&result.data).unwrap(),
+			"EIP-2200 exempts transient storage, so a `send` on the stipend can still write it"
+		);
+	});
 }

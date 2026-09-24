@@ -31,6 +31,7 @@ use frame_system::RawOrigin;
 use pallet_revive_fixtures::{
 	CatchConstructorTest, DepositPrecompile, FixtureType, ReentryStorage, compile_module_with_type,
 };
+use revm::interpreter::gas::CALL_STIPEND;
 use sp_runtime::{FixedU128, Weight};
 use test_case::test_case;
 
@@ -1106,4 +1107,45 @@ fn authorization_deposit_refund_increases_budget() {
 		1_000,
 		"refund must increase budget by exactly the amount"
 	);
+}
+
+/// EIP-2200 draws the line at the stipend in both execution modes: a callee granted exactly the
+/// limit cannot write storage, one more gas and it can.
+#[test]
+fn storage_writes_are_denied_at_the_stipend_and_allowed_above() {
+	let ethereum_limits = TransactionLimits::EthereumGas {
+		eth_gas_limit: u64::MAX.into(),
+		weight_limit: Weight::MAX,
+		eth_tx_info: EthTxInfo::new(0, Weight::zero()),
+		authorization_deposit: Default::default(),
+	};
+	// No proof size, no deposit and round numbers, so the callee's share of the parent is exact.
+	let substrate_limits = TransactionLimits::WeightAndDeposit {
+		weight_limit: Weight::from_parts(1_000_000_000_000, 0),
+		deposit_limit: 0,
+	};
+	for (metering, limits) in [("ethereum", ethereum_limits), ("substrate", substrate_limits)] {
+		ExtBuilder::default().build().execute_with(|| {
+			let root = TransactionMeter::<Test>::new(limits).unwrap();
+			let callee = |gas: u64| {
+				root.new_nested(&CallResources::Ethereum { gas: gas.into(), add_stipend: true })
+					.unwrap()
+			};
+
+			assert!(
+				callee(0).has_stipend_or_less_left(),
+				"a value `send` grants only the stipend, which is below the limit, under \
+				 {metering} metering"
+			);
+			assert!(
+				callee(CALL_STIPEND).has_stipend_or_less_left(),
+				"a zero-value `send` grants the stipend plus 2300, which is exactly the limit, \
+				 under {metering} metering"
+			);
+			assert!(
+				!callee(CALL_STIPEND + 1).has_stipend_or_less_left(),
+				"one gas more than the limit must allow a write under {metering} metering"
+			);
+		});
+	}
 }

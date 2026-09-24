@@ -400,7 +400,8 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		}
 	}
 
-	/// Returns whether the gas left is at most `eth_gas_stipend_limit`.
+	/// Returns whether the gas left is at most `eth_gas_stipend_limit`, in which case EIP-2200
+	/// forbids a storage write.
 	pub fn has_stipend_or_less_left(&self) -> bool {
 		self.eth_gas_left().map_or(true, |left| left <= self.eth_gas_stipend_limit)
 	}

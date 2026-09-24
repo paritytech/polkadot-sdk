@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.24;
+
+import "@revive/IStorage.sol";
 
 /**
  * @title DoNothingReceiver
@@ -288,10 +290,10 @@ contract StipendSender {
 }
 
 /**
- * @title CountingReceiver
+ * @title WritingReceiver
  * @dev Increments `counter` on `bump` and on receiving value.
  */
-contract CountingReceiver {
+contract WritingReceiver {
     uint256 public counter;
 
     function bump() external {
@@ -308,8 +310,146 @@ contract CountingReceiver {
  * @dev Makes the receiver's slot hot with a normal call, then sends to it on the stipend alone.
  */
 contract WarmWriteSender {
-    function isWarmWriteDenied(CountingReceiver receiver) public payable returns (bool) {
+    function isWarmWriteDenied(WritingReceiver receiver) public payable returns (bool) {
         receiver.bump();
         return !payable(address(receiver)).send(msg.value);
+    }
+}
+
+/**
+ * @title ClearingReceiver
+ * @dev Increments `counter` on `bump` and zeroes it on receiving value.
+ */
+contract ClearingReceiver {
+    uint256 public counter;
+
+    function bump() external {
+        counter += 1;
+    }
+
+    receive() external payable {
+        counter = 0;
+    }
+}
+
+/**
+ * @title PrecompileClearingReceiver
+ * @dev Increments `counter` on `bump` and clears its slot through the storage precompile on receiving value.
+ */
+contract PrecompileClearingReceiver {
+    uint256 public counter;
+
+    function bump() external {
+        counter += 1;
+    }
+
+    receive() external payable {
+        uint256 slot;
+        assembly {
+            slot := counter.slot
+        }
+        (bool success, ) = STORAGE_ADDR.delegatecall(
+            abi.encodeWithSelector(IStorage.clearStorage.selector, 0, true, abi.encodePacked(bytes32(slot)))
+        );
+        require(success, "clear denied");
+    }
+}
+
+/**
+ * @title PrecompileTakingReceiver
+ * @dev Increments `counter` on `bump` and takes its slot through the storage precompile on receiving value.
+ */
+contract PrecompileTakingReceiver {
+    uint256 public counter;
+
+    function bump() external {
+        counter += 1;
+    }
+
+    receive() external payable {
+        uint256 slot;
+        assembly {
+            slot := counter.slot
+        }
+        (bool success, ) = STORAGE_ADDR.delegatecall(
+            abi.encodeWithSelector(IStorage.takeStorage.selector, 0, true, abi.encodePacked(bytes32(slot)))
+        );
+        require(success, "take denied");
+    }
+}
+
+// The `flags` bit of the storage precompile that selects transient storage.
+uint32 constant TRANSIENT = 1;
+
+/**
+ * @title TransientWritingReceiver
+ * @dev Writes transient storage on receiving value, failing unless the write is visible.
+ */
+contract TransientWritingReceiver {
+    receive() external payable {
+        uint256 value;
+        assembly {
+            tstore(0, 1)
+            value := tload(0)
+        }
+        require(value == 1, "transient write denied");
+    }
+}
+
+/**
+ * @title TransientClearingReceiver
+ * @dev Writes and then zeroes transient storage on receiving value, failing unless the slot ends empty.
+ */
+contract TransientClearingReceiver {
+    receive() external payable {
+        uint256 value;
+        assembly {
+            tstore(0, 1)
+            tstore(0, 0)
+            value := tload(0)
+        }
+        require(value == 0, "transient clear denied");
+    }
+}
+
+/**
+ * @title TransientPrecompileClearingReceiver
+ * @dev Writes transient storage and clears it through the storage precompile on receiving value.
+ */
+contract TransientPrecompileClearingReceiver {
+    receive() external payable {
+        uint256 value;
+        assembly {
+            tstore(0, 1)
+        }
+        (bool success, ) = STORAGE_ADDR.delegatecall(
+            abi.encodeWithSelector(IStorage.clearStorage.selector, TRANSIENT, true, abi.encodePacked(bytes32(0)))
+        );
+        require(success, "clear denied");
+        assembly {
+            value := tload(0)
+        }
+        require(value == 0, "transient clear denied");
+    }
+}
+
+/**
+ * @title TransientPrecompileTakingReceiver
+ * @dev Writes transient storage and takes it through the storage precompile on receiving value.
+ */
+contract TransientPrecompileTakingReceiver {
+    receive() external payable {
+        uint256 value;
+        assembly {
+            tstore(0, 1)
+        }
+        (bool success, ) = STORAGE_ADDR.delegatecall(
+            abi.encodeWithSelector(IStorage.takeStorage.selector, TRANSIENT, true, abi.encodePacked(bytes32(0)))
+        );
+        require(success, "take denied");
+        assembly {
+            value := tload(0)
+        }
+        require(value == 0, "transient take denied");
     }
 }
