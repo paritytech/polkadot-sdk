@@ -1,0 +1,26 @@
+title: 'prospective-parachains: factor out `BackedChain`, simplify RP checks, misc cleanup'
+
+doc:
+  - audience: Node Dev
+    description: |
+      Cleanup follow-up to the older-relay-parents work in the prospective-parachains
+      subsystem. Pure refactor, no behavior change.
+
+      - Move `BackedChain` and `FragmentNode` into a dedicated `backed_chain.rs` submodule
+        with a proper API. All field access goes through `pub(super)` methods; `push()`
+        returns `Result<(), FragmentNode>` enforcing the chain-link invariant at the
+        boundary. `revert_to_output_head` (was `revert_to_parent_hash`) returns the
+        reverted tail directly, dropping a redundant double iteration and an unnecessary
+        `min()` guard. Dead `Error::ParentCandidateNotFound` removed. 12 new unit tests.
+      - Consolidate the minimum-relay-parent-number computation in
+        `check_potential_lightweight` into a single `max` chain over the three committed
+        lower bounds instead of scattered conditionals.
+      - Rename `earliest_relay_parent_pending_availability` → `latest_…`: the function
+        iterates `.rev().find_map(...)` and returns the *newest* pending-availability RP;
+        the old name was backwards.
+      - Drop a stale `CandidateEntry` doc-line referencing the "allowed ancestry scope"
+        concept that was removed with older-RP support.
+
+crates:
+  - name: polkadot-node-core-prospective-parachains
+    bump: patch
