@@ -35,8 +35,8 @@ const CHANNEL: ChannelId = ChannelId { sender: 2000, recipient: 2001 };
 const SYSTEM_CHANNEL: ChannelId = ChannelId { sender: 2000, recipient: 1001 };
 const CAPACITY: u32 = 4;
 const MESSAGE_SIZE: u32 = 512;
-/// `LinearStoragePrice` over `channel_footprint`, which is `(count 1, size capacity)`.
-const DEPOSIT: Balance = PER_MESSAGE * CAPACITY as Balance;
+/// `LinearStoragePrice` over `channel_footprint`, which is `(count 1, size MaxCapacity)`.
+const DEPOSIT: Balance = PER_MESSAGE * MAX_CAPACITY as Balance;
 
 /// The relay chain forwarding `request`, asked for by `para_id`.
 fn forwarded(para_id: ParaId, request: ParaRequestV1) -> sp_runtime::DispatchResult {
@@ -351,9 +351,7 @@ fn a_confirming_response_opens_the_channel() {
 		assert_ok!(respond(CHANNEL, message_id, Ok((CAPACITY, MESSAGE_SIZE))));
 
 		assert!(Requests::<Test>::get(CHANNEL).is_none());
-		let channel = Channels::<Test>::get(CHANNEL).unwrap();
-		assert_eq!(channel.max_capacity, CAPACITY);
-		assert_eq!(channel.max_message_size, MESSAGE_SIZE);
+		assert!(Channels::<Test>::contains_key(CHANNEL));
 
 		assert_eq!(EgressIndex::<Test>::get(CHANNEL.sender).to_vec(), vec![CHANNEL.recipient]);
 		assert_eq!(IngressIndex::<Test>::get(CHANNEL.recipient).to_vec(), vec![CHANNEL.sender]);

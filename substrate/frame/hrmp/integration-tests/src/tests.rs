@@ -190,10 +190,10 @@ fn a_para_opens_a_channel_through_the_channel_managing_parachain() {
 
 	HrmpPara::execute_with(|| {
 		assert!(pallet_hrmp_para::Requests::<para::Runtime>::get(CHANNEL).is_none());
-		let channel = pallet_hrmp_para::Channels::<para::Runtime>::get(CHANNEL)
-			.expect("the relay chain confirmed the channel");
-		assert_eq!(channel.max_capacity, CAPACITY);
-		assert_eq!(channel.max_message_size, MESSAGE_SIZE);
+		assert!(
+			pallet_hrmp_para::Channels::<para::Runtime>::contains_key(CHANNEL),
+			"the relay chain confirmed the channel"
+		);
 		assert_eq!(
 			pallet_hrmp_para::EgressIndex::<para::Runtime>::get(CHANNEL.sender).to_vec(),
 			vec![CHANNEL.recipient]

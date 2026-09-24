@@ -169,10 +169,6 @@ pub struct ChannelRequest<SenderTicket, RecipientTicket> {
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub struct ChannelInfo<SenderTicket, RecipientTicket> {
-	/// How many messages the channel may hold at once.
-	pub max_capacity: u32,
-	/// The largest message the channel will carry.
-	pub max_message_size: u32,
 	/// The sender's held deposit, absent on a channel with the system.
 	pub sender_deposit: Option<SenderTicket>,
 	/// The recipient's held deposit, absent on a channel with the system.
@@ -206,8 +202,8 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The cost the sender pays to open a channel.
 		///
-		/// Footprint is a single item sized as the channel's capacity, so either a flat or a
-		/// per-message price fits. A system chain on either end pays nothing.
+		/// Footprint is a single item sized as [`Config::MaxCapacity`], whatever the channel asks
+		/// for. A system chain on either end pays nothing.
 		type SenderConsideration: Consideration<Self::AccountId, Footprint>;
 
 		/// The cost the recipient pays to accept a channel.
@@ -646,42 +642,36 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	/// The footprint one side of a channel with this capacity is priced by.
-	pub fn channel_footprint(max_capacity: u32) -> Footprint {
-		Footprint::from_parts(1, max_capacity as usize)
+	/// The footprint one side of any channel is priced by.
+	pub fn channel_footprint() -> Footprint {
+		Footprint::from_parts(1, T::MaxCapacity::get() as usize)
 	}
 
 	/// Hold the sender's deposit for `channel`.
 	///
 	/// A channel with or amongst the system is free, and holds nothing rather than holding zero:
 	/// a system chain's sovereign account here may not exist at all.
-	fn hold_sender(
-		channel: ChannelId,
-		max_capacity: u32,
-	) -> Result<Option<T::SenderConsideration>, DispatchError> {
+	fn hold_sender(channel: ChannelId) -> Result<Option<T::SenderConsideration>, DispatchError> {
 		if channel.is_system() {
 			return Ok(None);
 		}
 
 		T::SenderConsideration::new(
 			&Self::sovereign_account(channel.sender),
-			Self::channel_footprint(max_capacity),
+			Self::channel_footprint(),
 		)
 		.map(Some)
 	}
 
 	/// Hold the recipient's deposit for `channel`, on the same terms as [`Self::hold_sender`].
-	fn hold_recipient(
-		channel: ChannelId,
-		max_capacity: u32,
-	) -> Result<Option<T::RecipientConsideration>, DispatchError> {
+	fn hold_recipient(channel: ChannelId) -> Result<Option<T::RecipientConsideration>, DispatchError> {
 		if channel.is_system() {
 			return Ok(None);
 		}
 
 		T::RecipientConsideration::new(
 			&Self::sovereign_account(channel.recipient),
-			Self::channel_footprint(max_capacity),
+			Self::channel_footprint(),
 		)
 		.map(Some)
 	}
@@ -744,7 +734,7 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::OpenHrmpChannelLimitExceeded,
 		);
 
-		let sender_deposit = Self::hold_sender(channel, proposed_max_capacity)?;
+		let sender_deposit = Self::hold_sender(channel)?;
 
 		// One id for the request's whole life: it goes out with the eventual `OpenChannel` and
 		// comes back on its answer.
@@ -796,7 +786,7 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::AcceptHrmpChannelLimitExceeded,
 		);
 
-		let recipient_deposit = Self::hold_recipient(channel, max_capacity)?;
+		let recipient_deposit = Self::hold_recipient(channel)?;
 
 		AcceptedRequestCount::<T>::insert(recipient, accepted_cnt + 1);
 		Requests::<T>::insert(
@@ -878,12 +868,7 @@ impl<T: Config> Pallet<T> {
 			Ok((max_capacity, max_message_size)) => {
 				Channels::<T>::insert(
 					channel,
-					ChannelInfo {
-						max_capacity,
-						max_message_size,
-						sender_deposit,
-						recipient_deposit,
-					},
+					ChannelInfo { sender_deposit, recipient_deposit },
 				);
 				Self::index_channel(channel);
 
