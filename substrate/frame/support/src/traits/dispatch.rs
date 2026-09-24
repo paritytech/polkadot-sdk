@@ -435,6 +435,92 @@ impl<
 	}
 }
 
+/// "AND gate" implementation of `EnsureOrigin`, requiring both `L` and `R` to pass.
+///
+/// Origin check will pass only if both `L` and `R` origin checks pass. The outer origin is a
+/// tuple `(LeftOrigin, RightOrigin)`, allowing two independent origin types to be checked.
+/// Both origin parts must be `Clone` so that each checker receives its own copy.
+///
+/// # Example
+///
+/// ```rust
+/// use frame_support::traits::{EnsureOrigin as _, EnsureBoth, NeverEnsureOrigin};
+/// use sp_runtime::traits::BadOrigin;
+///
+/// // Both left and right must pass.
+/// struct AlwaysOk;
+/// impl EnsureOrigin<u32> for AlwaysOk {
+///     type Success = u32;
+///     fn try_origin(o: u32) -> Result<u32, u32> { Ok(o) }
+///     #[cfg(feature = "runtime-benchmarks")]
+///     fn try_successful_origin() -> Result<u32, ()> { Ok(42) }
+/// }
+///
+/// let result = EnsureBoth::<AlwaysOk, AlwaysOk>::try_origin((1u32, 2u32));
+/// assert!(result.is_ok());
+///
+/// // If either fails, the whole check fails.
+/// struct AlwaysFail;
+/// impl EnsureOrigin<u32> for AlwaysFail {
+///     type Success = ();
+///     fn try_origin(o: u32) -> Result<(), u32> { Err(o) }
+///     #[cfg(feature = "runtime-benchmarks")]
+///     fn try_successful_origin() -> Result<u32, ()> { Err(()) }
+/// }
+///
+/// let result = EnsureBoth::<AlwaysOk, AlwaysFail>::try_origin((1u32, 2u32));
+/// assert!(result.is_err());
+/// ```
+pub struct EnsureBoth<L, R>(core::marker::PhantomData<(L, R)>);
+
+impl<OL, OR, L, R> EnsureOrigin<(OL, OR)> for EnsureBoth<L, R>
+where
+	OL: Clone,
+	OR: Clone,
+	L: EnsureOrigin<OL>,
+	R: EnsureOrigin<OR>,
+{
+	type Success = (L::Success, R::Success);
+
+	fn try_origin((l, r): (OL, OR)) -> Result<Self::Success, (OL, OR)> {
+		let l_clone = l.clone();
+		let r_clone = r.clone();
+		match (L::try_origin(l_clone), R::try_origin(r_clone)) {
+			(Ok(l_success), Ok(r_success)) => Ok((l_success, r_success)),
+			_ => Err((l, r)),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<(OL, OR), ()> {
+		Ok((L::try_successful_origin()?, R::try_successful_origin()?))
+	}
+}
+
+impl<OL, OR, L, R, Argument> EnsureOriginWithArg<(OL, OR), Argument> for EnsureBoth<L, R>
+where
+	OL: Clone,
+	OR: Clone,
+	L: EnsureOriginWithArg<OL, Argument>,
+	R: EnsureOriginWithArg<OR, Argument>,
+{
+	type Success = (L::Success, R::Success);
+
+	fn try_origin((l, r): (OL, OR), a: &Argument) -> Result<Self::Success, (OL, OR)> {
+		let l_clone = l.clone();
+		let r_clone = r.clone();
+		match (L::try_origin(l_clone, a), R::try_origin(r_clone, a)) {
+			(Ok(l_success), Ok(r_success)) => Ok((l_success, r_success)),
+			_ => Err((l, r)),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(a: &Argument) -> Result<(OL, OR), ()> {
+		Ok((L::try_successful_origin(a)?, R::try_successful_origin(a)?))
+	}
+}
+
 /// Type that can be dispatched with an origin but without checking the origin filter.
 ///
 /// Implemented for pallet dispatchable type by `decl_module` and for runtime dispatchable by

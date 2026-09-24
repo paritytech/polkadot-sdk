@@ -293,6 +293,16 @@ where
 		}
 	}
 
+	/// Returns `true` if this entry has no active votes, delegations, or prior locks.
+	pub fn is_empty(&self) -> bool {
+		match self {
+			Voting::Casting(Casting { votes, delegations, prior }) =>
+				votes.is_empty() && delegations.is_zero() && prior.locked().is_zero(),
+			Voting::Delegating(Delegating { delegations, prior, .. }) =>
+				delegations.is_zero() && prior.locked().is_zero(),
+		}
+	}
+
 	pub fn set_common(
 		&mut self,
 		delegations: Delegations<Balance>,

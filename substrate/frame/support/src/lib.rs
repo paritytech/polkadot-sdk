@@ -640,9 +640,14 @@ pub mod pallet_macros {
 	/// `#[pallet::weight($expr)]` Note that argument of the call are available inside the
 	/// expression.
 	///
-	/// If not defined explicitly, the weight can be implicitly inferred from the weight info
+	/// If not defined explicitly, the weight can be inherited from the weight info type
 	/// defined in the attribute `pallet::call`: `#[pallet::call(weight = $WeightInfo)]`.
-	/// Or it can be simply ignored when the pallet is in `dev_mode`.
+	/// When inherited, the macro resolves the weight function by looking up the dispatchable
+	/// function name on the `$WeightInfo` type. For example, a dispatchable `fn do_something`
+	/// inherits the weight `$WeightInfo::do_something()`. The inherited weight is resolved
+	/// at compile time with zero runtime overhead. If neither a per-call weight nor a
+	/// pallet-level `weight = $WeightInfo` is given, the pallet must be in `dev_mode` which
+	/// defaults to zero weight.
 	///
 	/// ## Example
 	///
