@@ -130,7 +130,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
 		type Balance: Balance;
 
-		type AssetKind: Parameter + MaxEncodedLen + MaybeSerializeDeserialize + Ord;
+		type AssetKind: Parameter + MaxEncodedLen + MaybeSerializeDeserialize + Ord + Debug;
 
 		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetKind, Balance = Self::Balance>
 			+ Mutate<Self::AccountId>
@@ -209,15 +209,29 @@ pub mod pallet {
 			/// Amount drained.
 			amount: BalanceOf<T>,
 		},
+		/// Assets are distributed to their recipients.
+		AssetDistributed {
+			/// Asset that was distributed.
+			asset: AssetKindOf<T>,
+			/// Total amount transferred in this distribution.
+			amount: BalanceOf<T>,
+			/// Elapsed time (ms) since last distribution.
+			elapsed_millis: u64,
+		},
 		/// An unexpected/defensive event was triggered.
-		Unexpected(UnexpectedKind),
+		Unexpected(UnexpectedKind<AssetKindOf<T>>),
 	}
 
 	/// Defensive/unexpected errors/events.
-	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, DebugNoBound)]
-	pub enum UnexpectedKind {
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug)]
+	pub enum UnexpectedKind<AssetKind> {
 		/// Failed to mint issuance.
 		MintFailed,
+		/// A transfer during the distribution failed.
+		DistributionTransferFailed {
+			/// An asset for which the transfer failed.
+			asset: AssetKind,
+		},
 		/// Elapsed time was clamped at the safety ceiling.
 		ElapsedClamped {
 			/// The actual elapsed time in milliseconds.
@@ -554,7 +568,7 @@ pub mod pallet {
 
 		fn distribute_assets(elapsed: u64, recipients: &[(BudgetKey, T::AccountId)]) {
 			let buffer = Self::buffer_account();
-			let elapsed = SaturatedConversion::saturated_into::<BalanceOf<T>>(elapsed);
+			let elapsed_as_balance = SaturatedConversion::saturated_into::<BalanceOf<T>>(elapsed);
 
 			let allocations = AssetAllocation::<T>::get();
 			for (asset, allocations) in allocations {
@@ -569,7 +583,7 @@ pub mod pallet {
 						continue;
 					}
 
-					let amount = allocation.amount_per_ms.saturating_mul(elapsed);
+					let amount = allocation.amount_per_ms.saturating_mul(elapsed_as_balance);
 
 					let result = T::Assets::transfer(
 						asset.clone(),
@@ -580,7 +594,9 @@ pub mod pallet {
 					);
 
 					if result.is_err() {
-						// TODO: Emit event, add note about retry logic.
+						Self::deposit_event(Event::Unexpected(
+							UnexpectedKind::DistributionTransferFailed { asset: asset.clone() },
+						));
 					} else {
 						total_distributed.saturating_accrue(amount);
 						if asset == T::NativeCurrencyAssetId::get() && *account != buffer {
@@ -589,7 +605,11 @@ pub mod pallet {
 					}
 				}
 
-				// TODO: Emit event with total_distributed and asset kind.
+				Self::deposit_event(Event::AssetDistributed {
+					asset,
+					amount: total_distributed,
+					elapsed_millis: elapsed,
+				});
 			}
 		}
 	}
