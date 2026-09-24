@@ -1,0 +1,63 @@
+title: 'Polkadot: Verify the workers at startup'
+doc:
+- audience:
+  - Node Dev
+  - Node Operator
+  description: "# Description\n\nCloses #8117\n\nToday, `polkadot` checks that its\
+    \ PVF workers are running the same version at startup, but the workers' other\
+    \ security checks (landlock, seccomp, unshare/change-root, clone, etc.) only run\
+    \ when a worker is actually spawned. If the node is not yet part of the active\
+    \ validator set, an operator running a misconfigured or under-sandboxed worker\
+    \ has no way to find out \u2014 until the node starts validating, loses rewards,\
+    \ and degrades the network.\n\nThis PR runs those checks at startup too, the same\
+    \ way the version check already does: `polkadot` invokes `execute-worker --check-security-features\
+    \ --worker-dir-path <workers-path>` once before the node starts, and refuses to\
+    \ start if the worker binary is missing or fails its security checks. This way\
+    \ operators are informed immediately, rather than only once the node is selected\
+    \ as a validator.\n\n## Integration\n\nNode operators who pass `--workers-path`\
+    \ will now have their `execute-worker binary's security checks verified once at\
+    \ startup, before the node starts:\n\n- If the worker binary is missing or cannot\
+    \ be spawned, the node now fails to start with `Error::ExecuteWorkerSpawnFailed`\
+    \ (binary path + underlying IO error), instead of panicking.\n- If the worker\
+    \ reports failed security checks, the node fails to start with `Error::ExecuteWorkerFailedSecurityChecks`\
+    \ (binary path + worker dir path).\n\nNo changes to the normal worker spawn/handshake\
+    \ path (`polkadot-node-core-pvf`' `spawn_with_program_path`/`with_transient_socket_path`)\
+    \ \u2014 that continues to work exactly as before.\n\n`polkadot-node-core-pvf-common::worker::check_security_status`\
+    \ is a new `pub fn`, used internally by the `decl_worker_main!` macro for the\
+    \ `--check-security-features` flag.\n\n## Review Notes\n\n- `polkadot/cli/src/command.rs`:\
+    \ new `verify_workers_security_checks` runs `<workers_path>/execute-worker --check-security-features\
+    \ --worker-dir-path <workers_path>` and maps a non-zero exit status / spawn failure\
+    \ to the new `Error` variants. It's called from `run()` right after CLI args are\
+    \ parsed, before any service/runner setup.\n- `polkadot/node/core/pvf/common/src/worker/mod.rs`:\n\
+    \  - New `check_security_status(worker_kind, worker_dir_path) -> bool`: checks\
+    \ that the worker dir is readable and, on Linux, best-effort probes landlock/seccomp/change-root/clone\
+    \ \u2014 all logged as warnings and non-fatal, mirroring the best-effort philosophy\
+    \ already used for `SecurityStatus`.\n  - `decl_worker_main!`'s argument parsing\
+    \ was reordered so `--worker-dir-path` is resolved (and the `do_security_checks`\
+    \ early exit can happen) before `--socket-path` is required, since the standalone\
+    \ check is never given a socket path.\n- `polkadot/cli/src/error.rs`: added `ExecuteWorkerFailedSecurityChecks`\
+    \ and `ExecuteWorkerSpawnFailed` variants.\n- Tests added:\n  - `polkadot/cli/src/command.rs`:\
+    \ unit tests for `verify_workers_security_checks` covering success, worker-reported\
+    \ failure, missing binary, and the exact argument order, using stub shell-script\
+    \ \"workers\".\n  - `polkadot/node/core/pvf/common/src/worker/mod.rs`: unit tests\
+    \ for `check_security_status` against existing/missing worker dirs (the \"existing\
+    \ dir\" case runs on a thread with a larger stack, since the Linux `clone(2)`\
+    \ probe needs more than the default `cargo test` thread stack).\n  - `polkadot/node/core/pvf/tests/it/security_checks.rs`:\
+    \ new integration test file exercising `--check-security-features` against the\
+    \ real `prepare-worker`/`execute-worker` binaries.\n\n# Checklist\n\n* [x] My\
+    \ PR includes a detailed description as outlined in the \"Description\" and its\
+    \ two subsections above.\n* [ ] My PR follows the [labeling requirements](\nhttps://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process\n\
+    ) of this project (at minimum one label for `T` required)\n    * External contributors:\
+    \ Use `/cmd label <label-name>` to add labels\n    * Maintainers can also add\
+    \ labels manually\n* [ ] I have made corresponding changes to the documentation\
+    \ (if applicable)\n* [x] I have added tests that prove my fix is effective or\
+    \ that my feature works (if applicable)"
+crates:
+- name: polkadot
+  bump: patch
+- name: polkadot-cli
+  bump: major
+- name: polkadot-node-core-pvf
+  bump: patch
+- name: polkadot-node-core-pvf-common
+  bump: minor
