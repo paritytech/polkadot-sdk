@@ -1441,12 +1441,11 @@ impl pallet_revive::Config for Runtime {
 	type AutoMap = ConstBool<true>;
 	type GasScale = ConstU32<1000>;
 	type OnBurn = Dap;
-	// A storage backstop, not a cost bound, and no honest per-block ceiling exists to size it
-	// against: the marginal cost of one more log approaches the buffer insert alone, since
-	// repeated transfers between the same accounts re-touch keys already in the proof. A block
-	// that does hit the cap stays visible through the committed count the runtime reports
-	// (`Revive::eth_synthetic_transaction`) rather than being silently over-reported.
-	type MaxOutsideFrameLogs = ConstU32<2048>;
+	// A storage backstop above what any block can buffer. Every buffered log is read back by the
+	// `on_finalize` drain, so its encoded bytes are in the block's proof whatever produced it,
+	// and a 10 MiB proof holds fewer than 480_000 entries even of the smallest shape, an address
+	// with no topics and no data. The runtime tests pin that bound against this cap.
+	type MaxOutsideFrameLogs = ConstU32<524_288>;
 	type Deposit = pallet_revive::PGasDeposit<
 		Runtime,
 		Assets,
@@ -2801,6 +2800,58 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 			use pallet_xcm_benchmarks::asset_instance_from;
 
+			/// A foreign asset the `SwapFirstAssetTrader` accepts as fee, so the worst case for
+			/// `BuyExecution` and `PayFees` is the pool swap rather than the native trader.
+			fn benchmark_fee_asset_location() -> Location {
+				Location::new(1, [Parachain(2001)])
+			}
+
+			/// Creates the fee asset, funds an account with it and opens its pool against the
+			/// native asset, so fee swaps and asset exchanges have liquidity to run against.
+			fn set_up_benchmark_fee_asset_pool() {
+				let native_asset_location = WestendLocation::get();
+				let asset_location = benchmark_fee_asset_location();
+				let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
+				let origin = RuntimeOrigin::signed(account.clone());
+
+				assert_ok!(<Balances as fungible::Mutate<_>>::mint_into(
+					&account,
+					ExistentialDeposit::get() + (1_000 * UNITS)
+				));
+
+				assert_ok!(ForeignAssets::force_create(
+					RuntimeOrigin::root(),
+					asset_location.clone().into(),
+					account.clone().into(),
+					true,
+					1,
+				));
+
+				assert_ok!(ForeignAssets::mint(
+					origin.clone(),
+					asset_location.clone().into(),
+					account.clone().into(),
+					3_000 * UNITS,
+				));
+
+				assert_ok!(AssetConversion::create_pool(
+					origin.clone(),
+					native_asset_location.clone().into(),
+					asset_location.clone().into(),
+				));
+
+				assert_ok!(AssetConversion::add_liquidity(
+					origin,
+					native_asset_location.into(),
+					asset_location.into(),
+					1_000 * UNITS,
+					2_000 * UNITS,
+					1,
+					1,
+					account.into(),
+				));
+			}
+
 			impl pallet_xcm_benchmarks::Config for Runtime {
 				type XcmConfig = xcm_config::XcmConfig;
 				type AccountIdConverter = xcm_config::LocationToAccountId;
@@ -2818,7 +2869,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 					use pallet_xcm_benchmarks::MockCredit;
 					// A mix of fungible, non-fungible, and concrete assets.
 					let holding_non_fungibles = MaxAssetsIntoHolding::get() / 2 - depositable_count;
-					let holding_fungibles = holding_non_fungibles - 2; // -2 for two `iter::once` below
+					let holding_fungibles = holding_non_fungibles - 3; // -3 for the named assets below
 					let fungibles_amount: u128 = 100;
 
 					let mut holding = xcm_executor::AssetsInHolding::new();
@@ -2831,13 +2882,18 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 						);
 					}
 
-					// Add two more fungible assets
+					// Add the named fungible assets: `Here`, the native asset, and the foreign asset
+					// `worst_case_for_trader` pays fees in.
 					holding.fungible.insert(
 						AssetId(Here.into()),
 						alloc::boxed::Box::new(MockCredit(u128::MAX)),
 					);
 					holding.fungible.insert(
 						AssetId(WestendLocation::get()),
+						alloc::boxed::Box::new(MockCredit(1_000_000 * UNITS)),
+					);
+					holding.fungible.insert(
+						AssetId(benchmark_fee_asset_location()),
 						alloc::boxed::Box::new(MockCredit(1_000_000 * UNITS)),
 					);
 
@@ -2928,50 +2984,10 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				}
 
 				fn worst_case_asset_exchange() -> Result<(XcmAssets, XcmAssets), BenchmarkError> {
-					let native_asset_location = WestendLocation::get();
-					let native_asset_id = AssetId(native_asset_location.clone());
-					let (account, _) = pallet_xcm_benchmarks::account_and_location::<Runtime>(1);
-					let origin = RuntimeOrigin::signed(account.clone());
-					let asset_location = Location::new(1, [Parachain(2001)]);
-					let asset_id = AssetId(asset_location.clone());
+					set_up_benchmark_fee_asset_pool();
 
-					assert_ok!(<Balances as fungible::Mutate<_>>::mint_into(
-						&account,
-						ExistentialDeposit::get() + (1_000 * UNITS)
-					));
-
-					assert_ok!(ForeignAssets::force_create(
-						RuntimeOrigin::root(),
-						asset_location.clone().into(),
-						account.clone().into(),
-						true,
-						1,
-					));
-
-					assert_ok!(ForeignAssets::mint(
-						origin.clone(),
-						asset_location.clone().into(),
-						account.clone().into(),
-						3_000 * UNITS,
-					));
-
-					assert_ok!(AssetConversion::create_pool(
-						origin.clone(),
-						native_asset_location.clone().into(),
-						asset_location.clone().into(),
-					));
-
-					assert_ok!(AssetConversion::add_liquidity(
-						origin,
-						native_asset_location.into(),
-						asset_location.into(),
-						1_000 * UNITS,
-						2_000 * UNITS,
-						1,
-						1,
-						account.into(),
-					));
-
+					let native_asset_id = AssetId(WestendLocation::get());
+					let asset_id = AssetId(benchmark_fee_asset_location());
 					let give_assets: XcmAssets = (native_asset_id, 500 * UNITS).into();
 					let receive_assets: XcmAssets = (asset_id, 660 * UNITS).into();
 
@@ -3002,8 +3018,11 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				}
 
 				fn worst_case_for_trader() -> Result<(Asset, WeightLimit), BenchmarkError> {
+					// Paying in a foreign asset falls through `UsingComponents` to the
+					// `SwapFirstAssetTrader`, whose pool swap is the expensive path.
+					set_up_benchmark_fee_asset_pool();
 					Ok((Asset {
-						id: AssetId(WestendLocation::get()),
+						id: AssetId(benchmark_fee_asset_location()),
 						fun: Fungible(1_000 * UNITS),
 					}, WeightLimit::Limited(Weight::from_parts(5000, 5000))))
 				}

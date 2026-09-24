@@ -1053,8 +1053,9 @@ fn outside_of_frame_logs_past_the_cap_stay_substrate_only() {
 	});
 }
 
-// The buffer has to hold every log the block's native transfers produce, so its practical ceiling
-// is the cap, not the storage layout.
+// Capacity only: the buffer takes as many logs as the cap allows, so the cap, not the storage
+// layout, is its ceiling. Whether a block can admit enough logs to reach a runtime's cap is that
+// runtime's test to make, against its block limits.
 #[test]
 fn the_buffer_holds_as_many_outside_of_frame_logs_as_the_cap_allows() {
 	use frame_support::traits::Hooks;

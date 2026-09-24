@@ -1061,13 +1061,17 @@ pub mod pallet {
 				return;
 			}
 
-			OutsideFrameLogs::<T>::append((*contract, topics.to_vec(), data.to_vec()));
+			let entry = (*contract, topics.to_vec(), data.to_vec());
+			let entry_bytes = Weight::from_parts(0, entry.encoded_size() as u64);
+			OutsideFrameLogs::<T>::append(entry);
 
 			// This log's share of the `on_finalize` drain, charged to the block that emitted it,
 			// since `on_initialize` reserves only the fixed part of `on_finalize`. The append
-			// itself is measured by the emitting pallet's own benchmark.
+			// itself is measured by the emitting pallet's own benchmark. The drain reads every
+			// entry back into the block's proof, so the charge never counts fewer bytes than the
+			// entry holds, whatever the benchmark's marginal came out at.
 			frame_system::Pallet::<T>::register_extra_weight_unchecked(
-				T::WeightInfo::per_outside_frame_log(data.len() as u32),
+				T::WeightInfo::per_outside_frame_log(data.len() as u32).max(entry_bytes),
 				DispatchClass::Normal,
 			);
 

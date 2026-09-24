@@ -32,9 +32,9 @@ use asset_hub_westend_runtime::{
 	AllPalletsWithoutSystem, AssetRewards, Assets, Balances, Block, Dap, Executive,
 	ExistentialDeposit, ForeignAssets, ForeignAssetsInstance, MetadataDepositBase,
 	MetadataDepositPerByte, ParachainSystem, PolkadotXcm, PoolAssets, Proxy, Revive, Runtime,
-	RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys, ToRococoXcmRouterInstance,
-	TrustBackedAssetsInstance, TxExtension, UncheckedExtrinsic, Uniques, WeightToFee, XcmpQueue,
-	TRUST_BACKED_ASSETS_PRECOMPILE,
+	RuntimeBlockWeights, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
+	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, TxExtension, UncheckedExtrinsic, Uniques,
+	WeightToFee, XcmpQueue, TRUST_BACKED_ASSETS_PRECOMPILE,
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
 use asset_test_utils::{
@@ -55,7 +55,7 @@ use frame_support::{
 			common_strategies::{Bytes, Owner},
 			Inspect as InspectUniqueAsset,
 		},
-		ContainsPair, Hooks, SignedTransactionBuilder,
+		ContainsPair, Get, Hooks, SignedTransactionBuilder,
 	},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
@@ -2390,6 +2390,26 @@ fn mirrored_transfer_log_lands_on_the_ethereum_transaction() {
 		);
 		assert_ne!(block.logs_bloom.0, [0u8; 256], "the mirrored log never reached the bloom");
 	});
+}
+
+// Every buffered log is read back by the `on_finalize` drain, so its encoded bytes are in the
+// block's proof whatever admitted it: an assets extrinsic, a storage deposit settled by a contract
+// frame, an XCM fee swap, a batch. The insert charges at least those bytes, so the proof budget
+// bounds the buffer with no per-producer weight, and the bound is taken at the smallest entry any
+// producer could write rather than at the mirror's `Transfer` log.
+#[test]
+fn a_block_cannot_buffer_enough_logs_to_reach_the_cap() {
+	let smallest_entry_bytes =
+		(H160::zero(), Vec::<H256>::new(), Vec::<u8>::new()).encoded_size() as u64;
+
+	let proof_budget = RuntimeBlockWeights::get().max_block.proof_size();
+	let most_logs_a_block_can_buffer = proof_budget / smallest_entry_bytes;
+	let cap = <<Runtime as pallet_revive::Config>::MaxOutsideFrameLogs as Get<u32>>::get() as u64;
+	assert!(
+		most_logs_a_block_can_buffer < cap,
+		"a {proof_budget}-byte proof holds up to {most_logs_a_block_can_buffer} logs of \
+		 {smallest_entry_bytes} bytes, so a cap of {cap} is reachable"
+	);
 }
 
 #[test]

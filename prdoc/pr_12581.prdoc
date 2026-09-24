@@ -59,10 +59,18 @@ doc:
     receipt, `receipts_root` and `logs_bloom` while the state and events that produced them rolled
     back.
 
-    Follow-up: the cap is a stopgap. A buffered log's share of the `on_finalize` drain is
-    registered on the block rather than charged to the emitter, which is why contract frames are
-    kept out of the buffer. A follow-up PR charges the drain to the emitting frame's weight, lets
-    contract logs in, and removes the cap.
+    The cap is a backstop no block can reach. Every buffered log is read back by the `on_finalize`
+    drain, so its encoded bytes are in the block's proof whatever produced it — an assets
+    extrinsic, a storage deposit settled by a contract frame, an XCM fee swap, a batch — and the
+    insert charges at least those bytes of proof. Asset Hub Westend's 10 MiB proof therefore
+    holds fewer than 480,000 entries even of the smallest shape, an address with no topics and no
+    data, against a cap of 524,288; its runtime tests pin that bound against the cap. A runtime
+    with an unbounded proof budget has no such bound and should size its cap from ref_time, or
+    leave the buffer off.
+
+    Follow-up: a buffered log's share of the `on_finalize` drain is registered on the block rather
+    than charged to the emitter, which is why contract frames are kept out of the buffer. A
+    follow-up PR charges the drain to the emitting frame's weight and lets contract logs in.
 
     Rollout to a live Asset Hub (e.g. Polkadot) needs care beyond wiring the callback:
       - Atomic cutover: removing the precompile self-emit and wiring the callback must ship in the
@@ -74,6 +82,10 @@ doc:
         `receipts_root`, `logs_bloom`), which no eth-rpc checks against the listed transactions.
       - Weights: the mirror's cost lands in the weights of every pallet that moves assets, so a
         runtime wiring it must re-run `/cmd bench` for those pallets, not only for pallet-assets.
+        That includes the XCM fee instructions where a swap trader moves assets: Asset Hub
+        Westend's `pallet_xcm_benchmarks::generic` worst case for `BuyExecution` and `PayFees`
+        now pays in a foreign asset, so the `SwapFirstAssetTrader` pool swap and its mirrored log
+        are priced instead of the native `UsingComponents` path.
       - Foreign asset-index mappings must exist before a mirror can resolve a token address. The
         creation callback establishes them, genesis assets included; assets predating the callback
         wiring need the index-map migration to backfill them.
@@ -111,5 +123,7 @@ crates:
   bump: major
 - name: asset-hub-westend-runtime
   bump: major
+- name: pallet-xcm-benchmarks
+  bump: patch
 - name: penpal-runtime
   bump: minor
