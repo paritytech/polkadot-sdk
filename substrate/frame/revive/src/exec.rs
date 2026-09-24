@@ -1783,8 +1783,7 @@ where
 					&contract_account,
 					&self.origin,
 					&args,
-				)
-				.ok();
+				);
 			}
 		}
 	}
@@ -1871,13 +1870,17 @@ where
 	}
 
 	/// Performs the actual deletion of a contract at the end of a call stack.
+	///
+	/// The contract that asked for the termination is no longer on the call stack, so an error
+	/// here cannot be reported to it. Every balance step is therefore best effort: if it fails it
+	/// is rolled back and the teardown carries on. The contract itself is always deleted.
 	fn do_terminate(
 		transaction_meter: &mut TransactionMeter<T>,
 		exec_config: &ExecConfig<T>,
 		contract_account: &T::AccountId,
 		origin: &Origin<T>,
 		args: &TerminateArgs<T>,
-	) -> Result<(), DispatchError> {
+	) {
 		let contract_address = T::AddressMapper::to_address(contract_account);
 
 		// If root created this contract we need to use the pallet account_id because root has no
@@ -1887,63 +1890,78 @@ where
 			Origin::Root => Origin::from_account_id(crate::Pallet::<T>::account_id()),
 		};
 
-		let mut delete_contract = |trie_id: &TrieId, code_hash: &H256| {
-			// deposit needs to be removed as it adds a consumer
-			let refund =
-				T::Deposit::refund_all(&contract_account, exec_config.funds(origin.account_id()?))?;
+		// A freeze can keep part of the storage deposit on hold. That part stays on the account.
+		let refund = Self::best_effort(&contract_address, "refund the storage deposit", || {
+			T::Deposit::refund_all(contract_account, exec_config.funds(origin.account_id()?))
+		})
+		.unwrap_or_default();
 
-			// we added this consumer manually when instantiating
-			System::<T>::dec_consumers(&contract_account);
+		// we added this consumer manually when instantiating
+		System::<T>::dec_consumers(contract_account);
 
-			// ED was minted when the account was brought into existence; burn it now.
-			T::Deposit::destroy_contract(contract_account)?;
+		// ED was minted when the account was brought into existence. Burn it if the account can
+		// be reaped. Otherwise keep it and leave the account in place as a plain account. A
+		// contract deployed to the same address later takes it over.
+		let reaped = Self::best_effort(&contract_address, "burn the existential deposit", || {
+			T::Deposit::destroy_contract(contract_account)
+		})
+		.is_some();
 
-			// this is needed to:
-			// 1) Send any balance that was send to the contract after termination.
-			// 2) To fail termination if any locks or holds prevent to completely empty the account.
-			let balance = <Contracts<T>>::convert_native_to_evm(<AccountInfo<T>>::total_balance(
-				contract_address.into(),
-			));
+		// Send the balance that arrived after the termination was scheduled. If the transfer
+		// fails the funds stay on the account.
+		let preservation = if reaped { Preservation::Expendable } else { Preservation::Preserve };
+		let balance = <Contracts<T>>::convert_native_to_evm(
+			AccountInfoOf::<T>::get(contract_address)
+				.unwrap_or_default()
+				.balance(contract_account, preservation),
+		);
+		Self::best_effort(&contract_address, "send the remaining balance", || {
 			Self::transfer(
 				&origin,
 				contract_account,
 				&args.beneficiary,
 				balance,
-				Preservation::Expendable,
+				preservation,
 				transaction_meter,
 				exec_config,
-			)?;
+			)
+		});
 
-			// this deletes the code if refcount drops to zero
-			let _code_removed = <CodeInfo<T>>::decrement_refcount(*code_hash)?;
+		// this deletes the code if refcount drops to zero
+		Self::best_effort(&contract_address, "release the code", || {
+			CodeInfo::<T>::decrement_refcount(args.code_hash)
+		});
 
-			// delete the contracts data last as its infallible
-			ContractInfo::<T>::queue_for_deletion(trie_id.clone(), contract_account.clone());
-			AccountInfoOf::<T>::remove(contract_address);
-			ImmutableDataOf::<T>::remove(contract_address);
+		ContractInfo::<T>::queue_for_deletion(args.trie_id.clone(), contract_account.clone());
+		AccountInfoOf::<T>::remove(contract_address);
+		ImmutableDataOf::<T>::remove(contract_address);
 
-			// the meter needs to discard all deposits interacting with the terminated contract
-			// we do this last as we cannot roll this back
-			transaction_meter.terminate(contract_account.clone(), refund);
+		// the meter needs to discard all deposits interacting with the terminated contract
+		transaction_meter.terminate(contract_account.clone(), refund);
 
-			Ok(())
-		};
+		log::trace!(target: LOG_TARGET, "Terminated {contract_address:?}");
+	}
 
-		// we cannot fail here as the contract that called `SELFDESTRUCT`
-		// is no longer on the call stack. hence we simply roll back the
-		// termination so that nothing happened.
+	/// Runs `f` in its own storage transaction.
+	///
+	/// If `f` fails, its changes are rolled back and `None` is returned, so that the caller can
+	/// carry on without them.
+	fn best_effort<R>(
+		contract_address: &H160,
+		step: &str,
+		f: impl FnOnce() -> Result<R, DispatchError>,
+	) -> Option<R> {
 		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
-			match delete_contract(&args.trie_id, &args.code_hash) {
-				Ok(()) => {
-					log::trace!(target: LOG_TARGET, "Terminated {contract_address:?}");
-					TransactionOutcome::Commit(Ok(()))
-				},
+			match f() {
+				Ok(value) => TransactionOutcome::Commit(Ok(Some(value))),
 				Err(e) => {
-					log::debug!(target: LOG_TARGET, "Contract at {contract_address:?} failed to terminate: {e:?}");
-					TransactionOutcome::Rollback(Err(e))
+					log::debug!(target: LOG_TARGET, "Terminating {contract_address:?}: failed to {step}: {e:?}");
+					TransactionOutcome::Rollback(Ok(None))
 				},
 			}
 		})
+		.ok()
+		.flatten()
 	}
 
 	/// Reference to the current (top) frame.
@@ -2781,7 +2799,7 @@ pub fn bench_do_terminate<T: Config>(
 	trie_id: TrieId,
 	code_hash: H256,
 	only_if_same_tx: bool,
-) -> Result<(), DispatchError> {
+) {
 	Stack::<T, crate::ContractBlob<T>>::do_terminate(
 		transaction_meter,
 		exec_config,
