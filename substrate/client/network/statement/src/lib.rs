@@ -883,8 +883,8 @@ pub struct Peer {
 	/// Rate limiter for `ExplicitTopicAffinity` updates, kept apart from the statement bucket
 	/// so a statement burst cannot reject a filter change.
 	affinity_rate_limiter: PeerRateLimiter,
-	/// Mirror of the peer's statement rate limit, charged by our sends to it. The limit is not
-	/// negotiated, so the mirror assumes the peer runs our quota.
+	/// Mirror of the peer's statement rate limit. The limit is not negotiated, so the mirror
+	/// assumes our quota.
 	send_budget: PeerRateLimiter,
 	/// Protocol version negotiated with this peer.
 	protocol_version: PeerProtocolVersion,
@@ -2583,9 +2583,7 @@ where
 		}
 	}
 
-	/// Charge a propagation chunk to the mirror of the peer's rate limit. Propagation never
-	/// waits, and a chunk past the quota is sent uncharged: the peer then already sees more than
-	/// it accepts.
+	/// Propagation never waits, so a chunk past the quota goes out uncharged.
 	fn charge_send_budget(&self, peer: &PeerId, statements: usize) {
 		if let Some(peer_data) = self.peers.get(peer) {
 			peer_data.send_budget.is_flooding(statements);
@@ -2781,7 +2779,7 @@ mod tests {
 	/// Default seed used for bloom filters in tests.
 	const BLOOM_SEED: u128 = 0x5EED_5EED_5EED_5EED;
 
-	fn default_send_budget() -> PeerRateLimiter {
+	fn default_statement_limiter() -> PeerRateLimiter {
 		PeerRateLimiter::new(
 			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
 				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
@@ -3393,16 +3391,9 @@ mod tests {
 			peers.insert(
 				peer_id,
 				Peer {
-					statement_rate_limiter: PeerRateLimiter::new(
-						NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-							.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
-						NonZeroU32::new(
-							DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
-						)
-						.expect("burst capacity is nonzero"),
-					),
+					statement_rate_limiter: default_statement_limiter(),
 					affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
-					send_budget: default_send_budget(),
+					send_budget: default_statement_limiter(),
 					protocol_version: PeerProtocolVersion::V1,
 					topic_affinity: None,
 					is_light: false,
@@ -4041,15 +4032,9 @@ mod tests {
 		handler.peers.insert(
 			peer_id,
 			Peer {
-				statement_rate_limiter: PeerRateLimiter::new(
-					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).expect("nonzero"),
-					NonZeroU32::new(
-						DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
-					)
-					.expect("nonzero"),
-				),
+				statement_rate_limiter: default_statement_limiter(),
 				affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
-				send_budget: default_send_budget(),
+				send_budget: default_statement_limiter(),
 				protocol_version: PeerProtocolVersion::V1,
 				topic_affinity: Some(AffinityFilter::new(BLOOM_SEED, 0.01, 10)),
 				is_light: false,
@@ -6474,15 +6459,9 @@ mod tests {
 		let make_peer = |is_light: bool, version: PeerProtocolVersion, has_affinity: bool| {
 			let topic_affinity = has_affinity.then(|| AffinityFilter::new(BLOOM_SEED, 0.01, 10));
 			Peer {
-				statement_rate_limiter: PeerRateLimiter::new(
-					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).expect("nonzero"),
-					NonZeroU32::new(
-						DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
-					)
-					.expect("nonzero"),
-				),
+				statement_rate_limiter: default_statement_limiter(),
 				affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
-				send_budget: default_send_budget(),
+				send_budget: default_statement_limiter(),
 				protocol_version: version,
 				topic_affinity,
 				is_light,
@@ -6751,15 +6730,9 @@ mod tests {
 		handler.peers.insert(
 			peer_id,
 			Peer {
-				statement_rate_limiter: PeerRateLimiter::new(
-					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).unwrap(),
-					NonZeroU32::new(
-						DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
-					)
-					.unwrap(),
-				),
+				statement_rate_limiter: default_statement_limiter(),
 				affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
-				send_budget: default_send_budget(),
+				send_budget: default_statement_limiter(),
 				protocol_version: PeerProtocolVersion::V1,
 				topic_affinity: None,
 				is_light: false,
@@ -7323,16 +7296,9 @@ mod tests {
 		peers.insert(
 			connected_peer,
 			Peer {
-				statement_rate_limiter: PeerRateLimiter::new(
-					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-						.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
-					NonZeroU32::new(
-						DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
-					)
-					.expect("burst capacity is nonzero"),
-				),
+				statement_rate_limiter: default_statement_limiter(),
 				affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
-				send_budget: default_send_budget(),
+				send_budget: default_statement_limiter(),
 				protocol_version: PeerProtocolVersion::V1,
 				topic_affinity: None,
 				is_light: false,
@@ -7443,16 +7409,9 @@ mod tests {
 	#[tokio::test]
 	async fn sync_recovery_gated_by_dropped_statements_flag() {
 		let make_peer = || Peer {
-			statement_rate_limiter: PeerRateLimiter::new(
-				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-					.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
-				NonZeroU32::new(
-					DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
-				)
-				.expect("burst capacity is nonzero"),
-			),
+			statement_rate_limiter: default_statement_limiter(),
 			affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
-			send_budget: default_send_budget(),
+			send_budget: default_statement_limiter(),
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
@@ -7551,16 +7510,9 @@ mod tests {
 		store.insert(live.clone());
 
 		let peer = Peer {
-			statement_rate_limiter: PeerRateLimiter::new(
-				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-					.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
-				NonZeroU32::new(
-					DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
-				)
-				.expect("burst capacity is nonzero"),
-			),
+			statement_rate_limiter: default_statement_limiter(),
 			affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
-			send_budget: default_send_budget(),
+			send_budget: default_statement_limiter(),
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
@@ -7614,16 +7566,9 @@ mod tests {
 		store.insert(statement);
 
 		let peer = Peer {
-			statement_rate_limiter: PeerRateLimiter::new(
-				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-					.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
-				NonZeroU32::new(
-					DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
-				)
-				.expect("burst capacity is nonzero"),
-			),
+			statement_rate_limiter: default_statement_limiter(),
 			affinity_rate_limiter: PeerRateLimiter::for_affinity_updates(),
-			send_budget: default_send_budget(),
+			send_budget: default_statement_limiter(),
 			protocol_version: PeerProtocolVersion::V2,
 			topic_affinity: Some(filter_over(&[topic(9)])),
 			is_light: false,
