@@ -3,10 +3,17 @@ doc:
 - audience: [Node Dev, Node Operator]
   description: |-
     `chain-spec-builder` can now manage the boot nodes of a chain specification. The new
-    `add-bootnodes`, `remove-bootnodes`, `set-bootnodes` and `list-bootnodes` commands operate on
-    an existing chain spec, in both plain and raw format, and the `create` command takes a new
+    `bootnodes` command group operates on an existing chain spec, in both plain and raw format,
+    through its `add`, `remove` and `list` subcommands, and the `create` command takes a new
     `--bootnodes` argument. The given addresses are validated: they must be multiaddresses
     containing the peer id of the node.
+
+    `bootnodes add` appends to the existing list, skipping the addresses that are already stored,
+    and `bootnodes remove` ignores the addresses that are not stored, so both can be safely
+    repeated. When no address is given in the command line they prompt for the addresses to
+    operate on: `add` reads them one per line, and `remove` displays the stored addresses as a
+    numbered list and reads the numbers to remove. `bootnodes remove --all` removes all of them
+    without prompting.
 crates:
 - name: staging-chain-spec-builder
   bump: minor

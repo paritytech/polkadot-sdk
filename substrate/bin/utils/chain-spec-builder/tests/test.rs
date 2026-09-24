@@ -16,7 +16,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::fs::File;
+use std::{
+	fs::File,
+	io::Write,
+	process::{Command, Stdio},
+};
 
 use clap::Parser;
 
@@ -294,7 +298,7 @@ fn test_add_bootnodes() {
 	const SUFFIX: &str = "12";
 	let builder = get_builder(
 		SUFFIX,
-		vec!["add-bootnodes", "tests/input/chain_spec_plain.json", BOOTNODE_0, BOOTNODE_1],
+		vec!["bootnodes", "add", "tests/input/chain_spec_plain.json", BOOTNODE_0, BOOTNODE_1],
 	);
 	builder.run().unwrap();
 	assert_output_eq_expected_with_bootnodes(
@@ -308,8 +312,10 @@ fn test_add_bootnodes() {
 #[test]
 fn test_add_bootnodes_raw() {
 	const SUFFIX: &str = "13";
-	let builder =
-		get_builder(SUFFIX, vec!["add-bootnodes", "tests/input/chain_spec_raw.json", BOOTNODE_0]);
+	let builder = get_builder(
+		SUFFIX,
+		vec!["bootnodes", "add", "tests/input/chain_spec_raw.json", BOOTNODE_0],
+	);
 	builder.run().unwrap();
 	assert_output_eq_expected_with_bootnodes(
 		false,
@@ -320,12 +326,14 @@ fn test_add_bootnodes_raw() {
 }
 
 #[test]
-fn test_add_bootnodes_skips_the_existing_ones() {
+fn test_add_bootnodes_appends_and_skips_the_existing_ones() {
 	const SUFFIX: &str = "14";
+	// `BOOTNODE_1` is already stored, so only `BOOTNODE_2` is appended, at the end of the list.
 	let builder = get_builder(
 		SUFFIX,
 		vec![
-			"add-bootnodes",
+			"bootnodes",
+			"add",
 			"tests/input/chain_spec_plain_with_bootnodes.json",
 			BOOTNODE_1,
 			BOOTNODE_2,
@@ -347,7 +355,8 @@ fn test_remove_bootnodes() {
 	let builder = get_builder(
 		SUFFIX,
 		vec![
-			"remove-bootnodes",
+			"bootnodes",
+			"remove",
 			"tests/input/chain_spec_plain_with_bootnodes.json",
 			BOOTNODE_0,
 			BOOTNODE_2,
@@ -367,7 +376,7 @@ fn test_remove_all_bootnodes() {
 	const SUFFIX: &str = "16";
 	let builder = get_builder(
 		SUFFIX,
-		vec!["remove-bootnodes", "tests/input/chain_spec_plain_with_bootnodes.json", "--all"],
+		vec!["bootnodes", "remove", "tests/input/chain_spec_plain_with_bootnodes.json", "--all"],
 	);
 	builder.run().unwrap();
 	assert_output_eq_expected_with_bootnodes(
@@ -379,24 +388,8 @@ fn test_remove_all_bootnodes() {
 }
 
 #[test]
-fn test_set_bootnodes() {
-	const SUFFIX: &str = "17";
-	let builder = get_builder(
-		SUFFIX,
-		vec!["set-bootnodes", "tests/input/chain_spec_plain_with_bootnodes.json", BOOTNODE_2],
-	);
-	builder.run().unwrap();
-	assert_output_eq_expected_with_bootnodes(
-		false,
-		SUFFIX,
-		"tests/input/chain_spec_plain_with_bootnodes.json",
-		&[BOOTNODE_2],
-	);
-}
-
-#[test]
 fn test_create_with_bootnodes() {
-	const SUFFIX: &str = "18";
+	const SUFFIX: &str = "17";
 	let bootnodes = format!("{BOOTNODE_0},{BOOTNODE_1}");
 	let mut builder = get_builder(
 		SUFFIX,
@@ -416,11 +409,88 @@ fn test_create_with_bootnodes() {
 fn test_bootnodes_shall_contain_the_peer_id() {
 	assert!(ChainSpecBuilder::try_parse_from(vec![
 		"dummy",
-		"add-bootnodes",
+		"bootnodes",
+		"add",
 		"tests/input/chain_spec_plain.json",
 		"/dns/node-0.example.com/tcp/30333",
 	])
 	.is_err());
+}
+
+#[test]
+fn test_bootnodes_command_is_also_available_in_the_singular() {
+	assert!(ChainSpecBuilder::try_parse_from(vec![
+		"dummy",
+		"bootnode",
+		"list",
+		"tests/input/chain_spec_plain.json",
+	])
+	.is_ok());
+}
+
+/// Runs the `chain-spec-builder` binary with the given arguments and standard input, and returns
+/// the chain spec it wrote, if any.
+///
+/// The interactive prompts read the real standard input, so they cannot be driven through
+/// [`ChainSpecBuilder::run`] like the other commands are.
+fn run_interactively(suffix: &str, command_args: &[&str], stdin: &str) -> Option<Value> {
+	let path = OUTPUT_FILE.to_string() + suffix;
+	let _ = std::fs::remove_file(path.as_str());
+
+	let mut child = Command::new(env!("CARGO_BIN_EXE_chain-spec-builder"))
+		.args(["-c", path.as_str()])
+		.args(command_args)
+		.stdin(Stdio::piped())
+		.stderr(Stdio::null())
+		.spawn()
+		.expect("the binary to spawn. qed");
+	child
+		.stdin
+		.take()
+		.unwrap()
+		.write_all(stdin.as_bytes())
+		.expect("to write stdin. qed");
+	assert!(child.wait().expect("to wait for the binary. qed").success());
+
+	let chain_spec = File::open(path.as_str())
+		.ok()
+		.map(|file| from_reader(file).expect("a valid JSON. qed"));
+	let _ = std::fs::remove_file(path.as_str());
+	chain_spec
+}
+
+#[test]
+fn test_add_bootnodes_interactively() {
+	let chain_spec = run_interactively(
+		"18",
+		&["bootnodes", "add", "tests/input/chain_spec_plain_with_bootnodes.json"],
+		&format!("{BOOTNODE_2}\n\n\n"),
+	)
+	.expect("the chain spec to be written. qed");
+
+	assert_eq!(chain_spec["bootNodes"], serde_json::json!([BOOTNODE_0, BOOTNODE_1, BOOTNODE_2]));
+}
+
+#[test]
+fn test_remove_bootnodes_interactively() {
+	let chain_spec = run_interactively(
+		"19",
+		&["bootnodes", "remove", "tests/input/chain_spec_plain_with_bootnodes.json"],
+		"1\n\n",
+	)
+	.expect("the chain spec to be written. qed");
+
+	assert_eq!(chain_spec["bootNodes"], serde_json::json!([BOOTNODE_1]));
+}
+
+#[test]
+fn test_bootnodes_are_not_written_when_the_prompt_is_cancelled() {
+	assert!(run_interactively(
+		"20",
+		&["bootnodes", "remove", "tests/input/chain_spec_plain_with_bootnodes.json"],
+		"\n",
+	)
+	.is_none());
 }
 
 #[docify::export_content]
@@ -588,7 +658,7 @@ fn create_full_raw() {
 #[docify::export_content]
 fn cmd_add_bootnodes(chain_spec_path: &str) -> String {
 	bash!(
-		chain-spec-builder -c "/dev/stdout" add-bootnodes $chain_spec_path "/dns/node-0.example.com/tcp/30333/p2p/12D3KooW9vw7UNUYQtPWK3RS8eyhjJgp4qBwbbiirYQcWLw5bCsf"
+		chain-spec-builder -c "/dev/stdout" bootnodes add $chain_spec_path "/dns/node-0.example.com/tcp/30333/p2p/12D3KooW9vw7UNUYQtPWK3RS8eyhjJgp4qBwbbiirYQcWLw5bCsf"
 	)
 }
 
@@ -602,9 +672,25 @@ fn add_bootnodes() {
 }
 
 #[docify::export_content]
+fn cmd_remove_bootnodes(chain_spec_path: &str) -> String {
+	bash!(
+		chain-spec-builder -c "/dev/stdout" bootnodes remove $chain_spec_path "/dns/node-0.example.com/tcp/30333/p2p/12D3KooW9vw7UNUYQtPWK3RS8eyhjJgp4qBwbbiirYQcWLw5bCsf"
+	)
+}
+
+#[test]
+fn remove_bootnodes() {
+	doc_assert(
+		cmd_remove_bootnodes("tests/input/chain_spec_plain_with_bootnodes.json"),
+		"tests/expected/doc/remove_bootnodes.json",
+		false,
+	);
+}
+
+#[docify::export_content]
 fn cmd_list_bootnodes(chain_spec_path: &str) -> String {
 	bash!(
-		chain-spec-builder list-bootnodes $chain_spec_path
+		chain-spec-builder bootnodes list $chain_spec_path
 	)
 }
 

@@ -29,7 +29,9 @@ use serde_json::Value;
 use std::{
 	borrow::Cow,
 	fs,
+	io::{self, BufRead, Write},
 	path::{Path, PathBuf},
+	str::FromStr,
 };
 
 /// A utility to easily create a chain spec definition.
@@ -53,10 +55,22 @@ pub enum ChainSpecBuilderCmd {
 	ListPresets(ListPresetsCmd),
 	DisplayPreset(DisplayPresetCmd),
 	AddCodeSubstitute(AddCodeSubstituteCmd),
-	AddBootnodes(AddBootnodesCmd),
-	RemoveBootnodes(RemoveBootnodesCmd),
-	SetBootnodes(SetBootnodesCmd),
-	ListBootnodes(ListBootnodesCmd),
+	/// Manages the boot nodes of an existing chain spec.
+	#[command(subcommand, alias = "bootnode")]
+	Bootnodes(BootnodesCmd),
+}
+
+/// Manages the boot nodes stored in the `bootNodes` field of an existing chain spec.
+///
+/// All these operations support both plain and raw formats. The `add` and `remove` commands take
+/// the addresses to operate on from the command line, and prompt for them interactively when none
+/// is given.
+#[derive(Debug, Subcommand)]
+#[command(rename_all = "kebab-case")]
+pub enum BootnodesCmd {
+	Add(AddBootnodesCmd),
+	Remove(RemoveBootnodesCmd),
+	List(ListBootnodesCmd),
 }
 
 /// Create a new chain spec by interacting with the provided runtime wasm blob.
@@ -187,11 +201,14 @@ pub struct AddCodeSubstituteCmd {
 	pub block_height: u64,
 }
 
-/// Adds boot nodes to the provided input chain spec.
+/// Appends boot nodes to the provided input chain spec.
 ///
-/// The `bootNodes` field of the chain spec will be extended with the addresses given in the command
-/// line. Addresses that are already present are skipped, so the command can be safely repeated.
-/// This operation supports both plain and raw formats.
+/// The addresses are appended to the end of the `bootNodes` field of the chain spec, in the given
+/// order. Addresses that are already present are skipped, so the command can be safely repeated.
+///
+/// When no address is given on the command line the existing boot nodes are displayed and the
+/// addresses to append are read from the standard input, one per line, until an empty line is
+/// entered.
 ///
 /// This command does not update chain-spec file in-place. The result of this command will be stored
 /// in a file given as `-c/--chain-spec-path` command line argument.
@@ -201,19 +218,21 @@ pub struct AddBootnodesCmd {
 	///
 	/// Please note that the file will not be updated in-place.
 	pub input_chain_spec: PathBuf,
-	/// The boot nodes to be added.
+	/// The boot nodes to be appended. Read from the standard input when omitted.
 	///
 	/// Each boot node is a multiaddress that contains the peer id of the node, e.g.
 	/// `/dns/node-0.example.com/tcp/30333/p2p/12D3KooW...`.
-	#[arg(required = true, num_args = 1..)]
+	#[arg(num_args = 1..)]
 	pub bootnodes: Vec<MultiaddrWithPeerId>,
 }
 
 /// Removes boot nodes from the provided input chain spec.
 ///
-/// The addresses given in the command line will be removed from the `bootNodes` field of the chain
-/// spec. Addresses that are not present are ignored, so the command can be safely repeated. This
-/// operation supports both plain and raw formats.
+/// The addresses given in the command line are removed from the `bootNodes` field of the chain
+/// spec. Addresses that are not present are ignored, so the command can be safely repeated.
+///
+/// When no address is given on the command line the existing boot nodes are displayed as a numbered
+/// list and the ones to remove are selected by number on the standard input.
 ///
 /// This command does not update chain-spec file in-place. The result of this command will be stored
 /// in a file given as `-c/--chain-spec-path` command line argument.
@@ -223,36 +242,15 @@ pub struct RemoveBootnodesCmd {
 	///
 	/// Please note that the file will not be updated in-place.
 	pub input_chain_spec: PathBuf,
-	/// The boot nodes to be removed.
+	/// The boot nodes to be removed. Selected on the standard input when omitted.
 	///
 	/// Each boot node is a multiaddress that contains the peer id of the node, e.g.
 	/// `/dns/node-0.example.com/tcp/30333/p2p/12D3KooW...`.
-	#[arg(required_unless_present = "all", conflicts_with = "all", num_args = 1..)]
+	#[arg(conflicts_with = "all", num_args = 1..)]
 	pub bootnodes: Vec<MultiaddrWithPeerId>,
-	/// Remove all the boot nodes of the chain spec.
+	/// Remove all the boot nodes of the chain spec, without prompting.
 	#[arg(long)]
 	pub all: bool,
-}
-
-/// Sets the boot nodes of the provided input chain spec.
-///
-/// The `bootNodes` field of the chain spec will be replaced with the addresses given in the command
-/// line. This operation supports both plain and raw formats.
-///
-/// This command does not update chain-spec file in-place. The result of this command will be stored
-/// in a file given as `-c/--chain-spec-path` command line argument.
-#[derive(Parser, Debug, Clone)]
-pub struct SetBootnodesCmd {
-	/// Chain spec to be updated.
-	///
-	/// Please note that the file will not be updated in-place.
-	pub input_chain_spec: PathBuf,
-	/// The boot nodes to be stored in the chain spec.
-	///
-	/// Each boot node is a multiaddress that contains the peer id of the node, e.g.
-	/// `/dns/node-0.example.com/tcp/30333/p2p/12D3KooW...`.
-	#[arg(required = true, num_args = 1..)]
-	pub bootnodes: Vec<MultiaddrWithPeerId>,
 }
 
 /// Lists the boot nodes of the provided input chain spec.
@@ -352,51 +350,76 @@ impl ChainSpecBuilder {
 					.map_err(|e| format!("to pretty failed: {e}"))?;
 				fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())?;
 			},
-			ChainSpecBuilderCmd::AddBootnodes(AddBootnodesCmd {
+			ChainSpecBuilderCmd::Bootnodes(BootnodesCmd::Add(AddBootnodesCmd {
 				ref input_chain_spec,
 				ref bootnodes,
-			}) => {
+			})) => {
 				let mut chain_spec_json = extract_chain_spec_json(input_chain_spec.as_path())?;
-				let mut updated_bootnodes = extract_bootnodes(&chain_spec_json)?;
-				for bootnode in bootnodes {
-					if !updated_bootnodes.contains(bootnode) {
-						updated_bootnodes.push(bootnode.clone());
+				let existing_bootnodes = extract_bootnodes(&chain_spec_json)?;
+				let bootnodes_to_add = if bootnodes.is_empty() {
+					match prompt_bootnodes_to_add(
+						&existing_bootnodes,
+						&mut io::stdin().lock(),
+						&mut io::stderr(),
+					)
+					.map_err(|e| format!("Failed to prompt for the boot nodes: {e}"))?
+					{
+						Some(bootnodes) => bootnodes,
+						None => return Ok(()),
+					}
+				} else {
+					bootnodes.clone()
+				};
+
+				let mut updated_bootnodes = existing_bootnodes;
+				for bootnode in bootnodes_to_add {
+					if !updated_bootnodes.contains(&bootnode) {
+						updated_bootnodes.push(bootnode);
 					}
 				}
 
 				set_bootnodes(&mut chain_spec_json, updated_bootnodes)?;
 				write_chain_spec_json(&chain_spec_json, chain_spec_path.as_path())?;
 			},
-			ChainSpecBuilderCmd::RemoveBootnodes(RemoveBootnodesCmd {
+			ChainSpecBuilderCmd::Bootnodes(BootnodesCmd::Remove(RemoveBootnodesCmd {
 				ref input_chain_spec,
 				ref bootnodes,
 				all,
-			}) => {
+			})) => {
 				let mut chain_spec_json = extract_chain_spec_json(input_chain_spec.as_path())?;
 				// When all the boot nodes are removed the existing ones are not inspected, which
 				// allows to fix a chain spec containing an invalid address.
 				let remaining_bootnodes = if *all {
 					Vec::new()
 				} else {
-					extract_bootnodes(&chain_spec_json)?
+					let existing_bootnodes = extract_bootnodes(&chain_spec_json)?;
+					let bootnodes_to_remove = if bootnodes.is_empty() {
+						match prompt_bootnodes_to_remove(
+							&existing_bootnodes,
+							&mut io::stdin().lock(),
+							&mut io::stderr(),
+						)
+						.map_err(|e| format!("Failed to prompt for the boot nodes: {e}"))?
+						{
+							Some(bootnodes) => bootnodes,
+							None => return Ok(()),
+						}
+					} else {
+						bootnodes.clone()
+					};
+
+					existing_bootnodes
 						.into_iter()
-						.filter(|bootnode| !bootnodes.contains(bootnode))
+						.filter(|bootnode| !bootnodes_to_remove.contains(bootnode))
 						.collect()
 				};
 
 				set_bootnodes(&mut chain_spec_json, remaining_bootnodes)?;
 				write_chain_spec_json(&chain_spec_json, chain_spec_path.as_path())?;
 			},
-			ChainSpecBuilderCmd::SetBootnodes(SetBootnodesCmd {
+			ChainSpecBuilderCmd::Bootnodes(BootnodesCmd::List(ListBootnodesCmd {
 				ref input_chain_spec,
-				ref bootnodes,
-			}) => {
-				let mut chain_spec_json = extract_chain_spec_json(input_chain_spec.as_path())?;
-
-				set_bootnodes(&mut chain_spec_json, bootnodes.clone())?;
-				write_chain_spec_json(&chain_spec_json, chain_spec_path.as_path())?;
-			},
-			ChainSpecBuilderCmd::ListBootnodes(ListBootnodesCmd { ref input_chain_spec }) => {
+			})) => {
 				let chain_spec_json = extract_chain_spec_json(input_chain_spec.as_path())?;
 				let bootnodes = extract_bootnodes(&chain_spec_json)?;
 				println!("{}", serde_json::json!({ "bootNodes": bootnodes }).to_string());
@@ -642,10 +665,371 @@ fn write_chain_spec_json(chain_spec_json: &Value, chain_spec_path: &Path) -> Res
 	fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())
 }
 
+/// Formats the given number of boot nodes, e.g. `1 boot node` or `2 boot nodes`.
+fn count_bootnodes(count: usize) -> String {
+	format!("{count} boot node{}", if count == 1 { "" } else { "s" })
+}
+
+/// Displays the given boot nodes, each one preceded by the number it is paired with.
+fn display_bootnodes<'a>(
+	bootnodes: impl IntoIterator<Item = (usize, &'a MultiaddrWithPeerId)>,
+	output: &mut impl Write,
+) -> io::Result<()> {
+	for (number, bootnode) in bootnodes {
+		writeln!(output, "  {number}. {bootnode}")?;
+	}
+	Ok(())
+}
+
+/// Pairs the given boot nodes with the 1-based numbers they are displayed with.
+fn number_bootnodes(
+	bootnodes: &[MultiaddrWithPeerId],
+) -> impl Iterator<Item = (usize, &MultiaddrWithPeerId)> {
+	bootnodes.iter().enumerate().map(|(index, bootnode)| (index + 1, bootnode))
+}
+
+/// Reads a line from the given input, returning `None` at the end of the input.
+fn read_line(input: &mut impl BufRead) -> io::Result<Option<String>> {
+	let mut line = String::new();
+	if input.read_line(&mut line)? == 0 {
+		return Ok(None);
+	}
+	Ok(Some(line))
+}
+
+/// Prompts for the confirmation of an operation.
+///
+/// The operation is confirmed by an empty answer, and the end of the input is treated as one.
+fn prompt_confirmation(
+	question: &str,
+	input: &mut impl BufRead,
+	output: &mut impl Write,
+) -> io::Result<bool> {
+	write!(output, "{question} [Y/n]: ")?;
+	output.flush()?;
+
+	let Some(answer) = read_line(input)? else { return Ok(true) };
+	Ok(!matches!(answer.trim().chars().next(), Some('n') | Some('N')))
+}
+
+/// Prompts for the boot nodes to append to the given existing ones.
+///
+/// The addresses are read one per line until an empty line is entered. Invalid and already stored
+/// addresses are reported and the prompt is repeated, so that a typo does not discard the
+/// addresses that were entered before it.
+///
+/// `None` is returned when the operation is discarded, in which case the chain spec shall be left
+/// untouched.
+fn prompt_bootnodes_to_add(
+	existing_bootnodes: &[MultiaddrWithPeerId],
+	input: &mut impl BufRead,
+	output: &mut impl Write,
+) -> io::Result<Option<Vec<MultiaddrWithPeerId>>> {
+	if existing_bootnodes.is_empty() {
+		writeln!(output, "The chain spec contains no boot nodes.")?;
+	} else {
+		writeln!(output, "The chain spec contains {}:", count_bootnodes(existing_bootnodes.len()))?;
+		display_bootnodes(number_bootnodes(existing_bootnodes), output)?;
+	}
+	writeln!(
+		output,
+		"\nEnter the boot nodes to append, one per line, and an empty line once you are done."
+	)?;
+
+	let mut bootnodes = Vec::new();
+	loop {
+		write!(output, "  {}. > ", existing_bootnodes.len() + bootnodes.len() + 1)?;
+		output.flush()?;
+
+		let Some(line) = read_line(input)? else { break };
+		let line = line.trim();
+		if line.is_empty() {
+			break;
+		}
+
+		match MultiaddrWithPeerId::from_str(line) {
+			Ok(bootnode) if existing_bootnodes.contains(&bootnode) => {
+				writeln!(output, "     Already stored in the chain spec, skipped.")?
+			},
+			Ok(bootnode) if bootnodes.contains(&bootnode) => {
+				writeln!(output, "     Already entered, skipped.")?
+			},
+			Ok(bootnode) => bootnodes.push(bootnode),
+			Err(e) => writeln!(output, "     Invalid boot node address: {e}")?,
+		}
+	}
+
+	if bootnodes.is_empty() {
+		writeln!(output, "\nNo boot node to append.")?;
+		return Ok(None);
+	}
+
+	writeln!(output, "\nAppending {}:", count_bootnodes(bootnodes.len()))?;
+	display_bootnodes(
+		bootnodes
+			.iter()
+			.enumerate()
+			.map(|(index, bootnode)| (existing_bootnodes.len() + index + 1, bootnode)),
+		output,
+	)?;
+
+	if !prompt_confirmation("Update the chain spec?", input, output)? {
+		writeln!(output, "Aborted.")?;
+		return Ok(None);
+	}
+	Ok(Some(bootnodes))
+}
+
+/// Prompts for the boot nodes to remove among the given existing ones.
+///
+/// The existing addresses are displayed as a numbered list and the ones to remove are selected by
+/// number. An invalid selection is reported and the prompt is repeated.
+///
+/// `None` is returned when the operation is discarded, in which case the chain spec shall be left
+/// untouched.
+fn prompt_bootnodes_to_remove(
+	existing_bootnodes: &[MultiaddrWithPeerId],
+	input: &mut impl BufRead,
+	output: &mut impl Write,
+) -> io::Result<Option<Vec<MultiaddrWithPeerId>>> {
+	if existing_bootnodes.is_empty() {
+		writeln!(output, "The chain spec contains no boot nodes.")?;
+		return Ok(None);
+	}
+
+	writeln!(output, "The chain spec contains {}:", count_bootnodes(existing_bootnodes.len()))?;
+	display_bootnodes(number_bootnodes(existing_bootnodes), output)?;
+	writeln!(
+		output,
+		"\nEnter the numbers of the boot nodes to remove, e.g. `1`, `1,3` or `2-4`. Enter `all` to \
+		 remove all of them, or an empty line to cancel."
+	)?;
+
+	let selection = loop {
+		write!(output, "> ")?;
+		output.flush()?;
+
+		let Some(line) = read_line(input)? else { return Ok(None) };
+		if line.trim().is_empty() {
+			writeln!(output, "Cancelled.")?;
+			return Ok(None);
+		}
+
+		match parse_bootnodes_selection(&line, existing_bootnodes.len()) {
+			Ok(selection) if selection.is_empty() => writeln!(output, "  No boot node selected.")?,
+			Ok(selection) => break selection,
+			Err(e) => writeln!(output, "  {e}")?,
+		}
+	};
+
+	writeln!(output, "\nRemoving {}:", count_bootnodes(selection.len()))?;
+	display_bootnodes(
+		selection.iter().map(|&index| (index + 1, &existing_bootnodes[index])),
+		output,
+	)?;
+
+	if !prompt_confirmation("Update the chain spec?", input, output)? {
+		writeln!(output, "Aborted.")?;
+		return Ok(None);
+	}
+	Ok(Some(selection.into_iter().map(|index| existing_bootnodes[index].clone()).collect()))
+}
+
+/// Parses a selection of boot nodes, as entered at the prompt of the `remove` command.
+///
+/// The selection holds 1-based boot node numbers separated by commas or spaces, and ranges such as
+/// `2-4`. The single token `all` selects every boot node. The returned indices are 0-based, sorted
+/// and deduplicated, so that the same boot node selected twice is removed once.
+fn parse_bootnodes_selection(selection: &str, count: usize) -> Result<Vec<usize>, String> {
+	if selection.trim().eq_ignore_ascii_case("all") {
+		return Ok((0..count).collect());
+	}
+
+	let mut indices = Vec::new();
+	for token in selection.split([',', ' ', '\t', '\n', '\r']).filter(|token| !token.is_empty()) {
+		let range = match token.split_once('-') {
+			Some((first, last)) => {
+				parse_bootnode_number(first, count)?..=parse_bootnode_number(last, count)?
+			},
+			None => {
+				let index = parse_bootnode_number(token, count)?;
+				index..=index
+			},
+		};
+		if range.is_empty() {
+			return Err(format!("`{token}` is not a valid range."));
+		}
+		indices.extend(range);
+	}
+
+	indices.sort_unstable();
+	indices.dedup();
+	Ok(indices)
+}
+
+/// Parses the 1-based number of a boot node into its index, checking that it is in range.
+fn parse_bootnode_number(number: &str, count: usize) -> Result<usize, String> {
+	let number = number.trim();
+	match number.parse::<usize>() {
+		Ok(number) if (1..=count).contains(&number) => Ok(number - 1),
+		Ok(_) => Err(format!("`{number}` is not in the 1..={count} range.")),
+		Err(_) => Err(format!("`{number}` is not a boot node number.")),
+	}
+}
+
 /// Extract any chain spec and convert it to JSON
 fn extract_chain_spec_json(input_chain_spec: &Path) -> Result<serde_json::Value, String> {
 	let chain_spec = &fs::read(input_chain_spec)
 		.map_err(|e| format!("Provided chain spec could not be read: {e}"))?;
 
 	serde_json::from_slice(&chain_spec).map_err(|e| format!("Conversion to json failed: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use std::io::Cursor;
+
+	const BOOTNODE_0: &str =
+		"/dns/node-0.example.com/tcp/30333/p2p/12D3KooW9vw7UNUYQtPWK3RS8eyhjJgp4qBwbbiirYQcWLw5bCsf";
+	const BOOTNODE_1: &str =
+		"/dns/node-1.example.com/tcp/30333/p2p/12D3KooWAb5MyC1UJiEQJk4Hg4B2Vi3AJdqSUhTGYUqSnEqCFMFg";
+	const BOOTNODE_2: &str =
+		"/ip4/198.51.100.19/tcp/30333/p2p/12D3KooWAdyiVAaeGdtBt6vn5zVetwA4z4qfm9Fi2QCSykN1wTBJ";
+
+	fn bootnodes(addresses: &[&str]) -> Vec<MultiaddrWithPeerId> {
+		addresses
+			.iter()
+			.map(|address| MultiaddrWithPeerId::from_str(address).expect("a valid address. qed"))
+			.collect()
+	}
+
+	/// Drives [`prompt_bootnodes_to_add`] with the given input, discarding what it displays.
+	fn prompt_to_add(existing: &[&str], input: &str) -> Option<Vec<MultiaddrWithPeerId>> {
+		prompt_bootnodes_to_add(
+			&bootnodes(existing),
+			&mut Cursor::new(input.as_bytes()),
+			&mut Vec::new(),
+		)
+		.expect("the prompt to succeed. qed")
+	}
+
+	/// Drives [`prompt_bootnodes_to_remove`] with the given input, discarding what it displays.
+	fn prompt_to_remove(existing: &[&str], input: &str) -> Option<Vec<MultiaddrWithPeerId>> {
+		prompt_bootnodes_to_remove(
+			&bootnodes(existing),
+			&mut Cursor::new(input.as_bytes()),
+			&mut Vec::new(),
+		)
+		.expect("the prompt to succeed. qed")
+	}
+
+	#[test]
+	fn prompt_to_add_reads_addresses_until_an_empty_line() {
+		assert_eq!(
+			prompt_to_add(&[BOOTNODE_0], &format!("{BOOTNODE_1}\n{BOOTNODE_2}\n\n\n")),
+			Some(bootnodes(&[BOOTNODE_1, BOOTNODE_2]))
+		);
+	}
+
+	#[test]
+	fn prompt_to_add_keeps_prompting_after_an_invalid_address() {
+		assert_eq!(
+			prompt_to_add(&[], &format!("/dns/node-0.example.com/tcp/30333\n{BOOTNODE_1}\n\n\n")),
+			Some(bootnodes(&[BOOTNODE_1]))
+		);
+	}
+
+	#[test]
+	fn prompt_to_add_skips_the_duplicated_addresses() {
+		assert_eq!(
+			prompt_to_add(
+				&[BOOTNODE_0],
+				&format!("{BOOTNODE_0}\n{BOOTNODE_1}\n{BOOTNODE_1}\n\n\n")
+			),
+			Some(bootnodes(&[BOOTNODE_1]))
+		);
+	}
+
+	#[test]
+	fn prompt_to_add_discards_an_empty_selection() {
+		assert_eq!(prompt_to_add(&[BOOTNODE_0], "\n"), None);
+	}
+
+	#[test]
+	fn prompt_to_add_discards_a_rejected_confirmation() {
+		assert_eq!(prompt_to_add(&[], &format!("{BOOTNODE_0}\n\nn\n")), None);
+	}
+
+	#[test]
+	fn prompt_to_add_stops_at_the_end_of_the_input() {
+		assert_eq!(prompt_to_add(&[], &format!("{BOOTNODE_0}\n")), Some(bootnodes(&[BOOTNODE_0])));
+	}
+
+	#[test]
+	fn prompt_to_remove_selects_by_number() {
+		assert_eq!(
+			prompt_to_remove(&[BOOTNODE_0, BOOTNODE_1, BOOTNODE_2], "1,3\n\n"),
+			Some(bootnodes(&[BOOTNODE_0, BOOTNODE_2]))
+		);
+	}
+
+	#[test]
+	fn prompt_to_remove_selects_all() {
+		assert_eq!(
+			prompt_to_remove(&[BOOTNODE_0, BOOTNODE_1], "all\n\n"),
+			Some(bootnodes(&[BOOTNODE_0, BOOTNODE_1]))
+		);
+	}
+
+	#[test]
+	fn prompt_to_remove_keeps_prompting_after_an_invalid_selection() {
+		assert_eq!(
+			prompt_to_remove(&[BOOTNODE_0, BOOTNODE_1], "3\nnope\n2\n\n"),
+			Some(bootnodes(&[BOOTNODE_1]))
+		);
+	}
+
+	#[test]
+	fn prompt_to_remove_cancels_on_an_empty_selection() {
+		assert_eq!(prompt_to_remove(&[BOOTNODE_0], "\n"), None);
+	}
+
+	#[test]
+	fn prompt_to_remove_discards_a_rejected_confirmation() {
+		assert_eq!(prompt_to_remove(&[BOOTNODE_0], "1\nn\n"), None);
+	}
+
+	#[test]
+	fn prompt_to_remove_does_nothing_without_boot_nodes() {
+		assert_eq!(prompt_to_remove(&[], "all\n\n"), None);
+	}
+
+	#[test]
+	fn bootnodes_selection_accepts_numbers_ranges_and_all() {
+		assert_eq!(parse_bootnodes_selection("2", 3), Ok(vec![1]));
+		assert_eq!(parse_bootnodes_selection("1,3", 3), Ok(vec![0, 2]));
+		assert_eq!(parse_bootnodes_selection(" 3  1 ", 3), Ok(vec![0, 2]));
+		assert_eq!(parse_bootnodes_selection("1-3", 3), Ok(vec![0, 1, 2]));
+		assert_eq!(parse_bootnodes_selection("1-2, 2", 3), Ok(vec![0, 1]));
+		assert_eq!(parse_bootnodes_selection("all", 3), Ok(vec![0, 1, 2]));
+		assert_eq!(parse_bootnodes_selection("ALL\n", 2), Ok(vec![0, 1]));
+	}
+
+	#[test]
+	fn bootnodes_selection_rejects_the_invalid_entries() {
+		assert!(parse_bootnodes_selection("0", 3).is_err());
+		assert!(parse_bootnodes_selection("4", 3).is_err());
+		assert!(parse_bootnodes_selection("-1", 3).is_err());
+		assert!(parse_bootnodes_selection("3-1", 3).is_err());
+		assert!(parse_bootnodes_selection("one", 3).is_err());
+		assert!(parse_bootnodes_selection("all,1", 3).is_err());
+	}
+
+	#[test]
+	fn boot_nodes_are_counted_in_the_singular_and_the_plural() {
+		assert_eq!(count_bootnodes(0), "0 boot nodes");
+		assert_eq!(count_bootnodes(1), "1 boot node");
+		assert_eq!(count_bootnodes(2), "2 boot nodes");
+	}
 }
