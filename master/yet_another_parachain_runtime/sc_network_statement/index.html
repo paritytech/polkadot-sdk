@@ -215,7 +215,8 @@ those statements in an initial burst on connect. Full nodes receive all statemen
 opt into an affinity.</p>
 <p>With the v2 DHT path enabled, every <code>statement/2</code> peer sends its affinity filter as the first
 message on connect, and the initial sync waits for the peer’s filter, replaying the statements
-it matches and those the peer is a DHT routing target for.</p>
+it matches and those the peer is a DHT routing target for. Propagation targets are chosen by
+the orchestrator, so the outbox drain applies no affinity filter of its own.</p>
 <h3 id="usage"><a class="doc-anchor" href="#usage">§</a>Usage</h3>
 <ul>
 <li>Use <a href="struct.StatementHandlerPrototype.html#method.new" title="associated function yet_another_parachain_runtime::sc_network_statement::StatementHandlerPrototype::new"><code>StatementHandlerPrototype::new</code></a> to create a prototype.</li>
