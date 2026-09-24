@@ -22,6 +22,7 @@ jobs:
   check-publish-compile:
     timeout-minutes: 90
     needs: [preflight]
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
