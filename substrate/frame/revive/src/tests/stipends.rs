@@ -262,7 +262,7 @@ fn reentrancy_override_does_not_weaken_strict() {
 #[test_case(FixtureType::Resolc, "PrecompileClearingReceiver"; "resolc, precompile clearing")]
 #[test_case(FixtureType::Solc,   "PrecompileTakingReceiver"; "solc, precompile taking")]
 #[test_case(FixtureType::Resolc, "PrecompileTakingReceiver"; "resolc, precompile taking")]
-fn stipend_denies_persistent_storage_writes_even_on_hot_slots(
+fn stipend_check_denies_persistent_storage_writes_even_on_hot_slots(
 	fixture_type: FixtureType,
 	receiver_fixture: &str,
 ) {
@@ -339,7 +339,10 @@ fn stipend_denies_persistent_storage_writes_even_on_hot_slots(
 #[test_case(FixtureType::Resolc, "TransientPrecompileClearingReceiver"; "resolc, precompile clearing")]
 #[test_case(FixtureType::Solc,   "TransientPrecompileTakingReceiver"; "solc, precompile taking")]
 #[test_case(FixtureType::Resolc, "TransientPrecompileTakingReceiver"; "resolc, precompile taking")]
-fn stipend_allows_transient_storage_writes(fixture_type: FixtureType, receiver_fixture: &str) {
+fn stipend_check_allows_transient_storage_writes(
+	fixture_type: FixtureType,
+	receiver_fixture: &str,
+) {
 	let (receiver_code, _) = compile_module_with_type(receiver_fixture, fixture_type).unwrap();
 	let (sender_code, _) = compile_module_with_type("StipendSender", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {

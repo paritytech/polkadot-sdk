@@ -405,6 +405,10 @@ contract TransientClearingReceiver {
         uint256 value;
         assembly {
             tstore(0, 1)
+            value := tload(0)
+        }
+        require(value == 1, "transient write denied");
+        assembly {
             tstore(0, 0)
             value := tload(0)
         }
@@ -421,7 +425,9 @@ contract TransientPrecompileClearingReceiver {
         uint256 value;
         assembly {
             tstore(0, 1)
+            value := tload(0)
         }
+        require(value == 1, "transient write denied");
         (bool success, ) = STORAGE_ADDR.delegatecall(
             abi.encodeWithSelector(IStorage.clearStorage.selector, TRANSIENT, true, abi.encodePacked(bytes32(0)))
         );
@@ -442,7 +448,9 @@ contract TransientPrecompileTakingReceiver {
         uint256 value;
         assembly {
             tstore(0, 1)
+            value := tload(0)
         }
+        require(value == 1, "transient write denied");
         (bool success, ) = STORAGE_ADDR.delegatecall(
             abi.encodeWithSelector(IStorage.takeStorage.selector, TRANSIENT, true, abi.encodePacked(bytes32(0)))
         );

@@ -405,7 +405,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	pub fn has_eip2200_sentry_or_less_left(&self) -> bool {
 		let gas_left = match &self.transaction_limits {
 			TransactionLimits::EthereumGas { .. } => self.eth_gas_left(),
-			// Deposit is metered apart and settled when the frame ends, so only execution counts.
+			// Deposit is settled when the frame ends, so only the weight left is checked.
 			TransactionLimits::WeightAndDeposit { .. } => {
 				math::substrate_execution::weight_gas_left(self)
 					.and_then(|gas| gas.to_ethereum_gas())

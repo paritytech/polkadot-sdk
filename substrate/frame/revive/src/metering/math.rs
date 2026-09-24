@@ -38,9 +38,7 @@ fn determine_call_stipend<T: Config>() -> Weight {
 	gas_weight.saturating_add(event_weight)
 }
 
-/// Returns the maximum gas limit granted to the callee of a `transfer` or `send`: the stipend,
-/// priced with the execution mode's `weight_to_fee`, plus the 2300 gas solc forwards when the
-/// value is zero.
+/// Returns the stipend plus the 2300 gas solc forwards on a zero-value `send`.
 fn eth_gas_eip2200_sentry<T: Config>(weight_to_fee: fn(&Weight) -> BalanceOf<T>) -> BalanceOf<T> {
 	let eth_stipend = SignedGas::<T>::from_ethereum_gas(CALL_STIPEND.saturated_into());
 	let determined_stipend =
