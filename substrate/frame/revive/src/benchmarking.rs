@@ -4475,95 +4475,74 @@ mod benchmarks {
 
 	/// Benchmark `r` CALLDATALOAD instructions.
 	///
-	/// Calldata contains a chain of offsets:
+	/// This benchmark is quite involved so this doc comment explains it. `CALLDATALOAD` requires
+	/// one operand and pushes one value onto the stack. We use this to construct a linked list
+	/// where each value we read through a `CALLDATALOAD` is then the operand for the next op code.
+	/// Some of the complexity in the code comes from this fact.
 	///
-	///     first offset -> second offset -> ... -> END_OF_WALK
+	/// We use the maximum calldata size of 131.072 kB regardless of `r` such that it can never fit
+	/// in L1 cache.
 	///
-	/// Each CALLDATALOAD replaces the offset on the stack with the value stored at that offset.
-	/// That value becomes the next offset to load.
+	/// There are a number of considerations in how the offsets are laid out inside of the calldata:
 	///
-	/// We use maximum-size calldata, shuffle the offsets, and make every read cross a cache-line
-	/// boundary. All reads stay within calldata, and the stack contains exactly one item throughout
-	/// execution.
+	/// * Cache Line Size: On the reference hardware the size is 64 bytes. Every offset gets two
+	///   cache lines to itself, so no two offsets share a line and each load has to fetch lines
+	///   that no other load touched.
+	/// * Offset in Cache Line: Each offset starts at a pseudo-random byte between 33 and 63 of its
+	///   first cache line, so every offset straddles both of its cache lines. Most of these
+	///   positions aren't 4-byte aligned, which forces the runtime's `memcpy` to rebuild every
+	///   4-byte word it copies with shifts.
+	/// * Offset Ordering: The offsets in the calldata are pseudo-randomly shuffled so speculative
+	///   execution can't determine where we will end up before performing the calldata load.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_calldataload_opcode(r: Linear<0, { CALLDATA_BYTES / 64 - 1 }>) {
-		use rand::{SeedableRng, seq::SliceRandom};
+	fn evm_calldataload_opcode(r: Linear<0, { CALLDATA_BYTES / 128 - 1 }>) {
+		use core::ops::Range;
+		use rand::{Rng, SeedableRng, seq::SliceRandom};
 		use rand_pcg::Pcg64;
 
 		const CALLDATA_SIZE: usize = CALLDATA_BYTES as usize;
 		const CACHE_LINE_SIZE: usize = 64;
 		const WORD_SIZE: usize = 32;
-		const OFFSET_IN_LINE: usize = 48;
+		// Every offset owns two cache lines. An offset starting at byte 63 of the first line ends
+		// at byte 94, so it never reaches the next slot.
+		const SLOT_SIZE: usize = 2 * CACHE_LINE_SIZE;
+		// Slots start from the first cache-line boundary inside calldata, which can be up to 63
+		// bytes in. Leaving out the last slot keeps every offset inside calldata no matter where
+		// that boundary is.
+		const SLOT_COUNT: usize = CALLDATA_SIZE / SLOT_SIZE - 1;
+		// A word starting after byte 32 of a line runs into the next line.
+		const POSITIONS_IN_LINE: Range<usize> = CACHE_LINE_SIZE - WORD_SIZE + 1..CACHE_LINE_SIZE;
 		const END_OF_WALK: U256 = U256::MAX;
 
 		let load_count = r as usize;
-
-		// Find all valid offsets where a word crosses a cache-line boundary.
-		//
-		// Starting a 32-byte word at byte 48 of a cache line puts:
-		// - 16 bytes in the current 64-byte cache line.
-		// - 16 bytes in the next cache line.
-		//
-		// The allocator only aligns to 8 bytes, so the buffer can start anywhere within a cache
-		// line and the offsets are shifted to compensate for where it starts.
 		let mut calldata = vec![0u8; CALLDATA_SIZE];
-		let misalignment = calldata.as_ptr() as usize % CACHE_LINE_SIZE;
-		let mut possible_offsets = Vec::new();
-		let mut offset = (OFFSET_IN_LINE + CACHE_LINE_SIZE - misalignment) % CACHE_LINE_SIZE;
-		assert_eq!(
-			(calldata.as_ptr() as usize + offset) % CACHE_LINE_SIZE,
-			OFFSET_IN_LINE,
-			"the loaded words must straddle two cache lines"
-		);
 
-		while offset + WORD_SIZE <= CALLDATA_SIZE {
-			possible_offsets.push(offset);
-			offset += CACHE_LINE_SIZE;
-		}
+		// The allocator only aligns to 8 bytes, so calldata can start anywhere within a cache line.
+		// Positions are measured from real cache-line boundaries, not from the start of calldata.
+		let address = calldata.as_ptr() as usize;
+		let first_line_start = address.next_multiple_of(CACHE_LINE_SIZE) - address;
 
-		// Shuffle reproducibly, then select one offset per requested load.
 		let mut rng = Pcg64::seed_from_u64(1337);
-		possible_offsets.shuffle(&mut rng);
+		let mut offsets = (0..SLOT_COUNT)
+			.map(|slot| first_line_start + slot * SLOT_SIZE + rng.gen_range(POSITIONS_IN_LINE))
+			.collect::<Vec<_>>();
+		offsets.shuffle(&mut rng);
+		let walk = &offsets[..load_count];
 
-		assert!(
-			load_count <= possible_offsets.len(),
-			"Not enough calldata slots for the requested loads"
-		);
-
-		let walk_offsets = &possible_offsets[..load_count];
-
-		// Build the chain in calldata.
-		//
-		// Each selected location stores the offset of the next location. The final location stores
-		// END_OF_WALK instead.
-		for position in 0..load_count {
-			let current_offset = walk_offsets[position];
-
-			let value_to_store = if position + 1 < load_count {
-				let next_offset = walk_offsets[position + 1];
-				U256::from(next_offset)
-			} else {
-				END_OF_WALK
-			};
-
-			let word_end = current_offset + WORD_SIZE;
-			let encoded_value = value_to_store.to_big_endian();
-
-			calldata[current_offset..word_end].copy_from_slice(&encoded_value);
+		// Each offset in the walk stores the next offset, and the last one stores END_OF_WALK.
+		let next_values = walk.iter().skip(1).map(|&next| U256::from(next)).chain([END_OF_WALK]);
+		for (&offset, value) in walk.iter().zip(next_values) {
+			calldata[offset..offset + WORD_SIZE].copy_from_slice(&value.to_big_endian());
 		}
 
-		// Start at the first offset. With zero loads, start with the expected final value already
-		// on the stack.
-		let initial_stack_value =
-			if load_count == 0 { END_OF_WALK } else { U256::from(walk_offsets[0]) };
+		// With zero loads nothing replaces the stack item, so it has to start as END_OF_WALK for
+		// the final assertion to hold.
+		let initial_stack_value = walk.first().map_or(END_OF_WALK, |&first| U256::from(first));
 
-		// The program contains exactly `load_count` CALLDATALOAD instructions.
-		let instructions = vec![CALLDATALOAD; load_count];
-		let bytecode = Bytecode::new_raw(instructions.into());
+		let code = Bytecode::new_raw(vec![CALLDATALOAD; load_count].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
-		let (mut external_context, _) = setup.ext();
-		let mut interpreter =
-			Interpreter::new(ExtBytecode::new(bytecode), calldata, &mut external_context);
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), calldata, &mut ext);
 		interpreter.stack.push(initial_stack_value).continue_value().unwrap();
 
 		let result;

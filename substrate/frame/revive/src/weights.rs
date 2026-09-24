@@ -2086,7 +2086,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 3
 			.saturating_add(Weight::from_parts(11_137, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 2047]`.
+	/// The range of component `r` is `[0, 1023]`.
 	fn evm_calldataload_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -4470,7 +4470,7 @@ impl WeightInfo for () {
 			// Standard Error: 3
 			.saturating_add(Weight::from_parts(11_137, 0).saturating_mul(r.into()))
 	}
-	/// The range of component `r` is `[0, 2047]`.
+	/// The range of component `r` is `[0, 1023]`.
 	fn evm_calldataload_opcode(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
