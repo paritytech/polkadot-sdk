@@ -55,7 +55,7 @@ use frame_support::{
 	traits::{
 		fungible::{
 			Balanced as FungibleBalanced, Credit as FungibleCredit, Inspect as FungibleInspect,
-			Mutate as FungibleMutate, Unbalanced as FungibleUnbalanced,
+			ItemOf, Mutate as FungibleMutate, Unbalanced as FungibleUnbalanced,
 		},
 		fungibles::{Balanced, Inspect, Mutate, Unbalanced},
 		tokens::{Fortitude, Preservation},
@@ -96,6 +96,12 @@ pub type DistributableTokenAllocationMap<AssetKind, Balance> = BoundedBTreeMap<
 pub type SingleAssetAllocationMap<Balance> =
 	BoundedBTreeMap<BudgetKey, Balance, ConstU32<MAX_BUDGET_RECIPIENTS>>;
 
+pub type NativeCurrencyOf<T> = ItemOf<
+	<T as Config>::DistributableAssets,
+	<T as Config>::NativeTokenAssetId,
+	<T as frame_system::Config>::AccountId,
+>;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -126,13 +132,6 @@ pub mod pallet {
 			> + Mutate<Self::AccountId>
 			+ Balanced<Self::AccountId>
 			+ Unbalanced<Self::AccountId>;
-
-		// TODO: Enforce it to be a part of DistributableAssets and correspond to
-		// DistributableAssetKind.
-		type NativeTokenAsset: FungibleInspect<Self::AccountId, Balance = Self::Balance>
-			+ FungibleMutate<Self::AccountId>
-			+ FungibleUnbalanced<Self::AccountId>
-			+ FungibleBalanced<Self::AccountId>;
 
 		/// The pallet ID used to derive the buffer account.
 		#[pallet::constant]
@@ -263,7 +262,7 @@ pub mod pallet {
 			}
 
 			let staging_account = Self::staging_account();
-			let available = T::NativeTokenAsset::reducible_balance(
+			let available = NativeCurrencyOf::<T>::reducible_balance(
 				&staging_account,
 				Preservation::Preserve,
 				Fortitude::Polite,
@@ -280,7 +279,7 @@ pub mod pallet {
 			}
 
 			let buffer = Self::buffer_account();
-			if T::NativeTokenAsset::transfer(
+			if NativeCurrencyOf::<T>::transfer(
 				&staging_account,
 				&buffer,
 				available,
@@ -406,12 +405,12 @@ pub mod pallet {
 
 		/// Deactivate funds on buffer inflow.
 		pub(crate) fn deactivate_buffer_funds(amount: BalanceOf<T>) {
-			<T::NativeTokenAsset as FungibleUnbalanced<T::AccountId>>::deactivate(amount);
+			<NativeCurrencyOf<T> as FungibleUnbalanced<T::AccountId>>::deactivate(amount);
 		}
 
 		/// Activate funds on buffer withdrawal.
 		pub(crate) fn activate_buffer_funds(amount: BalanceOf<T>) {
-			<T::NativeTokenAsset as FungibleUnbalanced<T::AccountId>>::reactivate(amount);
+			<NativeCurrencyOf<T> as FungibleUnbalanced<T::AccountId>>::reactivate(amount);
 		}
 
 		/// Core issuance drip logic, called from `on_initialize`.
@@ -471,7 +470,7 @@ pub mod pallet {
 		}
 
 		fn mint_native_currency(elapsed: u64, recipients: &[(BudgetKey, T::AccountId)]) {
-			let total_issuance = T::NativeTokenAsset::total_issuance();
+			let total_issuance = NativeCurrencyOf::<T>::total_issuance();
 			let issuance = T::IssuanceCurve::issue(total_issuance, elapsed);
 
 			if issuance.is_zero() {
@@ -494,7 +493,7 @@ pub mod pallet {
 				let perbill = budget.get(key).copied().unwrap_or(Perbill::zero());
 				let amount = perbill.mul_floor(issuance);
 				if !amount.is_zero() {
-					if let Err(_) = T::NativeTokenAsset::mint_into(account, amount) {
+					if let Err(_) = NativeCurrencyOf::<T>::mint_into(account, amount) {
 						Self::deposit_event(Event::Unexpected(UnexpectedKind::MintFailed));
 						defensive!("Issuance mint should not fail");
 					} else {
@@ -601,8 +600,7 @@ pub mod pallet {
 }
 
 /// Type alias for credit (negative imbalance - funds that were slashed/removed).
-pub type CreditOf<T> =
-	FungibleCredit<<T as frame_system::Config>::AccountId, <T as Config>::NativeTokenAsset>;
+pub type CreditOf<T> = FungibleCredit<<T as frame_system::Config>::AccountId, NativeCurrencyOf<T>>;
 
 /// Implementation of `OnUnbalanced` for the `fungible::Balanced` trait.
 /// Example: use as `type Slash = Dap` in staking-async config.
@@ -617,7 +615,7 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 		// Funds land in the staging account; `on_idle` will drain them into the buffer and
 		// deactivate them there.  Deactivation is intentionally deferred so that active issuance
 		// does not flicker down-then-up within the same block.
-		let _ = T::NativeTokenAsset::resolve(&staging, amount).inspect_err(|_| {
+		let _ = NativeCurrencyOf::<T>::resolve(&staging, amount).inspect_err(|_| {
 			defensive!(
 				"🚨 Failed to deposit slash to DAP staging account - funds burned, it should never happen!"
 			);
