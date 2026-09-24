@@ -43,7 +43,7 @@ use frame_support::{
 };
 use itertools::Itertools;
 use pallet_revive_fixtures::{
-	Callee, Caller, ColdHotCaller, ColdHotTarget, Counter, FixtureType, Host, Recurse,
+	CallEach, CallThenRevert, Callee, Caller, Counter, FixtureType, Host, Recurse,
 	compile_module_with_type,
 };
 use pallet_revive_uapi::ReturnFlags;
@@ -1140,20 +1140,24 @@ fn cold_hot_call_and_delegate_reuse_target_warmth(
 	});
 }
 
-// Which VM behaves right is still undecided; pinning both makes a change on either one fail.
-#[test_case(FixtureType::Solc, 2; "evm")]
-#[test_case(FixtureType::Resolc, 0; "pvm")]
-fn cold_hot_a_denied_call_keeps_its_target_only_if_the_frame_runs_on(
-	fixture_type: FixtureType,
-	target_entries_kept: usize,
-) {
+#[test_case(FixtureType::Solc;   "evm")]
+#[test_case(FixtureType::Resolc; "pvm")]
+fn cold_hot_a_denied_call_keeps_its_target_only_if_the_frame_runs_on(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("Recurse", fixture_type).unwrap();
+	// The two VMs differ once the depth limit denies a call, though both charge the same for it:
+	// EVM keeps the frame running, so its touch stays, while PVM traps the frame and its touch is
+	// rolled back.
+	let target_entries_kept = if fixture_type == FixtureType::Resolc {
+		0
+	} else {
+		CallItems::new(H160::zero(), false).entry_count() as usize
+	};
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let entries_left_by_denied_call_to = |final_target: H160| {
+		let recurse_to_the_limit_then_call = |final_target: H160| {
 			access_list_metrics_of(|| {
 				builder::bare_call(addr)
 					.data(
@@ -1165,14 +1169,14 @@ fn cold_hot_a_denied_call_keeps_its_target_only_if_the_frame_runs_on(
 					)
 					.build_and_unwrap_result();
 			})
-			.size
 		};
 
+		let no_denied_call = recurse_to_the_limit_then_call(H160::zero()).size;
+		let denied_call = recurse_to_the_limit_then_call(H160::from_low_u64_be(0xdead)).size;
 		assert_eq!(
-			entries_left_by_denied_call_to(H160::from_low_u64_be(0xdead)),
-			entries_left_by_denied_call_to(H160::zero()) + target_entries_kept,
-			"EVM runs the frame on after the denial, so the target's entries stay; PVM traps it, \
-			 and the rollback drops them",
+			denied_call,
+			no_denied_call + target_entries_kept,
+			"the denied call leaves its target's entries only if the frame runs on",
 		);
 	});
 }
@@ -1299,6 +1303,94 @@ fn cold_hot_storage_reread_is_hot(fixture_type: FixtureType) {
 			read_then_write.hot,
 			write_only.hot + 1,
 			"the read warms the slot, so the following write is hot",
+		);
+	});
+}
+
+/// Deploys a `CallEach` and `N` `CallThenRevert`s.
+fn deploy_caller_and_targets<const N: usize>(fixture_type: FixtureType) -> (H160, [H160; N]) {
+	let (caller_code, _) = compile_module_with_type("CallEach", fixture_type).unwrap();
+	let (target_code, _) = compile_module_with_type("CallThenRevert", fixture_type).unwrap();
+	let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+	let caller = builder::bare_instantiate(Code::Upload(caller_code))
+		.build_and_unwrap_contract()
+		.addr;
+	let targets = core::array::from_fn(|index| {
+		builder::bare_instantiate(Code::Upload(target_code.clone()))
+			.salt(Some([index as u8 + 1; 32]))
+			.build_and_unwrap_contract()
+			.addr
+	});
+	(caller, targets)
+}
+
+/// Makes `calls` from `caller` in one transaction and returns its access-list metrics.
+fn access_list_metrics_of_calls(caller: H160, calls: &[(H160, Vec<u8>)]) -> AccessListMetrics {
+	let targets = calls.iter().map(|(target, _)| target.0.into()).collect();
+	let data = calls.iter().map(|(_, data)| data.clone().into()).collect();
+	access_list_metrics_of(|| {
+		builder::bare_call(caller)
+			.data(CallEach::callEachCall { targets, data }.abi_encode())
+			.build_and_unwrap_result();
+	})
+}
+
+#[test_case(FixtureType::Solc;   "evm")]
+#[test_case(FixtureType::Resolc; "pvm")]
+fn cold_hot_callee_revert_drops_only_its_own_touches(fixture_type: FixtureType) {
+	ExtBuilder::default().build().execute_with(|| {
+		let (caller, [reverter, inner]) = deploy_caller_and_targets::<2>(fixture_type);
+		let call_inner_then_revert =
+			CallThenRevert::callThenRevertCall { target: inner.0.into() }.abi_encode();
+		let call_items_count = CallItems::new(H160::zero(), false).entry_count();
+		let code_load_count = CodeLoadItems { hash: H256::zero() }.entry_count();
+
+		let no_revert = access_list_metrics_of_calls(caller, &[(reverter, Vec::new())]);
+		let revert =
+			access_list_metrics_of_calls(caller, &[(reverter, call_inner_then_revert.clone())]);
+		assert_eq!(revert.cold - no_revert.cold, call_items_count, "`inner`'s entries are cold",);
+		assert_eq!(
+			revert.hot - no_revert.hot,
+			code_load_count,
+			"`inner`'s code is hot, shared with the callee",
+		);
+		assert_eq!(revert.size, no_revert.size, "the revert removes `inner`'s entries");
+
+		let revert_then_reverter = access_list_metrics_of_calls(
+			caller,
+			&[(reverter, call_inner_then_revert), (reverter, Vec::new())],
+		);
+		assert_eq!(
+			revert_then_reverter.cold, revert.cold,
+			"the second call to the callee adds nothing cold",
+		);
+		assert_eq!(
+			revert_then_reverter.hot - revert.hot,
+			CallItems::plain_entries(),
+			"the second call to the callee is all hot",
+		);
+	});
+}
+
+#[test_case(FixtureType::Solc;   "evm")]
+#[test_case(FixtureType::Resolc; "pvm")]
+fn cold_hot_shared_code_is_hot_for_the_second_contract(fixture_type: FixtureType) {
+	ExtBuilder::default().build().execute_with(|| {
+		let (caller, [first, second]) = deploy_caller_and_targets::<2>(fixture_type);
+
+		let first_only = access_list_metrics_of_calls(caller, &[(first, Vec::new())]);
+		let both =
+			access_list_metrics_of_calls(caller, &[(first, Vec::new()), (second, Vec::new())]);
+
+		assert_eq!(
+			both.cold - first_only.cold,
+			CallItems::new(H160::zero(), false).entry_count(),
+			"the second contract's entries are cold",
+		);
+		assert_eq!(
+			both.hot - first_only.hot,
+			CodeLoadItems { hash: H256::zero() }.entry_count(),
+			"the second contract's code is hot, shared with the first",
 		);
 	});
 }
