@@ -34,11 +34,11 @@ doc:
 - audience: Runtime User
   description: |-
     Adds `pallet-on-demand` for the Coretime chain, which can be used to place orders
-	for on-demand coretime.
+    for on-demand coretime.
 
     Important: In order for `pallet-on-demand` to be able to accept orders with spot
-	price below the Existential Deposit, the pallet's account needs to be pre-funded
-	with the Existential Deposit.
+    price below the Existential Deposit, the pallet's account needs to be pre-funded
+    with the Existential Deposit.
 crates:
 - name: pallet-on-demand
   bump: major
