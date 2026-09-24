@@ -277,6 +277,37 @@ module authorizer_queue_test {
     }
   }
 
+  /// Ownership is only known once `assign` is called, so an `assign_core` for a
+  /// future slot on a handed-away core is cached like any other. The rejection
+  /// comes from the flush that makes the call at `jam_slot` (§7.1).
+  run scheduledAssignRejectedAtFlushTest = {
+    val core = 4
+    val other = MkServiceId(7)
+    val three = List({ authBytes: 1 }, { authBytes: 2 }, { authBytes: 3 })
+    val handedAway = { ...initialState,
+      jamCoreAssigners: initialState.jamCoreAssigners.put(core, other) }
+    val baseAcc: AccumulateOutcome = {
+      state: handedAway, jamDesignate: List(), jamSolicit: Set(),
+      jamForget: Set(), jamAssigns: List(), logs: List(), foreign: Map()
+    }
+    val scheduled = applyUpwardMessage(
+      baseAcc, CoretimeParaId, FixedCodeLen, 1, 1,
+      AssignCore({ core: core, queue: three, newAssigner: None, jamSlot: 10 }))
+    val flushed = applyAlwaysAccumulate(scheduled.state, 10)
+    all {
+      // Replay: cached, nothing logged, no `assign` yet.
+      assert(scheduled.logs == List()),
+      assert(scheduled.jamAssigns == List()),
+      assert(scheduled.state.pendingAssignCores.get(core) == 10),
+      // Flush at `jam_slot`: JAM rejects, the entry goes, the rejection is logged.
+      assert(flushed.assigns == List()),
+      assert(not(flushed.state.pendingAssigns.keys().contains(core))),
+      assert(not(flushed.state.pendingAssignCores.keys().contains(core))),
+      assert(flushed.logs == List(CoreNotAssignable({ core: core }))),
+      init
+    }
+  }
+
   /// A rotation left armed on a core that has since been handed away is
   /// rejected by JAM when it falls due: it takes no effect, the entry is
   /// dropped, and the rejection is logged (§7.1).

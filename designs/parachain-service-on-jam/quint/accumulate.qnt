@@ -264,37 +264,38 @@ module accumulate {
       // only: it re-checks both length rules rather than trusting the digest.
       if (not(wellFormedAssignQueue(payload.queue, payload.newAssigner)))
         acc
-      else if (not(acc.state.isAssignerOf(payload.core)))
-        // The core was handed away, so JAM rejects the `assign` (§7.1), and any
-        // entry cached for it is dropped.
-        { ...acc,
-          logs: acc.logs.append(CoreNotAssignable({ core: payload.core })),
-          state: { ...acc.state,
-            pendingAssigns: acc.state.pendingAssigns.mapRemove(payload.core),
-            pendingAssignCores: acc.state.pendingAssignCores.mapRemove(payload.core)
-          }
-        }
       else if (payload.jamSlot <= now)
-        { ...acc,
-          jamAssigns: acc.jamAssigns.append({
-            core: payload.core,
-            assigner: payload.newAssigner.optionGetOr(ParachainServiceId),
-            queue: assignQueueFor(payload.queue)
-          }),
-          state: { ...acc.state.recordAssigner(
-              payload.core, payload.newAssigner.optionGetOr(ParachainServiceId)),
-            pendingAssigns:
-              if (fillsDirectly(queueLen)) acc.state.pendingAssigns.mapRemove(payload.core)
-              else acc.state.pendingAssigns.put(payload.core, {
-                queue: advanceAssignQueue(payload.queue),
-                assigner: payload.newAssigner
-              }),
-            pendingAssignCores:
-              if (fillsDirectly(queueLen)) acc.state.pendingAssignCores.mapRemove(payload.core)
-              else acc.state.pendingAssignCores.put(
-                payload.core, now + AuthorizerQueueLength)
+        if (not(acc.state.isAssignerOf(payload.core)))
+          // The core was handed away, so JAM rejects the `assign` (§7.1), and
+          // any entry cached for it is dropped.
+          { ...acc,
+            logs: acc.logs.append(CoreNotAssignable({ core: payload.core })),
+            state: { ...acc.state,
+              pendingAssigns: acc.state.pendingAssigns.mapRemove(payload.core),
+              pendingAssignCores: acc.state.pendingAssignCores.mapRemove(payload.core)
+            }
           }
-        }
+        else
+          { ...acc,
+            jamAssigns: acc.jamAssigns.append({
+              core: payload.core,
+              assigner: payload.newAssigner.optionGetOr(ParachainServiceId),
+              queue: assignQueueFor(payload.queue)
+            }),
+            state: { ...acc.state.recordAssigner(
+                payload.core, payload.newAssigner.optionGetOr(ParachainServiceId)),
+              pendingAssigns:
+                if (fillsDirectly(queueLen)) acc.state.pendingAssigns.mapRemove(payload.core)
+                else acc.state.pendingAssigns.put(payload.core, {
+                  queue: advanceAssignQueue(payload.queue),
+                  assigner: payload.newAssigner
+                }),
+              pendingAssignCores:
+                if (fillsDirectly(queueLen)) acc.state.pendingAssignCores.mapRemove(payload.core)
+                else acc.state.pendingAssignCores.put(
+                  payload.core, now + AuthorizerQueueLength)
+            }
+          }
       else
         { ...acc,
           state: { ...acc.state,
