@@ -18,19 +18,20 @@
 use crate::utils::{
 	extract_block_type_from_trait_path, extract_impl_trait,
 	extract_parameter_names_types_and_borrows, generate_crate_access, return_type_extract_type,
-	AllowSelfRefInParameters, RequireQualifiedTraitPath,
+	take_encode_like_attributes, AllowSelfRefInParameters, RequireQualifiedTraitPath,
 };
 
 use proc_macro2::{Span, TokenStream};
 
-use quote::{quote, quote_spanned};
+use quote::{format_ident, quote, quote_spanned};
 
 use syn::{
 	fold::{self, Fold},
 	parse::{Error, Parse, ParseStream, Result},
 	parse_macro_input, parse_quote,
+	punctuated::Punctuated,
 	spanned::Spanned,
-	Attribute, ItemImpl, Pat, Type, TypePath,
+	Attribute, FnArg, ItemImpl, Pat, Token, Type, TypePath,
 };
 
 /// The `advanced` attribute.
@@ -154,11 +155,16 @@ fn implement_common_api_traits(block_type: TypePath, self_ty: Type) -> Result<To
 				unimplemented!("`Core::version` not implemented for runtime api mocks")
 			}
 
-			fn execute_block(
+			fn execute_block<__SrApiParam0__>(
 				&self,
 				_: <#block_type as #crate_::BlockT>::Hash,
-				_: <#block_type as #crate_::BlockT>::LazyBlock,
-			) -> std::result::Result<(), #crate_::ApiError> {
+				_: __SrApiParam0__,
+			) -> std::result::Result<(), #crate_::ApiError>
+			where
+				__SrApiParam0__:
+					#crate_::EncodeLike<<#block_type as #crate_::BlockT>::LazyBlock>,
+				Self: Sized,
+			{
 				unimplemented!("`Core::execute_block` not implemented for runtime api mocks")
 			}
 
@@ -272,13 +278,17 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 			let is_advanced = has_advanced_attribute(&mut input.attrs);
 			let mut errors = Vec::new();
 
-			let (mut param_names, mut param_types_and_borrows) =
+			// Repeated here, as the mock never sees the declaration.
+			let mut encode_like_params = take_encode_like_attributes(&mut input.sig);
+
+			let (mut param_names, mut param_inner_types, mut param_types_and_borrows) =
 				match extract_parameter_names_types_and_borrows(
 					&input.sig,
 					AllowSelfRefInParameters::YesButIgnore,
 				) {
 					Ok(res) => (
 						res.iter().map(|v| v.0.clone()).collect::<Vec<_>>(),
+						res.iter().map(|v| v.1.clone()).collect::<Vec<_>>(),
 						res.iter()
 							.map(|v| {
 								let ty = &v.1;
@@ -290,7 +300,7 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 					Err(e) => {
 						errors.push(e.to_compile_error());
 
-						(Default::default(), Default::default())
+						(Default::default(), Default::default(), Default::default())
 					},
 				};
 
@@ -311,13 +321,66 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 				},
 			};
 
-			let param_types = param_types_and_borrows.iter().map(|v| &v.0);
-			// Rewrite the input parameters.
-			input.sig.inputs = parse_quote! {
-				&self,
-				#at_param_name: #hash_type,
-				#( #param_names: #param_types ),*
-			};
+			// In advanced mode `get_at_param_name` consumed the hash, realign.
+			if is_advanced && !encode_like_params.is_empty() {
+				encode_like_params.remove(0);
+				param_inner_types.remove(0);
+			}
+			// The error paths above can leave the vectors at different lengths.
+			encode_like_params.resize(param_names.len(), false);
+
+			// Rewrite the input parameters. A marked one is generic here as well and gets decoded
+			// back into the declared type, so the body sees the type it declared.
+			let mut inputs: Punctuated<FnArg, Token![,]> =
+				parse_quote!( &self, #at_param_name: #hash_type );
+			let mut decode_params = Vec::new();
+
+			for (i, (((name, inner_type), (ty, is_borrow)), encode_like)) in param_names
+				.iter()
+				.zip(param_inner_types.iter())
+				.zip(param_types_and_borrows.iter())
+				.zip(encode_like_params.iter())
+				.enumerate()
+			{
+				if !encode_like {
+					inputs.push(parse_quote!( #name: #ty ));
+					continue;
+				}
+
+				let generic_name = format_ident!("__SrApiParam{}__", i);
+				let encoded_name = format_ident!("__sr_api_encode_like_param_{}__", i);
+
+				input.sig.generics.params.push(parse_quote!(
+					#generic_name: #crate_::EncodeLike<#inner_type>
+				));
+				inputs.push(parse_quote!( #encoded_name: #generic_name ));
+
+				let decode = quote! {
+					#crate_::Decode::decode(&mut &#crate_::Encode::encode(&#encoded_name)[..])
+						.expect("`EncodeLike` encodes to a valid encoding of the type; qed")
+				};
+
+				decode_params.push(if *is_borrow {
+					let owned_name = format_ident!("__sr_api_decoded_param_{}__", i);
+					quote! {
+						let #owned_name: #inner_type = #decode;
+						let #name = &#owned_name;
+					}
+				} else {
+					quote! { let #name: #inner_type = #decode; }
+				});
+			}
+
+			if !decode_params.is_empty() {
+				input
+					.sig
+					.generics
+					.make_where_clause()
+					.predicates
+					.push(parse_quote!(Self: Sized));
+			}
+
+			input.sig.inputs = inputs;
 
 			// When using advanced, the user needs to declare the correct return type on its own,
 			// otherwise do it for the user.
@@ -347,6 +410,8 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 				{
 					// Get the error to the user (if we have one).
 					#( #errors )*
+
+					#( #decode_params )*
 
 					#construct_return_value
 				}
