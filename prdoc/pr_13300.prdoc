@@ -1,14 +1,15 @@
-title: "pallet-revive: Make the `limits` module public"
+title: "pallet-revive: Expose the PVM code upload check"
 doc:
   - audience: Runtime Dev
     description: |
-      The `limits` module is now public, so tooling can read the limits the pallet enforces
-      instead of copying them. The motivating user is `resolc`, which checks at link time
-      whether a contract blob would pass `limits::code::enforce` on deployment and currently
-      has to duplicate `BLOB_BYTES`, `BASIC_BLOCK_SIZE`, `INTERPRETER_CACHE_BYTES`,
-      `PURGABLE_MEMORY_LIMIT`, `BASELINE_MEMORY_LIMIT` and `PAGE_SIZE`.
+      Adds `check_pvm_code`, which runs the checks a PVM blob must pass on code upload and
+      returns `Result<(), CodeRejection>`. It is not generic over the runtime, so tooling such
+      as `resolc` can tell ahead of deployment whether a blob would be rejected. `CodeRejection`
+      reports the measured value and the limit it exceeded, so tooling does not need to
+      hard-code the limits, which may be raised in future releases.
 
-      No limit values change.
+      Code upload goes through the same check and returns the same dispatch errors as before.
+      No migration is needed.
 crates:
   - name: pallet-revive
     bump: minor
