@@ -144,7 +144,16 @@ impl FullLeaf for OpaqueLeaf {
 ///
 /// It is different from [`OpaqueLeaf`], because it does implement `Codec`
 /// and the encoding has to match raw `Vec<u8>` encoding.
-#[derive(codec::Encode, codec::Decode, Debug, Clone, PartialEq, Eq, TypeInfo)]
+#[derive(
+	codec::Encode,
+	codec::Decode,
+	Debug,
+	Clone,
+	PartialEq,
+	Eq,
+	TypeInfo,
+	codec::DecodeWithMemTracking,
+)]
 pub struct EncodableOpaqueLeaf(pub Vec<u8>);
 
 impl EncodableOpaqueLeaf {
@@ -351,7 +360,16 @@ impl_leaf_data_for_tuple!(A:0, B:1, C:2, D:3);
 impl_leaf_data_for_tuple!(A:0, B:1, C:2, D:3, E:4);
 
 /// An MMR proof data for a group of leaves.
-#[derive(codec::Encode, codec::Decode, Debug, Clone, PartialEq, Eq, TypeInfo)]
+#[derive(
+	codec::Encode,
+	codec::Decode,
+	Debug,
+	Clone,
+	PartialEq,
+	Eq,
+	TypeInfo,
+	codec::DecodeWithMemTracking,
+)]
 pub struct LeafProof<Hash> {
 	/// The indices of the leaves the proof is for.
 	pub leaf_indices: Vec<LeafIndex>,

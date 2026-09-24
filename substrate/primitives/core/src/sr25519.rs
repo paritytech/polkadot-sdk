@@ -36,7 +36,7 @@ use schnorrkel::{
 };
 
 use crate::crypto::{CryptoType, CryptoTypeId, Derive, Public as TraitPublic, SignatureBytes};
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
 #[cfg(all(not(feature = "std"), feature = "serde"))]
@@ -383,7 +383,9 @@ pub mod vrf {
 	}
 
 	/// VRF signature data
-	#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo)]
+	#[derive(
+		Clone, Debug, PartialEq, Eq, Encode, Decode, MaxEncodedLen, TypeInfo, DecodeWithMemTracking,
+	)]
 	pub struct VrfSignature {
 		/// VRF pre-output.
 		pub pre_output: VrfPreOutput,
@@ -422,6 +424,8 @@ pub mod vrf {
 		}
 	}
 
+	impl DecodeWithMemTracking for VrfPreOutput {}
+
 	/// VRF proof type suitable for schnorrkel operations.
 	#[derive(Clone, Debug, PartialEq, Eq)]
 	pub struct VrfProof(pub schnorrkel::vrf::VRFProof);
@@ -452,6 +456,8 @@ pub mod vrf {
 			Self::Identity::type_info()
 		}
 	}
+
+	impl DecodeWithMemTracking for VrfProof {}
 
 	#[cfg(feature = "full_crypto")]
 	impl VrfCrypto for Pair {
