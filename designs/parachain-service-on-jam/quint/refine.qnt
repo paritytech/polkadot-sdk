@@ -20,11 +20,9 @@ module refine {
   import messages.* from "./messages"
   import state.* from "./state"
 
-  /// Per-work-package extrinsic: one parachain candidate per item (design §3.2).
+  /// The work-item payload: one parachain candidate per item (design §3.2).
   type ParachainCandidate = {
-    validationCode: ValidationCodeRef,
-    // PoV is opaque; the model treats it as a nondeterministic input.
-    pov: int
+    validationCode: ValidationCodeRef
   }
 
   type WorkPackage = {

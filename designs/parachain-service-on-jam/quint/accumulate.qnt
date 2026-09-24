@@ -23,7 +23,8 @@ module accumulate {
     // Hashes for which JAM `solicit` / `forget` should be invoked.
     jamSolicit: Set[Hash],
     jamForget: Set[Hash],
-    // JAM `assign` host-function calls made while replaying upward messages.
+    // JAM `assign` calls that took effect while replaying upward messages (a
+    // rejected call is only logged).
     jamAssigns: List[AssignCall],
     // Log entries to append against the para's `parachain_log`.
     logs: List[AccumulateLog],
@@ -264,9 +265,15 @@ module accumulate {
       if (not(wellFormedAssignQueue(payload.queue, payload.newAssigner)))
         acc
       else if (not(acc.state.isAssignerOf(payload.core)))
-        // The core was handed away, so JAM rejects the `assign`: no queue is
-        // written, so nothing is scheduled either (§7.1).
-        { ...acc, logs: acc.logs.append(CoreNotAssignable({ core: payload.core })) }
+        // The core was handed away, so JAM rejects the `assign` (§7.1), and any
+        // entry cached for it is dropped.
+        { ...acc,
+          logs: acc.logs.append(CoreNotAssignable({ core: payload.core })),
+          state: { ...acc.state,
+            pendingAssigns: acc.state.pendingAssigns.mapRemove(payload.core),
+            pendingAssignCores: acc.state.pendingAssignCores.mapRemove(payload.core)
+          }
+        }
       else if (payload.jamSlot <= now)
         { ...acc,
           jamAssigns: acc.jamAssigns.append({
@@ -556,13 +563,28 @@ module accumulate {
   pure def applyAlwaysAccumulate(
     s: ParachainServiceState,
     now: Timeslot
-  ): { state: ParachainServiceState, assigns: List[AssignCall] } = {
+  ): {
+    state: ParachainServiceState,
+    assigns: List[AssignCall],
+    // Logged against the Coretime chain, the only para that may `AssignCore`.
+    logs: List[AccumulateLog]
+  } = {
     s.pendingAssignCores.keys().fold(
-      { state: s, assigns: List() },
+      { state: s, assigns: List(), logs: List() },
       (acc, c) => {
         val dueAt = s.pendingAssignCores.get(c)
-        if (now < dueAt or not(acc.state.isAssignerOf(c)))
+        if (now < dueAt)
           acc
+        else if (not(acc.state.isAssignerOf(c)))
+          // The core was handed away since this entry was cached, so JAM rejects
+          // the `assign`: drop the entry and log the rejection (§7.1).
+          { ...acc,
+            state: { ...acc.state,
+              pendingAssigns: acc.state.pendingAssigns.mapRemove(c),
+              pendingAssignCores: acc.state.pendingAssignCores.mapRemove(c)
+            },
+            logs: acc.logs.append(CoreNotAssignable({ core: c }))
+          }
         else {
           val pending = s.pendingAssigns.get(c)
           val queueLen = pending.queue.length()
@@ -581,7 +603,8 @@ module accumulate {
               core: c,
               assigner: pending.assigner.optionGetOr(ParachainServiceId),
               queue: assignQueueFor(pending.queue)
-            })
+            }),
+            logs: acc.logs
           }
         }
       }
@@ -665,8 +688,12 @@ module accumulate {
     foreign: ForeignServices
   ): BlockOutcome = {
     val flushed = applyAlwaysAccumulate(state, now)
+    // `AssignCore` is Coretime-chain only, so a queue of its that can no longer
+    // be applied is reported in its log.
+    val logged =
+      flushed.state.appendAccumulateLogs(CoretimeParaId, now, flushed.logs)
     val acc =
-      accumulateAll(flushed.state, solicited, List(), codeLen, now, packages, foreign)
+      accumulateAll(logged, solicited, List(), codeLen, now, packages, foreign)
     {
       state: acc.state,
       staging: if (acc.jamDesignate == List()) staging else acc.jamDesignate,

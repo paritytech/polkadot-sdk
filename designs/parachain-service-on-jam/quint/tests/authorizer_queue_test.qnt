@@ -224,7 +224,7 @@ module authorizer_queue_test {
       baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
       AssignCore({ core: core, queue: h80, newAssigner: Some(assigner), jamSlot: 0 }))
     // A later assign for the SAME core, which `assigner` now controls. JAM
-    // would reject it, so nothing is emitted or scheduled and it is logged.
+    // rejects it: nothing takes effect or is scheduled, and it is logged.
     val after = applyUpwardMessage(
       { ...out, jamAssigns: List(), logs: List() }, CoretimeParaId, FixedCodeLen, 0, 0,
       AssignCore({ core: core, queue: three, newAssigner: None, jamSlot: 0 }))
@@ -277,10 +277,10 @@ module authorizer_queue_test {
     }
   }
 
-  /// The always-accumulate flush is gated on ownership too: a rotation left
-  /// armed on a core that has since been handed away does not fire, so the
-  /// model never expects an `assign` JAM rejects (§7.1).
-  run dueFlushSkipsHandedAwayCoreTest = {
+  /// A rotation left armed on a core that has since been handed away is
+  /// rejected by JAM when it falls due: it takes no effect, the entry is
+  /// dropped, and the rejection is logged (§7.1).
+  run dueFlushDropsHandedAwayCoreTest = {
     val core = 3
     val other = MkServiceId(7)
     val three = List({ authBytes: 1 }, { authBytes: 2 }, { authBytes: 3 })
@@ -299,11 +299,14 @@ module authorizer_queue_test {
     all {
       assert(not(armed.isAssignerOf(core))),
       assert(flushed.assigns == List()),
-      // The entry is left exactly as it was, not consumed or re-armed.
-      assert(flushed.state == armed),
+      // The dead entry is dropped, not left to retry every block.
+      assert(not(flushed.state.pendingAssigns.keys().contains(core))),
+      assert(not(flushed.state.pendingAssignCores.keys().contains(core))),
+      assert(flushed.logs == List(CoreNotAssignable({ core: core }))),
       assert(owned.isAssignerOf(core)),
       assert(flushedOwned.assigns ==
         List({ core: core, assigner: ParachainServiceId, queue: assignQueueFor(three) })),
+      assert(flushedOwned.logs == List()),
       init
     }
   }

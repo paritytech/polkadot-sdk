@@ -549,20 +549,14 @@ singletons; the tag prepended to the encoded map key for map entries).
 ### 3.2 Work Items
 
 Each work package submitted to the Parachain Service contains one or more **work items**.
-For the Parachain Service, a work item represents one parachain candidate. The candidate
-itself (validation code hash and PoV) is carried entirely in the work item's
-**payload** as a single SCALE-encoded blob.
-
-The shape of that payload is:
+For the Parachain Service, a work item represents one parachain candidate. Its **payload**
+carries the validation code hash, and the **PoV** is passed as a work-item extrinsic.
 
 ```rust
 struct ParachainCandidate {
     /// The hash of the currently active validation code. Used by Refine to
     /// look up the validation code from the preimage store.
     validation_code_hash: ValidationCodeHash,
-
-    /// The Proof-of-Validity (PoV): the actual block data + witness.
-    pov: Vec<u8>,
 }
 ```
 
@@ -771,14 +765,13 @@ index `item_index` the Parachain Service performs:
    prefix (§3.2). A config not prefixed with a `Vec<ParaId>` panics (§4.2) rather than
    logging: there is no authoritative `para_id` to attribute an entry to.
 2. Takes `para_id = authorized_paras[item_index]` as authoritative for this item.
-3. Decodes the `ParachainCandidate` (validation code hash + PoV) from the work item
-   payload passed to Refine. If the payload fails to decode, aborts with
-   `Err(RefineLog::MalformedPayload)`.
+3. Decodes the `ParachainCandidate` from the work item payload. If the payload fails to
+   decode, aborts with `Err(RefineLog::MalformedPayload)`.
 4. Fetches the validation code via `historical_lookup` (using `validation_code_hash`).
    If the lookup returns `None` (the preimage isn't available in the service's
    store at the lookup-anchor), aborts with `Err(RefineLog::InvalidCodeHash)`.
 5. Instantiates a child PVM with the validation code.
-6. Executes the validation code against the PoV (the `jam_validate_block` call).
+6. Executes the validation code (the `jam_validate_block` call).
 7. Assembles a `ParachainWorkDigest` from the validation code's host-function side effects and the
    authoritative `para_id` (see §4.2).
 8. Checks that the encoded digest (head data + upward messages) plus the
@@ -835,7 +828,7 @@ not restated here:
 |---|---|---|
 | 0 | `gas` | The remaining gas budget. |
 | 1 | `grow_heap` | Expand the RW data region. |
-| 2 | `fetch` | Read the work package and its context: the package itself, the refine context, the authorizer config and token, the work-item summaries and payloads, and the import segments. |
+| 2 | `fetch` | Read the work package and its context: the package itself, the refine context, the authorizer config and token, the work-item summaries, payloads and extrinsics, and the import segments. |
 | 7 | `historical_lookup` | Read a service's preimage store at the lookup-anchor; serves both own and foreign lookups. |
 | 8 | `export` | Write a segment to the JAM Data Lake, e.g. an outbound XCMP payload. |
 
@@ -894,12 +887,16 @@ so a block heavy in due assigns or incoming transfers cannot eat into report gas
 
 #### Apply due assigns (before work packages)
 
-Iterate `pending_assign_cores` and, for each `(core, due_at)` pair, check whether
-the entry is due: `now >= due_at`, read directly from the pair without touching
-`pending_assigns`. If due, emit JAM `assign(core, queue, assigner)`, where `queue` is
-the cached queue filled to 80 slots (§7.1) and `assigner` is the cached `assigner` if
-set and this service's own id otherwise. The entry is then either dropped from both
-maps or re-armed 80 blocks out with its rotation advanced, per §7.1.
+For each core in `pending_assign_cores` whose `due_at` has been reached, call JAM
+`assign(core, queue, assigner)` from its `pending_assigns` entry: the cached queue filled
+to 80 slots (§7.1), and the cached `assigner`, or this service's own id if none is set.
+
+- If the call succeeds, the core is dropped from both maps. The one exception is a core that
+  stays assigned to this service and whose queue needs rewriting every 80 blocks (§7.1): it
+  is re-armed 80 blocks out with its rotation advanced.
+- If JAM rejects it because this service is no longer the core's assigner, the core is
+  dropped from both maps and `AccumulateLog::CoreNotAssignable` is recorded in the
+  Coretime chain's log.
 
 #### Incoming transfer processing
 

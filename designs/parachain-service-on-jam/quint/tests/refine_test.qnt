@@ -17,7 +17,7 @@ module refine_test {
   run refineMissingHeadDeclarationTest = {
     val pkg: WorkPackage = {
       authorizedParas: List(CoretimeParaId),
-      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 })
+      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
     }
     val parentOnly =
       refine(initialState, pkg, false, CodeOk, Some(headHash(0)), HeadUndeclared, List(), 0)[0]
@@ -52,7 +52,7 @@ module refine_test {
   run tooManyUpwardMessagesTest = {
     val pkg: WorkPackage = {
       authorizedParas: List(CoretimeParaId),
-      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 })
+      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
     }
     val msg = Solicit({ target: Parachain(CoretimeParaId), hash: { hashBytes: 7 }, len: 1024 })
     val over = range(0, MaxUpwardMessages + 1).foldl(List(), (acc, _) => acc.append(msg))
@@ -131,7 +131,7 @@ module refine_test {
     val para = CoretimeParaId
     val pkg: WorkPackage = {
       authorizedParas: List(para),
-      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 })
+      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
     }
     val reported = refine(initialState, pkg, false, CodeReportError(42),
       Some(headHash(0)), HeadDeclared(1), List(), 0)[0]
@@ -161,7 +161,7 @@ module refine_test {
   run headDataTooLargeTest = {
     val pkg: WorkPackage = {
       authorizedParas: List(CoretimeParaId),
-      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 })
+      items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
     }
     val withParent =
       refine(initialState, pkg, false, CodeOk, Some(headHash(0)), HeadOversized, List(), 0)[0]

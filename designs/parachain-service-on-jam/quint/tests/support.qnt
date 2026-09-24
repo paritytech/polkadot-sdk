@@ -52,7 +52,7 @@ module support {
       val pi = svc.paraInfo(p._1)
       val pkg: WorkPackage = {
         authorizedParas: List(p._1),
-        items: List({ validationCode: { hash: p._2, len: FixedCodeLen }, pov: 0 })
+        items: List({ validationCode: { hash: p._2, len: FixedCodeLen } })
       }
       val wr: WorkResult = {
         result: refine(
@@ -171,7 +171,7 @@ module support {
     val blockNow = now + 1
     val pkg: WorkPackage = {
       authorizedParas: List(paraId),
-      items: List({ validationCode: { hash: codeHash, len: FixedCodeLen }, pov: 0 })
+      items: List({ validationCode: { hash: codeHash, len: FixedCodeLen } })
     }
     val wr: WorkResult = {
       result: refine(
@@ -230,8 +230,7 @@ module support {
     val pkg: WorkPackage = {
       authorizedParas: List(caller),
       items: List({
-        validationCode: { hash: activeCodeHashOr(pi, NoCodeHash), len: FixedCodeLen },
-        pov: 0
+        validationCode: { hash: activeCodeHashOr(pi, NoCodeHash), len: FixedCodeLen }
       })
     }
     refine(s, pkg, false, CodeOk,

@@ -42,9 +42,8 @@ module state_vars {
   /// directly. Not part of the protocol.
   var lastStepWorkResults: List[WorkResult]
 
-  /// Ghost state: JAM `assign` calls made during the last step (`set_assigner`
-  /// updates and `set_authorizer_queue` flushes at their `jam_slot`). Lets
-  /// invariants verify `new_assigner` is forwarded. Not part of the protocol.
+  /// Ghost state: the `assign` calls JAM accepted during the last step. Not part
+  /// of the protocol.
   var lastStepAssigns: List[AssignCall]
 
   /// The 32-byte value `accumulate` returned for the last step: the head

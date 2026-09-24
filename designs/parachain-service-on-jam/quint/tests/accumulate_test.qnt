@@ -123,7 +123,7 @@ module accumulate_test {
   /// authoritative `para_id` to attribute a `RefineLog` to. A work error carries
   /// no digest, so nothing is logged for any of them.
   run packageLevelFailuresPanicTest = {
-    val wi = { validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen }, pov: 0 }
+    val wi = { validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } }
     val good: WorkPackage = { authorizedParas: List(CoretimeParaId), items: List(wi) }
     // Two items: not single-item (§3.2).
     val twoItems: WorkPackage = {

@@ -340,12 +340,12 @@ module main {
     val pi = s.paraInfo(para_id)
     val base = Set(
       { validationCode:
-          { hash: activeCodeHashOr(pi, NoCodeHash), len: FixedCodeLen }, pov: 0 },
-      { validationCode: { hash: { vchBytes: 99999 }, len: 999 }, pov: 0 }
+          { hash: activeCodeHashOr(pi, NoCodeHash), len: FixedCodeLen } },
+      { validationCode: { hash: { vchBytes: 99999 }, len: 999 } }
     )
     match pi.announcedUpgrade {
       | None => base
-      | Some(ref) => base.union(Set({ validationCode: ref, pov: 0 }))
+      | Some(ref) => base.union(Set({ validationCode: ref }))
     }
   }
 
