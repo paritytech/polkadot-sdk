@@ -54,6 +54,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
+		fungibles,
 		tokens::{Fortitude, Preservation},
 		Currency, Imbalance, OnUnbalanced, Time,
 	},
@@ -72,18 +73,34 @@ const LOG_TARGET: &str = "runtime::dap";
 /// Maximum number of budget recipients.
 pub const MAX_BUDGET_RECIPIENTS: u32 = 16;
 
-/// Type alias for balance.
-pub type BalanceOf<T> =
-	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+/// Maximum number of assets that can be distributed.
+pub const MAX_DISTRIBUTABLE_ASSETS: u32 = 8;
 
-/// Type alias for the budget allocation map.
+/// Type alias for balance.
+pub type BalanceOf<T> = <T as Config>::Balance;
+
+pub type DistributableAssetKindOf<T> = <T as Config>::DistributableAssetKind;
+
+/// Type alias for the native token allocation map.
 pub type BudgetAllocationMap = BoundedBTreeMap<BudgetKey, Perbill, ConstU32<MAX_BUDGET_RECIPIENTS>>;
+
+pub type DistributableTokenAllocationMap<AssetKind, Balance> = BoundedBTreeMap<
+	AssetKind,
+	SingleAssetAllocationMap<Balance>,
+	ConstU32<MAX_DISTRIBUTABLE_ASSETS>,
+>;
+
+pub type SingleAssetAllocationMap<Balance> =
+	BoundedBTreeMap<BudgetKey, Balance, ConstU32<MAX_BUDGET_RECIPIENTS>>;
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use crate::weights::WeightInfo;
-	use frame_support::{sp_runtime::traits::AccountIdConversion, traits::StorageVersion};
+	use frame_support::{
+		sp_runtime::traits::AccountIdConversion,
+		traits::{tokens::Balance, StorageVersion},
+	};
 	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
@@ -95,8 +112,19 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
-		/// The currency type (new fungible traits).
-		type Currency: Inspect<Self::AccountId>
+		type Balance: Balance;
+
+		type DistributableAssetKind: Parameter + MaxEncodedLen + MaybeSerializeDeserialize + Ord;
+
+		type DistributableAssets: fungibles::Inspect<
+				Self::AccountId,
+				AssetId = Self::DistributableAssetKind,
+				Balance = Self::Balance,
+			> + fungibles::Mutate<Self::AccountId>
+			+ fungibles::Balanced<Self::AccountId>;
+
+		/// The native currency type (new fungible traits).
+		type NativeCurrency: Inspect<Self::AccountId, Balance = Self::Balance>
 			+ Mutate<Self::AccountId>
 			+ Unbalanced<Self::AccountId>
 			+ Balanced<Self::AccountId>;
@@ -190,6 +218,13 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type BudgetAllocation<T> = StorageValue<_, BudgetAllocationMap, ValueQuery>;
 
+	#[pallet::storage]
+	pub type DistributableTokenAllocation<T> = StorageValue<
+		_,
+		DistributableTokenAllocationMap<DistributableAssetKindOf<T>, BalanceOf<T>>,
+		ValueQuery,
+	>;
+
 	/// Timestamp (ms) of the last issuance drip.
 	///
 	/// On existing chains, this must be seeded via
@@ -220,7 +255,7 @@ pub mod pallet {
 			}
 
 			let staging_account = Self::staging_account();
-			let available = T::Currency::reducible_balance(
+			let available = T::NativeCurrency::reducible_balance(
 				&staging_account,
 				Preservation::Preserve,
 				Fortitude::Polite,
@@ -237,8 +272,13 @@ pub mod pallet {
 			}
 
 			let buffer = Self::buffer_account();
-			if T::Currency::transfer(&staging_account, &buffer, available, Preservation::Preserve)
-				.is_err()
+			if T::NativeCurrency::transfer(
+				&staging_account,
+				&buffer,
+				available,
+				Preservation::Preserve,
+			)
+			.is_err()
 			{
 				defensive!("DAP: staging account transfer to buffer failed");
 				return meter.consumed();
@@ -358,7 +398,12 @@ pub mod pallet {
 
 		/// Deactivate funds on buffer inflow.
 		pub(crate) fn deactivate_buffer_funds(amount: BalanceOf<T>) {
-			<T::Currency as Unbalanced<T::AccountId>>::deactivate(amount);
+			<T::NativeCurrency as Unbalanced<T::AccountId>>::deactivate(amount);
+		}
+
+		/// Activate funds on buffer withdrawal.
+		pub(crate) fn activate_buffer_funds(amount: BalanceOf<T>) {
+			<T::NativeCurrency as Unbalanced<T::AccountId>>::reactivate(amount);
 		}
 
 		/// Core issuance drip logic, called from `on_initialize`.
@@ -409,11 +454,20 @@ pub mod pallet {
 		/// failures emit `MintFailed` and are skipped; the function does not roll
 		/// back successful mints for earlier recipients.
 		pub(crate) fn mint_and_distribute(elapsed: u64) -> BalanceOf<T> {
-			let total_issuance = T::Currency::total_issuance();
+			let recipients = T::BudgetRecipients::recipients();
+
+			Self::mint_native_currency(elapsed, &recipients);
+			Self::distribute_assets(elapsed, &recipients);
+
+			BalanceOf::<T>::zero()
+		}
+
+		fn mint_native_currency(elapsed: u64, recipients: &[(BudgetKey, T::AccountId)]) {
+			let total_issuance = T::NativeCurrency::total_issuance();
 			let issuance = T::IssuanceCurve::issue(total_issuance, elapsed);
 
 			if issuance.is_zero() {
-				return BalanceOf::<T>::zero();
+				return;
 			}
 
 			let budget = BudgetAllocation::<T>::get();
@@ -423,17 +477,16 @@ pub mod pallet {
 					target: LOG_TARGET,
 					"BudgetAllocation is empty — no issuance will be distributed"
 				);
-				return BalanceOf::<T>::zero();
+				return;
 			}
-			let recipients = T::BudgetRecipients::recipients();
 			let mut total_minted = BalanceOf::<T>::zero();
 
 			let buffer = Self::buffer_account();
-			for (key, account) in &recipients {
+			for (key, account) in &*recipients {
 				let perbill = budget.get(key).copied().unwrap_or(Perbill::zero());
 				let amount = perbill.mul_floor(issuance);
 				if !amount.is_zero() {
-					if let Err(_) = T::Currency::mint_into(account, amount) {
+					if let Err(_) = T::NativeCurrency::mint_into(account, amount) {
 						Self::deposit_event(Event::Unexpected(UnexpectedKind::MintFailed));
 						defensive!("Issuance mint should not fail");
 					} else {
@@ -458,8 +511,46 @@ pub mod pallet {
 				!total_minted.is_zero(),
 				"mint_and_distribute: issuance was non-zero but nothing was minted"
 			);
+		}
 
-			total_minted
+		// TODO: Activate the native token
+		fn distribute_assets(elapsed: u64, recipients: &[(BudgetKey, T::AccountId)]) {
+			use fungibles::Mutate;
+
+			let buffer = Self::buffer_account();
+			let elapsed = SaturatedConversion::saturated_into::<BalanceOf<T>>(elapsed);
+
+			let allocations = DistributableTokenAllocation::<T>::get();
+			for (asset, allocations) in allocations {
+				let mut total_distributed = BalanceOf::<T>::zero();
+
+				for (key, account) in &*recipients {
+					let allocation =
+						allocations.get(key).copied().unwrap_or(BalanceOf::<T>::zero());
+
+					if allocation.is_zero() {
+						continue;
+					}
+
+					let amount = allocation.saturating_mul(elapsed);
+
+					let result = T::DistributableAssets::transfer(
+						asset.clone(),
+						&buffer,
+						account,
+						amount,
+						Preservation::Preserve,
+					);
+
+					if result.is_err() {
+						// TODO: Emit event, add note about retry logic.
+					} else {
+						total_distributed.saturating_accrue(amount);
+					}
+				}
+
+				// TODO: Emit event with total_distributed and asset kind.
+			}
 		}
 	}
 
@@ -502,7 +593,8 @@ pub mod pallet {
 }
 
 /// Type alias for credit (negative imbalance - funds that were slashed/removed).
-pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
+pub type CreditOf<T> =
+	Credit<<T as frame_system::Config>::AccountId, <T as Config>::NativeCurrency>;
 
 /// Implementation of `OnUnbalanced` for the `fungible::Balanced` trait.
 /// Example: use as `type Slash = Dap` in staking-async config.
@@ -517,7 +609,7 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 		// Funds land in the staging account; `on_idle` will drain them into the buffer and
 		// deactivate them there.  Deactivation is intentionally deferred so that active issuance
 		// does not flicker down-then-up within the same block.
-		let _ = T::Currency::resolve(&staging, amount).inspect_err(|_| {
+		let _ = T::NativeCurrency::resolve(&staging, amount).inspect_err(|_| {
 			defensive!(
 				"🚨 Failed to deposit slash to DAP staging account - funds burned, it should never happen!"
 			);

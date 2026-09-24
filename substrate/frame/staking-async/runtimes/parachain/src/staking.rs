@@ -508,7 +508,7 @@ parameter_types! {
 }
 
 impl pallet_dap::Config for Runtime {
-	type Currency = Balances;
+	type NativeCurrency = Balances;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = PolkadotIssuanceCurve;
 	type BudgetRecipients = (
