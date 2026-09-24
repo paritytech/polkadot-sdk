@@ -144,6 +144,7 @@ jobs:
           GH_TOKEN: ${{ steps.generate_token.outputs.token }}
           BRANCH: ${{ needs.runtime-matrix.outputs.branch }}
           DATE: ${{ needs.runtime-matrix.outputs.date }}
+          MAYBE_DRAFT_FLAG: ${{ inputs.draft && '--draft' || '' }}
         run: |
           git --version          
           git config user.name "github-actions[bot]"
@@ -200,7 +201,7 @@ jobs:
           git commit -m "Update all weights weekly for $DATE"
           git push --set-upstream origin "$BRANCH"
 
-          MAYBE_DRAFT=${{ inputs.draft && '--draft' || '' }}
+          MAYBE_DRAFT="$MAYBE_DRAFT_FLAG"
           
           PR_TITLE="Auto-update of all weights for $DATE"
           gh pr create \
