@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790177888750,
+  "lastUpdate": 1790253943363,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "109252977+YichiZhang0613@users.noreply.github.com",
-            "name": "Yichi Zhang",
-            "username": "YichiZhang0613"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e164dd120a27a4e30f7a3d9b887af5c52d160221",
-          "message": "[pallet-revive] Fix assertion message (#10923)\n\n# Description\nFor below assertion, it looks like the message is inaccurate. the\nmessage always says \"deposit mismatch\" even when other fields fail\n(owner, refcount, code_len, etc.). This could be misleading.\n```rust\nassert_eq!(\n\t\t\tmigrated,\n\t\t\tnew::CodeInfo {\n\t\t\t\towner: old_code_info.owner.clone(),\n\t\t\t\tdeposit: old_code_info.deposit,\n\t\t\t\trefcount: old_code_info.refcount,\n\t\t\t\tcode_len: old_code_info.code_len,\n\t\t\t\tbehaviour_version: old_code_info.behaviour_version,\n\t\t\t\tcode_type: BytecodeType::Pvm,\n\t\t\t},\n\t\t\t\"Migration failed: deposit mismatch for key {code_hash:?}\",\n\t\t);\n```",
-          "timestamp": "2026-02-24T09:48:36Z",
-          "tree_id": "3cb60ddf8da6402a21e856ef6c32210e2f0faf29",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e164dd120a27a4e30f7a3d9b887af5c52d160221"
-        },
-        "date": 1771931372132,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52943,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63622.34999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.7597762943400017,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.280369688230002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000026833329999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7852710963099677,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.718664213390001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.4186931806629,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000030253530000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000026833329999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005980177930000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.7011582044799995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000030253530000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.003672599859971,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.75245292518,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.47540414519292,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "40807189+AlexandruCihodaru@users.noreply.github.com",
+            "name": "Alexandru Cihodaru",
+            "username": "AlexandruCihodaru"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "11569634ea4734d4b55c822a1990d262b64772da",
+          "message": "Collator protocol V4 validator side logic (#12396)\n\nReworks the experimental validator side of the collator protocol\n(validator_side_experimental) to also handle V4 collation segments.\n\nFixes: #13266 \n\nA collator can now advertises a whole segment, and the validator picks\nthe first unknown fingerprint at fetch time rather than collapsing at\nreceipt.\n\n---------\n\nSigned-off-by: Alexandru Cihodaru <alexandru.cihodaru@parity.io>\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: Iulian Barbu <iulian.barbu@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: eskimor <robert@gonimo.com>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Serban Iorga <serban@parity.io>\nCo-authored-by: eskimor <1527017+eskimor@users.noreply.github.com>",
+          "timestamp": "2026-09-24T11:09:41Z",
+          "tree_id": "4ead6824342111b2a3b8282efb511927ed58756d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/11569634ea4734d4b55c822a1990d262b64772da"
+        },
+        "date": 1790253912391,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63561.66000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.314828556819988,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8192056978999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.78084677698,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001860574,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.747354691800002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7805265739699495,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005012554910000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.4783920404228095,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7821357921000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000020469499999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.22991064447994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000020469499999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001860574,
             "unit": "seconds"
           }
         ]
