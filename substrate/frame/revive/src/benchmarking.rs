@@ -4558,10 +4558,6 @@ mod benchmarks {
 	}
 
 	/// Benchmark `r` `CALLDATASIZE` instructions.
-	///
-	/// The opcode reads the stored input length and pushes one fixed-size word, so calldata length
-	/// and contents do not add work. Use maximum-size calldata and fill the stack with successful
-	/// pushes, keeping input allocation and interpreter setup outside the measured block.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_calldatasize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![CALLDATASIZE; r as usize].into());
@@ -4584,10 +4580,6 @@ mod benchmarks {
 	}
 
 	/// Benchmark `r` `RETURNDATASIZE` instructions.
-	///
-	/// The opcode reads the stored return-data length and pushes one fixed-size word. It neither
-	/// reads the returned bytes nor branches on return flags. Use maximum-size return data and fill
-	/// the stack with successful pushes, keeping allocation and setup outside the measured block.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_returndatasize_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
 		let code = Bytecode::new_raw(vec![RETURNDATASIZE; r as usize].into());
