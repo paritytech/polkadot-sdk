@@ -331,7 +331,17 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 	fn filter(&self, c: &RuntimeCall) -> bool {
 		match self {
 			ProxyType::Any => true,
-			ProxyType::NonTransfer => !matches!(c, RuntimeCall::Balances { .. }),
+			ProxyType::NonTransfer => !matches!(
+				c,
+				RuntimeCall::Balances { .. } |
+					// `transfer_assets`, `teleport_assets` and friends move assets to another
+					// chain, and `execute` can express the same thing as raw XCM.
+					RuntimeCall::PolkadotXcm(..) |
+					// `payout_other` pays the member's salary to any account.
+					RuntimeCall::FellowshipSalary(pallet_salary::Call::payout_other { .. }) |
+					RuntimeCall::AmbassadorSalary(pallet_salary::Call::payout_other { .. }) |
+					RuntimeCall::SecretarySalary(pallet_salary::Call::payout_other { .. })
+			),
 			ProxyType::CancelProxy => matches!(
 				c,
 				RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }) |
@@ -385,6 +395,12 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			(x, y) if x == y => true,
 			(ProxyType::Any, _) => true,
 			(_, ProxyType::Any) => false,
+			// `Fellowship`, `Ambassador` and `Secretary` admit salary `payout_other`; `NonTransfer`
+			// does not.
+			(
+				ProxyType::NonTransfer,
+				ProxyType::Fellowship | ProxyType::Ambassador | ProxyType::Secretary,
+			) => false,
 			(ProxyType::NonTransfer, _) => true,
 			_ => false,
 		}
