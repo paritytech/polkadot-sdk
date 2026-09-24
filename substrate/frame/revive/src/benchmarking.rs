@@ -3631,7 +3631,7 @@ mod benchmarks {
 		// Where `Deposit` mints through `fungibles` and the runtime mirrors balance changes as
 		// logs, creating the contract above buffers one. Drop it, so these benchmarks measure the
 		// transactions and logs they set up themselves and no synthetic transaction on top.
-		OutsideFrameLogs::<T>::kill();
+		Pallet::<T>::clear_outside_frame_logs();
 
 		Ok((instance, storage_deposit, evm_value, signer_key, current_block))
 	}
@@ -3828,11 +3828,10 @@ mod benchmarks {
 		// Store transaction
 		let _ = block_storage::bench_with_ethereum_context(|| {
 			// Captured inside the ethereum context, so each lands on the transaction's own receipt
-			// — the path `on_finalize_block_per_event` is charged for on every `DepositEvent`.
-			// Buffering them into `OutsideFrameLogs` instead would measure the outside-of-frame
-			// drain, which `outside_frame_log` covers and charges separately.
+			// — the path `on_finalize_block_per_event` is charged for on every `DepositEvent`. The
+			// outside-of-frame drain is `outside_frame_log`'s, charged separately.
 			for _ in 0..e {
-				block_storage::capture_ethereum_log::<T>(&instance.address, &vec![], &vec![]);
+				block_storage::capture_frame_log(&instance.address, &vec![], &vec![]);
 			}
 
 			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
@@ -3921,9 +3920,9 @@ mod benchmarks {
 		let _ = block_storage::bench_with_ethereum_context(|| {
 			// Captured inside the ethereum context, so the log lands on the transaction's own
 			// receipt — the path `on_finalize_block_per_event` is charged for on every
-			// `DepositEvent`. Buffering it into `OutsideFrameLogs` instead would measure the
-			// outside-of-frame drain, which `outside_frame_log` covers and charges separately.
-			block_storage::capture_ethereum_log::<T>(&instance.address, &event_data, &topics);
+			// `DepositEvent`. The outside-of-frame drain is `outside_frame_log`'s, charged
+			// separately.
+			block_storage::capture_frame_log(&instance.address, &event_data, &topics);
 
 			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
 
@@ -3979,10 +3978,14 @@ mod benchmarks {
 			vec![H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
 		let data = vec![0x44u8; 32];
 
-		// No ethereum context is active, so each log is captured into `OutsideFrameLogs` rather
-		// than a transaction receipt. `n` stays under `MaxOutsideFrameLogs`, so all are buffered.
+		// No ethereum context is active, so each log is buffered for the synthetic transaction
+		// rather than captured into a receipt. `n` stays under `MaxOutsideFrameLogs`, so all are.
 		for _ in 0..n {
-			block_storage::capture_ethereum_log::<T>(&instance.address, &data, &topics);
+			Pallet::<T>::emit_contract_log_outside_frame(
+				instance.address,
+				topics.clone().try_into().expect("three topics are within the LOG limit; qed"),
+				data.clone().try_into().expect("a 32-byte word is within the LOG limit; qed"),
+			);
 		}
 
 		#[block]
@@ -4015,7 +4018,11 @@ mod benchmarks {
 			vec![H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
 		let data = vec![0x44u8; d as usize];
 
-		block_storage::capture_ethereum_log::<T>(&instance.address, &data, &topics);
+		Pallet::<T>::emit_contract_log_outside_frame(
+			instance.address,
+			topics.try_into().expect("three topics are within the LOG limit; qed"),
+			data.try_into().expect("`d` is bounded by `EVENT_BYTES`; qed"),
+		);
 
 		#[block]
 		{

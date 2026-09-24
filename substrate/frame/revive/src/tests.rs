@@ -803,9 +803,10 @@ fn tracing_a_log_emitted_outside_a_call_frame_does_not_panic() {
 #[test]
 fn logs_emitted_outside_a_call_frame_land_in_the_block_bloom() {
 	use crate::{
-		EthereumBlock, OutsideFrameLogs,
-		evm::{HashesOrTransactionInfos, block_hash::LogsBloom, block_storage},
+		EthereumBlock,
+		evm::{HashesOrTransactionInfos, block_hash::LogsBloom},
 	};
+	use frame_support::traits::Hooks;
 	use sp_core::H256;
 	use sp_crypto_hashing::keccak_256;
 
@@ -821,13 +822,10 @@ fn logs_emitted_outside_a_call_frame_land_in_the_block_bloom() {
 			vec![1, 2, 3].try_into().unwrap(),
 		);
 
-		// The log is parked in the block-level buffer until finalization.
-		assert_eq!(OutsideFrameLogs::<Test>::get().len(), 1);
+		Pallet::<Test>::on_finalize(1);
 
-		block_storage::on_finalize_build_eth_block::<Test>(1);
-
-		// The buffer is consumed by the synthetic transaction.
-		assert!(OutsideFrameLogs::<Test>::get().is_empty());
+		// The synthetic transaction carries the one log.
+		assert_eq!(Pallet::<Test>::eth_synthetic_transaction().map(|s| s.log_count), Some(1));
 
 		let block = EthereumBlock::<Test>::get();
 
@@ -860,13 +858,13 @@ fn logs_emitted_outside_a_call_frame_land_in_the_block_bloom() {
 #[test]
 fn logs_emitted_outside_a_call_frame_drain_in_emission_order() {
 	use crate::{
-		EthBlockBuilderIR, EthereumBlock, OutsideFrameLogs, ReceiptGasInfo,
+		EthBlockBuilderIR, EthereumBlock, ReceiptGasInfo,
 		evm::{
 			HashesOrTransactionInfos,
 			block_hash::{AccumulateReceipt, EthereumBlockBuilder},
-			block_storage,
 		},
 	};
+	use frame_support::traits::Hooks;
 	use sp_core::H256;
 
 	let contracts =
@@ -913,18 +911,7 @@ fn logs_emitted_outside_a_call_frame_drain_in_emission_order() {
 				);
 			}
 
-			let buffered = OutsideFrameLogs::<Test>::get();
-			assert_eq!(buffered.len(), 3);
-
-			// The buffer keeps the logs as they arrive, and the drain walks it front to back.
-			for (index, i) in order.iter().enumerate() {
-				let (contract, _, _) = &buffered[index];
-				assert_eq!(*contract, contracts[*i], "log {index} is the {i}th emitted");
-			}
-
-			block_storage::on_finalize_build_eth_block::<Test>(1);
-
-			assert!(OutsideFrameLogs::<Test>::get().is_empty(), "every log is drained");
+			Pallet::<Test>::on_finalize(1);
 
 			let block = EthereumBlock::<Test>::get();
 			let hashes = match block.transactions {
@@ -952,6 +939,7 @@ fn eth_block_and_receipt_data_pair_up_in_every_version() {
 		evm::block_storage,
 		runtime_api::{BlockOutputPayload, ReceiptDataOutputPayload},
 	};
+	use frame_support::traits::Hooks;
 	use pallet_revive_types::runtime_api::{
 		BlockOutputPayloadV1, BlockOutputPayloadV2, BlockV1, HashesOrTransactionInfosV1,
 		ReceiptDataOutputPayloadV1, ReceiptDataOutputPayloadV2,
@@ -971,7 +959,7 @@ fn eth_block_and_receipt_data_pair_up_in_every_version() {
 			vec![H256::repeat_byte(0x11)].try_into().unwrap(),
 			vec![1u8].try_into().unwrap(),
 		);
-		block_storage::on_finalize_build_eth_block::<Test>(1);
+		Pallet::<Test>::on_finalize(1);
 
 		// Assembled from storage the way `eth_block_versioned` and `eth_receipt_data_versioned` do.
 		let block = || BlockOutputPayload {
@@ -1012,7 +1000,8 @@ fn eth_block_and_receipt_data_pair_up_in_every_version() {
 
 #[test]
 fn outside_of_frame_logs_past_the_cap_stay_substrate_only() {
-	use crate::OutsideFrameLogs;
+	use crate::evm::block_hash::LogsBloom;
+	use frame_support::traits::Hooks;
 	use sp_core::H256;
 
 	let emit = |byte: u8| {
@@ -1028,20 +1017,24 @@ fn outside_of_frame_logs_past_the_cap_stay_substrate_only() {
 
 		emit(1);
 		emit(2);
-		assert_eq!(OutsideFrameLogs::<Test>::get().len(), 2, "the buffer fills to the cap");
 
 		// Past the cap the log misses the block's bloom, but it is still an event: dropping it
 		// outright would lose a `LOG` whose frame reported success.
 		let events_before = System::events().len();
 		emit(3);
+		assert_eq!(System::events().len(), events_before + 1, "it is still deposited");
 
-		let buffered = OutsideFrameLogs::<Test>::get();
-		assert_eq!(buffered.len(), 2, "the buffer does not grow past the cap");
-		assert_eq!(System::events().len(), events_before + 1, "but it is still deposited");
+		Pallet::<Test>::on_finalize(1);
 
-		// The logs that did fit are untouched.
-		assert_eq!(buffered[0].0, H160::from_low_u64_be(1));
-		assert_eq!(buffered[1].0, H160::from_low_u64_be(2));
+		let synthetic = Pallet::<Test>::eth_synthetic_transaction().expect("two logs fitted");
+		assert_eq!(synthetic.log_count, 2, "the buffer does not grow past the cap");
+
+		// The logs that did fit are what the block commits to, and nothing else.
+		let mut fitted = LogsBloom::new();
+		for byte in 1..=2u8 {
+			fitted.accrue_log(&H160::from_low_u64_be(byte.into()), &[H256::repeat_byte(byte)]);
+		}
+		assert_eq!(Pallet::<Test>::eth_block().logs_bloom.0, fitted.bloom);
 	});
 
 	// A zero cap turns the buffer off, which is how a runtime opts out: logs emitted outside an
@@ -1051,9 +1044,12 @@ fn outside_of_frame_logs_past_the_cap_stay_substrate_only() {
 
 		let events_before = System::events().len();
 		emit(1);
-
-		assert!(OutsideFrameLogs::<Test>::get().is_empty(), "nothing is buffered");
 		assert_eq!(System::events().len(), events_before + 1, "the event still fires");
+
+		Pallet::<Test>::on_finalize(1);
+
+		assert!(Pallet::<Test>::eth_synthetic_transaction().is_none(), "nothing was buffered");
+		assert_eq!(Pallet::<Test>::eth_block().transactions.len(), 0);
 	});
 }
 
@@ -1061,7 +1057,7 @@ fn outside_of_frame_logs_past_the_cap_stay_substrate_only() {
 // is the cap, not the storage layout.
 #[test]
 fn the_buffer_holds_as_many_outside_of_frame_logs_as_the_cap_allows() {
-	use crate::{OutsideFrameLogs, SyntheticReceiptInfo, evm::block_storage};
+	use frame_support::traits::Hooks;
 	use sp_core::H256;
 
 	const LOGS: u32 = 10_000;
@@ -1076,12 +1072,10 @@ fn the_buffer_holds_as_many_outside_of_frame_logs_as_the_cap_allows() {
 				i.to_be_bytes().to_vec().try_into().unwrap(),
 			);
 		}
-		assert_eq!(OutsideFrameLogs::<Test>::get().len(), LOGS as usize);
+		Pallet::<Test>::on_finalize(1);
 
-		block_storage::on_finalize_build_eth_block::<Test>(1);
-
-		assert!(OutsideFrameLogs::<Test>::get().is_empty(), "every log is drained");
-		let synthetic = SyntheticReceiptInfo::<Test>::get().expect("one synthetic transaction");
+		let synthetic =
+			Pallet::<Test>::eth_synthetic_transaction().expect("one synthetic transaction");
 		assert_eq!(synthetic.log_count, LOGS, "and every log is in it");
 	});
 }
@@ -1092,7 +1086,7 @@ fn the_buffer_holds_as_many_outside_of_frame_logs_as_the_cap_allows() {
 // the drain out of the block long before the logs' own bytes do.
 #[test]
 fn draining_outside_of_frame_logs_reads_a_fixed_number_of_trie_nodes() {
-	use crate::evm::block_storage;
+	use frame_support::traits::Hooks;
 	use sp_core::H256;
 
 	let trie_nodes_read = |logs: u32| {
@@ -1110,8 +1104,7 @@ fn draining_outside_of_frame_logs_reads_a_fixed_number_of_trie_nodes() {
 		// As in the benchmark, the buffered logs are committed state by the time the drain runs,
 		// so whatever it reads is in the proof.
 		ext.commit_all().expect("no open transactions");
-		let (_, proof) =
-			ext.execute_and_prove(|| block_storage::on_finalize_build_eth_block::<Test>(1));
+		let (_, proof) = ext.execute_and_prove(|| Pallet::<Test>::on_finalize(1));
 		proof.len()
 	};
 
@@ -1127,9 +1120,9 @@ fn draining_outside_of_frame_logs_reads_a_fixed_number_of_trie_nodes() {
 // mirrored balance change behind it. Its log stays a substrate-only event.
 #[test]
 fn contract_logs_outside_an_ethereum_transaction_do_not_reach_the_buffer() {
-	use crate::{Code, OutsideFrameLogs, test_utils::builder::Contract};
+	use crate::{Code, test_utils::builder::Contract};
 	use codec::Encode;
-	use frame_support::traits::fungible::Mutate;
+	use frame_support::traits::{Hooks, fungible::Mutate};
 
 	let (binary, _code_hash) = compile_module("event_size").unwrap();
 	ExtBuilder::default().build().execute_with(|| {
@@ -1139,7 +1132,8 @@ fn contract_logs_outside_an_ethereum_transaction_do_not_reach_the_buffer() {
 
 		builder::bare_call(addr).data(32u32.encode()).build_and_unwrap_result();
 
-		assert!(OutsideFrameLogs::<Test>::get().is_empty(), "the log is not buffered");
+		Pallet::<Test>::on_finalize(1);
+		assert!(Pallet::<Test>::eth_synthetic_transaction().is_none(), "the log is not buffered");
 		assert!(
 			System::events().iter().any(|record| matches!(
 				&record.event,

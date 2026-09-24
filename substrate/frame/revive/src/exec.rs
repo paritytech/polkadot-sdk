@@ -1578,6 +1578,7 @@ where
 		//
 		// `with_transactional` may return an error caused by a limit in the
 		// transactional storage depth.
+		let receipt_checkpoint = block_storage::frame_log_checkpoint();
 		let transaction_outcome =
 			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 				let output = if let Some(mock_answer) = mock_answer {
@@ -1653,6 +1654,9 @@ where
 				transient_storage.rollback_transaction();
 			}
 		});
+		if !success {
+			block_storage::revert_frame_logs(receipt_checkpoint);
+		}
 		// For the first frame, only log the final metrics since it doesn't open a
 		// checkpoint. Nested frames commit or roll back the checkpoint they opened.
 		if is_first_frame {

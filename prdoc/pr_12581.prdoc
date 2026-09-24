@@ -53,6 +53,12 @@ doc:
     mirrored per frame that changed storage and is the highest-volume producer. The cheap route
     into the buffer, a raw `LOG` at a few hundred gas, is closed.
 
+    A log from a frame that reverts no longer reaches the ethereum receipt: the receipt's log list
+    is rolled back with the frame, and a transaction that fails after its frames, at fee
+    settlement, commits a receipt with no logs and an empty bloom. Before, such logs stayed in the
+    receipt, `receipts_root` and `logs_bloom` while the state and events that produced them rolled
+    back.
+
     Follow-up: the cap is a stopgap. A buffered log's share of the `on_finalize` drain is
     registered on the block rather than charged to the emitter, which is why contract frames are
     kept out of the buffer. A follow-up PR charges the drain to the emitting frame's weight, lets
@@ -93,6 +99,8 @@ crates:
   bump: major
 - name: pallet-revive
   bump: major
+- name: pallet-revive-fixtures
+  bump: minor
 - name: pallet-revive-types
   bump: major
 - name: pallet-revive-eth-rpc

@@ -62,10 +62,29 @@ pub struct AccumulateReceipt {
 	pub bloom: LogsBloom,
 }
 
+/// The state of an [`AccumulateReceipt`] at a point in time, to fall back to when the frame that
+/// added the logs after it reverts.
+pub struct ReceiptCheckpoint {
+	encoding_len: usize,
+	bloom: LogsBloom,
+}
+
 impl AccumulateReceipt {
 	/// Constructs a new [`AccumulateReceipt`].
 	pub const fn new() -> Self {
 		Self { encoding: Vec::new(), bloom: LogsBloom::new() }
+	}
+
+	/// Mark the current state, so that [`Self::revert_to`] can drop every log added after it.
+	pub fn checkpoint(&self) -> ReceiptCheckpoint {
+		ReceiptCheckpoint { encoding_len: self.encoding.len(), bloom: self.bloom }
+	}
+
+	/// Drop every log added since `checkpoint`. The accumulated RLP is one log after another and
+	/// the bloom is monotone, so the state is the encoding cut back and the bloom as it was.
+	pub fn revert_to(&mut self, checkpoint: ReceiptCheckpoint) {
+		self.encoding.truncate(checkpoint.encoding_len);
+		self.bloom = checkpoint.bloom;
 	}
 
 	/// Add the log into the accumulated receipt.

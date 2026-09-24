@@ -19,7 +19,7 @@
 
 use crate::{
 	BalanceWithDust, Code, Config, EthBlock, EthBlockBuilderFirstValues, EthBlockBuilderIR,
-	EthereumBlock, H160, H256, Pallet, ReceiptGasInfo, ReceiptInfoData, SyntheticReceiptInfo, U256,
+	EthereumBlock, H160, H256, Pallet, ReceiptGasInfo, ReceiptInfoData, U256,
 	evm::{
 		Block, HashesOrTransactionInfos, TransactionSigned, block_hash::EthereumBlockBuilder,
 		fees::InfoT,
@@ -209,7 +209,7 @@ fn a_mirrored_log_shares_its_block_with_a_real_transaction() {
 		// And the gas entries the serving layer reconciles against keep the same split: the real
 		// transaction's is the only one paired with the block body.
 		assert_eq!(ReceiptInfoData::<Test>::get().len(), 1, "one entry per ethereum transaction");
-		let synthetic = SyntheticReceiptInfo::<Test>::get().expect("reported apart");
+		let synthetic = Pallet::<Test>::eth_synthetic_transaction().expect("reported apart");
 		assert_eq!(synthetic.log_count, 1, "with the log count the block committed to it");
 	});
 }
