@@ -12,7 +12,7 @@ codec = { features = ["max-encoded-len"], workspace = true }
 docify = { workspace = true }
 paste = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-serde = { features = ["derive"], optional = true, workspace = true, default-features = true }
+serde = { optional = true, workspace = true }
 
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { features = ["experimental"], workspace = true }
@@ -27,13 +27,15 @@ sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
+serde = ["dep:serde"]
 std = [
 	"codec/std",
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",
-	"serde",
+	"serde?/std",
+	"serde?/derive",
 	"sp-core/std",
 	"sp-runtime/std",
 ]

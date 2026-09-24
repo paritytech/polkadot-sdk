@@ -10025,6 +10025,7 @@ dependencies = [
  "rand_pcg 0.3.1",
  "registrar-primitives",
  "scale-info",
+ "serde",
  "serde_json",
  "sp-debug-derive 14.0.0",
  "static_assertions",
