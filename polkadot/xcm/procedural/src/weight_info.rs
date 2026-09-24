@@ -48,14 +48,13 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	};
 
 	let syn::DeriveInput { generics, data, ident, .. } = input;
-	let trait_generics = generics;
-	let weight_info_provider_ident = pick_weight_info_provider_ident(&trait_generics);
+	let weight_info_provider_ident = pick_weight_info_provider_ident(&generics);
 	let enum_ty_generics = {
-		let (_, ty_generics, _) = trait_generics.split_for_impl();
+		let (_, ty_generics, _) = generics.split_for_impl();
 		quote::quote!(#ty_generics)
 	};
 	let (impl_generics, where_clause) = {
-		let mut impl_source_generics = trait_generics.clone();
+		let mut impl_source_generics = generics.clone();
 		impl_source_generics.params.push(syn::parse_quote!(#weight_info_provider_ident));
 		impl_source_generics.make_where_clause().predicates.push(syn::parse_quote!(
 			#weight_info_provider_ident: XcmWeightInfo #enum_ty_generics
@@ -66,8 +65,6 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
 	match data {
 		syn::Data::Enum(syn::DataEnum { variants, .. }) => {
-			// Build the trait method and the `GetWeight` match arm for each variant in a single
-			// pass, so the method name and the arm that dispatches to it derive from one source.
 			let (methods, match_arms): (Vec<_>, Vec<_>) = variants
 				.into_iter()
 				.map(|syn::Variant { ident: variant_ident, fields, .. }| {
@@ -118,7 +115,7 @@ pub fn derive(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
 				.unzip();
 
 			let res = quote::quote! {
-				pub trait XcmWeightInfo #trait_generics {
+				pub trait XcmWeightInfo #generics {
 					#(#methods)*
 				}
 
