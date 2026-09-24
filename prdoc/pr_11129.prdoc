@@ -1,0 +1,30 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[pallet-staking] Refactor test modules into separate files"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Splits the monolithic `substrate/frame/staking/src/tests.rs` (9,401 lines) into
+      a `tests/` folder where each named module lives in its own file. No logic or
+      behaviour is changed; this is a pure readability and navigability improvement.
+
+      The new layout:
+        - `tests/mod.rs` — top-level (unmodded) tests and module declarations
+        - `tests/election_data_provider.rs`
+        - `tests/sorted_list_provider.rs`
+        - `tests/staking_interface.rs`
+        - `tests/staking_unchecked.rs`
+        - `tests/ledger.rs`
+        - `tests/ledger_recovery.rs`
+        - `tests/validator_disabling_integration.rs`
+        - `tests/migration_tests.rs`
+        - `tests/getters.rs`
+        - `tests/hold_migration.rs`
+
+      Closes #3178.
+
+crates:
+  - name: pallet-staking
+    bump: patch
