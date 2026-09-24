@@ -126,6 +126,7 @@ pub struct IdentityInfo<FieldLimit: Get<u32>> {
 
 impl<FieldLimit: Get<u32> + 'static> IdentityInformationProvider for IdentityInfo<FieldLimit> {
 	type FieldsIdentifier = u64;
+	type MaxRawSize = FieldLimit;
 
 	fn has_identity(&self, fields: Self::FieldsIdentifier) -> bool {
 		self.fields().bits() & fields == fields
