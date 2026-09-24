@@ -1032,7 +1032,7 @@ struct FetchedChunk {
 	/// Consumed hashes the store yielded no live statement for: absent, corrupt or expired.
 	missing: usize,
 	/// Encoded size of `statements`, above the maximum only for a lone oversized statement.
-	size: usize,
+	encoded_size: usize,
 }
 
 /// Fetch the next chunk of statements for a peer from the front of `hashes`, filtering in the
@@ -1080,7 +1080,12 @@ fn fetch_statement_chunk(
 			}
 			decision
 		})?;
-	Ok(FetchedChunk { statements, processed, missing: processed - found, size: accumulated_size })
+	Ok(FetchedChunk {
+		statements,
+		processed,
+		missing: processed - found,
+		encoded_size: accumulated_size,
+	})
 }
 
 async fn send_with_timeout<F>(send: F) -> SendOutcome
@@ -2117,7 +2122,8 @@ where
 					return;
 				},
 			};
-			let FetchedChunk { statements, processed, missing, size: accumulated_size } = chunk;
+			let FetchedChunk { statements, processed, missing, encoded_size: accumulated_size } =
+				chunk;
 
 			debug_assert!(
 				processed > 0,
@@ -4035,8 +4041,9 @@ mod tests {
 
 	#[tokio::test]
 	async fn targets_are_queued_past_the_affinity_filter_and_the_sync_watermark() {
-		let (mut handler, statement_store, _network, _notification_service, _, _) =
-			build_handler(0);
+		let (mut handler, statement_store, _network, _notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
 
 		let mut statement = new_live_statement();
 		statement.set_plain_data(b"targeted".to_vec());
@@ -4047,15 +4054,9 @@ mod tests {
 
 		// The peer's filter matches no topic and its watermark sits above the statement. The
 		// orchestrator chose the peer regardless, and the initial sync would skip the statement.
-		let peer_id = PeerId::random();
-		let mut peer = Peer::new_for_testing(
-			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).expect("nonzero"),
-			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT)
-				.expect("nonzero"),
-		);
+		let peer = handler.peers.get_mut(&peer_id).unwrap();
 		peer.topic_affinity = Some(AffinityFilter::new(BLOOM_SEED, 0.01, 10));
 		peer.sync_watermark = 10;
-		handler.peers.insert(peer_id, peer);
 		handler.in_flight_chunks.insert(peer_id, 0);
 
 		handler.queue_statements_for_targets(&statements, vec![(peer_id, vec![0])]);
@@ -4067,8 +4068,9 @@ mod tests {
 
 	#[tokio::test]
 	async fn targets_skip_a_peer_that_cannot_receive_yet() {
-		let (mut handler, statement_store, _network, _notification_service, _, _) =
-			build_handler(0);
+		let (mut handler, statement_store, _network, _notification_service, _, peer_ids) =
+			build_handler(1);
+		let peer_id = peer_ids[0];
 
 		let mut statement = new_live_statement();
 		statement.set_plain_data(b"targeted".to_vec());
@@ -4077,15 +4079,9 @@ mod tests {
 		let statements = vec![(0, hash, statement)];
 
 		// A light V2 peer owes its affinity filter before it may receive anything.
-		let peer_id = PeerId::random();
-		let mut peer = Peer::new_for_testing(
-			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND).expect("nonzero"),
-			NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT)
-				.expect("nonzero"),
-		);
+		let peer = handler.peers.get_mut(&peer_id).unwrap();
 		peer.protocol_version = PeerProtocolVersion::V2;
 		peer.is_light = true;
-		handler.peers.insert(peer_id, peer);
 
 		handler.queue_statements_for_targets(&statements, vec![(peer_id, vec![0])]);
 		assert!(handler.propagation_outboxes.is_empty());
