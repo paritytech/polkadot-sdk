@@ -2826,6 +2826,9 @@ pub fn is_precompile<T: Config, E: Executable<T>>(address: &H160) -> bool {
 	<AllPrecompiles<T>>::get::<Stack<'_, T, E>>(address.as_fixed_bytes()).is_some()
 }
 
+/// Runs the balance work of a termination: the storage deposit refund that `System.terminate`
+/// does when it is called, followed by the teardown at the end of the call stack. `SELFDESTRUCT`
+/// (`only_if_same_tx`) does not refund when it is called, so the refund is skipped for it.
 #[cfg(feature = "runtime-benchmarks")]
 pub fn bench_do_terminate<T: Config>(
 	transaction_meter: &mut TransactionMeter<T>,
@@ -2836,14 +2839,22 @@ pub fn bench_do_terminate<T: Config>(
 	trie_id: TrieId,
 	code_hash: H256,
 	only_if_same_tx: bool,
-) {
-	Stack::<T, crate::ContractBlob<T>>::do_terminate(
+) -> Result<(), DispatchError> {
+	type BenchStack<'a, T> = Stack<'a, T, crate::ContractBlob<T>>;
+	let refunded = if only_if_same_tx {
+		Zero::zero()
+	} else {
+		let origin = BenchStack::<T>::termination_origin(origin);
+		T::Deposit::refund_all(contract_account, exec_config.funds(origin.account_id()?))?
+	};
+	BenchStack::<T>::do_terminate(
 		transaction_meter,
 		exec_config,
 		contract_account,
 		origin,
-		&TerminateArgs { beneficiary, trie_id, code_hash, only_if_same_tx, refunded: Zero::zero() },
-	)
+		&TerminateArgs { beneficiary, trie_id, code_hash, only_if_same_tx, refunded },
+	);
+	Ok(())
 }
 
 mod sealing {
