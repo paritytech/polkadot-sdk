@@ -1728,6 +1728,8 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// The balance work of `System.terminate`: the storage deposit refund when it is called and
+	/// the teardown at the end of the call stack.
 	#[benchmark(pov_mode = Measured)]
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
@@ -1760,9 +1762,10 @@ mod benchmarks {
 		let code_hash = instance.info()?.code_hash;
 		let only_if_same_tx = false;
 
+		let result;
 		#[block]
 		{
-			crate::exec::bench_do_terminate::<T>(
+			result = crate::exec::bench_do_terminate::<T>(
 				&mut transaction_meter,
 				&exec_config,
 				contract_account,
@@ -1773,6 +1776,7 @@ mod benchmarks {
 				only_if_same_tx,
 			);
 		}
+		result.unwrap();
 
 		// Check that the contract is removed
 		assert!(PristineCode::<T>::get(code_hash).is_none());
