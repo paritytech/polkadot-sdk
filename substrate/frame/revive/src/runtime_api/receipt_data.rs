@@ -76,7 +76,10 @@ mod tests {
 	fn output() -> ReceiptDataOutputPayload {
 		ReceiptDataOutputPayload {
 			receipt_data: vec![gas_info(1)],
-			synthetic: Some(SyntheticTransactionInfo { gas_info: gas_info(2), log_count: 3 }),
+			synthetic: Some(SyntheticTransactionInfo {
+				gas_info: gas_info(2),
+				log_event_indices: vec![3, 5, 8],
+			}),
 		}
 	}
 
@@ -97,6 +100,6 @@ mod tests {
 		assert_eq!(v2.receipt_data.len(), 1, "still one entry per ethereum transaction");
 		let synthetic = v2.synthetic.expect("reported separately");
 		assert_eq!(synthetic.gas_info.gas_used, 2u64.into());
-		assert_eq!(synthetic.log_count, 3, "the committed log count reaches the consumer");
+		assert_eq!(synthetic.log_event_indices, vec![3, 5, 8], "the committed logs' events too");
 	}
 }

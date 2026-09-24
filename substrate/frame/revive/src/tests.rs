@@ -825,7 +825,10 @@ fn logs_emitted_outside_a_call_frame_land_in_the_block_bloom() {
 		Pallet::<Test>::on_finalize(1);
 
 		// The synthetic transaction carries the one log.
-		assert_eq!(Pallet::<Test>::eth_synthetic_transaction().map(|s| s.log_count), Some(1));
+		assert_eq!(
+			Pallet::<Test>::eth_synthetic_transaction().map(|s| s.log_event_indices.len()),
+			Some(1)
+		);
 
 		let block = EthereumBlock::<Test>::get();
 
@@ -1048,7 +1051,7 @@ fn outside_of_frame_logs_past_the_cap_stay_substrate_only() {
 		Pallet::<Test>::on_finalize(1);
 
 		let synthetic = Pallet::<Test>::eth_synthetic_transaction().expect("two logs fitted");
-		assert_eq!(synthetic.log_count, 2, "the buffer does not grow past the cap");
+		assert_eq!(synthetic.log_event_indices.len(), 2, "the buffer does not grow past the cap");
 
 		// The logs that did fit are what the block commits to, and nothing else.
 		let mut fitted = LogsBloom::new();
@@ -1098,7 +1101,7 @@ fn the_buffer_holds_as_many_outside_of_frame_logs_as_the_cap_allows() {
 
 		let synthetic =
 			Pallet::<Test>::eth_synthetic_transaction().expect("one synthetic transaction");
-		assert_eq!(synthetic.log_count, LOGS, "and every log is in it");
+		assert_eq!(synthetic.log_event_indices.len(), LOGS as usize, "and every log is in it");
 	});
 }
 
@@ -1164,6 +1167,52 @@ fn contract_logs_outside_an_ethereum_transaction_do_not_reach_the_buffer() {
 			)),
 			"but it is still deposited"
 		);
+	});
+}
+
+// The serving layer picks the buffered logs out of the block's `ContractEmitted` events by the
+// indices the synthetic transaction reports, so they must point at exactly those events and not at
+// a contract log that shares the block.
+#[test]
+fn synthetic_transaction_reports_the_event_of_each_buffered_log() {
+	use crate::{Code, test_utils::builder::Contract};
+	use codec::Encode;
+	use frame_support::traits::{Hooks, fungible::Mutate};
+	use sp_core::H256;
+
+	let (binary, _code_hash) = compile_module("event_size").unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+
+		// A contract log that stays substrate-only, then a mirror that is buffered.
+		builder::bare_call(addr).data(32u32.encode()).build_and_unwrap_result();
+		let mirror = H160::from_low_u64_be(0xa5);
+		Pallet::<Test>::emit_contract_log_outside_frame(
+			mirror,
+			vec![H256::repeat_byte(0x11)].try_into().unwrap(),
+			vec![].try_into().unwrap(),
+		);
+		Pallet::<Test>::on_finalize(1);
+
+		let events = System::events();
+		let event_index_of_log_by = |contract: H160| {
+			events
+				.iter()
+				.position(|record| {
+					matches!(
+						&record.event,
+						RuntimeEvent::Contracts(crate::Event::ContractEmitted { contract: c, .. })
+							if *c == contract
+					)
+				})
+				.expect("deposited") as u32
+		};
+		let synthetic =
+			Pallet::<Test>::eth_synthetic_transaction().expect("the mirror is buffered");
+		assert_eq!(synthetic.log_event_indices, vec![event_index_of_log_by(mirror)]);
+		assert_ne!(event_index_of_log_by(addr), event_index_of_log_by(mirror));
 	});
 }
 

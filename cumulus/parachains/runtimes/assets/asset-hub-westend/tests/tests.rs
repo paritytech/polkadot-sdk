@@ -2399,8 +2399,13 @@ fn mirrored_transfer_log_lands_on_the_ethereum_transaction() {
 // producer could write rather than at the mirror's `Transfer` log.
 #[test]
 fn a_block_cannot_buffer_enough_logs_to_reach_the_cap_once_enabled() {
-	let smallest_entry_bytes =
-		(H160::zero(), Vec::<H256>::new(), Vec::<u8>::new()).encoded_size() as u64;
+	let smallest_entry_bytes = pallet_revive::OutsideFrameLog {
+		event_index: 0,
+		contract: H160::zero(),
+		topics: Vec::new(),
+		data: Vec::new(),
+	}
+	.encoded_size() as u64;
 
 	let proof_budget = RuntimeBlockWeights::get().max_block.proof_size();
 	let most_logs_a_block_can_buffer = proof_budget / smallest_entry_bytes;

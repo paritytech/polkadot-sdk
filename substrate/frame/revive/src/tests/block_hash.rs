@@ -210,7 +210,7 @@ fn a_mirrored_log_shares_its_block_with_a_real_transaction() {
 		// transaction's is the only one paired with the block body.
 		assert_eq!(ReceiptInfoData::<Test>::get().len(), 1, "one entry per ethereum transaction");
 		let synthetic = Pallet::<Test>::eth_synthetic_transaction().expect("reported apart");
-		assert_eq!(synthetic.log_count, 1, "with the log count the block committed to it");
+		assert_eq!(synthetic.log_event_indices.len(), 1, "with the one log the block committed");
 	});
 }
 

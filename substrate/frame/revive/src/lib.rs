@@ -108,7 +108,7 @@ pub use crate::{
 	deposit_payment::{Deposit, PGasDeposit},
 	evm::{
 		Address as EthAddress, Block as EthBlock,
-		block_hash::{ReceiptGasInfo, SyntheticTransactionInfo},
+		block_hash::{OutsideFrameLog, ReceiptGasInfo, SyntheticTransactionInfo},
 	},
 	exec::{
 		CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin,
@@ -818,6 +818,7 @@ pub mod pallet {
 	/// is unchanged: a runtime upgrade enacts mid-block, and a runtime API call at the enacting
 	/// block reads what the previous runtime wrote.
 	#[pallet::storage]
+	#[pallet::unbounded]
 	type SyntheticReceiptInfo<T: Config> = StorageValue<_, SyntheticTransactionInfo, OptionQuery>;
 
 	/// Incremental ethereum block builder.
@@ -847,7 +848,7 @@ pub mod pallet {
 	/// NOTE: unbounded; accumulated across the block and consumed in `on_finalize`.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	type OutsideFrameLogs<T: Config> = StorageValue<_, Vec<(H160, Vec<H256>, Vec<u8>)>, ValueQuery>;
+	type OutsideFrameLogs<T: Config> = StorageValue<_, Vec<OutsideFrameLog>, ValueQuery>;
 
 	/// Debugging settings that can be configured when DebugEnabled config is true.
 	#[pallet::storage]
@@ -1061,7 +1062,14 @@ pub mod pallet {
 				return;
 			}
 
-			let entry = (*contract, topics.to_vec(), data.to_vec());
+			// The index the `ContractEmitted` deposited right after this lands at, which is how
+			// the serving layer picks the buffered logs out of the block's events.
+			let entry = OutsideFrameLog {
+				event_index: frame_system::Pallet::<T>::event_count(),
+				contract: *contract,
+				topics: topics.to_vec(),
+				data: data.to_vec(),
+			};
 			let entry_bytes = Weight::from_parts(0, entry.encoded_size() as u64);
 			OutsideFrameLogs::<T>::append(entry);
 

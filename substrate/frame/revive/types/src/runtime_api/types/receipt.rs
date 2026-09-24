@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_core::U256;
@@ -31,11 +32,12 @@ pub struct ReceiptGasInfoV1 {
 pub struct SyntheticTransactionV1 {
 	/// Its receipt gas entry.
 	pub gas_info: ReceiptGasInfoV1,
-	/// How many logs went into it.
+	/// The `frame_system` event index of each log that went into it, in receipt order.
 	///
-	/// The count the block's `logs_bloom` and `receipts_root` commit to. A consumer that rebuilds
-	/// the logs from block events must reconcile against this: it can hold more of them than the
-	/// header accounts for, because a runtime bounds the buffer these logs are drained from and
-	/// deposits the event whether or not the log fitted.
-	pub log_count: u32,
+	/// These are the logs the block's `logs_bloom` and `receipts_root` commit to. A consumer that
+	/// rebuilds them from block events must select by these indices: the block's `ContractEmitted`
+	/// events hold more than the header accounts for, since a contract log outside an ethereum
+	/// transaction is deposited but not buffered, and a runtime bounds the buffer and deposits the
+	/// event whether or not the log fitted.
+	pub log_event_indices: Vec<u32>,
 }

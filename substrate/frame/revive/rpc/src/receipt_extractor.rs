@@ -253,36 +253,34 @@ fn check_receipt_data_len(
 	Ok(())
 }
 
-/// Cut the logs rebuilt from block events down to what the block actually committed.
+/// Pick out of the logs rebuilt from block events the ones the block committed to its synthetic
+/// transaction, by the event index the runtime reports for each.
 ///
-/// The two can disagree: the runtime bounds the buffer these logs are drained from, and a log that
-/// arrives past the bound is still deposited as an event. The events are therefore a superset, in
-/// emission order, of what reached the block's `logs_bloom` and `receipts_root` — so the committed
-/// set is the first `committed` of them, and serving more would hand out logs the header does not
-/// commit to.
-///
-/// A count only catches a difference in size. Losing one log to a decode failure (see
-/// [`extract_revive_events`]) while the buffer dropped another leaves the counts equal over
-/// different members, which this cannot see; closing that would need the runtime to report the logs
-/// themselves rather than how many there were.
-fn reconcile_outside_frame_logs(
-	mut logs: Vec<Log>,
-	committed: u32,
+/// The events hold more: a contract log emitted outside an ethereum transaction is deposited but
+/// not buffered, and so is a log arriving past the buffer's cap. Serving those would hand out logs
+/// the header does not commit to. A committed index with no decoded log behind it is a decode
+/// failure (see [`extract_revive_events`]); the receipt is served without that log.
+fn select_committed_outside_frame_logs(
+	logs: Vec<Log>,
+	log_event_indices: &[u32],
 	substrate_block_number: SubstrateBlockNumber,
 ) -> Vec<Log> {
-	let committed = committed as usize;
-	if logs.len() == committed {
-		return logs;
-	}
-
-	log::warn!(
-		target: LOG_TARGET,
-		"Block #{substrate_block_number} committed {committed} outside-of-frame log(s) but {} \
-		decoded from its events",
-		logs.len(),
-	);
-	logs.truncate(committed);
-	logs
+	let mut by_event_index: HashMap<U256, Log> =
+		logs.into_iter().map(|log| (log.log_index, log)).collect();
+	log_event_indices
+		.iter()
+		.filter_map(|event_index| {
+			let log = by_event_index.remove(&U256::from(*event_index));
+			if log.is_none() {
+				log::warn!(
+					target: LOG_TARGET,
+					"Block #{substrate_block_number} committed the log at event {event_index} to its \
+					synthetic transaction but no such log decoded from its events",
+				);
+			}
+			log
+		})
+		.collect()
 }
 
 /// Outcome of querying the runtime for a block's receipt gas entries.
@@ -680,9 +678,9 @@ impl ReceiptExtractor {
 		// entry is what the block header commits to. Deciding on the decoded logs instead would
 		// omit a transaction the block contains whenever the logs fail to decode.
 		if let Some(synthetic) = synthetic {
-			let logs = reconcile_outside_frame_logs(
+			let logs = select_committed_outside_frame_logs(
 				outside_frame_logs,
-				synthetic.log_count,
+				&synthetic.log_event_indices,
 				substrate_block_number,
 			);
 
@@ -793,9 +791,9 @@ impl ReceiptExtractor {
 
 		if is_synthetic {
 			let synthetic = synthetic.expect("is_synthetic implies Some; qed");
-			let logs = reconcile_outside_frame_logs(
+			let logs = select_committed_outside_frame_logs(
 				outside_frame_logs,
-				synthetic.log_count,
+				&synthetic.log_event_indices,
 				substrate_block_number,
 			);
 			return self.build_synthetic_receipt(
@@ -1329,36 +1327,44 @@ mod tests {
 		assert!(matches!(err, ClientError::ReceiptDataLengthMismatch));
 	}
 
-	fn outside_frame_logs(n: usize) -> Vec<Log> {
-		(0..n)
-			.map(|i| Log { address: H160::from_low_u64_be(i as u64), ..Default::default() })
+	/// One outside-frame log per event index in `event_indices`, distinguishable by address.
+	fn outside_frame_logs(event_indices: &[u64]) -> Vec<Log> {
+		event_indices
+			.iter()
+			.map(|i| Log {
+				address: H160::from_low_u64_be(*i),
+				log_index: U256::from(*i),
+				..Default::default()
+			})
 			.collect()
 	}
 
 	#[test]
 	fn outside_frame_logs_are_served_as_emitted_when_they_all_fitted() {
-		let logs = reconcile_outside_frame_logs(outside_frame_logs(3), 3, 1);
+		let logs =
+			select_committed_outside_frame_logs(outside_frame_logs(&[0, 1, 2]), &[0, 1, 2], 1);
 
-		assert_eq!(logs, outside_frame_logs(3));
+		assert_eq!(logs, outside_frame_logs(&[0, 1, 2]));
 	}
 
 	#[test]
-	fn outside_frame_logs_past_what_the_block_committed_are_not_served() {
-		// The buffer fills in emission order and drops what arrives after, so the committed logs
-		// are the leading ones. Serving the rest would hand out logs absent from the block's
+	fn outside_frame_logs_the_block_did_not_commit_are_not_served() {
+		// A contract log outside an ethereum transaction, or a log past the buffer's cap, is an
+		// event the block never committed. Serving it would hand out a log absent from the block's
 		// `logs_bloom` and `receipts_root`.
-		let logs = reconcile_outside_frame_logs(outside_frame_logs(5), 2, 1);
+		let logs =
+			select_committed_outside_frame_logs(outside_frame_logs(&[0, 1, 2, 3, 4]), &[1, 3], 1);
 
-		assert_eq!(logs, outside_frame_logs(2));
+		assert_eq!(logs, outside_frame_logs(&[1, 3]));
 	}
 
 	#[test]
-	fn fewer_outside_frame_logs_than_committed_are_served_as_decoded() {
-		// Nothing to cut: the events decoded into less than the block committed, which the warning
-		// reports and truncation cannot repair.
-		let logs = reconcile_outside_frame_logs(outside_frame_logs(1), 4, 1);
+	fn a_committed_log_that_did_not_decode_is_left_out() {
+		// The block committed the log at event 4 but nothing decoded there: the warning reports it
+		// and the receipt is served without it, in the runtime's order.
+		let logs = select_committed_outside_frame_logs(outside_frame_logs(&[0, 6]), &[0, 4, 6], 1);
 
-		assert_eq!(logs, outside_frame_logs(1));
+		assert_eq!(logs, outside_frame_logs(&[0, 6]));
 	}
 
 	#[test]
@@ -1366,8 +1372,8 @@ mod tests {
 		// Extrinsic 0 is a `Revive::call` whose contract emits a log. The runtime leaves a frame
 		// log outside an ethereum transaction substrate-only (`block_storage::capture_frame_log`).
 		// Extrinsic 1 is an assets transfer whose mirrored `Transfer` is buffered, so the block
-		// commits exactly one log: the mirror. Both arrive here as a `ContractEmitted` under a
-		// non-eth extrinsic, and the receipt must carry the committed one.
+		// commits exactly one log, the mirror's at event 1. Both arrive here as a `ContractEmitted`
+		// under a non-eth extrinsic, and the receipt must carry the committed one.
 		let contract = H160::from([0xc0; 20]);
 		let asset_precompile = H160::from([0xa5; 20]);
 		let emitted_by = |address: H160| pallet_revive::Event::ContractEmitted {
@@ -1389,7 +1395,7 @@ mod tests {
 			H256::from([0x99; 32]),
 			2,
 		);
-		let logs = reconcile_outside_frame_logs(outside_frame, 1, 1);
+		let logs = select_committed_outside_frame_logs(outside_frame, &[1], 1);
 
 		assert_eq!(logs.len(), 1);
 		assert_eq!(

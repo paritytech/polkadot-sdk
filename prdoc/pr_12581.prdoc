@@ -34,9 +34,9 @@ doc:
     and transaction trie. Such a block therefore holds one more transaction than it has real
     ethereum transactions; eth-rpc rebuilds the same payload from block number and chain id to
     recover its hash and serves those logs against it. `eth_receipt_data_versioned` is bumped to
-    version 2, reporting that transaction separately: its gas entry plus the number of logs the
-    block committed to it. A consumer rebuilding those logs from block events must reconcile
-    against that count, since the events are a superset, in emission order, of what the header
+    version 2, reporting that transaction separately: its gas entry plus the event index of each
+    log the block committed to it. A consumer rebuilding those logs from block events must select
+    by those indices, since the block's `ContractEmitted` events are a superset of what the header
     commits to. `eth_block` lists the synthetic transaction's hash in every version, since
     `transactions` is the list the header commits to; an eth-rpc on receipt data version 1 sees
     that hash with no receipt to serve for it. The new `Config` item `MaxOutsideFrameLogs` bounds

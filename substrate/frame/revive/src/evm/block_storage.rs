@@ -20,7 +20,7 @@ use crate::{
 	Pallet, ReceiptGasInfo, ReceiptInfoData, StorageDeposit, Weight, dispatch_result,
 	evm::{
 		block_hash::{
-			AccumulateReceipt, EthereumBlockBuilder, LogsBloom, ReceiptCheckpoint,
+			AccumulateReceipt, EthereumBlockBuilder, LogsBloom, OutsideFrameLog, ReceiptCheckpoint,
 			SyntheticTransactionInfo,
 		},
 		burn_with_dust,
@@ -267,7 +267,7 @@ fn synthetic_transaction<T: Config>(block_number: BlockNumberFor<T>) -> Vec<u8> 
 /// or `on_idle` is safe, both running before any `on_finalize`.
 pub fn on_finalize_build_eth_block<T: Config>(
 	block_number: BlockNumberFor<T>,
-	outside_frame_logs: Vec<(H160, Vec<H256>, Vec<u8>)>,
+	outside_frame_logs: Vec<OutsideFrameLog>,
 ) -> Option<SyntheticTransactionInfo> {
 	let block_builder_ir = EthBlockBuilderIR::<T>::get();
 	EthBlockBuilderIR::<T>::kill();
@@ -277,10 +277,11 @@ pub fn on_finalize_build_eth_block<T: Config>(
 	// The synthetic transaction is how the outside-of-frame logs enter the block bloom /
 	// receipts_root / transaction trie. It goes in after all real transactions, since the trie
 	// builders are order-sensitive.
-	let outside_frame_log_count = outside_frame_logs.len() as u32;
-	if outside_frame_log_count > 0 {
+	let log_event_indices: Vec<u32> =
+		outside_frame_logs.iter().map(|log| log.event_index).collect();
+	if !outside_frame_logs.is_empty() {
 		let mut receipt = AccumulateReceipt::new();
-		for (contract, topics, data) in &outside_frame_logs {
+		for OutsideFrameLog { contract, topics, data, .. } in &outside_frame_logs {
 			receipt.add_log(contract, data, topics);
 		}
 		block_builder.process_transaction(
@@ -296,11 +297,10 @@ pub fn on_finalize_build_eth_block<T: Config>(
 
 	// The synthetic transaction is processed after every real one, so its entry is the trailing
 	// one.
-	let synthetic = if outside_frame_log_count > 0 {
-		receipt_data.pop().map(|gas_info| SyntheticTransactionInfo {
-			gas_info,
-			log_count: outside_frame_log_count,
-		})
+	let synthetic = if !log_event_indices.is_empty() {
+		receipt_data
+			.pop()
+			.map(|gas_info| SyntheticTransactionInfo { gas_info, log_event_indices })
 	} else {
 		None
 	};

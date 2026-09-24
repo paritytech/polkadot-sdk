@@ -35,7 +35,7 @@ use alloy_core::primitives::{B256, bytes::BufMut};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_core::{H256, U256};
+use sp_core::{H160, H256, U256};
 
 /// Details needed to reconstruct the receipt info in the RPC
 /// layer without losing accuracy.
@@ -56,23 +56,37 @@ impl From<ReceiptGasInfo> for ReceiptGasInfoV1 {
 
 /// What the block committed to its synthetic transaction, the one carrying the logs emitted
 /// outside any ethereum transaction.
-#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
 pub struct SyntheticTransactionInfo {
 	/// Its receipt gas entry. Kept out of [`crate::ReceiptInfoData`] because the
 	/// `eth_receipt_data` runtime API is versioned on exactly that split: V1 promises one entry
 	/// per ethereum transaction.
 	pub gas_info: ReceiptGasInfo,
 
-	/// How many logs went into it. The count the block's `logs_bloom` and `receipts_root` commit
-	/// to, which is what lets the serving layer notice it has more `ContractEmitted` events than
-	/// the header accounts for.
-	pub log_count: u32,
+	/// The `frame_system` event index of each log that went into it, in receipt order. These are
+	/// the logs the block's `logs_bloom` and `receipts_root` commit to, which is what lets the
+	/// serving layer pick them out of the block's `ContractEmitted` events: a contract log outside
+	/// an ethereum transaction and a log past the buffer's cap are deposited but not buffered.
+	pub log_event_indices: Vec<u32>,
 }
 
 impl From<SyntheticTransactionInfo> for SyntheticTransactionV1 {
 	fn from(value: SyntheticTransactionInfo) -> Self {
-		Self { gas_info: value.gas_info.into(), log_count: value.log_count }
+		Self { gas_info: value.gas_info.into(), log_event_indices: value.log_event_indices }
 	}
+}
+
+/// A log buffered for the block's synthetic transaction.
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
+pub struct OutsideFrameLog {
+	/// The `frame_system` event index of its [`crate::Event::ContractEmitted`].
+	pub event_index: u32,
+	/// The address the log is attributed to.
+	pub contract: H160,
+	/// The log's topics.
+	pub topics: Vec<H256>,
+	/// The log's data.
+	pub data: Vec<u8>,
 }
 
 impl Block {
