@@ -261,10 +261,9 @@ fn synthetic_transaction<T: Config>(block_number: BlockNumberFor<T>) -> Vec<u8> 
 /// order. They are flushed as one synthetic transaction after every real one, and what the block
 /// committed to it is returned for the caller to store.
 ///
-/// A pallet that mirrors balance changes as logs must not do so from an `on_finalize` that
-/// `construct_runtime!` orders after this pallet's: the drain has already run, so the log would be
-/// committed to the next block while its event stays in this one. Mirroring from `on_initialize`
-/// or `on_idle` is safe, both running before any `on_finalize`.
+/// The block hash this stores is also what tells a later emitter that the drain has run, so a log
+/// from an `on_finalize` that `construct_runtime!` orders after this pallet's is not buffered; see
+/// [`Pallet::emit_contract_log_outside_frame`].
 pub fn on_finalize_build_eth_block<T: Config>(
 	block_number: BlockNumberFor<T>,
 	outside_frame_logs: Vec<OutsideFrameLog>,

@@ -1216,6 +1216,41 @@ fn synthetic_transaction_reports_the_event_of_each_buffered_log() {
 	});
 }
 
+// A log emitted after the block's drain, from an `on_finalize` ordered after this pallet's, is not
+// buffered: committed a block late, its event index would point at an unrelated event. A log from
+// an `on_initialize` ordered before this pallet's, as the message queue's is on Asset Hub, comes
+// before the drain and is committed.
+#[test]
+fn a_log_emitted_after_the_drain_stays_substrate_only() {
+	use crate::evm::block_hash::LogsBloom;
+	use frame_support::traits::Hooks;
+	use sp_core::H256;
+
+	let emit = |byte: u8| {
+		Pallet::<Test>::emit_contract_log_outside_frame(
+			H160::repeat_byte(byte),
+			vec![H256::repeat_byte(byte)].try_into().unwrap(),
+			vec![].try_into().unwrap(),
+		)
+	};
+	ExtBuilder::default().build().execute_with(|| {
+		Pallet::<Test>::on_finalize(1);
+		emit(1);
+
+		System::set_block_number(2);
+		emit(2);
+		Pallet::<Test>::on_initialize(2);
+		Pallet::<Test>::on_finalize(2);
+
+		let synthetic =
+			Pallet::<Test>::eth_synthetic_transaction().expect("the early log is committed");
+		assert_eq!(synthetic.log_event_indices.len(), 1, "and it is the only one");
+		let mut early = LogsBloom::new();
+		early.accrue_log(&H160::repeat_byte(2), &[H256::repeat_byte(2)]);
+		assert_eq!(Pallet::<Test>::eth_block().logs_bloom.0, early.bloom, "the late log is not");
+	});
+}
+
 #[test]
 fn tracing_a_log_emitted_inside_a_call_frame_attaches_to_it() {
 	use crate::{evm::CallTracer, tracing::Tracing};

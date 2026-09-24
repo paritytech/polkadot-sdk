@@ -1016,6 +1016,11 @@ pub mod pallet {
 		///
 		/// `topics` and `data` are bounded to the limits the `LOG` opcode enforces, so
 		/// [`Event::ContractEmitted`] keeps its documented topic cap on either path.
+		///
+		/// Not for an `on_finalize` that `construct_runtime!` orders after this pallet's: the
+		/// block's buffer is drained by then, and a log arriving after the drain is not buffered,
+		/// its event standing with no receipt. `on_initialize` and `on_idle` run before any
+		/// `on_finalize` and are safe.
 		pub fn emit_contract_log_outside_frame(
 			contract: H160,
 			topics: ContractLogTopics,
@@ -1060,6 +1065,24 @@ pub mod pallet {
 					);
 				}
 				return;
+			}
+
+			// The drain has run once the block's hash is stored. A log arriving after it, from an
+			// `on_finalize` ordered after this pallet's, is not buffered: committed a block late,
+			// its event index would point at an unrelated event. Only the first log needs the
+			// check, since a first log before the drain puts every later one before it too.
+			if index.is_zero() {
+				frame_system::Pallet::<T>::register_extra_weight_unchecked(
+					<T as frame_system::Config>::DbWeight::get().reads(1),
+					DispatchClass::Normal,
+				);
+				if BlockHash::<T>::contains_key(frame_system::Pallet::<T>::block_number()) {
+					log::warn!(
+						target: LOG_TARGET,
+						"outside-of-frame log for {contract:?} emitted after the block's drain stays substrate-only",
+					);
+					return;
+				}
 			}
 
 			// The index the `ContractEmitted` deposited right after this lands at, which is how
