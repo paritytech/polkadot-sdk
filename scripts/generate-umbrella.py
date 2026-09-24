@@ -42,7 +42,23 @@ def exclude(crate):
 
 	return False
 
+def read_existing_versions(path):
+	"""Read version fields from the existing umbrella Cargo.toml before regeneration.
+	parity-publish adds version fields to dependencies during crate releases,
+	and we need to preserve them so the check-umbrella CI job doesn't fail on
+	branches where parity-publish has already run."""
+	manifest_path = os.path.join(path, "umbrella", "Cargo.toml")
+	versions = {}
+	if os.path.exists(manifest_path):
+		with open(manifest_path, "r") as f:
+			manifest = toml.load(f)
+		for name, dep in manifest.get("dependencies", {}).items():
+			if isinstance(dep, dict) and "version" in dep:
+				versions[name] = dep["version"]
+	return versions
+
 def main(path, version):
+	existing_versions = read_existing_versions(path)
 	delete_umbrella(path)
 	workspace = Workspace.from_path(path)
 	print(f'Indexed {workspace}')
@@ -107,6 +123,11 @@ def main(path, version):
 
 	for (crate, path) in std_crates:
 		dependencies[crate.name] = {"path": f"../{path}", "default-features": False, "optional": True}
+
+	# Re-apply version fields that were added by parity-publish
+	for name, ver in existing_versions.items():
+		if name in dependencies:
+			dependencies[name]["version"] = ver
 
 	# The empty features are filled by Zepter
 	features = {
