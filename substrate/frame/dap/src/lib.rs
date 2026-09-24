@@ -53,8 +53,11 @@ use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	traits::{
-		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
-		fungibles,
+		fungible::{
+			Balanced as FungibleBalanced, Credit as FungibleCredit, Inspect as FungibleInspect,
+			Mutate as FungibleMutate, Unbalanced as FungibleUnbalanced,
+		},
+		fungibles::{Balanced, Inspect, Mutate, Unbalanced},
 		tokens::{Fortitude, Preservation},
 		Currency, Imbalance, OnUnbalanced, Time,
 	},
@@ -116,18 +119,20 @@ pub mod pallet {
 
 		type DistributableAssetKind: Parameter + MaxEncodedLen + MaybeSerializeDeserialize + Ord;
 
-		type DistributableAssets: fungibles::Inspect<
+		type DistributableAssets: Inspect<
 				Self::AccountId,
 				AssetId = Self::DistributableAssetKind,
 				Balance = Self::Balance,
-			> + fungibles::Mutate<Self::AccountId>
-			+ fungibles::Balanced<Self::AccountId>;
+			> + Mutate<Self::AccountId>
+			+ Balanced<Self::AccountId>
+			+ Unbalanced<Self::AccountId>;
 
-		/// The native currency type (new fungible traits).
-		type NativeCurrency: Inspect<Self::AccountId, Balance = Self::Balance>
-			+ Mutate<Self::AccountId>
-			+ Unbalanced<Self::AccountId>
-			+ Balanced<Self::AccountId>;
+		// TODO: Enforce it to be a part of DistributableAssets and correspond to
+		// DistributableAssetKind.
+		type NativeTokenAsset: FungibleInspect<Self::AccountId, Balance = Self::Balance>
+			+ FungibleMutate<Self::AccountId>
+			+ FungibleUnbalanced<Self::AccountId>
+			+ FungibleBalanced<Self::AccountId>;
 
 		/// The pallet ID used to derive the buffer account.
 		#[pallet::constant]
@@ -148,6 +153,9 @@ pub mod pallet {
 		///
 		/// `Moment` must represent milliseconds.
 		type Time: Time;
+
+		#[pallet::constant]
+		type NativeTokenAssetId: Get<Self::DistributableAssetKind>;
 
 		/// Minimum elapsed time (ms) between issuance drips.
 		///
@@ -255,7 +263,7 @@ pub mod pallet {
 			}
 
 			let staging_account = Self::staging_account();
-			let available = T::NativeCurrency::reducible_balance(
+			let available = T::NativeTokenAsset::reducible_balance(
 				&staging_account,
 				Preservation::Preserve,
 				Fortitude::Polite,
@@ -272,7 +280,7 @@ pub mod pallet {
 			}
 
 			let buffer = Self::buffer_account();
-			if T::NativeCurrency::transfer(
+			if T::NativeTokenAsset::transfer(
 				&staging_account,
 				&buffer,
 				available,
@@ -398,12 +406,12 @@ pub mod pallet {
 
 		/// Deactivate funds on buffer inflow.
 		pub(crate) fn deactivate_buffer_funds(amount: BalanceOf<T>) {
-			<T::NativeCurrency as Unbalanced<T::AccountId>>::deactivate(amount);
+			<T::NativeTokenAsset as FungibleUnbalanced<T::AccountId>>::deactivate(amount);
 		}
 
 		/// Activate funds on buffer withdrawal.
 		pub(crate) fn activate_buffer_funds(amount: BalanceOf<T>) {
-			<T::NativeCurrency as Unbalanced<T::AccountId>>::reactivate(amount);
+			<T::NativeTokenAsset as FungibleUnbalanced<T::AccountId>>::reactivate(amount);
 		}
 
 		/// Core issuance drip logic, called from `on_initialize`.
@@ -463,7 +471,7 @@ pub mod pallet {
 		}
 
 		fn mint_native_currency(elapsed: u64, recipients: &[(BudgetKey, T::AccountId)]) {
-			let total_issuance = T::NativeCurrency::total_issuance();
+			let total_issuance = T::NativeTokenAsset::total_issuance();
 			let issuance = T::IssuanceCurve::issue(total_issuance, elapsed);
 
 			if issuance.is_zero() {
@@ -486,7 +494,7 @@ pub mod pallet {
 				let perbill = budget.get(key).copied().unwrap_or(Perbill::zero());
 				let amount = perbill.mul_floor(issuance);
 				if !amount.is_zero() {
-					if let Err(_) = T::NativeCurrency::mint_into(account, amount) {
+					if let Err(_) = T::NativeTokenAsset::mint_into(account, amount) {
 						Self::deposit_event(Event::Unexpected(UnexpectedKind::MintFailed));
 						defensive!("Issuance mint should not fail");
 					} else {
@@ -513,10 +521,7 @@ pub mod pallet {
 			);
 		}
 
-		// TODO: Activate the native token
 		fn distribute_assets(elapsed: u64, recipients: &[(BudgetKey, T::AccountId)]) {
-			use fungibles::Mutate;
-
 			let buffer = Self::buffer_account();
 			let elapsed = SaturatedConversion::saturated_into::<BalanceOf<T>>(elapsed);
 
@@ -546,6 +551,9 @@ pub mod pallet {
 						// TODO: Emit event, add note about retry logic.
 					} else {
 						total_distributed.saturating_accrue(amount);
+						if asset == T::NativeTokenAssetId::get() && *account != buffer {
+							Self::activate_buffer_funds(amount);
+						}
 					}
 				}
 
@@ -594,7 +602,7 @@ pub mod pallet {
 
 /// Type alias for credit (negative imbalance - funds that were slashed/removed).
 pub type CreditOf<T> =
-	Credit<<T as frame_system::Config>::AccountId, <T as Config>::NativeCurrency>;
+	FungibleCredit<<T as frame_system::Config>::AccountId, <T as Config>::NativeTokenAsset>;
 
 /// Implementation of `OnUnbalanced` for the `fungible::Balanced` trait.
 /// Example: use as `type Slash = Dap` in staking-async config.
@@ -609,7 +617,7 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 		// Funds land in the staging account; `on_idle` will drain them into the buffer and
 		// deactivate them there.  Deactivation is intentionally deferred so that active issuance
 		// does not flicker down-then-up within the same block.
-		let _ = T::NativeCurrency::resolve(&staging, amount).inspect_err(|_| {
+		let _ = T::NativeTokenAsset::resolve(&staging, amount).inspect_err(|_| {
 			defensive!(
 				"🚨 Failed to deposit slash to DAP staging account - funds burned, it should never happen!"
 			);
