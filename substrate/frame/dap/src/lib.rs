@@ -567,22 +567,23 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		#[allow(dead_code)]
 		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-			Self::check_budget_allocation()
+			Self::check_budget_allocation()?;
+			Self::check_asset_allocation()
 		}
 
 		/// Checks that `BudgetAllocation` is consistent:
 		/// - Every key in `BudgetAllocation` must be a registered recipient.
 		/// - Allocation percentages must sum to exactly 100%.
 		fn check_budget_allocation() -> Result<(), sp_runtime::TryRuntimeError> {
-			let allocation = BudgetAllocation::<T>::get();
+			let budget_allocation = BudgetAllocation::<T>::get();
 
-			ensure!(!allocation.is_empty(), "BudgetAllocation is empty");
+			ensure!(!budget_allocation.is_empty(), "BudgetAllocation is empty");
 
 			let registered: Vec<BudgetKey> =
 				T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
 
-			// Every allocation key must be a registered recipient.
-			for key in allocation.keys() {
+			// Every budget allocation key must be a registered recipient.
+			for key in budget_allocation.keys() {
 				ensure!(
 					registered.contains(key),
 					"BudgetAllocation contains key not in BudgetRecipients"
@@ -590,11 +591,31 @@ pub mod pallet {
 			}
 
 			// Allocation must sum to exactly 100%.
-			let total_parts: u64 = allocation.values().map(|p| p.deconstruct() as u64).sum();
+			let total_parts: u64 = budget_allocation.values().map(|p| p.deconstruct() as u64).sum();
 			ensure!(
 				total_parts == Perbill::one().deconstruct() as u64,
 				"BudgetAllocation does not sum to 100%"
 			);
+
+			Ok(())
+		}
+
+		/// Check that `AssetAllocation` is consistent:
+		/// - Every key in `AssetAllocation` must be a registered recipient.
+		fn check_asset_allocation() -> Result<(), sp_runtime::TryRuntimeError> {
+			let asset_allocation = AssetAllocation::<T>::get();
+			let registered: Vec<BudgetKey> =
+				T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
+
+			// Every asset allocation key must be a registered recipient.
+			for (_, allocations) in asset_allocation {
+				for key in allocations.keys() {
+					ensure!(
+						registered.contains(key),
+						"AssetAllocation contains key not in BudgetRecipients"
+					);
+				}
+			}
 
 			Ok(())
 		}
