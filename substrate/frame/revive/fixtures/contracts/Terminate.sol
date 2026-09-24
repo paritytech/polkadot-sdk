@@ -23,6 +23,19 @@ contract Terminate {
 		_terminate(method, beneficiary);
 	}
 
+	/// Pay out the whole balance to `to`, then terminate through the pre-compile.
+	function payoutAndTerminate(address payable to, address beneficiary) external {
+		(bool ok, ) = to.call{value: address(this).balance}("");
+		require(ok, "payout failed");
+		_terminate(METHOD_PRECOMPILE, beneficiary);
+	}
+
+	/// Terminate through the pre-compile twice in the same call.
+	function terminateTwice(address beneficiary) external {
+		_terminate(METHOD_PRECOMPILE, beneficiary);
+		_terminate(METHOD_PRECOMPILE, beneficiary);
+	}
+
 	function indirectDelegateTerminate(address beneficiary) external {
 		bytes memory data = abi.encodeWithSelector(this.terminate.selector, METHOD_PRECOMPILE, beneficiary);
 		(bool success, bytes memory returnData) = address(this).delegatecall(data);

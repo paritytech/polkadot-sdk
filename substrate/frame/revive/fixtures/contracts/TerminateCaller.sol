@@ -18,6 +18,12 @@ contract TerminateCaller {
         return address(inner);
     }
 
+    function createAndTerminate(uint value, uint8 method, address beneficiary) external returns (address) {
+        inner = new Terminate{value: value}(true, method, beneficiary);
+        inner.terminate(method, beneficiary);
+        return address(inner);
+    }
+
     function sendFundsAfterTerminateAndCreate(uint value, uint8 method, address beneficiary) external returns (address) {
         inner = new Terminate(true, method, beneficiary);
         inner.terminate(method, beneficiary);
