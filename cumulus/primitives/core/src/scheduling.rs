@@ -109,6 +109,18 @@ pub struct SchedulingProof {
 }
 
 impl SchedulingProof {
+	/// Create a new scheduling proof.
+	///
+	/// `header_chain` runs backwards from the candidate's scheduling parent, and
+	/// `internal_scheduling_parent_header` is the header its last parent hash points at.
+	pub fn new(
+		header_chain: Vec<RelayChainHeader>,
+		internal_scheduling_parent_header: RelayChainHeader,
+		signed_scheduling_info: Option<SignedSchedulingInfo>,
+	) -> Self {
+		Self { header_chain, internal_scheduling_parent_header, signed_scheduling_info }
+	}
+
 	/// Derive the scheduling parent hash.
 	///
 	/// Returns the hash of the first/newest header in `header_chain` if non-empty, otherwise
