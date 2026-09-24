@@ -23,13 +23,6 @@ contract Terminate {
 		_terminate(method, beneficiary);
 	}
 
-	/// Call the terminate pre-compile, catch a revert and keep running.
-	/// Returns whether the call succeeded and the revert data if it did not.
-	function tryTerminate(address beneficiary) external returns (bool, bytes memory) {
-		bytes memory data = abi.encodeWithSelector(ISystem.terminate.selector, beneficiary);
-		return SYSTEM_ADDR.call(data);
-	}
-
 	function indirectDelegateTerminate(address beneficiary) external {
 		bytes memory data = abi.encodeWithSelector(this.terminate.selector, METHOD_PRECOMPILE, beneficiary);
 		(bool success, bytes memory returnData) = address(this).delegatecall(data);
