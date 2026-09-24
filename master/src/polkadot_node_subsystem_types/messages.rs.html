@@ -1686,68 +1686,79 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1536 id=1536 data-nosnippet>1536</a>/// is present in or can be added in (right now or in the future).
 <a href=#1537 id=1537 data-nosnippet>1537</a></span><span class="kw">pub type </span>HypotheticalMembership = Vec&lt;Hash&gt;;
 <a href=#1538 id=1538 data-nosnippet>1538</a>
-<a href=#1539 id=1539 data-nosnippet>1539</a><span class="doccomment">/// A collection of ancestor candidates of a parachain.
-<a href=#1540 id=1540 data-nosnippet>1540</a></span><span class="kw">pub type </span>Ancestors = HashSet&lt;CandidateHash&gt;;
-<a href=#1541 id=1541 data-nosnippet>1541</a>
-<a href=#1542 id=1542 data-nosnippet>1542</a><span class="doccomment">/// Messages sent to the Prospective Parachains subsystem.
-<a href=#1543 id=1543 data-nosnippet>1543</a></span><span class="attr">#[derive(Debug)]
-<a href=#1544 id=1544 data-nosnippet>1544</a></span><span class="kw">pub enum </span>ProspectiveParachainsMessage {
-<a href=#1545 id=1545 data-nosnippet>1545</a>	<span class="doccomment">/// Inform the Prospective Parachains Subsystem of a new seconded candidate.
-<a href=#1546 id=1546 data-nosnippet>1546</a>	///
-<a href=#1547 id=1547 data-nosnippet>1547</a>	/// The response sender returns false if the candidate was rejected by prospective parachains,
-<a href=#1548 id=1548 data-nosnippet>1548</a>	/// true otherwise (if it was accepted or already present)
-<a href=#1549 id=1549 data-nosnippet>1549</a>	</span>IntroduceSecondedCandidate(IntroduceSecondedCandidateRequest, oneshot::Sender&lt;bool&gt;),
-<a href=#1550 id=1550 data-nosnippet>1550</a>	<span class="doccomment">/// Inform the Prospective Parachains Subsystem that a previously introduced candidate
-<a href=#1551 id=1551 data-nosnippet>1551</a>	/// has been backed. This requires that the candidate was successfully introduced in
-<a href=#1552 id=1552 data-nosnippet>1552</a>	/// the past.
-<a href=#1553 id=1553 data-nosnippet>1553</a>	</span>CandidateBacked(ParaId, CandidateHash),
-<a href=#1554 id=1554 data-nosnippet>1554</a>	<span class="doccomment">/// Get N backable candidate references with their scheduling parents for the given
-<a href=#1555 id=1555 data-nosnippet>1555</a>	/// parachain, under the given relay chain leaf hash.
-<a href=#1556 id=1556 data-nosnippet>1556</a>	///
-<a href=#1557 id=1557 data-nosnippet>1557</a>	/// Timed out ancestors should not be included in the collection.
-<a href=#1558 id=1558 data-nosnippet>1558</a>	/// N should represent the number of scheduled cores of this ParaId.
-<a href=#1559 id=1559 data-nosnippet>1559</a>	/// A timed out ancestor frees the cores of all of its descendants, so if there's a hole in the
-<a href=#1560 id=1560 data-nosnippet>1560</a>	/// supplied ancestor path, we'll get candidates that backfill those timed out slots first. It
-<a href=#1561 id=1561 data-nosnippet>1561</a>	/// may also return less/no candidates, if there aren't enough backable candidates recorded.
-<a href=#1562 id=1562 data-nosnippet>1562</a>	</span>GetBackableCandidates {
-<a href=#1563 id=1563 data-nosnippet>1563</a>		<span class="doccomment">/// The relay chain leaf hash under which to query. Must be an active leaf.
-<a href=#1564 id=1564 data-nosnippet>1564</a>		</span>leaf: Hash,
-<a href=#1565 id=1565 data-nosnippet>1565</a>		<span class="doccomment">/// The parachain to get backable candidates for.
-<a href=#1566 id=1566 data-nosnippet>1566</a>		</span>para_id: ParaId,
-<a href=#1567 id=1567 data-nosnippet>1567</a>		<span class="doccomment">/// The maximum number of candidates to return.
-<a href=#1568 id=1568 data-nosnippet>1568</a>		</span>count: u32,
-<a href=#1569 id=1569 data-nosnippet>1569</a>		<span class="doccomment">/// Required ancestor path for the candidates.
-<a href=#1570 id=1570 data-nosnippet>1570</a>		</span>ancestors: Ancestors,
-<a href=#1571 id=1571 data-nosnippet>1571</a>		<span class="doccomment">/// Channel to send the result.
-<a href=#1572 id=1572 data-nosnippet>1572</a>		</span>sender: oneshot::Sender&lt;Vec&lt;BackableCandidateRef&gt;&gt;,
-<a href=#1573 id=1573 data-nosnippet>1573</a>	},
-<a href=#1574 id=1574 data-nosnippet>1574</a>	<span class="doccomment">/// Get the hypothetical or actual membership of candidates with the given properties
-<a href=#1575 id=1575 data-nosnippet>1575</a>	/// under the specified active leave's fragment chain.
-<a href=#1576 id=1576 data-nosnippet>1576</a>	///
-<a href=#1577 id=1577 data-nosnippet>1577</a>	/// For each candidate, we return a vector of leaves where the candidate is present or could be
-<a href=#1578 id=1578 data-nosnippet>1578</a>	/// added. "Could be added" either means that the candidate can be added to the chain right now
-<a href=#1579 id=1579 data-nosnippet>1579</a>	/// or could be added in the future (we may not have its ancestors yet).
-<a href=#1580 id=1580 data-nosnippet>1580</a>	/// Note that even if we think it could be added in the future, we may find out that it was
-<a href=#1581 id=1581 data-nosnippet>1581</a>	/// invalid, as time passes.
-<a href=#1582 id=1582 data-nosnippet>1582</a>	/// If an active leaf is not in the vector, it means that there's no
-<a href=#1583 id=1583 data-nosnippet>1583</a>	/// chance this candidate will become valid under that leaf in the future.
-<a href=#1584 id=1584 data-nosnippet>1584</a>	///
-<a href=#1585 id=1585 data-nosnippet>1585</a>	/// If `fragment_chain_relay_parent` in the request is `Some()`, the return vector can only
-<a href=#1586 id=1586 data-nosnippet>1586</a>	/// contain this relay parent (or none).
-<a href=#1587 id=1587 data-nosnippet>1587</a>	</span>GetHypotheticalMembership(
-<a href=#1588 id=1588 data-nosnippet>1588</a>		HypotheticalMembershipRequest,
-<a href=#1589 id=1589 data-nosnippet>1589</a>		oneshot::Sender&lt;Vec&lt;(HypotheticalCandidate, HypotheticalMembership)&gt;&gt;,
-<a href=#1590 id=1590 data-nosnippet>1590</a>	),
-<a href=#1591 id=1591 data-nosnippet>1591</a>	<span class="doccomment">/// Get the validation data of some prospective candidate. The candidate doesn't need
-<a href=#1592 id=1592 data-nosnippet>1592</a>	/// to be part of any fragment chain, but this only succeeds if the parent head-data and
-<a href=#1593 id=1593 data-nosnippet>1593</a>	/// relay-parent are part of the `CandidateStorage` (meaning that it's a candidate which is
-<a href=#1594 id=1594 data-nosnippet>1594</a>	/// part of some fragment chain or which prospective-parachains predicted will become part of
-<a href=#1595 id=1595 data-nosnippet>1595</a>	/// some fragment chain).
-<a href=#1596 id=1596 data-nosnippet>1596</a>	</span>GetProspectiveValidationData(
-<a href=#1597 id=1597 data-nosnippet>1597</a>		ProspectiveValidationDataRequest,
-<a href=#1598 id=1598 data-nosnippet>1598</a>		oneshot::Sender&lt;<span class="prelude-ty">Option</span>&lt;PersistedValidationData&gt;&gt;,
-<a href=#1599 id=1599 data-nosnippet>1599</a>	),
-<a href=#1600 id=1600 data-nosnippet>1600</a>}
+<a href=#1539 id=1539 data-nosnippet>1539</a><span class="doccomment">/// Output heads held by prospective parachains, keyed by scheduling parent and para: the
+<a href=#1540 id=1540 data-nosnippet>1540</a>/// output heads of every candidate in that scheduling parent's fragment chain plus the para's
+<a href=#1541 id=1541 data-nosnippet>1541</a>/// latest included head.
+<a href=#1542 id=1542 data-nosnippet>1542</a></span><span class="kw">pub type </span>KnownOutputHeads = HashMap&lt;Hash, HashMap&lt;ParaId, HashSet&lt;Hash&gt;&gt;&gt;;
+<a href=#1543 id=1543 data-nosnippet>1543</a>
+<a href=#1544 id=1544 data-nosnippet>1544</a><span class="doccomment">/// A collection of ancestor candidates of a parachain.
+<a href=#1545 id=1545 data-nosnippet>1545</a></span><span class="kw">pub type </span>Ancestors = HashSet&lt;CandidateHash&gt;;
+<a href=#1546 id=1546 data-nosnippet>1546</a>
+<a href=#1547 id=1547 data-nosnippet>1547</a><span class="doccomment">/// Messages sent to the Prospective Parachains subsystem.
+<a href=#1548 id=1548 data-nosnippet>1548</a></span><span class="attr">#[derive(Debug)]
+<a href=#1549 id=1549 data-nosnippet>1549</a></span><span class="kw">pub enum </span>ProspectiveParachainsMessage {
+<a href=#1550 id=1550 data-nosnippet>1550</a>	<span class="doccomment">/// Inform the Prospective Parachains Subsystem of a new seconded candidate.
+<a href=#1551 id=1551 data-nosnippet>1551</a>	///
+<a href=#1552 id=1552 data-nosnippet>1552</a>	/// The response sender returns false if the candidate was rejected by prospective parachains,
+<a href=#1553 id=1553 data-nosnippet>1553</a>	/// true otherwise (if it was accepted or already present)
+<a href=#1554 id=1554 data-nosnippet>1554</a>	</span>IntroduceSecondedCandidate(IntroduceSecondedCandidateRequest, oneshot::Sender&lt;bool&gt;),
+<a href=#1555 id=1555 data-nosnippet>1555</a>	<span class="doccomment">/// Inform the Prospective Parachains Subsystem that a previously introduced candidate
+<a href=#1556 id=1556 data-nosnippet>1556</a>	/// has been backed. This requires that the candidate was successfully introduced in
+<a href=#1557 id=1557 data-nosnippet>1557</a>	/// the past.
+<a href=#1558 id=1558 data-nosnippet>1558</a>	</span>CandidateBacked(ParaId, CandidateHash),
+<a href=#1559 id=1559 data-nosnippet>1559</a>	<span class="doccomment">/// Get N backable candidate references with their scheduling parents for the given
+<a href=#1560 id=1560 data-nosnippet>1560</a>	/// parachain, under the given relay chain leaf hash.
+<a href=#1561 id=1561 data-nosnippet>1561</a>	///
+<a href=#1562 id=1562 data-nosnippet>1562</a>	/// Timed out ancestors should not be included in the collection.
+<a href=#1563 id=1563 data-nosnippet>1563</a>	/// N should represent the number of scheduled cores of this ParaId.
+<a href=#1564 id=1564 data-nosnippet>1564</a>	/// A timed out ancestor frees the cores of all of its descendants, so if there's a hole in the
+<a href=#1565 id=1565 data-nosnippet>1565</a>	/// supplied ancestor path, we'll get candidates that backfill those timed out slots first. It
+<a href=#1566 id=1566 data-nosnippet>1566</a>	/// may also return less/no candidates, if there aren't enough backable candidates recorded.
+<a href=#1567 id=1567 data-nosnippet>1567</a>	</span>GetBackableCandidates {
+<a href=#1568 id=1568 data-nosnippet>1568</a>		<span class="doccomment">/// The relay chain leaf hash under which to query. Must be an active leaf.
+<a href=#1569 id=1569 data-nosnippet>1569</a>		</span>leaf: Hash,
+<a href=#1570 id=1570 data-nosnippet>1570</a>		<span class="doccomment">/// The parachain to get backable candidates for.
+<a href=#1571 id=1571 data-nosnippet>1571</a>		</span>para_id: ParaId,
+<a href=#1572 id=1572 data-nosnippet>1572</a>		<span class="doccomment">/// The maximum number of candidates to return.
+<a href=#1573 id=1573 data-nosnippet>1573</a>		</span>count: u32,
+<a href=#1574 id=1574 data-nosnippet>1574</a>		<span class="doccomment">/// Required ancestor path for the candidates.
+<a href=#1575 id=1575 data-nosnippet>1575</a>		</span>ancestors: Ancestors,
+<a href=#1576 id=1576 data-nosnippet>1576</a>		<span class="doccomment">/// Channel to send the result.
+<a href=#1577 id=1577 data-nosnippet>1577</a>		</span>sender: oneshot::Sender&lt;Vec&lt;BackableCandidateRef&gt;&gt;,
+<a href=#1578 id=1578 data-nosnippet>1578</a>	},
+<a href=#1579 id=1579 data-nosnippet>1579</a>	<span class="doccomment">/// Get the hypothetical or actual membership of candidates with the given properties
+<a href=#1580 id=1580 data-nosnippet>1580</a>	/// under the specified active leave's fragment chain.
+<a href=#1581 id=1581 data-nosnippet>1581</a>	///
+<a href=#1582 id=1582 data-nosnippet>1582</a>	/// For each candidate, we return a vector of leaves where the candidate is present or could be
+<a href=#1583 id=1583 data-nosnippet>1583</a>	/// added. "Could be added" either means that the candidate can be added to the chain right now
+<a href=#1584 id=1584 data-nosnippet>1584</a>	/// or could be added in the future (we may not have its ancestors yet).
+<a href=#1585 id=1585 data-nosnippet>1585</a>	/// Note that even if we think it could be added in the future, we may find out that it was
+<a href=#1586 id=1586 data-nosnippet>1586</a>	/// invalid, as time passes.
+<a href=#1587 id=1587 data-nosnippet>1587</a>	/// If an active leaf is not in the vector, it means that there's no
+<a href=#1588 id=1588 data-nosnippet>1588</a>	/// chance this candidate will become valid under that leaf in the future.
+<a href=#1589 id=1589 data-nosnippet>1589</a>	///
+<a href=#1590 id=1590 data-nosnippet>1590</a>	/// If `fragment_chain_relay_parent` in the request is `Some()`, the return vector can only
+<a href=#1591 id=1591 data-nosnippet>1591</a>	/// contain this relay parent (or none).
+<a href=#1592 id=1592 data-nosnippet>1592</a>	</span>GetHypotheticalMembership(
+<a href=#1593 id=1593 data-nosnippet>1593</a>		HypotheticalMembershipRequest,
+<a href=#1594 id=1594 data-nosnippet>1594</a>		oneshot::Sender&lt;Vec&lt;(HypotheticalCandidate, HypotheticalMembership)&gt;&gt;,
+<a href=#1595 id=1595 data-nosnippet>1595</a>	),
+<a href=#1596 id=1596 data-nosnippet>1596</a>	<span class="doccomment">/// Get the validation data of some prospective candidate. The candidate doesn't need
+<a href=#1597 id=1597 data-nosnippet>1597</a>	/// to be part of any fragment chain, but this only succeeds if the parent head-data and
+<a href=#1598 id=1598 data-nosnippet>1598</a>	/// relay-parent are part of the `CandidateStorage` (meaning that it's a candidate which is
+<a href=#1599 id=1599 data-nosnippet>1599</a>	/// part of some fragment chain or which prospective-parachains predicted will become part of
+<a href=#1600 id=1600 data-nosnippet>1600</a>	/// some fragment chain).
+<a href=#1601 id=1601 data-nosnippet>1601</a>	</span>GetProspectiveValidationData(
+<a href=#1602 id=1602 data-nosnippet>1602</a>		ProspectiveValidationDataRequest,
+<a href=#1603 id=1603 data-nosnippet>1603</a>		oneshot::Sender&lt;<span class="prelude-ty">Option</span>&lt;PersistedValidationData&gt;&gt;,
+<a href=#1604 id=1604 data-nosnippet>1604</a>	),
+<a href=#1605 id=1605 data-nosnippet>1605</a>	<span class="doccomment">/// Known output heads per scheduling parent in view. The keys are every active leaf plus the
+<a href=#1606 id=1606 data-nosnippet>1606</a>	/// retained ancestors within scheduling lookahead. For each key and requested para: the output
+<a href=#1607 id=1607 data-nosnippet>1607</a>	/// heads of all candidates held in that scheduling parent's fragment chain plus the para's
+<a href=#1608 id=1608 data-nosnippet>1608</a>	/// latest included head. A scheduling parent with nothing to report for any requested para
+<a href=#1609 id=1609 data-nosnippet>1609</a>	/// may be absent.
+<a href=#1610 id=1610 data-nosnippet>1610</a>	</span>GetKnownOutputHeads(Vec&lt;ParaId&gt;, oneshot::Sender&lt;KnownOutputHeads&gt;),
+<a href=#1611 id=1611 data-nosnippet>1611</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

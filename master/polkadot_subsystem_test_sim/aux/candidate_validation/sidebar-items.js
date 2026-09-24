@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Verdict"],"struct":["CandidateOutputs","CandidateValidationStub"]};
+window.SIDEBAR_ITEMS = {"enum":["Verdict"],"struct":["CandidateOutputs","CandidateValidationStub","SharedInvalidSet"]};

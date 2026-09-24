@@ -1680,7 +1680,18 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#1530 id=1530 data-nosnippet>1530</a>		}
 <a href=#1531 id=1531 data-nosnippet>1531</a>		<span class="bool-val">true
 <a href=#1532 id=1532 data-nosnippet>1532</a>	</span>}
-<a href=#1533 id=1533 data-nosnippet>1533</a>}
+<a href=#1533 id=1533 data-nosnippet>1533</a>
+<a href=#1534 id=1534 data-nosnippet>1534</a>	<span class="doccomment">/// Output heads of all held candidates, chain and unconnected, plus the chain's base head.
+<a href=#1535 id=1535 data-nosnippet>1535</a>	</span><span class="kw">pub fn </span>known_output_heads(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; HashSet&lt;Hash&gt; {
+<a href=#1536 id=1536 data-nosnippet>1536</a>		<span class="self">self</span>.chain
+<a href=#1537 id=1537 data-nosnippet>1537</a>			.by_output_head
+<a href=#1538 id=1538 data-nosnippet>1538</a>			.keys()
+<a href=#1539 id=1539 data-nosnippet>1539</a>			.chain(<span class="self">self</span>.unconnected.by_output_head.keys())
+<a href=#1540 id=1540 data-nosnippet>1540</a>			.copied()
+<a href=#1541 id=1541 data-nosnippet>1541</a>			.chain(std::iter::once(<span class="self">self</span>.scope.base_constraints.required_parent.hash()))
+<a href=#1542 id=1542 data-nosnippet>1542</a>			.collect()
+<a href=#1543 id=1543 data-nosnippet>1543</a>	}
+<a href=#1544 id=1544 data-nosnippet>1544</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
