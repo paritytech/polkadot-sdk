@@ -2741,8 +2741,9 @@ impl StatementStore for Store {
 	///
 	/// Returns `SubmitResult::New` on success.
 	fn submit(&self, statement: Statement, source: StatementSource) -> SubmitResult {
-		let retention_resolver = self.retention_fn.get();
-		let mask = retention_resolver
+		let mask = self
+			.retention_fn
+			.get()
 			.map_or_else(RetentionReasonMask::persistent, |resolver| resolver(&statement));
 
 		let _histogram_submit_start_timer = self.metrics.start_submit_timer();
@@ -3102,10 +3103,7 @@ impl StatementStore for Store {
 		}; // Release submit index lock
 		self.subscription_manager.notify(seq, statement);
 		self.metrics.report(|metrics| {
-			metrics.submitted_statements.inc();
-			if retention_resolver.is_some() {
-				metrics.record_retention_admission(mask);
-			}
+			metrics.submitted_statements.with_label_values(&[mask.label()]).inc();
 		});
 		log::trace!(target: LOG_TARGET, "Statement submitted: {:?}", HexDisplay::from(&hash));
 		SubmitResult::New
