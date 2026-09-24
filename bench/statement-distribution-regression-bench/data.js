@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790253991418,
+  "lastUpdate": 1790271927275,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
-            "name": "s0me0ne-unkn0wn",
-            "username": "s0me0ne-unkn0wn"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "c90277ace6ffc77ea2931c61153cbd10e8ba6ece",
-          "message": "Enforce statement allowances (#10823)\n\nThis PR aims to enforce statement allowances during storage maintenance.\n\nCloses #10569.\n\n---------\n\nCo-authored-by: Andrei Eres <eresav@me.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-23T19:27:56Z",
-          "tree_id": "77c3e606e443318a96559a06d35c6596a184b0af",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c90277ace6ffc77ea2931c61153cbd10e8ba6ece"
-        },
-        "date": 1771879658550,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.09199999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0657802400279999,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.037648271585999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03837403184599999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cccea0c9393792a97a7814b88ca73a7678c43fc7",
+          "message": "statement gossip: route the v2 propagation plan through the per-peer outbox (#13197)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13193.\n\nStacked on https://github.com/paritytech/polkadot-sdk/pull/13216.\n\nThe v2 DHT path sent orchestrator-chosen statements through its own\nchunked send function, bypassing the per-peer outbox the v1 path uses.\nThis PR feeds the orchestrator's targets into the same outbox and\ndeletes the direct path, so v2 gets one chunk in flight per peer, the\nshared byte budget and the bounded queue. The orchestrator's choice of\npeer is final: on the v2 path the drain applies no affinity filter of\nits own and drops only statements the peer sent to us, so a target that\nleaves the routing set while its hash waits in the outbox still receives\nthe statement. Two loss reasons count what the direct path never lost:\n`missing_from_store` for a statement that left the store or expired\nbefore its chunk went out, and `disconnected` for hashes still queued\nwhen the peer left.\n\n# Integration\n\nNode-side only. Nodes without the v2 DHT path gain the two\n`substrate_sync_statement_undelivered_total` reasons and see no other\nchange.",
+          "timestamp": "2026-09-24T16:06:45Z",
+          "tree_id": "08446709dcc897e1f58ecd56ef4667f53b0fc5c7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cccea0c9393792a97a7814b88ca73a7678c43fc7"
+        },
+        "date": 1790271895959,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.14999999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08300826000599995,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038331697799999995,
             "unit": "seconds"
           }
         ]
