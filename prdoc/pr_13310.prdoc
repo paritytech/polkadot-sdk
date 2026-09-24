@@ -1,0 +1,16 @@
+title: 'dispute-coordinator: apply spam slots per validator inside one import'
+
+doc:
+- audience: [Node Dev]
+  description: |-
+    `handle_import_statements` used to accept a whole `ImportStatements` batch when any new invalid voter still had a free spam slot. `CandidateVoteState::import_statements` had already merged every statement, so a capped validator's invalid vote was persisted and counted toward that candidate's dispute thresholds.
+
+    The check is now per validator. `add_unconfirmed` still increments only invalid voters who are under `MAX_SPAM_VOTES`. If every new invalid voter is capped, the import stays `InvalidImport` and nothing is written. If some still have capacity, only the capped validators' invalid votes are removed, dispute state is recomputed from the votes that remain, and the import returns `ValidImport`. Valid votes are not spam-limited. Included, backed, and confirmed candidates still skip this gate.
+
+- audience: [Node Operator]
+  description: |-
+    A validator that has used up its unconfirmed-dispute spam slots can no longer keep recording invalid votes by batching them with another validator that still has a free slot. Restarts onto this binary pick up the fix. No config or migration changes.
+
+crates:
+- name: polkadot-node-core-dispute-coordinator
+  bump: patch

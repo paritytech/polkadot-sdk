@@ -359,7 +359,7 @@ fn unbonding_works() {
 		Staking::unbond(RuntimeOrigin::signed(11), 500).unwrap();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![Event::Unbonded { stash: 11, amount: 500 }]
+			vec![Event::Unbonded { stash: 11, amount: 500, era: active_era() + 3 }]
 		);
 
 		// then
@@ -455,7 +455,7 @@ fn unbonding_multi_chunk() {
 		Staking::unbond(RuntimeOrigin::signed(11), 500).unwrap();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![Event::Unbonded { stash: 11, amount: 500 }]
+			vec![Event::Unbonded { stash: 11, amount: 500, era: active_era() + 3 }]
 		);
 
 		// then
@@ -475,7 +475,7 @@ fn unbonding_multi_chunk() {
 		Staking::unbond(RuntimeOrigin::signed(11), 250).unwrap();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![Event::Unbonded { stash: 11, amount: 250 }]
+			vec![Event::Unbonded { stash: 11, amount: 250, era: active_era() + 3 }]
 		);
 
 		// then
@@ -530,6 +530,34 @@ fn unbonding_multi_chunk() {
 }
 
 #[test]
+fn unbond_same_era_merges_chunk_but_emits_per_unbond_era() {
+	// Same-era unbonds merge into one chunk; each still emits its own event with that era.
+	ExtBuilder::default().build_and_execute(|| {
+		Staking::unbond(RuntimeOrigin::signed(11), 300).unwrap();
+		Staking::unbond(RuntimeOrigin::signed(11), 200).unwrap();
+
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::Unbonded { stash: 11, amount: 300, era: active_era() + 3 },
+				Event::Unbonded { stash: 11, amount: 200, era: active_era() + 3 },
+			]
+		);
+
+		// One merged chunk, same era as the events.
+		assert_eq!(
+			Staking::ledger(11.into()).unwrap(),
+			StakingLedgerInspect {
+				stash: 11,
+				total: 1000,
+				active: 500,
+				unlocking: bounded_vec![UnlockChunk { value: 500, era: active_era() + 3 }],
+			},
+		);
+	});
+}
+
+#[test]
 fn full_unbonding_works() {
 	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(asset::free_to_stake::<T>(&11), 0);
@@ -537,7 +565,10 @@ fn full_unbonding_works() {
 		assert_ok!(Staking::unbond(RuntimeOrigin::signed(11), 1000));
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![Event::Chilled { stash: 11 }, Event::Unbonded { stash: 11, amount: 1000 }]
+			vec![
+				Event::Chilled { stash: 11 },
+				Event::Unbonded { stash: 11, amount: 1000, era: active_era() + 3 }
+			]
 		);
 
 		// wait 3 eras
@@ -594,7 +625,10 @@ fn unbond_with_chill_works() {
 
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![Event::Chilled { stash: 11 }, Event::Unbonded { stash: 11, amount: 1000 }]
+			vec![
+				Event::Chilled { stash: 11 },
+				Event::Unbonded { stash: 11, amount: 1000, era: active_era() + 3 }
+			]
 		);
 
 		// Validator is removed from the set
@@ -1339,7 +1373,7 @@ mod rebond {
 			);
 			assert_eq!(
 				staking_events_since_last_call(),
-				vec![Event::Unbonded { stash: 11, amount: 900 }]
+				vec![Event::Unbonded { stash: 11, amount: 900, era: active_era() + 3 }]
 			);
 
 			// Re-bond less than the total

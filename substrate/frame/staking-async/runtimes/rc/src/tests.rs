@@ -219,6 +219,7 @@ fn location_conversion_works() {
 }
 
 #[test]
+<<<<<<< HEAD
 fn all_counted_has_a_sane_weight_upper_limit() {
 	let assets = AssetFilter::Wild(AllCounted(4294967295));
 	let weight = Weight::from_parts(1000, 1000);
@@ -227,4 +228,20 @@ fn all_counted_has_a_sane_weight_upper_limit() {
 		<MatchedAssetWeigher<RcAssetMatcher> as AssetWeigher>::weigh_asset_filter(&assets, weight,),
 		weight * 1
 	);
+=======
+fn treasury_location_delivery_fees_are_waived() {
+	use xcm_executor::traits::{FeeManager, FeeReason};
+
+	// GIVEN the location `PayOverXcm` charges treasury payout delivery fees from
+	let treasury = xcm_config::TreasuryLocation::get();
+
+	// WHEN the fee manager decides whether to charge it
+	let waived = <xcm_config::XcmConfig as xcm_executor::Config>::FeeManager::is_waived(
+		Some(&treasury),
+		FeeReason::ChargeFees,
+	);
+
+	// THEN it is waived, as no account backs that location
+	assert!(waived);
+>>>>>>> upstream/master
 }

@@ -22,7 +22,7 @@
 //! this module.
 
 use crate::{
-	configuration,
+	configuration, coretime,
 	disputes::DisputesHandler,
 	inclusion::{self, CandidateCheckContext},
 	initializer,
@@ -114,7 +114,11 @@ pub mod pallet {
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config:
-		inclusion::Config + scheduler::Config + initializer::Config + pallet_babe::Config
+		inclusion::Config
+		+ scheduler::Config
+		+ initializer::Config
+		+ coretime::Config
+		+ pallet_babe::Config
 	{
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -950,7 +954,7 @@ fn check_descriptor_version_and_signals<T: crate::inclusion::Config>(
 	let current_session_index = shared::CurrentSessionIndex::<T>::get();
 	let descriptor_version = candidate.descriptor().version();
 
-	if descriptor_version == CandidateDescriptorVersion::Unknown {
+	if matches!(descriptor_version, CandidateDescriptorVersion::Unknown(_)) {
 		log::debug!(
 			target: LOG_TARGET,
 			"Candidate with unknown descriptor version. Dropping candidate {:?} for paraid {:?}.",

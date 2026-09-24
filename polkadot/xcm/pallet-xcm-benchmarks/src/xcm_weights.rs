@@ -480,8 +480,12 @@ where
 		Config::set_hints(hints)
 	}
 
-	fn claim_asset(_assets: &Assets, _ticket: &Location) -> Weight {
-		<Config::GenericWeights as XcmGenericWeightInfo>::claim_asset()
+
+	fn claim_asset(assets: &Assets, _ticket: &Location) -> Weight {
+		<Config::AssetWeigher as AssetWeigher>::weigh_assets(
+			assets,
+			<Config::GenericWeights as XcmGenericWeightInfo>::claim_asset(),
+		)
 	}
 
 	fn trap(_code: &u64) -> Weight {

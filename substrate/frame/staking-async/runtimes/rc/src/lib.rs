@@ -39,8 +39,8 @@ use frame_support::{
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, ConstBool, ConstU32, Contains,
 		EitherOf, EitherOfDiverse, EnsureOriginWithArg, EverythingBut, FromContains,
-		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage,
-		ProcessMessageError, VariantCountOf, WithdrawReasons,
+		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing, PalletInfoAccess,
+		ProcessMessage, ProcessMessageError, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter, WeightToFee as _},
 	PalletId,
@@ -113,8 +113,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Percent, Permill,
 };
 use sp_staking::{offence::OffenceSeverity, SessionIndex};
-#[cfg(any(feature = "std", test))]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm::{
 	latest::prelude::*, VersionedAsset, VersionedAssetId, VersionedAssets, VersionedLocation,
@@ -229,12 +227,6 @@ pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
 		c: PRIMARY_PROBABILITY,
 		allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryVRFSlots,
 	};
-
-/// Native version.
-#[cfg(any(feature = "std", test))]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 /// A type to identify calls to the Identity pallet. These will be filtered to prevent invocation,
 /// locking the state of the pallet and preventing further updates to identities and sub-identities.
@@ -448,8 +440,6 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type DoneSlashHandler = ();
 }
 
@@ -1003,8 +993,9 @@ parameter_types! {
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const PayoutSpendPeriod: BlockNumber = 30 * DAYS;
 	// The asset's interior location for the paying account. This is the Treasury
-	// pallet instance (which sits at index 37).
-	pub TreasuryInteriorLocation: InteriorLocation = PalletInstance(37).into();
+	// pallet instance.
+	pub TreasuryInteriorLocation: InteriorLocation =
+		PalletInstance(<Treasury as PalletInfoAccess>::index() as u8).into();
 
 	pub const TipCountdown: BlockNumber = 1 * DAYS;
 	pub const TipFindersFee: Percent = Percent::from_percent(20);
@@ -2843,11 +2834,16 @@ sp_api::impl_runtime_apis! {
 					)
 				}
 
+				// `get_assets` stays at its default: the `AssetTransactor` only handles the
+				// native token, so a multi-asset worst case is not constructible here.
 				fn get_asset() -> Asset {
 					Asset {
 						id: AssetId(Location::here()),
 						fun: Fungible(ExistentialDeposit::get()),
 					}
+				}
+				fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
+					Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
 				}
 			}
 			impl frame_system_benchmarking::Config for Runtime {}

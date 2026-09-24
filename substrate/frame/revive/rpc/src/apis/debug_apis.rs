@@ -55,7 +55,7 @@ pub trait DebugRpc {
 	#[method(name = "debug_traceCall")]
 	async fn trace_call(
 		&self,
-		transaction: GenericTransaction,
+		transaction: GenericTransactionV1,
 		block: BlockId,
 		trace_call_config: Option<TraceCallConfig>,
 	) -> RpcResult<TraceV1>;
@@ -114,7 +114,7 @@ impl DebugRpcServer for DebugRpcServerImpl {
 
 	async fn trace_call(
 		&self,
-		transaction: GenericTransaction,
+		transaction: GenericTransactionV1,
 		block: BlockId,
 		trace_call_config: Option<TraceCallConfig>,
 	) -> RpcResult<TraceV1> {

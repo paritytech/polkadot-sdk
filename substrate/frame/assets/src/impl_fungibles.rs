@@ -81,6 +81,10 @@ impl<T: Config<I>, I: 'static> fungibles::Inspect<<T as SystemConfig>::AccountId
 	fn asset_exists(asset: Self::AssetId) -> bool {
 		Asset::<T, I>::contains_key(asset)
 	}
+
+	fn is_sufficient(asset: Self::AssetId) -> bool {
+		Asset::<T, I>::get(asset).map(|x| x.is_sufficient).unwrap_or(false)
+	}
 }
 
 impl<T: Config<I>, I: 'static> fungibles::Mutate<<T as SystemConfig>::AccountId> for Pallet<T, I> {
@@ -226,7 +230,8 @@ impl<T: Config<I>, I: 'static> fungibles::Create<T::AccountId> for Pallet<T, I> 
 		is_sufficient: bool,
 		min_balance: Self::Balance,
 	) -> DispatchResult {
-		Self::do_force_create(id, admin, is_sufficient, min_balance)
+		// Not gated on `ForceOrigin`, so the id must follow `AssetIdAllocator`.
+		Self::do_force_create(id, admin, is_sufficient, min_balance, true)
 	}
 }
 
