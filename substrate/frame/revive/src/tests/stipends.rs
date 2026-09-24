@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	Code, Config, EthTxInfo, TransactionLimits,
+	Code, Config, Error, EthTxInfo, TransactionLimits,
 	test_utils::{ALICE, WEIGHT_LIMIT, builder::Contract, deposit_limit},
 	tests::{ExtBuilder, GasScale, Test, builder},
 };
@@ -24,9 +24,10 @@ use alloy_core::{
 	primitives::U256,
 	sol_types::{SolCall, SolConstructor, SolValue},
 };
+use codec::Encode;
 use frame_support::traits::fungible::Mutate;
 use pallet_revive_fixtures::{
-	FixtureType, StipendSender, StipendTest, WarmWriteSender, WritingReceiver,
+	FixtureType, StipendSender, StipendTest, WarmWriteSender, WritingReceiver, compile_module,
 	compile_module_with_type,
 };
 use sp_runtime::Weight;
@@ -205,7 +206,7 @@ fn evm_call_stipend_denies_reentrancy_for_transfer_and_send_only(fixture_type: F
 		);
 
 		assert_eq!(
-			run(value, StipendSender::isCallWithGasDeniedCall { g: 1 }.abi_encode()),
+			run(value, StipendSender::isCallWithGasDeniedCall { gasLimit: 1 }.abi_encode()),
 			fixture_type == FixtureType::Resolc,
 			"the stipend alone lets the probe reenter on EVM, but is too small on PVM"
 		);
@@ -219,13 +220,36 @@ fn evm_call_stipend_denies_reentrancy_for_transfer_and_send_only(fixture_type: F
 		let default_gas_scale = GasScale::get();
 		GasScale::set(200_000);
 		let value_call =
-			run(value, StipendSender::isCallWithGasDeniedCall { g: 2300 }.abi_encode());
+			run(value, StipendSender::isCallWithGasDeniedCall { gasLimit: 2300 }.abi_encode());
 		let zero_value_send = run(0, StipendSender::isSendDeniedCall {}.abi_encode());
 		GasScale::set(default_gas_scale);
 		assert!(!value_call, "a value call should allow the probe to reenter");
 		assert!(
 			zero_value_send,
 			"a zero-value send also forwards 2300 gas, so only the guard can deny it"
+		);
+	});
+}
+
+#[test]
+fn reentrancy_override_does_not_weaken_strict() {
+	// The fixture calls `call_evm` with empty flags, so the caller asks for `Strict`.
+	let (code, _) = compile_module("call_with_gas").unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr)
+			.data((addr, 0u64).encode())
+			.evm_value(1_000_000.into())
+			.build()
+			.result;
+
+		assert_eq!(
+			result.map(|_| ()),
+			Err(Error::<Test>::ReentranceDenied.into()),
+			"`ReentrancyProtection::Strict` should always deny self calls"
 		);
 	});
 }

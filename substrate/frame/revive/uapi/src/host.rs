@@ -120,7 +120,13 @@ pub trait HostFn: private::Sealed {
 
 	/// Same as [HostFn::call] but receives the one-dimensional EVM gas argument.
 	///
-	/// Adds the EVM gas stipend for non-zero value calls.
+	/// Adds a call stipend when value is transferred, and when no value is transferred but the
+	/// gas is 2300. The stipend is enough weight to run 2300 gas worth of EVM opcodes and emit one
+	/// event.
+	///
+	/// A call shaped like Solidity's `transfer` or `send` (value with a gas of 0, or no value with
+	/// a gas of 2300) does not let the callee call back into the caller, even with
+	/// [`CallFlags::ALLOW_REENTRY`].
 	///
 	/// If gas is `u64::MAX`, the call will run with uncapped limits.
 	fn call_evm(

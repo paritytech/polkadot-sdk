@@ -708,14 +708,12 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					self.charge_gas(RuntimeCosts::CallTransferSurcharge { dust_transfer, warmth })?;
 				}
 
-				// An override takes precedence over the caller's flags.
-				let reentrancy = reentrancy_override.unwrap_or_else(|| {
-					if flags.contains(CallFlags::ALLOW_REENTRY) {
-						ReentrancyProtection::AllowReentry
-					} else {
-						ReentrancyProtection::Strict
-					}
-				});
+				// An override may tighten `AllowReentry`, but never weaken `Strict`.
+				let reentrancy = if flags.contains(CallFlags::ALLOW_REENTRY) {
+					reentrancy_override.unwrap_or(ReentrancyProtection::AllowReentry)
+				} else {
+					ReentrancyProtection::Strict
+				};
 
 				self.ext.call(resources, &callee, value, input_data, reentrancy, read_only)
 			},
