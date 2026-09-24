@@ -33,7 +33,7 @@ use crate::{
 	transient_storage::TransientStorage,
 };
 use alloc::{
-	collections::{BTreeMap, BTreeSet},
+	collections::{BTreeMap, BTreeSet, btree_map},
 	vec::Vec,
 };
 use core::{cmp, fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
@@ -258,6 +258,8 @@ struct TerminateArgs<T: Config> {
 	code_hash: H256,
 	/// Triggered by the EVM opcode.
 	only_if_same_tx: bool,
+	/// The storage deposit already refunded when the termination was scheduled.
+	refunded: BalanceOf<T>,
 }
 
 /// Environment functions only available to host functions.
@@ -1734,7 +1736,19 @@ where
 
 			// only on success inherit the created and to be destroyed contracts
 			prev.contracts_created.extend(frame.contracts_created);
-			prev.contracts_to_be_destroyed.extend(frame.contracts_to_be_destroyed);
+			for (account, args) in frame.contracts_to_be_destroyed {
+				match prev.contracts_to_be_destroyed.entry(account) {
+					// The contract was scheduled for termination before. Only the first
+					// termination refunded the deposit, so keep counting that refund.
+					btree_map::Entry::Occupied(mut entry) => {
+						let refunded = entry.get().refunded.saturating_add(args.refunded);
+						entry.insert(TerminateArgs { refunded, ..args });
+					},
+					btree_map::Entry::Vacant(entry) => {
+						entry.insert(args);
+					},
+				}
+			}
 
 			if let Some(contract) = contract {
 				// Persist the info and invalidate the first stale cache we find.
@@ -1882,15 +1896,11 @@ where
 		args: &TerminateArgs<T>,
 	) {
 		let contract_address = T::AddressMapper::to_address(contract_account);
+		let origin = Self::termination_origin(origin);
 
-		// If root created this contract we need to use the pallet account_id because root has no
-		// account.
-		let origin: Origin<T> = match origin {
-			Origin::Signed(o) => Origin::Signed(o.clone()),
-			Origin::Root => Origin::from_account_id(crate::Pallet::<T>::account_id()),
-		};
-
-		// A freeze can keep part of the storage deposit on hold. That part stays on the account.
+		// `System.terminate` refunded the deposit when it was called, as far as the freeze on
+		// the account allowed. This refunds what is still held. A freeze can keep part of it on
+		// hold. That part stays on the account.
 		let refund = Self::best_effort(&contract_address, "refund the storage deposit", || {
 			T::Deposit::refund_all(contract_account, exec_config.funds(origin.account_id()?))
 		})
@@ -1937,9 +1947,20 @@ where
 		ImmutableDataOf::<T>::remove(contract_address);
 
 		// the meter needs to discard all deposits interacting with the terminated contract
-		transaction_meter.terminate(contract_account.clone(), refund);
+		transaction_meter.terminate(contract_account.clone(), args.refunded.saturating_add(refund));
 
 		log::trace!(target: LOG_TARGET, "Terminated {contract_address:?}");
+	}
+
+	/// The origin that receives the refunds of a terminated contract.
+	///
+	/// If root created the contract we need to use the pallet account_id because root has no
+	/// account.
+	fn termination_origin(origin: &Origin<T>) -> Origin<T> {
+		match origin {
+			Origin::Signed(o) => Origin::Signed(o.clone()),
+			Origin::Root => Origin::from_account_id(crate::Pallet::<T>::account_id()),
+		}
 	}
 
 	/// Runs `f` in its own storage transaction.
@@ -2144,7 +2165,13 @@ where
 		let account_id = frame.account_id.clone();
 		self.top_frame_mut().contracts_to_be_destroyed.insert(
 			account_id,
-			TerminateArgs { beneficiary, trie_id, code_hash, only_if_same_tx: true },
+			TerminateArgs {
+				beneficiary,
+				trie_id,
+				code_hash,
+				only_if_same_tx: true,
+				refunded: Zero::zero(),
+			},
 		);
 		Ok(CodeRemoved::Yes)
 	}
@@ -2712,6 +2739,15 @@ where
 
 		let parent_account_id = parent.account_id.clone();
 
+		// Refund the storage deposit before the payout. The hold counts towards any freeze on
+		// the account, so after the payout it would be needed to cover the freeze. Released now,
+		// it is paid back as far as the freeze allows, and only the remainder stays on hold.
+		let origin = Self::termination_origin(&self.origin);
+		let refunded = T::Deposit::refund_all(
+			&parent_account_id,
+			self.exec_config.funds(origin.account_id()?),
+		)?;
+
 		// balance transfer is immediate
 		Self::transfer(
 			&self.origin,
@@ -2724,7 +2760,8 @@ where
 		)?;
 
 		// schedule for delayed deletion
-		let args = TerminateArgs { beneficiary, trie_id, code_hash, only_if_same_tx: false };
+		let args =
+			TerminateArgs { beneficiary, trie_id, code_hash, only_if_same_tx: false, refunded };
 		self.top_frame_mut().contracts_to_be_destroyed.insert(parent_account_id, args);
 
 		Ok(())
@@ -2805,7 +2842,7 @@ pub fn bench_do_terminate<T: Config>(
 		exec_config,
 		contract_account,
 		origin,
-		&TerminateArgs { beneficiary, trie_id, code_hash, only_if_same_tx },
+		&TerminateArgs { beneficiary, trie_id, code_hash, only_if_same_tx, refunded: Zero::zero() },
 	)
 }
 
