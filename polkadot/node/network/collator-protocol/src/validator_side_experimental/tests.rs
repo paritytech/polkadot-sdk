@@ -4061,6 +4061,16 @@ async fn v3_advertisement_rejected_when_sp_not_last_finished_slot() {
 
 	let active_leaf = get_hash(10);
 	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+
+	let slot_duration = sp_consensus_slots::SlotDuration::from_millis(
+		polkadot_primitives::RELAY_CHAIN_SLOT_DURATION_MILLIS,
+	);
+	let current_slot =
+		sp_consensus_slots::Slot::from_timestamp(sp_timestamp::Timestamp::current(), slot_duration);
+	test_state
+		.slot_overrides
+		.insert(get_hash(10), sp_consensus_slots::Slot::from(*current_slot - 1));
+
 	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
 	let mut sender = test_state.sender.clone();
 	let peer_id = PeerId::random();

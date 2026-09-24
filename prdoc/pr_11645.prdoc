@@ -1,0 +1,10 @@
+title: 'test(collator-protocol): stabilize V3 scheduling-parent slot validation test'
+doc:
+- audience: Node Dev
+  description: |-
+    Pins the active leaf header slot in `v3_advertisement_rejected_when_sp_not_last_finished_slot`
+    via `slot_overrides` so V3 scheduling-parent validation does not flake when wall-clock crosses
+    a relay slot boundary during the test.
+crates:
+- name: polkadot-collator-protocol
+  bump: none
