@@ -214,7 +214,7 @@ impl VerifySchedulingSignature for () {
 #[cfg(test)]
 mod tests {
 	use super::{SchedulingInfoPayload, SchedulingSignals, SignedSchedulingInfo};
-	use alloc::{vec, vec::Vec};
+	use alloc::vec;
 	use codec::Encode;
 	use polkadot_primitives::{
 		ApprovedPeerId, ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR,
