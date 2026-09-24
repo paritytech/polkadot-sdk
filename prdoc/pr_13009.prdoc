@@ -31,6 +31,14 @@ doc:
     Note that in order for the batch to reach the Relay Chain without additional
     latency, the new pallet has to be ordered before cumulus_pallet_parachain_system
     in runtimes using both.
+- audience: Runtime User
+  description: |-
+    Adds `pallet-on-demand` for the Coretime chain, which can be used to place orders
+	for on-demand coretime.
+
+    Important: In order for `pallet-on-demand` to be able to accept orders with spot
+	price below the Existential Deposit, the pallet's account needs to be pre-funded
+	with the Existential Deposit.
 crates:
 - name: pallet-on-demand
   bump: major
