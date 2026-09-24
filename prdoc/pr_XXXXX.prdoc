@@ -1,0 +1,9 @@
+title: 'asset-hub-westend: deny `AssetRewards::deposit_reward_tokens` to the `NonTransfer` proxy'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `NonTransfer` on Asset Hub Westend now denies `AssetRewards::deposit_reward_tokens`, which
+    transfers the caller's tokens into a reward pool. Staking, unstaking and harvesting stay allowed.
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch
