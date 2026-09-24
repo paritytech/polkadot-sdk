@@ -31,7 +31,7 @@ mod debug;
 mod deposit_payment;
 mod exec;
 mod impl_fungibles;
-pub mod limits;
+mod limits;
 mod metering;
 mod primitives;
 #[doc(hidden)]
@@ -111,7 +111,10 @@ pub use crate::{
 		CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin,
 		ReentrancyProtection,
 	},
-	limits::TRANSIENT_STORAGE_BYTES as TRANSIENT_STORAGE_LIMIT,
+	limits::{
+		TRANSIENT_STORAGE_BYTES as TRANSIENT_STORAGE_LIMIT,
+		code::{CodeRejection, check_pvm_code},
+	},
 	metering::{
 		EthTxInfo, FrameMeter, ResourceMeter, Token as WeightToken, TransactionLimits,
 		TransactionMeter,
