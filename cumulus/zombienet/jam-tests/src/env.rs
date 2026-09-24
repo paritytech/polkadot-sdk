@@ -48,7 +48,7 @@ pub struct Binaries {
 	/// `SUBSTRATE_RUNTIME_TARGET=riscv cargo build --release -p parachain-template-runtime`
 	///
 	/// TODO(T11): rename field and env var to `runtime_pvf`/`RUNTIME_PVF` once the README is
-	/// updated — the current name misleads, but the rename touches network.rs and the README.
+	/// updated — the current name misleads, but the rename touches the README.
 	pub runtime_wasm: PathBuf,
 }
 

@@ -46,9 +46,7 @@ use {
 
 #[cfg(feature = "jam")]
 use {
-	cumulus_jam_zombienet_tests::{
-		env::binaries_or_err, network::PARACHAIN_SERVICE_ID, rpc::JamRpc,
-	},
+	cumulus_jam_zombienet_tests::{env::binaries_or_err, para::PARACHAIN_SERVICE_ID, rpc::JamRpc},
 	cumulus_zombienet_sdk_helpers::{
 		find_event_and_decode_fields, jam::DigestItem, network::assert_para_throughput, ParaConfig,
 	},

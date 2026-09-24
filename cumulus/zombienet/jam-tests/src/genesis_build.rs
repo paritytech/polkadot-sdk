@@ -6,14 +6,14 @@
 
 use crate::{
 	chain_spec,
-	collators::Para,
 	env::{check_polkavm_format, Binaries},
 	genesis,
+	para::{Para, PARACHAIN_SERVICE_ID},
 };
 use anyhow::{anyhow, Context};
 use jam_types::ProtocolParameters;
 use parachain_chain_spec::{ParachainServiceSpec, ParachainSpec};
-use parachain_service_core::{authorizer::AuthorizerHash, types::ParaId, PARACHAIN_SERVICE_ID};
+use parachain_service_core::{authorizer::AuthorizerHash, types::ParaId};
 use serde_json::json;
 use std::{
 	collections::BTreeMap,
@@ -160,8 +160,8 @@ pub fn parameters_for_cores(cores: u16) -> anyhow::Result<serde_json::Value> {
 /// clears the environment before spawning, so every JAM node needs these explicitly. The last
 /// one turns on the PolkaVM executor everywhere, which both a JAM chain spec built from a
 /// PolkaVM runtime blob and the collators — whose `:code` is that same blob — need to
-/// construct the runtime at all. The collators get the same environment here, from `spawn` in
-/// `collators.rs`.
+/// construct the runtime at all. The collators get the same environment from the sdk crate's
+/// `tests/jam/mod.rs`.
 pub fn polkavm_env() -> Vec<(&'static str, &'static str)> {
 	vec![
 		("POLKAVM_BACKEND", "interpreter"),

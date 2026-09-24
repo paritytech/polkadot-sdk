@@ -5268,17 +5268,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "array-bytes 6.2.2",
- "chrono",
- "cumulus-primitives-core",
- "env_logger 0.11.3",
  "jam-std-common 0.1.29",
  "jam-types 0.1.29",
  "jsonrpsee 0.24.11",
  "jsonrpsee 0.26.0",
  "log",
  "parachain-authorizer",
- "parachain-authorizer-ed25519",
- "parachain-authorizer-sr25519",
  "parachain-chain-spec",
  "parachain-service-core",
  "parity-scale-codec",
@@ -5288,7 +5283,6 @@ dependencies = [
  "sp-runtime 31.0.1",
  "tempfile",
  "tokio",
- "zombienet-sdk",
 ]
 
 [[package]]
@@ -5955,6 +5949,7 @@ name = "cumulus-zombienet-sdk-tests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "cid",
  "cumulus-jam-zombienet-tests",
  "cumulus-primitives-core",
@@ -5964,6 +5959,7 @@ dependencies = [
  "frame-support",
  "futures",
  "hex",
+ "jsonrpsee 0.24.11",
  "log",
  "multihash",
  "parachain-service-core",

@@ -29,15 +29,14 @@
 //! read the proxy's own ledger, the collator's log and the accumulated head together, so they say
 //! which of those happened.
 
-use anyhow::{anyhow, Context};
-use codec::DecodeAll;
+use anyhow::anyhow;
 use cumulus_jam_zombienet_tests::{
-	harness::JAM_SLOT, network::PARACHAIN_SERVICE_ID, proxy::ProxyServer, rpc::JamRpc,
+	para::{JAM_SLOT, PARACHAIN_SERVICE_ID},
+	proxy::ProxyServer,
+	rpc::JamRpc,
 };
-use parachain_service_core::{para_info_key, types::ParaId, ParaInfo};
-use sp_runtime::{generic::Header, traits::BlakeTwo256};
 use std::time::Duration;
-use tokio::time::{sleep, Instant};
+use tokio::time::Instant;
 use zombienet_sdk::{LocalFileSystem, Network};
 
 const RESEND_MARKER: &str = "Resending the identical work package; it has not appeared on chain.";
@@ -55,8 +54,6 @@ const GIVE_UP_MARKER: &str = "Giving up on a work package.";
 const HEAD_TARGET: u64 = 5;
 /// Loose, but a collator that never resends has to time out here rather than pass.
 const HEAD_BUDGET: Duration = Duration::from_secs(10 * 60);
-/// Gap between accumulated-head polls; the head cannot advance more than once per JAM slot.
-const HEAD_POLL: Duration = Duration::from_secs(3);
 
 /// One collator behind a proxy that drops the first submission of every package; the head can
 /// only reach the target by resending.
@@ -129,7 +126,7 @@ async fn resend_then_advance(
 	// never submitted twice is a package the collator abandoned instead of resending.
 	let resend_grace = JAM_SLOT * 4;
 
-	wait_for_jam_head(jam_rpc, PARACHAIN_SERVICE_ID, 0, HEAD_TARGET, HEAD_BUDGET).await?;
+	super::wait_for_jam_head(jam_rpc, PARACHAIN_SERVICE_ID, 0, HEAD_TARGET, HEAD_BUDGET).await?;
 
 	let attempts = proxy.snapshot();
 	anyhow::ensure!(
@@ -222,50 +219,6 @@ async fn resend_then_advance(
 	}
 
 	Ok(())
-}
-
-/// Wait until JAM has accumulated a head of at least `target` for `para`.
-///
-/// This is the read the old `jam-tests` harness made (`JamNetwork::para_head`), rebuilt on the
-/// public [`JamRpc`]: `serviceValue` at the JAM best block, under the key the parachain service
-/// files a para's [`ParaInfo`] at, then the header in `head_data`. The collator's own best-block
-/// metric is not a faithful stand-in: it holds its slot while a package is overdue, so its height
-/// trails the accumulated head and would let the assertion below fail on a healthy run.
-async fn wait_for_jam_head(
-	rpc: &JamRpc,
-	service_id: u32,
-	para: u32,
-	target: u64,
-	budget: Duration,
-) -> anyhow::Result<()> {
-	let deadline = Instant::now() + budget;
-	let key = para_info_key(ParaId(para));
-	let mut last = None;
-	loop {
-		let at = rpc.best_block_hash().await.context("bestBlock")?;
-		if let Some(stored) = rpc.service_value(&at, service_id, &key).await? {
-			let info = ParaInfo::decode_all(&mut &stored[..]).with_context(|| {
-				format!("decoding {} bytes as the service's ParaInfo", stored.len())
-			})?;
-			let head = info.head_data.into_inner();
-			let header =
-				Header::<u32, BlakeTwo256>::decode_all(&mut &head[..]).with_context(|| {
-					format!("decoding {} bytes of head_data as a header", head.len())
-				})?;
-			let number = u64::from(header.number);
-			log::info!("JAM accumulated head for para {para}: #{number}");
-			if number >= target {
-				return Ok(());
-			}
-			last = Some(number);
-		}
-		anyhow::ensure!(
-			Instant::now() < deadline,
-			"JAM did not accumulate head #{target} for para {para} within {budget:?}; the last \
-			 accumulated head was {last:?}"
-		);
-		sleep(HEAD_POLL).await;
-	}
 }
 
 /// How many authored-block lines fall strictly between work package `hash`'s first resend line and

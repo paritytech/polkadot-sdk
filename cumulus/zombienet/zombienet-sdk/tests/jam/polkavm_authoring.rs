@@ -1,6 +1,8 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
+#![cfg(feature = "jam")]
+
 //! The task-3 gate: a real node executes the PolkaVM runtime blob and authors blocks.
 //!
 //! This is the dev-node half of the proof that the whole suite now runs the PolkaVM blob:
@@ -20,7 +22,7 @@
 //! `:code` the node boots from is the same PolkaVM blob every other test only validates with.
 
 use anyhow::Context;
-use cumulus_jam_zombienet_tests::network::polkavm_env;
+use cumulus_jam_zombienet_tests::genesis_build::polkavm_env;
 use jsonrpsee::{
 	core::client::ClientT,
 	rpc_params,

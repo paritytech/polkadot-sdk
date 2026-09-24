@@ -36,5 +36,5 @@ set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/../../.."
 
-exec cargo test -p cumulus-jam-zombienet-tests --features jam-ci --test tests \
+exec cargo test -p cumulus-zombienet-sdk-tests --features jam,zombie-ci --test tests \
 	-- --ignored --nocapture --test-threads 1 jam::demo

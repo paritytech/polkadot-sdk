@@ -1,7 +1,7 @@
 [package]
 name = "cumulus-jam-zombienet-tests"
 version = "0.1.0"
-description = "Zombienet-sdk tests for the Cumulus JAM collator."
+description = "Reusable JAM zombienet helpers for the Cumulus JAM collator."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,16 +10,13 @@ publish = false
 [dependencies]
 anyhow = { workspace = true }
 array-bytes = { workspace = true }
-chrono = { workspace = true }
 codec = { workspace = true, default-features = true }
-env_logger = { workspace = true }
 log = { workspace = true }
 serde_json = { workspace = true, default-features = true, features = ["raw_value"] }
 tokio = { workspace = true, features = ["macros", "process", "rt-multi-thread", "signal", "time"] }
 jsonrpsee = { workspace = true, features = ["ws-client"] }
 # The proxy speaks polkajam's jsonrpsee 0.26 surface; the harness keeps 0.24 for `JamRpc`.
 jsonrpsee-jam = { workspace = true, features = ["server", "ws-client"] }
-cumulus-primitives-core = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
@@ -30,8 +27,6 @@ tempfile = { workspace = true }
 # `cumulus` facade re-exported from.
 parachain-service-core = { path = "../../../../parachain-service/core", features = ["std"] }
 parachain-authorizer = { path = "../../../../parachain-service/authorizer", features = ["std"] }
-parachain-authorizer-ed25519 = { path = "../../../../parachain-service/authorizer-ed25519" }
-parachain-authorizer-sr25519 = { path = "../../../../parachain-service/authorizer-sr25519" }
 # The genesis `gen-spec` compiles is built by `parachain-chain-spec` (uncommitted sibling-repo
 # work), so the storage layout and authorizer hashes cannot drift from what the service decodes.
 parachain-chain-spec = { path = "../../../../parachain-service/chain-spec" }
@@ -42,7 +37,3 @@ jam-types = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-t
 	"serde",
 	"std",
 ] }
-zombienet-sdk = { workspace = true }
-
-[features]
-jam-ci = []

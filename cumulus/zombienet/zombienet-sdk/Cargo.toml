@@ -14,7 +14,7 @@ log = { workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }
 futures = { workspace = true }
 sp-rpc = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true, features = ["serde"] }
@@ -62,6 +62,10 @@ cumulus-jam-zombienet-tests = { path = "../jam-tests", optional = true }
 parachain-service-core = { path = "../../../../parachain-service/core", features = [
 	"std",
 ], optional = true }
+# `polkavm_authoring` speaks jsonrpsee directly to a dev node and stamps its work dir with
+# `chrono`; both are JAM-only, optional so the relay path never builds them.
+jsonrpsee = { workspace = true, features = ["ws-client"], optional = true }
+chrono = { workspace = true, optional = true }
 
 [features]
 zombie-ci = []
@@ -71,5 +75,7 @@ generate-snapshots = []
 jam = [
 	"dep:cumulus-jam-zombienet-tests",
 	"dep:parachain-service-core",
+	"dep:jsonrpsee",
+	"dep:chrono",
 	"cumulus-zombienet-sdk-helpers/jam",
 ]

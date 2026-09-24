@@ -8,9 +8,9 @@
 # build's RUSTFLAGS (`--cfg substrate_runtime --cfg jam` for the riscv blob), then runs the
 # selected suite against the blob it just built.
 #
-# The `elastic-scaling`, `block-bundling` and `resubmission` suites live in
+# The `jam`, `elastic-scaling`, `block-bundling` and `resubmission` suites live in
 # `cumulus-zombienet-sdk-tests` and need the `jam` feature on their own build: the feature selects
-# the JAM `zombienet-sdk` and the `cumulus-jam-zombienet-tests` harness library. It is scoped to
+# the JAM `zombienet-sdk` and the `cumulus-jam-zombienet-tests` helper library. It is scoped to
 # the one cargo invocation that needs it, so the blob build above stays as it was.
 #
 # Prerequisites (see README.md):
@@ -35,15 +35,16 @@
 #     cumulus/zombienet/jam-tests/run.sh [--suite <jam|elastic-scaling|block-bundling|resubmission>] \
 #     [test-filter]
 #
-#   --suite jam (the default) runs this crate's own suite. The optional test filter defaults to
-#   `jam::collator_progress`; pass any other filter (e.g. `jam::demo` or `jam::core_assignment`).
+#   --suite jam (the default) runs the JAM suite of `cumulus-zombienet-sdk-tests`
+#   (`tests/jam/mod.rs`). The optional test filter defaults to `jam::collator_progress`; pass any
+#   other filter (e.g. `jam::demo` or `jam::core_assignment`).
 #
 #   --suite elastic-scaling and --suite block-bundling run the matching suite of
 #   `cumulus-zombienet-sdk-tests` under `--cfg jam`; their filter is fixed and the positional
 #   test filter is not used.
 #
 #   --suite resubmission runs `jam::resubmission` of `cumulus-zombienet-sdk-tests` — the
-#   dropping-proxy resend test that used to live in this crate.
+#   dropping-proxy resend test.
 
 set -euo pipefail
 
@@ -86,15 +87,12 @@ cargo build --release -p parachain-template-runtime
 export RUNTIME_WASM="${RUNTIME_WASM:-$PWD/target/release/rbuild/parachain-template-runtime/parachain-template-runtime-blob.polkavm}"
 
 case "$suite" in
-jam)
-	exec cargo test -p cumulus-jam-zombienet-tests --features jam-ci --test tests \
-		-- --test-threads 1 --nocapture "${filter:-jam::collator_progress}"
-	;;
-elastic-scaling | block-bundling | resubmission)
+jam | elastic-scaling | block-bundling | resubmission)
 	case "$suite" in
 	elastic-scaling) test_filter=zombie_ci::elastic_scaling ;;
 	block-bundling) test_filter=zombie_ci::block_bundling ;;
 	resubmission) test_filter=jam::resubmission ;;
+	jam) test_filter="${filter:-jam::collator_progress}" ;;
 	esac
 	# The sdk test crate's JAM paths are selected by the `jam` feature, which type-checks them
 	# without a whole-workspace rebuild. The feature is scoped to the one cargo invocation that

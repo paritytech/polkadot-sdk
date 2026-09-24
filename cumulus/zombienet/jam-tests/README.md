@@ -95,12 +95,12 @@ parachain-template-runtime-blob.polkavm
 # Only for `jam::core_assignment`'s two dynamic-core tests:
 export PARASIM_TOOL_BIN=/path/to/parachain-service/target/release/parasim-tool
 
-cargo test -p cumulus-jam-zombienet-tests --features jam-ci --test tests \
+cargo test -p cumulus-zombienet-sdk-tests --features jam,zombie-ci --test tests \
 	-- --test-threads 1 --nocapture jam::collator_progress
 ```
 
 `run.sh` wraps that same command — it builds the PolkaVM blob with `--cfg jam` first — and it also
-runs the two `cumulus-zombienet-sdk-tests` suites:
+runs the `zombie_ci` relay suites:
 
 ```sh
 cumulus/zombienet/jam-tests/run.sh                       # the command above
@@ -111,10 +111,12 @@ cumulus/zombienet/jam-tests/run.sh --suite block-bundling
 
 ### The JAM test-crate path
 
-Thirteen `cumulus-zombienet-sdk-tests` tests — the five in `zombie_ci::elastic_scaling` and the
-eight in `zombie_ci::block_bundling` — are gated by the `jam` feature. When the feature is enabled,
-the crate depends on the JAM `zombienet-sdk` and on `cumulus-jam-zombienet-tests` (the harness
-library in `src/`). Without it the crate compiles the relay table and runs the relay tests instead.
+The JAM tests live in `cumulus-zombienet-sdk-tests` (`tests/jam/mod.rs`); this crate is the pure
+helper library they build on. Thirteen further `cumulus-zombienet-sdk-tests` tests — the five in
+`zombie_ci::elastic_scaling` and the eight in `zombie_ci::block_bundling` — are likewise gated by
+the `jam` feature. When the feature is enabled, the crate depends on the JAM `zombienet-sdk` and on
+`cumulus-jam-zombienet-tests` (the helper library in `src/`). Without it the crate compiles the
+relay table and runs the relay tests instead.
 
 `run.sh --suite …` scopes the feature to the one cargo invocation that needs it. The same runs
 without the script:
@@ -286,18 +288,19 @@ state to recover from.
 | file | what it does |
 | --- | --- |
 | `src/env.rs` | resolves the binaries, or explains what is missing |
-| `src/network.rs` | builds the genesis override — the real parachain service, the authorizers, the cores, and the validation code — and spawns the JAM network from it |
+| `src/genesis_build.rs` | builds the genesis override — the real parachain service, the authorizers, the cores, and the validation code — as the JSON object `gen-spec` reads |
 | `src/genesis.rs` | derives a para's authorizer hash, the way the collator derives it |
 | `src/chain_spec.rs` | builds and patches one para's chain spec |
-| `src/collators.rs` | starts, supervises and tears down one para's collator processes |
+| `src/para.rs` | the `Para` description a run carries: id, core, collators, runtime and full nodes |
+| `src/para_head.rs` | reads the parachain head JAM accumulated, off the JAM node's RPC |
+| `src/control.rs` | the `parasim-tool` control lane: assign or park a core mid-run |
 | `src/rpc.rs` | the JAM node and collator RPC clients |
-| `src/harness.rs` | one run: network, collators, the authorizer-agreement check, assertions |
 | `src/proxy.rs` | the dropping JSON-RPC proxy: swallows the first `submitWorkPackage` of every distinct package and forwards the rest byte-exact; also used by `cumulus-zombienet-sdk-tests`'s `tests/jam/resubmission.rs` |
-| `tests/jam/collator_progress.rs` | the 1, 2, 3 and 6 collator tests |
-| `tests/jam/core_assignment.rs` | two paras at once, and cores taken away or moved mid-run |
-| `tests/jam/demo.rs` | the same run with no assertion and no end |
-| `tests/jam/polkavm_authoring.rs` | dev-node authoring gate: a real node executes the PolkaVM runtime blob and authors blocks |
-| `demo.sh` | shell entry point for that demo |
+| `demo.sh` | shell entry point for the demo |
+
+The JAM integration tests are no longer in this crate. They live in `cumulus-zombienet-sdk-tests`
+at `tests/jam/mod.rs`, which spawns the JAM network through zombienet-sdk 0.5.0 and composes the
+helpers above.
 
 ## Three things worth knowing about the collators
 
@@ -316,9 +319,8 @@ already claims slots with — `--alice` puts that in the keystore in memory — 
 collator set from `AuraApi::authorities()` at startup, which is the same set the harness wrote
 into `session.keys` above. So the only thing that has to be kept in step is the set `genesis.rs`
 hashes: it builds the collator-set trie the authorizer hash commits to, and a different set, a
-different order or a different curve is a hash no collator will ever match. `Run::start` checks
-that the two agree against what every collator logs at startup, so a mismatch fails in the first
-minute rather than as a head that never moves.
+different order or a different curve is a hash no collator will ever match — a mismatch shows up
+only as a head that never moves.
 
 **The runtime does not return that set in the order genesis names it.** Collator-selection keeps
 its invulnerables sorted by account id and pallet-session builds the aura authorities from that,
@@ -395,11 +397,11 @@ The demo ran two collators to best 42 / finalized 39 and stopped cleanly on Ctrl
 
 Nothing. The chain spec `polkajam gen-spec` generates for a run already holds:
 
-* **the real parachain service as service 1337** (`network::PARACHAIN_SERVICE_ID`), created from the
+* **the real parachain service as service 1337** (`para::PARACHAIN_SERVICE_ID`), created from the
   copied-aside `parachain-service.jam` with a balance of 10^15, and **hosting the AURA authorizer
   blob's preimage**. That is where a guarantor resolves the authorizer code from, because a
   collator's work package names the parachain service as its `auth_code_host`.
-* **each para's core queued for that para's authorizer hash**, derived by `tests/jam/genesis.rs`
+* **each para's core queued for that para's authorizer hash**, derived by `src/genesis.rs`
   exactly as the collator derives it — the blob's code hash, and a config naming the para id, the
   service, the collator-set root, the set size and the slot duration.
 * **each of those cores' assigner privilege held by the parachain service**, which is what lets a
@@ -408,7 +410,8 @@ Nothing. The chain spec `polkajam gen-spec` generates for a run already holds:
   hosted as a preimage so the service can resolve it at refine time.
 
 All of that reaches `gen-spec` as one JSON object. zombienet-sdk knows nothing about these keys:
-`JamNetwork::spawn` hands it the object through `with_genesis_overrides`, and it is merged as is
+the sdk crate's `tests/jam/mod.rs` hands it the object through `with_genesis_overrides`, and it is
+merged as is
 into the `jam_config.json` zombienet generates, next to the `id` and `genesis_validators` it
 writes itself. For a single para on core 0 the object is:
 
@@ -429,9 +432,10 @@ writes itself. For a single para on core 0 the object is:
 `services` is an object keyed by service id, which is what `jam-chainspec` declares
 (`BTreeMap<ServiceId, GenesisService>`) — not an array of `{ "id": ..., ... }` objects.
 
-`network::genesis_overrides` is the one place the harness spells that schema, and its unit test
-pins the keys; the schema's owner is polkajam's `jam-chainspec` crate. A balance above 2^53 is
-written as a decimal string, because `gen-spec` refuses a JSON number it cannot read back exactly.
+`genesis_build::built_genesis_overrides` is the one place the harness spells that schema, and its
+unit test pins the keys; the schema's owner is polkajam's `jam-chainspec` crate. A balance above
+2^53 is written as a decimal string, because `gen-spec` refuses a JSON number it cannot read back
+exactly.
 
 So a run goes straight from "the network finalized a block" to starting collators, after two
 checks that the genesis is really the one described. First, before anything is asked of the
@@ -442,8 +446,6 @@ without a word, so this fails at once and says to point `JAM_GENSPEC_BIN` at a b
 Second, once the ordinary node answers, `listServices` has to include 1337: the service is genesis
 state, so a chain without it means the nodes started from some other spec than the one just
 checked; the error names `zombienet/jam_spec.json` and the `jam_config.json` beside it.
-`Run::start` then waits for every collator's startup line and fails unless the authorizer it
-derived is the one genesis queued.
 
 A tiny network has exactly two cores: polkajam ties `core_count` to the validator count (six
 validators, three per core) and the next step up is 78 validators. So two paras is the most this
@@ -457,7 +459,7 @@ Nothing the collators do needs that any more, but `parasim-tool` builds its own 
 with `auth_code_host: 0`, so a guarantor asked to authorize an `assign-core` or `free-core`
 command looks the code up in service 0. Genesis cannot be asked to host a preimage in service 0 —
 the config has no way to add one to the bootstrap service — so the two dynamic-core tests call
-`JamNetwork::host_authorizer_for_control_packages` before their first core change, and nothing
+`control::host_authorizer_for_control_packages` before their first core change, and nothing
 else does. It is idempotent ("already available; nothing to do") and it rides an unassigned core,
 which is why the reassignment test has to run it *before* it assigns core 1.
 
@@ -465,14 +467,15 @@ That call disappears the day `parasim-tool` names `--service` in `auth_code_host
 
 ## Taking cores away and moving them, mid-run
 
-`tests/jam/core_assignment.rs` changes the core layout while the paras are running, which the
-progress tests never do. Two things about it are worth knowing before adding a test there.
+The core-assignment test in `cumulus-zombienet-sdk-tests` (`tests/jam/core_assignment.rs`) changes
+the core layout while the paras are running, which the progress tests never do. Two things about
+it are worth knowing before adding a test there.
 
 **A test asserts on the accumulated head, not on the collator's height.** A collator authors
 whether or not anything works, so its own height proves nothing about JAM. What proves it is the
 head parasim has stored for the para, read the way the collator reads it: `serviceValue` at the
 best block, under the key the parachain service files a para's `ParaInfo` at, whose `head_data` is
-the para's header. The harness exposes it as `JamNetwork::para_head` and every phase wait is
+the para's header. The harness exposes it as `para_head::read_para_head` and every phase wait is
 written against it. The two readings together are the assertion: a frozen head with a climbing
 local best is a stall, and both climbing is a healthy para.
 
@@ -544,13 +547,6 @@ property: the core keeps the authorizer code and so keeps taking the control pac
 para back on it. Before parking, this test had to escape to the spare core, and a single-para
 network that lost its only core could not be recovered at all.
 
-### What upstream support should replace
-
-* `network.rs`'s hand-rolled six-validator topology, once `with_tiny_jamchain()` accepts per-node
-  environment variables. It is hand-rolled only because the JAM nodes need
-  `POLKAVM_BACKEND=interpreter` and `POLKAVM_ALLOW_INSECURE=1` in sandboxes without userfaultfd,
-  and the native provider clears the environment before spawning.
-* The pinned JAM RPC port, once JAM nodes appear in the `Network` handle and their URL can be read
-  back with `get_node("jam-or")`.
-* All of `collators.rs`, once the SDK can express a parachain whose relay chain is a JAM network:
-  the collators would become ordinary zombienet nodes with the usual metric-based assertions.
+The hand-rolled six-validator topology and the manually supervised collator processes this crate
+used to carry are gone: the JAM tests spawn their network through zombienet-sdk 0.5.0's native JAM
+support and this crate keeps only the pure helpers they compose.

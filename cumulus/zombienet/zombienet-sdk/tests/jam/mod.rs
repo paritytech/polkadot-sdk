@@ -18,15 +18,18 @@
 #![cfg(feature = "jam")]
 
 use anyhow::Context;
-pub use cumulus_jam_zombienet_tests::collators::Para;
+use codec::DecodeAll;
+pub use cumulus_jam_zombienet_tests::para::Para;
 use cumulus_jam_zombienet_tests::{
 	env::binaries_or_err,
 	genesis_build::{build_jam_genesis, polkavm_env, JamGenesis},
-	harness::TINY_CORES,
-	network::PARACHAIN_SERVICE_ID,
+	para::{PARACHAIN_SERVICE_ID, TINY_CORES},
+	para_head::read_para_head,
 	rpc::JamRpc,
 };
+use parachain_service_core::{para_info_key, types::ParaId, ParaInfo};
 use sp_crypto_hashing::blake2_256;
+use sp_runtime::{generic::Header, traits::BlakeTwo256};
 use std::{
 	path::{Path, PathBuf},
 	sync::atomic::{AtomicU64, Ordering},
@@ -241,6 +244,96 @@ pub async fn provide_validation_code(
 	}
 }
 
+/// Gap between accumulated-head polls; the head cannot advance more than once per JAM slot.
+const HEAD_POLL: Duration = Duration::from_secs(3);
+
+/// Wait until JAM has accumulated a head of at least `target` for `para`.
+///
+/// This is the read the old `jam-tests` harness made (`JamNetwork::para_head`), rebuilt on the
+/// public [`JamRpc`]: `serviceValue` at the JAM best block, under the key the parachain service
+/// files a para's [`ParaInfo`] at, then the header in `head_data`. The collator's own best-block
+/// metric is not a faithful stand-in: it holds its slot while a package is overdue, so its height
+/// trails the accumulated head and would let the assertion below fail on a healthy run.
+pub async fn wait_for_jam_head(
+	rpc: &JamRpc,
+	service_id: u32,
+	para: u32,
+	target: u64,
+	budget: Duration,
+) -> anyhow::Result<()> {
+	let deadline = Instant::now() + budget;
+	let key = para_info_key(ParaId(para));
+	let mut last = None;
+	loop {
+		let at = rpc.best_block_hash().await.context("bestBlock")?;
+		if let Some(stored) = rpc.service_value(&at, service_id, &key).await? {
+			let info = ParaInfo::decode_all(&mut &stored[..]).with_context(|| {
+				format!("decoding {} bytes as the service's ParaInfo", stored.len())
+			})?;
+			let head = info.head_data.into_inner();
+			let header =
+				Header::<u32, BlakeTwo256>::decode_all(&mut &head[..]).with_context(|| {
+					format!("decoding {} bytes of head_data as a header", head.len())
+				})?;
+			let number = u64::from(header.number);
+			log::info!("JAM accumulated head for para {para}: #{number}");
+			if number >= target {
+				return Ok(());
+			}
+			last = Some(number);
+		}
+		anyhow::ensure!(
+			Instant::now() < deadline,
+			"JAM did not accumulate head #{target} for para {para} within {budget:?}; the last \
+			 accumulated head was {last:?}"
+		);
+		sleep(HEAD_POLL).await;
+	}
+}
+
+/// Wait until JAM's accumulated head for `para` has not increased for `still_for`.
+///
+/// Standing still is what a stall looks like from the chain: nothing announces that packages
+/// stopped being reported, the head simply stops moving. The core tests use this to confirm a
+/// parked core really stopped carrying the para's work; it mirrors the old harness's
+/// `Run::wait_for_frozen_jam_head`, reading the accumulated head through [`read_para_head`].
+///
+/// The head is a number, so "not increased" and "unchanged" coincide, and no head at all
+/// (`None`) is unchanged for as long as it stays absent — the caller decides whether that
+/// counts as a stall.
+pub async fn wait_for_frozen_jam_head(
+	rpc: &JamRpc,
+	service_id: u32,
+	para: u32,
+	still_for: Duration,
+	budget: Duration,
+) -> anyhow::Result<()> {
+	let deadline = Instant::now() + budget;
+	// The last head and the instant it was first seen. Reset the instant whenever the head
+	// changes, so the elapsed time measured is only ever time spent on the current head.
+	let mut frozen: Option<(Option<u64>, Instant)> = None;
+	loop {
+		let head = read_para_head(rpc, service_id, para).await?.map(|head| head.number);
+		match &frozen {
+			Some((last, since)) if *last == head && since.elapsed() >= still_for => {
+				log::info!(
+					"JAM's accumulated head for para {para} has stood still at {head:?} for \
+					 {still_for:?}"
+				);
+				return Ok(());
+			},
+			Some((last, _)) if *last == head => {},
+			_ => frozen = Some((head, Instant::now())),
+		}
+		anyhow::ensure!(
+			Instant::now() < deadline,
+			"JAM's accumulated head for para {para} did not stand still for {still_for:?} within \
+			 {budget:?}; the last accumulated head was {head:?}"
+		);
+		sleep(HEAD_POLL).await;
+	}
+}
+
 impl JamSetup {
 	/// A fresh network builder with the JAM chain this setup describes already configured.
 	pub fn jamchain(&self) -> NetworkConfigBuilder<Buildable> {
@@ -405,4 +498,8 @@ fn path_str(path: &Path) -> anyhow::Result<String> {
 		.with_context(|| format!("{} is not utf-8", path.display()))
 }
 
+mod collator_progress;
+mod core_assignment;
+mod demo;
+mod polkavm_authoring;
 mod resubmission;
