@@ -1256,17 +1256,6 @@ where
 		self.v2dht.retention_resolver()
 	}
 
-	/// Whether the node is major-syncing. On the v2 DHT path a positive answer also keeps the
-	/// local filter pending, even without a dropped batch: a peer never retries a propagation
-	/// chunk that failed to reach us, so the filter is re-advertised after every observed sync.
-	fn observe_major_sync(&mut self) -> bool {
-		let syncing = self.sync.is_major_syncing();
-		if syncing && v2dht_enabled() {
-			self.v2dht.on_major_sync();
-		}
-		syncing
-	}
-
 	/// Turns the [`StatementHandler`] into a future that should run forever and not be
 	/// interrupted.
 	pub async fn run(mut self) {
@@ -1322,8 +1311,8 @@ where
 						// Advertise this node's filter changes before serving peers their backlog.
 						let topics = self.statement_store.subscription_topics();
 						self.v2dht.set_rpc_subscription_topics(&topics);
-						if !self.observe_major_sync() {
-							if let Some(filter) = self.v2dht.take_filter_to_advertise() {
+						if self.v2dht.major_sync_settled() {
+							if let Some(filter) = self.v2dht.take_local_filter_if_changed() {
 								self.broadcast_local_filter(filter).await;
 							}
 						}
@@ -1347,7 +1336,11 @@ where
 				},
 			}
 
-			if !self.observe_major_sync() {
+			if self.sync.is_major_syncing() {
+				if v2dht_enabled() {
+					self.v2dht.on_major_sync();
+				}
+			} else {
 				self.drain_deferred_peers();
 				self.start_sync_recovery();
 			}
@@ -1406,6 +1399,11 @@ where
 			.filter(|(_, peer)| peer.protocol_version != PeerProtocolVersion::V1)
 			.map(|(peer_id, _)| *peer_id)
 			.collect();
+		log::debug!(
+			target: LOG_TARGET,
+			"Advertising the local affinity filter to {} peers",
+			peers.len(),
+		);
 		for peer in peers {
 			self.send_notification(&peer, encoded.clone()).await;
 		}
@@ -1480,38 +1478,29 @@ where
 	/// performs a fresh initial sync, delivering any statements that were dropped while the
 	/// `is_major_syncing` guard was active.
 	///
-	/// With the v2 DHT path on, only a v1 peer's drop leads here, and the set keeps non-reserved
-	/// slots open, so leaving the reserved set would keep the peer connected: the substream is
-	/// closed directly and the reserved set redials the peer.
+	/// With the v2 DHT path on, only a v1 peer's drop leads here, so only a v1 peer is picked. Its
+	/// set keeps non-reserved slots open, so leaving the reserved set alone keeps the peer
+	/// connected; the substream is closed explicitly afterwards, as litep2p ignores a disconnect
+	/// of a reserved peer.
 	fn start_sync_recovery(&mut self) {
 		if !self.dropped_statements_during_sync {
 			return;
 		}
 		self.dropped_statements_during_sync = false;
 
-		if v2dht_enabled() {
-			let Some(&peer_id) = self
-				.peers
-				.iter()
-				.filter(|(_, peer)| peer.protocol_version == PeerProtocolVersion::V1)
-				.map(|(peer_id, _)| peer_id)
-				.choose(&mut rand::thread_rng())
-			else {
-				return;
-			};
-			log::trace!(
-				target: LOG_TARGET,
-				"Major sync complete, reconnecting v1 peer {peer_id} for statement recovery",
-			);
-			self.network.disconnect_peer(peer_id, self.protocol_name.clone());
-			return;
-		}
-
 		if self.sync_recovery_peer.is_some() {
 			return;
 		}
 
-		let Some(&peer_id) = self.peers.keys().choose(&mut rand::thread_rng()) else {
+		let Some(&peer_id) = self
+			.peers
+			.iter()
+			.filter(|(_, peer)| {
+				!v2dht_enabled() || peer.protocol_version == PeerProtocolVersion::V1
+			})
+			.map(|(peer_id, _)| peer_id)
+			.choose(&mut rand::thread_rng())
+		else {
 			return;
 		};
 
@@ -1526,6 +1515,9 @@ where
 		) {
 			log::warn!(target: LOG_TARGET, "Failed to remove peer {peer_id} for sync recovery: {err}");
 			return;
+		}
+		if v2dht_enabled() {
+			self.network.disconnect_peer(peer_id, self.protocol_name.clone());
 		}
 
 		self.sync_recovery_peer = Some(peer_id);
@@ -1564,7 +1556,7 @@ where
 				if v2dht_enabled() {
 					self.v2dht.on_peer_connected(remote);
 				}
-				if self.observe_major_sync() {
+				if self.sync.is_major_syncing() {
 					log::trace!(
 						target: LOG_TARGET,
 						"Major sync in progress, deferring connection to {remote}",
@@ -1734,7 +1726,7 @@ where
 				});
 
 				// Accept statements only when node is not major syncing
-				if self.observe_major_sync() &&
+				if self.sync.is_major_syncing() &&
 					!self.allowed_during_major_sync(&peer, notification.as_ref())
 				{
 					log::trace!(
@@ -2448,7 +2440,7 @@ where
 	/// Call when we must propagate ready statements to peers.
 	async fn propagate_statements(&mut self) {
 		// Send out statements only when node is not major syncing
-		if self.observe_major_sync() {
+		if self.sync.is_major_syncing() {
 			return;
 		}
 
@@ -2644,7 +2636,7 @@ where
 
 	/// Process one batch of initial sync for the next peer in the queue (round-robin).
 	fn process_initial_sync_burst(&mut self) {
-		if self.observe_major_sync() {
+		if self.sync.is_major_syncing() {
 			return;
 		}
 

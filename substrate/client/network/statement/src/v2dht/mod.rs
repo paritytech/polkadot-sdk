@@ -151,10 +151,8 @@ pub(crate) struct V2DhtOrchestrator {
 	retention: Option<RetentionHandle>,
 	/// Prometheus metrics.
 	metrics: Option<V2DhtMetrics>,
-	/// When a sync guard last saw the node major-syncing, cleared once the settle period passed.
+	/// When the node was last seen major-syncing.
 	major_sync_seen_at: Option<Instant>,
-	/// Quiet time after the last observed major sync before the local filter is re-advertised.
-	pub(crate) settle_period: Duration,
 }
 
 impl V2DhtOrchestrator {
@@ -178,7 +176,6 @@ impl V2DhtOrchestrator {
 			retention: None,
 			metrics,
 			major_sync_seen_at: None,
-			settle_period: MAJOR_SYNC_SETTLE_PERIOD,
 		}
 	}
 
@@ -388,17 +385,10 @@ impl V2DhtOrchestrator {
 		self.explicit_affinity.mark_local_filter_stale();
 	}
 
-	/// The local filter to advertise, withheld until the node has stayed out of major sync for
-	/// `settle_period`, so a sync that flaps around its threshold asks peers for one replay.
-	pub(crate) fn take_filter_to_advertise(&mut self) -> Option<AffinityFilter> {
-		if self
-			.major_sync_seen_at
-			.is_some_and(|seen_at| seen_at.elapsed() < self.settle_period)
-		{
-			return None;
-		}
-		self.major_sync_seen_at = None;
-		self.take_local_filter_if_changed()
+	/// Whether the node has stayed out of major sync for `MAJOR_SYNC_SETTLE_PERIOD`.
+	pub(crate) fn major_sync_settled(&self) -> bool {
+		self.major_sync_seen_at
+			.is_none_or(|seen_at| seen_at.elapsed() >= MAJOR_SYNC_SETTLE_PERIOD)
 	}
 }
 #[cfg(test)]
