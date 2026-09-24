@@ -213,3 +213,20 @@ fn location_conversion_works() {
 		assert_eq!(got, expected, "{}", tc.description);
 	}
 }
+
+#[test]
+fn treasury_location_delivery_fees_are_waived() {
+	use xcm_executor::traits::{FeeManager, FeeReason};
+
+	// GIVEN the location `PayOverXcm` charges treasury payout delivery fees from
+	let treasury = xcm_config::TreasuryLocation::get();
+
+	// WHEN the fee manager decides whether to charge it
+	let waived = <xcm_config::XcmConfig as xcm_executor::Config>::FeeManager::is_waived(
+		Some(&treasury),
+		FeeReason::ChargeFees,
+	);
+
+	// THEN it is waived, as no account backs that location
+	assert!(waived);
+}

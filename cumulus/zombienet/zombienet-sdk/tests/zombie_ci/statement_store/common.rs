@@ -19,6 +19,7 @@ use std::{
 	path::{Path, PathBuf},
 	time::Duration,
 };
+use zombienet_configuration::shared::node::{Initial, NodeConfigBuilder};
 use zombienet_sdk::{
 	subxt::{
 		backend::rpc::RpcClient,
@@ -327,8 +328,26 @@ async fn launch_network(
 	collator_args: Vec<zombienet_sdk::Arg>,
 	collator_env: &[(&str, &str)],
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
+	let collators: Vec<(&str, Option<&str>)> = collators.iter().map(|&name| (name, None)).collect();
+	launch_network_with_commands(&collators, chain_spec_path, collator_args, collator_env).await
+}
+
+/// [`launch_network`] with an optional per-collator command in place of `polkadot-parachain`
+pub(super) async fn launch_network_with_commands(
+	collators: &[(&str, Option<&str>)],
+	chain_spec_path: &Path,
+	collator_args: Vec<zombienet_sdk::Arg>,
+	collator_env: &[(&str, &str)],
+) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let base_dir = base_dir()?;
+	let collator = |n: NodeConfigBuilder<Initial>, &(name, command): &(&str, Option<&str>)| {
+		let n = n.with_name(name).with_env(collator_env.to_vec());
+		match command {
+			Some(command) => n.with_command(command),
+			None => n,
+		}
+	};
 
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
@@ -346,11 +365,9 @@ async fn launch_network(
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(collator_args)
-				.with_collator(|n| n.with_name(collators[0]).with_env(collator_env.to_vec()));
+				.with_collator(|n| collator(n, &collators[0]));
 
-			collators[1..].iter().fold(p, |acc, &name| {
-				acc.with_collator(|n| n.with_name(name).with_env(collator_env.to_vec()))
-			})
+			collators[1..].iter().fold(p, |acc, c| acc.with_collator(|n| collator(n, c)))
 		})
 		.with_global_settings(|global_settings| {
 			global_settings

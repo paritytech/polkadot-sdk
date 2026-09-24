@@ -34,6 +34,7 @@ use sc_network::{types::ProtocolName, NetworkPeers};
 use sc_network_types::PeerId;
 use sp_statement_store::{Hash, Statement, SubmitResult, Topic};
 use std::{
+	cell::RefCell,
 	collections::{HashMap, HashSet},
 	num::NonZeroUsize,
 	sync::{Arc, RwLock},
@@ -300,18 +301,33 @@ impl V2DhtOrchestrator {
 		self.peers_topology.routing_targets(topic).contains(&peer)
 	}
 
+	/// Whether `peer` is a DHT routing target for a statement.
+	///
+	/// Checking a topic scans the connected peers, so the answer is cached per topic for the
+	/// predicate's lifetime.
+	pub(crate) fn dht_target_predicate(&self, peer: PeerId) -> impl Fn(&Statement) -> bool + '_ {
+		let topics = RefCell::new(HashMap::new());
+		move |stmt: &Statement| {
+			stmt.topics().iter().any(|topic| {
+				*topics
+					.borrow_mut()
+					.entry(*topic)
+					.or_insert_with(|| self.peer_is_dht_target_for_topic(peer, *topic))
+			})
+		}
+	}
+
 	// === Post-submit hook ===
 
 	/// Score peer on the outcome of importing a statement it sent: a valid statement rewards it, an
-	/// invalid one punishes it, and our-side outcomes (`KnownExpired`, `Rejected`, `InternalError`)
-	/// leave it untouched.
+	/// invalid one punishes it, a resend of a removed and banned statement (`KnownExpired`) costs
+	/// it a little, and our-side outcomes (`Rejected`, `InternalError`) leave it untouched.
 	pub(crate) fn on_statement_imported(&mut self, peer: PeerId, result: &SubmitResult) {
 		let change = match result {
 			SubmitResult::New | SubmitResult::Known => score::GOOD_ACTION,
 			SubmitResult::Invalid(_) => score::BAD_ACTION,
-			SubmitResult::KnownExpired |
-			SubmitResult::Rejected(_) |
-			SubmitResult::InternalError(_) => return,
+			SubmitResult::KnownExpired => score::WASTEFUL_ACTION,
+			SubmitResult::Rejected(_) | SubmitResult::InternalError(_) => return,
 		};
 		self.peer_steering.update_score(peer, change);
 	}
@@ -773,13 +789,26 @@ mod tests {
 	}
 
 	#[test]
+	fn resent_banned_statement_costs_the_sender_a_little() {
+		let mut orchestrator = orchestrator_with(1, topology_config(20, 3));
+		let peer = peer(2);
+		orchestrator.on_substream_opened(peer);
+
+		// A forwarded transient statement comes back after the store swept and banned it.
+		orchestrator.on_statement_imported(peer, &SubmitResult::KnownExpired);
+
+		let peer_score = orchestrator.peer_steering.score_of(&peer);
+		assert_eq!(peer_score, Some(score::WASTEFUL_ACTION));
+		assert!(peer_score.is_some_and(|value| score::BAD_ACTION < value && value < 0));
+	}
+
+	#[test]
 	fn our_side_outcomes_leave_the_score_unchanged() {
 		let mut orchestrator = orchestrator_with(1, topology_config(20, 3));
 		let peer = peer(2);
 		orchestrator.on_substream_opened(peer);
 
-		// Store-full and expiry are our conditions, not the peer's fault, so no score moves.
-		orchestrator.on_statement_imported(peer, &SubmitResult::KnownExpired);
+		// A full store is our condition, not the peer's fault, so no score moves.
 		orchestrator
 			.on_statement_imported(peer, &SubmitResult::Rejected(RejectionReason::StoreFull));
 
