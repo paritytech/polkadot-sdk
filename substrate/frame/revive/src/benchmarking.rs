@@ -5503,35 +5503,40 @@ mod benchmarks {
 		assert_eq!(interpreter.bytecode.pc(), load_count + 1);
 	}
 
-	/// Benchmark `r` `MSTORE` instructions at distinct offsets across preallocated memory.
+	/// Benchmark `r` `MSTORE` instructions.
 	///
-	/// Each stored word crosses a 64-byte cache line. Adjust offsets for the allocation address and
-	/// keep the destinations two cache lines apart so that their cache lines do not overlap.
+	/// Every word is stored across a 4 KiB page boundary. It starts 28 bytes before the boundary,
+	/// so the last of the four 8-byte stores that write it crosses into the next page, which costs
+	/// more than a store within a page. Memory only has room for one such word per page, so the
+	/// stores cycle through these words in a pseudo-random order. Memory is grown to its maximum
+	/// size before the benchmark runs, so no `MSTORE` expands it.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mstore_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
 		use rand::{SeedableRng, seq::SliceRandom};
 		use rand_pcg::Pcg64;
 
 		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
-		const CACHE_LINE_SIZE: usize = 64;
+		const PAGE_SIZE: usize = 4096;
 		const WORD_SIZE: usize = 32;
-		const OFFSET_IN_LINE: usize = 48;
+		// The last 8-byte store of a word starting here crosses into the next page.
+		const OFFSET_IN_PAGE: usize = PAGE_SIZE - 28;
 
 		let code = Bytecode::new_raw(vec![MSTORE; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
 		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
-		let memory = interpreter.memory.slice(0..MEMORY_SIZE);
-		let misalignment = memory.as_ptr() as usize % CACHE_LINE_SIZE;
-		let first_offset = (OFFSET_IN_LINE + CACHE_LINE_SIZE - misalignment) % CACHE_LINE_SIZE;
-		assert_eq!((memory.as_ptr() as usize + first_offset) % CACHE_LINE_SIZE, OFFSET_IN_LINE);
-		let mut offsets = (first_offset..=MEMORY_SIZE - WORD_SIZE)
-			.step_by(2 * CACHE_LINE_SIZE)
+
+		// The allocator only aligns to 8 bytes, so memory can start anywhere within a page. Words
+		// are placed relative to real page boundaries, not to the start of memory.
+		let address = interpreter.memory.slice(0..MEMORY_SIZE).as_ptr() as usize;
+		let first_page_start = address.next_multiple_of(PAGE_SIZE) - address;
+		let mut words = (first_page_start + OFFSET_IN_PAGE..=MEMORY_SIZE - WORD_SIZE)
+			.step_by(PAGE_SIZE)
 			.collect::<Vec<_>>();
-		offsets.shuffle(&mut Pcg64::seed_from_u64(1337));
-		let store_offsets = &offsets[..r as usize];
-		for operand in store_offsets.iter().flat_map(|offset| [U256::MAX, U256::from(*offset)]) {
+		words.shuffle(&mut Pcg64::seed_from_u64(1337));
+		let stores = words.iter().copied().cycle().take(r as usize).collect::<Vec<_>>();
+		for operand in stores.iter().flat_map(|&offset| [U256::MAX, U256::from(offset)]) {
 			interpreter.stack.push(operand).continue_value().unwrap();
 		}
 
@@ -5546,14 +5551,10 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 0);
 		assert_eq!(interpreter.memory.size(), MEMORY_SIZE);
 		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
-		for offset in store_offsets.iter().copied() {
+		for offset in stores {
 			assert_eq!(interpreter.memory.slice_len(offset, WORD_SIZE), &[0xff; WORD_SIZE]);
-			if let Some(previous) = offset.checked_sub(1) {
-				assert_eq!(interpreter.memory.slice_len(previous, 1), &[0]);
-			}
-			if offset + WORD_SIZE < MEMORY_SIZE {
-				assert_eq!(interpreter.memory.slice_len(offset + WORD_SIZE, 1), &[0]);
-			}
+			assert_eq!(interpreter.memory.slice_len(offset - 1, 1), &[0]);
+			assert_eq!(interpreter.memory.slice_len(offset + WORD_SIZE, 1), &[0]);
 		}
 	}
 
