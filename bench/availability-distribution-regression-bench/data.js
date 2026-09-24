@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790253896123,
+  "lastUpdate": 1790271779740,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "30d11a70e09186ac0917e11a2e9cc743c3a4bb34",
-          "message": "make subscription return statement event  instead of bytes (#11139)\n\n## Problem\n\nIn the current implementation of the subscription, applications have no\nway to tell if there is anything in the store for their subscription,\nbecause we are not sending any information when zero statements match\nthe filter, so they have the problem of not knowing if the subscription\nwill produce any items or if it is just slow.\n\nAnother worthy optimisation is that, when we connect we can send more\nthan one statement in one notification rather than send them one by one,\nwhich creates more churn and is slower.\n\n## Proposal.\n\nModify the API, so instead of returning a stream of bytes that represent\nscale encoded statements, to return\n```\npub enum StatementEvent {\n\t/// A batch of statements matching the subscription filter. Each entry is a SCALE-encoded\n\t/// statement.\n\tNewStatements(Vec<Bytes>),\n}\n```\n\nWhen subscription is initiated if there are no matching statements in\nthe store we send an empty array..\n\nThis changes slightly the json-rpc schema of the message:\n\n## Before this change:\n- Receiving a statement\n```\n{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"statement_statement\",\n  \"params\": {\n    \"subscription\": 2759293729543571,\n    \"result\": \"0x1000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000201000000ffffffff040000000000000000000000000000000000000000000000000000000000000000050101010101010101010101010101010101010101010101010101010101010101\"\n  }\n}\n```\n\n## After this change:\n- When there are no matching statements in the store you first receive\nan empty array and as new matching statements arrive in the node they\nget forwarded to the client.\n```\n{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"statement_statement\",\n    \"params\": {\n        \"subscription\": 4851578855668545,\n        \"result\": {\n            \"event\": \"newStatements\",\n            \"data\": {\n                \"statements\": [],\n                \"remaining\": 0\n            }\n        }\n    }\n}\n```\n\n- If there are matching statements in the store you receive them in\nbatches of newStatements events, with remaining telling you how many\nstatements you have remaining, this guarantees you that the subscription\nwill receive at least this amount of statements.\n```\n{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"statement_statement\",\n    \"params\": {\n        \"subscription\": 1710164133533157,\n        \"result\": {\n            \"event\": \"newStatements\",\n            \"data\": {\n                \"statements\": [\n                    \"0x1000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000201000000ffffffff040000000000000000000000000000000000000000000000000000000000000000050202020202020202020202020202020202020202020202020202020202020202\",\n                    \"0x1000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000201000000ffffffff040000000000000000000000000000000000000000000000000000000000000000050101010101010101010101010101010101010101010101010101010101010101\"\n                ],\n                \"remaining\": 10\n            }\n        }\n    }\n}\n```\n\n- If new statements arrive in the store they get delivered as they are\nwithout any `remaining` information.\n```\n{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"statement_statement\",\n    \"params\": {\n        \"subscription\": 2661920166788434,\n        \"result\": {\n            \"event\": \"newStatements\",\n            \"data\": {\n                \"statements\": [                 \"0x1000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000201000000ffffffff040000000000000000000000000000000000000000000000000000000000000000050101010101010101010101010101010101010101010101010101010101010101\"\n                ]\n            }\n        }\n    }\n}\n```\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
-          "timestamp": "2026-02-24T12:19:17Z",
-          "tree_id": "063b08a2ad2606c50cfd5860bc47d390d0ad93bf",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/30d11a70e09186ac0917e11a2e9cc743c3a4bb34"
-        },
-        "date": 1771940165546,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024025671726666652,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006471549893333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009654385046666632,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1427985359066667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14388224991999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cccea0c9393792a97a7814b88ca73a7678c43fc7",
+          "message": "statement gossip: route the v2 propagation plan through the per-peer outbox (#13197)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13193.\n\nStacked on https://github.com/paritytech/polkadot-sdk/pull/13216.\n\nThe v2 DHT path sent orchestrator-chosen statements through its own\nchunked send function, bypassing the per-peer outbox the v1 path uses.\nThis PR feeds the orchestrator's targets into the same outbox and\ndeletes the direct path, so v2 gets one chunk in flight per peer, the\nshared byte budget and the bounded queue. The orchestrator's choice of\npeer is final: on the v2 path the drain applies no affinity filter of\nits own and drops only statements the peer sent to us, so a target that\nleaves the routing set while its hash waits in the outbox still receives\nthe statement. Two loss reasons count what the direct path never lost:\n`missing_from_store` for a statement that left the store or expired\nbefore its chunk went out, and `disconnected` for hashes still queued\nwhen the peer left.\n\n# Integration\n\nNode-side only. Nodes without the v2 DHT path gain the two\n`substrate_sync_statement_undelivered_total` reasons and see no other\nchange.",
+          "timestamp": "2026-09-24T16:06:45Z",
+          "tree_id": "08446709dcc897e1f58ecd56ef4667f53b0fc5c7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cccea0c9393792a97a7814b88ca73a7678c43fc7"
+        },
+        "date": 1790271749365,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025145425573333328,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007526699366666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14410102580000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010068838659999982,
             "unit": "seconds"
           }
         ]
