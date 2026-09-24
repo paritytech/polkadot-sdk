@@ -73,7 +73,7 @@ pub fn dup<'ext, const N: usize, E: Ext>(
 pub fn swap<'ext, const N: usize, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 ) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SWAP)?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::SWAP { depth: N })?;
 	assert!(N != 0);
 	interpreter.stack.exchange(0, N)
 }

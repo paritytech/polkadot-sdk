@@ -136,6 +136,16 @@ fn evm_push_code<const N: u8>(r: u32) -> Bytecode {
 	Bytecode::new_raw(code.into())
 }
 
+/// Bytecode of `r` `SWAP` instructions that each exchange the top of the stack with the item `N`
+/// places below it.
+fn evm_swap_code<const N: u8>(r: u32) -> Bytecode {
+	let opcode = const {
+		assert!(matches!(N, 1..=16), "SWAP instructions reach 1 to 16 items below the top");
+		SWAP1 + N - 1
+	};
+	Bytecode::new_raw(vec![opcode; r as usize].into())
+}
+
 /// Code and stack contents for benchmarking one of the EVM jump opcodes.
 ///
 /// The code is always the maximum init code size, independent of how many jumps execute. It's just
@@ -4024,14 +4034,340 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.len(), 16 + r as usize);
 	}
 
-	/// Benchmark `r` `SWAP16` instructions.
-	///
-	/// This is used for `SWAP1`..`SWAP16` since all of them exchange the top item with one at a
-	/// fixed offset below it, so `N` doesn't change the amount of work. The seventeen items are
-	/// placed on the stack before the code executes.
+	/// Benchmark `r` `SWAP1` instructions.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_swap_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
-		let code = Bytecode::new_raw(vec![SWAP16; r as usize].into());
+	fn evm_swap1_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_swap_code::<1>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..17 {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 17);
+	}
+
+	/// Benchmark `r` `SWAP2` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap2_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_swap_code::<2>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..17 {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 17);
+	}
+
+	/// Benchmark `r` `SWAP3` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap3_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_swap_code::<3>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..17 {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 17);
+	}
+
+	/// Benchmark `r` `SWAP4` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap4_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_swap_code::<4>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..17 {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 17);
+	}
+
+	/// Benchmark `r` `SWAP5` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap5_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_swap_code::<5>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..17 {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 17);
+	}
+
+	/// Benchmark `r` `SWAP6` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap6_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_swap_code::<6>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..17 {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 17);
+	}
+
+	/// Benchmark `r` `SWAP7` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap7_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_swap_code::<7>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..17 {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 17);
+	}
+
+	/// Benchmark `r` `SWAP8` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap8_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_swap_code::<8>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..17 {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 17);
+	}
+
+	/// Benchmark `r` `SWAP9` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap9_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_swap_code::<9>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..17 {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 17);
+	}
+
+	/// Benchmark `r` `SWAP10` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap10_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_swap_code::<10>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..17 {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 17);
+	}
+
+	/// Benchmark `r` `SWAP11` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap11_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_swap_code::<11>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..17 {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 17);
+	}
+
+	/// Benchmark `r` `SWAP12` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap12_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_swap_code::<12>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..17 {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 17);
+	}
+
+	/// Benchmark `r` `SWAP13` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap13_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_swap_code::<13>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..17 {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 17);
+	}
+
+	/// Benchmark `r` `SWAP14` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap14_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_swap_code::<14>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..17 {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 17);
+	}
+
+	/// Benchmark `r` `SWAP15` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap15_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_swap_code::<15>(r);
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
+		let (mut ext, _) = setup.ext();
+		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
+		for _ in 0..17 {
+			interpreter.stack.push(U256::MAX).continue_value().unwrap();
+		}
+
+		let result;
+		#[block]
+		{
+			result = evm::run_plain(&mut interpreter);
+		}
+
+		let ControlFlow::Break(halt) = result;
+		assert!(matches!(halt, Halt::Stop));
+		assert_eq!(interpreter.stack.len(), 17);
+	}
+
+	/// Benchmark `r` `SWAP16` instructions.
+	#[benchmark(pov_mode = Measured)]
+	fn evm_swap16_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		let code = evm_swap_code::<16>(r);
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
