@@ -1536,6 +1536,11 @@ impl ParentHeadData {
 /// is present in or can be added in (right now or in the future).
 pub type HypotheticalMembership = Vec<Hash>;
 
+/// Output heads held by prospective parachains, keyed by scheduling parent and para: the
+/// output heads of every candidate in that scheduling parent's fragment chain plus the para's
+/// latest included head.
+pub type KnownOutputHeads = HashMap<Hash, HashMap<ParaId, HashSet<Hash>>>;
+
 /// A collection of ancestor candidates of a parachain.
 pub type Ancestors = HashSet<CandidateHash>;
 
@@ -1597,4 +1602,10 @@ pub enum ProspectiveParachainsMessage {
 		ProspectiveValidationDataRequest,
 		oneshot::Sender<Option<PersistedValidationData>>,
 	),
+	/// Known output heads per scheduling parent in view. The keys are every active leaf plus the
+	/// retained ancestors within scheduling lookahead. For each key and requested para: the output
+	/// heads of all candidates held in that scheduling parent's fragment chain plus the para's
+	/// latest included head. A scheduling parent with nothing to report for any requested para
+	/// may be absent.
+	GetKnownOutputHeads(Vec<ParaId>, oneshot::Sender<KnownOutputHeads>),
 }
