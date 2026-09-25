@@ -29,14 +29,12 @@
 
 use super::common::{
 	assert_statements_match, base_dir, collator_args_v2, create_chain_spec_with_allowances,
-	format_build_errors, submit_statement, subscribe_topic, subscribe_topic_filter,
-	wait_for_first_block,
+	launch_network_with_commands, submit_at_rate, submit_statement, subscribe_topic,
+	subscribe_topic_filter, wait_for_first_block, Load,
 };
 use anyhow::anyhow;
 use codec::Encode;
 use log::info;
-use sc_statement_store::test_utils::{create_test_statement, get_keypair};
-use sp_core::sr25519;
 use sp_crypto_hashing::blake2_256;
 use sp_statement_store::{StatementEvent, SubmitResult, Topic, TopicFilter};
 use std::{
@@ -47,7 +45,7 @@ use std::{
 use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
 	subxt::{backend::rpc::RpcClient, ext::subxt_rpcs::rpc_params},
-	LocalFileSystem, Network, NetworkConfigBuilder, NetworkNode,
+	LocalFileSystem, Network, NetworkNode,
 };
 
 const SOAK_SECS_ENV: &str = "STATEMENT_V2_SOAK_SECS";
@@ -65,9 +63,7 @@ const PARTICIPANTS: u32 = 2_000;
 const LOG_FILTER: &str = "info,statement-store=info,statement-gossip=debug";
 const RING_RATE_PER_SECOND: usize = 20;
 const RING_SECS: u64 = 45;
-const SUBMIT_TICK: Duration = Duration::from_millis(100);
 const PROBES_PER_WAVE: usize = 8;
-const PAYLOAD_SIZE: usize = 128;
 const DELIVERY_TIMEOUT_SECS: u64 = 120;
 const PLACEMENT_TIMEOUT_SECS: u64 = 90;
 const CONNECTED_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_connected_peers";
@@ -84,13 +80,6 @@ where
 		.transpose()
 }
 
-struct StatementPeer {
-	/// `blake2_256` of the peer id bytes.
-	key: [u8; 32],
-	/// Decoded peer id bytes, the tie-break of the distance ordering.
-	id: Vec<u8>,
-}
-
 fn xor_distance(a: [u8; 32], b: [u8; 32]) -> [u8; 32] {
 	let mut distance = [0u8; 32];
 	for ((distance, a), b) in distance.iter_mut().zip(a).zip(b) {
@@ -99,12 +88,11 @@ fn xor_distance(a: [u8; 32], b: [u8; 32]) -> [u8; 32] {
 	distance
 }
 
-fn ranked_by_distance(peers: &[StatementPeer], topic: Topic) -> Vec<usize> {
-	let mut order: Vec<usize> = (0..peers.len()).collect();
-	order.sort_by(|&a, &b| {
-		(xor_distance(*topic, peers[a].key), &peers[a].id)
-			.cmp(&(xor_distance(*topic, peers[b].key), &peers[b].id))
-	});
+/// Node indices by the XOR distance of their peer key to `topic`, closest first. Equal distances
+/// would mean equal keys, so the order needs no tie-break.
+fn ranked_by_distance(peer_keys: &[[u8; 32]], topic: Topic) -> Vec<usize> {
+	let mut order: Vec<usize> = (0..peer_keys.len()).collect();
+	order.sort_by_cached_key(|&idx| xor_distance(*topic, peer_keys[idx]));
 	order
 }
 
@@ -114,27 +102,6 @@ fn soak_topic(kind: &[u8], wave: u64, idx: u64) -> Topic {
 	preimage.extend_from_slice(&wave.to_le_bytes());
 	preimage.extend_from_slice(&idx.to_le_bytes());
 	blake2_256(&preimage).into()
-}
-
-struct Load {
-	keypairs: Vec<sr25519::Pair>,
-	seq: u32,
-}
-
-impl Load {
-	fn new() -> Self {
-		let keypairs = (0..PARTICIPANTS).map(get_keypair).collect();
-		Self { keypairs, seq: 0 }
-	}
-
-	fn next_statement(&mut self, wave: u64, topic: Topic) -> sp_statement_store::Statement {
-		let keypair = &self.keypairs[self.seq as usize % self.keypairs.len()];
-		self.seq += 1;
-		let mut payload = vec![0u8; PAYLOAD_SIZE];
-		payload[..8].copy_from_slice(&wave.to_le_bytes());
-		payload[8..12].copy_from_slice(&self.seq.to_le_bytes());
-		create_test_statement(keypair, &[topic], None, payload, u32::MAX, self.seq)
-	}
 }
 
 /// A statement node and its open RPC connection.
@@ -167,70 +134,39 @@ fn salt_chain_spec(path: &Path) -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-/// Spawns 2 relay validators plus the statement nodes: the 4 authoring collators and one full
-/// node per `full_node_names` entry, every one with the statement store on the v2 DHT path.
+/// Spawns the statement nodes on the v2 DHT path: the 4 authoring collators and one full node per
+/// `full_node_names` entry
 async fn launch_soak_network(
 	full_node_names: &[String],
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
-	let images = zombienet_sdk::environment::get_images_from_env();
-	let base_dir = base_dir()?;
-	let chain_spec_path = create_chain_spec_with_allowances(PARTICIPANTS, &base_dir)?;
+	let chain_spec_path = create_chain_spec_with_allowances(PARTICIPANTS, &base_dir()?)?;
 	salt_chain_spec(&chain_spec_path)?;
 	let args = collator_args_v2(PARTICIPANTS, LOG_FILTER, REPLICATION_FACTOR as u32, GOSSIP_TARGET);
-	let env = [("STATEMENT_STORE_V2_DHT_ENABLED", "1")];
-
-	let config = NetworkConfigBuilder::new()
-		.with_relaychain(|r| {
-			r.with_chain("westend-local")
-				.with_default_command("polkadot")
-				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec!["-lparachain=debug".into()])
-				.with_validator(|node| node.with_name("validator-0"))
-				.with_validator(|node| node.with_name("validator-1"))
-		})
-		.with_parachain(|p| {
-			let mut p = p
-				.with_id(1004)
-				.with_chain_spec_path(chain_spec_path.to_str().expect("Valid UTF-8 path"))
-				.with_default_command("polkadot-parachain")
-				.with_default_image(images.cumulus.as_str())
-				.with_default_args(args.clone())
-				.with_collator(|n| n.with_name(AUTHORING_COLLATORS[0]).with_env(env.to_vec()));
-			for name in &AUTHORING_COLLATORS[1..] {
-				p = p.with_collator(|n| n.with_name(*name).with_env(env.to_vec()));
-			}
-			for name in full_node_names {
-				let name = name.as_str();
-				p = p.with_fullnode(|n| {
-					n.with_name(name).with_args(args.clone()).with_env(env.to_vec())
-				});
-			}
-			p
-		})
-		.with_global_settings(|global_settings| {
-			global_settings
-				.with_base_dir(base_dir.to_str().expect("Valid UTF-8 path"))
-				.with_tear_down_on_failure(false)
-		})
-		.build()
-		.map_err(format_build_errors)?;
-
-	crate::utils::initialize_network(config).await
+	let collators: Vec<(&str, Option<&str>)> =
+		AUTHORING_COLLATORS.iter().map(|&name| (name, None)).collect();
+	let full_nodes: Vec<&str> = full_node_names.iter().map(String::as_str).collect();
+	launch_network_with_commands(
+		&collators,
+		&full_nodes,
+		&chain_spec_path,
+		args,
+		&[("STATEMENT_STORE_V2_DHT_ENABLED", "1")],
+	)
+	.await
 }
 
-/// Reads each node's peer id and maps it into the XOR topic space.
-async fn collect_statement_peers(
-	nodes: &[NodeHandle<'_>],
-) -> Result<Vec<StatementPeer>, anyhow::Error> {
-	let mut peers = Vec::with_capacity(nodes.len());
+/// Reads each node's peer id and maps it into the XOR topic space: `blake2_256` of the peer id
+/// bytes, the key the node ranks replicas by.
+async fn collect_peer_keys(nodes: &[NodeHandle<'_>]) -> Result<Vec<[u8; 32]>, anyhow::Error> {
+	let mut keys = Vec::with_capacity(nodes.len());
 	for handle in nodes {
 		let peer_id: String = handle.rpc.request("system_localPeerId", rpc_params![]).await?;
 		let id = bs58::decode(&peer_id)
 			.into_vec()
 			.map_err(|e| anyhow!("{}: cannot decode peer id {peer_id}: {e}", handle.name()))?;
-		peers.push(StatementPeer { key: blake2_256(&id), id });
+		keys.push(blake2_256(&id));
 	}
-	Ok(peers)
+	Ok(keys)
 }
 
 /// Reads a node's persistent store from a fresh subscription's replay.
@@ -261,7 +197,7 @@ struct WaveReport {
 async fn run_wave(
 	wave: u64,
 	nodes: &[NodeHandle<'_>],
-	peers: &[StatementPeer],
+	peer_keys: &[[u8; 32]],
 	load: &mut Load,
 ) -> Result<WaveReport, anyhow::Error> {
 	let ring_topic = soak_topic(b"soak-ring", wave, 0);
@@ -274,7 +210,7 @@ async fn run_wave(
 	let mut probes = Vec::with_capacity(PROBES_PER_WAVE);
 	for idx in 0..PROBES_PER_WAVE {
 		let topic = soak_topic(b"soak-probe", wave, idx as u64);
-		let order = ranked_by_distance(peers, topic);
+		let order = ranked_by_distance(peer_keys, topic);
 		let farthest = *order.last().expect("nodes are never empty");
 		let statement = load.next_statement(wave, topic);
 		let handle = &nodes[farthest];
@@ -285,26 +221,10 @@ async fn run_wave(
 
 	// Ring load: 900 statements on the wave topic at 20/s, round-robin over every node so both
 	// entry paths are exercised: a replica persists, a non-replica forwards and holds transiently.
-	let total = RING_RATE_PER_SECOND * RING_SECS as usize;
-	let per_tick = RING_RATE_PER_SECOND * SUBMIT_TICK.as_millis() as usize / 1000;
-	let mut expected = Vec::with_capacity(total);
-	let mut ticker = tokio::time::interval(SUBMIT_TICK);
+	let targets: Vec<_> = nodes.iter().map(|handle| (handle.name(), &handle.rpc)).collect();
 	let started = Instant::now();
-	while expected.len() < total {
-		ticker.tick().await;
-		for _ in 0..per_tick.min(total - expected.len()) {
-			let statement = load.next_statement(wave, ring_topic);
-			let handle = &nodes[expected.len() % nodes.len()];
-			let result = submit_statement(&handle.rpc, &statement).await?;
-			assert_eq!(
-				result,
-				SubmitResult::New,
-				"wave {wave}: ring statement rejected on {}",
-				handle.name()
-			);
-			expected.push(statement.encode());
-		}
-	}
+	let expected =
+		submit_at_rate(load, wave, ring_topic, RING_RATE_PER_SECOND, RING_SECS, &targets).await?;
 	let submit_time = started.elapsed();
 
 	// Delivery: the subscriber receives every ring statement of the wave.
@@ -322,7 +242,7 @@ async fn run_wave(
 	// ring samples (first, middle, last — the spread catches a replica that stops persisting
 	// mid-wave) on the ring holders: the ring topic's replicas and the subscriber, whose
 	// subscription grants explicit affinity.
-	let ring_order = ranked_by_distance(peers, ring_topic);
+	let ring_order = ranked_by_distance(peer_keys, ring_topic);
 	let mut ring_holders: Vec<usize> = ring_order[..REPLICATION_FACTOR].to_vec();
 	if !ring_holders.contains(&subscriber_idx) {
 		ring_holders.push(subscriber_idx);
@@ -426,14 +346,14 @@ async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
 			.await?;
 	}
 
-	let peers = collect_statement_peers(&nodes).await?;
+	let peer_keys = collect_peer_keys(&nodes).await?;
 
-	let mut load = Load::new();
+	let mut load = Load::new(PARTICIPANTS);
 	let soak_started = Instant::now();
 	let mut wave: u64 = 0;
 	let mut total_statements = 0usize;
 	loop {
-		let report = run_wave(wave, &nodes, &peers, &mut load).await?;
+		let report = run_wave(wave, &nodes, &peer_keys, &mut load).await?;
 		total_statements += report.ring_statements + PROBES_PER_WAVE;
 		info!(
 			"Wave {wave}: {} ring statements submitted in {:.1}s, delivered in {:.1}s, \
