@@ -14,7 +14,7 @@ module authorizer_queue_test {
     range(0, AuthorizerQueueLength).foldl(List(), (l, _) => l.append(h))
 
   /// A queue that fills the 80 slots exactly, whole or tiled, fires once and
-  /// leaves nothing cached. Both are due here, so both apply inline (§4.3).
+  /// leaves nothing cached. Both are due here, so both apply inline (§5.1).
   run tilingQueueForwardsImmediatelyTest = {
     val core = 5
     val baseAcc: AccumulateOutcome = {
@@ -70,11 +70,11 @@ module authorizer_queue_test {
     }
   }
 
-  /// Accumulate ignores a malformed `assign_core` queue: no JAM call, nothing
-  /// cached, any entry already stored left alone. Refine rejects all three
-  /// shapes first (§4.3), so this only pins the defensive branch: an empty
-  /// queue, an over-long one, and a handoff carrying fewer than 80 hashes.
-  run malformedAssignQueueIsNoOpTest = {
+  /// Accumulate ignores a malformed `assign_core`: no JAM call, nothing cached,
+  /// any entry already stored left alone. Refine rejects all four shapes first
+  /// (§3.3), so this only pins the defensive branch: an empty queue, an
+  /// over-long one, a handoff carrying fewer than 80 hashes, and an unknown core.
+  run malformedAssignCoreIsNoOpTest = {
     val core = 5
     val storedHash: AuthorizerHash = { authBytes: 5 }
     val seeded = { ...initialState,
@@ -96,8 +96,12 @@ module authorizer_queue_test {
       baseAcc, CoretimeParaId, FixedCodeLen, 1, 1,
       AssignCore({ core: core, queue: List(storedHash),
                   newAssigner: Some(MkServiceId(7)), jamSlot: 0 }))
+    // Due later, so nothing would call `assign` yet: only caching it is at stake.
+    val unknownCore = applyUpwardMessage(
+      baseAcc, CoretimeParaId, FixedCodeLen, 1, 1,
+      AssignCore({ core: CoreCount, queue: List(storedHash), newAssigner: None, jamSlot: 100 }))
     all {
-      Set(empty, tooLong, shortHandoff).forall(out => and {
+      Set(empty, tooLong, shortHandoff, unknownCore).forall(out => and {
         out.jamAssigns == List(),
         out.logs == List(),
         out.state == seeded
@@ -252,7 +256,7 @@ module authorizer_queue_test {
     }
   }
 
-  /// §4.3: an `assign_core` queue holds 1 to `AuthorizerQueueLength` hashes.
+  /// §3.3: an `assign_core` queue holds 1 to `AuthorizerQueueLength` hashes.
   /// Both an empty and an over-long queue abort Refine the same way.
   run assignQueueLengthRangeTest = {
     val ct = CoretimeParaId
@@ -273,6 +277,19 @@ module authorizer_queue_test {
         == WorkOk(refineErr(ct, InvalidAuthorizerQueue))),
       // ...and 80 passes.
       assert(isOkDigest(refineWithMsgs(initialState, ct, List(msg(fullQ(h), Some(MkServiceId(7))))))),
+      init
+    }
+  }
+
+  /// Refine rejects a core JAM's `assign` does not know: `CoreCount` and above.
+  run assignCoreIndexRangeTest = {
+    val ct = CoretimeParaId
+    pure def onCore(c: CoreIndex): UpwardMessage =
+      AssignCore({ core: c, queue: List({ authBytes: 3 }), newAssigner: None, jamSlot: 100 })
+    all {
+      assert(isOkDigest(refineWithMsgs(initialState, ct, List(onCore(CoreCount - 1))))),
+      assert(refineWithMsgs(initialState, ct, List(onCore(CoreCount)))
+        == WorkOk(refineErr(ct, InvalidCoreIndex))),
       init
     }
   }

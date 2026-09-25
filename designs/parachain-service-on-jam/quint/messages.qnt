@@ -44,7 +44,7 @@ module messages {
   | RestrictedHostFunction
   // An `assign_core` queue outside 1..`AuthorizerQueueLength` hashes, and any
   // queue other than exactly `AuthorizerQueueLength` when handing the core to a
-  // new assigner (§4.3).
+  // new assigner (§3.3).
   | InvalidAuthorizerQueue
   // The encoded digest plus the work-report's authorizer trace exceeds
   // the Gray Paper's 48 KiB combined-result-blob budget (§4.1 step 7).
@@ -55,6 +55,8 @@ module messages {
   // `set_head` was called with head data beyond the 4 KiB `HeadData` bound
   // (§4.3).
   | HeadDataTooLarge
+  // An `assign_core` named a core at or above `CoreCount` (§3.3).
+  | InvalidCoreIndex
 
   // --- Accumulate-side log payloads ---------------------------------------
 
@@ -282,7 +284,7 @@ module messages {
   //   common queue-rotation case); `Some(s)` hands the core to `s`. A handoff is
   //   one-way: once it fires the service is no longer `assigners[core]`, so it
   //   cannot re-present a short queue afterwards, so `Some(s)` requires
-  //   an exactly-`AuthorizerQueueLength` queue (§4.3). JAM always stores SOME
+  //   an exactly-`AuthorizerQueueLength` queue (§3.3). JAM always stores SOME
   //   assigner, so `None` means "unchanged": the service passes its own id.
   | AssignCore({
       core: CoreIndex,
@@ -354,7 +356,7 @@ module messages {
   /// Service-chosen cap on the auth-trace bytes stored in `parachain_log`.
   pure val StoredAuthTraceCap: int = 256
 
-  /// Per §4.3: an `assign_core` queue holds 1 to `AuthorizerQueueLength` hashes.
+  /// Per §3.3: an `assign_core` queue holds 1 to `AuthorizerQueueLength` hashes.
   /// A queue that hands the core to another service must be exactly
   /// `AuthorizerQueueLength`: the service can no longer re-present a short one
   /// after the handoff, so the installed queue has to cycle on its own.
@@ -365,6 +367,10 @@ module messages {
     | None => queue.length() > 0 and queue.length() <= AuthorizerQueueLength
     | Some(_) => queue.length() == AuthorizerQueueLength
   }
+
+  /// Per §3.3: JAM's `assign` only knows cores below `CoreCount`, its fixed
+  /// total, whether or not they are currently active.
+  pure def validCoreIndex(core: CoreIndex): bool = core >= 0 and core < CoreCount
 
   /// Truncate an auth trace to `StoredAuthTraceCap` before the service stores
   /// it in a `RefineLogEntry` (design §3.3).

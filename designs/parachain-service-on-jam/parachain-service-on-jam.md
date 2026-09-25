@@ -272,7 +272,7 @@ enum RefineLog {
     MalformedPayload,
     /// An `AssignCore` carried an empty queue, or more than `AUTH_QUEUE_SIZE`
     /// hashes, or fewer than `AUTH_QUEUE_SIZE` hashes while handing the core to
-    /// another assigner. See §4.3.
+    /// another assigner. See §3.3.
     InvalidAuthorizerQueue,
     /// The encoded `ParachainWorkDigest` and auth trace would exceed the Gray
     /// Paper's 48 KiB. See §4.1.
@@ -283,6 +283,8 @@ enum RefineLog {
     /// `set_head` was called with head data beyond the 4 KiB `HeadData` bound.
     /// See §4.3.
     HeadDataTooLarge,
+    /// An `AssignCore` named a core at or above `C_corecount`. See §3.3.
+    InvalidCoreIndex,
 }
 
 /// The two phases of a `RequestCodeUpgrade` (see §5.2).
@@ -686,10 +688,12 @@ enum UpwardMessage {
     /// `AccumulateLog::CoreNotAssignable` if this service is no longer `core`'s
     /// assigner. See §7.1. **Coretime chain only.**
     AssignCore {
+        /// Must be below `C_corecount`, whether or not the core is currently
+        /// active. Otherwise Refine fails with `Err(RefineLog::InvalidCoreIndex)`.
         core: CoreIndex,
         /// As emitted by the validation code, so any length is representable. Refine holds
         /// it to 1 to `AUTH_QUEUE_SIZE` hashes and rejects any other length,
-        /// empty included. See §4.3.
+        /// empty included.
         queue: Vec<AuthorizerHash>,
         /// `None` leaves this service as the core's assigner, the common
         /// queue-rotation case. `Some(s)` hands the core to `s`, which is

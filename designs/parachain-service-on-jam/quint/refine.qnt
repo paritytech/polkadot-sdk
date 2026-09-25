@@ -41,10 +41,17 @@ module refine {
       | _ => acc
   })
 
-  /// Every `assign_core` in `msgs` carries a well-formed queue (§4.3).
+  /// Every `assign_core` in `msgs` carries a well-formed queue (§3.3).
   pure def wellFormedAssignQueues(msgs: List[UpwardMessage]): bool =
   msgs.foldl(true, (acc, m) => match m {
     | AssignCore(p) => acc and wellFormedAssignQueue(p.queue, p.newAssigner)
+    | _ => acc
+  })
+
+  /// Every `assign_core` in `msgs` names a core JAM knows (§3.3).
+  pure def validAssignCores(msgs: List[UpwardMessage]): bool =
+  msgs.foldl(true, (acc, m) => match m {
+    | AssignCore(p) => acc and validCoreIndex(p.core)
     | _ => acc
   })
 
@@ -243,6 +250,8 @@ module refine {
         Some(refineErr(para_id, TooManyValidatorKeys))
         else if (not(wellFormedAssignQueues(msgs)))
         Some(refineErr(para_id, InvalidAuthorizerQueue))
+        else if (not(validAssignCores(msgs)))
+        Some(refineErr(para_id, InvalidCoreIndex))
         else if (violatesParachainRestrictions(msgs, para_id))
         Some(refineErr(para_id, RestrictedHostFunction))
         else if (exceedsUpwardMessagesBudget(msgs))

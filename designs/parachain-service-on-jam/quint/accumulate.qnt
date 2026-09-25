@@ -247,9 +247,10 @@ module accumulate {
       // `jamSlot` already due would otherwise wait a block; it fires here
       // instead, then settles into the same post-fire state as the flush.
       val queueLen = payload.queue.length()
-      // Refine already rejected a malformed queue (§4.3), so this is defensive
-      // only: it re-checks both length rules rather than trusting the digest.
-      if (not(wellFormedAssignQueue(payload.queue, payload.newAssigner)))
+      // Refine already rejected a malformed queue or an unknown core (§3.3), so
+      // this is defensive only: it re-checks both rather than trusting the digest.
+      if (not(wellFormedAssignQueue(payload.queue, payload.newAssigner)) or
+          not(validCoreIndex(payload.core)))
         acc
       else if (payload.jamSlot <= now)
         if (not(acc.state.isAssignerOf(payload.core)))
@@ -546,7 +547,7 @@ module accumulate {
 
   // ---- Always-accumulate (§5.1, general work) ---------------------------
 
-  /// Fire pending `assign`s that are due (§4.3). Gating reads ONLY the
+  /// Fire pending `assign`s that are due (§5.1). Gating reads ONLY the
   /// dirty-core index; the much larger payload is read just for a core that is
   /// actually due, and not-yet-due cores are retained unchanged. A stored
   /// `assigner` of `None` resolves to this service, since JAM's `assign` always
