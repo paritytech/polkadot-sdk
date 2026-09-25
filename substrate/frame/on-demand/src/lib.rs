@@ -285,7 +285,7 @@ pub mod pallet {
 
 			let pool_cores = T::PoolCapacityProvider::pool_cores();
 			// Fail early if the pool is empty.
-			ensure!(pool_cores != 0, Error::<T>::EmptyPool);
+			ensure!(pool_cores > 0, Error::<T>::EmptyPool);
 
 			let now = T::RelayBlockNumberProvider::current_block_number();
 			let mut queue_state = QueueState::<T>::get()
