@@ -74,7 +74,7 @@ module parachain_log_test {
     val s0 = initialState
     // Append two distinct refine errors at the same timeslot (now=0).
     val s1 = s0.appendRefineLog(para, 0, InvalidCodeHash, 0)
-    val s2 = s1.appendRefineLog(para, 0, MissingHeadDeclaration, 0)
+    val s2 = s1.appendRefineLog(para, 0, InvalidHeadDeclaration, 0)
     val log = s2.paraLog(para)
     // Both errors must be present as separate entries at timeslot 0.
     val hasInvalidCodeHash = log.foldl(false, (acc, pair) =>
@@ -84,7 +84,7 @@ module parachain_log_test {
       }))
     val hasMissingHead = log.foldl(false, (acc, pair) =>
       acc or (pair._1 == 0 and match pair._2 {
-        | RefineLogEntry(e) => e.error == MissingHeadDeclaration
+        | RefineLogEntry(e) => e.error == InvalidHeadDeclaration
         | AccumulateLogEntry(_) => false
       }))
     all {
@@ -103,7 +103,7 @@ module parachain_log_test {
   run entryRankOrderTest = {
     all {
       assert(entryRank((0, RefineLogEntry({ error: InvalidCodeHash, authTrace: 0 }))) == 0),
-      assert(entryRank((0, RefineLogEntry({ error: MissingHeadDeclaration, authTrace: 0 }))) == 0),
+      assert(entryRank((0, RefineLogEntry({ error: InvalidHeadDeclaration, authTrace: 0 }))) == 0),
       assert(entryRank((0, RefineLogEntry({ error: Opaque(8), authTrace: 0 }))) == 1),
       assert(entryRank((0, AccumulateLogEntry(List(TooMuchStateHeld)))) == 2),
       init

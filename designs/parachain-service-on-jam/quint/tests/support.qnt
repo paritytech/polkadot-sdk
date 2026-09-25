@@ -56,8 +56,8 @@ module support {
       }
       val wr: WorkResult = {
         result: refine(
-          svc, pkg, false, CodeOk,
-          Some(headHash(pi.headData)), HeadDeclared(pi.headData + 1), p._3, 0
+          svc, pkg, false,
+          wellFormedCalls(headHash(pi.headData), pi.headData + 1, p._3), 0
         )[0],
         authTrace: 0
       }
@@ -189,8 +189,8 @@ module support {
     }
     val wr: WorkResult = {
       result: refine(
-        svc, pkg, false, CodeOk,
-        Some(headHash(StaleParentHead)), HeadDeclared(StaleParentHead), msgs, 0
+        svc, pkg, false,
+        wellFormedCalls(headHash(StaleParentHead), StaleParentHead, msgs), 0
       )[0],
       authTrace: 0
     }
@@ -236,9 +236,15 @@ module support {
   ): AccumulateOutcome =
     applyUpwardMessage(accOverWith(initialState, fs), caller, FixedCodeLen, now, now, m)
 
-  /// Refine one otherwise well-formed candidate for `caller`, carrying `msgs`.
-  pure def refineWithMsgs(
-    s: ParachainServiceState, caller: ParaId, msgs: List[UpwardMessage]
+  /// The calls of validation code that declares both heads, then sends `msgs`.
+  pure def wellFormedCalls(
+    parent: HeadHash, newHead: HeadData, msgs: List[UpwardMessage]
+  ): List[CodeCall] =
+    List(SetParentHeadHash(parent), SetHead(newHead)).concat(sends(msgs))
+
+  /// Refine a candidate for `caller` against its active code, making `calls`.
+  pure def refineCalls(
+    s: ParachainServiceState, caller: ParaId, calls: List[CodeCall]
   ): WorkExecResult = {
     val pi = s.paraInfo(caller)
     val pkg: WorkPackage = {
@@ -247,8 +253,15 @@ module support {
         validationCode: { hash: activeCodeHashOr(pi, NoCodeHash), len: FixedCodeLen }
       })
     }
-    refine(s, pkg, false, CodeOk,
-      Some(headHash(pi.headData)), HeadDeclared(pi.headData + 1), msgs, 0)[0]
+    refine(s, pkg, false, calls, 0)[0]
+  }
+
+  /// Refine one otherwise well-formed candidate for `caller`, carrying `msgs`.
+  pure def refineWithMsgs(
+    s: ParachainServiceState, caller: ParaId, msgs: List[UpwardMessage]
+  ): WorkExecResult = {
+    val pi = s.paraInfo(caller)
+    refineCalls(s, caller, wellFormedCalls(headHash(pi.headData), pi.headData + 1, msgs))
   }
 
   pure def isOkDigest(r: WorkExecResult): bool =

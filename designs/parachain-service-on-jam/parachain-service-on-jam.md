@@ -277,9 +277,9 @@ enum RefineLog {
     /// The encoded `ParachainWorkDigest` and auth trace would exceed the Gray
     /// Paper's 48 KiB. See §4.1.
     RefineOutputTooLarge,
-    /// The validation code exited without calling `set_parent_head_hash` and/or `set_head`
+    /// The validation code did not call `set_parent_head_hash` or `set_head`
     /// exactly once. Both head declarations are mandatory. See §4.2.
-    MissingHeadDeclaration,
+    InvalidHeadDeclaration,
     /// `set_head` was called with head data beyond the 4 KiB `HeadData` bound.
     /// See §4.3.
     HeadDataTooLarge,
@@ -785,6 +785,8 @@ index `item_index` the Parachain Service performs:
    `Err(RefineLog::RefineOutputTooLarge)`. Parachain-driven overflow (upward
    messages exceeding the 40 KiB budget) aborts earlier with
    `Err(RefineLog::UpwardMessagesTooLarge)` inside `send_upward_message`.
+
+Any error in Refine aborts it immediately with that error.
 
 Because Refine is stateless, it cannot write to service storage.
 

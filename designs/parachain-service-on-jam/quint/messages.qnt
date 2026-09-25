@@ -51,7 +51,7 @@ module messages {
   | RefineOutputTooLarge
   // The validation code exited without calling `set_parent_head_hash` and/or `set_head`
   // exactly once: both head declarations are mandatory (§4.2).
-  | MissingHeadDeclaration
+  | InvalidHeadDeclaration
   // `set_head` was called with head data beyond the 4 KiB `HeadData` bound
   // (§4.3).
   | HeadDataTooLarge

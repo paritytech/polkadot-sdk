@@ -6,12 +6,11 @@
 //
 // - The `paraId` of each work-item is sourced from the authorizer config's
 // `authorized_paras` prefix, not from the extrinsic.
-// - The validation code must call `set_parent_head_hash` exactly once (modeled as a
-// well-formedness check on `Ok` results).
+// - The validation code must call `set_parent_head_hash` and `set_head` exactly once.
 // - Refine returns `Err(InvalidCodeHash)` iff `historical_lookup` for the
 // candidate's `validation_code_hash` returns None.
-// - `set_validator_keys` may appear at most once in the emitted
-//   `upwardMessages` list, and any chunk must contain at most 30 keys.
+// - The first host call that breaks a §4.3 rule aborts Refine with that rule's
+//   `RefineLog`.
 //
 // The `parent_head_hash` field is mandatory but is *not* validated against
 // service state here; that check lives in Accumulate (§5.1, step 1).
@@ -33,37 +32,6 @@ module refine {
   }
 
   // --- Upward-message validity rules (Refine-side enforcement) ------------
-
-  /// Per §4.3: `set_validator_keys` may appear at most once per Refine.
-  pure def setValidatorKeysCount(msgs: List[UpwardMessage]): int =
-  msgs.foldl(0, (acc, m) => match m {
-      | SetValidatorKeys(_) => acc + 1
-      | _ => acc
-  })
-
-  /// Every `assign_core` in `msgs` carries a well-formed queue (§3.3).
-  pure def wellFormedAssignQueues(msgs: List[UpwardMessage]): bool =
-  msgs.foldl(true, (acc, m) => match m {
-    | AssignCore(p) => acc and wellFormedAssignQueue(p.queue, p.newAssigner)
-    | _ => acc
-  })
-
-  /// Every `assign_core` in `msgs` names a core JAM knows (§3.3).
-  pure def validAssignCores(msgs: List[UpwardMessage]): bool =
-  msgs.foldl(true, (acc, m) => match m {
-    | AssignCore(p) => acc and validCoreIndex(p.core)
-    | _ => acc
-  })
-
-  /// Per §4.3: a `SetValidatorKeys` chunk holds at most
-  /// `SetValidatorKeysMaxKeys` keys. Refine checks the length explicitly and
-  /// rejects a longer chunk with `TooManyValidatorKeys`.
-  pure def setValidatorKeysWithinCap(msgs: List[UpwardMessage]): bool =
-  msgs.foldl(true, (acc, m) => match m {
-    | SetValidatorKeys(payload) =>
-    acc and (payload.keys.length() <= SetValidatorKeysMaxKeys)
-    | _ => acc
-  })
 
   /// Actual SCALE-encoded size of one upward message, used by the 48 KiB
   /// result-blob budget check (§4.1 step 7). Every variant is measured from
@@ -128,11 +96,6 @@ module refine {
   pure def upwardMessagesTotalSize(msgs: List[UpwardMessage]): int =
   msgs.foldl(0, (acc, m) => acc + upwardMessageSize(m))
 
-  /// `true` iff the upward messages exceed the parachain's 40 KiB budget. The
-  /// vector's length prefix is not charged against the budget.
-  pure def exceedsUpwardMessagesBudget(msgs: List[UpwardMessage]): bool =
-  upwardMessagesTotalSize(msgs) > MaxUpwardMessagesSize
-
   /// `true` iff the whole Refine output (`paraId` + `vch` + `parentHeadHash` +
   /// worst-case `head_data` + upward messages) plus a worst-case auth trace
   /// would exceed `MaxReportVarSize`. Backstop on the 48 KiB Gray Paper limit:
@@ -151,11 +114,10 @@ module refine {
   //
   // `refineItem` models §4.1 abstractly: given a candidate and the service's
   // view of the active+pending validation code for that para, produce
-  // either an `Ok` with a list of upward messages (any from §4.3 that the
-  // the validation code chose to emit, subject to the well-formedness rules above) or an
-  // `Err(InvalidCodeHash)` when the lookup fails.
+  // either an `Ok` with the upward messages the validation code emitted or
+  // an `Err` naming the first rule it broke.
   //
-  // For the model, we nondeterministically pick the upward messages in
+  // For the model, we nondeterministically pick the host calls in
   // the spec's top-level `step` action; see `main.qnt`.
 
   pure def refineErr(paraId: ParaId, e: RefineLog): ParachainWorkDigest =
@@ -186,93 +148,140 @@ module refine {
     s.preimageRegistry.get(key).referencers != Set()
   }
 
-  /// How the validation code terminated (design §4.2). The service treats these differently:
-  ///   - `CodeOk`: ran to completion; the wrapper's own checks decide the outcome.
-  ///   - `CodeReportError(payload)`: the Validation code aborted itself with
-  ///     `report_error(data)`. That call IS the abort, and it is the only way a
-  ///     validation code records a reason for its failure (`RefineLog::Opaque`).
-  ///   - `CodePanic`: any other abnormal exit. Deliberately NOT caught, so the
+  /// One host call the validation code makes, in the order it makes them
+  /// (§4.2, §4.3). A trace that ends without `ReportError` or `Panic` means the
+  /// code ran to completion.
+  ///   - `SetHeadOversized`: `set_head` with head data past the 4 KiB `HeadData`
+  ///     cap. `HeadData` is opaque in the model (types.qnt), so the violation is
+  ///     a case of its own rather than a measured length.
+  ///   - `ReportError(payload)`: `report_error(data)`, the only way a validation
+  ///     code records a reason for its failure (`RefineLog::Opaque`).
+  ///   - `Panic`: any other abnormal exit. Deliberately NOT caught, so the
   ///     service's whole `refine` fails with it and there is no
-  ///     `ParachainWorkDigest` at all; the work-digest result is a gray-paper
-  ///     work error, which Accumulate skips entirely (§3.3).
-  type CodeOutcome =
-    | CodeOk
-    | CodeReportError(int)
-    | CodePanic
+  ///     `ParachainWorkDigest` at all (§3.3).
+  type CodeCall =
+    | SetParentHeadHash(HeadHash)
+    | SetHead(HeadData)
+    | SetHeadOversized
+    | Send(UpwardMessage)
+    | ReportError(int)
+    | Panic
 
-  /// What the validation code's mandatory `set_head` call amounts to (§4.2):
-  ///   - `HeadUndeclared`: never called, rejected with `MissingHeadDeclaration`.
-  ///   - `HeadOversized`: called with head data past the 4 KiB `HeadData` cap,
-  ///     rejected with `HeadDataTooLarge` (§4.3). `HeadData` is opaque in the
-  ///     model (types.qnt), so the violation is a case of its own rather than a
-  ///     measured length.
-  ///   - `HeadDeclared(h)`: a well-formed declaration of `h`.
-  type HeadDeclaration =
-    | HeadUndeclared
-    | HeadOversized
-    | HeadDeclared(HeadData)
+  /// `Send` for each of `msgs`, in order.
+  pure def sends(msgs: List[UpwardMessage]): List[CodeCall] =
+  msgs.foldl(List(), (acc, m) => acc.append(Send(m)))
 
-  /// Per-item Refine semantics (§4.1). The validation code is modeled as an oracle whose
-  /// visible effects are how it terminated (`codeOutcome`), the `set_parent_head_hash`
-  /// and `set_head` declarations (`parentHead` `None` / `newHead`
-  /// `HeadUndeclared` if the validation code never called them, §4.2), and the emitted
-  /// upward `msgs`. The wrapper applies the §4.1/§4.3 checks in order and
-  /// otherwise forwards the declarations verbatim; the authoritative
-  /// parent-head match and the head write happen in Accumulate (§5.1).
+  type RunStop =
+    | Running
+    | Aborted(RefineLog)
+    | Panicked
+
+  /// What the Refine wrapper has collected from the calls made so far.
+  type RefineRun = {
+    parent: Option[HeadHash],
+    head: Option[HeadData],
+    msgs: List[UpwardMessage],
+    msgsSize: int,
+    keysSent: bool,
+    stop: RunStop
+  }
+
+  pure val freshRun: RefineRun = {
+    parent: None, head: None, msgs: List(), msgsSize: 0, keysSent: false, stop: Running
+  }
+
+  /// The rule `send_upward_message(m)` breaks, checked in the §4.3 order: the
+  /// para restrictions, the variant's own requirements, the 40 KiB budget, the
+  /// message count.
+  pure def sendViolation(r: RefineRun, para_id: ParaId, m: UpwardMessage): Option[RefineLog] = {
+    val variantViolation: Option[RefineLog] = match m {
+      | AssignCore(p) =>
+        if (not(wellFormedAssignQueue(p.queue, p.newAssigner))) Some(InvalidAuthorizerQueue)
+        else if (not(validCoreIndex(p.core))) Some(InvalidCoreIndex)
+        else None
+      | SetValidatorKeys(p) =>
+        if (p.keys.length() > SetValidatorKeysMaxKeys) Some(TooManyValidatorKeys)
+        else if (r.keysSent) Some(SetValidatorKeysRepeated)
+        else None
+      | _ => None
+    }
+    if (violatesParachainRestrictions(List(m), para_id)) Some(RestrictedHostFunction)
+    else if (variantViolation != None) variantViolation
+    else if (r.msgsSize + upwardMessageSize(m) > MaxUpwardMessagesSize)
+    Some(UpwardMessagesTooLarge)
+    else if (r.msgs.length() >= MaxUpwardMessages) Some(TooManyUpwardMessages)
+    else None
+  }
+
+  /// Apply one host call. The first call that breaks a rule aborts Refine, and
+  /// every later call is ignored. Calling `set_parent_head_hash` or `set_head`
+  /// a second time is as invalid as never calling it (§4.2).
+  pure def applyCall(r: RefineRun, para_id: ParaId, c: CodeCall): RefineRun =
+  if (r.stop != Running) r
+  else match c {
+    | SetParentHeadHash(h) =>
+      if (r.parent != None) { ...r, stop: Aborted(InvalidHeadDeclaration) }
+      else { ...r, parent: Some(h) }
+    | SetHead(h) =>
+      if (r.head != None) { ...r, stop: Aborted(InvalidHeadDeclaration) }
+      else { ...r, head: Some(h) }
+    | SetHeadOversized =>
+      if (r.head != None) { ...r, stop: Aborted(InvalidHeadDeclaration) }
+      else { ...r, stop: Aborted(HeadDataTooLarge) }
+    | Send(m) =>
+      match sendViolation(r, para_id, m) {
+        | Some(e) => { ...r, stop: Aborted(e) }
+        | None => {
+          ...r,
+          msgs: r.msgs.append(m),
+          msgsSize: r.msgsSize + upwardMessageSize(m),
+          keysSent: r.keysSent or (match m { | SetValidatorKeys(_) => true | _ => false })
+        }
+      }
+    | ReportError(payload) => { ...r, stop: Aborted(Opaque(payload)) }
+    | Panic => { ...r, stop: Panicked }
+  }
+
+  /// Per-item Refine semantics (§4.1). The validation code is modeled as an
+  /// oracle whose visible effects are its host `calls`, in order. The wrapper
+  /// applies the §4.2/§4.3 rules call by call, then the checks that need the
+  /// whole run, and otherwise forwards the declarations verbatim. The
+  /// authoritative parent-head match and the head write happen in Accumulate
+  /// (§5.1).
   ///
-  /// `None` means the invocation produced no digest at all (`CodePanic`).
+  /// `None` means the invocation produced no digest at all (`Panic`).
   ///
   /// Refine is stateless: it reads no `ParaInfo` (registration is checked in
-  /// Accumulate, §5.1 step 1); the only state it touches is the preimage
+  /// Accumulate, §5.1 step 1). The only state it touches is the preimage
   /// store, via `codeAvailable`.
   pure def refineItem(
     s: ParachainServiceState,
     para_id: ParaId,
     candidate: ParachainCandidate,
-    codeOutcome: CodeOutcome,
-    parentHead: Option[HeadHash],
-    newHead: HeadDeclaration,
-    msgs: List[UpwardMessage],
+    calls: List[CodeCall],
     lookupAnchor: Timeslot
   ): Option[ParachainWorkDigest] = {
     if (not(codeAvailable(s, candidate.validationCode)))
     Some(refineErr(para_id, InvalidCodeHash))
-    else
-    match codeOutcome {
-      | CodePanic => None
-      | CodeReportError(payload) => Some(refineErr(para_id, Opaque(payload)))
-      | CodeOk =>
-        if (msgs.length() > MaxUpwardMessages)
-        Some(refineErr(para_id, TooManyUpwardMessages))
-        else if (setValidatorKeysCount(msgs) > 1)
-        Some(refineErr(para_id, SetValidatorKeysRepeated))
-        else if (not(setValidatorKeysWithinCap(msgs)))
-        Some(refineErr(para_id, TooManyValidatorKeys))
-        else if (not(wellFormedAssignQueues(msgs)))
-        Some(refineErr(para_id, InvalidAuthorizerQueue))
-        else if (not(validAssignCores(msgs)))
-        Some(refineErr(para_id, InvalidCoreIndex))
-        else if (violatesParachainRestrictions(msgs, para_id))
-        Some(refineErr(para_id, RestrictedHostFunction))
-        else if (exceedsUpwardMessagesBudget(msgs))
-        Some(refineErr(para_id, UpwardMessagesTooLarge))
-        else if (refineOutputExceedsBudget(msgs))
-        Some(refineErr(para_id, RefineOutputTooLarge))
-        else
-        // `set_parent_head_hash` / `set_head` are both mandatory (§4.2): a
-        // missing declaration is rejected with `MissingHeadDeclaration`. An
-        // oversized head is checked first because `set_head` aborts in the call
-        // itself, before the wrapper can observe what else the validation code skipped.
-        match newHead {
-          | HeadOversized => Some(refineErr(para_id, HeadDataTooLarge))
-          | HeadUndeclared => Some(refineErr(para_id, MissingHeadDeclaration))
-          | HeadDeclared(nh) =>
-            match parentHead {
-              | None => Some(refineErr(para_id, MissingHeadDeclaration))
-              | Some(ph) =>
-                Some(refineOk(para_id, candidate.validationCode, ph, nh, msgs, lookupAnchor))
-            }
-        }
+    else {
+      val r = calls.foldl(freshRun, (acc, c) => applyCall(acc, para_id, c))
+      match r.stop {
+        | Panicked => None
+        | Aborted(e) => Some(refineErr(para_id, e))
+        | Running =>
+          match r.parent {
+            | None => Some(refineErr(para_id, InvalidHeadDeclaration))
+            | Some(ph) =>
+              match r.head {
+                | None => Some(refineErr(para_id, InvalidHeadDeclaration))
+                | Some(nh) =>
+                  if (refineOutputExceedsBudget(r.msgs))
+                  Some(refineErr(para_id, RefineOutputTooLarge))
+                  else
+                  Some(refineOk(para_id, candidate.validationCode, ph, nh, r.msgs, lookupAnchor))
+              }
+          }
+      }
     }
   }
 
@@ -283,20 +292,15 @@ module refine {
   /// useless. Otherwise each item is refined via `refineItem`, with its
   /// `para_id` sourced from `authorized_paras`.
   ///
-  /// Single-item packages only (per §3.2): `codeOutcome`, `parentHead`, `newHead`, and
-  /// `msgs` are per-item scalars declared by the validation code. `parentHead` is `None` and
-  /// `newHead` is `HeadUndeclared` when the validation code skipped the corresponding
-  /// mandatory host call (§4.2).
+  /// Single-item packages only (per §3.2): `calls` are the host calls of that
+  /// item's validation code.
   pure def refine(
     s: ParachainServiceState,
     pkg: WorkPackage,
     // The config parsed for the authorizer but carries no `Vec<ParaId>` prefix,
     // so the service cannot source a `para_id` from it (§4.1 step 1).
     authParasPrefixMissing: bool,
-    codeOutcome: CodeOutcome,
-    parentHead: Option[HeadHash],
-    newHead: HeadDeclaration,
-    msgs: List[UpwardMessage],
+    calls: List[CodeCall],
     lookupAnchor: Timeslot
   ): List[WorkExecResult] = {
     // Package-level failures are settled before §4.1 step 2 fixes an
@@ -312,7 +316,7 @@ module refine {
     else
     match refineItem(
       s, pkg.authorizedParas[0], pkg.items[0],
-      codeOutcome, parentHead, newHead, msgs, lookupAnchor
+      calls, lookupAnchor
     ) {
       | Some(d) => List(WorkOk(d))
       | None => List(WorkErr)

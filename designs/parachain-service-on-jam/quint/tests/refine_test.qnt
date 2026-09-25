@@ -10,29 +10,36 @@ module refine_test {
   import support.* from "./support"
 
   /// An otherwise-valid candidate whose validation code skipped `set_parent_head_hash`
-  /// and/or `set_head` is rejected by Refine with `MissingHeadDeclaration`.
+  /// and/or `set_head`, or called one twice, is rejected by Refine with `InvalidHeadDeclaration`.
   /// Coretime's active code (`{ vchBytes: 1 }`) is solicited in
   /// `initialState`, so the candidate passes `codeAvailable` and reaches the
   /// head-declaration check rather than failing the whole invocation earlier.
-  run refineMissingHeadDeclarationTest = {
+  run refineInvalidHeadDeclarationTest = {
     val pkg: WorkPackage = {
       authorizedParas: List(CoretimeParaId),
       items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
     }
     val parentOnly =
-      refine(initialState, pkg, false, CodeOk, Some(headHash(0)), HeadUndeclared, List(), 0)[0]
+      refine(initialState, pkg, false, List(SetParentHeadHash(headHash(0))), 0)[0]
     val headOnly =
-      refine(initialState, pkg, false, CodeOk, None, HeadDeclared(1), List(), 0)[0]
+      refine(initialState, pkg, false, List(SetHead(1)), 0)[0]
     val neither =
-      refine(initialState, pkg, false, CodeOk, None, HeadUndeclared, List(), 0)[0]
+      refine(initialState, pkg, false, List(), 0)[0]
     val both =
-      refine(initialState, pkg, false, CodeOk, Some(headHash(0)), HeadDeclared(1), List(), 0)[0]
+      refine(initialState, pkg, false, wellFormedCalls(headHash(0), 1, List()), 0)[0]
+    // Declaring a head twice is as invalid as not declaring it.
+    val headTwice = refine(initialState, pkg, false,
+      wellFormedCalls(headHash(0), 1, List()).append(SetHead(1)), 0)[0]
+    val parentTwice = refine(initialState, pkg, false,
+      wellFormedCalls(headHash(0), 1, List()).append(SetParentHeadHash(headHash(0))), 0)[0]
     all {
+      assert(headTwice == WorkOk(Err({ paraId: CoretimeParaId, error: InvalidHeadDeclaration }))),
+      assert(parentTwice == WorkOk(Err({ paraId: CoretimeParaId, error: InvalidHeadDeclaration }))),
       // Missing new head, missing parent head, or both → rejected.
-      assert(parentOnly == WorkOk(Err({ paraId: CoretimeParaId, error: MissingHeadDeclaration }))),
-      assert(headOnly == WorkOk(Err({ paraId: CoretimeParaId, error: MissingHeadDeclaration }))),
-      assert(neither == WorkOk(Err({ paraId: CoretimeParaId, error: MissingHeadDeclaration }))),
-      // Both declared → not a MissingHeadDeclaration error (succeeds here).
+      assert(parentOnly == WorkOk(Err({ paraId: CoretimeParaId, error: InvalidHeadDeclaration }))),
+      assert(headOnly == WorkOk(Err({ paraId: CoretimeParaId, error: InvalidHeadDeclaration }))),
+      assert(neither == WorkOk(Err({ paraId: CoretimeParaId, error: InvalidHeadDeclaration }))),
+      // Both declared → not an InvalidHeadDeclaration error (succeeds here).
       assert(both == WorkOk(Ok({
         paraId: CoretimeParaId,
         validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen },
@@ -47,20 +54,20 @@ module refine_test {
 
   /// A Refine invocation emitting more than `MaxUpwardMessages` (1024) upward
   /// messages is rejected with `TooManyUpwardMessages`. Exactly 1024 is accepted.
-  /// Uses `Solicit` (unrestricted, 37 B each) so 1025 stay under the 48 KiB
-  /// result-blob budget: the count cap, not the byte budget, must be the reason.
+  /// Uses `Solicit` (unrestricted, 39 B each) so 1025 stay under the 40 KiB
+  /// budget: the count cap, not the byte budget, must be the reason.
   run tooManyUpwardMessagesTest = {
     val pkg: WorkPackage = {
       authorizedParas: List(CoretimeParaId),
       items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
     }
-    val msg = Solicit({ target: Parachain(CoretimeParaId), hash: { hashBytes: 7 }, len: 1024 })
+    val msg = Solicit({ target: Parachain(CoretimeParaId), hash: { hashBytes: 7 }, len: 1 })
     val over = range(0, MaxUpwardMessages + 1).foldl(List(), (acc, _) => acc.append(msg))
     val atCap = range(0, MaxUpwardMessages).foldl(List(), (acc, _) => acc.append(msg))
     val overOut =
-      refine(initialState, pkg, false, CodeOk, Some(headHash(0)), HeadDeclared(1), over, 0)[0]
+      refine(initialState, pkg, false, wellFormedCalls(headHash(0), 1, over), 0)[0]
     val atCapOut =
-      refine(initialState, pkg, false, CodeOk, Some(headHash(0)), HeadDeclared(1), atCap, 0)[0]
+      refine(initialState, pkg, false, wellFormedCalls(headHash(0), 1, atCap), 0)[0]
     all {
       assert(over.length() == 1025),
       assert(overOut == WorkOk(Err({ paraId: CoretimeParaId, error: TooManyUpwardMessages }))),
@@ -133,10 +140,10 @@ module refine_test {
       authorizedParas: List(para),
       items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
     }
-    val reported = refine(initialState, pkg, false, CodeReportError(42),
-      Some(headHash(0)), HeadDeclared(1), List(), 0)[0]
-    val panicked = refine(initialState, pkg, false, CodePanic,
-      Some(headHash(0)), HeadDeclared(1), List(), 0)[0]
+    val reported = refine(initialState, pkg, false,
+      wellFormedCalls(headHash(0), 1, List()).append(ReportError(42)), 0)[0]
+    val panicked = refine(initialState, pkg, false,
+      wellFormedCalls(headHash(0), 1, List()).append(Panic), 0)[0]
     // Accumulating the panicking result must touch nothing at all.
     val accPanic = accumulateOnePackage(
       initialState, { result: panicked, authTrace: 7 }, Set(), List(), FixedCodeLen, 5, Map())
@@ -164,9 +171,10 @@ module refine_test {
       items: List({ validationCode: { hash: { vchBytes: 1 }, len: FixedCodeLen } })
     }
     val withParent =
-      refine(initialState, pkg, false, CodeOk, Some(headHash(0)), HeadOversized, List(), 0)[0]
+      refine(initialState, pkg, false,
+        List(SetParentHeadHash(headHash(0)), SetHeadOversized), 0)[0]
     val withoutParent =
-      refine(initialState, pkg, false, CodeOk, None, HeadOversized, List(), 0)[0]
+      refine(initialState, pkg, false, List(SetHeadOversized), 0)[0]
     all {
       assert(withParent == WorkOk(Err({ paraId: CoretimeParaId, error: HeadDataTooLarge }))),
       assert(withoutParent == WorkOk(Err({ paraId: CoretimeParaId, error: HeadDataTooLarge }))),
@@ -222,6 +230,44 @@ module refine_test {
       // Coretime may name anyone.
       assert(isOkDigest(refineWithMsgs(initialState, CoretimeParaId,
         List(Forget({ target: Parachain(AssetHubParaId), hash: h, len: 1024 }))))),
+      init
+    }
+  }
+
+  /// §4.3: the first host call that breaks a rule aborts Refine, and a
+  /// `send_upward_message` breaking several rules fails with the first in the
+  /// §4.3 order.
+  run firstFailingCallWinsTest = {
+    val ah = AssetHubParaId
+    val pi = initialState.paraInfo(ah)
+    val parent = SetParentHeadHash(headHash(pi.headData))
+    val setHead = SetHead(pi.headData + 1)
+    val emptyAssign = Send(AssignCore({ core: 0, queue: List(), newAssigner: None, jamSlot: 0 }))
+    val solicit = Solicit({ target: Parachain(ah), hash: { hashBytes: 7 }, len: 1 })
+    val tooMany =
+      sends(range(0, MaxUpwardMessages + 1).foldl(List(), (acc, _) => acc.append(solicit)))
+    val oneKey = SetValidatorKeys({ keys: List(0), isLast: false })
+    val overKeys = SetValidatorKeys({
+      keys: range(0, SetValidatorKeysMaxKeys + 1).foldl(List(), (acc, _) => acc.append(0)),
+      isLast: true
+    })
+    all {
+      // The para restriction comes before the variant's own queue rule.
+      assert(refineCalls(initialState, ah, List(parent, setHead, emptyAssign))
+        == WorkOk(refineErr(ah, RestrictedHostFunction))),
+      // An oversized head before the 1025th message wins, and after it loses.
+      assert(refineCalls(initialState, ah, List(parent, SetHeadOversized).concat(tooMany))
+        == WorkOk(refineErr(ah, HeadDataTooLarge))),
+      assert(refineCalls(initialState, ah, List(parent).concat(tooMany).append(SetHeadOversized))
+        == WorkOk(refineErr(ah, TooManyUpwardMessages))),
+      // The chunk size comes before the repetition.
+      assert(refineCalls(initialState, ah, List(parent, setHead, Send(oneKey), Send(overKeys)))
+        == WorkOk(refineErr(ah, TooManyValidatorKeys))),
+      // `report_error` records its reason only if nothing aborted before it.
+      assert(refineCalls(initialState, ah, List(parent, setHead, emptyAssign, ReportError(1)))
+        == WorkOk(refineErr(ah, RestrictedHostFunction))),
+      assert(refineCalls(initialState, ah, List(parent, setHead, ReportError(1), emptyAssign))
+        == WorkOk(refineErr(ah, Opaque(1)))),
       init
     }
   }
