@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790286838316,
+  "lastUpdate": 1790336390763,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -127871,6 +127871,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2567496371,
             "range": "± 36708801",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "79002163+gab8i@users.noreply.github.com",
+            "name": "gab",
+            "username": "gab8i"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5f0e2684174659b28c25f3fd879c42939ccd98a0",
+          "message": "feat: check configured address identity against the node key (#13024)\n\n#### Description\n\n`--listen-addr` and `--public-addr` can now carry the identity\ncomponents an operator is likely to\npaste back from an advertised or published address, either `/p2p/<peer\nid>` on any address or `/certhash/<hash>` on a `webrtc-direct` address.\n\nBoth are checked against the node key and then stripped. \n\n#### Integration\n\n`NetworkConfiguration::validate_and_complete_webrtc_addresses` now is no\nlonger WebRTC-specific.\n\nTwo new `sc_network::error::Error` variants: `MismatchedAddressIdentity`\nand `MalformedAddressIdentity`.\n\n#### Review Notes\n\n- check is part of `sc_network::config`, it applies to both litep2p and\nlibp2p.\n- `check_and_strip_identity` pops a trailing /p2p, then a /certhash, and\nrejects the address if anything identity-shaped remains inside it.\n- addrs tests moved from `webrtc.rs` to a new\n`substrate/client/network/src/address_tests.rs`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-25T09:46:26Z",
+          "tree_id": "028c45e23644cdd685f3520ce04cb504a42e7f54",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5f0e2684174659b28c25f3fd879c42939ccd98a0"
+        },
+        "date": 1790336363442,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19327428,
+            "range": "± 94673",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19515297,
+            "range": "± 140276",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20816507,
+            "range": "± 195464",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25442776,
+            "range": "± 196174",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57050873,
+            "range": "± 870329",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 328106315,
+            "range": "± 2975153",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2354527138,
+            "range": "± 28117595",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16537301,
+            "range": "± 168438",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16782987,
+            "range": "± 174937",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 16990832,
+            "range": "± 126399",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21480822,
+            "range": "± 211352",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 57975848,
+            "range": "± 359280",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 333084776,
+            "range": "± 4621031",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2598051222,
+            "range": "± 20141677",
             "unit": "ns/iter"
           }
         ]
