@@ -2502,3 +2502,20 @@ fn transfer_approved_checks_the_approval_before_the_balance() {
 		);
 	});
 }
+
+#[test]
+fn transfer_approved_to_self_charges_the_request() {
+	use frame_support::traits::fungibles::approvals::Inspect;
+
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 95));
+
+		// Requesting 95 would strand 5, but nothing moves, so only the 95 is charged.
+		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 1, 95));
+		assert_eq!(Assets::balance(0, 1), 100);
+		assert_eq!(Assets::allowance(0, &1, &2), 0);
+	});
+}

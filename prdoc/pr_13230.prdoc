@@ -31,7 +31,8 @@ doc:
     that, leaving the approval untouched when it does not fit. Where the approval does cover the
     promoted debit the transfer still goes through, but it is now the debit that is charged, so
     an approval can be exhausted — and its entry removed and its deposit returned — by a request
-    smaller than the approval.
+    smaller than the approval; a transfer to the owner itself moves nothing and is charged the
+    requested amount.
 
 - audience: Runtime User
   description: |-
