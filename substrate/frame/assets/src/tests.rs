@@ -158,6 +158,63 @@ fn minting_insufficient_assets_with_deposit_without_consumer_should_work() {
 }
 
 #[test]
+fn minting_by_owner_to_entirely_frozen_asset_works() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+        assert_ok!(Assets::freeze_asset(RuntimeOrigin::signed(1), 0));
+        assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+        assert_eq!(Assets::balance(0, 2), 100);
+        System::assert_last_event(RuntimeEvent::Assets(crate::Event::Issued {
+            asset_id: 0,
+            owner: 2,
+            amount: 100,
+        }));
+    });
+}
+
+#[test]
+fn minting_by_owner_to_frozen_account_works() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+        assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2));
+        assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 100));
+        assert_eq!(Assets::balance(0, 2), 100);
+        System::assert_last_event(RuntimeEvent::Assets(crate::Event::Issued {
+            asset_id: 0,
+            owner: 2,
+            amount: 100,
+        }));
+    });
+}
+
+#[test]
+fn minting_by_non_owner_to_entirely_frozen_asset_should_fail() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+        assert_ok!(Assets::freeze_asset(RuntimeOrigin::signed(1), 0));
+        assert_noop!(
+            Assets::mint(RuntimeOrigin::signed(2), 0, 2, 100),
+            Error::<Test>::NoPermission
+        );
+        assert_eq!(Assets::balance(0, 2), 0);
+    });
+}
+
+#[test]
+fn minting_by_non_owner_to_frozen_account_should_fail() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
+        assert_ok!(Assets::freeze(RuntimeOrigin::signed(1), 0, 2));
+        assert_noop!(
+            Assets::mint(RuntimeOrigin::signed(2), 0, 2, 100),
+            Error::<Test>::NoPermission
+        );
+        assert_eq!(Assets::balance(0, 2), 0);
+    });
+}
+
+
+#[test]
 fn refunding_asset_deposit_with_burn_should_work() {
 	build_and_execute(|| {
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
