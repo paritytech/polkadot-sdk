@@ -54,9 +54,21 @@ module psm_extended {
   pure val scaleDown: Asset -> bool =
     Map("A" -> false, "B" -> false, "C" -> true)
 
-  pure val maximumIssuance: int = 100000
+  // Decimals the PSM recorded for each asset, matching the factors above with
+  // an internal asset of 6 decimals. `create_psm` and `add_external_asset`
+  // record these once. Swaps read the recorded values and never read live
+  // metadata, so `recorded` is a constant here while `live` is state.
+  pure val internalDecimals: int = 6
+
+  pure val recordedDecimals: Asset -> int =
+    Map("A" -> 6, "B" -> 7, "C" -> 5)
+
+  pure val initialMaxDebt: int = 100000
   pure val minSwapAmount: int = 1
   pure val maxExternalAssets: int = 3
+
+  // Perbill denominator, as used by `normalised_ceiling`.
+  pure val perbillOne: int = 1000000000
 
   // ---------- Storage state ----------
 
@@ -66,7 +78,11 @@ module psm_extended {
   var mintingFeeRate: Asset -> int   // MintingFee[a], permill 0..1000
   var redeemFeeRate: Asset -> int    // RedemptionFee[a], permill 0..1000
   var reserveExt: Asset -> int       // external balance held by PSM, in external units
-  var maxPsmRatio: int               // MaxPsmDebtOfTotal, permill 0..1000
+  var maxDebt: int                   // PsmInfo.max_debt, in internal units
+
+  // Live metadata in the assets pallet. The asset owner can change it at any
+  // time, and the PSM never reads it on a swap path.
+  var liveDecimals: Asset -> int
 
   // Per-user state:
   var userInternal: UserId -> int            // internal balance per user
@@ -105,8 +121,11 @@ module psm_extended {
   pure def allowsRedemption(s: Status): bool =
     s != AllDisabled and s != NotApproved
 
-  pure def maxPsmDebt(r: int): int =
-    r * maximumIssuance / 1000
+  // `normalised_ceiling` rounds twice: first the weight ratio into a Perbill,
+  // then the product back down to a balance. Both roundings floor, so the
+  // per-asset ceilings can sum to less than `max_debt`.
+  pure def perbillFromRational(part: int, whole: int): int =
+    part * perbillOne / whole
 
   pure def totalDebt(d: Asset -> int): int =
     assetSlots.fold(0, (acc, a) => acc + d.get(a))
@@ -117,12 +136,12 @@ module psm_extended {
   pure def totalWeightSum(w: Asset -> int): int =
     assetSlots.fold(0, (acc, a) => acc + w.get(a))
 
-  pure def maxAssetDebt(a: Asset, w: Asset -> int, r: int): int =
+  pure def maxAssetDebt(a: Asset, w: Asset -> int, m: int): int =
     if (w.get(a) == 0) 0
     else
       val total = totalWeightSum(w)
       if (total == 0) 0
-      else w.get(a) * maxPsmDebt(r) / total
+      else perbillFromRational(w.get(a), total) * m / perbillOne
 
   // ---------- Hard invariants (mirroring deployed try_state) ----------
 
@@ -153,6 +172,24 @@ module psm_extended {
 
   val hardInvariant =
     check8 and check6 and check14 and conservation
+
+  // ---------- Advisory checks (warn in try_state, never fail) ----------
+
+  // Checks 2 and 7: live decimals equal the recorded values. An asset owner
+  // can break this with one metadata call, and the pallet keeps swapping at
+  // the recorded rate, so `try_state` warns instead of failing. The model
+  // keeps it out of `hardInvariant` for the same reason.
+  val decimalsMatchLiveMetadata =
+    assetSlots.forall(a => liveDecimals.get(a) == recordedDecimals.get(a))
+
+  // Checks 10 and 17: debt within the per-asset and per-instance ceilings.
+  // `set_max_debt` and `setWeight` can lower a ceiling under existing debt.
+  val debtWithinCeilings =
+    totalDebt(debt) <= maxDebt and
+    assetSlots.forall(a =>
+      not(isApproved(status.get(a))) or
+        debt.get(a) <= maxAssetDebt(a, weight, maxDebt)
+    )
 
   // ---------- Stronger probes (not deployed; some legitimately fail) ----------
 
@@ -192,7 +229,8 @@ module psm_extended {
     mintingFeeRate' = assetSlots.mapBy(_ => 5),
     redeemFeeRate'  = assetSlots.mapBy(_ => 5),
     reserveExt'     = assetSlots.mapBy(_ => 0),
-    maxPsmRatio'    = 1000,
+    maxDebt'        = initialMaxDebt,
+    liveDecimals'   = recordedDecimals,
     userInternal'   = users.mapBy(_ => 0),
     feeDestInternal'= 0,
     totalIssuance'  = 0,
@@ -212,9 +250,8 @@ module psm_extended {
     all {
       internalEquivalent > 0,
       internalEquivalent >= minSwapAmount,
-      totalIssuance + internalEquivalent <= maximumIssuance,
-      totalDebt(debt) + internalEquivalent <= maxPsmDebt(maxPsmRatio),
-      debt.get(a) + internalEquivalent <= maxAssetDebt(a, weight, maxPsmRatio),
+      totalDebt(debt) + internalEquivalent <= maxDebt,
+      debt.get(a) + internalEquivalent <= maxAssetDebt(a, weight, maxDebt),
       debt'            = debt.set(a, debt.get(a) + internalEquivalent),
       reserveExt'      = reserveExt.set(a, reserveExt.get(a) + effectiveExternal),
       userExt'         = userExt.set(u, userExt.get(u).set(a, userExt.get(u).get(a) - effectiveExternal)),
@@ -225,7 +262,8 @@ module psm_extended {
       weight'          = weight,
       mintingFeeRate'  = mintingFeeRate,
       redeemFeeRate'   = redeemFeeRate,
-      maxPsmRatio'     = maxPsmRatio,
+      maxDebt'         = maxDebt,
+    liveDecimals'    = liveDecimals,
     }
   }
 
@@ -254,7 +292,8 @@ module psm_extended {
       weight'          = weight,
       mintingFeeRate'  = mintingFeeRate,
       redeemFeeRate'   = redeemFeeRate,
-      maxPsmRatio'     = maxPsmRatio,
+      maxDebt'         = maxDebt,
+    liveDecimals'    = liveDecimals,
     }
   }
 
@@ -271,7 +310,8 @@ module psm_extended {
     weight'          = weight,
     mintingFeeRate'  = mintingFeeRate,
     redeemFeeRate'   = redeemFeeRate,
-    maxPsmRatio'     = maxPsmRatio,
+    maxDebt'         = maxDebt,
+    liveDecimals'    = liveDecimals,
     userInternal'    = userInternal,
     feeDestInternal' = feeDestInternal,
     totalIssuance'   = totalIssuance,
@@ -289,7 +329,8 @@ module psm_extended {
     mintingFeeRate' = mintingFeeRate,
     redeemFeeRate'  = redeemFeeRate,
     reserveExt'     = reserveExt,
-    maxPsmRatio'    = maxPsmRatio,
+    maxDebt'        = maxDebt,
+    liveDecimals'   = liveDecimals,
     userInternal'   = userInternal,
     feeDestInternal'= feeDestInternal,
     totalIssuance'  = totalIssuance,
@@ -306,7 +347,8 @@ module psm_extended {
     redeemFeeRate'  = redeemFeeRate.set(a, 5),
     debt'           = debt,
     reserveExt'     = reserveExt,      // NOT cleared
-    maxPsmRatio'    = maxPsmRatio,
+    maxDebt'        = maxDebt,
+    liveDecimals'   = liveDecimals,
     userInternal'   = userInternal,
     feeDestInternal'= feeDestInternal,
     totalIssuance'  = totalIssuance,
@@ -326,7 +368,8 @@ module psm_extended {
     weight'         = weight,
     redeemFeeRate'  = redeemFeeRate,
     reserveExt'     = reserveExt,
-    maxPsmRatio'    = maxPsmRatio,
+    maxDebt'        = maxDebt,
+    liveDecimals'   = liveDecimals,
     userInternal'   = userInternal,
     feeDestInternal'= feeDestInternal,
     totalIssuance'  = totalIssuance,
@@ -344,18 +387,41 @@ module psm_extended {
     weight'         = weight,
     mintingFeeRate' = mintingFeeRate,
     reserveExt'     = reserveExt,
-    maxPsmRatio'    = maxPsmRatio,
+    maxDebt'        = maxDebt,
+    liveDecimals'   = liveDecimals,
     userInternal'   = userInternal,
     feeDestInternal'= feeDestInternal,
     totalIssuance'  = totalIssuance,
     userExt'        = userExt,
   }
 
-  action setMaxPsmRatio(r: int, level: Level): bool = all {
+  // The asset owner changes metadata through the assets pallet. Nothing in
+  // the PSM reads it, so every hard invariant is indifferent to this action;
+  // only the advisory checks 2 and 7 observe it.
+  action setLiveDecimals(a: Asset, d: int): bool = all {
+    d >= 0,
+    d <= 18,
+    liveDecimals'   = liveDecimals.set(a, d),
+    maxDebt'        = maxDebt,
+    status'         = status,
+    debt'           = debt,
+    weight'         = weight,
+    mintingFeeRate' = mintingFeeRate,
+    redeemFeeRate'  = redeemFeeRate,
+    reserveExt'     = reserveExt,
+    userInternal'   = userInternal,
+    feeDestInternal'= feeDestInternal,
+    totalIssuance'  = totalIssuance,
+    userExt'        = userExt,
+  }
+
+  // `set_max_debt` accepts any value, including one below the current debt.
+  // Check 17 warns in that state rather than failing.
+  action setMaxDebt(m: int, level: Level): bool = all {
     level == Full,
-    r >= 0,
-    r <= 1000,
-    maxPsmRatio'    = r,
+    m >= 0,
+    maxDebt'        = m,
+    liveDecimals'   = liveDecimals,
     status'         = status,
     debt'           = debt,
     weight'         = weight,
@@ -378,7 +444,8 @@ module psm_extended {
     mintingFeeRate' = mintingFeeRate,
     redeemFeeRate'  = redeemFeeRate,
     reserveExt'     = reserveExt,
-    maxPsmRatio'    = maxPsmRatio,
+    maxDebt'        = maxDebt,
+    liveDecimals'   = liveDecimals,
     userInternal'   = userInternal,
     feeDestInternal'= feeDestInternal,
     totalIssuance'  = totalIssuance,
@@ -400,7 +467,8 @@ module psm_extended {
       mintingFeeRate' = mintingFeeRate,
       redeemFeeRate'  = redeemFeeRate,
       reserveExt'     = reserveExt,
-      maxPsmRatio'    = maxPsmRatio,
+      maxDebt'        = maxDebt,
+      liveDecimals'   = liveDecimals,
       userInternal'   = userInternal,
       feeDestInternal'= feeDestInternal,
       totalIssuance'  = totalIssuance,
@@ -437,9 +505,12 @@ module psm_extended {
       nondet r = oneOf(Set(0, 5, 50, 500));
       nondet lvl = oneOf(Set(Full, Emergency));
       setRedemptionFee(a, r, lvl),
-    nondet r = oneOf(Set(0, 100, 500, 1000));
+    nondet m = oneOf(Set(0, 10000, 50000, 100000));
       nondet lvl = oneOf(Set(Full, Emergency));
-      setMaxPsmRatio(r, lvl),
+      setMaxDebt(m, lvl),
+    nondet a = oneOf(assetSlots);
+      nondet d = oneOf(Set(0, 5, 6, 7, 18));
+      setLiveDecimals(a, d),
     nondet a = oneOf(assetSlots);
       nondet w = oneOf(Set(0, 100, 500, 1000));
       nondet lvl = oneOf(Set(Full, Emergency));
