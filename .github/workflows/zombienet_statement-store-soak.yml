@@ -37,9 +37,12 @@ permissions: read-all
 env:
   GHA_CLUSTER_SERVER_ADDR: "https://kubernetes.default:443"
   KUBECONFIG: "/data/config"
-  # DO NOT MERGE. A 120-node spawn outruns the 10-minute default while the cluster autoscaler
-  # is still adding machines, and the run dies with "deadline has elapsed" on a Pending pod.
-  ZOMBIE_NODE_SPAWN_TIMEOUT_SECONDS: "1800"
+  # DO NOT MERGE. The orchestrator otherwise spawns a whole level at once - 100 pods, so 100
+  # concurrent execs against the apiserver - and at this size that connection storm is what the
+  # spawn dies on, with "tls handshake eof" or an elapsed deadline. Raising the spawn timeout
+  # does not help: the pod-ready wait is hardcoded to 600s in the provider (kubernetes/client.rs
+  # :171, with a TODO to honour node_spawn_timeout), so the only lever is spawning fewer at once.
+  ZOMBIE_SPAWN_CONCURRENCY: "20"
   ZOMBIE_CLEANER_DISABLED: 1
 
 jobs:
