@@ -37,6 +37,9 @@ permissions: read-all
 env:
   GHA_CLUSTER_SERVER_ADDR: "https://kubernetes.default:443"
   KUBECONFIG: "/data/config"
+  # DO NOT MERGE. A 120-node spawn outruns the 10-minute default while the cluster autoscaler
+  # is still adding machines, and the run dies with "deadline has elapsed" on a Pending pod.
+  ZOMBIE_NODE_SPAWN_TIMEOUT_SECONDS: "1800"
   ZOMBIE_CLEANER_DISABLED: 1
 
 jobs:
