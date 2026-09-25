@@ -141,6 +141,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(100),
 					},
+					alarm_priority: 128,
 				},
 			},
 			pallet_referenda::Track {
@@ -163,6 +164,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(100),
 					},
+					alarm_priority: 128,
 				},
 			},
 			pallet_referenda::Track {
@@ -185,6 +187,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(100),
 					},
+					alarm_priority: 128,
 				},
 			},
 			pallet_referenda::Track {
@@ -207,6 +210,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(100),
 					},
+					alarm_priority: 128,
 				},
 			},
 			pallet_referenda::Track {
@@ -229,6 +233,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(100),
 					},
+					alarm_priority: 128,
 				},
 			},
 			pallet_referenda::Track {
@@ -251,6 +256,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(100),
 					},
+					alarm_priority: 128,
 				},
 			},
 			pallet_referenda::Track {
@@ -273,6 +279,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(100),
 					},
+					alarm_priority: 128,
 				},
 			},
 			pallet_referenda::Track {
@@ -295,6 +302,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(100),
 					},
+					alarm_priority: 128,
 				},
 			},
 			pallet_referenda::Track {
@@ -317,6 +325,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 						floor: Perbill::from_percent(0),
 						ceil: Perbill::from_percent(100),
 					},
+					alarm_priority: 128,
 				},
 			},
 			pallet_referenda::Track {
@@ -331,6 +340,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_enactment_period: RETAIN_MIN_ENACTMENT_PERIOD,
 					min_approval: RETAIN_MIN_APPROVAL,
 					min_support: RETAIN_MIN_SUPPORT,
+					alarm_priority: 128,
 				},
 			},
 			pallet_referenda::Track {
@@ -345,6 +355,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_enactment_period: RETAIN_MIN_ENACTMENT_PERIOD,
 					min_approval: RETAIN_MIN_APPROVAL,
 					min_support: RETAIN_MIN_SUPPORT,
+					alarm_priority: 128,
 				},
 			},
 			pallet_referenda::Track {
@@ -359,6 +370,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_enactment_period: RETAIN_MIN_ENACTMENT_PERIOD,
 					min_approval: RETAIN_MIN_APPROVAL,
 					min_support: RETAIN_MIN_SUPPORT,
+					alarm_priority: 128,
 				},
 			},
 			pallet_referenda::Track {
@@ -373,6 +385,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_enactment_period: RETAIN_MIN_ENACTMENT_PERIOD,
 					min_approval: RETAIN_MIN_APPROVAL,
 					min_support: RETAIN_MIN_SUPPORT,
+					alarm_priority: 128,
 				},
 			},
 			pallet_referenda::Track {
@@ -387,6 +400,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_enactment_period: RETAIN_MIN_ENACTMENT_PERIOD,
 					min_approval: RETAIN_MIN_APPROVAL,
 					min_support: RETAIN_MIN_SUPPORT,
+					alarm_priority: 128,
 				},
 			},
 			pallet_referenda::Track {
@@ -401,6 +415,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_enactment_period: RETAIN_MIN_ENACTMENT_PERIOD,
 					min_approval: RETAIN_MIN_APPROVAL,
 					min_support: RETAIN_MIN_SUPPORT,
+					alarm_priority: 128,
 				},
 			},
 			pallet_referenda::Track {
@@ -415,6 +430,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_enactment_period: PROMOTE_MIN_ENACTMENT_PERIOD,
 					min_approval: PROMOTE_MIN_APPROVAL,
 					min_support: PROMOTE_MIN_SUPPORT,
+					alarm_priority: 128,
 				},
 			},
 			pallet_referenda::Track {
@@ -429,6 +445,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_enactment_period: PROMOTE_MIN_ENACTMENT_PERIOD,
 					min_approval: PROMOTE_MIN_APPROVAL,
 					min_support: PROMOTE_MIN_SUPPORT,
+					alarm_priority: 128,
 				},
 			},
 			pallet_referenda::Track {
@@ -443,6 +460,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_enactment_period: PROMOTE_MIN_ENACTMENT_PERIOD,
 					min_approval: PROMOTE_MIN_APPROVAL,
 					min_support: PROMOTE_MIN_SUPPORT,
+					alarm_priority: 128,
 				},
 			},
 			pallet_referenda::Track {
@@ -457,6 +475,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_enactment_period: PROMOTE_MIN_ENACTMENT_PERIOD,
 					min_approval: PROMOTE_MIN_APPROVAL,
 					min_support: PROMOTE_MIN_SUPPORT,
+					alarm_priority: 128,
 				},
 			},
 			pallet_referenda::Track {
@@ -471,6 +490,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_enactment_period: PROMOTE_MIN_ENACTMENT_PERIOD,
 					min_approval: PROMOTE_MIN_APPROVAL,
 					min_support: PROMOTE_MIN_SUPPORT,
+					alarm_priority: 128,
 				},
 			},
 			pallet_referenda::Track {
@@ -485,6 +505,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 					min_enactment_period: PROMOTE_MIN_ENACTMENT_PERIOD,
 					min_approval: PROMOTE_MIN_APPROVAL,
 					min_support: PROMOTE_MIN_SUPPORT,
+					alarm_priority: 128,
 				},
 			},
 		];
