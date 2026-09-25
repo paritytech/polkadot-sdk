@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790287970352,
+  "lastUpdate": 1790337361942,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c34ff1e4271f7367d45a50a39a58f7b3af90274b",
-          "message": "Add timeout + people-westend to check-runtime CI  (#11158)\n\n@polkadot-api/check-runtime hangs in case the RPC endpoint is not\nreachable. A timeout is added to handle this case gracefully, similar to\nruntime's change\n[here](https://github.com/polkadot-fellows/runtimes/pull/1086).\n\nDriven-by: add support for metadata-hash extension on `people-westend`\nand add it to the list of chains to check.\n\n```bash\nnpx @polkadot-api/check-runtime@latest problems wss://westend-people-rpc.polkadot.io:443 --wasm target/release/wbuild/people-westend-runtime/people_westend_runtime.compact.wasm\n[ora] Multiple concurrent spinners detected. This may cause visual corruption. Use one spinner at a time.\n[ora] Multiple concurrent spinners detected. This may cause visual corruption. Use one spinner at a time.\nusing deprecated parameters for `initSync()`; pass a single object instead\n✔ Everything looks great!\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-24T19:19:34Z",
-          "tree_id": "d0324f94392e092bc79f81dac47a176fc87c22fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c34ff1e4271f7367d45a50a39a58f7b3af90274b"
-        },
-        "date": 1771965545934,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.8752949107,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1206239548333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.781039911933336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "79002163+gab8i@users.noreply.github.com",
+            "name": "gab",
+            "username": "gab8i"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5f0e2684174659b28c25f3fd879c42939ccd98a0",
+          "message": "feat: check configured address identity against the node key (#13024)\n\n#### Description\n\n`--listen-addr` and `--public-addr` can now carry the identity\ncomponents an operator is likely to\npaste back from an advertised or published address, either `/p2p/<peer\nid>` on any address or `/certhash/<hash>` on a `webrtc-direct` address.\n\nBoth are checked against the node key and then stripped. \n\n#### Integration\n\n`NetworkConfiguration::validate_and_complete_webrtc_addresses` now is no\nlonger WebRTC-specific.\n\nTwo new `sc_network::error::Error` variants: `MismatchedAddressIdentity`\nand `MalformedAddressIdentity`.\n\n#### Review Notes\n\n- check is part of `sc_network::config`, it applies to both litep2p and\nlibp2p.\n- `check_and_strip_identity` pops a trailing /p2p, then a /certhash, and\nrejects the address if anything identity-shaped remains inside it.\n- addrs tests moved from `webrtc.rs` to a new\n`substrate/client/network/src/address_tests.rs`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-25T09:46:26Z",
+          "tree_id": "028c45e23644cdd685f3520ce04cb504a42e7f54",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5f0e2684174659b28c25f3fd879c42939ccd98a0"
+        },
+        "date": 1790337328360,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.14389694933333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.252236450533335,
             "unit": "seconds"
           }
         ]
