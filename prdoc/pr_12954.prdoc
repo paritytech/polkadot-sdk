@@ -19,13 +19,15 @@ doc:
 
     The window is reached through `ExecutionTracerConfigV2`, selected by a new `TracerTypeV2` and
     carried by new `V3` input payloads of `trace_block`, `trace_tx` and `trace_call`, whose
-    `version_declarations` are bumped to `3`. The `V1` and `V2` payloads and the output types are
-    unchanged. `trace_block` gets a `V3` payload because `TracerType` is in its containment chain,
-    as the versioning guide requires, though nothing sends it yet.
+    `version_declarations` are bumped to `3`. Each also gains a `V3` output payload, of the same
+    shape as its `V2`. The `V1` and `V2` payloads are unchanged. `trace_block` gets a `V3` payload
+    because `TracerType` is in its containment chain, as the versioning guide requires, though
+    nothing sends it yet.
 
     Nothing to configure, but two source breaks: a `match` on a versioned `trace_block`,
-    `trace_tx` or `trace_call` input payload must handle `V3`, and an `ExecutionTracerConfig`
-    struct literal must set `step_offset` or add `..Default::default()`.
+    `trace_tx` or `trace_call` payload must handle `V3`, on the output side as well as the input,
+    and an `ExecutionTracerConfig` struct literal must set `step_offset` or add
+    `..Default::default()`.
 - audience: Node Dev
   description: |-
     `eth-rpc` pages internally. `debug_traceTransaction` and `debug_traceCall` call the runtime
