@@ -27,6 +27,7 @@ use codec::{Decode, Encode};
 use core::{fmt, mem};
 use frame_support::{pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound};
 use frame_system::pallet_prelude::*;
+use hrmp_primitives::{ChannelId, HrmpRegistry, ParaId as HrmpParaId};
 use polkadot_parachain_primitives::primitives::{HorizontalMessages, IsSystem};
 use polkadot_primitives::{
 	Balance, Hash, HrmpChannelId, Id as ParaId, InboundHrmpMessage, OutboundHrmpMessage,
@@ -1910,5 +1911,68 @@ impl<T: Config> Pallet<T> {
 			);
 			debug_assert!(false);
 		}
+	}
+}
+
+/// Not a `From` impl: neither type is local to this crate.
+#[allow(dead_code)]
+fn to_hrmp_channel_id(channel: ChannelId) -> HrmpChannelId {
+	HrmpChannelId {
+		sender: ParaId::from(channel.sender),
+		recipient: ParaId::from(channel.recipient),
+	}
+}
+
+/// Drives this pallet from `pallet-hrmp-relay`, whose caller is the chain that now holds the
+/// channel deposits. Every method is therefore deposit-free here.
+impl<T: Config> HrmpRegistry for Pallet<T> {
+	fn open_channel(
+		channel: ChannelId,
+		max_capacity: u32,
+		max_message_size: u32,
+	) -> Result<(), ()> {
+		let _ = (channel, max_capacity, max_message_size);
+		// TODO(ahm-v2): open the channel deposit-free.
+		Err(())
+	}
+
+	fn open_system_channel(channel: ChannelId) -> Result<(u32, u32), ()> {
+		let _ = channel;
+		// TODO(ahm-v2): open one direction between the two system chains, returning the sizes used.
+		Err(())
+	}
+
+	fn open_system_pair(
+		channel: ChannelId,
+		max_capacity: u32,
+		max_message_size: u32,
+	) -> Result<(), ()> {
+		let _ = (channel, max_capacity, max_message_size);
+		// TODO(ahm-v2): open both directions, rolling both back if either is refused.
+		Err(())
+	}
+
+	fn close_channel(channel: ChannelId, initiator: HrmpParaId) -> Result<(), ()> {
+		let _ = (channel, initiator);
+		// TODO(ahm-v2): close the channel on `initiator`'s behalf.
+		Err(())
+	}
+
+	fn force_clean(para_id: HrmpParaId, num_inbound: u32, num_outbound: u32) -> Result<(), ()> {
+		let _ = (para_id, num_inbound, num_outbound);
+		// TODO(ahm-v2): drop every channel and request belonging to `para_id`.
+		Err(())
+	}
+
+	fn exists(channel: ChannelId) -> bool {
+		let _ = channel;
+		// TODO(ahm-v2): report whether a channel or a pending request is recorded.
+		false
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_openable(channel: ChannelId) {
+		let _ = channel;
+		// TODO(ahm-v2): arrange for `channel` to be openable.
 	}
 }

@@ -391,6 +391,7 @@ members = [
 	"substrate/frame/grandpa",
 	"substrate/frame/honzon/oracle",
 	"substrate/frame/honzon/oracle/runtime-api",
+	"substrate/frame/hrmp/integration-tests",
 	"substrate/frame/hrmp/para",
 	"substrate/frame/hrmp/primitives",
 	"substrate/frame/hrmp/relay",
@@ -890,6 +891,7 @@ hex-literal = { version = "0.4.1", default-features = false }
 hkdf = { version = "0.12.0" }
 hmac = { version = "0.12.1" }
 honggfuzz = { version = "0.5.55" }
+hrmp-primitives = { path = "substrate/frame/hrmp/primitives", default-features = false }
 http = { version = "1.1" }
 http-body-util = { version = "0.1.2", default-features = false }
 humantime-serde = { version = "1.1" }
@@ -1034,6 +1036,8 @@ pallet-examples = { path = "substrate/frame/examples" }
 pallet-fast-unstake = { path = "substrate/frame/fast-unstake", default-features = false }
 pallet-glutton = { path = "substrate/frame/glutton", default-features = false }
 pallet-grandpa = { path = "substrate/frame/grandpa", default-features = false }
+pallet-hrmp-para = { path = "substrate/frame/hrmp/para", default-features = false }
+pallet-hrmp-relay = { path = "substrate/frame/hrmp/relay", default-features = false }
 pallet-identity = { path = "substrate/frame/identity", default-features = false }
 pallet-im-online = { path = "substrate/frame/im-online", default-features = false }
 pallet-indices = { path = "substrate/frame/indices", default-features = false }
