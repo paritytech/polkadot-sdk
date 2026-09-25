@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790337409987,
+  "lastUpdate": 1790350805396,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c34ff1e4271f7367d45a50a39a58f7b3af90274b",
-          "message": "Add timeout + people-westend to check-runtime CI  (#11158)\n\n@polkadot-api/check-runtime hangs in case the RPC endpoint is not\nreachable. A timeout is added to handle this case gracefully, similar to\nruntime's change\n[here](https://github.com/polkadot-fellows/runtimes/pull/1086).\n\nDriven-by: add support for metadata-hash extension on `people-westend`\nand add it to the list of chains to check.\n\n```bash\nnpx @polkadot-api/check-runtime@latest problems wss://westend-people-rpc.polkadot.io:443 --wasm target/release/wbuild/people-westend-runtime/people_westend_runtime.compact.wasm\n[ora] Multiple concurrent spinners detected. This may cause visual corruption. Use one spinner at a time.\n[ora] Multiple concurrent spinners detected. This may cause visual corruption. Use one spinner at a time.\nusing deprecated parameters for `initSync()`; pass a single object instead\n✔ Everything looks great!\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-24T19:19:34Z",
-          "tree_id": "d0324f94392e092bc79f81dac47a176fc87c22fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c34ff1e4271f7367d45a50a39a58f7b3af90274b"
-        },
-        "date": 1771965580080,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006994986046666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009670419413333306,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02410073001333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1448660765533334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.025212561813333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bkontur@gmail.com",
+            "name": "Branislav Kontur",
+            "username": "bkontur"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6d4445b6af52ef42643acf53e432d58cd2f9ff4d",
+          "message": "Remove obsolete bridges zombienet test image publishing (#13316)\n\nRemove the unused `build-push-image-bridges-zombienet-tests` job, its\n`prepare-bridges-zombienet-artifacts` dependency and\n`docker/dockerfiles/bridges_zombienet_tests_injected.Dockerfile`, since\nthe bridge integration tests now run as zombienet-sdk tests and this\nimage is not pulled by anything — see\nhttps://github.com/paritytech/parity-bridges-common/pull/3327#issuecomment-5816227455",
+          "timestamp": "2026-09-25T12:36:45Z",
+          "tree_id": "3e0ffe0d218eb14a2c2d20289e21a151276ee7f0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6d4445b6af52ef42643acf53e432d58cd2f9ff4d"
+        },
+        "date": 1790350774402,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007635940580000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1440339009733334,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025353926853333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00994585019333331,
             "unit": "seconds"
           }
         ]
