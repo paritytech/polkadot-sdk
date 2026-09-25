@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790288017368,
+  "lastUpdate": 1790337409987,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marios@parity.io",
-            "name": "Marios",
-            "username": "mchristou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7beff9b36482109623319d61aca5dedd407888cb",
-          "message": "Collator protocol revamp: Change collation hold-off timing to start at leaf activation (#11046)\n\n#11022 \n \nThe hold-off delay should be measured from when the relay parent (leaf)\nis activated, not when the advertisement message arrives. This prevents\nartificially delaying messages that already arrived late.\n\n\n ## Changes\n- Calculate remaining hold-off time from leaf activation, not message\narrival\n  - Process immediately if hold-off window has already elapsed\n  - Add test to ensure late-arriving collations skip artificial delay\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-24T14:30:24Z",
-          "tree_id": "94c81a5263ab20d4416cafbb2d3afa66e5eded28",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/7beff9b36482109623319d61aca5dedd407888cb"
-        },
-        "date": 1771948493362,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006989442013333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14358840657333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009734677793333311,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024091444659999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007592515839999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "79002163+gab8i@users.noreply.github.com",
+            "name": "gab",
+            "username": "gab8i"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5f0e2684174659b28c25f3fd879c42939ccd98a0",
+          "message": "feat: check configured address identity against the node key (#13024)\n\n#### Description\n\n`--listen-addr` and `--public-addr` can now carry the identity\ncomponents an operator is likely to\npaste back from an advertised or published address, either `/p2p/<peer\nid>` on any address or `/certhash/<hash>` on a `webrtc-direct` address.\n\nBoth are checked against the node key and then stripped. \n\n#### Integration\n\n`NetworkConfiguration::validate_and_complete_webrtc_addresses` now is no\nlonger WebRTC-specific.\n\nTwo new `sc_network::error::Error` variants: `MismatchedAddressIdentity`\nand `MalformedAddressIdentity`.\n\n#### Review Notes\n\n- check is part of `sc_network::config`, it applies to both litep2p and\nlibp2p.\n- `check_and_strip_identity` pops a trailing /p2p, then a /certhash, and\nrejects the address if anything identity-shaped remains inside it.\n- addrs tests moved from `webrtc.rs` to a new\n`substrate/client/network/src/address_tests.rs`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-25T09:46:26Z",
+          "tree_id": "028c45e23644cdd685f3520ce04cb504a42e7f54",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5f0e2684174659b28c25f3fd879c42939ccd98a0"
+        },
+        "date": 1790337376732,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007402119140000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009961924393333314,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14324827666000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025212561813333333,
             "unit": "seconds"
           }
         ]
