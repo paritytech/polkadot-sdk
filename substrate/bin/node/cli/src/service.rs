@@ -155,7 +155,7 @@ pub fn create_extrinsic(
 		function.clone(),
 		tx_ext.clone(),
 		(
-			(),
+			((), ()),
 			(),
 			kitchensink_runtime::VERSION.spec_version,
 			kitchensink_runtime::VERSION.transaction_version,
@@ -1156,7 +1156,7 @@ mod tests {
 					function,
 					tx_ext,
 					(
-						(),
+						((), ()),
 						(),
 						spec_version,
 						transaction_version,
