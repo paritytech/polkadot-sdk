@@ -1703,6 +1703,7 @@ impl Store {
 		for version in from_version..CURRENT_VERSION {
 			match version {
 				1 => self.migrate_v1_to_v2()?,
+				2 => self.migrate_v2_to_v3()?,
 				_ => {
 					return Err(Error::Db(format!("No migration from database version {version}")))
 				},
@@ -1783,6 +1784,52 @@ impl Store {
 		log::info!(
 			target: LOG_TARGET,
 			"Migrated the statement store index to the on-disk format ({} rows)",
+			migrated_entries
+		);
+		Ok(())
+	}
+
+	/// Version 3 records the retention track in every account index row and keeps the store
+	/// totals per track. Older rows carry no track, so every statement lands on the explicit-only
+	/// track; the other columns are left as they are.
+	fn migrate_v2_to_v3(&self) -> Result<()> {
+		// A statement whose admission entry is missing gets a fresh sequence number, as on a
+		// migration from version 1.
+		let (mut admission_seqs, mut next_seq) = self.load_admission_seqs()?;
+		let mut migration = MigrationBatch::new(&self.db);
+		let mut totals = StoreTotals::default();
+		self.for_each_stored_statement(|hash, statement, account| {
+			let persisted_seq = admission_seqs.remove(hash);
+			let seq = persisted_seq.unwrap_or_else(|| {
+				let seq = next_seq;
+				next_seq = seq.saturating_add(1);
+				seq
+			});
+			totals.add(RetentionTrack::ExplicitOnly, statement.data_len());
+			let details = EntryDetails {
+				channel: statement.channel(),
+				data_len: statement.data_len(),
+				admission_seq: seq,
+				track: RetentionTrack::ExplicitOnly,
+			};
+			let admission_op = persisted_seq.is_none().then(|| DbOperation {
+				column: col::ADMISSION_SEQ,
+				key: seq.to_be_bytes().to_vec(),
+				value: Some(hash.to_vec()),
+			});
+			let operations =
+				account_index_ops(account, Expiry(statement.expiry()), hash, Some(&details))
+					.into_iter()
+					.map(DbOperation::from)
+					.chain(admission_op);
+			migration.extend(operations)
+		})?;
+		migration.push(SubmitIndex::counters_op(&totals, next_seq).into())?;
+		let migrated_entries = migration.finish()?;
+		Self::set_db_version(&self.db, 3)?;
+		log::info!(
+			target: LOG_TARGET,
+			"Migrated the statement store index to per-track totals ({} rows)",
 			migrated_entries
 		);
 		Ok(())
@@ -3856,8 +3903,9 @@ impl Store {
 mod tests {
 
 	use crate::{
-		col, Config, Error, QueryIndex, Resubmission, RetentionReasonMask, RetentionTrack, Store,
-		StoreTotals, V2DhtConfig, KEY_VERSION,
+		col, evicted_index_key, parse_time_index_key, Config, Error, QueryIndex, Resubmission,
+		RetentionReasonMask, RetentionTrack, Store, StoreTotals, V2DhtConfig, INDEX_EMPTY_VALUE,
+		KEY_VERSION,
 	};
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
@@ -5177,6 +5225,49 @@ mod tests {
 		// Migrated rows carry the explicit-only track, so the removal comes off it.
 		store.remove(&statements[0].hash()).unwrap();
 		assert_eq!(track_size(&store, RetentionTrack::ExplicitOnly), 50);
+	}
+
+	#[test]
+	fn migration_from_v2_keeps_the_evicted_journal() {
+		let (store, temp) = test_store();
+		// A ban whose purge time the statement's expiry capped, so a rebuild from the EXPIRED
+		// column would add a second key for the same hash.
+		let banned = topic(999).0;
+		let banned_at = 10_000_000_000u64;
+		let purge_at = banned_at + 10;
+		store
+			.db
+			.commit([
+				(col::EXPIRED, banned.to_vec(), Some((banned, banned_at).encode())),
+				(
+					col::INDEX_EVICTED,
+					evicted_index_key(purge_at, &banned),
+					Some(INDEX_EMPTY_VALUE.to_vec()),
+				),
+				(col::META, KEY_VERSION.to_vec(), Some(2u32.to_le_bytes().to_vec())),
+			])
+			.unwrap();
+		let keystore = store.keystore.clone();
+		drop(store);
+
+		let mut path: std::path::PathBuf = temp.path().into();
+		path.push("db");
+		let store = Store::new::<Block, TestClient, TestBackend>(
+			&path,
+			Default::default(),
+			std::sync::Arc::new(TestClient),
+			keystore,
+			None,
+			Box::new(sp_core::testing::TaskExecutor::new()),
+		)
+		.unwrap();
+		assert!(store.is_evicted(&banned));
+		assert_eq!(store.evicted_count(), 1);
+		let mut journal = store.db.iter(col::INDEX_EVICTED).unwrap();
+		journal.seek_to_first().unwrap();
+		let (key, _) = journal.next().unwrap().unwrap();
+		assert_eq!(parse_time_index_key(&key), Some((purge_at, banned)));
+		assert!(journal.next().unwrap().is_none());
 	}
 
 	fn transient_max_size(max_size: usize) -> Config {
