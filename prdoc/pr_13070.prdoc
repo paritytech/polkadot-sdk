@@ -1,0 +1,27 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add TransactionChargeApi to estimate fees in payment assets
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds an opt-in `TransactionChargeApi` to estimate which assets would be withdrawn from the
+      sender to pay for a transaction, and a `ChargeAssetTxPayment::quote_fee` to build it from.
+
+      **Breaking**: `pallet_asset_conversion_tx_payment::OnChargeAssetTransaction` now requires
+      `quote_asset_fee`. `SwapAssetAdapter` already implements it; only custom adapters need
+      work. The same-named trait in `pallet-asset-tx-payment` is unaffected.
+
+  - audience: Runtime User
+    description: |
+      Chains that implement `TransactionChargeApi` expose `estimate_charge`, which reports the
+      fee in the assets the sender pays with, including the tip. The call is read-only and
+      best-effort: it does not imply the sender can pay, and the amount later charged can
+      differ.
+
+crates:
+  - name: pallet-asset-conversion-tx-payment
+    bump: major
+  - name: pallet-transaction-payment-rpc-runtime-api
+    bump: minor
