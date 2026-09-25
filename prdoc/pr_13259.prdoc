@@ -1,0 +1,35 @@
+title: 'pallet-collective: include the voting threshold in the proposal hash'
+doc:
+- audience: Runtime Dev
+  description: |-
+    A proposal in `pallet_collective` is now identified by the hash of the SCALE encoding of
+    `(call, threshold)` instead of the hash of the call alone. The same call proposed with
+    different thresholds therefore results in distinct proposals. The derivation is exposed as
+    `Pallet::<T, I>::proposal_hash(&call, threshold)`.
+
+    The pallet's storage version is bumped to 5. Runtimes must add
+    `pallet_collective::migrations::v5::MigrateToV5<Runtime, Instance>` to their migrations for
+    every instance of the pallet. The migration re-keys all active proposals in `Proposals`,
+    `ProposalOf`, `Voting` and `CostOf` under the new hash; it is bounded by `MaxProposals` and
+    runs in a single block.
+
+    Breaking changes:
+    - `Pallet::do_propose_execute` takes the `threshold` as its first argument.
+    - Off-chain tooling that computed the proposal hash as `hash(call)` to call `vote`, `close`
+      or `disapprove_proposal` must now compute `hash((call, threshold))`, or read the hash from
+      the `Proposed` event.
+- audience: Runtime User
+  description: |-
+    The Alliance collective on Collectives Westend runs a one-off storage migration that re-keys
+    its active motions. Motion hashes shown by tooling change accordingly.
+crates:
+- name: pallet-collective
+  bump: major
+- name: pallet-alliance
+  bump: none
+- name: pallet-utility
+  bump: none
+- name: collectives-westend-runtime
+  bump: patch
+- name: kitchensink-runtime
+  bump: patch
