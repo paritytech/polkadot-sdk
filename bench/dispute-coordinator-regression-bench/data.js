@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790350971758,
+  "lastUpdate": 1790354085580,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "luka.ciric2106@gmail.com",
-            "name": "Luka Ciric",
-            "username": "cirko33"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f6e430ef28716084bed0b3af47256069c75e79d7",
-          "message": "Meta Transactions - Benchmarking update (#10982)\n\nUpdate of benchmarking logic to remove possibility of `quadratic\ncomplexity` not being weighted when executed. Introducing witness\nparameter that would define length of `meta_tx` encoded size.\n\nUpdate of weight annotation to `saturating add` instead of `add`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-24T13:12:59Z",
-          "tree_id": "207392576e969d65c1be0bee5cd3675684a06673",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6e430ef28716084bed0b3af47256069c75e79d7"
-        },
-        "date": 1771943570783,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009018515849999987,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006204762140000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026193512099999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025280166400000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eduard@parity.io",
+            "name": "eduardspa",
+            "username": "eduardspa"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a92f928a64c30c08c1bcd3c94161eccd537b733d",
+          "message": "chain-spec-builder: manage the boot nodes of a chain spec (#13302)\n\n`chain-spec-builder` had no way to manage the boot nodes of a chain\nspec. The `bootNodes`\nfield had to be edited by hand, which is error prone: the addresses must\nbe multiaddresses\ncarrying the peer id of the node, and a raw chain spec is not pleasant\nto edit manually.\n\nThe new `bootnodes` command group operates on an existing chain spec, in\nboth plain and raw\nformat:\n\n```sh\nchain-spec-builder -c out.json bootnodes add chain_spec.json /dns/node-0.example.com/tcp/30333/p2p/12D3KooW...\nchain-spec-builder -c out.json bootnodes remove chain_spec.json /dns/node-0.example.com/tcp/30333/p2p/12D3KooW...\nchain-spec-builder -c out.json bootnodes remove chain_spec.json --all\nchain-spec-builder bootnodes list chain_spec.json\n```\n\n`add` appends and skips the addresses that are already stored, `remove`\nignores the ones that\nare not stored, so both can be safely repeated. `create` takes a new\n`--bootnodes` argument.\nThe addresses are validated: one without a `/p2p/<peer id>` component is\nrejected before\nanything is read or written.\n\n# Integration\n\nNew functionality only. `sc-chain-spec` now re-exports\n`MultiaddrWithPeerId`, which was\nalready public through `ChainSpec::boot_nodes()`.\n\n## Review Notes\n\nThe commands edit the chain spec `serde_json::Value`, which is what\nmakes plain and raw work\nthrough one path and leaves the rest of the spec untouched — the tests\nassert this by\ncomparing the output against the input with only `bootNodes` patched.\n`remove --all` skips\ndeserializing the existing addresses on purpose: it is the way to repair\na spec whose\n`bootNodes` no longer parses.\n\n---------\n\nCo-authored-by: nprt <nikola.djoric@parity.io>",
+          "timestamp": "2026-09-25T14:56:00Z",
+          "tree_id": "8e95e3275f15c77c43772673f9c6942a2d382171",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a92f928a64c30c08c1bcd3c94161eccd537b733d"
+        },
+        "date": 1790354053981,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009035739859999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009436434149999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025167696600000003,
             "unit": "seconds"
           }
         ]
