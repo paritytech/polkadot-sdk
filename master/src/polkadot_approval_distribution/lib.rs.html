@@ -571,15 +571,15 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#421 id=421 data-nosnippet>421</a>		// we need to share the same `MessageSubject` with the followup approval candidate index.
 <a href=#422 id=422 data-nosnippet>422</a>		</span><span class="kw">if </span>kind == MessageKind::Assignment &amp;&amp; success &amp;&amp; message.<span class="number">1</span>.count_ones() &gt; <span class="number">1 </span>{
 <a href=#423 id=423 data-nosnippet>423</a>			<span class="kw">for </span>candidate_index <span class="kw">in </span>message.<span class="number">1</span>.iter_ones() {
-<a href=#424 id=424 data-nosnippet>424</a>				success = success &amp;&amp;
-<a href=#425 id=425 data-nosnippet>425</a>					<span class="self">self</span>.insert(
-<a href=#426 id=426 data-nosnippet>426</a>						MessageSubject(
-<a href=#427 id=427 data-nosnippet>427</a>							message.<span class="number">0</span>,
-<a href=#428 id=428 data-nosnippet>428</a>							<span class="macro">vec!</span>[candidate_index <span class="kw">as </span>u32].try_into().expect(<span class="string">"Non-empty vec; qed"</span>),
-<a href=#429 id=429 data-nosnippet>429</a>							message.<span class="number">2</span>,
-<a href=#430 id=430 data-nosnippet>430</a>						),
-<a href=#431 id=431 data-nosnippet>431</a>						kind,
-<a href=#432 id=432 data-nosnippet>432</a>					);
+<a href=#424 id=424 data-nosnippet>424</a>				<span class="comment">// Every candidate needs an entry, even if an earlier one is already known.
+<a href=#425 id=425 data-nosnippet>425</a>				</span>success &amp;= <span class="self">self</span>.insert(
+<a href=#426 id=426 data-nosnippet>426</a>					MessageSubject(
+<a href=#427 id=427 data-nosnippet>427</a>						message.<span class="number">0</span>,
+<a href=#428 id=428 data-nosnippet>428</a>						<span class="macro">vec!</span>[candidate_index <span class="kw">as </span>u32].try_into().expect(<span class="string">"Non-empty vec; qed"</span>),
+<a href=#429 id=429 data-nosnippet>429</a>						message.<span class="number">2</span>,
+<a href=#430 id=430 data-nosnippet>430</a>					),
+<a href=#431 id=431 data-nosnippet>431</a>					kind,
+<a href=#432 id=432 data-nosnippet>432</a>				);
 <a href=#433 id=433 data-nosnippet>433</a>			}
 <a href=#434 id=434 data-nosnippet>434</a>		}
 <a href=#435 id=435 data-nosnippet>435</a>		success
