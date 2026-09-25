@@ -15,7 +15,7 @@ doc:
 
 crates:
 - name: sp-statement-store
-  bump: minor
+  bump: major
 - name: sc-statement-store
   bump: minor
 - name: sc-network-statement
