@@ -609,8 +609,8 @@ pub use pallet_offences;
 pub use pallet_offences_benchmarking;
 
 /// Sale of on-demand Coretime from the Coretime chain.
-#[cfg(feature = "pallet-on-demand")]
-pub use pallet_on_demand;
+#[cfg(feature = "pallet-on-demand-para")]
+pub use pallet_on_demand_para;
 
 /// FRAME oracle pallet for off-chain data.
 #[cfg(feature = "pallet-oracle")]

@@ -14098,7 +14098,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-on-demand"
+name = "pallet-on-demand-para"
 version = "0.1.0"
 dependencies = [
  "fp-coretime",
@@ -17816,7 +17816,7 @@ dependencies = [
  "pallet-nomination-pools-runtime-api",
  "pallet-offences",
  "pallet-offences-benchmarking",
- "pallet-on-demand",
+ "pallet-on-demand-para",
  "pallet-oracle",
  "pallet-oracle-runtime-api",
  "pallet-origin-restriction",

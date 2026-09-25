@@ -1,5 +1,5 @@
 [package]
-name = "pallet-on-demand"
+name = "pallet-on-demand-para"
 version = "0.1.0"
 description = "Sale of on-demand Coretime from the Coretime chain"
 authors.workspace = true

@@ -18,7 +18,7 @@
 //! Test mock for the on-demand pallet.
 
 use crate::{
-	self as pallet_on_demand, Config, DefaultPricingProvider, PoolCapacityProvider,
+	self as pallet_on_demand_para, Config, DefaultPricingProvider, PoolCapacityProvider,
 	QueueOnDemandOrders, DEFAULT_BASE_FEE,
 };
 use fp_coretime::TaskId;
@@ -42,7 +42,7 @@ frame_support::construct_runtime!(
 	pub enum Test {
 		System: frame_system,
 		Balances: pallet_balances,
-		OnDemand: pallet_on_demand,
+		OnDemand: pallet_on_demand_para,
 	}
 );
 

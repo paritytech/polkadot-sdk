@@ -159,6 +159,6 @@ mod benches {
 	}
 
 	// Implements a test for each benchmark. Execute with:
-	// `cargo test -p pallet-on-demand --features runtime-benchmarks`.
+	// `cargo test -p pallet-on-demand-para --features runtime-benchmarks`.
 	impl_benchmark_test_suite!(OnDemand, crate::mock::new_test_ext(), crate::mock::Test);
 }
