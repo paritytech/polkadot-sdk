@@ -15402,6 +15402,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-validator-collators"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-aura",
+ "pallet-authorship",
+ "pallet-balances",
+ "pallet-collator-selection",
+ "pallet-session",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-consensus-aura",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-staking",
+ "sp-tracing 16.0.0",
+]
+
+[[package]]
 name = "pallet-verify-signature"
 version = "1.0.0"
 dependencies = [

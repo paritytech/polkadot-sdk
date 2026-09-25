@@ -85,6 +85,7 @@ members = [
 	"cumulus/pallets/parachain-system/proc-macro",
 	"cumulus/pallets/session-benchmarking",
 	"cumulus/pallets/solo-to-para",
+	"cumulus/pallets/validator-collators",
 	"cumulus/pallets/weight-reclaim",
 	"cumulus/pallets/xcm",
 	"cumulus/pallets/xcmp-queue",
@@ -1103,6 +1104,7 @@ pallet-transaction-storage = { path = "substrate/frame/transaction-storage", def
 pallet-treasury = { path = "substrate/frame/treasury", default-features = false }
 pallet-uniques = { path = "substrate/frame/uniques", default-features = false }
 pallet-utility = { path = "substrate/frame/utility", default-features = false }
+pallet-validator-collators = { path = "cumulus/pallets/validator-collators", default-features = false }
 pallet-verify-signature = { path = "substrate/frame/verify-signature", default-features = false }
 pallet-vesting = { path = "substrate/frame/vesting", default-features = false }
 pallet-vesting-precompiles = { path = "substrate/frame/vesting/precompiles", default-features = false }
