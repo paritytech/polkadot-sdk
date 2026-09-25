@@ -66,7 +66,6 @@ pub enum ChainSpecBuilderCmd {
 /// the addresses to operate on from the command line, and prompt for them interactively when none
 /// is given.
 #[derive(Debug, Subcommand)]
-#[command(rename_all = "kebab-case")]
 pub enum BootnodesCmd {
 	Add(AddBootnodesCmd),
 	Remove(RemoveBootnodesCmd),
