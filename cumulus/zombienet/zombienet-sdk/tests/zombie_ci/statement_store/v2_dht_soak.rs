@@ -67,7 +67,7 @@ const PROBES_PER_WAVE: usize = 8;
 const DELIVERY_TIMEOUT_SECS: u64 = 120;
 const PLACEMENT_TIMEOUT_SECS: u64 = 90;
 const CONNECTED_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_connected_peers";
-const KNOWN_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_known_peers";
+const ELIGIBLE_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_eligible_peers";
 
 fn env_parsed<T: std::str::FromStr>(name: &str) -> Result<Option<T>, anyhow::Error>
 where
@@ -322,17 +322,17 @@ async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
 	info!("Waiting for the parachain to produce blocks...");
 	wait_for_first_block(&[nodes[0].node], 300).await?;
 
-	// The replica oracle is only valid once discovery is complete on every node, and the load
-	// needs the connections that follow from it.
+	// The replica oracle ranks the eligible peers, so it is only valid once every node has all of
+	// them, and the load needs the connections that follow from it.
 	let topology_timeout = 300 + 5 * statement_node_count as u64;
-	let known_floor = (statement_node_count - 1) as f64;
+	let eligible_floor = (statement_node_count - 1) as f64;
 	let connected_floor = (statement_node_count - 1).min(STATEMENT_SET_PEER_LIMIT) as f64;
 	for handle in &nodes {
 		handle
 			.node
 			.wait_metric_with_timeout(
-				KNOWN_PEERS_METRIC,
-				|known| known >= known_floor,
+				ELIGIBLE_PEERS_METRIC,
+				|eligible| eligible >= eligible_floor,
 				topology_timeout,
 			)
 			.await?;
