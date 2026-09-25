@@ -154,7 +154,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../" data-st
 <h2 id="two-modes-of-operation"><a class="doc-anchor" href="#two-modes-of-operation">§</a>Two Modes of Operation</h2>
 <p>The subsystem supports two distinct interfaces for receiving collations:</p>
 <h3 id="1-collatorfn-callback-legacysimple-interface"><a class="doc-anchor" href="#1-collatorfn-callback-legacysimple-interface">§</a>1. <code>CollatorFn</code> callback (legacy/simple interface)</h3>
-<p>Configured via <a href="../polkadot_node_subsystem_types/messages/enum.CollationGenerationMessage.html#variant.Initialize" title="variant polkadot_node_subsystem_types::messages::CollationGenerationMessage::Initialize"><code>CollationGenerationMessage::Initialize</code></a> with a <a href="../polkadot_node_primitives/type.CollatorFn.html" title="type polkadot_node_primitives::CollatorFn"><code>CollatorFn</code></a> callback.
+<p>Configured via [<code>CollationGenerationMessage::Initialize</code>] with a <a href="../polkadot_node_primitives/type.CollatorFn.html" title="type polkadot_node_primitives::CollatorFn"><code>CollatorFn</code></a> callback.
 The subsystem invokes this callback on each new relay chain head to request collations.</p>
 <ul>
 <li><strong>Trigger</strong>: <code>ActiveLeavesUpdate</code> signal with new relay parent</li>
@@ -165,28 +165,28 @@ V2 descriptors where <code>relay_parent == scheduling_parent</code>.</li>
 <li><strong>Used by</strong>: Test collators (adder, undying)</li>
 </ul>
 <h3 id="2-submitsegment-message-full-featured-interface"><a class="doc-anchor" href="#2-submitsegment-message-full-featured-interface">§</a>2. <code>SubmitSegment</code> message (full-featured interface)</h3>
-<p>Collations are submitted directly via <a href="../polkadot_node_subsystem_types/messages/enum.CollationGenerationMessage.html#variant.SubmitSegment" title="variant polkadot_node_subsystem_types::messages::CollationGenerationMessage::SubmitSegment"><code>CollationGenerationMessage::SubmitSegment</code></a>. A segment
+<p>Collations are submitted directly via [<code>CollationGenerationMessage::SubmitSegment</code>]. A segment
 is one or more collations that share a scheduling parent and target core; the collator builds
 them and decides when to submit.</p>
 <ul>
 <li><strong>Trigger</strong>: Explicit <code>SubmitSegment</code> message from the collator</li>
 <li><strong>Flow</strong>: Collator builds collations externally → sends <code>SubmitSegmentParams</code> → subsystem
-constructs one <a href="../polkadot_node_subsystem_types/messages/struct.SegmentEntry.html" title="struct polkadot_node_subsystem_types::messages::SegmentEntry"><code>SegmentEntry</code></a> per collation and distributes them in order as a <a href="../polkadot_node_subsystem_types/messages/enum.Segment.html" title="enum polkadot_node_subsystem_types::messages::Segment"><code>Segment</code></a>.
+constructs one [<code>SegmentEntry</code>] per collation and distributes them in order as a [<code>Segment</code>].
 The collator protocol assembles the candidate receipts from the entry fields and the
 segment-level commons.</li>
 <li><strong>Descriptor version</strong>: Selected explicitly via <code>candidates_descriptor_version</code> and reflected
-in the <a href="../polkadot_node_subsystem_types/messages/enum.Segment.html" title="enum polkadot_node_subsystem_types::messages::Segment"><code>Segment</code></a> arm. <code>V3</code> enables low-latency collation where the scheduling context (which
+in the [<code>Segment</code>] arm. <code>V3</code> enables low-latency collation where the scheduling context (which
 relay block determined core assignment) differs from the relay parent (the block the parablock
 actually builds on).</li>
 <li><strong>Used by</strong>: Production collators (cumulus slot-based, lookahead)</li>
 </ul>
 <h2 id="candidate-descriptor-versions"><a class="doc-anchor" href="#candidate-descriptor-versions">§</a>Candidate Descriptor Versions</h2>
 <p>The descriptor version is selected via <code>candidates_descriptor_version</code> and is reflected in
-the <a href="../polkadot_node_subsystem_types/messages/enum.Segment.html" title="enum polkadot_node_subsystem_types::messages::Segment"><code>Segment</code></a> arm:</p>
+the [<code>Segment</code>] arm:</p>
 <ul>
-<li><strong>V2</strong>: <a href="../polkadot_node_subsystem_types/messages/enum.Segment.html#variant.V2" title="variant polkadot_node_subsystem_types::messages::Segment::V2"><code>Segment::V2</code></a>, exactly one collation. The scheduling context implicitly equals the
+<li><strong>V2</strong>: [<code>Segment::V2</code>], exactly one collation. The scheduling context implicitly equals the
 relay parent. The <code>CollatorFn</code> path only produces these.</li>
-<li><strong>V3</strong>: <a href="../polkadot_node_subsystem_types/messages/enum.Segment.html#variant.V3" title="variant polkadot_node_subsystem_types::messages::Segment::V3"><code>Segment::V3</code></a>, one or more collations sharing a scheduling parent. V3 candidates
+<li><strong>V3</strong>: [<code>Segment::V3</code>], one or more collations sharing a scheduling parent. V3 candidates
 require UMP signals to be present. Requires the <code>CandidateReceiptV3</code> node feature to be
 enabled.</li>
 </ul>
@@ -201,8 +201,8 @@ enabled.</li>
 <li>Fetch claim queue to determine core assignments</li>
 <li>Fetch validation data and code hash</li>
 <li>Invoke <code>CollatorFn</code> for each assigned core</li>
-<li>Construct a <a href="../polkadot_node_subsystem_types/messages/struct.SegmentEntry.html" title="struct polkadot_node_subsystem_types::messages::SegmentEntry"><code>SegmentEntry</code></a> and distribute it as a V2 segment via
-<a href="../polkadot_node_subsystem_types/messages/enum.CollatorProtocolMessage.html#variant.DistributeSegment" title="variant polkadot_node_subsystem_types::messages::CollatorProtocolMessage::DistributeSegment"><code>CollatorProtocolMessage::DistributeSegment</code></a></li>
+<li>Construct a [<code>SegmentEntry</code>] and distribute it as a V2 segment via
+[<code>CollatorProtocolMessage::DistributeSegment</code>]</li>
 </ul>
 </li>
 </ol>
@@ -210,8 +210,8 @@ enabled.</li>
 <ol>
 <li>Validate the subsystem is initialized</li>
 <li>Fetch claim queue and session info for the scheduling parent</li>
-<li>Construct one <a href="../polkadot_node_subsystem_types/messages/struct.SegmentEntry.html" title="struct polkadot_node_subsystem_types::messages::SegmentEntry"><code>SegmentEntry</code></a> per collation</li>
-<li>Distribute the segment via <a href="../polkadot_node_subsystem_types/messages/enum.CollatorProtocolMessage.html#variant.DistributeSegment" title="variant polkadot_node_subsystem_types::messages::CollatorProtocolMessage::DistributeSegment"><code>CollatorProtocolMessage::DistributeSegment</code></a></li>
+<li>Construct one [<code>SegmentEntry</code>] per collation</li>
+<li>Distribute the segment via [<code>CollatorProtocolMessage::DistributeSegment</code>]</li>
 </ol>
 </div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.CollationGenerationSubsystem.html" title="struct polkadot_node_collation_generation::CollationGenerationSubsystem">Collation<wbr>Generation<wbr>Subsystem</a></dt><dd>Collation Generation Subsystem</dd></dl></section></div></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 

@@ -184,8 +184,11 @@ reserved nodes.</p>
 </div><span id="structfield.public_addr" class="structfield section-header"><a href="#structfield.public_addr" class="anchor field">§</a><code>public_addr: <a class="struct" href="../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="struct" href="../sc_network/struct.Multiaddr.html" title="struct yet_another_parachain_runtime::sc_network::Multiaddr">Multiaddr</a>&gt;</code></span><div class="docblock"><p>Public address that other nodes will use to connect to this node.</p>
 <p>This can be used if there’s a proxy in front of this node.</p>
 <p>A <code>webrtc-direct</code> address must be given as
-<code>/&lt;ip4|ip6|dns|dns4|dns6&gt;/&lt;host&gt;/udp/&lt;port&gt;/webrtc-direct</code>: the node appends its own
-<code>/certhash/...</code> and <code>/p2p/...</code>, and doesn’t start if either is supplied.</p>
+<code>/&lt;ip4|ip6|dns|dns4|dns6&gt;/&lt;host&gt;/udp/&lt;port&gt;/webrtc-direct</code>. The node appends its own
+<code>/certhash/...</code> and <code>/p2p/...</code>.</p>
+<p>A <code>/p2p/&lt;peer id&gt;</code> and, on a <code>webrtc-direct</code> address, a <code>/certhash/&lt;hash&gt;</code> may be given.
+Both are checked against the node key and removed, and the node doesn’t start if either
+disagrees with it.</p>
 </div><span id="structfield.listen_addr" class="structfield section-header"><a href="#structfield.listen_addr" class="anchor field">§</a><code>listen_addr: <a class="struct" href="../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="struct" href="../sc_network/struct.Multiaddr.html" title="struct yet_another_parachain_runtime::sc_network::Multiaddr">Multiaddr</a>&gt;</code></span><div class="docblock"><p>Listen on this multiaddress.</p>
 <p>By default:
 If <code>--validator</code> is passed: <code>/ip4/0.0.0.0/tcp/&lt;port&gt;</code> and <code>/ip6/[::]/tcp/&lt;port&gt;</code>.
@@ -194,6 +197,9 @@ litep2p network backend, <code>/ip4/0.0.0.0/udp/&lt;port&gt;/webrtc-direct</code
 <code>/ip6/[::]/udp/&lt;port&gt;/webrtc-direct</code>.</p>
 <p>WebRTC addresses (<code>/ip4/&lt;ip&gt;/udp/&lt;port&gt;/webrtc-direct</code> and
 <code>/ip6/&lt;ip&gt;/udp/&lt;port&gt;/webrtc-direct</code>) only work on the litep2p network backend.</p>
+<p>A <code>/p2p/&lt;peer id&gt;</code> and, on a <code>webrtc-direct</code> address, a <code>/certhash/&lt;hash&gt;</code> may be given.
+Both are checked against the node key and removed, and the node doesn’t start if either
+disagrees with it.</p>
 </div><span id="structfield.force_enable_webrtc" class="structfield section-header"><a href="#structfield.force_enable_webrtc" class="anchor field">§</a><code>force_enable_webrtc: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.bool.html">bool</a></code></span><div class="docblock"><p>Listen on WebRTC addresses even on a validator or collator (on para- &amp;
 relaychain side of the node depending on the position of the flag).</p>
 <p>Only applies if no explicit <code>--listen-addr</code> is passed. Only works on the

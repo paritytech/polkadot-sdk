@@ -1542,7 +1542,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#1392 id=1392 data-nosnippet>1392</a>		</span>network_config.node_key = NodeKeyConfig::Ed25519(Secret::Input(
 <a href=#1393 id=1393 data-nosnippet>1393</a>			ed25519::SecretKey::try_from_bytes([<span class="number">7u8</span>; <span class="number">32</span>]).unwrap(),
 <a href=#1394 id=1394 data-nosnippet>1394</a>		));
-<a href=#1395 id=1395 data-nosnippet>1395</a>		network_config.validate_and_complete_webrtc_addresses().unwrap();
+<a href=#1395 id=1395 data-nosnippet>1395</a>		network_config.validate_and_complete_addresses().unwrap();
 <a href=#1396 id=1396 data-nosnippet>1396</a>
 <a href=#1397 id=1397 data-nosnippet>1397</a>		<span class="kw">let </span>(keypair, _peer_id) =
 <a href=#1398 id=1398 data-nosnippet>1398</a>			Litep2pNetworkBackend::get_keypair(<span class="kw-2">&amp;</span>network_config.node_key).unwrap();
@@ -1571,7 +1571,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#1421 id=1421 data-nosnippet>1421</a>		<span class="kw">let </span><span class="kw-2">mut </span>network_config = NetworkConfiguration::new_local();
 <a href=#1422 id=1422 data-nosnippet>1422</a>		network_config.listen_addresses = <span class="macro">vec!</span>[WEBRTC_LISTEN_ADDRESS.parse().unwrap()];
 <a href=#1423 id=1423 data-nosnippet>1423</a>		network_config.public_addresses = <span class="macro">vec!</span>[WEBRTC_PUBLIC_ADDRESS.parse().unwrap()];
-<a href=#1424 id=1424 data-nosnippet>1424</a>		network_config.validate_and_complete_webrtc_addresses().unwrap();
+<a href=#1424 id=1424 data-nosnippet>1424</a>		network_config.validate_and_complete_addresses().unwrap();
 <a href=#1425 id=1425 data-nosnippet>1425</a>
 <a href=#1426 id=1426 data-nosnippet>1426</a>		<span class="comment">// Completing the addresses pinned the key, so this is the key the backend serves.
 <a href=#1427 id=1427 data-nosnippet>1427</a>		</span><span class="kw">let </span>(keypair, _peer_id) =
@@ -1601,7 +1601,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#1451 id=1451 data-nosnippet>1451</a>		network_config.node_key = NodeKeyConfig::Ed25519(Secret::Input(
 <a href=#1452 id=1452 data-nosnippet>1452</a>			ed25519::SecretKey::try_from_bytes([<span class="number">7u8</span>; <span class="number">32</span>]).unwrap(),
 <a href=#1453 id=1453 data-nosnippet>1453</a>		));
-<a href=#1454 id=1454 data-nosnippet>1454</a>		network_config.validate_and_complete_webrtc_addresses().unwrap();
+<a href=#1454 id=1454 data-nosnippet>1454</a>		network_config.validate_and_complete_addresses().unwrap();
 <a href=#1455 id=1455 data-nosnippet>1455</a>
 <a href=#1456 id=1456 data-nosnippet>1456</a>		<span class="comment">// Held for the duration of the test: dropping it closes the node's sockets.
 <a href=#1457 id=1457 data-nosnippet>1457</a>		</span><span class="kw">let </span>backend = start_backend(<span class="kw-2">&amp;</span>network_config).unwrap();
@@ -1617,43 +1617,46 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#1467 id=1467 data-nosnippet>1467</a>		);
 <a href=#1468 id=1468 data-nosnippet>1468</a>	}
 <a href=#1469 id=1469 data-nosnippet>1469</a>
-<a href=#1470 id=1470 data-nosnippet>1470</a>	<span class="attr">#[tokio::test]
-<a href=#1471 id=1471 data-nosnippet>1471</a>	</span><span class="kw">async fn </span>webrtc_listen_address_with_certhash_refuses_to_start() {
-<a href=#1472 id=1472 data-nosnippet>1472</a>		<span class="kw">let </span>listen_address: NetworkMultiaddr = WEBRTC_LISTEN_ADDRESS.parse().unwrap();
-<a href=#1473 id=1473 data-nosnippet>1473</a>
-<a href=#1474 id=1474 data-nosnippet>1474</a>		<span class="kw">let </span><span class="kw-2">mut </span>network_config = NetworkConfiguration::new_local();
-<a href=#1475 id=1475 data-nosnippet>1475</a>		network_config.listen_addresses =
-<a href=#1476 id=1476 data-nosnippet>1476</a>			<span class="macro">vec!</span>[listen_address.with(NetworkProtocol::Certhash(a_certhash()))];
-<a href=#1477 id=1477 data-nosnippet>1477</a>
-<a href=#1478 id=1478 data-nosnippet>1478</a>		<span class="macro">assert!</span>(<span class="macro">matches!</span>(start_backend(<span class="kw-2">&amp;</span>network_config), <span class="prelude-val">Err</span>(Error::InvalidWebRtcAddress { .. }),));
-<a href=#1479 id=1479 data-nosnippet>1479</a>	}
+<a href=#1470 id=1470 data-nosnippet>1470</a>	<span class="doccomment">/// A configured `/certhash` is checked against the node's own and removed by
+<a href=#1471 id=1471 data-nosnippet>1471</a>	/// `NetworkConfiguration::validate_and_complete_addresses`, which this test deliberately skips:
+<a href=#1472 id=1472 data-nosnippet>1472</a>	/// the backend is the guard for a configuration built without it.
+<a href=#1473 id=1473 data-nosnippet>1473</a>	</span><span class="attr">#[tokio::test]
+<a href=#1474 id=1474 data-nosnippet>1474</a>	</span><span class="kw">async fn </span>webrtc_listen_address_with_certhash_refuses_to_start() {
+<a href=#1475 id=1475 data-nosnippet>1475</a>		<span class="kw">let </span>listen_address: NetworkMultiaddr = WEBRTC_LISTEN_ADDRESS.parse().unwrap();
+<a href=#1476 id=1476 data-nosnippet>1476</a>
+<a href=#1477 id=1477 data-nosnippet>1477</a>		<span class="kw">let </span><span class="kw-2">mut </span>network_config = NetworkConfiguration::new_local();
+<a href=#1478 id=1478 data-nosnippet>1478</a>		network_config.listen_addresses =
+<a href=#1479 id=1479 data-nosnippet>1479</a>			<span class="macro">vec!</span>[listen_address.with(NetworkProtocol::Certhash(a_certhash()))];
 <a href=#1480 id=1480 data-nosnippet>1480</a>
-<a href=#1481 id=1481 data-nosnippet>1481</a>	<span class="attr">#[tokio::test]
-<a href=#1482 id=1482 data-nosnippet>1482</a>	</span><span class="kw">async fn </span>non_webrtc_public_address_untouched() {
-<a href=#1483 id=1483 data-nosnippet>1483</a>		<span class="kw">let </span>public_address: NetworkMultiaddr = <span class="string">"/ip4/203.0.113.9/tcp/31234"</span>.parse().unwrap();
-<a href=#1484 id=1484 data-nosnippet>1484</a>
-<a href=#1485 id=1485 data-nosnippet>1485</a>		<span class="kw">let </span><span class="kw-2">mut </span>network_config = NetworkConfiguration::new_local();
-<a href=#1486 id=1486 data-nosnippet>1486</a>		network_config.listen_addresses = <span class="macro">vec!</span>[<span class="string">"/ip4/127.0.0.1/tcp/0"</span>.parse().unwrap()];
-<a href=#1487 id=1487 data-nosnippet>1487</a>		network_config.public_addresses = <span class="macro">vec!</span>[public_address.clone()];
-<a href=#1488 id=1488 data-nosnippet>1488</a>
-<a href=#1489 id=1489 data-nosnippet>1489</a>		<span class="comment">// Held for the duration of the test: dropping it closes the node's sockets.
-<a href=#1490 id=1490 data-nosnippet>1490</a>		</span><span class="kw">let </span>backend = start_backend(<span class="kw-2">&amp;</span>network_config).unwrap();
-<a href=#1491 id=1491 data-nosnippet>1491</a>		<span class="kw">let </span>network_service =
-<a href=#1492 id=1492 data-nosnippet>1492</a>			&lt;Litep2pNetworkBackend <span class="kw">as </span>NetworkBackend&lt;Block, H256&gt;&gt;::network_service(<span class="kw-2">&amp;</span>backend);
-<a href=#1493 id=1493 data-nosnippet>1493</a>		<span class="kw">let </span>local_peer_id = network_service.local_peer_id();
-<a href=#1494 id=1494 data-nosnippet>1494</a>
-<a href=#1495 id=1495 data-nosnippet>1495</a>		<span class="comment">// litep2p appends the local `/p2p` to every public address; nothing else is added.
-<a href=#1496 id=1496 data-nosnippet>1496</a>		</span><span class="macro">assert_eq!</span>(
-<a href=#1497 id=1497 data-nosnippet>1497</a>			network_service.external_addresses(),
-<a href=#1498 id=1498 data-nosnippet>1498</a>			<span class="macro">vec!</span>[public_address.with(NetworkProtocol::P2p(local_peer_id.into()))],
-<a href=#1499 id=1499 data-nosnippet>1499</a>		);
-<a href=#1500 id=1500 data-nosnippet>1500</a>	}
-<a href=#1501 id=1501 data-nosnippet>1501</a>
-<a href=#1502 id=1502 data-nosnippet>1502</a>	<span class="doccomment">/// A certhash standing in for the node's own.
-<a href=#1503 id=1503 data-nosnippet>1503</a>	</span><span class="kw">fn </span>a_certhash() -&gt; NetworkMultihash {
-<a href=#1504 id=1504 data-nosnippet>1504</a>		sc_network_types::multihash::Code::Sha2_256.digest(<span class="string">b"certificate"</span>)
-<a href=#1505 id=1505 data-nosnippet>1505</a>	}
-<a href=#1506 id=1506 data-nosnippet>1506</a>}
+<a href=#1481 id=1481 data-nosnippet>1481</a>		<span class="macro">assert!</span>(<span class="macro">matches!</span>(start_backend(<span class="kw-2">&amp;</span>network_config), <span class="prelude-val">Err</span>(Error::InvalidWebRtcAddress { .. }),));
+<a href=#1482 id=1482 data-nosnippet>1482</a>	}
+<a href=#1483 id=1483 data-nosnippet>1483</a>
+<a href=#1484 id=1484 data-nosnippet>1484</a>	<span class="attr">#[tokio::test]
+<a href=#1485 id=1485 data-nosnippet>1485</a>	</span><span class="kw">async fn </span>non_webrtc_public_address_untouched() {
+<a href=#1486 id=1486 data-nosnippet>1486</a>		<span class="kw">let </span>public_address: NetworkMultiaddr = <span class="string">"/ip4/203.0.113.9/tcp/31234"</span>.parse().unwrap();
+<a href=#1487 id=1487 data-nosnippet>1487</a>
+<a href=#1488 id=1488 data-nosnippet>1488</a>		<span class="kw">let </span><span class="kw-2">mut </span>network_config = NetworkConfiguration::new_local();
+<a href=#1489 id=1489 data-nosnippet>1489</a>		network_config.listen_addresses = <span class="macro">vec!</span>[<span class="string">"/ip4/127.0.0.1/tcp/0"</span>.parse().unwrap()];
+<a href=#1490 id=1490 data-nosnippet>1490</a>		network_config.public_addresses = <span class="macro">vec!</span>[public_address.clone()];
+<a href=#1491 id=1491 data-nosnippet>1491</a>
+<a href=#1492 id=1492 data-nosnippet>1492</a>		<span class="comment">// Held for the duration of the test: dropping it closes the node's sockets.
+<a href=#1493 id=1493 data-nosnippet>1493</a>		</span><span class="kw">let </span>backend = start_backend(<span class="kw-2">&amp;</span>network_config).unwrap();
+<a href=#1494 id=1494 data-nosnippet>1494</a>		<span class="kw">let </span>network_service =
+<a href=#1495 id=1495 data-nosnippet>1495</a>			&lt;Litep2pNetworkBackend <span class="kw">as </span>NetworkBackend&lt;Block, H256&gt;&gt;::network_service(<span class="kw-2">&amp;</span>backend);
+<a href=#1496 id=1496 data-nosnippet>1496</a>		<span class="kw">let </span>local_peer_id = network_service.local_peer_id();
+<a href=#1497 id=1497 data-nosnippet>1497</a>
+<a href=#1498 id=1498 data-nosnippet>1498</a>		<span class="comment">// litep2p appends the local `/p2p` to every public address; nothing else is added.
+<a href=#1499 id=1499 data-nosnippet>1499</a>		</span><span class="macro">assert_eq!</span>(
+<a href=#1500 id=1500 data-nosnippet>1500</a>			network_service.external_addresses(),
+<a href=#1501 id=1501 data-nosnippet>1501</a>			<span class="macro">vec!</span>[public_address.with(NetworkProtocol::P2p(local_peer_id.into()))],
+<a href=#1502 id=1502 data-nosnippet>1502</a>		);
+<a href=#1503 id=1503 data-nosnippet>1503</a>	}
+<a href=#1504 id=1504 data-nosnippet>1504</a>
+<a href=#1505 id=1505 data-nosnippet>1505</a>	<span class="doccomment">/// A certhash standing in for the node's own.
+<a href=#1506 id=1506 data-nosnippet>1506</a>	</span><span class="kw">fn </span>a_certhash() -&gt; NetworkMultihash {
+<a href=#1507 id=1507 data-nosnippet>1507</a>		sc_network_types::multihash::Code::Sha2_256.digest(<span class="string">b"certificate"</span>)
+<a href=#1508 id=1508 data-nosnippet>1508</a>	}
+<a href=#1509 id=1509 data-nosnippet>1509</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
