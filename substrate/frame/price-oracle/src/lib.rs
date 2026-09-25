@@ -36,6 +36,7 @@ pub mod pricing;
 pub mod registry;
 pub mod schema;
 pub mod signers;
+pub mod venues;
 pub mod weights;
 
 use alloc::{collections::BTreeMap, vec::Vec};
@@ -52,7 +53,7 @@ use sp_price_oracle::{
 	Anchor, PairId, Price, Quote, SignedPriceReport,
 };
 use sp_runtime::{
-	traits::{BlockNumberProvider, SaturatedConversion, Zero},
+	traits::{BlockNumberProvider, CheckedMul, SaturatedConversion, Zero},
 	RuntimeAppPublic,
 };
 
@@ -379,6 +380,7 @@ pub mod pallet {
 			T::AdminOrigin::ensure_origin(origin)?;
 			ensure!(Venues::<T>::contains_key(market.venue), Error::<T>::UnknownVenue);
 			ensure!(T::Pairs::is_known(market.pair), Error::<T>::UnknownPair);
+			ensure!(!market.contract_size.is_zero(), Error::<T>::InvalidParameters);
 			Markets::<T>::insert(id, market);
 			Self::deposit_event(Event::MarketSet { id });
 			Ok(())
@@ -452,7 +454,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Price one market from the responses to its queries, at the node's time `now_ms`.
 	///
-	/// Needs one order book and one trades response among the market's queries.
+	/// See [`price_market`].
 	///
 	/// Backs [`PriceOracleMarketApi::parse`](sp_price_oracle::runtime_api::PriceOracleMarketApi::parse).
 	pub fn parse_market(
@@ -460,30 +462,11 @@ impl<T: Config> Pallet<T> {
 		responses: Vec<(QueryTag, Vec<u8>)>,
 		now_ms: u64,
 	) -> Result<Price, ParseError> {
-		use schema::Parsed;
 		let err = |s: &str| ParseError(s.as_bytes().to_vec());
-
 		let market = Markets::<T>::get(id).ok_or_else(|| err("unknown market"))?;
 		let settings =
 			Settings::<T>::get(market.pair).ok_or_else(|| err("pair has no settings"))?;
-
-		let mut book = None;
-		let mut latest_trade_ms = None;
-		for (tag, body) in responses {
-			let Some(query) = market.queries.iter().find(|q| q.tag == tag) else {
-				return Err(err("unknown query tag"));
-			};
-			match query.schema.read(&body) {
-				Ok(Parsed::OrderBook(b)) => book = Some(b),
-				Ok(Parsed::LatestTradeMs(t)) => latest_trade_ms = Some(t),
-				Err(e) => return Err(ParseError(alloc::format!("{e:?}").into_bytes())),
-			}
-		}
-		let book = book.ok_or_else(|| err("no order book"))?;
-		let latest_trade_ms = latest_trade_ms.ok_or_else(|| err("no trades"))?;
-
-		pricing::market_price(&book, latest_trade_ms, now_ms, &settings)
-			.map_err(|e| ParseError(alloc::format!("{e:?}").into_bytes()))
+		price_market(&market, &settings, responses, now_ms)
 	}
 
 	/// Anchor of the latest vote on chain, per signer. Lets block authors skip reports that are
@@ -514,6 +497,50 @@ impl<T: Config> Pallet<T> {
 			.collect();
 		pricing::aggregate(prices, &T::Pairs::all(), T::Pairs::conversions)
 	}
+}
+
+/// Price `market` from the responses to its queries, at the node's time `now_ms`.
+///
+/// Needs one order book and one trades response among the market's queries. A response larger
+/// than its query allows is rejected.
+pub fn price_market(
+	market: &StoredMarket,
+	settings: &PairSettings,
+	responses: Vec<(QueryTag, Vec<u8>)>,
+	now_ms: u64,
+) -> Result<Price, ParseError> {
+	use schema::Parsed;
+	let err = |s: &str| ParseError(s.as_bytes().to_vec());
+
+	let mut book = None;
+	let mut latest_trade_ms = None;
+	for (tag, body) in responses {
+		let Some(query) = market.queries.iter().find(|q| q.tag == tag) else {
+			return Err(err("unknown query tag"));
+		};
+		if body.len() > query.request.max_response_bytes as usize {
+			return Err(err("response too large"));
+		}
+		match query.schema.read(&body) {
+			Ok(Parsed::OrderBook(mut b)) => {
+				// Bring amounts quoted in contracts to base asset units.
+				for level in b.bids.iter_mut().chain(b.asks.iter_mut()) {
+					level.amount = level
+						.amount
+						.checked_mul(&market.contract_size)
+						.ok_or_else(|| err("amount overflow"))?;
+				}
+				book = Some(b);
+			},
+			Ok(Parsed::LatestTradeMs(t)) => latest_trade_ms = Some(t),
+			Err(e) => return Err(ParseError(alloc::format!("{e:?}").into_bytes())),
+		}
+	}
+	let book = book.ok_or_else(|| err("no order book"))?;
+	let latest_trade_ms = latest_trade_ms.ok_or_else(|| err("no trades"))?;
+
+	pricing::market_price(&book, latest_trade_ms, now_ms, settings)
+		.map_err(|e| ParseError(alloc::format!("{e:?}").into_bytes()))
 }
 
 impl<T: Config> PriceProvider for Pallet<T> {
