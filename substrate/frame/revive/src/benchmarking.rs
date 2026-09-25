@@ -5644,8 +5644,14 @@ mod benchmarks {
 	/// A one-byte source/destination displacement exercises misaligned backward word copying.
 	/// Distinct regions spread the copies across memory; allocation and zero fill are not measured
 	/// here.
+	///
+	/// The regions are copied in a pseudo-random order. Walking them in order lets the CPU predict
+	/// the next address and fetch its cache lines early, which made each copy much cheaper.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_mcopy_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
+		use rand::{SeedableRng, seq::SliceRandom};
+		use rand_pcg::Pcg64;
+
 		const COPY_BYTES: usize = 64;
 		const STRIDE: usize = 3 * 1024;
 		const MEMORY_SIZE: usize = EVM_MEMORY_BYTES as usize;
@@ -5657,11 +5663,12 @@ mod benchmarks {
 		interpreter.memory.resize(0, MEMORY_SIZE).continue_value().unwrap();
 		let initial = (0u8..=255).cycle().take(MEMORY_SIZE).collect::<Vec<_>>();
 		interpreter.memory.set(0, &initial);
-		let sources = (0..r as usize).map(|i| i * STRIDE);
+		let mut sources = (0..r as usize).map(|i| i * STRIDE).collect::<Vec<_>>();
+		sources.shuffle(&mut Pcg64::seed_from_u64(1337));
 		let operands = sources
-			.clone()
+			.iter()
 			.rev()
-			.flat_map(|src| [U256::from(COPY_BYTES), U256::from(src), U256::from(src + 1)]);
+			.flat_map(|&src| [U256::from(COPY_BYTES), U256::from(src), U256::from(src + 1)]);
 		for operand in operands {
 			interpreter.stack.push(operand).continue_value().unwrap();
 		}
