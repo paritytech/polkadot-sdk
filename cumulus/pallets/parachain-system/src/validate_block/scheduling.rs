@@ -1084,6 +1084,34 @@ mod tests {
 	}
 
 	#[test]
+	fn override_matches_block_signals_when_values_agree() {
+		// Given the same core info and peer id, the override emits the block's own tail byte for
+		// byte. Resubmissions rely on this: the collator rebuilds the commitments from the signed
+		// payload, and the PVF's override must land on identical bytes to pass the commitments
+		// check at backing.
+		let selector = CoreSelector(7);
+		let offset = ClaimQueueOffset(3);
+		let peer_id = peer(0xAA);
+
+		let mut from_block = TestUpwardMessages::default();
+		SchedulingSignals::from_block_signals(
+			&[
+				UMPSignal::SelectCore(selector, offset).encode(),
+				UMPSignal::ApprovedPeer(peer_id.clone()).encode(),
+			],
+			&mut from_block,
+		);
+
+		let mut from_signed = TestUpwardMessages::default();
+		SchedulingSignals::from_scheduling_info(
+			&signed_with(selector, offset.0, peer_id),
+			&mut from_signed,
+		);
+
+		assert_eq!(from_block.into_inner(), from_signed.into_inner());
+	}
+
+	#[test]
 	fn from_scheduling_info_emits_even_when_block_emitted_nothing() {
 		// The override is authoritative and independent of what the block emitted: a
 		// resubmission always produces its tail. (At the call site this is what decouples

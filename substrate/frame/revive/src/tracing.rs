@@ -80,13 +80,16 @@ pub trait Tracing {
 
 	/// Called before a contract call is executed.
 	///
-	/// For CALL/DELEGATECALL opcodes:
+	/// - `code_address`: When code is loaded from a different address than `to` (DELEGATECALL or
+	///   EIP-7702 delegation), this is that source address.
+	/// - `is_delegate_call`: true for DELEGATECALL frames (not EIP-7702 delegation).
 	/// - `gas_limit`: gas forwarded to the child call
 	fn enter_child_span(
 		&mut self,
 		_from: H160,
 		_to: H160,
-		_delegate_call: Option<H160>,
+		_code_address: Option<H160>,
+		_is_delegate_call: bool,
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],

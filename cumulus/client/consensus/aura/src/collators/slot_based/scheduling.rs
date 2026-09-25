@@ -15,20 +15,31 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::collators::{
-	slot_based::relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
-	RelayHeader,
+use crate::{
+	collators::{
+		slot_based::relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
+		RelayHeader,
+	},
+	LOG_TARGET,
 };
+use codec::Encode;
 use cumulus_client_consensus_common::get_relay_slot;
 use cumulus_primitives_aura::Slot;
+use cumulus_primitives_core::{
+	CoreInfo, SchedulingInfoPayload, SchedulingProof, SignedSchedulingInfo,
+};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::{
 	prelude::*,
 	stream::{Fuse, FusedStream},
 };
 use polkadot_node_subsystem::gen::{stream::Stream, FutureExt};
-use polkadot_primitives::Block as RelayBlock;
+use polkadot_primitives::{ApprovedPeerId, Block as RelayBlock};
 use sc_consensus_aura::SlotDuration;
+use sc_network_types::PeerId;
+use sp_application_crypto::{AppCrypto, AppPublic};
+use sp_core::{crypto::Pair, ByteArray};
+use sp_keystore::KeystorePtr;
 use sp_runtime::traits::Header as HeaderT;
 use sp_timestamp::Timestamp;
 use std::{marker::PhantomData, pin::Pin, time::Duration};
@@ -136,7 +147,7 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 			},
 			Err(err) => {
 				tracing::error!(
-					target: crate::LOG_TARGET,
+					target: LOG_TARGET,
 					?err,
 					"Failed to reset the relay chain best block notification stream. \
 					The next call to `wait_for_scheduling_parent` might fail."
@@ -149,7 +160,7 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 				Ok(best_relay_block_data) => best_relay_block_data,
 				Err(()) => {
 					tracing::error!(
-						target: crate::LOG_TARGET,
+						target: LOG_TARGET,
 						"Failed to get the `RelayChainData` for the best relay chain block. \
 						The next call to `wait_for_scheduling_parent` might fail."
 					);
@@ -183,6 +194,7 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		&mut self,
 		relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 		v3_enabled_on_para: bool,
+		production_slot: Slot,
 	) -> Option<(RelayHeader, bool)> {
 		let mut maybe_best_relay_header = self.maybe_best_relay_header.take();
 		let (best_relay_slot, best_relay_header_data) = loop {
@@ -202,8 +214,8 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 
 			let v3_enabled = Self::is_v3_enabled(v3_enabled_on_para, Some(&best_relay_header_data));
 			if v3_enabled {
-				// For scheduling v3 we don't need to loop since we need to return a
-				// scheduling parent associated with a finished slot.
+				// V3 needs a scheduling parent from a finished slot, which the walk below
+				// derives from this best.
 				break (best_relay_slot, best_relay_header_data);
 			}
 
@@ -218,9 +230,7 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 		// v3: walk back to the first finished slot
 		let mut scheduling_parent_data = best_relay_header_data;
 		let mut scheduling_parent_slot = best_relay_slot;
-		while scheduling_parent_slot >=
-			get_current_relay_slot(Duration::ZERO, self.relay_slot_duration)
-		{
+		while scheduling_parent_slot >= production_slot {
 			// The scheduling parent should be part of the same session as the best
 			// relay block.
 			if sc_consensus_babe::contains_epoch_change::<RelayBlock>(
@@ -239,6 +249,143 @@ impl<RelayClient: RelayChainInterface + 'static> SchedulingInfo<RelayClient> {
 	}
 }
 
+/// Why [`SchedulingProofBuilder::build_with_signed_payload`] could not sign.
+// The signed terminal has no production caller until the resubmission path lands. Outside tests
+// only `build` is reachable.
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum SchedulingSignError {
+	#[error("scheduling proof builder is missing the {0}")]
+	MissingInput(&'static str),
+
+	#[error("collator peer id does not fit an ApprovedPeerId")]
+	PeerId,
+
+	#[error("keystore failed to sign the scheduling info payload")]
+	Keystore,
+
+	#[error("keystore holds no key for the slot author")]
+	NoKey,
+
+	#[error("keystore returned a {0}-byte signature, expected 64")]
+	SignatureSize(usize),
+}
+
+/// Assembles a V3 [`SchedulingProof`], converting collator-side values into the shapes the proof
+/// needs: relay parent descendants become the backwards header chain, and the core assignment plus
+/// collator peer id become a signed [`SchedulingInfoPayload`].
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) struct SchedulingProofBuilder<'a, P: Pair> {
+	internal_scheduling_parent_header: RelayHeader,
+	header_chain: Vec<RelayHeader>,
+	core_info: Option<&'a CoreInfo>,
+	peer_id: Option<PeerId>,
+	keystore: Option<&'a KeystorePtr>,
+	_phantom: PhantomData<P>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+impl<'a, P> SchedulingProofBuilder<'a, P>
+where
+	P: Pair,
+	P::Public: AppPublic,
+{
+	/// Start a proof whose internal scheduling parent is `internal_scheduling_parent_header`.
+	///
+	/// Without [`descendants`](Self::descendants) the header chain stays empty, which is the
+	/// `relay_parent_offset = 0` case where the scheduling parent is the internal one.
+	pub(crate) fn new(internal_scheduling_parent_header: RelayHeader) -> Self {
+		Self {
+			internal_scheduling_parent_header,
+			header_chain: Vec::new(),
+			core_info: None,
+			peer_id: None,
+			keystore: None,
+			_phantom: PhantomData,
+		}
+	}
+
+	/// Relay parent descendants, ordered oldest to newest. The proof's header chain runs the other
+	/// way, from the scheduling parent backwards.
+	pub(crate) fn descendants(mut self, descendants: Vec<RelayHeader>) -> Self {
+		self.header_chain = descendants.into_iter().rev().collect();
+		self
+	}
+
+	/// The core the submission targets. Its selector and claim queue offset are what the signature
+	/// commits to.
+	pub(crate) fn for_core(mut self, core_info: &'a CoreInfo) -> Self {
+		self.core_info = Some(core_info);
+		self
+	}
+
+	/// The peer credited for delivering the collation.
+	pub(crate) fn crediting_peer(mut self, peer_id: PeerId) -> Self {
+		self.peer_id = Some(peer_id);
+		self
+	}
+
+	/// The keystore holding the signing key.
+	pub(crate) fn keystore(mut self, keystore: &'a KeystorePtr) -> Self {
+		self.keystore = Some(keystore);
+		self
+	}
+
+	/// Assemble the proof unsigned, for an initial submission
+	/// (`relay_parent == internal scheduling parent`). An initial submission must stay valid
+	/// without any additional signed data. Core selection comes from the block's UMP signals.
+	pub(crate) fn build(self) -> SchedulingProof {
+		SchedulingProof::new(self.header_chain, self.internal_scheduling_parent_header, None)
+	}
+
+	/// Assemble the proof around a signed scheduling info, for a resubmission (`relay_parent` an
+	/// ancestor of the internal scheduling parent). Validators require the signature there.
+	/// Everything it commits to has to be supplied first. `author_pub` is the key eligible for
+	/// the slot at the internal scheduling parent.
+	pub(crate) fn build_with_signed_payload(
+		self,
+		author_pub: &P::Public,
+	) -> Result<SchedulingProof, SchedulingSignError> {
+		let signed_scheduling_info = self.sign(author_pub)?;
+
+		Ok(SchedulingProof::new(
+			self.header_chain,
+			self.internal_scheduling_parent_header,
+			Some(signed_scheduling_info),
+		))
+	}
+
+	fn sign(&self, author_pub: &P::Public) -> Result<SignedSchedulingInfo, SchedulingSignError> {
+		use SchedulingSignError::*;
+
+		let core_info = self.core_info.ok_or(MissingInput("core info"))?;
+		let peer_id = self.peer_id.ok_or(MissingInput("collator peer id"))?;
+		let keystore = self.keystore.ok_or(MissingInput("keystore"))?;
+
+		let payload = SchedulingInfoPayload::new(
+			core_info.selector,
+			core_info.claim_queue_offset.0,
+			ApprovedPeerId::try_from(peer_id.to_bytes()).map_err(|_| PeerId)?,
+			self.internal_scheduling_parent_header.hash(),
+		);
+
+		let signature = keystore
+			.sign_with(
+				<P::Public as AppCrypto>::ID,
+				<P::Public as AppCrypto>::CRYPTO_ID,
+				author_pub.as_slice(),
+				&payload.encode(),
+			)
+			.map_err(|_| Keystore)?
+			.ok_or(NoKey)?;
+
+		let signature = <[u8; 64]>::try_from(signature.as_slice())
+			.map_err(|_| SignatureSize(signature.len()))?;
+
+		Ok(SignedSchedulingInfo { payload, signature })
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -247,9 +394,14 @@ mod tests {
 		tests::{babe_epoch_change_digest_item, TestRelayClient},
 	};
 	use polkadot_primitives::{node_features::FeatureIndex, NodeFeatures};
+	use sp_consensus_aura::sr25519::{AuthorityId, AuthorityPair};
+	use sp_keystore::{testing::MemoryKeystore, Keystore};
 	use std::collections::HashMap;
 
 	const RELAY_SLOT_DURATION: Duration = Duration::from_secs(6);
+	/// Production slot the V3 tests hand to `wait_for_scheduling_parent`. Deliberately far from
+	/// the wall clock: the V3 selection must depend on this value alone.
+	const PRODUCTION_SLOT: u64 = 1_000;
 
 	/// Simulate the wall clock at a specific point within a relay slot.
 	///
@@ -257,6 +409,103 @@ mod tests {
 	/// how far into that slot we are (0..6000).
 	fn now_at(relay_slot: u64, ms_into_slot: u64) -> Duration {
 		Duration::from_millis(relay_slot * 6000 + ms_into_slot)
+	}
+
+	/// The core info and peer id a signed payload commits to, alongside a relay header to act as
+	/// the internal scheduling parent.
+	fn signing_inputs() -> (RelayHeader, CoreInfo, PeerId) {
+		let header = tests::relay_header_with_slot(1, Default::default(), PRODUCTION_SLOT);
+		let core_info = CoreInfo {
+			selector: cumulus_primitives_core::CoreSelector(7),
+			claim_queue_offset: cumulus_primitives_core::ClaimQueueOffset(3),
+			number_of_cores: 2u16.into(),
+		};
+
+		(header, core_info, PeerId::random())
+	}
+
+	#[test]
+	fn signed_payload_commits_to_the_builder_inputs() {
+		// On a resubmission `validate_block` rebuilds the candidate's UMP tail from this payload.
+		// The receipt's commitments come from the blocks' own signals. The payload must carry the
+		// same core info and peer id the blocks emitted, or the commitments check fails at
+		// backing.
+		let (header, core_info, peer_id) = signing_inputs();
+		let keystore: KeystorePtr = MemoryKeystore::new().into();
+		let author_pub: AuthorityId = keystore
+			.sr25519_generate_new(sp_application_crypto::key_types::AURA, Some("//Alice"))
+			.expect("can generate a key in a memory keystore; qed")
+			.into();
+
+		let proof = SchedulingProofBuilder::<AuthorityPair>::new(header.clone())
+			.for_core(&core_info)
+			.crediting_peer(peer_id)
+			.keystore(&keystore)
+			.build_with_signed_payload(&author_pub)
+			.expect("the key is in the keystore; qed");
+
+		let signed = proof.signed_scheduling_info.expect("built with a signature; qed");
+		assert_eq!(signed.payload.core_selector, core_info.selector);
+		assert_eq!(signed.payload.claim_queue_offset, core_info.claim_queue_offset.0);
+		assert_eq!(
+			signed.payload.peer_id,
+			ApprovedPeerId::try_from(peer_id.to_bytes()).expect("a peer id fits; qed")
+		);
+		assert_eq!(signed.payload.internal_scheduling_parent, header.hash());
+
+		assert!(AuthorityPair::verify(
+			&sp_core::sr25519::Signature::from_raw(signed.signature).into(),
+			signed.payload.encode(),
+			&author_pub,
+		));
+	}
+
+	#[test]
+	fn initial_submission_stays_unsigned_even_with_signing_inputs() {
+		// The unsigned terminal ignores the signing inputs and cannot fail. An unsignable
+		// keystore proves it.
+		let (header, core_info, peer_id) = signing_inputs();
+		let keystore: KeystorePtr = MemoryKeystore::new().into();
+
+		let proof = SchedulingProofBuilder::<AuthorityPair>::new(header)
+			.for_core(&core_info)
+			.crediting_peer(peer_id)
+			.keystore(&keystore)
+			.build();
+
+		assert!(proof.signed_scheduling_info.is_none());
+	}
+
+	#[test]
+	fn signing_fails_when_the_keystore_has_no_key() {
+		// The collator only reaches here holding the slot claim for `author_pub`, so an empty
+		// keystore is a defect; the caller skips the slot rather than submitting unsigned.
+		let (header, core_info, peer_id) = signing_inputs();
+		let keystore: KeystorePtr = MemoryKeystore::new().into();
+		let author_pub: AuthorityId = sp_keyring::Sr25519Keyring::Alice.public().into();
+
+		let err = SchedulingProofBuilder::<AuthorityPair>::new(header)
+			.for_core(&core_info)
+			.crediting_peer(peer_id)
+			.keystore(&keystore)
+			.build_with_signed_payload(&author_pub)
+			.expect_err("nothing in the keystore can sign for this key; qed");
+
+		assert!(matches!(err, SchedulingSignError::NoKey), "unexpected error: {err:?}");
+	}
+
+	#[test]
+	fn signing_fails_when_an_input_is_missing() {
+		let (header, _, _) = signing_inputs();
+		let keystore: KeystorePtr = MemoryKeystore::new().into();
+		let author_pub: AuthorityId = sp_keyring::Sr25519Keyring::Alice.public().into();
+
+		let err = SchedulingProofBuilder::<AuthorityPair>::new(header)
+			.keystore(&keystore)
+			.build_with_signed_payload(&author_pub)
+			.expect_err("no core info was supplied; qed");
+
+		assert!(matches!(err, SchedulingSignError::MissingInput(_)), "unexpected error: {err:?}");
 	}
 
 	#[test]
@@ -302,11 +551,15 @@ mod tests {
 		);
 	}
 
+	/// Five headers around `current_slot`: one very old, two from finished slots
+	/// (`current_slot - 2`, `current_slot - 1`) and two from future slots (`+ 10`, `+ 11`).
+	///
+	/// V3 tests pass [`PRODUCTION_SLOT`] and never read the wall clock. V2 tests must pass the
+	/// real current slot, since the V2 policy still gates on the wall clock.
 	fn build_mock_chain(
-		relay_slot_duration: Duration,
 		v3_enabled: bool,
+		current_slot: u64,
 	) -> (TestRelayClient, RelayChainDataCache<TestRelayClient>, Vec<RelayHeader>) {
-		let current_slot = *get_current_relay_slot(Duration::ZERO, relay_slot_duration);
 		let mut node_features = NodeFeatures::from_vec(vec![0; 5]);
 		if v3_enabled {
 			node_features.set(FeatureIndex::CandidateReceiptV3 as usize, true);
@@ -380,7 +633,9 @@ mod tests {
 		assert_eq!(scheduling_info.should_reinit(), false);
 
 		tx.close_channel();
-		scheduling_info.wait_for_scheduling_parent(&mut cache, false).await;
+		scheduling_info
+			.wait_for_scheduling_parent(&mut cache, false, Slot::from(PRODUCTION_SLOT))
+			.await;
 		assert_eq!(scheduling_info.should_reinit(), true);
 	}
 
@@ -393,8 +648,10 @@ mod tests {
 	async fn v2_wait_for_scheduling_parent_waits_when_stale() {
 		let relay_slot_duration = Duration::from_secs(6);
 		let slot_offset = Duration::from_secs(1);
+		// The V2 policy gates on the wall clock, so the chain must be built around the real slot.
+		let current_slot = *get_current_relay_slot(Duration::ZERO, relay_slot_duration);
 
-		let (mut client, mut cache, headers) = build_mock_chain(relay_slot_duration, false);
+		let (mut client, mut cache, headers) = build_mock_chain(false, current_slot);
 
 		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
 		client.set_best_hash(Some(headers[0].hash()));
@@ -404,7 +661,9 @@ mod tests {
 		scheduling_info.ensure_initialized(&client, &mut cache).await;
 
 		let mut handle = tokio::spawn(async move {
-			scheduling_info.wait_for_scheduling_parent(&mut cache, false).await
+			scheduling_info
+				.wait_for_scheduling_parent(&mut cache, false, Slot::from(current_slot))
+				.await
 		});
 
 		// The function should not return before receiving a notification — the best block (slot 0)
@@ -436,8 +695,10 @@ mod tests {
 	async fn v2_wait_for_scheduling_parent_returns_immediately_when_fresh() {
 		let relay_slot_duration = Duration::from_secs(6);
 		let slot_offset = Duration::from_secs(1);
+		// The V2 policy gates on the wall clock, so the chain must be built around the real slot.
+		let current_slot = *get_current_relay_slot(Duration::ZERO, relay_slot_duration);
 
-		let (mut client, mut cache, headers) = build_mock_chain(relay_slot_duration, false);
+		let (mut client, mut cache, headers) = build_mock_chain(false, current_slot);
 
 		// Create a notification stream that will never produce (no sender).
 		let (_tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
@@ -448,7 +709,7 @@ mod tests {
 		scheduling_info.ensure_initialized(&client, &mut cache).await;
 		let result = tokio::time::timeout(
 			Duration::from_millis(300),
-			scheduling_info.wait_for_scheduling_parent(&mut cache, false),
+			scheduling_info.wait_for_scheduling_parent(&mut cache, false, Slot::from(current_slot)),
 		)
 		.await
 		.expect("Should return immediately, not timeout");
@@ -461,7 +722,7 @@ mod tests {
 		let relay_slot_duration = Duration::from_secs(6);
 		let slot_offset = Duration::from_secs(1);
 
-		let (mut client, mut cache, headers) = build_mock_chain(relay_slot_duration, true);
+		let (mut client, mut cache, headers) = build_mock_chain(true, PRODUCTION_SLOT);
 
 		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
 		client.set_best_hash(None);
@@ -471,7 +732,9 @@ mod tests {
 		scheduling_info.ensure_initialized(&client, &mut cache).await;
 
 		let mut handle = tokio::spawn(async move {
-			scheduling_info.wait_for_scheduling_parent(&mut cache, true).await
+			scheduling_info
+				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
+				.await
 		});
 
 		// The function should not return before receiving a notification.
@@ -480,9 +743,9 @@ mod tests {
 			"Should be waiting for fresh relay block, not returning immediately"
 		);
 
-		// Simulate: relay block from finished slot arrives.
+		// Simulate: relay block from a finished slot arrives.
 		tx.unbounded_send(headers[2].clone()).unwrap();
-		let result = tokio::time::timeout(Duration::from_millis(300), handle)
+		let result = tokio::time::timeout(Duration::from_secs(2), handle)
 			.await
 			.expect("Task should complete within timeout")
 			.expect("Task should not panic");
@@ -494,7 +757,7 @@ mod tests {
 		let relay_slot_duration = Duration::from_secs(6);
 		let slot_offset = Duration::from_secs(1);
 
-		let (mut client, mut cache, headers) = build_mock_chain(relay_slot_duration, true);
+		let (mut client, mut cache, headers) = build_mock_chain(true, PRODUCTION_SLOT);
 
 		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
 		client.set_best_hash(None);
@@ -504,7 +767,9 @@ mod tests {
 		scheduling_info.ensure_initialized(&client, &mut cache).await;
 
 		let mut handle = tokio::spawn(async move {
-			scheduling_info.wait_for_scheduling_parent(&mut cache, true).await
+			scheduling_info
+				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
+				.await
 		});
 
 		// The function should not return before receiving a notification.
@@ -527,7 +792,7 @@ mod tests {
 		let relay_slot_duration = Duration::from_secs(6);
 		let slot_offset = Duration::from_secs(1);
 
-		let (mut client, mut cache, mut headers) = build_mock_chain(relay_slot_duration, true);
+		let (mut client, mut cache, mut headers) = build_mock_chain(true, PRODUCTION_SLOT);
 
 		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
 		client.set_best_hash(None);
@@ -539,7 +804,9 @@ mod tests {
 		// Simulate: receiving relay block with header 3 (fresh slot).
 		tx.unbounded_send(headers[3].clone()).unwrap();
 		let result = tokio::time::timeout(Duration::from_millis(300), async {
-			scheduling_info.wait_for_scheduling_parent(&mut cache, true).await
+			scheduling_info
+				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
+				.await
 		})
 		.await
 		.expect("Task should complete within timeout");
@@ -556,7 +823,9 @@ mod tests {
 		// Simulate: receiving the modified header 3 block.
 		tx.unbounded_send(headers[3].clone()).unwrap();
 		let result = tokio::time::timeout(Duration::from_millis(300), async {
-			scheduling_info.wait_for_scheduling_parent(&mut cache, true).await
+			scheduling_info
+				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
+				.await
 		})
 		.await
 		.expect("Task should complete within timeout");
@@ -566,11 +835,99 @@ mod tests {
 		// Simulate: an even fresher block.
 		tx.unbounded_send(headers[4].clone()).unwrap();
 		let result = tokio::time::timeout(Duration::from_millis(300), async {
-			scheduling_info.wait_for_scheduling_parent(&mut cache, true).await
+			scheduling_info
+				.wait_for_scheduling_parent(&mut cache, true, Slot::from(PRODUCTION_SLOT))
+				.await
 		})
 		.await
 		.expect("Task should complete within timeout");
 		assert_eq!(result, None);
 		assert_eq!(scheduling_info.maybe_best_relay_header.as_ref(), Some(&headers[4]));
+	}
+
+	/// Consecutive V3 headers (numbers 50, 51, ...) at exactly the given slots, parent-linked, the
+	/// last one being the best block.
+	fn build_v3_chain_with_slots(
+		slots: &[u64],
+	) -> (TestRelayClient, RelayChainDataCache<TestRelayClient>, Vec<RelayHeader>) {
+		let mut node_features = NodeFeatures::from_vec(vec![0; 5]);
+		node_features.set(FeatureIndex::CandidateReceiptV3 as usize, true);
+
+		let mut headers: Vec<RelayHeader> = vec![];
+		for (i, slot) in slots.iter().enumerate() {
+			let parent_hash = headers.last().map(|h| h.hash()).unwrap_or_default();
+			headers.push(tests::relay_header_with_slot(50 + i as u32, parent_hash, *slot));
+		}
+
+		let headers_map = headers.iter().map(|h| (h.hash(), h.clone())).collect();
+		let client = TestRelayClient::new_with_best(headers_map, headers.last().unwrap().hash());
+		let mut cache = RelayChainDataCache::new(client.clone(), 1.into());
+		for header in &headers {
+			cache.set_test_data(header.clone(), vec![], node_features.clone());
+		}
+
+		(client, cache, headers)
+	}
+
+	/// Regression for the stale scheduling parent: the V3 selection must depend only on the
+	/// production slot handed over by the slot timer, never on a second wall-clock read. With the
+	/// best block from the slot right before the production slot, that block is the scheduling
+	/// parent, whatever the wall clock says.
+	#[tokio::test]
+	async fn v3_uses_previous_slot_block_without_consulting_clock() {
+		let (mut client, mut cache, headers) =
+			build_v3_chain_with_slots(&[PRODUCTION_SLOT - 2, PRODUCTION_SLOT - 1]);
+		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+		client.set_best_hash(None);
+		client.set_best_notifications(Box::pin(rx));
+
+		let mut scheduling_info = SchedulingInfo::new(RELAY_SLOT_DURATION, Duration::from_secs(1));
+		scheduling_info.ensure_initialized(&client, &mut cache).await;
+
+		// Best block: the previous slot's block, i.e. a finished slot relative to the production
+		// slot. It is the scheduling parent, and no wall-clock read may change that.
+		tx.unbounded_send(headers[1].clone()).unwrap();
+		let result = tokio::time::timeout(
+			Duration::from_millis(300),
+			scheduling_info.wait_for_scheduling_parent(
+				&mut cache,
+				true,
+				Slot::from(PRODUCTION_SLOT),
+			),
+		)
+		.await
+		.expect("Should return immediately, not timeout");
+
+		assert_eq!(result, Some((headers[1].clone(), true)));
+	}
+
+	/// The best block is from the production slot itself, so it has not had a full slot to
+	/// propagate: walk back exactly one block, to the previous slot's block.
+	#[tokio::test]
+	async fn v3_walks_back_exactly_one_when_best_is_in_production_slot() {
+		let (mut client, mut cache, headers) =
+			build_v3_chain_with_slots(&[PRODUCTION_SLOT - 2, PRODUCTION_SLOT - 1, PRODUCTION_SLOT]);
+
+		let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+		client.set_best_hash(None);
+		client.set_best_notifications(Box::pin(rx));
+
+		let mut scheduling_info = SchedulingInfo::new(RELAY_SLOT_DURATION, Duration::from_secs(1));
+		scheduling_info.ensure_initialized(&client, &mut cache).await;
+
+		// Best block: the production slot's own block.
+		tx.unbounded_send(headers[2].clone()).unwrap();
+		let result = tokio::time::timeout(
+			Duration::from_millis(300),
+			scheduling_info.wait_for_scheduling_parent(
+				&mut cache,
+				true,
+				Slot::from(PRODUCTION_SLOT),
+			),
+		)
+		.await
+		.expect("Should return immediately, not timeout");
+
+		assert_eq!(result, Some((headers[1].clone(), true)));
 	}
 }
