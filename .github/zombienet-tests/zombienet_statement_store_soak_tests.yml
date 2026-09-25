@@ -3,10 +3,12 @@
 # .github/workflows/zombienet_statement-store-soak.yml. Each entry sizes its own network; a
 # dispatch can override the size and the soak window for a one-off run.
 
-# DO NOT MERGE. 100 nodes here, against the 40 on the base branch: this branch patches in the
-# fix for paritytech/litep2p#665, so the cap that bug forces no longer applies.
+# DO NOT MERGE. This branch patches in the fix for paritytech/litep2p#665, so it is not held to
+# the size the base branch uses: 120 nodes puts the statement graph past the ~101 the peer set
+# can cover, which is where the DHT has to route instead of reaching every peer directly, and a
+# two-hour window is long enough for the run to say something about stability between releases.
 - job-name: "zombienet-statement-store-soak-0001-v2-dht"
   test-filter: "zombie_ci::statement_store::v2_dht_soak::statement_store_v2_dht_soak"
   cumulus-image: "polkadot-parachain-debug"
-  soak-nodes: "100"
-  soak-secs: "600"
+  soak-nodes: "120"
+  soak-secs: "7200"
