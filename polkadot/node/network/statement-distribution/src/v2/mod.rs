@@ -84,7 +84,7 @@ use groups::Groups;
 use requests::{CandidateIdentifier, RequestProperties};
 use statement_store::{StatementOrigin, StatementStore};
 
-pub use requests::{RequestManager, ResponseManager, UnhandledResponse};
+pub use requests::{FetchOutcome, FetchSlot, RequestManager, ResponseManager, UnhandledResponse};
 
 mod candidates;
 mod cluster;
@@ -2850,7 +2850,11 @@ async fn apply_post_confirmation<Context>(
 
 /// Dispatch pending requests for candidate data & statements.
 #[overseer::contextbounds(StatementDistribution, prefix=self::overseer)]
-pub(crate) async fn dispatch_requests<Context>(ctx: &mut Context, state: &mut State) {
+pub(crate) async fn dispatch_requests<Context>(
+	ctx: &mut Context,
+	state: &mut State,
+	metrics: &Metrics,
+) {
 	if !state.request_manager.has_pending_requests() {
 		return;
 	}
@@ -2928,6 +2932,7 @@ pub(crate) async fn dispatch_requests<Context>(ctx: &mut Context, state: &mut St
 
 	while let Some(request) = state.request_manager.next_request(
 		&mut state.response_manager,
+		metrics,
 		request_props,
 		peer_advertised,
 	) {
@@ -2950,16 +2955,19 @@ pub(crate) async fn receive_response(response_manager: &mut ResponseManager) -> 
 	}
 }
 
-/// Wait on the next soonest retry on a pending request. If there are no retries pending, this
-/// future never resolves. Note that this only signals that a request is ready to retry; the user of
-/// this API must call `dispatch_requests`.
-pub(crate) async fn next_retry(request_manager: &mut RequestManager) {
-	match request_manager.next_retry_time() {
-		Some(instant) => {
-			futures_timer::Delay::new(instant.saturating_duration_since(Instant::now())).await
-		},
-		None => futures::future::pending().await,
-	}
+/// Wait on the soonest time at which a pending request becomes dispatchable — either via the
+/// retry-after-failure path (`REQUEST_RETRY_DELAY` since a previous response Incomplete) or via
+/// the parallel-fetch path (`PARALLEL_FETCH_THRESHOLD` since the first request was sent without
+/// a response). If no such timer is pending, this future never resolves. The caller must call
+/// `dispatch_requests` after this resolves.
+pub(crate) async fn next_dispatch_signal(request_manager: &mut RequestManager) {
+	let next = match (request_manager.next_retry_time(), request_manager.next_parallel_fire_time())
+	{
+		(None, None) => return futures::future::pending().await,
+		(Some(t), None) | (None, Some(t)) => t,
+		(Some(a), Some(b)) => std::cmp::min(a, b),
+	};
+	futures_timer::Delay::new(next.saturating_duration_since(Instant::now())).await
 }
 
 /// Handles an incoming response. This does the actual work of validating the response,
@@ -3018,6 +3026,23 @@ pub(crate) async fn handle_response<Context>(
 			disabled_mask,
 			&scheduling_parent_state.transposed_cq,
 		);
+
+		// Emit fetch-completion metric. If a parallel slot won the race, also bump the
+		// `parallel_fetch_won_total` counter — read against `parallel_fetch_fired_total`
+		// to see how often parallelism actually helps.
+		let fc = res.fetch_completion;
+		metrics.on_fetch_completion(fc.slot, fc.outcome, fc.duration);
+		if matches!(fc.slot, requests::FetchSlot::Parallel) &&
+			matches!(fc.outcome, requests::FetchOutcome::Success)
+		{
+			metrics.on_parallel_fetch_won();
+		}
+
+		// Emit end-to-end "first knew about candidate → have candidate" duration. Populated
+		// only on `Complete`.
+		if let Some(d) = res.learn_to_fetch {
+			metrics.on_learn_to_fetch(d);
+		}
 
 		for (peer, rep) in res.reputation_changes {
 			modify_reputation(reputation, ctx.sender(), peer, rep).await;
