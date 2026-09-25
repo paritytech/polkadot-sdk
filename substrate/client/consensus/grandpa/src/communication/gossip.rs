@@ -507,18 +507,6 @@ enum LightPeersInTurn {
 	Range { after: PeerId, until: PeerId },
 }
 
-impl LightPeersInTurn {
-	fn contains(&self, who: &PeerId) -> bool {
-		match self {
-			LightPeersInTurn::All => true,
-			LightPeersInTurn::Range { after, until } if after < until => {
-				who > after && who <= until
-			},
-			LightPeersInTurn::Range { after, until } => who > after || who <= until,
-		}
-	}
-}
-
 /// The peers we're connected to in gossip.
 struct Peers<N> {
 	inner: AHashMap<PeerId, PeerInfo<N>>,
@@ -642,6 +630,22 @@ impl<N: Ord> Peers<N> {
 
 	fn peer<'a>(&'a self, who: &PeerId) -> Option<&'a PeerInfo<N>> {
 		self.inner.get(who)
+	}
+
+	/// Whether `who` is a connected light client we'll gossip commit messages to in the current
+	/// round.
+	fn is_light_peer_in_turn(&self, who: &PeerId) -> bool {
+		if !self.peer(who).is_some_and(|info| info.roles.is_light()) {
+			return false;
+		}
+
+		match &self.light_peers_in_turn {
+			LightPeersInTurn::All => true,
+			LightPeersInTurn::Range { after, until } if after < until => {
+				who > after && who <= until
+			},
+			LightPeersInTurn::Range { after, until } => who > after || who <= until,
+		}
 	}
 
 	fn reshuffle(&mut self) {
@@ -1350,8 +1354,7 @@ impl<Block: BlockT> Inner<Block> {
 		if round_elapsed < round_duration.mul_f32(PROPAGATION_ALL) {
 			self.peers.first_stage_peers.contains(who) ||
 				self.peers.second_stage_peers.contains(who) ||
-				(self.peers.peer(who).is_some_and(|info| info.roles.is_light()) &&
-					self.peers.light_peers_in_turn.contains(who))
+				self.peers.is_light_peer_in_turn(who)
 		} else {
 			true
 		}
