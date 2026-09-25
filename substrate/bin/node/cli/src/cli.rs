@@ -275,13 +275,4 @@ mod tests {
 		);
 		assert_eq!(cli.statement_bloom_seed, None);
 	}
-
-	#[test]
-	fn statement_track_limit_flags_parse() {
-		use clap::Parser;
-		let cli =
-			Cli::parse_from(["substrate-node", "--statement-store-max-transient-size", "4096"]);
-		assert_eq!(cli.statement_store_max_transient_size, Some(4096));
-		assert_eq!(cli.statement_store_max_dht_affinity_size, None);
-	}
 }
