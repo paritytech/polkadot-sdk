@@ -848,8 +848,6 @@ struct SubmitIndex {
 	config: Config,
 	/// Number of stored statements and their data size per retention track.
 	totals: StoreTotals,
-	/// Whether the starved-track warning went out since the last maintenance, which resets it.
-	starved_track_warning_sent: bool,
 	evicted_count: usize,
 	// Monotonic sequence number assigned to each statement as it is inserted.
 	next_seq: u64,
@@ -1016,7 +1014,6 @@ impl SubmitIndex {
 			summaries: LruMap::new(ByLength::new(SUMMARY_CACHE_ACCOUNTS)),
 			config,
 			totals: StoreTotals::default(),
-			starved_track_warning_sent: false,
 			next_seq: 0,
 			cached_statement_count: 0,
 			allowance_cursor: None,
@@ -1041,38 +1038,24 @@ impl SubmitIndex {
 		self.totals.size()
 	}
 
-	/// Whether the totals after an admission under `track` stay within the store's limits and
-	/// the track's size limit.
-	fn within_limits(&self, totals: &StoreTotals, track: RetentionTrack) -> bool {
-		totals.count() <= self.config.max_total_statements &&
-			totals.size() <= self.config.max_total_size &&
-			totals.track_size(track) <= self.track_max_size(track)
-	}
-
-	fn track_max_size(&self, track: RetentionTrack) -> usize {
-		self.config.track_max_sizes()[track as usize].unwrap_or(self.config.max_total_size)
-	}
-
-	/// Warns, once per maintenance period, when the store size rejects a statement whose track has
-	/// room. `totals` are what the admission would leave.
-	fn warn_if_track_starved(&mut self, track: RetentionTrack, totals: &StoreTotals) {
-		if self.starved_track_warning_sent ||
-			self.config.track_max_sizes()[track as usize].is_none() ||
-			totals.track_size(track) > self.track_max_size(track) ||
-			totals.size() <= self.config.max_total_size
+	/// The limit an admission leaving `totals` under `track` would break: the track's own size
+	/// limit, or else the store's. A rejection for the store while the track has a limit means
+	/// the track had room the store did not.
+	fn exceeded_limit(
+		&self,
+		totals: &StoreTotals,
+		track: RetentionTrack,
+	) -> Option<RejectionReason> {
+		let track_max_size = self.config.track_max_sizes()[track as usize];
+		if track_max_size.is_some_and(|max_size| totals.track_size(track) > max_size) {
+			Some(RejectionReason::TrackFull)
+		} else if totals.count() > self.config.max_total_statements ||
+			totals.size() > self.config.max_total_size
 		{
-			return;
+			Some(RejectionReason::StoreFull)
+		} else {
+			None
 		}
-		self.starved_track_warning_sent = true;
-		log::warn!(
-			target: LOG_TARGET,
-			"Rejected a statement kept for {}: the store would hold {} of {} bytes, its track only {} of {}",
-			track.reason(),
-			totals.size(),
-			self.config.max_total_size,
-			totals.track_size(track),
-			self.track_max_size(track),
-		);
 	}
 
 	/// Removes the account's record from the details cache, keeping the cost accounting exact.
@@ -1157,7 +1140,7 @@ impl SubmitIndex {
 	/// be admitted. `record` is the account's current state; global and per-track limits are
 	/// checked against the in-memory counters. The store never evicts other accounts' statements
 	/// to admit a new one — when the limits cannot be met from this account alone, the statement
-	/// is rejected, along with the totals the admission would leave.
+	/// is rejected.
 	fn plan_insert(
 		&self,
 		record: &StatementsForAccount,
@@ -1167,7 +1150,7 @@ impl SubmitIndex {
 		account: &AccountId,
 		validation: &StatementAllowance,
 		current_time: u64,
-	) -> std::result::Result<InsertPlan, (RejectionReason, Option<StoreTotals>)> {
+	) -> std::result::Result<InsertPlan, RejectionReason> {
 		let statement_len = statement.data_len();
 		if statement_len > validation.max_size as usize {
 			log::debug!(
@@ -1177,13 +1160,10 @@ impl SubmitIndex {
 				HexDisplay::from(&hash),
 				statement_len,
 			);
-			return Err((
-				RejectionReason::DataTooLarge {
-					submitted_size: statement_len,
-					available_size: validation.max_size as usize,
-				},
-				None,
-			));
+			return Err(RejectionReason::DataTooLarge {
+				submitted_size: statement_len,
+				available_size: validation.max_size as usize,
+			});
 		}
 
 		let mut evicted: Vec<(PriorityKey, EntryDetails)> = Vec::new();
@@ -1206,13 +1186,10 @@ impl SubmitIndex {
 						expiry,
 						channel_record.expiry,
 					);
-					return Err((
-						RejectionReason::ChannelPriorityTooLow {
-							submitted_expiry: expiry.0,
-							min_expiry: channel_record.expiry.0,
-						},
-						None,
-					));
+					return Err(RejectionReason::ChannelPriorityTooLow {
+						submitted_expiry: expiry.0,
+						min_expiry: channel_record.expiry.0,
+					});
 				} else {
 					// Would replace channel message. Still need to check for size constraints
 					// below.
@@ -1258,21 +1235,15 @@ impl SubmitIndex {
 				);
 				let retained_size = record.data_size - would_free_size;
 				if retained_size + statement_len > max_size {
-					return Err((
-						RejectionReason::DataTooLarge {
-							submitted_size: statement_len,
-							available_size: max_size.saturating_sub(retained_size),
-						},
-						None,
-					));
+					return Err(RejectionReason::DataTooLarge {
+						submitted_size: statement_len,
+						available_size: max_size.saturating_sub(retained_size),
+					});
 				}
-				return Err((
-					RejectionReason::AccountFull {
-						submitted_expiry: expiry.0,
-						min_expiry: entry.expiry.0,
-					},
-					None,
-				));
+				return Err(RejectionReason::AccountFull {
+					submitted_expiry: expiry.0,
+					min_expiry: entry.expiry.0,
+				});
 			}
 			evicted_hashes.insert(entry.hash);
 			would_free_size += details.data_len;
@@ -1284,17 +1255,18 @@ impl SubmitIndex {
 			statement_len,
 			evicted.iter().map(|(_, details)| details),
 		);
-		if !self.within_limits(&totals, track) {
+		if let Some(reason) = self.exceeded_limit(&totals, track) {
 			log::debug!(
 				target: LOG_TARGET,
-				"Ignored statement {} from account {} because the store or the track is full (size={}, count={}, track={:?})",
+				"Ignored statement {} from account {}: {} (size={}, count={}, track={:?})",
 				HexDisplay::from(&hash),
 				HexDisplay::from(account),
+				reason.label(),
 				self.total_size(),
 				self.statement_count(),
 				track,
 			);
-			return Err((RejectionReason::StoreFull, Some(totals)));
+			return Err(reason);
 		}
 
 		let banned = evicted
@@ -2568,7 +2540,6 @@ impl Store {
 			let mut submit_index = self.submit_index.write();
 			submit_index.evicted_count =
 				submit_index.evicted_count.saturating_sub(deleted_count as usize);
-			submit_index.starved_track_warning_sent = false;
 			(
 				submit_index.statement_count(),
 				submit_index.evicted_count,
@@ -3193,7 +3164,8 @@ impl StatementStore for Store {
 					summary.count < validation.max_count as usize &&
 						summary.data_size + statement_len <= validation.max_size as usize
 				}) && submit_index
-				.within_limits(&submit_index.totals_after_insert(track, statement_len, []), track);
+				.exceeded_limit(&submit_index.totals_after_insert(track, statement_len, []), track)
+				.is_none();
 			let loaded_record = if cached || summary_admits || oversize {
 				None
 			} else {
@@ -3223,13 +3195,10 @@ impl StatementStore for Store {
 				current_time,
 			) {
 				Ok(plan) => plan,
-				Err((reason, totals)) => {
+				Err(reason) => {
 					self.metrics.report(|metrics| {
 						metrics.rejections.with_label_values(&[reason.label()]).inc();
 					});
-					if let Some(totals) = totals {
-						submit_index.warn_if_track_starved(track, &totals);
-					}
 					// The rejection left the store untouched, so a record loaded for planning
 					// still mirrors the disk. Cache it: rejections cost the sender nothing, and
 					// dropping the record here would let rejected submissions against a large
@@ -5315,7 +5284,7 @@ mod tests {
 		assert_eq!(store.submit(statement(5, 1, None, 10), source), SubmitResult::New);
 		assert_eq!(
 			store.submit(statement(5, 2, None, 10), source),
-			SubmitResult::Rejected(RejectionReason::StoreFull)
+			SubmitResult::Rejected(RejectionReason::TrackFull)
 		);
 		assert_eq!(track_size(&store, RetentionTrack::Transient), 10);
 
@@ -5329,7 +5298,7 @@ mod tests {
 		assert_eq!(store.submit(statement(5, 3, None, 5), source), SubmitResult::New);
 		assert_eq!(
 			store.submit(statement(6, 1, None, 1), source),
-			SubmitResult::Rejected(RejectionReason::StoreFull)
+			SubmitResult::Rejected(RejectionReason::TrackFull)
 		);
 		assert_eq!(track_size(&store, RetentionTrack::Transient), 15);
 	}
@@ -5392,7 +5361,7 @@ mod tests {
 		transient.store(true, Ordering::Relaxed);
 		assert_eq!(
 			store.submit(statement(3, 10, None, 100), source),
-			SubmitResult::Rejected(RejectionReason::StoreFull)
+			SubmitResult::Rejected(RejectionReason::TrackFull)
 		);
 		assert!(persistent.iter().all(|statement| store.has_statement(&statement.hash())));
 		assert_eq!(track_size(&store, RetentionTrack::Persistent), 300);

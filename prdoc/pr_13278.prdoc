@@ -8,12 +8,14 @@ doc:
     on top of the global limits. Statements kept for explicit affinity alone are bound by the store
     size only. Each limit defaults to the store size and is set with the hidden flags
     `--statement-store-max-dht-affinity-size` and `--statement-store-max-transient-size`. The node
-    warns at startup about a limit above half of the store size, and once per maintenance period
-    when the store size rejects a statement whose own limit still has room. The statement database
-    migrates to version 3 on the first start, existing statements count as kept for explicit
-    affinity.
+    warns at startup about a limit above half of the store size. A statement its track has no room
+    for is rejected with the new reason `TrackFull`, counted as `track_full` in the rejection
+    metric; the RPC keeps reporting it as a full store. The statement database migrates to version
+    3 on the first start, existing statements count as kept for explicit affinity.
 
 crates:
+- name: sp-statement-store
+  bump: minor
 - name: sc-statement-store
   bump: minor
 - name: sc-network-statement
