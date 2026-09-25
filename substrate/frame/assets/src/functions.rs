@@ -1006,9 +1006,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// `dest` by (similar) amount, checking that 'delegate' has an existing approval from `owner`
 	/// to spend`amount`.
 	///
-	/// Will fail if `amount` is greater than the approval from `owner` to 'delegate'
-	/// Will unreserve the deposit from `owner` if the entire approved `amount` is spent by
-	/// 'delegate'
+	/// Will fail if the charge is greater than the approval from `owner` to 'delegate'. The
+	/// charge is the debit, which exceeds `amount` where transferring `amount` would leave `owner`
+	/// holding a non-zero remainder below the asset's minimum balance. A transfer to `owner`
+	/// itself moves nothing and is charged `amount`.
+	/// Will unreserve the deposit from `owner` if the charge spends the approval in full
 	pub fn do_transfer_approved(
 		id: T::AssetId,
 		owner: &T::AccountId,
@@ -1025,10 +1027,19 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			(id.clone(), &owner, delegate),
 			|maybe_approved| -> DispatchResult {
 				let mut approved = maybe_approved.take().ok_or(Error::<T, I>::Unapproved)?;
-				let remaining =
-					approved.amount.checked_sub(&amount).ok_or(Error::<T, I>::Unapproved)?;
+				// Reports `Unapproved` before `prep_debit` can raise a balance error.
+				ensure!(approved.amount >= amount, Error::<T, I>::Unapproved);
 
 				let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
+				// The debit can exceed `amount`. Zero and self transfers move nothing.
+				let debit = if amount.is_zero() || owner == destination {
+					amount
+				} else {
+					Self::prep_debit(id.clone(), owner, amount, f.into())?
+				};
+				let remaining =
+					approved.amount.checked_sub(&debit).ok_or(Error::<T, I>::Unapproved)?;
+
 				owner_died =
 					Self::transfer_and_die(id.clone(), owner, destination, amount, None, f)?.1;
 
