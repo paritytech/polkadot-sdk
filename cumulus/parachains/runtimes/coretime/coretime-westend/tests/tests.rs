@@ -350,3 +350,74 @@ fn coretime_revenue_goes_to_accumulation_account() {
 			);
 		});
 }
+
+/// XCM calls that move the delegator's funds, labelled so a failure names every call that slipped
+/// through.
+fn xcm_transfer_calls() -> Vec<(&'static str, RuntimeCall)> {
+	let here = || Box::new(xcm::VersionedLocation::from(Location::here()));
+	let assets = || Box::new(xcm::VersionedAssets::from(Assets::new()));
+	vec![
+		(
+			"PolkadotXcm::transfer_assets",
+			RuntimeCall::PolkadotXcm(pallet_xcm::Call::transfer_assets {
+				dest: here(),
+				beneficiary: here(),
+				assets: assets(),
+				fee_asset_item: 0,
+				weight_limit: WeightLimit::Unlimited,
+			}),
+		),
+		(
+			"PolkadotXcm::limited_teleport_assets",
+			RuntimeCall::PolkadotXcm(pallet_xcm::Call::limited_teleport_assets {
+				dest: here(),
+				beneficiary: here(),
+				assets: assets(),
+				fee_asset_item: 0,
+				weight_limit: WeightLimit::Unlimited,
+			}),
+		),
+		(
+			"PolkadotXcm::execute",
+			RuntimeCall::PolkadotXcm(pallet_xcm::Call::execute {
+				message: Box::new(xcm::VersionedXcm::from(Xcm::<RuntimeCall>::new())),
+				max_weight: Weight::zero(),
+			}),
+		),
+	]
+}
+
+#[test]
+fn non_transfer_proxy_rejects_xcm_transfers() {
+	use coretime_westend_runtime::ProxyType;
+	use frame_support::traits::InstanceFilter;
+
+	let mut leaked = Vec::new();
+	for (name, call) in xcm_transfer_calls() {
+		if ProxyType::NonTransfer.filter(&call) {
+			leaked.push(name);
+		}
+		assert!(ProxyType::Any.filter(&call), "Any must permit {name}");
+	}
+	assert!(
+		leaked.is_empty(),
+		"NonTransfer must reject calls that move funds, but permitted: {leaked:?}",
+	);
+}
+
+#[test]
+fn non_transfer_proxy_still_permits_non_value_moving_calls() {
+	use coretime_westend_runtime::ProxyType;
+	use frame_support::traits::InstanceFilter;
+
+	let permitted = vec![
+		(
+			"CollatorSelection::leave_intent",
+			RuntimeCall::CollatorSelection(pallet_collator_selection::Call::leave_intent {}),
+		),
+		("Utility::batch", RuntimeCall::Utility(pallet_utility::Call::batch { calls: vec![] })),
+	];
+	for (name, call) in permitted {
+		assert!(ProxyType::NonTransfer.filter(&call), "NonTransfer must still permit {name}");
+	}
+}

@@ -1,0 +1,13 @@
+title: 'coretime-westend, people-westend: deny XCM transfers to the `NonTransfer` proxy'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `NonTransfer` on Coretime Westend and People Westend did not deny `PolkadotXcm`, so a
+    `NonTransfer` proxy could move the delegator's funds to another chain with
+    `transfer_assets`/`teleport_assets`, or with `execute` as raw XCM. Both now deny
+    `PolkadotXcm`, as Asset Hub Westend has done since #12771.
+crates:
+- name: coretime-westend-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
