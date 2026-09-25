@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790350860627,
+  "lastUpdate": 1790353990687,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "68e6cf12cbc7a1edc06cfd88767f3b173bfd045c",
-          "message": "Version bumps stable2512-2 (#11163)\n\nThis PR backports regular version bumps and prdocs reorderings from\nstable2512 release branch back to master\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
-          "timestamp": "2026-02-25T06:57:12Z",
-          "tree_id": "5d95cd77a153b2ba454c4016f9a7d9a9d635448c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/68e6cf12cbc7a1edc06cfd88767f3b173bfd045c"
-        },
-        "date": 1772007386789,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63616.340000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52939.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0051768719700000035,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.7409221415100014,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.7510148218699984,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000024125399999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002275127,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.7665650073899988,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.7905570356700005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000024125399999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002275127,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3095029250099968,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8175329419999745,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.38023523259278,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.181271745419968,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting/test-environment",
             "value": 0.00001960142,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eduard@parity.io",
+            "name": "eduardspa",
+            "username": "eduardspa"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a92f928a64c30c08c1bcd3c94161eccd537b733d",
+          "message": "chain-spec-builder: manage the boot nodes of a chain spec (#13302)\n\n`chain-spec-builder` had no way to manage the boot nodes of a chain\nspec. The `bootNodes`\nfield had to be edited by hand, which is error prone: the addresses must\nbe multiaddresses\ncarrying the peer id of the node, and a raw chain spec is not pleasant\nto edit manually.\n\nThe new `bootnodes` command group operates on an existing chain spec, in\nboth plain and raw\nformat:\n\n```sh\nchain-spec-builder -c out.json bootnodes add chain_spec.json /dns/node-0.example.com/tcp/30333/p2p/12D3KooW...\nchain-spec-builder -c out.json bootnodes remove chain_spec.json /dns/node-0.example.com/tcp/30333/p2p/12D3KooW...\nchain-spec-builder -c out.json bootnodes remove chain_spec.json --all\nchain-spec-builder bootnodes list chain_spec.json\n```\n\n`add` appends and skips the addresses that are already stored, `remove`\nignores the ones that\nare not stored, so both can be safely repeated. `create` takes a new\n`--bootnodes` argument.\nThe addresses are validated: one without a `/p2p/<peer id>` component is\nrejected before\nanything is read or written.\n\n# Integration\n\nNew functionality only. `sc-chain-spec` now re-exports\n`MultiaddrWithPeerId`, which was\nalready public through `ChainSpec::boot_nodes()`.\n\n## Review Notes\n\nThe commands edit the chain spec `serde_json::Value`, which is what\nmakes plain and raw work\nthrough one path and leaves the rest of the spec untouched — the tests\nassert this by\ncomparing the output against the input with only `bootNodes` patched.\n`remove --all` skips\ndeserializing the existing addresses on purpose: it is the way to repair\na spec whose\n`bootNodes` no longer parses.\n\n---------\n\nCo-authored-by: nprt <nikola.djoric@parity.io>",
+          "timestamp": "2026-09-25T14:56:00Z",
+          "tree_id": "8e95e3275f15c77c43772673f9c6942a2d382171",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a92f928a64c30c08c1bcd3c94161eccd537b733d"
+        },
+        "date": 1790353958827,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63552.87000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52935.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3365078405999924,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002216099,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002012756,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.772828929839998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7606456297000017,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002216099,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7732824389399486,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.403300899572813,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002012756,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.22969016518994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7733570325800003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8075717041599995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005496589369999997,
             "unit": "seconds"
           }
         ]
