@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790288111310,
+  "lastUpdate": 1790337506706,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "109252977+YichiZhang0613@users.noreply.github.com",
-            "name": "Yichi Zhang",
-            "username": "YichiZhang0613"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e164dd120a27a4e30f7a3d9b887af5c52d160221",
-          "message": "[pallet-revive] Fix assertion message (#10923)\n\n# Description\nFor below assertion, it looks like the message is inaccurate. the\nmessage always says \"deposit mismatch\" even when other fields fail\n(owner, refcount, code_len, etc.). This could be misleading.\n```rust\nassert_eq!(\n\t\t\tmigrated,\n\t\t\tnew::CodeInfo {\n\t\t\t\towner: old_code_info.owner.clone(),\n\t\t\t\tdeposit: old_code_info.deposit,\n\t\t\t\trefcount: old_code_info.refcount,\n\t\t\t\tcode_len: old_code_info.code_len,\n\t\t\t\tbehaviour_version: old_code_info.behaviour_version,\n\t\t\t\tcode_type: BytecodeType::Pvm,\n\t\t\t},\n\t\t\t\"Migration failed: deposit mismatch for key {code_hash:?}\",\n\t\t);\n```",
-          "timestamp": "2026-02-24T09:48:36Z",
-          "tree_id": "3cb60ddf8da6402a21e856ef6c32210e2f0faf29",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e164dd120a27a4e30f7a3d9b887af5c52d160221"
-        },
-        "date": 1771931409738,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.11,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.037601833077999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0688469584279999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03905312931,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "79002163+gab8i@users.noreply.github.com",
+            "name": "gab",
+            "username": "gab8i"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5f0e2684174659b28c25f3fd879c42939ccd98a0",
+          "message": "feat: check configured address identity against the node key (#13024)\n\n#### Description\n\n`--listen-addr` and `--public-addr` can now carry the identity\ncomponents an operator is likely to\npaste back from an advertised or published address, either `/p2p/<peer\nid>` on any address or `/certhash/<hash>` on a `webrtc-direct` address.\n\nBoth are checked against the node key and then stripped. \n\n#### Integration\n\n`NetworkConfiguration::validate_and_complete_webrtc_addresses` now is no\nlonger WebRTC-specific.\n\nTwo new `sc_network::error::Error` variants: `MismatchedAddressIdentity`\nand `MalformedAddressIdentity`.\n\n#### Review Notes\n\n- check is part of `sc_network::config`, it applies to both litep2p and\nlibp2p.\n- `check_and_strip_identity` pops a trailing /p2p, then a /certhash, and\nrejects the address if anything identity-shaped remains inside it.\n- addrs tests moved from `webrtc.rs` to a new\n`substrate/client/network/src/address_tests.rs`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-25T09:46:26Z",
+          "tree_id": "028c45e23644cdd685f3520ce04cb504a42e7f54",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5f0e2684174659b28c25f3fd879c42939ccd98a0"
+        },
+        "date": 1790337473136,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.08799999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08611630125199989,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03866369158,
             "unit": "seconds"
           }
         ]
