@@ -4088,6 +4088,23 @@ mod tests {
 		(store, temp_dir) // return order is important. Store must be dropped before TempDir
 	}
 
+	/// Closes `store` and opens the database in `temp` again with the default config.
+	fn reopen(store: Store, temp: &tempfile::TempDir) -> Store {
+		let keystore = store.keystore.clone();
+		drop(store);
+		let mut path: std::path::PathBuf = temp.path().into();
+		path.push("db");
+		Store::new::<Block, TestClient, TestBackend>(
+			&path,
+			Default::default(),
+			std::sync::Arc::new(TestClient),
+			keystore,
+			None,
+			Box::new(sp_core::testing::TaskExecutor::new()),
+		)
+		.unwrap()
+	}
+
 	pub fn signed_statement(data: u8) -> Statement {
 		signed_statement_with_topics(data, &[], None)
 	}
@@ -4224,21 +4241,7 @@ mod tests {
 		assert_eq!(store.statements().unwrap().len(), 3);
 		assert_eq!(store.broadcasts(&[]).unwrap().len(), 3);
 		assert_eq!(store.statement(&statement1.hash()).unwrap(), Some(statement1.clone()));
-		let keystore = store.keystore.clone();
-		drop(store);
-
-		let client = std::sync::Arc::new(TestClient);
-		let mut path: std::path::PathBuf = temp.path().into();
-		path.push("db");
-		let store = Store::new::<Block, TestClient, TestBackend>(
-			&path,
-			Default::default(),
-			client,
-			keystore,
-			None,
-			Box::new(sp_core::testing::TaskExecutor::new()),
-		)
-		.unwrap();
+		let store = reopen(store, &temp);
 		assert_eq!(store.statements().unwrap().len(), 3);
 		assert_eq!(store.broadcasts(&[]).unwrap().len(), 3);
 		assert_eq!(store.statement(&statement1.hash()).unwrap(), Some(statement1));
@@ -4268,20 +4271,7 @@ mod tests {
 			Some(first.hash().to_vec())
 		);
 		assert_eq!(store.db.get(col::ADMISSION_SEQ, &1u64.to_be_bytes()).unwrap(), None);
-		let keystore = store.keystore.clone();
-		drop(store);
-
-		let mut path: std::path::PathBuf = temp.path().into();
-		path.push("db");
-		let store = Store::new::<Block, TestClient, TestBackend>(
-			&path,
-			Default::default(),
-			std::sync::Arc::new(TestClient),
-			keystore,
-			None,
-			Box::new(sp_core::testing::TaskExecutor::new()),
-		)
-		.unwrap();
+		let store = reopen(store, &temp);
 		assert_eq!(store.submit_index.read().next_seq, 2);
 
 		let replay = store.replay_batch(&OptimizedTopicFilter::Any, 0, 2).unwrap();
@@ -4318,20 +4308,7 @@ mod tests {
 			.db
 			.commit([(col::META, crate::KEY_COUNTERS.to_vec(), Some((totals, 0u64).encode()))])
 			.unwrap();
-		let keystore = store.keystore.clone();
-		drop(store);
-
-		let mut path: std::path::PathBuf = temp.path().into();
-		path.push("db");
-		let store = Store::new::<Block, TestClient, TestBackend>(
-			&path,
-			Default::default(),
-			std::sync::Arc::new(TestClient),
-			keystore,
-			None,
-			Box::new(sp_core::testing::TaskExecutor::new()),
-		)
-		.unwrap();
+		let store = reopen(store, &temp);
 		assert_eq!(store.submit_index.read().next_seq, 2);
 
 		// A new admission claims a fresh sequence number; the existing entries are untouched.
@@ -4371,20 +4348,7 @@ mod tests {
 			.unwrap();
 		let filter = OptimizedTopicFilter::MatchAny([topic(1)].into_iter().collect());
 		assert!(store.replay_batch(&filter, 0, 1).unwrap().statements.is_empty());
-		let keystore = store.keystore.clone();
-		drop(store);
-
-		let mut path: std::path::PathBuf = temp.path().into();
-		path.push("db");
-		let store = Store::new::<Block, TestClient, TestBackend>(
-			&path,
-			Default::default(),
-			std::sync::Arc::new(TestClient),
-			keystore,
-			None,
-			Box::new(sp_core::testing::TaskExecutor::new()),
-		)
-		.unwrap();
+		let store = reopen(store, &temp);
 
 		let watermark = store.submit_index.read().next_seq;
 		assert_eq!(watermark, 1);
@@ -4729,29 +4693,17 @@ mod tests {
 				SubmitResult::New
 			);
 		}
-		assert_eq!(
-			store.submit(statement(1, 1, None, 100), StatementSource::Network),
-			SubmitResult::New
-		);
-		assert_eq!(store.statement_count(), 4);
-		assert_eq!(store.total_size(), 3 + 100);
-		let keystore = store.keystore.clone();
-		drop(store);
-
-		let mut path: std::path::PathBuf = temp.path().into();
-		path.push("db");
-		let store = Store::new::<Block, TestClient, TestBackend>(
-			&path,
-			Default::default(),
-			std::sync::Arc::new(TestClient),
-			keystore,
-			None,
-			Box::new(sp_core::testing::TaskExecutor::new()),
-		)
-		.unwrap();
-		assert_eq!(store.statement_count(), 4);
-		assert_eq!(store.total_size(), 3 + 100);
-		assert_eq!(store.submit_index.read().next_seq, 4);
+		// Without a resolver the signed statements persist; the next three land one per track.
+		submit_one_statement_per_track(&store);
+		assert_eq!(store.statement_count(), 6);
+		assert_eq!(store.total_size(), 3 + 60);
+		let store = reopen(store, &temp);
+		assert_eq!(store.statement_count(), 6);
+		assert_eq!(store.total_size(), 3 + 60);
+		assert_eq!(track_size(&store, RetentionTrack::Transient), 10);
+		assert_eq!(track_size(&store, RetentionTrack::ExplicitOnly), 20);
+		assert_eq!(track_size(&store, RetentionTrack::Persistent), 3 + 30);
+		assert_eq!(store.submit_index.read().next_seq, 6);
 		// `signed_statement` signs as Alice, so two distinct accounts are stored.
 		assert_eq!(store.account_count(), 2);
 	}
@@ -4906,19 +4858,7 @@ mod tests {
 		assert_eq!(store.submit(statement(5, 2, Some(1), 100), source), SubmitResult::New);
 
 		// Reopen the store so that both caches start cold.
-		let keystore = store.keystore.clone();
-		drop(store);
-		let mut path: std::path::PathBuf = temp.path().into();
-		path.push("db");
-		let store = Store::new::<Block, TestClient, TestBackend>(
-			&path,
-			Default::default(),
-			std::sync::Arc::new(TestClient),
-			keystore,
-			None,
-			Box::new(sp_core::testing::TaskExecutor::new()),
-		)
-		.unwrap();
+		let store = reopen(store, &temp);
 
 		// An oversize statement is rejected before the account record is even loaded, so the
 		// caches stay cold.
@@ -5144,29 +5084,6 @@ mod tests {
 	}
 
 	#[test]
-	fn totals_per_track_survive_restart() {
-		let (store, temp) = test_store();
-		submit_one_statement_per_track(&store);
-		let keystore = store.keystore.clone();
-		drop(store);
-
-		let mut path: std::path::PathBuf = temp.path().into();
-		path.push("db");
-		let store = Store::new::<Block, TestClient, TestBackend>(
-			&path,
-			Default::default(),
-			std::sync::Arc::new(TestClient),
-			keystore,
-			None,
-			Box::new(sp_core::testing::TaskExecutor::new()),
-		)
-		.unwrap();
-		assert_eq!(track_size(&store, RetentionTrack::Transient), 10);
-		assert_eq!(track_size(&store, RetentionTrack::ExplicitOnly), 20);
-		assert_eq!(track_size(&store, RetentionTrack::Persistent), 30);
-	}
-
-	#[test]
 	fn migration_counts_every_statement_as_explicit_only() {
 		let (store, temp) = test_store();
 		let statements = submit_one_statement_per_track(&store);
@@ -5174,20 +5091,7 @@ mod tests {
 			.db
 			.commit([(col::META, KEY_VERSION.to_vec(), Some(2u32.to_le_bytes().to_vec()))])
 			.unwrap();
-		let keystore = store.keystore.clone();
-		drop(store);
-
-		let mut path: std::path::PathBuf = temp.path().into();
-		path.push("db");
-		let store = Store::new::<Block, TestClient, TestBackend>(
-			&path,
-			Default::default(),
-			std::sync::Arc::new(TestClient),
-			keystore,
-			None,
-			Box::new(sp_core::testing::TaskExecutor::new()),
-		)
-		.unwrap();
+		let store = reopen(store, &temp);
 		assert_eq!(track_size(&store, RetentionTrack::Transient), 0);
 		assert_eq!(track_size(&store, RetentionTrack::ExplicitOnly), 60);
 		assert_eq!(track_size(&store, RetentionTrack::Persistent), 0);
@@ -5216,20 +5120,7 @@ mod tests {
 				(col::META, KEY_VERSION.to_vec(), Some(2u32.to_le_bytes().to_vec())),
 			])
 			.unwrap();
-		let keystore = store.keystore.clone();
-		drop(store);
-
-		let mut path: std::path::PathBuf = temp.path().into();
-		path.push("db");
-		let store = Store::new::<Block, TestClient, TestBackend>(
-			&path,
-			Default::default(),
-			std::sync::Arc::new(TestClient),
-			keystore,
-			None,
-			Box::new(sp_core::testing::TaskExecutor::new()),
-		)
-		.unwrap();
+		let store = reopen(store, &temp);
 		assert!(store.is_evicted(&banned));
 		assert_eq!(store.evicted_count(), 1);
 		let mut journal = store.db.iter(col::INDEX_EVICTED).unwrap();
@@ -5246,23 +5137,6 @@ mod tests {
 		}
 	}
 
-	/// Installs a resolver answering transient while the returned flag is set, DHT affinity
-	/// otherwise.
-	fn transient_switch(store: &Store) -> std::sync::Arc<std::sync::atomic::AtomicBool> {
-		let transient = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
-		store.set_retention_resolver(Box::new({
-			let transient = transient.clone();
-			move |_| {
-				if transient.load(Ordering::Relaxed) {
-					RetentionReasonMask::TRANSIENT
-				} else {
-					RetentionReasonMask::DHT_AFFINITY
-				}
-			}
-		}));
-		transient
-	}
-
 	#[test]
 	fn track_size_limit_outside_the_store_size_is_an_invalid_config() {
 		assert!(matches!(transient_max_size(0).validate(), Err(Error::InvalidConfig(_))));
@@ -5277,7 +5151,9 @@ mod tests {
 	#[test]
 	fn a_full_track_rejects_its_own_statements_only() {
 		let (store, _temp) = test_store_with_config(transient_max_size(15));
-		let transient = transient_switch(&store);
+		let (resolver, transient) =
+			switchable_resolver(RetentionReasonMask::TRANSIENT, RetentionReasonMask::DHT_AFFINITY);
+		store.set_retention_resolver(resolver);
 		let source = StatementSource::Network;
 
 		// A second statement of 10 bytes exceeds the 15 of the track.
@@ -5314,17 +5190,11 @@ mod tests {
 			}),
 			..Default::default()
 		});
-		let explicit = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
-		store.set_retention_resolver(Box::new({
-			let explicit = explicit.clone();
-			move |_| {
-				if explicit.load(Ordering::Relaxed) {
-					RetentionReasonMask::EXPLICIT_AFFINITY
-				} else {
-					RetentionReasonMask::TRANSIENT
-				}
-			}
-		}));
+		let (resolver, explicit) = switchable_resolver(
+			RetentionReasonMask::EXPLICIT_AFFINITY,
+			RetentionReasonMask::TRANSIENT,
+		);
+		store.set_retention_resolver(resolver);
 		let source = StatementSource::Network;
 
 		// Explicit-only statements fill the whole store, past the limit of any other track.
@@ -5345,7 +5215,9 @@ mod tests {
 	#[test]
 	fn evicting_own_statements_frees_no_room_on_another_track() {
 		let (store, _temp) = test_store_with_config(transient_max_size(100));
-		let transient = transient_switch(&store);
+		let (resolver, transient) =
+			switchable_resolver(RetentionReasonMask::TRANSIENT, RetentionReasonMask::DHT_AFFINITY);
+		store.set_retention_resolver(resolver);
 		let source = StatementSource::Network;
 
 		// The transient track is full, account 3 is at its three-statement allowance.
@@ -5598,20 +5470,7 @@ mod tests {
 		let statement = signed_statement(0);
 		let hash = statement.hash();
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
-		let keystore = store.keystore.clone();
-		drop(store);
-
-		let mut path: std::path::PathBuf = temp.path().into();
-		path.push("db");
-		let store = Store::new::<Block, TestClient, TestBackend>(
-			&path,
-			Default::default(),
-			std::sync::Arc::new(TestClient),
-			keystore,
-			None,
-			Box::new(sp_core::testing::TaskExecutor::new()),
-		)
-		.unwrap();
+		let store = reopen(store, &temp);
 		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::TRANSIENT));
 
 		// Affinity tracking is in-memory: a statement admitted before a restart escapes the
@@ -5831,21 +5690,7 @@ mod tests {
 		store.set_time(DEFAULT_PURGE_AFTER_SEC + 1);
 		store.maintain();
 		assert_eq!(store.evicted_count(), 0);
-		let keystore = store.keystore.clone();
-		drop(store);
-
-		let client = std::sync::Arc::new(TestClient);
-		let mut path: std::path::PathBuf = temp.path().into();
-		path.push("db");
-		let store = Store::new::<Block, TestClient, TestBackend>(
-			&path,
-			Default::default(),
-			client,
-			keystore,
-			None,
-			Box::new(sp_core::testing::TaskExecutor::new()),
-		)
-		.unwrap();
+		let store = reopen(store, &temp);
 		assert_eq!(store.statements().unwrap().len(), 0);
 		assert_eq!(store.evicted_count(), 0);
 	}
