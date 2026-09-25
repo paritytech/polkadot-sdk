@@ -667,6 +667,7 @@ impl StatementHandlerPrototype {
 			bloom_seed,
 			replication_factor,
 			gossip_target,
+			..
 		} = v2dht_config.unwrap_or_default();
 		affinity_topics.extend(affinity_topics_file.into_iter().flat_map(|file| file.0));
 		let mut v2dht = V2DhtOrchestrator::new(
