@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790337361942,
+  "lastUpdate": 1790350749637,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "68e6cf12cbc7a1edc06cfd88767f3b173bfd045c",
-          "message": "Version bumps stable2512-2 (#11163)\n\nThis PR backports regular version bumps and prdocs reorderings from\nstable2512 release branch back to master\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
-          "timestamp": "2026-02-25T06:57:12Z",
-          "tree_id": "5d95cd77a153b2ba454c4016f9a7d9a9d635448c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/68e6cf12cbc7a1edc06cfd88767f3b173bfd045c"
-        },
-        "date": 1772007317327,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 10.858178764933331,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12515280099999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.252236450533335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bkontur@gmail.com",
+            "name": "Branislav Kontur",
+            "username": "bkontur"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6d4445b6af52ef42643acf53e432d58cd2f9ff4d",
+          "message": "Remove obsolete bridges zombienet test image publishing (#13316)\n\nRemove the unused `build-push-image-bridges-zombienet-tests` job, its\n`prepare-bridges-zombienet-artifacts` dependency and\n`docker/dockerfiles/bridges_zombienet_tests_injected.Dockerfile`, since\nthe bridge integration tests now run as zombienet-sdk tests and this\nimage is not pulled by anything — see\nhttps://github.com/paritytech/parity-bridges-common/pull/3327#issuecomment-5816227455",
+          "timestamp": "2026-09-25T12:36:45Z",
+          "tree_id": "3e0ffe0d218eb14a2c2d20289e21a151276ee7f0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6d4445b6af52ef42643acf53e432d58cd2f9ff4d"
+        },
+        "date": 1790350716401,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1332865839333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.064394498433334,
             "unit": "seconds"
           }
         ]
