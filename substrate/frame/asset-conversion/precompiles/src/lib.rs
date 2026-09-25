@@ -41,6 +41,7 @@ use pallet_revive::precompiles::{
 	},
 	AddressMatcher, Error, Ext, Precompile, H160,
 };
+use sp_runtime::TokenError;
 
 #[cfg(test)]
 mod mock;
@@ -236,6 +237,7 @@ const ERR_POOL_EMPTY: &str = "Pool exists but has no liquidity";
 const ERR_UNEXPECTED: &str = "Unexpected error";
 const ERR_PATH_TOO_LONG: &str = "Swap path exceeds MaxSwapPathLength";
 const ERR_INVALID_ASSET_ENCODING: &str = "Failed to SCALE-decode asset kind";
+const ERR_WOULD_SWEEP_REMAINDER: &str = "Swap would leave sender below minimum balance";
 
 impl<const ADDRESS: u16, Runtime> AssetConversion<ADDRESS, Runtime>
 where
@@ -301,17 +303,25 @@ where
 
 		let sender = Self::caller_account_id(env)?;
 		let send_to = env.to_account_id(&H160(call.sendTo.0 .0));
+		let amount_in = Self::to_balance(call.amountIn)?;
 
 		let amount_out = <pallet_asset_conversion::Pallet<Runtime> as Swap<
 			<Runtime as frame_system::Config>::AccountId,
 		>>::swap_exact_tokens_for_tokens(
 			sender,
 			path,
-			Self::to_balance(call.amountIn)?,
+			amount_in,
 			Some(Self::to_balance(call.amountOutMin)?),
 			send_to,
 			call.keepAlive,
-		)?;
+		)
+		.map_err(|e| {
+			if e == TokenError::BelowMinimum.into() {
+				Error::Revert(Revert { reason: ERR_WOULD_SWEEP_REMAINDER.into() })
+			} else {
+				e.into()
+			}
+		})?;
 
 		Ok(IAssetConversion::swapExactTokensForTokensCall::abi_encode_returns(&Self::to_u256(
 			amount_out,
@@ -333,17 +343,25 @@ where
 
 		let sender = Self::caller_account_id(env)?;
 		let send_to = env.to_account_id(&H160(call.sendTo.0 .0));
+		let amount_out = Self::to_balance(call.amountOut)?;
 
 		let amount_in = <pallet_asset_conversion::Pallet<Runtime> as Swap<
 			<Runtime as frame_system::Config>::AccountId,
 		>>::swap_tokens_for_exact_tokens(
 			sender,
 			path,
-			Self::to_balance(call.amountOut)?,
+			amount_out,
 			Some(Self::to_balance(call.amountInMax)?),
 			send_to,
 			call.keepAlive,
-		)?;
+		)
+		.map_err(|e| {
+			if e == TokenError::BelowMinimum.into() {
+				Error::Revert(Revert { reason: ERR_WOULD_SWEEP_REMAINDER.into() })
+			} else {
+				e.into()
+			}
+		})?;
 
 		Ok(IAssetConversion::swapTokensForExactTokensCall::abi_encode_returns(&Self::to_u256(
 			amount_in,
