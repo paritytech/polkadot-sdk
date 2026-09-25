@@ -213,6 +213,7 @@ impl Fetcher {
 				.map(|body| (query.tag, body))
 				.map_err(|e| MarketFailure::Query(query.tag, e))
 		});
+		// TODO: try: if one query fails, return the failure immediately.
 		let responses = try_join_all(queries)
 			.await
 			.map(|responses| MarketResponses { market: market.id, responses });

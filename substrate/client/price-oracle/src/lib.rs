@@ -247,6 +247,8 @@ impl<Hash: Copy, Id> TickSetup<Hash, Id> {
 		let anchor = Anchor(info.best_number.saturated_into());
 		let api = client.runtime_api();
 
+		// TODO: consider reading as much as possible and failing only after few consecutive
+		// failures.
 		let read = (|| -> Result<_, sp_api::ApiError> {
 			Ok((
 				api.signers(best_hash)?,
@@ -271,7 +273,9 @@ impl<Hash: Copy, Id> TickSetup<Hash, Id> {
 
 		let signer = signer::local_signer(keystore, &signers);
 		let acceptance = Acceptance { signers, current: anchor, window };
+		// TODO: move to upper level or rename function.
 		pool.prune(acceptance.oldest());
+		// TODO: move to upper level or rename function.
 		validator.set_acceptance(acceptance);
 
 		let interval = Duration::from_millis(interval_ms.into()).max(MIN_TICK_INTERVAL);
