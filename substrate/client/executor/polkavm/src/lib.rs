@@ -364,14 +364,66 @@ where
 		})?;
 	}
 
-	// Temporary shim: `sbrk` was removed from the `jam_v1` instruction set (GP 0.8.0)
-	// and replaced with a `grow_heap` host call. The guest-side allocator in
-	// `sp-io` imports this symbol.
-	linker.define_untyped("grow_heap", |caller: Caller<HostState>| {
-		let size = caller.instance.reg(Reg::A0) as u32;
-		match caller.instance.sbrk(size) {
-			Ok(Some(ptr)) => caller.instance.set_reg(Reg::A0, ptr as u64),
-			Ok(None) => caller.instance.set_reg(Reg::A0, 0),
+	// `sbrk` was removed from the `jam_v1` instruction set (GP 0.8.0) and replaced with a
+	// `grow_heap` host call, which the two kinds of PolkaVM runtime blob give different
+	// contracts:
+	//
+	// * Non-JAM builds keep the historical byte-delta contract implemented by the `sp-io` riscv
+	//   allocator: `grow_heap(size)` grows the heap by `size` bytes and returns the new heap end,
+	//   exactly what `sbrk` does.
+	// * JAM builds (`--cfg jam`, identified by the `jam_validate_block` export that
+	//   `register_validate_block!` emits only for them) use `jam-pvm-common`'s picoalloc allocator:
+	//   `grow_heap(pages)` passes an absolute page count `ceil(heap_end / 4096)` and treats the
+	//   call as successful iff the return value is `>= pages`. We mirror the service host:
+	//   page-align the current byte heap top, grow the heap to the requested page count and return
+	//   it; a request that does not fit is refused by returning the current (smaller) page count.
+	let is_jam = blob.exports().any(|export| export.symbol() == "jam_validate_block");
+
+	linker.define_untyped("grow_heap", move |caller: Caller<HostState>| {
+		if !is_jam {
+			let size = caller.instance.reg(Reg::A0) as u32;
+			match caller.instance.sbrk(size) {
+				Ok(Some(ptr)) => caller.instance.set_reg(Reg::A0, ptr as u64),
+				Ok(None) => caller.instance.set_reg(Reg::A0, 0),
+				Err(e) => return Err(e.to_string()),
+			}
+			return Ok(());
+		}
+
+		let requested = caller.instance.reg(Reg::A0);
+		let page_size = u64::from(caller.instance.module().memory_map().page_size());
+		let top = match caller.instance.sbrk(0) {
+			Ok(Some(top)) => u64::from(top),
+			Ok(None) => {
+				// `sbrk(0)` only reports the current top and never fails; treat a missing
+				// pointer as a refusal rather than growing blindly.
+				caller.instance.set_reg(Reg::A0, 0);
+				return Ok(());
+			},
+			Err(e) => return Err(e.to_string()),
+		};
+		let top_pages = top.div_ceil(page_size);
+
+		// The heap is already large enough, so report the current page count, which is
+		// `>= requested` and therefore a success for the guest.
+		if requested <= top_pages {
+			caller.instance.set_reg(Reg::A0, top_pages);
+			return Ok(());
+		}
+
+		// Grow by whole pages. A request that does not fit into the byte delta `sbrk` accepts
+		// is refused by reporting the current page count, which is `< requested`.
+		let delta = (requested - top_pages)
+			.checked_mul(page_size)
+			.and_then(|delta| u32::try_from(delta).ok());
+		let Some(delta) = delta else {
+			caller.instance.set_reg(Reg::A0, top_pages);
+			return Ok(());
+		};
+
+		match caller.instance.sbrk(delta) {
+			Ok(Some(_)) => caller.instance.set_reg(Reg::A0, requested),
+			Ok(None) => caller.instance.set_reg(Reg::A0, top_pages),
 			Err(e) => return Err(e.to_string()),
 		}
 		Ok(())

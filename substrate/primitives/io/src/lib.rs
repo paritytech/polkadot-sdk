@@ -99,7 +99,12 @@ pub use sp_externalities::MultiRemovalResults;
 #[cfg(all(not(feature = "disable_allocator"), substrate_runtime, target_family = "wasm"))]
 mod global_alloc_wasm;
 
-#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, target_arch = "riscv64"))]
+#[cfg(all(
+	not(feature = "disable_allocator"),
+	substrate_runtime,
+	target_arch = "riscv64",
+	not(jam)
+))]
 mod global_alloc_riscv;
 
 #[cfg(not(substrate_runtime))]
@@ -730,7 +735,7 @@ pub fn unreachable() -> ! {
 }
 
 /// A default panic handler for the runtime environment.
-#[cfg(all(not(feature = "disable_panic_handler"), substrate_runtime))]
+#[cfg(all(not(feature = "disable_panic_handler"), substrate_runtime, not(jam)))]
 #[panic_handler]
 pub fn panic(info: &core::panic::PanicInfo) -> ! {
 	let message = alloc::format!("{}", info);
