@@ -1,11 +1,9 @@
-// Supervised JAM services (design 6.5).
+// JAM services other than this one (design 6.5, and `TransferOut` in 5.1).
 //
 // These are JAM accounts rather than Parachain Service storage, so they sit
-// beside `svc` instead of inside it. Only what the 6.5 operations turn on is
-// modelled: existence, the supervisor link, the store, and the creation slot.
-// Balances stay abstract, as this service's own always have, so the two
-// affordability outcomes (`TargetCannotAfford`, `CannotAfford`) are the only
-// ones left undecided.
+// beside `svc` instead of inside it. Only what those operations turn on is
+// modelled: existence, the supervisor link, the store, the creation slot and
+// the account. This service's own account is `svc.jamAccount`.
 module foreign_services {
   import types.* from "./types"
   import messages.* from "./messages"
@@ -18,13 +16,22 @@ module foreign_services {
     created: Timeslot,
     // Preimage requests, sharing the `RequestStatus` machine of 6.1.
     requests: (Hash, int) -> RequestStatus,
-    storage: Set[List[int]]
+    // Storage key -> value.
+    storage: List[int] -> List[int],
+    account: JamAccount
   }
 
   type ForeignServices = ServiceId -> ForeignService
 
   /// Outcome of one operation: the services afterwards, plus the entry to log.
   type ForeignOutcome = {
+    services: ForeignServices,
+    log: Option[AccumulateLog]
+  }
+
+  /// Outcome of an operation that also moves this service's own balance.
+  type FundedOutcome = {
+    state: ParachainServiceState,
     services: ForeignServices,
     log: Option[AccumulateLog]
   }
@@ -62,10 +69,42 @@ module foreign_services {
   pure def supervisedByUs(fs: ForeignServices, s: ServiceId): bool =
     fs.keys().contains(s) and effectiveSupervisor(fs, s) == ParachainServiceId
 
+  /// Whether this service may move `s`'s funds: it is `s`, or `s`'s effective
+  /// supervisor. The design names no supervisor for this service, so it is its
+  /// own.
+  pure def controlsService(fs: ForeignServices, s: ServiceId): bool =
+    s == ParachainServiceId or supervisedByUs(fs, s)
+
   /// `items` is zero exactly when both halves of the store are empty, which is
   /// what `eject` requires.
   pure def isEmptyService(f: ForeignService): bool =
-    f.requests.keys() == Set() and f.storage == Set()
+    f.requests.keys() == Set() and f.storage.keys() == Set()
+
+  /// JAM's threshold balance for `f` (gray paper, *Account Footprint and
+  /// Threshold Balance*). No modelled service has gratis storage.
+  pure def foreignThreshold(f: ForeignService): Balance = {
+    val items = 2 * f.requests.keys().size() + f.storage.keys().size()
+    val requestOctets =
+      f.requests.keys().fold(0, (acc, k) => acc + PreimageRequestOverhead + k._2)
+    val storageOctets = f.storage.keys().fold(0, (acc, k) =>
+      acc + StorageEntryOverhead + k.length() + f.storage.get(k).length())
+    BaseDeposit + ItemDeposit * items + requestOctets + storageOctets
+  }
+
+  /// The account and threshold balance of `id`, which must be this service or
+  /// one in `fs`.
+  pure def accountOf(s: ParachainServiceState, fs: ForeignServices, id: ServiceId): JamAccount =
+    if (id == ParachainServiceId) s.jamAccount else fs.get(id).account
+
+  pure def thresholdOf(s: ParachainServiceState, fs: ForeignServices, id: ServiceId): Balance =
+    if (id == ParachainServiceId) serviceThreshold(s) else foreignThreshold(fs.get(id))
+
+  /// Replace `id`'s account.
+  pure def withAccount(
+    s: ParachainServiceState, fs: ForeignServices, id: ServiceId, a: JamAccount
+  ): (ParachainServiceState, ForeignServices) =
+    if (id == ParachainServiceId) ({ ...s, jamAccount: a }, fs)
+    else (s, fs.put(id, { ...fs.get(id), account: a }))
 
   // --- forget / remove_service_storage ------------------------------------
 
@@ -126,14 +165,13 @@ module foreign_services {
     | Some(e) => unchanged(fs, ServiceStoreFailed({ service: s, error: e }))
     | None => {
       val f = fs.get(s)
-      { services: fs.put(s, { ...f, storage: f.storage.exclude(Set(key)) }), log: None }
+      { services: fs.put(s, { ...f, storage: f.storage.mapRemove(key) }), log: None }
     }
   }
 
   // --- solicit -------------------------------------------------------------
 
-  /// A `Service`-targeted `solicit`. Whether the target can afford the new
-  /// footprint is not modelled, so `TargetCannotAfford` never appears here.
+  /// A `Service`-targeted `solicit`.
   pure def foreignSolicit(
     fs: ForeignServices, s: ServiceId, h: Hash, len: int, now: Timeslot
   ): ForeignOutcome =
@@ -144,36 +182,49 @@ module foreign_services {
   else {
     val f = fs.get(s)
     val key = (h, len)
-    if (not(f.requests.keys().contains(key)))
-      { services: fs.put(s, { ...f, requests: f.requests.put(key, Unprovided) }), log: None }
-    else match f.requests.get(key) {
-      // The rescue: an unrequested blob JAM still holds comes back.
-      | Unrequested(since) =>
-        { services: fs.put(s, { ...f, requests: f.requests.put(key, Rerequested(since)) }),
-          log: None }
-      | _ =>
-        unchanged(fs, ServiceSolicitFailed({ service: s, error: AlreadySolicited }))
+    // The target once the request is made, `None` while a live one exists.
+    val requested: Option[ForeignService] =
+      if (not(f.requests.keys().contains(key)))
+        Some({ ...f, requests: f.requests.put(key, Unprovided) })
+      else match f.requests.get(key) {
+        // The rescue: an unrequested blob JAM still holds comes back.
+        | Unrequested(since) => Some({ ...f, requests: f.requests.put(key, Rerequested(since)) })
+        | _ => None
+      }
+    match requested {
+      | None => unchanged(fs, ServiceSolicitFailed({ service: s, error: AlreadySolicited }))
+      | Some(g) =>
+        if (isOverdrawn(g.account, foreignThreshold(g)))
+          unchanged(fs, ServiceSolicitFailed({ service: s, error: TargetCannotAfford }))
+        else { services: fs.put(s, g), log: None }
     }
   }
 
   // --- eject ---------------------------------------------------------------
 
-  /// Destroying an empty supervised service. Its balances would come to this
-  /// service, which is not modelled.
+  /// Destroying an empty supervised service. Both its balances come to this
+  /// service's regular balance.
   pure def foreignEject(
-    fs: ForeignServices, s: ServiceId, now: Timeslot
-  ): ForeignOutcome =
-  if (s == ParachainServiceId)
-    unchanged(fs, ServiceEjectFailed({ service: s, error: TargetIsSelf }))
-  else if (not(fs.keys().contains(s)))
-    unchanged(fs, ServiceEjectFailed({ service: s, error: EjectUnknownService }))
-  else if (effectiveSupervisor(fs, s) != ParachainServiceId)
-    unchanged(fs, ServiceEjectFailed({ service: s, error: EjectNotSupervised }))
-  else if (fs.get(s).created == now)
-    unchanged(fs, ServiceEjectFailed({ service: s, error: CreatedThisSlot }))
-  else if (not(isEmptyService(fs.get(s))))
-    unchanged(fs, ServiceEjectFailed({ service: s, error: NotEmpty }))
-  else { services: fs.mapRemove(s), log: None }
+    s: ParachainServiceState, fs: ForeignServices, target: ServiceId, now: Timeslot
+  ): FundedOutcome = {
+    val error =
+      if (target == ParachainServiceId) Some(TargetIsSelf)
+      else if (not(fs.keys().contains(target))) Some(EjectUnknownService)
+      else if (effectiveSupervisor(fs, target) != ParachainServiceId) Some(EjectNotSupervised)
+      else if (fs.get(target).created == now) Some(CreatedThisSlot)
+      else if (not(isEmptyService(fs.get(target)))) Some(NotEmpty)
+      else None
+    match error {
+      | Some(e) =>
+        { state: s, services: fs, log: Some(ServiceEjectFailed({ service: target, error: e })) }
+      | None => {
+        val a = fs.get(target).account
+        { state: { ...s, jamAccount: s.jamAccount.credit(a.balance + a.supervisorBalance, false) },
+          services: fs.mapRemove(target),
+          log: None }
+      }
+    }
+  }
 
   // --- set_service_supervisor ---------------------------------------------
 
@@ -215,25 +266,75 @@ module foreign_services {
 
   /// Creating a service supervised by this one. JAM sets the new service's
   /// supervisor to its creator, which is what makes every other operation here
-  /// available. Whether this service can fund it is not modelled, so
-  /// `CannotAfford` never appears.
+  /// available, and funds it with exactly its threshold balance, taken from
+  /// this service.
   pure def foreignCreate(
-    fs: ForeignServices, codeHash: Hash, len: int, id: int,
-    desiredId: Option[ServiceId], now: Timeslot
-  ): ForeignOutcome = {
-    val fresh = resolveNewId(fs, desiredId)
-    if (createdOf(fs, fresh) != None)
+    s: ParachainServiceState, fs: ForeignServices, c: CreateServiceArgs, now: Timeslot
+  ): FundedOutcome = {
+    val fresh = resolveNewId(fs, c.desiredId)
+    val created: ForeignService = {
+      supervisor: ParachainServiceId,
+      supervisorCreated: ParachainServiceCreated,
+      created: now,
+      requests: Map((c.codeHash, c.len) -> Unprovided),
+      storage: Map(),
+      account: { balance: 0, supervisorBalance: 0, minMemoGas: c.minMemoGas }
+    }
+    val cost = foreignThreshold(created)
+    val funder = s.jamAccount.debit(cost, c.sourceSupervisorBalance)
+    if (isOverdrawn(funder, serviceThreshold(s)))
+      { state: s, services: fs, log: Some(ServiceCreation({ id: c.id, result: CannotAfford })) }
+    else if (createdOf(fs, fresh) != None)
       // Only reachable for a protected `desiredId`: the allocator never
       // returns a live index.
-      unchanged(fs, ServiceCreation({ id: id, result: IdTaken }))
+      { state: s, services: fs, log: Some(ServiceCreation({ id: c.id, result: IdTaken })) }
     else
-      { services: fs.put(fresh, {
-          supervisor: ParachainServiceId,
-          supervisorCreated: ParachainServiceCreated,
-          created: now,
-          requests: Map((codeHash, len) -> Unprovided),
-          storage: Set()
+      { state: { ...s, jamAccount: funder },
+        services: fs.put(fresh, {
+          ...created, account: created.account.credit(cost, c.newSupervisorBalance)
         }),
-        log: Some(ServiceCreation({ id: id, result: Created(fresh) })) }
+        log: Some(ServiceCreation({ id: c.id, result: Created(fresh) })) }
+  }
+
+  // --- transfer (5.1) ------------------------------------------------------
+
+  pure def transferFailed(
+    s: ParachainServiceState, fs: ForeignServices, t: TransferOutArgs, e: TransferError
+  ): FundedOutcome =
+    { state: s, services: fs, log: Some(TransferFailed({ id: t.id, error: e })) }
+
+  /// Replay of a `TransferOut`: JAM's `transfer`, called by this service.
+  pure def transferOut(
+    s: ParachainServiceState, fs: ForeignServices, t: TransferOutArgs
+  ): FundedOutcome = {
+    val source = t.source.optionGetOr(ParachainServiceId)
+    val plainMove = t.deferred == None
+    val ontoItself = source == t.dest and t.sourceSupervisorBalance == t.destSupervisorBalance
+    if (createdOf(fs, source) == None) transferFailed(s, fs, t, UnknownSource)
+    else if (createdOf(fs, t.dest) == None) transferFailed(s, fs, t, UnknownDestination)
+    else if (not(controlsService(fs, source))) transferFailed(s, fs, t, SourceNotSupervised)
+    // Only a plain move writes `dest` directly.
+    else if (plainMove and (ontoItself or not(controlsService(fs, t.dest))))
+      transferFailed(s, fs, t, DestinationNotSupervised)
+    else if (match t.deferred {
+               | Some(d) => d._2 < accountOf(s, fs, t.dest).minMemoGas
+               | None => false
+             })
+      transferFailed(s, fs, t, GasBelowDestinationMinimum)
+    else {
+      val afterDebit = withAccount(s, fs, source,
+        accountOf(s, fs, source).debit(t.amount, t.sourceSupervisorBalance))
+      val afterCredit = withAccount(afterDebit._1, afterDebit._2, t.dest,
+        accountOf(afterDebit._1, afterDebit._2, t.dest).credit(t.amount, t.destSupervisorBalance))
+      // JAM checks `source` after a plain move's credit but before a deferred
+      // transfer's, which only matters when `source` is `dest`.
+      val checked = if (plainMove) afterCredit else afterDebit
+      if (isOverdrawn(accountOf(checked._1, checked._2, source), thresholdOf(s, fs, source)))
+        transferFailed(s, fs, t, InsufficientServiceBalance)
+      // JAM credits a deferred transfer when `dest` accumulates later in the
+      // block, which the model folds into this step. One to this service is
+      // therefore not recorded in `incomingTransfers`.
+      else { state: afterCredit._1, services: afterCredit._2, log: None }
+    }
   }
 }

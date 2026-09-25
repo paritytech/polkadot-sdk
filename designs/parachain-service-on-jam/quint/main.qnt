@@ -41,6 +41,10 @@ module main {
   pure val InitialAssetHubBalance: int =
     AssetHubBaselineFootprint + preimageFootprint(FixedCodeLen) * 2 + BaselineFootprint
 
+  /// The entire token supply, all of which the Parachain Service holds at
+  /// genesis.
+  pure val TotalSupply: Balance = 1000000000000000000
+
   pure val initialState: ParachainServiceState = {
     val coretimeCode: ValidationCodeHash = { vchBytes: 1 }
     val assetHubCode: ValidationCodeHash = { vchBytes: 2 }
@@ -49,8 +53,10 @@ module main {
     val s3 = parachainSetHead(s2, CoretimeParaId, 0).state
     val s4 = parachainSetStateBalance(s3, AssetHubParaId, InitialAssetHubBalance).state
     val s5 = parachainSetValidationCode(s4, AssetHubParaId, assetHubCode, FixedCodeLen, 0).state
-    parachainSetHead(s5, AssetHubParaId, 0).state
+    val s6 = parachainSetHead(s5, AssetHubParaId, 0).state
+    { ...s6, jamAccount: { balance: TotalSupply, supervisorBalance: 0, minMemoGas: 0 } }
   }
+
 
   // --- Init --------------------------------------------------------------
 
@@ -363,6 +369,8 @@ module main {
     val codeHashA: ValidationCodeHash = { vchBytes: 101 }
     val codeHashB: ValidationCodeHash = { vchBytes: 102 }
     val anyAuthHash: AuthorizerHash = { authBytes: 0 }
+    // The id the first `CreateService` without a `desiredId` gets.
+    val created: ServiceId = MkServiceId(MinPublicServiceIndex)
     Set(
       RequestCodeUpgrade({ hash: codeHashA, len: FixedCodeLen, phase: Announcement }),
       RequestCodeUpgrade({ hash: codeHashA, len: FixedCodeLen, phase: Apply }),
@@ -382,11 +390,11 @@ module main {
       Solicit({ target: Service(MkServiceId(4)), hash: anyHash, len: 1024 }),
       RemoveServiceStorage({ service: MkServiceId(4), key: List(1, 2) }),
       EjectService({ service: MkServiceId(4) }),
-      SetServiceSupervisor({
-        service: MkServiceId(4), newSupervisor: MkServiceId(4)
-      }),
+      // Sets `created` free, which is how a service this one does not
+      // supervise comes about.
+      SetServiceSupervisor({ service: created, newSupervisor: created }),
       CreateService({
-        codeHash: anyHash, len: FixedCodeLen, minItemGas: 0, minMemoGas: 0,
+        codeHash: anyHash, len: FixedCodeLen, minItemGas: 0, minMemoGas: 100,
         id: 1, desiredId: None,
         sourceSupervisorBalance: false, newSupervisorBalance: false
       }),
@@ -397,13 +405,13 @@ module main {
         sourceSupervisorBalance: false, newSupervisorBalance: false
       }),
       // AH-only: Refine rejects from non-AH callers (§4.3). Both transfer
-      // modes: a deferred transfer (memo + gas) and a plain move (neither),
-      // the self-moves between the service's own two balances, and a foreign
-      // source (§5.1).
-      TransferOut({ source: None, dest: MkServiceId(0), amount: 100, id: 1,
+      // modes, the self-moves between the service's own two balances, and one
+      // shape for each way a transfer is refused (§5.1). The other services
+      // involved are the two `CreateService`s above.
+      TransferOut({ source: None, dest: created, amount: 100, id: 1,
         sourceSupervisorBalance: false, destSupervisorBalance: false,
         deferred: Some((0, 1000)) }),
-      TransferOut({ source: None, dest: MkServiceId(0), amount: 100, id: 2,
+      TransferOut({ source: None, dest: created, amount: 100, id: 2,
         sourceSupervisorBalance: false, destSupervisorBalance: false,
         deferred: None }),
       TransferOut({ source: None, dest: ParachainServiceId, amount: 100, id: 3,
@@ -412,9 +420,18 @@ module main {
       TransferOut({ source: None, dest: ParachainServiceId, amount: 100, id: 4,
         sourceSupervisorBalance: true, destSupervisorBalance: false,
         deferred: None }),
-      TransferOut({ source: Some(MkServiceId(0)), dest: MkServiceId(2),
-        amount: 100, id: 5, sourceSupervisorBalance: false,
-        destSupervisorBalance: false, deferred: None }),
+      TransferOut({ source: Some(created), dest: MkServiceId(42), amount: 100, id: 5,
+        sourceSupervisorBalance: false, destSupervisorBalance: false,
+        deferred: None }),
+      TransferOut({ source: None, dest: MkServiceId(9), amount: 100, id: 6,
+        sourceSupervisorBalance: false, destSupervisorBalance: false,
+        deferred: Some((0, 1000)) }),
+      TransferOut({ source: None, dest: created, amount: 100, id: 7,
+        sourceSupervisorBalance: false, destSupervisorBalance: false,
+        deferred: Some((0, 10)) }),
+      TransferOut({ source: None, dest: created, amount: TotalSupply, id: 8,
+        sourceSupervisorBalance: false, destSupervisorBalance: false,
+        deferred: Some((0, 1000)) }),
       SetValidatorKeys({ keys: List(0, 0, 0, 0, 0, 0), isLast: false }),
       SetValidatorKeys({ keys: List(0, 0, 0, 0, 0, 0), isLast: true }),
       SetValidatorKeys({ keys: List(), isLast: true }),

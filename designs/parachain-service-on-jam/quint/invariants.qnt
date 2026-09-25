@@ -318,6 +318,16 @@ module invariants {
     lastStepAssigns.foldl(true, (acc, a) =>
       acc and a.core >= 0 and a.core < CoreCount)
 
+  /// No tracked JAM account is ever overdrawn: every spend is checked against
+  /// the balance it draws on.
+  val jam_balances_nonnegative: bool = and {
+    svc.jamAccount.balance >= 0,
+    svc.jamAccount.supervisorBalance >= 0,
+    foreignServices.keys().forall(s =>
+      foreignServices.get(s).account.balance >= 0 and
+      foreignServices.get(s).account.supervisorBalance >= 0)
+  }
+
   /// `staged_validator_keys` must never exceed the worst-case staging
   /// length (`MaxStagedValidatorKeys = 1023`).
   val staged_validator_keys_bounded: bool =
@@ -382,6 +392,7 @@ module invariants {
     used_balance_consistency,
     referencers_are_live,
     parachain_log_only_for_live,
+    jam_balances_nonnegative,
     head_state_matches_outcomes,
     head_commitment_matches_changed_heads,
     foreign_supervisor_is_us_or_self,

@@ -206,6 +206,30 @@ module messages {
     | Announcement
     | Apply
 
+  /// `create_service`'s arguments (§6.5).
+  type CreateServiceArgs = {
+    codeHash: Hash,
+    len: int,
+    minItemGas: int,
+    minMemoGas: int,
+    id: int,
+    // Index to create the service at, in JAM's protected range.
+    desiredId: Option[ServiceId],
+    sourceSupervisorBalance: bool,
+    newSupervisorBalance: bool
+  }
+
+  /// `transfer_out`'s arguments (§5.1).
+  type TransferOutArgs = {
+    source: Option[ServiceId],
+    dest: ServiceId,
+    amount: Balance,
+    id: int,
+    sourceSupervisorBalance: bool,
+    destSupervisorBalance: bool,
+    deferred: Option[(Memo, int)]
+  }
+
   type UpwardMessage =
     // request_code_upgrade(hash, len, phase): drive a code upgrade (§5.2).
     | RequestCodeUpgrade({
@@ -220,12 +244,7 @@ module messages {
   | SetServiceSupervisor({ service: ServiceId, newSupervisor: ServiceId })
   // `id` is a caller-supplied identifier, echoed back in the ServiceCreation
   // entry so Asset Hub can match the outcome to its request.
-  | CreateService({
-      codeHash: Hash, len: int, minItemGas: int, minMemoGas: int, id: int,
-      // Index to create the service at, in JAM's protected range.
-      desiredId: Option[ServiceId],
-      sourceSupervisorBalance: bool, newSupervisorBalance: bool
-    })
+  | CreateService(CreateServiceArgs)
   // forget(para_id, hash, len). `paraId` names whose reference is released; a
   // para may only name itself, while the Coretime chain may name any para, which
   // is how a para that can no longer produce blocks gets drained (§6.4).
@@ -248,11 +267,7 @@ module messages {
   // supervisor balance (§5.1 outgoing transfers). `id` is a caller-supplied
   // identifier, echoed back in the TransferFailed entry so Asset Hub can match
   // a failure to its request.
-  | TransferOut({
-      source: Option[ServiceId], dest: ServiceId, amount: Balance, id: int,
-      sourceSupervisorBalance: bool, destSupervisorBalance: bool,
-      deferred: Option[(Memo, int)]
-    })
+  | TransferOut(TransferOutArgs)
   // assign_core(core, queue, new_assigner, jam_slot): Coretime only. Mirrors
   // JAM's `assign`, which writes a core's authorizer queue AND its assigner
   // atomically, so one call covers both.

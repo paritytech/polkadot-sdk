@@ -6,6 +6,7 @@ module transfers_test {
   import state.* from "../state"
   import state_balance.* from "../state_balance"
   import accumulate.* from "../accumulate"
+  import foreign_services.* from "../foreign_services"
   import state_vars.* from "../state_vars"
   import main.* from "../main"
   import invariants.* from "../invariants"
@@ -40,7 +41,10 @@ module transfers_test {
       assert(below.incomingTransferBuckets ==
         Some({ firstBucket: 0, lastBucket: 0, count: 1 })),
       assert(queuedTransferCount(below) == 1),
-      assert(short == full),
+      // Not recorded, but JAM still credits it.
+      assert({ ...short, jamAccount: full.jamAccount } == full),
+      assert(short.jamAccount.balance ==
+        full.jamAccount.balance + IncomingTransferEntryFootprint - 1),
       // Past the bound: the next id past the old tail.
       assert(queuedTransferCount(paid) == MaxIncomingTransfers + 1),
       assert(paid.incomingTransferBuckets ==
@@ -103,10 +107,28 @@ module transfers_test {
     | RefineLogEntry(_) => acc
   })
 
+  /// A service this one does not supervise: it supervises itself.
+  pure def independentService(id: ServiceId): ForeignService = {
+    supervisor: id,
+    supervisorCreated: 0,
+    created: 0,
+    requests: Map(),
+    storage: Map(),
+    account: { balance: 1000000, supervisorBalance: 0, minMemoGas: 100 }
+  }
+
+  /// Two such services, as transfer counterparties.
+  pure val counterparties: ForeignServices = Map(
+    MkServiceId(5) -> independentService(MkServiceId(5)),
+    MkServiceId(6) -> independentService(MkServiceId(6)))
+
+  /// `dest` exists but supervises itself, so this service may pay into it but
+  /// neither write it directly nor spend from it.
   run transferOutPlainMoveNeedsSupervisionTest = {
     val assetHubCode: ValidationCodeHash = { vchBytes: 2 }
     val dest = MkServiceId(5)
     init
+      .then(setForeign(counterparties))
       // Plain move to another service → rejected.
       .then(applyHappyPaths(List((AssetHubParaId, assetHubCode,
         List(TransferOut({ source: None, dest: dest, amount: 100, id: 77,
@@ -128,20 +150,19 @@ module transfers_test {
           id: 79, sourceSupervisorBalance: false, destSupervisorBalance: true,
           deferred: None }))))))
       .then(expectThat(svc.transferFailures(AssetHubParaId).length() == 1))
-      // The reverse self-move spends the supervisor balance, so its outcome
-      // depends on self-supervision the model abstracts away; no failure here.
+      // The reverse self-move spends the supervisor balance 79 just funded,
+      // which this service may do as its own supervisor.
       .then(applyHappyPaths(List((AssetHubParaId, assetHubCode,
         List(TransferOut({ source: None, dest: ParachainServiceId, amount: 100,
           id: 80, sourceSupervisorBalance: true, destSupervisorBalance: false,
           deferred: None }))))))
       .then(expectThat(svc.transferFailures(AssetHubParaId).length() == 1))
-      // A foreign source always fails, but `UnknownSource` vs
-      // `SourceNotSupervised` turns on existence the model abstracts away.
+      // Spending from a service this one does not supervise → rejected.
       .then(applyHappyPaths(List((AssetHubParaId, assetHubCode,
         List(TransferOut({ source: Some(dest), dest: MkServiceId(6),
           amount: 100, id: 81, sourceSupervisorBalance: false,
           destSupervisorBalance: false, deferred: None }))))))
-      .then(expectThat(svc.transferFailures(AssetHubParaId).length() == 1))
+      .then(expectThat(svc.transferFailures(AssetHubParaId).length() == 2))
       // Both selectors naming the regular balance on a self target is an
       // identity write.
       .then(applyHappyPaths(List((AssetHubParaId, assetHubCode,
@@ -150,7 +171,90 @@ module transfers_test {
           deferred: None }))))))
       .then(expectThat(svc.transferFailures(AssetHubParaId) == List(
         { id: 77, error: DestinationNotSupervised },
+        { id: 81, error: SourceNotSupervised },
         { id: 82, error: DestinationNotSupervised })))
+  }
+
+  pure def sendOut(
+    s: ParachainServiceState, fs: ForeignServices, t: TransferOutArgs
+  ): AccumulateOutcome =
+    applyUpwardMessage(accOverWith(s, fs), AssetHubParaId, FixedCodeLen, 0, 0, TransferOut(t))
+
+  pure def refusal(e: TransferError): List[AccumulateLog] =
+    List(TransferFailed({ id: 1, error: e }))
+
+  /// A deferred 100 from this service's regular balance to `MkServiceId(5)`.
+  pure val payFive: TransferOutArgs = {
+    source: None, dest: MkServiceId(5), amount: 100, id: 1,
+    sourceSupervisorBalance: false, destSupervisorBalance: false,
+    deferred: Some((0, 1000))
+  }
+
+  /// Every way JAM's `transfer` refuses, in the order it checks them, and what a
+  /// transfer that goes through moves.
+  run transferOutRefusalsAndEffectsTest = {
+    val s = initialState
+    val fs = counterparties
+    val slack = s.jamAccount.balance - serviceThreshold(s)
+    val paid = sendOut(s, fs, payFive)
+    val atThreshold = { ...s, jamAccount: { ...s.jamAccount, balance: serviceThreshold(s) } }
+    val intoOwnSupervisor = { ...payFive,
+      dest: ParachainServiceId, destSupervisorBalance: true, deferred: None }
+    val intoSupervisor = sendOut(s, fs, { ...payFive, destSupervisorBalance: true })
+    all {
+      assert(sendOut(s, fs, { ...payFive, source: Some(MkServiceId(9)) }).logs
+        == refusal(UnknownSource)),
+      // An unknown `dest` takes precedence over the plain move it cannot make.
+      assert(sendOut(s, fs, { ...payFive, dest: MkServiceId(9), deferred: None }).logs
+        == refusal(UnknownDestination)),
+      // `dest` asks for at least 100 gas.
+      assert(sendOut(s, fs, { ...payFive, deferred: Some((0, 99)) }).logs
+        == refusal(GasBelowDestinationMinimum)),
+      assert(sendOut(s, fs, { ...payFive, deferred: Some((0, 100)) }).logs == List()),
+      // Everything above the threshold may go, and not one unit more.
+      assert(sendOut(s, fs, { ...payFive, amount: slack + 1 }).logs
+        == refusal(InsufficientServiceBalance)),
+      assert(sendOut(s, fs, { ...payFive, amount: slack }).logs == List()),
+      // The supervisor balance starts out empty.
+      assert(sendOut(s, fs, { ...payFive, sourceSupervisorBalance: true }).logs
+        == refusal(InsufficientServiceBalance)),
+      // Between its own two balances, a plain move keeps the total, so it goes
+      // through even at the threshold. A deferred one is checked before it is
+      // credited.
+      assert(sendOut(atThreshold, fs, intoOwnSupervisor).logs == List()),
+      assert(sendOut(atThreshold, fs, { ...intoOwnSupervisor, deferred: Some((0, 1000)) }).logs
+        == refusal(InsufficientServiceBalance)),
+      // A refused transfer moves nothing.
+      assert(sendOut(s, fs, { ...payFive, amount: slack + 1 }).state == s),
+      // One that goes through debits the source and credits the chosen balance.
+      assert(paid.state.jamAccount.balance == s.jamAccount.balance - 100),
+      assert(paid.foreign.get(MkServiceId(5)).account.balance ==
+        fs.get(MkServiceId(5)).account.balance + 100),
+      assert(intoSupervisor.foreign.get(MkServiceId(5)).account.supervisorBalance == 100),
+      init
+    }
+  }
+
+  /// This service may spend from a service it supervises, down to that
+  /// service's own threshold.
+  run transferOutFromSupervisedServiceTest = {
+    val ours = MkServiceId(MinPublicServiceIndex)
+    // Holds 500 above its empty-store threshold.
+    val fs = counterparties.put(ours, {
+      supervisor: ParachainServiceId, supervisorCreated: ParachainServiceCreated, created: 0,
+      requests: Map(), storage: Map(),
+      account: { balance: BaseDeposit + 500, supervisorBalance: 0, minMemoGas: 0 }
+    })
+    val fromOurs = { ...payFive, source: Some(ours), amount: 500 }
+    val out = sendOut(initialState, fs, fromOurs)
+    all {
+      assert(out.logs == List()),
+      assert(out.foreign.get(ours).account.balance == BaseDeposit),
+      assert(out.state.jamAccount == initialState.jamAccount),
+      assert(sendOut(initialState, fs, { ...fromOurs, amount: 501 }).logs
+        == refusal(InsufficientServiceBalance)),
+      init
+    }
   }
 
   /// §5.1: cleaning up refunds exactly what admission charged, so an unreserved
@@ -222,6 +326,9 @@ module transfers_test {
       assert(s.incomingTransfers.get(0) == List(toSup, toReg)),
       assert(s.incomingTransfers.get(0)[0].toSupervisorBalance),
       assert(not(s.incomingTransfers.get(0)[1].toSupervisorBalance)),
+      // Each lands in the balance it names.
+      assert(s.jamAccount.supervisorBalance == initialState.jamAccount.supervisorBalance + 500),
+      assert(s.jamAccount.balance == initialState.jamAccount.balance + 500),
       init
     }
   }

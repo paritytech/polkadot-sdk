@@ -132,13 +132,11 @@ module accumulate {
       }
       }
       | EjectService(payload) =>
-      val o = foreignEject(acc.foreign, payload.service, now)
-      { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+      val o = foreignEject(acc.state, acc.foreign, payload.service, now)
+      { ...acc, state: o.state, foreign: o.services, logs: acc.logs.appendOption(o.log) }
       | CreateService(payload) =>
-      val o = foreignCreate(
-        acc.foreign, payload.codeHash, payload.len, payload.id, payload.desiredId,
-        now)
-      { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
+      val o = foreignCreate(acc.state, acc.foreign, payload, now)
+      { ...acc, state: o.state, foreign: o.services, logs: acc.logs.appendOption(o.log) }
       | SetServiceSupervisor(payload) =>
       val o = foreignSetSupervisor(
         acc.foreign, payload.service, payload.newSupervisor)
@@ -241,19 +239,8 @@ module accumulate {
         foreign: acc.foreign
       }
       | TransferOut(payload) =>
-      if (payload.source.optionGetOr(ParachainServiceId) != ParachainServiceId)
-        acc
-      else if (payload.sourceSupervisorBalance)
-        acc
-      else match payload.deferred {
-        | None =>
-          if (payload.dest == ParachainServiceId and payload.destSupervisorBalance)
-            acc
-          else
-            { ...acc, logs: acc.logs.append(
-              TransferFailed({ id: payload.id, error: DestinationNotSupervised })) }
-        | Some(_) => acc
-      }
+      val o = transferOut(acc.state, acc.foreign, payload)
+      { ...acc, state: o.state, foreign: o.services, logs: acc.logs.appendOption(o.log) }
       | AssignCore(payload) =>
       // §5.1 step 7 (replay). Caches the entry for its `jamSlot`. The inline
       // case exists because always-accumulate ran before this replay, so a
@@ -325,7 +312,10 @@ module accumulate {
       // JAM's `upgrade` performs no such check, so switching to a hash whose blob
       // was never supplied would leave the service with no code to run.
       if (acc.state.preimageAvailable(payload.codeHash, payload.len))
-        { ...acc, state: { ...acc.state, serviceCodeHash: payload.codeHash } }
+        { ...acc, state: { ...acc.state,
+          serviceCodeHash: payload.codeHash,
+          jamAccount: { ...acc.state.jamAccount, minMemoGas: payload.minMemoGas }
+        } }
       else
         { ...acc,
           logs: acc.logs.append(ServiceUpgradePreimageMissing({ codeHash: payload.codeHash }))
@@ -667,7 +657,10 @@ module accumulate {
     s: ParachainServiceState,
     ts: List[IncomingTransfer]
   ): ParachainServiceState = {
-    val start: (ParachainServiceState, Option[BucketId]) = (s, None)
+    // JAM credits every transfer before this service runs, recorded or not.
+    val credited = ts.foldl(s, (acc, t) =>
+      { ...acc, jamAccount: acc.jamAccount.credit(t.amount, t.toSupervisorBalance) })
+    val start: (ParachainServiceState, Option[BucketId]) = (credited, None)
     ts.foldl(start, (acc, t) => admitIncomingTransfer(acc._1, acc._2, t))._1
   }
 

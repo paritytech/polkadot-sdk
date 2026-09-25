@@ -7,6 +7,31 @@ module state {
   import types.* from "./types"
   import messages.* from "./messages"
 
+  // --- JAM service accounts (model-only ghost state) ----------------------
+
+  /// The part of a JAM service account the model tracks: its two balances, and
+  /// the gas a deferred transfer to it must carry.
+  type JamAccount = {
+    balance: Balance,
+    supervisorBalance: Balance,
+    minMemoGas: int
+  }
+
+  /// `a` with `amount` taken from its supervisor balance if `supervisor`, else
+  /// from its regular balance.
+  pure def debit(a: JamAccount, amount: Balance, supervisor: bool): JamAccount =
+    if (supervisor) { ...a, supervisorBalance: a.supervisorBalance - amount }
+    else { ...a, balance: a.balance - amount }
+
+  pure def credit(a: JamAccount, amount: Balance, supervisor: bool): JamAccount =
+    debit(a, 0 - amount, supervisor)
+
+  /// JAM rejects an operation that would leave an account with a negative
+  /// balance, or with less than its threshold balance across both.
+  pure def isOverdrawn(after: JamAccount, threshold: Balance): bool =
+    after.balance < 0 or after.supervisorBalance < 0 or
+    after.balance + after.supervisorBalance < threshold
+
   // --- Per-parachain record (design §3.1) --------------------------------
 
   type ParaInfo = {
@@ -118,7 +143,11 @@ module state {
     // A core absent from the map is still assigned to this service. Handing a
     // core away is one-way here: only the new assigner could give it back, and
     // nothing this service does can cause that.
-    jamCoreAssigners: CoreIndex -> ServiceId
+    jamCoreAssigners: CoreIndex -> ServiceId,
+    // MODEL-ONLY ghost state, NOT part of the service's real storage or
+    // footprint: this service's own JAM account, which JAM debits and credits
+    // as it transfers, creates and ejects services.
+    jamAccount: JamAccount
   }
 
   // --- Constructors ------------------------------------------------------
@@ -135,7 +164,8 @@ module state {
     serviceCodeHash: { hashBytes: 0 },
     keyValueStorage: Map(),
     preimageStatus: Map(),
-    jamCoreAssigners: Map()
+    jamCoreAssigners: Map(),
+    jamAccount: { balance: 0, supervisorBalance: 0, minMemoGas: 0 }
   }
 
   // --- Read helpers ------------------------------------------------------
@@ -238,6 +268,13 @@ module state {
   pure def isAssignerOf(s: ParachainServiceState, core: CoreIndex): bool =
   not(s.jamCoreAssigners.keys().contains(core)) or
   s.jamCoreAssigners.get(core) == ParachainServiceId
+
+  /// This service's threshold balance, as the model approximates it: JAM's base
+  /// deposit plus the footprint its parachains are billed for (§6.1). Billing
+  /// each para as the sole user over-counts shared entries, so the model may
+  /// refuse a spend JAM would allow, never the reverse.
+  pure def serviceThreshold(s: ParachainServiceState): Balance =
+  s.parachains.keys().fold(BaseDeposit, (acc, p) => acc + s.paraInfo(p).usedStateBalance)
 
   /// Record the assigner JAM wrote for `core` while applying an `assign`.
   pure def recordAssigner(

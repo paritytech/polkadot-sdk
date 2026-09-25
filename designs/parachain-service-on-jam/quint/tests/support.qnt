@@ -117,6 +117,20 @@ module support {
     logPrunedBelow' = logPrunedBelow
   }
 
+  /// Replace the other JAM services, e.g. to give a test counterparties.
+  action setForeign(fs: ForeignServices): bool = all {
+    svc' = svc,
+    now' = now,
+    jamStagingSet' = jamStagingSet,
+    solicitedSet' = solicitedSet,
+    prevSvc' = prevSvc,
+    lastStepWorkResults' = lastStepWorkResults,
+    lastStepAssigns' = lastStepAssigns,
+    lastHeadRoot' = lastHeadRoot,
+    foreignServices' = fs,
+    logPrunedBelow' = logPrunedBelow
+  }
+
   /// Action wrapper for `markProvided`: flips a solicited preimage's `query`
   /// status to `Provided`.
   action provide(h: Hash, len: int): bool = all {

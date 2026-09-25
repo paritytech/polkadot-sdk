@@ -19,9 +19,9 @@ module state_balance {
    /// §6.1. Balances are `Compact<u64>` sized at their 9 B worst case here.
    pure val BaselineFootprint: int = 69825
 
-  /// Octet overhead of one `BoundedVec` general-storage entry: JAM's 34 B, a
-  /// 1 B map-tag key, and a 2 B compact length prefix (§6.1).
-  pure val VecEntryOverhead: int = 34 + 1 + 2
+  /// Octet overhead of one `BoundedVec` general-storage entry: JAM's per-entry
+  /// overhead, a 1 B map-tag key, and a 2 B compact length prefix (§6.1).
+  pure val VecEntryOverhead: int = StorageEntryOverhead + 1 + 2
 
   /// Asset Hub additionally owns the service-global state items (staged
   /// validator keys, pending assigns + their dirty-core index, incoming
@@ -29,19 +29,22 @@ module state_balance {
   /// pre-provisioned rather than charged to `usedStateBalance` as they grow.
   pure val AssetHubGlobalItemsFootprint: int = {
     val stagedKeys = VecEntryOverhead + MaxStagedValidatorKeys * ValidatorKeySize
-    // One storage entry per core: 34 + 3 (tag + u16 CoreIndex key) + 2 (compact
-    // len) + the authorizer queue + 5 (Option<ServiceId>).
+    // One storage entry per core: JAM's per-entry overhead + 3 (tag + u16
+    // CoreIndex key) + 2 (compact len) + the authorizer queue + 5
+    // (Option<ServiceId>).
     val pendingAssigns =
-      CoreCount * (34 + 3 + 2 + AuthorizerQueueLength * 32 + 5)
+      CoreCount * (StorageEntryOverhead + 3 + 2 + AuthorizerQueueLength * 32 + 5)
     // (u16 CoreIndex 2 + Timeslot 4) per core.
     val pendingAssignCores = VecEntryOverhead + CoreCount * 6
-    // Endpoint pointer: 34 + 1 (key) + first_bucket 8 + last_bucket 8 + count 4.
-    val transferBuckets = 34 + 1 + 8 + 8 + 4
+    // Endpoint pointer: JAM's per-entry overhead + 1 (key) + first_bucket 8 +
+    // last_bucket 8 + count 4.
+    val transferBuckets = StorageEntryOverhead + 1 + 8 + 8 + 4
     // Fixed storage items: the two BoundedVecs, the endpoint pointer, and one per
     // core for pendingAssigns. The transfer buckets are counted per transfer below.
     val fixedItems = 3 + CoreCount
     val fixed =
-      stagedKeys + pendingAssigns + pendingAssignCores + transferBuckets + fixedItems * 10
+      stagedKeys + pendingAssigns + pendingAssignCores + transferBuckets +
+      fixedItems * ItemDeposit
     // Worst case one bucket per transfer, each costing a full bucket.
     fixed + MaxIncomingTransfers * IncomingTransferEntryFootprint
   }
@@ -66,7 +69,8 @@ module state_balance {
   ///     34 + 5 (singleton {ParaId} set) + 37 (key = 1 B map tag + 32 B hash + 4 B len)
   /// Total = 187 + len balance units (octet subtotal 157 + len, items 30).
   pure def preimageFootprint(len: int): int =
-  (20 + 81 + len) + (10 + 34 + 5 + 37)
+  (2 * ItemDeposit + PreimageRequestOverhead + len) +
+  (ItemDeposit + StorageEntryOverhead + 5 + 37)
 
   /// What Asset Hub is charged for the unreserved part of the transfer queue
   /// (§5.1), priced per worst-case bucket as §6.1 sizes the reservation itself.
@@ -337,7 +341,8 @@ module state_balance {
   /// + 1 (map tag 0x07) + 4 (ParaId) + compactLen(kLen) + kLen (key)
   /// = 49 + compactLen(kLen) + kLen + compactLen(vLen) + vLen
   pure def kvEntryFootprint(kLen: int, vLen: int): int =
-    10 + 39 + compactLen(kLen) + kLen + compactLen(vLen) + vLen
+    ItemDeposit + StorageEntryOverhead + 1 + 4 + compactLen(kLen) + kLen +
+    compactLen(vLen) + vLen
 
   type KVDelta = {
     state: ParachainServiceState,

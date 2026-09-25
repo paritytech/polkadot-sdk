@@ -133,6 +133,16 @@ module types {
   /// second `forget` once `y < now - ExpungePeriod`. See §6.1.
   pure val ExpungePeriod: int = MaxLookupAge + 4800
 
+  /// Gray paper `C_basedeposit` and `C_itemdeposit`: the threshold balance every
+  /// service needs, and what each item it stores adds to it.
+  pure val BaseDeposit: int = 100
+  pure val ItemDeposit: int = 10
+
+  /// The octets the gray paper's footprint counts for a storage entry on top of
+  /// its key and value, and for a preimage request on top of the preimage.
+  pure val StorageEntryOverhead: int = 34
+  pure val PreimageRequestOverhead: int = 81
+
   /// §3.1: 80-slot authorizer queue length.
   pure val AuthorizerQueueLength: int = 80
 
@@ -162,12 +172,12 @@ module types {
   /// transfer itself. `MaxTransfersPerBucket` bounds how much a bucket may hold,
   /// not how little, so it does not move this figure.
   pure val IncomingTransferBucketOctets: int =
-    34 + 9 + 1 + IncomingTransferValueOctets
+    StorageEntryOverhead + 9 + 1 + IncomingTransferValueOctets
 
   /// Full balance-unit cost of one worst-case bucket (§6.1): its octets plus the
   /// one storage item it occupies.
   pure val IncomingTransferEntryFootprint: int =
-    10 + IncomingTransferBucketOctets
+    ItemDeposit + IncomingTransferBucketOctets
 
 
   // --- Polymorphic Option ------------------------------------------------
