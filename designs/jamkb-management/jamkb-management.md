@@ -16,11 +16,10 @@
    - 4.2 [Permanent Release](#42-permanent-release)
    - 4.3 [Lease Return](#43-lease-return)
    - 4.4 [Voluntary Return](#44-voluntary-return)
-5. [Cap & Backing Accounting](#5-cap--backing-accounting)
-6. [Message Protocol](#6-message-protocol)
-   - 6.1 [Operations, Correlation](#61-operations-correlation)
-   - 6.2 [Memo Requirements](#62-memo-requirements)
-7. [References](#7-references)
+5. [Message Protocol](#5-message-protocol)
+   - 5.1 [Operations, Correlation](#51-operations-correlation)
+   - 5.2 [Memo Requirements](#52-memo-requirements)
+6. [References](#6-references)
 
 ---
 
@@ -62,7 +61,7 @@ When a balance transfer from Asset Hub to a target JAM service is executed, the
 pallet locks the requested amount on Asset Hub. On JAM the same amount moves
 from the Parachain Service balance to the target JAM service.
 
-The detailed flow below is a governance-executed permanent release (§4.2): one
+The detailed flow below is a governance-executed permanent release (§4.2.1): one
 deferred transfer from the Parachain Service balance to the target's regular
 balance.
 
@@ -74,8 +73,8 @@ Governance (Root)
    │  execute_release(id)
    ▼
 pallet-jamkb
-   │  holds the units (§3.1), records the operation, and appends a
-   │  TransferOut to PendingOperations
+   │  holds the units, records the operation, and appends a TransferOut to
+   │  PendingOperations
    ▼
 pallet-parachain-system
    │  pulls PendingOperations, calls the Parachain Service's
@@ -104,8 +103,8 @@ pallet-jamkb
 pallet-jamkb
    │  settle(op_id), permissionless, updates the operation state:
    │  - para head hash is B or a descendant of B, no TransferFailed for the
-   │    operation's id → Confirmed
-   │  - a TransferFailed for the operation's id → Failed, the hold is released
+   │    operation's id → Confirmed, the units move to the `released` account
+   │  - a TransferFailed for the operation's id → Failed
    │  - para head not yet at B → the operation stays pending
 ```
 
@@ -118,56 +117,53 @@ pallet-jamkb
 JAMKB is an asset in `pallet-assets`. It is the representation of the DAO's
 balance on the Parachain Service. This asset is managed by `pallet-jamkb`. It
 holds the four privileged roles (Owner, Issuer, Admin, Freezer), assigned to it
-at initialization. The pallet account has no key, so no external account can
-administer the asset.
+at initialization.
 
-The full JAMKB cap is minted into the pallet's account, so that Asset Hub
-holds a 1:1 representation of the JAM-side balance. The mint is a one-time
-governance-executed runtime call on the Asset Hub.
-
-At bootstrap some JAM services need a balance to operate. The DAO supplies them
-at `initialize`, and the amount is held under `Released` (§5).
+The full JAMKB cap is minted into the pallet's custody account (§3.2), so that
+Asset Hub holds a 1:1 representation of the JAM-side balance. The mint is a
+one-time governance-executed runtime call on the Asset Hub.
 
 Parachain state footprint is backed on the Coretime chain. JAMKB is teleported
 there, and the Coretime chain backs each parachain's footprint against what it
 holds. Teleported units leave Asset Hub's spendable supply and park in the XCM
-checking account (§5); the cap does not move.
+checking account; the cap does not move.
 
 ### 3.2 `pallet-jamkb`
 
+The pallet keeps the JAMKB in four keyless accounts derived from its
+`PalletId`. A unit changes account by a transfer between them.
+
+| Account     | Derivation                             | Balance                         |
+|-------------|----------------------------------------|---------------------------------|
+| `custody`   | `into_account_truncating()`            | DAO undistributed units         |
+| `released`  | `into_sub_account_truncating(b"rlsd")` | permanent releases              |
+| `custodial` | `into_sub_account_truncating(b"cstd")` | returns awaiting `claim` (§4.4) |
+| `excess`    | `into_sub_account_truncating(b"xces")` | unattributed inflows (§4.4)     |
+
 A FRAME pallet that manages the JAMKB asset and executes transfer operations
-against the Parachain Service. Before any action like a permanent release or a
-supervisor-managed allocation is triggered, the tokens are locked in place on
-the owner account: a hold is placed on them, and only then does the transfer
-execute on the JAM side. On confirmation the tokens stay held: in place for a
-lease, in the pallet's custody for a release (moved there if they were not on
-the pallet's account). On failure the hold is released.
+against the Parachain Service. Before any action like a permanent
+release or a lease is triggered, the tokens are locked in place: a hold is
+placed on them, and only then does the transfer execute on the JAM side. On
+confirmation the tokens of a lease stay held; the tokens of a permanent release
+move into the `released` account. On failure the pallet undoes what the call
+did.
+
+Every transfer operation is asynchronous and its outcome, Confirmed or Failed, is resolved on Asset Hub by
+`settle`.
 
 The pallet also supports voluntary return (§4.4): a JAM service sends its
 funds back to the Parachain Service balance, setting an Asset Hub beneficiary
 in the transfer memo. The pallet records the returned amount as claimable, and
 the beneficiary claims the units back to its Asset Hub account.
 
-A JAM service has no Asset Hub account of its own, so the pallet keeps a
-mapping of service accounts (`ServiceAccounts`): the Asset Hub account
-associated with a JAM service. Its only power is to accept a lease offer for
-that service. An approval is only an offer, and the target's service account
-accepts it; a service with no registered account cannot be a lease target.
-
-The recovery calls (§4.3) take a deposit on the caller's native balance, under
-the `RecoveryDeposit` hold reason on `pallet-balances`: a runtime-constant base
-per operation, and a per-key part for a `cleanup_storage` page. It is released
-on a Confirmed settle and burned on a Failed one.
-
 The pallet starts inactive. Governance verifies, against public JAM state at a
-defined block, that the JAM balances match the pallet's configuration: the
-Parachain Service holds `CAP − released`, and the other JAM services hold the
-rest. It records the result with `attest(anchor)`; the pallet stores the anchor.
-Until attested, every call except `initialize` and `attest` is rejected.
+defined block, that the Parachain Service holds `CAP`. It records the result
+with `attest(anchor)`; the pallet stores the anchor. Until attested, every call
+except `initialize` and `attest` is rejected.
 
 ```rust
 /// A JAM block reference. The attestation sets the block whose state the
-/// balances were checked against (§3.1). The pallet records it and does not
+/// balances were checked against. The pallet records it and does not
 /// verify it.
 struct Anchor {
     timeslot: Timeslot,
@@ -177,8 +173,18 @@ struct Anchor {
 /// The fixed JAMKB supply, minted at `initialize`.
 const CAP: Balance;
 
-/// Added to the lease end before `reclaim` opens (§4.3).
+type AllocationId = u64;
+type OperationId = u64;
+
+/// Added to the lease end before `reclaim` opens (`reclaim`, §3.2).
 const GRACE_PERIOD: BlockNumber;
+
+/// The recovery deposit (§4.3): a hold on the caller's native balance under the
+/// `RecoveryDeposit` hold reason on `pallet-balances`, `RECOVERY_DEPOSIT` per
+/// operation.
+const RECOVERY_DEPOSIT: Balance;
+/// `RECOVERY_DEPOSIT_PER_KEY` per key of a `cleanup_storage` page.
+const RECOVERY_DEPOSIT_PER_KEY: Balance;
 
 /// A raw storage key of a supervised service (required for `cleanup_storage`,
 /// §4.3), and the keys in one page.
@@ -189,11 +195,14 @@ type Key = BoundedVec<u8, MAX_KEY_LEN>;
 /// The Asset Hub account associated with a JAM service.
 type ServiceAccounts = Map<ServiceId, AccountId>;
 
+/// Awaiting `claim`, per beneficiary (§4.4).
+type Custodial = Map<AccountId, Balance>;
+
+/// Unattributed inflows, per source service (§4.4).
+type Excess = Map<ServiceId, Balance>;
+
 /// The frozen lease targets (§4.3).
 type FrozenTargets = Set<ServiceId>;
-
-/// The account a lease is assigned to (`assign_lease`).
-type LeaseAssignments = Map<AllocationId, AccountId>;
 
 /// One approved allocation.
 struct Allocation {
@@ -205,14 +214,12 @@ struct Allocation {
     delivered_at: Option<BlockNumber>,
                                       // the block the delivery was sent in.
                                       // A lease ends at
-                                      // `delivered_at + duration` (§4.3)
-    approver: PalletsOrigin,          // for a lease, the signed origin
-                                      // holding the units (an account or a
-                                      // contract); for a release, governance
+                                      // `delivered_at + duration` (§4.1)
+    approver: PalletsOrigin,          // a signed origin (an account or a
+                                      // contract) or governance
     valid_from: BlockNumber,          // execute lease and release are rejected before this block
     expires_at: BlockNumber,          // execute is rejected from this block
-                                      // on; only cancel_allocation still
-                                      // works, and it releases the hold
+                                      // on
 }
 
 enum AllocationMode {
@@ -228,14 +235,15 @@ enum AllocationState {
                                       // release it is terminal: the DAO no
                                       // longer controls the units. For a
                                       // lease, reclaim may follow
-    Reclaiming,                       // the cooperative return did not
-                                      // complete; Lease only
-    Closed,                           // cancelled or returned
+    Reclaiming,                       // entered by a Failed `Reclaim`; Lease
+                                      // only
+    Closed,                           // cancelled, returned, ejected or
+                                      // closed by `close_lease`
 }
 
 /// One cross-system operation between Asset Hub and JAM.
 struct Operation {
-    id: OperationId,                  // unique operation Id (§6.1)
+    id: OperationId,                  // unique operation Id (§5.1)
     payload: OperationPayload,
     state: OperationState,
     submitted_at: Option<BlockNumber>,
@@ -245,42 +253,106 @@ struct Operation {
 
 /// The operation's data payload.
 enum OperationPayload {
-    /// A lease or a governance permanent release.
-    /// One `TransferOut` crediting the allocation's target (§4.1, §4.2.1);
-    /// deferred when the allocation's mode is `Permanent`.
+    /// A lease or a governance permanent release (§4.1, §4.2.1).
+    /// One `TransferOut` crediting the allocation's target; deferred when the
+    /// allocation's mode is `Permanent`.
+    ///
+    /// Confirmed: the allocation moves to `Delivered` and `delivered_at` is
+    /// set to the operation's `submitted_at`; for a release, the held units
+    /// move to the `released` account.
     Delivery {
         allocation: AllocationId,
-        amount: Balance,              // the units locked for the transfer (§5)
+        amount: Balance,              // the units locked for the transfer
+    },
+    /// A lease increase (`increase_lease`).
+    /// One plain `TransferOut` crediting the target's supervisor balance.
+    ///
+    /// Confirmed: the allocation's amount rises by `additional`; the lease
+    /// stays `Delivered`.
+    Increase {
+        allocation: AllocationId,
+        additional: Balance,
     },
     /// A redemption of holder funds (§4.2.2).
-    /// One deferred `TransferOut` crediting `target`'s regular balance from a
-    /// holder's units.
+    /// One deferred `TransferOut` crediting `target`'s regular balance.
+    ///
+    /// Confirmed: the held units move from `holder` to the `released` account.
     Redemption {
+        holder: AccountId,            // the redeemer; the hold sits on it
         target: ServiceId,
-        amount: Balance,              // the units locked for the transfer (§5)
+        amount: Balance,              // the units locked for the transfer
     },
+    /// A lease return (`reclaim`, §4.3).
     /// One plain `TransferOut` debiting the lease target's supervisor balance
-    /// and crediting the Parachain Service (§4.3). A Confirmed settle reduces
-    /// the allocation's amount and releases that much of the `Leased` hold
-    /// (§3.3); the lease ends at zero. A Failed settle moves the lease to
-    /// `Reclaiming`.
+    /// and crediting the Parachain Service.
+    ///
+    /// Confirmed: `amount` is released from the hold; a fully returned lease
+    /// moves to `Closed`.
+    /// Failed: a `Delivered` lease past the lease end and `GRACE_PERIOD` moves
+    /// to `Reclaiming`.
     Reclaim {
         allocation: AllocationId,
         amount: Balance,
     },
-    /// A recovery of leased funds.
-    /// One recovery call (§4.3): one message, except a `cleanup_storage` page,
-    /// which sends one `RemoveServiceStorage` per key.
-    Recovery {
-        allocation: AllocationId,
-        deposit: Option<(AccountId, Balance)>,
-                                      // the caller and its deposit hold;
-                                      // absent when no deposit was
-                                      // placed (§4.3)
+    /// A freeze (`freeze_target`, §4.3).
+    /// One message that stops the target from taking more state footprint.
+    ///
+    /// Confirmed: the target is recorded in `FrozenTargets`.
+    Freeze {
+        target: ServiceId,
     },
-    /// A refund of an incoming transfer back to its service.
-    /// One deferred `TransferOut` returning an excess amount to its source
-    /// (`dispose_excess`).
+    /// An unfreeze (`unfreeze_target`, §4.3).
+    /// One message that reverses the freeze.
+    ///
+    /// Confirmed: the target is removed from `FrozenTargets`.
+    Unfreeze {
+        target: ServiceId,
+    },
+    /// A cleanup page (`cleanup_storage`, §4.3).
+    /// One `RemoveServiceStorage { service: target, key }` per key in `keys`.
+    ///
+    /// Confirmed: the deposit is released.
+    Cleanup {
+        target: ServiceId,
+        keys: BoundedVec<Key, MAX_KEYS_PER_PAGE>,
+        deposit: (AccountId, Balance),
+    },
+    /// A preimage release (`forget_preimage`, §4.3).
+    /// One `Forget { target: Service(target), hash, len }`.
+    ///
+    /// Confirmed: the deposit is released.
+    Forget {
+        target: ServiceId,
+        hash: Hash,
+        len: u32,
+        deposit: (AccountId, Balance),
+    },
+    /// An ejection (`eject_target`, §4.3).
+    /// One `EjectService { service: target }`; it fails `NotEmpty` until the
+    /// target's storage and requests are empty.
+    ///
+    /// Confirmed: every lease on the target moves to `Closed` and its hold is
+    /// released; the target's `FrozenTargets` and `ServiceAccounts` entries
+    /// are removed; the deposit is released. The amount above `leased` is booked as
+    /// excess (§4.4).
+    Eject {
+        target: ServiceId,
+        leased: Balance,              // the sum of the target's leases'
+                                      // amounts at the call (§4.4)
+        deposit: (AccountId, Balance),
+    },
+    /// A release from supervision (`unsupervise`, §4.3).
+    /// One `SetServiceSupervisor { service: target, new_supervisor: target }`.
+    ///
+    /// Confirmed and Failed: no further state change.
+    Unsupervise {
+        target: ServiceId,
+    },
+    /// A refund of an incoming transfer to its source (`dispose_excess`).
+    /// One deferred `TransferOut` crediting `source`'s regular balance.
+    ///
+    /// Confirmed: the held units move from the `excess` account to the
+    /// `released` account.
     Refund {
         source: ServiceId,
         amount: Balance,
@@ -296,9 +368,9 @@ enum OperationState {
 
 /// The failure carried by `OperationFailed`: one variant per failure entry
 /// class, each wrapping that entry's `error` field (Parachain Service design
-/// §3.3).
+/// §3.1).
 enum FailureReason {
-    Transfer(TransferError),            // a TransferFailed entry (§6.1)
+    Transfer(TransferError),            // a TransferFailed entry (§5.1)
     Store(ServiceStoreError),           // a ServiceStoreFailed entry
     Eject(ServiceEjectError),           // a ServiceEjectFailed entry
     Supervisor(ServiceSupervisorError), // a ServiceSupervisorFailed entry
@@ -306,25 +378,17 @@ enum FailureReason {
 
 /// The booking class of an uncredited return (§4.4).
 enum ReturnClass {
-    Custodial,          // owner known, reserved for its claimant (§5)
-    Excess,             // owner unknown, disposed by governance (§5)
+    Custodial,          // owner known, reserved for its claimant
+    Excess,             // owner unknown, disposed by governance
 }
 ```
 
-Aggregates maintained for reporting and the conservation check (§5):
+Aggregates maintained for reporting:
 
 ```rust
 struct Totals {
-    excess: Balance,           // unattributed inflows: donations, bad-memo
-                               // returns; kept per source service; owner
-                               // unknown, disposed by governance (§5)
-    custodial: Balance,        // available for claim: sourced returns (§4.4);
-                               // owner known
-    in_flight_out: Balance,    // outbound deferred transfers recorded and
-                               // not yet settled: releases and redemptions
-                               // (§5)
-    released: Balance,         // permanent releases to other services
-    leased: Balance,           // active supervisor-balance allocations
+    leased: Balance,           // the sum of `Leased` holds
+    releasing: Balance,        // the sum of `Releasing` holds
 }
 ```
 
@@ -332,7 +396,7 @@ Typed events:
 
 ```rust
 enum Event {
-    /// The genesis attestation is recorded (§3.1).
+    /// The genesis attestation is recorded.
     Attested { anchor: Anchor },
     ReleaseApproved { id: AllocationId, target: ServiceId, amount: Balance },
     LeaseOffered { id: AllocationId, target: ServiceId, amount: Balance,
@@ -341,15 +405,13 @@ enum Event {
     LeaseClosed { id: AllocationId, amount: Balance },
     LeaseIncreased { id: AllocationId, additional: Balance },
     LeaseExtended { id: AllocationId, duration: BlockNumber },
-    LeaseAssigned { id: AllocationId, to: AccountId },
-    LeaseTakenOver { id: AllocationId, approver: AccountId },
-    /// `allocation` is `None` for a redemption or a refund.
+    /// `allocation` is `None` for a redemption, a refund or a recovery step.
     OperationSubmitted { id: OperationId, allocation: Option<AllocationId> },
     OperationConfirmed { id: OperationId },
     /// `error` carries the Parachain Service failure.
     OperationFailed { id: OperationId, error: FailureReason },
-    /// An amount was booked (§4.3, §4.4): custodial for a named beneficiary,
-    /// or excess when the owner is unknown (a bad-memo return).
+    /// An amount was booked (§4.4): custodial for a named beneficiary, or
+    /// excess.
     ReturnBooked { source: ServiceId, amount: Balance, class: ReturnClass },
     /// A beneficiary's custodial balance was claimed.
     Claimed { beneficiary: AccountId, amount: Balance },
@@ -368,11 +430,9 @@ operation ids are reported in the events.
 ```rust
 // ── Setup and control ──────────────────────────────────────────────────────
 
-/// Creates the JAMKB asset. Origin: governance (Root). Mints `CAP` into the
-/// pallet's custody and sets `Released` for the JAM services endowed at
-/// genesis. Rejected unless `released <= CAP`. The pallet stays inactive
-/// until attested.
-fn initialize(released: Balance);
+/// Creates the JAMKB asset. Origin: governance (Root). Mints `CAP` into
+/// custody and takes a provider reference on each pallet account.
+fn initialize();
 
 /// Records the genesis attestation against JAM state. Origin: governance
 /// (Root). Enables operations.
@@ -395,137 +455,126 @@ fn grant(beneficiary: AccountId, amount: Balance);
 
 /// Approves a permanent release to `target`. Origin: governance (Root).
 /// Records `Allocation{mode: Permanent, state: Approved}` and holds `amount`
-/// under `Released` in the pallet's custody (§3.3).
+/// on custody (§3.3). Rejected when `target` is the Parachain Service.
 fn approve_release(target: ServiceId, amount: Balance,
                    valid_from: Option<BlockNumber>, valid_for: BlockNumber);
 
-/// Carries out an approved release. Origin: any signed account. Legal while
-/// the allocation is `Approved`, at or after `valid_from` and before
-/// `expires_at`. Each execution creates a new delivery operation; a failed
-/// one is terminal. Moves the allocation to `Delivering` and records the
-/// delivery operation.
+/// Executes an approved release. Origin: any signed account. Legal while
+/// the allocation is `Approved`. Moves the allocation to `Delivering` and
+/// records a `Delivery` operation.
 fn execute_release(id: AllocationId);
 
-/// Moves the caller's own units to the destination JAM service. Origin: any
-/// JAMKB holder.
-fn redeem(amount: Balance, dest: ServiceId);
+/// Moves the caller's own units to `target`. Origin: any JAMKB holder. Holds
+/// `amount` on the caller and records a `Redemption` operation with the
+/// caller as `holder`. Rejected when `target` is the Parachain Service.
+fn redeem(amount: Balance, target: ServiceId);
 
 // ── Lease ──────────────────────────────────────────────────────────────────
 
 /// Offers a lease of `amount` to `target` for `duration`. Origin: a token
 /// holder or governance. Records `Allocation{mode: Lease, state: Approved}`
-/// and holds `amount` on the approver's account (§3.3). Rejected if the
-/// target is recorded frozen, has no registered service account, or already
-/// has an accepted lease that is not `Closed`.
+/// and holds `amount` on the approver's account, or on custody when the
+/// approver is governance (§3.3). Rejected if the target has no service
+/// account or is the Parachain Service.
 fn offer_lease(target: ServiceId, amount: Balance, duration: BlockNumber,
                valid_from: Option<BlockNumber>, valid_for: BlockNumber);
 
 /// Accepts an offered lease. Origin: the target's service account
-/// (`ServiceAccounts`). Legal while the allocation is `Approved`, at or after
-/// `valid_from` and before `expires_at`. Each execution creates a new
-/// delivery operation; a failed one is terminal. Moves the allocation to
-/// `Delivering` and records the delivery operation.
+/// (`ServiceAccounts`). Legal while the allocation is `Approved`. Rejected
+/// while the target has another lease within its term, two leases past their
+/// term, or an unsettled `Eject` operation. Moves the allocation to
+/// `Delivering` and records a `Delivery` operation.
 fn accept_lease(id: AllocationId);
 
-/// Raises a lease's `amount` by `additional`. Origin: the lease's approver.
-/// Legal while the lease is `Delivered`. Holds that much more under `Leased`
-/// on the approver's account and records a delivery operation crediting the
-/// target's supervisor balance. The lease end does not change.
+/// Raises a lease's `amount` by `additional` funds. Origin: the lease's approver.
+/// Legal while the lease is `Delivered` and within its term. Holds
+/// `additional` on the approver's account and records an `Increase`
+/// operation. The lease end does not change.
 fn increase_lease(id: AllocationId, additional: Balance);
 
 /// Sets the lease's `duration`. Origin: the lease's approver. Legal while the
-/// lease is `Delivered`.
+/// lease is `Delivered` and within its term. Rejected unless `duration` is
+/// greater than the current one.
 fn extend_lease(id: AllocationId, duration: BlockNumber);
 
-/// Offers the lease to another account. Origin: the lease's approver. Legal
-/// while the lease is `Delivered`. Records `to` in `LeaseAssignments`; a
-/// later call replaces the entry.
-fn assign_lease(id: AllocationId, to: AccountId);
-
-/// Takes over an assigned lease. Origin: the account recorded in
-/// `LeaseAssignments`. `amount` is held under `Leased` on the caller, the
-/// previous approver's hold is released, `approver` becomes the caller's
-/// signed origin and the entry is cleared.
-fn take_over_lease(id: AllocationId);
-
 /// Takes `amount` of the leased units back from the target. Origin: the
-/// lease's approver past `delivered_at + duration + GRACE_PERIOD`, or the
-/// target's service account at any time. Legal from `Delivered` and from
-/// `Reclaiming`. Creates `Operation{Reclaim}` for `amount`, capped at the
+/// lease's approver past the lease end and `GRACE_PERIOD`, or the target's
+/// service account at any time. Legal from `Delivered` and from
+/// `Reclaiming`. Records a `Reclaim` operation for `amount`, capped at the
 /// allocation's remaining amount.
 fn reclaim(id: AllocationId, amount: Balance);
 
 /// Ends a lease that was not fully returned. Origin: the lease's approver or
-/// governance. Legal while the lease is `Reclaiming`. The `Leased` hold moves
-/// into the pallet's custody under `Released` and the lease moves to
-/// `Closed`.
+/// governance. Legal while the lease is `Reclaiming`. Rejected while the
+/// lease has an unsettled operation (§5.1). The held units move to the
+/// `released` account and the lease moves to `Closed`.
 fn close_lease(id: AllocationId);
 
 // ── Recovery: a lease target that does not cooperate ───────────────────────
 
-/// Stops the target from taking more state footprint. Origin: any signed
-/// account. Legal while the lease is `Reclaiming`. Records the target in
-/// `FrozenTargets`; a Failed settle clears the record. The Parachain Service
-/// has no support for this.
+/// Stops the target from taking more state footprint. Origin: the lease's
+/// approver, the target's service account, or governance. Legal while the
+/// target is in recovery and not recorded frozen. Records a `Freeze`
+/// operation.
 fn freeze_target(target: ServiceId);
 
-/// Reverses the freeze. Origin: the lease's approver or governance while the
-/// lease is `Reclaiming`; any signed account with the recovery deposit once
-/// it is `Closed` and fully returned. A Confirmed settle clears the
-/// `FrozenTargets` record.
+/// Reverses the freeze. Origin: the lease's approver, the target's service account or
+/// governance. Legal while the target is recorded frozen and not in
+/// recovery. Records an `Unfreeze` operation.
 fn unfreeze_target(target: ServiceId);
 
-/// Deletes one bounded page of keys from the target's storage, each sent as
-/// `RemoveServiceStorage { service, key }`. Origin: any signed account, with
-/// the recovery deposit, refunded in proportion to the keys the page removed.
-/// Legal while the lease is `Reclaiming`.
+/// Deletes one bounded page of keys from the target's storage. Origin: the
+/// lease's approver, the target's service account, or governance, with
+/// `RECOVERY_DEPOSIT` plus `RECOVERY_DEPOSIT_PER_KEY` per key. Legal while
+/// the target is in recovery. Records a `Cleanup` operation.
 fn cleanup_storage(target: ServiceId, keys: BoundedVec<Key, MAX_KEYS_PER_PAGE>);
 
-/// Releases a solicited preimage: a `Forget` upward message. Origin: any
-/// signed account, with the recovery deposit. Legal while the lease is
-/// `Reclaiming`. Forgetting the target's code preimage is restricted:
-/// governance at any time, the approver only after a notice period since the
-/// freeze.
+/// Releases a solicited preimage of the target. Origin: the lease's approver,
+/// the target's service account, or governance, with `RECOVERY_DEPOSIT`.
+/// Legal while the target is in recovery and recorded frozen. A provided
+/// preimage is
+/// expunged by a second call more than `C_expungeperiod` timeslots after the
+/// first (Parachain Service design §6.1). Rejected for the target's
+/// code hash except from governance
+/// Records a `Forget` operation.
 fn forget_preimage(target: ServiceId, hash: Hash, len: u32);
 
-/// Destroys the emptied target (`EjectService`), crediting its balances to
-/// the Parachain Service. Origin: any signed account, with the recovery
-/// deposit. Legal while the lease is `Reclaiming`. A Confirmed settle moves
-/// the lease to `Closed` and releases the `Leased` hold. The swept amount
-/// counts as the lease return up to `leased`, any surplus as excess (§5),
-/// which needs the sweep enqueued as an `incoming_transfers` entry; the
-/// Parachain Service does not provide it.
+/// Destroys the emptied target, crediting its balances to the Parachain
+/// Service. Origin: the target's service account, or
+/// governance, with `RECOVERY_DEPOSIT`. Legal while the target is in
+/// recovery. Rejected while a lease on the target has an unsettled operation
+/// (§5.1). Records an `Eject` operation
+/// with `leased` = the sum of the target's leases' amounts.
 fn eject_target(target: ServiceId);
 
-/// Releases the supervised target to itself (`SetServiceSupervisor`). Origin:
-/// any signed account. Rejected while the target is recorded frozen, or has a
-/// lease that is not `Closed` and fully returned.
+/// Releases the supervised target to itself. Origin: the target's service
+/// account or governance. Rejected while the target is recorded frozen, or
+/// has a lease that is not `Closed`. Records an `Unsupervise` operation.
 fn unsupervise(target: ServiceId);
 
 // ── Returns and disposal ───────────────────────────────────────────────────
 
 /// Claims the voluntarily returned balance to `beneficiary`'s account (§4.4).
-/// Origin: any signed account. Moves the units from custody, releasing the
-/// amount from the `Released` hold.
+/// Origin: any signed account. Moves the beneficiary's balance from the
+/// `custodial` account to the `beneficiary` account..
 fn claim(beneficiary: AccountId);
 
-/// Disposes an excess amount per service (§5). Origin: governance (Root).
+/// Disposes an excess amount per service. Origin: governance (Root).
 /// With `refund = true` it creates a `Refund` operation sending the tokens
 /// back to the `source` service's regular balance; with `refund = false` it
-/// accounts the amount as undistributed custody.
+/// moves the tokens from the `excess` account to custody.
 fn dispose_excess(source: ServiceId, amount: Balance, refund: bool);
 
 // ── Shared by every flow ───────────────────────────────────────────────────
 
 /// Cancels an allocation in `Approved`. Origin: the allocation's approver.
-/// The hold is released and the allocation state moves to `Closed`. The call
-/// stays legal past `expires_at`. A `Delivering` allocation cannot be
-/// cancelled.
+/// The hold is released and the allocation moves to `Closed`.
+/// A `Delivering` allocation cannot be cancelled.
 fn cancel_allocation(id: AllocationId);
 
 /// Updates the operation state to Confirmed or Failed. Origin: any signed
-/// account. For an operation already marked `Failed` at delivery (§3.4), it
-/// releases the hold and updates the allocation.
+/// account. On Failed the call that recorded the operation is undone and its
+/// recovery deposit, if any, is slashed.
 fn settle(op_id: OperationId);
 ```
 
@@ -539,19 +588,18 @@ needed. Asset-wide status changes need no role: governance uses
 their budgets through the existing ERC20 precompile.
 
 **Hold rules.** `pallet-jamkb` locks units with a hold before it sends a
-transfer. The runtime wires `pallet-assets-holder` as the asset's `Holder`;
-it provides the hold traits. The hold reason is declared in the runtime as
-one closed set. The hold classes:
+transfer. The runtime sets `pallet-assets-holder` as the asset's `Holder`; it
+provides the hold traits. The hold reasons are declared as:
 
 ```rust
 /// The hold classes.
 enum HoldReason {
-    /// Units backing an active lease (§4.1).
+    /// Units backing a lease.
     #[codec(index = 0)]
     Leased,
-    /// Units backing outstanding permanent releases (§4.2).
+    /// Units backing outstanding permanent releases.
     #[codec(index = 1)]
-    Released,
+    Releasing,
 }
 ```
 
@@ -577,7 +625,11 @@ pallet pulls each restricted message variant from one provider named in the
 runtime `Config`, following the `XcmpMessageSource` pattern.
 
 The generic pallet exposes the inherent data (`parachain_log` entries,
-`incoming_transfers`) to pallets as validation inputs.
+`incoming_transfers`) to pallets as validation inputs. `pallet-jamkb` books
+each `incoming_transfers` entry once, in bucket order, from the `released`
+account (§4.4), and sends `CleanUpBucketsUpTo` for all booked buckets but the
+last. An entry larger than the `released` account is not booked until the
+account covers it.
 
 #### What the pallet owns
 
@@ -585,13 +637,7 @@ The generic pallet exposes the inherent data (`parachain_log` entries,
 per-block send queue. The parachain-system pallet takes the queue through the
 source trait and calls `send_upward_message` for each message; the operation
 moves to `Submitted`. The runtime `Config` sets `pallet-jamkb` as the only
-provider of the message variants it sends. `pallet-jamkb` hands over at most a
-runtime-constant number of operations per block; the rest stay queued. That cap
-and `MAX_KEYS_PER_PAGE` are sized so that Asset Hub's worst-case block fits the
-Parachain Service's accumulate gas allocation.
-
-The queue is bounded. No caller can fill it to delay another's operation. A
-reclaim and a recovery step are not delayed by other work.
+provider of the message variants it sends.
 
 The parachain-system pallet checks the inherent `(anchor, proof, para head,
 parachain_log, incoming_transfers)` against the state root after the anchor
@@ -612,27 +658,25 @@ Asset Hub.
 ### 4.1 Lease (Supervisor-Managed Allocation)
 
 A lease is a token transfer to the target service's supervisor balance.
-Precondition: the Parachain Service is the target's effective supervisor.
+Precondition: the Parachain Service is the target's effective supervisor, and
+the target has a service account (§3.2).
 
 ```
 Phase 1: Offer        Any token holder or governance calls
                       `offer_lease(target, amount, duration, ..)`.
                       `amount` is held on the approver's account.
-Phase 2: Accept       The target's service account (§3.2) calls
-                      `accept_lease(id)`. `pallet-jamkb` moves the
-                      allocation to Delivering and queues a TransferOut
-                      crediting the target's supervisor balance (§3.4).
+Phase 2: Accept       The target's service account calls `accept_lease(id)`
+                      (§3.2). The pallet queues a TransferOut crediting the
+                      target's supervisor balance (§3.4).
 Phase 3: Submit       pallet-parachain-system sends the TransferOut via
                       `send_upward_message` (§3.4).
-Phase 4: Confirm      Any party can call `settle(op_id)` on the pallet (§2).
+Phase 4: Confirm      Any party can call `settle(op_id)` on the pallet (§3.2).
                       The output:
                       Confirmed: the credit sits on the target's supervisor
-                      balance; the units stay held under `Leased` on the
-                      approver's account, backing the lease (§5); the
-                      allocation moves to Delivered.
-                      Failed: JAM rejected the transfer; the hold on the
-                      approver is released (§5); the allocation is back to
-                      Approved.
+                      balance; the units stay held, backing the lease;
+                      the allocation moves to Delivered.
+                      Failed: JAM rejected the transfer; the allocation is
+                      back to Approved; the hold stays.
 ```
 
 ### 4.2 Permanent Release
@@ -649,22 +693,20 @@ adapter sells the units on the Hub, and the buyer releases them.
 Governance releases units from DAO custody.
 
 ```
-Phase 1: Approve      Governance calls `approve_release(target, amount, ..)`;
-                      `amount` is held under `Released` in pallet custody
-                      (§3.3).
+Phase 1: Approve      Governance calls `approve_release(target, amount, ..)`
+                      (§3.2); `amount` is held on custody.
 Phase 2: Execute      Any signed account calls `execute_release(id)` (§3.2).
-                      The pallet moves the allocation to Delivering and queues
-                      a TransferOut crediting the target's regular balance
-                      (§3.4).
+                      The pallet queues a TransferOut crediting the target's
+                      regular balance (§3.4).
 Phase 3: Submit       pallet-parachain-system sends the TransferOut via
                       `send_upward_message` (§3.4).
-Phase 4: Confirm      Any party can call `settle(op_id)` on the pallet (§2).
+Phase 4: Confirm      Any party can call `settle(op_id)` on the pallet (§3.2).
                       The output:
                       Confirmed: the credit sits on the target's regular
-                      balance, outside DAO control; the units stay held
-                      under `Released`; the allocation moves to Delivered.
-                      Failed: JAM rejected the transfer; the hold is released;
-                      the allocation is back to Approved.
+                      balance, outside DAO control; the units move to the
+                      `released` account; the allocation moves to Delivered.
+                      Failed: JAM rejected the transfer; the allocation is
+                      back to Approved; the hold stays.
 ```
 
 #### 4.2.2 Holder-initiated Release
@@ -673,19 +715,17 @@ Any holder of spendable units may release their own units to a JAM service,
 bypassing governance:
 
 ```
-Phase 1: Redeem       Holder calls `redeem(amount, dest)` (§3.2). The pallet
-                      places a hold on the holder's units (§3.3) and queues a
-                      TransferOut crediting the target's regular balance
-                      (§3.4).
+Phase 1: Redeem       Holder calls `redeem(amount, target)` (§3.2). The pallet
+                      places a hold on the holder's units (§3.3) and
+                      queues a TransferOut crediting the target's regular
+                      balance (§3.4).
 Phase 2: Submit       pallet-parachain-system sends the TransferOut via
                       `send_upward_message` (§3.4).
-Phase 3: Confirm      Any party can call `settle(op_id)` on the pallet (§2).
+Phase 3: Confirm      Any party can call `settle(op_id)` on the pallet (§3.2).
                       The output:
                       Confirmed: the credit sits on the target's regular
-                      balance; the held units move into the pallet's custody,
-                      accounted under `Released` (§3.3).
-                      Failed: JAM rejected the transfer; the hold on the
-                      holder's units is released.
+                      balance; the units move to the `released` account.
+                      Failed: JAM rejected the transfer; the hold is released.
 ```
 
 ### 4.3 Lease Return
@@ -696,52 +736,51 @@ Full return, cooperative (the standard end of a lease).
 Phase 1: Shrink       Target deletes its own state until its residual footprint
                       is covered by its own balance.
 Phase 2: Reclaim      The approver or the target's service account calls
-                      `reclaim`; the pallet queues a TransferOut debiting the
-                      target's supervisor balance by the requested amount
-                      (§3.4). A partial amount is legal.
+                      `reclaim` (§3.2); the pallet queues a TransferOut
+                      debiting the target's supervisor balance by the
+                      requested amount (§3.4). A partial amount is legal.
 Phase 3: Submit       pallet-parachain-system sends the TransferOut via
                       `send_upward_message` (§3.4). It fails if, after the
                       debit, balance + supervisor_balance < the threshold
                       balance.
-Phase 4: Confirm      Any party can call `settle(op_id)` on the pallet (§2).
+Phase 4: Confirm      Any party can call `settle(op_id)` on the pallet (§3.2).
                       The output:
-                      Confirmed: that much of the `Leased` hold on the
-                      approver is released (§5); at zero the lease moves to
-                      Closed; unsupervise(target) may then be called.
+                      Confirmed: `amount` is released from the hold; a
+                      fully returned lease moves to Closed; once every lease
+                      on the target is Closed, unsupervise(target) may be
+                      called.
                       Failed: JAM rejected the transfer; the lease moves to
-                      Reclaiming.
+                      Reclaiming (`Reclaim`, §3.2).
 ```
 
 Full return, non-cooperative. Entered when a reclaim has failed, leaving the
-lease `Reclaiming`.
+lease `Reclaiming`. A target is in recovery.
 
 Supervision gives the pallet full power over the target, including cleaning
-its state and ejecting it. Any signed account runs the recovery;
-`cleanup_storage`, `forget_preimage` and `eject_target` are bonded with a
-deposit (§3.2). For a governance-approved lease, governance may fund the work
-as a treasury bounty:
+its state and ejecting it. The approver, the target's service account or
+governance runs the recovery; `cleanup_storage`, `forget_preimage` and
+`eject_target` are bonded with a deposit (§3.2). For a governance-approved
+lease, governance may fund the work as a treasury bounty:
 
 ```
-Phase 1: Freeze       Anyone submits `freeze_target` (§3.2) while the lease is
-                      Reclaiming.
-Phase 2: Cleanup      Anyone submits `cleanup_storage` pages (§3.2), and
+Phase 1: Freeze       The approver submits `freeze_target` (§3.2).
+Phase 2: Cleanup      The approver submits `cleanup_storage` pages (§3.2), and
                       `forget_preimage` for every preimage except the
                       target's code preimage.
                       The exit fork:
                       (a) RESTORE: once the target's own balance covers its
                           reduced footprint, the leased balance returns via
-                          the cooperative flow above; the approver or
+                          the cooperative flow above; the service account or
                           governance calls `unfreeze_target` (§3.2);
                           unsupervise(target) ends the enforced cleanup,
                           leaving the target self-supervised.
                       (b) TERMINATE: continue below.
 Phase 3: Forget       The approver or governance discards the code preimage:
-                      `forget_preimage`; eject fails `NotEmpty` until the
-                      preimage is expunged.
-Phase 4: Eject        Anyone submits `eject_target` (§3.2).
+                      `forget_preimage` (§3.2).
+Phase 4: Eject        The approver submits `eject_target` (§3.2).
 Phase 5: Confirm      The eject settles by a `settle(op_id)` call on the
-                      pallet (§6.1); the lease-return hold is released (§5);
-                      the lease moves to Closed.
+                      pallet (§3.2); the holds of the target's leases are
+                      released; the leases move to Closed.
 ```
 
 - Storage keys are not recoverable from JAM state. They are tracked from the
@@ -755,84 +794,46 @@ Service.
 
 ```
 Phase 1: Submit       A service sends a deferred transfer to the Parachain
-                      Service (memo = return attribution, §6.2); the Parachain
-                      Service queues it in `incoming_transfers`.
-Phase 2: Claim        The pallet processes the entry in the queue (§3.4). The
-                      output:
-                      Valid memo (§6.2): the amount is booked as custodial for
-                      the named Asset Hub account (§5); the beneficiary
-                      collects it with the permissionless `claim` (§3.2).
+                      Service (memo = the beneficiary account, §5.2); the
+                      Parachain Service queues it in `incoming_transfers`.
+Phase 2: Claim        The pallet books the entry (§3.4). The output:
+                      Valid memo (§5.2): the amount is booked as custodial for
+                      the named Asset Hub account (`Custodial`, §3.2); the
+                      beneficiary collects it with the permissionless `claim`
+                      (§3.2).
                       Missing or malformed memo: the amount is booked as
-                      excess (§5), recorded with its source; a refund to the
-                      source is a governance disposition (`dispose_excess`,
-                      §3.2).
-```
-
-- The Parachain Service cannot refuse an incoming transfer. JAM credits the
-  destination before its code runs. Its only decision is whether the transfer is
-  recorded. The queue's reserved portion (`MAX_INCOMING_TRANSFERS`) records
-  unconditionally. Beyond it the queue is self-funding: an entry is recorded
-  only if the transferred `amount` covers its own queue-slot cost. Below that
-  floor the funds are kept but the transfer goes unrecorded. Without a
-  governance action they stay unusable.
-
----
-
-## 5. Cap & Backing Accounting
-
-Conservation:
-
-```
-CAP  =  reserve + locked + teleported
-
-reserve        =  spendable balances and undistributed custody on Asset Hub
-locked         =  in_flight_out + leased + released; every locked unit is
-                  held, on custody or on a lease approver's account (§3.3)
-teleported     =  the XCM checking account's balance: units teleported to the
-                  Coretime chain (§3.1), not spendable on Asset Hub.
-
-where
-  in_flight_out  =  deferred transfers whose source has been charged and whose
-                    target is not yet credited
-  leased         =  units backing active leases, held on approvers' accounts
-  released       =  permanently released units, including leases closed
-                    without being fully returned (`close_lease`); `excess` and
-                    `custodial` are the parts booked from returns (§4.4)
-  excess         =  the unattributed part of the Parachain Service balance
-                    (bad-memo returns, donations, eject surplus above
-                    `leased`)
-  custodial      =  the claimant-reserved part: a sourced return awaiting its
-                    beneficiary
+                      excess (`Excess`, §3.2), recorded with its source; a
+                      refund to the source is a governance disposition
+                      (`dispose_excess`, §3.2).
 ```
 
 ---
 
-## 6. Message Protocol
+## 5. Message Protocol
 
-### 6.1 Operations, Correlation
+### 5.1 Operations, Correlation
 
 An `OperationId` is unique and never reused. A failed operation is terminal;
 a retry creates a new operation with a new id.
 
-A `Delivery`, `Redemption`, `Reclaim` or `Refund` correlates by id: its
-`TransferOut` carries the `OperationId` as its `id` field, and a
+A `Delivery`, `Increase`, `Redemption`, `Reclaim` or `Refund` correlates by
+id: its `TransferOut` carries the `OperationId` as its `id` field, and a
 `TransferFailed { id }` entry points directly at the failed operation.
 
-A recovery operation carries no id on the wire. The Parachain Service keys its
-failure entries by service (`ServiceStoreFailed`, `ServiceEjectFailed`,
-`ServiceSupervisorFailed`), so it correlates by its target and the class of the
-entry. The pallet keeps at most one unsettled operation per target. An
-operation is unsettled from the moment it is recorded until `settle` drops it.
-The checks run at the call, not at the send.
+A recovery operation has no id in its message. Its failure entry
+(`ServiceStoreFailed`, `ServiceEjectFailed`, `ServiceSupervisorFailed`,
+`ServiceCodeFailed`) names the service, so it correlates by target and entry
+class. The pallet keeps at most one unsettled operation per allocation and at
+most one unsettled recovery operation per target.
 
-### 6.2 Memo Requirements
+### 5.2 Memo Requirements
 
 JAM transfer memos are 128 octets. A voluntary return carries the beneficiary
 account in it. The exact layout is to be defined.
 
 ---
 
-## 7. References
+## 6. References
 
 - [Referendum 1926](https://polkadot.polkassembly.io/referenda/1926):
   burn of all DAO proceeds from JAMKB; no grants, gifts, or below-market loans
