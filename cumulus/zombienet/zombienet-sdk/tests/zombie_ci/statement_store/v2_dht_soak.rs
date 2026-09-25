@@ -54,8 +54,9 @@ const DEFAULT_SOAK_SECS: u64 = 900;
 /// the rest.
 const NODES_ENV: &str = "STATEMENT_V2_SOAK_NODES";
 const DEFAULT_NODES: usize = 12;
-/// Outbound statement peer-set slots in `sc-network-statement`.
-const STATEMENT_SET_PEER_LIMIT: usize = 50;
+const STATEMENT_SET_PEER_LIMIT: usize = 100;
+const CONNECTED_PEER_MARGIN: usize = 5;
+const STATEMENT_TTL: Duration = Duration::from_secs(900);
 const AUTHORING_COLLATORS: [&str; 4] = ["alice", "bob", "charlie", "dave"];
 const REPLICATION_FACTOR: usize = 8;
 const GOSSIP_TARGET: u32 = 3;
@@ -326,7 +327,8 @@ async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
 	// them, and the load needs the connections that follow from it.
 	let topology_timeout = 300 + 5 * statement_node_count as u64;
 	let eligible_floor = (statement_node_count - 1) as f64;
-	let connected_floor = (statement_node_count - 1).min(STATEMENT_SET_PEER_LIMIT) as f64;
+	let connected_floor =
+		(statement_node_count - 1).min(STATEMENT_SET_PEER_LIMIT - CONNECTED_PEER_MARGIN) as f64;
 	for handle in &nodes {
 		handle
 			.node
@@ -348,7 +350,7 @@ async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
 
 	let peer_keys = collect_peer_keys(&nodes).await?;
 
-	let mut load = Load::new(PARTICIPANTS);
+	let mut load = Load::expiring(PARTICIPANTS, STATEMENT_TTL);
 	let soak_started = Instant::now();
 	let mut wave: u64 = 0;
 	let mut total_statements = 0usize;

@@ -51,7 +51,7 @@ jobs:
     name: ${{ matrix.test.job-name }}
     runs-on: parity-zombienet
     # Spawning the pods and then soaking them takes a while.
-    timeout-minutes: 150
+    timeout-minutes: 210
     needs: [preflight]
     container:
       image: docker.io/paritytech/zombienet:v1.3.140
@@ -90,7 +90,7 @@ jobs:
           echo "CUMULUS_IMAGE=docker.io/paritypr/${CUMULUS_IMAGE_NAME}:${version}" >> "$GITHUB_ENV"
 
       - name: zombienet_test
-        timeout-minutes: 140
+        timeout-minutes: 200
         uses: ./.github/actions/zombienet-sdk
         with:
           test-filter: ${{ matrix.test.test-filter }}
