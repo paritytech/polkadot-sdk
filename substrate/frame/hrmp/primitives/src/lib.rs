@@ -359,62 +359,33 @@ pub type Outcome = Result<(), FailureReason>;
 pub enum FailureReason {
 	/// One of the two paras is not one the relay chain will open a channel for.
 	#[codec(index = 0)]
-	InvalidPara,
-	/// The requested capacity or message size is outside the relay chain's configured limits.
-	#[codec(index = 1)]
-	InvalidParameters,
-	/// A request for this channel is already recorded, or the channel already exists.
-	#[codec(index = 2)]
-	AlreadyExists,
-	/// The para has as many channels or pending requests as the relay chain allows.
-	#[codec(index = 3)]
-	LimitExceeded,
-	/// There is no request or channel here to act on.
-	#[codec(index = 4)]
-	NotFound,
-	/// Refused for a reason this protocol does not name.
-	#[codec(index = 5)]
-	Refused,
+	TODO,
 }
 
-/// The relay chain's HRMP channel registry, as `pallet-hrmp-relay` needs to see it.
+/// One channel, as it arrives at the destination from the chain that used to hold its deposits.
 ///
-/// Implemented by whichever pallet owns HRMP, which on a relay chain is
-/// `polkadot-runtime-parachains`' `hrmp`. Lives here so neither side of the protocol depends on
-/// the other.
+/// Carries no deposit. [`ReceiveMigratedChannels::receive_channel`] takes the sender's, and for a
+/// confirmed channel the recipient's, deposit at the destination's own prices.
 ///
-/// Implementations are not required to be atomic on failure, so the caller runs every method
-/// inside its own storage layer.
-pub trait HrmpRegistry {
-	/// Open a channel, forced or agreed. Both cases are the same here.
-	#[allow(clippy::result_unit_err)]
-	fn open_channel(channel: ChannelId, max_capacity: u32, max_message_size: u32)
-		-> Result<(), ()>;
+/// Note: We recreate even if there is not enough fund to pay for the deposit so no RC channel
+/// is dropped.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
+pub struct MigratedChannel {
+	/// Which channel.
+	pub channel: ChannelId,
+	/// Whether the source chain has the channel itself, or only an open request the recipient
+	/// has not accepted.
+	pub confirmed: bool,
+}
 
-	/// Open one direction between two system chains, returning the sizes it used.
-	#[allow(clippy::result_unit_err)]
-	fn open_system_channel(channel: ChannelId) -> Result<(u32, u32), ()>;
+/// Takes migrated channels into the pallet that owns HRMP on the destination.
+pub trait ReceiveMigratedChannels {
+	/// Take one channel, charging its deposits at this chain's prices.
+	fn receive_channel(channel: MigratedChannel) -> sp_runtime::DispatchResult;
+}
 
-	/// Open both `channel` and its reverse, rolling both back if either is refused.
-	#[allow(clippy::result_unit_err)]
-	fn open_system_pair(
-		channel: ChannelId,
-		max_capacity: u32,
-		max_message_size: u32,
-	) -> Result<(), ()>;
-
-	/// Close an open channel. `initiator` must be one of its two ends.
-	#[allow(clippy::result_unit_err)]
-	fn close_channel(channel: ChannelId, initiator: ParaId) -> Result<(), ()>;
-
-	/// Drop every channel belonging to `para_id`, refusing a witness that does not cover them.
-	#[allow(clippy::result_unit_err)]
-	fn force_clean(para_id: ParaId, num_inbound: u32, num_outbound: u32) -> Result<(), ()>;
-
-	/// Whether there is a channel or a pending request for `channel`.
-	fn exists(channel: ChannelId) -> bool;
-
-	/// Arrange for `channel` to be openable, so the request paths can be benchmarked.
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_openable(channel: ChannelId);
+impl ReceiveMigratedChannels for () {
+	fn receive_channel(_: MigratedChannel) -> sp_runtime::DispatchResult {
+		Err(sp_runtime::DispatchError::Unavailable)
+	}
 }
