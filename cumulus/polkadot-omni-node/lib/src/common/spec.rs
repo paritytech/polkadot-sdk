@@ -27,7 +27,7 @@ use crate::{
 		},
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
-	nodes::jam::block_import::JamBlockImport,
+	nodes::jam::{block_import::JamBlockImport, package_sync::ImportedPovs},
 };
 use codec::Encode;
 use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
@@ -249,7 +249,7 @@ pub(crate) trait BaseNodeSpec {
 	/// orphan that worker by dropping its queue.
 	fn new_partial(
 		config: &Configuration,
-		jam: bool,
+		jam: Option<ImportedPovs<Self::Block>>,
 	) -> sc_service::error::Result<
 		ParachainService<
 			Self::Block,
@@ -327,10 +327,10 @@ pub(crate) trait BaseNodeSpec {
 		// the life of the node, so on the JAM path it must be built over the `JamBlockImport`
 		// re-execution wrapper (task 12) — never built once and rebuilt after, which would orphan
 		// that worker by dropping its queue.
-		let import_queue = if jam {
+		let import_queue = if let Some(imported_povs) = jam {
 			Self::BuildImportQueue::build_import_queue(
 				client.clone(),
-				JamBlockImport::new(block_import.clone(), client.clone()),
+				JamBlockImport::new(block_import.clone(), client.clone(), Some(imported_povs)),
 				config,
 				telemetry.as_ref().map(|telemetry| telemetry.handle()),
 				&task_manager,
@@ -426,7 +426,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let parachain_fork_id = parachain_config.chain_spec.fork_id().map(ToString::to_string);
 			let advertise_non_global_ips = parachain_config.network.allow_non_globals_in_dht;
 
-			let params = Self::new_partial(&parachain_config, false)?;
+			let params = Self::new_partial(&parachain_config, None)?;
 			let (
 				block_import,
 				mut telemetry,

@@ -1,0 +1,35 @@
+[package]
+name = "cumulus-jam-package-sync"
+description = "Collator-to-collator JAM work-package sync: the bytes-only package-info request/response protocol."
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license = "Apache-2.0"
+# Std-only networking crate (it uses `sc-network`, which is not `no_std`).
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+array-bytes = { workspace = true, default-features = true }
+async-channel = { workspace = true }
+async-trait = { workspace = true }
+codec = { workspace = true, default-features = true }
+futures = { workspace = true }
+futures-timer = { workspace = true }
+parking_lot = { workspace = true }
+schnellru = { workspace = true }
+tracing = { workspace = true, default-features = true }
+
+# Substrate
+sc-authority-discovery = { workspace = true, default-features = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-network-types = { workspace = true, default-features = true }
+sp-authority-discovery = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }

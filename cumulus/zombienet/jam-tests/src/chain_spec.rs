@@ -185,14 +185,15 @@ mod tests {
 	}
 
 	/// The `with-authority-discovery` flavor's session key map carries
-	/// `{aura, authority_discovery}`. The rewrite replaces the account, the validator id and the
-	/// aura key, but must leave the second field — and any other the runtime names — exactly as
-	/// the preset wrote it, rather than dropping it and producing an undecodable genesis.
+	/// `{aura, authority_discovery}` over the same raw sr25519 key. The rewrite sets both to the
+	/// running collator's account — the aura set and the AD set have to stay index-aligned — and
+	/// keeps the entry shape, rather than dropping the second field and producing an undecodable
+	/// genesis.
 	#[test]
-	fn a_second_session_key_beside_aura_is_preserved() {
-		let discovery = ss58(Sr25519Keyring::Charlie.public());
+	fn authority_discovery_beside_aura_is_set_to_the_same_collator() {
 		let mut spec = preset(2);
-		spec["session"]["keys"][0][2]["authority_discovery"] = json!(discovery);
+		spec["session"]["keys"][0][2]["authority_discovery"] =
+			json!(ss58(Sr25519Keyring::Charlie.public()));
 		assert!(ensure_patchable(&spec).is_ok(), "a second session key is not a reason to refuse");
 
 		rewrite_preset(&mut spec, 0, &["alice".to_string()]).unwrap();
@@ -202,11 +203,29 @@ mod tests {
 		assert_eq!(entry[1], alice);
 		assert_eq!(entry[2]["aura"], alice);
 		assert_eq!(
-			entry[2]["authority_discovery"],
-			json!(discovery),
-			"the other field is untouched",
+			entry[2]["authority_discovery"], alice,
+			"authority discovery is the same collator account as aura",
 		);
 		assert_eq!(spec["session"]["keys"].as_array().unwrap().len(), 1, "sized to the collators");
+	}
+
+	/// A collator the preset does not name is appended with the preset's own entry shape:
+	/// `authority_discovery` too, when the runtime's `SessionKeys` names it, so an AD runtime's
+	/// appended collator is not left without an AD key.
+	#[test]
+	fn an_appended_collator_gets_the_presets_session_key_shape() {
+		let mut spec = preset(1);
+		spec["session"]["keys"][0][2]["authority_discovery"] =
+			json!(ss58(Sr25519Keyring::Alice.public()));
+		assert!(ensure_patchable(&spec).is_ok());
+
+		rewrite_preset(&mut spec, 0, &["alice".to_string(), "bob".to_string()]).unwrap();
+		let bob = json!(ss58(Sr25519Keyring::Bob.public()));
+		let appended = &spec["session"]["keys"][1];
+		assert_eq!(appended[0], bob);
+		assert_eq!(appended[1], bob);
+		assert_eq!(appended[2]["aura"], bob);
+		assert_eq!(appended[2]["authority_discovery"], bob, "the appended entry keeps the shape");
 	}
 
 	/// The other half of the assumption: the rewrite writes the account into both the account and
@@ -348,10 +367,14 @@ fn rewrite_preset(patch: &mut Value, para_id: u32, collators: &[String]) -> anyh
 /// One authority per running collator, in whichever storage the preset seeds.
 ///
 /// With `session.keys` the list is rewritten in place: the account, the validator id and the
-/// `aura` key become the running collator's, while every other field of the session key map —
-/// `with-authority-discovery`'s `authority_discovery` — is left as the preset wrote it. The list
-/// is then sized to the running collators, dropping trailing preset entries and appending
-/// aura-only ones for collators the preset does not name.
+/// `aura` key become the running collator's. When the runtime's `SessionKeys` also carries
+/// `authority_discovery` — `cumulus-test-runtime --features with-authority-discovery` seeds it,
+/// deriving both keys from the same raw sr25519 public — that key is set to the same collator
+/// account, because the same account string is a valid `AuraId` and `AuthorityDiscoveryId` and
+/// the aura and AD sets have to stay index-aligned. A runtime whose `SessionKeys` has no
+/// `authority_discovery` (the parachain template) keeps its entry shape, so no key the runtime
+/// cannot decode is invented. The list is then sized to the running collators, dropping trailing
+/// preset entries and appending entries shaped like the preset's for collators it does not name.
 ///
 /// A preset with no `session.keys` seeds `pallet_aura` directly, and there the authorities are
 /// simply the running collators.
@@ -361,6 +384,16 @@ fn set_authorities(patch: &mut Value, accounts: &[String]) -> anyhow::Result<()>
 		.and_then(|session| session.get_mut("keys"))
 		.and_then(Value::as_array_mut)
 	{
+		// Which keys a session entry carries is the runtime's `SessionKeys`: the AD flavor names
+		// `authority_discovery` as well as `aura`, the template names `aura` alone. Read it off
+		// the preset's own entries so an appended entry has the same shape and the rewrite never
+		// invents a key the runtime cannot decode.
+		let with_authority_discovery = entries
+			.iter()
+			.filter_map(Value::as_array)
+			.filter_map(|triple| triple.get(2))
+			.filter_map(Value::as_object)
+			.any(|keys| keys.contains_key("authority_discovery"));
 		for (index, account) in accounts.iter().enumerate() {
 			if let Some(entry) = entries.get_mut(index) {
 				if let Some(triple) = entry.as_array_mut() {
@@ -368,10 +401,18 @@ fn set_authorities(patch: &mut Value, accounts: &[String]) -> anyhow::Result<()>
 					triple[1] = json!(account);
 					if let Some(keys) = triple.get_mut(2).and_then(Value::as_object_mut) {
 						keys.insert("aura".to_string(), json!(account));
+						if with_authority_discovery {
+							keys.insert("authority_discovery".to_string(), json!(account));
+						}
 					}
 				}
 			} else {
-				entries.push(json!([account, account, { "aura": account }]));
+				let mut keys = serde_json::Map::new();
+				keys.insert("aura".to_string(), json!(account));
+				if with_authority_discovery {
+					keys.insert("authority_discovery".to_string(), json!(account));
+				}
+				entries.push(json!([account, account, keys]));
 			}
 		}
 		entries.truncate(accounts.len());

@@ -24,6 +24,10 @@
 //! The policy is stateless: every package's own counters live in the manager's entry for it and
 //! are handed in. Since phase 5a they are also all it needs — packages no longer depend on each
 //! other, so the decision for one says nothing about any other.
+//!
+//! The same policy drives *foreign* packages this collator verified through the sync path: an
+//! unreported one is resent byte-identically, and one whose anchor expired is forgotten, which is
+//! what makes another collator's lost block recoverable by a non-author.
 
 use jam_interface::{Slot as JamSlot, WorkPackageStatus};
 

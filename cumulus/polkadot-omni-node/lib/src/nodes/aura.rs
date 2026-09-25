@@ -290,7 +290,7 @@ where
 			select_chain: _,
 			transaction_pool,
 			other: (_, mut telemetry, _, _, _),
-		} = Self::new_partial(&config, false)?;
+		} = Self::new_partial(&config, None)?;
 
 		// Since this is a dev node, prevent it from connecting to peers.
 		config.network.default_peers_set.in_peers = 0;
@@ -544,7 +544,7 @@ where
 			ref statement_store_config,
 			ref storage_monitor,
 			ref hop,
-			collator_reserved_slots: _,
+			collator_reserved_slots,
 		} = node_extra_args;
 
 		// Warn about args that have no effect in the JAM PoC.
@@ -564,6 +564,12 @@ where
 			log::warn!("Offchain workers are not supported in JAM mode yet.");
 		}
 
+		// The import-recorded PoVs, shared with the import queue built below and the builder's own
+		// import wrapper. Created before `new_partial` so the queue's `JamBlockImport` records
+		// into it.
+		let imported_povs =
+			jam::package_sync::ImportedPovs::new(jam::package_sync::IMPORTED_POVS_CAPACITY);
+
 		let PartialComponents {
 			client,
 			backend,
@@ -573,19 +579,49 @@ where
 			select_chain: _,
 			transaction_pool,
 			other: (block_import, mut telemetry, _, _, _),
-		} = Self::new_partial(&config, true)?;
+		} = Self::new_partial(&config, Some(imported_povs.clone()))?;
 
 		// The JAM import path (task 12): wrap the inner import so every block that re-executes on
 		// import does so with the carried JAM state proof registered. The import queue
 		// `new_partial` built is already over this wrapper, so network imports take that path too
 		// and the essential `basic-block-import-worker` it spawned is never orphaned.
-		let block_import =
-			jam::block_import::JamBlockImport::new(block_import.clone(), client.clone());
-
-		let net_config = FullNetworkConfiguration::<_, _, sc_network::Litep2pNetworkBackend>::new(
-			&config.network,
-			None,
+		let block_import = jam::block_import::JamBlockImport::new(
+			block_import.clone(),
+			client.clone(),
+			Some(imported_povs.clone()),
 		);
+
+		let genesis_hash = client.chain_info().genesis_hash;
+		let fork_id = config.chain_spec.fork_id().map(ToString::to_string);
+		let is_authority = config.role.is_authority();
+		let package_sync = is_authority && collator_reserved_slots > 0;
+
+		let info_protocol: sc_network::ProtocolName =
+			jam_package_sync::protocol::protocol_name(genesis_hash, fork_id.as_deref()).into();
+		let (info_protocol_config, info_requests) =
+			jam_package_sync::protocol::request_response_config::<
+				_,
+				Block,
+				sc_network::Litep2pNetworkBackend,
+			>(genesis_hash, fork_id.as_deref());
+
+		let mut net_config =
+			FullNetworkConfiguration::<_, _, sc_network::Litep2pNetworkBackend>::new(
+				&config.network,
+				None,
+			);
+		// Only collators speak the package-info protocol: a node that is not an authority with
+		// reserved collator slots has no packages to serve and must not accept collator traffic.
+		if package_sync {
+			net_config.add_request_response_protocol(info_protocol_config);
+		}
+
+		// Captured before `config` moves into `spawn_tasks` and `network` there too.
+		let allow_non_globals_in_dht = config.network.allow_non_globals_in_dht;
+		let public_addresses = config.network.public_addresses.clone();
+		let net_config_path = config.network.net_config_path.clone();
+		let prometheus_registry = config.prometheus_registry().cloned();
+
 		let metrics = NotificationMetrics::new(None);
 		let import_queue_service = import_queue.service();
 
@@ -604,9 +640,11 @@ where
 				metrics,
 			})?;
 
+		let discovery_network = network.clone();
+		let discovery_sync = sync_service.clone();
+
 		let para_id =
 			Self::parachain_id(&client, &config).ok_or("Failed to retrieve the parachain id")?;
-		let is_authority = config.role.is_authority();
 		let announce_block = {
 			let sync_service = sync_service.clone();
 			Arc::new(move |hash, data| sync_service.announce_block(hash, data))
@@ -695,7 +733,62 @@ where
 			None
 		};
 
+		// The package-sync store: the collation task fills it for this node's own packages, the
+		// fetcher fills it for verified foreign ones.
+		let store = Arc::new(jam_package_sync::store::PackageInfoStore::new(256));
+
+		// Package sync runs over the authority-discovery service. Only a collator with reserved
+		// slots starts it; without it the protocols are configured but unanswered.
+		let collator_discovery = if is_authority && collator_reserved_slots > 0 {
+			let service = cumulus_client_collator_discovery::start_collator_discovery(
+				cumulus_client_collator_discovery::StartCollatorDiscoveryParams {
+					max_reserved: collator_reserved_slots,
+					client: client.clone(),
+					authority_discovery: client.clone(),
+					network: discovery_network.clone(),
+					sync_service: discovery_sync.clone(),
+					network_event_stream: discovery_network
+						.event_stream("jam-package-authority-discovery"),
+					keystore: keystore_container.keystore(),
+					genesis_hash,
+					fork_id: fork_id.clone(),
+					publish_non_global_ips: allow_non_globals_in_dht,
+					public_addresses: public_addresses.clone(),
+					persisted_cache_directory: net_config_path.clone(),
+					prometheus_registry: prometheus_registry.clone(),
+					spawn_handle: task_manager.spawn_handle(),
+				},
+			)
+			.map_err(|error| sc_service::Error::Application(Box::new(error)))?;
+			Some(service)
+		} else {
+			log::warn!(
+				"JAM package sync disabled: this node is not a collator with reserved slots, so it \
+				 will not ask peers for work-package metadata and cannot resubmit their packages."
+			);
+			None
+		};
+
+		if let Some(service) = &collator_discovery {
+			let info_handler = jam_package_sync::handler::PackageInfoRequestHandler::new(
+				store.clone(),
+				service.clone(),
+				info_requests,
+			);
+			task_manager.spawn_handle().spawn(
+				"jam-package-info-handler",
+				Some("jam"),
+				Box::pin(info_handler.run()),
+			);
+		}
+
 		let jam_init = {
+			let discovery_network = discovery_network.clone();
+			let collator_discovery = collator_discovery.clone();
+			let info_protocol = info_protocol.clone();
+			let store = store.clone();
+			let imported_povs = imported_povs.clone();
+			let spawn = task_manager.spawn_handle();
 			let client = client.clone();
 			let para_backend = backend.clone();
 			let keystore = keystore_container.keystore();
@@ -821,6 +914,48 @@ where
 					return futures::future::pending::<()>().await;
 				};
 
+				// The service settings are read once and shared by the authoring path and the
+				// foreign-package acceptor, so both assemble byte-identical work items.
+				let package_params =
+					jam::package::read_package_params(&*jam, jam_params.service_id).await;
+
+				let (foreign_tx, foreign_rx) = futures::channel::mpsc::channel(64);
+				let dead = jam::DeadBlocks::new();
+				let targets = Arc::new(jam::package_sync::AuraPeerTargets::<
+					Block,
+					RuntimeApi,
+					AuraId,
+				>::new(client.clone(), keystore.clone()));
+
+				if let Some(service) = collator_discovery.clone() {
+					let acceptor = Arc::new(jam::package_sync::JamPackageAcceptor {
+						para_client: client.clone(),
+						para_backend: para_backend.clone(),
+						jam: jam.clone(),
+						params: package_params.clone(),
+						authorizer: jam_authorizer.clone(),
+						imported: imported_povs.clone(),
+						store: store.clone(),
+						ledger: jam::hash_ledger::WpHashLedger::new(client.clone()),
+						foreign_tx,
+					});
+					spawn.spawn(
+						"jam-package-info-fetcher",
+						Some("jam"),
+						Box::pin(jam_package_sync::fetcher::run_package_info_fetcher(
+							jam_package_sync::fetcher::PackageFetcherParams {
+								network: discovery_network.clone(),
+								authority_discovery: service.clone(),
+								info_protocol: info_protocol.clone(),
+								client: client.clone(),
+								targets: targets.clone(),
+								acceptor,
+								_marker: PhantomData,
+							},
+						)),
+					);
+				}
+
 				wait_for_aura::<Block, RuntimeApi, AuraId>(client.clone()).await;
 				let (message_sender, message_receiver) = futures::channel::mpsc::channel(4);
 				let hold = jam::AuthoringHold::new();
@@ -846,6 +981,7 @@ where
 						jam: jam.clone(),
 						message_sender,
 						hold: hold.clone(),
+						dead: dead.clone(),
 					})),
 				);
 				spawn_essential.spawn_essential(
@@ -860,7 +996,12 @@ where
 							service_id: jam_params.service_id,
 							authorizer: jam_authorizer,
 							message_receiver,
+							foreign_rx,
 							announce_block,
+							store,
+							params: package_params,
+							dead,
+							imported: imported_povs,
 							hold,
 						},
 					)),

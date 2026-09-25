@@ -5232,6 +5232,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-jam-package-sync"
+version = "0.1.0"
+dependencies = [
+ "array-bytes 6.2.2",
+ "async-channel 1.9.0",
+ "async-trait",
+ "futures",
+ "futures-timer",
+ "parity-scale-codec",
+ "parking_lot 0.12.3",
+ "sc-authority-discovery",
+ "sc-client-api 28.0.0",
+ "sc-network 0.34.0",
+ "sc-network-types 0.10.0",
+ "schnellru",
+ "sp-authority-discovery",
+ "sp-blockchain 28.0.0",
+ "sp-consensus 0.32.0",
+ "sp-runtime 31.0.1",
+ "tracing",
+]
+
+[[package]]
 name = "cumulus-jam-rpc-interface"
 version = "0.1.0"
 dependencies = [
@@ -17594,6 +17617,7 @@ dependencies = [
  "cumulus-client-parachain-inherent",
  "cumulus-client-service",
  "cumulus-jam-interface",
+ "cumulus-jam-package-sync",
  "cumulus-jam-rpc-interface",
  "cumulus-jam-state-reader",
  "cumulus-pallet-parachain-system",
@@ -17658,6 +17682,7 @@ dependencies = [
  "sc-transaction-pool",
  "sc-transaction-pool-api 28.0.0",
  "scale-info",
+ "schnellru",
  "schnorrkel 0.11.5",
  "serde",
  "serde_json",

@@ -80,6 +80,7 @@ members = [
 	"cumulus/client/resubmission-store",
 	"cumulus/client/service",
 	"cumulus/jam/interface",
+	"cumulus/jam/package-sync",
 	"cumulus/jam/rpc-interface",
 	"cumulus/jam/state-reader",
 	"cumulus/pallets/ah-ops",
@@ -115,8 +116,8 @@ members = [
 	"cumulus/parachains/integration-tests/emulated/tests/governance/westend",
 	"cumulus/parachains/integration-tests/emulated/tests/people/people-westend",
 	"cumulus/parachains/pallets/collective-content",
-	"cumulus/parachains/pallets/ping",
 	"cumulus/parachains/pallets/parachain-info",
+	"cumulus/parachains/pallets/ping",
 	"cumulus/parachains/runtimes/assets/asset-hub-rococo",
 	"cumulus/parachains/runtimes/assets/asset-hub-rococo/bridge-primitives",
 	"cumulus/parachains/runtimes/assets/asset-hub-westend",
@@ -800,6 +801,7 @@ cumulus-client-proof-size-recording = { path = "cumulus/client/proof-size-record
 cumulus-client-resubmission-store = { path = "cumulus/client/resubmission-store", default-features = false }
 cumulus-client-service = { path = "cumulus/client/service", default-features = false }
 cumulus-jam-interface = { path = "cumulus/jam/interface", default-features = false }
+cumulus-jam-package-sync = { path = "cumulus/jam/package-sync" }
 cumulus-jam-rpc-interface = { path = "cumulus/jam/rpc-interface", default-features = false }
 cumulus-jam-state-reader = { path = "cumulus/jam/state-reader", default-features = false }
 cumulus-pallet-aura-ext = { path = "cumulus/pallets/aura-ext", default-features = false }

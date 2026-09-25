@@ -122,10 +122,12 @@ pub fn collator_args(
 		Arg::Option("--jam-service-id".into(), PARACHAIN_SERVICE_ID.to_string()),
 		Arg::Option("--jam-authorizer-blob".into(), authorizer_blob.to_string()),
 		"--no-mdns".into(),
+		// Authority discovery drops loopback/private addresses unless this is set.
+		"--allow-private-ip".into(),
 		// A 7 MB code upgrade hex-encodes to ~14 MB, against the 15 MiB default.
 		Arg::Option("--rpc-max-request-size".into(), "32".into()),
 		Arg::Option("--rpc-max-response-size".into(), "32".into()),
-		"-ljam-collator=debug,jam-rpc-interface=debug".into(),
+		"-ljam-collator=debug,jam-rpc-interface=debug,jam-package-sync=debug".into(),
 	]);
 	args
 }

@@ -54,6 +54,15 @@ pub enum Verdict {
 	Forward { attempt: u32 },
 }
 
+/// How [`Attempts::record`] decides which submissions to drop.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DropPolicy {
+	/// Drop only the first sighting of each distinct work-package hash; forward every later one.
+	FirstSubmission,
+	/// Drop every sighting of every work-package hash; nothing is ever forwarded.
+	Everything,
+}
+
 /// What the proxy has seen of one work-package hash.
 #[derive(Clone, Debug)]
 pub struct Attempt {
@@ -68,22 +77,45 @@ pub struct Attempt {
 	pub package_len: usize,
 }
 
-/// Per-hash submission bookkeeping: the first submission of each hash is dropped.
-#[derive(Debug, Default)]
+/// Per-hash submission bookkeeping, governed by a [`DropPolicy`].
+#[derive(Debug)]
 pub struct Attempts {
+	policy: DropPolicy,
 	by_hash: HashMap<[u8; 32], Attempt>,
+	/// How many [`Self::record`] calls returned [`Verdict::Forward`].
+	forwarded: usize,
+}
+
+impl Default for Attempts {
+	fn default() -> Self {
+		Self::new(DropPolicy::FirstSubmission)
+	}
 }
 
 impl Attempts {
-	/// Record one submission of `hash`. The first is dropped, every later one is forwarded.
+	/// A ledger that applies `policy`.
+	pub fn new(policy: DropPolicy) -> Self {
+		Self { policy, by_hash: HashMap::new(), forwarded: 0 }
+	}
+
+	/// The policy this ledger applies.
+	pub fn policy(&self) -> DropPolicy {
+		self.policy
+	}
+
+	/// Record one submission of `hash` and return the verdict.
+	///
+	/// Under [`DropPolicy::FirstSubmission`] the first sighting of a hash is dropped and every
+	/// later one is forwarded; under [`DropPolicy::Everything`] every sighting is dropped. Either
+	/// way the sighting is counted in [`Attempt::count`].
 	pub fn record(&mut self, hash: [u8; 32], core: CoreIndex, package_len: usize) -> Verdict {
 		let now = Instant::now();
-		match self.by_hash.entry(hash) {
+		let count = match self.by_hash.entry(hash) {
 			Entry::Occupied(mut occupied) => {
 				let attempt = occupied.get_mut();
 				attempt.count += 1;
 				attempt.last_seen = now;
-				Verdict::Forward { attempt: attempt.count }
+				attempt.count
 			},
 			Entry::Vacant(vacant) => {
 				vacant.insert(Attempt {
@@ -94,9 +126,22 @@ impl Attempts {
 					core,
 					package_len,
 				});
-				Verdict::Drop
+				1
 			},
+		};
+
+		match self.policy {
+			DropPolicy::FirstSubmission if count >= 2 => {
+				self.forwarded += 1;
+				Verdict::Forward { attempt: count }
+			},
+			_ => Verdict::Drop,
 		}
+	}
+
+	/// How many [`Self::record`] calls returned [`Verdict::Forward`].
+	pub fn forwarded_count(&self) -> usize {
+		self.forwarded
 	}
 
 	/// Every tracked hash, oldest first.
@@ -112,6 +157,7 @@ pub struct DroppingProxy {
 	upstream: WsClient,
 	attempts: Arc<Mutex<Attempts>>,
 	upstream_errors: Arc<AtomicU32>,
+	policy: DropPolicy,
 }
 
 impl fmt::Debug for DroppingProxy {
@@ -153,10 +199,11 @@ impl ClientT for DroppingProxy {
 		match verdict {
 			Verdict::Drop => {
 				log::info!(
-					"swallowed the first submission wp_hash={:?} core={} package_len={}",
+					"swallowed a submission wp_hash={:?} core={} package_len={} policy={:?}",
 					WorkPackageHash(hash),
 					core,
 					package_len,
+					self.policy,
 				);
 				serde_json::from_str::<R>("null").map_err(Error::ParseError)
 			},
@@ -220,6 +267,7 @@ pub struct ProxyServer {
 	handle: Option<ServerHandle>,
 	attempts: Arc<Mutex<Attempts>>,
 	upstream_errors: Arc<AtomicU32>,
+	policy: DropPolicy,
 }
 
 impl ProxyServer {
@@ -228,11 +276,25 @@ impl ProxyServer {
 	/// Decoding a work package reads process-global protocol bounds, so fetching and applying
 	/// the upstream's parameters has to happen before the server can accept a `submitWorkPackage`.
 	pub async fn serve(upstream_url: &str) -> anyhow::Result<Self> {
-		Self::serve_on(upstream_url, "127.0.0.1:0").await
+		Self::serve_with(DropPolicy::FirstSubmission, upstream_url).await
+	}
+
+	/// Like [`Self::serve`], but with an explicit [`DropPolicy`].
+	pub async fn serve_with(policy: DropPolicy, upstream_url: &str) -> anyhow::Result<Self> {
+		Self::serve_on_with(policy, upstream_url, "127.0.0.1:0").await
 	}
 
 	/// Like [`Self::serve`], but bound to `listen_addr` instead of an ephemeral loopback port.
 	pub async fn serve_on(upstream_url: &str, listen_addr: &str) -> anyhow::Result<Self> {
+		Self::serve_on_with(DropPolicy::FirstSubmission, upstream_url, listen_addr).await
+	}
+
+	/// Like [`Self::serve_on`], but with an explicit [`DropPolicy`].
+	pub async fn serve_on_with(
+		policy: DropPolicy,
+		upstream_url: &str,
+		listen_addr: &str,
+	) -> anyhow::Result<Self> {
 		let upstream = WsClientBuilder::default()
 			.max_request_size(MAX_RPC_BODY_BYTES)
 			.max_response_size(MAX_RPC_BODY_BYTES)
@@ -247,12 +309,13 @@ impl ProxyServer {
 			.apply()
 			.map_err(|error| anyhow::anyhow!("Invalid JAM chain parameters: {error}"))?;
 
-		let attempts = Arc::new(Mutex::new(Attempts::default()));
+		let attempts = Arc::new(Mutex::new(Attempts::new(policy)));
 		let upstream_errors = Arc::new(AtomicU32::new(0));
 		let proxy = DroppingProxy {
 			upstream,
 			attempts: attempts.clone(),
 			upstream_errors: upstream_errors.clone(),
+			policy,
 		};
 
 		let server = Server::builder()
@@ -267,7 +330,7 @@ impl ProxyServer {
 		let url = format!("ws://{}", server.local_addr()?);
 		let handle = server.start(proxy.into_rpc());
 
-		Ok(Self { url, handle: Some(handle), attempts, upstream_errors })
+		Ok(Self { url, handle: Some(handle), attempts, upstream_errors, policy })
 	}
 
 	/// Serve on `listen_addr`, retrying until `upstream_url` answers, or return the last error once
@@ -281,9 +344,20 @@ impl ProxyServer {
 		listen_addr: &str,
 		timeout: std::time::Duration,
 	) -> anyhow::Result<Self> {
+		Self::serve_when_ready_with(DropPolicy::FirstSubmission, upstream_url, listen_addr, timeout)
+			.await
+	}
+
+	/// Like [`Self::serve_when_ready`], but with an explicit [`DropPolicy`].
+	pub async fn serve_when_ready_with(
+		policy: DropPolicy,
+		upstream_url: &str,
+		listen_addr: &str,
+		timeout: std::time::Duration,
+	) -> anyhow::Result<Self> {
 		let deadline = Instant::now() + timeout;
 		loop {
-			match Self::serve_on(upstream_url, listen_addr).await {
+			match Self::serve_on_with(policy, upstream_url, listen_addr).await {
 				Ok(server) => return Ok(server),
 				Err(error) => {
 					if Instant::now() >= deadline {
@@ -304,6 +378,17 @@ impl ProxyServer {
 	/// Every work-package hash the proxy has seen, oldest first.
 	pub fn snapshot(&self) -> Vec<Attempt> {
 		self.attempts.lock().unwrap().snapshot()
+	}
+
+	/// How many sightings were actually forwarded upstream, i.e. how many [`Verdict::Forward`]
+	/// verdicts [`Attempts::record`] returned.
+	pub fn forwarded_count(&self) -> usize {
+		self.attempts.lock().unwrap().forwarded_count()
+	}
+
+	/// The [`DropPolicy`] this proxy applies.
+	pub fn policy(&self) -> DropPolicy {
+		self.policy
 	}
 
 	/// How many forwarded submissions the upstream rejected.
@@ -411,6 +496,22 @@ mod tests {
 		assert_eq!(first.package_len, 100);
 		let second = snapshot.iter().find(|attempt| attempt.hash == other).expect("second hash");
 		assert_eq!(second.count, 2);
+		assert_eq!(attempts.forwarded_count(), 3);
+	}
+
+	#[test]
+	fn everything_policy_drops_every_sighting_and_counts_them() {
+		let mut attempts = Attempts::new(DropPolicy::Everything);
+		let hash = [11u8; 32];
+
+		assert_eq!(attempts.record(hash, 0, 100), Verdict::Drop);
+		assert_eq!(attempts.record(hash, 0, 100), Verdict::Drop);
+		assert_eq!(attempts.forwarded_count(), 0);
+
+		let snapshot = attempts.snapshot();
+		assert_eq!(snapshot.len(), 1);
+		assert_eq!(snapshot[0].count, 2);
+		assert_eq!(snapshot[0].package_len, 100);
 	}
 
 	#[tokio::test]
@@ -430,6 +531,7 @@ mod tests {
 			upstream,
 			attempts: Arc::new(Mutex::new(Attempts::default())),
 			upstream_errors: Arc::new(AtomicU32::new(0)),
+			policy: DropPolicy::FirstSubmission,
 		};
 
 		let package = || AnyBytes(b"the same package bytes".to_vec().into());

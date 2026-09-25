@@ -146,8 +146,7 @@ fn make_pov(
 /// it.
 fn build_bundle(extrinsics: Vec<ExtrinsicSpec>, extrinsic_data: &[u8]) -> (Vec<u8>, WorkPackage) {
 	let payload =
-		ParachainCandidate { validation_code_hash: ValidationCodeHash([0u8; 32]), pov: Vec::new() }
-			.encode();
+		ParachainCandidate { validation_code_hash: ValidationCodeHash([0u8; 32]) }.encode();
 
 	let work_item = WorkItem {
 		service: 0,

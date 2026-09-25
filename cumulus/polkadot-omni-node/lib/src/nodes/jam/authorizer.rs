@@ -32,7 +32,7 @@
 
 use super::LOG_TARGET;
 use crate::common::aura::AuraIdT;
-use codec::Encode;
+use codec::{DecodeAll, Encode};
 use jam_interface::{ServiceId, Slot as JamSlot};
 use jam_types::{Authorization, CodeHash, WorkPackage};
 use parachain_authorizer::aura::{
@@ -269,6 +269,33 @@ impl AuraAuthorizer {
 		);
 		package.authorization = authorization;
 		Ok(())
+	}
+
+	/// Verify a package another collator signed: the token's proof has to place its key at the
+	/// collator the lookup anchor names, and its signature has to cover the package's own bytes.
+	///
+	/// The prerequisites and the item spec are inside the signed bytes, so a response a peer
+	/// tampered with fails here and the next peer is asked.
+	pub(crate) fn verify_token(&self, package: &WorkPackage) -> Result<(), String> {
+		let token = AuthToken::decode_all(&mut &package.authorization[..])
+			.map_err(|error| format!("the authorization is not a decodable token: {error}"))?;
+		let index = expected_collator_index(package.context.lookup_anchor_slot, &self.config);
+		token.check_proof(&self.config, index).map_err(|error| {
+			format!("the token proof does not name collator {index}: {error:?}")
+		})?;
+		let payload = signable_work_package_hash(package);
+		match self.crypto_id {
+			sr25519::CRYPTO_ID => token
+				.check_signature::<parachain_authorizer_sr25519::Sr25519>(payload)
+				.map_err(|error| format!("the sr25519 signature does not verify: {error:?}")),
+			ed25519::CRYPTO_ID => token
+				.check_signature::<parachain_authorizer_ed25519::Ed25519>(payload)
+				.map_err(|error| format!("the ed25519 signature does not verify: {error:?}")),
+			other => Err(format!(
+				"the node's aura crypto id {} is neither sr25519 nor ed25519",
+				String::from_utf8_lossy(&other.0),
+			)),
+		}
 	}
 }
 
@@ -601,6 +628,29 @@ pub(crate) mod tests {
 			"the context is signed too, so a verifier that picks its own rejects every token",
 		);
 		assert!(token.check_proof(&bob.config, 0).is_err(), "Bob's proof is not Alice's");
+	}
+
+	/// A package this node signed verifies under the same checks a peer will run: the proof names
+	/// the lookup anchor's collator and the signature covers the package's bytes. Anything that
+	/// changes after signing — a prerequisite or the refine context — fails.
+	#[test]
+	fn verify_token_accepts_an_authorized_package_and_rejects_tampering_works() {
+		use jam_interface::WorkPackageHash;
+
+		let alice = authorizer_of("alice,bob,charlie", "Alice", 1);
+		// Slot 3 names collator 0, which is Alice.
+		let mut package = package(3, &alice);
+		alice.authorize(&mut package).expect("the keystore holds Alice's aura key; qed");
+
+		alice.verify_token(&package).expect("the token this node signed verifies");
+
+		let mut changed_spec = package.clone();
+		changed_spec.context.state_root = [7u8; 32].into();
+		assert!(alice.verify_token(&changed_spec).is_err(), "a changed spec fails");
+
+		let mut changed_prereqs = package.clone();
+		changed_prereqs.context.prerequisites = vec![WorkPackageHash([9u8; 32])].into();
+		assert!(alice.verify_token(&changed_prereqs).is_err(), "changed prerequisites fail");
 	}
 
 	/// Signing is the last step for a reason: it commits to the package's context and items, so a

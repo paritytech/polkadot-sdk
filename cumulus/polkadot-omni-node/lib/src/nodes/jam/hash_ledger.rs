@@ -20,6 +20,10 @@
 //! sr25519 signing is non-deterministic (randomised nonce via `rand::thread_rng()`), so a
 //! work-package hash can never be recomputed after signing — it can only be remembered. This
 //! module is that memory.
+//!
+//! Besides this node's own submissions and those recovered from the DA layer, the ledger also
+//! holds the hash of every foreign work package verified through the collator-to-collator sync
+//! ([`super::package_sync`]), so a child package can name a parent another collator authored.
 
 use jam_interface::WorkPackageHash;
 use sc_client_api::backend::AuxStore;

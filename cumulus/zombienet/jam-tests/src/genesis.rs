@@ -55,16 +55,19 @@ pub fn hex(hash: &AuthorizerHash) -> String {
 	array_bytes::bytes2hex("", hash.0)
 }
 
-/// `para`'s collator set as the trie's leaves, which is the runtime's own order.
+/// `para`'s collator set as the trie's leaves, in the order the collators are listed.
 ///
-/// [`chain_spec::in_authority_order`] is not a detail that can be skipped: the round-robin index
-/// the guest computes is a leaf index, and the runtime hands its authorities back sorted by
-/// account id whatever order genesis named them in.
+/// The runtime hands its aura authorities back in the order the chain spec's `session.keys`
+/// named them (the `with-authority-discovery` test runtime does not re-sort), and the leaf order
+/// is what the authorizer hash commits to, so the set is hashed in that same listed order. The
+/// parachain template is the exception: its collator-selection re-sorts the invulnerables by
+/// account id, so a template run must list its collators in authority order
+/// ([`chain_spec::in_authority_order`]).
 fn collator_set(para: &Para) -> anyhow::Result<Vec<CollatorKey>> {
-	chain_spec::in_authority_order(&para.collators)?
-		.into_iter()
+	para.collators
+		.iter()
 		.map(|name| {
-			Ok(chain_spec::account_of(&name)?
+			Ok(chain_spec::account_of(name)?
 				.as_slice()
 				.try_into()
 				.expect("an sr25519 public key is 32 bytes; qed"))
@@ -139,22 +142,21 @@ mod tests {
 		);
 	}
 
-	/// The set is the runtime's, not the harness's: `alice,bob` comes back from the runtime as
-	/// `bob,alice`, and the leaf order is what the root — and so the hash — commits to. A
-	/// harness that hashed its own order would install a hash no collator ever matches.
+	/// The set is the collators in listed order, which is the order the runtime names its aura
+	/// authorities in: the leaf order is what the root — and so the hash — commits to. A harness
+	/// that hashed a different order would install a hash no collator ever matches.
 	#[test]
-	fn the_set_is_hashed_in_authority_order() {
+	fn the_set_is_hashed_in_listed_order() {
 		let two = para(0, &["alice", "bob"]);
 		let (bob, alice) = (dev_key(1), dev_key(0));
 
 		let hash = authorizer_hash(&two, Path::new(SOME_BLOB)).unwrap();
-		assert_eq!(hash, expected(0, &[bob, alice]));
-		assert_ne!(hash, expected(0, &[alice, bob]), "the naive order is a different core");
-		// ...and how the caller happened to list them makes no difference, because the runtime
-		// sorts either way.
+		assert_eq!(hash, expected(0, &[alice, bob]));
+		assert_ne!(hash, expected(0, &[bob, alice]), "the reversed order is a different core");
 		assert_eq!(
-			hash,
-			authorizer_hash(&para(0, &["bob", "alice"]), Path::new(SOME_BLOB)).unwrap()
+			authorizer_hash(&para(0, &["bob", "alice"]), Path::new(SOME_BLOB)).unwrap(),
+			expected(0, &[bob, alice]),
+			"listing the collators in the other order hashes the set in that order",
 		);
 	}
 

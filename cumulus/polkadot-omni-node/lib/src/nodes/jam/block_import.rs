@@ -24,18 +24,22 @@
 //! dispatches through, plus the matching finalizer, so `frame_executive` recomputes the
 //! `DigestItem::AdditionalData` over the carried proof.
 
+use super::{
+	package::pov_spec,
+	package_sync::{ImportedPov, ImportedPovs},
+	LOG_TARGET,
+};
 use codec::Decode;
-use cumulus_jam_state_reader::{JamProofReader, JamStateExt, JAM_PROOF_KEY};
+use cumulus_jam_state_reader::{JamProofFinalizer, JamProofReader, JamStateExt, JAM_PROOF_KEY};
+use cumulus_primitives_core::CumulusDigestItem;
 use parachain_service_core::StateProof;
 use sc_client_api::backend::AuxStore;
 use sc_consensus::{BlockImport, BlockImportParams, ImportResult, StateAction};
 use sp_additional_data::{AdditionalData, AdditionalDataExt, AdditionalDataFinalizer};
-use sp_api::{ApiExt, CallApiAt, CallContext, Core, ProvideRuntimeApi};
+use sp_api::{ApiExt, CallApiAt, CallContext, Core, ProofRecorder, ProvideRuntimeApi};
 use sp_consensus::BlockOrigin;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
 use std::{marker::PhantomData, sync::Arc};
-
-use cumulus_jam_state_reader::JamProofFinalizer;
 
 /// Turn the carried additional-data map into the JAM reader and finalizer re-execution needs.
 ///
@@ -57,19 +61,27 @@ fn jam_import_reader(map: &AdditionalData) -> Option<(JamProofReader, JamProofFi
 pub(crate) struct JamBlockImport<Block: BlockT, BI, Client> {
 	inner: BI,
 	client: Arc<Client>,
+	/// The import-recorded PoVs: the network import queue's instance records a proof for every
+	/// foreign block, so a later resubmission can rebuild the PoV. `None` on a non-JAM path.
+	imported: Option<ImportedPovs<Block>>,
 	_block: PhantomData<Block>,
 }
 
 impl<Block: BlockT, BI, Client> JamBlockImport<Block, BI, Client> {
-	/// Create a new instance wrapping `inner`.
-	pub fn new(inner: BI, client: Arc<Client>) -> Self {
-		Self { inner, client, _block: PhantomData }
+	/// Create a new instance wrapping `inner`, recording PoVs into `imported` when present.
+	pub fn new(inner: BI, client: Arc<Client>, imported: Option<ImportedPovs<Block>>) -> Self {
+		Self { inner, client, imported, _block: PhantomData }
 	}
 }
 
 impl<Block: BlockT, BI: Clone, Client> Clone for JamBlockImport<Block, BI, Client> {
 	fn clone(&self) -> Self {
-		Self { inner: self.inner.clone(), client: self.client.clone(), _block: PhantomData }
+		Self {
+			inner: self.inner.clone(),
+			client: self.client.clone(),
+			imported: self.imported.clone(),
+			_block: PhantomData,
+		}
 	}
 }
 
@@ -139,6 +151,9 @@ where
 	) -> Result<(), sp_consensus::Error> {
 		let parent_hash = *params.header.parent_hash();
 		let body = params.body.clone().unwrap_or_default();
+		let block_hash = params.post_hash();
+		let origin = params.origin;
+		let jam_parent = CumulusDigestItem::find_jam_parent_info(params.header.digest());
 
 		let mut runtime_api = self.client.runtime_api();
 		runtime_api.set_call_context(CallContext::Onchain { import: true });
@@ -168,9 +183,28 @@ where
 			));
 		}
 
+		// Always install the recorder: it only observes the trie accesses `execute_block` already
+		// makes, and `extract_proof` distinguishes "recorded but empty" from "not recorded", so
+		// gating the install hides the evidence. What is gated below is only whether the recorded
+		// proof is *stored* for a rebuild — that needs the carried map and a `JamParent` digest.
+		let recorder = ProofRecorder::<Block>::default();
+		runtime_api.record_proof_with_recorder(recorder.clone());
+
 		runtime_api
-			.execute_block(parent_hash, Block::new(params.header.clone(), body).into())
+			.execute_block(parent_hash, Block::new(params.header.clone(), body.clone()).into())
 			.map_err(|e| Box::new(e) as Box<_>)?;
+
+		let proof = runtime_api.extract_proof();
+		tracing::debug!(
+			target: LOG_TARGET,
+			?block_hash,
+			?origin,
+			proof_nodes = proof.as_ref().map(|proof| proof.iter_nodes().count()),
+			has_map = params.additional_data.is_some(),
+			has_jam_parent = jam_parent.is_some(),
+			has_imported = self.imported.is_some(),
+			"Import re-execution proof recorded.",
+		);
 
 		let state = self.client.state_at(parent_hash).map_err(|e| Box::new(e) as Box<_>)?;
 		let gen_storage_changes = runtime_api
@@ -183,10 +217,89 @@ where
 			)));
 		}
 
+		if let (Some(imported), Some(proof), Some(map), Some(jam_parent)) =
+			(&self.imported, proof, params.additional_data.as_ref(), jam_parent)
+		{
+			self.record_imported_pov(
+				imported,
+				proof,
+				map,
+				jam_parent,
+				params,
+				block_hash,
+				parent_hash,
+				&body,
+			);
+		}
+
 		params.state_action =
 			StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(gen_storage_changes));
 
 		Ok(())
+	}
+
+	/// Record the proof of an imported foreign block, so its PoV can be rebuilt on demand.
+	#[allow(clippy::too_many_arguments)]
+	fn record_imported_pov(
+		&self,
+		imported: &ImportedPovs<Block>,
+		proof: sp_api::StorageProof,
+		map: &AdditionalData,
+		jam_parent: cumulus_primitives_core::JamParent,
+		params: &BlockImportParams<Block>,
+		block_hash: Block::Hash,
+		parent_hash: Block::Hash,
+		body: &[Block::Extrinsic],
+	) {
+		let parent_header = match self.client.header(parent_hash) {
+			Ok(Some(header)) => header,
+			Ok(None) => {
+				tracing::warn!(
+					target: LOG_TARGET,
+					?block_hash,
+					?parent_hash,
+					"Parent header missing while recording the imported PoV; not recording.",
+				);
+				return;
+			},
+			Err(error) => {
+				tracing::warn!(
+					target: LOG_TARGET,
+					?block_hash,
+					?parent_hash,
+					%error,
+					"Unable to read the parent header while recording the imported PoV.",
+				);
+				return;
+			},
+		};
+		let compact_proof =
+			match proof.into_compact_proof::<HashingFor<Block>>(*parent_header.state_root()) {
+				Ok(compact_proof) => compact_proof,
+				Err(error) => {
+					tracing::warn!(
+						target: LOG_TARGET,
+						?block_hash,
+						%error,
+						"Unable to compact the recorded storage proof; not recording the PoV.",
+					);
+					return;
+				},
+			};
+		let header = params.post_header();
+		let block = Block::new(header.clone(), body.to_vec());
+		let spec = pov_spec(&[block], &compact_proof, &parent_header, map);
+		imported.insert(
+			block_hash,
+			ImportedPov {
+				parent_hash,
+				number: *header.number(),
+				spec,
+				jam_parent,
+				compact_proof,
+				additional_data: map.clone(),
+			},
+		);
 	}
 }
 

@@ -35,6 +35,22 @@
 //! tick: while it is non-zero the builder stands down, because a new block would only deepen a
 //! branch whose package has not landed yet.
 //!
+//! # Collator-to-collator package sync
+//!
+//! A collator that only *imports* a block cannot recompute its work-package hash, because the
+//! package carries the author's randomised signature. A request/response
+//! [protocol](package_sync) between collators, found through authority discovery, closes that gap:
+//! the info protocol syncs the `authorization`, the prerequisites and the author's PoV spec per
+//! block hash. The importer rebuilds the package,
+//! [verifies](authorizer::AuraAuthorizer::verify_token) the author's token, hashes it and keeps
+//! it. The import path records the storage proof those blocks re-executed with, in
+//! [ImportedPovs](package_sync::ImportedPovs), so the PoV is rebuilt locally from that proof.
+//!
+//! A verified foreign package is resubmitted when β does not name it, exactly as this collator's
+//! own packages are: the [resubmission policy](resubmission) is shared, and the hold counts
+//! foreign packages too. A foreign package that is given up on has its block recorded in
+//! [`DeadBlocks`], and the builder never authors on a dead block or any of its descendants.
+//!
 //! Heads following reuses `cumulus_client_consensus_common::run_parachain_consensus` with
 //! streams built from the parachain service's per-para state entry (`ParaInfo.head_data`).
 
@@ -43,6 +59,8 @@ pub(crate) mod block_import;
 pub(crate) mod builder_task;
 pub(crate) mod collation_task;
 pub(crate) mod hash_ledger;
+pub(crate) mod package;
+pub(crate) mod package_sync;
 pub(crate) mod resubmission;
 
 use crate::common::{
@@ -62,14 +80,15 @@ use parachain_service_core::{para_info_key, ParaInfo};
 use sc_client_api::{Backend as _, StorageProvider};
 use sp_additional_data::AdditionalData;
 use sp_consensus::ProposeArgs;
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::traits::{Block as BlockT, NumberFor};
 use sp_timestamp::Timestamp;
 use std::{
+	collections::HashMap,
 	future::Future,
 	pin::Pin,
 	sync::{
 		atomic::{AtomicUsize, Ordering},
-		Arc,
+		Arc, Mutex,
 	},
 	time::Instant,
 };
@@ -94,6 +113,47 @@ impl AuthoringHold {
 
 	pub(crate) fn overdue(&self) -> usize {
 		self.0.load(Ordering::Relaxed)
+	}
+}
+
+/// Parachain blocks a foreign resubmission gave up on, with the height they sit at.
+///
+/// A lost foreign work package leaves a parachain block nothing will accumulate, and every block
+/// authored on top of it inherits that. The builder reads this to exclude a dead block and its
+/// subtree from parent selection, so it never deepens a branch already known to be lost.
+#[derive(Clone)]
+pub(crate) struct DeadBlocks<Block: BlockT>(Arc<Mutex<HashMap<Block::Hash, NumberFor<Block>>>>);
+
+impl<Block: BlockT> DeadBlocks<Block> {
+	pub(crate) fn new() -> Self {
+		Self(Arc::new(Mutex::new(HashMap::new())))
+	}
+
+	/// A poisoned lock must not take the collator down: the worst a lost entry costs is one
+	/// stale parent candidate, and the stall re-root is the backstop.
+	fn map(&self) -> std::sync::MutexGuard<'_, HashMap<Block::Hash, NumberFor<Block>>> {
+		self.0.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+	}
+
+	/// Record `hash` as dead at `number`.
+	pub(crate) fn mark(&self, hash: Block::Hash, number: NumberFor<Block>) {
+		self.map().insert(hash, number);
+	}
+
+	/// Whether `hash` is a dead block.
+	pub(crate) fn contains(&self, hash: &Block::Hash) -> bool {
+		self.map().contains_key(hash)
+	}
+
+	/// Drop every entry at or below `number`: the para head has moved past them, so nothing will
+	/// ever be authored on them again.
+	pub(crate) fn prune_up_to(&self, number: NumberFor<Block>) {
+		self.map().retain(|_, dead_number| *dead_number > number);
+	}
+
+	/// A copy of the dead set, for a pure helper to filter a descendant list with.
+	pub(crate) fn snapshot(&self) -> HashMap<Block::Hash, NumberFor<Block>> {
+		self.map().clone()
 	}
 }
 
@@ -871,5 +931,26 @@ mod tests {
 	#[test]
 	fn no_jam_state_reader_proves_every_key_absent() {
 		assert_eq!(NoJamStateReader.read(&[0xAB; 31]), None);
+	}
+
+	/// The dead-block set marks, prunes and snapshots by height; clones share the one set.
+	#[test]
+	fn dead_blocks_mark_prune_and_snapshot() {
+		use cumulus_test_runtime::Block as TestBlock;
+		use sp_core::H256;
+
+		let dead = DeadBlocks::<TestBlock>::new();
+		let low = H256::repeat_byte(1);
+		let high = H256::repeat_byte(2);
+		dead.mark(low, 3u32);
+		dead.mark(high, 9u32);
+
+		assert!(dead.contains(&low));
+		assert_eq!(dead.snapshot().len(), 2);
+		assert_eq!(dead.clone().snapshot().len(), 2, "clones share the set");
+
+		dead.prune_up_to(3u32);
+		assert!(!dead.contains(&low), "an entry at the pruned height goes");
+		assert!(dead.contains(&high), "a higher entry stays");
 	}
 }
