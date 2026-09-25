@@ -102,7 +102,7 @@ pub mod pallet {
 		pallet_prelude::*,
 		traits::{
 			fungible::{Inspect, Mutate},
-			tokens::{Fortitude::Polite, Preservation::Expendable},
+			tokens::{Fortitude::Polite, Preservation::Preserve},
 		},
 		PalletId,
 	};
@@ -124,7 +124,7 @@ pub mod pallet {
 		/// Currency used to pay for on-demand Coretime.
 		type Currency: Mutate<Self::AccountId>;
 
-		/// The origin test needed for administrating this pallet.
+		/// The origin for administrating this pallet.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Provider of the current Relay-chain block number.
@@ -143,8 +143,8 @@ pub mod pallet {
 		/// NOTE: Since we don't do chunking, this number of pending orders needs to fit within a
 		/// single XCM message. This way `on_finalize` will never send more than one message.
 		/// Since this pallet is intended to be a temporary solution, and current (as of September
-		/// 2026) usage of the on-demand feature is low, it is expected not to be necessary to
-		/// extend this functionality to allow more orders in a single block.
+		/// 2026) usage of the on-demand feature is low to moderate, it is expected not to be
+		/// necessary to extend this functionality to allow more orders in a single block.
 		#[pallet::constant]
 		type MaxBatchSize: Get<u32>;
 
@@ -279,7 +279,7 @@ pub mod pallet {
 			);
 			// Fail early if the account can't cover the declared max_amount.
 			ensure!(
-				T::Currency::reducible_balance(&who, Expendable, Polite) >= max_amount,
+				T::Currency::reducible_balance(&who, Preserve, Polite) >= max_amount,
 				Error::<T>::InsufficientFunds
 			);
 
@@ -308,7 +308,7 @@ pub mod pallet {
 			ensure!(spot_price <= max_amount, Error::<T>::SpotPriceHigherThanMaxAmount);
 
 			// Charge the sending account the spot price.
-			T::Currency::transfer(&who, &Self::account_id(), spot_price, Expendable)?;
+			T::Currency::transfer(&who, &Self::account_id(), spot_price, Preserve)?;
 
 			// Add the order to the batch that gets sent to the Relay chain on finalization.
 			PendingBatch::<T>::try_mutate(|batch| {

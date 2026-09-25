@@ -125,7 +125,7 @@ fn place_order_fails_when_no_cores_in_pool() {
 	new_test_ext().execute_with(|| {
 		MockCorePool::set_pool_cores(0);
 		assert_noop!(
-			OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, DEFAULT_ACCOUNT_BALANCE),
+			OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, DEFAULT_ACCOUNT_BALANCE / 2),
 			Error::<Test>::EmptyPool
 		);
 	});
@@ -166,7 +166,7 @@ fn the_pending_batch_is_forwarded_to_the_relay_chain_on_finalize() {
 		assert_ok!(OnDemand::place_order(
 			RuntimeOrigin::signed(ALICE),
 			2000,
-			DEFAULT_ACCOUNT_BALANCE
+			DEFAULT_ACCOUNT_BALANCE / 2
 		));
 		assert_ok!(OnDemand::place_order(
 			RuntimeOrigin::signed(ALICE),

@@ -765,6 +765,6 @@ fn queue_on_demand_batch_beyond_capacity_fails() {
 			broker_origin(),
 			vec![(ParaId::from(111), block_num)]
 		),);
-		assert_last_event(RuntimeEvent::OnDemand(Event::UnexpectedQueueFull { queued: 0 }));
+		assert_last_event(RuntimeEvent::OnDemand(Event::UnexpectedQueueFull { dropped: 1 }));
 	});
 }

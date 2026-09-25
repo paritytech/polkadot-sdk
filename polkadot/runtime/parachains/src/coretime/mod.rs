@@ -264,6 +264,10 @@ pub mod pallet {
 			// Ignore requests not coming from the coretime chain or root.
 			Self::ensure_root_or_para(origin, T::BrokerId::get().into())?;
 
+			// It is possible for the call below to not always queue the full batch. In such a case,
+			// instead of returning an error, which would revert any changes made to storage, we
+			// queue as much as possible, so that the orders don't have to wait unnecessarily long,
+			// and emit an `UnexpectedQueueFull` event for better observability.
 			<on_demand::Pallet<T>>::queue_order_batch(&batch);
 			Ok(())
 		}

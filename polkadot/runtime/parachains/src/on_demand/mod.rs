@@ -248,9 +248,9 @@ pub mod pallet {
 		/// An account was given credits.
 		AccountCredited { who: T::AccountId, amount: BalanceOf<T> },
 		/// The order queue was unexpectedly full - this indicates a problem with the configuration
-		/// of the on-demand pallet on the Coretime chain. `queued` indicates how many orders were
-		/// successfully queued.
-		UnexpectedQueueFull { queued: u32 },
+		/// of the on-demand pallet on the Coretime chain. `dropped` indicates how many orders were
+		/// dropped because they couldn't be queued.
+		UnexpectedQueueFull { dropped: u32 },
 		/// A batch of on-demand orders from the broker chain has been queued.
 		BatchQueued { batch: Vec<(ParaId, BlockNumberFor<T>)> },
 	}
@@ -569,9 +569,13 @@ where
 			// The number of successfully queued orders happens to be the same as the index of the
 			// order being currently processed.
 			for (queued, (para_id, ordered_at)) in batch.iter().enumerate() {
-				if let Err(_) = order_status.queue.try_push(*ordered_at, *para_id) {
+				if let Err(err) = order_status.queue.try_push(*ordered_at, *para_id) {
+					log::debug!(
+						target: LOG_TARGET,
+						"Error trying to push an order to the queue: {:?}", err
+					);
 					Pallet::<T>::deposit_event(Event::<T>::UnexpectedQueueFull {
-						queued: queued as u32,
+						dropped: (batch.len() - queued) as u32,
 					});
 					return;
 				}
