@@ -7,7 +7,6 @@
 //! Validates the header chain from scheduling_parent to internal_scheduling_parent,
 //! and verifies relay_parent is at or before internal_scheduling_parent.
 
-use alloc::vec::Vec;
 use cumulus_primitives_core::{
 	relay_chain::{Header as RelayChainHeader, Slot},
 	SchedulingProof, SignedSchedulingInfo,
@@ -224,6 +223,7 @@ pub fn check_scheduling(
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use alloc::vec::Vec;
 	use cumulus_primitives_core::{
 		CoreSelector, SchedulingInfoPayload, SchedulingProof, SignedSchedulingInfo,
 	};
