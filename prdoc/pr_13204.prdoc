@@ -1,0 +1,13 @@
+title: '[pallet-revive] Price storage deposit diffs before netting them'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes https://github.com/paritytech/polkadot-sdk/issues/12692
+
+    Storage deposit diffs netted added bytes and items against removed ones before applying a
+    rate, so after `DepositPerByte` or `DepositPerChildTrieItem` was raised, replacing an item
+    with one of the same size cost nothing. Additions are now charged at the current rate and
+    removals refunded at the rate the contract paid, using exact integer arithmetic.
+crates:
+- name: pallet-revive
+  bump: patch

@@ -977,9 +977,32 @@ fn cannot_self_destruct_through_storage_refund_after_price_change() {
 			<Test as Config>::Currency::total_balance(&contract.account_id),
 			get_contract(&contract.addr).total_deposit() + min_balance,
 		);
-		// + 1 because due to fixed point arithmetic we can sometimes refund
-		// one unit to little
-		assert_eq!(get_contract(&contract.addr).extra_deposit(), 16 + 32 + 2 + 1);
+		assert_eq!(get_contract(&contract.addr).extra_deposit(), 16 + 32 + 2);
+	});
+}
+
+#[test]
+fn growing_one_key_and_shrinking_another_after_price_change_charges_new_rate() {
+	let (binary, _code_hash) = compile_module("multi_store").unwrap();
+	ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+
+		// 48 bytes of key overhead per item
+		assert_ok!(builder::call(addr).data((100u32, 100u32).encode()).build());
+		let bytes = 2 * (100 + 48);
+		assert_eq!(get_contract(&addr).extra_deposit(), bytes + 2 * 2);
+
+		// Separate keys, so the 50 bytes added and removed reach the diff without netting.
+		DEPOSIT_PER_BYTE.with(|c| *c.borrow_mut() = 500);
+		assert_ok!(builder::call(addr).data((150u32, 50u32).encode()).build());
+
+		let info = get_contract(&addr);
+		assert_eq!(info.storage_bytes, bytes as u32);
+		let refund = 50;
+		assert_eq!(info.extra_deposit(), bytes - refund + 50 * 500 + 2 * 2);
 	});
 }
 
@@ -2440,8 +2463,7 @@ fn storage_deposit_works() {
 
 		// Remove more storage (but also add some)
 		assert_ok!(builder::call(addr).data((10u32, 20u32).encode()).build());
-		// -1 for numeric instability
-		let refunded0 = 90 - 10 - 1;
+		let refunded0 = 90 - 10;
 		deposit -= refunded0;
 		assert_eq!(get_contract(&addr).total_deposit(), deposit);
 
