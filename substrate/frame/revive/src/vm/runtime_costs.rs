@@ -18,8 +18,8 @@
 use crate::{
 	Config,
 	access_list::{
-		Access, CallItems, CallWarmth, KeyFamily, StorageItems, Summarized, TransferWarmth, Warmth,
-		WarmthSummary,
+		Access, CallItems, CallWarmth, CreateItems, KeyFamily, StorageItems, Summarized,
+		TransferWarmth, Warmth, WarmthSummary,
 	},
 	limits,
 	metering::Token,
@@ -135,10 +135,20 @@ pub enum RuntimeCosts {
 	CallTransferSurcharge(TransferAccessKind),
 	/// Weight per byte that is cloned by supplying the `CLONE_INPUT` flag.
 	CallInputCloned(u32),
-	/// Weight of calling `seal_instantiate`.
-	Instantiate { input_data_len: u32, balance_transfer: bool, dust_transfer: bool },
-	/// Weight of calling `Create` opcode.
-	Create { init_code_len: u32, balance_transfer: bool, dust_transfer: bool },
+	/// Weight of calling `seal_instantiate`, and of warming the entries in `warming_summary`.
+	Instantiate {
+		input_data_len: u32,
+		balance_transfer: bool,
+		dust_transfer: bool,
+		warming_summary: WarmthSummary,
+	},
+	/// Weight of calling `Create` opcode, and of warming the entries in `warming_summary`.
+	Create {
+		init_code_len: u32,
+		balance_transfer: bool,
+		dust_transfer: bool,
+		warming_summary: WarmthSummary,
+	},
 	/// Weight of calling `Ripemd160` precompile for the given input size.
 	Ripemd160(u32),
 	/// Weight of calling `Sha256` precompile for the given input size.
@@ -491,19 +501,27 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				}
 			},
 			CallInputCloned(len) => cost_args!(seal_call, 0, 0, len),
-			Instantiate { input_data_len, balance_transfer, dust_transfer } => {
+			Instantiate { input_data_len, balance_transfer, dust_transfer, warming_summary } => {
 				T::WeightInfo::seal_instantiate(
 					balance_transfer.into(),
 					dust_transfer.into(),
 					input_data_len,
 				)
+				.saturating_add(Self::access_list_overhead::<T>(
+					warming_summary,
+					CreateItems::KEY_FAMILY,
+				))
 			},
-			Create { init_code_len, balance_transfer, dust_transfer } => {
+			Create { init_code_len, balance_transfer, dust_transfer, warming_summary } => {
 				T::WeightInfo::evm_instantiate(
 					balance_transfer.into(),
 					dust_transfer.into(),
 					init_code_len,
 				)
+				.saturating_add(Self::access_list_overhead::<T>(
+					warming_summary,
+					CreateItems::KEY_FAMILY,
+				))
 			},
 			HashSha256(len) => T::WeightInfo::sha2_256(len),
 			Ripemd160(len) => T::WeightInfo::ripemd_160(len),
@@ -845,6 +863,44 @@ mod tests {
 			weight_of(false, write_paid, read_paid),
 			weight_of(false, write_paid, write_paid),
 			"without dust the `AccountInfoOf` entries are only read, so nothing is owed"
+		);
+	}
+
+	#[test]
+	fn a_contract_creation_pays_for_warming_what_it_creates() {
+		let instantiate = |warming_summary| RuntimeCosts::Instantiate {
+			input_data_len: 0,
+			balance_transfer: false,
+			dust_transfer: false,
+			warming_summary,
+		};
+		let create = |warming_summary| RuntimeCosts::Create {
+			init_code_len: 0,
+			balance_transfer: false,
+			dust_transfer: false,
+			warming_summary,
+		};
+		let no_warming = WarmthSummary::default();
+		let some_warming = CreateItems::warming_summary(false);
+
+		assert_eq!(
+			weight(&instantiate(no_warming)),
+			<Test as Config>::WeightInfo::seal_instantiate(0, 0, 0),
+			"with no warming to charge, an instantiate costs only its bench",
+		);
+		assert_eq!(
+			weight(&create(no_warming)),
+			<Test as Config>::WeightInfo::evm_instantiate(0, 0, 0),
+			"with no warming to charge, a CREATE costs only its bench",
+		);
+		assert!(
+			weight(&instantiate(some_warming)).ref_time() >
+				weight(&instantiate(no_warming)).ref_time(),
+			"an instantiate charges for warming on top of its bench",
+		);
+		assert!(
+			weight(&create(some_warming)).ref_time() > weight(&create(no_warming)).ref_time(),
+			"a CREATE charges for warming on top of its bench",
 		);
 	}
 

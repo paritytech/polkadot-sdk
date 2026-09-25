@@ -527,6 +527,39 @@ impl Access for TransferItems {
 	}
 }
 
+/// A create writes the account and the account info at `address`.
+#[derive(Clone, Copy, Debug)]
+pub struct CreateItems {
+	pub address: H160,
+}
+
+impl Access for CreateItems {
+	type Warmth = ();
+	const KEY_FAMILY: KeyFamily = KeyFamily::Address;
+
+	fn expand(self, mut visit: impl FnMut(AccessEntry, StorageOp) -> Warmth) {
+		visit(AccessEntry::Account { address: self.address }, StorageOp::Write);
+		visit(AccessEntry::AccountInfo { address: self.address }, StorageOp::Write);
+	}
+}
+
+impl CreateItems {
+	/// Returns the summary of the entries a contract creation warms. Each is cold, since the new
+	/// contract and its code do not exist yet, and revertible, the costlier variant.
+	pub fn warming_summary(stores_code: bool) -> WarmthSummary {
+		let mut summary = WarmthSummary::default();
+		let mut count = |_entry: AccessEntry, op: StorageOp| {
+			summary = summary.count(Warmth::cold_revertible(), op);
+			Warmth::cold_revertible()
+		};
+		CreateItems { address: H160::zero() }.expand(&mut count);
+		if stores_code {
+			CodeLoadItems { hash: H256::zero() }.expand(&mut count);
+		}
+		summary
+	}
+}
+
 /// Warmth of the entries a code load reads.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CodeLoadWarmth {

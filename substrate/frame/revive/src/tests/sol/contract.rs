@@ -22,7 +22,7 @@ use core::iter;
 use crate::{
 	BalanceOf, Code, Config, DelegateInfo, DispatchError, Error, ExecConfig, ExecOrigin,
 	ExecReturnValue, Weight,
-	access_list::{Access, AccessListMetrics, CallItems, CodeLoadItems},
+	access_list::{Access, AccessListMetrics, CallItems, CodeLoadItems, CreateItems},
 	address::AddressMapper,
 	evm::{decode_revert_reason, fees::InfoT},
 	limits,
@@ -43,7 +43,7 @@ use frame_support::{
 };
 use itertools::Itertools;
 use pallet_revive_fixtures::{
-	CallEach, CallThenRevert, Callee, Caller, Counter, FixtureType, Host, Recurse,
+	CallEach, CallThenRevert, Callee, Caller, Counter, Factory, FixtureType, Host, Recurse,
 	compile_module_with_type,
 };
 use pallet_revive_uapi::ReturnFlags;
@@ -1392,5 +1392,171 @@ fn cold_hot_shared_code_is_hot_for_the_second_contract(fixture_type: FixtureType
 			CodeLoadItems { hash: H256::zero() }.entry_count(),
 			"the second contract's code is hot, shared with the first",
 		);
+	});
+}
+
+fn deploy_factory(fixture_type: FixtureType) -> H160 {
+	let (factory_code, _) = compile_module_with_type("Factory", fixture_type).unwrap();
+	let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+	if fixture_type == FixtureType::Resolc {
+		for child in ["ReceivingChild", "RevertingChild"] {
+			let (child_code, _) = compile_module_with_type(child, fixture_type).unwrap();
+			crate::Pallet::<Test>::upload_code(
+				RuntimeOrigin::signed(ALICE.clone()),
+				child_code,
+				<BalanceOf<Test>>::MAX,
+			)
+			.unwrap();
+		}
+	}
+	let factory = builder::bare_instantiate(Code::Upload(factory_code))
+		.build_and_unwrap_contract()
+		.addr;
+	let _ = crate::Pallet::<Test>::set_evm_balance(&factory, 100_000_000_000u128.into());
+	factory
+}
+
+#[test_case(FixtureType::Solc;   "evm")]
+#[test_case(FixtureType::Resolc; "pvm")]
+fn cold_hot_a_contract_creation_warms_the_new_contract(fixture_type: FixtureType) {
+	ExtBuilder::default().build().execute_with(|| {
+		// solc stores `ReceivingChild`'s code on the first contract creation; resolc uploaded it.
+		let stores_code = matches!(fixture_type, FixtureType::Solc);
+		let expected_extra_entries = CreateItems::warming_summary(stores_code).total() as usize;
+
+		let factory = deploy_factory(fixture_type);
+		let size_after = |data: Vec<u8>| {
+			access_list_metrics_of(|| {
+				builder::bare_call(factory).data(data).build_and_unwrap_result();
+			})
+			.size
+		};
+
+		let created_size = size_after(Factory::createCall {}.abi_encode());
+		let failed_size = size_after(Factory::createRevertingCall {}.abi_encode());
+
+		let actual_extra_entries = created_size - failed_size;
+		assert_eq!(actual_extra_entries, expected_extra_entries);
+	});
+}
+
+#[test_case(FixtureType::Solc;   "evm")]
+#[test_case(FixtureType::Resolc; "pvm")]
+fn cold_hot_a_failed_contract_creation_leaves_its_address_cold(fixture_type: FixtureType) {
+	ExtBuilder::default().build().execute_with(|| {
+		let expected_extra_entries = CreateItems { address: H160::zero() }.entry_count() as usize;
+		let expected_failed_extra_entries = if fixture_type == FixtureType::Resolc {
+			// The caller loads the code by hash, outside the reverting frame, so it stays warm.
+			CodeLoadItems { hash: H256::zero() }.entry_count() as usize
+		} else {
+			0
+		};
+
+		let factory = deploy_factory(fixture_type);
+		let size_after = |data: Vec<u8>| {
+			access_list_metrics_of(|| {
+				builder::bare_call(factory).data(data).build_and_unwrap_result();
+			})
+			.size
+		};
+		// Stores `ReceivingChild`'s code, so the successful contract creation below stores nothing.
+		builder::bare_call(factory)
+			.data(Factory::createCall {}.abi_encode())
+			.build_and_unwrap_result();
+
+		let noop_size = size_after(Factory::noopCall {}.abi_encode());
+		let created_size = size_after(Factory::createCall {}.abi_encode());
+		let failed_size = size_after(Factory::createRevertingCall {}.abi_encode());
+
+		let actual_extra_entries = created_size - failed_size;
+		assert_eq!(
+			actual_extra_entries, expected_extra_entries,
+			"a failed constructor leaves the entries at its address cold",
+		);
+		let actual_failed_extra_entries = failed_size - noop_size;
+		assert_eq!(
+			actual_failed_extra_entries, expected_failed_extra_entries,
+			"only the code the caller loaded stays warm after the constructor reverts",
+		);
+	});
+}
+
+#[test]
+fn cold_hot_newly_stored_code_is_hot_for_the_next_call() {
+	ExtBuilder::default().build().execute_with(|| {
+		let created_account_info = 1; // the child's AccountInfo, warmed by the contract creation
+		let code_load = CodeLoadItems { hash: H256::zero() }.entry_count();
+		let expected_stores_the_code_hot = code_load + created_account_info;
+		let expected_finds_the_code_stored_hot = created_account_info;
+
+		let factory = deploy_factory(FixtureType::Solc);
+		let create_then_call = || {
+			access_list_metrics_of(|| {
+				builder::bare_call(factory)
+					.data(
+						Factory::createThenCallCall { value: 0u64.try_into().unwrap() }
+							.abi_encode(),
+					)
+					.build_and_unwrap_result();
+			})
+		};
+
+		let stores_the_code = create_then_call();
+		let finds_the_code_stored = create_then_call();
+
+		// Both find the child's AccountInfo hot; only the first stores and warms the code.
+		assert_eq!(stores_the_code.hot, expected_stores_the_code_hot,);
+		assert_eq!(finds_the_code_stored.hot, expected_finds_the_code_stored_hot,);
+		assert_eq!(
+			stores_the_code.cold, finds_the_code_stored.cold,
+			"both transactions touch the same entries",
+		);
+	});
+}
+
+#[test_case(FixtureType::Solc;   "evm")]
+#[test_case(FixtureType::Resolc; "pvm")]
+fn cold_hot_a_created_contract_is_warm_for_the_rest_of_the_transaction(fixture_type: FixtureType) {
+	ExtBuilder::default().build().execute_with(|| {
+		let (expected_child_call_cold, expected_child_call_hot) =
+			if fixture_type == FixtureType::Resolc {
+				// Instantiating from a code hash loads the code, which warms it.
+				(1, 3) // cold: OriginalAccount; hot: AccountInfo, CodeInfo, CodeBlob
+			} else {
+				// The code is already stored, so CREATE never reads it and it stays cold.
+				(3, 1) // cold: OriginalAccount, CodeInfo, CodeBlob; hot: AccountInfo
+			};
+		let expected_transfer_cold = 1; // creator's Account
+		let expected_transfer_hot = 3; // child's Account, AccountInfo; creator's AccountInfo
+
+		let factory = deploy_factory(fixture_type);
+		let metrics_of = |data: Vec<u8>| {
+			access_list_metrics_of(|| {
+				builder::bare_call(factory).data(data).build_and_unwrap_result();
+			})
+		};
+		let create_then_call = |value: u64| {
+			metrics_of(
+				Factory::createThenCallCall { value: value.try_into().unwrap() }.abi_encode(),
+			)
+		};
+		// Stores `ReceivingChild`'s code, so each contract creation below finds it stored.
+		builder::bare_call(factory)
+			.data(Factory::createCall {}.abi_encode())
+			.build_and_unwrap_result();
+
+		let create_only = metrics_of(Factory::createCall {}.abi_encode());
+		let zero_value_call = create_then_call(0);
+		let value_call = create_then_call(1_000_000);
+
+		let actual_child_call_cold = zero_value_call.cold - create_only.cold;
+		let actual_child_call_hot = zero_value_call.hot - create_only.hot;
+		let actual_transfer_cold = value_call.cold - zero_value_call.cold;
+		let actual_transfer_hot = value_call.hot - zero_value_call.hot;
+
+		assert_eq!(actual_child_call_cold, expected_child_call_cold);
+		assert_eq!(actual_child_call_hot, expected_child_call_hot);
+		assert_eq!(actual_transfer_cold, expected_transfer_cold);
+		assert_eq!(actual_transfer_hot, expected_transfer_hot);
 	});
 }

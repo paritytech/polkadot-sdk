@@ -213,19 +213,20 @@ impl<T: Config> ContractBlob<T> {
 		})
 	}
 
-	/// Puts the module blob into storage, and returns the deposit collected for the storage.
+	/// Puts the module blob into storage unless it is already stored, and returns the deposit
+	/// collected, or `None` when it was already stored.
 	pub fn store_code<S: State>(
 		&mut self,
 		exec_config: &ExecConfig<T>,
 		meter: &mut ResourceMeter<T, S>,
-	) -> Result<BalanceOf<T>, DispatchError> {
+	) -> Result<Option<BalanceOf<T>>, DispatchError> {
 		let code_hash = *self.code_hash();
 		ensure!(code_hash != H256::zero(), <Error<T>>::CodeNotFound);
 
 		<CodeInfoOf<T>>::mutate(code_hash, |stored_code_info| {
 			match stored_code_info {
 				// Contract code is already stored in storage. Nothing to be done here.
-				Some(_) => Ok(Default::default()),
+				Some(_) => Ok(None),
 				// Upload a new contract code.
 				// We need to store the code and its code_info, and collect the deposit.
 				// This `None` case happens only with freshly uploaded modules. This means that
@@ -248,7 +249,7 @@ impl<T: Config> ContractBlob<T> {
 
 					<PristineCode<T>>::insert(code_hash, &self.code.to_vec());
 					*stored_code_info = Some(self.code_info.clone());
-					Ok(deposit)
+					Ok(Some(deposit))
 				},
 			}
 		})

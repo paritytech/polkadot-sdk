@@ -1593,7 +1593,13 @@ where
 							)?
 						},
 					};
-					module.store_code(&self.exec_config, &mut frame.frame_meter)?;
+
+					if module.store_code(&self.exec_config, &mut frame.frame_meter)?.is_some() {
+						// EIP-2929 warms a created address. It is safe to warm its code too, since
+						// `Create` paid for the new code and it is in the storage overlay.
+						self.access_list
+							.warm(access_list::CodeLoadItems { hash: *module.code_hash() });
+					}
 					code_deposit = module.code_info().deposit();
 
 					let contract_info = frame.contract_info();

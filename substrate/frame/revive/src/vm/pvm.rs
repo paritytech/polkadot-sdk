@@ -22,7 +22,7 @@ pub mod env;
 use crate::{
 	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
 	StorageAccessKind,
-	access_list::{CallItems, StorageOp, TransferItems},
+	access_list::{CallItems, CreateItems, StorageOp, TransferItems, WarmthSummary},
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
@@ -769,6 +769,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					input_data_len,
 					balance_transfer: Pallet::<E::T>::has_balance(value),
 					dust_transfer: Pallet::<E::T>::has_dust(value),
+					warming_summary: CreateItems::warming_summary(false),
 				})?;
 				value
 			},
@@ -777,6 +778,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					input_data_len: 0,
 					balance_transfer: false,
 					dust_transfer: false,
+					warming_summary: WarmthSummary::default(),
 				})?;
 				return Err(err.into());
 			},
@@ -805,6 +807,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		) {
 			Ok(address) => {
 				if !self.ext.last_frame_output().flags.contains(ReturnFlags::REVERT) {
+					// EIP-2929 warms a created address. It is safe to do the same, since
+					// `Instantiate` paid for the new entries and they are in the storage overlay.
+					self.ext.warm(CreateItems { address });
 					self.write_fixed_sandbox_output(
 						memory,
 						address_ptr,
