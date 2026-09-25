@@ -1511,7 +1511,7 @@ impl Store {
 
 		Self::migrate_columns(&path)?;
 		let db = Self::open_db(&path)?;
-		let needs_index_migration = Self::check_db_version(&db)?;
+		let migrate_from = Self::check_db_version(&db)?;
 
 		let storage_reader =
 			ClientWrapper { client, _block: Default::default(), _backend: Default::default() };
@@ -1535,7 +1535,7 @@ impl Store {
 				NUM_FILTER_WORKERS,
 			),
 		};
-		store.populate(needs_index_migration)?;
+		store.populate(migrate_from)?;
 		Ok(store)
 	}
 
@@ -1595,9 +1595,9 @@ impl Store {
 	/// Read the on-disk database version and reconcile it with [`CURRENT_VERSION`].
 	///
 	/// A brand new database has its version initialised and needs no migration. An existing
-	/// database from a newer version is rejected. Returns `true` if the on-disk indexes predate
-	/// the current version and therefore need to be rebuilt.
-	fn check_db_version(db: &parity_db::Db) -> Result<bool> {
+	/// database from a newer version is rejected. Returns the on-disk version when it predates
+	/// the current one and the database therefore needs migrating.
+	fn check_db_version(db: &parity_db::Db) -> Result<Option<u32>> {
 		match db.get(col::META, &KEY_VERSION).map_err(|e| Error::Db(e.to_string()))? {
 			Some(version) => {
 				let version = u32::from_le_bytes(
@@ -1608,17 +1608,12 @@ impl Store {
 				if version > CURRENT_VERSION {
 					return Err(Error::Db(format!("Unsupported database version: {version}")));
 				}
-				Ok(version < CURRENT_VERSION)
+				Ok((version < CURRENT_VERSION).then_some(version))
 			},
 			None => {
 				// Brand new database: the index columns start empty, nothing to migrate.
-				db.commit([(
-					col::META,
-					KEY_VERSION.to_vec(),
-					Some(CURRENT_VERSION.to_le_bytes().to_vec()),
-				)])
-				.map_err(|e| Error::Db(e.to_string()))?;
-				Ok(false)
+				Self::set_db_version(db, CURRENT_VERSION)?;
+				Ok(None)
 			},
 		}
 	}
@@ -1629,9 +1624,9 @@ impl Store {
 	/// A database written by an older version is first migrated with [`Self::migrate_database`].
 	// This function should only be used on startup. There should be no other DB operations when
 	// iterating the index.
-	fn populate(&self, migrate_index: bool) -> Result<()> {
-		if migrate_index {
-			self.migrate_database()?;
+	fn populate(&self, migrate_from: Option<u32>) -> Result<()> {
+		if let Some(version) = migrate_from {
+			self.migrate_database(version)?;
 		}
 
 		{
@@ -1701,97 +1696,61 @@ impl Store {
 		Ok(())
 	}
 
-	/// Rebuilds every derived column from the authoritative
-	/// `STATEMENTS` and `EXPIRED` columns. Existing rows are rewritten in place, so the migration
-	/// is idempotent and safe to re-run after an interruption; the version is bumped only after
-	/// everything else has been committed.
-	fn migrate_database(&self) -> Result<()> {
+	/// Brings a database written at `from_version` to [`CURRENT_VERSION`], one version step at a
+	/// time. Every step rewrites rows in place, so it is idempotent and safe to re-run after an
+	/// interruption; the version is bumped only after the step has been committed.
+	fn migrate_database(&self, from_version: u32) -> Result<()> {
+		for version in from_version..CURRENT_VERSION {
+			match version {
+				1 => self.migrate_v1_to_v2()?,
+				_ => {
+					return Err(Error::Db(format!("No migration from database version {version}")))
+				},
+			}
+		}
+		Ok(())
+	}
+
+	/// Version 2 keeps the read indexes, the admission journal, the evicted journal and the
+	/// counters row on disk. All of them are rebuilt from the authoritative `STATEMENTS` and
+	/// `EXPIRED` columns.
+	fn migrate_v1_to_v2(&self) -> Result<()> {
 		let purge_after_sec = self.submit_index.read().config.purge_after_sec;
 		// Admission entries persisted by an earlier version keep their sequence numbers;
 		// statements lacking one (all of them, on a migration from version 1) get fresh numbers.
-		let mut admission_seqs = HashMap::new();
-		let mut next_seq = 0u64;
-		{
-			let mut iter =
-				self.db.iter(col::ADMISSION_SEQ).map_err(|e| Error::Db(e.to_string()))?;
-			iter.seek_to_first().map_err(|e| Error::Db(e.to_string()))?;
-			while let Some((key, value)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
-				let seq = u64::from_be_bytes(
-					key.try_into()
-						.map_err(|_| Error::Db("Invalid admission sequence key".into()))?,
-				);
-				let hash: Hash = value
-					.as_slice()
-					.try_into()
-					.map_err(|_| Error::Db("Invalid admission sequence hash".into()))?;
-				admission_seqs.insert(hash, seq);
-				next_seq = next_seq.max(seq.saturating_add(1));
-			}
-		}
+		let (mut admission_seqs, mut next_seq) = self.load_admission_seqs()?;
 
 		let mut migration = MigrationBatch::new(&self.db);
-		let mut migration_error = None;
 		// Older versions record no track, so migrated statements count as explicit-only.
 		let mut totals = StoreTotals::default();
-		self.db
-			.iter_column_while(col::STATEMENTS, |item| {
-				let Ok(statement) = Statement::decode(&mut item.value.as_slice()) else {
-					log::error!(
-						target: LOG_TARGET,
-						"Corrupt statement {:?}",
-						HexDisplay::from(&sp_statement_store::hash_encoded(&item.value))
-					);
-					return true;
-				};
-				let hash = statement.hash();
-				let Some(account) = statement.account_id() else {
-					log::error!(
-						target: LOG_TARGET,
-						"Statement without an account id loaded from the DB: {:?}",
-						HexDisplay::from(&hash)
-					);
-					return true;
-				};
-				log::trace!(target: LOG_TARGET, "Statement loaded {:?}", HexDisplay::from(&hash));
-				let persisted_seq = admission_seqs.remove(&hash);
-				let seq = persisted_seq.unwrap_or_else(|| {
-					let seq = next_seq;
-					next_seq = seq.saturating_add(1);
-					seq
-				});
-				totals.add(RetentionTrack::ExplicitOnly, statement.data_len());
-				let details = EntryDetails {
-					channel: statement.channel(),
-					data_len: statement.data_len(),
-					admission_seq: seq,
-					track: RetentionTrack::ExplicitOnly,
-				};
-				let admission_op = persisted_seq.is_none().then(|| DbOperation {
-					column: col::ADMISSION_SEQ,
-					key: seq.to_be_bytes().to_vec(),
-					value: Some(hash.to_vec()),
-				});
-				let operations = statement_index_ops(&hash, &statement, true)
-					.into_iter()
-					.chain(account_index_ops(
-						&account,
-						Expiry(statement.expiry()),
-						&hash,
-						Some(&details),
-					))
-					.map(DbOperation::from)
-					.chain(admission_op);
-				if let Err(error) = migration.extend(operations) {
-					migration_error = Some(error);
-					return false;
-				}
-				true
-			})
-			.map_err(|e| Error::Db(e.to_string()))?;
-		if let Some(error) = migration_error.take() {
-			return Err(error);
-		}
+		self.for_each_stored_statement(|hash, statement, account| {
+			let persisted_seq = admission_seqs.remove(hash);
+			let seq = persisted_seq.unwrap_or_else(|| {
+				let seq = next_seq;
+				next_seq = seq.saturating_add(1);
+				seq
+			});
+			totals.add(RetentionTrack::ExplicitOnly, statement.data_len());
+			let details = EntryDetails {
+				channel: statement.channel(),
+				data_len: statement.data_len(),
+				admission_seq: seq,
+				track: RetentionTrack::ExplicitOnly,
+			};
+			let admission_op = persisted_seq.is_none().then(|| DbOperation {
+				column: col::ADMISSION_SEQ,
+				key: seq.to_be_bytes().to_vec(),
+				value: Some(hash.to_vec()),
+			});
+			let operations = statement_index_ops(hash, statement, true)
+				.into_iter()
+				.chain(account_index_ops(account, Expiry(statement.expiry()), hash, Some(&details)))
+				.map(DbOperation::from)
+				.chain(admission_op);
+			migration.extend(operations)
+		})?;
 
+		let mut migration_error = None;
 		self.db
 			.iter_column_while(col::EXPIRED, |item| {
 				if let Ok((hash, timestamp)) = <(Hash, u64)>::decode(&mut item.value.as_slice()) {
@@ -1820,19 +1779,77 @@ impl Store {
 
 		migration.push(SubmitIndex::counters_op(&totals, next_seq).into())?;
 		let migrated_entries = migration.finish()?;
-		self.db
-			.commit([(
-				col::META,
-				KEY_VERSION.to_vec(),
-				Some(CURRENT_VERSION.to_le_bytes().to_vec()),
-			)])
-			.map_err(|e| Error::Db(e.to_string()))?;
+		Self::set_db_version(&self.db, 2)?;
 		log::info!(
 			target: LOG_TARGET,
 			"Migrated the statement store index to the on-disk format ({} rows)",
 			migrated_entries
 		);
 		Ok(())
+	}
+
+	fn set_db_version(db: &parity_db::Db, version: u32) -> Result<()> {
+		db.commit([(col::META, KEY_VERSION.to_vec(), Some(version.to_le_bytes().to_vec()))])
+			.map_err(|e| Error::Db(e.to_string()))
+	}
+
+	/// The persisted admission sequence numbers by statement hash, and the next free one.
+	fn load_admission_seqs(&self) -> Result<(HashMap<Hash, u64>, u64)> {
+		let mut admission_seqs = HashMap::new();
+		let mut next_seq = 0u64;
+		let mut iter = self.db.iter(col::ADMISSION_SEQ).map_err(|e| Error::Db(e.to_string()))?;
+		iter.seek_to_first().map_err(|e| Error::Db(e.to_string()))?;
+		while let Some((key, value)) = iter.next().map_err(|e| Error::Db(e.to_string()))? {
+			let seq = u64::from_be_bytes(
+				key.try_into().map_err(|_| Error::Db("Invalid admission sequence key".into()))?,
+			);
+			let hash: Hash = value
+				.as_slice()
+				.try_into()
+				.map_err(|_| Error::Db("Invalid admission sequence hash".into()))?;
+			admission_seqs.insert(hash, seq);
+			next_seq = next_seq.max(seq.saturating_add(1));
+		}
+		Ok((admission_seqs, next_seq))
+	}
+
+	/// Runs `f` on every stored statement and its account. Rows that fail to decode or carry no
+	/// account are logged and skipped; an error from `f` ends the pass.
+	fn for_each_stored_statement(
+		&self,
+		mut f: impl FnMut(&Hash, &Statement, &AccountId) -> Result<()>,
+	) -> Result<()> {
+		let mut error = None;
+		self.db
+			.iter_column_while(col::STATEMENTS, |item| {
+				let Ok(statement) = Statement::decode(&mut item.value.as_slice()) else {
+					log::error!(
+						target: LOG_TARGET,
+						"Corrupt statement {:?}",
+						HexDisplay::from(&sp_statement_store::hash_encoded(&item.value))
+					);
+					return true;
+				};
+				let hash = statement.hash();
+				let Some(account) = statement.account_id() else {
+					log::error!(
+						target: LOG_TARGET,
+						"Statement without an account id loaded from the DB: {:?}",
+						HexDisplay::from(&hash)
+					);
+					return true;
+				};
+				log::trace!(target: LOG_TARGET, "Statement loaded {:?}", HexDisplay::from(&hash));
+				match f(&hash, &statement, &account) {
+					Ok(()) => true,
+					Err(e) => {
+						error = Some(e);
+						false
+					},
+				}
+			})
+			.map_err(|e| Error::Db(e.to_string()))?;
+		error.map_or(Ok(()), Err)
 	}
 
 	/// Counts, for every distinct prefix (the key minus its trailing 32-byte hash), the number of
