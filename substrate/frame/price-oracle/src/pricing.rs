@@ -65,7 +65,7 @@ pub enum HealthError {
 }
 
 /// Price a market from its order book and the time of its latest trade.
-pub fn market_price(
+pub fn price_market(
 	book: &OrderBook,
 	latest_trade_ms: u64,
 	now_ms: u64,
@@ -386,7 +386,7 @@ mod median_tests {
 }
 
 #[cfg(test)]
-mod market_price_tests {
+mod price_market_tests {
 	use super::*;
 	use crate::schema::Level;
 
@@ -432,7 +432,7 @@ mod market_price_tests {
 
 	#[test]
 	fn healthy_market_is_priced() {
-		assert!(market_price(&book(), 1_000_000, 1_000_000 + 60_000, &settings()).is_ok());
+		assert!(price_market(&book(), 1_000_000, 1_000_000 + 60_000, &settings()).is_ok());
 	}
 
 	#[test]
@@ -442,22 +442,22 @@ mod market_price_tests {
 		// Crossed.
 		let mut b = book();
 		b.bids[0].price = p("4.02");
-		assert_eq!(market_price(&b, now, now, &s), Err(HealthError::CrossedBook));
+		assert_eq!(price_market(&b, now, now, &s), Err(HealthError::CrossedBook));
 		// Spread 4.00 / 4.03: 2 * 0.03 = 0.06 > 0.005 * 8.03 = 0.04015.
 		let mut b = book();
 		b.asks[0].price = p("4.03");
-		assert_eq!(market_price(&b, now, now, &s), Err(HealthError::SpreadTooWide));
+		assert_eq!(price_market(&b, now, now, &s), Err(HealthError::SpreadTooWide));
 		// Spread 4.00 / 4.02 passes: 0.04 <= 0.005 * 8.02 = 0.0401.
-		assert!(market_price(&book(), now, now, &s).is_ok());
+		assert!(price_market(&book(), now, now, &s).is_ok());
 		// Stale trades.
-		assert_eq!(market_price(&book(), now, now + 300_001, &s), Err(HealthError::StaleTrades));
+		assert_eq!(price_market(&book(), now, now + 300_001, &s), Err(HealthError::StaleTrades));
 		// Thin.
 		let thin = PairSettings { impact_size: p("1000000"), ..s };
-		assert_eq!(market_price(&book(), now, now, &thin), Err(HealthError::BookTooThin));
+		assert_eq!(price_market(&book(), now, now, &thin), Err(HealthError::BookTooThin));
 		// Empty side.
 		let mut b = book();
 		b.asks.clear();
-		assert_eq!(market_price(&b, now, now, &s), Err(HealthError::BookTooThin));
+		assert_eq!(price_market(&b, now, now, &s), Err(HealthError::BookTooThin));
 	}
 }
 

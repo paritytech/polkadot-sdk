@@ -539,7 +539,7 @@ pub fn price_market(
 	let book = book.ok_or_else(|| err("no order book"))?;
 	let latest_trade_ms = latest_trade_ms.ok_or_else(|| err("no trades"))?;
 
-	pricing::market_price(&book, latest_trade_ms, now_ms, settings)
+	pricing::price_market(&book, latest_trade_ms, now_ms, settings)
 		.map_err(|e| ParseError(alloc::format!("{e:?}").into_bytes()))
 }
 
