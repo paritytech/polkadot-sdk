@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790349684336,
+  "lastUpdate": 1790352938427,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -128087,6 +128087,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2982165082,
             "range": "± 61555290",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eduard@parity.io",
+            "name": "eduardspa",
+            "username": "eduardspa"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a92f928a64c30c08c1bcd3c94161eccd537b733d",
+          "message": "chain-spec-builder: manage the boot nodes of a chain spec (#13302)\n\n`chain-spec-builder` had no way to manage the boot nodes of a chain\nspec. The `bootNodes`\nfield had to be edited by hand, which is error prone: the addresses must\nbe multiaddresses\ncarrying the peer id of the node, and a raw chain spec is not pleasant\nto edit manually.\n\nThe new `bootnodes` command group operates on an existing chain spec, in\nboth plain and raw\nformat:\n\n```sh\nchain-spec-builder -c out.json bootnodes add chain_spec.json /dns/node-0.example.com/tcp/30333/p2p/12D3KooW...\nchain-spec-builder -c out.json bootnodes remove chain_spec.json /dns/node-0.example.com/tcp/30333/p2p/12D3KooW...\nchain-spec-builder -c out.json bootnodes remove chain_spec.json --all\nchain-spec-builder bootnodes list chain_spec.json\n```\n\n`add` appends and skips the addresses that are already stored, `remove`\nignores the ones that\nare not stored, so both can be safely repeated. `create` takes a new\n`--bootnodes` argument.\nThe addresses are validated: one without a `/p2p/<peer id>` component is\nrejected before\nanything is read or written.\n\n# Integration\n\nNew functionality only. `sc-chain-spec` now re-exports\n`MultiaddrWithPeerId`, which was\nalready public through `ChainSpec::boot_nodes()`.\n\n## Review Notes\n\nThe commands edit the chain spec `serde_json::Value`, which is what\nmakes plain and raw work\nthrough one path and leaves the rest of the spec untouched — the tests\nassert this by\ncomparing the output against the input with only `bootNodes` patched.\n`remove --all` skips\ndeserializing the existing addresses on purpose: it is the way to repair\na spec whose\n`bootNodes` no longer parses.\n\n---------\n\nCo-authored-by: nprt <nikola.djoric@parity.io>",
+          "timestamp": "2026-09-25T14:56:00Z",
+          "tree_id": "8e95e3275f15c77c43772673f9c6942a2d382171",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a92f928a64c30c08c1bcd3c94161eccd537b733d"
+        },
+        "date": 1790352909587,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19283899,
+            "range": "± 104814",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19544470,
+            "range": "± 125562",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21030524,
+            "range": "± 74856",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25680455,
+            "range": "± 126581",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57051031,
+            "range": "± 625192",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 330793842,
+            "range": "± 7915035",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2588814610,
+            "range": "± 114471453",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16612867,
+            "range": "± 205852",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16993743,
+            "range": "± 143102",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17247942,
+            "range": "± 181291",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21707064,
+            "range": "± 195133",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61395125,
+            "range": "± 719000",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 360031132,
+            "range": "± 5109554",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2612859224,
+            "range": "± 29663154",
             "unit": "ns/iter"
           }
         ]
