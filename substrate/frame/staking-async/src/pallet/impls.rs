@@ -2386,25 +2386,41 @@ impl<T: Config> Pallet<T> {
 	/// 	* nominator_count is correct
 	/// 	* total is own + sum of pages
 	/// `ErasTotalStake`` must be correct
-	/// For each validator in `ErasStakersOverview`, `LastValidatorEra` should be set to the active
-	/// era.
+	/// For each validator in `ErasStakersOverview`, `LastValidatorEra` must be the active era, or
+	/// the active era + 1 once the election for the next era has finished. A validator that was
+	/// reaped or force-unstaked mid-era keeps its historical exposure but has no
+	/// `LastValidatorEra` entry anymore, which is also valid.
 	fn check_paged_exposures() -> Result<(), TryRuntimeError> {
 		let Some(era) = ActiveEra::<T>::get().map(|a| a.index) else { return Ok(()) };
+
+		ensure!(
+			ErasStakersOverview::<T>::iter_prefix(era).all(|(validator, _)| {
+				match LastValidatorEra::<T>::get(&validator) {
+					// Reaped or force-unstaked mid-era: `kill_stash` removes the entry but the
+					// historical exposure for the active era remains.
+					None => true,
+					// If election for next era is finished, last_validator_era is set to next era.
+					Some(last) => {
+						let ok = last == era || last == era + 1;
+						if !ok {
+							log!(
+								error,
+								"Validator {:?} has incorrect LastValidatorEra (expected {:?} or {:?}, got {:?})",
+								validator,
+								era,
+								era + 1,
+								last
+							);
+						}
+						ok
+					},
+				}
+			}),
+			"LastValidatorEra must be the active era or the active era + 1"
+		);
+
 		let overview_and_pages = ErasStakersOverview::<T>::iter_prefix(era)
 			.map(|(validator, metadata)| {
-				let last_validator_era = LastValidatorEra::<T>::get(&validator).unwrap_or_default();
-				// If election for next era is finished, last_validator_era is set to next era.
-				if last_validator_era != era && last_validator_era != era + 1 {
-					log!(
-						error,
-						"Validator {:?} has incorrect LastValidatorEra (expected {:?} or {:?}, got {:?})",
-						validator,
-						era,
-						era + 1,
-						last_validator_era
-					);
-				}
-
 				let pages = ErasStakersPaged::<T>::iter_prefix((era, validator))
 					.map(|(_idx, page)| page)
 					.collect::<Vec<_>>();
