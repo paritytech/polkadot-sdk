@@ -3,10 +3,10 @@
 # .github/workflows/zombienet_statement-store-soak.yml. Each entry sizes its own network; a
 # dispatch can override the size and the soak window for a one-off run.
 
-# Sized down for paritytech/litep2p#665, which takes nodes down above 20 providers per key;
-# raise it again once the fix (paritytech/litep2p#666) ships.
+# DO NOT MERGE. 100 nodes here, against the 40 on the base branch: this branch patches in the
+# fix for paritytech/litep2p#665, so the cap that bug forces no longer applies.
 - job-name: "zombienet-statement-store-soak-0001-v2-dht"
   test-filter: "zombie_ci::statement_store::v2_dht_soak::statement_store_v2_dht_soak"
   cumulus-image: "polkadot-parachain-debug"
-  soak-nodes: "40"
+  soak-nodes: "100"
   soak-secs: "600"
