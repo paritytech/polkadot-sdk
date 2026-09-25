@@ -1,13 +1,12 @@
 # Statement-store tests. Not part of the default per-PR zombienet matrix: they run on the
-# zombienet k8s cluster on demand, via the `A6-statement-store` PR label or a manual
-# dispatch of .github/workflows/zombienet_statement-store-soak.yml. Each entry sizes its own
-# network; a dispatch can override the size and the soak window for a one-off run.
+# zombienet k8s cluster on demand, by a manual dispatch of
+# .github/workflows/zombienet_statement-store-soak.yml. Each entry sizes its own network; a
+# dispatch can override the size and the soak window for a one-off run.
 
-# 100 statement nodes leave the statement peer set's 50 slots behind, so this is the sparse
-# topology: delivery has to route instead of handing the statement to every replica directly.
-- job-name: "zombienet-statement-store-soak-0001-v2-dht-sparse"
+# Sized down for paritytech/litep2p#665, which takes nodes down above 20 providers per key;
+# raise it again once the fix (paritytech/litep2p#666) ships.
+- job-name: "zombienet-statement-store-soak-0001-v2-dht"
   test-filter: "zombie_ci::statement_store::v2_dht_soak::statement_store_v2_dht_soak"
-  runner-type: "default"
   cumulus-image: "polkadot-parachain-debug"
-  soak-nodes: "100"
+  soak-nodes: "40"
   soak-secs: "600"
