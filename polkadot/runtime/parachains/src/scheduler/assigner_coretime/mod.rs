@@ -104,6 +104,18 @@ impl PartsOf57600 {
 	}
 }
 
+/// How a schedule's assignments are consumed.
+#[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo, PartialEq, Eq, Clone, Copy, Debug)]
+pub enum ScheduleKind {
+	/// Ratio-based round-robin, valid during `[begin, end_hint)`; replaced as soon as the next
+	/// schedule's `begin` is reached.
+	Windowed,
+	/// Each assignment is served for exactly one block, in `Vec` order. The schedule never
+	/// expires and is never replaced while unserved assignments remain, so late delivery shifts
+	/// service instead of cancelling it.
+	OneShot,
+}
+
 /// Assignments as they are scheduled by block number
 ///
 /// for a particular core.
@@ -117,12 +129,17 @@ pub struct Schedule<N> {
 	/// If this is `Some`, then this `CoreState` will be dropped at that block number. If this is
 	/// `None`, then we will keep serving our core assignments in a circle until a new set of
 	/// assignments is scheduled.
+	///
+	/// Always `None` for `ScheduleKind::OneShot`.
 	end_hint: Option<N>,
 
 	/// The next queued schedule for this core.
 	///
 	/// Schedules are forming a queue.
 	next_schedule: Option<N>,
+
+	/// How the assignments are consumed.
+	kind: ScheduleKind,
 }
 
 impl<N> Schedule<N> {
@@ -133,7 +150,16 @@ impl<N> Schedule<N> {
 		end_hint: Option<N>,
 		next_schedule: Option<N>,
 	) -> Self {
-		Self { assignments, end_hint, next_schedule }
+		Self { assignments, end_hint, next_schedule, kind: ScheduleKind::Windowed }
+	}
+
+	/// Creates a new one-shot Schedule (for tests).
+	#[cfg(test)]
+	pub fn new_one_shot(
+		assignments: Vec<(CoreAssignment, PartsOf57600)>,
+		next_schedule: Option<N>,
+	) -> Self {
+		Self { assignments, end_hint: None, next_schedule, kind: ScheduleKind::OneShot }
 	}
 
 	/// Accessor for assignments (needed by tests).
@@ -231,11 +257,16 @@ pub struct WorkState<N> {
 	///
 	/// Aka which core assignment will be popped next on
 	/// `AssignmentProvider::advance_assignments`.
+	///
+	/// For `ScheduleKind::OneShot` this is the next unserved assignment and does not wrap
+	/// around: `pos == assignments.len()` means the workload is exhausted.
 	pub pos: u16,
 	/// Step width
 	///
 	/// How much we subtract from `AssignmentState::remaining` for a core served.
 	pub step: PartsOf57600,
+	/// How the assignments are consumed.
+	pub kind: ScheduleKind,
 }
 
 #[derive(Encode, Decode, TypeInfo)]
@@ -320,7 +351,7 @@ impl AdvancedAssignments {
 
 impl<N> From<Schedule<N>> for WorkState<N> {
 	fn from(schedule: Schedule<N>) -> Self {
-		let Schedule { assignments, end_hint, next_schedule: _ } = schedule;
+		let Schedule { assignments, end_hint, next_schedule: _, kind } = schedule;
 		let step =
 			if let Some(min_step_assignment) = assignments.iter().min_by(|a, b| a.1.cmp(&b.1)) {
 				min_step_assignment.1
@@ -334,7 +365,7 @@ impl<N> From<Schedule<N>> for WorkState<N> {
 			.map(|(a, ratio)| (a, AssignmentState { ratio, remaining: ratio }))
 			.collect();
 
-		Self { assignments, end_hint, pos: 0, step }
+		Self { assignments, end_hint, pos: 0, step, kind }
 	}
 }
 
@@ -387,7 +418,12 @@ pub(super) fn advance_assignments<T: Config, F: Fn(CoreIndex) -> bool>(
 	let now = frame_system::Pallet::<T>::block_number();
 
 	let assignments = super::CoreDescriptors::<T>::mutate(|core_states| {
-		advance_assignments_single_impl::<T>(now, core_states, AccessMode::<T>::pop())
+		advance_assignments_single_impl::<T, _>(
+			now,
+			core_states,
+			AccessMode::<T>::pop(),
+			&is_blocked,
+		)
 	});
 
 	// Give blocked on-demand orders another chance:
@@ -413,6 +449,7 @@ pub(super) fn advance_assignments<T: Config, F: Fn(CoreIndex) -> bool>(
 		next,
 		&mut core_states,
 		AccessMode::<T>::peek(&mut on_demand_orders),
+		|_| false,
 	)
 	.into_iter();
 
@@ -480,6 +517,16 @@ pub(super) fn assign_core<T: Config>(
 			Some(queue) => {
 				ensure!(begin >= queue.last, Error::DisallowedInsert);
 
+				// Never merge windowed assignments into a one-shot tail: one-shot schedules
+				// serve each assignment exactly once and cannot hold ratio-based entries.
+				// Append behind it instead.
+				if begin == queue.last &&
+					super::CoreSchedules::<T>::get((queue.last, core_idx))
+						.map_or(false, |s| s.kind == ScheduleKind::OneShot)
+				{
+					begin.saturating_inc();
+				}
+
 				// Update queue if we are appending:
 				if begin > queue.last {
 					super::CoreSchedules::<T>::mutate((queue.last, core_idx), |schedule| {
@@ -499,7 +546,12 @@ pub(super) fn assign_core<T: Config>(
 					} else {
 						assignments
 					};
-					*schedule = Some(Schedule { assignments, end_hint, next_schedule: None });
+					*schedule = Some(Schedule {
+						assignments,
+						end_hint,
+						next_schedule: None,
+						kind: ScheduleKind::Windowed,
+					});
 				});
 
 				QueueDescriptor { first: queue.first, last: begin }
@@ -508,7 +560,102 @@ pub(super) fn assign_core<T: Config>(
 				// Queue empty, just insert:
 				super::CoreSchedules::<T>::insert(
 					(begin, core_idx),
-					Schedule { assignments, end_hint, next_schedule: None },
+					Schedule {
+						assignments,
+						end_hint,
+						next_schedule: None,
+						kind: ScheduleKind::Windowed,
+					},
+				);
+				QueueDescriptor { first: begin, last: begin }
+			},
+		};
+		core_descriptor.queue = Some(new_queue);
+		Ok(())
+	})
+}
+
+/// Append one-shot assignments to a core's schedule queue.
+///
+/// Each task in `tasks` is served for exactly one block, in order, starting no earlier than
+/// `begin`. In contrast to `assign_core`, entries appended here are neither skipped nor
+/// overwritten: late delivery shifts service, it never cancels it.
+///
+/// `begin` is only a floor, therefore this call has no ordering requirement: a `begin` lower
+/// than the queue's tail is clamped instead of erroring. Once delivered, the only error is an
+/// empty `tasks` vector. This is deliberate: a failed dispatch here would be a paid order
+/// bouncing without an on-chain trace on the sending side.
+pub(super) fn assign_core_once<T: Config>(
+	core_idx: CoreIndex,
+	begin: BlockNumberFor<T>,
+	tasks: Vec<pallet_broker::TaskId>,
+) -> Result<(), Error> {
+	ensure!(!tasks.is_empty(), Error::AssignmentsEmpty);
+
+	let mut assignments: Vec<_> = tasks
+		.into_iter()
+		.map(|task| (CoreAssignment::Task(task), PartsOf57600::FULL))
+		.collect();
+
+	super::CoreDescriptors::<T>::mutate(|core_descriptors| {
+		let core_descriptor = core_descriptors.entry(core_idx).or_default();
+
+		// Note: no claim-queue `begin` adjustment as in `assign_core`. One-shots never replace
+		// visible assignments, they only append behind them, so the claim queue stays stable
+		// regardless of `begin`.
+		let new_queue = match core_descriptor.queue {
+			Some(queue) => {
+				let tail_is_one_shot = super::CoreSchedules::<T>::get((queue.last, core_idx))
+					.map_or(false, |s| s.kind == ScheduleKind::OneShot);
+
+				if tail_is_one_shot && begin <= queue.last {
+					// The tail already starts early enough: merge into it. This is the burst
+					// case; it costs no additional storage entry.
+					super::CoreSchedules::<T>::mutate((queue.last, core_idx), |schedule| {
+						if let Some(schedule) = schedule.as_mut() {
+							schedule.assignments.append(&mut assignments);
+						} else {
+							defensive!("Queue end entry does not exist?");
+						}
+					});
+					queue
+				} else {
+					// Append a new entry behind the tail. There is one storage entry per
+					// `(begin, core)` key, so a `begin` at or below the tail is clamped one
+					// past it; it is only a floor, serving order is unaffected.
+					let begin = begin.max(queue.last.saturating_plus_one());
+					super::CoreSchedules::<T>::mutate((queue.last, core_idx), |schedule| {
+						if let Some(schedule) = schedule.as_mut() {
+							debug_assert!(
+								schedule.next_schedule.is_none(),
+								"queue.end was supposed to be the end, so the next item must be `None`!"
+							);
+							schedule.next_schedule = Some(begin);
+						} else {
+							defensive!("Queue end entry does not exist?");
+						}
+					});
+					super::CoreSchedules::<T>::insert(
+						(begin, core_idx),
+						Schedule {
+							assignments,
+							end_hint: None,
+							next_schedule: None,
+							kind: ScheduleKind::OneShot,
+						},
+					);
+					QueueDescriptor { first: queue.first, last: begin }
+				}
+			},
+			None => {
+				super::CoreSchedules::<T>::insert(
+					(begin, core_idx),
+					Schedule {
+						assignments,
+						end_hint: None,
+						next_schedule: None,
+						kind: ScheduleKind::OneShot,
+					},
 				);
 				QueueDescriptor { first: begin, last: begin }
 			},
@@ -534,6 +681,7 @@ fn peek_impl<T: Config>(
 			now,
 			&mut core_states,
 			AccessMode::<T>::peek(&mut on_demand_orders),
+			|_| false,
 		)
 		.into_iter();
 		for (core_idx, para_id) in assignments {
@@ -557,10 +705,16 @@ fn peek_impl<T: Config>(
 }
 
 /// Pop assignments for `now`.
-fn advance_assignments_single_impl<T: Config>(
+///
+/// `is_blocked` tells for each core whether it can actually be used at `now`. It only affects
+/// one-shot workloads (a blocked core does not consume its current one-shot, so the same task
+/// is served again next block); windowed workloads advance regardless, as they always did.
+/// Peeking paths pass `|_| false`, keeping predictions best-case.
+fn advance_assignments_single_impl<T: Config, F: Fn(CoreIndex) -> bool>(
 	now: BlockNumberFor<T>,
 	core_states: &mut BTreeMap<CoreIndex, CoreDescriptor<BlockNumberFor<T>>>,
 	mut mode: AccessMode<T>,
+	is_blocked: F,
 ) -> AdvancedAssignments {
 	let mut bulk_assignments = Vec::with_capacity(num_coretime_cores::<T>() as _);
 	let mut pool_cores = Vec::with_capacity(num_coretime_cores::<T>() as _);
@@ -569,26 +723,51 @@ fn advance_assignments_single_impl<T: Config>(
 
 		let Some(work_state) = core_state.current_work.as_mut() else { continue };
 
-		// Wrap around:
-		work_state.pos = work_state.pos % work_state.assignments.len() as u16;
-		let (a_type, a_state) = &mut work_state
-			.assignments
-			.get_mut(work_state.pos as usize)
-			.expect("We limited pos to the size of the vec one line above. qed");
+		match work_state.kind {
+			ScheduleKind::OneShot => {
+				let assignment =
+					work_state.assignments.get(work_state.pos as usize).map(|(a, _)| a.clone());
+				let Some(CoreAssignment::Task(para_id)) = assignment else {
+					defensive!("One-shot schedules only contain tasks and are cleared once exhausted");
+					core_state.current_work = None;
+					continue
+				};
+				bulk_assignments.push((*core_idx, para_id.into()));
+				// Consume only if the core can actually be used this block. On a blocked core
+				// (pending availability, session boundary) the same task is served again next
+				// block: a paid one-shot is never lost to a block the core could not serve.
+				if !is_blocked(*core_idx) {
+					work_state.pos += 1;
+					if work_state.pos as usize == work_state.assignments.len() {
+						// Exhausted: the next queued schedule takes over next block.
+						core_state.current_work = None;
+					}
+				}
+			},
+			ScheduleKind::Windowed => {
+				// Wrap around:
+				work_state.pos = work_state.pos % work_state.assignments.len() as u16;
+				let (a_type, a_state) = &mut work_state
+					.assignments
+					.get_mut(work_state.pos as usize)
+					.expect("We limited pos to the size of the vec one line above. qed");
 
-		// advance for next pop:
-		a_state.remaining = a_state.remaining.saturating_sub(work_state.step);
-		if a_state.remaining < work_state.step {
-			// Assignment exhausted, need to move to the next and credit remaining for
-			// next round.
-			work_state.pos += 1;
-			// Reset to ratio + still remaining "credits":
-			a_state.remaining = a_state.remaining.saturating_add(a_state.ratio);
-		}
-		match *a_type {
-			CoreAssignment::Pool => pool_cores.push(*core_idx),
-			CoreAssignment::Task(para_id) => bulk_assignments.push((*core_idx, para_id.into())),
-			CoreAssignment::Idle => {},
+				// advance for next pop:
+				a_state.remaining = a_state.remaining.saturating_sub(work_state.step);
+				if a_state.remaining < work_state.step {
+					// Assignment exhausted, need to move to the next and credit remaining for
+					// next round.
+					work_state.pos += 1;
+					// Reset to ratio + still remaining "credits":
+					a_state.remaining = a_state.remaining.saturating_add(a_state.ratio);
+				}
+				match *a_type {
+					CoreAssignment::Pool => pool_cores.push(*core_idx),
+					CoreAssignment::Task(para_id) =>
+						bulk_assignments.push((*core_idx, para_id.into())),
+					CoreAssignment::Idle => {},
+				}
+			},
 		}
 	}
 
@@ -605,6 +784,18 @@ fn ensure_workload<T: Config>(
 	descriptor: &mut CoreDescriptor<BlockNumberFor<T>>,
 	mode: &AccessMode<T>,
 ) {
+	// An unexhausted one-shot workload is never expired nor replaced: it keeps the core until
+	// its last assignment has been served, only then does the next queued schedule take over.
+	// Serving (`advance_assignments_single_impl`) clears the workload once it is exhausted, so
+	// a one-shot in `current_work` always has unserved assignments.
+	if descriptor
+		.current_work
+		.as_ref()
+		.map_or(false, |w| w.kind == ScheduleKind::OneShot)
+	{
+		return
+	}
+
 	// Workload expired?
 	if descriptor
 		.current_work

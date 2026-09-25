@@ -198,6 +198,18 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Assign a core to each of the given tasks for one block each, in order, starting no
+	/// earlier than `begin`.
+	pub(crate) fn assign_core_once(
+		core: CoreIndex,
+		begin: BlockNumberFor<T>,
+		tasks: Vec<pallet_broker::TaskId>,
+	) -> DispatchResult {
+		assigner_coretime::assign_core_once::<T>(core, begin, tasks)
+			.map_err(Error::<T>::from)?;
+		Ok(())
+	}
+
 	/// Advance claim queue.
 	///
 	/// Parameters:
