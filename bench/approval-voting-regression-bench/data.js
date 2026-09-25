@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790337458248,
+  "lastUpdate": 1790350860627,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c34ff1e4271f7367d45a50a39a58f7b3af90274b",
-          "message": "Add timeout + people-westend to check-runtime CI  (#11158)\n\n@polkadot-api/check-runtime hangs in case the RPC endpoint is not\nreachable. A timeout is added to handle this case gracefully, similar to\nruntime's change\n[here](https://github.com/polkadot-fellows/runtimes/pull/1086).\n\nDriven-by: add support for metadata-hash extension on `people-westend`\nand add it to the list of chains to check.\n\n```bash\nnpx @polkadot-api/check-runtime@latest problems wss://westend-people-rpc.polkadot.io:443 --wasm target/release/wbuild/people-westend-runtime/people_westend_runtime.compact.wasm\n[ora] Multiple concurrent spinners detected. This may cause visual corruption. Use one spinner at a time.\n[ora] Multiple concurrent spinners detected. This may cause visual corruption. Use one spinner at a time.\nusing deprecated parameters for `initSync()`; pass a single object instead\n✔ Everything looks great!\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-24T19:19:34Z",
-          "tree_id": "d0324f94392e092bc79f81dac47a176fc87c22fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c34ff1e4271f7367d45a50a39a58f7b3af90274b"
-        },
-        "date": 1771965615010,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63613.55000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52936.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.7297585046800004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000024612340000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000024612340000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.69941206417,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.3019391059899954,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.744176090710001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002524337,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002524337,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.466623158292977,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.7402762687700024,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005270622800000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 13.983783852399958,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7629511952799582,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-1",
             "value": 2.747583890880003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bkontur@gmail.com",
+            "name": "Branislav Kontur",
+            "username": "bkontur"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6d4445b6af52ef42643acf53e432d58cd2f9ff4d",
+          "message": "Remove obsolete bridges zombienet test image publishing (#13316)\n\nRemove the unused `build-push-image-bridges-zombienet-tests` job, its\n`prepare-bridges-zombienet-artifacts` dependency and\n`docker/dockerfiles/bridges_zombienet_tests_injected.Dockerfile`, since\nthe bridge integration tests now run as zombienet-sdk tests and this\nimage is not pulled by anything — see\nhttps://github.com/paritytech/parity-bridges-common/pull/3327#issuecomment-5816227455",
+          "timestamp": "2026-09-25T12:36:45Z",
+          "tree_id": "3e0ffe0d218eb14a2c2d20289e21a151276ee7f0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6d4445b6af52ef42643acf53e432d58cd2f9ff4d"
+        },
+        "date": 1790350830603,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63568.46,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002081128,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002081128,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7884163975899994,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3413975516400063,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8098376008599537,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.472661382232991,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.24119311156996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7498013770000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001960142,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7582063377099995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005217215719999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7883166310500007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001960142,
             "unit": "seconds"
           }
         ]
