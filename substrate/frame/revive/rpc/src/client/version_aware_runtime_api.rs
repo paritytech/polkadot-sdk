@@ -32,7 +32,7 @@ use sp_timestamp::Timestamp;
 use std::{
 	collections::HashMap,
 	future::Future,
-	sync::{Arc, Mutex, MutexGuard, PoisonError},
+	sync::{Arc, Mutex, MutexGuard, Once, PoisonError},
 };
 use subxt::{
 	Metadata, OnlineClient,
@@ -926,7 +926,6 @@ impl VersionAwareRuntimeApi {
 			Err(err) => err,
 		};
 		let Some(reason) = err.recorded_unavailable_reason() else { return Err(err) };
-		use std::sync::Once;
 		static METHOD_MISSING_WARNED: Once = Once::new();
 		static DENIED_WARNED: Once = Once::new();
 
@@ -934,15 +933,17 @@ impl VersionAwareRuntimeApi {
 			RecordedUnavailable::MethodMissing => METHOD_MISSING_WARNED.call_once(|| {
 				log::warn!(
 					target: LOG_TARGET,
-					"node does not expose `state_callRecorded`; \
-					 falling back to recorder-less replay",
+					"node does not expose `state_callRecorded` (predates it, upgrade the node); \
+					 falling back to recorder-less replay: traces may be INCOMPLETE on \
+					 PoV/parachain chains",
 				)
 			}),
 			RecordedUnavailable::Denied => DENIED_WARNED.call_once(|| {
 				log::warn!(
 					target: LOG_TARGET,
-					"`state_callRecorded` denied (unsafe RPC methods disabled); \
-					 falling back to recorder-less replay",
+					"`state_callRecorded` denied (unsafe RPC methods disabled, enable them); \
+					 falling back to recorder-less replay: traces may be INCOMPLETE on \
+					 PoV/parachain chains",
 				)
 			}),
 			RecordedUnavailable::NoRecorder => log::debug!(
