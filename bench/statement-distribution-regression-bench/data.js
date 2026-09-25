@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790354038437,
+  "lastUpdate": 1790376447680,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marios@parity.io",
-            "name": "Marios",
-            "username": "mchristou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7beff9b36482109623319d61aca5dedd407888cb",
-          "message": "Collator protocol revamp: Change collation hold-off timing to start at leaf activation (#11046)\n\n#11022 \n \nThe hold-off delay should be measured from when the relay parent (leaf)\nis activated, not when the advertisement message arrives. This prevents\nartificially delaying messages that already arrived late.\n\n\n ## Changes\n- Calculate remaining hold-off time from leaf activation, not message\narrival\n  - Process immediately if hold-off window has already elapsed\n  - Add test to ensure late-arriving collations skip artificial delay\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-24T14:30:24Z",
-          "tree_id": "94c81a5263ab20d4416cafbb2d3afa66e5eded28",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/7beff9b36482109623319d61aca5dedd407888cb"
-        },
-        "date": 1771948562344,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.02199999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03805324111,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06628408016399995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038298408943999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "xlchen1291@gmail.com",
+            "name": "Xiliang Chen",
+            "username": "xlc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bd6b01028c6cfb9c010bbf6cb505d2330f8a0433",
+          "message": "approval-distribution: expand knowledge past duplicate candidates (#13152)\n\nMulti-candidate assignments could stop recording candidates after\nencountering an existing entry. Evaluate every insertion while\npreserving existing approval knowledge and duplicate return semantics.\n\nNo API changes or storage migration are required.",
+          "timestamp": "2026-09-25T21:12:55Z",
+          "tree_id": "da72a2e0a4cd236dcd87d19de48791cc0521bc9d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/bd6b01028c6cfb9c010bbf6cb505d2330f8a0433"
+        },
+        "date": 1790376416811,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.09199999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0790461856999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038175332998,
             "unit": "seconds"
           }
         ]
