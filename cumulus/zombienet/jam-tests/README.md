@@ -71,9 +71,7 @@ target/jam/riscv64emac-unknown-none-polkavm/production-authorizer/parachain-auth
 ```
 
 The `parasim-tool` CLI is needed only by the two dynamic-core tests, which are the only ones that
-move a core mid-run; without it they skip and everything else runs. The `parasim-service.jam` blob
-is no longer needed for the progress tests (the real service is used instead), but is retained for
-the dynamic-core tests and the README's toy runs.
+move a core mid-run; without it those two fail and everything else runs.
 
 There is one authorizer blob per signature scheme, and which one a para needs is decided by its
 runtime's `AuraId`. The parachain template is sr25519, so that is the blob this suite puts on the
@@ -111,8 +109,8 @@ cumulus/zombienet/jam-tests/run.sh --suite block-bundling
 
 ### The JAM test-crate path
 
-The JAM tests live in `cumulus-zombienet-sdk-tests` (`tests/jam/mod.rs`); this crate is the pure
-helper library they build on. Thirteen further `cumulus-zombienet-sdk-tests` tests — the five in
+The JAM tests live in `cumulus-zombienet-sdk-tests` (`tests/jam/mod.rs`); this crate is the helper
+library they build on. Thirteen further `cumulus-zombienet-sdk-tests` tests — the five in
 `zombie_ci::elastic_scaling` and the eight in `zombie_ci::block_bundling` — are likewise gated by
 the `jam` feature. When the feature is enabled, the crate depends on the JAM `zombienet-sdk` and on
 `cumulus-jam-zombienet-tests` (the helper library in `src/`). Without it the crate compiles the
@@ -149,7 +147,6 @@ spawns the same six-validator network plus collators.
 | `PARACHAIN_SERVICE_BLOB` | the real parachain-service `.jam` blob, which genesis creates the service from |
 | `AUTHORIZER_BLOB` | `parachain-authorizer-sr25519.jam`, the AURA authorizer the cores run |
 | `RUNTIME_WASM` | the PolkaVM build of the parachain runtime (`PVM\0` magic), the para's JAM validation code *and* the runtime the collators execute. The name is misleading (it is not WASM); a future rename to `RUNTIME_PVF` is deferred. **Must be built with `--cfg jam`** for the `JamParent` digest assertion to pass — `run.sh` builds it through the wasm-builder's channel (`SUBSTRATE_RUNTIME_TARGET=riscv WASM_BUILD_RUSTFLAGS="--cfg jam" cargo build -p parachain-template-runtime`). Without the cfg the runtime never deposits the digest and the assertion fails for a configuration reason rather than a code reason. The collator-to-collator sync test needs a runtime that implements `AuthorityDiscoveryApi` and carries `audi` keys, which the template does not; that test selects the `cumulus-test-runtime` built with `--features with-authority-discovery` through `Para::with_runtime` instead; see "The runtime the sync test needs". |
-| `PARASIM_BLOB` | optional: `parasim-service.jam`, only needed for the dynamic-core tests and toy runs |
 | `PARASIM_TOOL_BIN` | optional: the `parasim-tool` CLI, required only by the dynamic-core tests, which move cores mid-run |
 | `OMNI_NODE_BIN`, `RELAY_NODE_BIN` | override the `target/release` defaults |
 | `JAM_TEST_BASE_DIR` | keep every run's work dir under this directory |
@@ -170,12 +167,9 @@ runtime is built once".
 `--test-threads 1` is required: each test spawns seven JAM nodes plus its collators, and running
 them concurrently would fight over CPU and make the six-second slot budget unrealistic.
 
-If any artifact is missing the standalone `jam-tests` suite prints what it needs and passes
-without running — it never fails for a reason unrelated to the collator. `PARASIM_TOOL_BIN` skips
-only the two dynamic-core tests; every other variable skips the whole suite. The `cumulus-zombienet-sdk-tests`
-suites under the `jam` feature treat missing artifacts as a hard error: the harness's `setup`
-returns an error instead of `Ok(())`. A run that appears to pass instantly — with no
-`work dir: ...` line in its output — did not execute anything.
+If any artifact is missing the JAM suites fail: the harness returns an error naming what it needs.
+A run that appears to pass instantly — with no `work dir: ...` line in its output — did not
+execute anything.
 
 ### Keeping the logs
 
@@ -192,7 +186,7 @@ survives whether the test passed or failed. Everything one run produces is insid
 ```
 jam-collator-test-two_jam_collators_build_blocks-20260831-141233/
 	jam-parachain-0-spec.json  the patched chain spec of para 0, one file per para
-	parasim-service.jam        the copy of the blob genesis created the service from
+	parachain-service.jam      the copy of the blob genesis created the service from
 	parachain-authorizer.jam   the copy of the blob whose hash genesis queued on the cores
 	alice.log, bob.log, ...    one log per collator
 	alice/, bob/, ...          one base path per collator
@@ -247,8 +241,9 @@ use `cumulus/scripts/jam-collator-demo.sh` instead.
 The resubmission test lives in `cumulus-zombienet-sdk-tests` (`tests/jam/resubmission.rs`) and
 reuses this crate's `src/proxy.rs`. It proves the collator resends a work package that never
 reached a guarantor. It pins the ordinary JAM node's RPC port and pre-allocates a second port for
-the proxy, starts `ProxyServer::serve_when_ready` before the single-call network spawn, and points
-`alice` at the proxy's URL through `JamSetup::with_jam_rpc_url`.
+the proxy, starts `ProxyServer::serve(policy, upstream, listen, timeout)` before the single-call
+network spawn, and points `alice` at the proxy's URL through the collator's `--jam-rpc-urls`
+(`CollatorOptions::jam_rpc_url` in `SpawnOptions`).
 
 The proxy drops the **first** `submitWorkPackage` of every distinct work-package hash and forwards
 every later one byte-exact. So the first submission of every package is lost, and the only way a
@@ -352,11 +347,13 @@ filter also includes `jam-package-sync=debug`, so the sync protocol's activity i
 
 | file | what it does |
 | --- | --- |
-| `src/env.rs` | resolves the binaries, or explains what is missing |
+| `src/env.rs` | resolves the binaries and initialises the logger, or explains what is missing |
+| `src/network.rs` | the run's work dir, node names and counts, the collator arguments, and port allocation (`free_port`) |
 | `src/genesis_build.rs` | builds the genesis override — the real parachain service, the authorizers, the cores, and the validation code — as the JSON object `gen-spec` reads |
 | `src/genesis.rs` | derives a para's authorizer hash, the way the collator derives it |
 | `src/chain_spec.rs` | builds and patches one para's chain spec |
-| `src/para.rs` | the `Para` description a run carries: id, core, collators, runtime and full nodes |
+| `src/spawn.rs` | the one place a JAM test builds a zombienet network: the JAM chain, one parachain per `Para`, the collators, and the `JamNetwork` handle |
+| `src/para.rs` | the `Para` description a run carries: id, core, collators and runtime |
 | `src/para_head.rs` | reads the parachain head JAM accumulated, off the JAM node's RPC |
 | `src/control.rs` | the `parasim-tool` control lane: assign or park a core mid-run |
 | `src/rpc.rs` | the JAM node and collator RPC clients |
@@ -364,8 +361,7 @@ filter also includes `jam-package-sync=debug`, so the sync protocol's activity i
 | `demo.sh` | shell entry point for the demo |
 
 The JAM integration tests are no longer in this crate. They live in `cumulus-zombienet-sdk-tests`
-at `tests/jam/mod.rs`, which spawns the JAM network through zombienet-sdk 0.5.0 and composes the
-helpers above.
+at `tests/jam/mod.rs`, which calls `spawn` to build the JAM network and composes the helpers above.
 
 ## Three things worth knowing about the collators
 
@@ -475,8 +471,7 @@ Nothing. The chain spec `polkajam gen-spec` generates for a run already holds:
   hosted as a preimage so the service can resolve it at refine time.
 
 All of that reaches `gen-spec` as one JSON object. zombienet-sdk knows nothing about these keys:
-the sdk crate's `tests/jam/mod.rs` hands it the object through `with_genesis_overrides`, and it is
-merged as is
+`spawn.rs` hands it to zombienet-sdk through `with_genesis_overrides`, and it is merged as is
 into the `jam_config.json` zombienet generates, next to the `id` and `genesis_validators` it
 writes itself. For a single para on core 0 the object is:
 
@@ -576,7 +571,7 @@ finalized 27 in ~199s**, which is the 6s median a healthy JAM network gives and 
 `parasim` mock used to reach in ~310s.
 
 Measured 2026-09-11 over all six guarantors: 258 refines, 258 `set_head` declarations, **0 guest
-panics, 0 traps, 0 `report_error` aborts**, and no `SKIP` line.
+panics, 0 traps, 0 `report_error` aborts**.
 
 Getting there took three fixes, each of which had silently capped the run at best 3 blocks before:
 
@@ -613,5 +608,5 @@ para back on it. Before parking, this test had to escape to the spare core, and 
 network that lost its only core could not be recovered at all.
 
 The hand-rolled six-validator topology and the manually supervised collator processes this crate
-used to carry are gone: the JAM tests spawn their network through zombienet-sdk 0.5.0's native JAM
-support and this crate keeps only the pure helpers they compose.
+used to carry are gone: this crate owns both the pure helpers and the network spawn (`spawn.rs`),
+the one place a JAM test builds its network, and the test crate keeps only the test bodies.

@@ -35,6 +35,11 @@ use zombienet_sdk::{
 	LocalFileSystem, Network,
 };
 
+/// The Prometheus metric that reports a parachain's best block height.
+pub const PARA_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
+/// The Prometheus metric that reports a parachain's finalized block height.
+pub const PARA_FINALIZED_METRIC: &str = "block_height{status=\"finalized\"}";
+
 #[cfg(feature = "jam")]
 pub mod jam;
 
@@ -312,14 +317,6 @@ pub mod network {
 	/// How long the JAM path waits for a parachain to reach its expected block floor.
 	#[cfg(feature = "jam")]
 	const PARA_BLOCK_TIMEOUT_SECS: u64 = 400;
-
-	/// The best-block metric every zombienet node reports. The JAM path polls it because subxt
-	/// cannot decode a JAM parachain header.
-	#[cfg(feature = "jam")]
-	const PARA_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
-
-	#[cfg(feature = "jam")]
-	const PARA_FINALIZED_METRIC: &str = "block_height{status=\"finalized\"}";
 
 	/// Assigns the given `cores` to the given `para_id`.
 	///

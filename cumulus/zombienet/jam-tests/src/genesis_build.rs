@@ -8,6 +8,7 @@ use crate::{
 	chain_spec,
 	env::{check_polkavm_format, Binaries},
 	genesis,
+	network::path_str,
 	para::{Para, PARACHAIN_SERVICE_ID},
 };
 use anyhow::{anyhow, Context};
@@ -357,24 +358,6 @@ pub fn json_balance(balance: u64) -> serde_json::Value {
 	}
 }
 
-/// The `genesis_state` key of service `id`'s record, as `gen-spec` spells it: JAM's
-/// `ServiceKey::Info` — `ff`, then the id's four little-endian bytes each followed by a zero —
-/// padded to the 31-byte state key.
-pub fn service_record_key(id: u32) -> String {
-	let mut key = [0u8; 31];
-	key[0] = 0xff;
-	for (index, byte) in id.to_le_bytes().into_iter().enumerate() {
-		key[1 + 2 * index] = byte;
-	}
-	array_bytes::bytes2hex("", key)
-}
-
-pub(crate) fn path_str(path: &Path) -> anyhow::Result<String> {
-	path.to_str()
-		.map(str::to_string)
-		.with_context(|| format!("{} is not utf-8", path.display()))
-}
-
 /// Copy a blob into the run's work dir and return the copy, which is what everything else names.
 ///
 /// PVM builds are not byte-deterministic, so a rebuild in the source tree while a run is going
@@ -419,17 +402,8 @@ mod tests {
 		std::fs::write(&default_blob, b"PVM\0default-runtime").expect("write; qed");
 		std::fs::write(&override_blob, b"PVM\0override-runtime").expect("write; qed");
 
-		let paras = vec![
-			Para::single(1),
-			Para {
-				id: 1,
-				core: 1,
-				also_cores: Vec::new(),
-				collators: vec!["bob".to_string()],
-				runtime: Some(override_blob.clone()),
-				full_nodes: Vec::new(),
-			},
-		];
+		let paras =
+			vec![Para::single(1), Para::new(1, 1, &["bob"]).with_runtime(override_blob.clone())];
 
 		let frozen = freeze_validation_codes(&paras, &default_blob, &work)
 			.expect("both blobs are PolkaVM programs; qed");

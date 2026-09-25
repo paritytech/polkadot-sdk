@@ -75,19 +75,6 @@ fn collator_set(para: &Para) -> anyhow::Result<Vec<CollatorKey>> {
 		.collect()
 }
 
-/// The hash out of a collator's `Derived the para's AURA authorizer` log line, as far as it is
-/// spelled there.
-///
-/// `tracing` prints the hash through its `Debug`, which abbreviates: what comes back is a prefix
-/// of the real hex, long enough to tell two authorizers apart and never enough to reconstruct
-/// one. Callers must therefore compare it as a prefix. `None` also covers the one hash in
-/// 10^13 whose bytes are all printable, which that `Debug` spells as a quoted string instead.
-pub fn logged_authorizer_hash(line: &str) -> Option<&str> {
-	let (_, rest) = line.split_once("authorizer_hash=0x")?;
-	let hex = rest.split_whitespace().next()?.trim_end_matches('.');
-	hex.chars().all(|c| c.is_ascii_hexdigit()).then_some(hex)
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -97,14 +84,7 @@ mod tests {
 	const SOME_BLOB: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml");
 
 	fn para(id: u32, collators: &[&str]) -> Para {
-		Para {
-			id,
-			core: 0,
-			also_cores: Vec::new(),
-			collators: collators.iter().map(|name| name.to_string()).collect(),
-			runtime: None,
-			full_nodes: Vec::new(),
-		}
+		Para::new(id, 0, collators)
 	}
 
 	/// The hash, built the long way round: the layout spelled out here rather than delegated to
@@ -175,32 +155,5 @@ mod tests {
 	fn the_hex_is_bare_lowercase() {
 		let hash = AuthorizerHash([0xabu8; 32]);
 		assert_eq!(hex(&hash), "ab".repeat(32));
-	}
-
-	/// Verbatim from a collator log. The hash is abbreviated there, so the check the harness runs
-	/// on it can only ever be a prefix comparison — and it has to survive the surrounding fields.
-	#[test]
-	fn the_logged_hash_is_read_off_the_startup_line() {
-		const LINE: &str = "2026-09-03 12:06:17.822  INFO main jam-collator: Derived the para's \
-			AURA authorizer. para_id=0 code_hash=0x7d74cdce72230fde... config_len=49 \
-			authorizer_hash=0xb925833c8af4b3f2... own_index=0";
-
-		assert_eq!(logged_authorizer_hash(LINE), Some("b925833c8af4b3f2"));
-		// The line the collator prints before it has a hash must not read as one of length zero.
-		assert_eq!(logged_authorizer_hash("collator starting"), None);
-	}
-
-	/// The abbreviation the log carries has to be a prefix of the hash written into genesis, or
-	/// the harness's startup check would pass on any hash at all. Read out of the very `Debug`
-	/// the collator prints through, so that a change to it fails here rather than in a
-	/// twenty-minute e2e.
-	#[test]
-	fn the_logged_prefix_belongs_to_the_full_hash() {
-		let hash = AuthorizerHash([0xb9u8; 32]);
-		let line = format!("authorizer_hash={hash:?} own_index=0");
-
-		let logged = logged_authorizer_hash(&line).expect("the line carries a hash");
-		assert!(logged.len() >= 16, "an abbreviation this short would compare nothing: {logged}");
-		assert!(hex(&hash).starts_with(logged), "{logged} is not a prefix of {}", hex(&hash));
 	}
 }

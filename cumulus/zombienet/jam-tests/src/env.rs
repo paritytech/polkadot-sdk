@@ -1,10 +1,20 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-//! The external artifacts a JAM collator test needs, and the gate that skips cleanly when any
-//! of them is missing.
+//! The external artifacts a JAM collator test needs, and the gate that reports any of them
+//! missing.
 
 use std::path::{Path, PathBuf};
+
+/// Install the process logger at the tests' `info` filter, ignoring a logger already set.
+///
+/// Every test entry point calls this before it does anything; a second call in the same process
+/// is a no-op because `env_logger` refuses to install twice.
+pub fn init_logger() {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+}
 
 /// Paths to everything the harness shells out to.
 #[derive(Clone, Debug)]
@@ -20,16 +30,9 @@ pub struct Binaries {
 	/// The `parasim-tool` CLI, used by the dynamic-core tests to point cores at paras mid-run.
 	///
 	/// `None` unless `PARASIM_TOOL_BIN` is set. Nothing else shells out to it — the para head
-	/// every other test asserts on is read straight off the JAM node's RPC — so a run without it
-	/// skips those two tests and nothing more.
+	/// every other test asserts on is read straight off the JAM node's RPC — so only those two
+	/// tests need it and nothing else does.
 	pub parasim_tool: Option<PathBuf>,
-	/// The compiled parasim service blob. Retained for the parasim tooling and the README's
-	/// toy runs; the genesis no longer creates the service from it.
-	///
-	/// `None` unless `PARASIM_BLOB` is set: the real-service path does not need it, so an absent
-	/// blob does not skip the target test. A set-but-missing path is still a typo and every test
-	/// says so, same as `PARASIM_TOOL_BIN`.
-	pub parasim_blob: Option<PathBuf>,
 	/// The compiled real parachain-service blob, which genesis creates the service from.
 	pub parachain_service_blob: PathBuf,
 	/// The compiled AURA authorizer blob. Only its hash ever reaches the chain, but the collators
@@ -64,27 +67,73 @@ fn from_env_or(var: &str, default: impl FnOnce() -> PathBuf) -> PathBuf {
 	std::env::var_os(var).map(PathBuf::from).unwrap_or_else(default)
 }
 
+/// The two node-side artifacts a plain dev-node run needs: the node binary and the PolkaVM
+/// runtime blob it embeds as `:code`.
+#[derive(Clone, Debug)]
+pub struct NodeArtifacts {
+	/// `polkadot-omni-node`, which is also the `chain-spec-builder` that makes the spec.
+	pub omni_node: PathBuf,
+	/// The PolkaVM build of the runtime (`PVM\0` magic), the node's only runtime.
+	pub runtime: PathBuf,
+}
+
+impl NodeArtifacts {
+	/// Resolve from the environment without touching the disk: `OMNI_NODE_BIN` and `RUNTIME_WASM`,
+	/// the latter falling back to `runtime_default`.
+	fn resolve(runtime_default: PathBuf) -> Self {
+		let root = workspace_root();
+		NodeArtifacts {
+			omni_node: from_env_or("OMNI_NODE_BIN", || {
+				root.join("target/release/polkadot-omni-node")
+			}),
+			runtime: from_env_or("RUNTIME_WASM", || runtime_default),
+		}
+	}
+
+	/// Resolve the artifacts a plain dev-node run needs, or report which are missing or not a
+	/// PolkaVM program.
+	pub fn from_env() -> Result<Self, String> {
+		let artifacts = NodeArtifacts::resolve(workspace_root().join(
+			"target/release/rbuild/parachain-template-runtime/\
+			 parachain-template-runtime-blob.polkavm",
+		));
+
+		let wanted: Vec<(&str, &PathBuf)> = vec![
+			("OMNI_NODE_BIN (cargo build --release -p polkadot-omni-node)", &artifacts.omni_node),
+			(
+				"RUNTIME_WASM (SUBSTRATE_RUNTIME_TARGET=riscv cargo build --release \
+				 -p parachain-template-runtime — the PolkaVM blob, not the WASM one)",
+				&artifacts.runtime,
+			),
+		];
+		if let Some(reason) = missing(&wanted) {
+			return Err(reason);
+		}
+		check_polkavm_format(&artifacts.runtime)?;
+		Ok(artifacts)
+	}
+}
+
 impl Binaries {
 	/// Resolve every artifact from the environment, or return the human-readable list of what is
 	/// missing so the caller can skip the test with an explanation.
 	pub fn from_env() -> Result<Self, String> {
 		let root = workspace_root();
+		// The node binary and the runtime blob are resolved exactly as a plain dev-node run
+		// resolves them; here they are only two more entries in the combined list below, so an
+		// absent one never short-circuits the report of the others.
+		let node = NodeArtifacts::resolve(root.join(
+			"target/release/wbuild/parachain-template-runtime/\
+			 parachain_template_runtime.compact.compressed.wasm",
+		));
 		let binaries = Binaries {
 			jam_node: from_env_or("JAM_NODE_BIN", PathBuf::new),
 			genspec_node: std::env::var_os("JAM_GENSPEC_BIN").map(PathBuf::from),
 			parasim_tool: std::env::var_os("PARASIM_TOOL_BIN").map(PathBuf::from),
-			parasim_blob: std::env::var_os("PARASIM_BLOB").map(PathBuf::from),
 			parachain_service_blob: from_env_or("PARACHAIN_SERVICE_BLOB", PathBuf::new),
 			authorizer_blob: from_env_or("AUTHORIZER_BLOB", PathBuf::new),
-			omni_node: from_env_or("OMNI_NODE_BIN", || {
-				root.join("target/release/polkadot-omni-node")
-			}),
-			runtime_wasm: from_env_or("RUNTIME_WASM", || {
-				root.join(
-					"target/release/wbuild/parachain-template-runtime/\
-					 parachain_template_runtime.compact.compressed.wasm",
-				)
-			}),
+			omni_node: node.omni_node,
+			runtime_wasm: node.runtime,
 		};
 
 		let mut wanted: Vec<(&str, &PathBuf)> = vec![
@@ -119,11 +168,6 @@ impl Binaries {
 		// skipping as though it had been left unset.
 		if let Some(tool) = &binaries.parasim_tool {
 			wanted.push((PARASIM_TOOL, tool));
-		}
-		// Optional: the real-service path does not need parasim's blob. A set-but-missing path is
-		// still a typo — every test says so, same as PARASIM_TOOL_BIN.
-		if let Some(blob) = &binaries.parasim_blob {
-			wanted.push(("PARASIM_BLOB (the parasim service .jam blob)", blob));
 		}
 
 		if let Some(reason) = missing(&wanted) {
@@ -185,45 +229,12 @@ fn missing(wanted: &[(&str, &PathBuf)]) -> Option<String> {
 	(!missing.is_empty()).then(|| format!("missing artifacts:\n{}", missing.join("\n")))
 }
 
-/// Say the test is being skipped, and why.
-///
-/// Not `log::warn!`: this has to be readable without a logger, and both are only visible under
-/// `--nocapture` anyway.
-fn skip(test: &str, reason: &str) {
-	eprintln!("SKIP {test}: {reason}");
-}
-
-/// Resolve the artifacts, or print why the test is being skipped and return `None`.
-pub fn binaries_or_skip(test: &str) -> Option<Binaries> {
-	match Binaries::from_env() {
-		Ok(binaries) => Some(binaries),
-		Err(reason) => {
-			skip(test, &reason);
-			None
-		},
-	}
-}
-
 /// Resolve the artifacts or fail, for callers that must NOT silently skip.
 ///
 /// The error is [`Binaries::from_env`]'s own reason string, so it names exactly which env var or
 /// path is missing.
 pub fn binaries_or_err() -> anyhow::Result<Binaries> {
 	Binaries::from_env().map_err(|reason| anyhow::anyhow!("{reason}"))
-}
-
-/// The `parasim-tool` CLI, or `None` after saying that this test is being skipped without it.
-///
-/// For the two dynamic-core tests, which are the only ones that move a core mid-run and so the
-/// only ones that shell out to the tool at all.
-pub fn parasim_tool_or_skip(test: &str, binaries: &Binaries) -> Option<PathBuf> {
-	match &binaries.parasim_tool {
-		Some(tool) => Some(tool.clone()),
-		None => {
-			skip(test, &format!("missing artifacts:\n  {PARASIM_TOOL}: unset"));
-			None
-		},
-	}
 }
 
 #[cfg(test)]
@@ -257,53 +268,7 @@ mod tests {
 		);
 	}
 
-	/// The mandatory set for the real-service path resolves when all required files are present
-	/// and `PARASIM_BLOB` is absent — the target test must not skip merely because the mock blob
-	/// is missing.
-	///
-	/// Adversarial probe: one mandatory artifact is then removed from disk and `missing()` fires,
-	/// proving the happy-path assertion is load-bearing rather than vacuous.
-	#[test]
-	fn mandatory_set_resolves_with_parasim_blob_absent() {
-		let dir = tempfile::tempdir().expect("temp dir; qed");
-
-		let jam_node = dir.path().join("polkajam");
-		let service_blob = dir.path().join("parachain-service.jam");
-		let auth_blob = dir.path().join("authorizer.jam");
-		let omni_node = dir.path().join("polkadot-omni-node");
-		let runtime = dir.path().join("runtime.polkavm");
-
-		for path in [&jam_node, &service_blob, &auth_blob, &omni_node] {
-			std::fs::write(path, b"placeholder").expect("write; qed");
-		}
-		std::fs::write(&runtime, b"PVM\0placeholder").expect("write; qed");
-
-		// Happy path: the real-service mandatory set, with PARASIM_BLOB absent.
-		let wanted: Vec<(&str, &PathBuf)> = vec![
-			("JAM_NODE_BIN", &jam_node),
-			("PARACHAIN_SERVICE_BLOB", &service_blob),
-			("AUTHORIZER_BLOB", &auth_blob),
-			("OMNI_NODE_BIN", &omni_node),
-			("RUNTIME_WASM", &runtime),
-			// PARASIM_BLOB is deliberately not in this list.
-		];
-		assert!(
-			missing(&wanted).is_none(),
-			"mandatory set must resolve when all required files exist and PARASIM_BLOB is absent",
-		);
-
-		// Adversarial: delete one mandatory artifact — missing() must fire.
-		// Proves the assertion above is load-bearing, not a vacuous pass.
-		std::fs::remove_file(&service_blob).expect("remove; qed");
-		assert!(
-			missing(&wanted).is_some(),
-			"missing() must fire when PARACHAIN_SERVICE_BLOB is absent — \
-			 the no-skip assertion is load-bearing, not vacuous",
-		);
-	}
-
-	/// The strict resolver must fail loudly, naming the missing variable, where
-	/// [`binaries_or_skip`] would return `None`.
+	/// The strict resolver must fail loudly, naming the missing variable.
 	#[test]
 	fn binaries_or_err_names_the_missing_service_blob() {
 		let saved = std::env::var_os("PARACHAIN_SERVICE_BLOB");

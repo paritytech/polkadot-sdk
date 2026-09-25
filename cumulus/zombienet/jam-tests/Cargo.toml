@@ -11,6 +11,7 @@ publish = false
 anyhow = { workspace = true }
 array-bytes = { workspace = true }
 codec = { workspace = true, default-features = true }
+env_logger = { workspace = true }
 log = { workspace = true }
 serde_json = { workspace = true, default-features = true, features = ["raw_value"] }
 tokio = { workspace = true, features = ["macros", "process", "rt-multi-thread", "signal", "time"] }
@@ -21,9 +22,11 @@ sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 tempfile = { workspace = true }
-# `network::collator_args` returns the SDK's own `Arg`, so the tests can pass it straight to the
-# `NetworkConfigBuilder` they build inline. Same 0.5.0 the rest of the workspace uses.
+# `network::collator_args` returns the SDK's own `Arg`, so `spawn` can pass it straight to the
+# `NetworkConfigBuilder` it builds. Same 0.5.0 the rest of the workspace uses.
 zombienet-sdk = { workspace = true }
+# The `ParaConfig` the spawned collators' subxt clients are typed with.
+cumulus-zombienet-sdk-helpers = { workspace = true }
 # The authorizer hash written into genesis has to be the one the collator derives, so it is built
 # out of the very crates the collator and the guest use — the same path deps polkadot-omni-node-lib
 # names. `parachain-service-core` is the consolidated types/keys/authorizer crate the former

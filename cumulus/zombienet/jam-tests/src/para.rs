@@ -39,9 +39,6 @@ pub const DEADLINE: Duration = Duration::from_secs(25 * 60);
 /// a bare wall-clock constant, so the budget tracks the chain's own cadence.
 pub const JAM_SLOT: Duration = Duration::from_secs(6);
 
-/// How often a harness re-reads a collator's height while waiting.
-pub const POLL_INTERVAL: Duration = Duration::from_secs(3);
-
 /// One parachain of a run: the id it collates under, the core its work packages are authorized
 /// on, and the node names that collate for it.
 #[derive(Clone, Debug)]
@@ -68,9 +65,6 @@ pub struct Para {
 	/// `validation_code`, so the bytes JAM validates and the bytes the collators execute cannot
 	/// disagree.
 	pub runtime: Option<PathBuf>,
-	/// Node names of additional non-authoring full nodes to run for this para. They sync the para
-	/// but are not in its authority set: the authorizer hash commits to [`Self::collators`] only.
-	pub full_nodes: Vec<String>,
 }
 
 impl Para {
@@ -82,7 +76,6 @@ impl Para {
 			also_cores: Vec::new(),
 			collators: collators.iter().map(|name| name.to_string()).collect(),
 			runtime: None,
-			full_nodes: Vec::new(),
 		}
 	}
 
@@ -95,7 +88,6 @@ impl Para {
 			also_cores: Vec::new(),
 			collators: (0..count).map(chain_spec::dev_name).collect(),
 			runtime: None,
-			full_nodes: Vec::new(),
 		}
 	}
 
@@ -104,13 +96,6 @@ impl Para {
 	/// the service's `validation_code` are both built from it.
 	pub fn with_runtime(mut self, runtime: impl Into<PathBuf>) -> Self {
 		self.runtime = Some(runtime.into());
-		self
-	}
-
-	/// Run `nodes` as additional non-authoring full nodes of this para. They are not added to
-	/// [`Self::collators`], so the authorizer hash — and the core it is queued on — is unchanged.
-	pub fn with_full_nodes(mut self, nodes: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
-		self.full_nodes.extend(nodes.into_iter().map(|name| name.as_ref().to_string()));
 		self
 	}
 

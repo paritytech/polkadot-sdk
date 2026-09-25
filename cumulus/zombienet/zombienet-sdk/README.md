@@ -23,9 +23,9 @@ will be placed in that directory.
 
 ## JAM network tests
 
-The JAM harness is this crate's `tests/jam/mod.rs`, which spawns the JAM network through
-zombienet-sdk 0.5.0's native JAM support and composes the pure helpers in the
-`cumulus-jam-zombienet-tests` library (`cumulus/zombienet/jam-tests/src/`).
+The JAM harness is this crate's `tests/jam/mod.rs`, which composes
+`cumulus-jam-zombienet-tests::spawn` (`cumulus/zombienet/jam-tests/src/spawn.rs`) and the pure
+helpers in the `cumulus-jam-zombienet-tests` library (`cumulus/zombienet/jam-tests/src/`).
 
 The test suites can run against a JAM network instead of a relay chain by enabling the `jam` feature:
 

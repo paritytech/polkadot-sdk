@@ -16,9 +16,6 @@
 // limitations under the License.
 
 #![cfg(feature = "jam")]
-// allow: SIZE_OK — one cohesive test module: the three core-assignment tests plus the native
-// orchestration helpers they share. The old `jam-tests` harness kept that orchestration in a
-// library; the native harness deliberately keeps none (see `tests/jam/mod.rs`), so it lives here.
 
 //! What happens to a parachain when the cores under it are handed out, taken away and moved.
 //!
@@ -38,22 +35,17 @@
 //! between the two single-para tests here — one puts the para back where it was, the other moves
 //! it somewhere else.
 
-use crate::jam::{jam_rpc_url, Para};
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use cumulus_jam_zombienet_tests::{
 	control,
 	env::binaries_or_err,
-	genesis_build::{build_jam_genesis, polkavm_env},
-	network::{
-		base_dir, collator_args, copy_para_specs, path_str, work_dir, ORDINARY_NODE,
-		VALIDATORS_PER_CORE,
-	},
-	para::{DEADLINE, PARACHAIN_SERVICE_ID, TINY_CORES},
-	para_head::{read_para_head, ParaHead},
+	network::wait_for_collators,
+	para::{Para, DEADLINE, PARACHAIN_SERVICE_ID, TINY_CORES},
+	para_head::{read_para_head, wait_for_frozen_jam_head, wait_for_jam_head, ParaHead},
 	rpc::{CollatorRpc, Height, JamRpc},
+	spawn::{spawn, JamNetwork, SpawnOptions},
 };
-use std::{collections::HashMap, path::Path, time::Duration};
-use tokio::time::Instant;
+use std::{path::Path, time::Duration};
 use zombienet_sdk::{LocalFileSystem, Network};
 
 /// The para the single-para tests run, and the core it starts on.
@@ -85,12 +77,6 @@ const FINALIZED: u64 = 25;
 /// two; this tolerates an order of magnitude worse and still fails a para that has stopped.
 const GAP_TOLERANCE: Duration = Duration::from_secs(2 * 60);
 
-/// The best-block metric every zombienet node reports.
-const PARA_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
-
-/// The finalized-block metric every zombienet node reports.
-const PARA_FINALIZED_METRIC: &str = "block_height{status=\"finalized\"}";
-
 /// Two paras, one core each, disjoint collator sets: the full width of a tiny JAM network.
 ///
 /// The point is that nothing but JAM itself is shared. The paras have different ids, so their
@@ -106,105 +92,15 @@ async fn two_paras_on_two_cores_build_blocks() -> Result<(), anyhow::Error> {
 	);
 
 	let paras = vec![Para::new(0, 0, &["alice", "bob"]), Para::new(1, 1, &["charlie", "dave"])];
-	let binaries = binaries_or_err()?;
-	let (work_dir, _temp) = work_dir(TEST)?;
-	let genesis = build_jam_genesis(&binaries, &work_dir, &paras, TINY_CORES)?;
-	let para_specs = copy_para_specs(&work_dir, &genesis.para_specs, &paras)?;
-	let base_dir = base_dir(&work_dir)?;
-	let jam_node = path_str(&binaries.jam_node)?;
-	let genspec_node = binaries.genspec_node.as_deref().map(path_str).transpose()?;
-	let omni_node = path_str(&binaries.omni_node)?;
-	let authorizer_blob = path_str(&genesis.authorizer_blob)?;
-	let overrides = genesis.overrides.clone();
-	let no_overrides = HashMap::new();
-	let validators = TINY_CORES as usize * VALIDATORS_PER_CORE;
-
-	let config =
-		zombienet_sdk::NetworkConfigBuilder::new()
-			.with_jamchain(|jam| {
-				let jam = jam.with_id("jam").with_default_command(jam_node.as_str());
-				let jam = match genspec_node.as_deref() {
-					Some(command) if command != jam_node.as_str() => {
-						jam.with_chain_spec_command(command)
-					},
-					_ => jam,
-				};
-				let jam = jam.with_genesis_overrides(overrides);
-				let jam = jam.with_validator(|node| node.with_name("jam0").with_env(polkavm_env()));
-				let jam = (1..validators).fold(jam, |jam, index| {
-					jam.with_validator(|node| {
-						node.with_name(&format!("jam{index}")).with_env(polkavm_env())
-					})
-				});
-				jam.with_ordinary(|node| node.with_name(ORDINARY_NODE).with_env(polkavm_env()))
-			})
-			.with_parachain(|p| {
-				let p = p
-					.with_id(paras[0].id)
-					.with_registration_strategy(zombienet_sdk::RegistrationStrategy::Manual)
-					.with_chain_spec_path(para_specs[0].clone())
-					.with_default_command(omni_node.as_str());
-				let p = p.with_collator(|node| {
-					node.with_name(paras[0].collators[0].as_str())
-						.with_env(polkavm_env())
-						.with_args(collator_args(
-							&authorizer_blob,
-							&no_overrides,
-							&paras[0].collators[0],
-							true,
-						))
-				});
-				paras[0].collators[1..].iter().fold(p, |p, name| {
-					p.with_collator(|node| {
-						node.with_name(name.as_str())
-							.with_env(polkavm_env())
-							.with_args(collator_args(&authorizer_blob, &no_overrides, name, true))
-					})
-				})
-			})
-			.with_parachain(|p| {
-				let p = p
-					.with_id(paras[1].id)
-					.with_registration_strategy(zombienet_sdk::RegistrationStrategy::Manual)
-					.with_chain_spec_path(para_specs[1].clone())
-					.with_default_command(omni_node.as_str());
-				let p = p.with_collator(|node| {
-					node.with_name(paras[1].collators[0].as_str())
-						.with_env(polkavm_env())
-						.with_args(collator_args(
-							&authorizer_blob,
-							&no_overrides,
-							&paras[1].collators[0],
-							true,
-						))
-				});
-				paras[1].collators[1..].iter().fold(p, |p, name| {
-					p.with_collator(|node| {
-						node.with_name(name.as_str())
-							.with_env(polkavm_env())
-							.with_args(collator_args(&authorizer_blob, &no_overrides, name, true))
-					})
-				})
-			})
-			.with_global_settings(|g| g.with_base_dir(base_dir))
-			.build()
-			.map_err(|errors| {
-				anyhow!(
-					"config errs: {}",
-					errors.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ")
-				)
-			})?;
-	let network = zombienet_sdk::environment::get_spawn_fn()(config).await?;
+	let jam = spawn(TEST, &paras, SpawnOptions::new(TINY_CORES)).await?;
 
 	let result = async {
-		let jam_url = jam_rpc_url(&network)?;
-		let jam_rpc = JamRpc::wait_ready(&jam_url, Instant::now() + DEADLINE).await?;
-		wait_for_every_collator(&network, &paras).await?;
-		heads_belong_to_their_own_para(&network, &jam_rpc, &paras).await
+		wait_for_collators(&jam.network, &paras, BLOCKS, FINALIZED, DEADLINE.as_secs()).await?;
+		heads_belong_to_their_own_para(&jam, &paras).await
 	}
 	.await;
 
-	destroy(network).await;
+	jam.destroy().await;
 	result
 }
 
@@ -214,20 +110,16 @@ async fn two_paras_on_two_cores_build_blocks() -> Result<(), anyhow::Error> {
 /// the proof: para 0's collator knowing a head parasim filed under para 1 would mean the two
 /// chains had converged, and para 1's collator knowing one filed under para 0 would mean parasim
 /// had mixed their state up.
-async fn heads_belong_to_their_own_para(
-	network: &Network<LocalFileSystem>,
-	jam_rpc: &JamRpc,
-	paras: &[Para],
-) -> anyhow::Result<()> {
+async fn heads_belong_to_their_own_para(jam: &JamNetwork, paras: &[Para]) -> anyhow::Result<()> {
 	let ids: Vec<u32> = paras.iter().map(|para| para.id).collect();
 	let mut rpcs = Vec::with_capacity(paras.len());
 	for para in paras {
-		rpcs.push(first_rpc(network, para).await?);
+		rpcs.push(jam.collator_rpc(&para.collators[0]).await?);
 	}
 
 	let mut heads = Vec::new();
 	for (index, rpc) in rpcs.iter().enumerate() {
-		let progress = read_progress(jam_rpc, rpc, ids[index]).await?;
+		let progress = read_progress(&jam.jam_rpc, rpc, ids[index]).await?;
 		let head = progress.jam_head.clone().with_context(|| {
 			format!(
 				"para {} built {} blocks but JAM accumulated no head for it at all",
@@ -292,78 +184,15 @@ async fn freeing_the_core_freezes_the_para_head_until_it_is_assigned_again(
 		.context("PARASIM_TOOL_BIN is required for the dynamic-core tests")?;
 
 	let paras = vec![Para::single(1)];
-	let (work_dir, _temp) = work_dir(TEST)?;
-	let genesis = build_jam_genesis(&binaries, &work_dir, &paras, TINY_CORES)?;
-	let para_specs = copy_para_specs(&work_dir, &genesis.para_specs, &paras)?;
-	let base_dir = base_dir(&work_dir)?;
-	let jam_node = path_str(&binaries.jam_node)?;
-	let genspec_node = binaries.genspec_node.as_deref().map(path_str).transpose()?;
-	let omni_node = path_str(&binaries.omni_node)?;
-	let authorizer_blob = path_str(&genesis.authorizer_blob)?;
-	let overrides = genesis.overrides.clone();
-	let no_overrides = HashMap::new();
-	let validators = TINY_CORES as usize * VALIDATORS_PER_CORE;
-
-	let config = zombienet_sdk::NetworkConfigBuilder::new()
-		.with_jamchain(|jam| {
-			let jam = jam.with_id("jam").with_default_command(jam_node.as_str());
-			let jam = match genspec_node.as_deref() {
-				Some(command) if command != jam_node.as_str() => {
-					jam.with_chain_spec_command(command)
-				},
-				_ => jam,
-			};
-			let jam = jam.with_genesis_overrides(overrides);
-			let jam = jam.with_validator(|node| node.with_name("jam0").with_env(polkavm_env()));
-			let jam = (1..validators).fold(jam, |jam, index| {
-				jam.with_validator(|node| {
-					node.with_name(&format!("jam{index}")).with_env(polkavm_env())
-				})
-			});
-			jam.with_ordinary(|node| node.with_name(ORDINARY_NODE).with_env(polkavm_env()))
-		})
-		.with_parachain(|p| {
-			p.with_id(paras[0].id)
-				.with_registration_strategy(zombienet_sdk::RegistrationStrategy::Manual)
-				.with_chain_spec_path(para_specs[0].clone())
-				.with_default_command(omni_node.as_str())
-				.with_collator(|node| {
-					node.with_name(paras[0].collators[0].as_str())
-						.with_env(polkavm_env())
-						.with_args(collator_args(
-							&authorizer_blob,
-							&no_overrides,
-							&paras[0].collators[0],
-							true,
-						))
-				})
-		})
-		.with_global_settings(|g| g.with_base_dir(base_dir))
-		.build()
-		.map_err(|errors| {
-			anyhow!(
-				"config errs: {}",
-				errors.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ")
-			)
-		})?;
-	let network = zombienet_sdk::environment::get_spawn_fn()(config).await?;
+	let jam = spawn(TEST, &paras, SpawnOptions::new(TINY_CORES)).await?;
 
 	let result = async {
-		let jam_url = jam_rpc_url(&network)?;
-		let jam_rpc = JamRpc::wait_ready(&jam_url, Instant::now() + DEADLINE).await?;
-		let run = Run {
-			network: &network,
-			jam_rpc: &jam_rpc,
-			jam_url: &jam_url,
-			tool: &tool,
-			authorizer_blob: &binaries.authorizer_blob,
-			para: &paras[0],
-		};
+		let run = Run { jam: &jam, tool: &tool, para: &paras[0] };
 		stall_then_heal(&run).await
 	}
 	.await;
 
-	destroy(network).await;
+	jam.destroy().await;
 	result
 }
 
@@ -458,78 +287,15 @@ async fn moving_the_para_to_the_other_core_keeps_its_head_moving() -> Result<(),
 		.context("PARASIM_TOOL_BIN is required for the dynamic-core tests")?;
 
 	let paras = vec![Para::single(1)];
-	let (work_dir, _temp) = work_dir(TEST)?;
-	let genesis = build_jam_genesis(&binaries, &work_dir, &paras, TINY_CORES)?;
-	let para_specs = copy_para_specs(&work_dir, &genesis.para_specs, &paras)?;
-	let base_dir = base_dir(&work_dir)?;
-	let jam_node = path_str(&binaries.jam_node)?;
-	let genspec_node = binaries.genspec_node.as_deref().map(path_str).transpose()?;
-	let omni_node = path_str(&binaries.omni_node)?;
-	let authorizer_blob = path_str(&genesis.authorizer_blob)?;
-	let overrides = genesis.overrides.clone();
-	let no_overrides = HashMap::new();
-	let validators = TINY_CORES as usize * VALIDATORS_PER_CORE;
-
-	let config = zombienet_sdk::NetworkConfigBuilder::new()
-		.with_jamchain(|jam| {
-			let jam = jam.with_id("jam").with_default_command(jam_node.as_str());
-			let jam = match genspec_node.as_deref() {
-				Some(command) if command != jam_node.as_str() => {
-					jam.with_chain_spec_command(command)
-				},
-				_ => jam,
-			};
-			let jam = jam.with_genesis_overrides(overrides);
-			let jam = jam.with_validator(|node| node.with_name("jam0").with_env(polkavm_env()));
-			let jam = (1..validators).fold(jam, |jam, index| {
-				jam.with_validator(|node| {
-					node.with_name(&format!("jam{index}")).with_env(polkavm_env())
-				})
-			});
-			jam.with_ordinary(|node| node.with_name(ORDINARY_NODE).with_env(polkavm_env()))
-		})
-		.with_parachain(|p| {
-			p.with_id(paras[0].id)
-				.with_registration_strategy(zombienet_sdk::RegistrationStrategy::Manual)
-				.with_chain_spec_path(para_specs[0].clone())
-				.with_default_command(omni_node.as_str())
-				.with_collator(|node| {
-					node.with_name(paras[0].collators[0].as_str())
-						.with_env(polkavm_env())
-						.with_args(collator_args(
-							&authorizer_blob,
-							&no_overrides,
-							&paras[0].collators[0],
-							true,
-						))
-				})
-		})
-		.with_global_settings(|g| g.with_base_dir(base_dir))
-		.build()
-		.map_err(|errors| {
-			anyhow!(
-				"config errs: {}",
-				errors.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ")
-			)
-		})?;
-	let network = zombienet_sdk::environment::get_spawn_fn()(config).await?;
+	let jam = spawn(TEST, &paras, SpawnOptions::new(TINY_CORES)).await?;
 
 	let result = async {
-		let jam_url = jam_rpc_url(&network)?;
-		let jam_rpc = JamRpc::wait_ready(&jam_url, Instant::now() + DEADLINE).await?;
-		let run = Run {
-			network: &network,
-			jam_rpc: &jam_rpc,
-			jam_url: &jam_url,
-			tool: &tool,
-			authorizer_blob: &binaries.authorizer_blob,
-			para: &paras[0],
-		};
+		let run = Run { jam: &jam, tool: &tool, para: &paras[0] };
 		move_to_the_other_core(&run).await
 	}
 	.await;
 
-	destroy(network).await;
+	jam.destroy().await;
 	result
 }
 
@@ -619,13 +385,6 @@ async fn walk_heads(run: &Run<'_>, rpc: &CollatorRpc, count: u64) -> anyhow::Res
 	Ok(progress)
 }
 
-/// The RPC of the para's first collator, which is the one every assertion reads.
-async fn first_rpc(network: &Network<LocalFileSystem>, para: &Para) -> anyhow::Result<CollatorRpc> {
-	let name = para.collators.first().context("the para has no collator")?;
-	let url = network.get_node(name.as_str())?.ws_uri();
-	CollatorRpc::connect(&url, Instant::now() + DEADLINE).await
-}
-
 /// One reading of a para: where its own chain is, and where JAM thinks it is.
 ///
 /// The two move independently, and every phase-6 assertion is about how: authoring is local and
@@ -679,35 +438,26 @@ async fn log_lines_with(
 /// RPC, the URL and authorizer blob the control tool is pointed at, and the single para of a
 /// single-para run.
 struct Run<'a> {
-	network: &'a Network<LocalFileSystem>,
-	jam_rpc: &'a JamRpc,
-	jam_url: &'a str,
+	jam: &'a JamNetwork,
 	tool: &'a Path,
-	authorizer_blob: &'a Path,
 	para: &'a Para,
 }
 
 impl Run<'_> {
 	/// The RPC of the para's first collator.
 	async fn rpc(&self) -> anyhow::Result<CollatorRpc> {
-		first_rpc(self.network, self.para).await
+		self.jam.collator_rpc(&self.para.collators[0]).await
 	}
 
 	/// One reading of the para.
 	async fn sample(&self, rpc: &CollatorRpc) -> anyhow::Result<Progress> {
-		read_progress(self.jam_rpc, rpc, self.para.id).await
+		read_progress(&self.jam.jam_rpc, rpc, self.para.id).await
 	}
 
 	/// Wait until JAM has accumulated a head of at least `target` for the para.
 	async fn wait_for_jam_head(&self, target: u64, budget: Duration) -> anyhow::Result<()> {
-		crate::jam::wait_for_jam_head(
-			self.jam_rpc,
-			PARACHAIN_SERVICE_ID,
-			self.para.id,
-			target,
-			budget,
-		)
-		.await
+		wait_for_jam_head(&self.jam.jam_rpc, PARACHAIN_SERVICE_ID, self.para.id, target, budget)
+			.await
 	}
 
 	/// Wait until JAM's head for the para has stood still for `still_for`.
@@ -716,8 +466,8 @@ impl Run<'_> {
 		still_for: Duration,
 		budget: Duration,
 	) -> anyhow::Result<()> {
-		crate::jam::wait_for_frozen_jam_head(
-			self.jam_rpc,
+		wait_for_frozen_jam_head(
+			&self.jam.jam_rpc,
 			PARACHAIN_SERVICE_ID,
 			self.para.id,
 			still_for,
@@ -729,9 +479,9 @@ impl Run<'_> {
 	/// Host the authorizer blob in the bootstrap service, for `parasim-tool`'s control packages.
 	fn host_authorizer(&self) -> anyhow::Result<()> {
 		control::host_authorizer_for_control_packages(
-			self.jam_url,
+			&self.jam.jam_url,
 			PARACHAIN_SERVICE_ID,
-			self.authorizer_blob,
+			&self.jam.genesis.authorizer_blob,
 			self.tool,
 		)
 	}
@@ -739,9 +489,9 @@ impl Run<'_> {
 	/// Point `core` at this para through `parasim-tool`.
 	fn assign_core(&self, core: u32) -> anyhow::Result<()> {
 		control::assign_core(
-			self.jam_url,
+			&self.jam.jam_url,
 			PARACHAIN_SERVICE_ID,
-			self.authorizer_blob,
+			&self.jam.genesis.authorizer_blob,
 			self.tool,
 			self.para,
 			core,
@@ -752,9 +502,9 @@ impl Run<'_> {
 	/// Park `core` through `parasim-tool`.
 	fn free_core(&self, core: u32) -> anyhow::Result<()> {
 		control::free_core(
-			self.jam_url,
+			&self.jam.jam_url,
 			PARACHAIN_SERVICE_ID,
-			self.authorizer_blob,
+			&self.jam.genesis.authorizer_blob,
 			self.tool,
 			self.para,
 			core,
@@ -763,52 +513,6 @@ impl Run<'_> {
 
 	/// The para's first collator's log lines carrying every `needle`.
 	async fn lines_with(&self, needles: &[&str]) -> anyhow::Result<Vec<String>> {
-		log_lines_with(self.network, &self.para.collators[0], needles).await
-	}
-}
-
-/// Wait, per collator, for the best metric to pass [`BLOCKS`] and then the finalized metric to
-/// pass [`FINALIZED`]. Every collator is waited on, because a set where only one collator authors
-/// still has to keep the chain producing and finalizing.
-async fn wait_for_every_collator(
-	network: &Network<LocalFileSystem>,
-	paras: &[Para],
-) -> anyhow::Result<()> {
-	let timeout = DEADLINE.as_secs();
-	for para in paras {
-		for name in &para.collators {
-			let node = network.get_node(name.as_str())?;
-
-			log::info!("Waiting for collator {name} to reach best block #{BLOCKS}");
-			node.wait_metric_with_timeout(PARA_BLOCK_METRIC, |best| best >= BLOCKS as f64, timeout)
-				.await
-				.map_err(|error| {
-					anyhow!(
-						"collator {name} did not reach best block #{BLOCKS} in {timeout}s: {error}"
-					)
-				})?;
-
-			log::info!("Waiting for collator {name} to finalize block #{FINALIZED}");
-			node.wait_metric_with_timeout(
-				PARA_FINALIZED_METRIC,
-				|finalized| finalized >= FINALIZED as f64,
-				timeout,
-			)
-			.await
-			.map_err(|error| {
-				anyhow!(
-					"collator {name} did not finalize block #{FINALIZED} in {timeout}s: {error}"
-				)
-			})?;
-		}
-	}
-	Ok(())
-}
-
-/// Tear the network down, logging rather than propagating a teardown failure: the assertions have
-/// already run, and a dropped network cleans up after a panic anyway.
-async fn destroy(network: Network<LocalFileSystem>) {
-	if let Err(error) = network.destroy().await {
-		log::warn!("tearing down the JAM network failed: {error}");
+		log_lines_with(&self.jam.network, &self.para.collators[0], needles).await
 	}
 }

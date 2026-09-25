@@ -5291,6 +5291,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "array-bytes 6.2.2",
+ "cumulus-zombienet-sdk-helpers",
+ "env_logger 0.11.3",
  "jam-std-common 0.1.29",
  "jam-types 0.1.29",
  "jsonrpsee 0.24.11",
@@ -5973,7 +5975,6 @@ name = "cumulus-zombienet-sdk-tests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "chrono",
  "cid",
  "cumulus-jam-zombienet-tests",
  "cumulus-primitives-core",
@@ -5983,10 +5984,8 @@ dependencies = [
  "frame-support",
  "futures",
  "hex",
- "jsonrpsee 0.24.11",
  "log",
  "multihash",
- "parachain-service-core",
  "parity-scale-codec",
  "parity-wasm",
  "polkadot-primitives",

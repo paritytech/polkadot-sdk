@@ -29,7 +29,7 @@ use std::{
 		atomic::{AtomicU32, Ordering},
 		Arc, Mutex,
 	},
-	time::Instant,
+	time::{Duration, Instant},
 };
 
 /// JAM RPC bodies carry whole work packages; 32 MiB clears the node's own limits by a wide margin.
@@ -96,11 +96,6 @@ impl Attempts {
 	/// A ledger that applies `policy`.
 	pub fn new(policy: DropPolicy) -> Self {
 		Self { policy, by_hash: HashMap::new(), forwarded: 0 }
-	}
-
-	/// The policy this ledger applies.
-	pub fn policy(&self) -> DropPolicy {
-		self.policy
 	}
 
 	/// Record one submission of `hash` and return the verdict.
@@ -267,30 +262,44 @@ pub struct ProxyServer {
 	handle: Option<ServerHandle>,
 	attempts: Arc<Mutex<Attempts>>,
 	upstream_errors: Arc<AtomicU32>,
-	policy: DropPolicy,
 }
 
 impl ProxyServer {
-	/// Connect to `upstream_url`, apply the chain's protocol parameters and start serving.
+	/// Connect to `upstream_url`, apply the chain's protocol parameters and start serving on
+	/// `listen_addr`, retrying until the upstream answers or `timeout` has passed.
 	///
 	/// Decoding a work package reads process-global protocol bounds, so fetching and applying
 	/// the upstream's parameters has to happen before the server can accept a `submitWorkPackage`.
-	pub async fn serve(upstream_url: &str) -> anyhow::Result<Self> {
-		Self::serve_with(DropPolicy::FirstSubmission, upstream_url).await
+	///
+	/// The sdk's single-call `spawn_fn` builds and starts the whole network at once, so a
+	/// collator's `--jam-rpc-urls` and the proxy's listen address are fixed before the JAM node
+	/// exists. This lets the proxy start first and connect upstream as soon as `jam-or` is up. A
+	/// `listen_addr` ending in `:0` binds an ephemeral port, and [`Self::url`] reports the port the
+	/// OS picked.
+	pub async fn serve(
+		policy: DropPolicy,
+		upstream_url: &str,
+		listen_addr: &str,
+		timeout: Duration,
+	) -> anyhow::Result<Self> {
+		let deadline = Instant::now() + timeout;
+		loop {
+			match Self::serve_once(policy, upstream_url, listen_addr).await {
+				Ok(server) => return Ok(server),
+				Err(error) => {
+					if Instant::now() >= deadline {
+						return Err(error);
+					}
+					log::info!("proxy: upstream {upstream_url} is not up yet ({error}); retrying");
+					tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+				},
+			}
+		}
 	}
 
-	/// Like [`Self::serve`], but with an explicit [`DropPolicy`].
-	pub async fn serve_with(policy: DropPolicy, upstream_url: &str) -> anyhow::Result<Self> {
-		Self::serve_on_with(policy, upstream_url, "127.0.0.1:0").await
-	}
-
-	/// Like [`Self::serve`], but bound to `listen_addr` instead of an ephemeral loopback port.
-	pub async fn serve_on(upstream_url: &str, listen_addr: &str) -> anyhow::Result<Self> {
-		Self::serve_on_with(DropPolicy::FirstSubmission, upstream_url, listen_addr).await
-	}
-
-	/// Like [`Self::serve_on`], but with an explicit [`DropPolicy`].
-	pub async fn serve_on_with(
+	/// Connect to `upstream_url`, apply the chain's protocol parameters and start serving once on
+	/// `listen_addr`.
+	async fn serve_once(
 		policy: DropPolicy,
 		upstream_url: &str,
 		listen_addr: &str,
@@ -330,44 +339,7 @@ impl ProxyServer {
 		let url = format!("ws://{}", server.local_addr()?);
 		let handle = server.start(proxy.into_rpc());
 
-		Ok(Self { url, handle: Some(handle), attempts, upstream_errors, policy })
-	}
-
-	/// Serve on `listen_addr`, retrying until `upstream_url` answers, or return the last error once
-	/// `timeout` has passed.
-	///
-	/// The sdk's single-call `spawn_fn` builds and starts the whole network at once, so a
-	/// collator's `--jam-rpc-urls` and the proxy's listen address are fixed before the JAM node
-	/// exists. This lets the proxy start first and connect upstream as soon as `jam-or` is up.
-	pub async fn serve_when_ready(
-		upstream_url: &str,
-		listen_addr: &str,
-		timeout: std::time::Duration,
-	) -> anyhow::Result<Self> {
-		Self::serve_when_ready_with(DropPolicy::FirstSubmission, upstream_url, listen_addr, timeout)
-			.await
-	}
-
-	/// Like [`Self::serve_when_ready`], but with an explicit [`DropPolicy`].
-	pub async fn serve_when_ready_with(
-		policy: DropPolicy,
-		upstream_url: &str,
-		listen_addr: &str,
-		timeout: std::time::Duration,
-	) -> anyhow::Result<Self> {
-		let deadline = Instant::now() + timeout;
-		loop {
-			match Self::serve_on_with(policy, upstream_url, listen_addr).await {
-				Ok(server) => return Ok(server),
-				Err(error) => {
-					if Instant::now() >= deadline {
-						return Err(error);
-					}
-					log::info!("proxy: upstream {upstream_url} is not up yet ({error}); retrying");
-					tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-				},
-			}
-		}
+		Ok(Self { url, handle: Some(handle), attempts, upstream_errors })
 	}
 
 	/// The `ws://` URL the proxy is listening on.
@@ -384,11 +356,6 @@ impl ProxyServer {
 	/// verdicts [`Attempts::record`] returned.
 	pub fn forwarded_count(&self) -> usize {
 		self.attempts.lock().unwrap().forwarded_count()
-	}
-
-	/// The [`DropPolicy`] this proxy applies.
-	pub fn policy(&self) -> DropPolicy {
-		self.policy
 	}
 
 	/// How many forwarded submissions the upstream rejected.
@@ -586,7 +553,14 @@ mod tests {
 			.expect("registering subscribeBestBlock succeeds");
 
 		let (upstream_url, upstream_handle) = start_stub_server(module).await;
-		let proxy = ProxyServer::serve(&upstream_url).await.expect("the proxy serves");
+		let proxy = ProxyServer::serve(
+			DropPolicy::FirstSubmission,
+			&upstream_url,
+			"127.0.0.1:0",
+			Duration::from_secs(10),
+		)
+		.await
+		.expect("the proxy serves");
 
 		let client = WsClientBuilder::default()
 			.build(proxy.url())

@@ -42,14 +42,10 @@ use anyhow::{anyhow, Context};
 use codec::Decode;
 use cumulus_jam_zombienet_tests::{
 	env::binaries_or_err,
-	genesis_build::{build_jam_genesis, polkavm_env},
-	network::{
-		base_dir, collator_args, copy_para_specs, path_str, work_dir, ORDINARY_NODE,
-		VALIDATORS_PER_CORE,
-	},
+	network::free_port,
 	para::{Para, JAM_SLOT, TINY_CORES},
 	proxy::{DropPolicy, ProxyServer},
-	rpc::JamRpc,
+	spawn::{spawn, CollatorOptions, JamNetwork, SpawnOptions},
 };
 use cumulus_zombienet_sdk_helpers::{
 	jam::{DigestItem, JamHeader},
@@ -57,7 +53,7 @@ use cumulus_zombienet_sdk_helpers::{
 };
 use std::{collections::HashMap, path::PathBuf, time::Duration};
 use tokio::time::Instant;
-use zombienet_sdk::{subxt::OnlineClient, Arg, LocalFileSystem, Network};
+use zombienet_sdk::subxt::OnlineClient;
 
 /// The finalized parachain height the run has to reach. Every block needs its package reported to
 /// JAM, and every reported package had its first submission dropped, so reaching this is only
@@ -71,11 +67,13 @@ const HEAD_BUDGET: Duration = Duration::from_secs(10 * 60);
 #[tokio::test(flavor = "multi_thread")]
 async fn resends_make_the_head_advance() -> Result<(), anyhow::Error> {
 	const TEST: &str = "resends_make_the_head_advance";
-	let running =
+	let (jam, proxy) =
 		spawn_proxied_network(TEST, &["alice"], &["alice"], DropPolicy::FirstSubmission, None)
 			.await?;
-	let result = resend_then_advance(&running.network, &running.proxy).await;
-	running.finish(result).await
+	let result = resend_then_advance(&jam, &proxy).await;
+	let result = result.map_err(|error| anyhow!("{error}\n\n{}", proxy.describe()));
+	proxy.shutdown().await;
+	jam.finish(result).await
 }
 
 /// Two collators authoring; only alice is behind a proxy that drops **every** submission it sees,
@@ -86,7 +84,7 @@ async fn another_collator_resends_a_lost_package() -> Result<(), anyhow::Error> 
 	const TEST: &str = "another_collator_resends_a_lost_package";
 	let binaries = binaries_or_err()?;
 	let runtime = binaries.runtime_wasm.clone();
-	let running = spawn_proxied_network(
+	let (jam, proxy) = spawn_proxied_network(
 		TEST,
 		&["alice", "bob"],
 		&["alice"],
@@ -94,30 +92,10 @@ async fn another_collator_resends_a_lost_package() -> Result<(), anyhow::Error> 
 		Some(runtime),
 	)
 	.await?;
-	let result = foreign_resend_then_advance(&running.network, &running.proxy).await;
-	running.finish(result).await
-}
-
-/// A spawned JAM network plus the proxy in front of it.
-struct ProxiedNetwork {
-	network: Network<LocalFileSystem>,
-	proxy: ProxyServer,
-	/// Keeps the run's work dir alive for the network's lifetime: dropping it deletes the
-	/// directory the network is rooted in. `None` when `JAM_TEST_BASE_DIR` keeps the run's dir.
-	_temp: Option<tempfile::TempDir>,
-}
-
-impl ProxiedNetwork {
-	/// Destroy the network and stop the proxy, attaching the proxy's ledger to `result` so a
-	/// failure says what the proxy saw.
-	async fn finish(self, result: anyhow::Result<()>) -> anyhow::Result<()> {
-		let result = result.map_err(|error| anyhow!("{error}\n\n{}", self.proxy.describe()));
-		if let Err(error) = self.network.destroy().await {
-			log::warn!("tearing down the JAM network failed: {error}");
-		}
-		self.proxy.shutdown().await;
-		result
-	}
+	let result = foreign_resend_then_advance(&jam, &proxy).await;
+	let result = result.map_err(|error| anyhow!("{error}\n\n{}", proxy.describe()));
+	proxy.shutdown().await;
+	jam.finish(result).await
 }
 
 /// Spawn the tiny JAM network with `collators` authoring para 0, the ones named in `proxied`
@@ -131,7 +109,7 @@ async fn spawn_proxied_network(
 	proxied: &[&str],
 	policy: DropPolicy,
 	runtime: Option<PathBuf>,
-) -> anyhow::Result<ProxiedNetwork> {
+) -> anyhow::Result<(JamNetwork, ProxyServer)> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -139,98 +117,42 @@ async fn spawn_proxied_network(
 	let jam_or_port = free_port()?;
 	let proxy_port = free_port()?;
 
-	let binaries = binaries_or_err()?;
 	let mut para = Para::new(0, 0, collators);
 	if let Some(runtime) = runtime {
 		para = para.with_runtime(runtime);
 	}
 	let paras = vec![para];
-	let (work_dir, temp) = work_dir(test)?;
-	let genesis = build_jam_genesis(&binaries, &work_dir, &paras, TINY_CORES)?;
-	let para_specs = copy_para_specs(&work_dir, &genesis.para_specs, &paras)?;
-	let base = base_dir(&work_dir)?;
-	let jam_node = path_str(&binaries.jam_node)?;
-	let genspec_node = binaries.genspec_node.as_deref().map(path_str).transpose()?;
-	let omni_node = path_str(&binaries.omni_node)?;
-	let authorizer_blob = path_str(&genesis.authorizer_blob)?;
-	let overrides = genesis.overrides.clone();
-	let jam_rpc_url_overrides: HashMap<String, String> = proxied
-		.iter()
-		.map(|name| ((*name).to_string(), format!("ws://127.0.0.1:{proxy_port}")))
-		.collect();
-	let validators = TINY_CORES as usize * VALIDATORS_PER_CORE;
 
 	// Authority discovery publishes only addresses the node considers external; a bare listening
 	// socket is not one, so with no `--public-addr` the AD worker publishes nothing and the
 	// collators can never resolve each other. Pin each collator's p2p port and name it as a
 	// public address, so the loopback socket the other collator dials is what AD hands back.
-	let p2p_ports: Vec<u16> =
-		(0..collators.len()).map(|_| free_port()).collect::<anyhow::Result<_>>()?;
-	let public_addr = |port: u16| {
-		Arg::Option("--public-addr".into(), format!("/ip4/127.0.0.1/tcp/{port}/ws").into())
-	};
-
-	let config = zombienet_sdk::NetworkConfigBuilder::new()
-		.with_jamchain(|jam| {
-			let jam = jam.with_id("jam").with_default_command(jam_node.as_str());
-			let jam = match genspec_node.as_deref() {
-				Some(command) if command != jam_node.as_str() => {
-					jam.with_chain_spec_command(command)
+	let collator_options: HashMap<String, CollatorOptions> = collators
+		.iter()
+		.map(|name| -> anyhow::Result<(String, CollatorOptions)> {
+			Ok((
+				(*name).to_string(),
+				CollatorOptions {
+					jam_rpc_url: proxied
+						.contains(name)
+						.then(|| format!("ws://127.0.0.1:{proxy_port}")),
+					p2p_port: Some(free_port()?),
 				},
-				_ => jam,
-			};
-			let jam = jam.with_genesis_overrides(overrides);
-			let jam = jam.with_validator(|node| node.with_name("jam0").with_env(polkavm_env()));
-			let jam = (1..validators).fold(jam, |jam, index| {
-				jam.with_validator(|node| {
-					node.with_name(&format!("jam{index}")).with_env(polkavm_env())
-				})
-			});
-			jam.with_ordinary(|node| {
-				node.with_name(ORDINARY_NODE).with_env(polkavm_env()).with_rpc_port(jam_or_port)
-			})
+			))
 		})
-		.with_parachain(|p| {
-			let p = p
-				.with_id(paras[0].id)
-				.with_registration_strategy(zombienet_sdk::RegistrationStrategy::Manual)
-				.with_chain_spec_path(para_specs[0].clone())
-				.with_default_command(omni_node.as_str());
-			let mut collators = paras[0].collators.iter().enumerate();
-			let (first_index, first) = collators.next().expect("para 0 has at least one collator");
-			let p = p.with_collator(|node| {
-				let mut args = collator_args(&authorizer_blob, &jam_rpc_url_overrides, first, true);
-				args.push(public_addr(p2p_ports[first_index]));
-				node.with_name(first.as_str())
-					.with_env(polkavm_env())
-					.with_p2p_port(p2p_ports[first_index])
-					.with_args(args)
-			});
-			collators.fold(p, |p, (index, name)| {
-				let mut args = collator_args(&authorizer_blob, &jam_rpc_url_overrides, name, true);
-				args.push(public_addr(p2p_ports[index]));
-				p.with_collator(|node| {
-					node.with_name(name.as_str())
-						.with_env(polkavm_env())
-						.with_p2p_port(p2p_ports[index])
-						.with_args(args)
-				})
-			})
-		})
-		.with_global_settings(|g| g.with_base_dir(base))
-		.build()
-		.map_err(|e| {
-			anyhow!(
-				"config errs: {}",
-				e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ")
-			)
-		})?;
+		.collect::<anyhow::Result<HashMap<_, _>>>()?;
+	let options = SpawnOptions {
+		cores: TINY_CORES,
+		ordinary_rpc_port: Some(jam_or_port),
+		collators: collator_options,
+		ready_timeout: Duration::from_secs(120),
+	};
 
 	// The proxy has to be serving before the network comes up: the proxied collators'
 	// `--jam-rpc-urls` already name it, and their `jam-init` retries for ~15s, so it only has to
 	// be there by then.
 	let proxy_task = tokio::spawn(async move {
-		ProxyServer::serve_when_ready_with(
+		ProxyServer::serve(
 			policy,
 			&format!("ws://127.0.0.1:{jam_or_port}"),
 			&format!("127.0.0.1:{proxy_port}"),
@@ -239,29 +161,10 @@ async fn spawn_proxied_network(
 		.await
 	});
 
-	let network = zombienet_sdk::environment::get_spawn_fn()(config).await?;
+	let jam = spawn(test, &paras, options).await?;
 	let proxy = proxy_task.await??;
 
-	// Gate on the JAM node being live and past genesis before any assertion runs; the waits below
-	// then read only the collator's own chain.
-	let jam_url = crate::jam::jam_rpc_url(&network)?;
-	JamRpc::wait_ready(&jam_url, Instant::now() + Duration::from_secs(120)).await?;
-
-	Ok(ProxiedNetwork { network, proxy, _temp: temp })
-}
-
-/// Reserve a free loopback port by binding and immediately dropping the listener.
-fn free_port() -> anyhow::Result<u16> {
-	let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
-	Ok(listener.local_addr()?.port())
-}
-
-/// The subxt client for collator `name`'s parachain RPC.
-async fn collator_client(
-	network: &Network<LocalFileSystem>,
-	name: &str,
-) -> anyhow::Result<OnlineClient<ParaConfig>> {
-	Ok(network.get_node(name)?.wait_client().await?)
+	Ok((jam, proxy))
 }
 
 /// Wait until `client`'s collator has **finalized** block number `target`.
@@ -300,16 +203,13 @@ async fn wait_for_finalized_height(
 
 /// Wait for alice's own finalized parachain height to prove the resend reached JAM, then check the
 /// proxy ledger shows every package had to be submitted at least twice.
-async fn resend_then_advance(
-	network: &Network<LocalFileSystem>,
-	proxy: &ProxyServer,
-) -> anyhow::Result<()> {
+async fn resend_then_advance(jam: &JamNetwork, proxy: &ProxyServer) -> anyhow::Result<()> {
 	// How long after its first submission a package may still have been submitted only once. A
 	// collator resends at anchor+2, one JAM_SLOT at a time, so anything older than this that was
 	// never submitted twice is a package the collator abandoned instead of resending.
 	let resend_grace = JAM_SLOT * 4;
 
-	let alice_client = collator_client(network, "alice").await?;
+	let alice_client = jam.collator_client("alice").await?;
 	wait_for_finalized_height(&alice_client, HEAD_TARGET, HEAD_BUDGET).await?;
 
 	let attempts = proxy.snapshot();
@@ -357,11 +257,8 @@ async fn resend_then_advance(
 /// Wait for `bob`'s finalized parachain height while alice's submissions all stay dropped: only
 /// bob resubmitting alice's packages can finalize a block, and the proxy ledger proves alice never
 /// delivered.
-async fn foreign_resend_then_advance(
-	network: &Network<LocalFileSystem>,
-	proxy: &ProxyServer,
-) -> anyhow::Result<()> {
-	let bob_client = collator_client(network, "bob").await?;
+async fn foreign_resend_then_advance(jam: &JamNetwork, proxy: &ProxyServer) -> anyhow::Result<()> {
+	let bob_client = jam.collator_client("bob").await?;
 	wait_for_finalized_height(&bob_client, HEAD_TARGET, HEAD_BUDGET).await?;
 
 	anyhow::ensure!(

@@ -13,6 +13,8 @@ use anyhow::Context;
 use codec::DecodeAll;
 use parachain_service_core::{para_info_key, ParaInfo};
 use sp_runtime::traits::BlakeTwo256;
+use std::time::Duration;
+use tokio::time::{sleep, Instant};
 
 /// A parachain head as JAM has accumulated it: the tip the service believes the chain has reached.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -62,6 +64,85 @@ pub async fn read_para_head(
 		},
 	);
 	Ok(head)
+}
+
+/// Gap between accumulated-head polls; the head cannot advance more than once per JAM slot.
+const HEAD_POLL: Duration = Duration::from_secs(3);
+
+/// Wait until JAM has accumulated a head of at least `target` for `para`.
+///
+/// The read is [`read_para_head`]: `serviceValue` at the JAM best block, under the key the
+/// parachain service files a para's [`ParaInfo`] at, then the header in `head_data`. The
+/// collator's own best-block metric is not a faithful stand-in: it holds its slot while a package
+/// is overdue, so its height trails the accumulated head and would let the assertion below fail
+/// on a healthy run.
+pub async fn wait_for_jam_head(
+	jam: &JamRpc,
+	service_id: u32,
+	para: u32,
+	target: u64,
+	budget: Duration,
+) -> anyhow::Result<()> {
+	let deadline = Instant::now() + budget;
+	let mut last = None;
+	loop {
+		if let Some(head) = read_para_head(jam, service_id, para).await? {
+			log::info!("JAM accumulated head for para {para}: #{}", head.number);
+			if head.number >= target {
+				return Ok(());
+			}
+			last = Some(head.number);
+		}
+		anyhow::ensure!(
+			Instant::now() < deadline,
+			"JAM did not accumulate head #{target} for para {para} within {budget:?}; the last \
+			 accumulated head was {last:?}"
+		);
+		sleep(HEAD_POLL).await;
+	}
+}
+
+/// Wait until JAM's accumulated head for `para` has not increased for `still_for`.
+///
+/// Standing still is what a stall looks like from the chain: nothing announces that packages
+/// stopped being reported, the head simply stops moving. The core tests use this to confirm a
+/// parked core really stopped carrying the para's work; it mirrors the old harness's
+/// `Run::wait_for_frozen_jam_head`, reading the accumulated head through [`read_para_head`].
+///
+/// The head is a number, so "not increased" and "unchanged" coincide, and no head at all
+/// (`None`) is unchanged for as long as it stays absent — the caller decides whether that
+/// counts as a stall.
+pub async fn wait_for_frozen_jam_head(
+	jam: &JamRpc,
+	service_id: u32,
+	para: u32,
+	still_for: Duration,
+	budget: Duration,
+) -> anyhow::Result<()> {
+	let deadline = Instant::now() + budget;
+	// The last head and the instant it was first seen. Reset the instant whenever the head
+	// changes, so the elapsed time measured is only ever time spent on the current head.
+	let mut frozen: Option<(Option<u64>, Instant)> = None;
+	loop {
+		let head = read_para_head(jam, service_id, para).await?.map(|head| head.number);
+		match &frozen {
+			Some((last, since)) if *last == head && since.elapsed() >= still_for => {
+				log::info!(
+					"JAM's accumulated head for para {para} has stood still at {head:?} for \
+					 {still_for:?}"
+				);
+				return Ok(());
+			},
+			Some((last, _)) if *last == head => {},
+			_ => frozen = Some((head, Instant::now())),
+		}
+		anyhow::ensure!(
+			Instant::now() < deadline,
+			"JAM's accumulated head for para {para} did not stand still for {still_for:?} within \
+			 {budget:?}; the last accumulated head was {head:?}"
+		);
+		sleep(HEAD_POLL).await;
+	}
 }
 
 /// Read the accumulated head out of a para's stored [`ParaInfo`].

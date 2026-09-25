@@ -56,26 +56,10 @@ cumulus-test-runtime = { workspace = true }
 
 # JAM genesis/authorizer computation. Optional so the relay path never builds it.
 cumulus-jam-zombienet-tests = { path = "../jam-tests", optional = true }
-# The accumulated para head the JAM path asserts on is the service's `ParaInfo`; decoding it with
-# the service's own types keeps the wire layout in one place. Optional so the relay path never
-# builds it.
-parachain-service-core = { path = "../../../../parachain-service/core", features = [
-	"std",
-], optional = true }
-# `polkavm_authoring` speaks jsonrpsee directly to a dev node and stamps its work dir with
-# `chrono`; both are JAM-only, optional so the relay path never builds them.
-jsonrpsee = { workspace = true, features = ["ws-client"], optional = true }
-chrono = { workspace = true, optional = true }
 
 [features]
 zombie-ci = []
 generate-snapshots = []
 # Root the network in a JAM chain. A feature, not `RUSTFLAGS="--cfg jam"`, so the JAM paths
 # are type-checked by `cargo check --features jam` without a whole-workspace rebuild.
-jam = [
-	"dep:cumulus-jam-zombienet-tests",
-	"dep:parachain-service-core",
-	"dep:jsonrpsee",
-	"dep:chrono",
-	"cumulus-zombienet-sdk-helpers/jam",
-]
+jam = ["dep:cumulus-jam-zombienet-tests", "cumulus-zombienet-sdk-helpers/jam"]

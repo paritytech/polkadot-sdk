@@ -1,10 +1,13 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
+#[cfg(not(feature = "jam"))]
 use anyhow::anyhow;
 use std::time::Duration;
 
-use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
+#[cfg(not(feature = "jam"))]
+use crate::utils::initialize_network;
+use crate::utils::BEST_BLOCK_METRIC;
 
 use cumulus_zombienet_sdk_helpers::network::{assign_cores, wait_relay_up};
 #[cfg(not(feature = "jam"))]
@@ -13,20 +16,12 @@ use zombienet_orchestrator::network::node::LogLineCountOptions;
 #[cfg(not(feature = "jam"))]
 use zombienet_sdk::NetworkConfig;
 #[cfg(not(feature = "jam"))]
-use zombienet_sdk::{
-	subxt::{OnlineClient, PolkadotConfig},
-	NetworkConfigBuilder,
-};
+use zombienet_sdk::NetworkConfigBuilder;
 
 #[cfg(feature = "jam")]
 use cumulus_jam_zombienet_tests::{
-	env::binaries_or_err,
-	genesis_build::{build_jam_genesis, polkavm_env},
-	network::{
-		base_dir, collator_args, copy_para_specs, path_str, work_dir, ORDINARY_NODE,
-		VALIDATORS_PER_CORE,
-	},
 	para::Para,
+	spawn::{spawn, SpawnOptions},
 };
 
 const PARA_ID_1: u32 = 2100;
@@ -41,91 +36,25 @@ async fn elastic_scaling_slot_based_authoring() -> Result<(), anyhow::Error> {
 	log::info!("Spawning network");
 	#[cfg(not(feature = "jam"))]
 	let config = build_network_config().await?;
-	#[cfg(feature = "jam")]
-	let (work_dir, _temp) = work_dir("elastic_scaling_slot_based_authoring")?;
-	#[cfg(feature = "jam")]
-	let config = {
-		const CORES: u16 = 3;
-		let binaries = binaries_or_err()?;
-		let paras = vec![
-			Para::new(PARA_ID_1, 0, &["collator-elastic"]).also_on([1]),
-			Para::new(PARA_ID_2, 2, &["collator-single-core"]),
-		];
-		let genesis = build_jam_genesis(&binaries, &work_dir, &paras, CORES)?;
-		let para_specs = copy_para_specs(&work_dir, &genesis.para_specs, &paras)?;
-		let base_dir = base_dir(&work_dir)?;
-		let jam_node = path_str(&binaries.jam_node)?;
-		let genspec_node = binaries.genspec_node.as_deref().map(path_str).transpose()?;
-		let omni_node = path_str(&binaries.omni_node)?;
-		let authorizer_blob = path_str(&genesis.authorizer_blob)?;
-		let overrides = genesis.overrides.clone();
-		let no_overrides = std::collections::HashMap::new();
-		let validators = CORES as usize * VALIDATORS_PER_CORE;
-
-		zombienet_sdk::NetworkConfigBuilder::new()
-			.with_jamchain(|jam| {
-				let jam = jam.with_id("jam").with_default_command(jam_node.as_str());
-				let jam = match genspec_node.as_deref() {
-					Some(command) if command != jam_node.as_str() => {
-						jam.with_chain_spec_command(command)
-					},
-					_ => jam,
-				};
-				let jam = jam.with_genesis_overrides(overrides);
-				let jam = jam.with_validator(|node| node.with_name("jam0").with_env(polkavm_env()));
-				let jam = (1..validators).fold(jam, |jam, index| {
-					jam.with_validator(|node| {
-						node.with_name(&format!("jam{index}")).with_env(polkavm_env())
-					})
-				});
-				jam.with_ordinary(|node| node.with_name(ORDINARY_NODE).with_env(polkavm_env()))
-			})
-			.with_parachain(|p| {
-				p.with_id(paras[0].id)
-					.with_registration_strategy(zombienet_sdk::RegistrationStrategy::Manual)
-					.with_chain_spec_path(para_specs[0].clone())
-					.with_default_command(omni_node.as_str())
-					.with_collator(|node| {
-						node.with_name(paras[0].collators[0].as_str())
-							.with_env(polkavm_env())
-							.with_args(collator_args(
-								&authorizer_blob,
-								&no_overrides,
-								&paras[0].collators[0],
-								true,
-							))
-					})
-			})
-			.with_parachain(|p| {
-				p.with_id(paras[1].id)
-					.with_registration_strategy(zombienet_sdk::RegistrationStrategy::Manual)
-					.with_chain_spec_path(para_specs[1].clone())
-					.with_default_command(omni_node.as_str())
-					.with_collator(|node| {
-						node.with_name(paras[1].collators[0].as_str())
-							.with_env(polkavm_env())
-							.with_args(collator_args(
-								&authorizer_blob,
-								&no_overrides,
-								&paras[1].collators[0],
-								true,
-							))
-					})
-			})
-			.with_global_settings(|g| g.with_base_dir(base_dir))
-			.build()
-			.map_err(|e| {
-				let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
-				anyhow!("config errs: {errs}")
-			})?
-	};
+	#[cfg(not(feature = "jam"))]
 	let network = initialize_network(config).await?;
+	#[cfg(not(feature = "jam"))]
+	let network = &network;
+	#[cfg(feature = "jam")]
+	let paras = vec![
+		Para::new(PARA_ID_1, 0, &["collator-elastic"]).also_on([1]),
+		Para::new(PARA_ID_2, 2, &["collator-single-core"]),
+	];
+	#[cfg(feature = "jam")]
+	let jam = spawn("elastic_scaling_slot_based_authoring", &paras, SpawnOptions::new(3)).await?;
+	#[cfg(feature = "jam")]
+	let network = &jam.network;
 
 	let collator_elastic = network.get_node("collator-elastic")?;
 	let collator_single_core = network.get_node("collator-single-core")?;
 
 	log::info!("Checking if alice is up");
-	wait_relay_up(&network, "alice", 60).await?;
+	wait_relay_up(network, "alice", 60).await?;
 
 	log::info!("Checking if collator-elastic is up");
 	assert!(collator_elastic.wait_until_is_up(60u64).await.is_ok());
@@ -133,7 +62,7 @@ async fn elastic_scaling_slot_based_authoring() -> Result<(), anyhow::Error> {
 	log::info!("Checking if collator-single-core is up");
 	assert!(collator_single_core.wait_until_is_up(60u64).await.is_ok());
 
-	assign_cores(&network, "alice", PARA_ID_1, vec![0, 1]).await?;
+	assign_cores(network, "alice", PARA_ID_1, vec![0, 1]).await?;
 
 	for (node, block_cnt) in [(collator_single_core, 20.0), (collator_elastic, 40.0)] {
 		log::info!("Checking block production for {}", node.name());

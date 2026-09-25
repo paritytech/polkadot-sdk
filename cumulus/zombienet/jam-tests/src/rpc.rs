@@ -17,7 +17,13 @@ use tokio::time::{sleep, Instant};
 async fn connect(url: &str, deadline: Instant) -> anyhow::Result<WsClient> {
 	let mut last_error = None;
 	while Instant::now() < deadline {
-		match WsClientBuilder::default().build(url).await {
+		match WsClientBuilder::default()
+			// The collator's `:code` read is a ~14 MB hex response, above jsonrpsee's 10 MB
+			// default cap.
+			.max_response_size(128 * 1024 * 1024)
+			.build(url)
+			.await
+		{
 			Ok(client) => return Ok(client),
 			Err(error) => {
 				last_error = Some(error);
@@ -90,16 +96,6 @@ impl JamRpc {
 		Ok(best["header_hash"].clone())
 	}
 
-	/// The service ids known at the best block.
-	pub async fn services(&self) -> anyhow::Result<Vec<u64>> {
-		let services: Vec<u64> = self
-			.client
-			.request("listServices", rpc_params![self.best_block_hash().await?])
-			.await
-			.context("listServices")?;
-		Ok(services)
-	}
-
 	/// What service `service` has stored under `key` in the posterior state of block `at`.
 	///
 	/// This is the read the collator makes (`cumulus/jam/rpc-interface`), on the harness's own
@@ -155,22 +151,89 @@ impl JamRpc {
 			.context("serviceRequest")?;
 		Ok(slots)
 	}
+}
 
-	/// The length of preimage `hash` of service `service` in the posterior state of `at`.
-	///
-	/// `None` is an answer and not a failure: the service does not hold that preimage.
-	pub async fn service_preimage_len(
-		&self,
-		at: &Value,
-		service: u32,
-		hash: &[u8; 32],
-	) -> anyhow::Result<Option<u32>> {
-		let len: Option<u32> = self
-			.client
-			.request("servicePreimageLen", rpc_params![at, service, AnyHash(*hash)])
-			.await
-			.context("servicePreimageLen")?;
-		Ok(len)
+/// How long the whole preimage step may take, covering both waits below. The request only
+/// appears once the upgrade block accumulates and the provision only lands at a later finalized
+/// block, so this is a few slots on a healthy network; the bound is loose enough for a loaded CI
+/// machine and only exists so a stuck helper fails the test instead of hanging it.
+const PROVIDE_VALIDATION_CODE_TIMEOUT: Duration = Duration::from_secs(240);
+
+/// Gap between polls. Neither wait can advance more than once per block.
+const PROVIDE_VALIDATION_CODE_POLL: Duration = Duration::from_secs(3);
+
+/// The manual preimage step of a JAM runtime upgrade: wait for the parachain service to request
+/// the new validation code, provide it with `submitPreimage`, and wait until JAM holds it at a
+/// finalized block.
+///
+/// This is the out-of-band "manual intervention" of the JAM code-upgrade lifecycle (service
+/// design §5.2 phase 3): refine emits `RequestCodeUpgrade`, accumulate arms
+/// `ParaInfo.announced_upgrade`, and *someone outside the node* has to hand JAM the code. No node
+/// or collator code may call [`JamRpc::submit_preimage`] — tests call this helper instead, the
+/// way an operator would.
+///
+/// Both waits read the same request back, because `serviceRequest` is the only place the
+/// lifecycle is visible:
+///
+/// * `None` — no request: the block that emitted `RequestCodeUpgrade` has not accumulated yet.
+/// * `Some([])` — requested but not provided: the expected state before the submission.
+/// * `Some([slot])` — provided at `slot`.
+/// * `Some([a, b])` — forgotten.
+/// * `Some([a, b, c])` — requested again and re-provided.
+///
+/// The request wait reads the **best** block: the soliciting block need not be finalized yet.
+/// The provision wait fetches a fresh **finalized** anchor every poll and accepts only
+/// `Some([slot])`, because a finalized block is what a work package may name as its lookup
+/// anchor and therefore what a validator resolves the code from.
+pub async fn provide_validation_code(
+	jam: &JamRpc,
+	service: u32,
+	code: &[u8],
+) -> anyhow::Result<()> {
+	// The same hash the runtime derives when it calls `host::request_code_upgrade` in
+	// `jam_validate_block`: blake2b-256 of the code, with its length.
+	let hash = jam_std_common::hash_raw(code);
+	let len = code.len() as u32;
+	let request = format!("(0x{}, {len})", array_bytes::bytes2hex("", hash));
+	let deadline = Instant::now() + PROVIDE_VALIDATION_CODE_TIMEOUT;
+
+	// The service has to ask before anyone may provide: wait for the `RequestCodeUpgrade` block
+	// to accumulate and arm the request.
+	let mut last;
+	loop {
+		let best = jam.best_block_hash().await.context("bestBlock")?;
+		last = jam.service_request(&best, service, &hash, len).await?;
+		if last.is_some() {
+			break;
+		}
+		anyhow::ensure!(
+			Instant::now() < deadline,
+			"service {service} never requested validation code {request}; the last \
+			 serviceRequest answer was {last:?}"
+		);
+		sleep(PROVIDE_VALIDATION_CODE_POLL).await;
+	}
+	log::info!("service {service} requests validation code {request} ({last:?}); providing it");
+
+	jam.submit_preimage(service, code).await?;
+
+	// Only `[slot]` means provided; `[]` is still unprovided, `[a, b]` forgotten and `[a, b, c]`
+	// a re-provision, none of which a fresh upgrade should ever see.
+	let mut last;
+	loop {
+		let finalized = jam.finalized_header_hash().await.context("finalizedBlock")?;
+		last = jam.service_request(&finalized, service, &hash, len).await?;
+		if last.as_deref().map(<[u64]>::len) == Some(1) {
+			log::info!("validation code {request} is provided at a finalized anchor");
+			return Ok(());
+		}
+		anyhow::ensure!(
+			Instant::now() < deadline,
+			"validation code {request} was submitted but is not provided at a finalized anchor; \
+			 the last serviceRequest answer was {last:?} ([] = requested, [a, b] = forgotten, \
+			 [a, b, c] = re-provided)"
+		);
+		sleep(PROVIDE_VALIDATION_CODE_POLL).await;
 	}
 }
 
@@ -238,16 +301,31 @@ impl CollatorRpc {
 		Ok(Height { best, finalized })
 	}
 
-	/// The raw header JSON (`chain_getHeader`) for the current finalized head.
-	pub async fn finalized_header(&self) -> anyhow::Result<Value> {
-		let hash: Value = self
+	/// `state_getStorage(key, None)` at the best block, hex-decoded.
+	pub async fn storage(&self, key: &str) -> anyhow::Result<Vec<u8>> {
+		let value: Value = self
 			.client
-			.request("chain_getFinalizedHead", rpc_params![])
+			.request("state_getStorage", rpc_params![key, Value::Null])
 			.await
-			.context("chain_getFinalizedHead")?;
-		self.client
-			.request("chain_getHeader", rpc_params![hash])
+			.context("state_getStorage")?;
+		let hex = match value.as_str() {
+			Some(hex) => hex,
+			None => return Err(anyhow::anyhow!("state_getStorage({key}) returned {value:?}")),
+		};
+		sp_core::bytes::from_hex(hex).with_context(|| format!("decoding {hex} as hex"))
+	}
+
+	/// `author_rotateKeys` — run `SessionKeys_generate_session_keys` against the node's keystore
+	/// and return the public session keys as the hex string the JSON-RPC `Bytes` encoding uses.
+	pub async fn rotate_keys(&self) -> anyhow::Result<String> {
+		let value: Value = self
+			.client
+			.request("author_rotateKeys", rpc_params![])
 			.await
-			.context("chain_getHeader")
+			.context("author_rotateKeys")?;
+		value
+			.as_str()
+			.map(|hex| hex.to_owned())
+			.with_context(|| format!("author_rotateKeys returned {value:?}"))
 	}
 }

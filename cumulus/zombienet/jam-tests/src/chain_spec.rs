@@ -12,6 +12,7 @@
 //! the authorizer config the core commits to, and the collator reads its own id straight out of
 //! this spec. The two must agree or the collator computes an authorizer hash no core holds.
 
+use crate::genesis_build::polkavm_env;
 use anyhow::{anyhow, Context};
 use serde_json::{json, Value};
 use sp_core::{
@@ -50,11 +51,6 @@ pub fn account_of(name: &str) -> anyhow::Result<sr25519::Public> {
 	let first = rest.remove(0).to_uppercase();
 	let seed = format!("//{first}{rest}");
 	Ok(sr25519::Pair::from_string(&seed, None)?.public())
-}
-
-/// The `--<name>` flag that makes a collator author as the key zombienet derives from its name.
-pub fn dev_account_flag(name: &str) -> String {
-	format!("--{name}")
 }
 
 /// `collators` reordered the way the runtime hands the set back, which is *not* the order genesis
@@ -267,6 +263,32 @@ fn ss58(public: sr25519::Public) -> String {
 	AccountId32::from(public.0).to_ss58check()
 }
 
+/// Run `chain-spec-builder create` for the `development` preset at `path`, on `relay_chain`,
+/// with `para_id`, from `runtime_wasm`.
+///
+/// The runtime the spec is built from is the code JAM validates with: when it is a PolkaVM blob
+/// (validation code), constructing it requires the experimental PolkaVM executor, which is off
+/// unless [`polkavm_env`] turns it on. Inert for a WASM runtime.
+pub fn generate(
+	omni_node: &Path,
+	runtime_wasm: &Path,
+	path: &Path,
+	relay_chain: &str,
+	para_id: u32,
+) -> anyhow::Result<()> {
+	let status = Command::new(omni_node)
+		.envs(polkavm_env())
+		.args(["chain-spec-builder", "--chain-spec-path"])
+		.arg(path)
+		.args(["create", "--relay-chain", relay_chain, "--para-id", &para_id.to_string(), "-r"])
+		.arg(runtime_wasm)
+		.args(["named-preset", "development"])
+		.status()
+		.with_context(|| format!("running {} chain-spec-builder", omni_node.display()))?;
+	anyhow::ensure!(status.success(), "chain-spec-builder failed: {status}");
+	Ok(())
+}
+
 /// Generate the chain spec of para `para_id` at `path`, with one authority per entry of
 /// `collators` — node names, in the order the AURA round-robin walks them.
 pub fn build(
@@ -281,19 +303,7 @@ pub fn build(
 		"a para's collators must be a non-empty list of node names, got {collators:?}"
 	);
 
-	let status = Command::new(omni_node)
-		// The runtime the chain spec is built from is the code JAM validates with: when it is a
-		// PolkaVM blob (validation code), constructing it requires the experimental PolkaVM
-		// executor, which is off unless this flag is set. Inert for a WASM runtime.
-		.env("SUBSTRATE_ENABLE_POLKAVM", "1")
-		.args(["chain-spec-builder", "--chain-spec-path"])
-		.arg(path)
-		.args(["create", "--relay-chain", "jam", "--para-id", &para_id.to_string(), "-r"])
-		.arg(runtime_wasm)
-		.args(["named-preset", "development"])
-		.status()
-		.with_context(|| format!("running {} chain-spec-builder", omni_node.display()))?;
-	anyhow::ensure!(status.success(), "chain-spec-builder failed: {status}");
+	generate(omni_node, runtime_wasm, path, "jam", para_id)?;
 
 	patch(path, para_id, collators)
 }

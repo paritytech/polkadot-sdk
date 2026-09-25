@@ -1,20 +1,20 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-//! Pure helpers the JAM tests share while each declares its own zombienet network with the SDK's
-//! [`zombienet_sdk::NetworkConfigBuilder`]. Nothing here touches the builder: these are the run's
-//! work dir, the node names and counts, and the collator arguments, all computed the same way for
-//! every test.
+//! Pure helpers [`crate::spawn`] composes into a JAM network: the run's work dir, the node names
+//! and counts, the collator arguments, the free-port reservation. Nothing here touches the
+//! [`zombienet_sdk::NetworkConfigBuilder`] — `spawn` is the one place that does.
 
 use crate::para::{Para, PARACHAIN_SERVICE_ID};
-use anyhow::Context;
+use anyhow::{anyhow, Context};
+use cumulus_zombienet_sdk_helpers::{PARA_BLOCK_METRIC, PARA_FINALIZED_METRIC};
 use std::{
 	collections::HashMap,
 	path::{Path, PathBuf},
 	sync::atomic::{AtomicU64, Ordering},
 	time::{SystemTime, UNIX_EPOCH},
 };
-use zombienet_sdk::Arg;
+use zombienet_sdk::{Arg, LocalFileSystem, Network};
 
 /// The ordinary JAM node every para's collators point their `--jam-rpc-urls` at by default.
 pub const ORDINARY_NODE: &str = "jam-or";
@@ -24,7 +24,7 @@ pub const VALIDATORS_PER_CORE: usize = 3;
 
 /// The default collator `--jam-rpc-urls`: the ordinary JAM node's RPC, resolved by zombienet at
 /// spawn time.
-pub const DEFAULT_JAM_RPC_URL: &str = "ws://{{ZOMBIE:jam-or:rpc_uri}}";
+const DEFAULT_JAM_RPC_URL: &str = "ws://{{ZOMBIE:jam-or:rpc_uri}}";
 
 /// The run's work dir: `JAM_TEST_BASE_DIR` when set, so the logs survive, a temp dir otherwise.
 ///
@@ -50,7 +50,7 @@ pub fn work_dir(test_name: &str) -> anyhow::Result<(PathBuf, Option<tempfile::Te
 }
 
 /// A run dir named after the test, with a stamp and a counter so parallel runs do not collide.
-pub fn run_name(test_name: &str) -> String {
+fn run_name(test_name: &str) -> String {
 	static NEXT_RUN: AtomicU64 = AtomicU64::new(0);
 	let stamp = SystemTime::now()
 		.duration_since(UNIX_EPOCH)
@@ -100,19 +100,14 @@ pub fn path_str(path: &Path) -> anyhow::Result<String> {
 /// The arguments every para node is started with: where the JAM node's RPC is, which service
 /// hosts the authorizer, and the blob whose hash the para's core was assigned from.
 ///
-/// `authoring` is the one difference between a collator and a full node: only a collator gets
-/// `--force-authoring`. A full node is not in the authority set, so it only syncs. A collator
-/// named in `jam_rpc_url_overrides` gets that URL instead of [`DEFAULT_JAM_RPC_URL`].
+/// A collator named in `jam_rpc_url_overrides` gets that URL instead of `DEFAULT_JAM_RPC_URL`.
 pub fn collator_args(
 	authorizer_blob: &str,
 	jam_rpc_url_overrides: &HashMap<String, String>,
 	name: &str,
-	authoring: bool,
 ) -> Vec<Arg> {
 	let mut args: Vec<Arg> = Vec::new();
-	if authoring {
-		args.push("--force-authoring".into());
-	}
+	args.push("--force-authoring".into());
 	let jam_rpc_url = jam_rpc_url_overrides
 		.get(name)
 		.map(String::as_str)
@@ -130,4 +125,54 @@ pub fn collator_args(
 		"-ljam-collator=debug,jam-rpc-interface=debug,jam-package-sync=debug".into(),
 	]);
 	args
+}
+
+/// Reserve a free loopback port by binding and immediately dropping the listener.
+pub fn free_port() -> anyhow::Result<u16> {
+	let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
+	Ok(listener.local_addr()?.port())
+}
+
+/// Wait, per collator of every para, for the best metric to pass `blocks` and then the finalized
+/// metric to pass `finalized`. Every collator is waited on, because a set where only one collator
+/// authors still has to keep the chain producing and finalizing.
+pub async fn wait_for_collators(
+	network: &Network<LocalFileSystem>,
+	paras: &[Para],
+	blocks: u64,
+	finalized: u64,
+	timeout_secs: u64,
+) -> anyhow::Result<()> {
+	for para in paras {
+		for name in &para.collators {
+			let node = network.get_node(name.as_str())?;
+
+			log::info!("Waiting for collator {name} to reach best block #{blocks}");
+			node.wait_metric_with_timeout(
+				PARA_BLOCK_METRIC,
+				|best| best >= blocks as f64,
+				timeout_secs,
+			)
+			.await
+			.map_err(|error| {
+				anyhow!(
+					"collator {name} did not reach best block #{blocks} in {timeout_secs}s: {error}"
+				)
+			})?;
+
+			log::info!("Waiting for collator {name} to finalize block #{finalized}");
+			node.wait_metric_with_timeout(
+				PARA_FINALIZED_METRIC,
+				|metric| metric >= finalized as f64,
+				timeout_secs,
+			)
+			.await
+			.map_err(|error| {
+				anyhow!(
+					"collator {name} did not finalize block #{finalized} in {timeout_secs}s: {error}"
+				)
+			})?;
+		}
+	}
+	Ok(())
 }

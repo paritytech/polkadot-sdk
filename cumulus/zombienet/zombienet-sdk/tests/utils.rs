@@ -3,8 +3,8 @@
 
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfig};
 
-pub const BEST_BLOCK_METRIC: &str = "block_height{status=\"best\"}";
-pub const FINALIZED_BLOCK_METRIC: &str = "block_height{status=\"finalized\"}";
+pub const BEST_BLOCK_METRIC: &str = cumulus_zombienet_sdk_helpers::PARA_BLOCK_METRIC;
+pub const FINALIZED_BLOCK_METRIC: &str = cumulus_zombienet_sdk_helpers::PARA_FINALIZED_METRIC;
 
 pub async fn initialize_network(
 	config: NetworkConfig,
