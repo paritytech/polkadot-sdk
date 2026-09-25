@@ -20,12 +20,9 @@
 //! The runtime cannot build an arbitrarily long trace in one call, so it is asked for a window at
 //! a time. The first window is sized from a prior, every window after from what the last one cost.
 //!
-//! The sizing is tuned against 322,086 transaction traces from 1,224 Ethereum mainnet blocks:
-//! 102 blocks in each of twelve monthly segments, covering the year to April 2026,
-//! balanced across gas-used terciles so light and heavy blocks weigh the same.
-//!
-//! Mainnet gives a diverse and representative workload, and EVM traces are the reference because
-//! they run longer than PVM ones: a step per opcode, where PVM records one per host call.
+//! The sizing is tuned against sampled Ethereum mainnet traces. Mainnet gives a diverse workload,
+//! and EVM traces are the reference because they run longer than PVM ones: a step per opcode,
+//! where PVM records one per host call.
 
 use crate::client::ClientError;
 use codec::Encode;
@@ -36,8 +33,10 @@ use sp_core::MAX_POSSIBLE_ALLOCATION;
 
 const LOG_TARGET: &str = "eth-rpc::trace-windowing";
 
-/// What a step is assumed to cost before one has been measured: a little above the 449 byte
-/// sampled mean. Only the first window is sized from it.
+/// What a step is assumed to cost before one has been measured. Only the first window is sized
+/// from it. Set above the mean encoded step of Ethereum mainnet traces, rounded up rather than
+/// down because the two ways of being wrong are not equal: a high prior costs one more window,
+/// a low one can overrun the response before anything has been measured.
 const PRIOR_STEP_BYTES: u64 = 512;
 
 /// Bytes of a response kept for everything but the steps: 256 KiB for `return_value`, capped at
@@ -46,13 +45,16 @@ const PRIOR_STEP_BYTES: u64 = 512;
 const RESPONSE_RESERVE_BYTES: u64 = 257 * 1024;
 
 /// Failures one window pays for before giving up. The eighth gives up rather than halving, so a
-/// window narrows from `STEP_CEILING` to 2,048 steps, under the 3,833 the most expensive sampled
-/// trace needed. What a walk pays in total is bounded by the ceiling instead, which never rises.
+/// window narrows from `STEP_CEILING` to `STEP_CEILING / 128` at most. That floor sits below the
+/// window the most expensive Ethereum mainnet trace sampled had to narrow to, so halving reaches
+/// a size the node serves before the walk gives up. What a walk pays in total is bounded by the
+/// ceiling instead, which never rises.
 const MAX_CONSECUTIVE_FAILURES: u32 = 8;
 
 /// Headroom on the window size, which is computed from what the previous window's steps cost.
-/// 80% tolerates steps 1.25x greater than that estimate. For sampled traces 90% of consecutive
-/// windows at the default size came in under 1.20x.
+/// At 80% a window still fits its ceiling when its steps cost up to 1.25x the estimate. Past that
+/// the node refuses the window and a halving pays for it, so the share trades round trips against
+/// refusals; consecutive windows of Ethereum mainnet traces mostly stay within it.
 const WINDOW_BUDGET_SHARE: u64 = 80;
 
 /// Steps one window may ask for, whatever they cost: the largest power of two whose entries fit
@@ -638,7 +640,8 @@ mod tests {
 
 	#[tokio::test]
 	async fn narrowing_settles_at_a_size_the_node_serves() {
-		// The tightest window any sampled trace would need.
+		// A size the node serves: below the first window, so the walk has to narrow, and above
+		// `STEP_CEILING / 128`, so the failure budget reaches it.
 		const SERVES: u64 = 3_833;
 
 		let max = 64 * 1024 * 1024;
