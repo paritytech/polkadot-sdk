@@ -34,7 +34,7 @@ use super::common::{
 };
 use anyhow::anyhow;
 use codec::Encode;
-use log::info;
+use log::{info, warn};
 use sp_crypto_hashing::blake2_256;
 use sp_statement_store::{StatementEvent, SubmitResult, Topic, TopicFilter};
 use std::{
@@ -54,8 +54,9 @@ const DEFAULT_SOAK_SECS: u64 = 900;
 /// the rest.
 const NODES_ENV: &str = "STATEMENT_V2_SOAK_NODES";
 const DEFAULT_NODES: usize = 12;
-/// Outbound statement peer-set slots in `sc-network-statement`.
-const STATEMENT_SET_PEER_LIMIT: usize = 50;
+const CONNECTED_PEER_FLOOR: usize = 50;
+const STATEMENT_TTL: Duration = Duration::from_secs(900);
+const MAX_RECONNECTS: usize = 5;
 const AUTHORING_COLLATORS: [&str; 4] = ["alice", "bob", "charlie", "dave"];
 const REPLICATION_FACTOR: usize = 8;
 const GOSSIP_TARGET: u32 = 3;
@@ -102,6 +103,10 @@ fn soak_topic(kind: &[u8], wave: u64, idx: u64) -> Topic {
 	preimage.extend_from_slice(&wave.to_le_bytes());
 	preimage.extend_from_slice(&idx.to_le_bytes());
 	blake2_256(&preimage).into()
+}
+
+fn is_dropped_connection(err: &anyhow::Error) -> bool {
+	err.chain().any(|cause| cause.to_string().contains("restart required"))
 }
 
 /// A statement node and its open RPC connection.
@@ -326,7 +331,7 @@ async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
 	// them, and the load needs the connections that follow from it.
 	let topology_timeout = 300 + 5 * statement_node_count as u64;
 	let eligible_floor = (statement_node_count - 1) as f64;
-	let connected_floor = (statement_node_count - 1).min(STATEMENT_SET_PEER_LIMIT) as f64;
+	let connected_floor = (statement_node_count - 1).min(CONNECTED_PEER_FLOOR) as f64;
 	for handle in &nodes {
 		handle
 			.node
@@ -348,12 +353,25 @@ async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
 
 	let peer_keys = collect_peer_keys(&nodes).await?;
 
-	let mut load = Load::new(PARTICIPANTS);
+	let mut load = Load::expiring(PARTICIPANTS, STATEMENT_TTL);
 	let soak_started = Instant::now();
 	let mut wave: u64 = 0;
 	let mut total_statements = 0usize;
+	let mut reconnects = 0usize;
 	loop {
-		let report = run_wave(wave, &nodes, &peer_keys, &mut load).await?;
+		let report = match run_wave(wave, &nodes, &peer_keys, &mut load).await {
+			Ok(report) => report,
+			Err(err) if is_dropped_connection(&err) && reconnects < MAX_RECONNECTS => {
+				reconnects += 1;
+				warn!("Wave {wave}: reopening the RPC connections after a dropped one: {err}");
+				for handle in nodes.iter_mut() {
+					handle.rpc = handle.node.rpc().await?;
+				}
+				wave += 1;
+				continue;
+			},
+			Err(err) => return Err(err),
+		};
 		total_statements += report.ring_statements + PROBES_PER_WAVE;
 		info!(
 			"Wave {wave}: {} ring statements submitted in {:.1}s, delivered in {:.1}s, \

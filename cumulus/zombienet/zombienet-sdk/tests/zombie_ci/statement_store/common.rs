@@ -258,12 +258,17 @@ const PAYLOAD_SIZE: usize = 128;
 pub(super) struct Load {
 	keypairs: Vec<sr25519::Pair>,
 	seq: u32,
+	ttl: Option<Duration>,
 }
 
 impl Load {
 	pub(super) fn new(participants: u32) -> Self {
 		let keypairs = (0..participants).map(get_keypair).collect();
-		Self { keypairs, seq: 0 }
+		Self { keypairs, seq: 0, ttl: None }
+	}
+
+	pub(super) fn expiring(participants: u32, ttl: Duration) -> Self {
+		Self { ttl: Some(ttl), ..Self::new(participants) }
 	}
 
 	pub(super) fn next_statement(
@@ -276,7 +281,17 @@ impl Load {
 		let mut payload = vec![0u8; PAYLOAD_SIZE];
 		payload[..8].copy_from_slice(&round.to_le_bytes());
 		payload[8..12].copy_from_slice(&self.seq.to_le_bytes());
-		create_test_statement(keypair, &[topic], None, payload, u32::MAX, self.seq)
+		let expiry_ts = self
+			.ttl
+			.and_then(|ttl| {
+				let now = std::time::SystemTime::now()
+					.duration_since(std::time::UNIX_EPOCH)
+					.ok()?
+					.as_secs();
+				u32::try_from(now + ttl.as_secs()).ok()
+			})
+			.unwrap_or(u32::MAX);
+		create_test_statement(keypair, &[topic], None, payload, expiry_ts, self.seq)
 	}
 }
 
