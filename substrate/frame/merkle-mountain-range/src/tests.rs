@@ -31,6 +31,13 @@ pub(crate) fn new_test_ext() -> TestState {
 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
 }
 
+pub(crate) fn build_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		MMR::do_try_state().expect("All invariants must hold after a test");
+	});
+}
+
 fn register_offchain_ext(ext: &mut TestState) {
 	let (offchain, _offchain_state) = TestOffchainExt::with_offchain_db(ext.offchain_db());
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
@@ -44,7 +51,10 @@ fn new_block() -> Weight {
 
 	frame_system::Pallet::<Test>::reset_events();
 	frame_system::Pallet::<Test>::initialize(&number, &hash, &Default::default());
-	MMR::on_initialize(number)
+	let weight = MMR::on_initialize(number);
+	MMR::do_try_state().expect("All invariants must hold after a block");
+
+	weight
 }
 
 fn peaks_from_leaves_count(leaves_count: NodeIndex) -> Vec<NodeIndex> {
@@ -84,7 +94,7 @@ fn add_blocks(blocks: usize) {
 #[test]
 fn should_start_empty() {
 	sp_tracing::init_for_tests();
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// given
 		assert_eq!(
 			crate::RootHash::<Test>::get(),
@@ -194,7 +204,7 @@ fn should_append_to_mmr_when_on_initialize_is_called() {
 #[test]
 fn should_construct_larger_mmr_correctly() {
 	sp_tracing::init_for_tests();
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// when
 		add_blocks(7);
 
@@ -232,7 +242,7 @@ fn should_calculate_the_size_correctly() {
 	// size cross-check
 	let mut actual_sizes = vec![];
 	for s in &leaves[1..] {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			let mut mmr = mmr::Mmr::<mmr::storage::RuntimeStorage, crate::mock::Test, _, _>::new(0);
 			for i in 0..*s {
 				mmr.push(i);
