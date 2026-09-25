@@ -19,16 +19,15 @@ use crate::{
 	Error, RuntimeCosts,
 	vm::{
 		Ext,
-		evm::{DIFFICULTY, EVMGas, Interpreter, interpreter::Halt},
+		evm::{DIFFICULTY, EvmOpcodeCosts, Interpreter, interpreter::Halt},
 	},
 };
 use core::ops::ControlFlow;
-use revm::interpreter::gas::BASE;
 use sp_core::U256;
 
 /// EIP-1344: ChainID opcode
 pub fn chainid<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(BASE))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::CHAINID)?;
 	interpreter.stack.push(interpreter.ext.chain_id())?;
 	ControlFlow::Continue(())
 }
@@ -67,7 +66,7 @@ pub fn block_number<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Hal
 ///
 /// Pushes the block difficulty (pre-merge) or prevrandao (post-merge) onto the stack.
 pub fn difficulty<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(BASE))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::PREVRANDAO)?;
 	interpreter.stack.push(U256::from(DIFFICULTY))?;
 	ControlFlow::Continue(())
 }

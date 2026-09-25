@@ -20,7 +20,10 @@ use crate::{
 	debug::DebugSettings,
 	precompiles::Token,
 	tracing,
-	vm::{BytecodeType, ExecResult, Ext, evm::instructions::exec_instruction},
+	vm::{
+		BytecodeType, ExecResult, Ext, evm::instructions::exec_instruction,
+		runtime_costs::cost_args,
+	},
 	weights::WeightInfo,
 };
 use alloc::vec::Vec;
@@ -36,7 +39,7 @@ mod interpreter;
 pub use interpreter::{Halt, Interpreter};
 
 mod ext_bytecode;
-use ext_bytecode::ExtBytecode;
+pub(crate) use ext_bytecode::ExtBytecode;
 
 mod memory;
 mod stack;
@@ -56,8 +59,121 @@ pub struct EVMGas(pub u64);
 
 impl<T: Config> Token<T> for EVMGas {
 	fn weight(&self) -> Weight {
-		let base_cost = T::WeightInfo::evm_opcode(1).saturating_sub(T::WeightInfo::evm_opcode(0));
+		let base_cost = T::WeightInfo::evm_jumpdest_opcode(1)
+			.saturating_sub(T::WeightInfo::evm_jumpdest_opcode(0));
 		base_cost.saturating_mul(self.0)
+	}
+}
+
+/// Weight costs for EVM opcodes.
+#[derive(Eq, PartialEq, Debug, Clone, Copy)]
+pub(crate) enum EvmOpcodeCosts {
+	JUMP,
+	JUMPI,
+	JUMPDEST,
+	PUSH,
+	POP,
+	DUP,
+	SWAP,
+	PC,
+	CHAINID,
+	PREVRANDAO,
+	CODESIZE,
+	CALLDATALOAD,
+	CALLDATASIZE,
+	RETURNDATASIZE,
+	ADD,
+	MUL,
+	SUB,
+	DIV,
+	SDIV,
+	MOD,
+	SMOD,
+	ADDMOD,
+	MULMOD,
+	EXP { exponent_bits: u32 },
+	SIGNEXTEND,
+	LT,
+	GT,
+	CLZ,
+	SLT,
+	SGT,
+	EQ,
+	ISZERO,
+	AND,
+	OR,
+	XOR,
+	NOT,
+	BYTE,
+	SHL,
+	SHR,
+	SAR,
+	MLOAD,
+	MSTORE,
+	MSTORE8,
+	MSIZE,
+	MCOPY { len: u32 },
+}
+
+impl<T: Config> Token<T> for EvmOpcodeCosts {
+	fn weight(&self) -> Weight {
+		use EvmOpcodeCosts::*;
+
+		let weight_of = |token: EvmOpcodeCosts| Token::<T>::weight(&token);
+
+		match self {
+			JUMP => cost_args!(evm_jump_opcode, 1).saturating_sub(weight_of(JUMPDEST)),
+			JUMPI => cost_args!(evm_jumpi_opcode, 1).saturating_sub(weight_of(JUMPDEST)),
+			JUMPDEST => cost_args!(evm_jumpdest_opcode, 1),
+			PUSH => cost_args!(evm_push_opcode, 1),
+			POP => cost_args!(evm_pop_opcode, 1),
+			DUP => cost_args!(evm_dup_opcode, 1),
+			SWAP => cost_args!(evm_swap_opcode, 1),
+			PC => cost_args!(evm_pc_opcode, 1),
+			CHAINID => cost_args!(evm_chainid_opcode, 1),
+			PREVRANDAO => cost_args!(evm_prevrandao_opcode, 1),
+			CODESIZE => cost_args!(evm_codesize_opcode, 1),
+			CALLDATALOAD => cost_args!(evm_calldataload_opcode, 1),
+			CALLDATASIZE => cost_args!(evm_calldatasize_opcode, 1),
+			RETURNDATASIZE => cost_args!(evm_returndatasize_opcode, 1),
+			ADD => cost_args!(evm_add_opcode, 1),
+			MUL => cost_args!(evm_mul_opcode, 1),
+			SUB => cost_args!(evm_sub_opcode, 1),
+			DIV => cost_args!(evm_div_opcode, 1).saturating_sub(weight_of(POP)),
+			SDIV => cost_args!(evm_sdiv_opcode, 1).saturating_sub(weight_of(POP)),
+			MOD => cost_args!(evm_mod_opcode, 1).saturating_sub(weight_of(POP)),
+			SMOD => cost_args!(evm_smod_opcode, 1).saturating_sub(weight_of(POP)),
+			ADDMOD => cost_args!(evm_addmod_opcode, 1).saturating_sub(weight_of(POP)),
+			MULMOD => cost_args!(evm_mulmod_opcode, 1).saturating_sub(weight_of(POP)),
+			EXP { exponent_bits: 0 } => cost_args!(evm_exp_zero_opcode, 1),
+			EXP { exponent_bits } => cost_args!(evm_exp_opcode, 1)
+				.saturating_add(cost_args!(evm_exp_per_bit, exponent_bits.saturating_sub(1))),
+			SIGNEXTEND => cost_args!(evm_signextend_opcode, 1).saturating_sub(weight_of(POP)),
+			LT => cost_args!(evm_lt_opcode, 1),
+			GT => cost_args!(evm_gt_opcode, 1),
+			CLZ => cost_args!(evm_clz_opcode, 1),
+			SLT => cost_args!(evm_slt_opcode, 1),
+			SGT => cost_args!(evm_sgt_opcode, 1),
+			EQ => cost_args!(evm_eq_opcode, 1),
+			ISZERO => cost_args!(evm_iszero_opcode, 1).saturating_sub(weight_of(POP)),
+			AND => cost_args!(evm_and_opcode, 1),
+			OR => cost_args!(evm_or_opcode, 1),
+			XOR => cost_args!(evm_xor_opcode, 1),
+			NOT => cost_args!(evm_not_opcode, 1),
+			BYTE => cost_args!(evm_byte_opcode, 1),
+			SHL => cost_args!(evm_shl_opcode, 1).saturating_sub(weight_of(POP)),
+			SHR => cost_args!(evm_shr_opcode, 1).saturating_sub(weight_of(POP)),
+			SAR => cost_args!(evm_sar_opcode, 1).saturating_sub(weight_of(POP)),
+			MLOAD => cost_args!(evm_mload_opcode, 1),
+			MSTORE => cost_args!(evm_mstore_opcode, 1),
+			MSTORE8 => cost_args!(evm_mstore8_opcode, 1),
+			MSIZE => cost_args!(evm_msize_opcode, 1),
+			MCOPY { len } => {
+				// The fixed cost includes copying 64 bytes; shorter copies pay no variable cost.
+				cost_args!(evm_mcopy_opcode, 1)
+					.saturating_add(cost_args!(evm_mcopy_per_byte, len.saturating_sub(64)))
+			},
+		}
 	}
 }
 
@@ -161,7 +277,7 @@ pub fn call<E: Ext>(bytecode: Bytecode, ext: &mut E, input: Vec<u8>) -> ExecResu
 	halt.into()
 }
 
-fn run_plain<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt, Infallible> {
+pub(crate) fn run_plain<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt, Infallible> {
 	loop {
 		let opcode = interpreter.bytecode.opcode();
 		interpreter.bytecode.relative_jump(1);

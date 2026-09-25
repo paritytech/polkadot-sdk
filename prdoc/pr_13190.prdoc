@@ -1,0 +1,26 @@
+title: 'pallet-revive: benchmark the EVM `JUMPI` opcode'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The EVM interpreter charged every opcode a multiple of the benchmarked cost
+    of `JUMPDEST`, scaled by the opcode's Ethereum gas constant. Those charges
+    were estimates rather than measurements of the work each opcode does, and
+    the August benchmarking results showed them overcharging execution.
+
+    This PR adds an `evm_jumpi_opcode` benchmark and charges `JUMP` and `JUMPI`
+    from it instead of the estimate. The benchmark runs `JUMPI` back to back
+    with the operands of every jump loaded onto the stack ahead of time, so no
+    `PUSH` instructions are measured and nothing has to be subtracted when the
+    charge is computed. Every jump is taken, which is the worst case.
+    
+    A crate-internal `EvmOpcodeCosts` token implementing `Token<T>` yields the
+    weight of each benchmarked opcode. This is the groundwork for benchmarking
+    the remaining opcodes the same way.
+
+    `WeightInfo` gains `evm_jumpi_opcode`, so runtimes that provide their own
+    weights for `pallet-revive` need to regenerate them.
+crates:
+- name: pallet-revive
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: patch
