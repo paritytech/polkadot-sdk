@@ -171,6 +171,23 @@ impl SchedulingParams {
 	}
 }
 
+/// The relay chain context implied by a [`SchedulingParams`], as returned by
+/// [`derive_relay_context`].
+struct RelayContext {
+	scheduling_parent_header: RelayHeader,
+	v3_enabled: bool,
+	relay_parent_data: RelayParentData,
+}
+
+/// The slot's relay chain context and the build parent, settled together.
+struct SettledContext<Block: BlockT> {
+	relay_context: RelayContext,
+	best_parent_header: Block::Header,
+	/// The included header at the settled search anchor: the relay parent for V2, the scheduling
+	/// parent for V3.
+	included_at_search: Block::Header,
+}
+
 /// Everything the builder needs for one slot, all derived from a single [`SchedulingParams`].
 struct BuildingPrerequisites<Block: BlockT> {
 	/// The relay block the candidate is scheduled at.
@@ -218,7 +235,7 @@ async fn derive_relay_context<RelayClient>(
 	scheduling_info: &mut SchedulingInfo<RelayClient>,
 	params: SchedulingParams,
 	slot: Slot,
-) -> Option<(RelayHeader, bool, RelayParentData)>
+) -> Option<RelayContext>
 where
 	RelayClient: RelayChainInterface + 'static,
 {
@@ -250,7 +267,7 @@ where
 		return None;
 	};
 
-	Some((scheduling_parent_header, v3_enabled, relay_parent_data))
+	Some(RelayContext { scheduling_parent_header, v3_enabled, relay_parent_data })
 }
 
 /// Environment shared by the block-builder phases; groups the clients, caches, and per-task
@@ -416,18 +433,77 @@ where
 		}
 	}
 
+	/// Phase two of settling the slot context: re-derive the relay chain context from
+	/// `found_parent`'s [`SchedulingParams`] and re-validate `found_parent` under that context,
+	/// falling back to the pending/included block if it is no longer valid.
+	async fn settle_on_build_parent(
+		&mut self,
+		slot: Slot,
+		build_params: SchedulingParams,
+		found_parent: Block::Header,
+	) -> Option<SettledContext<Block>> {
+		let ctx = derive_relay_context(
+			&self.relay_client,
+			&mut self.relay_chain_data_cache,
+			&mut self.scheduling_info,
+			build_params,
+			slot,
+		)
+		.await?;
+
+		let search_params = ParentSearchParams::new(
+			ctx.v3_enabled,
+			ctx.scheduling_parent_header.hash(),
+			ctx.relay_parent_data.relay_parent().hash(),
+		);
+		let parent_still_valid = consensus_common::is_parent_valid_for_params::<Block>(
+			&self.relay_client,
+			&search_params,
+			&found_parent,
+		)
+		.await
+		.unwrap_or(false);
+
+		let start = consensus_common::search_start_block(
+			&self.relay_client,
+			&*self.para_backend,
+			*search_params.scheduling_parent(),
+			self.para_id,
+		)
+		.await
+		.ok()??;
+
+		let best_parent_header = if parent_still_valid {
+			found_parent
+		} else {
+			tracing::info!(
+				target: LOG_TARGET,
+				parent = ?found_parent.hash(),
+				fallback = ?start.start_header().hash(),
+				"Found parent is not valid under the re-derived context, falling back to the \
+				pending/included block.",
+			);
+
+			start.start_header().clone()
+		};
+
+		Some(SettledContext {
+			relay_context: ctx,
+			best_parent_header,
+			included_at_search: start.included_header,
+		})
+	}
+
 	/// Derive the [`BuildingPrerequisites`] for the current slot. `None` means the slot is skipped.
 	///
-	/// The relay chain context follows the [`SchedulingParams`] of the runtime that executes the
-	/// block, which is only known once the parent is settled. So the first phase derives the
-	/// context from the para best head in order to run the parent search, and the second
-	/// re-derives it from the chosen parent whenever the two disagree, keeping the parent the
-	/// first phase settled on.
+	/// Phase one derives the relay chain context from the para best head's [`SchedulingParams`]
+	/// and searches the parent under it; when the found parent's params disagree, phase two
+	/// ([`Self::settle_on_build_parent`]) re-derives the context from them.
 	async fn building_prerequisites(&mut self, slot: Slot) -> Option<BuildingPrerequisites<Block>> {
 		let best_hash = self.para_client.info().best_hash;
 		let best_params = SchedulingParams::at(&*self.para_client, best_hash);
 
-		let (scheduling_parent_header, v3_enabled, relay_parent_data) = derive_relay_context(
+		let ctx = derive_relay_context(
 			&self.relay_client,
 			&mut self.relay_chain_data_cache,
 			&mut self.scheduling_info,
@@ -437,9 +513,9 @@ where
 		.await?;
 
 		let search_params = ParentSearchParams::new(
-			v3_enabled,
-			scheduling_parent_header.hash(),
-			relay_parent_data.relay_parent().hash(),
+			ctx.v3_enabled,
+			ctx.scheduling_parent_header.hash(),
+			ctx.relay_parent_data.relay_parent().hash(),
 		);
 		let parent_search_result = crate::collators::find_parent(
 			&self.relay_client,
@@ -460,42 +536,30 @@ where
 		let build_params = SchedulingParams::at(&*self.para_client, build_parent_hash);
 		let build_parent_agrees = build_parent_hash == best_hash || build_params == best_params;
 
-		let (scheduling_parent_header, v3_enabled, relay_parent_offset, relay_parent_data) =
-			if build_parent_agrees {
-				(
-					scheduling_parent_header,
-					v3_enabled,
-					best_params.relay_parent_offset,
-					relay_parent_data,
-				)
-			} else {
-				tracing::info!(
-					target: LOG_TARGET,
-					best = ?best_hash,
-					?build_parent_hash,
-					"Build parent's runtime disagrees with the para best's, re-deriving the relay \
-					chain context from the build parent.",
-				);
+		// `build_params == best_params` when the build parent agrees, so `build_params` describes
+		// the settled context either way.
+		let SettledContext {
+			relay_context: RelayContext { scheduling_parent_header, v3_enabled, relay_parent_data },
+			best_parent_header,
+			included_at_search,
+		} = if build_parent_agrees {
+			SettledContext {
+				relay_context: ctx,
+				best_parent_header: parent_search_result.best_parent_header,
+				included_at_search: parent_search_result.included_at_scheduling,
+			}
+		} else {
+			tracing::info!(
+				target: LOG_TARGET,
+				best = ?best_hash,
+				?build_parent_hash,
+				"Build parent's runtime disagrees with the para best's, re-deriving the relay \
+				chain context from the build parent.",
+			);
 
-				let (scheduling_parent_header, v3_enabled, relay_parent_data) =
-					derive_relay_context(
-						&self.relay_client,
-						&mut self.relay_chain_data_cache,
-						&mut self.scheduling_info,
-						build_params,
-						slot,
-					)
-					.await?;
-
-				(
-					scheduling_parent_header,
-					v3_enabled,
-					build_params.relay_parent_offset,
-					relay_parent_data,
-				)
-			};
-
-		let best_parent_header = parent_search_result.best_parent_header;
+			self.settle_on_build_parent(slot, build_params, parent_search_result.best_parent_header)
+				.await?
+		};
 
 		// Building on a parent that already sits on our relay parent would put two blocks on the
 		// same one, so the prerequisites are not met for this slot.
@@ -510,11 +574,11 @@ where
 			return None;
 		}
 
-		// The parent search's snapshot of the included head only holds while its own context
-		// survives, and only for V2, whose scheduling parent is the relay parent the block
-		// executes against. Otherwise take it at the settled relay parent.
-		let included_header_at_execution = if build_parent_agrees && !v3_enabled {
-			parent_search_result.included_at_scheduling
+		// For V2 the search anchor is the relay parent the block executes against, so the included
+		// snapshot from the settled context is already the right one. For V3 the two differ, so
+		// fetch it at the settled relay parent.
+		let included_header_at_execution = if !v3_enabled {
+			included_at_search
 		} else {
 			self.included_header_at_execution(relay_parent_data.relay_parent().hash())
 				.await?
@@ -523,7 +587,7 @@ where
 		Some(BuildingPrerequisites {
 			scheduling_parent_header,
 			v3_enabled,
-			relay_parent_offset,
+			relay_parent_offset: build_params.relay_parent_offset,
 			relay_parent_data,
 			best_parent_header,
 			included_header_at_execution,
