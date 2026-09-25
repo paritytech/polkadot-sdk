@@ -18,10 +18,11 @@
 //! Tests for the on-demand pallet.
 
 use crate::{
-	mock::*, Error, Event, PendingBatch, PriceConfig, QueueState, DEFAULT_BASE_FEE,
-	DEFAULT_PRICE_STEP,
+	mock::*, Error, Event, PendingBatch, PriceConfig, PriceParameters, QueueState,
+	DEFAULT_BASE_FEE, DEFAULT_PRICE_STEP,
 };
-use frame_support::{assert_noop, assert_ok, traits::fungible::Inspect};
+use frame_support::{assert_noop, assert_ok, dispatch::Pays, traits::fungible::Inspect};
+use sp_runtime::{traits::BadOrigin, Perbill};
 
 const ALICE: u64 = 1;
 
@@ -182,5 +183,49 @@ fn the_pending_batch_is_forwarded_to_the_relay_chain_on_finalize() {
 		// Nothing is sent when no orders were placed.
 		advance_block();
 		assert_eq!(queued_batches().len(), 1);
+	});
+}
+
+#[test]
+fn configure_works() {
+	new_test_ext().execute_with(|| {
+		let config = PriceParameters {
+			order_cap: 10,
+			drain_rate_per_block: 2,
+			price_step: Perbill::from_percent(10),
+			base_fee: 1_000,
+		};
+
+		// Only root and the admin can configure the pallet.
+		assert_noop!(OnDemand::configure(RuntimeOrigin::signed(2), config.clone()), BadOrigin);
+		assert_noop!(OnDemand::configure(RuntimeOrigin::none(), config.clone()), BadOrigin);
+
+		// Doubling the price with every order overflows long before reaching the order cap.
+		let overflowing_config =
+			PriceParameters { order_cap: 100, price_step: Perbill::from_percent(100), ..config };
+		assert_noop!(
+			OnDemand::configure(RuntimeOrigin::root(), overflowing_config),
+			Error::<Test>::OrderPriceCanOverflow
+		);
+
+		assert_eq!(PriceConfig::<Test>::get(), PriceParameters::default());
+
+		// A valid configuration is stored, and setting it is free.
+		let post_info =
+			OnDemand::configure(RuntimeOrigin::root(), config.clone()).expect("config is valid");
+		assert_eq!(post_info.pays_fee, Pays::No);
+		assert_eq!(PriceConfig::<Test>::get(), config);
+
+		// The admin can configure the pallet too.
+		let admin_config = PriceParameters { base_fee: 2_000, ..config };
+		assert_ok!(OnDemand::configure(RuntimeOrigin::signed(ALICE), admin_config.clone()));
+		assert_eq!(PriceConfig::<Test>::get(), admin_config);
+
+		// The new configuration is used for pricing.
+		let before = Balances::balance(&ALICE);
+		assert_ok!(OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, 2_000));
+		assert_eq!(Balances::balance(&ALICE), before - 2_000);
+		assert_ok!(OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, 2_200));
+		assert_eq!(Balances::balance(&ALICE), before - 2_000 - 2_200);
 	});
 }
