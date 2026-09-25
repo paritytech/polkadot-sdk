@@ -649,12 +649,13 @@ impl<N: Ord> Peers<N> {
 	}
 
 	fn reshuffle(&mut self) {
-		// we want to randomly select peers into three sets according to the following logic:
+		// we want to select peers into three sets according to the following logic:
 		// - first set: LUCKY_PEERS random peers where at least LUCKY_PEERS/2 are authorities
 		//   (unless we're not connected to that many authorities)
-		// - second set: max(LUCKY_PEERS, sqrt(peers)) peers where at least LUCKY_PEERS are
+		// - second set: max(LUCKY_PEERS, sqrt(peers)) random peers where at least LUCKY_PEERS are
 		//   authorities.
-		// - third set: the next group of LIGHT_PEERS_GROUP_SIZE light client peers.
+		// - third set: the next group of LIGHT_PEERS_GROUP_SIZE light client peers, in the order of
+		//   their peer ids (see `rotate_light_peers`).
 
 		let shuffled_peers = {
 			let mut peers =
@@ -716,12 +717,10 @@ impl<N: Ord> Peers<N> {
 
 	/// Select the next group of light clients to gossip commit messages to.
 	///
-	/// Light clients don't relay messages, so picking them randomly doesn't help propagation,
-	/// it only makes their finality lag unbounded. Instead we walk through all of them in the
-	/// order of their peer ids, continuing after the last light client served in the previous
-	/// round. Every light client gets a commit at least every
-	/// `ceil(light_peers / LIGHT_PEERS_GROUP_SIZE)` rounds, regardless of other light clients
-	/// connecting or disconnecting in the meantime.
+	/// We walk through all light clients in the order of their peer ids, continuing after the
+	/// last light client served in the previous round. Every light client gets a commit at least
+	/// every `ceil(light_peers / LIGHT_PEERS_GROUP_SIZE)` rounds, regardless of other light
+	/// clients connecting or disconnecting in the meantime.
 	fn rotate_light_peers(&mut self) {
 		if self.light_peers.len() <= LIGHT_PEERS_GROUP_SIZE {
 			self.light_peers_in_turn = LightPeersInTurn::All;
