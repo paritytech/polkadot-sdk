@@ -154,3 +154,101 @@ impl Default for ExecutionTracerConfigV2 {
 		}
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::runtime_api::*;
+	use alloc::{format, vec};
+	use alloy_core::hex;
+	use core::fmt::Debug;
+
+	/// `value` must encode to exactly `expected`, and `expected` must decode back to `value`.
+	fn assert_pinned<T: Encode + Decode + PartialEq + Debug>(
+		value: &T,
+		expected: &str,
+		what: &str,
+	) {
+		assert_eq!(hex::encode(value.encode()), expected, "the {what} changed shape");
+		let bytes = hex::decode(expected).expect("the literal is hex");
+		let decoded = T::decode(&mut &bytes[..]).expect("the pinned bytes decode");
+		assert_eq!(&decoded, value, "the pinned {what} bytes decode to something else");
+	}
+
+	/// As [`assert_pinned`], for a versioned payload. The literal must open with the `V3`
+	/// discriminant, so a literal regenerated after a variant reorder is rejected too.
+	fn assert_pinned_v3<T: Encode + Decode + PartialEq + Debug>(
+		value: &T,
+		expected: &str,
+		what: &str,
+	) {
+		assert!(expected.starts_with("02"), "bad version number on the {what}");
+		assert_pinned(value, expected, what);
+	}
+
+	#[test]
+	fn v3_trace_payloads_keep_their_wire_format() {
+		// Legible little-endian: `step_offset` is the `0807060504030201` between
+		// `disable_syscall_details` and `limit`; the leading `02` is `ExecutionTracer`.
+		let config = TracerTypeV2::ExecutionTracer(Some(ExecutionTracerConfigV2 {
+			enable_memory: false,
+			disable_stack: true,
+			disable_storage: true,
+			enable_return_data: false,
+			disable_syscall_details: false,
+			step_offset: 0x0102_0304_0506_0708,
+			limit: Some(0x1112_1314_1516_1718),
+			memory_word_limit: 0x2122_2324,
+		}));
+		const TRACER: &str = "02010001010000080706050403020101181716151413121124232221";
+		assert_pinned(&config, TRACER, "tracer config");
+
+		assert_pinned_v3(
+			&TraceTxVersionedInputPayload::<()>::V3(TraceTxInputPayloadV3 {
+				block: (),
+				tx_index: 0x3132_3334,
+				config: config.clone(),
+			}),
+			&format!("0234333231{TRACER}"),
+			"V3 trace_tx input",
+		);
+		assert_pinned_v3(
+			&TraceBlockVersionedInputPayload::<()>::V3(TraceBlockInputPayloadV3 {
+				block: (),
+				config: config.clone(),
+			}),
+			&format!("02{TRACER}"),
+			"V3 trace_block input",
+		);
+
+		let tx = GenericTransactionV1::default();
+		assert_pinned_v3(
+			&TraceCallVersionedInputPayload::V3(TraceCallInputPayloadV3 {
+				tx: tx.clone(),
+				config,
+				state_overrides: None,
+			}),
+			&format!("02{}{TRACER}00", hex::encode(tx.encode())),
+			"V3 trace_call input",
+		);
+
+		assert_pinned_v3(
+			&TraceTxVersionedOutputPayload::V3(TraceTxOutputPayloadV3 { entry: None }),
+			"0200",
+			"V3 trace_tx output",
+		);
+		assert_pinned_v3(
+			&TraceBlockVersionedOutputPayload::V3(TraceBlockOutputPayloadV3 { entries: vec![] }),
+			"0200",
+			"V3 trace_block output",
+		);
+		let trace = ExecutionTraceV1::default();
+		assert_pinned_v3(
+			&TraceCallVersionedOutputPayload::V3(TraceCallOutputPayloadV3 {
+				trace: TraceV2::Execution(trace.clone()),
+			}),
+			&format!("0202{}", hex::encode(trace.encode())),
+			"V3 trace_call output",
+		);
+	}
+}
