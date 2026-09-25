@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790337554222,
+  "lastUpdate": 1790350971758,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "30d11a70e09186ac0917e11a2e9cc743c3a4bb34",
-          "message": "make subscription return statement event  instead of bytes (#11139)\n\n## Problem\n\nIn the current implementation of the subscription, applications have no\nway to tell if there is anything in the store for their subscription,\nbecause we are not sending any information when zero statements match\nthe filter, so they have the problem of not knowing if the subscription\nwill produce any items or if it is just slow.\n\nAnother worthy optimisation is that, when we connect we can send more\nthan one statement in one notification rather than send them one by one,\nwhich creates more churn and is slower.\n\n## Proposal.\n\nModify the API, so instead of returning a stream of bytes that represent\nscale encoded statements, to return\n```\npub enum StatementEvent {\n\t/// A batch of statements matching the subscription filter. Each entry is a SCALE-encoded\n\t/// statement.\n\tNewStatements(Vec<Bytes>),\n}\n```\n\nWhen subscription is initiated if there are no matching statements in\nthe store we send an empty array..\n\nThis changes slightly the json-rpc schema of the message:\n\n## Before this change:\n- Receiving a statement\n```\n{\n  \"jsonrpc\": \"2.0\",\n  \"method\": \"statement_statement\",\n  \"params\": {\n    \"subscription\": 2759293729543571,\n    \"result\": \"0x1000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000201000000ffffffff040000000000000000000000000000000000000000000000000000000000000000050101010101010101010101010101010101010101010101010101010101010101\"\n  }\n}\n```\n\n## After this change:\n- When there are no matching statements in the store you first receive\nan empty array and as new matching statements arrive in the node they\nget forwarded to the client.\n```\n{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"statement_statement\",\n    \"params\": {\n        \"subscription\": 4851578855668545,\n        \"result\": {\n            \"event\": \"newStatements\",\n            \"data\": {\n                \"statements\": [],\n                \"remaining\": 0\n            }\n        }\n    }\n}\n```\n\n- If there are matching statements in the store you receive them in\nbatches of newStatements events, with remaining telling you how many\nstatements you have remaining, this guarantees you that the subscription\nwill receive at least this amount of statements.\n```\n{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"statement_statement\",\n    \"params\": {\n        \"subscription\": 1710164133533157,\n        \"result\": {\n            \"event\": \"newStatements\",\n            \"data\": {\n                \"statements\": [\n                    \"0x1000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000201000000ffffffff040000000000000000000000000000000000000000000000000000000000000000050202020202020202020202020202020202020202020202020202020202020202\",\n                    \"0x1000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000201000000ffffffff040000000000000000000000000000000000000000000000000000000000000000050101010101010101010101010101010101010101010101010101010101010101\"\n                ],\n                \"remaining\": 10\n            }\n        }\n    }\n}\n```\n\n- If new statements arrive in the store they get delivered as they are\nwithout any `remaining` information.\n```\n{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"statement_statement\",\n    \"params\": {\n        \"subscription\": 2661920166788434,\n        \"result\": {\n            \"event\": \"newStatements\",\n            \"data\": {\n                \"statements\": [                 \"0x1000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000201000000ffffffff040000000000000000000000000000000000000000000000000000000000000000050101010101010101010101010101010101010101010101010101010101010101\"\n                ]\n            }\n        }\n    }\n}\n```\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
-          "timestamp": "2026-02-24T12:19:17Z",
-          "tree_id": "063b08a2ad2606c50cfd5860bc47d390d0ad93bf",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/30d11a70e09186ac0917e11a2e9cc743c3a4bb34"
-        },
-        "date": 1771940263628,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006794748659999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009571240089999978,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0028343810999999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009138515329999989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bkontur@gmail.com",
+            "name": "Branislav Kontur",
+            "username": "bkontur"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6d4445b6af52ef42643acf53e432d58cd2f9ff4d",
+          "message": "Remove obsolete bridges zombienet test image publishing (#13316)\n\nRemove the unused `build-push-image-bridges-zombienet-tests` job, its\n`prepare-bridges-zombienet-artifacts` dependency and\n`docker/dockerfiles/bridges_zombienet_tests_injected.Dockerfile`, since\nthe bridge integration tests now run as zombienet-sdk tests and this\nimage is not pulled by anything — see\nhttps://github.com/paritytech/parity-bridges-common/pull/3327#issuecomment-5816227455",
+          "timestamp": "2026-09-25T12:36:45Z",
+          "tree_id": "3e0ffe0d218eb14a2c2d20289e21a151276ee7f0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6d4445b6af52ef42643acf53e432d58cd2f9ff4d"
+        },
+        "date": 1790350942126,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009537394469999991,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011187201419999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025280166400000006,
             "unit": "seconds"
           }
         ]
