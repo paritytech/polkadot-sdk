@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790350749637,
+  "lastUpdate": 1790353894291,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "serban@parity.io",
-            "name": "Serban Iorga",
-            "username": "serban300"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ac667bdcafaf38c9e731febbcea8373fd1e28b67",
-          "message": "Grandpa `on_new_session()`: simplification + fix (#11160)\n\nKill `Stalled::<T>` only if `schedule_change()` has succeeded\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-25T08:25:46Z",
-          "tree_id": "4cba678e1188c882b923a464c024ff1c585d2208",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ac667bdcafaf38c9e731febbcea8373fd1e28b67"
-        },
-        "date": 1772013389833,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.049541200433335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1210952378,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.064394498433334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eduard@parity.io",
+            "name": "eduardspa",
+            "username": "eduardspa"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a92f928a64c30c08c1bcd3c94161eccd537b733d",
+          "message": "chain-spec-builder: manage the boot nodes of a chain spec (#13302)\n\n`chain-spec-builder` had no way to manage the boot nodes of a chain\nspec. The `bootNodes`\nfield had to be edited by hand, which is error prone: the addresses must\nbe multiaddresses\ncarrying the peer id of the node, and a raw chain spec is not pleasant\nto edit manually.\n\nThe new `bootnodes` command group operates on an existing chain spec, in\nboth plain and raw\nformat:\n\n```sh\nchain-spec-builder -c out.json bootnodes add chain_spec.json /dns/node-0.example.com/tcp/30333/p2p/12D3KooW...\nchain-spec-builder -c out.json bootnodes remove chain_spec.json /dns/node-0.example.com/tcp/30333/p2p/12D3KooW...\nchain-spec-builder -c out.json bootnodes remove chain_spec.json --all\nchain-spec-builder bootnodes list chain_spec.json\n```\n\n`add` appends and skips the addresses that are already stored, `remove`\nignores the ones that\nare not stored, so both can be safely repeated. `create` takes a new\n`--bootnodes` argument.\nThe addresses are validated: one without a `/p2p/<peer id>` component is\nrejected before\nanything is read or written.\n\n# Integration\n\nNew functionality only. `sc-chain-spec` now re-exports\n`MultiaddrWithPeerId`, which was\nalready public through `ChainSpec::boot_nodes()`.\n\n## Review Notes\n\nThe commands edit the chain spec `serde_json::Value`, which is what\nmakes plain and raw work\nthrough one path and leaves the rest of the spec untouched — the tests\nassert this by\ncomparing the output against the input with only `bootNodes` patched.\n`remove --all` skips\ndeserializing the existing addresses on purpose: it is the way to repair\na spec whose\n`bootNodes` no longer parses.\n\n---------\n\nCo-authored-by: nprt <nikola.djoric@parity.io>",
+          "timestamp": "2026-09-25T14:56:00Z",
+          "tree_id": "8e95e3275f15c77c43772673f9c6942a2d382171",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a92f928a64c30c08c1bcd3c94161eccd537b733d"
+        },
+        "date": 1790353862470,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1430050185666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.940205271333332,
             "unit": "seconds"
           }
         ]
