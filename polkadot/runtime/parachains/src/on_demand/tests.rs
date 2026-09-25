@@ -768,3 +768,35 @@ fn queue_on_demand_batch_beyond_capacity_fails() {
 		assert_last_event(RuntimeEvent::OnDemand(Event::UnexpectedQueueFull { dropped: 1 }));
 	});
 }
+
+#[test]
+fn queue_on_demand_batch_rejects_non_broker_origins() {
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		let para_a = ParaId::from(111);
+		schedule_blank_para(para_a, ParaKind::Parathread);
+
+		let block_num = 11;
+		run_to_block(block_num, |n| if n == 11 { Some(Default::default()) } else { None });
+
+		let batch = vec![(para_a, block_num)];
+
+		// A parachain other than the broker is not allowed to queue orders ...
+		let other_para = ParaId::from(BrokerId::get() + 1);
+		assert_noop!(
+			Coretime::queue_on_demand_batch(
+				RuntimeOrigin::from(ParachainOrigin::Parachain(other_para)),
+				batch.clone()
+			),
+			crate::coretime::Error::<Test>::NotBroker
+		);
+
+		// ... and neither are signed accounts.
+		assert_noop!(
+			Coretime::queue_on_demand_batch(RuntimeOrigin::signed(1), batch.clone()),
+			BadOrigin
+		);
+		assert_noop!(Coretime::queue_on_demand_batch(RuntimeOrigin::none(), batch), BadOrigin);
+
+		assert_eq!(OnDemand::pop_assignment_for_cores(block_num + 2, 1).next(), None);
+	});
+}
