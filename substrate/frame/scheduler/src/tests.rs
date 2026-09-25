@@ -1733,6 +1733,11 @@ fn hard_deadline_priority_does_not_bypass_weight_limit() {
 		System::run_to_block::<AllPalletsWithSystem>(4);
 		assert_eq!(logger::log(), vec![(root(), 69u32), (root(), 42u32)]);
 		assert_eq!(IncompleteSince::<Test>::get(), Some(4));
+		System::assert_last_event(crate::Event::AgendaIncomplete { when: 4 }.into());
+		assert!(!System::events().iter().any(|record| matches!(
+			record.event,
+			RuntimeEvent::Scheduler(crate::Event::PermanentlyOverweight { .. })
+		)));
 		System::run_to_block::<AllPalletsWithSystem>(5);
 		assert_eq!(logger::log(), vec![(root(), 69u32), (root(), 42u32), (root(), 2600u32)]);
 		assert!(Agenda::<Test>::get(4).is_empty());
