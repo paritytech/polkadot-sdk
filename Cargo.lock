@@ -16713,7 +16713,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-keyring",
  "sp-tracing 16.0.0",
- "tracing-gum",
+ "tracing",
 ]
 
 [[package]]
