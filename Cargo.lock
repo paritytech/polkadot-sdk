@@ -11848,6 +11848,7 @@ dependencies = [
  "pallet-asset-conversion-tx-payment",
  "pallet-revive",
  "pallet-skip-feeless-payment",
+ "pallet-utility-ext",
  "parity-scale-codec",
  "sc-block-builder",
  "sc-client-api 28.0.0",
@@ -15402,6 +15403,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-utility-ext"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-collective",
+ "pallet-utility",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "pallet-verify-signature"
 version = "1.0.0"
 dependencies = [
@@ -17845,6 +17862,7 @@ dependencies = [
  "pallet-tx-pause",
  "pallet-uniques",
  "pallet-utility",
+ "pallet-utility-ext",
  "pallet-verify-signature",
  "pallet-vesting",
  "pallet-vesting-precompiles",

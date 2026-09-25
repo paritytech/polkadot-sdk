@@ -166,6 +166,7 @@ std = [
 	"pallet-treasury?/std",
 	"pallet-tx-pause?/std",
 	"pallet-uniques?/std",
+	"pallet-utility-ext?/std",
 	"pallet-utility?/std",
 	"pallet-verify-signature?/std",
 	"pallet-vesting-precompiles?/std",
@@ -357,6 +358,7 @@ runtime-benchmarks = [
 	"pallet-treasury?/runtime-benchmarks",
 	"pallet-tx-pause?/runtime-benchmarks",
 	"pallet-uniques?/runtime-benchmarks",
+	"pallet-utility-ext?/runtime-benchmarks",
 	"pallet-utility?/runtime-benchmarks",
 	"pallet-verify-signature?/runtime-benchmarks",
 	"pallet-vesting-precompiles?/runtime-benchmarks",
@@ -508,6 +510,7 @@ try-runtime = [
 	"pallet-treasury?/try-runtime",
 	"pallet-tx-pause?/try-runtime",
 	"pallet-uniques?/try-runtime",
+	"pallet-utility-ext?/try-runtime",
 	"pallet-utility?/try-runtime",
 	"pallet-verify-signature?/try-runtime",
 	"pallet-vesting-precompiles?/try-runtime",
@@ -741,6 +744,7 @@ runtime-full = [
 	"pallet-tx-pause",
 	"pallet-uniques",
 	"pallet-utility",
+	"pallet-utility-ext",
 	"pallet-verify-signature",
 	"pallet-vesting",
 	"pallet-vesting-precompiles",
@@ -1874,6 +1878,11 @@ path = "../substrate/frame/uniques"
 default-features = false
 optional = true
 path = "../substrate/frame/utility"
+
+[dependencies.pallet-utility-ext]
+default-features = false
+optional = true
+path = "../substrate/frame/utility-ext"
 
 [dependencies.pallet-verify-signature]
 default-features = false

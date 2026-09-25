@@ -47,6 +47,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::collections::VecDeque;
+
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 
@@ -66,9 +70,12 @@ use sp_runtime::{
 		Convert, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, SaturatedConversion,
 		Saturating, TransactionExtension, Zero,
 	},
-	transaction_validity::{TransactionPriority, TransactionValidityError, ValidTransaction},
+	transaction_validity::{
+		InvalidTransaction, TransactionPriority, TransactionValidityError, ValidTransaction,
+	},
 	Debug, FixedPointNumber, FixedU128, Perbill, Perquintill,
 };
+use types::Pot;
 pub use types::{FeeDetails, InclusionFee, RuntimeDispatchInfo};
 pub use weights::WeightInfo;
 
@@ -417,12 +424,30 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type StorageVersion<T: Config> = StorageValue<_, Releases, ValueQuery>;
 
-	/// The `OnChargeTransaction` stores the withdrawn tx fee here.
+	/// The fee pots of the transaction being applied, as a queue in payment order.
 	///
-	/// Use `withdraw_txfee` and `remaining_txfee` to access from outside the crate.
+	/// There is one [`Pot`] per payment. The `OnChargeTransaction` opens a [`Pot::Signer`] when it
+	/// withdraws the inclusion fee of a payment and settles the signer's oldest pot after dispatch.
+	/// Pallets may deposit to or withdraw from the newest pot while the transaction executes; a
+	/// deposit made before any inclusion fee is withdrawn (today this is only an Ethereum
+	/// transaction's storage deposit), opens a [`Pot::Unclaimed`] which the inclusion fee of the
+	/// next payment claims.
+	///
+	/// A regular transaction holds a single pot. A transaction which applies several inner
+	/// transactions, e.g. `pallet_utility_ext::batch_multi_origin`, runs all their `prepare`s in
+	/// order and later all their `post_dispatch`es in the same order, so every settlement finds its
+	/// own pot as the payer's oldest one, even when the same payer paid several times. Such a
+	/// transaction must not let its inner calls touch the pots (and calls which do should be
+	/// filtered out by `pallet_utility_ext::Config::MultiOriginCallFilter`), since they would touch
+	/// the newest pot and not their own.
+	///
+	/// This storage item is transient and never outlives the transaction which filled it. Use
+	/// `withdraw_txfee`, `deposit_txfee` and `remaining_txfee` to access from outside the crate.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
-	pub(crate) type TxPaymentCredit<T: Config> = StorageValue<_, StoredCreditOf<T>>;
+	#[pallet::unbounded]
+	pub(crate) type TxPaymentCredit<T: Config> =
+		StorageValue<_, VecDeque<Pot<T::AccountId, StoredCreditOf<T>>>, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -460,14 +485,14 @@ pub mod pallet {
 				*fm = T::FeeMultiplierUpdate::convert(*fm);
 			});
 
-			// We generally expect the `OnChargeTransaction` implementation to delete this value
+			// We generally expect the `OnChargeTransaction` implementation to empty this queue
 			// after each transaction. To make sure it is never stored between blocks we
 			// delete the value here just in case.
-			TxPaymentCredit::<T>::take().map(|credit| {
-				log::error!(target: LOG_TARGET, "The `TxPaymentCredit` was stored between blocks. This is a bug.");
-				// Converting to inner makes sure that the drop implementation is called.
-				credit.into_inner()
-			});
+			for pot in TxPaymentCredit::<T>::take() {
+				log::error!(target: LOG_TARGET, "The `TxPaymentCredit` was stored between blocks.");
+				// Converting to inner drops the credit.
+				let _ = pot.into_credit().into_inner();
+			}
 		}
 
 		#[cfg(feature = "std")]
@@ -728,8 +753,8 @@ impl<T: Config> Pallet<T> {
 		CreditOf<T>: Imbalance<Balance>,
 		Balance: PartialOrd,
 	{
-		<TxPaymentCredit<T>>::mutate(|credit| {
-			let credit = SuppressedDrop::as_mut(credit.as_mut()?);
+		<TxPaymentCredit<T>>::mutate(|pots| {
+			let credit = SuppressedDrop::as_mut(pots.back_mut()?.credit_mut());
 			if amount > credit.peek() {
 				return None;
 			}
@@ -738,31 +763,89 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Deposit some additional balance.
+	///
+	/// If there is no pot yet, an unclaimed one is opened. This is the only entry point that can
+	/// create such an unclaimed pot.
 	pub fn deposit_txfee<Balance>(deposit: CreditOf<T>)
 	where
 		CreditOf<T>: Imbalance<Balance>,
 	{
-		<TxPaymentCredit<T>>::mutate(|credit| {
-			if let Some(credit) = credit.as_mut().map(SuppressedDrop::as_mut) {
-				credit.subsume(deposit);
-			} else {
-				*credit = Some(SuppressedDrop::new(deposit))
-			}
+		<TxPaymentCredit<T>>::mutate(|pots| match pots.back_mut() {
+			Some(pot) => SuppressedDrop::as_mut(pot.credit_mut()).subsume(deposit),
+			None => pots.push_back(Pot::Unclaimed(SuppressedDrop::new(deposit))),
 		});
+	}
+
+	/// Queue the inclusion fee `who` just paid.
+	///
+	/// It claims the newest pot at the back of the queue if that pot is unclaimed, otherwise it
+	/// opens a new pot for `who` at the back.
+	pub(crate) fn push_txfee<Balance>(who: &T::AccountId, fee: CreditOf<T>)
+	where
+		CreditOf<T>: Imbalance<Balance>,
+	{
+		<TxPaymentCredit<T>>::mutate(|pots| {
+			let pot = match pots.pop_back() {
+				// NOTE: the pot does not record who deposited into it, so this cannot verify that
+				// `who` is the depositor. Today only `pallet_revive` deposits before the fee is
+				// withdrawn and it does it for the transaction's own signer. Recording the
+				// depositor would require an account parameter on `deposit_txfee`, which would
+				// complicate the impl but also harden it since any dispatchable now could ask
+				// for the pot of a specific signer.
+				Some(Pot::Unclaimed(mut credit)) => {
+					SuppressedDrop::as_mut(&mut credit).subsume(fee);
+					Pot::Signer(who.clone(), credit)
+				},
+				Some(pot) => {
+					pots.push_back(pot);
+					Pot::Signer(who.clone(), SuppressedDrop::new(fee))
+				},
+				None => Pot::Signer(who.clone(), SuppressedDrop::new(fee)),
+			};
+			pots.push_back(pot);
+		});
+	}
+
+	/// Settle a fee paid by `who` by removing their pot, which must be the oldest one.
+	///
+	/// Returns `Ok(None)` if there is no pot (nothing was withdrawn) or an error if the oldest pot
+	/// doesn't belong to `who`, which means the settlement order is invalid.
+	pub(crate) fn pop_txfee(
+		who: &T::AccountId,
+	) -> Result<Option<CreditOf<T>>, TransactionValidityError> {
+		<TxPaymentCredit<T>>::mutate(|pots| {
+			let claimable = match pots.front() {
+				None => return Ok(None),
+				Some(pot) if pot.is_signer(who) => true,
+				// A deposit never claimed by an inclusion fee is the signer's.
+				Some(Pot::Unclaimed(_)) => pots.len() == 1,
+				Some(Pot::Signer(..)) => false,
+			};
+			if !claimable {
+				log::error!(
+					target: LOG_TARGET,
+					"Settling a fee out of payment order: the oldest of {} pots is not the payer's. This is a bug.",
+					pots.len(),
+				);
+				return Err(InvalidTransaction::Payment.into());
+			}
+			Ok(pots.pop_front().map(|pot| pot.into_credit().into_inner()))
+		})
 	}
 
 	/// Return how much balance is currently available to pay for the transaction.
 	///
 	/// Does **not** include the tip.
 	///
-	/// If noone calls `charge_from_txfee` it is the same as the pre dispatch fee.
+	/// If noone calls `withdraw_txfee` it is the same as the pre dispatch fee.
 	pub fn remaining_txfee<Balance>() -> Balance
 	where
 		CreditOf<T>: Imbalance<Balance>,
 		Balance: Default,
 	{
 		<TxPaymentCredit<T>>::get()
-			.map(|c| SuppressedDrop::as_ref(&c).peek())
+			.back()
+			.map(|pot| SuppressedDrop::as_ref(pot.credit()).peek())
 			.unwrap_or_default()
 	}
 }
