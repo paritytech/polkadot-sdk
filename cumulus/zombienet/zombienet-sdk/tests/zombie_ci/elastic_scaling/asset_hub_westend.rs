@@ -56,7 +56,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("asset-hub-westend-local")
 				.with_default_args(vec![
-                    ("-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug").into(),
+                    ("-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,cumulus-collator=trace,parachain::collator-protocol=trace,parachain=debug").into(),
 					("--force-authoring").into(),
                     ("--authoring", "slot-based").into(),
 				])

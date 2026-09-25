@@ -16,7 +16,6 @@ serde_json = { workspace = true, default-features = true }
 tokio = { workspace = true, default-features = true }
 
 # Polkadot dependencies
-polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-overseer = { workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
@@ -25,6 +24,7 @@ polkadot-runtime-common = { workspace = true, default-features = true }
 polkadot-runtime-parachains = { workspace = true, default-features = true }
 polkadot-service = { workspace = true, default-features = true }
 polkadot-test-runtime = { workspace = true }
+test-parachain-collator-driver = { workspace = true }
 test-runtime-constants = { workspace = true, default-features = true }
 
 # Substrate dependencies

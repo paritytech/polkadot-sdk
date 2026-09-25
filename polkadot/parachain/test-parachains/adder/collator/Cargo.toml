@@ -27,6 +27,7 @@ polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true }
 polkadot-service = { features = ["rococo-native"], workspace = true, default-features = true }
 test-parachain-adder = { workspace = true }
+test-parachain-collator-driver = { workspace = true }
 
 sc-cli = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }

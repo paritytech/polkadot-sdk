@@ -62,7 +62,6 @@ pub use polkadot_network_bridge::{
 	Metrics as NetworkBridgeMetrics, NetworkBridgeRx as NetworkBridgeRxSubsystem,
 	NetworkBridgeTx as NetworkBridgeTxSubsystem,
 };
-pub use polkadot_node_collation_generation::CollationGenerationSubsystem;
 pub use polkadot_node_core_approval_voting::ApprovalVotingSubsystem;
 pub use polkadot_node_core_approval_voting_parallel::{
 	ApprovalVotingParallelSubsystem, Metrics as ApprovalVotingParallelMetrics,
@@ -216,7 +215,6 @@ pub fn validator_overseer_builder<Spawner, RuntimeClient>(
 			AuthorityDiscoveryService,
 		>,
 		ChainApiSubsystem<RuntimeClient>,
-		DummySubsystem,
 		CollatorProtocolSubsystem,
 		DummySubsystem,
 		DummySubsystem,
@@ -300,7 +298,6 @@ where
 		))
 		.pvf_checker(PvfCheckerSubsystem::new(keystore.clone(), Metrics::register(registry)?))
 		.chain_api(ChainApiSubsystem::new(runtime_client.clone(), Metrics::register(registry)?))
-		.collation_generation(DummySubsystem)
 		.collator_protocol({
 			let side = match is_parachain_node {
 				IsParachainNode::Collator(_) | IsParachainNode::FullNode => {
@@ -428,7 +425,6 @@ pub fn collator_overseer_builder<Spawner, RuntimeClient>(
 			AuthorityDiscoveryService,
 		>,
 		ChainApiSubsystem<RuntimeClient>,
-		CollationGenerationSubsystem,
 		CollatorProtocolSubsystem,
 		DummySubsystem,
 		DummySubsystem,
@@ -485,7 +481,6 @@ where
 		.candidate_validation(DummySubsystem)
 		.pvf_checker(DummySubsystem)
 		.chain_api(ChainApiSubsystem::new(runtime_client.clone(), Metrics::register(registry)?))
-		.collation_generation(CollationGenerationSubsystem::new(Metrics::register(registry)?))
 		.collator_protocol({
 			let side = match is_parachain_node {
 				IsParachainNode::No => {

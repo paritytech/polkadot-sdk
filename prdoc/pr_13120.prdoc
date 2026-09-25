@@ -1,0 +1,37 @@
+title: Remove the collation-generation subsystem
+
+doc:
+- audience: Node Dev
+  description: |-
+    The `collation-generation` subsystem is removed and its logic moved to the collator side,
+    which already has most of the data needed to build a candidate receipt. Collators now build
+    the receipts themselves and send `CollatorProtocolMessage::DistributeSegment` directly to the
+    collator protocol, instead of going through `CollationGenerationMessage::SubmitSegment`.
+
+    The legacy `CollatorFn` mechanism of pulling collations out of a callback registered with the
+    relay-chain node is removed with it. The adder and undying test collators now drive collation
+    generation themselves.
+
+crates:
+- name: polkadot-node-primitives
+  bump: major
+- name: polkadot-node-subsystem-types
+  bump: major
+- name: polkadot-node-subsystem
+  bump: minor
+- name: polkadot-overseer
+  bump: major
+- name: polkadot-service
+  bump: major
+- name: polkadot-collator-protocol
+  bump: patch
+- name: cumulus-client-collator
+  bump: major
+- name: cumulus-client-consensus-aura
+  bump: major
+- name: cumulus-relay-chain-minimal-node
+  bump: patch
+- name: polkadot-omni-node-lib
+  bump: major
+- name: polkadot-sdk
+  bump: major
