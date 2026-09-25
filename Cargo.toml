@@ -332,6 +332,7 @@ members = [
 	"substrate/frame/asset-rate",
 	"substrate/frame/asset-rewards",
 	"substrate/frame/assets",
+	"substrate/frame/assets-forwarder",
 	"substrate/frame/assets-freezer",
 	"substrate/frame/assets-holder",
 	"substrate/frame/assets/precompiles",
@@ -983,6 +984,7 @@ pallet-asset-rate = { path = "substrate/frame/asset-rate", default-features = fa
 pallet-asset-rewards = { path = "substrate/frame/asset-rewards", default-features = false }
 pallet-asset-tx-payment = { path = "substrate/frame/transaction-payment/asset-tx-payment", default-features = false }
 pallet-assets = { path = "substrate/frame/assets", default-features = false }
+pallet-assets-forwarder = { path = "substrate/frame/assets-forwarder", default-features = false }
 pallet-assets-freezer = { path = "substrate/frame/assets-freezer", default-features = false }
 pallet-assets-holder = { path = "substrate/frame/assets-holder", default-features = false }
 pallet-assets-precompiles = { path = "substrate/frame/assets/precompiles", default-features = false }

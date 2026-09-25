@@ -61,6 +61,7 @@ std = [
 	"pallet-asset-rate?/std",
 	"pallet-asset-rewards?/std",
 	"pallet-asset-tx-payment?/std",
+	"pallet-assets-forwarder?/std",
 	"pallet-assets-freezer?/std",
 	"pallet-assets-holder?/std",
 	"pallet-assets-precompiles?/std",
@@ -271,6 +272,7 @@ runtime-benchmarks = [
 	"pallet-asset-rate?/runtime-benchmarks",
 	"pallet-asset-rewards?/runtime-benchmarks",
 	"pallet-asset-tx-payment?/runtime-benchmarks",
+	"pallet-assets-forwarder?/runtime-benchmarks",
 	"pallet-assets-freezer?/runtime-benchmarks",
 	"pallet-assets-holder?/runtime-benchmarks",
 	"pallet-assets-precompiles?/runtime-benchmarks",
@@ -416,6 +418,7 @@ try-runtime = [
 	"pallet-asset-rate?/try-runtime",
 	"pallet-asset-rewards?/try-runtime",
 	"pallet-asset-tx-payment?/try-runtime",
+	"pallet-assets-forwarder?/try-runtime",
 	"pallet-assets-freezer?/try-runtime",
 	"pallet-assets-holder?/try-runtime",
 	"pallet-assets-precompiles?/try-runtime",
@@ -632,6 +635,7 @@ runtime-full = [
 	"pallet-asset-rewards",
 	"pallet-asset-tx-payment",
 	"pallet-assets",
+	"pallet-assets-forwarder",
 	"pallet-assets-freezer",
 	"pallet-assets-holder",
 	"pallet-assets-precompiles",
@@ -1329,6 +1333,11 @@ path = "../substrate/frame/transaction-payment/asset-tx-payment"
 default-features = false
 optional = true
 path = "../substrate/frame/assets"
+
+[dependencies.pallet-assets-forwarder]
+default-features = false
+optional = true
+path = "../substrate/frame/assets-forwarder"
 
 [dependencies.pallet-assets-freezer]
 default-features = false
