@@ -332,15 +332,17 @@ enum AccumulateLog {
     /// its reserved capacity (`MaxStagedValidatorKeys`); the append is rejected
     /// and the buffer left unchanged. See §5.3.
     StagedValidatorKeysOverflow,
-    /// The new code's preimage is not available for lookup. See §5.4.
+    /// Asset Hub does not reference the new code's preimage, or it is not
+    /// available for lookup. See §5.4.
     ServiceUpgradePreimageMissing { code_hash: Hash },
     /// An `Announcement` whose code is not available. See §5.2.
     CodeUpgradeNotAvailable { hash: Hash, len: Compact<u32> },
     /// An `Apply` that does not match the standing announcement. See §5.2.
     CodeUpgradeNotAnnounced { hash: Hash, len: Compact<u32> },
-    /// A `Forget` naming the parachain's `validation_code` or
-    /// `announced_upgrade`. See §5.2.
-    CanNotForgetValidationCode { hash: Hash, len: Compact<u32> },
+    /// A `Forget` naming code that is in use: the parachain's `validation_code`
+    /// or `announced_upgrade` (§5.2), or for Asset Hub the Parachain Service's
+    /// active code (§5.4).
+    CanNotRemoveCode { hash: Hash, len: Compact<u32> },
     /// JAM rejected an `assign` because this service is no longer the core's
     /// assigner. See §7.1.
     CoreNotAssignable { core: CoreIndex },
@@ -648,11 +650,10 @@ enum UpwardMessage {
     /// is released and whose `used_state_balance` is refunded, since only that
     /// parachain was ever charged for it. Removing the last referencer may need
     /// a follow-up `Forget` (two-step expunge, see §6.1). Rejected with
-    /// `AccumulateLog::CanNotForgetValidationCode` if `hash` is the target's
-    /// `validation_code` or `announced_upgrade` (§5.2). A
-    /// `Service` target is **Asset Hub only**. For an Asset Hub target,
-    /// Accumulate must check that the preimage is not the Parachain Service's
-    /// own current code (§5.4).
+    /// `AccumulateLog::CanNotRemoveCode` if `hash` is the target's
+    /// `validation_code` or `announced_upgrade` (§5.2), or, for an Asset Hub
+    /// target, the Parachain Service's active code (§5.4). A `Service` target is
+    /// **Asset Hub only**.
     Forget { target: Target, hash: Hash, len: Compact<u32> },
     /// Delete `key` from a supervised service's own storage. **Asset Hub only.**
     RemoveServiceStorage { service: ServiceId, key: Vec<u8> },
@@ -1159,11 +1160,10 @@ buffer is covered in §6.1.
 Authority over Parachain Service code upgrades is held by **Asset Hub**. Asset Hub
 triggers the upgrade by emitting `UpwardMessage::UpgradeService` (§3.3), which the
 Refine wrapper rejects from any other parachain. Accumulate forwards it to JAM's `upgrade`
-host call after verifying that the new code's preimage is **available for lookup**,
-meaning JAM's `query` reports it as provided and not since unrequested (§6.1).
-Solicitation alone is not enough: JAM's `upgrade` performs no such check itself, so
-switching to a code hash whose blob was never supplied would leave the service with
-no code to run at all, and it could not upgrade its way back out.
+host call after verifying that **Asset Hub references** the new code's preimage (§6.1)
+and that the preimage is **available for lookup**, meaning JAM's `query` reports it as
+provided or re-requested. As long as a code is the active code, Asset Hub's reference to it
+cannot be forgotten.
 
 ```
 Phase 1: Solicit
@@ -1179,8 +1179,9 @@ Phase 2: Verify Solicit
 
 Phase 3: Upgrade
     Asset Hub emits UpgradeService { code_hash: new_code_hash, .. }.
-    Accumulate forwards to JAM upgrade if the preimage is available;
-    otherwise it logs AccumulateLog::ServiceUpgradePreimageMissing.
+    Accumulate forwards to JAM upgrade if Asset Hub references the preimage
+    and it is available. Otherwise it logs
+    AccumulateLog::ServiceUpgradePreimageMissing.
 
 Phase 4: Activate
     On the next JAM invocation the Parachain Service runs under the

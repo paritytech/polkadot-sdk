@@ -158,16 +158,16 @@ module messages {
   // reserved capacity (`MaxStagedValidatorKeys`); the append is rejected and the
   // buffer is left unchanged. See §5.3.
   | StagedValidatorKeysOverflow
-  // `parachain_service_upgrade(code_hash, ...)` was rejected because the
-  // new code's preimage is not in the Parachain Service's preimage store
-  // (§5.4).
+  // An `UpgradeService` whose code Asset Hub does not reference, or that is not
+  // available (§5.4).
   | ServiceUpgradePreimageMissing({ codeHash: Hash })
   // An `Announcement` whose code is not usable (§5.2).
   | CodeUpgradeNotAvailable({ hash: Hash, len: int })
   // An `Apply` that does not match the standing announcement (§5.2).
   | CodeUpgradeNotAnnounced({ hash: Hash, len: int })
-  // A `Forget` naming the para's active or announced validation code (§5.2).
-  | CanNotForgetValidationCode({ hash: Hash, len: int })
+  // A `Forget` naming code in use: the para's active or announced validation
+  // code (§5.2), or for Asset Hub the Parachain Service's active code (§5.4).
+  | CanNotRemoveCode({ hash: Hash, len: int })
   // JAM rejected an `assign` because this service is no longer the core's
   // assigner (§7.1).
   | CoreNotAssignable({ core: CoreIndex })

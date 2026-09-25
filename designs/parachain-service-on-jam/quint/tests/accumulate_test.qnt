@@ -53,10 +53,36 @@ module accumulate_test {
       // Accepted once available.
       assert(provided.preimageAvailable(newCode, len)),
       assert(whenProvided.state.serviceCodeHash == newCode),
+      assert(whenProvided.state.serviceCodeLen == len),
       assert(whenProvided.logs == List()),
       init
     }
   }
+
+  /// §5.4: a service upgrade also requires Asset Hub to reference the new code.
+  /// Otherwise the parachain that does could forget it, and the running service
+  /// code would be expunged.
+  run serviceUpgradeRequiresAssetHubReferenceTest = {
+    val ah = AssetHubParaId
+    val newCode: Hash = { hashBytes: 31338 }
+    val len = FixedCodeLen
+    val msg = UpgradeService({ codeHash: newCode, len: len, minAccGas: 0, minMemoGas: 0 })
+    // Available, but only the Coretime chain references it.
+    val theirs = markProvided(initialState.addReferencer(CoretimeParaId, newCode, len).state,
+      newCode, len)
+    val refused = replay(theirs, ah, 0, msg)
+    // Once Asset Hub references it too, the same call goes through.
+    val shared = theirs.addReferencer(ah, newCode, len).state
+    all {
+      assert(theirs.preimageAvailable(newCode, len)),
+      assert(not(theirs.hasReferencer(newCode, len, ah))),
+      assert(refused.state.serviceCodeHash == initialState.serviceCodeHash),
+      assert(refused.logs == List(ServiceUpgradePreimageMissing({ codeHash: newCode }))),
+      assert(replay(shared, ah, 0, msg).state.serviceCodeHash == newCode),
+      init
+    }
+  }
+
 
   /// §5.1: rejection is what confines the privileged host functions of §4.3. A
   /// candidate rejected at the parent-head check must never reach the replay step,
@@ -148,28 +174,38 @@ module accumulate_test {
   }
 
 
-  /// §5.4: a `Forget` of the service's own running code is never forwarded.
-  /// Once expunged, JAM's `accumulate` would have no code to run and the
-  /// service could not upgrade its way back out. The control forgets a
-  /// different preimage held the same way and shows that one is released.
-  run forgetOwnServiceCodeIsNoOpTest = {
+  /// §5.4: a `Forget` of the service's own active code is refused with
+  /// `CanNotRemoveCode`, whether Asset Hub sends it or the Coretime chain on its
+  /// behalf. The control forgets a different preimage held the same way and
+  /// shows that one is released.
+  run forgetOwnServiceCodeIsRefusedTest = {
     val ah = AssetHubParaId
     val ownCode: Hash = { hashBytes: 31337 }
     val otherCode: Hash = { hashBytes: 31338 }
     val len = FixedCodeLen
     val held = { ...initialState.addReferencer(ah, ownCode, len).state
+                   .addReferencer(ah, ownCode, 100).state
                    .addReferencer(ah, otherCode, len).state,
-                 serviceCodeHash: ownCode }
-    val own = replay(held, ah, 0, Forget({ target: Parachain(ah), hash: ownCode, len: len }))
+                 serviceCodeHash: ownCode, serviceCodeLen: len }
+    val forgetOwn = Forget({ target: Parachain(ah), hash: ownCode, len: len })
+    val own = replay(held, ah, 0, forgetOwn)
+    val byCoretime = replay(held, CoretimeParaId, 0, forgetOwn)
     val other = replay(held, ah, 0, Forget({ target: Parachain(ah), hash: otherCode, len: len }))
+    // The active code's hash at another length is a different preimage.
+    val otherLen = replay(held, ah, 0, Forget({ target: Parachain(ah), hash: ownCode, len: 100 }))
     all {
-      assert(own.state == held),
-      assert(own.jamForget == Set()),
-      assert(own.logs == List()),
+      assert(Set(own, byCoretime).forall(out => and {
+        out.state == held,
+        out.jamForget == Set(),
+        out.logs == List(CanNotRemoveCode({ hash: ownCode, len: len }))
+      })),
       assert(held.hasReferencer(ownCode, len, ah)),
-      // Control: an unrelated preimage is released as usual.
+      // Controls: both are released as usual.
       assert(not(other.state.hasReferencer(otherCode, len, ah))),
       assert(other.jamForget == Set(otherCode)),
+      assert(not(otherLen.state.hasReferencer(ownCode, 100, ah))),
+      assert(otherLen.state.hasReferencer(ownCode, len, ah)),
+      assert(otherLen.logs == List()),
       init
     }
   }

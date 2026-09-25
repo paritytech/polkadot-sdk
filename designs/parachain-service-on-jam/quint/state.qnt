@@ -124,9 +124,10 @@ module state {
     // Asset Hub via `set_validator_keys`; flushed to JAM `designate` on
     // `is_last`.
     stagedValidatorKeys: List[ValidatorKey],
-    // JAM `sa.codehash` for the Parachain Service itself. Mutated by the
-    // `parachain_service_upgrade` upward message (design §5.4).
+    // JAM `sa.codehash` for the Parachain Service itself, and the length of that
+    // code. Both are set by `UpgradeService` (design §5.4).
     serviceCodeHash: Hash,
+    serviceCodeLen: int,
     // Per-parachain key/value store (design §3.1, §6.1). Keyed by
     // (ParaId, user_key); each entry is billed under the sole-user rule.
     keyValueStorage: (ParaId, List[int]) -> List[int],
@@ -162,6 +163,7 @@ module state {
     pendingAssignCores: Map(),
     stagedValidatorKeys: List(),
     serviceCodeHash: { hashBytes: 0 },
+    serviceCodeLen: 0,
     keyValueStorage: Map(),
     preimageStatus: Map(),
     jamCoreAssigners: Map(),
@@ -367,7 +369,7 @@ module state {
     // hash 32 + Compact<u32> len.
     | CodeUpgradeNotAvailable(p) => 32 + compactLen(p.len)
     | CodeUpgradeNotAnnounced(p) => 32 + compactLen(p.len)
-    | CanNotForgetValidationCode(p) => 32 + compactLen(p.len)
+    | CanNotRemoveCode(p) => 32 + compactLen(p.len)
     // core index, a fixed u16.
     | CoreNotAssignable(_) => 2
     // id Compact<u64> + TransferError tag 1.

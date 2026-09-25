@@ -147,10 +147,12 @@ module accumulate {
       val o = foreignForget(acc.foreign, s, payload.hash, payload.len, now)
       { ...acc, foreign: o.services, logs: acc.logs.appendOption(o.log) }
       | Parachain(target) =>
-      // §5.4: Asset Hub holds the service's own code, so its forget of the
-      // running code is never forwarded. Once expunged, JAM's `accumulate`
-      // would have no code to run.
-      if (target == AssetHubParaId and payload.hash == acc.state.serviceCodeHash) acc
+      // §5.4: Asset Hub holds the service's own active code, which must never
+      // be expunged.
+      if (target == AssetHubParaId and payload.hash == acc.state.serviceCodeHash and
+          payload.len == acc.state.serviceCodeLen)
+        { ...acc, logs: acc.logs.append(
+          CanNotRemoveCode({ hash: payload.hash, len: payload.len })) }
       else if (not(acc.state.isLive(target))) acc
       else {
         val pi = acc.state.paraInfo(target)
@@ -167,7 +169,7 @@ module accumulate {
           // and the balance both stay (§5.2). This is what stops a forced call
           // from stripping running validation code.
           { ...acc, logs: acc.logs.append(
-            CanNotForgetValidationCode({ hash: payload.hash, len: payload.len })) }
+            CanNotRemoveCode({ hash: payload.hash, len: payload.len })) }
         } else {
           val d = acc.state.removeReferencer(target, payload.hash, payload.len, now)
           {
@@ -306,15 +308,12 @@ module accumulate {
           state: reattributeTransferQueue(cleaned, before, queuedTransferCount(cleaned)) }
       }
       | UpgradeService(payload) =>
-      // §5.4: Asset Hub-initiated service code upgrade. Accumulate verifies
-      // the new code's preimage is in the service's preimage store before
-      // forwarding to JAM `upgrade`; otherwise rejects with a log entry.
-      // §5.4: the new code must be AVAILABLE for lookup, not merely solicited.
-      // JAM's `upgrade` performs no such check, so switching to a hash whose blob
-      // was never supplied would leave the service with no code to run.
-      if (acc.state.preimageAvailable(payload.codeHash, payload.len))
+      // §5.4: Asset Hub must reference the new code, and it must be available.
+      if (acc.state.hasReferencer(payload.codeHash, payload.len, AssetHubParaId) and
+          acc.state.preimageAvailable(payload.codeHash, payload.len))
         { ...acc, state: { ...acc.state,
           serviceCodeHash: payload.codeHash,
+          serviceCodeLen: payload.len,
           jamAccount: { ...acc.state.jamAccount, minMemoGas: payload.minMemoGas }
         } }
       else

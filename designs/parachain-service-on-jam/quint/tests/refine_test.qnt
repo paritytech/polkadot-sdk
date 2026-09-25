@@ -116,7 +116,7 @@ module refine_test {
       // (4) correct len is refused: nothing changes, and it is logged.
       assert(refused.state == fgt.state),
       assert(refused.logs == List(
-        CanNotForgetValidationCode({ hash: h, len: FixedCodeLen }))),
+        CanNotRemoveCode({ hash: h, len: FixedCodeLen }))),
       assert(refused.state.preimageRegistry.keys().contains((h, FixedCodeLen))),
       init
     }

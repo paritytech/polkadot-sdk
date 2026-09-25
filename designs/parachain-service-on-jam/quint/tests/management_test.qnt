@@ -155,7 +155,7 @@ module management_test {
       assert(forced.state.preimageRegistry.keys().contains((h, FixedCodeLen))),
       assert(forced.jamForget == Set()),
       assert(forced.logs == List(
-        CanNotForgetValidationCode({ hash: h, len: FixedCodeLen }))),
+        CanNotRemoveCode({ hash: h, len: FixedCodeLen }))),
       init
     }
   }
