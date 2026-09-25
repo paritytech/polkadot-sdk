@@ -193,53 +193,6 @@ bash!(
 The boot nodes of a newly created chain spec can be given with the `--bootnodes` argument of the
 `create` command.
 
-#### Interactive mode
-
-`bootnodes add` and `bootnodes remove` prompt for the addresses to operate on when none is given in
-the command line. The prompts are written to the standard error, so that the standard output stays
-usable as a data channel.
-
-`bootnodes add` displays the boot nodes that are already stored and reads the ones to append, one
-per line, until an empty line is entered:
-
-```sh
-$ chain-spec-builder -c updated_chain_spec.json bootnodes add chain_spec.json
-The chain spec contains 1 boot node:
-  1. /dns/node-0.example.com/tcp/30333/p2p/12D3KooW9vw7UNUYQtPWK3RS8eyhjJgp4qBwbbiirYQcWLw5bCsf
-
-Enter the boot nodes to append, one per line, and an empty line once you are done.
-  2. > /dns/node-1.example.com/tcp/30333/p2p/12D3KooWAb5MyC1UJiEQJk4Hg4B2Vi3AJdqSUhTGYUqSnEqCFMFg
-  3. > /dns/node-2.example.com/tcp/30333
-     Invalid boot node address: Peer id is missing from the address
-  3. >
-
-Appending 1 boot node:
-  2. /dns/node-1.example.com/tcp/30333/p2p/12D3KooWAb5MyC1UJiEQJk4Hg4B2Vi3AJdqSUhTGYUqSnEqCFMFg
-Update the chain spec? [Y/n]:
-```
-
-`bootnodes remove` displays the boot nodes that are stored as a numbered list, and the ones to
-remove are selected by number:
-
-```sh
-$ chain-spec-builder -c updated_chain_spec.json bootnodes remove chain_spec.json
-The chain spec contains 3 boot nodes:
-  1. /dns/node-0.example.com/tcp/30333/p2p/12D3KooW9vw7UNUYQtPWK3RS8eyhjJgp4qBwbbiirYQcWLw5bCsf
-  2. /dns/node-1.example.com/tcp/30333/p2p/12D3KooWAb5MyC1UJiEQJk4Hg4B2Vi3AJdqSUhTGYUqSnEqCFMFg
-  3. /ip4/198.51.100.19/tcp/30333/p2p/12D3KooWAdyiVAaeGdtBt6vn5zVetwA4z4qfm9Fi2QCSykN1wTBJ
-
-Enter the numbers of the boot nodes to remove, e.g. `1`, `1,3` or `2-4`. Enter `all` to remove all
-of them, or an empty line to cancel.
-> 1,3
-
-Removing 2 boot nodes:
-  1. /dns/node-0.example.com/tcp/30333/p2p/12D3KooW9vw7UNUYQtPWK3RS8eyhjJgp4qBwbbiirYQcWLw5bCsf
-  3. /ip4/198.51.100.19/tcp/30333/p2p/12D3KooWAdyiVAaeGdtBt6vn5zVetwA4z4qfm9Fi2QCSykN1wTBJ
-Update the chain spec? [Y/n]:
-```
-
-The chain spec is left untouched when the prompt is cancelled or the confirmation is rejected.
-
 ## Patch and full genesis config files
 
 This section provides details on the files that can be used with `create patch` or `create full` subcommands.

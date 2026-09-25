@@ -10,10 +10,7 @@ doc:
 
     `bootnodes add` appends to the existing list, skipping the addresses that are already stored,
     and `bootnodes remove` ignores the addresses that are not stored, so both can be safely
-    repeated. When no address is given in the command line they prompt for the addresses to
-    operate on: `add` reads them one per line, and `remove` displays the stored addresses as a
-    numbered list and reads the numbers to remove. `bootnodes remove --all` removes all of them
-    without prompting.
+    repeated. `bootnodes remove --all` removes all of them at once.
 crates:
 # The `Bootnodes` variant added to the public `ChainSpecBuilderCmd` enum breaks the exhaustive
 # matches of the downstream crates.

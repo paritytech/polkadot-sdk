@@ -16,11 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{
-	fs::File,
-	io::Write,
-	process::{Command, Stdio},
-};
+use std::fs::File;
 
 use clap::Parser;
 
@@ -426,71 +422,6 @@ fn test_bootnodes_command_is_also_available_in_the_singular() {
 		"tests/input/chain_spec_plain.json",
 	])
 	.is_ok());
-}
-
-/// Runs the `chain-spec-builder` binary with the given arguments and standard input, and returns
-/// the chain spec it wrote, if any.
-///
-/// The interactive prompts read the real standard input, so they cannot be driven through
-/// [`ChainSpecBuilder::run`] like the other commands are.
-fn run_interactively(suffix: &str, command_args: &[&str], stdin: &str) -> Option<Value> {
-	let path = OUTPUT_FILE.to_string() + suffix;
-	let _ = std::fs::remove_file(path.as_str());
-
-	let mut child = Command::new(env!("CARGO_BIN_EXE_chain-spec-builder"))
-		.args(["-c", path.as_str()])
-		.args(command_args)
-		.stdin(Stdio::piped())
-		.stderr(Stdio::null())
-		.spawn()
-		.expect("the binary to spawn. qed");
-	child
-		.stdin
-		.take()
-		.unwrap()
-		.write_all(stdin.as_bytes())
-		.expect("to write stdin. qed");
-	assert!(child.wait().expect("to wait for the binary. qed").success());
-
-	let chain_spec = File::open(path.as_str())
-		.ok()
-		.map(|file| from_reader(file).expect("a valid JSON. qed"));
-	let _ = std::fs::remove_file(path.as_str());
-	chain_spec
-}
-
-#[test]
-fn test_add_bootnodes_interactively() {
-	let chain_spec = run_interactively(
-		"18",
-		&["bootnodes", "add", "tests/input/chain_spec_plain_with_bootnodes.json"],
-		&format!("{BOOTNODE_2}\n\n\n"),
-	)
-	.expect("the chain spec to be written. qed");
-
-	assert_eq!(chain_spec["bootNodes"], serde_json::json!([BOOTNODE_0, BOOTNODE_1, BOOTNODE_2]));
-}
-
-#[test]
-fn test_remove_bootnodes_interactively() {
-	let chain_spec = run_interactively(
-		"19",
-		&["bootnodes", "remove", "tests/input/chain_spec_plain_with_bootnodes.json"],
-		"1\n\n",
-	)
-	.expect("the chain spec to be written. qed");
-
-	assert_eq!(chain_spec["bootNodes"], serde_json::json!([BOOTNODE_1]));
-}
-
-#[test]
-fn test_bootnodes_are_not_written_when_the_prompt_is_cancelled() {
-	assert!(run_interactively(
-		"20",
-		&["bootnodes", "remove", "tests/input/chain_spec_plain_with_bootnodes.json"],
-		"\n",
-	)
-	.is_none());
 }
 
 #[docify::export_content]
