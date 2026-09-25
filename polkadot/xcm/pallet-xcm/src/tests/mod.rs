@@ -937,11 +937,11 @@ fn basic_subscription_works() {
 
 		let weight = BaseXcmWeight::get();
 		let mut message = Xcm::<()>(vec![
-			// Remote supports XCM v3
+			// Remote supports XCM v4
 			QueryResponse {
 				query_id: 0,
 				max_weight: Weight::zero(),
-				response: Response::Version(3),
+				response: Response::Version(4),
 				querier: None,
 			},
 		]);
@@ -1100,13 +1100,13 @@ fn subscription_side_upgrades_work_with_notify() {
 		AdvertisedXcmVersion::set(1);
 
 		// An entry from a previous runtime with v3 XCM.
-		let v3_location = VersionedLocation::V3(xcm::v3::Junction::Parachain(1001).into());
-		VersionNotifyTargets::<Test>::insert(3, v3_location, (70, Weight::zero(), 3));
-		let v4_location = Parachain(1003).into_versioned();
-		VersionNotifyTargets::<Test>::insert(4, v4_location, (72, Weight::zero(), 3));
+		let v4_location = VersionedLocation::V4(xcm::v4::Junction::Parachain(1001).into());
+		VersionNotifyTargets::<Test>::insert(4, v4_location, (70, Weight::zero(), 3));
+		let v5_location = Parachain(1003).into_versioned();
+		VersionNotifyTargets::<Test>::insert(5, v5_location, (72, Weight::zero(), 3));
 
 		// New version.
-		AdvertisedXcmVersion::set(4);
+		AdvertisedXcmVersion::set(5);
 
 		// A runtime upgrade which alters the version does send notifications.
 		CurrentMigration::<Test>::put(VersionMigrationStage::default());
@@ -1115,13 +1115,13 @@ fn subscription_side_upgrades_work_with_notify() {
 		let instr1 = QueryResponse {
 			query_id: 70,
 			max_weight: Weight::zero(),
-			response: Response::Version(4),
+			response: Response::Version(5),
 			querier: None,
 		};
 		let instr3 = QueryResponse {
 			query_id: 72,
 			max_weight: Weight::zero(),
-			response: Response::Version(4),
+			response: Response::Version(5),
 			querier: None,
 		};
 		let mut sent = take_sent_xcm();
@@ -1153,10 +1153,10 @@ fn subscription_side_upgrades_work_with_notify() {
 fn subscription_side_upgrades_work_without_notify() {
 	new_test_ext_with_balances(vec![]).execute_with(|| {
 		// An entry from a previous runtime with v3 XCM.
-		let v3_location = VersionedLocation::V3(xcm::v3::Junction::Parachain(1001).into());
-		VersionNotifyTargets::<Test>::insert(3, v3_location, (70, Weight::zero(), 3));
-		let v4_location = Parachain(1003).into_versioned();
-		VersionNotifyTargets::<Test>::insert(4, v4_location, (72, Weight::zero(), 3));
+		let v4_location = VersionedLocation::V4(xcm::v4::Junction::Parachain(1001).into());
+		VersionNotifyTargets::<Test>::insert(4, v4_location, (70, Weight::zero(), 3));
+		let v5_location = Parachain(1003).into_versioned();
+		VersionNotifyTargets::<Test>::insert(5, v5_location, (72, Weight::zero(), 3));
 
 		// A runtime upgrade which alters the version does send notifications.
 		CurrentMigration::<Test>::put(VersionMigrationStage::default());
@@ -1167,8 +1167,8 @@ fn subscription_side_upgrades_work_without_notify() {
 		assert_eq!(
 			contents,
 			vec![
-				(XCM_VERSION, Parachain(1001).into_versioned(), (70, Weight::zero(), 4)),
-				(XCM_VERSION, Parachain(1003).into_versioned(), (72, Weight::zero(), 4)),
+				(XCM_VERSION, Parachain(1001).into_versioned(), (70, Weight::zero(), 5)),
+				(XCM_VERSION, Parachain(1003).into_versioned(), (72, Weight::zero(), 5)),
 			]
 		);
 	});
@@ -1374,15 +1374,15 @@ fn subscription_side_upgrades_work_with_multistage_notify() {
 		AdvertisedXcmVersion::set(1);
 
 		// An entry from a previous runtime with v0 XCM.
-		let v3_location = VersionedLocation::V3(xcm::v3::Junction::Parachain(1001).into());
-		VersionNotifyTargets::<Test>::insert(3, v3_location, (70, Weight::zero(), 3));
-		let v3_location = VersionedLocation::V3(xcm::v3::Junction::Parachain(1002).into());
-		VersionNotifyTargets::<Test>::insert(3, v3_location, (71, Weight::zero(), 3));
-		let v4_location = Parachain(1003).into_versioned();
-		VersionNotifyTargets::<Test>::insert(4, v4_location, (72, Weight::zero(), 3));
+		let v4_location = VersionedLocation::V4(xcm::v4::Junction::Parachain(1001).into());
+		VersionNotifyTargets::<Test>::insert(4, v4_location, (70, Weight::zero(), 3));
+		let v4_location = VersionedLocation::V4(xcm::v4::Junction::Parachain(1002).into());
+		VersionNotifyTargets::<Test>::insert(4, v4_location, (71, Weight::zero(), 3));
+		let v5_location = Parachain(1003).into_versioned();
+		VersionNotifyTargets::<Test>::insert(5, v5_location, (72, Weight::zero(), 3));
 
 		// New version.
-		AdvertisedXcmVersion::set(4);
+		AdvertisedXcmVersion::set(5);
 
 		// A runtime upgrade which alters the version does send notifications.
 		CurrentMigration::<Test>::put(VersionMigrationStage::default());
@@ -1398,19 +1398,19 @@ fn subscription_side_upgrades_work_with_multistage_notify() {
 		let instr1 = QueryResponse {
 			query_id: 70,
 			max_weight: Weight::zero(),
-			response: Response::Version(4),
+			response: Response::Version(5),
 			querier: None,
 		};
 		let instr2 = QueryResponse {
 			query_id: 71,
 			max_weight: Weight::zero(),
-			response: Response::Version(4),
+			response: Response::Version(5),
 			querier: None,
 		};
 		let instr3 = QueryResponse {
 			query_id: 72,
 			max_weight: Weight::zero(),
-			response: Response::Version(4),
+			response: Response::Version(5),
 			querier: None,
 		};
 		let mut sent = take_sent_xcm();
@@ -1533,18 +1533,18 @@ fn get_and_wrap_version_works() {
 #[test]
 fn multistage_migration_works() {
 	new_test_ext_with_balances(vec![]).execute_with(|| {
-		// An entry from a previous runtime with v3 XCM.
-		let v3_location = VersionedLocation::V3(xcm::v3::Junction::Parachain(1001).into());
-		let v3_version = xcm::v3::VERSION;
-		SupportedVersion::<Test>::insert(v3_version, v3_location.clone(), v3_version);
-		VersionNotifiers::<Test>::insert(v3_version, v3_location.clone(), 1);
+		// An entry from a previous runtime with v4 XCM.
+		let v4_location = VersionedLocation::V4(xcm::v4::Junction::Parachain(1001).into());
+		let v4_version = xcm::v4::VERSION;
+		SupportedVersion::<Test>::insert(v4_version, v4_location.clone(), v4_version);
+		VersionNotifiers::<Test>::insert(v4_version, v4_location.clone(), 1);
 		VersionNotifyTargets::<Test>::insert(
-			v3_version,
-			v3_location,
-			(70, Weight::zero(), v3_version),
+			v4_version,
+			v4_location,
+			(70, Weight::zero(), v4_version),
 		);
 		// A version to advertise.
-		AdvertisedXcmVersion::set(4);
+		AdvertisedXcmVersion::set(5);
 
 		// check `try-state`
 		assert!(Pallet::<Test>::do_try_state().is_err());
@@ -1567,7 +1567,7 @@ fn multistage_migration_works() {
 		};
 
 		// run migration for the first time
-		let _ = migrate(4);
+		let _ = migrate(5);
 
 		// check xcm sent
 		assert_eq!(
@@ -1586,7 +1586,7 @@ fn multistage_migration_works() {
 		// check migrated data
 		assert_eq!(
 			SupportedVersion::<Test>::iter().collect::<Vec<_>>(),
-			vec![(XCM_VERSION, Parachain(1001).into_versioned(), v3_version),]
+			vec![(XCM_VERSION, Parachain(1001).into_versioned(), v4_version),]
 		);
 		assert_eq!(
 			VersionNotifiers::<Test>::iter().collect::<Vec<_>>(),
@@ -1594,7 +1594,7 @@ fn multistage_migration_works() {
 		);
 		assert_eq!(
 			VersionNotifyTargets::<Test>::iter().collect::<Vec<_>>(),
-			vec![(XCM_VERSION, Parachain(1001).into_versioned(), (70, Weight::zero(), 4)),]
+			vec![(XCM_VERSION, Parachain(1001).into_versioned(), (70, Weight::zero(), 5)),]
 		);
 
 		// run migration again to check it can run multiple time without any harm or double sending
