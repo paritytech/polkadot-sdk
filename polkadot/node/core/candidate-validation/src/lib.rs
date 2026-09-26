@@ -900,12 +900,17 @@ where
 		.take(per_block_limit)
 		.collect::<Vec<_>>();
 
-	let Ok(executor_params) = util::executor_params_at_relay_parent(relay_parent, sender).await
+	// Precompilation prepares artifacts for use *after* the next session change,
+	// so we ask for the params that will be in effect then, not the current
+	// ones. The validation path (see `validate_candidate`) keeps using the
+	// current-session params resolved by the orchestrator, since that's what
+	// applies to candidates being validated *now*.
+	let Ok(executor_params) = util::executor_params_for_next_session(relay_parent, sender).await
 	else {
 		gum::warn!(
 			target: LOG_TARGET,
 			?relay_parent,
-			"cannot fetch executor params for the session",
+			"cannot fetch executor params for the next session",
 		);
 		return None;
 	};
@@ -930,6 +935,11 @@ where
 
 		let Some(session_index) = get_session_index(sender, relay_parent).await else { continue };
 
+		// The bomb limit is read from the current session — it gates code
+		// decompression at preparation time, which happens *now* against the
+		// `validation_code` we just fetched at this relay parent. Reading the
+		// next-session value here would be wrong: the limit must match the
+		// data flowing through this code path.
 		let validation_code_bomb_limit = match util::runtime::fetch_validation_code_bomb_limit(
 			relay_parent,
 			session_index,
