@@ -18,4 +18,4 @@ crates:
   - name: registrar-primitives
     bump: minor
   - name: hrmp-primitives
-    bump: major
+    bump: minor
