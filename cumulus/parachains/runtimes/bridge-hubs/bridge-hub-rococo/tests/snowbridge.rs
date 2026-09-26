@@ -114,6 +114,15 @@ fn ethereum_client_consensus_extrinsics_work() {
 }
 
 #[test]
+fn ethereum_gloas_extrinsic_works() {
+	snowbridge_runtime_test_common::ethereum_gloas_extrinsic(
+		collator_session_keys(),
+		1013,
+		construct_and_apply_extrinsic,
+	);
+}
+
+#[test]
 fn ethereum_to_polkadot_message_extrinsics_work() {
 	snowbridge_runtime_test_common::ethereum_to_polkadot_message_extrinsics_work(
 		collator_session_keys(),

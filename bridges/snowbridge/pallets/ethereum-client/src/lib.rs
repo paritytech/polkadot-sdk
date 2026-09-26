@@ -42,8 +42,9 @@ use frame_system::ensure_signed;
 use snowbridge_beacon_primitives::{
 	fast_aggregate_verify,
 	merkle_proof::{generalized_index_length, subtree_index},
-	verify_merkle_branch, BeaconHeader, BlsError, CompactBeaconState, ForkData, ForkVersion,
-	ForkVersions, PublicKeyPrepared, SigningData,
+	verify_merkle_branch, BeaconHeader, BlsError, CommitmentError, CommitmentScheme,
+	CompactBeaconState, ExecutionCommitment, ForkData, ForkVersion, ForkVersions,
+	PublicKeyPrepared, SigningData, VersionedExecutionPayloadHeader,
 };
 use snowbridge_core::{BasicOperatingMode, RingBufferMap};
 use sp_core::H256;
@@ -143,6 +144,12 @@ pub mod pallet {
 		ExecutionHeaderTooFarBehind,
 		ExecutionHeaderSkippedBlock,
 		Halted,
+		/// The submitted Gloas execution header is not one canonical RLP header.
+		MalformedExecutionHeader,
+		/// The commitment scheme of the submitted execution proof does not match the fork era
+		/// of the beacon header's slot: a Gloas commitment for a pre-Gloas slot, or a pre-Gloas
+		/// commitment for a Gloas slot.
+		ExecutionHeaderEraMismatch,
 	}
 
 	/// Latest imported checkpoint root
@@ -627,6 +634,9 @@ pub mod pallet {
 
 		/// Returns the fork version based on the current epoch.
 		pub(super) fn select_fork_version(fork_versions: &ForkVersions, epoch: u64) -> ForkVersion {
+			if epoch >= fork_versions.gloas.epoch {
+				return fork_versions.gloas.version;
+			}
 			if epoch >= fork_versions.fulu.epoch {
 				return fork_versions.fulu.version;
 			}
@@ -720,6 +730,10 @@ pub mod pallet {
 		pub fn finalized_root_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
 			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
+			if epoch >= fork_versions.gloas.epoch {
+				return config::gloas::FINALIZED_ROOT_INDEX;
+			}
+
 			if epoch >= fork_versions.electra.epoch {
 				return config::electra::FINALIZED_ROOT_INDEX;
 			}
@@ -733,6 +747,10 @@ pub mod pallet {
 		) -> usize {
 			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
+			if epoch >= fork_versions.gloas.epoch {
+				return config::gloas::CURRENT_SYNC_COMMITTEE_INDEX;
+			}
+
 			if epoch >= fork_versions.electra.epoch {
 				return config::electra::CURRENT_SYNC_COMMITTEE_INDEX;
 			}
@@ -742,6 +760,10 @@ pub mod pallet {
 
 		pub fn next_sync_committee_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
 			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
+
+			if epoch >= fork_versions.gloas.epoch {
+				return config::gloas::NEXT_SYNC_COMMITTEE_INDEX;
+			}
 
 			if epoch >= fork_versions.electra.epoch {
 				return config::electra::NEXT_SYNC_COMMITTEE_INDEX;
@@ -753,6 +775,10 @@ pub mod pallet {
 		pub fn block_roots_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
 			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
+			if epoch >= fork_versions.gloas.epoch {
+				return config::gloas::BLOCK_ROOTS_INDEX;
+			}
+
 			if epoch >= fork_versions.electra.epoch {
 				return config::electra::BLOCK_ROOTS_INDEX;
 			}
@@ -760,8 +786,48 @@ pub mod pallet {
 			config::altair::BLOCK_ROOTS_INDEX
 		}
 
-		pub fn execution_header_gindex() -> usize {
+		/// The commitment scheme a proof at `slot` must use. Derived from the slot, never from
+		/// the variant a relayer submits.
+		pub fn commitment_scheme_at_slot(
+			slot: u64,
+			fork_versions: ForkVersions,
+		) -> CommitmentScheme {
+			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
+
+			if epoch >= fork_versions.gloas.epoch {
+				return CommitmentScheme::BlockHash;
+			}
+
+			CommitmentScheme::PayloadHeaderRoot
+		}
+
+		/// Generalized index of the execution commitment inside `BeaconBlockBody`. Tracked
+		/// separately from the scheme: a fork can move the field without changing what the
+		/// leaf is.
+		pub fn execution_commitment_gindex_at_slot(
+			slot: u64,
+			fork_versions: ForkVersions,
+		) -> usize {
+			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
+
+			if epoch >= fork_versions.gloas.epoch {
+				return config::gloas::EXECUTION_BLOCK_HASH_INDEX;
+			}
+
 			config::altair::EXECUTION_HEADER_INDEX
+		}
+
+		/// The commitment a proof at `slot` must prove, and the gindex it must prove it at.
+		/// Both come from the same slot, so the leaf and the position cannot disagree.
+		pub fn execution_commitment_at_slot(
+			header: &VersionedExecutionPayloadHeader,
+			slot: u64,
+			fork_versions: ForkVersions,
+		) -> Result<(ExecutionCommitment, usize), CommitmentError> {
+			let scheme = Self::commitment_scheme_at_slot(slot, fork_versions.clone());
+			let gindex = Self::execution_commitment_gindex_at_slot(slot, fork_versions);
+
+			Ok((header.commitment(scheme)?, gindex))
 		}
 	}
 }

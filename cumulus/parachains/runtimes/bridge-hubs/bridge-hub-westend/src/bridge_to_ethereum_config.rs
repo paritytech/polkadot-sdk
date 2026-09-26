@@ -250,6 +250,12 @@ parameter_types! {
 			version: hex!("90000075"),
 			epoch: 272640, // https://notes.ethereum.org/@bbusa/fusaka-bpo-timeline
 		},
+		gloas: Fork {
+			// Sepolia activation 2026-10-06 13:53:36 UTC, per the Glamsterdam deployment table.
+			// Version follows the network's 0x9000006x..0x9000007x sequence (eth-clients/sepolia).
+			version: hex!("90000076"),
+			epoch: 353024, // https://github.com/ethereum/pm/blob/master/glamsterdam-pm.md
+		},
 	};
 }
 
@@ -282,7 +288,11 @@ parameter_types! {
 		},
 		fulu: Fork {
 			version: hex!("06000000"),
-			epoch: 5000000,
+			epoch: 2000,
+		},
+		gloas: Fork {
+			version: hex!("80733183"),
+			epoch: 3000,
 		}
 	};
 }
