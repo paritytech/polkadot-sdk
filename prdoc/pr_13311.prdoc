@@ -1,0 +1,15 @@
+title: 'pallet-broker: fix double counting of re-pooled regions'
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    A region pooled with `Provisional` finality could be pooled again, but `do_pool` never
+    removed the earlier pooling. The region was counted twice in the pool size, and reassigning
+    it afterwards only removed one copy. The leftover share diluted revenue for all other pool
+    contributors and could never be claimed.
+
+    `do_pool` now unpools the region before pooling it again, the same way `assign`,
+    `partition` and `interlace` already do.
+
+crates:
+- name: pallet-broker
+  bump: patch

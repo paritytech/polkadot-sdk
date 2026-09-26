@@ -1152,6 +1152,26 @@ fn instapool_payouts_cannot_be_duplicated_through_reassignment() {
 }
 
 #[test]
+fn instapool_contributions_cannot_be_duplicated_through_repooling() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = Regions::<Test>::get(&region_id).unwrap();
+
+		// Pooling the same region provisionally twice only counts it once.
+		assert_ok!(Broker::do_pool(region_id, None, 2, Provisional));
+		assert_ok!(Broker::do_pool(region_id, None, 2, Provisional));
+		assert_eq!(
+			InstaPoolIo::<Test>::get(region_id.begin),
+			PoolIoRecord { private: 80, system: 0 }
+		);
+		assert_eq!(InstaPoolIo::<Test>::get(region.end), PoolIoRecord { private: -80, system: 0 });
+	});
+}
+
+#[test]
 fn initialize_with_system_paras_works() {
 	TestExt::new().execute_with(|| {
 		let item = ScheduleItem { assignment: Task(1u32), mask: CoreMask::complete() };
