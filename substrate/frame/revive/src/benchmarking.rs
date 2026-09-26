@@ -1528,6 +1528,8 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// The balance work of `System.terminate`: the storage deposit refund when it is called and
+	/// the teardown at the end of the call stack.
 	#[benchmark(pov_mode = Measured)]
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();

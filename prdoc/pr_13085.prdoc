@@ -1,0 +1,50 @@
+title: '[pallet-revive] `System.terminate` deletes the contract despite locks, freezes and holds'
+
+doc:
+- audience: Runtime User
+  description: |-
+    `System.terminate` now always deletes the calling contract when it returns success. Before,
+    a lock, a freeze or a foreign hold on the contract account, for example from a vested
+    transfer to the contract, made the destruction at the end of the call stack fail without an
+    error: the call returned success and the contract stayed alive.
+
+    The storage deposit is now refunded to the origin when `System.terminate` is called, before
+    the balance is paid out to the beneficiary, instead of at the end of the call stack. Only the
+    part of the deposit that a freeze on the account needs stays on hold. The payout sends the
+    transferable balance as before.
+
+    If the account cannot be reaped because something still pins funds on it, the contract is
+    deleted and the account stays behind as a plain account holding those funds. A contract
+    deployed to the same address later takes the account over. Funds sent to the contract after
+    `System.terminate` are still forwarded to the beneficiary at the end of the call stack. If
+    that transfer fails, the funds stay on the account and the contract is deleted anyway.
+
+    `SELFDESTRUCT` keeps its EIP-6780 semantics. A contract created in the same transaction is
+    now deleted even if its account carries a lock, which leaves the locked funds on the account.
+    A pre-existing contract keeps its code and deposits and only has its balance moved.
+
+    `ISystem.sol` no longer lists balance locks as a reason for `terminate` to revert. It never
+    reverted for that reason.
+
+- audience: Runtime Dev
+  description: |-
+    No migration or configuration change is needed.
+
+    `seal_terminate_logic` now also covers the storage deposit refund that `System.terminate`
+    does when it is called. Runtimes should regenerate their `pallet_revive` weights.
+
+    `Deposit::refund_all` of the native backend now releases the storage deposit only as far as
+    the freezes on the account allow and returns the amount actually released, instead of
+    failing. `Deposit` is sealed, so no downstream implementation is affected.
+
+    The `Terminate` and `TerminateCaller` fixtures gain functions, which adds variants to the
+    generated `Terminate::TerminateCalls` and `TerminateCaller::TerminateCallerCalls` enums in
+    `pallet-revive-fixtures`.
+
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-uapi
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: major

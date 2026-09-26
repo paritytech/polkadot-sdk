@@ -65,8 +65,9 @@ fn storage_written_before_terminate_is_charged(fixture_type: FixtureType) {
 
 		// The inner contract starts with no balance, so its scheduled termination transfers
 		// nothing immediately; the caller funds it after scheduling.
-		let Contract { addr: inner, .. } =
+		let Contract { addr: inner, account_id: inner_account } =
 			builder::bare_instantiate(Code::Upload(inner_code)).build_and_unwrap_contract();
+		let inner_deposit = get_balance_on_hold(&storage_hold, &inner_account);
 
 		// A second, identical caller (distinct salt for a distinct address) so its slots
 		// are fresh again. Funded so it can transfer to the inner contract.
@@ -102,8 +103,12 @@ fn storage_written_before_terminate_is_charged(fixture_type: FixtureType) {
 
 		assert!(result.result.is_ok(), "call failed: {:?}", result.result);
 
-		// The writes are charged and backed by a real hold, not wiped to Charge(0).
-		assert_eq!(result.storage_deposit, StorageDeposit::Charge(cost));
+		// The writes are charged and backed by a real hold, not wiped to Charge(0). The inner
+		// contract's deposit is refunded on top.
+		assert_eq!(
+			result.storage_deposit,
+			StorageDeposit::Charge(cost).saturating_add(&StorageDeposit::Refund(inner_deposit)),
+		);
 		let held_after = get_balance_on_hold(&storage_hold, &ALICE) +
 			get_balance_on_hold(&storage_hold, &caller_account);
 		assert_eq!(held_after - held_before, cost, "the writes must be held");
@@ -113,9 +118,11 @@ fn storage_written_before_terminate_is_charged(fixture_type: FixtureType) {
 			"the caller's contract info deposit must match the hold",
 		);
 
-		// The termination could not complete within the limit, so the inner contract
-		// survives and the beneficiary was not created.
-		assert!(get_contract_checked(&inner).is_some(), "inner contract must still exist");
+		// Sending the funds that arrived after scheduling would create the beneficiary, which
+		// the limit does not cover. The funds stay on the inner account and the inner contract
+		// is deleted anyway.
+		assert!(get_contract_checked(&inner).is_none(), "inner contract must be deleted");
 		assert_eq!(get_balance(&beneficiary_account), 0, "beneficiary must not be created");
+		assert!(get_balance(&inner_account) > 0, "the funds must stay on the inner account");
 	});
 }
