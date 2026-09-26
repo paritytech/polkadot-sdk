@@ -5080,15 +5080,32 @@ mod benchmarks {
 		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
 	}
 
-	/// Benchmark `r` `GT` instructions with equal operands, comparing all four words each time.
+	/// Benchmark `r` `GT` instructions.
+	///
+	/// `U256` comparison walks the limbs from the highest down and branches when all four are
+	/// equal. With the same kind of operands every time, the CPU would predict this branch
+	/// perfectly. Instead a pseudo-random generator decides whether each `GT` compares equal values
+	/// or values that differ only in the lowest limb, with a 50% chance either way, which makes the
+	/// CPU mispredict this branch. Both cases compare all four limbs.
+	///
+	/// Each `GT` compares the result of the previous one with its operand. Zero is never greater
+	/// than zero or two, so every result is zero and the operands are either zero or two.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_gt_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		use rand::{Rng, SeedableRng};
+		use rand_pcg::Pcg64;
+
+		let mut rng = Pcg64::seed_from_u64(42);
+		let operands = (0..r)
+			.map(|_| if rng.gen_bool(0.5) { U256::zero() } else { U256::from(2) })
+			.collect::<Vec<_>>();
+
 		let code = Bytecode::new_raw(vec![GT; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for _ in 0..=r {
-			interpreter.stack.push(U256::zero()).continue_value().unwrap();
+		for operand in operands.into_iter().rev().chain([U256::zero()]) {
+			interpreter.stack.push(operand).continue_value().unwrap();
 		}
 
 		let result;
