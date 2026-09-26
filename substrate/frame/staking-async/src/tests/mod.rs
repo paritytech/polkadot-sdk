@@ -44,6 +44,7 @@ mod era_rotation;
 mod force_unstake_kill_stash;
 mod ledger;
 mod legacy_reward;
+mod merge_staked;
 mod nominators_no_slashing;
 mod payout_stakers;
 mod slashing;
