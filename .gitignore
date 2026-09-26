@@ -50,3 +50,8 @@ scripts/release/RELEASE_DRAFT.md
 scripts/release/context.json
 scripts/release/CHANGELOG.md
 scripts/release/changelog.json
+.drafts
+.hermes
+.reviews
+.sessions
+pr-context
