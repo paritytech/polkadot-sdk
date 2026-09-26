@@ -706,3 +706,134 @@ fn dap_era_with_zero_rewards_still_sets_guard() {
 		assert_eq!(DisableMintingGuard::<Test>::get(), Some(1));
 	});
 }
+
+fn validators_sent_for(era: EraIndex) -> Vec<AccountId> {
+	session_mock::ReceivedValidatorSets::get()
+		.into_values()
+		.find(|report| report.id == era)
+		.expect("a validator set was sent for every started era")
+		.new_validator_set
+}
+
+#[test]
+fn on_era_start_is_called_once_per_era_with_the_validators_sent_for_it() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN era 1 started at genesis with validators 11 and 21
+		assert_eq!(StartedEras::get().len(), 1);
+		assert_eq!(StartedEras::get()[0].0, 1);
+		assert_eq_uvec!(StartedEras::get()[0].1, vec![11, 21]);
+		// WHEN eras 2 and 3 become active
+		Session::roll_until_active_era(3);
+		// THEN the hook ran once for each, with the set sent to the relay chain for that era
+		let started = StartedEras::get();
+		assert_eq!(started.iter().map(|(era, _)| *era).collect::<Vec<_>>(), vec![1, 2, 3]);
+		for (era, validators) in started {
+			assert_eq_uvec!(validators, validators_sent_for(era));
+		}
+	});
+}
+
+#[test]
+fn on_era_start_reports_the_new_set_when_the_election_result_changes() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN validator 21 chills during era 1
+		assert_ok!(Staking::chill(RuntimeOrigin::signed(21)));
+		// WHEN the next eras become active
+		Session::roll_until_active_era(3);
+		// THEN the latest started era reports 31 in place of 21
+		let (era, validators) = StartedEras::get().pop().unwrap();
+		assert_eq!(era, 3);
+		assert_eq_uvec!(validators, vec![11, 31]);
+	});
+}
+
+#[test]
+fn on_era_start_is_not_called_on_sessions_that_start_no_era() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN era 1 is active and its start was reported
+		assert_eq!(active_era(), 1);
+		assert_eq!(StartedEras::get().len(), 1);
+		// WHEN every session up to the start of era 3 rotates
+		let mut sessions_without_era_start = 0;
+		while active_era() < 3 {
+			let before = active_era();
+			Session::roll_to_next_session();
+			if active_era() == before {
+				sessions_without_era_start += 1;
+			}
+			// THEN the hook has run once per started era and never in between
+			assert_eq!(StartedEras::get().len(), active_era() as usize);
+		}
+		assert!(sessions_without_era_start > 0);
+	});
+}
+
+#[test]
+fn elected_set_is_kept_from_election_until_its_era_starts() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN era 1 is active and nothing is kept for era 2
+		assert_eq!(NextEraValidators::<T>::get(), None);
+		// WHEN the era 2 election completes and its set is sent to the relay chain
+		while Session::queued_validators().is_none() {
+			Session::roll_next();
+		}
+		// THEN the sent set is kept for era 2 until era 2 starts and is then handed to the hook
+		let (kept_era, kept) = NextEraValidators::<T>::get().unwrap();
+		assert_eq!(kept_era, 2);
+		assert_eq_uvec!(kept.to_vec(), validators_sent_for(2));
+		Session::roll_until_active_era(2);
+		assert_eq!(NextEraValidators::<T>::get(), None);
+		let (era, validators) = StartedEras::get().pop().unwrap();
+		assert_eq!(era, 2);
+		assert_eq!(validators, kept.to_vec());
+	});
+}
+
+#[test]
+fn era_start_without_a_kept_set_falls_back_to_the_exposures() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN the era 2 set was sent but no copy is kept, as right after an upgrade
+		while Session::queued_validators().is_none() {
+			Session::roll_next();
+		}
+		NextEraValidators::<T>::kill();
+		// WHEN era 2 starts
+		Session::roll_until_active_era(2);
+		// THEN the hook still receives the era 2 set, read from its exposures
+		let (era, validators) = StartedEras::get().pop().unwrap();
+		assert_eq!(era, 2);
+		assert_eq_uvec!(validators, validators_sent_for(2));
+	});
+}
+
+#[test]
+fn try_state_rejects_a_kept_set_for_an_era_that_is_not_planned() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN era 1 is active and not planned
+		assert_eq!(Rotator::<T>::is_planning(), None);
+		// WHEN a set is kept for era 1
+		NextEraValidators::<T>::put((1, BoundedVec::truncate_from(vec![11])));
+		// THEN try_state fails
+		assert!(Rotator::<T>::do_try_state().is_err());
+		NextEraValidators::<T>::kill();
+	});
+}
+
+#[test]
+#[cfg_attr(debug_assertions, should_panic(expected = "Defensive failure has been triggered!"))]
+fn kept_set_of_another_era_is_ignored_and_the_exposures_are_used() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN the era 2 set was sent and the kept copy is tagged with another era
+		while Session::queued_validators().is_none() {
+			Session::roll_next();
+		}
+		NextEraValidators::<T>::put((7, BoundedVec::truncate_from(vec![999])));
+		// WHEN era 2 starts
+		Session::roll_until_active_era(2);
+		// THEN the hook receives the era 2 set, read from its exposures, and the copy is gone
+		let (era, validators) = StartedEras::get().pop().unwrap();
+		assert_eq!(era, 2);
+		assert_eq_uvec!(validators, validators_sent_for(2));
+		assert_eq!(NextEraValidators::<T>::get(), None);
+	});
+}

@@ -14,11 +14,11 @@
 // limitations under the License.
 
 use crate::{
-	mock::*, Call, Config, EraValidatorSet, Error, Event, MaxCollators, PendingRotation,
-	RotationState, UnionSessionManager, ValidatorSet,
+	mock::*, Call, Config, EraValidatorSet, Error, Event, MaxCollators, OutgoingAnnouncements,
+	PendingRotation, RotationState, UnionSessionManager, ValidatorSet,
 };
 use codec::{Decode, Encode};
-use frame_support::{assert_noop, assert_ok, parameter_types, BoundedVec};
+use frame_support::{assert_err, assert_noop, assert_ok, parameter_types, BoundedVec};
 use pallet_session::SessionManager;
 use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin, DispatchResult};
 use sp_staking::{EraIndex, SessionIndex};
@@ -350,6 +350,196 @@ fn try_state_detects_a_stored_set_that_does_not_decode() {
 		// THEN try_state fails and the pallet returns no validators
 		assert!(ValidatorCollators::do_try_state().is_err());
 		assert_eq!(<ValidatorCollators as SessionManager<u64>>::new_session(1), None);
+	});
+}
+
+fn announce(era: EraIndex, validators: Vec<u64>) -> DispatchResult {
+	ValidatorCollators::announce(era, &validators)
+}
+
+fn announcement_events() -> Vec<Event<Test>> {
+	System::events()
+		.into_iter()
+		.filter_map(|record| match record.event {
+			RuntimeEvent::ValidatorCollators(
+				event @ (Event::AnnouncementSent { .. } |
+				Event::AnnouncementFailed { .. } |
+				Event::AnnouncementDropped { .. } |
+				Event::AnnouncementRejected { .. }),
+			) => Some(event),
+			_ => None,
+		})
+		.collect()
+}
+
+fn outgoing() -> Vec<(u32, u32)> {
+	let mut outgoing = OutgoingAnnouncements::<Test>::iter().collect::<Vec<_>>();
+	outgoing.sort();
+	outgoing
+}
+
+#[test]
+fn announce_stores_the_set_and_sends_it_to_every_destination_in_the_next_block() {
+	new_test_ext().execute_with(|| {
+		// GIVEN two destinations that accept the set
+		initialize_to_block(1);
+		// WHEN a set is announced
+		assert_ok!(announce(1, vec![10, 11]));
+		assert_eq!(ValidatorSet::<Test>::get().map(|set| set.era), Some(1));
+		assert_eq!(outgoing(), vec![(1, 2), (2, 2)]);
+		assert!(Sent::get().is_empty());
+		initialize_to_block(2);
+		// THEN the next block sends it to both destinations and empties the queue
+		assert_eq!(Sent::get(), vec![(1, 1, vec![10, 11]), (2, 1, vec![10, 11])]);
+		assert_eq!(outgoing(), vec![]);
+		assert_eq!(
+			announcement_events(),
+			vec![
+				Event::AnnouncementSent { destination: 1, era: 1 },
+				Event::AnnouncementSent { destination: 2, era: 1 },
+			]
+		);
+		assert_ok!(ValidatorCollators::do_try_state());
+	});
+}
+
+#[test]
+fn failed_send_is_retried_up_to_the_limit_and_then_dropped() {
+	new_test_ext().execute_with(|| {
+		// GIVEN destination 2 rejects every send and two retries are allowed
+		initialize_to_block(1);
+		FailingDestinations::set(vec![2]);
+		// WHEN a set is announced and three blocks pass
+		assert_ok!(announce(1, vec![10]));
+		initialize_to_block(4);
+		// THEN destination 2 fails three times, is dropped and destination 1 is sent once
+		assert_eq!(Sent::get(), vec![(1, 1, vec![10])]);
+		assert_eq!(outgoing(), vec![]);
+		assert_eq!(
+			announcement_events(),
+			vec![
+				Event::AnnouncementSent { destination: 1, era: 1 },
+				Event::AnnouncementFailed { destination: 2, era: 1, retries_left: 1 },
+				Event::AnnouncementFailed { destination: 2, era: 1, retries_left: 0 },
+				Event::AnnouncementDropped { destination: 2, era: 1 },
+			]
+		);
+		initialize_to_block(5);
+		assert_eq!(Sent::get().len(), 1);
+		assert_ok!(ValidatorCollators::do_try_state());
+	});
+}
+
+#[test]
+fn failed_send_succeeds_on_a_later_retry() {
+	new_test_ext().execute_with(|| {
+		// GIVEN destination 2 rejects the first send of an announced set
+		initialize_to_block(1);
+		FailingDestinations::set(vec![2]);
+		assert_ok!(announce(1, vec![10]));
+		initialize_to_block(2);
+		assert_eq!(outgoing(), vec![(2, 1)]);
+		// WHEN destination 2 accepts again
+		FailingDestinations::set(vec![]);
+		initialize_to_block(3);
+		// THEN the retry delivers the set and the queue is empty
+		assert_eq!(Sent::get(), vec![(1, 1, vec![10]), (2, 1, vec![10])]);
+		assert_eq!(outgoing(), vec![]);
+		assert_ok!(ValidatorCollators::do_try_state());
+	});
+}
+
+#[test]
+fn newer_era_replaces_a_queued_announcement() {
+	new_test_ext().execute_with(|| {
+		// GIVEN the era 1 set is still queued after a failed send to both destinations
+		initialize_to_block(1);
+		FailingDestinations::set(vec![1, 2]);
+		assert_ok!(announce(1, vec![10]));
+		initialize_to_block(2);
+		assert_eq!(outgoing(), vec![(1, 1), (2, 1)]);
+		// WHEN the era 2 set is announced and the destinations accept again
+		assert_ok!(announce(2, vec![11]));
+		FailingDestinations::set(vec![]);
+		// THEN retries are reset and only the era 2 set is delivered
+		assert_eq!(outgoing(), vec![(1, 2), (2, 2)]);
+		initialize_to_block(3);
+		assert_eq!(Sent::get(), vec![(1, 2, vec![11]), (2, 2, vec![11])]);
+		assert_eq!(outgoing(), vec![]);
+		assert_ok!(ValidatorCollators::do_try_state());
+	});
+}
+
+#[test]
+fn rejected_announcement_queues_nothing() {
+	new_test_ext().execute_with(|| {
+		// GIVEN the era 1 set was announced and delivered
+		initialize_to_block(1);
+		assert_ok!(announce(1, vec![10]));
+		initialize_to_block(2);
+		// WHEN the same era is announced again
+		// THEN it fails with StaleEra, is reported and nothing is queued or sent
+		assert_err!(announce(1, vec![11]), Error::<Test>::StaleEra);
+		System::assert_last_event(
+			Event::AnnouncementRejected { era: 1, error: Error::<Test>::StaleEra.into() }.into(),
+		);
+		initialize_to_block(3);
+		assert_eq!(Sent::get().len(), 2);
+		assert_eq!(outgoing(), vec![]);
+		assert_eq!(ValidatorSet::<Test>::get().map(|set| set.validators.to_vec()), Some(vec![10]));
+		assert_ok!(ValidatorCollators::do_try_state());
+	});
+}
+
+#[test]
+fn announcement_larger_than_max_validators_is_rejected_and_reported() {
+	new_test_ext().execute_with(|| {
+		// GIVEN a set of one account more than MaxValidators
+		initialize_to_block(1);
+		let too_many = (100..151).collect::<Vec<u64>>();
+		// WHEN it is announced
+		// THEN it fails with TooManyValidators, is reported and nothing is stored or queued
+		assert_err!(announce(1, too_many), Error::<Test>::TooManyValidators);
+		System::assert_last_event(
+			Event::AnnouncementRejected { era: 1, error: Error::<Test>::TooManyValidators.into() }
+				.into(),
+		);
+		assert_eq!(ValidatorSet::<Test>::get(), None);
+		assert_eq!(outgoing(), vec![]);
+		assert_ok!(ValidatorCollators::do_try_state());
+	});
+}
+
+#[test]
+fn try_state_rejects_queued_announcements_outside_the_configuration() {
+	new_test_ext().execute_with(|| {
+		// GIVEN a stored set
+		assert_ok!(announce(1, vec![10]));
+		// WHEN an unknown destination or too many retries are queued
+		// THEN try_state fails
+		OutgoingAnnouncements::<Test>::insert(3, 0);
+		assert!(ValidatorCollators::do_try_state().is_err());
+		OutgoingAnnouncements::<Test>::remove(3);
+		OutgoingAnnouncements::<Test>::insert(1, 3);
+		assert!(ValidatorCollators::do_try_state().is_err());
+		OutgoingAnnouncements::<Test>::insert(1, 2);
+		assert_ok!(ValidatorCollators::do_try_state());
+	});
+}
+
+#[test]
+fn announced_set_is_enacted_locally_like_a_received_one() {
+	new_test_ext().execute_with(|| {
+		// GIVEN validator 10 with keys
+		initialize_to_block(1);
+		set_keys(10);
+		// WHEN its set is announced
+		assert_ok!(announce(1, vec![10]));
+		initialize_to_block(3);
+		// THEN it becomes a session validator after the two forced rotations
+		assert_eq!(Session::current_index(), 2);
+		assert_eq!(Session::validators(), vec![1, 2, 10]);
+		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
 

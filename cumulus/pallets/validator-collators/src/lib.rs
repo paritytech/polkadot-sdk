@@ -34,6 +34,12 @@
 //! the following two blocks, so the set is in force without waiting for the regular period. The
 //! regular rotations given by [`Config::PeriodicSession`] continue as before.
 //!
+//! On Asset Hub the runtime calls [`Pallet::announce`] when a new era becomes active. It stores the
+//! set locally and queues it for every destination in [`Config::Destinations`]. The queue is
+//! drained in `on_initialize` through [`Config::Sender`]. A failed send is retried in the
+//! following blocks up to [`Config::MaxAnnouncementRetries`] times and then dropped. A newer set
+//! replaces the queued one, so a destination always receives the latest stored set.
+//!
 //! ## Non-goals
 //!
 //! - A random draw among the opted-in validators when a cap is set. For now the cap keeps the first
@@ -41,18 +47,46 @@
 //! - Counting the blocks each validator authors and reporting era points to Asset Hub.
 //! - Dropping validators that author no blocks for a session.
 //! - Propagating relay-chain offences to the collator set.
-//! - Sending any XCM message.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
 
 use alloc::{collections::BTreeSet, vec::Vec};
+use codec::MaxEncodedLen;
 use core::marker::PhantomData;
+use frame_support::Parameter;
 use pallet_session::SessionManager;
-use sp_staking::SessionIndex;
+use sp_staking::{EraIndex, SessionIndex};
 
 pub use pallet::*;
+
+/// Sends a validator set to one destination.
+pub trait SendValidatorSet<AccountId> {
+	/// Identifies a destination.
+	type Destination: Parameter + MaxEncodedLen;
+
+	/// Send the validator set of `era` to `destination`.
+	#[allow(clippy::result_unit_err)]
+	fn send(
+		destination: &Self::Destination,
+		era: EraIndex,
+		validators: &[AccountId],
+	) -> Result<(), ()>;
+}
+
+impl<AccountId> SendValidatorSet<AccountId> for () {
+	type Destination = ();
+
+	fn send(_: &(), _: EraIndex, _: &[AccountId]) -> Result<(), ()> {
+		Err(())
+	}
+}
+
+/// The destination type of the configured sender.
+pub type DestinationOf<T> = <<T as Config>::Sender as SendValidatorSet<
+	<T as frame_system::Config>::AccountId,
+>>::Destination;
 
 #[cfg(test)]
 mod mock;
@@ -67,8 +101,10 @@ pub mod weights;
 #[frame_support::pallet]
 pub mod pallet {
 	pub use crate::weights::WeightInfo;
+	use crate::{DestinationOf, SendValidatorSet};
 	use alloc::{collections::BTreeSet, vec::Vec};
 	use frame_support::{
+		defensive,
 		pallet_prelude::*,
 		traits::{EnsureOrigin, ValidatorRegistration},
 		BoundedVec, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
@@ -140,6 +176,16 @@ pub mod pallet {
 		/// The regular session rotation rule kept next to the forced rotations.
 		type PeriodicSession: ShouldEndSession<BlockNumberFor<Self>>;
 
+		/// Sends an announced set to one destination.
+		type Sender: SendValidatorSet<Self::AccountId>;
+
+		/// Destinations every announced set is sent to.
+		type Destinations: Get<Vec<DestinationOf<Self>>>;
+
+		/// Number of retries of a failed send before it is dropped.
+		#[pallet::constant]
+		type MaxAnnouncementRetries: Get<u32>;
+
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -160,6 +206,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type MaxCollators<T: Config> = StorageValue<_, u32, OptionQuery>;
 
+	/// Destinations still to be sent the stored set, with the retries left for each.
+	#[pallet::storage]
+	pub type OutgoingAnnouncements<T: Config> =
+		StorageMap<_, Twox64Concat, DestinationOf<T>, u32, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -167,10 +218,20 @@ pub mod pallet {
 		ValidatorSetReceived { era: EraIndex, count: u32 },
 		/// The maximum number of validator collators was changed.
 		MaxCollatorsSet { max: Option<u32> },
+		/// The set of `era` was sent to a destination.
+		AnnouncementSent { destination: DestinationOf<T>, era: EraIndex },
+		/// Sending the set of `era` to a destination failed and will be retried.
+		AnnouncementFailed { destination: DestinationOf<T>, era: EraIndex, retries_left: u32 },
+		/// Sending the set of `era` to a destination failed with no retries left.
+		AnnouncementDropped { destination: DestinationOf<T>, era: EraIndex },
+		/// The set of `era` was not announced because it was rejected with `error`.
+		AnnouncementRejected { era: EraIndex, error: DispatchError },
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// An announced set has more validators than [`Config::MaxValidators`].
+		TooManyValidators,
 		/// The set contains the same account more than once.
 		DuplicateValidator,
 		/// The era of the set is not newer than the era of the stored set.
@@ -179,6 +240,10 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
+			Self::send_announcements()
+		}
+
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
@@ -228,6 +293,67 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Store the validator set of `era` locally and queue it for every destination.
+		///
+		/// A rejected set is reported with [`Event::AnnouncementRejected`].
+		pub fn announce(era: EraIndex, validators: &[T::AccountId]) -> DispatchResult {
+			let result = Self::do_announce(era, validators);
+			if let Err(error) = result {
+				Self::deposit_event(Event::AnnouncementRejected { era, error });
+			}
+			result
+		}
+
+		fn do_announce(era: EraIndex, validators: &[T::AccountId]) -> DispatchResult {
+			let validators = BoundedVec::try_from(validators.to_vec())
+				.map_err(|_| Error::<T>::TooManyValidators)?;
+			Self::receive_validator_set(era, validators)?;
+			let _ = OutgoingAnnouncements::<T>::clear(u32::MAX, None);
+			T::Destinations::get().into_iter().for_each(|destination| {
+				OutgoingAnnouncements::<T>::insert(destination, T::MaxAnnouncementRetries::get())
+			});
+			Ok(())
+		}
+
+		/// Upper bound of the weight of [`Self::announce`] for `validators` validators.
+		pub fn announce_weight(validators: u32) -> Weight {
+			T::WeightInfo::announce(validators, T::Destinations::get().len() as u32)
+		}
+
+		fn send_announcements() -> Weight {
+			let outgoing = OutgoingAnnouncements::<T>::iter().collect::<Vec<_>>();
+			if outgoing.is_empty() {
+				return T::DbWeight::get().reads(1);
+			}
+			let Some(set) = ValidatorSet::<T>::get() else {
+				let _ = OutgoingAnnouncements::<T>::clear(u32::MAX, None);
+				defensive!("announcements are queued only after a set is stored");
+				return T::DbWeight::get().reads_writes(2, outgoing.len() as u64);
+			};
+			let weight = T::WeightInfo::send_announcements(
+				set.validators.len() as u32,
+				outgoing.len() as u32,
+			);
+			for (destination, retries_left) in outgoing {
+				let era = set.era;
+				if T::Sender::send(&destination, era, &set.validators).is_ok() {
+					OutgoingAnnouncements::<T>::remove(&destination);
+					Self::deposit_event(Event::AnnouncementSent { destination, era });
+				} else if let Some(retries_left) = retries_left.checked_sub(1) {
+					OutgoingAnnouncements::<T>::insert(&destination, retries_left);
+					Self::deposit_event(Event::AnnouncementFailed {
+						destination,
+						era,
+						retries_left,
+					});
+				} else {
+					OutgoingAnnouncements::<T>::remove(&destination);
+					Self::deposit_event(Event::AnnouncementDropped { destination, era });
+				}
+			}
+			weight
+		}
+
 		/// Check the pallet invariants.
 		#[cfg(any(test, feature = "try-runtime"))]
 		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
@@ -239,6 +365,21 @@ pub mod pallet {
 				!ValidatorSet::<T>::exists() || ValidatorSet::<T>::get().is_some(),
 				"the stored validator set does not decode, it may exceed `MaxValidators`"
 			);
+			ensure!(
+				ValidatorSet::<T>::exists() || OutgoingAnnouncements::<T>::iter().next().is_none(),
+				"announcements are queued without a stored validator set"
+			);
+			let destinations = T::Destinations::get();
+			for (destination, retries_left) in OutgoingAnnouncements::<T>::iter() {
+				ensure!(
+					destinations.contains(&destination),
+					"an announcement is queued for an unknown destination"
+				);
+				ensure!(
+					retries_left <= T::MaxAnnouncementRetries::get(),
+					"an announcement has more retries left than allowed"
+				);
+			}
 			Ok(())
 		}
 	}

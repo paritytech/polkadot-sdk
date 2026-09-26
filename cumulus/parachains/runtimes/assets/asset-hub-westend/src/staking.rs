@@ -22,8 +22,13 @@ use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracy
 use pallet_staking_async::UseValidatorsMap;
 use pallet_staking_async_rc_client as rc_client;
 use polkadot_runtime_common::{prod_or_fast, BalanceToU256, U256ToBalance};
+use scale_info::TypeInfo;
 use sp_runtime::{
 	transaction_validity::TransactionPriority, FixedPointNumber, FixedU128, SaturatedConversion,
+};
+use sp_staking::EraIndex;
+use testnet_parachains_constants::westend::{
+	locations::PeopleLocation, staking::MAX_VALIDATOR_SET,
 };
 use xcm::latest::prelude::*;
 
@@ -35,7 +40,7 @@ parameter_types! {
 	pub MaxElectingVoters: u32 = 22_500;
 
 	/// Maximum number of validators that we may want to elect. 1000 is the end target.
-	pub const MaxValidatorSet: u32 = 1000;
+	pub const MaxValidatorSet: u32 = MAX_VALIDATOR_SET;
 
 	/// Number of nominators per page of the snapshot, and consequently number of backers in the
 	/// solution. Uses ceiling division so that `VoterSnapshotPerBlock * Pages >= MaxElectingVoters`
@@ -318,6 +323,7 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxPruningItems = MaxPruningItems;
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 	type IsValidatorInactive = ();
+	type OnEraStart = AnnounceValidatorSet;
 }
 
 // Relay Chain session keys type for validating session keys on AssetHub.
@@ -439,6 +445,77 @@ parameter_types! {
 	/// Intentionally ~2-3x of benchmarked values to avoid undercharging if RC weights increase.
 	/// Slight overpaymennt is the price we pay for maintainability here.
 	pub RemoteKeysExecutionWeight: Weight = Weight::from_parts(200_000_000, 20_000);
+}
+
+/// Announces the validators of every new era to this chain and to the other system chains.
+pub struct AnnounceValidatorSet;
+impl pallet_staking_async::OnEraStart<AccountId> for AnnounceValidatorSet {
+	fn on_era_start(era: EraIndex, validators: &[AccountId]) {
+		// A rejected set is reported by the pallet with `AnnouncementRejected`.
+		let _ = ValidatorCollators::announce(era, validators);
+	}
+
+	fn weight(validators: u32) -> Weight {
+		ValidatorCollators::announce_weight(validators)
+	}
+}
+
+/// A system chain that receives the validator set of every era.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+)]
+pub enum ValidatorSetDestination {
+	People,
+}
+
+parameter_types! {
+	pub ValidatorSetDestinations: Vec<ValidatorSetDestination> =
+		vec![ValidatorSetDestination::People];
+}
+
+#[derive(Encode)]
+enum PeopleRuntimePallets {
+	// index of `ValidatorCollators` in the People Westend runtime.
+	#[codec(index = 25)]
+	ValidatorCollators(ValidatorCollatorsCalls),
+}
+
+#[derive(Encode)]
+enum ValidatorCollatorsCalls {
+	// index of `fn set_validators` in `pallet-validator-collators`.
+	#[codec(index = 0)]
+	SetValidators { era: EraIndex, validators: Vec<AccountId> },
+}
+
+/// Sends the validator set to a system chain as an unpaid `Transact` of `set_validators`.
+pub struct ValidatorSetToSystemChains;
+impl pallet_validator_collators::SendValidatorSet<AccountId> for ValidatorSetToSystemChains {
+	type Destination = ValidatorSetDestination;
+
+	fn send(
+		destination: &ValidatorSetDestination,
+		era: EraIndex,
+		validators: &[AccountId],
+	) -> Result<(), ()> {
+		let (location, call) = match destination {
+			ValidatorSetDestination::People => (
+				PeopleLocation::get(),
+				PeopleRuntimePallets::ValidatorCollators(ValidatorCollatorsCalls::SetValidators {
+					era,
+					validators: validators.to_vec(),
+				})
+				.encode(),
+			),
+		};
+		send_xcm::<xcm_config::XcmRouter>(location, rc_client::build_transact_xcm(call))
+			.map(|_| ())
+			.map_err(|error| {
+				log::error!(
+					target: "runtime::validator-collators",
+					"failed to send the validator set of era {era} to {destination:?}: {error:?}",
+				);
+			})
+	}
 }
 
 pub struct StakingXcmToRelayChain;

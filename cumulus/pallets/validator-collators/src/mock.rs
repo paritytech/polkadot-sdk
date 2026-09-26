@@ -158,7 +158,29 @@ impl Config for Test {
 	type ValidatorRegistration = Session;
 	type MaxValidators = ConstU32<50>;
 	type PeriodicSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type Sender = MockSender;
+	type Destinations = Destinations;
+	type MaxAnnouncementRetries = ConstU32<2>;
 	type WeightInfo = ();
+}
+
+parameter_types! {
+	pub static Destinations: Vec<u32> = vec![1, 2];
+	pub static FailingDestinations: Vec<u32> = Vec::new();
+	pub static Sent: Vec<(u32, EraIndex, Vec<u64>)> = Vec::new();
+}
+
+pub struct MockSender;
+impl SendValidatorSet<u64> for MockSender {
+	type Destination = u32;
+
+	fn send(destination: &u32, era: EraIndex, validators: &[u64]) -> Result<(), ()> {
+		if FailingDestinations::get().contains(destination) {
+			return Err(());
+		}
+		Sent::mutate(|sent| sent.push((*destination, era, validators.to_vec())));
+		Ok(())
+	}
 }
 
 /// Standalone collators, funded and with session keys at genesis.

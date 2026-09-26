@@ -473,6 +473,7 @@ impl pallet_staking_async::Config for Runtime {
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
 	type RcClientInterface = StakingRcClient;
 	type IsValidatorInactive = ();
+	type OnEraStart = ();
 }
 
 // Relay chain session keys matching Westend configuration.

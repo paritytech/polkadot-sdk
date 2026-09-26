@@ -21,6 +21,7 @@ use frame_election_provider_support::Weight;
 use frame_support::{
 	assert_ok, hypothetically,
 	traits::fungible::{hold::Inspect as HoldInspect, Inspect, Mutate, Unbalanced},
+	BoundedVec,
 };
 use pallet_election_provider_multi_block::{
 	signed::Event as SignedEvent, unsigned::miner::OffchainWorkerMiner,
@@ -29,10 +30,10 @@ use pallet_election_provider_multi_block::{
 use pallet_staking_async::{
 	self as staking_async, session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra,
 	DisableMintingGuard, ErasValidatorIncentiveBudget, ErasValidatorReward, Event as StakingEvent,
-	PotAccountProvider, RewardKind, RewardPot, SequentialTest,
+	PotAccountProvider, RewardKind, RewardPot, SequentialTest, WeightInfo,
 };
 use pallet_staking_async_rc_client::{
-	self as rc_client, OutgoingValidatorSet, UnexpectedKind, ValidatorSetReport,
+	self as rc_client, AHStakingInterface, OutgoingValidatorSet, UnexpectedKind, ValidatorSetReport,
 };
 
 // Tests that are specific to Asset Hub.
@@ -409,6 +410,51 @@ fn roll_many_eras() {
 			// next election starts
 			assert_eq!(CurrentEra::<T>::get().unwrap(), active_era + 2);
 		}
+	});
+}
+
+#[test]
+fn disabled_era_start_hook_keeps_no_set_and_costs_nothing() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// GIVEN a runtime whose `OnEraStart` is `()`
+		let report = rc_client::SessionReport::new_terminal(0, vec![], Some((0, 1)));
+		let n = report.validator_points.len() as u32;
+		// WHEN the era 1 election completes and era 1 starts
+		end_session_with(false, AssertSessionType::ElectionWithBufferedExport);
+		for _ in 0..2 {
+			end_session_with(false, AssertSessionType::IdleNoExport);
+		}
+		end_session_with(false, AssertSessionType::IdleOnlyExport);
+		assert!(!staking_async::NextEraValidators::<T>::exists());
+		end_session_with(false, AssertSessionType::IdleNoExport);
+		end_session_with(true, AssertSessionType::ElectionWithBufferedExport);
+		// THEN no set was kept and the session report is charged no era-start weight
+		assert_eq!(ActiveEra::<T>::get().unwrap().index, 1);
+		assert!(!staking_async::NextEraValidators::<T>::exists());
+		assert_eq!(
+			<Staking as AHStakingInterface>::weigh_on_relay_session_report(&report),
+			<<T as staking_async::Config>::WeightInfo as WeightInfo>::rc_on_session_report(n),
+		);
+	});
+}
+
+#[cfg(feature = "try-runtime")]
+#[test]
+fn copy_left_by_a_disabled_hook_does_not_fail_try_state() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		// GIVEN a runtime whose `OnEraStart` is `()` and era 1 is active
+		end_session_with(false, AssertSessionType::ElectionWithBufferedExport);
+		for _ in 0..2 {
+			end_session_with(false, AssertSessionType::IdleNoExport);
+		}
+		end_session_with(false, AssertSessionType::IdleOnlyExport);
+		end_session_with(false, AssertSessionType::IdleNoExport);
+		end_session_with(true, AssertSessionType::ElectionWithBufferedExport);
+		assert_eq!(ActiveEra::<T>::get().unwrap().index, 1);
+		// WHEN a copy for the already active era is left over from an enabled hook
+		staking_async::NextEraValidators::<T>::put((1, BoundedVec::truncate_from(vec![1])));
+		// THEN try_state ignores it
+		assert_ok!(<Staking as frame_support::traits::Hooks<_>>::try_state(System::block_number()));
 	});
 }
 

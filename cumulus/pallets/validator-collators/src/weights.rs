@@ -28,6 +28,8 @@ use frame_support::{
 pub trait WeightInfo {
 	fn set_validators(n: u32) -> Weight;
 	fn set_max_collators() -> Weight;
+	fn announce(n: u32, d: u32) -> Weight;
+	fn send_announcements(n: u32, d: u32) -> Weight;
 }
 
 /// Weights for `pallet_validator_collators` using the Substrate node and recommended hardware.
@@ -42,6 +44,20 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn set_max_collators() -> Weight {
 		Weight::from_parts(5_000_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	fn announce(n: u32, d: u32) -> Weight {
+		Weight::from_parts(10_000_000, 1_500)
+			.saturating_add(Weight::from_parts(50_000, 32).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+			.saturating_add(T::DbWeight::get().writes(u64::from(d).saturating_mul(2)))
+	}
+	fn send_announcements(n: u32, d: u32) -> Weight {
+		Weight::from_parts(5_000_000, 1_500)
+			.saturating_add(Weight::from_parts(50_000_000, 0).saturating_mul(d.into()))
+			.saturating_add(Weight::from_parts(50_000, 32).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(2_u64.saturating_add(d.into())))
+			.saturating_add(T::DbWeight::get().writes(d.into()))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -54,5 +70,19 @@ impl WeightInfo for () {
 	}
 	fn set_max_collators() -> Weight {
 		Weight::from_parts(5_000_000, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn announce(n: u32, d: u32) -> Weight {
+		Weight::from_parts(10_000_000, 1_500)
+			.saturating_add(Weight::from_parts(50_000, 32).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(u64::from(d).saturating_mul(2)))
+	}
+	fn send_announcements(n: u32, d: u32) -> Weight {
+		Weight::from_parts(5_000_000, 1_500)
+			.saturating_add(Weight::from_parts(50_000_000, 0).saturating_mul(d.into()))
+			.saturating_add(Weight::from_parts(50_000, 32).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads(2_u64.saturating_add(d.into())))
+			.saturating_add(RocksDbWeight::get().writes(d.into()))
 	}
 }

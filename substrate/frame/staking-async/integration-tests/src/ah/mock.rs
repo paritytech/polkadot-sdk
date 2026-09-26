@@ -510,6 +510,7 @@ impl pallet_staking_async::Config for Runtime {
 	type WeightInfo = super::weights::StakingAsyncWeightInfo;
 
 	type IsValidatorInactive = ();
+	type OnEraStart = ();
 }
 
 // Session keys type that must match RC's SessionKeys.

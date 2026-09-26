@@ -200,6 +200,15 @@ impl<T: Config> Eras<T> {
 			.unwrap_or(1)
 	}
 
+	/// The validators with an exposure in `era`, at most [`Config::MaxValidatorSet`].
+	///
+	/// One read per validator, used only when [`NextEraValidators`] holds no copy for `era`.
+	pub(crate) fn exposed_validators(era: EraIndex) -> Vec<T::AccountId> {
+		ErasStakersOverview::<T>::iter_key_prefix(era)
+			.take(T::MaxValidatorSet::get() as usize)
+			.collect()
+	}
+
 	/// Check whether the validator was exposed at specified era.
 	pub(crate) fn was_validator_exposed(era: EraIndex, validator: &T::AccountId) -> bool {
 		<ErasStakersOverview<T>>::contains_key(era, validator)
@@ -672,7 +681,9 @@ impl<T: Config> Rotator<T> {
 			EraElectionPlanner::<T>::do_elect_paged(p);
 		}
 
-		crate::ElectableStashes::<T>::take().into_iter().collect()
+		let validators = crate::ElectableStashes::<T>::take().into_iter().collect::<Vec<_>>();
+		Self::keep_next_era_validators(Self::planned_era(), &validators);
+		validators
 	}
 
 	#[cfg(any(feature = "try-runtime", test))]
@@ -724,6 +735,15 @@ impl<T: Config> Rotator<T> {
 			},
 		}
 
+		if let Some((kept_era, _)) =
+			NextEraValidators::<T>::get().filter(|_| T::OnEraStart::ENABLED)
+		{
+			ensure!(
+				Self::is_planning() == Some(kept_era),
+				"kept validators exist only for an era that is planned and not yet active"
+			);
+		}
+
 		Ok(())
 	}
 
@@ -770,7 +790,7 @@ impl<T: Config> Rotator<T> {
 		rewarded_validators: u32,
 	) -> Weight {
 		// baseline weight for processing the relay chain session report
-		let weight = T::WeightInfo::rc_on_session_report(rewarded_validators);
+		let mut weight = T::WeightInfo::rc_on_session_report(rewarded_validators);
 
 		let Some(active_era) = ActiveEra::<T>::get() else {
 			defensive!("Active era must always be available.");
@@ -794,7 +814,7 @@ impl<T: Config> Rotator<T> {
 		match activation_timestamp {
 			Some((time, id)) if Some(id) == current_planned_era => {
 				// We rotate the era if we have the activation timestamp.
-				Self::start_era(active_era, starting, time);
+				weight.saturating_accrue(Self::start_era(active_era, starting, time));
 			},
 			Some((_time, id)) => {
 				// RC has done something wrong -- we received the wrong ID. Don't start a new era.
@@ -857,11 +877,14 @@ impl<T: Config> Rotator<T> {
 		weight
 	}
 
+	/// Returns the weight of notifying [`Config::OnEraStart`]. The `rc_on_session_report`
+	/// benchmark starts one era with its own small validator set, so adding this weight on top
+	/// slightly over-estimates the session report.
 	pub(crate) fn start_era(
 		ending_era: ActiveEraInfo,
 		starting_session: SessionIndex,
 		new_era_start_timestamp: u64,
-	) {
+	) -> Weight {
 		// verify that a new era was planned
 		debug_assert!(CurrentEra::<T>::get().unwrap_or(0) == ending_era.index + 1);
 
@@ -887,6 +910,73 @@ impl<T: Config> Rotator<T> {
 			log!(debug, "Marking era {:?} for lazy pruning", old_era);
 			EraPruningState::<T>::insert(old_era, PruningStep::ErasStakersPaged);
 		}
+
+		Self::notify_era_start(starting_era)
+	}
+
+	/// Keep the validators elected for `era`, as they are sent to the relay chain, for
+	/// [`Self::notify_era_start`].
+	///
+	/// Costs one write of the set in the block that completes the election.
+	pub(crate) fn keep_next_era_validators(era: EraIndex, validators: &[T::AccountId]) {
+		if T::OnEraStart::ENABLED {
+			NextEraValidators::<T>::put((era, BoundedVec::truncate_from(validators.to_vec())));
+		}
+	}
+
+	/// Notify [`Config::OnEraStart`] with the validators of `era`.
+	///
+	/// Costs one read and one removal of the copy kept by [`Self::keep_next_era_validators`].
+	/// Without a copy, as on the first era start after the upgrade that introduced it, the set is
+	/// read once from the keys of the exposure overview instead, at one read per validator.
+	fn notify_era_start(era: EraIndex) -> Weight {
+		if !T::OnEraStart::ENABLED {
+			return Weight::zero();
+		}
+		let (validators, read_weight) = match NextEraValidators::<T>::take() {
+			Some((kept_era, validators)) if kept_era == era => {
+				(validators.into_inner(), Self::kept_validators_weight())
+			},
+			kept => {
+				if kept.is_some() {
+					defensive!("kept validators belong to another era");
+				}
+				let validators = Eras::<T>::exposed_validators(era);
+				let weight = Self::kept_validators_weight()
+					.saturating_add(Self::exposed_validators_weight(validators.len() as u32));
+				(validators, weight)
+			},
+		};
+		T::OnEraStart::on_era_start(era, &validators);
+		read_weight.saturating_add(T::OnEraStart::weight(validators.len() as u32))
+	}
+
+	/// Worst-case weight of [`Self::notify_era_start`], with the fallback read.
+	pub(crate) fn notify_era_start_max_weight() -> Weight {
+		if !T::OnEraStart::ENABLED {
+			return Weight::zero();
+		}
+		let max = T::MaxValidatorSet::get();
+		Self::kept_validators_weight()
+			.saturating_add(Self::exposed_validators_weight(max))
+			.saturating_add(T::OnEraStart::weight(max))
+	}
+
+	/// Weight of taking [`NextEraValidators`], with its maximum encoded size as proof size.
+	fn kept_validators_weight() -> Weight {
+		T::DbWeight::get()
+			.reads_writes(1, 1)
+			.saturating_add(Weight::from_parts(0, max_storage_size::<NextEraValidators<T>>()))
+	}
+
+	/// Weight of reading the keys of `validators` exposure overview entries.
+	fn exposed_validators_weight(validators: u32) -> Weight {
+		// The entry's `max_size` on purpose, not the benchmark CLI's per-read trie overhead, which
+		// would charge about 2.5 MB at 1000 validators.
+		let per_entry = max_storage_size::<ErasStakersOverview<T>>();
+		T::DbWeight::get()
+			.reads(u64::from(validators).saturating_add(1))
+			.saturating_add(Weight::from_parts(0, per_entry.saturating_mul(validators.into())))
 	}
 
 	fn start_era_inc_active_era(start_timestamp: u64) {
@@ -1105,8 +1195,12 @@ impl<T: Config> EraElectionPlanner<T> {
 		//   that we know this writes one storage item under the hood)
 		// * 1 extra read for `CurrentEra`
 		// * 1 extra read for `BondedEras` in `get_prune_up_to`
+		// * 1 extra write for `NextEraValidators`, if `OnEraStart` is enabled
 		// ElectableStashes already read in `do_elect_paged`
 		required_weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 2));
+		if T::OnEraStart::ENABLED {
+			required_weight.saturating_accrue(T::DbWeight::get().writes(1));
+		}
 
 		let exec = Box::new(move |meter: &mut WeightMeter| {
 			crate::log!(
@@ -1133,6 +1227,7 @@ impl<T: Config> EraElectionPlanner<T> {
 				let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
 				let prune_up_to = Self::get_prune_up_to();
 				let rc_validators = ElectableStashes::<T>::take().into_iter().collect::<Vec<_>>();
+				Rotator::<T>::keep_next_era_validators(id, &rc_validators);
 
 				crate::log!(
 					info,
@@ -1382,4 +1477,9 @@ impl<T: Config> EraElectionPlanner<T> {
 			Ok(electable.len() - pre_size)
 		})
 	}
+}
+
+/// Maximum size in bytes of one entry of `S`, key included.
+fn max_storage_size<S: frame_support::traits::StorageInfoTrait>() -> u64 {
+	S::storage_info().iter().filter_map(|info| info.max_size).map(u64::from).sum()
 }
