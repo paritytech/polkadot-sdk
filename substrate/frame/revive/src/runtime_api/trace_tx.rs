@@ -30,6 +30,7 @@ impl<Block> From<TraceTxVersionedInputPayload<Block>> for TraceTxInputPayload<Bl
 		match value {
 			TraceTxVersionedInputPayload::V1(payload) => payload.into(),
 			TraceTxVersionedInputPayload::V2(payload) => payload.into(),
+			TraceTxVersionedInputPayload::V3(payload) => payload.into(),
 		}
 	}
 }
@@ -42,6 +43,12 @@ impl<Block> From<TraceTxInputPayloadV1<Block>> for TraceTxInputPayload<Block> {
 
 impl<Block> From<TraceTxInputPayloadV2<Block>> for TraceTxInputPayload<Block> {
 	fn from(value: TraceTxInputPayloadV2<Block>) -> Self {
+		Self { block: value.block, tx_index: value.tx_index, config: value.config.into() }
+	}
+}
+
+impl<Block> From<TraceTxInputPayloadV3<Block>> for TraceTxInputPayload<Block> {
+	fn from(value: TraceTxInputPayloadV3<Block>) -> Self {
 		Self { block: value.block, tx_index: value.tx_index, config: value.config.into() }
 	}
 }
@@ -62,6 +69,12 @@ impl From<TraceTxOutputPayload> for TraceTxOutputPayloadV1 {
 }
 
 impl From<TraceTxOutputPayload> for TraceTxOutputPayloadV2 {
+	fn from(value: TraceTxOutputPayload) -> Self {
+		Self { entry: value.entry.map(Into::into) }
+	}
+}
+
+impl From<TraceTxOutputPayload> for TraceTxOutputPayloadV3 {
 	fn from(value: TraceTxOutputPayload) -> Self {
 		Self { entry: value.entry.map(Into::into) }
 	}

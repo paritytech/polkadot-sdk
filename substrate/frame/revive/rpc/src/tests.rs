@@ -20,8 +20,8 @@
 
 use crate::{
 	BlockHeader, BlockInfoProvider, BoundedOneOrMany, ChainMetadata, DbContext, DebugRpcClient,
-	EthRpcClient, FilterResults, Log, ReceiptExtractor, ReceiptProvider, SubscriptionItem,
-	SubscriptionKind, SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
+	EthRpcClient, FilterResults, Log, ReceiptExtractor, ReceiptInfo, ReceiptProvider,
+	SubscriptionItem, SubscriptionKind, SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
 	client::{
 		Client, GapFillRequest, SubscriptionGapQueue, connect,
@@ -46,7 +46,7 @@ use jsonrpsee::{
 };
 use pallet_revive::{
 	create1,
-	evm::{Account, H256, TransactionUnsigned, U256},
+	evm::{Account, H160, H256, TransactionUnsigned, U256},
 	precompiles::alloy::{
 		self,
 		sol_types::{SolCall, SolConstructor, SolEvent, SolInterface},
@@ -54,9 +54,12 @@ use pallet_revive::{
 };
 use pallet_revive_fixtures::{Callee, Counter, TwoSlots};
 use pallet_revive_types::runtime_api::{
-	BlockV1, CallTracerConfigV1, CodeV1, GenericTransactionV1, HashesOrTransactionInfosV1,
-	TraceBlockInputPayloadV1, TraceBlockInputPayloadV2, TraceBlockVersionedInputPayload,
-	TraceBlockVersionedOutputPayload, TraceEntryV1, TraceV1, TraceV2, TracerTypeV1,
+	BlockV1, CallTracerConfigV1, CodeV1, ExecutionStepV1, ExecutionTracerConfigV2,
+	GenericTransactionV1, HashesOrTransactionInfosV1, TraceBlockInputPayloadV1,
+	TraceBlockInputPayloadV2, TraceBlockVersionedInputPayload, TraceBlockVersionedOutputPayload,
+	TraceCallInputPayloadV3, TraceCallVersionedInputPayload, TraceCallVersionedOutputPayload,
+	TraceEntryV1, TraceTxInputPayloadV3, TraceTxVersionedInputPayload,
+	TraceTxVersionedOutputPayload, TraceV1, TraceV2, TracerTypeV1, TracerTypeV2,
 };
 use sp_runtime::BoundedVec;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
@@ -335,6 +338,77 @@ async fn wait_for_finalized_to_reach_best<C: EthRpcClient + Sync>(
 	.map_err(|_| anyhow::anyhow!("timed out waiting for finalized block to match best block"))?
 }
 
+/// The block shape the tracing runtime APIs take.
+type SubstrateTracingBlock = sp_runtime::generic::Block<
+	sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
+	sp_runtime::OpaqueExtrinsic,
+>;
+
+/// Deploy the `Host` fixture and call `logOps` on it. Returns the contract address and the
+/// receipt of the `logOps` transaction, which the trace tests replay.
+async fn deploy_host_and_call_log_ops(
+	client: Arc<WsClient>,
+) -> anyhow::Result<(H160, ReceiptInfo)> {
+	use pallet_revive_fixtures::Host;
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Host",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let deploy_receipt = TransactionBuilder::new(client.clone())
+		.input(code)
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+	let contract_address = deploy_receipt
+		.contract_address
+		.ok_or_else(|| anyhow!("deployment should return a contract address"))?;
+
+	let receipt = TransactionBuilder::new(client)
+		.to(contract_address)
+		.input(Host::HostCalls::logOps(Host::logOpsCall {}).abi_encode())
+		.gas(U256::from(1_000_000))
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+	assert!(receipt.is_success());
+
+	Ok((contract_address, receipt))
+}
+
+/// Rebuild the block at `number` in the shape the tracing runtime APIs take, along with its
+/// parent hash, which names the state the block is replayed on.
+async fn tracing_block_at(
+	node_client: &OnlineClient<SrcChainConfig>,
+	number: u32,
+) -> anyhow::Result<(SubstrateTracingBlock, H256)> {
+	use codec::{Decode, Encode};
+
+	let subxt_block = node_client.at_block(number).await?;
+	anyhow::ensure!(
+		subxt_block.block_number() == u64::from(number),
+		"the node should return the block that was asked for"
+	);
+
+	let subxt_header = subxt_block.block_header().await?;
+	let parent_hash = subxt_header.parent_hash;
+	let header = Decode::decode(&mut &subxt_header.encode()[..])?;
+	let extrinsics = subxt_block
+		.extrinsics()
+		.fetch()
+		.await?
+		.iter()
+		.map(|extrinsic| {
+			sp_runtime::OpaqueExtrinsic::try_from_encoded_extrinsic(extrinsic?.bytes())
+				.map_err(anyhow::Error::from)
+		})
+		.collect::<Result<Vec<_>, _>>()?;
+
+	Ok((SubstrateTracingBlock { header, extrinsics }, parent_hash))
+}
+
 #[tokio::test]
 async fn run_all_eth_rpc_tests() -> anyhow::Result<()> {
 	let timeout_duration = tokio::time::Duration::from_secs(300);
@@ -373,6 +447,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 	run_tests!(
 		test_fibonacci_call_via_runtime_api,
 		test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input,
+		test_trace_tx_and_trace_call_return_v3_traces_on_v3_input,
 		test_transfer,
 		test_deploy_and_call,
 		test_receipt_mixed_revert_and_logs_same_block,
@@ -2198,60 +2273,15 @@ async fn test_fibonacci_call_via_runtime_api() -> anyhow::Result<()> {
 
 async fn test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input()
 -> anyhow::Result<()> {
-	use pallet_revive_fixtures::Host;
-
-	type SubstrateTracingBlock = sp_runtime::generic::Block<
-		sp_runtime::generic::Header<u32, sp_runtime::traits::BlakeTwo256>,
-		sp_runtime::OpaqueExtrinsic,
-	>;
-
 	let client = Arc::new(SharedResources::client().await);
 	let node_client = SharedResources::node_client().await;
 
-	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
-		"Host",
-		pallet_revive_fixtures::FixtureType::Solc,
-	)?;
-	let deploy_receipt = TransactionBuilder::new(client.clone())
-		.input(code)
-		.send()
-		.await?
-		.wait_for_receipt()
-		.await?;
-	let contract_address = deploy_receipt
-		.contract_address
-		.ok_or_else(|| anyhow!("deployment should return a contract address"))?;
-
-	let receipt = TransactionBuilder::new(client)
-		.to(contract_address)
-		.input(Host::HostCalls::logOps(Host::logOpsCall {}).abi_encode())
-		.gas(U256::from(1_000_000))
-		.send()
-		.await?
-		.wait_for_receipt()
-		.await?;
-	assert!(receipt.is_success());
+	let (_, receipt) = deploy_host_and_call_log_ops(client).await?;
 	assert_eq!(receipt.logs.len(), 5);
 
 	let receipt_block_number = u32::try_from(receipt.block_number)
 		.map_err(|_| anyhow!("receipt block number should fit in u32"))?;
-	let subxt_block = node_client.at_block(receipt_block_number).await?;
-	assert_eq!(subxt_block.block_number(), u64::from(receipt_block_number));
-
-	let subxt_header = subxt_block.block_header().await?;
-	let parent_hash = subxt_header.parent_hash;
-	let header = codec::Decode::decode(&mut &codec::Encode::encode(&subxt_header)[..])?;
-	let extrinsics = subxt_block
-		.extrinsics()
-		.fetch()
-		.await?
-		.iter()
-		.map(|extrinsic| {
-			sp_runtime::OpaqueExtrinsic::try_from_encoded_extrinsic(extrinsic?.bytes())
-				.map_err(anyhow::Error::from)
-		})
-		.collect::<Result<Vec<_>, _>>()?;
-	let block = SubstrateTracingBlock { header, extrinsics };
+	let (block, parent_hash) = tracing_block_at(&node_client, receipt_block_number).await?;
 	let config = TracerTypeV1::CallTracer(Some(CallTracerConfigV1 {
 		with_logs: true,
 		only_top_call: false,
@@ -2402,7 +2432,8 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		.connect_with(SqliteConnectOptions::new().in_memory(true))
 		.await?;
 
-	let runtime_api_provider = VersionAwareRuntimeApiProvider::new(api.clone(), rpc_client.clone());
+	let runtime_api_provider =
+		VersionAwareRuntimeApiProvider::new(api.clone(), rpc_client.clone(), max_response_size);
 	let receipt_extractor = ReceiptExtractor::new(runtime_api_provider.clone()).await?;
 	let receipt_provider = ReceiptProvider::new(
 		DbContext::new(pool, DbContext::DEFAULT_MAX_VARIABLE_NUMBER),
@@ -3831,6 +3862,95 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 
 	// bg_client holds the channel sender, so abort instead of dropping.
 	subscription_gap_queue_handle.abort();
+
+	Ok(())
+}
+
+/// A V3 input is answered with a V3 output by `trace_tx` and `trace_call`, and `trace_tx` returns
+/// the window that `step_offset` and `limit` select.
+async fn test_trace_tx_and_trace_call_return_v3_traces_on_v3_input() -> anyhow::Result<()> {
+	use pallet_revive_fixtures::Host;
+
+	let client = Arc::new(SharedResources::client().await);
+	let node_client = SharedResources::node_client().await;
+
+	let (contract_address, receipt) = deploy_host_and_call_log_ops(client).await?;
+
+	let receipt_block_number = u32::try_from(receipt.block_number)
+		.map_err(|_| anyhow!("receipt block number should fit in u32"))?;
+	let (block, parent_hash) = tracing_block_at(&node_client, receipt_block_number).await?;
+
+	let tx_index = u32::try_from(receipt.transaction_index)
+		.map_err(|_| anyhow!("receipt transaction index should fit in u32"))?;
+	let steps = async |step_offset, limit| -> anyhow::Result<Vec<ExecutionStepV1>> {
+		let input = TraceTxVersionedInputPayload::V3(TraceTxInputPayloadV3 {
+			block: subxt::utils::Static(block.clone()),
+			tx_index,
+			config: TracerTypeV2::ExecutionTracer(Some(ExecutionTracerConfigV2 {
+				step_offset,
+				limit: Some(limit),
+				..Default::default()
+			})),
+		});
+		let payload = subxt_client::runtime_apis()
+			.revive_api()
+			.trace_tx_versioned(subxt::utils::Static(input))
+			.unvalidated();
+		let output = node_client.at_block(parent_hash).await?.runtime_apis().call(payload).await?.0;
+
+		let TraceTxVersionedOutputPayload::V3(output) = output else {
+			return Err(anyhow!("V3 trace_tx input should return V3 output"));
+		};
+		let Some(TraceEntryV1::Traced(TraceV2::Execution(trace))) = output.entry else {
+			return Err(anyhow!("the execution tracer should produce an execution trace"));
+		};
+
+		Ok(trace.struct_logs)
+	};
+
+	// A window of one, moved along by `step_offset`, which a V1 config could not ask for.
+	let first = steps(0, 1).await?;
+	let second = steps(1, 1).await?;
+	assert_eq!((first.len(), second.len()), (1, 1), "`limit: 1` should return one step");
+	assert_ne!(first, second, "`step_offset` should move the window");
+	assert_eq!(
+		steps(0, 2).await?,
+		[first, second].concat(),
+		"two windows should rebuild the whole",
+	);
+
+	// `trace_call` answers V3 with V3 as well.
+	let call_input = TraceCallVersionedInputPayload::V3(TraceCallInputPayloadV3 {
+		tx: GenericTransactionV1 {
+			to: Some(contract_address),
+			input: Host::HostCalls::logOps(Host::logOpsCall {}).abi_encode().into(),
+			..Default::default()
+		},
+		config: TracerTypeV2::ExecutionTracer(Some(ExecutionTracerConfigV2 {
+			limit: Some(1),
+			..Default::default()
+		})),
+		state_overrides: None,
+	});
+	let call_payload = subxt_client::runtime_apis()
+		.revive_api()
+		.trace_call_versioned(subxt::utils::Static(call_input))
+		.unvalidated();
+	let call_output = node_client
+		.at_block(parent_hash)
+		.await?
+		.runtime_apis()
+		.call(call_payload)
+		.await?
+		.map_err(|err| anyhow!("trace_call failed: {:?}", err.0))?
+		.0;
+	let TraceCallVersionedOutputPayload::V3(call_output) = call_output else {
+		return Err(anyhow!("V3 trace_call input should return V3 output"));
+	};
+	let TraceV2::Execution(call_trace) = call_output.trace else {
+		return Err(anyhow!("the execution tracer should produce an execution trace"));
+	};
+	assert_eq!(call_trace.struct_logs.len(), 1, "`limit: 1` should return one step");
 
 	Ok(())
 }

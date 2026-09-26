@@ -30,6 +30,7 @@ impl From<TraceCallVersionedInputPayload> for TraceCallInputPayload {
 		match value {
 			TraceCallVersionedInputPayload::V1(payload) => payload.into(),
 			TraceCallVersionedInputPayload::V2(payload) => payload.into(),
+			TraceCallVersionedInputPayload::V3(payload) => payload.into(),
 		}
 	}
 }
@@ -54,6 +55,16 @@ impl From<TraceCallInputPayloadV2> for TraceCallInputPayload {
 	}
 }
 
+impl From<TraceCallInputPayloadV3> for TraceCallInputPayload {
+	fn from(value: TraceCallInputPayloadV3) -> Self {
+		Self {
+			tx: value.tx.into(),
+			config: value.config.into(),
+			state_overrides: value.state_overrides.map(Into::into),
+		}
+	}
+}
+
 pub struct TraceCallOutputPayload {
 	pub trace: Trace,
 }
@@ -65,6 +76,12 @@ impl From<TraceCallOutputPayload> for TraceCallOutputPayloadV1 {
 }
 
 impl From<TraceCallOutputPayload> for TraceCallOutputPayloadV2 {
+	fn from(value: TraceCallOutputPayload) -> Self {
+		Self { trace: value.trace.into() }
+	}
+}
+
+impl From<TraceCallOutputPayload> for TraceCallOutputPayloadV3 {
 	fn from(value: TraceCallOutputPayload) -> Self {
 		Self { trace: value.trace.into() }
 	}

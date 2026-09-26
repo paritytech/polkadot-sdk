@@ -1613,3 +1613,103 @@ fn truncation_does_not_alter_the_steps_it_keeps() {
 		}
 	}
 }
+
+/// Windows of one execution concatenate into the trace a single call returns.
+#[test]
+fn windows_of_an_execution_rebuild_the_whole_trace() {
+	use crate::evm::{ExecutionTracer, ExecutionTracerConfig};
+	use pallet_revive_fixtures::{Callee, Caller, ReentryStorage};
+	use sp_core::H160;
+
+	type Deploy = fn(FixtureType) -> (H160, Vec<u8>);
+
+	fn callee_call(fixture_type: FixtureType, call: Vec<u8>) -> (H160, Vec<u8>) {
+		let (callee_code, _) = compile_module_with_type("Callee", fixture_type).unwrap();
+		let Contract { addr: callee, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+		let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+		let Contract { addr: caller, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+		let data = Caller::normalCall {
+			_callee: callee.0.into(),
+			_value: 0,
+			_data: call.into(),
+			_gas: u64::MAX,
+		}
+		.abi_encode();
+
+		(caller, data)
+	}
+
+	let scenarios: [(&str, Deploy); 4] = [
+		("echo", |ft| callee_call(ft, Callee::echoCall { _data: 42u64 }.abi_encode())),
+		("store", |ft| callee_call(ft, Callee::storeCall { _data: 42u64 }.abi_encode())),
+		("revert", |ft| callee_call(ft, Callee::revertCall {}.abi_encode())),
+		// Writes one slot, reenters itself, then writes another, so a boundary falls between a
+		// write and a later step whose snapshot has to carry it.
+		("reentryStorage", |ft| {
+			let (code, _) = compile_module_with_type("ReentryStorage", ft).unwrap();
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+			(addr, ReentryStorage::writeReenterWriteCall {}.abi_encode())
+		}),
+	];
+
+	for fixture_type in [FixtureType::Solc, FixtureType::Resolc] {
+		for (name, deploy) in scenarios {
+			let traced = |step_offset: u64, limit: Option<u64>| {
+				ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+					let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+					let (contract, data) = deploy(fixture_type);
+
+					let mut tracer = ExecutionTracer::new(ExecutionTracerConfig {
+						step_offset,
+						limit,
+						..Default::default()
+					});
+					trace(&mut tracer, || {
+						builder::bare_call(contract).data(data).build_and_unwrap_result()
+					});
+					tracer.collect_trace()
+				})
+			};
+
+			let full = traced(0, None);
+			let steps = full.struct_logs.len() as u64;
+			assert!(steps > 8, "{name}: expected a multi-step trace, got {steps}");
+			assert!(
+				full.struct_logs.iter().any(|step| step.depth > 0),
+				"{name}: the fixture must make a nested call for this to be a real test",
+			);
+
+			// Sweep the window relative to the trace, so the cut lands inside the nested call
+			// as well as on its boundaries.
+			for window in [1, steps / 4, steps / 3, steps - 1, steps] {
+				let mut walked = Vec::new();
+				for offset in (0..).step_by(window as usize).take(steps as usize + 1) {
+					let captured = traced(offset, Some(window));
+					let is_last = (captured.struct_logs.len() as u64) < window;
+
+					assert_eq!(
+						(captured.gas, captured.failed, &captured.return_value),
+						(full.gas, full.failed, &full.return_value),
+						"{name}: the window at {offset} reports a different transaction",
+					);
+
+					walked.extend(captured.struct_logs);
+
+					if is_last {
+						break;
+					}
+				}
+
+				assert_eq!(
+					walked, full.struct_logs,
+					"{name}: windows of {window} step(s) rebuild the trace a single call returns",
+				);
+			}
+		}
+	}
+}
