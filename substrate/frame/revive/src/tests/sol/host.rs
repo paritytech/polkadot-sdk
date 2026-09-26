@@ -22,6 +22,7 @@ use crate::{
 	evm::fees::InfoT,
 	exec::EMPTY_CODE_HASH,
 	metering::TransactionLimits,
+	precompiles::EVM_REVERT,
 	storage::AccountInfo,
 	test_utils::{
 		ALICE, BOB, BOB_ADDR, CHARLIE, CHARLIE_ADDR, DJANGO, DJANGO_ADDR, builder::Contract,
@@ -207,6 +208,12 @@ fn extcodesize_works(fixture_type: FixtureType) {
 			TestCase { name: "delegated EOA", addr: delegated_eoa, expected: 23 },
 			TestCase { name: "regular EOA", addr: CHARLIE_ADDR, expected: 0 },
 			TestCase { name: "non-existent", addr: H160::from_low_u64_be(0xdead), expected: 0 },
+			TestCase {
+				name: "precompile",
+				addr: H160(SYSTEM_PRECOMPILE_ADDR),
+				expected: EVM_REVERT.len() as u64,
+			},
+			TestCase { name: "primitive precompile", addr: H160::from_low_u64_be(1), expected: 0 },
 		];
 
 		for TestCase { name, addr, expected } in cases {
@@ -270,6 +277,16 @@ fn extcodehash_works(fixture_type: FixtureType) {
 				name: "non-existent",
 				addr: H160::from_low_u64_be(0xdead),
 				expected: H256::zero(),
+			},
+			TestCase {
+				name: "precompile",
+				addr: H160(SYSTEM_PRECOMPILE_ADDR),
+				expected: sp_io::hashing::keccak_256(&EVM_REVERT).into(),
+			},
+			TestCase {
+				name: "primitive precompile",
+				addr: H160::from_low_u64_be(1),
+				expected: EMPTY_CODE_HASH,
 			},
 		];
 
@@ -373,6 +390,11 @@ fn extcodecopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 		let delegated_eoa = create_delegated_eoa(&dummy_addr);
 		let indicator = AccountInfo::<Test>::delegation_indicator(&dummy_addr).to_vec();
 
+		let system_precompile = H160(SYSTEM_PRECOMPILE_ADDR);
+		let stub = EVM_REVERT.to_vec();
+
+		<Test as Config>::Currency::set_balance(&CHARLIE, 100_000_000);
+
 		struct TestCase {
 			description: &'static str,
 			target: H160,
@@ -457,6 +479,66 @@ fn extcodecopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 				size: 5,
 				expected: vec![0u8; 5],
 			},
+			TestCase {
+				description: "precompile: full stub",
+				target: system_precompile,
+				offset: 0,
+				size: stub.len(),
+				expected: stub.clone(),
+			},
+			TestCase {
+				description: "precompile: single byte",
+				target: system_precompile,
+				offset: 0,
+				size: 1,
+				expected: stub[..1].to_vec(),
+			},
+			TestCase {
+				description: "precompile: size beyond stub, zero-padded",
+				target: system_precompile,
+				offset: 0,
+				size: stub.len() + 22,
+				expected: {
+					let mut expected = vec![0u8; stub.len() + 22];
+					expected[..stub.len()].copy_from_slice(&stub);
+					expected
+				},
+			},
+			TestCase {
+				description: "precompile: copy within bounds",
+				target: system_precompile,
+				offset: 1,
+				size: stub.len() - 2,
+				expected: stub[1..stub.len() - 1].to_vec(),
+			},
+			TestCase {
+				description: "precompile: offset beyond stub",
+				target: system_precompile,
+				offset: stub.len() + 32,
+				size: 7,
+				expected: vec![0u8; 7],
+			},
+			TestCase {
+				description: "primitive precompile: empty stub, zero-filled",
+				target: H160::from_low_u64_be(1),
+				offset: 0,
+				size: 8,
+				expected: vec![0u8; 8],
+			},
+			TestCase {
+				description: "regular EOA: zero-filled",
+				target: CHARLIE_ADDR,
+				offset: 0,
+				size: 8,
+				expected: vec![0u8; 8],
+			},
+			TestCase {
+				description: "non-existent: zero-filled",
+				target: H160::from_low_u64_be(0xdead),
+				offset: 0,
+				size: 8,
+				expected: vec![0u8; 8],
+			},
 		];
 
 		for TestCase { description, target, offset, size, expected } in test_cases {
@@ -475,163 +557,6 @@ fn extcodecopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 			let actual =
 				HostEvmOnly::extcodecopyOpCall::abi_decode_returns(&result.data).unwrap().0;
 			assert_eq!(expected, actual.to_vec(), "EXTCODECOPY mismatch: {}", description);
-		}
-	});
-}
-
-/// EXTCODECOPY on a pre-compile address serves the pre-compile's code stub,
-/// consistent with what `EXTCODESIZE` and `EXTCODEHASH` report.
-///
-/// The copying contract is always Solc since EXTCODECOPY does not exist in PVM. The
-/// EXTCODEHASH cross-check runs as both Solc and Resolc to cover both VMs.
-#[test_case(FixtureType::Solc; "hash check via solc")]
-#[test_case(FixtureType::Resolc; "hash check via resolc")]
-fn extcodecopy_precompile_works(host_type: FixtureType) {
-	use crate::precompiles::{All, Precompiles};
-	use pallet_revive_fixtures::{HostEvmOnly, HostEvmOnly::HostEvmOnlyCalls};
-
-	let (caller_code, _) = compile_module_with_type("HostEvmOnly", FixtureType::Solc).unwrap();
-	let (host_code, _) = compile_module_with_type("Host", host_type).unwrap();
-
-	ExtBuilder::default().build().execute_with(|| {
-		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
-		let Contract { addr, .. } =
-			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
-		let Contract { addr: host_addr, .. } =
-			builder::bare_instantiate(Code::Upload(host_code)).build_and_unwrap_contract();
-
-		// the system builtin pre-compile
-		let precompile_addr = H160(SYSTEM_PRECOMPILE_ADDR);
-		let stub = <All<Test>>::code(precompile_addr.as_fixed_bytes()).unwrap();
-		assert_ne!(stub[0], 0, "single byte copy case needs a non-zero first stub byte");
-
-		struct TestCase {
-			description: &'static str,
-			offset: usize,
-			size: usize,
-			expected: Vec<u8>,
-		}
-
-		let test_cases = vec![
-			TestCase {
-				description: "copy whole stub",
-				offset: 0,
-				size: stub.len(),
-				expected: stub.to_vec(),
-			},
-			TestCase {
-				description: "single byte copy",
-				offset: 0,
-				size: 1,
-				expected: stub[..1].to_vec(),
-			},
-			TestCase {
-				description: "size beyond stub is zero padded",
-				offset: 0,
-				size: stub.len() + 22,
-				expected: {
-					let mut expected = vec![0u8; stub.len() + 22];
-					expected[..stub.len()].copy_from_slice(stub);
-					expected
-				},
-			},
-			TestCase {
-				description: "copy within bounds",
-				offset: 1,
-				size: stub.len() - 2,
-				expected: stub[1..stub.len() - 1].to_vec(),
-			},
-			TestCase {
-				description: "offset beyond stub",
-				offset: stub.len() + 32,
-				size: 7,
-				expected: vec![0u8; 7],
-			},
-			TestCase { description: "len = 0", offset: 0, size: 0, expected: vec![] },
-		];
-
-		for test_case in test_cases {
-			let result = builder::bare_call(addr)
-				.data(
-					HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
-						account: precompile_addr.0.into(),
-						offset: test_case.offset as u64,
-						size: test_case.size as u64,
-					})
-					.abi_encode(),
-				)
-				.build_and_unwrap_result();
-
-			assert!(!result.did_revert(), "test reverted for: {}", test_case.description);
-
-			let return_value = HostEvmOnly::extcodecopyOpCall::abi_decode_returns(&result.data)
-				.expect("Failed to decode extcodecopyOp return value");
-			let actual_code = &return_value.0;
-
-			assert_eq!(
-				&test_case.expected, actual_code,
-				"EXTCODECOPY content mismatch for {}",
-				test_case.description
-			);
-		}
-
-		// cross-check the opcodes against each other without relying on `All::code`:
-		// the keccak of the EXTCODECOPY'd bytes must equal what EXTCODEHASH reports
-		let result = builder::bare_call(addr)
-			.data(
-				HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
-					account: precompile_addr.0.into(),
-					offset: 0,
-					size: stub.len() as u64,
-				})
-				.abi_encode(),
-			)
-			.build_and_unwrap_result();
-		let copied = HostEvmOnly::extcodecopyOpCall::abi_decode_returns(&result.data).unwrap().0;
-
-		let result = builder::bare_call(host_addr)
-			.data(
-				Host::HostCalls::extcodehashOp(Host::extcodehashOpCall {
-					account: precompile_addr.0.into(),
-				})
-				.abi_encode(),
-			)
-			.build_and_unwrap_result();
-		let hash = Host::extcodehashOpCall::abi_decode_returns(&result.data).unwrap();
-
-		assert_eq!(
-			H256::from_slice(hash.as_slice()),
-			H256(sp_io::hashing::keccak_256(&copied)),
-			"EXTCODEHASH must equal keccak256 of the EXTCODECOPY'd code",
-		);
-
-		// addresses without code are zero filled: primitive pre-compiles (empty stub)
-		// and plain accounts (storage fallback)
-		let primitive_addr = H160::from_low_u64_be(1);
-		for (description, account) in
-			[("primitive pre-compile", primitive_addr), ("EOA without code", BOB_ADDR)]
-		{
-			let result = builder::bare_call(addr)
-				.data(
-					HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
-						account: account.0.into(),
-						offset: 0,
-						size: 8,
-					})
-					.abi_encode(),
-				)
-				.build_and_unwrap_result();
-
-			assert!(!result.did_revert(), "test reverted for: {description}");
-
-			let return_value = HostEvmOnly::extcodecopyOpCall::abi_decode_returns(&result.data)
-				.expect("Failed to decode extcodecopyOp return value");
-
-			assert_eq!(
-				&vec![0u8; 8],
-				&return_value.0,
-				"EXTCODECOPY must zero fill for {description}",
-			);
 		}
 	});
 }
