@@ -61,6 +61,7 @@ pallet-nomination-pools-benchmarking = { optional = true, workspace = true }
 pallet-nomination-pools-runtime-api = { workspace = true }
 pallet-pgas-allowance = { workspace = true }
 pallet-preimage = { workspace = true }
+pallet-price-oracle = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-psm = { workspace = true }
 pallet-recovery = { workspace = true }
@@ -96,6 +97,7 @@ sp-io = { workspace = true }
 sp-keyring = { workspace = true }
 sp-npos-elections = { workspace = true }
 sp-offchain = { workspace = true }
+sp-price-oracle = { workspace = true }
 sp-runtime = { workspace = true }
 sp-session = { workspace = true }
 sp-staking = { workspace = true }
@@ -216,6 +218,7 @@ runtime-benchmarks = [
 	"pallet-nomination-pools/runtime-benchmarks",
 	"pallet-pgas-allowance/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
+	"pallet-price-oracle/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-psm/runtime-benchmarks",
 	"pallet-recovery/runtime-benchmarks",
@@ -302,6 +305,7 @@ try-runtime = [
 	"pallet-nomination-pools/try-runtime",
 	"pallet-pgas-allowance/try-runtime",
 	"pallet-preimage/try-runtime",
+	"pallet-price-oracle/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-psm/try-runtime",
 	"pallet-recovery/try-runtime",
@@ -397,6 +401,7 @@ std = [
 	"pallet-nomination-pools/std",
 	"pallet-pgas-allowance/std",
 	"pallet-preimage/std",
+	"pallet-price-oracle/std",
 	"pallet-proxy/std",
 	"pallet-psm/std",
 	"pallet-recovery/std",
@@ -451,6 +456,7 @@ std = [
 	"sp-keyring/std",
 	"sp-npos-elections/std",
 	"sp-offchain/std",
+	"sp-price-oracle/std",
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-staking/std",

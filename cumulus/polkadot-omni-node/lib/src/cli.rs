@@ -335,6 +335,15 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, value_name = "N", default_value_t = 32)]
 	pub collator_reserved_slots: usize,
 
+	/// Enable the price oracle service.
+	///
+	/// The node fetches prices from the markets registered on chain, signs them with its Aura
+	/// key, gossips them to the other collators, and includes the collected price reports in the
+	/// blocks it authors. Requires a runtime with the price oracle pallet.
+	#[cfg(feature = "price-oracle")]
+	#[arg(long)]
+	pub enable_price_oracle: bool,
+
 	/// HOP (Hand-Off Protocol) configuration parameters.
 	#[command(flatten)]
 	pub hop: sc_hop::HopParams,
@@ -405,6 +414,10 @@ impl<Config: CliConfig> Cli<Config> {
 			storage_monitor: self.storage_monitor.clone(),
 			collator_reserved_slots: self.collator_reserved_slots,
 			hop: self.hop.enabled.then(|| self.hop.clone()),
+			#[cfg(feature = "price-oracle")]
+			price_oracle: self.enable_price_oracle,
+			#[cfg(not(feature = "price-oracle"))]
+			price_oracle: false,
 		}
 	}
 

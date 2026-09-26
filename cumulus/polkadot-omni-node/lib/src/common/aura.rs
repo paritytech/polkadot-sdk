@@ -21,14 +21,28 @@ use cumulus_primitives_aura::AuraUnincludedSegmentApi;
 use cumulus_primitives_core::KeyToIncludeInRelayProof;
 use sp_consensus_aura::AuraApi;
 use sp_runtime::{
-	app_crypto::{AppCrypto, AppPair, AppSignature, Pair},
+	app_crypto::{AppCrypto, AppPair, AppPublic, AppSignature, Pair},
 	traits::Block as BlockT,
+	RuntimeAppPublic,
 };
 
 /// Convenience trait for defining the basic bounds of an `AuraId`.
 pub trait AuraIdT: AppCrypto<Pair = Self::BoundedPair> + Codec + Send {
 	/// Extra bounds for the `Pair`.
-	type BoundedPair: AppPair + AppCrypto<Signature = Self::BoundedSignature>;
+	type BoundedPair: AppPair
+		+ AppCrypto<Signature = Self::BoundedSignature, Public = Self::BoundedPublic>;
+
+	/// Extra bounds for the `Public` key.
+	type BoundedPublic: RuntimeAppPublic<Signature = Self::BoundedSignature>
+		+ AppCrypto
+		+ AppPublic
+		+ Ord
+		+ Clone
+		+ Codec
+		+ std::fmt::Debug
+		+ Send
+		+ Sync
+		+ 'static;
 
 	/// Extra bounds for the `Signature`.
 	type BoundedSignature: AppSignature
@@ -41,10 +55,18 @@ pub trait AuraIdT: AppCrypto<Pair = Self::BoundedPair> + Codec + Send {
 impl<T> AuraIdT for T
 where
 	T: AppCrypto + Codec + Send + Sync,
+	<<T as AppCrypto>::Pair as AppCrypto>::Public: RuntimeAppPublic<Signature = <<T as AppCrypto>::Pair as AppCrypto>::Signature>
+		+ AppPublic
+		+ Ord
+		+ Codec
+		+ Send
+		+ Sync
+		+ 'static,
 	<<T as AppCrypto>::Pair as AppCrypto>::Signature:
 		TryFrom<Vec<u8>> + std::hash::Hash + sp_runtime::traits::Member + Codec,
 {
 	type BoundedPair = <T as AppCrypto>::Pair;
+	type BoundedPublic = <<T as AppCrypto>::Pair as AppCrypto>::Public;
 	type BoundedSignature = <<T as AppCrypto>::Pair as AppCrypto>::Signature;
 }
 
@@ -55,6 +77,8 @@ pub trait AuraRuntimeApi<Block: BlockT, AuraId: AuraIdT>:
 	+ AuraApi<Block, <AuraId::BoundedPair as Pair>::Public>
 	+ AuraUnincludedSegmentApi<Block>
 	+ KeyToIncludeInRelayProof<Block>
+	+ sp_price_oracle::runtime_api::PriceOracleApi<Block, <AuraId::BoundedPair as Pair>::Public>
+	+ sp_price_oracle::runtime_api::PriceOracleMarketApi<Block>
 	+ Sized
 where
 	<AuraId::BoundedPair as Pair>::Public: std::fmt::Debug,
@@ -71,7 +95,9 @@ where
 	T: sp_api::ApiExt<Block>
 		+ AuraApi<Block, <AuraId::BoundedPair as Pair>::Public>
 		+ AuraUnincludedSegmentApi<Block>
-		+ KeyToIncludeInRelayProof<Block>,
+		+ KeyToIncludeInRelayProof<Block>
+		+ sp_price_oracle::runtime_api::PriceOracleApi<Block, <AuraId::BoundedPair as Pair>::Public>
+		+ sp_price_oracle::runtime_api::PriceOracleMarketApi<Block>,
 	<AuraId::BoundedPair as Pair>::Public: std::fmt::Debug,
 {
 }

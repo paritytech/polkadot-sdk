@@ -125,6 +125,9 @@ pub use tx_pause::{TransactionPause, TransactionPauseError};
 
 pub mod dynamic_params;
 
+mod price;
+pub use price::{PricePoint, PriceProvider};
+
 pub mod tasks;
 pub use tasks::Task;
 

@@ -300,6 +300,7 @@ members = [
 	"substrate/client/network/transactions",
 	"substrate/client/network/types",
 	"substrate/client/offchain",
+	"substrate/client/price-oracle",
 	"substrate/client/proposer-metrics",
 	"substrate/client/rpc",
 	"substrate/client/rpc-api",
@@ -426,6 +427,7 @@ members = [
 	"substrate/frame/parameters",
 	"substrate/frame/people",
 	"substrate/frame/preimage",
+	"substrate/frame/price-oracle",
 	"substrate/frame/primitives/coretime",
 	"substrate/frame/proxy",
 	"substrate/frame/psm",
@@ -544,6 +546,7 @@ members = [
 	"substrate/primitives/npos-elections/fuzzer",
 	"substrate/primitives/offchain",
 	"substrate/primitives/panic-handler",
+	"substrate/primitives/price-oracle",
 	"substrate/primitives/rpc",
 	"substrate/primitives/runtime",
 	"substrate/primitives/runtime-interface",
@@ -1060,6 +1063,7 @@ pallet-parameters = { path = "substrate/frame/parameters", default-features = fa
 pallet-people = { path = "substrate/frame/people", default-features = false }
 pallet-pgas-allowance = { path = "substrate/frame/transaction-payment/pgas-allowance", default-features = false }
 pallet-preimage = { path = "substrate/frame/preimage", default-features = false }
+pallet-price-oracle = { path = "substrate/frame/price-oracle", default-features = false }
 pallet-proxy = { path = "substrate/frame/proxy", default-features = false }
 pallet-psm = { path = "substrate/frame/psm", default-features = false }
 pallet-psm-remote-tests = { path = "substrate/frame/psm/remote-tests" }
@@ -1288,6 +1292,7 @@ sc-network-test = { path = "substrate/client/network/test" }
 sc-network-transactions = { path = "substrate/client/network/transactions", default-features = false }
 sc-network-types = { path = "substrate/client/network/types", default-features = false }
 sc-offchain = { path = "substrate/client/offchain", default-features = false }
+sc-price-oracle = { path = "substrate/client/price-oracle", default-features = false }
 sc-proposer-metrics = { path = "substrate/client/proposer-metrics", default-features = false }
 sc-rpc = { path = "substrate/client/rpc", default-features = false }
 sc-rpc-api = { path = "substrate/client/rpc-api", default-features = false }
@@ -1395,6 +1400,7 @@ sp-mmr-primitives = { path = "substrate/primitives/merkle-mountain-range", defau
 sp-npos-elections = { path = "substrate/primitives/npos-elections", default-features = false }
 sp-offchain = { path = "substrate/primitives/offchain", default-features = false }
 sp-panic-handler = { path = "substrate/primitives/panic-handler", default-features = false }
+sp-price-oracle = { path = "substrate/primitives/price-oracle", default-features = false }
 sp-rpc = { path = "substrate/primitives/rpc", default-features = false }
 sp-runtime = { path = "substrate/primitives/runtime", default-features = false }
 sp-runtime-interface = { path = "substrate/primitives/runtime-interface", default-features = false }
