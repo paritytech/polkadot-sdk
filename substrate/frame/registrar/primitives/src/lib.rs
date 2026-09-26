@@ -24,8 +24,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use scale_info::TypeInfo;
+
+/// A parachain id.
+///
+/// Byte-compatible with the relay chain's `Id`, which is a transparent `u32` newtype.
+pub type ParaId = u32;
 
 /// Registrar control-plane messages sent to the relay chain.
 ///
