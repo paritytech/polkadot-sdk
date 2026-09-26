@@ -1613,3 +1613,262 @@ fn truncation_does_not_alter_the_steps_it_keeps() {
 		}
 	}
 }
+
+/// Where a contract's log ends up, per entry point and per outcome, for a Solc and a Resolc build
+/// of the same contract.
+///
+/// A log from a frame that took effect is on the ethereum transaction's receipt when there is one
+/// and a substrate-only event otherwise. A log from a frame that reverted reaches no receipt: not
+/// the transaction's, not the block's synthetic one for logs emitted outside any ethereum
+/// transaction.
+mod emitter_logs {
+	use crate::{
+		Code, Config, EthBlockBuilderFirstValues, EthBlockBuilderIR, Pallet,
+		evm::{block_hash::LogsBloom, fees::InfoT},
+		test_utils::ALICE,
+		tests::{Contracts, ExtBuilder, RuntimeEvent, System, Test, builder},
+	};
+	use alloy_core::sol_types::{SolCall, SolEvent};
+	use frame_support::{
+		assert_ok,
+		traits::{
+			Hooks,
+			fungible::{Balanced, Mutate},
+		},
+	};
+	use pallet_revive_fixtures::{Emitter, FixtureType, compile_module_with_type};
+	use pretty_assertions::assert_eq;
+	use sp_core::{H160, H256};
+	use test_case::test_case;
+
+	fn emitted() -> H256 {
+		H256(Emitter::Emitted::SIGNATURE_HASH.0)
+	}
+
+	fn doomed() -> H256 {
+		H256(Emitter::Doomed::SIGNATURE_HASH.0)
+	}
+
+	/// Deploy the fixture into a block that is ready to take ethereum transactions.
+	fn deploy(fixture_type: FixtureType) -> H160 {
+		let (code, _) = compile_module_with_type("Emitter", fixture_type).unwrap();
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(
+			1_000_000_000_000,
+		));
+		Contracts::on_initialize(1);
+		builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract().addr
+	}
+
+	/// The topics of every `ContractEmitted` event `contract` deposited, in order.
+	fn contract_emitted_topics(contract: H160) -> Vec<Vec<H256>> {
+		System::events()
+			.into_iter()
+			.filter_map(|record| match record.event {
+				RuntimeEvent::Contracts(crate::Event::ContractEmitted {
+					contract: emitter,
+					topics,
+					..
+				}) if emitter == contract => Some(topics),
+				_ => None,
+			})
+			.collect()
+	}
+
+	/// The error the ethereum transaction failed with, if it failed.
+	fn eth_extrinsic_revert() -> Option<sp_runtime::DispatchError> {
+		System::events().into_iter().find_map(|record| match record.event {
+			RuntimeEvent::Contracts(crate::Event::EthExtrinsicRevert { dispatch_error }) => {
+				Some(dispatch_error)
+			},
+			_ => None,
+		})
+	}
+
+	fn bloom_of(contract: H160, topic: H256) -> [u8; 256] {
+		let mut bloom = LogsBloom::new();
+		bloom.accrue_log(&contract, &[topic]);
+		bloom.bloom
+	}
+
+	fn occurrences(haystack: &[u8], word: &H256) -> usize {
+		haystack.windows(32).filter(|window| *window == word.0).count()
+	}
+
+	/// What the block committed to its receipts.
+	struct Committed {
+		transactions: usize,
+		bloom: [u8; 256],
+		/// The first transaction's receipt as RLP, when there was one.
+		first_receipt: Option<Vec<u8>>,
+		synthetic_transaction: bool,
+	}
+
+	fn finalize_block() -> Committed {
+		let first_receipt = EthBlockBuilderFirstValues::<Test>::get().map(|(_, r)| r);
+		Contracts::on_finalize(1);
+		let block = Pallet::<Test>::eth_block();
+		Committed {
+			transactions: block.transactions.len(),
+			bloom: block.logs_bloom.0,
+			first_receipt,
+			synthetic_transaction: Pallet::<Test>::eth_synthetic_transaction().is_some(),
+		}
+	}
+
+	fn assert_no_receipt_path(committed: &Committed) {
+		assert_eq!(committed.transactions, 0, "no ethereum transaction was in the block");
+		assert_eq!(committed.bloom, [0u8; 256], "so nothing is in the block's bloom");
+		assert!(!committed.synthetic_transaction, "and nothing was buffered for a synthetic one");
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn native_call_logs_are_events_only(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+
+			builder::bare_call(addr)
+				.data(Emitter::emitValueCall { value: 7 }.abi_encode())
+				.build_and_unwrap_result();
+
+			assert_eq!(contract_emitted_topics(addr), vec![vec![emitted()]]);
+			assert!(EthBlockBuilderIR::<Test>::get().gas_info.is_empty(), "no receipt is open");
+			assert_no_receipt_path(&finalize_block());
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn reverted_native_call_leaves_no_log(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+
+			let result = builder::bare_call(addr)
+				.data(Emitter::emitThenRevertCall { value: 7 }.abi_encode())
+				.build_and_unwrap_result();
+
+			assert!(result.did_revert());
+			assert!(contract_emitted_topics(addr).is_empty(), "the event rolled back");
+			assert_no_receipt_path(&finalize_block());
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn native_sub_call_revert_drops_only_its_own_log(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+
+			let result = builder::bare_call(addr)
+				.data(Emitter::emitAndCallRevertingCall { kept: 1, dropped: 2 }.abi_encode())
+				.build_and_unwrap_result();
+
+			assert!(!result.did_revert());
+			assert_eq!(contract_emitted_topics(addr), vec![vec![emitted()]]);
+			assert_no_receipt_path(&finalize_block());
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn ethereum_call_logs_land_on_the_receipt(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+
+			assert_ok!(
+				builder::eth_call(addr)
+					.data(Emitter::emitValueCall { value: 7 }.abi_encode())
+					.build()
+			);
+
+			assert_eq!(eth_extrinsic_revert(), None);
+			assert_eq!(contract_emitted_topics(addr), vec![vec![emitted()]]);
+			let committed = finalize_block();
+			assert_eq!(committed.transactions, 1);
+			assert_eq!(committed.bloom, bloom_of(addr, emitted()));
+			let receipt = committed.first_receipt.expect("one transaction, one receipt");
+			assert_eq!(occurrences(&receipt, &emitted()), 1);
+			assert!(!committed.synthetic_transaction, "a frame's log is never buffered");
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn reverted_ethereum_call_receipt_has_no_logs(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+
+			assert_ok!(
+				builder::eth_call(addr)
+					.data(Emitter::emitThenRevertCall { value: 7 }.abi_encode())
+					.build()
+			);
+
+			assert_eq!(eth_extrinsic_revert(), Some(crate::Error::<Test>::ContractReverted.into()));
+			assert!(contract_emitted_topics(addr).is_empty(), "the event rolled back");
+			let committed = finalize_block();
+			assert_eq!(committed.transactions, 1, "the failed transaction is in the block");
+			assert_eq!(committed.bloom, [0u8; 256], "with an empty bloom");
+			let receipt = committed.first_receipt.expect("one transaction, one receipt");
+			assert_eq!(occurrences(&receipt, &doomed()), 0, "and no log in its receipt");
+			assert!(!committed.synthetic_transaction);
+		});
+	}
+
+	/// The frames succeed and log, then the transaction fails settling its fee: the logs go with
+	/// the state the frames committed.
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn ethereum_call_failing_after_its_frames_leaves_no_log(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+			let _ = <Test as Config>::FeeInfo::withdraw_txfee(
+				<Test as Config>::FeeInfo::remaining_txfee(),
+			);
+
+			assert_ok!(
+				builder::eth_call(addr)
+					.data(Emitter::emitValueCall { value: 7 }.abi_encode())
+					.build()
+			);
+
+			assert_eq!(eth_extrinsic_revert(), Some(crate::Error::<Test>::TxFeeOverdraw.into()));
+			assert!(contract_emitted_topics(addr).is_empty(), "the event rolled back");
+			let committed = finalize_block();
+			assert_eq!(committed.transactions, 1);
+			assert_eq!(committed.bloom, [0u8; 256]);
+			let receipt = committed.first_receipt.expect("one transaction, one receipt");
+			assert_eq!(occurrences(&receipt, &emitted()), 0);
+			assert!(!committed.synthetic_transaction);
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn ethereum_sub_call_revert_drops_only_its_own_log(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+
+			assert_ok!(
+				builder::eth_call(addr)
+					.data(Emitter::emitAndCallRevertingCall { kept: 1, dropped: 2 }.abi_encode())
+					.build()
+			);
+
+			assert_eq!(eth_extrinsic_revert(), None);
+			assert_eq!(contract_emitted_topics(addr), vec![vec![emitted()]]);
+			let committed = finalize_block();
+			assert_eq!(committed.transactions, 1);
+			assert_eq!(
+				committed.bloom,
+				bloom_of(addr, emitted()),
+				"the sub-call's log is not in it"
+			);
+			let receipt = committed.first_receipt.expect("one transaction, one receipt");
+			assert_eq!(occurrences(&receipt, &emitted()), 1);
+			assert_eq!(occurrences(&receipt, &doomed()), 0);
+			assert!(!committed.synthetic_transaction);
+		});
+	}
+}

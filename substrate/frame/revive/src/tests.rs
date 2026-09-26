@@ -452,6 +452,7 @@ parameter_types! {
 	pub BurnDestination: AccountId32 = AccountId32::new([42u8; 32]);
 	pub static DebugFlag: bool = false;
 	pub static AutoMapFlag: bool = false;
+	pub static MaxOutsideFrameLogsFlag: u32 = 1024;
 }
 
 impl FindAuthor<<Test as frame_system::Config>::AccountId> for Test {
@@ -485,6 +486,7 @@ impl Config for Test {
 	type DebugEnabled = DebugFlag;
 	type AutoMap = AutoMapFlag;
 	type OnBurn = ResolveTo<BurnDestination, Balances>;
+	type MaxOutsideFrameLogs = MaxOutsideFrameLogsFlag;
 }
 
 impl TryFrom<RuntimeCall> for Call<Test> {
@@ -571,6 +573,9 @@ impl ExtBuilder {
 	}
 	pub fn set_associated_consts(&self) {
 		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
+		// A test that lowers the cap would otherwise leave it lowered for every later test sharing
+		// the thread.
+		MaxOutsideFrameLogsFlag::set(1024);
 	}
 	pub fn with_genesis_state_overrides(mut self, storage: Storage) -> Self {
 		self.genesis_state_overrides = Some(storage);
@@ -766,4 +771,503 @@ fn ext_builder_with_genesis_config_works() {
 			assert!(!result.did_revert());
 		}
 	});
+}
+
+#[test]
+fn tracing_a_log_emitted_outside_a_call_frame_does_not_panic() {
+	use crate::{evm::CallTracer, tracing::trace};
+	use sp_core::H256;
+
+	ExtBuilder::default().build().execute_with(|| {
+		// `with_logs` is enabled by the default config, so the log path is exercised.
+		let mut tracer = CallTracer::new(Default::default());
+
+		// A runtime component (e.g. the pallet-assets ERC-20 log mirror) emits a contract log
+		// during a plain extrinsic, with no contract call frame ever entered. The call tracer
+		// must tolerate the empty stack rather than panic.
+		trace(&mut tracer, || {
+			Pallet::<Test>::emit_contract_log_outside_frame(
+				H160::from_low_u64_be(0x1234),
+				vec![H256::repeat_byte(0x11)].try_into().unwrap(),
+				vec![1, 2, 3].try_into().unwrap(),
+			);
+		});
+
+		// No frame was entered, so there is no top-level call to collect.
+		assert!(tracer.collect_trace().is_none());
+	});
+}
+
+#[test]
+fn logs_emitted_outside_a_call_frame_land_in_the_block_bloom() {
+	use crate::{
+		EthereumBlock,
+		evm::{HashesOrTransactionInfos, block_hash::LogsBloom},
+	};
+	use frame_support::traits::Hooks;
+	use sp_core::H256;
+	use sp_crypto_hashing::keccak_256;
+
+	ExtBuilder::default().build().execute_with(|| {
+		let contract = H160::from_low_u64_be(0x1234);
+		let topic = H256::repeat_byte(0x11);
+
+		// No ethereum transaction this block: a runtime component mirrors a balance change as a
+		// log, outside any ethereum call frame.
+		Pallet::<Test>::emit_contract_log_outside_frame(
+			contract,
+			vec![topic].try_into().unwrap(),
+			vec![1, 2, 3].try_into().unwrap(),
+		);
+
+		Pallet::<Test>::on_finalize(1);
+
+		// The synthetic transaction carries the one log.
+		assert_eq!(
+			Pallet::<Test>::eth_synthetic_transaction().map(|s| s.log_event_indices.len()),
+			Some(1)
+		);
+
+		let block = EthereumBlock::<Test>::get();
+
+		// A single synthetic transaction now carries the log.
+		let hashes = match block.transactions {
+			HashesOrTransactionInfos::Hashes(hashes) => hashes,
+			_ => panic!("expected transaction hashes"),
+		};
+		assert_eq!(hashes.len(), 1);
+
+		// The committed block bloom equals the log's bloom — i.e. the outside-of-frame log made it
+		// into the block's `logs_bloom`, which is the whole point.
+		let mut expected = LogsBloom::new();
+		expected.accrue_log(&contract, &[topic]);
+		assert_ne!(expected.bloom, [0u8; 256]);
+		assert_eq!(block.logs_bloom.0, expected.bloom);
+
+		// End-to-end contract with eth-rpc: the synthetic transaction hash the runtime committed
+		// must equal the hash eth-rpc reconstructs. eth-rpc rebuilds the bytes with the shared
+		// `synthetic_log_transaction(block_number, chain_id)`, so recompute it here and assert the
+		// committed `block.transactions` entry matches. Guards the emit path (nonce = block number,
+		// chain id, trie ordering) against the reconstructor.
+		let chain_id = <Test as crate::Config>::ChainId::get();
+		let reconstructed =
+			crate::evm::synthetic_log_transaction(U256::from(1), U256::from(chain_id));
+		assert_eq!(hashes[0], H256(keccak_256(&reconstructed)));
+	});
+}
+
+#[test]
+fn logs_emitted_outside_a_call_frame_drain_in_emission_order() {
+	use crate::{
+		EthBlockBuilderIR, EthereumBlock, ReceiptGasInfo,
+		evm::{
+			HashesOrTransactionInfos,
+			block_hash::{AccumulateReceipt, EthereumBlockBuilder},
+		},
+	};
+	use frame_support::traits::Hooks;
+	use sp_core::H256;
+
+	let contracts =
+		[H160::from_low_u64_be(0xA1), H160::from_low_u64_be(0xA2), H160::from_low_u64_be(0xA3)];
+	let topics = [H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
+
+	let data = vec![1u8, 2, 3];
+
+	// The root a block carrying one synthetic transaction must have, with the logs accumulated in
+	// the given order. The bloom cannot stand in for this — it only ORs bits, so it is blind to
+	// order — but `receipts_root` covers the receipt's RLP log list, which is a sequence.
+	let expected_root = |order: [usize; 3]| {
+		ExtBuilder::default().build().execute_with(|| {
+			let mut receipt = AccumulateReceipt::new();
+			for i in order {
+				receipt.add_log(&contracts[i], &data, &[topics[i]]);
+			}
+
+			let mut builder =
+				EthereumBlockBuilder::<Test>::from_ir(EthBlockBuilderIR::<Test>::get());
+			builder.process_transaction(
+				crate::evm::synthetic_log_transaction(
+					U256::from(1),
+					U256::from(<Test as crate::Config>::ChainId::get()),
+				),
+				true,
+				ReceiptGasInfo { gas_used: U256::zero(), effective_gas_price: U256::zero() },
+				receipt.encoding,
+				receipt.bloom,
+			);
+
+			builder.build_block(1).0.receipts_root
+		})
+	};
+
+	// Emit the three logs in the given order and return what the block commits to them.
+	let commit_in_order = |order: [usize; 3]| {
+		ExtBuilder::default().build().execute_with(|| {
+			for i in order {
+				Pallet::<Test>::emit_contract_log_outside_frame(
+					contracts[i],
+					vec![topics[i]].try_into().unwrap(),
+					data.clone().try_into().unwrap(),
+				);
+			}
+
+			Pallet::<Test>::on_finalize(1);
+
+			let block = EthereumBlock::<Test>::get();
+			let hashes = match block.transactions {
+				HashesOrTransactionInfos::Hashes(hashes) => hashes,
+				_ => panic!("expected transaction hashes"),
+			};
+			assert_eq!(hashes.len(), 1, "all three logs share one synthetic transaction");
+
+			block.receipts_root
+		})
+	};
+
+	// The expectation discriminates order at all, so the equality below is not vacuous.
+	assert_ne!(expected_root([0, 1, 2]), expected_root([2, 1, 0]));
+
+	// Emission order is the order the block commits to, which is what a client recomputing the
+	// root from the served logs assumes.
+	assert_eq!(commit_in_order([0, 1, 2]), expected_root([0, 1, 2]));
+}
+
+// What each runtime API version hands an eth-rpc for a block with one ethereum transaction and
+// one mirrored log, assembled from storage the way `eth_block_versioned` and
+// `eth_receipt_data_versioned` do.
+fn block_and_receipt_data_as_served() -> (
+	Vec<sp_core::H256>,
+	pallet_revive_types::runtime_api::ReceiptDataOutputPayloadV1,
+	pallet_revive_types::runtime_api::ReceiptDataOutputPayloadV2,
+) {
+	use crate::{
+		ReceiptGasInfo,
+		evm::block_storage,
+		runtime_api::{BlockOutputPayload, ReceiptDataOutputPayload},
+	};
+	use frame_support::traits::Hooks;
+	use pallet_revive_types::runtime_api::{
+		BlockOutputPayloadV1, HashesOrTransactionInfosV1, ReceiptDataOutputPayloadV1,
+	};
+	use sp_core::H256;
+
+	block_storage::process_transaction::<Test>(
+		vec![0xde, 0xad, 0xbe, 0xef],
+		true,
+		ReceiptGasInfo { gas_used: U256::from(21_000), effective_gas_price: U256::one() },
+	);
+	Pallet::<Test>::emit_contract_log_outside_frame(
+		H160::from_low_u64_be(0xA1),
+		vec![H256::repeat_byte(0x11)].try_into().unwrap(),
+		vec![1u8].try_into().unwrap(),
+	);
+	Pallet::<Test>::on_finalize(1);
+
+	let block =
+		BlockOutputPayloadV1::from(BlockOutputPayload { block: Pallet::<Test>::eth_block() });
+	let hashes = match block.block.transactions {
+		HashesOrTransactionInfosV1::Hashes(hashes) => hashes,
+		_ => panic!("the runtime commits transaction hashes"),
+	};
+	let receipt_data = || ReceiptDataOutputPayload {
+		receipt_data: Pallet::<Test>::eth_receipt_data(),
+		synthetic: Pallet::<Test>::eth_synthetic_transaction(),
+	};
+	(hashes, ReceiptDataOutputPayloadV1::from(receipt_data()), receipt_data().into())
+}
+
+fn synthetic_transaction_hash(block_number: u64) -> sp_core::H256 {
+	sp_core::H256(sp_crypto_hashing::keccak_256(&crate::evm::synthetic_log_transaction(
+		U256::from(block_number),
+		U256::from(<Test as crate::Config>::ChainId::get()),
+	)))
+}
+
+// The transaction list is the one the header commits to in every version. An eth-rpc on receipt
+// data V1 therefore lists the synthetic transaction's hash without a receipt entry for it, which
+// is why the buffer stays off until every eth-rpc reads V2. V2 pairs the list up.
+#[test]
+fn eth_block_lists_the_synthetic_transaction_in_every_version() {
+	ExtBuilder::default().build().execute_with(|| {
+		let (hashes, v1, v2) = block_and_receipt_data_as_served();
+
+		assert_eq!(hashes.len(), 2);
+		assert_eq!(hashes[1], synthetic_transaction_hash(1), "the trailing hash is synthetic");
+
+		assert_eq!(v1.receipt_data.len(), 1, "V1 has a receipt entry per ethereum transaction");
+
+		assert_eq!(v2.receipt_data.len(), 1);
+		assert!(v2.synthetic.is_some(), "V2 reports the synthetic transaction's entry apart");
+	});
+}
+
+// With the buffer off, the rollout state until every eth-rpc reads receipt data V2, a mirrored
+// log leaves no trace in the block: every version lists one hash per receipt entry, and a V2
+// reader of such a block, or of any block from before the buffer was turned on, finds no
+// synthetic transaction to serve.
+#[test]
+fn eth_block_and_receipt_data_pair_up_in_every_version_while_the_buffer_is_off() {
+	ExtBuilder::default().build().execute_with(|| {
+		MaxOutsideFrameLogsFlag::set(0);
+
+		let (hashes, v1, v2) = block_and_receipt_data_as_served();
+
+		assert_eq!(hashes.len(), 1);
+		assert_eq!(v1.receipt_data.len(), 1);
+		assert_eq!(v2.receipt_data.len(), 1);
+		assert!(v2.synthetic.is_none());
+	});
+}
+
+#[test]
+fn outside_of_frame_logs_past_the_cap_stay_substrate_only() {
+	use crate::evm::block_hash::LogsBloom;
+	use frame_support::traits::Hooks;
+	use sp_core::H256;
+
+	let emit = |byte: u8| {
+		Pallet::<Test>::emit_contract_log_outside_frame(
+			H160::from_low_u64_be(byte.into()),
+			vec![H256::repeat_byte(byte)].try_into().unwrap(),
+			vec![byte].try_into().unwrap(),
+		)
+	};
+
+	ExtBuilder::default().build().execute_with(|| {
+		MaxOutsideFrameLogsFlag::set(2);
+
+		emit(1);
+		emit(2);
+
+		// Past the cap the log misses the block's bloom, but it is still an event: dropping it
+		// outright would lose a `LOG` whose frame reported success.
+		let events_before = System::events().len();
+		emit(3);
+		assert_eq!(System::events().len(), events_before + 1, "it is still deposited");
+
+		Pallet::<Test>::on_finalize(1);
+
+		let synthetic = Pallet::<Test>::eth_synthetic_transaction().expect("two logs fitted");
+		assert_eq!(synthetic.log_event_indices.len(), 2, "the buffer does not grow past the cap");
+
+		// The logs that did fit are what the block commits to, and nothing else.
+		let mut fitted = LogsBloom::new();
+		for byte in 1..=2u8 {
+			fitted.accrue_log(&H160::from_low_u64_be(byte.into()), &[H256::repeat_byte(byte)]);
+		}
+		assert_eq!(Pallet::<Test>::eth_block().logs_bloom.0, fitted.bloom);
+	});
+
+	// A zero cap turns the buffer off, which is how a runtime opts out: logs emitted outside an
+	// ethereum transaction stay substrate-only, as they were before the buffer existed.
+	ExtBuilder::default().build().execute_with(|| {
+		MaxOutsideFrameLogsFlag::set(0);
+
+		let events_before = System::events().len();
+		emit(1);
+		assert_eq!(System::events().len(), events_before + 1, "the event still fires");
+
+		Pallet::<Test>::on_finalize(1);
+
+		assert!(Pallet::<Test>::eth_synthetic_transaction().is_none(), "nothing was buffered");
+		assert_eq!(Pallet::<Test>::eth_block().transactions.len(), 0);
+	});
+}
+
+// Capacity only: the buffer takes as many logs as the cap allows, so the cap, not the storage
+// layout, is its ceiling. Whether a block can admit enough logs to reach a runtime's cap is that
+// runtime's test to make, against its block limits.
+#[test]
+fn the_buffer_holds_as_many_outside_of_frame_logs_as_the_cap_allows() {
+	use frame_support::traits::Hooks;
+	use sp_core::H256;
+
+	const LOGS: u32 = 10_000;
+
+	ExtBuilder::default().build().execute_with(|| {
+		MaxOutsideFrameLogsFlag::set(LOGS);
+
+		for i in 0..LOGS {
+			Pallet::<Test>::emit_contract_log_outside_frame(
+				H160::from_low_u64_be(i.into()),
+				vec![H256::from_low_u64_be(i.into())].try_into().unwrap(),
+				i.to_be_bytes().to_vec().try_into().unwrap(),
+			);
+		}
+		Pallet::<Test>::on_finalize(1);
+
+		let synthetic =
+			Pallet::<Test>::eth_synthetic_transaction().expect("one synthetic transaction");
+		assert_eq!(synthetic.log_event_indices.len(), LOGS as usize, "and every log is in it");
+	});
+}
+
+// The drain reads the buffer back as one value, so the trie nodes it touches do not depend on how
+// many logs were buffered. That is what the `outside_frame_log` benchmark prices: one key per log
+// would add a leaf per log, and the per-key proof overhead the benchmark adds for each would price
+// the drain out of the block long before the logs' own bytes do.
+#[test]
+fn draining_outside_of_frame_logs_reads_a_fixed_number_of_trie_nodes() {
+	use frame_support::traits::Hooks;
+	use sp_core::H256;
+
+	let trie_nodes_read = |logs: u32| {
+		let mut ext = ExtBuilder::default().build();
+		ext.execute_with(|| {
+			MaxOutsideFrameLogsFlag::set(logs);
+			for i in 0..logs {
+				Pallet::<Test>::emit_contract_log_outside_frame(
+					H160::from_low_u64_be(i.into()),
+					vec![H256::from_low_u64_be(i.into())].try_into().unwrap(),
+					vec![1, 2, 3].try_into().unwrap(),
+				);
+			}
+		});
+		// As in the benchmark, the buffered logs are committed state by the time the drain runs,
+		// so whatever it reads is in the proof.
+		ext.commit_all().expect("no open transactions");
+		let (_, proof) = ext.execute_and_prove(|| Pallet::<Test>::on_finalize(1));
+		proof.len()
+	};
+
+	assert_eq!(
+		trie_nodes_read(1),
+		trie_nodes_read(1_000),
+		"the drain's storage proof must not grow with the number of buffered logs"
+	);
+}
+
+// A contract frame outside an ethereum transaction does not feed the buffer: a buffered log's drain
+// is charged to the block, not to the frame, so one frame could fill the cap and drop every
+// mirrored balance change behind it. Its log stays a substrate-only event.
+#[test]
+fn contract_logs_outside_an_ethereum_transaction_do_not_reach_the_buffer() {
+	use crate::{Code, test_utils::builder::Contract};
+	use codec::Encode;
+	use frame_support::traits::{Hooks, fungible::Mutate};
+
+	let (binary, _code_hash) = compile_module("event_size").unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+
+		builder::bare_call(addr).data(32u32.encode()).build_and_unwrap_result();
+
+		Pallet::<Test>::on_finalize(1);
+		assert!(Pallet::<Test>::eth_synthetic_transaction().is_none(), "the log is not buffered");
+		assert!(
+			System::events().iter().any(|record| matches!(
+				&record.event,
+				RuntimeEvent::Contracts(crate::Event::ContractEmitted { contract, .. })
+					if *contract == addr
+			)),
+			"but it is still deposited"
+		);
+	});
+}
+
+// The serving layer picks the buffered logs out of the block's `ContractEmitted` events by the
+// indices the synthetic transaction reports, so they must point at exactly those events and not at
+// a contract log that shares the block.
+#[test]
+fn synthetic_transaction_reports_the_event_of_each_buffered_log() {
+	use crate::{Code, test_utils::builder::Contract};
+	use codec::Encode;
+	use frame_support::traits::{Hooks, fungible::Mutate};
+	use sp_core::H256;
+
+	let (binary, _code_hash) = compile_module("event_size").unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+
+		// A contract log that stays substrate-only, then a mirror that is buffered.
+		builder::bare_call(addr).data(32u32.encode()).build_and_unwrap_result();
+		let mirror = H160::from_low_u64_be(0xa5);
+		Pallet::<Test>::emit_contract_log_outside_frame(
+			mirror,
+			vec![H256::repeat_byte(0x11)].try_into().unwrap(),
+			vec![].try_into().unwrap(),
+		);
+		Pallet::<Test>::on_finalize(1);
+
+		let events = System::events();
+		let event_index_of_log_by = |contract: H160| {
+			events
+				.iter()
+				.position(|record| {
+					matches!(
+						&record.event,
+						RuntimeEvent::Contracts(crate::Event::ContractEmitted { contract: c, .. })
+							if *c == contract
+					)
+				})
+				.expect("deposited") as u32
+		};
+		let synthetic =
+			Pallet::<Test>::eth_synthetic_transaction().expect("the mirror is buffered");
+		assert_eq!(synthetic.log_event_indices, vec![event_index_of_log_by(mirror)]);
+		assert_ne!(event_index_of_log_by(addr), event_index_of_log_by(mirror));
+	});
+}
+
+// A log emitted after the block's drain, from an `on_finalize` ordered after this pallet's, is not
+// buffered: committed a block late, its event index would point at an unrelated event. A log from
+// an `on_initialize` ordered before this pallet's, as the message queue's is on Asset Hub, comes
+// before the drain and is committed.
+#[test]
+fn a_log_emitted_after_the_drain_stays_substrate_only() {
+	use crate::evm::block_hash::LogsBloom;
+	use frame_support::traits::Hooks;
+	use sp_core::H256;
+
+	let emit = |byte: u8| {
+		Pallet::<Test>::emit_contract_log_outside_frame(
+			H160::repeat_byte(byte),
+			vec![H256::repeat_byte(byte)].try_into().unwrap(),
+			vec![].try_into().unwrap(),
+		)
+	};
+	ExtBuilder::default().build().execute_with(|| {
+		Pallet::<Test>::on_finalize(1);
+		emit(1);
+
+		System::set_block_number(2);
+		emit(2);
+		Pallet::<Test>::on_initialize(2);
+		Pallet::<Test>::on_finalize(2);
+
+		let synthetic =
+			Pallet::<Test>::eth_synthetic_transaction().expect("the early log is committed");
+		assert_eq!(synthetic.log_event_indices.len(), 1, "and it is the only one");
+		let mut early = LogsBloom::new();
+		early.accrue_log(&H160::repeat_byte(2), &[H256::repeat_byte(2)]);
+		assert_eq!(Pallet::<Test>::eth_block().logs_bloom.0, early.bloom, "the late log is not");
+	});
+}
+
+#[test]
+fn tracing_a_log_emitted_inside_a_call_frame_attaches_to_it() {
+	use crate::{evm::CallTracer, tracing::Tracing};
+	use sp_core::H256;
+
+	let mut tracer = CallTracer::new(Default::default());
+	let contract = H160::from_low_u64_be(0x1234);
+	let topics = vec![H256::repeat_byte(0x11)];
+	let data = vec![1u8, 2, 3];
+
+	// Enter a call frame (as a contract call would), emit a `LOG` inside it, then exit.
+	tracer.enter_child_span(ALICE_ADDR, contract, None, false, false, U256::zero(), &[], 0);
+	tracer.log_event(contract, &topics, &data, 7);
+	tracer.exit_child_span(&ExecReturnValue::default(), 0, Weight::zero());
+
+	let trace = tracer.collect_trace().expect("a frame was entered");
+	assert_eq!(trace.logs.len(), 1, "the log must attach to the active frame exactly once");
+	assert_eq!(trace.logs[0].address, contract);
+	assert_eq!(trace.logs[0].topics, topics);
+	assert_eq!(trace.logs[0].data, data.into());
+	assert_eq!(trace.logs[0].index, 7);
 }

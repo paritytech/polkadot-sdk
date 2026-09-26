@@ -19,6 +19,7 @@
 
 use super::*;
 use crate::{mock::*, Error};
+use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok,
 	dispatch::GetDispatchInfo,
@@ -2035,6 +2036,9 @@ fn querying_roles_should_work() {
 #[test]
 fn normal_asset_create_and_destroy_callbacks_should_work() {
 	build_and_execute(|| {
+		// Genesis seeds an asset, which fires `created`; clear the marker so the assertions below
+		// reflect the create call under test rather than genesis.
+		storage::clear(AssetsCallbackHandle::CREATED.as_bytes());
 		assert!(storage::get(AssetsCallbackHandle::CREATED.as_bytes()).is_none());
 		assert!(storage::get(AssetsCallbackHandle::DESTROYED.as_bytes()).is_none());
 
@@ -2055,12 +2059,219 @@ fn normal_asset_create_and_destroy_callbacks_should_work() {
 }
 
 #[test]
+fn balance_change_callbacks_work() {
+	build_and_execute(|| {
+		// Read and clear the recorded invocations, so each assertion sees only its own
+		// operation. Returns every call (not just the last), so a double-fire is visible.
+		let take = |key: &str| {
+			let calls = AssetsCallbackHandle::calls(key);
+			storage::clear(key.as_bytes());
+			calls
+		};
+
+		let asset = 0u32;
+		let owner = 1u64;
+		let dest = 2u64;
+		let delegate = 3u64;
+		let mint_amount = 100u64;
+		let transfer_amount = 60u64;
+		let approved_amount = 30u64;
+		let burn_request = 1000u64;
+		let burned_actual = 90u64;
+
+		Balances::make_free_balance_be(&owner, 100);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, owner, true, 1));
+
+		// Mint fires `issued` exactly once with the minted amount.
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset, owner, mint_amount));
+		assert_eq!(
+			take(AssetsCallbackHandle::ISSUED),
+			vec![(asset, owner, mint_amount).encode()],
+			"mint must fire `issued` exactly once"
+		);
+
+		// Transfer fires `transferred` exactly once with the credited amount.
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(owner), asset, dest, transfer_amount));
+		assert_eq!(
+			take(AssetsCallbackHandle::TRANSFERRED),
+			vec![(asset, owner, dest, transfer_amount).encode()],
+			"transfer must fire `transferred` exactly once"
+		);
+
+		// The delegated path funnels through the same internals and also fires `transferred`.
+		assert_ok!(Assets::approve_transfer(
+			RuntimeOrigin::signed(owner),
+			asset,
+			delegate,
+			approved_amount
+		));
+		assert_ok!(Assets::transfer_approved(
+			RuntimeOrigin::signed(delegate),
+			asset,
+			owner,
+			dest,
+			approved_amount
+		));
+		assert_eq!(
+			take(AssetsCallbackHandle::TRANSFERRED),
+			vec![(asset, owner, dest, approved_amount).encode()],
+			"transfer_approved must fire `transferred` exactly once"
+		);
+
+		// A zero-amount transfer is a no-op: no event, no callback.
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(dest), asset, owner, 0));
+		assert!(take(AssetsCallbackHandle::TRANSFERRED).is_empty());
+
+		// dest holds exactly 90. A best-effort burn asks for more, so the callback must see
+		// the actual burned amount (90), not the requested 1000.
+		assert_ok!(Assets::burn(RuntimeOrigin::signed(owner), asset, dest, burn_request));
+		assert_eq!(
+			take(AssetsCallbackHandle::BURNED),
+			vec![(asset, dest, burned_actual).encode()],
+			"burn must fire `burned` once with the actual burned amount"
+		);
+	});
+}
+
+#[test]
+fn balance_change_callbacks_fire_on_fungibles_paths() {
+	use frame_support::traits::{
+		fungibles::Mutate,
+		tokens::{Fortitude, Precision, Preservation},
+	};
+	build_and_execute(|| {
+		let take = |key: &str| {
+			let calls = AssetsCallbackHandle::calls(key);
+			storage::clear(key.as_bytes());
+			calls
+		};
+
+		let asset = 0u32;
+		let owner = 1u64;
+		let dest = 2u64;
+		let mint_amount = 100u64;
+		let move_amount = 60u64;
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, owner, true, 1));
+
+		assert_ok!(Assets::mint_into(asset, &owner, mint_amount));
+		assert_eq!(
+			take(AssetsCallbackHandle::ISSUED),
+			vec![(asset, owner, mint_amount).encode()],
+			"fungibles `mint_into` must fire `issued` exactly once"
+		);
+
+		assert_ok!(<Assets as Mutate<u64>>::transfer(
+			asset,
+			&owner,
+			&dest,
+			move_amount,
+			Preservation::Expendable
+		));
+		assert_eq!(
+			take(AssetsCallbackHandle::TRANSFERRED),
+			vec![(asset, owner, dest, move_amount).encode()],
+			"fungibles `transfer` must fire `transferred` exactly once"
+		);
+
+		assert_ok!(Assets::burn_from(
+			asset,
+			&dest,
+			move_amount,
+			Preservation::Expendable,
+			Precision::Exact,
+			Fortitude::Polite
+		));
+		assert_eq!(
+			take(AssetsCallbackHandle::BURNED),
+			vec![(asset, dest, move_amount).encode()],
+			"fungibles `burn_from` must fire `burned` exactly once"
+		);
+	});
+}
+
+#[test]
+fn balance_change_callbacks_fire_on_refund_burn() {
+	build_and_execute(|| {
+		let asset = 0u32;
+		let owner = 1u64;
+		let mint_amount = 100u64;
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, owner, false, 1));
+		Balances::make_free_balance_be(&owner, 100);
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(owner), asset));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset, owner, mint_amount));
+		storage::clear(AssetsCallbackHandle::ISSUED.as_bytes());
+
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(owner), asset, true));
+		assert_eq!(Assets::total_supply(asset), 0);
+		assert_eq!(
+			AssetsCallbackHandle::calls(AssetsCallbackHandle::BURNED),
+			vec![(asset, owner, mint_amount).encode()],
+			"refund with `allow_burn` must fire `burned` exactly once"
+		);
+	});
+}
+
+#[test]
+fn balance_change_callbacks_fire_on_balanced_paths() {
+	use frame_support::traits::{
+		fungibles::{Balanced, Mutate},
+		tokens::{Fortitude, Precision, Preservation},
+	};
+	build_and_execute(|| {
+		let asset = 0u32;
+		let owner = 1u64;
+		let dest = 2u64;
+		let move_amount = 40u64;
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, owner, true, 1));
+		assert_ok!(Assets::mint_into(asset, &owner, 100));
+
+		let credit = <Assets as Balanced<u64>>::withdraw(
+			asset,
+			&owner,
+			move_amount,
+			Precision::Exact,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		)
+		.expect("withdraw succeeds");
+		assert_eq!(
+			AssetsCallbackHandle::calls(AssetsCallbackHandle::WITHDRAWN),
+			vec![(asset, owner, move_amount).encode()],
+			"`Balanced::withdraw` must fire `withdrawn` exactly once"
+		);
+
+		assert_ok!(<Assets as Balanced<u64>>::resolve(&dest, credit));
+		assert_eq!(
+			AssetsCallbackHandle::calls(AssetsCallbackHandle::DEPOSITED),
+			vec![(asset, dest, move_amount).encode()],
+			"`Balanced::resolve` (deposit) must fire `deposited` exactly once"
+		);
+	});
+}
+
+#[test]
 fn root_asset_create_should_work() {
 	build_and_execute(|| {
+		// Genesis seeds an asset, which fires `created`; clear the marker so the assertions below
+		// reflect the force_create call under test rather than genesis.
+		storage::clear(AssetsCallbackHandle::CREATED.as_bytes());
 		assert!(storage::get(AssetsCallbackHandle::CREATED.as_bytes()).is_none());
 		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 1));
 		assert!(storage::get(AssetsCallbackHandle::CREATED.as_bytes()).is_some());
 		assert!(storage::get(AssetsCallbackHandle::DESTROYED.as_bytes()).is_none());
+	});
+}
+
+#[test]
+fn genesis_seeded_assets_fire_created_callback() {
+	// The mock seeds an asset at genesis. `created` must fire for it, otherwise callback-backed
+	// state (e.g. the precompile asset-index map) is never established for genesis assets and
+	// later mirrors for that asset are silently dropped.
+	build_and_execute(|| {
+		assert!(storage::get(AssetsCallbackHandle::CREATED.as_bytes()).is_some());
 	});
 }
 

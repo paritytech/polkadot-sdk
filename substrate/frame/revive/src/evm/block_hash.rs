@@ -20,7 +20,7 @@
 
 mod receipt;
 use pallet_revive_types::runtime_api::*;
-pub use receipt::{AccumulateReceipt, LogsBloom};
+pub use receipt::{AccumulateReceipt, LogsBloom, ReceiptCheckpoint};
 
 mod hash_builder;
 pub use hash_builder::{BuilderPhase, IncrementalHashBuilder, IncrementalHashBuilderIR};
@@ -33,13 +33,13 @@ use crate::evm::Block;
 use alloc::vec::Vec;
 use alloy_core::primitives::{B256, bytes::BufMut};
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_core::{H256, U256};
+use sp_core::{H160, H256, U256};
 
 /// Details needed to reconstruct the receipt info in the RPC
 /// layer without losing accuracy.
-#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
 pub struct ReceiptGasInfo {
 	/// The amount of gas used for this specific transaction alone.
 	pub gas_used: U256,
@@ -52,6 +52,41 @@ impl From<ReceiptGasInfo> for ReceiptGasInfoV1 {
 	fn from(value: ReceiptGasInfo) -> Self {
 		Self { gas_used: value.gas_used, effective_gas_price: value.effective_gas_price }
 	}
+}
+
+/// What the block committed to its synthetic transaction, the one carrying the logs emitted
+/// outside any ethereum transaction.
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, Default, PartialEq, Eq)]
+pub struct SyntheticTransactionInfo {
+	/// Its receipt gas entry. Kept out of [`crate::ReceiptInfoData`] because the
+	/// `eth_receipt_data` runtime API is versioned on exactly that split: V1 promises one entry
+	/// per ethereum transaction.
+	pub gas_info: ReceiptGasInfo,
+
+	/// The `frame_system` event index of each log that went into it, in receipt order. These are
+	/// the logs the block's `logs_bloom` and `receipts_root` commit to, which is what lets the
+	/// serving layer pick them out of the block's `ContractEmitted` events: a contract log outside
+	/// an ethereum transaction and a log past the buffer's cap are deposited but not buffered.
+	pub log_event_indices: Vec<u32>,
+}
+
+impl From<SyntheticTransactionInfo> for SyntheticTransactionV1 {
+	fn from(value: SyntheticTransactionInfo) -> Self {
+		Self { gas_info: value.gas_info.into(), log_event_indices: value.log_event_indices }
+	}
+}
+
+/// A log buffered for the block's synthetic transaction.
+#[derive(Encode, Decode, TypeInfo, Clone, Debug, PartialEq, Eq)]
+pub struct OutsideFrameLog {
+	/// The `frame_system` event index of its [`crate::Event::ContractEmitted`].
+	pub event_index: u32,
+	/// The address the log is attributed to.
+	pub contract: H160,
+	/// The log's topics.
+	pub topics: Vec<H256>,
+	/// The log's data.
+	pub data: Vec<u8>,
 }
 
 impl Block {

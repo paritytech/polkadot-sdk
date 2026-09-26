@@ -3628,6 +3628,11 @@ mod benchmarks {
 		let current_block = BlockNumberFor::<T>::from(1u32);
 		frame_system::Pallet::<T>::set_block_number(current_block);
 
+		// Where `Deposit` mints through `fungibles` and the runtime mirrors balance changes as
+		// logs, creating the contract above buffers one. Drop it, so these benchmarks measure the
+		// transactions and logs they set up themselves and no synthetic transaction on top.
+		Pallet::<T>::clear_outside_frame_logs();
+
 		Ok((instance, storage_deposit, evm_value, signer_key, current_block))
 	}
 
@@ -3822,6 +3827,13 @@ mod benchmarks {
 
 		// Store transaction
 		let _ = block_storage::bench_with_ethereum_context(|| {
+			// Captured inside the ethereum context, so each lands on the transaction's own receipt
+			// — the path `on_finalize_block_per_event` is charged for on every `DepositEvent`. The
+			// outside-of-frame drain is `outside_frame_log`'s, charged separately.
+			for _ in 0..e {
+				block_storage::capture_frame_log(&instance.address, &vec![], &vec![]);
+			}
+
 			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
@@ -3838,11 +3850,6 @@ mod benchmarks {
 			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
 		});
 
-		// Create e events with minimal data to isolate event count overhead
-		for _ in 0..e {
-			block_storage::capture_ethereum_log(&instance.address, &vec![], &vec![]);
-		}
-
 		#[block]
 		{
 			// Initialize block
@@ -3852,7 +3859,8 @@ mod benchmarks {
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 
-		// Verify transaction count
+		// The real transaction only: its `e` logs are on its own receipt, so no synthetic
+		// transaction is built.
 		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
 
 		Ok(())
@@ -3885,24 +3893,6 @@ mod benchmarks {
 			effective_gas_price: Pallet::<T>::evm_base_fee(),
 		};
 
-		// Store transaction
-		let _ = block_storage::bench_with_ethereum_context(|| {
-			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
-
-			let block_builder_ir = EthBlockBuilderIR::<T>::get();
-			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
-
-			block_builder.process_transaction(
-				signed_transaction,
-				true,
-				receipt_gas_info,
-				encoded_logs,
-				bloom,
-			);
-
-			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
-		});
-
 		// Create one event with d bytes of data distributed across topics and data field
 		let (event_data, topics) = if d < 32 {
 			// If total data is less than 32 bytes, put all in data field
@@ -3926,7 +3916,29 @@ mod benchmarks {
 			(event_data, topics)
 		};
 
-		block_storage::capture_ethereum_log(&instance.address, &event_data, &topics);
+		// Store transaction
+		let _ = block_storage::bench_with_ethereum_context(|| {
+			// Captured inside the ethereum context, so the log lands on the transaction's own
+			// receipt — the path `on_finalize_block_per_event` is charged for on every
+			// `DepositEvent`. The outside-of-frame drain is `outside_frame_log`'s, charged
+			// separately.
+			block_storage::capture_frame_log(&instance.address, &event_data, &topics);
+
+			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
+
+			let block_builder_ir = EthBlockBuilderIR::<T>::get();
+			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
+
+			block_builder.process_transaction(
+				signed_transaction,
+				true,
+				receipt_gas_info,
+				encoded_logs,
+				bloom,
+			);
+
+			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
+		});
 
 		#[block]
 		{
@@ -3937,7 +3949,86 @@ mod benchmarks {
 			let _ = Pallet::<T>::on_finalize(current_block);
 		}
 
-		// Verify transaction count
+		// The real transaction only: its log is on its own receipt, so no synthetic transaction is
+		// built.
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
+
+		Ok(())
+	}
+
+	/// Benchmark the `on_finalize` drain of `n` buffered outside-of-frame logs: taking the buffer
+	/// and folding each log into the synthetic transaction's receipt (RLP + bloom).
+	///
+	/// `pov_mode = Measured` so the marginal carries the per-log proof size, which a constant
+	/// estimate cannot infer. See `OnFinalizeBlockParts::per_outside_frame_log` for why the insert
+	/// is out of scope here.
+	///
+	/// Each log uses a representative ERC-20 `Transfer` payload: three 32-byte topics and a 32-byte
+	/// data word.
+	#[benchmark(pov_mode = Measured)]
+	fn outside_frame_log(n: Linear<0, 100>) -> Result<(), BenchmarkError> {
+		let (instance, _storage_deposit, _evm_value, _signer_key, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		// Realistic order: `on_initialize` runs before the block's extrinsics buffer any logs.
+		let _ = Pallet::<T>::on_initialize(current_block);
+
+		// Representative ERC-20 `Transfer`: topics = [event sig, from, to], data = value word.
+		let topics =
+			vec![H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
+		let data = vec![0x44u8; 32];
+
+		// No ethereum context is active, so each log is buffered for the synthetic transaction
+		// rather than captured into a receipt. `n` stays under `MaxOutsideFrameLogs`, so all are.
+		for _ in 0..n {
+			Pallet::<T>::emit_contract_log_outside_frame(
+				instance.address,
+				topics.clone().try_into().expect("three topics are within the LOG limit; qed"),
+				data.clone().try_into().expect("a 32-byte word is within the LOG limit; qed"),
+			);
+		}
+
+		#[block]
+		{
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
+		// Only the synthetic transaction, and only when at least one log was buffered.
+		assert_eq!(Pallet::<T>::eth_block().transactions.len(), (n > 0) as usize);
+
+		Ok(())
+	}
+
+	/// Benchmark the `on_finalize` drain of one buffered outside-of-frame log carrying `d` bytes
+	/// of data: the `OutsideFrameLogs::take` scales with the value it reads back, and so do the
+	/// RLP encoding and bloom accrual that fold it into the synthetic transaction's receipt.
+	///
+	/// Pairs with `outside_frame_log`, which fixes the payload and varies the count; together they
+	/// give `OnFinalizeBlockParts::per_outside_frame_log` its per-log and per-byte marginals. A
+	/// contract `LOG` emitted off the ethereum path can carry up to `EVENT_BYTES`, so the count
+	/// benchmark's 32-byte word alone would under-charge it.
+	#[benchmark(pov_mode = Measured)]
+	fn outside_frame_log_data(d: Linear<0, { limits::EVENT_BYTES }>) -> Result<(), BenchmarkError> {
+		let (instance, _storage_deposit, _evm_value, _signer_key, current_block) =
+			setup_finalize_block_benchmark::<T>()?;
+
+		let _ = Pallet::<T>::on_initialize(current_block);
+
+		let topics =
+			vec![H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
+		let data = vec![0x44u8; d as usize];
+
+		Pallet::<T>::emit_contract_log_outside_frame(
+			instance.address,
+			topics.try_into().expect("three topics are within the LOG limit; qed"),
+			data.try_into().expect("`d` is bounded by `EVENT_BYTES`; qed"),
+		);
+
+		#[block]
+		{
+			let _ = Pallet::<T>::on_finalize(current_block);
+		}
+
 		assert_eq!(Pallet::<T>::eth_block().transactions.len(), 1);
 
 		Ok(())
