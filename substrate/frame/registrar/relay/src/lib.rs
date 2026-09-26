@@ -111,7 +111,7 @@ pub struct PendingRegistration<AccountId, MaxHeadDataSize: Get<u32>> {
 	pub genesis_head: frame_support::BoundedVec<u8, MaxHeadDataSize>,
 	/// Blake2-256 hash the validation code must have.
 	pub code_hash: H256,
-	/// Exact length the validation code must have; the parachain sized the deposit from it.
+	/// Exact length the validation code must have, as declared by the parachain.
 	pub code_len: u32,
 }
 
