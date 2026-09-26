@@ -2589,101 +2589,85 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// Sets up a call that sends `$native` plus `$dust` and clones an input of `$input_len` bytes.
+	// Defines `$do_call` to make the call and `$assert_transferred` to check the value arrived.
+	macro_rules! call_setup {
+		($do_call:ident, $assert_transferred:ident, $native:expr, $dust:expr, $input_len:expr) => {
+			let (callee_addr, callee) = seal_call_callee::<T>()?;
+			let callee_bytes = callee.encode();
+			let callee_len = callee_bytes.len() as u32;
+
+			let native: BalanceOf<T> = $native.into();
+			let evm_value = Pallet::<T>::convert_native_to_evm(
+				BalanceWithDust::new_unchecked::<T>(native, $dust),
+			);
+			let value_bytes = evm_value.encode();
+
+			let deposit: BalanceOf<T> = (u32::MAX - 100).into();
+			let deposit_bytes = Into::<U256>::into(deposit).encode();
+			let deposit_len = deposit_bytes.len() as u32;
+
+			let mut setup = CallSetup::<T>::default();
+			setup.set_storage_deposit_limit(deposit);
+			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+			setup.set_balance(native + 1u32.into() + Pallet::<T>::min_balance());
+
+			let (mut ext, _) = setup.ext();
+			// `CLONE_INPUT` clones the runtime's own input, so the input goes here.
+			let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![42; $input_len as usize]);
+			let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
+			let before = Pallet::<T>::evm_balance(&callee_addr);
+
+			let mut $do_call = || {
+				runtime.bench_call(
+					memory.as_mut_slice(),
+					pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0), // flags + callee
+					u64::MAX,                                     // ref_time_limit
+					u64::MAX,                                     // proof_size_limit
+					pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_pr
+					pack_hi_lo(0, 0),                             // input len + data ptr
+					pack_hi_lo(0, SENTINEL),                      // output len + data ptr
+				)
+			};
+			let $assert_transferred = || {
+				assert_eq!(
+					Pallet::<T>::evm_balance(&callee_addr),
+					before + evm_value,
+					"{callee_addr:?} balance should have grown by {evm_value:?}"
+				);
+			};
+		};
+	}
+
 	// i: size of the input the call clones
 	#[benchmark(pov_mode = Measured)]
 	fn seal_call(i: Linear<0, { limits::CALLDATA_BYTES }>) -> Result<(), BenchmarkError> {
-		let (callee_addr, callee) = seal_call_callee::<T>()?;
-		let callee_bytes = callee.encode();
-		let callee_len = callee_bytes.len() as u32;
-
-		let value_bytes = U256::zero().encode();
-
-		let deposit: BalanceOf<T> = (u32::MAX - 100).into();
-		let deposit_bytes = Into::<U256>::into(deposit).encode();
-		let deposit_len = deposit_bytes.len() as u32;
-
-		let mut setup = CallSetup::<T>::default();
-		setup.set_storage_deposit_limit(deposit);
-		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
-
-		let (mut ext, _) = setup.ext();
-		// `CLONE_INPUT` clones the runtime's own input, so the input goes here.
-		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![42; i as usize]);
-		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
-		let before = Pallet::<T>::evm_balance(&callee_addr);
+		call_setup!(do_call, assert_transferred, 0u32, 0u32, i);
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_call(
-				memory.as_mut_slice(),
-				pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0), // flags + callee
-				u64::MAX,                                     // ref_time_limit
-				u64::MAX,                                     // proof_size_limit
-				pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_pr
-				pack_hi_lo(0, 0),                             // input len + data ptr
-				pack_hi_lo(0, SENTINEL),                      // output len + data ptr
-			);
+			result = do_call();
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
-		assert_eq!(
-			Pallet::<T>::evm_balance(&callee_addr),
-			before,
-			"a zero-value call leaves {callee_addr:?}'s balance unchanged"
-		);
-
+		assert_transferred();
 		Ok(())
 	}
 
 	// d: with or without dust value to transfer
 	#[benchmark(pov_mode = Measured)]
 	fn seal_call_transfer(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
-		let (callee_addr, callee) = seal_call_callee::<T>()?;
-		let callee_bytes = callee.encode();
-		let callee_len = callee_bytes.len() as u32;
-
-		let value: BalanceOf<T> = 1_000_000u32.into();
-		let dust = 100u32 * d;
-		let evm_value =
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
-		let value_bytes = evm_value.encode();
-
-		let deposit: BalanceOf<T> = (u32::MAX - 100).into();
-		let deposit_bytes = Into::<U256>::into(deposit).encode();
-		let deposit_len = deposit_bytes.len() as u32;
-
-		let mut setup = CallSetup::<T>::default();
-		setup.set_storage_deposit_limit(deposit);
-		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
-		setup.set_balance(value + 1u32.into() + Pallet::<T>::min_balance());
-
-		let (mut ext, _) = setup.ext();
-		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
-		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
-		let before = Pallet::<T>::evm_balance(&callee_addr);
+		call_setup!(do_call, assert_transferred, 1_000_000u32, 100u32 * d, 0u32);
 
 		let result;
 		#[block]
 		{
-			result = runtime.bench_call(
-				memory.as_mut_slice(),
-				pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0), // flags + callee
-				u64::MAX,                                     // ref_time_limit
-				u64::MAX,                                     // proof_size_limit
-				pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_pr
-				pack_hi_lo(0, 0),                             // input len + data ptr
-				pack_hi_lo(0, SENTINEL),                      // output len + data ptr
-			);
+			result = do_call();
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
-		assert_eq!(
-			Pallet::<T>::evm_balance(&callee_addr),
-			before + evm_value,
-			"{callee_addr:?} balance should have grown by {evm_value:?}"
-		);
-
+		assert_transferred();
 		Ok(())
 	}
 
