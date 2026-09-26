@@ -1,0 +1,42 @@
+title: '[pallet-staking-async] Add checked_mutate for ledger-related storage mutations'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    All mutations to ledger-related storage items (`Bonded`, `Ledger`, `Payee`) in
+    `pallet-staking-async` are now wrapped in a transactional storage layer. After each
+    mutation a consistency check verifies that the `(stash, controller, ledger)` triple is
+    coherent and that the ledger stake bookkeeping (`total == active + sum(unlocking)`) holds.
+    If either the mutation or the check fails, all storage changes are rolled back atomically.
+    This is a defensive guard to prevent the class of state-corruption bugs described in
+    issue #3245. As a consequence, the `Slashed` event is only emitted when the slash is
+    actually applied, and no longer when the slash and the ledger update are rolled back.
+
+    Additionally, `StakingLedger::kill` now fetches the ledger through `StakingLedger::get`
+    instead of reading `Bonded` and `Ledger` directly. Killing a bond in bad state, where the
+    controller of the stash bonds a ledger belonging to another stash, is now rejected with
+    `Error::BadState` rather than wiping the other stash's ledger.
+
+    Payouts are not blocked by a ledger in bad state: the reward is still paid, the ledger is
+    left untouched and a new `Event::Unexpected(UnexpectedKind::BadLedgerState { era, stash })`
+    is emitted instead. Slashing is not blocked either: it does not enforce the stake
+    bookkeeping, so a stash whose ledger is already inconsistent never becomes unslashable. If
+    the slash is rolled back for any other reason, the same `BadLedgerState` event is emitted.
+
+    User visible behaviour changes:
+
+    - `force_unstake` and `reap_stash` no longer clear a bond in bad state, they fail with
+      `Error::BadState`. Such a bond is repaired with `restore_ledger` first and killed after.
+    - `set_payee` and `update_payee` fail with `Error::BadState` for a stash whose ledger is
+      inconsistent. The reward destination is changed after repairing the bond.
+    - The `try-state` checks of the pallet now fail instead of logging a warning when a
+      `(stash, controller)` pair bonds more than one ledger, when a controller is associated
+      with more than one ledger, or when a bonded pair has no associated ledger. A corrupted
+      bond that survives in state therefore turns `check-runtime-migration` red rather than
+      silent.
+
+crates:
+- name: pallet-staking-async
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: patch

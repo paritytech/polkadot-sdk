@@ -1789,3 +1789,55 @@ fn legacy_payout_ignores_pot_account_existence() {
 		assert_eq!(minted, expected_stakers);
 	});
 }
+
+#[test]
+fn payout_is_not_blocked_by_inconsistent_ledger() {
+	// A ledger whose stake bookkeeping is inconsistent is rejected by `update()`, but that must
+	// not block the payout of the validator and every nominator on the page.
+	ExtBuilder::default().has_stakers(false).try_state(false).build_and_execute(|| {
+		bond_validator(11, 1000);
+		bond_nominator(101, 500, vec![11]);
+
+		Session::roll_until_active_era(2);
+		Staking::reward_by_ids(vec![(11, 1)]);
+		let _ = validator_payout_for(time_per_era());
+		Session::roll_until_active_era(3);
+
+		// the nominator restakes its rewards, so its payout also touches its ledger.
+		Payee::<T>::insert(101, RewardDestination::Staked);
+
+		// corrupt the bookkeeping of both ledgers, such that `total != active + sum(unlocking)`.
+		let corrupt = |who| {
+			let mut ledger = Ledger::<T>::get(who).unwrap();
+			ledger.active -= 100;
+			Ledger::<T>::insert(who, ledger.clone());
+			assert_eq!(
+				Staking::ledger(StakingAccount::Stash(who)).unwrap().update(),
+				Err(Error::<T>::BadState)
+			);
+			ledger
+		};
+		let corrupt_11 = corrupt(11);
+		let corrupt_101 = corrupt(101);
+
+		let balance_11 = asset::total_balance::<T>(&11);
+		let balance_101 = asset::total_balance::<T>(&101);
+		let _ = staking_events_since_last_call();
+
+		// the payout still goes through for both the validator and its nominator.
+		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 2, 0));
+		assert!(asset::total_balance::<T>(&11) > balance_11);
+		assert!(asset::total_balance::<T>(&101) > balance_101);
+
+		// the rewards are paid out, only the restake of 101 is skipped.
+		assert_eq!(Ledger::<T>::get(11).unwrap(), corrupt_11);
+		assert_eq!(Ledger::<T>::get(101).unwrap(), corrupt_101);
+
+		// both inconsistent ledgers are reported.
+		let events = staking_events_since_last_call();
+		assert!(events
+			.contains(&Event::Unexpected(UnexpectedKind::BadLedgerState { era: 2, stash: 11 })));
+		assert!(events
+			.contains(&Event::Unexpected(UnexpectedKind::BadLedgerState { era: 2, stash: 101 })));
+	})
+}
