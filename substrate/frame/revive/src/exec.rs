@@ -33,7 +33,6 @@ use crate::{
 	transient_storage::TransientStorage,
 };
 use alloc::{
-	borrow::Cow,
 	collections::{BTreeMap, BTreeSet},
 	vec::Vec,
 };
@@ -2052,20 +2051,22 @@ where
 		}
 	}
 
-	/// Code served for `address` from a source other than [`crate::PristineCode`]: a
-	/// precompile's code stub, mocked code, or the EIP-7702 delegation indicator.
+	/// Resolves where the code reported for `address` comes from, with a single
+	/// `AccountInfoOf` read.
 	///
 	/// Single source of truth for `code_hash`, `code_size` and `copy_code_slice`, which
 	/// must all resolve code from the same sources in the same priority order.
-	fn virtual_code(&self, address: &H160) -> Option<Cow<'_, [u8]>> {
+	fn code_source(&self, address: &H160) -> Option<CodeSource<'_, T>> {
 		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
 			self.exec_config
 				.mock_handler
 				.as_ref()
 				.and_then(|handler| handler.mocked_code(*address))
 		}) {
-			return Some(Cow::Borrowed(code));
+			return Some(CodeSource::Virtual(code));
 		}
+
+		let (contract, target) = <AccountInfo<T>>::load_contract_with_delegation(address);
 
 		// EIP-7702: delegated EOAs return `0xef0100 || target` as their code.
 		//
@@ -2073,9 +2074,22 @@ where
 		// a delegated EOA's execution CODESIZE reports 23 instead of the size of the
 		// target's PVM blob. Fixing that needs a separate host function and a matching
 		// resolc change; tracked as a follow-up.
-		<AccountInfo<T>>::get_delegation_target(address)
-			.map(|target| Cow::Owned(<AccountInfo<T>>::delegation_indicator(&target).to_vec()))
+		if let Some(target) = target {
+			return Some(CodeSource::Indicator(<AccountInfo<T>>::delegation_indicator(&target)));
+		}
+
+		contract.map(CodeSource::Contract)
 	}
+}
+
+/// Where the code reported for an address comes from.
+enum CodeSource<'a, T: Config> {
+	/// A precompile's code stub or mocked code. Never stored in `PristineCode`.
+	Virtual(&'a [u8]),
+	/// The EIP-7702 delegation indicator `0xef0100 || target`.
+	Indicator([u8; 23]),
+	/// A deployed contract whose code is stored in `PristineCode`.
+	Contract(ContractInfo<T>),
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>
@@ -2480,31 +2494,26 @@ where
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {
-		// EXTCODEHASH path; CODEHASH (self) uses the separate `own_code_hash` host
-		// function and is therefore unaffected by the virtual code sources.
-		if let Some(code) = self.virtual_code(address) {
-			return sp_io::hashing::keccak_256(&code).into();
+		match self.code_source(address) {
+			Some(CodeSource::Virtual(code)) => sp_io::hashing::keccak_256(code).into(),
+			Some(CodeSource::Indicator(indicator)) =>
+				sp_io::hashing::keccak_256(&indicator).into(),
+			Some(CodeSource::Contract(contract)) => contract.code_hash,
+			None if System::<T>::account_exists(&T::AddressMapper::to_account_id(address)) =>
+				EMPTY_CODE_HASH,
+			None => H256::zero(),
 		}
-
-		<AccountInfo<T>>::load_contract(&address)
-			.map(|contract| contract.code_hash)
-			.unwrap_or_else(|| {
-				if System::<T>::account_exists(&T::AddressMapper::to_account_id(address)) {
-					return EMPTY_CODE_HASH;
-				}
-				H256::zero()
-			})
 	}
 
 	fn code_size(&self, address: &H160) -> u64 {
-		if let Some(code) = self.virtual_code(address) {
-			return code.len() as u64;
+		match self.code_source(address) {
+			Some(CodeSource::Virtual(code)) => code.len() as u64,
+			Some(CodeSource::Indicator(indicator)) => indicator.len() as u64,
+			Some(CodeSource::Contract(contract)) => CodeInfoOf::<T>::get(contract.code_hash)
+				.map(|info| info.code_len())
+				.unwrap_or_default(),
+			None => 0,
 		}
-
-		<AccountInfo<T>>::load_contract(&address)
-			.and_then(|contract| CodeInfoOf::<T>::get(contract.code_hash))
-			.map(|info| info.code_len())
-			.unwrap_or_default()
 	}
 
 	fn caller_is_origin(&self, use_caller_of_caller: bool) -> bool {
@@ -2654,14 +2663,16 @@ where
 			return;
 		}
 
-		if let Some(code) = self.virtual_code(address) {
-			return copy_padded(buf, &code, code_offset);
+		match self.code_source(address) {
+			Some(CodeSource::Virtual(code)) => copy_padded(buf, code, code_offset),
+			Some(CodeSource::Indicator(indicator)) => copy_padded(buf, &indicator, code_offset),
+			Some(CodeSource::Contract(contract)) => copy_padded(
+				buf,
+				&crate::PristineCode::<T>::get(&contract.code_hash).unwrap_or_default(),
+				code_offset,
+			),
+			None => buf.fill(0),
 		}
-
-		let code = <AccountInfo<T>>::load_contract(address)
-			.and_then(|contract| crate::PristineCode::<T>::get(&contract.code_hash))
-			.unwrap_or_default();
-		copy_padded(buf, &code, code_offset);
 	}
 
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {
