@@ -501,7 +501,7 @@ async fn statement_store_sustained_rate_flooding() -> Result<(), anyhow::Error> 
 
 	let bob_submitted = Cell::new(0.0f64);
 	bob.wait_metric_with_timeout(
-		"substrate_sub_statement_store_submitted_statements",
+		"substrate_sub_statement_store_submitted_statements{reason=\"persistent\"}",
 		|v| {
 			bob_submitted.set(v);
 			true
@@ -588,7 +588,7 @@ async fn statement_store_burst_flooding() -> Result<(), anyhow::Error> {
 
 	let bob_submitted = Cell::new(0.0f64);
 	bob.wait_metric_with_timeout(
-		"substrate_sub_statement_store_submitted_statements",
+		"substrate_sub_statement_store_submitted_statements{reason=\"persistent\"}",
 		|v| {
 			bob_submitted.set(v);
 			true
@@ -798,7 +798,7 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 	// statements — so allow for one unflushed tail write in each.
 	let bob_resubmitted = Cell::new(0.0f64);
 	bob.wait_metric_with_timeout(
-		"substrate_sub_statement_store_submitted_statements",
+		"substrate_sub_statement_store_submitted_statements{reason=\"persistent\"}",
 		|v| {
 			bob_resubmitted.set(v);
 			true

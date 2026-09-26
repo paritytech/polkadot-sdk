@@ -78,6 +78,18 @@ impl RetentionReasonMask {
 	pub fn is_persistent(&self) -> bool {
 		self.0 != 0
 	}
+
+	pub fn label(&self) -> &'static str {
+		if *self == Self::persistent() {
+			return "persistent";
+		}
+		match (self.contains(Self::DHT_AFFINITY), self.contains(Self::EXPLICIT_AFFINITY)) {
+			(false, false) => "transient",
+			(true, false) => "dht",
+			(false, true) => "explicit",
+			(true, true) => "both",
+		}
+	}
 }
 
 /// Shared affinity view to derive a statement's retention mask.
@@ -374,6 +386,9 @@ impl V2DhtOrchestrator {
 		let topics = self.explicit_affinity.topics();
 		let desired = self.peers_topology.peers_for_topics(&topics);
 		self.peer_steering.update_peers_needing_connections(desired);
+		if let Some(metrics) = &self.metrics {
+			metrics.set_desired_unconnected_peers(self.peer_steering.peers_to_connect().len());
+		}
 	}
 
 	/// Align the connected peers with the peers needed to cover the node's subscriptions, opening

@@ -59,7 +59,7 @@ impl MetricsLink {
 
 /// Statement store Prometheus metrics.
 pub struct Metrics {
-	pub submitted_statements: Counter<U64>,
+	pub submitted_statements: CounterVec<U64>,
 	pub validations_invalid: CounterVec<U64>,
 	pub statements_pruned: Counter<U64>,
 	pub statements_total: Gauge<U64>,
@@ -80,9 +80,12 @@ impl Metrics {
 	pub fn register(registry: &Registry) -> Result<Self, PrometheusError> {
 		Ok(Self {
 			submitted_statements: register(
-				Counter::new(
-					"substrate_sub_statement_store_submitted_statements",
-					"Total number of new statements successfully accepted into the store",
+				CounterVec::new(
+					Opts::new(
+						"substrate_sub_statement_store_submitted_statements",
+						"Total number of new statements successfully accepted into the store, by retention reason at admission",
+					),
+					&["reason"],
 				)?,
 				registry,
 			)?,

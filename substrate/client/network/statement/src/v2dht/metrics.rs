@@ -30,6 +30,8 @@ pub(crate) struct V2DhtMetrics {
 	/// Known peers with confirmed statement-protocol support: the DHT storage, affinity and
 	/// forwarding candidates.
 	eligible_peers: Gauge<U64>,
+	/// Desired peers without an open statement substream, sampled on the pending-affinity tick.
+	desired_unconnected_peers: Gauge<U64>,
 }
 
 impl V2DhtMetrics {
@@ -56,6 +58,13 @@ impl V2DhtMetrics {
 				)?,
 				r,
 			)?,
+			desired_unconnected_peers: register(
+				Gauge::new(
+					"substrate_sync_statement_v2dht_desired_unconnected_peers",
+					"Desired peers without an open statement substream, sampled on the pending-affinity tick",
+				)?,
+				r,
+			)?,
 		})
 	}
 
@@ -68,5 +77,9 @@ impl V2DhtMetrics {
 		self.known_peers.set(known_peers as u64);
 		self.connected_peers.set(connected_peers as u64);
 		self.eligible_peers.set(eligible_peers as u64);
+	}
+
+	pub(crate) fn set_desired_unconnected_peers(&self, count: usize) {
+		self.desired_unconnected_peers.set(count as u64);
 	}
 }
