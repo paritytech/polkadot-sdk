@@ -429,12 +429,26 @@ impl<T: Config> Pallet<T> {
 
 		let mut payout = BalanceOf::<T>::zero();
 		let last = region.begin + contribution.length.min(max_timeslices);
+		let last_committed_timeslice = Status::<T>::get()
+			.map(|status| status.last_committed_timeslice)
+			.unwrap_or_default();
 		for r in region.begin..last {
+			let Some(mut pool_record) = InstaPoolHistory::<T>::get(r) else {
+				// History exists for every committed timeslice, so a missing entry at or before
+				// the last committed one was dropped after `contribution_timeout` and its revenue
+				// is gone. A later one is not committed yet: stop and leave it for a future claim.
+				if r > last_committed_timeslice {
+					break;
+				}
+				region.begin = r + 1;
+				contribution.length.saturating_dec();
+				continue;
+			};
+			let Some(total_payout) = pool_record.maybe_payout else { break };
+
 			region.begin = r + 1;
 			contribution.length.saturating_dec();
 
-			let Some(mut pool_record) = InstaPoolHistory::<T>::get(r) else { continue };
-			let Some(total_payout) = pool_record.maybe_payout else { break };
 			let p = total_payout
 				.saturating_mul(contributed_parts.into())
 				.checked_div(&pool_record.private_contributions.into())
@@ -462,7 +476,7 @@ impl<T: Config> Pallet<T> {
 		// transfer fails, the error must revert them. The storage changes and the payment
 		// must both happen, or neither.
 		T::Currency::transfer(&Self::account_id(), &contribution.payee, payout, Expendable)?;
-		let next = if last < region.begin + contribution.length { Some(region) } else { None };
+		let next = if contribution.length > 0 { Some(region) } else { None };
 		Self::deposit_event(Event::RevenueClaimPaid {
 			who: contribution.payee,
 			amount: payout,
