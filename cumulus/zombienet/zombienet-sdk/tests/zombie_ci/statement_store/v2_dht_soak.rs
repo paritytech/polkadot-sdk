@@ -61,6 +61,8 @@ const STATEMENT_SET_PEER_LIMIT: usize = 100;
 // network that never wired up, not to pin down where steering happens to land.
 const CONNECTED_PEER_MARGIN: usize = 25;
 const STATEMENT_TTL: Duration = Duration::from_secs(900);
+/// How many dropped connections a run may reopen before it is a fault rather than the weather.
+const MAX_RECONNECTS: usize = 5;
 const AUTHORING_COLLATORS: [&str; 4] = ["alice", "bob", "charlie", "dave"];
 const REPLICATION_FACTOR: usize = 8;
 const GOSSIP_TARGET: u32 = 3;
@@ -113,6 +115,13 @@ fn soak_topic(kind: &[u8], wave: u64, idx: u64) -> Topic {
 struct NodeHandle<'a> {
 	node: &'a NetworkNode,
 	rpc: RpcClient,
+}
+
+/// Whether a failure is one of the RPC connections going away rather than anything the soak is
+/// testing. A run long enough to matter outlives individual WebSockets: one of the hundred this
+/// test holds dropped 2h14m in, with every node still healthy and 101 waves already verified.
+fn is_dropped_connection(err: &anyhow::Error) -> bool {
+	err.chain().any(|cause| cause.to_string().contains("restart required"))
 }
 
 impl NodeHandle<'_> {
@@ -358,8 +367,23 @@ async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
 	let soak_started = Instant::now();
 	let mut wave: u64 = 0;
 	let mut total_statements = 0usize;
+	let mut reconnects = 0usize;
 	loop {
-		let report = run_wave(wave, &nodes, &peer_keys, &mut load).await?;
+		let report = match run_wave(wave, &nodes, &peer_keys, &mut load).await {
+			Ok(report) => report,
+			Err(err) if is_dropped_connection(&err) && reconnects < MAX_RECONNECTS => {
+				reconnects += 1;
+				info!("Wave {wave}: reopening the RPC connections after a dropped one: {err}");
+				for handle in nodes.iter_mut() {
+					handle.rpc = handle.node.rpc().await?;
+				}
+				// The wave's statements are already in flight, so its topics would see
+				// duplicates on a retry; carry on with the next one instead.
+				wave += 1;
+				continue;
+			},
+			Err(err) => return Err(err),
+		};
 		total_statements += report.ring_statements + PROBES_PER_WAVE;
 		info!(
 			"Wave {wave}: {} ring statements submitted in {:.1}s, delivered in {:.1}s, \

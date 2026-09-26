@@ -108,6 +108,16 @@ jobs:
           app-id: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
           app-private-key: ${{ secrets.ARTIFACTS_DOWNLOADER_PRIVATE_KEY }}
 
+      # DO NOT MERGE. The cluster credentials the test action set up do not outlive a two-hour
+      # soak: the 8078s run collected 102 log files that each held nothing but "You must be
+      # logged in to the server", so the panic check had nothing to read. Re-auth before reading.
+      - name: k8s_reauth_for_logs
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+          k8s_auth
+
       - name: process_logs
         if: ${{ always() }}
         shell: bash
