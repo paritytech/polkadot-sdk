@@ -1523,6 +1523,12 @@ zombienet-orchestrator = { version = "0.4.18" }
 zombienet-sdk = { version = "0.4.18" }
 zstd = { version = "0.12.4", default-features = false }
 
+# DO NOT MERGE. Points litep2p at the fix for paritytech/litep2p#665 so the 100-node
+# statement-store soak can confirm it: the local provider record used to be evicted from
+# `provider_keys` while `local_providers` kept it, and withdrawing it then panicked.
+[patch.crates-io]
+litep2p = { git = "https://github.com/paritytech/litep2p", branch = "denzelpenzel/kad-local-provider-tracking" }
+
 [profile.release]
 # Polkadot runtime requires unwinding.
 opt-level = 3

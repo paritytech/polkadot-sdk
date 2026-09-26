@@ -721,6 +721,11 @@ impl Stream for Discovery {
 			},
 			// We do not validate incoming providers.
 			Poll::Ready(Some(KademliaEvent::IncomingProvider { .. })) => {},
+			// DO NOT MERGE. Only reachable because this branch patches litep2p to master, which
+			// added this event in paritytech/litep2p#611. litep2p has already recorded the
+			// addresses by the time it reports them, and discovery here is driven by the
+			// routing-table updates below, so there is nothing to do.
+			Poll::Ready(Some(KademliaEvent::PeersDiscovered { .. })) => {},
 		}
 
 		match Pin::new(&mut this.identify_event_stream).poll_next(cx) {

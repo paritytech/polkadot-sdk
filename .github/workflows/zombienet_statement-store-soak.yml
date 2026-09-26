@@ -1,0 +1,140 @@
+name: Zombienet Statement Store Soak
+
+# On-demand statement-store soak on the zombienet k8s cluster, run by hand through a workflow
+# dispatch; not part of the default per-PR zombienet matrix. The node images and the test archive
+# come from a "Build and push images" run of the branch: the one given as input, or else the
+# latest fully successful one.
+on:
+  workflow_dispatch:
+    inputs:
+      test_pattern:
+        type: string
+        description: "Run tests which names match this pattern (also flaky)"
+        default: ""
+        required: false
+      soak_secs:
+        type: string
+        description: "Soak window in seconds; overrides the matrix entry"
+        default: ""
+        required: false
+      soak_nodes:
+        type: string
+        description: "Statement node count; overrides the matrix entry"
+        default: ""
+        required: false
+      build_run_id:
+        type: string
+        description: "Build run to take the node images and the test archive from (default: the branch's latest fully successful one)"
+        default: ""
+        required: false
+
+concurrency:
+  group: statement-store-soak-${{ github.ref_name }}
+  cancel-in-progress: true
+
+permissions: read-all
+
+env:
+  GHA_CLUSTER_SERVER_ADDR: "https://kubernetes.default:443"
+  KUBECONFIG: "/data/config"
+  # DO NOT MERGE. The orchestrator otherwise spawns a whole level at once - 100 pods, so 100
+  # concurrent execs against the apiserver - and at this size that connection storm is what the
+  # spawn dies on, with "tls handshake eof" or an elapsed deadline. Raising the spawn timeout
+  # does not help: the pod-ready wait is hardcoded to 600s in the provider (kubernetes/client.rs
+  # :171, with a TODO to honour node_spawn_timeout), so the only lever is spawning fewer at once.
+  ZOMBIE_SPAWN_CONCURRENCY: "20"
+  ZOMBIE_CLEANER_DISABLED: 1
+
+jobs:
+  preflight:
+    uses: ./.github/workflows/zombienet-reusable-preflight.yml
+    with:
+      tests_yaml: .github/zombienet-tests/zombienet_statement_store_soak_tests.yml
+      test_pattern: ${{ inputs.test_pattern }}
+      build_run_id: ${{ inputs.build_run_id }}
+
+  zombienet-statement-store-soak:
+    name: ${{ matrix.test.job-name }}
+    runs-on: parity-zombienet
+    # Spawning the pods and then soaking them takes a while.
+    timeout-minutes: 210
+    needs: [preflight]
+    container:
+      image: docker.io/paritytech/zombienet:v1.3.140
+    env:
+      RUST_LOG: ${{ needs.preflight.outputs.RUST_LOG }}
+      ZOMBIE_PROVIDER: "k8s"
+      STATEMENT_V2_SOAK_SECS: ${{ inputs.soak_secs || matrix.test.soak-secs }}
+      STATEMENT_V2_SOAK_NODES: ${{ inputs.soak_nodes || matrix.test.soak-nodes }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        test: ${{ fromJson(needs.preflight.outputs.TEST_MATRIX) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Reuse the namespace the runner was given
+        shell: bash
+        run: |
+          echo "ZOMBIE_K8S_CI_NAMESPACE=$(cat /data/namespace)" >> "$GITHUB_ENV"
+
+      - name: Spawn the nodes from the Docker Hub images of the build run
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUILD_RUN_ID: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          CUMULUS_IMAGE_NAME: ${{ matrix.test.cumulus-image }}
+        run: |
+          # The build tags them <pr>-<short sha> off a pull request and master-<short sha> off master.
+          version=$(curl -sSf -H "Authorization: Bearer ${GH_TOKEN}" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/runs/${BUILD_RUN_ID}" \
+            | jq -r '"\(if .event == "pull_request" then .pull_requests[0].number else "master" end)-\(.head_sha[:8])"')
+          echo "POLKADOT_IMAGE=docker.io/paritypr/polkadot-debug:${version}" >> "$GITHUB_ENV"
+          echo "CUMULUS_IMAGE=docker.io/paritypr/${CUMULUS_IMAGE_NAME}:${version}" >> "$GITHUB_ENV"
+
+      - name: zombienet_test
+        timeout-minutes: 200
+        uses: ./.github/actions/zombienet-sdk
+        with:
+          test-filter: ${{ matrix.test.test-filter }}
+          job-name: ${{ matrix.test.job-name }}
+          prefix: "cumulus"
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          app-id: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
+          app-private-key: ${{ secrets.ARTIFACTS_DOWNLOADER_PRIVATE_KEY }}
+
+      # DO NOT MERGE. The cluster credentials the test action set up do not outlive a two-hour
+      # soak: the 8078s run collected 102 log files that each held nothing but "You must be
+      # logged in to the server", so the panic check had nothing to read. Re-auth before reading.
+      - name: k8s_reauth_for_logs
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          . /home/nonroot/zombie-net/scripts/ci/run-test-local-env-manager.sh
+          k8s_auth
+
+      - name: process_logs
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          echo "Processing log files"
+          echo "::group::Logs"
+          if ! ./.github/scripts/process-logs-zombienet.sh ; then
+            echo "::endgroup::"
+            echo "::warning ::WARNING: Failed to process logs"
+          else
+            echo "::endgroup::"
+          fi
+
+      - name: upload_logs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: ${{ always() }}
+        with:
+          name: zombienet-logs-${{ matrix.test.job-name }}-${{ github.sha }}
+          path: |
+            /tmp/zombie*/logs/*
