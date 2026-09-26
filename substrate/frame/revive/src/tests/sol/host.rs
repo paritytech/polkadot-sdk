@@ -22,6 +22,7 @@ use crate::{
 	evm::fees::InfoT,
 	exec::EMPTY_CODE_HASH,
 	metering::TransactionLimits,
+	precompiles::EVM_REVERT,
 	storage::AccountInfo,
 	test_utils::{
 		ALICE, BOB, BOB_ADDR, CHARLIE, CHARLIE_ADDR, DJANGO, DJANGO_ADDR, builder::Contract,
@@ -39,6 +40,7 @@ use frame_support::traits::{
 	fungible::{Balanced, Mutate},
 };
 use pallet_revive_fixtures::{Caller, FixtureType, Host, compile_module_with_type};
+use pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR;
 use pretty_assertions::assert_eq;
 use sp_core::H160;
 use test_case::test_case;
@@ -206,6 +208,12 @@ fn extcodesize_works(fixture_type: FixtureType) {
 			TestCase { name: "delegated EOA", addr: delegated_eoa, expected: 23 },
 			TestCase { name: "regular EOA", addr: CHARLIE_ADDR, expected: 0 },
 			TestCase { name: "non-existent", addr: H160::from_low_u64_be(0xdead), expected: 0 },
+			TestCase {
+				name: "precompile",
+				addr: H160(SYSTEM_PRECOMPILE_ADDR),
+				expected: EVM_REVERT.len() as u64,
+			},
+			TestCase { name: "primitive precompile", addr: H160::from_low_u64_be(1), expected: 0 },
 		];
 
 		for TestCase { name, addr, expected } in cases {
@@ -269,6 +277,16 @@ fn extcodehash_works(fixture_type: FixtureType) {
 				name: "non-existent",
 				addr: H160::from_low_u64_be(0xdead),
 				expected: H256::zero(),
+			},
+			TestCase {
+				name: "precompile",
+				addr: H160(SYSTEM_PRECOMPILE_ADDR),
+				expected: sp_io::hashing::keccak_256(&EVM_REVERT).into(),
+			},
+			TestCase {
+				name: "primitive precompile",
+				addr: H160::from_low_u64_be(1),
+				expected: EMPTY_CODE_HASH,
 			},
 		];
 
@@ -372,6 +390,11 @@ fn extcodecopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 		let delegated_eoa = create_delegated_eoa(&dummy_addr);
 		let indicator = AccountInfo::<Test>::delegation_indicator(&dummy_addr).to_vec();
 
+		let system_precompile = H160(SYSTEM_PRECOMPILE_ADDR);
+		let stub = EVM_REVERT.to_vec();
+
+		<Test as Config>::Currency::set_balance(&CHARLIE, 100_000_000);
+
 		struct TestCase {
 			description: &'static str,
 			target: H160,
@@ -456,6 +479,66 @@ fn extcodecopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 				size: 5,
 				expected: vec![0u8; 5],
 			},
+			TestCase {
+				description: "precompile: full stub",
+				target: system_precompile,
+				offset: 0,
+				size: stub.len(),
+				expected: stub.clone(),
+			},
+			TestCase {
+				description: "precompile: single byte",
+				target: system_precompile,
+				offset: 0,
+				size: 1,
+				expected: stub[..1].to_vec(),
+			},
+			TestCase {
+				description: "precompile: size beyond stub, zero-padded",
+				target: system_precompile,
+				offset: 0,
+				size: stub.len() + 22,
+				expected: {
+					let mut expected = vec![0u8; stub.len() + 22];
+					expected[..stub.len()].copy_from_slice(&stub);
+					expected
+				},
+			},
+			TestCase {
+				description: "precompile: copy within bounds",
+				target: system_precompile,
+				offset: 1,
+				size: stub.len() - 2,
+				expected: stub[1..stub.len() - 1].to_vec(),
+			},
+			TestCase {
+				description: "precompile: offset beyond stub",
+				target: system_precompile,
+				offset: stub.len() + 32,
+				size: 7,
+				expected: vec![0u8; 7],
+			},
+			TestCase {
+				description: "primitive precompile: empty stub, zero-filled",
+				target: H160::from_low_u64_be(1),
+				offset: 0,
+				size: 8,
+				expected: vec![0u8; 8],
+			},
+			TestCase {
+				description: "regular EOA: zero-filled",
+				target: CHARLIE_ADDR,
+				offset: 0,
+				size: 8,
+				expected: vec![0u8; 8],
+			},
+			TestCase {
+				description: "non-existent: zero-filled",
+				target: H160::from_low_u64_be(0xdead),
+				offset: 0,
+				size: 8,
+				expected: vec![0u8; 8],
+			},
 		];
 
 		for TestCase { description, target, offset, size, expected } in test_cases {
@@ -475,6 +558,91 @@ fn extcodecopy_works(caller_type: FixtureType, callee_type: FixtureType) {
 				HostEvmOnly::extcodecopyOpCall::abi_decode_returns(&result.data).unwrap().0;
 			assert_eq!(expected, actual.to_vec(), "EXTCODECOPY mismatch: {}", description);
 		}
+	});
+}
+
+/// EXTCODECOPY serves the mocked code for addresses mocked via the `mock_handler`,
+/// consistent with `EXTCODESIZE` and `EXTCODEHASH` (see `mocked_code_works`).
+/// Pre-compiles cannot be mocked over: their stub wins over the mocked code.
+#[test]
+fn extcodecopy_mocked_code_works() {
+	use crate::{
+		ExecConfig,
+		precompiles::{All, Precompiles},
+		primitives::ExecReturnValue,
+		tests::{MOCK_CODE, MockHandlerImpl},
+	};
+	use pallet_revive_fixtures::{HostEvmOnly, HostEvmOnly::HostEvmOnlyCalls};
+
+	let (caller_code, _) = compile_module_with_type("HostEvmOnly", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+		let mocked_addr = H160::from_slice(&[0x42; 20]);
+		let precompile_addr = H160(SYSTEM_PRECOMPILE_ADDR);
+		let stub = <All<Test>>::code(precompile_addr.as_fixed_bytes()).unwrap();
+
+		let mock_handler = || {
+			Some(Box::new(MockHandlerImpl {
+				mock_call: [
+					(mocked_addr, ExecReturnValue::default()),
+					(precompile_addr, ExecReturnValue::default()),
+				]
+				.into_iter()
+				.collect(),
+				..Default::default()
+			}) as _)
+		};
+
+		// copy past the end of the mocked code so that both the code bytes
+		// and the zero padding are visible
+		let result = builder::bare_call(addr)
+			.data(
+				HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
+					account: mocked_addr.0.into(),
+					offset: 0,
+					size: MOCK_CODE.len() as u64 + 3,
+				})
+				.abi_encode(),
+			)
+			.exec_config(ExecConfig { mock_handler: mock_handler(), ..Default::default() })
+			.build_and_unwrap_result();
+
+		assert!(!result.did_revert(), "test reverted");
+
+		let return_value = HostEvmOnly::extcodecopyOpCall::abi_decode_returns(&result.data)
+			.expect("Failed to decode extcodecopyOp return value");
+
+		let mut expected = MOCK_CODE.to_vec();
+		expected.extend_from_slice(&[0u8; 3]);
+		assert_eq!(&expected, &return_value.0, "EXTCODECOPY must serve the mocked code");
+
+		// the pre-compile is mocked as well but its stub must win
+		let result = builder::bare_call(addr)
+			.data(
+				HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
+					account: precompile_addr.0.into(),
+					offset: 0,
+					size: stub.len() as u64,
+				})
+				.abi_encode(),
+			)
+			.exec_config(ExecConfig { mock_handler: mock_handler(), ..Default::default() })
+			.build_and_unwrap_result();
+
+		assert!(!result.did_revert(), "test reverted");
+
+		let return_value = HostEvmOnly::extcodecopyOpCall::abi_decode_returns(&result.data)
+			.expect("Failed to decode extcodecopyOp return value");
+
+		assert_eq!(
+			stub,
+			&return_value.0[..],
+			"the pre-compile code stub must take precedence over mocked code",
+		);
 	});
 }
 
