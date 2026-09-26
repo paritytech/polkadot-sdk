@@ -1,0 +1,25 @@
+title: 'pallet-scheduler: remove aborted and unserviceable tasks from agendas'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Makes agenda servicing in `pallet-scheduler` more robust.
+
+    Tasks aborted with `CallUnavailable` or `PermanentlyOverweight` are now removed from their
+    agenda together with their retry configuration.
+
+    A due task whose service weight exceeds `MaximumWeight` is now removed with
+    `PermanentlyOverweight`. Tasks that fit `MaximumWeight` but not the weight left in the current
+    block are still postponed.
+
+    The weight budget of a block is treated as fresh only until the first task is serviced.
+- audience: Runtime User
+  description: |-
+    Scheduled tasks that fail with `CallUnavailable` or `PermanentlyOverweight` are removed from
+    storage. Cancelling, rescheduling or setting a retry configuration for them by address now
+    returns `NotFound`.
+
+    Lowering the scheduler's `MaximumWeight` below a scheduled task removes that task when it is
+    due. To pause the scheduler, set `MaximumWeight` to zero, which removes nothing.
+crates:
+- name: pallet-scheduler
+  bump: patch
