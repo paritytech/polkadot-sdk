@@ -230,7 +230,7 @@ impl pallet_hrmp_para::Config for Runtime {
 	type MaxInboundChannels = ConstU32<MAX_INBOUND_CHANNELS>;
 	type MaxOutboundChannels = ConstU32<MAX_OUTBOUND_CHANNELS>;
 	type DefaultChannelSizeAndCapacityWithSystem = SystemChannelSizes;
-	type WeightInfo = ();
+	type WeightInfo = crate::weights::ZeroWeights;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;

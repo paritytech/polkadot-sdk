@@ -178,7 +178,7 @@ impl pallet_hrmp_relay::Config for Runtime {
 	type ForwardToPara = RelayForwardToPara;
 	type NotifyParachain = RelayNotifyParachain;
 	type Registry = parachains_hrmp::Pallet<Runtime>;
-	type WeightInfo = ();
+	type WeightInfo = crate::weights::ZeroWeights;
 }
 
 parameter_types! {

@@ -32,13 +32,16 @@
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
-use frame_support::traits::{Consideration, EnsureOrigin, Footprint, Get};
+use frame_support::{
+	ensure,
+	traits::{Consideration, Defensive, EnsureOrigin, Footprint, Get},
+};
 use hrmp_primitives::{
 	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
 	Outcome, ParaId, ParaNotification, ParaRequest, ParaRequestV1,
 };
 use scale_info::TypeInfo;
-use sp_runtime::{traits::Convert, DispatchResult};
+use sp_runtime::{traits::Convert, DispatchError, DispatchResult};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -76,15 +79,15 @@ impl SendToRelay for () {
 pub enum RequestState<SenderTicket, RecipientTicket> {
 	/// The sender asked, the recipient has not accepted.
 	Requested {
-		/// The sender's held deposit.
-		sender_deposit: SenderTicket,
+		/// The sender's held deposit, absent on a channel with the system.
+		sender_deposit: Option<SenderTicket>,
 	},
 	/// The relay chain has been asked to open the channel.
 	Accepted {
-		/// The sender's held deposit.
-		sender_deposit: SenderTicket,
-		/// The recipient's held deposit.
-		recipient_deposit: RecipientTicket,
+		/// The sender's held deposit, absent on a channel with the system.
+		sender_deposit: Option<SenderTicket>,
+		/// The recipient's held deposit, absent on a channel with the system.
+		recipient_deposit: Option<RecipientTicket>,
 		/// Which call asked, so the answer can be reported under the right event.
 		kind: OpenKind,
 	},
@@ -166,14 +169,10 @@ pub struct ChannelRequest<SenderTicket, RecipientTicket> {
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub struct ChannelInfo<SenderTicket, RecipientTicket> {
-	/// How many messages the channel may hold at once.
-	pub max_capacity: u32,
-	/// The largest message the channel will carry.
-	pub max_message_size: u32,
-	/// The sender's held deposit.
-	pub sender_deposit: SenderTicket,
-	/// The recipient's held deposit.
-	pub recipient_deposit: RecipientTicket,
+	/// The sender's held deposit, absent on a channel with the system.
+	pub sender_deposit: Option<SenderTicket>,
+	/// The recipient's held deposit, absent on a channel with the system.
+	pub recipient_deposit: Option<RecipientTicket>,
 }
 
 /// [`ChannelRequest`] as this pallet stores it.
@@ -203,8 +202,8 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The cost the sender pays to open a channel.
 		///
-		/// Footprint is a single item sized as the channel's capacity, so either a flat or a
-		/// per-message price fits. A system chain on either end pays nothing.
+		/// Footprint is a single item sized as [`Config::MaxCapacity`], whatever the channel asks
+		/// for. A system chain on either end pays nothing.
 		type SenderConsideration: Consideration<Self::AccountId, Footprint>;
 
 		/// The cost the recipient pays to accept a channel.
@@ -269,11 +268,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Channels<T: Config> = StorageMap<_, Blake2_128Concat, ChannelId, ChannelInfoOf<T>>;
 
-	/// Senders that have a channel to a recipient, sorted.
 	/// Closes the relay chain has been asked to enact, by channel.
 	#[pallet::storage]
 	pub type CloseRequests<T: Config> = StorageMap<_, Blake2_128Concat, ChannelId, CloseRequest>;
 
+	/// Senders that have a channel to a recipient, sorted.
 	#[pallet::storage]
 	pub type IngressIndex<T: Config> = StorageMap<
 		_,
@@ -643,16 +642,49 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	/// The footprint one side of a channel with this capacity is priced by.
-	pub fn channel_footprint(max_capacity: u32) -> Footprint {
-		Footprint::from_parts(1, max_capacity as usize)
+	/// The footprint one side of any channel is priced by.
+	pub fn channel_footprint() -> Footprint {
+		Footprint::from_parts(1, T::MaxCapacity::get() as usize)
+	}
+
+	/// Hold the sender's deposit for `channel`.
+	///
+	/// A channel with or amongst the system is free, and holds nothing rather than holding zero:
+	/// a system chain's sovereign account here may not exist at all.
+	fn hold_sender(channel: ChannelId) -> Result<Option<T::SenderConsideration>, DispatchError> {
+		if channel.is_system() {
+			return Ok(None);
+		}
+
+		T::SenderConsideration::new(
+			&Self::sovereign_account(channel.sender),
+			Self::channel_footprint(),
+		)
+		.map(Some)
+	}
+
+	/// Hold the recipient's deposit for `channel`, on the same terms as [`Self::hold_sender`].
+	fn hold_recipient(channel: ChannelId) -> Result<Option<T::RecipientConsideration>, DispatchError> {
+		if channel.is_system() {
+			return Ok(None);
+		}
+
+		T::RecipientConsideration::new(
+			&Self::sovereign_account(channel.recipient),
+			Self::channel_footprint(),
+		)
+		.map(Some)
+	}
+
+	/// The account a para's deposits are taken from.
+	fn sovereign_account(para_id: ParaId) -> T::AccountId {
+		T::SovereignAccountOf::convert(para_id)
 	}
 
 	/// Ask the relay chain to tell `para_id` about a channel it is one end of.
 	///
 	/// This chain has a channel to almost no para, so what it has to tell them goes out through
 	/// the relay chain, which reaches every one. Nothing is answered.
-	#[allow(dead_code)]
 	fn notify_para(para_id: ParaId, notification: ParaNotification) -> DispatchResult {
 		T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::NotifyPara {
 			para_id,
@@ -661,7 +693,6 @@ impl<T: Config> Pallet<T> {
 		.map_err(|()| Error::<T>::SendFailed.into())
 	}
 
-	#[allow(dead_code)]
 	fn next_message_id() -> u64 {
 		NextMessageId::<T>::mutate(|next| {
 			let id = *next;
@@ -671,22 +702,120 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// `hrmp_init_open_channel`, asked for by `sender` through the relay chain.
+	///
+	/// The relay chain owns para validity, so nothing here checks it: a bogus recipient comes back
+	/// as [`FailureReason::Refused`] once the request is accepted and sent on.
 	fn on_init_open_channel(
 		sender: ParaId,
 		recipient: ParaId,
 		proposed_max_capacity: u32,
 		proposed_max_message_size: u32,
 	) -> DispatchResult {
-		let _ = (sender, recipient, proposed_max_capacity, proposed_max_message_size);
-		// TODO(ahm-v2): record the request, take the sender's deposit and ask the relay chain.
-		Err(Error::<T>::Unimplemented.into())
+		ensure!(sender != recipient, Error::<T>::OpenHrmpChannelToSelf);
+		ensure!(proposed_max_capacity > 0, Error::<T>::OpenHrmpChannelZeroCapacity);
+		ensure!(
+			proposed_max_capacity <= T::MaxCapacity::get(),
+			Error::<T>::OpenHrmpChannelCapacityExceedsLimit,
+		);
+		ensure!(proposed_max_message_size > 0, Error::<T>::OpenHrmpChannelZeroMessageSize);
+		ensure!(
+			proposed_max_message_size <= T::MaxMessageSize::get(),
+			Error::<T>::OpenHrmpChannelMessageSizeExceedsLimit,
+		);
+
+		let channel = ChannelId { sender, recipient };
+		ensure!(!Requests::<T>::contains_key(channel), Error::<T>::OpenHrmpChannelAlreadyRequested);
+		ensure!(!Channels::<T>::contains_key(channel), Error::<T>::OpenHrmpChannelAlreadyExists);
+
+		let egress_cnt = EgressIndex::<T>::decode_len(sender).unwrap_or(0) as u32;
+		let open_req_cnt = OpenRequestCount::<T>::get(sender);
+		ensure!(
+			egress_cnt + open_req_cnt < T::MaxOutboundChannels::get(),
+			Error::<T>::OpenHrmpChannelLimitExceeded,
+		);
+
+		let sender_deposit = Self::hold_sender(channel)?;
+
+		// One id for the request's whole life: it goes out with the eventual `OpenChannel` and
+		// comes back on its answer.
+		let message_id = Self::next_message_id();
+
+		OpenRequestCount::<T>::insert(sender, open_req_cnt + 1);
+		Requests::<T>::insert(
+			channel,
+			ChannelRequest {
+				state: RequestState::Requested { sender_deposit },
+				max_capacity: proposed_max_capacity,
+				max_message_size: proposed_max_message_size,
+				message_id,
+			},
+		);
+
+		Self::notify_para(
+			recipient,
+			ParaNotification::NewChannelOpenRequest {
+				sender,
+				max_message_size: proposed_max_message_size,
+				max_capacity: proposed_max_capacity,
+			},
+		)?;
+
+		Self::deposit_event(Event::OpenChannelRequested {
+			channel,
+			message_id,
+			proposed_max_capacity,
+			proposed_max_message_size,
+		});
+
+		Ok(())
 	}
 
 	/// `hrmp_accept_open_channel`, asked for by `recipient` through the relay chain.
 	fn on_accept_open_channel(recipient: ParaId, sender: ParaId) -> DispatchResult {
-		let _ = (recipient, sender);
-		// TODO(ahm-v2): confirm the request and take the recipient's deposit.
-		Err(Error::<T>::Unimplemented.into())
+		let channel = ChannelId { sender, recipient };
+		let ChannelRequest { state, max_capacity, max_message_size, message_id } =
+			Requests::<T>::get(channel).ok_or(Error::<T>::AcceptHrmpChannelDoesntExist)?;
+		let RequestState::Requested { sender_deposit } = state else {
+			return Err(Error::<T>::AcceptHrmpChannelAlreadyConfirmed.into());
+		};
+
+		let ingress_cnt = IngressIndex::<T>::decode_len(recipient).unwrap_or(0) as u32;
+		let accepted_cnt = AcceptedRequestCount::<T>::get(recipient);
+		ensure!(
+			ingress_cnt + accepted_cnt < T::MaxInboundChannels::get(),
+			Error::<T>::AcceptHrmpChannelLimitExceeded,
+		);
+
+		let recipient_deposit = Self::hold_recipient(channel)?;
+
+		AcceptedRequestCount::<T>::insert(recipient, accepted_cnt + 1);
+		Requests::<T>::insert(
+			channel,
+			ChannelRequest {
+				state: RequestState::Accepted {
+					sender_deposit,
+					recipient_deposit,
+					kind: OpenKind::Agreed,
+				},
+				max_capacity,
+				max_message_size,
+				message_id,
+			},
+		);
+
+		T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::OpenChannel {
+			channel,
+			message_id,
+			max_capacity,
+			max_message_size,
+		}))
+		.map_err(|()| Error::<T>::SendFailed)?;
+
+		Self::notify_para(sender, ParaNotification::ChannelAccepted { recipient })?;
+
+		Self::deposit_event(Event::OpenChannelAccepted { channel, message_id });
+
+		Ok(())
 	}
 
 	/// `hrmp_close_channel`, asked for by `initiator` through the relay chain.
@@ -722,9 +851,76 @@ impl<T: Config> Pallet<T> {
 		message_id: u64,
 		outcome: Result<(u32, u32), FailureReason>,
 	) -> DispatchResult {
-		let _ = (channel, message_id, outcome);
-		// TODO(ahm-v2): settle the pending request against the relay chain's verdict.
-		Err(Error::<T>::Unimplemented.into())
+		let request = Requests::<T>::get(channel).ok_or(Error::<T>::UnexpectedResponse)?;
+		ensure!(request.message_id == message_id, Error::<T>::UnexpectedResponse);
+		let RequestState::Accepted { sender_deposit, recipient_deposit, kind } = request.state
+		else {
+			return Err(Error::<T>::UnexpectedResponse.into());
+		};
+
+		Requests::<T>::remove(channel);
+		OpenRequestCount::<T>::mutate(channel.sender, |count| *count = count.saturating_sub(1));
+		AcceptedRequestCount::<T>::mutate(channel.recipient, |count| {
+			*count = count.saturating_sub(1)
+		});
+
+		match outcome {
+			Ok((max_capacity, max_message_size)) => {
+				Channels::<T>::insert(
+					channel,
+					ChannelInfo { sender_deposit, recipient_deposit },
+				);
+				Self::index_channel(channel);
+
+				let event = match kind {
+					OpenKind::Agreed => Event::ChannelOpened { channel, message_id },
+					OpenKind::Forced => Event::HrmpChannelForceOpened {
+						channel,
+						proposed_max_capacity: max_capacity,
+						proposed_max_message_size: max_message_size,
+					},
+					OpenKind::System | OpenKind::SystemPair => Event::HrmpSystemChannelOpened {
+						channel,
+						proposed_max_capacity: max_capacity,
+						proposed_max_message_size: max_message_size,
+					},
+				};
+				Self::deposit_event(event);
+			},
+			Err(reason) => {
+				if let Some(deposit) = sender_deposit {
+					deposit.drop(&Self::sovereign_account(channel.sender))?;
+				}
+				if let Some(deposit) = recipient_deposit {
+					deposit.drop(&Self::sovereign_account(channel.recipient))?;
+				}
+				Self::deposit_event(Event::OpenChannelFailed { channel, message_id, reason });
+			},
+		}
+
+		Ok(())
+	}
+
+	/// Record an open channel in both indexes.
+	///
+	/// The bounds mirror the relay chain's, and the request was only sent after they were checked,
+	/// so an overflow means the mirror has drifted. The relay chain has already opened the channel
+	/// by now, so this logs rather than unwinding the response.
+	fn index_channel(channel: ChannelId) {
+		let _ = EgressIndex::<T>::try_mutate(channel.sender, |recipients| {
+			match recipients.binary_search(&channel.recipient) {
+				Ok(_) => Ok(()),
+				Err(i) => recipients.try_insert(i, channel.recipient),
+			}
+		})
+		.defensive();
+		let _ = IngressIndex::<T>::try_mutate(channel.recipient, |senders| {
+			match senders.binary_search(&channel.sender) {
+				Ok(_) => Ok(()),
+				Err(i) => senders.try_insert(i, channel.sender),
+			}
+		})
+		.defensive();
 	}
 
 	fn on_close_response(channel: ChannelId, message_id: u64, outcome: Outcome) -> DispatchResult {

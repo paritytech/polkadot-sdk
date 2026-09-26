@@ -33,6 +33,7 @@ pub mod para;
 #[allow(unexpected_cfgs)]
 pub mod relay;
 pub mod senders;
+pub mod weights;
 
 #[cfg(test)]
 mod tests;

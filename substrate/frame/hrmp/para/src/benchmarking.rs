@@ -46,10 +46,10 @@ fn manager_origin<T: Config>() -> Result<T::RuntimeOrigin, BenchmarkError> {
 	T::ChannelManager::try_successful_origin().map_err(|_| BenchmarkError::Weightless)
 }
 
-/// Give `para`'s sovereign account enough to put up either deposit for a channel this size.
-fn fund<T: Config>(para: ParaId, max_capacity: u32) {
+/// Give `para`'s sovereign account enough to put up either deposit.
+fn fund<T: Config>(para: ParaId) {
 	let account = T::SovereignAccountOf::convert(para);
-	let footprint = Pallet::<T>::channel_footprint(max_capacity);
+	let footprint = Pallet::<T>::channel_footprint();
 	T::SenderConsideration::ensure_successful(&account, footprint);
 	T::RecipientConsideration::ensure_successful(&account, footprint);
 }
@@ -96,7 +96,7 @@ mod benchmarks {
 	fn hrmp_init_open_channel() -> Result<(), BenchmarkError> {
 		let origin = relay_origin::<T>()?;
 		let max_capacity = T::MaxCapacity::get();
-		fund::<T>(SENDER, max_capacity);
+		fund::<T>(SENDER);
 		let request = ParaRequest::V1(ParaRequestV1::InitOpenChannel {
 			recipient: RECIPIENT,
 			proposed_max_capacity: max_capacity,
@@ -113,7 +113,7 @@ mod benchmarks {
 	#[benchmark]
 	fn hrmp_accept_open_channel() -> Result<(), BenchmarkError> {
 		let origin = relay_origin::<T>()?;
-		fund::<T>(RECIPIENT, T::MaxCapacity::get());
+		fund::<T>(RECIPIENT);
 		// TODO: leave `SENDER`'s open request for `CHANNEL` in `Requests`.
 		let request = ParaRequest::V1(ParaRequestV1::AcceptOpenChannel { sender: SENDER });
 
@@ -223,7 +223,7 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		let origin = manager_origin::<T>()?;
 		let max_capacity = T::MaxCapacity::get();
-		fund::<T>(SENDER, max_capacity);
+		fund::<T>(SENDER);
 		// TODO: when `c` is 1, leave `SENDER`'s open request for `CHANNEL` in `Requests`.
 		let _ = c;
 
@@ -249,9 +249,8 @@ mod benchmarks {
 	#[benchmark]
 	fn poke_channel_deposits() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
-		let max_capacity = T::MaxCapacity::get();
-		fund::<T>(SENDER, max_capacity);
-		fund::<T>(RECIPIENT, max_capacity);
+		fund::<T>(SENDER);
+		fund::<T>(RECIPIENT);
 		// TODO: leave an open `CHANNEL` whose held deposits are below the current price.
 
 		#[extrinsic_call]
