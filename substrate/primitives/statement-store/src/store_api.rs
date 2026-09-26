@@ -420,7 +420,9 @@ pub trait StatementStore: Send + Sync {
 	/// - `Take`: include this statement in the result, continue to next
 	/// - `Abort`: stop iteration, return collected statements so far
 	///
-	/// Returns (statements, number_of_hashes_processed).
+	/// Returns (statements, number_of_hashes_processed). A hash absent from the store or whose
+	/// statement fails to decode counts as processed without reaching the callback, the hash an
+	/// `Abort` stopped on does not.
 	fn statements_by_hashes(
 		&self,
 		hashes: &[Hash],
