@@ -143,6 +143,19 @@ pub struct CliCommand {
 	#[clap(long, default_value = "archive")]
 	pub eth_pruning: EthPruningMode,
 
+	/// Max blocks per second during backward sync. 0 disables the limit.
+	#[clap(long, default_value_t = 30)]
+	pub backward_sync_max_blocks_per_sec: u32,
+
+	/// Max runtime API calls per second this process issues to the node. Unset disables the limit.
+	#[clap(long)]
+	pub node_max_runtime_calls_per_sec: Option<std::num::NonZeroU32>,
+
+	/// Max potentially expensive runtime API calls (dry-runs, gas estimates and traces) this
+	/// process keeps in flight.
+	#[clap(long)]
+	pub node_max_concurrent_expensive_calls: Option<std::num::NonZeroUsize>,
+
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub shared_params: SharedParams,
@@ -263,10 +276,19 @@ fn build_client(
 	max_response_size: u32,
 	abort_signal: Signals,
 	subscription_gap_queue: SubscriptionGapQueue,
+	backward_sync_max_blocks_per_sec: u32,
+	node_max_runtime_calls_per_sec: Option<std::num::NonZeroU32>,
+	node_max_concurrent_expensive_calls: Option<std::num::NonZeroUsize>,
 ) -> anyhow::Result<Client> {
 	let fut = async {
-		let (api, rpc_client, rpc) =
-			connect(node_rpc_url, max_request_size, max_response_size).await?;
+		let (api, rpc_client, rpc, runtime_versions) = connect(
+			node_rpc_url,
+			max_request_size,
+			max_response_size,
+			node_max_runtime_calls_per_sec,
+			node_max_concurrent_expensive_calls,
+		)
+		.await?;
 		let block_provider = SubxtBlockInfoProvider::new(api.clone(), rpc.clone()).await?;
 
 		let (pool, keep_latest_n_blocks) = match eth_pruning {
@@ -310,6 +332,8 @@ fn build_client(
 			eth_pruning.is_archive(),
 			subscription_gap_queue,
 			runtime_api_provider,
+			backward_sync_max_blocks_per_sec,
+			runtime_versions,
 		)
 		.await?;
 
@@ -334,6 +358,9 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		eth_pruning,
 		shared_params,
 		allow_unprotected_txs,
+		backward_sync_max_blocks_per_sec,
+		node_max_runtime_calls_per_sec,
+		node_max_concurrent_expensive_calls,
 		..
 	} = cmd;
 
@@ -394,6 +421,9 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		rpc_config.max_response_size * 1024 * 1024,
 		tokio_runtime.block_on(async { Signals::capture() })?,
 		subscription_gap_queue,
+		backward_sync_max_blocks_per_sec,
+		node_max_runtime_calls_per_sec,
+		node_max_concurrent_expensive_calls,
 	)?;
 
 	// Prometheus metrics.

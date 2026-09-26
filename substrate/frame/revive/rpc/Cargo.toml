@@ -28,6 +28,7 @@ clap = { workspace = true, features = ["derive", "env"] }
 codec = { workspace = true, features = ["derive"] }
 derive_more = { workspace = true }
 futures = { workspace = true, features = ["thread-pool"] }
+governor = { workspace = true }
 hex = { workspace = true }
 humantime-serde = { workspace = true }
 jsonrpsee = { workspace = true, features = ["full"] }
@@ -41,6 +42,7 @@ sc-cli = { workspace = true, default-features = true }
 sc-rpc = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = true }
+scale-info-legacy = { workspace = true }
 serde = { workspace = true, default-features = true, features = [
 	"alloc",
 	"derive",
