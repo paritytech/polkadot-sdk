@@ -579,6 +579,49 @@ mod unstake {
 	}
 
 	#[test]
+	fn post_expiry_interactions_do_not_underflow() {
+		new_test_ext().execute_with(|| {
+			let staker = 1;
+			let caller = 2;
+			let pool_id = 0;
+			let expiry_block = System::block_number() + DEFAULT_EXPIRE_AFTER;
+
+			create_default_pool();
+
+			System::set_block_number(11);
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 1000));
+
+			// Checkpoints the pool after its expiry block.
+			System::set_block_number(expiry_block + 1);
+			assert_ok!(StakingRewards::unstake(
+				RuntimeOrigin::signed(caller),
+				pool_id,
+				500,
+				Some(staker)
+			));
+
+			// Nothing accrues after expiry.
+			System::set_block_number(expiry_block + 2);
+			assert_ok!(StakingRewards::harvest_rewards(
+				RuntimeOrigin::signed(caller),
+				pool_id,
+				Some(staker)
+			));
+			assert_eq!(
+				*events().last().unwrap(),
+				Event::<MockRuntime>::RewardsHarvested {
+					caller,
+					staker,
+					pool_id,
+					amount: (expiry_block - 11) as u128 * DEFAULT_REWARD_RATE_PER_BLOCK
+				}
+			);
+			assert_ok!(StakingRewards::unstake(RuntimeOrigin::signed(staker), pool_id, 500, None));
+			assert_eq!(Pools::<MockRuntime>::get(pool_id).unwrap().total_tokens_staked, 0);
+		});
+	}
+
+	#[test]
 	fn fails_for_non_existent_pool() {
 		new_test_ext().execute_with(|| {
 			let user = 1;
@@ -704,6 +747,32 @@ mod harvest_rewards {
 					..
 				} if caller == caller && staker == staker && pool_id == pool_id
 			));
+		});
+	}
+
+	#[test]
+	fn persists_pool_accumulator() {
+		new_test_ext().execute_with(|| {
+			let staker = 1;
+			let pool_id = 0;
+			create_default_pool();
+
+			System::set_block_number(10);
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 1000));
+
+			System::set_block_number(20);
+			assert_ok!(StakingRewards::harvest_rewards(
+				RuntimeOrigin::signed(staker),
+				pool_id,
+				None
+			));
+
+			let pool = Pools::<MockRuntime>::get(pool_id).unwrap();
+			assert_eq!(pool.last_update_block, 20);
+			assert_eq!(
+				pool.reward_per_token_stored,
+				PoolStakers::<MockRuntime>::get(pool_id, staker).unwrap().reward_per_token_paid
+			);
 		});
 	}
 
@@ -990,6 +1059,53 @@ mod set_pool_expiry_block {
 					DispatchTime::At(40u64)
 				),
 				Error::<MockRuntime>::ExpiryBlockMustBeInTheFuture
+			);
+		});
+	}
+
+	#[test]
+	fn extends_pool_after_post_expiry_interaction() {
+		new_test_ext().execute_with(|| {
+			let admin = DEFAULT_ADMIN;
+			let staker = 2;
+			let caller = 3;
+			let pool_id = 0;
+			let expiry_block = System::block_number() + DEFAULT_EXPIRE_AFTER;
+
+			create_default_pool();
+
+			System::set_block_number(11);
+			assert_ok!(StakingRewards::stake(RuntimeOrigin::signed(staker), pool_id, 1000));
+
+			System::set_block_number(expiry_block + 1);
+			assert_ok!(StakingRewards::unstake(
+				RuntimeOrigin::signed(caller),
+				pool_id,
+				500,
+				Some(staker)
+			));
+
+			assert_ok!(StakingRewards::set_pool_expiry_block(
+				RuntimeOrigin::signed(admin),
+				pool_id,
+				DispatchTime::After(DEFAULT_EXPIRE_AFTER),
+			));
+
+			// The expired gap earns nothing.
+			System::set_block_number(expiry_block + 11);
+			assert_ok!(StakingRewards::harvest_rewards(
+				RuntimeOrigin::signed(staker),
+				pool_id,
+				None
+			));
+			assert_eq!(
+				*events().last().unwrap(),
+				Event::<MockRuntime>::RewardsHarvested {
+					caller: staker,
+					staker,
+					pool_id,
+					amount: ((expiry_block - 11) as u128 + 10) * DEFAULT_REWARD_RATE_PER_BLOCK
+				}
 			);
 		});
 	}
