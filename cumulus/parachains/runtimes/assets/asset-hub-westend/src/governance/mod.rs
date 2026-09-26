@@ -119,6 +119,8 @@ parameter_types! {
 	pub const MaxPeerInHeartbeats: u32 = 10_000;
 	pub const MaxBalance: Balance = Balance::max_value();
 	pub TreasuryAccount: AccountId = Treasury::account_id();
+	pub const MaxQueuedSpends: u32 = 100;
+	pub const OrderExpirationPeriod: BlockNumber = 2 * DAYS;
 }
 
 pub type TreasurySpender = EitherOf<EnsureRootWithSuccess<AccountId, MaxBalance>, Spender>;
@@ -153,6 +155,8 @@ impl pallet_treasury::Config for Runtime {
 	type BalanceConverter = TreasuryBalanceConverter;
 	type PayoutPeriod = PayoutSpendPeriod;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
+	type MaxQueuedSpends = MaxQueuedSpends;
+	type OrderExpirationPeriod = OrderExpirationPeriod;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = parachains_common::pay::benchmarks::LocalPayArguments<
 		xcm_config::TrustBackedAssetsPalletIndex,

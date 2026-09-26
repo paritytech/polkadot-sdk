@@ -401,6 +401,8 @@ mod tests {
 		type BalanceConverter = UnityAssetBalanceConversion;
 		type PayoutPeriod = ConstU64<0>;
 		type BlockNumberProvider = System;
+		type MaxQueuedSpends = frame_support::traits::ConstU32<100>;
+		type OrderExpirationPeriod = ConstU64<10>;
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper = ();
 	}

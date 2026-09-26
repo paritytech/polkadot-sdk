@@ -1,0 +1,56 @@
+title: 'pallet-treasury: Ordered Payouts'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Implements ordered spend payouts (Solution 1.2 of https://github.com/paritytech/polkadot-sdk/issues/11100)
+    for `pallet-treasury`. Spends are now paid out in order per asset kind, preventing smaller,
+    later-approved spends from draining the treasury before earlier-approved spends can be paid.
+
+    Two new storage items are introduced: `NextPayout`, holding the spend currently at the head of
+    the payout order for each asset kind together with its order expiration block, and
+    `PayoutQueue`, a bounded vector of `(spend_index, order_key)` entries per asset kind sorted by
+    order key. The order key is `max(now, valid_from)` for newly inserted spends, so a later
+    approval never overtakes an already-mature spend, and the block number of the rotation for
+    spends rotated to the back after their order expired.
+
+    No new extrinsics are added; ordering is enforced transparently through the existing calls:
+
+    - `spend` inserts the approved spend into the payout queue for its asset kind, or sets it as
+      `NextPayout` if there is none, with an order expiration of
+      `max(now, valid_from) + OrderExpirationPeriod`.
+    - `payout` only succeeds for the spend designated as `NextPayout` for its asset kind and fails
+      with the new `NotNextPayout` error otherwise.
+    - `check_status` additionally rotates an expired head back into the queue (emitting the new
+      `PayoutQueueRotated` event) and promotes the next entry on removal of a paid-out or expired
+      spend.
+    - `void_spend` also removes the spend from the payout order and promotes the next entry.
+
+    Runtimes adopting this need to configure two new `Config` items: `MaxQueuedSpends` (bounds the
+    queue per asset kind; spends fail with the new `QueueFull` error once reached) and
+    `OrderExpirationPeriod` (how long a spend may block the head of the order before it can be
+    rotated). A `MigrateToOrderedPayouts` migration is provided to populate the payout order from
+    the existing `Spends` storage; it is a `VersionedMigration` bumping the pallet storage version
+    from 0 to 1.
+crates:
+- name: pallet-treasury
+  bump: major
+- name: rococo-runtime
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: kitchensink-runtime
+  bump: minor
+- name: pallet-staking-async-parachain-runtime
+  bump: minor
+- name: pallet-staking-async-rc-runtime
+  bump: minor
+- name: polkadot-runtime-common
+  bump: none
+- name: pallet-bounties
+  bump: none
+- name: pallet-child-bounties
+  bump: none
+- name: pallet-tips
+  bump: none

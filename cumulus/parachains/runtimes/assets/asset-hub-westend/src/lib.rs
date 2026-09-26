@@ -1830,6 +1830,8 @@ pub type Migrations = (
 		Runtime,
 		TrappedBalanceMember,
 	>,
+	// unreleased
+	pallet_treasury::migration::MigrateToOrderedPayouts<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
