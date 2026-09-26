@@ -286,13 +286,13 @@ fn delegated_eoa_prestate_tracing_returns_indicator() {
 /// eth_getCode and EXTCODESIZE/EXTCODEHASH/EXTCODECOPY report for the same address.
 #[test]
 fn precompile_prestate_tracing_returns_code_stub() {
-	use crate::{evm::PrestateTrace, tests::SYSTEM_PRECOMPILE_ADDR};
+	use crate::{evm::PrestateTrace, precompiles::EVM_REVERT};
+	use pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR;
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-		// the system builtin pre-compile, serving the default `EVM_REVERT` stub
-		let precompile_addr = SYSTEM_PRECOMPILE_ADDR;
+		let precompile_addr = crate::H160(SYSTEM_PRECOMPILE_ADDR);
 
 		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
 			diff_mode: false,
@@ -308,7 +308,7 @@ fn precompile_prestate_tracing_returns_code_stub() {
 				let code = info.code.as_ref().expect("precompile should report code");
 				assert_eq!(
 					code.0,
-					sp_core::hex2array!("60006000fd").to_vec(),
+					EVM_REVERT.to_vec(),
 					"prestate trace code should be the precompile's code stub",
 				);
 			},

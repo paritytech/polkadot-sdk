@@ -39,6 +39,7 @@ use frame_support::traits::{
 	fungible::{Balanced, Mutate},
 };
 use pallet_revive_fixtures::{Caller, FixtureType, Host, compile_module_with_type};
+use pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR;
 use pretty_assertions::assert_eq;
 use sp_core::H160;
 use test_case::test_case;
@@ -500,8 +501,8 @@ fn extcodecopy_precompile_works(host_type: FixtureType) {
 			builder::bare_instantiate(Code::Upload(host_code)).build_and_unwrap_contract();
 
 		// the system builtin pre-compile
-		let precompile_addr = sp_core::hex2array!("0000000000000000000000000000000000000900");
-		let stub = <All<Test>>::code(&precompile_addr).unwrap();
+		let precompile_addr = H160(SYSTEM_PRECOMPILE_ADDR);
+		let stub = <All<Test>>::code(precompile_addr.as_fixed_bytes()).unwrap();
 		assert_ne!(stub[0], 0, "single byte copy case needs a non-zero first stub byte");
 
 		struct TestCase {
@@ -553,7 +554,7 @@ fn extcodecopy_precompile_works(host_type: FixtureType) {
 			let result = builder::bare_call(addr)
 				.data(
 					HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
-						account: precompile_addr.into(),
+						account: precompile_addr.0.into(),
 						offset: test_case.offset as u64,
 						size: test_case.size as u64,
 					})
@@ -579,7 +580,7 @@ fn extcodecopy_precompile_works(host_type: FixtureType) {
 		let result = builder::bare_call(addr)
 			.data(
 				HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
-					account: precompile_addr.into(),
+					account: precompile_addr.0.into(),
 					offset: 0,
 					size: stub.len() as u64,
 				})
@@ -591,7 +592,7 @@ fn extcodecopy_precompile_works(host_type: FixtureType) {
 		let result = builder::bare_call(host_addr)
 			.data(
 				Host::HostCalls::extcodehashOp(Host::extcodehashOpCall {
-					account: precompile_addr.into(),
+					account: precompile_addr.0.into(),
 				})
 				.abi_encode(),
 			)
@@ -606,14 +607,14 @@ fn extcodecopy_precompile_works(host_type: FixtureType) {
 
 		// addresses without code are zero filled: primitive pre-compiles (empty stub)
 		// and plain accounts (storage fallback)
-		let primitive_addr = sp_core::hex2array!("0000000000000000000000000000000000000001");
+		let primitive_addr = H160::from_low_u64_be(1);
 		for (description, account) in
-			[("primitive pre-compile", primitive_addr), ("EOA without code", BOB_ADDR.0)]
+			[("primitive pre-compile", primitive_addr), ("EOA without code", BOB_ADDR)]
 		{
 			let result = builder::bare_call(addr)
 				.data(
 					HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
-						account: account.into(),
+						account: account.0.into(),
 						offset: 0,
 						size: 8,
 					})
@@ -655,15 +656,15 @@ fn extcodecopy_mocked_code_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 
-		let mocked_addr = crate::H160::from_slice(&[0x42; 20]);
-		let precompile_addr = sp_core::hex2array!("0000000000000000000000000000000000000900");
-		let stub = <All<Test>>::code(&precompile_addr).unwrap();
+		let mocked_addr = H160::from_slice(&[0x42; 20]);
+		let precompile_addr = H160(SYSTEM_PRECOMPILE_ADDR);
+		let stub = <All<Test>>::code(precompile_addr.as_fixed_bytes()).unwrap();
 
 		let mock_handler = || {
 			Some(Box::new(MockHandlerImpl {
 				mock_call: [
 					(mocked_addr, ExecReturnValue::default()),
-					(crate::H160(precompile_addr), ExecReturnValue::default()),
+					(precompile_addr, ExecReturnValue::default()),
 				]
 				.into_iter()
 				.collect(),
@@ -698,7 +699,7 @@ fn extcodecopy_mocked_code_works() {
 		let result = builder::bare_call(addr)
 			.data(
 				HostEvmOnlyCalls::extcodecopyOp(HostEvmOnly::extcodecopyOpCall {
-					account: precompile_addr.into(),
+					account: precompile_addr.0.into(),
 					offset: 0,
 					size: stub.len() as u64,
 				})
