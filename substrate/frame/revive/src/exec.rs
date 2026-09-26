@@ -2652,8 +2652,8 @@ where
 	}
 
 	fn copy_code_slice(&mut self, buf: &mut [u8], address: &H160, code_offset: usize) {
-		fn copy_padded(buf: &mut [u8], mut code: &[u8], code_offset: usize) {
-			code = code.split_off(code_offset..).unwrap_or(&[]);
+		fn copy_padded(buf: &mut [u8], code: &[u8], code_offset: usize) {
+			let code = code.get(code_offset..).unwrap_or_default();
 			let len = buf.len().min(code.len());
 			buf[..len].copy_from_slice(&code[..len]);
 			buf[len..].fill(0);
