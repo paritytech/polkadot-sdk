@@ -521,7 +521,11 @@ impl<AccountId> IsValidatorInactive<AccountId> for () {
 pub trait OnEraStart<AccountId> {
 	/// Whether the hook is in use. When `false`, staking neither keeps the elected set nor reads
 	/// it at era start, so the hook costs nothing.
-	const ENABLED: bool = true;
+	///
+	/// Expected to be constant for a given runtime version.
+	fn enabled() -> bool {
+		true
+	}
 
 	/// Called once when `era` becomes active, with the validators elected for it.
 	fn on_era_start(era: EraIndex, validators: &[AccountId]);
@@ -531,7 +535,9 @@ pub trait OnEraStart<AccountId> {
 }
 
 impl<AccountId> OnEraStart<AccountId> for () {
-	const ENABLED: bool = false;
+	fn enabled() -> bool {
+		false
+	}
 
 	fn on_era_start(_era: EraIndex, _validators: &[AccountId]) {}
 

@@ -736,7 +736,7 @@ impl<T: Config> Rotator<T> {
 		}
 
 		if let Some((kept_era, _)) =
-			NextEraValidators::<T>::get().filter(|_| T::OnEraStart::ENABLED)
+			NextEraValidators::<T>::get().filter(|_| T::OnEraStart::enabled())
 		{
 			ensure!(
 				Self::is_planning() == Some(kept_era),
@@ -919,7 +919,7 @@ impl<T: Config> Rotator<T> {
 	///
 	/// Costs one write of the set in the block that completes the election.
 	pub(crate) fn keep_next_era_validators(era: EraIndex, validators: &[T::AccountId]) {
-		if T::OnEraStart::ENABLED {
+		if T::OnEraStart::enabled() {
 			NextEraValidators::<T>::put((era, BoundedVec::truncate_from(validators.to_vec())));
 		}
 	}
@@ -930,7 +930,7 @@ impl<T: Config> Rotator<T> {
 	/// Without a copy, as on the first era start after the upgrade that introduced it, the set is
 	/// read once from the keys of the exposure overview instead, at one read per validator.
 	fn notify_era_start(era: EraIndex) -> Weight {
-		if !T::OnEraStart::ENABLED {
+		if !T::OnEraStart::enabled() {
 			return Weight::zero();
 		}
 		let (validators, read_weight) = match NextEraValidators::<T>::take() {
@@ -953,7 +953,7 @@ impl<T: Config> Rotator<T> {
 
 	/// Worst-case weight of [`Self::notify_era_start`], with the fallback read.
 	pub(crate) fn notify_era_start_max_weight() -> Weight {
-		if !T::OnEraStart::ENABLED {
+		if !T::OnEraStart::enabled() {
 			return Weight::zero();
 		}
 		let max = T::MaxValidatorSet::get();
@@ -1198,7 +1198,7 @@ impl<T: Config> EraElectionPlanner<T> {
 		// * 1 extra write for `NextEraValidators`, if `OnEraStart` is enabled
 		// ElectableStashes already read in `do_elect_paged`
 		required_weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 2));
-		if T::OnEraStart::ENABLED {
+		if T::OnEraStart::enabled() {
 			required_weight.saturating_accrue(T::DbWeight::get().writes(1));
 		}
 

@@ -1081,7 +1081,7 @@ pub mod pallet {
 	/// The validators elected for the planned era, kept from the moment they are sent to the
 	/// relay chain until the era starts, for [`Config::OnEraStart`].
 	///
-	/// Only written when [`OnEraStart::ENABLED`] is set. An upgrade that switches the hook off
+	/// Only written when [`OnEraStart::enabled`] is true. An upgrade that switches the hook off
 	/// while a copy exists must remove this item once, since nothing takes it afterwards.
 	#[pallet::storage]
 	pub type NextEraValidators<T: Config> =
