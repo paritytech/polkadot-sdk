@@ -1,0 +1,12 @@
+title: "pvf-checker: process deactivations when the runtime API is unsupported"
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      Process deactivated leaves even when the newly activated leaf does not support
+      the PVF pre-checking runtime API. This removes obsolete PVF judgements instead
+      of retaining and resubmitting them in later sessions.
+
+      No API changes or storage migration are required.
+crates:
+  - name: polkadot-node-core-pvf-checker
+    bump: patch
