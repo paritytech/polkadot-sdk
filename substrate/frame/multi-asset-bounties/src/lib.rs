@@ -519,7 +519,7 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, BountyIndex, u32, ValueQuery>;
 
 	/// The cumulative child-bounty value for each parent bounty. To be subtracted from the parent
-	/// bounty payout when awarding bounty.
+	/// bounty payout and refund.
 	///
 	/// Indexed by `parent_bounty_id`.
 	#[pallet::storage]
@@ -1641,7 +1641,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
-	/// Calculates amount the beneficiary receives during child-/bounty payout.
+	/// Calculates the amount the child-/bounty account holds, i.e. what it can pay out or refund.
 	fn calculate_payout(
 		parent_bounty_id: BountyIndex,
 		child_bounty_id: Option<BountyIndex>,
@@ -1763,6 +1763,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			ensure!(payment_status.is_pending_or_failed(), Error::<T, I>::UnexpectedStatus);
 		}
 
+		// Refund only what the account holds, net of child-bounty value, which paid-out children
+		// never return.
+		let refund = Self::calculate_payout(parent_bounty_id, child_bounty_id, value);
+
 		let (source, beneficiary) = match child_bounty_id {
 			None => (
 				Self::bounty_account(parent_bounty_id, asset_kind.clone())?,
@@ -1774,7 +1778,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			),
 		};
 
-		let id = <T as Config<I>>::Paymaster::pay(&source, &beneficiary, asset_kind, value)
+		let id = <T as Config<I>>::Paymaster::pay(&source, &beneficiary, asset_kind, refund)
 			.map_err(|_| Error::<T, I>::RefundError)?;
 
 		Self::deposit_event(Event::<T, I>::Paid {

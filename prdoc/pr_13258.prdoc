@@ -1,0 +1,17 @@
+title: "pallet-multi-asset-bounties: refund parent bounty net of paid-out child-bounty value on close"
+doc:
+- audience: Runtime Dev
+  description: |
+    `close_bounty` on a parent bounty refunded the full stored `value` to the funding source,
+    ignoring the value of its paid-out child-bounties (`ChildBountiesValuePerParent`). Since that
+    value has already left the parent bounty account, the refund over-requested and, with a
+    paymaster that performs a real transfer (e.g. `LocalPay`), failed with `RefundError` on every
+    attempt. Governance could therefore never close such a parent bounty and reclaim its remaining
+    funds through the intended path.
+
+    The refund path now uses the same `calculate_payout` adjustment as the payout path, so the
+    parent bounty refunds `value - ChildBountiesValuePerParent`, i.e. exactly what it holds.
+    Child-bounty refunds are unchanged.
+crates:
+- name: pallet-multi-asset-bounties
+  bump: patch
