@@ -411,9 +411,15 @@ pub mod pallet {
 			type OnKilledAccount = ();
 
 			/// Weight information for the extrinsics of this pallet.
+			///
+			/// Not copied into deriving runtimes, which must set their own weights.
+			#[pallet::no_default]
 			type SystemWeightInfo = ();
 
-			/// Weight information for the extensions of this pallet.
+			/// Weight information for the transaction extensions of this pallet.
+			///
+			/// Not copied into deriving runtimes, like [`Self::SystemWeightInfo`].
+			#[pallet::no_default]
 			type ExtensionsWeightInfo = ();
 
 			/// This is used as an identifier of the chain.
@@ -474,7 +480,13 @@ pub mod pallet {
 		/// It currently uses the same configuration as `SolochainDefaultConfig`.
 		#[derive_impl(SolochainDefaultConfig as DefaultConfig, no_aggregated_types)]
 		#[frame_support::register_default_impl(RelayChainDefaultConfig)]
-		impl DefaultConfig for RelayChainDefaultConfig {}
+		impl DefaultConfig for RelayChainDefaultConfig {
+			// No weight defaults for production, like `SolochainDefaultConfig`.
+			#[pallet::no_default]
+			type SystemWeightInfo = ();
+			#[pallet::no_default]
+			type ExtensionsWeightInfo = ();
+		}
 
 		/// Default configurations of this pallet in a parachain environment.
 		pub struct ParaChainDefaultConfig;
@@ -482,7 +494,13 @@ pub mod pallet {
 		/// It currently uses the same configuration as `SolochainDefaultConfig`.
 		#[derive_impl(SolochainDefaultConfig as DefaultConfig, no_aggregated_types)]
 		#[frame_support::register_default_impl(ParaChainDefaultConfig)]
-		impl DefaultConfig for ParaChainDefaultConfig {}
+		impl DefaultConfig for ParaChainDefaultConfig {
+			// No weight defaults for production, like `SolochainDefaultConfig`.
+			#[pallet::no_default]
+			type SystemWeightInfo = ();
+			#[pallet::no_default]
+			type ExtensionsWeightInfo = ();
+		}
 	}
 
 	/// System configuration trait. Implemented by runtime.
