@@ -15,7 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use super::{resubmission::resolve_session, CollatorMessage};
+use super::{
+	message::{CollationParts, CollatorMessage, CollatorMessageBuilder},
+	resubmission::resolve_session,
+};
 use crate::{
 	collator::{self as collator_util, BuildBlockAndImportParams, Collator, SlotClaim},
 	collators::{
@@ -854,41 +857,95 @@ where
 			let mut pov_parent_header = cx.initial_parent_header.clone();
 
 			for blocks_per_core in blocks_per_cores {
+				let core_info = cores.core_info();
+				let this_core_index = cores.core_index();
 				let time_for_core = slot_time.time_left() / cores.cores_left();
 
-				match build_collation_for_core(BuildCollationParams {
-					pov_parent_header,
+				// For V3, strip the relay-parent descendants (only needed for V2) so the block
+				// built below sees the V3-correct inherent, and keep them for the scheduling
+				// proof assembled after the build.
+				let mut rp_data = cx.relay_parent_data.clone();
+				let v3_descendants: Option<Vec<RelayHeader>> =
+					cx.v3_enabled.then(|| rp_data.take_descendants());
+
+				// Time the core build so we can pace after submitting (send early, then sleep).
+				let core_start = Instant::now();
+				let parts = match build_collation_parts_for_core(BuildCollationParams {
+					pov_parent_header: pov_parent_header.clone(),
 					relay_parent_header: cx.relay_parent(),
 					max_pov_size: cx.max_pov_size,
 					para_id,
 					relay_client: &env.relay_client,
 					code_hash_provider: &code_hash_provider,
 					slot_claim: &cx.slot_claim,
-					collator_sender: &collator_sender,
 					collator: &mut collator,
 					allowed_pov_size: cx.allowed_pov_size,
-					core_info: cores.core_info(),
-					core_index: cores.core_index(),
+					core_info: core_info.clone(),
+					core_index: this_core_index,
 					block_time,
 					blocks_per_core,
 					time_for_core,
 					is_last_core_in_parachain_slot: cores.is_last_core() &&
 						slot_time.is_parachain_slot_ending(cx.para_slot_duration.as_duration()),
 					collator_peer_id,
-					relay_parent_data: cx.relay_parent_data.clone(),
+					relay_parent_data: rp_data,
 					total_number_of_blocks: number_of_blocks,
 					included_hash_at_execution: cx.included_header_at_execution.hash(),
 					relay_slot: cx.relay_slot,
 					para_slot: cx.para_slot.slot,
 					para_client: &*env.para_client,
-					v3_enabled: cx.v3_enabled,
 				})
 				.await
 				{
-					Ok(Some(header)) => pov_parent_header = header,
+					Ok(Some(parts)) => parts,
 					// Let's wait for the next slot
 					Ok(None) => break,
 					Err(()) => return,
+				};
+
+				// Chain the next core's PoV parent onto the freshly-built tip.
+				pov_parent_header = parts.tip_header().clone();
+
+				let mut builder = CollatorMessageBuilder::new(this_core_index).with_bundle(parts);
+				if let Some(descendants) = v3_descendants {
+					// Initial submission: `internal_scheduling_parent == relay_parent`, unsigned.
+					let scheduling_proof =
+						SchedulingProofBuilder::<P>::new(cx.relay_parent().clone())
+							.descendants(descendants)
+							.build();
+
+					tracing::debug!(
+						target: LOG_TARGET,
+						core_index = ?this_core_index,
+						relay_parent = ?cx.relay_parent().hash(),
+						scheduling_parent = ?scheduling_proof.scheduling_parent(),
+						header_chain_len = scheduling_proof.header_chain.len(),
+						"Submitting V3 segment with scheduling proof",
+					);
+
+					builder = builder.with_scheduling_proof(scheduling_proof);
+				}
+
+				match builder.build() {
+					Some(submission) => {
+						if collator_sender.unbounded_send(submission).is_err() {
+							tracing::error!(
+								target: LOG_TARGET,
+								"Unable to send collation to the collation task.",
+							);
+							return;
+						}
+					},
+					None => tracing::debug!(
+						target: LOG_TARGET,
+						core_index = ?this_core_index,
+						"Nothing to submit for this core.",
+					),
+				}
+
+				// Now let's sleep for the rest of the core.
+				if let Some(sleep) = time_for_core.checked_sub(core_start.elapsed()) {
+					tokio::time::sleep(sleep).await;
 				}
 
 				if !cores.advance() {
@@ -899,7 +956,7 @@ where
 	}
 }
 
-/// Parameters for [`build_collation_for_core`].
+/// Parameters for [`build_collation_parts_for_core`].
 struct BuildCollationParams<
 	'a,
 	Block: BlockT,
@@ -919,7 +976,6 @@ struct BuildCollationParams<
 	relay_client: &'a RelayClient,
 	code_hash_provider: &'a CHP,
 	slot_claim: &'a SlotClaim<P::Public>,
-	collator_sender: &'a sc_utils::mpsc::TracingUnboundedSender<CollatorMessage<Block>>,
 	collator: &'a mut Collator<Block, P, BI, CIDP, RelayClient, Proposer, CS>,
 	allowed_pov_size: usize,
 	core_info: CoreInfo,
@@ -936,13 +992,13 @@ struct BuildCollationParams<
 	relay_slot: cumulus_primitives_aura::Slot,
 	para_slot: cumulus_primitives_aura::Slot,
 	para_client: &'a Client,
-	v3_enabled: bool,
 }
 
-/// Build a collation for one core.
+/// Build one core's collation (possibly multiple blocks) and return its [`CollationParts`].
 ///
-/// One collation can be composed of multiple blocks.
-async fn build_collation_for_core<
+/// The caller submits the message and chains the next core's PoV parent off
+/// [`tip_header`](CollationParts::tip_header).
+async fn build_collation_parts_for_core<
 	Block: BlockT,
 	P,
 	RelayClient,
@@ -961,7 +1017,6 @@ async fn build_collation_for_core<
 		relay_client,
 		code_hash_provider,
 		slot_claim,
-		collator_sender,
 		collator,
 		allowed_pov_size,
 		core_info,
@@ -971,15 +1026,14 @@ async fn build_collation_for_core<
 		time_for_core: slot_time_for_core,
 		is_last_core_in_parachain_slot,
 		collator_peer_id,
-		mut relay_parent_data,
+		relay_parent_data,
 		total_number_of_blocks,
 		included_hash_at_execution,
 		relay_slot,
 		para_slot,
 		para_client,
-		v3_enabled,
 	}: BuildCollationParams<'_, Block, P, RelayClient, BI, CIDP, Proposer, CS, CHP, Client>,
-) -> Result<Option<Block::Header>, ()>
+) -> Result<Option<CollationParts<Block>>, ()>
 where
 	RelayClient: RelayChainInterface + 'static,
 	P: Pair,
@@ -1007,26 +1061,6 @@ where
 		relay_parent_storage_root: *relay_parent_header.state_root(),
 		max_pov_size,
 	};
-
-	// Check if V3 scheduling is enabled and build scheduling proof if so.
-	let mut scheduling_proof = None;
-	if v3_enabled {
-		// Initial submission: `internal_scheduling_parent == relay_parent`, unsigned. The relay
-		// parent descendants are only needed for v2.
-		let proof = SchedulingProofBuilder::<P>::new(relay_parent_header.clone())
-			.descendants(relay_parent_data.take_descendants())
-			.build();
-
-		tracing::debug!(
-			target: LOG_TARGET,
-			relay_parent = ?relay_parent_hash,
-			scheduling_parent = ?proof.scheduling_parent(),
-			header_chain_len = proof.header_chain.len(),
-			"Building V3 collation with scheduling proof",
-		);
-
-		scheduling_proof = Some(proof);
-	}
 
 	let Some(validation_code_hash) = code_hash_provider.code_hash_at(pov_parent_hash) else {
 		tracing::error!(
@@ -1278,26 +1312,15 @@ where
 		"Sending out PoV"
 	);
 
-	if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
+	// Return the parts; the caller submits and paces the core.
+	Ok(Some(CollationParts {
 		relay_parent: relay_parent_hash,
-		scheduling_proof,
 		parent_header: pov_parent_header.clone(),
 		blocks,
 		proof,
 		validation_code_hash,
-		core_index,
 		validation_data,
-	}) {
-		tracing::error!(target: LOG_TARGET, ?err, "Unable to send block to collation task.");
-		Err(())
-	} else {
-		// Now let's sleep for the rest of the core.
-		if let Some(sleep) = slot_time_for_core.checked_sub(core_start.elapsed()) {
-			tokio::time::sleep(sleep).await;
-		}
-
-		Ok(Some(parent_header))
-	}
+	}))
 }
 
 /// Translate the slot of the relay parent to the slot of the parachain.
