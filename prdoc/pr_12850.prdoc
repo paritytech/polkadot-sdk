@@ -1,0 +1,15 @@
+title: '[pallet-revive] Rollback receipt logs on frame revert'
+
+doc:
+  - audience: Runtime User
+    description: |-
+      Ethereum receipt logs emitted by reverted contract frames are now rolled
+      back together with the frame. This prevents reverted logs from remaining
+      in Ethereum-compatible receipts, blooms, and receipt roots when a nested
+      call reverts.
+
+      Logs from committed execution frames are unaffected.
+
+crates:
+  - name: pallet-revive
+    bump: patch
