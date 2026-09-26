@@ -160,6 +160,11 @@ impl ExplicitAffinity {
 		)
 	}
 
+	/// Request another advertisement without changing topic membership.
+	pub(crate) fn mark_local_filter_stale(&mut self) {
+		self.local_changed = true;
+	}
+
 	/// The advertised filter if the local topic set changed since the last read, clearing the flag.
 	pub(crate) fn take_local_filter_if_changed(&mut self) -> Option<AffinityFilter> {
 		if !self.local_changed {

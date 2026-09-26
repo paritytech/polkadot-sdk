@@ -25,8 +25,10 @@
 //! ## Propagation
 //!
 //! - During major chain synchronization, statement gossip is paused so peers prioritize downloading
-//!   blocks; it resumes automatically once the node is fully synced (peers are reconnected to
-//!   recover statements missed while syncing).
+//!   blocks; it resumes automatically once the node is fully synced. Without the v2 DHT path a peer
+//!   is reconnected to recover statements missed while syncing; with it, the node re-advertises its
+//!   affinity filter after `MAJOR_SYNC_SETTLE_PERIOD` and v2 peers replay them. A v1 peer cannot
+//!   replay on request, so it is reconnected on either path.
 //! - A propagation loop runs every second (`config::PROPAGATE_TIMEOUT`): it takes all statements
 //!   added since the previous round and queues their hashes to a per-peer outbox. Each peer has at
 //!   most one propagation chunk in flight at a time. When its send slot is free, statements are
@@ -204,6 +206,10 @@ enum StatementMessage {
 
 /// Codec variant index for `StatementMessage::Statements`, kept in sync with `#[codec(index)]`.
 const STATEMENTS_VARIANT_INDEX: u8 = 0;
+
+/// Codec variant index for `StatementMessage::ExplicitTopicAffinity`, kept in sync with
+/// `#[codec(index)]`.
+const AFFINITY_VARIANT_INDEX: u8 = 1;
 
 impl StatementMessage {
 	/// Encode a slice of statement references as a `StatementMessage::Statements`
@@ -807,6 +813,7 @@ pub struct StatementHandler<
 	/// once sync ends
 	deferred_peers: HashSet<PeerId>,
 	/// Set to `true` when an incoming statement is dropped because `is_major_syncing()` is true
+	/// and only a reconnect can recover it: any peer without the v2 DHT path, a v1 peer with it
 	dropped_statements_during_sync: bool,
 	/// Peer scheduled for forced disconnect+reconnect to recover statements missed during sync
 	sync_recovery_peer: Option<PeerId>,
@@ -1291,8 +1298,10 @@ where
 						// Advertise this node's filter changes before serving peers their backlog.
 						let topics = self.statement_store.subscription_topics();
 						self.v2dht.set_rpc_subscription_topics(&topics);
-						if let Some(filter) = self.v2dht.take_local_filter_if_changed() {
-							self.broadcast_local_filter(filter).await;
+						if self.v2dht.major_sync_settled() {
+							if let Some(filter) = self.v2dht.take_local_filter_if_changed() {
+								self.broadcast_local_filter(filter).await;
+							}
 						}
 
 						self.v2dht.on_pending_affinities();
@@ -1314,13 +1323,13 @@ where
 				},
 			}
 
-			if !self.sync.is_major_syncing() {
+			if self.sync.is_major_syncing() {
 				if v2dht_enabled() {
-					self.v2dht.on_major_sync_end();
-				} else {
-					self.drain_deferred_peers();
-					self.start_sync_recovery();
+					self.v2dht.on_major_sync();
 				}
+			} else {
+				self.drain_deferred_peers();
+				self.start_sync_recovery();
 			}
 		}
 	}
@@ -1377,6 +1386,11 @@ where
 			.filter(|(_, peer)| peer.protocol_version != PeerProtocolVersion::V1)
 			.map(|(peer_id, _)| *peer_id)
 			.collect();
+		log::debug!(
+			target: LOG_TARGET,
+			"Advertising the local affinity filter to {} peers",
+			peers.len(),
+		);
 		for peer in peers {
 			self.send_notification(&peer, encoded.clone()).await;
 		}
@@ -1449,7 +1463,12 @@ where
 	/// Pick one connected peer, remove it from the reserved set (forcing a disconnect), and
 	/// schedule it for re-adding after `SYNC_RECOVERY_READD_DELAY`. When the peer reconnects it
 	/// performs a fresh initial sync, delivering any statements that were dropped while the
-	/// `is_major_syncing` guard was active
+	/// `is_major_syncing` guard was active.
+	///
+	/// With the v2 DHT path on, only a v1 peer's drop leads here, so only a v1 peer is picked. Its
+	/// set keeps non-reserved slots open, so leaving the reserved set alone keeps the peer
+	/// connected; the substream is closed explicitly afterwards, as litep2p ignores a disconnect
+	/// of a reserved peer.
 	fn start_sync_recovery(&mut self) {
 		if !self.dropped_statements_during_sync {
 			return;
@@ -1460,7 +1479,15 @@ where
 			return;
 		}
 
-		let Some(&peer_id) = self.peers.keys().choose(&mut rand::thread_rng()) else {
+		let Some(&peer_id) = self
+			.peers
+			.iter()
+			.filter(|(_, peer)| {
+				!v2dht_enabled() || peer.protocol_version == PeerProtocolVersion::V1
+			})
+			.map(|(peer_id, _)| peer_id)
+			.choose(&mut rand::thread_rng())
+		else {
 			return;
 		};
 
@@ -1475,6 +1502,9 @@ where
 		) {
 			log::warn!(target: LOG_TARGET, "Failed to remove peer {peer_id} for sync recovery: {err}");
 			return;
+		}
+		if v2dht_enabled() {
+			self.network.disconnect_peer(peer_id, self.protocol_name.clone());
 		}
 
 		self.sync_recovery_peer = Some(peer_id);
@@ -1547,6 +1577,18 @@ where
 				}
 			},
 		}
+	}
+
+	/// Whether a notification received while major-syncing may be processed. Statement data
+	/// needs current chain state, so only a v2 affinity control passes, and only with the v2 DHT
+	/// path on. The SCALE variant tag is peeked, so a dropped batch is never decoded; a v1
+	/// payload carries no tag, its first byte belongs to the batch length.
+	fn allowed_during_major_sync(&self, peer: &PeerId, notification: &[u8]) -> bool {
+		v2dht_enabled() &&
+			self.peers.get(peer).is_some_and(|peer_data| {
+				peer_data.protocol_version == PeerProtocolVersion::V2 &&
+					notification.starts_with(&[AFFINITY_VARIANT_INDEX])
+			})
 	}
 
 	/// Dispatch a notification-protocol event for the statement protocol:
@@ -1675,12 +1717,21 @@ where
 				});
 
 				// Accept statements only when node is not major syncing
-				if self.sync.is_major_syncing() {
+				if self.sync.is_major_syncing() &&
+					!self.allowed_during_major_sync(&peer, notification.as_ref())
+				{
 					log::trace!(
 						target: LOG_TARGET,
 						"{peer}: Ignoring statements while major syncing or offline"
 					);
-					self.dropped_statements_during_sync = true;
+					// With the v2 DHT path on, a v2 peer replays on the re-advertised filter; a v1
+					// peer has no such request and is reconnected once the sync ends.
+					let from_v1_peer = self.peers.get(&peer).is_some_and(|peer_data| {
+						peer_data.protocol_version == PeerProtocolVersion::V1
+					});
+					if !v2dht_enabled() || from_v1_peer {
+						self.dropped_statements_during_sync = true;
+					}
 					return;
 				}
 
@@ -7590,5 +7641,34 @@ mod tests {
 			vec![hash],
 			"an orchestrator target receives the statement despite its explicit filter"
 		);
+	}
+
+	#[tokio::test]
+	async fn affinity_is_dropped_during_major_sync_with_gate_off() {
+		assert!(!v2dht_enabled(), "this case pins the gate-off path");
+		let (mut handler, _store, _network, _notifications) = build_handler_no_peers();
+		let peer = PeerId::random();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+
+		handler.sync.major_syncing.store(true, Ordering::Relaxed);
+		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, 100);
+		filter.insert(&[0xAA; 32]);
+		handler
+			.handle_notification_event(NotificationEvent::NotificationReceived {
+				peer,
+				notification: StatementMessage::ExplicitTopicAffinity(filter).encode().into(),
+			})
+			.await;
+
+		let peer_data = handler.peers.get(&peer).expect("the substream is open");
+		assert!(peer_data.pending_topic_affinity.is_none());
+		assert!(handler.dropped_statements_during_sync);
 	}
 }

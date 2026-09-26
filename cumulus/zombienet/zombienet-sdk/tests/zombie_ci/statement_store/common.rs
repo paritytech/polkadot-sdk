@@ -9,7 +9,7 @@
 use anyhow::anyhow;
 use codec::Encode;
 use log::info;
-use sc_statement_store::test_utils::get_keypair;
+use sc_statement_store::test_utils::{create_test_statement, get_keypair};
 use sp_core::{hexdisplay::HexDisplay, Bytes, Pair};
 use sp_statement_store::{
 	statement_allowance_key, StatementAllowance, StatementEvent, SubmitOutcome, SubmitResult,
@@ -25,7 +25,7 @@ use zombienet_sdk::{
 		backend::rpc::RpcClient,
 		ext::subxt_rpcs::{client::RpcSubscription, rpc_params},
 	},
-	LocalFileSystem, Network, NetworkConfigBuilder,
+	AddCollatorOptions, LocalFileSystem, Network, NetworkConfigBuilder,
 };
 
 use sc_statement_store::subxt_client::CustomConfig;
@@ -507,6 +507,81 @@ pub(super) async fn spawn_network_with_injected_allowances_v2(
 	);
 	launch_network(collators, &chain_spec_path, args, &[("STATEMENT_STORE_V2_DHT_ENABLED", "1")])
 		.await
+}
+
+/// Statements the late-joiner scenario submits with keypair 0: three before the joiner starts,
+/// two while it syncs.
+pub(super) const LATE_JOINER_TOTAL: usize = 5;
+
+/// Adds `dave` with `joiner_options` once charlie is past block 10, so it joins in major sync, and
+/// checks its subscription receives every statement submitted on charlie before and during the
+/// sync. Its log must also show the deferred-peer drain: charlie and alice dial dave either way.
+pub(super) async fn assert_late_joiner_receives_backlog(
+	network: &mut Network<LocalFileSystem>,
+	joiner_options: AddCollatorOptions,
+) -> Result<(), anyhow::Error> {
+	const PRE_JOIN_COUNT: usize = 3;
+
+	let charlie = network.get_node("charlie")?;
+	let charlie_rpc = charlie.rpc().await?;
+
+	// Leave the joiner behind the major-sync threshold (`MAJOR_SYNC_BLOCKS` is 5).
+	let charlie_height = {
+		let height = std::cell::Cell::new(0.0f64);
+		charlie
+			.wait_metric_with_timeout(
+				crate::utils::BEST_BLOCK_METRIC,
+				|best| {
+					height.set(best);
+					best >= 10.0
+				},
+				360u64,
+			)
+			.await?;
+		height.get()
+	};
+	info!("charlie at block {charlie_height:.0} before dave joins");
+
+	let topic: Topic = [0x51; 32].into();
+	let keypair = get_keypair(0);
+	let statement =
+		|seq: u32| create_test_statement(&keypair, &[topic], None, vec![seq as u8], u32::MAX, seq);
+	let pre_join: Vec<_> = (0..PRE_JOIN_COUNT as u32).map(statement).collect();
+	for statement in &pre_join {
+		assert_eq!(submit_statement(&charlie_rpc, statement).await?, SubmitResult::New);
+	}
+
+	network.add_collator("dave", joiner_options, 1004).await?;
+	let dave = network.get_node("dave")?;
+	let dave_rpc = dave.rpc().await?;
+	let mut subscription = subscribe_topic(&dave_rpc, topic).await?;
+
+	let during_sync: Vec<_> =
+		(PRE_JOIN_COUNT as u32..LATE_JOINER_TOTAL as u32).map(statement).collect();
+	for statement in &during_sync {
+		assert_eq!(submit_statement(&charlie_rpc, statement).await?, SubmitResult::New);
+	}
+	let dave_height = dave.reports(crate::utils::BEST_BLOCK_METRIC).await.unwrap_or(0.0);
+	info!("dave at block {dave_height:.0} of {charlie_height:.0} when the batch landed");
+
+	dave.wait_metric_with_timeout(
+		crate::utils::BEST_BLOCK_METRIC,
+		|best| best >= charlie_height,
+		240u64,
+	)
+	.await
+	.map_err(|_| anyhow!("dave did not reach block {charlie_height:.0}"))?;
+
+	let expected: Vec<Vec<u8>> = pre_join
+		.iter()
+		.chain(&during_sync)
+		.map(|statement| statement.encode())
+		.collect();
+	assert_statements_match(&mut subscription, &expected, 120, "dave").await?;
+
+	let dave_logs = dave.logs().await?;
+	assert!(dave_logs.lines().any(|line| line.contains("Major sync complete, adding")));
+	Ok(())
 }
 
 /// Probes whether the node behind `rpc` currently stores `expected` for `topic`.
