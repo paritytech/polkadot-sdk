@@ -111,7 +111,7 @@ impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>, M: Get<u64>> Unchecked
 		let last_inflation = P::get();
 		let now: u64 = T::Time::now().saturated_into();
 		let elapsed = now.saturating_sub(last_inflation).min(M::get());
-		let total_issuance_before = T::Currency::total_issuance();
+		let total_issuance_before = T::NativeCurrency::total_issuance();
 		let expected_mint = T::IssuanceCurve::issue(total_issuance_before, elapsed);
 
 		Ok((now, total_issuance_before, expected_mint).encode())
@@ -138,7 +138,7 @@ impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>, M: Get<u64>> Unchecked
 		// share is `Perbill::mul_floor(issuance)`, so the sum only ever rounds *down*,
 		// bounded by one unit per budget entry. Anything outside this window indicates
 		// something other than the catch-up touched issuance.
-		let actual_mint = T::Currency::total_issuance().saturating_sub(total_issuance_before);
+		let actual_mint = T::NativeCurrency::total_issuance().saturating_sub(total_issuance_before);
 		let budget_len = BudgetAllocation::<T>::get().len();
 		let max_dust = BalanceOf::<T>::from(budget_len as u32);
 		frame_support::ensure!(

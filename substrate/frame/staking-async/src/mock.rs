@@ -464,7 +464,7 @@ pub fn general_staker_pot() -> AccountId {
 }
 
 impl pallet_dap::Config for Test {
-	type Currency = Balances;
+	type NativeCurrency = Balances;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = OneTokenPerMillisecond;
 	type BudgetRecipients =

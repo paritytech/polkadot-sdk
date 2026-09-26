@@ -71,7 +71,7 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_dap`.
 pub trait WeightInfo {
-	fn set_budget_allocation() -> Weight;
+	fn set_allocations() -> Weight;
 	fn drip_issuance() -> Weight;
 }
 
@@ -80,7 +80,7 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `Dap::BudgetAllocation` (r:0 w:1)
 	/// Proof: `Dap::BudgetAllocation` (`max_values`: Some(1), `max_size`: Some(593), added: 1088, mode: `MaxEncodedLen`)
-	fn set_budget_allocation() -> Weight {
+	fn set_allocations() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -107,7 +107,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 impl WeightInfo for () {
 	/// Storage: `Dap::BudgetAllocation` (r:0 w:1)
 	/// Proof: `Dap::BudgetAllocation` (`max_values`: Some(1), `max_size`: Some(593), added: 1088, mode: `MaxEncodedLen`)
-	fn set_budget_allocation() -> Weight {
+	fn set_allocations() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

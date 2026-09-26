@@ -53,7 +53,11 @@ use frame_support::{
 	defensive,
 	pallet_prelude::*,
 	traits::{
-		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
+		fungible::{
+			Balanced as FungibleBalanced, Credit as FungibleCredit, Inspect as FungibleInspect,
+			ItemOf, Mutate as FungibleMutate, Unbalanced as FungibleUnbalanced,
+		},
+		fungibles::{Balanced, Inspect, Mutate, Unbalanced},
 		tokens::{Fortitude, Preservation},
 		Currency, Imbalance, OnUnbalanced, Time,
 	},
@@ -72,18 +76,47 @@ const LOG_TARGET: &str = "runtime::dap";
 /// Maximum number of budget recipients.
 pub const MAX_BUDGET_RECIPIENTS: u32 = 16;
 
-/// Type alias for balance.
-pub type BalanceOf<T> =
-	<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+/// Maximum number of assets that can be distributed.
+pub const MAX_DISTRIBUTABLE_ASSETS: u32 = 8;
 
-/// Type alias for the budget allocation map.
+/// Type alias for balance.
+pub type BalanceOf<T> = <T as Config>::Balance;
+
+pub type AssetKindOf<T> = <T as Config>::AssetKind;
+
+/// Type alias for the native token allocation map.
 pub type BudgetAllocationMap = BoundedBTreeMap<BudgetKey, Perbill, ConstU32<MAX_BUDGET_RECIPIENTS>>;
+
+pub type AssetAllocationMap<AssetKind, Balance> = BoundedBTreeMap<
+	AssetKind,
+	SingleAssetAllocationMap<Balance>,
+	ConstU32<MAX_DISTRIBUTABLE_ASSETS>,
+>;
+
+pub type SingleAssetAllocationMap<Balance> =
+	BoundedBTreeMap<BudgetKey, AssetAllocation<Balance>, ConstU32<MAX_BUDGET_RECIPIENTS>>;
+
+#[derive(
+	Clone, Copy, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug, MaxEncodedLen,
+)]
+pub struct AssetAllocation<Balance> {
+	amount_per_ms: Balance,
+}
+
+pub type NativeCurrencyOf<T> = ItemOf<
+	<T as Config>::Assets,
+	<T as Config>::NativeCurrencyAssetId,
+	<T as frame_system::Config>::AccountId,
+>;
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
 	use crate::weights::WeightInfo;
-	use frame_support::{sp_runtime::traits::AccountIdConversion, traits::StorageVersion};
+	use frame_support::{
+		sp_runtime::traits::AccountIdConversion,
+		traits::{tokens::Balance, StorageVersion},
+	};
 	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
@@ -95,11 +128,17 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
-		/// The currency type (new fungible traits).
-		type Currency: Inspect<Self::AccountId>
+		type Balance: Balance;
+
+		type AssetKind: Parameter + MaxEncodedLen + MaybeSerializeDeserialize + Ord + Debug;
+
+		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetKind, Balance = Self::Balance>
 			+ Mutate<Self::AccountId>
-			+ Unbalanced<Self::AccountId>
-			+ Balanced<Self::AccountId>;
+			+ Balanced<Self::AccountId>
+			+ Unbalanced<Self::AccountId>;
+
+		#[pallet::constant]
+		type NativeCurrencyAssetId: Get<Self::AssetKind>;
 
 		/// The pallet ID used to derive the buffer account.
 		#[pallet::constant]
@@ -160,20 +199,39 @@ pub mod pallet {
 			/// The new budget allocation map.
 			allocations: BudgetAllocationMap,
 		},
+		/// Asset allocation was updated via governance.
+		AssetAllocationUpdated {
+			/// The new asset allocation map.
+			allocations: AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>,
+		},
 		/// Funds were drained from the staging account into the DAP buffer.
 		StagingDrained {
 			/// Amount drained.
 			amount: BalanceOf<T>,
 		},
+		/// Assets are distributed to their recipients.
+		AssetDistributed {
+			/// Asset that was distributed.
+			asset: AssetKindOf<T>,
+			/// Total amount transferred in this distribution.
+			amount: BalanceOf<T>,
+			/// Elapsed time (ms) since last distribution.
+			elapsed_millis: u64,
+		},
 		/// An unexpected/defensive event was triggered.
-		Unexpected(UnexpectedKind),
+		Unexpected(UnexpectedKind<AssetKindOf<T>>),
 	}
 
 	/// Defensive/unexpected errors/events.
-	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, DebugNoBound)]
-	pub enum UnexpectedKind {
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug)]
+	pub enum UnexpectedKind<AssetKind> {
 		/// Failed to mint issuance.
 		MintFailed,
+		/// A transfer during the distribution failed.
+		DistributionTransferFailed {
+			/// An asset for which the transfer failed.
+			asset: AssetKind,
+		},
 		/// Elapsed time was clamped at the safety ceiling.
 		ElapsedClamped {
 			/// The actual elapsed time in milliseconds.
@@ -189,6 +247,10 @@ pub mod pallet {
 	/// exactly `Perbill::one()` (100%). Recipients not included receive nothing.
 	#[pallet::storage]
 	pub type BudgetAllocation<T> = StorageValue<_, BudgetAllocationMap, ValueQuery>;
+
+	#[pallet::storage]
+	pub type AssetAllocation<T> =
+		StorageValue<_, AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>, ValueQuery>;
 
 	/// Timestamp (ms) of the last issuance drip.
 	///
@@ -220,7 +282,7 @@ pub mod pallet {
 			}
 
 			let staging_account = Self::staging_account();
-			let available = T::Currency::reducible_balance(
+			let available = NativeCurrencyOf::<T>::reducible_balance(
 				&staging_account,
 				Preservation::Preserve,
 				Fortitude::Polite,
@@ -237,8 +299,13 @@ pub mod pallet {
 			}
 
 			let buffer = Self::buffer_account();
-			if T::Currency::transfer(&staging_account, &buffer, available, Preservation::Preserve)
-				.is_err()
+			if NativeCurrencyOf::<T>::transfer(
+				&staging_account,
+				&buffer,
+				available,
+				Preservation::Preserve,
+			)
+			.is_err()
 			{
 				defensive!("DAP: staging account transfer to buffer failed");
 				return meter.consumed();
@@ -282,31 +349,57 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Set the budget allocation map.
+		/// Optionally set the budget and asset allocation maps.
 		///
-		/// Each key must match a registered `BudgetRecipient`. The sum of all percentages
-		/// must be exactly 100%. Recipients not included in the map receive nothing.
+		/// Each key must match a registered `BudgetRecipient`. For budget allocation, the sum of
+		/// all percentages must be exactly 100%. Recipients not included in the map receive
+		/// nothing.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::set_budget_allocation())]
-		pub fn set_budget_allocation(
+		#[pallet::weight(T::WeightInfo::set_allocations())]
+		pub fn set_allocations(
 			origin: OriginFor<T>,
-			new_allocations: BudgetAllocationMap,
+			new_budget_allocations: Option<BudgetAllocationMap>,
+			new_asset_allocations: Option<AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>>,
 		) -> DispatchResult {
 			T::BudgetOrigin::ensure_origin(origin)?;
 
-			// Validate all keys are registered recipients.
 			let registered: Vec<_> =
 				T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
-			for key in new_allocations.keys() {
-				ensure!(registered.contains(key), Error::<T>::UnknownBudgetKey);
+
+			if let Some(budget_allocations) = new_budget_allocations {
+				// Validate all keys are registered recipients.
+				for key in budget_allocations.keys() {
+					ensure!(registered.contains(key), Error::<T>::UnknownBudgetKey);
+				}
+
+				// Validate sum == 100%. Use u64 to avoid overflow when summing deconstructed
+				// Perbills.
+				let total_parts: u64 =
+					budget_allocations.values().map(|p| p.deconstruct() as u64).sum();
+				ensure!(
+					total_parts == Perbill::one().deconstruct() as u64,
+					Error::<T>::BudgetNotExact
+				);
+
+				BudgetAllocation::<T>::put(budget_allocations.clone());
+				Self::deposit_event(Event::BudgetAllocationUpdated {
+					allocations: budget_allocations,
+				});
 			}
 
-			// Validate sum == 100%. Use u64 to avoid overflow when summing deconstructed Perbills.
-			let total_parts: u64 = new_allocations.values().map(|p| p.deconstruct() as u64).sum();
-			ensure!(total_parts == Perbill::one().deconstruct() as u64, Error::<T>::BudgetNotExact);
+			if let Some(asset_allocations) = new_asset_allocations {
+				// Validate all keys are registered recipients.
+				for (_, allocations) in &asset_allocations {
+					for key in allocations.keys() {
+						ensure!(registered.contains(key), Error::<T>::UnknownBudgetKey);
+					}
+				}
 
-			BudgetAllocation::<T>::put(new_allocations.clone());
-			Self::deposit_event(Event::BudgetAllocationUpdated { allocations: new_allocations });
+				AssetAllocation::<T>::put(asset_allocations.clone());
+				Self::deposit_event(Event::AssetAllocationUpdated {
+					allocations: asset_allocations,
+				});
+			}
 
 			Ok(())
 		}
@@ -358,7 +451,12 @@ pub mod pallet {
 
 		/// Deactivate funds on buffer inflow.
 		pub(crate) fn deactivate_buffer_funds(amount: BalanceOf<T>) {
-			<T::Currency as Unbalanced<T::AccountId>>::deactivate(amount);
+			<NativeCurrencyOf<T> as FungibleUnbalanced<T::AccountId>>::deactivate(amount);
+		}
+
+		/// Activate funds on buffer withdrawal.
+		pub(crate) fn activate_buffer_funds(amount: BalanceOf<T>) {
+			<NativeCurrencyOf<T> as FungibleUnbalanced<T::AccountId>>::reactivate(amount);
 		}
 
 		/// Core issuance drip logic, called from `on_initialize`.
@@ -409,11 +507,20 @@ pub mod pallet {
 		/// failures emit `MintFailed` and are skipped; the function does not roll
 		/// back successful mints for earlier recipients.
 		pub(crate) fn mint_and_distribute(elapsed: u64) -> BalanceOf<T> {
-			let total_issuance = T::Currency::total_issuance();
+			let recipients = T::BudgetRecipients::recipients();
+
+			Self::mint_native_currency(elapsed, &recipients);
+			Self::distribute_assets(elapsed, &recipients);
+
+			BalanceOf::<T>::zero()
+		}
+
+		fn mint_native_currency(elapsed: u64, recipients: &[(BudgetKey, T::AccountId)]) {
+			let total_issuance = NativeCurrencyOf::<T>::total_issuance();
 			let issuance = T::IssuanceCurve::issue(total_issuance, elapsed);
 
 			if issuance.is_zero() {
-				return BalanceOf::<T>::zero();
+				return;
 			}
 
 			let budget = BudgetAllocation::<T>::get();
@@ -423,17 +530,16 @@ pub mod pallet {
 					target: LOG_TARGET,
 					"BudgetAllocation is empty — no issuance will be distributed"
 				);
-				return BalanceOf::<T>::zero();
+				return;
 			}
-			let recipients = T::BudgetRecipients::recipients();
 			let mut total_minted = BalanceOf::<T>::zero();
 
 			let buffer = Self::buffer_account();
-			for (key, account) in &recipients {
+			for (key, account) in &*recipients {
 				let perbill = budget.get(key).copied().unwrap_or(Perbill::zero());
 				let amount = perbill.mul_floor(issuance);
 				if !amount.is_zero() {
-					if let Err(_) = T::Currency::mint_into(account, amount) {
+					if let Err(_) = NativeCurrencyOf::<T>::mint_into(account, amount) {
 						Self::deposit_event(Event::Unexpected(UnexpectedKind::MintFailed));
 						defensive!("Issuance mint should not fail");
 					} else {
@@ -458,8 +564,53 @@ pub mod pallet {
 				!total_minted.is_zero(),
 				"mint_and_distribute: issuance was non-zero but nothing was minted"
 			);
+		}
 
-			total_minted
+		fn distribute_assets(elapsed: u64, recipients: &[(BudgetKey, T::AccountId)]) {
+			let buffer = Self::buffer_account();
+			let elapsed_as_balance = SaturatedConversion::saturated_into::<BalanceOf<T>>(elapsed);
+
+			let allocations = AssetAllocation::<T>::get();
+			for (asset, allocations) in allocations {
+				let mut total_distributed = BalanceOf::<T>::zero();
+
+				for (key, account) in &*recipients {
+					let Some(allocation) = allocations.get(key).copied() else {
+						continue;
+					};
+
+					if allocation.amount_per_ms.is_zero() {
+						continue;
+					}
+
+					let amount = allocation.amount_per_ms.saturating_mul(elapsed_as_balance);
+
+					let result = T::Assets::transfer(
+						asset.clone(),
+						&buffer,
+						account,
+						amount,
+						Preservation::Preserve,
+					);
+
+					if result.is_err() {
+						Self::deposit_event(Event::Unexpected(
+							UnexpectedKind::DistributionTransferFailed { asset: asset.clone() },
+						));
+					} else {
+						total_distributed.saturating_accrue(amount);
+						if asset == T::NativeCurrencyAssetId::get() && *account != buffer {
+							Self::activate_buffer_funds(amount);
+						}
+					}
+				}
+
+				Self::deposit_event(Event::AssetDistributed {
+					asset,
+					amount: total_distributed,
+					elapsed_millis: elapsed,
+				});
+			}
 		}
 	}
 
@@ -467,22 +618,23 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		#[allow(dead_code)]
 		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-			Self::check_budget_allocation()
+			Self::check_budget_allocation()?;
+			Self::check_asset_allocation()
 		}
 
 		/// Checks that `BudgetAllocation` is consistent:
 		/// - Every key in `BudgetAllocation` must be a registered recipient.
 		/// - Allocation percentages must sum to exactly 100%.
 		fn check_budget_allocation() -> Result<(), sp_runtime::TryRuntimeError> {
-			let allocation = BudgetAllocation::<T>::get();
+			let budget_allocation = BudgetAllocation::<T>::get();
 
-			ensure!(!allocation.is_empty(), "BudgetAllocation is empty");
+			ensure!(!budget_allocation.is_empty(), "BudgetAllocation is empty");
 
 			let registered: Vec<BudgetKey> =
 				T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
 
-			// Every allocation key must be a registered recipient.
-			for key in allocation.keys() {
+			// Every budget allocation key must be a registered recipient.
+			for key in budget_allocation.keys() {
 				ensure!(
 					registered.contains(key),
 					"BudgetAllocation contains key not in BudgetRecipients"
@@ -490,7 +642,7 @@ pub mod pallet {
 			}
 
 			// Allocation must sum to exactly 100%.
-			let total_parts: u64 = allocation.values().map(|p| p.deconstruct() as u64).sum();
+			let total_parts: u64 = budget_allocation.values().map(|p| p.deconstruct() as u64).sum();
 			ensure!(
 				total_parts == Perbill::one().deconstruct() as u64,
 				"BudgetAllocation does not sum to 100%"
@@ -498,11 +650,31 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		/// Check that `AssetAllocation` is consistent:
+		/// - Every key in `AssetAllocation` must be a registered recipient.
+		fn check_asset_allocation() -> Result<(), sp_runtime::TryRuntimeError> {
+			let asset_allocation = AssetAllocation::<T>::get();
+			let registered: Vec<BudgetKey> =
+				T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
+
+			// Every asset allocation key must be a registered recipient.
+			for (_, allocations) in asset_allocation {
+				for key in allocations.keys() {
+					ensure!(
+						registered.contains(key),
+						"AssetAllocation contains key not in BudgetRecipients"
+					);
+				}
+			}
+
+			Ok(())
+		}
 	}
 }
 
 /// Type alias for credit (negative imbalance - funds that were slashed/removed).
-pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
+pub type CreditOf<T> = FungibleCredit<<T as frame_system::Config>::AccountId, NativeCurrencyOf<T>>;
 
 /// Implementation of `OnUnbalanced` for the `fungible::Balanced` trait.
 /// Example: use as `type Slash = Dap` in staking-async config.
@@ -517,7 +689,7 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 		// Funds land in the staging account; `on_idle` will drain them into the buffer and
 		// deactivate them there.  Deactivation is intentionally deferred so that active issuance
 		// does not flicker down-then-up within the same block.
-		let _ = T::Currency::resolve(&staging, amount).inspect_err(|_| {
+		let _ = NativeCurrencyOf::<T>::resolve(&staging, amount).inspect_err(|_| {
 			defensive!(
 				"🚨 Failed to deposit slash to DAP staging account - funds burned, it should never happen!"
 			);

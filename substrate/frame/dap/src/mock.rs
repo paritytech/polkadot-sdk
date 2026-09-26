@@ -104,7 +104,7 @@ impl sp_staking::budget::BudgetRecipient<AccountId> for TestValidatorIncentiveRe
 }
 
 impl Config for Test {
-	type Currency = Balances;
+	type NativeCurrency = Balances;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = TestIssuanceCurve;
 	type BudgetRecipients = (Dap, TestStakerRecipient, TestValidatorIncentiveRecipient);

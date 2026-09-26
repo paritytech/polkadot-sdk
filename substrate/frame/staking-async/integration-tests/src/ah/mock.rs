@@ -592,7 +592,7 @@ impl sp_staking::budget::IssuanceCurve<Balance> for OneTokenPerMillisecond {
 }
 
 impl pallet_dap::Config for Runtime {
-	type Currency = Balances;
+	type NativeCurrency = Balances;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = OneTokenPerMillisecond;
 	type BudgetRecipients = (
