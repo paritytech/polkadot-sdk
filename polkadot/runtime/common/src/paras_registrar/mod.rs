@@ -612,9 +612,19 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		)
 	}
 
-	fn deregister(_para_id: u32) -> DispatchResult {
-		// TODO(ahm-v2): deregister the para and clear its registry entry.
-		Err(Error::<T>::NotImplemented.into())
+	fn deregister(para_id: u32) -> DispatchResult {
+		let id = ParaId::from(para_id);
+		match paras::Pallet::<T>::lifecycle(id) {
+			None |
+			Some(ParaLifecycle::OffboardingParathread) |
+			Some(ParaLifecycle::OffboardingParachain) => Ok(()),
+			_ => {
+				polkadot_runtime_parachains::schedule_para_cleanup::<T>(id)
+					.map_err(|_| Error::<T>::CannotDeregister)?;
+				Self::deposit_event(Event::<T>::Deregistered { para_id: id });
+				Ok(())
+			},
+		}
 	}
 
 	fn check_head_data(_head_len: u32) -> Result<(), ()> {

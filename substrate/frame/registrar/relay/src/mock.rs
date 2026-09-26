@@ -76,6 +76,8 @@ parameter_types! {
 	pub static AlreadyKnown: Vec<ParaId> = Vec::new();
 	/// When true, `MockRegistrar::register` fails.
 	pub static RegisterFails: bool = false;
+	/// When true, `MockRegistrar::deregister` fails.
+	pub static DeregisterFails: bool = false;
 	/// Reports handed to the transport, oldest first.
 	pub static SentMessages: Vec<MessageToPara> = Vec::new();
 	/// When true, the transport refuses everything.
@@ -113,8 +115,12 @@ impl ParachainRegistrar for MockRegistrar {
 		Ok(())
 	}
 
-	fn deregister(_para_id: ParaId) -> sp_runtime::DispatchResult {
-		// TODO(ahm-v2): record the deregistration in the mock.
+	fn deregister(para_id: ParaId) -> sp_runtime::DispatchResult {
+		if DeregisterFails::get() {
+			return Err(sp_runtime::DispatchError::Other("registrar refused"));
+		}
+		AlreadyKnown::mutate(|v| v.retain(|id| *id != para_id));
+		Onboarded::mutate(|v| v.retain(|(id, ..)| *id != para_id));
 		Ok(())
 	}
 
@@ -185,6 +191,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	Onboarded::set(Vec::new());
 	AlreadyKnown::set(Vec::new());
 	RegisterFails::set(false);
+	DeregisterFails::set(false);
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
 

@@ -43,6 +43,11 @@
 //! Code upgrade authorizations do lapse instead: no deposit is at stake, and their validity
 //! depends on relay-chain state the parachain does not track.
 //!
+//! ## Deregistration
+//!
+//! Applied as it arrives and answered once. A para already gone is confirmed, so the parachain's
+//! retry after a lost answer settles instead of being refused.
+//!
 //! ## Locking
 //!
 //! The relay chain also tells the parachain when a para produces a head, so the chain holding the
@@ -194,6 +199,10 @@ pub mod pallet {
 		AuthorizationCancelled { para_id: ParaId, message_id: u64 },
 		/// A cancellation arrived after the para had already been onboarded, and was refused.
 		CancellationRefused { para_id: ParaId, message_id: u64 },
+		/// A para was dropped from the registry, or had already left it.
+		Deregistered { para_id: ParaId, message_id: u64 },
+		/// The registry refused to drop a para.
+		DeregistrationRejected { para_id: ParaId, message_id: u64 },
 		/// A report could not be sent back to the parachain.
 		ReportFailed { para_id: ParaId, message_id: u64 },
 		/// The parachain was told that a para produced its first head.
@@ -227,7 +236,8 @@ pub mod pallet {
 				T::WeightInfo::receive_register(genesis_head.len() as u32),
 			MessageToRelay::V1(MessageToRelayV1::CancelRegistration { .. }) =>
 				T::WeightInfo::receive_cancel_registration(),
-			MessageToRelay::V1(MessageToRelayV1::Deregister { .. }) |
+			MessageToRelay::V1(MessageToRelayV1::Deregister { .. }) =>
+				T::WeightInfo::receive_deregister(),
 			MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade { .. }) |
 			MessageToRelay::V1(MessageToRelayV1::SetCurrentHead { .. }) => Weight::MAX,
 		})]
@@ -456,9 +466,26 @@ pub mod pallet {
 			);
 		}
 
+		/// Drop `para_id` at the parachain's request.
+		///
+		/// A para already gone is confirmed rather than refused, so a retried request settles.
 		fn on_deregister_request(para_id: ParaId, message_id: u64) {
-			let _ = (para_id, message_id);
-			// TODO(ahm-v2): deregister the para and report the outcome back.
+			if let Err(e) = T::Registrar::deregister(para_id) {
+				log::debug!(
+					target: "runtime::registrar-relay",
+					"registry refused to drop para {para_id}: {e:?}",
+				);
+				Self::report_deregistration(
+					para_id,
+					message_id,
+					Err(FailureReason::NotDeregisterable),
+				);
+				return Self::deposit_event(Event::DeregistrationRejected { para_id, message_id });
+			}
+
+			AwaitingFirstHead::<T>::remove(para_id);
+			Self::report_deregistration(para_id, message_id, Ok(()));
+			Self::deposit_event(Event::Deregistered { para_id, message_id });
 		}
 
 		fn on_authorize_code_upgrade_request(
@@ -476,7 +503,7 @@ pub mod pallet {
 			// TODO(ahm-v2): set the para's head and report the outcome back.
 		}
 
-		#[allow(dead_code)]
+		/// Tell the parachain how a deregistration ended.
 		fn report_deregistration(para_id: ParaId, message_id: u64, outcome: Outcome) {
 			Self::report(
 				para_id,
