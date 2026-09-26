@@ -21,7 +21,7 @@
 //! (e.g. staker rewards, validator incentives).
 
 use alloc::vec::Vec;
-use sp_runtime::BoundedVec;
+use sp_runtime::{BoundedVec, DispatchError};
 
 /// Maximum length of a budget key identifier.
 pub const MAX_BUDGET_KEY_LEN: u32 = 32;
@@ -91,6 +91,19 @@ impl<AccountId> BudgetRecipientList<AccountId> for Tuple {
 		);
 		v
 	}
+}
+
+/// A source of funds that pays a beneficiary on request.
+///
+/// The counterpart of [`BudgetRecipient`] for outflows: the source owns the account and its
+/// authorisation, so callers ask it to pay instead of moving funds themselves.
+pub trait PaymentSource<AccountId, Balance> {
+	/// Pay `amount` to `beneficiary`. All-or-nothing: on `Err` nothing changed.
+	fn pay(beneficiary: &AccountId, amount: Balance) -> Result<(), DispatchError>;
+
+	/// Make a later [`Self::pay`] of `amount` succeed, so benchmarks skip the failure path.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_can_pay(amount: Balance);
 }
 
 #[cfg(test)]

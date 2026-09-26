@@ -72,6 +72,7 @@ use core::marker::PhantomData;
 /// Weight functions needed for `pallet_dap`.
 pub trait WeightInfo {
 	fn set_budget_allocation() -> Weight;
+	fn set_draw_budget() -> Weight;
 	fn drip_issuance() -> Weight;
 }
 
@@ -86,6 +87,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 6_933_000 picoseconds.
 		Weight::from_parts(7_589_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Dap::BufferDraws` (r:1 w:1)
+	/// Proof: `Dap::BufferDraws` (`max_values`: Some(1), `max_size`: Some(1297), added: 1792, mode: `MaxEncodedLen`)
+	fn set_draw_budget() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `2782`
+		// Minimum execution time: 6_933_000 picoseconds.
+		Weight::from_parts(7_589_000, 2782)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Timestamp::Now` (r:1 w:0)
@@ -113,6 +125,17 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 6_933_000 picoseconds.
 		Weight::from_parts(7_589_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `Dap::BufferDraws` (r:1 w:1)
+	/// Proof: `Dap::BufferDraws` (`max_values`: Some(1), `max_size`: Some(1297), added: 1792, mode: `MaxEncodedLen`)
+	fn set_draw_budget() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `2782`
+		// Minimum execution time: 6_933_000 picoseconds.
+		Weight::from_parts(7_589_000, 2782)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Timestamp::Now` (r:1 w:0)
