@@ -2069,12 +2069,10 @@ where
 
 		// EIP-7702: delegated EOAs return `0xef0100 || target` as their code.
 		//
-		// PVM caveat: on PolkaVM, CODESIZE/CODECOPY lower to the same host functions
-		// as EXTCODESIZE/EXTCODECOPY, so this branch is reached for both. It is
-		// spec-correct for the EXT* opcodes but wrong for CODESIZE/CODECOPY inside a
-		// delegated EOA's execution — the executing code there is the target's PVM
-		// blob, not the 23-byte indicator. Spec-correct CODESIZE/CODECOPY require a
-		// separate host function and a matching resolc change; tracked as a follow-up.
+		// PVM caveat: resolc lowers CODESIZE to the `code_size` host function, so inside
+		// a delegated EOA's execution CODESIZE reports 23 instead of the size of the
+		// target's PVM blob. Fixing that needs a separate host function and a matching
+		// resolc change; tracked as a follow-up.
 		<AccountInfo<T>>::get_delegation_target(address)
 			.map(|target| Cow::Owned(<AccountInfo<T>>::delegation_indicator(&target).to_vec()))
 	}
