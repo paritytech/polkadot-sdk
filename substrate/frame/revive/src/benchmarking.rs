@@ -5245,15 +5245,35 @@ mod benchmarks {
 		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
 	}
 
-	/// Benchmark `r` `ISZERO` instructions with zero operands to check all four words each time.
+	/// Benchmark `r` `ISZERO` instructions.
+	///
+	/// `U256::is_zero` checks the words one at a time, starting from the least significant, and
+	/// stops at the first one that isn't zero. In the compiled runtime only the checks of the first
+	/// three words branch, and the last word is checked without a branch. With zero operands every
+	/// time, the CPU would predict these branches perfectly. Instead a pseudo-random generator
+	/// picks whether each operand is zero or is nonzero only in word 0, 1 or 2. Each time the check
+	/// reaches one of these words it stops there with a 50% chance, which makes the CPU mispredict
+	/// where it stops. The mispredictions cost more than checking the words that are skipped.
+	///
+	/// Each `ISZERO` is followed by a `POP`, so each one checks a fresh operand rather than the
+	/// result of the previous one.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_iszero_opcode(r: Linear<0, EVM_STACK_LIMIT>) {
+		use rand::{Rng, SeedableRng};
+		use rand_pcg::Pcg64;
+
+		let mut rng = Pcg64::seed_from_u64(42);
+		let operands = (0..r).map(|_| match [0, 1, 2].into_iter().find(|_| rng.gen_bool(0.5)) {
+			Some(word) => U256::one() << (64 * word),
+			None => U256::zero(),
+		});
+
 		let code = Bytecode::new_raw([ISZERO, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for _ in 0..r {
-			interpreter.stack.push(U256::zero()).continue_value().unwrap();
+		for operand in operands {
+			interpreter.stack.push(operand).continue_value().unwrap();
 		}
 
 		let result;
