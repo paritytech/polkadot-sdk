@@ -201,11 +201,13 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 				// Validated and pooled by the validator; the stream is only observed here.
 				if notification.is_none() {
 					log::warn!(target: LOG_TARGET, "Gossip topic stream ended, stopping");
+               // TODO: can we handle this without stopping the service?
 					return;
 				}
 			},
 			_ = &mut gossip_engine => {
 				log::warn!(target: LOG_TARGET, "Gossip engine ended, stopping");
+            // TODO: can we handle this without stopping the service?
 				return;
 			},
 		}

@@ -200,6 +200,7 @@ where
 	Some(pool)
 }
 
+// TODO: cut multiple cfg!
 /// The price oracle inherent data provider for the block built on `parent`: the pooled reports
 /// when the service runs, none otherwise.
 fn price_oracle_inherent_data_provider<Block, RuntimeApi, AuraId>(

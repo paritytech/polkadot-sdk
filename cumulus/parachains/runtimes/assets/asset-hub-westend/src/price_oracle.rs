@@ -71,6 +71,7 @@ impl Signers<AuraId> for Collators {
 		let mut signers: Vec<AuraId> = pallet_aura::Authorities::<Runtime>::get().into_inner();
 		for (_, keys) in pallet_session::QueuedKeys::<Runtime>::get() {
 			if !signers.contains(&keys.aura) {
+				// TODO: should happen only at the end of the current session.
 				signers.push(keys.aura);
 			}
 		}
@@ -82,7 +83,7 @@ impl pallet_price_oracle::Config for Runtime {
 	type SignerId = AuraId;
 	type SignerSignature = sp_consensus_aura::sr25519::AuthoritySignature;
 	type Signers = Collators;
-	type MaxSigners = ConstU32<1_000>;
+	type MaxSigners = ConstU32<600>;
 	type Pairs = Pair;
 	type AnchorProvider = System;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;

@@ -30,6 +30,7 @@ use scale_info::TypeInfo;
 pub struct ParseError(pub Vec<u8>);
 
 sp_api::decl_runtime_apis! {
+	// TODO: consider single settings api call
 	/// Consensus side of the oracle: who may sign and what is already on chain.
 	pub trait PriceOracleApi<Id: Decode> {
 		/// Keys whose reports are accepted right now.
