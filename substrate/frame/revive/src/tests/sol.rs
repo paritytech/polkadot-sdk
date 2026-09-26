@@ -284,36 +284,47 @@ fn delegated_eoa_prestate_tracing_returns_indicator() {
 
 /// Prestate-tracer must surface a precompile's `code` as its stub, matching what
 /// eth_getCode and EXTCODESIZE/EXTCODEHASH/EXTCODECOPY report for the same address.
+/// Primitive precompiles have an empty stub and report no code.
 #[test]
 fn precompile_prestate_tracing_returns_code_stub() {
-	use crate::{evm::PrestateTrace, precompiles::EVM_REVERT};
-	use pallet_revive_uapi::SYSTEM_PRECOMPILE_ADDR;
+	use crate::{H160, evm::PrestateTrace, precompiles::EVM_REVERT};
+	use pallet_revive_uapi::{SYSTEM_PRECOMPILE_ADDR, precompiles::system::ISystem};
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-		let precompile_addr = crate::H160(SYSTEM_PRECOMPILE_ADDR);
+		let traced_code = |addr: H160, data: Vec<u8>| {
+			let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+				diff_mode: false,
+				disable_storage: true,
+				disable_code: false,
+			});
+			let result = trace(&mut tracer, || {
+				builder::bare_call(addr).data(data).build_and_unwrap_result()
+			});
+			assert!(!result.did_revert(), "call to {addr:?} reverted");
 
-		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
-			diff_mode: false,
-			disable_storage: true,
-			disable_code: false,
-		});
-		let _ = trace(&mut tracer, || builder::bare_call(precompile_addr).build());
+			match tracer.collect_trace() {
+				PrestateTrace::Prestate(accounts) => accounts
+					.get(&addr)
+					.expect("precompile should be in prestate trace")
+					.code
+					.clone()
+					.map(|code| code.0),
+				other => panic!("expected Prestate mode, got {:?}", other),
+			}
+		};
 
-		match tracer.collect_trace() {
-			PrestateTrace::Prestate(accounts) => {
-				let info =
-					accounts.get(&precompile_addr).expect("precompile should be in prestate trace");
-				let code = info.code.as_ref().expect("precompile should report code");
-				assert_eq!(
-					code.0,
-					EVM_REVERT.to_vec(),
-					"prestate trace code should be the precompile's code stub",
-				);
-			},
-			other => panic!("expected Prestate mode, got {:?}", other),
-		}
+		assert_eq!(
+			traced_code(H160(SYSTEM_PRECOMPILE_ADDR), ISystem::minimumBalanceCall {}.abi_encode()),
+			Some(EVM_REVERT.to_vec()),
+			"prestate trace code should be the precompile's code stub",
+		);
+		assert_eq!(
+			traced_code(H160::from_low_u64_be(1), vec![]),
+			None,
+			"primitive precompile should report no code",
+		);
 	});
 }
 
