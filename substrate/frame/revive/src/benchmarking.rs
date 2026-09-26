@@ -119,6 +119,24 @@ fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId,
 	Ok(account_id)
 }
 
+/// Sets up the callee of the `seal_call` benches and returns its address and account id.
+///
+/// An EIP-7702 delegated callee is the worst case for the account resolution in `new_frame`: the
+/// `AccountInfoOf` entry decodes the larger `DelegatedEOA` variant and the call still runs the
+/// target's code. (A callee whose delegation snapshot is empty costs a second read of the target
+/// but skips code load and execution entirely, so it is cheaper overall.)
+fn seal_call_callee<T: Config>() -> Result<(H160, T::AccountId), BenchmarkError> {
+	let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+	let callee_addr = H160([0x42; 20]);
+	let callee = delegated_eoa::<T>(callee_addr, target.address)?;
+	// Keep the origin's budget the same as with a contract callee. A contract already exists in
+	// `System`, so `Stack::transfer` skips the "create the destination" arm; a fresh EOA does not,
+	// and that arm charges the destination's ED to the origin, leaving it nothing for
+	// `ensure_sufficient_dust` to burn into dust.
+	T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
+	Ok((callee_addr, callee))
+}
+
 #[benchmarks(
 	where
 		T: Config,
@@ -2571,33 +2589,61 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// t: with or without some value to transfer
-	// d: with or without dust value to transfer
-	// i: size of the input data
+	// i: size of the input the call clones
 	#[benchmark(pov_mode = Measured)]
-	fn seal_call(
-		t: Linear<0, 1>,
-		d: Linear<0, 1>,
-		i: Linear<0, { limits::code::BLOB_BYTES }>,
-	) -> Result<(), BenchmarkError> {
-		// An EIP-7702 delegated callee is the worst case for the account resolution in
-		// `new_frame`: the `AccountInfoOf` entry decodes the larger `DelegatedEOA` variant and
-		// the call still runs the target's code. (A callee whose delegation snapshot is empty
-		// costs a second read of the target but skips code load and execution entirely, so it
-		// is cheaper overall.)
-		let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
-		let callee_addr = H160([0x42; 20]);
-		let callee = delegated_eoa::<T>(callee_addr, target.address)?;
-		// Keep the origin's budget the same as with a contract callee. A contract already exists
-		// in `System`, so `Stack::transfer` skips the "create the destination" arm; a fresh EOA
-		// does not, and that arm charges the destination's ED to the origin, leaving it nothing
-		// for `ensure_sufficient_dust` to burn into dust when `d == 1`.
-		T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
-
+	fn seal_call(i: Linear<0, { limits::CALLDATA_BYTES }>) -> Result<(), BenchmarkError> {
+		let (callee_addr, callee) = seal_call_callee::<T>()?;
 		let callee_bytes = callee.encode();
 		let callee_len = callee_bytes.len() as u32;
 
-		let value: BalanceOf<T> = (1_000_000u32 * t).into();
+		let value_bytes = U256::zero().encode();
+
+		let deposit: BalanceOf<T> = (u32::MAX - 100).into();
+		let deposit_bytes = Into::<U256>::into(deposit).encode();
+		let deposit_len = deposit_bytes.len() as u32;
+
+		let mut setup = CallSetup::<T>::default();
+		setup.set_storage_deposit_limit(deposit);
+		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+
+		let (mut ext, _) = setup.ext();
+		// `CLONE_INPUT` clones the runtime's own input, so the input goes here.
+		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![42; i as usize]);
+		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
+		let before = Pallet::<T>::evm_balance(&callee_addr);
+
+		let result;
+		#[block]
+		{
+			result = runtime.bench_call(
+				memory.as_mut_slice(),
+				pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0), // flags + callee
+				u64::MAX,                                     // ref_time_limit
+				u64::MAX,                                     // proof_size_limit
+				pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_pr
+				pack_hi_lo(0, 0),                             // input len + data ptr
+				pack_hi_lo(0, SENTINEL),                      // output len + data ptr
+			);
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert_eq!(
+			Pallet::<T>::evm_balance(&callee_addr),
+			before,
+			"a zero-value call leaves {callee_addr:?}'s balance unchanged"
+		);
+
+		Ok(())
+	}
+
+	// d: with or without dust value to transfer
+	#[benchmark(pov_mode = Measured)]
+	fn seal_call_transfer(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		let (callee_addr, callee) = seal_call_callee::<T>()?;
+		let callee_bytes = callee.encode();
+		let callee_len = callee_bytes.len() as u32;
+
+		let value: BalanceOf<T> = 1_000_000u32.into();
 		let dust = 100u32 * d;
 		let evm_value =
 			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
@@ -2609,9 +2655,6 @@ mod benchmarks {
 
 		let mut setup = CallSetup::<T>::default();
 		setup.set_storage_deposit_limit(deposit);
-		// We benchmark the overhead of cloning the input. Not passing it to the contract.
-		// This is why we set the input here instead of passig it as pointer to the `bench_call`.
-		setup.set_data(vec![42; i as usize]);
 		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 		setup.set_balance(value + 1u32.into() + Pallet::<T>::min_balance());
 
