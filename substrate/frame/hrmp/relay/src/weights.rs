@@ -17,11 +17,7 @@
 
 //! Weights for `pallet_hrmp_relay`.
 //!
-//! **Placeholders.** This pallet has never been benchmarked, so the numbers below are derived from
-//! storage access alone: one `ref_time` allowance per call plus the reads and writes each one
-//! actually performs. Benchmarks exist for every function here, so regenerating this file with the
-//! benchmark CLI replaces the whole thing with measured values. Do not hand-tune these — fix the
-//! benchmark instead.
+//! **Placeholders**, derived from storage access alone. Regenerate with the benchmark CLI.
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -33,68 +29,50 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_hrmp_relay`.
 pub trait WeightInfo {
-	fn init_open_channel() -> Weight;
-	fn accept_open_channel() -> Weight;
-	fn close_channel() -> Weight;
-	fn cancel_open_request() -> Weight;
-	fn establish_system_channel() -> Weight;
+	fn receive() -> Weight;
+	fn relay_request() -> Weight;
+	fn flush_releases(n: u32) -> Weight;
 }
 
 /// Weights for `pallet_hrmp_relay` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	fn init_open_channel() -> Weight {
+	fn receive() -> Weight {
 		Weight::from_parts(20_000_000, 0)
-			.saturating_add(T::DbWeight::get().reads(4))
-			.saturating_add(T::DbWeight::get().writes(4))
-	}
-	fn accept_open_channel() -> Weight {
-		Weight::from_parts(20_000_000, 0)
-			.saturating_add(T::DbWeight::get().reads(4))
-			.saturating_add(T::DbWeight::get().writes(4))
-	}
-	fn close_channel() -> Weight {
-		Weight::from_parts(20_000_000, 0)
-			.saturating_add(T::DbWeight::get().reads(3))
-			.saturating_add(T::DbWeight::get().writes(3))
-	}
-	fn cancel_open_request() -> Weight {
-		Weight::from_parts(20_000_000, 0)
-			.saturating_add(T::DbWeight::get().reads(3))
-			.saturating_add(T::DbWeight::get().writes(3))
-	}
-	fn establish_system_channel() -> Weight {
-		Weight::from_parts(20_000_000, 0)
-			.saturating_add(T::DbWeight::get().reads(6))
+			.saturating_add(T::DbWeight::get().reads(8))
 			.saturating_add(T::DbWeight::get().writes(8))
+	}
+	fn relay_request() -> Weight {
+		Weight::from_parts(40_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(12))
+			.saturating_add(T::DbWeight::get().writes(12))
+	}
+	fn flush_releases(n: u32) -> Weight {
+		Weight::from_parts(5_000_000, 0)
+			.saturating_add(Weight::from_parts(10_000_000, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+			.saturating_add(T::DbWeight::get().writes(2).saturating_mul(n.into()))
 	}
 }
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
-	fn init_open_channel() -> Weight {
+	fn receive() -> Weight {
 		Weight::from_parts(20_000_000, 0)
-			.saturating_add(RocksDbWeight::get().reads(4))
-			.saturating_add(RocksDbWeight::get().writes(4))
-	}
-	fn accept_open_channel() -> Weight {
-		Weight::from_parts(20_000_000, 0)
-			.saturating_add(RocksDbWeight::get().reads(4))
-			.saturating_add(RocksDbWeight::get().writes(4))
-	}
-	fn close_channel() -> Weight {
-		Weight::from_parts(20_000_000, 0)
-			.saturating_add(RocksDbWeight::get().reads(3))
-			.saturating_add(RocksDbWeight::get().writes(3))
-	}
-	fn cancel_open_request() -> Weight {
-		Weight::from_parts(20_000_000, 0)
-			.saturating_add(RocksDbWeight::get().reads(3))
-			.saturating_add(RocksDbWeight::get().writes(3))
-	}
-	fn establish_system_channel() -> Weight {
-		Weight::from_parts(20_000_000, 0)
-			.saturating_add(RocksDbWeight::get().reads(6))
+			.saturating_add(RocksDbWeight::get().reads(8))
 			.saturating_add(RocksDbWeight::get().writes(8))
+	}
+	fn relay_request() -> Weight {
+		Weight::from_parts(40_000_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(12))
+			.saturating_add(RocksDbWeight::get().writes(12))
+	}
+	fn flush_releases(n: u32) -> Weight {
+		Weight::from_parts(5_000_000, 0)
+			.saturating_add(Weight::from_parts(10_000_000, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads(1))
+			.saturating_add(RocksDbWeight::get().writes(1))
+			.saturating_add(RocksDbWeight::get().writes(2).saturating_mul(n.into()))
 	}
 }

@@ -1539,8 +1539,7 @@ parameter_types! {
 }
 
 impl parachains_hrmp::Config for Runtime {
-	type ParaSelfOrigin = runtime_parachains::origin::EnsureParachain;
-	type ParaRequests = ();
+	type ChannelDeposits = parachains_hrmp::ReserveDeposits<Runtime>;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = EnsureRoot<AccountId>;
@@ -1661,7 +1660,7 @@ parameter_types! {
 }
 
 impl paras_registrar::Config for Runtime {
-	type ParaSelfOrigin = runtime_parachains::origin::EnsureParachain;
+	type ParaSelfOrigin = polkadot_runtime_parachains::origin::EnsureParachain;
 	type ParaRequests = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;

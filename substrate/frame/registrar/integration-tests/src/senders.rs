@@ -24,13 +24,13 @@
 
 use codec::Encode;
 use frame_support::traits::{CallerTrait, OriginTrait};
+use hrmp_primitives::{MessageToPara as HrmpMessageToPara, MessageToRelay as HrmpMessageToRelay};
 use pallet_registrar_para::SendToRelay;
 use pallet_registrar_relay::SendToPara;
 use polkadot_parachain_primitives::primitives::Id as PolkadotParaId;
-use polkadot_runtime_parachains::Origin as ParachainsOrigin;
-use hrmp_primitives::{MessageToPara as HrmpMessageToPara, MessageToRelay as HrmpMessageToRelay};
+use polkadot_runtime_parachains::{hrmp, Origin as ParachainsOrigin};
 use registrar_primitives::{MessageToPara, MessageToRelay};
-use sp_runtime::AccountId32;
+use sp_runtime::{AccountId32, DispatchError, DispatchResult};
 use xcm::latest::prelude::*;
 
 /// The para id of the control-plane parachain in this test network.
@@ -126,7 +126,7 @@ pub enum ParaRuntimeHrmpPallets {
 #[derive(Encode)]
 pub enum HrmpParaCalls {
 	/// Index of `fn receive` in `pallet-hrmp-para`.
-	#[codec(index = 4)]
+	#[codec(index = 0)]
 	Receive(HrmpMessageToPara),
 }
 
@@ -156,8 +156,7 @@ pub struct RelayHrmpSendToPara;
 
 impl pallet_hrmp_relay::SendToPara for RelayHrmpSendToPara {
 	fn send(message: HrmpMessageToPara) -> Result<(), ()> {
-		let call =
-			ParaRuntimeHrmpPallets::HrmpControl(HrmpParaCalls::Receive(message)).encode();
+		let call = ParaRuntimeHrmpPallets::HrmpControl(HrmpParaCalls::Receive(message)).encode();
 		let program = Xcm(vec![
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
 			Transact {
@@ -167,12 +166,9 @@ impl pallet_hrmp_relay::SendToPara for RelayHrmpSendToPara {
 			},
 		]);
 
-		send_xcm::<crate::relay::XcmRouter>(
-			Location::new(0, [Parachain(PARA_ID)]),
-			program,
-		)
-		.map(|_| ())
-		.map_err(|_| ())
+		send_xcm::<crate::relay::XcmRouter>(Location::new(0, [Parachain(PARA_ID)]), program)
+			.map(|_| ())
+			.map_err(|_| ())
 	}
 }
 
@@ -229,5 +225,172 @@ impl frame_support::traits::EnsureOrigin<crate::relay::RuntimeOrigin> for Ensure
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<crate::relay::RuntimeOrigin, ()> {
 		Ok(crate::relay::RuntimeOrigin::root())
+	}
+}
+
+/// `hrmp`'s deposit key, as the wire names it.
+fn to_wire(key: &hrmp::DepositKey) -> hrmp_primitives::DepositKey {
+	hrmp_primitives::DepositKey {
+		channel: hrmp_primitives::ChannelId {
+			sender: key.channel.sender.into(),
+			recipient: key.channel.recipient.into(),
+		},
+		side: match key.side {
+			hrmp::DepositSide::Sender => hrmp_primitives::DepositSide::Sender,
+			hrmp::DepositSide::Recipient => hrmp_primitives::DepositSide::Recipient,
+		},
+	}
+}
+
+/// The wire's deposit key, as `hrmp` names it.
+fn from_wire(key: hrmp_primitives::DepositKey) -> hrmp::DepositKey {
+	let channel = polkadot_primitives::HrmpChannelId {
+		sender: key.channel.sender.into(),
+		recipient: key.channel.recipient.into(),
+	};
+	match key.side {
+		hrmp_primitives::DepositSide::Sender => hrmp::DepositKey::sender(channel),
+		hrmp_primitives::DepositSide::Recipient => hrmp::DepositKey::recipient(channel),
+	}
+}
+
+/// Holds `hrmp`'s deposits on the parachain, through `pallet-hrmp-relay`.
+pub struct CoretimeDeposits;
+
+impl hrmp::ChannelDeposits for CoretimeDeposits {
+	fn hold(
+		key: &hrmp::DepositKey,
+		amount: polkadot_primitives::Balance,
+	) -> Result<hrmp::HoldOutcome, DispatchError> {
+		pallet_hrmp_relay::Pallet::<crate::relay::Runtime>::hold(to_wire(key), amount)
+			.map_err(|()| DispatchError::Other("the hold could not be sent"))?;
+		Ok(hrmp::HoldOutcome::Pending)
+	}
+
+	fn release(key: &hrmp::DepositKey, _amount: polkadot_primitives::Balance) {
+		pallet_hrmp_relay::Pallet::<crate::relay::Runtime>::release(to_wire(key), None);
+	}
+
+	fn reduce(key: &hrmp::DepositKey, amount: polkadot_primitives::Balance) {
+		pallet_hrmp_relay::Pallet::<crate::relay::Runtime>::release(to_wire(key), Some(amount));
+	}
+
+	fn release_offboarded(key: &hrmp::DepositKey, _amount: polkadot_primitives::Balance) {
+		pallet_hrmp_relay::Pallet::<crate::relay::Runtime>::release(to_wire(key), None);
+	}
+}
+
+/// Hands the parachain's answer to a hold back to `hrmp`.
+pub struct DepositAnswers;
+
+impl hrmp_primitives::OnDepositHeld for DepositAnswers {
+	fn on_deposit_held(key: hrmp_primitives::DepositKey, held: bool) {
+		<hrmp::Pallet<crate::relay::Runtime> as hrmp::OnDepositHeld>::on_deposit_held(
+			from_wire(key),
+			held,
+		);
+	}
+}
+
+/// `hrmp`'s para-facing calls, dispatched as the asking para.
+pub struct HrmpAsPara;
+
+impl HrmpAsPara {
+	fn origin(para: u32) -> crate::relay::RuntimeOrigin {
+		ParachainsOrigin::Parachain(para.into()).into()
+	}
+
+	fn channel(channel: hrmp_primitives::ChannelId) -> polkadot_primitives::HrmpChannelId {
+		polkadot_primitives::HrmpChannelId {
+			sender: channel.sender.into(),
+			recipient: channel.recipient.into(),
+		}
+	}
+}
+
+impl hrmp_primitives::RelayHrmp for HrmpAsPara {
+	fn init_open_channel(
+		para: u32,
+		recipient: u32,
+		proposed_max_capacity: u32,
+		proposed_max_message_size: u32,
+	) -> DispatchResult {
+		hrmp::Pallet::<crate::relay::Runtime>::hrmp_init_open_channel(
+			Self::origin(para),
+			recipient.into(),
+			proposed_max_capacity,
+			proposed_max_message_size,
+		)
+	}
+
+	fn accept_open_channel(para: u32, sender: u32) -> DispatchResult {
+		hrmp::Pallet::<crate::relay::Runtime>::hrmp_accept_open_channel(
+			Self::origin(para),
+			sender.into(),
+		)
+	}
+
+	fn close_channel(para: u32, channel: hrmp_primitives::ChannelId) -> DispatchResult {
+		hrmp::Pallet::<crate::relay::Runtime>::hrmp_close_channel(
+			Self::origin(para),
+			Self::channel(channel),
+		)
+	}
+
+	fn cancel_open_request(
+		para: u32,
+		channel: hrmp_primitives::ChannelId,
+		open_requests: u32,
+	) -> DispatchResult {
+		hrmp::Pallet::<crate::relay::Runtime>::hrmp_cancel_open_request(
+			Self::origin(para),
+			Self::channel(channel),
+			open_requests,
+		)
+	}
+
+	fn establish_channel_with_system(para: u32, target_system_chain: u32) -> DispatchResult {
+		hrmp::Pallet::<crate::relay::Runtime>::establish_channel_with_system(
+			Self::origin(para),
+			target_system_chain.into(),
+		)
+		.map(|_| ())
+		.map_err(|e| e.error)
+	}
+
+	fn poke_channel_deposits(channel: hrmp_primitives::ChannelId) -> DispatchResult {
+		hrmp::Pallet::<crate::relay::Runtime>::do_poke_channel_deposits(
+			channel.sender.into(),
+			channel.recipient.into(),
+		)
+	}
+
+	fn establish_system_channel(channel: hrmp_primitives::ChannelId) -> DispatchResult {
+		hrmp::Pallet::<crate::relay::Runtime>::do_establish_system_channel(
+			channel.sender.into(),
+			channel.recipient.into(),
+		)
+	}
+}
+
+/// Any parachain acting as itself, resolved to its id.
+pub struct EnsureAnyParachain;
+
+impl frame_support::traits::EnsureOrigin<crate::relay::RuntimeOrigin> for EnsureAnyParachain {
+	type Success = u32;
+
+	fn try_origin(
+		o: crate::relay::RuntimeOrigin,
+	) -> Result<Self::Success, crate::relay::RuntimeOrigin> {
+		let parachain_origin: Result<ParachainsOrigin, _> = o.clone().into();
+		match parachain_origin {
+			Ok(ParachainsOrigin::Parachain(id)) => Ok(id.into()),
+			_ => Err(o),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<crate::relay::RuntimeOrigin, ()> {
+		Ok(ParachainsOrigin::Parachain(RegistrarParaId::get()).into())
 	}
 }

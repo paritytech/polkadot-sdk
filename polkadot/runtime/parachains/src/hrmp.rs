@@ -16,27 +16,25 @@
 
 use crate::{
 	configuration::{self, HostConfiguration},
-	dmp, initializer, paras,
+	dmp, ensure_parachain, initializer, paras,
 };
 use alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	vec,
 	vec::Vec,
 };
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::{fmt, mem};
 use frame_support::{pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound};
 use frame_system::pallet_prelude::*;
 use polkadot_parachain_primitives::primitives::{HorizontalMessages, IsSystem};
-use hrmp_primitives::ParaRequestRouter;
 use polkadot_primitives::{
 	Balance, Hash, HrmpChannelId, Id as ParaId, InboundHrmpMessage, OutboundHrmpMessage,
 	SessionIndex,
 };
 use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{AccountIdConversion, BlakeTwo256, Hash as HashT, UniqueSaturatedInto, Zero},
-	ArithmeticError,
+use sp_runtime::traits::{
+	AccountIdConversion, BlakeTwo256, Hash as HashT, UniqueSaturatedInto, Zero,
 };
 
 pub use pallet::*;
@@ -109,6 +107,153 @@ impl WeightInfo for TestWeightInfo {
 	}
 	fn establish_channel_with_system() -> Weight {
 		Weight::MAX
+	}
+}
+
+/// Which end of a channel a deposit belongs to.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Debug,
+	TypeInfo,
+)]
+pub enum DepositSide {
+	/// The para that sends on the channel.
+	Sender,
+	/// The para that receives on the channel.
+	Recipient,
+}
+
+/// The deposit one end of a channel puts up.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, TypeInfo,
+)]
+pub struct DepositKey {
+	/// The channel the deposit is for.
+	pub channel: HrmpChannelId,
+	/// Which end pays it.
+	pub side: DepositSide,
+}
+
+impl DepositKey {
+	/// The sender's deposit for `channel`.
+	pub fn sender(channel: HrmpChannelId) -> Self {
+		Self { channel, side: DepositSide::Sender }
+	}
+
+	/// The recipient's deposit for `channel`.
+	pub fn recipient(channel: HrmpChannelId) -> Self {
+		Self { channel, side: DepositSide::Recipient }
+	}
+
+	/// The para that pays this deposit.
+	pub fn para(&self) -> ParaId {
+		match self.side {
+			DepositSide::Sender => self.channel.sender,
+			DepositSide::Recipient => self.channel.recipient,
+		}
+	}
+}
+
+/// What [`ChannelDeposits::hold`] did.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum HoldOutcome {
+	/// The deposit is held.
+	Held,
+	/// The outcome arrives later through [`OnDepositHeld`].
+	Pending,
+}
+
+/// Where HRMP channel deposits are held.
+pub trait ChannelDeposits {
+	/// Hold `amount` from the para that pays `key`, adding to anything already held for it.
+	fn hold(key: &DepositKey, amount: Balance) -> Result<HoldOutcome, DispatchError>;
+	/// Release the deposit held for `key`, which is `amount`.
+	fn release(key: &DepositKey, amount: Balance);
+	/// Release `amount` of the deposit held for `key`, keeping the rest.
+	fn reduce(key: &DepositKey, amount: Balance);
+	/// Release the deposit held for `key`, which is `amount`, as its para is offboarded.
+	fn release_offboarded(key: &DepositKey, amount: Balance);
+}
+
+/// Receives the outcome of a hold that answered [`HoldOutcome::Pending`].
+pub trait OnDepositHeld {
+	/// `held` is `true` if the deposit for `key` is now held.
+	fn on_deposit_held(key: DepositKey, held: bool);
+}
+
+/// Holds deposits as reserves on the para's sovereign account on this chain.
+pub struct ReserveDeposits<T>(core::marker::PhantomData<T>);
+
+impl<T: Config> ChannelDeposits for ReserveDeposits<T> {
+	fn hold(key: &DepositKey, amount: Balance) -> Result<HoldOutcome, DispatchError> {
+		T::Currency::reserve(
+			&key.para().into_account_truncating(),
+			amount.unique_saturated_into(),
+		)?;
+		Ok(HoldOutcome::Held)
+	}
+
+	fn release(key: &DepositKey, amount: Balance) {
+		T::Currency::unreserve(
+			&key.para().into_account_truncating(),
+			amount.unique_saturated_into(),
+		);
+	}
+
+	fn reduce(key: &DepositKey, amount: Balance) {
+		Self::release(key, amount);
+	}
+
+	/// Keeps it reserved.
+	fn release_offboarded(_: &DepositKey, _: Balance) {}
+}
+
+/// Work waiting on a deposit hold.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
+pub enum PendingDeposit {
+	/// An `init_open_channel` with the arguments it was called with.
+	Init {
+		/// The requested capacity.
+		max_capacity: u32,
+		/// The requested maximum message size.
+		max_message_size: u32,
+		/// The deposit asked for.
+		amount: Balance,
+		/// Whether the recipient accepts as soon as the request is recorded, as
+		/// `force_open_hrmp_channel` has it.
+		then_accept: bool,
+	},
+	/// An `accept_open_channel`.
+	Accept {
+		/// The deposit asked for.
+		amount: Balance,
+		/// Whether it accepts a `force_open_hrmp_channel`.
+		forced: bool,
+	},
+	/// A `poke_channel_deposits` raising one end's deposit.
+	Poke {
+		/// The increase asked for.
+		amount: Balance,
+		/// The deposit once the increase is held.
+		new: Balance,
+	},
+}
+
+impl PendingDeposit {
+	fn amount(&self) -> Balance {
+		match self {
+			Self::Init { amount, .. } | Self::Accept { amount, .. } | Self::Poke { amount, .. } => {
+				*amount
+			},
+		}
 	}
 }
 
@@ -277,6 +422,9 @@ pub mod pallet {
 		/// implementation should be the same as `Balance` as used in the `Configuration`.
 		type Currency: ReservableCurrency<Self::AccountId>;
 
+		/// Where channel deposits are held. [`ReserveDeposits`] reserves them on this chain.
+		type ChannelDeposits: ChannelDeposits;
+
 		/// The default channel size and capacity to use when opening a channel to a system
 		/// parachain.
 		type DefaultChannelSizeAndCapacityWithSystem: Get<(u32, u32)>;
@@ -288,27 +436,6 @@ pub mod pallet {
 		/// NOTE: For example, `pallet_xcm` provides an accurate implementation (recommended), or
 		/// the default `()` implementation uses the latest XCM version for all parachains.
 		type VersionWrapper: xcm::WrapVersion;
-
-		/// Which para origin the calls a parachain dispatches **for itself** accept.
-		///
-		/// `EnsureParachain` — the default, and today's behaviour — accepts
-		/// `parachains_origin::Origin::Parachain`. A relay chain whose control plane has moved sets
-		/// this to also accept the narrower origin it hands non-system paras, so those calls stay
-		/// reachable while every other call that accepts a parachain does not widen.
-		///
-		/// Every para-facing call in this pallet is forwardable, so all five consult it. The calls
-		/// that do not — the `force_*` family, `poke_channel_deposits` — take root or a signed
-		/// origin and never a parachain, so there is nothing here to widen for them.
-		type ParaSelfOrigin: EnsureOrigin<<Self as Config>::RuntimeOrigin, Success = ParaId>;
-
-		/// Where a parachain's own HRMP requests go once the control plane has moved off this
-		/// chain.
-		///
-		/// `()` — the default everywhere except a chain whose control plane has moved — never goes
-		/// remote, so every request is applied here exactly as before. See
-		/// [`hrmp_primitives::ParaRequestRouter`] for why the calls stay on this chain rather than
-		/// being filtered off: it is what keeps a parachain's encoded call unchanged.
-		type ParaRequests: hrmp_primitives::ParaRequestRouter;
 
 		/// Something that provides the weight of this pallet.
 		type WeightInfo: WeightInfo;
@@ -346,6 +473,13 @@ pub mod pallet {
 		},
 		/// An HRMP channel's deposits were updated.
 		OpenChannelDepositsUpdated { sender: ParaId, recipient: ParaId },
+		/// A deposit was asked for, and the request waits on it.
+		DepositPending { key: DepositKey },
+		/// A deposit could not be held, and the request that waited on it was dropped.
+		DepositRefused { key: DepositKey },
+		/// A deposit was held, but the request no longer passes its checks. The deposit is
+		/// released.
+		DepositReturned { key: DepositKey, error: DispatchError },
 	}
 
 	#[pallet::error]
@@ -390,11 +524,8 @@ pub mod pallet {
 		WrongWitness,
 		/// The channel between these two chains cannot be authorized.
 		ChannelCreationNotAuthorized,
-		/// The request could not be handed to the chain that owns the channels.
-		///
-		/// Only reachable once the control plane has moved off this chain. Nothing was written
-		/// here, so the parachain may simply ask again.
-		RequestNotForwarded,
+		/// A deposit for this is still being held.
+		DepositPending,
 	}
 
 	/// The set of pending HRMP open channel requests.
@@ -499,6 +630,10 @@ pub mod pallet {
 	pub type HrmpChannelDigests<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, Vec<(BlockNumberFor<T>, Vec<ParaId>)>, ValueQuery>;
 
+	/// Deposits asked for and not yet held, with the work that waits on each.
+	#[pallet::storage]
+	pub type PendingDeposits<T: Config> = StorageMap<_, Twox64Concat, DepositKey, PendingDeposit>;
+
 	/// Preopen the given HRMP channels.
 	///
 	/// The values in the tuple corresponds to
@@ -547,28 +682,23 @@ pub mod pallet {
 			proposed_max_capacity: u32,
 			proposed_max_message_size: u32,
 		) -> DispatchResult {
-			let origin =
-				T::ParaSelfOrigin::ensure_origin(<T as Config>::RuntimeOrigin::from(origin))?;
-			if T::ParaRequests::is_remote() {
-				return Self::forward(T::ParaRequests::open_channel(
-					origin.into(),
-					recipient.into(),
-					proposed_max_capacity,
-					proposed_max_message_size,
-				));
-			}
+			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
 			Self::init_open_channel(
 				origin,
 				recipient,
 				proposed_max_capacity,
 				proposed_max_message_size,
 			)?;
-			Self::deposit_event(Event::OpenChannelRequested {
-				sender: origin,
-				recipient,
-				proposed_max_capacity,
-				proposed_max_message_size,
-			});
+			// A request waiting on its deposit is announced once the deposit is held.
+			let key = DepositKey::sender(HrmpChannelId { sender: origin, recipient });
+			if !PendingDeposits::<T>::contains_key(key) {
+				Self::deposit_event(Event::OpenChannelRequested {
+					sender: origin,
+					recipient,
+					proposed_max_capacity,
+					proposed_max_message_size,
+				});
+			}
 			Ok(())
 		}
 
@@ -578,16 +708,13 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::hrmp_accept_open_channel())]
 		pub fn hrmp_accept_open_channel(origin: OriginFor<T>, sender: ParaId) -> DispatchResult {
-			let origin =
-				T::ParaSelfOrigin::ensure_origin(<T as Config>::RuntimeOrigin::from(origin))?;
-			if T::ParaRequests::is_remote() {
-				return Self::forward(T::ParaRequests::accept_open_channel(
-					sender.into(),
-					origin.into(),
-				));
-			}
+			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
 			Self::accept_open_channel(origin, sender)?;
-			Self::deposit_event(Event::OpenChannelAccepted { sender, recipient: origin });
+			// An acceptance waiting on its deposit is announced once the deposit is held.
+			let key = DepositKey::recipient(HrmpChannelId { sender, recipient: origin });
+			if !PendingDeposits::<T>::contains_key(key) {
+				Self::deposit_event(Event::OpenChannelAccepted { sender, recipient: origin });
+			}
 			Ok(())
 		}
 
@@ -601,17 +728,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			channel_id: HrmpChannelId,
 		) -> DispatchResult {
-			let origin =
-				T::ParaSelfOrigin::ensure_origin(<T as Config>::RuntimeOrigin::from(origin))?;
-			if T::ParaRequests::is_remote() {
-				return Self::forward(T::ParaRequests::close_channel(
-					origin.into(),
-					hrmp_primitives::ChannelId {
-						sender: channel_id.sender.into(),
-						recipient: channel_id.recipient.into(),
-					},
-				));
-			}
+			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
 			Self::close_channel(origin, channel_id.clone())?;
 			Self::deposit_event(Event::ChannelClosed { by_parachain: origin, channel_id });
 			Ok(())
@@ -711,21 +828,7 @@ pub mod pallet {
 			channel_id: HrmpChannelId,
 			open_requests: u32,
 		) -> DispatchResult {
-			let origin =
-				T::ParaSelfOrigin::ensure_origin(<T as Config>::RuntimeOrigin::from(origin))?;
-			if T::ParaRequests::is_remote() {
-				// Before the witness check, deliberately: `open_requests` bounds the length of
-				// *this* chain's request list, which is not the list being acted on once the
-				// control plane owns the records. Keeping the parameter is what keeps the
-				// parachain's encoded call unchanged; it is simply not meaningful here.
-				return Self::forward(T::ParaRequests::cancel_open_request(
-					origin.into(),
-					hrmp_primitives::ChannelId {
-						sender: channel_id.sender.into(),
-						recipient: channel_id.recipient.into(),
-					},
-				));
-			}
+			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
 			ensure!(
 				HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32 <=
 					open_requests,
@@ -762,22 +865,24 @@ pub mod pallet {
 			let channel_id = HrmpChannelId { sender, recipient };
 			let cancel_request: u32 =
 				if let Some(_open_channel) = HrmpOpenChannelRequests::<T>::get(&channel_id) {
-					Self::cancel_open_request(sender, channel_id)?;
+					Self::cancel_open_request(sender, channel_id.clone())?;
 					1
 				} else {
 					0
 				};
 
-			// Now we proceed with normal init/accept, except that we set `no_deposit` to true such
-			// that it will not require deposits from either member.
-			Self::init_open_channel(sender, recipient, max_capacity, max_message_size)?;
-			Self::accept_open_channel(recipient, sender)?;
-			Self::deposit_event(Event::HrmpChannelForceOpened {
-				sender,
-				recipient,
-				proposed_max_capacity: max_capacity,
-				proposed_max_message_size: max_message_size,
-			});
+			// Now we proceed with normal init/accept. A request waiting on its deposit is accepted
+			// once the deposit is held.
+			Self::init_open_channel_then(sender, recipient, max_capacity, max_message_size, true)?;
+			if !PendingDeposits::<T>::contains_key(DepositKey::sender(channel_id.clone())) {
+				Self::accept_open_channel(recipient, sender)?;
+				Self::deposit_event(Event::HrmpChannelForceOpened {
+					sender,
+					recipient,
+					proposed_max_capacity: max_capacity,
+					proposed_max_message_size: max_message_size,
+				});
+			}
 
 			Ok(Some(<T as Config>::WeightInfo::force_open_hrmp_channel(cancel_request)).into())
 		}
@@ -802,27 +907,7 @@ pub mod pallet {
 			recipient: ParaId,
 		) -> DispatchResultWithPostInfo {
 			let _caller = ensure_signed(origin)?;
-
-			// both chains must be system
-			ensure!(
-				sender.is_system() && recipient.is_system(),
-				Error::<T>::ChannelCreationNotAuthorized
-			);
-
-			let config = configuration::ActiveConfig::<T>::get();
-			let max_message_size = config.hrmp_channel_max_message_size;
-			let max_capacity = config.hrmp_channel_max_capacity;
-
-			Self::init_open_channel(sender, recipient, max_capacity, max_message_size)?;
-			Self::accept_open_channel(recipient, sender)?;
-
-			Self::deposit_event(Event::HrmpSystemChannelOpened {
-				sender,
-				recipient,
-				proposed_max_capacity: max_capacity,
-				proposed_max_message_size: max_message_size,
-			});
-
+			Self::do_establish_system_channel(sender, recipient)?;
 			Ok(Pays::No.into())
 		}
 
@@ -843,83 +928,7 @@ pub mod pallet {
 			recipient: ParaId,
 		) -> DispatchResult {
 			let _caller = ensure_signed(origin)?;
-			let channel_id = HrmpChannelId { sender, recipient };
-			let is_system = sender.is_system() || recipient.is_system();
-
-			let config = configuration::ActiveConfig::<T>::get();
-
-			// Channels with and amongst the system do not require a deposit.
-			let (new_sender_deposit, new_recipient_deposit) = if is_system {
-				(0, 0)
-			} else {
-				(config.hrmp_sender_deposit, config.hrmp_recipient_deposit)
-			};
-
-			HrmpChannels::<T>::mutate(&channel_id, |channel| -> DispatchResult {
-				if let Some(ref mut channel) = channel {
-					let current_sender_deposit = channel.sender_deposit;
-					let current_recipient_deposit = channel.recipient_deposit;
-
-					// nothing to update
-					if current_sender_deposit == new_sender_deposit &&
-						current_recipient_deposit == new_recipient_deposit
-					{
-						return Ok(());
-					}
-
-					// sender
-					if current_sender_deposit > new_sender_deposit {
-						// Can never underflow, but be paranoid.
-						let amount = current_sender_deposit
-							.checked_sub(new_sender_deposit)
-							.ok_or(ArithmeticError::Underflow)?;
-						T::Currency::unreserve(
-							&channel_id.sender.into_account_truncating(),
-							// The difference should always be convertible into `Balance`, but be
-							// paranoid and do nothing in case.
-							amount.try_into().unwrap_or(Zero::zero()),
-						);
-					} else if current_sender_deposit < new_sender_deposit {
-						let amount = new_sender_deposit
-							.checked_sub(current_sender_deposit)
-							.ok_or(ArithmeticError::Underflow)?;
-						T::Currency::reserve(
-							&channel_id.sender.into_account_truncating(),
-							amount.try_into().unwrap_or(Zero::zero()),
-						)?;
-					}
-
-					// recipient
-					if current_recipient_deposit > new_recipient_deposit {
-						let amount = current_recipient_deposit
-							.checked_sub(new_recipient_deposit)
-							.ok_or(ArithmeticError::Underflow)?;
-						T::Currency::unreserve(
-							&channel_id.recipient.into_account_truncating(),
-							amount.try_into().unwrap_or(Zero::zero()),
-						);
-					} else if current_recipient_deposit < new_recipient_deposit {
-						let amount = new_recipient_deposit
-							.checked_sub(current_recipient_deposit)
-							.ok_or(ArithmeticError::Underflow)?;
-						T::Currency::reserve(
-							&channel_id.recipient.into_account_truncating(),
-							amount.try_into().unwrap_or(Zero::zero()),
-						)?;
-					}
-
-					// update storage
-					channel.sender_deposit = new_sender_deposit;
-					channel.recipient_deposit = new_recipient_deposit;
-				} else {
-					return Err(Error::<T>::OpenHrmpChannelDoesntExist.into());
-				}
-				Ok(())
-			})?;
-
-			Self::deposit_event(Event::OpenChannelDepositsUpdated { sender, recipient });
-
-			Ok(())
+			Self::do_poke_channel_deposits(sender, recipient)
 		}
 
 		/// Establish a bidirectional HRMP channel between a parachain and a system chain.
@@ -935,18 +944,9 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			target_system_chain: ParaId,
 		) -> DispatchResultWithPostInfo {
-			let sender =
-				T::ParaSelfOrigin::ensure_origin(<T as Config>::RuntimeOrigin::from(origin))?;
+			let sender = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
 
 			ensure!(target_system_chain.is_system(), Error::<T>::ChannelCreationNotAuthorized);
-
-			if T::ParaRequests::is_remote() {
-				Self::forward(T::ParaRequests::establish_channel_with_system(
-					sender.into(),
-					target_system_chain.into(),
-				))?;
-				return Ok(Pays::Yes.into());
-			}
 
 			let (max_message_size, max_capacity) =
 				T::DefaultChannelSizeAndCapacityWithSystem::get();
@@ -998,153 +998,6 @@ fn preopen_hrmp_channel<T: Config>(
 	Pallet::<T>::init_open_channel(sender, recipient, max_capacity, max_message_size)?;
 	Pallet::<T>::accept_open_channel(recipient, sender)?;
 	Ok(())
-}
-
-/// The HRMP registry, as `pallet-hrmp-relay` needs to see it.
-///
-/// The seam between the chain that now holds the channel deposits and the chain that still routes
-/// the messages. Every method is deposit-free: the parachain took the money, so recording a
-/// non-zero deposit here would charge twice and would try to reserve from a sovereign account the
-/// migration has emptied.
-///
-/// Relay-chain error types do not cross the wire. They are collapsed into
-/// [`hrmp_primitives::FailureReason`], which names the handful of outcomes the parachain can
-/// actually act on and falls back to `Refused` for everything else — the parachain acts on the
-/// verdict, not the diagnosis, and mirroring this pallet's errors would tie the wire format to
-/// them forever.
-impl<T: Config> hrmp_primitives::HrmpRegistry for Pallet<T> {
-	fn init_open_channel(
-		channel: hrmp_primitives::ChannelId,
-		max_capacity: u32,
-		max_message_size: u32,
-	) -> Result<(), hrmp_primitives::FailureReason> {
-		Self::do_init_open_channel(
-			channel.sender.into(),
-			channel.recipient.into(),
-			max_capacity,
-			max_message_size,
-			Some(0),
-		)
-		.map_err(Self::classify)
-	}
-
-	fn accept_open_channel(
-		channel: hrmp_primitives::ChannelId,
-	) -> Result<(), hrmp_primitives::FailureReason> {
-		Self::do_accept_open_channel(channel.recipient.into(), channel.sender.into(), Some(0))
-			.map_err(Self::classify)
-	}
-
-	fn close_channel(
-		channel: hrmp_primitives::ChannelId,
-		initiator: hrmp_primitives::ParaId,
-	) -> Result<(), hrmp_primitives::FailureReason> {
-		Self::close_channel(
-			initiator.into(),
-			HrmpChannelId { sender: channel.sender.into(), recipient: channel.recipient.into() },
-		)
-		.map_err(|e| Self::classify(e.into()))
-	}
-
-	fn cancel_open_request(
-		channel: hrmp_primitives::ChannelId,
-	) -> Result<(), hrmp_primitives::FailureReason> {
-		Self::cancel_open_request(
-			channel.sender.into(),
-			HrmpChannelId { sender: channel.sender.into(), recipient: channel.recipient.into() },
-		)
-		.map_err(Self::classify)
-	}
-
-	fn establish_system_channel(
-		channel: hrmp_primitives::ChannelId,
-	) -> Result<(), hrmp_primitives::FailureReason> {
-		let config = configuration::ActiveConfig::<T>::get();
-		let (a, b): (ParaId, ParaId) = (channel.sender.into(), channel.recipient.into());
-
-		// Both directions, or neither: a one-way system channel is never what the caller meant,
-		// and leaving one behind would make a retry fail on `AlreadyExists`.
-		frame_support::storage::with_storage_layer(|| -> DispatchResult {
-			for (sender, recipient) in [(a, b), (b, a)] {
-				Self::do_init_open_channel(
-					sender,
-					recipient,
-					config.hrmp_channel_max_capacity,
-					config.hrmp_channel_max_message_size,
-					Some(0),
-				)?;
-				Self::do_accept_open_channel(recipient, sender, Some(0))?;
-			}
-			Ok(())
-		})
-		.map_err(Self::classify)
-	}
-
-	fn exists(channel: hrmp_primitives::ChannelId) -> bool {
-		let id =
-			HrmpChannelId { sender: channel.sender.into(), recipient: channel.recipient.into() };
-		HrmpChannels::<T>::contains_key(&id) || HrmpOpenChannelRequests::<T>::contains_key(&id)
-	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_openable(channel: hrmp_primitives::ChannelId) {
-		use crate::paras::{ParaGenesisArgs, ParaKind, ParachainsCache};
-
-		for para in [channel.sender, channel.recipient] {
-			let id: ParaId = para.into();
-			if paras::Pallet::<T>::is_valid_para(id) {
-				continue;
-			}
-			let mut parachains = ParachainsCache::new();
-			paras::Pallet::<T>::initialize_para_now(
-				&mut parachains,
-				id,
-				&ParaGenesisArgs {
-					para_kind: ParaKind::Parachain,
-					genesis_head: alloc::vec![1].into(),
-					validation_code: alloc::vec![1].into(),
-				},
-			);
-		}
-	}
-}
-
-impl<T: Config> Pallet<T> {
-	/// Collapse a relay-chain HRMP error into the verdict the parachain acts on.
-	fn classify(err: DispatchError) -> hrmp_primitives::FailureReason {
-		use hrmp_primitives::FailureReason as R;
-
-		let is = |e: Error<T>| -> bool { DispatchError::from(e) == err };
-
-		if is(Error::<T>::OpenHrmpChannelToSelf) ||
-			is(Error::<T>::OpenHrmpChannelInvalidRecipient)
-		{
-			R::InvalidPara
-		} else if is(Error::<T>::OpenHrmpChannelZeroCapacity) ||
-			is(Error::<T>::OpenHrmpChannelCapacityExceedsLimit) ||
-			is(Error::<T>::OpenHrmpChannelZeroMessageSize) ||
-			is(Error::<T>::OpenHrmpChannelMessageSizeExceedsLimit)
-		{
-			R::InvalidParameters
-		} else if is(Error::<T>::OpenHrmpChannelAlreadyRequested) ||
-			is(Error::<T>::OpenHrmpChannelAlreadyExists) ||
-			is(Error::<T>::AcceptHrmpChannelAlreadyConfirmed) ||
-			is(Error::<T>::CloseHrmpChannelAlreadyUnderway)
-		{
-			R::AlreadyExists
-		} else if is(Error::<T>::OpenHrmpChannelLimitExceeded) ||
-			is(Error::<T>::AcceptHrmpChannelLimitExceeded)
-		{
-			R::LimitExceeded
-		} else if is(Error::<T>::OpenHrmpChannelDoesntExist) ||
-			is(Error::<T>::AcceptHrmpChannelDoesntExist) ||
-			is(Error::<T>::CloseHrmpChannelDoesntExist)
-		{
-			R::NotFound
-		} else {
-			R::Refused
-		}
-	}
 }
 
 /// Routines and getters related to HRMP.
@@ -1228,9 +1081,14 @@ impl<T: Config> Pallet<T> {
 
 			// Return the deposit of the sender, but only if it is not the para being offboarded.
 			if !outgoing.contains(&req_id.sender) {
-				T::Currency::unreserve(
-					&req_id.sender.into_account_truncating(),
-					req_data.sender_deposit.unique_saturated_into(),
+				T::ChannelDeposits::release(
+					&DepositKey::sender(req_id.clone()),
+					req_data.sender_deposit,
+				);
+			} else {
+				T::ChannelDeposits::release_offboarded(
+					&DepositKey::sender(req_id.clone()),
+					req_data.sender_deposit,
 				);
 			}
 
@@ -1241,9 +1099,14 @@ impl<T: Config> Pallet<T> {
 			// We still want to refund the deposit only if the para is not being offboarded.
 			if req_data.confirmed {
 				if !outgoing.contains(&req_id.recipient) {
-					T::Currency::unreserve(
-						&req_id.recipient.into_account_truncating(),
-						config.hrmp_recipient_deposit.unique_saturated_into(),
+					T::ChannelDeposits::release(
+						&DepositKey::recipient(req_id.clone()),
+						config.hrmp_recipient_deposit,
+					);
+				} else {
+					T::ChannelDeposits::release_offboarded(
+						&DepositKey::recipient(req_id.clone()),
+						config.hrmp_recipient_deposit,
 					);
 				}
 				Self::decrease_accepted_channel_request_count(req_id.recipient);
@@ -1300,16 +1163,7 @@ impl<T: Config> Pallet<T> {
 
 			let system_channel = channel_id.sender.is_system() || channel_id.recipient.is_system();
 			let sender_deposit = request.sender_deposit;
-			// The recipient's half is not recorded on the request, so it is derived here — but
-			// it must not be derived from config alone. A request whose sender deposit was
-			// waived was waived at both ends: the only waiver this pallet applies is
-			// `is_system`, which is symmetric, and a request driven from the chain that now
-			// holds the deposits passes zero for both. Recomputing would record a deposit
-			// nobody ever reserved, and closing the channel would then try to hand back money
-			// that was never taken.
-			let waived = system_channel ||
-				(request.sender_deposit.is_zero() && !config.hrmp_sender_deposit.is_zero());
-			let recipient_deposit = if waived { 0 } else { config.hrmp_recipient_deposit };
+			let recipient_deposit = if system_channel { 0 } else { config.hrmp_recipient_deposit };
 
 			if request.confirmed {
 				if paras::Pallet::<T>::is_valid_para(channel_id.sender) &&
@@ -1371,13 +1225,10 @@ impl<T: Config> Pallet<T> {
 		if let Some(HrmpChannel { sender_deposit, recipient_deposit, .. }) =
 			HrmpChannels::<T>::take(channel_id)
 		{
-			T::Currency::unreserve(
-				&channel_id.sender.into_account_truncating(),
-				sender_deposit.unique_saturated_into(),
-			);
-			T::Currency::unreserve(
-				&channel_id.recipient.into_account_truncating(),
-				recipient_deposit.unique_saturated_into(),
+			T::ChannelDeposits::release(&DepositKey::sender(channel_id.clone()), sender_deposit);
+			T::ChannelDeposits::release(
+				&DepositKey::recipient(channel_id.clone()),
+				recipient_deposit,
 			);
 		}
 
@@ -1678,45 +1529,73 @@ impl<T: Config> Pallet<T> {
 		proposed_max_capacity: u32,
 		proposed_max_message_size: u32,
 	) -> DispatchResult {
-		Self::do_init_open_channel(
+		Self::init_open_channel_then(
 			origin,
 			recipient,
 			proposed_max_capacity,
 			proposed_max_message_size,
-			None,
+			false,
 		)
 	}
 
-	/// Turn a router verdict into a dispatch result.
-	///
-	/// A refusal means the transport would not take the request, so this chain has written nothing
-	/// and the parachain can ask again. Deliberately one line in one place: the five forwarding
-	/// arms must not each invent their own error.
-	fn forward(sent: Result<(), ()>) -> DispatchResult {
-		sent.map_err(|()| Error::<T>::RequestNotForwarded.into())
-	}
-
-	/// Record an open-channel request.
-	///
-	/// `deposit_override` replaces the configured sender deposit. A request driven from another
-	/// chain passes `Some(0)`: that chain holds the money now, so reserving here would charge the
-	/// para twice and would try to draw on a sovereign account the migration has emptied. The
-	/// zero is also what makes the later close and cancel paths deposit-free, since both unreserve
-	/// exactly what was recorded.
-	fn do_init_open_channel(
+	/// [`Self::init_open_channel`], optionally accepting on the recipient's behalf once a parked
+	/// request is recorded.
+	fn init_open_channel_then(
 		origin: ParaId,
 		recipient: ParaId,
 		proposed_max_capacity: u32,
 		proposed_max_message_size: u32,
-		deposit_override: Option<Balance>,
+		then_accept: bool,
 	) -> DispatchResult {
+		let config = configuration::ActiveConfig::<T>::get();
+		let deposit = Self::check_init_open_channel(
+			&config,
+			origin,
+			recipient,
+			proposed_max_capacity,
+			proposed_max_message_size,
+		)?;
+
+		let key = DepositKey::sender(HrmpChannelId { sender: origin, recipient });
+		if !deposit.is_zero() && T::ChannelDeposits::hold(&key, deposit)? == HoldOutcome::Pending {
+			PendingDeposits::<T>::insert(
+				&key,
+				PendingDeposit::Init {
+					max_capacity: proposed_max_capacity,
+					max_message_size: proposed_max_message_size,
+					amount: deposit,
+					then_accept,
+				},
+			);
+			Self::deposit_event(Event::DepositPending { key });
+			return Ok(());
+		}
+
+		Self::do_init_open_channel(
+			&config,
+			origin,
+			recipient,
+			proposed_max_capacity,
+			proposed_max_message_size,
+			deposit,
+		);
+		Ok(())
+	}
+
+	/// Check an `init_open_channel`, returning the sender deposit it takes.
+	fn check_init_open_channel(
+		config: &HostConfiguration<BlockNumberFor<T>>,
+		origin: ParaId,
+		recipient: ParaId,
+		proposed_max_capacity: u32,
+		proposed_max_message_size: u32,
+	) -> Result<Balance, DispatchError> {
 		ensure!(origin != recipient, Error::<T>::OpenHrmpChannelToSelf);
 		ensure!(
 			paras::Pallet::<T>::is_valid_para(recipient),
 			Error::<T>::OpenHrmpChannelInvalidRecipient,
 		);
 
-		let config = configuration::ActiveConfig::<T>::get();
 		ensure!(proposed_max_capacity > 0, Error::<T>::OpenHrmpChannelZeroCapacity);
 		ensure!(
 			proposed_max_capacity <= config.hrmp_channel_max_capacity,
@@ -1737,6 +1616,10 @@ impl<T: Config> Pallet<T> {
 			HrmpChannels::<T>::get(&channel_id).is_none(),
 			Error::<T>::OpenHrmpChannelAlreadyExists,
 		);
+		ensure!(
+			!PendingDeposits::<T>::contains_key(DepositKey::sender(channel_id)),
+			Error::<T>::DepositPending,
+		);
 
 		let egress_cnt = HrmpEgressChannelsIndex::<T>::decode_len(&origin).unwrap_or(0) as u32;
 		let open_req_cnt = HrmpOpenChannelRequestCount::<T>::get(&origin);
@@ -1748,17 +1631,20 @@ impl<T: Config> Pallet<T> {
 
 		// Do not require deposits for channels with or amongst the system.
 		let is_system = origin.is_system() || recipient.is_system();
-		let deposit = deposit_override
-			.unwrap_or(if is_system { 0 } else { config.hrmp_sender_deposit });
-		if !deposit.is_zero() {
-			T::Currency::reserve(
-				&origin.into_account_truncating(),
-				deposit.unique_saturated_into(),
-			)?;
-		}
+		Ok(if is_system { 0 } else { config.hrmp_sender_deposit })
+	}
 
-		// mutating storage directly now -- shall not bail henceforth.
-
+	/// Record a checked `init_open_channel` whose deposit is held.
+	fn do_init_open_channel(
+		config: &HostConfiguration<BlockNumberFor<T>>,
+		origin: ParaId,
+		recipient: ParaId,
+		proposed_max_capacity: u32,
+		proposed_max_message_size: u32,
+		deposit: Balance,
+	) {
+		let channel_id = HrmpChannelId { sender: origin, recipient };
+		let open_req_cnt = HrmpOpenChannelRequestCount::<T>::get(&origin);
 		HrmpOpenChannelRequestCount::<T>::insert(&origin, open_req_cnt + 1);
 		HrmpOpenChannelRequests::<T>::insert(
 			&channel_id,
@@ -1775,7 +1661,7 @@ impl<T: Config> Pallet<T> {
 
 		Self::send_to_para(
 			"init_open_channel",
-			&config,
+			config,
 			recipient,
 			Self::wrap_notification(|| {
 				use xcm::opaque::latest::{prelude::*, Xcm};
@@ -1786,8 +1672,6 @@ impl<T: Config> Pallet<T> {
 				}])
 			}),
 		);
-
-		Ok(())
 	}
 
 	/// Accept a pending open channel request from the given sender.
@@ -1795,23 +1679,42 @@ impl<T: Config> Pallet<T> {
 	/// Basically the same as [`hrmp_accept_open_channel`](Pallet::hrmp_accept_open_channel) but
 	/// intended for calling directly from other pallets rather than dispatched.
 	pub fn accept_open_channel(origin: ParaId, sender: ParaId) -> DispatchResult {
-		Self::do_accept_open_channel(origin, sender, None)
+		Self::accept_open_channel_as(origin, sender, false)
 	}
 
-	/// Confirm an open-channel request. See [`Self::do_init_open_channel`] for `deposit_override`.
-	fn do_accept_open_channel(
+	/// [`Self::accept_open_channel`], remembering whether it accepts a forced open.
+	fn accept_open_channel_as(origin: ParaId, sender: ParaId, forced: bool) -> DispatchResult {
+		let config = configuration::ActiveConfig::<T>::get();
+		let deposit = Self::check_accept_open_channel(&config, origin, sender)?;
+
+		let key = DepositKey::recipient(HrmpChannelId { sender, recipient: origin });
+		if !deposit.is_zero() && T::ChannelDeposits::hold(&key, deposit)? == HoldOutcome::Pending {
+			PendingDeposits::<T>::insert(&key, PendingDeposit::Accept { amount: deposit, forced });
+			Self::deposit_event(Event::DepositPending { key });
+			return Ok(());
+		}
+
+		Self::do_accept_open_channel(&config, origin, sender);
+		Ok(())
+	}
+
+	/// Check an `accept_open_channel`, returning the recipient deposit it takes.
+	fn check_accept_open_channel(
+		config: &HostConfiguration<BlockNumberFor<T>>,
 		origin: ParaId,
 		sender: ParaId,
-		deposit_override: Option<Balance>,
-	) -> DispatchResult {
+	) -> Result<Balance, DispatchError> {
 		let channel_id = HrmpChannelId { sender, recipient: origin };
-		let mut channel_req = HrmpOpenChannelRequests::<T>::get(&channel_id)
+		let channel_req = HrmpOpenChannelRequests::<T>::get(&channel_id)
 			.ok_or(Error::<T>::AcceptHrmpChannelDoesntExist)?;
 		ensure!(!channel_req.confirmed, Error::<T>::AcceptHrmpChannelAlreadyConfirmed);
+		ensure!(
+			!PendingDeposits::<T>::contains_key(DepositKey::recipient(channel_id)),
+			Error::<T>::DepositPending,
+		);
 
 		// check if by accepting this open channel request, this parachain would exceed the
 		// number of inbound channels.
-		let config = configuration::ActiveConfig::<T>::get();
 		let channel_num_limit = config.hrmp_max_parachain_inbound_channels;
 		let ingress_cnt = HrmpIngressChannelsIndex::<T>::decode_len(&origin).unwrap_or(0) as u32;
 		let accepted_cnt = HrmpAcceptedChannelRequestCount::<T>::get(&origin);
@@ -1822,32 +1725,32 @@ impl<T: Config> Pallet<T> {
 
 		// Do not require deposits for channels with or amongst the system.
 		let is_system = origin.is_system() || sender.is_system();
-		let deposit = deposit_override
-			.unwrap_or(if is_system { 0 } else { config.hrmp_recipient_deposit });
-		if !deposit.is_zero() {
-			T::Currency::reserve(
-				&origin.into_account_truncating(),
-				deposit.unique_saturated_into(),
-			)?;
-		}
+		Ok(if is_system { 0 } else { config.hrmp_recipient_deposit })
+	}
 
-		// persist the updated open channel request and then increment the number of accepted
-		// channels.
-		channel_req.confirmed = true;
-		HrmpOpenChannelRequests::<T>::insert(&channel_id, channel_req);
-		HrmpAcceptedChannelRequestCount::<T>::insert(&origin, accepted_cnt + 1);
+	/// Record a checked `accept_open_channel` whose deposit is held.
+	fn do_accept_open_channel(
+		config: &HostConfiguration<BlockNumberFor<T>>,
+		origin: ParaId,
+		sender: ParaId,
+	) {
+		let channel_id = HrmpChannelId { sender, recipient: origin };
+		HrmpOpenChannelRequests::<T>::mutate(&channel_id, |req| {
+			if let Some(req) = req {
+				req.confirmed = true;
+			}
+		});
+		HrmpAcceptedChannelRequestCount::<T>::mutate(&origin, |count| *count += 1);
 
 		Self::send_to_para(
 			"accept_open_channel",
-			&config,
+			config,
 			sender,
 			Self::wrap_notification(|| {
 				use xcm::opaque::latest::{prelude::*, Xcm};
 				Xcm(vec![HrmpChannelAccepted { recipient: origin.into() }])
 			}),
 		);
-
-		Ok(())
 	}
 
 	fn cancel_open_request(origin: ParaId, channel_id: HrmpChannelId) -> DispatchResult {
@@ -1872,9 +1775,9 @@ impl<T: Config> Pallet<T> {
 
 		// Unreserve the sender's deposit. The recipient could not have left their deposit because
 		// we ensured that the request is not confirmed.
-		T::Currency::unreserve(
-			&channel_id.sender.into_account_truncating(),
-			open_channel_req.sender_deposit.unique_saturated_into(),
+		T::ChannelDeposits::release(
+			&DepositKey::sender(channel_id),
+			open_channel_req.sender_deposit,
 		);
 
 		Ok(())
@@ -1955,6 +1858,213 @@ impl<T: Config> Pallet<T> {
 		}
 
 		inbound_hrmp_channels_contents
+	}
+}
+
+impl<T: Config> Pallet<T> {
+	/// Open a deposit-free channel between two system chains, at the configured maximum sizes.
+	///
+	/// Basically the same as [`establish_system_channel`](Pallet::establish_system_channel) but
+	/// intended for calling directly from other pallets rather than dispatched.
+	pub fn do_establish_system_channel(sender: ParaId, recipient: ParaId) -> DispatchResult {
+		// both chains must be system
+		ensure!(
+			sender.is_system() && recipient.is_system(),
+			Error::<T>::ChannelCreationNotAuthorized
+		);
+
+		let config = configuration::ActiveConfig::<T>::get();
+		let max_message_size = config.hrmp_channel_max_message_size;
+		let max_capacity = config.hrmp_channel_max_capacity;
+
+		Self::init_open_channel(sender, recipient, max_capacity, max_message_size)?;
+		Self::accept_open_channel(recipient, sender)?;
+
+		Self::deposit_event(Event::HrmpSystemChannelOpened {
+			sender,
+			recipient,
+			proposed_max_capacity: max_capacity,
+			proposed_max_message_size: max_message_size,
+		});
+		Ok(())
+	}
+
+	/// Bring a channel's deposits in line with the latest `Configuration`.
+	///
+	/// Basically the same as [`poke_channel_deposits`](Pallet::poke_channel_deposits) but
+	/// intended for calling directly from other pallets rather than dispatched. An increase that
+	/// waits on its deposit is recorded once the deposit is held.
+	pub fn do_poke_channel_deposits(sender: ParaId, recipient: ParaId) -> DispatchResult {
+		let channel_id = HrmpChannelId { sender, recipient };
+		let is_system = sender.is_system() || recipient.is_system();
+
+		let config = configuration::ActiveConfig::<T>::get();
+
+		// Channels with and amongst the system do not require a deposit.
+		let (new_sender_deposit, new_recipient_deposit) = if is_system {
+			(0, 0)
+		} else {
+			(config.hrmp_sender_deposit, config.hrmp_recipient_deposit)
+		};
+
+		let mut channel =
+			HrmpChannels::<T>::get(&channel_id).ok_or(Error::<T>::OpenHrmpChannelDoesntExist)?;
+		let sides = [
+			(DepositKey::sender(channel_id.clone()), channel.sender_deposit, new_sender_deposit),
+			(
+				DepositKey::recipient(channel_id.clone()),
+				channel.recipient_deposit,
+				new_recipient_deposit,
+			),
+		];
+		for (key, current, new) in &sides {
+			ensure!(
+				current == new || !PendingDeposits::<T>::contains_key(key),
+				Error::<T>::DepositPending
+			);
+		}
+
+		// Decreases first, so they reach wherever the deposits are held ahead of any increase.
+		let mut recorded = [channel.sender_deposit, channel.recipient_deposit];
+		for (side, (key, current, new)) in sides.iter().enumerate() {
+			if current > new {
+				T::ChannelDeposits::reduce(key, current - new);
+				recorded[side] = *new;
+			}
+		}
+		for (side, (key, current, new)) in sides.into_iter().enumerate() {
+			if current < new {
+				match T::ChannelDeposits::hold(&key, new - current)? {
+					HoldOutcome::Held => recorded[side] = new,
+					HoldOutcome::Pending => {
+						PendingDeposits::<T>::insert(
+							&key,
+							PendingDeposit::Poke { amount: new - current, new },
+						);
+						Self::deposit_event(Event::DepositPending { key });
+					},
+				}
+			}
+		}
+
+		[channel.sender_deposit, channel.recipient_deposit] = recorded;
+		HrmpChannels::<T>::insert(&channel_id, channel);
+		Self::deposit_event(Event::OpenChannelDepositsUpdated { sender, recipient });
+		Ok(())
+	}
+}
+
+impl<T: Config> OnDepositHeld for Pallet<T> {
+	fn on_deposit_held(key: DepositKey, held: bool) {
+		let Some(pending) = PendingDeposits::<T>::take(&key) else { return };
+		if !held {
+			Self::deposit_event(Event::DepositRefused { key });
+			return;
+		}
+
+		let config = configuration::ActiveConfig::<T>::get();
+		let channel = key.channel.clone();
+		let amount = pending.amount();
+		let outcome = match pending {
+			PendingDeposit::Init { max_capacity, max_message_size, then_accept, .. } => {
+				Self::check_init_open_channel(
+					&config,
+					channel.sender,
+					channel.recipient,
+					max_capacity,
+					max_message_size,
+				)
+				.map(|_| {
+					Self::do_init_open_channel(
+						&config,
+						channel.sender,
+						channel.recipient,
+						max_capacity,
+						max_message_size,
+						amount,
+					);
+					Self::deposit_event(Event::OpenChannelRequested {
+						sender: channel.sender,
+						recipient: channel.recipient,
+						proposed_max_capacity: max_capacity,
+						proposed_max_message_size: max_message_size,
+					});
+					if then_accept {
+						Self::accept_forced(&channel);
+					}
+				})
+			},
+			PendingDeposit::Accept { forced, .. } => {
+				Self::check_accept_open_channel(&config, channel.recipient, channel.sender).map(
+					|_| {
+						Self::do_accept_open_channel(&config, channel.recipient, channel.sender);
+						Self::deposit_event(Event::OpenChannelAccepted {
+							sender: channel.sender,
+							recipient: channel.recipient,
+						});
+						if forced {
+							Self::deposit_force_opened(&channel);
+						}
+					},
+				)
+			},
+			PendingDeposit::Poke { new, .. } => {
+				HrmpChannels::<T>::mutate(&channel, |recorded| {
+					if let Some(recorded) = recorded {
+						match key.side {
+							DepositSide::Sender => recorded.sender_deposit = new,
+							DepositSide::Recipient => recorded.recipient_deposit = new,
+						}
+					}
+				});
+				Self::deposit_event(Event::OpenChannelDepositsUpdated {
+					sender: channel.sender,
+					recipient: channel.recipient,
+				});
+				Ok(())
+			},
+		};
+
+		if let Err(error) = outcome {
+			T::ChannelDeposits::release(&key, amount);
+			Self::deposit_event(Event::DepositReturned { key, error });
+		}
+	}
+}
+
+impl<T: Config> Pallet<T> {
+	/// Announce a force-opened request once both of its deposits are held.
+	fn deposit_force_opened(channel: &HrmpChannelId) {
+		if let Some(request) = HrmpOpenChannelRequests::<T>::get(channel) {
+			Self::deposit_event(Event::HrmpChannelForceOpened {
+				sender: channel.sender,
+				recipient: channel.recipient,
+				proposed_max_capacity: request.max_capacity,
+				proposed_max_message_size: request.max_message_size,
+			});
+		}
+	}
+
+	/// Accept a force-opened request whose sender deposit is now held. If the accept is refused,
+	/// the request is withdrawn and the sender deposit released.
+	fn accept_forced(channel: &HrmpChannelId) {
+		let accepted = frame_support::storage::with_storage_layer(|| {
+			Self::accept_open_channel_as(channel.recipient, channel.sender, true)
+		});
+		match accepted {
+			Ok(()) => {
+				if !PendingDeposits::<T>::contains_key(DepositKey::recipient(channel.clone())) {
+					Self::deposit_force_opened(channel);
+				}
+			},
+			Err(error) => {
+				let _ = Self::cancel_open_request(channel.sender, channel.clone());
+				Self::deposit_event(Event::DepositReturned {
+					key: DepositKey::sender(channel.clone()),
+					error,
+				});
+			},
+		}
 	}
 }
 

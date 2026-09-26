@@ -67,10 +67,6 @@ pub const MAX_CODE_SIZE: u32 = 3 * 1024;
 /// HRMP channel bounds, mirrored on both chains so a request that passes locally passes remotely.
 pub const MAX_CAPACITY: u32 = 8;
 pub const MAX_MESSAGE_SIZE: u32 = 1024;
-/// What one end of a channel costs on the parachain.
-pub const CHANNEL_DEPOSIT: u128 = 500;
-/// How long the parachain waits before a channel counts as stuck.
-pub const HRMP_DEADLINE: u64 = 50;
 /// What it costs on the parachain to buy out an upgrade cooldown.
 pub const COOLDOWN_COST: u128 = 250;
 pub const MAX_HEAD_SIZE: u32 = 1024;

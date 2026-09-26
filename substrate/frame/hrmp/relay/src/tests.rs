@@ -17,511 +17,245 @@
 
 //! Tests for `pallet-hrmp-relay`.
 
-use crate::{mock::*, Event};
-use frame_support::{assert_noop, assert_ok};
+use crate::{mock::*, Error, Event, PendingReleases};
+use frame_support::{assert_noop, assert_ok, traits::Hooks};
 use hrmp_primitives::{
-	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
-	Outcome, ParaId,
+	ChannelId, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, ParaRequest,
+	ParaRequestV1,
 };
-use sp_runtime::{DispatchError, DispatchResult};
+use sp_runtime::DispatchError;
 
-/// The message id every test request carries. An arbitrary value: this side only echoes what the
-/// parachain sent.
-const MSG_ID: u64 = 5;
-
-const CAPACITY: u32 = 8;
-const MESSAGE_SIZE: u32 = 1_024;
-
-fn chan(sender: ParaId, recipient: ParaId) -> ChannelId {
-	ChannelId { sender, recipient }
+fn hold_msg(amount: u128) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::Hold { key: sender_key(), amount })
 }
 
-fn init_msg(channel: ChannelId) -> MessageToRelay {
-	MessageToRelay::V1(MessageToRelayV1::InitOpenChannel {
-		channel,
-		message_id: MSG_ID,
-		max_capacity: CAPACITY,
-		max_message_size: MESSAGE_SIZE,
-	})
+fn release_msg(key: hrmp_primitives::DepositKey, amount: Option<u128>) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::Release { key, amount })
 }
 
-fn accept_msg(channel: ChannelId) -> MessageToRelay {
-	MessageToRelay::V1(MessageToRelayV1::AcceptOpenChannel { channel, message_id: MSG_ID })
+fn request(request: ParaRequestV1) -> ParaRequest {
+	ParaRequest::V1(request)
 }
 
-fn close_msg(channel: ChannelId, initiator: ParaId) -> MessageToRelay {
-	MessageToRelay::V1(MessageToRelayV1::CloseChannel {
-		channel,
-		message_id: MSG_ID,
-		initiator,
-	})
-}
+#[test]
+fn relay_request_dispatches_every_request_as_the_asking_para() {
+	new_test_ext().execute_with(|| {
+		// GIVEN para A acting as itself.
+		let para_a = RuntimeOrigin::signed(PARA_A_ACCOUNT);
 
-fn cancel_msg(channel: ChannelId) -> MessageToRelay {
-	MessageToRelay::V1(MessageToRelayV1::CancelOpenRequest { channel, message_id: MSG_ID })
-}
-
-fn open_report(channel: ChannelId, outcome: Outcome) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::OpenResponse { channel, message_id: MSG_ID, outcome })
-}
-
-fn accept_report(channel: ChannelId, outcome: Outcome) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::AcceptResponse { channel, message_id: MSG_ID, outcome })
-}
-
-fn close_report(channel: ChannelId, outcome: Outcome) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::CloseResponse { channel, message_id: MSG_ID, outcome })
-}
-
-fn cancel_report(channel: ChannelId, outcome: Outcome) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::CancelResponse { channel, message_id: MSG_ID, outcome })
-}
-
-/// Drive a channel all the way to open on the registry.
-fn opened(channel: ChannelId) {
-	assert_ok!(Hrmp::receive(RuntimeOrigin::root(), init_msg(channel)));
-	assert_ok!(Hrmp::receive(RuntimeOrigin::root(), accept_msg(channel)));
-	let _ = take_sent();
-	let _ = hrmp_events();
-}
-
-mod origins {
-	use super::*;
-
-	#[test]
-	fn users_cannot_reach_any_of_it() {
-		new_test_ext().execute_with(|| {
-			let channel = chan(PARA_A, PARA_B);
-			for call in [
-				Hrmp::receive(RuntimeOrigin::signed(ALICE), init_msg(channel)),
-				Hrmp::receive(RuntimeOrigin::signed(ALICE), accept_msg(channel)),
-				Hrmp::receive(RuntimeOrigin::signed(ALICE), close_msg(channel, PARA_A)),
-				Hrmp::receive(RuntimeOrigin::signed(ALICE), cancel_msg(channel)),
-			] {
-				assert_noop!(call, DispatchError::BadOrigin);
-			}
-		});
-	}
-
-}
-
-mod init_open_channel {
-	use super::*;
-
-	#[test]
-	fn records_the_request_and_reports_success() {
-		new_test_ext().execute_with(|| {
-			let channel = chan(PARA_A, PARA_B);
-
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), init_msg(channel)));
-
-			assert_eq!(Requests::get(), vec![(channel, false)]);
-			assert_eq!(take_sent(), vec![open_report(channel, Ok(()))]);
-			assert_eq!(
-				hrmp_events(),
-				vec![Event::OpenRequested { channel, message_id: MSG_ID }]
-			);
-		});
-	}
-
-	#[test]
-	fn a_refusal_is_reported_and_is_not_an_extrinsic_failure() {
-		new_test_ext().execute_with(|| {
-			// The recipient is not a para this registry knows.
-			let channel = chan(PARA_A, PARA_UNKNOWN);
-
-			// Returning `Err` here would roll the report back with everything else, and the
-			// parachain would sit on a held deposit waiting for news that never comes.
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), init_msg(channel)));
-
-			assert!(Requests::get().is_empty());
-			assert_eq!(
-				take_sent(),
-				vec![open_report(channel, Err(FailureReason::InvalidPara))]
-			);
-			assert_eq!(
-				hrmp_events(),
-				vec![Event::OpenRejected {
-					channel,
-					message_id: MSG_ID,
-					reason: FailureReason::InvalidPara,
-				}]
-			);
-		});
-	}
-
-	#[test]
-	fn a_report_that_cannot_be_sent_does_not_unwind_the_registry() {
-		new_test_ext().execute_with(|| {
-			let channel = chan(PARA_A, PARA_B);
-			SendFails::set(true);
-
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), init_msg(channel)));
-
-			// This chain's own state is already correct; the parachain is the one now out of
-			// step, and unwinding here would be strictly worse.
-			assert_eq!(Requests::get(), vec![(channel, false)]);
-			assert_eq!(
-				hrmp_events(),
-				vec![
-					Event::ReportFailed { channel, message_id: MSG_ID },
-					Event::OpenRequested { channel, message_id: MSG_ID },
-				]
-			);
-		});
-	}
-}
-
-mod accept_open_channel {
-	use super::*;
-
-	#[test]
-	fn confirms_the_request_and_reports_success() {
-		new_test_ext().execute_with(|| {
-			let channel = chan(PARA_A, PARA_B);
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), init_msg(channel)));
-			let _ = take_sent();
-			let _ = hrmp_events();
-
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), accept_msg(channel)));
-
-			assert_eq!(Requests::get(), vec![(channel, true)]);
-			assert_eq!(OpenChannels::get(), vec![channel]);
-			assert_eq!(take_sent(), vec![accept_report(channel, Ok(()))]);
-			assert_eq!(
-				hrmp_events(),
-				vec![Event::OpenAccepted { channel, message_id: MSG_ID }]
-			);
-		});
-	}
-
-	#[test]
-	fn accepting_a_request_that_does_not_exist_is_reported_as_not_found() {
-		new_test_ext().execute_with(|| {
-			let channel = chan(PARA_A, PARA_B);
-
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), accept_msg(channel)));
-
-			assert_eq!(
-				take_sent(),
-				vec![accept_report(channel, Err(FailureReason::NotFound))]
-			);
-		});
-	}
-}
-
-mod close_channel {
-	use super::*;
-
-	#[test]
-	fn closes_an_open_channel_and_reports_success() {
-		new_test_ext().execute_with(|| {
-			let channel = chan(PARA_A, PARA_B);
-			opened(channel);
-
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), close_msg(channel, PARA_B)));
-
-			assert!(OpenChannels::get().is_empty());
-			assert_eq!(take_sent(), vec![close_report(channel, Ok(()))]);
-			assert_eq!(hrmp_events(), vec![Event::Closed { channel, message_id: MSG_ID }]);
-		});
-	}
-
-	#[test]
-	fn a_closer_that_is_not_a_participant_is_refused() {
-		new_test_ext().execute_with(|| {
-			let channel = chan(PARA_A, PARA_B);
-			opened(channel);
-
-			assert_ok!(Hrmp::receive(
-				RuntimeOrigin::root(),
-				close_msg(channel, PARA_UNKNOWN)
-			));
-
-			// The channel survives, and the parachain is told to put it back.
-			assert_eq!(OpenChannels::get(), vec![channel]);
-			assert_eq!(
-				take_sent(),
-				vec![close_report(channel, Err(FailureReason::InvalidPara))]
-			);
-		});
-	}
-
-	#[test]
-	fn a_registry_that_writes_then_fails_leaves_nothing_behind() {
-		new_test_ext().execute_with(|| {
-			let channel = chan(PARA_A, PARA_B);
-			opened(channel);
-			NextFailure::set(Some(FailureReason::Refused));
-
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), close_msg(channel, PARA_A)));
-
-			// A refusal is reported as "nothing happened", so a partial write must not survive
-			// it — otherwise the two chains disagree with no way to notice.
-			assert!(!frame_support::storage::unhashed::exists(PARTIAL_WRITE_KEY));
-			assert_eq!(OpenChannels::get(), vec![channel]);
-			assert_eq!(
-				take_sent(),
-				vec![close_report(channel, Err(FailureReason::Refused))]
-			);
-		});
-	}
-}
-
-mod cancel_open_request {
-	use super::*;
-
-	#[test]
-	fn drops_an_unconfirmed_request() {
-		new_test_ext().execute_with(|| {
-			let channel = chan(PARA_A, PARA_B);
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), init_msg(channel)));
-			let _ = take_sent();
-			let _ = hrmp_events();
-
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), cancel_msg(channel)));
-
-			assert!(Requests::get().is_empty());
-			assert_eq!(take_sent(), vec![cancel_report(channel, Ok(()))]);
-			assert_eq!(hrmp_events(), vec![Event::Cancelled { channel, message_id: MSG_ID }]);
-		});
-	}
-
-	#[test]
-	fn a_request_already_confirmed_cannot_be_cancelled() {
-		new_test_ext().execute_with(|| {
-			let channel = chan(PARA_A, PARA_B);
-			opened(channel);
-
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), cancel_msg(channel)));
-
-			// The parachain must keep holding: the channel is real now.
-			assert_eq!(
-				take_sent(),
-				vec![cancel_report(channel, Err(FailureReason::AlreadyExists))]
-			);
-		});
-	}
-}
-
-mod establish_system_channel {
-	use super::*;
-
-	fn system_msg(channel: ChannelId) -> MessageToRelay {
-		MessageToRelay::V1(MessageToRelayV1::EstablishSystemChannel {
-			channel,
-			message_id: MSG_ID,
-		})
-	}
-
-	#[test]
-	fn opens_both_directions_and_reports_the_outcome() {
-		new_test_ext().execute_with(|| {
-			let channel = chan(PARA_A, PARA_B);
-
-			assert_ok!(Hrmp::receive(
-				RuntimeOrigin::root(),
-				system_msg(channel)
-			));
-
-			assert_eq!(
-				OpenChannels::get(),
-				vec![channel, chan(PARA_B, PARA_A)]
-			);
-			// Answered, though no deposit depends on it: the parachain cannot see this chain's
-			// registry, and one answer settles both directions of the pair.
-			assert_eq!(
-				take_sent(),
-				vec![MessageToPara::V1(MessageToParaV1::SystemChannelResponse {
-					channel,
-					message_id: MSG_ID,
-					outcome: Ok(()),
-				})]
-			);
-			assert_eq!(
-				hrmp_events(),
-				vec![Event::SystemChannelOpened { channel, message_id: MSG_ID }]
-			);
-		});
-	}
-
-	/// A refusal must reach the parachain, not just this chain's event log. It is the refusal a
-	/// freshly registered para actually hits — it is still onboarding, so this chain will not open
-	/// a channel to it — and without the report the parachain records the pair open against
-	/// nothing.
-	#[test]
-	fn a_refusal_is_reported_to_the_parachain() {
-		new_test_ext().execute_with(|| {
-			let channel = chan(PARA_A, PARA_B);
-			NextFailure::set(Some(FailureReason::Refused));
-
-			assert_ok!(Hrmp::receive(
-				RuntimeOrigin::root(),
-				system_msg(channel)
-			));
-
-			assert!(!frame_support::storage::unhashed::exists(PARTIAL_WRITE_KEY));
-			assert_eq!(
-				take_sent(),
-				vec![MessageToPara::V1(MessageToParaV1::SystemChannelResponse {
-					channel,
-					message_id: MSG_ID,
-					outcome: Err(FailureReason::Refused),
-				})]
-			);
-			assert_eq!(
-				hrmp_events(),
-				vec![Event::SystemChannelRejected {
-					channel,
-					message_id: MSG_ID,
-					reason: FailureReason::Refused,
-				}]
-			);
-		});
-	}
-}
-
-mod contract {
-	use super::*;
-
-	/// Every call, the message it serves, and the report it must produce.
-	///
-	/// The pallet's whole job is "drive the registry, then say what happened", so the thing worth
-	/// pinning is that no path can ever skip the saying.
-	#[allow(clippy::type_complexity)]
-	fn calls() -> Vec<(&'static str, Box<dyn Fn() -> DispatchResult>, MessageToPara)> {
-		let channel = chan(PARA_A, PARA_B);
-		vec![
-			(
-				"init_open_channel",
-				Box::new(move || {
-					Hrmp::receive(RuntimeOrigin::root(), init_msg(channel))
-				}),
-				open_report(channel, Ok(())),
-			),
-			(
-				"accept_open_channel",
-				Box::new(move || {
-					Hrmp::receive(RuntimeOrigin::root(), init_msg(channel)).unwrap();
-					let _ = take_sent();
-					Hrmp::receive(RuntimeOrigin::root(), accept_msg(channel))
-				}),
-				accept_report(channel, Ok(())),
-			),
-			(
-				"close_channel",
-				Box::new(move || {
-					opened(channel);
-					Hrmp::receive(RuntimeOrigin::root(), close_msg(channel, PARA_A))
-				}),
-				close_report(channel, Ok(())),
-			),
-			(
-				"cancel_open_request",
-				Box::new(move || {
-					Hrmp::receive(RuntimeOrigin::root(), init_msg(channel)).unwrap();
-					let _ = take_sent();
-					Hrmp::receive(RuntimeOrigin::root(), cancel_msg(channel))
-				}),
-				cancel_report(channel, Ok(())),
-			),
-		]
-	}
-
-	#[test]
-	fn every_call_reports_exactly_once_on_success() {
-		for (name, run, expected) in calls() {
-			new_test_ext().execute_with(|| {
-				assert_ok!(run());
-				assert_eq!(take_sent(), vec![expected.clone()], "{name} did not report");
-			});
+		// WHEN it sends each of the five requests
+		for r in [
+			ParaRequestV1::InitOpenChannel {
+				recipient: PARA_B,
+				proposed_max_capacity: 8,
+				proposed_max_message_size: 1_024,
+			},
+			ParaRequestV1::AcceptOpenChannel { sender: PARA_B },
+			ParaRequestV1::CloseChannel { channel: CHANNEL },
+			ParaRequestV1::CancelOpenRequest { channel: CHANNEL, open_requests: 3 },
+			ParaRequestV1::EstablishChannelWithSystem { target_system_chain: 1_000 },
+		] {
+			assert_ok!(HrmpRelay::relay_request(para_a.clone(), request(r)));
 		}
-	}
 
-	#[test]
-	fn a_report_that_cannot_be_sent_never_unwinds_the_registry() {
-		for (name, run, _) in calls() {
-			new_test_ext().execute_with(|| {
-				// The setup steps inside `run` send reports of their own, so the transport is
-				// broken for all of them; only the last call's report is the one under test.
-				SendFails::set(true);
-
-				// The call still succeeds: this chain's state is already correct, and unwinding
-				// it because the report could not go out would be strictly worse.
-				assert!(run().is_ok(), "{name} failed when the transport was down");
-
-				let events = hrmp_events();
-				assert!(
-					events.iter().any(|e| matches!(e, Event::ReportFailed { .. })),
-					"{name} did not raise ReportFailed"
-				);
-			});
-		}
-	}
-
-
-	#[test]
-	fn the_registry_is_the_only_source_of_truth_about_what_exists() {
-		new_test_ext().execute_with(|| {
-			use hrmp_primitives::HrmpRegistry;
-			let channel = chan(PARA_A, PARA_B);
-
-			assert!(!MockRegistry::exists(channel));
-
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), init_msg(channel)));
-			assert!(MockRegistry::exists(channel), "a pending request counts as existing");
-
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), accept_msg(channel)));
-			assert!(MockRegistry::exists(channel));
-
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), close_msg(channel, PARA_A)));
-			assert!(!MockRegistry::exists(channel));
-		});
-	}
-
-	#[test]
-	fn this_pallet_keeps_no_storage_of_its_own() {
-		new_test_ext().execute_with(|| {
-			let channel = chan(PARA_A, PARA_B);
-			opened(channel);
-
-			// Deliberate: the relay chain half is a translator, not a second registry. If it ever
-			// grows storage, the two chains gain a third thing that can disagree.
-			assert!(
-				sp_io::storage::next_key(&[]).is_none_or(|k| !k.starts_with(
-					&sp_io::hashing::twox_128(b"Hrmp")[..]
-				)),
-				"pallet-hrmp-relay has grown storage of its own"
-			);
-		});
-	}
+		// THEN each reaches HRMP as para A, with its arguments.
+		assert_eq!(
+			HrmpCalls::get(),
+			vec![
+				HrmpCall::Init { para: PARA_A, recipient: PARA_B, capacity: 8, size: 1_024 },
+				HrmpCall::Accept { para: PARA_A, sender: PARA_B },
+				HrmpCall::Close { para: PARA_A, channel: CHANNEL },
+				HrmpCall::Cancel { para: PARA_A, channel: CHANNEL, open_requests: 3 },
+				HrmpCall::WithSystem { para: PARA_A, target: 1_000 },
+			]
+		);
+		assert_eq!(events(), vec![Event::RequestServed { para: PARA_A }; 5]);
+	});
 }
 
-mod parameters {
-	use super::*;
+#[test]
+fn relay_request_needs_a_parachain_origin() {
+	new_test_ext().execute_with(|| {
+		let close = request(ParaRequestV1::CloseChannel { channel: CHANNEL });
 
-	#[test]
-	fn the_registry_gets_the_bounds_the_parachain_asked_for() {
-		new_test_ext().execute_with(|| {
-			let channel = chan(PARA_A, PARA_B);
+		// A plain account, or root, is not a para.
+		assert_noop!(
+			HrmpRelay::relay_request(RuntimeOrigin::signed(ALICE), close.clone()),
+			DispatchError::BadOrigin
+		);
+		assert_noop!(
+			HrmpRelay::relay_request(RuntimeOrigin::root(), close),
+			DispatchError::BadOrigin
+		);
+		assert!(HrmpCalls::get().is_empty());
+	});
+}
 
-			// Zero capacity is refused by the registry, not by this pallet: the live bounds are
-			// the relay chain's business, and mirroring them here would let the two drift.
-			assert_ok!(Hrmp::receive(
-				RuntimeOrigin::root(),
-				MessageToRelay::V1(MessageToRelayV1::InitOpenChannel {
-					channel,
-					message_id: MSG_ID,
-					max_capacity: 0,
-					max_message_size: MESSAGE_SIZE,
-				})
-			));
+#[test]
+fn relay_request_is_refused_while_the_para_is_rationed() {
+	new_test_ext().execute_with(|| {
+		// GIVEN para A is over its ration.
+		Rationed::set(vec![PARA_A]);
 
-			assert!(Requests::get().is_empty());
-			assert_eq!(
-				take_sent(),
-				vec![open_report(channel, Err(FailureReason::InvalidParameters))]
-			);
-		});
-	}
+		// WHEN it asks, THEN nothing reaches HRMP.
+		assert_noop!(
+			HrmpRelay::relay_request(
+				RuntimeOrigin::signed(PARA_A_ACCOUNT),
+				request(ParaRequestV1::CloseChannel { channel: CHANNEL })
+			),
+			Error::<Test>::RequestRefused
+		);
+		assert!(HrmpCalls::get().is_empty());
+
+		// AND another para is unaffected.
+		assert_ok!(HrmpRelay::relay_request(
+			RuntimeOrigin::signed(PARA_B_ACCOUNT),
+			request(ParaRequestV1::CloseChannel { channel: CHANNEL })
+		));
+	});
+}
+
+#[test]
+fn relay_request_surfaces_the_hrmp_error() {
+	new_test_ext().execute_with(|| {
+		HrmpFails::set(Some(DispatchError::Other("refused")));
+
+		assert_noop!(
+			HrmpRelay::relay_request(
+				RuntimeOrigin::signed(PARA_A_ACCOUNT),
+				request(ParaRequestV1::AcceptOpenChannel { sender: PARA_B })
+			),
+			DispatchError::Other("refused")
+		);
+	});
+}
+
+#[test]
+fn hold_sends_queued_releases_first() {
+	new_test_ext().execute_with(|| {
+		// GIVEN two releases queued.
+		HrmpRelay::release(sender_key(), None);
+		HrmpRelay::release(recipient_key(), Some(40));
+		assert!(Sent::get().is_empty());
+
+		// WHEN a hold is sent for a key that was just released
+		assert_ok!(HrmpRelay::hold(sender_key(), 100));
+
+		// THEN the parachain sees both releases before the hold.
+		assert_eq!(
+			Sent::get(),
+			vec![
+				release_msg(sender_key(), None),
+				release_msg(recipient_key(), Some(40)),
+				hold_msg(100)
+			]
+		);
+		assert!(PendingReleases::<Test>::get().is_empty());
+		assert_eq!(
+			events(),
+			vec![
+				Event::ReleaseSent { key: sender_key(), amount: None },
+				Event::ReleaseSent { key: recipient_key(), amount: Some(40) },
+				Event::HoldSent { key: sender_key(), amount: 100 },
+			]
+		);
+	});
+}
+
+#[test]
+fn queued_releases_go_out_at_the_start_of_the_next_block() {
+	new_test_ext().execute_with(|| {
+		// GIVEN a release queued.
+		HrmpRelay::release(sender_key(), None);
+		assert!(Sent::get().is_empty());
+
+		// WHEN the next block starts
+		HrmpRelay::on_initialize(2);
+
+		// THEN it is sent.
+		assert_eq!(Sent::get(), vec![release_msg(sender_key(), None)]);
+		assert!(PendingReleases::<Test>::get().is_empty());
+	});
+}
+
+#[test]
+fn a_release_the_transport_refuses_is_dropped_and_reported() {
+	new_test_ext().execute_with(|| {
+		HrmpRelay::release(sender_key(), None);
+		SendFails::set(true);
+
+		HrmpRelay::on_initialize(2);
+
+		assert!(PendingReleases::<Test>::get().is_empty());
+		assert_eq!(events(), vec![Event::ReleaseFailed { key: sender_key(), amount: None }]);
+	});
+}
+
+#[test]
+fn a_hold_the_transport_refuses_is_an_error() {
+	new_test_ext().execute_with(|| {
+		SendFails::set(true);
+
+		assert_eq!(HrmpRelay::hold(sender_key(), 100), Err(()));
+		assert!(events().is_empty());
+	});
+}
+
+#[test]
+fn receive_passes_the_hold_answer_on() {
+	new_test_ext().execute_with(|| {
+		let answer =
+			|held| MessageToRelay::V1(MessageToRelayV1::HoldResult { key: sender_key(), held });
+
+		// Only the deposit-holding parachain, or root, may answer.
+		assert_noop!(
+			HrmpRelay::receive(RuntimeOrigin::signed(ALICE), answer(true)),
+			DispatchError::BadOrigin
+		);
+		assert_noop!(
+			HrmpRelay::receive(RuntimeOrigin::signed(PARA_A_ACCOUNT), answer(true)),
+			DispatchError::BadOrigin
+		);
+
+		assert_ok!(HrmpRelay::receive(RuntimeOrigin::signed(CORETIME), answer(true)));
+		assert_ok!(HrmpRelay::receive(RuntimeOrigin::root(), answer(false)));
+
+		assert_eq!(Answers::get(), vec![(sender_key(), true), (sender_key(), false)]);
+		assert_eq!(
+			events(),
+			vec![
+				Event::HoldAnswered { key: sender_key(), held: true },
+				Event::HoldAnswered { key: sender_key(), held: false },
+			]
+		);
+	});
+}
+
+#[test]
+fn receive_serves_the_calls_users_make_on_the_deposit_holding_parachain() {
+	new_test_ext().execute_with(|| {
+		let poke = MessageToRelay::V1(MessageToRelayV1::PokeChannelDeposits { channel: CHANNEL });
+		let system = ChannelId { sender: 1_000, recipient: 1_001 };
+		let open = MessageToRelay::V1(MessageToRelayV1::EstablishSystemChannel { channel: system });
+
+		// Only the deposit-holding parachain, or root, may ask.
+		assert_noop!(
+			HrmpRelay::receive(RuntimeOrigin::signed(PARA_A_ACCOUNT), poke.clone()),
+			DispatchError::BadOrigin
+		);
+
+		assert_ok!(HrmpRelay::receive(RuntimeOrigin::signed(CORETIME), poke));
+		assert_ok!(HrmpRelay::receive(RuntimeOrigin::signed(CORETIME), open.clone()));
+		assert_eq!(
+			HrmpCalls::get(),
+			vec![HrmpCall::Poke { channel: CHANNEL }, HrmpCall::SystemChannel { channel: system }]
+		);
+
+		// A refusal is the call's error.
+		HrmpFails::set(Some(DispatchError::Other("not system")));
+		assert_noop!(
+			HrmpRelay::receive(RuntimeOrigin::signed(CORETIME), open),
+			DispatchError::Other("not system")
+		);
+	});
 }

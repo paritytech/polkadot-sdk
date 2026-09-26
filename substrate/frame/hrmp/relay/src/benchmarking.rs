@@ -20,119 +20,53 @@
 use super::*;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
+use hrmp_primitives::{ChannelId, DepositSide};
 
-/// A channel no benchmark setup will collide on.
-const CHANNEL: ChannelId = ChannelId { sender: 4_242, recipient: 4_243 };
-
-const CAPACITY: u32 = 8;
-const MESSAGE_SIZE: u32 = 1_024;
-
-fn init_msg() -> MessageToRelay {
-	MessageToRelay::V1(MessageToRelayV1::InitOpenChannel {
-		channel: CHANNEL,
-		message_id: 0,
-		max_capacity: CAPACITY,
-		max_message_size: MESSAGE_SIZE,
-	})
-}
-
-/// Put a request on the registry, so the calls that act on one have something to find.
-fn request<T: Config>() -> Result<(), BenchmarkError> {
-	T::Registry::ensure_openable(CHANNEL);
-	Pallet::<T>::receive(RawOrigin::Root.into(), init_msg())?;
-	Ok(())
+fn key(n: u32) -> DepositKey {
+	DepositKey {
+		channel: ChannelId { sender: 4_000 + n, recipient: 5_000 + n },
+		side: DepositSide::Sender,
+	}
 }
 
 #[benchmarks]
 mod benchmarks {
 	use super::*;
 
-	/// Recording a request. Bounds checks in the registry plus one report.
 	#[benchmark]
-	fn init_open_channel() -> Result<(), BenchmarkError> {
-		T::Registry::ensure_openable(CHANNEL);
+	fn receive() {
+		let message = MessageToRelay::V1(MessageToRelayV1::HoldResult { key: key(0), held: true });
 
 		#[extrinsic_call]
-		receive(RawOrigin::Root, init_msg());
-
-		assert!(T::Registry::exists(CHANNEL));
-		Ok(())
+		_(RawOrigin::Root, message);
 	}
 
-	/// Confirming a request.
 	#[benchmark]
-	fn accept_open_channel() -> Result<(), BenchmarkError> {
-		request::<T>()?;
+	fn relay_request() -> Result<(), BenchmarkError> {
+		let origin =
+			T::ParachainOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let request = ParaRequest::V1(ParaRequestV1::CloseChannel { channel: key(0).channel });
 
-		#[extrinsic_call]
-		receive(
-			RawOrigin::Root,
-			MessageToRelay::V1(MessageToRelayV1::AcceptOpenChannel {
-				channel: CHANNEL,
-				message_id: 1,
-			}),
-		);
+		#[block]
+		{
+			let _ = Pallet::<T>::relay_request(origin, request);
+		}
 
 		Ok(())
 	}
 
-	/// Closing a channel.
 	#[benchmark]
-	fn close_channel() -> Result<(), BenchmarkError> {
-		request::<T>()?;
-		Pallet::<T>::receive(
-			RawOrigin::Root.into(),
-			MessageToRelay::V1(MessageToRelayV1::AcceptOpenChannel {
-				channel: CHANNEL,
-				message_id: 1,
-			}),
-		)?;
+	fn flush_releases(n: Linear<0, 100>) {
+		for i in 0..n {
+			Pallet::<T>::release(key(i), None);
+		}
 
-		#[extrinsic_call]
-		receive(
-			RawOrigin::Root,
-			MessageToRelay::V1(MessageToRelayV1::CloseChannel {
-				channel: CHANNEL,
-				message_id: 2,
-				initiator: CHANNEL.sender,
-			}),
-		);
+		#[block]
+		{
+			Pallet::<T>::flush_releases();
+		}
 
-		Ok(())
-	}
-
-	/// Dropping an unconfirmed request.
-	#[benchmark]
-	fn cancel_open_request() -> Result<(), BenchmarkError> {
-		request::<T>()?;
-
-		#[extrinsic_call]
-		receive(
-			RawOrigin::Root,
-			MessageToRelay::V1(MessageToRelayV1::CancelOpenRequest {
-				channel: CHANNEL,
-				message_id: 2,
-			}),
-		);
-
-		Ok(())
-	}
-
-	/// A system channel: two channels opened in one call, and no report sent.
-	#[benchmark]
-	fn establish_system_channel() -> Result<(), BenchmarkError> {
-		T::Registry::ensure_openable(CHANNEL);
-
-		#[extrinsic_call]
-		receive(
-			RawOrigin::Root,
-			MessageToRelay::V1(MessageToRelayV1::EstablishSystemChannel {
-				channel: CHANNEL,
-				message_id: 3,
-			}),
-		);
-
-		Ok(())
+		assert!(PendingReleases::<T>::get().is_empty());
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);

@@ -17,11 +17,7 @@
 
 //! Weights for `pallet_hrmp_para`.
 //!
-//! **Placeholders.** This pallet has never been benchmarked, so the numbers below are derived from
-//! storage access alone: one `ref_time` allowance per call plus the reads and writes each one
-//! actually performs. Benchmarks exist for every function here, so regenerating this file with the
-//! benchmark CLI replaces the whole thing with measured values. Do not hand-tune these — fix the
-//! benchmark instead.
+//! **Placeholders**, derived from storage access alone. Regenerate with the benchmark CLI.
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -33,90 +29,79 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_hrmp_para`.
 pub trait WeightInfo {
-	fn open_channel() -> Weight;
-	fn accept_open_channel() -> Weight;
-	fn close_channel() -> Weight;
-	fn cancel_open_request() -> Weight;
-	fn receive() -> Weight;
+	fn receive_hold() -> Weight;
+	fn receive_release() -> Weight;
+	fn force_release() -> Weight;
+	fn poke_channel_deposits() -> Weight;
 	fn establish_system_channel() -> Weight;
-	fn force_remove_channel() -> Weight;
+	fn force_answer() -> Weight;
 }
 
 /// Weights for `pallet_hrmp_para` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	fn open_channel() -> Weight {
-		Weight::from_parts(20_000_000, 0)
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(2))
+	fn receive_hold() -> Weight {
+		Weight::from_parts(40_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(4))
 	}
-	fn accept_open_channel() -> Weight {
-		Weight::from_parts(20_000_000, 0)
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(2))
+	fn receive_release() -> Weight {
+		Weight::from_parts(30_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
-	fn close_channel() -> Weight {
-		Weight::from_parts(20_000_000, 0)
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(2))
+	fn force_release() -> Weight {
+		Weight::from_parts(30_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
-	fn cancel_open_request() -> Weight {
-		Weight::from_parts(20_000_000, 0)
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(2))
-	}
-	fn receive() -> Weight {
+	fn poke_channel_deposits() -> Weight {
 		Weight::from_parts(20_000_000, 0)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	fn establish_system_channel() -> Weight {
 		Weight::from_parts(20_000_000, 0)
-			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
-	fn force_remove_channel() -> Weight {
+	fn force_answer() -> Weight {
 		Weight::from_parts(20_000_000, 0)
 			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 }
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
-	fn open_channel() -> Weight {
-		Weight::from_parts(20_000_000, 0)
-			.saturating_add(RocksDbWeight::get().reads(2))
-			.saturating_add(RocksDbWeight::get().writes(2))
+	fn receive_hold() -> Weight {
+		Weight::from_parts(40_000_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(4))
 	}
-	fn accept_open_channel() -> Weight {
-		Weight::from_parts(20_000_000, 0)
-			.saturating_add(RocksDbWeight::get().reads(2))
-			.saturating_add(RocksDbWeight::get().writes(2))
+	fn receive_release() -> Weight {
+		Weight::from_parts(30_000_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(3))
+			.saturating_add(RocksDbWeight::get().writes(3))
 	}
-	fn close_channel() -> Weight {
-		Weight::from_parts(20_000_000, 0)
-			.saturating_add(RocksDbWeight::get().reads(2))
-			.saturating_add(RocksDbWeight::get().writes(2))
+	fn force_release() -> Weight {
+		Weight::from_parts(30_000_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(3))
+			.saturating_add(RocksDbWeight::get().writes(3))
 	}
-	fn cancel_open_request() -> Weight {
-		Weight::from_parts(20_000_000, 0)
-			.saturating_add(RocksDbWeight::get().reads(2))
-			.saturating_add(RocksDbWeight::get().writes(2))
-	}
-	fn receive() -> Weight {
+	fn poke_channel_deposits() -> Weight {
 		Weight::from_parts(20_000_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	fn establish_system_channel() -> Weight {
 		Weight::from_parts(20_000_000, 0)
-			.saturating_add(RocksDbWeight::get().reads(1))
-			.saturating_add(RocksDbWeight::get().writes(3))
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
-	fn force_remove_channel() -> Weight {
+	fn force_answer() -> Weight {
 		Weight::from_parts(20_000_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(2))
-			.saturating_add(RocksDbWeight::get().writes(3))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 }

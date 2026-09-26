@@ -17,1568 +17,294 @@
 
 //! Tests for `pallet-hrmp-para`.
 
-use crate::{mock::*, ChannelState, Channels, UnpaidMigratedDeposits, Error, Event};
+use crate::{mock::*, Deposits, Error, Event};
 use frame_support::{assert_noop, assert_ok};
 use hrmp_primitives::{
-	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
-	Outcome, ParaId,
+	DepositKey, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
+	ReceiveMigratedDeposits,
 };
-use sp_runtime::{traits::Convert, DispatchError, DispatchResult};
+use sp_runtime::DispatchError;
 
-fn chan(sender: ParaId, recipient: ParaId) -> ChannelId {
-	ChannelId { sender, recipient }
+fn hold(key: DepositKey, amount: u128) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::Hold { key, amount })
 }
 
-fn state_of(channel: ChannelId) -> Option<ChannelState<BlockNumber>> {
-	Channels::<Test>::get(channel).map(|info| info.state)
+fn release(key: DepositKey) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::Release { key, amount: None })
 }
 
-/// Open a request from `sender` and have the relay chain confirm it, leaving it `Pending`.
-fn pending_channel(sender: ParaId, recipient: ParaId) -> ChannelId {
-	let channel = chan(sender, recipient);
-	assert_ok!(Hrmp::open_channel(
-		para_origin(sender),
-		sender,
-		recipient,
-		MAX_CAPACITY,
-		MAX_MESSAGE_SIZE
-	));
-	assert_ok!(Hrmp::receive(RuntimeOrigin::root(), open_response(channel, Ok(()))));
-	let _ = take_sent();
-	let _ = hrmp_events();
-	channel
+fn release_part(key: DepositKey, amount: u128) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::Release { key, amount: Some(amount) })
 }
 
-/// A fully open channel, both deposits held.
-fn open_channel(sender: ParaId, recipient: ParaId) -> ChannelId {
-	let channel = pending_channel(sender, recipient);
-	assert_ok!(Hrmp::accept_open_channel(para_origin(recipient), sender, recipient));
-	assert_ok!(Hrmp::receive(RuntimeOrigin::root(), accept_response(channel, Ok(()))));
-	let _ = take_sent();
-	let _ = hrmp_events();
-	channel
+fn answer(key: DepositKey, held: bool) -> MessageToRelay {
+	MessageToRelay::V1(MessageToRelayV1::HoldResult { key, held })
 }
 
-/// The id a response must echo to settle `channel`'s in-flight request. Falls back to `stray`
-/// where nothing is awaited, for the tests that deliberately answer a channel in the wrong state.
-fn awaited_or(channel: ChannelId, stray: u64) -> u64 {
-	state_of(channel).and_then(|state| state.awaited_id()).unwrap_or(stray)
+fn relay() -> RuntimeOrigin {
+	RuntimeOrigin::signed(RELAY)
 }
 
-fn open_response(channel: ChannelId, outcome: Outcome) -> MessageToPara {
-	let message_id = awaited_or(channel, 0);
-	MessageToPara::V1(MessageToParaV1::OpenResponse { channel, message_id, outcome })
+#[test]
+fn a_hold_is_taken_from_the_payers_sovereign_and_answered() {
+	new_test_ext().execute_with(|| {
+		// WHEN the relay chain asks for both ends of a channel
+		assert_ok!(HrmpPara::receive(relay(), hold(sender_key(), 100)));
+		assert_ok!(HrmpPara::receive(relay(), hold(recipient_key(), 40)));
+
+		// THEN each end pays its own, and each hold is answered.
+		assert_eq!((on_hold(PARA_A), on_hold(PARA_B)), (100, 40));
+		assert_eq!(Deposits::<Test>::get(sender_key()), Some(100));
+		assert_eq!(Deposits::<Test>::get(recipient_key()), Some(40));
+		assert_eq!(Sent::get(), vec![answer(sender_key(), true), answer(recipient_key(), true)]);
+		assert_eq!(
+			events(),
+			vec![
+				Event::DepositHeld { key: sender_key(), amount: 100 },
+				Event::DepositHeld { key: recipient_key(), amount: 40 },
+			]
+		);
+		assert_ok!(HrmpPara::do_try_state());
+	});
 }
 
-fn accept_response(channel: ChannelId, outcome: Outcome) -> MessageToPara {
-	let message_id = awaited_or(channel, 1);
-	MessageToPara::V1(MessageToParaV1::AcceptResponse { channel, message_id, outcome })
+#[test]
+fn a_hold_the_payer_cannot_cover_is_refused_and_answered() {
+	new_test_ext().execute_with(|| {
+		// WHEN the relay chain asks for more than the sender has
+		assert_ok!(HrmpPara::receive(relay(), hold(sender_key(), 5_000)));
+
+		// THEN nothing is held, and the relay chain is told.
+		assert_eq!(on_hold(PARA_A), 0);
+		assert_eq!(Deposits::<Test>::get(sender_key()), None);
+		assert_eq!(Sent::get(), vec![answer(sender_key(), false)]);
+		assert_eq!(events(), vec![Event::DepositRefused { key: sender_key(), amount: 5_000 }]);
+	});
 }
 
-fn close_response(channel: ChannelId, outcome: Outcome) -> MessageToPara {
-	let message_id = awaited_or(channel, 2);
-	MessageToPara::V1(MessageToParaV1::CloseResponse { channel, message_id, outcome })
+#[test]
+fn a_second_hold_for_the_same_key_adds_to_it() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(HrmpPara::receive(relay(), hold(sender_key(), 100)));
+		assert_ok!(HrmpPara::receive(relay(), hold(sender_key(), 20)));
+
+		assert_eq!(Deposits::<Test>::get(sender_key()), Some(120));
+		assert_eq!(on_hold(PARA_A), 120);
+		assert_ok!(HrmpPara::do_try_state());
+	});
 }
 
-fn cancel_response(channel: ChannelId, outcome: Outcome) -> MessageToPara {
-	let message_id = awaited_or(channel, 2);
-	MessageToPara::V1(MessageToParaV1::CancelResponse { channel, message_id, outcome })
+#[test]
+fn a_release_returns_everything_held_for_the_key() {
+	new_test_ext().execute_with(|| {
+		// GIVEN both ends are held.
+		assert_ok!(HrmpPara::receive(relay(), hold(sender_key(), 100)));
+		assert_ok!(HrmpPara::receive(relay(), hold(recipient_key(), 40)));
+		let _ = events();
+
+		// WHEN the sender's is released
+		assert_ok!(HrmpPara::receive(relay(), release(sender_key())));
+
+		// THEN only the sender's comes back, and nothing is answered.
+		assert_eq!((on_hold(PARA_A), on_hold(PARA_B)), (0, 40));
+		assert_eq!(Deposits::<Test>::get(sender_key()), None);
+		assert_eq!(Sent::get().len(), 2);
+		assert_eq!(events(), vec![Event::DepositReleased { key: sender_key(), amount: 100 }]);
+
+		// AND releasing it again does nothing.
+		assert_ok!(HrmpPara::receive(relay(), release(sender_key())));
+		assert!(events().is_empty());
+		assert_ok!(HrmpPara::do_try_state());
+	});
 }
 
-fn system_channel_response(
-	channel: ChannelId,
-	message_id: u64,
-	outcome: Outcome,
-) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::SystemChannelResponse { channel, message_id, outcome })
+#[test]
+fn only_the_relay_chain_or_root_may_send() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			HrmpPara::receive(RuntimeOrigin::signed(ALICE), hold(sender_key(), 100)),
+			DispatchError::BadOrigin
+		);
+		assert_ok!(HrmpPara::receive(RuntimeOrigin::root(), hold(sender_key(), 100)));
+		assert_eq!(on_hold(PARA_A), 100);
+	});
 }
 
-/// Deliver the relay chain's confirmation for a deposit-free pair, which is what promotes both
-/// directions from `Pending` to `Open`.
-fn confirm_system_channel(channel: ChannelId, message_id: u64) {
-	assert_ok!(Hrmp::receive(
-		RuntimeOrigin::root(),
-		system_channel_response(channel, message_id, Ok(()))
-	));
+#[test]
+fn a_hold_whose_answer_cannot_be_sent_is_undone() {
+	new_test_ext().execute_with(|| {
+		SendFails::set(true);
+
+		assert_noop!(
+			HrmpPara::receive(relay(), hold(sender_key(), 100)),
+			Error::<Test>::SendFailed
+		);
+		assert_eq!(on_hold(PARA_A), 0);
+	});
 }
 
-mod origins {
-	use super::*;
+#[test]
+fn root_can_force_a_release() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(HrmpPara::receive(relay(), hold(sender_key(), 100)));
+		let _ = events();
 
-	#[test]
-	fn the_para_itself_and_root_may_open() {
-		build_and_execute(|| {
-			// GIVEN the two kinds of origin the pallet accepts, the same set the relay chain's
-			// HRMP takes.
-			// WHEN each opens a channel.
-			assert_ok!(Hrmp::open_channel(
-				para_origin(PARA_A),
-				PARA_A,
-				PARA_C,
-				MAX_CAPACITY,
-				MAX_MESSAGE_SIZE
-			));
-			assert_ok!(Hrmp::open_channel(
-				RuntimeOrigin::root(),
-				PARA_C,
-				PARA_A,
-				MAX_CAPACITY,
-				MAX_MESSAGE_SIZE
-			));
+		assert_noop!(
+			HrmpPara::force_release(RuntimeOrigin::signed(RELAY), sender_key()),
+			DispatchError::BadOrigin
+		);
+		assert_ok!(HrmpPara::force_release(RuntimeOrigin::root(), sender_key()));
 
-			// THEN both requests went out.
-			assert_eq!(take_sent().len(), 2);
-		});
-	}
-
-	#[test]
-	fn a_signed_account_and_the_wrong_para_are_both_refused() {
-		build_and_execute(|| {
-			// An ordinary signed account, however well funded: there is no manager path, exactly
-			// as on the relay chain.
-			assert_noop!(
-				Hrmp::open_channel(
-					RuntimeOrigin::signed(ALICE),
-					PARA_A,
-					PARA_B,
-					MAX_CAPACITY,
-					MAX_MESSAGE_SIZE
-				),
-				DispatchError::BadOrigin
-			);
-			// A para may only speak for itself.
-			assert_noop!(
-				Hrmp::open_channel(
-					para_origin(PARA_B),
-					PARA_A,
-					PARA_B,
-					MAX_CAPACITY,
-					MAX_MESSAGE_SIZE
-				),
-				Error::<Test>::NotOwner
-			);
-			assert_eq!(take_sent(), vec![]);
-		});
-	}
-
-	/// The claimed initiator is not free-form: whoever calls may only name an end they are entitled
-	/// to act for. Either end may close, so this is about the relay chain being told *who asked*
-	/// rather than about authority — but a caller able to claim the other end could pin a close on
-	/// a para that never asked for one.
-	#[test]
-	fn nobody_may_close_as_an_end_they_do_not_act_for() {
-		build_and_execute(|| {
-			let channel = open_channel(PARA_A, PARA_B);
-			assert!(channel.is_participant(PARA_A));
-
-			// A para claiming the other end.
-			assert_noop!(
-				Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B, PARA_B),
-				Error::<Test>::NotOwner
-			);
-			// A signed account claiming an end: there is no manager path.
-			assert_noop!(
-				Hrmp::close_channel(RuntimeOrigin::signed(ALICE), PARA_A, PARA_B, PARA_A),
-				DispatchError::BadOrigin
-			);
-			// Nobody may name a para that is not on the channel at all, root included.
-			assert_noop!(
-				Hrmp::close_channel(RuntimeOrigin::root(), PARA_A, PARA_B, PARA_C),
-				Error::<Test>::NotOwner
-			);
-
-			// Root may name either real end: it is governance, or a relay chain asserting which
-			// para relayed the request.
-			assert_ok!(Hrmp::close_channel(RuntimeOrigin::root(), PARA_A, PARA_B, PARA_B));
-		});
-	}
-
-	#[test]
-	fn either_end_may_close_and_the_relay_chain_is_told_which() {
-		build_and_execute(|| {
-			// GIVEN an open channel A -> B.
-			let channel = open_channel(PARA_A, PARA_B);
-
-			// WHEN the *recipient* closes it.
-			assert_ok!(Hrmp::close_channel(para_origin(PARA_B), PARA_A, PARA_B, PARA_B));
-
-			// THEN the relay chain is told B asked, not A: it has to know which end initiated.
-			assert_eq!(
-				take_sent(),
-				vec![MessageToRelay::V1(MessageToRelayV1::CloseChannel {
-					channel,
-					message_id: 2,
-					initiator: PARA_B,
-				})]
-			);
-		});
-	}
+		assert_eq!(on_hold(PARA_A), 0);
+		assert_eq!(events(), vec![Event::DepositForceReleased { key: sender_key(), amount: 100 }]);
+		assert_noop!(
+			HrmpPara::force_release(RuntimeOrigin::root(), sender_key()),
+			Error::<Test>::NoSuchDeposit
+		);
+	});
 }
 
-mod open_channel {
-	use super::*;
+#[test]
+fn a_migrated_deposit_holds_what_the_payer_can_cover() {
+	let poor = DepositKey {
+		channel: hrmp_primitives::ChannelId { sender: PARA_POOR, recipient: PARA_A },
+		side: hrmp_primitives::DepositSide::Sender,
+	};
 
-	#[test]
-	fn holds_the_sender_deposit_on_its_sovereign_account() {
-		build_and_execute(|| {
-			let channel = chan(PARA_A, PARA_B);
+	new_test_ext().execute_with(|| {
+		// WHEN a covered deposit migrates
+		assert_ok!(HrmpPara::receive_deposit(sender_key(), 100));
+		// THEN all of it is held.
+		assert_eq!(Deposits::<Test>::get(sender_key()), Some(100));
+		assert_eq!(on_hold(PARA_A), 100);
 
-			assert_ok!(Hrmp::open_channel(
-				para_origin(PARA_A),
-				PARA_A,
-				PARA_B,
-				MAX_CAPACITY,
-				MAX_MESSAGE_SIZE
-			));
+		// WHEN a para that holds 30 owes 100
+		assert_ok!(HrmpPara::receive_deposit(poor, 100));
+		// THEN what it can spend while staying alive is held, and the rest is reported.
+		// Existential deposit is 1, so 29 of its 30 can be held.
+		assert_eq!(Deposits::<Test>::get(poor), Some(29));
+		assert_eq!(on_hold(PARA_POOR), 29);
+		assert_eq!(
+			events(),
+			vec![
+				Event::DepositMigrated { key: sender_key(), held: 100, missing: 0 },
+				Event::DepositMigrated { key: poor, held: 29, missing: 71 },
+			]
+		);
 
-			// The deposit comes off the para's sovereign account here, not off whoever called.
-			// That is what the migration produces, so migrated and fresh channels look alike.
-			assert_eq!(held(PARA_A), CHANNEL_DEPOSIT);
-			assert_eq!(held(PARA_B), 0);
-			assert!(matches!(state_of(channel), Some(ChannelState::Opening { .. })));
-			assert_eq!(
-				take_sent(),
-				vec![MessageToRelay::V1(MessageToRelayV1::InitOpenChannel {
-					channel,
-					message_id: 0,
-					max_capacity: MAX_CAPACITY,
-					max_message_size: MAX_MESSAGE_SIZE,
-				})]
-			);
-			assert_eq!(hrmp_events(), vec![Event::OpenRequested { channel, message_id: 0 }]);
-		});
-	}
-
-	#[test]
-	fn a_channel_touching_a_system_chain_is_deposit_free() {
-		build_and_execute(|| {
-			assert_ok!(Hrmp::open_channel(
-				para_origin(PARA_A),
-				PARA_A,
-				SYSTEM_PARA,
-				MAX_CAPACITY,
-				MAX_MESSAGE_SIZE
-			));
-
-			// Mirrors the relay chain's own rule, so migrated system channels need no deposit
-			// found for them.
-			assert_eq!(held(PARA_A), 0);
-			assert!(matches!(
-				state_of(chan(PARA_A, SYSTEM_PARA)),
-				Some(ChannelState::Opening { .. })
-			));
-		});
-	}
-
-	#[test]
-	fn refuses_parameters_the_relay_chain_would_not_take() {
-		build_and_execute(|| {
-			for (capacity, size) in [
-				(0, MAX_MESSAGE_SIZE),
-				(MAX_CAPACITY + 1, MAX_MESSAGE_SIZE),
-				(MAX_CAPACITY, 0),
-				(MAX_CAPACITY, MAX_MESSAGE_SIZE + 1),
-			] {
-				assert_noop!(
-					Hrmp::open_channel(para_origin(PARA_A), PARA_A, PARA_B, capacity, size),
-					Error::<Test>::InvalidParameters
-				);
-			}
-			// Failing early costs the relay chain nothing and the caller no deposit.
-			assert_eq!(held(PARA_A), 0);
-			assert_eq!(take_sent(), vec![]);
-		});
-	}
-
-	#[test]
-	fn refuses_a_channel_to_itself_and_a_duplicate() {
-		build_and_execute(|| {
-			assert_noop!(
-				Hrmp::open_channel(
-					para_origin(PARA_A),
-					PARA_A,
-					PARA_A,
-					MAX_CAPACITY,
-					MAX_MESSAGE_SIZE
-				),
-				Error::<Test>::ToSelf
-			);
-
-			assert_ok!(Hrmp::open_channel(
-				para_origin(PARA_A),
-				PARA_A,
-				PARA_B,
-				MAX_CAPACITY,
-				MAX_MESSAGE_SIZE
-			));
-			assert_noop!(
-				Hrmp::open_channel(
-					para_origin(PARA_A),
-					PARA_A,
-					PARA_B,
-					MAX_CAPACITY,
-					MAX_MESSAGE_SIZE
-				),
-				Error::<Test>::AlreadyExists
-			);
-			// Only one deposit was ever taken.
-			assert_eq!(held(PARA_A), CHANNEL_DEPOSIT);
-		});
-	}
-
-	#[test]
-	fn a_transport_failure_rolls_the_whole_call_back() {
-		build_and_execute(|| {
-			SendFails::set(true);
-
-			assert_noop!(
-				Hrmp::open_channel(
-					para_origin(PARA_A),
-					PARA_A,
-					PARA_B,
-					MAX_CAPACITY,
-					MAX_MESSAGE_SIZE
-				),
-				Error::<Test>::SendFailed
-			);
-
-			// Nothing half-done: no record, no deposit, and the message id was not spent.
-			assert!(state_of(chan(PARA_A, PARA_B)).is_none());
-			assert_eq!(held(PARA_A), 0);
-			assert_eq!(crate::NextMessageId::<Test>::get(), 0);
-		});
-	}
+		// AND releasing it returns only what was held.
+		assert_ok!(HrmpPara::receive(relay(), release(poor)));
+		assert_eq!(on_hold(PARA_POOR), 0);
+		assert_ok!(HrmpPara::do_try_state());
+	});
 }
 
-mod responses {
-	use super::*;
-
-	#[test]
-	fn a_refused_open_returns_the_deposit_and_forgets_the_channel() {
-		build_and_execute(|| {
-			let channel = chan(PARA_A, PARA_B);
-			assert_ok!(Hrmp::open_channel(
-				para_origin(PARA_A),
-				PARA_A,
-				PARA_B,
-				MAX_CAPACITY,
-				MAX_MESSAGE_SIZE
-			));
-			let _ = hrmp_events();
-
-			assert_ok!(Hrmp::receive(
-				RuntimeOrigin::root(),
-				open_response(channel, Err(FailureReason::LimitExceeded))
-			));
-
-			assert_eq!(held(PARA_A), 0);
-			assert!(state_of(channel).is_none());
-			assert_eq!(
-				hrmp_events(),
-				vec![Event::OpenFailed {
-					channel,
-					message_id: 0,
-					reason: FailureReason::LimitExceeded
-				}]
-			);
-		});
-	}
-
-	#[test]
-	fn a_refused_acceptance_returns_only_the_recipients_half() {
-		build_and_execute(|| {
-			// GIVEN a request the relay chain is holding, and a recipient who has just accepted.
-			let channel = pending_channel(PARA_A, PARA_B);
-			assert_ok!(Hrmp::accept_open_channel(para_origin(PARA_B), PARA_A, PARA_B));
-			assert_eq!(held(PARA_A), CHANNEL_DEPOSIT);
-			assert_eq!(held(PARA_B), CHANNEL_DEPOSIT);
-			let _ = hrmp_events();
-
-			// WHEN the relay chain refuses the acceptance.
-			assert_ok!(Hrmp::receive(
-				RuntimeOrigin::root(),
-				accept_response(channel, Err(FailureReason::LimitExceeded))
-			));
-
-			// THEN only the recipient is made whole. The request itself still stands on the relay
-			// chain, so the sender's deposit is still owed.
-			assert_eq!(held(PARA_A), CHANNEL_DEPOSIT);
-			assert_eq!(held(PARA_B), 0);
-			assert_eq!(state_of(channel), Some(ChannelState::Pending));
-		});
-	}
-
-	#[test]
-	fn only_a_confirmed_close_releases_the_deposits() {
-		build_and_execute(|| {
-			// GIVEN an open channel with both deposits held.
-			let channel = open_channel(PARA_A, PARA_B);
-			assert_eq!(held(PARA_A), CHANNEL_DEPOSIT);
-			assert_eq!(held(PARA_B), CHANNEL_DEPOSIT);
-
-			// WHEN a close is merely requested.
-			assert_ok!(Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B, PARA_A));
-
-			// THEN nothing is released: the channel may still be carrying messages.
-			assert_eq!(held(PARA_A), CHANNEL_DEPOSIT);
-			assert_eq!(held(PARA_B), CHANNEL_DEPOSIT);
-			assert!(matches!(state_of(channel), Some(ChannelState::Closing { .. })));
-
-			// WHEN the relay chain refuses.
-			assert_ok!(Hrmp::receive(
-				RuntimeOrigin::root(),
-				close_response(channel, Err(FailureReason::Refused))
-			));
-			// THEN the channel is open again, deposits untouched.
-			assert_eq!(state_of(channel), Some(ChannelState::Open));
-			assert_eq!(held(PARA_A), CHANNEL_DEPOSIT);
-
-			// WHEN it confirms instead.
-			assert_ok!(Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B, PARA_A));
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), close_response(channel, Ok(()))));
-
-			// THEN, and only then, both ends are made whole and the record is gone.
-			assert_eq!(held(PARA_A), 0);
-			assert_eq!(held(PARA_B), 0);
-			assert!(state_of(channel).is_none());
-		});
-	}
-
-	#[test]
-	fn a_confirmed_cancellation_returns_the_senders_deposit() {
-		build_and_execute(|| {
-			let channel = pending_channel(PARA_A, PARA_B);
-
-			assert_ok!(Hrmp::cancel_open_request(para_origin(PARA_A), PARA_A, PARA_B));
-			// Still held while the relay chain has not answered.
-			assert_eq!(held(PARA_A), CHANNEL_DEPOSIT);
-			assert!(matches!(state_of(channel), Some(ChannelState::Cancelling { .. })));
-
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), cancel_response(channel, Ok(()))));
-
-			assert_eq!(held(PARA_A), 0);
-			assert!(state_of(channel).is_none());
-		});
-	}
-
-	#[test]
-	fn a_close_the_relay_chain_cannot_find_is_a_confirmation() {
-		build_and_execute(|| {
-			// GIVEN an open channel whose counterparty was offboarded: the relay chain deleted
-			// its channels at the session boundary without telling this chain, so the relay
-			// chain's only possible answer to a close is NotFound.
-			let channel = open_channel(PARA_A, PARA_B);
-			assert_ok!(Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B, PARA_A));
-
-			// WHEN the relay chain answers that no such channel exists.
-			assert_ok!(Hrmp::receive(
-				RuntimeOrigin::root(),
-				close_response(channel, Err(FailureReason::NotFound))
-			));
-
-			// THEN that is the end state a close asks for: both deposits come back and the
-			// record is gone. Refusing here would strand them behind a governance call forever.
-			assert_eq!(held(PARA_A), 0);
-			assert_eq!(held(PARA_B), 0);
-			assert_eq!(state_of(channel), None);
-			assert!(matches!(
-				hrmp_events().last(),
-				Some(Event::Closed { channel: c, .. }) if *c == channel
-			));
-		});
-	}
-
-	#[test]
-	fn a_cancel_the_relay_chain_cannot_find_is_a_confirmation() {
-		build_and_execute(|| {
-			// GIVEN a pending request whose entry the relay chain no longer holds.
-			assert_ok!(Hrmp::open_channel(para_origin(PARA_A), PARA_A, PARA_B, 4, 512));
-			let channel = chan(PARA_A, PARA_B);
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), open_response(channel, Ok(()))));
-			assert_ok!(Hrmp::cancel_open_request(para_origin(PARA_A), PARA_A, PARA_B));
-
-			// WHEN the relay chain answers NotFound. (A request that was meanwhile accepted is
-			// refused as AlreadyExists, never NotFound, so this cannot misfire on one that
-			// became a channel.)
-			assert_ok!(Hrmp::receive(
-				RuntimeOrigin::root(),
-				cancel_response(channel, Err(FailureReason::NotFound))
-			));
-
-			// THEN the sender's deposit comes back and the record is gone.
-			assert_eq!(held(PARA_A), 0);
-			assert_eq!(state_of(channel), None);
-		});
-	}
-
-	#[test]
-	fn a_refused_cancellation_puts_the_request_back() {
-		build_and_execute(|| {
-			let channel = pending_channel(PARA_A, PARA_B);
-			assert_ok!(Hrmp::cancel_open_request(para_origin(PARA_A), PARA_A, PARA_B));
-
-			assert_ok!(Hrmp::receive(
-				RuntimeOrigin::root(),
-				cancel_response(channel, Err(FailureReason::AlreadyExists))
-			));
-
-			assert_eq!(state_of(channel), Some(ChannelState::Pending));
-			assert_eq!(held(PARA_A), CHANNEL_DEPOSIT);
-		});
-	}
-
-	#[test]
-	fn only_the_relay_chain_may_report() {
-		build_and_execute(|| {
-			let channel = chan(PARA_A, PARA_B);
-			assert_noop!(
-				Hrmp::receive(RuntimeOrigin::signed(ALICE), open_response(channel, Ok(()))),
-				DispatchError::BadOrigin
-			);
-		});
-	}
-}
-
-mod wrong_state {
-	use super::*;
-
-	#[test]
-	fn every_call_refuses_a_channel_that_is_not_ready_for_it() {
-		build_and_execute(|| {
-			// GIVEN a request that is still in flight to the relay chain.
-			assert_ok!(Hrmp::open_channel(
-				para_origin(PARA_A),
-				PARA_A,
-				PARA_B,
-				MAX_CAPACITY,
-				MAX_MESSAGE_SIZE
-			));
-			let _ = take_sent();
-
-			// THEN nothing that needs a settled channel may run, and no message is built.
-			assert_noop!(
-				Hrmp::accept_open_channel(para_origin(PARA_B), PARA_A, PARA_B),
-				Error::<Test>::WrongState
-			);
-			assert_noop!(
-				Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B, PARA_A),
-				Error::<Test>::WrongState
-			);
-			assert_noop!(
-				Hrmp::cancel_open_request(para_origin(PARA_A), PARA_A, PARA_B),
-				Error::<Test>::WrongState
-			);
-			assert_eq!(take_sent(), vec![]);
-		});
-	}
-
-	#[test]
-	fn acting_on_a_channel_this_chain_never_heard_of_is_refused() {
-		build_and_execute(|| {
-			assert_noop!(
-				Hrmp::accept_open_channel(para_origin(PARA_B), PARA_A, PARA_B),
-				Error::<Test>::NoSuchChannel
-			);
-			assert_noop!(
-				Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B, PARA_A),
-				Error::<Test>::NoSuchChannel
-			);
-		});
-	}
-}
-
-mod system_channels {
-	use super::*;
-
-	#[test]
-	fn root_opens_both_directions_deposit_free() {
-		build_and_execute(|| {
-			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
-
-			// Both directions, because a one-way system channel is never what was meant. Recorded
-			// unconfirmed until the relay chain answers: this chain cannot see its registry, and
-			// the request is genuinely refused while a recipient is still onboarding.
-			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Pending));
-			assert_eq!(state_of(chan(PARA_A, SELF_PARA)), Some(ChannelState::Pending));
-			assert_eq!(held(PARA_A), 0);
-			assert_eq!(held(SELF_PARA), 0);
-			assert_eq!(
-				take_sent(),
-				vec![MessageToRelay::V1(MessageToRelayV1::EstablishSystemChannel {
-					channel: chan(SELF_PARA, PARA_A),
-					message_id: 0,
-				})]
-			);
-
-			// WHEN the relay chain confirms, one answer settles both directions.
-			confirm_system_channel(chan(SELF_PARA, PARA_A), 0);
-			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Open));
-			assert_eq!(state_of(chan(PARA_A, SELF_PARA)), Some(ChannelState::Open));
-			assert_eq!(held(PARA_A), 0);
-			assert_eq!(held(SELF_PARA), 0);
-		});
-	}
-
-	#[test]
-	fn a_para_may_pair_itself_with_a_system_chain_without_governance() {
-		build_and_execute(|| {
-			// GIVEN a para that wants a channel to a system chain. Requiring root here would mean
-			// a referendum before a new para could talk to Asset Hub.
-			assert_ok!(Hrmp::establish_system_channel(para_origin(PARA_A), PARA_A, SYSTEM_PARA,));
-			confirm_system_channel(chan(PARA_A, SYSTEM_PARA), 0);
-			assert_eq!(state_of(chan(PARA_A, SYSTEM_PARA)), Some(ChannelState::Open));
-			assert_eq!(state_of(chan(SYSTEM_PARA, PARA_A)), Some(ChannelState::Open));
-
-			// The para itself may do the same, whichever way round the pair is given.
-			assert_ok!(Hrmp::establish_system_channel(
-				para_origin(PARA_B),
-				SYSTEM_PARA,
-				PARA_B,
-			));
-			confirm_system_channel(chan(SYSTEM_PARA, PARA_B), 1);
-			assert_eq!(state_of(chan(SYSTEM_PARA, PARA_B)), Some(ChannelState::Open));
-
-			// Deposit-free at both ends by definition, which is why this can stay open.
-			assert_eq!(held(PARA_A), 0);
-			assert_eq!(held(PARA_B), 0);
-		});
-	}
-
-	#[test]
-	fn anyone_signed_may_pair_two_system_chains() {
-		build_and_execute(|| {
-			// GIVEN an ordinary signed account, which is all the relay chain's
-			// `establish_system_channel` ever asked for.
-			// WHEN it pairs two system chains.
-			assert_ok!(Hrmp::establish_system_channel(
-				RuntimeOrigin::signed(ALICE),
-				SELF_PARA,
-				SYSTEM_PARA,
-			));
-			confirm_system_channel(chan(SELF_PARA, SYSTEM_PARA), 0);
-
-			// THEN both directions open, deposit-free.
-			assert_eq!(state_of(chan(SELF_PARA, SYSTEM_PARA)), Some(ChannelState::Open));
-			assert_eq!(state_of(chan(SYSTEM_PARA, SELF_PARA)), Some(ChannelState::Open));
-			assert_eq!(held(SELF_PARA), 0);
-			assert_eq!(held(SYSTEM_PARA), 0);
-		});
-	}
-
-	#[test]
-	fn nobody_may_use_it_to_pair_a_public_para_they_are_not() {
-		build_and_execute(|| {
-			// A para naming another para as the public end.
-			assert_noop!(
-				Hrmp::establish_system_channel(para_origin(PARA_A), PARA_B, SYSTEM_PARA),
-				Error::<Test>::NotOwner
-			);
-			// Neither end is a system chain: free channels between two public paras would be a
-			// way around the deposit entirely.
-			assert_noop!(
-				Hrmp::establish_system_channel(para_origin(PARA_A), PARA_A, PARA_B),
-				Error::<Test>::NotOwner
-			);
-			// A signed account naming a public para: only that para may ask for itself.
-			assert_noop!(
-				Hrmp::establish_system_channel(RuntimeOrigin::signed(ALICE), PARA_A, SYSTEM_PARA),
-				DispatchError::BadOrigin
-			);
-			assert_eq!(take_sent(), vec![]);
-		});
-	}
-
-	#[test]
-	fn a_requested_pair_is_pending_until_the_relay_chain_confirms() {
-		build_and_execute(|| {
-			// WHEN a deposit-free pair is requested.
-			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
-
-			// THEN the pair is requested but not yet claimed open — the relay chain's answer is
-			// what promotes it. Claiming `Open` on the strength of the request is what once made
-			// every refusal invisible.
-			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Pending));
-			assert_eq!(state_of(chan(PARA_A, SELF_PARA)), Some(ChannelState::Pending));
-			assert_eq!(held(PARA_A), 0);
-			assert_eq!(
-				take_sent(),
-				vec![MessageToRelay::V1(MessageToRelayV1::EstablishSystemChannel {
-					channel: chan(SELF_PARA, PARA_A),
-					message_id: 0,
-				})]
-			);
-
-			// WHEN the relay chain confirms, this chain has a route in both directions at no cost.
-			confirm_system_channel(chan(SELF_PARA, PARA_A), 0);
-			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Open));
-			assert_eq!(state_of(chan(PARA_A, SELF_PARA)), Some(ChannelState::Open));
-			assert_eq!(held(PARA_A), 0);
-			assert_eq!(
-				hrmp_events(),
-				vec![
-					Event::SystemChannelRequested {
-						channel: chan(SELF_PARA, PARA_A),
-						message_id: 0
-					},
-					Event::SystemChannelOpened {
-						channel: chan(SELF_PARA, PARA_A),
-						message_id: 0
-					},
-				]
-			);
-		});
-	}
-
-	#[test]
-	fn a_transport_failure_fails_the_request_and_writes_nothing() {
-		build_and_execute(|| {
-			// GIVEN a transport that refuses everything.
-			SendFails::set(true);
-
-			assert_noop!(
-				Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A),
-				Error::<Test>::SendFailed
-			);
-			assert!(state_of(chan(SELF_PARA, PARA_A)).is_none());
-			assert!(state_of(chan(PARA_A, SELF_PARA)).is_none());
-
-			// And the retry works once the transport is back.
-			SendFails::set(false);
-			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
-			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Pending));
-			confirm_system_channel(chan(SELF_PARA, PARA_A), 0);
-			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Open));
-		});
-	}
-
-	/// A refused pair must stay unconfirmed and say so, because that is the only signal anyone
-	/// gets that a retry is needed — nothing is staked, so there is nothing to release and no
-	/// deadline to expire.
-	#[test]
-	fn a_refused_pair_stays_unconfirmed_and_can_be_retried() {
-		build_and_execute(|| {
-			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
-			let _ = take_sent();
-			let _ = hrmp_events();
-
-			// WHEN the relay chain refuses, because the para has not onboarded yet.
-			assert_ok!(Hrmp::receive(
-				RuntimeOrigin::root(),
-				system_channel_response(
-					chan(SELF_PARA, PARA_A),
-					0,
-					Err(FailureReason::InvalidPara)
-				)
-			));
-
-			// THEN neither direction claims to be open, and the refusal is on the record.
-			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Pending));
-			assert_eq!(state_of(chan(PARA_A, SELF_PARA)), Some(ChannelState::Pending));
-			assert_eq!(
-				hrmp_events(),
-				vec![Event::SystemChannelRefused {
-					channel: chan(SELF_PARA, PARA_A),
-					message_id: 0,
-					reason: FailureReason::InvalidPara,
-				}]
-			);
-
-			// WHEN the para is live and somebody retries.
-			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
-			confirm_system_channel(chan(SELF_PARA, PARA_A), 1);
-
-			// THEN both directions are open.
-			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Open));
-			assert_eq!(state_of(chan(PARA_A, SELF_PARA)), Some(ChannelState::Open));
-		});
-	}
-
-	/// `AlreadyExists` is the relay chain saying the channel is there, which is the outcome that
-	/// was asked for — so it settles the pair open rather than leaving it unconfirmed forever. Same
-	/// reading `on_cancel_response` gives `NotFound`.
-	#[test]
-	fn already_exists_counts_as_confirmation() {
-		build_and_execute(|| {
-			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
-			let _ = take_sent();
-			let _ = hrmp_events();
-
-			assert_ok!(Hrmp::receive(
-				RuntimeOrigin::root(),
-				system_channel_response(
-					chan(SELF_PARA, PARA_A),
-					0,
-					Err(FailureReason::AlreadyExists)
-				)
-			));
-
-			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Open));
-			assert_eq!(state_of(chan(PARA_A, SELF_PARA)), Some(ChannelState::Open));
-		});
-	}
-
-	/// A retry for a pair that is already open must not demote it. Re-establishing is deliberately
-	/// allowed, and an in-flight second request whose answer is refused would otherwise knock a
-	/// working control channel back to unconfirmed.
-	#[test]
-	fn a_redundant_retry_does_not_demote_an_open_pair() {
-		build_and_execute(|| {
-			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
-			confirm_system_channel(chan(SELF_PARA, PARA_A), 0);
-			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Open));
-
-			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
-			assert_eq!(state_of(chan(SELF_PARA, PARA_A)), Some(ChannelState::Open));
-			assert_eq!(state_of(chan(PARA_A, SELF_PARA)), Some(ChannelState::Open));
-		});
-	}
-}
-
-mod force_remove_channel {
-	use super::*;
-
-	#[test]
-	fn root_can_only_tear_down_a_verdict_that_is_actually_overdue() {
-		build_and_execute(|| {
-			// GIVEN a request in flight, whose verdict is not due yet.
-			assert_ok!(Hrmp::open_channel(
-				para_origin(PARA_A),
-				PARA_A,
-				PARA_B,
-				MAX_CAPACITY,
-				MAX_MESSAGE_SIZE
-			));
-			let channel = chan(PARA_A, PARA_B);
-
-			assert_noop!(
-				Hrmp::force_remove_channel(RuntimeOrigin::root(), PARA_A, PARA_B),
-				Error::<Test>::NotOverdue
-			);
-			assert_noop!(
-				Hrmp::force_remove_channel(RuntimeOrigin::signed(ALICE), PARA_A, PARA_B),
-				DispatchError::BadOrigin
-			);
-
-			// WHEN the deadline has passed.
-			run_to_block(1 + PENDING_DEADLINE);
-
-			// THEN governance can forget the channel and the deposit comes back.
-			assert_ok!(Hrmp::force_remove_channel(RuntimeOrigin::root(), PARA_A, PARA_B));
-			assert!(state_of(channel).is_none());
-			assert_eq!(held(PARA_A), 0);
-			assert_eq!(
-				hrmp_events(),
-				vec![
-					Event::OpenRequested { channel, message_id: 0 },
-					Event::ChannelForceRemoved { channel },
-				]
-			);
-		});
-	}
-
-	#[test]
-	fn a_settled_channel_needs_no_deadline_and_releases_both_ends() {
-		build_and_execute(|| {
-			// Nothing is in flight for an open channel, so there is no verdict to be overdue.
-			let channel = open_channel(PARA_A, PARA_B);
-
-			assert_ok!(Hrmp::force_remove_channel(RuntimeOrigin::root(), PARA_A, PARA_B));
-
-			assert!(state_of(channel).is_none());
-			assert_eq!(held(PARA_A), 0);
-			assert_eq!(held(PARA_B), 0);
-		});
-	}
-}
-
-mod state_machine {
-	use super::*;
-
-	/// The six states a channel can be in, each with a way to reach it from nothing.
-	///
-	/// Written out rather than derived, so a new state cannot be added without deciding what every
-	/// call does from it.
-	pub(super) fn reach(state: &str, sender: ParaId, recipient: ParaId) -> ChannelId {
-		let channel = chan(sender, recipient);
-		let open = || {
-			assert_ok!(Hrmp::open_channel(
-				para_origin(sender),
-				sender,
-				recipient,
-				MAX_CAPACITY,
-				MAX_MESSAGE_SIZE
-			));
+#[test]
+fn a_migrated_deposit_the_payer_cannot_cover_at_all_records_nothing() {
+	new_test_ext().execute_with(|| {
+		let broke = DepositKey {
+			channel: hrmp_primitives::ChannelId { sender: 2_999, recipient: PARA_A },
+			side: hrmp_primitives::DepositSide::Sender,
 		};
-		let confirm_open = || {
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), open_response(channel, Ok(()))));
-		};
-		match state {
-			"Opening" => open(),
-			"Pending" => {
-				open();
-				confirm_open();
-			},
-			"Accepting" => {
-				open();
-				confirm_open();
-				assert_ok!(Hrmp::accept_open_channel(para_origin(recipient), sender, recipient));
-			},
-			"Open" => {
-				open();
-				confirm_open();
-				assert_ok!(Hrmp::accept_open_channel(para_origin(recipient), sender, recipient));
-				assert_ok!(Hrmp::receive(
-					RuntimeOrigin::root(),
-					accept_response(channel, Ok(()))
-				));
-			},
-			"Closing" => {
-				open();
-				confirm_open();
-				assert_ok!(Hrmp::accept_open_channel(para_origin(recipient), sender, recipient));
-				assert_ok!(Hrmp::receive(
-					RuntimeOrigin::root(),
-					accept_response(channel, Ok(()))
-				));
-				assert_ok!(Hrmp::close_channel(para_origin(sender), sender, recipient, sender));
-			},
-			"Cancelling" => {
-				open();
-				confirm_open();
-				assert_ok!(Hrmp::cancel_open_request(para_origin(sender), sender, recipient));
-			},
-			other => panic!("unknown state {other}"),
-		}
-		let _ = take_sent();
-		let _ = hrmp_events();
-		channel
-	}
 
-	/// Every call, from every state, with the answer written down.
-	///
-	/// `None` means the call should succeed. A pallet whose state machine is only described by
-	/// scattered `ensure!`s is one where a missing arm is invisible; this makes the whole table
-	/// visible at once.
-	const MATRIX: &[(&str, Option<&str>, Option<&str>, Option<&str>, Option<&str>)] = &[
-		//  state          open              accept            close             cancel
-		("Opening", Some("AlreadyExists"), Some("WrongState"), Some("WrongState"), Some("WrongState")),
-		("Pending", Some("AlreadyExists"), None, Some("WrongState"), None),
-		("Accepting", Some("AlreadyExists"), Some("WrongState"), Some("WrongState"), Some("WrongState")),
-		("Open", Some("AlreadyExists"), Some("WrongState"), None, Some("WrongState")),
-		("Closing", Some("AlreadyExists"), Some("WrongState"), Some("WrongState"), Some("WrongState")),
-		("Cancelling", Some("AlreadyExists"), Some("WrongState"), Some("WrongState"), Some("WrongState")),
-	];
+		assert_ok!(HrmpPara::receive_deposit(broke, 100));
 
-	fn err_name(e: DispatchError) -> String {
-		match e {
-			DispatchError::Module(m) => m.message.unwrap_or("?").to_string(),
-			other => format!("{other:?}"),
-		}
-	}
-
-	fn check(expected: Option<&str>, got: DispatchResult, what: &str, state: &str) {
-		match (expected, got) {
-			(None, Ok(())) => {},
-			(Some(want), Err(e)) => {
-				assert_eq!(err_name(e), want, "{what} from {state}");
-			},
-			(None, Err(e)) => panic!("{what} from {state}: expected Ok, got {}", err_name(e)),
-			(Some(want), Ok(())) => panic!("{what} from {state}: expected {want}, got Ok"),
-		}
-	}
-
-	#[test]
-	fn every_call_from_every_state_does_what_the_table_says() {
-		for (state, open, accept, close, cancel) in MATRIX {
-			// One fresh chain per state per call, so nothing a successful call does leaks into
-			// the next row.
-			build_and_execute(|| {
-				reach(state, PARA_A, PARA_B);
-				check(
-					*open,
-					Hrmp::open_channel(
-						para_origin(PARA_A),
-						PARA_A,
-						PARA_B,
-						MAX_CAPACITY,
-						MAX_MESSAGE_SIZE,
-					),
-					"open_channel",
-					state,
-				);
-			});
-			build_and_execute(|| {
-				reach(state, PARA_A, PARA_B);
-				check(
-					*accept,
-					Hrmp::accept_open_channel(para_origin(PARA_B), PARA_A, PARA_B),
-					"accept_open_channel",
-					state,
-				);
-			});
-			build_and_execute(|| {
-				reach(state, PARA_A, PARA_B);
-				check(
-					*close,
-					Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B, PARA_A),
-					"close_channel",
-					state,
-				);
-			});
-			build_and_execute(|| {
-				reach(state, PARA_A, PARA_B);
-				check(
-					*cancel,
-					Hrmp::cancel_open_request(para_origin(PARA_A), PARA_A, PARA_B),
-					"cancel_open_request",
-					state,
-				);
-			});
-		}
-	}
-
-	#[test]
-	fn nothing_can_be_done_to_a_channel_this_chain_has_never_heard_of() {
-		build_and_execute(|| {
-			for (what, result) in [
-				("accept", Hrmp::accept_open_channel(para_origin(PARA_B), PARA_A, PARA_B)),
-				("close", Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B, PARA_A)),
-				("cancel", Hrmp::cancel_open_request(para_origin(PARA_A), PARA_A, PARA_B)),
-				("force_remove", Hrmp::force_remove_channel(RuntimeOrigin::root(), PARA_A, PARA_B)),
-			] {
-				assert_eq!(
-					result,
-					Err(Error::<Test>::NoSuchChannel.into()),
-					"{what} on an unknown channel"
-				);
-			}
-		});
-	}
-
-	#[test]
-	fn the_two_directions_are_separate_channels() {
-		build_and_execute(|| {
-			// GIVEN A -> B open.
-			let forward = open_channel(PARA_A, PARA_B);
-
-			// THEN B -> A does not exist, and opening it is a fresh request with its own deposit.
-			assert!(state_of(chan(PARA_B, PARA_A)).is_none());
-			assert_ok!(Hrmp::open_channel(
-				para_origin(PARA_B),
-				PARA_B,
-				PARA_A,
-				MAX_CAPACITY,
-				MAX_MESSAGE_SIZE
-			));
-
-			// Each para now holds two deposits: one as sender, one as recipient.
-			assert_eq!(held(PARA_A), CHANNEL_DEPOSIT);
-			assert_eq!(held(PARA_B), 2 * CHANNEL_DEPOSIT);
-			assert_eq!(state_of(forward), Some(ChannelState::Open));
-			assert!(matches!(
-				state_of(chan(PARA_B, PARA_A)),
-				Some(ChannelState::Opening { .. })
-			));
-		});
-	}
-
-	#[test]
-	fn one_channel_settling_does_not_disturb_another() {
-		build_and_execute(|| {
-			// GIVEN two unrelated channels from the same sender.
-			let first = open_channel(PARA_A, PARA_B);
-			let second = pending_channel(PARA_A, PARA_C);
-			assert_eq!(held(PARA_A), 2 * CHANNEL_DEPOSIT);
-
-			// WHEN the second is cancelled and confirmed.
-			assert_ok!(Hrmp::cancel_open_request(para_origin(PARA_A), PARA_A, PARA_C));
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), cancel_response(second, Ok(()))));
-
-			// THEN only its deposit came back, and the first is untouched.
-			assert!(state_of(second).is_none());
-			assert_eq!(state_of(first), Some(ChannelState::Open));
-			assert_eq!(held(PARA_A), CHANNEL_DEPOSIT);
-			assert_eq!(held(PARA_B), CHANNEL_DEPOSIT);
-		});
-	}
+		assert_eq!(Deposits::<Test>::get(broke), None);
+		assert_eq!(events(), vec![Event::DepositMigrated { key: broke, held: 0, missing: 100 }]);
+		assert_ok!(HrmpPara::do_try_state());
+	});
 }
 
-mod message_ids {
-	use super::*;
+#[test]
+fn try_state_catches_a_record_that_disagrees_with_the_hold() {
+	new_test_ext().execute_with(|| {
+		// GIVEN a valid deposit.
+		assert_ok!(HrmpPara::receive(relay(), hold(sender_key(), 100)));
 
-	/// A response settles a request only if it echoes the id stored in the in-flight state, so a
-	/// duplicate delivery — or an answer meant for an earlier occupant of the same channel id —
-	/// cannot settle a later request. See `open.md` B16.
-	#[test]
-	fn a_stale_answer_cannot_settle_a_later_request() {
-		build_and_execute(|| {
-			// GIVEN a channel whose first occupancy was opened (message 0) and cancelled
-			// (message 1), and a second occupancy now awaiting its open verdict (message 2).
-			let channel = pending_channel(PARA_A, PARA_B);
-			assert_ok!(Hrmp::cancel_open_request(para_origin(PARA_A), PARA_A, PARA_B));
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), cancel_response(channel, Ok(()))));
-			assert_eq!(state_of(channel), None);
-			assert_ok!(Hrmp::open_channel(
-				para_origin(PARA_A),
-				PARA_A,
-				PARA_B,
-				MAX_CAPACITY,
-				MAX_MESSAGE_SIZE
-			));
-			let _ = take_sent();
-			let _ = hrmp_events();
+		// WHEN its record is corrupted
+		Deposits::<Test>::insert(sender_key(), 90);
+		// THEN try-state notices.
+		assert!(HrmpPara::do_try_state().is_err());
 
-			// WHEN the first occupancy's open verdict arrives again — same channel id, same
-			// state, stale message id.
-			assert_ok!(Hrmp::receive(
-				RuntimeOrigin::root(),
-				MessageToPara::V1(MessageToParaV1::OpenResponse {
-					channel,
-					message_id: 0,
-					outcome: Ok(()),
-				}),
-			));
-
-			// THEN it is dropped: the new request is still awaiting its own verdict.
-			assert!(matches!(state_of(channel), Some(ChannelState::Opening { .. })));
-			assert!(hrmp_events().is_empty());
-
-			// AND the genuine verdict still settles it.
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), open_response(channel, Ok(()))));
-			assert_eq!(state_of(channel), Some(ChannelState::Pending));
-		});
-	}
-
-	#[test]
-	fn every_request_carries_the_next_id_and_the_counter_never_repeats() {
-		build_and_execute(|| {
-			assert_ok!(Hrmp::open_channel(
-				para_origin(PARA_A),
-				PARA_A,
-				PARA_B,
-				MAX_CAPACITY,
-				MAX_MESSAGE_SIZE
-			));
-			assert_ok!(Hrmp::open_channel(
-				para_origin(PARA_A),
-				PARA_A,
-				PARA_C,
-				MAX_CAPACITY,
-				MAX_MESSAGE_SIZE
-			));
-
-			let ids: Vec<u64> = take_sent()
-				.into_iter()
-				.map(|m| match m {
-					MessageToRelay::V1(MessageToRelayV1::InitOpenChannel { message_id, .. }) =>
-						message_id,
-					other => panic!("unexpected message {other:?}"),
-				})
-				.collect();
-
-			// Ids are what tie a request, its answer, and the two chains' events together, so
-			// they must not repeat across channels.
-			assert_eq!(ids, vec![0, 1]);
-			assert_eq!(crate::NextMessageId::<Test>::get(), 2);
-		});
-	}
-
-	#[test]
-	fn a_failed_send_does_not_spend_an_id() {
-		build_and_execute(|| {
-			SendFails::set(true);
-			assert_noop!(
-				Hrmp::open_channel(
-					para_origin(PARA_A),
-					PARA_A,
-					PARA_B,
-					MAX_CAPACITY,
-					MAX_MESSAGE_SIZE
-				),
-				Error::<Test>::SendFailed
-			);
-
-			// The id was taken inside the call and unwound with it, so the next request still
-			// gets 0 and no id is silently skipped.
-			assert_eq!(crate::NextMessageId::<Test>::get(), 0);
-			SendFails::set(false);
-			assert_ok!(Hrmp::open_channel(
-				para_origin(PARA_A),
-				PARA_A,
-				PARA_B,
-				MAX_CAPACITY,
-				MAX_MESSAGE_SIZE
-			));
-			assert_eq!(crate::NextMessageId::<Test>::get(), 1);
-		});
-	}
+		// Restore.
+		Deposits::<Test>::insert(sender_key(), 100);
+		assert_ok!(HrmpPara::do_try_state());
+	});
 }
 
-mod deposits {
-	use super::*;
+#[test]
+fn a_partial_release_keeps_the_rest_held() {
+	new_test_ext().execute_with(|| {
+		// GIVEN a deposit of 100.
+		assert_ok!(HrmpPara::receive(relay(), hold(sender_key(), 100)));
+		let _ = events();
 
-	#[test]
-	fn a_deposit_is_taken_from_and_returned_to_the_sovereign_account() {
-		build_and_execute(|| {
-			// GIVEN a para's sovereign account, which is not the account its origin arrives from.
-			let sovereign = SovereignOf::convert(PARA_A);
-			let sovereign_before = Balances::free_balance(sovereign);
+		// WHEN 30 of it is released
+		assert_ok!(HrmpPara::receive(relay(), release_part(sender_key(), 30)));
 
-			// WHEN the para opens a channel and then cancels it.
-			let channel = pending_channel(PARA_A, PARA_B);
-			assert_eq!(
-				Balances::free_balance(sovereign),
-				sovereign_before - CHANNEL_DEPOSIT,
-				"deposit did not come off the sovereign account"
-			);
+		// THEN 70 stays held.
+		assert_eq!(Deposits::<Test>::get(sender_key()), Some(70));
+		assert_eq!(on_hold(PARA_A), 70);
+		assert_eq!(events(), vec![Event::DepositReleased { key: sender_key(), amount: 30 }]);
 
-			assert_ok!(Hrmp::cancel_open_request(para_origin(PARA_A), PARA_A, PARA_B));
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), cancel_response(channel, Ok(()))));
-
-			// THEN the money is back where it came from. This is what makes a migrated channel
-			// and a fresh one indistinguishable.
-			assert_eq!(Balances::free_balance(sovereign), sovereign_before);
-		});
-	}
-
-	#[test]
-	fn each_end_pays_its_own_half_from_its_own_account() {
-		build_and_execute(|| {
-			let channel = open_channel(PARA_A, PARA_B);
-
-			assert_eq!(held(PARA_A), CHANNEL_DEPOSIT);
-			assert_eq!(held(PARA_B), CHANNEL_DEPOSIT);
-
-			assert_ok!(Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_B, PARA_A));
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), close_response(channel, Ok(()))));
-
-			// A close returns both halves, each to the end that paid it.
-			assert_eq!(held(PARA_A), 0);
-			assert_eq!(held(PARA_B), 0);
-		});
-	}
-
-	#[test]
-	fn a_para_that_cannot_pay_cannot_open_a_channel() {
-		build_and_execute(|| {
-			// GIVEN a sovereign account with nothing in it. PARA_C is funded at genesis, so drain
-			// it rather than picking an unfunded id, to prove it is the balance that matters.
-			let sovereign = SovereignOf::convert(PARA_C);
-			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), sovereign, 1));
-
-			assert_noop!(
-				Hrmp::open_channel(
-					para_origin(PARA_C),
-					PARA_C,
-					PARA_A,
-					MAX_CAPACITY,
-					MAX_MESSAGE_SIZE
-				),
-				sp_runtime::DispatchError::Token(sp_runtime::TokenError::FundsUnavailable)
-			);
-			// Nothing half-done.
-			assert!(state_of(chan(PARA_C, PARA_A)).is_none());
-			assert_eq!(take_sent(), vec![]);
-		});
-	}
+		// AND releasing more than is held releases what is left.
+		assert_ok!(HrmpPara::receive(relay(), release_part(sender_key(), 500)));
+		assert_eq!(Deposits::<Test>::get(sender_key()), None);
+		assert_eq!(on_hold(PARA_A), 0);
+		assert_eq!(events(), vec![Event::DepositReleased { key: sender_key(), amount: 70 }]);
+		assert_ok!(HrmpPara::do_try_state());
+	});
 }
 
-mod invariants {
-	use super::*;
+#[test]
+fn users_ask_the_relay_chain_for_its_signed_hrmp_calls() {
+	new_test_ext().execute_with(|| {
+		let system = hrmp_primitives::ChannelId { sender: 1_000, recipient: 1_001 };
 
-	/// Move `channel`'s record to `key`, mutated by `f`, and put everything back afterwards.
-	///
-	/// Corruption is done by relocating a real record rather than by building a ticket by hand,
-	/// because `Consideration` tickets cannot be conjured — which is the point of them.
-	fn with_corrupted(
-		channel: ChannelId,
-		key: ChannelId,
-		f: impl FnOnce(&mut crate::ChannelInfoOf<Test>),
-	) {
-		let original = Channels::<Test>::take(channel).expect("channel exists");
-		let mut corrupted = original.clone();
-		f(&mut corrupted);
-		Channels::<Test>::insert(key, corrupted);
+		// Signed only.
+		assert_noop!(
+			HrmpPara::poke_channel_deposits(RuntimeOrigin::root(), PARA_A, PARA_B),
+			DispatchError::BadOrigin
+		);
 
-		assert_try_state_invalid();
+		assert_ok!(HrmpPara::poke_channel_deposits(RuntimeOrigin::signed(ALICE), PARA_A, PARA_B));
+		assert_ok!(HrmpPara::establish_system_channel(RuntimeOrigin::signed(ALICE), 1_000, 1_001));
 
-		Channels::<Test>::remove(key);
-		Channels::<Test>::insert(channel, original);
-		assert_try_state_ok();
-	}
+		assert_eq!(
+			Sent::get(),
+			vec![
+				MessageToRelay::V1(MessageToRelayV1::PokeChannelDeposits { channel: CHANNEL }),
+				MessageToRelay::V1(MessageToRelayV1::EstablishSystemChannel { channel: system }),
+			]
+		);
+		assert_eq!(
+			events(),
+			vec![
+				Event::PokeRequested { channel: CHANNEL },
+				Event::SystemChannelRequested { channel: system },
+			]
+		);
 
-	#[test]
-	fn a_channel_past_acceptance_must_hold_both_deposits() {
-		build_and_execute(|| {
-			// GIVEN a channel holding only the sender's half, which is correct for `Opening`.
-			let channel = chan(PARA_A, PARA_B);
-			assert_ok!(Hrmp::open_channel(
-				para_origin(PARA_A),
-				PARA_A,
-				PARA_B,
-				MAX_CAPACITY,
-				MAX_MESSAGE_SIZE
-			));
-
-			// WHEN it claims to be Open without the recipient ever having paid.
-			with_corrupted(channel, channel, |info| info.state = ChannelState::Open);
-		});
-	}
-
-	#[test]
-	fn a_channel_before_acceptance_must_not_hold_the_recipients_deposit() {
-		build_and_execute(|| {
-			// GIVEN a fully open channel, holding both halves.
-			let channel = open_channel(PARA_A, PARA_B);
-
-			// WHEN it claims to be back at Pending while still holding the recipient's half. A
-			// refused acceptance is supposed to return that money; this is what it looks like if
-			// it ever stopped doing so.
-			with_corrupted(channel, channel, |info| info.state = ChannelState::Pending);
-		});
-	}
-
-	#[test]
-	fn a_system_channel_must_not_hold_a_deposit_at_all() {
-		build_and_execute(|| {
-			// GIVEN a paid-for channel between two public paras.
-			let channel = chan(PARA_A, PARA_B);
-			assert_ok!(Hrmp::open_channel(
-				para_origin(PARA_A),
-				PARA_A,
-				PARA_B,
-				MAX_CAPACITY,
-				MAX_MESSAGE_SIZE
-			));
-
-			// WHEN the same record turns up under a system-chain key. System channels are free at
-			// both ends, so money held against one is money held against nothing.
-			with_corrupted(channel, chan(PARA_A, SYSTEM_PARA), |_| {});
-		});
-	}
-
-	#[test]
-	fn a_channel_cannot_have_the_same_para_at_both_ends() {
-		build_and_execute(|| {
-			let channel = chan(PARA_A, PARA_B);
-			assert_ok!(Hrmp::open_channel(
-				para_origin(PARA_A),
-				PARA_A,
-				PARA_B,
-				MAX_CAPACITY,
-				MAX_MESSAGE_SIZE
-			));
-
-			with_corrupted(channel, chan(PARA_A, PARA_A), |_| {});
-		});
-	}
+		// A request that cannot be sent fails.
+		SendFails::set(true);
+		assert_noop!(
+			HrmpPara::poke_channel_deposits(RuntimeOrigin::signed(ALICE), PARA_A, PARA_B),
+			Error::<Test>::SendFailed
+		);
+	});
 }
 
-mod force_remove_from_every_state {
-	use super::*;
+#[test]
+fn root_can_answer_a_hold_whose_answer_never_arrived() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			HrmpPara::force_answer(RuntimeOrigin::signed(ALICE), sender_key(), true),
+			DispatchError::BadOrigin
+		);
 
-	/// Governance must be able to unstick a channel from any state it can be in, releasing
-	/// whatever is held. Anything this cannot reach is money nobody can ever get back.
-	#[test]
-	fn every_state_can_be_torn_down_and_gives_the_deposits_back() {
-		for (state, sender_held, recipient_held) in [
-			("Opening", CHANNEL_DEPOSIT, 0),
-			("Pending", CHANNEL_DEPOSIT, 0),
-			("Accepting", CHANNEL_DEPOSIT, CHANNEL_DEPOSIT),
-			("Open", CHANNEL_DEPOSIT, CHANNEL_DEPOSIT),
-			("Closing", CHANNEL_DEPOSIT, CHANNEL_DEPOSIT),
-			("Cancelling", CHANNEL_DEPOSIT, 0),
-		] {
-			build_and_execute(|| {
-				let channel = state_machine::reach(state, PARA_A, PARA_B);
-				assert_eq!(held(PARA_A), sender_held, "sender hold in {state}");
-				assert_eq!(held(PARA_B), recipient_held, "recipient hold in {state}");
+		assert_ok!(HrmpPara::force_answer(RuntimeOrigin::root(), sender_key(), false));
 
-				// In-flight states refuse until the verdict is genuinely overdue, so a slow
-				// answer cannot be torn down from under the relay chain.
-				run_to_block(System::block_number() + PENDING_DEADLINE);
-
-				assert_ok!(Hrmp::force_remove_channel(RuntimeOrigin::root(), PARA_A, PARA_B));
-
-				assert!(state_of(channel).is_none(), "record survived in {state}");
-				assert_eq!(held(PARA_A), 0, "sender still held after {state}");
-				assert_eq!(held(PARA_B), 0, "recipient still held after {state}");
-			});
-		}
-	}
-
-	#[test]
-	fn a_system_channel_can_be_torn_down_too() {
-		build_and_execute(|| {
-			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
-			confirm_system_channel(chan(SELF_PARA, PARA_A), 0);
-
-			// Nothing is in flight for an Open channel, so no deadline applies.
-			assert_ok!(Hrmp::force_remove_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
-
-			assert!(state_of(chan(SELF_PARA, PARA_A)).is_none());
-			// The other direction is a separate record and is left alone.
-			assert_eq!(state_of(chan(PARA_A, SELF_PARA)), Some(ChannelState::Open));
-		});
-	}
-}
-
-mod receiving_a_migration {
-	use super::*;
-	use hrmp_primitives::{MigratedChannel, ReceiveMigratedChannels};
-
-	#[test]
-	fn a_confirmed_channel_arrives_open_holding_both_deposits() {
-		build_and_execute(|| {
-			// GIVEN a channel opened here the ordinary way, for comparison.
-			let native = open_channel(PARA_A, PARA_B);
-			let native_info = Channels::<Test>::get(native).unwrap();
-
-			// WHEN the equivalent arrives from a migration.
-			assert_ok!(Hrmp::receive_channel(MigratedChannel {
-				channel: chan(PARA_B, PARA_C),
-				confirmed: true,
-			}));
-
-			// THEN it is in the same state and holds the same deposits. Nothing downstream can
-			// tell the two apart, which is the point.
-			let arrived = Channels::<Test>::get(chan(PARA_B, PARA_C)).unwrap();
-			assert_eq!(arrived.state, native_info.state);
-			assert!(arrived.sender_ticket.is_some() && arrived.recipient_ticket.is_some());
-			assert_eq!(held(PARA_C), CHANNEL_DEPOSIT);
-			assert_eq!(held(PARA_B), 2 * CHANNEL_DEPOSIT);
-		});
-	}
-
-	#[test]
-	fn an_unconfirmed_request_arrives_pending_holding_only_the_senders_deposit() {
-		build_and_execute(|| {
-			// The relay chain has the request but the recipient never accepted, so only the
-			// sender is owed. Getting this wrong would hold a deposit nobody paid.
-			assert_ok!(Hrmp::receive_channel(MigratedChannel {
-				channel: chan(PARA_A, PARA_B),
-				confirmed: false,
-			}));
-
-			assert_eq!(state_of(chan(PARA_A, PARA_B)), Some(ChannelState::Pending));
-			assert_eq!(held(PARA_A), CHANNEL_DEPOSIT);
-			assert_eq!(held(PARA_B), 0);
-
-			// And it carries on from there like any other pending request.
-			assert_ok!(Hrmp::accept_open_channel(para_origin(PARA_B), PARA_A, PARA_B));
-			assert_eq!(held(PARA_B), CHANNEL_DEPOSIT);
-		});
-	}
-
-	#[test]
-	fn a_channel_already_established_as_a_system_channel_is_dropped_not_duplicated() {
-		build_and_execute(|| {
-			// GIVEN a system-channel pair this chain already holds open. The migration then hands
-			// over the same channel from the relay chain's records, so it arrives twice.
-			assert_ok!(Hrmp::establish_system_channel(RuntimeOrigin::root(), SELF_PARA, PARA_A));
-			let out = chan(SELF_PARA, PARA_A);
-			let back = chan(PARA_A, SELF_PARA);
-			confirm_system_channel(out, 0);
-			assert_eq!(state_of(out), Some(ChannelState::Open));
-			let _ = take_sent();
-			let _ = hrmp_events();
-
-			// WHEN the migration hands the same channel over
-			assert_ok!(Hrmp::receive_channel(MigratedChannel { channel: out, confirmed: true }));
-
-			// THEN the established record stands and nothing is charged. The two describe the
-			// same thing — a system channel takes no deposit at either end.
-			assert_eq!(state_of(out), Some(ChannelState::Open));
-			assert_eq!(state_of(back), Some(ChannelState::Open));
-			assert_eq!(held(PARA_A), 0);
-			assert_eq!(held(SELF_PARA), 0);
-			assert_eq!(
-				hrmp_events(),
-				vec![Event::MigratedSystemChannelAlreadyOpen { channel: out }]
-			);
-
-			// An unconfirmed request for the same pair is superseded too: the relay chain has
-			// already been told to open it outright, so `Pending` would be a lie.
-			assert_ok!(Hrmp::receive_channel(MigratedChannel { channel: back, confirmed: false }));
-			assert_eq!(state_of(back), Some(ChannelState::Open));
-		});
-	}
-
-	#[test]
-	fn a_collision_that_is_not_a_system_channel_is_still_an_error() {
-		build_and_execute(|| {
-			// The tolerance above is scoped to system channels precisely because they hold no
-			// deposit. A migrated record landing on a deposit-carrying channel would silently
-			// strand that deposit, so it must still fail.
-			let existing = open_channel(PARA_A, PARA_B);
-			assert_noop!(
-				Hrmp::receive_channel(MigratedChannel { channel: existing, confirmed: true }),
-				Error::<Test>::AlreadyExists
-			);
-		});
-	}
-
-	#[test]
-	fn a_migrated_system_channel_holds_nothing() {
-		build_and_execute(|| {
-			assert_ok!(Hrmp::receive_channel(MigratedChannel {
-				channel: chan(SYSTEM_PARA, PARA_A),
-				confirmed: true,
-			}));
-
-			assert_eq!(state_of(chan(SYSTEM_PARA, PARA_A)), Some(ChannelState::Open));
-			assert_eq!(held(PARA_A), 0);
-			assert_eq!(held(SYSTEM_PARA), 0);
-		});
-	}
-
-	#[test]
-	fn a_channel_this_chain_already_knows_is_refused_rather_than_overwritten() {
-		build_and_execute(|| {
-			let channel = open_channel(PARA_A, PARA_B);
-			let before_a = held(PARA_A);
-
-			assert_noop!(
-				Hrmp::receive_channel(MigratedChannel { channel, confirmed: true }),
-				Error::<Test>::AlreadyExists
-			);
-			// Overwriting would drop the existing tickets and strand both deposits.
-			assert_eq!(held(PARA_A), before_a);
-		});
-	}
-
-	#[test]
-	fn a_sovereign_account_that_cannot_pay_still_gets_the_channel() {
-		build_and_execute(|| {
-			// GIVEN a recipient whose migrated balance does not cover this chain's price.
-			let recipient = SovereignOf::convert(PARA_C);
-			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), recipient, 1));
-			let _ = hrmp_events();
-			let channel = chan(PARA_A, PARA_C);
-
-			// WHEN the channel arrives confirmed.
-			assert_ok!(Hrmp::receive_channel(MigratedChannel { channel, confirmed: true }));
-
-			// THEN it stands open with only the sender's end paid, and the unpaid end is on record.
-			let info = Channels::<Test>::get(channel).unwrap();
-			assert_eq!(info.state, ChannelState::Open);
-			assert!(info.sender_ticket.is_some());
-			assert!(info.recipient_ticket.is_none());
-			assert_eq!(held(PARA_A), CHANNEL_DEPOSIT);
-			assert_eq!(held(PARA_C), 0);
-			assert_eq!(UnpaidMigratedDeposits::<Test>::get(channel), (false, true));
-			assert_eq!(
-				hrmp_events(),
-				vec![Event::MigratedWithUnpaidDeposit { channel, para_id: PARA_C }]
-			);
-
-			// AND closing it later releases only what was taken, and clears the record.
-			assert_ok!(Hrmp::close_channel(para_origin(PARA_A), PARA_A, PARA_C, PARA_A));
-			assert_ok!(Hrmp::receive(RuntimeOrigin::root(), close_response(channel, Ok(()))));
-			assert_eq!(held(PARA_A), 0);
-			assert_eq!(held(PARA_C), 0);
-			assert!(state_of(channel).is_none());
-			assert!(!UnpaidMigratedDeposits::<Test>::contains_key(channel));
-		});
-	}
+		assert_eq!(Sent::get(), vec![answer(sender_key(), false)]);
+		assert_eq!(events(), vec![Event::AnswerForced { key: sender_key(), held: false }]);
+	});
 }

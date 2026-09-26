@@ -15,36 +15,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # HRMP control-plane pallet (relay-chain side)
+//! # HRMP pallet (relay-chain side)
 //!
-//! The relay chain's half of HRMP channel management. It takes requests from a trusted system
-//! parachain, applies them to the relay chain's own HRMP registry through
-//! [`hrmp_primitives::HrmpRegistry`], and reports what happened.
+//! Serves a parachain's own HRMP requests on the relay chain, and carries HRMP deposits to and from
+//! the parachain that holds them.
 //!
-//! ## No deposits here
-//!
-//! Every request is applied deposit-free. The parachain holds the money now, so reserving here
-//! would charge a para twice — and would try to draw on a sovereign account the migration has
-//! emptied. The relay chain's protection is no longer economic: it is that only a trusted origin
-//! can drive this pallet.
-//!
-//! ## Refusals are reported, not returned
-//!
-//! A request this pallet will not act on is *not* an extrinsic failure. Failing would roll the
-//! rejection report back along with everything else, and the parachain would sit on a held deposit
-//! waiting for news that never comes. So a rejection is applied, reported, and returns `Ok`.
-//!
-//! The one exception is [`Pallet::establish_system_channel`], which holds no deposit anywhere and
-//! so reports its outcome as a local event rather than spending a round trip on it.
+//! - [`Call::relay_request`] takes a [`ParaRequest`] from a parachain and dispatches it into the
+//!   relay chain's HRMP as that para, through [`Config::Hrmp`].
+//! - [`Pallet::hold`] asks the deposit-holding parachain to hold a deposit, and [`Call::receive`]
+//!   takes its answer to [`Config::OnDepositHeld`].
+//! - [`Call::receive`] also serves the calls users make on the deposit-holding parachain:
+//!   `poke_channel_deposits` and `establish_system_channel`.
+//! - [`Pallet::release`] queues a release. Queued releases are sent before the next hold and at the
+//!   start of every block, so the parachain receives holds and releases in the order they were
+//!   made.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
 
+use alloc::vec::Vec;
 use frame_support::traits::EnsureOrigin;
 use hrmp_primitives::{
-	ChannelId, FailureReason, HrmpRegistry, MessageToPara, MessageToParaV1, MessageToRelay,
-	MessageToRelayV1, Outcome,
+	Balance, DepositKey, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
+	OnDepositHeld, ParaId, ParaRequest, ParaRequestV1, RelayHrmp,
 };
 
 pub use pallet::*;
@@ -59,13 +53,11 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-/// Used to send an XCM `Transact` back to the HRMP pallet on the parachain.
+/// Used to send an XCM `Transact` to the HRMP pallet on the deposit-holding parachain.
 pub trait SendToPara {
 	/// Send `message` to the parachain.
 	///
-	/// `Err(())` means the message could not be handed to the transport. Callers here do *not*
-	/// fail: this chain's own state is already correct, and unwinding it because a report could
-	/// not be sent would be strictly worse than the two chains being out of step.
+	/// `Err(())` means the message could not be handed to the transport.
 	#[allow(clippy::result_unit_err)]
 	fn send(message: MessageToPara) -> Result<(), ()>;
 }
@@ -74,6 +66,18 @@ pub trait SendToPara {
 impl SendToPara for () {
 	fn send(_message: MessageToPara) -> Result<(), ()> {
 		Ok(())
+	}
+}
+
+/// Decides whether a parachain's request is served.
+pub trait AdmitRequest {
+	/// Whether to serve a request from `para` now. May record that it was served.
+	fn admit(para: ParaId) -> bool;
+}
+
+impl AdmitRequest for () {
+	fn admit(_: ParaId) -> bool {
+		true
 	}
 }
 
@@ -89,14 +93,23 @@ pub mod pallet {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// A trusted parachain authorized to drive HRMP channel management.
+		/// The parachain that holds the deposits.
 		type ParaOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// Sends reports to the parachain.
+		/// Any parachain acting as itself.
+		type ParachainOrigin: EnsureOrigin<Self::RuntimeOrigin, Success: Into<ParaId>>;
+
+		/// Sends messages to the parachain that holds the deposits.
 		type SendToPara: SendToPara;
 
-		/// The relay chain's HRMP channel registry.
-		type Registry: HrmpRegistry;
+		/// The relay chain's HRMP.
+		type Hrmp: RelayHrmp;
+
+		/// Receives the answer to a hold.
+		type OnDepositHeld: OnDepositHeld;
+
+		/// Decides whether a parachain's request is served.
+		type AdmitRequest: AdmitRequest;
 
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -105,205 +118,138 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
+	/// Releases not yet sent, oldest first: the deposit, and how much of it (`None` for all).
+	#[pallet::storage]
+	#[pallet::unbounded]
+	pub type PendingReleases<T: Config> =
+		StorageValue<_, Vec<(DepositKey, Option<Balance>)>, ValueQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// An open-channel request was recorded.
-		OpenRequested { channel: ChannelId, message_id: u64 },
-		/// An open-channel request was refused.
-		OpenRejected { channel: ChannelId, message_id: u64, reason: FailureReason },
-		/// An open-channel request was confirmed by its recipient.
-		OpenAccepted { channel: ChannelId, message_id: u64 },
-		/// An acceptance was refused.
-		AcceptRejected { channel: ChannelId, message_id: u64, reason: FailureReason },
-		/// A channel was closed.
-		Closed { channel: ChannelId, message_id: u64 },
-		/// A close was refused.
-		CloseRejected { channel: ChannelId, message_id: u64, reason: FailureReason },
-		/// An unconfirmed request was dropped.
-		Cancelled { channel: ChannelId, message_id: u64 },
-		/// A cancellation was refused.
-		CancelRejected { channel: ChannelId, message_id: u64, reason: FailureReason },
-		/// A deposit-free channel was opened in both directions.
-		SystemChannelOpened { channel: ChannelId, message_id: u64 },
-		/// A deposit-free channel could not be opened.
-		///
-		/// Raised here *and* reported back: the asking chain records the pair as pending until
-		/// the confirmation arrives, so a silent refusal would leave it believing in a channel
-		/// that does not exist.
-		SystemChannelRejected { channel: ChannelId, message_id: u64, reason: FailureReason },
-		/// A report could not be sent back to the parachain.
-		///
-		/// This chain's own state is already correct; the parachain is now out of step and will
-		/// need governance to reconcile it.
-		ReportFailed { channel: ChannelId, message_id: u64 },
+		/// A parachain's request was served.
+		RequestServed { para: ParaId },
+		/// The parachain was asked to hold a deposit.
+		HoldSent { key: DepositKey, amount: Balance },
+		/// The parachain answered a hold.
+		HoldAnswered { key: DepositKey, held: bool },
+		/// The parachain was asked to release a deposit, or `amount` of it.
+		ReleaseSent { key: DepositKey, amount: Option<Balance> },
+		/// A release could not be handed to the transport, and was dropped.
+		ReleaseFailed { key: DepositKey, amount: Option<Balance> },
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// The request is not served, for now.
+		RequestRefused,
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
+			let sent = Self::flush_releases();
+			T::WeightInfo::flush_releases(sent)
+		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Serve one request from the parachain that owns the HRMP user surface.
-		///
-		/// Only callable by a trusted XCM origin (e.g. the Coretime chain), never by users. One
-		/// entry point for every message variant — the wire enum is the protocol, so the call
-		/// surface should not re-split what the type already unifies; a new message costs a new
-		/// variant and a match arm here, not a new extrinsic. Mirrors the para side's `receive`.
+		/// Take a message from the parachain that holds the deposits.
 		#[pallet::call_index(0)]
-		#[pallet::weight(match message {
-			MessageToRelay::V1(MessageToRelayV1::InitOpenChannel { .. }) =>
-				T::WeightInfo::init_open_channel(),
-			MessageToRelay::V1(MessageToRelayV1::AcceptOpenChannel { .. }) =>
-				T::WeightInfo::accept_open_channel(),
-			MessageToRelay::V1(MessageToRelayV1::CloseChannel { .. }) =>
-				T::WeightInfo::close_channel(),
-			MessageToRelay::V1(MessageToRelayV1::CancelOpenRequest { .. }) =>
-				T::WeightInfo::cancel_open_request(),
-			MessageToRelay::V1(MessageToRelayV1::EstablishSystemChannel { .. }) =>
-				T::WeightInfo::establish_system_channel(),
-		})]
+		#[pallet::weight(T::WeightInfo::receive())]
 		pub fn receive(origin: OriginFor<T>, message: MessageToRelay) -> DispatchResult {
 			T::ParaOrigin::ensure_origin_or_root(origin)?;
 
-			let MessageToRelay::V1(message) = message;
 			match message {
-				MessageToRelayV1::InitOpenChannel {
-					channel,
-					message_id,
-					max_capacity,
-					max_message_size,
-				} => {
-					let outcome = Self::guarded(|| {
-						T::Registry::init_open_channel(channel, max_capacity, max_message_size)
-					});
-					Self::settle(
-						channel,
-						message_id,
-						outcome,
-						|c, m, o| MessageToParaV1::OpenResponse {
-							channel: c,
-							message_id: m,
-							outcome: o,
-						},
-						|c, m| Event::OpenRequested { channel: c, message_id: m },
-						|c, m, r| Event::OpenRejected { channel: c, message_id: m, reason: r },
-					);
+				MessageToRelay::V1(MessageToRelayV1::HoldResult { key, held }) => {
+					T::OnDepositHeld::on_deposit_held(key, held);
+					Self::deposit_event(Event::HoldAnswered { key, held });
 				},
-				MessageToRelayV1::AcceptOpenChannel { channel, message_id } => {
-					// The channel itself comes into existence at this chain's next session
-					// boundary; the report goes out now, because what the parachain is waiting
-					// on is whether its deposit is owed, not whether the channel has finished
-					// opening.
-					let outcome = Self::guarded(|| T::Registry::accept_open_channel(channel));
-					Self::settle(
-						channel,
-						message_id,
-						outcome,
-						|c, m, o| MessageToParaV1::AcceptResponse {
-							channel: c,
-							message_id: m,
-							outcome: o,
-						},
-						|c, m| Event::OpenAccepted { channel: c, message_id: m },
-						|c, m, r| Event::AcceptRejected { channel: c, message_id: m, reason: r },
-					);
+				MessageToRelay::V1(MessageToRelayV1::PokeChannelDeposits { channel }) => {
+					T::Hrmp::poke_channel_deposits(channel)?
 				},
-				MessageToRelayV1::CloseChannel { channel, message_id, initiator } => {
-					let outcome = Self::guarded(|| T::Registry::close_channel(channel, initiator));
-					Self::settle(
-						channel,
-						message_id,
-						outcome,
-						|c, m, o| MessageToParaV1::CloseResponse {
-							channel: c,
-							message_id: m,
-							outcome: o,
-						},
-						|c, m| Event::Closed { channel: c, message_id: m },
-						|c, m, r| Event::CloseRejected { channel: c, message_id: m, reason: r },
-					);
+				MessageToRelay::V1(MessageToRelayV1::EstablishSystemChannel { channel }) => {
+					T::Hrmp::establish_system_channel(channel)?
 				},
-				MessageToRelayV1::CancelOpenRequest { channel, message_id } => {
-					let outcome = Self::guarded(|| T::Registry::cancel_open_request(channel));
-					Self::settle(
-						channel,
-						message_id,
-						outcome,
-						|c, m, o| MessageToParaV1::CancelResponse {
-							channel: c,
-							message_id: m,
-							outcome: o,
-						},
-						|c, m| Event::Cancelled { channel: c, message_id: m },
-						|c, m, r| Event::CancelRejected { channel: c, message_id: m, reason: r },
-					);
-				},
-				// Answered, like every other request here. No deposit depends on the outcome, but
-				// the parachain cannot see this chain's state, and the refusal it will actually
-				// hit is routine: the control plane asks for this channel as soon as a
-				// registration is applied, while the new para is still onboarding and this chain
-				// will not open a channel to it yet. Without an answer the parachain records the
-				// pair as open against a chain that has nothing, and nothing ever corrects it.
-				MessageToRelayV1::EstablishSystemChannel { channel, message_id } => Self::settle(
-					channel,
-					message_id,
-					Self::guarded(|| T::Registry::establish_system_channel(channel)),
-					|c, m, o| MessageToParaV1::SystemChannelResponse {
-						channel: c,
-						message_id: m,
-						outcome: o,
-					},
-					|c, m| Event::SystemChannelOpened { channel: c, message_id: m },
-					|c, m, r| Event::SystemChannelRejected { channel: c, message_id: m, reason: r },
-				),
 			}
+			Ok(())
+		}
+
+		/// Serve a parachain's own HRMP request, as that parachain.
+		///
+		/// The asking para is the one the origin resolves to.
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::WeightInfo::relay_request())]
+		pub fn relay_request(origin: OriginFor<T>, request: ParaRequest) -> DispatchResult {
+			let para: ParaId = T::ParachainOrigin::ensure_origin(origin)?.into();
+			ensure!(T::AdmitRequest::admit(para), Error::<T>::RequestRefused);
+
+			let ParaRequest::V1(request) = request;
+			match request {
+				ParaRequestV1::InitOpenChannel {
+					recipient,
+					proposed_max_capacity,
+					proposed_max_message_size,
+				} => T::Hrmp::init_open_channel(
+					para,
+					recipient,
+					proposed_max_capacity,
+					proposed_max_message_size,
+				),
+				ParaRequestV1::AcceptOpenChannel { sender } => {
+					T::Hrmp::accept_open_channel(para, sender)
+				},
+				ParaRequestV1::CloseChannel { channel } => T::Hrmp::close_channel(para, channel),
+				ParaRequestV1::CancelOpenRequest { channel, open_requests } => {
+					T::Hrmp::cancel_open_request(para, channel, open_requests)
+				},
+				ParaRequestV1::EstablishChannelWithSystem { target_system_chain } => {
+					T::Hrmp::establish_channel_with_system(para, target_system_chain)
+				},
+			}?;
+
+			Self::deposit_event(Event::RequestServed { para });
 			Ok(())
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Run a registry call inside its own storage layer.
+		/// Ask the parachain to hold `amount` for `key`. Queued releases are sent first.
 		///
-		/// The registry may write before it fails, and a partial write must not survive a refusal
-		/// that this pallet then reports to the parachain as "nothing happened".
-		fn guarded(
-			f: impl FnOnce() -> Result<(), FailureReason>,
-		) -> Result<(), FailureReason> {
-			frame_support::storage::with_storage_layer::<(), FailureReason, _>(f)
+		/// `Err(())` means the hold could not be handed to the transport.
+		#[allow(clippy::result_unit_err)]
+		pub fn hold(key: DepositKey, amount: Balance) -> Result<(), ()> {
+			Self::flush_releases();
+			T::SendToPara::send(MessageToPara::V1(MessageToParaV1::Hold { key, amount }))?;
+			Self::deposit_event(Event::HoldSent { key, amount });
+			Ok(())
 		}
 
-		/// Report an outcome to the parachain and raise the matching local event.
-		///
-		/// Every request in this protocol ends the same way, so the shape is written once: emit
-		/// the report first, then the event, and never fail either way.
-		fn settle(
-			channel: ChannelId,
-			message_id: u64,
-			outcome: Result<(), FailureReason>,
-			report: impl FnOnce(ChannelId, u64, Outcome) -> MessageToParaV1,
-			on_ok: impl FnOnce(ChannelId, u64) -> Event<T>,
-			on_err: impl FnOnce(ChannelId, u64, FailureReason) -> Event<T>,
-		) {
-			Self::report(channel, message_id, report(channel, message_id, outcome.clone()));
-
-			match outcome {
-				Ok(()) => Self::deposit_event(on_ok(channel, message_id)),
-				Err(reason) => Self::deposit_event(on_err(channel, message_id, reason)),
-			}
+		/// Queue a release of `amount` of what is held for `key`, or all of it if `None`.
+		pub fn release(key: DepositKey, amount: Option<Balance>) {
+			PendingReleases::<T>::append((key, amount));
 		}
 
-		/// Hand a report to the transport, swallowing a send failure.
-		///
-		/// See [`SendToPara::send`]: this chain's state is already correct, so unwinding it
-		/// because the report could not go out would be strictly worse.
-		fn report(channel: ChannelId, message_id: u64, message: MessageToParaV1) {
-			if T::SendToPara::send(MessageToPara::V1(message)).is_err() {
-				log::error!(
-					target: "runtime::hrmp-relay",
-					"failed to report the outcome for channel {:?}->{:?} back to the parachain",
-					channel.sender,
-					channel.recipient,
-				);
-				Self::deposit_event(Event::ReportFailed { channel, message_id });
+		/// Send every queued release, oldest first. Returns how many were queued.
+		pub(crate) fn flush_releases() -> u32 {
+			let pending = PendingReleases::<T>::take();
+			for (key, amount) in pending.iter().copied() {
+				let sent = T::SendToPara::send(MessageToPara::V1(MessageToParaV1::Release {
+					key,
+					amount,
+				}));
+				if sent.is_ok() {
+					Self::deposit_event(Event::ReleaseSent { key, amount });
+				} else {
+					log::error!(
+						target: "runtime::hrmp-relay",
+						"failed to send the release of {key:?}",
+					);
+					Self::deposit_event(Event::ReleaseFailed { key, amount });
+				}
 			}
+			pending.len() as u32
 		}
 	}
 }

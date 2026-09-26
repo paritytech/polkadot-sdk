@@ -16,15 +16,13 @@
 // limitations under the License.
 
 //! Mock runtime for `pallet-hrmp-relay`.
-//!
-//! [`MockRegistry`] stands in for the relay chain's own HRMP pallet. It has opinions of its own —
-//! it refuses what the real registry refuses — so this pallet is tested against a registry that
-//! can say no, not a rubber stamp.
 
-use crate::{self as pallet_hrmp_relay, SendToPara};
-use frame_support::derive_impl;
-use hrmp_primitives::{ChannelId, FailureReason, HrmpRegistry, MessageToPara, ParaId};
-use sp_runtime::BuildStorage;
+use crate::{self as pallet_hrmp_relay, AdmitRequest, SendToPara};
+use frame_support::{derive_impl, traits::EnsureOrigin};
+use hrmp_primitives::{
+	ChannelId, DepositKey, DepositSide, MessageToPara, OnDepositHeld, ParaId, RelayHrmp,
+};
+use sp_runtime::{BuildStorage, DispatchError, DispatchResult};
 
 pub type AccountId = u64;
 
@@ -32,8 +30,21 @@ pub const ALICE: AccountId = 1;
 
 pub const PARA_A: ParaId = 2000;
 pub const PARA_B: ParaId = 2001;
-/// A para the registry has never heard of.
-pub const PARA_UNKNOWN: ParaId = 4999;
+
+/// Signed accounts that stand in for a para acting as itself.
+pub const PARA_A_ACCOUNT: AccountId = 1_000_000 + PARA_A as AccountId;
+pub const PARA_B_ACCOUNT: AccountId = 1_000_000 + PARA_B as AccountId;
+
+/// The channel from `PARA_A` to `PARA_B`.
+pub const CHANNEL: ChannelId = ChannelId { sender: PARA_A, recipient: PARA_B };
+
+pub fn sender_key() -> DepositKey {
+	DepositKey { channel: CHANNEL, side: DepositSide::Sender }
+}
+
+pub fn recipient_key() -> DepositKey {
+	DepositKey { channel: CHANNEL, side: DepositSide::Recipient }
+}
 
 #[frame_support::runtime]
 mod test_runtime {
@@ -56,7 +67,7 @@ mod test_runtime {
 	pub type System = frame_system::Pallet<Test>;
 
 	#[runtime::pallet_index(1)]
-	pub type Hrmp = pallet_hrmp_relay::Pallet<Test>;
+	pub type HrmpRelay = pallet_hrmp_relay::Pallet<Test>;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -66,140 +77,74 @@ impl frame_system::Config for Test {
 	type Lookup = sp_runtime::traits::IdentityLookup<AccountId>;
 }
 
+/// A call into the relay chain's HRMP, as the mock records it.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum HrmpCall {
+	Init { para: ParaId, recipient: ParaId, capacity: u32, size: u32 },
+	Accept { para: ParaId, sender: ParaId },
+	Close { para: ParaId, channel: ChannelId },
+	Cancel { para: ParaId, channel: ChannelId, open_requests: u32 },
+	WithSystem { para: ParaId, target: ParaId },
+	Poke { channel: ChannelId },
+	SystemChannel { channel: ChannelId },
+}
+
 frame_support::parameter_types! {
-	/// Open-channel requests the registry is holding, and whether each is confirmed.
-	pub static Requests: Vec<(ChannelId, bool)> = Vec::new();
-	/// Channels the registry has.
-	pub static OpenChannels: Vec<ChannelId> = Vec::new();
-	/// Paras the registry will accept a channel for.
-	pub static KnownParas: Vec<ParaId> = vec![PARA_A, PARA_B];
-	/// When set, the next registry call fails with this reason.
-	pub static NextFailure: Option<FailureReason> = None;
-	/// Reports handed to the transport, oldest first.
-	pub static SentMessages: Vec<MessageToPara> = Vec::new();
+	/// Calls dispatched into HRMP, oldest first.
+	pub static HrmpCalls: Vec<HrmpCall> = Vec::new();
+	/// When set, the next HRMP call fails with this error.
+	pub static HrmpFails: Option<DispatchError> = None;
+	/// Messages handed to the transport, oldest first.
+	pub static Sent: Vec<MessageToPara> = Vec::new();
 	/// When true, the transport refuses everything.
 	pub static SendFails: bool = false;
+	/// Hold answers passed on, oldest first.
+	pub static Answers: Vec<(DepositKey, bool)> = Vec::new();
+	/// Paras whose requests are refused.
+	pub static Rationed: Vec<ParaId> = Vec::new();
 }
 
-/// A raw storage key [`MockRegistry`] writes before it can fail.
-///
-/// The recorders above are thread locals, which a storage layer cannot unwind. This is a real
-/// storage write, so a test can prove the pallet's contract that a refusal leaves nothing behind.
-pub const PARTIAL_WRITE_KEY: &[u8] = b":mock_partial_hrmp:";
+pub struct MockHrmp;
 
-/// Stands in for the relay chain's `hrmp` pallet.
-pub struct MockRegistry;
-
-impl MockRegistry {
-	/// Fail if a test asked for it, having first written to storage — exactly as a real registry
-	/// that validates late would.
-	fn maybe_fail() -> Result<(), FailureReason> {
-		if let Some(reason) = NextFailure::take() {
-			frame_support::storage::unhashed::put(PARTIAL_WRITE_KEY, &1u32);
-			return Err(reason);
+impl MockHrmp {
+	fn record(call: HrmpCall) -> DispatchResult {
+		if let Some(error) = HrmpFails::take() {
+			return Err(error);
 		}
+		HrmpCalls::mutate(|calls| calls.push(call));
 		Ok(())
 	}
 }
 
-impl HrmpRegistry for MockRegistry {
+impl RelayHrmp for MockHrmp {
 	fn init_open_channel(
-		channel: ChannelId,
-		max_capacity: u32,
-		max_message_size: u32,
-	) -> Result<(), FailureReason> {
-		Self::maybe_fail()?;
-		if channel.sender == channel.recipient {
-			return Err(FailureReason::InvalidPara);
-		}
-		if !KnownParas::get().contains(&channel.recipient) {
-			return Err(FailureReason::InvalidPara);
-		}
-		if max_capacity == 0 || max_message_size == 0 {
-			return Err(FailureReason::InvalidParameters);
-		}
-		if Requests::get().iter().any(|(c, _)| *c == channel) ||
-			OpenChannels::get().contains(&channel)
-		{
-			return Err(FailureReason::AlreadyExists);
-		}
-		Requests::mutate(|r| r.push((channel, false)));
-		Ok(())
+		para: ParaId,
+		recipient: ParaId,
+		capacity: u32,
+		size: u32,
+	) -> DispatchResult {
+		Self::record(HrmpCall::Init { para, recipient, capacity, size })
 	}
-
-	fn accept_open_channel(channel: ChannelId) -> Result<(), FailureReason> {
-		Self::maybe_fail()?;
-		let mut requests = Requests::get();
-		let entry = requests
-			.iter_mut()
-			.find(|(c, _)| *c == channel)
-			.ok_or(FailureReason::NotFound)?;
-		if entry.1 {
-			return Err(FailureReason::AlreadyExists);
-		}
-		entry.1 = true;
-		Requests::set(requests);
-		OpenChannels::mutate(|c| c.push(channel));
-		Ok(())
+	fn accept_open_channel(para: ParaId, sender: ParaId) -> DispatchResult {
+		Self::record(HrmpCall::Accept { para, sender })
 	}
-
-	fn close_channel(channel: ChannelId, initiator: ParaId) -> Result<(), FailureReason> {
-		Self::maybe_fail()?;
-		if !channel.is_participant(initiator) {
-			return Err(FailureReason::InvalidPara);
-		}
-		if !OpenChannels::get().contains(&channel) {
-			return Err(FailureReason::NotFound);
-		}
-		OpenChannels::mutate(|c| c.retain(|x| *x != channel));
-		Requests::mutate(|r| r.retain(|(c, _)| *c != channel));
-		Ok(())
+	fn close_channel(para: ParaId, channel: ChannelId) -> DispatchResult {
+		Self::record(HrmpCall::Close { para, channel })
 	}
-
-	fn cancel_open_request(channel: ChannelId) -> Result<(), FailureReason> {
-		Self::maybe_fail()?;
-		let requests = Requests::get();
-		match requests.iter().find(|(c, _)| *c == channel) {
-			None => Err(FailureReason::NotFound),
-			// The real registry refuses to cancel something already confirmed.
-			Some((_, true)) => Err(FailureReason::AlreadyExists),
-			Some(_) => {
-				Requests::mutate(|r| r.retain(|(c, _)| *c != channel));
-				Ok(())
-			},
-		}
+	fn cancel_open_request(para: ParaId, channel: ChannelId, open_requests: u32) -> DispatchResult {
+		Self::record(HrmpCall::Cancel { para, channel, open_requests })
 	}
-
-	fn establish_system_channel(channel: ChannelId) -> Result<(), FailureReason> {
-		Self::maybe_fail()?;
-		let back = ChannelId { sender: channel.recipient, recipient: channel.sender };
-		for id in [channel, back] {
-			if OpenChannels::get().contains(&id) {
-				return Err(FailureReason::AlreadyExists);
-			}
-			OpenChannels::mutate(|c| c.push(id));
-		}
-		Ok(())
+	fn establish_channel_with_system(para: ParaId, target: ParaId) -> DispatchResult {
+		Self::record(HrmpCall::WithSystem { para, target })
 	}
-
-	fn exists(channel: ChannelId) -> bool {
-		OpenChannels::get().contains(&channel) ||
-			Requests::get().iter().any(|(c, _)| *c == channel)
+	fn poke_channel_deposits(channel: ChannelId) -> DispatchResult {
+		Self::record(HrmpCall::Poke { channel })
 	}
-
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_openable(channel: ChannelId) {
-		KnownParas::mutate(|k| {
-			for p in [channel.sender, channel.recipient] {
-				if !k.contains(&p) {
-					k.push(p);
-				}
-			}
-		});
+	fn establish_system_channel(channel: ChannelId) -> DispatchResult {
+		Self::record(HrmpCall::SystemChannel { channel })
 	}
 }
 
-/// Records what would have gone back to the parachain.
 pub struct RecordingSender;
 
 impl SendToPara for RecordingSender {
@@ -207,31 +152,80 @@ impl SendToPara for RecordingSender {
 		if SendFails::get() {
 			return Err(());
 		}
-		SentMessages::mutate(|sent| sent.push(message));
+		Sent::mutate(|sent| sent.push(message));
 		Ok(())
 	}
 }
 
-/// Every report handed to the transport since the last call, oldest first.
-pub fn take_sent() -> Vec<MessageToPara> {
-	SentMessages::take()
+pub struct RecordingAnswers;
+
+impl OnDepositHeld for RecordingAnswers {
+	fn on_deposit_held(key: DepositKey, held: bool) {
+		Answers::mutate(|answers| answers.push((key, held)));
+	}
+}
+
+pub struct MockRation;
+
+impl AdmitRequest for MockRation {
+	fn admit(para: ParaId) -> bool {
+		!Rationed::get().contains(&para)
+	}
+}
+
+/// A signed account in `1_000_000 + para` acts as that para.
+pub struct ParaAccounts;
+
+impl EnsureOrigin<RuntimeOrigin> for ParaAccounts {
+	type Success = ParaId;
+
+	fn try_origin(o: RuntimeOrigin) -> Result<ParaId, RuntimeOrigin> {
+		match frame_system::ensure_signed(o.clone()) {
+			Ok(who) if who >= 1_000_000 => Ok((who - 1_000_000) as ParaId),
+			_ => Err(o),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		Ok(RuntimeOrigin::signed(PARA_A_ACCOUNT))
+	}
 }
 
 impl pallet_hrmp_relay::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
-	type ParaOrigin = frame_system::EnsureRoot<AccountId>;
+	type ParaOrigin = frame_system::EnsureSignedBy<ParaOriginAccount, AccountId>;
+	type ParachainOrigin = ParaAccounts;
 	type SendToPara = RecordingSender;
-	type Registry = MockRegistry;
+	type Hrmp = MockHrmp;
+	type OnDepositHeld = RecordingAnswers;
+	type AdmitRequest = MockRation;
 	type WeightInfo = ();
 }
 
+frame_support::parameter_types! {
+	/// The signed account that stands in for the deposit-holding parachain.
+	pub static ParaOriginMembers: Vec<AccountId> = vec![CORETIME];
+}
+
+/// The deposit-holding parachain, as a signed account.
+pub const CORETIME: AccountId = 7;
+
+pub struct ParaOriginAccount;
+
+impl frame_support::traits::SortedMembers<AccountId> for ParaOriginAccount {
+	fn sorted_members() -> Vec<AccountId> {
+		ParaOriginMembers::get()
+	}
+}
+
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	Requests::set(Vec::new());
-	OpenChannels::set(Vec::new());
-	KnownParas::set(vec![PARA_A, PARA_B]);
-	NextFailure::set(None);
-	SentMessages::set(Vec::new());
+	HrmpCalls::set(vec![]);
+	HrmpFails::set(None);
+	Sent::set(vec![]);
 	SendFails::set(false);
+	Answers::set(vec![]);
+	Rationed::set(vec![]);
 
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let mut ext = sp_io::TestExternalities::new(t);
@@ -240,11 +234,11 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 /// Every event this pallet emitted, oldest first, clearing the log.
-pub fn hrmp_events() -> Vec<pallet_hrmp_relay::Event<Test>> {
+pub fn events() -> Vec<pallet_hrmp_relay::Event<Test>> {
 	let events = System::events()
 		.into_iter()
 		.filter_map(|e| match e.event {
-			RuntimeEvent::Hrmp(inner) => Some(inner),
+			RuntimeEvent::HrmpRelay(inner) => Some(inner),
 			_ => None,
 		})
 		.collect();

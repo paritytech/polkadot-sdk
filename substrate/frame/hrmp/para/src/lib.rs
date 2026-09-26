@@ -15,62 +15,37 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # HRMP control-plane pallet (parachain side)
+//! # HRMP deposit pallet (parachain side)
 //!
-//! The user-facing half of HRMP channel management. It holds the channel deposits and drives the
-//! relay chain, which still owns the channels themselves and routes the messages through them.
+//! Holds HRMP channel deposits for the relay chain. The relay chain owns every channel and
+//! decides every deposit; this pallet holds and releases what it is told, against a
+//! [`DepositKey`], from the paying para's sovereign account on this chain.
 //!
-//! Both directions of that coordination are abstract: requests go out through [`SendToRelay`],
-//! verdicts come back in through [`Pallet::receive`], gated by [`Config::RelayOrigin`]. Nothing
-//! here depends on XCM or on the relay chain's extrinsics.
-//!
-//! ## Who may ask
-//!
-//! The same set the relay chain's HRMP accepts: the para itself, arriving as an origin resolved by
-//! [`Config::ParachainOrigin`], or root. A parachain still speaks for itself, it just retargets its
-//! message from the relay chain to this one (or has the relay chain relay it). There is
-//! deliberately no registrar-manager path: HRMP never had one, and adding one would let an account
-//! other than the para commit the para's sovereign funds — a new trust shape with no counterpart
-//! in what it replaces. A para that cannot build the message falls back on governance, as today.
-//!
-//! ## Whose money
-//!
-//! Deposits are held on the para's **sovereign account on this chain**, resolved through
-//! [`Config::SovereignAccountOf`] — not on the caller's own account. That is what the migration
-//! produces: relay-chain deposits sit on `para…` sovereign accounts and land on `sibl…` accounts
-//! here, so a migrated channel and a freshly opened one are indistinguishable and nothing has to
-//! reconcile two shapes.
-//!
-//! ## Releasing
-//!
-//! A deposit is released only when the relay chain confirms, never on the request alone. Closing
-//! is not atomic once it spans two chains, and handing the money back early would free a para's
-//! deposit while its channel still carries messages.
-//!
-//! ## When a verdict never arrives
-//!
-//! The transport is assumed to deliver. A message that is genuinely lost leaves a channel parked
-//! in one of the in-flight states, and [`Pallet::force_remove_channel`] is the way out — a blunt
-//! root call rather than a per-state chase-up protocol, on the grounds that the failure is rare,
-//! governance is already the backstop, and a self-healing protocol is far more code than the
-//! problem is worth.
+//! - A [`MessageToParaV1::Hold`] holds the amount and answers the relay chain with
+//!   [`MessageToRelayV1::HoldResult`].
+//! - A [`MessageToParaV1::Release`] releases what it names of what is held for the key, or all of
+//!   it. Releasing a key with nothing held does nothing.
+//! - [`Call::poke_channel_deposits`] and [`Call::establish_system_channel`] are the relay chain's
+//!   signed HRMP calls, asked of it from here.
+//! - [`Call::force_release`] and [`Call::force_answer`] are root's way out when a release or an
+//!   answer never arrived.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate alloc;
-
-use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
-	defensive, ensure,
-	traits::{Consideration, Contains, EnsureOrigin, Footprint, Get},
+	ensure,
+	traits::{
+		fungible::{Inspect, InspectHold, Mutate, MutateHold},
+		tokens::{Fortitude, Precision, Preservation},
+		EnsureOrigin,
+	},
 };
 use hrmp_primitives::{
-	ChannelId, FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
-	MigratedChannel, Outcome, ParaId, ReceiveMigratedChannels,
+	Balance, ChannelId, DepositKey, MessageToPara, MessageToParaV1, MessageToRelay,
+	MessageToRelayV1, ParaId, ReceiveMigratedDeposits,
 };
-use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{BlockNumberProvider, Convert, Saturating},
+	traits::{Convert, Zero},
 	DispatchResult,
 };
 
@@ -86,20 +61,11 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-/// Block number used for in-flight deadlines.
-///
-/// On a parachain, configure [`Config::BlockNumberProvider`] to
-/// `cumulus_pallet_parachain_system::RelaychainDataProvider`, so deadlines are expressed in
-/// relay-chain blocks and keep their meaning through a stall in this chain's own block production.
-pub type ProvidedBlockNumberOf<T> =
-	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
-
-/// Used to send an XCM `Transact` to the HRMP pallet on the remote relay chain.
+/// Used to send an XCM `Transact` to the HRMP pallet on the relay chain.
 pub trait SendToRelay {
 	/// Send `message` to the relay chain.
 	///
-	/// `Err(())` means the message could not be handed to the transport at all. Callers are
-	/// expected to fail the whole extrinsic, so nothing is left half-done.
+	/// `Err(())` means the message could not be handed to the transport.
 	#[allow(clippy::result_unit_err)]
 	fn send(message: MessageToRelay) -> Result<(), ()>;
 }
@@ -110,88 +76,6 @@ impl SendToRelay for () {
 		Ok(())
 	}
 }
-
-/// Where a channel sits between the two chains.
-///
-/// Four of the six states are "a message is in flight": this chain has committed, taken or is
-/// holding a deposit, and is waiting for the relay chain to say what happened. Only the relay
-/// chain's answer moves a channel out of one.
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
-)]
-pub enum ChannelState<BlockNumber> {
-	/// The sender has asked the relay chain to record a request. Sender deposit held.
-	Opening {
-		/// The block from which this may be given up on.
-		cancellable_at: BlockNumber,
-		/// The id of the request that opened this state.
-		///
-		/// Ids are handed out in order, so a response echoing an older id is stale — a duplicate
-		/// delivery, or an answer to an earlier occupant of this channel id — and must not settle
-		/// this state.
-		message_id: u64,
-	},
-	/// The relay chain is holding the request, waiting for the recipient. Sender deposit held.
-	Pending,
-	/// The recipient has asked the relay chain to confirm. Both deposits held.
-	Accepting {
-		/// The block from which this may be given up on.
-		cancellable_at: BlockNumber,
-		/// The id of the request that opened this state. See [`Self::Opening::message_id`].
-		message_id: u64,
-	},
-	/// The relay chain has the channel. Both deposits held.
-	Open,
-	/// One end has asked the relay chain to close. Both deposits still held.
-	Closing {
-		/// The block from which this may be given up on.
-		cancellable_at: BlockNumber,
-		/// The id of the request that opened this state. See [`Self::Opening::message_id`].
-		message_id: u64,
-	},
-	/// The sender has asked the relay chain to drop an unconfirmed request. Deposit still held.
-	Cancelling {
-		/// The block from which this may be given up on.
-		cancellable_at: BlockNumber,
-		/// The id of the request that opened this state. See [`Self::Opening::message_id`].
-		message_id: u64,
-	},
-}
-
-impl<BlockNumber> ChannelState<BlockNumber> {
-	/// The id of the request in flight, if one is.
-	fn awaited_id(&self) -> Option<u64> {
-		match self {
-			ChannelState::Opening { message_id, .. } |
-			ChannelState::Accepting { message_id, .. } |
-			ChannelState::Closing { message_id, .. } |
-			ChannelState::Cancelling { message_id, .. } => Some(*message_id),
-			ChannelState::Pending | ChannelState::Open => None,
-		}
-	}
-}
-
-/// Everything this chain knows about one channel.
-#[derive(
-	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
-)]
-pub struct ChannelInfo<Ticket, BlockNumber> {
-	/// The sender's deposit, held on its sovereign account here.
-	///
-	/// `None` for a system channel, which is deposit-free at both ends.
-	pub sender_ticket: Option<Ticket>,
-	/// The recipient's deposit, held on its sovereign account here. `None` until accepted, and
-	/// for a system channel.
-	pub recipient_ticket: Option<Ticket>,
-	/// Where this channel sits between the two chains.
-	pub state: ChannelState<BlockNumber>,
-}
-
-/// The [`ChannelInfo`] type as configured.
-pub type ChannelInfoOf<T> = ChannelInfo<
-	<T as Config>::ChannelConsideration,
-	ProvidedBlockNumberOf<T>,
->;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -205,69 +89,21 @@ pub mod pallet {
 		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// The cost of one end of a channel.
-		///
-		/// Taken twice per channel, once from each para's sovereign account. The footprint is a
-		/// single zero-sized item, so a flat price fits.
-		type ChannelConsideration: Consideration<Self::AccountId, Footprint>;
+		/// The overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
+
+		/// The currency deposits are held in.
+		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason, Balance = Balance>
+			+ Mutate<Self::AccountId>;
+
+		/// The relay chain.
+		type RelayOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Sends messages to the relay chain.
 		type SendToRelay: SendToRelay;
 
-		/// An origin that is sure to be the relay chain's HRMP pallet.
-		type RelayOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
-		/// An origin a parachain uses to act as itself, resolved to its para id.
-		type ParachainOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = ParaId>;
-
-		/// The sovereign account of a para on this chain.
-		///
-		/// Deposits are held here rather than on the caller, so a migrated channel and a fresh
-		/// one look the same.
+		/// A para's sovereign account on this chain, which pays its deposits.
 		type SovereignAccountOf: Convert<ParaId, Self::AccountId>;
-
-		/// This chain's own para id.
-		///
-		/// Lets the pallet name itself as one end of a channel — a system chain pairing with
-		/// another through [`Pallet::establish_system_channel`]. A constant rather than something
-		/// read from the transport, so the pallet stays testable without XCM.
-		#[pallet::constant]
-		type SelfParaId: Get<ParaId>;
-
-		/// Which paras count as system chains.
-		///
-		/// Two things hang off it: a channel with or amongst system chains is deposit-free, and a
-		/// para may pair *itself* with a system chain through
-		/// [`Pallet::establish_system_channel`] without going through governance.
-		///
-		/// A set rather than an id threshold on purpose. "System chains are the low-numbered
-		/// paras" is a relay-chain numbering convention, not a fact about channels, and this
-		/// pallet has no business knowing it.
-		type SystemParas: Contains<ParaId>;
-
-		/// The largest channel capacity the relay chain will accept.
-		///
-		/// A local mirror of `hrmp_channel_max_capacity`, used to fail early. The relay chain
-		/// checks the real thing against its own live configuration.
-		#[pallet::constant]
-		type MaxCapacity: Get<u32>;
-
-		/// The largest message size the relay chain will accept.
-		///
-		/// A local mirror of `hrmp_channel_max_message_size`. See [`Config::MaxCapacity`].
-		#[pallet::constant]
-		type MaxMessageSize: Get<u32>;
-
-		/// How long to wait for the relay chain before a channel counts as stuck.
-		///
-		/// Measured in [`Config::BlockNumberProvider`] blocks. Nothing acts on it automatically;
-		/// it is what [`Pallet::force_remove_channel`] checks, so governance cannot tear down a
-		/// channel whose verdict is merely slow.
-		#[pallet::constant]
-		type PendingDeadline: Get<ProvidedBlockNumberOf<Self>>;
-
-		/// Source of block numbers for in-flight deadlines.
-		type BlockNumberProvider: BlockNumberProvider;
 
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -276,98 +112,46 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	/// Hold reasons for runtimes that pay the considerations out of held funds.
+	/// A reason for this pallet placing a hold on funds.
 	#[pallet::composite_enum]
 	pub enum HoldReason {
-		/// Held for one end of an HRMP channel.
+		/// An HRMP channel deposit.
 		#[codec(index = 0)]
-		Channel,
+		ChannelDeposit,
 	}
 
-	/// The id the next message to the relay chain will carry.
+	/// What is held for each deposit.
 	#[pallet::storage]
-	pub type NextMessageId<T: Config> = StorageValue<_, u64, ValueQuery>;
-
-	/// Every channel this chain knows about, and what is happening with it.
-	#[pallet::storage]
-	pub type Channels<T: Config> =
-		StorageMap<_, Blake2_128Concat, ChannelId, ChannelInfoOf<T>>;
-
-	/// Ends of migrated channels whose sovereign account could not pay the deposit here, as
-	/// `(sender, recipient)`. Such an end holds no ticket; the entry goes with the channel.
-	#[pallet::storage]
-	pub type UnpaidMigratedDeposits<T: Config> =
-		StorageMap<_, Blake2_128Concat, ChannelId, (bool, bool), ValueQuery>;
+	pub type Deposits<T: Config> = StorageMap<_, Blake2_128Concat, DepositKey, Balance>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A channel was requested and the relay chain has been asked to record it.
-		OpenRequested { channel: ChannelId, message_id: u64 },
-		/// The relay chain is holding the request, waiting for the recipient.
-		OpenPending { channel: ChannelId, message_id: u64 },
-		/// The relay chain refused the request. The sender's deposit was returned.
-		OpenFailed { channel: ChannelId, message_id: u64, reason: FailureReason },
-		/// The recipient accepted, and the relay chain has been asked to confirm.
-		AcceptRequested { channel: ChannelId, message_id: u64 },
-		/// The channel is open on the relay chain. Both deposits are held.
-		Opened { channel: ChannelId, message_id: u64 },
-		/// The relay chain refused the acceptance. The recipient's deposit was returned.
-		AcceptFailed { channel: ChannelId, message_id: u64, reason: FailureReason },
-		/// A close was requested. Both deposits stay held until the relay chain answers.
-		CloseRequested { channel: ChannelId, message_id: u64, initiator: ParaId },
-		/// The channel is gone and both deposits were returned.
-		Closed { channel: ChannelId, message_id: u64 },
-		/// The relay chain refused the close. The channel is open again.
-		CloseFailed { channel: ChannelId, message_id: u64, reason: FailureReason },
-		/// The sender asked to withdraw an unconfirmed request.
-		CancelRequested { channel: ChannelId, message_id: u64 },
-		/// The request is gone and the sender's deposit was returned.
-		Cancelled { channel: ChannelId, message_id: u64 },
-		/// The relay chain refused the cancellation. The request stands.
-		CancelFailed { channel: ChannelId, message_id: u64, reason: FailureReason },
-		/// A deposit-free channel was requested in both directions, and the relay chain has
-		/// confirmed it.
-		SystemChannelOpened { channel: ChannelId, message_id: u64 },
-		/// The relay chain refused a deposit-free channel pair. Both directions stay unconfirmed.
-		///
-		/// The ordinary reason is that the para is still onboarding, which takes two of the relay
-		/// chain's session boundaries and longer while its validation code is pre-checked. Nothing
-		/// is staked, so there is nothing to release — `establish_system_channel` retries once the
-		/// para is live.
-		SystemChannelRefused { channel: ChannelId, message_id: u64, reason: FailureReason },
-		/// A deposit-free channel pair was requested. Not open until the relay chain confirms it
-		/// with [`Event::SystemChannelOpened`].
-		SystemChannelRequested { channel: ChannelId, message_id: u64 },
-		/// Governance removed this chain's record of a channel.
-		ChannelForceRemoved { channel: ChannelId },
-		/// A migrated channel was already established here as a deposit-free system channel, so
-		/// the migrated record was dropped rather than duplicated. Nothing is lost: a system
-		/// channel carries no deposit at either end, so the two records describe the same thing.
-		MigratedSystemChannelAlreadyOpen { channel: ChannelId },
-		/// A migrated channel arrived, but `para_id`'s sovereign account could not pay its end of
-		/// the deposit here. The channel stands with that end unpaid until it is closed.
-		MigratedWithUnpaidDeposit { channel: ChannelId, para_id: ParaId },
+		/// A deposit was held.
+		DepositHeld { key: DepositKey, amount: Balance },
+		/// A deposit could not be held.
+		DepositRefused { key: DepositKey, amount: Balance },
+		/// A deposit was released.
+		DepositReleased { key: DepositKey, amount: Balance },
+		/// Root released a deposit.
+		DepositForceReleased { key: DepositKey, amount: Balance },
+		/// A deposit migrated from the relay chain was held. `missing` is what the paying para
+		/// could not cover.
+		DepositMigrated { key: DepositKey, held: Balance, missing: Balance },
+		/// The relay chain was asked to reprice a channel's deposits.
+		PokeRequested { channel: ChannelId },
+		/// The relay chain was asked to open a channel between two system chains.
+		SystemChannelRequested { channel: ChannelId },
+		/// Root answered a hold on this chain's behalf.
+		AnswerForced { key: DepositKey, held: bool },
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// The caller may not act for this para.
-		NotOwner,
-		/// A channel may not have the same para at both ends.
-		ToSelf,
-		/// This chain has no record of the channel.
-		NoSuchChannel,
-		/// A record for this channel already exists.
-		AlreadyExists,
-		/// The channel is not in a state this call can act on.
-		WrongState,
-		/// The capacity or message size is outside what the relay chain will accept.
-		InvalidParameters,
-		/// The message could not be handed to the transport.
+		/// The answer could not be handed to the transport.
 		SendFailed,
-		/// The channel's verdict is not overdue yet.
-		NotOverdue,
+		/// Nothing is held for this deposit.
+		NoSuchDeposit,
 	}
 
 	#[pallet::hooks]
@@ -376,734 +160,175 @@ pub mod pallet {
 		fn try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
 		}
-
-		fn integrity_test() {
-			// Otherwise no channel could ever be opened.
-			assert!(T::MaxCapacity::get() > 0, "MaxCapacity must be positive");
-			assert!(T::MaxMessageSize::get() > 0, "MaxMessageSize must be positive");
-		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Ask the relay chain to record an open-channel request.
-		///
-		/// Callable by the sending para itself or root.
-		///
-		/// ## Costs
-		///
-		/// Takes [`Config::ChannelConsideration`] from the **sender's sovereign account on this
-		/// chain**, unless either end is a system chain. It is returned if the relay chain refuses
-		/// the request, or later when the channel is closed or the request cancelled.
+		/// Take a message from the relay chain.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::open_channel())]
-		pub fn open_channel(
-			origin: OriginFor<T>,
-			sender: ParaId,
-			recipient: ParaId,
-			max_capacity: u32,
-			max_message_size: u32,
-		) -> DispatchResult {
-			Self::ensure_root_or_para(origin, sender)?;
-			let channel = ChannelId { sender, recipient };
-			ensure!(sender != recipient, Error::<T>::ToSelf);
-			ensure!(!Channels::<T>::contains_key(channel), Error::<T>::AlreadyExists);
-			ensure!(
-				max_capacity > 0 && max_capacity <= T::MaxCapacity::get(),
-				Error::<T>::InvalidParameters
-			);
-			ensure!(
-				max_message_size > 0 && max_message_size <= T::MaxMessageSize::get(),
-				Error::<T>::InvalidParameters
-			);
-
-			let sender_ticket = Self::take_deposit(channel, sender)?;
-			let cancellable_at = Self::deadline();
-			let message_id = Self::next_message_id();
-			Channels::<T>::insert(
-				channel,
-				ChannelInfo {
-					sender_ticket,
-					recipient_ticket: None,
-					state: ChannelState::Opening { cancellable_at, message_id },
-				},
-			);
-
-			// A transport failure returns `Err` and unwinds everything above, ticket included.
-			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::InitOpenChannel {
-				channel,
-				message_id,
-				max_capacity,
-				max_message_size,
-			}))
-			.map_err(|()| Error::<T>::SendFailed)?;
-
-			Self::deposit_event(Event::OpenRequested { channel, message_id });
-			Ok(())
-		}
-
-		/// Ask the relay chain to confirm an open-channel request.
-		///
-		/// Callable by the receiving para itself or root. Takes the recipient's half of the
-		/// deposit, on the same terms as [`Pallet::open_channel`].
-		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::accept_open_channel())]
-		pub fn accept_open_channel(
-			origin: OriginFor<T>,
-			sender: ParaId,
-			recipient: ParaId,
-		) -> DispatchResult {
-			Self::ensure_root_or_para(origin, recipient)?;
-			let channel = ChannelId { sender, recipient };
-			let mut info = Channels::<T>::get(channel).ok_or(Error::<T>::NoSuchChannel)?;
-			ensure!(info.state == ChannelState::Pending, Error::<T>::WrongState);
-
-			info.recipient_ticket = Self::take_deposit(channel, recipient)?;
-			let message_id = Self::next_message_id();
-			info.state =
-				ChannelState::Accepting { cancellable_at: Self::deadline(), message_id };
-			Channels::<T>::insert(channel, info);
-
-			// A transport failure returns `Err` and unwinds everything above, ticket included.
-			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::AcceptOpenChannel {
-				channel,
-				message_id,
-			}))
-			.map_err(|()| Error::<T>::SendFailed)?;
-
-			Self::deposit_event(Event::AcceptRequested { channel, message_id });
-			Ok(())
-		}
-
-		/// Ask the relay chain to close an open channel.
-		///
-		/// Callable by **either** end or root — the same set the relay chain accepts today. Nothing
-		/// is released here: only the relay chain's confirmation releases the deposits, because a
-		/// close that is merely requested must not hand the money back while the channel still
-		/// carries messages.
-		///
-		/// `initiator` is named by the caller rather than inferred from the origin, and the origin
-		/// check is what says whether they may claim it: a para may only close as itself, and root
-		/// — governance, or a relay chain relaying a para's own request — names it outright. Either
-		/// end may close, so this is attribution rather than authority; but the relay chain records
-		/// who asked, and inferring it would mean picking a default for the one caller that has
-		/// nothing to infer from.
-		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::close_channel())]
-		pub fn close_channel(
-			origin: OriginFor<T>,
-			sender: ParaId,
-			recipient: ParaId,
-			initiator: ParaId,
-		) -> DispatchResult {
-			let channel = ChannelId { sender, recipient };
-			Self::ensure_may_close_as(origin, channel, initiator)?;
-			let mut info = Channels::<T>::get(channel).ok_or(Error::<T>::NoSuchChannel)?;
-			ensure!(info.state == ChannelState::Open, Error::<T>::WrongState);
-
-			let message_id = Self::next_message_id();
-			info.state = ChannelState::Closing { cancellable_at: Self::deadline(), message_id };
-			Channels::<T>::insert(channel, info);
-
-			// A transport failure returns `Err` and unwinds the state change with it.
-			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::CloseChannel {
-				channel,
-				message_id,
-				initiator,
-			}))
-			.map_err(|()| Error::<T>::SendFailed)?;
-
-			Self::deposit_event(Event::CloseRequested { channel, message_id, initiator });
-			Ok(())
-		}
-
-		/// Ask the relay chain to drop a request the recipient never confirmed.
-		///
-		/// Callable by the sending para or root. As with [`Pallet::close_channel`], the deposit
-		/// comes back only on the relay chain's answer.
-		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::cancel_open_request())]
-		pub fn cancel_open_request(
-			origin: OriginFor<T>,
-			sender: ParaId,
-			recipient: ParaId,
-		) -> DispatchResult {
-			Self::ensure_root_or_para(origin, sender)?;
-			let channel = ChannelId { sender, recipient };
-			let mut info = Channels::<T>::get(channel).ok_or(Error::<T>::NoSuchChannel)?;
-			ensure!(info.state == ChannelState::Pending, Error::<T>::WrongState);
-
-			let message_id = Self::next_message_id();
-			info.state =
-				ChannelState::Cancelling { cancellable_at: Self::deadline(), message_id };
-			Channels::<T>::insert(channel, info);
-
-			// A transport failure returns `Err` and unwinds the state change with it.
-			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::CancelOpenRequest {
-				channel,
-				message_id,
-			}))
-			.map_err(|()| Error::<T>::SendFailed)?;
-
-			Self::deposit_event(Event::CancelRequested { channel, message_id });
-			Ok(())
-		}
-
-		/// Accept a report from the relay chain's HRMP pallet.
-		///
-		/// Not callable by users: the origin must be the relay chain.
-		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::receive())]
+		#[pallet::weight(match message {
+			MessageToPara::V1(MessageToParaV1::Hold { .. }) => T::WeightInfo::receive_hold(),
+			MessageToPara::V1(MessageToParaV1::Release { .. }) =>
+				T::WeightInfo::receive_release(),
+		})]
 		pub fn receive(origin: OriginFor<T>, message: MessageToPara) -> DispatchResult {
 			T::RelayOrigin::ensure_origin_or_root(origin)?;
 
 			match message {
-				MessageToPara::V1(MessageToParaV1::OpenResponse {
-					channel,
-					message_id,
-					outcome,
-				}) => Self::on_open_response(channel, message_id, outcome),
-				MessageToPara::V1(MessageToParaV1::AcceptResponse {
-					channel,
-					message_id,
-					outcome,
-				}) => Self::on_accept_response(channel, message_id, outcome),
-				MessageToPara::V1(MessageToParaV1::CloseResponse {
-					channel,
-					message_id,
-					outcome,
-				}) => Self::on_close_response(channel, message_id, outcome),
-				MessageToPara::V1(MessageToParaV1::CancelResponse {
-					channel,
-					message_id,
-					outcome,
-				}) => Self::on_cancel_response(channel, message_id, outcome),
-				MessageToPara::V1(MessageToParaV1::SystemChannelResponse {
-					channel,
-					message_id,
-					outcome,
-				}) => Self::on_system_channel_response(channel, message_id, outcome),
+				MessageToPara::V1(MessageToParaV1::Hold { key, amount }) => {
+					let held = Self::do_hold(key, amount).is_ok();
+					if held {
+						Self::deposit_event(Event::DepositHeld { key, amount });
+					} else {
+						Self::deposit_event(Event::DepositRefused { key, amount });
+					}
+					Self::send(MessageToRelayV1::HoldResult { key, held })?;
+				},
+				MessageToPara::V1(MessageToParaV1::Release { key, amount }) => {
+					if let Some(amount) = Self::do_release(key, amount) {
+						Self::deposit_event(Event::DepositReleased { key, amount });
+					}
+				},
 			}
+			Ok(())
 		}
 
-		/// Open a deposit-free channel in both directions.
+		/// Release everything held for `key`.
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::WeightInfo::force_release())]
+		pub fn force_release(origin: OriginFor<T>, key: DepositKey) -> DispatchResult {
+			frame_system::ensure_root(origin)?;
+			let amount = Self::do_release(key, None).ok_or(Error::<T>::NoSuchDeposit)?;
+			Self::deposit_event(Event::DepositForceReleased { key, amount });
+			Ok(())
+		}
+
+		/// Ask the relay chain to bring a channel's deposits in line with its configuration.
 		///
-		/// Replaces both of the relay chain's system-channel calls, which were a signed call and a
-		/// para-origin call and are therefore both filtered once this chain is the control plane.
+		/// Any signed origin may call this, as on the relay chain.
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::poke_channel_deposits())]
+		pub fn poke_channel_deposits(
+			origin: OriginFor<T>,
+			sender: ParaId,
+			recipient: ParaId,
+		) -> DispatchResult {
+			ensure_signed(origin)?;
+			let channel = ChannelId { sender, recipient };
+			Self::send(MessageToRelayV1::PokeChannelDeposits { channel })?;
+			Self::deposit_event(Event::PokeRequested { channel });
+			Ok(())
+		}
+
+		/// Ask the relay chain to open a channel between two system chains.
 		///
-		/// Origins mirror what they replaced, rather than being root-only:
-		///
-		/// - **Any signed account** may pair two system chains, as `establish_system_channel`
-		///   allowed.
-		/// - **A para** may open a channel between itself and a system chain, as
-		///   `establish_channel_with_system` allowed. Requiring governance for this would mean
-		///   every newly registered para needed a referendum before it could talk to Asset Hub,
-		///   which is not a trade anybody would take.
-		/// - **Root** may pair any two paras.
-		///
-		/// Safe to leave open because it is deposit-free at both ends by definition, and the
-		/// relay chain still enforces its own per-para channel limits. Also the retry for a
-		/// channel this chain failed to open with a newly registered para.
-		#[pallet::call_index(5)]
+		/// Any signed origin may call this, as on the relay chain.
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::establish_system_channel())]
 		pub fn establish_system_channel(
 			origin: OriginFor<T>,
 			sender: ParaId,
 			recipient: ParaId,
 		) -> DispatchResult {
-			ensure!(sender != recipient, Error::<T>::ToSelf);
-			Self::ensure_may_pair_deposit_free(origin, sender, recipient)?;
-
-			let message_id = Self::do_establish_system_channel(sender, recipient)?;
-
-			Self::deposit_event(Event::SystemChannelRequested {
-				channel: ChannelId { sender, recipient },
-				message_id,
-			});
+			ensure_signed(origin)?;
+			let channel = ChannelId { sender, recipient };
+			Self::send(MessageToRelayV1::EstablishSystemChannel { channel })?;
+			Self::deposit_event(Event::SystemChannelRequested { channel });
 			Ok(())
 		}
 
-		/// Drop this chain's record of a channel whose verdict never arrived.
-		///
-		/// Root only, and only once [`Config::PendingDeadline`] has passed, so a verdict that is
-		/// merely slow cannot be torn down from under the relay chain.
-		///
-		/// Deliberately blunt: it releases whatever deposits are held and forgets the channel,
-		/// without telling the relay chain anything. The two chains can therefore disagree
-		/// afterwards, which is why this is governance's tool and not a user's.
-		#[pallet::call_index(6)]
-		#[pallet::weight(T::WeightInfo::force_remove_channel())]
-		pub fn force_remove_channel(
-			origin: OriginFor<T>,
-			sender: ParaId,
-			recipient: ParaId,
-		) -> DispatchResult {
+		/// Answer a hold on this chain's behalf, for one whose answer never arrived.
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::WeightInfo::force_answer())]
+		pub fn force_answer(origin: OriginFor<T>, key: DepositKey, held: bool) -> DispatchResult {
 			frame_system::ensure_root(origin)?;
-			let channel = ChannelId { sender, recipient };
-			let info = Channels::<T>::get(channel).ok_or(Error::<T>::NoSuchChannel)?;
-
-			let overdue = match info.state {
-				ChannelState::Opening { cancellable_at, .. } |
-				ChannelState::Accepting { cancellable_at, .. } |
-				ChannelState::Closing { cancellable_at, .. } |
-				ChannelState::Cancelling { cancellable_at, .. } =>
-					T::BlockNumberProvider::current_block_number() >= cancellable_at,
-				// Nothing is in flight for these, so there is no verdict to be overdue.
-				ChannelState::Pending | ChannelState::Open => true,
-			};
-			ensure!(overdue, Error::<T>::NotOverdue);
-
-			Self::release(info.sender_ticket, sender)?;
-			Self::release(info.recipient_ticket, recipient)?;
-			Channels::<T>::remove(channel);
-			UnpaidMigratedDeposits::<T>::remove(channel);
-
-			Self::deposit_event(Event::ChannelForceRemoved { channel });
+			Self::send(MessageToRelayV1::HoldResult { key, held })?;
+			Self::deposit_event(Event::AnswerForced { key, held });
 			Ok(())
 		}
 	}
 }
 
 impl<T: Config> Pallet<T> {
-	/// Check that every channel's held deposits match what its state says they should be.
-	///
-	/// This is the pallet's one real invariant, and it is the one worth checking: the whole point
-	/// of the design is that a deposit is taken exactly when a state is entered and released
-	/// exactly when one is left. Anything that drifts here is money held against nothing, or a
-	/// channel standing on a deposit nobody paid.
-	// Also built for `std` so native integration tests can assert the invariant mid-migration
-	// without turning on `try-runtime` for the whole runtime. Stays out of the wasm blob.
+	fn payer(key: &DepositKey) -> T::AccountId {
+		T::SovereignAccountOf::convert(key.para())
+	}
+
+	fn send(message: MessageToRelayV1) -> DispatchResult {
+		T::SendToRelay::send(MessageToRelay::V1(message))
+			.map_err(|()| Error::<T>::SendFailed.into())
+	}
+
+	/// Hold `amount` for `key`, adding to anything already held for it.
+	fn do_hold(key: DepositKey, amount: Balance) -> DispatchResult {
+		T::Currency::hold(&HoldReason::ChannelDeposit.into(), &Self::payer(&key), amount)?;
+		Deposits::<T>::mutate(key, |held| {
+			*held = Some(held.unwrap_or_default().saturating_add(amount))
+		});
+		Ok(())
+	}
+
+	/// Release `amount` of what is held for `key`, or all of it, returning how much that was.
+	fn do_release(key: DepositKey, amount: Option<Balance>) -> Option<Balance> {
+		let held = Deposits::<T>::get(key)?;
+		let amount = amount.map_or(held, |amount| amount.min(held));
+		if amount == held {
+			Deposits::<T>::remove(key);
+		} else {
+			Deposits::<T>::insert(key, held - amount);
+		}
+		let released = T::Currency::release(
+			&HoldReason::ChannelDeposit.into(),
+			&Self::payer(&key),
+			amount,
+			Precision::BestEffort,
+		)
+		.unwrap_or_default();
+		Some(released)
+	}
+
+	/// Check that each para has exactly its recorded deposits on hold.
 	#[cfg(any(feature = "try-runtime", feature = "std", test))]
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-		for (channel, info) in Channels::<T>::iter() {
-			frame_support::ensure!(
-				channel.sender != channel.recipient,
-				"hrmp-para: a channel has the same para at both ends"
+		let mut per_para = alloc::collections::btree_map::BTreeMap::<ParaId, Balance>::new();
+		for (key, amount) in Deposits::<T>::iter() {
+			ensure!(!amount.is_zero(), "hrmp-para: a deposit with nothing held is recorded");
+			let total = per_para.entry(key.para()).or_default();
+			*total = total.saturating_add(amount);
+		}
+		for (para, recorded) in per_para {
+			let on_hold = T::Currency::balance_on_hold(
+				&HoldReason::ChannelDeposit.into(),
+				&T::SovereignAccountOf::convert(para),
 			);
-
-			let (sender, recipient) = (info.sender_ticket.is_some(), info.recipient_ticket.is_some());
-			// A migrated end that could not pay legitimately holds nothing.
-			let (sender_unpaid, recipient_unpaid) = UnpaidMigratedDeposits::<T>::get(channel);
-			let (sender_due, recipient_due) = (!sender_unpaid, !recipient_unpaid);
-
-			if Self::is_system(channel) {
-				// System channels are free at both ends, in every state.
-				frame_support::ensure!(
-					!sender && !recipient,
-					"hrmp-para: a system channel is holding a deposit"
-				);
-				continue;
-			}
-
-			match info.state {
-				// The sender has committed; the recipient has not been asked yet, or has been
-				// answered and refunded.
-				ChannelState::Opening { .. } |
-				ChannelState::Pending |
-				ChannelState::Cancelling { .. } => frame_support::ensure!(
-					sender == sender_due && !recipient,
-					"hrmp-para: a channel before acceptance must hold exactly the sender's deposit"
-				),
-				// Both ends have committed and neither has been released.
-				ChannelState::Accepting { .. } |
-				ChannelState::Open |
-				ChannelState::Closing { .. } => frame_support::ensure!(
-					sender == sender_due && recipient == recipient_due,
-					"hrmp-para: a channel from acceptance onwards must hold both deposits"
-				),
-			}
-		}
-		Ok(())
-	}
-
-	/// The footprint one end of a channel is charged for.
-	fn channel_footprint() -> Footprint {
-		Footprint::from_parts(1, 0)
-	}
-
-	/// Whether a channel between these two is deposit-free.
-	///
-	/// A channel with or amongst system chains costs nothing, at either end.
-	fn is_system(channel: ChannelId) -> bool {
-		T::SystemParas::contains(&channel.sender) || T::SystemParas::contains(&channel.recipient)
-	}
-
-	/// Take one end's deposit from that para's sovereign account here.
-	fn take_deposit(
-		channel: ChannelId,
-		para_id: ParaId,
-	) -> Result<Option<T::ChannelConsideration>, sp_runtime::DispatchError> {
-		if Self::is_system(channel) {
-			return Ok(None);
-		}
-		let who = T::SovereignAccountOf::convert(para_id);
-		Ok(Some(T::ChannelConsideration::new(&who, Self::channel_footprint())?))
-	}
-
-	/// Give one end's deposit back to that para's sovereign account.
-	fn release(ticket: Option<T::ChannelConsideration>, para_id: ParaId) -> DispatchResult {
-		if let Some(ticket) = ticket {
-			ticket.drop(&T::SovereignAccountOf::convert(para_id))?;
-		}
-		Ok(())
-	}
-
-	/// The block from which an in-flight request counts as overdue.
-	fn deadline() -> ProvidedBlockNumberOf<T> {
-		T::BlockNumberProvider::current_block_number()
-			.saturating_add(T::PendingDeadline::get())
-	}
-
-	/// Take the id for the next message to the relay chain.
-	fn next_message_id() -> u64 {
-		NextMessageId::<T>::mutate(|next| {
-			let id = *next;
-			*next = next.wrapping_add(1);
-			id
-		})
-	}
-
-	/// Record both directions of a deposit-free channel and ask the relay chain to open them.
-	fn do_establish_system_channel(
-		sender: ParaId,
-		recipient: ParaId,
-	) -> Result<u64, sp_runtime::DispatchError> {
-		let channel = ChannelId { sender, recipient };
-		let back = ChannelId { sender: recipient, recipient: sender };
-
-		// Recorded as `Pending`, not `Open`: this chain cannot see the relay chain's registry, and
-		// the request is genuinely refused in the ordinary case — the control plane asks for the
-		// channel the moment a registration is applied, while the para is still onboarding.
-		// Claiming `Open` here is how a refusal became invisible: the records said the pair was
-		// live, so nothing indicated a retry was needed. `on_system_channel_response` promotes
-		// them once the relay chain confirms.
-		//
-		// Re-establishing is allowed: a retry after a failed open must be able to make progress,
-		// and a system channel holds no deposit to lose by being overwritten. An already-`Open`
-		// pair is left alone, so a redundant retry cannot demote a working channel.
-		for id in [channel, back] {
-			if matches!(Channels::<T>::get(id).map(|c| c.state), Some(ChannelState::Open)) {
-				continue;
-			}
-			Channels::<T>::insert(
-				id,
-				ChannelInfo {
-					sender_ticket: None,
-					recipient_ticket: None,
-					state: ChannelState::Pending,
-				},
-			);
-		}
-
-		// A transport failure returns `Err` and unwinds both records with it.
-		let message_id = Self::next_message_id();
-		T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::EstablishSystemChannel {
-			channel,
-			message_id,
-		}))
-		.map_err(|()| Error::<T>::SendFailed)?;
-
-		Ok(message_id)
-	}
-
-	/// Ensure `origin` may act for `para_id`: the para itself or root.
-	fn ensure_root_or_para(
-		origin: frame_system::pallet_prelude::OriginFor<T>,
-		para_id: ParaId,
-	) -> DispatchResult {
-		if let Ok(id) = T::ParachainOrigin::ensure_origin(origin.clone()) {
-			ensure!(id == para_id, Error::<T>::NotOwner);
-			return Ok(());
-		}
-		frame_system::ensure_root(origin)?;
-		Ok(())
-	}
-
-	/// Ensure `origin` may pair `sender` and `recipient` deposit-free, on the relay chain's
-	/// terms: anyone signed for two system chains, a para for itself and a system chain, root
-	/// for anything.
-	fn ensure_may_pair_deposit_free(
-		origin: frame_system::pallet_prelude::OriginFor<T>,
-		sender: ParaId,
-		recipient: ParaId,
-	) -> DispatchResult {
-		if frame_system::ensure_root(origin.clone()).is_ok() {
-			return Ok(());
-		}
-		match (T::SystemParas::contains(&sender), T::SystemParas::contains(&recipient)) {
-			(true, true) => {
-				frame_system::ensure_signed(origin)?;
-				Ok(())
-			},
-			(true, false) => Self::ensure_root_or_para(origin, recipient),
-			(false, true) => Self::ensure_root_or_para(origin, sender),
-			// Free channels between two public paras would be a way around the deposit entirely.
-			(false, false) => Err(Error::<T>::NotOwner.into()),
-		}
-	}
-
-	/// Ensure `origin` may act for *either* end of `channel`, and say which end it was.
-	///
-	/// Closing is the one operation both ends may drive, so the relay chain has to be told which
-	/// of them asked.
-	fn ensure_may_close_as(
-		origin: frame_system::pallet_prelude::OriginFor<T>,
-		channel: ChannelId,
-		initiator: ParaId,
-	) -> DispatchResult {
-		ensure!(channel.is_participant(initiator), Error::<T>::NotOwner);
-
-		if let Ok(id) = T::ParachainOrigin::ensure_origin(origin.clone()) {
-			// A para closes as itself and nobody else.
-			ensure!(id == initiator, Error::<T>::NotOwner);
-			return Ok(());
-		}
-		// Root names the end outright: either governance, or the relay chain relaying a para's own
-		// request, in which case it is asserting which para asked. Both are trusted to say.
-		frame_system::ensure_root(origin)?;
-		Ok(())
-	}
-
-	/// Read a channel that must be in the state a response expects.
-	///
-	/// A response for a channel this chain is not expecting one for is dropped rather than
-	/// treated as a dispatch error: erroring would unwind the whole incoming message for
-	/// something that cannot be fixed from here. Unexpected responses still trip a defensive
-	/// failure so they are loud in logs, and panic under `debug_assertions`.
-	fn expect(
-		channel: ChannelId,
-		message_id: u64,
-		matches: fn(&ChannelState<ProvidedBlockNumberOf<T>>) -> bool,
-	) -> Option<ChannelInfoOf<T>> {
-		let Some(info) = Channels::<T>::get(channel) else {
-			defensive!("hrmp response for unknown channel, dropping");
-			return None;
-		};
-		if !matches(&info.state) {
-			defensive!("hrmp response for a channel in the wrong state, dropping");
-			return None;
-		}
-		// Stale, not defensive: a duplicate delivery, or an answer meant for an earlier occupant
-		// of this channel id, can land on a matching state honestly. Ids are handed out in
-		// order, so anything older than this state's opening request predates the state.
-		if info.state.awaited_id().is_some_and(|awaited| message_id < awaited) {
-			log::debug!(
-				target: "runtime::hrmp-para",
-				"hrmp response for {channel:?} echoes id {message_id}, older than {:?}, dropping",
-				info.state.awaited_id(),
-			);
-			return None;
-		}
-		Some(info)
-	}
-
-	/// Apply the relay chain's verdict on an open request.
-	fn on_open_response(channel: ChannelId, message_id: u64, outcome: Outcome) -> DispatchResult {
-		let Some(mut info) = Self::expect(channel, message_id, |s| matches!(s, ChannelState::Opening { .. })) else {
-			return Ok(());
-		};
-
-		match outcome {
-			Ok(()) => {
-				info.state = ChannelState::Pending;
-				Channels::<T>::insert(channel, info);
-				Self::deposit_event(Event::OpenPending { channel, message_id });
-			},
-			Err(reason) => {
-				Self::release(info.sender_ticket, channel.sender)?;
-				Channels::<T>::remove(channel);
-				UnpaidMigratedDeposits::<T>::remove(channel);
-				Self::deposit_event(Event::OpenFailed { channel, message_id, reason });
-			},
-		}
-		Ok(())
-	}
-
-	/// Apply the relay chain's verdict on an acceptance.
-	fn on_accept_response(channel: ChannelId, message_id: u64, outcome: Outcome) -> DispatchResult {
-		let Some(mut info) = Self::expect(channel, message_id, |s| matches!(s, ChannelState::Accepting { .. })) else {
-			return Ok(());
-		};
-
-		match outcome {
-			Ok(()) => {
-				info.state = ChannelState::Open;
-				Channels::<T>::insert(channel, info);
-				Self::deposit_event(Event::Opened { channel, message_id });
-			},
-			Err(reason) => {
-				// Only the recipient's half is returned: the request itself still stands on the
-				// relay chain, so the sender's deposit is still owed.
-				Self::release(info.recipient_ticket.take(), channel.recipient)?;
-				info.state = ChannelState::Pending;
-				Channels::<T>::insert(channel, info);
-				Self::deposit_event(Event::AcceptFailed { channel, message_id, reason });
-			},
-		}
-		Ok(())
-	}
-
-	/// Apply the relay chain's verdict on a close.
-	fn on_close_response(channel: ChannelId, message_id: u64, outcome: Outcome) -> DispatchResult {
-		let Some(mut info) = Self::expect(channel, message_id, |s| matches!(s, ChannelState::Closing { .. })) else {
-			return Ok(());
-		};
-
-		match outcome {
-			// `NotFound` is a confirmation wearing a refusal's clothes: the relay chain is
-			// authoritative for its own channel map, and "no such channel" is exactly the end
-			// state a close asks for. It is also the only signal this chain ever gets that a
-			// counterparty was offboarded — the relay chain deletes an outgoing para's channels
-			// at the session boundary without telling anyone — so refusing here would hold the
-			// deposits behind a governance call forever, for a channel that no longer exists.
-			Ok(()) | Err(FailureReason::NotFound) => {
-				Self::release(info.sender_ticket, channel.sender)?;
-				Self::release(info.recipient_ticket, channel.recipient)?;
-				Channels::<T>::remove(channel);
-				UnpaidMigratedDeposits::<T>::remove(channel);
-				Self::deposit_event(Event::Closed { channel, message_id });
-			},
-			Err(reason) => {
-				info.state = ChannelState::Open;
-				Channels::<T>::insert(channel, info);
-				Self::deposit_event(Event::CloseFailed { channel, message_id, reason });
-			},
-		}
-		Ok(())
-	}
-
-	/// Apply the relay chain's verdict on a cancellation.
-	fn on_cancel_response(channel: ChannelId, message_id: u64, outcome: Outcome) -> DispatchResult {
-		let Some(mut info) = Self::expect(channel, message_id, |s| matches!(s, ChannelState::Cancelling { .. })) else {
-			return Ok(());
-		};
-
-		match outcome {
-			// Same reasoning as the close above. A cancel of a request the relay chain no longer
-			// has cannot misfire on one that was meanwhile accepted: cancelling a *confirmed*
-			// request is refused as `AlreadyExists`, never `NotFound`.
-			Ok(()) | Err(FailureReason::NotFound) => {
-				Self::release(info.sender_ticket, channel.sender)?;
-				Channels::<T>::remove(channel);
-				UnpaidMigratedDeposits::<T>::remove(channel);
-				Self::deposit_event(Event::Cancelled { channel, message_id });
-			},
-			Err(reason) => {
-				info.state = ChannelState::Pending;
-				Channels::<T>::insert(channel, info);
-				Self::deposit_event(Event::CancelFailed { channel, message_id, reason });
-			},
-		}
-		Ok(())
-	}
-
-	/// Apply the relay chain's verdict on a deposit-free channel pair.
-	///
-	/// Covers **both** directions: the relay chain opens the pair or neither, so one answer settles
-	/// two records. No deposit is involved, so a refusal releases nothing — it only leaves the pair
-	/// unconfirmed, which is what makes a retry meaningful and visible.
-	fn on_system_channel_response(
-		channel: ChannelId,
-		message_id: u64,
-		outcome: Outcome,
-	) -> DispatchResult {
-		let back = ChannelId { sender: channel.recipient, recipient: channel.sender };
-
-		match outcome {
-			// `AlreadyExists` is the channel being there, which is the outcome that was asked for.
-			// Same reading `on_cancel_response` gives `NotFound`: the state the caller wanted.
-			Ok(()) | Err(FailureReason::AlreadyExists) => {
-				for id in [channel, back] {
-					// Only a pair this chain is actually waiting on. A record that has moved on —
-					// closed, or torn down by governance — must not be resurrected by a late
-					// answer.
-					if let Some(mut info) = Channels::<T>::get(id) {
-						if matches!(info.state, ChannelState::Pending | ChannelState::Open) {
-							info.state = ChannelState::Open;
-							Channels::<T>::insert(id, info);
-						}
-					}
-				}
-				Self::deposit_event(Event::SystemChannelOpened { channel, message_id });
-			},
-			Err(reason) => {
-				Self::deposit_event(Event::SystemChannelRefused { channel, message_id, reason });
-			},
+			ensure!(on_hold == recorded, "hrmp-para: a para's hold differs from its deposits");
 		}
 		Ok(())
 	}
 }
 
-/// Takes channels handed over by a migration.
-///
-/// Deposits are re-taken here at this chain's prices, from the sovereign accounts the money
-/// already arrived on — the same accounts a fresh channel would be charged against, which is why a
-/// migrated channel and a new one are indistinguishable afterwards.
-///
-/// A channel the relay chain has not confirmed arrives as `Pending`, holding the sender's deposit
-/// alone. That is not a detail: it is the pallet's invariant about which deposits a state holds,
-/// and putting the mapping here rather than in the migrator is what keeps the two from drifting.
-///
-/// Taking the deposits is best effort. Every channel the relay chain had is recreated; an end
-/// whose sovereign account cannot pay is recorded without a ticket, noted in
-/// [`UnpaidMigratedDeposits`] and reported as [`Event::MigratedWithUnpaidDeposit`]. Closing the
-/// channel later releases only what was taken.
-impl<T: Config> ReceiveMigratedChannels for Pallet<T> {
-	fn receive_channel(migrated: MigratedChannel) -> DispatchResult {
-		// A migrator calls this as a plain function, so unlike an extrinsic it gets no storage
-		// layer of its own. Without one, a sender's deposit taken before a failing recipient
-		// deposit would survive the failure as a hold against nothing.
-		frame_support::storage::with_storage_layer(|| Self::do_receive_channel(migrated))
-	}
-}
+extern crate alloc;
 
-impl<T: Config> Pallet<T> {
-	fn do_receive_channel(migrated: MigratedChannel) -> DispatchResult {
-		let MigratedChannel { channel, confirmed } = migrated;
-		ensure!(channel.sender != channel.recipient, Error::<T>::ToSelf);
-
-		// A system channel can arrive twice: established here through
-		// `establish_system_channel`, and handed over by the migration because it also existed on
-		// the relay chain. They describe the same thing — a system channel takes no deposit at
-		// either end, so neither record holds anything the other does not — and the established
-		// one is authoritative, because the relay chain has already been told to open it in both
-		// directions. Any other collision is still a real error.
-		if Channels::<T>::contains_key(channel) {
-			ensure!(Self::is_system(channel), Error::<T>::AlreadyExists);
-			Self::deposit_event(Event::MigratedSystemChannelAlreadyOpen { channel });
-			return Ok(());
-		}
-
-		let sender_ticket = Self::take_migrated_deposit(channel, channel.sender);
-		let (recipient_ticket, state) = if confirmed {
-			(Self::take_migrated_deposit(channel, channel.recipient), ChannelState::Open)
+/// Holds what the paying para can cover, up to `amount`. A shortfall is recorded, never refused.
+impl<T: Config> ReceiveMigratedDeposits for Pallet<T> {
+	fn receive_deposit(key: DepositKey, amount: Balance) -> DispatchResult {
+		let held = if Self::do_hold(key, amount).is_ok() {
+			amount
 		} else {
-			(None, ChannelState::Pending)
+			let who = Self::payer(&key);
+			let available =
+				T::Currency::reducible_balance(&who, Preservation::Protect, Fortitude::Force);
+			let held = amount.min(available);
+			if !held.is_zero() {
+				Self::do_hold(key, held)?;
+			}
+			held
 		};
-
-		Channels::<T>::insert(channel, ChannelInfo { sender_ticket, recipient_ticket, state });
+		Self::deposit_event(Event::DepositMigrated {
+			key,
+			held,
+			missing: amount.saturating_sub(held),
+		});
 		Ok(())
-	}
-
-	/// [`Self::take_deposit`] for a migrated end: an account that cannot pay yields no ticket,
-	/// never an error.
-	fn take_migrated_deposit(
-		channel: ChannelId,
-		para_id: ParaId,
-	) -> Option<T::ChannelConsideration> {
-		match Self::take_deposit(channel, para_id) {
-			Ok(ticket) => ticket,
-			Err(_) => {
-				UnpaidMigratedDeposits::<T>::mutate(channel, |(sender, recipient)| {
-					if para_id == channel.sender {
-						*sender = true;
-					} else {
-						*recipient = true;
-					}
-				});
-				Self::deposit_event(Event::MigratedWithUnpaidDeposit { channel, para_id });
-				None
-			},
-		}
 	}
 }

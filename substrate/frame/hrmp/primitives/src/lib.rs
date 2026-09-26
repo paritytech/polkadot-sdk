@@ -15,32 +15,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # HRMP control-plane shared primitives
+//! # HRMP deposit primitives
 //!
-//! Types shared by the parachain-side HRMP pallet (`pallet-hrmp-para`) and the relay-chain-side
-//! one (`pallet-hrmp-relay`), on the same terms as `registrar-primitives`: no FRAME, no XCM, no
-//! network-specific dependency, so one version of the wire types serves every network and neither
-//! pallet has to depend on the other.
+//! Types shared by the relay-chain pallet (`pallet-hrmp-relay`) and the parachain pallet that
+//! holds HRMP channel deposits (`pallet-hrmp-para`). No FRAME, XCM or network-specific
+//! dependency, so one version of the wire types serves every network.
 //!
-//! ## What actually moves
-//!
-//! HRMP is not a signed-extrinsic problem today — the user-facing calls are dispatched by the
-//! parachain itself inside an XCM `Transact`. What forces the migration is the money: the channel
-//! deposits are DOT held on the relay chain, in the paras' sovereign accounts. Those move to the
-//! Coretime chain, and the intent follows them, so that the relay chain can end up accepting
-//! system origins only.
-//!
-//! ## Who may ask
-//!
-//! The same set the relay chain accepts today: the para itself, arriving as a `Transact` from the
-//! sibling chain (or relayed by the relay chain on its behalf), or root. There is deliberately no
-//! registrar-manager path: HRMP on the relay chain never had one, and adding one would let an
-//! account other than the para commit the para's sovereign funds — a new trust shape for the
-//! auditor to bless, with no counterpart in what it replaces.
+//! The relay chain owns every HRMP channel, request and decision. The parachain holds the
+//! deposits: the relay chain asks it to hold or release one, and it answers whether a hold
+//! succeeded.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-
-extern crate alloc;
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
@@ -50,7 +35,10 @@ use scale_info::TypeInfo;
 /// Byte-compatible with the relay chain's `Id`, which is a transparent `u32` newtype.
 pub type ParaId = u32;
 
-/// One end of a channel, in the order the relay chain names them.
+/// A deposit amount, in the relay chain's native token.
+pub type Balance = u128;
+
+/// One direction of a channel, in the order the relay chain names them.
 #[derive(
 	Encode,
 	Decode,
@@ -59,11 +47,11 @@ pub type ParaId = u32;
 	Copy,
 	Eq,
 	PartialEq,
+	Ord,
+	PartialOrd,
 	Debug,
 	TypeInfo,
 	MaxEncodedLen,
-	Ord,
-	PartialOrd,
 )]
 pub struct ChannelId {
 	/// The para that sends on this channel.
@@ -72,392 +60,244 @@ pub struct ChannelId {
 	pub recipient: ParaId,
 }
 
-impl ChannelId {
-	/// Whether `para_id` is one of the two ends.
-	pub fn is_participant(&self, para_id: ParaId) -> bool {
-		self.sender == para_id || self.recipient == para_id
+/// Which end of a channel pays a deposit.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+pub enum DepositSide {
+	/// The para that sends on the channel.
+	#[codec(index = 0)]
+	Sender,
+	/// The para that receives on the channel.
+	#[codec(index = 1)]
+	Recipient,
+}
+
+/// One deposit: a channel, and which end of it pays.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+pub struct DepositKey {
+	/// The channel the deposit is for.
+	pub channel: ChannelId,
+	/// Which end pays it.
+	pub side: DepositSide,
+}
+
+impl DepositKey {
+	/// The para that pays this deposit.
+	pub fn para(&self) -> ParaId {
+		match self.side {
+			DepositSide::Sender => self.channel.sender,
+			DepositSide::Recipient => self.channel.recipient,
+		}
 	}
 }
 
-/// HRMP control-plane messages sent to the relay chain.
-///
-/// The variant's `#[codec(index)]` is the on-wire version tag.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
-pub enum MessageToRelay {
-	/// Version 1 of the HRMP control-plane messages to the relay chain.
-	#[codec(index = 0)]
-	V1(MessageToRelayV1),
-}
-
-/// Version 1 payloads for [`MessageToRelay`].
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
-pub enum MessageToRelayV1 {
-	/// Ask the relay chain to record an open-channel request.
-	///
-	/// The sender's deposit is already held on the parachain, so the relay chain takes nothing.
-	/// Answered with [`MessageToParaV1::OpenResponse`].
-	#[codec(index = 0)]
-	InitOpenChannel {
-		/// Which channel is being opened.
-		channel: ChannelId,
-		/// The parachain's id for this message, echoed back in the response.
-		message_id: u64,
-		/// How many messages the channel may hold at once.
-		max_capacity: u32,
-		/// The largest message the channel will carry.
-		max_message_size: u32,
-	},
-	/// Ask the relay chain to confirm an open-channel request on the recipient's behalf.
-	///
-	/// Answered with [`MessageToParaV1::AcceptResponse`]. The channel itself only comes into
-	/// existence at the relay chain's next session boundary, which is not something either side
-	/// waits for: the deposits are settled by this answer, not by the channel opening.
-	#[codec(index = 1)]
-	AcceptOpenChannel {
-		/// Which channel is being accepted.
-		channel: ChannelId,
-		/// The parachain's id for this message, echoed back in the response.
-		message_id: u64,
-	},
-	/// Ask the relay chain to close an open channel.
-	///
-	/// Answered with [`MessageToParaV1::CloseResponse`], and only that answer releases the
-	/// deposits: a close that is merely requested must not hand the money back, or a para gets
-	/// its deposit while the channel still carries messages.
-	#[codec(index = 2)]
-	CloseChannel {
-		/// Which channel is being closed.
-		channel: ChannelId,
-		/// The parachain's id for this message, echoed back in the response.
-		message_id: u64,
-		/// Which end asked. Either may close.
-		initiator: ParaId,
-	},
-	/// Ask the relay chain to drop an open-channel request the recipient never confirmed.
-	///
-	/// Answered with [`MessageToParaV1::CancelResponse`].
-	#[codec(index = 3)]
-	CancelOpenRequest {
-		/// Which request is being withdrawn.
-		channel: ChannelId,
-		/// The parachain's id for this message, echoed back in the response.
-		message_id: u64,
-	},
-	/// Ask the relay chain to open a deposit-free channel in both directions.
-	///
-	/// Used for channels with or amongst system chains, including the one the Coretime chain
-	/// opens with every para it registers. Answered with
-	/// [`MessageToParaV1::SystemChannelResponse`].
-	///
-	/// No deposit is staked on the outcome, so the round trip is not about money — it is about the
-	/// parachain not being able to tell "opened" from "refused" otherwise. It cannot see the relay
-	/// chain's state, and the most common refusal is routine rather than exceptional: the chain
-	/// that owns the registry asks for this channel the moment a registration is applied, while
-	/// the new para is still onboarding and the relay chain will not yet open a channel to it.
-	#[codec(index = 4)]
-	EstablishSystemChannel {
-		/// One end of the pair. Both directions are opened.
-		channel: ChannelId,
-		/// The parachain's id for this message, for tying the two chains' events together.
-		message_id: u64,
-	},
-}
-
-/// HRMP report messages sent back to the parachain.
+/// Messages from the relay chain to the parachain that holds the deposits.
 ///
 /// The variant's `#[codec(index)]` is the on-wire version tag.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub enum MessageToPara {
-	/// Version 1 of the HRMP report messages to the parachain.
+	/// Version 1.
 	#[codec(index = 0)]
 	V1(MessageToParaV1),
 }
 
 /// Version 1 payloads for [`MessageToPara`].
-///
-/// `channel` correlates a response with its request: a parachain only has one request in flight
-/// per channel, so the pair of para ids is enough. `message_id` echoes the request's id on top,
-/// tying the two chains' events together.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub enum MessageToParaV1 {
-	/// Report how an [`MessageToRelayV1::InitOpenChannel`] ended.
-	///
-	/// `Ok(())` means the relay chain is holding the request, so the sender's deposit is owed.
+	/// Hold `amount` from the para that pays `key`. Answered with
+	/// [`MessageToRelayV1::HoldResult`].
 	#[codec(index = 0)]
-	OpenResponse {
-		/// The channel the report is about.
-		channel: ChannelId,
-		/// The id of the request this answers, echoed back.
-		message_id: u64,
-		/// Whether the request was recorded on the relay chain.
-		outcome: Outcome,
+	Hold {
+		/// The deposit.
+		key: DepositKey,
+		/// How much to hold.
+		amount: Balance,
 	},
-	/// Report how an [`MessageToRelayV1::AcceptOpenChannel`] ended.
+	/// Release `amount` of what is held for `key`, or everything if `None`. Not answered.
 	#[codec(index = 1)]
-	AcceptResponse {
-		/// The channel the report is about.
-		channel: ChannelId,
-		/// The id of the request this answers, echoed back.
-		message_id: u64,
-		/// Whether the acceptance was recorded on the relay chain.
-		outcome: Outcome,
-	},
-	/// Report how a [`MessageToRelayV1::CloseChannel`] ended.
-	///
-	/// `Ok(())` means the channel is gone from the relay chain, so both deposits can be released.
-	#[codec(index = 2)]
-	CloseResponse {
-		/// The channel the report is about.
-		channel: ChannelId,
-		/// The id of the request this answers, echoed back.
-		message_id: u64,
-		/// Whether the channel was closed.
-		outcome: Outcome,
-	},
-	/// Report how a [`MessageToRelayV1::CancelOpenRequest`] ended.
-	///
-	/// `Ok(())` means the request is gone, so the sender's deposit can be released.
-	#[codec(index = 3)]
-	CancelResponse {
-		/// The channel the report is about.
-		channel: ChannelId,
-		/// The id of the request this answers, echoed back.
-		message_id: u64,
-		/// Whether the request was dropped.
-		outcome: Outcome,
-	},
-	/// Report how a [`MessageToRelayV1::EstablishSystemChannel`] ended, for **both** directions.
-	///
-	/// `Ok(())` means the relay chain has the pair, so both may be recorded open.
-	/// [`FailureReason::AlreadyExists`] counts as success: it means the channel is there, which is
-	/// the outcome that was asked for. Any other refusal leaves the pair unconfirmed for a retry —
-	/// nothing is staked on it, so there is nothing to release.
-	#[codec(index = 4)]
-	SystemChannelResponse {
-		/// One end of the pair the report is about. It covers both directions.
-		channel: ChannelId,
-		/// The id of the request this answers, echoed back.
-		message_id: u64,
-		/// Whether the relay chain has the pair.
-		outcome: Outcome,
+	Release {
+		/// The deposit.
+		key: DepositKey,
+		/// How much to release.
+		amount: Option<Balance>,
 	},
 }
 
-/// How a request ended.
+/// Messages from the parachain that holds the deposits to the relay chain.
 ///
-/// `Ok(())` means the relay chain applied it, `Err(reason)` that it did not. One outcome type for
-/// every response in this protocol, the way a pallet has one `Error` enum rather than one per
-/// extrinsic.
-pub type Outcome = Result<(), FailureReason>;
-
-/// Any dispatch error becomes [`FailureReason::Refused`].
-///
-/// Needed so the caller can run registry calls inside a storage layer, which requires the error
-/// type to carry a `DispatchError`. Collapsing is the right answer anyway: this enum names the
-/// outcomes a parachain can act on, and a diagnosis it cannot act on is just a refusal.
-impl From<sp_runtime::DispatchError> for FailureReason {
-	fn from(_: sp_runtime::DispatchError) -> Self {
-		FailureReason::Refused
-	}
-}
-
-/// Why the relay chain refused a request.
+/// The variant's `#[codec(index)]` is the on-wire version tag.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
-pub enum FailureReason {
-	/// One of the two paras is not one the relay chain will open a channel for.
+pub enum MessageToRelay {
+	/// Version 1.
 	#[codec(index = 0)]
-	InvalidPara,
-	/// The requested capacity or message size is outside the relay chain's configured limits.
+	V1(MessageToRelayV1),
+}
+
+/// Version 1 payloads for [`MessageToRelay`].
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+)]
+pub enum MessageToRelayV1 {
+	/// Whether a [`MessageToParaV1::Hold`] succeeded.
+	#[codec(index = 0)]
+	HoldResult {
+		/// The deposit.
+		key: DepositKey,
+		/// `true` if the amount is now held.
+		held: bool,
+	},
+	/// `poke_channel_deposits`, asked for by a user on the parachain.
 	#[codec(index = 1)]
-	InvalidParameters,
-	/// A request for this channel is already recorded, or the channel already exists.
-	#[codec(index = 2)]
-	AlreadyExists,
-	/// The para has as many channels or pending requests as the relay chain allows.
-	#[codec(index = 3)]
-	LimitExceeded,
-	/// There is no request or channel here to act on.
-	#[codec(index = 4)]
-	NotFound,
-	/// The relay chain's HRMP pallet refused for a reason this protocol does not name.
-	///
-	/// A catch-all rather than a mirror of the relay chain's error enum: the parachain acts on
-	/// the outcome, not on the diagnosis, and mirroring would tie the wire format to another
-	/// pallet's errors.
-	#[codec(index = 5)]
-	Refused,
-}
-
-/// The relay chain's HRMP channel registry, as `pallet-hrmp-relay` needs to see it.
-///
-/// Implemented by whichever pallet owns HRMP, which on a relay chain is
-/// `polkadot-runtime-parachains`' `hrmp`. Lives here so neither side of the protocol depends on
-/// the other, and stated in plain `u32` para ids for the same reason the messages are.
-///
-/// Every method here is deposit-free. The parachain holds the money now, so the relay chain must
-/// record channels and requests with a zero deposit — otherwise a para would pay twice, and the
-/// relay chain would try to reserve from a sovereign account the migration has emptied.
-///
-/// Implementations are **not** required to be atomic on failure. A real registry validates as it
-/// goes and can write before it refuses, so the caller runs every method inside its own storage
-/// layer — a refusal is reported to the parachain as "nothing happened", and a partial write that
-/// survived one would leave the two chains disagreeing with no way to notice.
-pub trait HrmpRegistry {
-	/// Record an open-channel request, taking no deposit.
-	fn init_open_channel(
+	PokeChannelDeposits {
+		/// The channel to reprice.
 		channel: ChannelId,
-		max_capacity: u32,
-		max_message_size: u32,
-	) -> Result<(), FailureReason>;
-
-	/// Confirm an open-channel request on the recipient's behalf, taking no deposit.
-	fn accept_open_channel(channel: ChannelId) -> Result<(), FailureReason>;
-
-	/// Close an open channel. `initiator` must be one of its two ends.
-	fn close_channel(channel: ChannelId, initiator: ParaId) -> Result<(), FailureReason>;
-
-	/// Drop an open-channel request that was never confirmed.
-	fn cancel_open_request(channel: ChannelId) -> Result<(), FailureReason>;
-
-	/// Open a deposit-free channel in both directions between two paras.
-	fn establish_system_channel(channel: ChannelId) -> Result<(), FailureReason>;
-
-	/// Whether the relay chain has a channel or a pending request for `channel`.
-	fn exists(channel: ChannelId) -> bool;
-
-	/// Arrange for `channel` to be openable, so the request paths can be benchmarked.
-	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_openable(channel: ChannelId);
+	},
+	/// `establish_system_channel`, asked for by a user on the parachain.
+	#[codec(index = 2)]
+	EstablishSystemChannel {
+		/// The channel to open. Both ends must be system chains.
+		channel: ChannelId,
+	},
 }
 
-// Deliberately no "on para registered" hook. An earlier design opened a control channel with
-// every para at registration, because a para could only `Transact` into the control plane over an
-// HRMP channel. The control link is relayed through the relay chain instead — the relay chain
-// keeps its para-facing calls and forwards them (see `ParaRequestRouter`) — so no channel per para
-// exists, and nothing needs telling when a registration completes. The per-para channel design
-// also could not scale: the relay chain caps how many channels one para may hold, and the control
-// plane's need grew with the network while the cap is a constant.
-
-/// One channel, as it arrives at the destination from the chain that used to hold its deposits.
+/// A parachain's own HRMP request, sent to the relay chain.
 ///
-/// Carries no deposit. [`ReceiveMigratedChannels::receive_channel`] takes the sender's, and for a
-/// confirmed channel the recipient's, deposit at the destination's own prices from the sovereign
-/// accounts the funds already arrived on.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
-pub struct MigratedChannel {
-	/// Which channel.
-	pub channel: ChannelId,
-	/// Whether the source chain has the channel itself, or only an open request the recipient
-	/// has not accepted.
-	pub confirmed: bool,
+/// The asking para is not in the payload: the relay chain takes it from the origin.
+///
+/// The variant's `#[codec(index)]` is the on-wire version tag.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+)]
+pub enum ParaRequest {
+	/// Version 1.
+	#[codec(index = 0)]
+	V1(ParaRequestV1),
 }
 
-/// Takes migrated channels into the pallet that owns HRMP on the destination.
-///
-/// `()` refuses every channel, so a migrator running ahead of the pallet parks each record
-/// instead of losing it.
-pub trait ReceiveMigratedChannels {
-	/// Take one channel, charging its deposits at this chain's prices.
-	///
-	/// Fails if the channel is already known here, or if a sovereign account cannot pay.
-	fn receive_channel(channel: MigratedChannel) -> sp_runtime::DispatchResult;
-}
-
-impl ReceiveMigratedChannels for () {
-	fn receive_channel(_: MigratedChannel) -> sp_runtime::DispatchResult {
-		Err(sp_runtime::DispatchError::Unavailable)
-	}
-}
-
-/// Where a relay chain sends a parachain's *own* HRMP requests once the control plane has moved off
-/// it.
-///
-/// The mirror image of [`HrmpRegistry`]: that one lets the control plane drive the relay chain's
-/// registry, this one lets the relay chain hand a parachain's request to the control plane.
-///
-/// ## Why the relay chain keeps the calls at all
-///
-/// A parachain asks for a channel by `Transact`ing `hrmp_init_open_channel` and friends on the
-/// relay chain. Those calls could simply be filtered off, and the parachain told to send to the
-/// control plane instead — but that means every parachain on the network changes the call it
-/// encodes, and acquires a channel with the control plane first in order to reach it at all.
-///
-/// So the relay chain keeps its five para-facing calls and, in remote mode, forwards them. The
-/// parachain's encoded call is byte-identical to today: same pallet index, same call index, same
-/// arguments. Nothing on the parachain side changes.
-///
-/// ## The mode is a runtime condition
-///
-/// Deliberately not a compile-time one. The same runtime serves its own HRMP before the control
-/// plane moves and forwards afterwards, so [`Self::is_remote`] is expected to read whatever says
-/// the move has happened — a migration stage, typically. `()` never goes remote, so a chain that
-/// owns its own HRMP is unaffected by any of this.
-///
-/// ## Failure
-///
-/// `Err(())` means the request could not be handed to the transport. The relay chain has written
-/// nothing at that point, so callers turn it into a dispatch error and the parachain may retry.
-pub trait ParaRequestRouter {
-	/// Whether a parachain's requests are forwarded rather than applied on this chain.
-	fn is_remote() -> bool {
-		false
-	}
-
-	/// `sender` wants a channel to `recipient`.
-	#[allow(clippy::result_unit_err)]
-	fn open_channel(
-		sender: ParaId,
+/// Version 1 payloads for [`ParaRequest`], one per para-facing call of the relay chain's `hrmp`.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
+)]
+pub enum ParaRequestV1 {
+	/// `hrmp_init_open_channel`.
+	#[codec(index = 0)]
+	InitOpenChannel {
+		/// The other end of the channel.
 		recipient: ParaId,
-		max_capacity: u32,
-		max_message_size: u32,
-	) -> Result<(), ()>;
-
-	/// `recipient` accepts `sender`'s request.
-	#[allow(clippy::result_unit_err)]
-	fn accept_open_channel(sender: ParaId, recipient: ParaId) -> Result<(), ()>;
-
-	/// `initiator` — either end — closes `channel`.
-	#[allow(clippy::result_unit_err)]
-	fn close_channel(initiator: ParaId, channel: ChannelId) -> Result<(), ()>;
-
-	/// `sender` withdraws its unconfirmed request for `channel`.
-	#[allow(clippy::result_unit_err)]
-	fn cancel_open_request(sender: ParaId, channel: ChannelId) -> Result<(), ()>;
-
-	/// `sender` pairs itself with the system chain `target`, in both directions.
-	#[allow(clippy::result_unit_err)]
-	fn establish_channel_with_system(sender: ParaId, target: ParaId) -> Result<(), ()>;
+		/// How many messages the channel may hold at once.
+		proposed_max_capacity: u32,
+		/// The largest message the channel will carry.
+		proposed_max_message_size: u32,
+	},
+	/// `hrmp_accept_open_channel`.
+	#[codec(index = 1)]
+	AcceptOpenChannel {
+		/// The para that asked.
+		sender: ParaId,
+	},
+	/// `hrmp_close_channel`.
+	#[codec(index = 2)]
+	CloseChannel {
+		/// The channel to close.
+		channel: ChannelId,
+	},
+	/// `hrmp_cancel_open_request`.
+	#[codec(index = 3)]
+	CancelOpenRequest {
+		/// The channel the request is for.
+		channel: ChannelId,
+		/// The number of open requests on the relay chain, as witness.
+		open_requests: u32,
+	},
+	/// `establish_channel_with_system`.
+	#[codec(index = 4)]
+	EstablishChannelWithSystem {
+		/// The system chain to open both directions with.
+		target_system_chain: ParaId,
+	},
 }
 
-/// Never goes remote: this chain owns its own HRMP and applies every request locally.
+/// The relay chain's HRMP, as `pallet-hrmp-relay` dispatches into it.
 ///
-/// The methods are unreachable rather than unimplemented — nothing calls them while
-/// [`ParaRequestRouter::is_remote`] is `false`, and returning an error is the safe answer if
-/// something ever does.
-impl ParaRequestRouter for () {
-	fn open_channel(_: ParaId, _: ParaId, _: u32, _: u32) -> Result<(), ()> {
-		Err(())
-	}
+/// Every method has the same checks and events as the matching `hrmp` call. The ones taking a
+/// `para` act as that para.
+pub trait RelayHrmp {
+	/// `hrmp_init_open_channel` from `para`.
+	fn init_open_channel(
+		para: ParaId,
+		recipient: ParaId,
+		proposed_max_capacity: u32,
+		proposed_max_message_size: u32,
+	) -> sp_runtime::DispatchResult;
+	/// `hrmp_accept_open_channel` from `para`.
+	fn accept_open_channel(para: ParaId, sender: ParaId) -> sp_runtime::DispatchResult;
+	/// `hrmp_close_channel` from `para`.
+	fn close_channel(para: ParaId, channel: ChannelId) -> sp_runtime::DispatchResult;
+	/// `hrmp_cancel_open_request` from `para`.
+	fn cancel_open_request(
+		para: ParaId,
+		channel: ChannelId,
+		open_requests: u32,
+	) -> sp_runtime::DispatchResult;
+	/// `establish_channel_with_system` from `para`.
+	fn establish_channel_with_system(
+		para: ParaId,
+		target_system_chain: ParaId,
+	) -> sp_runtime::DispatchResult;
+	/// `poke_channel_deposits`.
+	fn poke_channel_deposits(channel: ChannelId) -> sp_runtime::DispatchResult;
+	/// `establish_system_channel`.
+	fn establish_system_channel(channel: ChannelId) -> sp_runtime::DispatchResult;
+}
 
-	fn accept_open_channel(_: ParaId, _: ParaId) -> Result<(), ()> {
-		Err(())
-	}
+/// Receives the outcome of a hold the relay chain asked for.
+pub trait OnDepositHeld {
+	/// `held` is `true` if the deposit for `key` is now held.
+	fn on_deposit_held(key: DepositKey, held: bool);
+}
 
-	fn close_channel(_: ParaId, _: ChannelId) -> Result<(), ()> {
-		Err(())
-	}
+/// Takes deposits migrated from the relay chain into the pallet that holds them.
+///
+/// `()` refuses every deposit, so a migrator running ahead of the pallet parks each record
+/// instead of losing it.
+pub trait ReceiveMigratedDeposits {
+	/// Hold up to `amount` for `key`, from what the paying para has.
+	fn receive_deposit(key: DepositKey, amount: Balance) -> sp_runtime::DispatchResult;
+}
 
-	fn cancel_open_request(_: ParaId, _: ChannelId) -> Result<(), ()> {
-		Err(())
-	}
-
-	fn establish_channel_with_system(_: ParaId, _: ParaId) -> Result<(), ()> {
-		Err(())
+impl ReceiveMigratedDeposits for () {
+	fn receive_deposit(_: DepositKey, _: Balance) -> sp_runtime::DispatchResult {
+		Err(sp_runtime::DispatchError::Unavailable)
 	}
 }

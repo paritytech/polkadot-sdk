@@ -288,74 +288,73 @@ impl TestUsesOnlyStoredVersionWrapper {
 	}
 }
 
-frame_support::parameter_types! {
-	/// Flip to `true` to put HRMP in remote mode, where a parachain's own calls are forwarded to
-	/// the control plane instead of applied here.
-	pub static HrmpRemoteRouting: bool = false;
-	/// Set to `true` to make the mock transport refuse every forward.
-	pub static HrmpRouterRefuses: bool = false;
-	/// Every request the mock router accepted, in order.
-	pub static ForwardedHrmpRequests: Vec<ForwardedHrmpRequest> = Vec::new();
+parameter_types! {
+	/// When true, deposits are held elsewhere and answered later through `answer_hold`.
+	pub static AsyncDeposits: bool = false;
+	/// Holds asked for and not yet answered, oldest first.
+	pub static AskedHolds: Vec<(hrmp::DepositKey, Balance)> = Vec::new();
+	/// What the remote side holds, per deposit.
+	pub static RemoteHeld: BTreeMap<hrmp::DepositKey, Balance> = BTreeMap::new();
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub enum ForwardedHrmpRequest {
-	OpenChannel { sender: u32, recipient: u32, max_capacity: u32, max_message_size: u32 },
-	AcceptOpenChannel { sender: u32, recipient: u32 },
-	CloseChannel { initiator: u32, channel: hrmp_primitives::ChannelId },
-	CancelOpenRequest { sender: u32, channel: hrmp_primitives::ChannelId },
-	EstablishChannelWithSystem { sender: u32, target: u32 },
-}
+/// Reserves locally, or stands in for a chain that holds deposits asynchronously.
+pub struct TestDeposits;
 
-pub struct MockHrmpRouter;
-impl MockHrmpRouter {
-	fn record(request: ForwardedHrmpRequest) -> Result<(), ()> {
-		if HrmpRouterRefuses::get() {
-			return Err(());
+impl hrmp::ChannelDeposits for TestDeposits {
+	fn hold(key: &hrmp::DepositKey, amount: Balance) -> Result<hrmp::HoldOutcome, DispatchError> {
+		if !AsyncDeposits::get() {
+			return hrmp::ReserveDeposits::<Test>::hold(key, amount);
 		}
-		ForwardedHrmpRequests::mutate(|requests| requests.push(request));
-		Ok(())
+		AskedHolds::mutate(|asked| asked.push((key.clone(), amount)));
+		Ok(hrmp::HoldOutcome::Pending)
+	}
+
+	fn release(key: &hrmp::DepositKey, amount: Balance) {
+		if !AsyncDeposits::get() {
+			return hrmp::ReserveDeposits::<Test>::release(key, amount);
+		}
+		RemoteHeld::mutate(|held| held.remove(key));
+	}
+
+	fn reduce(key: &hrmp::DepositKey, amount: Balance) {
+		if !AsyncDeposits::get() {
+			return hrmp::ReserveDeposits::<Test>::reduce(key, amount);
+		}
+		RemoteHeld::mutate(|held| {
+			let left = held.get(key).copied().unwrap_or_default().saturating_sub(amount);
+			if left == 0 {
+				held.remove(key);
+			} else {
+				held.insert(key.clone(), left);
+			}
+		});
+	}
+
+	fn release_offboarded(key: &hrmp::DepositKey, amount: Balance) {
+		if !AsyncDeposits::get() {
+			return hrmp::ReserveDeposits::<Test>::release_offboarded(key, amount);
+		}
+		RemoteHeld::mutate(|held| held.remove(key));
 	}
 }
 
-impl hrmp_primitives::ParaRequestRouter for MockHrmpRouter {
-	fn is_remote() -> bool {
-		HrmpRemoteRouting::get()
+/// Answer the oldest outstanding hold, as the chain holding the deposits would.
+pub(crate) fn answer_hold(held: bool) -> hrmp::DepositKey {
+	use hrmp::OnDepositHeld;
+	let (key, amount) = AskedHolds::mutate(|asked| asked.remove(0));
+	if held {
+		RemoteHeld::mutate(|h| *h.entry(key.clone()).or_default() += amount);
 	}
-	fn open_channel(
-		sender: u32,
-		recipient: u32,
-		max_capacity: u32,
-		max_message_size: u32,
-	) -> Result<(), ()> {
-		Self::record(ForwardedHrmpRequest::OpenChannel {
-			sender,
-			recipient,
-			max_capacity,
-			max_message_size,
-		})
-	}
-	fn accept_open_channel(sender: u32, recipient: u32) -> Result<(), ()> {
-		Self::record(ForwardedHrmpRequest::AcceptOpenChannel { sender, recipient })
-	}
-	fn close_channel(initiator: u32, channel: hrmp_primitives::ChannelId) -> Result<(), ()> {
-		Self::record(ForwardedHrmpRequest::CloseChannel { initiator, channel })
-	}
-	fn cancel_open_request(sender: u32, channel: hrmp_primitives::ChannelId) -> Result<(), ()> {
-		Self::record(ForwardedHrmpRequest::CancelOpenRequest { sender, channel })
-	}
-	fn establish_channel_with_system(sender: u32, target: u32) -> Result<(), ()> {
-		Self::record(ForwardedHrmpRequest::EstablishChannelWithSystem { sender, target })
-	}
+	Hrmp::on_deposit_held(key.clone(), held);
+	key
 }
 
 impl crate::hrmp::Config for Test {
-	type ParaSelfOrigin = crate::origin::EnsureParachain;
-	type ParaRequests = MockHrmpRouter;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = frame_system::EnsureRoot<u64>;
 	type Currency = pallet_balances::Pallet<Test>;
+	type ChannelDeposits = TestDeposits;
 	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
 	type VersionWrapper = TestUsesOnlyStoredVersionWrapper;
 	type WeightInfo = crate::hrmp::TestWeightInfo;

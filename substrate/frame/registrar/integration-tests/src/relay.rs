@@ -361,8 +361,8 @@ parameter_types! {
 }
 
 impl hrmp::Config for Runtime {
-	type ParaSelfOrigin = polkadot_runtime_parachains::origin::EnsureParachain;
-	type ParaRequests = ();
+	// Every deposit is held on the parachain, as it is on a relay chain after the migration.
+	type ChannelDeposits = crate::senders::CoretimeDeposits;
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeOrigin = RuntimeOrigin;
 	type ChannelManager = EnsureRoot<AccountId>;
@@ -375,10 +375,12 @@ impl hrmp::Config for Runtime {
 impl pallet_hrmp_relay::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ParaOrigin = EnsureRegistrarPara;
+	type ParachainOrigin = crate::senders::EnsureAnyParachain;
 	type SendToPara = RelayHrmpSendToPara;
-	// The real thing: this is what proves the control plane drives actual HRMP state, with no
-	// deposit taken on this side.
-	type Registry = Hrmp;
+	// The real `hrmp`, driven as the asking para.
+	type Hrmp = crate::senders::HrmpAsPara;
+	type OnDepositHeld = crate::senders::DepositAnswers;
+	type AdmitRequest = ();
 	type WeightInfo = ();
 }
 
@@ -420,10 +422,10 @@ pub fn run_to_block(n: BlockNumber) {
 				// `hrmp::initializer_on_new_session` is `pub(crate)`, so this mock drives the
 				// same work through the governance calls that exist for it. Without this,
 				// requests never become channels and nothing HRMP-shaped ever completes.
-				let open = hrmp::HrmpOpenChannelRequestsList::<Runtime>::decode_len()
-					.unwrap_or(0) as u32;
-				let close = hrmp::HrmpCloseChannelRequestsList::<Runtime>::decode_len()
-					.unwrap_or(0) as u32;
+				let open =
+					hrmp::HrmpOpenChannelRequestsList::<Runtime>::decode_len().unwrap_or(0) as u32;
+				let close =
+					hrmp::HrmpCloseChannelRequestsList::<Runtime>::decode_len().unwrap_or(0) as u32;
 				let _ = Hrmp::force_process_hrmp_open(RuntimeOrigin::root(), open);
 				let _ = Hrmp::force_process_hrmp_close(RuntimeOrigin::root(), close);
 			}

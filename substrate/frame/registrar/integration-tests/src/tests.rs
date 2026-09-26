@@ -340,7 +340,10 @@ fn a_manager_who_gives_up_drives_the_cancellation_and_gets_the_deposit_back() {
 		));
 
 		// The deposit is still held: the relay chain has not answered yet.
-		assert_eq!(para_held(&ALICE), para::PARA_DEPOSIT + para::PER_BYTE * (32 + MAX_CODE_SIZE as u128));
+		assert_eq!(
+			para_held(&ALICE),
+			para::PARA_DEPOSIT + para::PER_BYTE * (32 + MAX_CODE_SIZE as u128)
+		);
 	});
 
 	// The relay chain drops the authorization, so the code can no longer be pushed through.
@@ -426,11 +429,9 @@ fn only_the_registrar_parachain_may_drive_registrations() {
 		assert!(relay::Registrar::receive(other_para, message.clone()).is_err());
 
 		// ...nor is a plain signed account.
-		assert!(relay::Registrar::receive(
-			relay::RuntimeOrigin::signed(BOB),
-			message.clone()
-		)
-		.is_err());
+		assert!(
+			relay::Registrar::receive(relay::RuntimeOrigin::signed(BOB), message.clone()).is_err()
+		);
 
 		// The configured parachain is.
 		let ours: relay::RuntimeOrigin = ParachainsOrigin::Parachain(PARA_ID.into()).into();
@@ -652,7 +653,10 @@ fn a_live_parachain_is_refused_until_downgraded() {
 
 	RegistrarPara::execute_with(|| {
 		assert!(matches!(para_state(para_id), Some(RegistrationState::Registered { .. })));
-		assert_eq!(para_held(&ALICE), para::PARA_DEPOSIT + para::PER_BYTE * (32 + MAX_CODE_SIZE as u128));
+		assert_eq!(
+			para_held(&ALICE),
+			para::PARA_DEPOSIT + para::PER_BYTE * (32 + MAX_CODE_SIZE as u128)
+		);
 
 		let events = para::System::events();
 		assert!(events.iter().any(|e| matches!(
@@ -780,182 +784,361 @@ fn head_data_travels_inline_and_lands_on_the_relay_chain() {
 
 // --- HRMP -----------------------------------------------------------------
 
-use hrmp_primitives::ChannelId;
-use pallet_hrmp_para::ChannelState;
-use polkadot_runtime_parachains::hrmp::{HrmpChannels, HrmpOpenChannelRequests};
+use hrmp_primitives::{ChannelId, DepositKey, DepositSide, ParaRequest, ParaRequestV1};
+use polkadot_runtime_parachains::hrmp::{self, HrmpChannels, HrmpOpenChannelRequests};
+
+/// The relay chain's `hrmp_sender_deposit` and `hrmp_recipient_deposit`.
+const SENDER_DEPOSIT: u128 = 1_000;
+const RECIPIENT_DEPOSIT: u128 = 1_000;
 
 /// The relay chain's own channel id type, for reading its storage.
 fn relay_channel(sender: u32, recipient: u32) -> polkadot_primitives::HrmpChannelId {
-	polkadot_primitives::HrmpChannelId {
-		sender: sender.into(),
-		recipient: recipient.into(),
-	}
+	polkadot_primitives::HrmpChannelId { sender: sender.into(), recipient: recipient.into() }
 }
 
-fn channel_state(channel: ChannelId) -> Option<ChannelState<u64>> {
-	pallet_hrmp_para::Channels::<para::Runtime>::get(channel).map(|c| c.state)
+fn key(channel: ChannelId, side: DepositSide) -> DepositKey {
+	DepositKey { channel, side }
 }
 
-/// What is held on a para's sovereign account on the parachain, for channels.
+/// What is held on a para's sovereign account on the parachain, for channel deposits.
 fn channel_held(para_id: u32) -> u128 {
-	use frame_support::traits::fungible::InspectHold;
 	use sp_runtime::traits::Convert;
 	pallet_balances::Pallet::<para::Runtime>::balance_on_hold(
-		&para::RuntimeHoldReason::HrmpControl(pallet_hrmp_para::HoldReason::Channel),
+		&para::RuntimeHoldReason::HrmpControl(pallet_hrmp_para::HoldReason::ChannelDeposit),
 		&para::SovereignOf::convert(para_id),
 	)
 }
 
+/// What is reserved on a para's sovereign account on the relay chain.
+fn relay_reserved(para_id: u32) -> u128 {
+	use sp_runtime::traits::AccountIdConversion;
+	let sovereign: relay::AccountId =
+		polkadot_primitives::Id::from(para_id).into_account_truncating();
+	pallet_balances::Pallet::<relay::Runtime>::reserved_balance(&sovereign)
+}
+
+/// `para` sends the relay chain one of its own HRMP requests.
+fn ask(para: u32, request: ParaRequestV1) -> sp_runtime::DispatchResult {
+	relay::HrmpControl::relay_request(
+		polkadot_runtime_parachains::Origin::Parachain(para.into()).into(),
+		ParaRequest::V1(request),
+	)
+}
+
+fn init(recipient: u32) -> ParaRequestV1 {
+	ParaRequestV1::InitOpenChannel {
+		recipient,
+		proposed_max_capacity: crate::MAX_CAPACITY,
+		proposed_max_message_size: crate::MAX_MESSAGE_SIZE,
+	}
+}
+
+/// Open a channel from `sender` to `recipient`, letting each hold land on the parachain.
+fn open_channel(sender: u32, recipient: u32) {
+	Relay::execute_with(|| {
+		assert_ok!(ask(sender, init(recipient)));
+	});
+	RegistrarPara::execute_with(|| {});
+	Relay::execute_with(|| {
+		assert_ok!(ask(recipient, ParaRequestV1::AcceptOpenChannel { sender }));
+	});
+	RegistrarPara::execute_with(|| {});
+	Relay::execute_with(|| relay::advance_sessions(2));
+}
+
 #[test]
-fn a_channel_opens_end_to_end_and_both_deposits_settle_on_the_parachain() {
+fn a_channel_opens_end_to_end_with_both_deposits_held_on_the_parachain() {
 	MockNet::reset();
 
-	// Two paras. The simulator has no para origin, so root drives both ends.
-	let a = onboard(ALICE, 32, 64);
-	let b = onboard(ALICE, 32, 65);
-	let channel = ChannelId { sender: a, recipient: b };
+	let alice = onboard(ALICE, 32, 64); // sender
+	let bob = onboard(ALICE, 32, 65); // recipient
+	let channel = ChannelId { sender: alice, recipient: bob };
 
-	RegistrarPara::execute_with(|| {
-		assert_ok!(para::HrmpControl::open_channel(
-			para::RuntimeOrigin::root(),
-			a,
-			b,
-			crate::MAX_CAPACITY,
-			crate::MAX_MESSAGE_SIZE,
-		));
-		// The sender's half is held immediately, on its sovereign account.
-		assert_eq!(channel_held(a), crate::CHANNEL_DEPOSIT);
-		assert_eq!(channel_held(b), 0);
+	// WHEN alice asks the relay chain for a channel
+	Relay::execute_with(|| {
+		assert_ok!(ask(alice, init(bob)));
+
+		// THEN the request waits on its deposit: nothing is recorded or reserved here.
+		assert!(
+			HrmpOpenChannelRequests::<relay::Runtime>::get(&relay_channel(alice, bob)).is_none()
+		);
+		assert!(hrmp::PendingDeposits::<relay::Runtime>::contains_key(hrmp::DepositKey::sender(
+			relay_channel(alice, bob)
+		)));
 	});
 
-	// The relay chain recorded the request, and took nothing for it.
+	// AND the parachain holds alice's deposit, at the relay chain's price.
+	RegistrarPara::execute_with(|| {
+		assert_eq!(channel_held(alice), SENDER_DEPOSIT);
+		assert_eq!(channel_held(bob), 0);
+		assert_eq!(
+			pallet_hrmp_para::Deposits::<para::Runtime>::get(key(channel, DepositSide::Sender)),
+			Some(SENDER_DEPOSIT)
+		);
+	});
+
+	// AND the answer lets the relay chain record the request, still reserving nothing.
 	Relay::execute_with(|| {
 		let request =
-			HrmpOpenChannelRequests::<relay::Runtime>::get(&relay_channel(a, b)).unwrap();
+			HrmpOpenChannelRequests::<relay::Runtime>::get(&relay_channel(alice, bob)).unwrap();
 		assert!(!request.confirmed);
-		assert_eq!(request.sender_deposit, 0);
-		use sp_runtime::traits::AccountIdConversion;
-		let sovereign: relay::AccountId =
-			polkadot_primitives::Id::from(a).into_account_truncating();
-		assert_eq!(pallet_balances::Pallet::<relay::Runtime>::reserved_balance(&sovereign), 0);
+		assert_eq!(request.sender_deposit, SENDER_DEPOSIT);
+		assert_eq!(hrmp::PendingDeposits::<relay::Runtime>::iter().count(), 0);
+		assert_eq!(relay_reserved(alice), 0);
+
+		// WHEN bob accepts
+		assert_ok!(ask(bob, ParaRequestV1::AcceptOpenChannel { sender: alice }));
+		assert!(
+			!HrmpOpenChannelRequests::<relay::Runtime>::get(&relay_channel(alice, bob))
+				.unwrap()
+				.confirmed
+		);
 	});
 
-	// The verdict came back and the parachain moved on.
+	// THEN bob's deposit is held on the parachain,
 	RegistrarPara::execute_with(|| {
-		assert_eq!(channel_state(channel), Some(ChannelState::Pending));
-
-		assert_ok!(para::HrmpControl::accept_open_channel(
-			para::RuntimeOrigin::root(),
-			a,
-			b,
-		));
-		assert_eq!(channel_held(b), crate::CHANNEL_DEPOSIT);
+		assert_eq!(channel_held(bob), RECIPIENT_DEPOSIT);
 	});
 
-	// The channel exists on the relay chain once a session rotates.
+	// AND the request is confirmed, and opens at the session boundary as it always has.
 	Relay::execute_with(|| {
-		assert!(HrmpOpenChannelRequests::<relay::Runtime>::get(&relay_channel(a, b))
-			.unwrap()
-			.confirmed);
+		assert!(
+			HrmpOpenChannelRequests::<relay::Runtime>::get(&relay_channel(alice, bob))
+				.unwrap()
+				.confirmed
+		);
 		relay::advance_sessions(2);
-		let live = HrmpChannels::<relay::Runtime>::get(&relay_channel(a, b)).unwrap();
-		assert_eq!(live.sender_deposit, 0);
-		assert_eq!(live.recipient_deposit, 0);
+
+		let live = HrmpChannels::<relay::Runtime>::get(&relay_channel(alice, bob)).unwrap();
+		assert_eq!(
+			(live.sender_deposit, live.recipient_deposit),
+			(SENDER_DEPOSIT, RECIPIENT_DEPOSIT)
+		);
+		assert_eq!((relay_reserved(alice), relay_reserved(bob)), (0, 0));
 	});
 
 	RegistrarPara::execute_with(|| {
-		assert_eq!(channel_state(channel), Some(ChannelState::Open));
-		assert_eq!(channel_held(a), crate::CHANNEL_DEPOSIT);
-		assert_eq!(channel_held(b), crate::CHANNEL_DEPOSIT);
+		assert_eq!((channel_held(alice), channel_held(bob)), (SENDER_DEPOSIT, RECIPIENT_DEPOSIT));
+		assert_ok!(pallet_hrmp_para::Pallet::<para::Runtime>::do_try_state());
 	});
 }
 
 #[test]
-fn closing_returns_both_deposits_only_after_the_relay_chain_confirms() {
+fn closing_a_channel_releases_both_deposits_on_the_parachain() {
 	MockNet::reset();
 
-	let a = onboard(ALICE, 32, 64);
-	let b = onboard(ALICE, 32, 65);
-	let channel = ChannelId { sender: a, recipient: b };
-
+	let alice = onboard(ALICE, 32, 64); // sender
+	let bob = onboard(ALICE, 32, 65); // recipient
+	let channel = ChannelId { sender: alice, recipient: bob };
+	open_channel(alice, bob);
 	RegistrarPara::execute_with(|| {
-		assert_ok!(para::HrmpControl::open_channel(
-			para::RuntimeOrigin::root(),
-			a,
-			b,
-			crate::MAX_CAPACITY,
-			crate::MAX_MESSAGE_SIZE,
-		));
-	});
-	RegistrarPara::execute_with(|| {
-		assert_ok!(para::HrmpControl::accept_open_channel(
-			para::RuntimeOrigin::root(),
-			a,
-			b,
-		));
-	});
-	Relay::execute_with(|| relay::advance_sessions(2));
-
-	RegistrarPara::execute_with(|| {
-		assert_eq!(channel_state(channel), Some(ChannelState::Open));
-
-		// Root names which end asked; here the sender.
-		assert_ok!(para::HrmpControl::close_channel(
-			para::RuntimeOrigin::root(),
-			a,
-			b,
-			a,
-		));
+		assert_eq!((channel_held(alice), channel_held(bob)), (SENDER_DEPOSIT, RECIPIENT_DEPOSIT));
 	});
 
-	// The confirmation came back and released both ends. Nothing was released at request time:
-	// closing is not atomic once it spans two chains.
-	RegistrarPara::execute_with(|| {
-		assert!(channel_state(channel).is_none());
-		assert_eq!(channel_held(a), 0);
-		assert_eq!(channel_held(b), 0);
-	});
-
+	// WHEN bob closes, and the session turns
 	Relay::execute_with(|| {
-		relay::advance_sessions(2);
-		assert!(HrmpChannels::<relay::Runtime>::get(&relay_channel(a, b)).is_none());
+		assert_ok!(ask(bob, ParaRequestV1::CloseChannel { channel }));
+		// The channel stays until the session boundary, so both deposits are still owed.
+		assert!(HrmpChannels::<relay::Runtime>::get(&relay_channel(alice, bob)).is_some());
+		relay::advance_sessions(1);
+		assert!(HrmpChannels::<relay::Runtime>::get(&relay_channel(alice, bob)).is_none());
+	});
+
+	// THEN both deposits are released on the parachain.
+	RegistrarPara::execute_with(|| {
+		assert_eq!((channel_held(alice), channel_held(bob)), (0, 0));
+		assert_eq!(pallet_hrmp_para::Deposits::<para::Runtime>::iter().count(), 0);
 	});
 }
 
 #[test]
-fn a_request_the_relay_chain_refuses_gives_the_deposit_straight_back() {
+fn cancelling_a_request_releases_the_sender_deposit_on_the_parachain() {
 	MockNet::reset();
 
-	let a = onboard(ALICE, 32, 64);
-	// A para the relay chain has never heard of, so `is_valid_para` fails there.
-	let ghost = 2_999;
-	let channel = ChannelId { sender: a, recipient: ghost };
+	let alice = onboard(ALICE, 32, 64); // sender
+	let bob = onboard(ALICE, 32, 65); // recipient
+	let channel = ChannelId { sender: alice, recipient: bob };
 
+	Relay::execute_with(|| {
+		assert_ok!(ask(alice, init(bob)));
+	});
 	RegistrarPara::execute_with(|| {
-		assert_ok!(para::HrmpControl::open_channel(
+		assert_eq!(channel_held(alice), SENDER_DEPOSIT);
+	});
+
+	// WHEN bob cancels alice's request, and a block passes
+	Relay::execute_with(|| {
+		assert_ok!(ask(bob, ParaRequestV1::CancelOpenRequest { channel, open_requests: 1 }));
+		assert!(
+			HrmpOpenChannelRequests::<relay::Runtime>::get(&relay_channel(alice, bob)).is_none()
+		);
+		let now = relay::System::block_number();
+		relay::run_to_block(now + 1);
+	});
+
+	// THEN alice's deposit is released on the parachain.
+	RegistrarPara::execute_with(|| {
+		assert_eq!(channel_held(alice), 0);
+		assert_eq!(pallet_hrmp_para::Deposits::<para::Runtime>::iter().count(), 0);
+	});
+}
+
+#[test]
+fn a_hold_the_parachain_refuses_leaves_no_request_on_the_relay_chain() {
+	MockNet::reset();
+
+	let alice = onboard(ALICE, 32, 64); // sender, cannot pay
+	let bob = onboard(ALICE, 32, 65); // recipient
+
+	// GIVEN alice's sovereign account on the parachain is empty.
+	RegistrarPara::execute_with(|| {
+		use sp_runtime::traits::Convert;
+		assert_ok!(pallet_balances::Pallet::<para::Runtime>::force_set_balance(
 			para::RuntimeOrigin::root(),
-			a,
-			ghost,
-			crate::MAX_CAPACITY,
-			crate::MAX_MESSAGE_SIZE,
+			para::SovereignOf::convert(alice),
+			0,
 		));
 	});
 
+	// WHEN alice asks for a channel
 	Relay::execute_with(|| {
-		assert!(HrmpOpenChannelRequests::<relay::Runtime>::get(&relay_channel(a, ghost))
-			.is_none());
+		assert_ok!(ask(alice, init(bob)));
 	});
 
-	// The refusal travelled back and the deposit is gone from the hold.
+	// THEN the parachain refuses the hold,
 	RegistrarPara::execute_with(|| {
-		assert!(channel_state(channel).is_none());
-		assert_eq!(channel_held(a), 0);
-
-		let events = para::System::events();
-		assert!(events.iter().any(|e| matches!(
+		assert_eq!(channel_held(alice), 0);
+		assert!(para::System::events().iter().any(|e| matches!(
 			&e.event,
-			para::RuntimeEvent::HrmpControl(pallet_hrmp_para::Event::OpenFailed { .. })
+			para::RuntimeEvent::HrmpControl(pallet_hrmp_para::Event::DepositRefused { .. })
 		)));
+	});
+
+	// AND the relay chain drops the request.
+	Relay::execute_with(|| {
+		assert!(
+			HrmpOpenChannelRequests::<relay::Runtime>::get(&relay_channel(alice, bob)).is_none()
+		);
+		assert_eq!(hrmp::PendingDeposits::<relay::Runtime>::iter().count(), 0);
+		assert!(relay::System::events().iter().any(|e| matches!(
+			&e.event,
+			relay::RuntimeEvent::Hrmp(hrmp::Event::DepositRefused { .. })
+		)));
+	});
+}
+
+#[test]
+fn a_request_the_relay_chain_refuses_never_asks_for_a_deposit() {
+	MockNet::reset();
+
+	let alice = onboard(ALICE, 32, 64); // sender
+										// A para the relay chain has never heard of.
+	let ghost = 2_999;
+
+	Relay::execute_with(|| {
+		assert_noop!(
+			ask(alice, init(ghost)),
+			hrmp::Error::<relay::Runtime>::OpenHrmpChannelInvalidRecipient
+		);
+	});
+
+	RegistrarPara::execute_with(|| {
+		assert_eq!(channel_held(alice), 0);
+		assert_eq!(pallet_hrmp_para::Deposits::<para::Runtime>::iter().count(), 0);
+	});
+}
+
+#[test]
+fn governance_force_opens_a_paying_channel_with_both_deposits_held_on_the_parachain() {
+	MockNet::reset();
+
+	let alice = onboard(ALICE, 32, 64); // sender
+	let bob = onboard(ALICE, 32, 65); // recipient
+
+	// WHEN root force-opens the channel on the relay chain
+	Relay::execute_with(|| {
+		assert_ok!(relay::Hrmp::force_open_hrmp_channel(
+			relay::RuntimeOrigin::root(),
+			alice.into(),
+			bob.into(),
+			crate::MAX_CAPACITY,
+			crate::MAX_MESSAGE_SIZE,
+		));
+		// It succeeds at once, waiting on the sender's deposit.
+		assert!(
+			HrmpOpenChannelRequests::<relay::Runtime>::get(&relay_channel(alice, bob)).is_none()
+		);
+	});
+
+	// THEN the parachain holds the sender's deposit, then the recipient's once the request is
+	// recorded and accepted on its behalf.
+	RegistrarPara::execute_with(|| assert_eq!(channel_held(alice), SENDER_DEPOSIT));
+	Relay::execute_with(|| {});
+	RegistrarPara::execute_with(|| assert_eq!(channel_held(bob), RECIPIENT_DEPOSIT));
+
+	// AND the relay chain confirms the request, announcing the forced open, and opens the
+	// channel at the session boundary.
+	Relay::execute_with(|| {
+		assert!(
+			HrmpOpenChannelRequests::<relay::Runtime>::get(&relay_channel(alice, bob))
+				.unwrap()
+				.confirmed
+		);
+		assert!(relay::System::events().iter().any(|e| matches!(
+			&e.event,
+			relay::RuntimeEvent::Hrmp(hrmp::Event::HrmpChannelForceOpened { .. })
+		)));
+		relay::advance_sessions(1);
+		let live = HrmpChannels::<relay::Runtime>::get(&relay_channel(alice, bob)).unwrap();
+		assert_eq!(
+			(live.sender_deposit, live.recipient_deposit),
+			(SENDER_DEPOSIT, RECIPIENT_DEPOSIT)
+		);
+	});
+}
+
+#[test]
+fn a_poke_from_the_parachain_reprices_both_deposits() {
+	MockNet::reset();
+
+	let alice = onboard(ALICE, 32, 64); // sender
+	let bob = onboard(ALICE, 32, 65); // recipient
+	let channel = ChannelId { sender: alice, recipient: bob };
+	open_channel(alice, bob);
+
+	// GIVEN the relay chain's sender deposit rises by 500 and its recipient deposit falls by 500.
+	let (new_sender, new_recipient) = (SENDER_DEPOSIT + 500, RECIPIENT_DEPOSIT - 500);
+	Relay::execute_with(|| {
+		polkadot_runtime_parachains::configuration::ActiveConfig::<relay::Runtime>::mutate(|c| {
+			c.hrmp_sender_deposit = new_sender;
+			c.hrmp_recipient_deposit = new_recipient;
+		});
+	});
+
+	// WHEN anyone pokes the channel, from the parachain
+	RegistrarPara::execute_with(|| {
+		assert_ok!(para::HrmpControl::poke_channel_deposits(
+			para::RuntimeOrigin::signed(BOB),
+			alice,
+			bob,
+		));
+	});
+
+	// THEN the relay chain reprices: the decrease is released at once, the increase held.
+	Relay::execute_with(|| {});
+	RegistrarPara::execute_with(|| {
+		assert_eq!((channel_held(alice), channel_held(bob)), (new_sender, new_recipient));
+		assert_eq!(
+			pallet_hrmp_para::Deposits::<para::Runtime>::get(key(channel, DepositSide::Sender)),
+			Some(new_sender)
+		);
+	});
+
+	// AND records the new price once the increase is answered.
+	Relay::execute_with(|| {
+		let live = HrmpChannels::<relay::Runtime>::get(&relay_channel(alice, bob)).unwrap();
+		assert_eq!((live.sender_deposit, live.recipient_deposit), (new_sender, new_recipient));
+		assert_eq!(hrmp::PendingDeposits::<relay::Runtime>::iter().count(), 0);
 	});
 }
 
@@ -988,10 +1171,7 @@ fn a_cooldown_buy_out_travels_to_the_relay_chain_and_burns_on_the_parachain() {
 		assert_ok!(submit_upgrade_code(para_id, new_blob.clone()));
 		// Queried through the public view function rather than the private storage item: it is
 		// what a user would ask, and it is non-zero exactly while a cooldown is running.
-		assert!(
-			cooldown_cost(para_id) > 0,
-			"the upgrade should have started a cooldown"
-		);
+		assert!(cooldown_cost(para_id) > 0, "the upgrade should have started a cooldown");
 	});
 
 	// Anybody may pay to skip the rest of it. Bob manages nothing here.

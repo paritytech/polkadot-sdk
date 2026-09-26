@@ -19,200 +19,85 @@
 
 use super::*;
 use frame_benchmarking::v2::*;
-use frame_support::traits::Contains;
 use frame_system::RawOrigin;
+use hrmp_primitives::{ChannelId, DepositSide};
 
-/// Two public para ids no benchmark setup will collide on, and which are never system chains, so
-/// the deposit path is the one being measured.
-fn pair<T: Config>() -> (ParaId, ParaId) {
-	// Deliberately not system paras, so the deposit path is the one being measured. Asserted
-	// rather than assumed: a runtime whose `SystemParas` swallowed these would silently benchmark
-	// the free path instead.
-	let (sender, recipient) = (4_242, 4_243);
-	assert!(
-		!T::SystemParas::contains(&sender) && !T::SystemParas::contains(&recipient),
-		"benchmark para ids must not be system chains"
-	);
-	(sender, recipient)
+const AMOUNT: Balance = 1_000_000_000_000;
+
+fn key() -> DepositKey {
+	DepositKey { channel: ChannelId { sender: 4_242, recipient: 4_243 }, side: DepositSide::Sender }
 }
 
-/// Fund both ends' sovereign accounts so every consideration this pallet takes can be paid.
-fn fund<T: Config>(channel: ChannelId) {
-	for para in [channel.sender, channel.recipient] {
-		let who = T::SovereignAccountOf::convert(para);
-		T::ChannelConsideration::ensure_successful(&who, Pallet::<T>::channel_footprint());
-	}
+fn fund<T: Config>() {
+	let who = T::SovereignAccountOf::convert(key().para());
+	let _ = T::Currency::set_balance(&who, AMOUNT * 10);
 }
 
-/// A channel the relay chain is holding a request for.
-fn pending<T: Config>(channel: ChannelId) -> Result<(), BenchmarkError> {
-	fund::<T>(channel);
-	Pallet::<T>::open_channel(
-		RawOrigin::Root.into(),
-		channel.sender,
-		channel.recipient,
-		T::MaxCapacity::get(),
-		T::MaxMessageSize::get(),
-	)?;
-	Pallet::<T>::receive(
-		RawOrigin::Root.into(),
-		MessageToPara::V1(MessageToParaV1::OpenResponse {
-			channel,
-			message_id: 0,
-			outcome: Ok(()),
-		}),
-	)?;
-	Ok(())
-}
-
-/// A channel that is open at both ends.
-fn opened<T: Config>(channel: ChannelId) -> Result<(), BenchmarkError> {
-	pending::<T>(channel)?;
-	Pallet::<T>::accept_open_channel(
-		RawOrigin::Root.into(),
-		channel.sender,
-		channel.recipient,
-	)?;
-	Pallet::<T>::receive(
-		RawOrigin::Root.into(),
-		MessageToPara::V1(MessageToParaV1::AcceptResponse {
-			channel,
-			message_id: 1,
-			outcome: Ok(()),
-		}),
-	)?;
-	Ok(())
+fn hold<T: Config>() -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::Hold { key: key(), amount: AMOUNT })
 }
 
 #[benchmarks]
 mod benchmarks {
 	use super::*;
 
-	/// Requesting a channel: one deposit taken, one write, one message.
 	#[benchmark]
-	fn open_channel() -> Result<(), BenchmarkError> {
-		let (sender, recipient) = pair::<T>();
-		let channel = ChannelId { sender, recipient };
-		fund::<T>(channel);
+	fn receive_hold() {
+		fund::<T>();
 
 		#[extrinsic_call]
-		_(
+		receive(RawOrigin::Root, hold::<T>());
+
+		assert_eq!(Deposits::<T>::get(key()), Some(AMOUNT));
+	}
+
+	#[benchmark]
+	fn receive_release() -> Result<(), BenchmarkError> {
+		fund::<T>();
+		Pallet::<T>::receive(RawOrigin::Root.into(), hold::<T>())?;
+
+		#[extrinsic_call]
+		receive(
 			RawOrigin::Root,
-			sender,
-			recipient,
-			T::MaxCapacity::get(),
-			T::MaxMessageSize::get(),
+			MessageToPara::V1(MessageToParaV1::Release { key: key(), amount: None }),
 		);
 
-		assert!(matches!(
-			Channels::<T>::get(channel).map(|c| c.state),
-			Some(ChannelState::Opening { .. })
-		));
+		assert!(Deposits::<T>::get(key()).is_none());
 		Ok(())
 	}
 
-	/// Accepting: the second deposit, one write, one message.
 	#[benchmark]
-	fn accept_open_channel() -> Result<(), BenchmarkError> {
-		let (sender, recipient) = pair::<T>();
-		let channel = ChannelId { sender, recipient };
-		pending::<T>(channel)?;
+	fn force_release() -> Result<(), BenchmarkError> {
+		fund::<T>();
+		Pallet::<T>::receive(RawOrigin::Root.into(), hold::<T>())?;
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, sender, recipient);
+		_(RawOrigin::Root, key());
 
-		assert!(matches!(
-			Channels::<T>::get(channel).map(|c| c.state),
-			Some(ChannelState::Accepting { .. })
-		));
+		assert!(Deposits::<T>::get(key()).is_none());
 		Ok(())
 	}
 
-	/// Closing: nothing is released here, so this is the state write plus the message.
 	#[benchmark]
-	fn close_channel() -> Result<(), BenchmarkError> {
-		let (sender, recipient) = pair::<T>();
-		let channel = ChannelId { sender, recipient };
-		opened::<T>(channel)?;
+	fn poke_channel_deposits() {
+		let caller: T::AccountId = whitelisted_caller();
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, sender, recipient, sender);
-
-		assert!(matches!(
-			Channels::<T>::get(channel).map(|c| c.state),
-			Some(ChannelState::Closing { .. })
-		));
-		Ok(())
+		_(RawOrigin::Signed(caller), key().channel.sender, key().channel.recipient);
 	}
 
-	/// Cancelling: same shape as closing.
 	#[benchmark]
-	fn cancel_open_request() -> Result<(), BenchmarkError> {
-		let (sender, recipient) = pair::<T>();
-		let channel = ChannelId { sender, recipient };
-		pending::<T>(channel)?;
+	fn establish_system_channel() {
+		let caller: T::AccountId = whitelisted_caller();
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, sender, recipient);
-
-		assert!(matches!(
-			Channels::<T>::get(channel).map(|c| c.state),
-			Some(ChannelState::Cancelling { .. })
-		));
-		Ok(())
+		_(RawOrigin::Signed(caller), 1_000, 1_001);
 	}
 
-	/// The worst case of the messages this call serves is a confirmed close, which releases both
-	/// deposits and removes the entry.
 	#[benchmark]
-	fn receive() -> Result<(), BenchmarkError> {
-		let (sender, recipient) = pair::<T>();
-		let channel = ChannelId { sender, recipient };
-		opened::<T>(channel)?;
-		Pallet::<T>::close_channel(RawOrigin::Root.into(), sender, recipient, sender)?;
-
+	fn force_answer() {
 		#[extrinsic_call]
-		_(
-			RawOrigin::Root,
-			MessageToPara::V1(MessageToParaV1::CloseResponse {
-				channel,
-				message_id: 2,
-				outcome: Ok(()),
-			}),
-		);
-
-		assert!(Channels::<T>::get(channel).is_none());
-		Ok(())
-	}
-
-	/// A system channel: two writes and one message, no deposits.
-	#[benchmark]
-	fn establish_system_channel() -> Result<(), BenchmarkError> {
-		let (_, recipient) = pair::<T>();
-		let here = T::SelfParaId::get();
-
-		#[extrinsic_call]
-		_(RawOrigin::Root, here, recipient);
-
-		assert_eq!(
-			Channels::<T>::get(ChannelId { sender: here, recipient }).map(|c| c.state),
-			Some(ChannelState::Open)
-		);
-		Ok(())
-	}
-
-	/// Governance tearing a channel down. Worst case releases both deposits.
-	#[benchmark]
-	fn force_remove_channel() -> Result<(), BenchmarkError> {
-		let (sender, recipient) = pair::<T>();
-		let channel = ChannelId { sender, recipient };
-		opened::<T>(channel)?;
-
-		#[extrinsic_call]
-		_(RawOrigin::Root, sender, recipient);
-
-		assert!(Channels::<T>::get(channel).is_none());
-		Ok(())
+		_(RawOrigin::Root, key(), true);
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
