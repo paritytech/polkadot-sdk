@@ -20,12 +20,19 @@ use super::{
 	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, ParaId, Runtime,
 	RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmPallet,
 };
+use crate::weights::pallet_xcm_benchmarks::WeightInfo as XcmBenchWeight;
 use frame_support::{
 	parameter_types,
 	traits::{Contains, Disabled, Equals, Everything, Nothing},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
+use pallet_xcm_benchmarks::{
+	impl_xcm_fungible_weight_info_provider, impl_xcm_generic_weight_info_provider,
+	xcm_weights::{
+		AssetMatcher, AssetTypes, AutoXcmWeight, AutoXcmWeightConfig, MatchedAssetWeigher,
+	},
+};
 use polkadot_runtime_common::{
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 	ToAuthor,
@@ -197,6 +204,41 @@ pub type WaivedLocations =
 /// the `DescendOrigin` instruction.
 pub type Aliasers = AliasChildLocation;
 
+impl_xcm_generic_weight_info_provider!(XcmBenchWeight<Runtime>);
+impl_xcm_fungible_weight_info_provider!(XcmBenchWeight<Runtime>);
+
+pub struct WestendAssetMatcher;
+impl AssetMatcher for WestendAssetMatcher {
+	fn classify(asset: &xcm::latest::prelude::Asset) -> AssetTypes {
+		match asset {
+			Asset { id: AssetId(Location { parents: 0, interior: Here }), .. } => {
+				AssetTypes::Balances
+			},
+			_ => AssetTypes::Unknown,
+		}
+	}
+
+	fn max_assets() -> u64 {
+		MAX_ASSETS
+	}
+}
+
+// Westend only knows about one asset, the balances pallet.
+const MAX_ASSETS: u64 = 1;
+
+pub struct WestendXcmWeightConfig;
+impl<Call> AutoXcmWeightConfig<Call> for WestendXcmWeightConfig {
+	type GenericWeights = XcmBenchWeight<Runtime>;
+	type FungibleWeights = XcmBenchWeight<Runtime>;
+	type AssetWeigher = MatchedAssetWeigher<WestendAssetMatcher>;
+
+	fn universal_origin() -> Weight {
+		Weight::MAX
+	}
+}
+
+pub type WestendXcmWeight<RuntimeCall> = AutoXcmWeight<RuntimeCall, WestendXcmWeightConfig>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
@@ -208,11 +250,7 @@ impl xcm_executor::Config for XcmConfig {
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
-	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::WestendXcmWeight<RuntimeCall>,
-		RuntimeCall,
-		MaxInstructions,
-	>;
+	type Weigher = WeightInfoBounds<WestendXcmWeight<RuntimeCall>, RuntimeCall, MaxInstructions>;
 	// TODO: once DAP allocates validator/author budgets, redirect XCM execution fees to the
 	// accumulation account instead of block author (use AccumulateForward as the OnUnbalanced
 	// handler).
@@ -255,11 +293,7 @@ impl pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Everything;
-	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::WestendXcmWeight<RuntimeCall>,
-		RuntimeCall,
-		MaxInstructions,
-	>;
+	type Weigher = WeightInfoBounds<WestendXcmWeight<RuntimeCall>, RuntimeCall, MaxInstructions>;
 	type UniversalLocation = UniversalLocation;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;

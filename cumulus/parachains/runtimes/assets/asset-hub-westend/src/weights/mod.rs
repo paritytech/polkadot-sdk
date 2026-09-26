@@ -70,12 +70,12 @@ pub mod pallet_vesting;
 pub mod pallet_vesting_precompiles;
 pub mod pallet_whitelist;
 pub mod pallet_xcm;
+pub mod pallet_xcm_benchmarks;
 pub mod pallet_xcm_bridge_hub_router;
 pub mod paritydb_weights;
 pub mod rocksdb_weights;
 pub mod snowbridge_pallet_system_backend;
 pub mod snowbridge_pallet_system_frontend;
-pub mod xcm;
 
 pub use block_weights::constants::BlockExecutionWeight;
 pub use extrinsic_weights::constants::ExtrinsicBaseWeight;
