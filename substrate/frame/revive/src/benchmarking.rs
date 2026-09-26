@@ -5192,15 +5192,44 @@ mod benchmarks {
 		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
 	}
 
-	/// Benchmark `r` `EQ` instructions with equal operands, preserving one as the next operand.
+	/// Benchmark `r` `EQ` instructions.
+	///
+	/// `U256` equality compiles to a `memcmp` that compares the bytes one at a time, starting from
+	/// the least significant, and stops at the first one that differs. With the same operands every
+	/// time, the CPU would predict where it stops perfectly. Instead a pseudo-random generator
+	/// picks whether each `EQ` compares values that differ only at byte 29, 30 or 31, or equal
+	/// values. Each time the comparison reaches one of these bytes it stops there with a 50%
+	/// chance, which makes the CPU mispredict where it stops. Every comparison checks at least 30
+	/// of the 32 bytes.
+	///
+	/// Each `EQ` compares the result of the previous one with its operand, so each operand is
+	/// picked based on that result.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_eq_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
+		use rand::{Rng, SeedableRng};
+		use rand_pcg::Pcg64;
+
+		let mut rng = Pcg64::seed_from_u64(42);
+		let start = U256::zero();
+		let mut previous_result = start;
+		let operands = (0..r)
+			.map(|_| {
+				let operand = match [29, 30, 31].into_iter().find(|_| rng.gen_bool(0.5)) {
+					Some(byte) => previous_result ^ (U256::one() << (8 * byte)),
+					None => previous_result,
+				};
+				previous_result =
+					if previous_result == operand { U256::one() } else { U256::zero() };
+				operand
+			})
+			.collect::<Vec<_>>();
+
 		let code = Bytecode::new_raw(vec![EQ; r as usize].into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		for _ in 0..=r {
-			interpreter.stack.push(U256::one()).continue_value().unwrap();
+		for operand in operands.into_iter().rev().chain([start]) {
+			interpreter.stack.push(operand).continue_value().unwrap();
 		}
 
 		let result;
@@ -5212,7 +5241,7 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 1);
-		assert_eq!(interpreter.stack.top(), Some(&U256::one()));
+		assert_eq!(interpreter.stack.top(), Some(&previous_result));
 		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
 	}
 
