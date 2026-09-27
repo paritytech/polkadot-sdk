@@ -159,6 +159,40 @@ bash!(
 
 Refer to [_full config file_](#full-genesis-config-file) for some details on the full file format.
 
+### Manage the boot nodes of a chain spec
+
+The `bootnodes` command group manages the boot nodes of an existing chain spec, through its `add`,
+`remove` and `list` subcommands. Plain and raw chain specs are both supported.
+
+Append boot nodes to the chain spec. The addresses that are already stored are skipped, so the
+command can be safely repeated:
+
+```rust,ignore
+bash!(
+	chain-spec-builder -c "/dev/stdout" bootnodes add $chain_spec_path "/dns/node-0.example.com/tcp/30333/p2p/12D3KooW9vw7UNUYQtPWK3RS8eyhjJgp4qBwbbiirYQcWLw5bCsf"
+)
+```
+
+Remove boot nodes from the chain spec. The addresses that are not stored are ignored, and
+`bootnodes remove <CHAIN_SPEC> --all` removes all of them at once:
+
+```rust,ignore
+bash!(
+	chain-spec-builder -c "/dev/stdout" bootnodes remove $chain_spec_path "/dns/node-0.example.com/tcp/30333/p2p/12D3KooW9vw7UNUYQtPWK3RS8eyhjJgp4qBwbbiirYQcWLw5bCsf"
+)
+```
+
+List the boot nodes stored in a chain spec:
+
+```rust,ignore
+bash!(
+	chain-spec-builder bootnodes list $chain_spec_path
+)
+```
+
+The boot nodes of a newly created chain spec can be given with the `--bootnodes` argument of the
+`create` command.
+
 ## Patch and full genesis config files
 
 This section provides details on the files that can be used with `create patch` or `create full` subcommands.
