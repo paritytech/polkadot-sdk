@@ -1264,6 +1264,7 @@ fn zero_balance_vote_by_delegate_does_not_record_class_lock() {
 		assert_ok!(Voting::vote(RuntimeOrigin::signed(2), 3, aye(0, 0)));
 		assert!(!ClassLocksFor::<Test>::contains_key(&2));
 		assert_eq!(Balances::usable_balance(2), 20);
+		assert!(Balances::locks(&2).is_empty());
 
 		assert_ok!(Voting::remove_vote(RuntimeOrigin::signed(2), Some(class(3)), 3));
 		assert!(!ClassLocksFor::<Test>::contains_key(&2));
@@ -1363,6 +1364,30 @@ fn cleanup_empty_storage_removes_legacy_zero_balance_delegation() {
 		assert_ok!(Voting::cleanup_empty_storage(RuntimeOrigin::signed(9), 1, class(3)));
 		assert!(!VotingFor::<Test>::contains_key(&1, &class(3)));
 	});
+}
+
+#[test]
+fn is_empty_implies_has_no_effect() {
+	// The automatic cleanup removes `is_empty` entries; the permissionless call removes
+	// `has_no_effect` entries. Nothing the former deletes may be refused by the latter.
+	let casting = VotingOf::<Test>::default();
+	assert!(casting.is_empty() && casting.has_no_effect());
+
+	let delegating: VotingOf<Test> = crate::vote::Voting::Delegating(Delegating {
+		balance: 0,
+		target: 2,
+		conviction: Conviction::None,
+		delegations: Default::default(),
+		prior: Default::default(),
+	});
+	assert!(delegating.is_empty() && delegating.has_no_effect());
+
+	// A zero-balance vote is tolerated by `has_no_effect` but not by `is_empty`.
+	let mut legacy = VotingOf::<Test>::default();
+	if let crate::vote::Voting::Casting(Casting { ref mut votes, .. }) = legacy {
+		votes.try_push((3, aye(0, 0))).unwrap();
+	}
+	assert!(!legacy.is_empty() && legacy.has_no_effect());
 }
 
 #[test]

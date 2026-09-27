@@ -435,6 +435,10 @@ pub mod pallet {
 		/// emitting `Undelegated`. Such entries accumulated before zero-balance votes and
 		/// delegations were rejected and unnecessarily bloat chain storage.
 		///
+		/// Note that a delegatee whose delegators have all undelegated may have their remaining
+		/// zero-balance vote removed by a third party through this call. If they receive a new
+		/// delegation afterwards, they must vote again for that power to be directed.
+		///
 		/// An entry whose prior lock has merely expired is not removed by this call; use `unlock`
 		/// for that, which also performs the same cleanup.
 		///
@@ -447,7 +451,8 @@ pub mod pallet {
 		///
 		/// Emits nothing. Returns `Pays::No` on success so the caller is fee-refunded.
 		///
-		/// Weight: `O(C)` where C is the number of voting classes the account has locks for.
+		/// Weight: `O(V + C)` where V is the number of votes held by the `VotingFor` entry (at
+		/// most `MaxVotes`) and C is the number of voting classes the account has locks for.
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::cleanup_empty_storage())]
 		pub fn cleanup_empty_storage(

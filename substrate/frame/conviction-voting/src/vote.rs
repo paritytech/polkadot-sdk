@@ -309,7 +309,8 @@ where
 	/// votes are tolerated here. They contribute nothing to any tally, so an entry for which this
 	/// returns `true` can be removed without adjusting poll state. New zero-balance votes are only
 	/// accepted when backed by delegations, so this mostly matches legacy entries created before
-	/// that restriction.
+	/// that restriction. Every entry for which [`Self::is_empty`] holds also satisfies this
+	/// predicate, so nothing the automatic cleanup removes is refused by `cleanup_empty_storage`.
 	pub fn has_no_effect(&self) -> bool {
 		let delegations = match self {
 			Voting::Casting(Casting { delegations, .. }) => delegations,
