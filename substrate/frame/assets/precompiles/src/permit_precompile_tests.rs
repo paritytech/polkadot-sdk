@@ -199,37 +199,6 @@ fn permit_sign_and_call(
 	assert!(!result.result.unwrap().did_revert(), "permit call reverted");
 }
 
-/// Asserts a permit submission trapped with `Err(DispatchError::Module(_))`
-/// matching the given pallet error variant. Use for the
-/// `Error::Error(DispatchError)` trap path; for clean reverts use
-/// `assert_permit_reverted_with`.
-///
-/// Strict equality against the lifted `DispatchError` ensures unrelated
-/// failure modes (out-of-gas, panics, weight exhaustion, a different
-/// pallet error) cannot silently keep the test green if the failure
-/// surface changes.
-fn assert_permit_dispatch_err<E>(
-	result: pallet_revive::ContractResult<pallet_revive::ExecReturnValue, u128>,
-	expected: E,
-) where
-	E: Into<sp_runtime::DispatchError>,
-{
-	use sp_runtime::DispatchError;
-	let expected: DispatchError = expected.into();
-	let actual = match result.result {
-		Err(e) => e,
-		Ok(v) => {
-			panic!("permit expected to trap with {:?}; call returned Ok({:?})", expected, v)
-		},
-	};
-	assert!(
-		matches!(actual, DispatchError::Module(_)),
-		"expected DispatchError::Module(...), got {:?}",
-		actual,
-	);
-	assert_eq!(actual, expected);
-}
-
 /// Asserts the call cleanly reverted (not trapped) and that the revert
 /// reason contains `expected_substring`.
 ///
@@ -616,7 +585,7 @@ fn permit_rollback_does_not_increment_nonce() {
 			r,
 			s,
 		);
-		assert_permit_dispatch_err(result, pallet_assets::Error::<Test>::AssetNotLive);
+		assert_permit_reverted_with(result, "Asset is not live");
 
 		assert_eq!(
 			permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
@@ -679,7 +648,7 @@ fn permit_rollback_preserves_prior_allowance() {
 			r,
 			s,
 		);
-		assert_permit_dispatch_err(result, pallet_assets::Error::<Test>::AssetNotLive);
+		assert_permit_reverted_with(result, "Asset is not live");
 
 		assert_eq!(
 			Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
@@ -796,8 +765,9 @@ fn permit_saturates_just_above_balance_max() {
 }
 
 /// If the owner can't afford the `ApprovalDeposit`, `do_approve_transfer`
-/// returns a `DispatchError` (Error::Error → trap). Distinct failure
-/// path from the revert-based `to_balance` test.
+/// returns `pallet_balances::Error::InsufficientBalance`. The precompile
+/// reverts with that module error's name. Distinct failure path from the
+/// revert-based `to_balance` test.
 #[test]
 fn permit_rejects_when_owner_lacks_deposit_balance() {
 	use frame_support::traits::fungibles::approvals::Inspect;
@@ -820,7 +790,7 @@ fn permit_rejects_when_owner_lacks_deposit_balance() {
 			r,
 			s,
 		);
-		assert_permit_dispatch_err(result, pallet_balances::Error::<Test>::InsufficientBalance);
+		assert_permit_reverted_with(result, "InsufficientBalance");
 		assert_eq!(
 			permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
 			U256::zero(),

@@ -758,6 +758,33 @@ fn delegatecall_is_rejected() {
 	});
 }
 
+/// A swap against a pair with no liquidity must revert with a reason, not trap.
+#[test]
+fn swap_exact_tokens_for_tokens_reverts_when_pool_has_no_liquidity() {
+	use pallet_revive::precompiles::alloy::sol_types::{Revert, SolError};
+
+	new_test_ext().execute_with(|| {
+		let swapper = 2u64;
+		let asset_id = 1u32;
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, swapper, true, 1));
+
+		let data = IAssetConversion::swapExactTokensForTokensCall {
+			path: vec![encode_asset(asset_id).into(), encode_native().into()],
+			amountIn: U256::from(10),
+			amountOutMin: U256::from(1),
+			sendTo: account_addr(&swapper),
+			keepAlive: true,
+		}
+		.abi_encode();
+
+		let result = bare_call(swapper, data);
+		let exec = result.result.expect("must not trap");
+		assert!(exec.did_revert(), "empty pool must revert");
+		let decoded = Revert::abi_decode(&exec.data).expect("Error(string) revert");
+		assert_eq!(decoded.reason, "Pool exists but has no liquidity");
+	});
+}
+
 /// `keepAlive: false` plus a `min_balance` above 1 opens a window of remainders the fungible
 /// used to sweep into the pool while still quoting the output on `amountIn`. The precompile
 /// must revert with a stable reason and leave balances untouched.

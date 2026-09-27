@@ -30,7 +30,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::Decode;
 use core::marker::PhantomData;
-use frame_support::traits::Get;
+use frame_support::traits::{Get, PalletInfoAccess};
 use pallet_asset_conversion::{
 	weights::WeightInfo as _, AddLiquidityAsset, MutateLiquidity, QuotePrice, Swap,
 };
@@ -41,7 +41,7 @@ use pallet_revive::precompiles::{
 	},
 	AddressMatcher, Error, Ext, Precompile, H160,
 };
-use sp_runtime::TokenError;
+use sp_runtime::{DispatchError, TokenError};
 
 #[cfg(test)]
 mod mock;
@@ -288,6 +288,65 @@ where
 			.map_err(|_| Error::Revert(Revert { reason: ERR_BALANCE_CONVERSION_FAILED.into() }))
 	}
 
+	/// Every pallet or token failure of a state-changing call is a Solidity revert.
+	/// A trap (`Error::Error`) is reserved for host failures such as out-of-gas.
+	fn revert_dispatch(e: DispatchError) -> Error {
+		Error::Revert(Revert { reason: Self::dispatch_reason(e).into() })
+	}
+
+	fn dispatch_reason(e: DispatchError) -> &'static str {
+		match e {
+			DispatchError::Token(TokenError::BelowMinimum) => ERR_WOULD_SWEEP_REMAINDER,
+			DispatchError::Token(token) => token.into(),
+			DispatchError::Module(module) => match Self::decode_pallet_error(e) {
+				Some(err) => Self::pallet_reason(err),
+				None => module.message.unwrap_or(ERR_UNEXPECTED),
+			},
+			_ => ERR_UNEXPECTED,
+		}
+	}
+
+	fn decode_pallet_error(e: DispatchError) -> Option<pallet_asset_conversion::Error<Runtime>> {
+		let DispatchError::Module(module) = e else { return None };
+		let index =
+			<pallet_asset_conversion::Pallet<Runtime> as PalletInfoAccess>::index() as u8;
+		if module.index != index {
+			return None;
+		}
+		pallet_asset_conversion::Error::<Runtime>::decode(&mut &module.error[..]).ok()
+	}
+
+	fn pallet_reason(err: pallet_asset_conversion::Error<Runtime>) -> &'static str {
+		use pallet_asset_conversion::Error::*;
+		match err {
+			InvalidAssetPair => ERR_INVALID_ASSET_PAIR,
+			PoolExists => "Pool already exists",
+			WrongDesiredAmount => "Desired amount can't be zero",
+			AmountOneLessThanMinimal => "Amount one is below the minimum",
+			AmountTwoLessThanMinimal => "Amount two is below the minimum",
+			ReserveLeftLessThanMinimal => "Reserves would fall below the minimum",
+			AmountOutTooHigh => "Amount out equals the pool reserve",
+			PoolNotFound => "Pool does not exist",
+			Overflow => "Arithmetic overflow",
+			AssetOneDepositDidNotMeetMinimum => "Asset one deposit is below the minimum",
+			AssetTwoDepositDidNotMeetMinimum => "Asset two deposit is below the minimum",
+			AssetOneWithdrawalDidNotMeetMinimum => "Asset one withdrawal is below the minimum",
+			AssetTwoWithdrawalDidNotMeetMinimum => "Asset two withdrawal is below the minimum",
+			OptimalAmountLessThanDesired => "Optimal amount is less than desired",
+			InsufficientLiquidityMinted => "Insufficient liquidity minted",
+			ZeroLiquidity => "Liquidity amount can't be zero",
+			ZeroAmount => "Amount can't be zero",
+			ProvidedMinimumNotSufficientForSwap => "Amount out is below the provided minimum",
+			ProvidedMaximumNotSufficientForSwap => "Amount in exceeds the provided maximum",
+			InvalidPath => "Swap path must contain at least two assets",
+			NonUniquePath => "Swap path must contain unique assets",
+			IncorrectPoolAssetId => "Could not allocate a pool asset id",
+			BelowMinimum => "Destination account cannot exist with the swapped funds",
+			PoolEmpty => ERR_POOL_EMPTY,
+			FeeTooHigh => "Swap fee exceeds the maximum",
+		}
+	}
+
 	fn swap_exact_tokens_for_tokens(
 		call: &IAssetConversion::swapExactTokensForTokensCall,
 		env: &mut impl Ext<T = Runtime>,
@@ -315,13 +374,7 @@ where
 			send_to,
 			call.keepAlive,
 		)
-		.map_err(|e| {
-			if e == TokenError::BelowMinimum.into() {
-				Error::Revert(Revert { reason: ERR_WOULD_SWEEP_REMAINDER.into() })
-			} else {
-				e.into()
-			}
-		})?;
+		.map_err(Self::revert_dispatch)?;
 
 		Ok(IAssetConversion::swapExactTokensForTokensCall::abi_encode_returns(&Self::to_u256(
 			amount_out,
@@ -355,13 +408,7 @@ where
 			send_to,
 			call.keepAlive,
 		)
-		.map_err(|e| {
-			if e == TokenError::BelowMinimum.into() {
-				Error::Revert(Revert { reason: ERR_WOULD_SWEEP_REMAINDER.into() })
-			} else {
-				e.into()
-			}
-		})?;
+		.map_err(Self::revert_dispatch)?;
 
 		Ok(IAssetConversion::swapTokensForExactTokensCall::abi_encode_returns(&Self::to_u256(
 			amount_in,
@@ -440,7 +487,8 @@ where
 
 		<pallet_asset_conversion::Pallet<Runtime> as MutateLiquidity<
 			<Runtime as frame_system::Config>::AccountId,
-		>>::create_pool(&sender, asset1, asset2)?;
+		>>::create_pool(&sender, asset1, asset2)
+		.map_err(Self::revert_dispatch)?;
 
 		Ok(Vec::new())
 	}
@@ -472,7 +520,8 @@ where
 				amount_min: Self::to_balance(call.amount2Min)?,
 			},
 			&mint_to,
-		)?;
+		)
+		.map_err(Self::revert_dispatch)?;
 
 		Ok(IAssetConversion::addLiquidityCall::abi_encode_returns(&Self::to_u256(lp_tokens)?))
 	}
@@ -499,7 +548,8 @@ where
 			Self::to_balance(call.amount1MinReceive)?,
 			Self::to_balance(call.amount2MinReceive)?,
 			&withdraw_to,
-		)?;
+		)
+		.map_err(Self::revert_dispatch)?;
 
 		Ok(IAssetConversion::removeLiquidityCall::abi_encode_returns(
 			&IAssetConversion::removeLiquidityReturn {

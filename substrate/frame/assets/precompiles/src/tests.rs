@@ -1327,11 +1327,13 @@ fn zero_value_transfer_is_never_rejected(asset_index: u16) {
 	});
 }
 
-/// A `transfer` larger than the sender's balance must still fail as `BalanceLow`, a
-/// dispatch error / trapped call, rather than an `Error(string)` remainder revert.
+/// A `transfer` larger than the sender's balance reverts as `BalanceLow`, not as the
+/// remainder-sweep revert.
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
 #[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
 fn transfer_above_balance_still_fails_on_funds(asset_index: u16) {
+	use pallet_revive::precompiles::alloy::sol_types::{Revert, SolError};
+
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
 		let asset_addr = H160::from(set_prefix_in_address(asset_index));
@@ -1342,14 +1344,12 @@ fn transfer_above_balance_still_fails_on_funds(asset_index: u16) {
 		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
 		setup_asset_with_min_balance(asset_id, asset_index, from, 10, 100);
 
-		let err = raw_transfer(from, asset_addr, to_addr, U256::from(150u64))
+		let exec = raw_transfer(from, asset_addr, to_addr, U256::from(150u64))
 			.result
-			.expect_err("overspending transfer must fail");
-		assert_eq!(
-			err,
-			pallet_assets::Error::<Test>::BalanceLow.into(),
-			"overspend must not be reported as a minimum-balance failure",
-		);
+			.expect("overspending transfer must not trap");
+		assert!(exec.did_revert(), "overspending transfer must revert");
+		let decoded = Revert::abi_decode(&exec.data).expect("Error(string) revert");
+		assert_eq!(decoded.reason, "Balance too low");
 		assert_eq!(Assets::balance(asset_id, from), 100);
 		assert_eq!(Assets::balance(asset_id, to), 0);
 	});
