@@ -1,0 +1,17 @@
+title: 'pallet-revive: split the call and instantiate benchmarks by value transfer'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `seal_call`, `seal_instantiate` and `evm_instantiate` now measure the operation
+    without value and lose their `t` and `d` arguments. Value transfers have their own benchmarks:
+     `seal_call_transfer`, `seal_instantiate_transfer` and `evm_instantiate_transfer`.
+    Calls and instantiates without value now cost less, while an instantiate that sends only dust
+    pays the full transfer cost, as a call already does.
+
+    `WeightInfo` has these 3 new required methods, so every runtime with its own `pallet_revive`
+    weights has to re-run the benchmarks.
+crates:
+- name: pallet-revive
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: patch
