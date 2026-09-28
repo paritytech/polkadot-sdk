@@ -877,9 +877,7 @@ impl<T: Config> Rotator<T> {
 		weight
 	}
 
-	/// Returns the weight of notifying [`Config::OnEraStart`]. The `rc_on_session_report`
-	/// benchmark starts one era with its own small validator set, so adding this weight on top
-	/// slightly over-estimates the session report.
+	/// Returns the weight of notifying [`Config::OnEraStart`].
 	pub(crate) fn start_era(
 		ending_era: ActiveEraInfo,
 		starting_session: SessionIndex,

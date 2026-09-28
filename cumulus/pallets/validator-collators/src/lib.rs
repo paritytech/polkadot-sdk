@@ -40,13 +40,13 @@
 //! following blocks up to [`Config::MaxAnnouncementRetries`] times and then dropped. A newer set
 //! replaces the queued one, so a destination always receives the latest stored set.
 //!
-//! ## Non-goals
+//! ## TODO
 //!
 //! - A random draw among the opted-in validators when a cap is set. For now the cap keeps the first
 //!   validators in the received order.
 //! - Counting the blocks each validator authors and reporting era points to Asset Hub.
 //! - Dropping validators that author no blocks for a session.
-//! - Propagating relay-chain offences to the collator set.
+//! - (Only if a need is established) Propagating relay-chain offences to the collator set.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
