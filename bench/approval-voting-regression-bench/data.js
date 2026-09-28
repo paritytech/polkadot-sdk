@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790631303139,
+  "lastUpdate": 1790638842173,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3e473207db22679d341e914fd138bf222fc9ac8e",
-          "message": "[Release|CI/CD] Add parallelisation improvements (#11444)\n\nAdd check that workspace compiles before crates publishing to use\n--no-verify flag during publishing",
-          "timestamp": "2026-03-23T16:08:29Z",
-          "tree_id": "c2daef9e067159bc9ce7307726e688848abe79ed",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3e473207db22679d341e914fd138bf222fc9ac8e"
-        },
-        "date": 1774287109139,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52939.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63628.56999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.233783706349945,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.752374071459947,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000026652629999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.779034237290002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.7922146359699997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000026652629999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000024610090000000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.420701841472821,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.7027039988799997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00530831048,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000024610090000000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4282222258799955,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.7739262263900004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-3",
             "value": 2.8220775838999987,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexandre.balde@parity.io",
+            "name": "Alexandre R. Baldé",
+            "username": "rockbmb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5123f42751116805f178f0044f7ddb1190c78079",
+          "message": "pallet-recovery: add do_try_state invariant checks (#12490)\n\n## Description\n\nAdds a `do_try_state` implementation to `pallet-recovery`, wired into\nthe `try_state` runtime hook. The revamped recovery pallet shipped\nwithout runtime invariant checks; this PR addresses that, mirroring the\napproach taken for `pallet-psm` in #12154.\n\n`do_try_state` checks eight state-consistency invariants over `Attempt`,\n`FriendGroups`, and `Inheritor` storage:\n\n1. No orphan attempts (every `Attempt[lost, _]` has a matching\n`FriendGroups[lost]` entry).\n2. In-range friend-group index.\n3. No bit set past `friends.len()` in an attempt's approval bitfield.\n4. (warn) Inheritor overridability: an existing inheritor is either at\nthe strongest priority, overridable by some currently-configured group,\nor the lost account can clear it via `revoke_inheritor`. Warn-only\nbecause the state is reachable through legal single-signer actions.\n5. Each storage entry (`AttemptStorage`, `SecurityDeposit`,\n`FriendGroupsStorage`, `InheritorStorage`) has a non-zero balance on\nhold for its depositor.\n6. Approval count `<= friends_needed`.\n7. `init_block <= last_approval_block`.\n8. `inheritor != lost`.\n\n`do_try_state` is `pub(crate)` and gated on `#[cfg(any(feature =\n\"try-runtime\", test))]`; the `try_state` hook is gated on `try-runtime`.\n\n## Tests\n\nA `try_state` test module covers all eight invariants: a passing case\nper storage shape and a failing case per hard error, plus the warn-only\npath. The four deposit-hold checks are exercised by releasing a hold\nwhile leaving the backing storage entry in place.",
+          "timestamp": "2026-09-28T22:06:52Z",
+          "tree_id": "09b5f71b3ab3fb1a996d4accf029a1127d01809a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5123f42751116805f178f0044f7ddb1190c78079"
+        },
+        "date": 1790638812285,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63559.82000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52940.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005198479730000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7889659251199672,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7821914217100017,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020552609999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.805960736350001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002101654,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020552609999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.782292365279999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.362394323090001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.2609550525728235,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002101654,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.347316178649972,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.8203129273700003,
             "unit": "seconds"
           }
         ]
