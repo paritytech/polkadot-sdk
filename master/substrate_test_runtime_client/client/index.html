@@ -153,14 +153,14 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 parts:</p>
 <ul>
 <li>A database containing the blocks and chain state, generally referred to as
-the <a href="../../sc_client_api/backend/trait.Backend.html" title="trait sc_client_api::backend::Backend"><code>Backend</code></a>.</li>
+the <a href="sc_client_api::backend::Backend"><code>Backend</code></a>.</li>
 <li>A runtime environment, generally referred to as the
-<a href="../../sc_client_api/call_executor/trait.CallExecutor.html" title="trait sc_client_api::call_executor::CallExecutor"><code>Executor</code></a>.</li>
+<a href="sc_client_api::call_executor::CallExecutor"><code>Executor</code></a>.</li>
 </ul>
 <h2 id="initialization"><a class="doc-anchor" href="#initialization">§</a>Initialization</h2>
 <p>Creating a <a href="struct.Client.html" title="struct substrate_test_runtime_client::client::Client"><code>Client</code></a> is done by calling the <code>new</code> method and passing to it a
-<a href="../../sc_client_api/backend/trait.Backend.html" title="trait sc_client_api::backend::Backend"><code>Backend</code></a> and an
-<a href="../../sc_client_api/call_executor/trait.CallExecutor.html" title="trait sc_client_api::call_executor::CallExecutor"><code>Executor</code></a>.</p>
+<a href="sc_client_api::backend::Backend"><code>Backend</code></a> and an
+<a href="sc_client_api::call_executor::CallExecutor"><code>Executor</code></a>.</p>
 <p>The former is typically provided by the <code>sc-client-db</code> crate.</p>
 <p>The latter typically requires passing one of:</p>
 <ul>
