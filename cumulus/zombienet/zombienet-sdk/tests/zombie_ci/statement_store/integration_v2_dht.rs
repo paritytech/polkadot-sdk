@@ -8,14 +8,16 @@
 //! by default); the replication factor `K` and gossip target are set via CLI flags.
 
 use super::common::{
-	expect_statement_delivered, spawn_network_with_injected_allowances_v2, stores_locally,
-	submit_statement, subscribe_topic,
+	assert_late_joiner_receives_backlog, collator_args_v2, expect_statement_delivered,
+	spawn_network_with_injected_allowances_v2, stores_locally, submit_statement, subscribe_topic,
+	COLLATOR_TRACE_LOG_FILTER,
 };
 use codec::Encode;
 use sc_statement_store::test_utils::{create_test_statement, get_keypair};
 use sp_core::{sr25519, Bytes};
 use sp_statement_store::{SubmitResult, Topic};
 use std::time::Duration;
+use zombienet_sdk::AddCollatorOptions;
 
 const TEST_GOSSIP_TARGET: u32 = 3;
 // Statement peers with an open notification substream, exported per node by the v2 DHT path.
@@ -376,4 +378,33 @@ async fn explicit_affinity_works() -> Result<(), anyhow::Error> {
 	expect_statement_delivered(&mut subscription, &expected, 20).await?;
 
 	Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn late_joiner_receives_backlog() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	let names = ["charlie", "alice"];
+	let replication_factor: u32 = 1;
+	let mut network = spawn_network_with_injected_allowances_v2(
+		&names,
+		names.len() as u32,
+		replication_factor,
+		TEST_GOSSIP_TARGET,
+	)
+	.await?;
+
+	let options = AddCollatorOptions {
+		env: vec![("STATEMENT_STORE_V2_DHT_ENABLED", "1").into()],
+		args: collator_args_v2(
+			names.len() as u32,
+			COLLATOR_TRACE_LOG_FILTER,
+			replication_factor,
+			TEST_GOSSIP_TARGET,
+		),
+		..Default::default()
+	};
+	assert_late_joiner_receives_backlog(&mut network, options).await
 }
