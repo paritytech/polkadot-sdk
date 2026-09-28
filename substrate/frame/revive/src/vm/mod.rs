@@ -22,8 +22,6 @@ pub mod evm;
 pub mod pvm;
 mod runtime_costs;
 
-#[cfg(feature = "runtime-benchmarks")]
-pub use runtime_costs::INSTANTIATE_TRANSFER_INIT_CODE_LEN;
 pub use runtime_costs::{RuntimeCosts, StorageAccessKind};
 
 use crate::{

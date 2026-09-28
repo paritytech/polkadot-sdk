@@ -362,7 +362,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
-	/// The range of component `c` is `[1, 10240]`.
+	/// The range of component `c` is `[1, 24576]`.
 	fn call_with_evm_code_per_byte(c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1208 + c * (1 ±0)`
@@ -1474,7 +1474,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(607), added: 3082, mode: `Measured`)
 	/// Storage: `Revive::PristineCode` (r:0 w:1)
 	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// The range of component `i` is `[10240, 49152]`.
+	/// The range of component `i` is `[1, 49152]`.
 	fn evm_instantiate(i: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `302`
@@ -1504,7 +1504,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Measured:  `302`
 		//  Estimated: `6230 + d * (23 ±3)`
 		// Minimum execution time: 342_649_000 picoseconds.
-		Weight::from_parts(322_628_484, 6230)
+		Weight::from_parts(242_733_567, 6230)
 			// Standard Error: 510_580
 			.saturating_add(Weight::from_parts(23_759_542, 0).saturating_mul(d.into()))
 			.saturating_add(T::DbWeight::get().reads(6_u64))
@@ -2031,7 +2031,7 @@ impl WeightInfo for () {
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
-	/// The range of component `c` is `[1, 10240]`.
+	/// The range of component `c` is `[1, 24576]`.
 	fn call_with_evm_code_per_byte(c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1208 + c * (1 ±0)`
@@ -3143,7 +3143,7 @@ impl WeightInfo for () {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(607), added: 3082, mode: `Measured`)
 	/// Storage: `Revive::PristineCode` (r:0 w:1)
 	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// The range of component `i` is `[10240, 49152]`.
+	/// The range of component `i` is `[1, 49152]`.
 	fn evm_instantiate(i: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `302`
@@ -3173,7 +3173,7 @@ impl WeightInfo for () {
 		//  Measured:  `302`
 		//  Estimated: `6230 + d * (23 ±3)`
 		// Minimum execution time: 342_649_000 picoseconds.
-		Weight::from_parts(322_628_484, 6230)
+		Weight::from_parts(242_733_567, 6230)
 			// Standard Error: 510_580
 			.saturating_add(Weight::from_parts(23_759_542, 0).saturating_mul(d.into()))
 			.saturating_add(RocksDbWeight::get().reads(6_u64))

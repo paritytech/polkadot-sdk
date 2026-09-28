@@ -38,7 +38,7 @@ use crate::{
 	},
 	storage::WriteOutcome,
 	vm::{
-		INSTANTIATE_TRANSFER_INIT_CODE_LEN, evm,
+		evm,
 		evm::{Interpreter, instructions},
 		pvm,
 	},
@@ -61,7 +61,10 @@ use pallet_revive_uapi::{
 	CallFlags, ReturnErrorCode, StorageFlags, pack_hi_lo,
 	precompiles::{storage::IStorage, system::ISystem},
 };
-use revm::bytecode::Bytecode;
+use revm::{
+	bytecode::Bytecode,
+	primitives::{eip170::MAX_CODE_SIZE, eip3860::MAX_INITCODE_SIZE},
+};
 use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_consensus_babe::{
 	BABE_ENGINE_ID,
@@ -429,7 +432,9 @@ mod benchmarks {
 	// the execution engine.
 	/// This is similar to `call_with_pvm_code_per_byte` but for EVM bytecode.
 	#[benchmark(pov_mode = Measured)]
-	fn call_with_evm_code_per_byte(c: Linear<1, { 10 * 1024 }>) -> Result<(), BenchmarkError> {
+	fn call_with_evm_code_per_byte(
+		c: Linear<1, { MAX_CODE_SIZE as u32 }>,
+	) -> Result<(), BenchmarkError> {
 		let instance = Contract::<T>::with_caller(
 			whitelisted_caller(),
 			VmBinaryModule::evm_init_code_for_runtime_size(c),
@@ -2589,17 +2594,20 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Sets up a call that sends `$native` plus `$dust` and clones an input of `$input_len` bytes.
+	// Sets up a call that sends `$value` plus `$dust` and clones an input of `$input_len` bytes.
 	// Defines `$do_call` to make the call and `$assert_transferred` to check the value arrived.
 	macro_rules! call_setup {
-		($do_call:ident, $assert_transferred:ident, $native:expr, $dust:expr, $input_len:expr) => {
+		(
+			$do_call:ident, $assert_transferred:ident,
+			value: $value:expr, dust: $dust:expr, input_len: $input_len:expr
+		) => {
 			let (callee_addr, callee) = seal_call_callee::<T>()?;
 			let callee_bytes = callee.encode();
 			let callee_len = callee_bytes.len() as u32;
 
-			let native: BalanceOf<T> = $native.into();
+			let value: BalanceOf<T> = $value.into();
 			let evm_value = Pallet::<T>::convert_native_to_evm(
-				BalanceWithDust::new_unchecked::<T>(native, $dust),
+				BalanceWithDust::new_unchecked::<T>(value, $dust),
 			);
 			let value_bytes = evm_value.encode();
 
@@ -2610,7 +2618,7 @@ mod benchmarks {
 			let mut setup = CallSetup::<T>::default();
 			setup.set_storage_deposit_limit(deposit);
 			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
-			setup.set_balance(native + 1u32.into() + Pallet::<T>::min_balance());
+			setup.set_balance(value + 1u32.into() + Pallet::<T>::min_balance());
 
 			let (mut ext, _) = setup.ext();
 			// `CLONE_INPUT` clones the runtime's own input, so the input goes here.
@@ -2642,7 +2650,7 @@ mod benchmarks {
 	// i: size of the input the call clones
 	#[benchmark(pov_mode = Measured)]
 	fn seal_call(i: Linear<0, { limits::CALLDATA_BYTES }>) -> Result<(), BenchmarkError> {
-		call_setup!(do_call, assert_transferred, 0u32, 0u32, i);
+		call_setup!(do_call, assert_transferred, value: 0u32, dust: 0u32, input_len: i);
 
 		let result;
 		#[block]
@@ -2658,7 +2666,13 @@ mod benchmarks {
 	// d: with or without dust value to transfer
 	#[benchmark(pov_mode = Measured)]
 	fn seal_call_transfer(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
-		call_setup!(do_call, assert_transferred, 1_000_000u32, 100u32 * d, 0u32);
+		call_setup!(
+			do_call,
+			assert_transferred,
+			value: 1_000_000u32,
+			dust: 100u32 * d,
+			input_len: 0u32
+		);
 
 		let result;
 		#[block]
@@ -2772,21 +2786,21 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Sets up an instantiate that sends `$native` plus `$dust` with an input of `$input_len` bytes.
+	// Sets up an instantiate that sends `$value` plus `$dust` with an input of `$input_len` bytes.
 	// Defines `$do_instantiate` to run it and `$assert_instantiated` to check the value arrived.
-	macro_rules! instantiate_setup {
+	macro_rules! seal_instantiate_setup {
 		(
 			$do_instantiate:ident, $assert_instantiated:ident,
-			$native:expr, $dust:expr, $input_len:expr
+			value: $value:expr, dust: $dust:expr, input_len: $input_len:expr
 		) => {
 			let code = VmBinaryModule::dummy();
 			let hash =
 				Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
 			let hash_bytes = hash.encode();
 
-			let native: BalanceOf<T> = $native.into();
+			let value: BalanceOf<T> = $value.into();
 			let evm_value = Pallet::<T>::convert_native_to_evm(
-				BalanceWithDust::new_unchecked::<T>(native, $dust),
+				BalanceWithDust::new_unchecked::<T>(value, $dust),
 			);
 			let value_bytes = evm_value.encode();
 			let value_len = value_bytes.len() as u32;
@@ -2797,7 +2811,7 @@ mod benchmarks {
 
 			let mut setup = CallSetup::<T>::default();
 			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
-			setup.set_balance(native + 1u32.into() + (Pallet::<T>::min_balance() * 2u32.into()));
+			setup.set_balance(value + 1u32.into() + (Pallet::<T>::min_balance() * 2u32.into()));
 
 			let account_id = &setup.contract().account_id.clone();
 			let (mut ext, _) = setup.ext();
@@ -2809,27 +2823,21 @@ mod benchmarks {
 			let deployer = T::AddressMapper::to_address(&account_id);
 			let addr = crate::address::create2(&deployer, &code.code, &input, &salt);
 			let mut memory = memory!(hash_bytes, input, deposit_bytes, value_bytes, salt,);
-
-			let mut offset = {
-				let mut current = 0u32;
-				move |after: u32| {
-					current += after;
-					current
-				}
-			};
+			let deposit_ptr = input_len;
+			let value_ptr = deposit_ptr + deposit_len;
+			let salt_ptr = value_ptr + value_len;
 
 			assert!(AccountInfoOf::<T>::get(&addr).is_none());
 
 			let mut $do_instantiate = || {
 				runtime.bench_instantiate(
 					memory.as_mut_slice(),
-					u64::MAX,                                           // ref_time_limit
-					u64::MAX,                                           // proof_size_limit
-					pack_hi_lo(offset(input_len), offset(deposit_len)), // deposit_ptr + value_ptr
-					pack_hi_lo(input_len, 0),                           /* input_data_len +
-					                                                     * input_data */
-					pack_hi_lo(0, SENTINEL), // output_len_ptr + output_ptr
-					pack_hi_lo(SENTINEL, offset(value_len)), // address_ptr + salt_ptr
+					u64::MAX,                           // ref_time_limit
+					u64::MAX,                           // proof_size_limit
+					pack_hi_lo(deposit_ptr, value_ptr), // deposit_ptr + value_ptr
+					pack_hi_lo(input_len, 0),           // input_data_len + input_data
+					pack_hi_lo(0, SENTINEL),            // output_len_ptr + output_ptr
+					pack_hi_lo(SENTINEL, salt_ptr),     // address_ptr + salt_ptr
 				)
 			};
 			let $assert_instantiated = || {
@@ -2846,7 +2854,13 @@ mod benchmarks {
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
 	fn seal_instantiate(i: Linear<0, { limits::CALLDATA_BYTES }>) -> Result<(), BenchmarkError> {
-		instantiate_setup!(do_instantiate, assert_instantiated, 0u32, 0u32, i);
+		seal_instantiate_setup!(
+			do_instantiate,
+			assert_instantiated,
+			value: 0u32,
+			dust: 0u32,
+			input_len: i
+		);
 
 		let result;
 		#[block]
@@ -2862,7 +2876,13 @@ mod benchmarks {
 	// d: with or without dust value to transfer
 	#[benchmark(pov_mode = Measured)]
 	fn seal_instantiate_transfer(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
-		instantiate_setup!(do_instantiate, assert_instantiated, 1_000_000u32, 100u32 * d, 0u32);
+		seal_instantiate_setup!(
+			do_instantiate,
+			assert_instantiated,
+			value: 1_000_000u32,
+			dust: 100u32 * d,
+			input_len: 0u32
+		);
 
 		let result;
 		#[block]
@@ -2875,12 +2895,12 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Sets up an instantiate that sends `$native` plus `$dust` with `$init_code_len` bytes of code.
+	// Sets up an instantiate that sends `$value` plus `$dust` with `$init_code_len` bytes of code.
 	// Defines `$do_instantiate` to run it and `$assert_instantiated` to check the value arrived.
 	macro_rules! evm_instantiate_setup {
 		(
 			$do_instantiate:ident, $assert_instantiated:ident,
-			$native:expr, $dust:expr, $init_code_len:expr
+			value: $value:expr, dust: $dust:expr, init_code_len: $init_code_len:expr
 		) => {
 			use crate::vm::evm::instructions::BENCH_INIT_CODE;
 			let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_init_code_for_runtime_size(0));
@@ -2892,10 +2912,10 @@ mod benchmarks {
 			let mut interpreter =
 				Interpreter::new(Default::default(), Default::default(), &mut ext);
 
-			let native: BalanceOf<T> = $native.into();
-			let value = Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(
-				native, $dust,
-			));
+			let value: BalanceOf<T> = $value.into();
+			let evm_value = Pallet::<T>::convert_native_to_evm(
+				BalanceWithDust::new_unchecked::<T>(value, $dust),
+			);
 
 			let init_code = vec![BENCH_INIT_CODE; $init_code_len as usize];
 			let _ = interpreter.memory.resize(0, init_code.len());
@@ -2907,22 +2927,32 @@ mod benchmarks {
 			let _ = interpreter.stack.push(salt);
 			let _ = interpreter.stack.push(U256::from(init_code.len()));
 			let _ = interpreter.stack.push(U256::zero());
-			let _ = interpreter.stack.push(value);
+			let _ = interpreter.stack.push(evm_value);
 
 			let mut $do_instantiate =
 				|| instructions::contract::create::<true, _>(&mut interpreter);
 			let $assert_instantiated = || {
 				assert!(AccountInfo::<T>::load_contract(&addr).is_some());
-				assert_eq!(Pallet::<T>::code(&addr).len(), revm::primitives::eip170::MAX_CODE_SIZE);
-				assert_eq!(Pallet::<T>::evm_balance(&addr), value, "balance should hold {value:?}");
+				assert_eq!(Pallet::<T>::code(&addr).len(), MAX_CODE_SIZE);
+				assert_eq!(
+					Pallet::<T>::evm_balance(&addr),
+					evm_value,
+					"balance should hold {evm_value:?}"
+				);
 			};
 		};
 	}
 
-	// i: size of the init code (max 49152 bytes per EIP-3860)
+	// i: size of the init code
 	#[benchmark(pov_mode = Measured)]
-	fn evm_instantiate(i: Linear<{ 10 * 1024 }, { 48 * 1024 }>) -> Result<(), BenchmarkError> {
-		evm_instantiate_setup!(do_instantiate, assert_instantiated, 0u32, 0u32, i);
+	fn evm_instantiate(i: Linear<1, { MAX_INITCODE_SIZE as u32 }>) -> Result<(), BenchmarkError> {
+		evm_instantiate_setup!(
+			do_instantiate,
+			assert_instantiated,
+			value: 0u32,
+			dust: 0u32,
+			init_code_len: i
+		);
 
 		let result;
 		#[block]
@@ -2941,9 +2971,9 @@ mod benchmarks {
 		evm_instantiate_setup!(
 			do_instantiate,
 			assert_instantiated,
-			1_000_000u32,
-			100u32 * d,
-			INSTANTIATE_TRANSFER_INIT_CODE_LEN
+			value: 1_000_000u32,
+			dust: 100u32 * d,
+			init_code_len: 1u32
 		);
 
 		let result;

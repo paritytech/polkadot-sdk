@@ -39,9 +39,6 @@ const GAS_PER_SECOND: u64 = 40_000_000;
 /// gas.
 const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
 
-/// The init code length `evm_instantiate_transfer` is measured with.
-pub const INSTANTIATE_TRANSFER_INIT_CODE_LEN: u32 = 10 * 1024;
-
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Copy, Clone)]
 pub enum RuntimeCosts {
@@ -412,9 +409,8 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			},
 			Create { init_code_len, balance_transfer, dust_transfer } => {
 				let transfer = if balance_transfer || dust_transfer {
-					T::WeightInfo::evm_instantiate_transfer(dust_transfer.into()).saturating_sub(
-						T::WeightInfo::evm_instantiate(INSTANTIATE_TRANSFER_INIT_CODE_LEN),
-					)
+					T::WeightInfo::evm_instantiate_transfer(dust_transfer.into())
+						.saturating_sub(T::WeightInfo::evm_instantiate(1))
 				} else {
 					Weight::zero()
 				};

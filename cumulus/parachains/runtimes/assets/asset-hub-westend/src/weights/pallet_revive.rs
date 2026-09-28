@@ -233,7 +233,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `Measured`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
-	/// The range of component `c` is `[1, 10240]`.
+	/// The range of component `c` is `[1, 24576]`.
 	fn call_with_evm_code_per_byte(c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `4940 + c * (1 ±0)`
@@ -1500,7 +1500,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(409), added: 2884, mode: `Measured`)
 	/// Storage: `Revive::PristineCode` (r:0 w:1)
 	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// The range of component `i` is `[10240, 49152]`.
+	/// The range of component `i` is `[1, 49152]`.
 	fn evm_instantiate(i: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `4102`
@@ -1541,7 +1541,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		//  Measured:  `4102`
 		//  Estimated: `9979 + d * (405 ±35)`
 		// Minimum execution time: 457_223_000 picoseconds.
-		Weight::from_parts(429_119_422, 0)
+		Weight::from_parts(347_975_347, 0)
 			.saturating_add(Weight::from_parts(0, 9979))
 			// Standard Error: 637_264
 			.saturating_add(Weight::from_parts(26_335_570, 0).saturating_mul(d.into()))
