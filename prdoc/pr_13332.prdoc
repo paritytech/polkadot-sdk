@@ -1,0 +1,35 @@
+title: 'pallet-validator-collators: relay-chain validators as system chain collators'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds `pallet-validator-collators`, a second session manager for system chains. It stores
+    the active validator set of each era and returns its validators with registered keys as
+    collators, next to `pallet-collator-selection` through `UnionSessionManager`. A new set
+    forces two session rotations so it takes effect within two blocks. On Asset Hub the
+    pallet also sends the set to the other system chains, with retries.
+
+    `pallet-staking-async` gains the `OnEraStart` config item, called with the validators of
+    each era when it becomes active. Use `()` to keep the previous behaviour at no cost.
+
+    Asset Hub Westend and People Westend use the new pallet. Asset Hub announces every new
+    era to itself and to People.
+crates:
+- name: pallet-validator-collators
+  bump: major
+# `OnEraStart` is a new required config item and `NextEraValidators` is new storage.
+- name: pallet-staking-async
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: testnet-parachains-constants
+  bump: minor
+- name: pallet-staking-async-parachain-runtime
+  bump: none
+- name: pallet-ahm-test
+  bump: none
+- name: people-westend-integration-tests
+  bump: none
+- name: polkadot-sdk
+  bump: minor

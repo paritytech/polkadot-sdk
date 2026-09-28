@@ -17875,6 +17875,7 @@ dependencies = [
  "pallet-tx-pause",
  "pallet-uniques",
  "pallet-utility",
+ "pallet-validator-collators",
  "pallet-verify-signature",
  "pallet-vesting",
  "pallet-vesting-precompiles",
