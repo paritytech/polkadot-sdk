@@ -84,8 +84,8 @@ impl PriceOracleInherentDataProvider {
 		let newest = Anchor((*header.number()).saturated_into());
 
 		let api = client.runtime_api();
-		let (window, on_chain) = match (api.report_window(parent), api.latest_anchors(parent)) {
-			(Ok(window), Ok(on_chain)) => (window, on_chain),
+		let (window, on_chain) = match (api.settings(parent), api.latest_anchors(parent)) {
+			(Ok(settings), Ok(on_chain)) => (settings.report_window, on_chain),
 			(Err(e), _) | (_, Err(e)) => {
 				log::debug!(target: LOG_TARGET, "Price oracle API unavailable at {parent:?} ({e}), providing no reports");
 				return None;

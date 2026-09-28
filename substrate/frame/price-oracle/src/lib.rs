@@ -444,7 +444,20 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
 	/// The active markets in wire form, as served to the oracle nodes.
 	///
-	/// Backs [`PriceOracleMarketApi::markets`](sp_price_oracle::runtime_api::PriceOracleMarketApi::markets).
+	/// The rules an oracle node follows: the signers and, while [`Params`] is set, the report
+	/// window and tick interval.
+	///
+	/// Backs [`PriceOracleApi::settings`](sp_price_oracle::runtime_api::PriceOracleApi::settings).
+	pub fn settings() -> sp_price_oracle::Settings<T::SignerId> {
+		let params = Params::<T>::get();
+		sp_price_oracle::Settings {
+			signers: T::Signers::signers(),
+			report_window: params.as_ref().map_or(0, |p| p.report_window),
+			tick_interval_ms: params.as_ref().map_or(0, |p| p.tick_interval_ms),
+		}
+	}
+
+	/// Backs [`PriceOracleApi::markets`](sp_price_oracle::runtime_api::PriceOracleApi::markets).
 	pub fn active_markets() -> Vec<Market> {
 		Markets::<T>::iter()
 			.filter(|(_, m)| m.active)
@@ -456,7 +469,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// See [`price_market`].
 	///
-	/// Backs [`PriceOracleMarketApi::parse`](sp_price_oracle::runtime_api::PriceOracleMarketApi::parse).
+	/// Backs [`PriceOracleApi::parse`](sp_price_oracle::runtime_api::PriceOracleApi::parse).
 	pub fn parse_market(
 		id: MarketId,
 		responses: Vec<(QueryTag, Vec<u8>)>,
@@ -486,7 +499,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Aggregate market prices into the pair prices a node reports.
 	///
-	/// Backs [`PriceOracleMarketApi::aggregate`](sp_price_oracle::runtime_api::PriceOracleMarketApi::aggregate).
+	/// Backs [`PriceOracleApi::aggregate`](sp_price_oracle::runtime_api::PriceOracleApi::aggregate).
 	pub fn aggregate_markets(prices: Vec<(MarketId, Price)>) -> Vec<Quote> {
 		let prices = prices
 			.into_iter()

@@ -54,19 +54,19 @@ mod enabled {
 	use sc_client_db::DbHash;
 	use sc_service::TaskManager;
 	use sp_keystore::KeystorePtr;
-	use sp_price_oracle::runtime_api::{PriceOracleApi, PriceOracleMarketApi};
+	use sp_price_oracle::runtime_api::PriceOracleApi;
 	use sp_runtime::traits::Block as BlockT;
 	use std::sync::Arc;
 
 	/// Convenience trait for defining the bounds of a parachain runtime whose collators run the
 	/// price oracle. The signer key is the Aura key.
 	pub trait PriceOracleRuntimeApi<Block: BlockT, AuraId: AuraIdT>:
-		PriceOracleApi<Block, AuraId::BoundedPublic> + PriceOracleMarketApi<Block>
+		PriceOracleApi<Block, AuraId::BoundedPublic>
 	{
 	}
 
 	impl<T, Block: BlockT, AuraId: AuraIdT> PriceOracleRuntimeApi<Block, AuraId> for T where
-		T: PriceOracleApi<Block, AuraId::BoundedPublic> + PriceOracleMarketApi<Block>
+		T: PriceOracleApi<Block, AuraId::BoundedPublic>
 	{
 	}
 

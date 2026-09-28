@@ -19,7 +19,7 @@
 
 use crate::{
 	market::{Market, MarketId, QueryTag},
-	Anchor, Price, Quote,
+	Anchor, Price, Quote, Settings,
 };
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
@@ -30,24 +30,15 @@ use scale_info::TypeInfo;
 pub struct ParseError(pub Vec<u8>);
 
 sp_api::decl_runtime_apis! {
-	// TODO: consider single settings api call
-	/// Consensus side of the oracle: who may sign and what is already on chain.
-	pub trait PriceOracleApi<Id: Decode> {
-		/// Keys whose reports are accepted right now.
-		fn signers() -> Vec<Id>;
-		/// Reports anchored more than this many blocks ago are ignored.
-		fn report_window() -> u32;
-		/// Anchor of the most recent report already on chain, per signer.
-		fn latest_anchors() -> Vec<(Id, Anchor)>;
-	}
-
-	/// Market side of the oracle: what to fetch and how to turn it into prices.
+	/// What an oracle node needs from the runtime.
 	///
 	/// A tick is one pass of the node over all markets: fetch, parse each market, aggregate,
 	/// sign one report.
-	pub trait PriceOracleMarketApi {
-		/// Time between two ticks.
-		fn tick_interval_ms() -> u32;
+	pub trait PriceOracleApi<Id: Decode> {
+		/// The rules in force: who may sign, how old a report may be, how often to tick.
+		fn settings() -> Settings<Id>;
+		/// Anchor of the most recent report already on chain, per signer.
+		fn latest_anchors() -> Vec<(Id, Anchor)>;
 		/// Active markets with their queries.
 		fn markets() -> Vec<Market>;
 		/// Price one market from the responses to its queries, given the node's clock.

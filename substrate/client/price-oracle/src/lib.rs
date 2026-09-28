@@ -49,11 +49,7 @@ use sp_application_crypto::AppCrypto;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
 use sp_keystore::KeystorePtr;
-use sp_price_oracle::{
-	market::Market,
-	runtime_api::{PriceOracleApi, PriceOracleMarketApi},
-	Anchor, PriceReport,
-};
+use sp_price_oracle::{market::Market, runtime_api::PriceOracleApi, Anchor, PriceReport};
 use sp_runtime::{
 	traits::{Block as BlockT, SaturatedConversion},
 	RuntimeAppPublic,
@@ -110,7 +106,7 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 ) where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
-	Client::Api: PriceOracleApi<Block, Id> + PriceOracleMarketApi<Block>,
+	Client::Api: PriceOracleApi<Block, Id>,
 	Net: Network<Block> + Clone + Send + Sync + 'static,
 	SyncService: Syncing<Block> + SyncOracle + Clone + Send + 'static,
 	Id: RuntimeAppPublic<Signature = Signature>
@@ -201,13 +197,13 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 				// Validated and pooled by the validator; the stream is only observed here.
 				if notification.is_none() {
 					log::warn!(target: LOG_TARGET, "Gossip topic stream ended, stopping");
-               // TODO: can we handle this without stopping the service?
+					// TODO: can we handle this without stopping the service?
 					return;
 				}
 			},
 			_ = &mut gossip_engine => {
 				log::warn!(target: LOG_TARGET, "Gossip engine ended, stopping");
-            // TODO: can we handle this without stopping the service?
+				// TODO: can we handle this without stopping the service?
 				return;
 			},
 		}
@@ -240,7 +236,7 @@ impl<Hash: Copy, Id> TickSetup<Hash, Id> {
 	where
 		Block: BlockT<Hash = Hash>,
 		Client: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-		Client::Api: PriceOracleApi<Block, Id> + PriceOracleMarketApi<Block>,
+		Client::Api: PriceOracleApi<Block, Id>,
 		Id: RuntimeAppPublic + AppCrypto + Ord + Clone + Decode,
 		Signature: Clone,
 	{
@@ -252,14 +248,9 @@ impl<Hash: Copy, Id> TickSetup<Hash, Id> {
 		// TODO: consider reading as much as possible and failing only after few consecutive
 		// failures.
 		let read = (|| -> Result<_, sp_api::ApiError> {
-			Ok((
-				api.signers(best_hash)?,
-				api.report_window(best_hash)?,
-				api.tick_interval_ms(best_hash)?,
-				api.markets(best_hash)?,
-			))
+			Ok((api.settings(best_hash)?, api.markets(best_hash)?))
 		})();
-		let (signers, window, interval_ms, markets) = match read {
+		let (settings, markets) = match read {
 			Ok(read) => {
 				*api_missing_logged = false;
 				read
@@ -273,14 +264,19 @@ impl<Hash: Copy, Id> TickSetup<Hash, Id> {
 			},
 		};
 
-		let signer = signer::local_signer(keystore, &signers);
-		let acceptance = Acceptance { signers, current: anchor, window };
+		let signer = signer::local_signer(keystore, &settings.signers);
+		let acceptance = Acceptance {
+			signers: settings.signers,
+			current: anchor,
+			window: settings.report_window,
+		};
 		// TODO: move to upper level or rename function.
 		pool.prune(acceptance.oldest());
 		// TODO: move to upper level or rename function.
 		validator.set_acceptance(acceptance);
 
-		let interval = Duration::from_millis(interval_ms.into()).max(MIN_TICK_INTERVAL);
+		let interval =
+			Duration::from_millis(settings.tick_interval_ms.into()).max(MIN_TICK_INTERVAL);
 		Some(Self { best_hash, anchor, interval, signer, markets })
 	}
 }
@@ -301,8 +297,8 @@ async fn run_tick<Block, Client, Id, Signature>(
 where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block>,
-	Client::Api: PriceOracleMarketApi<Block>,
-	Id: RuntimeAppPublic<Signature = Signature> + AppCrypto + Ord + Clone + Encode,
+	Client::Api: PriceOracleApi<Block, Id>,
+	Id: RuntimeAppPublic<Signature = Signature> + AppCrypto + Ord + Clone + Encode + Decode,
 	Signature: Clone + Encode,
 {
 	let TickSetup { best_hash, anchor, interval, signer, markets } = setup;

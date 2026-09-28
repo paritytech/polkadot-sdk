@@ -97,6 +97,18 @@ pub struct Quote {
 	pub price: Price,
 }
 
+/// The rules a node follows for a tick: who may sign, how old a report may be, how often to
+/// tick.
+#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
+pub struct Settings<Id> {
+	/// Keys whose reports are accepted.
+	pub signers: Vec<Id>,
+	/// Reports anchored more than this many blocks ago are ignored.
+	pub report_window: u32,
+	/// Time between two ticks, in milliseconds.
+	pub tick_interval_ms: u32,
+}
+
 /// Context prefixed to a report before signing.
 ///
 /// Keeps report signatures distinct from any other signature made with the same key.

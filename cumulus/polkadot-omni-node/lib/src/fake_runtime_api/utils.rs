@@ -277,22 +277,11 @@ macro_rules! impl_node_runtime_apis {
 
 			#[cfg(feature = "price-oracle")]
 			impl sp_price_oracle::runtime_api::PriceOracleApi<$block, $aura_id> for $runtime {
-				fn signers() -> Vec<$aura_id> {
-					unimplemented!()
-				}
-
-				fn report_window() -> u32 {
+				fn settings() -> sp_price_oracle::Settings<$aura_id> {
 					unimplemented!()
 				}
 
 				fn latest_anchors() -> Vec<($aura_id, sp_price_oracle::Anchor)> {
-					unimplemented!()
-				}
-			}
-
-			#[cfg(feature = "price-oracle")]
-			impl sp_price_oracle::runtime_api::PriceOracleMarketApi<$block> for $runtime {
-				fn tick_interval_ms() -> u32 {
 					unimplemented!()
 				}
 

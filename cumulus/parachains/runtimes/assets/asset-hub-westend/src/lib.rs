@@ -3041,22 +3041,12 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 	}
 
 	impl sp_price_oracle::runtime_api::PriceOracleApi<Block, AuraId> for Runtime {
-		fn signers() -> Vec<AuraId> {
-			<price_oracle::Collators as pallet_price_oracle::Signers<AuraId>>::signers()
-		}
-
-		fn report_window() -> u32 {
-			pallet_price_oracle::Params::<Runtime>::get().map_or(0, |p| p.report_window)
+		fn settings() -> sp_price_oracle::Settings<AuraId> {
+			PriceOracle::settings()
 		}
 
 		fn latest_anchors() -> Vec<(AuraId, sp_price_oracle::Anchor)> {
 			PriceOracle::latest_anchors()
-		}
-	}
-
-	impl sp_price_oracle::runtime_api::PriceOracleMarketApi<Block> for Runtime {
-		fn tick_interval_ms() -> u32 {
-			pallet_price_oracle::Params::<Runtime>::get().map_or(0, |p| p.tick_interval_ms)
 		}
 
 		fn markets() -> Vec<sp_price_oracle::market::Market> {

@@ -78,7 +78,7 @@ ticking against the last known state, reports accumulate in the pool, and the fi
 after the stall carries them. (With block number anchors, all reports a signer produces
 during a stall share one anchor; the last received wins, see Pool.)
 
-The tick interval comes from the runtime (`tick_interval_ms` at the best block), re-read every
+The tick interval comes from the runtime (`settings()` at the best block), re-read every
 tick so a governance change takes effect without restart. The node clamps it to a floor of
 500 ms as a safety cap.
 
@@ -127,7 +127,7 @@ once and idles until it does. If the node is major syncing, ticks are skipped.
   |---|---|
   | decodes as `SignedPriceReport` | discard, cost `MALFORMED` (-500) |
   | anchor ≥ current anchor − window | discard, cost `STALE_REPORT` (-50) |
-  | signer ∈ `signers()` at the best block | discard, cost `UNKNOWN_SIGNER` (-150) |
+  | signer ∈ `settings().signers` at the best block | discard, cost `UNKNOWN_SIGNER` (-150) |
   | signature verifies | discard, cost `BAD_SIGNATURE` (-100) |
   | anchor ≥ the pool's anchor for this signer | discard, no cost (superseded) |
   | otherwise | keep and forward, benefit `GOOD_REPORT` (+100) |
@@ -162,7 +162,7 @@ provider.
 ## Inherent data
 
 `PriceOracleInherentDataProvider::create(client, pool, parent_hash)` reads the parent's height,
-calls `report_window()` and `latest_anchors()` at the parent, and takes
+calls `settings()` and `latest_anchors()` at the parent, and takes
 `pool.select(latest_anchors, height − window, height)`. The upper bound keeps reports anchored
 ahead of the parent out of the block. The result is wrapped in the provider type from
 `sp-price-oracle`. No other filtering: the author includes every fresh report it holds. If the
@@ -171,7 +171,7 @@ authored without oracle data.
 
 ## Signing
 
-The local oracle key is the intersection of `signers()` and the keystore's public keys of type
+The local oracle key is the intersection of `settings().signers` and the keystore's public keys of type
 `Id::ID`, first match. Checked every tick, so key rotation and set changes need no restart. If
 there is no local key, the node fetches nothing, but still runs gossip and the pool, so it can
 serve as an author for others' reports. Signing goes through `Keystore::sign_with`, the
