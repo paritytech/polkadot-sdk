@@ -1536,10 +1536,12 @@ fn truncation_does_not_alter_the_steps_it_keeps() {
 /// transaction.
 mod emitter_logs {
 	use crate::{
-		Code, Config, EthBlockBuilderFirstValues, EthBlockBuilderIR, Pallet,
+		Code, Config, EthBlockBuilderFirstValues, EthBlockBuilderIR, Origin, Pallet,
 		evm::{block_hash::LogsBloom, fees::InfoT},
-		test_utils::ALICE,
-		tests::{Contracts, ExtBuilder, RuntimeEvent, System, Test, builder},
+		test_utils::{ALICE, WEIGHT_LIMIT, deposit_limit},
+		tests::{
+			Contracts, ExtBuilder, RuntimeCall, RuntimeEvent, System, Test, builder, pallet_dummy,
+		},
 	};
 	use alloy_core::sol_types::{SolCall, SolEvent};
 	use frame_support::{
@@ -1782,6 +1784,76 @@ mod emitter_logs {
 			assert_eq!(occurrences(&receipt, &emitted()), 1);
 			assert_eq!(occurrences(&receipt, &doomed()), 0);
 			assert!(!committed.synthetic_transaction);
+		});
+	}
+
+	/// A rollback layer above the frames that still succeeds: `batch_all` rolls back `first`
+	/// when the call after it fails, and the `batch` around it returns `Ok` regardless.
+	fn batch_rolling_back(first: RuntimeCall) -> RuntimeCall {
+		RuntimeCall::Utility(pallet_utility::Call::batch {
+			calls: vec![RuntimeCall::Utility(pallet_utility::Call::batch_all {
+				calls: vec![first, RuntimeCall::Dummy(pallet_dummy::Call::fail {})],
+			})],
+		})
+	}
+
+	/// The transaction succeeded, its receipt is the block's only one, and `topic` is in neither
+	/// the receipt nor the bloom.
+	fn assert_status_1_receipt_without(topic: H256) {
+		assert_eq!(eth_extrinsic_revert(), None, "the transaction succeeded");
+		let committed = finalize_block();
+		assert_eq!(committed.transactions, 1);
+		assert_eq!(committed.bloom, [0u8; 256], "the rolled-back log is not in the bloom");
+		let receipt = committed.first_receipt.expect("one transaction, one receipt");
+		assert_eq!(occurrences(&receipt, &topic), 0, "nor in the receipt");
+		assert!(!committed.synthetic_transaction);
+	}
+
+	/// A mirrored balance change has no frame: its log goes straight onto the open receipt. When
+	/// the `batch_all` it ran in rolls back, the balance change and its event are gone, and the
+	/// receipt must not keep a `Transfer` that never happened.
+	#[test]
+	fn rolled_back_batch_all_keeps_a_mirrored_log_off_the_receipt() {
+		ExtBuilder::default().build().execute_with(|| {
+			deploy(FixtureType::Solc);
+			let mirror = H160::repeat_byte(0xa5);
+			let topic = H256::repeat_byte(0x11);
+
+			assert_ok!(Pallet::<Test>::eth_substrate_call(
+				Origin::EthTransaction(ALICE).into(),
+				Box::new(batch_rolling_back(RuntimeCall::Dummy(pallet_dummy::Call::emit_log {
+					contract: mirror,
+					topic,
+				}))),
+				vec![],
+			));
+
+			assert!(contract_emitted_topics(mirror).is_empty(), "the event rolled back");
+			assert_status_1_receipt_without(topic);
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn rolled_back_batch_all_keeps_a_frame_log_off_the_receipt(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+			let call = RuntimeCall::Contracts(crate::Call::call {
+				dest: addr,
+				value: 0,
+				weight_limit: WEIGHT_LIMIT,
+				storage_deposit_limit: deposit_limit::<Test>(),
+				data: Emitter::emitValueCall { value: 7 }.abi_encode(),
+			});
+
+			assert_ok!(Pallet::<Test>::eth_substrate_call(
+				Origin::EthTransaction(ALICE).into(),
+				Box::new(batch_rolling_back(call)),
+				vec![],
+			));
+
+			assert!(contract_emitted_topics(addr).is_empty(), "the event rolled back");
+			assert_status_1_receipt_without(emitted());
 		});
 	}
 }

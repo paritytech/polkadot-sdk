@@ -17,10 +17,11 @@
 use crate::{
 	AccountIdOf, BalanceOf, BalanceWithDust, BlockHash, BlockNumberFor, Config, ContractResult,
 	Error, EthBlockBuilderIR, EthereumBlock, Event, ExecReturnValue, H160, H256, LOG_TARGET,
-	Pallet, ReceiptGasInfo, ReceiptInfoData, StorageDeposit, Weight, dispatch_result,
+	Pallet, ReceiptGasInfo, ReceiptInfoData, ReceiptLogsCommitted, StorageDeposit, Weight,
+	dispatch_result,
 	evm::{
 		block_hash::{
-			AccumulateReceipt, EthereumBlockBuilder, LogsBloom, OutsideFrameLog, ReceiptCheckpoint,
+			AccumulateReceipt, EthereumBlockBuilder, LogsBloom, OutsideFrameLog,
 			SyntheticTransactionInfo,
 		},
 		burn_with_dust,
@@ -124,23 +125,19 @@ impl EthereumCallResult {
 
 /// Add the log to the open ethereum transaction's receipt, if there is one, and report whether
 /// there was. Outside an ethereum transaction the caller decides what becomes of the log.
-pub fn capture_into_receipt(contract: &H160, data: &[u8], topics: &[H256]) -> bool {
-	receipt::with(|receipt| receipt.add_log(contract, data, topics)).is_some()
-}
-
-/// Mark where the open ethereum transaction's receipt stands as a frame begins, or `None` outside
-/// an ethereum transaction. See [`revert_frame_logs`].
-pub fn frame_log_checkpoint() -> Option<ReceiptCheckpoint> {
-	receipt::with(|receipt| receipt.checkpoint())
-}
-
-/// Drop from the open receipt every log captured since `checkpoint`: the frame that logged them
-/// reverted, and a log only exists if its frame took effect. Storage and events roll back with the
-/// frame's transaction; the receipt lives outside it, so it is rolled back here.
-pub fn revert_frame_logs(checkpoint: Option<ReceiptCheckpoint>) {
-	if let Some(checkpoint) = checkpoint {
-		receipt::with(|receipt| receipt.revert_to(checkpoint));
-	}
+///
+/// A log only exists if the storage change that produced it took effect, so the receipt follows
+/// storage rollback: what the transaction has committed of its receipt is kept in
+/// [`ReceiptLogsCommitted`], and rolls back with any layer that rolls back, a contract frame or a
+/// `batch_all` around a plain call. The accumulator itself lives outside storage and is cut back
+/// to the committed state before every log, and once more in [`get_receipt_details`].
+pub fn capture_into_receipt<T: Config>(contract: &H160, data: &[u8], topics: &[H256]) -> bool {
+	receipt::with(|receipt| {
+		receipt.reset_to(&ReceiptLogsCommitted::<T>::get());
+		receipt.add_log(contract, data, topics);
+		ReceiptLogsCommitted::<T>::put(receipt.committed());
+	})
+	.is_some()
 }
 
 /// Capture a log emitted by a contract frame: into the open ethereum transaction's receipt, or
@@ -157,16 +154,18 @@ pub fn revert_frame_logs(checkpoint: Option<ReceiptCheckpoint>) {
 /// So where a contract's log ends up depends on the entry point: `eth_transact` and
 /// `eth_substrate_call`, whose inner dispatch runs inside `with_ethereum_context`, put it on the
 /// receipt; `Revive::call` and an XCM `Transact` leave it substrate-only.
-pub fn capture_frame_log(contract: &H160, data: &[u8], topics: &[H256]) {
-	capture_into_receipt(contract, data, topics);
+pub fn capture_frame_log<T: Config>(contract: &H160, data: &[u8], topics: &[H256]) {
+	capture_into_receipt::<T>(contract, data, topics);
 }
 
-/// Get the receipt details of the current transaction.
+/// Take the receipt details of the current transaction: the logs it committed, see
+/// [`capture_into_receipt`], and their bloom.
 ///
 /// This method returns `None` if and only if the function is called
 /// from outside of the ethereum context.
-pub fn get_receipt_details() -> Option<(Vec<u8>, LogsBloom)> {
+pub fn get_receipt_details<T: Config>() -> Option<(Vec<u8>, LogsBloom)> {
 	receipt::with(|receipt| {
+		receipt.reset_to(&ReceiptLogsCommitted::<T>::take());
 		let encoding = core::mem::take(&mut receipt.encoding);
 		let bloom = core::mem::take(&mut receipt.bloom);
 		(encoding, bloom)
@@ -205,9 +204,9 @@ pub fn with_ethereum_context<T: Config>(
 			})?;
 
 		if let Some(dispatch_error) = err {
-			// A failed transaction's receipt carries no logs. Its frames dropped theirs as they
-			// reverted; this covers a failure after the frames, such as the fee settlement.
-			receipt::with(|receipt| *receipt = AccumulateReceipt::new());
+			// A failed transaction's receipt carries no logs: the dispatch rolled back, and with
+			// it what the transaction had committed to its receipt, whether its frames reverted
+			// or it failed after them, at the fee settlement.
 			deposit_eth_extrinsic_revert_event::<T>(dispatch_error);
 			crate::block_storage::process_transaction::<T>(
 				transaction_encoded,
@@ -333,7 +332,7 @@ pub fn process_transaction<T: Config>(
 	// Method returns `None` only when called from outside of the ethereum context.
 	// This is not the case here, since this is called from within the
 	// ethereum context.
-	let (encoded_logs, bloom) = get_receipt_details().unwrap_or_default();
+	let (encoded_logs, bloom) = get_receipt_details::<T>().unwrap_or_default();
 
 	let block_builder_ir = EthBlockBuilderIR::<T>::get();
 	let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);

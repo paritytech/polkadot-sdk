@@ -52,11 +52,13 @@ doc:
     mirrored per frame that changed storage and is the highest-volume producer. The cheap route
     into the buffer, a raw `LOG` at a few hundred gas, is closed.
 
-    A log from a frame that reverts no longer reaches the ethereum receipt: the receipt's log list
-    is rolled back with the frame, and a transaction that fails after its frames, at fee
-    settlement, commits a receipt with no logs and an empty bloom. Before, such logs stayed in the
-    receipt, `receipts_root` and `logs_bloom` while the state and events that produced them rolled
-    back.
+    The ethereum receipt now follows storage rollback. What a transaction has committed to its
+    receipt is kept in storage while it runs, so a log is dropped from the receipt together with
+    the state change that produced it, whichever layer rolled back: a contract frame that
+    reverted, a `batch_all`, `proxy` or `force_batch` around a plain call whose balance change was
+    mirrored, or the whole dispatch failing after its frames at fee settlement, which commits a
+    receipt with no logs and an empty bloom. Before, such logs stayed in the receipt,
+    `receipts_root` and `logs_bloom` while the state and events that produced them rolled back.
 
     The cap is a backstop no block can reach. Every buffered log is read back by the `on_finalize`
     drain, so its encoded bytes are in the block's proof whatever produced it — an assets

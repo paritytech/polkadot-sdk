@@ -2392,6 +2392,72 @@ fn mirrored_transfer_log_lands_on_the_ethereum_transaction() {
 	});
 }
 
+// A mirrored transfer inside a `batch_all` that rolls back: the balance change and its event are
+// gone, and the receipt of the `eth_substrate_call` around it, which succeeds since `batch` returns
+// `Ok` on an interrupted inner call, must not keep the `Transfer` either.
+#[test]
+fn rolled_back_batch_all_keeps_a_mirrored_transfer_off_the_receipt() {
+	erc20_mirror_ext().execute_with(|| {
+		let owner = AccountId::from(ALICE);
+		let recipient = AccountId::from(BOB);
+		Balances::mint_into(&owner, 100 * UNITS).unwrap();
+
+		let asset_id: AssetIdForTrustBackedAssets = 1;
+		assert_ok!(Assets::force_create(
+			RuntimeHelper::root_origin(),
+			asset_id.into(),
+			owner.clone().into(),
+			true,
+			1
+		));
+		assert_ok!(Assets::mint(
+			RuntimeHelper::origin_of(owner.clone()),
+			asset_id.into(),
+			owner.clone().into(),
+			1_000
+		));
+		Revive::on_finalize(System::block_number());
+		RuntimeHelper::run_to_block(2, owner.clone());
+
+		let transfer = |amount| {
+			RuntimeCall::Assets(pallet_assets::Call::transfer {
+				id: asset_id.into(),
+				target: recipient.clone().into(),
+				amount,
+			})
+		};
+		let call = RuntimeCall::Utility(pallet_utility::Call::batch {
+			calls: vec![RuntimeCall::Utility(pallet_utility::Call::batch_all {
+				calls: vec![transfer(400), transfer(10_000)],
+			})],
+		});
+		assert_ok!(Revive::eth_substrate_call(
+			pallet_revive::Origin::<Runtime>::EthTransaction(owner.clone()).into(),
+			Box::new(call),
+			vec![],
+		));
+		assert_eq!(Assets::balance(asset_id, &owner), 1_000, "the first transfer rolled back");
+		assert!(
+			!System::events().iter().any(|record| matches!(
+				record.event,
+				RuntimeEvent::Revive(pallet_revive::Event::EthExtrinsicRevert { .. })
+			)),
+			"and the transaction still succeeded"
+		);
+
+		Revive::on_finalize(System::block_number());
+
+		let block = Revive::eth_block();
+		let hashes = match block.transactions {
+			HashesOrTransactionInfos::Hashes(hashes) => hashes,
+			_ => panic!("expected transaction hashes"),
+		};
+		assert_eq!(hashes.len(), 1, "the transaction is in the block");
+		assert_eq!(block.logs_bloom.0, [0u8; 256], "with no log in its receipt");
+		assert!(Revive::eth_synthetic_transaction().is_none());
+	});
+}
+
 // Every buffered log is read back by the `on_finalize` drain, so its encoded bytes are in the
 // block's proof whatever admitted it: an assets extrinsic, a storage deposit settled by a contract
 // frame, an XCM fee swap, a batch. The insert charges at least those bytes, so the proof budget

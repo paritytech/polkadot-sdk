@@ -58,7 +58,9 @@ use crate::{
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
 		StateOverrideSet, TYPE_EIP1559, TYPE_EIP7702, Tracer, TracerType,
-		block_hash::EthereumBlockBuilderIR, block_storage, fees::InfoT as FeeInfo,
+		block_hash::{CommittedReceiptLogs, EthereumBlockBuilderIR},
+		block_storage,
+		fees::InfoT as FeeInfo,
 		runtime::SetWeightLimit,
 	},
 	exec::{AccountIdOf, ExecError, Stack as ExecStack},
@@ -821,6 +823,13 @@ pub mod pallet {
 	#[pallet::unbounded]
 	type SyntheticReceiptInfo<T: Config> = StorageValue<_, SyntheticTransactionInfo, OptionQuery>;
 
+	/// What the open ethereum transaction has committed to its receipt, see
+	/// `block_storage::capture_into_receipt`. Taken when the transaction's receipt is built, so it
+	/// is empty between transactions.
+	#[pallet::storage]
+	pub(crate) type ReceiptLogsCommitted<T: Config> =
+		StorageValue<_, CommittedReceiptLogs, ValueQuery>;
+
 	/// Incremental ethereum block builder.
 	#[pallet::storage]
 	#[pallet::unbounded]
@@ -1031,7 +1040,7 @@ pub mod pallet {
 				tracer.log_event_outside_frame(contract, &topics, &data, log_index);
 			});
 
-			if !block_storage::capture_into_receipt(&contract, &data, &topics) {
+			if !block_storage::capture_into_receipt::<T>(&contract, &data, &topics) {
 				Self::buffer_outside_frame_log(&contract, &topics, &data);
 			}
 

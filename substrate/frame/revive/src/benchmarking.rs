@@ -1605,16 +1605,21 @@ mod benchmarks {
 		let data = vec![42u8; n as _];
 		build_runtime!(runtime, instance, memory: [ topics_data, data, ]);
 
+		// Inside an ethereum transaction, the worst case: the log is also captured into the open
+		// receipt, which encodes it, accrues the bloom and writes what the transaction has
+		// committed so far to storage.
 		let result;
 		#[block]
 		{
-			result = runtime.bench_deposit_event(
-				memory.as_mut_slice(),
-				0, // topics_ptr
-				num_topic,
-				topics_data.len() as u32, // data_ptr
-				n,                        // data_len
-			);
+			result = block_storage::bench_with_ethereum_context(|| {
+				runtime.bench_deposit_event(
+					memory.as_mut_slice(),
+					0, // topics_ptr
+					num_topic,
+					topics_data.len() as u32, // data_ptr
+					n,                        // data_len
+				)
+			});
 		}
 		assert_ok!(result);
 
@@ -3684,7 +3689,7 @@ mod benchmarks {
 				// Store transaction
 				let _ = block_storage::bench_with_ethereum_context(|| {
 					let (encoded_logs, bloom) =
-						block_storage::get_receipt_details().unwrap_or_default();
+						block_storage::get_receipt_details::<T>().unwrap_or_default();
 
 					let block_builder_ir = EthBlockBuilderIR::<T>::get();
 					let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
@@ -3760,7 +3765,7 @@ mod benchmarks {
 			// Store transaction
 			let _ = block_storage::bench_with_ethereum_context(|| {
 				let (encoded_logs, bloom) =
-					block_storage::get_receipt_details().unwrap_or_default();
+					block_storage::get_receipt_details::<T>().unwrap_or_default();
 
 				let block_builder_ir = EthBlockBuilderIR::<T>::get();
 				let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
@@ -3831,10 +3836,11 @@ mod benchmarks {
 			// — the path `on_finalize_block_per_event` is charged for on every `DepositEvent`. The
 			// outside-of-frame drain is `outside_frame_log`'s, charged separately.
 			for _ in 0..e {
-				block_storage::capture_frame_log(&instance.address, &vec![], &vec![]);
+				block_storage::capture_frame_log::<T>(&instance.address, &vec![], &vec![]);
 			}
 
-			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
+			let (encoded_logs, bloom) =
+				block_storage::get_receipt_details::<T>().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
 			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
@@ -3922,9 +3928,10 @@ mod benchmarks {
 			// receipt — the path `on_finalize_block_per_event` is charged for on every
 			// `DepositEvent`. The outside-of-frame drain is `outside_frame_log`'s, charged
 			// separately.
-			block_storage::capture_frame_log(&instance.address, &event_data, &topics);
+			block_storage::capture_frame_log::<T>(&instance.address, &event_data, &topics);
 
-			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
+			let (encoded_logs, bloom) =
+				block_storage::get_receipt_details::<T>().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
 			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
