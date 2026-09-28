@@ -5506,23 +5506,36 @@ mod benchmarks {
 		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
 	}
 
-	/// Benchmark `r` `SAR` instructions with negative operands and small, varying shifts.
+	/// Benchmark `r` `SAR` instructions.
+	///
+	/// For a negative operand `SAR` shifts right like `SHR` and then shifts an all-ones mask left
+	/// into the vacated bits. Both shifts are unrolled into branches on how many whole words they
+	/// move, checking three words, then two, then one, and their carry steps only run when there
+	/// are bits left to shift. Because the two shifts move in opposite directions, shifts of one or
+	/// two words do about as much total work as shifts of less than a word. A pseudo-random
+	/// generator picks a shift of two words half the time and splits the rest evenly between one
+	/// word and none, which makes the CPU mispredict the whole-word checks. Each shift also moves
+	/// one bit on top of the whole words to keep the carry steps running. Shifts of three words
+	/// skip about as much work as their mispredictions cost, so they are left out.
+	///
+	/// The operands are all negative, because a positive operand skips the mask, which saves more
+	/// than a misprediction costs. Each `SAR` is followed by a `POP`, because otherwise its result
+	/// would become the shift of the next one.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_sar_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
-		const SHIFTS: [u32; 30] = [
-			1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 17, 17, 15, 14, 13, 12, 11, 10, 9, 7,
-			6, 5, 4, 3, 2, 1,
-		];
+		use rand::{Rng, SeedableRng};
+		use rand_pcg::Pcg64;
+
+		let mut rng = Pcg64::seed_from_u64(42);
+		let operands = (0..r).flat_map(|_| {
+			let words = [2u32, 1].into_iter().find(|_| rng.gen_bool(0.5)).unwrap_or(0);
+			[U256::MAX, U256::from(64 * words + 1)]
+		});
 
 		let code = Bytecode::new_raw([SAR, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		let operands = SHIFTS
-			.into_iter()
-			.cycle()
-			.take(r as usize)
-			.flat_map(|shift| [U256::MAX << shift, U256::from(shift)]);
 		for operand in operands {
 			interpreter.stack.push(operand).continue_value().unwrap();
 		}
