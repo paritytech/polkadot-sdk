@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790627182084,
+  "lastUpdate": 1790631205373,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3e473207db22679d341e914fd138bf222fc9ac8e",
-          "message": "[Release|CI/CD] Add parallelisation improvements (#11444)\n\nAdd check that workspace compiles before crates publishing to use\n--no-verify flag during publishing",
-          "timestamp": "2026-03-23T16:08:29Z",
-          "tree_id": "c2daef9e067159bc9ce7307726e688848abe79ed",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3e473207db22679d341e914fd138bf222fc9ac8e"
-        },
-        "date": 1774287040016,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12198618296666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.255100999433335,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.2275742854,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a775c6f7c0d20fb3ca6245d2ae7ef493ef7fd619",
+          "message": "sp-io: Move relay-chain host functions to dedicated `relay_chain.rs` (#13315)",
+          "timestamp": "2026-09-28T19:57:37Z",
+          "tree_id": "3848cb63744a81dcac5de61aae62b21979948139",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a775c6f7c0d20fb3ca6245d2ae7ef493ef7fd619"
+        },
+        "date": 1790631173514,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13514417086666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.006361138966668,
             "unit": "seconds"
           }
         ]
