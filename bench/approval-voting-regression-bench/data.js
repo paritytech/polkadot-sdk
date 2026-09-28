@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790376400956,
+  "lastUpdate": 1790591234092,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "79bc8a968a2eda1ae127740ee1a20ff10e375950",
-          "message": "Add MinSetKeysBond check in rc_client::set_keys (#11168)\n\nAdd a configurable MinSetKeysBond threshold that rejects set_keys when\nactive bond is insufficient.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-25T10:49:51Z",
-          "tree_id": "4086235cf72cc7dfd7ebc40caca9746e90c02ea1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/79bc8a968a2eda1ae127740ee1a20ff10e375950"
-        },
-        "date": 1772021410607,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63628.250000000015,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52938.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.292853683379994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.0000215877,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005379104260000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.7650836620599994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.723584300270001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.0000215877,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.8042564230899683,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000022837999999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.707761567099999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.439135427502774,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000022837999999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.060246238169961,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.76132749801,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
             "value": 0.8317812613599465,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5cc4eda07222ebb03b3fc50cd46556437cb506c4",
+          "message": "statement-store: recover V2 gossip after major sync (#13272)\n\n## Summary\n\n- Resume deferred statement peer connections after major sync in both\ngate modes.\n- Keep V2 affinity controls during sync and re-announce the current\nfilter once the node has\nstayed out of major sync for `MAJOR_SYNC_SETTLE_PERIOD`, even without\ndropped statements: a peer\n  never retries a propagation chunk that failed to reach us.\n- Reconnect one v1 peer after major sync on the v2 path too: a v1 peer\ncannot replay on request,\nand on this path the set accepts non-reserved peers, so the substream is\nclosed directly instead\n  of leaving the reserved set.\n- Refresh affinity snapshots using current subscriptions and topology,\nreusing the existing filter\n  dirty state without new networking events or wire changes.\n- zombienet: the v1 and v2 late-joiner tests share one body and both\nassert the deferred-peer\ndrain log line, which master never emits under the gate; the v2 one\njoins the CI matrix.\n\nFixes #12561\n\nFollow-up: #13280 – incremental resync after major sync",
+          "timestamp": "2026-09-28T08:19:22Z",
+          "tree_id": "e97cb4c942f54bdc28aeb4ad05a84a542f989e49",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5cc4eda07222ebb03b3fc50cd46556437cb506c4"
+        },
+        "date": 1790591203019,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52945.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63568.509999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.75752675834,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.312391424902753,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005217289310000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001992297,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.176990896319941,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001992297,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002025236,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002025236,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.737320986749999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.778456446700001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.850828542249938,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.323079329020002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7245615439500006,
             "unit": "seconds"
           }
         ]
