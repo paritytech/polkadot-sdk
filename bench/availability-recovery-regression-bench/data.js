@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790631205373,
+  "lastUpdate": 1790638748007,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "dharjeezy@gmail.com",
-            "name": "dharjeezy",
-            "username": "dharjeezy"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "61556930595657ee7aa3585f8e42fe319e7046f5",
-          "message": "try state hook for pallet authorship (#11215)\n\nThis PR introduces the try_state hook to pallet-authorship to verify a\nkey storage invariant.\n\ncloses part of https://github.com/paritytech/polkadot-sdk/issues/239\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-23T22:43:02Z",
-          "tree_id": "cc2d9d396fc3f73fc52770a281bae6c983ad8f21",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/61556930595657ee7aa3585f8e42fe319e7046f5"
-        },
-        "date": 1774310587643,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.194003798933332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12586995320000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.006361138966668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexandre.balde@parity.io",
+            "name": "Alexandre R. Baldé",
+            "username": "rockbmb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5123f42751116805f178f0044f7ddb1190c78079",
+          "message": "pallet-recovery: add do_try_state invariant checks (#12490)\n\n## Description\n\nAdds a `do_try_state` implementation to `pallet-recovery`, wired into\nthe `try_state` runtime hook. The revamped recovery pallet shipped\nwithout runtime invariant checks; this PR addresses that, mirroring the\napproach taken for `pallet-psm` in #12154.\n\n`do_try_state` checks eight state-consistency invariants over `Attempt`,\n`FriendGroups`, and `Inheritor` storage:\n\n1. No orphan attempts (every `Attempt[lost, _]` has a matching\n`FriendGroups[lost]` entry).\n2. In-range friend-group index.\n3. No bit set past `friends.len()` in an attempt's approval bitfield.\n4. (warn) Inheritor overridability: an existing inheritor is either at\nthe strongest priority, overridable by some currently-configured group,\nor the lost account can clear it via `revoke_inheritor`. Warn-only\nbecause the state is reachable through legal single-signer actions.\n5. Each storage entry (`AttemptStorage`, `SecurityDeposit`,\n`FriendGroupsStorage`, `InheritorStorage`) has a non-zero balance on\nhold for its depositor.\n6. Approval count `<= friends_needed`.\n7. `init_block <= last_approval_block`.\n8. `inheritor != lost`.\n\n`do_try_state` is `pub(crate)` and gated on `#[cfg(any(feature =\n\"try-runtime\", test))]`; the `try_state` hook is gated on `try-runtime`.\n\n## Tests\n\nA `try_state` test module covers all eight invariants: a passing case\nper storage shape and a failing case per hard error, plus the warn-only\npath. The four deposit-hold checks are exercised by releasing a hold\nwhile leaving the backing storage entry in place.",
+          "timestamp": "2026-09-28T22:06:52Z",
+          "tree_id": "09b5f71b3ab3fb1a996d4accf029a1127d01809a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5123f42751116805f178f0044f7ddb1190c78079"
+        },
+        "date": 1790638717654,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13970772380000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.072526448633335,
             "unit": "seconds"
           }
         ]
