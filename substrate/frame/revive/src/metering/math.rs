@@ -289,6 +289,7 @@ pub mod ethereum_execution {
 				eth_gas_limit,
 				weight_limit,
 				eth_tx_info,
+				authorization_deposit: Default::default(),
 			},
 			_phantom: PhantomData,
 		};

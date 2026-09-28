@@ -246,7 +246,10 @@ pub type Barrier = TrailingSetTopicAsId<(
 			// allow it.
 			AllowTopLevelPaidExecutionFrom<Everything>,
 			// Parent and its pluralities (i.e. governance bodies) get free execution.
-			AllowExplicitUnpaidExecutionFrom<(ParentOrParentsExecutivePlurality,)>,
+			AllowExplicitUnpaidExecutionFrom<
+				(ParentOrParentsExecutivePlurality,),
+				CheapTrustedAliasers,
+			>,
 			// Subscriptions for version tracking are OK.
 			AllowSubscriptionsFrom<Everything>,
 			// HRMP notifications from the relay chain are OK.
@@ -358,16 +361,22 @@ pub type TrustedTeleporters = (
 	xcm_builder::Case<AssetHubTrustedTeleporter>,
 );
 
-/// Defines origin aliasing rules for this chain.
+/// Aliasing rules that are pure computation and thus cheap enough to also be evaluated by
+/// barriers, before any payment is taken.
 ///
 /// - Allow any origin to alias into a child sub-location (equivalent to DescendOrigin),
-/// - Allow AssetHub root to alias into anything,
+/// - Allow AssetHub root to alias into anything.
+///
+/// `AuthorizedAliasers` is deliberately NOT part of this: it reads storage, which is more than a
+/// barrier is allowed to cost.
+pub type CheapTrustedAliasers =
+	(AliasChildLocation, AliasOriginRootUsingFilter<SystemAssetHubLocation, Everything>);
+
+/// Defines origin aliasing rules for this chain. Used by the executor.
+///
+/// - Allow all the cheap aliasing rules also used by the barriers,
 /// - Allow origins explicitly authorized by the alias target location.
-pub type TrustedAliasers = (
-	AliasChildLocation,
-	AliasOriginRootUsingFilter<SystemAssetHubLocation, Everything>,
-	AuthorizedAliasers<Runtime>,
-);
+pub type TrustedAliasers = (CheapTrustedAliasers, AuthorizedAliasers<Runtime>);
 
 pub type WaivedLocations = Equals<RootLocation>;
 

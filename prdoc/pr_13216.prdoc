@@ -1,0 +1,16 @@
+title: 'statement-store: persist transient statements and sweep them once propagated'
+
+doc:
+- audience: Node Dev
+  description: |-
+    On nodes running the v2 DHT statement path, a statement no affinity covers is admitted to the
+    store like any other and removed by the maintenance sweep once it has been propagated, with the
+    usual re-acceptance ban, unless affinity has arrived by then. It was previously held in memory
+    and handed out once on the propagation pull. Nodes without the v2 DHT path enabled are
+    unaffected.
+
+crates:
+- name: sc-statement-store
+  bump: patch
+- name: sc-network-statement
+  bump: patch

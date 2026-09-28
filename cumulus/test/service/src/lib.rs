@@ -52,8 +52,7 @@ use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImpo
 use cumulus_client_pov_recovery::{RecoveryDelayRange, RecoveryHandle};
 use cumulus_client_service::{
 	build_network, prepare_node_config, start_relay_chain_tasks, BuildNetworkParams,
-	CollatorSybilResistance, DARecoveryProfile, ParachainTracingExecuteBlock,
-	StartRelayChainTasksParams,
+	DARecoveryProfile, ParachainTracingExecuteBlock, StartRelayChainTasksParams,
 };
 use cumulus_primitives_core::{relay_chain::ValidationCode, GetParachainInfo, ParaId};
 use cumulus_relay_chain_inprocess_interface::RelayChainInProcessInterface;
@@ -72,7 +71,7 @@ use sc_network::{
 	config::{FullNetworkConfiguration, TransportConfig},
 	multiaddr,
 	service::traits::NetworkService,
-	NetworkBackend, NetworkBlock, NetworkStateInfo,
+	NetworkBackend, NetworkBlock, NetworkStateInfo, PeerId,
 };
 use sc_service::{
 	config::{
@@ -116,7 +115,7 @@ pub type ParachainBlockImport =
 	TParachainBlockImport<Block, SlotBasedBlockImport<Block, Arc<Client>, Client>, Backend>;
 
 /// Transaction pool type used by the test service
-pub type TransactionPool = Arc<sc_transaction_pool::TransactionPoolHandle<Block, Client>>;
+pub type TransactionPool = Arc<sc_transaction_pool::TransactionPoolHandle<Block>>;
 
 /// Recovery handle that fails regularly to simulate unavailable povs.
 pub struct FailingRecoveryHandle {
@@ -165,7 +164,7 @@ pub type Service = PartialComponents<
 	Backend,
 	(),
 	sc_consensus::import_queue::BasicQueue<Block>,
-	sc_transaction_pool::TransactionPoolHandle<Block, Client>,
+	sc_transaction_pool::TransactionPoolHandle<Block>,
 	(ParachainBlockImport, SlotBasedBlockImportHandle<Block>),
 >;
 
@@ -204,16 +203,14 @@ pub fn new_partial(
 		SlotBasedBlockImport::new(client.clone(), client.clone());
 	let block_import = ParachainBlockImport::new(block_import, backend.clone());
 
-	let transaction_pool = Arc::from(
-		sc_transaction_pool::Builder::new(
-			task_manager.spawn_essential_handle(),
-			client.clone(),
-			config.role.is_authority().into(),
-		)
-		.with_options(config.transaction_pool.clone())
-		.with_prometheus(config.prometheus_registry())
-		.build(),
-	);
+	let transaction_pool = sc_transaction_pool::Builder::new(
+		task_manager.spawn_essential_handle(),
+		client.clone(),
+		config.role.is_authority().into(),
+	)
+	.with_options(config.transaction_pool.clone())
+	.with_prometheus(config.prometheus_registry())
+	.build();
 
 	let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
 	let import_queue = cumulus_client_consensus_aura::import_queue::<AuthorityPair, _, _, _, _, _>(
@@ -257,7 +254,7 @@ async fn build_relay_chain_interface(
 	collator_key: Option<CollatorPair>,
 	collator_options: CollatorOptions,
 	task_manager: &mut TaskManager,
-) -> RelayChainResult<Arc<dyn RelayChainInterface + 'static>> {
+) -> RelayChainResult<(Arc<dyn RelayChainInterface + 'static>, PeerId)> {
 	let relay_chain_node = match collator_options.relay_chain_mode {
 		cumulus_client_cli::RelayChainMode::Embedded => polkadot_test_service::new_full(
 			relay_chain_config,
@@ -279,20 +276,25 @@ async fn build_relay_chain_interface(
 				rpc_target_urls,
 			)
 			.await
-			.map(|r| r.0)
+			.map(|r| (r.0, r.2.local_peer_id()))
 		},
 	};
 
+	let relay_chain_peer_id = relay_chain_node.network.local_peer_id();
+
 	task_manager.add_child(relay_chain_node.task_manager);
 	tracing::info!("Using inprocess node.");
-	Ok(Arc::new(RelayChainInProcessInterface::new(
-		relay_chain_node.client.clone(),
-		relay_chain_node.backend.clone(),
-		relay_chain_node.sync_service.clone(),
-		relay_chain_node.overseer_handle.ok_or(RelayChainError::GenericError(
-			"Overseer should be running in full node.".to_string(),
-		))?,
-	)))
+	Ok((
+		Arc::new(RelayChainInProcessInterface::new(
+			relay_chain_node.client.clone(),
+			relay_chain_node.backend.clone(),
+			relay_chain_node.sync_service.clone(),
+			relay_chain_node.overseer_handle.ok_or(RelayChainError::GenericError(
+				"Overseer should be running in full node.".to_string(),
+			))?,
+		)),
+		relay_chain_peer_id,
+	))
 }
 
 /// Start a node with the given parachain `Configuration` and relay chain `Configuration`.
@@ -332,7 +334,7 @@ where
 	let backend = params.backend.clone();
 
 	let (block_import, block_import_handle) = params.other;
-	let relay_chain_interface = build_relay_chain_interface(
+	let (relay_chain_interface, relay_chain_peer_id) = build_relay_chain_interface(
 		relay_chain_config,
 		parachain_config.prometheus_registry(),
 		collator_key.clone(),
@@ -356,7 +358,7 @@ where
 		.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 	tracing::info!("Parachain id: {:?}", para_id);
 
-	let (network, system_rpc_tx, tx_handler_controller, sync_service) =
+	let (network, system_rpc_tx, tx_handler_controller, sync_service, _bitswap_handle) =
 		build_network(BuildNetworkParams {
 			parachain_config: &parachain_config,
 			net_config,
@@ -370,7 +372,7 @@ where
 			metrics: Net::register_notification_metrics(
 				parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
 			),
-			sybil_resistance_level: CollatorSybilResistance::Resistant,
+			gap_sync_body_policy: None,
 		})
 		.await?;
 
@@ -457,7 +459,7 @@ where
 		prometheus_registry: None,
 	})?;
 
-	let collator_peer_id = network.local_peer_id();
+	let collator_peer_id = relay_chain_peer_id;
 	if let Some(collator_key) = collator_key {
 		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
@@ -467,12 +469,7 @@ where
 			None,
 		);
 
-		let collator_service = CollatorService::new(
-			client.clone(),
-			Arc::new(task_manager.spawn_handle()),
-			announce_block,
-			client.clone(),
-		);
+		let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
 
 		let client_for_aura = client.clone();
 

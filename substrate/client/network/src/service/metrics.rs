@@ -20,27 +20,20 @@ use crate::{service::traits::BandwidthSink, ProtocolName};
 
 use prometheus_endpoint::{
 	self as prometheus, Counter, CounterVec, Gauge, GaugeVec, HistogramOpts, MetricSource, Opts,
-	PrometheusError, Registry, SourcedCounter, SourcedGauge, U64,
+	PrometheusError, Registry, SourcedCounter, U64,
 };
 
-use std::{
-	str,
-	sync::{
-		atomic::{AtomicUsize, Ordering},
-		Arc,
-	},
-};
+use std::{str, sync::Arc};
 
 pub use prometheus_endpoint::{Histogram, HistogramVec};
 
 /// Registers all networking metrics with the given registry.
 pub fn register(registry: &Registry, sources: MetricSources) -> Result<Metrics, PrometheusError> {
 	BandwidthCounters::register(registry, sources.bandwidth)?;
-	NumConnectedGauge::register(registry, sources.connected_peers)?;
 	Metrics::register(registry)
 }
 
-// Register `sc-network` metrics without bandwidth/connected peer sources.
+// Register `sc-network` metrics without the bandwidth source.
 pub fn register_without_sources(registry: &Registry) -> Result<Metrics, PrometheusError> {
 	Metrics::register(registry)
 }
@@ -48,17 +41,14 @@ pub fn register_without_sources(registry: &Registry) -> Result<Metrics, Promethe
 /// Predefined metric sources that are fed directly into prometheus.
 pub struct MetricSources {
 	pub bandwidth: Arc<dyn BandwidthSink>,
-	pub connected_peers: Arc<AtomicUsize>,
 }
 
 impl MetricSources {
 	pub fn register(
 		registry: &Registry,
 		bandwidth: Arc<dyn BandwidthSink>,
-		connected_peers: Arc<AtomicUsize>,
 	) -> Result<(), PrometheusError> {
-		BandwidthCounters::register(registry, bandwidth)?;
-		NumConnectedGauge::register(registry, connected_peers)
+		BandwidthCounters::register(registry, bandwidth)
 	}
 }
 
@@ -278,34 +268,6 @@ impl MetricSource for BandwidthCounters {
 	fn collect(&self, mut set: impl FnMut(&[&str], Self::N)) {
 		set(&["in"], self.0.total_inbound());
 		set(&["out"], self.0.total_outbound());
-	}
-}
-
-/// The connected peers metric.
-#[derive(Clone)]
-pub struct NumConnectedGauge(Arc<AtomicUsize>);
-
-impl NumConnectedGauge {
-	/// Registers the `MajorSyncingGauge` metric whose value is
-	/// obtained from the given `AtomicUsize`.
-	fn register(registry: &Registry, value: Arc<AtomicUsize>) -> Result<(), PrometheusError> {
-		prometheus::register(
-			SourcedGauge::new(
-				&Opts::new("substrate_sub_libp2p_peers_count", "Number of connected peers"),
-				NumConnectedGauge(value),
-			)?,
-			registry,
-		)?;
-
-		Ok(())
-	}
-}
-
-impl MetricSource for NumConnectedGauge {
-	type N = u64;
-
-	fn collect(&self, mut set: impl FnMut(&[&str], Self::N)) {
-		set(&[], self.0.load(Ordering::Relaxed) as u64);
 	}
 }
 

@@ -68,19 +68,28 @@ pub trait EVMFrameTraceInfo: FrameTraceInfo {
 }
 
 /// Defines methods to trace contract interactions.
+///
+/// # Contract
+///
+/// Every [`Tracing::enter_opcode`] and [`Tracing::enter_ecall`] must be followed by exactly one
+/// [`Tracing::exit_step`], on every path including reverts and traps. Tracers pair the two to
+/// attribute a step's cost, so an unmatched call charges that step to an enclosing one.
 pub trait Tracing {
 	/// Register an address that should be traced.
 	fn watch_address(&mut self, _addr: &H160) {}
 
 	/// Called before a contract call is executed.
 	///
-	/// For CALL/DELEGATECALL opcodes:
+	/// - `code_address`: When code is loaded from a different address than `to` (DELEGATECALL or
+	///   EIP-7702 delegation), this is that source address.
+	/// - `is_delegate_call`: true for DELEGATECALL frames (not EIP-7702 delegation).
 	/// - `gas_limit`: gas forwarded to the child call
 	fn enter_child_span(
 		&mut self,
 		_from: H160,
 		_to: H160,
-		_delegate_call: Option<H160>,
+		_code_address: Option<H160>,
+		_is_delegate_call: bool,
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],

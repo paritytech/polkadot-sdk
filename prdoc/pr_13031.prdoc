@@ -1,0 +1,15 @@
+title: 'frame-support: fix CountedStorageMap and CountedStorageNMap counter drift'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `CountedStorageMap::try_append` incremented `CounterFor` on every append within the bound,
+    including appends to an existing key, which create no entry. `count()` drifted above the
+    number of stored keys. It now increments only when the key is absent, matching `insert` and
+    `append`.
+
+    `CountedStorageNMap::set` decremented on every removal, including of an absent key, and never
+    incremented when it created an entry, so `count()` drifted below the number of stored keys.
+    It now delegates to `mutate_exists`, which counts the added/removed transition.
+crates:
+- name: frame-support
+  bump: patch

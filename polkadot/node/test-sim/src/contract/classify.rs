@@ -44,7 +44,7 @@ use crate::{
 };
 use polkadot_node_network_protocol::{
 	request_response::Requests, v1 as protocol_v1, v2 as protocol_v2, v3_collation as protocol_v3,
-	CollationProtocols,
+	v4_collation as protocol_v4, CollationProtocols,
 };
 use polkadot_node_subsystem::messages::{
 	AllMessages, CandidateBackingMessage, NetworkBridgeTxMessage, ReportPeerMessage,
@@ -229,6 +229,17 @@ fn classify_request(req: Requests, pending: &mut PendingFetches) -> Classified {
 				candidate_hash: Some(candidate_hash),
 			})
 		},
+		Requests::CollationFetchingV3(out) => {
+			let to = recipient_to_peer_id(&out.peer);
+			let output_head_data_hash = out.payload.output_head_data_hash;
+			let request_id = pending.register(out.pending_response);
+			Classified::Effect(Effect::SendRequestV3 {
+				request_id,
+				to,
+				kind: ReqKind::CollationFetchingV3,
+				output_head_data_hash,
+			})
+		},
 
 		// Other request kinds are emitted by other subsystems, never by collator-protocol.
 		// Exhaustive arms here mean a new variant on the upstream `Requests` enum breaks the
@@ -261,6 +272,7 @@ fn wire_kind_from_collation_protocol(
 						scheduling_parent: *rp,
 						candidate_hash: None,
 						parent_head_hash: None,
+						output_head_hash: None,
 					},
 				}
 			},
@@ -281,6 +293,7 @@ fn wire_kind_from_collation_protocol(
 					scheduling_parent: *scheduling_parent,
 					candidate_hash: Some(*candidate_hash),
 					parent_head_hash: Some(*parent_head_data_hash),
+					output_head_hash: None,
 				},
 			},
 			protocol_v2::CollatorProtocolMessage::CollationSeconded(rp, _) => {
@@ -301,11 +314,28 @@ fn wire_kind_from_collation_protocol(
 					scheduling_parent: *scheduling_parent,
 					candidate_hash: Some(*candidate_hash),
 					parent_head_hash: Some(*parent_head_data_hash),
+					output_head_hash: None,
 				},
 			},
 			protocol_v3::CollatorProtocolMessage::CollationSeconded(rp, _) => {
 				WireMsgKind::CollationSeconded { relay_parent: *rp }
 			},
+		},
+		CollationProtocols::V4(protocol_v4::AdvertiseSegment {
+			scheduling_parent,
+			candidates,
+			..
+		}) => {
+			let tip =
+				candidates.last().expect("subsystem never emits an empty segment advertisement");
+			WireMsgKind::Advertise {
+				summary: AdvertisementSummary {
+					scheduling_parent: *scheduling_parent,
+					candidate_hash: None,
+					parent_head_hash: Some(tip.parent_head_data_hash),
+					output_head_hash: Some(tip.output_head_data_hash),
+				},
+			}
 		},
 	}
 }

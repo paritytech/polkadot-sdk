@@ -17,6 +17,8 @@
 
 mod byte;
 mod serde_helpers;
+mod type_id;
 
 pub use byte::*;
 pub use serde_helpers::*;
+pub use type_id::*;

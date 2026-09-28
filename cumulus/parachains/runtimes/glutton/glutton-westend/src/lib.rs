@@ -62,8 +62,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult,
 };
 use sp_session::OpaqueGeneratedSessionKeys;
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId, VerifySchedulingSignature};
@@ -104,18 +102,12 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("glutton-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("glutton-westend"),
 	authoring_version: 1,
-	spec_version: 1_022_004,
+	spec_version: 1_024_001,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
 	system_version: 1,
 };
-
-/// The version information used to identify this runtime when compiled natively.
-#[cfg(feature = "std")]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 /// We assume that ~10% of the block weight is consumed by `on_initialize` handlers.
 /// This is used to limit the maximal weight of a single extrinsic.

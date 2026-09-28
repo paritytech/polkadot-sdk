@@ -412,7 +412,9 @@ where
 		let bound = Value::bound();
 		let current = <Self as MapWrapper>::Map::decode_len(Ref::from(&key)).unwrap_or_default();
 		if current < bound {
-			CounterFor::<Prefix>::mutate(|value| value.saturating_inc());
+			if !<Self as MapWrapper>::Map::contains_key(Ref::from(&key)) {
+				CounterFor::<Prefix>::mutate(|value| value.saturating_inc());
+			}
 			let key = <Self as MapWrapper>::Map::hashed_key_for(key);
 			sp_io::storage::append(&key, item.encode());
 			Ok(())
@@ -1126,6 +1128,30 @@ mod test {
 			assert_eq!(B::decode_len(0), Some(3));
 			B::try_append(0, 3).err().unwrap();
 			assert_eq!(B::decode_len(0), Some(3));
+		})
+	}
+
+	#[test]
+	fn try_append_counts_keys_not_items() {
+		type B = CountedStorageMap<Prefix, Twox64Concat, u16, BoundedVec<u32, ConstU32<3u32>>>;
+
+		TestExternalities::default().execute_with(|| {
+			B::try_append(0, 3).unwrap();
+			assert_eq!(B::count(), 1);
+			B::try_append(0, 3).unwrap();
+			B::try_append(0, 3).unwrap();
+			assert_eq!(B::count(), 1);
+			B::try_append(0, 3).err().unwrap();
+			assert_eq!(B::count(), 1);
+			B::try_append(1, 3).unwrap();
+			assert_eq!(B::count(), 2);
+			B::insert(2, BoundedVec::default());
+			B::try_append(2, 3).unwrap();
+			assert_eq!(B::count(), 3);
+			B::remove(0);
+			B::remove(1);
+			B::remove(2);
+			assert_eq!(B::count(), 0);
 		})
 	}
 
