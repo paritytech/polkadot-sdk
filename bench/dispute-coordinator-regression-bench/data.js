@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790376493790,
+  "lastUpdate": 1790591329723,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c34ff1e4271f7367d45a50a39a58f7b3af90274b",
-          "message": "Add timeout + people-westend to check-runtime CI  (#11158)\n\n@polkadot-api/check-runtime hangs in case the RPC endpoint is not\nreachable. A timeout is added to handle this case gracefully, similar to\nruntime's change\n[here](https://github.com/polkadot-fellows/runtimes/pull/1086).\n\nDriven-by: add support for metadata-hash extension on `people-westend`\nand add it to the list of chains to check.\n\n```bash\nnpx @polkadot-api/check-runtime@latest problems wss://westend-people-rpc.polkadot.io:443 --wasm target/release/wbuild/people-westend-runtime/people_westend_runtime.compact.wasm\n[ora] Multiple concurrent spinners detected. This may cause visual corruption. Use one spinner at a time.\n[ora] Multiple concurrent spinners detected. This may cause visual corruption. Use one spinner at a time.\nusing deprecated parameters for `initSync()`; pass a single object instead\n✔ Everything looks great!\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-24T19:19:34Z",
-          "tree_id": "d0324f94392e092bc79f81dac47a176fc87c22fc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c34ff1e4271f7367d45a50a39a58f7b3af90274b"
-        },
-        "date": 1771965684048,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00261321551,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006673227359999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009269392299999986,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010426466389999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5cc4eda07222ebb03b3fc50cd46556437cb506c4",
+          "message": "statement-store: recover V2 gossip after major sync (#13272)\n\n## Summary\n\n- Resume deferred statement peer connections after major sync in both\ngate modes.\n- Keep V2 affinity controls during sync and re-announce the current\nfilter once the node has\nstayed out of major sync for `MAJOR_SYNC_SETTLE_PERIOD`, even without\ndropped statements: a peer\n  never retries a propagation chunk that failed to reach us.\n- Reconnect one v1 peer after major sync on the v2 path too: a v1 peer\ncannot replay on request,\nand on this path the set accepts non-reserved peers, so the substream is\nclosed directly instead\n  of leaving the reserved set.\n- Refresh affinity snapshots using current subscriptions and topology,\nreusing the existing filter\n  dirty state without new networking events or wire changes.\n- zombienet: the v1 and v2 late-joiner tests share one body and both\nassert the deferred-peer\ndrain log line, which master never emits under the gate; the v2 one\njoins the CI matrix.\n\nFixes #12561\n\nFollow-up: #13280 – incremental resync after major sync",
+          "timestamp": "2026-09-28T08:19:22Z",
+          "tree_id": "e97cb4c942f54bdc28aeb4ad05a84a542f989e49",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5cc4eda07222ebb03b3fc50cd46556437cb506c4"
+        },
+        "date": 1790591299164,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025526158499999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010627323849999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009467732269999994,
             "unit": "seconds"
           }
         ]
