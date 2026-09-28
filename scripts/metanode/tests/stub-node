@@ -1,0 +1,16 @@
+#!/bin/sh
+# A stand-in for polkadot, polkadot-parachain and the PVF workers, for tests/units.sh: it records its
+# command line, one argument per line, in its unit's runtime directory, then stays up like a node.
+case "${1:-}" in
+  --version)
+    echo "$(basename "$0") 1.25.0-stub"
+    exit 0
+    ;;
+  key)
+    [ "$2 $3" = "generate-node-key --file" ] || exit 2
+    printf '%064d' 0 >"$4"
+    exit 0
+    ;;
+esac
+printf '%s\n' "$0" "$@" >"${RUNTIME_DIRECTORY:?}/argv"
+exec sleep infinity

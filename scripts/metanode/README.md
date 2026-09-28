@@ -578,7 +578,61 @@ profile polkadot-pvf-execute-worker /usr/local/bin/polkadot-execute-worker flags
 ```
 
 With the package layout, the worker paths are `/usr/lib/polkadot/polkadot-prepare-worker` and
-`/usr/lib/polkadot/polkadot-execute-worker`. Restart the validator afterwards and check that the
-warning is gone.
+`/usr/lib/polkadot/polkadot-execute-worker`. Neither setting has been verified by the tests here:
+containers share the host's kernel and its AppArmor policy, so on an Ubuntu host they show the
+restriction, but trying either setting would change the host's own. Restart the validator
+afterwards and check that the warning is gone.
 
 Never expose the unsafe RPC endpoints, and never proxy them.
+
+## Testing
+
+`tests/run.sh` runs everything in docker with systemd as PID 1 (privileged containers):
+
+```sh
+cargo build --release -p polkadot -p polkadot-parachain-bin --bin polkadot \
+  --bin polkadot-prepare-worker --bin polkadot-execute-worker --bin polkadot-parachain
+scripts/metanode/tests/run.sh lint                          # shellcheck and consistency, seconds
+scripts/metanode/tests/run.sh units --distro ubuntu-24.04   # the units' command lines, a minute
+scripts/metanode/tests/run.sh lifecycle --distro debian-12  # one distro, ~45 min
+scripts/metanode/tests/run.sh e2e                           # four-machine network, ~15 min
+scripts/metanode/tests/run.sh all                           # everything
+```
+
+`--bin-dir DIR` tests other binaries instead of `target/release`, e.g. the four binaries of a
+polkadot-stable2609 (or later) release. `lint` and `units` need no binaries.
+
+- **lint**: shellcheck on every script; no names from before the renames; units and tools that name
+  no install layout; the units' ports and chain variables match the role table of
+  `polkadot-metanodectl`, and the variables the units use match its list and
+  `config/metanode.env`.
+- **units**, per distro, with stand-in binaries (`tests/stub-node`) that record their command line:
+  for each case under `tests/units/` (a `metanode.env`, `polkadot-<role>.env` files, the default
+  routes), the command line every unit starts and what `public-addr` logs, against `expected.txt`
+  (regenerate with `UPDATE=1` and review the diff). Then: no `metanode.env` without a network,
+  `--config` filling in the chains and refusing a broken file, a drop-in's `Environment=` against
+  `metanode.env`, `doctor`'s configuration checks, and the bandwidth reservation on dummy uplinks
+  (tree and bursts, reload, a foreign root, two default-route interfaces, stop).
+- **lifecycle**, per distro: `systemd-analyze verify` and `security`, the installed layout, the scope
+  of the common drop-in, then users, permissions, node keys, setup.md's ports and two RPC servers,
+  WebRTC, the PVF sandbox (every security check that passes on the host must pass inside the unit),
+  CPU and memory protection (on the validator and its slices), crash and outage recovery, `doctor`
+  (a relay RPC of another chain, the PVF workers, a taken port), `Conflicts=`, both targets, reboot,
+  an invalid value failing the unit, `rotate-keys`, `status`, `--config`, re-install, upgrade,
+  uninstall (with its `enabled-roles`), the refusal to install under a unit in `/etc` or over a
+  package's units or launcher, and the warning next to the `polkadot` package.
+- **e2e**: a westend-local relay chain with Asset Hub and People registered at genesis. Alice and Bob
+  run validators and collators across four containers on different distros: collators on the local
+  validator, on a remote validator's RPC with a second one as fallback, and on an embedded relay
+  node. It checks finality and that both collators author, the bandwidth reservation on one machine
+  (classes and bursts, the validator's packets in its class, nftables restarts and reloads),
+  `doctor`, then kills a validator (its remote collators fail over and keep authoring), reboots a
+  collator machine and restarts a target. Last, a fifth machine installs from `install.sh` alone,
+  piped from a web server, with `NETWORK=paseo`, which downloads and verifies Paseo's chain specs.
+
+Separate runs (e.g. one `lifecycle` per distro) can go in parallel; each cleans up only its own
+containers. Containers share the host's kernel and LSMs, so kernel-dependent results (landlock, user
+namespaces, AppArmor, the bandwidth reservation's kernel check) describe the host; the harness
+prints them first. `gen-local-specs.sh` needs jq >= 1.7 (older versions turn the genesis balances
+into floats), so the e2e runs it in the ubuntu-24.04 image. The e2e also needs `python3` on the host
+(it serves the scripts to the bootstrap install) and internet access (Paseo's chain specs).

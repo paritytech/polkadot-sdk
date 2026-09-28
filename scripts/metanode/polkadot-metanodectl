@@ -20,8 +20,9 @@
 set -euo pipefail
 
 # The role table: binary, ports and chain variable of every role, the layout of operators/setup.md.
-# The units pass the same ports to their nodes; the README's ports table shows them too. "-": the
-# role has no relay side. The relay RPC port is only used by an embedded relay chain node.
+# The units pass the same ports to their nodes (tests/run.sh lint checks that they agree); the
+# README's ports table shows them too. "-": the role has no relay side. The relay RPC port is only
+# used by an embedded relay chain node.
 #
 # role               binary             p2p    relay-p2p rpc   unsafe-rpc relay-rpc prometheus relay-prometheus chain
 ROLE_TABLE='
