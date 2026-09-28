@@ -34,6 +34,7 @@ use sc_network::{types::ProtocolName, NetworkPeers};
 use sc_network_types::PeerId;
 use sp_statement_store::{Hash, Statement, SubmitResult, Topic};
 use std::{
+	cell::RefCell,
 	collections::{HashMap, HashSet},
 	num::NonZeroUsize,
 	sync::{Arc, RwLock},
@@ -291,6 +292,22 @@ impl V2DhtOrchestrator {
 	/// Whether the peer is a DHT routing target for the topic.
 	pub(crate) fn peer_is_dht_target_for_topic(&self, peer: PeerId, topic: Topic) -> bool {
 		self.peers_topology.routing_targets(topic).contains(&peer)
+	}
+
+	/// Whether `peer` is a DHT routing target for a statement.
+	///
+	/// Checking a topic scans the connected peers, so the answer is cached per topic for the
+	/// predicate's lifetime.
+	pub(crate) fn dht_target_predicate(&self, peer: PeerId) -> impl Fn(&Statement) -> bool + '_ {
+		let topics = RefCell::new(HashMap::new());
+		move |stmt: &Statement| {
+			stmt.topics().iter().any(|topic| {
+				*topics
+					.borrow_mut()
+					.entry(*topic)
+					.or_insert_with(|| self.peer_is_dht_target_for_topic(peer, *topic))
+			})
+		}
 	}
 
 	// === Post-submit hook ===
