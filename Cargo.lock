@@ -5822,6 +5822,7 @@ name = "cumulus-zombienet-sdk-tests"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bs58",
  "cid",
  "cumulus-primitives-core",
  "cumulus-test-runtime",
