@@ -105,8 +105,9 @@ impl SchedulingSignals {
 		signals
 	}
 
-	/// Build the tail from a verified `SignedSchedulingInfo`, which wholesale replaces the block's
-	/// own signals — the signer signed all three fields.
+	/// Build the tail from a verified `SignedSchedulingInfo`, replacing the block's own signals
+	/// wholesale. Assumes every `UMPSignal` is a scheduling signal; guarded by
+	/// `all_ump_signals_are_scheduling_signals`.
 	pub fn from_scheduling_info(signed_info: &SignedSchedulingInfo) -> Self {
 		let payload = &signed_info.payload;
 		Self {
@@ -369,5 +370,21 @@ mod tests {
 		// always produces its tail.
 		let signed = signed_with(CoreSelector(0), 0, peer(0xCC));
 		assert!(!SchedulingSignals::from_scheduling_info(&signed).into_ump_messages().is_empty());
+	}
+
+	/// Compile-time tripwire for [`SchedulingSignals::from_scheduling_info`]: it wholesale-replaces
+	/// the UMP tail with only the scheduling signals, which is correct only while *every*
+	/// `UMPSignal` variant is a scheduling signal. This exhaustive match (no `_` arm) stops
+	/// compiling the moment a new variant is added — decide then whether `from_scheduling_info`
+	/// must first become selective (merge the block's non-scheduling signals) so it is not
+	/// silently dropped on resubmissions.
+	#[test]
+	fn all_ump_signals_are_scheduling_signals() {
+		fn classify(signal: UMPSignal) {
+			match signal {
+				UMPSignal::SelectCore(..) | UMPSignal::ApprovedPeer(..) => {},
+			}
+		}
+		let _ = classify;
 	}
 }
