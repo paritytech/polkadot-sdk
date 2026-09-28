@@ -210,7 +210,10 @@ only 2 of 50 slots), or fifty 1 KiB statements (reaching both limits at once).</
 the lowest expiry) are evicted to make room. If a single statement’s data exceeds <code>max_size</code> it is
 rejected outright; and if, even after evicting every lower-priority statement, the new one still
 does not fit, it is rejected too. Global limits apply on top of per-account limits: the store holds
-at most <code>DEFAULT_MAX_TOTAL_STATEMENTS</code> statements and <code>DEFAULT_MAX_TOTAL_SIZE</code> of data.</p>
+at most <code>DEFAULT_MAX_TOTAL_STATEMENTS</code> statements and <code>DEFAULT_MAX_TOTAL_SIZE</code> of data. On the v2
+DHT path the statements kept for DHT affinity and the transient ones also have a size limit each,
+and a full limit rejects only new statements of its own kind. Statements kept only for explicit
+affinity have no limit of their own.</p>
 <p>Allowances are not fixed in code: they are held in chain state (keyed under
 <code>STATEMENT_ALLOWANCE_PREFIX</code>) and granted or revoked by the runtime; an account with no allowance —
 or a depleted one — cannot store statements. The bounds within which a runtime may set allowances
@@ -361,6 +364,8 @@ the lowest priority until a constraint is satisfied.</li>
 <li>There may not be more than <code>MAX_TOTAL_STATEMENTS</code> total statements with <code>MAX_TOTAL_SIZE</code> size.
 To satisfy this, statements are removed from the store starting with the lowest
 <code>global_priority</code> until a constraint is satisfied.</li>
+<li>On the v2 DHT path, the statements kept for DHT affinity and the transient ones each have
+their own size limit. Statements kept only for explicit affinity have no limit of their own.</li>
 </ul>
 <p>When a new statement is inserted that would not satisfy constraints in the first place, no
 statements are deleted and a <code>Rejected</code> result is returned.

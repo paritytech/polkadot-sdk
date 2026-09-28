@@ -250,108 +250,116 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#100 id=100 data-nosnippet>100</a>	</span><span class="kw">pub </span>replication_factor: NonZeroUsize,
 <a href=#101 id=101 data-nosnippet>101</a>	<span class="doccomment">/// Number of peers to gossip a statement to in addition to DHT-affinity routing targets.
 <a href=#102 id=102 data-nosnippet>102</a>	</span><span class="kw">pub </span>gossip_target: NonZeroUsize,
-<a href=#103 id=103 data-nosnippet>103</a>}
-<a href=#104 id=104 data-nosnippet>104</a>
-<a href=#105 id=105 data-nosnippet>105</a><span class="kw">impl </span>Default <span class="kw">for </span>V2DhtConfig {
-<a href=#106 id=106 data-nosnippet>106</a>	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-<a href=#107 id=107 data-nosnippet>107</a>		<span class="self">Self </span>{
-<a href=#108 id=108 data-nosnippet>108</a>			affinity_topics: Vec::new(),
-<a href=#109 id=109 data-nosnippet>109</a>			affinity_topics_file: <span class="prelude-val">None</span>,
-<a href=#110 id=110 data-nosnippet>110</a>			bloom_false_pos_rate: DEFAULT_BLOOM_FALSE_POS_RATE,
-<a href=#111 id=111 data-nosnippet>111</a>			bloom_seed: <span class="prelude-val">None</span>,
-<a href=#112 id=112 data-nosnippet>112</a>			replication_factor: DEFAULT_REPLICATION_FACTOR,
-<a href=#113 id=113 data-nosnippet>113</a>			gossip_target: DEFAULT_GOSSIP_TARGET,
-<a href=#114 id=114 data-nosnippet>114</a>		}
-<a href=#115 id=115 data-nosnippet>115</a>	}
-<a href=#116 id=116 data-nosnippet>116</a>}
-<a href=#117 id=117 data-nosnippet>117</a>
-<a href=#118 id=118 data-nosnippet>118</a><span class="doccomment">/// Affinity topics read from a file: one 32-byte hex topic per line, blank lines and `#` comments
-<a href=#119 id=119 data-nosnippet>119</a>/// skipped. A line holds the topic itself, not a name to hash, since applications derive topics in
-<a href=#120 id=120 data-nosnippet>120</a>/// their own ways.
-<a href=#121 id=121 data-nosnippet>121</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
-<a href=#122 id=122 data-nosnippet>122</a></span><span class="kw">pub struct </span>AffinityTopicsFile(<span class="kw">pub </span>Vec&lt;Topic&gt;);
-<a href=#123 id=123 data-nosnippet>123</a>
-<a href=#124 id=124 data-nosnippet>124</a><span class="kw">impl </span>AffinityTopicsFile {
-<a href=#125 id=125 data-nosnippet>125</a>	<span class="kw">pub fn </span>parse(text: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
-<a href=#126 id=126 data-nosnippet>126</a>		text.lines()
-<a href=#127 id=127 data-nosnippet>127</a>			.enumerate()
-<a href=#128 id=128 data-nosnippet>128</a>			.map(|(i, line)| (i + <span class="number">1</span>, line.trim()))
-<a href=#129 id=129 data-nosnippet>129</a>			.filter(|(<span class="kw">_</span>, line)| !line.is_empty() &amp;&amp; !line.starts_with(<span class="string">'#'</span>))
-<a href=#130 id=130 data-nosnippet>130</a>			.map(|(number, line)| line.parse().map_err(|e| <span class="macro">format!</span>(<span class="string">"line {number}: {e}"</span>)))
-<a href=#131 id=131 data-nosnippet>131</a>			.collect::&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()
-<a href=#132 id=132 data-nosnippet>132</a>			.map(<span class="self">Self</span>)
-<a href=#133 id=133 data-nosnippet>133</a>	}
-<a href=#134 id=134 data-nosnippet>134</a>}
-<a href=#135 id=135 data-nosnippet>135</a>
-<a href=#136 id=136 data-nosnippet>136</a><span class="kw">impl </span>FromStr <span class="kw">for </span>AffinityTopicsFile {
-<a href=#137 id=137 data-nosnippet>137</a>	<span class="kw">type </span><span class="prelude-val">Err </span>= String;
-<a href=#138 id=138 data-nosnippet>138</a>
-<a href=#139 id=139 data-nosnippet>139</a>	<span class="kw">fn </span>from_str(path: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
-<a href=#140 id=140 data-nosnippet>140</a>		<span class="kw">let </span>text = std::fs::read_to_string(path)
-<a href=#141 id=141 data-nosnippet>141</a>			.map_err(|e| <span class="macro">format!</span>(<span class="string">"cannot read affinity topics file '{path}': {e}"</span>))<span class="question-mark">?</span>;
-<a href=#142 id=142 data-nosnippet>142</a>		<span class="self">Self</span>::parse(<span class="kw-2">&amp;</span>text).map_err(|e| <span class="macro">format!</span>(<span class="string">"affinity topics file '{path}', {e}"</span>))
-<a href=#143 id=143 data-nosnippet>143</a>	}
-<a href=#144 id=144 data-nosnippet>144</a>}
-<a href=#145 id=145 data-nosnippet>145</a>
-<a href=#146 id=146 data-nosnippet>146</a><span class="attr">#[cfg(test)]
-<a href=#147 id=147 data-nosnippet>147</a></span><span class="kw">mod </span>tests {
-<a href=#148 id=148 data-nosnippet>148</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#149 id=149 data-nosnippet>149</a>	<span class="kw">use </span>codec::Encode;
-<a href=#150 id=150 data-nosnippet>150</a>	<span class="kw">use </span>sp_statement_store::{Proof, Statement};
-<a href=#151 id=151 data-nosnippet>151</a>
-<a href=#152 id=152 data-nosnippet>152</a>	<span class="attr">#[test]
-<a href=#153 id=153 data-nosnippet>153</a>	</span><span class="kw">fn </span>min_encoded_statement_size_matches_encoder() {
-<a href=#154 id=154 data-nosnippet>154</a>		<span class="comment">// The smallest statement admission accepts: a proof and an expiry.
-<a href=#155 id=155 data-nosnippet>155</a>		</span><span class="kw">let </span>min = [
-<a href=#156 id=156 data-nosnippet>156</a>			Proof::Sr25519 { signature: [<span class="number">0u8</span>; <span class="number">64</span>], signer: [<span class="number">0u8</span>; <span class="number">32</span>] },
-<a href=#157 id=157 data-nosnippet>157</a>			Proof::Ed25519 { signature: [<span class="number">0u8</span>; <span class="number">64</span>], signer: [<span class="number">0u8</span>; <span class="number">32</span>] },
-<a href=#158 id=158 data-nosnippet>158</a>			Proof::Secp256k1Ecdsa { signature: [<span class="number">0u8</span>; <span class="number">65</span>], signer: [<span class="number">0u8</span>; <span class="number">33</span>] },
-<a href=#159 id=159 data-nosnippet>159</a>		]
-<a href=#160 id=160 data-nosnippet>160</a>		.into_iter()
-<a href=#161 id=161 data-nosnippet>161</a>		.map(|proof| {
-<a href=#162 id=162 data-nosnippet>162</a>			<span class="comment">// Stops compiling when a `Proof` variant is added, so the list above stays complete.
-<a href=#163 id=163 data-nosnippet>163</a>			</span><span class="kw">match </span>proof {
-<a href=#164 id=164 data-nosnippet>164</a>				Proof::Sr25519 { .. } | Proof::Ed25519 { .. } | Proof::Secp256k1Ecdsa { .. } =&gt; (),
-<a href=#165 id=165 data-nosnippet>165</a>			}
-<a href=#166 id=166 data-nosnippet>166</a>			<span class="kw">let </span><span class="kw-2">mut </span>statement = Statement::new();
-<a href=#167 id=167 data-nosnippet>167</a>			statement.set_proof(proof);
-<a href=#168 id=168 data-nosnippet>168</a>			statement.set_expiry(<span class="number">0</span>);
-<a href=#169 id=169 data-nosnippet>169</a>			statement.encode().len()
-<a href=#170 id=170 data-nosnippet>170</a>		})
-<a href=#171 id=171 data-nosnippet>171</a>		.min()
-<a href=#172 id=172 data-nosnippet>172</a>		.expect(<span class="string">"the proof list is nonempty"</span>);
-<a href=#173 id=173 data-nosnippet>173</a>		<span class="macro">assert_eq!</span>(min, MIN_ENCODED_STATEMENT_SIZE);
-<a href=#174 id=174 data-nosnippet>174</a>	}
-<a href=#175 id=175 data-nosnippet>175</a>
-<a href=#176 id=176 data-nosnippet>176</a>	<span class="attr">#[test]
-<a href=#177 id=177 data-nosnippet>177</a>	</span><span class="kw">fn </span>affinity_topics_file_parses_lines_and_skips_comments() {
-<a href=#178 id=178 data-nosnippet>178</a>		<span class="kw">let </span>text = <span class="macro">format!</span>(<span class="string">"# topics\n\n0x{}\n  {}  \n"</span>, <span class="string">"11"</span>.repeat(<span class="number">32</span>), <span class="string">"22"</span>.repeat(<span class="number">32</span>));
-<a href=#179 id=179 data-nosnippet>179</a>		<span class="macro">assert_eq!</span>(
-<a href=#180 id=180 data-nosnippet>180</a>			AffinityTopicsFile::parse(<span class="kw-2">&amp;</span>text),
-<a href=#181 id=181 data-nosnippet>181</a>			<span class="prelude-val">Ok</span>(AffinityTopicsFile(<span class="macro">vec!</span>[Topic([<span class="number">0x11</span>; <span class="number">32</span>]), Topic([<span class="number">0x22</span>; <span class="number">32</span>])]))
-<a href=#182 id=182 data-nosnippet>182</a>		);
-<a href=#183 id=183 data-nosnippet>183</a>	}
-<a href=#184 id=184 data-nosnippet>184</a>
-<a href=#185 id=185 data-nosnippet>185</a>	<span class="attr">#[test]
-<a href=#186 id=186 data-nosnippet>186</a>	</span><span class="kw">fn </span>affinity_topics_file_reports_the_bad_line() {
-<a href=#187 id=187 data-nosnippet>187</a>		<span class="kw">let </span>text = <span class="macro">format!</span>(<span class="string">"{}\nnot a topic\n"</span>, <span class="string">"11"</span>.repeat(<span class="number">32</span>));
-<a href=#188 id=188 data-nosnippet>188</a>		<span class="kw">let </span>err = AffinityTopicsFile::parse(<span class="kw-2">&amp;</span>text).unwrap_err();
-<a href=#189 id=189 data-nosnippet>189</a>		<span class="macro">assert!</span>(err.starts_with(<span class="string">"line 2: "</span>), <span class="string">"{err}"</span>);
-<a href=#190 id=190 data-nosnippet>190</a>	}
-<a href=#191 id=191 data-nosnippet>191</a>
-<a href=#192 id=192 data-nosnippet>192</a>	<span class="attr">#[test]
-<a href=#193 id=193 data-nosnippet>193</a>	</span><span class="kw">fn </span>affinity_topics_file_reads_from_a_path() {
-<a href=#194 id=194 data-nosnippet>194</a>		<span class="kw">let </span>dir = tempfile::tempdir().unwrap();
-<a href=#195 id=195 data-nosnippet>195</a>		<span class="kw">let </span>path = dir.path().join(<span class="string">"topics.txt"</span>);
-<a href=#196 id=196 data-nosnippet>196</a>		std::fs::write(<span class="kw-2">&amp;</span>path, <span class="macro">format!</span>(<span class="string">"0x{}\n"</span>, <span class="string">"33"</span>.repeat(<span class="number">32</span>))).unwrap();
-<a href=#197 id=197 data-nosnippet>197</a>		<span class="kw">let </span>parsed: AffinityTopicsFile = path.to_str().unwrap().parse().unwrap();
-<a href=#198 id=198 data-nosnippet>198</a>		<span class="macro">assert_eq!</span>(parsed.<span class="number">0</span>, <span class="macro">vec!</span>[Topic([<span class="number">0x33</span>; <span class="number">32</span>])]);
+<a href=#103 id=103 data-nosnippet>103</a>	<span class="doccomment">/// Maximum total data size in bytes of the statements kept for DHT affinity, or the store's
+<a href=#104 id=104 data-nosnippet>104</a>	/// size limit when `None`.
+<a href=#105 id=105 data-nosnippet>105</a>	</span><span class="kw">pub </span>dht_affinity_max_size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+<a href=#106 id=106 data-nosnippet>106</a>	<span class="doccomment">/// Maximum total data size in bytes of the transient statements, kept until propagated, or the
+<a href=#107 id=107 data-nosnippet>107</a>	/// store's size limit when `None`.
+<a href=#108 id=108 data-nosnippet>108</a>	</span><span class="kw">pub </span>transient_max_size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+<a href=#109 id=109 data-nosnippet>109</a>}
+<a href=#110 id=110 data-nosnippet>110</a>
+<a href=#111 id=111 data-nosnippet>111</a><span class="kw">impl </span>Default <span class="kw">for </span>V2DhtConfig {
+<a href=#112 id=112 data-nosnippet>112</a>	<span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href=#113 id=113 data-nosnippet>113</a>		<span class="self">Self </span>{
+<a href=#114 id=114 data-nosnippet>114</a>			affinity_topics: Vec::new(),
+<a href=#115 id=115 data-nosnippet>115</a>			affinity_topics_file: <span class="prelude-val">None</span>,
+<a href=#116 id=116 data-nosnippet>116</a>			bloom_false_pos_rate: DEFAULT_BLOOM_FALSE_POS_RATE,
+<a href=#117 id=117 data-nosnippet>117</a>			bloom_seed: <span class="prelude-val">None</span>,
+<a href=#118 id=118 data-nosnippet>118</a>			replication_factor: DEFAULT_REPLICATION_FACTOR,
+<a href=#119 id=119 data-nosnippet>119</a>			gossip_target: DEFAULT_GOSSIP_TARGET,
+<a href=#120 id=120 data-nosnippet>120</a>			dht_affinity_max_size: <span class="prelude-val">None</span>,
+<a href=#121 id=121 data-nosnippet>121</a>			transient_max_size: <span class="prelude-val">None</span>,
+<a href=#122 id=122 data-nosnippet>122</a>		}
+<a href=#123 id=123 data-nosnippet>123</a>	}
+<a href=#124 id=124 data-nosnippet>124</a>}
+<a href=#125 id=125 data-nosnippet>125</a>
+<a href=#126 id=126 data-nosnippet>126</a><span class="doccomment">/// Affinity topics read from a file: one 32-byte hex topic per line, blank lines and `#` comments
+<a href=#127 id=127 data-nosnippet>127</a>/// skipped. A line holds the topic itself, not a name to hash, since applications derive topics in
+<a href=#128 id=128 data-nosnippet>128</a>/// their own ways.
+<a href=#129 id=129 data-nosnippet>129</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
+<a href=#130 id=130 data-nosnippet>130</a></span><span class="kw">pub struct </span>AffinityTopicsFile(<span class="kw">pub </span>Vec&lt;Topic&gt;);
+<a href=#131 id=131 data-nosnippet>131</a>
+<a href=#132 id=132 data-nosnippet>132</a><span class="kw">impl </span>AffinityTopicsFile {
+<a href=#133 id=133 data-nosnippet>133</a>	<span class="kw">pub fn </span>parse(text: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+<a href=#134 id=134 data-nosnippet>134</a>		text.lines()
+<a href=#135 id=135 data-nosnippet>135</a>			.enumerate()
+<a href=#136 id=136 data-nosnippet>136</a>			.map(|(i, line)| (i + <span class="number">1</span>, line.trim()))
+<a href=#137 id=137 data-nosnippet>137</a>			.filter(|(<span class="kw">_</span>, line)| !line.is_empty() &amp;&amp; !line.starts_with(<span class="string">'#'</span>))
+<a href=#138 id=138 data-nosnippet>138</a>			.map(|(number, line)| line.parse().map_err(|e| <span class="macro">format!</span>(<span class="string">"line {number}: {e}"</span>)))
+<a href=#139 id=139 data-nosnippet>139</a>			.collect::&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()
+<a href=#140 id=140 data-nosnippet>140</a>			.map(<span class="self">Self</span>)
+<a href=#141 id=141 data-nosnippet>141</a>	}
+<a href=#142 id=142 data-nosnippet>142</a>}
+<a href=#143 id=143 data-nosnippet>143</a>
+<a href=#144 id=144 data-nosnippet>144</a><span class="kw">impl </span>FromStr <span class="kw">for </span>AffinityTopicsFile {
+<a href=#145 id=145 data-nosnippet>145</a>	<span class="kw">type </span><span class="prelude-val">Err </span>= String;
+<a href=#146 id=146 data-nosnippet>146</a>
+<a href=#147 id=147 data-nosnippet>147</a>	<span class="kw">fn </span>from_str(path: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+<a href=#148 id=148 data-nosnippet>148</a>		<span class="kw">let </span>text = std::fs::read_to_string(path)
+<a href=#149 id=149 data-nosnippet>149</a>			.map_err(|e| <span class="macro">format!</span>(<span class="string">"cannot read affinity topics file '{path}': {e}"</span>))<span class="question-mark">?</span>;
+<a href=#150 id=150 data-nosnippet>150</a>		<span class="self">Self</span>::parse(<span class="kw-2">&amp;</span>text).map_err(|e| <span class="macro">format!</span>(<span class="string">"affinity topics file '{path}', {e}"</span>))
+<a href=#151 id=151 data-nosnippet>151</a>	}
+<a href=#152 id=152 data-nosnippet>152</a>}
+<a href=#153 id=153 data-nosnippet>153</a>
+<a href=#154 id=154 data-nosnippet>154</a><span class="attr">#[cfg(test)]
+<a href=#155 id=155 data-nosnippet>155</a></span><span class="kw">mod </span>tests {
+<a href=#156 id=156 data-nosnippet>156</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#157 id=157 data-nosnippet>157</a>	<span class="kw">use </span>codec::Encode;
+<a href=#158 id=158 data-nosnippet>158</a>	<span class="kw">use </span>sp_statement_store::{Proof, Statement};
+<a href=#159 id=159 data-nosnippet>159</a>
+<a href=#160 id=160 data-nosnippet>160</a>	<span class="attr">#[test]
+<a href=#161 id=161 data-nosnippet>161</a>	</span><span class="kw">fn </span>min_encoded_statement_size_matches_encoder() {
+<a href=#162 id=162 data-nosnippet>162</a>		<span class="comment">// The smallest statement admission accepts: a proof and an expiry.
+<a href=#163 id=163 data-nosnippet>163</a>		</span><span class="kw">let </span>min = [
+<a href=#164 id=164 data-nosnippet>164</a>			Proof::Sr25519 { signature: [<span class="number">0u8</span>; <span class="number">64</span>], signer: [<span class="number">0u8</span>; <span class="number">32</span>] },
+<a href=#165 id=165 data-nosnippet>165</a>			Proof::Ed25519 { signature: [<span class="number">0u8</span>; <span class="number">64</span>], signer: [<span class="number">0u8</span>; <span class="number">32</span>] },
+<a href=#166 id=166 data-nosnippet>166</a>			Proof::Secp256k1Ecdsa { signature: [<span class="number">0u8</span>; <span class="number">65</span>], signer: [<span class="number">0u8</span>; <span class="number">33</span>] },
+<a href=#167 id=167 data-nosnippet>167</a>		]
+<a href=#168 id=168 data-nosnippet>168</a>		.into_iter()
+<a href=#169 id=169 data-nosnippet>169</a>		.map(|proof| {
+<a href=#170 id=170 data-nosnippet>170</a>			<span class="comment">// Stops compiling when a `Proof` variant is added, so the list above stays complete.
+<a href=#171 id=171 data-nosnippet>171</a>			</span><span class="kw">match </span>proof {
+<a href=#172 id=172 data-nosnippet>172</a>				Proof::Sr25519 { .. } | Proof::Ed25519 { .. } | Proof::Secp256k1Ecdsa { .. } =&gt; (),
+<a href=#173 id=173 data-nosnippet>173</a>			}
+<a href=#174 id=174 data-nosnippet>174</a>			<span class="kw">let </span><span class="kw-2">mut </span>statement = Statement::new();
+<a href=#175 id=175 data-nosnippet>175</a>			statement.set_proof(proof);
+<a href=#176 id=176 data-nosnippet>176</a>			statement.set_expiry(<span class="number">0</span>);
+<a href=#177 id=177 data-nosnippet>177</a>			statement.encode().len()
+<a href=#178 id=178 data-nosnippet>178</a>		})
+<a href=#179 id=179 data-nosnippet>179</a>		.min()
+<a href=#180 id=180 data-nosnippet>180</a>		.expect(<span class="string">"the proof list is nonempty"</span>);
+<a href=#181 id=181 data-nosnippet>181</a>		<span class="macro">assert_eq!</span>(min, MIN_ENCODED_STATEMENT_SIZE);
+<a href=#182 id=182 data-nosnippet>182</a>	}
+<a href=#183 id=183 data-nosnippet>183</a>
+<a href=#184 id=184 data-nosnippet>184</a>	<span class="attr">#[test]
+<a href=#185 id=185 data-nosnippet>185</a>	</span><span class="kw">fn </span>affinity_topics_file_parses_lines_and_skips_comments() {
+<a href=#186 id=186 data-nosnippet>186</a>		<span class="kw">let </span>text = <span class="macro">format!</span>(<span class="string">"# topics\n\n0x{}\n  {}  \n"</span>, <span class="string">"11"</span>.repeat(<span class="number">32</span>), <span class="string">"22"</span>.repeat(<span class="number">32</span>));
+<a href=#187 id=187 data-nosnippet>187</a>		<span class="macro">assert_eq!</span>(
+<a href=#188 id=188 data-nosnippet>188</a>			AffinityTopicsFile::parse(<span class="kw-2">&amp;</span>text),
+<a href=#189 id=189 data-nosnippet>189</a>			<span class="prelude-val">Ok</span>(AffinityTopicsFile(<span class="macro">vec!</span>[Topic([<span class="number">0x11</span>; <span class="number">32</span>]), Topic([<span class="number">0x22</span>; <span class="number">32</span>])]))
+<a href=#190 id=190 data-nosnippet>190</a>		);
+<a href=#191 id=191 data-nosnippet>191</a>	}
+<a href=#192 id=192 data-nosnippet>192</a>
+<a href=#193 id=193 data-nosnippet>193</a>	<span class="attr">#[test]
+<a href=#194 id=194 data-nosnippet>194</a>	</span><span class="kw">fn </span>affinity_topics_file_reports_the_bad_line() {
+<a href=#195 id=195 data-nosnippet>195</a>		<span class="kw">let </span>text = <span class="macro">format!</span>(<span class="string">"{}\nnot a topic\n"</span>, <span class="string">"11"</span>.repeat(<span class="number">32</span>));
+<a href=#196 id=196 data-nosnippet>196</a>		<span class="kw">let </span>err = AffinityTopicsFile::parse(<span class="kw-2">&amp;</span>text).unwrap_err();
+<a href=#197 id=197 data-nosnippet>197</a>		<span class="macro">assert!</span>(err.starts_with(<span class="string">"line 2: "</span>), <span class="string">"{err}"</span>);
+<a href=#198 id=198 data-nosnippet>198</a>	}
 <a href=#199 id=199 data-nosnippet>199</a>
-<a href=#200 id=200 data-nosnippet>200</a>		<span class="kw">let </span>missing = dir.path().join(<span class="string">"missing.txt"</span>);
-<a href=#201 id=201 data-nosnippet>201</a>		<span class="kw">let </span>err = missing.to_str().unwrap().parse::&lt;AffinityTopicsFile&gt;().unwrap_err();
-<a href=#202 id=202 data-nosnippet>202</a>		<span class="macro">assert!</span>(err.starts_with(<span class="string">"cannot read affinity topics file"</span>), <span class="string">"{err}"</span>);
-<a href=#203 id=203 data-nosnippet>203</a>	}
-<a href=#204 id=204 data-nosnippet>204</a>}
+<a href=#200 id=200 data-nosnippet>200</a>	<span class="attr">#[test]
+<a href=#201 id=201 data-nosnippet>201</a>	</span><span class="kw">fn </span>affinity_topics_file_reads_from_a_path() {
+<a href=#202 id=202 data-nosnippet>202</a>		<span class="kw">let </span>dir = tempfile::tempdir().unwrap();
+<a href=#203 id=203 data-nosnippet>203</a>		<span class="kw">let </span>path = dir.path().join(<span class="string">"topics.txt"</span>);
+<a href=#204 id=204 data-nosnippet>204</a>		std::fs::write(<span class="kw-2">&amp;</span>path, <span class="macro">format!</span>(<span class="string">"0x{}\n"</span>, <span class="string">"33"</span>.repeat(<span class="number">32</span>))).unwrap();
+<a href=#205 id=205 data-nosnippet>205</a>		<span class="kw">let </span>parsed: AffinityTopicsFile = path.to_str().unwrap().parse().unwrap();
+<a href=#206 id=206 data-nosnippet>206</a>		<span class="macro">assert_eq!</span>(parsed.<span class="number">0</span>, <span class="macro">vec!</span>[Topic([<span class="number">0x33</span>; <span class="number">32</span>])]);
+<a href=#207 id=207 data-nosnippet>207</a>
+<a href=#208 id=208 data-nosnippet>208</a>		<span class="kw">let </span>missing = dir.path().join(<span class="string">"missing.txt"</span>);
+<a href=#209 id=209 data-nosnippet>209</a>		<span class="kw">let </span>err = missing.to_str().unwrap().parse::&lt;AffinityTopicsFile&gt;().unwrap_err();
+<a href=#210 id=210 data-nosnippet>210</a>		<span class="macro">assert!</span>(err.starts_with(<span class="string">"cannot read affinity topics file"</span>), <span class="string">"{err}"</span>);
+<a href=#211 id=211 data-nosnippet>211</a>	}
+<a href=#212 id=212 data-nosnippet>212</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

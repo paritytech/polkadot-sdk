@@ -592,8 +592,16 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#442 id=442 data-nosnippet>442</a>		}
 <a href=#443 id=443 data-nosnippet>443</a>	}
 <a href=#444 id=444 data-nosnippet>444</a>
-<a href=#445 id=445 data-nosnippet>445</a>	<span class="macro">impl_benchmark_test_suite!</span>(CollatorSelection, <span class="kw">crate</span>::mock::new_test_ext(), <span class="kw">crate</span>::mock::Test);
-<a href=#446 id=446 data-nosnippet>446</a>}
+<a href=#445 id=445 data-nosnippet>445</a>	<span class="macro">impl_benchmark_test_suite!</span>(
+<a href=#446 id=446 data-nosnippet>446</a>		CollatorSelection,
+<a href=#447 id=447 data-nosnippet>447</a>		{
+<a href=#448 id=448 data-nosnippet>448</a>			<span class="comment">// Larger than the candidacy bonds used above.
+<a href=#449 id=449 data-nosnippet>449</a>			</span><span class="kw">crate</span>::mock::KeyDeposit::set(<span class="number">100</span>);
+<a href=#450 id=450 data-nosnippet>450</a>			<span class="kw">crate</span>::mock::new_test_ext()
+<a href=#451 id=451 data-nosnippet>451</a>		},
+<a href=#452 id=452 data-nosnippet>452</a>		<span class="kw">crate</span>::mock::Test
+<a href=#453 id=453 data-nosnippet>453</a>	);
+<a href=#454 id=454 data-nosnippet>454</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
