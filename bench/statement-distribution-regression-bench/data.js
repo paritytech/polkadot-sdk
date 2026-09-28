@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790591282231,
+  "lastUpdate": 1790601534560,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "68e6cf12cbc7a1edc06cfd88767f3b173bfd045c",
-          "message": "Version bumps stable2512-2 (#11163)\n\nThis PR backports regular version bumps and prdocs reorderings from\nstable2512 release branch back to master\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
-          "timestamp": "2026-02-25T06:57:12Z",
-          "tree_id": "5d95cd77a153b2ba454c4016f9a7d9a9d635448c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/68e6cf12cbc7a1edc06cfd88767f3b173bfd045c"
-        },
-        "date": 1772007421485,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.068,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.037568946062,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06760526184199994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03838690879399998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8b20e748b8cf3b07bdbfbf6df3bdaa4070a915e3",
+          "message": "statement-store: migrate the database one version step at a time (#13317)\n\n# Description\n\nThe statement store migrates an older database one version step at a\ntime. `check_db_version` returns the on-disk version, `migrate_database`\nwalks from it to `CURRENT_VERSION` and runs the step for each version,\nand every step bumps the version to its own target once its rows are\ncommitted. The existing rebuild of the indexes, journals and counters\nfrom the statement bodies is the v1 to v2 step; the pass over the stored\nstatements and the loading of the admission sequence numbers are helpers\na later step can reuse.\n\nBehaviour is unchanged: version 2 is still the current one and the only\nstep is v1 to v2.\n\n# Integration\n\nNone. Node operators and downstream users need no changes.\n\n# Review Notes\n\nBefore, a version bump reran the whole rebuild on every older database,\nincluding columns the new version left untouched. Running that over a\nversion 2 database would have added a second evicted-journal key for\nevery banned statement whose purge time the expiry had capped, and\nmaintenance would then have counted the ban twice. The step per version\nkeeps each migration limited to what its version changed.\nhttps://github.com/paritytech/polkadot-sdk/pull/13278 adds the v2 to v3\nstep on top of this.",
+          "timestamp": "2026-09-28T11:44:34Z",
+          "tree_id": "45b79c67fabf4a8bfe8c74f30b752bd72cbe341a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8b20e748b8cf3b07bdbfbf6df3bdaa4070a915e3"
+        },
+        "date": 1790601501989,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.146,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038794040987999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09160518424799995,
             "unit": "seconds"
           }
         ]
