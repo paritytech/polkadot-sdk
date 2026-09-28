@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790606202741,
+  "lastUpdate": 1790618029640,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "79bc8a968a2eda1ae127740ee1a20ff10e375950",
-          "message": "Add MinSetKeysBond check in rc_client::set_keys (#11168)\n\nAdd a configurable MinSetKeysBond threshold that rejects set_keys when\nactive bond is insufficient.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-25T10:49:51Z",
-          "tree_id": "4086235cf72cc7dfd7ebc40caca9746e90c02ea1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/79bc8a968a2eda1ae127740ee1a20ff10e375950"
-        },
-        "date": 1772021443296,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.40199999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.06400000000002,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06497048856999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.037410661716,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08570323902799995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cedc12682ca64e33c5c021895724344ef0122fd4",
+          "message": "statement-store: size limits for the DHT-affinity and transient statements (#13278)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/11936. Part of\nhttps://github.com/paritytech/polkadot-sdk/issues/11932.\n\nOn the v2 DHT path one store limit covered every statement, so a flood\nof transient statements could push out the statements the node is\nresponsible for. The statements kept for DHT affinity and the transient\nstatements now each have their own size limit, on top of the store\nlimits. When one of these limits is reached, the store rejects new\nstatements of that kind with `StoreFull` and still accepts the others.\nStatements kept only for explicit affinity have no limit of their own:\nthe operator chose those topics, so they may use whatever room the store\nhas left.\n\nThe sweep already sorts every statement into a retention track: DHT\naffinity, explicit-only or transient. Each statement now records its\ntrack, and its size counts toward that track. When the sweep moves a\nstatement to another track, its size moves with it. The size of each\ntrack survives a restart. The database moves to version 3, and older\nstatements count as explicit-only, because nothing records why they were\nkept.\n\nThe node warns at startup when a track limit is above half of the store\nsize. It also warns, at most once per maintenance period, when the store\nsize rejects a statement whose own track still has room. The issue also\nproposed a limit for explicit affinity and letting tracks borrow room\nfrom each other. The store rejects the statement instead: one simple\nrule, and no second eviction order.\n\n# Integration\n\nTwo hidden flags on the substrate node and the omni-node,\n`--statement-store-max-dht-affinity-size` and\n`--statement-store-max-transient-size`, in bytes, each defaulting to the\nstore size. The database migrates on the first start.\n\n# Follow-ups\n\n- After a restart the sweep forgets which statements are transient, so\nthe ones that survived keep their track's room until they expire. With a\nlimit set, they can keep the track full. The fix is to rebuild that list\nat startup.\n- The sweep moves a statement to another track without checking the\nlimit of that track. Either check it, or warn when a move goes over the\nlimit and count a rejection by a full track apart from a rejection by a\nfull store.",
+          "timestamp": "2026-09-28T16:15:46Z",
+          "tree_id": "7f9a94cb955f5c918ddf59a40bb79c81039526e4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cedc12682ca64e33c5c021895724344ef0122fd4"
+        },
+        "date": 1790617999777,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.11199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03862938264600001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08676154307599995,
             "unit": "seconds"
           }
         ]
