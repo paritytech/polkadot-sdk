@@ -118,7 +118,7 @@ pub mod weights;
 
 extern crate alloc;
 
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, collections::BTreeSet, vec::Vec};
 use codec::{Decode, MaxEncodedLen};
 use core::{
 	marker::PhantomData,
@@ -285,6 +285,52 @@ impl<A> SessionManager<A> for () {
 	}
 	fn start_session(_: SessionIndex) {}
 	fn end_session(_: SessionIndex) {}
+}
+
+/// A session manager that returns the union of the sets of `A` and `B`.
+///
+/// Both managers are expected to return their full current set at every rotation. `None` from one
+/// side means that side contributes nothing this time. The result is `None` only when both sides
+/// return `None`, otherwise it is `A`'s set followed by `B`'s set, keeping the first occurrence of
+/// every account.
+pub struct UnionSessionManager<A, B>(PhantomData<(A, B)>);
+
+impl<A, B> UnionSessionManager<A, B> {
+	fn union<ValidatorId: Clone + Ord>(
+		a: Option<Vec<ValidatorId>>,
+		b: Option<Vec<ValidatorId>>,
+	) -> Option<Vec<ValidatorId>> {
+		if a.is_none() && b.is_none() {
+			return None;
+		}
+		let mut seen = BTreeSet::new();
+		Some(a.into_iter().chain(b).flatten().filter(|id| seen.insert(id.clone())).collect())
+	}
+}
+
+impl<ValidatorId, A, B> SessionManager<ValidatorId> for UnionSessionManager<A, B>
+where
+	ValidatorId: Clone + Ord,
+	A: SessionManager<ValidatorId>,
+	B: SessionManager<ValidatorId>,
+{
+	fn new_session(new_index: SessionIndex) -> Option<Vec<ValidatorId>> {
+		Self::union(A::new_session(new_index), B::new_session(new_index))
+	}
+
+	fn new_session_genesis(new_index: SessionIndex) -> Option<Vec<ValidatorId>> {
+		Self::union(A::new_session_genesis(new_index), B::new_session_genesis(new_index))
+	}
+
+	fn start_session(start_index: SessionIndex) {
+		A::start_session(start_index);
+		B::start_session(start_index);
+	}
+
+	fn end_session(end_index: SessionIndex) {
+		A::end_session(end_index);
+		B::end_session(end_index);
+	}
 }
 
 /// Handler for session life cycle events.

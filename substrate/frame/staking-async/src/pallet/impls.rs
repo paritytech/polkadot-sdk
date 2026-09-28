@@ -1432,7 +1432,7 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 	}
 
 	fn weigh_on_relay_session_report(report: &rc_client::SessionReport<Self::AccountId>) -> Weight {
-		let era_start = if report.activation_timestamp.is_some() {
+		let era_start = if report.activation_timestamp.is_some() && !report.leftover {
 			session_rotation::Rotator::<T>::notify_era_start_max_weight()
 		} else {
 			Weight::zero()

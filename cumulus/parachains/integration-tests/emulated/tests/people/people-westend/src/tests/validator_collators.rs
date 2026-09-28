@@ -16,6 +16,7 @@
 use crate::imports::*;
 use codec::Encode;
 use emulated_integration_tests_common::collators;
+use frame_support::traits::Get;
 use pallet_staking_async::OnEraStart;
 use parachains_common::AccountId;
 use sp_externalities::ExternalitiesExt;
@@ -123,5 +124,42 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 		assert_eq!(Session::current_index(), people_session_before + 2);
 		assert_eq!(Session::validators(), expected);
 		assert!(!Session::validators().contains(&charlie));
+	});
+}
+
+#[test]
+fn full_size_validator_set_is_delivered_from_asset_hub_to_people() {
+	type PeopleRuntime = <PeopleWestend as Chain>::Runtime;
+	let max = <PeopleRuntime as pallet_validator_collators::Config>::MaxValidators::get();
+	let validators = (0..max)
+		.map(|i| {
+			let mut id = [0u8; 32];
+			id[..4].copy_from_slice(&i.to_le_bytes());
+			AccountId::from(id)
+		})
+		.collect::<Vec<_>>();
+
+	// GIVEN a set of exactly MAX_VALIDATOR_SET validators
+	// WHEN Asset Hub starts era 1 with it and sends it to People
+	AssetHubWestend::execute_with(|| {
+		asset_hub_westend_runtime::staking::AnnounceValidatorSet::on_era_start(1, &validators);
+	});
+	AssetHubWestend::execute_with(|| {
+		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			AssetHubWestend,
+			vec![
+				RuntimeEvent::ValidatorCollators(
+					pallet_validator_collators::Event::AnnouncementSent { era: 1, .. }
+				) => {},
+			]
+		);
+	});
+	// THEN People stores the whole set for era 1
+	PeopleWestend::execute_with(|| {
+		type Runtime = <PeopleWestend as Chain>::Runtime;
+		let stored = pallet_validator_collators::ValidatorSet::<Runtime>::get().unwrap();
+		assert_eq!(stored.era, 1);
+		assert_eq!(stored.validators.to_vec(), validators);
 	});
 }

@@ -379,7 +379,7 @@ impl pallet_session::Config for Runtime {
 	type ShouldEndSession = ValidatorCollators;
 	type NextSessionRotation = pallet_session::PeriodicSessions<ConstU32<PERIOD>, ConstU32<OFFSET>>;
 	type SessionManager =
-		pallet_validator_collators::UnionSessionManager<CollatorSelection, ValidatorCollators>;
+		pallet_session::UnionSessionManager<CollatorSelection, ValidatorCollators>;
 	// Essentially just Aura, but let's be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
@@ -449,7 +449,6 @@ impl EnsureOrigin<RuntimeOrigin> for EnsureAssetHub {
 }
 
 impl pallet_validator_collators::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
 	type SetOrigin = EnsureAssetHub;
 	type UpdateOrigin = CollatorSelectionUpdateOrigin;
 	type ValidatorRegistration = Session;
@@ -458,8 +457,7 @@ impl pallet_validator_collators::Config for Runtime {
 	type PeriodicSession = pallet_session::PeriodicSessions<ConstU32<PERIOD>, ConstU32<OFFSET>>;
 	type Sender = ();
 	type Destinations = ();
-	type MaxAnnouncementRetries = ConstU32<0>;
-	type WeightInfo = pallet_validator_collators::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::pallet_validator_collators::WeightInfo<Runtime>;
 }
 
 parameter_types! {

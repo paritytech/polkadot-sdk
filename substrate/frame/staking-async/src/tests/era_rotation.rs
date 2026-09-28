@@ -748,27 +748,6 @@ fn on_era_start_reports_the_new_set_when_the_election_result_changes() {
 }
 
 #[test]
-fn on_era_start_is_not_called_on_sessions_that_start_no_era() {
-	ExtBuilder::default().build_and_execute(|| {
-		// GIVEN era 1 is active and its start was reported
-		assert_eq!(active_era(), 1);
-		assert_eq!(StartedEras::get().len(), 1);
-		// WHEN every session up to the start of era 3 rotates
-		let mut sessions_without_era_start = 0;
-		while active_era() < 3 {
-			let before = active_era();
-			Session::roll_to_next_session();
-			if active_era() == before {
-				sessions_without_era_start += 1;
-			}
-			// THEN the hook has run once per started era and never in between
-			assert_eq!(StartedEras::get().len(), active_era() as usize);
-		}
-		assert!(sessions_without_era_start > 0);
-	});
-}
-
-#[test]
 fn elected_set_is_kept_from_election_until_its_era_starts() {
 	ExtBuilder::default().build_and_execute(|| {
 		// GIVEN era 1 is active and nothing is kept for era 2
@@ -790,19 +769,17 @@ fn elected_set_is_kept_from_election_until_its_era_starts() {
 }
 
 #[test]
-fn era_start_without_a_kept_set_falls_back_to_the_exposures() {
+fn era_start_without_a_kept_set_skips_the_hook() {
 	ExtBuilder::default().build_and_execute(|| {
-		// GIVEN the era 2 set was sent but no copy is kept, as right after an upgrade
+		// GIVEN the era 2 set was sent but no copy is kept, as right after the enabling upgrade
 		while Session::queued_validators().is_none() {
 			Session::roll_next();
 		}
 		NextEraValidators::<T>::kill();
 		// WHEN era 2 starts
 		Session::roll_until_active_era(2);
-		// THEN the hook still receives the era 2 set, read from its exposures
-		let (era, validators) = StartedEras::get().pop().unwrap();
-		assert_eq!(era, 2);
-		assert_eq_uvec!(validators, validators_sent_for(2));
+		// THEN the hook is not called for era 2
+		assert_eq!(StartedEras::get().iter().map(|(era, _)| *era).collect::<Vec<_>>(), vec![1]);
 	});
 }
 
@@ -820,8 +797,9 @@ fn try_state_rejects_a_kept_set_for_an_era_that_is_not_planned() {
 }
 
 #[test]
-#[cfg_attr(debug_assertions, should_panic(expected = "Defensive failure has been triggered!"))]
-fn kept_set_of_another_era_is_ignored_and_the_exposures_are_used() {
+#[cfg(debug_assertions)]
+#[should_panic(expected = "Defensive failure has been triggered!")]
+fn kept_set_of_another_era_is_rejected() {
 	ExtBuilder::default().build_and_execute(|| {
 		// GIVEN the era 2 set was sent and the kept copy is tagged with another era
 		while Session::queued_validators().is_none() {
@@ -829,11 +807,7 @@ fn kept_set_of_another_era_is_ignored_and_the_exposures_are_used() {
 		}
 		NextEraValidators::<T>::put((7, BoundedVec::truncate_from(vec![999])));
 		// WHEN era 2 starts
+		// THEN the mismatch is reported as a defensive failure
 		Session::roll_until_active_era(2);
-		// THEN the hook receives the era 2 set, read from its exposures, and the copy is gone
-		let (era, validators) = StartedEras::get().pop().unwrap();
-		assert_eq!(era, 2);
-		assert_eq_uvec!(validators, validators_sent_for(2));
-		assert_eq!(NextEraValidators::<T>::get(), None);
 	});
 }

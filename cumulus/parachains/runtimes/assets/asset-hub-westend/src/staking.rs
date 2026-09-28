@@ -516,6 +516,17 @@ impl pallet_validator_collators::SendValidatorSet<AccountId> for ValidatorSetToS
 				);
 			})
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_send(destination: &ValidatorSetDestination) {
+		match destination {
+			ValidatorSetDestination::People => {
+				ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
+					testnet_parachains_constants::westend::locations::PeopleParaId::get(),
+				)
+			},
+		}
+	}
 }
 
 pub struct StakingXcmToRelayChain;

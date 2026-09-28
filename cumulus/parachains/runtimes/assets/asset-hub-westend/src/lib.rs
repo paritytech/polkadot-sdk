@@ -1142,7 +1142,7 @@ impl pallet_session::Config for Runtime {
 	type ShouldEndSession = ValidatorCollators;
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
 	type SessionManager =
-		pallet_validator_collators::UnionSessionManager<CollatorSelection, ValidatorCollators>;
+		pallet_session::UnionSessionManager<CollatorSelection, ValidatorCollators>;
 	// Essentially just Aura, but let's be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
@@ -1184,16 +1184,15 @@ impl pallet_collator_selection::Config for Runtime {
 }
 
 impl pallet_validator_collators::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type SetOrigin = EnsureRoot<AccountId>;
+	// The set is written only by the staking era-start hook.
+	type SetOrigin = frame_system::EnsureNever<AccountId>;
 	type UpdateOrigin = CollatorSelectionUpdateOrigin;
 	type ValidatorRegistration = Session;
 	type MaxValidators = staking::MaxValidatorSet;
 	type PeriodicSession = pallet_session::PeriodicSessions<Period, Offset>;
 	type Sender = staking::ValidatorSetToSystemChains;
 	type Destinations = staking::ValidatorSetDestinations;
-	type MaxAnnouncementRetries = ConstU32<64>;
-	type WeightInfo = pallet_validator_collators::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::pallet_validator_collators::WeightInfo<Runtime>;
 }
 
 parameter_types! {

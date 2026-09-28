@@ -200,15 +200,6 @@ impl<T: Config> Eras<T> {
 			.unwrap_or(1)
 	}
 
-	/// The validators with an exposure in `era`, at most [`Config::MaxValidatorSet`].
-	///
-	/// One read per validator, used only when [`NextEraValidators`] holds no copy for `era`.
-	pub(crate) fn exposed_validators(era: EraIndex) -> Vec<T::AccountId> {
-		ErasStakersOverview::<T>::iter_key_prefix(era)
-			.take(T::MaxValidatorSet::get() as usize)
-			.collect()
-	}
-
 	/// Check whether the validator was exposed at specified era.
 	pub(crate) fn was_validator_exposed(era: EraIndex, validator: &T::AccountId) -> bool {
 		<ErasStakersOverview<T>>::contains_key(era, validator)
@@ -922,59 +913,52 @@ impl<T: Config> Rotator<T> {
 		}
 	}
 
-	/// Notify [`Config::OnEraStart`] with the validators of `era`.
+	/// Notify [`Config::OnEraStart`] with the validators of `era`, taking the copy kept by
+	/// [`Self::keep_next_era_validators`].
 	///
-	/// Costs one read and one removal of the copy kept by [`Self::keep_next_era_validators`].
-	/// Without a copy, as on the first era start after the upgrade that introduced it, the set is
-	/// read once from the keys of the exposure overview instead, at one read per validator.
+	/// Costs one read and one removal of the copy. Without a copy, as on the first era start
+	/// after the upgrade that enables the hook, the hook is not called for that era.
 	fn notify_era_start(era: EraIndex) -> Weight {
 		if !T::OnEraStart::enabled() {
 			return Weight::zero();
 		}
-		let (validators, read_weight) = match NextEraValidators::<T>::take() {
+		let read_weight = Self::kept_validators_weight();
+		match NextEraValidators::<T>::take() {
 			Some((kept_era, validators)) if kept_era == era => {
-				(validators.into_inner(), Self::kept_validators_weight())
+				T::OnEraStart::on_era_start(era, &validators);
+				read_weight.saturating_add(T::OnEraStart::weight(validators.len() as u32))
 			},
-			kept => {
-				if kept.is_some() {
-					defensive!("kept validators belong to another era");
-				}
-				let validators = Eras::<T>::exposed_validators(era);
-				let weight = Self::kept_validators_weight()
-					.saturating_add(Self::exposed_validators_weight(validators.len() as u32));
-				(validators, weight)
+			Some(_) => {
+				defensive!("kept validators belong to another era");
+				read_weight
 			},
-		};
-		T::OnEraStart::on_era_start(era, &validators);
-		read_weight.saturating_add(T::OnEraStart::weight(validators.len() as u32))
+			None => {
+				log!(warn, "no validators kept for era {:?}, the era-start hook is skipped", era);
+				read_weight
+			},
+		}
 	}
 
-	/// Worst-case weight of [`Self::notify_era_start`], with the fallback read.
+	/// Worst-case weight of [`Self::notify_era_start`].
 	pub(crate) fn notify_era_start_max_weight() -> Weight {
 		if !T::OnEraStart::enabled() {
 			return Weight::zero();
 		}
-		let max = T::MaxValidatorSet::get();
 		Self::kept_validators_weight()
-			.saturating_add(Self::exposed_validators_weight(max))
-			.saturating_add(T::OnEraStart::weight(max))
+			.saturating_add(T::OnEraStart::weight(T::MaxValidatorSet::get()))
 	}
 
 	/// Weight of taking [`NextEraValidators`], with its maximum encoded size as proof size.
 	fn kept_validators_weight() -> Weight {
+		let proof_size =
+			<NextEraValidators<T> as frame_support::traits::StorageInfoTrait>::storage_info()
+				.iter()
+				.filter_map(|info| info.max_size)
+				.map(u64::from)
+				.sum();
 		T::DbWeight::get()
 			.reads_writes(1, 1)
-			.saturating_add(Weight::from_parts(0, max_storage_size::<NextEraValidators<T>>()))
-	}
-
-	/// Weight of reading the keys of `validators` exposure overview entries.
-	fn exposed_validators_weight(validators: u32) -> Weight {
-		// The entry's `max_size` on purpose, not the benchmark CLI's per-read trie overhead, which
-		// would charge about 2.5 MB at 1000 validators.
-		let per_entry = max_storage_size::<ErasStakersOverview<T>>();
-		T::DbWeight::get()
-			.reads(u64::from(validators).saturating_add(1))
-			.saturating_add(Weight::from_parts(0, per_entry.saturating_mul(validators.into())))
+			.saturating_add(Weight::from_parts(0, proof_size))
 	}
 
 	fn start_era_inc_active_era(start_timestamp: u64) {
@@ -1475,9 +1459,4 @@ impl<T: Config> EraElectionPlanner<T> {
 			Ok(electable.len() - pre_size)
 		})
 	}
-}
-
-/// Maximum size in bytes of one entry of `S`, key included.
-fn max_storage_size<S: frame_support::traits::StorageInfoTrait>() -> u64 {
-	S::storage_info().iter().filter_map(|info| info.max_size).map(u64::from).sum()
 }

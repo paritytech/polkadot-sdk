@@ -118,7 +118,8 @@ impl pallet_session::Config for Test {
 	type ValidatorIdOf = IdentityCollator;
 	type ShouldEndSession = ValidatorCollators;
 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
-	type SessionManager = UnionSessionManager<CollatorSelection, ValidatorCollators>;
+	type SessionManager =
+		pallet_session::UnionSessionManager<CollatorSelection, ValidatorCollators>;
 	type SessionHandler = TestSessionHandler;
 	type Keys = MockSessionKeys;
 	type DisablingStrategy = ();
@@ -152,7 +153,6 @@ impl pallet_collator_selection::Config for Test {
 }
 
 impl Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type SetOrigin = EnsureSignedBy<SetAccount, u64>;
 	type UpdateOrigin = EnsureSignedBy<RootAccount, u64>;
 	type ValidatorRegistration = Session;
@@ -160,7 +160,6 @@ impl Config for Test {
 	type PeriodicSession = pallet_session::PeriodicSessions<Period, Offset>;
 	type Sender = MockSender;
 	type Destinations = Destinations;
-	type MaxAnnouncementRetries = ConstU32<2>;
 	type WeightInfo = ();
 }
 

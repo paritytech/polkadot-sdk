@@ -16,6 +16,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
+log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
 frame-support = { workspace = true }
@@ -55,6 +56,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"pallet-session/std",
 	"scale-info/std",
 	"sp-runtime/std",

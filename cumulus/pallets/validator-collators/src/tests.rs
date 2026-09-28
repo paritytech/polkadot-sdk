@@ -15,13 +15,13 @@
 
 use crate::{
 	mock::*, Call, Config, EraValidatorSet, Error, Event, MaxCollators, OutgoingAnnouncements,
-	PendingRotation, RotationState, UnionSessionManager, ValidatorSet,
+	PendingRotation, RotationState, ValidatorSet,
 };
 use codec::{Decode, Encode};
-use frame_support::{assert_err, assert_noop, assert_ok, parameter_types, BoundedVec};
+use frame_support::{assert_err, assert_noop, assert_ok, BoundedVec};
 use pallet_session::SessionManager;
 use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin, DispatchResult};
-use sp_staking::{EraIndex, SessionIndex};
+use sp_staking::EraIndex;
 
 fn set_keys(who: u64) {
 	let mut keys = MockSessionKeys { aura: UintAuthorityId(who) };
@@ -174,6 +174,35 @@ fn received_validator_without_keys_is_not_a_collator() {
 			<ValidatorCollators as SessionManager<u64>>::new_session(Session::current_index()),
 			Some(vec![10])
 		);
+		assert_ok!(ValidatorCollators::do_try_state());
+	});
+}
+
+#[test]
+fn set_and_key_changes_reach_the_session_validators_at_the_next_rotations() {
+	new_test_ext().execute_with(|| {
+		// GIVEN the era 1 set of 10, 11 and 12 is enacted while only 10 and 11 have keys
+		initialize_to_block(1);
+		set_keys(10);
+		set_keys(11);
+		assert_ok!(receive(1, vec![10, 11, 12]));
+		initialize_to_block(3);
+		assert_eq!(Session::validators(), vec![1, 2, 10, 11]);
+		// WHEN the era 2 set drops 10 and is enacted
+		assert_ok!(receive(2, vec![11, 12]));
+		initialize_to_block(5);
+		// THEN 10 is no longer a session validator
+		assert_eq!(Session::validators(), vec![1, 2, 11]);
+		// WHEN 12 registers keys and 11 purges its keys after the forced rotations
+		set_keys(12);
+		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(11)));
+		// THEN the next periodic rotation queues 12 without 11 and the one after enacts it
+		initialize_to_block(10);
+		let queued = Session::queued_keys().into_iter().map(|(who, _)| who).collect::<Vec<_>>();
+		assert_eq!(queued, vec![1, 2, 12]);
+		assert_eq!(Session::validators(), vec![1, 2, 11]);
+		initialize_to_block(20);
+		assert_eq!(Session::validators(), vec![1, 2, 12]);
 		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
@@ -364,7 +393,6 @@ fn announcement_events() -> Vec<Event<Test>> {
 			RuntimeEvent::ValidatorCollators(
 				event @ (Event::AnnouncementSent { .. } |
 				Event::AnnouncementFailed { .. } |
-				Event::AnnouncementDropped { .. } |
 				Event::AnnouncementRejected { .. }),
 			) => Some(event),
 			_ => None,
@@ -372,26 +400,26 @@ fn announcement_events() -> Vec<Event<Test>> {
 		.collect()
 }
 
-fn outgoing() -> Vec<(u32, u32)> {
-	let mut outgoing = OutgoingAnnouncements::<Test>::iter().collect::<Vec<_>>();
+fn outgoing() -> Vec<u32> {
+	let mut outgoing = OutgoingAnnouncements::<Test>::iter_keys().collect::<Vec<_>>();
 	outgoing.sort();
 	outgoing
 }
 
 #[test]
-fn announce_stores_the_set_and_sends_it_to_every_destination_in_the_next_block() {
+fn announce_stores_the_set_sends_it_next_block_and_rejects_a_repeat() {
 	new_test_ext().execute_with(|| {
 		// GIVEN two destinations that accept the set
 		initialize_to_block(1);
 		// WHEN a set is announced
 		assert_ok!(announce(1, vec![10, 11]));
+		// THEN it is stored and queued, and the next block sends it to both destinations
 		assert_eq!(ValidatorSet::<Test>::get().map(|set| set.era), Some(1));
-		assert_eq!(outgoing(), vec![(1, 2), (2, 2)]);
+		assert_eq!(outgoing(), vec![1, 2]);
 		assert!(Sent::get().is_empty());
 		initialize_to_block(2);
-		// THEN the next block sends it to both destinations and empties the queue
 		assert_eq!(Sent::get(), vec![(1, 1, vec![10, 11]), (2, 1, vec![10, 11])]);
-		assert_eq!(outgoing(), vec![]);
+		assert_eq!(outgoing(), Vec::<u32>::new());
 		assert_eq!(
 			announcement_events(),
 			vec![
@@ -399,84 +427,6 @@ fn announce_stores_the_set_and_sends_it_to_every_destination_in_the_next_block()
 				Event::AnnouncementSent { destination: 2, era: 1 },
 			]
 		);
-		assert_ok!(ValidatorCollators::do_try_state());
-	});
-}
-
-#[test]
-fn failed_send_is_retried_up_to_the_limit_and_then_dropped() {
-	new_test_ext().execute_with(|| {
-		// GIVEN destination 2 rejects every send and two retries are allowed
-		initialize_to_block(1);
-		FailingDestinations::set(vec![2]);
-		// WHEN a set is announced and three blocks pass
-		assert_ok!(announce(1, vec![10]));
-		initialize_to_block(4);
-		// THEN destination 2 fails three times, is dropped and destination 1 is sent once
-		assert_eq!(Sent::get(), vec![(1, 1, vec![10])]);
-		assert_eq!(outgoing(), vec![]);
-		assert_eq!(
-			announcement_events(),
-			vec![
-				Event::AnnouncementSent { destination: 1, era: 1 },
-				Event::AnnouncementFailed { destination: 2, era: 1, retries_left: 1 },
-				Event::AnnouncementFailed { destination: 2, era: 1, retries_left: 0 },
-				Event::AnnouncementDropped { destination: 2, era: 1 },
-			]
-		);
-		initialize_to_block(5);
-		assert_eq!(Sent::get().len(), 1);
-		assert_ok!(ValidatorCollators::do_try_state());
-	});
-}
-
-#[test]
-fn failed_send_succeeds_on_a_later_retry() {
-	new_test_ext().execute_with(|| {
-		// GIVEN destination 2 rejects the first send of an announced set
-		initialize_to_block(1);
-		FailingDestinations::set(vec![2]);
-		assert_ok!(announce(1, vec![10]));
-		initialize_to_block(2);
-		assert_eq!(outgoing(), vec![(2, 1)]);
-		// WHEN destination 2 accepts again
-		FailingDestinations::set(vec![]);
-		initialize_to_block(3);
-		// THEN the retry delivers the set and the queue is empty
-		assert_eq!(Sent::get(), vec![(1, 1, vec![10]), (2, 1, vec![10])]);
-		assert_eq!(outgoing(), vec![]);
-		assert_ok!(ValidatorCollators::do_try_state());
-	});
-}
-
-#[test]
-fn newer_era_replaces_a_queued_announcement() {
-	new_test_ext().execute_with(|| {
-		// GIVEN the era 1 set is still queued after a failed send to both destinations
-		initialize_to_block(1);
-		FailingDestinations::set(vec![1, 2]);
-		assert_ok!(announce(1, vec![10]));
-		initialize_to_block(2);
-		assert_eq!(outgoing(), vec![(1, 1), (2, 1)]);
-		// WHEN the era 2 set is announced and the destinations accept again
-		assert_ok!(announce(2, vec![11]));
-		FailingDestinations::set(vec![]);
-		// THEN retries are reset and only the era 2 set is delivered
-		assert_eq!(outgoing(), vec![(1, 2), (2, 2)]);
-		initialize_to_block(3);
-		assert_eq!(Sent::get(), vec![(1, 2, vec![11]), (2, 2, vec![11])]);
-		assert_eq!(outgoing(), vec![]);
-		assert_ok!(ValidatorCollators::do_try_state());
-	});
-}
-
-#[test]
-fn rejected_announcement_queues_nothing() {
-	new_test_ext().execute_with(|| {
-		// GIVEN the era 1 set was announced and delivered
-		initialize_to_block(1);
-		assert_ok!(announce(1, vec![10]));
-		initialize_to_block(2);
 		// WHEN the same era is announced again
 		// THEN it fails with StaleEra, is reported and nothing is queued or sent
 		assert_err!(announce(1, vec![11]), Error::<Test>::StaleEra);
@@ -485,8 +435,43 @@ fn rejected_announcement_queues_nothing() {
 		);
 		initialize_to_block(3);
 		assert_eq!(Sent::get().len(), 2);
-		assert_eq!(outgoing(), vec![]);
-		assert_eq!(ValidatorSet::<Test>::get().map(|set| set.validators.to_vec()), Some(vec![10]));
+		assert_eq!(outgoing(), Vec::<u32>::new());
+		assert_eq!(
+			ValidatorSet::<Test>::get().map(|set| set.validators.to_vec()),
+			Some(vec![10, 11])
+		);
+		assert_ok!(ValidatorCollators::do_try_state());
+	});
+}
+
+#[test]
+fn failed_send_is_retried_every_block_until_sent_or_replaced() {
+	new_test_ext().execute_with(|| {
+		// GIVEN destination 2 rejects every send
+		initialize_to_block(1);
+		FailingDestinations::set(vec![2]);
+		// WHEN the era 1 set is announced and three blocks pass
+		assert_ok!(announce(1, vec![10]));
+		initialize_to_block(4);
+		// THEN destination 1 got it once and destination 2 is still queued after three failures
+		assert_eq!(Sent::get(), vec![(1, 1, vec![10])]);
+		assert_eq!(outgoing(), vec![2]);
+		assert_eq!(
+			announcement_events(),
+			vec![
+				Event::AnnouncementSent { destination: 1, era: 1 },
+				Event::AnnouncementFailed { destination: 2, era: 1 },
+				Event::AnnouncementFailed { destination: 2, era: 1 },
+				Event::AnnouncementFailed { destination: 2, era: 1 },
+			]
+		);
+		// WHEN the era 2 set is announced and destination 2 accepts again
+		assert_ok!(announce(2, vec![11]));
+		FailingDestinations::set(vec![]);
+		initialize_to_block(5);
+		// THEN both destinations receive only the era 2 set and the queue is empty
+		assert_eq!(Sent::get(), vec![(1, 1, vec![10]), (1, 2, vec![11]), (2, 2, vec![11])]);
+		assert_eq!(outgoing(), Vec::<u32>::new());
 		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
@@ -505,25 +490,20 @@ fn announcement_larger_than_max_validators_is_rejected_and_reported() {
 				.into(),
 		);
 		assert_eq!(ValidatorSet::<Test>::get(), None);
-		assert_eq!(outgoing(), vec![]);
+		assert_eq!(outgoing(), Vec::<u32>::new());
 		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
 
 #[test]
-fn try_state_rejects_queued_announcements_outside_the_configuration() {
+fn try_state_rejects_an_announcement_queued_for_an_unknown_destination() {
 	new_test_ext().execute_with(|| {
 		// GIVEN a stored set
 		assert_ok!(announce(1, vec![10]));
-		// WHEN an unknown destination or too many retries are queued
+		// WHEN an unknown destination is queued
+		OutgoingAnnouncements::<Test>::insert(3, ());
 		// THEN try_state fails
-		OutgoingAnnouncements::<Test>::insert(3, 0);
 		assert!(ValidatorCollators::do_try_state().is_err());
-		OutgoingAnnouncements::<Test>::remove(3);
-		OutgoingAnnouncements::<Test>::insert(1, 3);
-		assert!(ValidatorCollators::do_try_state().is_err());
-		OutgoingAnnouncements::<Test>::insert(1, 2);
-		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
 
@@ -541,89 +521,4 @@ fn announced_set_is_enacted_locally_like_a_received_one() {
 		assert_eq!(Session::validators(), vec![1, 2, 10]);
 		assert_ok!(ValidatorCollators::do_try_state());
 	});
-}
-
-parameter_types! {
-	pub static LeftSet: Option<Vec<u64>> = None;
-	pub static RightSet: Option<Vec<u64>> = None;
-	pub static LeftGenesisSet: Option<Vec<u64>> = None;
-	pub static RightGenesisSet: Option<Vec<u64>> = None;
-	pub static Calls: Vec<(&'static str, &'static str, SessionIndex)> = Vec::new();
-}
-
-struct Left;
-impl SessionManager<u64> for Left {
-	fn new_session(_: SessionIndex) -> Option<Vec<u64>> {
-		LeftSet::get()
-	}
-	fn new_session_genesis(_: SessionIndex) -> Option<Vec<u64>> {
-		LeftGenesisSet::get()
-	}
-	fn start_session(index: SessionIndex) {
-		Calls::mutate(|calls| calls.push(("left", "start", index)));
-	}
-	fn end_session(index: SessionIndex) {
-		Calls::mutate(|calls| calls.push(("left", "end", index)));
-	}
-}
-
-struct Right;
-impl SessionManager<u64> for Right {
-	fn new_session(_: SessionIndex) -> Option<Vec<u64>> {
-		RightSet::get()
-	}
-	fn new_session_genesis(_: SessionIndex) -> Option<Vec<u64>> {
-		RightGenesisSet::get()
-	}
-	fn start_session(index: SessionIndex) {
-		Calls::mutate(|calls| calls.push(("right", "start", index)));
-	}
-	fn end_session(index: SessionIndex) {
-		Calls::mutate(|calls| calls.push(("right", "end", index)));
-	}
-}
-
-type Union = UnionSessionManager<Left, Right>;
-
-#[test]
-fn union_forwards_start_and_end_session_to_both() {
-	// GIVEN a union of two managers
-	Calls::set(Vec::new());
-	// WHEN a session starts and ends
-	<Union as SessionManager<u64>>::start_session(3);
-	<Union as SessionManager<u64>>::end_session(3);
-	// THEN both managers are called
-	assert_eq!(
-		Calls::get(),
-		vec![("left", "start", 3), ("right", "start", 3), ("left", "end", 3), ("right", "end", 3)]
-	);
-}
-
-#[test]
-fn union_merges_new_session_results() {
-	let merged = |left, right| {
-		LeftSet::set(left);
-		RightSet::set(right);
-		<Union as SessionManager<u64>>::new_session(1)
-	};
-	// GIVEN two managers returning every combination of None and overlapping sets
-	// WHEN the union plans a new session
-	// THEN it is None only if both are None, else left then right without duplicates
-	assert_eq!(merged(None, None), None);
-	assert_eq!(merged(Some(vec![1, 2]), None), Some(vec![1, 2]));
-	assert_eq!(merged(None, Some(vec![3])), Some(vec![3]));
-	assert_eq!(merged(Some(vec![]), None), Some(vec![]));
-	assert_eq!(merged(Some(vec![2, 1]), Some(vec![3, 1, 4, 3])), Some(vec![2, 1, 3, 4]));
-}
-
-#[test]
-fn union_uses_genesis_functions_at_genesis() {
-	// GIVEN managers whose genesis sets differ from their regular sets
-	LeftSet::set(Some(vec![1]));
-	RightSet::set(Some(vec![2]));
-	LeftGenesisSet::set(Some(vec![5, 6]));
-	RightGenesisSet::set(Some(vec![6, 7]));
-	// WHEN the union plans the genesis session
-	// THEN it merges the genesis sets
-	assert_eq!(<Union as SessionManager<u64>>::new_session_genesis(0), Some(vec![5, 6, 7]));
 }

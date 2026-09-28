@@ -784,9 +784,8 @@ mod tests {
 	}
 
 	/// Roll the relay chain with Asset Hub one session at a time until era 1 is active on Asset
-	/// Hub. `after_session` runs in Asset Hub after every session. Returns the copy kept by staking
-	/// after each session, read before `after_session`.
-	fn roll_until_era_1_is_active(mut after_session: impl FnMut()) -> Vec<KeptValidators> {
+	/// Hub. Returns the copy kept by staking after each session.
+	fn roll_until_era_1_is_active() -> Vec<KeptValidators> {
 		let mut kept_per_session = Vec::new();
 		for _ in 0..12 {
 			shared::in_rc(|| rc::roll_to_next_session(true));
@@ -796,7 +795,6 @@ mod tests {
 					pallet_staking_async::NextEraValidators::<ah::Runtime>::get()
 						.map(|(era, validators)| (era, validators.into_inner())),
 				);
-				after_session();
 				active = ActiveEra::<ah::Runtime>::get().map(|era| era.index) == Some(1);
 			});
 			if active {
@@ -824,7 +822,7 @@ mod tests {
 		// GIVEN the relay and Asset Hub mocks with the recording era-start hook switched on
 		set_up_with_era_start_recorder();
 		// WHEN the relay rolls through the election and the activation of era 1
-		let kept_per_session = roll_until_era_1_is_active(|| {});
+		let kept_per_session = roll_until_era_1_is_active();
 		// THEN the hook ran once, for era 1, with the validators the relay chain activated
 		let activated = relay_session_validators();
 		assert_eq!(activated.len(), 4);
@@ -838,22 +836,6 @@ mod tests {
 				Some((1, activated.clone()))
 		}));
 		assert_eq!(*last, None);
-		ah::EraStartHookEnabled::set(false);
-	}
-
-	#[test]
-	fn relay_driven_era_start_without_a_kept_copy_falls_back_to_the_exposures() {
-		// GIVEN the relay and Asset Hub mocks with the recording era-start hook switched on
-		set_up_with_era_start_recorder();
-		// WHEN the kept copy is removed after hand-off, as after an upgrade, and era 1 activates
-		let kept_per_session = roll_until_era_1_is_active(|| {
-			pallet_staking_async::NextEraValidators::<ah::Runtime>::kill();
-		});
-		// THEN the hook still ran once, for era 1, with the validators the relay chain activated
-		assert!(kept_per_session.iter().any(Option::is_some));
-		let activated = relay_session_validators();
-		assert_eq!(activated.len(), 4);
-		assert_eq!(recorded_era_starts(), vec![(1, activated)]);
 		ah::EraStartHookEnabled::set(false);
 	}
 

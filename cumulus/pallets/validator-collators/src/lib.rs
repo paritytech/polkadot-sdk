@@ -27,7 +27,8 @@
 //! stored validators that have registered local session keys, checked with
 //! [`Config::ValidatorRegistration`]. [`MaxCollators`] optionally caps how many of them are
 //! returned. The runtime combines this pallet with `pallet-collator-selection` through
-//! [`UnionSessionManager`], so invulnerables and candidates keep collating next to the validators.
+//! [`pallet_session::UnionSessionManager`], so invulnerables and candidates keep collating next to
+//! the validators.
 //!
 //! The pallet is also a [`pallet_session::ShouldEndSession`]. Pallet-session queues a new set at
 //! one rotation and enacts it at the next. When a set arrives the pallet forces two rotations in
@@ -36,9 +37,9 @@
 //!
 //! On Asset Hub the runtime calls [`Pallet::announce`] when a new era becomes active. It stores the
 //! set locally and queues it for every destination in [`Config::Destinations`]. The queue is
-//! drained in `on_initialize` through [`Config::Sender`]. A failed send is retried in the
-//! following blocks up to [`Config::MaxAnnouncementRetries`] times and then dropped. A newer set
-//! replaces the queued one, so a destination always receives the latest stored set.
+//! drained in `on_initialize` through [`Config::Sender`]. A failed send is retried in every
+//! following block until it succeeds or a newer set replaces it, so a destination always receives
+//! the latest stored set.
 //!
 //! ## TODO
 //!
@@ -52,12 +53,9 @@
 
 extern crate alloc;
 
-use alloc::{collections::BTreeSet, vec::Vec};
 use codec::MaxEncodedLen;
-use core::marker::PhantomData;
 use frame_support::Parameter;
-use pallet_session::SessionManager;
-use sp_staking::{EraIndex, SessionIndex};
+use sp_staking::EraIndex;
 
 pub use pallet::*;
 
@@ -73,6 +71,10 @@ pub trait SendValidatorSet<AccountId> {
 		era: EraIndex,
 		validators: &[AccountId],
 	) -> Result<(), ()>;
+
+	/// Prepare `destination` so that [`Self::send`] succeeds in benchmarks.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_successful_send(_destination: &Self::Destination) {}
 }
 
 impl<AccountId> SendValidatorSet<AccountId> for () {
@@ -97,6 +99,8 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod weights;
+
+const LOG_TARGET: &str = "runtime::validator-collators";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -155,11 +159,7 @@ pub mod pallet {
 
 	/// Configuration trait of this pallet.
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		/// The overarching event type.
-		#[allow(deprecated)]
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
+	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
 		/// Origin allowed to submit a validator set.
 		type SetOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
@@ -182,10 +182,6 @@ pub mod pallet {
 		/// Destinations every announced set is sent to.
 		type Destinations: Get<Vec<DestinationOf<Self>>>;
 
-		/// Number of retries of a failed send before it is dropped.
-		#[pallet::constant]
-		type MaxAnnouncementRetries: Get<u32>;
-
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -206,10 +202,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type MaxCollators<T: Config> = StorageValue<_, u32, OptionQuery>;
 
-	/// Destinations still to be sent the stored set, with the retries left for each.
+	/// Destinations still to be sent the stored set.
 	#[pallet::storage]
 	pub type OutgoingAnnouncements<T: Config> =
-		StorageMap<_, Twox64Concat, DestinationOf<T>, u32, OptionQuery>;
+		StorageMap<_, Twox64Concat, DestinationOf<T>, (), OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -221,9 +217,7 @@ pub mod pallet {
 		/// The set of `era` was sent to a destination.
 		AnnouncementSent { destination: DestinationOf<T>, era: EraIndex },
 		/// Sending the set of `era` to a destination failed and will be retried.
-		AnnouncementFailed { destination: DestinationOf<T>, era: EraIndex, retries_left: u32 },
-		/// Sending the set of `era` to a destination failed with no retries left.
-		AnnouncementDropped { destination: DestinationOf<T>, era: EraIndex },
+		AnnouncementFailed { destination: DestinationOf<T>, era: EraIndex },
 		/// The set of `era` was not announced because it was rejected with `error`.
 		AnnouncementRejected { era: EraIndex, error: DispatchError },
 	}
@@ -309,19 +303,22 @@ pub mod pallet {
 				.map_err(|_| Error::<T>::TooManyValidators)?;
 			Self::receive_validator_set(era, validators)?;
 			let _ = OutgoingAnnouncements::<T>::clear(u32::MAX, None);
-			T::Destinations::get().into_iter().for_each(|destination| {
-				OutgoingAnnouncements::<T>::insert(destination, T::MaxAnnouncementRetries::get())
-			});
+			T::Destinations::get()
+				.into_iter()
+				.for_each(|destination| OutgoingAnnouncements::<T>::insert(destination, ()));
 			Ok(())
 		}
 
 		/// Upper bound of the weight of [`Self::announce`] for `validators` validators.
 		pub fn announce_weight(validators: u32) -> Weight {
-			T::WeightInfo::announce(validators, T::Destinations::get().len() as u32)
+			T::WeightInfo::announce(validators)
 		}
 
-		fn send_announcements() -> Weight {
-			let outgoing = OutgoingAnnouncements::<T>::iter().collect::<Vec<_>>();
+		pub(crate) fn send_announcements() -> Weight {
+			if T::Destinations::get().is_empty() {
+				return Weight::zero();
+			}
+			let outgoing = OutgoingAnnouncements::<T>::iter_keys().collect::<Vec<_>>();
 			if outgoing.is_empty() {
 				return T::DbWeight::get().reads(1);
 			}
@@ -330,25 +327,14 @@ pub mod pallet {
 				defensive!("announcements are queued only after a set is stored");
 				return T::DbWeight::get().reads_writes(2, outgoing.len() as u64);
 			};
-			let weight = T::WeightInfo::send_announcements(
-				set.validators.len() as u32,
-				outgoing.len() as u32,
-			);
-			for (destination, retries_left) in outgoing {
+			let weight = T::WeightInfo::send_announcements(set.validators.len() as u32);
+			for destination in outgoing {
 				let era = set.era;
 				if T::Sender::send(&destination, era, &set.validators).is_ok() {
 					OutgoingAnnouncements::<T>::remove(&destination);
 					Self::deposit_event(Event::AnnouncementSent { destination, era });
-				} else if let Some(retries_left) = retries_left.checked_sub(1) {
-					OutgoingAnnouncements::<T>::insert(&destination, retries_left);
-					Self::deposit_event(Event::AnnouncementFailed {
-						destination,
-						era,
-						retries_left,
-					});
 				} else {
-					OutgoingAnnouncements::<T>::remove(&destination);
-					Self::deposit_event(Event::AnnouncementDropped { destination, era });
+					Self::deposit_event(Event::AnnouncementFailed { destination, era });
 				}
 			}
 			weight
@@ -370,16 +356,11 @@ pub mod pallet {
 				"announcements are queued without a stored validator set"
 			);
 			let destinations = T::Destinations::get();
-			for (destination, retries_left) in OutgoingAnnouncements::<T>::iter() {
-				ensure!(
-					destinations.contains(&destination),
-					"an announcement is queued for an unknown destination"
-				);
-				ensure!(
-					retries_left <= T::MaxAnnouncementRetries::get(),
-					"an announcement has more retries left than allowed"
-				);
-			}
+			ensure!(
+				OutgoingAnnouncements::<T>::iter_keys()
+					.all(|destination| destinations.contains(&destination)),
+				"an announcement is queued for an unknown destination"
+			);
 			Ok(())
 		}
 	}
@@ -391,10 +372,17 @@ pub mod pallet {
 				RotationState::Planned => PendingRotation::<T>::kill(),
 				RotationState::Idle => {},
 			}
-			let registered = ValidatorSet::<T>::get()?
-				.validators
-				.into_iter()
-				.filter(T::ValidatorRegistration::is_registered);
+			let Some(set) = ValidatorSet::<T>::get() else {
+				if ValidatorSet::<T>::exists() {
+					log::error!(
+						target: crate::LOG_TARGET,
+						"the stored validator set does not decode"
+					);
+				}
+				return None;
+			};
+			let registered =
+				set.validators.into_iter().filter(T::ValidatorRegistration::is_registered);
 			// TODO: replace the truncation with a random draw among the registered validators.
 			Some(match MaxCollators::<T>::get() {
 				Some(max) => registered.take(max as usize).collect(),
@@ -412,55 +400,5 @@ pub mod pallet {
 			PendingRotation::<T>::get() != RotationState::Idle ||
 				T::PeriodicSession::should_end_session(now)
 		}
-	}
-}
-
-/// A session manager that returns the union of the sets of `A` and `B`.
-///
-/// Both managers are expected to return their full current set at every rotation. `None` from one
-/// side means that side contributes nothing this time. The result is `None` only when both sides
-/// return `None`, otherwise it is `A`'s set followed by `B`'s set, keeping the first occurrence of
-/// every account.
-pub struct UnionSessionManager<A, B>(PhantomData<(A, B)>);
-
-fn union<AccountId: Clone + Ord>(
-	a: Option<Vec<AccountId>>,
-	b: Option<Vec<AccountId>>,
-) -> Option<Vec<AccountId>> {
-	if a.is_none() && b.is_none() {
-		return None;
-	}
-	let mut seen = BTreeSet::new();
-	Some(
-		a.into_iter()
-			.chain(b)
-			.flatten()
-			.filter(|account| seen.insert(account.clone()))
-			.collect(),
-	)
-}
-
-impl<AccountId, A, B> SessionManager<AccountId> for UnionSessionManager<A, B>
-where
-	AccountId: Clone + Ord,
-	A: SessionManager<AccountId>,
-	B: SessionManager<AccountId>,
-{
-	fn new_session(new_index: SessionIndex) -> Option<Vec<AccountId>> {
-		union(A::new_session(new_index), B::new_session(new_index))
-	}
-
-	fn new_session_genesis(new_index: SessionIndex) -> Option<Vec<AccountId>> {
-		union(A::new_session_genesis(new_index), B::new_session_genesis(new_index))
-	}
-
-	fn start_session(start_index: SessionIndex) {
-		A::start_session(start_index);
-		B::start_session(start_index);
-	}
-
-	fn end_session(end_index: SessionIndex) {
-		A::end_session(end_index);
-		B::end_session(end_index);
 	}
 }

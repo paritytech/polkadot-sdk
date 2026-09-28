@@ -413,7 +413,7 @@ fn roll_many_eras() {
 }
 
 #[test]
-fn disabled_era_start_hook_keeps_no_set_and_costs_nothing() {
+fn era_start_is_charged_only_when_the_hook_is_on_and_on_the_final_page() {
 	ExtBuilder::default().local_queue().build().execute_with(|| {
 		// GIVEN the era-start hook is switched off
 		assert!(!EraStartHookEnabled::get());
@@ -431,10 +431,17 @@ fn disabled_era_start_hook_keeps_no_set_and_costs_nothing() {
 		// THEN no set was kept and the session report is charged no era-start weight
 		assert_eq!(ActiveEra::<T>::get().unwrap().index, 1);
 		assert!(!staking_async::NextEraValidators::<T>::exists());
-		assert_eq!(
-			<Staking as AHStakingInterface>::weigh_on_relay_session_report(&report),
-			<<T as staking_async::Config>::WeightInfo as WeightInfo>::rc_on_session_report(n),
-		);
+		let weigh = <Staking as AHStakingInterface>::weigh_on_relay_session_report;
+		let base =
+			<<T as staking_async::Config>::WeightInfo as WeightInfo>::rc_on_session_report(n);
+		assert_eq!(weigh(&report), base);
+		// WHEN the hook is switched on
+		EraStartHookEnabled::set(true);
+		// THEN only the final page of a report carries the era-start cost
+		let non_final_page = rc_client::SessionReport { leftover: true, ..report.clone() };
+		assert!(weigh(&report).any_gt(base));
+		assert_eq!(weigh(&non_final_page), base);
+		EraStartHookEnabled::set(false);
 	});
 }
 

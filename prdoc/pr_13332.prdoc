@@ -4,7 +4,8 @@ doc:
   description: |-
     Adds `pallet-validator-collators`, a second session manager for system chains. It stores
     the active validator set of each era and returns its validators with registered keys as
-    collators, next to `pallet-collator-selection` through `UnionSessionManager`. A new set
+    collators, next to `pallet-collator-selection` through `UnionSessionManager`, a new
+    combinator in `pallet-session` that merges the sets of two session managers. A new set
     forces two session rotations so it takes effect within two blocks. On Asset Hub the
     pallet also sends the set to the other system chains, with retries.
 
@@ -12,17 +13,21 @@ doc:
     each era when it becomes active. Use `()` to keep the previous behaviour at no cost.
 
     Asset Hub Westend and People Westend use the new pallet. Asset Hub announces every new
-    era to itself and to People.
+    era to itself and to People. The pallet and call index of People's `set_validators` are
+    hard-coded on Asset Hub, and the two runtimes share the validator bound.
 crates:
 - name: pallet-validator-collators
   bump: major
 # `OnEraStart` is a new required config item and `NextEraValidators` is new storage.
 - name: pallet-staking-async
   bump: major
+- name: pallet-session
+  bump: minor
+# Adding the pallet changes the runtimes' public `PalletInstancesInfo` type.
 - name: asset-hub-westend-runtime
-  bump: minor
+  bump: major
 - name: people-westend-runtime
-  bump: minor
+  bump: major
 - name: testnet-parachains-constants
   bump: minor
 - name: pallet-staking-async-parachain-runtime
