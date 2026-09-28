@@ -1,0 +1,7 @@
+# All metanode roles run in this slice, so their CPUWeight=/IOWeight= only compete with each other.
+# The dash in the name places it under polkadot.slice (cgroup
+# /sys/fs/cgroup/polkadot.slice/polkadot-metanode.slice/). Limits for all roles together (e.g.
+# CPUQuota= to keep headroom for the OS) go in a drop-in: systemctl edit polkadot-metanode.slice
+[Unit]
+Description=Metanode roles
+Documentation=https://github.com/paritytech/polkadot-sdk/tree/master/scripts/metanode

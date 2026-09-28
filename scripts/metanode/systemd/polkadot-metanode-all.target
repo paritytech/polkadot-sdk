@@ -1,0 +1,10 @@
+# Runs every metanode role on this machine: `systemctl enable --now polkadot-metanode-all.target`.
+# Unlike polkadot-metanode.target, which only groups the roles enabled one by one, this wants all of
+# them; use it on a machine that runs the validator and all its collators.
+[Unit]
+Description=Every metanode role on this machine (validator, Asset Hub, People)
+Documentation=https://github.com/paritytech/polkadot-sdk/tree/master/scripts/metanode
+Wants=polkadot-validator.service polkadot-asset-hub.service polkadot-people.service
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,23 @@
+[Unit]
+Description=Metanode People collator
+Documentation=https://github.com/paritytech/polkadot-sdk/tree/master/scripts/metanode
+# Ordering only: a collator-only machine has no validator unit to wait for.
+After=polkadot-validator.service
+
+[Service]
+User=polkadot-people
+Group=polkadot-people
+StateDirectory=polkadot-people
+SyslogIdentifier=polkadot-people
+# @BINDIR@ is the directory polkadot-metanodectl is installed in. Whatever installs this
+# template (install.sh, or a package later) fills it in, so both layouts share the file.
+ExecStart=@BINDIR@/polkadot-metanodectl run people
+RestartSec=10
+
+# Collators run no PVF workers, so they get no namespaces and no mount syscalls.
+RestrictNamespaces=true
+SystemCallFilter=@system-service
+SystemCallFilter=~@clock @module @reboot @swap @privileged
+
+[Install]
+WantedBy=polkadot-metanode.target

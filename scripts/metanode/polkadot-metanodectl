@@ -1,0 +1,567 @@
+#!/usr/bin/env bash
+# polkadot-metanodectl: role launcher and operator helpers of the metanode systemd units.
+#
+# Each unit (polkadot-<role>.service) runs `polkadot-metanodectl run <role>`. It reads
+# /etc/polkadot-metanode/metanode.conf and /etc/polkadot-metanode/<role>.conf, builds the node
+# command line from the role table below and execs it, so systemd supervises the node process
+# itself. See scripts/metanode/README.md.
+#
+# Usage:
+#   polkadot-metanodectl run <role>                  start the node for <role> (used by the units)
+#   polkadot-metanodectl print <role>                print the command line `run` would start
+#   polkadot-metanodectl rotate-keys <role> <stash>  generate session keys owned by <stash>
+#   polkadot-metanodectl status                      summarise every installed role on this machine
+#   polkadot-metanodectl run-all [<role>...]         run roles in the foreground, without systemd
+#
+# Roles: validator, asset-hub, people.
+set -euo pipefail
+
+# The role table: binary and default ports of every role. The ports are fixed per role, so a role
+# keeps them whichever other roles run on the machine; node defaults would collide (both binaries
+# use 30333/9944/9615, the relay side of a collator 30334/9945/9616). "-": the role has no relay
+# side. Keep in sync with the ports table of README.md.
+#
+# role       binary              p2p    relay-p2p  rpc   relay-rpc  prometheus  relay-prometheus
+ROLE_TABLE='
+validator    polkadot            30333  -          9944  -          9615        -
+asset-hub    polkadot-parachain  30343  30344      9954  9955       9625        9626
+people       polkadot-parachain  30353  30354      9964  9965       9635        9636
+'
+ROLES=(validator asset-hub people)
+CONF_DIR=${POLKADOT_METANODE_CONF_DIR:-/etc/polkadot-metanode}
+# Every layout (install.sh, a package) installs this launcher next to polkadot and
+# polkadot-parachain, so that is where the binaries are unless BIN_DIR says otherwise.
+SELF_DIR=$(dirname "$(readlink -f "$0")")
+# Where the polkadot deb/rpm installs the PVF workers.
+PACKAGE_WORKERS_DIR=/usr/lib/polkadot
+# The configuration keys. They only come from the configuration files: a variable of the same name
+# in the caller's environment (e.g. BIN_DIR in a shell) must not change what `print` or `status`
+# report compared to what the unit runs.
+CONFIG_KEYS=(NETWORK NODE_NAME BIN_DIR RELAY_CHAIN_RPC_URLS RELAY_RPC_WAIT PUBLIC_IP CHAIN RELAY_CHAIN
+  AUTHORING P2P_PORT RPC_PORT PROMETHEUS_PORT RELAY_P2P_PORT RELAY_RPC_PORT RELAY_PROMETHEUS_PORT
+  PROMETHEUS_EXTERNAL RPC_PRIVATE_IP EXTRA_ARGS RELAY_EXTRA_ARGS DATABASE STATE_PRUNING BLOCKS_PRUNING
+  SYNC RELAY_DATABASE RELAY_STATE_PRUNING RELAY_BLOCKS_PRUNING RELAY_SYNC RELAY_POOL_LIMIT WEBRTC)
+# Configuration errors exit with EX_CONFIG. The units list it in RestartPreventExitStatus=, so a
+# broken config fails the unit instead of restarting it forever.
+EX_CONFIG=78
+
+die() {
+  echo "polkadot-metanodectl: $*" >&2
+  exit 1
+}
+
+config_error() {
+  echo "polkadot-metanodectl: $*" >&2
+  exit "$EX_CONFIG"
+}
+
+usage() {
+  cat >&2 <<EOF
+Usage:
+  polkadot-metanodectl run <role>                  start the node for <role> (used by the units)
+  polkadot-metanodectl print <role>                print the command line \`run\` would start
+  polkadot-metanodectl rotate-keys <role> <stash>  generate session keys owned by <stash>
+  polkadot-metanodectl status                      summarise every installed role on this machine
+  polkadot-metanodectl run-all [<role>...]         run roles (default: all) in the foreground,
+                                                   without systemd; stops them all on SIGTERM
+
+Roles: ${ROLES[*]}. Configuration: $CONF_DIR/metanode.conf and $CONF_DIR/<role>.conf.
+EOF
+  exit "${1:-2}"
+}
+
+# The command line as one shell-quoted string, for logs and `print`.
+quoted_command() {
+  printf '%q' "${cmd[0]}"
+  printf ' %q' "${cmd[@]:1}"
+  echo
+}
+
+# Loads the configuration of a role and fills in the defaults from its row of the role table.
+load_role() {
+  ROLE=$1
+  local role binary p2p relay_p2p rpc relay_rpc prometheus relay_prometheus found=0
+  while read -r role binary p2p relay_p2p rpc relay_rpc prometheus relay_prometheus; do
+    if [ "$role" = "$ROLE" ]; then
+      found=1
+      break
+    fi
+  done <<<"$ROLE_TABLE"
+  [ "$found" = 1 ] || config_error "unknown role '$ROLE' (expected one of: ${ROLES[*]})"
+  ROLE_BINARY=$binary
+
+  unset "${CONFIG_KEYS[@]}"
+  # Shared settings first, then the overrides of this role. Both files are bash.
+  if [ -r "$CONF_DIR/metanode.conf" ]; then
+    # shellcheck source=/dev/null
+    . "$CONF_DIR/metanode.conf"
+  fi
+  if [ -r "$CONF_DIR/$ROLE.conf" ]; then
+    # shellcheck source=/dev/null
+    . "$CONF_DIR/$ROLE.conf"
+  fi
+
+  BIN_DIR=${BIN_DIR:-$SELF_DIR}
+  NETWORK=${NETWORK:-}
+  NODE_NAME=${NODE_NAME:-$(uname -n)}
+  P2P_PORT=${P2P_PORT:-$p2p}
+  RPC_PORT=${RPC_PORT:-$rpc}
+  PROMETHEUS_PORT=${PROMETHEUS_PORT:-$prometheus}
+  RELAY_P2P_PORT=${RELAY_P2P_PORT:-$relay_p2p}
+  RELAY_RPC_PORT=${RELAY_RPC_PORT:-$relay_rpc}
+  RELAY_PROMETHEUS_PORT=${RELAY_PROMETHEUS_PORT:-$relay_prometheus}
+  PROMETHEUS_EXTERNAL=${PROMETHEUS_EXTERNAL:-no}
+  # Serve light clients (e.g. smoldot in a browser) over WebRTC on the UDP p2p port. Validators and
+  # collators do not by default; --force-enable-webrtc needs polkadot-stable2606 or later.
+  WEBRTC=${WEBRTC:-yes}
+  PUBLIC_IP=${PUBLIC_IP:-}
+  RPC_PRIVATE_IP=${RPC_PRIVATE_IP:-}
+  # An explicit empty value selects the embedded relay node, so only an unset variable gets the
+  # default: the validator on this machine.
+  RELAY_CHAIN_RPC_URLS=${RELAY_CHAIN_RPC_URLS-ws://127.0.0.1:9944}
+  RELAY_RPC_WAIT=${RELAY_RPC_WAIT:-300}
+  AUTHORING=${AUTHORING:-slot-based}
+  EXTRA_ARGS=${EXTRA_ARGS:-}
+  RELAY_EXTRA_ARGS=${RELAY_EXTRA_ARGS:-}
+  # Database, pruning and sync. An explicitly empty value passes no flag (the node's default).
+  # The validator keeps the node's defaults, as docs.polkadot.com sets none for it; collators get the
+  # settings of its "Run a collator" guide: ParityDB and 256 blocks of history, and for an embedded
+  # relay node also no transaction pool. An embedded relay node keeps the node's default full sync
+  # instead of the guide's fast sync: while fast syncing, its best block has no state, and the
+  # collator's essential DHT bootnode discovery task fails on it and stops the node (stable2606).
+  if [ "$ROLE" = validator ]; then
+    DATABASE=${DATABASE-} STATE_PRUNING=${STATE_PRUNING-} BLOCKS_PRUNING=${BLOCKS_PRUNING-}
+  else
+    DATABASE=${DATABASE-paritydb} STATE_PRUNING=${STATE_PRUNING-256} BLOCKS_PRUNING=${BLOCKS_PRUNING-256}
+  fi
+  SYNC=${SYNC-}
+  RELAY_DATABASE=${RELAY_DATABASE-paritydb}
+  RELAY_STATE_PRUNING=${RELAY_STATE_PRUNING-256}
+  RELAY_BLOCKS_PRUNING=${RELAY_BLOCKS_PRUNING-256}
+  RELAY_SYNC=${RELAY_SYNC-}
+  RELAY_POOL_LIMIT=${RELAY_POOL_LIMIT-0}
+
+  if [ -z "${CHAIN:-}" ]; then
+    check_network
+    if [ "$ROLE" = validator ]; then
+      CHAIN=$NETWORK
+    elif [ "$NETWORK" = paseo ]; then
+      # polkadot-parachain embeds no Paseo system-chain spec.
+      config_error "set CHAIN in $CONF_DIR/$ROLE.conf to the absolute path of the Paseo $ROLE" \
+        "chain spec (https://paritytech.github.io/chainspecs)"
+    else
+      CHAIN=$ROLE-$NETWORK
+    fi
+  fi
+  check_chain CHAIN "$CHAIN"
+
+  if [ "$ROLE" != validator ]; then
+    if [ -z "${RELAY_CHAIN:-}" ]; then
+      check_network
+      RELAY_CHAIN=$NETWORK
+    fi
+    check_chain RELAY_CHAIN "$RELAY_CHAIN"
+    case "$AUTHORING" in
+      slot-based | lookahead) ;;
+      *) config_error "AUTHORING='$AUTHORING' must be slot-based or lookahead" ;;
+    esac
+    local url
+    for url in $RELAY_CHAIN_RPC_URLS; do
+      case "$url" in
+        ws://* | wss://*) ;;
+        *) config_error "RELAY_CHAIN_RPC_URLS: '$url' is not a ws:// or wss:// URL" ;;
+      esac
+    done
+    [ -z "$RPC_PRIVATE_IP" ] || config_error "RPC_PRIVATE_IP only applies to the validator"
+  fi
+
+  local port ports=(P2P_PORT RPC_PORT PROMETHEUS_PORT)
+  [ "$ROLE" = validator ] || ports+=(RELAY_P2P_PORT RELAY_RPC_PORT RELAY_PROMETHEUS_PORT)
+  for port in "${ports[@]}"; do
+    if ! [[ "${!port}" =~ ^[0-9]+$ ]] || ((${!port} < 1 || ${!port} > 65535)); then
+      config_error "$port='${!port}' is not a valid port"
+    fi
+  done
+  [[ "$RELAY_RPC_WAIT" =~ ^[0-9]+$ ]] || config_error "RELAY_RPC_WAIT='$RELAY_RPC_WAIT' is not a number of seconds"
+  local key
+  for key in PROMETHEUS_EXTERNAL WEBRTC; do
+    case "${!key}" in
+      yes | no) ;;
+      *) config_error "$key='${!key}' must be yes or no" ;;
+    esac
+  done
+  for key in DATABASE RELAY_DATABASE; do
+    case "${!key}" in
+      "" | rocksdb | paritydb | auto | paritydb-experimental) ;;
+      *) config_error "$key='${!key}' must be rocksdb, paritydb, auto or paritydb-experimental" ;;
+    esac
+  done
+  for key in STATE_PRUNING BLOCKS_PRUNING RELAY_STATE_PRUNING RELAY_BLOCKS_PRUNING; do
+    [[ "${!key}" =~ ^(|archive|archive-canonical|[0-9]+)$ ]] ||
+      config_error "$key='${!key}' must be archive, archive-canonical or a number of blocks"
+  done
+  for key in SYNC RELAY_SYNC; do
+    case "${!key}" in
+      "" | full | fast | fast-unsafe | warp) ;;
+      *) config_error "$key='${!key}' must be full, fast, fast-unsafe or warp" ;;
+    esac
+  done
+  [[ "$RELAY_POOL_LIMIT" =~ ^[0-9]*$ ]] ||
+    config_error "RELAY_POOL_LIMIT='$RELAY_POOL_LIMIT' is not a number of transactions"
+  local name=$NODE_NAME-$ROLE
+  # Substrate rejects node names longer than 64 characters.
+  ((${#name} <= 64)) || config_error "NODE_NAME is too long: '$name' exceeds 64 characters"
+}
+
+check_network() {
+  case "$NETWORK" in
+    polkadot | kusama | westend | paseo) ;;
+    "") config_error "NETWORK is not set; set it in $CONF_DIR/metanode.conf (polkadot, kusama, westend or paseo)" ;;
+    *) config_error "unknown NETWORK '$NETWORK' (expected polkadot, kusama, westend or paseo)" ;;
+  esac
+}
+
+# A chain is a built-in id or an absolute path to a chain spec file. Anything else is refused: an
+# empty --chain silently selects a test chain, and relative paths can panic polkadot-parachain.
+check_chain() {
+  local var=$1 value=$2
+  case "$value" in
+    /*) [ -r "$value" ] || config_error "$var=$value: chain spec file not found" ;;
+    *)
+      [[ "$value" =~ ^[a-z0-9][a-z0-9-]*$ ]] ||
+        config_error "$var='$value' must be a built-in chain id or an absolute path to a chain spec"
+      ;;
+  esac
+}
+
+# multiaddr <ip> <port> [webrtc]: the TCP address, or with "webrtc" the WebRTC one on the same UDP
+# port (the node adds its /certhash).
+multiaddr() {
+  local transport=/tcp/$2
+  [ "${3:-}" != webrtc ] || transport=/udp/$2/webrtc-direct
+  case "$1" in
+    *:*) echo "/ip6/$1$transport" ;;
+    *) echo "/ip4/$1$transport" ;;
+  esac
+}
+
+# WebRTC for light clients, and the public addresses to advertise, of the loaded role's p2p side.
+p2p_args() {
+  [ "$WEBRTC" = no ] || cmd+=(--force-enable-webrtc)
+  if [ -n "$PUBLIC_IP" ]; then
+    cmd+=(--public-addr "$(multiaddr "$PUBLIC_IP" "$P2P_PORT")")
+    [ "$WEBRTC" = no ] || cmd+=(--public-addr "$(multiaddr "$PUBLIC_IP" "$P2P_PORT" webrtc)")
+  fi
+}
+
+host_port() {
+  case "$1" in
+    *:*) echo "[$1]:$2" ;;
+    *) echo "$1:$2" ;;
+  esac
+}
+
+# storage_args <array> <database> <state-pruning> <blocks-pruning> <sync>: appends those flags to
+# the named array, each only if set.
+storage_args() {
+  local -n args=$1
+  [ -z "$2" ] || args+=(--database "$2")
+  [ -z "$3" ] || args+=(--state-pruning "$3")
+  [ -z "$4" ] || args+=(--blocks-pruning "$4")
+  [ -z "$5" ] || args+=(--sync "$5")
+}
+
+# Flags that take a single value and that the launcher may pass itself.
+SINGLE_FLAGS=' --chain --name --base-path --node-key-file --workers-path --port --rpc-port
+  --prometheus-port --authoring --database --state-pruning --blocks-pruning --sync --pool-limit '
+
+# reject_repeated <key> <arguments passed so far> <extra argument...>: an extra argument may not
+# repeat a single-value flag the launcher already passes; the node would refuse to start.
+reject_repeated() {
+  local key=$1 passed=" $2 " arg flag
+  shift 2
+  for arg in "$@"; do
+    flag=${arg%%=*}
+    if [[ "$flag" == --* && "$SINGLE_FLAGS" == *[[:space:]]"$flag"[[:space:]]* && "$passed" == *" $flag "* ]]; then
+      config_error "$key repeats $flag, which is already set from the configuration; change it" \
+        "through its key in $CONF_DIR/$ROLE.conf (see $ROLE.conf.example) instead"
+    fi
+  done
+}
+
+# Builds the node command line of the loaded role into `cmd`.
+build_command() {
+  BASE_PATH=${STATE_DIRECTORY:-${POLKADOT_METANODE_BASE_DIR:-/var/lib}/polkadot-$ROLE}
+  NODE_KEY_FILE=$BASE_PATH/node-key
+  local extra relay_extra
+  read -r -a extra <<<"$EXTRA_ARGS"
+  read -r -a relay_extra <<<"$RELAY_EXTRA_ARGS"
+
+  NODE_BIN=$BIN_DIR/$ROLE_BINARY
+  if [ "$ROLE" = validator ]; then
+    # The PVF workers: next to the node (install.sh), else where the polkadot package puts them.
+    # The directory is always passed, so the node never picks up some other set through its own
+    # search. With workers in neither, BIN_DIR keeps `print` deterministic and run_node reports it.
+    WORKERS_DIR=$BIN_DIR
+    if [ ! -e "$BIN_DIR/polkadot-prepare-worker" ] && [ -e "$PACKAGE_WORKERS_DIR/polkadot-prepare-worker" ]; then
+      WORKERS_DIR=$PACKAGE_WORKERS_DIR
+    fi
+    cmd=("$NODE_BIN" --validator --chain "$CHAIN" --name "$NODE_NAME-$ROLE"
+      --base-path "$BASE_PATH" --node-key-file "$NODE_KEY_FILE" --workers-path "$WORKERS_DIR"
+      --port "$P2P_PORT" --prometheus-port "$PROMETHEUS_PORT")
+    if [ -n "$RPC_PRIVATE_IP" ]; then
+      # Collators on other machines need the validator RPC. `--rpc-external` is refused on a
+      # validator and its default CORS list rejects remote hosts, so serve two endpoints instead:
+      # localhost keeps the unsafe methods (rotate-keys, status), the private address only gets
+      # the safe ones.
+      cmd+=(--experimental-rpc-endpoint "listen-addr=127.0.0.1:$RPC_PORT,methods=unsafe"
+        --experimental-rpc-endpoint "listen-addr=$(host_port "$RPC_PRIVATE_IP" "$RPC_PORT"),methods=safe")
+    else
+      cmd+=(--rpc-port "$RPC_PORT")
+    fi
+    storage_args cmd "$DATABASE" "$STATE_PRUNING" "$BLOCKS_PRUNING" "$SYNC"
+    [ "$PROMETHEUS_EXTERNAL" = no ] || cmd+=(--prometheus-external)
+    p2p_args
+    reject_repeated EXTRA_ARGS "${cmd[*]}" "${extra[@]}"
+    cmd+=("${extra[@]}")
+    return
+  fi
+
+  cmd=("$NODE_BIN" --collator --chain "$CHAIN" --name "$NODE_NAME-$ROLE"
+    --base-path "$BASE_PATH" --node-key-file "$NODE_KEY_FILE" --authoring "$AUTHORING"
+    --port "$P2P_PORT" --rpc-port "$RPC_PORT" --prometheus-port "$PROMETHEUS_PORT")
+  local url
+  for url in $RELAY_CHAIN_RPC_URLS; do
+    cmd+=(--relay-chain-rpc-url "$url")
+  done
+  storage_args cmd "$DATABASE" "$STATE_PRUNING" "$BLOCKS_PRUNING" "$SYNC"
+  [ "$PROMETHEUS_EXTERNAL" = no ] || cmd+=(--prometheus-external)
+  p2p_args
+  reject_repeated EXTRA_ARGS "${cmd[*]}" "${extra[@]}"
+  cmd+=("${extra[@]}")
+  # The relay side always needs the relay chain spec (the parachain spec only names it) and its own
+  # ports: even in RPC mode the minimal relay node runs p2p and Prometheus. Only the embedded node
+  # serves RPC.
+  local relay=(--chain "$RELAY_CHAIN" --port "$RELAY_P2P_PORT" --prometheus-port "$RELAY_PROMETHEUS_PORT")
+  if [ -z "$RELAY_CHAIN_RPC_URLS" ]; then
+    # The embedded relay node keeps its own database; the minimal node of RPC mode has none.
+    relay+=(--rpc-port "$RELAY_RPC_PORT")
+    storage_args relay "$RELAY_DATABASE" "$RELAY_STATE_PRUNING" "$RELAY_BLOCKS_PRUNING" "$RELAY_SYNC"
+    [ -z "$RELAY_POOL_LIMIT" ] || relay+=(--pool-limit "$RELAY_POOL_LIMIT")
+  fi
+  [ "$PROMETHEUS_EXTERNAL" = no ] || relay+=(--prometheus-external)
+  reject_repeated RELAY_EXTRA_ARGS "${relay[*]}" "${relay_extra[@]}"
+  cmd+=(-- "${relay[@]}" "${relay_extra[@]}")
+}
+
+# Authorities refuse to start without a persisted network key (collators count as authorities).
+# `key generate-node-key --file` overwrites unconditionally, hence the guard and the rename.
+ensure_node_key() {
+  [ -s "$NODE_KEY_FILE" ] && return 0
+  mkdir -p "$BASE_PATH"
+  "$NODE_BIN" key generate-node-key --file "$NODE_KEY_FILE.new"
+  chmod 0600 "$NODE_KEY_FILE.new"
+  mv -f "$NODE_KEY_FILE.new" "$NODE_KEY_FILE"
+}
+
+# A collator on relay-chain RPC gives up after a few seconds of failed connections and exits,
+# after first spending a minute or more on initialisation. Waiting here keeps a restart loop from
+# redoing that work while the validator is down, e.g. at boot or during its RestartSec.
+wait_for_relay_rpc() {
+  [ -n "$RELAY_CHAIN_RPC_URLS" ] || return 0
+  local deadline=$((SECONDS + RELAY_RPC_WAIT)) next_log=0 url http
+  while :; do
+    for url in $RELAY_CHAIN_RPC_URLS; do
+      http=${url/#ws:/http:}
+      http=${http/#wss:/https:}
+      if curl -fsS -m 5 -o /dev/null "${http%/}/health" 2>/dev/null; then
+        return 0
+      fi
+    done
+    if ((SECONDS >= deadline)); then
+      die "no relay-chain RPC answered within ${RELAY_RPC_WAIT}s: $RELAY_CHAIN_RPC_URLS"
+    fi
+    if ((SECONDS >= next_log)); then
+      echo "polkadot-metanodectl: waiting for relay-chain RPC: $RELAY_CHAIN_RPC_URLS"
+      next_log=$((SECONDS + 30))
+    fi
+    sleep 2
+  done
+}
+
+# The X.Y.Z of a binary's --version, as the node compares it with its workers' (empty if none).
+version_of() {
+  local out
+  out=$("$1" --version 2>/dev/null) || return 0
+  if [[ "$out" =~ ([0-9]+\.[0-9]+\.[0-9]+) ]]; then echo "${BASH_REMATCH[1]}"; fi
+}
+
+# The validator needs both PVF workers, of its own version. The node checks that too, but exits 1
+# and is restarted in a loop. A missing or mismatched worker is a configuration error instead, e.g.
+# a polkadot in BIN_DIR running with the polkadot package's workers after that package's upgrade.
+check_workers() {
+  local worker node_version worker_version
+  node_version=$(version_of "$NODE_BIN")
+  for worker in polkadot-prepare-worker polkadot-execute-worker; do
+    [ -x "$WORKERS_DIR/$worker" ] ||
+      config_error "$WORKERS_DIR/$worker not found or not executable; the validator needs" \
+        "polkadot-prepare-worker and polkadot-execute-worker in $WORKERS_DIR"
+    worker_version=$(version_of "$WORKERS_DIR/$worker")
+    [ "$worker_version" = "$node_version" ] ||
+      config_error "$WORKERS_DIR/$worker is version ${worker_version:-unknown} but $NODE_BIN is" \
+        "${node_version:-unknown}; install matching binaries"
+  done
+}
+
+run_node() {
+  [ -x "$NODE_BIN" ] || config_error "$NODE_BIN not found; install the binaries or set BIN_DIR"
+  [ "$ROLE" != validator ] || check_workers
+  ensure_node_key
+  [ "$ROLE" = validator ] || wait_for_relay_rpc
+  echo "polkadot-metanodectl: starting $ROLE: $(quoted_command)"
+  exec "${cmd[@]}"
+}
+
+# JSON-RPC call to a role's localhost endpoint.
+rpc() {
+  local port=$1 method=$2 params=$3
+  curl -fsS -m 30 -H 'Content-Type: application/json' \
+    -d "{\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"$method\",\"params\":$params}" \
+    "http://127.0.0.1:$port"
+}
+
+# Accepts a stash as an SS58 address or a 0x-prefixed 32-byte account id and prints the hex form
+# that author_rotateKeysWithOwner expects.
+account_hex() {
+  local stash=$1
+  if [[ "$stash" =~ ^0x[0-9a-fA-F]{64}$ ]]; then
+    echo "$stash"
+    return
+  fi
+  local hex
+  hex=$("$BIN_DIR/polkadot" key inspect "$stash" 2>/dev/null | awk '/Account ID:/ { print $3 }') || true
+  [[ "$hex" =~ ^0x[0-9a-fA-F]{64}$ ]] || die "'$stash' is not an SS58 address or a 0x-prefixed account id"
+  echo "$hex"
+}
+
+rotate_keys() {
+  load_role "$1"
+  local stash=$2 owner response keys proof
+  owner=$(account_hex "$stash")
+  response=$(rpc "$RPC_PORT" author_rotateKeysWithOwner "[\"$owner\"]") ||
+    die "cannot reach the $ROLE RPC on 127.0.0.1:$RPC_PORT; is polkadot-$ROLE running?"
+  if jq -e '.error' >/dev/null <<<"$response"; then
+    die "author_rotateKeysWithOwner failed: $(jq -c '.error' <<<"$response")"
+  fi
+  keys=$(jq -r '.result.keys' <<<"$response")
+  proof=$(jq -r '.result.proof' <<<"$response")
+  echo "keys:  $keys"
+  echo "proof: $proof"
+  if [ "$ROLE" = validator ]; then
+    echo "Submit both with stakingRcClient.setKeys(keys, proof) on Asset Hub, signed by the stash" \
+      "or its staking operator proxy."
+  else
+    echo "Submit both with session.setKeys(keys, proof) on the $ROLE chain, signed by $stash."
+  fi
+}
+
+# Prints the block number of a chain_getHeader response, or "-" if there is none.
+block_number() {
+  local hex
+  hex=$(jq -r '.result.number // empty' <<<"$1" 2>/dev/null) || true
+  if [[ "$hex" =~ ^0x[0-9a-fA-F]+$ ]]; then
+    echo $((hex))
+  else
+    echo -
+  fi
+}
+
+# Queries one role's localhost RPC and prints "peers syncing best finalized peer-id". Any failure
+# (e.g. the node stopping mid-way) degrades to "-" fields instead of aborting the table.
+role_health() {
+  local port=$1 health head
+  health=$(rpc "$port" system_health '[]' 2>/dev/null) || {
+    echo "- - - - -"
+    return
+  }
+  head=$(rpc "$port" chain_getFinalizedHead '[]' 2>/dev/null | jq -r '.result // empty') || true
+  echo "$(jq -r '.result.peers' <<<"$health") $(jq -r '.result.isSyncing' <<<"$health")" \
+    "$(block_number "$(rpc "$port" chain_getHeader '[]' 2>/dev/null || true)")" \
+    "$(block_number "$(rpc "$port" chain_getHeader "[\"$head\"]" 2>/dev/null || true)")" \
+    "$(rpc "$port" system_localPeerId '[]' 2>/dev/null | jq -r '.result // "-"' || echo -)"
+}
+
+status() {
+  local format='%-10s %-9s %-11s %5s %-7s %9s %9s  %s\n'
+  # shellcheck disable=SC2059 # the format string is a local constant
+  printf "$format" ROLE ENABLED ACTIVE PEERS SYNCING BEST FINALIZED PEER-ID
+  local role unit enabled active port fields
+  for role in "${ROLES[@]}"; do
+    unit=polkadot-$role.service
+    systemctl cat "$unit" >/dev/null 2>&1 || continue
+    enabled=$(systemctl is-enabled "$unit" 2>/dev/null) || true
+    active=$(systemctl is-active "$unit" 2>/dev/null) || true
+    port=$( (load_role "$role" && echo "$RPC_PORT") 2>/dev/null) || port=
+    fields="- - - - -"
+    if [ "$active" = active ] && [ -n "$port" ]; then
+      fields=$(role_health "$port")
+    fi
+    # shellcheck disable=SC2059,SC2086 # word-splitting $fields into the five columns is intended
+    printf "$format" "$role" "${enabled:--}" "${active:--}" $fields
+  done
+}
+
+# Runs several roles (default: all) in the foreground without systemd, each through `run`, with
+# every line of their output prefixed by the role. There is no supervision: when one node exits,
+# the others are stopped and run-all exits with that node's status, so whatever runs it (docker, a
+# shell loop) decides what happens next. SIGTERM or SIGINT stops them all.
+run_all() {
+  local roles=("$@") role status=0 pids=()
+  [ ${#roles[@]} -gt 0 ] || roles=("${ROLES[@]}")
+  # A configuration error in any role stops everything before a node is started.
+  for role in "${roles[@]}"; do
+    "$0" print "$role" >/dev/null || exit
+  done
+  trap 'kill -TERM "${pids[@]}" 2>/dev/null || true' TERM INT
+  for role in "${roles[@]}"; do
+    "$0" run "$role" > >(sed -u "s/^/[$role] /") 2>&1 &
+    pids+=("$!")
+  done
+  wait -n "${pids[@]}" || status=$?
+  kill -TERM "${pids[@]}" 2>/dev/null || true
+  wait "${pids[@]}" 2>/dev/null || true
+  exit "$status"
+}
+
+main() {
+  case "${1:-}" in
+    run)
+      [ $# -eq 2 ] || usage
+      load_role "$2"
+      build_command
+      run_node
+      ;;
+    print)
+      [ $# -eq 2 ] || usage
+      load_role "$2"
+      build_command
+      quoted_command
+      ;;
+    rotate-keys)
+      [ $# -eq 3 ] || usage
+      rotate_keys "$2" "$3"
+      ;;
+    status)
+      [ $# -eq 1 ] || usage
+      status
+      ;;
+    run-all)
+      shift
+      run_all "$@"
+      ;;
+    -h | --help | help) usage 0 ;;
+    *) usage ;;
+  esac
+}
+
+main "$@"

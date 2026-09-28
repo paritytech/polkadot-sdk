@@ -1,0 +1,23 @@
+[Unit]
+Description=Metanode Asset Hub collator
+Documentation=https://github.com/paritytech/polkadot-sdk/tree/master/scripts/metanode
+# Ordering only: a collator-only machine has no validator unit to wait for.
+After=polkadot-validator.service
+
+[Service]
+User=polkadot-asset-hub
+Group=polkadot-asset-hub
+StateDirectory=polkadot-asset-hub
+SyslogIdentifier=polkadot-asset-hub
+# @BINDIR@ is the directory polkadot-metanodectl is installed in. Whatever installs this
+# template (install.sh, or a package later) fills it in, so both layouts share the file.
+ExecStart=@BINDIR@/polkadot-metanodectl run asset-hub
+RestartSec=10
+
+# Collators run no PVF workers, so they get no namespaces and no mount syscalls.
+RestrictNamespaces=true
+SystemCallFilter=@system-service
+SystemCallFilter=~@clock @module @reboot @swap @privileged
+
+[Install]
+WantedBy=polkadot-metanode.target
