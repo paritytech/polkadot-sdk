@@ -128,7 +128,7 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 
 			let current_count = Cell::new(0.0f64);
 			node.wait_metric_with_timeout(
-				"substrate_sub_statement_store_submitted_statements",
+				"substrate_sub_statement_store_submitted_statements{reason=\"persistent\"}",
 				|count| {
 					current_count.set(count);
 					true
