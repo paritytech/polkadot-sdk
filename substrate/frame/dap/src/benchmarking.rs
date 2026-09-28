@@ -19,6 +19,7 @@
 
 use super::*;
 use frame_benchmarking::v2::*;
+use frame_support::{assert_ok, traits::fungibles::Create};
 use frame_system::RawOrigin;
 use sp_staking::budget::BudgetRecipientList;
 
@@ -46,12 +47,18 @@ mod benchmarks {
 		allocations
 	}
 
+	fn create_asset<T: Config>(asset: T::AssetKind) {
+		let caller: T::AccountId = whitelisted_caller();
+		assert_ok!(T::Assets::create(asset, caller, false, T::Balance::one()));
+	}
+
 	#[benchmark]
-	fn set_budget_allocation() {
+	fn set_allocations() {
 		let allocations = build_even_allocation::<T>();
 
+		// TODO: Add asset allocations.
 		#[extrinsic_call]
-		_(RawOrigin::Root, allocations.clone());
+		_(RawOrigin::Root, Some(allocations.clone()), None);
 
 		assert_eq!(BudgetAllocation::<T>::get(), allocations);
 	}
@@ -74,4 +81,47 @@ mod benchmarks {
 
 		assert!(LastIssuanceTimestamp::<T>::get() > past);
 	}
+
+	#[benchmark]
+	fn on_idle_base() {
+		// let mut allocations: AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>> =
+		// 	BoundedBTreeMap::new();
+		// for asset_id in 0..MAX_DISTRIBUTABLE_ASSETS {
+		// 	let asset_id: AssetKindOf<T> = asset_id.into();
+
+		// 	create_asset::<T>(asset_id.clone());
+		// 	assert_ok!(allocations.try_insert(asset_id, Default::default()));
+		// }
+
+		#[block]
+		{
+			Pallet::<T>::on_idle(Default::default(), Weight::MAX);
+		}
+
+		// TODO: Assert that only native token was transfered.
+	}
+
+	// TODO: Mint tokens.
+	#[benchmark]
+	fn on_idle_single_asset_drain() {
+		// let mut allocations: AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>> =
+		// 	BoundedBTreeMap::new();
+		// for asset_id in 0..MAX_DISTRIBUTABLE_ASSETS {
+		// 	let asset_id: AssetKindOf<T> = asset_id.into();
+
+		// 	create_asset::<T>(asset_id.clone());
+		// 	assert_ok!(allocations.try_insert(asset_id, Default::default()));
+		// }
+
+		#[block]
+		{
+			Pallet::<T>::on_idle(Default::default(), Weight::MAX);
+		}
+
+		// TODO: Assert.
+	}
+
+	// Implements a test for each benchmark. Execute with:
+	// `cargo test -p pallet-dap --features runtime-benchmarks`.
+	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext_bench(), crate::mock::Test);
 }

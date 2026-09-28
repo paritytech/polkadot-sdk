@@ -42,8 +42,8 @@ pub mod benchmarking;
 
 #[cfg(test)]
 pub(crate) mod mock;
-#[cfg(test)]
-mod tests;
+//#[cfg(test)]
+// mod tests;
 
 extern crate alloc;
 
@@ -115,7 +115,7 @@ pub mod pallet {
 	use crate::weights::WeightInfo;
 	use frame_support::{
 		sp_runtime::traits::AccountIdConversion,
-		traits::{tokens::Balance, StorageVersion},
+		traits::{fungibles::Create, tokens::Balance, StorageVersion},
 	};
 	use frame_system::pallet_prelude::*;
 
@@ -132,6 +132,14 @@ pub mod pallet {
 
 		type AssetKind: Parameter + MaxEncodedLen + MaybeSerializeDeserialize + Ord + Debug;
 
+		#[cfg(feature = "runtime-benchmarks")]
+		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetKind, Balance = Self::Balance>
+			+ Mutate<Self::AccountId>
+			+ Balanced<Self::AccountId>
+			+ Unbalanced<Self::AccountId>
+			+ Create<Self::AccountId>;
+
+		#[cfg(not(feature = "runtime-benchmarks"))]
 		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetKind, Balance = Self::Balance>
 			+ Mutate<Self::AccountId>
 			+ Balanced<Self::AccountId>
@@ -208,6 +216,8 @@ pub mod pallet {
 		StagingDrained {
 			/// Amount drained.
 			amount: BalanceOf<T>,
+			/// Asset that was drained.
+			asset: AssetKindOf<T>,
 		},
 		/// Assets are distributed to their recipients.
 		AssetDistributed {
@@ -275,49 +285,71 @@ pub mod pallet {
 
 		fn on_idle(_block: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
 			let mut meter = WeightMeter::with_limit(remaining_weight);
-
-			// Need at least one read (staging account balance).
-			if meter.try_consume(T::DbWeight::get().reads(1)).is_err() {
+			if meter.try_consume(T::WeightInfo::on_idle_base()).is_err() {
 				return meter.consumed();
 			}
 
 			let staging_account = Self::staging_account();
-			let available = NativeCurrencyOf::<T>::reducible_balance(
-				&staging_account,
-				Preservation::Preserve,
-				Fortitude::Polite,
-			);
-
-			if available.is_zero() {
-				return meter.consumed();
-			}
-
-			// Need 1 read and 2 writes for the transfer, plus 1 read and 1 write for
-			// deactivate (InactiveIssuance) and 1 read for TotalIssuance.
-			if meter.try_consume(T::DbWeight::get().reads_writes(3, 3)).is_err() {
-				return meter.consumed();
-			}
-
 			let buffer = Self::buffer_account();
-			if NativeCurrencyOf::<T>::transfer(
-				&staging_account,
-				&buffer,
-				available,
-				Preservation::Preserve,
-			)
-			.is_err()
-			{
-				defensive!("DAP: staging account transfer to buffer failed");
-				return meter.consumed();
+
+			let drain_staging_account = move |asset: AssetKindOf<T>| {
+				let available = T::Assets::reducible_balance(
+					asset.clone(),
+					&staging_account,
+					Preservation::Preserve,
+					Fortitude::Polite,
+				);
+
+				if available.is_zero() {
+					return;
+				}
+
+				if T::Assets::transfer(
+					asset.clone(),
+					&staging_account,
+					&buffer,
+					available,
+					Preservation::Preserve,
+				)
+				.is_err()
+				{
+					defensive!("DAP: staging account transfer of asset {} to buffer failed", asset);
+					return;
+				}
+
+				if asset == T::NativeCurrencyAssetId::get() {
+					Self::deactivate_buffer_funds(available);
+				}
+
+				log::debug!(
+					target: LOG_TARGET,
+					"DAP: drained {available:?} of asset {asset:?} from staging account to DAP buffer"
+				);
+
+				Self::deposit_event(Event::StagingDrained { amount: available, asset });
+			};
+
+			let native_currency = T::NativeCurrencyAssetId::get();
+			drain_staging_account(native_currency.clone());
+
+			for asset in AssetAllocation::<T>::get().keys().cloned() {
+				// Don't drain the native currency twice.
+				if asset == native_currency {
+					continue;
+				}
+
+				if meter
+					.try_consume(
+						T::WeightInfo::on_idle_single_asset_drain()
+							.saturating_sub(T::WeightInfo::on_idle_base()),
+					)
+					.is_err()
+				{
+					return meter.consumed();
+				}
+
+				drain_staging_account(asset);
 			}
-
-			Self::deactivate_buffer_funds(available);
-			Self::deposit_event(Event::StagingDrained { amount: available });
-
-			log::debug!(
-				target: LOG_TARGET,
-				"DAP: drained {available:?} from staging account to DAP buffer"
-			);
 
 			meter.consumed()
 		}

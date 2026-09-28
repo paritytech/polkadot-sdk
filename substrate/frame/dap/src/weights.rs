@@ -73,6 +73,8 @@ use core::marker::PhantomData;
 pub trait WeightInfo {
 	fn set_allocations() -> Weight;
 	fn drip_issuance() -> Weight;
+	fn on_idle_base() -> Weight;
+	fn on_idle_single_asset_drain() -> Weight;
 }
 
 /// Weights for `pallet_dap` using the Substrate node and recommended hardware.
@@ -101,6 +103,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	fn on_idle_base() -> Weight {
+		Weight::zero()
+	}
+	fn on_idle_single_asset_drain() -> Weight{
+		Weight::zero()
+	}
 }
 
 // For backwards compatibility and tests.
@@ -127,5 +135,11 @@ impl WeightInfo for () {
 		Weight::from_parts(8_073_000, 1493)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn on_idle_base() -> Weight {
+		Weight::zero()
+	}
+	fn on_idle_single_asset_drain() -> Weight{
+		Weight::zero()
 	}
 }
