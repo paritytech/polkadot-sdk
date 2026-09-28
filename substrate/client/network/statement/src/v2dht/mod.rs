@@ -34,11 +34,16 @@ use sc_network::{types::ProtocolName, NetworkPeers};
 use sc_network_types::PeerId;
 use sp_statement_store::{Hash, Statement, SubmitResult, Topic};
 use std::{
+	cell::RefCell,
 	collections::{HashMap, HashSet},
 	num::NonZeroUsize,
 	sync::{Arc, RwLock},
-	time::Instant,
+	time::{Duration, Instant},
 };
+
+/// How long the node must stay out of major sync before it re-advertises its filter, so a sync
+/// that flaps around its threshold asks peers for one replay, not one per flap.
+const MAJOR_SYNC_SETTLE_PERIOD: Duration = Duration::from_secs(5);
 
 /// The reasons a received statement is retained, as a bitmask of independent flags.
 ///
@@ -147,6 +152,8 @@ pub(crate) struct V2DhtOrchestrator {
 	retention: Option<RetentionHandle>,
 	/// Prometheus metrics.
 	metrics: Option<V2DhtMetrics>,
+	/// When the node was last seen major-syncing.
+	major_sync_seen_at: Option<Instant>,
 }
 
 impl V2DhtOrchestrator {
@@ -169,6 +176,7 @@ impl V2DhtOrchestrator {
 			peer_steering: PeerSteering::new(protocol),
 			retention: None,
 			metrics,
+			major_sync_seen_at: None,
 		}
 	}
 
@@ -293,6 +301,22 @@ impl V2DhtOrchestrator {
 		self.peers_topology.routing_targets(topic).contains(&peer)
 	}
 
+	/// Whether `peer` is a DHT routing target for a statement.
+	///
+	/// Checking a topic scans the connected peers, so the answer is cached per topic for the
+	/// predicate's lifetime.
+	pub(crate) fn dht_target_predicate(&self, peer: PeerId) -> impl Fn(&Statement) -> bool + '_ {
+		let topics = RefCell::new(HashMap::new());
+		move |stmt: &Statement| {
+			stmt.topics().iter().any(|topic| {
+				*topics
+					.borrow_mut()
+					.entry(*topic)
+					.or_insert_with(|| self.peer_is_dht_target_for_topic(peer, *topic))
+			})
+		}
+	}
+
 	// === Post-submit hook ===
 
 	/// Score peer on the outcome of importing a statement it sent: a valid statement rewards it, an
@@ -372,9 +396,15 @@ impl V2DhtOrchestrator {
 		self.report_topology_size();
 	}
 
-	pub(crate) fn on_major_sync_end(&mut self) {
-		// TODO: The major sync processing may be different
-		log::trace!(target: LOG_TARGET, "v2dht: on_major_sync_end (stub)");
+	pub(crate) fn on_major_sync(&mut self) {
+		self.major_sync_seen_at = Some(Instant::now());
+		self.explicit_affinity.mark_local_filter_stale();
+	}
+
+	/// Whether the node has stayed out of major sync for `MAJOR_SYNC_SETTLE_PERIOD`.
+	pub(crate) fn major_sync_settled(&self) -> bool {
+		self.major_sync_seen_at
+			.is_none_or(|seen_at| seen_at.elapsed() >= MAJOR_SYNC_SETTLE_PERIOD)
 	}
 }
 #[cfg(test)]
