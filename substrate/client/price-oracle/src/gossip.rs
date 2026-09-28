@@ -27,7 +27,7 @@ use sc_network::{
 };
 use sc_network_gossip::{ValidationResult, Validator, ValidatorContext};
 use sc_network_types::PeerId;
-use sp_price_oracle::{Anchor, SignedPriceReport};
+use sp_price_oracle::{Anchor, Settings, SignedPriceReport};
 use sp_runtime::{
 	traits::{Block as BlockT, Hash, Header},
 	RuntimeAppPublic,
@@ -119,6 +119,11 @@ impl<Id> Default for Acceptance<Id> {
 }
 
 impl<Id> Acceptance<Id> {
+	/// The rules of `settings` applied at `current`.
+	pub fn new(settings: Settings<Id>, current: Anchor) -> Self {
+		Self { signers: settings.signers, current, window: settings.report_window }
+	}
+
 	/// The oldest anchor accepted.
 	pub fn oldest(&self) -> Anchor {
 		Anchor(self.current.0.saturating_sub(self.window))

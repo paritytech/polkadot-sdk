@@ -49,7 +49,7 @@ use sp_application_crypto::AppCrypto;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
 use sp_keystore::KeystorePtr;
-use sp_price_oracle::{market::Market, runtime_api::PriceOracleApi, Anchor, PriceReport};
+use sp_price_oracle::{market::Market, runtime_api::PriceOracleApi, Anchor, PriceReport, Settings};
 use sp_runtime::{
 	traits::{Block as BlockT, SaturatedConversion},
 	RuntimeAppPublic,
@@ -165,6 +165,7 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 		futures::pin_mut!(timer);
 		futures::select! {
 			_ = timer => {
+				// Start a tick, unless the previous one is still running or the node is syncing.
 				next_tick = Instant::now() + interval;
 				if !tick.is_terminated() {
 					log::warn!(target: LOG_TARGET, "Previous tick still running, skipping a tick");
@@ -174,27 +175,37 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 					log::debug!(target: LOG_TARGET, "Major syncing, skipping a tick");
 					continue;
 				}
-				let Some(setup) = TickSetup::read(
-					&*client, &keystore, &validator, &pool, &mut api_missing_logged,
-				) else {
+				// Read the settings and the markets from the runtime at the best block.
+				let Some((setup, settings)) =
+					TickSetup::read(&*client, &keystore, &mut api_missing_logged)
+				else {
 					continue;
 				};
+				let acceptance = Acceptance::new(settings, setup.anchor);
+				// Drop pooled reports that fell out of the report window.
+				pool.prune(acceptance.oldest());
+				// Validate incoming reports against the signers and window of this block.
+				validator.set_acceptance(acceptance);
+				// Follow a changed tick interval from the next tick on.
 				if setup.interval != interval {
 					log::info!(target: LOG_TARGET, "Tick interval is now {:?}", setup.interval);
 					interval = setup.interval;
 					next_tick = Instant::now() + interval;
 				}
+				// Fetch, price, sign and pool in the background; the result arrives in the arm below.
 				tick = run_tick(client.clone(), fetcher.clone(), keystore.clone(), pool.clone(), setup)
 					.boxed()
 					.fuse();
 			},
 			encoded = &mut tick => {
+				// The tick finished: gossip the signed report, if it produced one.
 				if let Some(encoded) = encoded {
 					gossip_engine.gossip_message(gossip::topic::<Block>(), encoded, false);
 				}
 			},
 			notification = incoming.next() => {
-				// Validated and pooled by the validator; the stream is only observed here.
+				// Incoming reports were validated and pooled by the validator; only the end of
+				// the stream matters here.
 				if notification.is_none() {
 					log::warn!(target: LOG_TARGET, "Gossip topic stream ended, stopping");
 					// TODO: can we handle this without stopping the service?
@@ -202,6 +213,7 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 				}
 			},
 			_ = &mut gossip_engine => {
+				// Drive the gossip engine; it only completes when the network shuts down.
 				log::warn!(target: LOG_TARGET, "Gossip engine ended, stopping");
 				// TODO: can we handle this without stopping the service?
 				return;
@@ -220,64 +232,44 @@ struct TickSetup<Hash, Id> {
 }
 
 impl<Hash: Copy, Id> TickSetup<Hash, Id> {
-	/// Read the state at the best block, update the acceptance rules of `validator` and prune
-	/// `pool` accordingly.
+	/// Read the state at the best block. Returns the setup of the tick and the settings in force
+	/// at that block.
 	///
 	/// Returns `None` if a runtime API call fails, which is the case when the runtime does not
-	/// implement the price oracle APIs. The failure is logged once, and again only after the
+	/// implement the price oracle API. The failure is logged once, and again only after the
 	/// calls have succeeded in between.
-	fn read<Block, Client, Signature>(
+	fn read<Block, Client>(
 		client: &Client,
 		keystore: &KeystorePtr,
-		validator: &ReportValidator<Block, Id, Signature>,
-		pool: &ReportPool<Id, Signature>,
 		api_missing_logged: &mut bool,
-	) -> Option<Self>
+	) -> Option<(Self, Settings<Id>)>
 	where
 		Block: BlockT<Hash = Hash>,
 		Client: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 		Client::Api: PriceOracleApi<Block, Id>,
 		Id: RuntimeAppPublic + AppCrypto + Ord + Clone + Decode,
-		Signature: Clone,
 	{
 		let info = client.info();
 		let best_hash = info.best_hash;
 		let anchor = Anchor(info.best_number.saturated_into());
 		let api = client.runtime_api();
 
-		// TODO: consider reading as much as possible and failing only after few consecutive
-		// failures.
-		let read = (|| -> Result<_, sp_api::ApiError> {
-			Ok((api.settings(best_hash)?, api.markets(best_hash)?))
-		})();
-		let (settings, markets) = match read {
-			Ok(read) => {
-				*api_missing_logged = false;
-				read
-			},
-			Err(e) => {
+		let (settings, markets) = match (api.settings(best_hash), api.markets(best_hash)) {
+			(Ok(settings), Ok(markets)) => (settings, markets),
+			(Err(e), _) | (_, Err(e)) => {
 				if !*api_missing_logged {
-					log::error!(target: LOG_TARGET, "Runtime does not serve the price oracle APIs: {e}");
+					log::error!(target: LOG_TARGET, "Runtime does not serve the price oracle API: {e}");
 					*api_missing_logged = true;
 				}
 				return None;
 			},
 		};
+		*api_missing_logged = false;
 
 		let signer = signer::local_signer(keystore, &settings.signers);
-		let acceptance = Acceptance {
-			signers: settings.signers,
-			current: anchor,
-			window: settings.report_window,
-		};
-		// TODO: move to upper level or rename function.
-		pool.prune(acceptance.oldest());
-		// TODO: move to upper level or rename function.
-		validator.set_acceptance(acceptance);
-
 		let interval =
 			Duration::from_millis(settings.tick_interval_ms.into()).max(MIN_TICK_INTERVAL);
-		Some(Self { best_hash, anchor, interval, signer, markets })
+		Some((Self { best_hash, anchor, interval, signer, markets }, settings))
 	}
 }
 
