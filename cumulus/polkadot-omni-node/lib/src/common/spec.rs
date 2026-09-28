@@ -16,7 +16,7 @@
 
 use crate::{
 	chain_spec::Extensions,
-	cli::DevSealMode,
+	cli::{AuthoringPolicy, DevSealMode},
 	common::{
 		command::NodeCommandRunner,
 		price_oracle::PriceOracleNetwork,
@@ -445,23 +445,27 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					(proto, config)
 				});
 
+			let slot_based = node_extra_args.authoring_policy == AuthoringPolicy::SlotBased;
 			if node_extra_args.price_oracle && !validator {
 				log::warn!(
 					"`--enable-price-oracle` has no effect on a node that is not a collator."
 				);
+			} else if node_extra_args.price_oracle && !slot_based {
+				log::warn!("`--enable-price-oracle` requires `--authoring slot-based`.");
 			}
 			#[cfg(feature = "price-oracle")]
-			let price_oracle_protocol = (node_extra_args.price_oracle && validator).then(|| {
-				let (config, notification_service, protocol_name) =
-					sc_price_oracle::peers_set_config::<Self::Block, Net>(
-						client.chain_info().genesis_hash,
-						parachain_config.chain_spec.fork_id(),
-						metrics.clone(),
-						Arc::clone(&net_config.peer_store_handle()),
-					);
-				net_config.add_notification_protocol(config);
-				(notification_service, protocol_name)
-			});
+			let price_oracle_protocol =
+				(node_extra_args.price_oracle && validator && slot_based).then(|| {
+					let (config, notification_service, protocol_name) =
+						sc_price_oracle::peers_set_config::<Self::Block, Net>(
+							client.chain_info().genesis_hash,
+							parachain_config.chain_spec.fork_id(),
+							metrics.clone(),
+							Arc::clone(&net_config.peer_store_handle()),
+						);
+					net_config.add_notification_protocol(config);
+					(notification_service, protocol_name)
+				});
 
 			let (network, system_rpc_tx, tx_handler_controller, sync_service, bitswap_handle) =
 				build_network(BuildNetworkParams {

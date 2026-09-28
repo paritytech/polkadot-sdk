@@ -18,7 +18,7 @@ use crate::{
 	cli::{AuthoringPolicy, DevSealMode},
 	common::{
 		aura::{AuraIdT, AuraRuntimeApi},
-		price_oracle::{PriceOracleNetwork, PriceOracleRuntimeApi},
+		price_oracle::{PriceOracle, PriceOracleNetwork, PriceOracleRuntimeApi},
 		rpc::{BuildParachainRpcExtensions, BuildRpcExtensions},
 		spec::{
 			BaseNodeSpec, BuildImportQueue, ClientBlockImport, DynNodeSpec, InitBlockImport,
@@ -159,72 +159,6 @@ where
 /// Uses the lookahead collator to support async backing.
 ///
 /// Start an aura powered parachain node. Some system chains use this.
-
-/// Signer key type of the price oracle: the Aura authority key.
-type OracleId<AuraId> = <AuraId as AuraIdT>::BoundedPublic;
-/// Signature type of the price oracle: the Aura signature.
-type OracleSignature<AuraId> = <AuraId as AuraIdT>::BoundedSignature;
-/// Inherent data provider of the price oracle.
-type OracleInherentDataProvider<AuraId> =
-	sp_price_oracle::inherents::InherentDataProvider<OracleId<AuraId>, OracleSignature<AuraId>>;
-
-/// Spawn the price oracle service when its network handles are given. Returns the report pool
-/// the block author reads from, `None` when the service is not running.
-#[cfg(feature = "price-oracle")]
-fn start_price_oracle<Block, RuntimeApi, AuraId>(
-	network: Option<PriceOracleNetwork<Block>>,
-	client: Arc<ParachainClient<Block, RuntimeApi>>,
-	keystore: KeystorePtr,
-	task_manager: &TaskManager,
-) -> Option<sc_price_oracle::ReportPool<OracleId<AuraId>, OracleSignature<AuraId>>>
-where
-	Block: BlockT<Hash = DbHash>,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + PriceOracleRuntimeApi<Block, AuraId>,
-	AuraId: AuraIdT + Sync + Send,
-{
-	let network = network?;
-	let pool = sc_price_oracle::ReportPool::new();
-	let service = sc_price_oracle::run::<Block, _, _, _, OracleId<AuraId>, OracleSignature<AuraId>>(
-		sc_price_oracle::Params {
-			client,
-			network: network.network,
-			sync: network.sync_service,
-			notification_service: network.notification_service,
-			protocol_name: network.protocol_name,
-			keystore,
-			pool: pool.clone(),
-			prometheus_registry: network.prometheus_registry,
-		},
-	);
-	task_manager.spawn_handle().spawn("price-oracle", None, service);
-	Some(pool)
-}
-
-// TODO: cut multiple cfg!
-/// The price oracle inherent data provider for the block built on `parent`: the pooled reports
-/// when the service runs, none otherwise.
-fn price_oracle_inherent_data_provider<Block, RuntimeApi, AuraId>(
-	#[cfg(feature = "price-oracle")] pool: &Option<
-		sc_price_oracle::ReportPool<OracleId<AuraId>, OracleSignature<AuraId>>,
-	>,
-	#[cfg(feature = "price-oracle")] client: &ParachainClient<Block, RuntimeApi>,
-	#[cfg(feature = "price-oracle")] parent: Block::Hash,
-) -> OracleInherentDataProvider<AuraId>
-where
-	Block: BlockT<Hash = DbHash>,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + PriceOracleRuntimeApi<Block, AuraId>,
-	AuraId: AuraIdT,
-{
-	#[cfg(feature = "price-oracle")]
-	if let Some(pool) = pool {
-		return sc_price_oracle::PriceOracleInherentDataProvider::create::<Block, _, _, _>(
-			client, pool, parent,
-		);
-	}
-	OracleInherentDataProvider::<AuraId>::new(Vec::new())
-}
 
 pub(crate) struct AuraNode<Block, RuntimeApi, AuraId, StartConsensus, InitBlockImport>(
 	pub PhantomData<(Block, RuntimeApi, AuraId, StartConsensus, InitBlockImport)>,
@@ -808,23 +742,19 @@ where
 
 		let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
 
-		#[cfg(feature = "price-oracle")]
-		let oracle_pool = start_price_oracle::<Block, RuntimeApi, AuraId>(
+		let oracle = PriceOracle::<AuraId>::start(
 			price_oracle,
 			client.clone(),
 			keystore.clone(),
 			task_manager,
 		);
-		#[cfg(not(feature = "price-oracle"))]
-		let _ = price_oracle;
 
 		let client_for_aura = client.clone();
 		let client_clone = client.clone();
 		let params = SlotBasedParams {
 			create_inherent_data_providers: move |parent, ()| {
 				let client_clone = client_clone.clone();
-				#[cfg(feature = "price-oracle")]
-				let oracle_pool = oracle_pool.clone();
+				let oracle = oracle.clone();
 				async move {
 					let has_tx_storage_api = client_clone
 						.runtime_api()
@@ -839,14 +769,7 @@ where
 					} else {
 						vec![]
 					};
-					let oracle = price_oracle_inherent_data_provider::<Block, RuntimeApi, AuraId>(
-						#[cfg(feature = "price-oracle")]
-						&oracle_pool,
-						#[cfg(feature = "price-oracle")]
-						&*client_clone,
-						#[cfg(feature = "price-oracle")]
-						parent,
-					);
+					let oracle = oracle.inherent_data_provider(&*client_clone, parent);
 					Ok((storage_proof, oracle))
 				}
 			},
@@ -956,7 +879,7 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 	> for StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + PriceOracleRuntimeApi<Block, AuraId>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT + Sync + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
@@ -996,14 +919,8 @@ where
 		);
 		let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
 
-		#[cfg(feature = "price-oracle")]
-		let oracle_pool = start_price_oracle::<Block, RuntimeApi, AuraId>(
-			price_oracle,
-			client.clone(),
-			keystore.clone(),
-			task_manager,
-		);
-		#[cfg(not(feature = "price-oracle"))]
+		// The price oracle runs with the slot-based collator only; `start_node` registers its
+		// protocol for that authoring policy alone.
 		let _ = price_oracle;
 
 		let client_clone = client.clone();
@@ -1012,8 +929,6 @@ where
 			params: AuraParams {
 				create_inherent_data_providers: move |parent, ()| {
 					let client_clone = client_clone.clone();
-					#[cfg(feature = "price-oracle")]
-					let oracle_pool = oracle_pool.clone();
 					async move {
 						let has_tx_storage_api = client_clone
 							.runtime_api()
@@ -1028,15 +943,7 @@ where
 						} else {
 							vec![]
 						};
-						let oracle = price_oracle_inherent_data_provider::<Block, RuntimeApi, AuraId>(
-							#[cfg(feature = "price-oracle")]
-							&oracle_pool,
-							#[cfg(feature = "price-oracle")]
-							&*client_clone,
-							#[cfg(feature = "price-oracle")]
-							parent,
-						);
-						Ok((storage_proof, oracle))
+						Ok(storage_proof)
 					}
 				},
 				block_import,
