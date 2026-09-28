@@ -56,6 +56,7 @@ use hash_db::{Hasher, Prefix};
 pub use memory_db::{prefixed_key, HashKey, KeyFunction, PrefixedKey};
 /// The Substrate format implementation of `NodeCodec`.
 pub use node_codec::NodeCodec;
+use sp_externalities::StateLoad;
 pub use storage_proof::{CompactProof, StorageProof, StorageProofError};
 /// Trie codec reexport, mainly child trie support
 /// for trie compact proof.
@@ -352,6 +353,14 @@ where
 	Ok(root)
 }
 
+/// `false` if the recorder has the value bytes for `key`; `true` otherwise.
+fn is_cold_for_key<H>(recorder: &Option<&mut dyn TrieRecorder<H>>, key: &[u8]) -> bool {
+	recorder
+		.as_ref()
+		.map(|r| !matches!(r.trie_nodes_recorded_for_key(key), trie_db::RecordedForKey::Value))
+		.unwrap_or(true)
+}
+
 /// Read a value from the trie.
 pub fn read_trie_value<L: TrieLayout, DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>>(
 	db: &DB,
@@ -365,6 +374,22 @@ pub fn read_trie_value<L: TrieLayout, DB: hash_db::HashDBRef<L::Hash, trie_db::D
 		.with_optional_recorder(recorder)
 		.build()
 		.get(key)
+}
+
+/// Similar to [`read_trie_value`], but returns a [`StateLoad`] carrying a cold/hot flag.
+pub fn read_trie_value_with_status<
+	L: TrieLayout,
+	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
+>(
+	db: &DB,
+	root: &TrieHash<L>,
+	key: &[u8],
+	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
+	cache: Option<&mut dyn TrieCache<L::Codec>>,
+) -> Result<StateLoad<Option<Vec<u8>>>, Box<TrieError<L>>> {
+	let is_cold = is_cold_for_key(&recorder, key);
+	let data = read_trie_value::<L, DB>(db, root, key, recorder, cache)?;
+	Ok(StateLoad { data, is_cold })
 }
 
 /// Read the [`trie_db::MerkleValue`] of the node that is the closest descendant for
@@ -466,6 +491,23 @@ where
 		.build()
 		.get(key)
 		.map(|x| x.map(|val| val.to_vec()))
+}
+
+/// Similar to [`read_child_trie_value`], but returns a [`StateLoad`] carrying a cold/hot flag.
+pub fn read_child_trie_value_with_status<L: TrieConfiguration, DB>(
+	keyspace: &[u8],
+	db: &DB,
+	root: &TrieHash<L>,
+	key: &[u8],
+	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
+	cache: Option<&mut dyn TrieCache<L::Codec>>,
+) -> Result<StateLoad<Option<Vec<u8>>>, Box<TrieError<L>>>
+where
+	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
+{
+	let is_cold = is_cold_for_key(&recorder, key);
+	let data = read_child_trie_value::<L, DB>(keyspace, db, root, key, recorder, cache)?;
+	Ok(StateLoad { data, is_cold })
 }
 
 /// Read a hash from the child trie.

@@ -37,6 +37,17 @@ pub struct SizeOnlyRecorder<'a, H: Hasher> {
 	seen_nodes: RefMut<'a, HashSet<H::Out, RandomState>>,
 	encoded_size: RefMut<'a, usize>,
 	recorded_keys: RefMut<'a, HashMap<Rc<[u8]>, RecordedForKey, RandomState>>,
+	storage_root: H::Out,
+}
+
+impl<'a, H: trie_db::Hasher> SizeOnlyRecorder<'a, H> {
+	/// Build a composite key by prefixing `full_key` with the storage root.
+	/// This ensures that keys from different child tries are disambiguated.
+	fn scoped_key(&self, full_key: &[u8]) -> Rc<[u8]> {
+		let root: &[u8] = self.storage_root.as_ref();
+		let iter = root.iter().chain(full_key.iter()).copied();
+		Rc::from_iter(iter)
+	}
 }
 
 impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<'a, H> {
@@ -58,25 +69,29 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<
 				if self.seen_nodes.insert(hash) {
 					encoded_size_update += value.encoded_size();
 				}
+				let scoped = self.scoped_key(full_key);
 				self.recorded_keys
-					.entry(full_key.into())
+					.entry(scoped)
 					.and_modify(|e| *e = RecordedForKey::Value)
 					.or_insert_with(|| RecordedForKey::Value);
 			},
 			TrieAccess::Hash { full_key } => {
+				let scoped = self.scoped_key(full_key);
 				self.recorded_keys
-					.entry(full_key.into())
+					.entry(scoped)
 					.or_insert_with(|| RecordedForKey::Hash);
 			},
 			TrieAccess::NonExisting { full_key } => {
+				let scoped = self.scoped_key(full_key);
 				self.recorded_keys
-					.entry(full_key.into())
+					.entry(scoped)
 					.and_modify(|e| *e = RecordedForKey::Value)
 					.or_insert_with(|| RecordedForKey::Value);
 			},
 			TrieAccess::InlineValue { full_key } => {
+				let scoped = self.scoped_key(full_key);
 				self.recorded_keys
-					.entry(full_key.into())
+					.entry(scoped)
 					.and_modify(|e| *e = RecordedForKey::Value)
 					.or_insert_with(|| RecordedForKey::Value);
 			},
@@ -86,7 +101,8 @@ impl<'a, H: trie_db::Hasher> trie_db::TrieRecorder<H::Out> for SizeOnlyRecorder<
 	}
 
 	fn trie_nodes_recorded_for_key(&self, key: &[u8]) -> RecordedForKey {
-		self.recorded_keys.get(key).copied().unwrap_or(RecordedForKey::None)
+		let scoped = self.scoped_key(key);
+		self.recorded_keys.get(scoped.as_ref()).copied().unwrap_or(RecordedForKey::None)
 	}
 }
 
@@ -125,11 +141,12 @@ impl<H: trie_db::Hasher> sp_trie::TrieRecorderProvider<H> for SizeOnlyRecorderPr
 		None
 	}
 
-	fn as_trie_recorder(&self, _storage_root: H::Out) -> Self::Recorder<'_> {
+	fn as_trie_recorder(&self, storage_root: H::Out) -> Self::Recorder<'_> {
 		SizeOnlyRecorder {
 			encoded_size: self.encoded_size.borrow_mut(),
 			seen_nodes: self.seen_nodes.borrow_mut(),
 			recorded_keys: self.recorded_keys.borrow_mut(),
+			storage_root,
 		}
 	}
 }

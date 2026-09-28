@@ -30,6 +30,7 @@ use hash_db::Hasher;
 use sp_core::storage::{ChildInfo, StateVersion, TrackedStorageKey};
 #[cfg(feature = "std")]
 use sp_core::traits::RuntimeCode;
+use sp_externalities::StateLoad;
 use sp_trie::{MerkleValue, PrefixedMemoryDB, RandomState};
 
 /// A struct containing arguments for iterating over the storage.
@@ -192,6 +193,17 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	/// Get keyed storage or None if there is nothing associated.
 	fn storage(&self, key: &[u8]) -> Result<Option<StorageValue>, Self::Error>;
 
+	/// Similar to [`Self::storage`], but returns a [`StateLoad`] carrying a cold/hot flag.
+	///
+	/// The default impl conservatively reports `is_cold: true`. Backends that track recorder
+	/// state should override to return accurate cold/hot.
+	fn storage_with_status(
+		&self,
+		key: &[u8],
+	) -> Result<StateLoad<Option<StorageValue>>, Self::Error> {
+		Ok(StateLoad { data: self.storage(key)?, is_cold: true })
+	}
+
 	/// Get keyed storage value hash or None if there is nothing associated.
 	fn storage_hash(&self, key: &[u8]) -> Result<Option<H::Out>, Self::Error>;
 
@@ -211,6 +223,18 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> Result<Option<StorageValue>, Self::Error>;
+
+	/// Similar to [`Self::child_storage`], but returns a [`StateLoad`] carrying a cold/hot flag.
+	///
+	/// The default impl conservatively reports `is_cold: true`. Backends that track recorder
+	/// state should override to return accurate cold/hot.
+	fn child_storage_with_status(
+		&self,
+		child_info: &ChildInfo,
+		key: &[u8],
+	) -> Result<StateLoad<Option<StorageValue>>, Self::Error> {
+		Ok(StateLoad { data: self.child_storage(child_info, key)?, is_cold: true })
+	}
 
 	/// Get child keyed storage value hash or None if there is nothing associated.
 	fn child_storage_hash(
