@@ -1252,8 +1252,8 @@ fn a_log_emitted_after_the_drain_stays_substrate_only() {
 }
 
 // The cap's bound rests on buffering a log registering at least its encoded bytes as proof size.
-// The drain benchmark measures a marginal per data byte over a fixed-shape entry, so a log whose
-// topics outweigh that shape is where the floor, not the marginal, is what gets registered.
+// The drain benchmark measures a marginal per data byte over a fixed-shape entry, so a log that
+// outgrows that shape's encoding is where the floor, not the marginal, is what gets registered.
 #[test]
 fn buffering_a_log_registers_at_least_its_encoded_bytes() {
 	use crate::{evm::block_hash::OutsideFrameLog, weightinfo_extension::OnFinalizeBlockParts};
@@ -1279,8 +1279,10 @@ fn buffering_a_log_registers_at_least_its_encoded_bytes() {
 		registered_by(H160::repeat_byte(1), vec![H256::repeat_byte(1)], vec![]);
 
 		let topics = vec![H256::repeat_byte(2); crate::limits::NUM_EVENT_TOPICS as usize];
-		let (registered, entry_bytes) = registered_by(H160::repeat_byte(2), topics, vec![]);
-		let marginal = <Test as Config>::WeightInfo::per_outside_frame_log(0).proof_size();
+		let data = vec![0u8; 64];
+		let (registered, entry_bytes) = registered_by(H160::repeat_byte(2), topics, data.clone());
+		let marginal =
+			<Test as Config>::WeightInfo::per_outside_frame_log(data.len() as u32).proof_size();
 		assert!(entry_bytes > marginal, "the floor is the operative term for this shape");
 		assert_eq!(registered, entry_bytes, "and it is what the block is charged");
 
