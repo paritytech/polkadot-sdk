@@ -155,8 +155,10 @@ substrate notifications protocol. Two protocol versions are negotiated per peer:
 <h3 id="propagation"><a class="doc-anchor" href="#propagation">§</a>Propagation</h3>
 <ul>
 <li>During major chain synchronization, statement gossip is paused so peers prioritize downloading
-blocks; it resumes automatically once the node is fully synced (peers are reconnected to
-recover statements missed while syncing).</li>
+blocks; it resumes automatically once the node is fully synced. Without the v2 DHT path a peer
+is reconnected to recover statements missed while syncing; with it, the node re-advertises its
+affinity filter after <code>MAJOR_SYNC_SETTLE_PERIOD</code> and v2 peers replay them. A v1 peer cannot
+replay on request, so it is reconnected on either path.</li>
 <li>A propagation loop runs every second (<code>config::PROPAGATE_TIMEOUT</code>): it takes all statements
 added since the previous round and queues their hashes to a per-peer outbox. Each peer has at
 most one propagation chunk in flight at a time. When its send slot is free, statements are
