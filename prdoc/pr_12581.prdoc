@@ -91,10 +91,8 @@ doc:
         data has one entry per ethereum transaction as before.
       - Weights: the mirror's cost lands in the weights of every pallet that moves assets, so a
         runtime wiring it must re-run `/cmd bench` for those pallets, not only for pallet-assets.
-        That includes the XCM fee instructions where a swap trader moves assets: Asset Hub
-        Westend's `pallet_xcm_benchmarks::generic` worst case for `BuyExecution` and `PayFees`
-        now pays in a foreign asset, so the `SwapFirstAssetTrader` pool swap and its mirrored log
-        are priced instead of the native `UsingComponents` path.
+        That includes the XCM fee instructions where a swap trader moves assets, once their
+        benchmark exercises the swap; Asset Hub Westend's does in a separate PR.
       - Foreign asset-index mappings must exist before a mirror can resolve a token address. The
         creation callback establishes them, genesis assets included; assets predating the callback
         wiring need the index-map migration to backfill them.
@@ -132,7 +130,5 @@ crates:
   bump: major
 - name: asset-hub-westend-runtime
   bump: major
-- name: pallet-xcm-benchmarks
-  bump: patch
 - name: penpal-runtime
   bump: minor
