@@ -1,0 +1,77 @@
+# The validator of operators/setup.md. ExecStart is setup.md's command, plus --chain, --workers-path,
+# the ports setup.md leaves at their defaults, and the public addresses of PUBLIC_IP for TCP as well
+# as WebRTC, on IPv4 and IPv6.
+#
+# The values that depend on the network or the machine are variables. Their defaults are below;
+# /etc/polkadot-metanode/metanode.env, the same file on every machine, overrides them, and
+# /etc/polkadot-metanode/polkadot-validator.env, for this machine only, overrides both. To change
+# anything else, replace the command: `systemctl edit polkadot-validator`, then an empty ExecStart=
+# followed by your own. See scripts/metanode/README.md, "Configure".
+[Unit]
+Description=Metanode relay-chain validator
+Documentation=https://github.com/paritytech/polkadot-sdk/tree/master/scripts/metanode
+# Never run two validators on one machine: moving a keystore over from the packaged unit and
+# starting both would sign with the same keys twice.
+Conflicts=polkadot.service
+
+[Service]
+User=polkadot-validator
+Group=polkadot-validator
+StateDirectory=polkadot-validator
+RuntimeDirectory=polkadot-validator
+WorkingDirectory=/var/lib/polkadot-validator
+SyslogIdentifier=polkadot-validator
+Environment=NODE_NAME=%l RPC_LISTEN_IP=127.0.0.1 RPC_MAX_CONNECTIONS=500 EXTRA_ARGS= PUBLIC_ADDRS=
+EnvironmentFile=/etc/polkadot-metanode/metanode.env
+EnvironmentFile=-/etc/polkadot-metanode/polkadot-validator.env
+# PUBLIC_ADDRS, written by public-addr below.
+EnvironmentFile=-/run/polkadot-validator/public-addr.env
+# @BINDIR@, @WORKERSDIR@ and @LIBDIR@ are where the binaries, the PVF workers and polkadot-metanode's
+# own files are installed. Whatever installs this template (install.sh, or a package later) fills
+# them in.
+#
+# The network key: generated at the first start and kept, so the peer id never changes.
+ExecStartPre=/bin/sh -c 'test -s node.key || { @BINDIR@/polkadot key generate-node-key --file node.key.new && mv node.key.new node.key; }'
+# The --public-addr flags for PUBLIC_IP. As root ("+"): iproute2's ip drops its capabilities with
+# capset() when it isn't root, which the SystemCallFilter= below forbids. "-": if it fails, the node
+# starts without public addresses.
+ExecStartPre=-+@LIBDIR@/public-addr 30333
+ExecStart=@BINDIR@/polkadot --validator \
+    --chain=${RELAY_CHAIN} \
+    --name=${NODE_NAME}-validator \
+    --base-path=/var/lib/polkadot-validator \
+    --node-key-file=/var/lib/polkadot-validator/node.key \
+    --workers-path=@WORKERSDIR@ \
+    --port=30333 \
+    --prometheus-port=9615 \
+    --force-enable-webrtc $PUBLIC_ADDRS \
+    --experimental-rpc-endpoint=listen-addr=${RPC_LISTEN_IP}:9944,methods=safe,max-connections=${RPC_MAX_CONNECTIONS} \
+    --experimental-rpc-endpoint=listen-addr=127.0.0.1:9945,methods=unsafe,cors=http://localhost:9945 \
+    $EXTRA_ARGS
+# Delay restarts after a crash: GRANDPA votes may not have been persisted, and restarting at once
+# risks equivocating.
+RestartSec=120
+# The validator wins when roles share the machine (operators/setup.md, "CPU and memory"):
+# - ten times a collator's CPU and IO weight while they compete; no effect while idle.
+# - under memory pressure the kernel reclaims from the collators before the first 32 GiB the
+#   validator uses, its minimum. It reserves nothing, and only works with the slices above it
+#   protected as much (polkadot.slice, polkadot-metanode.slice).
+# - if memory runs out, the kernel and systemd-oomd stop a collator rather than the validator.
+CPUWeight=1000
+IOWeight=1000
+MemoryLow=32G
+OOMScoreAdjust=-900
+ManagedOOMPreference=avoid
+
+# The PVF workers sandbox themselves: unshare(NEWUSER|NEWNS) plus pivot_root, clone with every
+# namespace flag, landlock and seccomp (polkadot/node/core/pvf/common/src/worker/security/).
+# Everything except time namespaces is allowed.
+RestrictNamespaces=user mnt cgroup ipc net pid uts
+SystemCallFilter=@system-service
+SystemCallFilter=landlock_add_rule landlock_create_ruleset landlock_restrict_self seccomp mount umount2
+SystemCallFilter=~@clock @module @reboot @swap @privileged
+# pivot_root is part of @privileged, so allow it again after the deny-list.
+SystemCallFilter=pivot_root
+
+[Install]
+WantedBy=polkadot-metanode.target

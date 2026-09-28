@@ -1,0 +1,8 @@
+[Unit]
+Description=Metanode roles enabled on this machine
+Documentation=https://github.com/paritytech/polkadot-sdk/tree/master/scripts/metanode
+
+# `systemctl enable polkadot-<role>` adds a role to this target; starting, stopping or restarting
+# the target acts on every role enabled on the machine.
+[Install]
+WantedBy=multi-user.target

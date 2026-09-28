@@ -698,6 +698,18 @@ jobs:
       ARTIFACTS_DOWNLOADER_APP_ID: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
       ARTIFACTS_DOWNLOADER_PRIVATE_KEY: ${{ secrets.ARTIFACTS_DOWNLOADER_PRIVATE_KEY }}
 
+  # Runs only when scripts/metanode changed; not part of the required zombienet checks.
+  trigger-metanode-systemd:
+    needs: [preflight, confirm-required-build-jobs-passed]
+    if: ${{ needs.confirm-required-build-jobs-passed.outputs.build_success == 'true' }}
+    uses: ./.github/workflows/tests-metanode-systemd.yml
+    with:
+      build_run_id: ${{ github.run_id }}
+      ref_slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+    secrets:
+      ARTIFACTS_DOWNLOADER_APP_ID: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
+      ARTIFACTS_DOWNLOADER_PRIVATE_KEY: ${{ secrets.ARTIFACTS_DOWNLOADER_PRIVATE_KEY }}
+
   confirm-zombienet-tests-passed:
     runs-on: ubuntu-latest
     name: All zombienet tests passed

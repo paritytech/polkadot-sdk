@@ -1,0 +1,26 @@
+# Reserves uplink bandwidth for the validator (operators/bandwidth.md): an HTB tree on the uplink
+# guarantees the validator's packets VALIDATOR_UPLINK_MBIT (500) of UPLINK_RATE, the committed rate
+# set in /etc/polkadot-metanode/metanode.env, whatever the collators and their light clients send.
+# install.sh enables it when UPLINK_RATE is set.
+[Unit]
+Description=Metanode uplink bandwidth reservation for the validator
+Documentation=https://github.com/paritytech/polkadot-sdk/tree/master/scripts/metanode
+Wants=network-online.target
+After=network-online.target nftables.service
+Before=polkadot-validator.service
+# `nft -f /etc/nftables.conf` usually starts with `flush ruleset`, which deletes the table that
+# tags the validator's packets. So follow the firewall: stop and restart with it (PartOf=), and start
+# with it (WantedBy= below). When it starts or reloads while this unit is active, the drop-in
+# nftables.service.d/50-polkadot-metanode-qos.conf puts the table back.
+PartOf=nftables.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# @BINDIR@: see polkadot-validator.service.
+ExecStart=@BINDIR@/polkadot-metanodectl qos start
+ExecReload=@BINDIR@/polkadot-metanodectl qos start
+ExecStop=@BINDIR@/polkadot-metanodectl qos stop
+
+[Install]
+WantedBy=multi-user.target nftables.service

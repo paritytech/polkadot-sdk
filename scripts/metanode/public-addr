@@ -1,0 +1,82 @@
+#!/bin/sh
+# public-addr PORT: the --public-addr flags of a role whose p2p port is PORT, for PUBLIC_IP:
+#   auto (default)  the source addresses of the default routes, IPv4 and IPv6, when they are public;
+#   none            no address;
+#   ADDRESS...      these addresses, e.g. the public one of a machine behind NAT.
+# Each address is advertised for TCP and for WebRTC; the node adds the WebRTC certificate hash.
+#
+# The role units run it as root before the node, and read PUBLIC_ADDRS for their ExecStart from the
+# file it writes, $RUNTIME_DIRECTORY/public-addr.env. Without RUNTIME_DIRECTORY it prints that line.
+set -eu
+port=${1:?usage: public-addr PORT}
+addrs='' ips=''
+
+add() {
+  addrs="$addrs --public-addr=/$1/$2/tcp/$port --public-addr=/$1/$2/udp/$port/webrtc-direct"
+  ips="$ips $2"
+}
+
+# The source address of the route to $2 (no packet is sent), or nothing without a route.
+route_source() {
+  ip "$1" route get "$2" 2>/dev/null | sed -n 's/.* src \([^ ]*\).*/\1/p' | head -n 1
+}
+
+# Not private, shared (CGNAT), loopback, link-local, documentation, benchmarking or multicast space.
+ipv4_is_global() {
+  case $1 in
+    0.* | 10.* | 127.* | 169.254.* | 192.168.* | 172.1[6-9].* | 172.2[0-9].* | 172.3[01].* | \
+      100.6[4-9].* | 100.[7-9][0-9].* | 100.1[01][0-9].* | 100.12[0-7].* | 192.0.[02].* | \
+      198.1[89].* | 198.51.100.* | 203.0.113.* | 22[4-9].* | 2[3-5][0-9].*) return 1 ;;
+  esac
+}
+
+# In 2000::/3, outside the documentation prefix 2001:db8::/32.
+ipv6_is_global() {
+  case $1 in
+    2001:db8:* | 2001:DB8:*) return 1 ;;
+    [23]*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+case ${PUBLIC_IP:-auto} in
+  none) ;;
+  auto)
+    command -v ip >/dev/null || {
+      echo "public-addr: ip not found (install iproute2), so no public address is advertised" >&2
+      exit 1
+    }
+    v4=$(route_source -4 1.1.1.1)
+    if [ -n "$v4" ]; then
+      if ipv4_is_global "$v4"; then
+        add ip4 "$v4"
+      else
+        echo "public-addr: $v4, the source address of the default route, is not public, so it is not" \
+          "advertised and light clients may not reach this node over WebRTC. Behind NAT, set PUBLIC_IP" \
+          "to the public address, for this machine in /etc/polkadot-metanode/polkadot-<role>.env," \
+          "and forward port $port, TCP and UDP." >&2
+      fi
+    fi
+    v6=$(route_source -6 2001:4860:4860::8888)
+    if [ -n "$v6" ] && ipv6_is_global "$v6"; then add ip6 "$v6"; fi
+    ;;
+  *)
+    for ip in $PUBLIC_IP; do
+      case $ip in
+        *:*) add ip6 "$ip" ;;
+        *.*.*.*) add ip4 "$ip" ;;
+        *) echo "public-addr: PUBLIC_IP: '$ip' is not an IPv4 or IPv6 address; skipped" >&2 ;;
+      esac
+    done
+    ;;
+esac
+
+if [ -n "$ips" ]; then
+  echo "public-addr: advertising${ips} on port $port, TCP and WebRTC" >&2
+fi
+line="PUBLIC_ADDRS=\"${addrs# }\""
+if [ -n "${RUNTIME_DIRECTORY:-}" ]; then
+  printf '%s\n' "$line" >"$RUNTIME_DIRECTORY/public-addr.env"
+else
+  printf '%s\n' "$line"
+fi
