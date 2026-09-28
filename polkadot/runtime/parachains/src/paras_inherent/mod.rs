@@ -22,7 +22,7 @@
 //! this module.
 
 use crate::{
-	configuration,
+	configuration, coretime,
 	disputes::DisputesHandler,
 	inclusion::{self, CandidateCheckContext},
 	initializer,
@@ -114,7 +114,11 @@ pub mod pallet {
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config:
-		inclusion::Config + scheduler::Config + initializer::Config + pallet_babe::Config
+		inclusion::Config
+		+ scheduler::Config
+		+ initializer::Config
+		+ coretime::Config
+		+ pallet_babe::Config
 	{
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;

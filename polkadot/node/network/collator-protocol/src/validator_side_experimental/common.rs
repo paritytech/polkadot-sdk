@@ -216,7 +216,6 @@ impl ProspectiveCandidate {
 		}
 	}
 
-	#[cfg(test)]
 	pub fn output_head_data_hash(&self) -> Option<Hash> {
 		match self {
 			Self::ByHash { .. } => None,

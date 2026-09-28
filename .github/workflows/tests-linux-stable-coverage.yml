@@ -1,4 +1,4 @@
-# GHA for test-linux-stable-int, test-linux-stable, test-linux-stable-oldkernel
+# GHA for test-linux-stable-int, test-linux-stable
 name: tests linux stable coverage
 
 on:

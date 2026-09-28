@@ -34,10 +34,10 @@ pub struct PeersTopologyConfig {
 	/// The DHT-affinity decision uses this to decide whether the local node belongs to the
 	/// K-closest peers for a topic according to the locally learned topology.
 	pub replication_factor: NonZeroUsize,
-	/// Maximum number of connected nodes that we gossip to.
+	/// Maximum number of connected non-replica nodes that we gossip to.
 	///
-	/// This caps `routing_targets`, i.e. the forwarding candidates selected from
-	/// currently connected peers for a topic.
+	/// This caps only the routing leg of `routing_targets`: connected replicas of a topic
+	/// are always forwarding candidates.
 	pub gossip_target: NonZeroUsize,
 }
 
@@ -191,24 +191,30 @@ impl PeersTopology {
 		}
 	}
 
-	/// Connected peers to forward a statement for `topic` to, capped at `gossip_target`: those
-	/// closer to the topic than the local node (routing the statement onward) and those that are
-	/// themselves DHT replicas for it (co-replicas that must store it).
+	/// Connected peers to forward a statement for `topic` to: every connected replica of the
+	/// topic, plus up to `gossip_target` peers closer to it than the local node (routing).
+	/// Only the routing leg is capped: capping replicas would deterministically stop the
+	/// replica set at `gossip_target + 1` copies instead of `replication_factor`.
 	pub fn routing_targets(&self, topic: Topic) -> Vec<PeerId> {
 		// TODO: benchmark this per-statement path on large connected sets (see
 		// benches/peers_topology.rs).
 		let local = (self.local_key, self.local_peer);
 		let local_distance = xor_distance(*topic, self.local_key);
 		let k = self.config.replication_factor.get();
-		self.connected
-			.closest(*topic)
-			.take_while(|(peer, key)| {
-				xor_distance(*topic, *key) < local_distance ||
-					is_peer_topic_affine(&self.discovered_index, local, (*key, *peer), k, topic)
-			})
-			.take(self.config.gossip_target.get())
-			.map(|(peer, _)| peer)
-			.collect()
+		let gossip_target = self.config.gossip_target.get();
+		let mut targets = Vec::new();
+		let mut routed = 0;
+		for (peer, key) in self.connected.closest(*topic) {
+			if is_peer_topic_affine(&self.discovered_index, local, (key, peer), k, topic) {
+				targets.push(peer);
+			} else if xor_distance(*topic, key) < local_distance && routed < gossip_target {
+				targets.push(peer);
+				routed += 1;
+			} else {
+				break;
+			}
+		}
+		targets
 	}
 
 	/// Local-only explicit-affinity connection candidates for `topics`.
@@ -261,7 +267,9 @@ impl PeersTopology {
 
 	/// Evict disconnected peers unseen for `PEER_STALENESS_TTL` as of `now`, plus any excess over
 	/// `MAX_KNOWN_PEERS`.
-	pub fn evict(&mut self, now: Instant) {
+	/// Returns whether the DHT candidate index changed.
+	pub fn evict(&mut self, now: Instant) -> bool {
+		let mut changed = false;
 		loop {
 			let over_cap = self.discovered.len() > MAX_KNOWN_PEERS;
 			let Some((victim, last_seen)) = self
@@ -271,13 +279,14 @@ impl PeersTopology {
 				.min_by_key(|(_, info)| info.last_seen)
 				.map(|(peer, info)| (*peer, info.last_seen))
 			else {
-				return;
+				return changed;
 			};
 			if !over_cap && now.saturating_duration_since(last_seen) < PEER_STALENESS_TTL {
-				return;
+				return changed;
 			}
 			if let Some(info) = self.discovered.remove(&victim) {
 				self.discovered_index.remove(info.key, &victim);
+				changed |= info.supports_protocol;
 			}
 		}
 	}
@@ -522,7 +531,10 @@ mod tests {
 	}
 
 	#[test]
-	fn routing_targets_are_closest_connected_peers_closer_to_topic_than_self() {
+	fn routing_targets_are_co_replicas_plus_capped_closer_peers() {
+		// replication_factor = 2, gossip_target = 2. Of the three connected peers closer than
+		// self, the two closest are the topic's replicas (included as such) and the
+		// third consumes one routing slot; farther non-replica peers are never targets.
 		let mut topology = topology(1);
 		let topic = topic(7);
 		let self_distance = distance_to(topic, &peer(1));
@@ -549,11 +561,42 @@ mod tests {
 		let expected = {
 			let mut peers = closer;
 			peers.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
-			peers.truncate(2);
 			peers
 		};
 
 		assert_eq!(topology.routing_targets(topic), expected);
+	}
+
+	#[test]
+	fn routing_targets_saturate_the_replica_set_beyond_gossip_target() {
+		// Regression: with K replicas and a smaller gossip_target, every connected
+		// replica must still be a forwarding target, otherwise the replica set
+		// deterministically saturates at gossip_target + 1 nodes instead of K.
+		let local = peer(1);
+		let mut topology = PeersTopology::new(local, topology_config(8, 3));
+		let topic = topic(42);
+		let self_distance = distance_to(topic, &local);
+
+		// 12 peers closer than self: the closest 8 are the topic's replicas, the other 4
+		// compete for the 3 routing slots.
+		let mut peers = (2..=200)
+			.map(peer)
+			.filter(|candidate| distance_to(topic, candidate) < self_distance)
+			.take(12)
+			.collect::<Vec<_>>();
+		assert_eq!(peers.len(), 12, "test peer fixture must include 12 peers closer than self");
+
+		for peer in &peers {
+			dht_peer(&mut topology, *peer);
+			topology.on_substream_opened(*peer);
+		}
+
+		peers.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
+		// All 8 co-replicas plus exactly gossip_target routing extras, never the 12th
+		// closer peer.
+		peers.truncate(11);
+
+		assert_eq!(topology.routing_targets(topic), peers);
 	}
 
 	#[test]
@@ -685,11 +728,33 @@ mod tests {
 				.iter()
 				.filter(|(_, _, connected)| *connected)
 				.map(|(peer, ..)| *peer)
-				.filter(|peer| distance_to(topic, peer) < local_distance)
 				.collect::<Vec<_>>();
 			connected.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
-			connected.truncate(3);
-			assert_eq!(topology.routing_targets(topic), connected);
+			// Naive model of routing_targets: every connected co-replica (fewer than K
+			// supporting peers or the local node strictly closer), plus up to gossip_target
+			// closer non-replica peers, in distance order.
+			let mut expected = Vec::new();
+			let mut routed = 0;
+			for peer in connected {
+				let closer_entries = candidates
+					.iter()
+					.filter(|q| **q != peer)
+					.filter(|q| cmp_distance_then_peer(topic, q, &peer) == Ordering::Less)
+					.count() + usize::from(
+					cmp_distance_then_peer(topic, &local, &peer) == Ordering::Less,
+				);
+				if closer_entries < 5 {
+					expected.push(peer);
+				} else if distance_to(topic, &peer) < local_distance {
+					if routed < 3 {
+						expected.push(peer);
+						routed += 1;
+					}
+				} else {
+					break;
+				}
+			}
+			assert_eq!(topology.routing_targets(topic), expected);
 		}
 	}
 
@@ -702,7 +767,7 @@ mod tests {
 		}
 
 		// Insertion no longer evicts; the periodic sweep bounds the set.
-		topology.evict(Instant::now());
+		assert!(topology.evict(Instant::now()));
 
 		assert_eq!(topology.known_peers_count(), MAX_KNOWN_PEERS);
 	}
@@ -738,9 +803,23 @@ mod tests {
 		dht_peer(&mut topology, peer);
 
 		let last_seen = topology.discovered[&peer].last_seen;
-		topology.evict(last_seen + PEER_STALENESS_TTL - Duration::from_secs(1));
+		assert!(!topology.evict(last_seen + PEER_STALENESS_TTL - Duration::from_secs(1)));
 
 		assert_eq!(topology.known_peers_count(), 1);
+	}
+
+	#[test]
+	fn eviction_reports_only_dht_candidate_removal() {
+		for has_candidate in [false, true] {
+			let mut topology = topology(1);
+			if has_candidate {
+				topology.on_peer_identified(peer(2), true);
+			}
+			topology.on_peers_discovered([peer(3)]);
+
+			assert_eq!(topology.evict(Instant::now() + PEER_STALENESS_TTL), has_candidate);
+			assert_eq!(topology.known_peers_count(), 0);
+		}
 	}
 
 	#[test]
@@ -752,10 +831,12 @@ mod tests {
 		topology.on_substream_opened(live);
 		dht_peer(&mut topology, idle);
 
-		topology.evict(Instant::now() + PEER_STALENESS_TTL + Duration::from_secs(1));
+		let now = Instant::now() + PEER_STALENESS_TTL + Duration::from_secs(1);
+		assert!(topology.evict(now));
 
 		assert!(topology.is_connected(&live));
 		assert_eq!(topology.known_peers_count(), 1);
 		assert!(!known_dht_peers(&topology, topic(7)).contains(&idle));
+		assert!(!topology.evict(now));
 	}
 }

@@ -566,7 +566,9 @@ pub(crate) fn process_storage_results(
 	let mut identified_prefix = HashSet::<Vec<u8>>::new();
 	let mut identified_key = HashSet::<Vec<u8>>::new();
 
-	// TODO Emit a warning for unused `pov_mode` attributes.
+	// We don't warn about unused `pov_modes` keys: proactively setting a PoV mode for a storage
+	// item not accessed by every benchmark is legitimate, and truly unknown keys are already
+	// caught by `PalletCmd::check_pov_modes`.
 
 	// We have to iterate in reverse order to catch the largest values for read/write since the
 	// components start low and then increase and only the first value is used.

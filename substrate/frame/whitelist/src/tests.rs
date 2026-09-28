@@ -614,6 +614,49 @@ fn relayer_cannot_bypass_unwhitelisting() {
 }
 
 #[test]
+fn unwhitelisting_pauses_but_does_not_cancel_deferral() {
+	new_test_ext().execute_with(|| {
+		let call =
+			Box::new(RuntimeCall::System(frame_system::Call::remark { remark: vec![3u8; 16] }));
+		let call_hash = <Test as frame_system::Config>::Hashing::hash_of(&call);
+
+		// Defer, whitelist, then revoke the whitelist.
+		assert_ok!(Whitelist::dispatch_whitelisted_call_with_preimage(
+			RuntimeOrigin::root(),
+			call.clone(),
+		));
+		assert_ok!(Whitelist::whitelist_call(RuntimeOrigin::root(), call_hash));
+		assert_ok!(Whitelist::remove_whitelisted_call(RuntimeOrigin::root(), call_hash));
+
+		// Revoking the whitelist pauses the deferral: the entry stays, but relayers are blocked.
+		assert!(crate::DeferredDispatch::<Test>::contains_key(call_hash));
+		assert!(!crate::WhitelistedCall::<Test>::contains_key(call_hash));
+		assert_noop!(
+			Whitelist::dispatch_whitelisted_call_with_preimage(
+				RuntimeOrigin::signed(1),
+				call.clone()
+			),
+			crate::Error::<Test>::CallIsNotWhitelisted,
+		);
+
+		// Re-whitelisting within the expiration window re-arms the existing deferral, without a
+		// fresh act from `DispatchWhitelistedOrigin`. Any signed account can then relay as root.
+		assert_ok!(Whitelist::whitelist_call(RuntimeOrigin::root(), call_hash));
+		let post =
+			Whitelist::dispatch_whitelisted_call_with_preimage(RuntimeOrigin::signed(1), call)
+				.expect("re-armed relay succeeds");
+		assert_eq!(post.pays_fee, Pays::No);
+		assert!(events().iter().any(|e| matches!(
+			e,
+			Event::<Test>::WhitelistedCallDispatched { call_hash: hash, result: Ok(_) }
+				if *hash == call_hash
+		)));
+		assert!(!crate::DeferredDispatch::<Test>::contains_key(call_hash));
+		assert!(!crate::WhitelistedCall::<Test>::contains_key(call_hash));
+	});
+}
+
+#[test]
 fn relay_cannot_be_replayed() {
 	new_test_ext().execute_with(|| {
 		let call =
