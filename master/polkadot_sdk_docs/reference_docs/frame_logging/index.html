@@ -235,7 +235,7 @@ target starts with <code>runtime</code>.</p>
 <h3 id="low-level-primitives"><a class="doc-anchor" href="#low-level-primitives">§</a>Low Level Primitives</h3>
 <p>Under the hood, logging is another instance of host functions under the hood (as defined in
 <a href="../wasm_meta_protocol/index.html" title="mod polkadot_sdk_docs::reference_docs::wasm_meta_protocol"><code>crate::reference_docs::wasm_meta_protocol</code></a>). The runtime uses a set of host functions under
-<a href="../../../sp_io/logging/index.html" title="mod sp_io::logging"><code>sp_io::logging</code></a> and <a href="../../../sp_io/misc/index.html" title="mod sp_io::misc"><code>sp_io::misc</code></a> to emit all logs and prints. You typically do not need to
+<a href="../../../sp_io/relay_chain/logging/index.html" title="mod sp_io::relay_chain::logging"><code>sp_io::logging</code></a> and <a href="../../../sp_io/relay_chain/misc/index.html" title="mod sp_io::relay_chain::misc"><code>sp_io::misc</code></a> to emit all logs and prints. You typically do not need to
 use these APIs directly.</p>
 <h3 id="using-logging-in-production"><a class="doc-anchor" href="#using-logging-in-production">§</a>Using Logging in Production</h3>
 <p>Note that within FRAME, reading storage values <strong>only for the purpose of logging</strong> is dangerous,

@@ -309,7 +309,7 @@ the <code>RuntimeGenesisConfig</code> format changes due to software upgrade.</p
 the node needs to interact with the runtime.</p>
 <p>This interaction involves passing the runtime genesis config JSON blob to the runtime using the
 <a href="../sp_genesis_builder/trait.GenesisBuilder.html#method.build_state" title="method sp_genesis_builder::GenesisBuilder::build_state"><code>sp_genesis_builder::GenesisBuilder::build_state</code></a> function. During this operation, the
-runtime converts the JSON representation of the genesis config into <a href="../sp_io/storage/index.html" title="mod sp_io::storage"><code>sp_io::storage</code></a> items. It
+runtime converts the JSON representation of the genesis config into <a href="../sp_io/relay_chain/storage/index.html" title="mod sp_io::relay_chain::storage"><code>sp_io::storage</code></a> items. It
 is a crucial step for computing the storage root hash, which is a key component in determining
 the genesis hash.</p>
 <p>Consequently, the runtime must support the <a href="../sp_genesis_builder/trait.GenesisBuilder.html" title="trait sp_genesis_builder::GenesisBuilder"><code>sp_genesis_builder::GenesisBuilder</code></a> API to

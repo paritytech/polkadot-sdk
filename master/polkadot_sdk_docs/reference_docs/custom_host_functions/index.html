@@ -155,7 +155,7 @@ more about this in <a href="../wasm_meta_protocol/index.html" title="mod polkado
 <h3 id="finding-host-functions"><a class="doc-anchor" href="#finding-host-functions">§</a>Finding Host Functions</h3>
 <p>To declare a set of functions as host functions, you need to use the <code>#[runtime_interface]</code>
 (<a href="../../../sp_runtime_interface/index.html" title="mod sp_runtime_interface"><code>sp_runtime_interface</code></a>) attribute macro. The most notable set of host functions are those
-that allow the runtime to access the chain state, namely <a href="../../../sp_io/storage/index.html" title="mod sp_io::storage"><code>sp_io::storage</code></a>. Some other notable
+that allow the runtime to access the chain state, namely <a href="../../../sp_io/relay_chain/storage/index.html" title="mod sp_io::relay_chain::storage"><code>sp_io::storage</code></a>. Some other notable
 host functions are also defined in <a href="../../../sp_io/index.html" title="mod sp_io"><code>sp_io</code></a>.</p>
 <h3 id="adding-new-host-functions"><a class="doc-anchor" href="#adding-new-host-functions">§</a>Adding New Host Functions</h3>
 <blockquote>
@@ -179,7 +179,7 @@ access to the boilerplate of building your node.</p>
 	allocator::HostFunctions,
 	panic_handler::HostFunctions,
 	logging::HostFunctions,
-	<span class="kw">crate</span>::trie::HostFunctions,
+	trie::HostFunctions,
 	offchain_index::HostFunctions,
 	transaction_index::HostFunctions,
 );</code></pre></div>

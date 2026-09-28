@@ -192,7 +192,7 @@ end
 <p>The node and the runtime need to communicate. This is done through two concepts:</p>
 <ol>
 <li><strong>Host functions</strong>: a way for the (WASM) runtime to talk to the node. All host functions are
-defined in <a href="../../../sp_io/index.html" title="mod sp_io"><code>sp_io</code></a>. For example, <a href="../../../sp_io/storage/index.html" title="mod sp_io::storage"><code>sp_io::storage</code></a> are the set of host functions that
+defined in <a href="../../../sp_io/index.html" title="mod sp_io"><code>sp_io</code></a>. For example, <a href="../../../sp_io/relay_chain/storage/index.html" title="mod sp_io::relay_chain::storage"><code>sp_io::storage</code></a> are the set of host functions that
 allow the runtime to read and write data to the on-chain state.</li>
 <li><strong>Runtime APIs</strong>: a way for the node to talk to the WASM runtime. Runtime APIs are defined
 using macros and utilities in <a href="../../../sp_api/index.html" title="mod sp_api"><code>sp_api</code></a>. For example, <a href="../../../sp_api/trait.Core.html" title="trait sp_api::Core"><code>sp_api::Core</code></a> is the most
@@ -266,7 +266,7 @@ end
 </pre><script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";var doc_theme = localStorage.getItem("rustdoc-theme");if (doc_theme === "dark" || doc_theme === "ayu") mermaid.initialize({theme: "dark"});</script>
 <h3 id="state"><a class="doc-anchor" href="#state">§</a>State</h3>
 <p>From the previous sections, we know that the database component is part of the node, not the
-runtime. We also hinted that a set of host functions (<a href="../../../sp_io/storage/index.html" title="mod sp_io::storage"><code>sp_io::storage</code></a>) are how the runtime
+runtime. We also hinted that a set of host functions (<a href="../../../sp_io/relay_chain/storage/index.html" title="mod sp_io::relay_chain::storage"><code>sp_io::storage</code></a>) are how the runtime
 issues commands to the node to read/write to the state. Let’s dive deeper into this.</p>
 <p>The state of the blockchain, what we seek to come to consensus about, is indeed <em>kept</em> in the
 node side. Nonetheless, the runtime is the only component that:</p>
@@ -339,7 +339,7 @@ imported.</li>
 <li>The <a href="../../../sp_api/trait.Core.html#method.execute_block" title="method sp_api::Core::execute_block"><code>sp_api::Core::execute_block</code></a> runtime API is called and the block is passed in as an
 argument.</li>
 <li>The runtime will then execute the block, and update the state accordingly. Any state update is
-issued via the <a href="../../../sp_io/storage/index.html" title="mod sp_io::storage"><code>sp_io::storage</code></a> host functions.</li>
+issued via the <a href="../../../sp_io/relay_chain/storage/index.html" title="mod sp_io::relay_chain::storage"><code>sp_io::storage</code></a> host functions.</li>
 <li>Both the runtime and node will check the state-root of the state after the block execution to
 match the one claimed in the block header.</li>
 </ul>
