@@ -77,6 +77,10 @@ impl std::fmt::Display for FetchError {
 ///
 /// Every request is subject to the caps [`MAX_HOST_AND_PATH`], [`MAX_RESPONSE_BYTES`] and
 /// [`MAX_TIMEOUT_MS`] in addition to its own limits.
+///
+/// Requires the root certificates of the operating system. `SSL_CERT_FILE` and `SSL_CERT_DIR`
+/// override their location. Returns an error if no root certificate can be loaded; no bundled
+/// set is used instead.
 #[derive(Clone)]
 pub struct Fetcher {
 	client: Client<HttpsConnector<HttpConnector>, Full<Bytes>>,
@@ -103,12 +107,7 @@ pub enum MarketFailure {
 
 impl Fetcher {
 	/// Create the client.
-	///
-	/// Loads the root certificates of the operating system. Returns an error if none can be
-	/// loaded, which happens on systems without an installed certificate store.
 	pub fn new() -> std::io::Result<Self> {
-		// TODO: decide whether to fall back to a bundled root set (`webpki-roots`) when the
-		// operating system provides none, or to keep failing at startup.
 		let connector = hyper_rustls::HttpsConnectorBuilder::new()
 			.with_provider_and_native_roots(rustls::crypto::ring::default_provider())?
 			.https_or_http()

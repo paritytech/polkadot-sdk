@@ -102,8 +102,11 @@ once and idles until it does. If the node is major syncing, ticks are skipped.
 
 ## Fetcher
 
-- `hyper` with `hyper-rustls` (HTTPS only, webpki roots) and `hyper-util`'s legacy client, the
-  same stack `sc-offchain` uses. One client for the whole service so connections stay in the
+- `hyper` with `hyper-rustls` (HTTPS only) and `hyper-util`'s legacy client, the same stack
+  `sc-offchain` uses. Server certificates are verified against the operating system's root
+  store, which the node therefore requires: the `ca-certificates` package on Debian and Ubuntu,
+  installed in the official images. `SSL_CERT_FILE` and `SSL_CERT_DIR` override its location.
+  Without a root store the service logs an error and does not run; the node is unaffected. One client for the whole service so connections stay in the
   pool and are reused across ticks; HTTP/2 where the venue supports it, HTTP/1.1 keep alive
   otherwise. Pool idle timeout well above the tick interval.
 - URL assembly: `https://{host}{path}?{name}={value}&...`, values percent encoded by the node.
@@ -134,7 +137,7 @@ once and idles until it does. If the node is major syncing, ticks are skipped.
 
   Cheap checks run before the signature verification. Anchors ahead of the current anchor are
   accepted: a peer may be ahead of this node, and the runtime rejects anchors ahead of the
-  block including them. A TODO in the code notes the option of bounding the lead.
+  block including them.
 
   Valid messages are inserted into the pool by the validator itself, so the pool is up to date
   the moment a message is accepted, and the engine forwards them to peers.
