@@ -127,7 +127,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_collator(|n|
 					n.with_name("collator-elastic")
 						.with_args(vec![
-							("-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug").into(),
+							("-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,cumulus-collator=trace,parachain::collator-protocol=trace,parachain=debug").into(),
 							("--force-authoring").into(),
 							("--authoring", "slot-based").into(),
 					]))
@@ -139,7 +139,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_collator(|n|
 					n.with_name("collator-single-core")
 						.with_args(vec![
-							("-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug").into(),
+							("-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,cumulus-collator=trace,parachain::collator-protocol=trace,parachain=debug").into(),
 							("--force-authoring").into(),
 							("--authoring", "slot-based").into(),
 					]))

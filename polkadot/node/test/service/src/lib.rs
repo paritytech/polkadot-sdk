@@ -22,8 +22,7 @@ pub mod chain_spec;
 
 pub use chain_spec::*;
 use futures::{future::Future, stream::StreamExt};
-use polkadot_node_primitives::{CollationGenerationConfig, CollatorFn};
-use polkadot_node_subsystem::messages::{CollationGenerationMessage, CollatorProtocolMessage};
+use polkadot_node_subsystem::messages::CollatorProtocolMessage;
 use polkadot_overseer::Handle;
 use polkadot_primitives::{Balance, CollatorPair, HeadData, Id as ParaId, ValidationCode};
 use polkadot_runtime_common::BlockHashCount;
@@ -404,23 +403,32 @@ impl PolkadotTestNode {
 		}
 	}
 
-	/// Register the collator functionality in the overseer of this node.
+	/// Start collating for `para_id` on this node.
 	pub async fn register_collator(
 		&mut self,
-		collator_key: CollatorPair,
 		para_id: ParaId,
-		collator: CollatorFn,
+		build_collation: test_parachain_collator_driver::CollationBuilder,
 	) {
-		let config =
-			CollationGenerationConfig { key: collator_key, collator: Some(collator), para_id };
-
-		self.overseer_handle
-			.send_msg(CollationGenerationMessage::Initialize(config), "Collator")
-			.await;
-
 		self.overseer_handle
 			.send_msg(CollatorProtocolMessage::CollateOn(para_id), "Collator")
 			.await;
+
+		// Essential: a driver that stops leaves the node up but no longer collating, which a
+		// test would otherwise observe only as a timeout.
+		let spawner = self.task_manager.spawn_handle();
+		self.task_manager.spawn_essential_handle().spawn(
+			"test-collator",
+			None,
+			test_parachain_collator_driver::run(test_parachain_collator_driver::Params {
+				client: self.client.clone(),
+				overseer_handle: self.overseer_handle.clone(),
+				para_id,
+				build_collation,
+				distribution_mode:
+					test_parachain_collator_driver::DistributionMode::OnePerAssignedCore,
+				spawner,
+			}),
+		);
 	}
 }
 

@@ -37,9 +37,9 @@ use polkadot_node_primitives::{
 		v1::{BlockApprovalMeta, DelayTranche},
 		v2::{CandidateBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2},
 	},
-	AvailableData, BabeEpoch, BlockWeight, CandidateVotes, CollationGenerationConfig,
-	DisputeMessage, DisputeStatus, ErasureChunk, PoV, SignedDisputeStatement, SignedFullStatement,
-	SignedFullStatementWithPVD, SubmitSegmentParams, ValidationResult, MAX_SEGMENT_LEN,
+	AvailableData, BabeEpoch, BlockWeight, CandidateVotes, DisputeMessage, DisputeStatus,
+	ErasureChunk, PoV, SignedDisputeStatement, SignedFullStatement, SignedFullStatementWithPVD,
+	ValidationResult, MAX_SEGMENT_LEN,
 };
 use polkadot_primitives::{
 	self,
@@ -270,7 +270,7 @@ impl From<PvfExecKind> for RuntimePvfExecKind {
 /// A fully built segment entry.
 /// The collator protocol assembles a `CandidateReceipt` from these
 /// fields and the segment level commons.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct SegmentEntry {
 	/// Relay parent the candidate builds on.
 	pub relay_parent: Hash,
@@ -320,9 +320,8 @@ pub enum Segment {
 #[derive(Debug, derive_more::From)]
 pub enum CollatorProtocolMessage {
 	/// Signal to the collator protocol that it should connect to validators with the expectation
-	/// of collating on the given para. This is only expected to be called once, early on, if at
-	/// all, and only by the Collation Generation subsystem. As such, it will overwrite the value
-	/// of the previous signal.
+	/// of collating on the given para. Sent by the collator itself, normally once and early on.
+	/// It overwrites the value of any previous signal, so re-sending it is safe.
 	///
 	/// This should be sent before any `DistributeSegment` message.
 	CollateOn(ParaId),
@@ -1017,21 +1016,6 @@ pub enum ProvisionerMessage {
 	RequestInherentData(Hash, oneshot::Sender<ProvisionerInherentData>),
 	/// This data should become part of a relay chain block
 	ProvisionableData(Hash, ProvisionableData),
-}
-
-/// Message to the Collation Generation subsystem.
-#[derive(Debug)]
-pub enum CollationGenerationMessage {
-	/// Initialize the collation generation subsystem.
-	Initialize(CollationGenerationConfig),
-	/// Reinitialize the collation generation subsystem, overriding the existing config.
-	Reinitialize(CollationGenerationConfig),
-	/// Submit a segment of collations that share a scheduling parent and target core. Each
-	/// collation is packaged into a signed [`CommittedCandidateReceipt`] and distributed to
-	/// validators, in the order they appear in [`SubmitSegmentParams::collations`].
-	///
-	/// If sent before `Initialize`, this will be ignored.
-	SubmitSegment(SubmitSegmentParams),
 }
 
 /// The result type of [`ApprovalVotingMessage::ImportAssignment`] request.

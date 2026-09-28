@@ -45,6 +45,7 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
+use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
@@ -300,6 +301,8 @@ struct CorePlan {
 	blocks_per_cores: Vec<u32>,
 	number_of_blocks: u32,
 	block_time: Duration,
+	/// The claim queue at the scheduling anchor, forwarded to the collation task.
+	anchor_claim_queue: ClaimQueueSnapshot,
 }
 
 impl<Block, P, Client, Backend, RelayClient> BuilderEnv<Block, P, Client, Backend, RelayClient>
@@ -674,6 +677,22 @@ where
 			},
 		};
 
+		// The scheduling anchor for both V2 and V3, so `determine_cores` above already read it: a
+		// cache hit that spares the collation task a runtime call per core.
+		let anchor_claim_queue =
+			match self.relay_chain_data_cache.get_by_hash(claim_queue_relay_block.hash()).await {
+				Ok(data) => data.claim_queue.clone(),
+				Err(()) => {
+					tracing::error!(
+						target: LOG_TARGET,
+						anchor = ?claim_queue_relay_block.hash(),
+						"Failed to read the claim queue at the scheduling anchor."
+					);
+
+					return Ok(None);
+				},
+			};
+
 		let number_of_blocks =
 			match self.para_client.runtime_api().target_block_rate(initial_parent_hash) {
 				Ok(interval) => interval,
@@ -713,6 +732,7 @@ where
 			cores,
 			blocks_per_cores,
 			number_of_blocks,
+			anchor_claim_queue,
 		}))
 	}
 }
@@ -844,12 +864,17 @@ where
 				.collator_service()
 				.check_block_status(cx.initial_parent_header.hash(), &cx.initial_parent_header);
 
-			let CorePlan { mut cores, blocks_per_cores, number_of_blocks, block_time } =
-				match env.plan_cores(&cx).await {
-					Ok(Some(plan)) => plan,
-					Ok(None) => continue,
-					Err(()) => break,
-				};
+			let CorePlan {
+				mut cores,
+				blocks_per_cores,
+				number_of_blocks,
+				block_time,
+				anchor_claim_queue,
+			} = match env.plan_cores(&cx).await {
+				Ok(Some(plan)) => plan,
+				Ok(None) => continue,
+				Err(()) => break,
+			};
 
 			let mut pov_parent_header = cx.initial_parent_header.clone();
 
@@ -857,6 +882,7 @@ where
 				let time_for_core = slot_time.time_left() / cores.cores_left();
 
 				match build_collation_for_core(BuildCollationParams {
+					anchor_claim_queue: anchor_claim_queue.clone(),
 					pov_parent_header,
 					relay_parent_header: cx.relay_parent(),
 					max_pov_size: cx.max_pov_size,
@@ -937,6 +963,8 @@ struct BuildCollationParams<
 	para_slot: cumulus_primitives_aura::Slot,
 	para_client: &'a Client,
 	v3_enabled: bool,
+	/// The claim queue at the scheduling anchor, forwarded to the collation task.
+	anchor_claim_queue: ClaimQueueSnapshot,
 }
 
 /// Build a collation for one core.
@@ -978,6 +1006,7 @@ async fn build_collation_for_core<
 		para_slot,
 		para_client,
 		v3_enabled,
+		anchor_claim_queue,
 	}: BuildCollationParams<'_, Block, P, RelayClient, BI, CIDP, Proposer, CS, CHP, Client>,
 ) -> Result<Option<Block::Header>, ()>
 where
@@ -1287,6 +1316,7 @@ where
 		validation_code_hash,
 		core_index,
 		validation_data,
+		claim_queue: anchor_claim_queue,
 	}) {
 		tracing::error!(target: LOG_TARGET, ?err, "Unable to send block to collation task.");
 		Err(())

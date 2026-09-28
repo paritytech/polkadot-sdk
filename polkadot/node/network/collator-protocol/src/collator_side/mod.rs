@@ -243,7 +243,7 @@ impl CollationData {
 	}
 }
 
-/// A segment distributed by our collation-generation for a `(scheduling_parent, core)`, kept so
+/// A segment distributed by our collator for a `(scheduling_parent, core)`, kept so
 /// we can (re-)advertise it to validators. All candidates in a segment share one descriptor
 /// version, hoisted here out of the per-candidate [`CandidateFingerprint`].
 struct StoredSegment {

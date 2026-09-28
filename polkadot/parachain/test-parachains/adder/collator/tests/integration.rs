@@ -76,13 +76,7 @@ async fn collating_using_adder_collator() {
 	)
 	.await;
 
-	charlie
-		.register_collator(
-			collator.collator_key(),
-			para_id,
-			collator.create_collation_function(charlie.task_manager.spawn_handle()),
-		)
-		.await;
+	charlie.register_collator(para_id, collator.create_collation_builder()).await;
 
 	// Wait until the parachain has 4 blocks produced.
 	collator.wait_for_blocks(4).await;
