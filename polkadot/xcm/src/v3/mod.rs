@@ -229,9 +229,7 @@ parameter_types! {
 pub struct PalletInfo {
 	#[codec(compact)]
 	pub index: u32,
-	#[cfg_attr(feature = "json-schema", schemars(with = "Vec<u8>"))]
 	pub name: BoundedVec<u8, MaxPalletNameLen>,
-	#[cfg_attr(feature = "json-schema", schemars(with = "Vec<u8>"))]
 	pub module_name: BoundedVec<u8, MaxPalletNameLen>,
 	#[codec(compact)]
 	pub major: u32,
@@ -280,14 +278,8 @@ impl TryInto<NewPalletInfo> for PalletInfo {
 #[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
 pub enum MaybeErrorCode {
 	Success,
-	Error(
-		#[cfg_attr(feature = "json-schema", schemars(with = "Vec<u8>"))]
-		BoundedVec<u8, MaxDispatchErrorLen>,
-	),
-	TruncatedError(
-		#[cfg_attr(feature = "json-schema", schemars(with = "Vec<u8>"))]
-		BoundedVec<u8, MaxDispatchErrorLen>,
-	),
+	Error(BoundedVec<u8, MaxDispatchErrorLen>),
+	TruncatedError(BoundedVec<u8, MaxDispatchErrorLen>),
 }
 
 impl From<Vec<u8>> for MaybeErrorCode {
@@ -321,10 +313,7 @@ pub enum Response {
 	/// An XCM version.
 	Version(super::Version),
 	/// The index, instance name, pallet name and version of some pallets.
-	PalletsInfo(
-		#[cfg_attr(feature = "json-schema", schemars(with = "Vec<PalletInfo>"))]
-		BoundedVec<PalletInfo, MaxPalletsInfo>,
-	),
+	PalletsInfo(BoundedVec<PalletInfo, MaxPalletsInfo>),
 	/// The status of a dispatch attempt using `Transact`.
 	DispatchResult(MaybeErrorCode),
 }
