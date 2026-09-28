@@ -903,8 +903,17 @@ where
 					Err(()) => return,
 				};
 
-				// Chain the next core's PoV parent onto the freshly-built tip.
-				pov_parent_header = parts.tip_header().clone();
+				// Chain the next core's PoV parent onto the freshly-built tip. The builder never
+				// returns an empty bundle, so this is always present.
+				let Some(tip_header) = parts.tip_header() else {
+					tracing::error!(
+						target: LOG_TARGET,
+						core_index = ?this_core_index,
+						"Built collation parts carry no blocks; skipping the core.",
+					);
+					break;
+				};
+				pov_parent_header = tip_header.clone();
 
 				let mut builder = CollatorMessageBuilder::new(this_core_index).with_bundle(parts);
 				if let Some(descendants) = v3_descendants {

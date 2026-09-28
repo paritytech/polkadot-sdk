@@ -219,7 +219,6 @@ where
 			validation_code_hash,
 			validation_data,
 		} = parts;
-		let export_pov = self.export_pov.clone();
 
 		// The scheduling proof, including its UMP scheduling-tail override, is applied inside
 		// `build_multi_block_collation`.
@@ -239,7 +238,7 @@ where
 		block_data.log_size_info();
 
 		if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
-			if let Some(pov_path) = export_pov {
+			if let Some(pov_path) = self.export_pov.as_ref() {
 				if let Ok(Some(relay_parent_header)) =
 					self.relay_client.header(BlockId::Hash(relay_parent)).await
 				{

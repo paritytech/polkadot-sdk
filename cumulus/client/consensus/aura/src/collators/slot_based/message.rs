@@ -105,11 +105,9 @@ impl<Block: BlockT> CollatorMessageBuilder<Block> {
 }
 
 impl<Block: BlockT> CollationParts<Block> {
-	/// The new chain tip (last built block), used to chain the next core's PoV parent.
-	pub(super) fn tip_header(&self) -> &Block::Header {
-		self.blocks
-			.last()
-			.expect("collation parts always carry at least one built block; qed")
-			.header()
+	/// The new chain tip (last built block), used to chain the next core's PoV parent. `None` for
+	/// the empty bundle, which the builder never produces.
+	pub(super) fn tip_header(&self) -> Option<&Block::Header> {
+		self.blocks.last().map(|block| block.header())
 	}
 }
