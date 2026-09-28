@@ -8,8 +8,15 @@ doc:
     `sp-npos-elections` now describes the corresponding error case for empty distributions.
     Phragmen elections skip normalization for voters without elected edges, so voters who only
     approved losing candidates and elections with no seats still succeed.
+    The benchmarking solver omits voters with no selected winner from its assignments, so their
+    positive stake does not reach downstream normalization. The multi-phase miner drops
+    assignments emptied by backer-limit trimming before normalization.
 crates:
 - name: sp-arithmetic
   bump: patch
 - name: sp-npos-elections
+  bump: patch
+- name: frame-election-provider-support
+  bump: patch
+- name: pallet-election-provider-multi-phase
   bump: patch
