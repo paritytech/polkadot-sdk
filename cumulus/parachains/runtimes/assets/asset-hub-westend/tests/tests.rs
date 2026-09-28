@@ -2458,11 +2458,12 @@ fn rolled_back_batch_all_keeps_a_mirrored_transfer_off_the_receipt() {
 	});
 }
 
-// Every buffered log is read back by the `on_finalize` drain, so its encoded bytes are in the
-// block's proof whatever admitted it: an assets extrinsic, a storage deposit settled by a contract
-// frame, an XCM fee swap, a batch. The insert charges at least those bytes, so the proof budget
-// bounds the buffer with no per-producer weight, and the bound is taken at the smallest entry any
-// producer could write rather than at the mirror's `Transfer` log.
+// Buffering a log registers at least its encoded bytes as proof size, whatever admitted it: an
+// assets extrinsic, a storage deposit settled by a contract frame, an XCM fee swap, a batch. The
+// entries never reach the proof, the buffer is written and taken within the block, but the
+// unchecked registration stays in `BlockWeight` through reclaim, so the proof budget admits only so
+// many entries with no per-producer weight. The bound is taken at the smallest entry any producer
+// could write rather than at the mirror's `Transfer` log.
 #[test]
 fn a_block_cannot_buffer_enough_logs_to_reach_the_cap_once_enabled() {
 	let smallest_entry_bytes = pallet_revive::OutsideFrameLog {

@@ -849,9 +849,10 @@ pub mod pallet {
 	/// balance-change callbacks on non-`eth_transact` paths), in emission order.
 	///
 	/// One value grown with `append`, like `frame_system::Events`: buffering a log extends the
-	/// encoding in place at the cost of that log's bytes, and the whole buffer is one storage key,
-	/// so its proof carries no per-entry trie overhead. Drained in `on_finalize` and flushed as a
-	/// single synthetic transaction receipt, so the logs enter the block's `logs_bloom`,
+	/// encoding in place at the cost of that log's bytes. Written and taken within one block, so
+	/// it is never in the pre-state and the proof holds one absence lookup for the key, nothing
+	/// per entry. Drained in `on_finalize` and flushed
+	/// as a single synthetic transaction receipt, so the logs enter the block's `logs_bloom`,
 	/// `receipts_root` and transaction trie.
 	///
 	/// NOTE: unbounded; accumulated across the block and consumed in `on_finalize`.
@@ -1120,9 +1121,14 @@ pub mod pallet {
 
 			// This log's share of the `on_finalize` drain, charged to the block that emitted it,
 			// since `on_initialize` reserves only the fixed part of `on_finalize`. The append
-			// itself is measured by the emitting pallet's own benchmark. The drain reads every
-			// entry back into the block's proof, so the charge never counts fewer bytes than the
-			// entry holds, whatever the benchmark's marginal came out at.
+			// itself is measured by the emitting pallet's own benchmark.
+			//
+			// The floor at the entry's bytes is an admission charge, not a cost the drain pays:
+			// the buffer is written and taken within one block, so it is never in the pre-state
+			// and the drain reads it from the overlay, not the proof. The charge still binds,
+			// because an unchecked registration lands in `BlockWeight` and proof-size reclaim
+			// only swaps out the extrinsic's own weight. That gives the buffer a bound in proof
+			// bytes per entry without a per-producer weight.
 			frame_system::Pallet::<T>::register_extra_weight_unchecked(
 				T::WeightInfo::per_outside_frame_log(data.len() as u32).max(entry_bytes),
 				DispatchClass::Normal,

@@ -1403,10 +1403,18 @@ parameter_types! {
 
 /// The `MaxOutsideFrameLogs` to wire once every eth-rpc serving this chain reads receipt data V2.
 ///
-/// A storage backstop above what any block can buffer. Every buffered log is read back by the
-/// `on_finalize` drain, so its encoded bytes are in the block's proof whatever produced it, and a
-/// 10 MiB proof holds fewer than 480_000 entries even of the smallest shape, an address with no
-/// topics and no data. The runtime tests pin that bound against this value.
+/// A storage backstop above what any block can buffer. Buffering a log registers at least its
+/// encoded bytes as proof size, unchecked, whatever produced it. That is an admission charge
+/// rather than a cost: the buffer lives and dies within the block, so the drain reads it from the
+/// overlay and the proof holds one absence lookup for the key, nothing per entry. The charge
+/// binds all the same, since it lands in
+/// `BlockWeight` and proof-size reclaim only swaps out an extrinsic's own weight. The smallest
+/// entry, an address with no topics and no data, is 26 bytes, so a 10 MiB proof budget admits
+/// about 403_000 of them, below this cap. The runtime tests pin that bound against this value.
+///
+/// The bound is not exact. An unchecked registration can overshoot `max_block` from
+/// `on_initialize` and from the last extrinsic of a block, and `ref_time` runs out long before
+/// either the proof budget or this cap does.
 pub const OUTSIDE_FRAME_LOGS_CAP_ONCE_ENABLED: u32 = 524_288;
 
 impl pallet_revive::Config for Runtime {
