@@ -2933,7 +2933,9 @@ mod benchmarks {
 
 	// i: size of the init code
 	#[benchmark(pov_mode = Measured)]
-	fn evm_instantiate(i: Linear<1, { MAX_INITCODE_SIZE as u32 }>) -> Result<(), BenchmarkError> {
+	fn evm_instantiate(
+		i: Linear<{ RuntimeCosts::BENCH_MIN_EVM_INIT_CODE_LEN }, { MAX_INITCODE_SIZE as u32 }>,
+	) -> Result<(), BenchmarkError> {
 		evm_instantiate_setup!(
 			do_instantiate,
 			assert_instantiated,
@@ -2961,7 +2963,7 @@ mod benchmarks {
 			assert_instantiated,
 			value: 1_000_000u32,
 			dust: 100u32 * d,
-			init_code_len: 1u32
+			init_code_len: RuntimeCosts::BENCH_MIN_EVM_INIT_CODE_LEN
 		);
 
 		let result;

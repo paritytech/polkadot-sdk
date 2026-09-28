@@ -247,6 +247,9 @@ macro_rules! cost_args {
 }
 
 impl RuntimeCosts {
+	/// Smallest init code length the `evm_instantiate*` benchmarks run at.
+	pub const BENCH_MIN_EVM_INIT_CODE_LEN: u32 = 1;
+
 	/// Extra ref_time a hot storage access pays to look up the block's overlay.
 	fn hot_storage_overlay_overhead<T: Config>() -> Weight {
 		let per_read = |weight_fn: fn(u32) -> Weight| weight_fn(1).saturating_sub(weight_fn(0));
@@ -409,8 +412,9 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			},
 			Create { init_code_len, balance_transfer, dust_transfer } => {
 				let transfer = if balance_transfer || dust_transfer {
-					T::WeightInfo::evm_instantiate_transfer(dust_transfer.into())
-						.saturating_sub(T::WeightInfo::evm_instantiate(1))
+					T::WeightInfo::evm_instantiate_transfer(dust_transfer.into()).saturating_sub(
+						T::WeightInfo::evm_instantiate(Self::BENCH_MIN_EVM_INIT_CODE_LEN),
+					)
 				} else {
 					Weight::zero()
 				};
@@ -588,5 +592,47 @@ mod tests {
 			"the per-read cost of overlay_probe_full must stay above overlay_probe_empty",
 		);
 		assert_eq!(overhead.proof_size(), 0, "the overlay probe is in-memory only: {overhead:?}");
+	}
+
+	#[test]
+	fn value_transfers_pay_a_surcharge_independent_of_the_input_size() {
+		let weight = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);
+
+		for dust_transfer in [false, true] {
+			let surcharge = weight(RuntimeCosts::CallTransferSurcharge { dust_transfer });
+			assert!(surcharge.ref_time() > 0, "dust_transfer: {dust_transfer}");
+		}
+
+		let instantiate: fn(u32, bool, bool) -> RuntimeCosts =
+			|input_data_len, balance_transfer, dust_transfer| RuntimeCosts::Instantiate {
+				input_data_len,
+				balance_transfer,
+				dust_transfer,
+			};
+		let create: fn(u32, bool, bool) -> RuntimeCosts =
+			|init_code_len, balance_transfer, dust_transfer| RuntimeCosts::Create {
+				init_code_len,
+				balance_transfer,
+				dust_transfer,
+			};
+
+		for (cost_of, max_len) in [
+			(instantiate, limits::CALLDATA_BYTES),
+			(create, revm::primitives::eip3860::MAX_INITCODE_SIZE as u32),
+		] {
+			let surcharge = |len, dust_transfer| {
+				weight(cost_of(len, true, dust_transfer))
+					.saturating_sub(weight(cost_of(len, false, false)))
+			};
+			for dust_transfer in [false, true] {
+				let with_empty_input = surcharge(0, dust_transfer);
+				assert!(with_empty_input.ref_time() > 0, "dust_transfer: {dust_transfer}");
+				assert_eq!(
+					surcharge(max_len, dust_transfer),
+					with_empty_input,
+					"dust_transfer: {dust_transfer}",
+				);
+			}
+		}
 	}
 }
