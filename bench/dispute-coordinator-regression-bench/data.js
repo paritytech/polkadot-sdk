@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790591329723,
+  "lastUpdate": 1790601582037,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "68e6cf12cbc7a1edc06cfd88767f3b173bfd045c",
-          "message": "Version bumps stable2512-2 (#11163)\n\nThis PR backports regular version bumps and prdocs reorderings from\nstable2512 release branch back to master\n\n---------\n\nCo-authored-by: ParityReleases <release-team@parity.io>",
-          "timestamp": "2026-02-25T06:57:12Z",
-          "tree_id": "5d95cd77a153b2ba454c4016f9a7d9a9d635448c",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/68e6cf12cbc7a1edc06cfd88767f3b173bfd045c"
-        },
-        "date": 1772007455707,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009148273849999992,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026103001900000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.006448264989999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009467732269999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8b20e748b8cf3b07bdbfbf6df3bdaa4070a915e3",
+          "message": "statement-store: migrate the database one version step at a time (#13317)\n\n# Description\n\nThe statement store migrates an older database one version step at a\ntime. `check_db_version` returns the on-disk version, `migrate_database`\nwalks from it to `CURRENT_VERSION` and runs the step for each version,\nand every step bumps the version to its own target once its rows are\ncommitted. The existing rebuild of the indexes, journals and counters\nfrom the statement bodies is the v1 to v2 step; the pass over the stored\nstatements and the loading of the admission sequence numbers are helpers\na later step can reuse.\n\nBehaviour is unchanged: version 2 is still the current one and the only\nstep is v1 to v2.\n\n# Integration\n\nNone. Node operators and downstream users need no changes.\n\n# Review Notes\n\nBefore, a version bump reran the whole rebuild on every older database,\nincluding columns the new version left untouched. Running that over a\nversion 2 database would have added a second evicted-journal key for\nevery banned statement whose purge time the expiry had capped, and\nmaintenance would then have counted the ban twice. The step per version\nkeeps each migration limited to what its version changed.\nhttps://github.com/paritytech/polkadot-sdk/pull/13278 adds the v2 to v3\nstep on top of this.",
+          "timestamp": "2026-09-28T11:44:34Z",
+          "tree_id": "45b79c67fabf4a8bfe8c74f30b752bd72cbe341a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8b20e748b8cf3b07bdbfbf6df3bdaa4070a915e3"
+        },
+        "date": 1790601549623,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025510604300000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00927145225999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009715419279999986,
             "unit": "seconds"
           }
         ]
