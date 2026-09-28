@@ -618,6 +618,7 @@ mod tests {
 			max_spread: Permill::from_percent(1),
 			max_trade_age_ms: MAX_TRADE_AGE_MS,
 			impact_size: p("5000"),
+			quorum: 1,
 		}
 	}
 

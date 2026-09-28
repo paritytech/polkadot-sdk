@@ -51,6 +51,7 @@ fn settings() -> PairSettings {
 		max_spread: Permill::from_percent(1),
 		max_trade_age_ms: 5 * 60 * 1_000,
 		impact_size: p("10000"),
+		quorum: 1,
 	}
 }
 
@@ -118,7 +119,7 @@ async fn venues_are_fetched_and_priced() {
 
 	let n = prices.len();
 	let m = stored.len();
-	let quotes = pricing::aggregate(prices, &[PAIR], |_| Vec::new());
+	let quotes = pricing::aggregate(prices, &[PAIR], |_| Vec::new(), |_| settings().quorum);
 	match quotes.first() {
 		Some(q) => println!("{n}/{m} priced  {price}", price = q.price),
 		None => println!("{n}/{m} priced"),
