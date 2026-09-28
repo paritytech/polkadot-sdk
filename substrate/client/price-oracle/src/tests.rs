@@ -35,7 +35,7 @@ use pallet_price_oracle::{
 };
 use sp_price_oracle::{
 	market::{MarketId, VenueId},
-	PairId, Price,
+	PairId, Price, Quote,
 };
 use sp_runtime::Permill;
 use tokio::time::{Duration, Instant};
@@ -108,7 +108,7 @@ async fn venues_are_fetched_and_priced() {
 	fetched.into_iter().for_each(|r| {
 		let (name, market) = &stored[r.market.0 as usize];
 		match price_market(market, &settings(), r.responses, now) {
-			Ok(price) => prices.push((market.venue, market.pair, price)),
+			Ok(price) => prices.push(Quote { pair: market.pair, price }),
 			Err(e) => missing.push((*name, String::from_utf8_lossy(&e.0).into_owned())),
 		}
 	});

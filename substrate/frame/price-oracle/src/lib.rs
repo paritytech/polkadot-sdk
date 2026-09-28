@@ -501,14 +501,11 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Backs [`PriceOracleApi::aggregate`](sp_price_oracle::runtime_api::PriceOracleApi::aggregate).
 	pub fn aggregate_markets(prices: Vec<(MarketId, Price)>) -> Vec<Quote> {
-		let prices = prices
+		let markets = prices
 			.into_iter()
-			.filter_map(|(id, price)| {
-				let m = Markets::<T>::get(id)?;
-				Some((m.venue, m.pair, price))
-			})
+			.filter_map(|(id, price)| Some(Quote { pair: Markets::<T>::get(id)?.pair, price }))
 			.collect();
-		pricing::aggregate(prices, &T::Pairs::all(), T::Pairs::conversions)
+		pricing::aggregate(markets, &T::Pairs::all(), T::Pairs::conversions)
 	}
 }
 
