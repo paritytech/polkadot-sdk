@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790631401678,
+  "lastUpdate": 1790638939052,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tsvetomir@parity.io",
-            "name": "Tsvetomir Dimitrov",
-            "username": "tdimitrov"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4afd7bdd4b9e066f2d1da68b971f9938de214b3c",
-          "message": "Decrease the log level for claim queue inconsistency in `ClaimQueueState` (#11417)\n\nWhile testing the collator protocol revamp on westend I noticed\n\"Inconsistency while adding a leaf to the `ClaimQueueState`. Expected on\nsession change.\" pops up a lot at regular intervals.\n\nLong story short, when writing this code I assumed that the CQ never\nchange but from a `ClaimQueueState` point of view this is not true. ~~On\nsession change the validators in the active set are reshuffled and end\nup in different backing groups.~~ ON group rotation the validators are\nassigned on a new core. In this case we start fetching the claim queue\nfor the newly assigned core and the future assignments in\n`ClaimQueueState` are no longer valid so overwriting them is the right\nthing to do.\n\nWe could also implement a logic which detects assignment change,\nnotifies the claim queue and cleans it up but it's an additional\ncomplexity which doesn't add any benefits.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-23T10:22:53Z",
-          "tree_id": "e513cbd91fd88e46fdd3586336ab3b958a1fbcca",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4afd7bdd4b9e066f2d1da68b971f9938de214b3c"
-        },
-        "date": 1774266265867,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00972961979,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026258321899999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009636217849999986,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010111253709999992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexandre.balde@parity.io",
+            "name": "Alexandre R. Baldé",
+            "username": "rockbmb"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5123f42751116805f178f0044f7ddb1190c78079",
+          "message": "pallet-recovery: add do_try_state invariant checks (#12490)\n\n## Description\n\nAdds a `do_try_state` implementation to `pallet-recovery`, wired into\nthe `try_state` runtime hook. The revamped recovery pallet shipped\nwithout runtime invariant checks; this PR addresses that, mirroring the\napproach taken for `pallet-psm` in #12154.\n\n`do_try_state` checks eight state-consistency invariants over `Attempt`,\n`FriendGroups`, and `Inheritor` storage:\n\n1. No orphan attempts (every `Attempt[lost, _]` has a matching\n`FriendGroups[lost]` entry).\n2. In-range friend-group index.\n3. No bit set past `friends.len()` in an attempt's approval bitfield.\n4. (warn) Inheritor overridability: an existing inheritor is either at\nthe strongest priority, overridable by some currently-configured group,\nor the lost account can clear it via `revoke_inheritor`. Warn-only\nbecause the state is reachable through legal single-signer actions.\n5. Each storage entry (`AttemptStorage`, `SecurityDeposit`,\n`FriendGroupsStorage`, `InheritorStorage`) has a non-zero balance on\nhold for its depositor.\n6. Approval count `<= friends_needed`.\n7. `init_block <= last_approval_block`.\n8. `inheritor != lost`.\n\n`do_try_state` is `pub(crate)` and gated on `#[cfg(any(feature =\n\"try-runtime\", test))]`; the `try_state` hook is gated on `try-runtime`.\n\n## Tests\n\nA `try_state` test module covers all eight invariants: a passing case\nper storage shape and a failing case per hard error, plus the warn-only\npath. The four deposit-hold checks are exercised by releasing a hold\nwhile leaving the backing storage entry in place.",
+          "timestamp": "2026-09-28T22:06:52Z",
+          "tree_id": "09b5f71b3ab3fb1a996d4accf029a1127d01809a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5123f42751116805f178f0044f7ddb1190c78079"
+        },
+        "date": 1790638908721,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009406022959999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00254230329,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011001558319999997,
             "unit": "seconds"
           }
         ]
