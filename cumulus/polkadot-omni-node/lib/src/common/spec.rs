@@ -19,13 +19,14 @@ use crate::{
 	cli::DevSealMode,
 	common::{
 		command::NodeCommandRunner,
+		price_oracle::PriceOracleNetwork,
 		rpc::BuildRpcExtensions,
 		statement_store::{build_statement_store, new_statement_handler_proto},
 		types::{
 			ParachainBackend, ParachainBlockImport, ParachainClient, ParachainHostFunctions,
 			ParachainService,
 		},
-		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs, PriceOracleNetwork,
+		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
 };
 use codec::Encode;

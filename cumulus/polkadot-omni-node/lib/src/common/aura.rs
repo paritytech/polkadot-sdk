@@ -33,16 +33,7 @@ pub trait AuraIdT: AppCrypto<Pair = Self::BoundedPair> + Codec + Send {
 		+ AppCrypto<Signature = Self::BoundedSignature, Public = Self::BoundedPublic>;
 
 	/// Extra bounds for the `Public` key.
-	type BoundedPublic: RuntimeAppPublic<Signature = Self::BoundedSignature>
-		+ AppCrypto
-		+ AppPublic
-		+ Ord
-		+ Clone
-		+ Codec
-		+ std::fmt::Debug
-		+ Send
-		+ Sync
-		+ 'static;
+	type BoundedPublic: AppPublic + RuntimeAppPublic<Signature = Self::BoundedSignature> + Ord;
 
 	/// Extra bounds for the `Signature`.
 	type BoundedSignature: AppSignature
@@ -55,13 +46,8 @@ pub trait AuraIdT: AppCrypto<Pair = Self::BoundedPair> + Codec + Send {
 impl<T> AuraIdT for T
 where
 	T: AppCrypto + Codec + Send + Sync,
-	<<T as AppCrypto>::Pair as AppCrypto>::Public: RuntimeAppPublic<Signature = <<T as AppCrypto>::Pair as AppCrypto>::Signature>
-		+ AppPublic
-		+ Ord
-		+ Codec
-		+ Send
-		+ Sync
-		+ 'static,
+	<<T as AppCrypto>::Pair as AppCrypto>::Public:
+		RuntimeAppPublic<Signature = <<T as AppCrypto>::Pair as AppCrypto>::Signature> + Ord,
 	<<T as AppCrypto>::Pair as AppCrypto>::Signature:
 		TryFrom<Vec<u8>> + std::hash::Hash + sp_runtime::traits::Member + Codec,
 {
@@ -77,8 +63,6 @@ pub trait AuraRuntimeApi<Block: BlockT, AuraId: AuraIdT>:
 	+ AuraApi<Block, <AuraId::BoundedPair as Pair>::Public>
 	+ AuraUnincludedSegmentApi<Block>
 	+ KeyToIncludeInRelayProof<Block>
-	+ sp_price_oracle::runtime_api::PriceOracleApi<Block, <AuraId::BoundedPair as Pair>::Public>
-	+ sp_price_oracle::runtime_api::PriceOracleMarketApi<Block>
 	+ Sized
 where
 	<AuraId::BoundedPair as Pair>::Public: std::fmt::Debug,
@@ -95,9 +79,7 @@ where
 	T: sp_api::ApiExt<Block>
 		+ AuraApi<Block, <AuraId::BoundedPair as Pair>::Public>
 		+ AuraUnincludedSegmentApi<Block>
-		+ KeyToIncludeInRelayProof<Block>
-		+ sp_price_oracle::runtime_api::PriceOracleApi<Block, <AuraId::BoundedPair as Pair>::Public>
-		+ sp_price_oracle::runtime_api::PriceOracleMarketApi<Block>,
+		+ KeyToIncludeInRelayProof<Block>,
 	<AuraId::BoundedPair as Pair>::Public: std::fmt::Debug,
 {
 }

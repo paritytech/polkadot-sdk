@@ -18,6 +18,7 @@ use crate::{
 	cli::{AuthoringPolicy, DevSealMode},
 	common::{
 		aura::{AuraIdT, AuraRuntimeApi},
+		price_oracle::{PriceOracleNetwork, PriceOracleRuntimeApi},
 		rpc::{BuildParachainRpcExtensions, BuildRpcExtensions},
 		spec::{
 			BaseNodeSpec, BuildImportQueue, ClientBlockImport, DynNodeSpec, InitBlockImport,
@@ -27,7 +28,7 @@ use crate::{
 			AccountId, Balance, Hash, Nonce, ParachainBackend, ParachainBlockImport,
 			ParachainClient,
 		},
-		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs, PriceOracleNetwork,
+		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
 };
 use codec::Encode;
@@ -179,7 +180,7 @@ fn start_price_oracle<Block, RuntimeApi, AuraId>(
 where
 	Block: BlockT<Hash = DbHash>,
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + PriceOracleRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT + Sync + Send,
 {
 	let network = network?;
@@ -213,7 +214,7 @@ fn price_oracle_inherent_data_provider<Block, RuntimeApi, AuraId>(
 where
 	Block: BlockT<Hash = DbHash>,
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + PriceOracleRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT,
 {
 	#[cfg(feature = "price-oracle")]
@@ -661,6 +662,7 @@ where
 	Block: NodeBlock,
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
+		+ PriceOracleRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
 		+ TargetBlockRate<Block>
@@ -759,7 +761,9 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 	> for StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + TargetBlockRate<Block>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
+		+ PriceOracleRuntimeApi<Block, AuraId>
+		+ TargetBlockRate<Block>,
 	AuraId: AuraIdT + Sync + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
@@ -952,7 +956,7 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 	> for StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + PriceOracleRuntimeApi<Block, AuraId>,
 	AuraId: AuraIdT + Sync + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
