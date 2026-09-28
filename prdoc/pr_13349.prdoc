@@ -1,0 +1,10 @@
+title: Remove the construct_runtime! where clause
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+
+    This is part of #11561. The `where` clause on `construct_runtime!` has warned since December 2023, and no production runtime still uses it. The block type is already read from `frame_system::Config::Block`.
+crates:
+- name: frame-support-procedural
+  bump: major
