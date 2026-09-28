@@ -1,0 +1,16 @@
+title: Migrate child-bounties storage from v1 to v2
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+
+    This is part of #11561. `ChildBountyCount` is unused once child-bounty ids are tracked per parent, so this change removes it with a storage migration. `pallet-child-bounties` moves from storage version 1 to 2, and `MigrateV1ToV2` deletes the old value. Rococo already runs the v0 to v1 migration and now runs v2 after it. Kitchensink runs v2 only, because the v1 migration rewrites child-bounty ids and moves funds, and it was never part of that runtime's migration list.
+
+    ## Test plan
+
+    Run `SKIP_WASM_BUILD=1 cargo test -p pallet-child-bounties --lib child_bounty_count`, and confirm Rococo and kitchensink still compile with the migration wired into `SingleBlockMigrations`.
+crates:
+- name: rococo-runtime
+  bump: major
+- name: pallet-child-bounties
+  bump: major
