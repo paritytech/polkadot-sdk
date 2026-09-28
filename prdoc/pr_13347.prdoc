@@ -1,6 +1,6 @@
 title: 'grandpa: skip decoding commits peers would reject'
 doc:
-- audience: Todo
+- audience: Node Dev
   description: |-
     In `GossipValidator::message_allowed`, check whether the peer would accept a commit at our best commit height before decoding the message.
 
@@ -10,4 +10,4 @@ doc:
     Discovered while working on #13318 (but independent of it)
 crates:
 - name: sc-consensus-grandpa
-  bump: major
+  bump: patch
