@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790617869329,
+  "lastUpdate": 1790627182084,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "jfanatiker@gmx.at",
-            "name": "eskimor",
-            "username": "eskimor"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b1a2aa66e9a72df412cabbcfdc37fea837cffdd9",
-          "message": "Report back when candidate is rejected. (#11463)\n\nWe should tell the collator protocol when we reject a candidate, so the\ncollator can be punished accordingly.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-23T15:09:49Z",
-          "tree_id": "3dda359b1c9615c8147ae3932712ce741f4f3237",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b1a2aa66e9a72df412cabbcfdc37fea837cffdd9"
-        },
-        "date": 1774283324647,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12030587393333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.254964857099997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.9668709871,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "derek@colley.cc",
+            "name": "Derek Colley",
+            "username": "dcolley"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "64de0b9212cfd56d831feed24f3a959b19f73daa",
+          "message": "add INTERWEB polkadot boot node (#13297)\n\n# Description\n\nAdds four Interweb IT bootnode multiaddrs to the embedded Polkadot relay\nchainspec (`polkadot/node/service/chain-specs/polkadot.json`):\n\n-\n`/ip4/195.144.22.130/udp/13012/webrtc-direct/certhash/uEiAh5tKwiZJCcuqrK28fbtyfPtCKxe0YhLUmd5hmKVZF4g/p2p/12D3KooWRjHFApinuqSBjoaDjQHvxwubQSpEVy5hrgC9Smvh92WF`\n(WebRTC)\n-\n`/ip4/195.144.22.130/tcp/13012/p2p/12D3KooWRjHFApinuqSBjoaDjQHvxwubQSpEVy5hrgC9Smvh92WF`\n(TCP)\n-\n`/dns/boot.interweb-it.com/tcp/13012/p2p/12D3KooWRjHFApinuqSBjoaDjQHvxwubQSpEVy5hrgC9Smvh92WF`\n(DNS/TCP)\n-\n`/dns/boot.interweb-it.com/tcp/13016/wss/p2p/12D3KooWRjHFApinuqSBjoaDjQHvxwubQSpEVy5hrgC9Smvh92WF`\n(DNS/WSS)\n\nPeer ID: `12D3KooWRjHFApinuqSBjoaDjQHvxwubQSpEVy5hrgC9Smvh92WF`. No\nexisting bootnodes were removed or reordered. No crate or runtime code\nchanges.\n\nReachability checked before opening:\n- `boot.interweb-it.com` → `195.144.22.130`\n- TCP `13012` accepts connections\n- WSS/TLS on `13016` succeeds (cert CN/SAN `boot.interweb-it.com`)\n- WebRTC UDP `13012` responds to a STUN binding probe\n\n## Integration\n\nNo downstream integration steps. Chainspec `bootNodes` only; nodes pick\nup the new entries on the next release that ships this chainspec. No\nAPI, CLI, or crate version impact. Prefer label\n`R0-no-crate-publish-required`.\n\n## Review Notes\n\nSingle-file change to `polkadot/node/service/chain-specs/polkadot.json`,\nappending the four multiaddrs above to the existing `bootNodes` array,\nplus `prdoc/pr_13297.prdoc`.\n\nSame pattern as prior operator bootnode PRs (e.g. IBP/stakeworld\nbootnode updates): JSON-only, no code paths touched.\n\nSuggested labels (also requested via `/cmd label`):\n- `T0-node`\n- `R0-no-crate-publish-required`\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required) — requested via `/cmd label T0-node\nR0-no-crate-publish-required`\n* [x] I have made corresponding changes to the documentation (if\napplicable) — N/A (chainspec bootNodes only; prdoc included)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable) — N/A (static chainspec data; reachability\nverified off-CI)\n\n---------\n\nCo-authored-by: Derek Colley <dcolley@users.noreply.github.com>",
+          "timestamp": "2026-09-28T18:53:24Z",
+          "tree_id": "350c0f11dd1681ccbbc761742e486f84d8e8de9f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/64de0b9212cfd56d831feed24f3a959b19f73daa"
+        },
+        "date": 1790627150132,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13781079493333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.2275742854,
             "unit": "seconds"
           }
         ]
