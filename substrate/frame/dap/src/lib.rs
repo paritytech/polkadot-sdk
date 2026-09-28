@@ -132,18 +132,18 @@ pub mod pallet {
 
 		type AssetKind: Parameter + MaxEncodedLen + MaybeSerializeDeserialize + Ord + Debug;
 
+		#[cfg(not(feature = "runtime-benchmarks"))]
+		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetKind, Balance = Self::Balance>
+			+ Mutate<Self::AccountId>
+			+ Balanced<Self::AccountId>
+			+ Unbalanced<Self::AccountId>;
+
 		#[cfg(feature = "runtime-benchmarks")]
 		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetKind, Balance = Self::Balance>
 			+ Mutate<Self::AccountId>
 			+ Balanced<Self::AccountId>
 			+ Unbalanced<Self::AccountId>
 			+ Create<Self::AccountId>;
-
-		#[cfg(not(feature = "runtime-benchmarks"))]
-		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetKind, Balance = Self::Balance>
-			+ Mutate<Self::AccountId>
-			+ Balanced<Self::AccountId>
-			+ Unbalanced<Self::AccountId>;
 
 		#[pallet::constant]
 		type NativeCurrencyAssetId: Get<Self::AssetKind>;
