@@ -35,7 +35,7 @@ fn set_budget_allocation_works_with_root() {
 		let allocs =
 			budget_map(&[(b"buffer", 20), (b"staker_rewards", 60), (b"validator_incentive", 20)]);
 
-		assert_ok!(Dap::set_budget_allocation(RuntimeOrigin::root(), allocs.clone()));
+		assert_ok!(Dap::set_allocations(RuntimeOrigin::root(), Some(allocs.clone()), None));
 
 		assert_eq!(BudgetAllocation::<Test>::get(), allocs);
 		System::assert_has_event(Event::BudgetAllocationUpdated { allocations: allocs }.into());
@@ -54,7 +54,7 @@ fn set_budget_allocation_rejects_unknown_key() {
 
 		// THEN: rejected.
 		assert_noop!(
-			Dap::set_budget_allocation(RuntimeOrigin::root(), allocs),
+			Dap::set_allocations(RuntimeOrigin::root(), Some(allocs), None),
 			Error::<Test>::UnknownBudgetKey
 		);
 	});
@@ -70,7 +70,7 @@ fn set_budget_allocation_rejects_over_100_percent() {
 
 		// THEN: rejected.
 		assert_noop!(
-			Dap::set_budget_allocation(RuntimeOrigin::root(), allocs),
+			Dap::set_allocations(RuntimeOrigin::root(), Some(allocs), None),
 			Error::<Test>::BudgetNotExact
 		);
 	});
@@ -86,7 +86,7 @@ fn set_budget_allocation_rejects_under_100_percent() {
 
 		// THEN: rejected.
 		assert_noop!(
-			Dap::set_budget_allocation(RuntimeOrigin::root(), allocs),
+			Dap::set_allocations(RuntimeOrigin::root(), Some(allocs), None),
 			Error::<Test>::BudgetNotExact
 		);
 	});
@@ -100,7 +100,7 @@ fn set_budget_allocation_requires_budget_origin() {
 		let allocs = budget_map(&[(b"staker_rewards", 80)]);
 
 		assert_noop!(
-			Dap::set_budget_allocation(RuntimeOrigin::signed(account_id(1)), allocs),
+			Dap::set_allocations(RuntimeOrigin::signed(account_id(1)), Some(allocs), None),
 			sp_runtime::DispatchError::BadOrigin
 		);
 	});

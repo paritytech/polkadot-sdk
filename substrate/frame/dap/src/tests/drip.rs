@@ -42,7 +42,7 @@ fn drip_distributes_according_to_budget() {
 		// GIVEN: 60% staker, 25% validator incentive, 15% buffer
 		let allocs =
 			budget_map(&[(b"staker_rewards", 60), (b"validator_incentive", 25), (b"buffer", 15)]);
-		assert_ok!(Dap::set_budget_allocation(RuntimeOrigin::root(), allocs));
+		assert_ok!(Dap::set_allocations(RuntimeOrigin::root(), Some(allocs), None));
 
 		let staker_pot = account_id(500); // TestStakerRecipient pot account
 		let incentive_pot = account_id(501); // TestValidatorIncentiveRecipient pot account
@@ -89,7 +89,7 @@ fn drip_fires_after_cadence_reached() {
 
 		// Set 100% to buffer.
 		let allocs = budget_map(&[(b"buffer", 100)]);
-		assert_ok!(Dap::set_budget_allocation(RuntimeOrigin::root(), allocs));
+		assert_ok!(Dap::set_allocations(RuntimeOrigin::root(), Some(allocs), None));
 
 		let buffer = Dap::buffer_account();
 		let buffer_before = Balances::balance(&buffer);
@@ -143,7 +143,7 @@ fn elapsed_ceiling_is_applied() {
 
 		// Set 100% to buffer.
 		let allocs = budget_map(&[(b"buffer", 100)]);
-		assert_ok!(Dap::set_budget_allocation(RuntimeOrigin::root(), allocs));
+		assert_ok!(Dap::set_allocations(RuntimeOrigin::root(), Some(allocs), None));
 
 		let buffer = Dap::buffer_account();
 		let buffer_before = Balances::balance(&buffer);
@@ -200,7 +200,7 @@ fn drip_emits_issuance_minted_event() {
 
 		// Set 100% to buffer so drip distributes.
 		let allocs = budget_map(&[(b"buffer", 100)]);
-		assert_ok!(Dap::set_budget_allocation(RuntimeOrigin::root(), allocs));
+		assert_ok!(Dap::set_allocations(RuntimeOrigin::root(), Some(allocs), None));
 
 		advance_time_and_drip(60_000);
 

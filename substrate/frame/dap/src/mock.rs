@@ -74,7 +74,6 @@ impl pallet_assets::Config for Test {
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
-	// TODO: Define AssetIdAllocator.
 }
 
 parameter_types! {
