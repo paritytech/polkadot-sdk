@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790601390215,
+  "lastUpdate": 1790606049044,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tsvetomir@parity.io",
-            "name": "Tsvetomir Dimitrov",
-            "username": "tdimitrov"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4afd7bdd4b9e066f2d1da68b971f9938de214b3c",
-          "message": "Decrease the log level for claim queue inconsistency in `ClaimQueueState` (#11417)\n\nWhile testing the collator protocol revamp on westend I noticed\n\"Inconsistency while adding a leaf to the `ClaimQueueState`. Expected on\nsession change.\" pops up a lot at regular intervals.\n\nLong story short, when writing this code I assumed that the CQ never\nchange but from a `ClaimQueueState` point of view this is not true. ~~On\nsession change the validators in the active set are reshuffled and end\nup in different backing groups.~~ ON group rotation the validators are\nassigned on a new core. In this case we start fetching the claim queue\nfor the newly assigned core and the future assignments in\n`ClaimQueueState` are no longer valid so overwriting them is the right\nthing to do.\n\nWe could also implement a logic which detects assignment change,\nnotifies the claim queue and cleans it up but it's an additional\ncomplexity which doesn't add any benefits.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-23T10:22:53Z",
-          "tree_id": "e513cbd91fd88e46fdd3586336ab3b958a1fbcca",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4afd7bdd4b9e066f2d1da68b971f9938de214b3c"
-        },
-        "date": 1774266098735,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12544817349999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.37623937566667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.0991432438,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1af454d2d3a533bec6d4f18dcea1214b51c9c90f",
+          "message": "session: fix benchmarks with non-zero KeyDeposit (#13337)\n\n`pallet_session::Pallet::ensure_can_pay_key_deposit` now mints the key\ndeposit on top of the account's existing balance. Previously it counted\nexisting free balance towards the deposit.\n\nThis made the`pallet-collator-selection` `register_as_candidate` and\n`take_candidate_slot` benchmarks fail on runtimes with a non-zero\nsession `KeyDeposit`.\n\nFixes #13336\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-28T12:55:32Z",
+          "tree_id": "5c20e934efa4e32c6059e9e6e650b24ca2681df4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1af454d2d3a533bec6d4f18dcea1214b51c9c90f"
+        },
+        "date": 1790606018101,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.918155085900004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.144251637,
             "unit": "seconds"
           }
         ]
