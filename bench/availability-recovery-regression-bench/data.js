@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790376307778,
+  "lastUpdate": 1790591137909,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1c2eeb77e605b3c9d17649ca6b08dea99d5b3f94",
-          "message": "Revive, Estimate Gas with Binary Search (#11000)\n\n# Description\n\nThis PR implements binary search for the gas estimation logic in the\neth-rpc which means that gas estimations are no longer just simple dry\nruns but that binary search is now used to find the smallest gas limit\nat which the transaction would run.\n\nThis PR closes https://github.com/paritytech/contract-issues/issues/217\nand also _kind of_ fixes\nhttps://github.com/paritytech/contract-issues/issues/259 or at least\nmakes it harder to trigger the case in which we observe it, but the\nunderlying issue still exists.\n\nThe binary search algorithm implemented in this PR is as close as\npossible to that used in Geth\n\n# Note\n\nThis PR **does not** fix\nhttps://github.com/paritytech/contract-issues/issues/259 where the dry\nrun could fail but the submission succeeds. It makes it so that it's\nharder for that case to be triggered by the underlying issue causing\nhttps://github.com/paritytech/contract-issues/issues/259 is still there\nand it's caused by the overflows and saturations that happen in the gas\n-> fee -> weight computations\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-20T13:04:25Z",
-          "tree_id": "78385e67f8f6c591acab1f0e52fceb68a042e628",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1c2eeb77e605b3c9d17649ca6b08dea99d5b3f94"
-        },
-        "date": 1774016536760,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.238385343199997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12083078839999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13679574146666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5cc4eda07222ebb03b3fc50cd46556437cb506c4",
+          "message": "statement-store: recover V2 gossip after major sync (#13272)\n\n## Summary\n\n- Resume deferred statement peer connections after major sync in both\ngate modes.\n- Keep V2 affinity controls during sync and re-announce the current\nfilter once the node has\nstayed out of major sync for `MAJOR_SYNC_SETTLE_PERIOD`, even without\ndropped statements: a peer\n  never retries a propagation chunk that failed to reach us.\n- Reconnect one v1 peer after major sync on the v2 path too: a v1 peer\ncannot replay on request,\nand on this path the set accepts non-reserved peers, so the substream is\nclosed directly instead\n  of leaving the reserved set.\n- Refresh affinity snapshots using current subscriptions and topology,\nreusing the existing filter\n  dirty state without new networking events or wire changes.\n- zombienet: the v1 and v2 late-joiner tests share one body and both\nassert the deferred-peer\ndrain log line, which master never emits under the gate; the v2 one\njoins the CI matrix.\n\nFixes #12561\n\nFollow-up: #13280 – incremental resync after major sync",
+          "timestamp": "2026-09-28T08:19:22Z",
+          "tree_id": "e97cb4c942f54bdc28aeb4ad05a84a542f989e49",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5cc4eda07222ebb03b3fc50cd46556437cb506c4"
+        },
+        "date": 1790591106928,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.845205040600002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13862209450000001,
             "unit": "seconds"
           }
         ]
