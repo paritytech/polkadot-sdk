@@ -125,9 +125,9 @@ use sp_runtime_interface::{
 use codec::{Decode, Encode};
 
 #[cfg(not(substrate_runtime))]
-use secp256k1::{
-	ecdsa::{RecoverableSignature, RecoveryId},
-	Message,
+use k256::{
+	ecdsa::{RecoveryId, Signature as EcdsaSignature, VerifyingKey},
+	elliptic_curve::{ops::Reduce, PrimeField},
 };
 
 #[cfg(not(substrate_runtime))]
@@ -150,6 +150,97 @@ pub enum EcdsaVerifyError {
 	BadV,
 	/// Invalid signature
 	BadSignature,
+}
+
+/// Parse the `V` byte of a 65-byte RSV ECDSA signature: raw ids `0..=3` or the
+/// Ethereum-style values offset by 27.
+#[cfg(not(substrate_runtime))]
+fn ecdsa_recovery_id(v: u8) -> Result<RecoveryId, EcdsaVerifyError> {
+	RecoveryId::from_byte(if v > 26 { v - 27 } else { v }).ok_or(EcdsaVerifyError::BadV)
+}
+
+/// Recover the public key from an `(r, s)` scalar pair, a recovery id and a 32-byte
+/// message prehash.
+///
+/// The historical backends accepted high-S signatures during recovery while k256 rejects
+/// them, so high-S values are normalised here with the recovery id parity flipped to
+/// compensate: `(r, n - s)` is a valid signature for the same key over `-R`.
+///
+/// All failures, including the zero scalars that make `from_scalars` fail, map to
+/// [`EcdsaVerifyError::BadSignature`]: the historical backends only failed during
+/// recovery here, never at parsing.
+#[cfg(not(substrate_runtime))]
+fn ecdsa_recover_from_scalars(
+	r: k256::Scalar,
+	s: k256::Scalar,
+	rid: RecoveryId,
+	msg: &[u8; 32],
+) -> Result<VerifyingKey, EcdsaVerifyError> {
+	let sig = EcdsaSignature::from_scalars(r, s).map_err(|_| EcdsaVerifyError::BadSignature)?;
+	let (sig, rid) = match sig.normalize_s() {
+		Some(normalized) => (normalized, RecoveryId::new(!rid.is_y_odd(), rid.is_x_reduced())),
+		None => (sig, rid),
+	};
+	VerifyingKey::recover_from_prehash(msg, &sig, rid).map_err(|_| EcdsaVerifyError::BadSignature)
+}
+
+/// The implementation behind version 1 of the `secp256k1_ecdsa_recover{_compressed}`
+/// host functions, emulating the retired `libsecp256k1` backend bit-for-bit: `r` and `s`
+/// values greater than or equal to the curve order are reduced modulo the order instead
+/// of rejected, so parsing never fails and `BadRS` is unreachable.
+#[cfg(not(substrate_runtime))]
+fn secp256k1_recover_overflowing(
+	sig: &[u8; 65],
+	msg: &[u8; 32],
+) -> Result<VerifyingKey, EcdsaVerifyError> {
+	let rid = ecdsa_recovery_id(sig[64])?;
+	let r = <k256::Scalar as Reduce<k256::U256>>::reduce_bytes(k256::FieldBytes::from_slice(
+		&sig[..32],
+	));
+	let s = <k256::Scalar as Reduce<k256::U256>>::reduce_bytes(k256::FieldBytes::from_slice(
+		&sig[32..64],
+	));
+	ecdsa_recover_from_scalars(r, s, rid, msg)
+}
+
+/// The implementation behind version 2 of the `secp256k1_ecdsa_recover{_compressed}`
+/// host functions, emulating the retired bitcoin-core `secp256k1` backend bit-for-bit:
+/// `r` and `s` values greater than or equal to the curve order are rejected as `BadRS`,
+/// while zero values parse and fail recovery with `BadSignature`.
+#[cfg(not(substrate_runtime))]
+fn secp256k1_recover_strict(
+	sig: &[u8; 65],
+	msg: &[u8; 32],
+) -> Result<VerifyingKey, EcdsaVerifyError> {
+	let rid = ecdsa_recovery_id(sig[64])?;
+	let r = Option::<k256::Scalar>::from(k256::Scalar::from_repr(
+		k256::FieldBytes::clone_from_slice(&sig[..32]),
+	))
+	.ok_or(EcdsaVerifyError::BadRS)?;
+	let s = Option::<k256::Scalar>::from(k256::Scalar::from_repr(
+		k256::FieldBytes::clone_from_slice(&sig[32..64]),
+	))
+	.ok_or(EcdsaVerifyError::BadRS)?;
+	ecdsa_recover_from_scalars(r, s, rid, msg)
+}
+
+/// The 64-byte uncompressed key format returned by `secp256k1_ecdsa_recover` (no `0x04`
+/// SEC1 tag).
+#[cfg(not(substrate_runtime))]
+fn ecdsa_serialize_uncompressed(pubkey: &VerifyingKey) -> [u8; 64] {
+	pubkey.to_encoded_point(false).as_bytes()[1..]
+		.try_into()
+		.expect("uncompressed sec1 encoding is 65 bytes; qed")
+}
+
+/// The 33-byte compressed key format returned by `secp256k1_ecdsa_recover_compressed`.
+#[cfg(not(substrate_runtime))]
+fn ecdsa_serialize_compressed(pubkey: &VerifyingKey) -> [u8; 33] {
+	pubkey
+		.to_encoded_point(true)
+		.as_bytes()
+		.try_into()
+		.expect("compressed sec1 encoding is 33 bytes; qed")
 }
 
 /// The outcome of calling `storage_kill`. Returned value is the number of storage items
@@ -1267,18 +1358,7 @@ pub trait Crypto {
 		sig: PassPointerAndRead<&[u8; 65], 65>,
 		msg: PassPointerAndRead<&[u8; 32], 32>,
 	) -> AllocateAndReturnByCodec<Result<[u8; 64], EcdsaVerifyError>> {
-		let rid = libsecp256k1::RecoveryId::parse(
-			if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as u8,
-		)
-		.map_err(|_| EcdsaVerifyError::BadV)?;
-		let sig = libsecp256k1::Signature::parse_overflowing_slice(&sig[..64])
-			.map_err(|_| EcdsaVerifyError::BadRS)?;
-		let msg = libsecp256k1::Message::parse(msg);
-		let pubkey =
-			libsecp256k1::recover(&msg, &sig, &rid).map_err(|_| EcdsaVerifyError::BadSignature)?;
-		let mut res = [0u8; 64];
-		res.copy_from_slice(&pubkey.serialize()[1..65]);
-		Ok(res)
+		secp256k1_recover_overflowing(sig, msg).map(|pubkey| ecdsa_serialize_uncompressed(&pubkey))
 	}
 
 	/// Verify and recover a SECP256k1 ECDSA signature.
@@ -1297,19 +1377,7 @@ pub trait Crypto {
 		sig: PassPointerAndRead<&[u8; 65], 65>,
 		msg: PassPointerAndRead<&[u8; 32], 32>,
 	) -> AllocateAndReturnByCodec<Result<[u8; 64], EcdsaVerifyError>> {
-		let rid = RecoveryId::from_i32(if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as i32)
-			.map_err(|_| EcdsaVerifyError::BadV)?;
-		let sig = RecoverableSignature::from_compact(&sig[..64], rid)
-			.map_err(|_| EcdsaVerifyError::BadRS)?;
-		let msg = Message::from_digest_slice(msg).expect("Message is 32 bytes; qed");
-		#[cfg(feature = "std")]
-		let ctx = secp256k1::SECP256K1;
-		#[cfg(not(feature = "std"))]
-		let ctx = secp256k1::Secp256k1::<secp256k1::VerifyOnly>::gen_new();
-		let pubkey = ctx.recover_ecdsa(&msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
-		let mut res = [0u8; 64];
-		res.copy_from_slice(&pubkey.serialize_uncompressed()[1..]);
-		Ok(res)
+		secp256k1_recover_strict(sig, msg).map(|pubkey| ecdsa_serialize_uncompressed(&pubkey))
 	}
 
 	/// Verify and recover a SECP256k1 ECDSA signature.
@@ -1326,16 +1394,7 @@ pub trait Crypto {
 		sig: PassPointerAndRead<&[u8; 65], 65>,
 		msg: PassPointerAndRead<&[u8; 32], 32>,
 	) -> AllocateAndReturnByCodec<Result<[u8; 33], EcdsaVerifyError>> {
-		let rid = libsecp256k1::RecoveryId::parse(
-			if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as u8,
-		)
-		.map_err(|_| EcdsaVerifyError::BadV)?;
-		let sig = libsecp256k1::Signature::parse_overflowing_slice(&sig[0..64])
-			.map_err(|_| EcdsaVerifyError::BadRS)?;
-		let msg = libsecp256k1::Message::parse(msg);
-		let pubkey =
-			libsecp256k1::recover(&msg, &sig, &rid).map_err(|_| EcdsaVerifyError::BadSignature)?;
-		Ok(pubkey.serialize_compressed())
+		secp256k1_recover_overflowing(sig, msg).map(|pubkey| ecdsa_serialize_compressed(&pubkey))
 	}
 
 	/// Verify and recover a SECP256k1 ECDSA signature.
@@ -1353,17 +1412,7 @@ pub trait Crypto {
 		sig: PassPointerAndRead<&[u8; 65], 65>,
 		msg: PassPointerAndRead<&[u8; 32], 32>,
 	) -> AllocateAndReturnByCodec<Result<[u8; 33], EcdsaVerifyError>> {
-		let rid = RecoveryId::from_i32(if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as i32)
-			.map_err(|_| EcdsaVerifyError::BadV)?;
-		let sig = RecoverableSignature::from_compact(&sig[..64], rid)
-			.map_err(|_| EcdsaVerifyError::BadRS)?;
-		let msg = Message::from_digest_slice(msg).expect("Message is 32 bytes; qed");
-		#[cfg(feature = "std")]
-		let ctx = secp256k1::SECP256K1;
-		#[cfg(not(feature = "std"))]
-		let ctx = secp256k1::Secp256k1::<secp256k1::VerifyOnly>::gen_new();
-		let pubkey = ctx.recover_ecdsa(&msg, &sig).map_err(|_| EcdsaVerifyError::BadSignature)?;
-		Ok(pubkey.serialize())
+		secp256k1_recover_strict(sig, msg).map(|pubkey| ecdsa_serialize_compressed(&pubkey))
 	}
 
 	/// Generate an `bls12-381` key for the given key type using an optional `seed` and
@@ -2222,43 +2271,243 @@ mod tests {
 		assert!(crypto::ecdsa_verify_prehashed(&sig, &msg, &pair.public()));
 	}
 
+	/// The high-S twin of a signature: `s' = n - s` with the recovery byte parity
+	/// flipped. Recovers the same key but is not normalised.
+	fn high_s_twin(sig: &ecdsa::Signature) -> ecdsa::Signature {
+		let s = Option::<k256::Scalar>::from(k256::Scalar::from_repr(
+			k256::FieldBytes::clone_from_slice(&sig.0[32..64]),
+		))
+		.expect("signature carries a valid scalar; qed");
+		let mut twin = sig.0;
+		twin[32..64].copy_from_slice(&(-s).to_bytes());
+		twin[64] ^= 1;
+		ecdsa::Signature::from_raw(twin)
+	}
+
 	#[test]
 	fn ecdsa_verify_accepts_high_s_signatures() {
-		fn make_high_s(sig: &ecdsa::Signature) -> ecdsa::Signature {
-			let order: [u8; 32] = [
-				0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-				0xff, 0xfe, 0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48, 0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c,
-				0xd0, 0x36, 0x41, 0x41,
-			];
-			let s: [u8; 32] = sig.0[32..64].try_into().expect("slice has fixed length");
-			let mut high_s = [0u8; 32];
-			let mut borrow = 0i16;
-			for i in (0..32).rev() {
-				let diff = order[i] as i16 - s[i] as i16 - borrow;
-				if diff < 0 {
-					high_s[i] = (diff + 256) as u8;
-					borrow = 1;
-				} else {
-					high_s[i] = diff as u8;
-					borrow = 0;
-				}
-			}
-
-			let mut result = sig.0;
-			result[32..64].copy_from_slice(&high_s);
-			result[64] ^= 1;
-			ecdsa::Signature::from_raw(result)
-		}
-
 		let pair = ecdsa::Pair::from_seed(b"12345678901234567890123456789012");
 		let message = b"test message";
-		let signature = make_high_s(&pair.sign(message));
+		let signature = high_s_twin(&pair.sign(message));
 		assert!(!ecdsa::is_signature_normalized(&signature.0));
 		assert!(crypto::ecdsa_verify(&signature, message, &pair.public()));
 
 		let prehash = sp_crypto_hashing::blake2_256(message);
-		let signature = make_high_s(&pair.sign_prehashed(&prehash));
+		let signature = high_s_twin(&pair.sign_prehashed(&prehash));
 		assert!(!ecdsa::is_signature_normalized(&signature.0));
 		assert!(crypto::ecdsa_verify_prehashed(&signature, &prehash, &pair.public()));
+	}
+
+	/// Differential tests pinning the k256-based `secp256k1_ecdsa_recover{_compressed}`
+	/// implementations to the historical backends they replaced. The host function ABI is
+	/// frozen (old runtime blobs on chain call these functions during block re-execution),
+	/// so the full SCALE-encoded result, recovered key or exact error variant, must match
+	/// bit-for-bit on every input.
+	mod ecdsa_recover_differential {
+		use super::*;
+
+		/// A verbatim copy of the historical version 1 implementation (pure-Rust
+		/// `libsecp256k1`, overflowing signature parsing), returning both serialisations.
+		fn legacy_recover_overflowing(
+			sig: &[u8; 65],
+			msg: &[u8; 32],
+		) -> Result<([u8; 64], [u8; 33]), EcdsaVerifyError> {
+			let rid =
+				libsecp256k1::RecoveryId::parse(
+					if sig[64] > 26 { sig[64] - 27 } else { sig[64] } as u8
+				)
+				.map_err(|_| EcdsaVerifyError::BadV)?;
+			let sig = libsecp256k1::Signature::parse_overflowing_slice(&sig[..64])
+				.map_err(|_| EcdsaVerifyError::BadRS)?;
+			let msg = libsecp256k1::Message::parse(msg);
+			let pubkey = libsecp256k1::recover(&msg, &sig, &rid)
+				.map_err(|_| EcdsaVerifyError::BadSignature)?;
+			let mut full = [0u8; 64];
+			full.copy_from_slice(&pubkey.serialize()[1..65]);
+			Ok((full, pubkey.serialize_compressed()))
+		}
+
+		/// A verbatim copy of the historical version 2 implementation (bitcoin-core
+		/// `secp256k1` bindings, strict signature parsing), returning both serialisations.
+		fn legacy_recover_strict(
+			sig: &[u8; 65],
+			msg: &[u8; 32],
+		) -> Result<([u8; 64], [u8; 33]), EcdsaVerifyError> {
+			let rid = secp256k1::ecdsa::RecoveryId::from_i32(if sig[64] > 26 {
+				sig[64] - 27
+			} else {
+				sig[64]
+			} as i32)
+			.map_err(|_| EcdsaVerifyError::BadV)?;
+			let sig = secp256k1::ecdsa::RecoverableSignature::from_compact(&sig[..64], rid)
+				.map_err(|_| EcdsaVerifyError::BadRS)?;
+			let msg = secp256k1::Message::from_digest_slice(msg).expect("Message is 32 bytes; qed");
+			let pubkey = secp256k1::SECP256K1
+				.recover_ecdsa(&msg, &sig)
+				.map_err(|_| EcdsaVerifyError::BadSignature)?;
+			let mut full = [0u8; 64];
+			full.copy_from_slice(&pubkey.serialize_uncompressed()[1..]);
+			Ok((full, pubkey.serialize()))
+		}
+
+		/// The k256-based production pipeline behind version 1 of both host functions.
+		fn new_recover_overflowing(
+			sig: &[u8; 65],
+			msg: &[u8; 32],
+		) -> Result<([u8; 64], [u8; 33]), EcdsaVerifyError> {
+			secp256k1_recover_overflowing(sig, msg)
+				.map(|k| (ecdsa_serialize_uncompressed(&k), ecdsa_serialize_compressed(&k)))
+		}
+
+		/// The k256-based production pipeline behind version 2 of both host functions.
+		fn new_recover_strict(
+			sig: &[u8; 65],
+			msg: &[u8; 32],
+		) -> Result<([u8; 64], [u8; 33]), EcdsaVerifyError> {
+			secp256k1_recover_strict(sig, msg)
+				.map(|k| (ecdsa_serialize_uncompressed(&k), ecdsa_serialize_compressed(&k)))
+		}
+
+		/// 32-byte values probing the parsing and recovery boundaries: zero, the curve
+		/// order `n` and neighbours, the low-S/high-S boundary at `n >> 1`, `p - n` and
+		/// neighbour (the "reduced x" boundary for recovery ids 2/3), the maximum value
+		/// and pseudo-random scalars. Kept in sync with its twin in sp-core's tests.
+		fn scalar_edge_cases() -> Vec<[u8; 32]> {
+			const N: [u8; 32] = [
+				0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+				0xff, 0xfe, 0xba, 0xae, 0xdc, 0xe6, 0xaf, 0x48, 0xa0, 0x3b, 0xbf, 0xd2, 0x5e, 0x8c,
+				0xd0, 0x36, 0x41, 0x41,
+			];
+			const HALF_N: [u8; 32] = [
+				0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+				0xff, 0xff, 0x5d, 0x57, 0x6e, 0x73, 0x57, 0xa4, 0x50, 0x1d, 0xdf, 0xe9, 0x2f, 0x46,
+				0x68, 0x1b, 0x20, 0xa0,
+			];
+			const P_MINUS_N: [u8; 32] = [
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				0x00, 0x01, 0x45, 0x51, 0x23, 0x19, 0x50, 0xb7, 0x5f, 0xc4, 0x40, 0x2d, 0xa1, 0x72,
+				0x2f, 0xc9, 0xba, 0xee,
+			];
+			// The last bytes (0x41, 0xa0, 0xee) are away from 0x00/0xff, so the +/-1
+			// neighbours only change the last byte.
+			let tweak = |mut x: [u8; 32], d: i8| {
+				x[31] = x[31].wrapping_add_signed(d);
+				x
+			};
+			let mut one = [0u8; 32];
+			one[31] = 1;
+
+			let mut cases = vec![
+				[0u8; 32],
+				one,
+				tweak(N, -1),
+				N,
+				tweak(N, 1),
+				HALF_N,
+				tweak(HALF_N, 1),
+				P_MINUS_N,
+				tweak(P_MINUS_N, -1),
+				[0xffu8; 32],
+			];
+			let mut seed = sp_crypto_hashing::blake2_256(b"ecdsa differential vectors");
+			for _ in 0..2 {
+				seed = sp_crypto_hashing::blake2_256(&seed);
+				cases.push(seed);
+			}
+			cases
+		}
+
+		fn for_each_edge_case(mut f: impl FnMut(&[u8; 65], &[u8; 32])) {
+			let msg = sp_crypto_hashing::blake2_256(b"differential test message");
+			// Raw and Ethereum-offset recovery ids, valid (0..=3, 27, 28, 30) and
+			// invalid (4, 26, 31 maps to 4, 255).
+			let vs = [0u8, 1, 2, 3, 4, 26, 27, 28, 30, 31, 255];
+			let cases = scalar_edge_cases();
+			for r in &cases {
+				for s in &cases {
+					for v in vs {
+						let mut sig = [0u8; 65];
+						sig[..32].copy_from_slice(r);
+						sig[32..64].copy_from_slice(s);
+						sig[64] = v;
+						f(&sig, &msg);
+					}
+				}
+			}
+		}
+
+		#[test]
+		fn recover_overflowing_matches_historical_libsecp256k1_backend() {
+			for_each_edge_case(|sig, msg| {
+				assert_eq!(
+					new_recover_overflowing(sig, msg).encode(),
+					legacy_recover_overflowing(sig, msg).encode(),
+					"v1 diverged for sig={:02x?} msg={:02x?}",
+					&sig[..],
+					msg,
+				);
+			});
+		}
+
+		#[test]
+		fn recover_strict_matches_historical_bitcoin_core_backend() {
+			for_each_edge_case(|sig, msg| {
+				assert_eq!(
+					new_recover_strict(sig, msg).encode(),
+					legacy_recover_strict(sig, msg).encode(),
+					"v2 diverged for sig={:02x?} msg={:02x?}",
+					&sig[..],
+					msg,
+				);
+			});
+		}
+
+		#[test]
+		fn recover_matches_historical_backends_on_real_signatures() {
+			let pair = ecdsa::Pair::from_seed(b"12345678901234567890123456789012");
+			let expected = (
+				ecdsa_serialize_uncompressed(
+					&VerifyingKey::from_sec1_bytes(pair.public().as_ref())
+						.expect("valid public key; qed"),
+				),
+				pair.public().0,
+			);
+
+			// The second prehash overflows the curve order, exercising message reduction.
+			for msg in [sp_crypto_hashing::blake2_256(b"real signature"), [0xffu8; 32]] {
+				let low_s = pair.sign_prehashed(&msg);
+				let twin = high_s_twin(&low_s);
+				assert!(!ecdsa::is_signature_normalized(&twin.0));
+
+				for sig in [low_s.0, twin.0] {
+					// Both the raw (0/1) and the Ethereum-style (27/28) recovery byte.
+					for offset in [0u8, 27] {
+						let mut sig = sig;
+						sig[64] = (sig[64] % 2) + offset;
+						let v = sig[64];
+						assert_eq!(
+							new_recover_overflowing(&sig, &msg).ok(),
+							Some(expected),
+							"new v1, v={v}"
+						);
+						assert_eq!(
+							new_recover_strict(&sig, &msg).ok(),
+							Some(expected),
+							"new v2, v={v}"
+						);
+						assert_eq!(
+							legacy_recover_overflowing(&sig, &msg).ok(),
+							Some(expected),
+							"old v1, v={v}"
+						);
+						assert_eq!(
+							legacy_recover_strict(&sig, &msg).ok(),
+							Some(expected),
+							"old v2, v={v}"
+						);
+					}
+				}
+			}
+		}
 	}
 }
