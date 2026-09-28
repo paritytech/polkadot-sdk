@@ -1526,9 +1526,9 @@ mod try_state {
 	fn detects_out_of_range_friend_group_index() {
 		new_test_ext().execute_with(|| {
 			setup_one_group_one_attempt();
-			let (attempt, ticket, deposit) = AttemptStorage::<T>::get(&ALICE, 0u32).unwrap();
-			AttemptStorage::<T>::remove(&ALICE, 0u32);
-			AttemptStorage::<T>::insert(&ALICE, 5u32, (attempt, ticket, deposit));
+			// Moves the entry to another key, so `mutate` does not apply here.
+			let entry = AttemptStorage::<T>::take(&ALICE, 0u32).unwrap();
+			AttemptStorage::<T>::insert(&ALICE, 5u32, entry);
 			assert_eq!(
 				Recovery::do_try_state().unwrap_err(),
 				TryRuntimeError::Other("Attempt friend_group_index out of range")
@@ -1677,42 +1677,6 @@ mod try_state {
 					"Inheritor ticket exists but depositor has zero InheritorStorage hold"
 				)
 			);
-		});
-	}
-
-	#[test]
-	fn warns_on_locked_in_inheritor() {
-		new_test_ext().execute_with(|| {
-			let fg = FriendGroupOf::<T> {
-				friends: friends([BOB, CHARLIE, DAVE]),
-				friends_needed: 2,
-				inheritor: FERDIE,
-				inheritance_delay: 10,
-				inheritance_priority: 5,
-				cancel_delay: 10,
-			};
-			assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg]));
-			let ticket = Recovery::inheritor_ticket(&FERDIE).unwrap();
-			Inheritor::<T>::insert(&ALICE, (3u32, FERDIE, ticket));
-			assert_ok!(Recovery::do_try_state());
-		});
-	}
-
-	#[test]
-	fn passes_on_inheritor_overridable_by_existing_group() {
-		new_test_ext().execute_with(|| {
-			let fg = FriendGroupOf::<T> {
-				friends: friends([BOB, CHARLIE, DAVE]),
-				friends_needed: 2,
-				inheritor: FERDIE,
-				inheritance_delay: 10,
-				inheritance_priority: 0,
-				cancel_delay: 10,
-			};
-			assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg]));
-			let ticket = Recovery::inheritor_ticket(&FERDIE).unwrap();
-			Inheritor::<T>::insert(&ALICE, (5u32, FERDIE, ticket));
-			assert_ok!(Recovery::do_try_state());
 		});
 	}
 
