@@ -1,0 +1,9 @@
+# Parent of polkadot-metanode.slice (systemd places slices with dashes in their names under the
+# slice named by the part before the dash). It exists only to protect the validator's memory:
+# the validator's MemoryLow=32G only holds if every slice above it is protected as much.
+[Unit]
+Description=Polkadot services
+Documentation=https://github.com/paritytech/polkadot-sdk/tree/master/scripts/metanode
+
+[Slice]
+MemoryLow=32G

@@ -1,0 +1,64 @@
+# The People collator of operators/setup.md: the Asset Hub collator's command (see
+# polkadot-asset-hub-collator.service for what it adds to setup.md's) with People's chain and ports,
+# and the statement store.
+#
+# Variables work as in polkadot-validator.service; this machine's own file is
+# /etc/polkadot-metanode/polkadot-people-collator.env. See scripts/metanode/README.md, "Configure".
+[Unit]
+Description=Metanode People collator
+Documentation=https://github.com/paritytech/polkadot-sdk/tree/master/scripts/metanode
+# Ordering only: a collator-only machine has no validator unit to wait for.
+After=polkadot-validator.service
+
+[Service]
+User=polkadot-people-collator
+Group=polkadot-people-collator
+StateDirectory=polkadot-people-collator
+RuntimeDirectory=polkadot-people-collator
+WorkingDirectory=/var/lib/polkadot-people-collator
+SyslogIdentifier=polkadot-people-collator
+Environment=NODE_NAME=%l RPC_LISTEN_IP=127.0.0.1 RPC_MAX_CONNECTIONS=200 SYNC=warp
+Environment=RELAY_CHAIN_RPC_URLS=ws://127.0.0.1:9944 EXTRA_ARGS= RELAY_EXTRA_ARGS= PUBLIC_ADDRS=
+EnvironmentFile=/etc/polkadot-metanode/metanode.env
+EnvironmentFile=-/etc/polkadot-metanode/polkadot-people-collator.env
+# PUBLIC_ADDRS, written by public-addr below.
+EnvironmentFile=-/run/polkadot-people-collator/public-addr.env
+ExecStartPre=/bin/sh -c 'test -s node.key || { @BINDIR@/polkadot-parachain key generate-node-key --file node.key.new && mv node.key.new node.key; }'
+ExecStartPre=-+@LIBDIR@/public-addr 30336
+ExecStart=@BINDIR@/polkadot-parachain --collator \
+    --chain=${PEOPLE_CHAIN} \
+    --name=${NODE_NAME}-people-collator \
+    --base-path=/var/lib/polkadot-people-collator \
+    --node-key-file=/var/lib/polkadot-people-collator/node.key \
+    --authoring=slot-based \
+    --port=30336 \
+    --prometheus-port=9618 \
+    --force-enable-webrtc $PUBLIC_ADDRS \
+    --experimental-rpc-endpoint=listen-addr=${RPC_LISTEN_IP}:9948,methods=safe,max-connections=${RPC_MAX_CONNECTIONS} \
+    --experimental-rpc-endpoint=listen-addr=127.0.0.1:9949,methods=unsafe,cors=http://localhost:9949 \
+    --database=paritydb \
+    --state-pruning=256 \
+    --blocks-pruning=256 \
+    --sync=${SYNC} \
+    --enable-statement-store \
+    $EXTRA_ARGS \
+    --relay-chain-rpc-urls $RELAY_CHAIN_RPC_URLS \
+    -- \
+    --chain=${RELAY_CHAIN} \
+    --port=30337 \
+    --prometheus-port=9619 \
+    --rpc-port=9951 \
+    --database=paritydb \
+    --state-pruning=256 \
+    --blocks-pruning=256 \
+    --pool-limit=0 \
+    $RELAY_EXTRA_ARGS
+RestartSec=10
+
+# Collators run no PVF workers, so they get no namespaces and no mount syscalls.
+RestrictNamespaces=true
+SystemCallFilter=@system-service
+SystemCallFilter=~@clock @module @reboot @swap @privileged
+
+[Install]
+WantedBy=polkadot-metanode.target
