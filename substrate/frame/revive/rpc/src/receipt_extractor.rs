@@ -254,16 +254,24 @@ fn check_receipt_data_len(
 }
 
 /// Pick out of the logs rebuilt from block events the ones the block committed to its synthetic
-/// transaction, by the event index the runtime reports for each.
+/// transaction, by the event index the runtime reports for each, and number them from
+/// `first_log_index`.
 ///
 /// The events hold more: a contract log emitted outside an ethereum transaction is deposited but
 /// not buffered, and so is a log arriving past the buffer's cap. Serving those would hand out logs
 /// the header does not commit to. A committed index with no decoded log behind it is a decode
 /// failure (see [`extract_revive_events`]); the receipt is served without that log.
+///
+/// The event index serves only the selection. The synthetic transaction is the block's last, so
+/// its logs are numbered after every other log of the block: from the block's event count, which
+/// every log of an ethereum transaction stays below. Keeping the event index would send a mirror
+/// from `on_initialize` or an early plain extrinsic ahead of later transactions' logs in
+/// `eth_getLogs`, which orders by `log_index`.
 fn select_committed_outside_frame_logs(
 	logs: Vec<Log>,
 	log_event_indices: &[u32],
 	substrate_block_number: SubstrateBlockNumber,
+	first_log_index: u32,
 ) -> Vec<Log> {
 	let mut by_event_index: HashMap<U256, Log> =
 		logs.into_iter().map(|log| (log.log_index, log)).collect();
@@ -278,6 +286,11 @@ fn select_committed_outside_frame_logs(
 					synthetic transaction but no such log decoded from its events",
 				);
 			}
+			log
+		})
+		.enumerate()
+		.map(|(position, mut log)| {
+			log.log_index = U256::from(first_log_index as u64 + position as u64);
 			log
 		})
 		.collect()
@@ -682,6 +695,7 @@ impl ReceiptExtractor {
 				outside_frame_logs,
 				&synthetic.log_event_indices,
 				substrate_block_number,
+				block_events.len(),
 			);
 
 			receipts.push(self.build_synthetic_receipt(
@@ -795,6 +809,7 @@ impl ReceiptExtractor {
 				outside_frame_logs,
 				&synthetic.log_event_indices,
 				substrate_block_number,
+				block_events.len(),
 			);
 			return self.build_synthetic_receipt(
 				eth_block_hash,
@@ -1040,15 +1055,19 @@ mod tests {
 			self
 		}
 
-		fn build(self) -> Events<SrcChainConfig> {
+		/// The events as `System::Events` stores them.
+		fn encode(self) -> Vec<u8> {
 			let mut encoded_events = Vec::new();
 			Compact(self.count).encode_to(&mut encoded_events);
 			encoded_events.extend(self.bytes);
+			encoded_events
+		}
 
+		fn build(self) -> Events<SrcChainConfig> {
 			let client = offline_client();
 			let at_block =
 				client.at_block(0u64).expect("spec version range covers all block numbers; qed");
-			at_block.events().from_bytes(encoded_events)
+			at_block.events().from_bytes(self.encode())
 		}
 	}
 
@@ -1339,12 +1358,22 @@ mod tests {
 			.collect()
 	}
 
+	/// The logs of `outside_frame_logs(event_indices)` as the synthetic receipt serves them:
+	/// numbered consecutively from `first_log_index`.
+	fn served_logs(event_indices: &[u64], first_log_index: u64) -> Vec<Log> {
+		outside_frame_logs(event_indices)
+			.into_iter()
+			.zip(first_log_index..)
+			.map(|(log, log_index)| Log { log_index: U256::from(log_index), ..log })
+			.collect()
+	}
+
 	#[test]
 	fn outside_frame_logs_are_served_as_emitted_when_they_all_fitted() {
 		let logs =
-			select_committed_outside_frame_logs(outside_frame_logs(&[0, 1, 2]), &[0, 1, 2], 1);
+			select_committed_outside_frame_logs(outside_frame_logs(&[0, 1, 2]), &[0, 1, 2], 1, 3);
 
-		assert_eq!(logs, outside_frame_logs(&[0, 1, 2]));
+		assert_eq!(logs, served_logs(&[0, 1, 2], 3));
 	}
 
 	#[test]
@@ -1352,19 +1381,35 @@ mod tests {
 		// A contract log outside an ethereum transaction, or a log past the buffer's cap, is an
 		// event the block never committed. Serving it would hand out a log absent from the block's
 		// `logs_bloom` and `receipts_root`.
-		let logs =
-			select_committed_outside_frame_logs(outside_frame_logs(&[0, 1, 2, 3, 4]), &[1, 3], 1);
+		let logs = select_committed_outside_frame_logs(
+			outside_frame_logs(&[0, 1, 2, 3, 4]),
+			&[1, 3],
+			1,
+			5,
+		);
 
-		assert_eq!(logs, outside_frame_logs(&[1, 3]));
+		assert_eq!(logs, served_logs(&[1, 3], 5));
 	}
 
 	#[test]
 	fn a_committed_log_that_did_not_decode_is_left_out() {
 		// The block committed the log at event 4 but nothing decoded there: the warning reports it
 		// and the receipt is served without it, in the runtime's order.
-		let logs = select_committed_outside_frame_logs(outside_frame_logs(&[0, 6]), &[0, 4, 6], 1);
+		let logs =
+			select_committed_outside_frame_logs(outside_frame_logs(&[0, 6]), &[0, 4, 6], 1, 7);
 
-		assert_eq!(logs, outside_frame_logs(&[0, 6]));
+		assert_eq!(logs, served_logs(&[0, 6], 7));
+	}
+
+	#[test]
+	fn synthetic_logs_are_numbered_after_the_blocks_other_logs() {
+		// An `on_initialize` mirror sits at event 0, below every log of the block's ethereum
+		// transactions, yet it is served by the block's last transaction. Numbering it by its
+		// event index would put it ahead of those logs in `eth_getLogs`, which orders by
+		// `log_index`; numbering starts at the event count instead.
+		let logs = select_committed_outside_frame_logs(outside_frame_logs(&[0, 9]), &[0, 9], 1, 10);
+
+		assert_eq!(logs, served_logs(&[0, 9], 10));
 	}
 
 	#[test]
@@ -1403,12 +1448,152 @@ mod tests {
 			H256::from([0x99; 32]),
 			2,
 		);
-		let logs = select_committed_outside_frame_logs(outside_frame, &[2], 1);
+		let logs = select_committed_outside_frame_logs(outside_frame, &[2], 1, 3);
 
 		assert_eq!(logs.len(), 1, "the one committed log is served");
 		assert_eq!(
 			logs[0].address, asset_precompile,
 			"the synthetic receipt must carry the committed mirror log, not the contract's"
 		);
+	}
+
+	use subxt::{
+		OnlineClient,
+		backend::LegacyBackend,
+		config::substrate::SubstrateHeader,
+		rpcs::{
+			RpcClient,
+			client::{MockRpcClient, mock_rpc_client::Json},
+		},
+	};
+
+	/// A chain of one block, served over a mocked RPC: its header, its body and its
+	/// `System::Events`.
+	async fn mocked_block(extrinsics: Vec<Vec<u8>>, events: Vec<u8>) -> SubstrateBlock {
+		type Params = Option<Box<serde_json::value::RawValue>>;
+		let block_hash = H256::repeat_byte(0x2a);
+		let header = SubstrateHeader::<H256> {
+			parent_hash: H256::zero(),
+			number: 42,
+			state_root: H256::zero(),
+			extrinsics_root: H256::zero(),
+			digest: Default::default(),
+		};
+		let hex = |bytes: &[u8]| format!("0x{}", hex::encode(bytes));
+		let body = serde_json::json!({
+			"block": {
+				"header": header,
+				"extrinsics": extrinsics.iter().map(|extrinsic| hex(extrinsic)).collect::<Vec<_>>(),
+			},
+			"justifications": null,
+		});
+		let events = hex(&events);
+
+		let mock =
+			MockRpcClient::builder()
+				.method_handler("chain_getBlockHash", move |_: Params| async move {
+					Json(Some(block_hash))
+				})
+				.method_handler("chain_getFinalizedHead", move |_: Params| async move {
+					Json(block_hash)
+				})
+				.method_handler("chain_getHeader", move |_: Params| {
+					let header = header.clone();
+					async move { Json(Some(header)) }
+				})
+				.method_handler("chain_getBlock", move |_: Params| {
+					let body = body.clone();
+					async move { Json(Some(body)) }
+				})
+				.method_handler("state_getStorage", move |_: Params| {
+					let events = events.clone();
+					async move { Json(Some(events)) }
+				})
+				.build();
+		let backend = LegacyBackend::<SrcChainConfig>::builder().build(RpcClient::new(mock));
+		let api = OnlineClient::<SrcChainConfig>::from_backend_with_config(
+			chain_config(),
+			Arc::new(backend),
+		)
+		.await
+		.unwrap();
+		api.at_block(block_hash).await.unwrap()
+	}
+
+	#[tokio::test]
+	async fn synthetic_receipt_is_served_alike_on_both_paths_with_its_logs_numbered_last() {
+		// Event 0: a mirror from `on_initialize`, committed. Event 1: the ethereum transaction's
+		// own log. Event 2: a contract log outside any ethereum transaction, deposited but not
+		// committed. Event 3: a mirror from the plain extrinsic, committed.
+		let account = Account::default();
+		let (call, tx_hash) = signed_call(&account, legacy_call_tx(account.address()));
+		let extrinsics = vec![
+			encode_bare(revive_dev_runtime::RuntimeCall::Revive(
+				pallet_revive::Call::eth_transact { payload: call.payload },
+			)),
+			non_revive_extrinsic(),
+		];
+		let hook_mirror = H160::from([0xa1; 20]);
+		let contract = H160::from([0xc0; 20]);
+		let uncommitted = H160::from([0xb1; 20]);
+		let extrinsic_mirror = H160::from([0xb2; 20]);
+		let emitted_by = |address: H160| pallet_revive::Event::ContractEmitted {
+			contract: address,
+			data: vec![],
+			topics: vec![],
+		};
+		let events = EventsBuilder::new()
+			.push_event(frame_system::Phase::Initialization, emitted_by(hook_mirror))
+			.push_event(frame_system::Phase::ApplyExtrinsic(0), emitted_by(contract))
+			.push_event(frame_system::Phase::ApplyExtrinsic(1), emitted_by(uncommitted))
+			.push_event(frame_system::Phase::ApplyExtrinsic(1), emitted_by(extrinsic_mirror))
+			.encode();
+		let block = mocked_block(extrinsics, events).await;
+
+		let extractor = ReceiptExtractor {
+			fetch_receipt_data: Arc::new(|_| {
+				Box::pin(std::future::ready(ReceiptData::Available {
+					receipt_data: vec![gas_info()],
+					synthetic: Some(SyntheticTransactionV1 {
+						gas_info: gas_info(),
+						log_event_indices: vec![0, 3],
+					}),
+				})) as Pin<Box<_>>
+			}),
+			..ReceiptExtractor::new_mock()
+		};
+		let eth_block_hash = extractor
+			.get_ethereum_block_hash(&block.block_hash(), block.block_number())
+			.await
+			.unwrap();
+
+		let receipts = extractor
+			.extract_from_block_with_eth_hash(&block, eth_block_hash)
+			.await
+			.unwrap();
+		let [(_, eth_receipt), (_, synthetic_receipt)] = receipts.as_slice() else {
+			panic!("one ethereum transaction and the synthetic one, got {}", receipts.len());
+		};
+		assert_eq!(eth_receipt.transaction_hash, tx_hash);
+		assert_eq!(eth_receipt.transaction_index, U256::zero());
+		assert_eq!(eth_receipt.logs.len(), 1);
+		assert_eq!(synthetic_receipt.transaction_index, U256::from(2));
+		assert_eq!(
+			synthetic_receipt.logs.iter().map(|log| log.address).collect::<Vec<_>>(),
+			vec![hook_mirror, extrinsic_mirror],
+			"the committed logs, in the runtime's order"
+		);
+		assert_eq!(
+			synthetic_receipt.logs.iter().map(|log| log.log_index).collect::<Vec<_>>(),
+			vec![U256::from(4), U256::from(5)],
+			"numbered from the block's event count, not by event index"
+		);
+		assert!(
+			eth_receipt.logs[0].log_index < synthetic_receipt.logs[0].log_index,
+			"log_index follows transaction order"
+		);
+
+		let (_, single) = extractor.extract_from_transaction(&block, 2).await.unwrap();
+		assert_eq!(&single, synthetic_receipt, "the single-receipt path serves the same receipt");
 	}
 }

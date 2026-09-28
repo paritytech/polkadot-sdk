@@ -39,7 +39,10 @@ doc:
     version 2, reporting that transaction separately: its gas entry plus the event index of each
     log the block committed to it. A consumer rebuilding those logs from block events must select
     by those indices, since the block's `ContractEmitted` events are a superset of what the header
-    commits to. `eth_block` lists the synthetic transaction's hash in every version, since
+    commits to, and number them after every other log of the block: eth-rpc gives them a
+    `logIndex` from the block's event count on, so `eth_getLogs`, ordered by `logIndex`, keeps the
+    synthetic transaction's logs last as its `transactionIndex` is. `eth_block` lists the
+    synthetic transaction's hash in every version, since
     `transactions` is the list the header commits to; an eth-rpc on receipt data version 1 sees
     that hash with no receipt to serve for it. The new `Config` item `MaxOutsideFrameLogs` bounds
     the buffer as a backstop; a log arriving past the cap is not buffered, so the bloom omits it
