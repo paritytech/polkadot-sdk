@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790591186010,
+  "lastUpdate": 1790601438004,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1c2eeb77e605b3c9d17649ca6b08dea99d5b3f94",
-          "message": "Revive, Estimate Gas with Binary Search (#11000)\n\n# Description\n\nThis PR implements binary search for the gas estimation logic in the\neth-rpc which means that gas estimations are no longer just simple dry\nruns but that binary search is now used to find the smallest gas limit\nat which the transaction would run.\n\nThis PR closes https://github.com/paritytech/contract-issues/issues/217\nand also _kind of_ fixes\nhttps://github.com/paritytech/contract-issues/issues/259 or at least\nmakes it harder to trigger the case in which we observe it, but the\nunderlying issue still exists.\n\nThe binary search algorithm implemented in this PR is as close as\npossible to that used in Geth\n\n# Note\n\nThis PR **does not** fix\nhttps://github.com/paritytech/contract-issues/issues/259 where the dry\nrun could fail but the submission succeeds. It makes it so that it's\nharder for that case to be triggered by the underlying issue causing\nhttps://github.com/paritytech/contract-issues/issues/259 is still there\nand it's caused by the overflows and saturations that happen in the gas\n-> fee -> weight computations\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-20T13:04:25Z",
-          "tree_id": "78385e67f8f6c591acab1f0e52fceb68a042e628",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1c2eeb77e605b3c9d17649ca6b08dea99d5b3f94"
-        },
-        "date": 1774016569965,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024256809473333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1466239234733334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007131869860000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009981830593333322,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02540323272666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8b20e748b8cf3b07bdbfbf6df3bdaa4070a915e3",
+          "message": "statement-store: migrate the database one version step at a time (#13317)\n\n# Description\n\nThe statement store migrates an older database one version step at a\ntime. `check_db_version` returns the on-disk version, `migrate_database`\nwalks from it to `CURRENT_VERSION` and runs the step for each version,\nand every step bumps the version to its own target once its rows are\ncommitted. The existing rebuild of the indexes, journals and counters\nfrom the statement bodies is the v1 to v2 step; the pass over the stored\nstatements and the loading of the admission sequence numbers are helpers\na later step can reuse.\n\nBehaviour is unchanged: version 2 is still the current one and the only\nstep is v1 to v2.\n\n# Integration\n\nNone. Node operators and downstream users need no changes.\n\n# Review Notes\n\nBefore, a version bump reran the whole rebuild on every older database,\nincluding columns the new version left untouched. Running that over a\nversion 2 database would have added a second evicted-journal key for\nevery banned statement whose purge time the expiry had capped, and\nmaintenance would then have counted the ban twice. The step per version\nkeeps each migration limited to what its version changed.\nhttps://github.com/paritytech/polkadot-sdk/pull/13278 adds the v2 to v3\nstep on top of this.",
+          "timestamp": "2026-09-28T11:44:34Z",
+          "tree_id": "45b79c67fabf4a8bfe8c74f30b752bd72cbe341a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8b20e748b8cf3b07bdbfbf6df3bdaa4070a915e3"
+        },
+        "date": 1790601405792,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0077679404133333295,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02519122774666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009879632159999962,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14250142150000003,
             "unit": "seconds"
           }
         ]
