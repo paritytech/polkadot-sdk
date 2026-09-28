@@ -1,0 +1,10 @@
+title: 'collator-selection: fix candidacy benchmarks with non-zero session KeyDeposit'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Re-fund the caller's bond after `set_keys` so the key deposit hold does not consume it.
+
+    Fixes #13336
+crates:
+- name: pallet-collator-selection
+  bump: patch
