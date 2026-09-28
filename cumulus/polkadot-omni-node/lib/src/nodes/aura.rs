@@ -907,7 +907,7 @@ where
 		announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
-		price_oracle: Option<PriceOracleNetwork<Block>>,
+		_price_oracle: Option<PriceOracleNetwork<Block>>,
 		_: (),
 	) -> Result<(), Error> {
 		let proposer = sc_basic_authorship::ProposerFactory::new(
@@ -918,10 +918,6 @@ where
 			telemetry.clone(),
 		);
 		let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
-
-		// The price oracle runs with the slot-based collator only; `start_node` registers its
-		// protocol for that authoring policy alone.
-		let _ = price_oracle;
 
 		let client_clone = client.clone();
 		let params = aura::ParamsWithExport {
@@ -934,16 +930,17 @@ where
 							.runtime_api()
 							.has_api_with::<dyn TransactionStorageApi<Block>, _>(parent, |v| v >= 1)
 							.unwrap_or(false);
-						let storage_proof = if has_tx_storage_api {
-							vec![sp_transaction_storage_proof::registration::new_data_provider(
-								&*client_clone,
-								&parent,
-								client_clone.runtime_api().retention_period(parent)?,
-							)?]
+						if has_tx_storage_api {
+							let storage_proof =
+								sp_transaction_storage_proof::registration::new_data_provider(
+									&*client_clone,
+									&parent,
+									client_clone.runtime_api().retention_period(parent)?,
+								)?;
+							Ok(vec![storage_proof])
 						} else {
-							vec![]
-						};
-						Ok(storage_proof)
+							Ok(vec![])
+						}
 					}
 				},
 				block_import,
