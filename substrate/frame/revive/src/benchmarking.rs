@@ -5472,23 +5472,24 @@ mod benchmarks {
 		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
 	}
 
-	/// Benchmark `r` `SHR` instructions with full-width operands and small, varying shifts.
+	/// Benchmark `r` `SHR` instructions, with shifts picked the same way and for the same reasons
+	/// as in [`evm_shl_opcode`].
 	#[benchmark(pov_mode = Measured)]
 	fn evm_shr_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
-		const SHIFTS: [u32; 30] = [
-			1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 17, 17, 15, 14, 13, 12, 11, 10, 9, 7,
-			6, 5, 4, 3, 2, 1,
-		];
+		use rand::{Rng, SeedableRng};
+		use rand_pcg::Pcg64;
+
+		let mut rng = Pcg64::seed_from_u64(42);
+		let operands = (0..r).flat_map(|_| {
+			let words = rng.gen_range(0..=1u32);
+			let bits = rng.gen_range(0..=1u32);
+			[U256::MAX, U256::from(64 * words + bits)]
+		});
 
 		let code = Bytecode::new_raw([SHR, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		let operands = SHIFTS
-			.into_iter()
-			.cycle()
-			.take(r as usize)
-			.flat_map(|shift| [U256::MAX, U256::from(shift)]);
 		for operand in operands {
 			interpreter.stack.push(operand).continue_value().unwrap();
 		}
