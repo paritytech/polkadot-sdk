@@ -122,24 +122,6 @@ fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId,
 	Ok(account_id)
 }
 
-/// Sets up the callee of the `seal_call` benches and returns its address and account id.
-///
-/// An EIP-7702 delegated callee is the worst case for the account resolution in `new_frame`: the
-/// `AccountInfoOf` entry decodes the larger `DelegatedEOA` variant and the call still runs the
-/// target's code. (A callee whose delegation snapshot is empty costs a second read of the target
-/// but skips code load and execution entirely, so it is cheaper overall.)
-fn seal_call_callee<T: Config>() -> Result<(H160, T::AccountId), BenchmarkError> {
-	let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
-	let callee_addr = H160([0x42; 20]);
-	let callee = delegated_eoa::<T>(callee_addr, target.address)?;
-	// Keep the origin's budget the same as with a contract callee. A contract already exists in
-	// `System`, so `Stack::transfer` skips the "create the destination" arm; a fresh EOA does not,
-	// and that arm charges the destination's ED to the origin, leaving it nothing for
-	// `ensure_sufficient_dust` to burn into dust.
-	T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
-	Ok((callee_addr, callee))
-}
-
 #[benchmarks(
 	where
 		T: Config,
@@ -2601,7 +2583,13 @@ mod benchmarks {
 			$do_call:ident, $assert_transferred:ident,
 			value: $value:expr, dust: $dust:expr, input_len: $input_len:expr
 		) => {
-			let (callee_addr, callee) = seal_call_callee::<T>()?;
+			// An EIP-7702 delegated callee is the worst case for the account resolution.
+			let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+			let callee_addr = H160([0x42; 20]);
+			let callee = delegated_eoa::<T>(callee_addr, target.address)?;
+			// Fund the callee so the transfer does not have to create its account.
+			T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
+
 			let callee_bytes = callee.encode();
 			let callee_len = callee_bytes.len() as u32;
 
