@@ -2191,6 +2191,36 @@ fn balance_change_callbacks_fire_on_fungibles_paths() {
 }
 
 #[test]
+fn balance_change_callbacks_fire_on_shelve_and_restore() {
+	use frame_support::traits::fungibles::Mutate;
+	build_and_execute(|| {
+		let asset = 0u32;
+		let owner = 1u64;
+		let amount = 60u64;
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset, owner, true, 1));
+		assert_ok!(Assets::mint_into(asset, &owner, 100));
+		storage::clear(AssetsCallbackHandle::ISSUED.as_bytes());
+
+		assert_ok!(<Assets as Mutate<u64>>::shelve(asset, &owner, amount));
+		assert_eq!(Assets::total_supply(asset), 40);
+		assert_eq!(
+			AssetsCallbackHandle::calls(AssetsCallbackHandle::BURNED),
+			vec![(asset, owner, amount).encode()],
+			"fungibles `shelve` must fire `burned` exactly once"
+		);
+
+		assert_ok!(<Assets as Mutate<u64>>::restore(asset, &owner, amount));
+		assert_eq!(Assets::total_supply(asset), 100);
+		assert_eq!(
+			AssetsCallbackHandle::calls(AssetsCallbackHandle::ISSUED),
+			vec![(asset, owner, amount).encode()],
+			"fungibles `restore` must fire `issued` exactly once"
+		);
+	});
+}
+
+#[test]
 fn balance_change_callbacks_fire_on_refund_burn() {
 	build_and_execute(|| {
 		let asset = 0u32;

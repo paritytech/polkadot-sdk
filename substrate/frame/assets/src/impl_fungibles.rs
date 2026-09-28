@@ -114,6 +114,22 @@ impl<T: Config<I>, I: 'static> fungibles::Mutate<<T as SystemConfig>::AccountId>
 		T::CallbackHandle::burned(&asset_id, target, balance);
 	}
 
+	fn done_shelve(
+		asset_id: Self::AssetId,
+		who: &<T as SystemConfig>::AccountId,
+		amount: Self::Balance,
+	) {
+		T::CallbackHandle::burned(&asset_id, who, amount);
+	}
+
+	fn done_restore(
+		asset_id: Self::AssetId,
+		who: &<T as SystemConfig>::AccountId,
+		amount: Self::Balance,
+	) {
+		T::CallbackHandle::issued(&asset_id, who, amount);
+	}
+
 	fn done_transfer(
 		asset_id: Self::AssetId,
 		source: &<T as SystemConfig>::AccountId,

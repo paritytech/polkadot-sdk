@@ -5,7 +5,9 @@ doc:
     `AssetsCallback` gains infallible balance-change hooks (`issued`, `transferred`, `burned`,
     `deposited`, `withdrawn`) fired next to the matching pallet-assets events on every path:
     extrinsics, the `fungibles` traits (incl. XCM asset transactors) and the `Balanced` imbalance
-    paths. The trait gains a third generic parameter `Balance`; any hand-written
+    paths. `fungibles::Mutate::shelve` and `restore` have no pallet-assets event of their own and
+    fire `burned` and `issued`, since they move total supply like a burn and a mint do. The trait
+    gains a third generic parameter `Balance`; any hand-written
     `impl AssetsCallback<Id, Acct>` must add it. Genesis asset creation now fires `created` too, so
     a `CallbackHandle` seeds genesis assets like runtime-created ones; a failure there panics
     genesis construction.
