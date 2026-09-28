@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790601534560,
+  "lastUpdate": 1790606202741,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "serban@parity.io",
-            "name": "Serban Iorga",
-            "username": "serban300"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ac667bdcafaf38c9e731febbcea8373fd1e28b67",
-          "message": "Grandpa `on_new_session()`: simplification + fix (#11160)\n\nKill `Stalled::<T>` only if `schedule_change()` has succeeded\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-02-25T08:25:46Z",
-          "tree_id": "4cba678e1188c882b923a464c024ff1c585d2208",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ac667bdcafaf38c9e731febbcea8373fd1e28b67"
-        },
-        "date": 1772013472902,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.06400000000005,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.06606446319199992,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03760267498,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.09160518424799995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1af454d2d3a533bec6d4f18dcea1214b51c9c90f",
+          "message": "session: fix benchmarks with non-zero KeyDeposit (#13337)\n\n`pallet_session::Pallet::ensure_can_pay_key_deposit` now mints the key\ndeposit on top of the account's existing balance. Previously it counted\nexisting free balance towards the deposit.\n\nThis made the`pallet-collator-selection` `register_as_candidate` and\n`take_candidate_slot` benchmarks fail on runtimes with a non-zero\nsession `KeyDeposit`.\n\nFixes #13336\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-28T12:55:32Z",
+          "tree_id": "5c20e934efa4e32c6059e9e6e650b24ca2681df4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1af454d2d3a533bec6d4f18dcea1214b51c9c90f"
+        },
+        "date": 1790606171835,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.05599999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03841564399800002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08570323902799995,
             "unit": "seconds"
           }
         ]
