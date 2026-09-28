@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790606151477,
+  "lastUpdate": 1790617975753,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tsvetomir@parity.io",
-            "name": "Tsvetomir Dimitrov",
-            "username": "tdimitrov"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4afd7bdd4b9e066f2d1da68b971f9938de214b3c",
-          "message": "Decrease the log level for claim queue inconsistency in `ClaimQueueState` (#11417)\n\nWhile testing the collator protocol revamp on westend I noticed\n\"Inconsistency while adding a leaf to the `ClaimQueueState`. Expected on\nsession change.\" pops up a lot at regular intervals.\n\nLong story short, when writing this code I assumed that the CQ never\nchange but from a `ClaimQueueState` point of view this is not true. ~~On\nsession change the validators in the active set are reshuffled and end\nup in different backing groups.~~ ON group rotation the validators are\nassigned on a new core. In this case we start fetching the claim queue\nfor the newly assigned core and the future assignments in\n`ClaimQueueState` are no longer valid so overwriting them is the right\nthing to do.\n\nWe could also implement a logic which detects assignment change,\nnotifies the claim queue and cleans it up but it's an additional\ncomplexity which doesn't add any benefits.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-23T10:22:53Z",
-          "tree_id": "e513cbd91fd88e46fdd3586336ab3b958a1fbcca",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4afd7bdd4b9e066f2d1da68b971f9938de214b3c"
-        },
-        "date": 1774266187362,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63637.780000000006,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52942.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.742995790759999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.836017526629999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005307619910000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.7681061834000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000024946180000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.82073297752,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.435545982360001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.389330078393109,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.0000210261,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000024946180000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7721432070399572,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.0000210261,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.380849287619956,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 14.483963094629939,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cedc12682ca64e33c5c021895724344ef0122fd4",
+          "message": "statement-store: size limits for the DHT-affinity and transient statements (#13278)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/11936. Part of\nhttps://github.com/paritytech/polkadot-sdk/issues/11932.\n\nOn the v2 DHT path one store limit covered every statement, so a flood\nof transient statements could push out the statements the node is\nresponsible for. The statements kept for DHT affinity and the transient\nstatements now each have their own size limit, on top of the store\nlimits. When one of these limits is reached, the store rejects new\nstatements of that kind with `StoreFull` and still accepts the others.\nStatements kept only for explicit affinity have no limit of their own:\nthe operator chose those topics, so they may use whatever room the store\nhas left.\n\nThe sweep already sorts every statement into a retention track: DHT\naffinity, explicit-only or transient. Each statement now records its\ntrack, and its size counts toward that track. When the sweep moves a\nstatement to another track, its size moves with it. The size of each\ntrack survives a restart. The database moves to version 3, and older\nstatements count as explicit-only, because nothing records why they were\nkept.\n\nThe node warns at startup when a track limit is above half of the store\nsize. It also warns, at most once per maintenance period, when the store\nsize rejects a statement whose own track still has room. The issue also\nproposed a limit for explicit affinity and letting tracks borrow room\nfrom each other. The store rejects the statement instead: one simple\nrule, and no second eviction order.\n\n# Integration\n\nTwo hidden flags on the substrate node and the omni-node,\n`--statement-store-max-dht-affinity-size` and\n`--statement-store-max-transient-size`, in bytes, each defaulting to the\nstore size. The database migrates on the first start.\n\n# Follow-ups\n\n- After a restart the sweep forgets which statements are transient, so\nthe ones that survived keep their track's room until they expire. With a\nlimit set, they can keep the track full. The fix is to rebuild that list\nat startup.\n- The sweep moves a statement to another track without checking the\nlimit of that track. Either check it, or warn when a move goes over the\nlimit and count a rejection by a full track apart from a rejection by a\nfull store.",
+          "timestamp": "2026-09-28T16:15:46Z",
+          "tree_id": "7f9a94cb955f5c918ddf59a40bb79c81039526e4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cedc12682ca64e33c5c021895724344ef0122fd4"
+        },
+        "date": 1790617947388,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63572.130000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005141222379999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.82259668801,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7676603852699975,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.346478919440003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8141240081099477,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000020936549999999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.364379058702511,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.76889004176,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.32363452176995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001948398,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.798743256800001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000020936549999999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001948398,
             "unit": "seconds"
           }
         ]
