@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["assign_core","credit_account","request_core_count","request_revenue_at"]};
+window.SIDEBAR_ITEMS = {"fn":["assign_core","credit_account","queue_on_demand_batch","request_core_count","request_revenue_at"]};

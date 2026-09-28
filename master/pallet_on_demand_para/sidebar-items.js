@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["pallet","weights"],"struct":["DefaultPricingProvider","EnqueuedOrder","PriceParameters","QueueTracker"],"trait":["PoolCapacityProvider","PricingProvider","QueueOnDemandOrders","WeightInfoExt"],"type":["BalanceOf","PriceParametersOf","QueueTrackerOf","RelayBlockNumberOf"]};

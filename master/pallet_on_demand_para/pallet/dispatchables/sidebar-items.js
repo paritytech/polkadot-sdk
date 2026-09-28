@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["configure","place_order"]};
