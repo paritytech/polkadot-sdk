@@ -3102,7 +3102,9 @@ impl StatementStore for Store {
 			seq
 		}; // Release submit index lock
 		self.subscription_manager.notify(seq, statement);
-		self.metrics.report(|metrics| metrics.submitted_statements.inc());
+		self.metrics.report(|metrics| {
+			metrics.submitted_statements.with_label_values(&[mask.label()]).inc();
+		});
 		log::trace!(target: LOG_TARGET, "Statement submitted: {:?}", HexDisplay::from(&hash));
 		SubmitResult::New
 	}
