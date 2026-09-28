@@ -5384,15 +5384,34 @@ mod benchmarks {
 		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
 	}
 
-	/// Benchmark `r` `BYTE` instructions with index and value 31, preserving 31 as the next index.
+	/// Benchmark `r` `BYTE` instructions.
+	///
+	/// `BYTE` branches on whether the index is below 32 and only reads the byte when it is. With
+	/// index 31 every time, the CPU would predict this branch perfectly. Instead a pseudo-random
+	/// generator picks index 31 or 32 for each `BYTE`, with a 50% chance either way, which makes
+	/// the CPU mispredict this branch. The mispredictions cost more than the reads that the
+	/// out-of-range indices skip. The checks that saturate larger indices don't branch, so 32
+	/// stands in for every out-of-range index.
+	///
+	/// Each `BYTE` is followed by a `POP`, so each one gets a fresh index. Using the result of the
+	/// previous one as the index would mispredict less often, because an out-of-range index returns
+	/// zero and forces the next index into range.
 	#[benchmark(pov_mode = Measured)]
-	fn evm_byte_opcode(r: Linear<0, { EVM_STACK_LIMIT - 1 }>) {
-		let code = Bytecode::new_raw(vec![BYTE; r as usize].into());
+	fn evm_byte_opcode(r: Linear<0, { EVM_STACK_LIMIT / 2 }>) {
+		use rand::{Rng, SeedableRng};
+		use rand_pcg::Pcg64;
+
+		let mut rng = Pcg64::seed_from_u64(42);
+		let operands = (0..r).flat_map(|_| {
+			let index = if rng.gen_bool(0.5) { U256::from(31) } else { U256::from(32) };
+			[U256::from(31), index]
+		});
+
+		let code = Bytecode::new_raw([BYTE, POP].repeat(r as usize).into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		let operand = U256::from(31);
-		for _ in 0..=r {
+		for operand in operands {
 			interpreter.stack.push(operand).continue_value().unwrap();
 		}
 
@@ -5404,9 +5423,8 @@ mod benchmarks {
 
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
-		assert_eq!(interpreter.stack.len(), 1);
-		assert_eq!(interpreter.stack.top(), Some(&operand));
-		assert_eq!(interpreter.bytecode.pc(), r as usize + 1);
+		assert_eq!(interpreter.stack.len(), 0);
+		assert_eq!(interpreter.bytecode.pc(), 2 * r as usize + 1);
 	}
 
 	/// Benchmark `r` `SHL` instructions with full-width operands and small, varying shifts.

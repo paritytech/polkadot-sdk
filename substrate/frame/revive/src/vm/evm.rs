@@ -220,7 +220,7 @@ impl<T: Config> Token<T> for EvmOpcodeCosts {
 			OR => cost_args!(evm_or_opcode, 1),
 			XOR => cost_args!(evm_xor_opcode, 1),
 			NOT => cost_args!(evm_not_opcode, 1),
-			BYTE => cost_args!(evm_byte_opcode, 1),
+			BYTE => cost_args!(evm_byte_opcode, 1).saturating_sub(weight_of(POP)),
 			SHL => cost_args!(evm_shl_opcode, 1).saturating_sub(weight_of(POP)),
 			SHR => cost_args!(evm_shr_opcode, 1).saturating_sub(weight_of(POP)),
 			SAR => cost_args!(evm_sar_opcode, 1).saturating_sub(weight_of(POP)),
