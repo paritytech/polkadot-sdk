@@ -345,11 +345,15 @@ pub struct ReceiptExtractor {
 
 impl ReceiptExtractor {
 	/// Create a new `ReceiptExtractor`.
+	///
+	/// `chain_id` is the chain's EVM chain id (the pallet-revive `ChainId` constant).
 	pub async fn new(
 		runtime_api_provider: VersionAwareRuntimeApiProvider,
+		chain_id: u64,
 	) -> Result<Self, ClientError> {
 		Self::new_with_custom_address_recovery(
 			runtime_api_provider,
+			chain_id,
 			Arc::new(|signed_tx: &TransactionSigned| signed_tx.recover_eth_address()),
 		)
 		.await
@@ -361,14 +365,9 @@ impl ReceiptExtractor {
 	/// logic ([`TransactionSigned::recover_eth_address`] based) is enough.
 	pub async fn new_with_custom_address_recovery(
 		runtime_api_provider: VersionAwareRuntimeApiProvider,
+		chain_id: u64,
 		recover_eth_address_fn: RecoverEthAddressFn,
 	) -> Result<Self, ClientError> {
-		let chain_id = {
-			let query = crate::subxt_client::constants().revive().chain_id().unvalidated();
-			let at_block = runtime_api_provider.api().at_current_block().await?;
-			at_block.constants().entry(query)?
-		};
-
 		let provider = runtime_api_provider.clone();
 		let fetch_eth_block_hash = Arc::new(move |substrate_block_hash, substrate_block_number| {
 			let provider = provider.clone();

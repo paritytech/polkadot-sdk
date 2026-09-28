@@ -65,6 +65,15 @@ pub use apis::*;
 mod types;
 pub use types::*;
 
+/// Fetch the chain ID from the substrate chain.
+async fn chain_id(
+	api: &subxt::OnlineClient<subxt_client::SrcChainConfig>,
+) -> Result<u64, ClientError> {
+	let query = subxt_client::constants().revive().chain_id().unvalidated();
+	let at_block = api.at_current_block().await?;
+	at_block.constants().entry(query).map_err(|err| err.into())
+}
+
 pub const LOG_TARGET: &str = "eth-rpc";
 
 /// An EVM RPC server implementation.

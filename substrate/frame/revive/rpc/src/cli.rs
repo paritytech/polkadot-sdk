@@ -289,7 +289,9 @@ fn build_client(
 
 		let runtime_api_provider =
 			VersionAwareRuntimeApiProvider::new(api.clone(), rpc_client.clone());
-		let receipt_extractor = ReceiptExtractor::new(runtime_api_provider.clone()).await?;
+		let chain_id = crate::chain_id(&api).await?;
+		let receipt_extractor =
+			ReceiptExtractor::new(runtime_api_provider.clone(), chain_id).await?;
 		let max_variable_number = sqlite_db_query_max_variable_number(&pool).await;
 		let db_ctx = DbContext::new(pool, max_variable_number);
 
