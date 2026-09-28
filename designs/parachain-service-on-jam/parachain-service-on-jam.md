@@ -303,6 +303,12 @@ enum InsufficientBalanceReason {
     /// hash of `key` is recorded so an arbitrarily large
     /// user key cannot inflate `parachain_log`.
     SetKV { key_hash: Hash },
+    /// A `staged_validator_keys` append.
+    StagedValidatorKeys,
+    /// An `incoming_transfers` bucket or chain-pointer write.
+    IncomingTransfer,
+    /// A `ParaInfo` write: head, registration, forced code or announced upgrade.
+    ParaInfo,
 }
 
 /// Why `ParachainSetStateBalance` was rejected (see §6.1).
