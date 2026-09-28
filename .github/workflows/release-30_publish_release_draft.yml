@@ -223,12 +223,6 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-<<<<<<< HEAD
-      - name: Download artifacts
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
-
-=======
->>>>>>> 868d28e8 ([Release|CI/CD] Fix runtimes publishing in the Create Draft flow (#13094))
       - name: Generate content write token for the release automation
         id: generate_write_token
         uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
