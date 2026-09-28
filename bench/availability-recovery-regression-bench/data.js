@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790591137909,
+  "lastUpdate": 1790601390215,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f4899717f48581ee5f7d88f3597597c1d728f824",
-          "message": "Implement `eth_subscribe` (#11081)\n\n# Description\n\nImplemented `eth_subscribe` in the eth-rpc. The subscription kinds\nimplemented is `newHeads` and `logs`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-20T16:14:32Z",
-          "tree_id": "41c9026ec0399b25b5a2439f06d1b8e17978ad80",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f4899717f48581ee5f7d88f3597597c1d728f824"
-        },
-        "date": 1774028161148,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12350129033333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.201113746466671,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13862209450000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8b20e748b8cf3b07bdbfbf6df3bdaa4070a915e3",
+          "message": "statement-store: migrate the database one version step at a time (#13317)\n\n# Description\n\nThe statement store migrates an older database one version step at a\ntime. `check_db_version` returns the on-disk version, `migrate_database`\nwalks from it to `CURRENT_VERSION` and runs the step for each version,\nand every step bumps the version to its own target once its rows are\ncommitted. The existing rebuild of the indexes, journals and counters\nfrom the statement bodies is the v1 to v2 step; the pass over the stored\nstatements and the loading of the admission sequence numbers are helpers\na later step can reuse.\n\nBehaviour is unchanged: version 2 is still the current one and the only\nstep is v1 to v2.\n\n# Integration\n\nNone. Node operators and downstream users need no changes.\n\n# Review Notes\n\nBefore, a version bump reran the whole rebuild on every older database,\nincluding columns the new version left untouched. Running that over a\nversion 2 database would have added a second evicted-journal key for\nevery banned statement whose purge time the expiry had capped, and\nmaintenance would then have counted the ban twice. The step per version\nkeeps each migration limited to what its version changed.\nhttps://github.com/paritytech/polkadot-sdk/pull/13278 adds the v2 to v3\nstep on top of this.",
+          "timestamp": "2026-09-28T11:44:34Z",
+          "tree_id": "45b79c67fabf4a8bfe8c74f30b752bd72cbe341a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8b20e748b8cf3b07bdbfbf6df3bdaa4070a915e3"
+        },
+        "date": 1790601356138,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13357778213333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.0991432438,
             "unit": "seconds"
           }
         ]
