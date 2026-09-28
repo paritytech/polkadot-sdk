@@ -6,8 +6,10 @@ doc:
     the result could not have the requested sum. It now returns an error. An empty input with a
     zero target still returns an empty vector. The assignment normalization documentation in
     `sp-npos-elections` now describes the corresponding error case for empty distributions.
+    Phragmen elections skip normalization for voters without elected edges, so voters who only
+    approved losing candidates and elections with no seats still succeed.
 crates:
 - name: sp-arithmetic
   bump: patch
 - name: sp-npos-elections
-  bump: none
+  bump: patch
