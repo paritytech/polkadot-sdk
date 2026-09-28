@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790601438004,
+  "lastUpdate": 1790606099273,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f4899717f48581ee5f7d88f3597597c1d728f824",
-          "message": "Implement `eth_subscribe` (#11081)\n\n# Description\n\nImplemented `eth_subscribe` in the eth-rpc. The subscription kinds\nimplemented is `newHeads` and `logs`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-03-20T16:14:32Z",
-          "tree_id": "41c9026ec0399b25b5a2439f06d1b8e17978ad80",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f4899717f48581ee5f7d88f3597597c1d728f824"
-        },
-        "date": 1774028194008,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010132242479999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024167289173333325,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007197597006666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14666207137333337,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14250142150000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1af454d2d3a533bec6d4f18dcea1214b51c9c90f",
+          "message": "session: fix benchmarks with non-zero KeyDeposit (#13337)\n\n`pallet_session::Pallet::ensure_can_pay_key_deposit` now mints the key\ndeposit on top of the account's existing balance. Previously it counted\nexisting free balance towards the deposit.\n\nThis made the`pallet-collator-selection` `register_as_candidate` and\n`take_candidate_slot` benchmarks fail on runtimes with a non-zero\nsession `KeyDeposit`.\n\nFixes #13336\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-09-28T12:55:32Z",
+          "tree_id": "5c20e934efa4e32c6059e9e6e650b24ca2681df4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1af454d2d3a533bec6d4f18dcea1214b51c9c90f"
+        },
+        "date": 1790606068334,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025627312759999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010061828726666645,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007752432333333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14382510978000002,
             "unit": "seconds"
           }
         ]
