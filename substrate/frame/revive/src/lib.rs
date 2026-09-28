@@ -1049,6 +1049,19 @@ pub mod pallet {
 			OutsideFrameLogs::<T>::kill();
 		}
 
+		/// Buffer a log for the block's synthetic transaction regardless of `MaxOutsideFrameLogs`,
+		/// so a benchmark of the drain measures the entries it sets up on a runtime that keeps the
+		/// buffer off as well.
+		#[cfg(feature = "runtime-benchmarks")]
+		pub fn bench_buffer_outside_frame_log(contract: H160, topics: Vec<H256>, data: Vec<u8>) {
+			OutsideFrameLogs::<T>::append(OutsideFrameLog {
+				event_index: frame_system::Pallet::<T>::event_count(),
+				contract,
+				topics,
+				data,
+			});
+		}
+
 		/// Buffer a log emitted outside any ethereum transaction for the block's synthetic
 		/// transaction. A log the buffer cannot take, because it is off or full, stays a
 		/// substrate-only event.

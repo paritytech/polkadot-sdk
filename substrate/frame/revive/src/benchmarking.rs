@@ -3978,13 +3978,13 @@ mod benchmarks {
 			vec![H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
 		let data = vec![0x44u8; 32];
 
-		// No ethereum context is active, so each log is buffered for the synthetic transaction
-		// rather than captured into a receipt. `n` stays under `MaxOutsideFrameLogs`, so all are.
+		// Appended straight into the buffer, past the cap: the drain is what is measured, and a
+		// runtime that keeps the buffer off still needs its weight.
 		for _ in 0..n {
-			Pallet::<T>::emit_contract_log_outside_frame(
+			Pallet::<T>::bench_buffer_outside_frame_log(
 				instance.address,
-				topics.clone().try_into().expect("three topics are within the LOG limit; qed"),
-				data.clone().try_into().expect("a 32-byte word is within the LOG limit; qed"),
+				topics.clone(),
+				data.clone(),
 			);
 		}
 
@@ -4018,11 +4018,7 @@ mod benchmarks {
 			vec![H256::repeat_byte(0x11), H256::repeat_byte(0x22), H256::repeat_byte(0x33)];
 		let data = vec![0x44u8; d as usize];
 
-		Pallet::<T>::emit_contract_log_outside_frame(
-			instance.address,
-			topics.try_into().expect("three topics are within the LOG limit; qed"),
-			data.try_into().expect("`d` is bounded by `EVENT_BYTES`; qed"),
-		);
+		Pallet::<T>::bench_buffer_outside_frame_log(instance.address, topics, data);
 
 		#[block]
 		{
